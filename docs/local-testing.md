@@ -17,7 +17,9 @@ pnpm local:validate
 pnpm local:up
 ```
 
-Open <http://127.0.0.1:4173/>. The other useful endpoints are:
+Open <http://localhost:4173/>. Using `localhost` also avoids any existing
+service-worker cache registered against a `127.0.0.1` development origin. The
+other useful endpoints are:
 
 - registry API: <http://127.0.0.1:8787/preview/v1/index.json>
 - fixture and relay verification: <http://127.0.0.1:8090/status.json>

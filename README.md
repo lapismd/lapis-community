@@ -53,7 +53,7 @@ the active registry.
 Run `pnpm local:up` to build a complete local registry with PostgreSQL, three
 official relays, a community relay, generated events from the sibling
 `lapis-plugins` checkout, fixture artifacts, and the preview console. Open
-<http://127.0.0.1:4173/> after Compose reports the services healthy.
+<http://localhost:4173/> after Compose reports the services healthy.
 
 The complete lifecycle, safety boundary, configuration overrides, and cold
 smoke test are documented in

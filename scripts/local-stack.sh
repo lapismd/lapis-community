@@ -79,7 +79,7 @@ case "${command}" in
     fi
     "${grain_build[@]}" "${nostr_relay_context}"
     "${compose[@]}" up -d --build "$@"
-    echo "Registry console: http://127.0.0.1:${REGISTRY_CONSOLE_PORT:-4173}/"
+    echo "Registry console: http://localhost:${REGISTRY_CONSOLE_PORT:-4173}/"
     echo "Registry API:     http://127.0.0.1:${REGISTRY_SERVICE_PORT:-8787}/"
     echo "Fixture status:   http://127.0.0.1:${REGISTRY_FIXTURE_PORT:-8090}/status.json"
     ;;
