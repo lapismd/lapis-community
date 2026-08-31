@@ -3,6 +3,8 @@ import type {
   JsonValue,
   MaterializedRegistry,
   V1Projection,
+  V1ProjectionOptions,
+  V1ProjectionPlugin,
 } from "./types.js";
 
 function withoutKeys(
@@ -14,36 +16,37 @@ function withoutKeys(
   );
 }
 
-export function projectV1(
-  registry: MaterializedRegistry,
-  generatedAt: string,
+export function projectV1Records(
+  records: readonly V1ProjectionPlugin[],
+  options: V1ProjectionOptions,
+  provenance: V1Projection["provenance"],
 ): V1Projection {
   const pluginFiles = new Map<string, JsonObject>();
   const indexPlugins: JsonValue[] = [];
 
-  for (const plugin of registry.plugins) {
+  for (const plugin of records) {
     const latest = plugin.releases.find(
-      (release) => release.content.version === plugin.latestVersion,
+      (release) => release.version === plugin.latestVersion,
     );
     if (latest === undefined) continue;
 
     const versions = Object.fromEntries(
       plugin.releases.map((release) => [
-        release.content.version,
+        release.version,
         {
-          ...release.content.metadata,
+          ...release.metadata,
           bundle: {
-            url: release.content.artifact.url,
-            ...(release.content.artifact.downloadUrl === undefined
+            url: release.artifact.url,
+            ...(release.artifact.downloadUrl === undefined
               ? {}
-              : { downloadUrl: release.content.artifact.downloadUrl }),
-            sha256: release.content.artifact.sha256,
-            size: release.content.artifact.size,
+              : { downloadUrl: release.artifact.downloadUrl }),
+            sha256: release.artifact.sha256,
+            size: release.artifact.size,
           },
-          minAppVersion: release.content.minAppVersion,
-          platforms: release.content.platforms,
-          releasedAt: release.content.releasedAt,
-          version: release.content.version,
+          minAppVersion: release.minAppVersion,
+          platforms: release.platforms,
+          releasedAt: release.releasedAt,
+          version: release.version,
         },
       ]),
     );
@@ -73,24 +76,40 @@ export function projectV1(
       detail: `plugins/${plugin.content.pluginId}.json`,
       latestVersion: plugin.latestVersion,
       latestRelease: {
-        bundleSize: latest.content.artifact.size,
-        releasedAt: latest.content.releasedAt,
+        bundleSize: latest.artifact.size,
+        releasedAt: latest.releasedAt,
       },
     });
   }
 
   return {
     index: {
+      ...(options.indexBase ?? {}),
       schemaVersion: 1,
-      generatedAt,
+      generatedAt: options.generatedAt,
       plugins: indexPlugins,
     },
     plugins: pluginFiles,
-    provenance: {
+    provenance,
+  };
+}
+
+export function projectV1(
+  registry: MaterializedRegistry,
+  options: string | V1ProjectionOptions,
+): V1Projection {
+  return projectV1Records(
+    registry.plugins.map((plugin) => ({
+      content: plugin.content,
+      releases: plugin.releases.map((release) => release.content),
+      latestVersion: plugin.latestVersion,
+    })),
+    typeof options === "string" ? { generatedAt: options } : options,
+    {
       backend: "nostr",
       root: registry.root,
       acceptedEventIds: registry.acceptedEventIds,
       exclusionCounts: registry.exclusionCounts,
     },
-  };
+  );
 }

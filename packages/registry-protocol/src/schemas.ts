@@ -56,7 +56,13 @@ export const pluginDefinitionContentSchema: z.ZodType<PluginDefinitionContent> =
       name: z.string().min(1).max(200),
       description: z.string().min(1).max(2_000),
       channel: z.string().min(1).max(80),
-      status: z.enum(["active", "deprecated", "disabled"]),
+      status: z.enum([
+        "active",
+        "deprecated",
+        "disabled",
+        "pending",
+        "revoked",
+      ]),
       index: jsonObjectSchema,
       detail: jsonObjectSchema,
     })

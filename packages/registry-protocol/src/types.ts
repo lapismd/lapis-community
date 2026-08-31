@@ -36,7 +36,7 @@ export interface PluginDefinitionContent {
   name: string;
   description: string;
   channel: string;
-  status: "active" | "deprecated" | "disabled";
+  status: "active" | "deprecated" | "disabled" | "pending" | "revoked";
   index: JsonObject;
   detail: JsonObject;
 }
@@ -156,6 +156,7 @@ export type ExclusionReason =
   | "event-hidden"
   | "plugin-hidden"
   | "plugin-revoked"
+  | "plugin-status"
   | "publisher-muted"
   | "publisher-revoked"
   | "release-revoked";
@@ -201,4 +202,15 @@ export interface V1Projection {
     acceptedEventIds: string[];
     exclusionCounts: Partial<Record<ExclusionReason, number>>;
   };
+}
+
+export interface V1ProjectionPlugin {
+  content: PluginDefinitionContent;
+  releases: ReleaseContent[];
+  latestVersion: string;
+}
+
+export interface V1ProjectionOptions {
+  generatedAt: string;
+  indexBase?: JsonObject | undefined;
 }

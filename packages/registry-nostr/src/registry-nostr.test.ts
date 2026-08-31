@@ -1,4 +1,8 @@
-import { finalizeEvent, getPublicKey } from "nostr-tools/pure";
+import {
+  finalizeEvent,
+  generateSecretKey,
+  getPublicKey,
+} from "nostr-tools/pure";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -30,12 +34,10 @@ import type {
   RelayPublishResult,
 } from "./transport.js";
 
-const key = (byte: string): Uint8Array =>
-  Uint8Array.from({ length: 32 }, () => Number.parseInt(byte, 16));
-const publisherKey = key("11");
-const assessorKey = key("12");
-const curatorKey = key("13");
-const snapshotKey = key("14");
+const publisherKey = generateSecretKey();
+const assessorKey = generateSecretKey();
+const curatorKey = generateSecretKey();
+const snapshotKey = generateSecretKey();
 const publisher = getPublicKey(publisherKey);
 const assessor = getPublicKey(assessorKey);
 const curator = getPublicKey(curatorKey);

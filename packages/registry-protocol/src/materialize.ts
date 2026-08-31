@@ -413,7 +413,13 @@ export function materializeRegistry(
   )) {
     const pluginId = plugin.content.pluginId;
     let pluginExclusion: ExclusionReason | undefined;
-    if (revoked.plugins.has(pluginId)) pluginExclusion = "plugin-revoked";
+    if (
+      plugin.content.status === "disabled" ||
+      plugin.content.status === "pending" ||
+      plugin.content.status === "revoked"
+    )
+      pluginExclusion = "plugin-status";
+    else if (revoked.plugins.has(pluginId)) pluginExclusion = "plugin-revoked";
     else if (revoked.publishers.has(plugin.event.pubkey))
       pluginExclusion = "publisher-revoked";
     else if (isModerated(moderation, `plugin:${pluginId}`))

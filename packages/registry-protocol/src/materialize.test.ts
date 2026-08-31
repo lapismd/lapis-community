@@ -1,5 +1,8 @@
-import { hexToBytes } from "@noble/hashes/utils.js";
-import { finalizeEvent, getPublicKey } from "nostr-tools/pure";
+import {
+  finalizeEvent,
+  generateSecretKey,
+  getPublicKey,
+} from "nostr-tools/pure";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -22,14 +25,12 @@ import type {
   SnapshotContent,
 } from "./types.js";
 
-const key = (byte: string): Uint8Array => hexToBytes(byte.repeat(32));
-
-const publisherKey = key("01");
-const assessorKey = key("02");
-const curatorKey = key("03");
-const moderatorKey = key("04");
-const snapshotKey = key("05");
-const attackerKey = key("06");
+const publisherKey = generateSecretKey();
+const assessorKey = generateSecretKey();
+const curatorKey = generateSecretKey();
+const moderatorKey = generateSecretKey();
+const snapshotKey = generateSecretKey();
+const attackerKey = generateSecretKey();
 
 const publisher = getPublicKey(publisherKey);
 const assessor = getPublicKey(assessorKey);

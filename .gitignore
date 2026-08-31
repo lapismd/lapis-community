@@ -1,9 +1,9 @@
 node_modules/
 dist/
 coverage/
+artifacts/
 .turbo/
 .env
 .env.*
 !.env.example
 *.tsbuildinfo
-
