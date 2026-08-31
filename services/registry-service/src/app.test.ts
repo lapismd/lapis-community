@@ -152,6 +152,7 @@ describe("registry service", () => {
       config: {
         publicBaseUrl: "https://registry.test/",
         requireHttpAuth: true,
+        consoleOrigins: new Set(["https://console.test"]),
         kinds: TEST_REGISTRY_KINDS,
         authorities,
         indexBase: {
@@ -239,6 +240,31 @@ describe("registry service", () => {
       id: "demo",
       versions: { "1.0.0": { bundle: { sha256: "ab".repeat(32) } } },
     });
+  });
+
+  it("allows only configured console origins", async () => {
+    const allowed = await handleRegistryRequest(
+      new Request("https://registry.test/preview/v1/index.json", {
+        headers: { origin: "https://console.test" },
+      }),
+      dependencies,
+    );
+    expect(allowed.headers.get("access-control-allow-origin")).toBe(
+      "https://console.test",
+    );
+    expect(allowed.headers.get("access-control-expose-headers")).toContain(
+      "x-lapis-registry-root",
+    );
+
+    const denied = await handleRegistryRequest(
+      new Request("https://registry.test/events", {
+        method: "OPTIONS",
+        headers: { origin: "https://attacker.test" },
+      }),
+      dependencies,
+    );
+    expect(denied.status).toBe(403);
+    expect(denied.headers.has("access-control-allow-origin")).toBe(false);
   });
 
   it("consumes NIP-98 challenges once", async () => {

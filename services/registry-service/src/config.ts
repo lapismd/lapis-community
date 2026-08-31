@@ -11,9 +11,23 @@ import type {
 export interface RegistryServiceConfig {
   publicBaseUrl: string;
   requireHttpAuth: boolean;
+  consoleOrigins: ReadonlySet<string>;
   kinds: RegistryKindMap;
   authorities: RegistryAuthorities;
   indexBase: JsonObject;
+}
+
+function origins(value: string | undefined): ReadonlySet<string> {
+  const result = new Set<string>();
+  for (const candidate of (value ?? "").split(",")) {
+    const trimmed = candidate.trim();
+    if (trimmed === "") continue;
+    if (trimmed === "*") {
+      throw new Error("REGISTRY_CONSOLE_ORIGINS cannot allow every origin");
+    }
+    result.add(new URL(trimmed).origin);
+  }
+  return result;
 }
 
 function pubkeys(value: string | undefined, name: string): ReadonlySet<string> {
@@ -92,6 +106,7 @@ export function loadRegistryServiceConfig(
   return {
     publicBaseUrl,
     requireHttpAuth: env.REGISTRY_REQUIRE_HTTP_AUTH !== "false",
+    consoleOrigins: origins(env.REGISTRY_CONSOLE_ORIGINS),
     kinds: workflowKinds(env),
     authorities: {
       assessorPubkeys: pubkeys(env.REGISTRY_ASSESSOR_PUBKEYS, "assessors"),

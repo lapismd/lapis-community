@@ -131,7 +131,7 @@ function workflowKinds(config: RegistryServiceConfig): ReadonlySet<number> {
   ]);
 }
 
-export async function handleRegistryRequest(
+async function routeRegistryRequest(
   request: Request,
   dependencies: RegistryServiceDependencies,
 ): Promise<Response> {
@@ -303,4 +303,46 @@ export async function handleRegistryRequest(
   }
 
   return error(404, "not-found", "Route was not found");
+}
+
+function applyCors(
+  response: Response,
+  origin: string | null,
+  allowedOrigins: ReadonlySet<string>,
+): Response {
+  if (origin === null || !allowedOrigins.has(origin)) return response;
+  response.headers.set("access-control-allow-origin", origin);
+  response.headers.set(
+    "access-control-allow-headers",
+    "authorization, content-type",
+  );
+  response.headers.set("access-control-allow-methods", "GET, POST, OPTIONS");
+  response.headers.set(
+    "access-control-expose-headers",
+    "x-lapis-registry-root, x-lapis-registry-unsigned",
+  );
+  response.headers.append("vary", "Origin");
+  return response;
+}
+
+export async function handleRegistryRequest(
+  request: Request,
+  dependencies: RegistryServiceDependencies,
+): Promise<Response> {
+  const origin = request.headers.get("origin");
+  if (request.method === "OPTIONS") {
+    if (origin === null || !dependencies.config.consoleOrigins.has(origin)) {
+      return error(403, "origin-forbidden", "Console origin is not allowed");
+    }
+    return applyCors(
+      new Response(null, { status: 204 }),
+      origin,
+      dependencies.config.consoleOrigins,
+    );
+  }
+  return applyCors(
+    await routeRegistryRequest(request, dependencies),
+    origin,
+    dependencies.config.consoleOrigins,
+  );
 }

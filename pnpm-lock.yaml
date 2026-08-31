@@ -23,6 +23,8 @@ importers:
         specifier: ^3.2.4
         version: 3.2.7(@types/node@25.9.5)(tsx@4.23.13)
 
+  apps/registry-console: {}
+
   packages/registry-auth:
     dependencies:
       "@lapismd/registry-protocol":

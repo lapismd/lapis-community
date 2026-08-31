@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="Read-only provenance and external-signer console for the Lapis Nostr plugin registry."
+    />
+    <title>Lapis Registry · Nostr Preview</title>
+    <link rel="stylesheet" href="./styles.css" />
+    <script type="module" src="./assets/main.js"></script>
+  </head>
+  <body>
+    <header class="shell masthead">
+      <a class="brand" href="./" aria-label="Lapis Registry home">
+        <span class="brand-mark" aria-hidden="true">L</span>
+        <span>Lapis Registry</span>
+      </a>
+      <div class="header-meta">
+        <span class="environment">Nostr preview</span>
+        <span id="unsigned-badge" class="warning-badge"
+          >Unsigned projection</span
+        >
+      </div>
+    </header>
+
+    <main class="shell page-grid">
+      <section class="hero" aria-labelledby="page-title">
+        <div>
+          <p class="eyebrow">Parallel registry · verification workspace</p>
+          <h1 id="page-title">See what the relays resolve.</h1>
+          <p class="lede">
+            Inspect the deterministic catalog, provenance, exclusions, and
+            operator workflow while the signed HTTP registry remains live.
+          </p>
+        </div>
+        <form id="api-form" class="endpoint-form">
+          <label for="api-base">Registry service</label>
+          <div class="input-row">
+            <input
+              id="api-base"
+              name="api-base"
+              type="url"
+              inputmode="url"
+              autocomplete="url"
+              required
+            />
+            <button id="refresh" type="submit">Refresh</button>
+          </div>
+        </form>
+      </section>
+
+      <p id="status" class="status" role="status" aria-live="polite">
+        Loading registry projection…
+      </p>
+
+      <section class="metrics" aria-label="Registry summary">
+        <article class="metric">
+          <span id="plugins-value">—</span>
+          <strong>Plugins</strong>
+          <small id="plugins-detail">curated releases</small>
+        </article>
+        <article class="metric">
+          <span id="events-value">—</span>
+          <strong>Accepted</strong>
+          <small id="events-detail">accepted event IDs</small>
+        </article>
+        <article class="metric">
+          <span id="excluded-value">—</span>
+          <strong>Excluded</strong>
+          <small id="excluded-detail">visible by reason below</small>
+        </article>
+        <article class="metric">
+          <span id="issues-value">—</span>
+          <strong>Issues</strong>
+          <small id="issues-detail">materialization diagnostics</small>
+        </article>
+      </section>
+
+      <section class="panel registry-panel" aria-labelledby="catalog-heading">
+        <div class="panel-heading">
+          <div>
+            <p class="eyebrow">Curated projection</p>
+            <h2 id="catalog-heading">Plugin catalog</h2>
+          </div>
+          <dl class="registry-meta">
+            <div>
+              <dt>Backend</dt>
+              <dd id="backend">—</dd>
+            </div>
+            <div>
+              <dt>Generated</dt>
+              <dd id="generated-at">—</dd>
+            </div>
+          </dl>
+        </div>
+        <div class="table-scroll">
+          <table>
+            <thead>
+              <tr>
+                <th>Plugin</th>
+                <th>ID</th>
+                <th>Version</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody id="plugin-rows"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section
+        class="panel provenance-panel"
+        aria-labelledby="provenance-heading"
+      >
+        <div class="panel-heading">
+          <div>
+            <p class="eyebrow">Verifiable state</p>
+            <h2 id="provenance-heading">Provenance</h2>
+          </div>
+        </div>
+        <dl class="root-row">
+          <dt>Materialized root</dt>
+          <dd id="registry-root">—</dd>
+        </dl>
+        <div class="provenance-grid">
+          <div>
+            <h3>Stored sources</h3>
+            <ul id="source-counts" class="count-list"></ul>
+          </div>
+          <div>
+            <h3>Exclusions</h3>
+            <ul id="exclusion-counts" class="count-list"></ul>
+          </div>
+          <div>
+            <h3>Diagnostics</h3>
+            <ul id="issue-list" class="issue-list"></ul>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel operator-panel" aria-labelledby="operator-heading">
+        <div class="panel-heading operator-heading">
+          <div>
+            <p class="eyebrow">External signer boundary</p>
+            <h2 id="operator-heading">Operator workflow</h2>
+          </div>
+          <div class="signer-control">
+            <span id="signer-state" class="signer-state">Checking signer…</span>
+            <button id="connect-signer" class="secondary" type="button">
+              Connect Nostr signer
+            </button>
+          </div>
+        </div>
+        <div class="operator-notice">
+          The console requests signatures from a NIP-07 extension. It never asks
+          for or stores a private key. Authority rules are enforced again by the
+          registry service.
+        </div>
+        <label for="workflow-event">Event template or signed event</label>
+        <textarea
+          id="workflow-event"
+          spellcheck="false"
+          placeholder='{"kind": 64000, "created_at": 0, "tags": [], "content": "…"}'
+        ></textarea>
+        <div class="operator-actions">
+          <button id="sign-template" class="secondary" type="button">
+            Sign template
+          </button>
+          <button id="submit-event" type="button">Submit signed event</button>
+          <button id="sign-snapshot" class="quiet" type="button">
+            Sign current snapshot
+          </button>
+        </div>
+      </section>
+    </main>
+
+    <footer class="shell">
+      <p>
+        This preview is not an installation trust source. Bundle digest and
+        publisher-signature verification remain independent requirements.
+      </p>
+    </footer>
+  </body>
+</html>

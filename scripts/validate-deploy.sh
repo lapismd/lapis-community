@@ -13,6 +13,7 @@ docker compose \
 REGISTRY_SERVICE_IMAGE=registry-service@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa \
 DATABASE_URL=postgresql://registry:placeholder@postgres.example/registry \
 REGISTRY_PUBLIC_BASE_URL=https://registry.example/ \
+REGISTRY_CONSOLE_ORIGINS=https://console.registry.example/ \
 REGISTRY_APPROVAL_KIND=64010 \
 REGISTRY_REVOCATION_KIND=64011 \
 REGISTRY_SNAPSHOT_KIND=64012 \
@@ -38,6 +39,8 @@ jq -e '
   (.services | keys) == ["registry-service"] and
   (.services["registry-service"] | has("build") | not) and
   (.services["registry-service"].environment | has("REGISTRY_USE_TEST_KINDS") | not) and
+  .services["registry-service"].environment.REGISTRY_CONSOLE_ORIGINS ==
+    "https://console.registry.example/" and
   .services["registry-service"].environment.NODE_ENV == "production"
 ' "${validation_tmp}/production.json" >/dev/null
 
@@ -52,4 +55,3 @@ if docker buildx version >/dev/null 2>&1; then
 fi
 
 echo "Registry service deployment validation passed."
-

@@ -1,0 +1,12 @@
+{
+  "name": "@lapismd/registry-console",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc -p tsconfig.json && node scripts/copy-static.mjs",
+    "check:types": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.test.json --noEmit",
+    "start": "node scripts/serve.mjs",
+    "test": "vitest run"
+  }
+}
