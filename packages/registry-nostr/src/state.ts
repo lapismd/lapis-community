@@ -142,7 +142,7 @@ export async function createLiveSnapshotTemplate(
   );
   if (result.sources.some((source) => source.eventIds.length >= 2_000)) {
     throw new Error(
-      "Live registry query reached the relay limit; use the paginated build materializer",
+      "Live registry query reached the relay limit; snapshot publication requires a paginated operator job",
     );
   }
   const registry = materializeRegistry(result.events, kinds, authorities);
