@@ -8,7 +8,7 @@ are recorded separately.
 | ----- | ------------------------------- | ----------------------------------------------------------------------------------- | ----------- | ---------------------------------------------- |
 | 0     | this repository                 | repository, ownership contract, ADRs, workspace layout                              | verified    | `pnpm check`; local repository only; no remote |
 | 1     | protocol                        | schemas, references, authority, deterministic materializer, test vectors            | verified    | `pnpm check`; 6 protocol tests passing         |
-| 2     | Nostr client + relay deployment | exact-id reads, 2-of-3 publisher, locked official and open community Grain profiles | pending     | package tests; relay static/local smoke        |
+| 2     | Nostr client + relay deployment | exact-id reads, 2-of-3 publisher, locked official and open community Grain profiles | active      | client: 5 tests passing; relay work pending    |
 | 3     | import/projection               | deterministic V1 import and byte-semantic parity report                             | pending     | current `plugin-registry/generated/v1` fixture |
 | 4     | auth + registry service         | plain Nostr sign-in, shadow submissions, assessment and curator approval            | pending     | local Postgres/service integration             |
 | 5     | curation                        | approval, revocation, moderation, deterministic signed snapshots                    | pending     | replay/shuffle/duplicate test vectors          |

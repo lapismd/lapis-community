@@ -20,6 +20,15 @@ importers:
         specifier: ^3.2.4
         version: 3.2.7(@types/node@25.9.5)
 
+  packages/registry-nostr:
+    dependencies:
+      "@lapismd/registry-protocol":
+        specifier: ^0.0.0
+        version: link:../registry-protocol
+      nostr-tools:
+        specifier: ^2.25.1
+        version: 2.25.1(typescript@6.0.3)
+
   packages/registry-protocol:
     dependencies:
       "@noble/hashes":

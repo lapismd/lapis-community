@@ -1,0 +1,23 @@
+{
+  "name": "@lapismd/registry-nostr",
+  "version": "0.0.0",
+  "type": "module",
+  "files": [
+    "dist"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -b",
+    "check:types": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.test.json --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@lapismd/registry-protocol": "^0.0.0",
+    "nostr-tools": "^2.25.1"
+  }
+}
