@@ -1,0 +1,29 @@
+name: lapis-nostr-registry-production
+
+services:
+  registry-service:
+    image: ${REGISTRY_SERVICE_IMAGE:?set REGISTRY_SERVICE_IMAGE to an immutable published digest}
+    environment:
+      NODE_ENV: production
+      PORT: 8787
+      DATABASE_URL: ${DATABASE_URL:?set DATABASE_URL}
+      REGISTRY_PUBLIC_BASE_URL: ${REGISTRY_PUBLIC_BASE_URL:?set REGISTRY_PUBLIC_BASE_URL}
+      REGISTRY_REQUIRE_HTTP_AUTH: "true"
+      REGISTRY_APPROVAL_KIND: ${REGISTRY_APPROVAL_KIND:?set after kind ADR approval}
+      REGISTRY_REVOCATION_KIND: ${REGISTRY_REVOCATION_KIND:?set after kind ADR approval}
+      REGISTRY_SNAPSHOT_KIND: ${REGISTRY_SNAPSHOT_KIND:?set after kind ADR approval}
+      REGISTRY_ASSESSOR_PUBKEYS: ${REGISTRY_ASSESSOR_PUBKEYS:?set REGISTRY_ASSESSOR_PUBKEYS}
+      REGISTRY_CURATOR_PUBKEYS: ${REGISTRY_CURATOR_PUBKEYS:?set REGISTRY_CURATOR_PUBKEYS}
+      REGISTRY_MODERATOR_PUBKEYS: ${REGISTRY_MODERATOR_PUBKEYS:?set REGISTRY_MODERATOR_PUBKEYS}
+      REGISTRY_SNAPSHOT_SIGNER_PUBKEYS: ${REGISTRY_SNAPSHOT_SIGNER_PUBKEYS:?set REGISTRY_SNAPSHOT_SIGNER_PUBKEYS}
+      REGISTRY_OPERATOR_PUBKEYS: ${REGISTRY_OPERATOR_PUBKEYS:?set REGISTRY_OPERATOR_PUBKEYS}
+      REGISTRY_PUBLISHERS_JSON: ${REGISTRY_PUBLISHERS_JSON:-}
+    expose:
+      - "8787"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:8787/health"]
+      interval: 10s
+      timeout: 3s
+      retries: 20
+      start_period: 10s
+    restart: unless-stopped

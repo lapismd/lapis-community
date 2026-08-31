@@ -5,4 +5,5 @@ export * from "./materialize.js";
 export * from "./projection.js";
 export * from "./schemas.js";
 export * from "./tags.js";
+export * from "./templates.js";
 export * from "./types.js";

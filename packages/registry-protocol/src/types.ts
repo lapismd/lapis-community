@@ -18,6 +18,13 @@ export interface NostrEvent {
   sig: string;
 }
 
+export interface NostrEventTemplate {
+  kind: number;
+  created_at: number;
+  tags: NostrTag[];
+  content: string;
+}
+
 export interface RegistryKindMap {
   softwareApplication: number;
   releaseArtifactSet: number;

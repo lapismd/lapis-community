@@ -1,0 +1,53 @@
+name: lapis-nostr-registry-local
+
+services:
+  postgres:
+    image: postgres:17.6-alpine@sha256:ef257d85f76e48da1c64832459b59fcaba1a4dac97bf5d7450c77753542eee94
+    environment:
+      POSTGRES_DB: registry
+      POSTGRES_USER: registry
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-registry_local_password}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U registry -d registry"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
+  registry-service:
+    image: ${REGISTRY_SERVICE_IMAGE:-lapis-registry-service:local}
+    build:
+      context: ..
+      dockerfile: services/registry-service/Dockerfile
+    environment:
+      NODE_ENV: development
+      PORT: 8787
+      DATABASE_URL: postgresql://registry:${POSTGRES_PASSWORD:-registry_local_password}@postgres:5432/registry
+      REGISTRY_PUBLIC_BASE_URL: ${REGISTRY_PUBLIC_BASE_URL:-http://localhost:8787/}
+      REGISTRY_REQUIRE_HTTP_AUTH: "true"
+      REGISTRY_USE_TEST_KINDS: "true"
+      REGISTRY_ASSESSOR_PUBKEYS: ${REGISTRY_ASSESSOR_PUBKEYS:-}
+      REGISTRY_CURATOR_PUBKEYS: ${REGISTRY_CURATOR_PUBKEYS:-}
+      REGISTRY_MODERATOR_PUBKEYS: ${REGISTRY_MODERATOR_PUBKEYS:-}
+      REGISTRY_SNAPSHOT_SIGNER_PUBKEYS: ${REGISTRY_SNAPSHOT_SIGNER_PUBKEYS:-}
+      REGISTRY_OPERATOR_PUBKEYS: ${REGISTRY_OPERATOR_PUBKEYS:-}
+      REGISTRY_PUBLISHERS_JSON: ${REGISTRY_PUBLISHERS_JSON:-}
+    ports:
+      - "${REGISTRY_SERVICE_PORT:-8787}:8787"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:8787/health"]
+      interval: 10s
+      timeout: 3s
+      retries: 20
+      start_period: 10s
+    restart: unless-stopped
+
+volumes:
+  postgres-data:

@@ -1,11 +1,9 @@
-import type { NostrEvent } from "@lapismd/registry-protocol";
+import type {
+  NostrEvent,
+  NostrEventTemplate,
+} from "@lapismd/registry-protocol";
 
-export interface NostrEventTemplate {
-  kind: number;
-  created_at: number;
-  tags: string[][];
-  content: string;
-}
+export type { NostrEventTemplate } from "@lapismd/registry-protocol";
 
 export interface RegistrySigner {
   getPublicKey(): Promise<string>;

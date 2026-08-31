@@ -12,11 +12,14 @@
     "check:types": "tsc -p tsconfig.scripts.json --noEmit && pnpm -r --if-present check:types",
     "test": "pnpm test:root && pnpm -r --if-present test",
     "test:root": "vitest run scripts",
+    "deploy:check": "scripts/validate-deploy.sh",
+    "smoke:local": "scripts/smoke-local.sh",
+    "test:postgres": "scripts/test-postgres.sh",
     "v1:check": "tsx scripts/import-v1.ts --source ../plugin-registry/generated/v1 --check",
     "v1:import": "tsx scripts/import-v1.ts --source ../plugin-registry/generated/v1 --output artifacts/v1-import.json",
     "check:format": "prettier . --check --log-level warn",
     "fmt": "prettier . --write --log-level warn",
-    "check": "pnpm check:types && pnpm test && pnpm build && pnpm check:format"
+    "check": "pnpm build && pnpm check:types && pnpm test && pnpm check:format"
   },
   "devDependencies": {
     "@types/node": "^25.0.0",
