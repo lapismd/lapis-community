@@ -1,0 +1,159 @@
+import { chmod, mkdir, readFile, writeFile } from "node:fs/promises";
+import path from "node:path";
+
+import { bytesToHex, hexToBytes } from "@noble/hashes/utils.js";
+import { generateSecretKey, getPublicKey } from "nostr-tools/pure";
+
+const secretNames = [
+  "advisory",
+  "assessor",
+  "communityOne",
+  "communityTwo",
+  "curator",
+  "disposition",
+  "moderator",
+  "operator",
+  "publisher",
+  "snapshot",
+] as const;
+
+export type FixtureSecretName = (typeof secretNames)[number];
+
+export interface FixtureSecrets {
+  schema: "lapis.registry.local-fixture-secrets/1";
+  keys: Record<FixtureSecretName, string>;
+}
+
+export interface FixtureFileSet {
+  environmentFile: string;
+  secretsFile: string;
+  whitelistFile: string;
+}
+
+function newSecrets(): FixtureSecrets {
+  return {
+    schema: "lapis.registry.local-fixture-secrets/1",
+    keys: Object.fromEntries(
+      secretNames.map((name) => [name, bytesToHex(generateSecretKey())]),
+    ) as Record<FixtureSecretName, string>,
+  };
+}
+
+export function parseFixtureSecrets(value: unknown): FixtureSecrets {
+  if (value === null || Array.isArray(value) || typeof value !== "object") {
+    throw new Error("Fixture secrets must be an object");
+  }
+  const candidate = value as Partial<FixtureSecrets>;
+  if (
+    candidate.schema !== "lapis.registry.local-fixture-secrets/1" ||
+    candidate.keys === undefined
+  ) {
+    throw new Error("Fixture secrets schema is invalid");
+  }
+  for (const name of secretNames) {
+    const secret = candidate.keys[name];
+    if (typeof secret !== "string" || !/^[0-9a-f]{64}$/u.test(secret)) {
+      throw new Error(`Fixture ${name} secret is invalid`);
+    }
+  }
+  return candidate as FixtureSecrets;
+}
+
+export function fixturePublicKeys(
+  secrets: FixtureSecrets,
+): Record<FixtureSecretName, string> {
+  return Object.fromEntries(
+    secretNames.map((name) => [
+      name,
+      getPublicKey(hexToBytes(secrets.keys[name])),
+    ]),
+  ) as Record<FixtureSecretName, string>;
+}
+
+async function existingSecrets(
+  filePath: string,
+): Promise<FixtureSecrets | undefined> {
+  try {
+    return parseFixtureSecrets(JSON.parse(await readFile(filePath, "utf8")));
+  } catch (cause) {
+    if ((cause as NodeJS.ErrnoException).code === "ENOENT") return undefined;
+    throw cause;
+  }
+}
+
+export async function createFixtureFiles(
+  outputDirectory: string,
+): Promise<FixtureFileSet> {
+  const directory = path.resolve(outputDirectory);
+  const secretsFile = path.join(directory, "fixture-secrets.json");
+  const environmentFile = path.join(directory, "fixture.env");
+  const whitelistFile = path.join(directory, "official-whitelist.yml");
+  await mkdir(directory, { recursive: true, mode: 0o700 });
+  const secrets = (await existingSecrets(secretsFile)) ?? newSecrets();
+  const publicKeys = fixturePublicKeys(secrets);
+
+  await writeFile(secretsFile, `${JSON.stringify(secrets, null, 2)}\n`, {
+    encoding: "utf8",
+    mode: 0o600,
+  });
+  await chmod(secretsFile, 0o600);
+  await writeFile(
+    environmentFile,
+    [
+      `REGISTRY_ASSESSOR_PUBKEYS=${publicKeys.assessor}`,
+      `REGISTRY_CURATOR_PUBKEYS=${publicKeys.curator}`,
+      `REGISTRY_MODERATOR_PUBKEYS=${publicKeys.moderator}`,
+      `REGISTRY_SNAPSHOT_SIGNER_PUBKEYS=${publicKeys.snapshot}`,
+      `REGISTRY_OPERATOR_PUBKEYS=${publicKeys.operator}`,
+      `REGISTRY_SECURITY_ADVISORY_PUBKEYS=${publicKeys.advisory}`,
+      `REGISTRY_SECURITY_DISPOSITION_PUBKEYS=${publicKeys.disposition}`,
+      `GRAIN_OFFICIAL_OWNER_PUBKEY=${publicKeys.operator}`,
+      `GRAIN_COMMUNITY_OWNER_PUBKEY=${publicKeys.operator}`,
+      `REGISTRY_FIXTURE_SECRETS_FILE=${secretsFile}`,
+      `REGISTRY_FIXTURE_WHITELIST_FILE=${whitelistFile}`,
+      "",
+    ].join("\n"),
+    { encoding: "utf8", mode: 0o600 },
+  );
+  await chmod(environmentFile, 0o600);
+
+  const officialWriters = [
+    publicKeys.advisory,
+    publicKeys.assessor,
+    publicKeys.curator,
+    publicKeys.disposition,
+    publicKeys.moderator,
+    publicKeys.operator,
+    publicKeys.publisher,
+    publicKeys.snapshot,
+  ].toSorted();
+  const officialKinds = [
+    1063, 1111, 1984, 1985, 30063, 32267, 64000, 64001, 64002, 64003, 64004,
+    64005,
+  ];
+  await writeFile(
+    whitelistFile,
+    [
+      "pubkey_whitelist:",
+      "  enabled: true",
+      "  pubkeys:",
+      ...officialWriters.map((pubkey) => `    - \"${pubkey}\"`),
+      "  npubs: []",
+      "  cache_refresh_minutes: 1",
+      "",
+      "kind_whitelist:",
+      "  enabled: true",
+      "  kinds:",
+      ...officialKinds.map((kind) => `    - \"${kind}\"`),
+      "",
+      "domain_whitelist:",
+      "  enabled: false",
+      "  domains: []",
+      "  cache_refresh_minutes: 120",
+      "",
+    ].join("\n"),
+    "utf8",
+  );
+
+  return { environmentFile, secretsFile, whitelistFile };
+}

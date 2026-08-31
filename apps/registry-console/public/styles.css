@@ -267,7 +267,7 @@ input {
 
 .metrics {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(3, 1fr);
   gap: 1rem;
 }
 
@@ -394,6 +394,62 @@ td small {
   background: #0d1312;
 }
 
+.projection-roots,
+.projection-grid {
+  display: grid;
+  gap: 1rem;
+}
+
+.projection-roots {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.projection-roots .root-row {
+  margin-top: 0;
+}
+
+.projection-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.activity-list {
+  display: grid;
+  gap: 0.65rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.activity-list li {
+  display: grid;
+  gap: 0.28rem;
+  padding: 0.75rem;
+  border: 1px solid #26332f;
+  border-left: 3px solid var(--cyan-deep);
+  border-radius: 0.4rem;
+  background: #0d1312;
+  color: #c4d1cc;
+}
+
+.activity-list li[data-tone="warn"] {
+  border-left-color: var(--amber);
+}
+
+.activity-list li[data-tone="block"] {
+  border-left-color: var(--red);
+}
+
+.activity-list strong {
+  font-size: 0.82rem;
+}
+
+.activity-list span {
+  color: var(--muted);
+  font-size: 0.74rem;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
 .root-row dd {
   overflow-wrap: anywhere;
   color: var(--cyan);
@@ -516,7 +572,8 @@ footer p {
     grid-template-columns: repeat(2, 1fr);
   }
 
-  .provenance-grid {
+  .provenance-grid,
+  .projection-grid {
     grid-template-columns: 1fr;
   }
 
@@ -545,6 +602,10 @@ footer p {
   }
 
   .metrics {
+    grid-template-columns: 1fr;
+  }
+
+  .projection-roots {
     grid-template-columns: 1fr;
   }
 

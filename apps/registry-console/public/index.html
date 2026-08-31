@@ -76,6 +76,16 @@
           <strong>Issues</strong>
           <small id="issues-detail">materialization diagnostics</small>
         </article>
+        <article class="metric">
+          <span id="ratings-value">—</span>
+          <strong>Community</strong>
+          <small id="ratings-detail">ratings, reviews, and reports</small>
+        </article>
+        <article class="metric">
+          <span id="security-value">—</span>
+          <strong>Security</strong>
+          <small id="security-detail">warnings and blocks</small>
+        </article>
       </section>
 
       <section class="panel registry-panel" aria-labelledby="catalog-heading">
@@ -136,6 +146,42 @@
           <div>
             <h3>Diagnostics</h3>
             <ul id="issue-list" class="issue-list"></ul>
+          </div>
+        </div>
+      </section>
+
+      <section
+        class="panel projection-panel"
+        aria-labelledby="activity-heading"
+      >
+        <div class="panel-heading">
+          <div>
+            <p class="eyebrow">Independent projections</p>
+            <h2 id="activity-heading">Community &amp; security</h2>
+          </div>
+        </div>
+        <div class="projection-roots">
+          <dl class="root-row">
+            <dt>Community root</dt>
+            <dd id="community-root">—</dd>
+          </dl>
+          <dl class="root-row">
+            <dt>Security root</dt>
+            <dd id="security-root">—</dd>
+          </dl>
+        </div>
+        <div class="projection-grid">
+          <div>
+            <h3>Rating aggregates</h3>
+            <ul id="rating-list" class="activity-list"></ul>
+          </div>
+          <div>
+            <h3>Public activity</h3>
+            <ul id="community-list" class="activity-list"></ul>
+          </div>
+          <div>
+            <h3>Operator enforcement</h3>
+            <ul id="security-list" class="activity-list"></ul>
           </div>
         </div>
       </section>

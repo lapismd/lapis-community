@@ -3,7 +3,12 @@ import {
   loadSnapshotTemplate,
   normalizeApiBase,
 } from "./api.js";
-import { shortHex, summarizeProvenance } from "./model.js";
+import {
+  shortHex,
+  summarizeCommunity,
+  summarizeProvenance,
+  summarizeSecurity,
+} from "./model.js";
 import { requireNip07, signExactTemplate, submitWithNip98 } from "./nostr.js";
 import type {
   NostrEvent,
@@ -94,8 +99,36 @@ function renderMap(
   }
 }
 
+function renderTextList(
+  targetId: string,
+  values: Array<{ heading: string; detail: string; tone?: string }>,
+  emptyLabel: string,
+): void {
+  const target = element<HTMLUListElement>(targetId);
+  target.replaceChildren();
+  if (values.length === 0) {
+    const item = document.createElement("li");
+    item.className = "muted";
+    item.textContent = emptyLabel;
+    target.append(item);
+    return;
+  }
+  for (const value of values) {
+    const item = document.createElement("li");
+    const heading = document.createElement("strong");
+    const detail = document.createElement("span");
+    heading.textContent = value.heading;
+    detail.textContent = value.detail;
+    if (value.tone !== undefined) item.dataset.tone = value.tone;
+    item.append(heading, detail);
+    target.append(item);
+  }
+}
+
 function renderDashboard(dashboard: RegistryDashboard): void {
   const summary = summarizeProvenance(dashboard.provenance);
+  const community = summarizeCommunity(dashboard.community);
+  const security = summarizeSecurity(dashboard.security);
   unsignedBadge.hidden = !dashboard.unsigned;
   setMetric(
     "plugins",
@@ -105,7 +138,19 @@ function renderDashboard(dashboard: RegistryDashboard): void {
   setMetric("events", String(summary.accepted), "accepted event IDs");
   setMetric("excluded", String(summary.excluded), "visible by reason below");
   setMetric("issues", String(summary.issues), "materialization diagnostics");
+  setMetric(
+    "ratings",
+    String(community.ratings),
+    `${community.reviews} reviews · ${community.reports} reports`,
+  );
+  setMetric(
+    "security",
+    String(security.warnings + security.blocked),
+    `${security.warnings} warnings · ${security.blocked} blocks`,
+  );
   element<HTMLElement>("registry-root").textContent = dashboard.responseRoot;
+  element<HTMLElement>("community-root").textContent = dashboard.communityRoot;
+  element<HTMLElement>("security-root").textContent = dashboard.securityRoot;
   element<HTMLElement>("backend").textContent = dashboard.provenance.backend;
   element<HTMLElement>("generated-at").textContent = new Date(
     dashboard.index.generatedAt,
@@ -160,6 +205,49 @@ function renderDashboard(dashboard: RegistryDashboard): void {
     item.textContent = `${issue.code} · ${shortHex(issue.eventId, 6)} · ${issue.message}`;
     issueList.append(item);
   }
+  renderTextList(
+    "rating-list",
+    dashboard.community.ratingAggregates.map((rating) => ({
+      heading: rating.pluginId,
+      detail:
+        rating.average === null
+          ? `${rating.count} ratings · no average`
+          : `${rating.count} ratings · ${rating.average.toFixed(1)} / 5`,
+    })),
+    "No community ratings",
+  );
+  renderTextList(
+    "community-list",
+    [
+      ...dashboard.community.reviews.map((review) => ({
+        heading: `Review · ${review.pluginId}`,
+        detail: `${review.content} · ${shortHex(review.event.id, 6)}`,
+      })),
+      ...dashboard.community.collections.map((collection) => ({
+        heading: `Collection · ${collection.title ?? collection.identifier}`,
+        detail: `${collection.pluginIds.length} plugins · ${shortHex(collection.event.id, 6)}`,
+      })),
+      ...dashboard.community.reports.map((report) => ({
+        heading: `Report · ${report.reportTypes.join(", ")}`,
+        detail: shortHex(report.event.id, 6),
+        tone: "warn",
+      })),
+      ...dashboard.community.followLists.map((followList) => ({
+        heading: "Follow list",
+        detail: `${followList.pubkeys.length} publishers · ${shortHex(followList.event.id, 6)}`,
+      })),
+    ],
+    "No reviews, reports, collections, or follows",
+  );
+  renderTextList(
+    "security-list",
+    dashboard.security.statuses.map((status) => ({
+      heading: `${status.enforcement.toUpperCase()} · ${status.advisory.pluginId}`,
+      detail: `${status.advisory.severity} · ${status.advisory.summary}`,
+      tone: status.enforcement,
+    })),
+    "No active security advisories",
+  );
 }
 
 async function refresh(): Promise<void> {

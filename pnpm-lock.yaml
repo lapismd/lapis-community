@@ -67,6 +67,31 @@ importers:
 
   services/identity-broker: {}
 
+  services/registry-local-fixture:
+    dependencies:
+      "@lapismd/registry-auth":
+        specifier: ^0.0.0
+        version: link:../../packages/registry-auth
+      "@lapismd/registry-nostr":
+        specifier: ^0.0.0
+        version: link:../../packages/registry-nostr
+      "@lapismd/registry-protocol":
+        specifier: ^0.0.0
+        version: link:../../packages/registry-protocol
+      "@noble/hashes":
+        specifier: ^2.4.0
+        version: 2.4.0
+      nostr-tools:
+        specifier: ^2.25.1
+        version: 2.25.1(typescript@6.0.3)
+      semver:
+        specifier: ^7.7.2
+        version: 7.8.5
+    devDependencies:
+      "@types/semver":
+        specifier: ^7.7.1
+        version: 7.8.0
+
   services/registry-service:
     dependencies:
       "@lapismd/registry-auth":

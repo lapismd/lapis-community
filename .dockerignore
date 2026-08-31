@@ -1,7 +1,11 @@
 .git
 .jj
+.local
 **/node_modules
 **/dist
 artifacts
 coverage
-
+/deploy
+/docs
+/scripts
+/README.md

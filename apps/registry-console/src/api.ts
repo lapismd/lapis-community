@@ -1,9 +1,11 @@
 import type {
   NostrEvent,
   NostrEventTemplate,
+  CommunityProjection,
   RegistryDashboard,
   RegistryIndex,
   RegistryProvenance,
+  SecurityProjection,
 } from "./types.js";
 
 export function normalizeApiBase(value: string): string {
@@ -45,13 +47,22 @@ async function readJson<T>(response: Response): Promise<T> {
 export async function loadDashboard(
   apiBase: string,
 ): Promise<RegistryDashboard> {
-  const [indexResponse, provenanceResponse] = await Promise.all([
+  const [
+    indexResponse,
+    provenanceResponse,
+    communityResponse,
+    securityResponse,
+  ] = await Promise.all([
     fetch(endpoint(apiBase, "preview/v1/index.json")),
     fetch(endpoint(apiBase, "preview/v1/provenance.json")),
+    fetch(endpoint(apiBase, "preview/community.json")),
+    fetch(endpoint(apiBase, "preview/security.json")),
   ]);
-  const [index, provenance] = await Promise.all([
+  const [index, provenance, community, security] = await Promise.all([
     readJson<RegistryIndex>(indexResponse),
     readJson<RegistryProvenance>(provenanceResponse),
+    readJson<CommunityProjection>(communityResponse),
+    readJson<SecurityProjection>(securityResponse),
   ]);
   const indexRoot = indexResponse.headers.get("x-lapis-registry-root") ?? "";
   const provenanceRoot =
@@ -63,13 +74,29 @@ export async function loadDashboard(
   ) {
     throw new Error("Preview index and provenance roots do not match");
   }
+  const communityRoot =
+    communityResponse.headers.get("x-lapis-community-root") ?? "";
+  if (communityRoot === "" || communityRoot !== community.root) {
+    throw new Error("Community projection root does not match its response");
+  }
+  const securityRoot =
+    securityResponse.headers.get("x-lapis-security-root") ?? "";
+  if (securityRoot === "" || securityRoot !== security.root) {
+    throw new Error("Security projection root does not match its response");
+  }
   return {
     index,
     provenance,
+    community,
+    security,
     unsigned:
       indexResponse.headers.get("x-lapis-registry-unsigned") === "true" &&
-      provenanceResponse.headers.get("x-lapis-registry-unsigned") === "true",
+      provenanceResponse.headers.get("x-lapis-registry-unsigned") === "true" &&
+      communityResponse.headers.get("x-lapis-registry-unsigned") === "true" &&
+      securityResponse.headers.get("x-lapis-registry-unsigned") === "true",
     responseRoot: indexRoot,
+    communityRoot,
+    securityRoot,
   };
 }
 
