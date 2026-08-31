@@ -42,7 +42,7 @@ jq -e --arg profile "${profile}" '
   ([.services[] | select(.image == "nostr-relay-strfry-registry:local") |
     any(.volumes[];
       .type == "bind" and
-      .target == "/etc/strfry.conf" and
+      .target == "/app/strfry.conf" and
       .read_only == true)] | all) and
   (.services | has("postgres") | not) and
   (.services | has("registry-service") | not) and

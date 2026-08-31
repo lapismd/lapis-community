@@ -21,7 +21,7 @@ services:
       - "${STRFRY_OFFICIAL_A_PORT:-8281}:7777"
     volumes:
       - registry-official-a-data:/app/strfry-db
-      - ${NOSTR_RELAY_CONTEXT:?run pnpm local:up so nostr-relay is resolved}/deploy/strfry/profiles/registry-official.conf:/etc/strfry.conf:ro
+      - ${NOSTR_RELAY_CONTEXT:?run pnpm local:up so nostr-relay is resolved}/deploy/strfry/profiles/registry-official.conf:/app/strfry.conf:ro
 
   registry-official-b:
     <<: *strfry
@@ -29,7 +29,7 @@ services:
       - "${STRFRY_OFFICIAL_B_PORT:-8282}:7777"
     volumes:
       - registry-official-b-data:/app/strfry-db
-      - ${NOSTR_RELAY_CONTEXT:?run pnpm local:up so nostr-relay is resolved}/deploy/strfry/profiles/registry-official.conf:/etc/strfry.conf:ro
+      - ${NOSTR_RELAY_CONTEXT:?run pnpm local:up so nostr-relay is resolved}/deploy/strfry/profiles/registry-official.conf:/app/strfry.conf:ro
 
   registry-official-c:
     <<: *strfry
@@ -37,7 +37,7 @@ services:
       - "${STRFRY_OFFICIAL_C_PORT:-8283}:7777"
     volumes:
       - registry-official-c-data:/app/strfry-db
-      - ${NOSTR_RELAY_CONTEXT:?run pnpm local:up so nostr-relay is resolved}/deploy/strfry/profiles/registry-official.conf:/etc/strfry.conf:ro
+      - ${NOSTR_RELAY_CONTEXT:?run pnpm local:up so nostr-relay is resolved}/deploy/strfry/profiles/registry-official.conf:/app/strfry.conf:ro
 
   registry-community:
     <<: *strfry
@@ -48,7 +48,7 @@ services:
       - "${STRFRY_COMMUNITY_PORT:-8381}:7777"
     volumes:
       - registry-community-data:/app/strfry-db
-      - ${NOSTR_RELAY_CONTEXT:?run pnpm local:up so nostr-relay is resolved}/deploy/strfry/profiles/registry-community.conf:/etc/strfry.conf:ro
+      - ${NOSTR_RELAY_CONTEXT:?run pnpm local:up so nostr-relay is resolved}/deploy/strfry/profiles/registry-community.conf:/app/strfry.conf:ro
 
   registry-fixture:
     environment:

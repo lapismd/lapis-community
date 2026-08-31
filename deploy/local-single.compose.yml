@@ -20,7 +20,7 @@ services:
       - "${STRFRY_LOCAL_PORT:-8281}:7777"
     volumes:
       - registry-relay-data:/app/strfry-db
-      - ${NOSTR_RELAY_CONTEXT:?run pnpm local:up so nostr-relay is resolved}/deploy/strfry/profiles/registry-local.conf:/etc/strfry.conf:ro
+      - ${NOSTR_RELAY_CONTEXT:?run pnpm local:up so nostr-relay is resolved}/deploy/strfry/profiles/registry-local.conf:/app/strfry.conf:ro
 
   registry-fixture:
     environment:

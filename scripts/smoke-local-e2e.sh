@@ -114,7 +114,7 @@ jq -e --argjson quorum "${expected_quorum}" '
   (has("apiBase") | not) and
   (has("database") | not)
 ' "${smoke_tmp}/config.json" >/dev/null
-rg -q 'Official relay quorum' "${smoke_tmp}/console.html"
+rg -q 'See what the relays resolve\.' "${smoke_tmp}/console.html"
 rg -q 'nostr-relay-quorum' "${smoke_tmp}/console.js"
 if rg -q 'NIP-98|/events|DATABASE_URL' "${smoke_tmp}/console.js"; then
   echo "Console bundle still contains the retired HTTP submission path" >&2
