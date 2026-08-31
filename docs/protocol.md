@@ -17,6 +17,12 @@ arrival order is not authoritative.
 6. A distinct snapshot signer signs the materialized root and its complete set
    of accepted event IDs.
 
+Security materialization is independent from community reporting. An advisory
+names one exact release event and artifact digest. Only a configured security
+disposition authority can turn that advisory into an installer `warn` or
+`block`; a later exact `resolved` disposition corrects the state
+deterministically. NIP-56 reports remain non-enforcing reviewer context.
+
 An approval is valid only when every reference resolves exactly. One passing
 assessment plus one curator approval is required in protocol v1. Event trust is
 additional to, not a replacement for, existing bundle signature verification.

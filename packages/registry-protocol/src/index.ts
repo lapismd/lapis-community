@@ -4,6 +4,7 @@ export * from "./kinds.js";
 export * from "./materialize.js";
 export * from "./projection.js";
 export * from "./schemas.js";
+export * from "./security.js";
 export * from "./tags.js";
 export * from "./templates.js";
 export * from "./types.js";

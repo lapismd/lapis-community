@@ -17,9 +17,10 @@ context but can never directly hide a catalog entry or change installer policy.
 The authoritative Lapis moderation decision is a separate injected workflow
 kind.
 
-Approval, revocation, deterministic registry snapshot, and authoritative
-moderation-decision events do not yet have approved interoperable allocations.
-They remain injected through `RegistryKindMap`. Values `64000` through `64003`
-are fixture-only and must never be published. Production publication remains
+Approval, revocation, deterministic registry snapshot, authoritative
+moderation-decision, security-advisory, and security-disposition events do not
+yet have approved interoperable allocations. They remain injected through
+`RegistryKindMap` or `SecurityKindMap`. Values `64000` through `64005` are
+fixture-only and must never be published. Production publication remains
 blocked until allocations are checked against the machine-readable registry of
 kinds, documented here, and approved.
