@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 
@@ -15,6 +16,7 @@ import {
   TEST_SECURITY_KINDS,
 } from "@lapismd/registry-protocol";
 import type {
+  JsonObject,
   JsonValue,
   RegistryAuthorities,
 } from "@lapismd/registry-protocol";
@@ -73,6 +75,7 @@ try {
     },
   });
   await mkdir(path.join(output, "plugins"), { recursive: true });
+  await mirrorProjectionResources(state.projection.plugins, output);
   await Promise.all([
     jsonFile(path.join(output, "index.json"), state.projection.index),
     jsonFile(path.join(output, "provenance.json"), {
@@ -86,6 +89,32 @@ try {
       path.join(output, "snapshot-event.json"),
       state.snapshot.snapshotEvent,
     ),
+    jsonFile(
+      path.join(output, "accepted-events.json"),
+      state.snapshot.events
+        .filter((event) => state.registry.acceptedEventIds.includes(event.id))
+        .toSorted((left, right) => left.id.localeCompare(right.id)),
+    ),
+    jsonFile(path.join(output, "runtime.json"), {
+      schemaVersion: 1,
+      backend: "nostr-relay-quorum",
+      registryRoot: state.registry.root,
+      snapshotEventId: state.snapshot.snapshotEvent.id,
+      officialRelays: publicRelayList(
+        "REGISTRY_PUBLIC_OFFICIAL_RELAYS",
+        officialRelays.map((relay) => relay.url),
+      ),
+      communityRelays: publicRelayList(
+        "REGISTRY_PUBLIC_COMMUNITY_RELAYS",
+        communityRelays.map((relay) => relay.url),
+      ),
+      kinds,
+      communityKinds,
+      securityKinds,
+      snapshotSignerPubkeys: [
+        ...authorities().snapshotSignerPubkeys,
+      ].toSorted(),
+    }),
     ...[...state.projection.plugins].map(([pluginId, plugin]) =>
       jsonFile(path.join(output, "plugins", `${pluginId}.json`), plugin),
     ),
@@ -137,6 +166,122 @@ function authorities(): RegistryAuthorities {
 
 async function jsonFile(filePath: string, value: unknown): Promise<void> {
   await writeFile(filePath, `${canonicalJson(value as JsonValue)}\n`, "utf8");
+}
+
+interface ProjectionResource {
+  url: string;
+  sourceUrl: string;
+  sha256: string;
+  size: number;
+}
+
+async function mirrorProjectionResources(
+  plugins: ReadonlyMap<string, JsonObject>,
+  targetRoot: string,
+): Promise<void> {
+  const resources = new Map<string, ProjectionResource>();
+  for (const plugin of plugins.values()) collectResources(plugin, resources);
+  const queue = [...resources.values()].toSorted((left, right) =>
+    left.url.localeCompare(right.url),
+  );
+  const workers = Array.from(
+    { length: Math.min(8, queue.length) },
+    async () => {
+      for (;;) {
+        const resource = queue.shift();
+        if (resource === undefined) return;
+        await mirrorResource(resource, targetRoot);
+      }
+    },
+  );
+  await Promise.all(workers);
+}
+
+function collectResources(
+  value: JsonValue,
+  resources: Map<string, ProjectionResource>,
+): void {
+  if (Array.isArray(value)) {
+    for (const child of value) collectResources(child, resources);
+    return;
+  }
+  if (value === null || typeof value !== "object") return;
+  const candidate = value as Record<string, JsonValue>;
+  if (
+    typeof candidate.url === "string" &&
+    candidate.url.startsWith("/v1/") &&
+    typeof candidate.sourceUrl === "string" &&
+    typeof candidate.sha256 === "string" &&
+    /^[0-9a-f]{64}$/u.test(candidate.sha256) &&
+    typeof candidate.size === "number" &&
+    Number.isInteger(candidate.size) &&
+    candidate.size >= 0
+  ) {
+    const resource: ProjectionResource = {
+      url: candidate.url,
+      sourceUrl: candidate.sourceUrl,
+      sha256: candidate.sha256,
+      size: candidate.size,
+    };
+    const current = resources.get(resource.url);
+    if (
+      current !== undefined &&
+      canonicalJson(current as unknown as JsonValue) !==
+        canonicalJson(resource as unknown as JsonValue)
+    ) {
+      throw new Error(`Conflicting projection resource ${resource.url}`);
+    }
+    resources.set(resource.url, resource);
+  }
+  for (const child of Object.values(candidate)) {
+    collectResources(child, resources);
+  }
+}
+
+async function mirrorResource(
+  resource: ProjectionResource,
+  targetRoot: string,
+): Promise<void> {
+  const pathname = new URL(resource.url, "https://registry.lapis.md").pathname;
+  if (!pathname.startsWith("/v1/")) {
+    throw new Error(`Projection resource is outside /v1: ${resource.url}`);
+  }
+  const fetchOrigin = process.env.REGISTRY_ASSET_FETCH_ORIGIN?.trim();
+  const source =
+    fetchOrigin === undefined || fetchOrigin === ""
+      ? new URL(resource.sourceUrl)
+      : new URL(
+          new URL(resource.sourceUrl).pathname.slice(1),
+          ensureSlash(fetchOrigin),
+        );
+  const response = await fetch(source);
+  if (!response.ok) {
+    throw new Error(`${source.toString()} returned HTTP ${response.status}`);
+  }
+  const bytes = new Uint8Array(await response.arrayBuffer());
+  if (bytes.byteLength !== resource.size) {
+    throw new Error(`${resource.url} size does not match its signed metadata`);
+  }
+  const digest = createHash("sha256").update(bytes).digest("hex");
+  if (digest !== resource.sha256) {
+    throw new Error(`${resource.url} hash does not match its signed metadata`);
+  }
+  const relativePath = pathname.slice("/v1/".length);
+  const target = path.resolve(targetRoot, relativePath);
+  if (!target.startsWith(`${path.resolve(targetRoot)}${path.sep}`)) {
+    throw new Error(`Unsafe projection resource path ${resource.url}`);
+  }
+  await mkdir(path.dirname(target), { recursive: true });
+  await writeFile(target, bytes);
+}
+
+function ensureSlash(value: string): URL {
+  return new URL(value.endsWith("/") ? value : `${value}/`);
+}
+
+function publicRelayList(name: string, fallback: string[]): string[] {
+  const configured = list(name);
+  return configured.length === 0 ? fallback : configured;
 }
 
 function relayList(name: string): string[] {

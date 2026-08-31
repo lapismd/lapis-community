@@ -6,6 +6,7 @@ import {
 import { describe, expect, it } from "vitest";
 
 import {
+  createPluginCommentTemplate,
   createRatingTemplate,
   materializeCommunity,
   TEST_COMMUNITY_KINDS,
@@ -44,6 +45,33 @@ function rating(
 }
 
 describe("materializeCommunity", () => {
+  it("creates a canonical top-level NIP-22 plugin comment template", () => {
+    expect(
+      createPluginCommentTemplate(
+        "  Useful review  ",
+        {
+          pluginAddress,
+          pluginKind: TEST_COMMUNITY_KINDS.softwareApplication,
+          publisherPubkey: publisher,
+        },
+        TEST_COMMUNITY_KINDS,
+        1_800_000_000,
+      ),
+    ).toEqual({
+      kind: TEST_COMMUNITY_KINDS.comment,
+      created_at: 1_800_000_000,
+      tags: [
+        ["A", pluginAddress],
+        ["K", String(TEST_COMMUNITY_KINDS.softwareApplication)],
+        ["P", publisher],
+        ["a", pluginAddress],
+        ["k", String(TEST_COMMUNITY_KINDS.softwareApplication)],
+        ["p", publisher],
+      ],
+      content: "Useful review",
+    });
+  });
+
   it("keeps one current rating per pubkey and computes deterministic aggregates", () => {
     const original = rating(userOneKey, 2, 1_800_000_000);
     const replacement = rating(userOneKey, 4, 1_800_000_001);

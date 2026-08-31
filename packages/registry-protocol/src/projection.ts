@@ -6,6 +6,7 @@ import type {
   V1ProjectionOptions,
   V1ProjectionPlugin,
 } from "./types.js";
+import { eventAddress } from "./tags.js";
 
 function withoutKeys(
   source: JsonObject,
@@ -60,6 +61,20 @@ export function projectV1Records(
       status: plugin.content.status,
       latestVersion: plugin.latestVersion,
       versions,
+      ...(plugin.event === undefined
+        ? {}
+        : {
+            nostr: {
+              address: eventAddress(
+                plugin.event.kind,
+                plugin.event.pubkey,
+                plugin.content.pluginId,
+              ),
+              eventId: plugin.event.id,
+              kind: plugin.event.kind,
+              publisherPubkey: plugin.event.pubkey,
+            },
+          }),
     } as JsonObject;
     pluginFiles.set(plugin.content.pluginId, detail);
 
@@ -103,6 +118,7 @@ export function projectV1(
       content: plugin.content,
       releases: plugin.releases.map((release) => release.content),
       latestVersion: plugin.latestVersion,
+      event: plugin.event,
     })),
     typeof options === "string" ? { generatedAt: options } : options,
     {

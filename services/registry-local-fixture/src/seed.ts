@@ -74,6 +74,16 @@ function positiveInteger(name: string, fallback: number): number {
   return value;
 }
 
+function optionalPositiveInteger(name: string): number | undefined {
+  const raw = process.env[name]?.trim() ?? "all";
+  if (raw === "" || raw === "all") return undefined;
+  const value = Number(raw);
+  if (!Number.isInteger(value) || value < 1) {
+    throw new Error(`${name} must be "all" or a positive integer`);
+  }
+  return value;
+}
+
 function secret(secrets: FixtureSecrets, name: FixtureSecretName): Uint8Array {
   return hexToBytes(secrets.keys[name]);
 }
@@ -104,7 +114,7 @@ async function seed(): Promise<{
     "LAPIS_PLUGINS_ROOT",
     "/workspace/lapis-plugins",
   );
-  const pluginLimit = positiveInteger("REGISTRY_FIXTURE_PLUGIN_LIMIT", 3);
+  const pluginLimit = optionalPositiveInteger("REGISTRY_FIXTURE_PLUGIN_LIMIT");
   const artifactBase = new URL(
     required("REGISTRY_FIXTURE_ARTIFACT_BASE_URL", "http://127.0.0.1:8090/"),
   );
@@ -122,11 +132,16 @@ async function seed(): Promise<{
   const communityRelay = new WebSocketRegistryRelay(communityUrl, {
     connectTimeoutMs: 10_000,
   });
-  const fixtures = await loadLocalPluginFixtures(lapisPluginsRoot, pluginLimit);
+  const fixtures = await loadLocalPluginFixtures(lapisPluginsRoot, {
+    limit: pluginLimit,
+    publicBaseUrl: artifactBase,
+  });
   const artifacts = new Map(
-    fixtures.map((fixture) => [
-      `/${fixture.artifact.path}`,
-      fixture.artifact.bytes,
+    fixtures.flatMap((fixture) => [
+      [`/${fixture.artifact.path}`, fixture.artifact.bytes] as const,
+      ...fixture.resources.map(
+        (resource) => [`/${resource.path}`, resource.bytes] as const,
+      ),
     ]),
   );
   const officialEvents: NostrEvent[] = [];

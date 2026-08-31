@@ -216,6 +216,7 @@ export interface V1ProjectionPlugin {
   content: PluginDefinitionContent;
   releases: ReleaseContent[];
   latestVersion: string;
+  event?: NostrEvent | undefined;
 }
 
 export interface V1ProjectionOptions {

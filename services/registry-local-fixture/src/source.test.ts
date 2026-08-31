@@ -39,12 +39,16 @@ describe("local registry fixture", () => {
       highlights: ["Counts words locally"],
     });
 
-    const first = await loadLocalPluginFixtures(root, 1);
-    const second = await loadLocalPluginFixtures(root, 1);
+    const options = {
+      limit: 1,
+      publicBaseUrl: new URL("http://127.0.0.1:8090/"),
+    };
+    const first = await loadLocalPluginFixtures(root, options);
+    const second = await loadLocalPluginFixtures(root, options);
     expect(first).toHaveLength(1);
     expect(first[0]).toMatchObject({
       plugin: { pluginId: "wordcount", status: "active" },
-      release: { version: "0.1.2", platforms: ["web", "desktop"] },
+      release: { version: "0.1.2", platforms: ["web", "electron"] },
     });
     expect(first[0]?.artifact.sha256).toBe(second[0]?.artifact.sha256);
     expect(new TextDecoder().decode(first[0]?.artifact.bytes)).toContain(

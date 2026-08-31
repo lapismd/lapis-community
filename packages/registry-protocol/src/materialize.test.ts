@@ -209,6 +209,16 @@ describe("materializeRegistry", () => {
         bundle: { sha256: "ab".repeat(32), size: 50_493 },
       },
     });
+    expect(v1.plugins.get("wordcount")?.nostr).toEqual({
+      address: eventAddress(
+        TEST_REGISTRY_KINDS.softwareApplication,
+        publisher,
+        "wordcount",
+      ),
+      eventId: events[0]?.id,
+      kind: TEST_REGISTRY_KINDS.softwareApplication,
+      publisherPubkey: publisher,
+    });
   });
 
   it("is deterministic across relay order and duplicate delivery", () => {

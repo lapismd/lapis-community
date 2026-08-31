@@ -47,6 +47,12 @@ export interface RatingContent {
   version?: string | undefined;
 }
 
+export interface PluginCommentTarget {
+  pluginAddress: string;
+  pluginKind: number;
+  publisherPubkey: string;
+}
+
 export interface MaterializedRating {
   event: NostrEvent;
   content: RatingContent;
@@ -153,6 +159,42 @@ export function createRatingTemplate(
       ["a", pluginAddress],
     ],
     content: canonicalJson(content as unknown as JsonObject),
+  };
+}
+
+export function createPluginCommentTemplate(
+  content: string,
+  target: PluginCommentTarget,
+  kinds: CommunityKindMap,
+  createdAt: number,
+): NostrEventTemplate {
+  const normalized = content.trim();
+  if (normalized.length === 0 || normalized.length > 10_000) {
+    throw new Error("Plugin comments must contain 1 through 10000 characters");
+  }
+  if (
+    !/^\d+:[0-9a-f]{64}:[a-z0-9][a-z0-9-]{0,127}$/u.test(
+      target.pluginAddress,
+    ) ||
+    !Number.isInteger(target.pluginKind) ||
+    target.pluginKind < 0 ||
+    target.pluginKind > 65_535 ||
+    !hex64Pattern.test(target.publisherPubkey)
+  ) {
+    throw new Error("Plugin comment target is invalid");
+  }
+  return {
+    kind: kinds.comment,
+    created_at: createdAt,
+    tags: [
+      ["A", target.pluginAddress],
+      ["K", String(target.pluginKind)],
+      ["P", target.publisherPubkey],
+      ["a", target.pluginAddress],
+      ["k", String(target.pluginKind)],
+      ["p", target.publisherPubkey],
+    ],
+    content: normalized,
   };
 }
 

@@ -19,6 +19,7 @@ import type { RegistryRelay } from "./transport.js";
 export interface VerifiedRegistrySnapshot {
   snapshotEvent: NostrEvent;
   snapshot: SnapshotContent;
+  events: NostrEvent[];
   registry: MaterializedRegistry;
   resolution: RelayResolution[];
 }
@@ -131,6 +132,7 @@ export async function loadVerifiedRegistrySnapshot(
     return {
       snapshotEvent,
       snapshot: parsed.data,
+      events: resolution.events,
       registry,
       resolution: resolution.relays,
     };
