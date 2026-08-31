@@ -7,5 +7,6 @@ artifacts
 coverage
 /deploy
 /docs
-/scripts
+/scripts/*
+!/scripts/materialize-relays.ts
 /README.md

@@ -62,3 +62,75 @@ services:
       registry-fixture:
         condition: service_healthy
     restart: unless-stopped
+
+  registry-materializer:
+    image: ${REGISTRY_FIXTURE_IMAGE:-lapis-registry-local-fixture:local}
+    user: "0:0"
+    read_only: true
+    tmpfs:
+      - /tmp
+    command: ["pnpm", "relay:materialize", "--output", "/projection/v1"]
+    environment:
+      REGISTRY_USE_TEST_KINDS: "true"
+      REGISTRY_ASSET_FETCH_ORIGIN: http://registry-fixture:8090/
+      REGISTRY_ASSESSOR_PUBKEYS: ${REGISTRY_ASSESSOR_PUBKEYS:?fixture assessor is missing}
+      REGISTRY_CURATOR_PUBKEYS: ${REGISTRY_CURATOR_PUBKEYS:?fixture curator is missing}
+      REGISTRY_MODERATOR_PUBKEYS: ${REGISTRY_MODERATOR_PUBKEYS:?fixture moderator is missing}
+      REGISTRY_SNAPSHOT_SIGNER_PUBKEYS: ${REGISTRY_SNAPSHOT_SIGNER_PUBKEYS:?fixture snapshot signer is missing}
+      REGISTRY_OPERATOR_PUBKEYS: ${REGISTRY_OPERATOR_PUBKEYS:?fixture operator is missing}
+      REGISTRY_PUBLISHERS_JSON: ${REGISTRY_PUBLISHERS_JSON:-}
+      REGISTRY_SECURITY_ADVISORY_PUBKEYS: ${REGISTRY_SECURITY_ADVISORY_PUBKEYS:?fixture advisory authority is missing}
+      REGISTRY_SECURITY_DISPOSITION_PUBKEYS: ${REGISTRY_SECURITY_DISPOSITION_PUBKEYS:?fixture disposition authority is missing}
+    volumes:
+      - registry-projection:/projection
+    depends_on:
+      registry-fixture:
+        condition: service_healthy
+    restart: "no"
+
+  registry-site-builder:
+    image: ${REGISTRY_SITE_IMAGE:-lapis-plugin-registry-site:local}
+    build:
+      context: ${PLUGIN_REGISTRY_PATH:?run pnpm local:up so plugin-registry is resolved}
+      dockerfile: Dockerfile.local
+    user: "0:0"
+    environment:
+      LAPIS_REGISTRY_BUILD_V1_DIR: /projection/v1
+      LAPIS_REGISTRY_TRUSTED_SNAPSHOT_PUBKEYS: ${REGISTRY_SNAPSHOT_SIGNER_PUBKEYS:?fixture snapshot signer is missing}
+      LAPIS_REGISTRY_CONTAINER_SITE_DIR: /site
+    command: ["node", "scripts/build-container-site.mjs"]
+    volumes:
+      - registry-projection:/projection:ro
+      - registry-site:/site
+    depends_on:
+      registry-materializer:
+        condition: service_completed_successfully
+    restart: "no"
+
+  registry-site:
+    image: ${REGISTRY_SITE_IMAGE:-lapis-plugin-registry-site:local}
+    read_only: true
+    tmpfs:
+      - /tmp
+    environment:
+      HOST: 0.0.0.0
+      PORT: 4321
+    command: ["node", "scripts/serve-site.mjs", "--root", "/site"]
+    ports:
+      - "${REGISTRY_SITE_PORT:-4321}:4321"
+    volumes:
+      - registry-site:/site:ro
+    depends_on:
+      registry-site-builder:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:4321/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 5s
+    restart: unless-stopped
+
+volumes:
+  registry-projection:
+  registry-site:

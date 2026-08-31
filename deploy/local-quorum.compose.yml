@@ -71,6 +71,13 @@ services:
       REGISTRY_COMMUNITY_RELAYS: ws://127.0.0.1:${STRFRY_COMMUNITY_PORT:-8381}
       REGISTRY_PUBLISH_QUORUM: "2"
 
+  registry-materializer:
+    environment:
+      REGISTRY_OFFICIAL_RELAYS: ws://registry-official-a:7777,ws://registry-official-b:7777,ws://registry-official-c:7777
+      REGISTRY_COMMUNITY_RELAYS: ws://registry-community:7777
+      REGISTRY_PUBLIC_OFFICIAL_RELAYS: ws://127.0.0.1:${STRFRY_OFFICIAL_A_PORT:-8281},ws://127.0.0.1:${STRFRY_OFFICIAL_B_PORT:-8282},ws://127.0.0.1:${STRFRY_OFFICIAL_C_PORT:-8283}
+      REGISTRY_PUBLIC_COMMUNITY_RELAYS: ws://127.0.0.1:${STRFRY_COMMUNITY_PORT:-8381}
+
 volumes:
   registry-official-a-data:
   registry-official-b-data:

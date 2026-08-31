@@ -21,6 +21,7 @@ port_base=$((24000 + ($$ % 20000)))
 export COMPOSE_PROJECT_NAME=${project_name}
 export REGISTRY_FIXTURE_PORT=${REGISTRY_FIXTURE_PORT:-${port_base}}
 export REGISTRY_CONSOLE_PORT=${REGISTRY_CONSOLE_PORT:-$((port_base + 1))}
+export REGISTRY_SITE_PORT=${REGISTRY_SITE_PORT:-$((port_base + 6))}
 export STRFRY_LOCAL_PORT=${STRFRY_LOCAL_PORT:-$((port_base + 2))}
 export STRFRY_OFFICIAL_A_PORT=${STRFRY_OFFICIAL_A_PORT:-$((port_base + 2))}
 export STRFRY_OFFICIAL_B_PORT=${STRFRY_OFFICIAL_B_PORT:-$((port_base + 3))}
@@ -83,18 +84,19 @@ if [[ ${profile} == quorum ]]; then
 else
   relay_services=(registry-relay)
 fi
-for service in "${relay_services[@]}" registry-fixture registry-console; do
+for service in "${relay_services[@]}" registry-fixture registry-console registry-site; do
   wait_for_health "${service}"
 done
 
 fixture_base="http://127.0.0.1:${REGISTRY_FIXTURE_PORT}/"
 console_base="http://127.0.0.1:${REGISTRY_CONSOLE_PORT}/"
+site_base="http://127.0.0.1:${REGISTRY_SITE_PORT}/"
 /usr/bin/curl -fsS "${fixture_base}status.json" >"${smoke_tmp}/status.json"
 
 expected_quorum=1
 if [[ ${profile} == quorum ]]; then expected_quorum=2; fi
 jq -e --argjson quorum "${expected_quorum}" '
-  .pluginCount == 3 and
+  .pluginCount == 12 and
   .communityEventCount == 6 and
   (.officialEventCount > .communityEventCount) and
   .relayCopies.officialQuorum >= $quorum and
@@ -121,6 +123,23 @@ if rg -q 'NIP-98|/events|DATABASE_URL' "${smoke_tmp}/console.js"; then
   exit 1
 fi
 
+/usr/bin/curl -fsS "${site_base}v1/index.json" >"${smoke_tmp}/site-index.json"
+/usr/bin/curl -fsS "${site_base}v1/runtime.json" >"${smoke_tmp}/site-runtime.json"
+/usr/bin/curl -fsS "${site_base}v1/client/registry-community.js" >"${smoke_tmp}/community.js"
+/usr/bin/curl -fsS "${site_base}plugins/" >"${smoke_tmp}/plugins.html"
+jq -e '.schemaVersion == 1 and (.plugins | length) == 12' \
+  "${smoke_tmp}/site-index.json" >/dev/null
+jq -e '
+  .backend == "nostr-relay-quorum" and
+  (.communityRelays | length) >= 1 and
+  (.snapshotSignerPubkeys | length) == 1
+' "${smoke_tmp}/site-runtime.json" >/dev/null
+rg -q 'lapis-registry-community' "${smoke_tmp}/community.js"
+site_plugin_id=$(jq -r '.plugins[0].id' "${smoke_tmp}/site-index.json")
+/usr/bin/curl -fsS "${site_base}plugins/${site_plugin_id}/" >"${smoke_tmp}/plugin.html"
+rg -q '<lapis-registry-community' "${smoke_tmp}/plugin.html"
+rg -q '/v1/client/registry-community.js' "${smoke_tmp}/plugin.html"
+
 set -a
 # shellcheck source=/dev/null
 source "${repo_root}/.local/registry-fixture/fixture.env"
@@ -135,7 +154,7 @@ else
 fi
 pnpm --dir "${repo_root}" relay:materialize --output "${smoke_tmp}/materialized"
 
-jq -e '.schemaVersion == 1 and (.plugins | length) == 3' \
+jq -e '.schemaVersion == 1 and (.plugins | length) == 12' \
   "${smoke_tmp}/materialized/index.json" >/dev/null
 jq -e --slurpfile status "${smoke_tmp}/status.json" '
   .root == $status[0].registryRoot and
@@ -150,6 +169,7 @@ jq -e --slurpfile status "${smoke_tmp}/status.json" '
   .root == $status[0].securityRoot and
   (.statuses | length) == 1
 ' "${smoke_tmp}/materialized/security.json" >/dev/null
+test -s "${smoke_tmp}/materialized/client/registry-community.js"
 
 plugin_id=$(jq -r '.plugins[0].id' "${smoke_tmp}/materialized/index.json")
 latest_version=$(jq -r '.latestVersion' \

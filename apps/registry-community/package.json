@@ -1,0 +1,23 @@
+{
+  "name": "@lapismd/registry-community",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "vite build",
+    "check:types": "svelte-check --tsconfig ./tsconfig.json",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@lapismd/design-core": "^0.1.0",
+    "@lapismd/registry-auth": "^0.0.0",
+    "@lapismd/registry-nostr": "^0.0.0",
+    "@lapismd/registry-protocol": "^0.0.0",
+    "svelte": "^5.56.1"
+  },
+  "devDependencies": {
+    "@sveltejs/vite-plugin-svelte": "^6.2.0",
+    "svelte-check": "^4.3.4",
+    "vite": "^7.3.1"
+  }
+}

@@ -17,6 +17,8 @@ can be proven before any cutover.
   orchestration and independently operated shares.
 - `apps/registry-console`: browser-side relay reader, publisher, and
   curator/admin console.
+- `apps/registry-community`: Design Core custom element for direct NIP-07
+  ratings, comments, and community-relay reads on the rendered registry.
 - `scripts/materialize-relays.ts`: deterministic static V1 output built from a
   verified relay snapshot.
 
@@ -59,9 +61,11 @@ the active registry.
 ## Local end-to-end stack
 
 Run `pnpm local:up` for the fast loop: one strfry relay, generated events from
-the sibling `lapis-plugins` checkout, fixture artifacts, and the direct-relay
-console. Run `pnpm local:up:quorum` for three official strfry relays, one
-community relay, and a two-of-three publication quorum. Open
+every complete plugin in the sibling `lapis-plugins` checkout, fixture
+artifacts, the direct-relay console, a verified Nostr projection, and the
+rendered public registry. Run `pnpm local:up:quorum` for three official strfry
+relays, one community relay, and a two-of-three publication quorum. Open the
+rendered registry at <http://localhost:4321/> or the operator console at
 <http://localhost:4173/> after Compose reports the services healthy.
 
 The complete lifecycle, safety boundary, configuration overrides, and cold

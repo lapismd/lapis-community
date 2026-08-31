@@ -42,6 +42,9 @@ fi
 lapis_plugins_path=$(resolve_directory \
   "${LAPIS_PLUGINS_PATH:-}" \
   "${repo_root}/../lapis-plugins")
+plugin_registry_path=$(resolve_directory \
+  "${PLUGIN_REGISTRY_PATH:-}" \
+  "${repo_root}/../plugin-registry")
 nostr_relay_context=$(resolve_directory \
   "${NOSTR_RELAY_CONTEXT:-}" \
   "${repo_root}/../nostr-relay-registry" \
@@ -60,6 +63,7 @@ if [[ -z ${upstream_strfry_image} ]]; then
 fi
 
 export LAPIS_PLUGINS_PATH=${lapis_plugins_path}
+export PLUGIN_REGISTRY_PATH=${plugin_registry_path}
 export NOSTR_RELAY_CONTEXT=${nostr_relay_context}
 export STRFRY_IMAGE=${STRFRY_IMAGE:-${upstream_strfry_image}}
 export COMPOSE_PROJECT_NAME=${COMPOSE_PROJECT_NAME:-lapis-registry-${profile}}
@@ -83,6 +87,7 @@ case "${command}" in
       --file "${nostr_relay_context}/deploy/strfry/Dockerfile" \
       "${nostr_relay_context}"
     "${compose[@]}" up -d --build "$@"
+    echo "Rendered registry: http://localhost:${REGISTRY_SITE_PORT:-4321}/"
     echo "Registry console: http://localhost:${REGISTRY_CONSOLE_PORT:-4173}/"
     echo "Fixture status:   http://127.0.0.1:${REGISTRY_FIXTURE_PORT:-8090}/status.json"
     if [[ ${profile} == quorum ]]; then

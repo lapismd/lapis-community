@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { mkdir, writeFile } from "node:fs/promises";
+import { copyFile, mkdir, rename, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 import {
@@ -22,10 +22,14 @@ import type {
 } from "@lapismd/registry-protocol";
 
 const outputIndex = process.argv.indexOf("--output");
-const output = path.resolve(
+const outputTarget = path.resolve(
   outputIndex === -1
     ? "artifacts/relay-v1"
     : requiredArgument(process.argv[outputIndex + 1], "--output"),
+);
+const output = path.join(
+  path.dirname(outputTarget),
+  `.${path.basename(outputTarget)}.materializing-${process.pid}`,
 );
 const officialRelays = relayList("REGISTRY_OFFICIAL_RELAYS").map(
   (url) => new WebSocketRegistryRelay(url, { eoseTimeoutMs: 15_000 }),
@@ -60,6 +64,7 @@ const securityKinds = testKinds
     });
 
 try {
+  await rm(output, { force: true, recursive: true });
   const state = await loadRelayRegistryState({
     officialRelays,
     communityRelays,
@@ -77,6 +82,7 @@ try {
   await mkdir(path.join(output, "plugins"), { recursive: true });
   await mirrorProjectionResources(state.projection.plugins, output);
   await Promise.all([
+    copyCommunityBundle(output),
     jsonFile(path.join(output, "index.json"), state.projection.index),
     jsonFile(path.join(output, "provenance.json"), {
       ...state.projection.provenance,
@@ -119,11 +125,28 @@ try {
       jsonFile(path.join(output, "plugins", `${pluginId}.json`), plugin),
     ),
   ]);
+  await rm(outputTarget, { force: true, recursive: true });
+  await rename(output, outputTarget);
   console.log(
-    `Materialized ${state.registry.plugins.length} plugins from snapshot ${state.snapshot.snapshotEvent.id} into ${output}.`,
+    `Materialized ${state.registry.plugins.length} plugins from snapshot ${state.snapshot.snapshotEvent.id} into ${outputTarget}.`,
   );
+} catch (error) {
+  await rm(output, { force: true, recursive: true });
+  throw error;
 } finally {
   for (const relay of [...officialRelays, ...communityRelays]) relay.close();
+}
+
+async function copyCommunityBundle(targetRoot: string): Promise<void> {
+  const configured = process.env.REGISTRY_COMMUNITY_BUNDLE_PATH?.trim();
+  const source = path.resolve(
+    configured === undefined || configured === ""
+      ? "apps/registry-community/dist/registry-community.js"
+      : configured,
+  );
+  const target = path.join(targetRoot, "client", "registry-community.js");
+  await mkdir(path.dirname(target), { recursive: true });
+  await copyFile(source, target);
 }
 
 function authorities(): RegistryAuthorities {

@@ -8,9 +8,11 @@ RUN chown node:node /app
 USER node
 RUN pnpm install --frozen-lockfile
 RUN pnpm --filter @lapismd/registry-local-fixture... build
+RUN pnpm --filter @lapismd/registry-community... build
 
 FROM node:24-alpine@sha256:e67514e5d0f6c46656005e1b693b2ec9d52e80b641307de684d4a015ba7a4eaf AS runtime
 
+RUN corepack enable && corepack prepare pnpm@10.32.1 --activate
 ENV NODE_ENV=development
 WORKDIR /app
 COPY --from=build --chown=node:node /app /app

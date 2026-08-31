@@ -37,5 +37,12 @@ services:
       REGISTRY_COMMUNITY_RELAYS: ws://127.0.0.1:${STRFRY_LOCAL_PORT:-8281}
       REGISTRY_PUBLISH_QUORUM: "1"
 
+  registry-materializer:
+    environment:
+      REGISTRY_OFFICIAL_RELAYS: ws://registry-relay:7777
+      REGISTRY_COMMUNITY_RELAYS: ws://registry-relay:7777
+      REGISTRY_PUBLIC_OFFICIAL_RELAYS: ws://127.0.0.1:${STRFRY_LOCAL_PORT:-8281}
+      REGISTRY_PUBLIC_COMMUNITY_RELAYS: ws://127.0.0.1:${STRFRY_LOCAL_PORT:-8281}
+
 volumes:
   registry-relay-data:

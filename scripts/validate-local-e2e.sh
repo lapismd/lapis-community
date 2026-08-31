@@ -25,8 +25,11 @@ jq -e --arg profile "${profile}" '
     "services/registry-local-fixture/Dockerfile" and
   .services["registry-console"].build.dockerfile ==
     "apps/registry-console/Dockerfile" and
+  .services["registry-site-builder"].build.dockerfile ==
+    "Dockerfile.local" and
   .services["registry-fixture"].read_only == true and
   .services["registry-console"].read_only == true and
+  .services["registry-site"].read_only == true and
   .services["registry-console"].depends_on["registry-fixture"].condition ==
     "service_healthy" and
   any(.services["registry-fixture"].volumes[];
@@ -37,6 +40,11 @@ jq -e --arg profile "${profile}" '
     .type == "bind" and
     .target == "/run/lapis-registry/fixture-secrets.json" and
     .read_only == true) and
+  .services["registry-site-builder"].depends_on["registry-materializer"].condition ==
+    "service_completed_successfully" and
+  .services["registry-site"].depends_on["registry-site-builder"].condition ==
+    "service_completed_successfully" and
+  .services["registry-site"].ports[0].target == 4321 and
   ([.services[] | select(.image == "nostr-relay-strfry-registry:local")] | length) ==
     (if $profile == "quorum" then 4 else 1 end) and
   ([.services[] | select(.image == "nostr-relay-strfry-registry:local") |
@@ -52,14 +60,24 @@ jq -e --arg profile "${profile}" '
       "registry-community",
       "registry-console",
       "registry-fixture",
+      "registry-materializer",
       "registry-official-a",
       "registry-official-b",
-      "registry-official-c"
+      "registry-official-c",
+      "registry-site",
+      "registry-site-builder"
     ] and
     .services["registry-fixture"].environment.REGISTRY_PUBLISH_QUORUM == "2" and
     .services["registry-console"].environment.REGISTRY_PUBLISH_QUORUM == "2"
   else
-    (.services | keys) == ["registry-console", "registry-fixture", "registry-relay"] and
+    (.services | keys) == [
+      "registry-console",
+      "registry-fixture",
+      "registry-materializer",
+      "registry-relay",
+      "registry-site",
+      "registry-site-builder"
+    ] and
     .services["registry-fixture"].environment.REGISTRY_PUBLISH_QUORUM == "1" and
     .services["registry-console"].environment.REGISTRY_PUBLISH_QUORUM == "1"
   end)
