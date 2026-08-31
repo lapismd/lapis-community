@@ -1,14 +1,15 @@
 # Registry console
 
-Static, separately deployable preview and operator console for the Nostr-native
-registry. Set the service URL in the UI or pass `?api=https://registry.example/`.
-The service must explicitly allow the console origin through
-`REGISTRY_CONSOLE_ORIGINS`.
+Separately deployable preview and operator console for the Nostr-native
+registry. Its tiny static server exposes only public relay, kind, and authority
+configuration at `config.json`; it does not store or serve registry events.
 
-The console treats `/preview/v1/*` as unsigned diagnostic output, checks that
-the index and provenance roots agree, and never stores private keys. Workflow
-and snapshot templates are signed by a NIP-07 browser extension, then submitted
-with a fresh payload-bound NIP-98 challenge signed by the same identity.
+The browser queries the signed snapshot and exact referenced events directly
+over Nostr, verifies them, and deterministically materializes the catalog,
+community, and security projections. Workflow and snapshot templates are
+signed through a NIP-07 browser extension and the signed events are published
+directly to the configured official relay quorum. There is no registry
+submission API and no private key enters the console.
 
-Build output is in `dist/` and can be hosted as static assets. Deployment and
-production origin configuration remain manual gates.
+Build output is in `dist/`. Deployment, public relay endpoints, production kind
+allocation, and authority configuration remain manual gates.

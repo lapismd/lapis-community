@@ -1,137 +1,190 @@
+import {
+  loadRelayRegistryState,
+  WebSocketRegistryRelay,
+} from "@lapismd/registry-nostr";
+import type { RelayRegistryState } from "@lapismd/registry-nostr";
 import type {
-  NostrEvent,
-  NostrEventTemplate,
-  CommunityProjection,
-  RegistryDashboard,
-  RegistryIndex,
-  RegistryProvenance,
-  SecurityProjection,
-} from "./types.js";
+  CommunityKindMap,
+  RegistryAuthorities,
+  RegistryKindMap,
+  SecurityAuthorities,
+  SecurityKindMap,
+} from "@lapismd/registry-protocol";
 
-export function normalizeApiBase(value: string): string {
-  const url = new URL(value.trim());
-  if (url.protocol !== "http:" && url.protocol !== "https:") {
-    throw new Error("Registry API must use HTTP or HTTPS");
-  }
-  url.hash = "";
-  url.search = "";
-  if (!url.pathname.endsWith("/")) url.pathname += "/";
-  return url.toString();
-}
+import type { RegistryDashboard } from "./types.js";
 
-function endpoint(apiBase: string, path: string): string {
-  return new URL(
-    path.replace(/^\//u, ""),
-    normalizeApiBase(apiBase),
-  ).toString();
-}
-
-async function readJson<T>(response: Response): Promise<T> {
-  const value = (await response.json()) as unknown;
-  if (!response.ok) {
-    const message =
-      value !== null &&
-      typeof value === "object" &&
-      "error" in value &&
-      value.error !== null &&
-      typeof value.error === "object" &&
-      "message" in value.error &&
-      typeof value.error.message === "string"
-        ? value.error.message
-        : `Registry request failed with ${response.status}`;
-    throw new Error(message);
-  }
-  return value as T;
-}
-
-export async function loadDashboard(
-  apiBase: string,
-): Promise<RegistryDashboard> {
-  const [
-    indexResponse,
-    provenanceResponse,
-    communityResponse,
-    securityResponse,
-  ] = await Promise.all([
-    fetch(endpoint(apiBase, "preview/v1/index.json")),
-    fetch(endpoint(apiBase, "preview/v1/provenance.json")),
-    fetch(endpoint(apiBase, "preview/community.json")),
-    fetch(endpoint(apiBase, "preview/security.json")),
-  ]);
-  const [index, provenance, community, security] = await Promise.all([
-    readJson<RegistryIndex>(indexResponse),
-    readJson<RegistryProvenance>(provenanceResponse),
-    readJson<CommunityProjection>(communityResponse),
-    readJson<SecurityProjection>(securityResponse),
-  ]);
-  const indexRoot = indexResponse.headers.get("x-lapis-registry-root") ?? "";
-  const provenanceRoot =
-    provenanceResponse.headers.get("x-lapis-registry-root") ?? "";
-  if (
-    indexRoot === "" ||
-    indexRoot !== provenanceRoot ||
-    indexRoot !== provenance.root
-  ) {
-    throw new Error("Preview index and provenance roots do not match");
-  }
-  const communityRoot =
-    communityResponse.headers.get("x-lapis-community-root") ?? "";
-  if (communityRoot === "" || communityRoot !== community.root) {
-    throw new Error("Community projection root does not match its response");
-  }
-  const securityRoot =
-    securityResponse.headers.get("x-lapis-security-root") ?? "";
-  if (securityRoot === "" || securityRoot !== security.root) {
-    throw new Error("Security projection root does not match its response");
-  }
-  return {
-    index,
-    provenance,
-    community,
-    security,
-    unsigned:
-      indexResponse.headers.get("x-lapis-registry-unsigned") === "true" &&
-      provenanceResponse.headers.get("x-lapis-registry-unsigned") === "true" &&
-      communityResponse.headers.get("x-lapis-registry-unsigned") === "true" &&
-      securityResponse.headers.get("x-lapis-registry-unsigned") === "true",
-    responseRoot: indexRoot,
-    communityRoot,
-    securityRoot,
+export interface ConsoleConfig {
+  officialRelays: string[];
+  communityRelays: string[];
+  publishQuorum: number;
+  kinds: RegistryKindMap;
+  communityKinds: CommunityKindMap;
+  securityKinds: SecurityKindMap;
+  authorities: {
+    assessorPubkeys: string[];
+    curatorPubkeys: string[];
+    moderatorPubkeys: string[];
+    snapshotSignerPubkeys: string[];
+    registryOperatorPubkeys: string[];
+    publisherPubkeysByPlugin?: Record<string, string[]> | undefined;
+  };
+  securityAuthorities: {
+    advisoryPubkeys: string[];
+    dispositionPubkeys: string[];
   };
 }
 
-export async function loadSnapshotTemplate(
-  apiBase: string,
-): Promise<NostrEventTemplate> {
-  const response = await fetch(endpoint(apiBase, "preview/snapshot-template"));
-  const value = await readJson<{ template: NostrEventTemplate }>(response);
-  return value.template;
+export async function loadConsoleConfig(): Promise<ConsoleConfig> {
+  const response = await fetch("./config.json", { cache: "no-store" });
+  if (!response.ok) {
+    throw new Error(`Console configuration failed with ${response.status}`);
+  }
+  return parseConsoleConfig(await response.json());
 }
 
-export async function loadChallenge(apiBase: string): Promise<{
-  challenge: string;
-  action: { url: string; method: string };
-}> {
-  const response = await fetch(endpoint(apiBase, "auth/challenge"));
-  return readJson(response);
+export function parseConsoleConfig(value: unknown): ConsoleConfig {
+  if (value === null || Array.isArray(value) || typeof value !== "object") {
+    throw new Error("Console configuration must be an object");
+  }
+  const candidate = value as Partial<ConsoleConfig>;
+  const officialRelays = normalizeRelayUrls(candidate.officialRelays ?? []);
+  const communityRelays = normalizeRelayUrls(candidate.communityRelays ?? []);
+  const publishQuorum = candidate.publishQuorum;
+  if (
+    !Number.isInteger(publishQuorum) ||
+    publishQuorum === undefined ||
+    publishQuorum < 1 ||
+    publishQuorum > officialRelays.length
+  ) {
+    throw new Error("Publish quorum must fit the official relay set");
+  }
+  if (
+    candidate.kinds === undefined ||
+    candidate.communityKinds === undefined ||
+    candidate.securityKinds === undefined ||
+    candidate.authorities === undefined ||
+    candidate.securityAuthorities === undefined
+  ) {
+    throw new Error("Console trust and kind configuration is incomplete");
+  }
+  return {
+    officialRelays,
+    communityRelays,
+    publishQuorum,
+    kinds: candidate.kinds,
+    communityKinds: candidate.communityKinds,
+    securityKinds: candidate.securityKinds,
+    authorities: candidate.authorities,
+    securityAuthorities: candidate.securityAuthorities,
+  };
 }
 
-export async function submitEvent(
-  action: { url: string; method: string },
-  body: string,
-  authorization: string,
-): Promise<{ eventId: string; inserted: boolean }> {
-  const response = await fetch(action.url, {
-    method: action.method,
-    headers: {
-      authorization,
-      "content-type": "application/json",
+export function normalizeRelayUrls(values: readonly string[]): string[] {
+  if (values.length === 0) throw new Error("At least one relay is required");
+  return [...new Set(values.map((value) => normalizeRelayUrl(value)))];
+}
+
+export function parseRelayList(value: string): string[] {
+  return normalizeRelayUrls(
+    value
+      .split(",")
+      .map((item) => item.trim())
+      .filter((item) => item !== ""),
+  );
+}
+
+export async function loadDashboard(
+  config: ConsoleConfig,
+): Promise<RegistryDashboard> {
+  const officialRelays = config.officialRelays.map(
+    (url) => new WebSocketRegistryRelay(url),
+  );
+  const communityRelays = config.communityRelays.map(
+    (url) => new WebSocketRegistryRelay(url),
+  );
+  try {
+    return dashboardFromRelayState(
+      await loadRelayRegistryState({
+        officialRelays,
+        communityRelays,
+        kinds: config.kinds,
+        communityKinds: config.communityKinds,
+        securityKinds: config.securityKinds,
+        authorities: registryAuthorities(config),
+        securityAuthorities: securityAuthorities(config),
+      }),
+    );
+  } finally {
+    for (const relay of [...officialRelays, ...communityRelays]) relay.close();
+  }
+}
+
+export function dashboardFromRelayState(
+  state: RelayRegistryState,
+): RegistryDashboard {
+  return {
+    index: state.projection.index as unknown as RegistryDashboard["index"],
+    provenance: {
+      backend: "nostr-relay-quorum",
+      root: state.registry.root,
+      acceptedEventIds: state.registry.acceptedEventIds,
+      exclusionCounts: state.registry.exclusionCounts,
+      sourceCounts: Object.fromEntries(
+        state.sources.official.map((source) => [
+          source.relay,
+          source.eventIds.length,
+        ]),
+      ),
+      issues: state.registry.issues,
     },
-    body,
-  });
-  return readJson(response);
+    community: state.community as unknown as RegistryDashboard["community"],
+    security: state.security as unknown as RegistryDashboard["security"],
+    unsigned: false,
+    responseRoot: state.registry.root,
+    communityRoot: state.community.root,
+    securityRoot: state.security.root,
+  };
 }
 
-export function eventBody(event: NostrEvent): string {
-  return JSON.stringify({ event });
+export function registryAuthorities(
+  config: ConsoleConfig,
+): RegistryAuthorities {
+  return {
+    assessorPubkeys: new Set(config.authorities.assessorPubkeys),
+    curatorPubkeys: new Set(config.authorities.curatorPubkeys),
+    moderatorPubkeys: new Set(config.authorities.moderatorPubkeys),
+    snapshotSignerPubkeys: new Set(config.authorities.snapshotSignerPubkeys),
+    registryOperatorPubkeys: new Set(
+      config.authorities.registryOperatorPubkeys,
+    ),
+    ...(config.authorities.publisherPubkeysByPlugin === undefined
+      ? {}
+      : {
+          publisherPubkeysByPlugin: new Map(
+            Object.entries(config.authorities.publisherPubkeysByPlugin).map(
+              ([pluginId, pubkeys]) => [pluginId, new Set(pubkeys)],
+            ),
+          ),
+        }),
+  };
+}
+
+export function securityAuthorities(
+  config: ConsoleConfig,
+): SecurityAuthorities {
+  return {
+    advisoryPubkeys: new Set(config.securityAuthorities.advisoryPubkeys),
+    dispositionPubkeys: new Set(config.securityAuthorities.dispositionPubkeys),
+  };
+}
+
+function normalizeRelayUrl(value: string): string {
+  const url = new URL(value.trim());
+  if (url.protocol !== "ws:" && url.protocol !== "wss:") {
+    throw new Error("Registry relays must use WS or WSS");
+  }
+  if (url.username || url.password || url.hash || url.search) {
+    throw new Error("Registry relay URLs cannot contain credentials or state");
+  }
+  return url.toString();
 }

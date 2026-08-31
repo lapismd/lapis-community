@@ -52,23 +52,19 @@ describe("local registry fixture", () => {
     );
   });
 
-  it("keeps runtime secrets out of the public environment and whitelist", async () => {
+  it("keeps runtime secrets out of the public environment", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "lapis-registry-keys-"));
     const files = await createFixtureFiles(root);
     const secrets = parseFixtureSecrets(
       JSON.parse(await readFile(files.secretsFile, "utf8")),
     );
     const publicKeys = fixturePublicKeys(secrets);
-    const [environment, whitelist] = await Promise.all([
-      readFile(files.environmentFile, "utf8"),
-      readFile(files.whitelistFile, "utf8"),
-    ]);
+    const environment = await readFile(files.environmentFile, "utf8");
     for (const secret of Object.values(secrets.keys)) {
       expect(environment).not.toContain(secret);
-      expect(whitelist).not.toContain(secret);
     }
     expect(environment).toContain(publicKeys.assessor);
-    expect(whitelist).toContain(publicKeys.publisher);
+    expect(environment).toContain(publicKeys.publisher);
 
     const repeated = await createFixtureFiles(root);
     expect(

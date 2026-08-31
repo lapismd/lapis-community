@@ -4,9 +4,16 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "tsc -p tsconfig.json && node scripts/copy-static.mjs",
+    "build": "esbuild src/main.ts --bundle --format=esm --platform=browser --target=es2023 --outfile=dist/assets/main.js && node scripts/copy-static.mjs",
     "check:types": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.test.json --noEmit",
     "start": "node scripts/serve.mjs",
     "test": "vitest run"
+  },
+  "dependencies": {
+    "@lapismd/registry-nostr": "^0.0.0",
+    "@lapismd/registry-protocol": "^0.0.0"
+  },
+  "devDependencies": {
+    "esbuild": "^0.25.10"
   }
 }

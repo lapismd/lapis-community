@@ -32,22 +32,31 @@
           <h1 id="page-title">See what the relays resolve.</h1>
           <p class="lede">
             Inspect the deterministic catalog, provenance, exclusions, and
-            operator workflow while the signed HTTP registry remains live.
+            operator workflow directly from the signed Nostr event graph.
           </p>
         </div>
-        <form id="api-form" class="endpoint-form">
-          <label for="api-base">Registry service</label>
+        <form id="relay-form" class="endpoint-form">
+          <label for="official-relays">Official relays</label>
           <div class="input-row">
             <input
-              id="api-base"
-              name="api-base"
-              type="url"
+              id="official-relays"
+              name="official-relays"
+              type="text"
               inputmode="url"
               autocomplete="url"
               required
             />
             <button id="refresh" type="submit">Refresh</button>
           </div>
+          <label for="community-relays">Community relays</label>
+          <input
+            id="community-relays"
+            name="community-relays"
+            type="text"
+            inputmode="url"
+            autocomplete="url"
+            required
+          />
         </form>
       </section>
 
@@ -201,8 +210,9 @@
         </div>
         <div class="operator-notice">
           The console requests signatures from a NIP-07 extension. It never asks
-          for or stores a private key. Authority rules are enforced again by the
-          registry service.
+          for or stores a private key. Signed events are submitted directly to
+          the configured relays and authority rules are checked during
+          deterministic materialization.
         </div>
         <label for="workflow-event">Event template or signed event</label>
         <textarea
@@ -214,7 +224,7 @@
           <button id="sign-template" class="secondary" type="button">
             Sign template
           </button>
-          <button id="submit-event" type="button">Submit signed event</button>
+          <button id="submit-event" type="button">Publish signed event</button>
           <button id="sign-snapshot" class="quiet" type="button">
             Sign current snapshot
           </button>

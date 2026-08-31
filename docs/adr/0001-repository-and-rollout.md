@@ -1,6 +1,6 @@
 # ADR 0001: Separate Nostr registry with coexistence rollout
 
-- Status: accepted
+- Status: superseded in part by ADR 0005
 - Date: 2026-08-31
 
 ## Decision
@@ -27,3 +27,8 @@ selection rather than a destructive data migration.
 Custom Nostr kinds remain symbolic until a separate ADR verifies current kind
 allocations and interoperability. That gate prevents provisional numbers from
 escaping in production events.
+
+The relay choice, Postgres registry store, and HTTP submission boundary in this
+historical decision are superseded by ADR 0005. The separate-repository,
+coexistence, complete-backend fallback, and production-kind gates remain in
+force.

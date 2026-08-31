@@ -1,15 +1,17 @@
-import {
-  loadDashboard,
-  loadSnapshotTemplate,
-  normalizeApiBase,
-} from "./api.js";
+import { loadConsoleConfig, loadDashboard, parseRelayList } from "./api.js";
+import type { ConsoleConfig } from "./api.js";
 import {
   shortHex,
   summarizeCommunity,
   summarizeProvenance,
   summarizeSecurity,
 } from "./model.js";
-import { requireNip07, signExactTemplate, submitWithNip98 } from "./nostr.js";
+import {
+  loadLiveSnapshotTemplate,
+  publishSignedEvent,
+  requireNip07,
+  signExactTemplate,
+} from "./nostr.js";
 import type {
   NostrEvent,
   NostrEventTemplate,
@@ -22,8 +24,9 @@ function element<T extends HTMLElement>(id: string): T {
   return value as T;
 }
 
-const apiForm = element<HTMLFormElement>("api-form");
-const apiInput = element<HTMLInputElement>("api-base");
+const relayForm = element<HTMLFormElement>("relay-form");
+const officialRelayInput = element<HTMLInputElement>("official-relays");
+const communityRelayInput = element<HTMLInputElement>("community-relays");
 const refreshButton = element<HTMLButtonElement>("refresh");
 const connectButton = element<HTMLButtonElement>("connect-signer");
 const signerState = element<HTMLElement>("signer-state");
@@ -43,8 +46,20 @@ function setStatus(
   statusRegion.dataset.tone = tone;
 }
 
-function apiBase(): string {
-  return normalizeApiBase(apiInput.value);
+let baseConfig: ConsoleConfig | undefined;
+
+function currentConfig(): ConsoleConfig {
+  if (baseConfig === undefined) {
+    throw new Error("Relay configuration has not loaded yet");
+  }
+  const officialRelays = parseRelayList(officialRelayInput.value);
+  const communityRelays = parseRelayList(communityRelayInput.value);
+  if (baseConfig.publishQuorum > officialRelays.length) {
+    throw new Error(
+      `This environment requires ${baseConfig.publishQuorum} official relay acknowledgements`,
+    );
+  }
+  return { ...baseConfig, officialRelays, communityRelays };
 }
 
 async function busy(
@@ -251,11 +266,21 @@ function renderDashboard(dashboard: RegistryDashboard): void {
 }
 
 async function refresh(): Promise<void> {
-  const base = apiBase();
-  localStorage.setItem("lapis-registry-api", base);
-  setStatus("Loading registry projection…");
-  renderDashboard(await loadDashboard(base));
-  setStatus("Registry projection and provenance roots match.", "success");
+  const config = currentConfig();
+  localStorage.setItem(
+    "lapis-registry-official-relays",
+    config.officialRelays.join(","),
+  );
+  localStorage.setItem(
+    "lapis-registry-community-relays",
+    config.communityRelays.join(","),
+  );
+  setStatus("Resolving the signed snapshot directly from relays…");
+  renderDashboard(await loadDashboard(config));
+  setStatus(
+    "Relay snapshot, event set, and projection roots verify.",
+    "success",
+  );
 }
 
 function parseTemplate(value: string): NostrEventTemplate {
@@ -284,12 +309,12 @@ function parseEvent(value: string): NostrEvent {
     typeof candidate.pubkey !== "string" ||
     typeof candidate.sig !== "string"
   ) {
-    throw new Error("Sign the template before submitting it");
+    throw new Error("Sign the template before publishing it");
   }
   return candidate as NostrEvent;
 }
 
-apiForm.addEventListener("submit", (event) => {
+relayForm.addEventListener("submit", (event) => {
   event.preventDefault();
   void busy(refreshButton, refresh);
 });
@@ -314,7 +339,7 @@ signButton.addEventListener("click", () => {
     );
     workflowInput.value = JSON.stringify(signed, null, 2);
     setStatus(
-      `Signed event ${shortHex(signed.id)}. Review it before submission.`,
+      `Signed event ${shortHex(signed.id)}. Review it before publication.`,
       "success",
     );
   });
@@ -322,13 +347,14 @@ signButton.addEventListener("click", () => {
 
 submitButton.addEventListener("click", () => {
   void busy(submitButton, async () => {
-    const result = await submitWithNip98(
-      apiBase(),
+    const signed = parseEvent(workflowInput.value);
+    const result = await publishSignedEvent(
+      currentConfig(),
       requireNip07(),
-      parseEvent(workflowInput.value),
+      signed,
     );
     setStatus(
-      `${result.inserted ? "Stored" : "Already stored"} event ${shortHex(result.eventId)}.`,
+      `Published event ${shortHex(signed.id)} to ${result.accepted}/${result.total} official relays.`,
       "success",
     );
     await refresh();
@@ -340,20 +366,30 @@ snapshotButton.addEventListener("click", () => {
     const provider = requireNip07();
     const signed = await signExactTemplate(
       provider,
-      await loadSnapshotTemplate(apiBase()),
+      await loadLiveSnapshotTemplate(currentConfig()),
     );
     workflowInput.value = JSON.stringify(signed, null, 2);
-    const result = await submitWithNip98(apiBase(), provider, signed);
-    setStatus(`Stored snapshot ${shortHex(result.eventId)}.`, "success");
+    const result = await publishSignedEvent(currentConfig(), provider, signed);
+    setStatus(
+      `Published snapshot ${shortHex(signed.id)} to ${result.accepted}/${result.total} official relays.`,
+      "success",
+    );
     await refresh();
   });
 });
 
-const queryApi = new URL(window.location.href).searchParams.get("api");
-apiInput.value =
-  queryApi ??
-  localStorage.getItem("lapis-registry-api") ??
-  "http://127.0.0.1:8787/";
 signerState.textContent =
   window.nostr === undefined ? "NIP-07 unavailable" : "Signer available";
-void busy(refreshButton, refresh);
+void busy(refreshButton, async () => {
+  baseConfig = await loadConsoleConfig();
+  const query = new URL(window.location.href).searchParams;
+  officialRelayInput.value =
+    query.get("relays") ??
+    localStorage.getItem("lapis-registry-official-relays") ??
+    baseConfig.officialRelays.join(",");
+  communityRelayInput.value =
+    query.get("community") ??
+    localStorage.getItem("lapis-registry-community-relays") ??
+    baseConfig.communityRelays.join(",");
+  await refresh();
+});

@@ -1,141 +1,113 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 
-import { loadDashboard } from "./api.js";
+import { dashboardFromRelayState, parseConsoleConfig } from "./api.js";
 
-function jsonResponse(
-  body: unknown,
-  headerName: string,
-  root: string,
-): Response {
-  return new Response(JSON.stringify(body), {
-    headers: {
-      "content-type": "application/json",
-      [headerName]: root,
-      "x-lapis-registry-unsigned": "true",
-    },
-  });
-}
+const baseConfig = {
+  officialRelays: ["wss://official.example"],
+  communityRelays: ["wss://community.example"],
+  publishQuorum: 1,
+  kinds: {
+    softwareApplication: 32_267,
+    releaseArtifactSet: 30_063,
+    assessmentLabel: 1_985,
+    approval: 64_000,
+    revocation: 64_001,
+    moderationReport: 1_984,
+    moderationDecision: 64_003,
+    snapshot: 64_002,
+    fileMetadata: 1_063,
+    comment: 1_111,
+  },
+  communityKinds: {
+    rating: 64_006,
+    comment: 1_111,
+    report: 1_984,
+    followList: 3,
+    appCurationSet: 30_267,
+    softwareApplication: 32_267,
+  },
+  securityKinds: { advisory: 64_004, disposition: 64_005 },
+  authorities: {
+    assessorPubkeys: [],
+    curatorPubkeys: [],
+    moderatorPubkeys: [],
+    snapshotSignerPubkeys: [],
+    registryOperatorPubkeys: [],
+  },
+  securityAuthorities: { advisoryPubkeys: [], dispositionPubkeys: [] },
+};
 
-afterEach(() => {
-  vi.unstubAllGlobals();
-});
-
-describe("registry dashboard API", () => {
-  it("validates each projection against its own response root", async () => {
-    const registryRoot = "a".repeat(64);
-    const communityRoot = "b".repeat(64);
-    const securityRoot = "c".repeat(64);
-    const responses = [
-      jsonResponse(
-        {
-          schemaVersion: 1,
-          generatedAt: new Date(0).toISOString(),
-          plugins: [],
-        },
-        "x-lapis-registry-root",
-        registryRoot,
-      ),
-      jsonResponse(
-        {
-          backend: "nostr",
-          root: registryRoot,
-          acceptedEventIds: [],
-          exclusionCounts: {},
-          sourceCounts: {},
-          issues: [],
-        },
-        "x-lapis-registry-root",
-        registryRoot,
-      ),
-      jsonResponse(
-        {
-          root: communityRoot,
-          ratingAggregates: [],
-          reviews: [],
-          reports: [],
-          collections: [],
-          followLists: [],
-          exclusionCounts: { hiddenEvent: 0, mutedPubkey: 0 },
-          issues: [],
-        },
-        "x-lapis-community-root",
-        communityRoot,
-      ),
-      jsonResponse(
-        { root: securityRoot, statuses: [], issues: [] },
-        "x-lapis-security-root",
-        securityRoot,
-      ),
-    ];
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(
-        async () => responses.shift() ?? new Response(null, { status: 500 }),
-      ),
-    );
-
-    const dashboard = await loadDashboard("http://registry.test/");
-
-    expect(dashboard.responseRoot).toBe(registryRoot);
-    expect(dashboard.communityRoot).toBe(communityRoot);
-    expect(dashboard.securityRoot).toBe(securityRoot);
-    expect(dashboard.unsigned).toBe(true);
+describe("registry relay console", () => {
+  it("requires a quorum that fits the configured official relays", () => {
+    expect(parseConsoleConfig(baseConfig)).toMatchObject({
+      officialRelays: ["wss://official.example/"],
+      communityRelays: ["wss://community.example/"],
+      publishQuorum: 1,
+    });
+    expect(() =>
+      parseConsoleConfig({ ...baseConfig, publishQuorum: 2 }),
+    ).toThrow("Publish quorum");
   });
 
-  it("rejects a stale community response", async () => {
-    const registryRoot = "a".repeat(64);
-    const communityRoot = "b".repeat(64);
-    const responses = [
-      jsonResponse(
-        {
+  it("builds provenance from relay copies rather than an API source", () => {
+    const root = "a".repeat(64);
+    const dashboard = dashboardFromRelayState({
+      snapshot: {} as never,
+      registry: {
+        schemaVersion: 1,
+        root,
+        plugins: [],
+        acceptedEventIds: ["event-one"],
+        exclusions: [],
+        exclusionCounts: {},
+        issues: [],
+      },
+      projection: {
+        index: {
           schemaVersion: 1,
-          generatedAt: new Date(0).toISOString(),
+          generatedAt: "2026-08-31T00:00:00.000Z",
           plugins: [],
         },
-        "x-lapis-registry-root",
-        registryRoot,
-      ),
-      jsonResponse(
-        {
+        plugins: new Map(),
+        provenance: {
           backend: "nostr",
-          root: registryRoot,
-          acceptedEventIds: [],
+          root,
+          acceptedEventIds: ["event-one"],
           exclusionCounts: {},
-          sourceCounts: {},
-          issues: [],
         },
-        "x-lapis-registry-root",
-        registryRoot,
-      ),
-      jsonResponse(
-        {
-          root: communityRoot,
-          ratingAggregates: [],
-          reviews: [],
-          reports: [],
-          collections: [],
-          followLists: [],
-          exclusionCounts: { hiddenEvent: 0, mutedPubkey: 0 },
-          issues: [],
-        },
-        "x-lapis-community-root",
-        "d".repeat(64),
-      ),
-      jsonResponse(
-        { root: "c".repeat(64), statuses: [], issues: [] },
-        "x-lapis-security-root",
-        "c".repeat(64),
-      ),
-    ];
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(
-        async () => responses.shift() ?? new Response(null, { status: 500 }),
-      ),
-    );
+      },
+      community: {
+        schemaVersion: 1,
+        root: "b".repeat(64),
+        ratings: [],
+        ratingAggregates: [],
+        reviews: [],
+        reports: [],
+        collections: [],
+        followLists: [],
+        exclusionCounts: { hiddenEvent: 0, mutedPubkey: 0 },
+        issues: [],
+      },
+      security: {
+        schemaVersion: 1,
+        root: "c".repeat(64),
+        statuses: [],
+        acceptedEventIds: [],
+        issues: [],
+      },
+      sources: {
+        official: [
+          { relay: "wss://official.example/", eventIds: ["event-one"] },
+        ],
+        community: [],
+        security: [],
+      },
+    });
 
-    await expect(loadDashboard("http://registry.test/")).rejects.toThrow(
-      "Community projection root",
-    );
+    expect(dashboard.provenance).toMatchObject({
+      backend: "nostr-relay-quorum",
+      sourceCounts: { "wss://official.example/": 1 },
+    });
+    expect(dashboard.unsigned).toBe(false);
   });
 });

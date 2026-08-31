@@ -1,15 +1,14 @@
 # Local end-to-end registry testing
 
-The full local stack runs the registry service, PostgreSQL, three official
-Grain relays, one community Grain relay, the fixture publisher, and the built
-preview console. The fixture publisher reads sibling `lapis-plugins` metadata
-from a read-only mount and creates complete plugin, release, assessment,
-approval, snapshot, community, and exact-release security events.
+The local stack has no PostgreSQL and no registry event API. The fixture reads
+the sibling `lapis-plugins` checkout through a read-only mount, creates signed
+catalog, workflow, snapshot, community, and security events, and publishes them
+directly to strfry. The browser console reads and verifies the same relay state.
 
-## Start the stack
+## Fast single-relay loop
 
-Prerequisites are Docker with Compose, Node 22 or newer, pnpm, and the sibling
-`lapis-plugins` and registry-profile `nostr-relay` workspaces.
+Prerequisites are Docker with Compose, Node 22 or newer, pnpm, and sibling
+`lapis-plugins` and `nostr-relay-registry` (or `nostr-relay`) workspaces.
 
 ```sh
 pnpm install
@@ -17,18 +16,35 @@ pnpm local:validate
 pnpm local:up
 ```
 
-Open <http://localhost:4173/>. Using `localhost` also avoids any existing
-service-worker cache registered against a `127.0.0.1` development origin. The
-other useful endpoints are:
+This profile uses one local-policy strfry instance for both official and
+community events. It is the normal development loop:
 
-- registry API: <http://127.0.0.1:8787/preview/v1/index.json>
-- fixture and relay verification: <http://127.0.0.1:8090/status.json>
-- official relays: `ws://127.0.0.1:8281`, `:8282`, and `:8283`
-- community relay: `ws://127.0.0.1:8381`
+- console: <http://localhost:4173/>
+- fixture status: <http://127.0.0.1:8090/status.json>
+- relay: `ws://127.0.0.1:8281`
 
-Use `pnpm local:ps`, `pnpm local:logs`, and `pnpm local:down` for normal
-lifecycle work. `pnpm local:reset` also removes the Compose volumes and rotates
-the ignored fixture identities.
+Use `pnpm local:ps`, `pnpm local:logs`, and `pnpm local:down` for its lifecycle.
+`pnpm local:reset` also removes its relay volume and rotates the ignored local
+fixture identities.
+
+## Full relay-quorum profile
+
+```sh
+pnpm local:validate:quorum
+pnpm local:up:quorum
+```
+
+This profile runs three official strfry relays on ports 8281-8283, one community
+relay on 8381, and requires two official acknowledgements. Its lifecycle
+commands use the `:quorum` suffix, including `local:logs:quorum` and
+`local:down:quorum`.
+
+Run `pnpm local:smoke` for a cold single-relay smoke or
+`pnpm local:smoke:quorum` for the complete fault-topology smoke. Each uses a
+unique Compose project and high ports, verifies retained relay copies and
+roots, builds a fresh static V1 projection from the signed relay snapshot,
+checks a projected artifact digest, inspects the browser configuration, and
+removes its containers and volumes afterward.
 
 ## What the fixture proves
 
@@ -36,42 +52,52 @@ At startup the fixture service:
 
 1. reads `packages/*/{package.json,manifest.json,registry.json}` from
    `lapis-plugins`, selecting three complete packages by default;
-2. creates deterministic source-metadata fixture artifacts with projected
-   SHA-256 digests;
-3. publishes catalog, workflow, security, and snapshot events to all three
-   official relays with a two-of-three retained-copy threshold;
-4. publishes ratings, a review, a report, a collection, and a follow list to
-   the community relay;
-5. submits the same signed events through the registry service's NIP-98
-   boundary and verifies every exact official event ID on at least two relays,
-   plus every community event on the community relay;
-6. serves the generated artifacts and a status document only after seeding and
-   verification succeed.
+2. creates deterministic source-metadata artifacts and SHA-256 evidence;
+3. signs and publishes plugin, release, assessment, approval, security, and
+   snapshot events directly to the configured official relay quorum;
+4. signs and publishes ratings, a review, a report, a collection, and a follow
+   list directly to the community relay;
+5. resolves the signed snapshot and every exact official event ID from the
+   relays, then materializes the same catalog/community/security roots used by
+   the browser and static build;
+6. serves only generated test artifacts and a status document after relay
+   verification succeeds.
 
-The console starts after that service is healthy, so a loaded catalog reflects
-the completed fixture rather than a partially seeded database.
+The console starts only after seeding is healthy. It receives public relay,
+kind, quorum, and authority configuration from `config.json`; it does not call a
+registry backend.
 
-Run `pnpm local:smoke` for an isolated cold build. It uses a unique Compose
-project and high local ports, requires two healthy official relays and the
-healthy community relay, verifies the complete two-of-three event quorum and
-all projections, downloads a projected artifact, checks its digest, checks the
-built console, and removes its containers and volumes afterward.
+## Rebuild static V1 output
+
+With either stack running, load the public fixture authority variables and run:
+
+```sh
+set -a
+source .local/registry-fixture/fixture.env
+set +a
+REGISTRY_USE_TEST_KINDS=true \
+REGISTRY_OFFICIAL_RELAYS=ws://127.0.0.1:8281 \
+REGISTRY_COMMUNITY_RELAYS=ws://127.0.0.1:8281 \
+pnpm relay:materialize --output artifacts/local-v1
+```
+
+For the quorum profile, provide all three comma-separated official relay URLs
+and the community URL on port 8381. Output includes the V1 index and plugin
+details, community/security views, snapshot event, and relay provenance. It is
+a disposable read model, not another source of truth.
 
 ## Configuration and safety
 
-The wrapper prefers `../nostr-relay` when it has the registry Grain profiles,
-then falls back to `../nostr-relay-registry`. Override discovery with absolute
-`LAPIS_PLUGINS_PATH` or `NOSTR_RELAY_CONTEXT` paths. Set
-`REGISTRY_FIXTURE_PLUGIN_LIMIT` to seed more complete packages. All published
-host ports can be overridden with the variables in
-`deploy/local-e2e.compose.yml`. Event timestamps are stable across fixture
-container restarts so relay recovery is idempotent; override
-`REGISTRY_FIXTURE_CREATED_AT` when a deliberately fresh local event set is
-needed.
+The wrapper prefers `../nostr-relay-registry`, then `../nostr-relay`. Override
+discovery with absolute `LAPIS_PLUGINS_PATH` or `NOSTR_RELAY_CONTEXT` paths. Set
+`REGISTRY_FIXTURE_PLUGIN_LIMIT` to seed more complete packages. Host ports can
+be overridden with the variables in `deploy/.env.example`. Event timestamps are
+stable across fixture restarts so relay recovery is idempotent; override
+`REGISTRY_FIXTURE_CREATED_AT` for a deliberately fresh local event set.
 
-Local Nostr secrets are randomly generated under the ignored
-`.local/registry-fixture` directory with owner-only permissions. Only public
-keys and file paths enter the rendered Compose environment; the secret file
-and source checkout are mounted read-only. `.local` is also excluded from the
-Docker build context. These test-kind events and source-metadata artifacts are
-not production identities, registry approvals, or installable plugin bundles.
+Local Nostr secrets are generated under ignored `.local/registry-fixture` with
+owner-only permissions. Only public keys and the secret-file path enter the
+rendered Compose environment; the secret file and source checkout are mounted
+read-only. `.local` is excluded from the Docker context. These test-kind events
+and fixture artifacts are not production identities, approvals, or installable
+plugin bundles.

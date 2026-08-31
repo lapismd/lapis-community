@@ -6,14 +6,10 @@ import {
 import { describe, expect, it } from "vitest";
 
 import {
-  createHttpAuthTemplate,
   Nip07RegistrySigner,
   Nip46RegistrySigner,
   Nip55RegistrySigner,
-  parseNip98AuthorizationHeader,
   RegistrySignerSession,
-  toNip98AuthorizationHeader,
-  verifyHttpAuth,
 } from "./index.js";
 import type {
   Nip07Provider,
@@ -174,67 +170,5 @@ describe("registry signers", () => {
     });
 
     await expect(session.getPublicKey()).rejects.toThrow("has expired");
-  });
-});
-
-describe("NIP-98 HTTP authorization", () => {
-  it("round-trips an exact, fresh payload-bound challenge", () => {
-    const secret = generateSecretKey();
-    const now = 1_800_000_000;
-    const request = {
-      url: "https://registry.example.test/events?source=community",
-      method: "POST",
-      body: JSON.stringify({ event: "fixture" }),
-      challenge: "one-use-challenge",
-      createdAt: now,
-    };
-    const event = finalizeEvent(createHttpAuthTemplate(request), secret);
-    const parsed = parseNip98AuthorizationHeader(
-      toNip98AuthorizationHeader(event),
-    );
-
-    expect(
-      verifyHttpAuth(parsed, {
-        ...request,
-        now,
-      }),
-    ).toBe(getPublicKey(secret));
-  });
-
-  it("fails closed on request mismatch, replay age, and malformed headers", () => {
-    const secret = generateSecretKey();
-    const now = 1_800_000_000;
-    const event = finalizeEvent(
-      createHttpAuthTemplate({
-        url: "https://registry.example.test/events",
-        method: "POST",
-        body: "expected",
-        challenge: "expected",
-        createdAt: now,
-      }),
-      secret,
-    );
-
-    expect(() =>
-      verifyHttpAuth(event, {
-        url: "https://registry.example.test/events",
-        method: "POST",
-        body: "changed",
-        challenge: "expected",
-        now,
-      }),
-    ).toThrow("payload does not match");
-    expect(() =>
-      verifyHttpAuth(event, {
-        url: "https://registry.example.test/events",
-        method: "POST",
-        body: "expected",
-        challenge: "expected",
-        now: now + 61,
-      }),
-    ).toThrow("outside the freshness window");
-    expect(() => parseNip98AuthorizationHeader("Bearer token")).toThrow(
-      "Expected a Nostr authorization scheme",
-    );
   });
 });

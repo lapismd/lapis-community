@@ -9,20 +9,20 @@ plan's production definition of done. `verified` means the named local slice and
 its owned tests pass; it does not mean that production keys/events exist, the
 public site or app has cut over, or later product/security phases are complete.
 
-| Phase | Ownership                       | Deliverable                                                                         | Status      | Evidence / gate                                                          |
-| ----- | ------------------------------- | ----------------------------------------------------------------------------------- | ----------- | ------------------------------------------------------------------------ |
-| 0     | this repository                 | repository, ownership contract, ADRs, workspace layout                              | verified    | `pnpm check`; local repository only; no remote                           |
-| 1     | protocol                        | schemas, references, authority, deterministic materializer, test vectors            | verified    | 19 catalog, security, and community protocol tests passing               |
-| 2     | Nostr client + relay deployment | exact-id reads, 2-of-3 publisher, locked official and open community Grain profiles | verified    | 5 client tests; relay smokes; `pnpm local:smoke` exact-copy quorum       |
-| 3     | import/projection               | deterministic V1 import and byte-semantic parity report                             | verified    | 13 signatures; 11 plugins/13 releases round-trip                         |
-| 4     | auth + registry service         | plain Nostr sign-in, shadow submissions, assessment and curator approval            | verified    | 8 auth + 3 service tests; NIP-07/46/55; PostgreSQL; cold container smoke |
-| 5     | curation                        | approval, revocation, moderation, deterministic signed snapshots                    | verified    | replay/shuffle/duplicate vectors; distinct snapshot signer acceptance    |
-| 6     | public coexistence              | legacy site consumes HTTP projection; separate Nostr preview console                | verified    | local Docker UI browser pass; legacy signed-source gate `ceed49ed`       |
-| 7     | Lapis                           | Nostr-primary, HTTP-live fallback, complete last-good cached state                  | verified    | backend matrix and root package acceptance; `0db73f3a`                   |
-| 8     | security                        | key ceremony, audit log, backups, recovery drills, operator runbooks                | active      | five runbooks + exact security projection; live drills/ceremonies gated  |
-| 9     | community                       | raw event retention plus transparent curated exclusion counts                       | verified    | 6 reducer + 2 service projection scenarios; reports cannot enforce       |
-| 10    | identity                        | passkey-gated OAuth, 2-of-3 prototype, 3-of-5 production ceremony                   | active      | broker 6 + coordinator 4 + operator 3 tests; crypto/setup remains gated  |
-| 11    | retirement                      | make Nostr default, observe, then retire legacy registry                            | manual-gate | explicit cutover and retirement approval                                 |
+| Phase | Ownership                       | Deliverable                                                                    | Status      | Evidence / gate                                                         |
+| ----- | ------------------------------- | ------------------------------------------------------------------------------ | ----------- | ----------------------------------------------------------------------- |
+| 0     | this repository                 | repository, ownership contract, ADRs, workspace layout                         | verified    | `pnpm check`; local repository only; no remote                          |
+| 1     | protocol                        | schemas, references, authority, deterministic materializer, test vectors       | verified    | 19 catalog, security, and community protocol tests passing              |
+| 2     | Nostr client + relay deployment | exact-id reads, direct 2-of-3 publishing, strfry policy profiles               | verified    | client tests; strfry policy tests; single/quorum Compose validation     |
+| 3     | import/projection               | deterministic V1 import and byte-semantic parity report                        | verified    | 13 signatures; 11 plugins/13 releases round-trip                        |
+| 4     | auth + direct publication       | NIP-07/46/55 signing, direct relay submission, assessment and curator approval | verified    | auth tests; direct relay fixture and console; no registry database/API  |
+| 5     | curation                        | approval, revocation, moderation, deterministic signed snapshots               | verified    | replay/shuffle/duplicate vectors; distinct snapshot signer acceptance   |
+| 6     | public coexistence              | legacy registry remains live; separate direct-relay Nostr console              | verified    | local Docker UI path; legacy signed-source gate `ceed49ed`              |
+| 7     | Lapis                           | Nostr-primary, HTTP-live fallback, complete last-good cached state             | verified    | backend matrix and root package acceptance; `0db73f3a`                  |
+| 8     | security                        | key ceremony, audit log, backups, recovery drills, operator runbooks           | active      | five runbooks + exact security projection; live drills/ceremonies gated |
+| 9     | community                       | raw event retention plus transparent curated exclusion counts                  | verified    | reducer and direct-relay projection scenarios; reports cannot enforce   |
+| 10    | identity                        | passkey-gated OAuth, 2-of-3 prototype, 3-of-5 production ceremony              | active      | broker 6 + coordinator 4 + operator 3 tests; crypto/setup remains gated |
+| 11    | retirement                      | make Nostr default, observe, then retire legacy registry                       | manual-gate | explicit cutover and retirement approval                                |
 
 ## Manual gates
 

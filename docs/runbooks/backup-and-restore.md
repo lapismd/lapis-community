@@ -8,16 +8,15 @@ or registry signing key:
 | Data                                       | Backup form                                                | Restore proof                                            |
 | ------------------------------------------ | ---------------------------------------------------------- | -------------------------------------------------------- |
 | Official raw events and snapshot manifests | append-only, content-addressed export                      | event signatures, event IDs, snapshot root               |
-| PostgreSQL event/challenge state           | encrypted logical and provider-native backup               | migration, row counts, event-envelope equality           |
 | Materializer cache and static projection   | disposable copy                                            | rebuild from raw events and compare roots                |
 | Public role/kind/relay configuration       | versioned signed configuration                             | exact digest and authority-set review                    |
 | Operator shares                            | independently encrypted operator custody                   | operator-local share check; never central reconstruction |
-| OAuth provider mappings and account state  | encrypted private backup with separate mapping-key custody | opaque lookup and account consistency                    |
+| Optional Turso identity-broker state       | encrypted private backup with separate mapping-key custody | opaque lookup, expiry, and account consistency           |
 | Audit records                              | append-only encrypted export                               | sequence, time bounds, and sink integrity checks         |
 
-Challenge rows are operational state, not durable identity data. Expired or
-consumed challenges need not be restored when the approved retention policy has
-removed them.
+OAuth attempts and session rows are operational state, not registry data.
+Expired or consumed rows need not be restored when the approved retention
+policy has removed them.
 
 ## Backup procedure
 
@@ -38,8 +37,8 @@ removed them.
 
 1. Obtain approval for an isolated, non-public environment with no production
    relay publication or OAuth callbacks.
-2. Restore public configuration and raw events, then migrate PostgreSQL into an
-   empty database.
+2. Restore public configuration and import the verified event export into empty
+   strfry relay stores.
 3. Rebuild the catalog, security, community, and V1 projections from the raw
    event set. Compare accepted event IDs, exclusion counts, artifact hashes,
    and roots with the backup record.

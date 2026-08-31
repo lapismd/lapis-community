@@ -27,7 +27,6 @@ export interface FixtureSecrets {
 export interface FixtureFileSet {
   environmentFile: string;
   secretsFile: string;
-  whitelistFile: string;
 }
 
 function newSecrets(): FixtureSecrets {
@@ -87,10 +86,19 @@ export async function createFixtureFiles(
   const directory = path.resolve(outputDirectory);
   const secretsFile = path.join(directory, "fixture-secrets.json");
   const environmentFile = path.join(directory, "fixture.env");
-  const whitelistFile = path.join(directory, "official-whitelist.yml");
   await mkdir(directory, { recursive: true, mode: 0o700 });
   const secrets = (await existingSecrets(secretsFile)) ?? newSecrets();
   const publicKeys = fixturePublicKeys(secrets);
+  const officialWriters = [
+    publicKeys.advisory,
+    publicKeys.assessor,
+    publicKeys.curator,
+    publicKeys.disposition,
+    publicKeys.moderator,
+    publicKeys.operator,
+    publicKeys.publisher,
+    publicKeys.snapshot,
+  ].toSorted();
 
   await writeFile(secretsFile, `${JSON.stringify(secrets, null, 2)}\n`, {
     encoding: "utf8",
@@ -107,53 +115,13 @@ export async function createFixtureFiles(
       `REGISTRY_OPERATOR_PUBKEYS=${publicKeys.operator}`,
       `REGISTRY_SECURITY_ADVISORY_PUBKEYS=${publicKeys.advisory}`,
       `REGISTRY_SECURITY_DISPOSITION_PUBKEYS=${publicKeys.disposition}`,
-      `GRAIN_OFFICIAL_OWNER_PUBKEY=${publicKeys.operator}`,
-      `GRAIN_COMMUNITY_OWNER_PUBKEY=${publicKeys.operator}`,
+      `REGISTRY_OFFICIAL_PUBKEYS=${officialWriters.join(",")}`,
       `REGISTRY_FIXTURE_SECRETS_FILE=${secretsFile}`,
-      `REGISTRY_FIXTURE_WHITELIST_FILE=${whitelistFile}`,
       "",
     ].join("\n"),
     { encoding: "utf8", mode: 0o600 },
   );
   await chmod(environmentFile, 0o600);
 
-  const officialWriters = [
-    publicKeys.advisory,
-    publicKeys.assessor,
-    publicKeys.curator,
-    publicKeys.disposition,
-    publicKeys.moderator,
-    publicKeys.operator,
-    publicKeys.publisher,
-    publicKeys.snapshot,
-  ].toSorted();
-  const officialKinds = [
-    1063, 1111, 1984, 1985, 30063, 32267, 64000, 64001, 64002, 64003, 64004,
-    64005,
-  ];
-  await writeFile(
-    whitelistFile,
-    [
-      "pubkey_whitelist:",
-      "  enabled: true",
-      "  pubkeys:",
-      ...officialWriters.map((pubkey) => `    - \"${pubkey}\"`),
-      "  npubs: []",
-      "  cache_refresh_minutes: 1",
-      "",
-      "kind_whitelist:",
-      "  enabled: true",
-      "  kinds:",
-      ...officialKinds.map((kind) => `    - \"${kind}\"`),
-      "",
-      "domain_whitelist:",
-      "  enabled: false",
-      "  domains: []",
-      "  cache_refresh_minutes: 120",
-      "",
-    ].join("\n"),
-    "utf8",
-  );
-
-  return { environmentFile, secretsFile, whitelistFile };
+  return { environmentFile, secretsFile };
 }

@@ -9,7 +9,9 @@ import {
   createSnapshotContent,
   eventAddress,
   materializeRegistry,
+  TEST_COMMUNITY_KINDS,
   TEST_REGISTRY_KINDS,
+  TEST_SECURITY_KINDS,
 } from "@lapismd/registry-protocol";
 import type {
   ApprovalContent,
@@ -22,6 +24,7 @@ import type {
 
 import {
   loadVerifiedRegistrySnapshot,
+  loadRelayRegistryState,
   MemoryRegistryCache,
   PublicationQuorumError,
   publishWithQuorum,
@@ -295,6 +298,32 @@ describe("registry relay behavior", () => {
     expect(loaded.registry.acceptedEventIds).toEqual(
       events.map((event) => event.id).toSorted(),
     );
+  });
+
+  it("derives the dashboard projection directly from verified relay events", async () => {
+    const { events, snapshot } = registryEvents();
+    const loaded = await loadRelayRegistryState({
+      officialRelays: [
+        new FakeRelay("wss://official.test", [snapshot, ...events]),
+      ],
+      communityRelays: [new FakeRelay("wss://community.test")],
+      kinds: TEST_REGISTRY_KINDS,
+      communityKinds: TEST_COMMUNITY_KINDS,
+      securityKinds: TEST_SECURITY_KINDS,
+      authorities,
+      securityAuthorities: {
+        advisoryPubkeys: new Set(),
+        dispositionPubkeys: new Set(),
+      },
+    });
+
+    expect(loaded.registry.root).toBe(loaded.projection.provenance.root);
+    expect(loaded.projection.index.plugins).toHaveLength(1);
+    expect(loaded.sources.official[0]?.eventIds).toEqual(
+      events.map((event) => event.id).toSorted(),
+    );
+    expect(loaded.community.ratingAggregates).toEqual([]);
+    expect(loaded.security.statuses).toEqual([]);
   });
 });
 

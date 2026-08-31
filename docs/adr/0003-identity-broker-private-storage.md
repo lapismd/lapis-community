@@ -14,6 +14,8 @@ data, not Nostr events.
 ## Decision
 
 The identity broker owns one-use OAuth attempts and opaque provider mappings.
+If prototype interfaces are made durable, their private implementation uses
+Turso; this database is not part of the registry event or projection path.
 It stores only:
 
 - a digest of the OAuth state plus the short-lived PKCE verifier, nonce,
@@ -29,7 +31,8 @@ allowlist. GitHub accepts only its stable numeric user id. Provider tokens and
 raw subjects are not returned by the broker, included in audit entries, or
 published as events.
 
-OAuth onboarding is not complete until a WebAuthn verifier confirms user
+Durable portable identity/account state is encoded as encrypted, signed Nostr
+events. OAuth onboarding is not complete until a WebAuthn verifier confirms user
 verification, a public threshold-group descriptor is validated, and an
 encrypted recovery package has been exported. OAuth-created accounts receive
 only the `user` role. Curator, snapshot, and security authority always require

@@ -10,14 +10,15 @@ can be proven before any cutover.
 - `@lapismd/registry-protocol`: event schemas, authority rules, materializer,
   snapshot roots, and V1 projection.
 - `@lapismd/registry-nostr`: relay transport, exact-event resolution, quorum
-  publication, cache, and fallback primitives.
+  publication, verified snapshot loading, and direct relay materialization.
 - `@lapismd/registry-auth`: signer interfaces and plain-Nostr/OAuth adapters.
-- `services/registry-service`: event ingestion, assessment, curation, snapshots,
-  and HTTP compatibility projection.
 - `services/identity-broker`: passkey-gated identity onboarding and OAuth claims.
 - `services/signer-coordinator` and `services/signer-operator`: threshold signing
   orchestration and independently operated shares.
-- `apps/registry-console`: separate Nostr preview and curator/admin console.
+- `apps/registry-console`: browser-side relay reader, publisher, and
+  curator/admin console.
+- `scripts/materialize-relays.ts`: deterministic static V1 output built from a
+  verified relay snapshot.
 
 Relay and Blossom image assembly stays in the sibling `nostr-relay` repository.
 Plugin artifacts stay in `lapis-plugins`. The existing public Astro site and V1
@@ -32,9 +33,16 @@ or publisher-key verification. A plugin is visible in the curated projection
 only after automated assessment passes and one curator approves it. A distinct
 snapshot signer signs deterministic projections.
 
-The official publisher writes to three configured relays and requires two
-acknowledgements. Community relay events remain retrievable, while projections
-apply published mute/hide decisions and expose excluded-event counts.
+The signed Nostr event graph is the source of truth. There is no authoritative
+registry database and no HTTP event-submission API. Browsers and build jobs read
+the signed snapshot from the configured official relays, fetch its exact event
+IDs, verify and materialize them locally, and query community events separately.
+
+Official publication writes the same signed event directly to three configured
+relays and requires two acknowledgements. Community relay events remain
+retrievable, while projections apply published mute/hide decisions and expose
+excluded-event counts. Static V1 files and browser state are disposable read
+models that can always be rebuilt from the relays.
 
 ## Rollout
 
@@ -50,9 +58,10 @@ the active registry.
 
 ## Local end-to-end stack
 
-Run `pnpm local:up` to build a complete local registry with PostgreSQL, three
-official relays, a community relay, generated events from the sibling
-`lapis-plugins` checkout, fixture artifacts, and the preview console. Open
+Run `pnpm local:up` for the fast loop: one strfry relay, generated events from
+the sibling `lapis-plugins` checkout, fixture artifacts, and the direct-relay
+console. Run `pnpm local:up:quorum` for three official strfry relays, one
+community relay, and a two-of-three publication quorum. Open
 <http://localhost:4173/> after Compose reports the services healthy.
 
 The complete lifecycle, safety boundary, configuration overrides, and cold

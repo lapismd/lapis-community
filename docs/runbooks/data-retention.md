@@ -16,12 +16,15 @@ and infrastructure logs stay outside public events.
 - **Community relay history:** ratings, reviews, reports, follows, collections,
   and replacement/withdrawal events according to the published relay policy.
   Projection exclusion does not silently purge raw history.
-- **Short-lived authentication state:** NIP-98 challenges, OAuth state/nonce/
-  PKCE material, onboarding tokens, and revoked NIP-46 sessions. Expire and
-  erase promptly after use or timeout.
+- **Short-lived authentication state:** OAuth state/nonce/PKCE material,
+  onboarding tokens, and revoked NIP-46 sessions. If durable storage is needed,
+  keep it in the identity broker's private Turso database and erase it promptly
+  after use or timeout.
 - **Private account state:** opaque provider mappings, account metadata, passkey
-  credential identifiers, and recovery receipts. Retain only while needed for
-  the account and approved recovery obligations.
+  credential identifiers, and recovery receipts. Durable portable identity
+  state is an encrypted, signed Nostr event; private provider mechanics may use
+  Turso. Retain either only while needed for the account and approved recovery
+  obligations.
 - **Protected key material:** operator shares and recovery packages remain only
   in their independent encrypted custody. They never enter normal service logs,
   registry backups, analytics, or public events.

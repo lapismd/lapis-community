@@ -3,19 +3,22 @@ import { createServer } from "node:http";
 import { setTimeout as delay } from "node:timers/promises";
 
 import {
-  createHttpAuthTemplate,
-  toNip98AuthorizationHeader,
-} from "@lapismd/registry-auth";
-import { WebSocketRegistryRelay } from "@lapismd/registry-nostr";
+  loadRelayRegistryState,
+  resolveExactEvents,
+  WebSocketRegistryRelay,
+} from "@lapismd/registry-nostr";
 import {
   createApprovalEventTemplate,
   createAssessmentEventTemplate,
   createPluginEventTemplate,
   createRatingTemplate,
   createReleaseEventTemplate,
+  createSnapshotContent,
+  createSnapshotEventTemplate,
   createSecurityAdvisoryTemplate,
   createSecurityDispositionTemplate,
   eventAddress,
+  materializeRegistry,
   TEST_COMMUNITY_KINDS,
   TEST_REGISTRY_KINDS,
   TEST_SECURITY_KINDS,
@@ -24,8 +27,8 @@ import type {
   ApprovalContent,
   AssessmentContent,
   NostrEvent,
-  NostrEventTemplate,
   RatingContent,
+  RegistryAuthorities,
   ReleaseContent,
   SecurityAdvisoryContent,
   SecurityDispositionContent,
@@ -37,11 +40,6 @@ import { parseFixtureSecrets } from "./keys.js";
 import type { FixtureSecretName, FixtureSecrets } from "./keys.js";
 import { publishWithRetainedQuorum } from "./publication.js";
 import { loadLocalPluginFixtures } from "./source.js";
-
-interface Challenge {
-  challenge: string;
-  action: { url: string; method: string };
-}
 
 interface FixtureStatus {
   schema: "lapis.registry.local-fixture-status/1";
@@ -80,48 +78,6 @@ function secret(secrets: FixtureSecrets, name: FixtureSecretName): Uint8Array {
   return hexToBytes(secrets.keys[name]);
 }
 
-async function responseJson<T>(response: Response): Promise<T> {
-  const value = (await response.json()) as unknown;
-  if (!response.ok) {
-    throw new Error(
-      `Registry service returned ${response.status}: ${JSON.stringify(value)}`,
-    );
-  }
-  return value as T;
-}
-
-async function readEndpoint<T>(apiBase: string, pathname: string): Promise<T> {
-  return responseJson<T>(await fetch(new URL(pathname, apiBase)));
-}
-
-async function submitEvent(
-  apiBase: string,
-  event: NostrEvent,
-  signingSecret: Uint8Array,
-): Promise<void> {
-  const challenge = await readEndpoint<Challenge>(apiBase, "auth/challenge");
-  const body = JSON.stringify({ event });
-  const authEvent = finalizeEvent(
-    createHttpAuthTemplate({
-      url: challenge.action.url,
-      method: challenge.action.method,
-      body,
-      challenge: challenge.challenge,
-    }),
-    signingSecret,
-  );
-  await responseJson(
-    await fetch(new URL("events", apiBase), {
-      method: "POST",
-      headers: {
-        authorization: toNip98AuthorizationHeader(authEvent),
-        "content-type": "application/json",
-      },
-      body,
-    }),
-  );
-}
-
 async function retry<T>(action: () => Promise<T>, label: string): Promise<T> {
   let lastError: unknown;
   for (let attempt = 1; attempt <= 20; attempt += 1) {
@@ -149,19 +105,15 @@ async function seed(): Promise<{
     "/workspace/lapis-plugins",
   );
   const pluginLimit = positiveInteger("REGISTRY_FIXTURE_PLUGIN_LIMIT", 3);
-  const apiBase = new URL(
-    required("REGISTRY_API_INTERNAL", "http://registry-service:8787/"),
-  ).toString();
   const artifactBase = new URL(
     required("REGISTRY_FIXTURE_ARTIFACT_BASE_URL", "http://127.0.0.1:8090/"),
   );
   const officialUrls = required("REGISTRY_OFFICIAL_RELAYS")
     .split(",")
     .map((value) => new URL(value.trim()).toString());
-  if (officialUrls.length !== 3) {
-    throw new Error(
-      "REGISTRY_OFFICIAL_RELAYS must contain exactly three relays",
-    );
+  const publicationQuorum = positiveInteger("REGISTRY_PUBLISH_QUORUM", 1);
+  if (publicationQuorum > officialUrls.length) {
+    throw new Error("REGISTRY_PUBLISH_QUORUM exceeds the official relay set");
   }
   const communityUrl = new URL(required("REGISTRY_COMMUNITY_RELAY")).toString();
   const officialRelays = officialUrls.map(
@@ -183,25 +135,22 @@ async function seed(): Promise<{
   // is still recovering. Users can override the epoch to create a fresh set.
   let createdAt = positiveInteger("REGISTRY_FIXTURE_CREATED_AT", 1_767_225_600);
 
-  const publishOfficial = async (
-    event: NostrEvent,
-    signingSecret: Uint8Array,
-  ): Promise<void> => {
+  const publishOfficial = async (event: NostrEvent): Promise<void> => {
     await retry(async () => {
       try {
-        return await publishWithRetainedQuorum(event, officialRelays, 2);
+        return await publishWithRetainedQuorum(
+          event,
+          officialRelays,
+          publicationQuorum,
+        );
       } finally {
         for (const relay of officialRelays) relay.close();
       }
     }, `official publication ${event.id}`);
-    await submitEvent(apiBase, event, signingSecret);
     officialEvents.push(event);
     await delay(125);
   };
-  const publishCommunity = async (
-    event: NostrEvent,
-    signingSecret: Uint8Array,
-  ): Promise<void> => {
+  const publishCommunity = async (event: NostrEvent): Promise<void> => {
     await retry(async () => {
       try {
         return await communityRelay.publish(event);
@@ -209,7 +158,6 @@ async function seed(): Promise<{
         communityRelay.close();
       }
     }, `community publication ${event.id}`);
-    await submitEvent(apiBase, event, signingSecret);
     communityEvents.push(event);
   };
 
@@ -285,10 +233,10 @@ async function seed(): Promise<{
       curatorSecret,
     );
 
-    await publishOfficial(plugin, publisherSecret);
-    await publishOfficial(release, publisherSecret);
-    await publishOfficial(assessment, assessorSecret);
-    await publishOfficial(approval, curatorSecret);
+    await publishOfficial(plugin);
+    await publishOfficial(release);
+    await publishOfficial(assessment);
+    await publishOfficial(approval);
     acceptedReleases.push({ event: release, content: releaseContent });
   }
 
@@ -312,7 +260,7 @@ async function seed(): Promise<{
     ),
     advisorySecret,
   );
-  await publishOfficial(advisory, advisorySecret);
+  await publishOfficial(advisory);
   const dispositionSecret = secret(secrets, "disposition");
   const dispositionContent: SecurityDispositionContent = {
     schema: "lapis.registry.security-disposition/1",
@@ -331,7 +279,7 @@ async function seed(): Promise<{
     ),
     dispositionSecret,
   );
-  await publishOfficial(disposition, dispositionSecret);
+  await publishOfficial(disposition);
 
   const pluginAddress = eventAddress(
     TEST_REGISTRY_KINDS.softwareApplication,
@@ -360,7 +308,6 @@ async function seed(): Promise<{
         ),
         userSecret,
       ),
-      userSecret,
     );
   }
   const communityOneSecret = secret(secrets, "communityOne");
@@ -380,7 +327,7 @@ async function seed(): Promise<{
     },
     communityOneSecret,
   );
-  await publishCommunity(review, communityOneSecret);
+  await publishCommunity(review);
   const communityTwoSecret = secret(secrets, "communityTwo");
   const report = finalizeEvent(
     {
@@ -391,7 +338,7 @@ async function seed(): Promise<{
     },
     communityTwoSecret,
   );
-  await publishCommunity(report, communityTwoSecret);
+  await publishCommunity(report);
   const collection = finalizeEvent(
     {
       kind: TEST_COMMUNITY_KINDS.appCurationSet,
@@ -412,7 +359,7 @@ async function seed(): Promise<{
     },
     communityOneSecret,
   );
-  await publishCommunity(collection, communityOneSecret);
+  await publishCommunity(collection);
   const follows = finalizeEvent(
     {
       kind: TEST_COMMUNITY_KINDS.followList,
@@ -422,14 +369,44 @@ async function seed(): Promise<{
     },
     communityTwoSecret,
   );
-  await publishCommunity(follows, communityTwoSecret);
+  await publishCommunity(follows);
 
-  const snapshotResponse = await readEndpoint<{
-    template: NostrEventTemplate;
-  }>(apiBase, "preview/snapshot-template");
   const snapshotSecret = secret(secrets, "snapshot");
-  const snapshot = finalizeEvent(snapshotResponse.template, snapshotSecret);
-  await publishOfficial(snapshot, snapshotSecret);
+  const authorities: RegistryAuthorities = {
+    assessorPubkeys: new Set([getPublicKey(secret(secrets, "assessor"))]),
+    curatorPubkeys: new Set([getPublicKey(secret(secrets, "curator"))]),
+    moderatorPubkeys: new Set([getPublicKey(secret(secrets, "moderator"))]),
+    snapshotSignerPubkeys: new Set([getPublicKey(snapshotSecret)]),
+    registryOperatorPubkeys: new Set([
+      getPublicKey(secret(secrets, "operator")),
+    ]),
+  };
+  const resolvedForSnapshot = await resolveExactEvents(
+    officialEvents.map((event) => event.id),
+    officialRelays,
+  );
+  if (resolvedForSnapshot.missingEventIds.length > 0) {
+    throw new Error(
+      `Cannot snapshot ${resolvedForSnapshot.missingEventIds.length} missing relay events`,
+    );
+  }
+  const liveRegistry = materializeRegistry(
+    resolvedForSnapshot.events,
+    TEST_REGISTRY_KINDS,
+    authorities,
+  );
+  const snapshot = finalizeEvent(
+    createSnapshotEventTemplate(
+      createSnapshotContent(
+        liveRegistry,
+        new Date(createdAt * 1_000).toISOString(),
+      ),
+      TEST_REGISTRY_KINDS,
+      createdAt++,
+    ),
+    snapshotSecret,
+  );
+  await publishOfficial(snapshot);
 
   const officialCopies: Record<string, number> = {};
   await Promise.all(
@@ -453,9 +430,9 @@ async function seed(): Promise<{
   const officialQuorum = Object.values(officialCopies).filter(
     (count) => count === officialEvents.length,
   ).length;
-  if (officialQuorum < 2) {
+  if (officialQuorum < publicationQuorum) {
     throw new Error(
-      `Only ${officialQuorum}/3 official relays retained the complete event set`,
+      `Only ${officialQuorum}/${officialUrls.length} official relays retained the complete event set`,
     );
   }
   const communityCopies = await retry(async () => {
@@ -473,11 +450,18 @@ async function seed(): Promise<{
     );
   }
 
-  const [provenance, community, security] = await Promise.all([
-    readEndpoint<{ root: string }>(apiBase, "preview/v1/provenance.json"),
-    readEndpoint<{ root: string }>(apiBase, "preview/community.json"),
-    readEndpoint<{ root: string }>(apiBase, "preview/security.json"),
-  ]);
+  const relayState = await loadRelayRegistryState({
+    officialRelays,
+    communityRelays: [communityRelay],
+    kinds: TEST_REGISTRY_KINDS,
+    communityKinds: TEST_COMMUNITY_KINDS,
+    securityKinds: TEST_SECURITY_KINDS,
+    authorities,
+    securityAuthorities: {
+      advisoryPubkeys: new Set([getPublicKey(advisorySecret)]),
+      dispositionPubkeys: new Set([getPublicKey(dispositionSecret)]),
+    },
+  });
   return {
     artifacts,
     status: {
@@ -486,9 +470,9 @@ async function seed(): Promise<{
       pluginIds: fixtures.map((fixture) => fixture.plugin.pluginId),
       officialEventCount: officialEvents.length,
       communityEventCount: communityEvents.length,
-      registryRoot: provenance.root,
-      communityRoot: community.root,
-      securityRoot: security.root,
+      registryRoot: relayState.registry.root,
+      communityRoot: relayState.community.root,
+      securityRoot: relayState.security.root,
       artifactPaths: [...artifacts.keys()].toSorted(),
       relayCopies: {
         official: officialCopies,

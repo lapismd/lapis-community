@@ -1,15 +1,18 @@
 name: lapis-nostr-registry-production
 
 services:
-  registry-service:
-    image: ${REGISTRY_SERVICE_IMAGE:?set REGISTRY_SERVICE_IMAGE to an immutable published digest}
+  registry-console:
+    image: ${REGISTRY_CONSOLE_IMAGE:?set REGISTRY_CONSOLE_IMAGE to an immutable published digest}
+    read_only: true
+    tmpfs:
+      - /tmp
     environment:
+      HOST: 0.0.0.0
       NODE_ENV: production
-      PORT: 8787
-      DATABASE_URL: ${DATABASE_URL:?set DATABASE_URL}
-      REGISTRY_PUBLIC_BASE_URL: ${REGISTRY_PUBLIC_BASE_URL:?set REGISTRY_PUBLIC_BASE_URL}
-      REGISTRY_CONSOLE_ORIGINS: ${REGISTRY_CONSOLE_ORIGINS:?set REGISTRY_CONSOLE_ORIGINS}
-      REGISTRY_REQUIRE_HTTP_AUTH: "true"
+      PORT: 4173
+      REGISTRY_OFFICIAL_RELAYS: ${REGISTRY_OFFICIAL_RELAYS:?set REGISTRY_OFFICIAL_RELAYS}
+      REGISTRY_COMMUNITY_RELAYS: ${REGISTRY_COMMUNITY_RELAYS:?set REGISTRY_COMMUNITY_RELAYS}
+      REGISTRY_PUBLISH_QUORUM: ${REGISTRY_PUBLISH_QUORUM:?set REGISTRY_PUBLISH_QUORUM}
       REGISTRY_APPROVAL_KIND: ${REGISTRY_APPROVAL_KIND:?set after kind ADR approval}
       REGISTRY_MODERATION_DECISION_KIND: ${REGISTRY_MODERATION_DECISION_KIND:?set after kind ADR approval}
       REGISTRY_REVOCATION_KIND: ${REGISTRY_REVOCATION_KIND:?set after kind ADR approval}
@@ -26,11 +29,11 @@ services:
       REGISTRY_SECURITY_ADVISORY_PUBKEYS: ${REGISTRY_SECURITY_ADVISORY_PUBKEYS:?set REGISTRY_SECURITY_ADVISORY_PUBKEYS}
       REGISTRY_SECURITY_DISPOSITION_PUBKEYS: ${REGISTRY_SECURITY_DISPOSITION_PUBKEYS:?set REGISTRY_SECURITY_DISPOSITION_PUBKEYS}
     expose:
-      - "8787"
+      - "4173"
     healthcheck:
-      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:8787/health"]
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:4173/"]
       interval: 10s
       timeout: 3s
       retries: 20
-      start_period: 10s
+      start_period: 5s
     restart: unless-stopped

@@ -1,0 +1,78 @@
+name: lapis-nostr-registry-local-quorum
+
+x-strfry: &strfry
+  image: ${STRFRY_REGISTRY_IMAGE:-nostr-relay-strfry-registry:local}
+  environment:
+    LAPIS_STRFRY_POLICY_MODE: official
+    LAPIS_STRFRY_ALLOWED_PUBKEYS: ${REGISTRY_OFFICIAL_PUBKEYS:?fixture official writers are missing}
+    LAPIS_STRFRY_ALLOWED_KINDS: ${REGISTRY_OFFICIAL_KINDS:-1063,1111,1984,1985,30063,32267,64000,64001,64002,64003,64004,64005}
+  healthcheck:
+    test: ["CMD", "/app/lapis-registry-policy", "healthcheck", "127.0.0.1:7777"]
+    interval: 5s
+    timeout: 3s
+    retries: 30
+    start_period: 10s
+  restart: unless-stopped
+
+services:
+  registry-official-a:
+    <<: *strfry
+    ports:
+      - "${STRFRY_OFFICIAL_A_PORT:-8281}:7777"
+    volumes:
+      - registry-official-a-data:/app/strfry-db
+      - ${NOSTR_RELAY_CONTEXT:?run pnpm local:up so nostr-relay is resolved}/deploy/strfry/profiles/registry-official.conf:/etc/strfry.conf:ro
+
+  registry-official-b:
+    <<: *strfry
+    ports:
+      - "${STRFRY_OFFICIAL_B_PORT:-8282}:7777"
+    volumes:
+      - registry-official-b-data:/app/strfry-db
+      - ${NOSTR_RELAY_CONTEXT:?run pnpm local:up so nostr-relay is resolved}/deploy/strfry/profiles/registry-official.conf:/etc/strfry.conf:ro
+
+  registry-official-c:
+    <<: *strfry
+    ports:
+      - "${STRFRY_OFFICIAL_C_PORT:-8283}:7777"
+    volumes:
+      - registry-official-c-data:/app/strfry-db
+      - ${NOSTR_RELAY_CONTEXT:?run pnpm local:up so nostr-relay is resolved}/deploy/strfry/profiles/registry-official.conf:/etc/strfry.conf:ro
+
+  registry-community:
+    <<: *strfry
+    environment:
+      LAPIS_STRFRY_POLICY_MODE: community
+      LAPIS_STRFRY_ALLOWED_KINDS: ${REGISTRY_COMMUNITY_KINDS:-3,1111,1984,30267,32267,64006}
+    ports:
+      - "${STRFRY_COMMUNITY_PORT:-8381}:7777"
+    volumes:
+      - registry-community-data:/app/strfry-db
+      - ${NOSTR_RELAY_CONTEXT:?run pnpm local:up so nostr-relay is resolved}/deploy/strfry/profiles/registry-community.conf:/etc/strfry.conf:ro
+
+  registry-fixture:
+    environment:
+      REGISTRY_OFFICIAL_RELAYS: ws://registry-official-a:7777,ws://registry-official-b:7777,ws://registry-official-c:7777
+      REGISTRY_COMMUNITY_RELAY: ws://registry-community:7777
+      REGISTRY_PUBLISH_QUORUM: "2"
+    depends_on:
+      registry-official-a:
+        condition: service_healthy
+      registry-official-b:
+        condition: service_healthy
+      registry-official-c:
+        condition: service_healthy
+      registry-community:
+        condition: service_healthy
+
+  registry-console:
+    environment:
+      REGISTRY_OFFICIAL_RELAYS: ws://127.0.0.1:${STRFRY_OFFICIAL_A_PORT:-8281},ws://127.0.0.1:${STRFRY_OFFICIAL_B_PORT:-8282},ws://127.0.0.1:${STRFRY_OFFICIAL_C_PORT:-8283}
+      REGISTRY_COMMUNITY_RELAYS: ws://127.0.0.1:${STRFRY_COMMUNITY_PORT:-8381}
+      REGISTRY_PUBLISH_QUORUM: "2"
+
+volumes:
+  registry-official-a-data:
+  registry-official-b-data:
+  registry-official-c-data:
+  registry-community-data:

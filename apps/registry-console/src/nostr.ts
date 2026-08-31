@@ -1,4 +1,11 @@
-import { eventBody, loadChallenge, submitEvent } from "./api.js";
+import {
+  createLiveSnapshotTemplate,
+  publishWithQuorum,
+  WebSocketRegistryRelay,
+} from "@lapismd/registry-nostr";
+
+import { registryAuthorities } from "./api.js";
+import type { ConsoleConfig } from "./api.js";
 import type { Nip07Provider, NostrEvent, NostrEventTemplate } from "./types.js";
 
 function exactTemplate(
@@ -31,50 +38,45 @@ export async function signExactTemplate(
   return signed;
 }
 
-async function sha256Hex(value: string): Promise<string> {
-  const digest = await crypto.subtle.digest(
-    "SHA-256",
-    new TextEncoder().encode(value),
-  );
-  return Array.from(new Uint8Array(digest), (byte) =>
-    byte.toString(16).padStart(2, "0"),
-  ).join("");
-}
-
-function base64Utf8(value: string): string {
-  const bytes = new TextEncoder().encode(value);
-  let binary = "";
-  for (const byte of bytes) binary += String.fromCharCode(byte);
-  return btoa(binary);
-}
-
-export async function submitWithNip98(
-  apiBase: string,
+export async function publishSignedEvent(
+  config: ConsoleConfig,
   provider: Nip07Provider,
   event: NostrEvent,
-): Promise<{ eventId: string; inserted: boolean }> {
+): Promise<{ accepted: number; required: number; total: number }> {
   const signerPubkey = await provider.getPublicKey();
   if (signerPubkey !== event.pubkey) {
-    throw new Error(
-      "Connected signer does not match the submitted event author",
-    );
+    throw new Error("Connected signer does not match the event author");
   }
-  const body = eventBody(event);
-  const challenge = await loadChallenge(apiBase);
-  const auth = await signExactTemplate(provider, {
-    kind: 27235,
-    created_at: Math.floor(Date.now() / 1_000),
-    tags: [
-      ["u", new URL(challenge.action.url).toString()],
-      ["method", challenge.action.method.toUpperCase()],
-      ["payload", await sha256Hex(body)],
-      ["challenge", challenge.challenge],
-    ],
-    content: "",
-  });
-  return submitEvent(
-    challenge.action,
-    body,
-    `Nostr ${base64Utf8(JSON.stringify(auth))}`,
+  const relays = config.officialRelays.map(
+    (url) => new WebSocketRegistryRelay(url),
   );
+  try {
+    const result = await publishWithQuorum(event, relays, config.publishQuorum);
+    return {
+      accepted: result.accepted,
+      required: result.required,
+      total: result.attempts.length,
+    };
+  } finally {
+    for (const relay of relays) relay.close();
+  }
+}
+
+export async function loadLiveSnapshotTemplate(
+  config: ConsoleConfig,
+): Promise<NostrEventTemplate> {
+  const relays = config.officialRelays.map(
+    (url) => new WebSocketRegistryRelay(url),
+  );
+  try {
+    const result = await createLiveSnapshotTemplate(
+      relays,
+      config.kinds,
+      registryAuthorities(config),
+      Math.floor(Date.now() / 1_000),
+    );
+    return result.template as NostrEventTemplate;
+  } finally {
+    for (const relay of relays) relay.close();
+  }
 }

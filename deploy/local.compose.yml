@@ -1,56 +1,64 @@
 name: lapis-nostr-registry-local
 
 services:
-  postgres:
-    image: postgres:17.6-alpine@sha256:ef257d85f76e48da1c64832459b59fcaba1a4dac97bf5d7450c77753542eee94
-    environment:
-      POSTGRES_DB: registry
-      POSTGRES_USER: registry
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-registry_local_password}
-    ports:
-      - "${POSTGRES_PORT:-5432}:5432"
-    volumes:
-      - postgres-data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U registry -d registry"]
-      interval: 5s
-      timeout: 3s
-      retries: 20
-    restart: unless-stopped
-
-  registry-service:
-    image: ${REGISTRY_SERVICE_IMAGE:-lapis-registry-service:local}
+  registry-fixture:
+    image: ${REGISTRY_FIXTURE_IMAGE:-lapis-registry-local-fixture:local}
     build:
       context: ..
-      dockerfile: services/registry-service/Dockerfile
+      dockerfile: services/registry-local-fixture/Dockerfile
+    read_only: true
+    tmpfs:
+      - /tmp
     environment:
-      NODE_ENV: development
-      PORT: 8787
-      DATABASE_URL: postgresql://registry:${POSTGRES_PASSWORD:-registry_local_password}@postgres:5432/registry
-      REGISTRY_PUBLIC_BASE_URL: ${REGISTRY_PUBLIC_BASE_URL:-http://localhost:8787/}
-      REGISTRY_REQUIRE_HTTP_AUTH: "true"
+      PORT: 8090
+      LAPIS_PLUGINS_ROOT: /workspace/lapis-plugins
+      REGISTRY_FIXTURE_ARTIFACT_BASE_URL: http://127.0.0.1:${REGISTRY_FIXTURE_PORT:-8090}/
+      REGISTRY_FIXTURE_PLUGIN_LIMIT: ${REGISTRY_FIXTURE_PLUGIN_LIMIT:-3}
+      REGISTRY_FIXTURE_CREATED_AT: ${REGISTRY_FIXTURE_CREATED_AT:-1767225600}
+      REGISTRY_FIXTURE_SECRETS_FILE: /run/lapis-registry/fixture-secrets.json
       REGISTRY_USE_TEST_KINDS: "true"
-      REGISTRY_CONSOLE_ORIGINS: ${REGISTRY_CONSOLE_ORIGINS:-http://127.0.0.1:4173,http://localhost:4173}
-      REGISTRY_ASSESSOR_PUBKEYS: ${REGISTRY_ASSESSOR_PUBKEYS:-}
-      REGISTRY_CURATOR_PUBKEYS: ${REGISTRY_CURATOR_PUBKEYS:-}
-      REGISTRY_MODERATOR_PUBKEYS: ${REGISTRY_MODERATOR_PUBKEYS:-}
-      REGISTRY_SNAPSHOT_SIGNER_PUBKEYS: ${REGISTRY_SNAPSHOT_SIGNER_PUBKEYS:-}
-      REGISTRY_OPERATOR_PUBKEYS: ${REGISTRY_OPERATOR_PUBKEYS:-}
-      REGISTRY_PUBLISHERS_JSON: ${REGISTRY_PUBLISHERS_JSON:-}
-      REGISTRY_SECURITY_ADVISORY_PUBKEYS: ${REGISTRY_SECURITY_ADVISORY_PUBKEYS:-}
-      REGISTRY_SECURITY_DISPOSITION_PUBKEYS: ${REGISTRY_SECURITY_DISPOSITION_PUBKEYS:-}
+      REGISTRY_ASSESSOR_PUBKEYS: ${REGISTRY_ASSESSOR_PUBKEYS:?fixture assessor is missing}
+      REGISTRY_CURATOR_PUBKEYS: ${REGISTRY_CURATOR_PUBKEYS:?fixture curator is missing}
+      REGISTRY_MODERATOR_PUBKEYS: ${REGISTRY_MODERATOR_PUBKEYS:?fixture moderator is missing}
+      REGISTRY_SNAPSHOT_SIGNER_PUBKEYS: ${REGISTRY_SNAPSHOT_SIGNER_PUBKEYS:?fixture snapshot signer is missing}
+      REGISTRY_OPERATOR_PUBKEYS: ${REGISTRY_OPERATOR_PUBKEYS:?fixture operator is missing}
+      REGISTRY_SECURITY_ADVISORY_PUBKEYS: ${REGISTRY_SECURITY_ADVISORY_PUBKEYS:?fixture advisory authority is missing}
+      REGISTRY_SECURITY_DISPOSITION_PUBKEYS: ${REGISTRY_SECURITY_DISPOSITION_PUBKEYS:?fixture disposition authority is missing}
     ports:
-      - "${REGISTRY_SERVICE_PORT:-8787}:8787"
-    depends_on:
-      postgres:
-        condition: service_healthy
+      - "${REGISTRY_FIXTURE_PORT:-8090}:8090"
+    volumes:
+      - ${LAPIS_PLUGINS_PATH:?run pnpm local:up so lapis-plugins is resolved}:/workspace/lapis-plugins:ro
+      - ${REGISTRY_FIXTURE_SECRETS_FILE:?run pnpm local:up to create fixture identities}:/run/lapis-registry/fixture-secrets.json:ro
     healthcheck:
-      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:8787/health"]
-      interval: 10s
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:8090/health"]
+      interval: 5s
       timeout: 3s
-      retries: 20
-      start_period: 10s
-    restart: unless-stopped
+      retries: 30
+      start_period: 20s
+    restart: on-failure:20
 
-volumes:
-  postgres-data:
+  registry-console:
+    image: ${REGISTRY_CONSOLE_IMAGE:-lapis-registry-console:local}
+    build:
+      context: ..
+      dockerfile: apps/registry-console/Dockerfile
+    read_only: true
+    tmpfs:
+      - /tmp
+    environment:
+      HOST: 0.0.0.0
+      PORT: 4173
+      REGISTRY_USE_TEST_KINDS: "true"
+      REGISTRY_ASSESSOR_PUBKEYS: ${REGISTRY_ASSESSOR_PUBKEYS:?fixture assessor is missing}
+      REGISTRY_CURATOR_PUBKEYS: ${REGISTRY_CURATOR_PUBKEYS:?fixture curator is missing}
+      REGISTRY_MODERATOR_PUBKEYS: ${REGISTRY_MODERATOR_PUBKEYS:?fixture moderator is missing}
+      REGISTRY_SNAPSHOT_SIGNER_PUBKEYS: ${REGISTRY_SNAPSHOT_SIGNER_PUBKEYS:?fixture snapshot signer is missing}
+      REGISTRY_OPERATOR_PUBKEYS: ${REGISTRY_OPERATOR_PUBKEYS:?fixture operator is missing}
+      REGISTRY_SECURITY_ADVISORY_PUBKEYS: ${REGISTRY_SECURITY_ADVISORY_PUBKEYS:?fixture advisory authority is missing}
+      REGISTRY_SECURITY_DISPOSITION_PUBKEYS: ${REGISTRY_SECURITY_DISPOSITION_PUBKEYS:?fixture disposition authority is missing}
+    ports:
+      - "${REGISTRY_CONSOLE_PORT:-4173}:4173"
+    depends_on:
+      registry-fixture:
+        condition: service_healthy
+    restart: unless-stopped
