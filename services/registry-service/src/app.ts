@@ -127,7 +127,7 @@ function workflowKinds(config: RegistryServiceConfig): ReadonlySet<number> {
     config.kinds.assessmentLabel,
     config.kinds.approval,
     config.kinds.revocation,
-    config.kinds.moderationReport,
+    config.kinds.moderationDecision,
   ]);
 }
 

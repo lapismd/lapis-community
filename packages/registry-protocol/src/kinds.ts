@@ -18,10 +18,14 @@ export const TEST_REGISTRY_KINDS: RegistryKindMap = Object.freeze({
   approval: 64000,
   revocation: 64001,
   snapshot: 64002,
+  moderationDecision: 64003,
 });
 
 export function createRegistryKindMap(
-  workflowKinds: Pick<RegistryKindMap, "approval" | "revocation" | "snapshot">,
+  workflowKinds: Pick<
+    RegistryKindMap,
+    "approval" | "moderationDecision" | "revocation" | "snapshot"
+  >,
 ): RegistryKindMap {
   const kinds = { ...STANDARD_REGISTRY_KINDS, ...workflowKinds };
   const values = Object.values(kinds);

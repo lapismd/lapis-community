@@ -15,6 +15,7 @@ DATABASE_URL=postgresql://registry:placeholder@postgres.example/registry \
 REGISTRY_PUBLIC_BASE_URL=https://registry.example/ \
 REGISTRY_CONSOLE_ORIGINS=https://console.registry.example/ \
 REGISTRY_APPROVAL_KIND=64010 \
+REGISTRY_MODERATION_DECISION_KIND=64013 \
 REGISTRY_REVOCATION_KIND=64011 \
 REGISTRY_SNAPSHOT_KIND=64012 \
 REGISTRY_ASSESSOR_PUBKEYS=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa \

@@ -32,6 +32,7 @@ export interface RegistryKindMap {
   approval: number;
   revocation: number;
   moderationReport: number;
+  moderationDecision: number;
   snapshot: number;
   fileMetadata: number;
   comment: number;

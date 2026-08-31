@@ -332,7 +332,7 @@ function parseEvents(
       continue;
     }
 
-    if (event.kind === kinds.moderationReport) {
+    if (event.kind === kinds.moderationDecision) {
       const parsed = moderationContentSchema.safeParse(content);
       if (!parsed.success) {
         issue(issues, event, "content", "Invalid moderation content");

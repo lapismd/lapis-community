@@ -274,7 +274,7 @@ describe("materializeRegistry", () => {
     };
     const moderation = signed(
       moderatorKey,
-      TEST_REGISTRY_KINDS.moderationReport,
+      TEST_REGISTRY_KINDS.moderationDecision,
       1_700_000_004,
       [["p", publisher]],
       moderationContent,
@@ -303,6 +303,33 @@ describe("materializeRegistry", () => {
     expect(registry.acceptedEventIds).toEqual(
       [moderation.id, revocation.id].toSorted(),
     );
+  });
+
+  it("retains a NIP-56 community report without treating it as moderation", () => {
+    const base = fixture();
+    const report = finalizeEvent(
+      {
+        kind: TEST_REGISTRY_KINDS.moderationReport,
+        created_at: 1_700_000_004,
+        tags: [
+          ["p", publisher, "malware"],
+          ["e", base.release.id, "malware"],
+        ],
+        content: "Untrusted community report fixture",
+      },
+      attackerKey,
+    );
+
+    const registry = materializeRegistry(
+      [...base.events, report],
+      TEST_REGISTRY_KINDS,
+      authorities,
+    );
+
+    expect(registry.plugins).toHaveLength(1);
+    expect(registry.exclusions).toEqual([]);
+    expect(registry.issues).toEqual([]);
+    expect(registry.acceptedEventIds).not.toContain(report.id);
   });
 
   it("verifies snapshots only from the distinct configured signer", () => {

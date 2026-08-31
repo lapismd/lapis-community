@@ -12,9 +12,14 @@ The protocol uses existing meanings where they fit: software application
 with event lifetime and addressability following
 [NIP-01](https://github.com/nostr-protocol/nips/blob/master/01.md).
 
-Approval, revocation, and deterministic registry snapshot events do not yet have
-an approved interoperable allocation. They remain injected through
-`RegistryKindMap`. Values `64000` through `64002` are fixture-only and must never
-be published. Production publication remains blocked until allocations are
-checked against the machine-readable registry of kinds, documented here, and
-approved.
+Kind `1984` remains an untrusted NIP-56 report. It is retained for reviewer
+context but can never directly hide a catalog entry or change installer policy.
+The authoritative Lapis moderation decision is a separate injected workflow
+kind.
+
+Approval, revocation, deterministic registry snapshot, and authoritative
+moderation-decision events do not yet have approved interoperable allocations.
+They remain injected through `RegistryKindMap`. Values `64000` through `64003`
+are fixture-only and must never be published. Production publication remains
+blocked until allocations are checked against the machine-readable registry of
+kinds, documented here, and approved.

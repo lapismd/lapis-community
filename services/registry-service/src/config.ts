@@ -67,6 +67,7 @@ function workflowKinds(env: NodeJS.ProcessEnv): RegistryKindMap {
   };
   return createRegistryKindMap({
     approval: value("REGISTRY_APPROVAL_KIND"),
+    moderationDecision: value("REGISTRY_MODERATION_DECISION_KIND"),
     revocation: value("REGISTRY_REVOCATION_KIND"),
     snapshot: value("REGISTRY_SNAPSHOT_KIND"),
   });

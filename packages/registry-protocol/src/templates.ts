@@ -140,7 +140,7 @@ export function createModerationEventTemplate(
       targetTag = ["p", content.target.pubkey];
       break;
   }
-  return template(kinds.moderationReport, createdAt, [targetTag], content);
+  return template(kinds.moderationDecision, createdAt, [targetTag], content);
 }
 
 export function createSnapshotEventTemplate(
