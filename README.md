@@ -42,3 +42,8 @@ The authoritative implementation sequence and gates are recorded in
 [`docs/IMPLEMENTATION_LEDGER.md`](docs/IMPLEMENTATION_LEDGER.md). No production
 Nostr event, package, image, deployment, key, DNS/OAuth client, or registry
 cutover is performed from this repository without explicit approval.
+
+Production preparation and recovery boundaries are indexed in
+[`docs/runbooks/README.md`](docs/runbooks/README.md). They are executable
+checklists, not authorization to create keys, deploy, publish events, or change
+the active registry.
