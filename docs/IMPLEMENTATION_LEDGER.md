@@ -4,6 +4,11 @@ Status values are `pending`, `active`, `verified`, `manual-gate`, and `blocked`.
 Evidence should name the exact command and owned result. Wider inherited failures
 are recorded separately.
 
+This ledger tracks the local coexistence implementation, not the original
+plan's production definition of done. `verified` means the named local slice and
+its owned tests pass; it does not mean that production keys/events exist, the
+public site or app has cut over, or later product/security phases are complete.
+
 | Phase | Ownership                       | Deliverable                                                                         | Status      | Evidence / gate                                                          |
 | ----- | ------------------------------- | ----------------------------------------------------------------------------------- | ----------- | ------------------------------------------------------------------------ |
 | 0     | this repository                 | repository, ownership contract, ADRs, workspace layout                              | verified    | `pnpm check`; local repository only; no remote                           |
@@ -46,3 +51,23 @@ The following actions are prepared and validated but never executed implicitly:
   The 21-case backend matrix, all 765 API tests, spec checks, root check/test,
   build, package build, and publint passed. It never merges rows across
   backends, and the default remains HTTP until the manual cutover gate.
+
+## Remaining before the plan definition of done
+
+- Complete the authority-grant/delegation model and approve the remaining ADRs,
+  including snapshot storage, relay retention, artifact mirrors, severity,
+  static build triggers, account deletion, and production kind allocation.
+- Connect real scanner attestations and the human review queue to protected
+  signing and snapshot publication workflows.
+- Add static-site and Lapis security-warning/affected-installation surfaces, and
+  add the site's rating, review, report, follow, and collection authoring
+  islands. The current work provides protocol and preview projections only.
+- Select and externally review the threshold cryptographic implementation;
+  implement recovery, re-share, provider linking/unlinking, session lifecycle,
+  and auditable erasure before any production OAuth identity rollout.
+- Run the complete production-like release-to-install and
+  advisory-to-fixed-update exercise with released packages and approved test
+  infrastructure.
+- Complete the explicit publication, deployment, observation, default-cutover,
+  and HTTP-retirement gates. Until then, Nostr and HTTP coexist and HTTP remains
+  the Lapis default.
