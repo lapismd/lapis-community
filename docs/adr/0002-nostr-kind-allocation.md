@@ -18,9 +18,9 @@ The authoritative Lapis moderation decision is a separate injected workflow
 kind.
 
 Approval, revocation, deterministic registry snapshot, authoritative
-moderation-decision, security-advisory, and security-disposition events do not
-yet have approved interoperable allocations. They remain injected through
-`RegistryKindMap` or `SecurityKindMap`. Values `64000` through `64005` are
-fixture-only and must never be published. Production publication remains
-blocked until allocations are checked against the machine-readable registry of
-kinds, documented here, and approved.
+moderation-decision, security-advisory, security-disposition, and addressable
+rating events do not yet have approved interoperable allocations. They remain
+injected through `RegistryKindMap`, `SecurityKindMap`, or `CommunityKindMap`.
+Values `64000` through `64006` are fixture-only and must never be published.
+Production publication remains blocked until allocations are checked against
+the machine-readable registry of kinds, documented here, and approved.

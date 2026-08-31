@@ -7,13 +7,21 @@ import {
 import {
   createSnapshotContent,
   createSnapshotEventTemplate,
+  eventAddress,
+  materializeCommunity,
   materializeRegistry,
+  materializeSecurity,
+  moderationContentSchema,
   nostrEventSchema,
+  parseJsonContent,
   projectV1,
   verifySnapshot,
 } from "@lapismd/registry-protocol";
 import type {
+  CommunityModerationPolicy,
+  MaterializedCommunity,
   MaterializedRegistry,
+  MaterializedSecurity,
   NostrEvent,
 } from "@lapismd/registry-protocol";
 
@@ -58,6 +66,78 @@ async function state(
     stored.map((value) => value.event),
     config.kinds,
     config.authorities,
+  );
+}
+
+function communityModeration(
+  input: readonly NostrEvent[],
+  registry: MaterializedRegistry,
+  config: RegistryServiceConfig,
+): CommunityModerationPolicy {
+  const accepted = new Set(registry.acceptedEventIds);
+  const hiddenEventIds = new Set<string>();
+  const mutedPubkeys = new Set<string>();
+  for (const event of input) {
+    if (
+      event.kind !== config.kinds.moderationDecision ||
+      !accepted.has(event.id)
+    ) {
+      continue;
+    }
+    const parsed = moderationContentSchema.safeParse(
+      parseJsonContent(event.content),
+    );
+    if (!parsed.success || parsed.data.action === "allow") continue;
+    if (parsed.data.target.type === "event") {
+      hiddenEventIds.add(parsed.data.target.eventId);
+    } else if (parsed.data.target.type === "publisher") {
+      mutedPubkeys.add(parsed.data.target.pubkey);
+    }
+  }
+  return { hiddenEventIds, mutedPubkeys };
+}
+
+function communityState(
+  input: readonly NostrEvent[],
+  registry: MaterializedRegistry,
+  config: RegistryServiceConfig,
+): MaterializedCommunity {
+  const pluginAddresses = new Map(
+    registry.plugins.map((plugin) => [
+      plugin.content.pluginId,
+      eventAddress(
+        config.kinds.softwareApplication,
+        plugin.event.pubkey,
+        plugin.content.pluginId,
+      ),
+    ]),
+  );
+  return materializeCommunity(
+    input,
+    config.communityKinds,
+    pluginAddresses,
+    communityModeration(input, registry, config),
+  );
+}
+
+function securityState(
+  input: readonly NostrEvent[],
+  registry: MaterializedRegistry,
+  config: RegistryServiceConfig,
+): MaterializedSecurity {
+  const trustedArtifactByRelease = new Map(
+    registry.plugins.flatMap((plugin) =>
+      plugin.releases.map((release) => [
+        release.event.id,
+        release.content.artifact.sha256,
+      ]),
+    ),
+  );
+  return materializeSecurity(
+    input,
+    config.securityKinds,
+    config.securityAuthorities,
+    { trustedArtifactByRelease },
   );
 }
 
@@ -117,7 +197,11 @@ async function authenticateSubmission(
 }
 
 function recognizedKinds(config: RegistryServiceConfig): ReadonlySet<number> {
-  return new Set(Object.values(config.kinds));
+  return new Set([
+    ...Object.values(config.kinds),
+    ...Object.values(config.communityKinds),
+    ...Object.values(config.securityKinds),
+  ]);
 }
 
 function workflowKinds(config: RegistryServiceConfig): ReadonlySet<number> {
@@ -129,6 +213,14 @@ function workflowKinds(config: RegistryServiceConfig): ReadonlySet<number> {
     config.kinds.revocation,
     config.kinds.moderationDecision,
   ]);
+}
+
+function communityKinds(config: RegistryServiceConfig): ReadonlySet<number> {
+  return new Set(Object.values(config.communityKinds));
+}
+
+function securityKinds(config: RegistryServiceConfig): ReadonlySet<number> {
+  return new Set(Object.values(config.securityKinds));
 }
 
 async function routeRegistryRequest(
@@ -222,6 +314,44 @@ async function routeRegistryRequest(
       if (eventIssue !== undefined) {
         return error(422, `event-${eventIssue.code}`, eventIssue.message);
       }
+    } else if (securityKinds(dependencies.config).has(event.kind)) {
+      const stored = await dependencies.events.list();
+      const candidateEvents = [...stored.map((value) => value.event), event];
+      const registry = materializeRegistry(
+        candidateEvents,
+        dependencies.config.kinds,
+        dependencies.config.authorities,
+      );
+      const probe = securityState(
+        candidateEvents,
+        registry,
+        dependencies.config,
+      );
+      const eventIssue = probe.issues.find(
+        (issue) => issue.eventId === event.id,
+      );
+      if (eventIssue !== undefined) {
+        return error(422, `event-${eventIssue.code}`, eventIssue.message);
+      }
+    } else if (communityKinds(dependencies.config).has(event.kind)) {
+      const stored = await dependencies.events.list();
+      const candidateEvents = [...stored.map((value) => value.event), event];
+      const registry = materializeRegistry(
+        candidateEvents,
+        dependencies.config.kinds,
+        dependencies.config.authorities,
+      );
+      const probe = communityState(
+        candidateEvents,
+        registry,
+        dependencies.config,
+      );
+      const eventIssue = probe.issues.find(
+        (issue) => issue.eventId === event.id,
+      );
+      if (eventIssue !== undefined) {
+        return error(422, `event-${eventIssue.code}`, eventIssue.message);
+      }
     }
 
     const inserted = await dependencies.events.put({
@@ -287,6 +417,37 @@ async function routeRegistryRequest(
 
   if (
     request.method === "GET" &&
+    (url.pathname === "/preview/community.json" ||
+      url.pathname === "/preview/security.json")
+  ) {
+    const stored = await dependencies.events.list();
+    const input = stored.map((value) => value.event);
+    if (url.pathname === "/preview/security.json") {
+      const registry = materializeRegistry(
+        input,
+        dependencies.config.kinds,
+        dependencies.config.authorities,
+      );
+      const security = securityState(input, registry, dependencies.config);
+      return json(security, 200, {
+        "x-lapis-security-root": security.root,
+        "x-lapis-registry-unsigned": "true",
+      });
+    }
+    const registry = materializeRegistry(
+      input,
+      dependencies.config.kinds,
+      dependencies.config.authorities,
+    );
+    const community = communityState(input, registry, dependencies.config);
+    return json(community, 200, {
+      "x-lapis-community-root": community.root,
+      "x-lapis-registry-unsigned": "true",
+    });
+  }
+
+  if (
+    request.method === "GET" &&
     url.pathname === "/preview/snapshot-template"
   ) {
     const registry = await state(dependencies.events, dependencies.config);
@@ -319,7 +480,7 @@ function applyCors(
   response.headers.set("access-control-allow-methods", "GET, POST, OPTIONS");
   response.headers.set(
     "access-control-expose-headers",
-    "x-lapis-registry-root, x-lapis-registry-unsigned",
+    "x-lapis-community-root, x-lapis-registry-root, x-lapis-registry-unsigned, x-lapis-security-root",
   );
   response.headers.append("vary", "Origin");
   return response;

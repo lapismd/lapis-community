@@ -144,7 +144,10 @@ export function materializeSecurity(
   input: readonly NostrEvent[],
   kinds: SecurityKindMap,
   authorities: SecurityAuthorities,
-  options: { verifySignature?: (event: NostrEvent) => boolean } = {},
+  options: {
+    trustedArtifactByRelease?: ReadonlyMap<string, string>;
+    verifySignature?: (event: NostrEvent) => boolean;
+  } = {},
 ): MaterializedSecurity {
   const verifySignature = options.verifySignature ?? verifyEvent;
   const issues: RegistryIssue[] = [];
@@ -195,6 +198,17 @@ export function materializeSecurity(
           event,
           "authority",
           "Security advisory signer is not trusted",
+        );
+      } else if (
+        options.trustedArtifactByRelease !== undefined &&
+        options.trustedArtifactByRelease.get(parsed.data.releaseEventId) !==
+          parsed.data.artifactSha256
+      ) {
+        securityIssue(
+          issues,
+          event,
+          "reference",
+          "Security advisory does not match an approved release artifact",
         );
       } else {
         advisories.set(event.id, { event, content: parsed.data });

@@ -1,11 +1,18 @@
 import {
+  createCommunityKindMap,
   createRegistryKindMap,
+  createSecurityKindMap,
+  TEST_COMMUNITY_KINDS,
   TEST_REGISTRY_KINDS,
+  TEST_SECURITY_KINDS,
 } from "@lapismd/registry-protocol";
 import type {
+  CommunityKindMap,
   JsonObject,
   RegistryAuthorities,
   RegistryKindMap,
+  SecurityAuthorities,
+  SecurityKindMap,
 } from "@lapismd/registry-protocol";
 
 export interface RegistryServiceConfig {
@@ -14,6 +21,9 @@ export interface RegistryServiceConfig {
   consoleOrigins: ReadonlySet<string>;
   kinds: RegistryKindMap;
   authorities: RegistryAuthorities;
+  communityKinds: CommunityKindMap;
+  securityKinds: SecurityKindMap;
+  securityAuthorities: SecurityAuthorities;
   indexBase: JsonObject;
 }
 
@@ -45,32 +55,101 @@ function pubkeys(value: string | undefined, name: string): ReadonlySet<string> {
   return result;
 }
 
-function workflowKinds(env: NodeJS.ProcessEnv): RegistryKindMap {
+function requiredKind(env: NodeJS.ProcessEnv, name: string): number {
+  const raw = env[name];
+  if (raw === undefined) {
+    throw new Error(
+      `${name} is required until workflow kinds are standardized`,
+    );
+  }
+  const parsed = Number(raw);
+  if (!Number.isInteger(parsed)) throw new Error(`${name} must be an integer`);
+  return parsed;
+}
+
+function protocolKinds(env: NodeJS.ProcessEnv): {
+  community: CommunityKindMap;
+  registry: RegistryKindMap;
+  security: SecurityKindMap;
+} {
   if (env.REGISTRY_USE_TEST_KINDS === "true") {
     if (env.NODE_ENV === "production") {
       throw new Error("Fixture registry kinds are forbidden in production");
     }
-    return TEST_REGISTRY_KINDS;
+    return {
+      community: TEST_COMMUNITY_KINDS,
+      registry: TEST_REGISTRY_KINDS,
+      security: TEST_SECURITY_KINDS,
+    };
   }
 
-  const value = (name: string): number => {
-    const raw = env[name];
-    if (raw === undefined) {
+  const registry = createRegistryKindMap({
+    approval: requiredKind(env, "REGISTRY_APPROVAL_KIND"),
+    moderationDecision: requiredKind(env, "REGISTRY_MODERATION_DECISION_KIND"),
+    revocation: requiredKind(env, "REGISTRY_REVOCATION_KIND"),
+    snapshot: requiredKind(env, "REGISTRY_SNAPSHOT_KIND"),
+  });
+  const community = createCommunityKindMap({
+    rating: requiredKind(env, "REGISTRY_RATING_KIND"),
+    comment: registry.comment,
+    report: registry.moderationReport,
+    followList: 3,
+    appCurationSet: 30267,
+    softwareApplication: registry.softwareApplication,
+  });
+  const security = createSecurityKindMap({
+    advisory: requiredKind(env, "REGISTRY_SECURITY_ADVISORY_KIND"),
+    disposition: requiredKind(env, "REGISTRY_SECURITY_DISPOSITION_KIND"),
+  });
+  const customKinds = [
+    ["approval", registry.approval],
+    ["moderation decision", registry.moderationDecision],
+    ["revocation", registry.revocation],
+    ["snapshot", registry.snapshot],
+    ["rating", community.rating],
+    ["security advisory", security.advisory],
+    ["security disposition", security.disposition],
+  ] as const;
+  const byKind = new Map<number, string>();
+  for (const [name, kind] of customKinds) {
+    const existing = byKind.get(kind);
+    if (existing !== undefined) {
+      throw new Error(`${name} kind collides with ${existing} kind`);
+    }
+    byKind.set(kind, name);
+  }
+  for (const [name, kind] of customKinds) {
+    const standard = Object.entries(registry).find(
+      ([key, value]) =>
+        [
+          "softwareApplication",
+          "releaseArtifactSet",
+          "assessmentLabel",
+          "moderationReport",
+          "fileMetadata",
+          "comment",
+        ].includes(key) && value === kind,
+    );
+    if (standard !== undefined) {
       throw new Error(
-        `${name} is required until workflow kinds are standardized`,
+        `${name} kind collides with standard ${standard[0]} kind`,
       );
     }
-    const parsed = Number(raw);
-    if (!Number.isInteger(parsed))
-      throw new Error(`${name} must be an integer`);
-    return parsed;
+  }
+  return { community, registry, security };
+}
+
+function securityAuthorities(env: NodeJS.ProcessEnv): SecurityAuthorities {
+  return {
+    advisoryPubkeys: pubkeys(
+      env.REGISTRY_SECURITY_ADVISORY_PUBKEYS,
+      "security advisory authorities",
+    ),
+    dispositionPubkeys: pubkeys(
+      env.REGISTRY_SECURITY_DISPOSITION_PUBKEYS,
+      "security disposition authorities",
+    ),
   };
-  return createRegistryKindMap({
-    approval: value("REGISTRY_APPROVAL_KIND"),
-    moderationDecision: value("REGISTRY_MODERATION_DECISION_KIND"),
-    revocation: value("REGISTRY_REVOCATION_KIND"),
-    snapshot: value("REGISTRY_SNAPSHOT_KIND"),
-  });
 }
 
 function publisherAllowlist(
@@ -104,11 +183,12 @@ export function loadRegistryServiceConfig(
     env.REGISTRY_PUBLIC_BASE_URL ?? "http://127.0.0.1:8787",
   ).toString();
   const publishers = publisherAllowlist(env.REGISTRY_PUBLISHERS_JSON);
+  const kinds = protocolKinds(env);
   return {
     publicBaseUrl,
     requireHttpAuth: env.REGISTRY_REQUIRE_HTTP_AUTH !== "false",
     consoleOrigins: origins(env.REGISTRY_CONSOLE_ORIGINS),
-    kinds: workflowKinds(env),
+    kinds: kinds.registry,
     authorities: {
       assessorPubkeys: pubkeys(env.REGISTRY_ASSESSOR_PUBKEYS, "assessors"),
       curatorPubkeys: pubkeys(env.REGISTRY_CURATOR_PUBKEYS, "curators"),
@@ -125,6 +205,9 @@ export function loadRegistryServiceConfig(
         ? {}
         : { publisherPubkeysByPlugin: publishers }),
     },
+    communityKinds: kinds.community,
+    securityKinds: kinds.security,
+    securityAuthorities: securityAuthorities(env),
     indexBase: {
       registries: {
         "lapis-official": {

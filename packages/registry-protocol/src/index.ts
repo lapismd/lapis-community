@@ -1,5 +1,6 @@
 export * from "./authority.js";
 export * from "./canonical.js";
+export * from "./community.js";
 export * from "./kinds.js";
 export * from "./materialize.js";
 export * from "./projection.js";

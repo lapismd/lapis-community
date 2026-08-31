@@ -21,7 +21,15 @@ Security materialization is independent from community reporting. An advisory
 names one exact release event and artifact digest. Only a configured security
 disposition authority can turn that advisory into an installer `warn` or
 `block`; a later exact `resolved` disposition corrects the state
-deterministically. NIP-56 reports remain non-enforcing reviewer context.
+deterministically. When the service materializes security state, the advisory's
+release event and artifact digest must also resolve to the approved catalog.
+NIP-56 reports remain non-enforcing reviewer context.
+
+Community materialization is also independent from catalog and security roots.
+It applies one current addressable rating per pubkey/plugin, rating withdrawal,
+NIP-22 review threading, NIP-56 report validation, NIP-51 app collections and
+follow lists, plus transparent moderation exclusions. Ratings, reviews, and
+reports have no path to approval or installer enforcement.
 
 An approval is valid only when every reference resolves exactly. One passing
 assessment plus one curator approval is required in protocol v1. Event trust is

@@ -169,6 +169,23 @@ describe("materializeSecurity", () => {
     });
   });
 
+  it("rejects an advisory outside the supplied approved release set", () => {
+    const { advisory } = fixture();
+    const result = materializeSecurity(
+      [advisory],
+      TEST_SECURITY_KINDS,
+      authorities,
+      { trustedArtifactByRelease: new Map([[releaseEventId, "c".repeat(64)]]) },
+    );
+
+    expect(result.statuses).toEqual([]);
+    expect(result.issues).toContainEqual({
+      eventId: advisory.id,
+      code: "reference",
+      message: "Security advisory does not match an approved release artifact",
+    });
+  });
+
   it("applies the deterministic latest correction across order and replay", () => {
     const { advisory, disposition, dispositionContent } = fixture();
     const resolved = finalizeEvent(

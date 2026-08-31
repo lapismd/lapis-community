@@ -18,11 +18,16 @@ REGISTRY_APPROVAL_KIND=64010 \
 REGISTRY_MODERATION_DECISION_KIND=64013 \
 REGISTRY_REVOCATION_KIND=64011 \
 REGISTRY_SNAPSHOT_KIND=64012 \
+REGISTRY_RATING_KIND=64014 \
+REGISTRY_SECURITY_ADVISORY_KIND=64015 \
+REGISTRY_SECURITY_DISPOSITION_KIND=64016 \
 REGISTRY_ASSESSOR_PUBKEYS=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa \
 REGISTRY_CURATOR_PUBKEYS=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb \
 REGISTRY_MODERATOR_PUBKEYS=cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc \
 REGISTRY_SNAPSHOT_SIGNER_PUBKEYS=dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd \
 REGISTRY_OPERATOR_PUBKEYS=eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee \
+REGISTRY_SECURITY_ADVISORY_PUBKEYS=ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff \
+REGISTRY_SECURITY_DISPOSITION_PUBKEYS=1111111111111111111111111111111111111111111111111111111111111111 \
 docker compose \
   -f "${repo_root}/deploy/production.compose.yml" \
   config --format json >"${validation_tmp}/production.json"
@@ -42,6 +47,9 @@ jq -e '
   (.services["registry-service"].environment | has("REGISTRY_USE_TEST_KINDS") | not) and
   .services["registry-service"].environment.REGISTRY_CONSOLE_ORIGINS ==
     "https://console.registry.example/" and
+  .services["registry-service"].environment.REGISTRY_RATING_KIND == "64014" and
+  .services["registry-service"].environment.REGISTRY_SECURITY_ADVISORY_KIND == "64015" and
+  .services["registry-service"].environment.REGISTRY_SECURITY_DISPOSITION_KIND == "64016" and
   .services["registry-service"].environment.NODE_ENV == "production"
 ' "${validation_tmp}/production.json" >/dev/null
 

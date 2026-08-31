@@ -7,15 +7,15 @@ are recorded separately.
 | Phase | Ownership                       | Deliverable                                                                         | Status      | Evidence / gate                                                          |
 | ----- | ------------------------------- | ----------------------------------------------------------------------------------- | ----------- | ------------------------------------------------------------------------ |
 | 0     | this repository                 | repository, ownership contract, ADRs, workspace layout                              | verified    | `pnpm check`; local repository only; no remote                           |
-| 1     | protocol                        | schemas, references, authority, deterministic materializer, test vectors            | verified    | `pnpm check`; 12 protocol and security tests passing                     |
+| 1     | protocol                        | schemas, references, authority, deterministic materializer, test vectors            | verified    | 19 catalog, security, and community protocol tests passing               |
 | 2     | Nostr client + relay deployment | exact-id reads, 2-of-3 publisher, locked official and open community Grain profiles | verified    | 5 client tests; relay static/image/policy/full-stack smokes pass         |
 | 3     | import/projection               | deterministic V1 import and byte-semantic parity report                             | verified    | 13 signatures; 11 plugins/13 releases round-trip                         |
 | 4     | auth + registry service         | plain Nostr sign-in, shadow submissions, assessment and curator approval            | verified    | 8 auth + 3 service tests; NIP-07/46/55; PostgreSQL; cold container smoke |
 | 5     | curation                        | approval, revocation, moderation, deterministic signed snapshots                    | verified    | replay/shuffle/duplicate vectors; distinct snapshot signer acceptance    |
-| 6     | public coexistence              | legacy site consumes HTTP projection; separate Nostr preview console                | active      | console check/build + cold browser pass; legacy site pending             |
-| 7     | Lapis                           | Nostr-primary, HTTP-live fallback, complete last-good cached state                  | pending     | backend matrix and installer acceptance                                  |
-| 8     | security                        | key ceremony, audit log, backups, recovery drills, operator runbooks                | active      | exact advisory/disposition reducer + 5 tests; ceremonies remain gated    |
-| 9     | community                       | raw event retention plus transparent curated exclusion counts                       | verified    | NIP-56 reports retained but cannot moderate; no relay purge              |
+| 6     | public coexistence              | legacy site consumes HTTP projection; separate Nostr preview console                | verified    | console cold-browser pass; legacy signed-source gate `ceed49ed`          |
+| 7     | Lapis                           | Nostr-primary, HTTP-live fallback, complete last-good cached state                  | verified    | backend matrix and root package acceptance; `0db73f3a`                   |
+| 8     | security                        | key ceremony, audit log, backups, recovery drills, operator runbooks                | active      | exact approved-release reducer + service projection; ceremonies gated    |
+| 9     | community                       | raw event retention plus transparent curated exclusion counts                       | verified    | 6 reducer + 2 service projection scenarios; reports cannot enforce       |
 | 10    | identity                        | passkey-gated OAuth, 2-of-3 prototype, 3-of-5 production ceremony                   | active      | broker 6 + coordinator 4 + operator 3 tests; crypto/setup remains gated  |
 | 11    | retirement                      | make Nostr default, observe, then retire legacy registry                            | manual-gate | explicit cutover and retirement approval                                 |
 
@@ -30,3 +30,19 @@ The following actions are prepared and validated but never executed implicitly:
 5. configure production DNS, OAuth clients, passkey origins, or relay endpoints;
 6. deploy services, relays, Pages assets, or migrations;
 7. switch Lapis defaults, public registry projection, or retire HTTP V1.
+
+## Cross-repository coexistence evidence
+
+- `plugin-registry` commit `ceed49ed` accepts an alternate complete V1 tree
+  only after verifying the repository-pinned Ed25519 trust root, every inline
+  and sidecar signature, exact detail-file membership, and release/index
+  consistency. Its 83 Node tests, 11 browser tests, focused site checks, and an
+  external-source site build passed. The repository's wider `pnpm check`
+  remains blocked by inherited generator drift that changes `electron` to
+  `desktop` and invalidates 13 existing signatures; generated metadata was not
+  re-signed here.
+- `lapis-notes` commit `0db73f3a` adds a provider-neutral complete-state
+  backend with Nostr primary, live HTTP fallback, and whole last-good cache.
+  The 21-case backend matrix, all 765 API tests, spec checks, root check/test,
+  build, package build, and publint passed. It never merges rows across
+  backends, and the default remains HTTP until the manual cutover gate.
