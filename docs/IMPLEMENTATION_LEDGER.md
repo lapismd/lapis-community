@@ -16,7 +16,7 @@ are recorded separately.
 | 7     | Lapis                           | Nostr-primary, HTTP-live fallback, complete last-good cached state                  | pending     | backend matrix and installer acceptance                                  |
 | 8     | security                        | key ceremony, audit log, backups, recovery drills, operator runbooks                | manual-gate | no production keys in source control                                     |
 | 9     | community                       | raw event retention plus transparent curated exclusion counts                       | verified    | no relay purge; moderation projection and provenance acceptance          |
-| 10    | identity                        | passkey-gated OAuth, 2-of-3 prototype, 3-of-5 production ceremony                   | active      | broker core + 6 tests; provider/WebAuthn/operator setup remains gated    |
+| 10    | identity                        | passkey-gated OAuth, 2-of-3 prototype, 3-of-5 production ceremony                   | active      | broker 6 + coordinator 4 + operator 3 tests; crypto/setup remains gated  |
 | 11    | retirement                      | make Nostr default, observe, then retire legacy registry                            | manual-gate | explicit cutover and retirement approval                                 |
 
 ## Manual gates
