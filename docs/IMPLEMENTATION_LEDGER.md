@@ -10,7 +10,7 @@ are recorded separately.
 | 1     | protocol                        | schemas, references, authority, deterministic materializer, test vectors            | verified    | `pnpm check`; 6 protocol tests passing                           |
 | 2     | Nostr client + relay deployment | exact-id reads, 2-of-3 publisher, locked official and open community Grain profiles | verified    | 5 client tests; relay static/image/policy/full-stack smokes pass |
 | 3     | import/projection               | deterministic V1 import and byte-semantic parity report                             | verified    | 13 signatures; 11 plugins/13 releases round-trip                 |
-| 4     | auth + registry service         | plain Nostr sign-in, shadow submissions, assessment and curator approval            | pending     | local Postgres/service integration                               |
+| 4     | auth + registry service         | plain Nostr sign-in, shadow submissions, assessment and curator approval            | active      | signer/NIP-98: 4 tests; service work pending                     |
 | 5     | curation                        | approval, revocation, moderation, deterministic signed snapshots                    | pending     | replay/shuffle/duplicate test vectors                            |
 | 6     | public coexistence              | legacy site consumes HTTP projection; separate Nostr preview console                | pending     | site check/build/browser acceptance                              |
 | 7     | Lapis                           | Nostr-primary, HTTP-live fallback, complete last-good cached state                  | pending     | backend matrix and installer acceptance                          |
