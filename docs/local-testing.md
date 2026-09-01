@@ -8,14 +8,14 @@ the signed Nostr graph on the selected relay is the registry source of truth.
 
 The fixture reads the sibling `lapis-plugins` checkout through a read-only
 mount. It creates the Lapis NIP-29 groups, uploads content-addressed release
-manifests through Buzz's Blossom endpoint, and publishes standard signed
+manifests through the selected relay's Blossom endpoint, and publishes standard signed
 messages, replies, and reactions after NIP-42 authentication. The materializer
 derives the disposable V1 tree from those events.
 
 ## Run the stack
 
 Prerequisites are Docker with Compose, Node 22 or newer, pnpm, and sibling
-`lapis-plugins` and `plugin-registry` workspaces.
+`lapis-plugins` and `plugin-registry-lapis-relay` workspaces.
 
 ```sh
 pnpm install

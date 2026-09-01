@@ -20,13 +20,13 @@ can be proven before any cutover.
 - `scripts/materialize-buzz.ts`: deterministic static V1 output built from
   verified release messages and curator reactions on Buzz.
 
-The stock Buzz compatibility deployment stays in the sibling
-`nostr-relay-registry` repository. The vendored Unicity-derived relay lives in
-the sibling `lapis-relay` repository and is exercised by the dedicated Lapis
-relay Compose profile.
+The stock Buzz compatibility profile remains available through its pinned
+container image. The vendored Unicity-derived relay lives in the sibling
+`lapis-relay` repository and is exercised by the dedicated Lapis relay Compose
+profile.
 Plugin artifacts stay in `lapis-plugins`. The existing public Astro site and V1
-analytics stay in `plugin-registry`. Lapis application fallback and caching stay
-in `lapis-notes`.
+analytics stay in `plugin-registry-lapis-relay`. Lapis application fallback and
+caching stay in `lapis-notes`.
 
 ## Trust model
 

@@ -56,7 +56,7 @@ fi
 export LAPIS_PLUGINS_PATH
 LAPIS_PLUGINS_PATH=$(resolve_directory "${LAPIS_PLUGINS_PATH:-}" "${repo_root}/../lapis-plugins")
 export PLUGIN_REGISTRY_PATH
-PLUGIN_REGISTRY_PATH=$(resolve_directory "${PLUGIN_REGISTRY_PATH:-}" "${repo_root}/../plugin-registry")
+PLUGIN_REGISTRY_PATH=$(resolve_directory "${PLUGIN_REGISTRY_PATH:-}" "${repo_root}/../plugin-registry-lapis-relay")
 if [[ ${relay_flavor} == lapis ]]; then
   export LAPIS_RELAY_PATH
   LAPIS_RELAY_PATH=$(resolve_directory "${LAPIS_RELAY_PATH:-}" "${repo_root}/../lapis-relay")
