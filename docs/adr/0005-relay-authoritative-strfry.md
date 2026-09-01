@@ -3,6 +3,7 @@
 - Status: accepted
 - Date: 2026-08-31
 - Supersedes: ADR 0001 relay, registry-database, and submission-API decisions
+- Superseded in part by: ADR 0006 relay implementation and membership policy
 
 ## Decision
 

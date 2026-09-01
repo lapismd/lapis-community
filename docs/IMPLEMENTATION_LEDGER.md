@@ -13,7 +13,7 @@ public site or app has cut over, or later product/security phases are complete.
 | ----- | ------------------------------- | ------------------------------------------------------------------------------ | ----------- | ----------------------------------------------------------------------- |
 | 0     | this repository                 | repository, ownership contract, ADRs, workspace layout                         | verified    | `pnpm check`; local repository only; no remote                          |
 | 1     | protocol                        | schemas, references, authority, deterministic materializer, test vectors       | verified    | 19 catalog, security, and community protocol tests passing              |
-| 2     | Nostr client + relay deployment | exact-id reads, direct 2-of-3 publishing, strfry policy profiles               | verified    | client tests; strfry policy tests; single/quorum Compose validation     |
+| 2     | Nostr client + relay deployment | exact-id reads, direct publishing, embedded Grain role policy                  | active      | existing strfry baseline verified; Grain replacement in progress        |
 | 3     | import/projection               | deterministic V1 import and byte-semantic parity report                        | verified    | 13 signatures; 11 plugins/13 releases round-trip                        |
 | 4     | auth + direct publication       | NIP-07/46/55 signing, direct relay submission, assessment and curator approval | verified    | auth tests; direct relay fixture and console; no registry database/API  |
 | 5     | curation                        | approval, revocation, moderation, deterministic signed snapshots               | verified    | replay/shuffle/duplicate vectors; distinct snapshot signer acceptance   |
@@ -21,7 +21,7 @@ public site or app has cut over, or later product/security phases are complete.
 | 7     | Lapis                           | Nostr-primary, HTTP-live fallback, complete last-good cached state             | verified    | backend matrix and root package acceptance; `0db73f3a`                  |
 | 8     | security                        | key ceremony, audit log, backups, recovery drills, operator runbooks           | active      | five runbooks + exact security projection; live drills/ceremonies gated |
 | 9     | community                       | raw event retention plus transparent curated exclusion counts                  | verified    | reducer and direct-relay projection scenarios; reports cannot enforce   |
-| 10    | identity                        | passkey-gated OAuth, 2-of-3 prototype, 3-of-5 production ceremony              | active      | broker 6 + coordinator 4 + operator 3 tests; crypto/setup remains gated |
+| 10    | identity                        | passkey-gated OAuth, 2-of-3 prototype, 3-of-5 production ceremony              | active      | broker remains in-memory; identity events explicitly deferred           |
 | 11    | retirement                      | make Nostr default, observe, then retire legacy registry                       | manual-gate | explicit cutover and retirement approval                                |
 
 ## Manual gates
@@ -65,6 +65,8 @@ The following actions are prepared and validated but never executed implicitly:
 - Select and externally review the threshold cryptographic implementation;
   implement recovery, re-share, provider linking/unlinking, session lifecycle,
   and auditable erasure before any production OAuth identity rollout.
+- Revisit encrypted provider-mapping events only in a separate identity ADR;
+  they are not part of the embedded Grain relay or membership implementation.
 - Run the complete production-like release-to-install and
   advisory-to-fixed-update exercise with released packages and approved test
   infrastructure.
