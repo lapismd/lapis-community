@@ -125,6 +125,21 @@ export function timelinePosition(index: number, total: number): number {
   return (Math.max(0, Math.min(index, total - 1)) / (total - 1)) * 100;
 }
 
+export function timelineIndexFromPosition(
+  pointerPosition: number,
+  trackLength: number,
+  total: number,
+  handleLength = 50,
+): number {
+  if (total <= 1 || trackLength <= handleLength) return 0;
+  const availableLength = trackLength - handleLength;
+  const handleStart = Math.max(
+    0,
+    Math.min(pointerPosition - handleLength / 2, availableLength),
+  );
+  return Math.round((handleStart / availableLength) * (total - 1));
+}
+
 function shortKey(value: string): string {
   return value.length > 12 ? `${value.slice(0, 6)}…${value.slice(-4)}` : value;
 }

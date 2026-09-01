@@ -8,6 +8,7 @@ import {
   parseProfiles,
   parseRelayUrls,
   reactionGroups,
+  timelineIndexFromPosition,
   timelinePosition,
 } from "./model.js";
 
@@ -98,5 +99,10 @@ describe("registry community model", () => {
     ]);
     expect(timelinePosition(0, 24)).toBe(0);
     expect(timelinePosition(23, 24)).toBe(100);
+    expect(timelineIndexFromPosition(25, 300, 24)).toBe(0);
+    expect(timelineIndexFromPosition(150, 300, 24)).toBe(12);
+    expect(timelineIndexFromPosition(275, 300, 24)).toBe(23);
+    expect(timelineIndexFromPosition(-100, 300, 24)).toBe(0);
+    expect(timelineIndexFromPosition(1_000, 300, 24)).toBe(23);
   });
 });

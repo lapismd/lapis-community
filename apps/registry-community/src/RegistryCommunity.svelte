@@ -33,6 +33,7 @@
     parseProfiles,
     parseRelayUrls,
     reactionGroups,
+    timelineIndexFromPosition,
     timelinePosition,
     type CommunityProfile,
   } from "./model.js";
@@ -69,11 +70,18 @@
   let comment = $state("");
   let replyingTo = $state("");
   let activePostId = $state("");
+  let timelinePreviewIndex = $state<number | undefined>();
+  let timelineReturnPostId = $state("");
+  let timelineDragging = $state(false);
   let loading = $state(true);
   let publishing = $state(false);
   let message = $state("");
   let error = $state("");
   let composerElement: HTMLDivElement | undefined;
+  let timelineElement = $state<HTMLDivElement | undefined>();
+  let timelineHandleElement = $state<HTMLDivElement | undefined>();
+  let timelinePointerId: number | undefined;
+  let timelineDragOffset = 0;
   let observer: IntersectionObserver | undefined;
 
   const clients = new Map<string, WebSocketRegistryRelay>();
@@ -117,6 +125,12 @@
     );
     return index === -1 ? 0 : index;
   });
+  const timelineDisplayIndex = $derived(
+    timelinePreviewIndex ?? activePostIndex,
+  );
+  const timelineReturnIndex = $derived(
+    reviews.findIndex((review) => review.event.id === timelineReturnPostId),
+  );
   const participantCount = $derived.by(
     () =>
       new Set([
@@ -398,7 +412,6 @@
     return new Intl.DateTimeFormat(undefined, {
       month: "short",
       day: "numeric",
-      year: "numeric",
     }).format(timestamp * 1_000);
   }
 
@@ -407,6 +420,89 @@
     postElements
       .get(eventId)
       ?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
+  function navigateTimelineToIndex(index: number): void {
+    const target = reviews[Math.max(0, Math.min(index, reviews.length - 1))];
+    if (target === undefined || target.event.id === activePostId) return;
+    if (timelineReturnPostId === "") timelineReturnPostId = activePostId;
+    timelinePreviewIndex = undefined;
+    scrollToPost(target.event.id);
+  }
+
+  function timelineIndexForPointer(clientY: number): number {
+    const bounds = timelineElement?.getBoundingClientRect();
+    if (bounds === undefined) return activePostIndex;
+    return timelineIndexFromPosition(
+      clientY - bounds.top - timelineDragOffset,
+      bounds.height,
+      reviews.length,
+      timelineHandleElement?.getBoundingClientRect().height ?? 50,
+    );
+  }
+
+  function startTimelineDrag(event: PointerEvent): void {
+    if (event.button !== 0 || reviews.length < 2) return;
+    const target = event.target;
+    if (target instanceof Element && target.closest(".history-back") !== null) {
+      return;
+    }
+    const handleBounds = timelineHandleElement?.getBoundingClientRect();
+    timelineDragOffset =
+      target instanceof Element &&
+      target.closest(".history-handle") !== null &&
+      handleBounds !== undefined
+        ? event.clientY - (handleBounds.top + handleBounds.height / 2)
+        : 0;
+    timelineDragging = true;
+    timelinePointerId = event.pointerId;
+    timelineElement?.setPointerCapture(event.pointerId);
+    timelinePreviewIndex = timelineIndexForPointer(event.clientY);
+    event.preventDefault();
+  }
+
+  function moveTimelineDrag(event: PointerEvent): void {
+    if (!timelineDragging || event.pointerId !== timelinePointerId) return;
+    timelinePreviewIndex = timelineIndexForPointer(event.clientY);
+    event.preventDefault();
+  }
+
+  function finishTimelineDrag(event: PointerEvent): void {
+    if (!timelineDragging || event.pointerId !== timelinePointerId) return;
+    const targetIndex = timelineIndexForPointer(event.clientY);
+    timelineElement?.releasePointerCapture(event.pointerId);
+    timelineDragging = false;
+    timelinePointerId = undefined;
+    timelineDragOffset = 0;
+    timelinePreviewIndex = undefined;
+    navigateTimelineToIndex(targetIndex);
+  }
+
+  function cancelTimelineDrag(event: PointerEvent): void {
+    if (event.pointerId !== timelinePointerId) return;
+    timelineDragging = false;
+    timelinePointerId = undefined;
+    timelineDragOffset = 0;
+    timelinePreviewIndex = undefined;
+  }
+
+  function handleTimelineKey(event: KeyboardEvent): void {
+    let targetIndex = activePostIndex;
+    if (event.key === "ArrowUp" || event.key === "ArrowLeft") targetIndex -= 1;
+    else if (event.key === "ArrowDown" || event.key === "ArrowRight") targetIndex += 1;
+    else if (event.key === "PageUp") targetIndex -= 5;
+    else if (event.key === "PageDown") targetIndex += 5;
+    else if (event.key === "Home") targetIndex = 0;
+    else if (event.key === "End") targetIndex = reviews.length - 1;
+    else return;
+    event.preventDefault();
+    navigateTimelineToIndex(targetIndex);
+  }
+
+  function returnToTimelineOrigin(): void {
+    const target = timelineReturnPostId;
+    timelineReturnPostId = "";
+    if (target !== "") scrollToPost(target);
   }
 
   function observePost(node: HTMLElement, eventId: string) {
@@ -672,30 +768,69 @@
         {#if reviews.length > 1}
           <aside class="history" aria-label="Discussion history">
             <div class="history-sticky">
-              <time datetime={new Date(reviews[0]!.event.created_at * 1_000).toISOString()}>
-                {formatShortDate(reviews[0]!.event.created_at)}
-              </time>
-              <div class="history-track">
-                <span
-                  class="history-progress"
-                  style={`height: ${timelinePosition(activePostIndex, reviews.length)}%`}
-                ></span>
-                {#each reviews as review, index (review.event.id)}
-                  <button
-                    class:active={review.event.id === activePostId}
-                    style={`top: ${timelinePosition(index, reviews.length)}%`}
-                    aria-label={`Go to post ${index + 1}`}
-                    onclick={() => scrollToPost(review.event.id)}
-                  ></button>
-                {/each}
-              </div>
-              <button class="history-current" onclick={() => scrollToPost(activePostId)}>
-                <strong>{activePostIndex + 1} / {reviews.length}</strong>
-                <span>{formatShortDate(reviews[activePostIndex]!.event.created_at)}</span>
+              <button
+                class="history-date"
+                aria-label="Go to the first post"
+                onclick={() => navigateTimelineToIndex(0)}
+              >
+                <time datetime={new Date(reviews[0]!.event.created_at * 1_000).toISOString()}>
+                  {formatShortDate(reviews[0]!.event.created_at)}
+                </time>
               </button>
-              <time datetime={new Date(reviews.at(-1)!.event.created_at * 1_000).toISOString()}>
-                {formatShortDate(reviews.at(-1)!.event.created_at)}
-              </time>
+              <div
+                class="history-track"
+                class:dragging={timelineDragging}
+                role="group"
+                aria-label="Discussion timeline"
+                bind:this={timelineElement}
+                onpointerdown={startTimelineDrag}
+                onpointermove={moveTimelineDrag}
+                onpointerup={finishTimelineDrag}
+                onpointercancel={cancelTimelineDrag}
+              >
+                <span class="history-line" aria-hidden="true"></span>
+                {#if timelineReturnIndex >= 0 && timelineReturnPostId !== activePostId}
+                  <button
+                    class="history-back"
+                    style={`--timeline-return-position: ${timelinePosition(timelineReturnIndex, reviews.length) / 100}`}
+                    aria-label={`Back to post ${timelineReturnIndex + 1}`}
+                    onpointerdown={(event) => event.stopPropagation()}
+                    onclick={returnToTimelineOrigin}
+                  >
+                    <span aria-hidden="true"></span>
+                    Back
+                  </button>
+                {/if}
+                <div
+                  class="history-handle"
+                  class:dragging={timelineDragging}
+                  style={`--timeline-position: ${timelinePosition(timelineDisplayIndex, reviews.length) / 100}`}
+                  bind:this={timelineHandleElement}
+                  role="slider"
+                  tabindex="0"
+                  aria-label="Discussion position"
+                  aria-valuemin="1"
+                  aria-valuemax={reviews.length}
+                  aria-valuenow={timelineDisplayIndex + 1}
+                  aria-valuetext={`Post ${timelineDisplayIndex + 1} of ${reviews.length}, ${formatShortDate(reviews[timelineDisplayIndex]!.event.created_at)}`}
+                  onkeydown={handleTimelineKey}
+                >
+                  <span class="history-handle-bar" aria-hidden="true"></span>
+                  <span class="history-current">
+                    <strong>{timelineDisplayIndex + 1} / {reviews.length}</strong>
+                    <span>{formatShortDate(reviews[timelineDisplayIndex]!.event.created_at)}</span>
+                  </span>
+                </div>
+              </div>
+              <button
+                class="history-date"
+                aria-label="Go to the latest post"
+                onclick={() => navigateTimelineToIndex(reviews.length - 1)}
+              >
+                <time datetime={new Date(reviews.at(-1)!.event.created_at * 1_000).toISOString()}>
+                  {formatShortDate(reviews.at(-1)!.event.created_at)}
+                </time>
+              </button>
             </div>
           </aside>
         {/if}
@@ -847,7 +982,7 @@
 
   .discussion {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) 8.5rem;
+    grid-template-columns: minmax(0, 1fr) 9rem;
     gap: clamp(1.5rem, 4vw, 3.5rem);
   }
 
@@ -886,7 +1021,7 @@
     grid-template-columns: 2.8rem minmax(0, 1fr);
     gap: 0.9rem;
     padding: 1.4rem 0.35rem;
-    scroll-margin-top: 1.5rem;
+    scroll-margin-top: calc(56px + 1.5rem);
     transition: background-color 160ms ease;
   }
 
@@ -978,64 +1113,149 @@
 
   .history-sticky {
     position: sticky;
-    top: 1rem;
+    top: calc(56px + 2.5rem);
     display: grid;
-    grid-template-rows: auto 17rem auto auto;
-    justify-items: center;
-    gap: 0.65rem;
-    padding-top: 0.25rem;
+    grid-template-rows: auto clamp(10.625rem, 45vh, 18.75rem) auto;
+    gap: 0.35rem;
     color: var(--muted-foreground);
-    font-size: 0.7rem;
+    font-size: 0.75rem;
+  }
+
+  .history-date {
+    width: fit-content;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: var(--muted-foreground);
+    cursor: pointer;
+    font: inherit;
+    line-height: 1.25rem;
+  }
+
+  .history-date:hover,
+  .history-date:focus-visible {
+    color: var(--foreground);
   }
 
   .history-track {
+    --timeline-handle-height: 3.125rem;
     position: relative;
-    width: 2px;
-    height: 17rem;
+    width: 100%;
+    height: 100%;
+    cursor: pointer;
+    touch-action: none;
+    user-select: none;
+  }
+
+  .history-track.dragging {
+    cursor: grabbing;
+  }
+
+  .history-line {
+    position: absolute;
+    inset: 0 auto 0 0.45rem;
+    width: 1px;
     background: var(--border);
   }
 
-  .history-progress {
+  .history-handle {
     position: absolute;
-    inset: 0 0 auto;
-    background: var(--primary);
+    z-index: 2;
+    top: calc(
+      (100% - var(--timeline-handle-height)) * var(--timeline-position)
+    );
+    right: 0;
+    left: 0;
+    display: grid;
+    grid-template-columns: 1rem minmax(0, 1fr);
+    align-items: center;
+    height: var(--timeline-handle-height);
+    color: var(--foreground);
+    cursor: grab;
+    outline: none;
+    transition: top 180ms ease-out;
   }
 
-  .history-track button {
-    position: absolute;
-    left: 50%;
-    width: 0.45rem;
-    height: 0.45rem;
-    padding: 0;
-    border: 1px solid var(--card);
-    border-radius: 50%;
-    background: var(--muted-foreground);
-    cursor: pointer;
-    transform: translate(-50%, -50%);
+  .history-handle.dragging {
+    cursor: grabbing;
+    transition: none;
   }
 
-  .history-track button.active {
-    width: 0.75rem;
-    height: 0.75rem;
+  .history-handle-bar {
+    width: 0.35rem;
+    height: 100%;
+    margin-left: 0.28rem;
+    border-radius: 999px;
     background: var(--primary);
-    box-shadow: 0 0 0 4px color-mix(in oklch, var(--primary) 22%, transparent);
+    box-shadow: 0 0 0 1px color-mix(in oklch, var(--primary) 28%, transparent);
   }
 
   .history-current {
     display: grid;
-    gap: 0.1rem;
-    width: 100%;
-    padding: 0.5rem 0.35rem;
-    border: 1px solid var(--border);
+    gap: 0.05rem;
+    min-width: 0;
+    padding: 0.4rem 0.45rem;
     border-radius: var(--radius);
+    transition: background-color 150ms ease;
+  }
+
+  .history-handle:hover .history-current,
+  .history-handle:focus-visible .history-current,
+  .history-handle.dragging .history-current {
     background: var(--secondary);
-    color: var(--foreground);
-    cursor: pointer;
-    font: inherit;
   }
 
   .history-current strong {
-    font-size: 0.84rem;
+    font-size: 0.9rem;
+    line-height: 1rem;
+  }
+
+  .history-current span {
+    color: var(--muted-foreground);
+    line-height: 1rem;
+  }
+
+  .history-back {
+    position: absolute;
+    z-index: 1;
+    top: calc(
+      0.75rem + (100% - 1.5rem) * var(--timeline-return-position)
+    );
+    left: 0;
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.15rem 0.35rem 0.15rem 0;
+    border: 0;
+    border-radius: 0.25rem;
+    background: var(--card);
+    color: var(--muted-foreground);
+    cursor: pointer;
+    font: inherit;
+    font-size: 0.7rem;
+    transform: translateY(-50%);
+  }
+
+  .history-back > span {
+    width: 0.9rem;
+    height: 1px;
+    background: var(--muted-foreground);
+  }
+
+  .history-back:hover,
+  .history-back:focus-visible {
+    color: var(--foreground);
+  }
+
+  .history-back:hover > span,
+  .history-back:focus-visible > span {
+    background: var(--foreground);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .history-handle {
+      transition: none;
+    }
   }
 
   @media (max-width: 62rem) {
