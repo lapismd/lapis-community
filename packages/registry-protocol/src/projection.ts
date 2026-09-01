@@ -1,12 +1,10 @@
 import type {
   JsonObject,
   JsonValue,
-  MaterializedRegistry,
-  V1Projection,
-  V1ProjectionOptions,
-  V1ProjectionPlugin,
+  RegistryProjection,
+  RegistryProjectionOptions,
+  RegistryProjectionPlugin,
 } from "./types.js";
-import { eventAddress } from "./tags.js";
 
 function withoutKeys(
   source: JsonObject,
@@ -17,11 +15,11 @@ function withoutKeys(
   );
 }
 
-export function projectV1Records(
-  records: readonly V1ProjectionPlugin[],
-  options: V1ProjectionOptions,
-  provenance: V1Projection["provenance"],
-): V1Projection {
+export function projectRegistry(
+  records: readonly RegistryProjectionPlugin[],
+  options: RegistryProjectionOptions,
+  provenance: RegistryProjection["provenance"],
+): RegistryProjection {
   const pluginFiles = new Map<string, JsonObject>();
   const indexPlugins: JsonValue[] = [];
 
@@ -52,7 +50,7 @@ export function projectV1Records(
       ]),
     );
 
-    const detail = {
+    pluginFiles.set(plugin.content.pluginId, {
       ...withoutKeys(plugin.content.detail, new Set(["versions"])),
       id: plugin.content.pluginId,
       name: plugin.content.name,
@@ -61,22 +59,7 @@ export function projectV1Records(
       status: plugin.content.status,
       latestVersion: plugin.latestVersion,
       versions,
-      ...(plugin.event === undefined
-        ? {}
-        : {
-            nostr: {
-              address: eventAddress(
-                plugin.event.kind,
-                plugin.event.pubkey,
-                plugin.content.pluginId,
-              ),
-              eventId: plugin.event.id,
-              kind: plugin.event.kind,
-              publisherPubkey: plugin.event.pubkey,
-            },
-          }),
-    } as JsonObject;
-    pluginFiles.set(plugin.content.pluginId, detail);
+    });
 
     indexPlugins.push({
       ...withoutKeys(
@@ -107,25 +90,4 @@ export function projectV1Records(
     plugins: pluginFiles,
     provenance,
   };
-}
-
-export function projectV1(
-  registry: MaterializedRegistry,
-  options: string | V1ProjectionOptions,
-): V1Projection {
-  return projectV1Records(
-    registry.plugins.map((plugin) => ({
-      content: plugin.content,
-      releases: plugin.releases.map((release) => release.content),
-      latestVersion: plugin.latestVersion,
-      event: plugin.event,
-    })),
-    typeof options === "string" ? { generatedAt: options } : options,
-    {
-      backend: "nostr",
-      root: registry.root,
-      acceptedEventIds: registry.acceptedEventIds,
-      exclusionCounts: registry.exclusionCounts,
-    },
-  );
 }

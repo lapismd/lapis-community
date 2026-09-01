@@ -8,9 +8,8 @@ if [[ $# -ne 0 ]]; then
   exit 2
 fi
 
-relay_flavor=${REGISTRY_RELAY_FLAVOR:-buzz}
-project_name=${COMPOSE_PROJECT_NAME:-lapis-registry-${relay_flavor}-smoke-$$}
-smoke_tmp=$(mktemp -d "/tmp/lapis-registry-${relay_flavor}-smoke.XXXXXX")
+project_name=${COMPOSE_PROJECT_NAME:-lapis-registry-smoke-$$}
+smoke_tmp=$(mktemp -d "/tmp/lapis-registry-smoke.XXXXXX")
 port_base=$((24000 + ($$ % 20000)))
 
 export COMPOSE_PROJECT_NAME=${project_name}
@@ -73,13 +72,8 @@ done
   -H 'Accept: application/nostr+json' \
   "http://registry.localhost:${LAPIS_RELAY_PORT}" \
   >"${smoke_tmp}/nip11.json"
-if [[ ${relay_flavor} == buzz ]]; then
-  jq -e '(.supported_nips | index(17)) and (.supported_nips | index(29)) and (.supported_nips | index(42))' \
-    "${smoke_tmp}/nip11.json" >/dev/null
-else
-  jq -e '(.supported_nips | index(29)) and (.supported_nips | index(42))' \
-    "${smoke_tmp}/nip11.json" >/dev/null
-fi
+jq -e '(.supported_nips | index(29)) and (.supported_nips | index(42))' \
+  "${smoke_tmp}/nip11.json" >/dev/null
 
 fixture_base="http://127.0.0.1:${REGISTRY_FIXTURE_PORT}/"
 site_base="http://127.0.0.1:${REGISTRY_SITE_PORT}/"
@@ -87,7 +81,7 @@ site_base="http://127.0.0.1:${REGISTRY_SITE_PORT}/"
 jq -e \
   --argjson expected_community_events "${expected_community_events}" \
   --argjson expected_relay_copies "${expected_relay_copies}" '
-  .schema == "lapis.registry.buzz-local-fixture-status/1" and
+  .schema == "lapis.registry.nip29-local-fixture-status/1" and
   .pluginCount == 12 and
   .registryEventCount == 24 and
   .communityEventCount == $expected_community_events and
@@ -97,35 +91,33 @@ jq -e \
   (.groupIds["support-ai"] | test("^[0-9a-f-]{36}$"))
 ' "${smoke_tmp}/status.json" >/dev/null
 
-/usr/bin/curl -fsS "${site_base}v1/index.json" >"${smoke_tmp}/site-index.json"
-/usr/bin/curl -fsS "${site_base}v1/runtime.json" >"${smoke_tmp}/site-runtime.json"
-/usr/bin/curl -fsS "${site_base}v1/client/registry-community.js" \
+/usr/bin/curl -fsS "${site_base}registry/index.json" >"${smoke_tmp}/site-index.json"
+/usr/bin/curl -fsS "${site_base}registry/runtime.json" >"${smoke_tmp}/site-runtime.json"
+/usr/bin/curl -fsS "${site_base}registry/client/registry-community.js" \
   >"${smoke_tmp}/community.js"
 /usr/bin/curl -fsS "${site_base}plugins/" >"${smoke_tmp}/plugins.html"
 jq -e '.schemaVersion == 1 and (.plugins | length) == 12' \
   "${smoke_tmp}/site-index.json" >/dev/null
 jq -e '
   .backend == "nostr-nip29" and
-  (.buzzRelays | length) == 1 and
+  (.relays | length) == 1 and
   (.curatorPubkeys | length) == 1
 ' "${smoke_tmp}/site-runtime.json" >/dev/null
 rg -q 'lapis-registry-community' "${smoke_tmp}/community.js"
 plugin_id=$(jq -r '.plugins[0].id' "${smoke_tmp}/site-index.json")
 /usr/bin/curl -fsS "${site_base}plugins/${plugin_id}/" >"${smoke_tmp}/plugin.html"
 rg -q '<lapis-registry-community' "${smoke_tmp}/plugin.html"
-rg -q '/v1/client/registry-community.js' "${smoke_tmp}/plugin.html"
+rg -q '/registry/client/registry-community.js' "${smoke_tmp}/plugin.html"
 
 set -a
 # shellcheck source=/dev/null
 source "${repo_root}/.local/registry-fixture/fixture.env"
 set +a
-export REGISTRY_BUZZ_RELAYS="ws://registry.localhost:${LAPIS_RELAY_PORT}"
-export REGISTRY_PUBLIC_BUZZ_RELAYS="${REGISTRY_BUZZ_RELAYS}"
-export REGISTRY_CATALOG_URL="${fixture_base}catalog.json"
+export REGISTRY_RELAYS="ws://registry.localhost:${LAPIS_RELAY_PORT}"
+export REGISTRY_PUBLIC_RELAYS="${REGISTRY_RELAYS}"
 export REGISTRY_ASSET_FETCH_ORIGIN="${fixture_base}"
-export REGISTRY_FIXTURE_SECRETS_FILE="${repo_root}/.local/registry-fixture/fixture-secrets.json"
 pnpm --dir "${repo_root}" --filter @lapismd/registry-community... build
-pnpm --dir "${repo_root}" relay:materialize --output "${smoke_tmp}/materialized"
+pnpm --dir "${repo_root}" registry:materialize --output "${smoke_tmp}/materialized"
 
 jq -e '.schemaVersion == 1 and (.plugins | length) == 12' \
   "${smoke_tmp}/materialized/index.json" >/dev/null
@@ -152,4 +144,4 @@ if [[ ${actual_sha} != "${expected_sha}" ]]; then
   exit 1
 fi
 
-echo "Local ${relay_flavor} registry end-to-end smoke passed."
+echo "Local Nostr registry end-to-end smoke passed."

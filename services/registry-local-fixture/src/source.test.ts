@@ -64,11 +64,16 @@ describe("local registry fixture", () => {
     );
     const publicKeys = fixturePublicKeys(secrets);
     const environment = await readFile(files.environmentFile, "utf8");
+    const readerSecret = (
+      await readFile(files.readerSecretFile, "utf8")
+    ).trim();
     for (const secret of Object.values(secrets.keys)) {
       expect(environment).not.toContain(secret);
     }
-    expect(environment).toContain(publicKeys.assessor);
+    expect(environment).toContain(publicKeys.curator);
     expect(environment).toContain(publicKeys.publisher);
+    expect(readerSecret).toBe(secrets.keys.communityOne);
+    expect(environment).not.toContain(readerSecret);
 
     const repeated = await createFixtureFiles(root);
     expect(

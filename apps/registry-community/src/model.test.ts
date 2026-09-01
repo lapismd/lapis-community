@@ -2,8 +2,8 @@ import { describe, expect, it } from "vitest";
 import { finalizeEvent, generateSecretKey } from "nostr-tools/pure";
 
 import {
-  createBuzzForumReplyTemplate,
-  createBuzzForumRootTemplate,
+  createNip29ForumCommentTemplate,
+  createNip29ForumThreadTemplate,
 } from "@lapismd/registry-protocol";
 
 import {
@@ -12,8 +12,8 @@ import {
   displayName,
   initials,
   latestReactionByAuthor,
-  materializeBuzzForum,
-  materializeBuzzReactions,
+  materializeNip29Forum,
+  materializeNip29Reactions,
   parseProfiles,
   parseRelayUrls,
   reactionGroups,
@@ -117,29 +117,20 @@ describe("registry community model", () => {
     expect(timelineIndexFromPosition(1_000, 300, 24)).toBe(23);
   });
 
-  it("materializes signed Buzz forum roots, nested replies, and reactions", () => {
+  it("materializes signed NIP-29 forum roots, nested replies, and reactions", () => {
     const author = generateSecretKey();
     const reactor = generateSecretKey();
     const groupId = "36c6a816-9330-581a-86fd-9a8d8091c39d";
     const root = finalizeEvent(
-      createBuzzForumRootTemplate(groupId, "Root", 10),
+      createNip29ForumThreadTemplate(groupId, "Root", 10),
       author,
     );
     const direct = finalizeEvent(
-      createBuzzForumReplyTemplate(groupId, root.id, "Direct", 11),
+      createNip29ForumCommentTemplate(groupId, root, root, "Direct", 11),
       author,
     );
     const nested = finalizeEvent(
-      {
-        kind: 45_003,
-        created_at: 12,
-        content: "Nested",
-        tags: [
-          ["h", groupId],
-          ["e", root.id, "", "root"],
-          ["e", direct.id, "", "reply"],
-        ],
-      },
+      createNip29ForumCommentTemplate(groupId, root, direct, "Nested", 12),
       reactor,
     );
     const reaction = finalizeEvent(
@@ -152,14 +143,14 @@ describe("registry community model", () => {
       author,
     );
 
-    expect(materializeBuzzForum([nested, root, direct], groupId)).toMatchObject(
-      [
-        { content: "Root", rootEventId: root.id },
-        { content: "Direct", rootEventId: root.id, parentEventId: root.id },
-        { content: "Nested", rootEventId: root.id, parentEventId: direct.id },
-      ],
-    );
-    const reactions = materializeBuzzReactions(
+    expect(
+      materializeNip29Forum([nested, root, direct], groupId),
+    ).toMatchObject([
+      { content: "Root", rootEventId: root.id },
+      { content: "Direct", rootEventId: root.id, parentEventId: root.id },
+      { content: "Nested", rootEventId: root.id, parentEventId: direct.id },
+    ]);
+    const reactions = materializeNip29Reactions(
       [reaction],
       new Set([nested.id]),
     );

@@ -1,46 +1,44 @@
 import {
-  BUZZ_REGISTRY_KINDS,
-  getBuzzManifestAttachment,
-  LAPIS_BUZZ_GROUP_PATHS,
+  NIP29_KINDS,
+  getNip29ManifestAttachment,
+  LAPIS_GROUPS,
   LAPIS_RELEASE_TOPIC,
-  lapisBuzzGroupId,
-  materializeBuzzRegistry,
-  projectBuzzV1,
+  lapisGroupId,
+  materializeNip29Registry,
+  projectNip29Registry,
 } from "@lapismd/registry-protocol";
 import type {
-  BuzzCatalogPlugin,
-  BuzzRegistryAuthorities,
-  BuzzReleaseManifestSource,
-  MaterializedBuzzRegistry,
+  Nip29RegistryAuthorities,
+  Nip29ReleaseManifestSource,
+  MaterializedNip29Registry,
   NostrEvent,
-  V1Projection,
+  RegistryProjection,
 } from "@lapismd/registry-protocol";
 
-import { queryRelayUnion } from "./state.js";
-import type { RelayQuerySource } from "./state.js";
+import { queryRelayUnion } from "./query.js";
+import type { RelayQuerySource } from "./query.js";
 import type { RegistryRelay, RelayAuthSigner } from "./transport.js";
 
-export interface BuzzRelayRegistryState {
-  registry: MaterializedBuzzRegistry;
-  projection: V1Projection;
+export interface Nip29RelayRegistryState {
+  registry: MaterializedNip29Registry;
+  projection: RegistryProjection;
   events: NostrEvent[];
-  manifests: BuzzReleaseManifestSource[];
+  manifests: Nip29ReleaseManifestSource[];
   sources: RelayQuerySource[];
 }
 
-export interface BuzzRelayRegistryStateOptions {
+export interface Nip29RelayRegistryStateOptions {
   relays: readonly RegistryRelay[];
-  catalog: readonly BuzzCatalogPlugin[];
-  authorities: BuzzRegistryAuthorities;
+  authorities: Nip29RegistryAuthorities;
   generatedAt: string;
   authSigner?: RelayAuthSigner | undefined;
   fetch?: typeof globalThis.fetch | undefined;
   signal?: AbortSignal | undefined;
 }
 
-export async function loadBuzzRelayRegistryState(
-  options: BuzzRelayRegistryStateOptions,
-): Promise<BuzzRelayRegistryState> {
+export async function loadNip29RelayRegistryState(
+  options: Nip29RelayRegistryStateOptions,
+): Promise<Nip29RelayRegistryState> {
   if (options.authSigner !== undefined) {
     await Promise.all(
       options.relays.map(async (relay) => {
@@ -53,11 +51,11 @@ export async function loadBuzzRelayRegistryState(
       }),
     );
   }
-  const groupId = lapisBuzzGroupId(LAPIS_BUZZ_GROUP_PATHS.pluginReleases);
+  const groupId = lapisGroupId(LAPIS_GROUPS.pluginReleases);
   const releaseResult = await queryRelayUnion(
     options.relays,
     {
-      kinds: [BUZZ_REGISTRY_KINDS.streamMessage],
+      kinds: [NIP29_KINDS.streamMessage],
       "#h": [groupId],
       "#t": [LAPIS_RELEASE_TOPIC],
       limit: 2_000,
@@ -67,7 +65,7 @@ export async function loadBuzzRelayRegistryState(
   const decisionResult = await queryRelayUnion(
     options.relays,
     {
-      kinds: [BUZZ_REGISTRY_KINDS.reaction],
+      kinds: [NIP29_KINDS.reaction],
       "#e": releaseResult.events.map((event) => event.id),
       limit: 2_000,
     },
@@ -77,28 +75,27 @@ export async function loadBuzzRelayRegistryState(
     ...releaseResult.events,
     ...decisionResult.events,
   ]);
-  const manifests = await fetchBuzzReleaseManifests(events, {
+  const manifests = await fetchNip29ReleaseManifests(events, {
     fetch: options.fetch ?? ((input, init) => globalThis.fetch(input, init)),
     mediaAuthSigner: options.authSigner,
     relayUrls: options.relays.map((relay) => relay.url),
     signal: options.signal,
   });
-  const registry = materializeBuzzRegistry(
+  const registry = materializeNip29Registry(
     events,
     manifests,
-    options.catalog,
     options.authorities,
   );
   return {
     registry,
-    projection: projectBuzzV1(registry, options.generatedAt),
+    projection: projectNip29Registry(registry, options.generatedAt),
     events,
     manifests,
     sources: mergeSources(releaseResult.sources, decisionResult.sources),
   };
 }
 
-export async function fetchBuzzReleaseManifests(
+export async function fetchNip29ReleaseManifests(
   events: readonly NostrEvent[],
   options: {
     fetch: typeof globalThis.fetch;
@@ -106,10 +103,10 @@ export async function fetchBuzzReleaseManifests(
     relayUrls?: readonly string[] | undefined;
     signal?: AbortSignal | undefined;
   },
-): Promise<BuzzReleaseManifestSource[]> {
+): Promise<Nip29ReleaseManifestSource[]> {
   const attachments = new Map(
     events.flatMap((event) => {
-      const attachment = getBuzzManifestAttachment(event);
+      const attachment = getNip29ManifestAttachment(event);
       return attachment === undefined
         ? []
         : [[attachment.sha256, attachment] as const];

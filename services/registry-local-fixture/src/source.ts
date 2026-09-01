@@ -364,7 +364,7 @@ async function resolveContent(
         const bytes = await readFile(
           path.join(options.packageRoot, relativePath),
         );
-        const resourcePath = `v1/content/${options.pluginId}/${kind}.md`;
+        const resourcePath = `registry/content/${options.pluginId}/${kind}.md`;
         const resource = addResource(options.resources, resourcePath, bytes);
         return [
           kind,
@@ -494,7 +494,7 @@ async function resolveImage(
   }
   const extension = metadata.format === "svg" ? "svg" : metadata.format;
   const digest = createHash("sha256").update(bytes).digest("hex");
-  const resourcePath = `v1/assets/${options.pluginId}/${digest}.${extension}`;
+  const resourcePath = `registry/assets/${options.pluginId}/${digest}.${extension}`;
   addResource(options.resources, resourcePath, bytes, digest);
   return {
     url: `/${resourcePath}`,

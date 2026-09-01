@@ -9,59 +9,35 @@ import {
 } from "node:fs/promises";
 import path from "node:path";
 
-import { hexToBytes } from "@noble/hashes/utils.js";
+import { SecretKeyRegistrySigner } from "@lapismd/registry-auth";
 import {
-  loadBuzzRelayRegistryState,
+  loadNip29RelayRegistryState,
   WebSocketRegistryRelay,
 } from "@lapismd/registry-nostr";
 import {
   canonicalHash,
   canonicalJson,
-  lapisBuzzGroupId,
-  LAPIS_BUZZ_GROUP_PATHS,
+  lapisGroupId,
+  LAPIS_GROUPS,
 } from "@lapismd/registry-protocol";
-import type {
-  BuzzCatalogPlugin,
-  JsonObject,
-  JsonValue,
-  NostrEventTemplate,
-} from "@lapismd/registry-protocol";
-import { finalizeEvent } from "nostr-tools/pure";
+import type { JsonObject, JsonValue } from "@lapismd/registry-protocol";
 
 const outputIndex = process.argv.indexOf("--output");
 const outputTarget = path.resolve(
   outputIndex === -1
-    ? "artifacts/relay-v1"
+    ? "artifacts/registry"
     : required(process.argv[outputIndex + 1], "--output"),
 );
 const output = path.join(
   path.dirname(outputTarget),
   `.${path.basename(outputTarget)}.materializing-${process.pid}`,
 );
-const relayUrls = list("REGISTRY_BUZZ_RELAYS");
+const relayUrls = list("REGISTRY_RELAYS");
 if (relayUrls.length === 0)
-  throw new Error("REGISTRY_BUZZ_RELAYS must not be empty");
-const secretFile = required(
-  process.env.REGISTRY_FIXTURE_SECRETS_FILE,
-  "REGISTRY_FIXTURE_SECRETS_FILE",
-);
-const secrets = JSON.parse(await readFile(secretFile, "utf8")) as {
-  keys?: Record<string, string>;
-};
-const readerSecretHex = secrets.keys?.publisher;
-if (readerSecretHex === undefined || !/^[0-9a-f]{64}$/u.test(readerSecretHex)) {
-  throw new Error("Fixture publisher key is missing");
-}
-const readerSecret = hexToBytes(readerSecretHex);
-const snapshotSecretHex = secrets.keys?.snapshot;
-if (
-  snapshotSecretHex === undefined ||
-  !/^[0-9a-f]{64}$/u.test(snapshotSecretHex)
-) {
-  throw new Error("Fixture snapshot key is missing");
-}
-const snapshotSecret = hexToBytes(snapshotSecretHex);
-const publicUrls = list("REGISTRY_PUBLIC_BUZZ_RELAYS");
+  throw new Error("REGISTRY_RELAYS must not be empty");
+const publicUrls = list("REGISTRY_PUBLIC_RELAYS");
+const readerSigner = await loadReaderSigner();
+const authSigner = readerSigner.signEvent.bind(readerSigner);
 const relays = relayUrls.map(
   (url, index) =>
     new WebSocketRegistryRelay(url, {
@@ -72,16 +48,10 @@ const relays = relayUrls.map(
 
 try {
   const generatedAt = new Date().toISOString();
-  const catalogResponse = await fetch(
-    required(process.env.REGISTRY_CATALOG_URL, "REGISTRY_CATALOG_URL"),
-  );
-  if (!catalogResponse.ok)
-    throw new Error(`Catalog returned ${catalogResponse.status}`);
-  const catalog = (await catalogResponse.json()) as BuzzCatalogPlugin[];
-  const publisher = required(
-    process.env.REGISTRY_PUBLISHER_PUBKEY,
-    "REGISTRY_PUBLISHER_PUBKEY",
-  );
+  const publishers = list("REGISTRY_PUBLISHER_PUBKEYS");
+  if (publishers.length === 0) {
+    throw new Error("REGISTRY_PUBLISHER_PUBKEYS must not be empty");
+  }
   const curator = required(
     process.env.REGISTRY_CURATOR_PUBKEYS,
     "REGISTRY_CURATOR_PUBKEYS",
@@ -89,21 +59,15 @@ try {
     .split(",")
     .map((value) => value.trim())
     .filter(Boolean);
-  const state = await loadBuzzRelayRegistryState({
+  const state = await loadNip29RelayRegistryState({
     relays,
-    catalog,
     authorities: {
       curatorPubkeys: new Set(curator),
-      publisherPubkeysByPlugin: new Map(
-        catalog.map((plugin) => [
-          plugin.content.pluginId,
-          new Set([publisher]),
-        ]),
-      ),
+      publisherPubkeysByPlugin: new Map(),
+      defaultPublisherPubkeys: new Set(publishers),
     },
     generatedAt,
-    authSigner: async (template: NostrEventTemplate) =>
-      finalizeEvent(template, readerSecret),
+    authSigner,
   });
   const acceptedEventIds = new Set(state.registry.acceptedEventIds);
   const acceptedEvents = state.events
@@ -119,26 +83,6 @@ try {
     index: state.projection.index,
     plugins: projectedPlugins,
   });
-  const snapshotKind = 30_078;
-  const snapshotEvent = finalizeEvent(
-    {
-      kind: snapshotKind,
-      created_at: Math.floor(new Date(generatedAt).getTime() / 1_000),
-      content: canonicalJson({
-        schema: "lapis.registry.snapshot/1",
-        root: projectionRoot,
-        eventIds: acceptedEvents.map((event) => event.id),
-        pluginCount: state.registry.plugins.length,
-        excludedEventCount: state.registry.issues.length,
-        generatedAt,
-      }),
-      tags: [
-        ["d", "lapis-registry-nip29"],
-        ["x", projectionRoot],
-      ],
-    },
-    snapshotSecret,
-  );
   const publishedRelays = publicUrls.length === 0 ? relayUrls : publicUrls;
   await rm(output, { force: true, recursive: true });
   await mkdir(path.join(output, "plugins"), { recursive: true });
@@ -147,47 +91,23 @@ try {
     copyCommunityBundle(output),
     jsonFile(path.join(output, "index.json"), state.projection.index),
     jsonFile(path.join(output, "provenance.json"), {
+      schema: "lapis.registry.provenance/1",
       ...state.projection.provenance,
       root: projectionRoot,
-      snapshotEventId: snapshotEvent.id,
       sourceRegistryRoot: state.registry.root,
+      generatedAt,
       relaySources: state.sources,
     }),
-    jsonFile(path.join(output, "snapshot-event.json"), snapshotEvent),
     jsonFile(path.join(output, "accepted-events.json"), acceptedEvents),
-    jsonFile(path.join(output, "community.json"), {
-      schemaVersion: 2,
-      backend: "nip29",
-      groups: "nip29",
-    }),
-    jsonFile(path.join(output, "security.json"), {
-      schemaVersion: 2,
-      statuses: [],
-      deferredToNip29PrivateMessaging: true,
-    }),
     jsonFile(path.join(output, "runtime.json"), {
       schemaVersion: 1,
       backend: "nostr-nip29",
       registryRoot: projectionRoot,
       sourceRegistryRoot: state.registry.root,
-      snapshotEventId: snapshotEvent.id,
-      snapshotSignerPubkeys: [snapshotEvent.pubkey],
-      kinds: { snapshot: snapshotKind },
-      officialRelays: publishedRelays,
-      communityRelays: publishedRelays,
-      buzzRelays: publishedRelays,
-      communityKinds: {
-        rating: 7,
-        comment: 45_003,
-        reaction: 7,
-        softwareApplication: 32_267,
-      },
-      securityKinds: {},
-      releaseGroupId: lapisBuzzGroupId(LAPIS_BUZZ_GROUP_PATHS.pluginReleases),
+      relays: publishedRelays,
+      releaseGroupId: lapisGroupId(LAPIS_GROUPS.pluginReleases),
       curatorPubkeys: curator.toSorted(),
-      publisherPubkeysByPlugin: Object.fromEntries(
-        catalog.map((plugin) => [plugin.content.pluginId, [publisher]]),
-      ),
+      publisherPubkeys: publishers.toSorted(),
     }),
     ...Object.entries(projectedPlugins).map(([pluginId, plugin]) =>
       jsonFile(path.join(output, "plugins", `${pluginId}.json`), plugin),
@@ -196,7 +116,7 @@ try {
   await rm(outputTarget, { force: true, recursive: true });
   await rename(output, outputTarget);
   console.log(
-    `Materialized ${state.registry.plugins.length} Buzz plugins into ${outputTarget}.`,
+    `Materialized ${state.registry.plugins.length} NIP-29 plugins into ${outputTarget}.`,
   );
 } catch (error) {
   await rm(output, { force: true, recursive: true });
@@ -251,7 +171,7 @@ function collectResources(
   const candidate = value as Record<string, JsonValue>;
   if (
     typeof candidate.url === "string" &&
-    candidate.url.startsWith("/v1/") &&
+    candidate.url.startsWith("/registry/") &&
     typeof candidate.sourceUrl === "string" &&
     typeof candidate.sha256 === "string" &&
     /^[0-9a-f]{64}$/u.test(candidate.sha256) &&
@@ -267,8 +187,7 @@ async function mirrorResource(
   resource: ProjectionResource,
   targetRoot: string,
 ): Promise<void> {
-  const pathname = new URL(resource.url, "https://registry.lapismd.com")
-    .pathname;
+  const pathname = new URL(resource.url, "https://community.lapis.md").pathname;
   const origin = process.env.REGISTRY_ASSET_FETCH_ORIGIN?.trim();
   const source = origin
     ? new URL(
@@ -285,7 +204,7 @@ async function mirrorResource(
   if (createHash("sha256").update(bytes).digest("hex") !== resource.sha256) {
     throw new Error(`${resource.url} hash mismatch`);
   }
-  const target = path.resolve(targetRoot, pathname.slice("/v1/".length));
+  const target = path.resolve(targetRoot, pathname.slice("/registry/".length));
   if (!target.startsWith(`${path.resolve(targetRoot)}${path.sep}`)) {
     throw new Error(`Unsafe resource path ${resource.url}`);
   }
@@ -308,4 +227,22 @@ function required(value: string | undefined, name: string): string {
   if (value === undefined || value.trim() === "")
     throw new Error(`${name} is required`);
   return value;
+}
+
+async function loadReaderSigner(): Promise<SecretKeyRegistrySigner> {
+  const secretPath = path.resolve(
+    required(
+      process.env.REGISTRY_READER_SECRET_FILE,
+      "REGISTRY_READER_SECRET_FILE",
+    ),
+  );
+  const secretHex = (await readFile(secretPath, "utf8")).trim();
+  if (!/^[0-9a-f]{64}$/u.test(secretHex)) {
+    throw new Error(
+      "REGISTRY_READER_SECRET_FILE must contain one lowercase hex Nostr secret",
+    );
+  }
+  return new SecretKeyRegistrySigner(
+    new Uint8Array(Buffer.from(secretHex, "hex")),
+  );
 }

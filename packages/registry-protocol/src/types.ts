@@ -25,19 +25,6 @@ export interface NostrEventTemplate {
   content: string;
 }
 
-export interface RegistryKindMap {
-  softwareApplication: number;
-  releaseArtifactSet: number;
-  assessmentLabel: number;
-  approval: number;
-  revocation: number;
-  moderationReport: number;
-  moderationDecision: number;
-  snapshot: number;
-  fileMetadata: number;
-  comment: number;
-}
-
 export interface PluginDefinitionContent {
   schema: "lapis.registry.plugin/1";
   pluginId: string;
@@ -67,159 +54,36 @@ export interface ReleaseContent {
   metadata: JsonObject;
 }
 
-export interface AssessmentCheck {
-  id: string;
-  status: "pass" | "fail" | "warn";
-  message?: string | undefined;
+export interface Nip29ReleaseManifest {
+  schema: "lapis.registry.nip29-release/1";
+  plugin: PluginDefinitionContent;
+  release: ReleaseContent;
 }
-
-export interface AssessmentContent {
-  schema: "lapis.registry.assessment/1";
-  releaseEventId: string;
-  artifactSha256: string;
-  status: "pass" | "fail";
-  checks: AssessmentCheck[];
-}
-
-export interface ApprovalContent {
-  schema: "lapis.registry.approval/1";
-  pluginId: string;
-  version: string;
-  releaseEventId: string;
-  assessmentEventId: string;
-  artifactSha256: string;
-  decision: "approved" | "rejected";
-  reason?: string | undefined;
-}
-
-export type RevocationTarget =
-  | { scope: "artifact"; sha256: string }
-  | { scope: "plugin"; pluginId: string }
-  | { scope: "publisher"; pubkey: string }
-  | { scope: "release"; releaseEventId: string };
-
-export interface RevocationContent {
-  schema: "lapis.registry.revocation/1";
-  target: RevocationTarget;
-  reason: string;
-}
-
-export type ModerationTarget =
-  | { type: "event"; eventId: string }
-  | { type: "plugin"; pluginId: string }
-  | { type: "publisher"; pubkey: string };
-
-export interface ModerationContent {
-  schema: "lapis.registry.moderation/1";
-  target: ModerationTarget;
-  action: "allow" | "hide" | "mute";
-  reason: string;
-}
-
-export interface SnapshotContent {
-  schema: "lapis.registry.snapshot/1";
-  root: string;
-  eventIds: string[];
-  pluginCount: number;
-  excludedEventCount: number;
-  generatedAt: string;
-}
-
-export type RegistryContent =
-  | ApprovalContent
-  | AssessmentContent
-  | ModerationContent
-  | PluginDefinitionContent
-  | ReleaseContent
-  | RevocationContent
-  | SnapshotContent;
-
-export interface RegistryAuthorities {
-  assessorPubkeys: ReadonlySet<string>;
-  curatorPubkeys: ReadonlySet<string>;
-  moderatorPubkeys: ReadonlySet<string>;
-  snapshotSignerPubkeys: ReadonlySet<string>;
-  registryOperatorPubkeys: ReadonlySet<string>;
-  publisherPubkeysByPlugin?: ReadonlyMap<string, ReadonlySet<string>>;
-}
-
-export type RegistryIssueCode =
-  | "authority"
-  | "content"
-  | "duplicate-conflict"
-  | "reference"
-  | "signature"
-  | "tags";
 
 export interface RegistryIssue {
   eventId: string;
-  code: RegistryIssueCode;
+  code: "authority" | "content" | "duplicate-conflict" | "signature" | "tags";
   message: string;
 }
 
-export type ExclusionReason =
-  | "artifact-revoked"
-  | "assessment-missing"
-  | "approval-missing"
-  | "event-hidden"
-  | "plugin-hidden"
-  | "plugin-revoked"
-  | "plugin-status"
-  | "publisher-muted"
-  | "publisher-revoked"
-  | "release-revoked";
-
-export interface RegistryExclusion {
-  eventId: string;
-  pluginId?: string;
-  reason: ExclusionReason;
-}
-
-export interface MaterializedRelease {
-  event: NostrEvent;
-  content: ReleaseContent;
-  assessmentEvent: NostrEvent;
-  assessment: AssessmentContent;
-  approvalEvent: NostrEvent;
-  approval: ApprovalContent;
-}
-
-export interface MaterializedPlugin {
-  event: NostrEvent;
+export interface RegistryProjectionPlugin {
   content: PluginDefinitionContent;
-  releases: MaterializedRelease[];
+  releases: ReleaseContent[];
   latestVersion: string;
 }
 
-export interface MaterializedRegistry {
-  schemaVersion: 1;
-  root: string;
-  plugins: MaterializedPlugin[];
-  acceptedEventIds: string[];
-  exclusions: RegistryExclusion[];
-  exclusionCounts: Partial<Record<ExclusionReason, number>>;
-  issues: RegistryIssue[];
+export interface RegistryProjectionOptions {
+  generatedAt: string;
+  indexBase?: JsonObject;
 }
 
-export interface V1Projection {
+export interface RegistryProjection {
   index: JsonObject;
-  plugins: ReadonlyMap<string, JsonObject>;
+  plugins: Map<string, JsonObject>;
   provenance: {
     backend: "nostr";
     root: string;
     acceptedEventIds: string[];
-    exclusionCounts: Partial<Record<ExclusionReason, number>>;
+    exclusionCounts: Record<string, number>;
   };
-}
-
-export interface V1ProjectionPlugin {
-  content: PluginDefinitionContent;
-  releases: ReleaseContent[];
-  latestVersion: string;
-  event?: NostrEvent | undefined;
-}
-
-export interface V1ProjectionOptions {
-  generatedAt: string;
-  indexBase?: JsonObject | undefined;
 }

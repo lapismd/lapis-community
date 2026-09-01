@@ -6,17 +6,17 @@ import {
 import { describe, expect, it } from "vitest";
 
 import {
-  BUZZ_REGISTRY_KINDS,
-  createBuzzCuratorDecisionTemplate,
-  createBuzzForumReplyTemplate,
-  createBuzzForumRootTemplate,
-  createBuzzReleaseMessageTemplate,
-  LAPIS_BUZZ_GROUP_PATHS,
-  lapisBuzzGroupId,
+  NIP29_KINDS,
+  createNip29CuratorDecisionTemplate,
+  createNip29ForumCommentTemplate,
+  createNip29ForumThreadTemplate,
+  createNip29ReleaseMessageTemplate,
+  LAPIS_GROUPS,
+  lapisGroupId,
   lapisPluginSupportGroupId,
-  materializeBuzzRegistry,
-  projectBuzzV1,
-} from "./buzz.js";
+  materializeNip29Registry,
+  projectNip29Registry,
+} from "./nip29.js";
 import type {
   NostrEvent,
   NostrEventTemplate,
@@ -48,7 +48,7 @@ const plugin: PluginDefinitionContent = {
   detail: { license: "AGPL-3.0-or-later" },
 };
 
-const manifest: ReleaseContent = {
+const releaseManifest: ReleaseContent = {
   schema: "lapis.registry.release/1",
   pluginId: "ai",
   version: "1.2.3",
@@ -62,26 +62,29 @@ const manifest: ReleaseContent = {
   },
   metadata: { version: "1.2.3" },
 };
+const manifest = {
+  schema: "lapis.registry.nip29-release/1" as const,
+  plugin,
+  release: releaseManifest,
+};
 
 function sign(secret: Uint8Array, template: NostrEventTemplate): NostrEvent {
   return finalizeEvent(template, secret);
 }
 
-describe("Buzz-first registry protocol", () => {
+describe("NIP-29 registry protocol", () => {
   it("derives stable NIP-29 group ids from the documented names", () => {
-    expect(lapisBuzzGroupId(LAPIS_BUZZ_GROUP_PATHS.pluginReleases)).toBe(
-      "36c6a816-9330-581a-86fd-9a8d8091c39d",
+    expect(lapisGroupId(LAPIS_GROUPS.pluginReleases)).toBe(
+      "d792e601-8c97-5ac6-9446-d8215835de3c",
     );
-    expect(lapisBuzzGroupId(LAPIS_BUZZ_GROUP_PATHS.forums)).toBe(
-      "5dccd936-e075-5b89-bd7e-a5345f8741de",
+    expect(lapisGroupId(LAPIS_GROUPS.forums)).toBe(
+      "650b8354-2725-5674-b6a0-46b0b68b227e",
     );
-    expect(lapisPluginSupportGroupId("ai")).toBe(
-      lapisBuzzGroupId("support/ai"),
-    );
+    expect(lapisPluginSupportGroupId("ai")).toBe(lapisGroupId("support/ai"));
   });
 
-  it("uses standard Buzz/Nostr kinds for release, decision, and forum events", () => {
-    const release = createBuzzReleaseMessageTemplate(
+  it("uses standard NIP-29/Nostr kinds for release, decision, and forum events", () => {
+    const release = createNip29ReleaseMessageTemplate(
       "ai",
       attachment,
       1_700_000_000,
@@ -94,21 +97,40 @@ describe("Buzz-first registry protocol", () => {
     expect(release.tags).toContainEqual(["t", "lapis-plugin-release"]);
     expect(release.tags).toContainEqual(["t", "plugin:ai"]);
     expect(
-      createBuzzCuratorDecisionTemplate("c".repeat(64), "approved", 1).kind,
-    ).toBe(BUZZ_REGISTRY_KINDS.reaction);
-    expect(createBuzzForumRootTemplate("group", "root", 1).kind).toBe(45_001);
+      createNip29CuratorDecisionTemplate("c".repeat(64), "approved", 1).kind,
+    ).toBe(NIP29_KINDS.reaction);
+    const root = sign(
+      publisherKey,
+      createNip29ForumThreadTemplate("group", "root", 1),
+    );
+    expect(root).toMatchObject({
+      kind: 11,
+      tags: expect.arrayContaining([["title", "root"]]),
+    });
     expect(
-      createBuzzForumReplyTemplate("group", "e".repeat(64), "reply", 2),
+      createNip29ForumCommentTemplate(
+        "group",
+        root,
+        root,
+        "reply",
+        2,
+        "wss://relay.example",
+      ),
     ).toMatchObject({
-      kind: 45_003,
-      tags: expect.arrayContaining([["e", "e".repeat(64), "", "reply"]]),
+      kind: 1_111,
+      tags: expect.arrayContaining([
+        ["E", root.id, "wss://relay.example", root.pubkey],
+        ["K", "11"],
+        ["e", root.id, "wss://relay.example", root.pubkey],
+        ["k", "11"],
+      ]),
     });
   });
 
   it("materializes only configured publishers with the latest trusted curator decision", () => {
     const release = sign(
       publisherKey,
-      createBuzzReleaseMessageTemplate(
+      createNip29ReleaseMessageTemplate(
         "ai",
         attachment,
         1_700_000_000,
@@ -117,7 +139,7 @@ describe("Buzz-first registry protocol", () => {
     );
     const attackerRelease = sign(
       attackerKey,
-      createBuzzReleaseMessageTemplate(
+      createNip29ReleaseMessageTemplate(
         "ai",
         attachment,
         1_700_000_001,
@@ -126,15 +148,15 @@ describe("Buzz-first registry protocol", () => {
     );
     const untrustedApproval = sign(
       attackerKey,
-      createBuzzCuratorDecisionTemplate(release.id, "approved", 1_700_000_002),
+      createNip29CuratorDecisionTemplate(release.id, "approved", 1_700_000_002),
     );
     const rejected = sign(
       curatorKey,
-      createBuzzCuratorDecisionTemplate(release.id, "rejected", 1_700_000_003),
+      createNip29CuratorDecisionTemplate(release.id, "rejected", 1_700_000_003),
     );
     const approved = sign(
       curatorKey,
-      createBuzzCuratorDecisionTemplate(release.id, "approved", 1_700_000_004),
+      createNip29CuratorDecisionTemplate(release.id, "approved", 1_700_000_004),
     );
     const input = [
       release,
@@ -149,16 +171,10 @@ describe("Buzz-first registry protocol", () => {
     };
     const sources = [{ attachmentSha256: attachment.sha256, manifest }];
 
-    const result = materializeBuzzRegistry(
-      input,
-      sources,
-      [{ content: plugin }],
-      options,
-    );
-    const replay = materializeBuzzRegistry(
+    const result = materializeNip29Registry(input, sources, options);
+    const replay = materializeNip29Registry(
       [...input, release].toReversed(),
       sources,
-      [{ content: plugin }],
       options,
     );
 
@@ -184,7 +200,7 @@ describe("Buzz-first registry protocol", () => {
       ]),
     );
 
-    const projection = projectBuzzV1(result, "2026-09-01T12:30:00.000Z");
+    const projection = projectNip29Registry(result, "2026-09-01T12:30:00.000Z");
     expect(projection.index.plugins).toMatchObject([
       { id: "ai", latestVersion: "1.2.3" },
     ]);
@@ -196,20 +212,19 @@ describe("Buzz-first registry protocol", () => {
   it("fails closed when a later trusted decision revokes a release", () => {
     const release = sign(
       publisherKey,
-      createBuzzReleaseMessageTemplate("ai", attachment, 10, "release"),
+      createNip29ReleaseMessageTemplate("ai", attachment, 10, "release"),
     );
     const approved = sign(
       curatorKey,
-      createBuzzCuratorDecisionTemplate(release.id, "approved", 11),
+      createNip29CuratorDecisionTemplate(release.id, "approved", 11),
     );
     const revoked = sign(
       curatorKey,
-      createBuzzCuratorDecisionTemplate(release.id, "revoked", 12),
+      createNip29CuratorDecisionTemplate(release.id, "revoked", 12),
     );
-    const result = materializeBuzzRegistry(
+    const result = materializeNip29Registry(
       [release, approved, revoked],
       [{ attachmentSha256: attachment.sha256, manifest }],
-      [{ content: plugin }],
       {
         curatorPubkeys: new Set([curator]),
         publisherPubkeysByPlugin: new Map([["ai", new Set([publisher])]]),

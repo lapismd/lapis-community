@@ -4,18 +4,18 @@ import { setTimeout as delay } from "node:timers/promises";
 
 import { bytesToHex, hexToBytes } from "@noble/hashes/utils.js";
 import {
-  createBuzzCuratorDecisionTemplate,
-  createBuzzForumReplyTemplate,
-  createBuzzForumRootTemplate,
-  createBuzzReleaseMessageTemplate,
-  LAPIS_BUZZ_GROUP_PATHS,
-  lapisBuzzGroupId,
+  createNip29CuratorDecisionTemplate,
+  createNip29ForumCommentTemplate,
+  createNip29ForumThreadTemplate,
+  createNip29ReleaseMessageTemplate,
+  LAPIS_GROUPS,
+  lapisGroupId,
   lapisPluginSupportGroupId,
-  materializeBuzzRegistry,
+  materializeNip29Registry,
 } from "@lapismd/registry-protocol";
 import type {
-  BuzzManifestAttachment,
-  BuzzReleaseManifestSource,
+  Nip29ManifestAttachment,
+  Nip29ReleaseManifestSource,
   NostrEvent,
   NostrEventTemplate,
   ReleaseContent,
@@ -28,7 +28,7 @@ import type { FixtureSecretName, FixtureSecrets } from "./keys.js";
 import { loadLocalPluginFixtures } from "./source.js";
 
 interface FixtureStatus {
-  schema: "lapis.registry.buzz-local-fixture-status/1";
+  schema: "lapis.registry.nip29-local-fixture-status/1";
   pluginCount: number;
   pluginIds: string[];
   registryEventCount: number;
@@ -107,7 +107,7 @@ async function seed(): Promise<{
       await readFile(required("REGISTRY_FIXTURE_SECRETS_FILE"), "utf8"),
     ),
   );
-  const relayUrl = new URL(required("REGISTRY_BUZZ_RELAY")).toString();
+  const relayUrl = new URL(required("REGISTRY_RELAY")).toString();
   const httpBase = relayUrl
     .replace(/^ws:/u, "http:")
     .replace(/^wss:/u, "https:");
@@ -224,7 +224,7 @@ async function seed(): Promise<{
     try {
       await relay.publish(event);
     } catch {
-      // Buzz consumes NIP-29 management events into relay-signed group state;
+      // The relay consumes NIP-29 management events into relay-signed group state;
       // some versions do not acknowledge or re-serve the original kind 9007.
     }
     await retry(async () => {
@@ -233,7 +233,7 @@ async function seed(): Promise<{
         "#d": [groupId],
       });
       if (state.length < 2)
-        throw new Error(`Buzz group ${groupId} is incomplete`);
+        throw new Error(`NIP-29 group ${groupId} is incomplete`);
     }, `create group ${groupId}`);
     if (writerPubkey !== undefined) {
       await relay.publish(
@@ -271,21 +271,21 @@ async function seed(): Promise<{
     Math.floor(Date.now() / 1_000) - 300,
   );
   const baseGroups = [
-    [LAPIS_BUZZ_GROUP_PATHS.pluginReleases, "plugin-releases", "stream"],
-    [LAPIS_BUZZ_GROUP_PATHS.general, "general", "stream"],
-    [LAPIS_BUZZ_GROUP_PATHS.pluginDevelopment, "plugin-development", "stream"],
-    [LAPIS_BUZZ_GROUP_PATHS.forums, "forums", "forum"],
+    [LAPIS_GROUPS.pluginReleases, "plugin-releases", [9, 7]],
+    [LAPIS_GROUPS.general, "general", [9, 7]],
+    [LAPIS_GROUPS.pluginDevelopment, "plugin-development", [9, 7]],
+    [LAPIS_GROUPS.forums, "forums", [11, 1_111, 7]],
   ] as const;
   const groups = [
-    ...baseGroups.map(([path, name, type]) => ({
-      id: lapisBuzzGroupId(path),
+    ...baseGroups.map(([path, name, supportedKinds]) => ({
+      id: lapisGroupId(path),
       name,
-      type,
+      supportedKinds,
     })),
     ...fixtures.map((fixture) => ({
       id: lapisPluginSupportGroupId(fixture.plugin.pluginId),
       name: `support-${fixture.plugin.pluginId}`,
-      type: "forum" as const,
+      supportedKinds: [11, 1_111, 7] as const,
     })),
   ];
   for (const group of groups) {
@@ -297,9 +297,8 @@ async function seed(): Promise<{
           name: group.name,
           about: `${group.name} for the local Lapis registry`,
           visibility: "open",
-          channel_type: group.type,
           ...(writeRestrictedReleases &&
-          group.id === lapisBuzzGroupId(LAPIS_BUZZ_GROUP_PATHS.pluginReleases)
+          group.id === lapisGroupId(LAPIS_GROUPS.pluginReleases)
             ? { "write-restricted": true }
             : {}),
         }),
@@ -307,19 +306,19 @@ async function seed(): Promise<{
           ["h", group.id],
           ["name", group.name],
           ["visibility", "open"],
-          ["channel_type", group.type],
+          ["supported_kinds", ...group.supportedKinds.map(String)],
         ],
       }),
       group.id,
       writeRestrictedReleases &&
-        group.id === lapisBuzzGroupId(LAPIS_BUZZ_GROUP_PATHS.pluginReleases)
+        group.id === lapisGroupId(LAPIS_GROUPS.pluginReleases)
         ? publisher
         : undefined,
     );
   }
 
   const registryEvents: NostrEvent[] = [];
-  const manifests: BuzzReleaseManifestSource[] = [];
+  const manifests: Nip29ReleaseManifestSource[] = [];
   const releaseByPlugin = new Map<string, NostrEvent>();
   for (const fixture of fixtures) {
     const release: ReleaseContent = {
@@ -331,19 +330,24 @@ async function seed(): Promise<{
         size: fixture.artifact.bytes.byteLength,
       },
     };
-    const bytes = new TextEncoder().encode(JSON.stringify(release));
+    const manifest = {
+      schema: "lapis.registry.nip29-release/1" as const,
+      plugin: fixture.plugin,
+      release,
+    };
+    const bytes = new TextEncoder().encode(JSON.stringify(manifest));
     const descriptor = await uploadBlob(httpBase, bytes, publisherSecret);
-    const attachment: BuzzManifestAttachment = {
+    const attachment: Nip29ManifestAttachment = {
       url: descriptor.url,
       mimeType: descriptor.type,
       sha256: descriptor.sha256,
       size: descriptor.size,
       filename: `${fixture.plugin.pluginId}-${release.version}.manifest.json`,
     };
-    manifests.push({ attachmentSha256: descriptor.sha256, manifest: release });
+    manifests.push({ attachmentSha256: descriptor.sha256, manifest });
     const submission = sign(
       publisherSecret,
-      createBuzzReleaseMessageTemplate(
+      createNip29ReleaseMessageTemplate(
         fixture.plugin.pluginId,
         attachment,
         createdAt++,
@@ -352,7 +356,11 @@ async function seed(): Promise<{
     );
     const approval = sign(
       curatorSecret,
-      createBuzzCuratorDecisionTemplate(submission.id, "approved", createdAt++),
+      createNip29CuratorDecisionTemplate(
+        submission.id,
+        "approved",
+        createdAt++,
+      ),
     );
     await publish(submission, publisherSecret);
     await publish(approval, curatorSecret);
@@ -433,7 +441,7 @@ async function seed(): Promise<{
     const rootSecret = communitySecrets[topicIndex % communitySecrets.length]!;
     const root = sign(
       rootSecret,
-      createBuzzForumRootTemplate(forumId, title, nextForumTimestamp()),
+      createNip29ForumThreadTemplate(forumId, title, nextForumTimestamp()),
     );
     communityEvents.push(root);
     forumPublications.push({ event: root, secretKey: rootSecret });
@@ -442,19 +450,16 @@ async function seed(): Promise<{
     let previousReply: NostrEvent | undefined;
     for (let index = 0; index < replyCount; index += 1) {
       const authorSecret = communitySecrets[index % communitySecrets.length]!;
-      const template = createBuzzForumReplyTemplate(
+      const parent =
+        previousReply !== undefined && index % 5 === 0 ? previousReply : root;
+      const template = createNip29ForumCommentTemplate(
         forumId,
-        root.id,
+        root,
+        parent,
         `Reply ${index + 1}: ${discussionSentence(index)}`,
         nextForumTimestamp(),
+        relayUrl,
       );
-      if (previousReply !== undefined && index % 5 === 0) {
-        template.tags = [
-          ["h", forumId],
-          ["e", root.id, "", "root"],
-          ["e", previousReply.id, "", "reply"],
-        ];
-      }
       const reply = sign(authorSecret, template);
       communityEvents.push(reply);
       forumPublications.push({ event: reply, secretKey: authorSecret });
@@ -507,26 +512,17 @@ async function seed(): Promise<{
   }
   createdAt += 3;
 
-  const registry = materializeBuzzRegistry(
-    registryEvents,
-    manifests,
-    fixtures.map((fixture) => ({ content: fixture.plugin })),
-    {
-      curatorPubkeys: new Set([curator]),
-      publisherPubkeysByPlugin: new Map(
-        fixtures.map((fixture) => [
-          fixture.plugin.pluginId,
-          new Set([publisher]),
-        ]),
-      ),
-    },
-  );
+  const registry = materializeNip29Registry(registryEvents, manifests, {
+    curatorPubkeys: new Set([curator]),
+    publisherPubkeysByPlugin: new Map(),
+    defaultPublisherPubkeys: new Set([publisher]),
+  });
   if (
     registry.plugins.length !== fixtures.length ||
     registry.issues.length !== 0
   ) {
     throw new Error(
-      "Buzz fixture did not materialize the complete plugin catalog",
+      "NIP-29 fixture did not materialize the complete plugin catalog",
     );
   }
   const reader = await relayFor(publisherSecret);
@@ -541,7 +537,7 @@ async function seed(): Promise<{
   }
   if (retained.length !== events.length) {
     throw new Error(
-      `Buzz retained ${retained.length}/${events.length} fixture events`,
+      `The relay retained ${retained.length}/${events.length} fixture events`,
     );
   }
   for (const relay of relays.values()) relay.close();
@@ -550,7 +546,7 @@ async function seed(): Promise<{
     artifacts,
     catalog: fixtures.map((fixture) => ({ content: fixture.plugin })),
     status: {
-      schema: "lapis.registry.buzz-local-fixture-status/1",
+      schema: "lapis.registry.nip29-local-fixture-status/1",
       pluginCount: fixtures.length,
       pluginIds: fixtures.map((fixture) => fixture.plugin.pluginId),
       registryEventCount: registryEvents.length,
@@ -598,7 +594,7 @@ async function uploadBlob(
     body: Buffer.from(body),
   });
   if (!response.ok)
-    throw new Error(`Buzz manifest upload returned ${response.status}`);
+    throw new Error(`NIP-29 manifest upload returned ${response.status}`);
   return (await response.json()) as BlobDescriptor;
 }
 
@@ -606,7 +602,7 @@ function discussionSentence(index: number): string {
   const sentences = [
     "Prefer an explicit ordered provider list with a visible fallback reason.",
     "The UI should keep enough context to make long-running support threads readable.",
-    "A standard Nostr reply remains portable even when Buzz adds richer views.",
+    "A standard Nostr reply remains portable across NIP-29 clients.",
     "Pagination should preserve the reader's place when newer replies arrive.",
     "Curator trust and community moderation need to remain separate decisions.",
   ];
@@ -657,7 +653,7 @@ function startServer(
   });
   server.listen(port, "0.0.0.0", () => {
     console.log(
-      `Seeded ${status.pluginCount} plugins and ${status.communityEventCount} Buzz community events.`,
+      `Seeded ${status.pluginCount} plugins and ${status.communityEventCount} NIP-29 community events.`,
     );
   });
 }

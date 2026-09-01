@@ -5,16 +5,11 @@ import { bytesToHex, hexToBytes } from "@noble/hashes/utils.js";
 import { generateSecretKey, getPublicKey } from "nostr-tools/pure";
 
 const secretNames = [
-  "advisory",
-  "assessor",
   "communityOne",
   "communityTwo",
   "curator",
-  "disposition",
-  "moderator",
   "operator",
   "publisher",
-  "snapshot",
 ] as const;
 
 export type FixtureSecretName = (typeof secretNames)[number];
@@ -26,6 +21,7 @@ export interface FixtureSecrets {
 
 export interface FixtureFileSet {
   environmentFile: string;
+  readerSecretFile: string;
   secretsFile: string;
 }
 
@@ -86,50 +82,29 @@ export async function createFixtureFiles(
   const directory = path.resolve(outputDirectory);
   const secretsFile = path.join(directory, "fixture-secrets.json");
   const environmentFile = path.join(directory, "fixture.env");
+  const readerSecretFile = path.join(directory, "materializer-reader.key");
   await mkdir(directory, { recursive: true, mode: 0o700 });
   const secrets = (await existingSecrets(secretsFile)) ?? newSecrets();
   const publicKeys = fixturePublicKeys(secrets);
   const createdAt = Math.floor(Date.now() / 1_000) - 300;
-  const officialWriters = [
-    publicKeys.advisory,
-    publicKeys.assessor,
-    publicKeys.curator,
-    publicKeys.disposition,
-    publicKeys.moderator,
-    publicKeys.operator,
-    publicKeys.publisher,
-    publicKeys.snapshot,
-  ].toSorted();
-
   await writeFile(secretsFile, `${JSON.stringify(secrets, null, 2)}\n`, {
     encoding: "utf8",
     mode: 0o600,
   });
   await chmod(secretsFile, 0o600);
+  await writeFile(readerSecretFile, `${secrets.keys.communityOne}\n`, {
+    encoding: "utf8",
+    mode: 0o600,
+  });
+  await chmod(readerSecretFile, 0o600);
   await writeFile(
     environmentFile,
     [
-      `REGISTRY_ASSESSOR_PUBKEYS=${publicKeys.assessor}`,
       `REGISTRY_CURATOR_PUBKEYS=${publicKeys.curator}`,
-      `REGISTRY_PUBLISHER_PUBKEY=${publicKeys.publisher}`,
-      `REGISTRY_MODERATOR_PUBKEYS=${publicKeys.moderator}`,
-      `REGISTRY_SNAPSHOT_SIGNER_PUBKEYS=${publicKeys.snapshot}`,
+      `REGISTRY_PUBLISHER_PUBKEYS=${publicKeys.publisher}`,
       `REGISTRY_OPERATOR_PUBKEYS=${publicKeys.operator}`,
+      `REGISTRY_READER_SECRET_FILE=${readerSecretFile}`,
       `REGISTRY_FIXTURE_CREATED_AT=${createdAt}`,
-      `REGISTRY_SECURITY_ADVISORY_PUBKEYS=${publicKeys.advisory}`,
-      `REGISTRY_SECURITY_DISPOSITION_PUBKEYS=${publicKeys.disposition}`,
-      `REGISTRY_OFFICIAL_PUBKEYS=${officialWriters.join(",")}`,
-      `LAPIS_MEMBERSHIP_ADMIN_PUBKEYS=${publicKeys.operator}`,
-      `LAPIS_CURATOR_PUBKEYS=${publicKeys.curator}`,
-      `LAPIS_SECURITY_PUBKEYS=${[publicKeys.advisory, publicKeys.disposition].toSorted().join(",")}`,
-      `LAPIS_OPERATOR_PUBKEYS=${[
-        publicKeys.assessor,
-        publicKeys.moderator,
-        publicKeys.operator,
-        publicKeys.snapshot,
-      ]
-        .toSorted()
-        .join(",")}`,
       `REGISTRY_FIXTURE_SECRETS_FILE=${secretsFile}`,
       "",
     ].join("\n"),
@@ -137,5 +112,5 @@ export async function createFixtureFiles(
   );
   await chmod(environmentFile, 0o600);
 
-  return { environmentFile, secretsFile };
+  return { environmentFile, readerSecretFile, secretsFile };
 }

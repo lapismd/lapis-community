@@ -9,8 +9,8 @@ import {
 import { describe, expect, it, vi } from "vitest";
 
 import {
-  createBuzzCuratorDecisionTemplate,
-  createBuzzReleaseMessageTemplate,
+  createNip29CuratorDecisionTemplate,
+  createNip29ReleaseMessageTemplate,
 } from "@lapismd/registry-protocol";
 import type {
   NostrEvent,
@@ -19,7 +19,7 @@ import type {
   ReleaseContent,
 } from "@lapismd/registry-protocol";
 
-import { loadBuzzRelayRegistryState } from "./buzz-state.js";
+import { loadNip29RelayRegistryState } from "./nip29-state.js";
 import type {
   RegistryRelay,
   RelayFilter,
@@ -53,13 +53,13 @@ function sign(secret: Uint8Array, template: NostrEventTemplate): NostrEvent {
   return finalizeEvent(template, secret);
 }
 
-describe("loadBuzzRelayRegistryState", () => {
-  it("NIP-42 authenticates, verifies the attached manifest, and builds V1 output", async () => {
+describe("loadNip29RelayRegistryState", () => {
+  it("NIP-42 authenticates, verifies the attached manifest, and builds a registry projection", async () => {
     const publisherKey = generateSecretKey();
     const curatorKey = generateSecretKey();
     const publisher = getPublicKey(publisherKey);
     const curator = getPublicKey(curatorKey);
-    const manifest: ReleaseContent = {
+    const releaseManifest: ReleaseContent = {
       schema: "lapis.registry.release/1",
       pluginId: "demo",
       version: "1.0.0",
@@ -73,11 +73,26 @@ describe("loadBuzzRelayRegistryState", () => {
       },
       metadata: {},
     };
+    const plugin: PluginDefinitionContent = {
+      schema: "lapis.registry.plugin/1",
+      pluginId: "demo",
+      name: "Demo",
+      description: "Fixture",
+      channel: "official",
+      status: "active",
+      index: {},
+      detail: {},
+    };
+    const manifest = {
+      schema: "lapis.registry.nip29-release/1" as const,
+      plugin,
+      release: releaseManifest,
+    };
     const bytes = new TextEncoder().encode(JSON.stringify(manifest));
     const manifestSha256 = createHash("sha256").update(bytes).digest("hex");
     const release = sign(
       publisherKey,
-      createBuzzReleaseMessageTemplate(
+      createNip29ReleaseMessageTemplate(
         "demo",
         {
           url: "https://relay.example/media/manifest.json",
@@ -91,18 +106,8 @@ describe("loadBuzzRelayRegistryState", () => {
     );
     const approval = sign(
       curatorKey,
-      createBuzzCuratorDecisionTemplate(release.id, "approved", 1_700_000_001),
+      createNip29CuratorDecisionTemplate(release.id, "approved", 1_700_000_001),
     );
-    const plugin: PluginDefinitionContent = {
-      schema: "lapis.registry.plugin/1",
-      pluginId: "demo",
-      name: "Demo",
-      description: "Fixture",
-      channel: "official",
-      status: "active",
-      index: {},
-      detail: {},
-    };
     const relay = new FixtureRelay([release, approval]);
     let mediaAuthorization = "";
     const fetchMock = vi
@@ -121,9 +126,8 @@ describe("loadBuzzRelayRegistryState", () => {
         });
       });
 
-    const state = await loadBuzzRelayRegistryState({
+    const state = await loadNip29RelayRegistryState({
       relays: [relay],
-      catalog: [{ content: plugin }],
       authorities: {
         curatorPubkeys: new Set([curator]),
         publisherPubkeysByPlugin: new Map([["demo", new Set([publisher])]]),
@@ -165,7 +169,7 @@ describe("loadBuzzRelayRegistryState", () => {
     const publisherKey = generateSecretKey();
     const release = sign(
       publisherKey,
-      createBuzzReleaseMessageTemplate(
+      createNip29ReleaseMessageTemplate(
         "demo",
         {
           url: "https://relay.example/media/manifest.json",
@@ -179,9 +183,8 @@ describe("loadBuzzRelayRegistryState", () => {
     );
     const relay = new FixtureRelay([release]);
     await expect(
-      loadBuzzRelayRegistryState({
+      loadNip29RelayRegistryState({
         relays: [relay],
-        catalog: [],
         authorities: {
           curatorPubkeys: new Set(),
           publisherPubkeysByPlugin: new Map(),

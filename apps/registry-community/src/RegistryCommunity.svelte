@@ -20,11 +20,11 @@
   } from "@lapismd/registry-auth";
   import { WebSocketRegistryRelay } from "@lapismd/registry-nostr";
   import {
-    BUZZ_REGISTRY_KINDS,
-    createBuzzForumReplyTemplate,
-    createBuzzForumRootTemplate,
-    LAPIS_BUZZ_GROUP_PATHS,
-    lapisBuzzGroupId,
+    NIP29_KINDS,
+    createNip29ForumCommentTemplate,
+    createNip29ForumThreadTemplate,
+    LAPIS_GROUPS,
+    lapisGroupId,
     lapisPluginSupportGroupId,
     type NostrEvent,
   } from "@lapismd/registry-protocol";
@@ -33,8 +33,8 @@
     anyRelayPublished,
     displayName,
     latestReactionByAuthor,
-    materializeBuzzForum,
-    materializeBuzzReactions,
+    materializeNip29Forum,
+    materializeNip29Reactions,
     parseProfiles,
     parseRelayUrls,
     reactionGroups,
@@ -121,9 +121,7 @@
   const supportGroupId = $derived(
     plugin === "" ? "" : lapisPluginSupportGroupId(plugin),
   );
-  const releaseGroupId = lapisBuzzGroupId(
-    LAPIS_BUZZ_GROUP_PATHS.pluginReleases,
-  );
+  const releaseGroupId = lapisGroupId(LAPIS_GROUPS.pluginReleases);
   const reviews = $derived(
     allReviews.filter((entry) => visibleReviewIds.has(entry.event.id)),
   );
@@ -274,10 +272,7 @@
       const remaining = pageEvents.length + parentContextLimit - context.size;
       const result = await queryAll(
         {
-          kinds: [
-            BUZZ_REGISTRY_KINDS.forumRoot,
-            BUZZ_REGISTRY_KINDS.forumReply,
-          ],
+          kinds: [NIP29_KINDS.forumThread, NIP29_KINDS.comment],
           ids: frontier.slice(0, remaining),
           "#h": [supportGroupId],
           limit: Math.min(frontier.length, remaining),
@@ -316,7 +311,7 @@
     signal?: AbortSignal,
   ): Promise<LoadedCommentWindow> {
     const baseFilter = {
-      kinds: [BUZZ_REGISTRY_KINDS.forumRoot, BUZZ_REGISTRY_KINDS.forumReply],
+      kinds: [NIP29_KINDS.forumThread, NIP29_KINDS.comment],
       "#h": [supportGroupId],
     };
     const [countResult, latestResult] = await Promise.all([
@@ -508,15 +503,15 @@
         : (
             await queryAll(
               {
-                kinds: [BUZZ_REGISTRY_KINDS.reaction],
+                kinds: [NIP29_KINDS.reaction],
                 "#e": visiblePostIds,
                 limit: Math.min(5_000, visiblePostIds.length * 25),
               },
               signal,
             )
           ).events;
-    const posts = materializeBuzzForum(window.events, supportGroupId);
-    const nextReactions = materializeBuzzReactions(
+    const posts = materializeNip29Forum(window.events, supportGroupId);
+    const nextReactions = materializeNip29Reactions(
       reactionEvents,
       window.visibleIds,
     );
@@ -549,7 +544,7 @@
   }> {
     const releaseResult = await queryAll(
       {
-        kinds: [BUZZ_REGISTRY_KINDS.streamMessage],
+        kinds: [NIP29_KINDS.streamMessage],
         "#h": [releaseGroupId],
         "#t": [`plugin:${plugin}`],
         ...(publisher === "" ? {} : { authors: [publisher] }),
@@ -562,14 +557,14 @@
     const reactionEvents = (
       await queryAll(
         {
-          kinds: [BUZZ_REGISTRY_KINDS.reaction],
+          kinds: [NIP29_KINDS.reaction],
           "#e": [release.id],
           limit: 250,
         },
         signal,
       )
     ).events;
-    const nextReactions = materializeBuzzReactions(
+    const nextReactions = materializeNip29Reactions(
       reactionEvents,
       new Set([release.id]),
     ).filter((reaction) => !["✅", "❌", "🚫"].includes(reaction.content));
@@ -802,13 +797,13 @@
     if (allTargets.length === 0) return;
     const events = (
       await queryAll({
-        kinds: [BUZZ_REGISTRY_KINDS.reaction],
+        kinds: [NIP29_KINDS.reaction],
         "#e": allTargets,
         limit: Math.min(5_000, allTargets.length * 25),
       })
     ).events;
     const targetSet = new Set(allTargets);
-    const nextForumReactions = materializeBuzzReactions(
+    const nextForumReactions = materializeNip29Reactions(
       events,
       new Set(forumTargets),
     );
@@ -819,7 +814,7 @@
     pluginReactions =
       pluginRelease === undefined
         ? pluginReactions
-        : materializeBuzzReactions(events, new Set([pluginRelease.id])).filter(
+        : materializeNip29Reactions(events, new Set([pluginRelease.id])).filter(
             (reaction) => !["✅", "❌", "🚫"].includes(reaction.content),
           );
     const authors = [
@@ -849,12 +844,12 @@
         ),
       );
       if (!authenticated.some((result) => result.status === "fulfilled")) {
-        throw new Error("No Buzz relay accepted the NIP-42 login.");
+        throw new Error("No NIP-29 relay accepted the NIP-42 login.");
       }
       signer = connectedSigner;
       signedInPubkey = pubkey;
       selectedPluginReaction = ownPluginReaction?.content ?? "";
-      message = "Connected to Buzz with your Nostr signer.";
+      message = "Connected to the relay with your Nostr signer.";
     } catch (cause) {
       signer = undefined;
       signedInPubkey = "";
@@ -891,7 +886,7 @@
     const activeSigner = await ensureSigner();
     if (activeSigner === undefined) return;
     if (pluginRelease === undefined) {
-      error = "This plugin does not have an approved Buzz release yet.";
+      error = "This plugin does not have an approved NIP-29 release yet.";
       return;
     }
     if (!["👍", "❤️", "🎉", "👀", "⭐"].includes(selectedPluginReaction)) {
@@ -903,7 +898,7 @@
     message = "";
     try {
       const event = await activeSigner.signEvent({
-        kind: BUZZ_REGISTRY_KINDS.reaction,
+        kind: NIP29_KINDS.reaction,
         created_at: Math.floor(Date.now() / 1_000),
         content: selectedPluginReaction,
         tags: [
@@ -931,27 +926,21 @@
     try {
       const template =
         replyingReview === undefined
-          ? createBuzzForumRootTemplate(
+          ? createNip29ForumThreadTemplate(
               supportGroupId,
               comment,
               Math.floor(Date.now() / 1_000),
             )
-          : createBuzzForumReplyTemplate(
+          : createNip29ForumCommentTemplate(
               supportGroupId,
-              replyingReview.rootEventId,
+              reviews.find(
+                (review) => review.event.id === replyingReview.rootEventId,
+              )?.event ?? replyingReview.event,
+              replyingReview.event,
               comment,
               Math.floor(Date.now() / 1_000),
+              relayUrls[0],
             );
-      if (
-        replyingReview !== undefined &&
-        replyingReview.event.id !== replyingReview.rootEventId
-      ) {
-        template.tags = [
-          ["h", supportGroupId],
-          ["e", replyingReview.rootEventId, "", "root"],
-          ["e", replyingReview.event.id, "", "reply"],
-        ];
-      }
       const event = await activeSigner.signEvent(template);
       await publish(event);
       comment = "";
@@ -976,7 +965,7 @@
     message = "";
     try {
       const event = await activeSigner.signEvent({
-        kind: BUZZ_REGISTRY_KINDS.reaction,
+        kind: NIP29_KINDS.reaction,
         created_at: Math.floor(Date.now() / 1_000),
         content,
         tags: [
@@ -1045,7 +1034,7 @@
 
   async function globalIndexForEvent(event: NostrEvent): Promise<number> {
     const baseFilter = {
-      kinds: [BUZZ_REGISTRY_KINDS.forumRoot, BUZZ_REGISTRY_KINDS.forumReply],
+      kinds: [NIP29_KINDS.forumThread, NIP29_KINDS.comment],
       "#h": [supportGroupId],
     };
     const [before, through] = await Promise.all([
@@ -1112,10 +1101,7 @@
     if (/^[0-9a-f]{64}$/u.test(linkedEventId)) {
       try {
         const result = await queryAll({
-          kinds: [
-            BUZZ_REGISTRY_KINDS.forumRoot,
-            BUZZ_REGISTRY_KINDS.forumReply,
-          ],
+          kinds: [NIP29_KINDS.forumThread, NIP29_KINDS.comment],
           ids: [linkedEventId],
           "#h": [supportGroupId],
           limit: 1,
@@ -1162,7 +1148,8 @@
         <Card.Title id="community-title">{name} community discussion</Card.Title
         >
         <Card.Description>
-          NIP-29 forum posts, replies, and reactions read directly from Buzz.
+          NIP-29 forum posts, replies, and reactions read directly from the
+          relay.
         </Card.Description>
       </div>
       <Badge

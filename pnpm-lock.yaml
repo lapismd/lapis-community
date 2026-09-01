@@ -7,15 +7,15 @@ settings:
 importers:
   .:
     devDependencies:
+      "@lapismd/registry-auth":
+        specifier: workspace:*
+        version: link:packages/registry-auth
       "@lapismd/registry-nostr":
         specifier: workspace:*
         version: link:packages/registry-nostr
       "@lapismd/registry-protocol":
         specifier: workspace:*
         version: link:packages/registry-protocol
-      "@noble/hashes":
-        specifier: ^2.4.0
-        version: 2.4.0
       "@types/node":
         specifier: ^25.0.0
         version: 25.9.5
@@ -77,15 +77,6 @@ importers:
       "@lapismd/registry-protocol":
         specifier: ^0.0.0
         version: link:../registry-protocol
-      "@noble/ciphers":
-        specifier: ^2.1.1
-        version: 2.1.1
-      "@noble/hashes":
-        specifier: ^2.0.1
-        version: 2.4.0
-      "@scure/base":
-        specifier: ^2.0.0
-        version: 2.0.0
       nostr-tools:
         specifier: ^2.25.1
         version: 2.25.1(typescript@6.0.3)

@@ -1,9 +1,6 @@
 import { verifyEvent } from "nostr-tools/pure";
 
-import {
-  BUZZ_REGISTRY_KINDS,
-  type NostrEvent,
-} from "@lapismd/registry-protocol";
+import { NIP29_KINDS, type NostrEvent } from "@lapismd/registry-protocol";
 
 export function parseRelayUrls(value: string): string[] {
   try {
@@ -127,7 +124,7 @@ export function reactionGroups(
     );
 }
 
-export function materializeBuzzForum(
+export function materializeNip29Forum(
   events: readonly NostrEvent[],
   groupId: string,
 ): ForumPost[] {
@@ -136,8 +133,8 @@ export function materializeBuzzForum(
       .filter(
         (event) =>
           verifyEvent(event) &&
-          (event.kind === BUZZ_REGISTRY_KINDS.forumRoot ||
-            event.kind === BUZZ_REGISTRY_KINDS.forumReply) &&
+          (event.kind === NIP29_KINDS.forumThread ||
+            event.kind === NIP29_KINDS.comment) &&
           event.tags.some((tag) => tag[0] === "h" && tag[1] === groupId),
       )
       .map((event) => [event.id, event] as const),
@@ -145,17 +142,13 @@ export function materializeBuzzForum(
   return [...distinct.values()]
     .map((event): ForumPost => {
       const parentEventId =
-        event.kind === BUZZ_REGISTRY_KINDS.forumReply
-          ? event.tags.find(
-              (tag) => tag[0] === "e" && (tag[3] === "reply" || tag.length < 4),
-            )?.[1]
+        event.kind === NIP29_KINDS.comment
+          ? event.tags.find((tag) => tag[0] === "e")?.[1]
           : undefined;
       const rootEventId =
-        event.kind === BUZZ_REGISTRY_KINDS.forumRoot
+        event.kind === NIP29_KINDS.forumThread
           ? event.id
-          : (event.tags.find(
-              (tag) => tag[0] === "e" && tag[3] === "root",
-            )?.[1] ??
+          : (event.tags.find((tag) => tag[0] === "E")?.[1] ??
             parentEventId ??
             event.id);
       return {
@@ -172,7 +165,7 @@ export function materializeBuzzForum(
     );
 }
 
-export function materializeBuzzReactions(
+export function materializeNip29Reactions(
   events: readonly NostrEvent[],
   targetEventIds: ReadonlySet<string>,
 ): ForumReaction[] {
@@ -181,7 +174,7 @@ export function materializeBuzzReactions(
       events
         .filter(
           (event) =>
-            event.kind === BUZZ_REGISTRY_KINDS.reaction &&
+            event.kind === NIP29_KINDS.reaction &&
             verifyEvent(event) &&
             event.content.trim() !== "",
         )

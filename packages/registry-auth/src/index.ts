@@ -1,4 +1,3 @@
-export * from "./private-security.js";
-export * from "./registration.js";
+export * from "./relay-auth.js";
 export * from "./signer.js";
 export * from "./types.js";

@@ -4,7 +4,7 @@ import { verifyEvent } from "nostr-tools/pure";
 import semver from "semver";
 
 import { canonicalHash, canonicalJson } from "./canonical.js";
-import { nostrEventSchema, releaseContentSchema } from "./schemas.js";
+import { nip29ReleaseManifestSchema, nostrEventSchema } from "./schemas.js";
 import type {
   JsonObject,
   JsonValue,
@@ -13,22 +13,21 @@ import type {
   PluginDefinitionContent,
   RegistryIssue,
   ReleaseContent,
-  V1Projection,
+  RegistryProjection,
 } from "./types.js";
-import { projectV1Records } from "./projection.js";
+import { projectRegistry } from "./projection.js";
 
-export const BUZZ_REGISTRY_KINDS = {
+export const NIP29_KINDS = {
   reaction: 7,
   streamMessage: 9,
   groupMetadata: 39_000,
   groupAdmins: 39_001,
   groupMembers: 39_002,
-  forumRoot: 45_001,
-  forumVote: 45_002,
-  forumReply: 45_003,
+  forumThread: 11,
+  comment: 1_111,
 } as const;
 
-export const LAPIS_BUZZ_GROUP_PATHS = {
+export const LAPIS_GROUPS = {
   pluginReleases: "plugin-releases",
   general: "general",
   pluginDevelopment: "plugin-development",
@@ -42,9 +41,9 @@ const DNS_NAMESPACE = Uint8Array.from([
   0xd4, 0x30, 0xc8,
 ]);
 
-export type BuzzCuratorDecision = "approved" | "rejected" | "revoked";
+export type Nip29CuratorDecision = "approved" | "rejected" | "revoked";
 
-export interface BuzzManifestAttachment {
+export interface Nip29ManifestAttachment {
   url: string;
   mimeType: string;
   sha256: string;
@@ -52,50 +51,48 @@ export interface BuzzManifestAttachment {
   filename?: string | undefined;
 }
 
-export interface BuzzReleaseManifestSource {
+export interface Nip29ReleaseManifestSource {
   attachmentSha256: string;
   manifest: unknown;
 }
 
-export interface BuzzRegistryAuthorities {
+export interface Nip29RegistryAuthorities {
   curatorPubkeys: ReadonlySet<string>;
   publisherPubkeysByPlugin: ReadonlyMap<string, ReadonlySet<string>>;
+  defaultPublisherPubkeys?: ReadonlySet<string> | undefined;
 }
 
-export interface BuzzCatalogPlugin {
-  content: PluginDefinitionContent;
-}
-
-export interface MaterializedBuzzRelease {
+export interface MaterializedNip29Release {
   event: NostrEvent;
+  plugin: PluginDefinitionContent;
   content: ReleaseContent;
-  attachment: BuzzManifestAttachment;
-  decision: BuzzCuratorDecision;
+  attachment: Nip29ManifestAttachment;
+  decision: Nip29CuratorDecision;
   decisionEvent: NostrEvent;
 }
 
-export interface MaterializedBuzzPlugin {
+export interface MaterializedNip29Plugin {
   content: PluginDefinitionContent;
-  releases: MaterializedBuzzRelease[];
+  releases: MaterializedNip29Release[];
   latestVersion: string;
 }
 
-export interface MaterializedBuzzRegistry {
+export interface MaterializedNip29Registry {
   schemaVersion: 2;
   root: string;
-  plugins: MaterializedBuzzPlugin[];
+  plugins: MaterializedNip29Plugin[];
   acceptedEventIds: string[];
   issues: RegistryIssue[];
 }
 
-export interface MaterializeBuzzRegistryOptions {
+export interface MaterializeNip29RegistryOptions {
   verifySignature?: ((event: NostrEvent) => boolean) | undefined;
 }
 
-export function lapisBuzzGroupId(path: string): string {
+export function lapisGroupId(path: string): string {
   const normalized = path.trim().replace(/^\/+|\/+$/gu, "");
-  if (normalized === "") throw new Error("Buzz group path must not be empty");
-  return uuidV5(`registry.lapismd.com/${normalized}`, DNS_NAMESPACE);
+  if (normalized === "") throw new Error("NIP-29 group path must not be empty");
+  return uuidV5(`community.lapis.md/${normalized}`, DNS_NAMESPACE);
 }
 
 export function lapisPluginSupportGroupId(pluginId: string): string {
@@ -103,21 +100,21 @@ export function lapisPluginSupportGroupId(pluginId: string): string {
   if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/u.test(normalized)) {
     throw new Error(`Invalid plugin id: ${pluginId}`);
   }
-  return lapisBuzzGroupId(`support/${normalized}`);
+  return lapisGroupId(`support/${normalized}`);
 }
 
-export function createBuzzReleaseMessageTemplate(
+export function createNip29ReleaseMessageTemplate(
   pluginId: string,
-  attachment: BuzzManifestAttachment,
+  attachment: Nip29ManifestAttachment,
   createdAt: number,
   message: string,
 ): NostrEventTemplate {
   return {
-    kind: BUZZ_REGISTRY_KINDS.streamMessage,
+    kind: NIP29_KINDS.streamMessage,
     created_at: createdAt,
     content: message,
     tags: [
-      ["h", lapisBuzzGroupId(LAPIS_BUZZ_GROUP_PATHS.pluginReleases)],
+      ["h", lapisGroupId(LAPIS_GROUPS.pluginReleases)],
       ["t", LAPIS_RELEASE_TOPIC],
       ["t", `plugin:${pluginId}`],
       [
@@ -134,13 +131,13 @@ export function createBuzzReleaseMessageTemplate(
   };
 }
 
-export function createBuzzCuratorDecisionTemplate(
+export function createNip29CuratorDecisionTemplate(
   releaseEventId: string,
-  decision: BuzzCuratorDecision,
+  decision: Nip29CuratorDecision,
   createdAt: number,
 ): NostrEventTemplate {
   return {
-    kind: BUZZ_REGISTRY_KINDS.reaction,
+    kind: NIP29_KINDS.reaction,
     created_at: createdAt,
     content:
       decision === "approved" ? "✅" : decision === "rejected" ? "❌" : "🚫",
@@ -148,83 +145,102 @@ export function createBuzzCuratorDecisionTemplate(
   };
 }
 
-export function createBuzzForumRootTemplate(
+export function createNip29ForumThreadTemplate(
   groupId: string,
   content: string,
   createdAt: number,
 ): NostrEventTemplate {
+  const title =
+    content.trim().split(/\r?\n/u)[0]?.slice(0, 120) || "Discussion";
   return {
-    kind: BUZZ_REGISTRY_KINDS.forumRoot,
-    created_at: createdAt,
-    content,
-    tags: [["h", groupId]],
-  };
-}
-
-export function createBuzzForumReplyTemplate(
-  groupId: string,
-  rootEventId: string,
-  content: string,
-  createdAt: number,
-): NostrEventTemplate {
-  return {
-    kind: BUZZ_REGISTRY_KINDS.forumReply,
+    kind: NIP29_KINDS.forumThread,
     created_at: createdAt,
     content,
     tags: [
       ["h", groupId],
-      ["e", rootEventId, "", "reply"],
+      ["title", title],
     ],
   };
 }
 
-export function materializeBuzzRegistry(
+export function createNip29ForumCommentTemplate(
+  groupId: string,
+  root: Pick<NostrEvent, "id" | "kind" | "pubkey">,
+  parent: Pick<NostrEvent, "id" | "kind" | "pubkey">,
+  content: string,
+  createdAt: number,
+  relayUrl = "",
+): NostrEventTemplate {
+  if (root.kind !== NIP29_KINDS.forumThread) {
+    throw new Error("NIP-22 forum comments must target a kind 11 thread");
+  }
+  if (
+    parent.kind !== NIP29_KINDS.forumThread &&
+    parent.kind !== NIP29_KINDS.comment
+  ) {
+    throw new Error("NIP-22 forum comment parent must be a thread or comment");
+  }
+  return {
+    kind: NIP29_KINDS.comment,
+    created_at: createdAt,
+    content,
+    tags: [
+      ["h", groupId],
+      ["E", root.id, relayUrl, root.pubkey],
+      ["K", root.kind.toString()],
+      ["P", root.pubkey, relayUrl],
+      ["e", parent.id, relayUrl, parent.pubkey],
+      ["k", parent.kind.toString()],
+      ["p", parent.pubkey, relayUrl],
+    ],
+  };
+}
+
+export function materializeNip29Registry(
   input: readonly NostrEvent[],
-  manifestSources: readonly BuzzReleaseManifestSource[],
-  catalog: readonly BuzzCatalogPlugin[],
-  authorities: BuzzRegistryAuthorities,
-  options: MaterializeBuzzRegistryOptions = {},
-): MaterializedBuzzRegistry {
+  manifestSources: readonly Nip29ReleaseManifestSource[],
+  authorities: Nip29RegistryAuthorities,
+  options: MaterializeNip29RegistryOptions = {},
+): MaterializedNip29Registry {
   const issues: RegistryIssue[] = [];
   const verifySignature = options.verifySignature ?? verifyEvent;
   const events = verifiedDistinctEvents(input, verifySignature, issues);
   const manifests = new Map(
     manifestSources.map((source) => [source.attachmentSha256, source.manifest]),
   );
-  const pluginById = new Map(
-    catalog.map((plugin) => [plugin.content.pluginId, plugin]),
-  );
-  const releaseGroup = lapisBuzzGroupId(LAPIS_BUZZ_GROUP_PATHS.pluginReleases);
+  const releaseGroup = lapisGroupId(LAPIS_GROUPS.pluginReleases);
   const releases = new Map<
     string,
     {
       event: NostrEvent;
+      plugin: PluginDefinitionContent;
       content: ReleaseContent;
-      attachment: BuzzManifestAttachment;
+      attachment: Nip29ManifestAttachment;
     }
   >();
 
   for (const event of events) {
-    if (event.kind !== BUZZ_REGISTRY_KINDS.streamMessage) continue;
+    if (event.kind !== NIP29_KINDS.streamMessage) continue;
     if (tagValues(event, "h")[0] !== releaseGroup) continue;
     const topics = new Set(tagValues(event, "t"));
     if (!topics.has(LAPIS_RELEASE_TOPIC)) continue;
     const pluginTopics = [...topics]
       .filter((topic) => topic.startsWith("plugin:"))
       .map((topic) => topic.slice("plugin:".length));
-    if (pluginTopics.length !== 1 || !pluginById.has(pluginTopics[0]!)) {
+    if (pluginTopics.length !== 1) {
       recordIssue(
         issues,
         event,
         "tags",
-        "Release must name one known plugin topic",
+        "Release must name exactly one plugin topic",
       );
       continue;
     }
     const pluginId = pluginTopics[0]!;
-    if (
-      !authorities.publisherPubkeysByPlugin.get(pluginId)?.has(event.pubkey)
-    ) {
+    const publishers =
+      authorities.publisherPubkeysByPlugin.get(pluginId) ??
+      authorities.defaultPublisherPubkeys;
+    if (!publishers?.has(event.pubkey)) {
       recordIssue(
         issues,
         event,
@@ -233,7 +249,7 @@ export function materializeBuzzRegistry(
       );
       continue;
     }
-    const attachment = getBuzzManifestAttachment(event);
+    const attachment = getNip29ManifestAttachment(event);
     if (attachment === undefined) {
       recordIssue(
         issues,
@@ -243,10 +259,14 @@ export function materializeBuzzRegistry(
       );
       continue;
     }
-    const parsedManifest = releaseContentSchema.safeParse(
+    const parsedManifest = nip29ReleaseManifestSchema.safeParse(
       manifests.get(attachment.sha256),
     );
-    if (!parsedManifest.success || parsedManifest.data.pluginId !== pluginId) {
+    if (
+      !parsedManifest.success ||
+      parsedManifest.data.plugin.pluginId !== pluginId ||
+      parsedManifest.data.release.pluginId !== pluginId
+    ) {
       recordIssue(
         issues,
         event,
@@ -255,7 +275,7 @@ export function materializeBuzzRegistry(
       );
       continue;
     }
-    if (parsedManifest.data.artifact.sha256 === attachment.sha256) {
+    if (parsedManifest.data.release.artifact.sha256 === attachment.sha256) {
       recordIssue(
         issues,
         event,
@@ -264,15 +284,20 @@ export function materializeBuzzRegistry(
       );
       continue;
     }
-    releases.set(event.id, { event, content: parsedManifest.data, attachment });
+    releases.set(event.id, {
+      event,
+      plugin: parsedManifest.data.plugin,
+      content: parsedManifest.data.release,
+      attachment,
+    });
   }
 
   const decisions = new Map<
     string,
-    { event: NostrEvent; decision: BuzzCuratorDecision }
+    { event: NostrEvent; decision: Nip29CuratorDecision }
   >();
   for (const event of events) {
-    if (event.kind !== BUZZ_REGISTRY_KINDS.reaction) continue;
+    if (event.kind !== NIP29_KINDS.reaction) continue;
     const decision = parseDecision(event.content);
     if (decision === undefined) continue;
     const targets = tagValues(event, "e");
@@ -292,13 +317,16 @@ export function materializeBuzzRegistry(
     }
   }
 
-  const plugins: MaterializedBuzzPlugin[] = [];
-  for (const [pluginId, plugin] of [...pluginById].toSorted(([left], [right]) =>
-    left.localeCompare(right),
-  )) {
+  const plugins: MaterializedNip29Plugin[] = [];
+  const pluginIds = [
+    ...new Set(
+      [...releases.values()].map((release) => release.content.pluginId),
+    ),
+  ].toSorted();
+  for (const pluginId of pluginIds) {
     const accepted = [...releases.values()]
       .filter((release) => release.content.pluginId === pluginId)
-      .flatMap((release): MaterializedBuzzRelease[] => {
+      .flatMap((release): MaterializedNip29Release[] => {
         const finalDecision = decisions.get(release.event.id);
         return finalDecision?.decision === "approved"
           ? [
@@ -315,7 +343,7 @@ export function materializeBuzzRegistry(
       );
     if (accepted.length === 0) continue;
     plugins.push({
-      content: plugin.content,
+      content: accepted[0]!.plugin,
       releases: accepted,
       latestVersion: accepted[0]!.content.version,
     });
@@ -348,12 +376,12 @@ export function materializeBuzzRegistry(
   return { schemaVersion: 2, root, plugins, acceptedEventIds, issues };
 }
 
-export function projectBuzzV1(
-  registry: MaterializedBuzzRegistry,
+export function projectNip29Registry(
+  registry: MaterializedNip29Registry,
   generatedAt: string,
   indexBase?: JsonObject,
-): V1Projection {
-  return projectV1Records(
+): RegistryProjection {
+  return projectRegistry(
     registry.plugins.map((plugin) => ({
       content: plugin.content,
       releases: plugin.releases.map((release) => release.content),
@@ -369,9 +397,9 @@ export function projectBuzzV1(
   );
 }
 
-export function getBuzzManifestAttachment(
+export function getNip29ManifestAttachment(
   event: NostrEvent,
-): BuzzManifestAttachment | undefined {
+): Nip29ManifestAttachment | undefined {
   const imeta = event.tags.filter((tag) => tag[0] === "imeta");
   if (imeta.length !== 1) return undefined;
   const values = new Map<string, string>();
@@ -456,7 +484,7 @@ function verifiedDistinctEvents(
   return result;
 }
 
-function parseDecision(content: string): BuzzCuratorDecision | undefined {
+function parseDecision(content: string): Nip29CuratorDecision | undefined {
   switch (content.trim()) {
     case "✅":
       return "approved";

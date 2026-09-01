@@ -1,14 +1,66 @@
 name: lapis-nostr-registry-local
 
 services:
+  registry-relay:
+    image: ${LAPIS_RELAY_IMAGE:-lapis-relay:local}
+    build:
+      context: ${LAPIS_RELAY_PATH:?run the local stack through local-stack.sh}
+      dockerfile: Dockerfile
+    platform: ${IMAGE_PLATFORM:-linux/arm64}
+    environment:
+      PORT: "3334"
+      DATABASE_URL: postgres://lapis_relay:lapis_relay_dev@postgres:5432/lapis_relay?sslmode=disable
+      RELAY_HOST: registry.localhost:${LAPIS_RELAY_PORT:-8281}
+      RELAY_SCHEMA: lapis_registry
+      RELAY_SECRET: ${LAPIS_RELAY_SECRET:?ignored local relay secret is missing}
+      RELAY_PUBKEY: ${REGISTRY_OPERATOR_PUBKEYS:?fixture operator is missing}
+      ADMIN_PUBKEYS: ${LAPIS_RELAY_ADMIN_PUBKEYS:?ignored local relay admins are missing}
+      POLICY_OPEN: "true"
+      POLICY_PUBLIC_JOIN: "true"
+      GROUPS_AUTO_JOIN: "true"
+      GROUPS_ADMIN_CREATE_ONLY: "true"
+      GROUPS_PRIVATE_ADMIN_ONLY: "true"
+      GROUPS_PRIVATE_RELAY_ADMIN_ACCESS: "false"
+      GROUP_REWRITE_DEBOUNCE_MS: "0"
+      BLOSSOM_ENABLED: "true"
+      BLOSSOM_PUBLIC_URL: http://registry.localhost:${LAPIS_RELAY_PORT:-8281}
+    ports:
+      - "${LAPIS_RELAY_PORT:-8281}:3334"
+    volumes:
+      - lapis-relay-config:/app/config
+      - lapis-relay-media:/app/media
+    depends_on:
+      postgres: { condition: service_healthy }
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:3334/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 20s
+    restart: unless-stopped
+
+  postgres:
+    image: ${POSTGRES_IMAGE:-postgres:17-alpine@sha256:18cfe3ef5e6815560c98237d6216d1e5119702fb0f3894c8785dd58b8bbe5d73}
+    environment:
+      POSTGRES_DB: lapis_relay
+      POSTGRES_USER: lapis_relay
+      POSTGRES_PASSWORD: lapis_relay_dev
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes: [lapis-relay-postgres-data:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U lapis_relay -d lapis_relay"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+
   registry-fixture:
     image: ${REGISTRY_FIXTURE_IMAGE:-lapis-registry-local-fixture:local}
     build:
       context: ..
       dockerfile: services/registry-local-fixture/Dockerfile
     read_only: true
-    tmpfs:
-      - /tmp
+    tmpfs: [/tmp]
     environment:
       PORT: 8090
       LAPIS_PLUGINS_ROOT: /workspace/lapis-plugins
@@ -17,14 +69,18 @@ services:
       REGISTRY_FIXTURE_LONG_THREAD_POSTS: ${REGISTRY_FIXTURE_LONG_THREAD_POSTS:-240}
       REGISTRY_FIXTURE_CREATED_AT: ${REGISTRY_FIXTURE_CREATED_AT:?fixture timestamp is missing}
       REGISTRY_FIXTURE_SECRETS_FILE: /run/lapis-registry/fixture-secrets.json
-      REGISTRY_CURATOR_PUBKEYS: ${REGISTRY_CURATOR_PUBKEYS:?fixture curator is missing}
-      REGISTRY_PUBLISHER_PUBKEY: ${REGISTRY_PUBLISHER_PUBKEY:?fixture publisher is missing}
-      REGISTRY_OPERATOR_PUBKEYS: ${REGISTRY_OPERATOR_PUBKEYS:?fixture operator is missing}
+      REGISTRY_RELAY: ws://registry.localhost:${LAPIS_RELAY_PORT:-8281}
+      REGISTRY_RELAY_JOIN_KIND: "28934"
+      REGISTRY_RELAY_WRITE_RESTRICTED_RELEASES: "true"
+      REGISTRY_EXPECT_ADMIN_ONLY_GROUP_CREATION: "true"
     ports:
       - "${REGISTRY_FIXTURE_PORT:-8090}:8090"
     volumes:
       - ${LAPIS_PLUGINS_PATH:?run pnpm local:up so lapis-plugins is resolved}:/workspace/lapis-plugins:ro
       - ${REGISTRY_FIXTURE_SECRETS_FILE:?run pnpm local:up to create fixture identities}:/run/lapis-registry/fixture-secrets.json:ro
+    extra_hosts: [registry.localhost:host-gateway]
+    depends_on:
+      registry-relay: { condition: service_healthy }
     healthcheck:
       test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:8090/health"]
       interval: 5s
@@ -37,58 +93,54 @@ services:
     image: ${REGISTRY_FIXTURE_IMAGE:-lapis-registry-local-fixture:local}
     user: "0:0"
     read_only: true
-    tmpfs:
-      - /tmp
-    command: ["pnpm", "relay:materialize", "--output", "/projection/v1"]
+    tmpfs: [/tmp]
+    command:
+      ["pnpm", "registry:materialize", "--output", "/projection/registry"]
     environment:
       REGISTRY_ASSET_FETCH_ORIGIN: http://registry-fixture:8090/
       REGISTRY_CURATOR_PUBKEYS: ${REGISTRY_CURATOR_PUBKEYS:?fixture curator is missing}
-      REGISTRY_PUBLISHER_PUBKEY: ${REGISTRY_PUBLISHER_PUBKEY:?fixture publisher is missing}
-      REGISTRY_FIXTURE_SECRETS_FILE: /run/lapis-registry/fixture-secrets.json
+      REGISTRY_PUBLISHER_PUBKEYS: ${REGISTRY_PUBLISHER_PUBKEYS:?fixture publisher is missing}
+      REGISTRY_READER_SECRET_FILE: /run/lapis-registry/materializer-reader.key
+      REGISTRY_RELAYS: ws://registry.localhost:${LAPIS_RELAY_PORT:-8281}
+      REGISTRY_PUBLIC_RELAYS: ws://registry.localhost:${LAPIS_RELAY_PORT:-8281}
     volumes:
       - registry-projection:/projection
-      - ${REGISTRY_FIXTURE_SECRETS_FILE:?run pnpm local:up to create fixture identities}:/run/lapis-registry/fixture-secrets.json:ro
+      - ${REGISTRY_READER_SECRET_FILE:?materializer reader secret is missing}:/run/lapis-registry/materializer-reader.key:ro
+    extra_hosts: [registry.localhost:host-gateway]
     depends_on:
-      registry-fixture:
-        condition: service_healthy
+      registry-fixture: { condition: service_healthy }
     restart: "no"
 
   registry-site-builder:
     image: ${REGISTRY_SITE_IMAGE:-lapis-plugin-registry-site:local}
     build:
-      context: ${PLUGIN_REGISTRY_PATH:?run pnpm local:up so plugin-registry is resolved}
+      context: ${PLUGIN_REGISTRY_PATH:?run pnpm local:up so nostr-plugin-registry is resolved}
       dockerfile: Dockerfile.local
     user: "0:0"
     environment:
-      LAPIS_REGISTRY_BUILD_V1_DIR: /projection/v1
-      LAPIS_REGISTRY_TRUSTED_SNAPSHOT_PUBKEYS: ${REGISTRY_SNAPSHOT_SIGNER_PUBKEYS:?fixture snapshot signer is missing}
-      LAPIS_REGISTRY_BACKEND: buzz
+      LAPIS_REGISTRY_SOURCE_DIR: /projection/registry
       LAPIS_REGISTRY_CONTAINER_SITE_DIR: /site
     command: ["node", "scripts/build-container-site.mjs"]
     volumes:
       - registry-projection:/projection:ro
       - registry-site:/site
     depends_on:
-      registry-materializer:
-        condition: service_completed_successfully
+      registry-materializer: { condition: service_completed_successfully }
     restart: "no"
 
   registry-site:
     image: ${REGISTRY_SITE_IMAGE:-lapis-plugin-registry-site:local}
     read_only: true
-    tmpfs:
-      - /tmp
+    tmpfs: [/tmp]
     environment:
       HOST: 0.0.0.0
       PORT: 4321
     command: ["node", "scripts/serve-site.mjs", "--root", "/site"]
     ports:
       - "${REGISTRY_SITE_PORT:-4321}:4321"
-    volumes:
-      - registry-site:/site:ro
+    volumes: [registry-site:/site:ro]
     depends_on:
-      registry-site-builder:
-        condition: service_completed_successfully
+      registry-site-builder: { condition: service_completed_successfully }
     healthcheck:
       test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:4321/health"]
       interval: 5s
@@ -98,5 +150,8 @@ services:
     restart: unless-stopped
 
 volumes:
+  lapis-relay-config:
+  lapis-relay-media:
+  lapis-relay-postgres-data:
   registry-projection:
   registry-site:
