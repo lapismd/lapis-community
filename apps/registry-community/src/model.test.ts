@@ -11,6 +11,7 @@ import {
   avatarHue,
   commentPageWindow,
   displayName,
+  forumPostDepth,
   initials,
   latestReactionByAuthor,
   materializeBuzzForum,
@@ -153,13 +154,14 @@ describe("registry community model", () => {
       author,
     );
 
-    expect(materializeBuzzForum([nested, root, direct], groupId)).toMatchObject(
-      [
-        { content: "Root", rootEventId: root.id },
-        { content: "Direct", rootEventId: root.id, parentEventId: root.id },
-        { content: "Nested", rootEventId: root.id, parentEventId: direct.id },
-      ],
-    );
+    const posts = materializeBuzzForum([nested, root, direct], groupId);
+    expect(posts).toMatchObject([
+      { content: "Root", rootEventId: root.id },
+      { content: "Direct", rootEventId: root.id, parentEventId: root.id },
+      { content: "Nested", rootEventId: root.id, parentEventId: direct.id },
+    ]);
+    expect(posts.map((post) => forumPostDepth(post, posts))).toEqual([0, 1, 2]);
+    expect(forumPostDepth(posts[2]!, posts, 1)).toBe(1);
     const reactions = materializeBuzzReactions(
       [reaction],
       new Set([nested.id]),

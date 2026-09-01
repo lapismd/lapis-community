@@ -34,6 +34,7 @@
     avatarHue,
     commentPageWindow,
     displayName,
+    forumPostDepth,
     initials,
     latestReactionByAuthor,
     materializeBuzzForum,
@@ -1050,8 +1051,13 @@
               {#each reviews as review, index (review.event.id)}
                 {@const authorName = displayName(review.event.pubkey, profiles)}
                 {@const parent = parentOf(review)}
+                {@const depth = forumPostDepth(review, allReviews)}
                 {@const groups = reactionGroups(review.event.id, reactions)}
-                <li>
+                <li
+                  class:threaded-reply={depth > 0}
+                  data-thread-depth={depth}
+                  style={`--thread-depth: ${depth}`}
+                >
                   <article
                     id={`post-${review.event.id}`}
                     class:active={review.event.id === activePostId}
@@ -1398,7 +1404,38 @@
   }
 
   .post-stream li {
+    --thread-step: clamp(1rem, 2.4vw, 1.75rem);
+    position: relative;
+    margin-inline-start: calc(var(--thread-depth, 0) * var(--thread-step));
     border-top: 1px solid var(--border);
+  }
+
+  .post-stream li.threaded-reply::before {
+    position: absolute;
+    top: -1px;
+    bottom: 0;
+    left: calc(-1 * var(--thread-depth) * var(--thread-step));
+    width: calc(var(--thread-depth) * var(--thread-step));
+    background-image: repeating-linear-gradient(
+      to right,
+      color-mix(in oklch, var(--primary) 32%, var(--border)) 0 1px,
+      transparent 1px var(--thread-step)
+    );
+    content: "";
+    pointer-events: none;
+  }
+
+  .post-stream li.threaded-reply::after {
+    position: absolute;
+    top: 1.85rem;
+    left: calc(-1 * var(--thread-step));
+    width: calc(var(--thread-step) - 0.45rem);
+    height: 0.7rem;
+    border-bottom: 1px solid
+      color-mix(in oklch, var(--primary) 55%, var(--border));
+    border-bottom-left-radius: 0.55rem;
+    content: "";
+    pointer-events: none;
   }
 
   article {
@@ -1458,14 +1495,21 @@
 
   .reply-context {
     width: fit-content;
-    padding: 0;
+    max-width: 100%;
+    padding: 0.3rem 0.55rem;
+    overflow: hidden;
     border: 0;
-    background: transparent;
+    border-left: 2px solid
+      color-mix(in oklch, var(--primary) 66%, var(--border));
+    border-radius: 0 0.35rem 0.35rem 0;
+    background: color-mix(in oklch, var(--secondary) 72%, transparent);
     color: var(--muted-foreground);
     cursor: pointer;
     font: inherit;
     font-size: 0.72rem;
     text-align: left;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .reply-context:hover {

@@ -172,6 +172,29 @@ export function materializeBuzzForum(
     );
 }
 
+export function forumPostDepth(
+  post: ForumPost,
+  posts: readonly ForumPost[],
+  maxDepth = 4,
+): number {
+  const safeMaxDepth = Math.max(0, Math.floor(maxDepth));
+  const postsById = new Map(
+    posts.map((candidate) => [candidate.event.id, candidate] as const),
+  );
+  const visited = new Set([post.event.id]);
+  let parentEventId = post.parentEventId;
+  let depth = 0;
+
+  while (parentEventId !== undefined && depth < safeMaxDepth) {
+    if (visited.has(parentEventId)) break;
+    visited.add(parentEventId);
+    depth += 1;
+    parentEventId = postsById.get(parentEventId)?.parentEventId;
+  }
+
+  return depth;
+}
+
 export function materializeBuzzReactions(
   events: readonly NostrEvent[],
   targetEventIds: ReadonlySet<string>,
