@@ -1,4 +1,5 @@
 export * from "./authority.js";
+export * from "./buzz.js";
 export * from "./canonical.js";
 export * from "./community.js";
 export * from "./kinds.js";

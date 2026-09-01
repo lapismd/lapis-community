@@ -1,8 +1,9 @@
 # ADR 0006: Embedded Grain Lapis relay
 
-- Status: accepted for implementation; production cutover remains gated
+- Status: superseded by ADR 0007
 - Date: 2026-09-01
 - Supersedes: ADR 0005 strfry deployment and static write-policy decisions
+- Superseded by: ADR 0007 Buzz-first registry and community
 
 ## Context
 

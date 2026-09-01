@@ -7,45 +7,42 @@ can be proven before any cutover.
 
 ## Ownership
 
-- `@lapismd/registry-protocol`: event schemas, authority rules, materializer,
-  snapshot roots, and V1 projection.
-- `@lapismd/registry-nostr`: relay transport, exact-event resolution, quorum
-  publication, verified snapshot loading, and direct relay materialization.
-- `@lapismd/registry-auth`: signer interfaces and plain-Nostr/OAuth adapters.
-- `services/identity-broker`: passkey-gated identity onboarding and OAuth claims.
-- `services/signer-coordinator` and `services/signer-operator`: threshold signing
-  orchestration and independently operated shares.
+- `@lapismd/registry-protocol`: Buzz group/event contracts, trusted-key rules,
+  deterministic materializer, roots, and V1 projection.
+- `@lapismd/registry-nostr`: NIP-42 relay transport, manifest verification, and
+  Buzz event materialization.
+- `@lapismd/registry-auth`: Nostr signer interfaces; identity bridges are
+  deferred.
 - `apps/registry-console`: browser-side relay reader, publisher, and
   curator/admin console.
-- `apps/registry-community`: Design Core custom element for direct NIP-07
-  ratings, threaded comments, reactions, and community-relay reads on the
-  rendered registry.
+- `apps/registry-community`: Design Core custom element for NIP-07/NIP-42 Buzz
+  forums, replies, reactions, and paged community reads.
 - `scripts/materialize-relays.ts`: deterministic static V1 output built from a
   verified relay snapshot.
 
-Relay and Blossom image assembly stays in the sibling `nostr-relay` repository.
+The pinned stock Buzz deployment stays in the sibling `nostr-relay-registry`
+repository.
 Plugin artifacts stay in `lapis-plugins`. The existing public Astro site and V1
 analytics stay in `plugin-registry`. Lapis application fallback and caching stay
 in `lapis-notes`.
 
 ## Trust model
 
-Nostr events add portable identity, review, approval, revocation, and snapshot
-provenance. They do not replace the existing bundle digest, bundle signature,
-or publisher-key verification. A plugin is visible in the curated projection
-only after automated assessment passes and one curator approves it. A distinct
-snapshot signer signs deterministic projections.
+Nostr events add portable identity, review, approval, revocation, and community
+history. They do not replace the existing bundle digest, bundle signature, or
+publisher-key verification. A plugin release is visible only when submitted by
+its configured publisher and its latest trusted curator reaction is `✅`.
 
 The signed Nostr event graph is the source of truth. There is no authoritative
 registry database and no HTTP event-submission API. Browsers and build jobs read
 the signed snapshot from the configured official relays, fetch its exact event
 IDs, verify and materialize them locally, and query community events separately.
 
-Official publication writes the same signed event directly to three configured
-relays and requires two acknowledgements. Community relay events remain
-retrievable, while projections apply published mute/hide decisions and expose
-excluded-event counts. Static V1 files and browser state are disposable read
-models that can always be rebuilt from the relays.
+Buzz stores the standard NIP-29 messages and reactions. Lapis-specific meaning
+is applied by clients and materializers, while Buzz membership and moderation
+remain generic community concerns. Static V1 files and browser state are
+disposable read models that can always be rebuilt from relay events and their
+content-addressed manifests.
 
 ## Rollout
 
@@ -61,11 +58,11 @@ the active registry.
 
 ## Local end-to-end stack
 
-Run `pnpm local:up` for the fast loop: one embedded Grain-based Lapis relay, generated events from
+Run `pnpm local:up` for the fast loop: one stock Buzz relay, generated events from
 every complete plugin in the sibling `lapis-plugins` checkout, fixture
 artifacts, the direct-relay console, a verified Nostr projection, and the
-rendered public registry. Run `pnpm local:up:quorum` for three official Lapis
-relays, one community Lapis relay, and a two-of-three publication quorum. Open the
+rendered public registry. The former multi-relay custom-kind profile is retained
+only as migration evidence while the Buzz local profile replaces it. Open the
 rendered registry at <http://localhost:4321/> or the operator console at
 <http://localhost:4173/> after Compose reports the services healthy.
 

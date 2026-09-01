@@ -156,7 +156,7 @@ export async function createLiveSnapshotTemplate(
   };
 }
 
-async function queryRelayUnion(
+export async function queryRelayUnion(
   relays: readonly RegistryRelay[],
   filter: RelayFilter,
   signal?: AbortSignal,
