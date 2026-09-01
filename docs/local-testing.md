@@ -30,11 +30,11 @@ The services are:
 - fixture status: <http://127.0.0.1:8090/status.json>
 - Lapis relay and media endpoint: `ws://registry.localhost:8281`
 
-Use `pnpm local:ps`, `pnpm local:logs`, and `pnpm local:down` for the normal
-lifecycle. `pnpm local:reset` removes the selected relay's persistence,
-projection, and site volumes and rotates the ignored local fixture identities.
-Use `REGISTRY_RELAY_FLAVOR=buzz` with the lifecycle commands when explicitly
-checking the retained stock-Buzz profile.
+Use `pnpm local:ps:lapis-relay`, `pnpm local:logs:lapis-relay`, and
+`pnpm local:down:lapis-relay` for the normal lifecycle.
+`pnpm local:reset:lapis-relay` removes the relay's persistence, projection, and
+site volumes and rotates the ignored local fixture identities. The unqualified
+`local:*` commands target the retained stock-Buzz profile.
 
 Run `pnpm smoke:lapis-relay` for a cold Lapis-relay check. It uses a unique
 Compose project and high ports, verifies relay NIP-11/NIP-42 behaviour, checks
