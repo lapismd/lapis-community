@@ -2,7 +2,7 @@
 
 The local stack has two relay profiles. `pnpm local:up` retains the stock Buzz
 compatibility deployment. `pnpm local:up:lapis-relay` builds the sibling
-vendored `lapis-relay` source, backed by PostgreSQL and its embedded Blossom
+vendored `nostr-relay` source, backed by PostgreSQL and its embedded Blossom
 endpoint. Lapis does not add a registry database or an event-submission API:
 the signed Nostr graph on the selected relay is the registry source of truth.
 
@@ -15,7 +15,7 @@ derives the disposable V1 tree from those events.
 ## Run the stack
 
 Prerequisites are Docker with Compose, Node 22 or newer, pnpm, and sibling
-`lapis-plugins` and `plugin-registry-lapis-relay` workspaces.
+`lapis-plugins` and `nostr-plugin-registry` workspaces.
 
 ```sh
 pnpm install

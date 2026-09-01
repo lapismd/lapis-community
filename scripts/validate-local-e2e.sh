@@ -69,7 +69,7 @@ else
   jq -e '
     . as $compose |
     $compose.services["registry-relay"].image == "lapis-relay:local" and
-    ($compose.services["registry-relay"].build.context | endswith("/lapis-relay")) and
+    ($compose.services["registry-relay"].build.context | endswith("/nostr-relay")) and
     ($compose.services["registry-relay"].environment.RELAY_HOST |
       startswith("registry.localhost:")) and
     $compose.services["registry-relay"].environment.POLICY_OPEN == "true" and
@@ -94,7 +94,7 @@ else
   ' "${validation_tmp}/compose.json" >/dev/null
 fi
 
-jq -e '
+jq -e --arg secret_file "${repo_root}/.local/registry-fixture/fixture-secrets.json" '
   .services["registry-fixture"].build.dockerfile ==
     "services/registry-local-fixture/Dockerfile" and
   .services["registry-console"].build.dockerfile ==
@@ -118,6 +118,7 @@ jq -e '
     .read_only == true) and
   any(.services["registry-fixture"].volumes[];
     .type == "bind" and
+    .source == $secret_file and
     .target == "/run/lapis-registry/fixture-secrets.json" and
     .read_only == true) and
   (.services["registry-materializer"].environment.REGISTRY_BUZZ_RELAYS |

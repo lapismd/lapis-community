@@ -6,7 +6,7 @@
 
 ## Decision
 
-Maintain a sibling `lapis-relay` repository cloned with full history from
+Maintain a sibling `nostr-relay` repository cloned with full history from
 Unicity Relay. Record its exact upstream revision and keep Lapis changes in a
 reviewable JJ commit on top. Build a Lapis-named container from that source and
 exercise it through a separate registry Compose profile before any production
@@ -33,6 +33,6 @@ public origin.
   infrastructure.
 - `pnpm local:up` and `pnpm smoke:local` retain stock Buzz as a compatibility
   profile while the relay choice is evaluated.
-- Upstream provenance and refresh instructions live in `lapis-relay/UPSTREAM.md`.
+- Upstream provenance and refresh instructions live in `nostr-relay/UPSTREAM.md`.
 - Image publication, deployment, production keys/events, DNS, and cutover stay
   behind the existing manual gates.

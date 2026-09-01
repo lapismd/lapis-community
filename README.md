@@ -22,10 +22,10 @@ can be proven before any cutover.
 
 The stock Buzz compatibility profile remains available through its pinned
 container image. The vendored Unicity-derived relay lives in the sibling
-`lapis-relay` repository and is exercised by the dedicated Lapis relay Compose
+`nostr-relay` repository and is exercised by the dedicated Lapis relay Compose
 profile.
 Plugin artifacts stay in `lapis-plugins`. The existing public Astro site and V1
-analytics stay in `plugin-registry-lapis-relay`. Lapis application fallback and
+analytics stay in `nostr-plugin-registry`. Lapis application fallback and
 caching stay in `lapis-notes`.
 
 ## Trust model
@@ -68,7 +68,7 @@ the active developer path. Open the
 rendered registry at <http://localhost:4321/> or the operator console at
 <http://localhost:4173/> after Compose reports the services healthy.
 
-Run `pnpm local:up:lapis-relay` to build the sibling `lapis-relay` source and
+Run `pnpm local:up:lapis-relay` to build the sibling `nostr-relay` source and
 run the same fixture, materializer, console, and rendered site against it. The
 cold acceptance command is `pnpm smoke:lapis-relay`; it verifies admin-only
 group creation as well as retained registry and forum events.

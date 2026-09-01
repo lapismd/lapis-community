@@ -38,6 +38,11 @@ if [[ ! -f ${fixture_env} || ! -f ${fixture_dir}/fixture-secrets.json ]] ||
     --output "${fixture_dir}" >/dev/null
 fi
 
+# The generated environment records an absolute path. Always override it with
+# the current checkout so moving or renaming this workspace cannot make Docker
+# create a directory at the stale source path.
+export REGISTRY_FIXTURE_SECRETS_FILE="${fixture_dir}/fixture-secrets.json"
+
 if [[ ${relay_flavor} == lapis ]]; then
   operator_secret=$(jq -er '.keys.operator | select(test("^[0-9a-f]{64}$"))' \
     "${fixture_dir}/fixture-secrets.json")
@@ -56,10 +61,10 @@ fi
 export LAPIS_PLUGINS_PATH
 LAPIS_PLUGINS_PATH=$(resolve_directory "${LAPIS_PLUGINS_PATH:-}" "${repo_root}/../lapis-plugins")
 export PLUGIN_REGISTRY_PATH
-PLUGIN_REGISTRY_PATH=$(resolve_directory "${PLUGIN_REGISTRY_PATH:-}" "${repo_root}/../plugin-registry-lapis-relay")
+PLUGIN_REGISTRY_PATH=$(resolve_directory "${PLUGIN_REGISTRY_PATH:-}" "${repo_root}/../nostr-plugin-registry")
 if [[ ${relay_flavor} == lapis ]]; then
   export LAPIS_RELAY_PATH
-  LAPIS_RELAY_PATH=$(resolve_directory "${LAPIS_RELAY_PATH:-}" "${repo_root}/../lapis-relay")
+  LAPIS_RELAY_PATH=$(resolve_directory "${LAPIS_RELAY_PATH:-}" "${repo_root}/../nostr-relay")
 fi
 export COMPOSE_PROJECT_NAME=${COMPOSE_PROJECT_NAME:-lapis-registry-${relay_flavor}}
 

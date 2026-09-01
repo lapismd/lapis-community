@@ -31,8 +31,8 @@
     "local:smoke": "scripts/smoke-local-e2e.sh",
     "relay:materialize": "tsx scripts/materialize-buzz.ts",
     "relay:materialize:legacy": "tsx scripts/materialize-relays.ts",
-    "v1:check": "tsx scripts/import-v1.ts --source ../plugin-registry-lapis-relay/generated/v1 --check",
-    "v1:import": "tsx scripts/import-v1.ts --source ../plugin-registry-lapis-relay/generated/v1 --output artifacts/v1-import.json",
+    "v1:check": "tsx scripts/import-v1.ts --source ../nostr-plugin-registry/generated/v1 --check",
+    "v1:import": "tsx scripts/import-v1.ts --source ../nostr-plugin-registry/generated/v1 --output artifacts/v1-import.json",
     "check:format": "prettier . --check --log-level warn",
     "fmt": "prettier . --write --log-level warn",
     "check": "pnpm build && pnpm check:types && pnpm test && pnpm check:format"
