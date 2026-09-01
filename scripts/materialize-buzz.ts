@@ -14,7 +14,11 @@ import {
   loadBuzzRelayRegistryState,
   WebSocketRegistryRelay,
 } from "@lapismd/registry-nostr";
-import { canonicalJson } from "@lapismd/registry-protocol";
+import {
+  canonicalJson,
+  lapisBuzzGroupId,
+  LAPIS_BUZZ_GROUP_PATHS,
+} from "@lapismd/registry-protocol";
 import type {
   BuzzCatalogPlugin,
   JsonObject,
@@ -117,7 +121,11 @@ try {
       backend: "nostr-buzz",
       registryRoot: state.registry.root,
       buzzRelays: publicUrls.length === 0 ? relayUrls : publicUrls,
+      releaseGroupId: lapisBuzzGroupId(LAPIS_BUZZ_GROUP_PATHS.pluginReleases),
       curatorPubkeys: curator.toSorted(),
+      publisherPubkeysByPlugin: Object.fromEntries(
+        catalog.map((plugin) => [plugin.content.pluginId, [publisher]]),
+      ),
     }),
     ...[...state.projection.plugins].map(([pluginId, plugin]) =>
       jsonFile(path.join(output, "plugins", `${pluginId}.json`), plugin),
