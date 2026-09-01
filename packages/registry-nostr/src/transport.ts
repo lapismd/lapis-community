@@ -35,12 +35,14 @@ export interface WebSocketRelayOptions {
   authenticationRelayUrl?: string;
   connectTimeoutMs?: number;
   eoseTimeoutMs?: number;
+  publishTimeoutMs?: number;
 }
 
 export class WebSocketRegistryRelay implements RegistryRelay {
   readonly url: string;
   readonly #connectTimeoutMs: number;
   readonly #eoseTimeoutMs: number;
+  readonly #publishTimeoutMs: number;
   readonly #authenticationRelayUrl: string | undefined;
   #connection: Promise<Relay> | undefined;
   #authSigner: RelayAuthSigner | undefined;
@@ -54,6 +56,7 @@ export class WebSocketRegistryRelay implements RegistryRelay {
         : normalizeURL(options.authenticationRelayUrl);
     this.#connectTimeoutMs = options.connectTimeoutMs ?? 5_000;
     this.#eoseTimeoutMs = options.eoseTimeoutMs ?? 5_000;
+    this.#publishTimeoutMs = options.publishTimeoutMs ?? 5_000;
   }
 
   async #connect(signal?: AbortSignal): Promise<Relay> {
@@ -65,6 +68,7 @@ export class WebSocketRegistryRelay implements RegistryRelay {
 
     try {
       const relay = await this.#connection;
+      relay.publishTimeout = this.#publishTimeoutMs;
       if (this.#authSigner !== undefined) {
         await this.#authenticateConnection(relay, this.#authSigner, signal);
       }

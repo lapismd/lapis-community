@@ -54,36 +54,35 @@ export async function loadBuzzRelayRegistryState(
     );
   }
   const groupId = lapisBuzzGroupId(LAPIS_BUZZ_GROUP_PATHS.pluginReleases);
-  const [releaseResult, decisionResult] = await Promise.all([
-    queryRelayUnion(
-      options.relays,
-      {
-        kinds: [BUZZ_REGISTRY_KINDS.streamMessage],
-        "#h": [groupId],
-        "#t": [LAPIS_RELEASE_TOPIC],
-        limit: 2_000,
-      },
-      options.signal,
-    ),
-    queryRelayUnion(
-      options.relays,
-      {
-        kinds: [BUZZ_REGISTRY_KINDS.reaction],
-        "#h": [groupId],
-        limit: 2_000,
-      },
-      options.signal,
-    ),
-  ]);
+  const releaseResult = await queryRelayUnion(
+    options.relays,
+    {
+      kinds: [BUZZ_REGISTRY_KINDS.streamMessage],
+      "#h": [groupId],
+      "#t": [LAPIS_RELEASE_TOPIC],
+      limit: 2_000,
+    },
+    options.signal,
+  );
+  const decisionResult = await queryRelayUnion(
+    options.relays,
+    {
+      kinds: [BUZZ_REGISTRY_KINDS.reaction],
+      "#e": releaseResult.events.map((event) => event.id),
+      limit: 2_000,
+    },
+    options.signal,
+  );
   const events = distinctEvents([
     ...releaseResult.events,
     ...decisionResult.events,
   ]);
-  const manifests = await fetchBuzzReleaseManifests(
-    events,
-    options.fetch ?? globalThis.fetch,
-    options.signal,
-  );
+  const manifests = await fetchBuzzReleaseManifests(events, {
+    fetch: options.fetch ?? globalThis.fetch,
+    mediaAuthSigner: options.authSigner,
+    relayUrls: options.relays.map((relay) => relay.url),
+    signal: options.signal,
+  });
   const registry = materializeBuzzRegistry(
     events,
     manifests,
@@ -101,8 +100,12 @@ export async function loadBuzzRelayRegistryState(
 
 export async function fetchBuzzReleaseManifests(
   events: readonly NostrEvent[],
-  fetcher: typeof globalThis.fetch,
-  signal?: AbortSignal,
+  options: {
+    fetch: typeof globalThis.fetch;
+    mediaAuthSigner?: RelayAuthSigner | undefined;
+    relayUrls?: readonly string[] | undefined;
+    signal?: AbortSignal | undefined;
+  },
 ): Promise<BuzzReleaseManifestSource[]> {
   const attachments = new Map(
     events.flatMap((event) => {
@@ -112,13 +115,31 @@ export async function fetchBuzzReleaseManifests(
         : [[attachment.sha256, attachment] as const];
     }),
   );
+  const mediaOrigins = new Set(
+    (options.relayUrls ?? []).map((relayUrl) => relayHttpOrigin(relayUrl)),
+  );
+  const authorizationByOrigin = new Map<string, Promise<string>>();
   return await Promise.all(
     [...attachments.values()]
       .toSorted((left, right) => left.sha256.localeCompare(right.sha256))
       .map(async (attachment) => {
-        const response = await fetcher(attachment.url, {
-          ...(signal === undefined ? {} : { signal }),
-          headers: { Accept: "application/json" },
+        const origin = new URL(attachment.url).origin;
+        const authorization =
+          options.mediaAuthSigner !== undefined && mediaOrigins.has(origin)
+            ? await mediaAuthorization(
+                origin,
+                options.mediaAuthSigner,
+                authorizationByOrigin,
+              )
+            : undefined;
+        const response = await options.fetch(attachment.url, {
+          ...(options.signal === undefined ? {} : { signal: options.signal }),
+          headers: {
+            Accept: "application/json",
+            ...(authorization === undefined
+              ? {}
+              : { Authorization: authorization }),
+          },
         });
         if (!response.ok) {
           throw new Error(
@@ -143,6 +164,49 @@ export async function fetchBuzzReleaseManifests(
         };
       }),
   );
+}
+
+function relayHttpOrigin(relayUrl: string): string {
+  const url = new URL(relayUrl);
+  url.protocol = url.protocol === "wss:" ? "https:" : "http:";
+  return url.origin;
+}
+
+async function mediaAuthorization(
+  origin: string,
+  signer: RelayAuthSigner,
+  cache: Map<string, Promise<string>>,
+): Promise<string> {
+  let authorization = cache.get(origin);
+  if (authorization === undefined) {
+    authorization = (async () => {
+      const now = Math.floor(Date.now() / 1_000);
+      const event = await signer({
+        kind: 24_242,
+        created_at: now,
+        content: "Get Lapis release manifests",
+        tags: [
+          ["t", "get"],
+          ["expiration", String(now + 600)],
+          ["server", new URL(origin).host],
+        ],
+      });
+      return `Nostr ${base64Url(JSON.stringify(event))}`;
+    })();
+    cache.set(origin, authorization);
+  }
+  return await authorization;
+}
+
+function base64Url(value: string): string {
+  const bytes = new TextEncoder().encode(value);
+  let binary = "";
+  for (const byte of bytes) binary += String.fromCharCode(byte);
+  return globalThis
+    .btoa(binary)
+    .replaceAll("+", "-")
+    .replaceAll("/", "_")
+    .replace(/=+$/u, "");
 }
 
 function distinctEvents(events: readonly NostrEvent[]): NostrEvent[] {

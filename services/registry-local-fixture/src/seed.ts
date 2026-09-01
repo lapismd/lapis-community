@@ -2,87 +2,60 @@ import { readFile } from "node:fs/promises";
 import { createServer } from "node:http";
 import { setTimeout as delay } from "node:timers/promises";
 
+import { bytesToHex, hexToBytes } from "@noble/hashes/utils.js";
 import {
-  loadRelayRegistryState,
-  resolveExactEvents,
-  WebSocketRegistryRelay,
-} from "@lapismd/registry-nostr";
-import {
-  createApprovalEventTemplate,
-  createAssessmentEventTemplate,
-  createMembershipDecisionTemplate,
-  createMembershipRegistrationTemplate,
-  createPluginEventTemplate,
-  createReleaseEventTemplate,
-  createSnapshotContent,
-  createSnapshotEventTemplate,
-  createSecurityAdvisoryTemplate,
-  createSecurityDispositionTemplate,
-  eventAddress,
-  materializeRegistry,
-  TEST_COMMUNITY_KINDS,
-  TEST_MEMBERSHIP_KINDS,
-  TEST_REGISTRY_KINDS,
-  TEST_SECURITY_KINDS,
+  createBuzzCuratorDecisionTemplate,
+  createBuzzForumReplyTemplate,
+  createBuzzForumRootTemplate,
+  createBuzzReleaseMessageTemplate,
+  LAPIS_BUZZ_GROUP_PATHS,
+  lapisBuzzGroupId,
+  lapisPluginSupportGroupId,
+  materializeBuzzRegistry,
 } from "@lapismd/registry-protocol";
 import type {
-  ApprovalContent,
-  AssessmentContent,
+  BuzzManifestAttachment,
+  BuzzReleaseManifestSource,
   NostrEvent,
-  RegistryAuthorities,
+  NostrEventTemplate,
   ReleaseContent,
-  SecurityAdvisoryContent,
-  SecurityDispositionContent,
 } from "@lapismd/registry-protocol";
-import { hexToBytes } from "@noble/hashes/utils.js";
+import { WebSocketRegistryRelay } from "@lapismd/registry-nostr";
 import { finalizeEvent, getPublicKey } from "nostr-tools/pure";
 
 import { parseFixtureSecrets } from "./keys.js";
 import type { FixtureSecretName, FixtureSecrets } from "./keys.js";
-import { createDemoDiscussion } from "./demo-discussion.js";
-import { publishWithRetainedQuorum } from "./publication.js";
 import { loadLocalPluginFixtures } from "./source.js";
 
 interface FixtureStatus {
-  schema: "lapis.registry.local-fixture-status/1";
+  schema: "lapis.registry.buzz-local-fixture-status/1";
   pluginCount: number;
   pluginIds: string[];
-  officialEventCount: number;
+  registryEventCount: number;
   communityEventCount: number;
   registryRoot: string;
-  communityRoot: string;
-  securityRoot: string;
-  artifactPaths: string[];
-  relayCopies: {
-    official: Record<string, number>;
-    officialQuorum: number;
-    community: number;
-  };
+  relayCopies: number;
+  groupIds: Record<string, string>;
+}
+
+interface BlobDescriptor {
+  url: string;
+  sha256: string;
+  size: number;
+  type: string;
 }
 
 function required(name: string, fallback?: string): string {
   const value = process.env[name] ?? fallback;
-  if (value === undefined || value.trim() === "") {
+  if (value === undefined || value.trim() === "")
     throw new Error(`${name} is required`);
-  }
   return value;
 }
 
 function positiveInteger(name: string, fallback: number): number {
   const value = Number(process.env[name] ?? String(fallback));
-  if (!Number.isInteger(value) || value < 1) {
+  if (!Number.isInteger(value) || value < 1)
     throw new Error(`${name} must be a positive integer`);
-  }
-  return value;
-}
-
-function optionalPositiveInteger(name: string): number | undefined {
-  const raw = process.env[name]?.trim() ?? "all";
-  if (raw === "" || raw === "all") return undefined;
-  const value = Number(raw);
-  if (!Number.isInteger(value) || value < 1) {
-    throw new Error(`${name} must be "all" or a positive integer`);
-  }
   return value;
 }
 
@@ -90,32 +63,30 @@ function secret(secrets: FixtureSecrets, name: FixtureSecretName): Uint8Array {
   return hexToBytes(secrets.keys[name]);
 }
 
-function relayUrls(name: string): string[] {
-  return required(name)
-    .split(",")
-    .map((value) => new URL(value.trim()).toString());
+function sign(secretKey: Uint8Array, template: NostrEventTemplate): NostrEvent {
+  return finalizeEvent(template, secretKey);
 }
 
 function authSigner(secretKey: Uint8Array) {
-  return async (template: Parameters<typeof finalizeEvent>[0]) =>
-    finalizeEvent(template, secretKey);
+  return async (template: NostrEventTemplate) => sign(secretKey, template);
 }
 
 async function retry<T>(action: () => Promise<T>, label: string): Promise<T> {
-  let lastError: unknown;
-  for (let attempt = 1; attempt <= 20; attempt += 1) {
+  let cause: unknown;
+  for (let attempt = 1; attempt <= 30; attempt += 1) {
     try {
       return await action();
     } catch (error) {
-      lastError = error;
-      await delay(Math.min(attempt * 250, 2_000));
+      cause = error;
+      await delay(Math.min(250 * attempt, 2_000));
     }
   }
-  throw new Error(`${label} failed`, { cause: lastError });
+  throw new Error(`${label} failed`, { cause });
 }
 
 async function seed(): Promise<{
   artifacts: Map<string, Uint8Array>;
+  catalog: unknown;
   status: FixtureStatus;
 }> {
   const secrets = parseFixtureSecrets(
@@ -123,73 +94,27 @@ async function seed(): Promise<{
       await readFile(required("REGISTRY_FIXTURE_SECRETS_FILE"), "utf8"),
     ),
   );
-  const lapisPluginsRoot = required(
-    "LAPIS_PLUGINS_ROOT",
-    "/workspace/lapis-plugins",
-  );
-  const pluginLimit = optionalPositiveInteger("REGISTRY_FIXTURE_PLUGIN_LIMIT");
+  const relayUrl = new URL(required("REGISTRY_BUZZ_RELAY")).toString();
+  const httpBase = relayUrl
+    .replace(/^ws:/u, "http:")
+    .replace(/^wss:/u, "https:");
   const artifactBase = new URL(
     required("REGISTRY_FIXTURE_ARTIFACT_BASE_URL", "http://127.0.0.1:8090/"),
   );
-  const officialUrls = relayUrls("REGISTRY_OFFICIAL_RELAYS");
-  const publicOfficialUrls = relayUrls("REGISTRY_PUBLIC_OFFICIAL_RELAYS");
-  if (publicOfficialUrls.length !== officialUrls.length) {
-    throw new Error(
-      "REGISTRY_PUBLIC_OFFICIAL_RELAYS must match the official relay set",
-    );
-  }
-  const publicationQuorum = positiveInteger("REGISTRY_PUBLISH_QUORUM", 1);
-  if (publicationQuorum > officialUrls.length) {
-    throw new Error("REGISTRY_PUBLISH_QUORUM exceeds the official relay set");
-  }
-  const communityUrl = new URL(required("REGISTRY_COMMUNITY_RELAY")).toString();
-  const publicCommunityUrls = relayUrls("REGISTRY_PUBLIC_COMMUNITY_RELAYS");
-  if (publicCommunityUrls.length !== 1) {
-    throw new Error("REGISTRY_PUBLIC_COMMUNITY_RELAYS must contain one relay");
-  }
-  const officialRelays = officialUrls.map(
-    (url, index) =>
-      new WebSocketRegistryRelay(url, {
-        authenticationRelayUrl: publicOfficialUrls[index]!,
-        connectTimeoutMs: 10_000,
-      }),
+  const pluginLimitRaw =
+    process.env.REGISTRY_FIXTURE_PLUGIN_LIMIT?.trim() ?? "all";
+  const fixtures = await loadLocalPluginFixtures(
+    required("LAPIS_PLUGINS_ROOT", "/workspace/lapis-plugins"),
+    {
+      ...(pluginLimitRaw === "all" || pluginLimitRaw === ""
+        ? {}
+        : { limit: positiveInteger("REGISTRY_FIXTURE_PLUGIN_LIMIT", 12) }),
+      publicBaseUrl: artifactBase,
+    },
   );
-  const communityRelay = new WebSocketRegistryRelay(communityUrl, {
-    authenticationRelayUrl: publicCommunityUrls[0]!,
-    connectTimeoutMs: 10_000,
-  });
-  const authenticatedRelays = new Map<string, WebSocketRegistryRelay>();
-  const authenticatedRelay = (
-    url: string,
-    publicUrl: string,
-    authorSecret: Uint8Array,
-  ): WebSocketRegistryRelay => {
-    const key = `${url}:${getPublicKey(authorSecret)}`;
-    let relay = authenticatedRelays.get(key);
-    if (relay === undefined) {
-      relay = new WebSocketRegistryRelay(url, {
-        authenticationRelayUrl: publicUrl,
-        connectTimeoutMs: 10_000,
-      });
-      authenticatedRelays.set(key, relay);
-    }
-    return relay;
-  };
-  const membershipTargets = [
-    ...new Map(
-      [
-        ...officialUrls.map((url, index) => ({
-          url,
-          publicUrl: publicOfficialUrls[index]!,
-        })),
-        { url: communityUrl, publicUrl: publicCommunityUrls[0]! },
-      ].map((target) => [target.url, target]),
-    ).values(),
-  ];
-  const fixtures = await loadLocalPluginFixtures(lapisPluginsRoot, {
-    limit: pluginLimit,
-    publicBaseUrl: artifactBase,
-  });
+  if (fixtures.length === 0)
+    throw new Error("No complete plugin fixtures were found");
+
   const artifacts = new Map(
     fixtures.flatMap((fixture) => [
       [`/${fixture.artifact.path}`, fixture.artifact.bytes] as const,
@@ -198,156 +123,112 @@ async function seed(): Promise<{
       ),
     ]),
   );
-  const officialEvents: NostrEvent[] = [];
-  const communityEvents: NostrEvent[] = [];
-  // Stable identities make a container restart idempotent when a local relay
-  // is still recovering. Users can override the epoch to create a fresh set.
-  let createdAt = positiveInteger("REGISTRY_FIXTURE_CREATED_AT", 1_767_225_600);
-
-  const publishOfficial = async (
-    event: NostrEvent,
-    authorSecret: Uint8Array,
-  ): Promise<void> => {
-    const signAuthEvent = authSigner(authorSecret);
-    const authorRelays = officialUrls.map((url, index) =>
-      authenticatedRelay(url, publicOfficialUrls[index]!, authorSecret),
-    );
-    await retry(async () => {
-      await Promise.all(
-        authorRelays.map(async (relay) => {
-          if (relay.authenticate === undefined) {
-            throw new Error(`${relay.url} does not support NIP-42`);
-          }
-          await relay.authenticate(signAuthEvent);
-        }),
-      );
-      return await publishWithRetainedQuorum(
-        event,
-        authorRelays,
-        publicationQuorum,
-      );
-    }, `official publication ${event.id}`);
-    officialEvents.push(event);
-    await delay(125);
-  };
-  const publishCommunity = async (
-    event: NostrEvent,
-    authorSecret: Uint8Array,
-  ): Promise<void> => {
-    const signAuthEvent = authSigner(authorSecret);
-    const authorRelay = authenticatedRelay(
-      communityUrl,
-      publicCommunityUrls[0]!,
-      authorSecret,
-    );
-    await retry(async () => {
-      if (authorRelay.authenticate === undefined) {
-        throw new Error(`${authorRelay.url} does not support NIP-42`);
-      }
-      await authorRelay.authenticate(signAuthEvent);
-      try {
-        return await authorRelay.publish(event);
-      } catch (error) {
-        const retained = await authorRelay.query({ ids: [event.id] });
-        if (!retained.some((copy) => copy.id === event.id)) throw error;
-        return { accepted: true, message: "duplicate event already retained" };
-      }
-    }, `community publication ${event.id}`);
-    communityEvents.push(event);
-  };
-
-  const publishMembership = async (
-    event: NostrEvent,
-    authorSecret: Uint8Array,
-  ): Promise<void> => {
-    const signAuthEvent = authSigner(authorSecret);
-    await Promise.all(
-      membershipTargets.map(async (target) => {
-        const relay = authenticatedRelay(
-          target.url,
-          target.publicUrl,
-          authorSecret,
-        );
-        await retry(async () => {
-          if (relay.authenticate === undefined) {
-            throw new Error(`${relay.url} does not support NIP-42`);
-          }
-          await relay.authenticate(signAuthEvent);
-          try {
-            await relay.publish(event);
-          } catch (error) {
-            const retained = await relay.query({ ids: [event.id] });
-            if (!retained.some((copy) => copy.id === event.id)) throw error;
-          }
-        }, `membership publication ${event.id} to ${relay.url}`);
-      }),
-    );
-  };
-
   const publisherSecret = secret(secrets, "publisher");
-  const publisher = getPublicKey(publisherSecret);
+  const curatorSecret = secret(secrets, "curator");
   const operatorSecret = secret(secrets, "operator");
-  const roleDecisions = [
-    {
-      secret: publisherSecret,
-      roles: ["publisher"] as const,
-      publisherPluginIds: fixtures.map((fixture) => fixture.plugin.pluginId),
-      reason: "Local fixture publisher",
-    },
-    {
-      secret: secret(secrets, "curator"),
-      roles: ["curator"] as const,
-      publisherPluginIds: [],
-      reason: "Local fixture curator",
-    },
-    {
-      secret: secret(secrets, "advisory"),
-      roles: ["security"] as const,
-      publisherPluginIds: [],
-      reason: "Local fixture security advisory identity",
-    },
-    {
-      secret: secret(secrets, "disposition"),
-      roles: ["security"] as const,
-      publisherPluginIds: [],
-      reason: "Local fixture security disposition identity",
-    },
+  const publisher = getPublicKey(publisherSecret);
+  const curator = getPublicKey(curatorSecret);
+  const relays = new Map<string, WebSocketRegistryRelay>();
+  const relayFor = async (
+    secretKey: Uint8Array,
+  ): Promise<WebSocketRegistryRelay> => {
+    const pubkey = getPublicKey(secretKey);
+    let relay = relays.get(pubkey);
+    if (relay === undefined) {
+      relay = new WebSocketRegistryRelay(relayUrl, {
+        authenticationRelayUrl: relayUrl,
+        connectTimeoutMs: 15_000,
+        eoseTimeoutMs: 15_000,
+        publishTimeoutMs: 2_000,
+      });
+      await retry(
+        async () => await relay!.authenticate(authSigner(secretKey)),
+        `NIP-42 ${pubkey}`,
+      );
+      relays.set(pubkey, relay);
+    }
+    return relay;
+  };
+  const events: NostrEvent[] = [];
+  const publish = async (
+    event: NostrEvent,
+    secretKey: Uint8Array,
+  ): Promise<void> => {
+    const relay = await relayFor(secretKey);
+    await retry(async () => {
+      try {
+        await relay.publish(event);
+      } catch (error) {
+        const retained = await relay.query({ ids: [event.id] });
+        if (!retained.some((copy) => copy.id === event.id)) throw error;
+      }
+    }, `publish ${event.id}`);
+    events.push(event);
+  };
+  const createGroup = async (
+    event: NostrEvent,
+    groupId: string,
+  ): Promise<void> => {
+    const relay = await relayFor(operatorSecret);
+    try {
+      await relay.publish(event);
+    } catch {
+      // Buzz consumes NIP-29 management events into relay-signed group state;
+      // some versions do not acknowledge or re-serve the original kind 9007.
+    }
+    await retry(async () => {
+      const state = await relay.query({
+        kinds: [39_000, 39_002],
+        "#d": [groupId],
+      });
+      if (state.length < 2)
+        throw new Error(`Buzz group ${groupId} is incomplete`);
+    }, `create group ${groupId}`);
+  };
+
+  let createdAt = positiveInteger(
+    "REGISTRY_FIXTURE_CREATED_AT",
+    Math.floor(Date.now() / 1_000) - 300,
+  );
+  const baseGroups = [
+    [LAPIS_BUZZ_GROUP_PATHS.pluginReleases, "plugin-releases", "stream"],
+    [LAPIS_BUZZ_GROUP_PATHS.general, "general", "stream"],
+    [LAPIS_BUZZ_GROUP_PATHS.pluginDevelopment, "plugin-development", "stream"],
+    [LAPIS_BUZZ_GROUP_PATHS.forums, "forums", "forum"],
+  ] as const;
+  const groups = [
+    ...baseGroups.map(([path, name, type]) => ({
+      id: lapisBuzzGroupId(path),
+      name,
+      type,
+    })),
+    ...fixtures.map((fixture) => ({
+      id: lapisPluginSupportGroupId(fixture.plugin.pluginId),
+      name: `support-${fixture.plugin.pluginId}`,
+      type: "forum" as const,
+    })),
   ];
-  for (const decision of roleDecisions) {
-    const subjectPubkey = getPublicKey(decision.secret);
-    await publishMembership(
-      finalizeEvent(
-        createMembershipDecisionTemplate(
-          {
-            schema: "lapis.registry.membership-decision/1",
-            subjectPubkey,
-            status: "active",
-            roles: [...decision.roles],
-            publisherPluginIds: decision.publisherPluginIds,
-            reason: decision.reason,
-          },
-          TEST_MEMBERSHIP_KINDS,
-          createdAt++,
-        ),
-        operatorSecret,
-      ),
-      operatorSecret,
+  for (const group of groups) {
+    await createGroup(
+      sign(operatorSecret, {
+        kind: 9_007,
+        created_at: createdAt++,
+        content: "",
+        tags: [
+          ["h", group.id],
+          ["name", group.name],
+          ["visibility", "open"],
+          ["channel_type", group.type],
+        ],
+      }),
+      group.id,
     );
   }
-  const acceptedReleases: Array<{
-    event: NostrEvent;
-    content: ReleaseContent;
-  }> = [];
+
+  const registryEvents: NostrEvent[] = [];
+  const manifests: BuzzReleaseManifestSource[] = [];
   for (const fixture of fixtures) {
-    const plugin = finalizeEvent(
-      createPluginEventTemplate(
-        fixture.plugin,
-        TEST_REGISTRY_KINDS,
-        createdAt++,
-      ),
-      publisherSecret,
-    );
-    const releaseContent: ReleaseContent = {
+    const release: ReleaseContent = {
       ...fixture.release,
       releasedAt: new Date(createdAt * 1_000).toISOString(),
       artifact: {
@@ -356,353 +237,183 @@ async function seed(): Promise<{
         size: fixture.artifact.bytes.byteLength,
       },
     };
-    const release = finalizeEvent(
-      createReleaseEventTemplate(
-        releaseContent,
-        publisher,
-        TEST_REGISTRY_KINDS,
-        createdAt++,
-      ),
+    const bytes = new TextEncoder().encode(JSON.stringify(release));
+    const descriptor = await uploadBlob(httpBase, bytes, publisherSecret);
+    const attachment: BuzzManifestAttachment = {
+      url: descriptor.url,
+      mimeType: descriptor.type,
+      sha256: descriptor.sha256,
+      size: descriptor.size,
+      filename: `${fixture.plugin.pluginId}-${release.version}.manifest.json`,
+    };
+    manifests.push({ attachmentSha256: descriptor.sha256, manifest: release });
+    const submission = sign(
       publisherSecret,
-    );
-    const assessmentContent: AssessmentContent = {
-      schema: "lapis.registry.assessment/1",
-      releaseEventId: release.id,
-      artifactSha256: releaseContent.artifact.sha256,
-      status: "pass",
-      checks: [
-        { id: "source-metadata", status: "pass" },
-        { id: "manifest-version", status: "pass" },
-      ],
-    };
-    const assessorSecret = secret(secrets, "assessor");
-    const assessment = finalizeEvent(
-      createAssessmentEventTemplate(
-        assessmentContent,
-        TEST_REGISTRY_KINDS,
+      createBuzzReleaseMessageTemplate(
+        fixture.plugin.pluginId,
+        attachment,
         createdAt++,
+        `${fixture.plugin.name} ${release.version} is ready for curator review.`,
       ),
-      assessorSecret,
     );
-    const approvalContent: ApprovalContent = {
-      schema: "lapis.registry.approval/1",
-      pluginId: fixture.plugin.pluginId,
-      version: releaseContent.version,
-      releaseEventId: release.id,
-      assessmentEventId: assessment.id,
-      artifactSha256: releaseContent.artifact.sha256,
-      decision: "approved",
-      reason: "Local read-only lapis-plugins fixture",
-    };
-    const curatorSecret = secret(secrets, "curator");
-    const approval = finalizeEvent(
-      createApprovalEventTemplate(
-        approvalContent,
-        TEST_REGISTRY_KINDS,
-        createdAt++,
-      ),
+    const approval = sign(
       curatorSecret,
+      createBuzzCuratorDecisionTemplate(submission.id, "approved", createdAt++),
     );
-
-    await publishOfficial(plugin, publisherSecret);
-    await publishOfficial(release, publisherSecret);
-    await publishOfficial(assessment, assessorSecret);
-    await publishOfficial(approval, curatorSecret);
-    acceptedReleases.push({ event: release, content: releaseContent });
+    await publish(submission, publisherSecret);
+    await publish(approval, curatorSecret);
+    registryEvents.push(submission, approval);
   }
 
-  const firstFixture = fixtures[0]!;
-  const firstRelease = acceptedReleases[0]!;
-  const advisorySecret = secret(secrets, "advisory");
-  const advisoryContent: SecurityAdvisoryContent = {
-    schema: "lapis.registry.security-advisory/1",
-    advisoryId: "LOCAL-FIXTURE-001",
-    pluginId: firstFixture.plugin.pluginId,
-    releaseEventId: firstRelease.event.id,
-    artifactSha256: firstRelease.content.artifact.sha256,
-    severity: "low",
-    summary: "Local fixture advisory used to exercise the security projection",
-  };
-  const advisory = finalizeEvent(
-    createSecurityAdvisoryTemplate(
-      advisoryContent,
-      TEST_SECURITY_KINDS,
-      createdAt++,
-    ),
-    advisorySecret,
-  );
-  await publishOfficial(advisory, advisorySecret);
-  const dispositionSecret = secret(secrets, "disposition");
-  const dispositionContent: SecurityDispositionContent = {
-    schema: "lapis.registry.security-disposition/1",
-    advisoryEventId: advisory.id,
-    pluginId: advisoryContent.pluginId,
-    releaseEventId: advisoryContent.releaseEventId,
-    artifactSha256: advisoryContent.artifactSha256,
-    action: "warn",
-    reason: "Exercise an authorized exact-release warning locally",
-  };
-  const disposition = finalizeEvent(
-    createSecurityDispositionTemplate(
-      dispositionContent,
-      TEST_SECURITY_KINDS,
-      createdAt++,
-    ),
-    dispositionSecret,
-  );
-  await publishOfficial(disposition, dispositionSecret);
-
-  const demoFixtureIndex = Math.max(
-    0,
-    fixtures.findIndex((fixture) => fixture.plugin.pluginId === "ai"),
-  );
-  const demoFixture = fixtures[demoFixtureIndex]!;
-  const demoRelease = acceptedReleases[demoFixtureIndex]!;
-  const pluginAddress = eventAddress(
-    TEST_REGISTRY_KINDS.softwareApplication,
-    publisher,
-    demoFixture.plugin.pluginId,
-  );
-  const communityOneSecret = secret(secrets, "communityOne");
-  const discussion = createDemoDiscussion({
-    pluginId: demoFixture.plugin.pluginId,
-    pluginAddress,
-    pluginKind: TEST_COMMUNITY_KINDS.softwareApplication,
-    publisherPubkey: publisher,
-    version: demoRelease.content.version,
-    kinds: TEST_COMMUNITY_KINDS,
-    seedSecret: communityOneSecret,
-    startCreatedAt: createdAt,
-  });
+  const forumId = lapisBuzzGroupId(LAPIS_BUZZ_GROUP_PATHS.forums);
   const communitySecrets = [
-    ...discussion.participantSecrets,
-    communityOneSecret,
+    secret(secrets, "communityOne"),
     secret(secrets, "communityTwo"),
   ];
-  for (const memberSecret of communitySecrets) {
-    await publishMembership(
-      finalizeEvent(
-        createMembershipRegistrationTemplate(
-          TEST_MEMBERSHIP_KINDS,
+  const communityEvents: NostrEvent[] = [];
+  const topicTitles = [
+    "How should AI provider fallback behave?",
+    "What belongs in the plugin release checklist?",
+    "Ideas for the next Lapis community call",
+  ];
+  for (const [topicIndex, title] of topicTitles.entries()) {
+    const rootSecret = communitySecrets[topicIndex % communitySecrets.length]!;
+    const root = sign(
+      rootSecret,
+      createBuzzForumRootTemplate(forumId, title, createdAt++),
+    );
+    await publish(root, rootSecret);
+    communityEvents.push(root);
+    const replyCount = topicIndex === 0 ? 48 : topicIndex === 1 ? 12 : 6;
+    for (let index = 0; index < replyCount; index += 1) {
+      const authorSecret = communitySecrets[index % communitySecrets.length]!;
+      const reply = sign(
+        authorSecret,
+        createBuzzForumReplyTemplate(
+          forumId,
+          root.id,
+          `Reply ${index + 1}: ${discussionSentence(index)}`,
           createdAt++,
         ),
-        memberSecret,
-      ),
-      memberSecret,
-    );
-  }
-  const participantSecrets = new Map(
-    discussion.participantSecrets.map((participantSecret) => [
-      getPublicKey(participantSecret),
-      participantSecret,
-    ]),
-  );
-  for (const event of discussion.events) {
-    const authorSecret = participantSecrets.get(event.pubkey);
-    if (authorSecret === undefined) {
-      throw new Error(`No local participant secret for ${event.pubkey}`);
-    }
-    await publishCommunity(event, authorSecret);
-  }
-  createdAt = discussion.nextCreatedAt;
-  const communityTwoSecret = secret(secrets, "communityTwo");
-  const report = finalizeEvent(
-    {
-      kind: TEST_COMMUNITY_KINDS.report,
-      created_at: createdAt++,
-      tags: [["p", publisher, "spam"]],
-      content: "Local fixture report; it must not become security enforcement.",
-    },
-    communityTwoSecret,
-  );
-  await publishCommunity(report, communityTwoSecret);
-  const collection = finalizeEvent(
-    {
-      kind: TEST_COMMUNITY_KINDS.appCurationSet,
-      created_at: createdAt++,
-      tags: [
-        ["d", "local-fixtures"],
-        ["title", "Local fixture plugins"],
-        ...fixtures.map((fixture) => [
-          "a",
-          eventAddress(
-            TEST_REGISTRY_KINDS.softwareApplication,
-            publisher,
-            fixture.plugin.pluginId,
-          ),
-        ]),
-      ],
-      content: "Generated from the mounted lapis-plugins checkout.",
-    },
-    communityOneSecret,
-  );
-  await publishCommunity(collection, communityOneSecret);
-  const follows = finalizeEvent(
-    {
-      kind: TEST_COMMUNITY_KINDS.followList,
-      created_at: createdAt++,
-      tags: [["p", publisher]],
-      content: "",
-    },
-    communityTwoSecret,
-  );
-  await publishCommunity(follows, communityTwoSecret);
-
-  const snapshotSecret = secret(secrets, "snapshot");
-  const authorities: RegistryAuthorities = {
-    assessorPubkeys: new Set([getPublicKey(secret(secrets, "assessor"))]),
-    curatorPubkeys: new Set([getPublicKey(secret(secrets, "curator"))]),
-    moderatorPubkeys: new Set([getPublicKey(secret(secrets, "moderator"))]),
-    snapshotSignerPubkeys: new Set([getPublicKey(snapshotSecret)]),
-    registryOperatorPubkeys: new Set([
-      getPublicKey(secret(secrets, "operator")),
-    ]),
-  };
-  const resolvedForSnapshot = await resolveExactEvents(
-    officialEvents.map((event) => event.id),
-    officialRelays,
-  );
-  if (resolvedForSnapshot.missingEventIds.length > 0) {
-    const missing = new Set(resolvedForSnapshot.missingEventIds);
-    const missingByKind = Object.entries(
-      officialEvents
-        .filter((event) => missing.has(event.id))
-        .reduce<Record<string, number>>((counts, event) => {
-          const kind = String(event.kind);
-          counts[kind] = (counts[kind] ?? 0) + 1;
-          return counts;
-        }, {}),
-    )
-      .toSorted(([left], [right]) => left.localeCompare(right))
-      .map(([kind, count]) => `${kind}:${count}`)
-      .join(",");
-    const relayErrors = resolvedForSnapshot.relays
-      .filter((relay) => relay.error !== undefined)
-      .map((relay) => `${relay.relay}=${relay.error}`)
-      .join("; ");
-    const addressableCopies = await Promise.all(
-      officialRelays.map(
-        async (relay) =>
-          [
-            relay.url,
-            await relay.query({
-              kinds: [TEST_REGISTRY_KINDS.softwareApplication],
-            }),
-          ] as const,
-      ),
-    );
-    const addressableSummary = addressableCopies
-      .map(
-        ([relay, events]) =>
-          `${relay}=${events.map((event) => event.id).join(",")}`,
-      )
-      .join("; ");
-    throw new Error(
-      [
-        `Cannot snapshot ${resolvedForSnapshot.missingEventIds.length} missing relay events`,
-        `kinds=${missingByKind || "unknown"}`,
-        `addressable=${addressableSummary || "none"}`,
-        ...(relayErrors === "" ? [] : [`relay-errors=${relayErrors}`]),
-      ].join("; "),
-    );
-  }
-  const liveRegistry = materializeRegistry(
-    resolvedForSnapshot.events,
-    TEST_REGISTRY_KINDS,
-    authorities,
-  );
-  const snapshot = finalizeEvent(
-    createSnapshotEventTemplate(
-      createSnapshotContent(
-        liveRegistry,
-        new Date(createdAt * 1_000).toISOString(),
-      ),
-      TEST_REGISTRY_KINDS,
-      createdAt++,
-    ),
-    snapshotSecret,
-  );
-  await publishOfficial(snapshot, snapshotSecret);
-
-  for (const relay of authenticatedRelays.values()) relay.close();
-
-  const officialCopies: Record<string, number> = {};
-  await Promise.all(
-    officialRelays.map(async (relay) => {
-      try {
-        const events = await retry(async () => {
-          try {
-            return await relay.query({
-              ids: officialEvents.map((event) => event.id),
-            });
-          } finally {
-            relay.close();
-          }
-        }, `official relay verification ${relay.url}`);
-        officialCopies[relay.url] = events.length;
-      } catch {
-        officialCopies[relay.url] = 0;
+      );
+      await publish(reply, authorSecret);
+      communityEvents.push(reply);
+      if (index % 3 === 0) {
+        const reactionSecret =
+          communitySecrets[(index + 1) % communitySecrets.length]!;
+        const reaction = sign(reactionSecret, {
+          kind: 7,
+          created_at: createdAt++,
+          content: index % 2 === 0 ? "👍" : "❤️",
+          tags: [["e", reply.id]],
+        });
+        await publish(reaction, reactionSecret);
+        communityEvents.push(reaction);
       }
-    }),
-  );
-  const officialQuorum = Object.values(officialCopies).filter(
-    (count) => count === officialEvents.length,
-  ).length;
-  if (officialQuorum < publicationQuorum) {
-    throw new Error(
-      `Only ${officialQuorum}/${officialUrls.length} official relays retained the complete event set`,
-    );
-  }
-  const communityCopies = await retry(async () => {
-    try {
-      return await communityRelay.query({
-        ids: communityEvents.map((event) => event.id),
-      });
-    } finally {
-      communityRelay.close();
     }
-  }, `community relay verification ${communityRelay.url}`);
-  if (communityCopies.length !== communityEvents.length) {
-    throw new Error(
-      `${communityRelay.url} retained ${communityCopies.length}/${communityEvents.length} community events`,
-    );
   }
 
-  const relayState = await loadRelayRegistryState({
-    officialRelays,
-    communityRelays: [communityRelay],
-    kinds: TEST_REGISTRY_KINDS,
-    communityKinds: TEST_COMMUNITY_KINDS,
-    securityKinds: TEST_SECURITY_KINDS,
-    authorities,
-    securityAuthorities: {
-      advisoryPubkeys: new Set([getPublicKey(advisorySecret)]),
-      dispositionPubkeys: new Set([getPublicKey(dispositionSecret)]),
+  const registry = materializeBuzzRegistry(
+    registryEvents,
+    manifests,
+    fixtures.map((fixture) => ({ content: fixture.plugin })),
+    {
+      curatorPubkeys: new Set([curator]),
+      publisherPubkeysByPlugin: new Map(
+        fixtures.map((fixture) => [
+          fixture.plugin.pluginId,
+          new Set([publisher]),
+        ]),
+      ),
     },
-  });
+  );
+  if (
+    registry.plugins.length !== fixtures.length ||
+    registry.issues.length !== 0
+  ) {
+    throw new Error(
+      "Buzz fixture did not materialize the complete plugin catalog",
+    );
+  }
+  const reader = await relayFor(publisherSecret);
+  const retained = await reader.query({ ids: events.map((event) => event.id) });
+  if (retained.length !== events.length) {
+    throw new Error(
+      `Buzz retained ${retained.length}/${events.length} fixture events`,
+    );
+  }
+  for (const relay of relays.values()) relay.close();
+
   return {
     artifacts,
+    catalog: fixtures.map((fixture) => ({ content: fixture.plugin })),
     status: {
-      schema: "lapis.registry.local-fixture-status/1",
+      schema: "lapis.registry.buzz-local-fixture-status/1",
       pluginCount: fixtures.length,
       pluginIds: fixtures.map((fixture) => fixture.plugin.pluginId),
-      officialEventCount: officialEvents.length,
+      registryEventCount: registryEvents.length,
       communityEventCount: communityEvents.length,
-      registryRoot: relayState.registry.root,
-      communityRoot: relayState.community.root,
-      securityRoot: relayState.security.root,
-      artifactPaths: [...artifacts.keys()].toSorted(),
-      relayCopies: {
-        official: officialCopies,
-        officialQuorum,
-        community: communityCopies.length,
-      },
+      registryRoot: registry.root,
+      relayCopies: retained.length,
+      groupIds: Object.fromEntries(
+        groups.map((group) => [group.name, group.id]),
+      ),
     },
   };
 }
 
+async function uploadBlob(
+  httpBase: string,
+  bytes: Uint8Array,
+  secretKey: Uint8Array,
+): Promise<BlobDescriptor> {
+  const body = Uint8Array.from(bytes);
+  const sha256 = bytesToHex(
+    new Uint8Array(
+      await globalThis.crypto.subtle.digest("SHA-256", body.buffer),
+    ),
+  );
+  const now = Math.floor(Date.now() / 1_000);
+  const auth = sign(secretKey, {
+    kind: 24_242,
+    created_at: now,
+    content: "Upload Lapis release manifest",
+    tags: [
+      ["t", "upload"],
+      ["x", sha256],
+      ["expiration", String(now + 300)],
+      ["server", new URL(httpBase).host],
+    ],
+  });
+  const token = Buffer.from(JSON.stringify(auth)).toString("base64url");
+  const response = await fetch(new URL("/upload", httpBase), {
+    method: "PUT",
+    headers: {
+      Authorization: `Nostr ${token}`,
+      "Content-Type": "application/json",
+      "X-SHA-256": sha256,
+    },
+    body: Buffer.from(body),
+  });
+  if (!response.ok)
+    throw new Error(`Buzz manifest upload returned ${response.status}`);
+  return (await response.json()) as BlobDescriptor;
+}
+
+function discussionSentence(index: number): string {
+  const sentences = [
+    "Prefer an explicit ordered provider list with a visible fallback reason.",
+    "The UI should keep enough context to make long-running support threads readable.",
+    "A standard Nostr reply remains portable even when Buzz adds richer views.",
+    "Pagination should preserve the reader's place when newer replies arrive.",
+    "Curator trust and community moderation need to remain separate decisions.",
+  ];
+  return sentences[index % sentences.length]!;
+}
+
 function startServer(
   artifacts: ReadonlyMap<string, Uint8Array>,
+  catalog: unknown,
   status: FixtureStatus,
 ): void {
   const port = positiveInteger("PORT", 8090);
@@ -713,12 +424,14 @@ function startServer(
       response.end(JSON.stringify({ status: "ok", seeded: true }));
       return;
     }
-    if (pathname === "/status.json") {
+    if (pathname === "/status.json" || pathname === "/catalog.json") {
       response.writeHead(200, {
         "cache-control": "no-store",
         "content-type": "application/json",
       });
-      response.end(JSON.stringify(status));
+      response.end(
+        JSON.stringify(pathname === "/status.json" ? status : catalog),
+      );
       return;
     }
     const artifact = artifacts.get(pathname);
@@ -730,18 +443,17 @@ function startServer(
     response.writeHead(200, {
       "cache-control": "no-store",
       "content-length": String(artifact.byteLength),
-      "content-type": "application/json",
+      "content-type": "application/octet-stream",
       "x-content-type-options": "nosniff",
     });
     response.end(artifact);
   });
   server.listen(port, "0.0.0.0", () => {
     console.log(
-      `Seeded ${status.pluginCount} plugins, ${status.officialEventCount} official events, and ${status.communityEventCount} community events.`,
+      `Seeded ${status.pluginCount} plugins and ${status.communityEventCount} Buzz community events.`,
     );
-    console.log(`Local fixture artifacts listening on port ${port}.`);
   });
 }
 
 const seeded = await seed();
-startServer(seeded.artifacts, seeded.status);
+startServer(seeded.artifacts, seeded.catalog, seeded.status);

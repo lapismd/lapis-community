@@ -2,31 +2,21 @@
 set -euo pipefail
 
 repo_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
-profile=single
 stack=("${repo_root}/scripts/local-stack.sh")
-if [[ ${1:-} == "--quorum" ]]; then
-  profile=quorum
-  stack+=(--quorum)
-  shift
-fi
 if [[ $# -ne 0 ]]; then
-  echo "usage: smoke-local-e2e.sh [--quorum]" >&2
+  echo "usage: smoke-local-e2e.sh" >&2
   exit 2
 fi
 
-project_name=${COMPOSE_PROJECT_NAME:-lapis-registry-${profile}-smoke-$$}
-smoke_tmp=$(mktemp -d /tmp/lapis-registry-e2e-smoke.XXXXXX)
+project_name=${COMPOSE_PROJECT_NAME:-lapis-registry-buzz-smoke-$$}
+smoke_tmp=$(mktemp -d /tmp/lapis-registry-buzz-smoke.XXXXXX)
 port_base=$((24000 + ($$ % 20000)))
 
 export COMPOSE_PROJECT_NAME=${project_name}
 export REGISTRY_FIXTURE_PORT=${REGISTRY_FIXTURE_PORT:-${port_base}}
 export REGISTRY_CONSOLE_PORT=${REGISTRY_CONSOLE_PORT:-$((port_base + 1))}
-export REGISTRY_SITE_PORT=${REGISTRY_SITE_PORT:-$((port_base + 6))}
 export LAPIS_RELAY_PORT=${LAPIS_RELAY_PORT:-$((port_base + 2))}
-export LAPIS_RELAY_A_PORT=${LAPIS_RELAY_A_PORT:-$((port_base + 2))}
-export LAPIS_RELAY_B_PORT=${LAPIS_RELAY_B_PORT:-$((port_base + 3))}
-export LAPIS_RELAY_C_PORT=${LAPIS_RELAY_C_PORT:-$((port_base + 4))}
-export LAPIS_COMMUNITY_RELAY_PORT=${LAPIS_COMMUNITY_RELAY_PORT:-$((port_base + 5))}
+export REGISTRY_SITE_PORT=${REGISTRY_SITE_PORT:-$((port_base + 3))}
 
 report_error() {
   exit_code=$?
@@ -42,7 +32,7 @@ cleanup() {
     "${stack[@]}" logs --no-color --tail=250 || true
   fi
   "${stack[@]}" down --volumes >/dev/null 2>&1 || true
-  rm -rf "${smoke_tmp}"
+  rm -r "${smoke_tmp}"
   exit "${exit_code}"
 }
 trap report_error ERR
@@ -60,9 +50,7 @@ wait_for_health() {
       health=$(docker inspect \
         --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' \
         "${container_id}")
-      if [[ ${health} == healthy ]]; then
-        return 0
-      fi
+      [[ ${health} == healthy ]] && return 0
       if [[ ${health} == dead || ${health} == unhealthy ]]; then
         echo "${service} became ${health}" >&2
         return 1
@@ -74,84 +62,67 @@ wait_for_health() {
   return 1
 }
 
-if [[ ${profile} == quorum ]]; then
-  relay_services=(
-    registry-official-a
-    registry-official-b
-    registry-official-c
-    registry-community
-  )
-else
-  relay_services=(registry-relay)
-fi
-for service in "${relay_services[@]}" registry-fixture registry-console registry-site; do
+for service in registry-relay registry-fixture registry-console registry-site; do
   wait_for_health "${service}"
 done
 
-community_nip11_port=${LAPIS_RELAY_PORT}
-if [[ ${profile} == quorum ]]; then
-  community_nip11_port=${LAPIS_COMMUNITY_RELAY_PORT}
-fi
 /usr/bin/curl -fsS \
   -H 'Accept: application/nostr+json' \
-  "http://127.0.0.1:${community_nip11_port}" \
-  >"${smoke_tmp}/community-nip11.json"
+  "http://registry.localhost:${LAPIS_RELAY_PORT}" \
+  >"${smoke_tmp}/nip11.json"
 jq -e '
-  (.supported_nips | index(42)) and
-  (.supported_nips | index(45)) and
-  (.supported_nips | index(59))
-' \
-  "${smoke_tmp}/community-nip11.json" >/dev/null
+  (.supported_nips | index(17)) and
+  (.supported_nips | index(29)) and
+  (.supported_nips | index(42))
+' "${smoke_tmp}/nip11.json" >/dev/null
 
 fixture_base="http://127.0.0.1:${REGISTRY_FIXTURE_PORT}/"
 console_base="http://127.0.0.1:${REGISTRY_CONSOLE_PORT}/"
 site_base="http://127.0.0.1:${REGISTRY_SITE_PORT}/"
 /usr/bin/curl -fsS "${fixture_base}status.json" >"${smoke_tmp}/status.json"
-
-expected_quorum=1
-if [[ ${profile} == quorum ]]; then expected_quorum=2; fi
-jq -e --argjson quorum "${expected_quorum}" '
+jq -e '
+  .schema == "lapis.registry.buzz-local-fixture-status/1" and
   .pluginCount == 12 and
-  .communityEventCount == 90 and
-  (.officialEventCount > 0) and
-  .relayCopies.officialQuorum >= $quorum and
-  .relayCopies.community == .communityEventCount and
+  .registryEventCount == 24 and
+  .communityEventCount == 91 and
+  .relayCopies == 115 and
   (.registryRoot | test("^[0-9a-f]{64}$")) and
-  (.communityRoot | test("^[0-9a-f]{64}$")) and
-  (.securityRoot | test("^[0-9a-f]{64}$"))
+  (.groupIds | length) == 16
 ' "${smoke_tmp}/status.json" >/dev/null
 
 /usr/bin/curl -fsS "${console_base}" >"${smoke_tmp}/console.html"
 /usr/bin/curl -fsS "${console_base}config.json" >"${smoke_tmp}/config.json"
 /usr/bin/curl -fsS "${console_base}assets/main.js" >"${smoke_tmp}/console.js"
-jq -e --argjson quorum "${expected_quorum}" '
-  .publishQuorum == $quorum and
-  (.officialRelays | length) >= $quorum and
-  (.communityRelays | length) >= 1 and
+jq -e '
+  .backend == "nostr-buzz" and
+  (.buzzRelays | length) == 1 and
+  (.curatorPubkeys | length) == 1 and
+  (.publisherPubkeys | length) == 1 and
   (has("apiBase") | not) and
-  (has("database") | not)
+  (has("database") | not) and
+  (has("publishQuorum") | not)
 ' "${smoke_tmp}/config.json" >/dev/null
-rg -q 'See what the relays resolve\.' "${smoke_tmp}/console.html"
-rg -q 'nostr-relay-quorum' "${smoke_tmp}/console.js"
-if rg -q 'NIP-98|/events|DATABASE_URL' "${smoke_tmp}/console.js"; then
-  echo "Console bundle still contains the retired HTTP submission path" >&2
+rg -q 'Buzz' "${smoke_tmp}/console.html"
+if rg -q 'nostr-relay-quorum|NIP-98|/events|DATABASE_URL' "${smoke_tmp}/console.js"; then
+  echo "Console bundle still contains a retired submission path" >&2
   exit 1
 fi
 
 /usr/bin/curl -fsS "${site_base}v1/index.json" >"${smoke_tmp}/site-index.json"
 /usr/bin/curl -fsS "${site_base}v1/runtime.json" >"${smoke_tmp}/site-runtime.json"
-/usr/bin/curl -fsS "${site_base}v1/client/registry-community.js" >"${smoke_tmp}/community.js"
+/usr/bin/curl -fsS "${site_base}v1/client/registry-community.js" \
+  >"${smoke_tmp}/community.js"
 /usr/bin/curl -fsS "${site_base}plugins/" >"${smoke_tmp}/plugins.html"
 jq -e '.schemaVersion == 1 and (.plugins | length) == 12' \
   "${smoke_tmp}/site-index.json" >/dev/null
 jq -e '
-  .backend == "nostr-relay-quorum" and
-  (.communityRelays | length) >= 1 and
-  (.snapshotSignerPubkeys | length) == 1
+  .backend == "nostr-buzz" and
+  (.buzzRelays | length) == 1 and
+  (.curatorPubkeys | length) == 1
 ' "${smoke_tmp}/site-runtime.json" >/dev/null
 rg -q 'lapis-registry-community' "${smoke_tmp}/community.js"
-site_plugin_id=$(jq -r '.plugins[0].id' "${smoke_tmp}/site-index.json")
-/usr/bin/curl -fsS "${site_base}plugins/${site_plugin_id}/" >"${smoke_tmp}/plugin.html"
+plugin_id=$(jq -r '.plugins[0].id' "${smoke_tmp}/site-index.json")
+/usr/bin/curl -fsS "${site_base}plugins/${plugin_id}/" >"${smoke_tmp}/plugin.html"
 rg -q '<lapis-registry-community' "${smoke_tmp}/plugin.html"
 rg -q '/v1/client/registry-community.js' "${smoke_tmp}/plugin.html"
 
@@ -159,36 +130,23 @@ set -a
 # shellcheck source=/dev/null
 source "${repo_root}/.local/registry-fixture/fixture.env"
 set +a
-export REGISTRY_USE_TEST_KINDS=true
-if [[ ${profile} == quorum ]]; then
-  export REGISTRY_OFFICIAL_RELAYS="ws://127.0.0.1:${LAPIS_RELAY_A_PORT},ws://127.0.0.1:${LAPIS_RELAY_B_PORT},ws://127.0.0.1:${LAPIS_RELAY_C_PORT}"
-  export REGISTRY_COMMUNITY_RELAYS="ws://127.0.0.1:${LAPIS_COMMUNITY_RELAY_PORT}"
-else
-  export REGISTRY_OFFICIAL_RELAYS="ws://127.0.0.1:${LAPIS_RELAY_PORT}"
-  export REGISTRY_COMMUNITY_RELAYS="ws://127.0.0.1:${LAPIS_RELAY_PORT}"
-fi
+export REGISTRY_BUZZ_RELAYS="ws://registry.localhost:${LAPIS_RELAY_PORT}"
+export REGISTRY_PUBLIC_BUZZ_RELAYS="${REGISTRY_BUZZ_RELAYS}"
+export REGISTRY_CATALOG_URL="${fixture_base}catalog.json"
+export REGISTRY_ASSET_FETCH_ORIGIN="${fixture_base}"
+export REGISTRY_FIXTURE_SECRETS_FILE="${repo_root}/.local/registry-fixture/fixture-secrets.json"
+pnpm --dir "${repo_root}" --filter @lapismd/registry-community... build
 pnpm --dir "${repo_root}" relay:materialize --output "${smoke_tmp}/materialized"
 
 jq -e '.schemaVersion == 1 and (.plugins | length) == 12' \
   "${smoke_tmp}/materialized/index.json" >/dev/null
 jq -e --slurpfile status "${smoke_tmp}/status.json" '
   .root == $status[0].registryRoot and
-  .snapshotEventId != null and
-  (.relaySources | length) >= 1
+  (.acceptedEventIds | length) == 24 and
+  (.relaySources | length) == 1
 ' "${smoke_tmp}/materialized/provenance.json" >/dev/null
-jq -e --slurpfile status "${smoke_tmp}/status.json" '
-  .root == $status[0].communityRoot and
-  ([.ratingAggregates[].count] | add) == 8 and
-  (.reviews | length) == 24 and
-  (.reactions | length) == 43
-' "${smoke_tmp}/materialized/community.json" >/dev/null
-jq -e --slurpfile status "${smoke_tmp}/status.json" '
-  .root == $status[0].securityRoot and
-  (.statuses | length) == 1
-' "${smoke_tmp}/materialized/security.json" >/dev/null
 test -s "${smoke_tmp}/materialized/client/registry-community.js"
 
-plugin_id=$(jq -r '.plugins[0].id' "${smoke_tmp}/materialized/index.json")
 latest_version=$(jq -r '.latestVersion' \
   "${smoke_tmp}/materialized/plugins/${plugin_id}.json")
 artifact_url=$(jq -r --arg version "${latest_version}" \
@@ -204,4 +162,4 @@ if [[ ${actual_sha} != "${expected_sha}" ]]; then
   exit 1
 fi
 
-echo "Local ${profile} embedded Grain registry end-to-end smoke passed."
+echo "Local stock Buzz registry end-to-end smoke passed."

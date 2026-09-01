@@ -17,8 +17,8 @@ can be proven before any cutover.
   curator/admin console.
 - `apps/registry-community`: Design Core custom element for NIP-07/NIP-42 Buzz
   forums, replies, reactions, and paged community reads.
-- `scripts/materialize-relays.ts`: deterministic static V1 output built from a
-  verified relay snapshot.
+- `scripts/materialize-buzz.ts`: deterministic static V1 output built from
+  verified release messages and curator reactions on Buzz.
 
 The pinned stock Buzz deployment stays in the sibling `nostr-relay-registry`
 repository.
@@ -35,8 +35,8 @@ its configured publisher and its latest trusted curator reaction is `✅`.
 
 The signed Nostr event graph is the source of truth. There is no authoritative
 registry database and no HTTP event-submission API. Browsers and build jobs read
-the signed snapshot from the configured official relays, fetch its exact event
-IDs, verify and materialize them locally, and query community events separately.
+NIP-29 messages and reactions from Buzz, verify their signatures, attached
+manifests, publisher keys, and curator keys, and materialize them locally.
 
 Buzz stores the standard NIP-29 messages and reactions. Lapis-specific meaning
 is applied by clients and materializers, while Buzz membership and moderation
@@ -61,8 +61,8 @@ the active registry.
 Run `pnpm local:up` for the fast loop: one stock Buzz relay, generated events from
 every complete plugin in the sibling `lapis-plugins` checkout, fixture
 artifacts, the direct-relay console, a verified Nostr projection, and the
-rendered public registry. The former multi-relay custom-kind profile is retained
-only as migration evidence while the Buzz local profile replaces it. Open the
+rendered public registry. The retired multi-relay custom-kind profile is not in
+the active developer path. Open the
 rendered registry at <http://localhost:4321/> or the operator console at
 <http://localhost:4173/> after Compose reports the services healthy.
 

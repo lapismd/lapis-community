@@ -89,6 +89,7 @@ export async function createFixtureFiles(
   await mkdir(directory, { recursive: true, mode: 0o700 });
   const secrets = (await existingSecrets(secretsFile)) ?? newSecrets();
   const publicKeys = fixturePublicKeys(secrets);
+  const createdAt = Math.floor(Date.now() / 1_000) - 300;
   const officialWriters = [
     publicKeys.advisory,
     publicKeys.assessor,
@@ -110,9 +111,11 @@ export async function createFixtureFiles(
     [
       `REGISTRY_ASSESSOR_PUBKEYS=${publicKeys.assessor}`,
       `REGISTRY_CURATOR_PUBKEYS=${publicKeys.curator}`,
+      `REGISTRY_PUBLISHER_PUBKEY=${publicKeys.publisher}`,
       `REGISTRY_MODERATOR_PUBKEYS=${publicKeys.moderator}`,
       `REGISTRY_SNAPSHOT_SIGNER_PUBKEYS=${publicKeys.snapshot}`,
       `REGISTRY_OPERATOR_PUBKEYS=${publicKeys.operator}`,
+      `REGISTRY_FIXTURE_CREATED_AT=${createdAt}`,
       `REGISTRY_SECURITY_ADVISORY_PUBKEYS=${publicKeys.advisory}`,
       `REGISTRY_SECURITY_DISPOSITION_PUBKEYS=${publicKeys.disposition}`,
       `REGISTRY_OFFICIAL_PUBKEYS=${officialWriters.join(",")}`,

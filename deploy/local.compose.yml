@@ -14,16 +14,11 @@ services:
       LAPIS_PLUGINS_ROOT: /workspace/lapis-plugins
       REGISTRY_FIXTURE_ARTIFACT_BASE_URL: http://127.0.0.1:${REGISTRY_FIXTURE_PORT:-8090}/
       REGISTRY_FIXTURE_PLUGIN_LIMIT: ${REGISTRY_FIXTURE_PLUGIN_LIMIT:-all}
-      REGISTRY_FIXTURE_CREATED_AT: ${REGISTRY_FIXTURE_CREATED_AT:-1767225600}
+      REGISTRY_FIXTURE_CREATED_AT: ${REGISTRY_FIXTURE_CREATED_AT:?fixture timestamp is missing}
       REGISTRY_FIXTURE_SECRETS_FILE: /run/lapis-registry/fixture-secrets.json
-      REGISTRY_USE_TEST_KINDS: "true"
-      REGISTRY_ASSESSOR_PUBKEYS: ${REGISTRY_ASSESSOR_PUBKEYS:?fixture assessor is missing}
       REGISTRY_CURATOR_PUBKEYS: ${REGISTRY_CURATOR_PUBKEYS:?fixture curator is missing}
-      REGISTRY_MODERATOR_PUBKEYS: ${REGISTRY_MODERATOR_PUBKEYS:?fixture moderator is missing}
-      REGISTRY_SNAPSHOT_SIGNER_PUBKEYS: ${REGISTRY_SNAPSHOT_SIGNER_PUBKEYS:?fixture snapshot signer is missing}
+      REGISTRY_PUBLISHER_PUBKEY: ${REGISTRY_PUBLISHER_PUBKEY:?fixture publisher is missing}
       REGISTRY_OPERATOR_PUBKEYS: ${REGISTRY_OPERATOR_PUBKEYS:?fixture operator is missing}
-      REGISTRY_SECURITY_ADVISORY_PUBKEYS: ${REGISTRY_SECURITY_ADVISORY_PUBKEYS:?fixture advisory authority is missing}
-      REGISTRY_SECURITY_DISPOSITION_PUBKEYS: ${REGISTRY_SECURITY_DISPOSITION_PUBKEYS:?fixture disposition authority is missing}
     ports:
       - "${REGISTRY_FIXTURE_PORT:-8090}:8090"
     volumes:
@@ -48,14 +43,8 @@ services:
     environment:
       HOST: 0.0.0.0
       PORT: 4173
-      REGISTRY_USE_TEST_KINDS: "true"
-      REGISTRY_ASSESSOR_PUBKEYS: ${REGISTRY_ASSESSOR_PUBKEYS:?fixture assessor is missing}
       REGISTRY_CURATOR_PUBKEYS: ${REGISTRY_CURATOR_PUBKEYS:?fixture curator is missing}
-      REGISTRY_MODERATOR_PUBKEYS: ${REGISTRY_MODERATOR_PUBKEYS:?fixture moderator is missing}
-      REGISTRY_SNAPSHOT_SIGNER_PUBKEYS: ${REGISTRY_SNAPSHOT_SIGNER_PUBKEYS:?fixture snapshot signer is missing}
-      REGISTRY_OPERATOR_PUBKEYS: ${REGISTRY_OPERATOR_PUBKEYS:?fixture operator is missing}
-      REGISTRY_SECURITY_ADVISORY_PUBKEYS: ${REGISTRY_SECURITY_ADVISORY_PUBKEYS:?fixture advisory authority is missing}
-      REGISTRY_SECURITY_DISPOSITION_PUBKEYS: ${REGISTRY_SECURITY_DISPOSITION_PUBKEYS:?fixture disposition authority is missing}
+      REGISTRY_PUBLISHER_PUBKEY: ${REGISTRY_PUBLISHER_PUBKEY:?fixture publisher is missing}
     ports:
       - "${REGISTRY_CONSOLE_PORT:-4173}:4173"
     depends_on:
@@ -71,18 +60,13 @@ services:
       - /tmp
     command: ["pnpm", "relay:materialize", "--output", "/projection/v1"]
     environment:
-      REGISTRY_USE_TEST_KINDS: "true"
       REGISTRY_ASSET_FETCH_ORIGIN: http://registry-fixture:8090/
-      REGISTRY_ASSESSOR_PUBKEYS: ${REGISTRY_ASSESSOR_PUBKEYS:?fixture assessor is missing}
       REGISTRY_CURATOR_PUBKEYS: ${REGISTRY_CURATOR_PUBKEYS:?fixture curator is missing}
-      REGISTRY_MODERATOR_PUBKEYS: ${REGISTRY_MODERATOR_PUBKEYS:?fixture moderator is missing}
-      REGISTRY_SNAPSHOT_SIGNER_PUBKEYS: ${REGISTRY_SNAPSHOT_SIGNER_PUBKEYS:?fixture snapshot signer is missing}
-      REGISTRY_OPERATOR_PUBKEYS: ${REGISTRY_OPERATOR_PUBKEYS:?fixture operator is missing}
-      REGISTRY_PUBLISHERS_JSON: ${REGISTRY_PUBLISHERS_JSON:-}
-      REGISTRY_SECURITY_ADVISORY_PUBKEYS: ${REGISTRY_SECURITY_ADVISORY_PUBKEYS:?fixture advisory authority is missing}
-      REGISTRY_SECURITY_DISPOSITION_PUBKEYS: ${REGISTRY_SECURITY_DISPOSITION_PUBKEYS:?fixture disposition authority is missing}
+      REGISTRY_PUBLISHER_PUBKEY: ${REGISTRY_PUBLISHER_PUBKEY:?fixture publisher is missing}
+      REGISTRY_FIXTURE_SECRETS_FILE: /run/lapis-registry/fixture-secrets.json
     volumes:
       - registry-projection:/projection
+      - ${REGISTRY_FIXTURE_SECRETS_FILE:?run pnpm local:up to create fixture identities}:/run/lapis-registry/fixture-secrets.json:ro
     depends_on:
       registry-fixture:
         condition: service_healthy
@@ -96,7 +80,7 @@ services:
     user: "0:0"
     environment:
       LAPIS_REGISTRY_BUILD_V1_DIR: /projection/v1
-      LAPIS_REGISTRY_TRUSTED_SNAPSHOT_PUBKEYS: ${REGISTRY_SNAPSHOT_SIGNER_PUBKEYS:?fixture snapshot signer is missing}
+      LAPIS_REGISTRY_BACKEND: buzz
       LAPIS_REGISTRY_CONTAINER_SITE_DIR: /site
     command: ["node", "scripts/build-container-site.mjs"]
     volumes:

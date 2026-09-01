@@ -4,6 +4,7 @@ import {
   finalizeEvent,
   generateSecretKey,
   getPublicKey,
+  verifyEvent,
 } from "nostr-tools/pure";
 import { describe, expect, it } from "vitest";
 
@@ -103,6 +104,7 @@ describe("loadBuzzRelayRegistryState", () => {
       detail: {},
     };
     const relay = new FixtureRelay([release, approval]);
+    let mediaAuthorization = "";
 
     const state = await loadBuzzRelayRegistryState({
       relays: [relay],
@@ -113,11 +115,14 @@ describe("loadBuzzRelayRegistryState", () => {
       },
       generatedAt: "2026-09-01T11:00:00.000Z",
       authSigner: async (template) => sign(publisherKey, template),
-      fetch: async () =>
-        new Response(bytes, {
+      fetch: async (_input, init) => {
+        mediaAuthorization =
+          new Headers(init?.headers).get("Authorization") ?? "";
+        return new Response(bytes, {
           status: 200,
           headers: { "Content-Type": "application/json" },
-        }),
+        });
+      },
     });
 
     expect(relay.authenticated).toBe(true);
@@ -131,6 +136,21 @@ describe("loadBuzzRelayRegistryState", () => {
         eventIds: [approval.id, release.id].toSorted(),
       },
     ]);
+    const mediaAuth = JSON.parse(
+      Buffer.from(
+        mediaAuthorization.slice("Nostr ".length),
+        "base64url",
+      ).toString("utf8"),
+    ) as NostrEvent;
+    expect(verifyEvent(mediaAuth)).toBe(true);
+    expect(mediaAuth.kind).toBe(24_242);
+    expect(mediaAuth.pubkey).toBe(publisher);
+    expect(mediaAuth.tags).toEqual(
+      expect.arrayContaining([
+        ["t", "get"],
+        ["server", "relay.example"],
+      ]),
+    );
   });
 
   it("rejects a manifest whose bytes do not match its NIP-92 hash", async () => {
