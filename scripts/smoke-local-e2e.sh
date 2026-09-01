@@ -84,10 +84,11 @@ jq -e '
   .schema == "lapis.registry.buzz-local-fixture-status/1" and
   .pluginCount == 12 and
   .registryEventCount == 24 and
-  .communityEventCount == 91 and
-  .relayCopies == 115 and
+  .communityEventCount == 96 and
+  .relayCopies == 120 and
   (.registryRoot | test("^[0-9a-f]{64}$")) and
-  (.groupIds | length) == 16
+  (.groupIds | length) == 16 and
+  (.groupIds["support-ai"] | test("^[0-9a-f-]{36}$"))
 ' "${smoke_tmp}/status.json" >/dev/null
 
 /usr/bin/curl -fsS "${console_base}" >"${smoke_tmp}/console.html"

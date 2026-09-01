@@ -227,6 +227,7 @@ async function seed(): Promise<{
 
   const registryEvents: NostrEvent[] = [];
   const manifests: BuzzReleaseManifestSource[] = [];
+  const releaseByPlugin = new Map<string, NostrEvent>();
   for (const fixture of fixtures) {
     const release: ReleaseContent = {
       ...fixture.release,
@@ -263,14 +264,34 @@ async function seed(): Promise<{
     await publish(submission, publisherSecret);
     await publish(approval, curatorSecret);
     registryEvents.push(submission, approval);
+    releaseByPlugin.set(fixture.plugin.pluginId, submission);
   }
 
-  const forumId = lapisBuzzGroupId(LAPIS_BUZZ_GROUP_PATHS.forums);
+  const forumId = lapisPluginSupportGroupId("ai");
   const communitySecrets = [
     secret(secrets, "communityOne"),
     secret(secrets, "communityTwo"),
   ];
   const communityEvents: NostrEvent[] = [];
+  const profileNames = [
+    ["maya", "Maya Chen"],
+    ["owen_local", "Owen"],
+  ] as const;
+  for (const [index, secretKey] of communitySecrets.entries()) {
+    const [name, displayName] = profileNames[index]!;
+    const profile = sign(secretKey, {
+      kind: 0,
+      created_at: createdAt++,
+      tags: [],
+      content: JSON.stringify({
+        name,
+        display_name: displayName,
+        about: "Local Lapis registry demo participant",
+      }),
+    });
+    await publish(profile, secretKey);
+    communityEvents.push(profile);
+  }
   const topicTitles = [
     "How should AI provider fallback behave?",
     "What belongs in the plugin release checklist?",
@@ -285,19 +306,26 @@ async function seed(): Promise<{
     await publish(root, rootSecret);
     communityEvents.push(root);
     const replyCount = topicIndex === 0 ? 48 : topicIndex === 1 ? 12 : 6;
+    let previousReply: NostrEvent | undefined;
     for (let index = 0; index < replyCount; index += 1) {
       const authorSecret = communitySecrets[index % communitySecrets.length]!;
-      const reply = sign(
-        authorSecret,
-        createBuzzForumReplyTemplate(
-          forumId,
-          root.id,
-          `Reply ${index + 1}: ${discussionSentence(index)}`,
-          createdAt++,
-        ),
+      const template = createBuzzForumReplyTemplate(
+        forumId,
+        root.id,
+        `Reply ${index + 1}: ${discussionSentence(index)}`,
+        createdAt++,
       );
+      if (previousReply !== undefined && index % 5 === 0) {
+        template.tags = [
+          ["h", forumId],
+          ["e", root.id, "", "root"],
+          ["e", previousReply.id, "", "reply"],
+        ];
+      }
+      const reply = sign(authorSecret, template);
       await publish(reply, authorSecret);
       communityEvents.push(reply);
+      previousReply = reply;
       if (index % 3 === 0) {
         const reactionSecret =
           communitySecrets[(index + 1) % communitySecrets.length]!;
@@ -305,13 +333,41 @@ async function seed(): Promise<{
           kind: 7,
           created_at: createdAt++,
           content: index % 2 === 0 ? "👍" : "❤️",
-          tags: [["e", reply.id]],
+          tags: [
+            ["e", reply.id],
+            ["p", reply.pubkey],
+            ["k", reply.kind.toString()],
+          ],
         });
         await publish(reaction, reactionSecret);
         communityEvents.push(reaction);
       }
     }
   }
+  const aiRelease = releaseByPlugin.get("ai");
+  if (aiRelease === undefined) {
+    throw new Error("The local plugin fixtures must include the AI plugin");
+  }
+  for (const [index, [authorIndex, content]] of [
+    [0, "👍"],
+    [1, "❤️"],
+    [0, "⭐"],
+  ].entries()) {
+    const authorSecret = communitySecrets[Number(authorIndex)]!;
+    const reaction = sign(authorSecret, {
+      kind: 7,
+      created_at: createdAt + index,
+      content: String(content),
+      tags: [
+        ["e", aiRelease.id],
+        ["p", aiRelease.pubkey],
+        ["k", aiRelease.kind.toString()],
+      ],
+    });
+    await publish(reaction, authorSecret);
+    communityEvents.push(reaction);
+  }
+  createdAt += 3;
 
   const registry = materializeBuzzRegistry(
     registryEvents,
@@ -420,12 +476,16 @@ function startServer(
   const server = createServer((request, response) => {
     const pathname = new URL(request.url ?? "/", "http://fixture").pathname;
     if (pathname === "/health") {
-      response.writeHead(200, { "content-type": "application/json" });
+      response.writeHead(200, {
+        "access-control-allow-origin": "*",
+        "content-type": "application/json",
+      });
       response.end(JSON.stringify({ status: "ok", seeded: true }));
       return;
     }
     if (pathname === "/status.json" || pathname === "/catalog.json") {
       response.writeHead(200, {
+        "access-control-allow-origin": "*",
         "cache-control": "no-store",
         "content-type": "application/json",
       });
@@ -441,6 +501,7 @@ function startServer(
       return;
     }
     response.writeHead(200, {
+      "access-control-allow-origin": "*",
       "cache-control": "no-store",
       "content-length": String(artifact.byteLength),
       "content-type": "application/octet-stream",
