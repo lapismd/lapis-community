@@ -74,6 +74,10 @@ export async function loadDashboard(
       generatedAt: new Date().toISOString(),
       authSigner,
     });
+    const workflowCounts = countAcceptedWorkflowEvents(
+      state.events,
+      state.registry.acceptedEventIds,
+    );
     return {
       index: state.projection.index as unknown as RegistryDashboard["index"],
       provenance: {
@@ -85,12 +89,27 @@ export async function loadDashboard(
         ),
         issues: state.registry.issues,
       },
-      releaseEvents: state.events.filter((event) => event.kind === 9).length,
-      decisionEvents: state.events.filter((event) => event.kind === 7).length,
+      releaseEvents: workflowCounts.releaseEvents,
+      decisionEvents: workflowCounts.decisionEvents,
     };
   } finally {
     for (const relay of relays) relay.close();
   }
+}
+
+export function countAcceptedWorkflowEvents(
+  events: readonly { id: string; kind: number }[],
+  acceptedEventIds: readonly string[],
+): { releaseEvents: number; decisionEvents: number } {
+  const accepted = new Set(acceptedEventIds);
+  return {
+    releaseEvents: events.filter(
+      (event) => event.kind === 9 && accepted.has(event.id),
+    ).length,
+    decisionEvents: events.filter(
+      (event) => event.kind === 7 && accepted.has(event.id),
+    ).length,
+  };
 }
 
 export function registryAuthorities(

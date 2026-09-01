@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { parseConsoleConfig, registryAuthorities } from "./api.js";
+import {
+  countAcceptedWorkflowEvents,
+  parseConsoleConfig,
+  registryAuthorities,
+} from "./api.js";
 
 const curator = "a".repeat(64);
 const publisher = "b".repeat(64);
@@ -42,5 +46,18 @@ describe("Buzz registry console", () => {
         ["search", new Set([publisher])],
       ]),
     );
+  });
+
+  it("keeps ordinary reactions out of curator decision metrics", () => {
+    expect(
+      countAcceptedWorkflowEvents(
+        [
+          { id: "release", kind: 9 },
+          { id: "approval", kind: 7 },
+          { id: "community-reaction", kind: 7 },
+        ],
+        ["release", "approval"],
+      ),
+    ).toEqual({ releaseEvents: 1, decisionEvents: 1 });
   });
 });
