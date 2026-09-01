@@ -10,6 +10,7 @@ import type {
   Nip55Connection,
   Nip55Permission,
   NostrEventTemplate,
+  RegistryPrivateSigner,
   RegistrySigner,
 } from "./types.js";
 
@@ -57,6 +58,20 @@ export class Nip07RegistrySigner implements RegistrySigner {
       expectedPubkey,
     );
   }
+
+  async nip44Encrypt(pubkey: string, plaintext: string): Promise<string> {
+    if (this.#provider.nip44 === undefined) {
+      throw new Error("NIP-07 signer does not support NIP-44 encryption");
+    }
+    return await this.#provider.nip44.encrypt(pubkey, plaintext);
+  }
+
+  async nip44Decrypt(pubkey: string, ciphertext: string): Promise<string> {
+    if (this.#provider.nip44 === undefined) {
+      throw new Error("NIP-07 signer does not support NIP-44 decryption");
+    }
+    return await this.#provider.nip44.decrypt(pubkey, ciphertext);
+  }
 }
 
 export class Nip46RegistrySigner implements RegistrySigner {
@@ -82,6 +97,14 @@ export class Nip46RegistrySigner implements RegistrySigner {
     );
   }
 
+  async nip44Encrypt(pubkey: string, plaintext: string): Promise<string> {
+    return await this.#rpc.request("nip44_encrypt", [pubkey, plaintext]);
+  }
+
+  async nip44Decrypt(pubkey: string, ciphertext: string): Promise<string> {
+    return await this.#rpc.request("nip44_decrypt", [pubkey, ciphertext]);
+  }
+
   async close(): Promise<void> {
     await this.#rpc.close?.();
   }
@@ -91,6 +114,8 @@ export class Nip55RegistrySigner implements RegistrySigner {
   readonly #bridge: Nip55Bridge;
   readonly #connection: Nip55Connection;
   readonly #allowedKinds: ReadonlySet<number> | undefined;
+  readonly #canEncrypt: boolean;
+  readonly #canDecrypt: boolean;
   #closed = false;
 
   private constructor(
@@ -107,9 +132,17 @@ export class Nip55RegistrySigner implements RegistrySigner {
     this.#bridge = bridge;
     this.#connection = connection;
     const kinds = permissions
-      .map((permission) => permission.kind)
+      .map((permission) =>
+        permission.type === "sign_event" ? permission.kind : undefined,
+      )
       .filter((kind): kind is number => kind !== undefined);
     this.#allowedKinds = kinds.length === 0 ? undefined : new Set(kinds);
+    this.#canEncrypt = permissions.some(
+      (permission) => permission.type === "nip44_encrypt",
+    );
+    this.#canDecrypt = permissions.some(
+      (permission) => permission.type === "nip44_decrypt",
+    );
   }
 
   static async connect(
@@ -142,6 +175,32 @@ export class Nip55RegistrySigner implements RegistrySigner {
     return assertSignedTemplate(template, event, this.#connection.pubkey);
   }
 
+  async nip44Encrypt(pubkey: string, plaintext: string): Promise<string> {
+    this.#assertOpen();
+    if (!this.#canEncrypt || this.#bridge.nip44Encrypt === undefined) {
+      throw new Error("NIP-55 session does not permit NIP-44 encryption");
+    }
+    return await this.#bridge.nip44Encrypt({
+      packageName: this.#connection.packageName,
+      pubkey: this.#connection.pubkey,
+      recipientPubkey: pubkey,
+      plaintext,
+    });
+  }
+
+  async nip44Decrypt(pubkey: string, ciphertext: string): Promise<string> {
+    this.#assertOpen();
+    if (!this.#canDecrypt || this.#bridge.nip44Decrypt === undefined) {
+      throw new Error("NIP-55 session does not permit NIP-44 decryption");
+    }
+    return await this.#bridge.nip44Decrypt({
+      packageName: this.#connection.packageName,
+      pubkey: this.#connection.pubkey,
+      senderPubkey: pubkey,
+      ciphertext,
+    });
+  }
+
   async close(): Promise<void> {
     if (this.#closed) return;
     this.#closed = true;
@@ -155,7 +214,7 @@ export class Nip55RegistrySigner implements RegistrySigner {
   }
 }
 
-export class RegistrySignerSession implements RegistrySigner {
+export class RegistrySignerSession implements RegistryPrivateSigner {
   readonly #signer: RegistrySigner;
   readonly #expiresAt: number;
   readonly #now: () => number;
@@ -185,6 +244,22 @@ export class RegistrySignerSession implements RegistrySigner {
     return event;
   }
 
+  async nip44Encrypt(pubkey: string, plaintext: string): Promise<string> {
+    const generation = this.#assertActive();
+    const privateSigner = this.#privateSigner();
+    const ciphertext = await privateSigner.nip44Encrypt(pubkey, plaintext);
+    this.#assertCurrent(generation);
+    return ciphertext;
+  }
+
+  async nip44Decrypt(pubkey: string, ciphertext: string): Promise<string> {
+    const generation = this.#assertActive();
+    const privateSigner = this.#privateSigner();
+    const plaintext = await privateSigner.nip44Decrypt(pubkey, ciphertext);
+    this.#assertCurrent(generation);
+    return plaintext;
+  }
+
   async close(): Promise<void> {
     if (this.#closed) return;
     this.#closed = true;
@@ -210,6 +285,16 @@ export class RegistrySignerSession implements RegistrySigner {
     ) {
       throw new Error("Registry signer request became stale");
     }
+  }
+
+  #privateSigner(): RegistryPrivateSigner {
+    if (
+      !("nip44Encrypt" in this.#signer) ||
+      !("nip44Decrypt" in this.#signer)
+    ) {
+      throw new Error("Registry signer does not support NIP-44");
+    }
+    return this.#signer as RegistryPrivateSigner;
   }
 }
 

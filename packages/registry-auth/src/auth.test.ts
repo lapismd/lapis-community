@@ -79,7 +79,10 @@ describe("registry signers", () => {
     const calls: string[] = [];
     const bridge: Nip55Bridge = {
       connect: async (permissions) => {
-        calls.push(`connect:${permissions[0]?.kind}`);
+        const permission = permissions[0];
+        calls.push(
+          `connect:${permission?.type === "sign_event" ? permission.kind : permission?.type}`,
+        );
         return { pubkey, packageName: "com.example.signer" };
       },
       signEvent: async (request) => {
