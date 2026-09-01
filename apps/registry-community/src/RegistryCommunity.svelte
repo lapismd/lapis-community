@@ -28,13 +28,16 @@
   import {
     anyRelayPublished,
     avatarHue,
+    commentPageWindow,
     displayName,
     initials,
     parseProfiles,
     parseRelayUrls,
     reactionGroups,
+    seekTimestampForCount,
     timelineIndexFromPosition,
     timelinePosition,
+    timelineTimestamp,
     type CommunityProfile,
   } from "./model.js";
 
@@ -71,8 +74,14 @@
   let replyingTo = $state("");
   let activePostId = $state("");
   let timelinePreviewIndex = $state<number | undefined>();
-  let timelineReturnPostId = $state("");
+  let timelineReturnIndex = $state<number | undefined>();
   let timelineDragging = $state(false);
+  let commentTotal = $state(0);
+  let pageStartIndex = $state(0);
+  let pageEndIndex = $state(0);
+  let visibleReviewIds = $state<ReadonlySet<string>>(new Set());
+  let threadFirstTimestamp = $state(0);
+  let threadLastTimestamp = $state(0);
   let loading = $state(true);
   let publishing = $state(false);
   let message = $state("");
@@ -82,6 +91,7 @@
   let timelineHandleElement = $state<HTMLDivElement | undefined>();
   let timelinePointerId: number | undefined;
   let timelineDragOffset = 0;
+  let loadSequence = 0;
   let observer: IntersectionObserver | undefined;
 
   const clients = new Map<string, WebSocketRegistryRelay>();
@@ -91,6 +101,10 @@
     followList: 3,
     appCurationSet: 30267,
   });
+  const commentPageSize = 20;
+  const commentQueryLimit = 100;
+  const parentContextLimit = 80;
+  const parentContextDepth = 12;
 
   const relayUrls = $derived(parseRelayUrls(relays));
   const kinds = $derived<CommunityKindMap>({
@@ -103,8 +117,11 @@
   const aggregate = $derived(
     snapshot?.ratingAggregates.find((entry) => entry.pluginId === plugin),
   );
-  const reviews = $derived(
+  const allReviews = $derived(
     snapshot?.reviews.filter((entry) => entry.pluginId === plugin) ?? [],
+  );
+  const reviews = $derived(
+    allReviews.filter((entry) => visibleReviewIds.has(entry.event.id)),
   );
   const reactions = $derived(
     snapshot?.reactions.filter((entry) => entry.pluginId === plugin) ?? [],
@@ -125,11 +142,29 @@
     );
     return index === -1 ? 0 : index;
   });
-  const timelineDisplayIndex = $derived(
-    timelinePreviewIndex ?? activePostIndex,
+  const activeGlobalPostIndex = $derived(
+    commentTotal === 0 ? 0 : pageStartIndex + activePostIndex,
   );
-  const timelineReturnIndex = $derived(
-    reviews.findIndex((review) => review.event.id === timelineReturnPostId),
+  const timelineDisplayIndex = $derived(
+    timelinePreviewIndex ?? activeGlobalPostIndex,
+  );
+  const timelineDisplayTimestamp = $derived.by(() => {
+    const localIndex = timelineDisplayIndex - pageStartIndex;
+    return (
+      reviews[localIndex]?.event.created_at ??
+      timelineTimestamp(
+        timelineDisplayIndex,
+        commentTotal,
+        threadFirstTimestamp,
+        threadLastTimestamp,
+      )
+    );
+  });
+  const displayedPostStart = $derived(
+    reviews.length === 0 ? 0 : pageStartIndex + 1,
+  );
+  const displayedPostEnd = $derived(
+    reviews.length === 0 ? 0 : pageEndIndex,
   );
   const participantCount = $derived.by(
     () =>
@@ -157,13 +192,180 @@
         (result): result is PromiseFulfilledResult<NostrEvent[]> =>
           result.status === "fulfilled",
       );
+    const events = new Map(
+      successful
+        .flatMap((result) => result.value)
+        .map((event) => [event.id, event] as const),
+    );
     return {
-      events: successful.flatMap((result) => result.value),
+      events: [...events.values()],
       availableRelays: successful.length,
     };
   }
 
-  async function refresh(): Promise<void> {
+  async function countAll(
+    filter: Parameters<WebSocketRegistryRelay["count"]>[0],
+  ): Promise<{ count: number; availableRelays: number }> {
+    const results = await Promise.allSettled(
+      relayUrls.map(async (url) => await relay(url).count(filter)),
+    );
+    const counts = results
+      .filter(
+        (result): result is PromiseFulfilledResult<number> =>
+          result.status === "fulfilled",
+      )
+      .map((result) => result.value);
+    return {
+      count: counts.length === 0 ? 0 : Math.max(...counts),
+      availableRelays: counts.length,
+    };
+  }
+
+  function compareEvents(left: NostrEvent, right: NostrEvent): number {
+    return left.created_at - right.created_at || left.id.localeCompare(right.id);
+  }
+
+  function parentIds(events: readonly NostrEvent[]): string[] {
+    return events
+      .map((event) => event.tags.find((tag) => tag[0] === "e")?.[1])
+      .filter((id): id is string => id !== undefined && id.length === 64);
+  }
+
+  async function loadParentContext(
+    pageEvents: readonly NostrEvent[],
+  ): Promise<NostrEvent[]> {
+    const context = new Map(pageEvents.map((event) => [event.id, event] as const));
+    let frontier = parentIds(pageEvents).filter((id) => !context.has(id));
+    for (
+      let depth = 0;
+      depth < parentContextDepth &&
+      frontier.length > 0 &&
+      context.size < pageEvents.length + parentContextLimit;
+      depth += 1
+    ) {
+      const remaining = pageEvents.length + parentContextLimit - context.size;
+      const result = await queryAll({
+        kinds: [kinds.comment],
+        ids: frontier.slice(0, remaining),
+        "#A": [address],
+        limit: Math.min(frontier.length, remaining),
+      });
+      const added = result.events.filter((event) => !context.has(event.id));
+      for (const event of added) context.set(event.id, event);
+      frontier = parentIds(added).filter((id) => !context.has(id));
+    }
+    return [...context.values()];
+  }
+
+  async function loadCommentPage(targetIndex: number): Promise<{
+    events: NostrEvent[];
+    visibleIds: ReadonlySet<string>;
+    total: number;
+    startIndex: number;
+    endIndex: number;
+    targetIndex: number;
+    firstTimestamp: number;
+    lastTimestamp: number;
+    availableRelays: number;
+  }> {
+    const baseFilter = {
+      kinds: [kinds.comment],
+      "#A": [address],
+    };
+    const [countResult, latestResult] = await Promise.all([
+      countAll(baseFilter),
+      queryAll({ ...baseFilter, limit: 1 }),
+    ]);
+    if (countResult.availableRelays === 0) {
+      throw new Error("The community relay must support NIP-45 event counts.");
+    }
+    const latestEvent = latestResult.events.toSorted(compareEvents).at(-1);
+    if (countResult.count === 0 || latestEvent === undefined) {
+      return {
+        events: [],
+        visibleIds: new Set(),
+        total: 0,
+        startIndex: 0,
+        endIndex: 0,
+        targetIndex: 0,
+        firstTimestamp: 0,
+        lastTimestamp: 0,
+        availableRelays: Math.max(
+          countResult.availableRelays,
+          latestResult.availableRelays,
+        ),
+      };
+    }
+
+    const page = commentPageWindow(
+      countResult.count,
+      targetIndex,
+      commentPageSize,
+    );
+    const countCache = new Map<number, number>([
+      [latestEvent.created_at, countResult.count],
+    ]);
+    const boundary = await seekTimestampForCount(
+      page.endIndex,
+      latestEvent.created_at,
+      countResult.count,
+      async (until) => {
+        const cached = countCache.get(until);
+        if (cached !== undefined) return cached;
+        const result = await countAll({ ...baseFilter, until });
+        if (result.availableRelays === 0) {
+          throw new Error("The community relay stopped responding to NIP-45 counts.");
+        }
+        countCache.set(until, result.count);
+        return result.count;
+      },
+    );
+    const commentResult = await queryAll({
+      ...baseFilter,
+      until: boundary.timestamp,
+      limit: commentQueryLimit,
+    });
+    if (commentResult.availableRelays === 0) {
+      throw new Error("The community relay is unavailable. Try again shortly.");
+    }
+    const candidates = commentResult.events.toSorted(compareEvents);
+    const candidateStart = Math.max(0, boundary.count - candidates.length);
+    const sliceStart = page.startIndex - candidateStart;
+    const sliceEnd = page.endIndex - candidateStart;
+    const exactWindow = sliceStart >= 0 && sliceEnd <= candidates.length;
+    const pageEvents = exactWindow
+      ? candidates.slice(sliceStart, sliceEnd)
+      : candidates.slice(-Math.min(commentPageSize, candidates.length));
+    const actualStartIndex = exactWindow
+      ? page.startIndex
+      : Math.max(0, boundary.count - pageEvents.length);
+    const events = await loadParentContext(pageEvents);
+    const firstTimestamp =
+      actualStartIndex === 0
+        ? (pageEvents[0]?.created_at ?? threadFirstTimestamp)
+        : threadFirstTimestamp;
+
+    return {
+      events,
+      visibleIds: new Set(pageEvents.map((event) => event.id)),
+      total: countResult.count,
+      startIndex: actualStartIndex,
+      endIndex: actualStartIndex + pageEvents.length,
+      targetIndex: page.targetIndex,
+      firstTimestamp,
+      lastTimestamp: latestEvent.created_at,
+      availableRelays: Math.max(
+        countResult.availableRelays,
+        commentResult.availableRelays,
+      ),
+    };
+  }
+
+  async function refresh(
+    targetIndex = activeGlobalPostIndex,
+    targetEventId = "",
+  ): Promise<void> {
+    const sequence = ++loadSequence;
     loading = true;
     error = "";
     if (relayUrls.length === 0) {
@@ -171,70 +373,86 @@
       error = "No community relays are configured.";
       return;
     }
-    const [ratingResult, commentResult] = await Promise.all([
-      queryAll({
-        kinds: [kinds.rating],
-        "#a": [address],
-        limit: 500,
-      }),
-      queryAll({
-        kinds: [kinds.comment],
-        "#A": [address],
-        limit: 500,
-      }),
-    ]);
-    if (ratingResult.availableRelays === 0 && commentResult.availableRelays === 0) {
-      loading = false;
-      error = "The community relay is unavailable. Try again shortly.";
-      return;
-    }
-    const primaryEvents = [...ratingResult.events, ...commentResult.events];
-    const primary = materializeCommunity(
-      primaryEvents,
-      kinds,
-      new Map([[plugin, address]]),
-    );
-    const postIds = primary.reviews.map((review) => review.event.id);
-    const reactionEvents =
-      postIds.length === 0
-        ? []
-        : (
-            await queryAll({
-              kinds: [kinds.reaction],
-              "#e": postIds,
-              limit: 1_000,
-            })
-          ).events;
-    snapshot = materializeCommunity(
-      [...primaryEvents, ...reactionEvents],
-      kinds,
-      new Map([[plugin, address]]),
-    );
-    const authors = [
-      ...new Set([
-        ...snapshot.reviews.map((review) => review.event.pubkey),
-        ...snapshot.reactions.map((reaction) => reaction.event.pubkey),
-      ]),
-    ];
-    if (authors.length > 0) {
-      const profileEvents = (
-        await queryAll({
-          kinds: [0],
-          authors,
-          limit: authors.length,
-        })
-      ).events;
+    try {
+      const [ratingResult, commentPage] = await Promise.all([
+        queryAll({
+          kinds: [kinds.rating],
+          "#a": [address],
+          limit: 500,
+        }),
+        loadCommentPage(targetIndex),
+      ]);
+      if (sequence !== loadSequence) return;
+      const primaryEvents = [...ratingResult.events, ...commentPage.events];
+      const visiblePostIds = [...commentPage.visibleIds];
+      const reactionEvents =
+        visiblePostIds.length === 0
+          ? []
+          : (
+              await queryAll({
+                kinds: [kinds.reaction],
+                "#e": visiblePostIds,
+                limit: Math.min(1_000, visiblePostIds.length * 25),
+              })
+            ).events;
+      if (sequence !== loadSequence) return;
+      const nextSnapshot = materializeCommunity(
+        [...primaryEvents, ...reactionEvents],
+        kinds,
+        new Map([[plugin, address]]),
+      );
+      const authors = [
+        ...new Set([
+          ...nextSnapshot.reviews.map((review) => review.event.pubkey),
+          ...nextSnapshot.reactions.map((reaction) => reaction.event.pubkey),
+        ]),
+      ];
+      const profileEvents =
+        authors.length === 0
+          ? []
+          : (
+              await queryAll({
+                kinds: [0],
+                authors,
+                limit: authors.length,
+              })
+            ).events;
+      if (sequence !== loadSequence) return;
+
+      snapshot = nextSnapshot;
+      visibleReviewIds = commentPage.visibleIds;
+      commentTotal = commentPage.total;
+      pageStartIndex = commentPage.startIndex;
+      pageEndIndex = commentPage.endIndex;
+      threadFirstTimestamp = commentPage.firstTimestamp;
+      threadLastTimestamp = commentPage.lastTimestamp;
       profiles = new Map(
         parseProfiles(profileEvents).map((profile) => [profile.pubkey, profile]),
       );
+      const pageReviews = nextSnapshot.reviews.filter((review) =>
+        commentPage.visibleIds.has(review.event.id),
+      );
+      const targetLocalIndex = Math.max(
+        0,
+        Math.min(
+          commentPage.targetIndex - commentPage.startIndex,
+          pageReviews.length - 1,
+        ),
+      );
+      activePostId =
+        pageReviews.find((review) => review.event.id === targetEventId)?.event.id ??
+        pageReviews[targetLocalIndex]?.event.id ??
+        pageReviews[0]?.event.id ??
+        "";
+    } catch (cause) {
+      if (sequence !== loadSequence) return;
+      error =
+        cause instanceof Error
+          ? cause.message
+          : "The community relay is unavailable. Try again shortly.";
+    } finally {
+      if (sequence === loadSequence) loading = false;
     }
-    if (
-      activePostId === "" ||
-      !snapshot.reviews.some((review) => review.event.id === activePostId)
-    ) {
-      activePostId = snapshot.reviews[0]?.event.id ?? "";
-    }
-    loading = false;
   }
 
   async function connect(): Promise<void> {
@@ -338,11 +556,12 @@
               kinds,
               Math.floor(Date.now() / 1_000),
             );
-      await publish(await activeSigner.signEvent(template));
+      const event = await activeSigner.signEvent(template);
+      await publish(event);
       comment = "";
       replyingTo = "";
       message = "Comment published.";
-      await refresh();
+      await refresh(Number.MAX_SAFE_INTEGER, event.id);
     } catch (cause) {
       error = cause instanceof Error ? cause.message : "Comment failed.";
     } finally {
@@ -390,11 +609,17 @@
   }
 
   function parentOf(review: MaterializedReview): MaterializedReview | undefined {
-    return reviews.find((entry) => entry.event.id === review.parentEventId);
+    return allReviews.find((entry) => entry.event.id === review.parentEventId);
   }
 
   function postNumber(eventId: string): number {
-    return reviews.findIndex((review) => review.event.id === eventId) + 1;
+    const index = reviews.findIndex((review) => review.event.id === eventId);
+    return index === -1 ? 0 : pageStartIndex + index + 1;
+  }
+
+  function postReference(review: MaterializedReview): string {
+    const number = postNumber(review.event.id);
+    return number === 0 ? formatShortDate(review.event.created_at) : `#${number}`;
   }
 
   function shortKey(value: string): string {
@@ -422,27 +647,68 @@
       ?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
-  function navigateTimelineToIndex(index: number): void {
-    const target = reviews[Math.max(0, Math.min(index, reviews.length - 1))];
-    if (target === undefined || target.event.id === activePostId) return;
-    if (timelineReturnPostId === "") timelineReturnPostId = activePostId;
+  async function navigateTimelineToIndex(
+    index: number,
+    rememberOrigin = true,
+    targetEventId = "",
+  ): Promise<void> {
+    if (commentTotal === 0) return;
+    const targetIndex = Math.max(0, Math.min(index, commentTotal - 1));
+    const localIndex = targetIndex - pageStartIndex;
+    const localTarget = reviews[localIndex];
+    if (
+      localTarget !== undefined &&
+      (targetEventId === "" || localTarget.event.id === targetEventId)
+    ) {
+      if (localTarget.event.id === activePostId) return;
+      if (rememberOrigin && timelineReturnIndex === undefined) {
+        timelineReturnIndex = activeGlobalPostIndex;
+      }
+      timelinePreviewIndex = undefined;
+      scrollToPost(localTarget.event.id);
+      return;
+    }
+    if (rememberOrigin && timelineReturnIndex === undefined) {
+      timelineReturnIndex = activeGlobalPostIndex;
+    }
     timelinePreviewIndex = undefined;
-    scrollToPost(target.event.id);
+    await refresh(targetIndex, targetEventId);
+    requestAnimationFrame(() => {
+      if (activePostId !== "") scrollToPost(activePostId);
+    });
+  }
+
+  async function navigateToReview(review: MaterializedReview): Promise<void> {
+    if (visibleReviewIds.has(review.event.id)) {
+      scrollToPost(review.event.id);
+      return;
+    }
+    const result = await countAll({
+      kinds: [kinds.comment],
+      "#A": [address],
+      until: review.event.created_at,
+    });
+    if (result.availableRelays === 0) return;
+    await navigateTimelineToIndex(
+      Math.max(0, result.count - 1),
+      true,
+      review.event.id,
+    );
   }
 
   function timelineIndexForPointer(clientY: number): number {
     const bounds = timelineElement?.getBoundingClientRect();
-    if (bounds === undefined) return activePostIndex;
+    if (bounds === undefined) return activeGlobalPostIndex;
     return timelineIndexFromPosition(
       clientY - bounds.top - timelineDragOffset,
       bounds.height,
-      reviews.length,
+      commentTotal,
       timelineHandleElement?.getBoundingClientRect().height ?? 50,
     );
   }
 
   function startTimelineDrag(event: PointerEvent): void {
-    if (event.button !== 0 || reviews.length < 2) return;
+    if (event.button !== 0 || commentTotal < 2 || loading) return;
     const target = event.target;
     if (target instanceof Element && target.closest(".history-back") !== null) {
       return;
@@ -475,7 +741,7 @@
     timelinePointerId = undefined;
     timelineDragOffset = 0;
     timelinePreviewIndex = undefined;
-    navigateTimelineToIndex(targetIndex);
+    void navigateTimelineToIndex(targetIndex);
   }
 
   function cancelTimelineDrag(event: PointerEvent): void {
@@ -487,22 +753,22 @@
   }
 
   function handleTimelineKey(event: KeyboardEvent): void {
-    let targetIndex = activePostIndex;
+    let targetIndex = activeGlobalPostIndex;
     if (event.key === "ArrowUp" || event.key === "ArrowLeft") targetIndex -= 1;
     else if (event.key === "ArrowDown" || event.key === "ArrowRight") targetIndex += 1;
-    else if (event.key === "PageUp") targetIndex -= 5;
-    else if (event.key === "PageDown") targetIndex += 5;
+    else if (event.key === "PageUp") targetIndex -= commentPageSize;
+    else if (event.key === "PageDown") targetIndex += commentPageSize;
     else if (event.key === "Home") targetIndex = 0;
-    else if (event.key === "End") targetIndex = reviews.length - 1;
+    else if (event.key === "End") targetIndex = commentTotal - 1;
     else return;
     event.preventDefault();
-    navigateTimelineToIndex(targetIndex);
+    void navigateTimelineToIndex(targetIndex);
   }
 
   function returnToTimelineOrigin(): void {
-    const target = timelineReturnPostId;
-    timelineReturnPostId = "";
-    if (target !== "") scrollToPost(target);
+    const target = timelineReturnIndex;
+    timelineReturnIndex = undefined;
+    if (target !== undefined) void navigateTimelineToIndex(target, false);
   }
 
   function observePost(node: HTMLElement, eventId: string) {
@@ -528,7 +794,7 @@
       { rootMargin: "-12% 0px -62% 0px", threshold: [0.1, 0.35, 0.7] },
     );
     for (const element of postElements.values()) observer.observe(element);
-    void refresh();
+    void refresh(0);
     return () => {
       observer?.disconnect();
       for (const client of clients.values()) client.close();
@@ -541,6 +807,10 @@
   class="community"
   aria-labelledby="community-title"
   data-design-core="0.1.0"
+  data-comment-total={commentTotal}
+  data-loaded-comments={reviews.length}
+  data-page-start={pageStartIndex}
+  data-page-end={pageEndIndex}
 >
   <Card.Root class="community-card">
     <Card.Header class="community-header">
@@ -561,9 +831,9 @@
 
     <Card.Content class="community-content">
       <div class="topic-summary" aria-live="polite">
-        <div><strong>{reviews.length}</strong><span>posts</span></div>
-        <div><strong>{reactions.length}</strong><span>reactions</span></div>
-        <div><strong>{participantCount}</strong><span>participants</span></div>
+        <div><strong>{commentTotal}</strong><span>posts</span></div>
+        <div><strong>{reactions.length}</strong><span>page reactions</span></div>
+        <div><strong>{participantCount}</strong><span>page participants</span></div>
         <div>
           <strong>{aggregate?.average?.toFixed(1) ?? "—"}<span aria-hidden="true">★</span></strong>
           <span>{aggregate?.count ?? 0} ratings</span>
@@ -621,9 +891,21 @@
           <div class="comments-heading">
             <div>
               <h3>Discussion</h3>
-              <p>Follow the conversation in posting order.</p>
+              <p>
+                {#if commentTotal === 0}
+                  Follow the conversation in posting order.
+                {:else}
+                  Showing posts {displayedPostStart}–{displayedPostEnd} of {commentTotal}.
+                  Move the history slider to load another window.
+                {/if}
+              </p>
             </div>
-            <Button variant="ghost" size="sm" disabled={loading} onclick={refresh}>
+            <Button
+              variant="ghost"
+              size="sm"
+              disabled={loading}
+              onclick={() => refresh(activeGlobalPostIndex)}
+            >
               Refresh
             </Button>
           </div>
@@ -707,12 +989,15 @@
                         <div class="post-author-line">
                           <strong id={`post-author-${review.event.id}`}>{authorName}</strong>
                           {#if parent}
-                            <button class="reply-context" onclick={() => scrollToPost(parent.event.id)}>
-                              ↪ replying to {displayName(parent.event.pubkey, profiles)} · #{postNumber(parent.event.id)}
+                            <button
+                              class="reply-context"
+                              onclick={() => navigateToReview(parent)}
+                            >
+                              ↪ replying to {displayName(parent.event.pubkey, profiles)} · {postReference(parent)}
                             </button>
                           {/if}
                         </div>
-                        <a href={`#post-${review.event.id}`} aria-label={`Link to post ${index + 1}`}>
+                        <a href={`#post-${review.event.id}`} aria-label={`Link to post ${postNumber(review.event.id)}`}>
                           <time datetime={new Date(review.event.created_at * 1_000).toISOString()}>
                             {formatDate(review.event.created_at)}
                           </time>
@@ -724,7 +1009,7 @@
                         {/each}
                       </div>
                       <footer class="post-footer">
-                        <div class="reaction-list" aria-label={`Reactions to post ${index + 1}`}>
+                        <div class="reaction-list" aria-label={`Reactions to post ${postNumber(review.event.id)}`}>
                           {#each groups as group (`${review.event.id}:${group.content}`)}
                             <Button
                               class="reaction-chip"
@@ -745,7 +1030,7 @@
                               variant="ghost"
                               size="xs"
                               disabled={publishing}
-                              aria-label={`Like post ${index + 1}`}
+                              aria-label={`Like post ${postNumber(review.event.id)}`}
                               onclick={() => submitReaction(review)}
                             >♡ Like</Button>
                           {/if}
@@ -765,7 +1050,7 @@
           {/if}
         </div>
 
-        {#if reviews.length > 1}
+        {#if commentTotal > 1 && threadFirstTimestamp > 0 && threadLastTimestamp > 0}
           <aside class="history" aria-label="Discussion history">
             <div class="history-sticky">
               <button
@@ -773,8 +1058,8 @@
                 aria-label="Go to the first post"
                 onclick={() => navigateTimelineToIndex(0)}
               >
-                <time datetime={new Date(reviews[0]!.event.created_at * 1_000).toISOString()}>
-                  {formatShortDate(reviews[0]!.event.created_at)}
+                <time datetime={new Date(threadFirstTimestamp * 1_000).toISOString()}>
+                  {formatShortDate(threadFirstTimestamp)}
                 </time>
               </button>
               <div
@@ -789,10 +1074,10 @@
                 onpointercancel={cancelTimelineDrag}
               >
                 <span class="history-line" aria-hidden="true"></span>
-                {#if timelineReturnIndex >= 0 && timelineReturnPostId !== activePostId}
+                {#if timelineReturnIndex !== undefined && timelineReturnIndex !== activeGlobalPostIndex}
                   <button
                     class="history-back"
-                    style={`--timeline-return-position: ${timelinePosition(timelineReturnIndex, reviews.length) / 100}`}
+                    style={`--timeline-return-position: ${timelinePosition(timelineReturnIndex, commentTotal) / 100}`}
                     aria-label={`Back to post ${timelineReturnIndex + 1}`}
                     onpointerdown={(event) => event.stopPropagation()}
                     onclick={returnToTimelineOrigin}
@@ -804,31 +1089,31 @@
                 <div
                   class="history-handle"
                   class:dragging={timelineDragging}
-                  style={`--timeline-position: ${timelinePosition(timelineDisplayIndex, reviews.length) / 100}`}
+                  style={`--timeline-position: ${timelinePosition(timelineDisplayIndex, commentTotal) / 100}`}
                   bind:this={timelineHandleElement}
                   role="slider"
                   tabindex="0"
                   aria-label="Discussion position"
                   aria-valuemin="1"
-                  aria-valuemax={reviews.length}
+                  aria-valuemax={commentTotal}
                   aria-valuenow={timelineDisplayIndex + 1}
-                  aria-valuetext={`Post ${timelineDisplayIndex + 1} of ${reviews.length}, ${formatShortDate(reviews[timelineDisplayIndex]!.event.created_at)}`}
+                  aria-valuetext={`Post ${timelineDisplayIndex + 1} of ${commentTotal}, ${formatShortDate(timelineDisplayTimestamp)}`}
                   onkeydown={handleTimelineKey}
                 >
                   <span class="history-handle-bar" aria-hidden="true"></span>
                   <span class="history-current">
-                    <strong>{timelineDisplayIndex + 1} / {reviews.length}</strong>
-                    <span>{formatShortDate(reviews[timelineDisplayIndex]!.event.created_at)}</span>
+                    <strong>{timelineDisplayIndex + 1} / {commentTotal}</strong>
+                    <span>{formatShortDate(timelineDisplayTimestamp)}</span>
                   </span>
                 </div>
               </div>
               <button
                 class="history-date"
                 aria-label="Go to the latest post"
-                onclick={() => navigateTimelineToIndex(reviews.length - 1)}
+                onclick={() => navigateTimelineToIndex(commentTotal - 1)}
               >
-                <time datetime={new Date(reviews.at(-1)!.event.created_at * 1_000).toISOString()}>
-                  {formatShortDate(reviews.at(-1)!.event.created_at)}
+                <time datetime={new Date(threadLastTimestamp * 1_000).toISOString()}>
+                  {formatShortDate(threadLastTimestamp)}
                 </time>
               </button>
             </div>

@@ -88,6 +88,17 @@ for service in "${relay_services[@]}" registry-fixture registry-console registry
   wait_for_health "${service}"
 done
 
+community_nip11_port=${STRFRY_LOCAL_PORT}
+if [[ ${profile} == quorum ]]; then
+  community_nip11_port=${STRFRY_COMMUNITY_PORT}
+fi
+/usr/bin/curl -fsS \
+  -H 'Accept: application/nostr+json' \
+  "http://127.0.0.1:${community_nip11_port}" \
+  >"${smoke_tmp}/community-nip11.json"
+jq -e '.supported_nips | index(45)' \
+  "${smoke_tmp}/community-nip11.json" >/dev/null
+
 fixture_base="http://127.0.0.1:${REGISTRY_FIXTURE_PORT}/"
 console_base="http://127.0.0.1:${REGISTRY_CONSOLE_PORT}/"
 site_base="http://127.0.0.1:${REGISTRY_SITE_PORT}/"

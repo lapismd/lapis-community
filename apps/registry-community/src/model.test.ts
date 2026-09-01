@@ -3,13 +3,16 @@ import { describe, expect, it } from "vitest";
 import {
   anyRelayPublished,
   avatarHue,
+  commentPageWindow,
   displayName,
   initials,
   parseProfiles,
   parseRelayUrls,
   reactionGroups,
+  seekTimestampForCount,
   timelineIndexFromPosition,
   timelinePosition,
+  timelineTimestamp,
 } from "./model.js";
 
 describe("registry community model", () => {
@@ -104,5 +107,40 @@ describe("registry community model", () => {
     expect(timelineIndexFromPosition(275, 300, 24)).toBe(23);
     expect(timelineIndexFromPosition(-100, 300, 24)).toBe(0);
     expect(timelineIndexFromPosition(1_000, 300, 24)).toBe(23);
+  });
+
+  it("maps global timeline positions onto fixed-size relay windows", () => {
+    expect(commentPageWindow(24, 0, 20)).toEqual({
+      startIndex: 0,
+      endIndex: 20,
+      targetIndex: 0,
+    });
+    expect(commentPageWindow(24, 23, 20)).toEqual({
+      startIndex: 20,
+      endIndex: 24,
+      targetIndex: 23,
+    });
+    expect(commentPageWindow(24, 2_000, 20).targetIndex).toBe(23);
+    expect(commentPageWindow(0, 0, 20)).toEqual({
+      startIndex: 0,
+      endIndex: 0,
+      targetIndex: 0,
+    });
+  });
+
+  it("seeks a page boundary with relay counts instead of loading prior posts", async () => {
+    const timestamps = [100, 200, 300, 400, 500];
+    const result = await seekTimestampForCount(
+      3,
+      500,
+      timestamps.length,
+      async (until) =>
+        timestamps.filter((timestamp) => timestamp <= until).length,
+    );
+
+    expect(result.timestamp).toBe(300);
+    expect(result.count).toBe(3);
+    expect(result.probes).toBeLessThanOrEqual(9);
+    expect(timelineTimestamp(2, 5, 100, 500)).toBe(300);
   });
 });

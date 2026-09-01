@@ -140,6 +140,78 @@ export function timelineIndexFromPosition(
   return Math.round((handleStart / availableLength) * (total - 1));
 }
 
+export function commentPageWindow(
+  total: number,
+  targetIndex: number,
+  pageSize: number,
+): CommentPageWindow {
+  const safeTotal = Math.max(0, Math.floor(total));
+  const safePageSize = Math.max(1, Math.floor(pageSize));
+  if (safeTotal === 0) {
+    return { startIndex: 0, endIndex: 0, targetIndex: 0 };
+  }
+  const safeTarget = Math.max(
+    0,
+    Math.min(Math.floor(targetIndex), safeTotal - 1),
+  );
+  const startIndex = Math.floor(safeTarget / safePageSize) * safePageSize;
+  return {
+    startIndex,
+    endIndex: Math.min(startIndex + safePageSize, safeTotal),
+    targetIndex: safeTarget,
+  };
+}
+
+export async function seekTimestampForCount(
+  targetCount: number,
+  latestTimestamp: number,
+  totalCount: number,
+  countUntil: (timestamp: number) => Promise<number>,
+): Promise<CountTimestamp> {
+  if (targetCount <= 0 || totalCount <= 0 || latestTimestamp <= 0) {
+    return { timestamp: 0, count: 0, probes: 0 };
+  }
+  if (targetCount >= totalCount) {
+    return {
+      timestamp: latestTimestamp,
+      count: totalCount,
+      probes: 0,
+    };
+  }
+
+  let lower = 0;
+  let upper = Math.floor(latestTimestamp);
+  let upperCount = totalCount;
+  let probes = 0;
+  while (lower < upper) {
+    const candidate = lower + Math.floor((upper - lower) / 2);
+    const count = await countUntil(candidate);
+    probes += 1;
+    if (count >= targetCount) {
+      upper = candidate;
+      upperCount = count;
+    } else {
+      lower = candidate + 1;
+    }
+  }
+  if (lower !== upper || upperCount < targetCount) {
+    upperCount = await countUntil(lower);
+    probes += 1;
+  }
+  return { timestamp: lower, count: upperCount, probes };
+}
+
+export function timelineTimestamp(
+  index: number,
+  total: number,
+  firstTimestamp: number,
+  lastTimestamp: number,
+): number {
+  if (total <= 1 || lastTimestamp <= firstTimestamp) return firstTimestamp;
+  const ratio = timelinePosition(index, total) / 100;
+  return Math.round(firstTimestamp + (lastTimestamp - firstTimestamp) * ratio);
+}
+
 function shortKey(value: string): string {
   return value.length > 12 ? `${value.slice(0, 6)}…${value.slice(-4)}` : value;
 }
@@ -157,4 +229,16 @@ export interface ReactionGroup {
   content: string;
   symbol: string;
   count: number;
+}
+
+export interface CommentPageWindow {
+  startIndex: number;
+  endIndex: number;
+  targetIndex: number;
+}
+
+export interface CountTimestamp {
+  timestamp: number;
+  count: number;
+  probes: number;
 }

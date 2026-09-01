@@ -12,6 +12,7 @@ export interface RelayPublishResult {
 
 export interface RegistryRelay {
   readonly url: string;
+  count?(filter: RelayFilter, signal?: AbortSignal): Promise<number>;
   query(filter: RelayFilter, signal?: AbortSignal): Promise<NostrEvent[]>;
   publish(event: NostrEvent, signal?: AbortSignal): Promise<RelayPublishResult>;
   close(): void;
@@ -84,6 +85,38 @@ export class WebSocketRegistryRelay implements RegistryRelay {
           { once: true },
         );
       }
+    });
+  }
+
+  async count(filter: RelayFilter, signal?: AbortSignal): Promise<number> {
+    signal?.throwIfAborted();
+    const relay = await this.#connect(signal);
+    return await new Promise<number>((resolve, reject) => {
+      let settled = false;
+      const settle = (callback: () => void): void => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timeout);
+        callback();
+      };
+      const timeout = setTimeout(
+        () =>
+          settle(() => {
+            relay.close();
+            this.#connection = undefined;
+            reject(new Error(`${this.url}: COUNT timed out`));
+          }),
+        this.#eoseTimeoutMs,
+      );
+      void relay
+        .count([filter], {})
+        .then((count) => settle(() => resolve(count)))
+        .catch((cause: unknown) => settle(() => reject(cause)));
+      signal?.addEventListener(
+        "abort",
+        () => settle(() => reject(signal.reason)),
+        { once: true },
+      );
     });
   }
 
