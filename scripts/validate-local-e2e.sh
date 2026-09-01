@@ -20,7 +20,6 @@ if [[ ${relay_flavor} == buzz ]]; then
       "minio-init",
       "postgres",
       "redis",
-      "registry-console",
       "registry-fixture",
       "registry-materializer",
       "registry-relay",
@@ -57,7 +56,6 @@ else
   jq -e '
     .services | keys == [
       "postgres",
-      "registry-console",
       "registry-fixture",
       "registry-materializer",
       "registry-relay",
@@ -97,12 +95,9 @@ fi
 jq -e --arg secret_file "${repo_root}/.local/registry-fixture/fixture-secrets.json" '
   .services["registry-fixture"].build.dockerfile ==
     "services/registry-local-fixture/Dockerfile" and
-  .services["registry-console"].build.dockerfile ==
-    "apps/registry-console/Dockerfile" and
   .services["registry-site-builder"].build.dockerfile == "Dockerfile.local" and
   .services["registry-fixture"].read_only == true and
   .services["registry-fixture"].environment.REGISTRY_FIXTURE_LONG_THREAD_POSTS == "240" and
-  .services["registry-console"].read_only == true and
   .services["registry-site"].read_only == true and
   .services["registry-fixture"].depends_on["registry-relay"].condition ==
     "service_healthy" and

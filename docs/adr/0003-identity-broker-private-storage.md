@@ -1,6 +1,6 @@
 # ADR 0003: Identity broker private storage boundary
 
-- Status: accepted for prototype; production enablement remains gated
+- Status: deferred design; no implementation is included in the active registry
 - Date: 2026-08-31
 
 ## Context
@@ -13,10 +13,9 @@ data, not Nostr events.
 
 ## Decision
 
-The identity broker owns one-use OAuth attempts and opaque provider mappings.
-If prototype interfaces are made durable, their private implementation uses
-Turso; this database is not part of the registry event or projection path.
-It stores only:
+A future identity broker would own one-use OAuth attempts and opaque provider
+mappings. If implemented, its private durable store may use Turso; this database
+would not be part of the registry event or projection path. It would store only:
 
 - a digest of the OAuth state plus the short-lived PKCE verifier, nonce,
   redirect URI, provider, and expiry;
@@ -40,9 +39,9 @@ separate protected Nostr identities.
 
 ### Deferred Nostr mapping option
 
-The current prototype remains intentionally in-memory. This ADR does not
-authorize a Turso implementation or a durable identity event in the current
-relay work.
+No identity-broker package is included in the active registry. This ADR does not
+authorize an implementation, a Turso database, or a durable identity event in
+the current relay work.
 
 A future identity-specific ADR may replace the opaque provider-mapping store
 with an encrypted, service-signed Nostr event. Such an event would use an opaque
@@ -55,9 +54,8 @@ availability, and metadata leakage before implementation.
 
 ## Consequences
 
-The broker API has no field for an `nsec`, complete private key, operator share,
-or OAuth token. Threshold cryptography, operator deployment, WebAuthn ceremony
-verification, durable private storage, account linking/deletion, and recovery
-remain behind interfaces and production security review. An implementation
-must restore broker configuration and audit records without reconstructing all
-user keys centrally.
+Any future broker API must have no field for an `nsec`, complete private key,
+operator share, or OAuth token. Threshold cryptography, operator deployment,
+WebAuthn ceremony verification, durable private storage, account
+linking/deletion, and recovery require a separate implementation and production
+security review.

@@ -5,14 +5,14 @@
 Back up these classes independently so no backup operator gains a complete user
 or registry signing key:
 
-| Data                                       | Backup form                                                | Restore proof                                            |
-| ------------------------------------------ | ---------------------------------------------------------- | -------------------------------------------------------- |
-| Official raw events and snapshot manifests | append-only, content-addressed export                      | event signatures, event IDs, snapshot root               |
-| Materializer cache and static projection   | disposable copy                                            | rebuild from raw events and compare roots                |
-| Public role/kind/relay configuration       | versioned signed configuration                             | exact digest and authority-set review                    |
-| Operator shares                            | independently encrypted operator custody                   | operator-local share check; never central reconstruction |
-| Optional Turso identity-broker state       | encrypted private backup with separate mapping-key custody | opaque lookup, expiry, and account consistency           |
-| Audit records                              | append-only encrypted export                               | sequence, time bounds, and sink integrity checks         |
+| Data                                        | Backup form                              | Restore proof                                            |
+| ------------------------------------------- | ---------------------------------------- | -------------------------------------------------------- |
+| Official raw events and snapshot manifests  | append-only, content-addressed export    | event signatures, event IDs, snapshot root               |
+| Materializer cache and static projection    | disposable copy                          | rebuild from raw events and compare roots                |
+| Public role/kind/relay configuration        | versioned signed configuration           | exact digest and authority-set review                    |
+| Operator shares                             | independently encrypted operator custody | operator-local share check; never central reconstruction |
+| Future identity-bridge state (not deployed) | separately reviewed private backup       | opaque lookup, expiry, and account consistency           |
+| Audit records                               | append-only encrypted export             | sequence, time bounds, and sink integrity checks         |
 
 OAuth attempts and session rows are operational state, not registry data.
 Expired or consumed rows need not be restored when the approved retention

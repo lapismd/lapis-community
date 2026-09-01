@@ -15,9 +15,9 @@ public site or app has cut over, or later product/security phases are complete.
 | 1     | protocol                        | schemas, references, authority, deterministic materializer, test vectors | verified    | 19 catalog, security, and community protocol tests passing              |
 | 2     | Nostr client + relay deployment | NIP-29 groups, NIP-42 transport, Blossom manifests, Lapis relay profile  | verified    | vendored relay image + stock-Buzz compatibility smoke profiles          |
 | 3     | import/projection               | deterministic V1 import and byte-semantic parity report                  | verified    | 13 signatures; 11 plugins/13 releases round-trip                        |
-| 4     | auth + direct publication       | NIP-07 signing, direct relay submission, curator reaction                | active      | local relay fixture complete; community/console browser acceptance next |
+| 4     | auth + direct publication       | NIP-07 signing, direct relay submission, curator reaction                | active      | local relay fixture complete; registry browser acceptance next          |
 | 5     | curation                        | approval, revocation, moderation, deterministic signed snapshots         | verified    | replay/shuffle/duplicate vectors; distinct snapshot signer acceptance   |
-| 6     | public coexistence              | legacy registry remains live; separate direct-relay Nostr console        | verified    | local Docker UI path; legacy signed-source gate `ceed49ed`              |
+| 6     | public coexistence              | legacy registry remains live; integrated direct-relay community UI       | verified    | local Docker UI path; legacy signed-source gate `ceed49ed`              |
 | 7     | Lapis                           | Nostr-primary, HTTP-live fallback, complete last-good cached state       | verified    | backend matrix and root package acceptance; `0db73f3a`                  |
 | 8     | security                        | key ceremony, audit log, backups, recovery drills, operator runbooks     | active      | five runbooks + exact security projection; live drills/ceremonies gated |
 | 9     | community                       | NIP-29 forums, replies, reactions, paging, and moderation substrate      | active      | deterministic long-thread fixture; browser acceptance next              |

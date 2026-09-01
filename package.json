@@ -12,7 +12,6 @@
     "check:types": "tsc -p tsconfig.scripts.json --noEmit && pnpm -r --if-present check:types",
     "test": "pnpm test:root && pnpm -r --if-present test",
     "test:root": "vitest run scripts",
-    "deploy:check": "scripts/validate-deploy.sh",
     "smoke:local": "scripts/smoke-local-e2e.sh",
     "smoke:lapis-relay": "REGISTRY_RELAY_FLAVOR=lapis scripts/smoke-local-e2e.sh",
     "smoke:long-thread": "REGISTRY_FIXTURE_LONG_THREAD_POSTS=2000 scripts/smoke-local-e2e.sh",

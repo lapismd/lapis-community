@@ -33,26 +33,6 @@ services:
       start_period: 20s
     restart: on-failure:20
 
-  registry-console:
-    image: ${REGISTRY_CONSOLE_IMAGE:-lapis-registry-console:local}
-    build:
-      context: ..
-      dockerfile: apps/registry-console/Dockerfile
-    read_only: true
-    tmpfs:
-      - /tmp
-    environment:
-      HOST: 0.0.0.0
-      PORT: 4173
-      REGISTRY_CURATOR_PUBKEYS: ${REGISTRY_CURATOR_PUBKEYS:?fixture curator is missing}
-      REGISTRY_PUBLISHER_PUBKEY: ${REGISTRY_PUBLISHER_PUBKEY:?fixture publisher is missing}
-    ports:
-      - "${REGISTRY_CONSOLE_PORT:-4173}:4173"
-    depends_on:
-      registry-fixture:
-        condition: service_healthy
-    restart: unless-stopped
-
   registry-materializer:
     image: ${REGISTRY_FIXTURE_IMAGE:-lapis-registry-local-fixture:local}
     user: "0:0"

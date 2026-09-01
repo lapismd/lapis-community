@@ -146,7 +146,6 @@ case "${command}" in
     refresh_fixture_clock_for_unseeded_relay
     "${compose[@]}" up -d --build "$@"
     echo "Rendered registry: http://localhost:${REGISTRY_SITE_PORT:-4321}/"
-    echo "Registry console: http://localhost:${REGISTRY_CONSOLE_PORT:-4173}/"
     echo "Fixture status:   http://127.0.0.1:${REGISTRY_FIXTURE_PORT:-8090}/status.json"
     echo "Registry relay:   ws://registry.localhost:${LAPIS_RELAY_PORT:-8281} (${relay_flavor})"
     ;;

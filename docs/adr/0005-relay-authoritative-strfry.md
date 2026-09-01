@@ -35,7 +35,7 @@ complete Nostr private key, and neither becomes registry authority.
 
 ## Consequences
 
-- The console and automation sign exact templates and publish them directly to
+- Browser clients and automation sign exact templates and publish them directly to
   relays; relay policy and protocol authority checks are the write boundary.
 - Static deployment needs only public relay, kind, and authority configuration.
 - Relay indexes answer operational queries; a separate Postgres event table is

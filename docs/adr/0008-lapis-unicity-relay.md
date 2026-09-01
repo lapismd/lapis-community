@@ -27,7 +27,7 @@ public origin.
 ## Consequences
 
 - `pnpm local:up:lapis-relay` builds the sibling source and runs the complete
-  registry fixture, materializer, console, and site against it.
+  registry fixture, materializer, and site against it.
 - `pnpm smoke:lapis-relay` proves group authorization, retained events, signed
   projection verification, and the rendered registry in disposable Docker
   infrastructure.

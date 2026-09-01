@@ -1,6 +1,6 @@
 # ADR 0004: Threshold topology and nonce-safety boundary
 
-- Status: accepted for interface prototype; production topology is unapproved
+- Status: deferred design; no implementation is included in the active registry
 - Date: 2026-08-31
 
 ## Context
@@ -13,14 +13,14 @@ one experimental library a public registry contract.
 
 ## Decision
 
-Lapis owns two opaque interfaces:
+A future threshold-signing implementation would need two opaque interfaces:
 
 - a coordinator engine that prepares per-operator payloads, verifies partials,
   and aggregates an ordinary Nostr event;
 - an operator share engine that receives one opaque round payload and returns
   one opaque partial signature.
 
-The interface prototype uses a 2-of-3 group. The coordinator reserves a unique
+The proposed validation model uses a 2-of-3 group. The coordinator reserves a unique
 round before contacting all three operators, verifies each responding operator
 identity and partial, deterministically selects two valid participants, and
 verifies the final event against the exact requested template and group pubkey.
@@ -34,12 +34,12 @@ data. The identity broker stores only public group descriptors.
 
 ## Consequences
 
-The included engines and memory round stores are test fixtures, not threshold
-cryptography. Production requires an externally reviewed FROST-compatible
-engine, durable atomic round stores, authenticated bounded transports, isolated
-operators, and nonce-failure monitoring. The intended production topology is
-3-of-5, but enabling it requires a separate ceremony, recovery/re-sharing
-exercise, and explicit approval.
+No threshold engines, coordinator, operator, or memory round stores are included
+in the active registry. Any implementation requires an externally reviewed
+FROST-compatible engine, durable atomic round stores, authenticated bounded
+transports, isolated operators, and nonce-failure monitoring. The proposed
+production topology is 3-of-5, but enabling it requires a separate ceremony,
+recovery/re-sharing exercise, and explicit approval.
 
 At least one recovery package remains user-controlled. Lapis backup and restore
 must recover configuration and audits without centrally reconstructing every

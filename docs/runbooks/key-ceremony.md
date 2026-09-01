@@ -8,8 +8,8 @@ assessor, plugin release publisher, and user threshold groups. A person may
 participate in more than one ceremony, but a production service must not reuse
 one secret identity across roles.
 
-The offline root never runs in the website, registry console, release CI,
-identity broker, coordinator, or operator service. OAuth onboarding grants only
+The offline root never runs in the website, release CI, or any future identity,
+coordinator, or operator service. OAuth onboarding grants only
 the `user` role; curator and security access requires a separately protected
 signing identity.
 

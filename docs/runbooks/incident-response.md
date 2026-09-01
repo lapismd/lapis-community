@@ -35,7 +35,7 @@
 - **Threshold operator or nonce incident:** disable the operator, reject the
   round, preserve only redacted round metadata, and rotate/re-share under the
   key ceremony. Never retry with the same round or nonce material.
-- **OAuth or identity-broker compromise:** disable onboarding and linking,
+- **Future OAuth or identity-bridge compromise:** disable onboarding and linking,
   revoke provider credentials, preserve private audit evidence, rotate mapping
   secrets according to the approved migration procedure, and keep existing
   independent Nostr signers usable.

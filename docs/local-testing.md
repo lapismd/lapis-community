@@ -26,7 +26,6 @@ pnpm local:up:lapis-relay
 The services are:
 
 - rendered registry: <http://localhost:4321/>
-- registry console: <http://localhost:4173/>
 - fixture status: <http://127.0.0.1:8090/status.json>
 - Lapis relay and media endpoint: `ws://registry.localhost:8281`
 
@@ -61,7 +60,7 @@ At startup the fixture service:
 7. serves only fixture artifacts, the catalog seed, and a status document after
    relay verification succeeds.
 
-The console and public registry read Buzz directly. Browser writes are signed
+The public registry reads Buzz directly. Browser writes are signed
 by a NIP-07 signer and authenticate to Buzz with NIP-42. Release authority is a
 client/materializer concern: a release is effective only when its publisher is
 trusted for the plugin and its latest decision is a supported reaction signed

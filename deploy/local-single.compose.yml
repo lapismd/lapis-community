@@ -33,7 +33,7 @@ services:
       BUZZ_S3_BUCKET: buzz-media
       BUZZ_MEDIA_BASE_URL: http://registry.localhost:${LAPIS_RELAY_PORT:-8281}/media
       BUZZ_MEDIA_SERVER_DOMAIN: registry.localhost:${LAPIS_RELAY_PORT:-8281}
-      BUZZ_CORS_ORIGINS: http://localhost:${REGISTRY_SITE_PORT:-4321},http://localhost:${REGISTRY_CONSOLE_PORT:-4173}
+      BUZZ_CORS_ORIGINS: http://localhost:${REGISTRY_SITE_PORT:-4321}
       RUST_LOG: ${RUST_LOG:-buzz_relay=info,buzz_db=info,buzz_auth=info}
     ports:
       - "${LAPIS_RELAY_PORT:-8281}:3000"
@@ -116,13 +116,6 @@ services:
       - registry.localhost:host-gateway
     depends_on:
       registry-relay: { condition: service_healthy }
-
-  registry-console:
-    environment:
-      REGISTRY_BUZZ_RELAYS: ws://registry.localhost:${LAPIS_RELAY_PORT:-8281}
-      REGISTRY_CATALOG_URL: http://127.0.0.1:${REGISTRY_FIXTURE_PORT:-8090}/catalog.json
-    depends_on:
-      registry-fixture: { condition: service_healthy }
 
   registry-materializer:
     environment:

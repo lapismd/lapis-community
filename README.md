@@ -13,8 +13,6 @@ can be proven before any cutover.
   Buzz event materialization.
 - `@lapismd/registry-auth`: Nostr signer interfaces; identity bridges are
   deferred.
-- `apps/registry-console`: browser-side relay reader, publisher, and
-  curator/admin console.
 - `apps/registry-community`: Design Core custom element for NIP-07/NIP-42 Buzz
   forums, replies, reactions, and paged community reads.
 - `scripts/materialize-buzz.ts`: deterministic static V1 output built from
@@ -62,14 +60,14 @@ the active registry.
 
 Run `pnpm local:up` for the fast loop: one stock Buzz relay, generated events from
 every complete plugin in the sibling `lapis-plugins` checkout, fixture
-artifacts, the direct-relay console, a verified Nostr projection, and the
+artifacts, a verified Nostr projection, and the
 rendered public registry. The retired multi-relay custom-kind profile is not in
 the active developer path. Open the
-rendered registry at <http://localhost:4321/> or the operator console at
-<http://localhost:4173/> after Compose reports the services healthy.
+rendered registry at <http://localhost:4321/> after Compose reports the services
+healthy.
 
 Run `pnpm local:up:lapis-relay` to build the sibling `nostr-relay` source and
-run the same fixture, materializer, console, and rendered site against it. The
+run the same fixture, materializer, and rendered site against it. The
 cold acceptance command is `pnpm smoke:lapis-relay`; it verifies admin-only
 group creation as well as retained registry and forum events.
 

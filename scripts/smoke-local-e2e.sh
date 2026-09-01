@@ -15,9 +15,8 @@ port_base=$((24000 + ($$ % 20000)))
 
 export COMPOSE_PROJECT_NAME=${project_name}
 export REGISTRY_FIXTURE_PORT=${REGISTRY_FIXTURE_PORT:-${port_base}}
-export REGISTRY_CONSOLE_PORT=${REGISTRY_CONSOLE_PORT:-$((port_base + 1))}
-export LAPIS_RELAY_PORT=${LAPIS_RELAY_PORT:-$((port_base + 2))}
-export REGISTRY_SITE_PORT=${REGISTRY_SITE_PORT:-$((port_base + 3))}
+export LAPIS_RELAY_PORT=${LAPIS_RELAY_PORT:-$((port_base + 1))}
+export REGISTRY_SITE_PORT=${REGISTRY_SITE_PORT:-$((port_base + 2))}
 export REGISTRY_FIXTURE_LONG_THREAD_POSTS=${REGISTRY_FIXTURE_LONG_THREAD_POSTS:-240}
 expected_community_events=$((REGISTRY_FIXTURE_LONG_THREAD_POSTS + ((REGISTRY_FIXTURE_LONG_THREAD_POSTS + 1) / 3) + 31))
 expected_relay_copies=$((expected_community_events + 24))
@@ -66,7 +65,7 @@ wait_for_health() {
   return 1
 }
 
-for service in registry-relay registry-fixture registry-console registry-site; do
+for service in registry-relay registry-fixture registry-site; do
   wait_for_health "${service}"
 done
 
@@ -83,7 +82,6 @@ else
 fi
 
 fixture_base="http://127.0.0.1:${REGISTRY_FIXTURE_PORT}/"
-console_base="http://127.0.0.1:${REGISTRY_CONSOLE_PORT}/"
 site_base="http://127.0.0.1:${REGISTRY_SITE_PORT}/"
 /usr/bin/curl -fsS "${fixture_base}status.json" >"${smoke_tmp}/status.json"
 jq -e \
@@ -98,24 +96,6 @@ jq -e \
   (.groupIds | length) == 16 and
   (.groupIds["support-ai"] | test("^[0-9a-f-]{36}$"))
 ' "${smoke_tmp}/status.json" >/dev/null
-
-/usr/bin/curl -fsS "${console_base}" >"${smoke_tmp}/console.html"
-/usr/bin/curl -fsS "${console_base}config.json" >"${smoke_tmp}/config.json"
-/usr/bin/curl -fsS "${console_base}assets/main.js" >"${smoke_tmp}/console.js"
-jq -e '
-  .backend == "nostr-buzz" and
-  (.buzzRelays | length) == 1 and
-  (.curatorPubkeys | length) == 1 and
-  (.publisherPubkeys | length) == 1 and
-  (has("apiBase") | not) and
-  (has("database") | not) and
-  (has("publishQuorum") | not)
-' "${smoke_tmp}/config.json" >/dev/null
-rg -q 'Buzz' "${smoke_tmp}/console.html"
-if rg -q 'nostr-relay-quorum|NIP-98|/events|DATABASE_URL' "${smoke_tmp}/console.js"; then
-  echo "Console bundle still contains a retired submission path" >&2
-  exit 1
-fi
 
 /usr/bin/curl -fsS "${site_base}v1/index.json" >"${smoke_tmp}/site-index.json"
 /usr/bin/curl -fsS "${site_base}v1/runtime.json" >"${smoke_tmp}/site-runtime.json"

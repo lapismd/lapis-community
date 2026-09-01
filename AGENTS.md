@@ -2,7 +2,7 @@
 
 This repository owns the Nostr protocol, deterministic registry materializer,
 relay client, registry identity/authentication services, curation workflow, V1
-projection tooling, and preview console. It does not own plugin artifacts, the
+projection tooling, and community browser component. It does not own plugin artifacts, the
 legacy registry site, the Lapis installer, or relay image assembly.
 
 - Keep Nostr kind numbers injected through `RegistryKindMap` until the kind ADR

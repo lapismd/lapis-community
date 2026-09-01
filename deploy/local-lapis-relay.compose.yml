@@ -65,13 +65,6 @@ services:
     depends_on:
       registry-relay: { condition: service_healthy }
 
-  registry-console:
-    environment:
-      REGISTRY_BUZZ_RELAYS: ws://registry.localhost:${LAPIS_RELAY_PORT:-8281}
-      REGISTRY_CATALOG_URL: http://127.0.0.1:${REGISTRY_FIXTURE_PORT:-8090}/catalog.json
-    depends_on:
-      registry-fixture: { condition: service_healthy }
-
   registry-materializer:
     environment:
       REGISTRY_BUZZ_RELAYS: ws://registry.localhost:${LAPIS_RELAY_PORT:-8281}

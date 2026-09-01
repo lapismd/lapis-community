@@ -14,8 +14,8 @@ plugin rows from competing backends.
 Use two Grain policy classes from the same pinned image: locked official relays
 and a separate open, rate-limited community relay. Official publication succeeds
 after acknowledgements from two of three configured relays. Portable services
-use containers and Postgres. The preview console may be deployed as static Pages
-assets, but Cloudflare-specific storage is not authoritative registry state.
+use containers and Postgres. Browser-side registry features may be deployed as
+static assets, but Cloudflare-specific storage is not authoritative registry state.
 
 ## Consequences
 
