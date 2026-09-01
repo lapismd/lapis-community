@@ -18,6 +18,11 @@ services:
       BUZZ_ALLOW_NIP_OA_AUTH: "true"
       BUZZ_PUBKEY_ALLOWLIST: "false"
       BUZZ_AUTO_MIGRATE: "true"
+      # Local fixture imports are intentionally bursty. Keep Buzz's stock rate
+      # limiter enabled, but give the deterministic 240/2,000-post seed enough
+      # headroom to complete without changing the production configuration.
+      BUZZ_RATE_LIMIT_HUMAN_MESSAGES_PER_MIN: ${BUZZ_RATE_LIMIT_HUMAN_MESSAGES_PER_MIN:-5000}
+      BUZZ_RATE_LIMIT_HUMAN_WS_EVENTS_PER_SEC: ${BUZZ_RATE_LIMIT_HUMAN_WS_EVENTS_PER_SEC:-500}
       BUZZ_GIT_CONFORMANCE_PROBE: "true"
       BUZZ_GIT_HOOK_HMAC_SECRET: ${BUZZ_GIT_HOOK_HMAC_SECRET:-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa}
       BUZZ_GIT_REPO_PATH: /data/git

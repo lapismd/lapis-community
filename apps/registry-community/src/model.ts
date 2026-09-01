@@ -252,28 +252,6 @@ export function timelineIndexFromPosition(
   return Math.round((handleStart / availableLength) * (total - 1));
 }
 
-export function commentPageWindow(
-  total: number,
-  targetIndex: number,
-  pageSize: number,
-): CommentPageWindow {
-  const safeTotal = Math.max(0, Math.floor(total));
-  const safePageSize = Math.max(1, Math.floor(pageSize));
-  if (safeTotal === 0) {
-    return { startIndex: 0, endIndex: 0, targetIndex: 0 };
-  }
-  const safeTarget = Math.max(
-    0,
-    Math.min(Math.floor(targetIndex), safeTotal - 1),
-  );
-  const startIndex = Math.floor(safeTarget / safePageSize) * safePageSize;
-  return {
-    startIndex,
-    endIndex: Math.min(startIndex + safePageSize, safeTotal),
-    targetIndex: safeTarget,
-  };
-}
-
 export async function seekTimestampForCount(
   targetCount: number,
   latestTimestamp: number,
@@ -349,12 +327,6 @@ export interface ReactionGroup {
   content: string;
   symbol: string;
   count: number;
-}
-
-export interface CommentPageWindow {
-  startIndex: number;
-  endIndex: number;
-  targetIndex: number;
 }
 
 export interface CountTimestamp {

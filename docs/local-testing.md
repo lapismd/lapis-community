@@ -53,7 +53,8 @@ At startup the fixture service:
    release submission to `plugin-releases`;
 4. publishes a kind `7` curator approval reaction from the configured trusted
    curator key;
-5. publishes three forum topics, including a 48-reply thread, plus reactions;
+5. publishes three forum topics, including a deterministic 240-post thread,
+   plus reactions;
 6. queries every event back from Buzz and verifies the complete plugin graph;
 7. serves only fixture artifacts, the catalog seed, and a status document after
    relay verification succeeds.
@@ -87,8 +88,15 @@ bundle. It is a disposable read model and can be rebuilt from Buzz at any time.
 
 Override sibling discovery with absolute `LAPIS_PLUGINS_PATH` or
 `PLUGIN_REGISTRY_PATH` paths. Set `REGISTRY_FIXTURE_PLUGIN_LIMIT` to a positive
-number for a smaller deliberate fixture. Host ports and pinned image references
-are in `deploy/.env.example`.
+number for a smaller deliberate fixture. Set
+`REGISTRY_FIXTURE_LONG_THREAD_POSTS` to change the primary discussion length;
+`pnpm smoke:long-thread` runs the cold stack with 2,000 posts. Host ports and
+pinned image references are in `deploy/.env.example`.
+
+The local relay keeps Buzz's rate limiter enabled with higher local-only
+ceilings so a deterministic bulk fixture can be imported in one run. Those
+overrides live only in `deploy/local-single.compose.yml`; production keeps
+Buzz's deployment defaults unless an operator configures them independently.
 
 Local Nostr secrets are generated under ignored `.local/registry-fixture` with
 owner-only permissions. Only public keys and the secret-file path enter the

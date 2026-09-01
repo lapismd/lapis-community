@@ -31,10 +31,7 @@
 
   import {
     anyRelayPublished,
-    avatarHue,
-    commentPageWindow,
     displayName,
-    initials,
     latestReactionByAuthor,
     materializeBuzzForum,
     materializeBuzzReactions,
@@ -42,13 +39,23 @@
     parseRelayUrls,
     reactionGroups,
     seekTimestampForCount,
-    timelineIndexFromPosition,
-    timelinePosition,
     timelineTimestamp,
     type CommunityProfile,
     type ForumPost,
     type ForumReaction,
   } from "./model.js";
+  import DiscussionPostStream from "./DiscussionPostStream.svelte";
+  import DiscussionTimeline from "./DiscussionTimeline.svelte";
+  import {
+    DiscussionPaginationError,
+    adjacentDiscussionWindow,
+    centeredDiscussionWindow,
+    initialDiscussionWindow,
+    mergeDiscussionPosts,
+    sliceBoundaryWindow,
+    type DiscussionLoadDirection,
+    type DiscussionWindowRange,
+  } from "./discussion-stream.js";
 
   let {
     plugin = "",
@@ -75,9 +82,7 @@
   let comment = $state("");
   let replyingTo = $state("");
   let activePostId = $state("");
-  let timelinePreviewIndex = $state<number | undefined>();
   let timelineReturnIndex = $state<number | undefined>();
-  let timelineDragging = $state(false);
   let commentTotal = $state(0);
   let pageStartIndex = $state(0);
   let pageEndIndex = $state(0);
@@ -85,16 +90,20 @@
   let threadFirstTimestamp = $state(0);
   let threadLastTimestamp = $state(0);
   let loading = $state(true);
+  let loadingPrevious = $state(false);
+  let loadingNext = $state(false);
+  let loadingJump = $state(false);
+  let previousError = $state("");
+  let nextError = $state("");
   let publishing = $state(false);
   let message = $state("");
   let error = $state("");
   let composerElement: HTMLDivElement | undefined;
-  let timelineElement = $state<HTMLDivElement | undefined>();
-  let timelineHandleElement = $state<HTMLDivElement | undefined>();
-  let timelinePointerId: number | undefined;
-  let timelineDragOffset = 0;
+  let scrollTargetPostId = $state("");
+  let scrollRevision = $state(0);
   let loadSequence = 0;
-  let observer: IntersectionObserver | undefined;
+  let streamGeneration = 0;
+  let jumpController: AbortController | undefined;
 
   const clients = new Map<string, WebSocketRegistryRelay>();
   const readSecretKey = generateSecretKey();
@@ -103,9 +112,8 @@
     getPublicKey: async () => readPubkey,
     signEvent: async (template) => finalizeEvent(template, readSecretKey),
   };
-  const postElements = new Map<string, HTMLElement>();
   const commentPageSize = 20;
-  const commentQueryLimit = 100;
+  const boundaryBucketLimit = 1_000;
   const parentContextLimit = 80;
   const parentContextDepth = 12;
 
@@ -146,21 +154,20 @@
   const activeGlobalPostIndex = $derived(
     commentTotal === 0 ? 0 : pageStartIndex + activePostIndex,
   );
-  const timelineDisplayIndex = $derived(
-    timelinePreviewIndex ?? activeGlobalPostIndex,
-  );
-  const timelineDisplayTimestamp = $derived.by(() => {
-    const localIndex = timelineDisplayIndex - pageStartIndex;
+  const activePostTimestamp = $derived.by(() => {
+    const localIndex = activeGlobalPostIndex - pageStartIndex;
     return (
       reviews[localIndex]?.event.created_at ??
       timelineTimestamp(
-        timelineDisplayIndex,
+        activeGlobalPostIndex,
         commentTotal,
         threadFirstTimestamp,
         threadLastTimestamp,
       )
     );
   });
+  const hasPrevious = $derived(pageStartIndex > 0);
+  const hasNext = $derived(pageEndIndex < commentTotal);
   const displayedPostStart = $derived(
     reviews.length === 0 ? 0 : pageStartIndex + 1,
   );
@@ -186,14 +193,17 @@
 
   async function queryAll(
     filter: Parameters<WebSocketRegistryRelay["query"]>[0],
+    signal?: AbortSignal,
   ): Promise<{ events: NostrEvent[]; availableRelays: number }> {
+    signal?.throwIfAborted();
     const results = await Promise.allSettled(
       relayUrls.map(async (url) => {
         const client = relay(url);
-        await authenticateRegistryRelay(client, signer ?? readSigner);
-        return await client.query(filter);
+        await authenticateRegistryRelay(client, signer ?? readSigner, signal);
+        return await client.query(filter, signal);
       }),
     );
+    signal?.throwIfAborted();
     const successful = results.filter(
       (result): result is PromiseFulfilledResult<NostrEvent[]> =>
         result.status === "fulfilled",
@@ -211,14 +221,17 @@
 
   async function countAll(
     filter: Parameters<WebSocketRegistryRelay["count"]>[0],
+    signal?: AbortSignal,
   ): Promise<{ count: number; availableRelays: number }> {
+    signal?.throwIfAborted();
     const results = await Promise.allSettled(
       relayUrls.map(async (url) => {
         const client = relay(url);
-        await authenticateRegistryRelay(client, signer ?? readSigner);
-        return await client.count(filter);
+        await authenticateRegistryRelay(client, signer ?? readSigner, signal);
+        return await client.count(filter, signal);
       }),
     );
+    signal?.throwIfAborted();
     const counts = results
       .filter(
         (result): result is PromiseFulfilledResult<number> =>
@@ -245,6 +258,7 @@
 
   async function loadParentContext(
     pageEvents: readonly NostrEvent[],
+    signal?: AbortSignal,
   ): Promise<NostrEvent[]> {
     const context = new Map(
       pageEvents.map((event) => [event.id, event] as const),
@@ -258,12 +272,18 @@
       depth += 1
     ) {
       const remaining = pageEvents.length + parentContextLimit - context.size;
-      const result = await queryAll({
-        kinds: [BUZZ_REGISTRY_KINDS.forumRoot, BUZZ_REGISTRY_KINDS.forumReply],
-        ids: frontier.slice(0, remaining),
-        "#h": [supportGroupId],
-        limit: Math.min(frontier.length, remaining),
-      });
+      const result = await queryAll(
+        {
+          kinds: [
+            BUZZ_REGISTRY_KINDS.forumRoot,
+            BUZZ_REGISTRY_KINDS.forumReply,
+          ],
+          ids: frontier.slice(0, remaining),
+          "#h": [supportGroupId],
+          limit: Math.min(frontier.length, remaining),
+        },
+        signal,
+      );
       const added = result.events.filter((event) => !context.has(event.id));
       for (const event of added) context.set(event.id, event);
       frontier = parentIds(added).filter((id) => !context.has(id));
@@ -271,7 +291,7 @@
     return [...context.values()];
   }
 
-  async function loadCommentPage(targetIndex: number): Promise<{
+  interface LoadedCommentWindow {
     events: NostrEvent[];
     visibleIds: ReadonlySet<string>;
     total: number;
@@ -281,14 +301,27 @@
     firstTimestamp: number;
     lastTimestamp: number;
     availableRelays: number;
-  }> {
+  }
+
+  interface HydratedCommentWindow {
+    posts: ForumPost[];
+    reactions: ForumReaction[];
+    profiles: CommunityProfile[];
+  }
+
+  async function loadCommentWindow(
+    targetIndex: number,
+    direction: DiscussionLoadDirection,
+    currentRange: DiscussionWindowRange,
+    signal?: AbortSignal,
+  ): Promise<LoadedCommentWindow> {
     const baseFilter = {
       kinds: [BUZZ_REGISTRY_KINDS.forumRoot, BUZZ_REGISTRY_KINDS.forumReply],
       "#h": [supportGroupId],
     };
     const [countResult, latestResult] = await Promise.all([
-      countAll(baseFilter),
-      queryAll({ ...baseFilter, limit: 1 }),
+      countAll(baseFilter, signal),
+      queryAll({ ...baseFilter, limit: 1 }, signal),
     ]);
     if (countResult.availableRelays === 0) {
       throw new Error("The community relay must support NIP-45 event counts.");
@@ -311,11 +344,36 @@
       };
     }
 
-    const page = commentPageWindow(
-      countResult.count,
-      targetIndex,
-      commentPageSize,
-    );
+    const page =
+      direction === "replace"
+        ? pageEndIndex === 0 && targetIndex <= 0
+          ? initialDiscussionWindow(countResult.count, commentPageSize)
+          : centeredDiscussionWindow(
+              countResult.count,
+              targetIndex,
+              commentPageSize,
+            )
+        : adjacentDiscussionWindow(
+            countResult.count,
+            currentRange.startIndex,
+            currentRange.endIndex,
+            direction,
+            commentPageSize,
+          );
+    if (page.startIndex === page.endIndex) {
+      return {
+        events: [],
+        visibleIds: new Set(),
+        total: countResult.count,
+        ...page,
+        firstTimestamp: threadFirstTimestamp,
+        lastTimestamp: latestEvent.created_at,
+        availableRelays: Math.max(
+          countResult.availableRelays,
+          latestResult.availableRelays,
+        ),
+      };
+    }
     const countCache = new Map<number, number>([
       [latestEvent.created_at, countResult.count],
     ]);
@@ -326,7 +384,7 @@
       async (until) => {
         const cached = countCache.get(until);
         if (cached !== undefined) return cached;
-        const result = await countAll({ ...baseFilter, until });
+        const result = await countAll({ ...baseFilter, until }, signal);
         if (result.availableRelays === 0) {
           throw new Error(
             "The community relay stopped responding to NIP-45 counts.",
@@ -336,164 +394,446 @@
         return result.count;
       },
     );
-    const commentResult = await queryAll({
-      ...baseFilter,
-      until: boundary.timestamp,
-      limit: commentQueryLimit,
-    });
-    if (commentResult.availableRelays === 0) {
+    const countBeforeBoundary =
+      boundary.timestamp <= 0
+        ? { count: 0, availableRelays: countResult.availableRelays }
+        : await countAll(
+            { ...baseFilter, until: boundary.timestamp - 1 },
+            signal,
+          );
+    const expectedBoundaryCount = boundary.count - countBeforeBoundary.count;
+    if (
+      expectedBoundaryCount <= 0 ||
+      expectedBoundaryCount > boundaryBucketLimit
+    ) {
+      throw new DiscussionPaginationError(
+        expectedBoundaryCount > boundaryBucketLimit
+          ? `More than ${boundaryBucketLimit} posts share one relay timestamp. Narrow pagination cannot be proven safely.`
+          : "The relay count index changed while the discussion window was loading. Retry the request.",
+      );
+    }
+    const boundaryResult = await queryAll(
+      {
+        ...baseFilter,
+        since: boundary.timestamp,
+        until: boundary.timestamp,
+        limit: expectedBoundaryCount,
+      },
+      signal,
+    );
+    if (boundaryResult.availableRelays === 0) {
       throw new Error("The community relay is unavailable. Try again shortly.");
     }
-    const candidates = commentResult.events.toSorted(compareEvents);
-    const candidateStart = Math.max(0, boundary.count - candidates.length);
-    const sliceStart = page.startIndex - candidateStart;
-    const sliceEnd = page.endIndex - candidateStart;
-    const exactWindow = sliceStart >= 0 && sliceEnd <= candidates.length;
-    const pageEvents = exactWindow
-      ? candidates.slice(sliceStart, sliceEnd)
-      : candidates.slice(-Math.min(commentPageSize, candidates.length));
-    const actualStartIndex = exactWindow
-      ? page.startIndex
-      : Math.max(0, boundary.count - pageEvents.length);
-    const events = await loadParentContext(pageEvents);
-    const firstTimestamp =
-      actualStartIndex === 0
+    const olderNeeded = Math.max(
+      0,
+      countBeforeBoundary.count - page.startIndex,
+    );
+    const olderResult =
+      olderNeeded === 0
+        ? { events: [], availableRelays: boundaryResult.availableRelays }
+        : await queryAll(
+            {
+              ...baseFilter,
+              until: boundary.timestamp - 1,
+              limit: olderNeeded,
+            },
+            signal,
+          );
+    const olderEvents = olderResult.events
+      .toSorted(compareEvents)
+      .slice(-olderNeeded);
+    const pageEvents = sliceBoundaryWindow({
+      olderEvents,
+      boundaryEvents: boundaryResult.events,
+      countBeforeBoundary: countBeforeBoundary.count,
+      expectedBoundaryCount,
+      range: page,
+      eventId: (event) => event.id,
+      compare: compareEvents,
+    });
+    if (pageEvents.length !== page.endIndex - page.startIndex) {
+      throw new DiscussionPaginationError(
+        "The relay returned an incomplete discussion window. Retry the request.",
+      );
+    }
+    const events = await loadParentContext(pageEvents, signal);
+    let firstTimestamp =
+      page.startIndex === 0
         ? (pageEvents[0]?.created_at ?? threadFirstTimestamp)
         : threadFirstTimestamp;
+    if (firstTimestamp === 0) {
+      const firstBoundary = await seekTimestampForCount(
+        1,
+        latestEvent.created_at,
+        countResult.count,
+        async (until) => {
+          const cached = countCache.get(until);
+          if (cached !== undefined) return cached;
+          const result = await countAll({ ...baseFilter, until }, signal);
+          if (result.availableRelays === 0) {
+            throw new Error(
+              "The community relay stopped responding to NIP-45 counts.",
+            );
+          }
+          countCache.set(until, result.count);
+          return result.count;
+        },
+      );
+      firstTimestamp = firstBoundary.timestamp;
+    }
 
     return {
       events,
       visibleIds: new Set(pageEvents.map((event) => event.id)),
       total: countResult.count,
-      startIndex: actualStartIndex,
-      endIndex: actualStartIndex + pageEvents.length,
-      targetIndex: page.targetIndex,
+      ...page,
       firstTimestamp,
       lastTimestamp: latestEvent.created_at,
       availableRelays: Math.max(
         countResult.availableRelays,
-        commentResult.availableRelays,
+        boundaryResult.availableRelays,
+        olderResult.availableRelays,
       ),
     };
+  }
+
+  async function hydrateCommentWindow(
+    window: LoadedCommentWindow,
+    signal?: AbortSignal,
+  ): Promise<HydratedCommentWindow> {
+    const visiblePostIds = [...window.visibleIds];
+    const reactionEvents =
+      visiblePostIds.length === 0
+        ? []
+        : (
+            await queryAll(
+              {
+                kinds: [BUZZ_REGISTRY_KINDS.reaction],
+                "#e": visiblePostIds,
+                limit: Math.min(5_000, visiblePostIds.length * 25),
+              },
+              signal,
+            )
+          ).events;
+    const posts = materializeBuzzForum(window.events, supportGroupId);
+    const nextReactions = materializeBuzzReactions(
+      reactionEvents,
+      window.visibleIds,
+    );
+    const authors = [
+      ...new Set([
+        ...posts.map((post) => post.event.pubkey),
+        ...nextReactions.map((reaction) => reaction.event.pubkey),
+      ]),
+    ].filter((author) => !profiles.has(author));
+    const profileEvents =
+      authors.length === 0
+        ? []
+        : (
+            await queryAll(
+              { kinds: [0], authors, limit: authors.length },
+              signal,
+            )
+          ).events;
+    return {
+      posts,
+      reactions: nextReactions,
+      profiles: parseProfiles(profileEvents),
+    };
+  }
+
+  async function loadPluginCommunity(signal?: AbortSignal): Promise<{
+    release: NostrEvent | undefined;
+    reactions: ForumReaction[];
+    profiles: CommunityProfile[];
+  }> {
+    const releaseResult = await queryAll(
+      {
+        kinds: [BUZZ_REGISTRY_KINDS.streamMessage],
+        "#h": [releaseGroupId],
+        "#t": [`plugin:${plugin}`],
+        ...(publisher === "" ? {} : { authors: [publisher] }),
+        limit: 100,
+      },
+      signal,
+    );
+    const release = releaseResult.events.toSorted(compareEvents).at(-1);
+    if (release === undefined) return { release, reactions: [], profiles: [] };
+    const reactionEvents = (
+      await queryAll(
+        {
+          kinds: [BUZZ_REGISTRY_KINDS.reaction],
+          "#e": [release.id],
+          limit: 250,
+        },
+        signal,
+      )
+    ).events;
+    const nextReactions = materializeBuzzReactions(
+      reactionEvents,
+      new Set([release.id]),
+    ).filter((reaction) => !["✅", "❌", "🚫"].includes(reaction.content));
+    const authors = [
+      ...new Set([
+        release.pubkey,
+        ...nextReactions.map((reaction) => reaction.event.pubkey),
+      ]),
+    ].filter((author) => !profiles.has(author));
+    const profileEvents =
+      authors.length === 0
+        ? []
+        : (
+            await queryAll(
+              { kinds: [0], authors, limit: authors.length },
+              signal,
+            )
+          ).events;
+    return {
+      release,
+      reactions: nextReactions,
+      profiles: parseProfiles(profileEvents),
+    };
+  }
+
+  function mergeProfiles(nextProfiles: readonly CommunityProfile[]): void {
+    profiles = new Map([
+      ...profiles,
+      ...nextProfiles.map((profile) => [profile.pubkey, profile] as const),
+    ]);
+  }
+
+  function mergeReactions(
+    current: readonly ForumReaction[],
+    incoming: readonly ForumReaction[],
+  ): ForumReaction[] {
+    return mergeDiscussionPosts(
+      current,
+      incoming,
+      (reaction) => reaction.event.id,
+      (left, right) => compareEvents(left.event, right.event),
+    );
+  }
+
+  function applyCommentWindow(
+    window: LoadedCommentWindow,
+    hydrated: HydratedCommentWindow,
+    direction: DiscussionLoadDirection,
+    targetEventId = "",
+  ): void {
+    const incomingVisible = hydrated.posts.filter((post) =>
+      window.visibleIds.has(post.event.id),
+    );
+    allReviews =
+      direction === "replace"
+        ? hydrated.posts
+        : mergeDiscussionPosts(
+            allReviews,
+            hydrated.posts,
+            (post) => post.event.id,
+            (left, right) => compareEvents(left.event, right.event),
+          );
+    visibleReviewIds =
+      direction === "replace"
+        ? window.visibleIds
+        : new Set([...visibleReviewIds, ...window.visibleIds]);
+    reactions = mergeReactions(reactions, hydrated.reactions);
+    mergeProfiles(hydrated.profiles);
+    commentTotal = window.total;
+    if (direction === "replace") {
+      pageStartIndex = window.startIndex;
+      pageEndIndex = window.endIndex;
+    } else if (direction === "prepend") {
+      pageStartIndex = window.startIndex;
+    } else {
+      pageEndIndex = window.endIndex;
+    }
+    threadFirstTimestamp = window.firstTimestamp;
+    threadLastTimestamp = window.lastTimestamp;
+
+    if (direction === "replace") {
+      const targetLocalIndex = Math.max(
+        0,
+        Math.min(
+          window.targetIndex - window.startIndex,
+          incomingVisible.length - 1,
+        ),
+      );
+      activePostId =
+        incomingVisible.find((post) => post.event.id === targetEventId)?.event
+          .id ??
+        incomingVisible[targetLocalIndex]?.event.id ??
+        incomingVisible[0]?.event.id ??
+        "";
+    }
+  }
+
+  function requestPostScroll(eventId: string): void {
+    activePostId = eventId;
+    scrollTargetPostId = eventId;
+    scrollRevision += 1;
+  }
+
+  function isAbort(cause: unknown): boolean {
+    return (
+      (cause instanceof DOMException && cause.name === "AbortError") ||
+      (cause instanceof Error && cause.name === "AbortError")
+    );
   }
 
   async function refresh(
     targetIndex = activeGlobalPostIndex,
     targetEventId = "",
-  ): Promise<void> {
+  ): Promise<boolean> {
     const sequence = ++loadSequence;
-    loading = true;
+    const generation = ++streamGeneration;
+    jumpController?.abort();
+    const controller = new AbortController();
+    jumpController = controller;
+    const initialLoad = reviews.length === 0;
+    loading = initialLoad;
+    loadingJump = !initialLoad;
     error = "";
+    previousError = "";
+    nextError = "";
     if (relayUrls.length === 0) {
       loading = false;
+      loadingJump = false;
       error = "No community relays are configured.";
-      return;
+      return false;
     }
     try {
-      const [releaseResult, commentPage] = await Promise.all([
-        queryAll({
-          kinds: [BUZZ_REGISTRY_KINDS.streamMessage],
-          "#h": [releaseGroupId],
-          "#t": [`plugin:${plugin}`],
-          ...(publisher === "" ? {} : { authors: [publisher] }),
-          limit: 100,
-        }),
-        loadCommentPage(targetIndex),
-      ]);
-      if (sequence !== loadSequence) return;
-      const nextRelease = releaseResult.events.toSorted(compareEvents).at(-1);
-      const visiblePostIds = [...commentPage.visibleIds];
-      const reactionTargets = [
-        ...visiblePostIds,
-        ...(nextRelease === undefined ? [] : [nextRelease.id]),
-      ];
-      const reactionEvents =
-        reactionTargets.length === 0
-          ? []
-          : (
-              await queryAll({
-                kinds: [BUZZ_REGISTRY_KINDS.reaction],
-                "#e": reactionTargets,
-                limit: Math.min(1_000, reactionTargets.length * 25),
-              })
-            ).events;
-      if (sequence !== loadSequence) return;
-      const nextReviews = materializeBuzzForum(
-        commentPage.events,
-        supportGroupId,
-      );
-      const nextReactions = materializeBuzzReactions(
-        reactionEvents,
-        new Set(visiblePostIds),
-      );
-      const nextPluginReactions =
-        nextRelease === undefined
-          ? []
-          : materializeBuzzReactions(
-              reactionEvents,
-              new Set([nextRelease.id]),
-            ).filter(
-              (reaction) => !["✅", "❌", "🚫"].includes(reaction.content),
-            );
-      const authors = [
-        ...new Set([
-          ...nextReviews.map((review) => review.event.pubkey),
-          ...nextReactions.map((reaction) => reaction.event.pubkey),
-          ...nextPluginReactions.map((reaction) => reaction.event.pubkey),
-        ]),
-      ];
-      const profileEvents =
-        authors.length === 0
-          ? []
-          : (
-              await queryAll({
-                kinds: [0],
-                authors,
-                limit: authors.length,
-              })
-            ).events;
-      if (sequence !== loadSequence) return;
-
-      allReviews = nextReviews;
-      reactions = nextReactions;
-      pluginRelease = nextRelease;
-      pluginReactions = nextPluginReactions;
-      visibleReviewIds = commentPage.visibleIds;
-      commentTotal = commentPage.total;
-      pageStartIndex = commentPage.startIndex;
-      pageEndIndex = commentPage.endIndex;
-      threadFirstTimestamp = commentPage.firstTimestamp;
-      threadLastTimestamp = commentPage.lastTimestamp;
-      profiles = new Map(
-        parseProfiles(profileEvents).map((profile) => [
-          profile.pubkey,
-          profile,
-        ]),
-      );
-      const pageReviews = nextReviews.filter((review) =>
-        commentPage.visibleIds.has(review.event.id),
-      );
-      const targetLocalIndex = Math.max(
-        0,
-        Math.min(
-          commentPage.targetIndex - commentPage.startIndex,
-          pageReviews.length - 1,
+      const currentRange = {
+        startIndex: pageStartIndex,
+        endIndex: pageEndIndex,
+        targetIndex,
+      };
+      const [pluginCommunity, commentWindow] = await Promise.all([
+        loadPluginCommunity(controller.signal),
+        loadCommentWindow(
+          targetIndex,
+          "replace",
+          currentRange,
+          controller.signal,
         ),
+      ]);
+      const hydrated = await hydrateCommentWindow(
+        commentWindow,
+        controller.signal,
       );
-      activePostId =
-        pageReviews.find((review) => review.event.id === targetEventId)?.event
-          .id ??
-        pageReviews[targetLocalIndex]?.event.id ??
-        pageReviews[0]?.event.id ??
-        "";
+      if (sequence !== loadSequence || generation !== streamGeneration)
+        return false;
+      pluginRelease = pluginCommunity.release;
+      pluginReactions = mergeReactions(
+        pluginReactions,
+        pluginCommunity.reactions,
+      );
+      mergeProfiles(pluginCommunity.profiles);
+      applyCommentWindow(commentWindow, hydrated, "replace", targetEventId);
+      if (activePostId !== "") requestPostScroll(activePostId);
+      return true;
     } catch (cause) {
-      if (sequence !== loadSequence) return;
+      if (sequence !== loadSequence || isAbort(cause)) return false;
       error =
         cause instanceof Error
           ? cause.message
           : "The community relay is unavailable. Try again shortly.";
+      return false;
     } finally {
-      if (sequence === loadSequence) loading = false;
+      if (sequence === loadSequence) {
+        loading = false;
+        loadingJump = false;
+      }
+    }
+  }
+
+  async function loadAdjacent(
+    direction: "prepend" | "append",
+  ): Promise<boolean> {
+    if (
+      (direction === "prepend" && (loadingPrevious || !hasPrevious)) ||
+      (direction === "append" && (loadingNext || !hasNext))
+    ) {
+      return false;
+    }
+    const generation = streamGeneration;
+    const currentRange = {
+      startIndex: pageStartIndex,
+      endIndex: pageEndIndex,
+      targetIndex: activeGlobalPostIndex,
+    };
+    if (direction === "prepend") {
+      loadingPrevious = true;
+      previousError = "";
+    } else {
+      loadingNext = true;
+      nextError = "";
+    }
+    try {
+      const window = await loadCommentWindow(
+        activeGlobalPostIndex,
+        direction,
+        currentRange,
+      );
+      const hydrated = await hydrateCommentWindow(window);
+      if (generation !== streamGeneration) return false;
+      applyCommentWindow(window, hydrated, direction);
+      return window.visibleIds.size > 0;
+    } catch (cause) {
+      if (generation !== streamGeneration) return false;
+      const nextMessage =
+        cause instanceof Error
+          ? cause.message
+          : "The community relay is unavailable. Try again shortly.";
+      if (direction === "prepend") previousError = nextMessage;
+      else nextError = nextMessage;
+      return false;
+    } finally {
+      if (direction === "prepend") loadingPrevious = false;
+      else loadingNext = false;
+    }
+  }
+
+  async function refreshCurrentReactions(): Promise<void> {
+    const forumTargets = [...visibleReviewIds];
+    const allTargets = [
+      ...forumTargets,
+      ...(pluginRelease === undefined ? [] : [pluginRelease.id]),
+    ];
+    if (allTargets.length === 0) return;
+    const events = (
+      await queryAll({
+        kinds: [BUZZ_REGISTRY_KINDS.reaction],
+        "#e": allTargets,
+        limit: Math.min(5_000, allTargets.length * 25),
+      })
+    ).events;
+    const targetSet = new Set(allTargets);
+    const nextForumReactions = materializeBuzzReactions(
+      events,
+      new Set(forumTargets),
+    );
+    reactions = mergeReactions(
+      reactions.filter((reaction) => !targetSet.has(reaction.targetEventId)),
+      nextForumReactions,
+    );
+    pluginReactions =
+      pluginRelease === undefined
+        ? pluginReactions
+        : materializeBuzzReactions(events, new Set([pluginRelease.id])).filter(
+            (reaction) => !["✅", "❌", "🚫"].includes(reaction.content),
+          );
+    const authors = [
+      ...new Set(
+        [...nextForumReactions, ...pluginReactions].map(
+          (reaction) => reaction.event.pubkey,
+        ),
+      ),
+    ].filter((author) => !profiles.has(author));
+    if (authors.length > 0) {
+      const profileEvents = (
+        await queryAll({ kinds: [0], authors, limit: authors.length })
+      ).events;
+      mergeProfiles(parseProfiles(profileEvents));
     }
   }
 
@@ -574,7 +914,7 @@
       });
       await publish(event);
       message = "Plugin reaction published.";
-      await refresh();
+      await refreshCurrentReactions();
     } catch (cause) {
       error = cause instanceof Error ? cause.message : "Reaction failed.";
     } finally {
@@ -617,7 +957,7 @@
       comment = "";
       replyingTo = "";
       message = "Comment published.";
-      await refresh(Number.MAX_SAFE_INTEGER, event.id);
+      await refresh(await globalIndexForEvent(event), event.id);
     } catch (cause) {
       error = cause instanceof Error ? cause.message : "Comment failed.";
     } finally {
@@ -647,7 +987,7 @@
       });
       await publish(event);
       message = "Reaction published.";
-      await refresh();
+      await refreshCurrentReactions();
     } catch (cause) {
       error = cause instanceof Error ? cause.message : "Reaction failed.";
     } finally {
@@ -662,20 +1002,9 @@
     );
   }
 
-  function parentOf(review: ForumPost): ForumPost | undefined {
-    return allReviews.find((entry) => entry.event.id === review.parentEventId);
-  }
-
   function postNumber(eventId: string): number {
     const index = reviews.findIndex((review) => review.event.id === eventId);
     return index === -1 ? 0 : pageStartIndex + index + 1;
-  }
-
-  function postReference(review: ForumPost): string {
-    const number = postNumber(review.event.id);
-    return number === 0
-      ? formatShortDate(review.event.created_at)
-      : `#${number}`;
   }
 
   function shortKey(value: string): string {
@@ -684,25 +1013,8 @@
       : value;
   }
 
-  function formatDate(timestamp: number): string {
-    return new Intl.DateTimeFormat(undefined, {
-      dateStyle: "medium",
-      timeStyle: "short",
-    }).format(timestamp * 1_000);
-  }
-
-  function formatShortDate(timestamp: number): string {
-    return new Intl.DateTimeFormat(undefined, {
-      month: "short",
-      day: "numeric",
-    }).format(timestamp * 1_000);
-  }
-
-  function scrollToPost(eventId: string): void {
+  function handleCurrentPost(eventId: string): void {
     activePostId = eventId;
-    postElements
-      .get(eventId)
-      ?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
   async function navigateTimelineToIndex(
@@ -710,7 +1022,7 @@
     rememberOrigin = true,
     targetEventId = "",
   ): Promise<void> {
-    if (commentTotal === 0) return;
+    if (commentTotal === 0 || loadingJump) return;
     const targetIndex = Math.max(0, Math.min(index, commentTotal - 1));
     const localIndex = targetIndex - pageStartIndex;
     const localTarget = reviews[localIndex];
@@ -722,143 +1034,113 @@
       if (rememberOrigin && timelineReturnIndex === undefined) {
         timelineReturnIndex = activeGlobalPostIndex;
       }
-      timelinePreviewIndex = undefined;
-      scrollToPost(localTarget.event.id);
+      requestPostScroll(localTarget.event.id);
       return;
     }
     if (rememberOrigin && timelineReturnIndex === undefined) {
       timelineReturnIndex = activeGlobalPostIndex;
     }
-    timelinePreviewIndex = undefined;
     await refresh(targetIndex, targetEventId);
-    requestAnimationFrame(() => {
-      if (activePostId !== "") scrollToPost(activePostId);
+  }
+
+  async function globalIndexForEvent(event: NostrEvent): Promise<number> {
+    const baseFilter = {
+      kinds: [BUZZ_REGISTRY_KINDS.forumRoot, BUZZ_REGISTRY_KINDS.forumReply],
+      "#h": [supportGroupId],
+    };
+    const [before, through] = await Promise.all([
+      countAll({ ...baseFilter, until: event.created_at - 1 }),
+      countAll({ ...baseFilter, until: event.created_at }),
+    ]);
+    if (before.availableRelays === 0 || through.availableRelays === 0) {
+      throw new Error("The community relay is unavailable. Try again shortly.");
+    }
+    const bucketCount = through.count - before.count;
+    if (bucketCount <= 0 || bucketCount > boundaryBucketLimit) {
+      throw new DiscussionPaginationError(
+        "The post position cannot be proven from the relay timestamp index.",
+      );
+    }
+    const bucket = await queryAll({
+      ...baseFilter,
+      since: event.created_at,
+      until: event.created_at,
+      limit: bucketCount,
     });
+    const events = bucket.events.toSorted(compareEvents);
+    if (events.length !== bucketCount) {
+      throw new DiscussionPaginationError(
+        "The relay returned an incomplete same-second event bucket.",
+      );
+    }
+    const bucketIndex = events.findIndex(
+      (candidate) => candidate.id === event.id,
+    );
+    if (bucketIndex === -1) {
+      throw new Error("The linked post is no longer available from the relay.");
+    }
+    return before.count + bucketIndex;
   }
 
   async function navigateToReview(review: ForumPost): Promise<void> {
     if (visibleReviewIds.has(review.event.id)) {
-      scrollToPost(review.event.id);
+      requestPostScroll(review.event.id);
       return;
     }
-    const result = await countAll({
-      kinds: [BUZZ_REGISTRY_KINDS.forumRoot, BUZZ_REGISTRY_KINDS.forumReply],
-      "#h": [supportGroupId],
-      until: review.event.created_at,
-    });
-    if (result.availableRelays === 0) return;
-    await navigateTimelineToIndex(
-      Math.max(0, result.count - 1),
-      true,
-      review.event.id,
-    );
-  }
-
-  function timelineIndexForPointer(clientY: number): number {
-    const bounds = timelineElement?.getBoundingClientRect();
-    if (bounds === undefined) return activeGlobalPostIndex;
-    return timelineIndexFromPosition(
-      clientY - bounds.top - timelineDragOffset,
-      bounds.height,
-      commentTotal,
-      timelineHandleElement?.getBoundingClientRect().height ?? 50,
-    );
-  }
-
-  function startTimelineDrag(event: PointerEvent): void {
-    if (event.button !== 0 || commentTotal < 2 || loading) return;
-    const target = event.target;
-    if (target instanceof Element && target.closest(".history-back") !== null) {
-      return;
+    try {
+      await navigateTimelineToIndex(
+        await globalIndexForEvent(review.event),
+        true,
+        review.event.id,
+      );
+    } catch (cause) {
+      error =
+        cause instanceof Error ? cause.message : "Could not open the reply.";
     }
-    const handleBounds = timelineHandleElement?.getBoundingClientRect();
-    timelineDragOffset =
-      target instanceof Element &&
-      target.closest(".history-handle") !== null &&
-      handleBounds !== undefined
-        ? event.clientY - (handleBounds.top + handleBounds.height / 2)
-        : 0;
-    timelineDragging = true;
-    timelinePointerId = event.pointerId;
-    timelineElement?.setPointerCapture(event.pointerId);
-    timelinePreviewIndex = timelineIndexForPointer(event.clientY);
-    event.preventDefault();
   }
 
-  function moveTimelineDrag(event: PointerEvent): void {
-    if (!timelineDragging || event.pointerId !== timelinePointerId) return;
-    timelinePreviewIndex = timelineIndexForPointer(event.clientY);
-    event.preventDefault();
-  }
-
-  function finishTimelineDrag(event: PointerEvent): void {
-    if (!timelineDragging || event.pointerId !== timelinePointerId) return;
-    const targetIndex = timelineIndexForPointer(event.clientY);
-    timelineElement?.releasePointerCapture(event.pointerId);
-    timelineDragging = false;
-    timelinePointerId = undefined;
-    timelineDragOffset = 0;
-    timelinePreviewIndex = undefined;
-    void navigateTimelineToIndex(targetIndex);
-  }
-
-  function cancelTimelineDrag(event: PointerEvent): void {
-    if (event.pointerId !== timelinePointerId) return;
-    timelineDragging = false;
-    timelinePointerId = undefined;
-    timelineDragOffset = 0;
-    timelinePreviewIndex = undefined;
-  }
-
-  function handleTimelineKey(event: KeyboardEvent): void {
-    let targetIndex = activeGlobalPostIndex;
-    if (event.key === "ArrowUp" || event.key === "ArrowLeft") targetIndex -= 1;
-    else if (event.key === "ArrowDown" || event.key === "ArrowRight")
-      targetIndex += 1;
-    else if (event.key === "PageUp") targetIndex -= commentPageSize;
-    else if (event.key === "PageDown") targetIndex += commentPageSize;
-    else if (event.key === "Home") targetIndex = 0;
-    else if (event.key === "End") targetIndex = commentTotal - 1;
-    else return;
-    event.preventDefault();
-    void navigateTimelineToIndex(targetIndex);
-  }
-
-  function returnToTimelineOrigin(): void {
+  async function returnToTimelineOrigin(): Promise<void> {
     const target = timelineReturnIndex;
     timelineReturnIndex = undefined;
-    if (target !== undefined) void navigateTimelineToIndex(target, false);
+    if (target !== undefined) await navigateTimelineToIndex(target, false);
   }
 
-  function observePost(node: HTMLElement, eventId: string) {
-    postElements.set(eventId, node);
-    observer?.observe(node);
-    return {
-      destroy() {
-        observer?.unobserve(node);
-        postElements.delete(eventId);
-      },
-    };
+  async function initializeDiscussion(): Promise<void> {
+    const linkedEventId = window.location.hash.startsWith("#post-")
+      ? window.location.hash.slice("#post-".length)
+      : "";
+    if (/^[0-9a-f]{64}$/u.test(linkedEventId)) {
+      try {
+        const result = await queryAll({
+          kinds: [
+            BUZZ_REGISTRY_KINDS.forumRoot,
+            BUZZ_REGISTRY_KINDS.forumReply,
+          ],
+          ids: [linkedEventId],
+          "#h": [supportGroupId],
+          limit: 1,
+        });
+        const linkedEvent = result.events.find(
+          (event) => event.id === linkedEventId,
+        );
+        if (linkedEvent !== undefined) {
+          await refresh(await globalIndexForEvent(linkedEvent), linkedEvent.id);
+          return;
+        }
+      } catch (cause) {
+        error =
+          cause instanceof Error
+            ? cause.message
+            : "Could not open the linked post.";
+      }
+    }
+    await refresh(0);
   }
 
   onMount(() => {
-    observer = new IntersectionObserver(
-      (entries) => {
-        const visible = entries
-          .filter((entry) => entry.isIntersecting)
-          .toSorted(
-            (left, right) => right.intersectionRatio - left.intersectionRatio,
-          );
-        const id = (visible[0]?.target as HTMLElement | undefined)?.dataset
-          .postId;
-        if (id !== undefined) activePostId = id;
-      },
-      { rootMargin: "-12% 0px -62% 0px", threshold: [0.1, 0.35, 0.7] },
-    );
-    for (const element of postElements.values()) observer.observe(element);
-    void refresh(0);
+    void initializeDiscussion();
     return () => {
-      observer?.disconnect();
+      jumpController?.abort();
       for (const client of clients.values()) client.close();
       clients.clear();
     };
@@ -884,9 +1166,13 @@
         </Card.Description>
       </div>
       <Badge
-        variant={loading ? "secondary" : error ? "destructive" : "outline"}
+        variant={loading || loadingJump
+          ? "secondary"
+          : error
+            ? "destructive"
+            : "outline"}
       >
-        {loading
+        {loading || loadingJump
           ? "Syncing"
           : error
             ? "Relay issue"
@@ -955,7 +1241,10 @@
         <p class="notice" role="status">{message}</p>
       {/if}
 
-      <div class="discussion" aria-busy={loading}>
+      <div
+        class="discussion"
+        aria-busy={loading || loadingJump || loadingPrevious || loadingNext}
+      >
         <div class="topic-column">
           <div class="comments-heading">
             <div>
@@ -964,15 +1253,15 @@
                 {#if commentTotal === 0}
                   Follow the conversation in posting order.
                 {:else}
-                  Showing posts {displayedPostStart}–{displayedPostEnd} of {commentTotal}.
-                  Move the history slider to load another window.
+                  Loaded posts {displayedPostStart}–{displayedPostEnd} of {commentTotal}.
+                  Scroll for adjacent posts or use the timeline to jump.
                 {/if}
               </p>
             </div>
             <Button
               variant="ghost"
               size="sm"
-              disabled={loading}
+              disabled={loading || loadingJump}
               onclick={() => refresh(activeGlobalPostIndex)}
             >
               Refresh
@@ -1046,183 +1335,46 @@
           {:else if reviews.length === 0}
             <p class="empty">No comments yet. Start the conversation.</p>
           {:else}
-            <ol class="post-stream">
-              {#each reviews as review, index (review.event.id)}
-                {@const authorName = displayName(review.event.pubkey, profiles)}
-                {@const parent = parentOf(review)}
-                {@const groups = reactionGroups(review.event.id, reactions)}
-                <li>
-                  <article
-                    id={`post-${review.event.id}`}
-                    class:active={review.event.id === activePostId}
-                    data-post-id={review.event.id}
-                    use:observePost={review.event.id}
-                    aria-labelledby={`post-author-${review.event.id}`}
-                  >
-                    <div
-                      class="avatar"
-                      style={`--avatar-hue: ${avatarHue(review.event.pubkey)}`}
-                      aria-hidden="true"
-                    >
-                      {initials(authorName)}
-                    </div>
-                    <div class="post-content">
-                      <header class="post-header">
-                        <div class="post-author-line">
-                          <strong id={`post-author-${review.event.id}`}
-                            >{authorName}</strong
-                          >
-                          {#if parent}
-                            <button
-                              class="reply-context"
-                              onclick={() => navigateToReview(parent)}
-                            >
-                              ↪ replying to {displayName(
-                                parent.event.pubkey,
-                                profiles,
-                              )} · {postReference(parent)}
-                            </button>
-                          {/if}
-                        </div>
-                        <a
-                          href={`#post-${review.event.id}`}
-                          aria-label={`Link to post ${postNumber(review.event.id)}`}
-                        >
-                          <time
-                            datetime={new Date(
-                              review.event.created_at * 1_000,
-                            ).toISOString()}
-                          >
-                            {formatDate(review.event.created_at)}
-                          </time>
-                        </a>
-                      </header>
-                      <div class="post-body">
-                        {#each review.content.split("\n") as paragraph}
-                          {#if paragraph.trim() !== ""}<p>{paragraph}</p>{/if}
-                        {/each}
-                      </div>
-                      <footer class="post-footer">
-                        <div
-                          class="reaction-list"
-                          aria-label={`Reactions to post ${postNumber(review.event.id)}`}
-                        >
-                          {#each groups as group (`${review.event.id}:${group.content}`)}
-                            <Button
-                              class="reaction-chip"
-                              variant="outline"
-                              size="xs"
-                              disabled={publishing}
-                              aria-label={`React ${group.symbol}; ${group.count} existing`}
-                              onclick={() =>
-                                submitReaction(review, group.content)}
-                            >
-                              <span aria-hidden="true">{group.symbol}</span>
-                              <span>{group.count}</span>
-                            </Button>
-                          {/each}
-                        </div>
-                        <div class="post-actions">
-                          {#if !groups.some((group) => group.content === "+")}
-                            <Button
-                              variant="ghost"
-                              size="xs"
-                              disabled={publishing}
-                              aria-label={`Like post ${postNumber(review.event.id)}`}
-                              onclick={() => submitReaction(review)}
-                              >♡ Like</Button
-                            >
-                          {/if}
-                          <Button
-                            variant="ghost"
-                            size="xs"
-                            disabled={publishing}
-                            onclick={() => startReply(review)}>↩ Reply</Button
-                          >
-                        </div>
-                      </footer>
-                    </div>
-                  </article>
-                </li>
-              {/each}
-            </ol>
+            <DiscussionPostStream
+              posts={reviews}
+              contextPosts={allReviews}
+              {reactions}
+              {profiles}
+              startIndex={pageStartIndex}
+              total={commentTotal}
+              {activePostId}
+              targetPostId={scrollTargetPostId}
+              {scrollRevision}
+              {publishing}
+              {hasPrevious}
+              {hasNext}
+              {loadingPrevious}
+              {loadingNext}
+              {previousError}
+              {nextError}
+              onCurrentPost={handleCurrentPost}
+              onPrepend={() => loadAdjacent("prepend")}
+              onAppend={() => loadAdjacent("append")}
+              onNavigate={navigateToReview}
+              onReply={startReply}
+              onReact={submitReaction}
+            />
           {/if}
         </div>
 
         {#if commentTotal > 1 && threadFirstTimestamp > 0 && threadLastTimestamp > 0}
-          <aside class="history" aria-label="Discussion history">
-            <div class="history-sticky">
-              <button
-                class="history-date"
-                aria-label="Go to the first post"
-                onclick={() => navigateTimelineToIndex(0)}
-              >
-                <time
-                  datetime={new Date(
-                    threadFirstTimestamp * 1_000,
-                  ).toISOString()}
-                >
-                  {formatShortDate(threadFirstTimestamp)}
-                </time>
-              </button>
-              <div
-                class="history-track"
-                class:dragging={timelineDragging}
-                role="group"
-                aria-label="Discussion timeline"
-                bind:this={timelineElement}
-                onpointerdown={startTimelineDrag}
-                onpointermove={moveTimelineDrag}
-                onpointerup={finishTimelineDrag}
-                onpointercancel={cancelTimelineDrag}
-              >
-                <span class="history-line" aria-hidden="true"></span>
-                {#if timelineReturnIndex !== undefined && timelineReturnIndex !== activeGlobalPostIndex}
-                  <button
-                    class="history-back"
-                    style={`--timeline-return-position: ${timelinePosition(timelineReturnIndex, commentTotal) / 100}`}
-                    aria-label={`Back to post ${timelineReturnIndex + 1}`}
-                    onpointerdown={(event) => event.stopPropagation()}
-                    onclick={returnToTimelineOrigin}
-                  >
-                    <span aria-hidden="true"></span>
-                    Back
-                  </button>
-                {/if}
-                <div
-                  class="history-handle"
-                  class:dragging={timelineDragging}
-                  style={`--timeline-position: ${timelinePosition(timelineDisplayIndex, commentTotal) / 100}`}
-                  bind:this={timelineHandleElement}
-                  role="slider"
-                  tabindex="0"
-                  aria-label="Discussion position"
-                  aria-valuemin="1"
-                  aria-valuemax={commentTotal}
-                  aria-valuenow={timelineDisplayIndex + 1}
-                  aria-valuetext={`Post ${timelineDisplayIndex + 1} of ${commentTotal}, ${formatShortDate(timelineDisplayTimestamp)}`}
-                  onkeydown={handleTimelineKey}
-                >
-                  <span class="history-handle-bar" aria-hidden="true"></span>
-                  <span class="history-current">
-                    <strong>{timelineDisplayIndex + 1} / {commentTotal}</strong>
-                    <span>{formatShortDate(timelineDisplayTimestamp)}</span>
-                  </span>
-                </div>
-              </div>
-              <button
-                class="history-date"
-                aria-label="Go to the latest post"
-                onclick={() => navigateTimelineToIndex(commentTotal - 1)}
-              >
-                <time
-                  datetime={new Date(threadLastTimestamp * 1_000).toISOString()}
-                >
-                  {formatShortDate(threadLastTimestamp)}
-                </time>
-              </button>
-            </div>
-          </aside>
+          <DiscussionTimeline
+            total={commentTotal}
+            currentIndex={activeGlobalPostIndex}
+            currentTimestamp={activePostTimestamp}
+            firstTimestamp={threadFirstTimestamp}
+            lastTimestamp={threadLastTimestamp}
+            returnIndex={timelineReturnIndex}
+            disabled={loadingJump}
+            pageSize={commentPageSize}
+            onJump={navigateTimelineToIndex}
+            onReturn={returnToTimelineOrigin}
+          />
         {/if}
       </div>
     </Card.Content>
@@ -1265,11 +1417,7 @@
   .comments-heading,
   .composer-heading,
   .form-footer,
-  .actions,
-  .post-header,
-  .post-footer,
-  .post-actions,
-  .reaction-list {
+  .actions {
     display: flex;
     align-items: center;
   }
@@ -1277,9 +1425,7 @@
   :global(.community-header),
   .comments-heading,
   .composer-heading,
-  .form-footer,
-  .post-header,
-  .post-footer {
+  .form-footer {
     justify-content: space-between;
     gap: 1rem;
   }
@@ -1341,9 +1487,7 @@
     font-weight: 650;
   }
 
-  .actions,
-  .post-actions,
-  .reaction-list {
+  .actions {
     flex-wrap: wrap;
     gap: 0.4rem;
   }
@@ -1391,270 +1535,9 @@
     font-size: 0.78rem;
   }
 
-  .post-stream {
-    margin: 1.25rem 0 0;
-    padding: 0;
-    list-style: none;
-  }
-
-  .post-stream li {
-    border-top: 1px solid var(--border);
-  }
-
-  article {
-    display: grid;
-    grid-template-columns: 2.8rem minmax(0, 1fr);
-    gap: 0.9rem;
-    padding: 1.4rem 0.35rem;
-    scroll-margin-top: calc(56px + 1.5rem);
-    transition: background-color 160ms ease;
-  }
-
-  article.active {
-    background: linear-gradient(
-      90deg,
-      color-mix(in oklch, var(--primary) 10%, transparent),
-      transparent 70%
-    );
-  }
-
-  .avatar {
-    display: grid;
-    width: 2.65rem;
-    height: 2.65rem;
-    place-items: center;
-    border: 1px solid hsl(var(--avatar-hue) 55% 55% / 0.48);
-    border-radius: 50%;
-    background: hsl(var(--avatar-hue) 42% 28%);
-    color: hsl(var(--avatar-hue) 70% 90%);
-    font-size: 0.78rem;
-    font-weight: 700;
-    letter-spacing: 0.04em;
-  }
-
-  .post-content {
-    min-width: 0;
-  }
-
-  .post-header {
-    align-items: flex-start;
-  }
-
-  .post-header a {
-    flex-shrink: 0;
-    color: var(--muted-foreground);
-    font-size: 0.73rem;
-    text-decoration: none;
-  }
-
-  .post-header a:hover {
-    color: var(--foreground);
-  }
-
-  .post-author-line {
-    display: grid;
-    gap: 0.2rem;
-  }
-
-  .reply-context {
-    width: fit-content;
-    max-width: 100%;
-    padding: 0.3rem 0.55rem;
-    overflow: hidden;
-    border: 0;
-    border-left: 2px solid
-      color-mix(in oklch, var(--primary) 66%, var(--border));
-    border-radius: 0 0.35rem 0.35rem 0;
-    background: color-mix(in oklch, var(--secondary) 72%, transparent);
-    color: var(--muted-foreground);
-    cursor: pointer;
-    font: inherit;
-    font-size: 0.72rem;
-    text-align: left;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .reply-context:hover {
-    color: var(--primary);
-  }
-
-  .post-body {
-    padding: 0.65rem 0 0.8rem;
-    color: color-mix(in oklch, var(--foreground) 94%, var(--muted-foreground));
-    font-size: 0.94rem;
-    line-height: 1.65;
-  }
-
-  .post-body p {
-    margin: 0;
-  }
-
-  .post-body p + p {
-    margin-top: 0.8rem;
-  }
-
-  .post-footer {
-    min-height: 2rem;
-  }
-
-  :global(.reaction-chip) {
-    min-width: 2.8rem;
-    border-radius: 999px;
-  }
-
-  .history-sticky {
-    position: sticky;
-    top: calc(56px + 2.5rem);
-    display: grid;
-    grid-template-rows: auto clamp(10.625rem, 45vh, 18.75rem) auto;
-    gap: 0.35rem;
-    color: var(--muted-foreground);
-    font-size: 0.75rem;
-  }
-
-  .history-date {
-    width: fit-content;
-    padding: 0;
-    border: 0;
-    background: transparent;
-    color: var(--muted-foreground);
-    cursor: pointer;
-    font: inherit;
-    line-height: 1.25rem;
-  }
-
-  .history-date:hover,
-  .history-date:focus-visible {
-    color: var(--foreground);
-  }
-
-  .history-track {
-    --timeline-handle-height: 3.125rem;
-    position: relative;
-    width: 100%;
-    height: 100%;
-    cursor: pointer;
-    touch-action: none;
-    user-select: none;
-  }
-
-  .history-track.dragging {
-    cursor: grabbing;
-  }
-
-  .history-line {
-    position: absolute;
-    inset: 0 auto 0 0.45rem;
-    width: 1px;
-    background: var(--border);
-  }
-
-  .history-handle {
-    position: absolute;
-    z-index: 2;
-    top: calc(
-      (100% - var(--timeline-handle-height)) * var(--timeline-position)
-    );
-    right: 0;
-    left: 0;
-    display: grid;
-    grid-template-columns: 1rem minmax(0, 1fr);
-    align-items: center;
-    height: var(--timeline-handle-height);
-    color: var(--foreground);
-    cursor: grab;
-    outline: none;
-    transition: top 180ms ease-out;
-  }
-
-  .history-handle.dragging {
-    cursor: grabbing;
-    transition: none;
-  }
-
-  .history-handle-bar {
-    width: 0.35rem;
-    height: 100%;
-    margin-left: 0.28rem;
-    border-radius: 999px;
-    background: var(--primary);
-    box-shadow: 0 0 0 1px color-mix(in oklch, var(--primary) 28%, transparent);
-  }
-
-  .history-current {
-    display: grid;
-    gap: 0.05rem;
-    min-width: 0;
-    padding: 0.4rem 0.45rem;
-    border-radius: var(--radius);
-    transition: background-color 150ms ease;
-  }
-
-  .history-handle:hover .history-current,
-  .history-handle:focus-visible .history-current,
-  .history-handle.dragging .history-current {
-    background: var(--secondary);
-  }
-
-  .history-current strong {
-    font-size: 0.9rem;
-    line-height: 1rem;
-  }
-
-  .history-current span {
-    color: var(--muted-foreground);
-    line-height: 1rem;
-  }
-
-  .history-back {
-    position: absolute;
-    z-index: 1;
-    top: calc(0.75rem + (100% - 1.5rem) * var(--timeline-return-position));
-    left: 0;
-    display: flex;
-    align-items: center;
-    gap: 0.35rem;
-    padding: 0.15rem 0.35rem 0.15rem 0;
-    border: 0;
-    border-radius: 0.25rem;
-    background: var(--card);
-    color: var(--muted-foreground);
-    cursor: pointer;
-    font: inherit;
-    font-size: 0.7rem;
-    transform: translateY(-50%);
-  }
-
-  .history-back > span {
-    width: 0.9rem;
-    height: 1px;
-    background: var(--muted-foreground);
-  }
-
-  .history-back:hover,
-  .history-back:focus-visible {
-    color: var(--foreground);
-  }
-
-  .history-back:hover > span,
-  .history-back:focus-visible > span {
-    background: var(--foreground);
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    .history-handle {
-      transition: none;
-    }
-  }
-
   @media (max-width: 62rem) {
     .discussion {
       grid-template-columns: minmax(0, 1fr);
-    }
-
-    .history {
-      display: none;
     }
   }
 
@@ -1662,8 +1545,7 @@
     :global(.community-header),
     .comments-heading,
     .composer-heading,
-    .form-footer,
-    .post-header {
+    .form-footer {
       align-items: flex-start;
       flex-direction: column;
     }
@@ -1683,22 +1565,6 @@
 
     .rating-control {
       grid-template-columns: minmax(0, 1fr);
-    }
-
-    article {
-      grid-template-columns: 2.3rem minmax(0, 1fr);
-      gap: 0.7rem;
-    }
-
-    .avatar {
-      width: 2.2rem;
-      height: 2.2rem;
-      font-size: 0.68rem;
-    }
-
-    .post-footer {
-      align-items: flex-start;
-      flex-direction: column;
     }
   }
 </style>

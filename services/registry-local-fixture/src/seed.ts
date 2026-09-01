@@ -103,6 +103,10 @@ async function seed(): Promise<{
   );
   const pluginLimitRaw =
     process.env.REGISTRY_FIXTURE_PLUGIN_LIMIT?.trim() ?? "all";
+  const longThreadPostCount = positiveInteger(
+    "REGISTRY_FIXTURE_LONG_THREAD_POSTS",
+    240,
+  );
   const fixtures = await loadLocalPluginFixtures(
     required("LAPIS_PLUGINS_ROOT", "/workspace/lapis-plugins"),
     {
@@ -164,6 +168,21 @@ async function seed(): Promise<{
       }
     }, `publish ${event.id}`);
     events.push(event);
+  };
+  const publishBatch = async (
+    batch: readonly {
+      event: NostrEvent;
+      secretKey: Uint8Array;
+    }[],
+  ): Promise<void> => {
+    const concurrency = 24;
+    for (let offset = 0; offset < batch.length; offset += concurrency) {
+      await Promise.all(
+        batch
+          .slice(offset, offset + concurrency)
+          .map(async ({ event, secretKey }) => await publish(event, secretKey)),
+      );
+    }
   };
   const createGroup = async (
     event: NostrEvent,
@@ -297,15 +316,26 @@ async function seed(): Promise<{
     "What belongs in the plugin release checklist?",
     "Ideas for the next Lapis community call",
   ];
+  const forumEventCount =
+    longThreadPostCount + Math.floor((longThreadPostCount + 1) / 3) + 26;
+  const eventsPerSecond = Math.max(1, Math.ceil(forumEventCount / 240));
+  let forumEventIndex = 0;
+  const nextForumTimestamp = (): number =>
+    createdAt + Math.floor(forumEventIndex++ / eventsPerSecond);
+  const forumPublications: Array<{
+    event: NostrEvent;
+    secretKey: Uint8Array;
+  }> = [];
   for (const [topicIndex, title] of topicTitles.entries()) {
     const rootSecret = communitySecrets[topicIndex % communitySecrets.length]!;
     const root = sign(
       rootSecret,
-      createBuzzForumRootTemplate(forumId, title, createdAt++),
+      createBuzzForumRootTemplate(forumId, title, nextForumTimestamp()),
     );
-    await publish(root, rootSecret);
     communityEvents.push(root);
-    const replyCount = topicIndex === 0 ? 48 : topicIndex === 1 ? 12 : 6;
+    forumPublications.push({ event: root, secretKey: rootSecret });
+    const replyCount =
+      topicIndex === 0 ? longThreadPostCount - 1 : topicIndex === 1 ? 12 : 6;
     let previousReply: NostrEvent | undefined;
     for (let index = 0; index < replyCount; index += 1) {
       const authorSecret = communitySecrets[index % communitySecrets.length]!;
@@ -313,7 +343,7 @@ async function seed(): Promise<{
         forumId,
         root.id,
         `Reply ${index + 1}: ${discussionSentence(index)}`,
-        createdAt++,
+        nextForumTimestamp(),
       );
       if (previousReply !== undefined && index % 5 === 0) {
         template.tags = [
@@ -323,15 +353,15 @@ async function seed(): Promise<{
         ];
       }
       const reply = sign(authorSecret, template);
-      await publish(reply, authorSecret);
       communityEvents.push(reply);
+      forumPublications.push({ event: reply, secretKey: authorSecret });
       previousReply = reply;
       if (index % 3 === 0) {
         const reactionSecret =
           communitySecrets[(index + 1) % communitySecrets.length]!;
         const reaction = sign(reactionSecret, {
           kind: 7,
-          created_at: createdAt++,
+          created_at: nextForumTimestamp(),
           content: index % 2 === 0 ? "👍" : "❤️",
           tags: [
             ["e", reply.id],
@@ -339,11 +369,16 @@ async function seed(): Promise<{
             ["k", reply.kind.toString()],
           ],
         });
-        await publish(reaction, reactionSecret);
         communityEvents.push(reaction);
+        forumPublications.push({
+          event: reaction,
+          secretKey: reactionSecret,
+        });
       }
     }
   }
+  await publishBatch(forumPublications);
+  createdAt += Math.ceil(forumEventIndex / eventsPerSecond);
   const aiRelease = releaseByPlugin.get("ai");
   if (aiRelease === undefined) {
     throw new Error("The local plugin fixtures must include the AI plugin");
@@ -392,7 +427,15 @@ async function seed(): Promise<{
     );
   }
   const reader = await relayFor(publisherSecret);
-  const retained = await reader.query({ ids: events.map((event) => event.id) });
+  const retained: NostrEvent[] = [];
+  for (let offset = 0; offset < events.length; offset += 250) {
+    retained.push(
+      ...(await reader.query({
+        ids: events.slice(offset, offset + 250).map((event) => event.id),
+        limit: 250,
+      })),
+    );
+  }
   if (retained.length !== events.length) {
     throw new Error(
       `Buzz retained ${retained.length}/${events.length} fixture events`,

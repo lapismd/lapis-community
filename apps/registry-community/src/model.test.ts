@@ -9,7 +9,6 @@ import {
 import {
   anyRelayPublished,
   avatarHue,
-  commentPageWindow,
   displayName,
   initials,
   latestReactionByAuthor,
@@ -166,25 +165,6 @@ describe("registry community model", () => {
     );
     expect(reactions).toHaveLength(1);
     expect(latestReactionByAuthor(reactions, nested.id)[0]?.content).toBe("👍");
-  });
-
-  it("maps global timeline positions onto fixed-size relay windows", () => {
-    expect(commentPageWindow(24, 0, 20)).toEqual({
-      startIndex: 0,
-      endIndex: 20,
-      targetIndex: 0,
-    });
-    expect(commentPageWindow(24, 23, 20)).toEqual({
-      startIndex: 20,
-      endIndex: 24,
-      targetIndex: 23,
-    });
-    expect(commentPageWindow(24, 2_000, 20).targetIndex).toBe(23);
-    expect(commentPageWindow(0, 0, 20)).toEqual({
-      startIndex: 0,
-      endIndex: 0,
-      targetIndex: 0,
-    });
   });
 
   it("seeks a page boundary with relay counts instead of loading prior posts", async () => {

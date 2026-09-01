@@ -36,6 +36,8 @@ jq -e '
   $compose.services["registry-relay"].environment.BUZZ_REQUIRE_AUTH_TOKEN == "false" and
   $compose.services["registry-relay"].environment.BUZZ_REQUIRE_RELAY_MEMBERSHIP == "false" and
   $compose.services["registry-relay"].environment.BUZZ_AUTO_MIGRATE == "true" and
+  $compose.services["registry-relay"].environment.BUZZ_RATE_LIMIT_HUMAN_MESSAGES_PER_MIN == "5000" and
+  $compose.services["registry-relay"].environment.BUZZ_RATE_LIMIT_HUMAN_WS_EVENTS_PER_SEC == "500" and
   ([
     $compose.services | to_entries[] |
     select(.value.environment.DATABASE_URL? != null) |
@@ -57,6 +59,7 @@ jq -e '
     "apps/registry-console/Dockerfile" and
   .services["registry-site-builder"].build.dockerfile == "Dockerfile.local" and
   .services["registry-fixture"].read_only == true and
+  .services["registry-fixture"].environment.REGISTRY_FIXTURE_LONG_THREAD_POSTS == "240" and
   .services["registry-console"].read_only == true and
   .services["registry-site"].read_only == true and
   .services["registry-fixture"].depends_on["registry-relay"].condition ==

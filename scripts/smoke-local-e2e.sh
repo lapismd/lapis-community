@@ -17,6 +17,9 @@ export REGISTRY_FIXTURE_PORT=${REGISTRY_FIXTURE_PORT:-${port_base}}
 export REGISTRY_CONSOLE_PORT=${REGISTRY_CONSOLE_PORT:-$((port_base + 1))}
 export LAPIS_RELAY_PORT=${LAPIS_RELAY_PORT:-$((port_base + 2))}
 export REGISTRY_SITE_PORT=${REGISTRY_SITE_PORT:-$((port_base + 3))}
+export REGISTRY_FIXTURE_LONG_THREAD_POSTS=${REGISTRY_FIXTURE_LONG_THREAD_POSTS:-240}
+expected_community_events=$((REGISTRY_FIXTURE_LONG_THREAD_POSTS + ((REGISTRY_FIXTURE_LONG_THREAD_POSTS + 1) / 3) + 31))
+expected_relay_copies=$((expected_community_events + 24))
 
 report_error() {
   exit_code=$?
@@ -80,12 +83,14 @@ fixture_base="http://127.0.0.1:${REGISTRY_FIXTURE_PORT}/"
 console_base="http://127.0.0.1:${REGISTRY_CONSOLE_PORT}/"
 site_base="http://127.0.0.1:${REGISTRY_SITE_PORT}/"
 /usr/bin/curl -fsS "${fixture_base}status.json" >"${smoke_tmp}/status.json"
-jq -e '
+jq -e \
+  --argjson expected_community_events "${expected_community_events}" \
+  --argjson expected_relay_copies "${expected_relay_copies}" '
   .schema == "lapis.registry.buzz-local-fixture-status/1" and
   .pluginCount == 12 and
   .registryEventCount == 24 and
-  .communityEventCount == 96 and
-  .relayCopies == 120 and
+  .communityEventCount == $expected_community_events and
+  .relayCopies == $expected_relay_copies and
   (.registryRoot | test("^[0-9a-f]{64}$")) and
   (.groupIds | length) == 16 and
   (.groupIds["support-ai"] | test("^[0-9a-f-]{36}$"))
