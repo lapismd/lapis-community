@@ -1,13 +1,13 @@
+import {
+  createBuzzCuratorDecisionTemplate,
+  createBuzzReleaseMessageTemplate,
+} from "@lapismd/registry-protocol";
+import { finalizeEvent, generateSecretKey } from "nostr-tools/pure";
+
 import { loadConsoleConfig, loadDashboard, parseRelayList } from "./api.js";
 import type { ConsoleConfig } from "./api.js";
+import { shortHex, summarizeProvenance } from "./model.js";
 import {
-  shortHex,
-  summarizeCommunity,
-  summarizeProvenance,
-  summarizeSecurity,
-} from "./model.js";
-import {
-  loadLiveSnapshotTemplate,
   publishSignedEvent,
   requireNip07,
   signExactTemplate,
@@ -25,41 +25,37 @@ function element<T extends HTMLElement>(id: string): T {
 }
 
 const relayForm = element<HTMLFormElement>("relay-form");
-const officialRelayInput = element<HTMLInputElement>("official-relays");
-const communityRelayInput = element<HTMLInputElement>("community-relays");
+const relayInput = element<HTMLInputElement>("buzz-relays");
 const refreshButton = element<HTMLButtonElement>("refresh");
 const connectButton = element<HTMLButtonElement>("connect-signer");
 const signerState = element<HTMLElement>("signer-state");
 const statusRegion = element<HTMLElement>("status");
-const unsignedBadge = element<HTMLElement>("unsigned-badge");
 const pluginRows = element<HTMLTableSectionElement>("plugin-rows");
 const workflowInput = element<HTMLTextAreaElement>("workflow-event");
 const signButton = element<HTMLButtonElement>("sign-template");
 const submitButton = element<HTMLButtonElement>("submit-event");
-const snapshotButton = element<HTMLButtonElement>("sign-snapshot");
+const releaseButton = element<HTMLButtonElement>("prepare-release");
+const approveButton = element<HTMLButtonElement>("prepare-approval");
+const rejectButton = element<HTMLButtonElement>("prepare-rejection");
+
+const readSecret = generateSecretKey();
+const readAuth = async (template: NostrEventTemplate): Promise<NostrEvent> =>
+  finalizeEvent(template, readSecret);
+let baseConfig: ConsoleConfig | undefined;
 
 function setStatus(
   message: string,
   tone: "neutral" | "error" | "success" = "neutral",
-) {
+): void {
   statusRegion.textContent = message;
   statusRegion.dataset.tone = tone;
 }
-
-let baseConfig: ConsoleConfig | undefined;
 
 function currentConfig(): ConsoleConfig {
   if (baseConfig === undefined) {
     throw new Error("Relay configuration has not loaded yet");
   }
-  const officialRelays = parseRelayList(officialRelayInput.value);
-  const communityRelays = parseRelayList(communityRelayInput.value);
-  if (baseConfig.publishQuorum > officialRelays.length) {
-    throw new Error(
-      `This environment requires ${baseConfig.publishQuorum} official relay acknowledgements`,
-    );
-  }
-  return { ...baseConfig, officialRelays, communityRelays };
+  return { ...baseConfig, buzzRelays: parseRelayList(relayInput.value) };
 }
 
 async function busy(
@@ -86,24 +82,12 @@ function setMetric(id: string, value: string, detail: string): void {
   element<HTMLElement>(`${id}-detail`).textContent = detail;
 }
 
-function renderMap(
-  targetId: string,
-  values: Record<string, number>,
-  emptyLabel: string,
-): void {
-  const target = element<HTMLUListElement>(targetId);
+function renderMap(values: Record<string, number>): void {
+  const target = element<HTMLUListElement>("source-counts");
   target.replaceChildren();
-  const entries = Object.entries(values).sort(([left], [right]) =>
-    left.localeCompare(right),
-  );
-  if (entries.length === 0) {
-    const item = document.createElement("li");
-    item.className = "muted";
-    item.textContent = emptyLabel;
-    target.append(item);
-    return;
-  }
-  for (const [label, count] of entries) {
+  for (const [label, count] of Object.entries(values).toSorted(
+    ([left], [right]) => left.localeCompare(right),
+  )) {
     const item = document.createElement("li");
     const name = document.createElement("span");
     const value = document.createElement("strong");
@@ -114,73 +98,29 @@ function renderMap(
   }
 }
 
-function renderTextList(
-  targetId: string,
-  values: Array<{ heading: string; detail: string; tone?: string }>,
-  emptyLabel: string,
-): void {
-  const target = element<HTMLUListElement>(targetId);
-  target.replaceChildren();
-  if (values.length === 0) {
-    const item = document.createElement("li");
-    item.className = "muted";
-    item.textContent = emptyLabel;
-    target.append(item);
-    return;
-  }
-  for (const value of values) {
-    const item = document.createElement("li");
-    const heading = document.createElement("strong");
-    const detail = document.createElement("span");
-    heading.textContent = value.heading;
-    detail.textContent = value.detail;
-    if (value.tone !== undefined) item.dataset.tone = value.tone;
-    item.append(heading, detail);
-    target.append(item);
-  }
-}
-
 function renderDashboard(dashboard: RegistryDashboard): void {
   const summary = summarizeProvenance(dashboard.provenance);
-  const community = summarizeCommunity(dashboard.community);
-  const security = summarizeSecurity(dashboard.security);
-  unsignedBadge.hidden = !dashboard.unsigned;
   setMetric(
     "plugins",
     String(dashboard.index.plugins.length),
-    "curated releases",
+    "approved plugins",
   );
-  setMetric("events", String(summary.accepted), "accepted event IDs");
-  setMetric("excluded", String(summary.excluded), "visible by reason below");
-  setMetric("issues", String(summary.issues), "materialization diagnostics");
+  setMetric("events", String(summary.accepted), "trusted event IDs");
+  setMetric("releases", String(dashboard.releaseEvents), "kind 9 submissions");
+  setMetric("decisions", String(dashboard.decisionEvents), "kind 7 decisions");
+  setMetric("issues", String(summary.issues), "ignored or invalid events");
   setMetric(
-    "ratings",
-    String(community.ratings),
-    `${community.reviews} reviews · ${community.reports} reports`,
+    "relays",
+    String(Object.keys(dashboard.provenance.sourceCounts).length),
+    "authenticated Buzz sources",
   );
-  setMetric(
-    "security",
-    String(security.warnings + security.blocked),
-    `${security.warnings} warnings · ${security.blocked} blocks`,
-  );
-  element<HTMLElement>("registry-root").textContent = dashboard.responseRoot;
-  element<HTMLElement>("community-root").textContent = dashboard.communityRoot;
-  element<HTMLElement>("security-root").textContent = dashboard.securityRoot;
+  element<HTMLElement>("registry-root").textContent = dashboard.provenance.root;
   element<HTMLElement>("backend").textContent = dashboard.provenance.backend;
   element<HTMLElement>("generated-at").textContent = new Date(
     dashboard.index.generatedAt,
   ).toLocaleString();
 
   pluginRows.replaceChildren();
-  if (dashboard.index.plugins.length === 0) {
-    const row = document.createElement("tr");
-    const cell = document.createElement("td");
-    cell.colSpan = 4;
-    cell.className = "empty-table";
-    cell.textContent = "No approved plugins in this projection yet.";
-    row.append(cell);
-    pluginRows.append(row);
-  }
   for (const plugin of dashboard.index.plugins) {
     const row = document.createElement("tr");
     const identity = document.createElement("td");
@@ -189,98 +129,39 @@ function renderDashboard(dashboard: RegistryDashboard): void {
     name.textContent = plugin.name;
     description.textContent = plugin.description;
     identity.append(name, description);
+    row.append(identity);
     for (const value of [plugin.id, plugin.latestVersion, plugin.status]) {
       const cell = document.createElement("td");
       cell.textContent = value;
       row.append(cell);
     }
-    row.prepend(identity);
     pluginRows.append(row);
   }
-  renderMap(
-    "source-counts",
-    dashboard.provenance.sourceCounts,
-    "No stored events",
-  );
-  renderMap(
-    "exclusion-counts",
-    dashboard.provenance.exclusionCounts,
-    "No excluded events",
-  );
-  const issueList = element<HTMLUListElement>("issue-list");
-  issueList.replaceChildren();
+  renderMap(dashboard.provenance.sourceCounts);
+  const issues = element<HTMLUListElement>("issue-list");
+  issues.replaceChildren();
   if (dashboard.provenance.issues.length === 0) {
     const item = document.createElement("li");
     item.className = "muted";
     item.textContent = "No materialization issues";
-    issueList.append(item);
+    issues.append(item);
   }
   for (const issue of dashboard.provenance.issues.slice(0, 20)) {
     const item = document.createElement("li");
     item.textContent = `${issue.code} · ${shortHex(issue.eventId, 6)} · ${issue.message}`;
-    issueList.append(item);
+    issues.append(item);
   }
-  renderTextList(
-    "rating-list",
-    dashboard.community.ratingAggregates.map((rating) => ({
-      heading: rating.pluginId,
-      detail:
-        rating.average === null
-          ? `${rating.count} ratings · no average`
-          : `${rating.count} ratings · ${rating.average.toFixed(1)} / 5`,
-    })),
-    "No community ratings",
-  );
-  renderTextList(
-    "community-list",
-    [
-      ...dashboard.community.reviews.map((review) => ({
-        heading: `Review · ${review.pluginId}`,
-        detail: `${review.content} · ${shortHex(review.event.id, 6)}`,
-      })),
-      ...dashboard.community.collections.map((collection) => ({
-        heading: `Collection · ${collection.title ?? collection.identifier}`,
-        detail: `${collection.pluginIds.length} plugins · ${shortHex(collection.event.id, 6)}`,
-      })),
-      ...dashboard.community.reports.map((report) => ({
-        heading: `Report · ${report.reportTypes.join(", ")}`,
-        detail: shortHex(report.event.id, 6),
-        tone: "warn",
-      })),
-      ...dashboard.community.followLists.map((followList) => ({
-        heading: "Follow list",
-        detail: `${followList.pubkeys.length} publishers · ${shortHex(followList.event.id, 6)}`,
-      })),
-    ],
-    "No reviews, reports, collections, or follows",
-  );
-  renderTextList(
-    "security-list",
-    dashboard.security.statuses.map((status) => ({
-      heading: `${status.enforcement.toUpperCase()} · ${status.advisory.pluginId}`,
-      detail: `${status.advisory.severity} · ${status.advisory.summary}`,
-      tone: status.enforcement,
-    })),
-    "No active security advisories",
-  );
 }
 
 async function refresh(): Promise<void> {
   const config = currentConfig();
   localStorage.setItem(
-    "lapis-registry-official-relays",
-    config.officialRelays.join(","),
+    "lapis-registry-buzz-relays",
+    config.buzzRelays.join(","),
   );
-  localStorage.setItem(
-    "lapis-registry-community-relays",
-    config.communityRelays.join(","),
-  );
-  setStatus("Resolving the signed snapshot directly from relays…");
-  renderDashboard(await loadDashboard(config));
-  setStatus(
-    "Relay snapshot, event set, and projection roots verify.",
-    "success",
-  );
+  setStatus("Authenticating a read session and materializing Buzz events…");
+  renderDashboard(await loadDashboard(config, readAuth));
+  setStatus("Buzz events and trusted curator decisions verify.", "success");
 }
 
 function parseTemplate(value: string): NostrEventTemplate {
@@ -314,6 +195,58 @@ function parseEvent(value: string): NostrEvent {
   return candidate as NostrEvent;
 }
 
+function requiredInput(id: string, label: string): string {
+  const value = element<HTMLInputElement>(id).value.trim();
+  if (value === "") throw new Error(`${label} is required`);
+  return value;
+}
+
+function prepareRelease(): void {
+  const pluginId = requiredInput("plugin-id", "Plugin ID");
+  const sha256 = requiredInput("manifest-sha", "Manifest SHA-256");
+  if (!/^[0-9a-f]{64}$/u.test(sha256)) {
+    throw new Error("Manifest SHA-256 must be 64 lowercase hex characters");
+  }
+  const size = Number(requiredInput("manifest-size", "Manifest size"));
+  if (!Number.isSafeInteger(size) || size < 1) {
+    throw new Error("Manifest size must be a positive integer");
+  }
+  workflowInput.value = JSON.stringify(
+    createBuzzReleaseMessageTemplate(
+      pluginId,
+      {
+        url: new URL(requiredInput("manifest-url", "Manifest URL")).toString(),
+        mimeType: "application/json",
+        sha256,
+        size,
+        filename: `${pluginId}.manifest.json`,
+      },
+      Math.floor(Date.now() / 1_000),
+      `${pluginId} release submitted for curator review.`,
+    ),
+    null,
+    2,
+  );
+  setStatus("Prepared a standard kind 9 Buzz release message.", "success");
+}
+
+function prepareDecision(decision: "approved" | "rejected"): void {
+  const eventId = requiredInput("release-event-id", "Release event ID");
+  if (!/^[0-9a-f]{64}$/u.test(eventId)) {
+    throw new Error("Release event ID must be 64 lowercase hex characters");
+  }
+  workflowInput.value = JSON.stringify(
+    createBuzzCuratorDecisionTemplate(
+      eventId,
+      decision,
+      Math.floor(Date.now() / 1_000),
+    ),
+    null,
+    2,
+  );
+  setStatus(`Prepared a standard kind 7 ${decision} decision.`, "success");
+}
+
 relayForm.addEventListener("submit", (event) => {
   event.preventDefault();
   void busy(refreshButton, refresh);
@@ -325,10 +258,41 @@ connectButton.addEventListener("click", () => {
     signerState.textContent = shortHex(pubkey);
     signerState.dataset.connected = "true";
     setStatus(
-      "External Nostr signer connected. No key material entered the console.",
+      "NIP-07 signer connected; private keys remain external.",
       "success",
     );
   });
+});
+
+releaseButton.addEventListener("click", () => {
+  try {
+    prepareRelease();
+  } catch (cause) {
+    setStatus(
+      cause instanceof Error ? cause.message : "Template failed",
+      "error",
+    );
+  }
+});
+approveButton.addEventListener("click", () => {
+  try {
+    prepareDecision("approved");
+  } catch (cause) {
+    setStatus(
+      cause instanceof Error ? cause.message : "Template failed",
+      "error",
+    );
+  }
+});
+rejectButton.addEventListener("click", () => {
+  try {
+    prepareDecision("rejected");
+  } catch (cause) {
+    setStatus(
+      cause instanceof Error ? cause.message : "Template failed",
+      "error",
+    );
+  }
 });
 
 signButton.addEventListener("click", () => {
@@ -338,10 +302,7 @@ signButton.addEventListener("click", () => {
       parseTemplate(workflowInput.value),
     );
     workflowInput.value = JSON.stringify(signed, null, 2);
-    setStatus(
-      `Signed event ${shortHex(signed.id)}. Review it before publication.`,
-      "success",
-    );
+    setStatus(`Signed event ${shortHex(signed.id)}.`, "success");
   });
 });
 
@@ -354,24 +315,7 @@ submitButton.addEventListener("click", () => {
       signed,
     );
     setStatus(
-      `Published event ${shortHex(signed.id)} to ${result.accepted}/${result.total} official relays.`,
-      "success",
-    );
-    await refresh();
-  });
-});
-
-snapshotButton.addEventListener("click", () => {
-  void busy(snapshotButton, async () => {
-    const provider = requireNip07();
-    const signed = await signExactTemplate(
-      provider,
-      await loadLiveSnapshotTemplate(currentConfig()),
-    );
-    workflowInput.value = JSON.stringify(signed, null, 2);
-    const result = await publishSignedEvent(currentConfig(), provider, signed);
-    setStatus(
-      `Published snapshot ${shortHex(signed.id)} to ${result.accepted}/${result.total} official relays.`,
+      `Published ${shortHex(signed.id)} to ${result.accepted}/${result.total} Buzz relays.`,
       "success",
     );
     await refresh();
@@ -383,13 +327,9 @@ signerState.textContent =
 void busy(refreshButton, async () => {
   baseConfig = await loadConsoleConfig();
   const query = new URL(window.location.href).searchParams;
-  officialRelayInput.value =
+  relayInput.value =
     query.get("relays") ??
-    localStorage.getItem("lapis-registry-official-relays") ??
-    baseConfig.officialRelays.join(",");
-  communityRelayInput.value =
-    query.get("community") ??
-    localStorage.getItem("lapis-registry-community-relays") ??
-    baseConfig.communityRelays.join(",");
+    localStorage.getItem("lapis-registry-buzz-relays") ??
+    baseConfig.buzzRelays.join(",");
   await refresh();
 });

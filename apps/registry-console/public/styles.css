@@ -535,6 +535,21 @@ td small {
   margin-bottom: 0.55rem;
 }
 
+.field-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.8rem;
+  margin-bottom: 1rem;
+}
+
+.field-grid label {
+  display: grid;
+  gap: 0.45rem;
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
 textarea {
   min-height: 15rem;
   padding: 1rem;
@@ -573,7 +588,8 @@ footer p {
   }
 
   .provenance-grid,
-  .projection-grid {
+  .projection-grid,
+  .field-grid {
     grid-template-columns: 1fr;
   }
 

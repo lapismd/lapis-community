@@ -1,37 +1,21 @@
 import {
-  loadRelayRegistryState,
+  loadBuzzRelayRegistryState,
   WebSocketRegistryRelay,
 } from "@lapismd/registry-nostr";
-import type { RelayRegistryState } from "@lapismd/registry-nostr";
+import type { RelayAuthSigner } from "@lapismd/registry-nostr";
 import type {
-  CommunityKindMap,
-  RegistryAuthorities,
-  RegistryKindMap,
-  SecurityAuthorities,
-  SecurityKindMap,
+  BuzzCatalogPlugin,
+  BuzzRegistryAuthorities,
 } from "@lapismd/registry-protocol";
 
 import type { RegistryDashboard } from "./types.js";
 
 export interface ConsoleConfig {
-  officialRelays: string[];
-  communityRelays: string[];
-  publishQuorum: number;
-  kinds: RegistryKindMap;
-  communityKinds: CommunityKindMap;
-  securityKinds: SecurityKindMap;
-  authorities: {
-    assessorPubkeys: string[];
-    curatorPubkeys: string[];
-    moderatorPubkeys: string[];
-    snapshotSignerPubkeys: string[];
-    registryOperatorPubkeys: string[];
-    publisherPubkeysByPlugin?: Record<string, string[]> | undefined;
-  };
-  securityAuthorities: {
-    advisoryPubkeys: string[];
-    dispositionPubkeys: string[];
-  };
+  backend: "nostr-buzz";
+  buzzRelays: string[];
+  catalogUrl: string;
+  curatorPubkeys: string[];
+  publisherPubkeys: string[];
 }
 
 export async function loadConsoleConfig(): Promise<ConsoleConfig> {
@@ -47,40 +31,21 @@ export function parseConsoleConfig(value: unknown): ConsoleConfig {
     throw new Error("Console configuration must be an object");
   }
   const candidate = value as Partial<ConsoleConfig>;
-  const officialRelays = normalizeRelayUrls(candidate.officialRelays ?? []);
-  const communityRelays = normalizeRelayUrls(candidate.communityRelays ?? []);
-  const publishQuorum = candidate.publishQuorum;
-  if (
-    !Number.isInteger(publishQuorum) ||
-    publishQuorum === undefined ||
-    publishQuorum < 1 ||
-    publishQuorum > officialRelays.length
-  ) {
-    throw new Error("Publish quorum must fit the official relay set");
-  }
-  if (
-    candidate.kinds === undefined ||
-    candidate.communityKinds === undefined ||
-    candidate.securityKinds === undefined ||
-    candidate.authorities === undefined ||
-    candidate.securityAuthorities === undefined
-  ) {
-    throw new Error("Console trust and kind configuration is incomplete");
+  if (candidate.backend !== "nostr-buzz") {
+    throw new Error("Console backend must be nostr-buzz");
   }
   return {
-    officialRelays,
-    communityRelays,
-    publishQuorum,
-    kinds: candidate.kinds,
-    communityKinds: candidate.communityKinds,
-    securityKinds: candidate.securityKinds,
-    authorities: candidate.authorities,
-    securityAuthorities: candidate.securityAuthorities,
+    backend: candidate.backend,
+    buzzRelays: normalizeRelayUrls(candidate.buzzRelays ?? []),
+    catalogUrl: normalizeHttpUrl(candidate.catalogUrl ?? ""),
+    curatorPubkeys: normalizePubkeys(candidate.curatorPubkeys ?? []),
+    publisherPubkeys: normalizePubkeys(candidate.publisherPubkeys ?? []),
   };
 }
 
 export function normalizeRelayUrls(values: readonly string[]): string[] {
-  if (values.length === 0) throw new Error("At least one relay is required");
+  if (values.length === 0)
+    throw new Error("At least one Buzz relay is required");
   return [...new Set(values.map((value) => normalizeRelayUrl(value)))];
 }
 
@@ -95,96 +60,90 @@ export function parseRelayList(value: string): string[] {
 
 export async function loadDashboard(
   config: ConsoleConfig,
+  authSigner: RelayAuthSigner,
 ): Promise<RegistryDashboard> {
-  const officialRelays = config.officialRelays.map(
-    (url) => new WebSocketRegistryRelay(url),
-  );
-  const communityRelays = config.communityRelays.map(
-    (url) => new WebSocketRegistryRelay(url),
+  const catalog = await loadCatalog(config.catalogUrl);
+  const relays = config.buzzRelays.map(
+    (url) => new WebSocketRegistryRelay(url, { authenticationRelayUrl: url }),
   );
   try {
-    return dashboardFromRelayState(
-      await loadRelayRegistryState({
-        officialRelays,
-        communityRelays,
-        kinds: config.kinds,
-        communityKinds: config.communityKinds,
-        securityKinds: config.securityKinds,
-        authorities: registryAuthorities(config),
-        securityAuthorities: securityAuthorities(config),
-      }),
-    );
+    const state = await loadBuzzRelayRegistryState({
+      relays,
+      catalog,
+      authorities: registryAuthorities(config, catalog),
+      generatedAt: new Date().toISOString(),
+      authSigner,
+    });
+    return {
+      index: state.projection.index as unknown as RegistryDashboard["index"],
+      provenance: {
+        backend: config.backend,
+        root: state.registry.root,
+        acceptedEventIds: state.registry.acceptedEventIds,
+        sourceCounts: Object.fromEntries(
+          state.sources.map((source) => [source.relay, source.eventIds.length]),
+        ),
+        issues: state.registry.issues,
+      },
+      releaseEvents: state.events.filter((event) => event.kind === 9).length,
+      decisionEvents: state.events.filter((event) => event.kind === 7).length,
+    };
   } finally {
-    for (const relay of [...officialRelays, ...communityRelays]) relay.close();
+    for (const relay of relays) relay.close();
   }
-}
-
-export function dashboardFromRelayState(
-  state: RelayRegistryState,
-): RegistryDashboard {
-  return {
-    index: state.projection.index as unknown as RegistryDashboard["index"],
-    provenance: {
-      backend: "nostr-relay-quorum",
-      root: state.registry.root,
-      acceptedEventIds: state.registry.acceptedEventIds,
-      exclusionCounts: state.registry.exclusionCounts,
-      sourceCounts: Object.fromEntries(
-        state.sources.official.map((source) => [
-          source.relay,
-          source.eventIds.length,
-        ]),
-      ),
-      issues: state.registry.issues,
-    },
-    community: state.community as unknown as RegistryDashboard["community"],
-    security: state.security as unknown as RegistryDashboard["security"],
-    unsigned: false,
-    responseRoot: state.registry.root,
-    communityRoot: state.community.root,
-    securityRoot: state.security.root,
-  };
 }
 
 export function registryAuthorities(
   config: ConsoleConfig,
-): RegistryAuthorities {
+  catalog: readonly BuzzCatalogPlugin[],
+): BuzzRegistryAuthorities {
   return {
-    assessorPubkeys: new Set(config.authorities.assessorPubkeys),
-    curatorPubkeys: new Set(config.authorities.curatorPubkeys),
-    moderatorPubkeys: new Set(config.authorities.moderatorPubkeys),
-    snapshotSignerPubkeys: new Set(config.authorities.snapshotSignerPubkeys),
-    registryOperatorPubkeys: new Set(
-      config.authorities.registryOperatorPubkeys,
+    curatorPubkeys: new Set(config.curatorPubkeys),
+    publisherPubkeysByPlugin: new Map(
+      catalog.map((plugin) => [
+        plugin.content.pluginId,
+        new Set(config.publisherPubkeys),
+      ]),
     ),
-    ...(config.authorities.publisherPubkeysByPlugin === undefined
-      ? {}
-      : {
-          publisherPubkeysByPlugin: new Map(
-            Object.entries(config.authorities.publisherPubkeysByPlugin).map(
-              ([pluginId, pubkeys]) => [pluginId, new Set(pubkeys)],
-            ),
-          ),
-        }),
   };
 }
 
-export function securityAuthorities(
-  config: ConsoleConfig,
-): SecurityAuthorities {
-  return {
-    advisoryPubkeys: new Set(config.securityAuthorities.advisoryPubkeys),
-    dispositionPubkeys: new Set(config.securityAuthorities.dispositionPubkeys),
-  };
+async function loadCatalog(url: string): Promise<BuzzCatalogPlugin[]> {
+  const response = await fetch(url, { cache: "no-store" });
+  if (!response.ok) {
+    throw new Error(`Catalog request failed with ${response.status}`);
+  }
+  const value = (await response.json()) as unknown;
+  if (!Array.isArray(value)) throw new Error("Buzz catalog must be an array");
+  return value as BuzzCatalogPlugin[];
 }
 
 function normalizeRelayUrl(value: string): string {
   const url = new URL(value.trim());
   if (url.protocol !== "ws:" && url.protocol !== "wss:") {
-    throw new Error("Registry relays must use WS or WSS");
+    throw new Error("Buzz relays must use WS or WSS");
   }
   if (url.username || url.password || url.hash || url.search) {
-    throw new Error("Registry relay URLs cannot contain credentials or state");
+    throw new Error("Buzz relay URLs cannot contain credentials or state");
   }
   return url.toString();
+}
+
+function normalizeHttpUrl(value: string): string {
+  const url = new URL(value.trim());
+  if (url.protocol !== "http:" && url.protocol !== "https:") {
+    throw new Error("Catalog URL must use HTTP or HTTPS");
+  }
+  if (url.username || url.password || url.hash) {
+    throw new Error("Catalog URL cannot contain credentials or a fragment");
+  }
+  return url.toString();
+}
+
+function normalizePubkeys(values: readonly string[]): string[] {
+  const pubkeys = [...new Set(values.map((value) => value.trim()))];
+  if (pubkeys.some((value) => !/^[0-9a-f]{64}$/u.test(value))) {
+    throw new Error("Trusted keys must be raw lowercase Nostr pubkeys");
+  }
+  return pubkeys;
 }

@@ -1,10 +1,5 @@
-import {
-  createLiveSnapshotTemplate,
-  publishWithQuorum,
-  WebSocketRegistryRelay,
-} from "@lapismd/registry-nostr";
+import { WebSocketRegistryRelay } from "@lapismd/registry-nostr";
 
-import { registryAuthorities } from "./api.js";
 import type { ConsoleConfig } from "./api.js";
 import type { Nip07Provider, NostrEvent, NostrEventTemplate } from "./types.js";
 
@@ -42,40 +37,28 @@ export async function publishSignedEvent(
   config: ConsoleConfig,
   provider: Nip07Provider,
   event: NostrEvent,
-): Promise<{ accepted: number; required: number; total: number }> {
+): Promise<{ accepted: number; total: number }> {
   const signerPubkey = await provider.getPublicKey();
   if (signerPubkey !== event.pubkey) {
     throw new Error("Connected signer does not match the event author");
   }
-  const relays = config.officialRelays.map(
-    (url) => new WebSocketRegistryRelay(url),
+  const relays = config.buzzRelays.map(
+    (url) => new WebSocketRegistryRelay(url, { authenticationRelayUrl: url }),
   );
   try {
-    const result = await publishWithQuorum(event, relays, config.publishQuorum);
-    return {
-      accepted: result.accepted,
-      required: result.required,
-      total: result.attempts.length,
-    };
-  } finally {
-    for (const relay of relays) relay.close();
-  }
-}
-
-export async function loadLiveSnapshotTemplate(
-  config: ConsoleConfig,
-): Promise<NostrEventTemplate> {
-  const relays = config.officialRelays.map(
-    (url) => new WebSocketRegistryRelay(url),
-  );
-  try {
-    const result = await createLiveSnapshotTemplate(
-      relays,
-      config.kinds,
-      registryAuthorities(config),
-      Math.floor(Date.now() / 1_000),
+    const attempts = await Promise.allSettled(
+      relays.map(async (relay) => {
+        await relay.authenticate(async (template) =>
+          provider.signEvent(template),
+        );
+        return await relay.publish(event);
+      }),
     );
-    return result.template as NostrEventTemplate;
+    const accepted = attempts.filter(
+      (attempt) => attempt.status === "fulfilled",
+    ).length;
+    if (accepted === 0) throw new Error("No Buzz relay accepted the event");
+    return { accepted, total: attempts.length };
   } finally {
     for (const relay of relays) relay.close();
   }
