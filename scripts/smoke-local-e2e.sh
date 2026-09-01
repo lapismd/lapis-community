@@ -8,8 +8,9 @@ if [[ $# -ne 0 ]]; then
   exit 2
 fi
 
-project_name=${COMPOSE_PROJECT_NAME:-lapis-registry-buzz-smoke-$$}
-smoke_tmp=$(mktemp -d /tmp/lapis-registry-buzz-smoke.XXXXXX)
+relay_flavor=${REGISTRY_RELAY_FLAVOR:-buzz}
+project_name=${COMPOSE_PROJECT_NAME:-lapis-registry-${relay_flavor}-smoke-$$}
+smoke_tmp=$(mktemp -d "/tmp/lapis-registry-${relay_flavor}-smoke.XXXXXX")
 port_base=$((24000 + ($$ % 20000)))
 
 export COMPOSE_PROJECT_NAME=${project_name}
@@ -73,11 +74,13 @@ done
   -H 'Accept: application/nostr+json' \
   "http://registry.localhost:${LAPIS_RELAY_PORT}" \
   >"${smoke_tmp}/nip11.json"
-jq -e '
-  (.supported_nips | index(17)) and
-  (.supported_nips | index(29)) and
-  (.supported_nips | index(42))
-' "${smoke_tmp}/nip11.json" >/dev/null
+if [[ ${relay_flavor} == buzz ]]; then
+  jq -e '(.supported_nips | index(17)) and (.supported_nips | index(29)) and (.supported_nips | index(42))' \
+    "${smoke_tmp}/nip11.json" >/dev/null
+else
+  jq -e '(.supported_nips | index(29)) and (.supported_nips | index(42))' \
+    "${smoke_tmp}/nip11.json" >/dev/null
+fi
 
 fixture_base="http://127.0.0.1:${REGISTRY_FIXTURE_PORT}/"
 console_base="http://127.0.0.1:${REGISTRY_CONSOLE_PORT}/"
@@ -122,7 +125,7 @@ fi
 jq -e '.schemaVersion == 1 and (.plugins | length) == 12' \
   "${smoke_tmp}/site-index.json" >/dev/null
 jq -e '
-  .backend == "nostr-buzz" and
+  .backend == "nostr-nip29" and
   (.buzzRelays | length) == 1 and
   (.curatorPubkeys | length) == 1
 ' "${smoke_tmp}/site-runtime.json" >/dev/null
@@ -147,7 +150,8 @@ pnpm --dir "${repo_root}" relay:materialize --output "${smoke_tmp}/materialized"
 jq -e '.schemaVersion == 1 and (.plugins | length) == 12' \
   "${smoke_tmp}/materialized/index.json" >/dev/null
 jq -e --slurpfile status "${smoke_tmp}/status.json" '
-  .root == $status[0].registryRoot and
+  (.root | test("^[0-9a-f]{64}$")) and
+  .sourceRegistryRoot == $status[0].registryRoot and
   (.acceptedEventIds | length) == 24 and
   (.relaySources | length) == 1
 ' "${smoke_tmp}/materialized/provenance.json" >/dev/null
@@ -168,4 +172,4 @@ if [[ ${actual_sha} != "${expected_sha}" ]]; then
   exit 1
 fi
 
-echo "Local stock Buzz registry end-to-end smoke passed."
+echo "Local ${relay_flavor} registry end-to-end smoke passed."

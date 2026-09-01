@@ -2,7 +2,8 @@
 set -euo pipefail
 
 repo_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
-validation_tmp=$(mktemp -d /tmp/lapis-registry-buzz-compose.XXXXXX)
+relay_flavor=${REGISTRY_RELAY_FLAVOR:-buzz}
+validation_tmp=$(mktemp -d "/tmp/lapis-registry-${relay_flavor}-compose.XXXXXX")
 trap 'rm -rf "${validation_tmp}"' EXIT
 
 if [[ $# -ne 0 ]]; then
@@ -12,22 +13,23 @@ fi
 
 "${repo_root}/scripts/local-stack.sh" config --format json >"${validation_tmp}/compose.json"
 
-jq -e '
-  .services | keys == [
-    "minio",
-    "minio-init",
-    "postgres",
-    "redis",
-    "registry-console",
-    "registry-fixture",
-    "registry-materializer",
-    "registry-relay",
-    "registry-site",
-    "registry-site-builder"
-  ]
-' "${validation_tmp}/compose.json" >/dev/null
+if [[ ${relay_flavor} == buzz ]]; then
+  jq -e '
+    .services | keys == [
+      "minio",
+      "minio-init",
+      "postgres",
+      "redis",
+      "registry-console",
+      "registry-fixture",
+      "registry-materializer",
+      "registry-relay",
+      "registry-site",
+      "registry-site-builder"
+    ]
+  ' "${validation_tmp}/compose.json" >/dev/null
 
-jq -e '
+  jq -e '
   . as $compose |
   (.services["registry-relay"].image |
     startswith("ghcr.io/block/buzz@sha256:")) and
@@ -50,7 +52,47 @@ jq -e '
   ] == ["registry-relay"]) and
   ($compose.services | has("registry-service") | not) and
   ($compose.services | has("registry-community") | not)
-' "${validation_tmp}/compose.json" >/dev/null
+  ' "${validation_tmp}/compose.json" >/dev/null
+else
+  jq -e '
+    .services | keys == [
+      "postgres",
+      "registry-console",
+      "registry-fixture",
+      "registry-materializer",
+      "registry-relay",
+      "registry-site",
+      "registry-site-builder"
+    ]
+  ' "${validation_tmp}/compose.json" >/dev/null
+
+  jq -e '
+    . as $compose |
+    $compose.services["registry-relay"].image == "lapis-relay:local" and
+    ($compose.services["registry-relay"].build.context | endswith("/lapis-relay")) and
+    ($compose.services["registry-relay"].environment.RELAY_HOST |
+      startswith("registry.localhost:")) and
+    $compose.services["registry-relay"].environment.POLICY_OPEN == "true" and
+    $compose.services["registry-relay"].environment.POLICY_PUBLIC_JOIN == "true" and
+    $compose.services["registry-relay"].environment.GROUPS_ADMIN_CREATE_ONLY == "true" and
+    $compose.services["registry-relay"].environment.GROUPS_PRIVATE_ADMIN_ONLY == "true" and
+    ($compose.services["registry-relay"].environment.BLOSSOM_PUBLIC_URL |
+      startswith("http://registry.localhost:")) and
+    $compose.services["registry-relay"].depends_on.postgres.condition ==
+      "service_healthy" and
+    ([
+      $compose.services | to_entries[] |
+      select(.value.environment.DATABASE_URL? != null) |
+      .key
+    ] == ["registry-relay"]) and
+    ([
+      $compose.services | to_entries[] |
+      select(.value.environment.REDIS_URL? != null) |
+      .key
+    ] == []) and
+    ($compose.services | has("registry-service") | not)
+  ' "${validation_tmp}/compose.json" >/dev/null
+fi
 
 jq -e '
   .services["registry-fixture"].build.dockerfile ==
@@ -105,4 +147,4 @@ if [[ ${secret_mode} != 600 ]]; then
   exit 1
 fi
 
-echo "Local stock Buzz Compose configuration validation passed."
+echo "Local ${relay_flavor} Compose configuration validation passed."

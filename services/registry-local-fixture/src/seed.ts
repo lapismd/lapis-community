@@ -59,6 +59,19 @@ function positiveInteger(name: string, fallback: number): number {
   return value;
 }
 
+function optionalPositiveInteger(name: string): number | undefined {
+  const raw = process.env[name]?.trim();
+  if (raw === undefined || raw === "") return undefined;
+  const value = Number(raw);
+  if (!Number.isInteger(value) || value < 1)
+    throw new Error(`${name} must be a positive integer`);
+  return value;
+}
+
+function enabled(name: string): boolean {
+  return process.env[name]?.trim().toLowerCase() === "true";
+}
+
 function secret(secrets: FixtureSecrets, name: FixtureSecretName): Uint8Array {
   return hexToBytes(secrets.keys[name]);
 }
@@ -130,6 +143,10 @@ async function seed(): Promise<{
   const publisherSecret = secret(secrets, "publisher");
   const curatorSecret = secret(secrets, "curator");
   const operatorSecret = secret(secrets, "operator");
+  const relayJoinKind = optionalPositiveInteger("REGISTRY_RELAY_JOIN_KIND");
+  const writeRestrictedReleases = enabled(
+    "REGISTRY_RELAY_WRITE_RESTRICTED_RELEASES",
+  );
   const publisher = getPublicKey(publisherSecret);
   const curator = getPublicKey(curatorSecret);
   const relays = new Map<string, WebSocketRegistryRelay>();
@@ -149,6 +166,20 @@ async function seed(): Promise<{
         async () => await relay!.authenticate(authSigner(secretKey)),
         `NIP-42 ${pubkey}`,
       );
+      if (relayJoinKind !== undefined) {
+        await retry(
+          async () =>
+            await relay!.publish(
+              sign(secretKey, {
+                kind: relayJoinKind,
+                created_at: Math.floor(Date.now() / 1_000),
+                content: "",
+                tags: [],
+              }),
+            ),
+          `relay membership ${pubkey}`,
+        );
+      }
       relays.set(pubkey, relay);
     }
     return relay;
@@ -187,6 +218,7 @@ async function seed(): Promise<{
   const createGroup = async (
     event: NostrEvent,
     groupId: string,
+    writerPubkey?: string,
   ): Promise<void> => {
     const relay = await relayFor(operatorSecret);
     try {
@@ -203,6 +235,35 @@ async function seed(): Promise<{
       if (state.length < 2)
         throw new Error(`Buzz group ${groupId} is incomplete`);
     }, `create group ${groupId}`);
+    if (writerPubkey !== undefined) {
+      await relay.publish(
+        sign(operatorSecret, {
+          kind: 9_000,
+          created_at: Math.floor(Date.now() / 1_000),
+          content: "",
+          tags: [
+            ["h", groupId],
+            ["p", writerPubkey, "writer"],
+          ],
+        }),
+      );
+      await retry(async () => {
+        const members = await relay.query({
+          kinds: [39_002],
+          "#d": [groupId],
+        });
+        const writerPresent = members.some((member) =>
+          member.tags.some(
+            (tag) =>
+              tag[0] === "p" &&
+              tag[1] === writerPubkey &&
+              tag.slice(2).includes("writer"),
+          ),
+        );
+        if (!writerPresent)
+          throw new Error(`Writer ${writerPubkey} is missing from ${groupId}`);
+      }, `grant writer for ${groupId}`);
+    }
   };
 
   let createdAt = positiveInteger(
@@ -232,7 +293,16 @@ async function seed(): Promise<{
       sign(operatorSecret, {
         kind: 9_007,
         created_at: createdAt++,
-        content: "",
+        content: JSON.stringify({
+          name: group.name,
+          about: `${group.name} for the local Lapis registry`,
+          visibility: "open",
+          channel_type: group.type,
+          ...(writeRestrictedReleases &&
+          group.id === lapisBuzzGroupId(LAPIS_BUZZ_GROUP_PATHS.pluginReleases)
+            ? { "write-restricted": true }
+            : {}),
+        }),
         tags: [
           ["h", group.id],
           ["name", group.name],
@@ -241,6 +311,10 @@ async function seed(): Promise<{
         ],
       }),
       group.id,
+      writeRestrictedReleases &&
+        group.id === lapisBuzzGroupId(LAPIS_BUZZ_GROUP_PATHS.pluginReleases)
+        ? publisher
+        : undefined,
     );
   }
 
@@ -291,6 +365,35 @@ async function seed(): Promise<{
     secret(secrets, "communityOne"),
     secret(secrets, "communityTwo"),
   ];
+  if (enabled("REGISTRY_EXPECT_ADMIN_ONLY_GROUP_CREATION")) {
+    const probeSecret = communitySecrets[0]!;
+    const probeGroupId = "lapis-non-admin-creation-probe";
+    const probeRelay = await relayFor(probeSecret);
+    let rejection: unknown;
+    try {
+      await probeRelay.publish(
+        sign(probeSecret, {
+          kind: 9_007,
+          created_at: createdAt++,
+          content: JSON.stringify({ name: "Must not be created" }),
+          tags: [["h", probeGroupId]],
+        }),
+      );
+    } catch (error) {
+      rejection = error;
+    }
+    if (!/restricted.*admin/iu.test(String(rejection))) {
+      throw new Error("Relay did not reject non-admin group creation", {
+        cause: rejection,
+      });
+    }
+    const unexpectedState = await probeRelay.query({
+      kinds: [39_000],
+      "#d": [probeGroupId],
+    });
+    if (unexpectedState.length !== 0)
+      throw new Error("Rejected non-admin group was still materialized");
+  }
   const communityEvents: NostrEvent[] = [];
   const profileNames = [
     ["maya", "Maya Chen"],

@@ -20,8 +20,10 @@ can be proven before any cutover.
 - `scripts/materialize-buzz.ts`: deterministic static V1 output built from
   verified release messages and curator reactions on Buzz.
 
-The pinned stock Buzz deployment stays in the sibling `nostr-relay-registry`
-repository.
+The stock Buzz compatibility deployment stays in the sibling
+`nostr-relay-registry` repository. The vendored Unicity-derived relay lives in
+the sibling `lapis-relay` repository and is exercised by the dedicated Lapis
+relay Compose profile.
 Plugin artifacts stay in `lapis-plugins`. The existing public Astro site and V1
 analytics stay in `plugin-registry`. Lapis application fallback and caching stay
 in `lapis-notes`.
@@ -35,12 +37,12 @@ its configured publisher and its latest trusted curator reaction is `✅`.
 
 The signed Nostr event graph is the source of truth. There is no authoritative
 registry database and no HTTP event-submission API. Browsers and build jobs read
-NIP-29 messages and reactions from Buzz, verify their signatures, attached
+NIP-29 messages and reactions from the configured relay, verify their signatures, attached
 manifests, publisher keys, and curator keys, and materialize them locally.
 
-Buzz stores the standard NIP-29 messages and reactions. Lapis-specific meaning
-is applied by clients and materializers, while Buzz membership and moderation
-remain generic community concerns. Static V1 files and browser state are
+The relay stores the standard NIP-29 messages and reactions. Lapis-specific
+meaning is applied by clients and materializers, while relay membership and
+moderation remain generic community concerns. Static V1 files and browser state are
 disposable read models that can always be rebuilt from relay events and their
 content-addressed manifests.
 
@@ -65,6 +67,11 @@ rendered public registry. The retired multi-relay custom-kind profile is not in
 the active developer path. Open the
 rendered registry at <http://localhost:4321/> or the operator console at
 <http://localhost:4173/> after Compose reports the services healthy.
+
+Run `pnpm local:up:lapis-relay` to build the sibling `lapis-relay` source and
+run the same fixture, materializer, console, and rendered site against it. The
+cold acceptance command is `pnpm smoke:lapis-relay`; it verifies admin-only
+group creation as well as retained registry and forum events.
 
 The complete lifecycle, safety boundary, configuration overrides, and cold
 smoke test are documented in

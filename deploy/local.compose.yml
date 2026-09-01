@@ -81,6 +81,7 @@ services:
     user: "0:0"
     environment:
       LAPIS_REGISTRY_BUILD_V1_DIR: /projection/v1
+      LAPIS_REGISTRY_TRUSTED_SNAPSHOT_PUBKEYS: ${REGISTRY_SNAPSHOT_SIGNER_PUBKEYS:?fixture snapshot signer is missing}
       LAPIS_REGISTRY_BACKEND: buzz
       LAPIS_REGISTRY_CONTAINER_SITE_DIR: /site
     command: ["node", "scripts/build-container-site.mjs"]

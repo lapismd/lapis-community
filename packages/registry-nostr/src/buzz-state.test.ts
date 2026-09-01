@@ -155,6 +155,7 @@ describe("loadBuzzRelayRegistryState", () => {
     expect(mediaAuth.tags).toEqual(
       expect.arrayContaining([
         ["t", "get"],
+        ["server", "https://relay.example"],
         ["server", "relay.example"],
       ]),
     );

@@ -3,6 +3,7 @@
 - Status: accepted for implementation; production cutover remains gated
 - Date: 2026-09-01
 - Supersedes: ADR 0006 relay and membership implementation, ADR 0005 relay quorum
+- Superseded in part by: ADR 0008 Lapis Unicity-derived relay profile
 
 ## Decision
 

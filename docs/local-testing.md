@@ -1,10 +1,10 @@
 # Local end-to-end registry testing
 
-The local stack runs the same stock Buzz relay image used by the production
-deployment shape. Buzz owns relay persistence in PostgreSQL, transient
-coordination in Redis, and media/blob storage in MinIO. Lapis does not add a
-registry database or an event-submission API: the signed Nostr graph on Buzz is
-the registry source of truth.
+The local stack has two relay profiles. `pnpm local:up` retains the stock Buzz
+compatibility deployment. `pnpm local:up:lapis-relay` builds the sibling
+vendored `lapis-relay` source, backed by PostgreSQL and its embedded Blossom
+endpoint. Lapis does not add a registry database or an event-submission API:
+the signed Nostr graph on the selected relay is the registry source of truth.
 
 The fixture reads the sibling `lapis-plugins` checkout through a read-only
 mount. It creates the Lapis NIP-29 groups, uploads content-addressed release
@@ -20,7 +20,7 @@ Prerequisites are Docker with Compose, Node 22 or newer, pnpm, and sibling
 ```sh
 pnpm install
 pnpm local:validate
-pnpm local:up
+pnpm local:up:lapis-relay
 ```
 
 The services are:
@@ -28,19 +28,21 @@ The services are:
 - rendered registry: <http://localhost:4321/>
 - registry console: <http://localhost:4173/>
 - fixture status: <http://127.0.0.1:8090/status.json>
-- Buzz relay and media endpoint: `ws://registry.localhost:8281`
+- Lapis relay and media endpoint: `ws://registry.localhost:8281`
 
 Use `pnpm local:ps`, `pnpm local:logs`, and `pnpm local:down` for the normal
-lifecycle. `pnpm local:reset` removes the Buzz PostgreSQL, Redis, MinIO, Git,
+lifecycle. `pnpm local:reset` removes the selected relay's persistence,
 projection, and site volumes and rotates the ignored local fixture identities.
-There is deliberately one relay profile; the old custom-relay quorum profile
-is no longer part of the active developer workflow.
+Use `REGISTRY_RELAY_FLAVOR=buzz` with the lifecycle commands when explicitly
+checking the retained stock-Buzz profile.
 
-Run `pnpm local:smoke` for a cold production-shaped check. It uses a unique
-Compose project and high ports, verifies Buzz NIP-11/NIP-42 behaviour, checks
+Run `pnpm smoke:lapis-relay` for a cold Lapis-relay check. It uses a unique
+Compose project and high ports, verifies relay NIP-11/NIP-42 behaviour, checks
 the retained release and long-forum events, rebuilds the static V1 projection,
 builds the public registry, exercises the browser configuration, and removes
 its containers and volumes afterward.
+
+`pnpm smoke:local` runs the equivalent regression against stock Buzz.
 
 ## What the fixture proves
 
@@ -93,10 +95,10 @@ number for a smaller deliberate fixture. Set
 `pnpm smoke:long-thread` runs the cold stack with 2,000 posts. Host ports and
 pinned image references are in `deploy/.env.example`.
 
-The local relay keeps Buzz's rate limiter enabled with higher local-only
-ceilings so a deterministic bulk fixture can be imported in one run. Those
-overrides live only in `deploy/local-single.compose.yml`; production keeps
-Buzz's deployment defaults unless an operator configures them independently.
+The stock-Buzz profile keeps its rate limiter enabled with higher local-only
+ceilings so a deterministic bulk fixture can be imported in one run. The Lapis
+profile retains the vendored relay's standard validation and configures only
+the local group, join, and persistence settings required by the fixture.
 
 Local Nostr secrets are generated under ignored `.local/registry-fixture` with
 owner-only permissions. Only public keys and the secret-file path enter the

@@ -13,15 +13,15 @@ public site or app has cut over, or later product/security phases are complete.
 | ----- | ------------------------------- | ------------------------------------------------------------------------ | ----------- | ----------------------------------------------------------------------- |
 | 0     | this repository                 | repository, ownership contract, ADRs, workspace layout                   | verified    | `pnpm check`; local repository only; no remote                          |
 | 1     | protocol                        | schemas, references, authority, deterministic materializer, test vectors | verified    | 19 catalog, security, and community protocol tests passing              |
-| 2     | Nostr client + relay deployment | stock Buzz, NIP-29 groups, NIP-42 transport, Blossom manifests           | verified    | pinned stock-Buzz deployment smoke; no custom relay policy              |
+| 2     | Nostr client + relay deployment | NIP-29 groups, NIP-42 transport, Blossom manifests, Lapis relay profile  | verified    | vendored relay image + stock-Buzz compatibility smoke profiles          |
 | 3     | import/projection               | deterministic V1 import and byte-semantic parity report                  | verified    | 13 signatures; 11 plugins/13 releases round-trip                        |
-| 4     | auth + direct publication       | NIP-07 signing, direct Buzz submission, curator reaction                 | active      | local Buzz fixture complete; community/console browser acceptance next  |
+| 4     | auth + direct publication       | NIP-07 signing, direct relay submission, curator reaction                | active      | local relay fixture complete; community/console browser acceptance next |
 | 5     | curation                        | approval, revocation, moderation, deterministic signed snapshots         | verified    | replay/shuffle/duplicate vectors; distinct snapshot signer acceptance   |
 | 6     | public coexistence              | legacy registry remains live; separate direct-relay Nostr console        | verified    | local Docker UI path; legacy signed-source gate `ceed49ed`              |
 | 7     | Lapis                           | Nostr-primary, HTTP-live fallback, complete last-good cached state       | verified    | backend matrix and root package acceptance; `0db73f3a`                  |
 | 8     | security                        | key ceremony, audit log, backups, recovery drills, operator runbooks     | active      | five runbooks + exact security projection; live drills/ceremonies gated |
-| 9     | community                       | Buzz NIP-29 forums, replies, reactions, paging, and moderation substrate | active      | deterministic long-thread fixture; browser acceptance next              |
-| 10    | identity                        | Nostr-key identity through Buzz-compatible signers                       | active      | OAuth, threshold signing, and identity bridges explicitly deferred      |
+| 9     | community                       | NIP-29 forums, replies, reactions, paging, and moderation substrate      | active      | deterministic long-thread fixture; browser acceptance next              |
+| 10    | identity                        | Nostr-key identity through NIP-42-compatible signers                     | active      | OAuth, threshold signing, and identity bridges explicitly deferred      |
 | 11    | retirement                      | make Nostr default, observe, then retire legacy registry                 | manual-gate | explicit cutover and retirement approval                                |
 
 ## Manual gates

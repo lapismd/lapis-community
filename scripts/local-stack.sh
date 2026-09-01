@@ -4,6 +4,12 @@ set -euo pipefail
 repo_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 fixture_dir="${repo_root}/.local/registry-fixture"
 fixture_env="${fixture_dir}/fixture.env"
+relay_env="${fixture_dir}/lapis-relay.env"
+relay_flavor=${REGISTRY_RELAY_FLAVOR:-buzz}
+if [[ ${relay_flavor} != buzz && ${relay_flavor} != lapis ]]; then
+  echo "REGISTRY_RELAY_FLAVOR must be buzz or lapis" >&2
+  exit 2
+fi
 
 resolve_directory() {
   local configured=$1
@@ -32,19 +38,46 @@ if [[ ! -f ${fixture_env} || ! -f ${fixture_dir}/fixture-secrets.json ]] ||
     --output "${fixture_dir}" >/dev/null
 fi
 
+if [[ ${relay_flavor} == lapis ]]; then
+  operator_secret=$(jq -er '.keys.operator | select(test("^[0-9a-f]{64}$"))' \
+    "${fixture_dir}/fixture-secrets.json")
+  operator_pubkey=$(awk -F= '$1 == "REGISTRY_OPERATOR_PUBKEYS" { print $2 }' \
+    "${fixture_env}")
+  [[ ${operator_pubkey} =~ ^[0-9a-f]{64}$ ]] || {
+    echo "Fixture operator pubkey is invalid" >&2
+    exit 1
+  }
+  umask 077
+  printf "LAPIS_RELAY_SECRET=%s\nLAPIS_RELAY_ADMIN_PUBKEYS='\"%s\"'\n" \
+    "${operator_secret}" "${operator_pubkey}" >"${relay_env}"
+  chmod 600 "${relay_env}"
+fi
+
 export LAPIS_PLUGINS_PATH
 LAPIS_PLUGINS_PATH=$(resolve_directory "${LAPIS_PLUGINS_PATH:-}" "${repo_root}/../lapis-plugins")
 export PLUGIN_REGISTRY_PATH
 PLUGIN_REGISTRY_PATH=$(resolve_directory "${PLUGIN_REGISTRY_PATH:-}" "${repo_root}/../plugin-registry")
-export COMPOSE_PROJECT_NAME=${COMPOSE_PROJECT_NAME:-lapis-registry-buzz}
+if [[ ${relay_flavor} == lapis ]]; then
+  export LAPIS_RELAY_PATH
+  LAPIS_RELAY_PATH=$(resolve_directory "${LAPIS_RELAY_PATH:-}" "${repo_root}/../lapis-relay")
+fi
+export COMPOSE_PROJECT_NAME=${COMPOSE_PROJECT_NAME:-lapis-registry-${relay_flavor}}
+
+relay_compose="${repo_root}/deploy/local-single.compose.yml"
+relay_env_args=()
+if [[ ${relay_flavor} == lapis ]]; then
+  relay_compose="${repo_root}/deploy/local-lapis-relay.compose.yml"
+  relay_env_args=(--env-file "${relay_env}")
+fi
 
 compose=(
   docker compose
   --project-name "${COMPOSE_PROJECT_NAME}"
   --env-file "${repo_root}/deploy/.env.example"
   --env-file "${fixture_env}"
+  "${relay_env_args[@]}"
   -f "${repo_root}/deploy/local.compose.yml"
-  -f "${repo_root}/deploy/local-single.compose.yml"
+  -f "${relay_compose}"
 )
 
 wait_for_health() {
@@ -68,6 +101,9 @@ wait_for_health() {
 }
 
 refresh_fixture_clock_for_unseeded_relay() {
+  if [[ ${relay_flavor} != buzz ]]; then
+    return
+  fi
   local registry_event_count fresh_created_at temporary_env
   registry_event_count=$("${compose[@]}" exec -T postgres \
     psql -U buzz -d buzz -tAc \
@@ -94,22 +130,27 @@ command=${1:-up}
 [[ $# -eq 0 ]] || shift
 case "${command}" in
   up)
-    "${compose[@]}" pull registry-relay postgres redis minio minio-init
-    "${compose[@]}" up -d registry-relay
+    if [[ ${relay_flavor} == buzz ]]; then
+      "${compose[@]}" pull registry-relay postgres redis minio minio-init
+      "${compose[@]}" up -d registry-relay
+    else
+      "${compose[@]}" pull postgres
+      "${compose[@]}" up -d --build registry-relay
+    fi
     wait_for_health registry-relay
     refresh_fixture_clock_for_unseeded_relay
     "${compose[@]}" up -d --build "$@"
     echo "Rendered registry: http://localhost:${REGISTRY_SITE_PORT:-4321}/"
     echo "Registry console: http://localhost:${REGISTRY_CONSOLE_PORT:-4173}/"
     echo "Fixture status:   http://127.0.0.1:${REGISTRY_FIXTURE_PORT:-8090}/status.json"
-    echo "Buzz relay:       ws://registry.localhost:${LAPIS_RELAY_PORT:-8281}"
+    echo "Registry relay:   ws://registry.localhost:${LAPIS_RELAY_PORT:-8281} (${relay_flavor})"
     ;;
   down)
     "${compose[@]}" down --remove-orphans "$@"
     ;;
   reset)
     "${compose[@]}" down --volumes --remove-orphans "$@"
-    rm -f "${fixture_dir}/fixture.env" "${fixture_dir}/fixture-secrets.json"
+    rm -f "${fixture_dir}/fixture.env" "${fixture_dir}/fixture-secrets.json" "${relay_env}"
     ;;
   config | logs | port | ps | restart | stop)
     "${compose[@]}" "${command}" "$@"

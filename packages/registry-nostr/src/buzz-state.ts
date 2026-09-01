@@ -188,6 +188,7 @@ async function mediaAuthorization(
         tags: [
           ["t", "get"],
           ["expiration", String(now + 600)],
+          ["server", origin],
           ["server", new URL(origin).host],
         ],
       });

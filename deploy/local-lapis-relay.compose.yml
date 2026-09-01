@@ -1,0 +1,88 @@
+name: lapis-nostr-registry-lapis-relay-local
+
+services:
+  registry-relay:
+    image: ${LAPIS_RELAY_IMAGE:-lapis-relay:local}
+    build:
+      context: ${LAPIS_RELAY_PATH:?run the Lapis relay stack through local-stack.sh}
+      dockerfile: Dockerfile
+    platform: ${IMAGE_PLATFORM:-linux/arm64}
+    environment:
+      PORT: "3334"
+      DATABASE_URL: postgres://lapis_relay:lapis_relay_dev@postgres:5432/lapis_relay?sslmode=disable
+      RELAY_HOST: registry.localhost:${LAPIS_RELAY_PORT:-8281}
+      RELAY_SCHEMA: lapis_registry
+      RELAY_SECRET: ${LAPIS_RELAY_SECRET:?ignored local relay secret is missing}
+      RELAY_PUBKEY: ${REGISTRY_OPERATOR_PUBKEYS:?fixture operator is missing}
+      ADMIN_PUBKEYS: ${LAPIS_RELAY_ADMIN_PUBKEYS:?ignored local relay admins are missing}
+      POLICY_OPEN: "true"
+      POLICY_PUBLIC_JOIN: "true"
+      GROUPS_AUTO_JOIN: "true"
+      GROUPS_ADMIN_CREATE_ONLY: "true"
+      GROUPS_PRIVATE_ADMIN_ONLY: "true"
+      GROUPS_PRIVATE_RELAY_ADMIN_ACCESS: "false"
+      GROUP_REWRITE_DEBOUNCE_MS: "0"
+      BLOSSOM_ENABLED: "true"
+      BLOSSOM_PUBLIC_URL: http://registry.localhost:${LAPIS_RELAY_PORT:-8281}
+    ports:
+      - "${LAPIS_RELAY_PORT:-8281}:3334"
+    volumes:
+      - lapis-relay-config:/app/config
+      - lapis-relay-media:/app/media
+    depends_on:
+      postgres: { condition: service_healthy }
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:3334/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 20s
+    restart: unless-stopped
+
+  postgres:
+    image: ${POSTGRES_IMAGE:-postgres:17-alpine@sha256:18cfe3ef5e6815560c98237d6216d1e5119702fb0f3894c8785dd58b8bbe5d73}
+    environment:
+      POSTGRES_DB: lapis_relay
+      POSTGRES_USER: lapis_relay
+      POSTGRES_PASSWORD: lapis_relay_dev
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes: [lapis-relay-postgres-data:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U lapis_relay -d lapis_relay"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+
+  registry-fixture:
+    environment:
+      REGISTRY_BUZZ_RELAY: ws://registry.localhost:${LAPIS_RELAY_PORT:-8281}
+      REGISTRY_RELAY_JOIN_KIND: "28934"
+      REGISTRY_RELAY_WRITE_RESTRICTED_RELEASES: "true"
+      REGISTRY_EXPECT_ADMIN_ONLY_GROUP_CREATION: "true"
+    extra_hosts:
+      - registry.localhost:host-gateway
+    depends_on:
+      registry-relay: { condition: service_healthy }
+
+  registry-console:
+    environment:
+      REGISTRY_BUZZ_RELAYS: ws://registry.localhost:${LAPIS_RELAY_PORT:-8281}
+      REGISTRY_CATALOG_URL: http://127.0.0.1:${REGISTRY_FIXTURE_PORT:-8090}/catalog.json
+    depends_on:
+      registry-fixture: { condition: service_healthy }
+
+  registry-materializer:
+    environment:
+      REGISTRY_BUZZ_RELAYS: ws://registry.localhost:${LAPIS_RELAY_PORT:-8281}
+      REGISTRY_PUBLIC_BUZZ_RELAYS: ws://registry.localhost:${LAPIS_RELAY_PORT:-8281}
+      REGISTRY_CATALOG_URL: http://registry-fixture:8090/catalog.json
+    extra_hosts:
+      - registry.localhost:host-gateway
+    depends_on:
+      registry-fixture: { condition: service_healthy }
+
+volumes:
+  lapis-relay-config:
+  lapis-relay-media:
+  lapis-relay-postgres-data:
