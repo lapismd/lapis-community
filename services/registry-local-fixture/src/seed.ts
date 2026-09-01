@@ -11,7 +11,6 @@ import {
   createApprovalEventTemplate,
   createAssessmentEventTemplate,
   createPluginEventTemplate,
-  createRatingTemplate,
   createReleaseEventTemplate,
   createSnapshotContent,
   createSnapshotEventTemplate,
@@ -27,7 +26,6 @@ import type {
   ApprovalContent,
   AssessmentContent,
   NostrEvent,
-  RatingContent,
   RegistryAuthorities,
   ReleaseContent,
   SecurityAdvisoryContent,
@@ -38,6 +36,7 @@ import { finalizeEvent, getPublicKey } from "nostr-tools/pure";
 
 import { parseFixtureSecrets } from "./keys.js";
 import type { FixtureSecretName, FixtureSecrets } from "./keys.js";
+import { createDemoDiscussion } from "./demo-discussion.js";
 import { publishWithRetainedQuorum } from "./publication.js";
 import { loadLocalPluginFixtures } from "./source.js";
 
@@ -296,53 +295,30 @@ async function seed(): Promise<{
   );
   await publishOfficial(disposition);
 
+  const demoFixtureIndex = Math.max(
+    0,
+    fixtures.findIndex((fixture) => fixture.plugin.pluginId === "ai"),
+  );
+  const demoFixture = fixtures[demoFixtureIndex]!;
+  const demoRelease = acceptedReleases[demoFixtureIndex]!;
   const pluginAddress = eventAddress(
     TEST_REGISTRY_KINDS.softwareApplication,
     publisher,
-    firstFixture.plugin.pluginId,
+    demoFixture.plugin.pluginId,
   );
-  for (const [name, value] of [
-    ["communityOne", 5],
-    ["communityTwo", 4],
-  ] as const) {
-    const userSecret = secret(secrets, name);
-    const ratingContent: RatingContent = {
-      schema: "lapis.registry.rating/1",
-      pluginId: firstFixture.plugin.pluginId,
-      rating: value,
-      status: "active",
-      version: firstRelease.content.version,
-    };
-    await publishCommunity(
-      finalizeEvent(
-        createRatingTemplate(
-          ratingContent,
-          pluginAddress,
-          TEST_COMMUNITY_KINDS,
-          createdAt++,
-        ),
-        userSecret,
-      ),
-    );
-  }
   const communityOneSecret = secret(secrets, "communityOne");
-  const review = finalizeEvent(
-    {
-      kind: TEST_COMMUNITY_KINDS.comment,
-      created_at: createdAt++,
-      tags: [
-        ["A", pluginAddress],
-        ["K", String(TEST_COMMUNITY_KINDS.softwareApplication)],
-        ["P", publisher],
-        ["a", pluginAddress],
-        ["k", String(TEST_COMMUNITY_KINDS.softwareApplication)],
-        ["p", publisher],
-      ],
-      content: "Local fixture review generated from the mounted plugin source.",
-    },
-    communityOneSecret,
-  );
-  await publishCommunity(review);
+  const discussion = createDemoDiscussion({
+    pluginId: demoFixture.plugin.pluginId,
+    pluginAddress,
+    pluginKind: TEST_COMMUNITY_KINDS.softwareApplication,
+    publisherPubkey: publisher,
+    version: demoRelease.content.version,
+    kinds: TEST_COMMUNITY_KINDS,
+    seedSecret: communityOneSecret,
+    startCreatedAt: createdAt,
+  });
+  for (const event of discussion.events) await publishCommunity(event);
+  createdAt = discussion.nextCreatedAt;
   const communityTwoSecret = secret(secrets, "communityTwo");
   const report = finalizeEvent(
     {

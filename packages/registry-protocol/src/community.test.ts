@@ -7,7 +7,9 @@ import { describe, expect, it } from "vitest";
 
 import {
   createPluginCommentTemplate,
+  createPluginReplyTemplate,
   createRatingTemplate,
+  createReactionTemplate,
   materializeCommunity,
   TEST_COMMUNITY_KINDS,
 } from "./index.js";
@@ -69,6 +71,68 @@ describe("materializeCommunity", () => {
         ["p", publisher],
       ],
       content: "Useful review",
+    });
+  });
+
+  it("creates canonical NIP-22 replies and NIP-25 reactions", () => {
+    const parent = finalizeEvent(
+      createPluginCommentTemplate(
+        "Parent",
+        {
+          pluginAddress,
+          pluginKind: TEST_COMMUNITY_KINDS.softwareApplication,
+          publisherPubkey: publisher,
+        },
+        TEST_COMMUNITY_KINDS,
+        1_800_000_000,
+      ),
+      userOneKey,
+    );
+
+    expect(
+      createPluginReplyTemplate(
+        "  Reply  ",
+        {
+          pluginAddress,
+          pluginKind: TEST_COMMUNITY_KINDS.softwareApplication,
+          publisherPubkey: publisher,
+          parentEventId: parent.id,
+          parentPubkey: parent.pubkey,
+        },
+        TEST_COMMUNITY_KINDS,
+        1_800_000_001,
+      ),
+    ).toMatchObject({
+      kind: TEST_COMMUNITY_KINDS.comment,
+      tags: [
+        ["A", pluginAddress],
+        ["K", String(TEST_COMMUNITY_KINDS.softwareApplication)],
+        ["P", publisher],
+        ["e", parent.id],
+        ["k", String(TEST_COMMUNITY_KINDS.comment)],
+        ["p", parent.pubkey],
+      ],
+      content: "Reply",
+    });
+    expect(
+      createReactionTemplate(
+        "",
+        {
+          eventId: parent.id,
+          eventKind: parent.kind,
+          eventPubkey: parent.pubkey,
+        },
+        TEST_COMMUNITY_KINDS,
+        1_800_000_002,
+      ),
+    ).toMatchObject({
+      kind: TEST_COMMUNITY_KINDS.reaction,
+      tags: [
+        ["e", parent.id],
+        ["p", parent.pubkey],
+        ["k", String(TEST_COMMUNITY_KINDS.comment)],
+      ],
+      content: "+",
     });
   });
 
@@ -154,6 +218,50 @@ describe("materializeCommunity", () => {
     expect(
       result.reviews.find((review) => review.event.id === reply.id),
     ).toMatchObject({ pluginId: "wordcount", parentEventId: topLevel.id });
+  });
+
+  it("materializes one NIP-25 reaction per author, target, and value", () => {
+    const review = finalizeEvent(
+      createPluginCommentTemplate(
+        "This post can be reacted to.",
+        {
+          pluginAddress,
+          pluginKind: TEST_COMMUNITY_KINDS.softwareApplication,
+          publisherPubkey: publisher,
+        },
+        TEST_COMMUNITY_KINDS,
+        1_800_000_000,
+      ),
+      userOneKey,
+    );
+    const reaction = (key: Uint8Array, content: string, createdAt: number) =>
+      finalizeEvent(
+        createReactionTemplate(
+          content,
+          {
+            eventId: review.id,
+            eventKind: review.kind,
+            eventPubkey: review.pubkey,
+          },
+          TEST_COMMUNITY_KINDS,
+          createdAt,
+        ),
+        key,
+      );
+    const original = reaction(userTwoKey, "❤", 1_800_000_001);
+    const duplicate = reaction(userTwoKey, "❤", 1_800_000_002);
+    const secondValue = reaction(userTwoKey, "💡", 1_800_000_003);
+    const result = materializeCommunity(
+      [duplicate, review, original, secondValue],
+      TEST_COMMUNITY_KINDS,
+      pluginAddresses,
+    );
+
+    expect(result.reactions).toHaveLength(2);
+    expect(result.reactionAggregates).toEqual([
+      { targetEventId: review.id, content: "❤", count: 1 },
+      { targetEventId: review.id, content: "💡", count: 1 },
+    ]);
   });
 
   it("rejects NIP-22 reviews without the exact root and parent authors", () => {

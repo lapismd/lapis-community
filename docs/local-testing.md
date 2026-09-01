@@ -58,8 +58,9 @@ At startup the fixture service:
 2. creates deterministic source-metadata artifacts and SHA-256 evidence;
 3. signs and publishes plugin, release, assessment, approval, security, and
    snapshot events directly to the configured official relay quorum;
-4. signs and publishes ratings, a review, a report, a collection, and a follow
-   list directly to the community relay;
+4. signs and publishes a long AI-plugin discussion fixture with participant
+   profiles, ratings, NIP-22 replies, NIP-25 reactions, a report, a collection,
+   and a follow list directly to the community relay;
 5. resolves the signed snapshot and every exact official event ID from the
    relays, then materializes the same catalog/community/security roots used by
    the browser and static build;
@@ -71,8 +72,9 @@ At startup the fixture service:
 The console starts only after seeding is healthy. It receives public relay,
 kind, quorum, and authority configuration from `config.json`; it does not call a
 registry backend. Plugin detail pages load a Design Core custom element that
-queries the community relay directly and uses a browser NIP-07 signer for rating
-and comment events.
+queries the community relay directly and uses a browser NIP-07 signer for
+rating, comment, reply, and reaction events. The AI plugin page carries the long
+demo topic and its Discourse-inspired history rail.
 
 ## Rebuild static V1 output
 

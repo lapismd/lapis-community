@@ -76,6 +76,7 @@ function consoleConfig() {
     communityKinds: {
       rating: testKinds ? 64_006 : integer("REGISTRY_RATING_KIND"),
       comment: 1_111,
+      reaction: 7,
       report: 1_984,
       followList: 3,
       appCurationSet: 30_267,

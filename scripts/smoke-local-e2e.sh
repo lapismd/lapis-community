@@ -97,8 +97,8 @@ expected_quorum=1
 if [[ ${profile} == quorum ]]; then expected_quorum=2; fi
 jq -e --argjson quorum "${expected_quorum}" '
   .pluginCount == 12 and
-  .communityEventCount == 6 and
-  (.officialEventCount > .communityEventCount) and
+  .communityEventCount == 90 and
+  (.officialEventCount > 0) and
   .relayCopies.officialQuorum >= $quorum and
   .relayCopies.community == .communityEventCount and
   (.registryRoot | test("^[0-9a-f]{64}$")) and
@@ -163,7 +163,9 @@ jq -e --slurpfile status "${smoke_tmp}/status.json" '
 ' "${smoke_tmp}/materialized/provenance.json" >/dev/null
 jq -e --slurpfile status "${smoke_tmp}/status.json" '
   .root == $status[0].communityRoot and
-  ([.ratingAggregates[].count] | add) == 2
+  ([.ratingAggregates[].count] | add) == 8 and
+  (.reviews | length) == 24 and
+  (.reactions | length) == 43
 ' "${smoke_tmp}/materialized/community.json" >/dev/null
 jq -e --slurpfile status "${smoke_tmp}/status.json" '
   .root == $status[0].securityRoot and

@@ -21,6 +21,7 @@ const baseConfig = {
   communityKinds: {
     rating: 64_006,
     comment: 1_111,
+    reaction: 7,
     report: 1_984,
     followList: 3,
     appCurationSet: 30_267,
@@ -82,6 +83,8 @@ describe("registry relay console", () => {
         ratings: [],
         ratingAggregates: [],
         reviews: [],
+        reactions: [],
+        reactionAggregates: [],
         reports: [],
         collections: [],
         followLists: [],

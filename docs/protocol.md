@@ -27,9 +27,11 @@ NIP-56 reports remain non-enforcing reviewer context.
 
 Community materialization is also independent from catalog and security roots.
 It applies one current addressable rating per pubkey/plugin, rating withdrawal,
-NIP-22 review threading, NIP-56 report validation, NIP-51 app collections and
-follow lists, plus transparent moderation exclusions. Ratings, reviews, and
-reports have no path to approval or installer enforcement.
+NIP-22 review threading, NIP-25 reactions to known review events, NIP-56 report
+validation, NIP-51 app collections and follow lists, plus transparent moderation
+exclusions. A reaction is retained once per author, target, and reaction value
+in the deterministic read model. Ratings, reviews, reactions, and reports have
+no path to approval or installer enforcement.
 
 An approval is valid only when every reference resolves exactly. One passing
 assessment plus one curator approval is required in protocol v1. Event trust is

@@ -18,7 +18,8 @@ can be proven before any cutover.
 - `apps/registry-console`: browser-side relay reader, publisher, and
   curator/admin console.
 - `apps/registry-community`: Design Core custom element for direct NIP-07
-  ratings, comments, and community-relay reads on the rendered registry.
+  ratings, threaded comments, reactions, and community-relay reads on the
+  rendered registry.
 - `scripts/materialize-relays.ts`: deterministic static V1 output built from a
   verified relay snapshot.
 

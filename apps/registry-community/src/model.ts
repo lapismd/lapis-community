@@ -26,3 +26,120 @@ export function anyRelayPublished(
 ): boolean {
   return results.some((result) => result.status === "fulfilled");
 }
+
+export function parseProfiles(
+  events: readonly NostrEvent[],
+): CommunityProfile[] {
+  const profiles = new Map<
+    string,
+    { event: NostrEvent; profile: CommunityProfile }
+  >();
+  for (const event of events) {
+    if (event.kind !== 0) continue;
+    let content: unknown;
+    try {
+      content = JSON.parse(event.content) as unknown;
+    } catch {
+      continue;
+    }
+    if (
+      content === null ||
+      Array.isArray(content) ||
+      typeof content !== "object"
+    ) {
+      continue;
+    }
+    const candidate = content as { display_name?: unknown; name?: unknown };
+    const displayName =
+      typeof candidate.display_name === "string"
+        ? candidate.display_name.trim()
+        : "";
+    const name =
+      typeof candidate.name === "string" ? candidate.name.trim() : "";
+    const selected = displayName || name;
+    if (selected.length === 0 || selected.length > 100) continue;
+    const current = profiles.get(event.pubkey);
+    if (
+      current === undefined ||
+      event.created_at > current.event.created_at ||
+      (event.created_at === current.event.created_at &&
+        event.id > current.event.id)
+    ) {
+      profiles.set(event.pubkey, {
+        event,
+        profile: { pubkey: event.pubkey, name: selected },
+      });
+    }
+  }
+  return [...profiles.values()]
+    .map((entry) => entry.profile)
+    .toSorted((left, right) => left.pubkey.localeCompare(right.pubkey));
+}
+
+export function displayName(
+  pubkey: string,
+  profiles: ReadonlyMap<string, CommunityProfile>,
+): string {
+  return profiles.get(pubkey)?.name ?? `nostr:${shortKey(pubkey)}`;
+}
+
+export function initials(value: string): string {
+  const parts = value
+    .replace(/^nostr:/u, "")
+    .split(/[\s_-]+/u)
+    .filter(Boolean);
+  return (
+    parts.length > 1
+      ? `${parts[0]?.[0] ?? ""}${parts.at(-1)?.[0] ?? ""}`
+      : (parts[0]?.slice(0, 2) ?? "N")
+  ).toUpperCase();
+}
+
+export function avatarHue(pubkey: string): number {
+  return Number.parseInt(pubkey.slice(0, 6), 16) % 360;
+}
+
+export function reactionGroups(
+  targetEventId: string,
+  reactions: readonly MaterializedReaction[],
+): ReactionGroup[] {
+  const values = new Map<string, number>();
+  for (const reaction of reactions) {
+    if (reaction.targetEventId !== targetEventId) continue;
+    values.set(reaction.content, (values.get(reaction.content) ?? 0) + 1);
+  }
+  return [...values.entries()]
+    .map(([content, count]) => ({
+      content,
+      symbol: content === "+" ? "❤" : content,
+      count,
+    }))
+    .toSorted(
+      (left, right) =>
+        right.count - left.count || left.content.localeCompare(right.content),
+    );
+}
+
+export function timelinePosition(index: number, total: number): number {
+  if (total <= 1) return 0;
+  return (Math.max(0, Math.min(index, total - 1)) / (total - 1)) * 100;
+}
+
+function shortKey(value: string): string {
+  return value.length > 12 ? `${value.slice(0, 6)}…${value.slice(-4)}` : value;
+}
+import type {
+  MaterializedReaction,
+  NostrEvent,
+} from "@lapismd/registry-protocol";
+
+export interface CommunityProfile {
+  pubkey: string;
+  name: string;
+}
+
+export interface ReactionGroup {
+  content: string;
+  symbol: string;
+  count: number;
+}

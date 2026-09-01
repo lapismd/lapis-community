@@ -24,6 +24,7 @@ const reportTypes = new Set([
 export interface CommunityKindMap {
   rating: number;
   comment: number;
+  reaction: number;
   report: number;
   followList: number;
   appCurationSet: number;
@@ -33,6 +34,7 @@ export interface CommunityKindMap {
 export const TEST_COMMUNITY_KINDS: CommunityKindMap = Object.freeze({
   rating: 64006,
   comment: 1111,
+  reaction: 7,
   report: 1984,
   followList: 3,
   appCurationSet: 30267,
@@ -53,6 +55,17 @@ export interface PluginCommentTarget {
   publisherPubkey: string;
 }
 
+export interface PluginReplyTarget extends PluginCommentTarget {
+  parentEventId: string;
+  parentPubkey: string;
+}
+
+export interface ReactionTarget {
+  eventId: string;
+  eventKind: number;
+  eventPubkey: string;
+}
+
 export interface MaterializedRating {
   event: NostrEvent;
   content: RatingContent;
@@ -71,6 +84,19 @@ export interface MaterializedReview {
   pluginAddress: string;
   parentEventId?: string | undefined;
   content: string;
+}
+
+export interface MaterializedReaction {
+  event: NostrEvent;
+  pluginId: string;
+  targetEventId: string;
+  content: string;
+}
+
+export interface ReactionAggregate {
+  targetEventId: string;
+  content: string;
+  count: number;
 }
 
 export interface MaterializedReport {
@@ -102,6 +128,8 @@ export interface MaterializedCommunity {
   ratings: MaterializedRating[];
   ratingAggregates: RatingAggregate[];
   reviews: MaterializedReview[];
+  reactions: MaterializedReaction[];
+  reactionAggregates: ReactionAggregate[];
   reports: MaterializedReport[];
   collections: MaterializedCollection[];
   followLists: MaterializedFollowList[];
@@ -168,21 +196,8 @@ export function createPluginCommentTemplate(
   kinds: CommunityKindMap,
   createdAt: number,
 ): NostrEventTemplate {
-  const normalized = content.trim();
-  if (normalized.length === 0 || normalized.length > 10_000) {
-    throw new Error("Plugin comments must contain 1 through 10000 characters");
-  }
-  if (
-    !/^\d+:[0-9a-f]{64}:[a-z0-9][a-z0-9-]{0,127}$/u.test(
-      target.pluginAddress,
-    ) ||
-    !Number.isInteger(target.pluginKind) ||
-    target.pluginKind < 0 ||
-    target.pluginKind > 65_535 ||
-    !hex64Pattern.test(target.publisherPubkey)
-  ) {
-    throw new Error("Plugin comment target is invalid");
-  }
+  const normalized = normalizedComment(content);
+  assertPluginCommentTarget(target);
   return {
     kind: kinds.comment,
     created_at: createdAt,
@@ -193,6 +208,62 @@ export function createPluginCommentTemplate(
       ["a", target.pluginAddress],
       ["k", String(target.pluginKind)],
       ["p", target.publisherPubkey],
+    ],
+    content: normalized,
+  };
+}
+
+export function createPluginReplyTemplate(
+  content: string,
+  target: PluginReplyTarget,
+  kinds: CommunityKindMap,
+  createdAt: number,
+): NostrEventTemplate {
+  const normalized = normalizedComment(content);
+  assertPluginCommentTarget(target);
+  if (
+    !hex64Pattern.test(target.parentEventId) ||
+    !hex64Pattern.test(target.parentPubkey)
+  ) {
+    throw new Error("Plugin reply parent is invalid");
+  }
+  return {
+    kind: kinds.comment,
+    created_at: createdAt,
+    tags: [
+      ["A", target.pluginAddress],
+      ["K", String(target.pluginKind)],
+      ["P", target.publisherPubkey],
+      ["e", target.parentEventId],
+      ["k", String(kinds.comment)],
+      ["p", target.parentPubkey],
+    ],
+    content: normalized,
+  };
+}
+
+export function createReactionTemplate(
+  content: string,
+  target: ReactionTarget,
+  kinds: CommunityKindMap,
+  createdAt: number,
+): NostrEventTemplate {
+  const normalized = content.trim() === "" ? "+" : content.trim();
+  if (
+    normalized.length > 128 ||
+    !hex64Pattern.test(target.eventId) ||
+    !hex64Pattern.test(target.eventPubkey) ||
+    target.eventKind !== kinds.comment
+  ) {
+    throw new Error("Reaction target or content is invalid");
+  }
+  return {
+    kind: kinds.reaction,
+    created_at: createdAt,
+    tags: [
+      ["e", target.eventId],
+      ["p", target.eventPubkey],
+      ["k", String(target.eventKind)],
     ],
     content: normalized,
   };
@@ -211,7 +282,8 @@ export function materializeCommunity(
   const verifySignature = options.verifySignature ?? verifyEvent;
   const issues: RegistryIssue[] = [];
   const ratings = new Map<string, MaterializedRating>();
-  const reviews: MaterializedReview[] = [];
+  const reviewCandidates: MaterializedReview[] = [];
+  const reactionEvents: NostrEvent[] = [];
   const reports: MaterializedReport[] = [];
   const collections = new Map<string, MaterializedCollection>();
   const followLists = new Map<string, MaterializedFollowList>();
@@ -253,7 +325,11 @@ export function materializeCommunity(
     }
     if (event.kind === kinds.comment) {
       const review = parseReview(event, pluginAddresses, kinds, issues);
-      if (review !== undefined) reviews.push(review);
+      if (review !== undefined) reviewCandidates.push(review);
+      continue;
+    }
+    if (event.kind === kinds.reaction) {
+      reactionEvents.push(event);
       continue;
     }
     if (event.kind === kinds.report) {
@@ -294,7 +370,16 @@ export function materializeCommunity(
     .filter((rating) => rating.content.status === "active")
     .toSorted(compareEventValues);
   const aggregates = aggregateRatings(activeRatings);
-  reviews.sort(compareEventValues);
+  const reviews = validatedReviewGraph(reviewCandidates, issues).toSorted(
+    compareEventValues,
+  );
+  const reactions = materializeReactions(
+    reactionEvents,
+    reviews,
+    kinds,
+    issues,
+  );
+  const reactionAggregates = aggregateReactions(reactions);
   reports.sort(compareEventValues);
   const materializedCollections = [...collections.values()].toSorted(
     compareEventValues,
@@ -312,6 +397,7 @@ export function materializeCommunity(
     schemaVersion: 1,
     ratings: activeRatings.map((rating) => rating.event.id),
     reviews: reviews.map((review) => review.event.id),
+    reactions: reactions.map((reaction) => reaction.event.id),
     reports: reports.map((report) => report.event.id),
     collections: materializedCollections.map(
       (collection) => collection.event.id,
@@ -328,6 +414,8 @@ export function materializeCommunity(
     ratings: activeRatings,
     ratingAggregates: aggregates,
     reviews,
+    reactions,
+    reactionAggregates,
     reports,
     collections: materializedCollections,
     followLists: materializedFollowLists,
@@ -435,6 +523,81 @@ function parseReview(
   };
 }
 
+function validatedReviewGraph(
+  candidates: readonly MaterializedReview[],
+  issues: RegistryIssue[],
+): MaterializedReview[] {
+  const byId = new Map(
+    candidates.map((review) => [review.event.id, review] as const),
+  );
+  return candidates.filter((review) => {
+    if (review.parentEventId === undefined) return true;
+    const parent = byId.get(review.parentEventId);
+    const parentPubkey = tagValueLast(review.event, "p");
+    if (
+      parent !== undefined &&
+      parent.pluginId === review.pluginId &&
+      parent.event.pubkey === parentPubkey
+    ) {
+      return true;
+    }
+    communityIssue(
+      issues,
+      review.event,
+      "reference",
+      "Review reply does not reference a known parent comment and author",
+    );
+    return false;
+  });
+}
+
+function materializeReactions(
+  input: readonly NostrEvent[],
+  reviews: readonly MaterializedReview[],
+  kinds: CommunityKindMap,
+  issues: RegistryIssue[],
+): MaterializedReaction[] {
+  const reviewsById = new Map(
+    reviews.map((review) => [review.event.id, review] as const),
+  );
+  const reactions = new Map<string, MaterializedReaction>();
+  for (const event of input) {
+    const targetEventId = tagValueLast(event, "e");
+    const targetPubkey = tagValueLast(event, "p");
+    const targetKind = tagValueLast(event, "k");
+    const target =
+      targetEventId === undefined ? undefined : reviewsById.get(targetEventId);
+    const content = event.content.trim() === "" ? "+" : event.content.trim();
+    if (
+      target === undefined ||
+      target.event.pubkey !== targetPubkey ||
+      targetKind !== String(kinds.comment) ||
+      content.length > 128
+    ) {
+      communityIssue(
+        issues,
+        event,
+        "reference",
+        "Reaction does not reference a known plugin comment and author",
+      );
+      continue;
+    }
+    const reaction = {
+      event,
+      pluginId: target.pluginId,
+      targetEventId: target.event.id,
+      content,
+    };
+    const key = `${event.pubkey}:${target.event.id}:${content}`;
+    const current = reactions.get(key);
+    reactions.set(
+      key,
+      current === undefined ? reaction : later(current, reaction),
+    );
+  }
+  return [...reactions.values()].toSorted(compareEventValues);
+}
+
 function parseReport(
   event: NostrEvent,
   issues: RegistryIssue[],
@@ -512,6 +675,27 @@ function aggregateRatings(
     .sort((left, right) => left.pluginId.localeCompare(right.pluginId));
 }
 
+function aggregateReactions(
+  reactions: readonly MaterializedReaction[],
+): ReactionAggregate[] {
+  const values = new Map<string, ReactionAggregate>();
+  for (const reaction of reactions) {
+    const key = `${reaction.targetEventId}:${reaction.content}`;
+    const current = values.get(key) ?? {
+      targetEventId: reaction.targetEventId,
+      content: reaction.content,
+      count: 0,
+    };
+    current.count += 1;
+    values.set(key, current);
+  }
+  return [...values.values()].toSorted(
+    (left, right) =>
+      left.targetEventId.localeCompare(right.targetEventId) ||
+      left.content.localeCompare(right.content),
+  );
+}
+
 function parseJson(value: string): unknown {
   try {
     return JSON.parse(value) as unknown;
@@ -526,6 +710,32 @@ function hasTag(event: NostrEvent, name: string, value: string): boolean {
 
 function tagValue(event: NostrEvent, name: string): string | undefined {
   return event.tags.find((tag) => tag[0] === name)?.[1];
+}
+
+function tagValueLast(event: NostrEvent, name: string): string | undefined {
+  return event.tags.findLast((tag) => tag[0] === name)?.[1];
+}
+
+function normalizedComment(content: string): string {
+  const normalized = content.trim();
+  if (normalized.length === 0 || normalized.length > 10_000) {
+    throw new Error("Plugin comments must contain 1 through 10000 characters");
+  }
+  return normalized;
+}
+
+function assertPluginCommentTarget(target: PluginCommentTarget): void {
+  if (
+    !/^\d+:[0-9a-f]{64}:[a-z0-9][a-z0-9-]{0,127}$/u.test(
+      target.pluginAddress,
+    ) ||
+    !Number.isInteger(target.pluginKind) ||
+    target.pluginKind < 0 ||
+    target.pluginKind > 65_535 ||
+    !hex64Pattern.test(target.publisherPubkey)
+  ) {
+    throw new Error("Plugin comment target is invalid");
+  }
 }
 
 function addressPublisher(address: string, kind: number): string | undefined {
@@ -558,7 +768,10 @@ function compareEventValues<T extends { event: NostrEvent }>(
   left: T,
   right: T,
 ) {
-  return left.event.id.localeCompare(right.event.id);
+  return (
+    left.event.created_at - right.event.created_at ||
+    left.event.id.localeCompare(right.event.id)
+  );
 }
 
 function communityIssue(

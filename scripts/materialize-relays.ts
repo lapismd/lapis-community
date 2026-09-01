@@ -51,6 +51,7 @@ const communityKinds = testKinds
   : createCommunityKindMap({
       rating: kind("REGISTRY_RATING_KIND"),
       comment: 1_111,
+      reaction: 7,
       report: 1_984,
       followList: 3,
       appCurationSet: 30_267,

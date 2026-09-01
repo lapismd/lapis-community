@@ -1,6 +1,15 @@
 import { describe, expect, it } from "vitest";
 
-import { anyRelayPublished, parseRelayUrls } from "./model.js";
+import {
+  anyRelayPublished,
+  avatarHue,
+  displayName,
+  initials,
+  parseProfiles,
+  parseRelayUrls,
+  reactionGroups,
+  timelinePosition,
+} from "./model.js";
 
 describe("registry community model", () => {
   it("accepts unique WebSocket relay URLs and rejects other input", () => {
@@ -28,5 +37,66 @@ describe("registry community model", () => {
     expect(
       anyRelayPublished([{ status: "rejected", reason: new Error("offline") }]),
     ).toBe(false);
+  });
+
+  it("projects current Nostr profiles with safe fallbacks", () => {
+    const pubkey = "ab".repeat(32);
+    const event = (createdAt: number, content: string, id: string) => ({
+      id,
+      pubkey,
+      sig: "cd".repeat(32),
+      kind: 0,
+      created_at: createdAt,
+      tags: [],
+      content,
+    });
+    const profiles = parseProfiles([
+      event(1, JSON.stringify({ name: "older" }), "01".repeat(32)),
+      event(
+        2,
+        JSON.stringify({ name: "maya", display_name: "Maya Chen" }),
+        "02".repeat(32),
+      ),
+      event(3, "not json", "03".repeat(32)),
+    ]);
+    const byPubkey = new Map(
+      profiles.map((profile) => [profile.pubkey, profile]),
+    );
+
+    expect(displayName(pubkey, byPubkey)).toBe("Maya Chen");
+    expect(displayName("ef".repeat(32), byPubkey)).toBe("nostr:efefef…efef");
+    expect(initials("Maya Chen")).toBe("MC");
+    expect(avatarHue(pubkey)).toBeGreaterThanOrEqual(0);
+  });
+
+  it("groups reactions and positions posts on the history rail", () => {
+    const targetEventId = "01".repeat(32);
+    const reaction = (content: string, id: string) => ({
+      event: {
+        id,
+        pubkey: "ab".repeat(32),
+        sig: "cd".repeat(32),
+        kind: 7,
+        created_at: 1,
+        tags: [],
+        content,
+      },
+      pluginId: "ai",
+      targetEventId,
+      content,
+    });
+
+    expect(
+      reactionGroups(targetEventId, [
+        reaction("+", "11".repeat(32)),
+        reaction("+", "12".repeat(32)),
+        reaction("💡", "13".repeat(32)),
+      ]),
+    ).toEqual([
+      { content: "+", symbol: "❤", count: 2 },
+      { content: "💡", symbol: "💡", count: 1 },
+    ]);
+    expect(timelinePosition(0, 24)).toBe(0);
+    expect(timelinePosition(23, 24)).toBe(100);
   });
 });
