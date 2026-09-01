@@ -95,6 +95,10 @@ try {
     authSigner: async (template: NostrEventTemplate) =>
       finalizeEvent(template, readerSecret),
   });
+  const acceptedEventIds = new Set(state.registry.acceptedEventIds);
+  const acceptedEvents = state.events.filter((event) =>
+    acceptedEventIds.has(event.id),
+  );
   await rm(output, { force: true, recursive: true });
   await mkdir(path.join(output, "plugins"), { recursive: true });
   await mirrorProjectionResources(state.projection.plugins, output);
@@ -105,7 +109,7 @@ try {
       ...state.projection.provenance,
       relaySources: state.sources,
     }),
-    jsonFile(path.join(output, "accepted-events.json"), state.events),
+    jsonFile(path.join(output, "accepted-events.json"), acceptedEvents),
     jsonFile(path.join(output, "community.json"), {
       schemaVersion: 2,
       backend: "buzz",

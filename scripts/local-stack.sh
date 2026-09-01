@@ -67,6 +67,29 @@ wait_for_health() {
   return 1
 }
 
+refresh_fixture_clock_for_unseeded_relay() {
+  local registry_event_count fresh_created_at temporary_env
+  registry_event_count=$("${compose[@]}" exec -T postgres \
+    psql -U buzz -d buzz -tAc \
+    "SELECT count(*) FROM events WHERE kind = 9 AND deleted_at IS NULL AND tags @> '[[\"t\", \"lapis-plugin-release\"]]'::jsonb;" \
+    | tr -d '[:space:]')
+  if [[ ${registry_event_count} != 0 ]]; then
+    return
+  fi
+
+  fresh_created_at=$(($(date +%s) - 300))
+  temporary_env=$(mktemp "${fixture_env}.XXXXXX")
+  awk -v created_at="${fresh_created_at}" '
+    /^REGISTRY_FIXTURE_CREATED_AT=/ {
+      print "REGISTRY_FIXTURE_CREATED_AT=" created_at
+      next
+    }
+    { print }
+  ' "${fixture_env}" >"${temporary_env}"
+  chmod 600 "${temporary_env}"
+  mv "${temporary_env}" "${fixture_env}"
+}
+
 command=${1:-up}
 [[ $# -eq 0 ]] || shift
 case "${command}" in
@@ -74,6 +97,7 @@ case "${command}" in
     "${compose[@]}" pull registry-relay postgres redis minio minio-init
     "${compose[@]}" up -d registry-relay
     wait_for_health registry-relay
+    refresh_fixture_clock_for_unseeded_relay
     "${compose[@]}" up -d --build "$@"
     echo "Rendered registry: http://localhost:${REGISTRY_SITE_PORT:-4321}/"
     echo "Registry console: http://localhost:${REGISTRY_CONSOLE_PORT:-4173}/"
