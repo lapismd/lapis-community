@@ -2,6 +2,11 @@
 
 <script lang="ts">
   import { onMount } from "svelte";
+  import {
+    finalizeEvent,
+    generateSecretKey,
+    getPublicKey,
+  } from "nostr-tools/pure";
 
   import { Badge } from "@lapismd/design-core/shadcn/badge";
   import { Button } from "@lapismd/design-core/shadcn/button";
@@ -11,19 +16,16 @@
   import {
     authenticateRegistryRelay,
     Nip07RegistrySigner,
-    registerRelayMember,
     type RegistrySigner,
   } from "@lapismd/registry-auth";
   import { WebSocketRegistryRelay } from "@lapismd/registry-nostr";
   import {
-    createPluginCommentTemplate,
-    createPluginReplyTemplate,
-    createRatingTemplate,
-    createReactionTemplate,
-    materializeCommunity,
-    type CommunityKindMap,
-    type MaterializedCommunity,
-    type MaterializedReview,
+    BUZZ_REGISTRY_KINDS,
+    createBuzzForumReplyTemplate,
+    createBuzzForumRootTemplate,
+    LAPIS_BUZZ_GROUP_PATHS,
+    lapisBuzzGroupId,
+    lapisPluginSupportGroupId,
     type NostrEvent,
   } from "@lapismd/registry-protocol";
 
@@ -33,6 +35,9 @@
     commentPageWindow,
     displayName,
     initials,
+    latestReactionByAuthor,
+    materializeBuzzForum,
+    materializeBuzzReactions,
     parseProfiles,
     parseRelayUrls,
     reactionGroups,
@@ -41,41 +46,32 @@
     timelinePosition,
     timelineTimestamp,
     type CommunityProfile,
+    type ForumPost,
+    type ForumReaction,
   } from "./model.js";
 
   let {
     plugin = "",
     name = "Plugin",
     version = "",
-    address = "",
     publisher = "",
     relays = "[]",
-    ratingkind = "64006",
-    commentkind = "1111",
-    reactionkind = "7",
-    applicationkind = "32267",
-    membershipregistrationkind = "64007",
-    membershipdecisionkind = "64008",
   }: {
     plugin?: string;
     name?: string;
     version?: string;
-    address?: string;
     publisher?: string;
     relays?: string;
-    ratingkind?: string;
-    commentkind?: string;
-    reactionkind?: string;
-    applicationkind?: string;
-    membershipregistrationkind?: string;
-    membershipdecisionkind?: string;
   } = $props();
 
-  let snapshot = $state<MaterializedCommunity | undefined>();
+  let allReviews = $state<ForumPost[]>([]);
+  let reactions = $state<ForumReaction[]>([]);
+  let pluginRelease = $state<NostrEvent | undefined>();
+  let pluginReactions = $state<ForumReaction[]>([]);
   let profiles = $state<ReadonlyMap<string, CommunityProfile>>(new Map());
   let signer = $state<RegistrySigner | undefined>();
   let signedInPubkey = $state("");
-  let selectedRating = $state("");
+  let selectedPluginReaction = $state("");
   let comment = $state("");
   let replyingTo = $state("");
   let activePostId = $state("");
@@ -101,42 +97,41 @@
   let observer: IntersectionObserver | undefined;
 
   const clients = new Map<string, WebSocketRegistryRelay>();
+  const readSecretKey = generateSecretKey();
+  const readPubkey = getPublicKey(readSecretKey);
+  const readSigner: RegistrySigner = {
+    getPublicKey: async () => readPubkey,
+    signEvent: async (template) => finalizeEvent(template, readSecretKey),
+  };
   const postElements = new Map<string, HTMLElement>();
-  const unusedCommunityKinds = Object.freeze({
-    report: 1984,
-    followList: 3,
-    appCurationSet: 30267,
-  });
   const commentPageSize = 20;
   const commentQueryLimit = 100;
   const parentContextLimit = 80;
   const parentContextDepth = 12;
 
   const relayUrls = $derived(parseRelayUrls(relays));
-  const kinds = $derived<CommunityKindMap>({
-    rating: Number(ratingkind),
-    comment: Number(commentkind),
-    reaction: Number(reactionkind),
-    softwareApplication: Number(applicationkind),
-    ...unusedCommunityKinds,
-  });
-  const aggregate = $derived(
-    snapshot?.ratingAggregates.find((entry) => entry.pluginId === plugin),
+  const supportGroupId = $derived(
+    plugin === "" ? "" : lapisPluginSupportGroupId(plugin),
   );
-  const allReviews = $derived(
-    snapshot?.reviews.filter((entry) => entry.pluginId === plugin) ?? [],
+  const releaseGroupId = lapisBuzzGroupId(
+    LAPIS_BUZZ_GROUP_PATHS.pluginReleases,
   );
   const reviews = $derived(
     allReviews.filter((entry) => visibleReviewIds.has(entry.event.id)),
   );
-  const reactions = $derived(
-    snapshot?.reactions.filter((entry) => entry.pluginId === plugin) ?? [],
+  const currentPluginReactions = $derived(
+    pluginRelease === undefined
+      ? []
+      : latestReactionByAuthor(pluginReactions, pluginRelease.id),
   );
-  const ownRating = $derived(
-    snapshot?.ratings.find(
-      (entry) =>
-        entry.event.pubkey === signedInPubkey &&
-        entry.content.pluginId === plugin,
+  const pluginReactionSummary = $derived(
+    pluginRelease === undefined
+      ? []
+      : reactionGroups(pluginRelease.id, currentPluginReactions),
+  );
+  const ownPluginReaction = $derived(
+    currentPluginReactions.find(
+      (reaction) => reaction.event.pubkey === signedInPubkey,
     ),
   );
   const replyingReview = $derived(
@@ -169,21 +164,22 @@
   const displayedPostStart = $derived(
     reviews.length === 0 ? 0 : pageStartIndex + 1,
   );
-  const displayedPostEnd = $derived(
-    reviews.length === 0 ? 0 : pageEndIndex,
-  );
+  const displayedPostEnd = $derived(reviews.length === 0 ? 0 : pageEndIndex);
   const participantCount = $derived.by(
     () =>
       new Set([
         ...reviews.map((review) => review.event.pubkey),
         ...reactions.map((reaction) => reaction.event.pubkey),
+        ...currentPluginReactions.map((reaction) => reaction.event.pubkey),
       ]).size,
   );
 
   function relay(url: string): WebSocketRegistryRelay {
     const current = clients.get(url);
     if (current !== undefined) return current;
-    const created = new WebSocketRegistryRelay(url);
+    const created = new WebSocketRegistryRelay(url, {
+      authenticationRelayUrl: url,
+    });
     clients.set(url, created);
     return created;
   }
@@ -192,12 +188,16 @@
     filter: Parameters<WebSocketRegistryRelay["query"]>[0],
   ): Promise<{ events: NostrEvent[]; availableRelays: number }> {
     const results = await Promise.allSettled(
-      relayUrls.map(async (url) => await relay(url).query(filter)),
+      relayUrls.map(async (url) => {
+        const client = relay(url);
+        await authenticateRegistryRelay(client, signer ?? readSigner);
+        return await client.query(filter);
+      }),
     );
     const successful = results.filter(
-        (result): result is PromiseFulfilledResult<NostrEvent[]> =>
-          result.status === "fulfilled",
-      );
+      (result): result is PromiseFulfilledResult<NostrEvent[]> =>
+        result.status === "fulfilled",
+    );
     const events = new Map(
       successful
         .flatMap((result) => result.value)
@@ -213,7 +213,11 @@
     filter: Parameters<WebSocketRegistryRelay["count"]>[0],
   ): Promise<{ count: number; availableRelays: number }> {
     const results = await Promise.allSettled(
-      relayUrls.map(async (url) => await relay(url).count(filter)),
+      relayUrls.map(async (url) => {
+        const client = relay(url);
+        await authenticateRegistryRelay(client, signer ?? readSigner);
+        return await client.count(filter);
+      }),
     );
     const counts = results
       .filter(
@@ -228,7 +232,9 @@
   }
 
   function compareEvents(left: NostrEvent, right: NostrEvent): number {
-    return left.created_at - right.created_at || left.id.localeCompare(right.id);
+    return (
+      left.created_at - right.created_at || left.id.localeCompare(right.id)
+    );
   }
 
   function parentIds(events: readonly NostrEvent[]): string[] {
@@ -240,7 +246,9 @@
   async function loadParentContext(
     pageEvents: readonly NostrEvent[],
   ): Promise<NostrEvent[]> {
-    const context = new Map(pageEvents.map((event) => [event.id, event] as const));
+    const context = new Map(
+      pageEvents.map((event) => [event.id, event] as const),
+    );
     let frontier = parentIds(pageEvents).filter((id) => !context.has(id));
     for (
       let depth = 0;
@@ -251,9 +259,9 @@
     ) {
       const remaining = pageEvents.length + parentContextLimit - context.size;
       const result = await queryAll({
-        kinds: [kinds.comment],
+        kinds: [BUZZ_REGISTRY_KINDS.forumRoot, BUZZ_REGISTRY_KINDS.forumReply],
         ids: frontier.slice(0, remaining),
-        "#A": [address],
+        "#h": [supportGroupId],
         limit: Math.min(frontier.length, remaining),
       });
       const added = result.events.filter((event) => !context.has(event.id));
@@ -275,8 +283,8 @@
     availableRelays: number;
   }> {
     const baseFilter = {
-      kinds: [kinds.comment],
-      "#A": [address],
+      kinds: [BUZZ_REGISTRY_KINDS.forumRoot, BUZZ_REGISTRY_KINDS.forumReply],
+      "#h": [supportGroupId],
     };
     const [countResult, latestResult] = await Promise.all([
       countAll(baseFilter),
@@ -320,7 +328,9 @@
         if (cached !== undefined) return cached;
         const result = await countAll({ ...baseFilter, until });
         if (result.availableRelays === 0) {
-          throw new Error("The community relay stopped responding to NIP-45 counts.");
+          throw new Error(
+            "The community relay stopped responding to NIP-45 counts.",
+          );
         }
         countCache.set(until, result.count);
         return result.count;
@@ -380,37 +390,56 @@
       return;
     }
     try {
-      const [ratingResult, commentPage] = await Promise.all([
+      const [releaseResult, commentPage] = await Promise.all([
         queryAll({
-          kinds: [kinds.rating],
-          "#a": [address],
-          limit: 500,
+          kinds: [BUZZ_REGISTRY_KINDS.streamMessage],
+          "#h": [releaseGroupId],
+          "#t": [`plugin:${plugin}`],
+          ...(publisher === "" ? {} : { authors: [publisher] }),
+          limit: 100,
         }),
         loadCommentPage(targetIndex),
       ]);
       if (sequence !== loadSequence) return;
-      const primaryEvents = [...ratingResult.events, ...commentPage.events];
+      const nextRelease = releaseResult.events.toSorted(compareEvents).at(-1);
       const visiblePostIds = [...commentPage.visibleIds];
+      const reactionTargets = [
+        ...visiblePostIds,
+        ...(nextRelease === undefined ? [] : [nextRelease.id]),
+      ];
       const reactionEvents =
-        visiblePostIds.length === 0
+        reactionTargets.length === 0
           ? []
           : (
               await queryAll({
-                kinds: [kinds.reaction],
-                "#e": visiblePostIds,
-                limit: Math.min(1_000, visiblePostIds.length * 25),
+                kinds: [BUZZ_REGISTRY_KINDS.reaction],
+                "#e": reactionTargets,
+                limit: Math.min(1_000, reactionTargets.length * 25),
               })
             ).events;
       if (sequence !== loadSequence) return;
-      const nextSnapshot = materializeCommunity(
-        [...primaryEvents, ...reactionEvents],
-        kinds,
-        new Map([[plugin, address]]),
+      const nextReviews = materializeBuzzForum(
+        commentPage.events,
+        supportGroupId,
       );
+      const nextReactions = materializeBuzzReactions(
+        reactionEvents,
+        new Set(visiblePostIds),
+      );
+      const nextPluginReactions =
+        nextRelease === undefined
+          ? []
+          : materializeBuzzReactions(
+              reactionEvents,
+              new Set([nextRelease.id]),
+            ).filter(
+              (reaction) => !["✅", "❌", "🚫"].includes(reaction.content),
+            );
       const authors = [
         ...new Set([
-          ...nextSnapshot.reviews.map((review) => review.event.pubkey),
-          ...nextSnapshot.reactions.map((reaction) => reaction.event.pubkey),
+          ...nextReviews.map((review) => review.event.pubkey),
+          ...nextReactions.map((reaction) => reaction.event.pubkey),
+          ...nextPluginReactions.map((reaction) => reaction.event.pubkey),
         ]),
       ];
       const profileEvents =
@@ -425,7 +454,10 @@
             ).events;
       if (sequence !== loadSequence) return;
 
-      snapshot = nextSnapshot;
+      allReviews = nextReviews;
+      reactions = nextReactions;
+      pluginRelease = nextRelease;
+      pluginReactions = nextPluginReactions;
       visibleReviewIds = commentPage.visibleIds;
       commentTotal = commentPage.total;
       pageStartIndex = commentPage.startIndex;
@@ -433,9 +465,12 @@
       threadFirstTimestamp = commentPage.firstTimestamp;
       threadLastTimestamp = commentPage.lastTimestamp;
       profiles = new Map(
-        parseProfiles(profileEvents).map((profile) => [profile.pubkey, profile]),
+        parseProfiles(profileEvents).map((profile) => [
+          profile.pubkey,
+          profile,
+        ]),
       );
-      const pageReviews = nextSnapshot.reviews.filter((review) =>
+      const pageReviews = nextReviews.filter((review) =>
         commentPage.visibleIds.has(review.event.id),
       );
       const targetLocalIndex = Math.max(
@@ -446,7 +481,8 @@
         ),
       );
       activePostId =
-        pageReviews.find((review) => review.event.id === targetEventId)?.event.id ??
+        pageReviews.find((review) => review.event.id === targetEventId)?.event
+          .id ??
         pageReviews[targetLocalIndex]?.event.id ??
         pageReviews[0]?.event.id ??
         "";
@@ -466,33 +502,19 @@
     message = "";
     try {
       const connectedSigner = new Nip07RegistrySigner();
-      const createdAt = Math.floor(Date.now() / 1_000);
-      const registrations = await Promise.allSettled(
-        relayUrls.map(
-          async (url) =>
-            await registerRelayMember({
-              relay: relay(url),
-              signer: connectedSigner,
-              kinds: {
-                registration: Number(membershipregistrationkind),
-                decision: Number(membershipdecisionkind),
-              },
-              createdAt,
-            }),
+      const pubkey = await connectedSigner.getPublicKey();
+      const authenticated = await Promise.allSettled(
+        relayUrls.map(async (url) =>
+          authenticateRegistryRelay(relay(url), connectedSigner),
         ),
       );
-      if (
-        !registrations.some(
-          (result) =>
-            result.status === "fulfilled" && result.value.publication.accepted,
-        )
-      ) {
-        throw new Error("No registry relay accepted the membership signup.");
+      if (!authenticated.some((result) => result.status === "fulfilled")) {
+        throw new Error("No Buzz relay accepted the NIP-42 login.");
       }
       signer = connectedSigner;
-      signedInPubkey = await connectedSigner.getPublicKey();
-      selectedRating = ownRating?.content.rating.toString() ?? "";
-      message = "Connected and registered with your Nostr signer.";
+      signedInPubkey = pubkey;
+      selectedPluginReaction = ownPluginReaction?.content ?? "";
+      message = "Connected to Buzz with your Nostr signer.";
     } catch (cause) {
       signer = undefined;
       signedInPubkey = "";
@@ -525,40 +547,36 @@
     return signer;
   }
 
-  async function submitRating(status: "active" | "withdrawn"): Promise<void> {
+  async function submitPluginReaction(): Promise<void> {
     const activeSigner = await ensureSigner();
     if (activeSigner === undefined) return;
-    const numericRating = Number(selectedRating);
-    if (status === "active" && ![1, 2, 3, 4, 5].includes(numericRating)) {
-      error = "Choose a rating from one to five stars.";
+    if (pluginRelease === undefined) {
+      error = "This plugin does not have an approved Buzz release yet.";
+      return;
+    }
+    if (!["👍", "❤️", "🎉", "👀", "⭐"].includes(selectedPluginReaction)) {
+      error = "Choose a reaction first.";
       return;
     }
     publishing = true;
     error = "";
     message = "";
     try {
-      const event = await activeSigner.signEvent(
-        createRatingTemplate(
-          {
-            schema: "lapis.registry.rating/1",
-            pluginId: plugin,
-            rating: (status === "withdrawn"
-              ? (ownRating?.content.rating ?? 1)
-              : numericRating) as 1 | 2 | 3 | 4 | 5,
-            status,
-            ...(version === "" ? {} : { version }),
-          },
-          address,
-          kinds,
-          Math.floor(Date.now() / 1_000),
-        ),
-      );
+      const event = await activeSigner.signEvent({
+        kind: BUZZ_REGISTRY_KINDS.reaction,
+        created_at: Math.floor(Date.now() / 1_000),
+        content: selectedPluginReaction,
+        tags: [
+          ["e", pluginRelease.id],
+          ["p", pluginRelease.pubkey],
+          ["k", pluginRelease.kind.toString()],
+        ],
+      });
       await publish(event);
-      message = status === "active" ? "Rating published." : "Rating removed.";
-      if (status === "withdrawn") selectedRating = "";
+      message = "Plugin reaction published.";
       await refresh();
     } catch (cause) {
-      error = cause instanceof Error ? cause.message : "Rating failed.";
+      error = cause instanceof Error ? cause.message : "Reaction failed.";
     } finally {
       publishing = false;
     }
@@ -571,29 +589,29 @@
     error = "";
     message = "";
     try {
-      const target = {
-        pluginAddress: address,
-        pluginKind: kinds.softwareApplication,
-        publisherPubkey: publisher,
-      };
       const template =
         replyingReview === undefined
-          ? createPluginCommentTemplate(
+          ? createBuzzForumRootTemplate(
+              supportGroupId,
               comment,
-              target,
-              kinds,
               Math.floor(Date.now() / 1_000),
             )
-          : createPluginReplyTemplate(
+          : createBuzzForumReplyTemplate(
+              supportGroupId,
+              replyingReview.rootEventId,
               comment,
-              {
-                ...target,
-                parentEventId: replyingReview.event.id,
-                parentPubkey: replyingReview.event.pubkey,
-              },
-              kinds,
               Math.floor(Date.now() / 1_000),
             );
+      if (
+        replyingReview !== undefined &&
+        replyingReview.event.id !== replyingReview.rootEventId
+      ) {
+        template.tags = [
+          ["h", supportGroupId],
+          ["e", replyingReview.rootEventId, "", "root"],
+          ["e", replyingReview.event.id, "", "reply"],
+        ];
+      }
       const event = await activeSigner.signEvent(template);
       await publish(event);
       comment = "";
@@ -608,7 +626,7 @@
   }
 
   async function submitReaction(
-    review: MaterializedReview,
+    review: ForumPost,
     content = "+",
   ): Promise<void> {
     const activeSigner = await ensureSigner();
@@ -617,18 +635,16 @@
     error = "";
     message = "";
     try {
-      const event = await activeSigner.signEvent(
-        createReactionTemplate(
-          content,
-          {
-            eventId: review.event.id,
-            eventKind: review.event.kind,
-            eventPubkey: review.event.pubkey,
-          },
-          kinds,
-          Math.floor(Date.now() / 1_000),
-        ),
-      );
+      const event = await activeSigner.signEvent({
+        kind: BUZZ_REGISTRY_KINDS.reaction,
+        created_at: Math.floor(Date.now() / 1_000),
+        content,
+        tags: [
+          ["e", review.event.id],
+          ["p", review.event.pubkey],
+          ["k", review.event.kind.toString()],
+        ],
+      });
       await publish(event);
       message = "Reaction published.";
       await refresh();
@@ -639,14 +655,14 @@
     }
   }
 
-  function startReply(review: MaterializedReview): void {
+  function startReply(review: ForumPost): void {
     replyingTo = review.event.id;
     requestAnimationFrame(() =>
       composerElement?.scrollIntoView({ behavior: "smooth", block: "center" }),
     );
   }
 
-  function parentOf(review: MaterializedReview): MaterializedReview | undefined {
+  function parentOf(review: ForumPost): ForumPost | undefined {
     return allReviews.find((entry) => entry.event.id === review.parentEventId);
   }
 
@@ -655,13 +671,17 @@
     return index === -1 ? 0 : pageStartIndex + index + 1;
   }
 
-  function postReference(review: MaterializedReview): string {
+  function postReference(review: ForumPost): string {
     const number = postNumber(review.event.id);
-    return number === 0 ? formatShortDate(review.event.created_at) : `#${number}`;
+    return number === 0
+      ? formatShortDate(review.event.created_at)
+      : `#${number}`;
   }
 
   function shortKey(value: string): string {
-    return value.length > 16 ? `${value.slice(0, 8)}…${value.slice(-8)}` : value;
+    return value.length > 16
+      ? `${value.slice(0, 8)}…${value.slice(-8)}`
+      : value;
   }
 
   function formatDate(timestamp: number): string {
@@ -716,14 +736,14 @@
     });
   }
 
-  async function navigateToReview(review: MaterializedReview): Promise<void> {
+  async function navigateToReview(review: ForumPost): Promise<void> {
     if (visibleReviewIds.has(review.event.id)) {
       scrollToPost(review.event.id);
       return;
     }
     const result = await countAll({
-      kinds: [kinds.comment],
-      "#A": [address],
+      kinds: [BUZZ_REGISTRY_KINDS.forumRoot, BUZZ_REGISTRY_KINDS.forumReply],
+      "#h": [supportGroupId],
       until: review.event.created_at,
     });
     if (result.availableRelays === 0) return;
@@ -793,7 +813,8 @@
   function handleTimelineKey(event: KeyboardEvent): void {
     let targetIndex = activeGlobalPostIndex;
     if (event.key === "ArrowUp" || event.key === "ArrowLeft") targetIndex -= 1;
-    else if (event.key === "ArrowDown" || event.key === "ArrowRight") targetIndex += 1;
+    else if (event.key === "ArrowDown" || event.key === "ArrowRight")
+      targetIndex += 1;
     else if (event.key === "PageUp") targetIndex -= commentPageSize;
     else if (event.key === "PageDown") targetIndex += commentPageSize;
     else if (event.key === "Home") targetIndex = 0;
@@ -825,8 +846,11 @@
       (entries) => {
         const visible = entries
           .filter((entry) => entry.isIntersecting)
-          .toSorted((left, right) => right.intersectionRatio - left.intersectionRatio);
-        const id = (visible[0]?.target as HTMLElement | undefined)?.dataset.postId;
+          .toSorted(
+            (left, right) => right.intersectionRatio - left.intersectionRatio,
+          );
+        const id = (visible[0]?.target as HTMLElement | undefined)?.dataset
+          .postId;
         if (id !== undefined) activePostId = id;
       },
       { rootMargin: "-12% 0px -62% 0px", threshold: [0.1, 0.35, 0.7] },
@@ -853,12 +877,15 @@
   <Card.Root class="community-card">
     <Card.Header class="community-header">
       <div>
-        <Card.Title id="community-title">{name} community discussion</Card.Title>
+        <Card.Title id="community-title">{name} community discussion</Card.Title
+        >
         <Card.Description>
-          Signed comments, replies, ratings, and reactions read directly from Nostr.
+          NIP-29 forum posts, replies, and reactions read directly from Buzz.
         </Card.Description>
       </div>
-      <Badge variant={loading ? "secondary" : error ? "destructive" : "outline"}>
+      <Badge
+        variant={loading ? "secondary" : error ? "destructive" : "outline"}
+      >
         {loading
           ? "Syncing"
           : error
@@ -870,51 +897,55 @@
     <Card.Content class="community-content">
       <div class="topic-summary" aria-live="polite">
         <div><strong>{commentTotal}</strong><span>posts</span></div>
-        <div><strong>{reactions.length}</strong><span>page reactions</span></div>
-        <div><strong>{participantCount}</strong><span>page participants</span></div>
         <div>
-          <strong>{aggregate?.average?.toFixed(1) ?? "—"}<span aria-hidden="true">★</span></strong>
-          <span>{aggregate?.count ?? 0} ratings</span>
+          <strong>{reactions.length}</strong><span>page reactions</span>
+        </div>
+        <div>
+          <strong>{participantCount}</strong><span>page participants</span>
+        </div>
+        <div>
+          <strong>{currentPluginReactions.length}</strong>
+          <span>plugin reactions</span>
         </div>
       </div>
 
       <div class="rating-control">
         <div>
-          <span class="field-label" id="rating-label">Your rating</span>
-          <p>Publish or update a signed rating for this plugin.</p>
+          <span class="field-label" id="rating-label">React to this plugin</span
+          >
+          <p>
+            {#if pluginReactionSummary.length === 0}
+              Be the first to react to the latest release.
+            {:else}
+              {pluginReactionSummary
+                .map((group) => `${group.symbol} ${group.count}`)
+                .join(" · ")}
+            {/if}
+          </p>
         </div>
         <ToggleGroup.Root
           type="single"
           variant="outline"
-          bind:value={selectedRating}
+          bind:value={selectedPluginReaction}
           aria-labelledby="rating-label"
           disabled={publishing}
         >
-          {#each [1, 2, 3, 4, 5] as star}
-            <ToggleGroup.Item
-              value={star.toString()}
-              aria-label={`${star} star${star === 1 ? "" : "s"}`}
-            >
-              <span aria-hidden="true">★</span>
+          {#each ["👍", "❤️", "🎉", "👀", "⭐"] as reaction}
+            <ToggleGroup.Item value={reaction} aria-label={`React ${reaction}`}>
+              <span aria-hidden="true">{reaction}</span>
             </ToggleGroup.Item>
           {/each}
         </ToggleGroup.Root>
         <div class="actions">
           <Button
             size="sm"
-            disabled={publishing || selectedRating === ""}
-            onclick={() => submitRating("active")}
+            disabled={publishing ||
+              selectedPluginReaction === "" ||
+              pluginRelease === undefined}
+            onclick={submitPluginReaction}
           >
-            {ownRating ? "Update rating" : "Publish rating"}
+            {ownPluginReaction ? "Update reaction" : "Publish reaction"}
           </Button>
-          {#if ownRating}
-            <Button
-              size="sm"
-              variant="ghost"
-              disabled={publishing}
-              onclick={() => submitRating("withdrawn")}
-            >Remove</Button>
-          {/if}
         </div>
       </div>
 
@@ -952,19 +983,27 @@
             <div class="composer-heading">
               <div>
                 <span class="field-label">
-                  {replyingReview === undefined ? "Add to the discussion" : "Reply to a post"}
+                  {replyingReview === undefined
+                    ? "Add to the discussion"
+                    : "Reply to a post"}
                 </span>
                 {#if replyingReview}
                   <p>
-                    Replying to {displayName(replyingReview.event.pubkey, profiles)} · post
-                    #{postNumber(replyingReview.event.id)}
+                    Replying to {displayName(
+                      replyingReview.event.pubkey,
+                      profiles,
+                    )} · post #{postNumber(replyingReview.event.id)}
                   </p>
                 {:else}
                   <p>Post a top-level comment about {name}.</p>
                 {/if}
               </div>
               {#if replyingReview}
-                <Button variant="ghost" size="sm" onclick={() => (replyingTo = "")}>Cancel</Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onclick={() => (replyingTo = "")}>Cancel</Button
+                >
               {/if}
             </div>
             <Textarea
@@ -987,14 +1026,17 @@
                     variant="outline"
                     size="sm"
                     disabled={publishing}
-                    onclick={connect}
-                  >Connect Nostr</Button>
+                    onclick={connect}>Connect Nostr</Button
+                  >
                 {/if}
                 <Button
                   size="sm"
                   disabled={publishing || comment.trim() === ""}
                   onclick={submitComment}
-                >{replyingReview ? "Publish reply" : "Publish comment"}</Button>
+                  >{replyingReview
+                    ? "Publish reply"
+                    : "Publish comment"}</Button
+                >
               </div>
             </div>
           </div>
@@ -1021,22 +1063,36 @@
                       class="avatar"
                       style={`--avatar-hue: ${avatarHue(review.event.pubkey)}`}
                       aria-hidden="true"
-                    >{initials(authorName)}</div>
+                    >
+                      {initials(authorName)}
+                    </div>
                     <div class="post-content">
                       <header class="post-header">
                         <div class="post-author-line">
-                          <strong id={`post-author-${review.event.id}`}>{authorName}</strong>
+                          <strong id={`post-author-${review.event.id}`}
+                            >{authorName}</strong
+                          >
                           {#if parent}
                             <button
                               class="reply-context"
                               onclick={() => navigateToReview(parent)}
                             >
-                              ↪ replying to {displayName(parent.event.pubkey, profiles)} · {postReference(parent)}
+                              ↪ replying to {displayName(
+                                parent.event.pubkey,
+                                profiles,
+                              )} · {postReference(parent)}
                             </button>
                           {/if}
                         </div>
-                        <a href={`#post-${review.event.id}`} aria-label={`Link to post ${postNumber(review.event.id)}`}>
-                          <time datetime={new Date(review.event.created_at * 1_000).toISOString()}>
+                        <a
+                          href={`#post-${review.event.id}`}
+                          aria-label={`Link to post ${postNumber(review.event.id)}`}
+                        >
+                          <time
+                            datetime={new Date(
+                              review.event.created_at * 1_000,
+                            ).toISOString()}
+                          >
                             {formatDate(review.event.created_at)}
                           </time>
                         </a>
@@ -1047,7 +1103,10 @@
                         {/each}
                       </div>
                       <footer class="post-footer">
-                        <div class="reaction-list" aria-label={`Reactions to post ${postNumber(review.event.id)}`}>
+                        <div
+                          class="reaction-list"
+                          aria-label={`Reactions to post ${postNumber(review.event.id)}`}
+                        >
                           {#each groups as group (`${review.event.id}:${group.content}`)}
                             <Button
                               class="reaction-chip"
@@ -1055,7 +1114,8 @@
                               size="xs"
                               disabled={publishing}
                               aria-label={`React ${group.symbol}; ${group.count} existing`}
-                              onclick={() => submitReaction(review, group.content)}
+                              onclick={() =>
+                                submitReaction(review, group.content)}
                             >
                               <span aria-hidden="true">{group.symbol}</span>
                               <span>{group.count}</span>
@@ -1070,14 +1130,15 @@
                               disabled={publishing}
                               aria-label={`Like post ${postNumber(review.event.id)}`}
                               onclick={() => submitReaction(review)}
-                            >♡ Like</Button>
+                              >♡ Like</Button
+                            >
                           {/if}
                           <Button
                             variant="ghost"
                             size="xs"
                             disabled={publishing}
-                            onclick={() => startReply(review)}
-                          >↩ Reply</Button>
+                            onclick={() => startReply(review)}>↩ Reply</Button
+                          >
                         </div>
                       </footer>
                     </div>
@@ -1096,7 +1157,11 @@
                 aria-label="Go to the first post"
                 onclick={() => navigateTimelineToIndex(0)}
               >
-                <time datetime={new Date(threadFirstTimestamp * 1_000).toISOString()}>
+                <time
+                  datetime={new Date(
+                    threadFirstTimestamp * 1_000,
+                  ).toISOString()}
+                >
                   {formatShortDate(threadFirstTimestamp)}
                 </time>
               </button>
@@ -1150,7 +1215,9 @@
                 aria-label="Go to the latest post"
                 onclick={() => navigateTimelineToIndex(commentTotal - 1)}
               >
-                <time datetime={new Date(threadLastTimestamp * 1_000).toISOString()}>
+                <time
+                  datetime={new Date(threadLastTimestamp * 1_000).toISOString()}
+                >
                   {formatShortDate(threadLastTimestamp)}
                 </time>
               </button>
@@ -1245,11 +1312,6 @@
 
   .topic-summary strong {
     font-size: 1.25rem;
-  }
-
-  .topic-summary strong span {
-    margin-left: 0.2rem;
-    color: oklch(0.76 0.16 75);
   }
 
   .topic-summary > div > span,
@@ -1541,9 +1603,7 @@
   .history-back {
     position: absolute;
     z-index: 1;
-    top: calc(
-      0.75rem + (100% - 1.5rem) * var(--timeline-return-position)
-    );
+    top: calc(0.75rem + (100% - 1.5rem) * var(--timeline-return-position));
     left: 0;
     display: flex;
     align-items: center;

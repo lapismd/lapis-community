@@ -1,4 +1,10 @@
 import { describe, expect, it } from "vitest";
+import { finalizeEvent, generateSecretKey } from "nostr-tools/pure";
+
+import {
+  createBuzzForumReplyTemplate,
+  createBuzzForumRootTemplate,
+} from "@lapismd/registry-protocol";
 
 import {
   anyRelayPublished,
@@ -6,6 +12,9 @@ import {
   commentPageWindow,
   displayName,
   initials,
+  latestReactionByAuthor,
+  materializeBuzzForum,
+  materializeBuzzReactions,
   parseProfiles,
   parseRelayUrls,
   reactionGroups,
@@ -107,6 +116,56 @@ describe("registry community model", () => {
     expect(timelineIndexFromPosition(275, 300, 24)).toBe(23);
     expect(timelineIndexFromPosition(-100, 300, 24)).toBe(0);
     expect(timelineIndexFromPosition(1_000, 300, 24)).toBe(23);
+  });
+
+  it("materializes signed Buzz forum roots, nested replies, and reactions", () => {
+    const author = generateSecretKey();
+    const reactor = generateSecretKey();
+    const groupId = "36c6a816-9330-581a-86fd-9a8d8091c39d";
+    const root = finalizeEvent(
+      createBuzzForumRootTemplate(groupId, "Root", 10),
+      author,
+    );
+    const direct = finalizeEvent(
+      createBuzzForumReplyTemplate(groupId, root.id, "Direct", 11),
+      author,
+    );
+    const nested = finalizeEvent(
+      {
+        kind: 45_003,
+        created_at: 12,
+        content: "Nested",
+        tags: [
+          ["h", groupId],
+          ["e", root.id, "", "root"],
+          ["e", direct.id, "", "reply"],
+        ],
+      },
+      reactor,
+    );
+    const reaction = finalizeEvent(
+      {
+        kind: 7,
+        created_at: 13,
+        content: "👍",
+        tags: [["e", nested.id]],
+      },
+      author,
+    );
+
+    expect(materializeBuzzForum([nested, root, direct], groupId)).toMatchObject(
+      [
+        { content: "Root", rootEventId: root.id },
+        { content: "Direct", rootEventId: root.id, parentEventId: root.id },
+        { content: "Nested", rootEventId: root.id, parentEventId: direct.id },
+      ],
+    );
+    const reactions = materializeBuzzReactions(
+      [reaction],
+      new Set([nested.id]),
+    );
+    expect(reactions).toHaveLength(1);
+    expect(latestReactionByAuthor(reactions, nested.id)[0]?.content).toBe("👍");
   });
 
   it("maps global timeline positions onto fixed-size relay windows", () => {

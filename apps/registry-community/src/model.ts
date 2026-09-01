@@ -1,3 +1,10 @@
+import { verifyEvent } from "nostr-tools/pure";
+
+import {
+  BUZZ_REGISTRY_KINDS,
+  type NostrEvent,
+} from "@lapismd/registry-protocol";
+
 export function parseRelayUrls(value: string): string[] {
   try {
     const parsed = JSON.parse(value) as unknown;
@@ -101,7 +108,7 @@ export function avatarHue(pubkey: string): number {
 
 export function reactionGroups(
   targetEventId: string,
-  reactions: readonly MaterializedReaction[],
+  reactions: readonly ForumReaction[],
 ): ReactionGroup[] {
   const values = new Map<string, number>();
   for (const reaction of reactions) {
@@ -118,6 +125,111 @@ export function reactionGroups(
       (left, right) =>
         right.count - left.count || left.content.localeCompare(right.content),
     );
+}
+
+export function materializeBuzzForum(
+  events: readonly NostrEvent[],
+  groupId: string,
+): ForumPost[] {
+  const distinct = new Map(
+    events
+      .filter(
+        (event) =>
+          verifyEvent(event) &&
+          (event.kind === BUZZ_REGISTRY_KINDS.forumRoot ||
+            event.kind === BUZZ_REGISTRY_KINDS.forumReply) &&
+          event.tags.some((tag) => tag[0] === "h" && tag[1] === groupId),
+      )
+      .map((event) => [event.id, event] as const),
+  );
+  return [...distinct.values()]
+    .map((event): ForumPost => {
+      const parentEventId =
+        event.kind === BUZZ_REGISTRY_KINDS.forumReply
+          ? event.tags.find(
+              (tag) => tag[0] === "e" && (tag[3] === "reply" || tag.length < 4),
+            )?.[1]
+          : undefined;
+      const rootEventId =
+        event.kind === BUZZ_REGISTRY_KINDS.forumRoot
+          ? event.id
+          : (event.tags.find(
+              (tag) => tag[0] === "e" && tag[3] === "root",
+            )?.[1] ??
+            parentEventId ??
+            event.id);
+      return {
+        event,
+        content: event.content,
+        rootEventId,
+        ...(parentEventId === undefined ? {} : { parentEventId }),
+      };
+    })
+    .toSorted(
+      (left, right) =>
+        left.event.created_at - right.event.created_at ||
+        left.event.id.localeCompare(right.event.id),
+    );
+}
+
+export function materializeBuzzReactions(
+  events: readonly NostrEvent[],
+  targetEventIds: ReadonlySet<string>,
+): ForumReaction[] {
+  return [
+    ...new Map(
+      events
+        .filter(
+          (event) =>
+            event.kind === BUZZ_REGISTRY_KINDS.reaction &&
+            verifyEvent(event) &&
+            event.content.trim() !== "",
+        )
+        .flatMap((event) => {
+          const targets = event.tags
+            .filter((tag) => tag[0] === "e" && tag[1] !== undefined)
+            .map((tag) => tag[1]!);
+          return targets.length === 1 && targetEventIds.has(targets[0]!)
+            ? [
+                [
+                  event.id,
+                  {
+                    event,
+                    targetEventId: targets[0]!,
+                    content: event.content,
+                  },
+                ] as const,
+              ]
+            : [];
+        }),
+    ).values(),
+  ].toSorted(
+    (left, right) =>
+      left.event.created_at - right.event.created_at ||
+      left.event.id.localeCompare(right.event.id),
+  );
+}
+
+export function latestReactionByAuthor(
+  reactions: readonly ForumReaction[],
+  targetEventId: string,
+): ForumReaction[] {
+  const current = new Map<string, ForumReaction>();
+  for (const reaction of reactions) {
+    if (reaction.targetEventId !== targetEventId) continue;
+    const previous = current.get(reaction.event.pubkey);
+    if (
+      previous === undefined ||
+      reaction.event.created_at > previous.event.created_at ||
+      (reaction.event.created_at === previous.event.created_at &&
+        reaction.event.id > previous.event.id)
+    ) {
+      current.set(reaction.event.pubkey, reaction);
+    }
+  }
+  return [...current.values()].toSorted((left, right) =>
+    left.event.pubkey.localeCompare(right.event.pubkey),
+  );
 }
 
 export function timelinePosition(index: number, total: number): number {
@@ -215,14 +327,22 @@ export function timelineTimestamp(
 function shortKey(value: string): string {
   return value.length > 12 ? `${value.slice(0, 6)}…${value.slice(-4)}` : value;
 }
-import type {
-  MaterializedReaction,
-  NostrEvent,
-} from "@lapismd/registry-protocol";
-
 export interface CommunityProfile {
   pubkey: string;
   name: string;
+}
+
+export interface ForumPost {
+  event: NostrEvent;
+  content: string;
+  rootEventId: string;
+  parentEventId?: string | undefined;
+}
+
+export interface ForumReaction {
+  event: NostrEvent;
+  targetEventId: string;
+  content: string;
 }
 
 export interface ReactionGroup {
