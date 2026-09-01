@@ -3,6 +3,7 @@ export * from "./canonical.js";
 export * from "./community.js";
 export * from "./kinds.js";
 export * from "./materialize.js";
+export * from "./membership.js";
 export * from "./projection.js";
 export * from "./schemas.js";
 export * from "./security.js";

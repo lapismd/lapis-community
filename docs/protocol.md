@@ -48,9 +48,29 @@ reorder or replay events.
 Clients consume one complete materialized snapshot. They never merge individual
 plugin rows from a live Nostr result with HTTP V1 or cache rows.
 
+## Relay membership
+
+Relay write membership is also derived from signed events and is independent of
+catalog authority. A self-registration event signed by the subject establishes
+only an active community member and is accepted only when NIP-42 authentication
+matches its author. A configured membership administrator may publish a full
+decision for a subject containing status, additive roles, publisher plugin
+scopes, and a public reason.
+
+The latest trusted administrative decision is selected by `created_at` and then
+the lowest event ID, and it always overrides self-registration regardless of
+registration time. Active identities receive the `member` capability;
+`publisher`, `curator`, and `security` are explicit additional roles and do not
+inherit publisher scope from one another. Suspended and banned identities have
+no write capability.
+
+Membership permits relay admission but never establishes registry trust. The
+materializers continue to require their independently configured publisher,
+curator, registry-operator, assessor, moderator, snapshot, and security keys.
+
 ## Kinds
 
 Standard kinds and provisional workflow-kind handling are recorded in
 [`docs/adr/0002-nostr-kind-allocation.md`](adr/0002-nostr-kind-allocation.md).
 Production callers must inject an approved map; fixture-only kind values are not
-an allocation.
+an allocation. Membership kinds follow the same injected-map rule.
