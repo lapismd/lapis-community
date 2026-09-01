@@ -27,7 +27,7 @@ resolve_directory() {
 if [[ ! -f ${fixture_env} || ! -f ${fixture_dir}/fixture-secrets.json ]] ||
   ! rg -q '^REGISTRY_PUBLISHER_PUBKEY=' "${fixture_env}" ||
   ! rg -q '^REGISTRY_FIXTURE_CREATED_AT=' "${fixture_env}"; then
-  pnpm --dir "${repo_root}" --filter @lapismd/registry-local-fixture build >/dev/null
+  pnpm --dir "${repo_root}" --filter @lapismd/registry-local-fixture... build >/dev/null
   node "${repo_root}/services/registry-local-fixture/dist/init.js" \
     --output "${fixture_dir}" >/dev/null
 fi

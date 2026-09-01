@@ -8,5 +8,6 @@ coverage
 /deploy
 /docs
 /scripts/*
+!/scripts/materialize-buzz.ts
 !/scripts/materialize-relays.ts
 /README.md
