@@ -3,8 +3,10 @@
 The local stack has no PostgreSQL and no registry event API. The fixture reads
 the sibling `lapis-plugins` checkout through a read-only mount, creates signed
 catalog, workflow, snapshot, community, and security events, and publishes them
-directly to strfry. The browser console and rendered registry read and verify the
-same relay state.
+directly to an embedded Grain-based Lapis relay. Every fixture identity first
+authenticates with NIP-42, and relay role membership is derived from signed
+membership decisions. The browser console and rendered registry read and verify
+the same relay state.
 
 ## Fast single-relay loop
 
@@ -17,8 +19,8 @@ pnpm local:validate
 pnpm local:up
 ```
 
-This profile uses one local-policy strfry instance for both official and
-community events. It is the normal development loop:
+This profile uses one role-aware Lapis relay for both official and community
+events. It is the normal development loop:
 
 - console: <http://localhost:4173/>
 - rendered registry: <http://localhost:4321/>
@@ -36,10 +38,16 @@ pnpm local:validate:quorum
 pnpm local:up:quorum
 ```
 
-This profile runs three official strfry relays on ports 8281-8283, one community
-relay on 8381, and requires two official acknowledgements. Its lifecycle
+This profile runs three official Lapis relays on ports 8281-8283, one community
+Lapis relay on 8381, and requires two official acknowledgements. Its lifecycle
 commands use the `:quorum` suffix, including `local:logs:quorum` and
 `local:down:quorum`.
+
+The local relay image is built from the sibling `nostr-relay-registry`
+workspace. Its Grain dependency is pinned, generic Grain changes are applied as
+separately reviewable patches, and local ARM64 runs use one nostrdb ingest
+worker. Production keeps Grain's four-worker default unless explicitly
+configured otherwise.
 
 Run `pnpm local:smoke` for a cold single-relay smoke or
 `pnpm local:smoke:quorum` for the complete fault-topology smoke. Each uses a
@@ -57,7 +65,8 @@ At startup the fixture service:
    `lapis-plugins`, selecting every complete package by default;
 2. creates deterministic source-metadata artifacts and SHA-256 evidence;
 3. signs and publishes plugin, release, assessment, approval, security, and
-   snapshot events directly to the configured official relay quorum;
+   snapshot events directly to the configured official relay quorum after
+   NIP-42 authentication;
 4. signs and publishes a long AI-plugin discussion fixture with participant
    profiles, ratings, NIP-22 replies, NIP-25 reactions, a report, a collection,
    and a follow list directly to the community relay;
@@ -73,7 +82,9 @@ The console starts only after seeding is healthy. It receives public relay,
 kind, quorum, and authority configuration from `config.json`; it does not call a
 registry backend. Plugin detail pages load a Design Core custom element that
 queries the community relay directly and uses a browser NIP-07 signer for
-rating, comment, reply, and reaction events. The AI plugin page carries the long
+signup, rating, comment, reply, and reaction events. Signup writes a signed
+member decision through the relay's registration flow; it does not rewrite
+relay configuration or require a restart. The AI plugin page carries the long
 demo topic and its Discourse-inspired history rail.
 
 ## Rebuild static V1 output

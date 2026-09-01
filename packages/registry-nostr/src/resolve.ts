@@ -24,7 +24,13 @@ export async function resolveExactEvents(
   const settled = await Promise.all(
     relays.map(async (relay) => {
       try {
-        const events = await relay.query({ ids: requested }, signal);
+        const events = (
+          await Promise.all(
+            chunks(requested, 32).map(
+              async (ids) => await relay.query({ ids }, signal),
+            ),
+          )
+        ).flat();
         return {
           relay: relay.url,
           events,
@@ -62,4 +68,12 @@ export async function resolveExactEvents(
       ...(error === undefined ? {} : { error }),
     })),
   };
+}
+
+function chunks<T>(values: readonly T[], size: number): T[][] {
+  const result: T[][] = [];
+  for (let index = 0; index < values.length; index += size) {
+    result.push(values.slice(index, index + size));
+  }
+  return result;
 }

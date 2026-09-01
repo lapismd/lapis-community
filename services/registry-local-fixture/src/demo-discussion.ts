@@ -229,6 +229,7 @@ export interface DemoDiscussionOptions {
 export interface DemoDiscussion {
   events: NostrEvent[];
   posts: NostrEvent[];
+  participantSecrets: Uint8Array[];
   participantPubkeys: string[];
   nextCreatedAt: number;
 }
@@ -327,6 +328,7 @@ export function createDemoDiscussion(
   return {
     events: [...profiles, ...ratings, ...posts, ...reactions],
     posts,
+    participantSecrets: authorSecrets,
     participantPubkeys: profiles.map((profile) => profile.pubkey),
     nextCreatedAt: reactionBase + reactionPlan.length * 60 + 1,
   };

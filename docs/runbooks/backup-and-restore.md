@@ -38,7 +38,7 @@ policy has removed them.
 1. Obtain approval for an isolated, non-public environment with no production
    relay publication or OAuth callbacks.
 2. Restore public configuration and import the verified event export into empty
-   strfry relay stores.
+   Lapis relay nostrdb stores.
 3. Rebuild the catalog, security, community, and V1 projections from the raw
    event set. Compare accepted event IDs, exclusion counts, artifact hashes,
    and roots with the backup record.

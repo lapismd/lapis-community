@@ -10,6 +10,8 @@ import {
 import {
   createApprovalEventTemplate,
   createAssessmentEventTemplate,
+  createMembershipDecisionTemplate,
+  createMembershipRegistrationTemplate,
   createPluginEventTemplate,
   createReleaseEventTemplate,
   createSnapshotContent,
@@ -19,6 +21,7 @@ import {
   eventAddress,
   materializeRegistry,
   TEST_COMMUNITY_KINDS,
+  TEST_MEMBERSHIP_KINDS,
   TEST_REGISTRY_KINDS,
   TEST_SECURITY_KINDS,
 } from "@lapismd/registry-protocol";
@@ -87,6 +90,17 @@ function secret(secrets: FixtureSecrets, name: FixtureSecretName): Uint8Array {
   return hexToBytes(secrets.keys[name]);
 }
 
+function relayUrls(name: string): string[] {
+  return required(name)
+    .split(",")
+    .map((value) => new URL(value.trim()).toString());
+}
+
+function authSigner(secretKey: Uint8Array) {
+  return async (template: Parameters<typeof finalizeEvent>[0]) =>
+    finalizeEvent(template, secretKey);
+}
+
 async function retry<T>(action: () => Promise<T>, label: string): Promise<T> {
   let lastError: unknown;
   for (let attempt = 1; attempt <= 20; attempt += 1) {
@@ -117,20 +131,61 @@ async function seed(): Promise<{
   const artifactBase = new URL(
     required("REGISTRY_FIXTURE_ARTIFACT_BASE_URL", "http://127.0.0.1:8090/"),
   );
-  const officialUrls = required("REGISTRY_OFFICIAL_RELAYS")
-    .split(",")
-    .map((value) => new URL(value.trim()).toString());
+  const officialUrls = relayUrls("REGISTRY_OFFICIAL_RELAYS");
+  const publicOfficialUrls = relayUrls("REGISTRY_PUBLIC_OFFICIAL_RELAYS");
+  if (publicOfficialUrls.length !== officialUrls.length) {
+    throw new Error(
+      "REGISTRY_PUBLIC_OFFICIAL_RELAYS must match the official relay set",
+    );
+  }
   const publicationQuorum = positiveInteger("REGISTRY_PUBLISH_QUORUM", 1);
   if (publicationQuorum > officialUrls.length) {
     throw new Error("REGISTRY_PUBLISH_QUORUM exceeds the official relay set");
   }
   const communityUrl = new URL(required("REGISTRY_COMMUNITY_RELAY")).toString();
+  const publicCommunityUrls = relayUrls("REGISTRY_PUBLIC_COMMUNITY_RELAYS");
+  if (publicCommunityUrls.length !== 1) {
+    throw new Error("REGISTRY_PUBLIC_COMMUNITY_RELAYS must contain one relay");
+  }
   const officialRelays = officialUrls.map(
-    (url) => new WebSocketRegistryRelay(url, { connectTimeoutMs: 10_000 }),
+    (url, index) =>
+      new WebSocketRegistryRelay(url, {
+        authenticationRelayUrl: publicOfficialUrls[index]!,
+        connectTimeoutMs: 10_000,
+      }),
   );
   const communityRelay = new WebSocketRegistryRelay(communityUrl, {
+    authenticationRelayUrl: publicCommunityUrls[0]!,
     connectTimeoutMs: 10_000,
   });
+  const authenticatedRelays = new Map<string, WebSocketRegistryRelay>();
+  const authenticatedRelay = (
+    url: string,
+    publicUrl: string,
+    authorSecret: Uint8Array,
+  ): WebSocketRegistryRelay => {
+    const key = `${url}:${getPublicKey(authorSecret)}`;
+    let relay = authenticatedRelays.get(key);
+    if (relay === undefined) {
+      relay = new WebSocketRegistryRelay(url, {
+        authenticationRelayUrl: publicUrl,
+        connectTimeoutMs: 10_000,
+      });
+      authenticatedRelays.set(key, relay);
+    }
+    return relay;
+  };
+  const membershipTargets = [
+    ...new Map(
+      [
+        ...officialUrls.map((url, index) => ({
+          url,
+          publicUrl: publicOfficialUrls[index]!,
+        })),
+        { url: communityUrl, publicUrl: publicCommunityUrls[0]! },
+      ].map((target) => [target.url, target]),
+    ).values(),
+  ];
   const fixtures = await loadLocalPluginFixtures(lapisPluginsRoot, {
     limit: pluginLimit,
     publicBaseUrl: artifactBase,
@@ -149,34 +204,136 @@ async function seed(): Promise<{
   // is still recovering. Users can override the epoch to create a fresh set.
   let createdAt = positiveInteger("REGISTRY_FIXTURE_CREATED_AT", 1_767_225_600);
 
-  const publishOfficial = async (event: NostrEvent): Promise<void> => {
+  const publishOfficial = async (
+    event: NostrEvent,
+    authorSecret: Uint8Array,
+  ): Promise<void> => {
+    const signAuthEvent = authSigner(authorSecret);
+    const authorRelays = officialUrls.map((url, index) =>
+      authenticatedRelay(url, publicOfficialUrls[index]!, authorSecret),
+    );
     await retry(async () => {
-      try {
-        return await publishWithRetainedQuorum(
-          event,
-          officialRelays,
-          publicationQuorum,
-        );
-      } finally {
-        for (const relay of officialRelays) relay.close();
-      }
+      await Promise.all(
+        authorRelays.map(async (relay) => {
+          if (relay.authenticate === undefined) {
+            throw new Error(`${relay.url} does not support NIP-42`);
+          }
+          await relay.authenticate(signAuthEvent);
+        }),
+      );
+      return await publishWithRetainedQuorum(
+        event,
+        authorRelays,
+        publicationQuorum,
+      );
     }, `official publication ${event.id}`);
     officialEvents.push(event);
     await delay(125);
   };
-  const publishCommunity = async (event: NostrEvent): Promise<void> => {
+  const publishCommunity = async (
+    event: NostrEvent,
+    authorSecret: Uint8Array,
+  ): Promise<void> => {
+    const signAuthEvent = authSigner(authorSecret);
+    const authorRelay = authenticatedRelay(
+      communityUrl,
+      publicCommunityUrls[0]!,
+      authorSecret,
+    );
     await retry(async () => {
+      if (authorRelay.authenticate === undefined) {
+        throw new Error(`${authorRelay.url} does not support NIP-42`);
+      }
+      await authorRelay.authenticate(signAuthEvent);
       try {
-        return await communityRelay.publish(event);
-      } finally {
-        communityRelay.close();
+        return await authorRelay.publish(event);
+      } catch (error) {
+        const retained = await authorRelay.query({ ids: [event.id] });
+        if (!retained.some((copy) => copy.id === event.id)) throw error;
+        return { accepted: true, message: "duplicate event already retained" };
       }
     }, `community publication ${event.id}`);
     communityEvents.push(event);
   };
 
+  const publishMembership = async (
+    event: NostrEvent,
+    authorSecret: Uint8Array,
+  ): Promise<void> => {
+    const signAuthEvent = authSigner(authorSecret);
+    await Promise.all(
+      membershipTargets.map(async (target) => {
+        const relay = authenticatedRelay(
+          target.url,
+          target.publicUrl,
+          authorSecret,
+        );
+        await retry(async () => {
+          if (relay.authenticate === undefined) {
+            throw new Error(`${relay.url} does not support NIP-42`);
+          }
+          await relay.authenticate(signAuthEvent);
+          try {
+            await relay.publish(event);
+          } catch (error) {
+            const retained = await relay.query({ ids: [event.id] });
+            if (!retained.some((copy) => copy.id === event.id)) throw error;
+          }
+        }, `membership publication ${event.id} to ${relay.url}`);
+      }),
+    );
+  };
+
   const publisherSecret = secret(secrets, "publisher");
   const publisher = getPublicKey(publisherSecret);
+  const operatorSecret = secret(secrets, "operator");
+  const roleDecisions = [
+    {
+      secret: publisherSecret,
+      roles: ["publisher"] as const,
+      publisherPluginIds: fixtures.map((fixture) => fixture.plugin.pluginId),
+      reason: "Local fixture publisher",
+    },
+    {
+      secret: secret(secrets, "curator"),
+      roles: ["curator"] as const,
+      publisherPluginIds: [],
+      reason: "Local fixture curator",
+    },
+    {
+      secret: secret(secrets, "advisory"),
+      roles: ["security"] as const,
+      publisherPluginIds: [],
+      reason: "Local fixture security advisory identity",
+    },
+    {
+      secret: secret(secrets, "disposition"),
+      roles: ["security"] as const,
+      publisherPluginIds: [],
+      reason: "Local fixture security disposition identity",
+    },
+  ];
+  for (const decision of roleDecisions) {
+    const subjectPubkey = getPublicKey(decision.secret);
+    await publishMembership(
+      finalizeEvent(
+        createMembershipDecisionTemplate(
+          {
+            schema: "lapis.registry.membership-decision/1",
+            subjectPubkey,
+            status: "active",
+            roles: [...decision.roles],
+            publisherPluginIds: decision.publisherPluginIds,
+            reason: decision.reason,
+          },
+          TEST_MEMBERSHIP_KINDS,
+          createdAt++,
+        ),
+        operatorSecret,
+      ),
+      operatorSecret,
+    );
+  }
   const acceptedReleases: Array<{
     event: NostrEvent;
     content: ReleaseContent;
@@ -247,10 +404,10 @@ async function seed(): Promise<{
       curatorSecret,
     );
 
-    await publishOfficial(plugin);
-    await publishOfficial(release);
-    await publishOfficial(assessment);
-    await publishOfficial(approval);
+    await publishOfficial(plugin, publisherSecret);
+    await publishOfficial(release, publisherSecret);
+    await publishOfficial(assessment, assessorSecret);
+    await publishOfficial(approval, curatorSecret);
     acceptedReleases.push({ event: release, content: releaseContent });
   }
 
@@ -274,7 +431,7 @@ async function seed(): Promise<{
     ),
     advisorySecret,
   );
-  await publishOfficial(advisory);
+  await publishOfficial(advisory, advisorySecret);
   const dispositionSecret = secret(secrets, "disposition");
   const dispositionContent: SecurityDispositionContent = {
     schema: "lapis.registry.security-disposition/1",
@@ -293,7 +450,7 @@ async function seed(): Promise<{
     ),
     dispositionSecret,
   );
-  await publishOfficial(disposition);
+  await publishOfficial(disposition, dispositionSecret);
 
   const demoFixtureIndex = Math.max(
     0,
@@ -317,7 +474,36 @@ async function seed(): Promise<{
     seedSecret: communityOneSecret,
     startCreatedAt: createdAt,
   });
-  for (const event of discussion.events) await publishCommunity(event);
+  const communitySecrets = [
+    ...discussion.participantSecrets,
+    communityOneSecret,
+    secret(secrets, "communityTwo"),
+  ];
+  for (const memberSecret of communitySecrets) {
+    await publishMembership(
+      finalizeEvent(
+        createMembershipRegistrationTemplate(
+          TEST_MEMBERSHIP_KINDS,
+          createdAt++,
+        ),
+        memberSecret,
+      ),
+      memberSecret,
+    );
+  }
+  const participantSecrets = new Map(
+    discussion.participantSecrets.map((participantSecret) => [
+      getPublicKey(participantSecret),
+      participantSecret,
+    ]),
+  );
+  for (const event of discussion.events) {
+    const authorSecret = participantSecrets.get(event.pubkey);
+    if (authorSecret === undefined) {
+      throw new Error(`No local participant secret for ${event.pubkey}`);
+    }
+    await publishCommunity(event, authorSecret);
+  }
   createdAt = discussion.nextCreatedAt;
   const communityTwoSecret = secret(secrets, "communityTwo");
   const report = finalizeEvent(
@@ -329,7 +515,7 @@ async function seed(): Promise<{
     },
     communityTwoSecret,
   );
-  await publishCommunity(report);
+  await publishCommunity(report, communityTwoSecret);
   const collection = finalizeEvent(
     {
       kind: TEST_COMMUNITY_KINDS.appCurationSet,
@@ -350,7 +536,7 @@ async function seed(): Promise<{
     },
     communityOneSecret,
   );
-  await publishCommunity(collection);
+  await publishCommunity(collection, communityOneSecret);
   const follows = finalizeEvent(
     {
       kind: TEST_COMMUNITY_KINDS.followList,
@@ -360,7 +546,7 @@ async function seed(): Promise<{
     },
     communityTwoSecret,
   );
-  await publishCommunity(follows);
+  await publishCommunity(follows, communityTwoSecret);
 
   const snapshotSecret = secret(secrets, "snapshot");
   const authorities: RegistryAuthorities = {
@@ -377,8 +563,47 @@ async function seed(): Promise<{
     officialRelays,
   );
   if (resolvedForSnapshot.missingEventIds.length > 0) {
+    const missing = new Set(resolvedForSnapshot.missingEventIds);
+    const missingByKind = Object.entries(
+      officialEvents
+        .filter((event) => missing.has(event.id))
+        .reduce<Record<string, number>>((counts, event) => {
+          const kind = String(event.kind);
+          counts[kind] = (counts[kind] ?? 0) + 1;
+          return counts;
+        }, {}),
+    )
+      .toSorted(([left], [right]) => left.localeCompare(right))
+      .map(([kind, count]) => `${kind}:${count}`)
+      .join(",");
+    const relayErrors = resolvedForSnapshot.relays
+      .filter((relay) => relay.error !== undefined)
+      .map((relay) => `${relay.relay}=${relay.error}`)
+      .join("; ");
+    const addressableCopies = await Promise.all(
+      officialRelays.map(
+        async (relay) =>
+          [
+            relay.url,
+            await relay.query({
+              kinds: [TEST_REGISTRY_KINDS.softwareApplication],
+            }),
+          ] as const,
+      ),
+    );
+    const addressableSummary = addressableCopies
+      .map(
+        ([relay, events]) =>
+          `${relay}=${events.map((event) => event.id).join(",")}`,
+      )
+      .join("; ");
     throw new Error(
-      `Cannot snapshot ${resolvedForSnapshot.missingEventIds.length} missing relay events`,
+      [
+        `Cannot snapshot ${resolvedForSnapshot.missingEventIds.length} missing relay events`,
+        `kinds=${missingByKind || "unknown"}`,
+        `addressable=${addressableSummary || "none"}`,
+        ...(relayErrors === "" ? [] : [`relay-errors=${relayErrors}`]),
+      ].join("; "),
     );
   }
   const liveRegistry = materializeRegistry(
@@ -397,7 +622,9 @@ async function seed(): Promise<{
     ),
     snapshotSecret,
   );
-  await publishOfficial(snapshot);
+  await publishOfficial(snapshot, snapshotSecret);
+
+  for (const relay of authenticatedRelays.values()) relay.close();
 
   const officialCopies: Record<string, number> = {};
   await Promise.all(

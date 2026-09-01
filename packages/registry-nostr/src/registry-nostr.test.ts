@@ -281,6 +281,40 @@ describe("registry relay behavior", () => {
     ]);
   });
 
+  it("chunks large exact-ID sets for relays with bounded filters", async () => {
+    const events = Array.from({ length: 70 }, (_, index) => ({
+      id: index.toString(16).padStart(64, "0"),
+      pubkey: "a".repeat(64),
+      created_at: 1_800_000_000 + index,
+      kind: 1,
+      tags: [],
+      content: String(index),
+      sig: "b".repeat(128),
+    }));
+    const batches: number[] = [];
+    const relay = new FakeRelay("wss://bounded.test", events);
+    const boundedRelay: RegistryRelay = {
+      ...relay,
+      url: relay.url,
+      query: async (filter) => {
+        batches.push(filter.ids?.length ?? 0);
+        if ((filter.ids?.length ?? 0) > 32) return [];
+        return await relay.query(filter);
+      },
+      publish: async () => await relay.publish(),
+      close: () => relay.close(),
+    };
+
+    const result = await resolveExactEvents(
+      events.map((event) => event.id),
+      [boundedRelay],
+    );
+
+    expect(batches).toEqual([32, 32, 6]);
+    expect(result.missingEventIds).toEqual([]);
+    expect(result.events).toHaveLength(70);
+  });
+
   it("loads only a complete event set whose signed snapshot root verifies", async () => {
     const { events, snapshot } = registryEvents();
     const loaded = await loadVerifiedRegistrySnapshot(

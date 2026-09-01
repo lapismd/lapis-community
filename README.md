@@ -61,11 +61,11 @@ the active registry.
 
 ## Local end-to-end stack
 
-Run `pnpm local:up` for the fast loop: one strfry relay, generated events from
+Run `pnpm local:up` for the fast loop: one embedded Grain-based Lapis relay, generated events from
 every complete plugin in the sibling `lapis-plugins` checkout, fixture
 artifacts, the direct-relay console, a verified Nostr projection, and the
-rendered public registry. Run `pnpm local:up:quorum` for three official strfry
-relays, one community relay, and a two-of-three publication quorum. Open the
+rendered public registry. Run `pnpm local:up:quorum` for three official Lapis
+relays, one community Lapis relay, and a two-of-three publication quorum. Open the
 rendered registry at <http://localhost:4321/> or the operator console at
 <http://localhost:4173/> after Compose reports the services healthy.
 

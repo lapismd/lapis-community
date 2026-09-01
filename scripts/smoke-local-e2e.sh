@@ -22,11 +22,11 @@ export COMPOSE_PROJECT_NAME=${project_name}
 export REGISTRY_FIXTURE_PORT=${REGISTRY_FIXTURE_PORT:-${port_base}}
 export REGISTRY_CONSOLE_PORT=${REGISTRY_CONSOLE_PORT:-$((port_base + 1))}
 export REGISTRY_SITE_PORT=${REGISTRY_SITE_PORT:-$((port_base + 6))}
-export STRFRY_LOCAL_PORT=${STRFRY_LOCAL_PORT:-$((port_base + 2))}
-export STRFRY_OFFICIAL_A_PORT=${STRFRY_OFFICIAL_A_PORT:-$((port_base + 2))}
-export STRFRY_OFFICIAL_B_PORT=${STRFRY_OFFICIAL_B_PORT:-$((port_base + 3))}
-export STRFRY_OFFICIAL_C_PORT=${STRFRY_OFFICIAL_C_PORT:-$((port_base + 4))}
-export STRFRY_COMMUNITY_PORT=${STRFRY_COMMUNITY_PORT:-$((port_base + 5))}
+export LAPIS_RELAY_PORT=${LAPIS_RELAY_PORT:-$((port_base + 2))}
+export LAPIS_RELAY_A_PORT=${LAPIS_RELAY_A_PORT:-$((port_base + 2))}
+export LAPIS_RELAY_B_PORT=${LAPIS_RELAY_B_PORT:-$((port_base + 3))}
+export LAPIS_RELAY_C_PORT=${LAPIS_RELAY_C_PORT:-$((port_base + 4))}
+export LAPIS_COMMUNITY_RELAY_PORT=${LAPIS_COMMUNITY_RELAY_PORT:-$((port_base + 5))}
 
 report_error() {
   exit_code=$?
@@ -88,15 +88,19 @@ for service in "${relay_services[@]}" registry-fixture registry-console registry
   wait_for_health "${service}"
 done
 
-community_nip11_port=${STRFRY_LOCAL_PORT}
+community_nip11_port=${LAPIS_RELAY_PORT}
 if [[ ${profile} == quorum ]]; then
-  community_nip11_port=${STRFRY_COMMUNITY_PORT}
+  community_nip11_port=${LAPIS_COMMUNITY_RELAY_PORT}
 fi
 /usr/bin/curl -fsS \
   -H 'Accept: application/nostr+json' \
   "http://127.0.0.1:${community_nip11_port}" \
   >"${smoke_tmp}/community-nip11.json"
-jq -e '.supported_nips | index(45)' \
+jq -e '
+  (.supported_nips | index(42)) and
+  (.supported_nips | index(45)) and
+  (.supported_nips | index(59))
+' \
   "${smoke_tmp}/community-nip11.json" >/dev/null
 
 fixture_base="http://127.0.0.1:${REGISTRY_FIXTURE_PORT}/"
@@ -157,11 +161,11 @@ source "${repo_root}/.local/registry-fixture/fixture.env"
 set +a
 export REGISTRY_USE_TEST_KINDS=true
 if [[ ${profile} == quorum ]]; then
-  export REGISTRY_OFFICIAL_RELAYS="ws://127.0.0.1:${STRFRY_OFFICIAL_A_PORT},ws://127.0.0.1:${STRFRY_OFFICIAL_B_PORT},ws://127.0.0.1:${STRFRY_OFFICIAL_C_PORT}"
-  export REGISTRY_COMMUNITY_RELAYS="ws://127.0.0.1:${STRFRY_COMMUNITY_PORT}"
+  export REGISTRY_OFFICIAL_RELAYS="ws://127.0.0.1:${LAPIS_RELAY_A_PORT},ws://127.0.0.1:${LAPIS_RELAY_B_PORT},ws://127.0.0.1:${LAPIS_RELAY_C_PORT}"
+  export REGISTRY_COMMUNITY_RELAYS="ws://127.0.0.1:${LAPIS_COMMUNITY_RELAY_PORT}"
 else
-  export REGISTRY_OFFICIAL_RELAYS="ws://127.0.0.1:${STRFRY_LOCAL_PORT}"
-  export REGISTRY_COMMUNITY_RELAYS="ws://127.0.0.1:${STRFRY_LOCAL_PORT}"
+  export REGISTRY_OFFICIAL_RELAYS="ws://127.0.0.1:${LAPIS_RELAY_PORT}"
+  export REGISTRY_COMMUNITY_RELAYS="ws://127.0.0.1:${LAPIS_RELAY_PORT}"
 fi
 pnpm --dir "${repo_root}" relay:materialize --output "${smoke_tmp}/materialized"
 
@@ -200,4 +204,4 @@ if [[ ${actual_sha} != "${expected_sha}" ]]; then
   exit 1
 fi
 
-echo "Local ${profile} strfry registry end-to-end smoke passed."
+echo "Local ${profile} embedded Grain registry end-to-end smoke passed."

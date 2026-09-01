@@ -1,6 +1,7 @@
 import { Relay } from "nostr-tools/relay";
 import type { Filter } from "nostr-tools/filter";
 import { verifyEvent } from "nostr-tools/pure";
+import { normalizeURL } from "nostr-tools/utils";
 
 import type {
   NostrEvent,
@@ -31,6 +32,7 @@ export interface RegistryRelay {
 }
 
 export interface WebSocketRelayOptions {
+  authenticationRelayUrl?: string;
   connectTimeoutMs?: number;
   eoseTimeoutMs?: number;
 }
@@ -39,12 +41,17 @@ export class WebSocketRegistryRelay implements RegistryRelay {
   readonly url: string;
   readonly #connectTimeoutMs: number;
   readonly #eoseTimeoutMs: number;
+  readonly #authenticationRelayUrl: string | undefined;
   #connection: Promise<Relay> | undefined;
   #authSigner: RelayAuthSigner | undefined;
   #authentication: Promise<string> | undefined;
 
   constructor(url: string, options: WebSocketRelayOptions = {}) {
     this.url = url;
+    this.#authenticationRelayUrl =
+      options.authenticationRelayUrl === undefined
+        ? undefined
+        : normalizeURL(options.authenticationRelayUrl);
     this.#connectTimeoutMs = options.connectTimeoutMs ?? 5_000;
     this.#eoseTimeoutMs = options.eoseTimeoutMs ?? 5_000;
   }
@@ -115,7 +122,18 @@ export class WebSocketRegistryRelay implements RegistryRelay {
       signal?.throwIfAborted();
       try {
         return await relay.auth(async (template) => {
-          const event = await signEvent(template);
+          const requestedTemplate =
+            this.#authenticationRelayUrl === undefined
+              ? template
+              : {
+                  ...template,
+                  tags: template.tags.map((tag) =>
+                    tag[0] === "relay"
+                      ? ["relay", this.#authenticationRelayUrl!]
+                      : [...tag],
+                  ),
+                };
+          const event = await signEvent(requestedTemplate);
           if (!verifyEvent(event)) {
             throw new Error("NIP-42 signer returned an invalid event");
           }
@@ -153,7 +171,11 @@ export class WebSocketRegistryRelay implements RegistryRelay {
         ...(signal === undefined ? {} : { abort: signal }),
         eoseTimeout: this.#eoseTimeoutMs,
         onevent: (event) => events.push(event),
-        oneose: () => settle(() => resolve(events)),
+        oneose: () =>
+          settle(() => {
+            subscription.close("complete");
+            resolve(events);
+          }),
         onclose: (reason) =>
           settle(() => reject(new Error(`${this.url}: ${reason}`))),
       });

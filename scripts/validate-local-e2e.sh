@@ -45,13 +45,18 @@ jq -e --arg profile "${profile}" '
   .services["registry-site"].depends_on["registry-site-builder"].condition ==
     "service_completed_successfully" and
   .services["registry-site"].ports[0].target == 4321 and
-  ([.services[] | select(.image == "nostr-relay-strfry-registry:local")] | length) ==
+  ([.services[] | select(.image == "nostr-relay-lapis:local")] | length) ==
     (if $profile == "quorum" then 4 else 1 end) and
-  ([.services[] | select(.image == "nostr-relay-strfry-registry:local") |
+  ([.services[] | select(.image == "nostr-relay-lapis:local") |
     any(.volumes[];
-      .type == "bind" and
-      .target == "/app/strfry.conf" and
-      .read_only == true)] | all) and
+      .type == "volume" and
+      .target == "/home/grain/.grain")] | all) and
+  ([.services[] | select(.image == "nostr-relay-lapis:local") |
+    .environment.LAPIS_MEMBERSHIP_ADMIN_PUBKEYS] | all(test("^[0-9a-f]{64}$"))) and
+  ([.services[] | select(.image == "nostr-relay-lapis:local") |
+    .environment.LAPIS_DATABASE_MAP_SIZE_MB] | all(. == "256")) and
+  ([.services[] | select(.image == "nostr-relay-lapis:local") |
+    .environment.LAPIS_DATABASE_INGEST_THREADS] | all(. == "1")) and
   (.services | has("postgres") | not) and
   (.services | has("registry-service") | not) and
   ([.services[].environment // {} | has("DATABASE_URL")] | any | not) and
@@ -83,6 +88,9 @@ jq -e --arg profile "${profile}" '
   end)
 ' "${validation_tmp}/compose.json" >/dev/null
 
+rg -q 'wait_for_relay_health' "${repo_root}/scripts/local-stack.sh"
+rg -q 'up -d --no-deps' "${repo_root}/scripts/local-stack.sh"
+
 if rg -q '"keys"[[:space:]]*:' "${validation_tmp}/compose.json"; then
   echo "Rendered Compose configuration contains fixture secret material" >&2
   exit 1
@@ -99,4 +107,4 @@ if [[ ${secret_mode} != 600 ]]; then
   exit 1
 fi
 
-echo "Local ${profile} strfry Compose configuration validation passed."
+echo "Local ${profile} embedded Grain Compose configuration validation passed."

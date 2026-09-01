@@ -9,7 +9,9 @@
   import { Textarea } from "@lapismd/design-core/shadcn/textarea";
   import * as ToggleGroup from "@lapismd/design-core/shadcn/toggle-group";
   import {
+    authenticateRegistryRelay,
     Nip07RegistrySigner,
+    registerRelayMember,
     type RegistrySigner,
   } from "@lapismd/registry-auth";
   import { WebSocketRegistryRelay } from "@lapismd/registry-nostr";
@@ -52,6 +54,8 @@
     commentkind = "1111",
     reactionkind = "7",
     applicationkind = "32267",
+    membershipregistrationkind = "64007",
+    membershipdecisionkind = "64008",
   }: {
     plugin?: string;
     name?: string;
@@ -63,6 +67,8 @@
     commentkind?: string;
     reactionkind?: string;
     applicationkind?: string;
+    membershipregistrationkind?: string;
+    membershipdecisionkind?: string;
   } = $props();
 
   let snapshot = $state<MaterializedCommunity | undefined>();
@@ -459,10 +465,34 @@
     error = "";
     message = "";
     try {
-      signer = new Nip07RegistrySigner();
-      signedInPubkey = await signer.getPublicKey();
+      const connectedSigner = new Nip07RegistrySigner();
+      const createdAt = Math.floor(Date.now() / 1_000);
+      const registrations = await Promise.allSettled(
+        relayUrls.map(
+          async (url) =>
+            await registerRelayMember({
+              relay: relay(url),
+              signer: connectedSigner,
+              kinds: {
+                registration: Number(membershipregistrationkind),
+                decision: Number(membershipdecisionkind),
+              },
+              createdAt,
+            }),
+        ),
+      );
+      if (
+        !registrations.some(
+          (result) =>
+            result.status === "fulfilled" && result.value.publication.accepted,
+        )
+      ) {
+        throw new Error("No registry relay accepted the membership signup.");
+      }
+      signer = connectedSigner;
+      signedInPubkey = await connectedSigner.getPublicKey();
       selectedRating = ownRating?.content.rating.toString() ?? "";
-      message = "Connected with your Nostr signer.";
+      message = "Connected and registered with your Nostr signer.";
     } catch (cause) {
       signer = undefined;
       signedInPubkey = "";
@@ -474,8 +504,16 @@
   }
 
   async function publish(event: NostrEvent): Promise<void> {
+    const activeSigner = signer;
+    if (activeSigner === undefined) {
+      throw new Error("Connect a Nostr signer before publishing.");
+    }
     const results = await Promise.allSettled(
-      relayUrls.map(async (url) => await relay(url).publish(event)),
+      relayUrls.map(async (url) => {
+        const client = relay(url);
+        await authenticateRegistryRelay(client, activeSigner);
+        return await client.publish(event);
+      }),
     );
     if (!anyRelayPublished(results)) {
       throw new Error("No community relay accepted the signed event.");

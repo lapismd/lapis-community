@@ -33,7 +33,8 @@ resolve_directory() {
 }
 
 if [[ ! -f ${fixture_env} || ! -f ${fixture_dir}/fixture-secrets.json ]] ||
-  ! rg -q '^REGISTRY_OFFICIAL_PUBKEYS=' "${fixture_env}"; then
+  ! rg -q '^REGISTRY_OFFICIAL_PUBKEYS=' "${fixture_env}" ||
+  ! rg -q '^LAPIS_MEMBERSHIP_ADMIN_PUBKEYS=' "${fixture_env}"; then
   pnpm --dir "${repo_root}" --filter @lapismd/registry-local-fixture build >/dev/null
   node "${repo_root}/services/registry-local-fixture/dist/init.js" \
     --output "${fixture_dir}" >/dev/null
@@ -49,23 +50,23 @@ nostr_relay_context=$(resolve_directory \
   "${NOSTR_RELAY_CONTEXT:-}" \
   "${repo_root}/../nostr-relay-registry" \
   "${repo_root}/../nostr-relay")
-if [[ ! -f ${nostr_relay_context}/deploy/strfry/Dockerfile ||
-  ! -f ${nostr_relay_context}/deploy/strfry/profiles/registry-local.conf ]]; then
-  echo "The resolved nostr-relay workspace has no Lapis strfry registry image" >&2
+if [[ ! -f ${nostr_relay_context}/deploy/grain/Dockerfile ||
+  ! -f ${nostr_relay_context}/lapis-relay/cmd/lapis-relay/main.go ]]; then
+  echo "The resolved nostr-relay workspace has no embedded Grain Lapis relay" >&2
   exit 1
 fi
 
-upstream_strfry_image=$(sed -n 's/^STRFRY_IMAGE=//p' \
+grain_version=$(sed -n 's/^GRAIN_VERSION=//p' \
   "${nostr_relay_context}/deploy/versions.env")
-if [[ -z ${upstream_strfry_image} ]]; then
-  echo "The resolved nostr-relay workspace does not pin STRFRY_IMAGE" >&2
+if [[ -z ${grain_version} ]]; then
+  echo "The resolved nostr-relay workspace does not pin GRAIN_VERSION" >&2
   exit 1
 fi
 
 export LAPIS_PLUGINS_PATH=${lapis_plugins_path}
 export PLUGIN_REGISTRY_PATH=${plugin_registry_path}
 export NOSTR_RELAY_CONTEXT=${nostr_relay_context}
-export STRFRY_IMAGE=${STRFRY_IMAGE:-${upstream_strfry_image}}
+export GRAIN_VERSION=${GRAIN_VERSION:-${grain_version}}
 export COMPOSE_PROJECT_NAME=${COMPOSE_PROJECT_NAME:-lapis-registry-${profile}}
 
 compose=(
@@ -77,24 +78,72 @@ compose=(
   -f "${repo_root}/deploy/local-${profile}.compose.yml"
 )
 
+if [[ ${profile} == quorum ]]; then
+  relay_services=(
+    registry-official-a
+    registry-official-b
+    registry-official-c
+    registry-community
+  )
+else
+  relay_services=(registry-relay)
+fi
+
+wait_for_relay_health() {
+  local service=$1
+  local container_id
+  local container_status
+  local health_status
+
+  for _ in $(seq 1 120); do
+    container_id=$("${compose[@]}" ps --all -q "${service}")
+    if [[ -n ${container_id} ]]; then
+      container_status=$(docker inspect --format '{{.State.Status}}' "${container_id}")
+      health_status=$(docker inspect \
+        --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' \
+        "${container_id}")
+      if [[ ${health_status} == healthy ]]; then
+        return 0
+      fi
+      if [[ ${container_status} == exited || ${container_status} == dead ]]; then
+        echo "${service} stopped before becoming healthy" >&2
+        return 1
+      fi
+    fi
+    sleep 1
+  done
+
+  echo "Timed out waiting for ${service} to become healthy" >&2
+  return 1
+}
+
 command=${1:-up}
 if [[ $# -gt 0 ]]; then shift; fi
 case "${command}" in
   up)
     docker build \
-      --tag "${STRFRY_REGISTRY_IMAGE:-nostr-relay-strfry-registry:local}" \
-      --build-arg "STRFRY_IMAGE=${STRFRY_IMAGE}" \
-      --file "${nostr_relay_context}/deploy/strfry/Dockerfile" \
+      --tag "${LAPIS_RELAY_IMAGE:-nostr-relay-lapis:local}" \
+      --target lapis-runtime \
+      --build-arg "GRAIN_VERSION=${GRAIN_VERSION}" \
+      --file "${nostr_relay_context}/deploy/grain/Dockerfile" \
       "${nostr_relay_context}"
+    # Bring the native nostrdb processes to health before Compose evaluates
+    # dependencies. On Docker Desktop a brand-new LMDB volume can require an
+    # automatic relay restart; starting dependants in the same transaction
+    # makes Compose fail that recoverable first boot immediately.
+    "${compose[@]}" up -d --no-deps "${relay_services[@]}"
+    for relay_service in "${relay_services[@]}"; do
+      wait_for_relay_health "${relay_service}"
+    done
     "${compose[@]}" up -d --build "$@"
     echo "Rendered registry: http://localhost:${REGISTRY_SITE_PORT:-4321}/"
     echo "Registry console: http://localhost:${REGISTRY_CONSOLE_PORT:-4173}/"
     echo "Fixture status:   http://127.0.0.1:${REGISTRY_FIXTURE_PORT:-8090}/status.json"
     if [[ ${profile} == quorum ]]; then
-      echo "Official relays:  ws://127.0.0.1:${STRFRY_OFFICIAL_A_PORT:-8281}, ws://127.0.0.1:${STRFRY_OFFICIAL_B_PORT:-8282}, ws://127.0.0.1:${STRFRY_OFFICIAL_C_PORT:-8283}"
-      echo "Community relay:  ws://127.0.0.1:${STRFRY_COMMUNITY_PORT:-8381}"
+      echo "Official relays:  ws://127.0.0.1:${LAPIS_RELAY_A_PORT:-8281}, ws://127.0.0.1:${LAPIS_RELAY_B_PORT:-8282}, ws://127.0.0.1:${LAPIS_RELAY_C_PORT:-8283}"
+      echo "Community relay:  ws://127.0.0.1:${LAPIS_COMMUNITY_RELAY_PORT:-8381}"
     else
-      echo "Registry relay:   ws://127.0.0.1:${STRFRY_LOCAL_PORT:-8281}"
+      echo "Registry relay:   ws://127.0.0.1:${LAPIS_RELAY_PORT:-8281}"
     fi
     ;;
   down)

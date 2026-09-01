@@ -116,6 +116,17 @@ export async function createFixtureFiles(
       `REGISTRY_SECURITY_ADVISORY_PUBKEYS=${publicKeys.advisory}`,
       `REGISTRY_SECURITY_DISPOSITION_PUBKEYS=${publicKeys.disposition}`,
       `REGISTRY_OFFICIAL_PUBKEYS=${officialWriters.join(",")}`,
+      `LAPIS_MEMBERSHIP_ADMIN_PUBKEYS=${publicKeys.operator}`,
+      `LAPIS_CURATOR_PUBKEYS=${publicKeys.curator}`,
+      `LAPIS_SECURITY_PUBKEYS=${[publicKeys.advisory, publicKeys.disposition].toSorted().join(",")}`,
+      `LAPIS_OPERATOR_PUBKEYS=${[
+        publicKeys.assessor,
+        publicKeys.moderator,
+        publicKeys.operator,
+        publicKeys.snapshot,
+      ]
+        .toSorted()
+        .join(",")}`,
       `REGISTRY_FIXTURE_SECRETS_FILE=${secretsFile}`,
       "",
     ].join("\n"),

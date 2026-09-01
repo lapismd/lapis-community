@@ -1,82 +1,97 @@
 name: lapis-nostr-registry-local-quorum
 
-x-strfry: &strfry
-  image: ${STRFRY_REGISTRY_IMAGE:-nostr-relay-strfry-registry:local}
-  environment:
-    LAPIS_STRFRY_POLICY_MODE: official
-    LAPIS_STRFRY_ALLOWED_PUBKEYS: ${REGISTRY_OFFICIAL_PUBKEYS:?fixture official writers are missing}
-    LAPIS_STRFRY_ALLOWED_KINDS: ${REGISTRY_OFFICIAL_KINDS:-1063,1111,1984,1985,30063,32267,64000,64001,64002,64003,64004,64005}
+x-lapis-relay: &lapis-relay
+  image: ${LAPIS_RELAY_IMAGE:-nostr-relay-lapis:local}
+  environment: &lapis-relay-environment
+    GRAIN_DATA_DIR: /home/grain/.grain
+    GRAIN_ENV: development
+    GRAIN_OWNER_PUBKEY: ${REGISTRY_OPERATOR_PUBKEYS:?fixture operator is missing}
+    LAPIS_DATABASE_MAP_SIZE_MB: ${LAPIS_DATABASE_MAP_SIZE_MB:-256}
+    LAPIS_DATABASE_INGEST_THREADS: ${LAPIS_DATABASE_INGEST_THREADS:-1}
+    LAPIS_MEMBERSHIP_REGISTRATION_KIND: "64007"
+    LAPIS_MEMBERSHIP_DECISION_KIND: "64008"
+    LAPIS_COMMUNITY_KINDS: "0,3,7,1111,1984,30267,64006"
+    LAPIS_CURATOR_KINDS: "64000"
+    LAPIS_SECURITY_KINDS: "64004,64005"
+    LAPIS_OPERATOR_KINDS: "1063,1985,64001,64002,64003"
+    LAPIS_MEMBERSHIP_ADMIN_PUBKEYS: ${LAPIS_MEMBERSHIP_ADMIN_PUBKEYS:?fixture membership administrator is missing}
+    LAPIS_CURATOR_PUBKEYS: ${LAPIS_CURATOR_PUBKEYS:?fixture curator is missing}
+    LAPIS_SECURITY_PUBKEYS: ${LAPIS_SECURITY_PUBKEYS:?fixture security identity is missing}
+    LAPIS_OPERATOR_PUBKEYS: ${LAPIS_OPERATOR_PUBKEYS:?fixture operators are missing}
   healthcheck:
-    test: ["CMD", "/app/lapis-registry-policy", "healthcheck", "127.0.0.1:7777"]
+    test:
+      [
+        "CMD",
+        "wget",
+        "--no-verbose",
+        "--tries=1",
+        "--spider",
+        "http://127.0.0.1:8181/",
+      ]
     interval: 5s
     timeout: 3s
     retries: 30
-    start_period: 10s
+    start_period: 20s
   restart: unless-stopped
 
 services:
   registry-official-a:
-    <<: *strfry
-    ports:
-      - "${STRFRY_OFFICIAL_A_PORT:-8281}:7777"
-    volumes:
-      - registry-official-a-data:/app/strfry-db
-      - ${NOSTR_RELAY_CONTEXT:?run pnpm local:up so nostr-relay is resolved}/deploy/strfry/profiles/registry-official.conf:/app/strfry.conf:ro
+    <<: *lapis-relay
+    environment:
+      <<: *lapis-relay-environment
+      LAPIS_RELAY_URL: ws://127.0.0.1:${LAPIS_RELAY_A_PORT:-8281}
+    ports: ["${LAPIS_RELAY_A_PORT:-8281}:8181"]
+    volumes: [registry-official-a-data:/home/grain/.grain]
 
   registry-official-b:
-    <<: *strfry
-    ports:
-      - "${STRFRY_OFFICIAL_B_PORT:-8282}:7777"
-    volumes:
-      - registry-official-b-data:/app/strfry-db
-      - ${NOSTR_RELAY_CONTEXT:?run pnpm local:up so nostr-relay is resolved}/deploy/strfry/profiles/registry-official.conf:/app/strfry.conf:ro
+    <<: *lapis-relay
+    environment:
+      <<: *lapis-relay-environment
+      LAPIS_RELAY_URL: ws://127.0.0.1:${LAPIS_RELAY_B_PORT:-8282}
+    ports: ["${LAPIS_RELAY_B_PORT:-8282}:8181"]
+    volumes: [registry-official-b-data:/home/grain/.grain]
 
   registry-official-c:
-    <<: *strfry
-    ports:
-      - "${STRFRY_OFFICIAL_C_PORT:-8283}:7777"
-    volumes:
-      - registry-official-c-data:/app/strfry-db
-      - ${NOSTR_RELAY_CONTEXT:?run pnpm local:up so nostr-relay is resolved}/deploy/strfry/profiles/registry-official.conf:/app/strfry.conf:ro
+    <<: *lapis-relay
+    environment:
+      <<: *lapis-relay-environment
+      LAPIS_RELAY_URL: ws://127.0.0.1:${LAPIS_RELAY_C_PORT:-8283}
+    ports: ["${LAPIS_RELAY_C_PORT:-8283}:8181"]
+    volumes: [registry-official-c-data:/home/grain/.grain]
 
   registry-community:
-    <<: *strfry
+    <<: *lapis-relay
     environment:
-      LAPIS_STRFRY_POLICY_MODE: community
-      LAPIS_STRFRY_ALLOWED_KINDS: ${REGISTRY_COMMUNITY_KINDS:-0,3,7,1111,1984,30267,32267,64006}
-    ports:
-      - "${STRFRY_COMMUNITY_PORT:-8381}:7777"
-    volumes:
-      - registry-community-data:/app/strfry-db
-      - ${NOSTR_RELAY_CONTEXT:?run pnpm local:up so nostr-relay is resolved}/deploy/strfry/profiles/registry-community.conf:/app/strfry.conf:ro
+      <<: *lapis-relay-environment
+      LAPIS_RELAY_URL: ws://127.0.0.1:${LAPIS_COMMUNITY_RELAY_PORT:-8381}
+    ports: ["${LAPIS_COMMUNITY_RELAY_PORT:-8381}:8181"]
+    volumes: [registry-community-data:/home/grain/.grain]
 
   registry-fixture:
     environment:
-      REGISTRY_OFFICIAL_RELAYS: ws://registry-official-a:7777,ws://registry-official-b:7777,ws://registry-official-c:7777
-      REGISTRY_COMMUNITY_RELAY: ws://registry-community:7777
+      REGISTRY_OFFICIAL_RELAYS: ws://registry-official-a:8181,ws://registry-official-b:8181,ws://registry-official-c:8181
+      REGISTRY_COMMUNITY_RELAY: ws://registry-community:8181
+      REGISTRY_PUBLIC_OFFICIAL_RELAYS: ws://127.0.0.1:${LAPIS_RELAY_A_PORT:-8281},ws://127.0.0.1:${LAPIS_RELAY_B_PORT:-8282},ws://127.0.0.1:${LAPIS_RELAY_C_PORT:-8283}
+      REGISTRY_PUBLIC_COMMUNITY_RELAYS: ws://127.0.0.1:${LAPIS_COMMUNITY_RELAY_PORT:-8381}
       REGISTRY_PUBLISH_QUORUM: "2"
     depends_on:
-      registry-official-a:
-        condition: service_healthy
-      registry-official-b:
-        condition: service_healthy
-      registry-official-c:
-        condition: service_healthy
-      registry-community:
-        condition: service_healthy
+      registry-official-a: { condition: service_healthy }
+      registry-official-b: { condition: service_healthy }
+      registry-official-c: { condition: service_healthy }
+      registry-community: { condition: service_healthy }
 
   registry-console:
     environment:
-      REGISTRY_OFFICIAL_RELAYS: ws://127.0.0.1:${STRFRY_OFFICIAL_A_PORT:-8281},ws://127.0.0.1:${STRFRY_OFFICIAL_B_PORT:-8282},ws://127.0.0.1:${STRFRY_OFFICIAL_C_PORT:-8283}
-      REGISTRY_COMMUNITY_RELAYS: ws://127.0.0.1:${STRFRY_COMMUNITY_PORT:-8381}
+      REGISTRY_OFFICIAL_RELAYS: ws://127.0.0.1:${LAPIS_RELAY_A_PORT:-8281},ws://127.0.0.1:${LAPIS_RELAY_B_PORT:-8282},ws://127.0.0.1:${LAPIS_RELAY_C_PORT:-8283}
+      REGISTRY_COMMUNITY_RELAYS: ws://127.0.0.1:${LAPIS_COMMUNITY_RELAY_PORT:-8381}
       REGISTRY_PUBLISH_QUORUM: "2"
 
   registry-materializer:
     environment:
-      REGISTRY_OFFICIAL_RELAYS: ws://registry-official-a:7777,ws://registry-official-b:7777,ws://registry-official-c:7777
-      REGISTRY_COMMUNITY_RELAYS: ws://registry-community:7777
-      REGISTRY_PUBLIC_OFFICIAL_RELAYS: ws://127.0.0.1:${STRFRY_OFFICIAL_A_PORT:-8281},ws://127.0.0.1:${STRFRY_OFFICIAL_B_PORT:-8282},ws://127.0.0.1:${STRFRY_OFFICIAL_C_PORT:-8283}
-      REGISTRY_PUBLIC_COMMUNITY_RELAYS: ws://127.0.0.1:${STRFRY_COMMUNITY_PORT:-8381}
+      REGISTRY_OFFICIAL_RELAYS: ws://registry-official-a:8181,ws://registry-official-b:8181,ws://registry-official-c:8181
+      REGISTRY_COMMUNITY_RELAYS: ws://registry-community:8181
+      REGISTRY_PUBLIC_OFFICIAL_RELAYS: ws://127.0.0.1:${LAPIS_RELAY_A_PORT:-8281},ws://127.0.0.1:${LAPIS_RELAY_B_PORT:-8282},ws://127.0.0.1:${LAPIS_RELAY_C_PORT:-8283}
+      REGISTRY_PUBLIC_COMMUNITY_RELAYS: ws://127.0.0.1:${LAPIS_COMMUNITY_RELAY_PORT:-8381}
 
 volumes:
   registry-official-a-data:
