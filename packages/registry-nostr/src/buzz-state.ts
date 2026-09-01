@@ -78,7 +78,7 @@ export async function loadBuzzRelayRegistryState(
     ...decisionResult.events,
   ]);
   const manifests = await fetchBuzzReleaseManifests(events, {
-    fetch: options.fetch ?? globalThis.fetch,
+    fetch: options.fetch ?? ((input, init) => globalThis.fetch(input, init)),
     mediaAuthSigner: options.authSigner,
     relayUrls: options.relays.map((relay) => relay.url),
     signal: options.signal,

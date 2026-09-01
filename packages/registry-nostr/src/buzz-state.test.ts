@@ -6,7 +6,7 @@ import {
   getPublicKey,
   verifyEvent,
 } from "nostr-tools/pure";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import {
   createBuzzCuratorDecisionTemplate,
@@ -105,6 +105,21 @@ describe("loadBuzzRelayRegistryState", () => {
     };
     const relay = new FixtureRelay([release, approval]);
     let mediaAuthorization = "";
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockImplementation(async function (
+        this: typeof globalThis,
+        _input,
+        init,
+      ) {
+        expect(this).toBe(globalThis);
+        mediaAuthorization =
+          new Headers(init?.headers).get("Authorization") ?? "";
+        return new Response(bytes, {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      });
 
     const state = await loadBuzzRelayRegistryState({
       relays: [relay],
@@ -115,15 +130,7 @@ describe("loadBuzzRelayRegistryState", () => {
       },
       generatedAt: "2026-09-01T11:00:00.000Z",
       authSigner: async (template) => sign(publisherKey, template),
-      fetch: async (_input, init) => {
-        mediaAuthorization =
-          new Headers(init?.headers).get("Authorization") ?? "";
-        return new Response(bytes, {
-          status: 200,
-          headers: { "Content-Type": "application/json" },
-        });
-      },
-    });
+    }).finally(() => fetchMock.mockRestore());
 
     expect(relay.authenticated).toBe(true);
     expect(state.registry.plugins[0]?.latestVersion).toBe("1.0.0");
