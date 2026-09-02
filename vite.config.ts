@@ -1,4 +1,5 @@
 import { svelte } from "@sveltejs/vite-plugin-svelte";
+import tailwindcss from "@tailwindcss/vite";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { storybookTest } from "@storybook/addon-vitest/vitest-plugin";
@@ -7,9 +8,21 @@ import { defineConfig } from "vitest/config";
 
 const packageDirectory = path.dirname(fileURLToPath(import.meta.url));
 
-export default defineConfig({
-  plugins: [svelte({ compilerOptions: { customElement: true } })],
+export default defineConfig(({ command }) => ({
+  plugins: [
+    tailwindcss(),
+    svelte({
+      compilerOptions: { customElement: command === "build" },
+    }),
+  ],
   optimizeDeps: {
+    exclude: [
+      "@lapismd/design-core",
+      "@lapismd/design-core/ai/chat",
+      "@lapismd/design-core/ai/experimental",
+      "@lapismd/design-core/shell",
+      "@lapismd/design-core/storybook/app-shell-reference",
+    ],
     include: [
       "aria-query",
       "react",
@@ -65,4 +78,4 @@ export default defineConfig({
       },
     ],
   },
-});
+}));

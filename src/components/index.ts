@@ -1,5 +1,20 @@
 export { default as CommunityHeader } from "./community-header/CommunityHeader.svelte";
+export { default as CommunityConversation } from "./community-conversation/CommunityConversation.svelte";
+export { default as CommunityDetails } from "./community-details/CommunityDetails.svelte";
+export { default as CommunityMessage } from "./community-message/CommunityMessage.svelte";
+export { default as CommunityNavigation } from "./community-navigation/CommunityNavigation.svelte";
+export type {
+  CommunityNavigationItemKind,
+  CommunityNavigationItemModel,
+  CommunityNavigationModel,
+  CommunityNavigationSectionActionIcon,
+  CommunityNavigationSectionActionModel,
+  CommunityNavigationSectionModel,
+  CommunityNavigationSortOrder,
+} from "./community-navigation/model.js";
 export { default as CommunitySummary } from "./community-summary/CommunitySummary.svelte";
+export { default as CommunitySwitcher } from "./community-switcher/CommunitySwitcher.svelte";
+export { default as CommunityThreadPanel } from "./community-thread-panel/CommunityThreadPanel.svelte";
 export { default as DiscussionComposer } from "./discussion-composer/DiscussionComposer.svelte";
 export { default as DiscussionHeading } from "./discussion-heading/DiscussionHeading.svelte";
 export { default as DiscussionPost } from "./discussion-post/DiscussionPost.svelte";
@@ -8,5 +23,8 @@ export { default as DiscussionTimeline } from "./discussion-timeline/DiscussionT
 export { default as DiscussionTimelineTrack } from "./discussion-timeline/DiscussionTimelineTrack.svelte";
 export { default as PluginReactionControl } from "./plugin-reaction-control/PluginReactionControl.svelte";
 export { default as RegistryCommunity } from "./registry-community/RegistryCommunity.svelte";
+export { default as ForumTopicList } from "./forum-topic-list/ForumTopicList.svelte";
+export * from "./community-workspace/model.js";
+export { filterCommunityNavigation } from "./community-navigation/model.js";
 export * from "./discussion-post-stream/discussion-stream.js";
 export * from "./registry-community/model.js";

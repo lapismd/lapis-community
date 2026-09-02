@@ -194,27 +194,6 @@
 
 <style>
   :host {
-    --spacing: 0.25rem;
-    --radius: 0.625rem;
-    --text-sm: 0.875rem;
-    --text-sm--line-height: 1.25rem;
-    --font-weight-medium: 500;
-    --background: oklch(0.17 0.015 278);
-    --foreground: oklch(0.94 0.012 278);
-    --card: oklch(0.205 0.018 278);
-    --card-foreground: var(--foreground);
-    --primary: oklch(0.61 0.2 278);
-    --primary-foreground: oklch(0.98 0.01 278);
-    --secondary: oklch(0.27 0.028 278);
-    --secondary-foreground: oklch(0.92 0.018 278);
-    --muted: oklch(0.25 0.022 278);
-    --muted-foreground: oklch(0.72 0.025 278);
-    --border: oklch(0.36 0.03 278);
-    --input: var(--border);
-    --ring: oklch(0.68 0.16 278);
-    --destructive: oklch(0.65 0.22 27);
-    --destructive-foreground: white;
-    color-scheme: dark;
     display: block;
     color: var(--foreground);
     font-family: "DM Sans", ui-sans-serif, system-ui, sans-serif;
