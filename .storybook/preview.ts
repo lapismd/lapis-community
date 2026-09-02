@@ -36,7 +36,25 @@ const preview: Preview = {
       storySort: {
         order: [
           "Community",
-          ["Registry", ["Header", "Summary", "Plugin reactions"], "Discussion"],
+          [
+            "Navigation",
+            ["Sidebar", "Community Switcher"],
+            "Inbox",
+            "Channels",
+            [
+              "Conversation",
+              "Message",
+              "Thread Panel",
+              "Channel Settings",
+              "Details",
+            ],
+            "Forums",
+            "Discussion",
+            "Registry",
+            ["Header", "Summary", "Plugin Reactions"],
+            "Examples",
+            ["App Shell"],
+          ],
         ],
       },
     },

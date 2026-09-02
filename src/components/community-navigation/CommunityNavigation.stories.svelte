@@ -11,7 +11,7 @@
   import CommunityNavigationShellFixture from "./CommunityNavigationShellFixture.svelte";
 
   const { Story } = defineMeta({
-    title: "Community/Navigation",
+    title: "Community/Navigation/Sidebar",
     component: CommunityNavigation,
     tags: ["visual-pending"],
     parameters: {

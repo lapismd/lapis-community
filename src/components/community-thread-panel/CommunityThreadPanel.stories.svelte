@@ -9,7 +9,7 @@
   import CommunityThreadPanel from "./CommunityThreadPanel.svelte";
 
   const { Story } = defineMeta({
-    title: "Community/Shell/Thread Panel",
+    title: "Community/Channels/Thread Panel",
     component: CommunityThreadPanel,
     tags: ["visual-pending"],
   });

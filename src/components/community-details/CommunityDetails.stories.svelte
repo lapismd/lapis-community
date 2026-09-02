@@ -11,7 +11,7 @@
   const supportRoom = communityStoryNavigation[1]!.rooms[0]!;
 
   const { Story } = defineMeta({
-    title: "Community/Shell/Details",
+    title: "Community/Channels/Details",
     component: CommunityDetails,
     tags: ["visual-pending"],
   });

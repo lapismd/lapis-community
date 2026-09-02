@@ -8,7 +8,7 @@
   const controller = new AppShellController({ rightWidth: 320 });
 
   const { Story } = defineMeta({
-    title: "Community/Channel Settings",
+    title: "Community/Channels/Channel Settings",
     component: CommunityChannelSettings,
     tags: ["visual-pending"],
     parameters: { layout: "fullscreen" },

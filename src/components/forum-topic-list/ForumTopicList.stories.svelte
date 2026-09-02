@@ -9,7 +9,7 @@
   import ForumTopicList from "./ForumTopicList.svelte";
 
   const { Story } = defineMeta({
-    title: "Community/Shell/Forum Topic List",
+    title: "Community/Forums/Topic List",
     component: ForumTopicList,
     tags: ["visual-pending"],
   });

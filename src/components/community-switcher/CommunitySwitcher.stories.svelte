@@ -6,7 +6,7 @@
   import CommunitySwitcher from "./CommunitySwitcher.svelte";
 
   const { Story } = defineMeta({
-    title: "Community/Shell/Community Switcher",
+    title: "Community/Navigation/Community Switcher",
     component: CommunitySwitcher,
     tags: ["visual-pending"],
   });

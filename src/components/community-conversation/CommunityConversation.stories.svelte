@@ -12,7 +12,7 @@
   const generalRoom = communityStoryNavigation[0]!.rooms[1]!;
 
   const { Story } = defineMeta({
-    title: "Community/Shell/Conversation",
+    title: "Community/Channels/Conversation",
     component: CommunityConversation,
     tags: ["visual-pending"],
   });

@@ -9,7 +9,7 @@
   import CommunityMessage from "./CommunityMessage.svelte";
 
   const { Story } = defineMeta({
-    title: "Community/Shell/Message",
+    title: "Community/Channels/Message",
     component: CommunityMessage,
     tags: ["visual-pending"],
   });

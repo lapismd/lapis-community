@@ -18,7 +18,7 @@
 </AppShell.Root>`;
 
   const { Story } = defineMeta({
-    title: "Community/Inbox",
+    title: "Community/Inbox/Inbox",
     component: CommunityInbox,
     tags: ["visual-pending"],
     parameters: {
