@@ -310,7 +310,7 @@
   .lc-community-shell-frame {
     box-sizing: border-box;
     display: grid;
-    grid-template-rows: 3rem minmax(0, 1fr);
+    grid-template-rows: 2.5rem minmax(0, 1fr);
     height: 100%;
     min-width: 48rem;
     background: var(--muted);
