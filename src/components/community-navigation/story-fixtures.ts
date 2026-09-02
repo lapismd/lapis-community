@@ -68,9 +68,7 @@ export const communityNavigationFixture: CommunityNavigationModel = {
     {
       id: "direct-messages",
       label: "Direct messages",
-      actions: [
-        { id: "new", label: "New direct message", icon: "compose" },
-      ],
+      actions: [{ id: "new", label: "New direct message", icon: "compose" }],
       sortable: true,
       items: [],
     },

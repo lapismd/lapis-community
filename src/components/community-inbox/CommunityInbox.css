@@ -1,0 +1,200 @@
+.lc-community-inbox {
+  --ui-shell-body-sidebar-width: min(23rem, 38%);
+}
+
+.lc-community-inbox__list-region {
+  background: var(--background);
+}
+
+.lc-community-inbox__list,
+.lc-community-inbox__thread {
+  min-width: 0;
+  min-height: 100%;
+}
+
+.lc-community-inbox__list-header,
+.lc-community-inbox__thread-header,
+.lc-community-inbox__item-heading,
+.lc-community-inbox__thread-actions {
+  display: flex;
+  align-items: center;
+}
+
+.lc-community-inbox__list-header,
+.lc-community-inbox__thread-header {
+  position: sticky;
+  z-index: 1;
+  inset-block-start: 0;
+  min-height: var(--ui-shell-toolbar-height);
+  padding-inline: 1rem;
+  border-block-end: 0;
+  background: var(--background);
+}
+
+.lc-community-inbox__list-header {
+  justify-content: space-between;
+}
+
+.lc-community-inbox__items {
+  padding-block: 0.5rem;
+}
+
+.lc-community-inbox__options-menu {
+  min-width: 12rem;
+}
+
+.lc-community-inbox__options-menu
+  .lc-community-inbox__unread-toggle[data-ui-part="dropdown-menu-checkbox-item"] {
+  gap: 0.75rem;
+  padding-inline: 0.5rem;
+}
+
+.lc-community-inbox__options-menu
+  .lc-community-inbox__unread-toggle
+  [data-ui-part="dropdown-menu-checkbox-item-indicator"] {
+  display: none;
+}
+
+.lc-community-inbox__unread-toggle [data-ui-component="switch"] {
+  margin-inline-start: auto;
+  pointer-events: none;
+}
+
+.lc-community-inbox__filter-menu [data-ui-part="dropdown-menu-radio-item"] {
+  padding-inline: 2rem 0.5rem;
+}
+
+.lc-community-inbox__filter-menu
+  [data-ui-part="dropdown-menu-radio-item-indicator"] {
+  inset-inline: 0 auto;
+  display: grid;
+  width: 2rem;
+  place-items: center;
+}
+
+.lc-community-inbox__filter-menu
+  [data-ui-part="dropdown-menu-radio-item-indicator"]
+  svg {
+  display: none;
+}
+
+.lc-community-inbox__filter-menu
+  [data-ui-part="dropdown-menu-radio-item"][data-state="checked"]
+  [data-ui-part="dropdown-menu-radio-item-indicator"]::after {
+  width: 0.35rem;
+  height: 0.35rem;
+  border-radius: 50%;
+  background: currentColor;
+  content: "";
+}
+
+.lc-community-inbox__item[data-ui-component="button"] {
+  display: grid;
+  width: 100%;
+  height: auto;
+  min-height: 8.5rem;
+  grid-template-columns: 2.5rem minmax(0, 1fr);
+  align-items: start;
+  gap: 0.75rem;
+  padding: 1rem;
+  border-radius: 0;
+  text-align: start;
+  white-space: normal;
+}
+
+.lc-community-inbox__item[data-ui-component="button"][data-active] {
+  background: color-mix(in srgb, var(--accent) 72%, transparent);
+}
+
+.lc-community-inbox__item[data-ui-component="button"][data-unread]
+  .lc-community-inbox__item-heading
+  strong {
+  font-weight: 750;
+}
+
+.lc-community-inbox__empty {
+  margin: 0;
+  padding: 2rem 1rem;
+  color: var(--muted-foreground);
+  font-size: 0.82rem;
+  text-align: center;
+}
+
+.lc-community-inbox__avatar {
+  display: grid;
+  width: 2.5rem;
+  height: 2.5rem;
+  place-items: center;
+  border-radius: 50%;
+  color: var(--primary-foreground);
+  background: var(--primary);
+  font-size: 0.72rem;
+  font-weight: 750;
+}
+
+.lc-community-inbox__item-body {
+  display: grid;
+  min-width: 0;
+  gap: 0.25rem;
+}
+
+.lc-community-inbox__item-heading {
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.lc-community-inbox__item-heading > span,
+.lc-community-inbox__context {
+  color: var(--muted-foreground);
+  font-size: 0.75rem;
+}
+
+.lc-community-inbox__item-heading > span {
+  flex: none;
+}
+
+.lc-community-inbox__excerpt {
+  display: -webkit-box;
+  overflow: hidden;
+  color: var(--foreground);
+  font-size: 0.9rem;
+  line-height: 1.4;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+}
+
+.lc-community-inbox__thread {
+  display: flex;
+  height: 100%;
+  flex-direction: column;
+}
+
+.lc-community-inbox__thread-header {
+  flex: none;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.lc-community-inbox__thread-header h1 {
+  overflow: hidden;
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lc-community-inbox__thread-actions {
+  flex: none;
+  gap: 0.25rem;
+}
+
+.lc-community-inbox__conversation {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+
+.lc-community-inbox__thread-region [data-ui-part="scroll-area-viewport"] > div {
+  height: 100%;
+}

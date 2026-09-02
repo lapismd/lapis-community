@@ -1,9 +1,18 @@
 <script lang="ts">
   import { AppShell, AppShellController } from "@lapismd/design-core/shell";
-  import { Badge } from "@lapismd/design-core/shadcn/badge";
   import { Button } from "@lapismd/design-core/shadcn/button";
+  import BotIcon from "@lucide/svelte/icons/bot";
+  import EllipsisIcon from "@lucide/svelte/icons/ellipsis";
+  import HashIcon from "@lucide/svelte/icons/hash";
+  import HeadphonesIcon from "@lucide/svelte/icons/headphones";
+  import LockIcon from "@lucide/svelte/icons/lock";
+  import PlusIcon from "@lucide/svelte/icons/plus";
+  import SparklesIcon from "@lucide/svelte/icons/sparkles";
+  import SquareTerminalIcon from "@lucide/svelte/icons/square-terminal";
+  import UsersIcon from "@lucide/svelte/icons/users";
   import { untrack } from "svelte";
 
+  import CommunityChannelSettings from "../community-channel-settings/CommunityChannelSettings.svelte";
   import CommunityConversation from "../community-conversation/CommunityConversation.svelte";
   import CommunityDetails from "../community-details/CommunityDetails.svelte";
   import CommunityNavigation from "../community-navigation/CommunityNavigation.svelte";
@@ -88,8 +97,10 @@
         id: room.id,
         label: room.name,
         kind: room.kind === "direct" ? "direct-message" : room.kind,
-        restricted: room.private,
-        unreadCount: room.mentionCount ?? room.unreadCount,
+        ...(room.private === undefined ? {} : { restricted: room.private }),
+        ...(room.mentionCount === undefined && room.unreadCount === undefined
+          ? {}
+          : { unreadCount: room.mentionCount ?? room.unreadCount }),
       })),
     })),
   });
@@ -106,7 +117,11 @@
     model.sidePanel === "thread" && model.thread ? "thread" : "details",
   );
   const sidePanelTitle = $derived(
-    effectiveSidePanel === "thread" ? "Thread" : "Room details",
+    effectiveSidePanel === "thread"
+      ? "Thread"
+      : activeRoom.kind === "channel"
+        ? "Channel settings"
+        : "Room details",
   );
 
   function selectRoom(roomId: string): void {
@@ -295,35 +310,69 @@
     </AppShell.Sidebar>
 
     <AppShell.Main>
-      <AppShell.Toolbar label={`${activeRoom.name} toolbar`}>
+      <AppShell.Toolbar
+        label={`${activeRoom.name} toolbar`}
+        class="community-workspace__toolbar"
+      >
         <div class="community-workspace__toolbar-start">
-          <AppShell.Sidebar.Toggle side="left" sidebarName="navigation" />
+          {#if navigationCompact || controller.mobile.resolvedMode === "mobile"}
+            <AppShell.Sidebar.Toggle side="left" sidebarName="navigation" />
+          {/if}
           <div class="community-workspace__room-title">
             <strong>
-              {activeRoom.kind === "channel"
-                ? "#"
-                : activeRoom.kind === "forum"
-                  ? "▤"
-                  : "●"}
+              {#if activeRoom.private}
+                <LockIcon data-icon="inline-start" aria-hidden="true" />
+              {:else if activeRoom.kind === "channel"}
+                <HashIcon data-icon="inline-start" aria-hidden="true" />
+              {:else}
+                <span aria-hidden="true">●</span>
+              {/if}
               {activeRoom.name}
             </strong>
-            <span>{activeRoom.description}</span>
           </div>
         </div>
         <div class="community-workspace__toolbar-actions">
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-sm"
+            aria-label="Open Buzz Term"
+            title="Open Buzz Term"
+          >
+            <SquareTerminalIcon aria-hidden="true" />
+          </Button>
           {#if activeRoom.memberCount}
-            <Badge variant="outline">{activeRoom.memberCount} members</Badge>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              aria-label={`View channel members (${activeRoom.memberCount})`}
+            >
+              <UsersIcon data-icon="inline-start" aria-hidden="true" />
+              {activeRoom.memberCount}
+            </Button>
           {/if}
           <Button
             type="button"
             variant="ghost"
-            size="sm"
+            size="icon-sm"
+            aria-label="Start huddle"
+            title="Start huddle"
+          >
+            <HeadphonesIcon aria-hidden="true" />
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-sm"
+            aria-label="Manage channel"
+            title="Manage channel"
             onclick={() => {
               openSidePanel("details");
               lastAction = "opened-details";
             }}
           >
-            Details
+            <EllipsisIcon aria-hidden="true" />
           </Button>
         </div>
       </AppShell.Toolbar>
@@ -352,6 +401,7 @@
               room={activeRoom}
               messages={model.messages}
               members={model.members}
+              composerPlacement="row"
               onSend={(content) => {
                 model = {
                   ...model,
@@ -369,7 +419,38 @@
               }}
               onToggleReaction={react}
               onAddReaction={react}
-            />
+            >
+              {#snippet intro()}
+                <section class="community-workspace__channel-intro">
+                  <span
+                    class="community-workspace__channel-image"
+                    aria-hidden="true"
+                  >
+                    <SparklesIcon />
+                  </span>
+                  <h1>#{activeRoom.name}</h1>
+                  <p>
+                    This is the beginning of the {activeRoom.private
+                      ? "private "
+                      : ""}{activeRoom.name} channel.
+                  </p>
+                  <div class="community-workspace__channel-actions">
+                    <Button variant="outline">
+                      <HashIcon data-icon="inline-start" aria-hidden="true" />
+                      Browse channels
+                    </Button>
+                    <Button variant="outline">
+                      <PlusIcon data-icon="inline-start" aria-hidden="true" />
+                      Create a channel
+                    </Button>
+                    <Button variant="outline">
+                      <BotIcon data-icon="inline-start" aria-hidden="true" />
+                      Create an agent
+                    </Button>
+                  </div>
+                </section>
+              {/snippet}
+            </CommunityConversation>
           {/if}
         </AppShell.Body.Content>
       </AppShell.Body>
@@ -382,12 +463,12 @@
       resizeLabel={`Resize ${sidePanelTitle.toLowerCase()} sidebar`}
       closeable
     >
-      <AppShell.Sidebar.Header>
-        <strong>{sidePanelTitle}</strong>
-        <AppShell.Sidebar.Close onclick={closeSidePanel} />
-      </AppShell.Sidebar.Header>
-      <AppShell.Sidebar.Body>
-        {#if effectiveSidePanel === "thread" && model.thread}
+      {#if effectiveSidePanel === "thread" && model.thread}
+        <AppShell.Sidebar.Header class="community-workspace__panel-header">
+          <strong>{sidePanelTitle}</strong>
+          <AppShell.Sidebar.Close onclick={closeSidePanel} />
+        </AppShell.Sidebar.Header>
+        <AppShell.Sidebar.Body>
           <CommunityThreadPanel
             thread={model.thread}
             members={model.members}
@@ -405,14 +486,31 @@
             onToggleReaction={react}
             onAddReaction={react}
           />
-        {:else if model.details}
+        </AppShell.Sidebar.Body>
+      {:else if activeRoom.kind === "channel"}
+        <CommunityChannelSettings
+          room={activeRoom}
+          members={model.members}
+          description={model.details?.description ??
+            activeRoom.description ??
+            "Community channel"}
+          onAction={(action) => {
+            lastAction = `channel-settings:${action}`;
+          }}
+        />
+      {:else if model.details}
+        <AppShell.Sidebar.Header class="community-workspace__panel-header">
+          <strong>{sidePanelTitle}</strong>
+          <AppShell.Sidebar.Close onclick={closeSidePanel} />
+        </AppShell.Sidebar.Header>
+        <AppShell.Sidebar.Body>
           <CommunityDetails
             room={activeRoom}
             details={model.details}
             members={model.members}
           />
-        {/if}
-      </AppShell.Sidebar.Body>
+        </AppShell.Sidebar.Body>
+      {/if}
     </AppShell.Sidebar>
   </AppShell.Root>
 </div>
@@ -430,6 +528,38 @@
 
   .community-workspace-story :global(.community-workspace__shell) {
     --ui-shell-height: 100%;
+    --ui-shell-right-sidebar-gap: 0;
+  }
+
+  .community-workspace-story
+    :global(
+      .community-workspace__shell:has(
+          > .ui-minimal-app-shell__composition
+            > .ui-minimal-app-shell__sidebar[data-side="right"][data-presentation="inline"]:not(
+              [hidden]
+            )
+        )
+        > .ui-minimal-app-shell__composition
+        > .ui-minimal-app-shell__main
+    ) {
+    border-start-end-radius: 0;
+    border-end-end-radius: 0;
+  }
+
+  .community-workspace-story
+    :global(
+      .community-workspace__shell
+        > .ui-minimal-app-shell__composition
+        > .ui-minimal-app-shell__sidebar[data-side="right"][data-presentation="inline"]
+    ) {
+    margin-block: var(--ui-shell-main-block-inset);
+    margin-inline-end: var(--ui-shell-main-block-inset);
+    border: var(--ui-shell-main-border);
+    border-inline-start: 0;
+    border-start-end-radius: var(--ui-shell-main-radius);
+    border-end-end-radius: var(--ui-shell-main-radius);
+    background: var(--background);
+    box-shadow: var(--ui-shell-main-shadow);
   }
 
   .community-workspace-story :global(.community-workspace__navigation-sidebar) {
@@ -441,7 +571,6 @@
   }
 
   .community-workspace__rail-header,
-  .community-workspace__navigation-header,
   .community-workspace__toolbar-start,
   .community-workspace__toolbar-actions,
   .community-workspace__member-footer {
@@ -451,14 +580,11 @@
     gap: 0.5rem;
   }
 
-  .community-workspace__rail-header,
-  .community-workspace__navigation-header {
+  .community-workspace__rail-header {
     width: 100%;
   }
 
-  .community-workspace__rail-header :global([data-ui-part="sidebar-close"]),
-  .community-workspace__navigation-header
-    :global([data-ui-part="sidebar-close"]) {
+  .community-workspace__rail-header :global([data-ui-part="sidebar-close"]) {
     margin-inline-start: auto;
   }
 
@@ -476,15 +602,12 @@
     font-weight: 750;
   }
 
-  .community-workspace__community-title,
   .community-workspace__room-title,
   .community-workspace__member-footer > span:last-child {
     display: grid;
     min-width: 0;
   }
 
-  .community-workspace__community-title strong,
-  .community-workspace__community-title span,
   .community-workspace__room-title strong,
   .community-workspace__room-title span,
   .community-workspace__member-footer strong,
@@ -494,7 +617,6 @@
     white-space: nowrap;
   }
 
-  .community-workspace__community-title span,
   .community-workspace__room-title span,
   .community-workspace__member-footer small {
     color: var(--muted-foreground);
@@ -506,12 +628,73 @@
     flex: 1;
   }
 
+  .community-workspace-story :global(.community-workspace__toolbar) {
+    border-block-end: 0;
+  }
+
   .community-workspace__room-title strong {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
     font-size: 0.88rem;
   }
 
   .community-workspace__toolbar-actions {
     margin-inline-start: auto;
+  }
+
+  .community-workspace__channel-intro {
+    display: grid;
+    gap: 0.5rem;
+    padding: 1.25rem 0.75rem 1rem;
+  }
+
+  .community-workspace__channel-intro h1,
+  .community-workspace__channel-intro p {
+    margin: 0;
+  }
+
+  .community-workspace__channel-intro h1 {
+    font-size: 1.1rem;
+  }
+
+  .community-workspace__channel-intro p {
+    color: var(--muted-foreground);
+    font-size: 0.82rem;
+  }
+
+  .community-workspace__channel-image {
+    display: grid;
+    width: 2.75rem;
+    height: 2.75rem;
+    place-items: center;
+    border: 1px solid var(--border);
+    border-radius: 0.75rem;
+    background: var(--muted);
+  }
+
+  .community-workspace__channel-image :global(svg) {
+    width: 1.35rem;
+    height: 1.35rem;
+  }
+
+  .community-workspace__channel-actions {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.5rem;
+    margin-block-start: 0.25rem;
+  }
+
+  .community-workspace__channel-actions :global([data-ui-component="button"]) {
+    height: 4rem;
+    justify-content: flex-start;
+    white-space: normal;
+  }
+
+  .community-workspace-story :global(.community-workspace__panel-header) {
+    min-height: var(--ui-shell-toolbar-height);
+    padding: 0.75rem 1rem;
+    border-block-end: 0;
   }
 
   .community-workspace-story
@@ -524,9 +707,8 @@
   }
 
   @media (max-width: 44rem) {
-    .community-workspace__room-title span,
-    .community-workspace__toolbar-actions :global([data-ui-component="badge"]) {
-      display: none;
+    .community-workspace__channel-actions {
+      grid-template-columns: 1fr;
     }
   }
 </style>

@@ -1,6 +1,6 @@
 <script module lang="ts">
   import { defineMeta } from "@storybook/addon-svelte-csf";
-  import { fn } from "storybook/test";
+  import { expect, fn, userEvent, waitFor, within } from "storybook/test";
 
   import {
     communityStoryMembers,
@@ -24,5 +24,25 @@
     onOpenThread: fn(),
     onToggleReaction: fn(),
     onAddReaction: fn(),
+  }}
+  play={async ({ canvas, args }) => {
+    const message = canvas.getByLabelText("Message from Ben Stone");
+    const messageCanvas = within(message);
+    const addReaction = messageCanvas.getByRole("button", {
+      name: "Add reaction",
+    });
+
+    await expect(addReaction).not.toBeVisible();
+    addReaction.focus();
+    await waitFor(() => expect(addReaction).toBeVisible());
+    await userEvent.click(
+      messageCanvas.getByRole("button", {
+        name: "4 reactions with 🎉",
+      }),
+    );
+    await expect(args.onToggleReaction).toHaveBeenCalledWith(
+      "message-release",
+      "🎉",
+    );
   }}
 />

@@ -5,6 +5,7 @@
     MessageList,
     SystemMessage,
   } from "@lapismd/design-core/ai/chat";
+  import type { Snippet } from "svelte";
 
   import CommunityMessage from "../community-message/CommunityMessage.svelte";
   import {
@@ -22,6 +23,8 @@
     onOpenThread,
     onToggleReaction,
     onAddReaction,
+    composerPlacement = "overlay",
+    intro,
   }: {
     room: CommunityRoomModel;
     messages: CommunityMessageModel[];
@@ -30,13 +33,19 @@
     onOpenThread?: (messageId: string) => void;
     onToggleReaction?: (messageId: string, emoji: string) => void;
     onAddReaction?: (messageId: string, emoji: string) => void;
+    composerPlacement?: "overlay" | "row";
+    intro?: Snippet;
   } = $props();
 
   let draft = $state("");
   const density = $derived(room.kind === "forum" ? "spacious" : "compact");
 </script>
 
-<div class="community-conversation" data-room-kind={room.kind}>
+<div
+  class="community-conversation"
+  data-room-kind={room.kind}
+  data-composer-placement={composerPlacement}
+>
   <Layout
     {density}
     aria-label={`${room.name} conversation`}
@@ -62,6 +71,9 @@
       latestMessageId={messages.at(-1)?.id ?? ""}
       aria-label={`${room.name} messages`}
     >
+      {#if intro}
+        {@render intro()}
+      {/if}
       <SystemMessage variant="divider">Today</SystemMessage>
       {#each messages as message (message.id)}
         <CommunityMessage
@@ -92,6 +104,52 @@
     flex: 1;
     min-width: 0;
     min-height: 0;
+  }
+
+  .community-conversation[data-composer-placement="row"]
+    :global([data-ui-component="ai-chat-layout"]) {
+    display: grid;
+    grid-template-rows: minmax(0, 1fr) auto;
+  }
+
+  .community-conversation[data-composer-placement="row"]
+    :global([data-ui-component="ai-chat-composer"]) {
+    --ui-ai-chat-composer-radius: 0.75rem;
+  }
+
+  .community-conversation[data-composer-placement="row"]
+    :global(
+      [data-ui-component="ai-chat-layout"] > [data-ui-part="scroll-shell"]
+    ) {
+    grid-row: 1;
+  }
+
+  .community-conversation[data-composer-placement="row"]
+    :global(
+      [data-ui-component="ai-chat-layout"] [data-ui-part="message-area"]
+    ) {
+    padding-block-end: 0.5rem;
+  }
+
+  .community-conversation[data-composer-placement="row"]
+    :global(
+      [data-ui-component="ai-chat-layout"] > [data-ui-part="composer-dock"]
+    ) {
+    position: relative;
+    inset: auto;
+    grid-row: 2;
+    padding: 0.5rem 0.75rem 0.75rem;
+    border-block-start: 1px solid var(--border);
+    background: var(--background);
+    pointer-events: auto;
+  }
+
+  .community-conversation[data-composer-placement="row"]
+    :global(
+      [data-ui-component="ai-chat-layout"]
+        > [data-ui-part="composer-dock"]::before
+    ) {
+    display: none;
   }
 
   .community-conversation__empty {

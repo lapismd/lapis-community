@@ -38,7 +38,7 @@ describe("community navigation", () => {
     expect(
       communityNavigationFixture.sections.map((section) => [
         section.id,
-        section.actions?.length,
+        Number(Boolean(section.primaryAction)) + (section.actions?.length ?? 0),
       ]),
     ).toEqual([
       ["channels", 2],

@@ -1,0 +1,209 @@
+<script lang="ts">
+  import { Button } from "@lapismd/design-core/shadcn/button";
+  import * as DropdownMenu from "@lapismd/design-core/shadcn/dropdown-menu";
+  import { Switch } from "@lapismd/design-core/shadcn/switch";
+  import { AppShell } from "@lapismd/design-core/shell";
+  import ChevronDownIcon from "@lucide/svelte/icons/chevron-down";
+  import EllipsisIcon from "@lucide/svelte/icons/ellipsis";
+  import ExternalLinkIcon from "@lucide/svelte/icons/external-link";
+  import HeadphonesIcon from "@lucide/svelte/icons/headphones";
+  import UsersIcon from "@lucide/svelte/icons/users";
+
+  import CommunityConversation from "../community-conversation/CommunityConversation.svelte";
+  import { memberById } from "../community-workspace/model.js";
+  import type { CommunityInboxModel } from "./model.js";
+  import "./CommunityInbox.css";
+
+  let {
+    model,
+    onSelect = () => {},
+    onSend = () => {},
+    onMarkAllRead = () => {},
+    onOpenChannelSettings = () => {},
+  }: {
+    model: CommunityInboxModel;
+    onSelect?: (itemId: string) => void;
+    onSend?: (content: string) => void;
+    onMarkAllRead?: () => void;
+    onOpenChannelSettings?: () => void;
+  } = $props();
+
+  let filter = $state("All");
+  let showUnreadOnly = $state(false);
+  let allMarkedRead = $state(false);
+  let visibleItems = $derived(
+    showUnreadOnly
+      ? model.items.filter((item) => item.unread && !allMarkedRead)
+      : model.items,
+  );
+
+  function markAllRead(): void {
+    allMarkedRead = true;
+    onMarkAllRead();
+  }
+</script>
+
+<AppShell.Body
+  layout="regions"
+  label="Inbox workspace"
+  class="lc-community-inbox"
+>
+  <AppShell.Body.Sidebar
+    panelId="inbox-conversations"
+    side="left"
+    label="Inbox conversations"
+    mobileLabel="Inbox conversations"
+    class="lc-community-inbox__list-region"
+  >
+    <div class="lc-community-inbox__list">
+      <header class="lc-community-inbox__list-header">
+        <DropdownMenu.Root>
+          <DropdownMenu.Trigger>
+            {#snippet child({ props })}
+              <Button {...props} variant="ghost" size="sm">
+                <span>{filter}</span>
+                <ChevronDownIcon data-icon="inline-end" aria-hidden="true" />
+              </Button>
+            {/snippet}
+          </DropdownMenu.Trigger>
+          <DropdownMenu.Content
+            align="start"
+            sideOffset={4}
+            class="lc-community-inbox__filter-menu"
+          >
+            <DropdownMenu.Group>
+              <DropdownMenu.RadioGroup bind:value={filter}>
+                {#each ["All", "Mentions", "Threads"] as option}
+                  <DropdownMenu.RadioItem value={option}>
+                    {option}
+                  </DropdownMenu.RadioItem>
+                {/each}
+              </DropdownMenu.RadioGroup>
+            </DropdownMenu.Group>
+          </DropdownMenu.Content>
+        </DropdownMenu.Root>
+
+        <DropdownMenu.Root>
+          <DropdownMenu.Trigger>
+            {#snippet child({ props })}
+              <Button
+                {...props}
+                variant="ghost"
+                size="icon-sm"
+                aria-label="Inbox options"
+                title="Inbox options"
+              >
+                <EllipsisIcon aria-hidden="true" />
+              </Button>
+            {/snippet}
+          </DropdownMenu.Trigger>
+          <DropdownMenu.Content
+            align="end"
+            sideOffset={4}
+            class="lc-community-inbox__options-menu"
+          >
+            <DropdownMenu.Group>
+              <DropdownMenu.CheckboxItem
+                bind:checked={showUnreadOnly}
+                class="lc-community-inbox__unread-toggle"
+              >
+                <span>Show unread only</span>
+                <Switch
+                  checked={showUnreadOnly}
+                  size="sm"
+                  aria-hidden="true"
+                  tabindex={-1}
+                />
+              </DropdownMenu.CheckboxItem>
+              <DropdownMenu.Separator />
+              <DropdownMenu.Item onSelect={markAllRead}>
+                Mark all as read
+              </DropdownMenu.Item>
+            </DropdownMenu.Group>
+          </DropdownMenu.Content>
+        </DropdownMenu.Root>
+      </header>
+
+      <div class="lc-community-inbox__items" aria-label="Inbox items">
+        {#each visibleItems as item (item.id)}
+          {@const author = memberById(model.members, item.authorId)}
+          <Button
+            variant="ghost"
+            class="lc-community-inbox__item"
+            data-active={item.id === model.activeItemId ? "" : undefined}
+            data-unread={item.unread && !allMarkedRead ? "" : undefined}
+            aria-pressed={item.id === model.activeItemId}
+            onclick={() => onSelect(item.id)}
+          >
+            <span class="lc-community-inbox__avatar" aria-hidden="true">
+              {author.initials}
+            </span>
+            <span class="lc-community-inbox__item-body">
+              <span class="lc-community-inbox__item-heading">
+                <strong>{author.name}</strong>
+                <span>{item.timestamp}</span>
+              </span>
+              <span class="lc-community-inbox__context">{item.context}</span>
+              <span class="lc-community-inbox__excerpt">{item.excerpt}</span>
+            </span>
+          </Button>
+        {/each}
+        {#if visibleItems.length === 0}
+          <p class="lc-community-inbox__empty">You're all caught up</p>
+        {/if}
+      </div>
+    </div>
+  </AppShell.Body.Sidebar>
+
+  <AppShell.Body.Content
+    label="Selected inbox thread"
+    class="lc-community-inbox__thread-region"
+  >
+    <section class="lc-community-inbox__thread">
+      <header class="lc-community-inbox__thread-header">
+        <h1>{model.threadTitle}</h1>
+        <div class="lc-community-inbox__thread-actions">
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            aria-label="Open thread in channel"
+            title="Open thread in channel"
+          >
+            <ExternalLinkIcon aria-hidden="true" />
+          </Button>
+          <Button variant="outline" size="sm" aria-label="Thread participants">
+            <UsersIcon data-icon="inline-start" aria-hidden="true" />
+            {model.participantCount ?? 0}
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            aria-label="Start huddle"
+            title="Start huddle"
+          >
+            <HeadphonesIcon aria-hidden="true" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            aria-label="Manage channel"
+            title="Manage channel"
+            onclick={onOpenChannelSettings}
+          >
+            <EllipsisIcon aria-hidden="true" />
+          </Button>
+        </div>
+      </header>
+
+      <div class="lc-community-inbox__conversation">
+        <CommunityConversation
+          room={model.room}
+          messages={model.messages}
+          members={model.members}
+          composerPlacement="row"
+          {onSend}
+        />
+      </div>
+    </section>
+  </AppShell.Body.Content>
+</AppShell.Body>

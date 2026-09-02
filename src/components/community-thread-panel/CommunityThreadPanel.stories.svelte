@@ -1,6 +1,6 @@
 <script module lang="ts">
   import { defineMeta } from "@storybook/addon-svelte-csf";
-  import { fn } from "storybook/test";
+  import { expect, fn, userEvent } from "storybook/test";
 
   import {
     communityStoryMembers,
@@ -23,6 +23,20 @@
     onSendReply: fn(),
     onToggleReaction: fn(),
     onAddReaction: fn(),
+  }}
+  play={async ({ canvas, args }) => {
+    const composer = canvas.getByRole("combobox", { name: "Message" });
+    await userEvent.type(composer, "An isolated thread reply");
+    await userEvent.keyboard("{Enter}");
+    await expect(args.onSendReply).toHaveBeenCalledWith(
+      "message-release",
+      "An isolated thread reply",
+    );
+
+    await userEvent.click(
+      canvas.getByRole("button", { name: "2 reactions with 👍" }),
+    );
+    await expect(args.onToggleReaction).toHaveBeenCalledWith("thread-1", "👍");
   }}
 >
   {#snippet template(args)}

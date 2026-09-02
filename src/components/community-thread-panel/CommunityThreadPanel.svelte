@@ -70,7 +70,48 @@
   }
 
   .community-thread-panel :global([data-ui-component="ai-chat-layout"]) {
+    display: grid;
     flex: 1;
+    grid-template-rows: minmax(0, 1fr) auto;
     min-height: 0;
+  }
+
+  .community-thread-panel
+    :global(
+      [data-ui-component="ai-chat-layout"] > [data-ui-part="scroll-shell"]
+    ) {
+    grid-row: 1;
+  }
+
+  .community-thread-panel
+    :global(
+      [data-ui-component="ai-chat-layout"] [data-ui-part="message-area"]
+    ) {
+    padding-block-end: 0.5rem;
+  }
+
+  .community-thread-panel
+    :global(
+      [data-ui-component="ai-chat-layout"] > [data-ui-part="composer-dock"]
+    ) {
+    position: relative;
+    inset: auto;
+    grid-row: 2;
+    padding: 0.5rem 0.75rem 0.75rem;
+    border-block-start: 1px solid var(--border);
+    background: var(--background);
+    pointer-events: auto;
+  }
+
+  .community-thread-panel
+    :global(
+      [data-ui-component="ai-chat-layout"]
+        > [data-ui-part="composer-dock"]::before
+    ) {
+    display: none;
+  }
+
+  .community-thread-panel :global([data-ui-component="ai-chat-composer"]) {
+    --ui-ai-chat-composer-radius: 0.75rem;
   }
 </style>

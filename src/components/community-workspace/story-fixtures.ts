@@ -72,66 +72,67 @@ export const communityStoryCommunities: CommunityModel[] = [
   },
 ];
 
-export const communityStoryNavigation: CommunityWorkspaceNavigationSectionModel[] = [
-  {
-    id: "channels",
-    label: "Channels",
-    rooms: [
-      {
-        id: "announcements",
-        name: "announcements",
-        kind: "channel",
-        description: "News from the Lapis team",
-        memberCount: 248,
-      },
-      {
-        id: "general",
-        name: "general",
-        kind: "channel",
-        description: "Conversation across the Lapis community",
-        memberCount: 248,
-      },
-      {
-        id: "plugin-development",
-        name: "plugin-development",
-        kind: "channel",
-        description: "Build plugins with other publishers",
-        unreadCount: 12,
-        mentionCount: 2,
-        memberCount: 91,
-      },
-    ],
-  },
-  {
-    id: "forums",
-    label: "Forums",
-    rooms: [
-      {
-        id: "support-ai",
-        name: "support-ai",
-        kind: "forum",
-        description: "Questions, guides, and support for the AI plugin",
-        unreadCount: 7,
-        memberCount: 126,
-      },
-      {
-        id: "plugin-ideas",
-        name: "plugin-ideas",
-        kind: "forum",
-        description: "Propose and refine new plugin ideas",
-        memberCount: 183,
-      },
-    ],
-  },
-  {
-    id: "direct-messages",
-    label: "Direct messages",
-    rooms: [
-      { id: "dm-ada", name: "Ada Lovelace", kind: "direct", private: true },
-      { id: "dm-mara", name: "Mara Chen", kind: "direct", private: true },
-    ],
-  },
-];
+export const communityStoryNavigation: CommunityWorkspaceNavigationSectionModel[] =
+  [
+    {
+      id: "channels",
+      label: "Channels",
+      rooms: [
+        {
+          id: "announcements",
+          name: "announcements",
+          kind: "channel",
+          description: "News from the Lapis team",
+          memberCount: 248,
+        },
+        {
+          id: "general",
+          name: "general",
+          kind: "channel",
+          description: "Conversation across the Lapis community",
+          memberCount: 248,
+        },
+        {
+          id: "plugin-development",
+          name: "plugin-development",
+          kind: "channel",
+          description: "Build plugins with other publishers",
+          unreadCount: 12,
+          mentionCount: 2,
+          memberCount: 91,
+        },
+      ],
+    },
+    {
+      id: "forums",
+      label: "Forums",
+      rooms: [
+        {
+          id: "support-ai",
+          name: "support-ai",
+          kind: "forum",
+          description: "Questions, guides, and support for the AI plugin",
+          unreadCount: 7,
+          memberCount: 126,
+        },
+        {
+          id: "plugin-ideas",
+          name: "plugin-ideas",
+          kind: "forum",
+          description: "Propose and refine new plugin ideas",
+          memberCount: 183,
+        },
+      ],
+    },
+    {
+      id: "direct-messages",
+      label: "Direct messages",
+      rooms: [
+        { id: "dm-ada", name: "Ada Lovelace", kind: "direct", private: true },
+        { id: "dm-mara", name: "Mara Chen", kind: "direct", private: true },
+      ],
+    },
+  ];
 
 export const communityStoryMessages: CommunityMessageModel[] = [
   {
@@ -357,15 +358,5 @@ export function createForumIndexStoryModel(): CommunityWorkspaceModel {
     activeRoomId: "support-ai",
     view: "forum-index",
     sidePanel: "none",
-  };
-}
-
-export function createForumThreadStoryModel(): CommunityWorkspaceModel {
-  return {
-    ...baseModel(),
-    activeRoomId: "support-ai",
-    view: "forum-thread",
-    messages: communityForumMessages,
-    sidePanel: "details",
   };
 }

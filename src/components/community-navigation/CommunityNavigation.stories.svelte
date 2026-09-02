@@ -58,9 +58,13 @@
     ).toBeNull();
 
     await userEvent.click(canvas.getByRole("button", { name: "Channels" }));
-    await expect(canvas.queryByRole("button", { name: "general" })).toBeNull();
+    await waitFor(() => {
+      expect(canvas.queryByRole("button", { name: "general" })).toBeNull();
+    });
     await userEvent.click(canvas.getByRole("button", { name: "Channels" }));
-    await expect(canvas.getByRole("button", { name: "general" })).toBeVisible();
+    await waitFor(() => {
+      expect(canvas.getByRole("button", { name: "general" })).toBeVisible();
+    });
 
     await userEvent.click(
       canvas.getByRole("button", { name: "Open Channels menu" }),

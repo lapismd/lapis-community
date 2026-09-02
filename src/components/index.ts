@@ -1,4 +1,10 @@
 export { default as CommunityHeader } from "./community-header/CommunityHeader.svelte";
+export { default as CommunityChannelSettings } from "./community-channel-settings/CommunityChannelSettings.svelte";
+export { default as CommunityInbox } from "./community-inbox/CommunityInbox.svelte";
+export type {
+  CommunityInboxItemModel,
+  CommunityInboxModel,
+} from "./community-inbox/model.js";
 export { default as CommunityConversation } from "./community-conversation/CommunityConversation.svelte";
 export { default as CommunityDetails } from "./community-details/CommunityDetails.svelte";
 export { default as CommunityMessage } from "./community-message/CommunityMessage.svelte";

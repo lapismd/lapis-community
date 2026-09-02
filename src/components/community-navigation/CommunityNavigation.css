@@ -22,9 +22,7 @@
   flex: 1;
 }
 
-.lc-community-navigation__header
-  .cv-search-filter-bar__search-pill
-  kbd {
+.lc-community-navigation__header .cv-search-filter-bar__search-pill kbd {
   min-width: auto;
   border: 0;
   border-radius: 0;
@@ -34,9 +32,7 @@
   font-weight: 400;
 }
 
-.lc-community-navigation__header
-  .cv-search-filter-bar__search-pill
-  kbd:hover {
+.lc-community-navigation__header .cv-search-filter-bar__search-pill kbd:hover {
   background: transparent;
   color: var(--ui-form-muted);
 }

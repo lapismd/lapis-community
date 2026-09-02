@@ -21,7 +21,6 @@ export default defineConfig(({ command }) => ({
       "@lapismd/design-core/ai/chat",
       "@lapismd/design-core/ai/experimental",
       "@lapismd/design-core/shell",
-      "@lapismd/design-core/storybook/app-shell-reference",
     ],
     include: [
       "aria-query",
