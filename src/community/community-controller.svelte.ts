@@ -211,8 +211,14 @@ export function createCommunityController(
           return;
         }
         sessions.set(scope.id, session);
+        let snapshotReady = false;
+        const pendingEvents: NostrEvent[] = [];
         const subscription = await session.subscribe((events) => {
           if (generation !== currentGeneration) return;
+          if (!snapshotReady) {
+            pendingEvents.push(...events);
+            return;
+          }
           mergeEvents(scope.id, events);
           if (
             events.some((event) => [9, 11, 1_059, 1_111].includes(event.kind))
@@ -230,12 +236,13 @@ export function createCommunityController(
         subscriptions.set(scope.id, subscription);
         const snapshot = await session.snapshot(signal);
         if (generation !== currentGeneration) return;
-        mergeEvents(scope.id, snapshot.events);
+        mergeEvents(scope.id, [...snapshot.events, ...pendingEvents]);
         mergePrivateEvents(scope.id, snapshot.privateEvents ?? []);
         capabilitiesByScope = {
           ...capabilitiesByScope,
           [scope.id]: snapshot.capabilities,
         };
+        snapshotReady = true;
       }
       if (options.stateStore !== undefined && identityPubkey !== "") {
         for (const scope of scopes) {

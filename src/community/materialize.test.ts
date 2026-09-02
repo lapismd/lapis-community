@@ -1,3 +1,4 @@
+import { finalizeEvent } from "nostr-tools/pure";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -6,6 +7,7 @@ import {
   createInMemoryRelayFactory,
 } from "../testing/index.js";
 import { materializeCommunityWorkspace } from "./materialize.js";
+import { materializeCommunitySettings } from "./materialize-settings.js";
 import { createNip29CommunitySource } from "./nip29-community-source.js";
 
 describe("materializeCommunityWorkspace", () => {
@@ -42,5 +44,27 @@ describe("materializeCommunityWorkspace", () => {
     );
     expect(replayed).toEqual(forward);
     session.close();
+  });
+});
+
+describe("materializeCommunitySettings", () => {
+  it("does not mutate events while verifying profile metadata", () => {
+    const event = Object.freeze(
+      structuredClone(
+        finalizeEvent(
+          {
+            kind: 0,
+            created_at: 1_700_000_000,
+            content: JSON.stringify({ display_name: "Reader" }),
+            tags: [],
+          },
+          new Uint8Array(32).fill(52),
+        ),
+      ),
+    );
+
+    expect(materializeCommunitySettings([event], event.pubkey).profile).toEqual(
+      expect.objectContaining({ displayName: "Reader" }),
+    );
   });
 });

@@ -1,6 +1,8 @@
 import { finalizeEvent } from "nostr-tools/pure";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import type { CommunityCapabilities } from "./contracts.js";
+import { createCommunityController } from "./community-controller.svelte.js";
 import {
   createCommunityTestRuntime,
   type CommunityTestRuntime,
@@ -18,6 +20,72 @@ async function connected(current: CommunityTestRuntime): Promise<void> {
 }
 
 describe("createCommunityController", () => {
+  it("buffers subscription replay until the initial snapshot is committed", async () => {
+    const event = finalizeEvent(
+      {
+        kind: 9,
+        created_at: 1_700_000_000,
+        content: "Snapshot race",
+        tags: [["h", "general"]],
+      },
+      new Uint8Array(32).fill(45),
+    );
+    const capabilities: CommunityCapabilities = {
+      channels: true,
+      forums: true,
+      directMessages: false,
+      search: true,
+      manageGroup: false,
+      manageMembers: false,
+      deleteEvents: false,
+      archive: false,
+      editMessages: false,
+    };
+    const snapshot = vi.fn(async () => ({ events: [event], capabilities }));
+    const controller = createCommunityController({
+      scopes: [
+        {
+          id: "lapis",
+          name: "Lapis Community",
+          relayUrl: "memory://snapshot-race.test",
+          rooms: [
+            {
+              id: "general",
+              groupId: "general",
+              name: "general",
+              kind: "channel",
+            },
+          ],
+        },
+      ],
+      source: {
+        async open() {
+          return {
+            snapshot,
+            async subscribe(listener) {
+              listener([event]);
+              return { close() {} };
+            },
+            async execute() {
+              return [];
+            },
+            async search() {
+              return [];
+            },
+            close() {},
+          };
+        },
+      },
+    });
+
+    controller.initialize();
+    await vi.waitFor(() => expect(controller.state.status).toBe("connected"));
+
+    expect(snapshot).toHaveBeenCalledTimes(1);
+    expect(controller.state.workspace.messages).toHaveLength(1);
+    controller.dispose();
+  });
+
   it("projects channels, forums, inbox, members, and administrator capabilities", async () => {
     runtime = await createCommunityTestRuntime();
     await connected(runtime);

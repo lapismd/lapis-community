@@ -18,7 +18,10 @@ export function materializeCommunitySettings(
   events: readonly NostrEvent[],
   identityPubkey: string,
 ): CommunitySettingsState {
-  const accepted = events.filter((event) => verifyEvent(event));
+  // nostr-tools memoizes verification on the event object. Verify a shallow
+  // copy so materialization remains read-only when a host stores events in a
+  // Svelte state proxy or another immutable collection.
+  const accepted = events.filter((event) => verifyEvent({ ...event }));
   const profileEvent = latest(
     accepted.filter(
       (event) => event.kind === 0 && event.pubkey === identityPubkey,
