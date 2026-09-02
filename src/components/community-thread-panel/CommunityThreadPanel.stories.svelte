@@ -12,6 +12,14 @@
     title: "Community/Channels/Thread Panel",
     component: CommunityThreadPanel,
     tags: ["visual-pending"],
+    parameters: {
+      docs: {
+        description: {
+          component:
+            "The thread sidebar has its own scroll-to-latest recovery control and scroll state, independent from the main conversation.",
+        },
+      },
+    },
   });
 </script>
 

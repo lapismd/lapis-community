@@ -33,7 +33,7 @@
 | LC-UI-011    | Visual pending | `src/components/community-application`; full controller-routed app story plus retained focused App Shell examples                                                                       |
 | LC-UI-012    | Visual pending | Shared production app frame, edge-to-edge compact header, collapsed-rail alignment, and joined panel shape; human review pending                                                        |
 | LC-UI-013    | Visual pending | Settings/profile editor; disconnected Empty form/navigation; full reconnect alert; Edit Community dialog; review pending                                                                |
-| LC-UI-014    | Visual pending | Shell-height message scrolling; compact Inbox rows; aligned metadata and avatar-led relative reply activity across conversations; human review pending                                  |
+| LC-UI-014    | Visual pending | Shell-height message scrolling and per-panel scroll-to-latest controls; compact Inbox rows; aligned metadata and avatar-led reply activity; review pending                              |
 | LC-UI-015    | Visual pending | Inbox menus and joined Buzz-style channel/forum settings with room-specific labels and unsupported actions hidden                                                                       |
 | LC-UI-016    | Visual pending | Borderless channel composer row and Buzz-style action cards; forum index without details, self-sizing rows and Back to posts; joined headers; review pending                            |
 | LC-UI-017    | Visual pending | controller-backed composed stories; 18-file story audit; memory/Docker toolbar selector; human review pending                                                                           |

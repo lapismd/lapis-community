@@ -15,6 +15,14 @@
     title: "Community/Channels/Conversation",
     component: CommunityConversation,
     tags: ["visual-pending"],
+    parameters: {
+      docs: {
+        description: {
+          component:
+            "The shared channel, Inbox, and direct-message conversation includes an independent scroll-to-latest recovery control.",
+        },
+      },
+    },
   });
 </script>
 

@@ -1,5 +1,10 @@
 <script lang="ts">
-  import { Composer, Layout, MessageList } from "@lapismd/design-core/ai/chat";
+  import {
+    Composer,
+    Layout,
+    LayoutScrollButton,
+    MessageList,
+  } from "@lapismd/design-core/ai/chat";
 
   import CommunityMessage from "../community-message/CommunityMessage.svelte";
   import {
@@ -35,6 +40,13 @@
     aria-label="Message thread"
     isEmpty={thread.messages.length === 0}
   >
+    {#snippet scrollButton({ isVisible, hasNewMessages, scrollToBottom })}
+      <LayoutScrollButton
+        {isVisible}
+        {hasNewMessages}
+        onClick={scrollToBottom}
+      />
+    {/snippet}
     {#snippet composer()}
       <Composer
         density="compact"

@@ -2,6 +2,7 @@
   import {
     Composer,
     Layout,
+    LayoutScrollButton,
     MessageList,
     SystemMessage,
   } from "@lapismd/design-core/ai/chat";
@@ -55,6 +56,13 @@
     aria-label={`${room.name} conversation`}
     isEmpty={messages.length === 0}
   >
+    {#snippet scrollButton({ isVisible, hasNewMessages, scrollToBottom })}
+      <LayoutScrollButton
+        {isVisible}
+        {hasNewMessages}
+        onClick={scrollToBottom}
+      />
+    {/snippet}
     {#snippet emptyState()}
       <div class="community-conversation__empty">
         <strong>Start the conversation in {room.name}</strong>
