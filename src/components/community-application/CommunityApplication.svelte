@@ -167,6 +167,14 @@
   const hasCommunityConnection = $derived(
     community.state.status === "connected",
   );
+  const hasCachedCommunityData = $derived(
+    community.state.status === "offline" &&
+      community.state.cache.freshness === "offline" &&
+      workspace.navigationSections.some((section) => section.rooms.length > 0),
+  );
+  const hasCommunitySurface = $derived(
+    hasCommunityConnection || hasCachedCommunityData,
+  );
   const displayMember = $derived<CommunityMemberModel>(
     currentMember ?? fallbackMember(community.state.settings),
   );
@@ -225,7 +233,7 @@
             }
           : {}),
         sortable: true,
-        items: (hasCommunityConnection ? section.rooms : [])
+        items: (hasCommunitySurface ? section.rooms : [])
           .filter(
             (room) =>
               !community.state.navigation.hiddenRoomIds.includes(room.id),
@@ -396,6 +404,16 @@
 
   $effect(() => {
     if (community.state.status === "connecting") relayNoticeDismissed = false;
+  });
+
+  $effect(() => {
+    if (
+      hasCachedCommunityData &&
+      activeDestination === "inbox" &&
+      workspace.activeRoomId !== ""
+    ) {
+      activeDestination = workspace.activeRoomId;
+    }
   });
 
   $effect(() => {
@@ -926,7 +944,11 @@
               >
                 <WifiOffIcon aria-hidden="true" />
                 <span class="community-application__relay-copy">
-                  <Alert.Title>Connection lost</Alert.Title>
+                  <Alert.Title>
+                    {hasCachedCommunityData
+                      ? `Offline — showing data${community.state.cache.lastSynchronizedAt === undefined ? "" : ` from ${new Date(community.state.cache.lastSynchronizedAt * 1_000).toLocaleString()}`}`
+                      : "Connection lost"}
+                  </Alert.Title>
                   <Alert.Description>
                     {community.state.error ??
                       "Unable to connect to the community relay."}
@@ -977,7 +999,7 @@
   </AppShell.Sidebar>
 
   <AppShell.Main>
-    {#if !hasCommunityConnection}
+    {#if !hasCommunitySurface}
       <AppShell.Body layout="regions" label="Connect to community relay">
         <AppShell.Body.Content label="Relay connection settings">
           <section class="community-application__disconnected">
@@ -1209,6 +1231,7 @@
         >
           <CommunityWorkspaceSurface
             model={workspace}
+            readOnly={community.state.status !== "connected"}
             {...community.state.replyTarget === undefined
               ? {}
               : { replyTarget: community.state.replyTarget }}
@@ -1387,9 +1410,12 @@
   <CommunityRelaySettings
     bind:open={relaySettingsOpen}
     connection={activeConnection}
+    cache={community.state.cache}
     {...relayOperation === undefined ? {} : { operation: relayOperation }}
     onSave={(relayUrl) =>
       community.actions.updateRelayUrl(activeConnection.communityId, relayUrl)}
+    onClearCache={() =>
+      community.actions.clearCache(activeConnection.communityId)}
   />
 {/if}
 

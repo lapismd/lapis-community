@@ -1,10 +1,12 @@
 <script lang="ts">
   import { Button } from "@lapismd/design-core/shadcn/button";
+  import * as AlertDialog from "@lapismd/design-core/shadcn/alert-dialog";
   import * as Dialog from "@lapismd/design-core/shadcn/dialog";
   import * as Field from "@lapismd/design-core/shadcn/field";
   import { Input } from "@lapismd/design-core/shadcn/input";
 
   import type {
+    CommunityCacheState,
     CommunityConnectionSettings,
     CommunityOperationState,
   } from "../../community/index.js";
@@ -13,16 +15,21 @@
     open = $bindable(false),
     connection,
     operation,
+    cache,
     onSave,
+    onClearCache,
   }: {
     open?: boolean;
     connection: CommunityConnectionSettings;
     operation?: CommunityOperationState;
+    cache?: CommunityCacheState;
     onSave: (relayUrl: string) => Promise<void>;
+    onClearCache?: () => Promise<void>;
   } = $props();
 
   let relayUrl = $state("");
   let localError = $state("");
+  let clearConfirmationOpen = $state(false);
   const pending = $derived(operation?.status === "pending");
   const error = $derived(localError || operation?.message || "");
 
@@ -44,6 +51,12 @@
           ? cause.message
           : "Relay settings could not be saved";
     }
+  }
+
+  function formatBytes(bytes: number): string {
+    if (bytes < 1_024) return `${bytes} B`;
+    if (bytes < 1_024 * 1_024) return `${(bytes / 1_024).toFixed(1)} KiB`;
+    return `${(bytes / (1_024 * 1_024)).toFixed(1)} MiB`;
   }
 </script>
 
@@ -87,6 +100,39 @@
         </Field.Field>
       </Field.Group>
 
+      {#if cache}
+        <section class="community-relay-settings__local-data">
+          <div>
+            <h3>Local data</h3>
+            <p>
+              {cache.mode === "turso-opfs"
+                ? "Turso OPFS"
+                : cache.mode === "indexeddb"
+                  ? "IndexedDB"
+                  : "Memory only"}
+              · {formatBytes(cache.approximateBytes ?? 0)}
+            </p>
+            <p>
+              {cache.lastSynchronizedAt === undefined
+                ? "Not synchronized yet"
+                : `Last synchronized ${new Date(cache.lastSynchronizedAt * 1_000).toLocaleString()}`}
+            </p>
+            {#if cache.degradedReason}
+              <p class="community-relay-settings__degraded">
+                {cache.degradedReason}
+              </p>
+            {/if}
+          </div>
+          {#if onClearCache}
+            <Button
+              type="button"
+              variant="outline"
+              onclick={() => (clearConfirmationOpen = true)}>Clear cache</Button
+            >
+          {/if}
+        </section>
+      {/if}
+
       <Dialog.Footer>
         <Button
           type="button"
@@ -104,6 +150,27 @@
   </Dialog.Content>
 </Dialog.Root>
 
+<AlertDialog.Root bind:open={clearConfirmationOpen}>
+  <AlertDialog.Content>
+    <AlertDialog.Header>
+      <AlertDialog.Title>Clear local community data?</AlertDialog.Title>
+      <AlertDialog.Description>
+        Cached public events will be removed and rebuilt from the relay on the
+        next connection. Nostr events on the relay are not affected.
+      </AlertDialog.Description>
+    </AlertDialog.Header>
+    <AlertDialog.Footer>
+      <AlertDialog.Cancel>Cancel</AlertDialog.Cancel>
+      <AlertDialog.Action
+        onclick={() => {
+          clearConfirmationOpen = false;
+          void onClearCache?.();
+        }}>Clear cache</AlertDialog.Action
+      >
+    </AlertDialog.Footer>
+  </AlertDialog.Content>
+</AlertDialog.Root>
+
 <style>
   :global(.community-relay-settings) {
     width: min(calc(100vw - 2rem), 31rem);
@@ -116,5 +183,29 @@
 
   :global(.community-relay-settings__fields[data-ui-part="field-group"]) {
     gap: 1rem;
+  }
+
+  .community-relay-settings__local-data {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 1rem;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+  }
+
+  .community-relay-settings__local-data h3,
+  .community-relay-settings__local-data p {
+    margin: 0;
+  }
+
+  .community-relay-settings__local-data p {
+    color: var(--muted-foreground);
+    font-size: 0.8125rem;
+  }
+
+  .community-relay-settings__degraded {
+    color: var(--destructive) !important;
   }
 </style>

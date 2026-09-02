@@ -105,8 +105,7 @@ function runEventStoreContract(
           .events,
       ).toEqual([wrap]);
       expect(
-        (await store.restore(scope, { type: "inbox", pubkey: "other" }))
-          .events,
+        (await store.restore(scope, { type: "inbox", pubkey: "other" })).events,
       ).toEqual([]);
       await store.close();
     });

@@ -33,6 +33,9 @@ export default defineConfig(({ command }) => ({
     esbuildOptions: { target: "esnext" },
   },
   ssr: { noExternal: ["aria-query"] },
+  worker: {
+    format: "es",
+  },
   build: {
     target: "es2023",
     sourcemap: true,

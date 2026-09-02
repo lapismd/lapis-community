@@ -14,10 +14,7 @@ import {
   communityEventBytes,
   type CommunityEventStoreOptions,
 } from "./event-store.js";
-import {
-  isVerifiedNostrEvent,
-  verifiedNostrEvent,
-} from "./verified-events.js";
+import { isVerifiedNostrEvent, verifiedNostrEvent } from "./verified-events.js";
 
 interface IndexedEventRow {
   key: string;
@@ -159,9 +156,9 @@ class IndexedDbCommunityEventStore extends BaseCommunityEventStore {
       });
     }
     for (const checkpoint of batch.checkpoints ?? []) {
-      await transaction.objectStore("checkpoints").put(
-        checkpointRow(scopeKey, checkpoint),
-      );
+      await transaction
+        .objectStore("checkpoints")
+        .put(checkpointRow(scopeKey, checkpoint));
     }
     await transaction.done;
     await this.prune();

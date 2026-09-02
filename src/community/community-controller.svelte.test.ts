@@ -3,6 +3,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { CommunityCapabilities } from "./contracts.js";
 import { createCommunityController } from "./community-controller.svelte.js";
+import { createMemoryCommunityEventStore } from "./event-store.js";
+import { createInlineCommunityEventRuntime } from "./event-runtime.js";
 import {
   Nip29MemoryPolicy,
   createCommunityTestScenario,
@@ -14,6 +16,18 @@ import { createNip29CommunitySource } from "./nip29-community-source.js";
 
 let runtime: CommunityTestRuntime | undefined;
 
+const NO_TEST_CAPABILITIES: CommunityCapabilities = {
+  channels: true,
+  forums: true,
+  directMessages: false,
+  search: true,
+  manageGroup: false,
+  manageMembers: false,
+  deleteEvents: false,
+  archive: false,
+  editMessages: false,
+};
+
 afterEach(() => runtime?.dispose());
 
 async function connected(current: CommunityTestRuntime): Promise<void> {
@@ -24,6 +38,83 @@ async function connected(current: CommunityTestRuntime): Promise<void> {
 }
 
 describe("createCommunityController", () => {
+  it("restores cached public conversations when the relay is offline", async () => {
+    const event = finalizeEvent(
+      {
+        kind: 9,
+        created_at: 1_700_000_000,
+        content: "Available offline",
+        tags: [["h", "general"]],
+      },
+      new Uint8Array(32).fill(46),
+    );
+    const store = createMemoryCommunityEventStore();
+    const scope = {
+      id: "lapis",
+      name: "Lapis Community",
+      relayUrl: "memory://offline.test",
+      rooms: [
+        {
+          id: "general",
+          groupId: "general",
+          name: "general",
+          kind: "channel" as const,
+        },
+      ],
+    };
+    const first = createCommunityController({
+      scopes: [scope],
+      runtime: createInlineCommunityEventRuntime({ store }),
+      source: {
+        async open() {
+          return {
+            async snapshot() {
+              return { events: [event], capabilities: NO_TEST_CAPABILITIES };
+            },
+            async subscribe() {
+              return { close() {} };
+            },
+            async execute() {
+              return [];
+            },
+            async search() {
+              return [];
+            },
+            close() {},
+          };
+        },
+      },
+    });
+    first.initialize();
+    await vi.waitFor(() => expect(first.state.status).toBe("connected"));
+    first.dispose();
+
+    const offline = createCommunityController({
+      scopes: [scope],
+      runtime: createInlineCommunityEventRuntime({ store }),
+      source: {
+        async open() {
+          throw new Error("Relay unavailable");
+        },
+      },
+    });
+    offline.initialize();
+    await vi.waitFor(() => expect(offline.state.status).toBe("offline"));
+    expect(offline.state.cache.freshness).toBe("offline");
+    expect(offline.state.workspace.messages).toMatchObject([
+      { content: "Available offline" },
+    ]);
+    expect(offline.state.error).toBe("Relay unavailable");
+    await offline.actions.search("available");
+    expect(offline.state.searchResults).toMatchObject([
+      { event: { content: "Available offline" }, relayUrl: scope.relayUrl },
+    ]);
+    await expect(
+      offline.actions.sendMessage("general", "Offline draft"),
+    ).rejects.toThrow("Reconnect to perform this action");
+    offline.dispose();
+  });
+
   it("buffers subscription replay until the initial snapshot is committed", async () => {
     const event = finalizeEvent(
       {
@@ -46,7 +137,7 @@ describe("createCommunityController", () => {
       editMessages: false,
     };
     const snapshot = vi.fn(async () => ({ events: [event], capabilities }));
-    let deliver: ((events: readonly typeof event[]) => void) | undefined;
+    let deliver: ((events: readonly (typeof event)[]) => void) | undefined;
     const controller = createCommunityController({
       scopes: [
         {
@@ -108,10 +199,14 @@ describe("createCommunityController", () => {
     expect(controller.state.capabilities.manageMembers).toBe(true);
 
     controller.actions.selectRoom("support");
-    expect(controller.state.workspace.view).toBe("forum-index");
+    await vi.waitFor(() =>
+      expect(controller.state.workspace.view).toBe("forum-index"),
+    );
     expect(controller.state.workspace.topics[0]?.title).toBe("Portable forums");
     controller.actions.openTopic(controller.state.workspace.topics[0]!.id);
-    expect(controller.state.workspace.view).toBe("forum-thread");
+    await vi.waitFor(() =>
+      expect(controller.state.workspace.view).toBe("forum-thread"),
+    );
   });
 
   it("publishes controller actions and reconciles live relay events", async () => {

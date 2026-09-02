@@ -39,7 +39,9 @@ export function communityCachedEventKey(
   return `${communityCacheScopeKey(scope)}:${communityCacheAudienceKey(audience)}:${eventId}`;
 }
 
-export function communityEventBytes(record: CommunityVerifiedEventRecord): number {
+export function communityEventBytes(
+  record: CommunityVerifiedEventRecord,
+): number {
   return new TextEncoder().encode(JSON.stringify(record.event)).byteLength;
 }
 
@@ -77,7 +79,10 @@ export abstract class BaseCommunityEventStore implements CommunityEventStore {
 class MemoryCommunityEventStore extends BaseCommunityEventStore {
   readonly mode = "memory" as const;
   readonly #records = new Map<string, Map<string, StoredRecord>>();
-  readonly #checkpoints = new Map<string, Map<string, CommunitySyncCheckpoint>>();
+  readonly #checkpoints = new Map<
+    string,
+    Map<string, CommunitySyncCheckpoint>
+  >();
   readonly #maxBytes: number;
   #opened = false;
 
@@ -101,8 +106,14 @@ class MemoryCommunityEventStore extends BaseCommunityEventStore {
       .toSorted(compareStoredRecords);
     return {
       events: records.map((record) => record.event),
-      checkpoints: [...(this.#checkpoints.get(communityCacheScopeKey(scope))?.values() ?? [])],
-      approximateBytes: records.reduce((total, record) => total + record.bytes, 0),
+      checkpoints: [
+        ...(this.#checkpoints.get(communityCacheScopeKey(scope))?.values() ??
+          []),
+      ],
+      approximateBytes: records.reduce(
+        (total, record) => total + record.bytes,
+        0,
+      ),
     };
   }
 
@@ -137,10 +148,13 @@ class MemoryCommunityEventStore extends BaseCommunityEventStore {
     const key = communityCacheScopeKey(scope);
     const stored = this.#checkpoints.get(key) ?? new Map();
     for (const checkpoint of checkpoints) {
-      stored.set(`${normalizeRelayUrl(checkpoint.relayUrl)}:${checkpoint.stream}`, {
-        ...checkpoint,
-        relayUrl: normalizeRelayUrl(checkpoint.relayUrl),
-      });
+      stored.set(
+        `${normalizeRelayUrl(checkpoint.relayUrl)}:${checkpoint.stream}`,
+        {
+          ...checkpoint,
+          relayUrl: normalizeRelayUrl(checkpoint.relayUrl),
+        },
+      );
     }
     this.#checkpoints.set(key, stored);
   }
@@ -154,8 +168,7 @@ class MemoryCommunityEventStore extends BaseCommunityEventStore {
     if (bytes <= this.#maxBytes) return;
     for (const entry of all.toSorted(
       (left, right) =>
-        (left.record.lastAccessedAt ?? 0) -
-        (right.record.lastAccessedAt ?? 0),
+        (left.record.lastAccessedAt ?? 0) - (right.record.lastAccessedAt ?? 0),
     )) {
       this.#records.get(entry.partition)?.delete(entry.record.event.id);
       bytes -= entry.record.bytes;

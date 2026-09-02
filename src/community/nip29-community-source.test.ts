@@ -1,5 +1,5 @@
 import { finalizeEvent } from "nostr-tools/pure";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import {
   Nip29MemoryPolicy,
@@ -141,6 +141,47 @@ describe("createNip29CommunitySource", () => {
     expect(live).toContain(event.id);
     expect(snapshot.events.map((candidate) => candidate.id)).toContain(
       event.id,
+    );
+    session.close();
+  });
+
+  it("uses a one-second inclusive checkpoint overlap for warm content sync", async () => {
+    const scenario = createCommunityTestScenario();
+    const relayFactory = createInMemoryRelayFactory({
+      policy: new Nip29MemoryPolicy({
+        relaySecretKey: relayKey,
+        now: () => 1_700_000_000,
+      }),
+    });
+    const relay = relayFactory.relay(scenario.scope.relayUrl);
+    await scenario.seed(relay);
+    const query = vi.spyOn(relay, "query");
+    const session = await createNip29CommunitySource({ relayFactory }).open(
+      scenario.scope,
+      { identity: scenario.operator },
+    );
+
+    const snapshot = await session.synchronize?.({
+      plan: {
+        cachedEventIds: [],
+        checkpoints: [
+          {
+            relayUrl: scenario.scope.relayUrl,
+            stream: "content",
+            createdAt: 1_700_000_000,
+            synchronizedAt: 1_700_000_010,
+          },
+        ],
+      },
+    });
+
+    expect(query).toHaveBeenCalledWith(
+      expect.objectContaining({ since: 1_699_999_999 }),
+      undefined,
+    );
+    expect(snapshot?.complete).toBe(false);
+    expect(snapshot?.checkpoints?.[0]?.createdAt).toBeGreaterThanOrEqual(
+      1_700_000_000,
     );
     session.close();
   });

@@ -220,8 +220,15 @@ export type CommunityCommand =
 
 export interface CommunitySnapshot {
   events: readonly NostrEvent[];
+  encryptedEvents?: readonly NostrEvent[];
   privateEvents?: readonly CommunityPrivateEvent[];
   capabilities: CommunityCapabilities;
+  checkpoints?: readonly CommunitySyncCheckpoint[];
+  complete?: boolean;
+}
+
+export interface CommunitySynchronizationRequest {
+  plan: CommunitySyncPlan;
 }
 
 export type CommunityCacheAudience =
@@ -258,6 +265,74 @@ export interface CommunityVerifiedEventBatch {
 export interface CommunitySyncPlan {
   checkpoints: readonly CommunitySyncCheckpoint[];
   cachedEventIds: readonly string[];
+}
+
+export interface CommunityEventBatch {
+  generation: number;
+  scope: CommunityScope;
+  relayUrl: string;
+  events: readonly NostrEvent[];
+  audience?: CommunityCacheAudience;
+  persist?: boolean;
+  checkpoints?: readonly CommunitySyncCheckpoint[];
+}
+
+export interface CommunityRuntimeSelection {
+  generation: number;
+  scopes: readonly CommunityScope[];
+  activeCommunityId: string;
+  activeRoomId: string;
+  activeTopicId?: string;
+  activeThreadId?: string;
+  identityPubkey?: string;
+  privateEventsByScope?: Readonly<
+    Record<string, readonly CommunityPrivateEvent[]>
+  >;
+  directParticipantsByRoom?: Readonly<Record<string, readonly string[]>>;
+  sidePanel?: "thread" | "details" | "none";
+  asOf?: number;
+}
+
+export interface CommunityRuntimeRevision {
+  generation: number;
+  revision: number;
+  /**
+   * Events newly accepted by the runtime. Restore returns the cached seed once;
+   * subsequent ingestion revisions contain only the accepted delta. Projection
+   * revisions omit this field so the complete canonical collection stays in
+   * the runtime.
+   */
+  acceptedEventsByScope?: Readonly<Record<string, readonly NostrEvent[]>>;
+  cache: CommunityCacheState;
+  syncPlans?: Readonly<Record<string, CommunitySyncPlan>>;
+  workspace?: CommunityWorkspaceModel;
+  inbox?: CommunityInboxModel;
+  settings?: CommunitySettingsState;
+}
+
+export interface CommunityRuntimeSearch {
+  generation: number;
+  scopeId?: string;
+  query: string;
+  limit?: number;
+}
+
+export interface CommunityEventRuntime {
+  restore(
+    scopes: readonly CommunityScope[],
+    generation?: number,
+  ): Promise<CommunityRuntimeRevision>;
+  ingest(
+    batch: CommunityEventBatch,
+  ): Promise<CommunityRuntimeRevision | undefined>;
+  project(
+    selection: CommunityRuntimeSelection,
+  ): Promise<CommunityRuntimeRevision>;
+  search(
+    query: CommunityRuntimeSearch,
+  ): Promise<readonly CommunitySearchResult[]>;
+  clear(scope?: CommunityScope): Promise<void>;
+  dispose(): void;
 }
 
 export interface CommunityEventStore {
@@ -300,6 +375,10 @@ export interface CommunitySessionSubscription {
 
 export interface CommunitySession {
   snapshot(signal?: AbortSignal): Promise<CommunitySnapshot>;
+  synchronize?(
+    request: CommunitySynchronizationRequest,
+    signal?: AbortSignal,
+  ): Promise<CommunitySnapshot>;
   subscribe(
     listener: (events: readonly NostrEvent[]) => void,
     signal?: AbortSignal,
@@ -393,6 +472,7 @@ export interface CommunityControllerActions {
   setCustomEmoji(shortcode: string, url: string): Promise<void>;
   removeCustomEmoji(shortcode: string): Promise<void>;
   updateRelayUrl(communityId: string, relayUrl: string): Promise<void>;
+  clearCache(communityId?: string): Promise<void>;
   connectIdentity(): Promise<void>;
 }
 
@@ -403,6 +483,7 @@ export interface CommunityControllerOptions {
   identityConnector?: CommunityIdentityConnector;
   stateStore?: CommunityStateStore;
   configurationStore?: CommunityConfigurationStore;
+  runtime?: CommunityEventRuntime;
   initialCommunityId?: string;
   initialRoomId?: string;
   clientId?: string;

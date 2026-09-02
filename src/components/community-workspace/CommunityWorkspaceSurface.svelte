@@ -23,11 +23,13 @@
     handlers = {},
     replyTarget,
     communityEmojis = [],
+    readOnly = false,
   }: {
     model: CommunityWorkspaceModel;
     handlers?: CommunityWorkspaceHandlers;
     replyTarget?: CommunityReplyTarget;
     communityEmojis?: readonly CommunityCustomEmoji[];
+    readOnly?: boolean;
   } = $props();
 
   const activeRoom = $derived(
@@ -63,6 +65,8 @@
       members={model.members}
       {...replyTarget === undefined ? {} : { replyTarget }}
       {communityEmojis}
+      disabled={readOnly}
+      disabledReason="Reconnect to send messages"
       {...handlers.onClearReplyTarget === undefined
         ? {}
         : { onCancelReply: handlers.onClearReplyTarget }}

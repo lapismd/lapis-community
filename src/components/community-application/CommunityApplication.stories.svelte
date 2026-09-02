@@ -3,6 +3,7 @@
 
   import CommunityApplication from "./CommunityApplication.svelte";
   import CommunityApplicationStoryHarness from "./CommunityApplicationStoryHarness.svelte";
+  import CommunityApplicationCacheStoryHarness from "./CommunityApplicationCacheStoryHarness.svelte";
 
   const consumerSource = `<script lang="ts">
   import { onMount } from "svelte";
@@ -12,6 +13,7 @@
   } from "@lapismd/lapis-community/components";
   import {
     createBrowserCommunityConfigurationStore,
+    createBrowserCommunityEventRuntime,
     createCommunityController,
     createNip29CommunitySource,
   } from "@lapismd/lapis-community/community";
@@ -25,6 +27,7 @@
       relayFactory: createWebSocketCommunityRelayFactory(),
     }),
     configurationStore: createBrowserCommunityConfigurationStore(),
+    runtime: createBrowserCommunityEventRuntime(),
   });
 
   onMount(() => {
@@ -67,5 +70,35 @@
 <Story name="Full community app">
   {#snippet template()}
     <CommunityApplicationStoryHarness />
+  {/snippet}
+</Story>
+
+<Story name="Cached startup offline">
+  {#snippet template()}
+    <CommunityApplicationCacheStoryHarness scenario="cached-offline" />
+  {/snippet}
+</Story>
+
+<Story name="Cold cache offline">
+  {#snippet template()}
+    <CommunityApplicationCacheStoryHarness scenario="cold-offline" />
+  {/snippet}
+</Story>
+
+<Story name="Degraded persistent storage">
+  {#snippet template()}
+    <CommunityApplicationCacheStoryHarness scenario="degraded" />
+  {/snippet}
+</Story>
+
+<Story name="Mid-session disconnect">
+  {#snippet template()}
+    <CommunityApplicationCacheStoryHarness scenario="mid-session-disconnect" />
+  {/snippet}
+</Story>
+
+<Story name="Reconnect from cache">
+  {#snippet template()}
+    <CommunityApplicationCacheStoryHarness scenario="reconnect" />
   {/snippet}
 </Story>

@@ -72,7 +72,9 @@ class BrowserCommunityEventStore implements CommunityEventStore {
         );
       }
     }
-    throw new Error(failures.join("; ") || "No community event store available");
+    throw new Error(
+      failures.join("; ") || "No community event store available",
+    );
   }
 
   restore(

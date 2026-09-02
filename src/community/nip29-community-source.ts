@@ -19,6 +19,7 @@ import type {
   CommunitySession,
   CommunitySessionSubscription,
   CommunitySnapshot,
+  CommunitySynchronizationRequest,
 } from "./contracts.js";
 
 export interface Nip29CommunitySourceOptions {
@@ -77,6 +78,20 @@ class Nip29CommunitySession implements CommunitySession {
   }
 
   async snapshot(signal?: AbortSignal): Promise<CommunitySnapshot> {
+    return this.#snapshot(undefined, signal);
+  }
+
+  async synchronize(
+    request: CommunitySynchronizationRequest,
+    signal?: AbortSignal,
+  ): Promise<CommunitySnapshot> {
+    return this.#snapshot(request, signal);
+  }
+
+  async #snapshot(
+    request: CommunitySynchronizationRequest | undefined,
+    signal?: AbortSignal,
+  ): Promise<CommunitySnapshot> {
     this.#assertOpen(signal);
     await Promise.all(
       this.#relays.map(async (relay) => this.#authenticate(relay, signal)),
@@ -104,9 +119,14 @@ class Nip29CommunitySession implements CommunitySession {
     }
     await this.#subscribeToRooms(groupIds, signal);
 
+    const contentSince = synchronizationSince(request);
     const content = await this.#queryUnion(
       this.#relays,
-      { kinds: [...COMMUNITY_CONTENT_KINDS], "#h": groupIds },
+      {
+        kinds: [...COMMUNITY_CONTENT_KINDS],
+        "#h": groupIds,
+        ...(contentSince === undefined ? {} : { since: contentSince }),
+      },
       signal,
     );
     const state = await this.#queryUnion(
@@ -156,8 +176,19 @@ class Nip29CommunitySession implements CommunitySession {
         ? []
         : (relayPreferences.urls.get(identityPubkey) ?? []);
     await this.#subscribeToInbox(inboxUrls, identityPubkey, signal);
-    const privateEvents = await this.#loadPrivateEvents(inboxUrls, signal);
+    const privateResult = await this.#loadPrivateEvents(inboxUrls, signal);
     await this.#subscribeToTargets(targets, signal);
+    const synchronizedAt = Math.floor(Date.now() / 1_000);
+    const previousCreatedAt = Math.max(
+      0,
+      ...(request?.plan.checkpoints
+        .filter((checkpoint) => checkpoint.stream === "content")
+        .map((checkpoint) => checkpoint.createdAt) ?? []),
+    );
+    const createdAt = Math.max(
+      previousCreatedAt,
+      ...content.map((event) => event.created_at),
+    );
     return {
       events: distinctEvents([
         ...discoveredMetadata,
@@ -167,8 +198,20 @@ class Nip29CommunitySession implements CommunitySession {
         ...profiles,
         ...relayPreferences.events,
       ]),
-      ...(privateEvents.length === 0 ? {} : { privateEvents }),
+      ...(privateResult.wraps.length === 0
+        ? {}
+        : { encryptedEvents: privateResult.wraps }),
+      ...(privateResult.events.length === 0
+        ? {}
+        : { privateEvents: privateResult.events }),
       capabilities: this.#capabilities(),
+      checkpoints: this.#relays.map((relay) => ({
+        relayUrl: relay.url,
+        stream: "content",
+        createdAt,
+        synchronizedAt,
+      })),
+      complete: request === undefined || request.plan.checkpoints.length === 0,
     };
   }
 
@@ -495,9 +538,9 @@ class Nip29CommunitySession implements CommunitySession {
   async #loadPrivateEvents(
     relayUrls: readonly string[],
     signal?: AbortSignal,
-  ): Promise<CommunityPrivateEvent[]> {
+  ): Promise<{ wraps: NostrEvent[]; events: CommunityPrivateEvent[] }> {
     const identity = this.#context.identity;
-    if (identity?.nip44 === undefined) return [];
+    if (identity?.nip44 === undefined) return { wraps: [], events: [] };
     const pubkey = await identity.getPublicKey();
     const inboxRelays = relayUrls.map((url) => this.#deliveryRelay(url));
     const wraps = await this.#queryUnion(
@@ -508,7 +551,7 @@ class Nip29CommunitySession implements CommunitySession {
     const settled = await Promise.allSettled(
       wraps.map(async (wrap) => unwrapNip17GiftWrap(identity, wrap)),
     );
-    return [
+    const events = [
       ...new Map(
         settled
           .filter(
@@ -521,6 +564,7 @@ class Nip29CommunitySession implements CommunitySession {
       (left, right) =>
         left.created_at - right.created_at || left.id.localeCompare(right.id),
     );
+    return { wraps, events };
   }
 
   async #relayPreferences(
@@ -743,4 +787,18 @@ function chunks<T>(items: readonly T[], size: number): T[][] {
     output.push(items.slice(offset, offset + size));
   }
   return output;
+}
+
+function synchronizationSince(
+  request: CommunitySynchronizationRequest | undefined,
+): number | undefined {
+  const checkpoints =
+    request?.plan.checkpoints.filter(
+      (checkpoint) => checkpoint.stream === "content",
+    ) ?? [];
+  if (checkpoints.length === 0) return undefined;
+  return Math.max(
+    0,
+    Math.min(...checkpoints.map((checkpoint) => checkpoint.createdAt)) - 1,
+  );
 }

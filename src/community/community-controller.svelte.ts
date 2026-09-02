@@ -28,10 +28,12 @@ import type {
   CommunityPrivateEvent,
   CommunityReplyTarget,
   CommunityRoomUpdate,
+  CommunityRuntimeRevision,
   CommunityScope,
   CommunitySearchResult,
   CommunitySession,
   CommunitySessionSubscription,
+  CommunitySnapshot,
   CommunityStateScope,
   CommunityStoredState,
 } from "./contracts.js";
@@ -40,7 +42,7 @@ import {
   materializeCommunitySettings,
   normalizeShortcode,
 } from "./materialize-settings.js";
-import { verifiedNostrEvent } from "./verified-events.js";
+import { createInlineCommunityEventRuntime } from "./event-runtime.js";
 
 const NO_CAPABILITIES: CommunityCapabilities = {
   channels: false,
@@ -71,6 +73,7 @@ export function createCommunityController(
   }
   let scopes = $state<CommunityScope[]>(initialScopes);
   const now = options.now ?? (() => Math.floor(Date.now() / 1_000));
+  const eventRuntime = options.runtime ?? createInlineCommunityEventRuntime();
   const clientId = options.clientId ?? createClientId();
   const sessions = new Map<string, CommunitySession>();
   const subscriptions = new Map<string, CommunitySessionSubscription>();
@@ -83,16 +86,18 @@ export function createCommunityController(
   let identity = options.identity;
   let generation = 0;
   let configurationLoaded = false;
+  let runtimeRevision = 0;
+  let syncPlans: NonNullable<
+    Awaited<ReturnType<typeof eventRuntime.restore>>["syncPlans"]
+  > = {};
 
   let status = $state<CommunityControllerState["status"]>("idle");
   let cache = $state<CommunityControllerState["cache"]>({
     mode: "memory",
     freshness: "empty",
   });
-  let eventsByScope = $state<Record<string, NostrEvent[]>>({});
-  let privateEventsByScope = $state<Record<string, CommunityPrivateEvent[]>>(
-    {},
-  );
+  let eventsByScope: Record<string, NostrEvent[]> = {};
+  let privateEventsByScope: Record<string, CommunityPrivateEvent[]> = {};
   let directParticipantsByRoom = $state<Record<string, readonly string[]>>({});
   let capabilitiesByScope = $state<Record<string, CommunityCapabilities>>({});
   let operations = $state<Record<string, CommunityOperationState>>({});
@@ -103,17 +108,17 @@ export function createCommunityController(
       ? { status: "anonymous" }
       : { status: "connecting" },
   );
-  let activeCommunityId = $state(
-    options.initialCommunityId ?? initialScopes[0]?.id ?? "",
-  );
-  let activeRoomId = $state(
+  const initialActiveCommunityId =
+    options.initialCommunityId ?? initialScopes[0]?.id ?? "";
+  const initialActiveRoomId =
     options.initialRoomId ??
-      communityRooms(
-        initialScopes.find((scope) => scope.id === activeCommunityId) ??
-          initialScopes[0]!,
-      )[0]?.id ??
-      "",
-  );
+    communityRooms(
+      initialScopes.find((scope) => scope.id === initialActiveCommunityId) ??
+        initialScopes[0]!,
+    )[0]?.id ??
+    "";
+  let activeCommunityId = $state(initialActiveCommunityId);
+  let activeRoomId = $state(initialActiveRoomId);
   let activeTopicId = $state<string | undefined>();
   let activeThreadId = $state<string | undefined>();
   let sidePanel = $state<"thread" | "details" | "none">("none");
@@ -133,30 +138,19 @@ export function createCommunityController(
     sections: [],
   });
 
-  const workspace = $derived.by(
-    (): CommunityWorkspaceModel =>
-      materializeCommunityWorkspace(scopes, eventsByScope, activeCommunityId, {
-        asOf: now(),
-        activeRoomId,
-        ...(activeTopicId === undefined ? {} : { activeTopicId }),
-        ...(activeThreadId === undefined ? {} : { activeThreadId }),
-        ...(identityPubkey === "" ? {} : { identityPubkey }),
-        privateEvents: privateEventsByScope[activeCommunityId] ?? [],
-        directParticipants: directParticipantsByRoom,
-        sidePanel,
-      }),
+  let workspace = $state<CommunityWorkspaceModel>(
+    materializeCommunityWorkspace(initialScopes, {}, initialActiveCommunityId, {
+      asOf: now(),
+      activeRoomId: initialActiveRoomId,
+      privateEvents: [],
+      directParticipants: {},
+      sidePanel: "none",
+    }),
   );
-  const inbox = $derived.by(() =>
-    materializeCommunityInbox(
-      scopes,
-      eventsByScope,
-      identityPubkey || undefined,
-      now(),
-    ),
+  let inbox = $state(
+    materializeCommunityInbox(initialScopes, {}, undefined, now()),
   );
-  const settings = $derived.by(() =>
-    materializeCommunitySettings(activeEvents(), identityPubkey),
-  );
+  let settings = $state(materializeCommunitySettings([], ""));
   const capabilities = $derived.by(() => {
     const base = capabilitiesByScope[activeCommunityId] ?? NO_CAPABILITIES;
     const room = activeRoomScope();
@@ -209,7 +203,7 @@ export function createCommunityController(
     currentGeneration: number,
     signal: AbortSignal,
   ): Promise<void> {
-    status = "connecting";
+    status = "restoring";
     error = "";
     try {
       if (!configurationLoaded && options.configurationStore !== undefined) {
@@ -237,6 +231,15 @@ export function createCommunityController(
           if (stored !== undefined) applyStoredState(scope, stored, true);
         }
       }
+      const restored = await eventRuntime.restore(
+        scopes.map(runtimeScope),
+        currentGeneration,
+      );
+      if (generation !== currentGeneration) return;
+      applyRuntimeRevision(restored);
+      syncPlans = restored.syncPlans ?? {};
+      await refreshProjection(currentGeneration);
+      status = "connecting";
       for (const scope of scopes) {
         signal.throwIfAborted();
         const session = await options.source.open(
@@ -260,9 +263,17 @@ export function createCommunityController(
           queueLiveEvents(scope.id, events, currentGeneration);
         }, signal);
         subscriptions.set(scope.id, subscription);
-        const snapshot = await session.snapshot(signal);
+        status = "synchronizing";
+        const plan = syncPlans[scope.id] ?? {
+          checkpoints: [],
+          cachedEventIds: [],
+        };
+        const snapshot =
+          session.synchronize === undefined
+            ? await session.snapshot(signal)
+            : await session.synchronize({ plan }, signal);
         if (generation !== currentGeneration) return;
-        mergeEvents(scope.id, [...snapshot.events, ...pendingEvents]);
+        await cacheSnapshot(scope, snapshot, pendingEvents, currentGeneration);
         mergePrivateEvents(scope.id, snapshot.privateEvents ?? []);
         capabilitiesByScope = {
           ...capabilitiesByScope,
@@ -277,16 +288,30 @@ export function createCommunityController(
         }
       }
       status = "connected";
+      await refreshProjection(currentGeneration);
+      cache = {
+        ...cache,
+        freshness: "current",
+        ...(cache.lastSynchronizedAt === undefined
+          ? { lastSynchronizedAt: now() }
+          : {}),
+      };
     } catch (cause) {
       if (signal.aborted) return;
       error =
         cause instanceof Error ? cause.message : "Community connection failed";
-      status = "error";
+      if (Object.values(eventsByScope).some((events) => events.length > 0)) {
+        status = "offline";
+        cache = { ...cache, freshness: "offline" };
+      } else {
+        status = "error";
+      }
     }
   }
 
   function dispose(): void {
     closeConnections("Controller disposed");
+    eventRuntime.dispose();
     status = "idle";
   }
 
@@ -327,12 +352,16 @@ export function createCommunityController(
     const session = sessions.get(scopeId);
     if (session === undefined) return;
     const snapshot = await session.snapshot(signal);
-    mergeEvents(scopeId, snapshot.events, true);
+    const scope = scopes.find((candidate) => candidate.id === scopeId);
+    if (scope !== undefined) {
+      await cacheSnapshot(scope, snapshot, [], generation);
+    }
     mergePrivateEvents(scopeId, snapshot.privateEvents ?? [], true);
     capabilitiesByScope = {
       ...capabilitiesByScope,
       [scopeId]: snapshot.capabilities,
     };
+    await refreshProjection(generation);
   }
 
   async function retry(operation: string): Promise<void> {
@@ -355,6 +384,7 @@ export function createCommunityController(
       searchQuery = "";
       searchResults = [];
       replyTarget = undefined;
+      requestProjection();
       void persistSelection(scope.id);
     },
     selectRoom(roomId) {
@@ -367,25 +397,30 @@ export function createCommunityController(
       activeThreadId = undefined;
       sidePanel = "none";
       replyTarget = undefined;
+      requestProjection();
       void persistSelection(activeCommunityId);
     },
     openTopic(topicId) {
       activeTopicId = topicId;
       activeThreadId = undefined;
       sidePanel = "none";
+      requestProjection();
     },
     openThread(messageId) {
       activeThreadId = messageId;
       sidePanel = "thread";
+      requestProjection();
     },
     closeSidePanel() {
       activeThreadId = undefined;
       sidePanel = "none";
       replyTarget = undefined;
+      requestProjection();
     },
     openDetails() {
       activeThreadId = undefined;
       sidePanel = "details";
+      requestProjection();
     },
     openDirectMessage(participants) {
       const peers = [...new Set(participants)]
@@ -402,6 +437,7 @@ export function createCommunityController(
       activeThreadId = undefined;
       sidePanel = "none";
       replyTarget = undefined;
+      requestProjection();
     },
     async sendMessage(roomId, content) {
       const room = roomById(roomId);
@@ -640,6 +676,7 @@ export function createCommunityController(
       );
       activeRoomId = groupId;
       sidePanel = "none";
+      await refreshProjection(generation);
     },
     async updateRoom(groupId, update) {
       validateRoomUpdate(update, capabilities);
@@ -673,6 +710,7 @@ export function createCommunityController(
         activeRoomId = replacement?.id ?? "";
         sidePanel = "none";
       }
+      await refreshProjection(generation);
     },
     async search(query) {
       searchQuery = query;
@@ -680,11 +718,22 @@ export function createCommunityController(
         searchResults = [];
         return;
       }
+      const requestedGeneration = generation;
+      const local = await eventRuntime.search({
+        generation: requestedGeneration,
+        scopeId: activeCommunityId,
+        query,
+      });
+      if (searchQuery === query && generation === requestedGeneration) {
+        searchResults = [...local];
+      }
       const session = sessions.get(activeCommunityId);
       if (session === undefined) return;
       await runOperation("search", async () => {
         const result = await session.search(query, controllerAbort?.signal);
-        if (searchQuery === query) searchResults = [...result];
+        if (searchQuery === query && generation === requestedGeneration) {
+          searchResults = distinctSearchResults([...local, ...result]);
+        }
       });
     },
     async searchMembers(query) {
@@ -947,6 +996,29 @@ export function createCommunityController(
         if (communityId === activeCommunityId) await reconnect();
       });
     },
+    async clearCache(communityId) {
+      const scope =
+        communityId === undefined
+          ? undefined
+          : scopes.find((candidate) => candidate.id === communityId);
+      if (communityId !== undefined && scope === undefined) return;
+      await runOperation("cache:clear", async () => {
+        await eventRuntime.clear(scope);
+        cache = {
+          mode: cache.mode,
+          freshness: "empty",
+          approximateBytes: 0,
+        };
+        if (status !== "offline") return;
+        if (scope === undefined) {
+          eventsByScope = {};
+          return;
+        }
+        const next = { ...eventsByScope };
+        delete next[scope.id];
+        eventsByScope = next;
+      });
+    },
     async connectIdentity() {
       if (identity !== undefined && identityPubkey !== "") return;
       if (options.identityConnector === undefined) {
@@ -1010,12 +1082,15 @@ export function createCommunityController(
     operation: string,
     command: CommunityCommand,
   ): Promise<void> {
+    if (status !== "connected") {
+      throw new Error("Reconnect to perform this action");
+    }
     await ensureIdentity(operation);
     const session = sessions.get(activeCommunityId);
     if (session === undefined) throw new Error("Community is not connected");
     await runOperation(operation, async () => {
       const events = await session.execute(command, controllerAbort?.signal);
-      mergeEvents(activeCommunityId, events);
+      await cacheLiveEvents(activeCommunityId, events, generation);
       if (commandNeedsReconciliation(command)) {
         await refreshScope(activeCommunityId, controllerAbort?.signal);
       }
@@ -1049,22 +1124,17 @@ export function createCommunityController(
     }
   }
 
-  function mergeEvents(
+  function mergeAcceptedEvents(
     scopeId: string,
     events: readonly NostrEvent[],
-    replace = false,
   ): void {
-    if (events.length === 0 && !replace) return;
-    const current = replace ? [] : (eventsByScope[scopeId] ?? []);
-    const merged = new Map(
-      current.map((event) => [event.id, event] as const),
-    );
-    let changed = replace && current.length > 0;
+    if (events.length === 0) return;
+    const current = eventsByScope[scopeId] ?? [];
+    const merged = new Map(current.map((event) => [event.id, event] as const));
+    let changed = false;
     for (const incoming of events) {
-      if (!replace && merged.has(incoming.id)) continue;
-      const event = verifiedNostrEvent(incoming);
-      if (event === undefined) continue;
-      merged.set(event.id, event);
+      if (merged.has(incoming.id)) continue;
+      merged.set(incoming.id, incoming);
       changed = true;
     }
     if (!changed) return;
@@ -1075,6 +1145,157 @@ export function createCommunityController(
           left.created_at - right.created_at || left.id.localeCompare(right.id),
       ),
     };
+  }
+
+  function applyRuntimeRevision(revision: CommunityRuntimeRevision): void {
+    if (
+      revision.generation !== generation ||
+      revision.revision < runtimeRevision
+    ) {
+      return;
+    }
+    runtimeRevision = revision.revision;
+    for (const [scopeId, acceptedEvents] of Object.entries(
+      revision.acceptedEventsByScope ?? {},
+    )) {
+      mergeAcceptedEvents(scopeId, acceptedEvents);
+    }
+    cache = {
+      ...revision.cache,
+      ...(status === "connected" ? { freshness: "current" as const } : {}),
+    };
+  }
+
+  async function refreshProjection(currentGeneration: number): Promise<void> {
+    const revision = await eventRuntime.project({
+      generation: currentGeneration,
+      scopes: scopes.map(runtimeScope),
+      activeCommunityId,
+      activeRoomId,
+      ...(activeTopicId === undefined ? {} : { activeTopicId }),
+      ...(activeThreadId === undefined ? {} : { activeThreadId }),
+      ...(identityPubkey === "" ? {} : { identityPubkey }),
+      privateEventsByScope: Object.fromEntries(
+        Object.entries(privateEventsByScope).map(([scopeId, events]) => [
+          scopeId,
+          events.map(copyPrivateEvent),
+        ]),
+      ),
+      directParticipantsByRoom: Object.fromEntries(
+        Object.entries(directParticipantsByRoom).map(
+          ([roomId, participants]) => [roomId, [...participants]],
+        ),
+      ),
+      sidePanel,
+      asOf: now(),
+    });
+    if (
+      revision.generation !== generation ||
+      revision.generation !== currentGeneration ||
+      revision.revision < runtimeRevision
+    ) {
+      return;
+    }
+    runtimeRevision = revision.revision;
+    if (revision.workspace !== undefined) workspace = revision.workspace;
+    inbox = revision.inbox;
+    if (revision.settings !== undefined) settings = revision.settings;
+  }
+
+  function requestProjection(): void {
+    const requestedGeneration = generation;
+    void refreshProjection(requestedGeneration).catch((cause: unknown) => {
+      if (generation !== requestedGeneration) return;
+      error =
+        cause instanceof Error ? cause.message : "Community projection failed";
+    });
+  }
+
+  async function cacheSnapshot(
+    scope: CommunityScope,
+    snapshot: CommunitySnapshot,
+    pendingEvents: readonly NostrEvent[],
+    currentGeneration: number,
+  ): Promise<void> {
+    const publicEvents = persistentPublicEvents(scope, [
+      ...snapshot.events,
+      ...pendingEvents,
+    ]);
+    const revision = await eventRuntime.ingest({
+      generation: currentGeneration,
+      scope: runtimeScope(scope),
+      relayUrl: scope.relayUrl,
+      events: publicEvents,
+      ...(snapshot.checkpoints === undefined
+        ? {}
+        : { checkpoints: snapshot.checkpoints }),
+    });
+    if (revision !== undefined && generation === currentGeneration) {
+      applyRuntimeRevision(revision);
+    }
+    const publicIds = new Set(publicEvents.map((event) => event.id));
+    const memoryOnlyEvents = [...snapshot.events, ...pendingEvents].filter(
+      (event) => event.kind !== 1_059 && !publicIds.has(event.id),
+    );
+    if (memoryOnlyEvents.length > 0) {
+      const privateRevision = await eventRuntime.ingest({
+        generation: currentGeneration,
+        scope: runtimeScope(scope),
+        relayUrl: scope.relayUrl,
+        events: memoryOnlyEvents,
+        persist: false,
+      });
+      if (privateRevision !== undefined && generation === currentGeneration) {
+        applyRuntimeRevision(privateRevision);
+      }
+    }
+    if (identityPubkey === "") {
+      await refreshProjection(currentGeneration);
+      return;
+    }
+    const wraps = [
+      ...(snapshot.encryptedEvents ?? []),
+      ...pendingEvents.filter((event) => event.kind === 1_059),
+    ];
+    if (wraps.length > 0) {
+      const wrapRevision = await eventRuntime.ingest({
+        generation: currentGeneration,
+        scope: runtimeScope(scope),
+        relayUrl: scope.relayUrl,
+        events: wraps,
+        audience: { type: "inbox", pubkey: identityPubkey },
+      });
+      if (wrapRevision !== undefined && generation === currentGeneration) {
+        applyRuntimeRevision(wrapRevision);
+      }
+    }
+    await refreshProjection(currentGeneration);
+  }
+
+  async function cacheLiveEvents(
+    scopeId: string,
+    events: readonly NostrEvent[],
+    currentGeneration: number,
+  ): Promise<void> {
+    const scope = scopes.find((candidate) => candidate.id === scopeId);
+    if (scope === undefined || generation !== currentGeneration) return;
+    try {
+      await cacheSnapshot(
+        scope,
+        {
+          events,
+          capabilities: capabilitiesByScope[scopeId] ?? NO_CAPABILITIES,
+        },
+        [],
+        currentGeneration,
+      );
+    } catch (cause) {
+      cache = {
+        ...cache,
+        degradedReason:
+          cause instanceof Error ? cause.message : "Local cache write failed",
+      };
+    }
   }
 
   function queueLiveEvents(
@@ -1091,24 +1312,40 @@ export function createCommunityController(
       if (queued.length >= 100) flushQueuedEvents(scopeId);
       return;
     }
-    scheduledEventScopes.add(scopeId);
-    queueMicrotask(() => flushQueuedEvents(scopeId));
+    scheduleQueuedEventFlush(scopeId);
   }
 
   function flushQueuedEvents(scopeId: string): void {
     scheduledEventScopes.delete(scopeId);
     const queued = queuedEvents.get(scopeId);
-    queuedEvents.delete(scopeId);
     const queuedGeneration = queuedEventGenerations.get(scopeId);
-    queuedEventGenerations.delete(scopeId);
     if (
       queued === undefined ||
       queued.length === 0 ||
       queuedGeneration !== generation
     ) {
+      queuedEvents.delete(scopeId);
+      queuedEventGenerations.delete(scopeId);
       return;
     }
-    mergeEvents(scopeId, queued);
+    const batch = queued.splice(0, 100);
+    if (queued.length === 0) {
+      queuedEvents.delete(scopeId);
+      queuedEventGenerations.delete(scopeId);
+    } else {
+      scheduleQueuedEventFlush(scopeId);
+    }
+    void cacheLiveEvents(scopeId, batch, queuedGeneration);
+  }
+
+  function scheduleQueuedEventFlush(scopeId: string): void {
+    if (scheduledEventScopes.has(scopeId)) return;
+    scheduledEventScopes.add(scopeId);
+    if (typeof requestAnimationFrame === "function") {
+      requestAnimationFrame(() => flushQueuedEvents(scopeId));
+      return;
+    }
+    queueMicrotask(() => flushQueuedEvents(scopeId));
   }
 
   function mergePrivateEvents(
@@ -1411,6 +1648,14 @@ function distinctMembers(
   ].toSorted((left, right) => left.name.localeCompare(right.name));
 }
 
+function distinctSearchResults(
+  results: readonly CommunitySearchResult[],
+): CommunitySearchResult[] {
+  return [
+    ...new Map(results.map((result) => [result.event.id, result])).values(),
+  ];
+}
+
 function parsePublicKey(value: string): string | undefined {
   const normalized = value.trim();
   if (/^[0-9a-f]{64}$/iu.test(normalized)) return normalized.toLowerCase();
@@ -1423,6 +1668,100 @@ function parsePublicKey(value: string): string | undefined {
   } catch {
     return undefined;
   }
+}
+
+function persistentPublicEvents(
+  scope: CommunityScope,
+  events: readonly NostrEvent[],
+): NostrEvent[] {
+  const allEvents = events;
+  const privateGroups = new Set(
+    (scope.rooms ?? [])
+      .filter((room) => room.private)
+      .map((room) => room.groupId),
+  );
+  for (const event of allEvents) {
+    if (event.kind !== 39_000) continue;
+    if (
+      !event.tags.some((tag) => tag[0] === "private" || tag[0] === "hidden")
+    ) {
+      continue;
+    }
+    const groupId = event.tags.find((tag) => tag[0] === "d")?.[1];
+    if (groupId !== undefined) privateGroups.add(groupId);
+  }
+  const privateEventIds = new Set<string>();
+  for (const event of allEvents) {
+    const groupId = event.tags.find(
+      (tag) => tag[0] === "h" || tag[0] === "d",
+    )?.[1];
+    if (groupId !== undefined && privateGroups.has(groupId)) {
+      privateEventIds.add(event.id);
+    }
+  }
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (const event of allEvents) {
+      if (privateEventIds.has(event.id)) continue;
+      if (
+        event.tags.some(
+          (tag) =>
+            (tag[0] === "e" || tag[0] === "E") &&
+            tag[1] !== undefined &&
+            privateEventIds.has(tag[1]),
+        )
+      ) {
+        privateEventIds.add(event.id);
+        changed = true;
+      }
+    }
+  }
+  return allEvents.filter(
+    (event) => event.kind !== 1_059 && !privateEventIds.has(event.id),
+  );
+}
+
+function runtimeScope(scope: CommunityScope): CommunityScope {
+  return {
+    id: scope.id,
+    name: scope.name,
+    relayUrl: scope.relayUrl,
+    ...(scope.groupId === undefined ? {} : { groupId: scope.groupId }),
+    ...(scope.discoverPublicRooms === undefined
+      ? {}
+      : { discoverPublicRooms: scope.discoverPublicRooms }),
+    ...(scope.readRelayUrls === undefined
+      ? {}
+      : { readRelayUrls: [...scope.readRelayUrls] }),
+    ...(scope.rooms === undefined
+      ? {}
+      : {
+          rooms: scope.rooms.map((room) => ({
+            id: room.id,
+            groupId: room.groupId,
+            name: room.name,
+            kind: room.kind,
+            ...(room.description === undefined
+              ? {}
+              : { description: room.description }),
+            ...(room.private === undefined ? {} : { private: room.private }),
+          })),
+        }),
+  };
+}
+
+function copyPrivateEvent(event: CommunityPrivateEvent): CommunityPrivateEvent {
+  return {
+    id: event.id,
+    pubkey: event.pubkey,
+    created_at: event.created_at,
+    kind: event.kind,
+    tags: event.tags.map((tag) => [...tag]),
+    content: event.content,
+    wrapId: event.wrapId,
+    recipientPubkey: event.recipientPubkey,
+  };
 }
 
 function navigationFromStoredState(

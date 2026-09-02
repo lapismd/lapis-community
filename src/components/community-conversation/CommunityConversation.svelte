@@ -39,6 +39,8 @@
     replyTarget,
     communityEmojis = [],
     onCancelReply,
+    disabled = false,
+    disabledReason = "Reconnect to send messages",
     composerPlacement = "overlay",
     intro,
   }: {
@@ -64,6 +66,8 @@
     replyTarget?: CommunityReplyTarget;
     communityEmojis?: readonly CommunityCustomEmoji[];
     onCancelReply?: () => void;
+    disabled?: boolean;
+    disabledReason?: string;
     composerPlacement?: "overlay" | "row";
     intro?: Snippet;
   } = $props();
@@ -107,6 +111,9 @@
     {#snippet composer()}
       <Composer
         {density}
+        {disabled}
+        aria-label={disabled ? disabledReason : undefined}
+        title={disabled ? disabledReason : undefined}
         bind:value={draft}
         placeholder={`Message ${room.kind === "channel" ? "#" : ""}${room.name}`}
         onSubmit={submit}

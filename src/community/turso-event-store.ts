@@ -12,10 +12,7 @@ import {
   communityEventBytes,
   type CommunityEventStoreOptions,
 } from "./event-store.js";
-import {
-  isVerifiedNostrEvent,
-  verifiedNostrEvent,
-} from "./verified-events.js";
+import { isVerifiedNostrEvent, verifiedNostrEvent } from "./verified-events.js";
 
 interface TursoDatabase {
   exec(sql: string): Promise<void>;
@@ -88,7 +85,7 @@ class TursoCommunityEventStore extends BaseCommunityEventStore {
     this.#releaseLock = await acquireDatabaseLock(this.#databaseName);
     try {
       const { connect } = (await import(
-        "@tursodatabase/database-wasm/vite" as string
+        "@tursodatabase/database-wasm/bundle" as string
       )) as { connect(path: string): Promise<TursoDatabase> };
       this.#database = await connect(this.#databaseName);
       await this.#database.exec(`
@@ -147,7 +144,9 @@ class TursoCommunityEventStore extends BaseCommunityEventStore {
     ]);
     const events = rows.flatMap((row) => {
       try {
-        const event = JSON.parse(row.raw_json) as CommunityVerifiedEventBatch["records"][number]["event"];
+        const event = JSON.parse(
+          row.raw_json,
+        ) as CommunityVerifiedEventBatch["records"][number]["event"];
         const verified = verifiedNostrEvent(event);
         return verified === undefined ? [] : [verified];
       } catch {
@@ -173,30 +172,34 @@ class TursoCommunityEventStore extends BaseCommunityEventStore {
     const database = this.#requireDatabase();
     const scopeKey = communityCacheScopeKey(batch.scope);
     const statements: Array<{ sql: string; args?: unknown[] }> = [];
+    const eventRows: unknown[][] = [];
     for (const record of batch.records) {
       if (!isVerifiedNostrEvent(record.event)) continue;
       const partitionKey = `${scopeKey}:${communityCacheAudienceKey(record.audience)}`;
+      eventRows.push([
+        `${partitionKey}:${record.event.id}`,
+        scopeKey,
+        partitionKey,
+        record.event.id,
+        record.relayUrl,
+        record.roomId ?? null,
+        record.event.created_at,
+        record.lastAccessedAt ?? Date.now(),
+        communityEventBytes(record),
+        JSON.stringify(record.event),
+      ]);
+    }
+    for (const rows of chunks(eventRows, 60)) {
       statements.push({
         sql: `INSERT INTO community_events(
           cache_key, scope_key, partition_key, event_id, relay_url, room_id,
           created_at, last_accessed_at, bytes, raw_json
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ) VALUES ${rows.map(() => "(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)").join(", ")}
         ON CONFLICT(cache_key) DO UPDATE SET
           relay_url=excluded.relay_url,
           room_id=excluded.room_id,
           last_accessed_at=MAX(community_events.last_accessed_at, excluded.last_accessed_at)`,
-        args: [
-          `${partitionKey}:${record.event.id}`,
-          scopeKey,
-          partitionKey,
-          record.event.id,
-          record.relayUrl,
-          record.roomId ?? null,
-          record.event.created_at,
-          record.lastAccessedAt ?? Date.now(),
-          communityEventBytes(record),
-          JSON.stringify(record.event),
-        ],
+        args: rows.flat(),
       });
     }
     statements.push(
@@ -287,6 +290,14 @@ class TursoCommunityEventStore extends BaseCommunityEventStore {
     }
     return this.#database;
   }
+}
+
+function chunks<T>(values: readonly T[], size: number): T[][] {
+  const result: T[][] = [];
+  for (let index = 0; index < values.length; index += size) {
+    result.push(values.slice(index, index + size));
+  }
+  return result;
 }
 
 function checkpointStatement(
