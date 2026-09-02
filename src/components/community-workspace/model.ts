@@ -33,6 +33,7 @@ export interface CommunityMemberModel {
   name: string;
   handle: string;
   initials: string;
+  avatarUrl?: string;
   presence?: CommunityPresence;
   role?: string;
 }

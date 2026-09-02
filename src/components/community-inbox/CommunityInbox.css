@@ -6,6 +6,47 @@
   background: var(--background);
 }
 
+.lc-community-inbox__resize-handle {
+  position: relative;
+  z-index: 3;
+  order: 0;
+  width: 1px;
+  flex: none;
+  margin-inline-start: -1px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: col-resize;
+  touch-action: none;
+}
+
+.lc-community-inbox__resize-handle > span {
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: -0.25rem;
+  width: 0.5rem;
+}
+
+.lc-community-inbox__resize-handle > span::after {
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: calc(50% - 0.5px);
+  width: 1px;
+  background: transparent;
+  content: "";
+  transition: background-color 120ms ease;
+}
+
+.lc-community-inbox__resize-handle:hover > span::after,
+.lc-community-inbox__resize-handle:focus-visible > span::after,
+.lc-community-inbox__resize-handle[data-resizing] > span::after {
+  background: var(--ring);
+}
+
+.lc-community-inbox__resize-handle:focus-visible {
+  outline: none;
+}
+
 .lc-community-inbox__list,
 .lc-community-inbox__thread {
   min-width: 0;

@@ -9,7 +9,7 @@
 | LC-ARCH-005  | Implemented    | `package.json`; public `@lapismd/design-core` imports; `pnpm-lock.yaml`                                                           |
 | LC-ARCH-006  | Visual pending | Consolidated `Community/Examples/App Shell` Inbox, channel, and thread stories; duplicate shell entry removed                     |
 | LC-ARCH-007  | Implemented    | `src/nostr/transport.ts`; `src/community/nip29-community-source.ts`; `src/testing`; `pnpm test:relay`                             |
-| LC-ARCH-008  | Implemented    | `src/community/community-controller.svelte.ts`; focused controller tests                                                          |
+| LC-ARCH-008  | Implemented    | `src/community/community-controller.svelte.ts`; member profile projection; focused controller tests                               |
 | LC-ARCH-009  | Implemented    | `src/auth`; `src/community/state-store.ts`; signer and state-store tests                                                          |
 | LC-NOSTR-001 | Implemented    | `src/protocol/nip29.ts`; `src/protocol/nip29.test.ts`                                                                             |
 | LC-NOSTR-002 | Implemented    | `src/auth`; `src/nostr/transport.ts`; `pnpm test`                                                                                 |
@@ -17,7 +17,7 @@
 | LC-NOSTR-004 | Implemented    | `src/protocol/nip29.ts`; `src/nostr/nip29-state.ts`                                                                               |
 | LC-NOSTR-005 | Implemented    | `src/protocol/canonical.ts`; `src/protocol/nip29.test.ts`                                                                         |
 | LC-NOSTR-006 | Implemented    | shared relay contract tests; in-memory and WebSocket relay implementations                                                        |
-| LC-NOSTR-007 | Implemented    | `src/community/nip29-community-source.ts`; authoritative-write and mirrored-read tests                                            |
+| LC-NOSTR-007 | Implemented    | `src/community/nip29-community-source.ts`; `src/community/materialize.ts`; authority, mirror, and profile projection coverage     |
 | LC-NOSTR-008 | Implemented    | `src/community/nip17.ts`; direct-message and controller integration tests                                                         |
 | LC-NOSTR-009 | Implemented    | `src/community/state-store.ts`; browser, encrypted relay, merge, and ciphertext tests                                             |
 | LC-UI-001    | Implemented    | `src/components`; `pnpm build-storybook`                                                                                          |
@@ -32,8 +32,8 @@
 | LC-UI-010    | Visual pending | Ordered Navigation, Inbox, Channels, Forums, Discussion, Registry, and Examples catalog sections; human review pending            |
 | LC-UI-011    | Visual pending | `src/components/community-workspace/CommunityWorkspace.stories.svelte`; consolidated public Design Core shell examples            |
 | LC-UI-012    | Visual pending | edge-to-edge Examples/App Shell stories; Inbox compact header geometry and enabled-control hover states; human review pending     |
-| LC-UI-013    | Visual pending | `src/components/community-navigation`; navigation, collapsed-rail search alignment, sorting, and action-menu stories              |
-| LC-UI-014    | Visual pending | Inbox row-composer and message states in `Community/Examples/App Shell/Inbox`; human review pending                               |
+| LC-UI-013    | Visual pending | Community navigation and profile-menu stories; collapsed-rail alignment, signed-in avatar, presence, and profile actions          |
+| LC-UI-014    | Visual pending | Inbox resizable thread-list column, row-composer, and message states in `Community/Examples/App Shell/Inbox`                      |
 | LC-UI-015    | Visual pending | Inbox menus, joined inline right sidebar, and channel welcome settings treatment; human review pending                            |
 | LC-UI-016    | Visual pending | `Community/Examples/App Shell/Desktop channel` and `Channel thread open`; live Buzz comparison; human review pending              |
 | LC-UI-017    | Visual pending | controller-backed composed stories; 18-file story audit; memory/Docker toolbar selector; human review pending                     |

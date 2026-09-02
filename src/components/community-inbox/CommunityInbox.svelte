@@ -31,6 +31,12 @@
   let filter = $state("All");
   let showUnreadOnly = $state(false);
   let allMarkedRead = $state(false);
+  let bodyElement = $state<HTMLElement | null>(null);
+  let listElement = $state<HTMLElement | null>(null);
+  let listWidth = $state<number>();
+  let resizePointerId = $state<number | null>(null);
+  let resizeStartX = 0;
+  let resizeStartWidth = 0;
   let visibleItems = $derived(
     showUnreadOnly
       ? model.items.filter((item) => item.unread && !allMarkedRead)
@@ -41,14 +47,66 @@
     allMarkedRead = true;
     onMarkAllRead();
   }
+
+  function resizeBounds(): { min: number; max: number } {
+    const min = 224;
+    const available = (bodyElement?.clientWidth ?? 704) - 320;
+    return { min, max: Math.max(min, Math.min(480, available)) };
+  }
+
+  function clampListWidth(width: number): number {
+    const { min, max } = resizeBounds();
+    return Math.min(max, Math.max(min, width));
+  }
+
+  function currentListWidth(): number {
+    return listWidth ?? listElement?.getBoundingClientRect().width ?? 368;
+  }
+
+  function beginResize(event: PointerEvent): void {
+    if (event.button !== 0) return;
+    resizePointerId = event.pointerId;
+    resizeStartX = event.clientX;
+    resizeStartWidth = currentListWidth();
+    (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
+    event.preventDefault();
+  }
+
+  function moveResize(event: PointerEvent): void {
+    if (event.pointerId !== resizePointerId) return;
+    listWidth = clampListWidth(resizeStartWidth + event.clientX - resizeStartX);
+  }
+
+  function finishResize(event: PointerEvent): void {
+    if (event.pointerId !== resizePointerId) return;
+    resizePointerId = null;
+    (event.currentTarget as HTMLElement).releasePointerCapture(event.pointerId);
+  }
+
+  function resizeWithKeyboard(event: KeyboardEvent): void {
+    const { min, max } = resizeBounds();
+    let nextWidth = currentListWidth();
+    if (event.key === "ArrowLeft") nextWidth -= 16;
+    else if (event.key === "ArrowRight") nextWidth += 16;
+    else if (event.key === "Home") nextWidth = min;
+    else if (event.key === "End") nextWidth = max;
+    else return;
+    event.preventDefault();
+    listWidth = clampListWidth(nextWidth);
+  }
 </script>
 
 <AppShell.Body
+  bind:ref={bodyElement}
   layout="regions"
   label="Inbox workspace"
   class="lc-community-inbox"
+  style={listWidth === undefined
+    ? undefined
+    : `--ui-shell-body-sidebar-width: ${listWidth}px`}
 >
   <AppShell.Body.Sidebar
+    bind:ref={listElement}
     panelId="inbox-conversations"
     side="left"
     label="Inbox conversations"
@@ -154,6 +212,22 @@
       </div>
     </div>
   </AppShell.Body.Sidebar>
+
+  <button
+    type="button"
+    class="lc-community-inbox__resize-handle"
+    data-resizing={resizePointerId === null ? undefined : ""}
+    aria-label="Resize inbox threads column"
+    title="Drag to resize. Double-click to reset width."
+    onpointerdown={beginResize}
+    onpointermove={moveResize}
+    onpointerup={finishResize}
+    onpointercancel={finishResize}
+    ondblclick={() => (listWidth = undefined)}
+    onkeydown={resizeWithKeyboard}
+  >
+    <span aria-hidden="true"></span>
+  </button>
 
   <AppShell.Body.Content
     label="Selected inbox thread"

@@ -68,6 +68,8 @@ export interface CommunityTestRuntime {
 const operatorKey = new Uint8Array(32).fill(21);
 const memberKey = new Uint8Array(32).fill(22);
 const relayKey = new Uint8Array(32).fill(23);
+const storyIdentityAvatarUrl =
+  "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='32' fill='%232563eb'/%3E%3Ctext x='32' y='41' text-anchor='middle' font-family='system-ui' font-size='30' font-weight='700' fill='white'%3ES%3C/text%3E%3C/svg%3E";
 
 export function createCommunityTestScenario(
   options: CommunityTestScenarioOptions = {},
@@ -107,7 +109,10 @@ export function createCommunityTestScenario(
     {
       kind: 0,
       created_at: createdAt + 2,
-      content: JSON.stringify({ display_name: "Operator" }),
+      content: JSON.stringify({
+        display_name: "steve",
+        picture: storyIdentityAvatarUrl,
+      }),
       tags: [],
     },
     {

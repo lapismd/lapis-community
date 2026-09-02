@@ -18,6 +18,7 @@
   import CommunityDetails from "../community-details/CommunityDetails.svelte";
   import CommunityNavigation from "../community-navigation/CommunityNavigation.svelte";
   import type { CommunityNavigationModel } from "../community-navigation/model.js";
+  import CommunityProfileMenu from "../community-profile-menu/CommunityProfileMenu.svelte";
   import CommunitySwitcher from "../community-switcher/CommunitySwitcher.svelte";
   import CommunityThreadPanel from "../community-thread-panel/CommunityThreadPanel.svelte";
   import CommunityWorkspaceSurface from "./CommunityWorkspaceSurface.svelte";
@@ -105,6 +106,11 @@
     model.currentMemberId
       ? memberById(model.members, model.currentMemberId)
       : undefined,
+  );
+  const currentCommunity = $derived(
+    model.communities.find(
+      (communityModel) => communityModel.id === model.activeCommunityId,
+    ),
   );
   const navigationModel = $derived<CommunityNavigationModel>({
     searchPlaceholder: "Search community",
@@ -263,17 +269,14 @@
           {/if}
         {/snippet}
         {#snippet footer()}
-          {#if currentMember && !navigationCompact}
-            <div class="community-workspace__member-footer">
-              <span
-                class="community-workspace__member-avatar"
-                aria-hidden="true">{currentMember.initials}</span
-              >
-              <span>
-                <strong>{currentMember.name}</strong>
-                <small>@{currentMember.handle}</small>
-              </span>
-            </div>
+          {#if currentMember}
+            <CommunityProfileMenu
+              member={currentMember}
+              communityName={currentCommunity?.name ?? "Community"}
+              compact={navigationCompact}
+              canManageCommunity={community?.state.capabilities.manageMembers ??
+                false}
+            />
           {/if}
         {/snippet}
       </CommunityNavigation>
@@ -484,8 +487,7 @@
 
   .community-workspace__rail-header,
   .community-workspace__toolbar-start,
-  .community-workspace__toolbar-actions,
-  .community-workspace__member-footer {
+  .community-workspace__toolbar-actions {
     display: flex;
     min-width: 0;
     align-items: center;
@@ -500,8 +502,7 @@
     margin-inline-start: auto;
   }
 
-  .community-workspace__brand,
-  .community-workspace__member-avatar {
+  .community-workspace__brand {
     display: grid;
     width: 2rem;
     height: 2rem;
@@ -514,23 +515,19 @@
     font-weight: 750;
   }
 
-  .community-workspace__room-title,
-  .community-workspace__member-footer > span:last-child {
+  .community-workspace__room-title {
     display: grid;
     min-width: 0;
   }
 
   .community-workspace__room-title strong,
-  .community-workspace__room-title span,
-  .community-workspace__member-footer strong,
-  .community-workspace__member-footer small {
+  .community-workspace__room-title span {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
 
-  .community-workspace__room-title span,
-  .community-workspace__member-footer small {
+  .community-workspace__room-title span {
     color: var(--muted-foreground);
     font-size: 0.68rem;
     font-weight: 400;

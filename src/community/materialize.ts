@@ -36,6 +36,7 @@ interface DirectConversation {
 
 interface Profile {
   name: string;
+  picture?: string;
 }
 
 function eventCopy(event: NostrEvent): NostrEvent {
@@ -299,7 +300,11 @@ function profilesFrom(events: readonly NostrEvent[]): Map<string, Profile> {
     }
     if (parsed === null || Array.isArray(parsed) || typeof parsed !== "object")
       continue;
-    const candidate = parsed as { display_name?: unknown; name?: unknown };
+    const candidate = parsed as {
+      display_name?: unknown;
+      name?: unknown;
+      picture?: unknown;
+    };
     const name =
       typeof candidate.display_name === "string" &&
       candidate.display_name.trim() !== ""
@@ -308,9 +313,19 @@ function profilesFrom(events: readonly NostrEvent[]): Map<string, Profile> {
           ? candidate.name.trim()
           : "";
     if (name === "") continue;
+    const picture =
+      typeof candidate.picture === "string" && candidate.picture.trim() !== ""
+        ? candidate.picture.trim()
+        : undefined;
     const current = selected.get(event.pubkey);
     if (current === undefined || newer(event, current.event)) {
-      selected.set(event.pubkey, { event, profile: { name } });
+      selected.set(event.pubkey, {
+        event,
+        profile: {
+          name,
+          ...(picture === undefined ? {} : { picture }),
+        },
+      });
     }
   }
   return new Map(
@@ -386,6 +401,9 @@ function memberModels(
       name,
       handle: shortKey(pubkey),
       initials: initials(name),
+      ...(profiles.get(pubkey)?.picture === undefined
+        ? {}
+        : { avatarUrl: profiles.get(pubkey)!.picture! }),
       presence: "offline",
       ...(roles.get(pubkey) === undefined ? {} : { role: roles.get(pubkey)! }),
     };
@@ -618,6 +636,9 @@ function directMemberModels(
       name,
       handle: shortKey(pubkey),
       initials: initials(name),
+      ...(profiles.get(pubkey)?.picture === undefined
+        ? {}
+        : { avatarUrl: profiles.get(pubkey)!.picture! }),
       presence: "offline",
     };
   });

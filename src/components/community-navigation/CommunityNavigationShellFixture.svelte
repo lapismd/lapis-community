@@ -12,6 +12,7 @@
   import CommunityChannelSettings from "../community-channel-settings/CommunityChannelSettings.svelte";
   import CommunityInbox from "../community-inbox/CommunityInbox.svelte";
   import { communityInboxFixture } from "../community-inbox/story-fixtures.js";
+  import CommunityProfileMenu from "../community-profile-menu/CommunityProfileMenu.svelte";
   import CommunityNavigation from "./CommunityNavigation.svelte";
   import { communityNavigationFixture } from "./story-fixtures.js";
   import type {
@@ -47,6 +48,18 @@
   let navigationHistory = $state<string[]>([]);
   let navigationHistoryIndex = $state(0);
   const workspace = $derived(community?.state.workspace);
+  const currentMember = $derived(
+    workspace?.currentMemberId
+      ? workspace.members.find(
+          (member) => member.id === workspace.currentMemberId,
+        )
+      : undefined,
+  );
+  const activeCommunity = $derived(
+    workspace?.communities.find(
+      (candidate) => candidate.id === workspace.activeCommunityId,
+    ),
+  );
   const inbox = $derived(community?.state.inbox ?? communityInboxFixture);
   const navigationModel = $derived.by<CommunityNavigationModel>(() => ({
     ...communityNavigationFixture,
@@ -272,7 +285,25 @@
         }}
         {onSectionAction}
         onRequestExpand={() => controller.left.expand()}
-      />
+      >
+        {#snippet footer()}
+          {#if currentMember}
+            <CommunityProfileMenu
+              member={{
+                ...currentMember,
+                presence:
+                  community?.state.status === "connected"
+                    ? "online"
+                    : "offline",
+              }}
+              communityName={activeCommunity?.name ?? "Lapis Community"}
+              compact={controller.left.collapsed}
+              canManageCommunity={community?.state.capabilities.manageMembers ??
+                false}
+            />
+          {/if}
+        {/snippet}
+      </CommunityNavigation>
     </AppShell.Sidebar>
 
     <AppShell.Main>
