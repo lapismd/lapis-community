@@ -49,6 +49,7 @@
     await waitFor(() => {
       expect(runtime).toHaveAttribute("data-community-status", "connected");
     });
+    if (runtime.dataset.communityBackend === "live") return;
 
     await expect(canvas.getByLabelText("Inbox conversations")).toBeVisible();
     await expect(

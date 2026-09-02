@@ -11,6 +11,7 @@
   import CommunityInbox from "../community-inbox/CommunityInbox.svelte";
   import { communityInboxFixture } from "../community-inbox/story-fixtures.js";
   import CommunityProfileMenu from "../community-profile-menu/CommunityProfileMenu.svelte";
+  import CommunitySettings from "../community-settings/CommunitySettings.svelte";
   import CommunityNavigation from "./CommunityNavigation.svelte";
   import { communityNavigationFixture } from "./story-fixtures.js";
   import type {
@@ -104,6 +105,12 @@
   const canNavigateForward = $derived(
     navigationHistoryIndex < navigationHistory.length - 1,
   );
+  const emojiOperation = $derived.by(() =>
+    Object.entries(community?.state.operations ?? {})
+      .filter(([key]) => key.startsWith("settings:emoji:"))
+      .map(([, operation]) => operation)
+      .find((operation) => operation.status !== "idle"),
+  );
 
   $effect(() => {
     activeDestination = initialActiveItemId;
@@ -113,29 +120,48 @@
 
   onMount(() => {
     let active = true;
-    void createCommunityStoryRuntime()
-      .then((created) => {
-        if (!active) {
-          created.dispose();
-          return;
-        }
-        runtime = created;
-        community = created.controller;
-        community.initialize();
-        void created.scenario.member.getPublicKey().then((pubkey) => {
-          if (active) community?.actions.openDirectMessage([pubkey]);
+    let runtimeGeneration = 0;
+    const startRuntime = (): void => {
+      const currentGeneration = ++runtimeGeneration;
+      runtime?.dispose();
+      runtime = undefined;
+      community = undefined;
+      runtimeError = "";
+      void createCommunityStoryRuntime()
+        .then((created) => {
+          if (!active || currentGeneration !== runtimeGeneration) {
+            created.dispose();
+            return;
+          }
+          runtime = created;
+          community = created.controller;
+          community.initialize();
+          if (created.backend !== "live") {
+            void created.scenario.member.getPublicKey().then((pubkey) => {
+              if (active && currentGeneration === runtimeGeneration) {
+                community?.actions.openDirectMessage([pubkey]);
+              }
+            });
+          }
+        })
+        .catch((cause: unknown) => {
+          if (active && currentGeneration === runtimeGeneration) {
+            runtimeError =
+              cause instanceof Error
+                ? cause.message
+                : "Community story runtime failed";
+          }
         });
-      })
-      .catch((cause: unknown) => {
-        if (active) {
-          runtimeError =
-            cause instanceof Error
-              ? cause.message
-              : "Community story runtime failed";
-        }
-      });
+    };
+    window.addEventListener("community-story-backend-change", startRuntime);
+    startRuntime();
     return () => {
       active = false;
+      runtimeGeneration += 1;
+      window.removeEventListener(
+        "community-story-backend-change",
+        startRuntime,
+      );
       runtime?.dispose();
     };
   });
@@ -168,6 +194,18 @@
     activate(item, true);
   }
 
+  function openSettings(recordHistory = true): void {
+    if (recordHistory && activeDestination !== "settings") {
+      navigationHistory = [
+        ...navigationHistory.slice(0, navigationHistoryIndex + 1),
+        "settings",
+      ];
+      navigationHistoryIndex = navigationHistory.length - 1;
+    }
+    activeDestination = "settings";
+    controller.right.close();
+  }
+
   function itemFor(destinationId: string): CommunityNavigationItemModel | null {
     return (
       [
@@ -181,6 +219,11 @@
     const nextIndex = navigationHistoryIndex + offset;
     const destinationId = navigationHistory[nextIndex];
     if (destinationId === undefined) return;
+    if (destinationId === "settings") {
+      navigationHistoryIndex = nextIndex;
+      openSettings(false);
+      return;
+    }
     const item = itemFor(destinationId);
     if (!item) return;
     navigationHistoryIndex = nextIndex;
@@ -231,6 +274,9 @@
             compact={controller.left.collapsed}
             canManageCommunity={community?.state.capabilities.manageMembers ??
               false}
+            onAction={(action) => {
+              if (action === "settings") openSettings();
+            }}
           />
         {/if}
       {/snippet}
@@ -238,13 +284,40 @@
   </AppShell.Sidebar>
 
   <AppShell.Main>
-    <CommunityInbox
-      model={inbox}
-      onSend={(content) =>
-        community?.handlers.onSendReply?.(inbox.activeItemId, content)}
-      onMarkAllRead={() => void community?.actions.markAllRead()}
-      onOpenChannelSettings={() => controller.right.open()}
-    />
+    {#if activeDestination === "settings" && community}
+      <AppShell.Body layout="regions" label="Personal settings">
+        <AppShell.Body.Content>
+          <CommunitySettings
+            model={community.state.settings}
+            {...community.state.operations["settings:profile"] === undefined
+              ? {}
+              : {
+                  profileOperation:
+                    community.state.operations["settings:profile"],
+                }}
+            {...emojiOperation === undefined ? {} : { emojiOperation }}
+            onClose={() => {
+              const inboxItem = itemFor("inbox");
+              if (inboxItem) activate(inboxItem, true);
+            }}
+            onUpdateProfile={(profile) =>
+              community!.actions.updateProfile(profile)}
+            onAddCustomEmoji={(shortcode, url) =>
+              community!.actions.setCustomEmoji(shortcode, url)}
+            onRemoveCustomEmoji={(shortcode) =>
+              community!.actions.removeCustomEmoji(shortcode)}
+          />
+        </AppShell.Body.Content>
+      </AppShell.Body>
+    {:else}
+      <CommunityInbox
+        model={inbox}
+        onSend={(content) =>
+          community?.handlers.onSendReply?.(inbox.activeItemId, content)}
+        onMarkAllRead={() => void community?.actions.markAllRead()}
+        onOpenChannelSettings={() => controller.right.open()}
+      />
+    {/if}
   </AppShell.Main>
 
   <AppShell.Sidebar side="right" label="Channel settings" closeable>

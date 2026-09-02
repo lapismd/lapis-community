@@ -39,8 +39,9 @@
     const runtime = await canvas.findByTestId("registry-community-runtime");
     await expect(runtime).toHaveAttribute(
       "data-community-backend",
-      expect.stringMatching(/^(memory|docker)$/u),
+      expect.stringMatching(/^(memory|docker|live)$/u),
     );
+    if (runtime.dataset.communityBackend === "live") return;
 
     await expect(
       await canvas.findByText("Registry Demo community discussion"),

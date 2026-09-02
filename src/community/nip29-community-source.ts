@@ -98,15 +98,30 @@ class Nip29CommunitySession implements CommunitySession {
             { kinds: [5, 7, 9_005], "#e": targets },
             signal,
           );
+    const identityPubkey = await this.#context.identity?.getPublicKey();
     const authors = [
       ...new Set(
-        [...content, ...state, ...referenced].map((event) => event.pubkey),
+        [...content, ...state, ...referenced]
+          .map((event) => event.pubkey)
+          .concat(
+            state.flatMap((event) =>
+              event.tags
+                .filter((tag) => tag[0] === "p" && tag[1] !== undefined)
+                .map((tag) => tag[1]!),
+            ),
+            identityPubkey ?? [],
+          ),
       ),
     ];
     const profiles =
       authors.length === 0
         ? []
-        : await this.#queryUnion(this.#relays, { kinds: [0], authors }, signal);
+        : await this.#queryUnion(
+            this.#relays,
+            { kinds: [0, 30_030], authors },
+            signal,
+          );
+    await this.#subscribeToProfiles(authors, signal);
     const privateEvents = await this.#loadPrivateEvents(signal);
     await this.#subscribeToTargets(targets, signal);
     return {
@@ -327,6 +342,26 @@ class Nip29CommunitySession implements CommunitySession {
         }),
       );
     }
+  }
+
+  async #subscribeToProfiles(
+    authors: readonly string[],
+    signal?: AbortSignal,
+  ): Promise<void> {
+    if (authors.length === 0) return;
+    const key = `profiles:${[...authors].toSorted().join(",")}`;
+    if (this.#targetSubscriptionKeys.has(key)) return;
+    this.#targetSubscriptionKeys.add(key);
+    await Promise.all(
+      this.#relays.map(async (relay) => {
+        const subscription = await relay.subscribe(
+          { kinds: [0, 30_030], authors: [...authors] },
+          { onevent: (event) => this.#emit([event]) },
+          signal,
+        );
+        this.#subscriptions.add(subscription);
+      }),
+    );
   }
 
   async #loadPrivateEvents(

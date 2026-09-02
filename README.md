@@ -58,6 +58,22 @@ normal, reply, reaction, error, and long-discussion states. The package
 specification is under `spec/src` and is enforced by
 `@lapismd/spec-validator`.
 
+Storybook uses an isolated in-memory relay by default. Its relay toolbar also
+offers the public `wss://community.lapis.md` registry relay without seeding or
+publishing fixture events. Override the live target or canonical room IDs when
+running against another registry relay:
+
+```sh
+VITE_COMMUNITY_LIVE_RELAY_URL=wss://community.lapis.md \
+VITE_COMMUNITY_LIVE_CHANNEL_GROUP_ID=<nip-29-group-id> \
+VITE_COMMUNITY_LIVE_FORUM_GROUP_ID=<nip-29-group-id> \
+pnpm storybook
+```
+
+Live stories are read-only unless the browser provides a user-controlled
+NIP-07 signer. Docker remains the writable WebSocket-backed fixture lane via
+`pnpm storybook:relay`.
+
 The Docker stack builds the sibling `nostr-relay`, seeds all complete plugins,
 materializes the event graph, builds the sibling site, and serves the rendered
 registry at `http://localhost:4321/`.

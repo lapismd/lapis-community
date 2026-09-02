@@ -11,9 +11,28 @@ const communityRelayUrl = (
     env?: {
       VITE_COMMUNITY_RELAY_BACKEND?: string;
       VITE_COMMUNITY_RELAY_URL?: string;
+      VITE_COMMUNITY_LIVE_RELAY_URL?: string;
+      VITE_COMMUNITY_LIVE_CHANNEL_GROUP_ID?: string;
+      VITE_COMMUNITY_LIVE_FORUM_GROUP_ID?: string;
     };
   }
 ).env?.VITE_COMMUNITY_RELAY_URL;
+const communityLiveRelayUrl =
+  (
+    import.meta as ImportMeta & {
+      env?: { VITE_COMMUNITY_LIVE_RELAY_URL?: string };
+    }
+  ).env?.VITE_COMMUNITY_LIVE_RELAY_URL ?? "wss://community.lapis.md";
+const communityLiveChannelGroupId = (
+  import.meta as ImportMeta & {
+    env?: { VITE_COMMUNITY_LIVE_CHANNEL_GROUP_ID?: string };
+  }
+).env?.VITE_COMMUNITY_LIVE_CHANNEL_GROUP_ID;
+const communityLiveForumGroupId = (
+  import.meta as ImportMeta & {
+    env?: { VITE_COMMUNITY_LIVE_FORUM_GROUP_ID?: string };
+  }
+).env?.VITE_COMMUNITY_LIVE_FORUM_GROUP_ID;
 const communityRelayBackend = (
   import.meta as ImportMeta & {
     env?: { VITE_COMMUNITY_RELAY_BACKEND?: string };
@@ -38,13 +57,15 @@ const preview: Preview = {
       description: "Community relay backend",
       toolbar: {
         icon: "database",
-        items:
-          communityRelayUrl === undefined || communityRelayUrl === ""
-            ? [{ value: "memory", title: "In-memory relay" }]
-            : [
-                { value: "memory", title: "In-memory relay" },
-                { value: "docker", title: "Docker relay" },
-              ],
+        items: [
+          { value: "memory", title: "In-memory relay" },
+          ...(communityRelayUrl === undefined || communityRelayUrl === ""
+            ? []
+            : [{ value: "docker", title: "Docker relay" }]),
+          ...(communityLiveRelayUrl === ""
+            ? []
+            : [{ value: "live", title: "Live registry relay" }]),
+        ],
         dynamicTitle: true,
       },
     },
@@ -54,7 +75,9 @@ const preview: Preview = {
     communityBackend:
       communityRelayBackend === "docker" && communityRelayUrl
         ? "docker"
-        : "memory",
+        : communityRelayBackend === "live" && communityLiveRelayUrl
+          ? "live"
+          : "memory",
     theme: "default",
   },
   parameters: {
@@ -113,13 +136,43 @@ const preview: Preview = {
           "dark",
           context.globals.colorMode === "dark",
         );
+        const previousCommunityBackend =
+          document.documentElement.dataset.communityBackend;
+        const nextCommunityBackend =
+          context.globals.communityBackend === "docker"
+            ? "docker"
+            : context.globals.communityBackend === "live"
+              ? "live"
+              : "memory";
         document.documentElement.dataset.communityBackend =
-          context.globals.communityBackend === "docker" ? "docker" : "memory";
+          nextCommunityBackend;
         if (communityRelayUrl === undefined || communityRelayUrl === "") {
           delete document.documentElement.dataset.communityRelayUrl;
         } else {
           document.documentElement.dataset.communityRelayUrl =
             communityRelayUrl;
+        }
+        document.documentElement.dataset.communityLiveRelayUrl =
+          communityLiveRelayUrl;
+        if (communityLiveChannelGroupId) {
+          document.documentElement.dataset.communityLiveChannelGroupId =
+            communityLiveChannelGroupId;
+        } else {
+          delete document.documentElement.dataset.communityLiveChannelGroupId;
+        }
+        if (communityLiveForumGroupId) {
+          document.documentElement.dataset.communityLiveForumGroupId =
+            communityLiveForumGroupId;
+        } else {
+          delete document.documentElement.dataset.communityLiveForumGroupId;
+        }
+        if (
+          previousCommunityBackend !== undefined &&
+          previousCommunityBackend !== nextCommunityBackend
+        ) {
+          queueMicrotask(() =>
+            window.dispatchEvent(new Event("community-story-backend-change")),
+          );
         }
       }
       return story();

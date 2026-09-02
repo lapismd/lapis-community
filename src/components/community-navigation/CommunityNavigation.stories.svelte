@@ -50,6 +50,7 @@
     await waitFor(() => {
       expect(runtime).toHaveAttribute("data-community-status", "connected");
     });
+    if (runtime.dataset.communityBackend === "live") return;
 
     await expect(search).toHaveAttribute("placeholder", "Search everything");
     await expect(canvas.getByRole("button", { name: "Inbox" })).toHaveAttribute(

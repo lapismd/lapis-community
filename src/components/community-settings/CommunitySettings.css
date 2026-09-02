@@ -1,0 +1,239 @@
+.community-settings {
+  display: grid;
+  width: 100%;
+  min-width: 0;
+  height: 100%;
+  min-height: 0;
+  grid-template-columns: 15rem minmax(0, 1fr);
+  background: var(--background);
+}
+
+.community-settings__navigation {
+  display: flex;
+  min-height: 0;
+  flex-direction: column;
+  gap: 1.5rem;
+  padding: 1.25rem 0.75rem;
+  border-inline-end: 1px solid var(--border);
+  background: var(--sidebar, var(--muted));
+}
+
+.community-settings__back[data-ui-component="button"],
+.community-settings__navigation-item[data-ui-component="button"] {
+  width: 100%;
+  justify-content: flex-start;
+}
+
+.community-settings__navigation-group {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.community-settings__navigation-group > p {
+  margin: 0 0 0.35rem;
+  padding-inline: 0.75rem;
+  color: var(--muted-foreground);
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.community-settings__navigation-item[data-active] {
+  background: var(--accent);
+}
+
+.community-settings__content {
+  min-width: 0;
+  overflow: auto;
+  padding: clamp(1.5rem, 5vw, 4rem);
+}
+
+.community-settings__heading,
+.community-settings__card,
+.community-settings__emoji-list {
+  width: min(100%, 48rem);
+  margin-inline: auto;
+}
+
+.community-settings__heading {
+  margin-block-end: 1.5rem;
+}
+
+.community-settings__heading h1,
+.community-settings__heading p,
+.community-settings__emoji-list h2,
+.community-settings__emoji-list p {
+  margin: 0;
+}
+
+.community-settings__heading h1 {
+  font-size: 1.75rem;
+}
+
+.community-settings__heading p,
+.community-settings__emoji-list > div p,
+.community-settings__status,
+.community-settings__empty {
+  color: var(--muted-foreground);
+}
+
+.community-settings__form,
+.community-settings__emoji-form {
+  display: grid;
+  gap: 1.5rem;
+}
+
+.community-settings__avatar-row {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 1rem;
+}
+
+.community-settings__avatar-row > div,
+.community-settings__emoji-list li > span {
+  display: grid;
+  min-width: 0;
+}
+
+.community-settings__avatar-row small,
+.community-settings__emoji-list small {
+  overflow: hidden;
+  color: var(--muted-foreground);
+  font-size: 0.72rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.community-settings__avatar,
+.community-settings__emoji-preview {
+  display: grid;
+  overflow: hidden;
+  flex: none;
+  place-items: center;
+  border: 1px solid var(--border);
+  background: var(--muted);
+}
+
+.community-settings__avatar {
+  width: 4.5rem;
+  height: 4.5rem;
+  border-radius: 50%;
+}
+
+.community-settings__avatar img,
+.community-settings__emoji-preview img,
+.community-settings__emoji-list li > img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.community-settings__form-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.community-settings__form-footer--wide {
+  grid-column: 1 / -1;
+}
+
+.community-settings__status {
+  min-height: 1.25rem;
+  margin: 0;
+  font-size: 0.78rem;
+}
+
+.community-settings__emoji-form {
+  grid-template-columns: 5rem minmax(0, 1fr);
+  align-items: start;
+}
+
+.community-settings__emoji-preview {
+  width: 5rem;
+  height: 5rem;
+  border-radius: 0.75rem;
+}
+
+.community-settings__emoji-list {
+  margin-block-start: 2rem;
+}
+
+.community-settings__emoji-list > div {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-block-end: 0.75rem;
+}
+
+.community-settings__emoji-list ul {
+  display: grid;
+  gap: 0.25rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.community-settings__emoji-list li {
+  display: grid;
+  grid-template-columns: 2.5rem minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.625rem;
+  border-radius: var(--radius);
+}
+
+.community-settings__emoji-list li:hover {
+  background: var(--accent);
+}
+
+.community-settings__emoji-list li > img {
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 0.5rem;
+}
+
+.community-settings__empty {
+  padding: 2rem;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius);
+  text-align: center;
+}
+
+@media (max-width: 48rem) {
+  .community-settings {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto minmax(0, 1fr);
+  }
+
+  .community-settings__navigation {
+    flex-direction: row;
+    gap: 0.5rem;
+    padding: 0.5rem;
+    border-inline-end: 0;
+    border-block-end: 1px solid var(--border);
+  }
+
+  .community-settings__navigation-group {
+    display: flex;
+    flex: 1;
+  }
+
+  .community-settings__navigation-group > p {
+    display: none;
+  }
+
+  .community-settings__content {
+    padding: 1rem;
+  }
+
+  .community-settings__emoji-form {
+    grid-template-columns: 1fr;
+  }
+
+  .community-settings__emoji-preview {
+    justify-self: center;
+  }
+}

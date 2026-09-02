@@ -96,6 +96,7 @@
     await waitFor(() => {
       expect(runtime).toHaveAttribute("data-community-status", "connected");
     });
+    if (runtime.dataset.communityBackend === "live") return;
 
     await expect(leftSidebar).toHaveAttribute("data-state", "expanded");
     await expect(canvas.queryByLabelText("Right sidebar")).toBeNull();
@@ -151,7 +152,7 @@
 
     await userEvent.click(manageChannel);
     await expect(canvas.getByLabelText("Channel settings")).toBeVisible();
-    await expect(canvas.getByText("Channel Settings")).toBeVisible();
+    await expect(canvas.getByText("Channel settings")).toBeVisible();
     await userEvent.click(
       canvas.getByRole("button", { name: "Close channel settings" }),
     );
@@ -168,6 +169,12 @@
   {/snippet}
 </Story>
 
+<Story name="Settings">
+  {#snippet template()}
+    <CommunityNavigationShellFixture initialActiveItemId="settings" />
+  {/snippet}
+</Story>
+
 <Story
   name="Desktop channel"
   play={async ({ canvas }) => {
@@ -176,6 +183,7 @@
     await waitFor(() => {
       expect(frame).toHaveAttribute("data-community-status", "connected");
     });
+    if (frame.dataset.communityBackend === "live") return;
 
     await expect(
       canvas.getByRole("heading", { name: "#general" }),
@@ -219,6 +227,7 @@
     await waitFor(() => {
       expect(frame).toHaveAttribute("data-community-status", "connected");
     });
+    if (frame.dataset.communityBackend === "live") return;
     await userEvent.click(
       canvas.getAllByRole("button", { name: "0 replies" })[0]!,
     );

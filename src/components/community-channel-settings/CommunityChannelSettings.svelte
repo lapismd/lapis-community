@@ -1,10 +1,10 @@
 <script lang="ts">
   import { Button } from "@lapismd/design-core/shadcn/button";
   import { AppShell } from "@lapismd/design-core/shell";
-  import ArchiveIcon from "@lucide/svelte/icons/archive";
   import CopyIcon from "@lucide/svelte/icons/copy";
   import HashIcon from "@lucide/svelte/icons/hash";
   import LogOutIcon from "@lucide/svelte/icons/log-out";
+  import MessagesSquareIcon from "@lucide/svelte/icons/messages-square";
   import Trash2Icon from "@lucide/svelte/icons/trash-2";
 
   import type {
@@ -24,18 +24,24 @@
     description: string;
     onAction?: (action: string) => void;
   } = $props();
+
+  const roomType = $derived(room.kind === "forum" ? "Forum" : "Channel");
 </script>
 
 <AppShell.Sidebar.Header class="lc-channel-settings__header">
-  <strong>Channel Settings</strong>
-  <AppShell.Sidebar.Close label="Close channel settings" />
+  <strong>{roomType} settings</strong>
+  <AppShell.Sidebar.Close label={`Close ${roomType.toLowerCase()} settings`} />
 </AppShell.Sidebar.Header>
 
 <AppShell.Sidebar.Body>
   <div class="lc-channel-settings">
     <div class="lc-channel-settings__identity">
       <span class="lc-channel-settings__image" aria-hidden="true">
-        <HashIcon />
+        {#if room.kind === "forum"}
+          <MessagesSquareIcon />
+        {:else}
+          <HashIcon />
+        {/if}
       </span>
       <strong>{room.name}</strong>
       <p>{description}</p>
@@ -50,8 +56,12 @@
           onclick={() => onAction("edit-type")}
         >
           <span>
-            <strong>Channel type</strong>
-            <small>{room.kind === "channel" ? "Ongoing" : room.kind}</small>
+            <strong>{roomType} type</strong>
+            <small
+              >{room.kind === "channel"
+                ? "Ongoing"
+                : "Posts and replies"}</small
+            >
           </span>
         </Button>
         <Button
@@ -85,7 +95,7 @@
           onclick={() => onAction("copy-channel-id")}
         >
           <span>
-            <strong>Channel ID</strong>
+            <strong>{roomType} ID</strong>
             <small>{room.id}</small>
           </span>
           <CopyIcon
@@ -104,15 +114,7 @@
         onclick={() => onAction("leave-channel")}
       >
         <LogOutIcon data-icon="inline-start" aria-hidden="true" />
-        <span>Leave channel</span>
-      </Button>
-      <Button
-        variant="ghost"
-        class="lc-channel-settings__row"
-        onclick={() => onAction("archive-channel")}
-      >
-        <ArchiveIcon data-icon="inline-start" aria-hidden="true" />
-        <span>Archive channel</span>
+        <span>Leave {roomType.toLowerCase()}</span>
       </Button>
       <Button
         variant="ghost"
@@ -120,7 +122,7 @@
         onclick={() => onAction("delete-channel")}
       >
         <Trash2Icon data-icon="inline-start" aria-hidden="true" />
-        <span>Delete channel</span>
+        <span>Delete {roomType.toLowerCase()}</span>
       </Button>
     </section>
   </div>

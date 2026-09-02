@@ -45,7 +45,7 @@ export class SecretKeyRegistrySigner implements RegistrySigner {
 
 export class Nip07RegistrySigner implements RegistrySigner {
   readonly #provider: Nip07Provider;
-  readonly nip44: Nip44Provider | undefined;
+  readonly nip44?: Nip44Provider;
 
   constructor(provider?: Nip07Provider) {
     const discovered = provider ?? globalThis.window?.nostr;
@@ -53,7 +53,7 @@ export class Nip07RegistrySigner implements RegistrySigner {
       throw new Error("No NIP-07 window.nostr provider is available");
     }
     this.#provider = discovered;
-    this.nip44 = discovered.nip44;
+    if (discovered.nip44 !== undefined) this.nip44 = discovered.nip44;
   }
 
   async getPublicKey(): Promise<string> {

@@ -1,4 +1,4 @@
-import { SecretKeyRegistrySigner } from "../auth/index.js";
+import { SecretKeyRegistrySigner, type RegistrySigner } from "../auth/index.js";
 import {
   createRegistryCommunityDataSource,
   type RegistryCommunityDataSource,
@@ -52,6 +52,7 @@ export interface RegistryCommunityStoryRuntime {
   dataSource: RegistryCommunityDataSource;
   relayFactory: CommunityRelayFactory;
   scenario: RegistryCommunityTestScenario;
+  identity?: RegistrySigner;
   dispose(): void;
 }
 
@@ -241,24 +242,41 @@ export async function createRegistryCommunityStoryRuntime(
     const scenario = createRegistryCommunityTestScenario(options);
     await scenario.seed(relayFactory.relay(scenario.relayUrl));
     const dataSource = createRegistryCommunityDataSource({ relayFactory });
-    return runtime(backend, relayFactory, scenario, dataSource, relayFactory);
+    return runtime(
+      backend,
+      relayFactory,
+      scenario,
+      dataSource,
+      scenario.identity,
+      relayFactory,
+    );
   }
 
   const relayUrl = options.relayUrl ?? configured.relayUrl;
   if (relayUrl === undefined || relayUrl === "") {
     throw new Error(
-      "Docker relay unavailable. Start it with pnpm storybook:relay or provide VITE_COMMUNITY_RELAY_URL.",
+      `${backend === "live" ? "Live" : "Docker"} relay unavailable. Provide the matching Storybook relay URL.`,
     );
   }
   const scenario = createRegistryCommunityTestScenario({
     ...options,
     relayUrl,
-    namespace: options.namespace ?? crypto.randomUUID(),
+    ...(backend === "docker"
+      ? { namespace: options.namespace ?? crypto.randomUUID() }
+      : {}),
   });
   const relayFactory = createWebSocketCommunityRelayFactory();
-  await seedRegistryCommunityTestScenario(scenario, relayFactory);
+  if (backend === "docker") {
+    await seedRegistryCommunityTestScenario(scenario, relayFactory);
+  }
   const dataSource = createRegistryCommunityDataSource({ relayFactory });
-  return runtime(backend, relayFactory, scenario, dataSource);
+  return runtime(
+    backend,
+    relayFactory,
+    scenario,
+    dataSource,
+    backend === "live" ? undefined : scenario.identity,
+  );
 }
 
 function runtime(
@@ -266,6 +284,7 @@ function runtime(
   relayFactory: CommunityRelayFactory,
   scenario: RegistryCommunityTestScenario,
   dataSource: RegistryCommunityDataSource,
+  identity?: RegistrySigner,
   inMemoryFactory?: InMemoryCommunityRelayFactory,
 ): RegistryCommunityStoryRuntime {
   return {
@@ -273,6 +292,7 @@ function runtime(
     relayFactory,
     scenario,
     dataSource,
+    ...(identity === undefined ? {} : { identity }),
     dispose() {
       dataSource.close();
       inMemoryFactory?.reset();
@@ -288,8 +308,13 @@ function storybookConfiguration(): {
   const backend =
     document.documentElement.dataset.communityBackend === "docker"
       ? "docker"
-      : "memory";
-  const relayUrl = document.documentElement.dataset.communityRelayUrl;
+      : document.documentElement.dataset.communityBackend === "live"
+        ? "live"
+        : "memory";
+  const relayUrl =
+    backend === "live"
+      ? document.documentElement.dataset.communityLiveRelayUrl
+      : document.documentElement.dataset.communityRelayUrl;
   return {
     backend,
     ...(relayUrl === undefined || relayUrl === "" ? {} : { relayUrl }),

@@ -12,24 +12,38 @@
 
   onMount(() => {
     let active = true;
-    void createRegistryCommunityStoryRuntime()
-      .then((created) => {
-        if (!active) {
-          created.dispose();
-          return;
-        }
-        runtime = created;
-      })
-      .catch((cause: unknown) => {
-        if (active) {
-          runtimeError =
-            cause instanceof Error
-              ? cause.message
-              : "Registry community story runtime failed";
-        }
-      });
+    let runtimeGeneration = 0;
+    const startRuntime = (): void => {
+      const currentGeneration = ++runtimeGeneration;
+      runtime?.dispose();
+      runtime = undefined;
+      runtimeError = "";
+      void createRegistryCommunityStoryRuntime()
+        .then((created) => {
+          if (!active || currentGeneration !== runtimeGeneration) {
+            created.dispose();
+            return;
+          }
+          runtime = created;
+        })
+        .catch((cause: unknown) => {
+          if (active && currentGeneration === runtimeGeneration) {
+            runtimeError =
+              cause instanceof Error
+                ? cause.message
+                : "Registry community story runtime failed";
+          }
+        });
+    };
+    window.addEventListener("community-story-backend-change", startRuntime);
+    startRuntime();
     return () => {
       active = false;
+      runtimeGeneration += 1;
+      window.removeEventListener(
+        "community-story-backend-change",
+        startRuntime,
+      );
       runtime?.dispose();
     };
   });
@@ -50,7 +64,7 @@
       publisher={runtime.scenario.publisher}
       relays={JSON.stringify([runtime.scenario.relayUrl])}
       dataSource={runtime.dataSource}
-      identity={runtime.scenario.identity}
+      {...runtime.identity === undefined ? {} : { identity: runtime.identity }}
     />
   </div>
 {:else}

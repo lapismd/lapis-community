@@ -30,7 +30,7 @@
     onAction: fn(),
   }}
   play={async ({ canvas, canvasElement, args }) => {
-    await expect(canvas.getByText("Channel Settings")).toBeVisible();
+    await expect(canvas.getByText("Channel settings")).toBeVisible();
     await expect(
       canvas.getByRole("button", { name: /Channel type/ }),
     ).toBeVisible();

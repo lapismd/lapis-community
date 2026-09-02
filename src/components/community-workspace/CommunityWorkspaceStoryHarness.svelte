@@ -21,6 +21,7 @@
   import CommunityNavigation from "../community-navigation/CommunityNavigation.svelte";
   import type { CommunityNavigationModel } from "../community-navigation/model.js";
   import CommunityProfileMenu from "../community-profile-menu/CommunityProfileMenu.svelte";
+  import CommunitySettings from "../community-settings/CommunitySettings.svelte";
   import CommunityThreadPanel from "../community-thread-panel/CommunityThreadPanel.svelte";
   import CommunityWorkspaceSurface from "./CommunityWorkspaceSurface.svelte";
   import {
@@ -43,30 +44,46 @@
   let community = $state<CommunityController>();
   let runtimeError = $state("");
   let lastAction = $state("ready");
+  let showSettings = $state(false);
   const model = $derived(community?.state.workspace ?? initialModel);
 
   onMount(() => {
     let active = true;
-    void createCommunityStoryRuntime()
-      .then((created) => {
-        if (!active) {
-          created.dispose();
-          return;
-        }
-        runtime = created;
-        community = created.controller;
-        community.initialize();
-      })
-      .catch((cause: unknown) => {
-        if (active) {
-          runtimeError =
-            cause instanceof Error
-              ? cause.message
-              : "Community story runtime failed";
-        }
-      });
+    let runtimeGeneration = 0;
+    const startRuntime = (): void => {
+      const currentGeneration = ++runtimeGeneration;
+      runtime?.dispose();
+      runtime = undefined;
+      community = undefined;
+      runtimeError = "";
+      void createCommunityStoryRuntime()
+        .then((created) => {
+          if (!active || currentGeneration !== runtimeGeneration) {
+            created.dispose();
+            return;
+          }
+          runtime = created;
+          community = created.controller;
+          community.initialize();
+        })
+        .catch((cause: unknown) => {
+          if (active && currentGeneration === runtimeGeneration) {
+            runtimeError =
+              cause instanceof Error
+                ? cause.message
+                : "Community story runtime failed";
+          }
+        });
+    };
+    window.addEventListener("community-story-backend-change", startRuntime);
+    startRuntime();
     return () => {
       active = false;
+      runtimeGeneration += 1;
+      window.removeEventListener(
+        "community-story-backend-change",
+        startRuntime,
+      );
       runtime?.dispose();
     };
   });
@@ -132,10 +149,19 @@
       ? "Thread"
       : activeRoom.kind === "channel"
         ? "Channel settings"
-        : "Room details",
+        : activeRoom.kind === "forum"
+          ? "Forum settings"
+          : "Conversation details",
+  );
+  const emojiOperation = $derived.by(() =>
+    Object.entries(community?.state.operations ?? {})
+      .filter(([key]) => key.startsWith("settings:emoji:"))
+      .map(([, operation]) => operation)
+      .find((operation) => operation.status !== "idle"),
   );
 
   function selectRoom(roomId: string): void {
+    showSettings = false;
     community?.actions.selectRoom(roomId);
     controller.right.close();
     controller.mobile.showMain();
@@ -208,6 +234,13 @@
             compact={navigationCompact}
             canManageCommunity={community?.state.capabilities.manageMembers ??
               false}
+            onAction={(action) => {
+              if (action === "settings") {
+                showSettings = true;
+                controller.right.close();
+                lastAction = "opened-settings";
+              }
+            }}
           />
         {/if}
       {/snippet}
@@ -215,104 +248,128 @@
   </AppShell.Sidebar>
 
   <AppShell.Main>
-    <AppShell.Toolbar label={`${activeRoom.name} toolbar`}>
-      <div class="community-workspace__toolbar-start">
-        {#if navigationCompact || controller.mobile.resolvedMode === "mobile"}
-          <AppShell.Sidebar.Toggle side="left" sidebarName="navigation" />
-        {/if}
-        <div class="community-workspace__room-title">
-          <strong>
-            {#if activeRoom.private}
-              <LockIcon data-icon="inline-start" aria-hidden="true" />
-            {:else if activeRoom.kind === "channel"}
-              <HashIcon data-icon="inline-start" aria-hidden="true" />
-            {:else}
-              <span aria-hidden="true">●</span>
-            {/if}
-            {activeRoom.name}
-          </strong>
+    {#if showSettings && community}
+      <AppShell.Body layout="regions" label="Personal settings">
+        <AppShell.Body.Content>
+          <CommunitySettings
+            model={community.state.settings}
+            {...community.state.operations["settings:profile"] === undefined
+              ? {}
+              : {
+                  profileOperation:
+                    community.state.operations["settings:profile"],
+                }}
+            {...emojiOperation === undefined ? {} : { emojiOperation }}
+            onClose={() => (showSettings = false)}
+            onUpdateProfile={(profile) =>
+              community!.actions.updateProfile(profile)}
+            onAddCustomEmoji={(shortcode, url) =>
+              community!.actions.setCustomEmoji(shortcode, url)}
+            onRemoveCustomEmoji={(shortcode) =>
+              community!.actions.removeCustomEmoji(shortcode)}
+          />
+        </AppShell.Body.Content>
+      </AppShell.Body>
+    {:else}
+      <AppShell.Toolbar label={`${activeRoom.name} toolbar`}>
+        <div class="community-workspace__toolbar-start">
+          {#if navigationCompact || controller.mobile.resolvedMode === "mobile"}
+            <AppShell.Sidebar.Toggle side="left" sidebarName="navigation" />
+          {/if}
+          <div class="community-workspace__room-title">
+            <strong>
+              {#if activeRoom.private}
+                <LockIcon data-icon="inline-start" aria-hidden="true" />
+              {:else if activeRoom.kind === "channel"}
+                <HashIcon data-icon="inline-start" aria-hidden="true" />
+              {:else}
+                <span aria-hidden="true">●</span>
+              {/if}
+              {activeRoom.name}
+            </strong>
+          </div>
         </div>
-      </div>
-      <div class="community-workspace__toolbar-actions">
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon-sm"
-          aria-label="Open Buzz Term"
-          title="Open Buzz Term"
-        >
-          <SquareTerminalIcon aria-hidden="true" />
-        </Button>
-        {#if activeRoom.memberCount}
+        <div class="community-workspace__toolbar-actions">
           <Button
             type="button"
-            variant="outline"
-            size="sm"
-            aria-label={`View channel members (${activeRoom.memberCount})`}
+            variant="ghost"
+            size="icon-sm"
+            aria-label="Open Buzz Term"
+            title="Open Buzz Term"
           >
-            <UsersIcon data-icon="inline-start" aria-hidden="true" />
-            {activeRoom.memberCount}
+            <SquareTerminalIcon aria-hidden="true" />
           </Button>
-        {/if}
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon-sm"
-          aria-label="Start huddle"
-          title="Start huddle"
-        >
-          <HeadphonesIcon aria-hidden="true" />
-        </Button>
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon-sm"
-          aria-label="Manage channel"
-          title="Manage channel"
-          onclick={() => {
-            openSidePanel("details");
-            lastAction = "opened-details";
-          }}
-        >
-          <EllipsisIcon aria-hidden="true" />
-        </Button>
-      </div>
-    </AppShell.Toolbar>
+          {#if activeRoom.memberCount}
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              aria-label={`View ${activeRoom.kind === "forum" ? "forum" : "channel"} members (${activeRoom.memberCount})`}
+            >
+              <UsersIcon data-icon="inline-start" aria-hidden="true" />
+              {activeRoom.memberCount}
+            </Button>
+          {/if}
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-sm"
+            aria-label="Start huddle"
+            title="Start huddle"
+          >
+            <HeadphonesIcon aria-hidden="true" />
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-sm"
+            aria-label={`Manage ${activeRoom.kind === "forum" ? "forum" : "channel"}`}
+            title={`Manage ${activeRoom.kind === "forum" ? "forum" : "channel"}`}
+            onclick={() => {
+              openSidePanel("details");
+              lastAction = "opened-details";
+            }}
+          >
+            <EllipsisIcon aria-hidden="true" />
+          </Button>
+        </div>
+      </AppShell.Toolbar>
 
-    <AppShell.Body layout="regions" label="Community workspace">
-      <AppShell.Body.Content label={`${activeRoom.name} content`}>
-        <CommunityWorkspaceSurface
-          {model}
-          handlers={{
-            ...(community?.handlers ?? {}),
-            onSelectRoom: selectRoom,
-            onSendMessage: (roomId, content) => {
-              community?.handlers.onSendMessage?.(roomId, content);
-              lastAction = "sent-message";
-            },
-            onOpenTopic: (topicId) => {
-              community?.actions.openTopic(topicId);
-              controller.right.close();
-              lastAction = `opened-topic:${topicId}`;
-            },
-            onOpenThread: (messageId) => {
-              community?.actions.openThread(messageId);
-              openSidePanel("thread");
-              lastAction = `opened-thread:${messageId}`;
-            },
-            onToggleReaction: react,
-            onAddReaction: react,
-            onCopyMessageLink: (messageId) => {
-              lastAction = `copied-message-link:${messageId}`;
-            },
-            onDeleteMessage: (messageId) => {
-              void community?.actions.deleteEvent(messageId);
-              lastAction = `deleted-message:${messageId}`;
-            },
-          }}
-        />
-      </AppShell.Body.Content>
-    </AppShell.Body>
+      <AppShell.Body layout="regions" label="Community workspace">
+        <AppShell.Body.Content label={`${activeRoom.name} content`}>
+          <CommunityWorkspaceSurface
+            {model}
+            handlers={{
+              ...(community?.handlers ?? {}),
+              onSelectRoom: selectRoom,
+              onSendMessage: (roomId, content) => {
+                community?.handlers.onSendMessage?.(roomId, content);
+                lastAction = "sent-message";
+              },
+              onOpenTopic: (topicId) => {
+                community?.actions.openTopic(topicId);
+                controller.right.close();
+                lastAction = `opened-topic:${topicId}`;
+              },
+              onOpenThread: (messageId) => {
+                community?.actions.openThread(messageId);
+                openSidePanel("thread");
+                lastAction = `opened-thread:${messageId}`;
+              },
+              onToggleReaction: react,
+              onAddReaction: react,
+              onCopyMessageLink: (messageId) => {
+                lastAction = `copied-message-link:${messageId}`;
+              },
+              onDeleteMessage: (messageId) => {
+                void community?.actions.deleteEvent(messageId);
+                lastAction = `deleted-message:${messageId}`;
+              },
+            }}
+          />
+        </AppShell.Body.Content>
+      </AppShell.Body>
+    {/if}
   </AppShell.Main>
 
   <AppShell.Sidebar
@@ -347,7 +404,7 @@
           }}
         />
       </AppShell.Sidebar.Body>
-    {:else if activeRoom.kind === "channel"}
+    {:else if activeRoom.kind === "channel" || activeRoom.kind === "forum"}
       <CommunityChannelSettings
         room={activeRoom}
         members={model.members}

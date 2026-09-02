@@ -32,6 +32,10 @@ import type {
   CommunityStoredState,
 } from "./contracts.js";
 import { createCommunityStoredState } from "./state-store.js";
+import {
+  materializeCommunitySettings,
+  normalizeShortcode,
+} from "./materialize-settings.js";
 
 const NO_CAPABILITIES: CommunityCapabilities = {
   channels: false,
@@ -110,6 +114,9 @@ export function createCommunityController(
       now(),
     ),
   );
+  const settings = $derived.by(() =>
+    materializeCommunitySettings(activeEvents(), identityPubkey),
+  );
   const capabilities = $derived.by(() => {
     const base = capabilitiesByScope[activeCommunityId] ?? NO_CAPABILITIES;
     const room = activeRoomScope();
@@ -132,6 +139,7 @@ export function createCommunityController(
       status,
       workspace,
       ...(inbox === undefined ? {} : { inbox }),
+      settings,
       capabilities,
       operations,
       searchResults,
@@ -475,6 +483,38 @@ export function createCommunityController(
         pubkey,
       });
     },
+    async updateProfile(profile) {
+      requireIdentity();
+      const previous = latestAuthoredEvent(0);
+      const content = parseJsonObject(previous?.content);
+      setProfileField(content, "display_name", profile.displayName);
+      setProfileField(content, "name", profile.username);
+      setProfileField(content, "about", profile.about);
+      setProfileField(content, "picture", profile.picture);
+      await publishTemplate("settings:profile", {
+        kind: 0,
+        created_at: nextAuthoredTimestamp(0),
+        content: JSON.stringify(content),
+        tags: [],
+      });
+    },
+    async setCustomEmoji(shortcode, url) {
+      requireIdentity();
+      const normalized = normalizeShortcode(shortcode);
+      const normalizedUrl = url.trim();
+      if (normalized === "") throw new Error("Emoji shortcode is required");
+      if (normalizedUrl === "") throw new Error("Emoji image URL is required");
+      const emojis = ownedEmojiMap();
+      emojis.set(normalized, normalizedUrl);
+      await publishEmojiSet(emojis, `settings:emoji:${normalized}`);
+    },
+    async removeCustomEmoji(shortcode) {
+      requireIdentity();
+      const normalized = normalizeShortcode(shortcode);
+      const emojis = ownedEmojiMap();
+      if (!emojis.delete(normalized)) return;
+      await publishEmojiSet(emojis, `settings:emoji:${normalized}:remove`);
+    },
   };
 
   const handlers: CommunityWorkspaceHandlers = {
@@ -610,6 +650,61 @@ export function createCommunityController(
     return eventsByScope[activeCommunityId] ?? [];
   }
 
+  function requireIdentity(): void {
+    if (identityPubkey === "") {
+      throw new Error("Connect a NIP-07 identity to change settings");
+    }
+  }
+
+  function latestAuthoredEvent(kind: number): NostrEvent | undefined {
+    return activeEvents()
+      .filter((event) => event.kind === kind && event.pubkey === identityPubkey)
+      .toSorted(
+        (left, right) =>
+          right.created_at - left.created_at || right.id.localeCompare(left.id),
+      )[0];
+  }
+
+  function nextAuthoredTimestamp(kind: number): number {
+    return Math.max(now(), (latestAuthoredEvent(kind)?.created_at ?? 0) + 1);
+  }
+
+  function ownedEmojiMap(): Map<string, string> {
+    const event = activeEvents()
+      .filter(
+        (candidate) =>
+          candidate.kind === 30_030 && candidate.pubkey === identityPubkey,
+      )
+      .toSorted(
+        (left, right) =>
+          right.created_at - left.created_at || right.id.localeCompare(left.id),
+      )[0];
+    const emojis = new Map<string, string>();
+    for (const tag of event?.tags ?? []) {
+      if (tag[0] === "emoji" && tag[1] && tag[2]) {
+        emojis.set(normalizeShortcode(tag[1]), tag[2]);
+      }
+    }
+    return emojis;
+  }
+
+  async function publishEmojiSet(
+    emojis: ReadonlyMap<string, string>,
+    operation: string,
+  ): Promise<void> {
+    await publishTemplate(operation, {
+      kind: 30_030,
+      created_at: nextAuthoredTimestamp(30_030),
+      content: "",
+      tags: [
+        ["d", "emojis"],
+        ...[...emojis.entries()]
+          .toSorted(([left], [right]) => left.localeCompare(right))
+          .map(([shortcode, url]) => ["emoji", shortcode, url]),
+      ],
+    });
+  }
+
   async function persistSelection(scopeId: string): Promise<void> {
     await updateStoredState(scopeId, (stored) => {
       stored.preferences.activeRoomId = {
@@ -691,6 +786,30 @@ function isGroupAdmin(
       )[0]
       ?.tags.some((tag) => tag[0] === "p" && tag[1] === pubkey) === true
   );
+}
+
+function parseJsonObject(value: string | undefined): Record<string, unknown> {
+  if (value === undefined) return {};
+  try {
+    const parsed = JSON.parse(value) as unknown;
+    return parsed !== null &&
+      !Array.isArray(parsed) &&
+      typeof parsed === "object"
+      ? { ...(parsed as Record<string, unknown>) }
+      : {};
+  } catch {
+    return {};
+  }
+}
+
+function setProfileField(
+  profile: Record<string, unknown>,
+  field: string,
+  value: string,
+): void {
+  const normalized = value.trim();
+  if (normalized === "") delete profile[field];
+  else profile[field] = normalized;
 }
 
 function isAbort(cause: unknown): boolean {

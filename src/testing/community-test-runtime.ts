@@ -1,4 +1,4 @@
-import { SecretKeyRegistrySigner } from "../auth/index.js";
+import { Nip07RegistrySigner, SecretKeyRegistrySigner } from "../auth/index.js";
 import {
   createCommunityController,
   createNip29CommunitySource,
@@ -10,7 +10,12 @@ import {
   type CommunityRelay,
   type CommunityRelayFactory,
 } from "../nostr/index.js";
-import type { NostrEvent, NostrEventTemplate } from "../protocol/index.js";
+import {
+  LAPIS_GROUPS,
+  lapisGroupId,
+  type NostrEvent,
+  type NostrEventTemplate,
+} from "../protocol/index.js";
 import { finalizeEvent } from "nostr-tools/pure";
 
 import {
@@ -36,12 +41,14 @@ export interface CommunityTestScenario {
   seed(relay: CommunityRelay): Promise<void>;
 }
 
-export type CommunityStoryBackend = "memory" | "docker";
+export type CommunityStoryBackend = "memory" | "docker" | "live";
 
 export interface CommunityStoryRuntimeOptions
   extends CommunityTestScenarioOptions {
   backend?: CommunityStoryBackend;
   relayUrl?: string;
+  liveChannelGroupId?: string;
+  liveForumGroupId?: string;
 }
 
 export interface CommunityStoryRuntime {
@@ -111,9 +118,20 @@ export function createCommunityTestScenario(
       created_at: createdAt + 2,
       content: JSON.stringify({
         display_name: "steve",
+        name: "steve",
+        about: "Building calm, portable community tools.",
         picture: storyIdentityAvatarUrl,
       }),
       tags: [],
+    },
+    {
+      kind: 30_030,
+      created_at: createdAt + 2,
+      content: "",
+      tags: [
+        ["d", "emojis"],
+        ["emoji", "lapis", storyIdentityAvatarUrl],
+      ],
     },
     {
       kind: 9,
@@ -285,7 +303,7 @@ export async function createCommunityStoryRuntime(
   const relayUrl = options.relayUrl ?? configured.relayUrl;
   if (relayUrl === undefined || relayUrl === "") {
     throw new Error(
-      "Docker relay unavailable. Start it with pnpm storybook:relay or provide VITE_COMMUNITY_RELAY_URL.",
+      `${backend === "live" ? "Live" : "Docker"} relay unavailable. Provide the matching Storybook relay URL.`,
     );
   }
   const scenario = createCommunityTestScenario({
@@ -294,12 +312,57 @@ export async function createCommunityStoryRuntime(
     namespace: options.namespace ?? crypto.randomUUID(),
   });
   const relayFactory = createWebSocketCommunityRelayFactory();
-  await seedCommunityTestScenario(scenario, relayFactory);
+  if (backend === "docker") {
+    await seedCommunityTestScenario(scenario, relayFactory);
+  }
+  const liveScope: CommunityScope =
+    backend === "live"
+      ? {
+          ...scenario.scope,
+          rooms: [
+            {
+              id: "general",
+              groupId:
+                options.liveChannelGroupId ??
+                configured.liveChannelGroupId ??
+                lapisGroupId(LAPIS_GROUPS.general),
+              name: "general",
+              kind: "channel",
+            },
+            {
+              id: "plugin-releases",
+              groupId: lapisGroupId(LAPIS_GROUPS.pluginReleases),
+              name: "plugin-releases",
+              kind: "channel",
+            },
+            {
+              id: "plugin-development",
+              groupId: lapisGroupId(LAPIS_GROUPS.pluginDevelopment),
+              name: "plugin-development",
+              kind: "channel",
+            },
+            {
+              id: "forums",
+              groupId:
+                options.liveForumGroupId ??
+                configured.liveForumGroupId ??
+                lapisGroupId(LAPIS_GROUPS.forums),
+              name: "forums",
+              kind: "forum",
+            },
+          ],
+        }
+      : scenario.scope;
+  const identity =
+    backend === "live" ? discoverNip07Identity() : scenario.operator;
   const controller = createCommunityController({
-    scopes: [scenario.scope],
+    scopes: [liveScope],
     source: createNip29CommunitySource({ relayFactory }),
-    identity: scenario.operator,
-    now: () => (options.createdAt ?? 1_700_000_000) + 100,
+    ...(identity === undefined ? {} : { identity }),
+    now:
+      backend === "live"
+        ? () => Math.floor(Date.now() / 1_000)
+        : () => (options.createdAt ?? 1_700_000_000) + 100,
   });
   return {
     backend,
@@ -315,17 +378,44 @@ export async function createCommunityStoryRuntime(
 function storybookConfiguration(): {
   backend: CommunityStoryBackend;
   relayUrl?: string;
+  liveChannelGroupId?: string;
+  liveForumGroupId?: string;
 } {
   if (typeof document === "undefined") return { backend: "memory" };
   const backend =
     document.documentElement.dataset.communityBackend === "docker"
       ? "docker"
-      : "memory";
-  const relayUrl = document.documentElement.dataset.communityRelayUrl;
+      : document.documentElement.dataset.communityBackend === "live"
+        ? "live"
+        : "memory";
+  const relayUrl =
+    backend === "live"
+      ? document.documentElement.dataset.communityLiveRelayUrl
+      : document.documentElement.dataset.communityRelayUrl;
   return {
     backend,
     ...(relayUrl === undefined || relayUrl === "" ? {} : { relayUrl }),
+    ...(document.documentElement.dataset.communityLiveChannelGroupId
+      ? {
+          liveChannelGroupId:
+            document.documentElement.dataset.communityLiveChannelGroupId,
+        }
+      : {}),
+    ...(document.documentElement.dataset.communityLiveForumGroupId
+      ? {
+          liveForumGroupId:
+            document.documentElement.dataset.communityLiveForumGroupId,
+        }
+      : {}),
   };
+}
+
+function discoverNip07Identity(): Nip07RegistrySigner | undefined {
+  try {
+    return new Nip07RegistrySigner();
+  } catch {
+    return undefined;
+  }
 }
 
 function publicKey(secretKey: Uint8Array): string {

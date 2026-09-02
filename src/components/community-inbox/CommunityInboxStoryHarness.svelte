@@ -18,26 +18,41 @@
 
   onMount(() => {
     let active = true;
-    void createCommunityStoryRuntime()
-      .then((created) => {
-        if (!active) {
-          created.dispose();
-          return;
-        }
-        runtime = created;
-        community = created.controller;
-        community.initialize();
-      })
-      .catch((cause: unknown) => {
-        if (active) {
-          runtimeError =
-            cause instanceof Error
-              ? cause.message
-              : "Community story runtime failed";
-        }
-      });
+    let runtimeGeneration = 0;
+    const startRuntime = (): void => {
+      const currentGeneration = ++runtimeGeneration;
+      runtime?.dispose();
+      runtime = undefined;
+      community = undefined;
+      runtimeError = "";
+      void createCommunityStoryRuntime()
+        .then((created) => {
+          if (!active || currentGeneration !== runtimeGeneration) {
+            created.dispose();
+            return;
+          }
+          runtime = created;
+          community = created.controller;
+          community.initialize();
+        })
+        .catch((cause: unknown) => {
+          if (active && currentGeneration === runtimeGeneration) {
+            runtimeError =
+              cause instanceof Error
+                ? cause.message
+                : "Community story runtime failed";
+          }
+        });
+    };
+    window.addEventListener("community-story-backend-change", startRuntime);
+    startRuntime();
     return () => {
       active = false;
+      runtimeGeneration += 1;
+      window.removeEventListener(
+        "community-story-backend-change",
+        startRuntime,
+      );
       runtime?.dispose();
     };
   });

@@ -53,11 +53,40 @@ export interface CommunityControllerState {
   status: CommunityConnectionStatus;
   workspace: CommunityWorkspaceModel;
   inbox?: CommunityInboxModel;
+  settings: CommunitySettingsState;
   capabilities: CommunityCapabilities;
   operations: Readonly<Record<string, CommunityOperationState>>;
   searchResults: readonly CommunitySearchResult[];
   searchQuery: string;
   error?: string;
+}
+
+export interface CommunityProfileSettings {
+  pubkey: string;
+  displayName: string;
+  username: string;
+  about: string;
+  picture: string;
+}
+
+export interface CommunityCustomEmoji {
+  shortcode: string;
+  url: string;
+  ownerPubkey: string;
+  owned: boolean;
+}
+
+export interface CommunitySettingsState {
+  identityConnected: boolean;
+  profile: CommunityProfileSettings;
+  customEmojis: readonly CommunityCustomEmoji[];
+}
+
+export interface CommunityProfileUpdate {
+  displayName: string;
+  username: string;
+  about: string;
+  picture: string;
 }
 
 export type CommunityIdentity = CommunitySigner;
@@ -170,6 +199,9 @@ export interface CommunityControllerActions {
   leave(groupId: string): Promise<void>;
   addMember(groupId: string, pubkey: string, roles?: string[]): Promise<void>;
   removeMember(groupId: string, pubkey: string): Promise<void>;
+  updateProfile(profile: CommunityProfileUpdate): Promise<void>;
+  setCustomEmoji(shortcode: string, url: string): Promise<void>;
+  removeCustomEmoji(shortcode: string): Promise<void>;
 }
 
 export interface CommunityControllerOptions {
