@@ -23,6 +23,8 @@
     onOpenThread,
     onToggleReaction,
     onAddReaction,
+    onCopyMessageLink,
+    onDeleteMessage,
     composerPlacement = "overlay",
     intro,
   }: {
@@ -33,6 +35,8 @@
     onOpenThread?: (messageId: string) => void;
     onToggleReaction?: (messageId: string, emoji: string) => void;
     onAddReaction?: (messageId: string, emoji: string) => void;
+    onCopyMessageLink?: (messageId: string) => void;
+    onDeleteMessage?: (messageId: string) => void;
     composerPlacement?: "overlay" | "row";
     intro?: Snippet;
   } = $props();
@@ -79,12 +83,17 @@
         <CommunityMessage
           {message}
           author={memberById(members, message.authorId)}
+          replyParticipants={(message.replyParticipantIds ?? []).map((id) =>
+            memberById(members, id),
+          )}
           {density}
           onOpenThread={(messageId) => onOpenThread?.(messageId)}
           onToggleReaction={(messageId, emoji) =>
             onToggleReaction?.(messageId, emoji)}
           onAddReaction={(messageId, emoji) =>
             onAddReaction?.(messageId, emoji)}
+          onCopyLink={(messageId) => onCopyMessageLink?.(messageId)}
+          onDelete={(messageId) => onDeleteMessage?.(messageId)}
         />
       {/each}
     </MessageList>

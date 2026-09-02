@@ -55,6 +55,7 @@ export interface CommunityMessageModel {
   parentMessageId?: string;
   replyCount?: number;
   replyLabel?: string;
+  replyParticipantIds?: string[];
   reactions?: CommunityReactionModel[];
 }
 
@@ -109,6 +110,8 @@ export interface CommunityWorkspaceHandlers {
   onSendReply?: (rootMessageId: string, content: string) => void;
   onToggleReaction?: (messageId: string, emoji: string) => void;
   onAddReaction?: (messageId: string, emoji: string) => void;
+  onCopyMessageLink?: (messageId: string) => void;
+  onDeleteMessage?: (messageId: string) => void;
   onSearch?: (query: string) => void;
 }
 

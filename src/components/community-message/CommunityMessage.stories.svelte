@@ -20,10 +20,13 @@
   args={{
     message: communityStoryMessages[1]!,
     author: communityStoryMembers[1]!,
+    replyParticipants: communityStoryMembers.slice(0, 3),
     density: "compact",
     onOpenThread: fn(),
     onToggleReaction: fn(),
     onAddReaction: fn(),
+    onCopyLink: fn(),
+    onDelete: fn(),
   }}
   play={async ({ canvas, args }) => {
     const message = canvas.getByLabelText("Message from Ben Stone");

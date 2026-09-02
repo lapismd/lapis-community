@@ -14,12 +14,16 @@
     onSendReply,
     onToggleReaction,
     onAddReaction,
+    onCopyMessageLink,
+    onDeleteMessage,
   }: {
     thread: CommunityThreadModel;
     members: CommunityMemberModel[];
     onSendReply?: (rootMessageId: string, content: string) => void;
     onToggleReaction?: (messageId: string, emoji: string) => void;
     onAddReaction?: (messageId: string, emoji: string) => void;
+    onCopyMessageLink?: (messageId: string) => void;
+    onDeleteMessage?: (messageId: string) => void;
   } = $props();
 
   let draft = $state("");
@@ -49,11 +53,16 @@
         <CommunityMessage
           {message}
           author={memberById(members, message.authorId)}
+          replyParticipants={(message.replyParticipantIds ?? []).map((id) =>
+            memberById(members, id),
+          )}
           density="compact"
           onToggleReaction={(messageId, emoji) =>
             onToggleReaction?.(messageId, emoji)}
           onAddReaction={(messageId, emoji) =>
             onAddReaction?.(messageId, emoji)}
+          onCopyLink={(messageId) => onCopyMessageLink?.(messageId)}
+          onDelete={(messageId) => onDeleteMessage?.(messageId)}
         />
       {/each}
     </MessageList>

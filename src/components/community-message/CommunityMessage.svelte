@@ -4,8 +4,16 @@
     MessageBubble,
     MessageMetadata,
   } from "@lapismd/design-core/ai/chat";
-  import { ReactionBar } from "@lapismd/design-core/ai/experimental";
+  import {
+    EmojiPicker,
+    ReactionBar,
+  } from "@lapismd/design-core/ai/experimental";
   import { Button } from "@lapismd/design-core/shadcn/button";
+  import * as DropdownMenu from "@lapismd/design-core/shadcn/dropdown-menu";
+  import CopyIcon from "@lucide/svelte/icons/copy";
+  import EllipsisIcon from "@lucide/svelte/icons/ellipsis";
+  import MessageSquareReplyIcon from "@lucide/svelte/icons/message-square-reply";
+  import Trash2Icon from "@lucide/svelte/icons/trash-2";
 
   import type {
     CommunityMemberModel,
@@ -15,17 +23,23 @@
   let {
     message,
     author,
+    replyParticipants = [],
     density = "compact",
     onOpenThread,
     onToggleReaction,
     onAddReaction,
+    onCopyLink,
+    onDelete,
   }: {
     message: CommunityMessageModel;
     author: CommunityMemberModel;
+    replyParticipants?: CommunityMemberModel[];
     density?: "compact" | "balanced" | "spacious";
     onOpenThread?: (messageId: string) => void;
     onToggleReaction?: (messageId: string, emoji: string) => void;
     onAddReaction?: (messageId: string, emoji: string) => void;
+    onCopyLink?: (messageId: string) => void;
+    onDelete?: (messageId: string) => void;
   } = $props();
 
   const isSelected = $derived(
@@ -57,13 +71,79 @@
   </MessageBubble>
 
   {#if onAddReaction}
-    <ReactionBar
-      reactions={message.reactions ?? []}
-      label={`Reactions to ${author.name}'s message`}
-      onToggle={(emoji) => onToggleReaction?.(message.id, emoji)}
-      onAdd={(emoji) => onAddReaction(message.id, emoji)}
-    />
-  {:else if message.reactions?.length}
+    <div
+      class="community-message__actions"
+      role="group"
+      aria-label={`Actions for ${author.name}'s message`}
+    >
+      <EmojiPicker
+        label={`React to ${author.name}'s message`}
+        triggerLabel="Add reaction"
+        onSelect={(emoji) => onAddReaction(message.id, emoji)}
+      />
+      {#if onOpenThread}
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-sm"
+          aria-label="Reply in thread"
+          title="Reply in thread"
+          onclick={() => onOpenThread(message.id)}
+        >
+          <MessageSquareReplyIcon aria-hidden="true" />
+        </Button>
+      {/if}
+      {#if onCopyLink}
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-sm"
+          aria-label="Copy message link"
+          title="Copy message link"
+          onclick={() => onCopyLink(message.id)}
+        >
+          <CopyIcon aria-hidden="true" />
+        </Button>
+      {/if}
+      {#if onCopyLink || onDelete}
+        <DropdownMenu.Root>
+          <DropdownMenu.Trigger>
+            {#snippet child({ props })}
+              <Button
+                {...props}
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                aria-label="More message actions"
+                title="More message actions"
+              >
+                <EllipsisIcon aria-hidden="true" />
+              </Button>
+            {/snippet}
+          </DropdownMenu.Trigger>
+          <DropdownMenu.Content align="end" sideOffset={4}>
+            {#if onCopyLink}
+              <DropdownMenu.Item onSelect={() => onCopyLink(message.id)}>
+                <CopyIcon data-icon="inline-start" aria-hidden="true" />
+                Copy message link
+              </DropdownMenu.Item>
+            {/if}
+            {#if onDelete}
+              <DropdownMenu.Item
+                variant="destructive"
+                onSelect={() => onDelete(message.id)}
+              >
+                <Trash2Icon data-icon="inline-start" aria-hidden="true" />
+                Delete message
+              </DropdownMenu.Item>
+            {/if}
+          </DropdownMenu.Content>
+        </DropdownMenu.Root>
+      {/if}
+    </div>
+  {/if}
+
+  {#if message.reactions?.length}
     <ReactionBar
       reactions={message.reactions}
       label={`Reactions to ${author.name}'s message`}
@@ -78,12 +158,30 @@
       {#if message.replyCount || onOpenThread}
         <Button
           type="button"
-          variant="link"
+          variant="ghost"
           size="xs"
+          class="community-message__reply-summary"
+          aria-label={message.replyLabel ??
+            `${message.replyCount ?? 0} ${(message.replyCount ?? 0) === 1 ? "reply" : "replies"}`}
           onclick={() => onOpenThread?.(message.id)}
         >
-          {message.replyLabel ??
-            `${message.replyCount ?? 0} ${(message.replyCount ?? 0) === 1 ? "reply" : "replies"}`}
+          {#if replyParticipants.length}
+            <span class="community-message__reply-avatars" aria-hidden="true">
+              {#each replyParticipants.slice(0, 3) as participant (participant.id)}
+                <span title={participant.name}>
+                  {#if participant.avatarUrl}
+                    <img src={participant.avatarUrl} alt="" />
+                  {:else}
+                    {participant.initials}
+                  {/if}
+                </span>
+              {/each}
+            </span>
+          {/if}
+          <span>
+            {message.replyLabel ??
+              `${message.replyCount ?? 0} ${(message.replyCount ?? 0) === 1 ? "reply" : "replies"}`}
+          </span>
         </Button>
       {/if}
     </div>
@@ -92,6 +190,7 @@
 
 <style>
   :global(.community-message) {
+    position: relative;
     width: calc(100% + 1rem);
     margin-inline: -0.5rem;
     border-radius: var(--radius);
@@ -129,46 +228,35 @@
     padding-inline: 0;
   }
 
-  :global(
-      .community-message
-        [data-ui-component="ai-chat-reaction-bar"]
-        [data-ui-component="ai-chat-emoji-picker"]
-        [data-ui-component="button"]
-    ) {
+  .community-message__actions {
+    position: absolute;
+    z-index: 3;
+    inset-block-start: -1rem;
+    inset-inline-end: 0.5rem;
+    display: flex;
+    align-items: center;
+    gap: 0.125rem;
+    padding: 0.125rem;
+    border: 1px solid var(--border);
+    border-radius: 0.55rem;
     opacity: 0;
-    background: transparent;
+    background: var(--popover, var(--background));
+    box-shadow: var(--shadow-sm);
+    pointer-events: none;
     transition:
       opacity 120ms ease,
-      background-color 120ms ease;
+      transform 120ms ease;
+    transform: translateY(0.2rem);
   }
 
-  :global(
-      .community-message:hover
-        [data-ui-component="ai-chat-reaction-bar"]
-        [data-ui-component="ai-chat-emoji-picker"]
-        [data-ui-component="button"]
-    ),
-  :global(
-      .community-message:focus-within
-        [data-ui-component="ai-chat-reaction-bar"]
-        [data-ui-component="ai-chat-emoji-picker"]
-        [data-ui-component="button"]
-    ),
-  :global(
-      .community-message[data-selected]
-        [data-ui-component="ai-chat-reaction-bar"]
-        [data-ui-component="ai-chat-emoji-picker"]
-        [data-ui-component="button"]
-    ) {
+  :global(.community-message:hover) .community-message__actions,
+  :global(.community-message:focus-within) .community-message__actions {
     opacity: 1;
+    pointer-events: auto;
+    transform: translateY(0);
   }
 
-  :global(
-      .community-message
-        [data-ui-component="ai-chat-reaction-bar"]
-        [data-ui-component="ai-chat-emoji-picker"]
-        [data-ui-component="button"]:hover
-    ) {
+  .community-message__actions :global([data-ui-component="button"]:hover) {
     background: color-mix(in srgb, var(--foreground) 12%, transparent);
     box-shadow: inset 0 0 0 1px
       color-mix(in srgb, var(--foreground) 10%, transparent);
@@ -204,6 +292,47 @@
 
   .community-message__metadata :global([data-ui-component="button"]) {
     height: auto;
-    padding: 0;
+  }
+
+  :global(.community-message__reply-summary[data-ui-component="button"]) {
+    gap: 0.4rem;
+    padding: 0.18rem 0.35rem;
+    border-radius: 999px;
+    color: var(--muted-foreground);
+    font-size: 0.72rem;
+  }
+
+  :global(.community-message__reply-summary[data-ui-component="button"]:hover),
+  :global(
+      .community-message__reply-summary[data-ui-component="button"]:focus-visible
+    ) {
+    color: var(--foreground);
+    background: color-mix(in srgb, var(--foreground) 8%, transparent);
+  }
+
+  .community-message__reply-avatars {
+    display: flex;
+    padding-inline-start: 0.2rem;
+  }
+
+  .community-message__reply-avatars > span {
+    display: grid;
+    width: 1.3rem;
+    height: 1.3rem;
+    place-items: center;
+    overflow: hidden;
+    margin-inline-start: -0.2rem;
+    border: 2px solid var(--background);
+    border-radius: 50%;
+    color: var(--primary-foreground);
+    background: var(--primary);
+    font-size: 0.46rem;
+    font-weight: 750;
+  }
+
+  .community-message__reply-avatars img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
   }
 </style>

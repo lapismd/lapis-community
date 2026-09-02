@@ -124,6 +124,8 @@
   }
 
   :global(.forum-topic-list__topic[data-ui-component="button"]) {
+    height: auto;
+    min-height: 5.25rem;
     border: 0;
     border-block-end: 1px solid var(--border);
     padding: 1rem 0.75rem;
@@ -131,6 +133,7 @@
     background: transparent;
     font: inherit;
     text-align: start;
+    white-space: normal;
     cursor: pointer;
   }
 

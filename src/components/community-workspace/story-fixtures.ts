@@ -147,6 +147,7 @@ export const communityStoryMessages: CommunityMessageModel[] = [
       { emoji: "🚀", count: 3 },
     ],
     replyCount: 3,
+    replyParticipantIds: ["ben", "mara", "cy"],
   },
   {
     id: "message-release",
@@ -161,6 +162,7 @@ export const communityStoryMessages: CommunityMessageModel[] = [
     ],
     replyCount: 8,
     replyLabel: "8 replies · last reply 4 minutes ago",
+    replyParticipantIds: ["mara", "ada", "cy"],
   },
   {
     id: "message-question",
@@ -180,6 +182,7 @@ export const communityStoryMessages: CommunityMessageModel[] = [
       "Yes. The UI category is derived from the room, while the signed root and parent references remain unchanged. Moderation can hide a post from this view without changing registry trust.",
     reactions: [{ emoji: "💡", count: 2 }],
     replyCount: 2,
+    replyParticipantIds: ["ada", "ben"],
   },
   {
     id: "message-docs",

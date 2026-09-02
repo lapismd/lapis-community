@@ -285,13 +285,14 @@
           {model}
           handlers={{
             ...(community?.handlers ?? {}),
+            onSelectRoom: selectRoom,
             onSendMessage: (roomId, content) => {
               community?.handlers.onSendMessage?.(roomId, content);
               lastAction = "sent-message";
             },
             onOpenTopic: (topicId) => {
               community?.actions.openTopic(topicId);
-              openSidePanel("details");
+              controller.right.close();
               lastAction = `opened-topic:${topicId}`;
             },
             onOpenThread: (messageId) => {
@@ -301,6 +302,13 @@
             },
             onToggleReaction: react,
             onAddReaction: react,
+            onCopyMessageLink: (messageId) => {
+              lastAction = `copied-message-link:${messageId}`;
+            },
+            onDeleteMessage: (messageId) => {
+              void community?.actions.deleteEvent(messageId);
+              lastAction = `deleted-message:${messageId}`;
+            },
           }}
         />
       </AppShell.Body.Content>
@@ -330,6 +338,13 @@
           }}
           onToggleReaction={react}
           onAddReaction={react}
+          onCopyMessageLink={(messageId) => {
+            lastAction = `copied-message-link:${messageId}`;
+          }}
+          onDeleteMessage={(messageId) => {
+            void community?.actions.deleteEvent(messageId);
+            lastAction = `deleted-message:${messageId}`;
+          }}
         />
       </AppShell.Sidebar.Body>
     {:else if activeRoom.kind === "channel"}

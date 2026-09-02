@@ -28,6 +28,8 @@
     onOpenThread: fn(),
     onToggleReaction: fn(),
     onAddReaction: fn(),
+    onCopyMessageLink: fn(),
+    onDeleteMessage: fn(),
   }}
 >
   {#snippet template(args)}

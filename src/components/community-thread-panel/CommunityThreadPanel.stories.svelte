@@ -23,6 +23,8 @@
     onSendReply: fn(),
     onToggleReaction: fn(),
     onAddReaction: fn(),
+    onCopyMessageLink: fn(),
+    onDeleteMessage: fn(),
   }}
   play={async ({ canvas, args }) => {
     const composer = canvas.getByRole("combobox", { name: "Message" });

@@ -445,11 +445,12 @@ function eventMessage(
   const parentMessageId =
     event.tags.find((tag) => tag[0] === "e" && tag[3] === "reply")?.[1] ??
     event.tags.find((tag) => tag[0] === "e")?.[1];
-  const replyCount = events.filter((candidate) =>
+  const replies = events.filter((candidate) =>
     candidate.tags.some(
       (tag) => (tag[0] === "e" || tag[0] === "E") && tag[1] === event.id,
     ),
-  ).length;
+  );
+  const replyCount = replies.length;
   const reactions = reactionModels(event.id, events);
   return {
     id: event.id,
@@ -463,6 +464,14 @@ function eventMessage(
       : {
           replyCount,
           replyLabel: replyCount === 1 ? "1 reply" : `${replyCount} replies`,
+          replyParticipantIds: [
+            ...new Set(
+              replies
+                .toSorted(compareOldest)
+                .toReversed()
+                .map((reply) => reply.pubkey),
+            ),
+          ].slice(0, 3),
         }),
     ...(reactions.length === 0 ? {} : { reactions }),
   };
