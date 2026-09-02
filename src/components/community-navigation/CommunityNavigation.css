@@ -13,6 +13,8 @@
   --cv-search-filter-content-justify: stretch;
   --ui-form-radius: 0.85rem;
 
+  display: flex;
+  align-items: center;
   gap: 0.5rem;
   min-height: calc(var(--ui-shell-toolbar-height) + 0.75rem);
 }

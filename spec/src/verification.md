@@ -32,7 +32,7 @@
 | LC-UI-010    | Visual pending | Ordered Navigation, Inbox, Channels, Forums, Discussion, Registry, and Examples catalog sections; human review pending            |
 | LC-UI-011    | Visual pending | `src/components/community-workspace/CommunityWorkspace.stories.svelte`; consolidated public Design Core shell examples            |
 | LC-UI-012    | Visual pending | edge-to-edge Examples/App Shell stories; Inbox compact header geometry and enabled-control hover states; human review pending     |
-| LC-UI-013    | Visual pending | `src/components/community-navigation`; navigation, sorting, and action-menu stories; human review pending                         |
+| LC-UI-013    | Visual pending | `src/components/community-navigation`; navigation, collapsed-rail search alignment, sorting, and action-menu stories              |
 | LC-UI-014    | Visual pending | Inbox row-composer and message states in `Community/Examples/App Shell/Inbox`; human review pending                               |
 | LC-UI-015    | Visual pending | Inbox menus, joined inline right sidebar, and channel welcome settings treatment; human review pending                            |
 | LC-UI-016    | Visual pending | `Community/Examples/App Shell/Desktop channel` and `Channel thread open`; live Buzz comparison; human review pending              |
