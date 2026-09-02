@@ -1,5 +1,8 @@
 <script lang="ts">
+  import { Button } from "@lapismd/design-core/shadcn/button";
   import { AppShell, AppShellController } from "@lapismd/design-core/shell";
+  import ChevronLeftIcon from "@lucide/svelte/icons/chevron-left";
+  import ChevronRightIcon from "@lucide/svelte/icons/chevron-right";
   import { onMount } from "svelte";
   import type { CommunityController } from "../../community/index.js";
   import {
@@ -41,6 +44,8 @@
   let community = $state<CommunityController>();
   let runtimeError = $state("");
   let activeDestination = $state("");
+  let navigationHistory = $state<string[]>([]);
+  let navigationHistoryIndex = $state(0);
   const workspace = $derived(community?.state.workspace);
   const inbox = $derived(community?.state.inbox ?? communityInboxFixture);
   const navigationModel = $derived.by<CommunityNavigationModel>(() => ({
@@ -84,9 +89,15 @@
       ? activeDestination
       : (workspace?.activeRoomId ?? activeDestination),
   );
+  const canNavigateBack = $derived(navigationHistoryIndex > 0);
+  const canNavigateForward = $derived(
+    navigationHistoryIndex < navigationHistory.length - 1,
+  );
 
   $effect(() => {
     activeDestination = initialActiveItemId;
+    navigationHistory = [initialActiveItemId];
+    navigationHistoryIndex = 0;
   });
 
   onMount(() => {
@@ -118,7 +129,18 @@
     };
   });
 
-  function select(item: CommunityNavigationItemModel): void {
+  function activate(
+    item: CommunityNavigationItemModel,
+    recordHistory: boolean,
+  ): void {
+    if (recordHistory && item.id !== activeDestination) {
+      const nextHistory = [
+        ...navigationHistory.slice(0, navigationHistoryIndex + 1),
+        item.id,
+      ];
+      navigationHistory = nextHistory;
+      navigationHistoryIndex = nextHistory.length - 1;
+    }
     const room = workspace?.navigationSections
       .flatMap((section) => section.rooms)
       .find((candidate) => candidate.id === item.id);
@@ -129,6 +151,29 @@
       activeDestination = item.id;
     }
     onSelect(item);
+  }
+
+  function select(item: CommunityNavigationItemModel): void {
+    activate(item, true);
+  }
+
+  function itemFor(destinationId: string): CommunityNavigationItemModel | null {
+    return (
+      [
+        ...navigationModel.primaryItems,
+        ...navigationModel.sections.flatMap((section) => section.items),
+      ].find((item) => item.id === destinationId) ?? null
+    );
+  }
+
+  function navigateHistory(offset: -1 | 1): void {
+    const nextIndex = navigationHistoryIndex + offset;
+    const destinationId = navigationHistory[nextIndex];
+    if (destinationId === undefined) return;
+    const item = itemFor(destinationId);
+    if (!item) return;
+    navigationHistoryIndex = nextIndex;
+    activate(item, false);
   }
 </script>
 
@@ -144,6 +189,71 @@
   data-community-status={community?.state.status ?? "loading"}
   data-community-backend={runtime?.backend ?? "loading"}
 >
+  <header
+    class="lc-community-shell-titlebar"
+    aria-label="Application navigation"
+  >
+    <Button
+      type="button"
+      variant="ghost"
+      size="icon-sm"
+      aria-label={controller.left.collapsed
+        ? "Expand left sidebar"
+        : "Collapse left sidebar"}
+      aria-expanded={!controller.left.collapsed}
+      title={controller.left.collapsed
+        ? "Expand left sidebar"
+        : "Collapse left sidebar"}
+      onclick={() => controller.left.toggle()}
+    >
+      <svg
+        class="lc-community-shell-titlebar__sidebar-icon"
+        xmlns="http://www.w3.org/2000/svg"
+        width="24"
+        height="24"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        aria-hidden="true"
+      >
+        <rect x="1" y="2" width="22" height="20" rx="4"></rect>
+        <rect x="4" y="5" width="2" height="14" rx="2" fill="currentColor"
+        ></rect>
+      </svg>
+    </Button>
+    <div
+      class="lc-community-shell-titlebar__history"
+      role="group"
+      aria-label="Navigation history"
+    >
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon-sm"
+        aria-label="Back"
+        title="Back"
+        disabled={!canNavigateBack}
+        onclick={() => navigateHistory(-1)}
+      >
+        <ChevronLeftIcon aria-hidden="true" />
+      </Button>
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon-sm"
+        aria-label="Forward"
+        title="Forward"
+        disabled={!canNavigateForward}
+        onclick={() => navigateHistory(1)}
+      >
+        <ChevronRightIcon aria-hidden="true" />
+      </Button>
+    </div>
+  </header>
+
   <AppShell.Root
     {controller}
     displayMode="desktop"
@@ -162,11 +272,7 @@
         }}
         {onSectionAction}
         onRequestExpand={() => controller.left.expand()}
-      >
-        {#snippet headerEnd()}
-          <AppShell.Sidebar.Toggle side="left" />
-        {/snippet}
-      </CommunityNavigation>
+      />
     </AppShell.Sidebar>
 
     <AppShell.Main>
@@ -198,13 +304,15 @@
 <style>
   :global(#storybook-root:has(.lc-community-shell-frame)) {
     height: 100vh;
+    padding: 0;
   }
 
   .lc-community-shell-frame {
     box-sizing: border-box;
+    display: grid;
+    grid-template-rows: 3rem minmax(0, 1fr);
     height: 100%;
     min-width: 48rem;
-    padding: 1.5rem;
     background: var(--muted);
   }
 
@@ -216,10 +324,23 @@
     --ui-shell-height: 100%;
     --ui-shell-right-sidebar-gap: 0;
 
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    box-shadow: 0 1rem 2.5rem
-      color-mix(in srgb, var(--foreground) 10%, transparent);
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  .lc-community-shell-titlebar {
+    display: flex;
+    align-items: center;
+    gap: 0.125rem;
+    background: var(--sidebar, var(--muted));
+    padding-inline: 0.75rem;
+  }
+
+  .lc-community-shell-titlebar__history {
+    display: flex;
+    align-items: center;
+    gap: 0.125rem;
   }
 
   :global(

@@ -103,6 +103,12 @@ const preview: Preview = {
     (story, context) => {
       if (typeof document !== "undefined") {
         syncCatalogStoryLayout(document, context);
+        if (
+          context.viewMode === "story" &&
+          context.title === "Community/Examples/App Shell"
+        ) {
+          document.body.setAttribute("data-ui-catalog-full-viewport", "");
+        }
         document.documentElement.classList.toggle(
           "dark",
           context.globals.colorMode === "dark",
