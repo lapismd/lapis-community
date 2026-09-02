@@ -7,6 +7,7 @@
   } from "@lapismd/design-core/ai/chat";
 
   import CommunityMessage from "../community-message/CommunityMessage.svelte";
+  import { isMessageContinuation } from "../community-message/grouping.js";
   import {
     memberById,
     type CommunityMemberModel,
@@ -61,9 +62,10 @@
       latestMessageId={thread.messages.at(-1)?.id ?? ""}
       aria-label="Thread replies"
     >
-      {#each thread.messages as message (message.id)}
+      {#each thread.messages as message, index (message.id)}
         <CommunityMessage
           {message}
+          isContinuation={isMessageContinuation(thread.messages, index)}
           author={memberById(members, message.authorId)}
           replyParticipants={(message.replyParticipantIds ?? []).map((id) =>
             memberById(members, id),

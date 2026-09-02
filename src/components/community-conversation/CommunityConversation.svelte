@@ -9,6 +9,7 @@
   import type { Snippet } from "svelte";
 
   import CommunityMessage from "../community-message/CommunityMessage.svelte";
+  import { isMessageContinuation } from "../community-message/grouping.js";
   import {
     memberById,
     type CommunityMemberModel,
@@ -87,9 +88,10 @@
         {@render intro()}
       {/if}
       <SystemMessage variant="divider">Today</SystemMessage>
-      {#each messages as message (message.id)}
+      {#each messages as message, index (message.id)}
         <CommunityMessage
           {message}
+          isContinuation={isMessageContinuation(messages, index)}
           author={memberById(members, message.authorId)}
           replyParticipants={(message.replyParticipantIds ?? []).map((id) =>
             memberById(members, id),

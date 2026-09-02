@@ -6,6 +6,7 @@ import {
   createCommunityTestScenario,
   createInMemoryRelayFactory,
 } from "../testing/index.js";
+import { materializeCommunityWorkspace } from "./materialize.js";
 import { createNip29CommunitySource } from "./nip29-community-source.js";
 
 const relayKey = new Uint8Array(32).fill(41);
@@ -43,6 +44,68 @@ describe("createNip29CommunitySource", () => {
     expect(snapshot.events.some((event) => event.kind === 0)).toBe(true);
     expect(snapshot.events.some((event) => event.kind === 7)).toBe(true);
     expect(snapshot.capabilities.archive).toBe(false);
+    session.close();
+  });
+
+  it("discovers public channel and forum groups from authoritative metadata", async () => {
+    const scenario = createCommunityTestScenario();
+    const relayFactory = createInMemoryRelayFactory({
+      policy: new Nip29MemoryPolicy({
+        relaySecretKey: relayKey,
+        now: () => 1_700_000_000,
+      }),
+    });
+    const relay = relayFactory.relay(scenario.scope.relayUrl);
+    await scenario.seed(relay);
+    const groupId = "support-ai";
+    await relay.publish(
+      await scenario.operator.signEvent({
+        kind: 9_007,
+        created_at: 1_700_000_020,
+        content: JSON.stringify({
+          name: "support-ai",
+          about: "Support for the AI plugin",
+        }),
+        tags: [
+          ["h", groupId],
+          ["name", "support-ai"],
+          ["about", "Support for the AI plugin"],
+          ["supported_kinds", "11", "1111", "7"],
+        ],
+      }),
+    );
+    const topic = await scenario.member.signEvent({
+      kind: 11,
+      created_at: 1_700_000_021,
+      content: "How should provider fallback work?",
+      tags: [
+        ["h", groupId],
+        ["title", "AI provider fallback"],
+      ],
+    });
+    await relay.publish(topic);
+
+    const scope = { ...scenario.scope, discoverPublicRooms: true };
+    const session = await createNip29CommunitySource({ relayFactory }).open(
+      scope,
+      { identity: scenario.operator },
+    );
+    const snapshot = await session.snapshot();
+    const workspace = materializeCommunityWorkspace(
+      [scope],
+      { [scope.id]: snapshot.events },
+      scope.id,
+      { activeRoomId: groupId },
+    );
+
+    expect(
+      workspace.navigationSections
+        .find((section) => section.id === "forums")
+        ?.rooms.find((room) => room.id === groupId),
+    ).toMatchObject({ name: "support-ai", kind: "forum" });
+    expect(workspace.topics).toMatchObject([
+      { id: topic.id, title: "AI provider fallback" },
+    ]);
     session.close();
   });
 

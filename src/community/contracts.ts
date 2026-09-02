@@ -20,6 +20,7 @@ export interface CommunityScope {
   relayUrl: string;
   groupId?: string;
   rooms?: readonly CommunityRoomScope[];
+  discoverPublicRooms?: boolean;
   readRelayUrls?: readonly string[];
 }
 

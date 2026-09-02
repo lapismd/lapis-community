@@ -1,0 +1,44 @@
+import { describe, expect, it } from "vitest";
+
+import type { CommunityMessageModel } from "../community-workspace/model.js";
+import {
+  MESSAGE_GROUPING_WINDOW_MS,
+  isMessageContinuation,
+} from "./grouping.js";
+
+function message(
+  id: string,
+  authorId: string,
+  createdAt: string,
+): CommunityMessageModel {
+  return { id, authorId, createdAt, content: id, timestamp: createdAt };
+}
+
+describe("isMessageContinuation", () => {
+  it("groups consecutive messages by one author within ten minutes", () => {
+    const messages = [
+      message("first", "author", "2026-09-02T09:00:00Z"),
+      message(
+        "second",
+        "author",
+        new Date(
+          Date.parse("2026-09-02T09:00:00Z") + MESSAGE_GROUPING_WINDOW_MS,
+        ).toISOString(),
+      ),
+    ];
+
+    expect(isMessageContinuation(messages, 0)).toBe(false);
+    expect(isMessageContinuation(messages, 1)).toBe(true);
+  });
+
+  it("starts a new group after an author change or the grouping window", () => {
+    const messages = [
+      message("first", "author", "2026-09-02T09:00:00Z"),
+      message("different", "other", "2026-09-02T09:01:00Z"),
+      message("late", "other", "2026-09-02T09:12:00Z"),
+    ];
+
+    expect(isMessageContinuation(messages, 1)).toBe(false);
+    expect(isMessageContinuation(messages, 2)).toBe(false);
+  });
+});

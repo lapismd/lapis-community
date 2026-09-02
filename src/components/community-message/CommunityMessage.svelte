@@ -23,6 +23,7 @@
   let {
     message,
     author,
+    isContinuation = false,
     replyParticipants = [],
     density = "compact",
     onOpenThread,
@@ -33,6 +34,7 @@
   }: {
     message: CommunityMessageModel;
     author: CommunityMemberModel;
+    isContinuation?: boolean;
     replyParticipants?: CommunityMemberModel[];
     density?: "compact" | "balanced" | "spacious";
     onOpenThread?: (messageId: string) => void;
@@ -60,17 +62,26 @@
   {density}
   class="community-message"
   data-selected={isSelected ? "" : undefined}
+  data-continuation={isContinuation ? "" : undefined}
   aria-label={`Message from ${author.name}`}
 >
   {#snippet avatar()}
-    <span class="community-message__avatar" aria-hidden="true"
-      >{author.initials}</span
-    >
+    {#if isContinuation}
+      <span class="community-message__continuation-time" aria-hidden="true">
+        {message.timestamp}
+      </span>
+    {:else}
+      <span class="community-message__avatar" aria-hidden="true"
+        >{author.initials}</span
+      >
+    {/if}
   {/snippet}
   {#snippet name()}
-    <span class="community-message__author">{author.name}</span>
-    {#if author.role}
-      <span class="community-message__role">{author.role}</span>
+    {#if !isContinuation}
+      <span class="community-message__author">{author.name}</span>
+      {#if author.role}
+        <span class="community-message__role">{author.role}</span>
+      {/if}
     {/if}
   {/snippet}
 
@@ -161,7 +172,9 @@
 
   {#snippet metadata()}
     <div class="community-message__metadata">
-      <MessageMetadata timestamp={message.timestamp} />
+      {#if !isContinuation}
+        <MessageMetadata timestamp={message.timestamp} />
+      {/if}
       {#if message.edited}<span>edited</span>{/if}
       {#if message.replyCount || onOpenThread}
         <Button
@@ -208,6 +221,14 @@
     background: color-mix(in srgb, var(--foreground) 4%, transparent);
   }
 
+  :global(.community-message[data-continuation]) {
+    padding-block: 0.125rem;
+  }
+
+  :global(.community-message[data-continuation] [data-ui-part="name"]) {
+    display: none;
+  }
+
   .community-message__avatar {
     display: grid;
     width: 2.25rem;
@@ -223,6 +244,27 @@
 
   .community-message__avatar :global(img) {
     border-radius: inherit;
+  }
+
+  .community-message__continuation-time {
+    display: flex;
+    width: 2.25rem;
+    min-height: 1.5rem;
+    align-items: flex-start;
+    justify-content: flex-end;
+    padding-block-start: 0.2rem;
+    color: var(--muted-foreground);
+    font-size: 0.56rem;
+    line-height: 1;
+    opacity: 0;
+    transition: opacity 120ms ease;
+  }
+
+  :global(.community-message[data-continuation]:hover)
+    .community-message__continuation-time,
+  :global(.community-message[data-continuation]:focus-within)
+    .community-message__continuation-time {
+    opacity: 1;
   }
 
   :global(

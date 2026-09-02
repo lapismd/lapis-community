@@ -28,6 +28,7 @@ export interface Nip29CommunitySourceOptions {
 
 const COMMUNITY_CONTENT_KINDS = [5, 7, 9, 11, 1_111, 9_005] as const;
 const COMMUNITY_STATE_KINDS = [39_000, 39_001, 39_002] as const;
+const PUBLIC_ROOM_DISCOVERY_LIMIT = 1_000;
 
 export function createNip29CommunitySource(
   options: Nip29CommunitySourceOptions,
@@ -50,6 +51,9 @@ class Nip29CommunitySession implements CommunitySession {
   readonly #listeners = new Set<(events: readonly NostrEvent[]) => void>();
   readonly #authenticated = new WeakSet<CommunityRelay>();
   #closed = false;
+  #baseSubscriptionsStarted = false;
+  #knownGroupIds = new Set<string>();
+  #roomSubscriptionIds = new Set<string>();
   #targetSubscriptionKeys = new Set<string>();
 
   constructor(
@@ -66,18 +70,33 @@ class Nip29CommunitySession implements CommunitySession {
     this.#authority =
       this.#relays.find((relay) => relay.url === authorityUrl) ??
       options.relayFactory.create(authorityUrl);
+    for (const room of communityRooms(scope)) {
+      this.#knownGroupIds.add(room.groupId);
+    }
   }
 
   async snapshot(signal?: AbortSignal): Promise<CommunitySnapshot> {
     this.#assertOpen(signal);
-    const rooms = communityRooms(this.#scope);
-    const groupIds = rooms.map((room) => room.groupId);
-    if (groupIds.length === 0) {
-      return { events: [], capabilities: this.#capabilities() };
-    }
     await Promise.all(
       this.#relays.map(async (relay) => this.#authenticate(relay, signal)),
     );
+    const discoveredMetadata = this.#scope.discoverPublicRooms
+      ? await this.#queryUnion(
+          [this.#authority],
+          { kinds: [39_000], limit: PUBLIC_ROOM_DISCOVERY_LIMIT },
+          signal,
+        )
+      : [];
+    const rooms = communityRooms(this.#scope, discoveredMetadata);
+    const groupIds = rooms.map((room) => room.groupId);
+    for (const groupId of groupIds) this.#knownGroupIds.add(groupId);
+    if (groupIds.length === 0) {
+      return {
+        events: discoveredMetadata,
+        capabilities: this.#capabilities(),
+      };
+    }
+    await this.#subscribeToRooms(groupIds, signal);
 
     const content = await this.#queryUnion(
       this.#relays,
@@ -126,6 +145,7 @@ class Nip29CommunitySession implements CommunitySession {
     await this.#subscribeToTargets(targets, signal);
     return {
       events: distinctEvents([
+        ...discoveredMetadata,
         ...content,
         ...state,
         ...referenced,
@@ -143,26 +163,34 @@ class Nip29CommunitySession implements CommunitySession {
     this.#assertOpen(signal);
     this.#listeners.add(listener);
     const groupIds = communityRooms(this.#scope).map((room) => room.groupId);
-    if (groupIds.length > 0 && this.#subscriptions.size === 0) {
+    if (!this.#baseSubscriptionsStarted) {
+      this.#baseSubscriptionsStarted = true;
       await Promise.all(
         this.#relays.map(async (relay) => this.#authenticate(relay, signal)),
       );
-      await Promise.all(
-        this.#relays.map(async (relay) => {
-          const subscription = await relay.subscribe(
-            { kinds: [9, 11, 1_111], "#h": groupIds },
-            { onevent: (event) => this.#emit([event]) },
-            signal,
-          );
-          this.#subscriptions.add(subscription);
-        }),
-      );
-      const stateSubscription = await this.#authority.subscribe(
-        { kinds: [...COMMUNITY_STATE_KINDS], "#d": groupIds },
-        { onevent: (event) => this.#emit([event]) },
-        signal,
-      );
-      this.#subscriptions.add(stateSubscription);
+      await this.#subscribeToRooms(groupIds, signal);
+      if (this.#scope.discoverPublicRooms) {
+        const discoverySubscription = await this.#authority.subscribe(
+          { kinds: [39_000] },
+          {
+            onevent: (event) => {
+              this.#emit([event]);
+              const discovered = communityRooms({ ...this.#scope, rooms: [] }, [
+                event,
+              ]);
+              const discoveredGroupId = discovered[0]?.groupId;
+              if (discoveredGroupId !== undefined) {
+                this.#knownGroupIds.add(discoveredGroupId);
+                void this.#subscribeToRooms([discoveredGroupId], signal).catch(
+                  () => undefined,
+                );
+              }
+            },
+          },
+          signal,
+        );
+        this.#subscriptions.add(discoverySubscription);
+      }
       const identityPubkey = await this.#context.identity?.getPublicKey();
       if (
         identityPubkey !== undefined &&
@@ -245,7 +273,7 @@ class Nip29CommunitySession implements CommunitySession {
     this.#assertOpen(signal);
     const normalized = query.trim().toLocaleLowerCase();
     if (normalized === "") return [];
-    const groupIds = communityRooms(this.#scope).map((room) => room.groupId);
+    const groupIds = [...this.#knownGroupIds];
     if (groupIds.length === 0) return [];
     const events = await this.#queryUnion(
       this.#relays,
@@ -267,6 +295,8 @@ class Nip29CommunitySession implements CommunitySession {
     this.#closed = true;
     for (const subscription of this.#subscriptions) subscription.close();
     this.#subscriptions.clear();
+    this.#roomSubscriptionIds.clear();
+    this.#knownGroupIds.clear();
     this.#listeners.clear();
     for (const relay of this.#relays) relay.close();
   }
@@ -341,6 +371,40 @@ class Nip29CommunitySession implements CommunitySession {
           this.#subscriptions.add(subscription);
         }),
       );
+    }
+  }
+
+  async #subscribeToRooms(
+    groupIds: readonly string[],
+    signal?: AbortSignal,
+  ): Promise<void> {
+    if (this.#listeners.size === 0) return;
+    for (const groupId of [...new Set(groupIds)]) {
+      if (groupId === "" || this.#roomSubscriptionIds.has(groupId)) continue;
+      const subscriptions = await Promise.all([
+        ...this.#relays.map(async (relay) =>
+          relay.subscribe(
+            { kinds: [9, 11, 1_111], "#h": [groupId] },
+            { onevent: (event) => this.#emit([event]) },
+            signal,
+          ),
+        ),
+        this.#authority.subscribe(
+          {
+            kinds: this.#scope.discoverPublicRooms
+              ? [39_001, 39_002]
+              : [...COMMUNITY_STATE_KINDS],
+            "#d": [groupId],
+          },
+          { onevent: (event) => this.#emit([event]) },
+          signal,
+        ),
+      ]);
+      for (const subscription of subscriptions) {
+        this.#subscriptions.add(subscription);
+      }
+      this.#roomSubscriptionIds.add(groupId);
+      this.#knownGroupIds.add(groupId);
     }
   }
 

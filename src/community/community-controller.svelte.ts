@@ -221,7 +221,9 @@ export function createCommunityController(
           }
           mergeEvents(scope.id, events);
           if (
-            events.some((event) => [9, 11, 1_059, 1_111].includes(event.kind))
+            events.some((event) =>
+              [9, 11, 1_059, 1_111, 39_000].includes(event.kind),
+            )
           ) {
             void refreshScope(scope.id, signal).catch((cause: unknown) => {
               if (!isAbort(cause)) {
@@ -316,7 +318,7 @@ export function createCommunityController(
       const scope = scopes.find((candidate) => candidate.id === communityId);
       if (scope === undefined) return;
       activeCommunityId = communityId;
-      const rooms = communityRooms(scope);
+      const rooms = communityRooms(scope, eventsByScope[scope.id] ?? []);
       if (!rooms.some((room) => room.id === activeRoomId)) {
         activeRoomId = rooms[0]?.id ?? "";
       }
@@ -485,7 +487,7 @@ export function createCommunityController(
       });
     },
     async markRead(roomId) {
-      const room = communityRooms(activeScope()).find(
+      const room = communityRooms(activeScope(), activeEvents()).find(
         (candidate) => candidate.id === roomId,
       );
       if (room === undefined) return;
@@ -508,7 +510,7 @@ export function createCommunityController(
       });
     },
     async markAllRead() {
-      for (const room of communityRooms(activeScope())) {
+      for (const room of communityRooms(activeScope(), activeEvents())) {
         await actions.markRead(room.id);
       }
     },
@@ -704,13 +706,15 @@ export function createCommunityController(
   }
 
   function activeRoomScope() {
-    return communityRooms(activeScope()).find(
+    return communityRooms(activeScope(), activeEvents()).find(
       (room) => room.id === activeRoomId,
     );
   }
 
   function roomById(roomId: string) {
-    return communityRooms(activeScope()).find((room) => room.id === roomId);
+    return communityRooms(activeScope(), activeEvents()).find(
+      (room) => room.id === roomId,
+    );
   }
 
   function activeEvents(): readonly NostrEvent[] {
@@ -807,7 +811,9 @@ export function createCommunityController(
     const selected = stored.preferences.activeRoomId?.value;
     if (
       typeof selected === "string" &&
-      (communityRooms(scope).some((room) => room.id === selected) ||
+      (communityRooms(scope, eventsByScope[scope.id] ?? []).some(
+        (room) => room.id === selected,
+      ) ||
         selected.startsWith("dm:"))
     ) {
       activeRoomId = selected;

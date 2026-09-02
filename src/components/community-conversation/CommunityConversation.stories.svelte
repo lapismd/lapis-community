@@ -10,6 +10,16 @@
   import CommunityConversation from "./CommunityConversation.svelte";
 
   const generalRoom = communityStoryNavigation[0]!.rooms[1]!;
+  const groupedMessages = [
+    ...communityStoryMessages,
+    {
+      ...communityStoryMessages.at(-1)!,
+      id: "message-docs-follow-up",
+      timestamp: "09:39",
+      createdAt: "2026-09-02T09:39:00Z",
+      content: "I will link the guide from the AI package support forum too.",
+    },
+  ];
 
   const { Story } = defineMeta({
     title: "Community/Channels/Conversation",
@@ -30,7 +40,7 @@
   name="Compact channel feed"
   args={{
     room: generalRoom,
-    messages: communityStoryMessages,
+    messages: groupedMessages,
     members: communityStoryMembers,
     onSend: fn(),
     onOpenThread: fn(),

@@ -321,6 +321,7 @@ export async function createCommunityStoryRuntime(
     backend === "live"
       ? {
           ...scenario.scope,
+          discoverPublicRooms: true,
           rooms: [
             {
               id: "general",
