@@ -42,6 +42,7 @@
 
 <Story
   name="Supported community destinations"
+  parameters={{ layout: "fullscreen", communityAppShell: true }}
   play={async ({ canvas, canvasElement }) => {
     const search = canvas.getByRole("searchbox", { name: "Search community" });
     const runtime = canvas.getByTestId("community-navigation-runtime");

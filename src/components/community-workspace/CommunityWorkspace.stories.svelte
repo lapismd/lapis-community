@@ -2,6 +2,7 @@
   import { defineMeta } from "@storybook/addon-svelte-csf";
   import { expect, userEvent, waitFor, within } from "storybook/test";
 
+  import CommunityAppShell from "../community-app-shell/CommunityAppShell.svelte";
   import CommunityNavigationShellFixture from "../community-navigation/CommunityNavigationShellFixture.svelte";
   import CommunityWorkspaceSurface from "./CommunityWorkspaceSurface.svelte";
   import CommunityWorkspaceStoryHarness from "./CommunityWorkspaceStoryHarness.svelte";
@@ -10,7 +11,10 @@
   const consumerSource = `<script lang="ts">
   import { AppShell, AppShellController } from "@lapismd/design-core/shell";
   import { onMount } from "svelte";
-  import { CommunityWorkspaceSurface } from "@lapismd/lapis-community/components";
+  import {
+    CommunityAppShell,
+    CommunityWorkspaceSurface,
+  } from "@lapismd/lapis-community/components";
   import {
     createCommunityController,
     createNip29CommunitySource,
@@ -18,7 +22,6 @@
   import { createWebSocketCommunityRelayFactory } from "@lapismd/lapis-community/nostr";
 
   const shell = new AppShellController({
-    leftWidth: 252,
     rightClosed: true,
     rightWidth: 320,
   });
@@ -40,7 +43,7 @@
   });
 <\/script>
 
-<AppShell.Root controller={shell} mobileBreakpoint={1024} desktopMinMainWidth={480}>
+<CommunityAppShell controller={shell}>
   <AppShell.Main>
     <AppShell.Body layout="regions">
       <AppShell.Body.Content>
@@ -51,14 +54,15 @@
       </AppShell.Body.Content>
     </AppShell.Body>
   </AppShell.Main>
-</AppShell.Root>`;
+</CommunityAppShell>`;
 
   const { Story } = defineMeta({
     title: "Community/Examples/App Shell",
-    component: CommunityWorkspaceSurface,
+    component: CommunityAppShell,
     tags: ["visual-pending"],
     parameters: {
       layout: "fullscreen",
+      communityAppShell: true,
       docs: {
         story: { inline: false, iframeHeight: 700 },
         source: { language: "svelte", code: consumerSource },
@@ -204,10 +208,7 @@
   }}
 >
   {#snippet template()}
-    <CommunityWorkspaceStoryHarness
-      initialModel={createChannelStoryModel()}
-      initialWidth={1280}
-    />
+    <CommunityWorkspaceStoryHarness initialModel={createChannelStoryModel()} />
   {/snippet}
 </Story>
 
@@ -249,7 +250,6 @@
   {#snippet template()}
     <CommunityWorkspaceStoryHarness
       initialModel={createChannelStoryModel("thread")}
-      initialWidth={1280}
     />
   {/snippet}
 </Story>

@@ -2,6 +2,7 @@
   import { defineMeta } from "@storybook/addon-svelte-csf";
   import { AppShell, AppShellController } from "@lapismd/design-core/shell";
   import { expect, fn, userEvent, waitFor } from "storybook/test";
+  import CommunityAppShell from "../community-app-shell/CommunityAppShell.svelte";
   import { communityInboxFixture } from "../community-inbox/story-fixtures.js";
   import CommunityChannelSettings from "./CommunityChannelSettings.svelte";
 
@@ -11,7 +12,7 @@
     title: "Community/Channels/Channel Settings",
     component: CommunityChannelSettings,
     tags: ["visual-pending"],
-    parameters: { layout: "fullscreen" },
+    parameters: { layout: "fullscreen", communityAppShell: true },
   });
 </script>
 
@@ -52,15 +53,17 @@
   }}
 >
   {#snippet template(args)}
-    <div style="height: 42rem;">
-      <AppShell.Root {controller} displayMode="desktop" desktopMinMainWidth={0}>
-        <AppShell.Main>
-          <AppShell.Body label="Settings preview">Channel</AppShell.Body>
-        </AppShell.Main>
-        <AppShell.Sidebar side="right" label="Channel settings" closeable>
-          <CommunityChannelSettings {...args} />
-        </AppShell.Sidebar>
-      </AppShell.Root>
-    </div>
+    <CommunityAppShell
+      {controller}
+      displayMode="desktop"
+      desktopMinMainWidth={0}
+    >
+      <AppShell.Main>
+        <AppShell.Body label="Settings preview">Channel</AppShell.Body>
+      </AppShell.Main>
+      <AppShell.Sidebar side="right" label="Channel settings" closeable>
+        <CommunityChannelSettings {...args} />
+      </AppShell.Sidebar>
+    </CommunityAppShell>
   {/snippet}
 </Story>

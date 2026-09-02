@@ -105,7 +105,7 @@ const preview: Preview = {
         syncCatalogStoryLayout(document, context);
         if (
           context.viewMode === "story" &&
-          context.title === "Community/Examples/App Shell"
+          context.parameters.communityAppShell === true
         ) {
           document.body.setAttribute("data-ui-catalog-full-viewport", "");
         }

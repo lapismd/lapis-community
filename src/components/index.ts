@@ -1,4 +1,5 @@
 export { default as CommunityHeader } from "./community-header/CommunityHeader.svelte";
+export { default as CommunityAppShell } from "./community-app-shell/CommunityAppShell.svelte";
 export { default as CommunityChannelSettings } from "./community-channel-settings/CommunityChannelSettings.svelte";
 export { default as CommunityInbox } from "./community-inbox/CommunityInbox.svelte";
 export type {

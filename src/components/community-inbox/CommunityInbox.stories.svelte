@@ -5,17 +5,22 @@
   import CommunityInboxStoryHarness from "./CommunityInboxStoryHarness.svelte";
 
   const consumerSource = `<script lang="ts">
-  import { AppShell } from "@lapismd/design-core/shell";
-  import { CommunityInbox, type CommunityInboxModel } from "@lapismd/lapis-community/components";
+  import { AppShell, AppShellController } from "@lapismd/design-core/shell";
+  import {
+    CommunityAppShell,
+    CommunityInbox,
+    type CommunityInboxModel,
+  } from "@lapismd/lapis-community/components";
 
   let { inbox }: { inbox: CommunityInboxModel } = $props();
+  const shell = new AppShellController();
 <\/script>
 
-<AppShell.Root>
+<CommunityAppShell controller={shell}>
   <AppShell.Main>
     <CommunityInbox model={inbox} />
   </AppShell.Main>
-</AppShell.Root>`;
+</CommunityAppShell>`;
 
   const { Story } = defineMeta({
     title: "Community/Inbox/Inbox",
@@ -23,6 +28,7 @@
     tags: ["visual-pending"],
     parameters: {
       layout: "fullscreen",
+      communityAppShell: true,
       docs: {
         source: { language: "svelte", code: consumerSource },
         description: {

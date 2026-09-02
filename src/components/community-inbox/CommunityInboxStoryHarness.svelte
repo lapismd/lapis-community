@@ -6,6 +6,7 @@
     createCommunityStoryRuntime,
     type CommunityStoryRuntime,
   } from "../../testing/index.js";
+  import CommunityAppShell from "../community-app-shell/CommunityAppShell.svelte";
   import CommunityInbox from "./CommunityInbox.svelte";
   import { communityInboxFixture } from "./story-fixtures.js";
 
@@ -52,29 +53,19 @@
   </div>
 {/if}
 
-<div
-  class="community-inbox-story-harness"
+<CommunityAppShell
+  {controller}
+  displayMode="desktop"
+  desktopMinMainWidth={0}
   data-testid="community-inbox-runtime"
   data-community-status={community?.state.status ?? "loading"}
   data-community-backend={runtime?.backend ?? "loading"}
 >
-  <AppShell.Root {controller} displayMode="desktop" desktopMinMainWidth={0}>
-    <AppShell.Main>
-      <CommunityInbox
-        {model}
-        onSend={send}
-        onMarkAllRead={() => void community?.actions.markAllRead()}
-      />
-    </AppShell.Main>
-  </AppShell.Root>
-</div>
-
-<style>
-  .community-inbox-story-harness {
-    height: min(46rem, 100vh);
-  }
-
-  .community-inbox-story-harness :global([data-shell-root]) {
-    --ui-shell-height: 100%;
-  }
-</style>
+  <AppShell.Main>
+    <CommunityInbox
+      {model}
+      onSend={send}
+      onMarkAllRead={() => void community?.actions.markAllRead()}
+    />
+  </AppShell.Main>
+</CommunityAppShell>

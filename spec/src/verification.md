@@ -7,7 +7,7 @@
 | LC-ARCH-003  | Implemented    | `src/auth`; `src/nostr`; `src/protocol`; `src/fixture`; `src/materializer`                                                        |
 | LC-ARCH-004  | Implemented    | `package.json`; `pnpm build`; `pnpm prepack`                                                                                      |
 | LC-ARCH-005  | Implemented    | `package.json`; public `@lapismd/design-core` imports; `pnpm-lock.yaml`                                                           |
-| LC-ARCH-006  | Visual pending | Consolidated `Community/Examples/App Shell` Inbox, channel, and thread stories; duplicate shell entry removed                     |
+| LC-ARCH-006  | Visual pending | Public `CommunityAppShell`; shared Inbox, channel, thread, channel-settings, and shell-backed preview composition                 |
 | LC-ARCH-007  | Implemented    | `src/nostr/transport.ts`; `src/community/nip29-community-source.ts`; `src/testing`; `pnpm test:relay`                             |
 | LC-ARCH-008  | Implemented    | `src/community/community-controller.svelte.ts`; member profile projection; focused controller tests                               |
 | LC-ARCH-009  | Implemented    | `src/auth`; `src/community/state-store.ts`; signer and state-store tests                                                          |
@@ -26,12 +26,12 @@
 | LC-UI-004    | Implemented    | `src/components/discussion-post-stream`; `src/components/discussion-timeline`; unit tests                                         |
 | LC-UI-005    | Visual pending | `pnpm test:storybook`; `pnpm build-storybook`; human baseline approval pending                                                    |
 | LC-UI-006    | Implemented    | `src/components/community-workspace/model.ts`; controlled community component props                                               |
-| LC-UI-007    | Implemented    | `src/components/community-workspace/CommunityWorkspaceStoryHarness.svelte`; public component exports                              |
+| LC-UI-007    | Implemented    | `src/components/community-app-shell/CommunityAppShell.svelte`; Design Core App Shell compound regions and controller              |
 | LC-UI-008    | Implemented    | `src/components/community-conversation`; `src/components/community-message`; `pnpm test:storybook`                                |
 | LC-UI-009    | Implemented    | `.storybook/preview.ts`; `.storybook/manager-color-mode-toggle.tsx`; semantic-token styles                                        |
 | LC-UI-010    | Visual pending | Ordered Navigation, Inbox, Channels, Forums, Discussion, Registry, and Examples catalog sections; human review pending            |
 | LC-UI-011    | Visual pending | `src/components/community-workspace/CommunityWorkspace.stories.svelte`; consolidated public Design Core shell examples            |
-| LC-UI-012    | Visual pending | edge-to-edge Examples/App Shell stories; Inbox compact header geometry and enabled-control hover states; human review pending     |
+| LC-UI-012    | Visual pending | Shared production app frame, edge-to-edge compact header, collapsed-rail alignment, and joined panel shape; human review pending  |
 | LC-UI-013    | Visual pending | Community navigation and profile-menu stories; collapsed-rail alignment, signed-in avatar, presence, and profile actions          |
 | LC-UI-014    | Visual pending | Inbox resizable thread-list column, row-composer, and message states in `Community/Examples/App Shell/Inbox`                      |
 | LC-UI-015    | Visual pending | Inbox menus, joined inline right sidebar, and channel welcome settings treatment; human review pending                            |
@@ -45,5 +45,5 @@
 | LC-SPEC-001  | Implemented    | `spec/book.toml`; `pnpm spec:build`                                                                                               |
 | LC-SPEC-002  | Implemented    | `spec-validator.config.mjs`; `pnpm spec:first`                                                                                    |
 | LC-SPEC-003  | Implemented    | `spec-validator.config.mjs`; `pnpm spec:check`                                                                                    |
-| LC-SPEC-004  | Implemented    | `package.json`; `.storybook/preview.ts`; `pnpm checks`                                                                            |
+| LC-SPEC-004  | Implemented    | `package.json`; `.storybook/preview.ts`; generic `communityAppShell` canvas parameter; `pnpm checks`                              |
 | LC-SPEC-005  | Implemented    | `AGENTS.md`; Storybook regression-prevention and workspace-isolation guidance                                                     |
