@@ -4,7 +4,7 @@
   import RegistryCommunityView from "./RegistryCommunityView.svelte";
   import {
     createRegistryCommunityController,
-    type RegistryCommunityProps,
+    type RegistryCommunityControllerOptions,
   } from "./registry-community-controller.svelte.js";
 
   let {
@@ -13,7 +13,9 @@
     version = "",
     publisher = "",
     relays = "[]",
-  }: RegistryCommunityProps = $props();
+    dataSource,
+    identity,
+  }: RegistryCommunityControllerOptions = $props();
 
   const controller = untrack(() =>
     createRegistryCommunityController({
@@ -22,6 +24,8 @@
       version,
       publisher,
       relays,
+      ...(dataSource === undefined ? {} : { dataSource }),
+      ...(identity === undefined ? {} : { identity }),
     }),
   );
 

@@ -44,9 +44,9 @@
 <div class="comment-form" bind:this={element}>
   <div class="composer-heading">
     <div>
-      <span class="field-label">
+      <label class="field-label" for="registry-comment">
         {replyingTo === undefined ? "Add to the discussion" : "Reply to a post"}
-      </span>
+      </label>
       {#if replyingTo}
         <p>
           Replying to {displayName(replyingTo.event.pubkey, profiles)} · post #{postNumber(

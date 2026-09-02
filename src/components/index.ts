@@ -30,6 +30,10 @@ export { default as DiscussionTimeline } from "./discussion-timeline/DiscussionT
 export { default as DiscussionTimelineTrack } from "./discussion-timeline/DiscussionTimelineTrack.svelte";
 export { default as PluginReactionControl } from "./plugin-reaction-control/PluginReactionControl.svelte";
 export { default as RegistryCommunity } from "./registry-community/RegistryCommunity.svelte";
+export type {
+  RegistryCommunityControllerOptions,
+  RegistryCommunityProps,
+} from "./registry-community/registry-community-controller.svelte.js";
 export { default as ForumTopicList } from "./forum-topic-list/ForumTopicList.svelte";
 export * from "./community-workspace/model.js";
 export { filterCommunityNavigation } from "./community-navigation/model.js";

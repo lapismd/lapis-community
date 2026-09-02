@@ -142,7 +142,8 @@ case "${command}" in
       VITE_COMMUNITY_RELAY_URL=${COMMUNITY_RELAY_URL} \
       pnpm --dir "${repo_root}" exec vitest run \
       --project storybook \
-      src/components/community-workspace/CommunityWorkspace.stories.svelte
+      src/components/community-workspace/CommunityWorkspace.stories.svelte \
+      src/components/registry-community/RegistryCommunity.stories.svelte
     ;;
   down)
     stop_relay

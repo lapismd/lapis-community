@@ -9,7 +9,14 @@ import {
   Nip07RegistrySigner,
   type RegistrySigner,
 } from "../../auth/index.js";
-import { WebSocketRegistryRelay } from "../../nostr/index.js";
+import {
+  createRegistryCommunityDataSource,
+  type RegistryCommunityDataSource,
+} from "../../community/index.js";
+import {
+  createWebSocketCommunityRelayFactory,
+  type CommunityRelay,
+} from "../../nostr/index.js";
 import {
   NIP29_KINDS,
   createNip29ForumCommentTemplate,
@@ -53,8 +60,14 @@ export interface RegistryCommunityProps {
   relays?: string;
 }
 
+export interface RegistryCommunityControllerOptions
+  extends RegistryCommunityProps {
+  dataSource?: RegistryCommunityDataSource;
+  identity?: RegistrySigner;
+}
+
 export function createRegistryCommunityController(
-  options: RegistryCommunityProps,
+  options: RegistryCommunityControllerOptions,
 ) {
   const plugin = options.plugin ?? "";
   const name = options.name ?? "Plugin";
@@ -66,7 +79,7 @@ export function createRegistryCommunityController(
   let pluginRelease = $state<NostrEvent | undefined>();
   let pluginReactions = $state<ForumReaction[]>([]);
   let profiles = $state<ReadonlyMap<string, CommunityProfile>>(new Map());
-  let signer = $state<RegistrySigner | undefined>();
+  let signer = $state<RegistrySigner | undefined>(options.identity);
   let signedInPubkey = $state("");
   let selectedPluginReaction = $state("");
   let comment = $state("");
@@ -95,7 +108,11 @@ export function createRegistryCommunityController(
   let streamGeneration = 0;
   let jumpController: AbortController | undefined;
 
-  const clients = new Map<string, WebSocketRegistryRelay>();
+  const dataSource =
+    options.dataSource ??
+    createRegistryCommunityDataSource({
+      relayFactory: createWebSocketCommunityRelayFactory(),
+    });
   const readSecretKey = generateSecretKey();
   const readPubkey = getPublicKey(readSecretKey);
   const readSigner: RegistrySigner = {
@@ -169,18 +186,12 @@ export function createRegistryCommunityController(
       ]).size,
   );
 
-  function relay(url: string): WebSocketRegistryRelay {
-    const current = clients.get(url);
-    if (current !== undefined) return current;
-    const created = new WebSocketRegistryRelay(url, {
-      authenticationRelayUrl: url,
-    });
-    clients.set(url, created);
-    return created;
+  function relay(url: string): CommunityRelay {
+    return dataSource.relay(url);
   }
 
   async function queryAll(
-    filter: Parameters<WebSocketRegistryRelay["query"]>[0],
+    filter: Parameters<CommunityRelay["query"]>[0],
     signal?: AbortSignal,
   ): Promise<{ events: NostrEvent[]; availableRelays: number }> {
     signal?.throwIfAborted();
@@ -208,7 +219,7 @@ export function createRegistryCommunityController(
   }
 
   async function countAll(
-    filter: Parameters<WebSocketRegistryRelay["count"]>[0],
+    filter: Parameters<CommunityRelay["query"]>[0],
     signal?: AbortSignal,
   ): Promise<{ count: number; availableRelays: number }> {
     signal?.throwIfAborted();
@@ -216,7 +227,12 @@ export function createRegistryCommunityController(
       relayUrls.map(async (url) => {
         const client = relay(url);
         await authenticateRegistryRelay(client, signer ?? readSigner, signal);
-        return await client.count(filter, signal);
+        if (client.count !== undefined) {
+          return await client.count(filter, signal);
+        }
+        const countFilter = { ...filter };
+        delete countFilter.limit;
+        return (await client.query(countFilter, signal)).length;
       }),
     );
     signal?.throwIfAborted();
@@ -1085,6 +1101,9 @@ export function createRegistryCommunityController(
   }
 
   async function initializeDiscussion(): Promise<void> {
+    if (signer !== undefined && signedInPubkey === "") {
+      signedInPubkey = await signer.getPublicKey();
+    }
     const linkedEventId = window.location.hash.startsWith("#post-")
       ? window.location.hash.slice("#post-".length)
       : "";
@@ -1119,8 +1138,7 @@ export function createRegistryCommunityController(
 
   function dispose(): void {
     jumpController?.abort();
-    for (const client of clients.values()) client.close();
-    clients.clear();
+    dataSource.close();
   }
 
   function cancelReply(): void {

@@ -50,6 +50,11 @@
   const activePostTimestamp = $derived(controller.activePostTimestamp);
   const timelineReturnIndex = $derived(controller.timelineReturnIndex);
   const commentPageSize = $derived(controller.commentPageSize);
+  let composerElement = $state<HTMLDivElement>();
+
+  $effect(() => {
+    controller.composerElement = composerElement;
+  });
 
   const submitPluginReaction = () => controller.submitPluginReaction();
   const refresh = (targetIndex?: number) => controller.refresh(targetIndex);
@@ -128,7 +133,7 @@
           />
 
           <DiscussionComposer
-            bind:element={controller.composerElement}
+            bind:element={composerElement}
             {name}
             replyingTo={replyingReview}
             {profiles}
