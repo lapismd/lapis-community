@@ -5,6 +5,7 @@
   import HashIcon from "@lucide/svelte/icons/hash";
   import HeadphonesIcon from "@lucide/svelte/icons/headphones";
   import LockIcon from "@lucide/svelte/icons/lock";
+  import PanelRightIcon from "@lucide/svelte/icons/panel-right";
   import SquareTerminalIcon from "@lucide/svelte/icons/square-terminal";
   import UsersIcon from "@lucide/svelte/icons/users";
   import { onMount, untrack } from "svelte";
@@ -315,6 +316,7 @@
   >
     {#if effectiveSidePanel === "thread" && model.thread}
       <AppShell.Sidebar.Header>
+        <PanelRightIcon aria-hidden="true" />
         <strong>{sidePanelTitle}</strong>
         <AppShell.Sidebar.Close onclick={closeSidePanel} />
       </AppShell.Sidebar.Header>

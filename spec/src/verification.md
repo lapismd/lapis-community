@@ -35,7 +35,7 @@
 | LC-UI-013    | Visual pending | Community navigation and profile-menu stories; collapsed-rail alignment, signed-in avatar, presence, and profile actions          |
 | LC-UI-014    | Visual pending | Inbox resizable thread-list column, row-composer, and message states in `Community/Examples/App Shell/Inbox`                      |
 | LC-UI-015    | Visual pending | Inbox menus, joined inline right sidebar, and channel welcome settings treatment; human review pending                            |
-| LC-UI-016    | Visual pending | `Community/Examples/App Shell/Desktop channel` and `Channel thread open`; live Buzz comparison; human review pending              |
+| LC-UI-016    | Visual pending | Padded channel toolbar, two-action introduction, and production-styled joined thread header; human review pending                 |
 | LC-UI-017    | Visual pending | controller-backed composed stories; 18-file story audit; memory/Docker toolbar selector; human review pending                     |
 | LC-UI-018    | Visual pending | complete `RegistryCommunity` lifecycle story; shared registry data source and signed memory/Docker scenario; human review pending |
 | LC-OPS-001   | Implemented    | `deploy/local.compose.yml`; `pnpm local:smoke`                                                                                    |

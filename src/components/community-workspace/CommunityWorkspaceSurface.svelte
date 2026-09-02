@@ -1,6 +1,5 @@
 <script lang="ts">
   import { Button } from "@lapismd/design-core/shadcn/button";
-  import BotIcon from "@lucide/svelte/icons/bot";
   import HashIcon from "@lucide/svelte/icons/hash";
   import PlusIcon from "@lucide/svelte/icons/plus";
   import SparklesIcon from "@lucide/svelte/icons/sparkles";
@@ -80,10 +79,6 @@
             <Button variant="outline">
               <PlusIcon data-icon="inline-start" aria-hidden="true" />
               Create a channel
-            </Button>
-            <Button variant="outline">
-              <BotIcon data-icon="inline-start" aria-hidden="true" />
-              Create an agent
             </Button>
           </div>
         </section>

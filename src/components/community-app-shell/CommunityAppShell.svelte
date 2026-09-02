@@ -153,6 +153,36 @@
     box-shadow: none;
   }
 
+  :global(.community-app-shell__surface [data-ui-part="toolbar"]) {
+    padding-inline: 1rem;
+    border-block-end: 0;
+  }
+
+  :global(
+      .community-app-shell__surface
+        [data-ui-part="sidebar"][data-side="right"]
+        > [data-ui-part="sidebar-header"]
+    ) {
+    display: flex;
+    min-height: calc(
+      var(--ui-shell-toolbar-height) - var(--ui-shell-main-block-inset) - 1px
+    );
+    align-items: center;
+    gap: 0.5rem;
+    padding-inline: 0.75rem;
+    border-block-end: 0;
+  }
+
+  :global(
+      .community-app-shell__surface
+        [data-ui-part="sidebar"][data-side="right"]
+        > [data-ui-part="sidebar-header"]
+        > strong
+    ) {
+    min-width: 0;
+    flex: 1;
+  }
+
   @media (hover: hover) {
     :global(
         .community-app-shell__header
