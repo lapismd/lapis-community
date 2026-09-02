@@ -30,7 +30,7 @@
 | LC-UI-008    | Implemented    | `src/components/community-conversation`; `src/components/community-message`; `pnpm test:storybook`                                |
 | LC-UI-009    | Implemented    | `.storybook/preview.ts`; `.storybook/manager-color-mode-toggle.tsx`; semantic-token styles                                        |
 | LC-UI-010    | Visual pending | Ordered Navigation, Inbox, Channels, Forums, Discussion, Registry, and Examples catalog sections; human review pending            |
-| LC-UI-011    | Visual pending | `src/components/community-workspace/CommunityWorkspace.stories.svelte`; consolidated public Design Core shell examples            |
+| LC-UI-011    | Visual pending | `src/components/community-application`; full controller-routed app story plus retained focused App Shell examples                 |
 | LC-UI-012    | Visual pending | Shared production app frame, edge-to-edge compact header, collapsed-rail alignment, and joined panel shape; human review pending  |
 | LC-UI-013    | Visual pending | Settings sidebar replacement; hover states; centered Image/Emoji avatar editor; controller-persisted saves; human review pending  |
 | LC-UI-014    | Visual pending | Compact Inbox thread rows; aligned metadata and avatar-led relative reply activity across conversations; human review pending     |
