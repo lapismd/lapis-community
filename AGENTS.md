@@ -1,10 +1,11 @@
-# Nostr-native Lapis registry
+# Lapis Community package
 
-This repository owns the NIP-29 registry event model, relay client,
-deterministic materializer, NIP-07 signer adapter, community component, and
-local end-to-end fixture. The sibling `nostr-plugin-registry` repository owns
-the static renderer and `community.lapis.md` deployment. The sibling
-`nostr-relay` repository owns the relay.
+This repository owns the single `@lapismd/lapis-community` package: Nostr
+protocol and relay access, NIP-07/NIP-42 authentication, deterministic registry
+materialization, local fixture tooling, and composable Svelte community
+components. The sibling `nostr-plugin-registry` repository owns the static
+renderer and `community.lapis.md` deployment. The sibling `nostr-relay`
+repository owns the relay.
 
 - Signed Nostr events and their content-addressed release manifests are the
   registry source of truth. Do not add a registry database or HTTP submission
@@ -17,7 +18,16 @@ the static renderer and `community.lapis.md` deployment. The sibling
   replay. Verify referenced resource hashes before publication.
 - Keep browser signing behind the NIP-07 adapter. Do not commit or log secret
   keys or production relay credentials.
-- Start with the narrowest test, then run root `pnpm check`. Cross-repository
-  changes also require the local relay-to-site smoke test.
+- Keep all package code beneath `src`; do not recreate nested pnpm workspace
+  packages. Each independent Svelte component belongs in its own named folder
+  under `src/components` with a colocated Storybook story.
+- Canonical requirements live in `spec/src`. Protected implementation,
+  Storybook, Docker, package, and policy changes require the owning spec chapter
+  to change in the same Jujutsu change.
+- Start with the narrowest test, then run `pnpm checks`. Presentation changes
+  require Storybook interaction/accessibility and static-build checks. Keep
+  changed stories `visual-pending`; never create or replace visual baselines
+  without explicit approval. Cross-repository changes also require the local
+  relay-to-site smoke test.
 - Use Jujutsu and commit each verified slice. Deployment, keys, DNS, public
   events, and package publication require explicit approval.

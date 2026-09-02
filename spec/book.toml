@@ -1,0 +1,8 @@
+[book]
+authors = ["LapisMD contributors"]
+language = "en"
+src = "src"
+title = "Lapis Community Specification"
+
+[build]
+build-dir = "book"

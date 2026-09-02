@@ -1,6 +1,2 @@
-packages:
-  - packages/*
-  - services/*
-  - apps/*
-
-onlyBuiltDependencies: []
+overrides:
+  aria-query: 5.3.2

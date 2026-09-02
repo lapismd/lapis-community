@@ -1,16 +1,73 @@
 {
-  "name": "lapis-nostr-plugin-registry",
-  "version": "0.0.0",
-  "private": true,
-  "type": "module",
+  "name": "@lapismd/lapis-community",
+  "version": "0.1.0",
+  "description": "Nostr protocol, relay access, registry materialization, and community components for Lapis",
+  "license": "AGPL-3.0-or-later",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/lapismd/lapis-community.git"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
   "packageManager": "pnpm@10.32.1",
   "engines": {
     "node": ">=22"
   },
+  "type": "module",
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "svelte": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "svelte": "./dist/index.js",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    },
+    "./auth": {
+      "types": "./dist/auth/index.d.ts",
+      "import": "./dist/auth/index.js",
+      "default": "./dist/auth/index.js"
+    },
+    "./nostr": {
+      "types": "./dist/nostr/index.d.ts",
+      "import": "./dist/nostr/index.js",
+      "default": "./dist/nostr/index.js"
+    },
+    "./protocol": {
+      "types": "./dist/protocol/index.d.ts",
+      "import": "./dist/protocol/index.js",
+      "default": "./dist/protocol/index.js"
+    },
+    "./components": {
+      "types": "./dist/components/index.d.ts",
+      "svelte": "./dist/components/index.js",
+      "import": "./dist/components/index.js",
+      "default": "./dist/components/index.js"
+    },
+    "./client/registry-community.js": "./dist/client/registry-community.js"
+  },
   "scripts": {
-    "build": "pnpm -r --if-present build",
-    "check:types": "tsc -p tsconfig.scripts.json --noEmit && pnpm -r --if-present check:types",
-    "test": "pnpm -r --if-present test",
+    "build": "pnpm prepack",
+    "prepack": "svelte-package --input src --tsconfig ./tsconfig.pack.json && vite build && publint",
+    "check": "pnpm spec:validate && pnpm check:svelte && pnpm check:types",
+    "check:svelte": "svelte-check --tsconfig ./tsconfig.app.json --fail-on-warnings --output human",
+    "check:types": "tsc -p tsconfig.node.json --noEmit",
+    "test": "vitest run --project unit",
+    "test:storybook": "vitest run --project storybook",
+    "storybook": "storybook dev --no-open --port 7035 --config-dir .storybook",
+    "build-storybook": "storybook build --config-dir .storybook --output-dir storybook-static",
+    "spec:build": "spec-validator build",
+    "spec:check": "spec-validator check",
+    "spec:first": "spec-validator first",
+    "spec:validate": "spec-validator validate",
+    "registry:materialize": "tsx src/materializer/materialize-registry.ts",
+    "fixture:init": "tsx src/fixture/init.ts",
+    "fixture:start": "tsx src/fixture/seed.ts",
     "smoke:local": "scripts/smoke-local-e2e.sh",
     "smoke:long-thread": "REGISTRY_FIXTURE_LONG_THREAD_POSTS=2000 scripts/smoke-local-e2e.sh",
     "local:up": "scripts/local-stack.sh up",
@@ -20,21 +77,48 @@
     "local:ps": "scripts/local-stack.sh ps",
     "local:validate": "scripts/validate-local-e2e.sh",
     "local:smoke": "scripts/smoke-local-e2e.sh",
-    "registry:materialize": "tsx scripts/materialize-registry.ts",
     "check:format": "prettier . --check --log-level warn",
     "fmt": "prettier . --write --log-level warn",
-    "check": "pnpm build && pnpm check:types && pnpm test && pnpm check:format"
+    "checks": "pnpm check:format && pnpm spec:check && pnpm check && pnpm test && pnpm test:storybook && pnpm build-storybook && pnpm build"
+  },
+  "dependencies": {
+    "@lapismd/design-core": "^0.1.0",
+    "@noble/hashes": "^2.4.0",
+    "nostr-tools": "^2.25.1",
+    "semver": "^7.7.2",
+    "sharp": "^0.34.5",
+    "zod": "^4.3.5"
+  },
+  "peerDependencies": {
+    "svelte": "^5.0.0"
   },
   "devDependencies": {
-    "@lapismd/registry-auth": "workspace:*",
-    "@lapismd/registry-nostr": "workspace:*",
-    "@lapismd/registry-protocol": "workspace:*",
-    "@types/node": "^25.0.0",
-    "nostr-tools": "^2.25.1",
+    "@lapismd/spec-validator": "0.1.0",
+    "@storybook/addon-a11y": "10.5.7",
+    "@storybook/addon-docs": "10.5.7",
+    "@storybook/addon-svelte-csf": "5.1.2",
+    "@storybook/addon-vitest": "10.5.7",
+    "@storybook/svelte-vite": "10.5.7",
+    "@sveltejs/package": "2.5.0",
+    "@sveltejs/vite-plugin-svelte": "5.1.1",
+    "@tsconfig/svelte": "5.0.5",
+    "@types/node": "^22.15.0",
+    "@types/semver": "^7.7.1",
+    "@vitest/browser": "4.1.8",
+    "@vitest/browser-playwright": "4.1.8",
+    "aria-query": "5.3.2",
+    "playwright": "1.61.1",
     "prettier": "3.3.3",
     "prettier-plugin-svelte": "^3.5.2",
+    "publint": "0.3.12",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "storybook": "10.5.7",
+    "svelte": "5.56.9",
+    "svelte-check": "4.3.1",
     "tsx": "^4.20.6",
-    "typescript": "^6.0.0",
-    "vitest": "^3.2.4"
+    "typescript": "~5.8.3",
+    "vite": "6.4.2",
+    "vitest": "4.1.8"
   }
 }

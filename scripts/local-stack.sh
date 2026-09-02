@@ -29,12 +29,13 @@ resolve_directory() {
 if [[ ! -f ${fixture_env} || ! -f ${fixture_dir}/fixture-secrets.json || ! -f ${reader_secret} ]] ||
   ! rg -q '^REGISTRY_PUBLISHER_PUBKEYS=' "${fixture_env}" ||
   ! rg -q '^REGISTRY_FIXTURE_CREATED_AT=' "${fixture_env}"; then
-  pnpm --dir "${repo_root}" --filter @lapismd/registry-local-fixture... build >/dev/null
-  node "${repo_root}/services/registry-local-fixture/dist/init.js" \
+  pnpm --dir "${repo_root}" build >/dev/null
+  node "${repo_root}/dist/fixture/init.js" \
     --output "${fixture_dir}" >/dev/null
 fi
 
 export REGISTRY_FIXTURE_SECRETS_FILE="${fixture_dir}/fixture-secrets.json"
+export REGISTRY_READER_SECRET_FILE="${reader_secret}"
 operator_secret=$(jq -er '.keys.operator | select(test("^[0-9a-f]{64}$"))' \
   "${REGISTRY_FIXTURE_SECRETS_FILE}")
 operator_pubkey=$(awk -F= '$1 == "REGISTRY_OPERATOR_PUBKEYS" { print $2 }' \

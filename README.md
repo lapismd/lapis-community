@@ -1,22 +1,25 @@
-# Lapis Nostr plugin registry core
+# Lapis Community
 
-This repository is the complete path from signed Nostr registry events to a
-verified static projection for `community.lapis.md`.
+`@lapismd/lapis-community` is the single shared package for the Nostr-first
+Lapis community and plugin registry. It is the complete path from signed Nostr
+events to the verified projection and discussion components rendered by
+`community.lapis.md`.
 
 ## Active components
 
-- `@lapismd/registry-protocol` defines standard NIP-29 release messages,
-  curator reactions, forum posts, replies, and deterministic projection rules.
-- `@lapismd/registry-nostr` reads those events and content-addressed manifests
-  from the configured relay.
-- `@lapismd/registry-auth` provides NIP-07 and headless signers plus the NIP-42
-  authentication adapter used by the browser UI and materializer.
-- `apps/registry-community` renders ratings, discussions, replies, reactions,
-  and paged thread history directly from the relay.
-- `scripts/materialize-registry.ts` verifies publishers, curators, signatures,
-  manifests, artifacts, and media before writing the publishable projection.
-- `services/registry-local-fixture` creates deterministic local events from the
-  sibling `lapis-plugins` checkout for end-to-end testing only.
+- `src/protocol` defines standard NIP-29 release messages, curator reactions,
+  forum posts, replies, and deterministic projection rules.
+- `src/nostr` reads those events and content-addressed manifests from configured
+  relays.
+- `src/auth` provides NIP-07 and headless signers plus the NIP-42 adapter used
+  by the browser UI and materializer.
+- `src/components` contains composable Svelte components and colocated
+  Storybook stories for ratings, discussions, replies, reactions, and bounded
+  thread history.
+- `src/materializer` verifies publishers, curators, signatures, manifests,
+  artifacts, and media before writing the publishable projection.
+- `src/fixture` creates deterministic local events from the sibling
+  `lapis-plugins` checkout for end-to-end testing only.
 
 There is no registry database or submission API. Signed Nostr events and their
 content-addressed attachments are the only registry input.
@@ -45,10 +48,15 @@ community component. The renderer consumes this directory through
 
 ```sh
 pnpm install --frozen-lockfile
-pnpm check
+pnpm checks
 pnpm local:validate
 pnpm smoke:local
 ```
+
+Run `pnpm storybook` to browse the production community components in isolated
+normal, reply, reaction, error, and long-discussion states. The package
+specification is under `spec/src` and is enforced by
+`@lapismd/spec-validator`.
 
 The Docker stack builds the sibling `nostr-relay`, seeds all complete plugins,
 materializes the event graph, builds the sibling site, and serves the rendered

@@ -1,7 +1,10 @@
 node_modules/
+.svelte-kit/
 dist/
 coverage/
 artifacts/
+spec/book/
+storybook-static/
 .local/
 .turbo/
 .env

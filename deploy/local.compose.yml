@@ -58,7 +58,7 @@ services:
     image: ${REGISTRY_FIXTURE_IMAGE:-lapis-registry-local-fixture:local}
     build:
       context: ..
-      dockerfile: services/registry-local-fixture/Dockerfile
+      dockerfile: deploy/fixture.Dockerfile
     read_only: true
     tmpfs: [/tmp]
     environment:
@@ -95,7 +95,12 @@ services:
     read_only: true
     tmpfs: [/tmp]
     command:
-      ["pnpm", "registry:materialize", "--output", "/projection/registry"]
+      [
+        "node",
+        "dist/materializer/materialize-registry.js",
+        "--output",
+        "/projection/registry",
+      ]
     environment:
       REGISTRY_ASSET_FETCH_ORIGIN: http://registry-fixture:8090/
       REGISTRY_CURATOR_PUBKEYS: ${REGISTRY_CURATOR_PUBKEYS:?fixture curator is missing}

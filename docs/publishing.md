@@ -2,7 +2,7 @@
 
 Production publication is a manual gate.
 
-1. Build and test the core packages with `pnpm check`.
+1. Build and test the `@lapismd/lapis-community` package with `pnpm checks`.
 2. Supply a dedicated, non-authoritative Nostr read identity through
    `REGISTRY_READER_SECRET_FILE`, then materialize the configured production
    relay into a new empty directory.
@@ -16,4 +16,4 @@ Production publication is a manual gate.
 
 Do not reuse a mutable archive URL, expose the reader, publisher, or curator
 secret keys to the site build, or deploy a projection that did not pass the
-core materializer.
+Lapis Community materializer.

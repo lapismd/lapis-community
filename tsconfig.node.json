@@ -1,0 +1,10 @@
+{
+  "extends": "./tsconfig.app.json",
+  "compilerOptions": {
+    "composite": true,
+    "noEmit": true,
+    "types": ["node", "vitest/globals"]
+  },
+  "include": ["src/**/*.ts", "vite.config.ts", ".storybook/**/*.ts"],
+  "exclude": ["src/**/*.svelte", "src/**/*.stories.svelte"]
+}

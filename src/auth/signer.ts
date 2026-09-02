@@ -1,0 +1,70 @@
+import { finalizeEvent, getPublicKey, verifyEvent } from "nostr-tools/pure";
+
+import { canonicalJson } from "../protocol/index.js";
+import type { JsonValue, NostrEvent } from "../protocol/index.js";
+
+import type {
+  Nip07Provider,
+  NostrEventTemplate,
+  RegistrySigner,
+} from "./types.js";
+
+export class SecretKeyRegistrySigner implements RegistrySigner {
+  readonly #secretKey: Uint8Array;
+
+  constructor(secretKey: Uint8Array) {
+    if (secretKey.byteLength !== 32) {
+      throw new Error("Nostr secret key must contain exactly 32 bytes");
+    }
+    this.#secretKey = secretKey.slice();
+  }
+
+  async getPublicKey(): Promise<string> {
+    return getPublicKey(this.#secretKey);
+  }
+
+  async signEvent(template: NostrEventTemplate): Promise<NostrEvent> {
+    return finalizeEvent(template, this.#secretKey);
+  }
+}
+
+export class Nip07RegistrySigner implements RegistrySigner {
+  readonly #provider: Nip07Provider;
+
+  constructor(provider?: Nip07Provider) {
+    const discovered = provider ?? globalThis.window?.nostr;
+    if (discovered === undefined) {
+      throw new Error("No NIP-07 window.nostr provider is available");
+    }
+    this.#provider = discovered;
+  }
+
+  async getPublicKey(): Promise<string> {
+    return await this.#provider.getPublicKey();
+  }
+
+  async signEvent(template: NostrEventTemplate): Promise<NostrEvent> {
+    const expectedPubkey = await this.getPublicKey();
+    const event = await this.#provider.signEvent(template);
+    if (
+      event.pubkey !== expectedPubkey ||
+      event.kind !== template.kind ||
+      event.created_at !== template.created_at ||
+      event.content !== template.content ||
+      canonicalJson(event.tags as unknown as JsonValue) !==
+        canonicalJson(template.tags as unknown as JsonValue) ||
+      !verifyEvent(event)
+    ) {
+      throw new Error(
+        "Signer returned an event that does not match the requested template",
+      );
+    }
+    return event;
+  }
+}
+
+declare global {
+  interface Window {
+    nostr?: Nip07Provider;
+  }
+}

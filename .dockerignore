@@ -8,5 +8,4 @@ coverage
 /deploy
 /docs
 /scripts/*
-!/scripts/materialize-registry.ts
 /README.md

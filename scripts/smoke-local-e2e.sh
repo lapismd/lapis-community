@@ -113,10 +113,11 @@ set -a
 # shellcheck source=/dev/null
 source "${repo_root}/.local/registry-fixture/fixture.env"
 set +a
+export REGISTRY_READER_SECRET_FILE="${repo_root}/.local/registry-fixture/materializer-reader.key"
 export REGISTRY_RELAYS="ws://registry.localhost:${LAPIS_RELAY_PORT}"
 export REGISTRY_PUBLIC_RELAYS="${REGISTRY_RELAYS}"
 export REGISTRY_ASSET_FETCH_ORIGIN="${fixture_base}"
-pnpm --dir "${repo_root}" --filter @lapismd/registry-community... build
+pnpm --dir "${repo_root}" build
 pnpm --dir "${repo_root}" registry:materialize --output "${smoke_tmp}/materialized"
 
 jq -e '.schemaVersion == 1 and (.plugins | length) == 12' \
