@@ -24,6 +24,7 @@ import {
 export interface CommunityTestScenarioOptions {
   relayUrl?: string;
   createdAt?: number;
+  namespace?: string;
 }
 
 export interface CommunityTestScenario {
@@ -31,6 +32,7 @@ export interface CommunityTestScenario {
   operator: SecretKeyRegistrySigner;
   member: SecretKeyRegistrySigner;
   events: readonly NostrEvent[];
+  commands: readonly NostrEvent[];
   seed(relay: CommunityRelay): Promise<void>;
 }
 
@@ -72,6 +74,9 @@ export function createCommunityTestScenario(
 ): CommunityTestScenario {
   const relayUrl = options.relayUrl ?? "memory://community.test";
   const createdAt = options.createdAt ?? 1_700_000_000;
+  const suffix = options.namespace?.trim();
+  const generalGroupId = suffix ? `general-${suffix}` : "general";
+  const supportGroupId = suffix ? `support-${suffix}` : "support";
   const operator = new SecretKeyRegistrySigner(operatorKey);
   const member = new SecretKeyRegistrySigner(memberKey);
   const operatorPubkey = publicKey(operatorKey);
@@ -82,7 +87,7 @@ export function createCommunityTestScenario(
       created_at: createdAt,
       content: JSON.stringify({ name: "general", about: "Community chat" }),
       tags: [
-        ["h", "general"],
+        ["h", generalGroupId],
         ["name", "general"],
         ["about", "Community chat"],
         ["supported_kinds", "9", "7"],
@@ -93,7 +98,7 @@ export function createCommunityTestScenario(
       created_at: createdAt + 1,
       content: JSON.stringify({ name: "support", about: "Support forum" }),
       tags: [
-        ["h", "support"],
+        ["h", supportGroupId],
         ["name", "support"],
         ["about", "Support forum"],
         ["supported_kinds", "11", "1111", "7"],
@@ -109,14 +114,14 @@ export function createCommunityTestScenario(
       kind: 9,
       created_at: createdAt + 3,
       content: "Welcome to Lapis Community",
-      tags: [["h", "general"]],
+      tags: [["h", generalGroupId]],
     },
     {
       kind: 11,
       created_at: createdAt + 4,
       content: "How should portable forums work?",
       tags: [
-        ["h", "support"],
+        ["h", supportGroupId],
         ["title", "Portable forums"],
       ],
     },
@@ -140,21 +145,45 @@ export function createCommunityTestScenario(
         created_at: createdAt + 5,
         content: "Hello from a member",
         tags: [
-          ["h", "general"],
+          ["h", generalGroupId],
           ["p", operatorPubkey],
         ],
       },
       memberKey,
     ),
   );
+  const commands = [
+    finalizeEvent(
+      {
+        kind: 9_000,
+        created_at: createdAt + 6,
+        content: "",
+        tags: [
+          ["h", generalGroupId],
+          ["p", memberPubkey, "member"],
+        ],
+      },
+      operatorKey,
+    ),
+  ];
 
   const scope: CommunityScope = {
     id: "lapis",
     name: "Lapis Community",
     relayUrl,
     rooms: [
-      { id: "general", groupId: "general", name: "general", kind: "channel" },
-      { id: "support", groupId: "support", name: "support", kind: "forum" },
+      {
+        id: "general",
+        groupId: generalGroupId,
+        name: "general",
+        kind: "channel",
+      },
+      {
+        id: "support",
+        groupId: supportGroupId,
+        name: "support",
+        kind: "forum",
+      },
     ],
   };
   return {
@@ -162,24 +191,42 @@ export function createCommunityTestScenario(
     operator,
     member,
     events,
+    commands,
     async seed(relay) {
       for (const event of events) await relay.publish(event);
-      await relay.publish(
-        finalizeEvent(
-          {
-            kind: 9_000,
-            created_at: createdAt + 6,
-            content: "",
-            tags: [
-              ["h", "general"],
-              ["p", memberPubkey, "member"],
-            ],
-          },
-          operatorKey,
-        ),
-      );
+      for (const event of commands) await relay.publish(event);
     },
   };
+}
+
+export async function seedCommunityTestScenario(
+  scenario: CommunityTestScenario,
+  relayFactory: CommunityRelayFactory,
+): Promise<void> {
+  const operatorPubkey = await scenario.operator.getPublicKey();
+  const memberPubkey = await scenario.member.getPublicKey();
+  const identities = new Map([
+    [operatorPubkey, scenario.operator],
+    [memberPubkey, scenario.member],
+  ]);
+  const relays = new Map<string, CommunityRelay>();
+  try {
+    for (const event of [...scenario.events, ...scenario.commands]) {
+      const identity = identities.get(event.pubkey);
+      if (identity === undefined) {
+        throw new Error("Scenario event author has no fixture identity");
+      }
+      let relay = relays.get(event.pubkey);
+      if (relay === undefined) {
+        relay = relayFactory.create(scenario.scope.relayUrl);
+        await relay.authenticate?.((template) => identity.signEvent(template));
+        relays.set(event.pubkey, relay);
+      }
+      await relay.publish(event);
+    }
+  } finally {
+    for (const relay of relays.values()) relay.close();
+  }
 }
 
 export async function createCommunityTestRuntime(
@@ -236,14 +283,13 @@ export async function createCommunityStoryRuntime(
       "Docker relay unavailable. Start it with pnpm storybook:relay or provide VITE_COMMUNITY_RELAY_URL.",
     );
   }
-  const scenario = createCommunityTestScenario({ ...options, relayUrl });
+  const scenario = createCommunityTestScenario({
+    ...options,
+    relayUrl,
+    namespace: options.namespace ?? crypto.randomUUID(),
+  });
   const relayFactory = createWebSocketCommunityRelayFactory();
-  const seedRelay = await relayFactory.create(relayUrl);
-  try {
-    await scenario.seed(seedRelay);
-  } finally {
-    seedRelay.close();
-  }
+  await seedCommunityTestScenario(scenario, relayFactory);
   const controller = createCommunityController({
     scopes: [scenario.scope],
     source: createNip29CommunitySource({ relayFactory }),

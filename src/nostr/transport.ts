@@ -68,6 +68,7 @@ export class WebSocketRegistryRelay implements CommunityRelay {
   #connection: Promise<Relay> | undefined;
   #authSigner: RelayAuthSigner | undefined;
   #authentication: Promise<string> | undefined;
+  #closed = false;
 
   constructor(url: string, options: WebSocketRelayOptions = {}) {
     this.url = url;
@@ -82,6 +83,8 @@ export class WebSocketRegistryRelay implements CommunityRelay {
   }
 
   async #connect(signal?: AbortSignal): Promise<Relay> {
+    signal?.throwIfAborted();
+    if (this.#closed) throw new Error(`${this.url}: relay is closed`);
     this.#connection ??= Relay.connect(this.url, {
       timeout: this.#connectTimeoutMs,
       ...(signal === undefined ? {} : { abort: signal }),
@@ -182,7 +185,10 @@ export class WebSocketRegistryRelay implements CommunityRelay {
     filter: RelayFilter,
     signal?: AbortSignal,
   ): Promise<NostrEvent[]> {
+    signal?.throwIfAborted();
     const relay = await this.#connect(signal);
+    const queryFilter = { ...filter };
+    delete queryFilter.limit;
 
     return await new Promise<NostrEvent[]>((resolve, reject) => {
       const events: NostrEvent[] = [];
@@ -193,14 +199,19 @@ export class WebSocketRegistryRelay implements CommunityRelay {
         callback();
       };
 
-      const subscription = relay.subscribe([filter], {
+      const subscription = relay.subscribe([queryFilter], {
         ...(signal === undefined ? {} : { abort: signal }),
         eoseTimeout: this.#eoseTimeoutMs,
         onevent: (event) => events.push(event),
         oneose: () =>
           settle(() => {
             subscription.close("complete");
-            resolve(events);
+            const ordered = events.toSorted(
+              (left, right) =>
+                right.created_at - left.created_at ||
+                right.id.localeCompare(left.id),
+            );
+            resolve(ordered.slice(0, filter.limit ?? ordered.length));
           }),
         onclose: (reason) =>
           settle(() => reject(new Error(`${this.url}: ${reason}`))),
@@ -223,33 +234,45 @@ export class WebSocketRegistryRelay implements CommunityRelay {
   async count(filter: RelayFilter, signal?: AbortSignal): Promise<number> {
     signal?.throwIfAborted();
     const relay = await this.#connect(signal);
-    return await new Promise<number>((resolve, reject) => {
-      let settled = false;
-      const settle = (callback: () => void): void => {
-        if (settled) return;
-        settled = true;
-        clearTimeout(timeout);
-        callback();
-      };
-      const timeout = setTimeout(
-        () =>
-          settle(() => {
-            relay.close();
-            this.#connection = undefined;
-            reject(new Error(`${this.url}: COUNT timed out`));
-          }),
-        this.#eoseTimeoutMs,
-      );
-      void relay
-        .count([filter], {})
-        .then((count) => settle(() => resolve(count)))
-        .catch((cause: unknown) => settle(() => reject(cause)));
-      signal?.addEventListener(
-        "abort",
-        () => settle(() => reject(signal.reason)),
-        { once: true },
-      );
-    });
+    try {
+      return await new Promise<number>((resolve, reject) => {
+        let settled = false;
+        const settle = (callback: () => void): void => {
+          if (settled) return;
+          settled = true;
+          clearTimeout(timeout);
+          callback();
+        };
+        const timeout = setTimeout(
+          () =>
+            settle(() => {
+              relay.close();
+              this.#connection = undefined;
+              reject(new Error(`${this.url}: COUNT timed out`));
+            }),
+          this.#eoseTimeoutMs,
+        );
+        void relay
+          .count([filter], {})
+          .then((count) => settle(() => resolve(count)))
+          .catch((cause: unknown) => settle(() => reject(cause)));
+        signal?.addEventListener(
+          "abort",
+          () => settle(() => reject(signal.reason)),
+          { once: true },
+        );
+      });
+    } catch (cause) {
+      if (
+        cause instanceof Error &&
+        cause.message.includes("does not support NIP-45")
+      ) {
+        const countFilter = { ...filter };
+        delete countFilter.limit;
+        return (await this.query(countFilter, signal)).length;
+      }
+      throw cause;
+    }
   }
 
   async subscribe(
@@ -282,6 +305,8 @@ export class WebSocketRegistryRelay implements CommunityRelay {
   }
 
   close(): void {
+    if (this.#closed) return;
+    this.#closed = true;
     void this.#connection
       ?.then((relay) => relay.close())
       .catch(() => undefined);

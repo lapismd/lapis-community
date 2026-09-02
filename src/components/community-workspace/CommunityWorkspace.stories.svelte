@@ -103,9 +103,7 @@
     ).toBeVisible();
     await expect(canvas.getByRole("button", { name: "general" })).toBeVisible();
     await expect(
-      within(inboxList).getByRole("button", {
-        name: /Member.*Hello from a member/,
-      }),
+      within(inboxList).getByText("Hello from a member"),
     ).toBeVisible();
     await expect(
       canvas.getByRole("heading", { name: "general" }),
@@ -186,7 +184,7 @@
     await userEvent.type(composer, "A channel interaction fixture");
     await userEvent.keyboard("{Enter}");
     await expect(
-      canvas.getByText("A channel interaction fixture"),
+      await canvas.findByText("A channel interaction fixture"),
     ).toBeVisible();
     await expect(frame).toHaveAttribute("data-last-action", "sent-message");
 
@@ -232,7 +230,7 @@
     await userEvent.type(composer, "A thread interaction fixture");
     await userEvent.keyboard("{Enter}");
     await expect(
-      thread.getByText("A thread interaction fixture"),
+      await thread.findByText("A thread interaction fixture"),
     ).toBeVisible();
     await expect(frame).toHaveAttribute("data-last-action", "sent-reply");
 

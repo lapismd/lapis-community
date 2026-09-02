@@ -40,6 +40,7 @@
 | LC-OPS-001   | Implemented    | `deploy/local.compose.yml`; `pnpm local:smoke`                                                                         |
 | LC-OPS-002   | Implemented    | `deploy/fixture.Dockerfile`; `src/fixture`; `src/materializer`                                                         |
 | LC-OPS-003   | Implemented    | `AGENTS.md`; `docs/publishing.md`                                                                                      |
+| LC-OPS-004   | Implemented    | `deploy/community-relay.compose.yml`; `scripts/community-relay.sh`; shared memory/Docker relay contract suite          |
 | LC-SPEC-001  | Implemented    | `spec/book.toml`; `pnpm spec:build`                                                                                    |
 | LC-SPEC-002  | Implemented    | `spec-validator.config.mjs`; `pnpm spec:first`                                                                         |
 | LC-SPEC-003  | Implemented    | `spec-validator.config.mjs`; `pnpm spec:check`                                                                         |

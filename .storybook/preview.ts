@@ -8,9 +8,17 @@ import "./preview.css";
 
 const communityRelayUrl = (
   import.meta as ImportMeta & {
-    env?: { VITE_COMMUNITY_RELAY_URL?: string };
+    env?: {
+      VITE_COMMUNITY_RELAY_BACKEND?: string;
+      VITE_COMMUNITY_RELAY_URL?: string;
+    };
   }
 ).env?.VITE_COMMUNITY_RELAY_URL;
+const communityRelayBackend = (
+  import.meta as ImportMeta & {
+    env?: { VITE_COMMUNITY_RELAY_BACKEND?: string };
+  }
+).env?.VITE_COMMUNITY_RELAY_BACKEND;
 
 const preview: Preview = {
   tags: ["autodocs", "test"],
@@ -43,7 +51,10 @@ const preview: Preview = {
   },
   initialGlobals: {
     colorMode: "light",
-    communityBackend: "memory",
+    communityBackend:
+      communityRelayBackend === "docker" && communityRelayUrl
+        ? "docker"
+        : "memory",
     theme: "default",
   },
   parameters: {

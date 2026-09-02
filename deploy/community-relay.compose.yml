@@ -1,0 +1,64 @@
+services:
+  community-relay:
+    image: ${LAPIS_RELAY_IMAGE:-lapis-relay:community-test}
+    build:
+      context: ${LAPIS_RELAY_PATH:?set by scripts/community-relay.sh}
+      dockerfile: Dockerfile
+    entrypoint: ["/bin/sh", "-ec"]
+    command:
+      - export RELAY_SECRET="$$(cat /run/secrets/community-relay-secret)"; exec /docker-entrypoint.sh
+    environment:
+      PORT: "3334"
+      DATABASE_URL: postgres://lapis_community:lapis_community_test@postgres:5432/lapis_community?sslmode=disable
+      RELAY_HOST: community-relay.localhost:${COMMUNITY_RELAY_PORT:?set by scripts/community-relay.sh}
+      RELAY_SCHEMA: lapis_community_test
+      RELAY_PUBKEY: 1b84c5567b126440995d3ed5aaba0565d71e1834604819ff9c17f5e9d5dd078f
+      ADMIN_PUBKEYS: '"1b84c5567b126440995d3ed5aaba0565d71e1834604819ff9c17f5e9d5dd078f","d793631af7aa0e709439dd47fc001acd0b0727670b6670ea528ac83cb0127f4a"'
+      POLICY_OPEN: "true"
+      POLICY_PUBLIC_JOIN: "true"
+      GROUPS_AUTO_JOIN: "true"
+      GROUPS_ADMIN_CREATE_ONLY: "true"
+      GROUPS_PRIVATE_ADMIN_ONLY: "true"
+      GROUPS_PRIVATE_RELAY_ADMIN_ACCESS: "false"
+      GROUP_REWRITE_DEBOUNCE_MS: "0"
+      BLOSSOM_ENABLED: "false"
+    ports:
+      - "127.0.0.1:${COMMUNITY_RELAY_PORT}:3334"
+    secrets: [community-relay-secret]
+    volumes:
+      - community-relay-config:/app/config
+      - community-relay-media:/app/media
+    depends_on:
+      postgres: { condition: service_healthy }
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:3334/health"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+      start_period: 10s
+    restart: "no"
+
+  postgres:
+    image: postgres:17-alpine@sha256:18cfe3ef5e6815560c98237d6216d1e5119702fb0f3894c8785dd58b8bbe5d73
+    environment:
+      POSTGRES_DB: lapis_community
+      POSTGRES_USER: lapis_community
+      POSTGRES_PASSWORD: lapis_community_test
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - community-relay-postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U lapis_community -d lapis_community"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+    restart: "no"
+
+secrets:
+  community-relay-secret:
+    file: ${COMMUNITY_RELAY_SECRET_FILE:?set by scripts/community-relay.sh}
+
+volumes:
+  community-relay-config:
+  community-relay-media:
+  community-relay-postgres:

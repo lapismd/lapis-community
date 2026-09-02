@@ -223,6 +223,14 @@ export class InMemoryCommunityRelay implements CommunityRelay {
     if (!verifyEvent(copyEvent(event))) {
       throw new Error("In-memory relay rejected an invalid Nostr event");
     }
+    if (
+      this.#authentication.write === true &&
+      this.#authenticatedPubkey !== event.pubkey
+    ) {
+      throw new Error(
+        "In-memory relay rejected publishing on behalf of another author",
+      );
+    }
     const rejection =
       typeof this.#faults.rejectPublish === "function"
         ? this.#faults.rejectPublish(event)

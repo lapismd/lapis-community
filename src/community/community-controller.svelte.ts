@@ -483,21 +483,25 @@ export function createCommunityController(
     onCloseSidePanel: actions.closeSidePanel,
     onOpenDetails: actions.openDetails,
     onSendMessage: (roomId, content) => {
-      void actions.sendMessage(roomId, content);
+      settleHandler(actions.sendMessage(roomId, content));
     },
     onSendReply: (rootMessageId, content) => {
-      void actions.sendReply(rootMessageId, content);
+      settleHandler(actions.sendReply(rootMessageId, content));
     },
     onToggleReaction: (messageId, emoji) => {
-      void actions.toggleReaction(messageId, emoji);
+      settleHandler(actions.toggleReaction(messageId, emoji));
     },
     onAddReaction: (messageId, emoji) => {
-      void actions.toggleReaction(messageId, emoji);
+      settleHandler(actions.toggleReaction(messageId, emoji));
     },
     onSearch: (query) => {
-      void actions.search(query);
+      settleHandler(actions.search(query));
     },
   };
+
+  function settleHandler(operation: Promise<void>): void {
+    void operation.catch(() => undefined);
+  }
 
   async function publishTemplate(
     operation: string,
