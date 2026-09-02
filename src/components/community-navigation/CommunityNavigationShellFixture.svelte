@@ -343,6 +343,29 @@
     gap: 0.125rem;
   }
 
+  @media (hover: hover) {
+    :global(
+        .lc-community-shell-titlebar
+          [data-ui-component="button"]:not(:disabled):hover
+      ) {
+      background: var(--sidebar-accent, var(--accent));
+      color: var(--sidebar-accent-foreground, var(--accent-foreground));
+    }
+
+    @supports (color: color-mix(in oklab, black, white)) {
+      :global(
+          .lc-community-shell-titlebar
+            [data-ui-component="button"]:not(:disabled):hover
+        ) {
+        background: color-mix(
+          in oklab,
+          var(--sidebar-accent, var(--accent)) 92%,
+          var(--sidebar-accent-foreground, var(--accent-foreground))
+        );
+      }
+    }
+  }
+
   :global(
       .lc-community-shell-surface:has(
           > .ui-minimal-app-shell__composition
