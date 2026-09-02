@@ -5,6 +5,7 @@ import type { CommunityRelay, CommunityRelayFactory } from "../nostr/index.js";
 import type { JsonValue, NostrEvent } from "../protocol/index.js";
 
 import type {
+  CommunityConfigurationStore,
   CommunityIdentity,
   CommunityPreferenceValue,
   CommunityReadCursor,
@@ -22,6 +23,29 @@ export interface StorageLike {
 export interface BrowserCommunityStateStoreOptions {
   storage?: StorageLike;
   prefix?: string;
+}
+
+export interface BrowserCommunityConfigurationStoreOptions {
+  storage?: StorageLike;
+  prefix?: string;
+}
+
+export function createBrowserCommunityConfigurationStore(
+  options: BrowserCommunityConfigurationStoreOptions = {},
+): CommunityConfigurationStore {
+  const storage = options.storage ?? discoveredStorage() ?? memoryStorage();
+  const prefix = options.prefix ?? "lapismd.community.configuration.v1";
+  return {
+    async loadRelayUrl(communityId) {
+      return (
+        storage.getItem(`${prefix}:${encodeURIComponent(communityId)}`) ??
+        undefined
+      );
+    },
+    async saveRelayUrl(communityId, relayUrl) {
+      storage.setItem(`${prefix}:${encodeURIComponent(communityId)}`, relayUrl);
+    },
+  };
 }
 
 export function createBrowserCommunityStateStore(

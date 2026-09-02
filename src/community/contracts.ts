@@ -51,6 +51,7 @@ export interface CommunityOperationState {
 
 export interface CommunityControllerState {
   status: CommunityConnectionStatus;
+  connections: readonly CommunityConnectionSettings[];
   workspace: CommunityWorkspaceModel;
   inbox?: CommunityInboxModel;
   settings: CommunitySettingsState;
@@ -59,6 +60,12 @@ export interface CommunityControllerState {
   searchResults: readonly CommunitySearchResult[];
   searchQuery: string;
   error?: string;
+}
+
+export interface CommunityConnectionSettings {
+  communityId: string;
+  name: string;
+  relayUrl: string;
 }
 
 export interface CommunityProfileSettings {
@@ -170,6 +177,7 @@ export interface CommunityController {
   readonly actions: CommunityControllerActions;
   initialize(): void;
   dispose(): void;
+  reconnect(): Promise<void>;
   refresh(): Promise<void>;
   retry(operation: string): Promise<void>;
 }
@@ -202,6 +210,7 @@ export interface CommunityControllerActions {
   updateProfile(profile: CommunityProfileUpdate): Promise<void>;
   setCustomEmoji(shortcode: string, url: string): Promise<void>;
   removeCustomEmoji(shortcode: string): Promise<void>;
+  updateRelayUrl(communityId: string, relayUrl: string): Promise<void>;
 }
 
 export interface CommunityControllerOptions {
@@ -209,10 +218,16 @@ export interface CommunityControllerOptions {
   source: CommunityDataSource;
   identity?: CommunityIdentity;
   stateStore?: CommunityStateStore;
+  configurationStore?: CommunityConfigurationStore;
   initialCommunityId?: string;
   initialRoomId?: string;
   clientId?: string;
   now?: () => number;
+}
+
+export interface CommunityConfigurationStore {
+  loadRelayUrl(communityId: string): Promise<string | undefined>;
+  saveRelayUrl(communityId: string, relayUrl: string): Promise<void>;
 }
 
 export interface CommunityStateScope {

@@ -12,6 +12,7 @@ export { default as CommunityDetails } from "./community-details/CommunityDetail
 export { default as CommunityMessage } from "./community-message/CommunityMessage.svelte";
 export { default as CommunityNavigation } from "./community-navigation/CommunityNavigation.svelte";
 export { default as CommunityProfileMenu } from "./community-profile-menu/CommunityProfileMenu.svelte";
+export { default as CommunityRelaySettings } from "./community-relay-settings/CommunityRelaySettings.svelte";
 export { default as CommunitySettings } from "./community-settings/CommunitySettings.svelte";
 export type { CommunitySettingsSection } from "./community-settings/model.js";
 export { default as CommunitySettingsNavigation } from "./community-settings-navigation/CommunitySettingsNavigation.svelte";

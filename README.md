@@ -64,7 +64,7 @@ publishing fixture events. Override the live target or canonical room IDs when
 running against another registry relay:
 
 ```sh
-VITE_COMMUNITY_LIVE_RELAY_URL=wss://community.lapis.md \
+VITE_COMMUNITY_LIVE_RELAY_URL=ws://registry.localhost:8281 \
 VITE_COMMUNITY_LIVE_CHANNEL_GROUP_ID=<nip-29-group-id> \
 VITE_COMMUNITY_LIVE_FORUM_GROUP_ID=<nip-29-group-id> \
 pnpm storybook

@@ -1,7 +1,10 @@
 <script lang="ts">
   import { onMount } from "svelte";
 
-  import type { CommunityController } from "../../community/index.js";
+  import {
+    createBrowserCommunityConfigurationStore,
+    type CommunityController,
+  } from "../../community/index.js";
   import {
     createCommunityStoryRuntime,
     type CommunityStoryRuntime,
@@ -22,7 +25,17 @@
       runtime = undefined;
       community = undefined;
       runtimeError = "";
-      void createCommunityStoryRuntime()
+      const selectedBackend =
+        document.documentElement.dataset.communityBackend ?? "memory";
+      const configurationStore =
+        selectedBackend === "live"
+          ? createBrowserCommunityConfigurationStore({
+              prefix: "lapismd.community.story.live.v1",
+            })
+          : undefined;
+      void createCommunityStoryRuntime({
+        ...(configurationStore === undefined ? {} : { configurationStore }),
+      })
         .then(async (created) => {
           if (!active || currentGeneration !== runtimeGeneration) {
             created.dispose();

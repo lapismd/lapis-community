@@ -4,6 +4,7 @@
   import * as DropdownMenu from "@lapismd/design-core/shadcn/dropdown-menu";
   import SmileIcon from "@lucide/svelte/icons/smile";
 
+  import type { CommunityConnectionStatus } from "../../community/index.js";
   import type { CommunityMemberModel } from "../community-workspace/model.js";
   import type { CommunityProfileMenuAction } from "./model.js";
 
@@ -12,18 +13,27 @@
     communityName,
     compact = false,
     canManageCommunity = false,
+    connectionStatus = "connected",
     onAction = () => {},
   }: {
     member: CommunityMemberModel;
     communityName: string;
     compact?: boolean;
     canManageCommunity?: boolean;
+    connectionStatus?: CommunityConnectionStatus;
     onAction?: (action: CommunityProfileMenuAction) => void;
   } = $props();
 
   const presence = $derived(member.presence ?? "offline");
   const presenceLabel = $derived(
     presence === "online" ? "Online" : presence === "away" ? "Away" : "Offline",
+  );
+  const connectionLabel = $derived(
+    connectionStatus === "connecting"
+      ? "Connecting to relay…"
+      : connectionStatus === "error" || connectionStatus === "offline"
+        ? "Reconnecting to relay…"
+        : "",
   );
 </script>
 
@@ -124,11 +134,14 @@
             class="community-profile-menu__community-icon"
             aria-hidden="true">🐝</span
           >
-          <span>{communityName}</span>
+          <span class="community-profile-menu__community-label">
+            <span>{communityName}</span>
+            {#if connectionLabel}<small>{connectionLabel}</small>{/if}
+          </span>
         </DropdownMenu.SubTrigger>
         <DropdownMenu.SubContent>
-          <DropdownMenu.Item onSelect={() => onAction("community-profile")}>
-            Community profile
+          <DropdownMenu.Item onSelect={() => onAction("community-settings")}>
+            Community settings
           </DropdownMenu.Item>
           <DropdownMenu.Item
             disabled={!canManageCommunity}
@@ -328,5 +341,20 @@
   :global(.community-profile-menu__community-icon) {
     width: 1rem;
     text-align: center;
+  }
+
+  :global(.community-profile-menu__community-label) {
+    display: grid;
+    min-width: 0;
+    flex: 1;
+  }
+
+  :global(.community-profile-menu__community-label small) {
+    overflow: hidden;
+    color: var(--muted-foreground);
+    font-size: 0.68rem;
+    font-weight: 400;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 </style>

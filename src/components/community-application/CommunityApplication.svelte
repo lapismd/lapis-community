@@ -1,5 +1,9 @@
 <script lang="ts">
   import { Button } from "@lapismd/design-core/shadcn/button";
+  import * as Alert from "@lapismd/design-core/shadcn/alert";
+  import * as Empty from "@lapismd/design-core/shadcn/empty";
+  import * as Field from "@lapismd/design-core/shadcn/field";
+  import { Input } from "@lapismd/design-core/shadcn/input";
   import {
     AppShell,
     AppShellController,
@@ -13,6 +17,8 @@
   import PanelRightIcon from "@lucide/svelte/icons/panel-right";
   import SquareTerminalIcon from "@lucide/svelte/icons/square-terminal";
   import UsersIcon from "@lucide/svelte/icons/users";
+  import WifiOffIcon from "@lucide/svelte/icons/wifi-off";
+  import XIcon from "@lucide/svelte/icons/x";
   import { untrack, type Snippet } from "svelte";
   import type { HTMLAttributes } from "svelte/elements";
 
@@ -30,6 +36,7 @@
     CommunityNavigationSectionModel,
   } from "../community-navigation/model.js";
   import CommunityProfileMenu from "../community-profile-menu/CommunityProfileMenu.svelte";
+  import CommunityRelaySettings from "../community-relay-settings/CommunityRelaySettings.svelte";
   import CommunitySettingsNavigation from "../community-settings-navigation/CommunitySettingsNavigation.svelte";
   import CommunitySettings from "../community-settings/CommunitySettings.svelte";
   import CommunityThreadPanel from "../community-thread-panel/CommunityThreadPanel.svelte";
@@ -38,6 +45,7 @@
     findCommunityRoom,
     memberById,
     type CommunityRoomModel,
+    type CommunityMemberModel,
     type CommunitySidePanel,
   } from "../community-workspace/model.js";
 
@@ -90,6 +98,11 @@
   let navigationHistory = $state<string[]>([untrack(() => initialDestination)]);
   let navigationHistoryIndex = $state(0);
   let lastAction = $state("ready");
+  let relayNoticeDismissed = $state(false);
+  let relaySettingsOpen = $state(false);
+  let inlineRelayUrl = $state("");
+  let inlineRelayCommunityId = $state("");
+  let inlineRelayError = $state("");
 
   const workspace = $derived(community.state.workspace);
   const activeRoom = $derived(
@@ -108,10 +121,23 @@
       (candidate) => candidate.id === workspace.activeCommunityId,
     ),
   );
+  const activeConnection = $derived(
+    community.state.connections.find(
+      (connection) => connection.communityId === workspace.activeCommunityId,
+    ) ?? community.state.connections[0],
+  );
+  const hasCommunityConnection = $derived(
+    community.state.status === "connected",
+  );
+  const displayMember = $derived<CommunityMemberModel>(
+    currentMember ?? fallbackMember(community.state.settings),
+  );
   const navigationModel = $derived<CommunityNavigationModel>({
     searchPlaceholder: "Search everything",
     primaryItems: [
-      { id: "inbox", label: "Inbox", kind: "inbox" },
+      ...(hasCommunityConnection
+        ? [{ id: "inbox", label: "Inbox", kind: "inbox" as const }]
+        : []),
       {
         id: "registry",
         label: "Registry",
@@ -155,7 +181,7 @@
           }
         : {}),
       sortable: true,
-      items: section.rooms.map((room) => ({
+      items: (hasCommunityConnection ? section.rooms : []).map((room) => ({
         id: room.id,
         label: room.name,
         kind: room.kind === "direct" ? "direct-message" : room.kind,
@@ -203,6 +229,40 @@
       .map(([, operation]) => operation)
       .find((operation) => operation.status !== "idle"),
   );
+  const relayOperation = $derived(
+    activeConnection === undefined
+      ? undefined
+      : community.state.operations[
+          `settings:relay:${activeConnection.communityId}`
+        ],
+  );
+  const showRelayNotice = $derived(
+    !relayNoticeDismissed &&
+      (community.state.status === "error" ||
+        community.state.status === "offline"),
+  );
+  const inlineRelayOperationPending = $derived(
+    relayOperation?.status === "pending" ||
+      community.state.status === "connecting",
+  );
+  const inlineRelayMessage = $derived(
+    inlineRelayError || relayOperation?.message || community.state.error || "",
+  );
+
+  $effect(() => {
+    if (community.state.status === "connecting") relayNoticeDismissed = false;
+  });
+
+  $effect(() => {
+    if (
+      activeConnection !== undefined &&
+      inlineRelayCommunityId !== activeConnection.communityId
+    ) {
+      inlineRelayCommunityId = activeConnection.communityId;
+      inlineRelayUrl = activeConnection.relayUrl;
+      inlineRelayError = "";
+    }
+  });
 
   function itemFor(destinationId: string): CommunityNavigationItemModel | null {
     return (
@@ -298,6 +358,33 @@
     lastAction = "sent-message";
   }
 
+  async function reconnect(): Promise<void> {
+    relayNoticeDismissed = false;
+    try {
+      await community.reconnect();
+    } catch {
+      // The controller exposes the failure through reactive state and the alert.
+    }
+  }
+
+  async function connectToRelay(event: SubmitEvent): Promise<void> {
+    event.preventDefault();
+    inlineRelayError = "";
+    if (activeConnection === undefined) {
+      inlineRelayError = "Community relay settings are unavailable";
+      return;
+    }
+    try {
+      await community.actions.updateRelayUrl(
+        activeConnection.communityId,
+        inlineRelayUrl,
+      );
+    } catch (cause) {
+      inlineRelayError =
+        cause instanceof Error ? cause.message : "Community connection failed";
+    }
+  }
+
   function fallbackRoom(roomId: string): CommunityRoomModel {
     return {
       id: roomId,
@@ -319,6 +406,30 @@
       messages: [],
       members,
       participantCount: 0,
+    };
+  }
+
+  function fallbackMember(
+    settings: CommunityController["state"]["settings"],
+  ): CommunityMemberModel {
+    const name =
+      settings.profile.displayName || settings.profile.username || "Guest";
+    const initials =
+      name
+        .split(/\s+/u)
+        .filter(Boolean)
+        .slice(0, 2)
+        .map((part) => part[0]?.toLocaleUpperCase() ?? "")
+        .join("") || "?";
+    return {
+      id: settings.profile.pubkey || "anonymous",
+      name,
+      handle: settings.profile.username || "not-signed-in",
+      initials,
+      ...(settings.profile.picture === ""
+        ? {}
+        : { avatarUrl: settings.profile.picture }),
+      presence: "offline",
     };
   }
 </script>
@@ -362,28 +473,115 @@
         onRequestExpand={() => shell.left.expand()}
       >
         {#snippet footer()}
-          {#if currentMember}
-            <CommunityProfileMenu
-              member={{
-                ...currentMember,
-                presence:
-                  community.state.status === "connected" ? "online" : "offline",
-              }}
-              communityName={currentCommunity?.name ?? "Community"}
-              compact={navigationCompact}
-              canManageCommunity={community.state.capabilities.manageMembers}
-              onAction={(action) => {
-                if (action === "settings") openSettings();
-              }}
-            />
+          {#if showRelayNotice && !navigationCompact}
+            <Alert.Root class="community-application__relay-alert">
+              <Button
+                type="button"
+                variant="ghost"
+                class="community-application__relay-connect"
+                aria-label="Reconnect to community relay"
+                onclick={reconnect}
+              >
+                <WifiOffIcon aria-hidden="true" />
+                <span class="community-application__relay-copy">
+                  <Alert.Title>Connection lost</Alert.Title>
+                  <Alert.Description>
+                    {community.state.error ??
+                      "Unable to connect to the community relay."}
+                  </Alert.Description>
+                  <span class="community-application__relay-action-label">
+                    Connect to relay
+                  </span>
+                </span>
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                class="community-application__relay-dismiss"
+                aria-label="Dismiss relay notification"
+                title="Dismiss relay notification"
+                onclick={() => (relayNoticeDismissed = true)}
+              >
+                <XIcon aria-hidden="true" />
+              </Button>
+            </Alert.Root>
           {/if}
+          <CommunityProfileMenu
+            member={{
+              ...displayMember,
+              presence:
+                community.state.status === "connected" ? "online" : "offline",
+            }}
+            communityName={currentCommunity?.name ?? "Community"}
+            compact={navigationCompact}
+            connectionStatus={community.state.status}
+            canManageCommunity={community.state.capabilities.manageMembers}
+            onAction={(action) => {
+              if (action === "settings") openSettings();
+              if (action === "community-settings") relaySettingsOpen = true;
+            }}
+          />
         {/snippet}
       </CommunityNavigation>
     {/if}
   </AppShell.Sidebar>
 
   <AppShell.Main>
-    {#if activeDestination === "settings"}
+    {#if !hasCommunityConnection}
+      <AppShell.Body layout="regions" label="Connect to community relay">
+        <AppShell.Body.Content label="Relay connection settings">
+          <section class="community-application__disconnected">
+            <Empty.Root>
+              <Empty.Header>
+                <Empty.Media variant="icon">
+                  <WifiOffIcon aria-hidden="true" />
+                </Empty.Media>
+                <Empty.Title>Connect to a community relay</Empty.Title>
+                <Empty.Description>
+                  Enter the WebSocket URL for the relay that hosts this
+                  community.
+                </Empty.Description>
+              </Empty.Header>
+              <Empty.Content>
+                <form
+                  class="community-application__relay-form"
+                  onsubmit={connectToRelay}
+                >
+                  <Field.Field
+                    data-invalid={inlineRelayMessage ? "" : undefined}
+                  >
+                    <Field.Label for="community-connect-relay-url">
+                      Relay URL
+                    </Field.Label>
+                    <Input
+                      id="community-connect-relay-url"
+                      type="url"
+                      bind:value={inlineRelayUrl}
+                      placeholder="wss://relay.example.com"
+                      aria-invalid={inlineRelayMessage ? true : undefined}
+                      required
+                    />
+                    {#if inlineRelayMessage}
+                      <Field.Error>{inlineRelayMessage}</Field.Error>
+                    {/if}
+                  </Field.Field>
+                  <Button
+                    type="submit"
+                    disabled={inlineRelayOperationPending ||
+                      inlineRelayUrl.trim() === ""}
+                  >
+                    {inlineRelayOperationPending
+                      ? "Connecting…"
+                      : "Connect to relay"}
+                  </Button>
+                </form>
+              </Empty.Content>
+            </Empty.Root>
+          </section>
+        </AppShell.Body.Content>
+      </AppShell.Body>
+    {:else if activeDestination === "settings"}
       <AppShell.Body layout="regions" label="Personal settings">
         <AppShell.Body.Content>
           <CommunitySettings
@@ -591,6 +789,16 @@
   </AppShell.Sidebar>
 </CommunityAppShell>
 
+{#if activeConnection}
+  <CommunityRelaySettings
+    bind:open={relaySettingsOpen}
+    connection={activeConnection}
+    {...relayOperation === undefined ? {} : { operation: relayOperation }}
+    onSave={(relayUrl) =>
+      community.actions.updateRelayUrl(activeConnection.communityId, relayUrl)}
+  />
+{/if}
+
 <style>
   .community-application__toolbar-start,
   .community-application__toolbar-actions {
@@ -598,6 +806,91 @@
     min-width: 0;
     align-items: center;
     gap: 0.5rem;
+  }
+
+  .community-application__disconnected {
+    display: grid;
+    height: 100%;
+    min-height: 0;
+    place-items: center;
+    padding: 2rem;
+  }
+
+  .community-application__disconnected :global([data-ui-part="empty"]) {
+    width: min(100%, 32rem);
+  }
+
+  .community-application__relay-form {
+    display: grid;
+    width: min(100%, 24rem);
+    gap: 1rem;
+    text-align: start;
+  }
+
+  :global(.community-application__relay-alert[data-ui-component="alert"]) {
+    position: relative;
+    display: block;
+    width: auto;
+    margin: 0.5rem 0.75rem 0;
+    padding: 0;
+    overflow: hidden;
+    border-color: var(--sidebar-border, var(--border));
+    background: var(--sidebar-accent, var(--accent));
+  }
+
+  :global(.community-application__relay-connect[data-ui-component="button"]) {
+    display: grid;
+    width: 100%;
+    height: auto;
+    min-height: 5rem;
+    grid-template-columns: 1.125rem minmax(0, 1fr);
+    align-items: start;
+    justify-content: stretch;
+    gap: 0.625rem;
+    padding: 0.75rem 2.75rem 0.75rem 0.75rem;
+    border-radius: inherit;
+    text-align: start;
+    white-space: normal;
+  }
+
+  :global(.community-application__relay-connect > svg) {
+    margin-block-start: 0.125rem;
+  }
+
+  .community-application__relay-copy {
+    display: grid;
+    min-width: 0;
+    gap: 0.125rem;
+  }
+
+  .community-application__relay-copy :global([data-ui-part="alert-title"]),
+  .community-application__relay-copy
+    :global([data-ui-part="alert-description"]) {
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .community-application__relay-copy
+    :global([data-ui-part="alert-description"]) {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    font-size: 0.72rem;
+  }
+
+  .community-application__relay-action-label {
+    margin-block-start: 0.25rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+  }
+
+  :global(.community-application__relay-dismiss[data-ui-component="button"]) {
+    position: absolute;
+    z-index: 1;
+    inset-block-start: 50%;
+    inset-inline-end: 0.5rem;
+    transform: translateY(-50%);
   }
 
   .community-application__toolbar-start {

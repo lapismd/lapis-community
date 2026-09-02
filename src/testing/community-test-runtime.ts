@@ -2,6 +2,7 @@ import { Nip07RegistrySigner, SecretKeyRegistrySigner } from "../auth/index.js";
 import {
   createCommunityController,
   createNip29CommunitySource,
+  type CommunityConfigurationStore,
   type CommunityController,
   type CommunityScope,
 } from "../community/index.js";
@@ -49,6 +50,7 @@ export interface CommunityStoryRuntimeOptions
   relayUrl?: string;
   liveChannelGroupId?: string;
   liveForumGroupId?: string;
+  configurationStore?: CommunityConfigurationStore;
 }
 
 export interface CommunityStoryRuntime {
@@ -359,6 +361,9 @@ export async function createCommunityStoryRuntime(
     scopes: [liveScope],
     source: createNip29CommunitySource({ relayFactory }),
     ...(identity === undefined ? {} : { identity }),
+    ...(options.configurationStore === undefined
+      ? {}
+      : { configurationStore: options.configurationStore }),
     now:
       backend === "live"
         ? () => Math.floor(Date.now() / 1_000)

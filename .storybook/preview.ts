@@ -22,7 +22,7 @@ const communityLiveRelayUrl =
     import.meta as ImportMeta & {
       env?: { VITE_COMMUNITY_LIVE_RELAY_URL?: string };
     }
-  ).env?.VITE_COMMUNITY_LIVE_RELAY_URL ?? "wss://community.lapis.md";
+  ).env?.VITE_COMMUNITY_LIVE_RELAY_URL ?? "ws://registry.localhost:8281";
 const communityLiveChannelGroupId = (
   import.meta as ImportMeta & {
     env?: { VITE_COMMUNITY_LIVE_CHANNEL_GROUP_ID?: string };

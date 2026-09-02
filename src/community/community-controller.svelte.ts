@@ -52,12 +52,19 @@ const NO_CAPABILITIES: CommunityCapabilities = {
 export function createCommunityController(
   options: CommunityControllerOptions,
 ): CommunityController {
-  const scopes = [...options.scopes];
-  if (scopes.length === 0) {
+  const initialScopes = options.scopes.map((scope) => ({
+    ...scope,
+    ...(scope.rooms === undefined ? {} : { rooms: [...scope.rooms] }),
+    ...(scope.readRelayUrls === undefined
+      ? {}
+      : { readRelayUrls: [...scope.readRelayUrls] }),
+  }));
+  if (initialScopes.length === 0) {
     throw new Error(
       "CommunityController requires at least one community scope",
     );
   }
+  let scopes = $state<CommunityScope[]>(initialScopes);
   const now = options.now ?? (() => Math.floor(Date.now() / 1_000));
   const clientId = options.clientId ?? createClientId();
   const sessions = new Map<string, CommunitySession>();
@@ -66,6 +73,7 @@ export function createCommunityController(
   const storedStates = new Map<string, CommunityStoredState>();
   let controllerAbort: AbortController | undefined;
   let generation = 0;
+  let configurationLoaded = false;
 
   let status = $state<CommunityControllerState["status"]>("idle");
   let eventsByScope = $state<Record<string, NostrEvent[]>>({});
@@ -78,12 +86,13 @@ export function createCommunityController(
   let error = $state("");
   let identityPubkey = $state("");
   let activeCommunityId = $state(
-    options.initialCommunityId ?? scopes[0]?.id ?? "",
+    options.initialCommunityId ?? initialScopes[0]?.id ?? "",
   );
   let activeRoomId = $state(
     options.initialRoomId ??
       communityRooms(
-        scopes.find((scope) => scope.id === activeCommunityId) ?? scopes[0]!,
+        initialScopes.find((scope) => scope.id === activeCommunityId) ??
+          initialScopes[0]!,
       )[0]?.id ??
       "",
   );
@@ -137,6 +146,11 @@ export function createCommunityController(
   const state = $derived.by(
     (): CommunityControllerState => ({
       status,
+      connections: scopes.map((scope) => ({
+        communityId: scope.id,
+        name: scope.name,
+        relayUrl: scope.relayUrl,
+      })),
       workspace,
       ...(inbox === undefined ? {} : { inbox }),
       settings,
@@ -162,6 +176,20 @@ export function createCommunityController(
     status = "connecting";
     error = "";
     try {
+      if (!configurationLoaded && options.configurationStore !== undefined) {
+        const configuredScopes = await Promise.all(
+          scopes.map(async (scope) => {
+            const configuredRelayUrl =
+              await options.configurationStore!.loadRelayUrl(scope.id);
+            return configuredRelayUrl === undefined
+              ? scope
+              : { ...scope, relayUrl: normalizeRelayUrl(configuredRelayUrl) };
+          }),
+        );
+        if (generation !== currentGeneration) return;
+        scopes = configuredScopes;
+        configurationLoaded = true;
+      }
       identityPubkey = options.identity
         ? await options.identity.getPublicKey()
         : "";
@@ -225,16 +253,28 @@ export function createCommunityController(
   }
 
   function dispose(): void {
+    closeConnections("Controller disposed");
+    status = "idle";
+  }
+
+  async function reconnect(): Promise<void> {
+    closeConnections("Controller reconnecting");
+    controllerAbort = new AbortController();
+    const currentGeneration = ++generation;
+    await connect(currentGeneration, controllerAbort.signal);
+    if (status === "error") {
+      throw new Error(error || "Community connection failed");
+    }
+  }
+
+  function closeConnections(reason: string): void {
     generation += 1;
-    controllerAbort?.abort(
-      new DOMException("Controller disposed", "AbortError"),
-    );
+    controllerAbort?.abort(new DOMException(reason, "AbortError"));
     controllerAbort = undefined;
     for (const subscription of subscriptions.values()) subscription.close();
     subscriptions.clear();
     for (const session of sessions.values()) session.close();
     sessions.clear();
-    status = "idle";
   }
 
   async function refresh(): Promise<void> {
@@ -515,6 +555,23 @@ export function createCommunityController(
       if (!emojis.delete(normalized)) return;
       await publishEmojiSet(emojis, `settings:emoji:${normalized}:remove`);
     },
+    async updateRelayUrl(communityId, relayUrl) {
+      const scope = scopes.find((candidate) => candidate.id === communityId);
+      if (scope === undefined) throw new Error("Community was not found");
+      const normalizedRelayUrl = normalizeRelayUrl(relayUrl);
+      await runOperation(`settings:relay:${communityId}`, async () => {
+        await options.configurationStore?.saveRelayUrl(
+          communityId,
+          normalizedRelayUrl,
+        );
+        scopes = scopes.map((candidate) =>
+          candidate.id === communityId
+            ? { ...candidate, relayUrl: normalizedRelayUrl }
+            : candidate,
+        );
+        if (communityId === activeCommunityId) await reconnect();
+      });
+    },
   };
 
   const handlers: CommunityWorkspaceHandlers = {
@@ -763,9 +820,25 @@ export function createCommunityController(
     actions,
     initialize,
     dispose,
+    reconnect,
     refresh,
     retry,
   };
+}
+
+function normalizeRelayUrl(value: string): string {
+  const trimmed = value.trim();
+  if (trimmed === "") throw new Error("Relay URL is required");
+  let url: URL;
+  try {
+    url = new URL(trimmed);
+  } catch {
+    throw new Error("Enter a valid relay URL");
+  }
+  if (url.protocol !== "ws:" && url.protocol !== "wss:") {
+    throw new Error("Relay URL must use ws:// or wss://");
+  }
+  return url.toString();
 }
 
 function isGroupAdmin(

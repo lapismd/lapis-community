@@ -11,6 +11,7 @@
     RegistryCommunity,
   } from "@lapismd/lapis-community/components";
   import {
+    createBrowserCommunityConfigurationStore,
     createCommunityController,
     createNip29CommunitySource,
   } from "@lapismd/lapis-community/community";
@@ -23,6 +24,7 @@
     source: createNip29CommunitySource({
       relayFactory: createWebSocketCommunityRelayFactory(),
     }),
+    configurationStore: createBrowserCommunityConfigurationStore(),
   });
 
   onMount(() => {
