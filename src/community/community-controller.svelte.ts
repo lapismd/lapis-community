@@ -40,6 +40,7 @@ import {
   materializeCommunitySettings,
   normalizeShortcode,
 } from "./materialize-settings.js";
+import { verifiedNostrEvent } from "./verified-events.js";
 
 const NO_CAPABILITIES: CommunityCapabilities = {
   channels: false,
@@ -74,6 +75,9 @@ export function createCommunityController(
   const sessions = new Map<string, CommunitySession>();
   const subscriptions = new Map<string, CommunitySessionSubscription>();
   const retries = new Map<string, () => Promise<void>>();
+  const queuedEvents = new Map<string, NostrEvent[]>();
+  const queuedEventGenerations = new Map<string, number>();
+  const scheduledEventScopes = new Set<string>();
   const storedStates = new Map<string, CommunityStoredState>();
   let controllerAbort: AbortController | undefined;
   let identity = options.identity;
@@ -248,21 +252,7 @@ export function createCommunityController(
             pendingEvents.push(...events);
             return;
           }
-          mergeEvents(scope.id, events);
-          if (
-            events.some((event) =>
-              [9, 11, 1_059, 1_111, 39_000].includes(event.kind),
-            )
-          ) {
-            void refreshScope(scope.id, signal).catch((cause: unknown) => {
-              if (!isAbort(cause)) {
-                error =
-                  cause instanceof Error
-                    ? cause.message
-                    : "Community refresh failed";
-              }
-            });
-          }
+          queueLiveEvents(scope.id, events, currentGeneration);
         }, signal);
         subscriptions.set(scope.id, subscription);
         const snapshot = await session.snapshot(signal);
@@ -311,6 +301,9 @@ export function createCommunityController(
     controllerAbort = undefined;
     for (const subscription of subscriptions.values()) subscription.close();
     subscriptions.clear();
+    queuedEvents.clear();
+    queuedEventGenerations.clear();
+    scheduledEventScopes.clear();
     for (const session of sessions.values()) session.close();
     sessions.clear();
   }
@@ -1018,7 +1011,9 @@ export function createCommunityController(
     await runOperation(operation, async () => {
       const events = await session.execute(command, controllerAbort?.signal);
       mergeEvents(activeCommunityId, events);
-      await refreshScope(activeCommunityId, controllerAbort?.signal);
+      if (commandNeedsReconciliation(command)) {
+        await refreshScope(activeCommunityId, controllerAbort?.signal);
+      }
     });
   }
 
@@ -1054,12 +1049,20 @@ export function createCommunityController(
     events: readonly NostrEvent[],
     replace = false,
   ): void {
+    if (events.length === 0 && !replace) return;
+    const current = replace ? [] : (eventsByScope[scopeId] ?? []);
     const merged = new Map(
-      (replace ? [] : (eventsByScope[scopeId] ?? [])).map(
-        (event) => [event.id, event] as const,
-      ),
+      current.map((event) => [event.id, event] as const),
     );
-    for (const event of events) merged.set(event.id, event);
+    let changed = replace && current.length > 0;
+    for (const incoming of events) {
+      if (!replace && merged.has(incoming.id)) continue;
+      const event = verifiedNostrEvent(incoming);
+      if (event === undefined) continue;
+      merged.set(event.id, event);
+      changed = true;
+    }
+    if (!changed) return;
     eventsByScope = {
       ...eventsByScope,
       [scopeId]: [...merged.values()].toSorted(
@@ -1067,6 +1070,40 @@ export function createCommunityController(
           left.created_at - right.created_at || left.id.localeCompare(right.id),
       ),
     };
+  }
+
+  function queueLiveEvents(
+    scopeId: string,
+    events: readonly NostrEvent[],
+    currentGeneration: number,
+  ): void {
+    if (events.length === 0) return;
+    const queued = queuedEvents.get(scopeId) ?? [];
+    queued.push(...events);
+    queuedEvents.set(scopeId, queued);
+    queuedEventGenerations.set(scopeId, currentGeneration);
+    if (scheduledEventScopes.has(scopeId) || queued.length >= 100) {
+      if (queued.length >= 100) flushQueuedEvents(scopeId);
+      return;
+    }
+    scheduledEventScopes.add(scopeId);
+    queueMicrotask(() => flushQueuedEvents(scopeId));
+  }
+
+  function flushQueuedEvents(scopeId: string): void {
+    scheduledEventScopes.delete(scopeId);
+    const queued = queuedEvents.get(scopeId);
+    queuedEvents.delete(scopeId);
+    const queuedGeneration = queuedEventGenerations.get(scopeId);
+    queuedEventGenerations.delete(scopeId);
+    if (
+      queued === undefined ||
+      queued.length === 0 ||
+      queuedGeneration !== generation
+    ) {
+      return;
+    }
+    mergeEvents(scopeId, queued);
   }
 
   function mergePrivateEvents(
@@ -1446,6 +1483,19 @@ function normalizeRelayUrl(value: string): string {
     throw new Error("Relay URL must use ws:// or wss://");
   }
   return url.toString();
+}
+
+function commandNeedsReconciliation(command: CommunityCommand): boolean {
+  return [
+    "create-room",
+    "update-room",
+    "delete-room",
+    "join",
+    "leave",
+    "add-member",
+    "remove-member",
+    "direct-message",
+  ].includes(command.type);
 }
 
 function isGroupAdmin(

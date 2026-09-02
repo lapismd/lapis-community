@@ -46,6 +46,7 @@ describe("createCommunityController", () => {
       editMessages: false,
     };
     const snapshot = vi.fn(async () => ({ events: [event], capabilities }));
+    let deliver: ((events: readonly typeof event[]) => void) | undefined;
     const controller = createCommunityController({
       scopes: [
         {
@@ -67,6 +68,7 @@ describe("createCommunityController", () => {
           return {
             snapshot,
             async subscribe(listener) {
+              deliver = listener;
               listener([event]);
               return { close() {} };
             },
@@ -85,6 +87,10 @@ describe("createCommunityController", () => {
     controller.initialize();
     await vi.waitFor(() => expect(controller.state.status).toBe("connected"));
 
+    expect(snapshot).toHaveBeenCalledTimes(1);
+    expect(controller.state.workspace.messages).toHaveLength(1);
+    deliver?.([event, event]);
+    await new Promise<void>((resolve) => queueMicrotask(resolve));
     expect(snapshot).toHaveBeenCalledTimes(1);
     expect(controller.state.workspace.messages).toHaveLength(1);
     controller.dispose();

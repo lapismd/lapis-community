@@ -1,5 +1,3 @@
-import { verifyEvent } from "nostr-tools/pure";
-
 import type {
   CommunityDetailsModel,
   CommunityInboxModel,
@@ -17,6 +15,7 @@ import type {
   CommunityRoomScope,
   CommunityScope,
 } from "./contracts.js";
+import { isVerifiedNostrEvent } from "./verified-events.js";
 
 export interface CommunityProjectionOptions {
   asOf?: number;
@@ -38,18 +37,6 @@ interface DirectConversation {
 interface Profile {
   name: string;
   picture?: string;
-}
-
-function eventCopy(event: NostrEvent): NostrEvent {
-  return {
-    id: event.id,
-    pubkey: event.pubkey,
-    created_at: event.created_at,
-    kind: event.kind,
-    tags: event.tags.map((tag) => [...tag]),
-    content: event.content,
-    sig: event.sig,
-  };
 }
 
 function compareOldest(left: NostrEvent, right: NostrEvent): number {
@@ -85,7 +72,7 @@ export function communityRooms(
   const configuredGroupIds = new Set(configured.map((room) => room.groupId));
   const metadataByGroup = new Map<string, NostrEvent>();
   for (const event of events) {
-    if (event.kind !== 39_000 || !verifyEvent(eventCopy(event))) continue;
+    if (event.kind !== 39_000 || !isVerifiedNostrEvent(event)) continue;
     const groupId = event.tags.find((tag) => tag[0] === "d")?.[1];
     if (
       groupId === undefined ||
@@ -350,8 +337,7 @@ export function materializeCommunityInbox(
 function acceptedEvents(events: readonly NostrEvent[]): NostrEvent[] {
   const accepted = new Map<string, NostrEvent>();
   for (const event of events) {
-    const copy = eventCopy(event);
-    if (verifyEvent(copy)) accepted.set(copy.id, copy);
+    if (isVerifiedNostrEvent(event)) accepted.set(event.id, event);
   }
   return [...accepted.values()].toSorted(compareOldest);
 }

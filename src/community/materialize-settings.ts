@@ -1,10 +1,9 @@
-import { verifyEvent } from "nostr-tools/pure";
-
 import type { NostrEvent } from "../protocol/index.js";
 import type {
   CommunityCustomEmoji,
   CommunitySettingsState,
 } from "./contracts.js";
+import { isVerifiedNostrEvent } from "./verified-events.js";
 
 const EMPTY_PROFILE = {
   pubkey: "",
@@ -18,10 +17,7 @@ export function materializeCommunitySettings(
   events: readonly NostrEvent[],
   identityPubkey: string,
 ): CommunitySettingsState {
-  // nostr-tools memoizes verification on the event object. Verify a shallow
-  // copy so materialization remains read-only when a host stores events in a
-  // Svelte state proxy or another immutable collection.
-  const accepted = events.filter((event) => verifyEvent({ ...event }));
+  const accepted = events.filter(isVerifiedNostrEvent);
   const profileEvent = latest(
     accepted.filter(
       (event) => event.kind === 0 && event.pubkey === identityPubkey,
