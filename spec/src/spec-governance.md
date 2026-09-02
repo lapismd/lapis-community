@@ -12,7 +12,10 @@
 
 `@lapismd/spec-validator` is development-only governance tooling. Published
 runtime dependencies use ordinary npm semantic-version ranges and never local
-workspace, file, or link dependencies.
+workspace, file, or link dependencies. The package-owned rebuildable event
+cache uses `idb` for its durable fallback and lazily loads
+`@tursodatabase/database-wasm` only when the host meets the OPFS isolation
+requirements.
 
 Relay conformance tests live under the test-only package entry point. They run
 in memory by default and may target the disposable Docker relay without adding

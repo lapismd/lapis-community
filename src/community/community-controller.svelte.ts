@@ -85,6 +85,10 @@ export function createCommunityController(
   let configurationLoaded = false;
 
   let status = $state<CommunityControllerState["status"]>("idle");
+  let cache = $state<CommunityControllerState["cache"]>({
+    mode: "memory",
+    freshness: "empty",
+  });
   let eventsByScope = $state<Record<string, NostrEvent[]>>({});
   let privateEventsByScope = $state<Record<string, CommunityPrivateEvent[]>>(
     {},
@@ -173,6 +177,7 @@ export function createCommunityController(
   const state = $derived.by(
     (): CommunityControllerState => ({
       status,
+      cache,
       connections: scopes.map((scope) => ({
         communityId: scope.id,
         name: scope.name,

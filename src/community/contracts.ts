@@ -12,10 +12,29 @@ import type { JsonValue } from "../protocol/index.js";
 
 export type CommunityConnectionStatus =
   | "idle"
+  | "restoring"
   | "connecting"
+  | "synchronizing"
   | "connected"
   | "offline"
   | "error";
+
+export type CommunityStorageMode = "turso-opfs" | "indexeddb" | "memory";
+
+export type CommunityCacheFreshness =
+  | "empty"
+  | "cached"
+  | "synchronizing"
+  | "current"
+  | "offline";
+
+export interface CommunityCacheState {
+  mode: CommunityStorageMode;
+  freshness: CommunityCacheFreshness;
+  lastSynchronizedAt?: number;
+  degradedReason?: string;
+  approximateBytes?: number;
+}
 
 export interface CommunityScope {
   id: string;
@@ -95,6 +114,7 @@ export interface CommunityOperationState {
 
 export interface CommunityControllerState {
   status: CommunityConnectionStatus;
+  cache: CommunityCacheState;
   connections: readonly CommunityConnectionSettings[];
   workspace: CommunityWorkspaceModel;
   inbox?: CommunityInboxModel;
@@ -202,6 +222,60 @@ export interface CommunitySnapshot {
   events: readonly NostrEvent[];
   privateEvents?: readonly CommunityPrivateEvent[];
   capabilities: CommunityCapabilities;
+}
+
+export type CommunityCacheAudience =
+  | { type: "public" }
+  | { type: "inbox"; pubkey: string };
+
+export interface CommunitySyncCheckpoint {
+  relayUrl: string;
+  stream: string;
+  createdAt: number;
+  synchronizedAt: number;
+}
+
+export interface CommunityCachedScope {
+  events: readonly NostrEvent[];
+  checkpoints: readonly CommunitySyncCheckpoint[];
+  approximateBytes: number;
+}
+
+export interface CommunityVerifiedEventRecord {
+  event: NostrEvent;
+  relayUrl: string;
+  audience: CommunityCacheAudience;
+  roomId?: string;
+  lastAccessedAt?: number;
+}
+
+export interface CommunityVerifiedEventBatch {
+  scope: CommunityScope;
+  records: readonly CommunityVerifiedEventRecord[];
+  checkpoints?: readonly CommunitySyncCheckpoint[];
+}
+
+export interface CommunitySyncPlan {
+  checkpoints: readonly CommunitySyncCheckpoint[];
+  cachedEventIds: readonly string[];
+}
+
+export interface CommunityEventStore {
+  readonly mode: CommunityStorageMode;
+  open(): Promise<void>;
+  restore(
+    scope: CommunityScope,
+    audience?: CommunityCacheAudience,
+  ): Promise<CommunityCachedScope>;
+  commit(batch: CommunityVerifiedEventBatch): Promise<void>;
+  syncPlan(scope: CommunityScope): Promise<CommunitySyncPlan>;
+  markSynchronized(
+    scope: CommunityScope,
+    checkpoints: readonly CommunitySyncCheckpoint[],
+  ): Promise<void>;
+  prune(): Promise<void>;
+  clear(scope?: CommunityScope): Promise<void>;
+  close(): Promise<void>;
 }
 
 export interface CommunityPrivateEvent {
