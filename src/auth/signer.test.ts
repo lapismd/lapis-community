@@ -66,4 +66,16 @@ describe("headless registry signer", () => {
       "exactly 32 bytes",
     );
   });
+
+  it("provides NIP-44 encryption for community state and direct messages", async () => {
+    const sender = new SecretKeyRegistrySigner(new Uint8Array(32).fill(91));
+    const recipient = new SecretKeyRegistrySigner(new Uint8Array(32).fill(92));
+    const ciphertext = await sender.nip44.encrypt(
+      await recipient.getPublicKey(),
+      "private payload",
+    );
+    await expect(
+      recipient.nip44.decrypt(await sender.getPublicKey(), ciphertext),
+    ).resolves.toBe("private payload");
+  });
 });

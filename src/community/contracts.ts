@@ -1,10 +1,11 @@
-import type { RegistrySigner } from "../auth/index.js";
+import type { CommunitySigner } from "../auth/index.js";
 import type {
   CommunityInboxModel,
   CommunityWorkspaceHandlers,
   CommunityWorkspaceModel,
 } from "../components/index.js";
 import type { NostrEvent, NostrEventTemplate } from "../protocol/index.js";
+import type { JsonValue } from "../protocol/index.js";
 
 export type CommunityConnectionStatus =
   | "idle"
@@ -59,14 +60,7 @@ export interface CommunityControllerState {
   error?: string;
 }
 
-export interface CommunityEncryption {
-  encrypt(pubkey: string, plaintext: string): Promise<string>;
-  decrypt(pubkey: string, ciphertext: string): Promise<string>;
-}
-
-export interface CommunityIdentity extends RegistrySigner {
-  nip44?: CommunityEncryption;
-}
+export type CommunityIdentity = CommunitySigner;
 
 export type CommunityCommand =
   | {
@@ -78,11 +72,29 @@ export type CommunityCommand =
   | { type: "join"; groupId: string }
   | { type: "leave"; groupId: string }
   | { type: "add-member"; groupId: string; pubkey: string; roles?: string[] }
-  | { type: "remove-member"; groupId: string; pubkey: string };
+  | { type: "remove-member"; groupId: string; pubkey: string }
+  | {
+      type: "direct-message";
+      recipients: readonly string[];
+      content: string;
+      replyToEventId?: string;
+    };
 
 export interface CommunitySnapshot {
   events: readonly NostrEvent[];
+  privateEvents?: readonly CommunityPrivateEvent[];
   capabilities: CommunityCapabilities;
+}
+
+export interface CommunityPrivateEvent {
+  id: string;
+  pubkey: string;
+  created_at: number;
+  kind: 14;
+  tags: string[][];
+  content: string;
+  wrapId: string;
+  recipientPubkey: string;
 }
 
 export interface CommunitySearchResult {
@@ -140,12 +152,20 @@ export interface CommunityControllerActions {
   openThread(messageId: string): void;
   closeSidePanel(): void;
   openDetails(): void;
+  openDirectMessage(participants: readonly string[]): void;
   sendMessage(roomId: string, content: string): Promise<void>;
   sendReply(rootMessageId: string, content: string): Promise<void>;
   createTopic(roomId: string, content: string): Promise<void>;
+  sendDirectMessage(
+    recipients: readonly string[],
+    content: string,
+    replyToEventId?: string,
+  ): Promise<void>;
   toggleReaction(eventId: string, emoji: string): Promise<void>;
   deleteEvent(eventId: string): Promise<void>;
   search(query: string): Promise<void>;
+  markRead(roomId: string): Promise<void>;
+  markAllRead(): Promise<void>;
   join(groupId: string): Promise<void>;
   leave(groupId: string): Promise<void>;
   addMember(groupId: string, pubkey: string, roles?: string[]): Promise<void>;
@@ -156,9 +176,47 @@ export interface CommunityControllerOptions {
   scopes: readonly CommunityScope[];
   source: CommunityDataSource;
   identity?: CommunityIdentity;
+  stateStore?: CommunityStateStore;
   initialCommunityId?: string;
   initialRoomId?: string;
+  clientId?: string;
   now?: () => number;
+}
+
+export interface CommunityStateScope {
+  communityId: string;
+  relayUrl: string;
+  pubkey: string;
+}
+
+export interface CommunityReadCursor {
+  createdAt: number;
+  eventId: string;
+  granularity: "room" | "thread" | "message";
+}
+
+export interface CommunityPreferenceValue {
+  value: JsonValue;
+  updatedAt: number;
+  clientId: string;
+}
+
+export interface CommunityStoredState {
+  version: 1;
+  clientId: string;
+  updatedAt: number;
+  readMarkers: Record<string, CommunityReadCursor>;
+  preferences: Record<string, CommunityPreferenceValue>;
+}
+
+export interface CommunityStateStore {
+  load(scope: CommunityStateScope): Promise<CommunityStoredState | undefined>;
+  refresh(
+    scope: CommunityStateScope,
+  ): Promise<CommunityStoredState | undefined>;
+  save(scope: CommunityStateScope, state: CommunityStoredState): Promise<void>;
+  flush(scope?: CommunityStateScope): Promise<void>;
+  dispose(): void;
 }
 
 export interface CommunityProtocolCodec<TState = unknown> {

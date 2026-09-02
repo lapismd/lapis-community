@@ -7,11 +7,13 @@ import type {
 import type { NostrEvent, NostrEventTemplate } from "../protocol/index.js";
 
 import { communityRooms } from "./materialize.js";
+import { createNip17GiftWraps, unwrapNip17GiftWrap } from "./nip17.js";
 import type {
   CommunityCapabilities,
   CommunityCommand,
   CommunityDataSource,
   CommunityDataSourceContext,
+  CommunityPrivateEvent,
   CommunityScope,
   CommunitySearchResult,
   CommunitySession,
@@ -105,6 +107,7 @@ class Nip29CommunitySession implements CommunitySession {
       authors.length === 0
         ? []
         : await this.#queryUnion(this.#relays, { kinds: [0], authors }, signal);
+    const privateEvents = await this.#loadPrivateEvents(signal);
     await this.#subscribeToTargets(targets, signal);
     return {
       events: distinctEvents([
@@ -113,6 +116,7 @@ class Nip29CommunitySession implements CommunitySession {
         ...referenced,
         ...profiles,
       ]),
+      ...(privateEvents.length === 0 ? {} : { privateEvents }),
       capabilities: this.#capabilities(),
     };
   }
@@ -144,6 +148,22 @@ class Nip29CommunitySession implements CommunitySession {
         signal,
       );
       this.#subscriptions.add(stateSubscription);
+      const identityPubkey = await this.#context.identity?.getPublicKey();
+      if (
+        identityPubkey !== undefined &&
+        this.#context.identity?.nip44 !== undefined
+      ) {
+        await Promise.all(
+          this.#relays.map(async (relay) => {
+            const subscription = await relay.subscribe(
+              { kinds: [1_059], "#p": [identityPubkey] },
+              { onevent: (event) => this.#emit([event]) },
+              signal,
+            );
+            this.#subscriptions.add(subscription);
+          }),
+        );
+      }
     }
     let closed = false;
     return {
@@ -164,6 +184,27 @@ class Nip29CommunitySession implements CommunitySession {
     if (identity === undefined)
       throw new Error("A community identity is required");
     await this.#authenticate(this.#authority, signal);
+    if (command.type === "direct-message") {
+      const wraps = await createNip17GiftWraps({
+        identity,
+        recipients: command.recipients,
+        content: command.content,
+        createdAt: Math.floor(Date.now() / 1_000),
+        ...(command.replyToEventId === undefined
+          ? {}
+          : { replyToEventId: command.replyToEventId }),
+      });
+      for (const wrap of wraps) {
+        const result = await this.#authority.publish(wrap, signal);
+        if (!result.accepted) {
+          throw new Error(
+            result.message || "Relay rejected the direct message",
+          );
+        }
+      }
+      this.#emit(wraps);
+      return wraps;
+    }
     const templates = commandTemplates(command, Math.floor(Date.now() / 1_000));
     const events: NostrEvent[] = [];
     for (const template of templates) {
@@ -288,6 +329,35 @@ class Nip29CommunitySession implements CommunitySession {
     }
   }
 
+  async #loadPrivateEvents(
+    signal?: AbortSignal,
+  ): Promise<CommunityPrivateEvent[]> {
+    const identity = this.#context.identity;
+    if (identity?.nip44 === undefined) return [];
+    const pubkey = await identity.getPublicKey();
+    const wraps = await this.#queryUnion(
+      this.#relays,
+      { kinds: [1_059], "#p": [pubkey], limit: 500 },
+      signal,
+    );
+    const settled = await Promise.allSettled(
+      wraps.map(async (wrap) => unwrapNip17GiftWrap(identity, wrap)),
+    );
+    return [
+      ...new Map(
+        settled
+          .filter(
+            (result): result is PromiseFulfilledResult<CommunityPrivateEvent> =>
+              result.status === "fulfilled",
+          )
+          .map((result) => [result.value.id, result.value] as const),
+      ).values(),
+    ].toSorted(
+      (left, right) =>
+        left.created_at - right.created_at || left.id.localeCompare(right.id),
+    );
+  }
+
   #emit(events: readonly NostrEvent[]): void {
     if (this.#closed || events.length === 0) return;
     for (const listener of this.#listeners) listener(events);
@@ -318,6 +388,7 @@ function commandTemplates(
   command: CommunityCommand,
   createdAt: number,
 ): readonly NostrEventTemplate[] {
+  if (command.type === "direct-message") return [];
   if (command.type === "publish") return [command.template];
   if (command.type === "delete") {
     return [

@@ -12,14 +12,26 @@ import type {
 } from "../components/index.js";
 import type { NostrEvent } from "../protocol/index.js";
 
-import type { CommunityRoomScope, CommunityScope } from "./contracts.js";
+import type {
+  CommunityPrivateEvent,
+  CommunityRoomScope,
+  CommunityScope,
+} from "./contracts.js";
 
 export interface CommunityProjectionOptions {
   activeRoomId?: string;
   activeTopicId?: string;
   activeThreadId?: string;
   identityPubkey?: string;
+  privateEvents?: readonly CommunityPrivateEvent[];
+  directParticipants?: Readonly<Record<string, readonly string[]>>;
   sidePanel?: "thread" | "details" | "none";
+}
+
+interface DirectConversation {
+  id: string;
+  participants: readonly string[];
+  events: readonly CommunityPrivateEvent[];
 }
 
 interface Profile {
@@ -75,17 +87,35 @@ export function materializeCommunityWorkspace(
   if (scope === undefined) return emptyWorkspace();
   const events = acceptedEvents(eventsByScope[scope.id] ?? []);
   const rooms = communityRooms(scope);
-  const activeRoom =
+  const configuredActiveRoom =
     rooms.find((room) => room.id === options.activeRoomId) ?? rooms[0];
   const profiles = profilesFrom(events);
+  const directConversations = directConversationModels(
+    options.privateEvents ?? [],
+    options.identityPubkey,
+    options.directParticipants ?? {},
+  );
+  const activeDirect = directConversations.find(
+    (conversation) => conversation.id === options.activeRoomId,
+  );
+  const activeRoom =
+    activeDirect === undefined ? configuredActiveRoom : undefined;
   const deleted = deletedEventIds(events);
   const visible = events.filter((event) => !deleted.has(event.id));
   const roomModels = rooms.map((room) => roomModel(room, visible));
-  const members = memberModels(activeRoom, visible, profiles);
+  const directRooms = directConversations.map((conversation) =>
+    directRoomModel(conversation, profiles, options.identityPubkey),
+  );
+  const members =
+    activeDirect === undefined
+      ? memberModels(activeRoom, visible, profiles)
+      : directMemberModels(activeDirect, profiles);
   const messages =
-    activeRoom === undefined
-      ? []
-      : messageModels(activeRoom, visible, profiles, options.activeTopicId);
+    activeDirect !== undefined
+      ? directMessageModels(activeDirect)
+      : activeRoom === undefined
+        ? []
+        : messageModels(activeRoom, visible, profiles, options.activeTopicId);
   const topics =
     activeRoom?.kind === "forum"
       ? topicModels(activeRoom, visible, profiles)
@@ -102,9 +132,14 @@ export function materializeCommunityWorkspace(
           ),
         };
   const details =
-    activeRoom === undefined
-      ? undefined
-      : detailsModel(activeRoom, visible, members);
+    activeDirect !== undefined
+      ? {
+          description: "Private NIP-17 conversation",
+          memberIds: [...activeDirect.participants],
+        }
+      : activeRoom === undefined
+        ? undefined
+        : detailsModel(activeRoom, visible, members);
 
   return {
     communities: scopes.map((candidate) => ({
@@ -125,14 +160,21 @@ export function materializeCommunityWorkspace(
         label: "Forums",
         rooms: roomModels.filter((room) => room.kind === "forum"),
       },
+      {
+        id: "direct-messages",
+        label: "Direct messages",
+        rooms: directRooms,
+      },
     ].filter((section) => section.rooms.length > 0),
-    activeRoomId: activeRoom?.id ?? "",
+    activeRoomId: activeDirect?.id ?? activeRoom?.id ?? "",
     view:
-      activeRoom?.kind === "forum"
-        ? options.activeTopicId === undefined
-          ? "forum-index"
-          : "forum-thread"
-        : "channel",
+      activeDirect !== undefined
+        ? "channel"
+        : activeRoom?.kind === "forum"
+          ? options.activeTopicId === undefined
+            ? "forum-index"
+            : "forum-thread"
+          : "channel",
     messages,
     topics,
     members,
@@ -143,6 +185,10 @@ export function materializeCommunityWorkspace(
     ...(details === undefined ? {} : { details }),
     sidePanel: options.sidePanel ?? "none",
   };
+}
+
+export function directConversationId(participants: readonly string[]): string {
+  return `dm:${[...new Set(participants)].toSorted().join(",")}`;
 }
 
 export function materializeCommunityInbox(
@@ -490,6 +536,108 @@ function detailsModel(
       .filter((tag) => tag[0] === "p" && tag[1] !== undefined)
       .map((tag) => tag[1]!),
   };
+}
+
+function directConversationModels(
+  privateEvents: readonly CommunityPrivateEvent[],
+  identityPubkey: string | undefined,
+  pendingParticipants: Readonly<Record<string, readonly string[]>>,
+): DirectConversation[] {
+  if (identityPubkey === undefined) return [];
+  const conversations = new Map<string, CommunityPrivateEvent[]>();
+  const participantsById = new Map<string, readonly string[]>();
+  for (const event of privateEvents) {
+    const participants = [
+      ...new Set([
+        event.pubkey,
+        ...event.tags
+          .filter((tag) => tag[0] === "p" && tag[1] !== undefined)
+          .map((tag) => tag[1]!),
+      ]),
+    ].toSorted();
+    if (!participants.includes(identityPubkey)) continue;
+    const id = directConversationId(
+      participants.filter((pubkey) => pubkey !== identityPubkey),
+    );
+    participantsById.set(id, participants);
+    const current = conversations.get(id) ?? [];
+    current.push(event);
+    conversations.set(id, current);
+  }
+  for (const [id, participants] of Object.entries(pendingParticipants)) {
+    participantsById.set(
+      id,
+      [...new Set([identityPubkey, ...participants])].toSorted(),
+    );
+    if (!conversations.has(id)) conversations.set(id, []);
+  }
+  return [...conversations]
+    .map(([id, directEvents]) => ({
+      id,
+      participants: participantsById.get(id) ?? [identityPubkey],
+      events: directEvents.toSorted(
+        (left, right) =>
+          left.created_at - right.created_at || left.id.localeCompare(right.id),
+      ),
+    }))
+    .toSorted((left, right) => {
+      const leftActivity = left.events.at(-1)?.created_at ?? 0;
+      const rightActivity = right.events.at(-1)?.created_at ?? 0;
+      return rightActivity - leftActivity || left.id.localeCompare(right.id);
+    });
+}
+
+function directRoomModel(
+  conversation: DirectConversation,
+  profiles: ReadonlyMap<string, Profile>,
+  identityPubkey: string | undefined,
+): CommunityRoomModel {
+  const peers = conversation.participants.filter(
+    (pubkey) => pubkey !== identityPubkey,
+  );
+  const displayPeers = peers.length > 0 ? peers : conversation.participants;
+  return {
+    id: conversation.id,
+    name: displayPeers
+      .map((pubkey) => profiles.get(pubkey)?.name ?? shortKey(pubkey))
+      .join(", "),
+    kind: "direct",
+    memberCount: conversation.participants.length,
+    private: true,
+  };
+}
+
+function directMemberModels(
+  conversation: DirectConversation,
+  profiles: ReadonlyMap<string, Profile>,
+): CommunityMemberModel[] {
+  return conversation.participants.map((pubkey) => {
+    const name = profiles.get(pubkey)?.name ?? shortKey(pubkey);
+    return {
+      id: pubkey,
+      name,
+      handle: shortKey(pubkey),
+      initials: initials(name),
+      presence: "offline",
+    };
+  });
+}
+
+function directMessageModels(
+  conversation: DirectConversation,
+): CommunityMessageModel[] {
+  return conversation.events.map((event) => ({
+    id: event.id,
+    authorId: event.pubkey,
+    content: event.content,
+    timestamp: timestamp(event.created_at),
+    createdAt: new Date(event.created_at * 1_000).toISOString(),
+    ...(event.tags.find((tag) => tag[0] === "e")?.[1] === undefined
+      ? {}
+      : {
+          parentMessageId: event.tags.find((tag) => tag[0] === "e")![1]!,
+        }),
+  }));
 }
 
 function emptyWorkspace(): CommunityWorkspaceModel {

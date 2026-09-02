@@ -7,7 +7,17 @@ export interface RegistrySigner {
   signEvent(template: NostrEventTemplate): Promise<NostrEvent>;
 }
 
+export interface Nip44Provider {
+  encrypt(pubkey: string, plaintext: string): Promise<string>;
+  decrypt(pubkey: string, ciphertext: string): Promise<string>;
+}
+
+export interface CommunitySigner extends RegistrySigner {
+  nip44?: Nip44Provider;
+}
+
 export interface Nip07Provider {
   getPublicKey(): Promise<string>;
   signEvent(template: NostrEventTemplate): Promise<NostrEvent>;
+  nip44?: Nip44Provider;
 }

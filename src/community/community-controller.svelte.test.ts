@@ -91,4 +91,21 @@ describe("createCommunityController", () => {
     });
     expect(runtime.controller.state.capabilities.archive).toBe(false);
   });
+
+  it("sends and materializes NIP-17 direct messages through the same source", async () => {
+    runtime = await createCommunityTestRuntime();
+    await connected(runtime);
+    const memberPubkey = await runtime.scenario.member.getPublicKey();
+    await runtime.controller.actions.sendDirectMessage(
+      [memberPubkey],
+      "Encrypted hello",
+    );
+    expect(runtime.controller.state.workspace.activeRoomId).toBe(
+      `dm:${memberPubkey}`,
+    );
+    expect(runtime.controller.state.workspace.messages).toMatchObject([
+      { content: "Encrypted hello" },
+    ]);
+    expect(await runtime.relay.count({ kinds: [1_059] })).toBe(2);
+  });
 });

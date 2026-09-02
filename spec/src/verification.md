@@ -10,6 +10,7 @@
 | LC-ARCH-006  | Visual pending | Consolidated `Community/Examples/App Shell` Inbox, channel, and thread stories; duplicate shell entry removed          |
 | LC-ARCH-007  | Implemented    | `src/nostr/transport.ts`; `src/community/nip29-community-source.ts`; `src/testing`; `pnpm test:relay`                  |
 | LC-ARCH-008  | Implemented    | `src/community/community-controller.svelte.ts`; focused controller tests                                               |
+| LC-ARCH-009  | Implemented    | `src/auth`; `src/community/state-store.ts`; signer and state-store tests                                               |
 | LC-NOSTR-001 | Implemented    | `src/protocol/nip29.ts`; `src/protocol/nip29.test.ts`                                                                  |
 | LC-NOSTR-002 | Implemented    | `src/auth`; `src/nostr/transport.ts`; `pnpm test`                                                                      |
 | LC-NOSTR-003 | Implemented    | `src/protocol/projection.ts`; `src/nostr/nip29-state.test.ts`                                                          |
@@ -17,6 +18,8 @@
 | LC-NOSTR-005 | Implemented    | `src/protocol/canonical.ts`; `src/protocol/nip29.test.ts`                                                              |
 | LC-NOSTR-006 | Implemented    | shared relay contract tests; in-memory and WebSocket relay implementations                                             |
 | LC-NOSTR-007 | Implemented    | `src/community/nip29-community-source.ts`; authoritative-write and mirrored-read tests                                 |
+| LC-NOSTR-008 | Implemented    | `src/community/nip17.ts`; direct-message and controller integration tests                                              |
+| LC-NOSTR-009 | Implemented    | `src/community/state-store.ts`; browser, encrypted relay, merge, and ciphertext tests                                  |
 | LC-UI-001    | Implemented    | `src/components`; `pnpm build-storybook`                                                                               |
 | LC-UI-002    | Implemented    | `src/components/registry-community/RegistryCommunity.svelte`; component folders                                        |
 | LC-UI-003    | Implemented    | `src/components/registry-community/registry-community-controller.svelte.ts`; component stories                         |
