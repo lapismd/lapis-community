@@ -1,5 +1,11 @@
 <script lang="ts">
   import { AppShell, AppShellController } from "@lapismd/design-core/shell";
+  import { onMount } from "svelte";
+  import type { CommunityController } from "../../community/index.js";
+  import {
+    createCommunityStoryRuntime,
+    type CommunityStoryRuntime,
+  } from "../../testing/index.js";
   import CommunityChannelSettings from "../community-channel-settings/CommunityChannelSettings.svelte";
   import CommunityInbox from "../community-inbox/CommunityInbox.svelte";
   import { communityInboxFixture } from "../community-inbox/story-fixtures.js";
@@ -7,6 +13,7 @@
   import { communityNavigationFixture } from "./story-fixtures.js";
   import type {
     CommunityNavigationItemModel,
+    CommunityNavigationModel,
     CommunityNavigationSectionActionModel,
     CommunityNavigationSectionModel,
   } from "./model.js";
@@ -30,19 +37,113 @@
     rightClosed: true,
     rightWidth: 320,
   });
-  let activeItemId = $state("");
+  let runtime = $state<CommunityStoryRuntime>();
+  let community = $state<CommunityController>();
+  let runtimeError = $state("");
+  let activeDestination = $state("");
+  const workspace = $derived(community?.state.workspace);
+  const inbox = $derived(community?.state.inbox ?? communityInboxFixture);
+  const navigationModel = $derived.by<CommunityNavigationModel>(() => ({
+    ...communityNavigationFixture,
+    sections:
+      workspace?.navigationSections.map((section) => {
+        const fixture = communityNavigationFixture.sections.find(
+          (candidate) => candidate.id === section.id,
+        );
+        return {
+          id: section.id,
+          label: section.label,
+          ...(fixture?.primaryAction === undefined
+            ? {}
+            : { primaryAction: fixture.primaryAction }),
+          ...(fixture?.actions === undefined
+            ? {}
+            : { actions: fixture.actions }),
+          ...(fixture?.sortable === undefined
+            ? {}
+            : { sortable: fixture.sortable }),
+          items: section.rooms.map(
+            (room): CommunityNavigationItemModel => ({
+              id: room.id,
+              label: room.name,
+              kind: room.kind === "direct" ? "direct-message" : room.kind,
+              ...(room.private === undefined
+                ? {}
+                : { restricted: room.private }),
+              ...(room.mentionCount === undefined &&
+              room.unreadCount === undefined
+                ? {}
+                : { unreadCount: room.mentionCount ?? room.unreadCount }),
+            }),
+          ),
+        };
+      }) ?? communityNavigationFixture.sections,
+  }));
+  const activeItemId = $derived(
+    activeDestination === "inbox" || activeDestination === "registry"
+      ? activeDestination
+      : (workspace?.activeRoomId ?? activeDestination),
+  );
 
   $effect(() => {
-    activeItemId = initialActiveItemId;
+    activeDestination = initialActiveItemId;
+  });
+
+  onMount(() => {
+    let active = true;
+    void createCommunityStoryRuntime()
+      .then((created) => {
+        if (!active) {
+          created.dispose();
+          return;
+        }
+        runtime = created;
+        community = created.controller;
+        community.initialize();
+        void created.scenario.member.getPublicKey().then((pubkey) => {
+          if (active) community?.actions.openDirectMessage([pubkey]);
+        });
+      })
+      .catch((cause: unknown) => {
+        if (active) {
+          runtimeError =
+            cause instanceof Error
+              ? cause.message
+              : "Community story runtime failed";
+        }
+      });
+    return () => {
+      active = false;
+      runtime?.dispose();
+    };
   });
 
   function select(item: CommunityNavigationItemModel): void {
-    activeItemId = item.id;
+    const room = workspace?.navigationSections
+      .flatMap((section) => section.rooms)
+      .find((candidate) => candidate.id === item.id);
+    if (room) {
+      activeDestination = room.id;
+      community?.actions.selectRoom(room.id);
+    } else {
+      activeDestination = item.id;
+    }
     onSelect(item);
   }
 </script>
 
-<div class="lc-community-shell-frame">
+{#if runtimeError}
+  <div class="lc-community-shell-frame__unavailable" role="status">
+    {runtimeError}
+  </div>
+{/if}
+
+<div
+  class="lc-community-shell-frame"
+  data-testid="community-navigation-runtime"
+  data-community-status={community?.state.status ?? "loading"}
+  data-community-backend={runtime?.backend ?? "loading"}
+>
   <AppShell.Root
     {controller}
     displayMode="desktop"
@@ -51,11 +152,14 @@
   >
     <AppShell.Sidebar side="left">
       <CommunityNavigation
-        model={communityNavigationFixture}
+        model={navigationModel}
         {activeItemId}
         compact={controller.left.collapsed}
         onSelect={select}
-        {onSearch}
+        onSearch={(query) => {
+          void community?.actions.search(query);
+          onSearch(query);
+        }}
         {onSectionAction}
         onRequestExpand={() => controller.left.expand()}
       >
@@ -67,7 +171,10 @@
 
     <AppShell.Main>
       <CommunityInbox
-        model={communityInboxFixture}
+        model={inbox}
+        onSend={(content) =>
+          community?.handlers.onSendReply?.(inbox.activeItemId, content)}
+        onMarkAllRead={() => void community?.actions.markAllRead()}
         onOpenChannelSettings={() => controller.right.open()}
       />
     </AppShell.Main>

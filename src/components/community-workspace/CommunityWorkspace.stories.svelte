@@ -3,93 +3,59 @@
   import { expect, userEvent, waitFor, within } from "storybook/test";
 
   import CommunityNavigationShellFixture from "../community-navigation/CommunityNavigationShellFixture.svelte";
+  import CommunityWorkspaceSurface from "./CommunityWorkspaceSurface.svelte";
   import CommunityWorkspaceStoryHarness from "./CommunityWorkspaceStoryHarness.svelte";
   import { createChannelStoryModel } from "./story-fixtures.js";
 
   const consumerSource = `<script lang="ts">
   import { AppShell, AppShellController } from "@lapismd/design-core/shell";
+  import { onMount } from "svelte";
+  import { CommunityWorkspaceSurface } from "@lapismd/lapis-community/components";
   import {
-    CommunityConversation,
-    CommunityNavigation,
-    CommunitySwitcher,
-    type CommunityWorkspaceModel,
-  } from "@lapismd/lapis-community/components";
-
-  let { model }: { model: CommunityWorkspaceModel } = $props();
+    createCommunityController,
+    createNip29CommunitySource,
+  } from "@lapismd/lapis-community/community";
+  import { createWebSocketCommunityRelayFactory } from "@lapismd/lapis-community/nostr";
 
   const shell = new AppShellController({
     leftWidth: 252,
     rightClosed: true,
     rightWidth: 320,
   });
-  const communities = shell.createSidebar("communities", "left", {
-    width: 64,
-    minWidth: 56,
-    maxWidth: 280,
+  const community = createCommunityController({
+    scopes: [{
+      id: "lapis",
+      name: "Lapis Community",
+      relayUrl: "wss://relay.example",
+      rooms: [{ id: "general", groupId: "general", name: "general", kind: "channel" }],
+    }],
+    source: createNip29CommunitySource({
+      relayFactory: createWebSocketCommunityRelayFactory(),
+    }),
+  });
+
+  onMount(() => {
+    community.initialize();
+    return () => community.dispose();
   });
 <\/script>
 
 <AppShell.Root controller={shell} mobileBreakpoint={1024} desktopMinMainWidth={480}>
-  <AppShell.Sidebar
-    side="left"
-    sidebarController={communities}
-    variant="outer"
-    label="Community switcher"
-    mobileLabel="Communities"
-    resizable={false}
-  >
-    <AppShell.Sidebar.Body>
-      <CommunitySwitcher
-        communities={model.communities}
-        activeCommunityId={model.activeCommunityId}
-      />
-    </AppShell.Sidebar.Body>
-  </AppShell.Sidebar>
-
-  <AppShell.Sidebar side="left" label="Community navigation" mobileLabel="Rooms">
-    <AppShell.Sidebar.Header>
-      <AppShell.Sidebar.Toggle
-        side="left"
-        sidebarController={communities}
-        sidebarName="communities"
-      />
-      <strong>Lapis Community</strong>
-    </AppShell.Sidebar.Header>
-    <AppShell.Sidebar.Body>
-      <CommunityNavigation
-        sections={model.navigationSections}
-        activeRoomId={model.activeRoomId}
-      />
-    </AppShell.Sidebar.Body>
-  </AppShell.Sidebar>
-
   <AppShell.Main>
-    <AppShell.Toolbar>
-      <AppShell.Sidebar.Toggle side="left" sidebarName="navigation" />
-      <strong># general</strong>
-    </AppShell.Toolbar>
     <AppShell.Body layout="regions">
       <AppShell.Body.Content>
-        <CommunityConversation
-          room={model.navigationSections[0].rooms[0]}
-          messages={model.messages}
-          members={model.members}
+        <CommunityWorkspaceSurface
+          model={community.state.workspace}
+          handlers={community.handlers}
         />
       </AppShell.Body.Content>
     </AppShell.Body>
   </AppShell.Main>
-
-  <AppShell.Sidebar side="right" label="Thread sidebar" closeable>
-    <AppShell.Sidebar.Header>
-      <strong>Thread</strong>
-      <AppShell.Sidebar.Close />
-    </AppShell.Sidebar.Header>
-  </AppShell.Sidebar>
 </AppShell.Root>`;
 
   const { Story } = defineMeta({
     title: "Community/Examples/App Shell",
-    component: CommunityWorkspaceStoryHarness,
+    component: CommunityWorkspaceSurface,
     tags: ["visual-pending"],
     parameters: {
       layout: "fullscreen",
@@ -98,7 +64,7 @@
         source: { language: "svelte", code: consumerSource },
         description: {
           component:
-            "The final composed examples for Inbox, channel, and thread states. Each fixture uses Design Core App Shell directly while Lapis Community supplies the room, message, topic, details, and navigation components.",
+            "Controller-backed Inbox, channel, and thread examples. Each story uses an isolated in-memory relay by default and can use the Docker WebSocket relay from the toolbar when VITE_COMMUNITY_RELAY_URL is configured.",
         },
       },
     },
@@ -121,6 +87,11 @@
     const inboxOptions = canvas.getByRole("button", {
       name: "Inbox options",
     });
+    const runtime = canvas.getByTestId("community-navigation-runtime");
+
+    await waitFor(() => {
+      expect(runtime).toHaveAttribute("data-community-status", "connected");
+    });
 
     await expect(leftSidebar).toHaveAttribute("data-state", "expanded");
     await expect(canvas.queryByLabelText("Right sidebar")).toBeNull();
@@ -130,12 +101,14 @@
     await expect(
       canvas.getByRole("searchbox", { name: "Search community" }),
     ).toBeVisible();
+    await expect(canvas.getByRole("button", { name: "general" })).toBeVisible();
     await expect(
-      canvas.getByRole("button", { name: "plugin-releases" }),
+      within(inboxList).getByRole("button", {
+        name: /Member.*Hello from a member/,
+      }),
     ).toBeVisible();
-    await expect(within(inboxList).getByText("Fizz")).toBeVisible();
     await expect(
-      canvas.getByRole("heading", { name: "Thread in #Welcome" }),
+      canvas.getByRole("heading", { name: "general" }),
     ).toBeVisible();
     await expect(inboxList).toBeVisible();
     await expect(thread).toBeVisible();
@@ -195,9 +168,12 @@
 
 <Story
   name="Desktop channel"
-  args={{ initialModel: createChannelStoryModel(), initialWidth: 1280 }}
   play={async ({ canvas }) => {
     const frame = canvas.getByTestId("community-workspace-frame");
+
+    await waitFor(() => {
+      expect(frame).toHaveAttribute("data-community-status", "connected");
+    });
 
     await expect(
       canvas.getByRole("heading", { name: "#general" }),
@@ -205,13 +181,6 @@
     await expect(
       canvas.getByRole("button", { name: "Browse channels" }),
     ).toBeVisible();
-
-    await userEvent.click(
-      canvas.getByRole("button", { name: "3 reactions with 🚀" }),
-    );
-    await expect(
-      canvas.getByRole("button", { name: "4 reactions with 🚀" }),
-    ).toHaveAttribute("aria-pressed", "true");
 
     const composer = canvas.getByRole("combobox", { name: "Message" });
     await userEvent.type(composer, "A channel interaction fixture");
@@ -235,17 +204,26 @@
       expect(canvas.queryByLabelText("Channel settings sidebar")).toBeNull();
     });
   }}
-/>
+>
+  {#snippet template()}
+    <CommunityWorkspaceStoryHarness
+      initialModel={createChannelStoryModel()}
+      initialWidth={1280}
+    />
+  {/snippet}
+</Story>
 
 <Story
   name="Channel thread open"
-  args={{
-    initialModel: createChannelStoryModel("thread"),
-    initialWidth: 1280,
-  }}
   play={async ({ canvas }) => {
     const frame = canvas.getByTestId("community-workspace-frame");
-    const threadSidebar = canvas.getByLabelText("Thread sidebar");
+    await waitFor(() => {
+      expect(frame).toHaveAttribute("data-community-status", "connected");
+    });
+    await userEvent.click(
+      canvas.getAllByRole("button", { name: "0 replies" })[0]!,
+    );
+    const threadSidebar = await canvas.findByLabelText("Thread sidebar");
     const thread = within(threadSidebar);
 
     await expect(threadSidebar).toBeVisible();
@@ -269,4 +247,11 @@
       "closed-side-panel",
     );
   }}
-/>
+>
+  {#snippet template()}
+    <CommunityWorkspaceStoryHarness
+      initialModel={createChannelStoryModel("thread")}
+      initialWidth={1280}
+    />
+  {/snippet}
+</Story>

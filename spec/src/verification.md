@@ -36,6 +36,7 @@
 | LC-UI-014    | Visual pending | Inbox row-composer and message states in `Community/Examples/App Shell/Inbox`; human review pending                    |
 | LC-UI-015    | Visual pending | Inbox menus, joined inline right sidebar, and channel welcome settings treatment; human review pending                 |
 | LC-UI-016    | Visual pending | `Community/Examples/App Shell/Desktop channel` and `Channel thread open`; live Buzz comparison; human review pending   |
+| LC-UI-017    | Visual pending | controller-backed composed stories; 18-file story audit; memory/Docker toolbar selector; human review pending          |
 | LC-OPS-001   | Implemented    | `deploy/local.compose.yml`; `pnpm local:smoke`                                                                         |
 | LC-OPS-002   | Implemented    | `deploy/fixture.Dockerfile`; `src/fixture`; `src/materializer`                                                         |
 | LC-OPS-003   | Implemented    | `AGENTS.md`; `docs/publishing.md`                                                                                      |

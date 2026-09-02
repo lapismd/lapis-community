@@ -6,6 +6,12 @@ import "@lapismd/design-core/storybook.css";
 import "@lapismd/design-core/themes/lapis.css";
 import "./preview.css";
 
+const communityRelayUrl = (
+  import.meta as ImportMeta & {
+    env?: { VITE_COMMUNITY_RELAY_URL?: string };
+  }
+).env?.VITE_COMMUNITY_RELAY_URL;
+
 const preview: Preview = {
   tags: ["autodocs", "test"],
   globalTypes: {
@@ -20,9 +26,24 @@ const preview: Preview = {
         dynamicTitle: true,
       },
     },
+    communityBackend: {
+      description: "Community relay backend",
+      toolbar: {
+        icon: "database",
+        items:
+          communityRelayUrl === undefined || communityRelayUrl === ""
+            ? [{ value: "memory", title: "In-memory relay" }]
+            : [
+                { value: "memory", title: "In-memory relay" },
+                { value: "docker", title: "Docker relay" },
+              ],
+        dynamicTitle: true,
+      },
+    },
   },
   initialGlobals: {
     colorMode: "light",
+    communityBackend: "memory",
     theme: "default",
   },
   parameters: {
@@ -75,6 +96,14 @@ const preview: Preview = {
           "dark",
           context.globals.colorMode === "dark",
         );
+        document.documentElement.dataset.communityBackend =
+          context.globals.communityBackend === "docker" ? "docker" : "memory";
+        if (communityRelayUrl === undefined || communityRelayUrl === "") {
+          delete document.documentElement.dataset.communityRelayUrl;
+        } else {
+          document.documentElement.dataset.communityRelayUrl =
+            communityRelayUrl;
+        }
       }
       return story();
     },

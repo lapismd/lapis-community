@@ -1,35 +1,29 @@
 <script lang="ts">
   import { AppShell, AppShellController } from "@lapismd/design-core/shell";
   import { Button } from "@lapismd/design-core/shadcn/button";
-  import BotIcon from "@lucide/svelte/icons/bot";
   import EllipsisIcon from "@lucide/svelte/icons/ellipsis";
   import HashIcon from "@lucide/svelte/icons/hash";
   import HeadphonesIcon from "@lucide/svelte/icons/headphones";
   import LockIcon from "@lucide/svelte/icons/lock";
-  import PlusIcon from "@lucide/svelte/icons/plus";
-  import SparklesIcon from "@lucide/svelte/icons/sparkles";
   import SquareTerminalIcon from "@lucide/svelte/icons/square-terminal";
   import UsersIcon from "@lucide/svelte/icons/users";
-  import { untrack } from "svelte";
+  import { onMount, untrack } from "svelte";
 
+  import type { CommunityController } from "../../community/index.js";
+  import {
+    createCommunityStoryRuntime,
+    type CommunityStoryRuntime,
+  } from "../../testing/index.js";
   import CommunityChannelSettings from "../community-channel-settings/CommunityChannelSettings.svelte";
-  import CommunityConversation from "../community-conversation/CommunityConversation.svelte";
   import CommunityDetails from "../community-details/CommunityDetails.svelte";
   import CommunityNavigation from "../community-navigation/CommunityNavigation.svelte";
   import type { CommunityNavigationModel } from "../community-navigation/model.js";
   import CommunitySwitcher from "../community-switcher/CommunitySwitcher.svelte";
   import CommunityThreadPanel from "../community-thread-panel/CommunityThreadPanel.svelte";
-  import ForumTopicList from "../forum-topic-list/ForumTopicList.svelte";
-  import {
-    communityForumMessages,
-    communityStoryMessages,
-    communityStoryThread,
-  } from "./story-fixtures.js";
+  import CommunityWorkspaceSurface from "./CommunityWorkspaceSurface.svelte";
   import {
     findCommunityRoom,
     memberById,
-    type CommunityMessageModel,
-    type CommunityReactionModel,
     type CommunityRoomModel,
     type CommunitySidePanel,
     type CommunityWorkspaceModel,
@@ -45,12 +39,37 @@
     initialNavigationCollapsed?: boolean;
   } = $props();
 
-  let model = $state<CommunityWorkspaceModel>(
-    untrack(
-      () => JSON.parse(JSON.stringify(initialModel)) as CommunityWorkspaceModel,
-    ),
-  );
+  let runtime = $state<CommunityStoryRuntime>();
+  let community = $state<CommunityController>();
+  let runtimeError = $state("");
   let lastAction = $state("ready");
+  const model = $derived(community?.state.workspace ?? initialModel);
+
+  onMount(() => {
+    let active = true;
+    void createCommunityStoryRuntime()
+      .then((created) => {
+        if (!active) {
+          created.dispose();
+          return;
+        }
+        runtime = created;
+        community = created.controller;
+        community.initialize();
+      })
+      .catch((cause: unknown) => {
+        if (active) {
+          runtimeError =
+            cause instanceof Error
+              ? cause.message
+              : "Community story runtime failed";
+        }
+      });
+    return () => {
+      active = false;
+      runtime?.dispose();
+    };
+  });
 
   const controller = untrack(
     () =>
@@ -125,77 +144,19 @@
   );
 
   function selectRoom(roomId: string): void {
-    const room = model.navigationSections
-      .flatMap((section) => section.rooms)
-      .find((candidate) => candidate.id === roomId);
-    if (!room) return;
-    model = {
-      ...model,
-      activeRoomId: room.id,
-      view: room.kind === "forum" ? "forum-index" : "channel",
-      messages:
-        room.kind === "forum" ? communityForumMessages : communityStoryMessages,
-      sidePanel: "none",
-    };
+    community?.actions.selectRoom(roomId);
     controller.right.close();
     controller.mobile.showMain();
     lastAction = `selected-room:${roomId}`;
   }
 
-  function addMessage(content: string): CommunityMessageModel {
-    return {
-      id: `fixture-${model.messages.length + 1}`,
-      authorId: model.currentMemberId ?? model.members[0]?.id ?? "unknown",
-      timestamp: "Now",
-      content,
-      reactions: [],
-    };
-  }
-
-  function updateReaction(
-    message: CommunityMessageModel,
-    emoji: string,
-  ): CommunityMessageModel {
-    const reactions = [...(message.reactions ?? [])];
-    const index = reactions.findIndex((reaction) => reaction.emoji === emoji);
-    if (index === -1) {
-      reactions.push({ emoji, count: 1, selected: true });
-    } else {
-      const current = reactions[index]!;
-      reactions[index] = {
-        ...current,
-        count: Math.max(0, current.count + (current.selected ? -1 : 1)),
-        selected: !current.selected,
-      } satisfies CommunityReactionModel;
-    }
-    return { ...message, reactions };
-  }
-
   function react(messageId: string, emoji: string): void {
-    const thread = model.thread;
-    model = {
-      ...model,
-      messages: model.messages.map((message) =>
-        message.id === messageId ? updateReaction(message, emoji) : message,
-      ),
-      ...(thread
-        ? {
-            thread: {
-              ...thread,
-              messages: thread.messages.map((message) =>
-                message.id === messageId
-                  ? updateReaction(message, emoji)
-                  : message,
-              ),
-            },
-          }
-        : {}),
-    };
+    void community?.actions.toggleReaction(messageId, emoji);
     lastAction = `reaction:${messageId}:${emoji}`;
   }
 
   function openSidePanel(panel: Exclude<CommunitySidePanel, "none">): void {
-    model = { ...model, sidePanel: panel };
+    if (panel === "details") community?.actions.openDetails();
     controller.right.open();
     if (controller.mobile.resolvedMode === "mobile") {
       const returnFocus =
@@ -207,15 +168,24 @@
   }
 
   function closeSidePanel(): void {
-    model = { ...model, sidePanel: "none" };
+    community?.actions.closeSidePanel();
+    controller.right.close();
     lastAction = "closed-side-panel";
   }
 </script>
+
+{#if runtimeError}
+  <div class="community-workspace-story__unavailable" role="status">
+    {runtimeError}
+  </div>
+{/if}
 
 <div
   class="community-workspace-story"
   data-testid="community-workspace-frame"
   data-last-action={lastAction}
+  data-community-status={community?.state.status ?? "loading"}
+  data-community-backend={runtime?.backend ?? "loading"}
   style={`--community-workspace-story-width: ${initialWidth}px`}
 >
   <AppShell.Root
@@ -248,7 +218,7 @@
           activeCommunityId={model.activeCommunityId}
           compact={communitiesCompact}
           onSelect={(communityId) => {
-            model = { ...model, activeCommunityId: communityId };
+            community?.actions.selectCommunity(communityId);
             controller.mobile.showMain();
             lastAction = `selected-community:${communityId}`;
           }}
@@ -379,79 +349,28 @@
 
       <AppShell.Body layout="regions" label="Community workspace">
         <AppShell.Body.Content label={`${activeRoom.name} content`}>
-          {#if model.view === "forum-index"}
-            <ForumTopicList
-              title={activeRoom.name}
-              description={activeRoom.description ??
-                "Long-form community discussions"}
-              topics={model.topics}
-              members={model.members}
-              onOpenTopic={(topicId) => {
-                model = {
-                  ...model,
-                  view: "forum-thread",
-                  messages: communityForumMessages,
-                };
+          <CommunityWorkspaceSurface
+            {model}
+            handlers={{
+              ...(community?.handlers ?? {}),
+              onSendMessage: (roomId, content) => {
+                community?.handlers.onSendMessage?.(roomId, content);
+                lastAction = "sent-message";
+              },
+              onOpenTopic: (topicId) => {
+                community?.actions.openTopic(topicId);
                 openSidePanel("details");
                 lastAction = `opened-topic:${topicId}`;
-              }}
-            />
-          {:else}
-            <CommunityConversation
-              room={activeRoom}
-              messages={model.messages}
-              members={model.members}
-              composerPlacement="row"
-              onSend={(content) => {
-                model = {
-                  ...model,
-                  messages: [...model.messages, addMessage(content)],
-                };
-                lastAction = "sent-message";
-              }}
-              onOpenThread={(messageId) => {
-                model = {
-                  ...model,
-                  thread: { ...communityStoryThread, rootMessageId: messageId },
-                };
+              },
+              onOpenThread: (messageId) => {
+                community?.actions.openThread(messageId);
                 openSidePanel("thread");
                 lastAction = `opened-thread:${messageId}`;
-              }}
-              onToggleReaction={react}
-              onAddReaction={react}
-            >
-              {#snippet intro()}
-                <section class="community-workspace__channel-intro">
-                  <span
-                    class="community-workspace__channel-image"
-                    aria-hidden="true"
-                  >
-                    <SparklesIcon />
-                  </span>
-                  <h1>#{activeRoom.name}</h1>
-                  <p>
-                    This is the beginning of the {activeRoom.private
-                      ? "private "
-                      : ""}{activeRoom.name} channel.
-                  </p>
-                  <div class="community-workspace__channel-actions">
-                    <Button variant="outline">
-                      <HashIcon data-icon="inline-start" aria-hidden="true" />
-                      Browse channels
-                    </Button>
-                    <Button variant="outline">
-                      <PlusIcon data-icon="inline-start" aria-hidden="true" />
-                      Create a channel
-                    </Button>
-                    <Button variant="outline">
-                      <BotIcon data-icon="inline-start" aria-hidden="true" />
-                      Create an agent
-                    </Button>
-                  </div>
-                </section>
-              {/snippet}
-            </CommunityConversation>
-          {/if}
+              },
+              onToggleReaction: react,
+              onAddReaction: react,
+            }}
+          />
         </AppShell.Body.Content>
       </AppShell.Body>
     </AppShell.Main>
@@ -473,14 +392,7 @@
             thread={model.thread}
             members={model.members}
             onSendReply={(_rootMessageId, content) => {
-              if (!model.thread) return;
-              model = {
-                ...model,
-                thread: {
-                  ...model.thread,
-                  messages: [...model.thread.messages, addMessage(content)],
-                },
-              };
+              community?.handlers.onSendReply?.(_rootMessageId, content);
               lastAction = "sent-reply";
             }}
             onToggleReaction={react}
@@ -643,54 +555,6 @@
     margin-inline-start: auto;
   }
 
-  .community-workspace__channel-intro {
-    display: grid;
-    gap: 0.5rem;
-    padding: 1.25rem 0.75rem 1rem;
-  }
-
-  .community-workspace__channel-intro h1,
-  .community-workspace__channel-intro p {
-    margin: 0;
-  }
-
-  .community-workspace__channel-intro h1 {
-    font-size: 1.1rem;
-  }
-
-  .community-workspace__channel-intro p {
-    color: var(--muted-foreground);
-    font-size: 0.82rem;
-  }
-
-  .community-workspace__channel-image {
-    display: grid;
-    width: 2.75rem;
-    height: 2.75rem;
-    place-items: center;
-    border: 1px solid var(--border);
-    border-radius: 0.75rem;
-    background: var(--muted);
-  }
-
-  .community-workspace__channel-image :global(svg) {
-    width: 1.35rem;
-    height: 1.35rem;
-  }
-
-  .community-workspace__channel-actions {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 0.5rem;
-    margin-block-start: 0.25rem;
-  }
-
-  .community-workspace__channel-actions :global([data-ui-component="button"]) {
-    height: 4rem;
-    justify-content: flex-start;
-    white-space: normal;
-  }
-
   .community-workspace-story :global(.community-workspace__panel-header) {
     min-height: var(--ui-shell-toolbar-height);
     padding: 0.75rem 1rem;
@@ -704,11 +568,5 @@
       [data-ui-part="body-content"] [data-ui-part="scroll-area-viewport"]
     ) {
     height: 100%;
-  }
-
-  @media (max-width: 44rem) {
-    .community-workspace__channel-actions {
-      grid-template-columns: 1fr;
-    }
   }
 </style>

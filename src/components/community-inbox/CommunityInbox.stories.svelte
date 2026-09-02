@@ -38,13 +38,18 @@
   name="Selected thread"
   play={async ({ canvas, canvasElement }) => {
     const overlay = within(canvasElement.ownerDocument.body);
+    const runtime = canvas.getByTestId("community-inbox-runtime");
+
+    await waitFor(() => {
+      expect(runtime).toHaveAttribute("data-community-status", "connected");
+    });
 
     await expect(canvas.getByLabelText("Inbox conversations")).toBeVisible();
     await expect(
       canvas.getByRole("region", { name: "Selected inbox thread" }),
     ).toBeVisible();
     await expect(
-      canvas.getByRole("heading", { name: "Thread in #Welcome" }),
+      canvas.getByRole("heading", { name: "general" }),
     ).toBeVisible();
     await expect(
       canvas.getByRole("combobox", { name: "Message" }),

@@ -5,6 +5,11 @@ import {
   type CommunityController,
   type CommunityScope,
 } from "../community/index.js";
+import {
+  createWebSocketCommunityRelayFactory,
+  type CommunityRelay,
+  type CommunityRelayFactory,
+} from "../nostr/index.js";
 import type { NostrEvent, NostrEventTemplate } from "../protocol/index.js";
 import { finalizeEvent } from "nostr-tools/pure";
 
@@ -26,7 +31,23 @@ export interface CommunityTestScenario {
   operator: SecretKeyRegistrySigner;
   member: SecretKeyRegistrySigner;
   events: readonly NostrEvent[];
-  seed(relay: InMemoryCommunityRelay): Promise<void>;
+  seed(relay: CommunityRelay): Promise<void>;
+}
+
+export type CommunityStoryBackend = "memory" | "docker";
+
+export interface CommunityStoryRuntimeOptions
+  extends CommunityTestScenarioOptions {
+  backend?: CommunityStoryBackend;
+  relayUrl?: string;
+}
+
+export interface CommunityStoryRuntime {
+  backend: CommunityStoryBackend;
+  controller: CommunityController;
+  relayFactory: CommunityRelayFactory;
+  scenario: CommunityTestScenario;
+  dispose(): void;
 }
 
 export interface CommunityTestRuntimeOptions
@@ -191,6 +212,68 @@ export async function createCommunityTestRuntime(
       controller.dispose();
       relayFactory.reset();
     },
+  };
+}
+
+/**
+ * Creates the runtime used by composed Storybook examples. The backend is read
+ * from the Storybook decorator when it is not supplied explicitly, so story
+ * components never branch production controller or materializer logic.
+ */
+export async function createCommunityStoryRuntime(
+  options: CommunityStoryRuntimeOptions = {},
+): Promise<CommunityStoryRuntime> {
+  const configured = storybookConfiguration();
+  const backend = options.backend ?? configured.backend;
+  if (backend === "memory") {
+    const runtime = await createCommunityTestRuntime(options);
+    return { ...runtime, backend };
+  }
+
+  const relayUrl = options.relayUrl ?? configured.relayUrl;
+  if (relayUrl === undefined || relayUrl === "") {
+    throw new Error(
+      "Docker relay unavailable. Start it with pnpm storybook:relay or provide VITE_COMMUNITY_RELAY_URL.",
+    );
+  }
+  const scenario = createCommunityTestScenario({ ...options, relayUrl });
+  const relayFactory = createWebSocketCommunityRelayFactory();
+  const seedRelay = await relayFactory.create(relayUrl);
+  try {
+    await scenario.seed(seedRelay);
+  } finally {
+    seedRelay.close();
+  }
+  const controller = createCommunityController({
+    scopes: [scenario.scope],
+    source: createNip29CommunitySource({ relayFactory }),
+    identity: scenario.operator,
+    now: () => (options.createdAt ?? 1_700_000_000) + 100,
+  });
+  return {
+    backend,
+    controller,
+    relayFactory,
+    scenario,
+    dispose() {
+      controller.dispose();
+    },
+  };
+}
+
+function storybookConfiguration(): {
+  backend: CommunityStoryBackend;
+  relayUrl?: string;
+} {
+  if (typeof document === "undefined") return { backend: "memory" };
+  const backend =
+    document.documentElement.dataset.communityBackend === "docker"
+      ? "docker"
+      : "memory";
+  const relayUrl = document.documentElement.dataset.communityRelayUrl;
+  return {
+    backend,
+    ...(relayUrl === undefined || relayUrl === "" ? {} : { relayUrl }),
   };
 }
 

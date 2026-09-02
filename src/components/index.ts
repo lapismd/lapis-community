@@ -21,6 +21,7 @@ export type {
 export { default as CommunitySummary } from "./community-summary/CommunitySummary.svelte";
 export { default as CommunitySwitcher } from "./community-switcher/CommunitySwitcher.svelte";
 export { default as CommunityThreadPanel } from "./community-thread-panel/CommunityThreadPanel.svelte";
+export { default as CommunityWorkspaceSurface } from "./community-workspace/CommunityWorkspaceSurface.svelte";
 export { default as DiscussionComposer } from "./discussion-composer/DiscussionComposer.svelte";
 export { default as DiscussionHeading } from "./discussion-heading/DiscussionHeading.svelte";
 export { default as DiscussionPost } from "./discussion-post/DiscussionPost.svelte";

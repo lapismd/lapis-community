@@ -17,6 +17,9 @@ const config: StorybookConfig = {
   viteFinal: async (viteConfig) =>
     mergeConfig(viteConfig, {
       resolve: { dedupe: ["svelte"] },
+      optimizeDeps: {
+        include: ["nostr-tools/filter", "nostr-tools/nip44"],
+      },
       server: { watch: { ignored: ["**/storybook-static/**"] } },
     }),
 };

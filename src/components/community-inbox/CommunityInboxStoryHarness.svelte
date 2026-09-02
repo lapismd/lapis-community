@@ -1,38 +1,69 @@
 <script lang="ts">
   import { AppShell, AppShellController } from "@lapismd/design-core/shell";
-  import { untrack } from "svelte";
+  import { onMount } from "svelte";
+  import type { CommunityController } from "../../community/index.js";
+  import {
+    createCommunityStoryRuntime,
+    type CommunityStoryRuntime,
+  } from "../../testing/index.js";
   import CommunityInbox from "./CommunityInbox.svelte";
-  import type { CommunityInboxModel } from "./model.js";
   import { communityInboxFixture } from "./story-fixtures.js";
 
-  let model = $state<CommunityInboxModel>(
-    untrack(() => JSON.parse(JSON.stringify(communityInboxFixture))),
-  );
+  let runtime = $state<CommunityStoryRuntime>();
+  let community = $state<CommunityController>();
+  let runtimeError = $state("");
+  const model = $derived(community?.state.inbox ?? communityInboxFixture);
   const controller = new AppShellController();
 
-  function send(content: string): void {
-    model = {
-      ...model,
-      messages: [
-        ...model.messages,
-        {
-          id: `story-reply-${model.messages.length + 1}`,
-          authorId: "steve",
-          timestamp: "Now",
-          content,
-        },
-      ],
+  onMount(() => {
+    let active = true;
+    void createCommunityStoryRuntime()
+      .then((created) => {
+        if (!active) {
+          created.dispose();
+          return;
+        }
+        runtime = created;
+        community = created.controller;
+        community.initialize();
+      })
+      .catch((cause: unknown) => {
+        if (active) {
+          runtimeError =
+            cause instanceof Error
+              ? cause.message
+              : "Community story runtime failed";
+        }
+      });
+    return () => {
+      active = false;
+      runtime?.dispose();
     };
+  });
+
+  function send(content: string): void {
+    community?.handlers.onSendReply?.(model.activeItemId, content);
   }
 </script>
 
-<div class="community-inbox-story-harness">
+{#if runtimeError}
+  <div class="community-inbox-story-harness__unavailable" role="status">
+    {runtimeError}
+  </div>
+{/if}
+
+<div
+  class="community-inbox-story-harness"
+  data-testid="community-inbox-runtime"
+  data-community-status={community?.state.status ?? "loading"}
+  data-community-backend={runtime?.backend ?? "loading"}
+>
   <AppShell.Root {controller} displayMode="desktop" desktopMinMainWidth={0}>
     <AppShell.Main>
       <CommunityInbox
         {model}
-        onSelect={(itemId) => (model = { ...model, activeItemId: itemId })}
         onSend={send}
+        onMarkAllRead={() => void community?.actions.markAllRead()}
       />
     </AppShell.Main>
   </AppShell.Root>

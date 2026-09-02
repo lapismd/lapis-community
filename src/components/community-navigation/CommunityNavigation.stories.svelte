@@ -10,6 +10,19 @@
   import CommunityNavigation from "./CommunityNavigation.svelte";
   import CommunityNavigationShellFixture from "./CommunityNavigationShellFixture.svelte";
 
+  const consumerSource = `<script lang="ts">
+  import { CommunityNavigation, type CommunityNavigationModel } from "@lapismd/lapis-community/components";
+
+  let { model, activeItemId }: { model: CommunityNavigationModel; activeItemId: string } = $props();
+<\/script>
+
+<CommunityNavigation
+  {model}
+  {activeItemId}
+  onSelect={(item) => console.log(item.id)}
+  onSearch={(query) => console.log(query)}
+/>`;
+
   const { Story } = defineMeta({
     title: "Community/Navigation/Sidebar",
     component: CommunityNavigation,
@@ -17,6 +30,7 @@
     parameters: {
       layout: "fullscreen",
       docs: {
+        source: { language: "svelte", code: consumerSource },
         description: {
           component:
             "Buzz-inspired navigation for the Inbox, registry, NIP-29 channels, forums, and direct messages currently supported by Lapis Community. Search, collapsible groups, and action menus use Design Core primitives.",
@@ -30,6 +44,11 @@
   name="Supported community destinations"
   play={async ({ canvas, canvasElement }) => {
     const search = canvas.getByRole("searchbox", { name: "Search community" });
+    const runtime = canvas.getByTestId("community-navigation-runtime");
+
+    await waitFor(() => {
+      expect(runtime).toHaveAttribute("data-community-status", "connected");
+    });
 
     await expect(search).toHaveAttribute("placeholder", "Search everything");
     await expect(canvas.getByRole("button", { name: "Inbox" })).toHaveAttribute(
@@ -104,15 +123,13 @@
       );
     });
 
-    await userEvent.click(canvas.getByRole("button", { name: "AI support" }));
+    await userEvent.click(canvas.getByRole("button", { name: "support" }));
     await expect(
-      canvas.getByRole("button", { name: "AI support" }),
+      canvas.getByRole("button", { name: "support" }),
     ).toHaveAttribute("aria-current", "page");
 
-    await userEvent.type(search, "release");
-    await expect(
-      canvas.getByRole("button", { name: "plugin-releases" }),
-    ).toBeVisible();
+    await userEvent.type(search, "support");
+    await expect(canvas.getByRole("button", { name: "support" })).toBeVisible();
     await expect(canvas.queryByRole("button", { name: "general" })).toBeNull();
     await userEvent.clear(search);
 
