@@ -45,6 +45,14 @@
   const isSelected = $derived(
     message.reactions?.some((reaction) => reaction.selected) ?? false,
   );
+
+  const replyLabel = $derived.by(() => {
+    const replyCount = message.replyCount ?? 0;
+    return (
+      message.replyLabel ??
+      `${replyCount} ${replyCount === 1 ? "reply" : "replies"}`
+    );
+  });
 </script>
 
 <Message
@@ -161,8 +169,7 @@
           variant="ghost"
           size="xs"
           class="community-message__reply-summary"
-          aria-label={message.replyLabel ??
-            `${message.replyCount ?? 0} ${(message.replyCount ?? 0) === 1 ? "reply" : "replies"}`}
+          aria-label={replyLabel}
           onclick={() => onOpenThread?.(message.id)}
         >
           {#if replyParticipants.length}
@@ -178,10 +185,7 @@
               {/each}
             </span>
           {/if}
-          <span>
-            {message.replyLabel ??
-              `${message.replyCount ?? 0} ${(message.replyCount ?? 0) === 1 ? "reply" : "replies"}`}
-          </span>
+          <span>{replyLabel}</span>
         </Button>
       {/if}
     </div>
@@ -283,23 +287,29 @@
 
   .community-message__metadata {
     display: flex;
-    min-height: 1.4rem;
+    min-height: 1.5rem;
     align-items: center;
     gap: 0.4rem;
     color: var(--muted-foreground);
     font-size: 0.72rem;
+    line-height: 1;
   }
 
-  .community-message__metadata :global([data-ui-component="button"]) {
-    height: auto;
+  .community-message__metadata
+    :global([data-ui-component="ai-chat-message-metadata"]) {
+    min-height: 1.5rem;
+    margin-top: 0;
+    line-height: 1;
   }
 
   :global(.community-message__reply-summary[data-ui-component="button"]) {
+    height: 1.5rem;
     gap: 0.4rem;
-    padding: 0.18rem 0.35rem;
+    padding: 0 0.35rem;
     border-radius: 999px;
     color: var(--muted-foreground);
     font-size: 0.72rem;
+    line-height: 1;
   }
 
   :global(.community-message__reply-summary[data-ui-component="button"]:hover),

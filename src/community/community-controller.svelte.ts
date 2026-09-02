@@ -92,6 +92,7 @@ export function createCommunityController(
   const workspace = $derived.by(
     (): CommunityWorkspaceModel =>
       materializeCommunityWorkspace(scopes, eventsByScope, activeCommunityId, {
+        asOf: now(),
         activeRoomId,
         ...(activeTopicId === undefined ? {} : { activeTopicId }),
         ...(activeThreadId === undefined ? {} : { activeThreadId }),
@@ -106,6 +107,7 @@ export function createCommunityController(
       scopes,
       eventsByScope,
       identityPubkey || undefined,
+      now(),
     ),
   );
   const capabilities = $derived.by(() => {

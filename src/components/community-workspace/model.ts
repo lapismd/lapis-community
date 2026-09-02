@@ -56,6 +56,7 @@ export interface CommunityMessageModel {
   replyCount?: number;
   replyLabel?: string;
   replyParticipantIds?: string[];
+  lastReplyAt?: string;
   reactions?: CommunityReactionModel[];
 }
 

@@ -19,6 +19,7 @@ import type {
 } from "./contracts.js";
 
 export interface CommunityProjectionOptions {
+  asOf?: number;
   activeRoomId?: string;
   activeTopicId?: string;
   activeThreadId?: string;
@@ -116,7 +117,13 @@ export function materializeCommunityWorkspace(
       ? directMessageModels(activeDirect)
       : activeRoom === undefined
         ? []
-        : messageModels(activeRoom, visible, profiles, options.activeTopicId);
+        : messageModels(
+            activeRoom,
+            visible,
+            profiles,
+            options.activeTopicId,
+            options.asOf,
+          );
   const topics =
     activeRoom?.kind === "forum"
       ? topicModels(activeRoom, visible, profiles)
@@ -196,6 +203,7 @@ export function materializeCommunityInbox(
   scopes: readonly CommunityScope[],
   eventsByScope: Readonly<Record<string, readonly NostrEvent[]>>,
   identityPubkey: string | undefined,
+  asOf?: number,
 ): CommunityInboxModel | undefined {
   if (identityPubkey === undefined) return undefined;
   const candidates = scopes.flatMap((scope) => {
@@ -256,7 +264,7 @@ export function materializeCommunityInbox(
     room,
     messages: threadEvents
       .toSorted(compareOldest)
-      .map((event) => eventMessage(event, threadEvents, active.profiles)),
+      .map((event) => eventMessage(event, threadEvents, active.profiles, asOf)),
     members,
     participantCount: new Set(threadEvents.map((event) => event.pubkey)).size,
   };
@@ -415,6 +423,7 @@ function messageModels(
   events: readonly NostrEvent[],
   profiles: ReadonlyMap<string, Profile>,
   activeTopicId: string | undefined,
+  asOf: number | undefined,
 ): CommunityMessageModel[] {
   const kinds = room.kind === "channel" ? new Set([9]) : new Set([11, 1_111]);
   const roomEvents = events.filter(
@@ -434,23 +443,29 @@ function messageModels(
       : roomEvents;
   return selected
     .toSorted(compareOldest)
-    .map((event) => eventMessage(event, events, profiles));
+    .map((event) => eventMessage(event, events, profiles, asOf));
 }
 
 function eventMessage(
   event: NostrEvent,
   events: readonly NostrEvent[],
   _profiles: ReadonlyMap<string, Profile>,
+  asOf: number | undefined,
 ): CommunityMessageModel {
   const parentMessageId =
     event.tags.find((tag) => tag[0] === "e" && tag[3] === "reply")?.[1] ??
     event.tags.find((tag) => tag[0] === "e")?.[1];
-  const replies = events.filter((candidate) =>
-    candidate.tags.some(
-      (tag) => (tag[0] === "e" || tag[0] === "E") && tag[1] === event.id,
-    ),
+  const replyKind = event.kind === 11 ? 1_111 : event.kind;
+  const replies = events.filter(
+    (candidate) =>
+      candidate.kind === replyKind &&
+      candidate.tags.some(
+        (tag) => (tag[0] === "e" || tag[0] === "E") && tag[1] === event.id,
+      ),
   );
-  const replyCount = replies.length;
+  const orderedReplies = replies.toSorted(compareOldest);
+  const replyCount = orderedReplies.length;
+  const latestReply = orderedReplies.at(-1);
   const reactions = reactionModels(event.id, events);
   return {
     id: event.id,
@@ -463,13 +478,21 @@ function eventMessage(
       ? {}
       : {
           replyCount,
-          replyLabel: replyCount === 1 ? "1 reply" : `${replyCount} replies`,
+          replyLabel: `${replyCount === 1 ? "1 reply" : `${replyCount} replies`}${
+            latestReply === undefined || asOf === undefined
+              ? ""
+              : ` · last reply ${relativeTimestamp(latestReply.created_at, asOf)}`
+          }`,
+          ...(latestReply === undefined
+            ? {}
+            : {
+                lastReplyAt: new Date(
+                  latestReply.created_at * 1_000,
+                ).toISOString(),
+              }),
           replyParticipantIds: [
             ...new Set(
-              replies
-                .toSorted(compareOldest)
-                .toReversed()
-                .map((reply) => reply.pubkey),
+              orderedReplies.toReversed().map((reply) => reply.pubkey),
             ),
           ].slice(0, 3),
         }),
@@ -699,4 +722,31 @@ function shortKey(value: string): string {
 
 function timestamp(createdAt: number): string {
   return new Date(createdAt * 1_000).toISOString().slice(11, 16);
+}
+
+function relativeTimestamp(createdAt: number, asOf: number): string {
+  const elapsedSeconds = Math.max(0, asOf - createdAt);
+  if (elapsedSeconds < 60) return "just now";
+
+  const elapsedMinutes = Math.floor(elapsedSeconds / 60);
+  if (elapsedMinutes < 60) {
+    return `${elapsedMinutes} ${elapsedMinutes === 1 ? "minute" : "minutes"} ago`;
+  }
+
+  const elapsedHours = Math.floor(elapsedMinutes / 60);
+  if (elapsedHours < 24) {
+    return `${elapsedHours} ${elapsedHours === 1 ? "hour" : "hours"} ago`;
+  }
+
+  const elapsedDays = Math.floor(elapsedHours / 24);
+  if (elapsedDays < 7) {
+    return `${elapsedDays} ${elapsedDays === 1 ? "day" : "days"} ago`;
+  }
+
+  return `on ${new Intl.DateTimeFormat("en", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    timeZone: "UTC",
+  }).format(createdAt * 1_000)}`;
 }
