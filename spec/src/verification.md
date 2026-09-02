@@ -8,11 +8,13 @@
 | LC-ARCH-004  | Implemented    | `package.json`; `pnpm build`; `pnpm prepack`                                                                           |
 | LC-ARCH-005  | Implemented    | `package.json`; public `@lapismd/design-core` imports; `pnpm-lock.yaml`                                                |
 | LC-ARCH-006  | Visual pending | Consolidated `Community/Examples/App Shell` Inbox, channel, and thread stories; duplicate shell entry removed          |
+| LC-ARCH-007  | Planned        | Relay factory and in-memory conformance boundary implemented; controller source injection pending                      |
 | LC-NOSTR-001 | Implemented    | `src/protocol/nip29.ts`; `src/protocol/nip29.test.ts`                                                                  |
 | LC-NOSTR-002 | Implemented    | `src/auth`; `src/nostr/transport.ts`; `pnpm test`                                                                      |
 | LC-NOSTR-003 | Implemented    | `src/protocol/projection.ts`; `src/nostr/nip29-state.test.ts`                                                          |
 | LC-NOSTR-004 | Implemented    | `src/protocol/nip29.ts`; `src/nostr/nip29-state.ts`                                                                    |
 | LC-NOSTR-005 | Implemented    | `src/protocol/canonical.ts`; `src/protocol/nip29.test.ts`                                                              |
+| LC-NOSTR-006 | Implemented    | shared relay contract tests; in-memory and WebSocket relay implementations                                             |
 | LC-UI-001    | Implemented    | `src/components`; `pnpm build-storybook`                                                                               |
 | LC-UI-002    | Implemented    | `src/components/registry-community/RegistryCommunity.svelte`; component folders                                        |
 | LC-UI-003    | Implemented    | `src/components/registry-community/registry-community-controller.svelte.ts`; component stories                         |

@@ -13,3 +13,7 @@
 `@lapismd/spec-validator` is development-only governance tooling. Published
 runtime dependencies use ordinary npm semantic-version ranges and never local
 workspace, file, or link dependencies.
+
+Relay conformance tests live under the test-only package entry point. They run
+in memory by default and may target the disposable Docker relay without adding
+environment-specific branches to production controller or materializer code.

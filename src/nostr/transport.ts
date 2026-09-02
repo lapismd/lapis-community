@@ -28,19 +28,43 @@ export interface RegistryRelay {
   close(): void;
 }
 
+export interface CommunityRelaySubscription {
+  close(reason?: string): void;
+}
+
+export interface CommunityRelaySubscriptionHandlers {
+  onevent(event: NostrEvent): void;
+  oneose?(): void;
+  onclose?(reason: string): void;
+}
+
+export interface CommunityRelay extends RegistryRelay {
+  subscribe(
+    filter: RelayFilter,
+    handlers: CommunityRelaySubscriptionHandlers,
+    signal?: AbortSignal,
+  ): Promise<CommunityRelaySubscription>;
+}
+
+export interface CommunityRelayFactory {
+  create(url: string): CommunityRelay;
+}
+
 export interface WebSocketRelayOptions {
   authenticationRelayUrl?: string;
   connectTimeoutMs?: number;
+  enableReconnect?: boolean;
   eoseTimeoutMs?: number;
   publishTimeoutMs?: number;
 }
 
-export class WebSocketRegistryRelay implements RegistryRelay {
+export class WebSocketRegistryRelay implements CommunityRelay {
   readonly url: string;
   readonly #connectTimeoutMs: number;
   readonly #eoseTimeoutMs: number;
   readonly #publishTimeoutMs: number;
   readonly #authenticationRelayUrl: string | undefined;
+  readonly #enableReconnect: boolean;
   #connection: Promise<Relay> | undefined;
   #authSigner: RelayAuthSigner | undefined;
   #authentication: Promise<string> | undefined;
@@ -52,6 +76,7 @@ export class WebSocketRegistryRelay implements RegistryRelay {
         ? undefined
         : normalizeURL(options.authenticationRelayUrl);
     this.#connectTimeoutMs = options.connectTimeoutMs ?? 5_000;
+    this.#enableReconnect = options.enableReconnect ?? false;
     this.#eoseTimeoutMs = options.eoseTimeoutMs ?? 5_000;
     this.#publishTimeoutMs = options.publishTimeoutMs ?? 5_000;
   }
@@ -60,7 +85,7 @@ export class WebSocketRegistryRelay implements RegistryRelay {
     this.#connection ??= Relay.connect(this.url, {
       timeout: this.#connectTimeoutMs,
       ...(signal === undefined ? {} : { abort: signal }),
-      enableReconnect: false,
+      enableReconnect: this.#enableReconnect,
     });
 
     try {
@@ -227,6 +252,24 @@ export class WebSocketRegistryRelay implements RegistryRelay {
     });
   }
 
+  async subscribe(
+    filter: RelayFilter,
+    handlers: CommunityRelaySubscriptionHandlers,
+    signal?: AbortSignal,
+  ): Promise<CommunityRelaySubscription> {
+    signal?.throwIfAborted();
+    const relay = await this.#connect(signal);
+    const subscription = relay.subscribe([filter], {
+      ...(signal === undefined ? {} : { abort: signal }),
+      onevent: handlers.onevent,
+      ...(handlers.oneose === undefined ? {} : { oneose: handlers.oneose }),
+      ...(handlers.onclose === undefined ? {} : { onclose: handlers.onclose }),
+    });
+    const close = (reason = "closed"): void => subscription.close(reason);
+    signal?.addEventListener("abort", () => close("aborted"), { once: true });
+    return { close };
+  }
+
   async publish(
     event: NostrEvent,
     signal?: AbortSignal,
@@ -245,4 +288,40 @@ export class WebSocketRegistryRelay implements RegistryRelay {
     this.#connection = undefined;
     this.#authentication = undefined;
   }
+}
+
+export interface WebSocketCommunityRelayFactoryOptions
+  extends Omit<WebSocketRelayOptions, "authenticationRelayUrl"> {
+  authenticationRelayUrl?:
+    | string
+    | ((relayUrl: string) => string | undefined)
+    | undefined;
+}
+
+export function createWebSocketCommunityRelayFactory(
+  options: WebSocketCommunityRelayFactoryOptions = {},
+): CommunityRelayFactory {
+  return {
+    create(url) {
+      const authenticationRelayUrl =
+        typeof options.authenticationRelayUrl === "function"
+          ? options.authenticationRelayUrl(url)
+          : options.authenticationRelayUrl;
+      return new WebSocketRegistryRelay(url, {
+        ...(authenticationRelayUrl === undefined
+          ? { authenticationRelayUrl: url }
+          : { authenticationRelayUrl }),
+        ...(options.connectTimeoutMs === undefined
+          ? {}
+          : { connectTimeoutMs: options.connectTimeoutMs }),
+        enableReconnect: options.enableReconnect ?? true,
+        ...(options.eoseTimeoutMs === undefined
+          ? {}
+          : { eoseTimeoutMs: options.eoseTimeoutMs }),
+        ...(options.publishTimeoutMs === undefined
+          ? {}
+          : { publishTimeoutMs: options.publishTimeoutMs }),
+      });
+    },
+  };
 }

@@ -49,6 +49,16 @@
       "import": "./dist/components/index.js",
       "default": "./dist/components/index.js"
     },
+    "./community": {
+      "types": "./dist/community/index.d.ts",
+      "import": "./dist/community/index.js",
+      "default": "./dist/community/index.js"
+    },
+    "./testing": {
+      "types": "./dist/testing/index.d.ts",
+      "import": "./dist/testing/index.js",
+      "default": "./dist/testing/index.js"
+    },
     "./client/registry-community.js": "./dist/client/registry-community.js"
   },
   "scripts": {
@@ -58,6 +68,7 @@
     "check:svelte": "svelte-check --tsconfig ./tsconfig.app.json --fail-on-warnings --output human",
     "check:types": "tsc -p tsconfig.node.json --noEmit",
     "test": "vitest run --project unit",
+    "test:relay": "vitest run --project unit src/testing/relay-contract.test.ts",
     "test:storybook": "vitest run --project storybook",
     "storybook": "storybook dev --no-open --port 7035 --config-dir .storybook",
     "build-storybook": "storybook build --config-dir .storybook --output-dir storybook-static",

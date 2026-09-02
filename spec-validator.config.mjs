@@ -50,7 +50,8 @@ export default defineConfig(tableRequirements(), {
       ],
       rules: [
         {
-          pattern: "^src/(?:index\\.ts$|auth/|nostr/|protocol/)",
+          pattern:
+            "^src/(?:index\\.ts$|auth/|community/|nostr/|protocol/|testing/)",
           chapters: ["spec/src/nostr-protocol.md", "spec/src/architecture.md"],
         },
         {
