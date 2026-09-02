@@ -6,8 +6,15 @@
     MessageList,
     SystemMessage,
   } from "@lapismd/design-core/ai/chat";
+  import { Button } from "@lapismd/design-core/shadcn/button";
+  import XIcon from "@lucide/svelte/icons/x";
   import type { Snippet } from "svelte";
 
+  import type {
+    CommunityCustomEmoji,
+    CommunityReplyTarget,
+  } from "../../community/index.js";
+  import CommunityEmojiPicker from "../community-emoji-picker/CommunityEmojiPicker.svelte";
   import CommunityMessage from "../community-message/CommunityMessage.svelte";
   import { isMessageContinuation } from "../community-message/grouping.js";
   import {
@@ -26,25 +33,52 @@
     onToggleReaction,
     onAddReaction,
     onCopyMessageLink,
+    onCopyMessage,
+    onEditMessage,
     onDeleteMessage,
+    replyTarget,
+    communityEmojis = [],
+    onCancelReply,
     composerPlacement = "overlay",
     intro,
   }: {
     room: CommunityRoomModel;
     messages: CommunityMessageModel[];
     members: CommunityMemberModel[];
-    onSend?: (content: string) => void;
+    onSend?: (content: string) => void | Promise<void>;
     onOpenThread?: (messageId: string) => void;
-    onToggleReaction?: (messageId: string, emoji: string) => void;
-    onAddReaction?: (messageId: string, emoji: string) => void;
+    onToggleReaction?: (
+      messageId: string,
+      emoji: string,
+      custom?: { shortcode: string; url: string },
+    ) => void;
+    onAddReaction?: (
+      messageId: string,
+      emoji: string,
+      custom?: { shortcode: string; url: string },
+    ) => void;
     onCopyMessageLink?: (messageId: string) => void;
+    onCopyMessage?: (messageId: string) => void;
+    onEditMessage?: (messageId: string) => void;
     onDeleteMessage?: (messageId: string) => void;
+    replyTarget?: CommunityReplyTarget;
+    communityEmojis?: readonly CommunityCustomEmoji[];
+    onCancelReply?: () => void;
     composerPlacement?: "overlay" | "row";
     intro?: Snippet;
   } = $props();
 
   let draft = $state("");
   const density = $derived(room.kind === "forum" ? "spacious" : "compact");
+
+  function submit(content: string): void {
+    const result = onSend?.(content);
+    if (result instanceof Promise) {
+      void result.catch(() => {
+        draft = content;
+      });
+    }
+  }
 </script>
 
 <div
@@ -75,8 +109,35 @@
         {density}
         bind:value={draft}
         placeholder={`Message ${room.kind === "channel" ? "#" : ""}${room.name}`}
-        onSubmit={(content) => onSend?.(content)}
-      />
+        onSubmit={submit}
+      >
+        {#if replyTarget}
+          {#snippet headerContext()}
+            <div class="community-conversation__reply-context">
+              <span>
+                <strong>Replying to {replyTarget.authorName}</strong>
+                <small>{replyTarget.content.slice(0, 140)}</small>
+              </span>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                aria-label="Cancel reply"
+                onclick={onCancelReply}
+              >
+                <XIcon aria-hidden="true" />
+              </Button>
+            </div>
+          {/snippet}
+        {/if}
+        {#snippet footerActions()}
+          <CommunityEmojiPicker
+            {communityEmojis}
+            label="Add emoji to message"
+            onSelect={(emoji) => (draft += emoji)}
+          />
+        {/snippet}
+      </Composer>
     {/snippet}
 
     <MessageList
@@ -97,12 +158,19 @@
             memberById(members, id),
           )}
           {density}
+          {communityEmojis}
           onOpenThread={(messageId) => onOpenThread?.(messageId)}
-          onToggleReaction={(messageId, emoji) =>
-            onToggleReaction?.(messageId, emoji)}
-          onAddReaction={(messageId, emoji) =>
-            onAddReaction?.(messageId, emoji)}
+          onToggleReaction={(messageId, emoji, custom) =>
+            custom
+              ? onToggleReaction?.(messageId, emoji, custom)
+              : onToggleReaction?.(messageId, emoji)}
+          onAddReaction={(messageId, emoji, custom) =>
+            custom
+              ? onAddReaction?.(messageId, emoji, custom)
+              : onAddReaction?.(messageId, emoji)}
           onCopyLink={(messageId) => onCopyMessageLink?.(messageId)}
+          onCopyMessage={(messageId) => onCopyMessage?.(messageId)}
+          onEdit={(messageId) => onEditMessage?.(messageId)}
           onDelete={(messageId) => onDeleteMessage?.(messageId)}
         />
       {/each}
@@ -163,6 +231,12 @@
   }
 
   .community-conversation[data-composer-placement="row"]
+    :global([data-ui-part="composer-dock"] > [data-ui-part="composer-inner"]) {
+    width: 100%;
+    max-width: none;
+  }
+
+  .community-conversation[data-composer-placement="row"]
     :global(
       [data-ui-component="ai-chat-layout"]
         > [data-ui-part="composer-dock"]::before
@@ -181,5 +255,27 @@
 
   .community-conversation__empty strong {
     color: var(--foreground);
+  }
+
+  .community-conversation__reply-context {
+    display: flex;
+    min-width: 0;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.45rem 0.55rem;
+    border-block-end: 1px solid var(--border);
+  }
+
+  .community-conversation__reply-context > span {
+    display: grid;
+    min-width: 0;
+  }
+
+  .community-conversation__reply-context small {
+    overflow: hidden;
+    color: var(--muted-foreground);
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 </style>

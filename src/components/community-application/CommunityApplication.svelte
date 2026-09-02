@@ -1,6 +1,8 @@
 <script lang="ts">
   import { Button } from "@lapismd/design-core/shadcn/button";
   import * as Alert from "@lapismd/design-core/shadcn/alert";
+  import * as AlertDialog from "@lapismd/design-core/shadcn/alert-dialog";
+  import * as Dialog from "@lapismd/design-core/shadcn/dialog";
   import * as Empty from "@lapismd/design-core/shadcn/empty";
   import * as Field from "@lapismd/design-core/shadcn/field";
   import { Input } from "@lapismd/design-core/shadcn/input";
@@ -19,27 +21,41 @@
   import UsersIcon from "@lucide/svelte/icons/users";
   import WifiOffIcon from "@lucide/svelte/icons/wifi-off";
   import XIcon from "@lucide/svelte/icons/x";
+  import { nip19 } from "nostr-tools";
+  import { toast, Toaster } from "svelte-sonner";
   import { untrack, type Snippet } from "svelte";
   import type { HTMLAttributes } from "svelte/elements";
 
-  import type { CommunityController } from "../../community/index.js";
+  import type {
+    CommunityApplicationExtensions,
+    CommunityController,
+    CommunityLinkBuilder,
+  } from "../../community/index.js";
   import CommunityAppShell from "../community-app-shell/CommunityAppShell.svelte";
   import CommunityChannelSettings from "../community-channel-settings/CommunityChannelSettings.svelte";
+  import CommunityEmojiPicker from "../community-emoji-picker/CommunityEmojiPicker.svelte";
   import CommunityDetails from "../community-details/CommunityDetails.svelte";
+  import CommunityDirectMessageComposer from "../community-direct-message-composer/CommunityDirectMessageComposer.svelte";
   import CommunityInbox from "../community-inbox/CommunityInbox.svelte";
   import type { CommunityInboxModel } from "../community-inbox/model.js";
   import CommunityNavigation from "../community-navigation/CommunityNavigation.svelte";
+  import CommunityMemberCommand from "../community-member-command/CommunityMemberCommand.svelte";
   import type {
     CommunityNavigationItemModel,
+    CommunityNavigationItemAction,
     CommunityNavigationModel,
     CommunityNavigationSectionActionModel,
     CommunityNavigationSectionModel,
   } from "../community-navigation/model.js";
   import CommunityProfileMenu from "../community-profile-menu/CommunityProfileMenu.svelte";
   import CommunityRelaySettings from "../community-relay-settings/CommunityRelaySettings.svelte";
+  import CommunityRoomBrowser from "../community-room-browser/CommunityRoomBrowser.svelte";
+  import CommunityRoomEditor from "../community-room-editor/CommunityRoomEditor.svelte";
+  import CommunitySearchCommand from "../community-search-command/CommunitySearchCommand.svelte";
   import CommunitySettingsNavigation from "../community-settings-navigation/CommunitySettingsNavigation.svelte";
   import CommunitySettings from "../community-settings/CommunitySettings.svelte";
   import CommunityThreadPanel from "../community-thread-panel/CommunityThreadPanel.svelte";
+  import CommunityTopicComposer from "../community-topic-composer/CommunityTopicComposer.svelte";
   import CommunityWorkspaceSurface from "../community-workspace/CommunityWorkspaceSurface.svelte";
   import {
     findCommunityRoom,
@@ -63,6 +79,8 @@
     mobileBreakpoint = 1024,
     desktopMinMainWidth = 0,
     registry,
+    extensions = {},
+    linkBuilder,
     onDestinationChange = () => {},
     onSectionAction = () => {},
     ...restProps
@@ -74,6 +92,8 @@
     mobileBreakpoint?: number;
     desktopMinMainWidth?: number;
     registry?: Snippet;
+    extensions?: CommunityApplicationExtensions;
+    linkBuilder?: CommunityLinkBuilder;
     onDestinationChange?: (destinationId: string) => void;
     onSectionAction?: (
       section: CommunityNavigationSectionModel,
@@ -103,6 +123,24 @@
   let inlineRelayUrl = $state("");
   let inlineRelayCommunityId = $state("");
   let inlineRelayError = $state("");
+  let roomEditorOpen = $state(false);
+  let roomEditorMode = $state<"create" | "edit">("edit");
+  let roomEditorKind = $state<"channel" | "forum">("channel");
+  let roomBrowserOpen = $state(false);
+  let roomBrowserKind = $state<"all" | "channel" | "forum">("all");
+  let memberCommandOpen = $state(false);
+  let memberCommandMode = $state<"view" | "manage" | "select">("view");
+  let selectedRecipientIds = $state<string[]>([]);
+  let topicComposerOpen = $state(false);
+  let confirmation = $state<"leave" | "delete" | null>(null);
+  let statusOpen = $state(false);
+  let statusDraft = $state("");
+  let searchOpen = $state(false);
+  let appSearchQuery = $state("");
+  let sectionEditorOpen = $state(false);
+  let sectionEditorMode = $state<"create" | "rename">("create");
+  let sectionEditorId = $state("");
+  let sectionName = $state("");
 
   const workspace = $derived(community.state.workspace);
   const activeRoom = $derived(
@@ -145,53 +183,160 @@
         icon: "package-search",
       },
     ],
-    sections: workspace.navigationSections.map((section) => ({
-      id: section.id,
-      label: section.label,
-      ...(section.id === "channels" && community.state.capabilities.channels
-        ? {
-            primaryAction: { id: "create", label: "Create channel" },
-            actions: [
-              {
-                id: "browse",
-                label: "Browse channels",
-                icon: "browse" as const,
-              },
-            ],
-          }
-        : {}),
-      ...(section.id === "forums" && community.state.capabilities.forums
-        ? {
-            primaryAction: { id: "create", label: "Create forum" },
-            actions: [
-              { id: "browse", label: "Browse forums", icon: "browse" as const },
-            ],
-          }
-        : {}),
-      ...(section.id === "direct-messages" &&
-      community.state.capabilities.directMessages
-        ? {
-            actions: [
-              {
-                id: "new",
-                label: "New direct message",
-                icon: "compose" as const,
-              },
-            ],
-          }
-        : {}),
-      sortable: true,
-      items: (hasCommunityConnection ? section.rooms : []).map((room) => ({
-        id: room.id,
-        label: room.name,
-        kind: room.kind === "direct" ? "direct-message" : room.kind,
-        ...(room.private === undefined ? {} : { restricted: room.private }),
-        ...(room.mentionCount === undefined && room.unreadCount === undefined
-          ? {}
-          : { unreadCount: room.mentionCount ?? room.unreadCount }),
+    sections: [
+      ...workspace.navigationSections.map((section) => ({
+        id: section.id,
+        label: section.label,
+        ...(section.id === "channels" && community.state.capabilities.channels
+          ? {
+              primaryAction: { id: "create", label: "Create channel" },
+              actions: [
+                {
+                  id: "browse",
+                  label: "Browse channels",
+                  icon: "browse" as const,
+                },
+                { id: "new-section", label: "New section" },
+              ],
+            }
+          : {}),
+        ...(section.id === "forums" && community.state.capabilities.forums
+          ? {
+              primaryAction: { id: "create", label: "Create forum" },
+              actions: [
+                {
+                  id: "browse",
+                  label: "Browse forums",
+                  icon: "browse" as const,
+                },
+              ],
+            }
+          : {}),
+        ...(section.id === "direct-messages" &&
+        community.state.capabilities.directMessages
+          ? {
+              actions: [
+                {
+                  id: "new",
+                  label: "New direct message",
+                  icon: "compose" as const,
+                },
+              ],
+            }
+          : {}),
+        sortable: true,
+        items: (hasCommunityConnection ? section.rooms : [])
+          .filter(
+            (room) =>
+              !community.state.navigation.hiddenRoomIds.includes(room.id),
+          )
+          .filter(
+            (room) =>
+              !community.state.navigation.sections.some((custom) =>
+                custom.roomIds.includes(room.id),
+              ),
+          )
+          .map((room) => ({
+            id: room.id,
+            label: room.name,
+            kind:
+              room.kind === "direct" ? ("direct-message" as const) : room.kind,
+            ...(room.private === undefined ? {} : { restricted: room.private }),
+            ...(room.mentionCount === undefined &&
+            room.unreadCount === undefined
+              ? {}
+              : { unreadCount: room.mentionCount ?? room.unreadCount }),
+            starred: community.state.navigation.starredRoomIds.includes(
+              room.id,
+            ),
+            muted: community.state.navigation.mutedRoomIds.includes(room.id),
+            settingsDisabled:
+              room.permissions?.update.state === "denied" ||
+              room.permissions?.update.state === "unsupported",
+            leaveDisabled:
+              room.permissions?.leave.state === "denied" ||
+              room.permissions?.leave.state === "unsupported",
+            deleteDisabled:
+              room.permissions?.delete.state === "denied" ||
+              room.permissions?.delete.state === "unsupported",
+            ...(room.permissions?.update.reason
+              ? { settingsReason: room.permissions.update.reason }
+              : {}),
+            ...(room.permissions?.leave.reason
+              ? { leaveReason: room.permissions.leave.reason }
+              : {}),
+            ...(room.permissions?.delete.reason
+              ? { deleteReason: room.permissions.delete.reason }
+              : {}),
+          })),
       })),
-    })),
+      ...community.state.navigation.sections.map((section) => ({
+        id: section.id,
+        label: section.name,
+        actions: [
+          { id: "rename-section", label: "Rename section" },
+          { id: "delete-section", label: "Delete section" },
+        ],
+        sortable: true,
+        items: workspace.navigationSections
+          .flatMap((candidate) => candidate.rooms)
+          .filter((room) => section.roomIds.includes(room.id))
+          .map((room) => ({
+            id: room.id,
+            label: room.name,
+            kind:
+              room.kind === "direct" ? ("direct-message" as const) : room.kind,
+            starred: community.state.navigation.starredRoomIds.includes(
+              room.id,
+            ),
+            muted: community.state.navigation.mutedRoomIds.includes(room.id),
+          })),
+      })),
+    ],
   });
+  const allRooms = $derived(
+    workspace.navigationSections.flatMap((section) => section.rooms),
+  );
+  const searchRooms = $derived(
+    allRooms.filter((room) =>
+      `${room.name} ${room.description ?? ""}`
+        .toLocaleLowerCase()
+        .includes(appSearchQuery.toLocaleLowerCase()),
+    ),
+  );
+  const searchMessages = $derived(
+    [
+      ...workspace.messages.filter((message) =>
+        message.content
+          .toLocaleLowerCase()
+          .includes(appSearchQuery.toLocaleLowerCase()),
+      ),
+      ...community.state.searchResults.map(({ event }) => ({
+        id: event.id,
+        authorId: event.pubkey,
+        content: event.content,
+        timestamp: new Date(event.created_at * 1000).toLocaleTimeString([], {
+          hour: "2-digit",
+          minute: "2-digit",
+        }),
+      })),
+    ].filter(
+      (message, index, values) =>
+        values.findIndex((candidate) => candidate.id === message.id) === index,
+    ),
+  );
+  const searchMembers = $derived(
+    workspace.members.filter((member) =>
+      `${member.name} ${member.handle}`
+        .toLocaleLowerCase()
+        .includes(appSearchQuery.toLocaleLowerCase()),
+    ),
+  );
+  const selectedRecipients = $derived(
+    selectedRecipientIds
+      .map((id) => workspace.members.find((member) => member.id === id))
+      .filter((member) => member !== undefined),
+  );
   const activeItemId = $derived(
     activeDestination === "inbox" || activeDestination === "registry"
       ? activeDestination
@@ -323,9 +468,274 @@
     }
   }
 
-  function react(messageId: string, emoji: string): void {
-    void community.actions.toggleReaction(messageId, emoji);
+  function react(
+    messageId: string,
+    emoji: string,
+    custom?: { shortcode: string; url: string },
+  ): void {
+    void community.actions
+      .toggleReaction(messageId, emoji, custom)
+      .catch((cause) =>
+        toast.error(
+          cause instanceof Error
+            ? cause.message
+            : "Reaction could not be saved",
+        ),
+      );
     lastAction = `reaction:${messageId}:${emoji}`;
+  }
+
+  async function copyText(value: string, success: string): Promise<void> {
+    try {
+      await navigator.clipboard.writeText(value);
+      toast.success(success);
+    } catch {
+      toast.error("Could not copy to the clipboard");
+    }
+  }
+
+  function copyMessageLink(messageId: string): void {
+    if (activeRoom.kind === "direct") return;
+    const message =
+      workspace.messages.find((candidate) => candidate.id === messageId) ??
+      workspace.thread?.messages.find(
+        (candidate) => candidate.id === messageId,
+      );
+    if (!message || !activeConnection) return;
+    const url =
+      linkBuilder?.message({
+        eventId: message.id,
+        authorPubkey: message.authorId,
+        relayUrl: activeConnection.relayUrl,
+      }) ??
+      `nostr:${nip19.neventEncode({ id: message.id, author: message.authorId, relays: [activeConnection.relayUrl] })}`;
+    void copyText(url, "Message link copied");
+    lastAction = `copied-message-link:${messageId}`;
+  }
+
+  function copyMessage(messageId: string): void {
+    const message =
+      workspace.messages.find((candidate) => candidate.id === messageId) ??
+      workspace.thread?.messages.find(
+        (candidate) => candidate.id === messageId,
+      );
+    if (message) void copyText(message.content, "Message copied");
+  }
+
+  function openRoomEditor(
+    kind: "channel" | "forum",
+    mode: "create" | "edit",
+  ): void {
+    roomEditorKind = kind;
+    roomEditorMode = mode;
+    roomEditorOpen = true;
+  }
+
+  function openRoomBrowser(kind: "all" | "channel" | "forum" = "all"): void {
+    roomBrowserKind = kind;
+    roomBrowserOpen = true;
+  }
+
+  function handleSectionAction(
+    section: CommunityNavigationSectionModel,
+    action: CommunityNavigationSectionActionModel,
+  ): void {
+    if (action.id === "browse")
+      openRoomBrowser(section.id === "forums" ? "forum" : "channel");
+    else if (action.id === "create")
+      openRoomEditor(section.id === "forums" ? "forum" : "channel", "create");
+    else if (action.id === "new") {
+      memberCommandMode = "select";
+      selectedRecipientIds = [];
+      setDestination("new-direct-message", true);
+      memberCommandOpen = true;
+    } else if (action.id === "new-section") {
+      sectionEditorMode = "create";
+      sectionName = "";
+      sectionEditorOpen = true;
+    } else if (action.id === "rename-section") {
+      sectionEditorMode = "rename";
+      sectionEditorId = section.id;
+      sectionName = section.label;
+      sectionEditorOpen = true;
+    } else if (action.id === "delete-section") {
+      void community.actions.deleteNavigationSection(section.id).then(
+        () => toast.success("Section deleted"),
+        (cause) =>
+          toast.error(
+            cause instanceof Error
+              ? cause.message
+              : "Section could not be deleted",
+          ),
+      );
+    }
+    onSectionAction(section, action);
+  }
+
+  function handleItemAction(
+    item: CommunityNavigationItemModel,
+    action: CommunityNavigationItemAction,
+  ): void {
+    const run = async (): Promise<void> => {
+      if (action === "copy-link" && activeConnection)
+        await copyText(
+          `${activeConnection.relayUrl}#${encodeURIComponent(item.id)}`,
+          "Room link copied",
+        );
+      if (action === "mark-read") await community.actions.markRead(item.id);
+      if (action === "mark-unread") await community.actions.markUnread(item.id);
+      if (action === "star" || action === "unstar")
+        await community.actions.setRoomStarred(item.id, action === "star");
+      if (action === "mute" || action === "unmute")
+        await community.actions.setRoomMuted(item.id, action === "mute");
+      if (action === "hide")
+        await community.actions.setRoomHidden(item.id, true);
+      if (action.startsWith("section:"))
+        await community.actions.assignRoomToSection(
+          item.id,
+          action.slice("section:".length) || undefined,
+        );
+      if (action === "settings") {
+        setDestination(item.id, false);
+        openSidePanel("details");
+      }
+      if (action === "leave" || action === "delete") {
+        setDestination(item.id, false);
+        confirmation = action;
+      }
+    };
+    void run().catch((cause) =>
+      toast.error(cause instanceof Error ? cause.message : "The action failed"),
+    );
+  }
+
+  async function confirmRoomAction(): Promise<void> {
+    const action = confirmation;
+    confirmation = null;
+    try {
+      if (action === "leave") await community.actions.leave(activeRoom.id);
+      if (action === "delete")
+        await community.actions.deleteRoom(activeRoom.id);
+      toast.success(action === "leave" ? "You left the room" : "Room deleted");
+      closeSidePanel();
+    } catch (cause) {
+      toast.error(
+        cause instanceof Error
+          ? cause.message
+          : "The relay rejected this action",
+      );
+    }
+  }
+
+  async function saveRoom(
+    update: Parameters<CommunityController["actions"]["updateRoom"]>[1],
+  ): Promise<void> {
+    if (roomEditorMode === "create")
+      await community.actions.createRoom(roomEditorKind, update);
+    else await community.actions.updateRoom(activeRoom.id, update);
+    toast.success(
+      roomEditorMode === "create"
+        ? `${roomEditorKind === "forum" ? "Forum" : "Channel"} created`
+        : "Room settings saved",
+    );
+    closeSidePanel();
+  }
+
+  function selectMember(member: CommunityMemberModel): void {
+    if (memberCommandMode === "select") {
+      selectedRecipientIds = selectedRecipientIds.includes(member.id)
+        ? selectedRecipientIds.filter((id) => id !== member.id)
+        : selectedRecipientIds.length < 8
+          ? [...selectedRecipientIds, member.id]
+          : selectedRecipientIds;
+      return;
+    }
+    if (memberCommandMode === "manage") {
+      void community.actions.addMember(activeRoom.id, member.id).then(
+        () => toast.success(`${member.name} added`),
+        (cause) =>
+          toast.error(
+            cause instanceof Error
+              ? cause.message
+              : "The relay rejected this member change",
+          ),
+      );
+      return;
+    }
+    selectedRecipientIds = [member.id];
+    memberCommandOpen = false;
+    setDestination("new-direct-message", true);
+  }
+
+  function startDirectMessage(): void {
+    if (!selectedRecipientIds.length) return;
+    memberCommandOpen = false;
+    if (activeDestination !== "new-direct-message") {
+      community.actions.openDirectMessage(selectedRecipientIds);
+      setDestination(`dm:${selectedRecipientIds.join(",")}`, true);
+    }
+  }
+
+  async function saveStatus(): Promise<void> {
+    try {
+      await community.actions.updateStatus(statusDraft);
+      statusOpen = false;
+      toast.success("Status updated");
+    } catch (cause) {
+      toast.error(
+        cause instanceof Error ? cause.message : "Status could not be updated",
+      );
+    }
+  }
+
+  async function sendThreadReply(
+    rootMessageId: string,
+    content: string,
+  ): Promise<void> {
+    try {
+      await community.actions.sendReply(rootMessageId, content);
+      community.actions.clearReplyTarget();
+      lastAction = "sent-reply";
+    } catch (cause) {
+      toast.error(
+        cause instanceof Error ? cause.message : "Reply could not be sent",
+      );
+      throw cause;
+    }
+  }
+
+  async function sendNewDirectMessage(content: string): Promise<void> {
+    try {
+      await community.actions.sendDirectMessage(selectedRecipientIds, content);
+      community.actions.openDirectMessage(selectedRecipientIds);
+      setDestination(`dm:${selectedRecipientIds.join(",")}`, true);
+      toast.success("Message sent");
+    } catch (cause) {
+      toast.error(
+        cause instanceof Error ? cause.message : "Message could not be sent",
+      );
+      throw cause;
+    }
+  }
+
+  async function saveSection(): Promise<void> {
+    try {
+      if (sectionEditorMode === "create")
+        await community.actions.createNavigationSection(sectionName);
+      else
+        await community.actions.renameNavigationSection(
+          sectionEditorId,
+          sectionName,
+        );
+      sectionEditorOpen = false;
+      toast.success(
+        sectionEditorMode === "create" ? "Section created" : "Section renamed",
+      );
+    } catch (cause) {
+      toast.error(
+        cause instanceof Error ? cause.message : "Section could not be saved",
+      );
+    }
   }
 
   function openSidePanel(panel: Exclude<CommunitySidePanel, "none">): void {
@@ -348,14 +758,37 @@
     lastAction = "closed-side-panel";
   }
 
-  function sendWorkspaceMessage(roomId: string, content: string): void {
-    if (activeRoom.kind === "direct") {
-      const recipients = roomId.replace(/^dm:/u, "").split(",").filter(Boolean);
-      void community.actions.sendDirectMessage(recipients, content);
-    } else {
-      community.handlers.onSendMessage?.(roomId, content);
+  async function sendWorkspaceMessage(
+    roomId: string,
+    content: string,
+  ): Promise<void> {
+    try {
+      if (activeRoom.kind === "direct") {
+        const recipients = roomId
+          .replace(/^dm:/u, "")
+          .split(",")
+          .filter(Boolean);
+        await community.actions.sendDirectMessage(
+          recipients,
+          content,
+          community.state.replyTarget?.eventId,
+        );
+      } else if (community.state.replyTarget) {
+        await community.actions.sendReply(
+          community.state.replyTarget.eventId,
+          content,
+        );
+      } else {
+        await community.actions.sendMessage(roomId, content);
+      }
+      community.actions.clearReplyTarget();
+      lastAction = "sent-message";
+    } catch (cause) {
+      toast.error(
+        cause instanceof Error ? cause.message : "Message could not be sent",
+      );
+      throw cause;
     }
-    lastAction = "sent-message";
   }
 
   async function reconnect(): Promise<void> {
@@ -468,8 +901,17 @@
         {...activeItemId === undefined ? {} : { activeItemId }}
         compact={navigationCompact}
         onSelect={select}
-        onSearch={(query) => void community.actions.search(query)}
-        {onSectionAction}
+        onSearch={(query) => {
+          appSearchQuery = query;
+          searchOpen = query.trim() !== "";
+          void community.actions.search(query);
+        }}
+        onSectionAction={handleSectionAction}
+        onItemAction={handleItemAction}
+        customSections={community.state.navigation.sections.map((section) => ({
+          id: section.id,
+          label: section.name,
+        }))}
         onRequestExpand={() => shell.left.expand()}
       >
         {#snippet footer()}
@@ -517,9 +959,16 @@
             compact={navigationCompact}
             connectionStatus={community.state.status}
             canManageCommunity={community.state.capabilities.manageMembers}
+            canSendFeedback={extensions.feedback !== undefined}
             onAction={(action) => {
               if (action === "settings") openSettings();
               if (action === "community-settings") relaySettingsOpen = true;
+              if (action === "update-status") statusOpen = true;
+              if (action === "manage-members") {
+                memberCommandMode = "manage";
+                memberCommandOpen = true;
+              }
+              if (action === "send-feedback") void extensions.feedback?.();
             }}
           />
         {/snippet}
@@ -607,14 +1056,63 @@
       <CommunityInbox
         model={inbox}
         onSelect={() => void community.actions.markRead(inbox.room.id)}
-        onSend={(content) =>
-          void community.actions.sendReply(inbox.activeItemId, content)}
+        onSend={(content) => sendThreadReply(inbox.activeItemId, content)}
         onMarkAllRead={() => void community.actions.markAllRead()}
         onOpenChannelSettings={() => {
           openSidePanel("details");
           lastAction = "opened-details";
         }}
+        onOpenChannel={() => setDestination(inbox.room.id, true)}
+        onViewParticipants={() => {
+          memberCommandMode = "view";
+          memberCommandOpen = true;
+        }}
+        {...extensions.huddle === undefined
+          ? {}
+          : { onHuddle: () => extensions.huddle?.(inbox.room.id) }}
+        onReply={(messageId) => community.actions.setReplyTarget(messageId)}
+        onToggleReaction={react}
+        {...inbox.room.kind === "direct"
+          ? {}
+          : { onCopyMessageLink: copyMessageLink }}
+        onCopyMessage={copyMessage}
+        {...extensions.editMessage === undefined
+          ? {}
+          : { onEditMessage: extensions.editMessage }}
+        onDeleteMessage={(messageId) =>
+          void community.actions.deleteEvent(messageId).then(
+            () => toast.success("Message deleted"),
+            (cause) =>
+              toast.error(
+                cause instanceof Error
+                  ? cause.message
+                  : "The relay rejected this deletion",
+              ),
+          )}
+        {...community.state.replyTarget === undefined
+          ? {}
+          : { replyTarget: community.state.replyTarget }}
+        communityEmojis={community.state.settings.customEmojis}
+        onCancelReply={() => community.actions.clearReplyTarget()}
       />
+    {:else if activeDestination === "new-direct-message"}
+      <AppShell.Body layout="regions" label="New direct message">
+        <AppShell.Body.Content>
+          <CommunityDirectMessageComposer
+            recipients={selectedRecipients}
+            communityEmojis={community.state.settings.customEmojis}
+            onChooseRecipients={() => {
+              memberCommandMode = "select";
+              memberCommandOpen = true;
+            }}
+            onRemoveRecipient={(member) =>
+              (selectedRecipientIds = selectedRecipientIds.filter(
+                (id) => id !== member.id,
+              ))}
+            onSend={sendNewDirectMessage}
+          />
+        </AppShell.Body.Content>
+      </AppShell.Body>
     {:else if activeDestination === "registry"}
       <AppShell.Body layout="regions" label="Plugin registry">
         <AppShell.Body.Content label="Registry content">
@@ -649,35 +1147,45 @@
           </div>
         </div>
         <div class="community-application__toolbar-actions">
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon-sm"
-            aria-label="Open Buzz Term"
-            title="Open Buzz Term"
-          >
-            <SquareTerminalIcon aria-hidden="true" />
-          </Button>
+          {#if extensions.terminal}
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-sm"
+              aria-label="Open terminal"
+              title="Open terminal"
+              onclick={() => extensions.terminal?.()}
+            >
+              <SquareTerminalIcon aria-hidden="true" />
+            </Button>
+          {/if}
           {#if activeRoom.memberCount}
             <Button
               type="button"
               variant="outline"
               size="sm"
               aria-label={`View ${activeRoom.kind === "forum" ? "forum" : activeRoom.kind === "direct" ? "conversation" : "channel"} members (${activeRoom.memberCount})`}
+              onclick={() => {
+                memberCommandMode = "view";
+                memberCommandOpen = true;
+              }}
             >
               <UsersIcon data-icon="inline-start" aria-hidden="true" />
               {activeRoom.memberCount}
             </Button>
           {/if}
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon-sm"
-            aria-label="Start huddle"
-            title="Start huddle"
-          >
-            <HeadphonesIcon aria-hidden="true" />
-          </Button>
+          {#if extensions.huddle}
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-sm"
+              aria-label="Start huddle"
+              title="Start huddle"
+              onclick={() => extensions.huddle?.(activeRoom.id)}
+            >
+              <HeadphonesIcon aria-hidden="true" />
+            </Button>
+          {/if}
           <Button
             type="button"
             variant="ghost"
@@ -701,6 +1209,10 @@
         >
           <CommunityWorkspaceSurface
             model={workspace}
+            {...community.state.replyTarget === undefined
+              ? {}
+              : { replyTarget: community.state.replyTarget }}
+            communityEmojis={community.state.settings.customEmojis}
             handlers={{
               ...community.handlers,
               onSelectRoom: (roomId) => setDestination(roomId, false),
@@ -711,19 +1223,64 @@
                 lastAction = `opened-topic:${topicId}`;
               },
               onOpenThread: (messageId) => {
-                community.actions.openThread(messageId);
+                community.actions.setReplyTarget(messageId);
                 openSidePanel("thread");
                 lastAction = `opened-thread:${messageId}`;
               },
               onToggleReaction: react,
               onAddReaction: react,
-              onCopyMessageLink: (messageId) => {
-                lastAction = `copied-message-link:${messageId}`;
-              },
+              ...(activeRoom.kind === "direct"
+                ? {}
+                : { onCopyMessageLink: copyMessageLink }),
+              onCopyMessage: copyMessage,
+              ...(extensions.editMessage === undefined
+                ? {}
+                : { onEditMessage: extensions.editMessage }),
               onDeleteMessage: (messageId) => {
-                void community.actions.deleteEvent(messageId);
+                void community.actions.deleteEvent(messageId).then(
+                  () => toast.success("Message deleted"),
+                  (cause) =>
+                    toast.error(
+                      cause instanceof Error
+                        ? cause.message
+                        : "The relay rejected this deletion",
+                    ),
+                );
                 lastAction = `deleted-message:${messageId}`;
               },
+              onBrowseRooms: openRoomBrowser,
+              onCreateRoom: (kind) => openRoomEditor(kind, "create"),
+              ...(extensions.agents === undefined
+                ? {}
+                : { onCreateAgent: extensions.agents }),
+              onCreateTopic: () => (topicComposerOpen = true),
+              onTopicAction: (topicId, action) => {
+                const topic = workspace.topics.find(
+                  (candidate) => candidate.id === topicId,
+                );
+                if (action === "copy-link" && topic && activeConnection)
+                  void copyText(
+                    `nostr:${nip19.neventEncode({ id: topic.id, author: topic.authorId, relays: [activeConnection.relayUrl] })}`,
+                    "Topic link copied",
+                  );
+                if (action === "mark-read")
+                  void community.actions.markRead(activeRoom.id);
+                if (action === "star")
+                  void community.actions.setRoomStarred(topicId, true);
+                if (action === "mute")
+                  void community.actions.setRoomMuted(topicId, true);
+                if (action === "delete")
+                  void community.actions
+                    .deleteEvent(topicId)
+                    .catch((cause) =>
+                      toast.error(
+                        cause instanceof Error
+                          ? cause.message
+                          : "The relay rejected this deletion",
+                      ),
+                    );
+              },
+              onClearReplyTarget: () => community.actions.clearReplyTarget(),
             }}
           />
         </AppShell.Body.Content>
@@ -748,17 +1305,29 @@
         <CommunityThreadPanel
           thread={workspace.thread}
           members={workspace.members}
-          onSendReply={(rootMessageId, content) => {
-            community.handlers.onSendReply?.(rootMessageId, content);
-            lastAction = "sent-reply";
-          }}
+          onSendReply={sendThreadReply}
+          {...community.state.replyTarget === undefined
+            ? {}
+            : { replyTarget: community.state.replyTarget }}
+          communityEmojis={community.state.settings.customEmojis}
+          onCancelReply={() => community.actions.clearReplyTarget()}
           onToggleReaction={react}
           onAddReaction={react}
-          onCopyMessageLink={(messageId) => {
-            lastAction = `copied-message-link:${messageId}`;
-          }}
+          onCopyMessageLink={copyMessageLink}
+          onCopyMessage={copyMessage}
+          {...extensions.editMessage === undefined
+            ? {}
+            : { onEditMessage: extensions.editMessage }}
           onDeleteMessage={(messageId) => {
-            void community.actions.deleteEvent(messageId);
+            void community.actions.deleteEvent(messageId).then(
+              () => toast.success("Message deleted"),
+              (cause) =>
+                toast.error(
+                  cause instanceof Error
+                    ? cause.message
+                    : "The relay rejected this deletion",
+                ),
+            );
             lastAction = `deleted-message:${messageId}`;
           }}
         />
@@ -772,8 +1341,30 @@
           : (workspace.details?.description ??
             detailsRoom.description ??
             "Community channel")}
+        canArchive={extensions.archive !== undefined}
         onAction={(action) => {
           lastAction = `channel-settings:${action}`;
+          if (action === "edit-type" || action === "edit-visibility")
+            openRoomEditor(
+              detailsRoom.kind === "forum" ? "forum" : "channel",
+              "edit",
+            );
+          if (action === "members") {
+            memberCommandMode =
+              detailsRoom.permissions?.manageMembers.state === "enabled"
+                ? "manage"
+                : "view";
+            memberCommandOpen = true;
+          }
+          if (action === "copy-channel-id")
+            void copyText(
+              detailsRoom.id,
+              `${detailsRoom.kind === "forum" ? "Forum" : "Channel"} ID copied`,
+            );
+          if (action === "leave-channel") confirmation = "leave";
+          if (action === "delete-channel") confirmation = "delete";
+          if (action === "archive-channel")
+            void extensions.archive?.(detailsRoom.id);
         }}
       />
     {:else if workspace.details}
@@ -802,6 +1393,210 @@
   />
 {/if}
 
+<CommunityRoomEditor
+  bind:open={roomEditorOpen}
+  mode={roomEditorMode}
+  roomKind={roomEditorKind}
+  retentionSupported={community.state.capabilities.configurableRetention ??
+    false}
+  {...roomEditorMode === "edit"
+    ? {
+        initial: {
+          name: activeRoom.name,
+          description: activeRoom.description ?? "",
+          visibility: activeRoom.private
+            ? ("private" as const)
+            : ("public" as const),
+          lifecycle: activeRoom.lifecycle ?? ("ongoing" as const),
+        },
+      }
+    : {}}
+  onSave={saveRoom}
+/>
+
+<CommunityRoomBrowser
+  bind:open={roomBrowserOpen}
+  rooms={allRooms}
+  initialKind={roomBrowserKind}
+  canCreate={community.state.authentication.status === "connected"}
+  onSelect={(room) => {
+    roomBrowserOpen = false;
+    setDestination(room.id, true);
+  }}
+  onJoin={(room) =>
+    void community.actions.join(room.id).then(
+      () => toast.success(`Joined ${room.name}`),
+      (cause) =>
+        toast.error(
+          cause instanceof Error ? cause.message : "Could not join room",
+        ),
+    )}
+  onCreate={(kind) => {
+    roomBrowserOpen = false;
+    openRoomEditor(kind, "create");
+  }}
+/>
+
+<CommunityMemberCommand
+  bind:open={memberCommandOpen}
+  title={memberCommandMode === "select"
+    ? "New direct message"
+    : `${activeRoom.name} members`}
+  mode={memberCommandMode}
+  members={workspace.members}
+  results={community.state.memberDirectory.results}
+  selectedIds={selectedRecipientIds}
+  completeness={activeRoom.memberListCompleteness ?? "unavailable"}
+  onSearch={(query) => void community.actions.searchMembers(query)}
+  onSelect={selectMember}
+  onRemove={(member) => {
+    if (memberCommandMode === "select")
+      selectedRecipientIds = selectedRecipientIds.filter(
+        (id) => id !== member.id,
+      );
+    else
+      void community.actions.removeMember(activeRoom.id, member.id).then(
+        () => toast.success(`${member.name} removed`),
+        (cause) =>
+          toast.error(
+            cause instanceof Error
+              ? cause.message
+              : "The relay rejected this member change",
+          ),
+      );
+  }}
+  onConfirm={memberCommandMode === "select"
+    ? startDirectMessage
+    : () => (memberCommandOpen = false)}
+/>
+
+<CommunityTopicComposer
+  bind:open={topicComposerOpen}
+  forumName={activeRoom.name}
+  onPublish={(draft) => community.actions.createTopic(activeRoom.id, draft)}
+/>
+
+<CommunitySearchCommand
+  bind:open={searchOpen}
+  query={appSearchQuery}
+  rooms={searchRooms}
+  messages={searchMessages}
+  members={searchMembers}
+  onQueryChange={(query) => {
+    appSearchQuery = query;
+    void community.actions.search(query);
+  }}
+  onSelectRoom={(room) => {
+    searchOpen = false;
+    setDestination(room.id, true);
+  }}
+  onSelectMessage={(message) => {
+    searchOpen = false;
+    community.actions.setReplyTarget(message.id);
+    openSidePanel("thread");
+  }}
+  onSelectMember={(member) => {
+    searchOpen = false;
+    selectedRecipientIds = [member.id];
+    startDirectMessage();
+  }}
+/>
+
+<AlertDialog.Root
+  open={confirmation !== null}
+  onOpenChange={(open) => {
+    if (!open) confirmation = null;
+  }}
+>
+  <AlertDialog.Content>
+    <AlertDialog.Header>
+      <AlertDialog.Title
+        >{confirmation === "delete"
+          ? `Delete ${activeRoom.name}?`
+          : `Leave ${activeRoom.name}?`}</AlertDialog.Title
+      >
+      <AlertDialog.Description>
+        {confirmation === "delete"
+          ? "The relay will remove this room if your identity has permission. This cannot be undone."
+          : "You can rejoin later if the room remains public."}
+      </AlertDialog.Description>
+    </AlertDialog.Header>
+    <AlertDialog.Footer>
+      <AlertDialog.Cancel>Cancel</AlertDialog.Cancel>
+      <AlertDialog.Action onclick={confirmRoomAction}
+        >{confirmation === "delete" ? "Delete" : "Leave"}</AlertDialog.Action
+      >
+    </AlertDialog.Footer>
+  </AlertDialog.Content>
+</AlertDialog.Root>
+
+<Dialog.Root bind:open={statusOpen}>
+  <Dialog.Content class="community-application__status-dialog">
+    <Dialog.Header
+      ><Dialog.Title>Update your status</Dialog.Title><Dialog.Description
+        >Publish a portable NIP-38 status to your connected identity.</Dialog.Description
+      ></Dialog.Header
+    >
+    <Field.Field>
+      <Field.Label for="community-status">Status</Field.Label>
+      <div class="community-application__status-input">
+        <Input
+          id="community-status"
+          bind:value={statusDraft}
+          placeholder="What are you working on?"
+        /><CommunityEmojiPicker
+          communityEmojis={community.state.settings.customEmojis}
+          label="Add emoji to status"
+          onSelect={(emoji) => (statusDraft += emoji)}
+        />
+      </div>
+    </Field.Field>
+    <Dialog.Footer
+      ><Button
+        type="button"
+        variant="outline"
+        onclick={() => (statusOpen = false)}>Cancel</Button
+      ><Button type="button" onclick={saveStatus}>Save status</Button
+      ></Dialog.Footer
+    >
+  </Dialog.Content>
+</Dialog.Root>
+
+<Dialog.Root bind:open={sectionEditorOpen}>
+  <Dialog.Content>
+    <Dialog.Header
+      ><Dialog.Title
+        >{sectionEditorMode === "create"
+          ? "New section"
+          : "Rename section"}</Dialog.Title
+      ><Dialog.Description
+        >Organize rooms in a personal section. This preference is stored locally
+        and through NIP-78 when signed in.</Dialog.Description
+      ></Dialog.Header
+    >
+    <Field.Field
+      ><Field.Label for="community-section-name">Name</Field.Label><Input
+        id="community-section-name"
+        bind:value={sectionName}
+        required
+      /></Field.Field
+    >
+    <Dialog.Footer
+      ><Button
+        type="button"
+        variant="outline"
+        onclick={() => (sectionEditorOpen = false)}>Cancel</Button
+      ><Button
+        type="button"
+        disabled={!sectionName.trim()}
+        onclick={saveSection}>Save section</Button
+      ></Dialog.Footer
+    >
+  </Dialog.Content>
+</Dialog.Root>
+
+<Toaster position="bottom-right" richColors />
+
 <style>
   .community-application__toolbar-start,
   .community-application__toolbar-actions {
@@ -828,6 +1623,16 @@
     width: min(100%, 24rem);
     gap: 1rem;
     text-align: start;
+  }
+
+  .community-application__status-input {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+  }
+  .community-application__status-input :global(input) {
+    min-width: 0;
+    flex: 1;
   }
 
   :global(.community-application__relay-alert[data-ui-component="alert"]) {

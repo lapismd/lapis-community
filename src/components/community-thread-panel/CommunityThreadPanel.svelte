@@ -5,7 +5,14 @@
     LayoutScrollButton,
     MessageList,
   } from "@lapismd/design-core/ai/chat";
+  import { Button } from "@lapismd/design-core/shadcn/button";
+  import XIcon from "@lucide/svelte/icons/x";
 
+  import type {
+    CommunityCustomEmoji,
+    CommunityReplyTarget,
+  } from "../../community/index.js";
+  import CommunityEmojiPicker from "../community-emoji-picker/CommunityEmojiPicker.svelte";
   import CommunityMessage from "../community-message/CommunityMessage.svelte";
   import { isMessageContinuation } from "../community-message/grouping.js";
   import {
@@ -21,18 +28,44 @@
     onToggleReaction,
     onAddReaction,
     onCopyMessageLink,
+    onCopyMessage,
+    onEditMessage,
     onDeleteMessage,
+    replyTarget,
+    communityEmojis = [],
+    onCancelReply,
   }: {
     thread: CommunityThreadModel;
     members: CommunityMemberModel[];
-    onSendReply?: (rootMessageId: string, content: string) => void;
-    onToggleReaction?: (messageId: string, emoji: string) => void;
-    onAddReaction?: (messageId: string, emoji: string) => void;
+    onSendReply?: (
+      rootMessageId: string,
+      content: string,
+    ) => void | Promise<void>;
+    onToggleReaction?: (
+      messageId: string,
+      emoji: string,
+      custom?: { shortcode: string; url: string },
+    ) => void;
+    onAddReaction?: (
+      messageId: string,
+      emoji: string,
+      custom?: { shortcode: string; url: string },
+    ) => void;
     onCopyMessageLink?: (messageId: string) => void;
+    onCopyMessage?: (messageId: string) => void;
+    onEditMessage?: (messageId: string) => void;
     onDeleteMessage?: (messageId: string) => void;
+    replyTarget?: CommunityReplyTarget;
+    communityEmojis?: readonly CommunityCustomEmoji[];
+    onCancelReply?: () => void;
   } = $props();
 
   let draft = $state("");
+
+  function submit(content: string): void {
+    const result = onSendReply?.(thread.rootMessageId, content);
+    if (result instanceof Promise) void result.catch(() => (draft = content));
+  }
 </script>
 
 <div class="community-thread-panel">
@@ -53,8 +86,34 @@
         density="compact"
         bind:value={draft}
         placeholder="Reply to thread"
-        onSubmit={(content) => onSendReply?.(thread.rootMessageId, content)}
-      />
+        onSubmit={submit}
+      >
+        {#if replyTarget}
+          {#snippet headerContext()}
+            <div class="community-thread-panel__reply-context">
+              <span
+                ><strong>Replying to {replyTarget.authorName}</strong><small
+                  >{replyTarget.content.slice(0, 100)}</small
+                ></span
+              >
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                aria-label="Cancel reply"
+                onclick={onCancelReply}><XIcon aria-hidden="true" /></Button
+              >
+            </div>
+          {/snippet}
+        {/if}
+        {#snippet footerActions()}
+          <CommunityEmojiPicker
+            {communityEmojis}
+            label="Add emoji to reply"
+            onSelect={(emoji) => (draft += emoji)}
+          />
+        {/snippet}
+      </Composer>
     {/snippet}
 
     <MessageList
@@ -71,11 +130,18 @@
             memberById(members, id),
           )}
           density="compact"
-          onToggleReaction={(messageId, emoji) =>
-            onToggleReaction?.(messageId, emoji)}
-          onAddReaction={(messageId, emoji) =>
-            onAddReaction?.(messageId, emoji)}
+          {communityEmojis}
+          onToggleReaction={(messageId, emoji, custom) =>
+            custom
+              ? onToggleReaction?.(messageId, emoji, custom)
+              : onToggleReaction?.(messageId, emoji)}
+          onAddReaction={(messageId, emoji, custom) =>
+            custom
+              ? onAddReaction?.(messageId, emoji, custom)
+              : onAddReaction?.(messageId, emoji)}
           onCopyLink={(messageId) => onCopyMessageLink?.(messageId)}
+          onCopyMessage={(messageId) => onCopyMessage?.(messageId)}
+          onEdit={(messageId) => onEditMessage?.(messageId)}
           onDelete={(messageId) => onDeleteMessage?.(messageId)}
         />
       {/each}
@@ -127,6 +193,12 @@
   }
 
   .community-thread-panel
+    :global([data-ui-part="composer-dock"] > [data-ui-part="composer-inner"]) {
+    width: 100%;
+    max-width: none;
+  }
+
+  .community-thread-panel
     :global(
       [data-ui-component="ai-chat-layout"]
         > [data-ui-part="composer-dock"]::before
@@ -136,5 +208,26 @@
 
   .community-thread-panel :global([data-ui-component="ai-chat-composer"]) {
     --ui-ai-chat-composer-radius: 0.75rem;
+  }
+
+  .community-thread-panel__reply-context {
+    display: flex;
+    min-width: 0;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    padding: 0.45rem 0.55rem;
+    border-block-end: 1px solid var(--border);
+  }
+
+  .community-thread-panel__reply-context > span {
+    display: grid;
+    min-width: 0;
+  }
+  .community-thread-panel__reply-context small {
+    overflow: hidden;
+    color: var(--muted-foreground);
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 </style>

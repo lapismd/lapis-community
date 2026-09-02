@@ -37,6 +37,7 @@
     member,
     communityName: "buzz",
     canManageCommunity: true,
+    canSendFeedback: true,
     onAction: fn(),
   }}
   play={async ({ args, canvas, canvasElement }) => {

@@ -2,9 +2,11 @@
   import { Button } from "@lapismd/design-core/shadcn/button";
   import { AppShell } from "@lapismd/design-core/shell";
   import CopyIcon from "@lucide/svelte/icons/copy";
+  import ArchiveIcon from "@lucide/svelte/icons/archive";
   import HashIcon from "@lucide/svelte/icons/hash";
   import LogOutIcon from "@lucide/svelte/icons/log-out";
   import MessagesSquareIcon from "@lucide/svelte/icons/messages-square";
+  import PencilIcon from "@lucide/svelte/icons/pencil";
   import Trash2Icon from "@lucide/svelte/icons/trash-2";
 
   import type {
@@ -17,15 +19,33 @@
     room,
     members,
     description,
+    canArchive = false,
     onAction = () => {},
   }: {
     room: CommunityRoomModel;
     members: CommunityMemberModel[];
     description: string;
+    canArchive?: boolean;
     onAction?: (action: string) => void;
   } = $props();
 
   const roomType = $derived(room.kind === "forum" ? "Forum" : "Channel");
+  const updateDisabled = $derived(
+    room.permissions?.update.state === "denied" ||
+      room.permissions?.update.state === "unsupported",
+  );
+  const membersDisabled = $derived(
+    room.permissions?.manageMembers.state === "denied" ||
+      room.permissions?.manageMembers.state === "unsupported",
+  );
+  const leaveDisabled = $derived(
+    room.permissions?.leave.state === "denied" ||
+      room.permissions?.leave.state === "unsupported",
+  );
+  const deleteDisabled = $derived(
+    room.permissions?.delete.state === "denied" ||
+      room.permissions?.delete.state === "unsupported",
+  );
 </script>
 
 <AppShell.Sidebar.Header class="lc-channel-settings__header">
@@ -53,6 +73,8 @@
         <Button
           variant="ghost"
           class="lc-channel-settings__row"
+          disabled={updateDisabled}
+          title={room.permissions?.update.reason}
           onclick={() => onAction("edit-type")}
         >
           <span>
@@ -63,20 +85,34 @@
                 : "Posts and replies"}</small
             >
           </span>
+          <PencilIcon
+            class="lc-channel-settings__edit-icon"
+            data-icon="inline-end"
+            aria-hidden="true"
+          />
         </Button>
         <Button
           variant="ghost"
           class="lc-channel-settings__row"
+          disabled={updateDisabled}
+          title={room.permissions?.update.reason}
           onclick={() => onAction("edit-visibility")}
         >
           <span>
             <strong>Visibility</strong>
             <small>{room.private ? "Private" : "Public"}</small>
           </span>
+          <PencilIcon
+            class="lc-channel-settings__edit-icon"
+            data-icon="inline-end"
+            aria-hidden="true"
+          />
         </Button>
         <Button
           variant="ghost"
           class="lc-channel-settings__row"
+          disabled={membersDisabled}
+          title={room.permissions?.manageMembers.reason}
           onclick={() => onAction("members")}
         >
           <span>
@@ -108,9 +144,21 @@
     </section>
 
     <section class="lc-channel-settings__danger-zone">
+      {#if canArchive}
+        <Button
+          variant="ghost"
+          class="lc-channel-settings__row"
+          onclick={() => onAction("archive-channel")}
+        >
+          <ArchiveIcon data-icon="inline-start" aria-hidden="true" />
+          <span>Archive {roomType.toLowerCase()}</span>
+        </Button>
+      {/if}
       <Button
         variant="ghost"
         class="lc-channel-settings__row"
+        disabled={leaveDisabled}
+        title={room.permissions?.leave.reason}
         onclick={() => onAction("leave-channel")}
       >
         <LogOutIcon data-icon="inline-start" aria-hidden="true" />
@@ -119,6 +167,8 @@
       <Button
         variant="ghost"
         class="lc-channel-settings__row lc-channel-settings__delete"
+        disabled={deleteDisabled}
+        title={room.permissions?.delete.reason}
         onclick={() => onAction("delete-channel")}
       >
         <Trash2Icon data-icon="inline-start" aria-hidden="true" />

@@ -12,6 +12,10 @@
   import CommunityConversation from "../community-conversation/CommunityConversation.svelte";
   import { memberById } from "../community-workspace/model.js";
   import type { CommunityInboxModel } from "./model.js";
+  import type {
+    CommunityCustomEmoji,
+    CommunityReplyTarget,
+  } from "../../community/index.js";
   import "./CommunityInbox.css";
 
   let {
@@ -20,12 +24,40 @@
     onSend = () => {},
     onMarkAllRead = () => {},
     onOpenChannelSettings = () => {},
+    onOpenChannel,
+    onViewParticipants,
+    onHuddle,
+    onReply,
+    onToggleReaction,
+    onCopyMessageLink,
+    onCopyMessage,
+    onEditMessage,
+    onDeleteMessage,
+    replyTarget,
+    communityEmojis = [],
+    onCancelReply,
   }: {
     model: CommunityInboxModel;
     onSelect?: (itemId: string) => void;
-    onSend?: (content: string) => void;
+    onSend?: (content: string) => void | Promise<void>;
     onMarkAllRead?: () => void;
     onOpenChannelSettings?: () => void;
+    onOpenChannel?: () => void;
+    onViewParticipants?: () => void;
+    onHuddle?: () => void;
+    onReply?: (messageId: string) => void;
+    onToggleReaction?: (
+      messageId: string,
+      emoji: string,
+      custom?: { shortcode: string; url: string },
+    ) => void;
+    onCopyMessageLink?: (messageId: string) => void;
+    onCopyMessage?: (messageId: string) => void;
+    onEditMessage?: (messageId: string) => void;
+    onDeleteMessage?: (messageId: string) => void;
+    replyTarget?: CommunityReplyTarget;
+    communityEmojis?: readonly CommunityCustomEmoji[];
+    onCancelReply?: () => void;
   } = $props();
 
   let filter = $state("All");
@@ -242,21 +274,28 @@
             size="icon-sm"
             aria-label="Open thread in channel"
             title="Open thread in channel"
+            onclick={onOpenChannel}
           >
             <ExternalLinkIcon aria-hidden="true" />
           </Button>
-          <Button variant="outline" size="sm" aria-label="Thread participants">
+          <Button
+            variant="outline"
+            size="sm"
+            aria-label="Thread participants"
+            onclick={onViewParticipants}
+          >
             <UsersIcon data-icon="inline-start" aria-hidden="true" />
             {model.participantCount ?? 0}
           </Button>
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            aria-label="Start huddle"
-            title="Start huddle"
-          >
-            <HeadphonesIcon aria-hidden="true" />
-          </Button>
+          {#if onHuddle}<Button
+              variant="ghost"
+              size="icon-sm"
+              aria-label="Start huddle"
+              title="Start huddle"
+              onclick={onHuddle}
+            >
+              <HeadphonesIcon aria-hidden="true" />
+            </Button>{/if}
           <Button
             variant="ghost"
             size="icon-sm"
@@ -276,6 +315,17 @@
           members={model.members}
           composerPlacement="row"
           {onSend}
+          {...onReply === undefined ? {} : { onOpenThread: onReply }}
+          {...onToggleReaction === undefined
+            ? {}
+            : { onToggleReaction, onAddReaction: onToggleReaction }}
+          {...onCopyMessageLink === undefined ? {} : { onCopyMessageLink }}
+          {...onCopyMessage === undefined ? {} : { onCopyMessage }}
+          {...onEditMessage === undefined ? {} : { onEditMessage }}
+          {...onDeleteMessage === undefined ? {} : { onDeleteMessage }}
+          {...replyTarget === undefined ? {} : { replyTarget }}
+          {communityEmojis}
+          {...onCancelReply === undefined ? {} : { onCancelReply }}
         />
       </div>
     </section>

@@ -42,6 +42,7 @@ export interface CommunityRoomModel {
   memberListCompleteness?: "complete" | "partial" | "unavailable";
   lifecycle?: "ongoing" | "temporary";
   expiresAt?: string;
+  lastActivityAt?: string;
   permissions?: CommunityRoomActionPermissions;
 }
 
@@ -67,6 +68,11 @@ export interface CommunityReactionModel {
   selected?: boolean;
   label?: string;
   customEmojiUrl?: string;
+}
+
+export interface CommunityEmojiReference {
+  shortcode: string;
+  url: string;
 }
 
 export interface CommunityMessageModel {
@@ -133,10 +139,29 @@ export interface CommunityWorkspaceHandlers {
   onOpenDetails?: () => void;
   onSendMessage?: (roomId: string, content: string) => void;
   onSendReply?: (rootMessageId: string, content: string) => void;
-  onToggleReaction?: (messageId: string, emoji: string) => void;
-  onAddReaction?: (messageId: string, emoji: string) => void;
+  onToggleReaction?: (
+    messageId: string,
+    emoji: string,
+    customEmoji?: CommunityEmojiReference,
+  ) => void;
+  onAddReaction?: (
+    messageId: string,
+    emoji: string,
+    customEmoji?: CommunityEmojiReference,
+  ) => void;
   onCopyMessageLink?: (messageId: string) => void;
+  onCopyMessage?: (messageId: string) => void;
+  onEditMessage?: (messageId: string) => void;
   onDeleteMessage?: (messageId: string) => void;
+  onBrowseRooms?: (kind?: "channel" | "forum") => void;
+  onCreateRoom?: (kind: "channel" | "forum") => void;
+  onCreateAgent?: (roomId: string) => void;
+  onCreateTopic?: (roomId: string) => void;
+  onTopicAction?: (
+    topicId: string,
+    action: "copy-link" | "mark-read" | "star" | "mute" | "delete",
+  ) => void;
+  onClearReplyTarget?: () => void;
   onSearch?: (query: string) => void;
 }
 

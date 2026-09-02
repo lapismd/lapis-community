@@ -176,6 +176,34 @@
   text-align: start;
 }
 
+.lc-community-navigation__item-row {
+  position: relative;
+  display: flex;
+  min-width: 0;
+  align-items: center;
+}
+.lc-community-navigation__item-row > [data-ui-part="context-menu-trigger"] {
+  min-width: 0;
+  flex: 1;
+}
+.lc-community-navigation__item-menu[data-ui-component="button"] {
+  position: absolute;
+  inset-inline-end: 0.25rem;
+  opacity: 0;
+}
+.lc-community-navigation__item-row:hover .lc-community-navigation__item-menu,
+.lc-community-navigation__item-row:focus-within
+  .lc-community-navigation__item-menu {
+  opacity: 1;
+}
+.lc-community-navigation__item-row:has(.lc-community-navigation__item-menu)
+  .lc-community-navigation__item {
+  padding-inline-end: 2.5rem;
+}
+.lc-community-navigation__state-icon {
+  margin-inline-start: auto;
+}
+
 .lc-community-navigation__item > svg,
 .lc-community-navigation__compact-search > svg {
   width: 1.25rem;

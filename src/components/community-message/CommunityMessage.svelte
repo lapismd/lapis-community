@@ -4,18 +4,19 @@
     MessageBubble,
     MessageMetadata,
   } from "@lapismd/design-core/ai/chat";
-  import {
-    EmojiPicker,
-    ReactionBar,
-  } from "@lapismd/design-core/ai/experimental";
+  import { ReactionBar } from "@lapismd/design-core/ai/experimental";
   import { Button } from "@lapismd/design-core/shadcn/button";
   import * as DropdownMenu from "@lapismd/design-core/shadcn/dropdown-menu";
   import CopyIcon from "@lucide/svelte/icons/copy";
   import EllipsisIcon from "@lucide/svelte/icons/ellipsis";
   import MessageSquareReplyIcon from "@lucide/svelte/icons/message-square-reply";
+  import PencilIcon from "@lucide/svelte/icons/pencil";
   import Trash2Icon from "@lucide/svelte/icons/trash-2";
 
+  import type { CommunityCustomEmoji } from "../../community/index.js";
+  import CommunityEmojiPicker from "../community-emoji-picker/CommunityEmojiPicker.svelte";
   import type {
+    CommunityEmojiReference,
     CommunityMemberModel,
     CommunityMessageModel,
   } from "../community-workspace/model.js";
@@ -25,22 +26,36 @@
     author,
     isContinuation = false,
     replyParticipants = [],
+    communityEmojis = [],
     density = "compact",
     onOpenThread,
     onToggleReaction,
     onAddReaction,
     onCopyLink,
+    onCopyMessage,
+    onEdit,
     onDelete,
   }: {
     message: CommunityMessageModel;
     author: CommunityMemberModel;
     isContinuation?: boolean;
     replyParticipants?: CommunityMemberModel[];
+    communityEmojis?: readonly CommunityCustomEmoji[];
     density?: "compact" | "balanced" | "spacious";
     onOpenThread?: (messageId: string) => void;
-    onToggleReaction?: (messageId: string, emoji: string) => void;
-    onAddReaction?: (messageId: string, emoji: string) => void;
+    onToggleReaction?: (
+      messageId: string,
+      emoji: string,
+      customEmoji?: CommunityEmojiReference,
+    ) => void;
+    onAddReaction?: (
+      messageId: string,
+      emoji: string,
+      customEmoji?: CommunityEmojiReference,
+    ) => void;
     onCopyLink?: (messageId: string) => void;
+    onCopyMessage?: (messageId: string) => void;
+    onEdit?: (messageId: string) => void;
     onDelete?: (messageId: string) => void;
   } = $props();
 
@@ -95,10 +110,29 @@
       role="group"
       aria-label={`Actions for ${author.name}'s message`}
     >
-      <EmojiPicker
-        label={`React to ${author.name}'s message`}
-        triggerLabel="Add reaction"
-        onSelect={(emoji) => onAddReaction(message.id, emoji)}
+      {#each ["👍", "❤️", "😂"] as emoji (emoji)}
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-sm"
+          aria-label={`React with ${emoji}`}
+          title={`React with ${emoji}`}
+          onclick={() => onAddReaction(message.id, emoji)}
+        >
+          <span aria-hidden="true">{emoji}</span>
+        </Button>
+      {/each}
+      <CommunityEmojiPicker
+        label="Add reaction"
+        {communityEmojis}
+        onSelect={(emoji, custom) =>
+          onAddReaction(
+            message.id,
+            emoji,
+            custom === undefined
+              ? undefined
+              : { shortcode: custom.shortcode, url: custom.url },
+          )}
       />
       {#if onOpenThread}
         <Button
@@ -124,7 +158,7 @@
           <CopyIcon aria-hidden="true" />
         </Button>
       {/if}
-      {#if onCopyLink || onDelete}
+      {#if onCopyLink || onCopyMessage || onEdit || onDelete}
         <DropdownMenu.Root>
           <DropdownMenu.Trigger>
             {#snippet child({ props })}
@@ -141,20 +175,40 @@
             {/snippet}
           </DropdownMenu.Trigger>
           <DropdownMenu.Content align="end" sideOffset={4}>
+            {#if onCopyMessage}
+              <DropdownMenu.Group>
+                <DropdownMenu.Item onSelect={() => onCopyMessage(message.id)}>
+                  <CopyIcon data-icon="inline-start" aria-hidden="true" />
+                  Copy message
+                </DropdownMenu.Item>
+              </DropdownMenu.Group>
+            {/if}
             {#if onCopyLink}
-              <DropdownMenu.Item onSelect={() => onCopyLink(message.id)}>
-                <CopyIcon data-icon="inline-start" aria-hidden="true" />
-                Copy message link
-              </DropdownMenu.Item>
+              <DropdownMenu.Group>
+                <DropdownMenu.Item onSelect={() => onCopyLink(message.id)}>
+                  <CopyIcon data-icon="inline-start" aria-hidden="true" />
+                  Copy message link
+                </DropdownMenu.Item>
+              </DropdownMenu.Group>
+            {/if}
+            {#if onEdit}
+              <DropdownMenu.Group>
+                <DropdownMenu.Item onSelect={() => onEdit(message.id)}>
+                  <PencilIcon data-icon="inline-start" aria-hidden="true" />
+                  Edit message
+                </DropdownMenu.Item>
+              </DropdownMenu.Group>
             {/if}
             {#if onDelete}
-              <DropdownMenu.Item
-                variant="destructive"
-                onSelect={() => onDelete(message.id)}
-              >
-                <Trash2Icon data-icon="inline-start" aria-hidden="true" />
-                Delete message
-              </DropdownMenu.Item>
+              <DropdownMenu.Group>
+                <DropdownMenu.Item
+                  variant="destructive"
+                  onSelect={() => onDelete(message.id)}
+                >
+                  <Trash2Icon data-icon="inline-start" aria-hidden="true" />
+                  Delete message
+                </DropdownMenu.Item>
+              </DropdownMenu.Group>
             {/if}
           </DropdownMenu.Content>
         </DropdownMenu.Root>
@@ -166,7 +220,17 @@
     <ReactionBar
       reactions={message.reactions}
       label={`Reactions to ${author.name}'s message`}
-      onToggle={(emoji) => onToggleReaction?.(message.id, emoji)}
+      onToggle={(emoji) => {
+        const reaction = message.reactions?.find(
+          (candidate) => candidate.emoji === emoji,
+        );
+        if (reaction?.customEmojiUrl)
+          onToggleReaction?.(message.id, emoji, {
+            shortcode: emoji,
+            url: reaction.customEmojiUrl,
+          });
+        else onToggleReaction?.(message.id, emoji);
+      }}
     />
   {/if}
 

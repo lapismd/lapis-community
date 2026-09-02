@@ -431,6 +431,13 @@ function roomModel(
   const description =
     metadata?.tags.find((tag) => tag[0] === "about")?.[1] ?? room.description;
   const memberCount = members?.tags.filter((tag) => tag[0] === "p").length;
+  const lastActivity = events
+    .filter(
+      (event) =>
+        [9, 11, 1_111].includes(event.kind) &&
+        event.tags.some((tag) => tag[0] === "h" && tag[1] === room.groupId),
+    )
+    .toSorted((left, right) => compareOldest(right, left))[0];
   const privateRoom =
     room.private === true ||
     metadata?.tags.some((tag) => tag[0] === "private") === true;
@@ -468,6 +475,13 @@ function roomModel(
           : "not-joined",
     memberListCompleteness: members === undefined ? "unavailable" : "partial",
     lifecycle: "ongoing",
+    ...(lastActivity === undefined
+      ? {}
+      : {
+          lastActivityAt: new Date(
+            lastActivity.created_at * 1_000,
+          ).toISOString(),
+        }),
     permissions: {
       join:
         identityPubkey === undefined

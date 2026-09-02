@@ -5,6 +5,7 @@
   import { Button } from "@lapismd/design-core/shadcn/button";
   import * as Collapsible from "@lapismd/design-core/shadcn/collapsible";
   import * as DropdownMenu from "@lapismd/design-core/shadcn/dropdown-menu";
+  import * as ContextMenu from "@lapismd/design-core/shadcn/context-menu";
   import { AppShell } from "@lapismd/design-core/shell";
   import ArrowDownAZIcon from "@lucide/svelte/icons/arrow-down-a-z";
   import ArrowUpDownIcon from "@lucide/svelte/icons/arrow-up-down";
@@ -22,10 +23,21 @@
   import PackageSearchIcon from "@lucide/svelte/icons/package-search";
   import PlusIcon from "@lucide/svelte/icons/plus";
   import SearchIcon from "@lucide/svelte/icons/search";
+  import BellOffIcon from "@lucide/svelte/icons/bell-off";
+  import CheckIcon from "@lucide/svelte/icons/check";
+  import CopyIcon from "@lucide/svelte/icons/copy";
+  import EyeOffIcon from "@lucide/svelte/icons/eye-off";
+  import FolderInputIcon from "@lucide/svelte/icons/folder-input";
+  import LogOutIcon from "@lucide/svelte/icons/log-out";
+  import SettingsIcon from "@lucide/svelte/icons/settings";
+  import StarIcon from "@lucide/svelte/icons/star";
+  import TrashIcon from "@lucide/svelte/icons/trash-2";
   import { tick, type Component, type Snippet } from "svelte";
   import {
     filterCommunityNavigation,
     type CommunityNavigationItemModel,
+    type CommunityNavigationItemAction,
+    type CommunityNavigationCustomSectionOption,
     type CommunityNavigationModel,
     type CommunityNavigationSectionActionModel,
     type CommunityNavigationSectionModel,
@@ -39,6 +51,8 @@
     onSelect = () => {},
     onSearch = () => {},
     onSectionAction = () => {},
+    onItemAction = () => {},
+    customSections = [],
     onRequestExpand = () => {},
     headerStart,
     headerEnd,
@@ -53,6 +67,11 @@
       section: CommunityNavigationSectionModel,
       action: CommunityNavigationSectionActionModel,
     ) => void;
+    onItemAction?: (
+      item: CommunityNavigationItemModel,
+      action: CommunityNavigationItemAction,
+    ) => void;
+    customSections?: readonly CommunityNavigationCustomSectionOption[];
     onRequestExpand?: () => void;
     headerStart?: Snippet;
     headerEnd?: Snippet;
@@ -141,6 +160,188 @@
     }
   }
 </script>
+
+{#snippet dropdownItemActions(item: CommunityNavigationItemModel)}
+  <DropdownMenu.Group>
+    <DropdownMenu.Item onSelect={() => onItemAction(item, "copy-link")}
+      ><CopyIcon data-icon="inline-start" aria-hidden="true" />Copy link</DropdownMenu.Item
+    >
+    <DropdownMenu.Item
+      onSelect={() =>
+        onItemAction(item, item.unreadCount ? "mark-read" : "mark-unread")}
+      ><CheckIcon
+        data-icon="inline-start"
+        aria-hidden="true"
+      />{item.unreadCount ? "Mark read" : "Mark unread"}</DropdownMenu.Item
+    >
+    <DropdownMenu.Item
+      onSelect={() => onItemAction(item, item.starred ? "unstar" : "star")}
+      ><StarIcon data-icon="inline-start" aria-hidden="true" />{item.starred
+        ? "Remove star"
+        : "Star"}</DropdownMenu.Item
+    >
+    <DropdownMenu.Item
+      onSelect={() => onItemAction(item, item.muted ? "unmute" : "mute")}
+      ><BellOffIcon data-icon="inline-start" aria-hidden="true" />{item.muted
+        ? "Unmute"
+        : "Mute"}</DropdownMenu.Item
+    >
+    <DropdownMenu.Item onSelect={() => onItemAction(item, "hide")}
+      ><EyeOffIcon
+        data-icon="inline-start"
+        aria-hidden="true"
+      />Hide</DropdownMenu.Item
+    >
+    {#if customSections.length}
+      <DropdownMenu.Sub>
+        <DropdownMenu.SubTrigger
+          ><FolderInputIcon data-icon="inline-start" aria-hidden="true" />Move
+          to section</DropdownMenu.SubTrigger
+        >
+        <DropdownMenu.SubContent>
+          <DropdownMenu.Item onSelect={() => onItemAction(item, "section:")}
+            >No custom section</DropdownMenu.Item
+          >
+          {#each customSections as section (section.id)}<DropdownMenu.Item
+              onSelect={() => onItemAction(item, `section:${section.id}`)}
+              >{section.label}</DropdownMenu.Item
+            >{/each}
+        </DropdownMenu.SubContent>
+      </DropdownMenu.Sub>
+    {/if}
+  </DropdownMenu.Group><DropdownMenu.Separator />
+  {#if item.kind !== "direct-message"}<DropdownMenu.Group
+      ><DropdownMenu.Item
+        {...item.settingsDisabled
+          ? {
+              disabled: true,
+              ...(item.settingsReason ? { title: item.settingsReason } : {}),
+            }
+          : {}}
+        onSelect={() => onItemAction(item, "settings")}
+        ><SettingsIcon
+          data-icon="inline-start"
+          aria-hidden="true"
+        />Settings</DropdownMenu.Item
+      ><DropdownMenu.Item
+        {...item.leaveDisabled
+          ? {
+              disabled: true,
+              ...(item.leaveReason ? { title: item.leaveReason } : {}),
+            }
+          : {}}
+        onSelect={() => onItemAction(item, "leave")}
+        ><LogOutIcon
+          data-icon="inline-start"
+          aria-hidden="true"
+        />Leave</DropdownMenu.Item
+      ><DropdownMenu.Item
+        variant="destructive"
+        {...item.deleteDisabled
+          ? {
+              disabled: true,
+              ...(item.deleteReason ? { title: item.deleteReason } : {}),
+            }
+          : {}}
+        onSelect={() => onItemAction(item, "delete")}
+        ><TrashIcon
+          data-icon="inline-start"
+          aria-hidden="true"
+        />Delete</DropdownMenu.Item
+      ></DropdownMenu.Group
+    >{/if}
+{/snippet}
+
+{#snippet contextItemActions(item: CommunityNavigationItemModel)}
+  <ContextMenu.Group>
+    <ContextMenu.Item onSelect={() => onItemAction(item, "copy-link")}
+      ><CopyIcon data-icon="inline-start" aria-hidden="true" />Copy link</ContextMenu.Item
+    >
+    <ContextMenu.Item
+      onSelect={() =>
+        onItemAction(item, item.unreadCount ? "mark-read" : "mark-unread")}
+      ><CheckIcon
+        data-icon="inline-start"
+        aria-hidden="true"
+      />{item.unreadCount ? "Mark read" : "Mark unread"}</ContextMenu.Item
+    >
+    <ContextMenu.Item
+      onSelect={() => onItemAction(item, item.starred ? "unstar" : "star")}
+      ><StarIcon data-icon="inline-start" aria-hidden="true" />{item.starred
+        ? "Remove star"
+        : "Star"}</ContextMenu.Item
+    >
+    <ContextMenu.Item
+      onSelect={() => onItemAction(item, item.muted ? "unmute" : "mute")}
+      ><BellOffIcon data-icon="inline-start" aria-hidden="true" />{item.muted
+        ? "Unmute"
+        : "Mute"}</ContextMenu.Item
+    >
+    <ContextMenu.Item onSelect={() => onItemAction(item, "hide")}
+      ><EyeOffIcon
+        data-icon="inline-start"
+        aria-hidden="true"
+      />Hide</ContextMenu.Item
+    >
+    {#if customSections.length}
+      <ContextMenu.Sub>
+        <ContextMenu.SubTrigger
+          ><FolderInputIcon data-icon="inline-start" aria-hidden="true" />Move
+          to section</ContextMenu.SubTrigger
+        >
+        <ContextMenu.SubContent>
+          <ContextMenu.Item onSelect={() => onItemAction(item, "section:")}
+            >No custom section</ContextMenu.Item
+          >
+          {#each customSections as section (section.id)}<ContextMenu.Item
+              onSelect={() => onItemAction(item, `section:${section.id}`)}
+              >{section.label}</ContextMenu.Item
+            >{/each}
+        </ContextMenu.SubContent>
+      </ContextMenu.Sub>
+    {/if}
+  </ContextMenu.Group><ContextMenu.Separator />
+  {#if item.kind !== "direct-message"}<ContextMenu.Group
+      ><ContextMenu.Item
+        {...item.settingsDisabled
+          ? {
+              disabled: true,
+              ...(item.settingsReason ? { title: item.settingsReason } : {}),
+            }
+          : {}}
+        onSelect={() => onItemAction(item, "settings")}
+        ><SettingsIcon
+          data-icon="inline-start"
+          aria-hidden="true"
+        />Settings</ContextMenu.Item
+      ><ContextMenu.Item
+        {...item.leaveDisabled
+          ? {
+              disabled: true,
+              ...(item.leaveReason ? { title: item.leaveReason } : {}),
+            }
+          : {}}
+        onSelect={() => onItemAction(item, "leave")}
+        ><LogOutIcon
+          data-icon="inline-start"
+          aria-hidden="true"
+        />Leave</ContextMenu.Item
+      ><ContextMenu.Item
+        variant="destructive"
+        {...item.deleteDisabled
+          ? {
+              disabled: true,
+              ...(item.deleteReason ? { title: item.deleteReason } : {}),
+            }
+          : {}}
+        onSelect={() => onItemAction(item, "delete")}
+        ><TrashIcon
+          data-icon="inline-start"
+          aria-hidden="true"
+        />Delete</ContextMenu.Item
+      ></ContextMenu.Group
+    >{/if}
+{/snippet}
 
 <svelte:window onkeydown={handleShortcut} />
 
@@ -312,22 +513,54 @@
           <div class="lc-community-navigation__items">
             {#each sortedItems(section) as item (item.id)}
               {@const ItemIcon = iconFor(item)}
-              <Button
-                variant="ghost"
-                size={compact ? "icon-sm" : "default"}
-                class="lc-community-navigation__item"
-                data-active={activeItemId === item.id ? "" : undefined}
-                aria-current={activeItemId === item.id ? "page" : undefined}
-                aria-label={item.label}
-                title={item.label}
-                onclick={() => onSelect(item)}
-              >
-                <ItemIcon aria-hidden="true" />
-                {#if !compact}<span>{item.label}</span>{/if}
-                {#if !compact && item.unreadCount}
-                  <Badge variant="secondary">{item.unreadCount}</Badge>
+              <div class="lc-community-navigation__item-row">
+                <ContextMenu.Root>
+                  <ContextMenu.Trigger>
+                    <Button
+                      variant="ghost"
+                      size={compact ? "icon-sm" : "default"}
+                      class="lc-community-navigation__item"
+                      data-active={activeItemId === item.id ? "" : undefined}
+                      aria-current={activeItemId === item.id
+                        ? "page"
+                        : undefined}
+                      aria-label={item.label}
+                      title={item.label}
+                      onclick={() => onSelect(item)}
+                    >
+                      <ItemIcon aria-hidden="true" />
+                      {#if !compact}<span>{item.label}</span>{/if}
+                      {#if !compact && item.starred}<StarIcon
+                          class="lc-community-navigation__state-icon"
+                          aria-label="Starred"
+                        />{/if}
+                      {#if !compact && item.unreadCount}<Badge
+                          variant="secondary">{item.unreadCount}</Badge
+                        >{/if}
+                    </Button>
+                  </ContextMenu.Trigger>
+                  <ContextMenu.Content
+                    >{@render contextItemActions(item)}</ContextMenu.Content
+                  >
+                </ContextMenu.Root>
+                {#if !compact}
+                  <DropdownMenu.Root>
+                    <DropdownMenu.Trigger
+                      >{#snippet child({ props })}<Button
+                          {...props}
+                          variant="ghost"
+                          size="icon-sm"
+                          class="lc-community-navigation__item-menu"
+                          aria-label={`Open ${item.label} menu`}
+                          ><EllipsisIcon aria-hidden="true" /></Button
+                        >{/snippet}</DropdownMenu.Trigger
+                    >
+                    <DropdownMenu.Content align="end"
+                      >{@render dropdownItemActions(item)}</DropdownMenu.Content
+                    >
+                  </DropdownMenu.Root>
                 {/if}
-              </Button>
+              </div>
             {/each}
           </div>
         </Collapsible.Content>

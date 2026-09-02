@@ -13,6 +13,7 @@
     communityName,
     compact = false,
     canManageCommunity = false,
+    canSendFeedback = false,
     connectionStatus = "connected",
     onAction = () => {},
   }: {
@@ -20,6 +21,7 @@
     communityName: string;
     compact?: boolean;
     canManageCommunity?: boolean;
+    canSendFeedback?: boolean;
     connectionStatus?: CommunityConnectionStatus;
     onAction?: (action: CommunityProfileMenuAction) => void;
   } = $props();
@@ -154,9 +156,11 @@
 
       <DropdownMenu.Separator />
 
-      <DropdownMenu.Item onSelect={() => onAction("send-feedback")}>
-        Send feedback
-      </DropdownMenu.Item>
+      {#if canSendFeedback}
+        <DropdownMenu.Item onSelect={() => onAction("send-feedback")}
+          >Send feedback</DropdownMenu.Item
+        >
+      {/if}
       <DropdownMenu.Item onSelect={() => onAction("settings")}>
         Settings
         <DropdownMenu.Shortcut>⌘,</DropdownMenu.Shortcut>

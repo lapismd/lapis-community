@@ -1,0 +1,38 @@
+<script module lang="ts">
+  import { defineMeta } from "@storybook/addon-svelte-csf";
+  import { expect, fn, userEvent, within } from "storybook/test";
+  import CommunitySearchCommand from "./CommunitySearchCommand.svelte";
+  const { Story } = defineMeta({
+    title: "Community/Search/Search command",
+    component: CommunitySearchCommand,
+    tags: ["visual-pending"],
+  });
+</script>
+
+<Story
+  name="Results"
+  args={{
+    open: true,
+    query: "lapis",
+    rooms: [{ id: "general", name: "lapis-general", kind: "channel" }],
+    messages: [
+      {
+        id: "message",
+        authorId: "steve",
+        content: "Welcome to Lapis Community",
+        timestamp: "now",
+      },
+    ],
+    members: [{ id: "steve", name: "Steve", handle: "steve", initials: "SJ" }],
+    onSelectRoom: fn(),
+  }}
+  play={async ({ canvasElement, args }) => {
+    const overlay = within(canvasElement.ownerDocument.body);
+    await userEvent.click(overlay.getByRole("option", { name: /general/ }));
+    await expect(args.onSelectRoom).toHaveBeenCalledWith(
+      expect.objectContaining({ id: "general" }),
+    );
+  }}
+>
+  {#snippet template(args)}<CommunitySearchCommand {...args} />{/snippet}</Story
+>

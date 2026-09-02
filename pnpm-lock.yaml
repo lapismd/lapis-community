@@ -10,6 +10,9 @@ overrides:
 importers:
   .:
     dependencies:
+      "@emoji-mart/data":
+        specifier: ^1.2.1
+        version: 1.2.1
       "@lapismd/design-core":
         specifier: ^0.1.0
         version: 0.1.0(@codemirror/lang-markdown@6.5.2)(@codemirror/language-data@6.5.2)(@codemirror/search@6.7.2)(@lezer/markdown@1.7.2)(svelte@5.56.9)(tailwindcss@4.3.3)
@@ -19,6 +22,9 @@ importers:
       "@noble/hashes":
         specifier: ^2.4.0
         version: 2.4.0
+      emoji-mart:
+        specifier: ^5.6.0
+        version: 5.6.0
       nostr-tools:
         specifier: ^2.25.1
         version: 2.25.1(typescript@5.8.3)
@@ -28,6 +34,9 @@ importers:
       sharp:
         specifier: ^0.34.5
         version: 0.34.5
+      svelte-sonner:
+        specifier: ^1.2.1
+        version: 1.2.1(svelte@5.56.9)
       zod:
         specifier: ^4.3.5
         version: 4.5.4
@@ -448,6 +457,12 @@ packages:
     resolution:
       {
         integrity: sha512-c95qOXkHdydNKhscBTebqEC1CVAZpyqOfVfBzQ1qgzyl3gfeldUjIggDbIZgDKsHLgnsM+igH7TJ/eAasaVuMA==,
+      }
+
+  "@emoji-mart/data@1.2.1":
+    resolution:
+      {
+        integrity: sha512-no2pQMWiBy6gpBEiqGeU77/bFejDqUTRY7KX+0+iur13op3bqUsXdnwoZs6Xb1zbv0gAj5VvS1PWoUUckSr5Dw==,
       }
 
   "@esbuild/aix-ppc64@0.25.12":
@@ -2997,6 +3012,12 @@ packages:
         integrity: sha512-7ZgogeTnjuHbo+ct10G9Ffp0mif17idi0IyWNVA/wcwcm7NPOD/WEHVP3n7n3MhXqxoIYm8d6MuZohYWIZ4T3w==,
       }
 
+  emoji-mart@5.6.0:
+    resolution:
+      {
+        integrity: sha512-eJp3QRe79pjwa+duv+n7+5YsNhRcMl812EcFVwrnRvYKoNPoQb5qxU8DG6Bgwji0akHdp6D4Ln6tYLG58MFSow==,
+      }
+
   emojilib@2.4.0:
     resolution:
       {
@@ -4267,6 +4288,14 @@ packages:
     peerDependencies:
       svelte: ^5.7.0
 
+  runed@0.28.0:
+    resolution:
+      {
+        integrity: sha512-k2xx7RuO9hWcdd9f+8JoBeqWtYrm5CALfgpkg2YDB80ds/QE4w0qqu34A7fqiAwiBBSBQOid7TLxwxVC27ymWQ==,
+      }
+    peerDependencies:
+      svelte: ^5.7.0
+
   runed@0.29.2:
     resolution:
       {
@@ -4444,6 +4473,14 @@ packages:
     peerDependencies:
       svelte: ^4.0.0 || ^5.0.0-next.0
       typescript: ">=5.0.0"
+
+  svelte-sonner@1.2.1:
+    resolution:
+      {
+        integrity: sha512-N00LOWb60fjKXULbpngku+7E9Krb16KpNq4/Eax5Vu7o1Dpbca55QpaLPsB+yp82JIEdFhfJuv5cVXLoe0ZtVA==,
+      }
+    peerDependencies:
+      svelte: ^5.0.0
 
   svelte-toolbelt@0.10.6:
     resolution:
@@ -5338,6 +5375,8 @@ snapshots:
     dependencies:
       tslib: 2.8.1
     optional: true
+
+  "@emoji-mart/data@1.2.1": {}
 
   "@esbuild/aix-ppc64@0.25.12":
     optional: true
@@ -6680,6 +6719,8 @@ snapshots:
 
   dom-accessibility-api@0.6.3: {}
 
+  emoji-mart@5.6.0: {}
+
   emojilib@2.4.0: {}
 
   emoticon@4.1.0: {}
@@ -7819,6 +7860,11 @@ snapshots:
       esm-env: 1.2.2
       svelte: 5.56.9
 
+  runed@0.28.0(svelte@5.56.9):
+    dependencies:
+      esm-env: 1.2.2
+      svelte: 5.56.9
+
   runed@0.29.2(svelte@5.56.9):
     dependencies:
       esm-env: 1.2.2
@@ -7961,6 +8007,11 @@ snapshots:
       typescript: 5.8.3
     transitivePeerDependencies:
       - picomatch
+
+  svelte-sonner@1.2.1(svelte@5.56.9):
+    dependencies:
+      runed: 0.28.0(svelte@5.56.9)
+      svelte: 5.56.9
 
   svelte-toolbelt@0.10.6(svelte@5.56.9):
     dependencies:

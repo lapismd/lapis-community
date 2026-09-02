@@ -13,6 +13,33 @@ export interface CommunityNavigationItemModel {
   restricted?: boolean;
   unreadCount?: number;
   activityAt?: string;
+  starred?: boolean;
+  muted?: boolean;
+  settingsDisabled?: boolean;
+  leaveDisabled?: boolean;
+  deleteDisabled?: boolean;
+  settingsReason?: string;
+  leaveReason?: string;
+  deleteReason?: string;
+}
+
+export type CommunityNavigationItemAction =
+  | "copy-link"
+  | "mark-read"
+  | "mark-unread"
+  | "star"
+  | "unstar"
+  | "mute"
+  | "unmute"
+  | "hide"
+  | "settings"
+  | "leave"
+  | "delete"
+  | `section:${string}`;
+
+export interface CommunityNavigationCustomSectionOption {
+  id: string;
+  label: string;
 }
 
 export interface CommunityNavigationSectionModel {

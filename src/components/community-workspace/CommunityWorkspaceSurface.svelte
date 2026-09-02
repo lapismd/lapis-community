@@ -6,6 +6,10 @@
   import SparklesIcon from "@lucide/svelte/icons/sparkles";
 
   import CommunityConversation from "../community-conversation/CommunityConversation.svelte";
+  import type {
+    CommunityCustomEmoji,
+    CommunityReplyTarget,
+  } from "../../community/index.js";
   import ForumTopicList from "../forum-topic-list/ForumTopicList.svelte";
   import {
     findCommunityRoom,
@@ -17,9 +21,13 @@
   let {
     model,
     handlers = {},
+    replyTarget,
+    communityEmojis = [],
   }: {
     model: CommunityWorkspaceModel;
     handlers?: CommunityWorkspaceHandlers;
+    replyTarget?: CommunityReplyTarget;
+    communityEmojis?: readonly CommunityCustomEmoji[];
   } = $props();
 
   const activeRoom = $derived(
@@ -43,12 +51,21 @@
       {...handlers.onOpenTopic === undefined
         ? {}
         : { onOpenTopic: handlers.onOpenTopic }}
+      onCreateTopic={() => handlers.onCreateTopic?.(activeRoom.id)}
+      {...handlers.onTopicAction === undefined
+        ? {}
+        : { onTopicAction: handlers.onTopicAction }}
     />
   {:else}
     <CommunityConversation
       room={activeRoom}
       messages={model.messages}
       members={model.members}
+      {...replyTarget === undefined ? {} : { replyTarget }}
+      {communityEmojis}
+      {...handlers.onClearReplyTarget === undefined
+        ? {}
+        : { onCancelReply: handlers.onClearReplyTarget }}
       composerPlacement="row"
       onSend={(content) => handlers.onSendMessage?.(activeRoom.id, content)}
       {...handlers.onOpenThread === undefined
@@ -63,6 +80,12 @@
       {...handlers.onCopyMessageLink === undefined
         ? {}
         : { onCopyMessageLink: handlers.onCopyMessageLink }}
+      {...handlers.onCopyMessage === undefined
+        ? {}
+        : { onCopyMessage: handlers.onCopyMessage }}
+      {...handlers.onEditMessage === undefined
+        ? {}
+        : { onEditMessage: handlers.onEditMessage }}
       {...handlers.onDeleteMessage === undefined
         ? {}
         : { onDeleteMessage: handlers.onDeleteMessage }}
@@ -95,6 +118,7 @@
               <Button
                 variant="outline"
                 class="community-workspace-surface__action-card"
+                onclick={() => handlers.onBrowseRooms?.("channel")}
               >
                 <span class="community-workspace-surface__action-icon">
                   <HashIcon aria-hidden="true" />
@@ -104,12 +128,25 @@
               <Button
                 variant="outline"
                 class="community-workspace-surface__action-card"
+                onclick={() => handlers.onCreateRoom?.("channel")}
               >
                 <span class="community-workspace-surface__action-icon">
                   <PlusIcon aria-hidden="true" />
                 </span>
                 <strong>Create a channel</strong>
               </Button>
+              {#if handlers.onCreateAgent}
+                <Button
+                  variant="outline"
+                  class="community-workspace-surface__action-card"
+                  onclick={() => handlers.onCreateAgent?.(activeRoom.id)}
+                >
+                  <span class="community-workspace-surface__action-icon">
+                    <SparklesIcon aria-hidden="true" />
+                  </span>
+                  <strong>Create an agent</strong>
+                </Button>
+              {/if}
             </div>
           </section>
         {/if}
@@ -173,6 +210,11 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 0.75rem;
     padding-block-start: 0.5rem;
+  }
+
+  .community-workspace-surface__actions:has(> :nth-child(3)) {
+    width: min(100%, 56rem);
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
   :global(

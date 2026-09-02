@@ -1,6 +1,14 @@
 <script lang="ts">
   import { Badge } from "@lapismd/design-core/shadcn/badge";
   import { Button } from "@lapismd/design-core/shadcn/button";
+  import * as ContextMenu from "@lapismd/design-core/shadcn/context-menu";
+  import * as DropdownMenu from "@lapismd/design-core/shadcn/dropdown-menu";
+  import BellOffIcon from "@lucide/svelte/icons/bell-off";
+  import CheckIcon from "@lucide/svelte/icons/check";
+  import CopyIcon from "@lucide/svelte/icons/copy";
+  import EllipsisIcon from "@lucide/svelte/icons/ellipsis";
+  import StarIcon from "@lucide/svelte/icons/star";
+  import TrashIcon from "@lucide/svelte/icons/trash-2";
 
   import {
     memberById,
@@ -14,14 +22,75 @@
     topics,
     members,
     onOpenTopic,
+    onCreateTopic,
+    onTopicAction,
   }: {
     title?: string;
     description?: string;
     topics: CommunityTopicModel[];
     members: CommunityMemberModel[];
     onOpenTopic?: (topicId: string) => void;
+    onCreateTopic?: () => void;
+    onTopicAction?: (
+      topicId: string,
+      action: "copy-link" | "mark-read" | "star" | "mute" | "delete",
+    ) => void;
   } = $props();
 </script>
+
+{#snippet dropdownActions(topicId: string)}
+  <DropdownMenu.Group
+    ><DropdownMenu.Item onSelect={() => onTopicAction?.(topicId, "copy-link")}
+      ><CopyIcon data-icon="inline-start" aria-hidden="true" />Copy link</DropdownMenu.Item
+    ><DropdownMenu.Item onSelect={() => onTopicAction?.(topicId, "mark-read")}
+      ><CheckIcon data-icon="inline-start" aria-hidden="true" />Mark read</DropdownMenu.Item
+    ><DropdownMenu.Item onSelect={() => onTopicAction?.(topicId, "star")}
+      ><StarIcon
+        data-icon="inline-start"
+        aria-hidden="true"
+      />Star</DropdownMenu.Item
+    ><DropdownMenu.Item onSelect={() => onTopicAction?.(topicId, "mute")}
+      ><BellOffIcon
+        data-icon="inline-start"
+        aria-hidden="true"
+      />Mute</DropdownMenu.Item
+    ></DropdownMenu.Group
+  ><DropdownMenu.Separator /><DropdownMenu.Item
+    variant="destructive"
+    onSelect={() => onTopicAction?.(topicId, "delete")}
+    ><TrashIcon
+      data-icon="inline-start"
+      aria-hidden="true"
+    />Delete</DropdownMenu.Item
+  >
+{/snippet}
+
+{#snippet contextActions(topicId: string)}
+  <ContextMenu.Group
+    ><ContextMenu.Item onSelect={() => onTopicAction?.(topicId, "copy-link")}
+      ><CopyIcon data-icon="inline-start" aria-hidden="true" />Copy link</ContextMenu.Item
+    ><ContextMenu.Item onSelect={() => onTopicAction?.(topicId, "mark-read")}
+      ><CheckIcon data-icon="inline-start" aria-hidden="true" />Mark read</ContextMenu.Item
+    ><ContextMenu.Item onSelect={() => onTopicAction?.(topicId, "star")}
+      ><StarIcon
+        data-icon="inline-start"
+        aria-hidden="true"
+      />Star</ContextMenu.Item
+    ><ContextMenu.Item onSelect={() => onTopicAction?.(topicId, "mute")}
+      ><BellOffIcon
+        data-icon="inline-start"
+        aria-hidden="true"
+      />Mute</ContextMenu.Item
+    ></ContextMenu.Group
+  ><ContextMenu.Separator /><ContextMenu.Item
+    variant="destructive"
+    onSelect={() => onTopicAction?.(topicId, "delete")}
+    ><TrashIcon
+      data-icon="inline-start"
+      aria-hidden="true"
+    />Delete</ContextMenu.Item
+  >
+{/snippet}
 
 <section class="forum-topic-list" aria-labelledby="forum-topic-list-title">
   <header>
@@ -29,7 +98,7 @@
       <h1 id="forum-topic-list-title">{title}</h1>
       <p>{description}</p>
     </div>
-    <Button type="button" size="sm">New topic</Button>
+    <Button type="button" size="sm" onclick={onCreateTopic}>New topic</Button>
   </header>
 
   <div class="forum-topic-list__columns" aria-hidden="true">
@@ -39,31 +108,56 @@
   <div class="forum-topic-list__topics">
     {#each topics as topic (topic.id)}
       {@const author = memberById(members, topic.authorId)}
-      <Button
-        type="button"
-        variant="ghost"
-        class="forum-topic-list__topic"
-        aria-label={`Open topic ${topic.title}`}
-        onclick={() => onOpenTopic?.(topic.id)}
-      >
-        <span class="forum-topic-list__topic-main">
-          <span class="forum-topic-list__title-row">
-            {#if topic.pinned}<span aria-label="Pinned topic">⌁</span>{/if}
-            <strong>{topic.title}</strong>
-            {#if topic.solved}<Badge variant="secondary">Solved</Badge>{/if}
-          </span>
-          <span class="forum-topic-list__excerpt">{topic.excerpt}</span>
-          <span class="forum-topic-list__meta">
-            Started by {author.name}
-            {#each topic.tags ?? [] as tag (tag)}
-              <Badge variant="outline">{tag}</Badge>
-            {/each}
-          </span>
-        </span>
-        <span class="forum-topic-list__count">{topic.replyCount}</span>
-        <span class="forum-topic-list__activity">{topic.lastActivityLabel}</span
+      <div class="forum-topic-list__topic-row">
+        <ContextMenu.Root
+          ><ContextMenu.Trigger
+            ><Button
+              type="button"
+              variant="ghost"
+              class="forum-topic-list__topic"
+              aria-label={`Open topic ${topic.title}`}
+              onclick={() => onOpenTopic?.(topic.id)}
+            >
+              <span class="forum-topic-list__topic-main">
+                <span class="forum-topic-list__title-row">
+                  {#if topic.pinned}<span aria-label="Pinned topic">⌁</span
+                    >{/if}
+                  <strong>{topic.title}</strong>
+                  {#if topic.solved}<Badge variant="secondary">Solved</Badge
+                    >{/if}
+                </span>
+                <span class="forum-topic-list__excerpt">{topic.excerpt}</span>
+                <span class="forum-topic-list__meta">
+                  Started by {author.name}
+                  {#each topic.tags ?? [] as tag (tag)}
+                    <Badge variant="outline">{tag}</Badge>
+                  {/each}
+                </span>
+              </span>
+              <span class="forum-topic-list__count">{topic.replyCount}</span>
+              <span class="forum-topic-list__activity"
+                >{topic.lastActivityLabel}</span
+              >
+            </Button></ContextMenu.Trigger
+          ><ContextMenu.Content
+            >{@render contextActions(topic.id)}</ContextMenu.Content
+          ></ContextMenu.Root
+        ><DropdownMenu.Root
+          ><DropdownMenu.Trigger
+            >{#snippet child({ props })}<Button
+                {...props}
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                class="forum-topic-list__menu"
+                aria-label={`Open ${topic.title} menu`}
+                ><EllipsisIcon aria-hidden="true" /></Button
+              >{/snippet}</DropdownMenu.Trigger
+          ><DropdownMenu.Content align="end"
+            >{@render dropdownActions(topic.id)}</DropdownMenu.Content
+          ></DropdownMenu.Root
         >
-      </Button>
+      </div>
     {/each}
   </div>
 </section>
@@ -121,6 +215,26 @@
 
   .forum-topic-list__topics {
     display: grid;
+  }
+  .forum-topic-list__topic-row {
+    position: relative;
+    display: flex;
+    min-width: 0;
+  }
+  .forum-topic-list__topic-row
+    > :global([data-ui-part="context-menu-trigger"]) {
+    min-width: 0;
+    flex: 1;
+  }
+  :global(.forum-topic-list__menu[data-ui-component="button"]) {
+    position: absolute;
+    inset-block-start: 0.75rem;
+    inset-inline-end: 0.5rem;
+    opacity: 0;
+  }
+  .forum-topic-list__topic-row:hover :global(.forum-topic-list__menu),
+  .forum-topic-list__topic-row:focus-within :global(.forum-topic-list__menu) {
+    opacity: 1;
   }
 
   :global(.forum-topic-list__topic[data-ui-component="button"]) {

@@ -90,14 +90,18 @@
   margin-inline-start: auto;
 }
 
-.lc-channel-settings__copy-icon {
+.lc-channel-settings__copy-icon,
+.lc-channel-settings__edit-icon {
   opacity: 0;
   transition: opacity 120ms ease;
 }
 
 .lc-channel-settings__row:hover .lc-channel-settings__copy-icon,
 .lc-channel-settings__row:focus .lc-channel-settings__copy-icon,
-.lc-channel-settings__row:focus-visible .lc-channel-settings__copy-icon {
+.lc-channel-settings__row:focus-visible .lc-channel-settings__copy-icon,
+.lc-channel-settings__row:hover .lc-channel-settings__edit-icon,
+.lc-channel-settings__row:focus .lc-channel-settings__edit-icon,
+.lc-channel-settings__row:focus-visible .lc-channel-settings__edit-icon {
   opacity: 1;
 }
 

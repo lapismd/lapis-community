@@ -18,6 +18,7 @@
     CommunitySettingsState,
   } from "../../community/index.js";
   import type { CommunitySettingsSection } from "./model.js";
+  import CommunityEmojiPicker from "../community-emoji-picker/CommunityEmojiPicker.svelte";
   import "./CommunitySettings.css";
 
   const avatarEmojis = [
@@ -283,6 +284,17 @@
                     onclick={() => emojiAvatar(emoji)}>{emoji}</button
                   >
                 {/each}
+              </div>
+              <div class="community-settings__avatar-picker">
+                <CommunityEmojiPicker
+                  label="Browse all emoji"
+                  communityEmojis={model.customEmojis}
+                  onSelect={(emoji, custom) => {
+                    if (custom) picture = custom.url;
+                    else emojiAvatar(emoji);
+                  }}
+                />
+                <span>Browse all emoji</span>
               </div>
             </Tabs.Content>
           </Tabs.Root>

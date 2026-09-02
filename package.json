@@ -99,12 +99,15 @@
     "checks": "pnpm check:format && pnpm spec:check && pnpm check && pnpm test && pnpm test:storybook && pnpm build-storybook && pnpm build"
   },
   "dependencies": {
+    "@emoji-mart/data": "^1.2.1",
     "@lapismd/design-core": "^0.1.0",
     "@lucide/svelte": "^1.21.0",
     "@noble/hashes": "^2.4.0",
+    "emoji-mart": "^5.6.0",
     "nostr-tools": "^2.25.1",
     "semver": "^7.7.2",
     "sharp": "^0.34.5",
+    "svelte-sonner": "^1.2.1",
     "zod": "^4.3.5"
   },
   "peerDependencies": {

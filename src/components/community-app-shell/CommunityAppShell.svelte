@@ -40,10 +40,7 @@
   class={["community-app-shell", className].filter(Boolean).join(" ")}
   data-ui-component="community-app-shell"
 >
-  <header
-    class="community-app-shell__header"
-    aria-label="Application navigation"
-  >
+  <nav class="community-app-shell__header" aria-label="Application navigation">
     <Button
       type="button"
       variant="ghost"
@@ -103,7 +100,7 @@
         <ChevronRightIcon aria-hidden="true" />
       </Button>
     </div>
-  </header>
+  </nav>
 
   <AppShell.Root
     {controller}

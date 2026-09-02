@@ -336,7 +336,11 @@ export interface CommunityControllerOptions {
 }
 
 export interface CommunityLinkBuilder {
-  message(event: NostrEvent, relayUrl: string): string;
+  message(input: {
+    eventId: string;
+    authorPubkey: string;
+    relayUrl: string;
+  }): string;
   room?(scope: CommunityScope, room: CommunityRoomScope): string;
 }
 

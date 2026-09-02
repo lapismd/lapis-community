@@ -1,5 +1,11 @@
 export { default as CommunityHeader } from "./community-header/CommunityHeader.svelte";
 export { default as CommunityApplication } from "./community-application/CommunityApplication.svelte";
+export { default as CommunityEmojiPicker } from "./community-emoji-picker/CommunityEmojiPicker.svelte";
+export { default as CommunityMemberCommand } from "./community-member-command/CommunityMemberCommand.svelte";
+export { default as CommunityRoomBrowser } from "./community-room-browser/CommunityRoomBrowser.svelte";
+export { default as CommunityRoomEditor } from "./community-room-editor/CommunityRoomEditor.svelte";
+export { default as CommunitySearchCommand } from "./community-search-command/CommunitySearchCommand.svelte";
+export { default as CommunityTopicComposer } from "./community-topic-composer/CommunityTopicComposer.svelte";
 export { default as CommunityAppShell } from "./community-app-shell/CommunityAppShell.svelte";
 export { default as CommunityChannelSettings } from "./community-channel-settings/CommunityChannelSettings.svelte";
 export { default as CommunityInbox } from "./community-inbox/CommunityInbox.svelte";
@@ -9,6 +15,7 @@ export type {
 } from "./community-inbox/model.js";
 export { default as CommunityConversation } from "./community-conversation/CommunityConversation.svelte";
 export { default as CommunityDetails } from "./community-details/CommunityDetails.svelte";
+export { default as CommunityDirectMessageComposer } from "./community-direct-message-composer/CommunityDirectMessageComposer.svelte";
 export { default as CommunityMessage } from "./community-message/CommunityMessage.svelte";
 export { default as CommunityNavigation } from "./community-navigation/CommunityNavigation.svelte";
 export { default as CommunityProfileMenu } from "./community-profile-menu/CommunityProfileMenu.svelte";
@@ -20,6 +27,8 @@ export type { CommunityProfileMenuAction } from "./community-profile-menu/model.
 export type {
   CommunityNavigationItemKind,
   CommunityNavigationItemModel,
+  CommunityNavigationItemAction,
+  CommunityNavigationCustomSectionOption,
   CommunityNavigationModel,
   CommunityNavigationSectionActionIcon,
   CommunityNavigationSectionActionModel,
