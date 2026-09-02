@@ -1,123 +1,190 @@
 .community-settings {
-  display: grid;
-  width: 100%;
+  width: min(100%, 52rem);
   min-width: 0;
-  height: 100%;
-  min-height: 0;
-  grid-template-columns: 15rem minmax(0, 1fr);
-  background: var(--background);
-}
-
-.community-settings__navigation {
-  display: flex;
-  min-height: 0;
-  flex-direction: column;
-  gap: 1.5rem;
-  padding: 1.25rem 0.75rem;
-  border-inline-end: 1px solid var(--border);
-  background: var(--sidebar, var(--muted));
-}
-
-.community-settings__back[data-ui-component="button"],
-.community-settings__navigation-item[data-ui-component="button"] {
-  width: 100%;
-  justify-content: flex-start;
-}
-
-.community-settings__navigation-group {
-  display: grid;
-  gap: 0.25rem;
-}
-
-.community-settings__navigation-group > p {
-  margin: 0 0 0.35rem;
-  padding-inline: 0.75rem;
-  color: var(--muted-foreground);
-  font-size: 0.75rem;
-  font-weight: 700;
-}
-
-.community-settings__navigation-item[data-active] {
-  background: var(--accent);
-}
-
-.community-settings__content {
-  min-width: 0;
-  overflow: auto;
-  padding: clamp(1.5rem, 5vw, 4rem);
-}
-
-.community-settings__heading,
-.community-settings__card,
-.community-settings__emoji-list {
-  width: min(100%, 48rem);
   margin-inline: auto;
+  padding: clamp(1.5rem, 4vw, 3rem);
+  color: var(--foreground);
 }
 
 .community-settings__heading {
-  margin-block-end: 1.5rem;
+  margin-block-end: 2.25rem;
 }
 
 .community-settings__heading h1,
 .community-settings__heading p,
-.community-settings__emoji-list h2,
-.community-settings__emoji-list p {
+.community-settings__option-section h2,
+.community-settings__option-section h3,
+.community-settings__option-section p,
+.community-settings__status {
   margin: 0;
 }
 
 .community-settings__heading h1 {
-  font-size: 1.75rem;
+  font-size: 1.5rem;
+  line-height: 1.25;
 }
 
 .community-settings__heading p,
-.community-settings__emoji-list > div p,
+.community-settings__option-section header > p,
+.community-settings__emoji-builder > div > p,
+.community-settings__option-row > p,
+.community-settings__identity small,
+.community-settings__identity > p,
 .community-settings__status,
-.community-settings__empty {
+.community-settings__empty,
+.community-settings__emoji-list small {
   color: var(--muted-foreground);
 }
 
-.community-settings__form,
-.community-settings__emoji-form {
-  display: grid;
-  gap: 1.5rem;
+.community-settings__heading p {
+  margin-block-start: 0.35rem;
 }
 
-.community-settings__avatar-row {
+.community-settings__profile,
+.community-settings__custom-emoji {
+  display: grid;
+  gap: 2.5rem;
+}
+
+.community-settings__avatar-editor {
   display: flex;
-  min-width: 0;
+  width: 100%;
+  flex-direction: column;
   align-items: center;
   gap: 1rem;
 }
 
-.community-settings__avatar-row > div,
-.community-settings__emoji-list li > span {
+.community-settings__avatar-tabs {
   display: grid;
-  min-width: 0;
+  width: min(100%, 36rem);
+  gap: 1rem;
 }
 
-.community-settings__avatar-row small,
-.community-settings__emoji-list small {
-  overflow: hidden;
-  color: var(--muted-foreground);
-  font-size: 0.72rem;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.community-settings__avatar-tabs > [data-ui-part="tabs-list"] {
+  display: grid;
+  width: 100%;
+  height: 3.5rem;
+  grid-template-columns: 1fr 1fr;
+  padding: 0.25rem;
+  border-radius: 999px;
 }
 
-.community-settings__avatar,
-.community-settings__emoji-preview {
+.community-settings__avatar-tabs [data-ui-part="tabs-trigger"] {
+  height: 100%;
+  border-radius: 999px;
+}
+
+.community-settings__avatar-tabs [data-ui-part="tabs-content"] {
   display: grid;
-  overflow: hidden;
-  flex: none;
-  place-items: center;
-  border: 1px solid var(--border);
+  gap: 0.75rem;
+  margin: 0;
+}
+
+.community-settings__image-drop {
+  display: flex;
+  height: 7.5rem;
+  cursor: pointer;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  border: 1px solid transparent;
+  border-radius: calc(var(--radius) + 0.25rem);
   background: var(--muted);
+  color: var(--muted-foreground);
+  font-size: 0.875rem;
+  font-weight: 600;
+  transition:
+    background-color 150ms ease,
+    border-color 150ms ease,
+    color 150ms ease;
+}
+
+.community-settings__image-drop svg {
+  width: 2rem;
+  height: 2rem;
+}
+
+.community-settings__image-drop input,
+.community-settings__emoji-upload input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  clip-path: inset(50%);
+}
+
+.community-settings__url-input {
+  display: flex;
+  height: 4rem;
+  align-items: center;
+  gap: 0.75rem;
+  padding-inline: 1rem;
+  border-radius: calc(var(--radius) + 0.25rem);
+  background: var(--muted);
+  color: var(--muted-foreground);
+}
+
+.community-settings__url-input [data-ui-component="input"] {
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.community-settings__avatar-colors,
+.community-settings__avatar-emojis {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 0.5rem;
+}
+
+.community-settings__avatar-colors button,
+.community-settings__avatar-emojis button {
+  display: grid;
+  cursor: pointer;
+  place-items: center;
+  border: 0;
+  border-radius: 0.75rem;
+  transition:
+    transform 150ms ease,
+    box-shadow 150ms ease,
+    background-color 150ms ease;
+}
+
+.community-settings__avatar-colors button {
+  aspect-ratio: 1;
+  border: 3px solid var(--background);
+  background: var(--avatar-color);
+  box-shadow: 0 0 0 1px var(--border);
+}
+
+.community-settings__avatar-colors button[aria-pressed="true"] {
+  box-shadow: 0 0 0 2px var(--ring);
+}
+
+.community-settings__avatar-emojis button {
+  aspect-ratio: 1;
+  background: var(--muted);
+  font-size: 1.5rem;
+}
+
+.community-settings__avatar-frame {
+  position: relative;
+  width: 12rem;
+  height: 12rem;
 }
 
 .community-settings__avatar {
-  width: 4.5rem;
-  height: 4.5rem;
+  display: grid;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  place-items: center;
   border-radius: 50%;
+  background: var(--muted);
+  box-shadow: var(--shadow-sm);
 }
 
 .community-settings__avatar img,
@@ -128,44 +195,177 @@
   object-fit: cover;
 }
 
-.community-settings__form-footer {
+.community-settings__avatar > svg {
+  width: 4rem;
+  height: 4rem;
+  color: var(--muted-foreground);
+}
+
+.community-settings__avatar-edit[data-ui-component="button"] {
+  position: absolute;
+  right: 0.2rem;
+  bottom: 0.2rem;
+  width: 3.25rem;
+  height: 3.25rem;
+  border: 0.35rem solid var(--background);
+  border-radius: 50%;
+  background: var(--foreground);
+  color: var(--background);
+  transition:
+    transform 150ms ease,
+    background-color 150ms ease;
+}
+
+.community-settings__avatar-actions {
   display: flex;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.community-settings__option-section {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.community-settings__option-section > header {
+  display: flex;
+  min-height: 2rem;
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
+  padding-inline: 0.75rem;
 }
 
-.community-settings__form-footer--wide {
-  grid-column: 1 / -1;
+.community-settings__option-section h2 {
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.community-settings__option-section h3 {
+  font-size: 0.9rem;
+}
+
+.community-settings__option-group,
+.community-settings__identity,
+.community-settings__emoji-builder {
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: calc(var(--radius) + 0.25rem);
+  background: var(--background);
+}
+
+.community-settings__option-group[data-ui-part="field-group"] {
+  gap: 0;
+}
+
+.community-settings__option-row {
+  min-height: 4.25rem;
+  padding: 0.75rem 1rem;
+}
+
+.community-settings__option-row + .community-settings__option-row {
+  border-block-start: 1px solid var(--border);
+}
+
+.community-settings__option-row [data-ui-part="field-label"] {
+  font-size: 0.82rem;
+  font-weight: 500;
+}
+
+.community-settings__option-row > p {
+  font-size: 0.82rem;
+}
+
+.community-settings__option-row [data-ui-component="input"],
+.community-settings__option-row [data-ui-component="textarea"] {
+  min-height: auto;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--muted-foreground);
+  box-shadow: none;
+}
+
+.community-settings__identity summary {
+  display: flex;
+  min-height: 4.25rem;
+  cursor: pointer;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.75rem 1rem;
+  list-style: none;
+  transition: background-color 150ms ease;
+}
+
+.community-settings__identity summary::-webkit-details-marker {
+  display: none;
+}
+
+.community-settings__identity summary > span:first-child {
+  display: grid;
+}
+
+.community-settings__identity small {
+  font-size: 0.8rem;
+}
+
+.community-settings__identity > p {
+  overflow-wrap: anywhere;
+  padding: 0.75rem 1rem;
+  border-block-start: 1px solid var(--border);
+  font-size: 0.78rem;
 }
 
 .community-settings__status {
   min-height: 1.25rem;
-  margin: 0;
   font-size: 0.78rem;
 }
 
-.community-settings__emoji-form {
-  grid-template-columns: 5rem minmax(0, 1fr);
-  align-items: start;
+.community-settings__emoji-builder {
+  display: grid;
+  gap: 1.25rem;
+  padding: 1.25rem;
+}
+
+.community-settings__emoji-builder > div > p {
+  margin-block-start: 0.25rem;
+  font-size: 0.82rem;
+}
+
+.community-settings__emoji-upload {
+  display: flex;
+  width: fit-content;
+  cursor: pointer;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-size: 0.875rem;
+  font-weight: 600;
+  transition: background-color 150ms ease;
 }
 
 .community-settings__emoji-preview {
-  width: 5rem;
-  height: 5rem;
-  border-radius: 0.75rem;
+  display: grid;
+  width: 2.5rem;
+  height: 2.5rem;
+  overflow: hidden;
+  place-items: center;
+  border-radius: 0.5rem;
+  background: var(--muted);
 }
 
-.community-settings__emoji-list {
-  margin-block-start: 2rem;
-}
-
-.community-settings__emoji-list > div {
+.community-settings__emoji-actions {
   display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 1rem;
-  margin-block-end: 0.75rem;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  padding-block-start: 0.25rem;
+}
+
+.community-settings__emoji-list > header > p {
+  font-size: 0.75rem;
 }
 
 .community-settings__emoji-list ul {
@@ -183,16 +383,25 @@
   gap: 0.75rem;
   padding: 0.625rem;
   border-radius: var(--radius);
-}
-
-.community-settings__emoji-list li:hover {
-  background: var(--accent);
+  transition: background-color 150ms ease;
 }
 
 .community-settings__emoji-list li > img {
   width: 2.5rem;
   height: 2.5rem;
   border-radius: 0.5rem;
+}
+
+.community-settings__emoji-list li > span {
+  display: grid;
+  min-width: 0;
+}
+
+.community-settings__emoji-list small {
+  overflow: hidden;
+  font-size: 0.72rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .community-settings__empty {
@@ -202,38 +411,40 @@
   text-align: center;
 }
 
+@media (hover: hover) {
+  .community-settings__image-drop:hover,
+  .community-settings__url-input:focus-within,
+  .community-settings__avatar-emojis button:hover,
+  .community-settings__emoji-upload:hover,
+  .community-settings__identity summary:hover,
+  .community-settings__emoji-list li:hover {
+    background: var(--accent);
+    color: var(--accent-foreground);
+  }
+
+  .community-settings__avatar-edit[data-ui-component="button"]:hover {
+    transform: scale(1.05);
+    background: color-mix(in oklab, var(--foreground) 88%, var(--background));
+  }
+
+  .community-settings__avatar-colors button:hover,
+  .community-settings__avatar-emojis button:hover {
+    transform: scale(1.06);
+  }
+}
+
 @media (max-width: 48rem) {
   .community-settings {
-    grid-template-columns: 1fr;
-    grid-template-rows: auto minmax(0, 1fr);
-  }
-
-  .community-settings__navigation {
-    flex-direction: row;
-    gap: 0.5rem;
-    padding: 0.5rem;
-    border-inline-end: 0;
-    border-block-end: 1px solid var(--border);
-  }
-
-  .community-settings__navigation-group {
-    display: flex;
-    flex: 1;
-  }
-
-  .community-settings__navigation-group > p {
-    display: none;
-  }
-
-  .community-settings__content {
     padding: 1rem;
   }
 
-  .community-settings__emoji-form {
-    grid-template-columns: 1fr;
+  .community-settings__avatar-frame {
+    width: 9rem;
+    height: 9rem;
   }
 
-  .community-settings__emoji-preview {
-    justify-self: center;
+  .community-settings__avatar-colors,
+  .community-settings__avatar-emojis {
+    grid-template-columns: repeat(4, 1fr);
   }
 }

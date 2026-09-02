@@ -11,6 +11,7 @@
   import CommunityInbox from "../community-inbox/CommunityInbox.svelte";
   import { communityInboxFixture } from "../community-inbox/story-fixtures.js";
   import CommunityProfileMenu from "../community-profile-menu/CommunityProfileMenu.svelte";
+  import CommunitySettingsNavigation from "../community-settings-navigation/CommunitySettingsNavigation.svelte";
   import CommunitySettings from "../community-settings/CommunitySettings.svelte";
   import CommunityNavigation from "./CommunityNavigation.svelte";
   import { communityNavigationFixture } from "./story-fixtures.js";
@@ -44,6 +45,7 @@
   let community = $state<CommunityController>();
   let runtimeError = $state("");
   let activeDestination = $state("");
+  let settingsSection = $state<"profile" | "custom-emoji">("profile");
   let navigationHistory = $state<string[]>([]);
   let navigationHistoryIndex = $state(0);
   const workspace = $derived(community?.state.workspace);
@@ -203,7 +205,13 @@
       navigationHistoryIndex = navigationHistory.length - 1;
     }
     activeDestination = "settings";
+    controller.left.expand();
     controller.right.close();
+  }
+
+  function closeSettings(): void {
+    const inboxItem = itemFor("inbox");
+    if (inboxItem) activate(inboxItem, true);
   }
 
   function itemFor(destinationId: string): CommunityNavigationItemModel | null {
@@ -250,37 +258,47 @@
   data-community-backend={runtime?.backend ?? "loading"}
 >
   <AppShell.Sidebar side="left">
-    <CommunityNavigation
-      model={navigationModel}
-      {activeItemId}
-      compact={controller.left.collapsed}
-      onSelect={select}
-      onSearch={(query) => {
-        void community?.actions.search(query);
-        onSearch(query);
-      }}
-      {onSectionAction}
-      onRequestExpand={() => controller.left.expand()}
-    >
-      {#snippet footer()}
-        {#if currentMember}
-          <CommunityProfileMenu
-            member={{
-              ...currentMember,
-              presence:
-                community?.state.status === "connected" ? "online" : "offline",
-            }}
-            communityName={activeCommunity?.name ?? "Lapis Community"}
-            compact={controller.left.collapsed}
-            canManageCommunity={community?.state.capabilities.manageMembers ??
-              false}
-            onAction={(action) => {
-              if (action === "settings") openSettings();
-            }}
-          />
-        {/if}
-      {/snippet}
-    </CommunityNavigation>
+    {#if activeDestination === "settings"}
+      <CommunitySettingsNavigation
+        section={settingsSection}
+        onSelect={(value) => (settingsSection = value)}
+        onClose={closeSettings}
+      />
+    {:else}
+      <CommunityNavigation
+        model={navigationModel}
+        {activeItemId}
+        compact={controller.left.collapsed}
+        onSelect={select}
+        onSearch={(query) => {
+          void community?.actions.search(query);
+          onSearch(query);
+        }}
+        {onSectionAction}
+        onRequestExpand={() => controller.left.expand()}
+      >
+        {#snippet footer()}
+          {#if currentMember}
+            <CommunityProfileMenu
+              member={{
+                ...currentMember,
+                presence:
+                  community?.state.status === "connected"
+                    ? "online"
+                    : "offline",
+              }}
+              communityName={activeCommunity?.name ?? "Lapis Community"}
+              compact={controller.left.collapsed}
+              canManageCommunity={community?.state.capabilities.manageMembers ??
+                false}
+              onAction={(action) => {
+                if (action === "settings") openSettings();
+              }}
+            />
+          {/if}
+        {/snippet}
+      </CommunityNavigation>
+    {/if}
   </AppShell.Sidebar>
 
   <AppShell.Main>
@@ -289,6 +307,7 @@
         <AppShell.Body.Content>
           <CommunitySettings
             model={community.state.settings}
+            section={settingsSection}
             {...community.state.operations["settings:profile"] === undefined
               ? {}
               : {
@@ -296,10 +315,6 @@
                     community.state.operations["settings:profile"],
                 }}
             {...emojiOperation === undefined ? {} : { emojiOperation }}
-            onClose={() => {
-              const inboxItem = itemFor("inbox");
-              if (inboxItem) activate(inboxItem, true);
-            }}
             onUpdateProfile={(profile) =>
               community!.actions.updateProfile(profile)}
             onAddCustomEmoji={(shortcode, url) =>

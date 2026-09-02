@@ -1,0 +1,54 @@
+.community-settings-navigation {
+  display: flex;
+  width: 100%;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 1.5rem;
+  padding: 1rem 0.75rem;
+  background: var(--sidebar, var(--muted));
+}
+
+.community-settings-navigation__back[data-ui-component="button"],
+.community-settings-navigation__item[data-ui-component="button"] {
+  width: 100%;
+  justify-content: flex-start;
+  transition:
+    color 150ms ease,
+    background-color 150ms ease,
+    box-shadow 150ms ease;
+}
+
+.community-settings-navigation section {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.community-settings-navigation h2 {
+  margin: 0 0 0.35rem;
+  padding-inline: 0.75rem;
+  color: var(--muted-foreground);
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.community-settings-navigation__item[data-active] {
+  color: var(--sidebar-accent-foreground, var(--accent-foreground));
+  background: var(--sidebar-accent, var(--accent));
+}
+
+@media (hover: hover) {
+  .community-settings-navigation__back[data-ui-component="button"]:hover,
+  .community-settings-navigation__item[data-ui-component="button"]:hover {
+    color: var(--sidebar-accent-foreground, var(--accent-foreground));
+    background: var(--sidebar-accent, var(--accent));
+    box-shadow: inset 0 0 0 1px
+      color-mix(in oklab, var(--sidebar-border, var(--border)) 70%, transparent);
+  }
+}
+
+.community-settings-navigation__back[data-ui-component="button"]:focus-visible,
+.community-settings-navigation__item[data-ui-component="button"]:focus-visible {
+  color: var(--sidebar-accent-foreground, var(--accent-foreground));
+  background: var(--sidebar-accent, var(--accent));
+}

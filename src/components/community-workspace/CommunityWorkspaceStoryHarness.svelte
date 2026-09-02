@@ -21,6 +21,7 @@
   import CommunityNavigation from "../community-navigation/CommunityNavigation.svelte";
   import type { CommunityNavigationModel } from "../community-navigation/model.js";
   import CommunityProfileMenu from "../community-profile-menu/CommunityProfileMenu.svelte";
+  import CommunitySettingsNavigation from "../community-settings-navigation/CommunitySettingsNavigation.svelte";
   import CommunitySettings from "../community-settings/CommunitySettings.svelte";
   import CommunityThreadPanel from "../community-thread-panel/CommunityThreadPanel.svelte";
   import CommunityWorkspaceSurface from "./CommunityWorkspaceSurface.svelte";
@@ -45,6 +46,7 @@
   let runtimeError = $state("");
   let lastAction = $state("ready");
   let showSettings = $state(false);
+  let settingsSection = $state<"profile" | "custom-emoji">("profile");
   const model = $derived(community?.state.workspace ?? initialModel);
 
   onMount(() => {
@@ -168,6 +170,11 @@
     lastAction = `selected-room:${roomId}`;
   }
 
+  function closeSettings(): void {
+    showSettings = false;
+    lastAction = "closed-settings";
+  }
+
   function react(messageId: string, emoji: string): void {
     void community?.actions.toggleReaction(messageId, emoji);
     lastAction = `reaction:${messageId}:${emoji}`;
@@ -216,35 +223,44 @@
     revealOnEdgeHover
     edgeRevealLabel="Preview community navigation sidebar"
   >
-    <CommunityNavigation
-      model={navigationModel}
-      activeItemId={model.activeRoomId}
-      compact={navigationCompact}
-      onSelect={(item) => selectRoom(item.id)}
-      onSearch={(query) => {
-        lastAction = `searched:${query}`;
-      }}
-      onRequestExpand={() => controller.left.expand()}
-    >
-      {#snippet footer()}
-        {#if currentMember}
-          <CommunityProfileMenu
-            member={currentMember}
-            communityName={currentCommunity?.name ?? "Community"}
-            compact={navigationCompact}
-            canManageCommunity={community?.state.capabilities.manageMembers ??
-              false}
-            onAction={(action) => {
-              if (action === "settings") {
-                showSettings = true;
-                controller.right.close();
-                lastAction = "opened-settings";
-              }
-            }}
-          />
-        {/if}
-      {/snippet}
-    </CommunityNavigation>
+    {#if showSettings}
+      <CommunitySettingsNavigation
+        section={settingsSection}
+        onSelect={(value) => (settingsSection = value)}
+        onClose={closeSettings}
+      />
+    {:else}
+      <CommunityNavigation
+        model={navigationModel}
+        activeItemId={model.activeRoomId}
+        compact={navigationCompact}
+        onSelect={(item) => selectRoom(item.id)}
+        onSearch={(query) => {
+          lastAction = `searched:${query}`;
+        }}
+        onRequestExpand={() => controller.left.expand()}
+      >
+        {#snippet footer()}
+          {#if currentMember}
+            <CommunityProfileMenu
+              member={currentMember}
+              communityName={currentCommunity?.name ?? "Community"}
+              compact={navigationCompact}
+              canManageCommunity={community?.state.capabilities.manageMembers ??
+                false}
+              onAction={(action) => {
+                if (action === "settings") {
+                  showSettings = true;
+                  controller.left.expand();
+                  controller.right.close();
+                  lastAction = "opened-settings";
+                }
+              }}
+            />
+          {/if}
+        {/snippet}
+      </CommunityNavigation>
+    {/if}
   </AppShell.Sidebar>
 
   <AppShell.Main>
@@ -253,6 +269,7 @@
         <AppShell.Body.Content>
           <CommunitySettings
             model={community.state.settings}
+            section={settingsSection}
             {...community.state.operations["settings:profile"] === undefined
               ? {}
               : {
@@ -260,7 +277,6 @@
                     community.state.operations["settings:profile"],
                 }}
             {...emojiOperation === undefined ? {} : { emojiOperation }}
-            onClose={() => (showSettings = false)}
             onUpdateProfile={(profile) =>
               community!.actions.updateProfile(profile)}
             onAddCustomEmoji={(shortcode, url) =>

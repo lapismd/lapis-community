@@ -32,7 +32,7 @@
 | LC-UI-010    | Visual pending | Ordered Navigation, Inbox, Channels, Forums, Discussion, Registry, and Examples catalog sections; human review pending            |
 | LC-UI-011    | Visual pending | `src/components/community-workspace/CommunityWorkspace.stories.svelte`; consolidated public Design Core shell examples            |
 | LC-UI-012    | Visual pending | Shared production app frame, edge-to-edge compact header, collapsed-rail alignment, and joined panel shape; human review pending  |
-| LC-UI-013    | Visual pending | Profile-menu Settings route; Personal/Profile and Personal/Custom emoji controller-backed shell surface; human review pending     |
+| LC-UI-013    | Visual pending | Settings sidebar replacement; hover states; centered Image/Emoji avatar editor; controller-persisted saves; human review pending  |
 | LC-UI-014    | Visual pending | Baseline-aligned metadata and avatar-led relative reply activity across channel, thread, and direct-message conversations         |
 | LC-UI-015    | Visual pending | Inbox menus and joined Buzz-style channel/forum settings with room-specific labels and unsupported actions hidden                 |
 | LC-UI-016    | Visual pending | Buzz-style channel action cards; forum index without details, self-sizing rows and Back to posts; joined headers; review pending  |

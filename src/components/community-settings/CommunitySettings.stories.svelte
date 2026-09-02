@@ -14,13 +14,24 @@
       docs: {
         source: {
           language: "svelte",
-          code: `<CommunitySettings
-  model={community.state.settings}
-  profileOperation={community.state.operations["settings:profile"]}
-  onUpdateProfile={community.actions.updateProfile}
-  onAddCustomEmoji={community.actions.setCustomEmoji}
-  onRemoveCustomEmoji={community.actions.removeCustomEmoji}
-/>`,
+          code: `<AppShell.Sidebar side="left">
+  <CommunitySettingsNavigation
+    section={settingsSection}
+    onSelect={(section) => settingsSection = section}
+    onClose={closeSettings}
+  />
+</AppShell.Sidebar>
+
+<AppShell.Main>
+  <CommunitySettings
+    model={community.state.settings}
+    section={settingsSection}
+    profileOperation={community.state.operations["settings:profile"]}
+    onUpdateProfile={community.actions.updateProfile}
+    onAddCustomEmoji={community.actions.setCustomEmoji}
+    onRemoveCustomEmoji={community.actions.removeCustomEmoji}
+  />
+</AppShell.Main>`,
         },
       },
     },

@@ -12,6 +12,8 @@ export { default as CommunityMessage } from "./community-message/CommunityMessag
 export { default as CommunityNavigation } from "./community-navigation/CommunityNavigation.svelte";
 export { default as CommunityProfileMenu } from "./community-profile-menu/CommunityProfileMenu.svelte";
 export { default as CommunitySettings } from "./community-settings/CommunitySettings.svelte";
+export type { CommunitySettingsSection } from "./community-settings/model.js";
+export { default as CommunitySettingsNavigation } from "./community-settings-navigation/CommunitySettingsNavigation.svelte";
 export type { CommunityProfileMenuAction } from "./community-profile-menu/model.js";
 export type {
   CommunityNavigationItemKind,
