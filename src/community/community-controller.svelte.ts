@@ -1,7 +1,9 @@
 import type {
+  CommunityMemberModel,
   CommunityWorkspaceHandlers,
   CommunityWorkspaceModel,
 } from "../components/index.js";
+import { nip19 } from "nostr-tools";
 import {
   createNip29ForumCommentTemplate,
   createNip29ForumThreadTemplate,
@@ -24,6 +26,8 @@ import type {
   CommunityControllerState,
   CommunityOperationState,
   CommunityPrivateEvent,
+  CommunityReplyTarget,
+  CommunityRoomUpdate,
   CommunityScope,
   CommunitySearchResult,
   CommunitySession,
@@ -72,6 +76,7 @@ export function createCommunityController(
   const retries = new Map<string, () => Promise<void>>();
   const storedStates = new Map<string, CommunityStoredState>();
   let controllerAbort: AbortController | undefined;
+  let identity = options.identity;
   let generation = 0;
   let configurationLoaded = false;
 
@@ -85,6 +90,11 @@ export function createCommunityController(
   let operations = $state<Record<string, CommunityOperationState>>({});
   let error = $state("");
   let identityPubkey = $state("");
+  let authentication = $state<CommunityControllerState["authentication"]>(
+    options.identity === undefined
+      ? { status: "anonymous" }
+      : { status: "connecting" },
+  );
   let activeCommunityId = $state(
     options.initialCommunityId ?? initialScopes[0]?.id ?? "",
   );
@@ -101,6 +111,19 @@ export function createCommunityController(
   let sidePanel = $state<"thread" | "details" | "none">("none");
   let searchQuery = $state("");
   let searchResults = $state<CommunitySearchResult[]>([]);
+  let memberDirectory = $state<CommunityControllerState["memberDirectory"]>({
+    query: "",
+    results: [],
+    completeness: "unavailable",
+  });
+  let replyTarget = $state<CommunityReplyTarget | undefined>();
+  let navigation = $state<CommunityControllerState["navigation"]>({
+    starredRoomIds: [],
+    mutedRoomIds: [],
+    hiddenRoomIds: [],
+    forcedUnreadRoomIds: [],
+    sections: [],
+  });
 
   const workspace = $derived.by(
     (): CommunityWorkspaceModel =>
@@ -158,6 +181,10 @@ export function createCommunityController(
       operations,
       searchResults,
       searchQuery,
+      authentication,
+      memberDirectory,
+      navigation,
+      ...(replyTarget === undefined ? {} : { replyTarget }),
       ...(error === "" ? {} : { error }),
     }),
   );
@@ -190,9 +217,11 @@ export function createCommunityController(
         scopes = configuredScopes;
         configurationLoaded = true;
       }
-      identityPubkey = options.identity
-        ? await options.identity.getPublicKey()
-        : "";
+      identityPubkey = identity ? await identity.getPublicKey() : "";
+      authentication =
+        identityPubkey === ""
+          ? { status: "anonymous" }
+          : { status: "connected", pubkey: identityPubkey };
       if (options.stateStore !== undefined && identityPubkey !== "") {
         for (const scope of scopes) {
           const stored = await options.stateStore.load(stateScope(scope));
@@ -203,7 +232,7 @@ export function createCommunityController(
         signal.throwIfAborted();
         const session = await options.source.open(
           scope,
-          options.identity === undefined ? {} : { identity: options.identity },
+          identity === undefined ? {} : { identity },
           signal,
         );
         if (generation !== currentGeneration) {
@@ -327,6 +356,7 @@ export function createCommunityController(
       sidePanel = "none";
       searchQuery = "";
       searchResults = [];
+      replyTarget = undefined;
       void persistSelection(scope.id);
     },
     selectRoom(roomId) {
@@ -338,6 +368,7 @@ export function createCommunityController(
       activeTopicId = undefined;
       activeThreadId = undefined;
       sidePanel = "none";
+      replyTarget = undefined;
       void persistSelection(activeCommunityId);
     },
     openTopic(topicId) {
@@ -352,6 +383,7 @@ export function createCommunityController(
     closeSidePanel() {
       activeThreadId = undefined;
       sidePanel = "none";
+      replyTarget = undefined;
     },
     openDetails() {
       activeThreadId = undefined;
@@ -371,6 +403,7 @@ export function createCommunityController(
       activeTopicId = undefined;
       activeThreadId = undefined;
       sidePanel = "none";
+      replyTarget = undefined;
     },
     async sendMessage(roomId, content) {
       const room = roomById(roomId);
@@ -383,6 +416,15 @@ export function createCommunityController(
       });
     },
     async sendReply(rootMessageId, content) {
+      if (activeRoomModel()?.kind === "direct") {
+        if (content.trim() === "") return;
+        await actions.sendDirectMessage(
+          currentDirectRecipients(),
+          content.trim(),
+          rootMessageId,
+        );
+        return;
+      }
       const room = activeRoomScope();
       const parent = activeEvents().find((event) => event.id === rootMessageId);
       if (room === undefined || parent === undefined || content.trim() === "")
@@ -421,13 +463,33 @@ export function createCommunityController(
       }
       await publishTemplate(`reply:${rootMessageId}`, template);
     },
-    async createTopic(roomId, content) {
+    async createTopic(roomId, draft) {
       const room = roomById(roomId);
+      const content = typeof draft === "string" ? draft : draft.content;
       if (room?.kind !== "forum" || content.trim() === "") return;
-      await publishTemplate(
-        `topic:${roomId}`,
-        createNip29ForumThreadTemplate(room.groupId, content.trim(), now()),
+      const title =
+        typeof draft === "string"
+          ? content.trim().split(/\r?\n/u)[0]?.slice(0, 120) || "Discussion"
+          : draft.title.trim() || "Discussion";
+      const tags =
+        typeof draft === "string"
+          ? []
+          : [...new Set(draft.tags ?? [])]
+              .map((tag) => tag.trim())
+              .filter(Boolean);
+      const template = createNip29ForumThreadTemplate(
+        room.groupId,
+        content.trim(),
+        now(),
       );
+      await publishTemplate(`topic:${roomId}`, {
+        ...template,
+        tags: [
+          ...template.tags.filter((tag) => tag[0] !== "title"),
+          ["title", title],
+          ...tags.map((tag) => ["t", tag]),
+        ],
+      });
     },
     async sendDirectMessage(recipients, content, replyToEventId) {
       const peers = [...new Set(recipients)]
@@ -446,12 +508,57 @@ export function createCommunityController(
         content: content.trim(),
         ...(replyToEventId === undefined ? {} : { replyToEventId }),
       });
+      replyTarget = undefined;
     },
-    async toggleReaction(eventId, emoji) {
+    async toggleReaction(eventId, emoji, customEmoji) {
+      if (activeRoomModel()?.kind === "direct") {
+        const target = activePrivateEvents().find(
+          (event) => event.id === eventId && event.kind === 14,
+        );
+        if (target === undefined || emoji.trim() === "") return;
+        await ensureIdentity(`direct-reaction:${eventId}:${emoji}`);
+        const previous = activePrivateEvents().find(
+          (event) =>
+            event.kind === 7 &&
+            event.pubkey === identityPubkey &&
+            event.content === emoji &&
+            event.tags.some((tag) => tag[0] === "e" && tag[1] === eventId) &&
+            !privateEventDeleted(activePrivateEvents(), event.id),
+        );
+        await execute(`direct-reaction:${eventId}:${emoji}`, {
+          type: "direct-message",
+          recipients: currentDirectRecipients(),
+          content: previous === undefined ? emoji : "",
+          eventKind: previous === undefined ? 7 : 5,
+          targetEventId: previous?.id ?? target.id,
+          ...(previous === undefined && customEmoji !== undefined
+            ? { customEmoji }
+            : {}),
+        });
+        return;
+      }
       const target = activeEvents().find((event) => event.id === eventId);
       const room = activeRoomScope();
       if (target === undefined || room === undefined || emoji.trim() === "")
         return;
+      await ensureIdentity(`reaction:${eventId}:${emoji}`);
+      const previous = activeEvents().find(
+        (event) =>
+          event.kind === 7 &&
+          event.pubkey === identityPubkey &&
+          event.content === emoji &&
+          event.tags.some((tag) => tag[0] === "e" && tag[1] === eventId) &&
+          !eventDeleted(activeEvents(), event.id),
+      );
+      if (previous !== undefined) {
+        await execute(`reaction:${eventId}:${emoji}:remove`, {
+          type: "delete",
+          eventId: previous.id,
+          groupId: room.groupId,
+          mode: "owner",
+        });
+        return;
+      }
       await publishTemplate(`reaction:${eventId}:${emoji}`, {
         kind: 7,
         created_at: now(),
@@ -461,17 +568,113 @@ export function createCommunityController(
           ["e", target.id],
           ["p", target.pubkey],
           ["k", target.kind.toString()],
+          ...(customEmoji === undefined
+            ? []
+            : [["emoji", customEmoji.shortcode, customEmoji.url]]),
         ],
       });
     },
     async deleteEvent(eventId) {
+      if (activeRoomModel()?.kind === "direct") {
+        const target = activePrivateEvents().find(
+          (event) => event.id === eventId && event.kind === 14,
+        );
+        if (target === undefined || target.pubkey !== identityPubkey) {
+          throw new Error("Only your own direct messages can be deleted");
+        }
+        await execute(`direct-delete:${eventId}`, {
+          type: "direct-message",
+          recipients: currentDirectRecipients(),
+          content: "",
+          eventKind: 5,
+          targetEventId: eventId,
+        });
+        return;
+      }
       const room = activeRoomScope();
-      if (room === undefined) return;
+      const target = activeEvents().find((event) => event.id === eventId);
+      if (room === undefined || target === undefined) return;
+      await ensureIdentity(`delete:${eventId}`);
+      const owner = target.pubkey === identityPubkey;
+      if (
+        !owner &&
+        !isGroupAdmin(activeEvents(), room.groupId, identityPubkey)
+      ) {
+        throw new Error(
+          "The relay has not granted permission to delete this message",
+        );
+      }
       await execute(`delete:${eventId}`, {
         type: "delete",
         eventId,
         groupId: room.groupId,
+        mode: owner ? "owner" : "moderator",
       });
+    },
+    async createRoom(roomKind, update) {
+      validateRoomUpdate(update, capabilities);
+      const groupId = createGroupId();
+      await execute(`room:create:${groupId}`, {
+        type: "create-room",
+        groupId,
+        roomKind,
+        update,
+      });
+      scopes = scopes.map((scope) =>
+        scope.id === activeCommunityId
+          ? {
+              ...scope,
+              rooms: [
+                ...(scope.rooms ?? []),
+                {
+                  id: groupId,
+                  groupId,
+                  name: update.name.trim(),
+                  kind: roomKind,
+                  ...(update.description.trim() === ""
+                    ? {}
+                    : { description: update.description.trim() }),
+                  private: update.visibility === "private",
+                },
+              ],
+            }
+          : scope,
+      );
+      activeRoomId = groupId;
+      sidePanel = "none";
+    },
+    async updateRoom(groupId, update) {
+      validateRoomUpdate(update, capabilities);
+      await execute(`room:update:${groupId}`, {
+        type: "update-room",
+        groupId,
+        update,
+      });
+      sidePanel = "none";
+    },
+    async deleteRoom(groupId) {
+      const wasActive = activeRoomScope()?.groupId === groupId;
+      await execute(`room:delete:${groupId}`, {
+        type: "delete-room",
+        groupId,
+      });
+      scopes = scopes.map((scope) =>
+        scope.id === activeCommunityId
+          ? {
+              ...scope,
+              rooms: (scope.rooms ?? []).filter(
+                (room) => room.groupId !== groupId,
+              ),
+            }
+          : scope,
+      );
+      if (wasActive) {
+        const replacement = communityRooms(activeScope(), activeEvents()).find(
+          (room) => room.groupId !== groupId,
+        );
+        activeRoomId = replacement?.id ?? "";
+        sidePanel = "none";
+      }
     },
     async search(query) {
       searchQuery = query;
@@ -485,6 +688,77 @@ export function createCommunityController(
         const result = await session.search(query, controllerAbort?.signal);
         if (searchQuery === query) searchResults = [...result];
       });
+    },
+    async searchMembers(query) {
+      const normalized = query.trim().toLocaleLowerCase();
+      const loaded = workspace.members.filter((member) =>
+        `${member.name} ${member.handle} ${member.id}`
+          .toLocaleLowerCase()
+          .includes(normalized),
+      );
+      const directKey = parsePublicKey(query);
+      const directMember =
+        directKey === undefined
+          ? []
+          : [
+              {
+                id: directKey,
+                name: directKey.slice(0, 12),
+                handle: directKey.slice(0, 12),
+                initials: directKey.slice(0, 2).toUpperCase(),
+                presence: "offline" as const,
+              },
+            ];
+      memberDirectory = {
+        query,
+        results: distinctMembers([...loaded, ...directMember]),
+        completeness:
+          activeRoomModel()?.memberListCompleteness ?? "unavailable",
+      };
+      if (normalized === "") return;
+      const session = sessions.get(activeCommunityId);
+      if (session === undefined) return;
+      await runOperation("members:search", async () => {
+        const remote = await session.search(query, controllerAbort?.signal);
+        const remoteMembers = remote.map(({ event }) => memberFromEvent(event));
+        memberDirectory = {
+          query,
+          results: distinctMembers([
+            ...loaded,
+            ...directMember,
+            ...remoteMembers,
+          ]),
+          completeness:
+            activeRoomModel()?.memberListCompleteness ?? "unavailable",
+        };
+      });
+    },
+    setReplyTarget(eventId) {
+      const message =
+        workspace.messages.find((candidate) => candidate.id === eventId) ??
+        workspace.thread?.messages.find(
+          (candidate) => candidate.id === eventId,
+        );
+      const room = activeRoomModel();
+      if (message === undefined || room === undefined) return;
+      const author = workspace.members.find(
+        (member) => member.id === message.authorId,
+      );
+      replyTarget = {
+        eventId,
+        roomId: room.id,
+        authorId: message.authorId,
+        authorName: author?.name ?? message.authorId.slice(0, 12),
+        content: message.content,
+        kind: room.kind,
+      };
+      if (room.kind !== "direct") {
+        activeThreadId = rootMessageId(activeEvents(), message.id);
+        sidePanel = "thread";
+      }
+    },
+    clearReplyTarget() {
+      replyTarget = undefined;
     },
     async markRead(roomId) {
       const room = communityRooms(activeScope(), activeEvents()).find(
@@ -507,12 +781,94 @@ export function createCommunityController(
           eventId: latest.id,
           granularity: "room",
         };
+        stored.preferences.forcedUnreadRoomIds = preferenceValue(
+          navigation.forcedUnreadRoomIds.filter((id) => id !== roomId),
+        );
       });
+      navigation = {
+        ...navigation,
+        forcedUnreadRoomIds: navigation.forcedUnreadRoomIds.filter(
+          (id) => id !== roomId,
+        ),
+      };
+    },
+    async markUnread(roomId) {
+      await setNavigationList("forcedUnreadRoomIds", roomId, true);
     },
     async markAllRead() {
       for (const room of communityRooms(activeScope(), activeEvents())) {
         await actions.markRead(room.id);
       }
+    },
+    async setRoomStarred(roomId, starred) {
+      await setNavigationList("starredRoomIds", roomId, starred);
+    },
+    async setRoomMuted(roomId, muted) {
+      await setNavigationList("mutedRoomIds", roomId, muted);
+    },
+    async setRoomHidden(roomId, hidden) {
+      await setNavigationList("hiddenRoomIds", roomId, hidden);
+    },
+    async assignRoomToSection(roomId, sectionId) {
+      const sections = navigation.sections.map((section) => ({
+        ...section,
+        roomIds: section.roomIds.filter((id) => id !== roomId),
+      }));
+      const next =
+        sectionId === undefined
+          ? sections
+          : sections.map((section) =>
+              section.id === sectionId
+                ? { ...section, roomIds: [...section.roomIds, roomId] }
+                : section,
+            );
+      await persistNavigation({ ...navigation, sections: next });
+    },
+    async createNavigationSection(name) {
+      const normalized = name.trim();
+      if (normalized === "") throw new Error("Section name is required");
+      const id = `section-${createGroupId()}`;
+      await persistNavigation({
+        ...navigation,
+        sections: [
+          ...navigation.sections,
+          { id, name: normalized, roomIds: [] },
+        ],
+      });
+      return id;
+    },
+    async renameNavigationSection(sectionId, name) {
+      const normalized = name.trim();
+      if (normalized === "") throw new Error("Section name is required");
+      await persistNavigation({
+        ...navigation,
+        sections: navigation.sections.map((section) =>
+          section.id === sectionId ? { ...section, name: normalized } : section,
+        ),
+      });
+    },
+    async deleteNavigationSection(sectionId) {
+      await persistNavigation({
+        ...navigation,
+        sections: navigation.sections.filter(
+          (section) => section.id !== sectionId,
+        ),
+      });
+    },
+    async reorderNavigationSections(sectionIds) {
+      const byId = new Map(
+        navigation.sections.map((section) => [section.id, section]),
+      );
+      const ordered = sectionIds
+        .map((id) => byId.get(id))
+        .filter((section) => section !== undefined);
+      const missing = navigation.sections.filter(
+        (section) => !sectionIds.includes(section.id),
+      );
+      await persistNavigation({
+        ...navigation,
+        sections: [...ordered, ...missing],
+      });
     },
     async join(groupId) {
       await execute(`join:${groupId}`, { type: "join", groupId });
@@ -536,7 +892,7 @@ export function createCommunityController(
       });
     },
     async updateProfile(profile) {
-      requireIdentity();
+      await ensureIdentity("settings:profile");
       const previous = latestAuthoredEvent(0);
       const content = parseJsonObject(previous?.content);
       setProfileField(content, "display_name", profile.displayName);
@@ -550,8 +906,17 @@ export function createCommunityController(
         tags: [],
       });
     },
+    async updateStatus(userStatus) {
+      await ensureIdentity("settings:status");
+      await publishTemplate("settings:status", {
+        kind: 30_315,
+        created_at: nextAuthoredTimestamp(30_315),
+        content: userStatus.trim(),
+        tags: [["d", "general"]],
+      });
+    },
     async setCustomEmoji(shortcode, url) {
-      requireIdentity();
+      await ensureIdentity("settings:emoji");
       const normalized = normalizeShortcode(shortcode);
       const normalizedUrl = url.trim();
       if (normalized === "") throw new Error("Emoji shortcode is required");
@@ -561,7 +926,7 @@ export function createCommunityController(
       await publishEmojiSet(emojis, `settings:emoji:${normalized}`);
     },
     async removeCustomEmoji(shortcode) {
-      requireIdentity();
+      await ensureIdentity("settings:emoji:remove");
       const normalized = normalizeShortcode(shortcode);
       const emojis = ownedEmojiMap();
       if (!emojis.delete(normalized)) return;
@@ -583,6 +948,28 @@ export function createCommunityController(
         );
         if (communityId === activeCommunityId) await reconnect();
       });
+    },
+    async connectIdentity() {
+      if (identity !== undefined && identityPubkey !== "") return;
+      if (options.identityConnector === undefined) {
+        const message = "No NIP-07 identity connector is available";
+        authentication = { status: "error", error: message };
+        throw new Error(message);
+      }
+      authentication = { status: "connecting" };
+      try {
+        identity = await options.identityConnector.connect();
+        const pubkey = await identity.getPublicKey();
+        authentication = { status: "connected", pubkey };
+        await reconnect();
+      } catch (cause) {
+        const message =
+          cause instanceof Error ? cause.message : "Sign in failed";
+        identity = undefined;
+        identityPubkey = "";
+        authentication = { status: "error", error: message };
+        throw cause;
+      }
     },
   };
 
@@ -625,6 +1012,7 @@ export function createCommunityController(
     operation: string,
     command: CommunityCommand,
   ): Promise<void> {
+    await ensureIdentity(operation);
     const session = sessions.get(activeCommunityId);
     if (session === undefined) throw new Error("Community is not connected");
     await runOperation(operation, async () => {
@@ -711,6 +1099,12 @@ export function createCommunityController(
     );
   }
 
+  function activeRoomModel() {
+    return workspace.navigationSections
+      .flatMap((section) => section.rooms)
+      .find((room) => room.id === activeRoomId);
+  }
+
   function roomById(roomId: string) {
     return communityRooms(activeScope(), activeEvents()).find(
       (room) => room.id === roomId,
@@ -721,10 +1115,23 @@ export function createCommunityController(
     return eventsByScope[activeCommunityId] ?? [];
   }
 
-  function requireIdentity(): void {
-    if (identityPubkey === "") {
-      throw new Error("Connect a NIP-07 identity to change settings");
-    }
+  function activePrivateEvents(): readonly CommunityPrivateEvent[] {
+    return privateEventsByScope[activeCommunityId] ?? [];
+  }
+
+  function currentDirectRecipients(): string[] {
+    return [
+      ...new Set(
+        directParticipantsByRoom[activeRoomId] ??
+          workspace.members.map((member) => member.id),
+      ),
+    ].filter((pubkey) => pubkey !== identityPubkey);
+  }
+
+  async function ensureIdentity(operation: string): Promise<void> {
+    if (identity !== undefined && identityPubkey !== "") return;
+    retries.set(operation, async () => actions.connectIdentity());
+    await actions.connectIdentity();
   }
 
   function latestAuthoredEvent(kind: number): NostrEvent | undefined {
@@ -786,6 +1193,47 @@ export function createCommunityController(
     });
   }
 
+  function preferenceValue(value: unknown) {
+    return {
+      value: value as CommunityStoredState["preferences"][string]["value"],
+      updatedAt: now(),
+      clientId,
+    };
+  }
+
+  async function setNavigationList(
+    key:
+      | "starredRoomIds"
+      | "mutedRoomIds"
+      | "hiddenRoomIds"
+      | "forcedUnreadRoomIds",
+    roomId: string,
+    selected: boolean,
+  ): Promise<void> {
+    const values = new Set(navigation[key]);
+    if (selected) values.add(roomId);
+    else values.delete(roomId);
+    await persistNavigation({
+      ...navigation,
+      [key]: [...values].toSorted(),
+    });
+  }
+
+  async function persistNavigation(
+    next: CommunityControllerState["navigation"],
+  ): Promise<void> {
+    navigation = next;
+    await updateStoredState(activeCommunityId, (stored) => {
+      stored.preferences.starredRoomIds = preferenceValue(next.starredRoomIds);
+      stored.preferences.mutedRoomIds = preferenceValue(next.mutedRoomIds);
+      stored.preferences.hiddenRoomIds = preferenceValue(next.hiddenRoomIds);
+      stored.preferences.forcedUnreadRoomIds = preferenceValue(
+        next.forcedUnreadRoomIds,
+      );
+      stored.preferences.navigationSections = preferenceValue(next.sections);
+    });
+  }
+
   async function updateStoredState(
     scopeId: string,
     update: (state: CommunityStoredState) => void,
@@ -807,6 +1255,7 @@ export function createCommunityController(
     restoreSelection: boolean,
   ): void {
     storedStates.set(scope.id, stored);
+    navigation = navigationFromStoredState(stored);
     if (!restoreSelection || scope.id !== activeCommunityId) return;
     const selected = stored.preferences.activeRoomId?.value;
     if (
@@ -840,6 +1289,148 @@ export function createCommunityController(
     refresh,
     retry,
   };
+}
+
+function createGroupId(): string {
+  return (
+    globalThis.crypto?.randomUUID?.() ??
+    `community-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`
+  );
+}
+
+function validateRoomUpdate(
+  update: CommunityRoomUpdate,
+  capabilities: CommunityCapabilities,
+): void {
+  if (update.name.trim() === "") throw new Error("Room name is required");
+  if (
+    update.lifecycle === "temporary" &&
+    capabilities.configurableRetention !== true
+  ) {
+    throw new Error(
+      "This relay does not advertise configurable group retention",
+    );
+  }
+}
+
+function eventDeleted(events: readonly NostrEvent[], eventId: string): boolean {
+  return events.some(
+    (event) =>
+      (event.kind === 5 || event.kind === 9_005) &&
+      event.tags.some((tag) => tag[0] === "e" && tag[1] === eventId),
+  );
+}
+
+function privateEventDeleted(
+  events: readonly CommunityPrivateEvent[],
+  eventId: string,
+): boolean {
+  return events.some(
+    (event) =>
+      event.kind === 5 &&
+      event.tags.some((tag) => tag[0] === "e" && tag[1] === eventId),
+  );
+}
+
+function rootMessageId(events: readonly NostrEvent[], eventId: string): string {
+  const event = events.find((candidate) => candidate.id === eventId);
+  return (
+    event?.tags.find(
+      (tag) => (tag[0] === "e" && tag[3] === "root") || tag[0] === "E",
+    )?.[1] ?? eventId
+  );
+}
+
+function memberFromEvent(event: NostrEvent): CommunityMemberModel {
+  const content = parseJsonObject(event.kind === 0 ? event.content : undefined);
+  const name =
+    (typeof content.display_name === "string" && content.display_name.trim()) ||
+    (typeof content.name === "string" && content.name.trim()) ||
+    event.pubkey.slice(0, 12);
+  const picture =
+    typeof content.picture === "string" && content.picture.trim() !== ""
+      ? content.picture.trim()
+      : undefined;
+  return {
+    id: event.pubkey,
+    name,
+    handle: event.pubkey.slice(0, 12),
+    initials: name.slice(0, 2).toUpperCase(),
+    ...(picture === undefined ? {} : { avatarUrl: picture }),
+    presence: "offline",
+  };
+}
+
+function distinctMembers(
+  members: readonly CommunityMemberModel[],
+): CommunityMemberModel[] {
+  return [
+    ...new Map(members.map((member) => [member.id, member])).values(),
+  ].toSorted((left, right) => left.name.localeCompare(right.name));
+}
+
+function parsePublicKey(value: string): string | undefined {
+  const normalized = value.trim();
+  if (/^[0-9a-f]{64}$/iu.test(normalized)) return normalized.toLowerCase();
+  if (!normalized.startsWith("npub1")) return undefined;
+  try {
+    const decoded = nip19.decode(normalized);
+    return decoded.type === "npub" && typeof decoded.data === "string"
+      ? decoded.data
+      : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function navigationFromStoredState(
+  stored: CommunityStoredState,
+): CommunityControllerState["navigation"] {
+  return {
+    starredRoomIds: stringArrayPreference(stored, "starredRoomIds"),
+    mutedRoomIds: stringArrayPreference(stored, "mutedRoomIds"),
+    hiddenRoomIds: stringArrayPreference(stored, "hiddenRoomIds"),
+    forcedUnreadRoomIds: stringArrayPreference(stored, "forcedUnreadRoomIds"),
+    sections: sectionPreference(stored),
+  };
+}
+
+function stringArrayPreference(
+  stored: CommunityStoredState,
+  key: string,
+): string[] {
+  const value = stored.preferences[key]?.value;
+  return Array.isArray(value)
+    ? value.filter((entry): entry is string => typeof entry === "string")
+    : [];
+}
+
+function sectionPreference(
+  stored: CommunityStoredState,
+): CommunityControllerState["navigation"]["sections"] {
+  const value = stored.preferences.navigationSections?.value;
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((entry) => {
+    if (
+      entry === null ||
+      Array.isArray(entry) ||
+      typeof entry !== "object" ||
+      typeof entry.id !== "string" ||
+      typeof entry.name !== "string" ||
+      !Array.isArray(entry.roomIds)
+    ) {
+      return [];
+    }
+    return [
+      {
+        id: entry.id,
+        name: entry.name,
+        roomIds: entry.roomIds.filter(
+          (roomId): roomId is string => typeof roomId === "string",
+        ),
+      },
+    ];
+  });
 }
 
 function normalizeRelayUrl(value: string): string {

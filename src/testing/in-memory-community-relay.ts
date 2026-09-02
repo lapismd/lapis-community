@@ -129,6 +129,11 @@ export class InMemoryCommunityRelay implements CommunityRelay {
     for (const event of events) this.inject(event);
   }
 
+  /** Reopens the shared in-memory endpoint for a new factory connection. */
+  reopen(): void {
+    this.#closed = false;
+  }
+
   inject(
     event: NostrEvent,
     options: { verify?: boolean; notify?: boolean } = {},
@@ -353,7 +358,10 @@ export function createInMemoryRelayFactory(
   return {
     create(url) {
       const current = relays.get(url);
-      if (current !== undefined) return current;
+      if (current !== undefined) {
+        current.reopen();
+        return current;
+      }
       const specific = options.relayOptions?.(url) ?? {};
       const relay = new InMemoryCommunityRelay({
         ...options,

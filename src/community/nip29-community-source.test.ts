@@ -185,4 +185,97 @@ describe("createNip29CommunitySource", () => {
     ).toHaveLength(0);
     session.close();
   });
+
+  it("routes NIP-17 gift wraps to each participant's advertised inbox relay", async () => {
+    const scenario = createCommunityTestScenario({
+      relayUrl: "memory://authority.test",
+    });
+    const relayFactory = createInMemoryRelayFactory({
+      policy: new Nip29MemoryPolicy({
+        relaySecretKey: relayKey,
+        now: () => 1_700_000_000,
+      }),
+    });
+    const authority = relayFactory.relay(scenario.scope.relayUrl);
+    await scenario.seed(authority);
+    const senderPubkey = await scenario.operator.getPublicKey();
+    const recipientPubkey = await scenario.member.getPublicKey();
+    const senderInbox = "memory://sender-inbox.test";
+    const recipientInbox = "memory://recipient-inbox.test";
+    await authority.publish(
+      await scenario.operator.signEvent({
+        kind: 10_050,
+        created_at: 1_700_000_050,
+        content: "",
+        tags: [["relay", senderInbox]],
+      }),
+    );
+    await authority.publish(
+      await scenario.member.signEvent({
+        kind: 10_050,
+        created_at: 1_700_000_050,
+        content: "",
+        tags: [["relay", recipientInbox]],
+      }),
+    );
+    const session = await createNip29CommunitySource({ relayFactory }).open(
+      scenario.scope,
+      { identity: scenario.operator },
+    );
+
+    await session.execute({
+      type: "direct-message",
+      recipients: [recipientPubkey],
+      content: "private route",
+    });
+
+    expect(
+      await relayFactory.relay(senderInbox).count({
+        kinds: [1_059],
+        "#p": [senderPubkey],
+      }),
+    ).toBe(1);
+    expect(
+      await relayFactory.relay(recipientInbox).count({
+        kinds: [1_059],
+        "#p": [recipientPubkey],
+      }),
+    ).toBe(1);
+    expect(await authority.count({ kinds: [1_059] })).toBe(0);
+    session.close();
+  });
+
+  it("rejects a direct-message recipient without a kind 10050 inbox", async () => {
+    const scenario = createCommunityTestScenario();
+    const relayFactory = createInMemoryRelayFactory({
+      policy: new Nip29MemoryPolicy({
+        relaySecretKey: relayKey,
+        now: () => 1_700_000_000,
+      }),
+    });
+    const relay = relayFactory.relay(scenario.scope.relayUrl);
+    await scenario.seed(relay);
+    const recipientPubkey = await scenario.member.getPublicKey();
+    await relay.publish(
+      await scenario.member.signEvent({
+        kind: 10_050,
+        created_at: 1_700_000_050,
+        content: "",
+        tags: [],
+      }),
+    );
+    const session = await createNip29CommunitySource({ relayFactory }).open(
+      scenario.scope,
+      { identity: scenario.operator },
+    );
+
+    await expect(
+      session.execute({
+        type: "direct-message",
+        recipients: [recipientPubkey],
+        content: "cannot route",
+      }),
+    ).rejects.toThrow("not advertised a NIP-17 inbox relay");
+    session.close();
+  });
 });

@@ -2,6 +2,24 @@ export type CommunityRoomKind = "channel" | "forum" | "direct";
 export type CommunityPresence = "online" | "away" | "offline";
 export type CommunityMainView = "channel" | "forum-index" | "forum-thread";
 export type CommunitySidePanel = "thread" | "details" | "none";
+export type CommunityActionAvailabilityState =
+  | "enabled"
+  | "requires-authentication"
+  | "denied"
+  | "unsupported";
+
+export interface CommunityActionAvailability {
+  state: CommunityActionAvailabilityState;
+  reason?: string;
+}
+
+export interface CommunityRoomActionPermissions {
+  join: CommunityActionAvailability;
+  leave: CommunityActionAvailability;
+  update: CommunityActionAvailability;
+  delete: CommunityActionAvailability;
+  manageMembers: CommunityActionAvailability;
+}
 
 export interface CommunityModel {
   id: string;
@@ -20,6 +38,11 @@ export interface CommunityRoomModel {
   mentionCount?: number;
   memberCount?: number;
   private?: boolean;
+  membership?: "joined" | "not-joined" | "unknown";
+  memberListCompleteness?: "complete" | "partial" | "unavailable";
+  lifecycle?: "ongoing" | "temporary";
+  expiresAt?: string;
+  permissions?: CommunityRoomActionPermissions;
 }
 
 export interface CommunityWorkspaceNavigationSectionModel {
@@ -43,6 +66,7 @@ export interface CommunityReactionModel {
   count: number;
   selected?: boolean;
   label?: string;
+  customEmojiUrl?: string;
 }
 
 export interface CommunityMessageModel {

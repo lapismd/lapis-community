@@ -4,9 +4,13 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { CommunityCapabilities } from "./contracts.js";
 import { createCommunityController } from "./community-controller.svelte.js";
 import {
+  Nip29MemoryPolicy,
+  createCommunityTestScenario,
   createCommunityTestRuntime,
+  createInMemoryRelayFactory,
   type CommunityTestRuntime,
 } from "../testing/index.js";
+import { createNip29CommunitySource } from "./nip29-community-source.js";
 
 let runtime: CommunityTestRuntime | undefined;
 
@@ -127,7 +131,14 @@ describe("createCommunityController", () => {
       controller.state.workspace.messages.find(
         (message) => message.id === published.id,
       )?.reactions?.[0],
-    ).toMatchObject({ emoji: "👍", count: 1 });
+    ).toMatchObject({ emoji: "👍", count: 1, selected: true });
+
+    await controller.actions.toggleReaction(published.id, "👍");
+    expect(
+      controller.state.workspace.messages.find(
+        (message) => message.id === published.id,
+      )?.reactions,
+    ).toBeUndefined();
 
     const live = finalizeEvent(
       {
@@ -183,5 +194,115 @@ describe("createCommunityController", () => {
       { content: "Encrypted hello" },
     ]);
     expect(await runtime.relay.count({ kinds: [1_059] })).toBe(2);
+  });
+
+  it("encrypts direct-message reactions and deletion toggles", async () => {
+    runtime = await createCommunityTestRuntime();
+    await connected(runtime);
+    const memberPubkey = await runtime.scenario.member.getPublicKey();
+    await runtime.controller.actions.sendDirectMessage(
+      [memberPubkey],
+      "React privately",
+    );
+    const messageId = runtime.controller.state.workspace.messages[0]!.id;
+
+    await runtime.controller.actions.toggleReaction(messageId, "👍");
+    expect(runtime.controller.state.workspace.messages[0]?.reactions).toEqual([
+      expect.objectContaining({ emoji: "👍", count: 1, selected: true }),
+    ]);
+
+    await runtime.controller.actions.toggleReaction(messageId, "👍");
+    expect(
+      runtime.controller.state.workspace.messages[0]?.reactions,
+    ).toBeUndefined();
+    expect(await runtime.relay.count({ kinds: [1_059] })).toBe(6);
+  });
+
+  it("connects a NIP-07-style identity and retries a protected action once", async () => {
+    const scenario = createCommunityTestScenario();
+    const relayFactory = createInMemoryRelayFactory({
+      policy: new Nip29MemoryPolicy({
+        relaySecretKey: new Uint8Array(32).fill(24),
+        now: () => 1_700_000_000,
+      }),
+    });
+    await scenario.seed(relayFactory.relay(scenario.scope.relayUrl));
+    const connect = vi.fn(async () => scenario.operator);
+    const controller = createCommunityController({
+      scopes: [scenario.scope],
+      source: createNip29CommunitySource({ relayFactory }),
+      identityConnector: { connect },
+      now: () => 1_700_000_100,
+    });
+    controller.initialize();
+    await vi.waitFor(() => expect(controller.state.status).toBe("connected"));
+
+    await controller.actions.sendMessage("general", "Signed after prompt");
+
+    expect(connect).toHaveBeenCalledTimes(1);
+    expect(controller.state.authentication.status).toBe("connected");
+    expect(controller.state.workspace.messages.at(-1)?.content).toBe(
+      "Signed after prompt",
+    );
+    controller.dispose();
+    relayFactory.reset();
+  });
+
+  it("creates, updates, and deletes rooms through NIP-29 commands", async () => {
+    runtime = await createCommunityTestRuntime();
+    await connected(runtime);
+
+    await runtime.controller.actions.createRoom("forum", {
+      name: "Design help",
+      description: "Discuss interface patterns",
+      visibility: "public",
+      lifecycle: "ongoing",
+    });
+    const groupId = runtime.controller.state.workspace.activeRoomId;
+    expect(
+      runtime.controller.state.workspace.navigationSections
+        .find((section) => section.id === "forums")
+        ?.rooms.find((room) => room.id === groupId),
+    ).toMatchObject({ name: "Design help", kind: "forum" });
+    expect(
+      (await runtime.relay.query({ kinds: [9_007], "#h": [groupId] }))[0]?.tags,
+    ).toContainEqual(["supported_kinds", "11", "1111", "7"]);
+
+    await runtime.controller.actions.updateRoom(groupId, {
+      name: "Design systems",
+      description: "Discuss interface systems",
+      visibility: "private",
+      lifecycle: "ongoing",
+    });
+    expect(
+      (await runtime.relay.query({ kinds: [9_002], "#h": [groupId] }))[0]?.tags,
+    ).toContainEqual(["private"]);
+
+    await runtime.controller.actions.deleteRoom(groupId);
+    expect(await runtime.relay.count({ kinds: [9_008], "#h": [groupId] })).toBe(
+      1,
+    );
+    expect(runtime.controller.state.workspace.activeRoomId).not.toBe(groupId);
+  });
+
+  it("adds NIP-30 tags to custom reactions", async () => {
+    runtime = await createCommunityTestRuntime();
+    await connected(runtime);
+    const target = runtime.controller.state.workspace.messages[0]!;
+
+    await runtime.controller.actions.toggleReaction(target.id, "lapis", {
+      shortcode: "lapis",
+      url: "https://example.test/lapis.png",
+    });
+
+    const [reaction] = await runtime.relay.query({
+      kinds: [7],
+      "#e": [target.id],
+    });
+    expect(reaction?.tags).toContainEqual([
+      "emoji",
+      "lapis",
+      "https://example.test/lapis.png",
+    ]);
   });
 });

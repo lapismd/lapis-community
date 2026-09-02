@@ -50,6 +50,7 @@ class Nip29CommunitySession implements CommunitySession {
   readonly #subscriptions = new Set<CommunityRelaySubscription>();
   readonly #listeners = new Set<(events: readonly NostrEvent[]) => void>();
   readonly #authenticated = new WeakSet<CommunityRelay>();
+  readonly #deliveryRelays = new Map<string, CommunityRelay>();
   #closed = false;
   #baseSubscriptionsStarted = false;
   #knownGroupIds = new Set<string>();
@@ -88,7 +89,12 @@ class Nip29CommunitySession implements CommunitySession {
         )
       : [];
     const rooms = communityRooms(this.#scope, discoveredMetadata);
-    const groupIds = rooms.map((room) => room.groupId);
+    const groupIds = [
+      ...new Set([
+        ...rooms.map((room) => room.groupId),
+        ...this.#knownGroupIds,
+      ]),
+    ];
     for (const groupId of groupIds) this.#knownGroupIds.add(groupId);
     if (groupIds.length === 0) {
       return {
@@ -141,7 +147,16 @@ class Nip29CommunitySession implements CommunitySession {
             signal,
           );
     await this.#subscribeToProfiles(authors, signal);
-    const privateEvents = await this.#loadPrivateEvents(signal);
+    const relayPreferences = await this.#relayPreferences(
+      identityPubkey === undefined ? [] : [identityPubkey],
+      signal,
+    );
+    const inboxUrls =
+      identityPubkey === undefined
+        ? []
+        : (relayPreferences.urls.get(identityPubkey) ?? []);
+    await this.#subscribeToInbox(inboxUrls, identityPubkey, signal);
+    const privateEvents = await this.#loadPrivateEvents(inboxUrls, signal);
     await this.#subscribeToTargets(targets, signal);
     return {
       events: distinctEvents([
@@ -150,6 +165,7 @@ class Nip29CommunitySession implements CommunitySession {
         ...state,
         ...referenced,
         ...profiles,
+        ...relayPreferences.events,
       ]),
       ...(privateEvents.length === 0 ? {} : { privateEvents }),
       capabilities: this.#capabilities(),
@@ -228,6 +244,17 @@ class Nip29CommunitySession implements CommunitySession {
       throw new Error("A community identity is required");
     await this.#authenticate(this.#authority, signal);
     if (command.type === "direct-message") {
+      const sender = await identity.getPublicKey();
+      const deliveries = [...new Set([...command.recipients, sender])];
+      const relayPreferences = await this.#relayPreferences(deliveries, signal);
+      const missing = command.recipients.filter(
+        (pubkey) => (relayPreferences.urls.get(pubkey)?.length ?? 0) === 0,
+      );
+      if (missing.length > 0) {
+        throw new Error(
+          `${missing.length === 1 ? "Recipient has" : "Recipients have"} not advertised a NIP-17 inbox relay`,
+        );
+      }
       const wraps = await createNip17GiftWraps({
         identity,
         recipients: command.recipients,
@@ -236,13 +263,29 @@ class Nip29CommunitySession implements CommunitySession {
         ...(command.replyToEventId === undefined
           ? {}
           : { replyToEventId: command.replyToEventId }),
+        ...(command.eventKind === undefined
+          ? {}
+          : { eventKind: command.eventKind }),
+        ...(command.targetEventId === undefined
+          ? {}
+          : { targetEventId: command.targetEventId }),
+        ...(command.customEmoji === undefined
+          ? {}
+          : { customEmoji: command.customEmoji }),
       });
       for (const wrap of wraps) {
-        const result = await this.#authority.publish(wrap, signal);
-        if (!result.accepted) {
-          throw new Error(
-            result.message || "Relay rejected the direct message",
-          );
+        const recipient = wrap.tags.find((tag) => tag[0] === "p")?.[1];
+        if (recipient === undefined) continue;
+        const urls = relayPreferences.urls.get(recipient) ?? [
+          this.#scope.relayUrl,
+        ];
+        for (const url of urls) {
+          const result = await this.#deliveryRelay(url).publish(wrap, signal);
+          if (!result.accepted) {
+            throw new Error(
+              result.message || "Relay rejected the direct message",
+            );
+          }
         }
       }
       this.#emit(wraps);
@@ -262,6 +305,13 @@ class Nip29CommunitySession implements CommunitySession {
       }
       events.push(event);
     }
+    if (command.type === "create-room" || command.type === "update-room") {
+      this.#knownGroupIds.add(command.groupId);
+      await this.#subscribeToRooms([command.groupId], signal);
+    }
+    if (command.type === "delete-room") {
+      this.#knownGroupIds.delete(command.groupId);
+    }
     this.#emit(events);
     return events;
   }
@@ -275,16 +325,28 @@ class Nip29CommunitySession implements CommunitySession {
     if (normalized === "") return [];
     const groupIds = [...this.#knownGroupIds];
     if (groupIds.length === 0) return [];
-    const events = await this.#queryUnion(
-      this.#relays,
-      {
-        kinds: [9, 11, 1_111],
-        "#h": groupIds,
-        search: query,
-        limit: this.#options.searchLimit ?? 100,
-      },
-      signal,
-    );
+    const [content, profiles] = await Promise.all([
+      this.#queryUnion(
+        this.#relays,
+        {
+          kinds: [9, 11, 1_111],
+          "#h": groupIds,
+          search: query,
+          limit: this.#options.searchLimit ?? 100,
+        },
+        signal,
+      ),
+      this.#queryUnion(
+        this.#relays,
+        {
+          kinds: [0],
+          search: query,
+          limit: this.#options.searchLimit ?? 100,
+        },
+        signal,
+      ),
+    ]);
+    const events = distinctEvents([...content, ...profiles]);
     return events
       .filter((event) => event.content.toLocaleLowerCase().includes(normalized))
       .map((event) => ({ event, relayUrl: this.#scope.relayUrl }));
@@ -299,6 +361,8 @@ class Nip29CommunitySession implements CommunitySession {
     this.#knownGroupIds.clear();
     this.#listeners.clear();
     for (const relay of this.#relays) relay.close();
+    for (const relay of this.#deliveryRelays.values()) relay.close();
+    this.#deliveryRelays.clear();
   }
 
   async #queryUnion(
@@ -429,13 +493,15 @@ class Nip29CommunitySession implements CommunitySession {
   }
 
   async #loadPrivateEvents(
+    relayUrls: readonly string[],
     signal?: AbortSignal,
   ): Promise<CommunityPrivateEvent[]> {
     const identity = this.#context.identity;
     if (identity?.nip44 === undefined) return [];
     const pubkey = await identity.getPublicKey();
+    const inboxRelays = relayUrls.map((url) => this.#deliveryRelay(url));
     const wraps = await this.#queryUnion(
-      this.#relays,
+      inboxRelays.length === 0 ? this.#relays : inboxRelays,
       { kinds: [1_059], "#p": [pubkey], limit: 500 },
       signal,
     );
@@ -455,6 +521,74 @@ class Nip29CommunitySession implements CommunitySession {
       (left, right) =>
         left.created_at - right.created_at || left.id.localeCompare(right.id),
     );
+  }
+
+  async #relayPreferences(
+    pubkeys: readonly string[],
+    signal?: AbortSignal,
+  ): Promise<{ events: NostrEvent[]; urls: Map<string, string[]> }> {
+    if (pubkeys.length === 0) return { events: [], urls: new Map() };
+    const events = await this.#queryUnion(
+      this.#relays,
+      { kinds: [10_050], authors: [...new Set(pubkeys)], limit: 500 },
+      signal,
+    );
+    const latest = new Map<string, NostrEvent>();
+    for (const event of events) {
+      const current = latest.get(event.pubkey);
+      if (
+        current === undefined ||
+        event.created_at > current.created_at ||
+        (event.created_at === current.created_at && event.id > current.id)
+      ) {
+        latest.set(event.pubkey, event);
+      }
+    }
+    const urls = new Map<string, string[]>();
+    for (const [pubkey, event] of latest) {
+      const values = event.tags
+        .filter((tag) => tag[0] === "relay" && tag[1] !== undefined)
+        .map((tag) => tag[1]!)
+        .flatMap((url) => {
+          try {
+            return [normalizeRelayUrl(url)];
+          } catch {
+            return [];
+          }
+        });
+      if (values.length > 0) urls.set(pubkey, [...new Set(values)]);
+    }
+    return { events, urls };
+  }
+
+  async #subscribeToInbox(
+    relayUrls: readonly string[],
+    pubkey: string | undefined,
+    signal?: AbortSignal,
+  ): Promise<void> {
+    if (pubkey === undefined || this.#listeners.size === 0) return;
+    for (const url of relayUrls) {
+      const key = `inbox:${url}:${pubkey}`;
+      if (this.#targetSubscriptionKeys.has(key)) continue;
+      this.#targetSubscriptionKeys.add(key);
+      const subscription = await this.#deliveryRelay(url).subscribe(
+        { kinds: [1_059], "#p": [pubkey] },
+        { onevent: (event) => this.#emit([event]) },
+        signal,
+      );
+      this.#subscriptions.add(subscription);
+    }
+  }
+
+  #deliveryRelay(url: string): CommunityRelay {
+    const normalized = normalizeRelayUrl(url);
+    const configured = this.#relays.find((relay) => relay.url === normalized);
+    if (configured !== undefined) return configured;
+    const current = this.#deliveryRelays.get(normalized);
+    if (current !== undefined) return current;
+    const relay = this.#options.relayFactory.create(normalized);
+    this.#deliveryRelays.set(normalized, relay);
+    return relay;
   }
 
   #emit(events: readonly NostrEvent[]): void {
@@ -489,10 +623,48 @@ function commandTemplates(
 ): readonly NostrEventTemplate[] {
   if (command.type === "direct-message") return [];
   if (command.type === "publish") return [command.template];
+  if (command.type === "create-room" || command.type === "update-room") {
+    return [
+      {
+        kind: command.type === "create-room" ? 9_007 : 9_002,
+        created_at: createdAt,
+        content: JSON.stringify({
+          name: command.update.name.trim(),
+          about: command.update.description.trim(),
+        }),
+        tags: [
+          ["h", command.groupId],
+          ["name", command.update.name.trim()],
+          ["about", command.update.description.trim()],
+          ...(command.type === "create-room"
+            ? [
+                [
+                  "supported_kinds",
+                  ...(command.roomKind === "forum"
+                    ? ["11", "1111", "7"]
+                    : ["9", "7"]),
+                ],
+              ]
+            : []),
+          ...(command.update.visibility === "private" ? [["private"]] : []),
+        ],
+      },
+    ];
+  }
+  if (command.type === "delete-room") {
+    return [
+      {
+        kind: 9_008,
+        created_at: createdAt,
+        content: "",
+        tags: [["h", command.groupId]],
+      },
+    ];
+  }
   if (command.type === "delete") {
     return [
       {
-        kind: 5,
+        kind: command.mode === "moderator" ? 9_005 : 5,
         created_at: createdAt,
         content: "",
         tags: [

@@ -18,6 +18,9 @@ export interface CreateNip17GiftWrapsOptions {
   createdAt: number;
   conversationTitle?: string;
   replyToEventId?: string;
+  eventKind?: 5 | 7 | 14;
+  targetEventId?: string;
+  customEmoji?: { shortcode: string; url: string };
   randomOffsetSeconds?: () => number;
 }
 
@@ -25,7 +28,7 @@ interface Nip17Rumor {
   id: string;
   pubkey: string;
   created_at: number;
-  kind: 14;
+  kind: 5 | 7 | 14;
   tags: NostrTag[];
   content: string;
 }
@@ -51,10 +54,20 @@ export async function createNip17GiftWraps(
   if (options.replyToEventId !== undefined) {
     tags.push(["e", options.replyToEventId]);
   }
+  if (options.targetEventId !== undefined) {
+    tags.push(["e", options.targetEventId]);
+  }
+  if (options.customEmoji !== undefined) {
+    tags.push([
+      "emoji",
+      options.customEmoji.shortcode,
+      options.customEmoji.url,
+    ]);
+  }
   const rumorBase = {
     pubkey: sender,
     created_at: options.createdAt,
-    kind: 14 as const,
+    kind: options.eventKind ?? 14,
     tags,
     content: options.content,
   };
@@ -124,7 +137,7 @@ export async function unwrapNip17GiftWrap(
     id: rumor.id,
     pubkey: rumor.pubkey,
     created_at: rumor.created_at,
-    kind: 14,
+    kind: rumor.kind,
     tags: rumor.tags,
     content: rumor.content,
     wrapId: wrap.id,
@@ -144,7 +157,7 @@ function parseRumor(value: string): Nip17Rumor {
   const parsed = JSON.parse(value) as unknown;
   if (
     !isEventShape(parsed) ||
-    parsed.kind !== 14 ||
+    ![5, 7, 14].includes(parsed.kind) ||
     typeof parsed.id !== "string" ||
     getEventHash({
       pubkey: parsed.pubkey,

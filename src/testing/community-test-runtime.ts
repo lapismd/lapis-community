@@ -1,6 +1,7 @@
-import { Nip07RegistrySigner, SecretKeyRegistrySigner } from "../auth/index.js";
+import { SecretKeyRegistrySigner } from "../auth/index.js";
 import {
   createCommunityController,
+  createNip07CommunityIdentityConnector,
   createNip29CommunitySource,
   type CommunityConfigurationStore,
   type CommunityController,
@@ -136,6 +137,12 @@ export function createCommunityTestScenario(
       ],
     },
     {
+      kind: 10_050,
+      created_at: createdAt + 2,
+      content: "",
+      tags: [["relay", relayUrl]],
+    },
+    {
       kind: 9,
       created_at: createdAt + 3,
       content: "Welcome to Lapis Community",
@@ -173,6 +180,15 @@ export function createCommunityTestScenario(
           ["h", generalGroupId],
           ["p", operatorPubkey],
         ],
+      },
+      memberKey,
+    ),
+    finalizeEvent(
+      {
+        kind: 10_050,
+        created_at: createdAt + 2,
+        content: "",
+        tags: [["relay", relayUrl]],
       },
       memberKey,
     ),
@@ -356,12 +372,12 @@ export async function createCommunityStoryRuntime(
           ],
         }
       : scenario.scope;
-  const identity =
-    backend === "live" ? discoverNip07Identity() : scenario.operator;
   const controller = createCommunityController({
     scopes: [liveScope],
     source: createNip29CommunitySource({ relayFactory }),
-    ...(identity === undefined ? {} : { identity }),
+    ...(backend === "live"
+      ? { identityConnector: createNip07CommunityIdentityConnector() }
+      : { identity: scenario.operator }),
     ...(options.configurationStore === undefined
       ? {}
       : { configurationStore: options.configurationStore }),
@@ -414,14 +430,6 @@ function storybookConfiguration(): {
         }
       : {}),
   };
-}
-
-function discoverNip07Identity(): Nip07RegistrySigner | undefined {
-  try {
-    return new Nip07RegistrySigner();
-  } catch {
-    return undefined;
-  }
 }
 
 function publicKey(secretKey: Uint8Array): string {

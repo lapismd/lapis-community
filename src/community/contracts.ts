@@ -1,6 +1,9 @@
 import type { CommunitySigner } from "../auth/index.js";
 import type {
+  CommunityActionAvailability,
   CommunityInboxModel,
+  CommunityMemberModel,
+  CommunityRoomKind,
   CommunityWorkspaceHandlers,
   CommunityWorkspaceModel,
 } from "../components/index.js";
@@ -43,6 +46,46 @@ export interface CommunityCapabilities {
   deleteEvents: boolean;
   archive: boolean;
   editMessages: boolean;
+  configurableRetention?: boolean;
+}
+
+export interface CommunityIdentityConnector {
+  connect(): Promise<CommunityIdentity>;
+}
+
+export interface CommunityAuthenticationState {
+  status: "anonymous" | "connecting" | "connected" | "error";
+  pubkey?: string;
+  error?: string;
+}
+
+export interface CommunityMemberDirectoryState {
+  query: string;
+  results: readonly CommunityMemberModel[];
+  completeness: "complete" | "partial" | "unavailable";
+}
+
+export interface CommunityReplyTarget {
+  eventId: string;
+  roomId: string;
+  authorId: string;
+  authorName: string;
+  content: string;
+  kind: CommunityRoomKind;
+}
+
+export interface CommunityNavigationSectionPreference {
+  id: string;
+  name: string;
+  roomIds: readonly string[];
+}
+
+export interface CommunityNavigationPreferences {
+  starredRoomIds: readonly string[];
+  mutedRoomIds: readonly string[];
+  hiddenRoomIds: readonly string[];
+  forcedUnreadRoomIds: readonly string[];
+  sections: readonly CommunityNavigationSectionPreference[];
 }
 
 export interface CommunityOperationState {
@@ -60,6 +103,10 @@ export interface CommunityControllerState {
   operations: Readonly<Record<string, CommunityOperationState>>;
   searchResults: readonly CommunitySearchResult[];
   searchQuery: string;
+  authentication: CommunityAuthenticationState;
+  memberDirectory: CommunityMemberDirectoryState;
+  navigation: CommunityNavigationPreferences;
+  replyTarget?: CommunityReplyTarget;
   error?: string;
 }
 
@@ -97,6 +144,24 @@ export interface CommunityProfileUpdate {
   picture: string;
 }
 
+export interface CommunityRoomUpdate {
+  name: string;
+  description: string;
+  visibility: "public" | "private";
+  lifecycle: "ongoing" | "temporary";
+}
+
+export interface CommunityTopicDraft {
+  title: string;
+  content: string;
+  tags?: readonly string[];
+}
+
+export interface CommunityCustomEmojiReference {
+  shortcode: string;
+  url: string;
+}
+
 export type CommunityIdentity = CommunitySigner;
 
 export type CommunityCommand =
@@ -105,7 +170,20 @@ export type CommunityCommand =
       template: NostrEventTemplate;
       optimisticEvent?: NostrEvent;
     }
-  | { type: "delete"; eventId: string; groupId: string }
+  | {
+      type: "delete";
+      eventId: string;
+      groupId: string;
+      mode?: "owner" | "moderator";
+    }
+  | {
+      type: "create-room";
+      groupId: string;
+      roomKind: "channel" | "forum";
+      update: CommunityRoomUpdate;
+    }
+  | { type: "update-room"; groupId: string; update: CommunityRoomUpdate }
+  | { type: "delete-room"; groupId: string }
   | { type: "join"; groupId: string }
   | { type: "leave"; groupId: string }
   | { type: "add-member"; groupId: string; pubkey: string; roles?: string[] }
@@ -115,6 +193,9 @@ export type CommunityCommand =
       recipients: readonly string[];
       content: string;
       replyToEventId?: string;
+      eventKind?: 5 | 7 | 14;
+      targetEventId?: string;
+      customEmoji?: CommunityCustomEmojiReference;
     };
 
 export interface CommunitySnapshot {
@@ -127,7 +208,7 @@ export interface CommunityPrivateEvent {
   id: string;
   pubkey: string;
   created_at: number;
-  kind: 14;
+  kind: 5 | 7 | 14;
   tags: string[][];
   content: string;
   wrapId: string;
@@ -193,37 +274,86 @@ export interface CommunityControllerActions {
   openDirectMessage(participants: readonly string[]): void;
   sendMessage(roomId: string, content: string): Promise<void>;
   sendReply(rootMessageId: string, content: string): Promise<void>;
-  createTopic(roomId: string, content: string): Promise<void>;
+  createTopic(
+    roomId: string,
+    draft: string | CommunityTopicDraft,
+  ): Promise<void>;
   sendDirectMessage(
     recipients: readonly string[],
     content: string,
     replyToEventId?: string,
   ): Promise<void>;
-  toggleReaction(eventId: string, emoji: string): Promise<void>;
+  toggleReaction(
+    eventId: string,
+    emoji: string,
+    customEmoji?: CommunityCustomEmojiReference,
+  ): Promise<void>;
   deleteEvent(eventId: string): Promise<void>;
+  createRoom(
+    roomKind: "channel" | "forum",
+    update: CommunityRoomUpdate,
+  ): Promise<void>;
+  updateRoom(groupId: string, update: CommunityRoomUpdate): Promise<void>;
+  deleteRoom(groupId: string): Promise<void>;
   search(query: string): Promise<void>;
+  searchMembers(query: string): Promise<void>;
+  setReplyTarget(eventId: string): void;
+  clearReplyTarget(): void;
   markRead(roomId: string): Promise<void>;
+  markUnread(roomId: string): Promise<void>;
   markAllRead(): Promise<void>;
+  setRoomStarred(roomId: string, starred: boolean): Promise<void>;
+  setRoomMuted(roomId: string, muted: boolean): Promise<void>;
+  setRoomHidden(roomId: string, hidden: boolean): Promise<void>;
+  assignRoomToSection(roomId: string, sectionId?: string): Promise<void>;
+  createNavigationSection(name: string): Promise<string>;
+  renameNavigationSection(sectionId: string, name: string): Promise<void>;
+  deleteNavigationSection(sectionId: string): Promise<void>;
+  reorderNavigationSections(sectionIds: readonly string[]): Promise<void>;
   join(groupId: string): Promise<void>;
   leave(groupId: string): Promise<void>;
   addMember(groupId: string, pubkey: string, roles?: string[]): Promise<void>;
   removeMember(groupId: string, pubkey: string): Promise<void>;
   updateProfile(profile: CommunityProfileUpdate): Promise<void>;
+  updateStatus(status: string): Promise<void>;
   setCustomEmoji(shortcode: string, url: string): Promise<void>;
   removeCustomEmoji(shortcode: string): Promise<void>;
   updateRelayUrl(communityId: string, relayUrl: string): Promise<void>;
+  connectIdentity(): Promise<void>;
 }
 
 export interface CommunityControllerOptions {
   scopes: readonly CommunityScope[];
   source: CommunityDataSource;
   identity?: CommunityIdentity;
+  identityConnector?: CommunityIdentityConnector;
   stateStore?: CommunityStateStore;
   configurationStore?: CommunityConfigurationStore;
   initialCommunityId?: string;
   initialRoomId?: string;
   clientId?: string;
   now?: () => number;
+}
+
+export interface CommunityLinkBuilder {
+  message(event: NostrEvent, relayUrl: string): string;
+  room?(scope: CommunityScope, room: CommunityRoomScope): string;
+}
+
+export interface CommunityApplicationExtensions {
+  terminal?: () => void | Promise<void>;
+  huddle?: (roomId: string) => void | Promise<void>;
+  agents?: (roomId: string) => void | Promise<void>;
+  archive?: (roomId: string) => void | Promise<void>;
+  editMessage?: (messageId: string) => void | Promise<void>;
+  feedback?: () => void | Promise<void>;
+}
+
+export function communityActionAvailability(
+  state: CommunityActionAvailability["state"],
+  reason?: string,
+): CommunityActionAvailability {
+  return reason === undefined ? { state } : { state, reason };
 }
 
 export interface CommunityConfigurationStore {

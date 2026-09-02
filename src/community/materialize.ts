@@ -163,7 +163,9 @@ export function materializeCommunityWorkspace(
     activeDirect === undefined ? configuredActiveRoom : undefined;
   const deleted = deletedEventIds(events);
   const visible = events.filter((event) => !deleted.has(event.id));
-  const roomModels = rooms.map((room) => roomModel(room, visible));
+  const roomModels = rooms.map((room) =>
+    roomModel(room, visible, options.identityPubkey),
+  );
   const directRooms = directConversations.map((conversation) =>
     directRoomModel(conversation, profiles, options.identityPubkey),
   );
@@ -173,7 +175,7 @@ export function materializeCommunityWorkspace(
       : directMemberModels(activeDirect, profiles);
   const conversationMessages =
     activeDirect !== undefined
-      ? directMessageModels(activeDirect)
+      ? directMessageModels(activeDirect, options.identityPubkey)
       : activeRoom === undefined
         ? []
         : messageModels(
@@ -182,6 +184,7 @@ export function materializeCommunityWorkspace(
             profiles,
             options.activeTopicId,
             options.asOf,
+            options.identityPubkey,
           );
   const messages =
     activeRoom?.kind === "channel"
@@ -238,7 +241,7 @@ export function materializeCommunityWorkspace(
         label: "Direct messages",
         rooms: directRooms,
       },
-    ].filter((section) => section.rooms.length > 0),
+    ],
     activeRoomId: activeDirect?.id ?? activeRoom?.id ?? "",
     view:
       activeDirect !== undefined
@@ -299,6 +302,7 @@ export function materializeCommunityInbox(
   const room = roomModel(
     roomScope,
     acceptedEvents(eventsByScope[active.scope.id] ?? []),
+    identityPubkey,
   );
   const rootId =
     active.event.tags.find((tag) => tag[0] === "E")?.[1] ??
@@ -329,7 +333,15 @@ export function materializeCommunityInbox(
     room,
     messages: threadEvents
       .toSorted(compareOldest)
-      .map((event) => eventMessage(event, threadEvents, active.profiles, asOf)),
+      .map((event) =>
+        eventMessage(
+          event,
+          threadEvents,
+          active.profiles,
+          asOf,
+          identityPubkey,
+        ),
+      ),
     members,
     participantCount: new Set(threadEvents.map((event) => event.pubkey)).size,
   };
@@ -409,21 +421,85 @@ function profilesFrom(events: readonly NostrEvent[]): Map<string, Profile> {
 function roomModel(
   room: CommunityRoomScope,
   events: readonly NostrEvent[],
+  identityPubkey?: string,
 ): CommunityRoomModel {
   const metadata = latestGroupState(events, 39_000, room.groupId);
   const members = latestGroupState(events, 39_002, room.groupId);
+  const admins = latestGroupState(events, 39_001, room.groupId);
   const name =
     metadata?.tags.find((tag) => tag[0] === "name")?.[1] ?? room.name;
   const description =
     metadata?.tags.find((tag) => tag[0] === "about")?.[1] ?? room.description;
   const memberCount = members?.tags.filter((tag) => tag[0] === "p").length;
+  const privateRoom =
+    room.private === true ||
+    metadata?.tags.some((tag) => tag[0] === "private") === true;
+  const joined =
+    identityPubkey === undefined
+      ? undefined
+      : members?.tags.some(
+          (tag) => tag[0] === "p" && tag[1] === identityPubkey,
+        );
+  const administrator =
+    identityPubkey !== undefined &&
+    admins?.tags.some((tag) => tag[0] === "p" && tag[1] === identityPubkey) ===
+      true;
+  const authenticationRequired = {
+    state: "requires-authentication" as const,
+    reason: "Connect a NIP-07 identity to perform this action",
+  };
+  const denied = {
+    state: "denied" as const,
+    reason: "The relay has not granted permission for this room",
+  };
+  const enabled = { state: "enabled" as const };
   return {
     id: room.id,
     name,
     kind: room.kind,
     ...(description === undefined ? {} : { description }),
     ...(memberCount === undefined ? {} : { memberCount }),
-    ...(room.private === undefined ? {} : { private: room.private }),
+    private: privateRoom,
+    membership:
+      members === undefined
+        ? "unknown"
+        : joined === true
+          ? "joined"
+          : "not-joined",
+    memberListCompleteness: members === undefined ? "unavailable" : "partial",
+    lifecycle: "ongoing",
+    permissions: {
+      join:
+        identityPubkey === undefined
+          ? authenticationRequired
+          : joined === true
+            ? denied
+            : enabled,
+      leave:
+        identityPubkey === undefined
+          ? authenticationRequired
+          : joined === true
+            ? enabled
+            : denied,
+      update:
+        identityPubkey === undefined
+          ? authenticationRequired
+          : administrator
+            ? enabled
+            : denied,
+      delete:
+        identityPubkey === undefined
+          ? authenticationRequired
+          : administrator
+            ? enabled
+            : denied,
+      manageMembers:
+        identityPubkey === undefined
+          ? authenticationRequired
+          : administrator
+            ? enabled
+            : denied,
+    },
   };
 }
 
@@ -489,6 +565,7 @@ function messageModels(
   profiles: ReadonlyMap<string, Profile>,
   activeTopicId: string | undefined,
   asOf: number | undefined,
+  identityPubkey: string | undefined,
 ): CommunityMessageModel[] {
   const kinds = room.kind === "channel" ? new Set([9]) : new Set([11, 1_111]);
   const roomEvents = events.filter(
@@ -508,7 +585,9 @@ function messageModels(
       : roomEvents;
   return selected
     .toSorted(compareOldest)
-    .map((event) => eventMessage(event, events, profiles, asOf));
+    .map((event) =>
+      eventMessage(event, events, profiles, asOf, identityPubkey),
+    );
 }
 
 function eventMessage(
@@ -516,6 +595,7 @@ function eventMessage(
   events: readonly NostrEvent[],
   _profiles: ReadonlyMap<string, Profile>,
   asOf: number | undefined,
+  identityPubkey: string | undefined,
 ): CommunityMessageModel {
   const parentMessageId =
     event.tags.find((tag) => tag[0] === "e" && tag[3] === "reply")?.[1] ??
@@ -531,7 +611,7 @@ function eventMessage(
   const orderedReplies = replies.toSorted(compareOldest);
   const replyCount = orderedReplies.length;
   const latestReply = orderedReplies.at(-1);
-  const reactions = reactionModels(event.id, events);
+  const reactions = reactionModels(event.id, events, identityPubkey);
   return {
     id: event.id,
     authorId: event.pubkey,
@@ -568,6 +648,7 @@ function eventMessage(
 function reactionModels(
   eventId: string,
   events: readonly NostrEvent[],
+  identityPubkey: string | undefined,
 ): CommunityReactionModel[] {
   const latest = new Map<string, NostrEvent>();
   for (const event of events) {
@@ -581,12 +662,32 @@ function reactionModels(
     const current = latest.get(key);
     if (current === undefined || newer(event, current)) latest.set(key, event);
   }
-  const groups = new Map<string, number>();
+  const groups = new Map<
+    string,
+    { count: number; selected: boolean; customEmojiUrl?: string }
+  >();
   for (const event of latest.values()) {
-    groups.set(event.content, (groups.get(event.content) ?? 0) + 1);
+    const current = groups.get(event.content) ?? { count: 0, selected: false };
+    const customEmojiUrl = event.tags.find(
+      (tag) => tag[0] === "emoji" && tag[1] === event.content,
+    )?.[2];
+    groups.set(event.content, {
+      count: current.count + 1,
+      selected: current.selected || event.pubkey === identityPubkey,
+      ...((customEmojiUrl ?? current.customEmojiUrl)
+        ? { customEmojiUrl: customEmojiUrl ?? current.customEmojiUrl }
+        : {}),
+    });
   }
   return [...groups]
-    .map(([emoji, count]) => ({ emoji: emoji === "+" ? "❤" : emoji, count }))
+    .map(([emoji, value]) => ({
+      emoji: emoji === "+" ? "❤" : emoji,
+      count: value.count,
+      ...(value.selected ? { selected: true } : {}),
+      ...(value.customEmojiUrl === undefined
+        ? {}
+        : { customEmojiUrl: value.customEmojiUrl }),
+    }))
     .toSorted(
       (left, right) =>
         right.count - left.count || left.emoji.localeCompare(right.emoji),
@@ -719,6 +820,9 @@ function directRoomModel(
     kind: "direct",
     memberCount: conversation.participants.length,
     private: true,
+    membership: "joined",
+    memberListCompleteness: "complete",
+    lifecycle: "ongoing",
   };
 }
 
@@ -743,19 +847,71 @@ function directMemberModels(
 
 function directMessageModels(
   conversation: DirectConversation,
+  identityPubkey: string | undefined,
 ): CommunityMessageModel[] {
-  return conversation.events.map((event) => ({
-    id: event.id,
-    authorId: event.pubkey,
-    content: event.content,
-    timestamp: timestamp(event.created_at),
-    createdAt: new Date(event.created_at * 1_000).toISOString(),
-    ...(event.tags.find((tag) => tag[0] === "e")?.[1] === undefined
-      ? {}
-      : {
-          parentMessageId: event.tags.find((tag) => tag[0] === "e")![1]!,
-        }),
-  }));
+  const deleted = new Set(
+    conversation.events
+      .filter((event) => event.kind === 5)
+      .flatMap((event) =>
+        event.tags
+          .filter((tag) => tag[0] === "e" && tag[1] !== undefined)
+          .map((tag) => tag[1]!),
+      ),
+  );
+  const reactions = conversation.events.filter(
+    (event) => event.kind === 7 && !deleted.has(event.id),
+  );
+  return conversation.events
+    .filter((event) => event.kind === 14 && !deleted.has(event.id))
+    .map((event) => {
+      const eventReactions = reactions.filter((reaction) =>
+        reaction.tags.some((tag) => tag[0] === "e" && tag[1] === event.id),
+      );
+      const grouped = new Map<
+        string,
+        { count: number; selected: boolean; customEmojiUrl?: string }
+      >();
+      for (const reaction of eventReactions) {
+        const current = grouped.get(reaction.content) ?? {
+          count: 0,
+          selected: false,
+        };
+        const customEmojiUrl = reaction.tags.find(
+          (tag) => tag[0] === "emoji" && tag[1] === reaction.content,
+        )?.[2];
+        grouped.set(reaction.content, {
+          count: current.count + 1,
+          selected: current.selected || reaction.pubkey === identityPubkey,
+          ...((customEmojiUrl ?? current.customEmojiUrl)
+            ? { customEmojiUrl: customEmojiUrl ?? current.customEmojiUrl }
+            : {}),
+        });
+      }
+      return {
+        id: event.id,
+        authorId: event.pubkey,
+        content: event.content,
+        timestamp: timestamp(event.created_at),
+        createdAt: new Date(event.created_at * 1_000).toISOString(),
+        ...(event.tags.find((tag) => tag[0] === "e")?.[1] === undefined
+          ? {}
+          : {
+              parentMessageId: event.tags.find((tag) => tag[0] === "e")![1]!,
+            }),
+        ...(grouped.size === 0
+          ? {}
+          : {
+              reactions: [...grouped].map(([emoji, value]) => ({
+                emoji,
+                count: value.count,
+                ...(value.selected ? { selected: true } : {}),
+                ...(value.customEmojiUrl === undefined
+                  ? {}
+                  : { customEmojiUrl: value.customEmojiUrl }),
+              })),
+            }),
+      };
+    });
 }
 
 function emptyWorkspace(): CommunityWorkspaceModel {
