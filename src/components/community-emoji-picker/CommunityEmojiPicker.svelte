@@ -108,7 +108,7 @@
     sideOffset={6}
     class="community-emoji-picker__content"
   >
-    <Popover.Header>
+    <Popover.Header class="community-emoji-picker__a11y-header">
       <Popover.Title><h2>Emoji</h2></Popover.Title>
       <Popover.Description>
         Search standard emoji or choose one from this community.
@@ -138,28 +138,29 @@
 </Popover.Root>
 
 <style>
-  :global(
-      .community-emoji-picker__content[data-ui-component="popover-content"]
-    ) {
-    width: min(22rem, calc(100vw - 1rem));
+  :global(.community-emoji-picker__content[data-ui-part="popover-content"]) {
+    width: min(28rem, calc(100vw - 1rem));
     padding: 0;
     overflow: hidden;
-  }
-
-  :global(.community-emoji-picker__content [data-ui-part="header"]) {
-    padding: 0.75rem 0.75rem 0;
   }
 
   .community-emoji-picker__community {
     display: flex;
     gap: 0.25rem;
-    padding: 0.5rem 0.75rem;
+    padding: 0.25rem 0.5rem;
     overflow-x: auto;
   }
 
-  :global(.community-emoji-picker__content h2) {
-    margin: 0;
-    font-size: 0.95rem;
+  :global(.community-emoji-picker__a11y-header) {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    border: 0;
+    margin: -1px;
+    clip: rect(0, 0, 0, 0);
+    overflow: hidden;
+    white-space: nowrap;
   }
 
   .community-emoji-picker__community img {
@@ -173,6 +174,9 @@
   }
 
   .community-emoji-picker__host :global(em-emoji-picker) {
+    --border-radius: 0;
+    --shadow: none;
+
     width: 100%;
     min-width: 0;
     border: 0;
