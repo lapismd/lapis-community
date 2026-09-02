@@ -4,6 +4,7 @@ import path from "node:path";
 
 import { describe, expect, it } from "vitest";
 
+import { encodeNostrHttpAuthorization } from "../nostr/http-authorization.js";
 import {
   createFixtureFiles,
   fixturePublicKeys,
@@ -16,6 +17,27 @@ async function writeJson(filePath: string, value: unknown): Promise<void> {
 }
 
 describe("local registry fixture", () => {
+  it("uses standard base64 for Blossom authorization events", () => {
+    const event = {
+      id: "ff".repeat(32),
+      pubkey: "ee".repeat(32),
+      created_at: 1_700_000_000,
+      kind: 24_242,
+      tags: [["t", "upload"]],
+      content: "Upload Lapis release manifest",
+      sig: "dd".repeat(64),
+    };
+    const authorization = encodeNostrHttpAuthorization(event);
+    const token = authorization.slice("Nostr ".length);
+
+    expect(authorization).toMatch(/^Nostr /u);
+    expect(token).toMatch(/^[A-Za-z0-9+/]+={0,2}$/u);
+    expect(token).not.toMatch(/[-_]/u);
+    expect(JSON.parse(Buffer.from(token, "base64").toString("utf8"))).toEqual(
+      event,
+    );
+  });
+
   it("derives deterministic release evidence from a read-only plugin source", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "lapis-registry-source-"));
     const pluginRoot = path.join(root, "packages", "wordcount");

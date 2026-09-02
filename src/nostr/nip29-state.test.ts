@@ -148,11 +148,13 @@ describe("loadNip29RelayRegistryState", () => {
       },
     ]);
     const mediaAuth = JSON.parse(
-      Buffer.from(
-        mediaAuthorization.slice("Nostr ".length),
-        "base64url",
-      ).toString("utf8"),
+      Buffer.from(mediaAuthorization.slice("Nostr ".length), "base64").toString(
+        "utf8",
+      ),
     ) as NostrEvent;
+    expect(mediaAuthorization.slice("Nostr ".length)).toMatch(
+      /^[A-Za-z0-9+/]+={0,2}$/u,
+    );
     expect(verifyEvent(mediaAuth)).toBe(true);
     expect(mediaAuth.kind).toBe(24_242);
     expect(mediaAuth.pubkey).toBe(publisher);

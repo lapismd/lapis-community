@@ -26,6 +26,7 @@ import { finalizeEvent, getPublicKey } from "nostr-tools/pure";
 import { parseFixtureSecrets } from "./keys.js";
 import type { FixtureSecretName, FixtureSecrets } from "./keys.js";
 import { loadLocalPluginFixtures } from "./source.js";
+import { encodeNostrHttpAuthorization } from "../nostr/http-authorization.js";
 
 interface FixtureStatus {
   schema: "lapis.registry.nip29-local-fixture-status/1";
@@ -583,11 +584,10 @@ async function uploadBlob(
       ["server", new URL(httpBase).host],
     ],
   });
-  const token = Buffer.from(JSON.stringify(auth)).toString("base64url");
   const response = await fetch(new URL("/upload", httpBase), {
     method: "PUT",
     headers: {
-      Authorization: `Nostr ${token}`,
+      Authorization: encodeNostrHttpAuthorization(auth),
       "Content-Type": "application/json",
       "X-SHA-256": sha256,
     },

@@ -18,6 +18,7 @@ import type {
 import { queryRelayUnion } from "./query.js";
 import type { RelayQuerySource } from "./query.js";
 import type { RegistryRelay, RelayAuthSigner } from "./transport.js";
+import { encodeNostrHttpAuthorization } from "./http-authorization.js";
 
 export interface Nip29RelayRegistryState {
   registry: MaterializedNip29Registry;
@@ -189,22 +190,11 @@ async function mediaAuthorization(
           ["server", new URL(origin).host],
         ],
       });
-      return `Nostr ${base64Url(JSON.stringify(event))}`;
+      return encodeNostrHttpAuthorization(event);
     })();
     cache.set(origin, authorization);
   }
   return await authorization;
-}
-
-function base64Url(value: string): string {
-  const bytes = new TextEncoder().encode(value);
-  let binary = "";
-  for (const byte of bytes) binary += String.fromCharCode(byte);
-  return globalThis
-    .btoa(binary)
-    .replaceAll("+", "-")
-    .replaceAll("/", "_")
-    .replace(/=+$/u, "");
 }
 
 function distinctEvents(events: readonly NostrEvent[]): NostrEvent[] {

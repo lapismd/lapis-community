@@ -4,7 +4,7 @@
 | ------------ | -------------- | --------------------------------------------------------------------------------------------------------------------------------- |
 | LC-ARCH-001  | Implemented    | `package.json`; `src`; `pnpm spec:check`                                                                                          |
 | LC-ARCH-002  | Implemented    | `src/nostr`; `src/materializer`; `pnpm test`                                                                                      |
-| LC-ARCH-003  | Implemented    | `src/auth`; `src/nostr`; `src/protocol`; `src/fixture`; `src/materializer`                                                        |
+| LC-ARCH-003  | Implemented    | `src/auth`; `src/nostr`; shared Nostr HTTP authorization; `src/protocol`; `src/fixture`; `src/materializer`                       |
 | LC-ARCH-004  | Implemented    | `package.json`; `pnpm build`; `pnpm prepack`                                                                                      |
 | LC-ARCH-005  | Implemented    | `package.json`; public `@lapismd/design-core` imports; `pnpm-lock.yaml`                                                           |
 | LC-ARCH-006  | Visual pending | Public `CommunityAppShell`; shared Inbox, channel, thread, channel-settings, and shell-backed preview composition                 |
@@ -17,7 +17,7 @@
 | LC-NOSTR-004 | Implemented    | `src/protocol/nip29.ts`; `src/nostr/nip29-state.ts`                                                                               |
 | LC-NOSTR-005 | Implemented    | `src/protocol/canonical.ts`; `src/protocol/nip29.test.ts`                                                                         |
 | LC-NOSTR-006 | Implemented    | shared relay contract tests; in-memory and WebSocket relay implementations                                                        |
-| LC-NOSTR-007 | Implemented    | NIP-29 source authority plus controller-driven relay replacement; kind `0` profile and NIP-30 emoji commands                      |
+| LC-NOSTR-007 | Implemented    | NIP-29 source authority, standard-base64 media authorization, controller relay replacement, kind `0` and NIP-30 commands          |
 | LC-NOSTR-008 | Implemented    | `src/community/nip17.ts`; direct-message and controller integration tests                                                         |
 | LC-NOSTR-009 | Implemented    | `src/community/state-store.ts`; browser, encrypted relay, merge, and ciphertext tests                                             |
 | LC-UI-001    | Implemented    | `src/components`; `pnpm build-storybook`                                                                                          |
@@ -38,7 +38,7 @@
 | LC-UI-016    | Visual pending | Buzz-style channel action cards; forum index without details, self-sizing rows and Back to posts; joined headers; review pending  |
 | LC-UI-017    | Visual pending | controller-backed composed stories; 18-file story audit; memory/Docker toolbar selector; human review pending                     |
 | LC-UI-018    | Visual pending | complete `RegistryCommunity` lifecycle story; shared registry data source and signed memory/Docker scenario; human review pending |
-| LC-OPS-001   | Implemented    | `deploy/local.compose.yml`; `pnpm local:smoke`                                                                                    |
+| LC-OPS-001   | Implemented    | `deploy/local.compose.yml`; standard-base64 Blossom manifest authorization; `pnpm local:smoke`                                    |
 | LC-OPS-002   | Implemented    | `deploy/fixture.Dockerfile`; `src/fixture`; `src/materializer`                                                                    |
 | LC-OPS-003   | Implemented    | `AGENTS.md`; `docs/publishing.md`                                                                                                 |
 | LC-OPS-004   | Implemented    | `deploy/community-relay.compose.yml`; `scripts/community-relay.sh`; shared memory/Docker relay contract suite                     |
