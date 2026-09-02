@@ -695,7 +695,10 @@
       </AppShell.Toolbar>
 
       <AppShell.Body layout="regions" label="Community workspace">
-        <AppShell.Body.Content label={`${activeRoom.name} content`}>
+        <AppShell.Body.Content
+          class="community-application__workspace-content"
+          label={`${activeRoom.name} content`}
+        >
           <CommunityWorkspaceSurface
             model={workspace}
             handlers={{
@@ -914,6 +917,25 @@
 
   .community-application__toolbar-actions {
     margin-inline-start: auto;
+  }
+
+  :global(
+      .community-application__workspace-content
+        > [data-ui-part="scroll-area"]
+        > [data-ui-part="scroll-area-viewport"]
+    ) {
+    overflow: hidden;
+  }
+
+  :global(
+      .community-application__workspace-content
+        > [data-ui-part="scroll-area"]
+        > [data-ui-part="scroll-area-viewport"]
+        > div
+    ) {
+    display: flex;
+    height: 100%;
+    min-height: 0;
   }
 
   .community-application__registry-empty {

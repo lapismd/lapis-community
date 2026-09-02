@@ -112,7 +112,7 @@ export function materializeCommunityWorkspace(
     activeDirect === undefined
       ? memberModels(activeRoom, visible, profiles)
       : directMemberModels(activeDirect, profiles);
-  const messages =
+  const conversationMessages =
     activeDirect !== undefined
       ? directMessageModels(activeDirect)
       : activeRoom === undefined
@@ -124,6 +124,12 @@ export function materializeCommunityWorkspace(
             options.activeTopicId,
             options.asOf,
           );
+  const messages =
+    activeRoom?.kind === "channel"
+      ? conversationMessages.filter(
+          (message) => message.parentMessageId === undefined,
+        )
+      : conversationMessages;
   const topics =
     activeRoom?.kind === "forum"
       ? topicModels(activeRoom, visible, profiles)
@@ -133,7 +139,7 @@ export function materializeCommunityWorkspace(
       ? undefined
       : {
           rootMessageId: options.activeThreadId,
-          messages: messages.filter(
+          messages: conversationMessages.filter(
             (message) =>
               message.id === options.activeThreadId ||
               message.parentMessageId === options.activeThreadId,

@@ -115,6 +115,14 @@ describe("createCommunityController", () => {
     );
     const published = controller.state.workspace.messages.at(-1)!;
     await controller.actions.toggleReaction(published.id, "👍");
+    const [publishedReaction] = await relay.query({
+      kinds: [7],
+      "#e": [published.id],
+    });
+    expect(publishedReaction?.tags).toContainEqual([
+      "h",
+      scenario.scope.rooms?.[0]?.groupId,
+    ]);
     expect(
       controller.state.workspace.messages.find(
         (message) => message.id === published.id,

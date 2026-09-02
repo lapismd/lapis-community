@@ -17,7 +17,7 @@ export REGISTRY_FIXTURE_PORT=${REGISTRY_FIXTURE_PORT:-${port_base}}
 export LAPIS_RELAY_PORT=${LAPIS_RELAY_PORT:-$((port_base + 1))}
 export REGISTRY_SITE_PORT=${REGISTRY_SITE_PORT:-$((port_base + 2))}
 export REGISTRY_FIXTURE_LONG_THREAD_POSTS=${REGISTRY_FIXTURE_LONG_THREAD_POSTS:-240}
-expected_community_events=$((REGISTRY_FIXTURE_LONG_THREAD_POSTS + ((REGISTRY_FIXTURE_LONG_THREAD_POSTS + 1) / 3) + 31))
+expected_community_events=$((REGISTRY_FIXTURE_LONG_THREAD_POSTS + ((REGISTRY_FIXTURE_LONG_THREAD_POSTS + 1) / 3) + 32))
 expected_relay_copies=$((expected_community_events + 24))
 
 report_error() {

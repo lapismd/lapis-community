@@ -219,7 +219,7 @@ async function seed(): Promise<{
   const createGroup = async (
     event: NostrEvent,
     groupId: string,
-    writerPubkey?: string,
+    writerPubkeys: readonly string[] = [],
   ): Promise<void> => {
     const relay = await relayFor(operatorSecret);
     try {
@@ -236,7 +236,7 @@ async function seed(): Promise<{
       if (state.length < 2)
         throw new Error(`NIP-29 group ${groupId} is incomplete`);
     }, `create group ${groupId}`);
-    if (writerPubkey !== undefined) {
+    for (const writerPubkey of writerPubkeys) {
       await relay.publish(
         sign(operatorSecret, {
           kind: 9_000,
@@ -313,8 +313,8 @@ async function seed(): Promise<{
       group.id,
       writeRestrictedReleases &&
         group.id === lapisGroupId(LAPIS_GROUPS.pluginReleases)
-        ? publisher
-        : undefined,
+        ? [publisher, curator]
+        : [],
     );
   }
 
@@ -473,6 +473,7 @@ async function seed(): Promise<{
           created_at: nextForumTimestamp(),
           content: index % 2 === 0 ? "👍" : "❤️",
           tags: [
+            ["h", forumId],
             ["e", reply.id],
             ["p", reply.pubkey],
             ["k", reply.kind.toString()],
@@ -492,17 +493,19 @@ async function seed(): Promise<{
   if (aiRelease === undefined) {
     throw new Error("The local plugin fixtures must include the AI plugin");
   }
-  for (const [index, [authorIndex, content]] of [
-    [0, "👍"],
-    [1, "❤️"],
-    [0, "⭐"],
-  ].entries()) {
-    const authorSecret = communitySecrets[Number(authorIndex)]!;
+  for (const [index, [authorSecret, content]] of (
+    [
+      [publisherSecret, "👍"],
+      [curatorSecret, "❤️"],
+      [publisherSecret, "⭐"],
+    ] as const
+  ).entries()) {
     const reaction = sign(authorSecret, {
       kind: 7,
       created_at: createdAt + index,
       content: String(content),
       tags: [
+        ["h", lapisGroupId(LAPIS_GROUPS.pluginReleases)],
         ["e", aiRelease.id],
         ["p", aiRelease.pubkey],
         ["k", aiRelease.kind.toString()],
@@ -512,6 +515,21 @@ async function seed(): Promise<{
     communityEvents.push(reaction);
   }
   createdAt += 3;
+
+  const releaseReply = sign(publisherSecret, {
+    kind: 9,
+    created_at: createdAt++,
+    content:
+      "The curator decision is recorded; follow-up discussion stays attached to this release.",
+    tags: [
+      ["h", lapisGroupId(LAPIS_GROUPS.pluginReleases)],
+      ["e", aiRelease.id, relayUrl, "root"],
+      ["e", aiRelease.id, relayUrl, "reply"],
+      ["p", aiRelease.pubkey],
+    ],
+  });
+  await publish(releaseReply, publisherSecret);
+  communityEvents.push(releaseReply);
 
   const registry = materializeNip29Registry(registryEvents, manifests, {
     curatorPubkeys: new Set([curator]),

@@ -57,7 +57,7 @@
         source: { language: "svelte", code: consumerSource },
         description: {
           component:
-            "The near-final application composition: one controller-backed shell for Inbox, Registry, channels, forums, direct messages, settings, profile identity, history, composers, threads, and detail panels.",
+            "The near-final application composition: one controller-backed shell for Inbox, Registry, independently scrolling channels, forums, direct messages, settings, profile identity, history, fixed composers, reaction summaries, threads, and detail panels.",
         },
       },
     },

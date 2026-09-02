@@ -447,12 +447,15 @@ export function createCommunityController(
     },
     async toggleReaction(eventId, emoji) {
       const target = activeEvents().find((event) => event.id === eventId);
-      if (target === undefined || emoji.trim() === "") return;
+      const room = activeRoomScope();
+      if (target === undefined || room === undefined || emoji.trim() === "")
+        return;
       await publishTemplate(`reaction:${eventId}:${emoji}`, {
         kind: 7,
         created_at: now(),
         content: emoji,
         tags: [
+          ["h", room.groupId],
           ["e", target.id],
           ["p", target.pubkey],
           ["k", target.kind.toString()],

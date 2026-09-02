@@ -141,7 +141,10 @@ export function createNip29CuratorDecisionTemplate(
     created_at: createdAt,
     content:
       decision === "approved" ? "✅" : decision === "rejected" ? "❌" : "🚫",
-    tags: [["e", releaseEventId]],
+    tags: [
+      ["h", lapisGroupId(LAPIS_GROUPS.pluginReleases)],
+      ["e", releaseEventId],
+    ],
   };
 }
 

@@ -96,9 +96,16 @@ describe("NIP-29 registry protocol", () => {
     });
     expect(release.tags).toContainEqual(["t", "lapis-plugin-release"]);
     expect(release.tags).toContainEqual(["t", "plugin:ai"]);
-    expect(
-      createNip29CuratorDecisionTemplate("c".repeat(64), "approved", 1).kind,
-    ).toBe(NIP29_KINDS.reaction);
+    const decision = createNip29CuratorDecisionTemplate(
+      "c".repeat(64),
+      "approved",
+      1,
+    );
+    expect(decision.kind).toBe(NIP29_KINDS.reaction);
+    expect(decision.tags).toContainEqual([
+      "h",
+      lapisGroupId(LAPIS_GROUPS.pluginReleases),
+    ]);
     const root = sign(
       publisherKey,
       createNip29ForumThreadTemplate("group", "root", 1),
