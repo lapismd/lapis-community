@@ -17,8 +17,18 @@ export interface CommunityScope {
   id: string;
   name: string;
   relayUrl: string;
-  groupId: string;
+  groupId?: string;
+  rooms?: readonly CommunityRoomScope[];
   readRelayUrls?: readonly string[];
+}
+
+export interface CommunityRoomScope {
+  id: string;
+  groupId: string;
+  name: string;
+  kind: "channel" | "forum";
+  description?: string;
+  private?: boolean;
 }
 
 export interface CommunityCapabilities {
@@ -44,6 +54,8 @@ export interface CommunityControllerState {
   inbox?: CommunityInboxModel;
   capabilities: CommunityCapabilities;
   operations: Readonly<Record<string, CommunityOperationState>>;
+  searchResults: readonly CommunitySearchResult[];
+  searchQuery: string;
   error?: string;
 }
 
@@ -114,10 +126,39 @@ export interface CommunityDataSource {
 export interface CommunityController {
   readonly state: CommunityControllerState;
   readonly handlers: CommunityWorkspaceHandlers;
+  readonly actions: CommunityControllerActions;
   initialize(): void;
   dispose(): void;
   refresh(): Promise<void>;
   retry(operation: string): Promise<void>;
+}
+
+export interface CommunityControllerActions {
+  selectCommunity(communityId: string): void;
+  selectRoom(roomId: string): void;
+  openTopic(topicId: string): void;
+  openThread(messageId: string): void;
+  closeSidePanel(): void;
+  openDetails(): void;
+  sendMessage(roomId: string, content: string): Promise<void>;
+  sendReply(rootMessageId: string, content: string): Promise<void>;
+  createTopic(roomId: string, content: string): Promise<void>;
+  toggleReaction(eventId: string, emoji: string): Promise<void>;
+  deleteEvent(eventId: string): Promise<void>;
+  search(query: string): Promise<void>;
+  join(groupId: string): Promise<void>;
+  leave(groupId: string): Promise<void>;
+  addMember(groupId: string, pubkey: string, roles?: string[]): Promise<void>;
+  removeMember(groupId: string, pubkey: string): Promise<void>;
+}
+
+export interface CommunityControllerOptions {
+  scopes: readonly CommunityScope[];
+  source: CommunityDataSource;
+  identity?: CommunityIdentity;
+  initialCommunityId?: string;
+  initialRoomId?: string;
+  now?: () => number;
 }
 
 export interface CommunityProtocolCodec<TState = unknown> {
