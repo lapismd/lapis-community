@@ -148,7 +148,6 @@
     inset: auto;
     grid-row: 2;
     padding: 0.5rem 0.75rem 0.75rem;
-    border-block-start: 1px solid var(--border);
     background: var(--background);
     pointer-events: auto;
   }
