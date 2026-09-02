@@ -121,8 +121,14 @@
   width: 1.75rem;
   height: 1.75rem;
   flex: none;
+  border-radius: 0.45rem;
   color: var(--muted-foreground);
   opacity: 0.72;
+  transition:
+    color 120ms ease,
+    opacity 120ms ease,
+    background-color 120ms ease,
+    box-shadow 120ms ease;
 }
 
 .lc-community-navigation__section-action[data-ui-component="button"]:hover,
@@ -132,6 +138,13 @@
 .lc-community-navigation__section-menu[data-ui-component="button"][data-state="open"] {
   color: var(--foreground);
   opacity: 1;
+  background: color-mix(
+    in srgb,
+    var(--sidebar-accent, var(--accent)) 86%,
+    transparent
+  );
+  box-shadow: inset 0 0 0 1px
+    color-mix(in srgb, var(--foreground) 7%, transparent);
 }
 
 .lc-community-navigation__section-menu-content {

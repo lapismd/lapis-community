@@ -165,19 +165,41 @@
     width: 100%;
     min-width: 0;
     height: auto;
-    min-height: 2.75rem;
+    min-height: 3rem;
     justify-content: flex-start;
-    gap: 0.625rem;
-    padding: 0.375rem;
+    gap: 0.75rem;
+    padding: 0.375rem 0.5rem;
+    border-radius: 0.75rem;
     color: var(--sidebar-foreground, var(--foreground));
+    transition:
+      color 120ms ease,
+      background-color 120ms ease,
+      box-shadow 120ms ease;
+  }
+
+  :global(.community-profile-menu__trigger[data-ui-component="button"]:hover),
+  :global(
+      .community-profile-menu__trigger[data-ui-component="button"]:focus-visible
+    ),
+  :global(
+      .community-profile-menu__trigger[data-ui-component="button"][data-state="open"]
+    ) {
+    color: var(--sidebar-accent-foreground, var(--foreground));
+    background: color-mix(
+      in srgb,
+      var(--sidebar-accent, var(--accent)) 88%,
+      transparent
+    );
+    box-shadow: inset 0 0 0 1px
+      color-mix(in srgb, var(--foreground) 7%, transparent);
   }
 
   :global(
       .community-profile-menu[data-compact]
         .community-profile-menu__trigger[data-ui-component="button"]
     ) {
-    width: 2rem;
-    min-height: 2rem;
+    width: 2.5rem;
+    min-height: 2.5rem;
     justify-content: center;
     margin-inline: auto;
     padding: 0;
@@ -186,8 +208,8 @@
   .community-profile-menu__avatar-wrap {
     position: relative;
     display: block;
-    width: 2rem;
-    height: 2rem;
+    width: 2.25rem;
+    height: 2.25rem;
     flex: none;
   }
 
@@ -233,6 +255,10 @@
     text-align: start;
   }
 
+  .community-profile-menu__identity {
+    gap: 0.125rem;
+  }
+
   .community-profile-menu__identity strong,
   .community-profile-menu__identity small {
     overflow: hidden;
@@ -241,7 +267,7 @@
   }
 
   .community-profile-menu__identity strong {
-    font-size: 0.875rem;
+    font-size: 0.9375rem;
     line-height: 1.1;
   }
 
