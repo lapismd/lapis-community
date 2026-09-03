@@ -1,9 +1,11 @@
 <script lang="ts">
+  import { Button } from "@lapismd/design-core/shadcn/button";
   import * as Command from "@lapismd/design-core/shadcn/command";
   import * as Dialog from "@lapismd/design-core/shadcn/dialog";
   import HashIcon from "@lucide/svelte/icons/hash";
   import MessageSquareIcon from "@lucide/svelte/icons/message-square";
   import UserIcon from "@lucide/svelte/icons/user";
+  import XIcon from "@lucide/svelte/icons/x";
   import type {
     CommunityMemberModel,
     CommunityMessageModel,
@@ -33,7 +35,7 @@
 </script>
 
 <Dialog.Root bind:open
-  ><Dialog.Content class="community-search-command"
+  ><Dialog.Content class="community-search-command" showCloseButton={false}
     ><Dialog.Header
       ><Dialog.Title>Search community</Dialog.Title><Dialog.Description
         >Search rooms, loaded messages, and known members. The relay is queried
@@ -76,6 +78,15 @@
               >{/each}</Command.Group
           >{/if}</Command.List
       ></Command.Root
+    ><Dialog.Close
+      >{#snippet child({ props })}<Button
+          {...props}
+          variant="ghost"
+          size="icon-sm"
+          class="community-search-command__close"
+          aria-label="Close"
+          title="Close"><XIcon aria-hidden="true" /></Button
+        >{/snippet}</Dialog.Close
     ></Dialog.Content
   ></Dialog.Root
 >
@@ -83,6 +94,11 @@
 <style>
   :global(.community-search-command) {
     width: min(calc(100vw - 2rem), 40rem);
+  }
+  :global(.community-search-command__close) {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
   }
   :global(.community-search-command [data-slot="command-item"] span) {
     overflow: hidden;

@@ -48,6 +48,10 @@
     await expect(args.onSelectRoom).toHaveBeenCalledWith(
       expect.objectContaining({ id: "general" }),
     );
+    const closeButton = overlay.getByRole("button", { name: "Close" });
+    await expect(closeButton).toHaveAttribute("data-variant", "ghost");
+    await userEvent.hover(closeButton);
+    await expect(closeButton).toBeVisible();
   }}
 >
   {#snippet template(args)}<CommunitySearchCommand {...args} />{/snippet}</Story
