@@ -195,14 +195,21 @@ describe("createCommunityController", () => {
     expect(
       controller.state.workspace.messages.map((message) => message.content),
     ).toEqual(["Welcome to Lapis Community", "Hello from a member"]);
-    expect(controller.state.inbox?.items).toHaveLength(1);
+    expect(controller.state.inbox?.items).toHaveLength(3);
     expect(controller.state.capabilities.manageMembers).toBe(true);
 
     controller.actions.selectRoom("support");
     await vi.waitFor(() =>
       expect(controller.state.workspace.view).toBe("forum-index"),
     );
-    expect(controller.state.workspace.topics[0]?.title).toBe("Portable forums");
+    const topic = controller.state.workspace.topics[0];
+    expect(topic?.title).toBe("Portable forums");
+    expect(topic?.replyCount).toBe(3);
+    expect(topic?.participantIds).toEqual([
+      await runtime.scenario.operator.getPublicKey(),
+      await runtime.scenario.participant.getPublicKey(),
+      await runtime.scenario.member.getPublicKey(),
+    ]);
     controller.actions.openTopic(controller.state.workspace.topics[0]!.id);
     await vi.waitFor(() =>
       expect(controller.state.workspace.view).toBe("forum-thread"),

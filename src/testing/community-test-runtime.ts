@@ -15,6 +15,7 @@ import {
 } from "../nostr/index.js";
 import {
   LAPIS_GROUPS,
+  createNip29ForumCommentTemplate,
   lapisGroupId,
   type NostrEvent,
   type NostrEventTemplate,
@@ -39,6 +40,7 @@ export interface CommunityTestScenario {
   scope: CommunityScope;
   operator: SecretKeyRegistrySigner;
   member: SecretKeyRegistrySigner;
+  participant: SecretKeyRegistrySigner;
   events: readonly NostrEvent[];
   commands: readonly NostrEvent[];
   seed(relay: CommunityRelay): Promise<void>;
@@ -79,6 +81,7 @@ export interface CommunityTestRuntime {
 const operatorKey = new Uint8Array(32).fill(21);
 const memberKey = new Uint8Array(32).fill(22);
 const relayKey = new Uint8Array(32).fill(23);
+const participantKey = new Uint8Array(32).fill(24);
 const storyIdentityAvatarUrl =
   "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='32' fill='%232563eb'/%3E%3Ctext x='32' y='41' text-anchor='middle' font-family='system-ui' font-size='30' font-weight='700' fill='white'%3ES%3C/text%3E%3C/svg%3E";
 
@@ -92,6 +95,7 @@ export function createCommunityTestScenario(
   const supportGroupId = suffix ? `support-${suffix}` : "support";
   const operator = new SecretKeyRegistrySigner(operatorKey);
   const member = new SecretKeyRegistrySigner(memberKey);
+  const participant = new SecretKeyRegistrySigner(participantKey);
   const operatorPubkey = publicKey(operatorKey);
   const memberPubkey = publicKey(memberKey);
   const templates: NostrEventTemplate[] = [
@@ -162,6 +166,8 @@ export function createCommunityTestScenario(
   const events = templates.map((template) =>
     finalizeEvent(template, operatorKey),
   );
+  const forumRoot = events.find((event) => event.kind === 11);
+  if (forumRoot === undefined) throw new Error("Forum fixture root is missing");
   events.push(
     finalizeEvent(
       {
@@ -171,6 +177,15 @@ export function createCommunityTestScenario(
         tags: [],
       },
       memberKey,
+    ),
+    finalizeEvent(
+      {
+        kind: 0,
+        created_at: createdAt + 2,
+        content: JSON.stringify({ display_name: "Noor" }),
+        tags: [],
+      },
+      participantKey,
     ),
     finalizeEvent(
       {
@@ -192,6 +207,39 @@ export function createCommunityTestScenario(
         tags: [["relay", relayUrl]],
       },
       memberKey,
+    ),
+    finalizeEvent(
+      createNip29ForumCommentTemplate(
+        supportGroupId,
+        forumRoot,
+        forumRoot,
+        "Portable forum URLs should retain relay and group identity.",
+        createdAt + 7,
+        relayUrl,
+      ),
+      memberKey,
+    ),
+    finalizeEvent(
+      createNip29ForumCommentTemplate(
+        supportGroupId,
+        forumRoot,
+        forumRoot,
+        "The topic list should make recent participants easy to scan.",
+        createdAt + 8,
+        relayUrl,
+      ),
+      participantKey,
+    ),
+    finalizeEvent(
+      createNip29ForumCommentTemplate(
+        supportGroupId,
+        forumRoot,
+        forumRoot,
+        "Agreed. The reply and activity columns should stay aligned.",
+        createdAt + 9,
+        relayUrl,
+      ),
+      operatorKey,
     ),
   );
   const commands = [
@@ -232,6 +280,7 @@ export function createCommunityTestScenario(
     scope,
     operator,
     member,
+    participant,
     events,
     commands,
     async seed(relay) {
@@ -247,9 +296,11 @@ export async function seedCommunityTestScenario(
 ): Promise<void> {
   const operatorPubkey = await scenario.operator.getPublicKey();
   const memberPubkey = await scenario.member.getPublicKey();
+  const participantPubkey = await scenario.participant.getPublicKey();
   const identities = new Map([
     [operatorPubkey, scenario.operator],
     [memberPubkey, scenario.member],
+    [participantPubkey, scenario.participant],
   ]);
   const relays = new Map<string, CommunityRelay>();
   try {
