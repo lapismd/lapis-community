@@ -18,6 +18,8 @@ The materializer may use `BLOSSOM_URL` as an image-only fetch base when signed
 resource bytes live apart from the relay. This is distinct from the relay's
 advertised `BLOSSOM_PUBLIC_URL`: the projection still contains only
 hash-verified mirrored resources, and non-image resources retain the legacy
-fetch-origin behavior. The final smoke starts a fresh Storybook process proxied
-to the built registry site and exercises the materialized AI media in a real
-browser.
+fetch-origin behavior. The final smoke starts a fresh Storybook process against
+the seeded relay and artifact server, rejects static index or detail requests,
+and exercises Blob-backed AI media in a real browser. It separately retains the
+materializer and built Astro route assertions without modifying the sibling
+renderer.

@@ -126,3 +126,32 @@
     <RegistryBrowserStoryHarness initialRoute={{ page: "directory" }} />
   {/snippet}
 </Story>
+
+<Story
+  name="Cached registry refresh"
+  play={async ({ canvas }) => {
+    await expect(
+      await canvas.findByText("Showing a verified cached registry."),
+    ).toBeVisible();
+    await expect(
+      await canvas.findByRole("heading", { name: "AI Assistant", level: 1 }),
+    ).toBeVisible();
+    await expect(
+      canvas.getByRole("button", { name: "Install unavailable" }),
+    ).toBeDisabled();
+    await userEvent.click(canvas.getByRole("button", { name: "Refresh" }));
+    await expect(
+      canvas.queryByText("Showing a verified cached registry."),
+    ).not.toBeInTheDocument();
+    await expect(
+      canvas.getByRole("button", { name: "Install in Lapis" }),
+    ).toBeEnabled();
+  }}
+>
+  {#snippet template()}
+    <RegistryBrowserStoryHarness
+      initialRoute={{ page: "plugin", pluginId: "ai" }}
+      sourceMode="cached"
+    />
+  {/snippet}
+</Story>

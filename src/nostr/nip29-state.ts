@@ -28,6 +28,11 @@ export interface Nip29RelayRegistryState {
   sources: RelayQuerySource[];
 }
 
+export interface Nip29ReleaseManifestDocument
+  extends Nip29ReleaseManifestSource {
+  bytes: Uint8Array;
+}
+
 export interface Nip29RelayRegistryStateOptions {
   relays: readonly RegistryRelay[];
   authorities: Nip29RegistryAuthorities;
@@ -105,6 +110,18 @@ export async function fetchNip29ReleaseManifests(
     signal?: AbortSignal | undefined;
   },
 ): Promise<Nip29ReleaseManifestSource[]> {
+  return await fetchNip29ReleaseManifestDocuments(events, options);
+}
+
+export async function fetchNip29ReleaseManifestDocuments(
+  events: readonly NostrEvent[],
+  options: {
+    fetch: typeof globalThis.fetch;
+    mediaAuthSigner?: RelayAuthSigner | undefined;
+    relayUrls?: readonly string[] | undefined;
+    signal?: AbortSignal | undefined;
+  },
+): Promise<Nip29ReleaseManifestDocument[]> {
   const attachments = new Map(
     events.flatMap((event) => {
       const attachment = getNip29ManifestAttachment(event);
@@ -121,7 +138,11 @@ export async function fetchNip29ReleaseManifests(
     [...attachments.values()]
       .toSorted((left, right) => left.sha256.localeCompare(right.sha256))
       .map(async (attachment) => {
-        const origin = new URL(attachment.url).origin;
+        const attachmentUrl = credentialFreeHttpUrl(
+          attachment.url,
+          `Release manifest ${attachment.sha256}`,
+        );
+        const origin = attachmentUrl.origin;
         const authorization =
           options.mediaAuthSigner !== undefined && mediaOrigins.has(origin)
             ? await mediaAuthorization(
@@ -130,7 +151,7 @@ export async function fetchNip29ReleaseManifests(
                 authorizationByOrigin,
               )
             : undefined;
-        const response = await options.fetch(attachment.url, {
+        const response = await options.fetch(attachmentUrl, {
           ...(options.signal === undefined ? {} : { signal: options.signal }),
           headers: {
             Accept: "application/json",
@@ -145,6 +166,11 @@ export async function fetchNip29ReleaseManifests(
           );
         }
         const bytes = new Uint8Array(await response.arrayBuffer());
+        if (bytes.byteLength !== attachment.size) {
+          throw new Error(
+            `Release manifest ${attachment.sha256} failed size verification`,
+          );
+        }
         const digest = new Uint8Array(
           await globalThis.crypto.subtle.digest("SHA-256", bytes),
         );
@@ -158,10 +184,23 @@ export async function fetchNip29ReleaseManifests(
         }
         return {
           attachmentSha256: attachment.sha256,
+          bytes,
           manifest: JSON.parse(new TextDecoder().decode(bytes)) as unknown,
         };
       }),
   );
+}
+
+function credentialFreeHttpUrl(value: string, label: string): URL {
+  const url = new URL(value);
+  if (
+    (url.protocol !== "http:" && url.protocol !== "https:") ||
+    url.username !== "" ||
+    url.password !== ""
+  ) {
+    throw new Error(`${label} must use HTTP(S) without credentials`);
+  }
+  return url;
 }
 
 function relayHttpOrigin(relayUrl: string): string {

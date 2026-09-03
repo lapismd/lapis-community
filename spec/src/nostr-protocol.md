@@ -22,10 +22,13 @@ topics, NIP-22 kind `1111` replies, and NIP-25 kind `7` reactions remain
 ordinary signed relay events. Clients render them in posting order and retain
 reply context without inventing a second persistence model.
 
-Catalog consumers read only the materialized projection and its verified
-content-addressed documents. That portable read path does not change release or
-curator authority, and discussion availability does not determine whether
-catalog metadata can be browsed.
+The static catalog consumes only the materialized projection and its verified
+content-addressed documents. Community MAY build the same deterministic
+projection directly from signed relay events and exact manifests in browser
+memory when the host supplies the trusted authorities and relay set. Browser
+media and Markdown MUST remain lazy, size- and SHA-256-verified resources:
+image fetches MAY use a credential-free Blossom base before the signed source
+URL, and no failed or unverified request may fall back to direct rendering.
 
 Private kind `14` rumors are materialized only after their NIP-17 gift wrap and
 kind `13` seal validate and decrypt for the connected identity. Application

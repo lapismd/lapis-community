@@ -6,6 +6,7 @@
   import CircleAlertIcon from "@lucide/svelte/icons/circle-alert";
   import LoaderCircleIcon from "@lucide/svelte/icons/loader-circle";
   import PackageSearchIcon from "@lucide/svelte/icons/package-search";
+  import RefreshCwIcon from "@lucide/svelte/icons/refresh-cw";
   import SlashIcon from "@lucide/svelte/icons/slash";
   import { onMount, untrack } from "svelte";
 
@@ -19,11 +20,13 @@
     type RegistryCatalogEntry,
     type RegistryCatalogIndex,
     type RegistryDirectoryState,
+    type RegistryInstallAction,
     type RegistryResolvedDetail,
     type RegistryRoute,
     type RegistryRuntime,
   } from "../../registry/index.js";
   import type { RegistryBrowserProps } from "./model.js";
+  import { provideRegistryImageLoader } from "../registry-verified-image/context.js";
 
   let {
     source,
@@ -36,6 +39,9 @@
     onInstall,
   }: RegistryBrowserProps = $props();
 
+  const catalogSource = untrack(() => source);
+  provideRegistryImageLoader(catalogSource.loadImage?.bind(catalogSource));
+
   let index = $state<RegistryCatalogIndex>();
   let runtime = $state<RegistryRuntime | null>(null);
   let catalogLoading = $state(true);
@@ -43,6 +49,7 @@
   let selectedDetail = $state<RegistryResolvedDetail>();
   let detailLoading = $state(false);
   let detailError = $state("");
+  let sourceStatus = $state(untrack(() => catalogSource.getStatus?.()));
   let directoryState = $state<RegistryDirectoryState>({
     query: "",
     categories: [],
@@ -53,7 +60,9 @@
     view: "grid",
   });
 
-  const catalogSession = untrack(() => new RegistryCatalogSession(source));
+  const catalogSession = untrack(
+    () => new RegistryCatalogSession(catalogSource),
+  );
   const hoverScrollbarProps = { scrollbarVisibility: "hover" } as const;
   let catalogController: AbortController | undefined;
   let detailController: AbortController | undefined;
@@ -75,6 +84,24 @@
       (runtime !== null &&
         runtime.publisherPubkeys.length > 0 &&
         runtime.relays.length > 0),
+  );
+  const selectedInstallAction = $derived.by<RegistryInstallAction | undefined>(
+    () => {
+      if (selectedEntry === undefined) return undefined;
+      const configured = installActions[selectedEntry.id];
+      if (sourceStatus === undefined || sourceStatus.fresh) return configured;
+      if (
+        configured?.state === "installed" ||
+        configured?.state === "installing"
+      ) {
+        return configured;
+      }
+      return {
+        state: "disabled",
+        reason:
+          "Connect to a registry relay to confirm current approvals and revocations before installing",
+      };
+    },
   );
 
   function navigate(next: RegistryRoute): void {
@@ -108,16 +135,16 @@
     navigate({ page: "plugin", pluginId: plugin.id });
   }
 
-  async function loadCatalog(): Promise<void> {
+  async function loadCatalog(background = false): Promise<void> {
     const generation = ++loadGeneration;
     catalogController?.abort();
     catalogController = new AbortController();
-    catalogLoading = true;
+    if (!background || index === undefined) catalogLoading = true;
     catalogError = "";
     try {
       const [nextIndex, nextRuntime] = await Promise.all([
-        source.loadIndex({ signal: catalogController.signal }),
-        source.loadRuntime({ signal: catalogController.signal }),
+        catalogSource.loadIndex({ signal: catalogController.signal }),
+        catalogSource.loadRuntime({ signal: catalogController.signal }),
       ]);
       if (generation !== loadGeneration) return;
       index = nextIndex;
@@ -130,6 +157,18 @@
           : "The registry could not be loaded";
     } finally {
       if (generation === loadGeneration) catalogLoading = false;
+    }
+  }
+
+  async function refreshCatalog(): Promise<void> {
+    try {
+      if (catalogSource.refresh !== undefined) {
+        await catalogSource.refresh();
+      } else {
+        await loadCatalog(index !== undefined);
+      }
+    } catch {
+      // Live sources expose refresh failures through their status event.
     }
   }
 
@@ -166,12 +205,20 @@
   }
 
   onMount(() => {
+    const unsubscribe = catalogSource.subscribe?.((event) => {
+      sourceStatus = event.status;
+      if (event.type === "revision") {
+        catalogSession.clear();
+        void loadCatalog(index !== undefined);
+      }
+    });
     void loadCatalog();
     return () => {
       loadGeneration += 1;
       detailGeneration += 1;
       catalogController?.abort();
       detailController?.abort();
+      unsubscribe?.();
     };
   });
 
@@ -251,6 +298,32 @@
         {/if}
       </Breadcrumb.List>
     </Breadcrumb.Root>
+  </AppShell.Toolbar>
+{/if}
+
+{#if index && sourceStatus && (!sourceStatus.fresh || sourceStatus.phase === "degraded")}
+  <AppShell.Toolbar
+    class="registry-browser__source-toolbar"
+    label="Registry source status"
+  >
+    <aside class="registry-browser__source-notice" role="status">
+      <span>
+        <strong>Showing a verified cached registry.</strong>
+        {sourceStatus.message ??
+          "Connect to a registry relay to confirm current approvals and revocations."}
+      </span>
+      {#if catalogSource.refresh}
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onclick={() => void refreshCatalog()}
+        >
+          <RefreshCwIcon aria-hidden="true" />
+          Refresh
+        </Button>
+      {/if}
+    </aside>
   </AppShell.Toolbar>
 {/if}
 
@@ -356,9 +429,9 @@
           <RegistryPluginDetail
             resolved={selectedDetail}
             {related}
-            {...installActions[selectedEntry.id] === undefined
+            {...selectedInstallAction === undefined
               ? {}
-              : { installAction: installActions[selectedEntry.id] }}
+              : { installAction: selectedInstallAction }}
             {...onInstall === undefined ? {} : { onInstall }}
             onOpenPlugin={openPlugin}
             onOpenCategory={(category) =>
@@ -416,6 +489,39 @@
     min-height: 100%;
     color: var(--foreground);
     background: var(--background);
+  }
+
+  .registry-browser__source-notice {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    width: 100%;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 0.65rem 0.75rem;
+    color: var(--muted-foreground);
+    background: var(--muted);
+    font-size: 0.8rem;
+  }
+
+  :global(.registry-browser__source-toolbar) {
+    min-height: auto;
+    padding: 0.5rem 0.75rem;
+  }
+
+  .registry-browser__source-notice span {
+    display: grid;
+    gap: 0.15rem;
+  }
+
+  .registry-browser__source-notice strong {
+    color: var(--foreground);
+  }
+
+  .registry-browser__source-notice :global(svg) {
+    width: 0.9rem;
+    height: 0.9rem;
   }
 
   .registry-browser__state,

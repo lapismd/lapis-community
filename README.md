@@ -18,6 +18,9 @@ events to the verified projection and discussion components rendered by
   thread history.
 - `src/materializer` verifies publishers, curators, signatures, manifests,
   artifacts, and media before writing the publishable projection.
+- `src/registry` exposes compatible HTTP and live NIP-29 catalog sources. The
+  live source restores verified raw inputs locally, synchronizes and subscribes
+  to relays, then builds the disposable catalog projection in browser memory.
 - `src/fixture` creates deterministic local events from the sibling
   `lapis-plugins` checkout for end-to-end testing only.
 
@@ -54,6 +57,35 @@ provenance root, browser runtime configuration, mirrored resources, and the
 community component. The renderer consumes this directory through
 `LAPIS_REGISTRY_SOURCE_DIR` and publishes it under `/registry/`.
 
+## Render Community directly from Nostr
+
+```ts
+const source = createNip29RegistryCatalogDataSource({
+  relays,
+  authorities: { curatorPubkeys, publisherPubkeysByPlugin },
+  relayFactory: createWebSocketCommunityRelayFactory(),
+  blossomUrl: "https://blossom.example/",
+});
+```
+
+The host maps deployment configuration into this source; the package does not
+read server environment variables. An injected reader signer is optional, and
+an ephemeral in-memory signer handles read-only NIP-42 when it is omitted. The
+source caches only verified signed events, exact manifest bytes, synchronization
+metadata, and resources requested while browsing. Cached catalogs remain
+browseable offline, but new installs stay disabled until one configured relay
+completes a fresh synchronization.
+The host that creates the source also owns calling `source.dispose()` when its
+application lifetime ends; mounting and unmounting a registry route does not
+dispose a shared source.
+
+For the live source, `blossomUrl` is an optional credential-free HTTP(S) image
+base. Images use its path first and their signed `sourceUrl` otherwise;
+Markdown uses its signed source. Every response must match the signed size and
+SHA-256 before Community receives a Blob or text value, with no unverified URL
+fallback. This browser option is separate from materializer `BLOSSOM_URL` and
+relay-owned `BLOSSOM_PUBLIC_URL`.
+
 ## Verify locally
 
 ```sh
@@ -79,6 +111,10 @@ VITE_COMMUNITY_LIVE_CHANNEL_GROUP_ID=<nip-29-group-id> \
 VITE_COMMUNITY_LIVE_FORUM_GROUP_ID=<nip-29-group-id> \
 pnpm storybook
 ```
+
+The registry live story uses the same direct source with
+`VITE_REGISTRY_RELAYS`, `VITE_REGISTRY_CURATOR_PUBKEYS`,
+`VITE_REGISTRY_PUBLISHER_PUBKEYS`, and optional `VITE_BLOSSOM_URL`.
 
 Live stories are read-only unless the browser provides a user-controlled
 NIP-07 signer. Docker remains the writable WebSocket-backed fixture lane via

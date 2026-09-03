@@ -222,6 +222,36 @@ export interface RegistryLoadOptions {
   signal?: AbortSignal;
 }
 
+export type RegistryCatalogSourcePhase =
+  | "loading"
+  | "ready"
+  | "refreshing"
+  | "degraded"
+  | "error";
+
+export interface RegistryCatalogRelayStatus {
+  relay: string;
+  error?: string;
+}
+
+export interface RegistryCatalogSourceStatus {
+  phase: RegistryCatalogSourcePhase;
+  fresh: boolean;
+  origin?: "cache" | "relay";
+  registryRoot?: string;
+  synchronizedAt?: string;
+  message?: string;
+  relays: readonly RegistryCatalogRelayStatus[];
+}
+
+export type RegistryCatalogSourceEvent =
+  | { type: "status"; status: RegistryCatalogSourceStatus }
+  | { type: "revision"; status: RegistryCatalogSourceStatus };
+
+export type RegistryCatalogSourceListener = (
+  event: RegistryCatalogSourceEvent,
+) => void;
+
 export interface RegistryCatalogDataSource {
   loadIndex(options?: RegistryLoadOptions): Promise<RegistryCatalogIndex>;
   loadRuntime(options?: RegistryLoadOptions): Promise<RegistryRuntime | null>;
@@ -233,6 +263,26 @@ export interface RegistryCatalogDataSource {
     reference: RegistryMarkdownReference,
     options?: RegistryLoadOptions,
   ): Promise<string>;
+  loadImage?(
+    reference: RegistryImageReference,
+    options?: RegistryLoadOptions,
+  ): Promise<Blob>;
+  getStatus?(): RegistryCatalogSourceStatus;
+  subscribe?(listener: RegistryCatalogSourceListener): () => void;
+  refresh?(options?: RegistryLoadOptions): Promise<void>;
+  dispose?(): void;
+}
+
+export interface LiveRegistryCatalogDataSource
+  extends RegistryCatalogDataSource {
+  loadImage(
+    reference: RegistryImageReference,
+    options?: RegistryLoadOptions,
+  ): Promise<Blob>;
+  getStatus(): RegistryCatalogSourceStatus;
+  subscribe(listener: RegistryCatalogSourceListener): () => void;
+  refresh(options?: RegistryLoadOptions): Promise<void>;
+  dispose(): void;
 }
 
 export interface RegistryResolvedDetail {

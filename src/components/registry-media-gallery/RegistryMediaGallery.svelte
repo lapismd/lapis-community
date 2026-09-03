@@ -6,6 +6,7 @@
 
   import type { RegistryGalleryItem } from "../../registry/index.js";
   import RegistryMediaViewer from "../registry-media-viewer/RegistryMediaViewer.svelte";
+  import RegistryVerifiedImage from "../registry-verified-image/RegistryVerifiedImage.svelte";
 
   let {
     items,
@@ -97,8 +98,8 @@
             aria-label={`Open screenshot ${index + 1} of ${items.length}: ${item.alt}`}
             onclick={(event) => show(index, event.currentTarget)}
           >
-            <img
-              src={item.images.dark.url}
+            <RegistryVerifiedImage
+              reference={item.images.dark}
               width={item.images.dark.width}
               height={item.images.dark.height}
               alt=""
@@ -190,7 +191,7 @@
     outline: 2px solid var(--ring);
     outline-offset: -2px;
   }
-  .registry-media-gallery__track img {
+  .registry-media-gallery__track :global(img) {
     display: block;
     width: 100%;
     aspect-ratio: 3 / 2;

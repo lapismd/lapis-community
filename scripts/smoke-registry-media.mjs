@@ -10,8 +10,38 @@ try {
   const page = await browser.newPage({
     viewport: { width: 1440, height: 1000 },
   });
+  const staticCatalogRequests = [];
+  page.on("request", (request) => {
+    const pathname = new URL(request.url()).pathname;
+    if (
+      pathname === "/registry/index.json" ||
+      pathname === "/registry/runtime.json" ||
+      /^\/registry\/plugins\/[^/]+\.json$/u.test(pathname)
+    ) {
+      staticCatalogRequests.push(request.url());
+    }
+  });
   await page.goto(storyUrl, { waitUntil: "networkidle" });
-  await page.locator(".registry-plugin-detail__hero h1").waitFor();
+  try {
+    await page.locator(".registry-plugin-detail__hero h1").waitFor();
+  } catch (cause) {
+    const content = await page.locator("body").innerText();
+    throw new Error(
+      `Registry detail did not render. Page content:\n${content}`,
+      {
+        cause,
+      },
+    );
+  }
+
+  const mediaTriggers = page.locator(
+    ".registry-plugin-detail__banner, .registry-media-gallery__track button, .registry-plugin-detail__overview-media",
+  );
+  for (let index = 0; index < (await mediaTriggers.count()); index += 1) {
+    const trigger = mediaTriggers.nth(index);
+    await trigger.scrollIntoViewIfNeeded();
+    await trigger.locator("img").waitFor();
+  }
 
   const media = page.locator(
     ".registry-plugin-detail__icon img, .registry-plugin-detail__banner img, .registry-media-gallery__track img, .registry-plugin-detail__overview-media img",
@@ -33,11 +63,8 @@ try {
       });
     });
     const source = await item.getAttribute("src");
-    const pathname = new URL(source, storyUrl).pathname;
-    if (!pathname.startsWith("/registry/assets/")) {
-      throw new Error(
-        `Media escaped the verified registry projection: ${source}`,
-      );
+    if (!source?.startsWith("blob:")) {
+      throw new Error(`Media did not use a verified Blob URL: ${source}`);
     }
   }
 
@@ -56,13 +83,16 @@ try {
     const source = await viewer
       .locator(".registry-media-viewer__slide[aria-selected='true'] img")
       .getAttribute("src");
-    if (!new URL(source, storyUrl).pathname.startsWith("/registry/assets/")) {
-      throw new Error(
-        `${label} viewer mode did not use mirrored registry media`,
-      );
+    if (!source?.startsWith("blob:")) {
+      throw new Error(`${label} viewer mode did not use verified Blob media`);
     }
   }
   await viewer.getByRole("button", { name: "Close media viewer" }).click();
+  if (staticCatalogRequests.length > 0) {
+    throw new Error(
+      `Relay-backed story requested static catalog documents: ${staticCatalogRequests.join(", ")}`,
+    );
+  }
 } finally {
   await browser.close();
 }

@@ -13,14 +13,14 @@
       docs: {
         source: {
           language: "svelte",
-          code: `<RegistryBrowser source={createHttpRegistryCatalogDataSource({ baseUrl: "/registry/" })} route={{ page: "plugin", pluginId: "ai" }} />`,
+          code: `<RegistryBrowser source={createNip29RegistryCatalogDataSource({ relays, authorities, relayFactory, blossomUrl })} route={{ page: "plugin", pluginId: "ai" }} />`,
         },
       },
     },
   });
 </script>
 
-<Story name="Relay materialized AI detail">
+<Story name="Relay AI detail">
   {#snippet template()}
     <RegistryBrowserLiveStoryHarness />
   {/snippet}

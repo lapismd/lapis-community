@@ -26,6 +26,7 @@
   import RegistryMediaGallery from "../registry-media-gallery/RegistryMediaGallery.svelte";
   import RegistryMediaViewer from "../registry-media-viewer/RegistryMediaViewer.svelte";
   import RegistryPluginCard from "../registry-plugin-card/RegistryPluginCard.svelte";
+  import RegistryVerifiedImage from "../registry-verified-image/RegistryVerifiedImage.svelte";
   import { registryPluginIcon } from "../registry-plugin-icons.js";
 
   let {
@@ -168,6 +169,10 @@
   }
 </script>
 
+{#snippet pluginIcon()}
+  <PluginIcon aria-hidden="true" />
+{/snippet}
+
 {#snippet authorAvatar()}
   <span class="registry-plugin-detail__author-avatar" aria-hidden="true">
     {#if authorAvatarUrl}
@@ -228,11 +233,12 @@
             "var(--primary)"}
         >
           {#if detail.appearance?.logo}
-            <img
-              src={detail.appearance.logo.url}
+            <RegistryVerifiedImage
+              reference={detail.appearance.logo}
               alt=""
               width={detail.appearance.logo.width}
               height={detail.appearance.logo.height}
+              fallback={pluginIcon}
             />
           {:else}
             <PluginIcon aria-hidden="true" />
@@ -342,8 +348,8 @@
         onclick={(event) =>
           showMedia(detail.media!.banner!, event.currentTarget)}
       >
-        <img
-          src={detail.media.banner.images.dark.url}
+        <RegistryVerifiedImage
+          reference={detail.media.banner.images.dark}
           alt=""
           width={detail.media.banner.images.dark.width}
           height={detail.media.banner.images.dark.height}
@@ -382,11 +388,12 @@
                 onclick={(event) =>
                   showMedia(detail.media!.overview!, event.currentTarget)}
               >
-                <img
-                  src={detail.media.overview.images.preview.url}
+                <RegistryVerifiedImage
+                  reference={detail.media.overview.images.preview}
                   alt=""
                   width={detail.media.overview.images.preview.width}
                   height={detail.media.overview.images.preview.height}
+                  loading="lazy"
                 />
               </button>
             {/if}
@@ -621,7 +628,7 @@
     width: 2.25rem;
     height: 2.25rem;
   }
-  .registry-plugin-detail__icon img {
+  .registry-plugin-detail__icon :global(img) {
     width: 76%;
     height: 76%;
     object-fit: contain;
@@ -755,7 +762,7 @@
     background: #09090b;
     cursor: zoom-in;
   }
-  .registry-plugin-detail__banner img {
+  .registry-plugin-detail__banner :global(img) {
     display: block;
     width: 100%;
     aspect-ratio: 3 / 2;
@@ -792,7 +799,7 @@
     background: #09090b;
     cursor: zoom-in;
   }
-  .registry-plugin-detail__overview-media img {
+  .registry-plugin-detail__overview-media :global(img) {
     display: block;
     width: 100%;
     aspect-ratio: 3 / 2;

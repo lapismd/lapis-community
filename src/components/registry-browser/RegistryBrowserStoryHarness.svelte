@@ -3,6 +3,9 @@
   import { untrack } from "svelte";
 
   import type {
+    RegistryCatalogDataSource,
+    RegistryCatalogSourceListener,
+    RegistryCatalogSourceStatus,
     RegistryInstallAction,
     RegistryRoute,
   } from "../../registry/index.js";
@@ -10,9 +13,55 @@
   import RegistryBrowser from "./RegistryBrowser.svelte";
   import { createRegistryStoryDataSource } from "./story-fixtures.js";
 
-  let { initialRoute = { page: "landing" } }: { initialRoute?: RegistryRoute } =
-    $props();
-  const source = createRegistryStoryDataSource();
+  let {
+    initialRoute = { page: "landing" },
+    sourceMode = "static",
+  }: {
+    initialRoute?: RegistryRoute;
+    sourceMode?: "static" | "cached";
+  } = $props();
+  const fixtureSource = createRegistryStoryDataSource();
+  const sourceListeners = new Set<RegistryCatalogSourceListener>();
+  let liveStatus: RegistryCatalogSourceStatus = {
+    phase: "ready",
+    fresh: false,
+    origin: "cache",
+    registryRoot: "cached-story-root",
+    synchronizedAt: "2026-09-03T12:00:00.000Z",
+    message: "The registry relay is unavailable.",
+    relays: [{ relay: "wss://relay.example", error: "offline" }],
+  };
+  const initialSourceMode = untrack(() => sourceMode);
+  const source: RegistryCatalogDataSource & {
+    detailLoads: ReadonlyMap<string, number>;
+  } =
+    initialSourceMode === "static"
+      ? fixtureSource
+      : {
+          ...fixtureSource,
+          getStatus: () => liveStatus,
+          subscribe(listener) {
+            sourceListeners.add(listener);
+            listener({ type: "status", status: liveStatus });
+            return () => sourceListeners.delete(listener);
+          },
+          async refresh() {
+            liveStatus = {
+              phase: "ready",
+              fresh: true,
+              origin: "relay",
+              registryRoot: "fresh-story-root",
+              synchronizedAt: "2026-09-03T12:01:00.000Z",
+              relays: [{ relay: "wss://relay.example" }],
+            };
+            for (const listener of sourceListeners) {
+              listener({ type: "revision", status: liveStatus });
+            }
+          },
+          dispose() {
+            sourceListeners.clear();
+          },
+        };
   const shell = untrack(
     () =>
       new AppShellController({
@@ -42,7 +91,7 @@
   class="registry-browser-story"
   style="--ui-shell-height: 100vh"
   data-route={route.page}
-  data-ai-detail-loads={source.detailLoads.get("ai") ?? 0}
+  data-ai-detail-loads={fixtureSource.detailLoads.get("ai") ?? 0}
 >
   <AppShell.Main>
     <RegistryBrowser

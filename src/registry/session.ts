@@ -65,6 +65,10 @@ export class RegistryCatalogSession {
   hasDetail(pluginId: string): boolean {
     return this.#details.has(pluginId);
   }
+
+  clear(): void {
+    this.#details.clear();
+  }
 }
 
 function isAbortError(cause: unknown): boolean {

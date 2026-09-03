@@ -38,6 +38,22 @@ const communityRelayBackend = (
     env?: { VITE_COMMUNITY_RELAY_BACKEND?: string };
   }
 ).env?.VITE_COMMUNITY_RELAY_BACKEND;
+const registryRelays = (
+  import.meta as ImportMeta & { env?: { VITE_REGISTRY_RELAYS?: string } }
+).env?.VITE_REGISTRY_RELAYS;
+const registryCuratorPubkeys = (
+  import.meta as ImportMeta & {
+    env?: { VITE_REGISTRY_CURATOR_PUBKEYS?: string };
+  }
+).env?.VITE_REGISTRY_CURATOR_PUBKEYS;
+const registryPublisherPubkeys = (
+  import.meta as ImportMeta & {
+    env?: { VITE_REGISTRY_PUBLISHER_PUBKEYS?: string };
+  }
+).env?.VITE_REGISTRY_PUBLISHER_PUBKEYS;
+const registryBlossomUrl = (
+  import.meta as ImportMeta & { env?: { VITE_BLOSSOM_URL?: string } }
+).env?.VITE_BLOSSOM_URL;
 
 const preview: Preview = {
   tags: ["autodocs", "test"],
@@ -176,6 +192,15 @@ const preview: Preview = {
             communityLiveForumGroupId;
         } else {
           delete document.documentElement.dataset.communityLiveForumGroupId;
+        }
+        for (const [key, value] of Object.entries({
+          registryRelays,
+          registryCuratorPubkeys,
+          registryPublisherPubkeys,
+          registryBlossomUrl,
+        })) {
+          if (value) document.documentElement.dataset[key] = value;
+          else delete document.documentElement.dataset[key];
         }
         if (
           previousCommunityBackend !== undefined &&

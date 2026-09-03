@@ -18,7 +18,7 @@
     CommunityApplication,
     RegistryCommunity,
   } from "@lapismd/lapis-community/components";
-  import { createHttpRegistryCatalogDataSource } from "@lapismd/lapis-community/registry";
+  import { createNip29RegistryCatalogDataSource } from "@lapismd/lapis-community/registry";
   import {
     createBrowserCommunityConfigurationStore,
     createBrowserCommunityEventRuntime,
@@ -27,23 +27,31 @@
   } from "@lapismd/lapis-community/community";
   import { createWebSocketCommunityRelayFactory } from "@lapismd/lapis-community/nostr";
 
+  const relayFactory = createWebSocketCommunityRelayFactory();
+
   const community = createCommunityController({
     scopes,
     identity,
     stateStore,
     source: createNip29CommunitySource({
-      relayFactory: createWebSocketCommunityRelayFactory(),
+      relayFactory,
     }),
     configurationStore: createBrowserCommunityConfigurationStore(),
     runtime: createBrowserCommunityEventRuntime(),
   });
-  const registrySource = createHttpRegistryCatalogDataSource({
-    baseUrl: "/registry/",
+  const registrySource = createNip29RegistryCatalogDataSource({
+    relays: registryRelays,
+    authorities: registryAuthorities,
+    relayFactory,
+    blossomUrl: registryBlossomUrl,
   });
 
   onMount(() => {
     community.initialize();
-    return () => community.dispose();
+    return () => {
+      registrySource.dispose();
+      community.dispose();
+    };
   });
 <\/script>
 

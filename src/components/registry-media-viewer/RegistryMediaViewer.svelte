@@ -6,6 +6,7 @@
   import XIcon from "@lucide/svelte/icons/x";
 
   import type { RegistryMediaItem } from "../../registry/index.js";
+  import RegistryVerifiedImage from "../registry-verified-image/RegistryVerifiedImage.svelte";
 
   type MediaMode = "full" | "light" | "dark";
 
@@ -225,8 +226,8 @@
         role="option"
         aria-selected={index === selectedIndex}
       >
-        <img
-          src={image.url}
+        <RegistryVerifiedImage
+          reference={image}
           alt={item.alt}
           width={image.width}
           height={image.height}
@@ -305,7 +306,7 @@
     box-sizing: border-box;
     scroll-snap-align: start;
   }
-  .registry-media-viewer__slide img {
+  .registry-media-viewer__slide :global(img) {
     display: block;
     max-width: min(93vw, 75rem);
     max-height: 86dvh;

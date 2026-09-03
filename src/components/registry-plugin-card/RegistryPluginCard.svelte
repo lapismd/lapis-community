@@ -16,6 +16,7 @@
     titleCaseRegistryValue,
     type RegistryCatalogEntry,
   } from "../../registry/index.js";
+  import RegistryVerifiedImage from "../registry-verified-image/RegistryVerifiedImage.svelte";
 
   let {
     plugin,
@@ -51,6 +52,10 @@
   );
 </script>
 
+{#snippet pluginIcon()}
+  <PluginIcon aria-hidden="true" />
+{/snippet}
+
 <button
   type="button"
   class="registry-plugin-card"
@@ -64,7 +69,12 @@
       "var(--primary)"}
   >
     {#if plugin.appearance?.logo}
-      <img src={plugin.appearance.logo.url} alt={plugin.appearance.logo.alt} />
+      <RegistryVerifiedImage
+        reference={plugin.appearance.logo}
+        alt={plugin.appearance.logo.alt}
+        fallback={pluginIcon}
+        loading="lazy"
+      />
     {:else}
       <PluginIcon aria-hidden="true" />
     {/if}
@@ -157,7 +167,7 @@
     height: 1.35rem;
   }
 
-  .registry-plugin-card__identity img {
+  .registry-plugin-card__identity :global(img) {
     width: 100%;
     height: 100%;
     object-fit: cover;
