@@ -1,6 +1,6 @@
 <script module lang="ts">
   import { defineMeta } from "@storybook/addon-svelte-csf";
-  import { expect, fn, userEvent } from "storybook/test";
+  import { expect, fn, userEvent, within } from "storybook/test";
 
   import type { RegistryDirectoryState } from "../../registry/index.js";
   import { registryStoryEntries } from "../registry-browser/story-fixtures.js";
@@ -57,24 +57,28 @@
     await userEvent.click(
       canvas.getByRole("button", { name: /^Available 5$/u }),
     );
-    await expect(
-      canvas
-        .getByRole("button", { name: /^Available 5$/u })
-        .querySelector('[data-filter-icon="check"]'),
-    ).not.toBeNull();
+    const selectedMark = canvas
+      .getByRole("button", { name: /^Available 5$/u })
+      .querySelector<HTMLElement>('[data-filter-icon="check"]');
+    await expect(selectedMark).not.toBeNull();
+    await expect(getComputedStyle(selectedMark!).borderRadius).toBe("999px");
+    await expect(getComputedStyle(selectedMark!).backgroundColor).not.toBe(
+      "rgba(0, 0, 0, 0)",
+    );
     await expect(canvas.getByText("5 results")).toBeVisible();
     const activeButtons = canvas.getAllByRole("button", { name: /Available/u });
     await userEvent.click(activeButtons.at(-1)!);
     await expect(canvas.getByText("8 results")).toBeVisible();
 
-    await userEvent.selectOptions(
-      canvas.getByRole("combobox", { name: "Sort plugins" }),
-      "updated",
-    );
     await userEvent.click(canvas.getByRole("button", { name: "List" }));
     await expect(canvas.getByRole("button", { name: "List" })).toHaveAttribute(
       "aria-pressed",
       "true",
+    );
+    const listCard = canvas.getByRole("button", { name: "Open AI Assistant" });
+    await expect(getComputedStyle(listCard).borderRadius).not.toBe("0px");
+    await expect(getComputedStyle(listCard).backgroundColor).not.toBe(
+      "rgba(0, 0, 0, 0)",
     );
 
     const resizeHandle = canvas.getByRole("button", {
@@ -112,6 +116,15 @@
     await expect(
       canvas.getByRole("button", { name: "Expand Category filters" }),
     ).toHaveAttribute("aria-expanded", "false");
+
+    const sortTrigger = canvas.getByRole("combobox", { name: "Sort plugins" });
+    await userEvent.click(sortTrigger);
+    await userEvent.click(
+      within(document.body).getByRole("option", {
+        name: "Recently updated",
+      }),
+    );
+    await expect(sortTrigger).toHaveTextContent("Recently updated");
   }}
 >
   {#snippet template(args)}

@@ -111,6 +111,19 @@
       transform 150ms ease;
   }
 
+  .registry-plugin-card[data-variant="compact"] {
+    border: 0;
+    border-radius: var(--radius);
+    padding: 0.65rem;
+    background: transparent;
+  }
+
+  .registry-plugin-card[data-variant="list"] {
+    border-color: transparent;
+    border-radius: calc(var(--radius) * 1.2);
+    background: color-mix(in srgb, var(--secondary) 64%, transparent);
+  }
+
   .registry-plugin-card:hover,
   .registry-plugin-card:focus-visible {
     border-color: color-mix(in srgb, var(--primary) 45%, var(--border));
@@ -120,19 +133,6 @@
 
   .registry-plugin-card[data-variant="card"]:hover {
     transform: translateY(-1px);
-  }
-
-  .registry-plugin-card[data-variant="compact"] {
-    border: 0;
-    border-radius: var(--radius);
-    padding: 0.65rem 0;
-    background: transparent;
-  }
-
-  .registry-plugin-card[data-variant="list"] {
-    border-inline: 0;
-    border-top: 0;
-    border-radius: 0;
   }
 
   .registry-plugin-card__identity {

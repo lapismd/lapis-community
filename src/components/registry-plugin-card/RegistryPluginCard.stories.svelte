@@ -24,9 +24,10 @@
 <Story
   name="Catalog card"
   play={async ({ args, canvas }) => {
-    await userEvent.click(
-      canvas.getByRole("button", { name: "Open AI Assistant" }),
-    );
+    const card = canvas.getByRole("button", { name: "Open AI Assistant" });
+    card.focus();
+    await expect(card).toHaveFocus();
+    await userEvent.click(card);
     await expect(args.onOpen).toHaveBeenCalledOnce();
     await expect(args.onOpen).toHaveBeenCalledWith(registryStoryEntries[0]);
   }}
@@ -35,6 +36,16 @@
 <Story
   name="List row"
   args={{ plugin: registryStoryEntries[2], variant: "list" }}
+/>
+
+<Story
+  name="Compact row"
+  args={{ variant: "compact" }}
+  play={async ({ canvas }) => {
+    const card = canvas.getByRole("button", { name: "Open AI Assistant" });
+    card.focus();
+    await expect(card).toHaveFocus();
+  }}
 />
 
 <Story name="Deprecated plugin" args={{ plugin: registryStoryEntries[6] }} />

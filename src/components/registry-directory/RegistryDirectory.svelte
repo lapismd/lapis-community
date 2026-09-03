@@ -2,6 +2,7 @@
   import { Button } from "@lapismd/design-core/shadcn/button";
   import * as Collapsible from "@lapismd/design-core/shadcn/collapsible";
   import { Input } from "@lapismd/design-core/shadcn/input";
+  import * as Select from "@lapismd/design-core/shadcn/select";
   import { AppShell } from "@lapismd/design-core/shell";
   import BadgeCheckIcon from "@lucide/svelte/icons/badge-check";
   import BlocksIcon from "@lucide/svelte/icons/blocks";
@@ -83,6 +84,12 @@
   );
   const resizeMinimum = 192;
   const hoverScrollbarProps = { scrollbarVisibility: "hover" } as const;
+  const sortLabels: Record<RegistryDirectoryState["sort"], string> = {
+    name: "Name",
+    new: "New",
+    updated: "Recently updated",
+    status: "Status",
+  };
   const resizeMaximum = $derived(resizeBounds().max);
   const presentedFilterWidth = $derived(
     Math.round(
@@ -467,22 +474,31 @@
               <LayoutGridIcon data-icon="inline-start" aria-hidden="true" /> Cards
             </Button>
           </div>
-          <label class="registry-directory__sort">
-            <span class="sr-only">Sort plugins</span>
-            <select
-              value={directoryState.sort}
-              onchange={(event) =>
-                replaceState({
-                  sort: event.currentTarget
-                    .value as RegistryDirectoryState["sort"],
-                })}
+          <Select.Root
+            type="single"
+            value={directoryState.sort}
+            onValueChange={(value) => {
+              if (value) {
+                replaceState({ sort: value as RegistryDirectoryState["sort"] });
+              }
+            }}
+          >
+            <Select.Trigger
+              size="sm"
+              class="registry-directory__sort-trigger"
+              aria-label="Sort plugins"
+              role="combobox"
             >
-              <option value="name">Name</option>
-              <option value="new">New</option>
-              <option value="updated">Recently updated</option>
-              <option value="status">Status</option>
-            </select>
-          </label>
+              {sortLabels[directoryState.sort]}
+            </Select.Trigger>
+            <Select.Content aria-label="Sort plugins">
+              <Select.Group>
+                {#each Object.entries(sortLabels) as [value, label] (value)}
+                  <Select.Item {value} {label}>{label}</Select.Item>
+                {/each}
+              </Select.Group>
+            </Select.Content>
+          </Select.Root>
         </div>
       </header>
 
@@ -710,6 +726,17 @@
     height: 0.9rem;
   }
 
+  .registry-directory__filter-icon[data-filter-icon="check"] {
+    border-radius: 999px;
+    color: var(--primary-foreground);
+    background: var(--primary);
+  }
+
+  .registry-directory__filter-icon[data-filter-icon="check"] :global(svg) {
+    width: 0.7rem;
+    height: 0.7rem;
+  }
+
   .registry-directory__show-more {
     color: var(--muted-foreground);
     font-size: 0.82rem;
@@ -801,13 +828,9 @@
     gap: 0.35rem;
   }
 
-  .registry-directory__sort select {
-    height: 2.25rem;
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    padding-inline: 0.65rem 1.75rem;
-    color: var(--foreground);
-    background: var(--background);
+  :global(.registry-directory__sort-trigger) {
+    width: 11rem;
+    justify-content: space-between;
   }
 
   .registry-directory__active-filters {
@@ -861,14 +884,6 @@
   .registry-directory__empty :global(svg) {
     width: 2rem;
     color: var(--muted-foreground);
-  }
-
-  .sr-only {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-    clip: rect(0, 0, 0, 0);
   }
 
   @media (max-width: 68rem) {
