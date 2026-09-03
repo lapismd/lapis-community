@@ -61,6 +61,29 @@
   } = $props();
 
   let draft = $state("");
+  const rootMessage = $derived(
+    thread.messages.find((message) => message.id === thread.rootMessageId),
+  );
+  const rootAuthor = $derived(
+    rootMessage === undefined
+      ? undefined
+      : memberById(members, rootMessage.authorId),
+  );
+  const composerContext = $derived.by(() => {
+    if (replyTarget) {
+      return {
+        authorName: replyTarget.authorName,
+        content: replyTarget.content,
+        isRoot: replyTarget.eventId === thread.rootMessageId,
+      };
+    }
+    if (rootMessage === undefined || rootAuthor === undefined) return undefined;
+    return {
+      authorName: rootAuthor.name,
+      content: rootMessage.content,
+      isRoot: true,
+    };
+  });
 
   function submit(content: string): void {
     const result = onSendReply?.(thread.rootMessageId, content);
@@ -85,27 +108,35 @@
       <Composer
         density="compact"
         bind:value={draft}
-        placeholder="Reply to thread"
+        placeholder={rootAuthor === undefined
+          ? "Reply to thread"
+          : `Reply in thread to ${rootAuthor.name}`}
         onSubmit={submit}
       >
-        {#if replyTarget}
-          {#snippet headerContext()}
-            <div class="community-thread-panel__reply-context">
+        {#snippet headerContext()}
+          {#if composerContext}
+            <div
+              class="community-thread-panel__reply-context"
+              aria-label={`${composerContext.isRoot ? "Thread from" : "Replying to"} ${composerContext.authorName}`}
+            >
               <span
-                ><strong>Replying to {replyTarget.authorName}</strong><small
-                  >{replyTarget.content.slice(0, 100)}</small
-                ></span
+                ><strong
+                  >{composerContext.isRoot ? "Thread from" : "Replying to"}
+                  {composerContext.authorName}</strong
+                ><small>{composerContext.content.slice(0, 120)}</small></span
               >
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon-sm"
-                aria-label="Cancel reply"
-                onclick={onCancelReply}><XIcon aria-hidden="true" /></Button
-              >
+              {#if !composerContext.isRoot && onCancelReply}
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-label="Cancel reply"
+                  onclick={onCancelReply}><XIcon aria-hidden="true" /></Button
+                >
+              {/if}
             </div>
-          {/snippet}
-        {/if}
+          {/if}
+        {/snippet}
         {#snippet footerActions()}
           <CommunityEmojiPicker
             {communityEmojis}

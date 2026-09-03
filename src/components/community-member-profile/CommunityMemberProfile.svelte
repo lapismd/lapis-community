@@ -1,10 +1,10 @@
 <script lang="ts">
-  import { Badge } from "@lapismd/design-core/shadcn/badge";
   import { Button } from "@lapismd/design-core/shadcn/button";
   import HandIcon from "@lucide/svelte/icons/hand";
   import MessageCircleIcon from "@lucide/svelte/icons/message-circle";
   import UserPlusIcon from "@lucide/svelte/icons/user-plus";
 
+  import CommunityMemberAvatar from "../community-member-avatar/CommunityMemberAvatar.svelte";
   import type { CommunityMemberModel } from "../community-workspace/model.js";
 
   let {
@@ -22,27 +22,21 @@
 
 <article class="community-member-profile">
   <header>
-    <span class="community-member-profile__avatar">
-      {#if member.avatarUrl}<img
-          src={member.avatarUrl}
-          alt=""
-        />{:else}{member.initials}{/if}
-    </span>
+    <CommunityMemberAvatar {member} size="large" showPresence />
     <div>
       <h2>{member.name}</h2>
       <p>@{member.handle}</p>
     </div>
-    <Badge variant="outline">{member.presence ?? "offline"}</Badge>
   </header>
 
   <div class="community-member-profile__actions">
-    <Button variant="default" onclick={onMessage}>
+    <Button variant="secondary" onclick={onMessage}>
       <MessageCircleIcon data-icon="inline-start" aria-hidden="true" />Message
     </Button>
-    <Button variant="outline" onclick={onWave}>
+    <Button variant="secondary" onclick={onWave}>
       <HandIcon data-icon="inline-start" aria-hidden="true" />Wave
     </Button>
-    <Button variant="outline" onclick={onFollow}>
+    <Button variant="secondary" onclick={onFollow}>
       <UserPlusIcon data-icon="inline-start" aria-hidden="true" />Follow
     </Button>
   </div>
@@ -64,27 +58,9 @@
 
   header {
     display: grid;
-    grid-template-columns: auto minmax(0, 1fr) auto;
+    grid-template-columns: auto minmax(0, 1fr);
     align-items: center;
     gap: 0.875rem;
-  }
-
-  .community-member-profile__avatar {
-    display: grid;
-    width: 4rem;
-    height: 4rem;
-    place-items: center;
-    overflow: hidden;
-    border-radius: 1rem;
-    color: var(--primary-foreground);
-    background: var(--primary);
-    font-weight: 700;
-  }
-
-  .community-member-profile__avatar img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
   }
 
   header div,
@@ -116,11 +92,15 @@
 
   .community-member-profile__actions {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 0.5rem;
   }
 
-  .community-member-profile__actions :global(button:first-child) {
-    grid-column: 1 / -1;
+  .community-member-profile__actions :global([data-ui-component="button"]) {
+    height: 4.25rem;
+    flex-direction: column;
+    gap: 0.35rem;
+    padding: 0.5rem;
+    white-space: normal;
   }
 </style>

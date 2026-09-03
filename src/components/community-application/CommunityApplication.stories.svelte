@@ -1,6 +1,12 @@
 <script module lang="ts">
   import { defineMeta } from "@storybook/addon-svelte-csf";
-  import { expect, userEvent, waitFor, within } from "storybook/test";
+  import {
+    expect,
+    fireEvent,
+    userEvent,
+    waitFor,
+    within,
+  } from "storybook/test";
 
   import CommunityApplication from "./CommunityApplicationRoot.svelte";
   import CommunityApplicationStoryHarness from "./CommunityApplicationStoryHarness.svelte";
@@ -258,6 +264,19 @@
     ).toBeVisible();
     await userEvent.click(canvas.getByRole("button", { name: "Forward" }));
     await expect(await canvas.findByText("8 results")).toBeVisible();
+    await userEvent.click(canvas.getByRole("button", { name: "general" }));
+    await userEvent.click(
+      await canvas.findByRole("button", { name: "View steve's profile" }),
+    );
+    await expect(await canvas.findByLabelText("Profile sidebar")).toBeVisible();
+    await fireEvent.click(
+      canvas.getAllByRole("button", { name: "Reply in thread" })[0]!,
+    );
+    const threadSidebar = await canvas.findByLabelText("Thread sidebar");
+    await expect(threadSidebar).toBeVisible();
+    await expect(
+      within(threadSidebar).getByLabelText("Thread from steve"),
+    ).toBeVisible();
   }}
 >
   {#snippet template()}

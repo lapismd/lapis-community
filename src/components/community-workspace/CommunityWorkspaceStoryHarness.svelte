@@ -369,6 +369,7 @@
               },
               onOpenThread: (messageId) => {
                 community?.actions.openThread(messageId);
+                community?.actions.setReplyTarget(messageId);
                 openSidePanel("thread");
                 lastAction = `opened-thread:${messageId}`;
               },
@@ -405,6 +406,9 @@
         <CommunityThreadPanel
           thread={model.thread}
           members={model.members}
+          {...community?.state.replyTarget === undefined
+            ? {}
+            : { replyTarget: community.state.replyTarget }}
           onSendReply={(_rootMessageId, content) => {
             community?.handlers.onSendReply?.(_rootMessageId, content);
             lastAction = "sent-reply";

@@ -248,6 +248,10 @@
 
     await expect(threadSidebar).toBeVisible();
     await expect(thread.getByText("Thread")).toBeVisible();
+    await expect(thread.getByLabelText("Thread from steve")).toBeVisible();
+    await expect(
+      thread.getAllByText("Welcome to Lapis Community")[0],
+    ).toBeVisible();
     const composer = thread.getByRole("combobox", { name: "Message" });
     await userEvent.type(composer, "A thread interaction fixture");
     await userEvent.keyboard("{Enter}");

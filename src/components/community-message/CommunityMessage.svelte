@@ -15,6 +15,7 @@
 
   import type { CommunityCustomEmoji } from "../../community/index.js";
   import CommunityEmojiPicker from "../community-emoji-picker/CommunityEmojiPicker.svelte";
+  import CommunityMemberAvatar from "../community-member-avatar/CommunityMemberAvatar.svelte";
   import type {
     CommunityEmojiReference,
     CommunityMemberModel,
@@ -95,8 +96,10 @@
         type="button"
         class="community-message__avatar"
         aria-label={`View ${author.name}'s profile`}
-        onclick={() => onOpenProfile?.(author)}>{author.initials}</button
+        onclick={() => onOpenProfile?.(author)}
       >
+        <CommunityMemberAvatar member={author} decorative />
+      </button>
     {/if}
   {/snippet}
   {#snippet name()}
@@ -302,20 +305,13 @@
   }
 
   .community-message__avatar {
-    display: grid;
     width: 2.25rem;
     height: 2.25rem;
-    place-items: center;
-    overflow: hidden;
+    padding: 0;
+    border: 0;
     border-radius: 50%;
-    color: var(--primary-foreground);
-    background: var(--primary);
-    font-size: 0.72rem;
-    font-weight: 750;
-  }
-
-  .community-message__avatar :global(img) {
-    border-radius: inherit;
+    background: transparent;
+    cursor: pointer;
   }
 
   .community-message__continuation-time {

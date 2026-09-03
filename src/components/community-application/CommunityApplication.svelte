@@ -494,6 +494,7 @@
     destinationId: CommunityApplicationDestination,
     recordHistory: boolean,
   ): void {
+    selectedProfile = null;
     if (recordHistory && destinationId !== activeDestination) {
       navigationHistory = [
         ...navigationHistory.slice(0, navigationHistoryIndex + 1),
@@ -1355,6 +1356,8 @@
                 lastAction = `opened-topic:${topicId}`;
               },
               onOpenThread: (messageId) => {
+                selectedProfile = null;
+                community.actions.openThread(messageId);
                 community.actions.setReplyTarget(messageId);
                 openSidePanel("thread");
                 lastAction = `opened-thread:${messageId}`;
@@ -1658,6 +1661,8 @@
   }}
   onSelectMessage={(message) => {
     searchOpen = false;
+    selectedProfile = null;
+    community.actions.openThread(message.id);
     community.actions.setReplyTarget(message.id);
     openSidePanel("thread");
   }}

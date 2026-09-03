@@ -5,6 +5,7 @@
   import SmileIcon from "@lucide/svelte/icons/smile";
 
   import type { CommunityConnectionStatus } from "../../community/index.js";
+  import CommunityMemberAvatar from "../community-member-avatar/CommunityMemberAvatar.svelte";
   import type { CommunityMemberModel } from "../community-workspace/model.js";
   import type { CommunityProfileMenuAction } from "./model.js";
 
@@ -51,26 +52,7 @@
           aria-label={`Open profile menu for ${member.name}`}
           title={compact ? `Open profile menu for ${member.name}` : undefined}
         >
-          <span class="community-profile-menu__avatar-wrap">
-            {#if member.avatarUrl}
-              <img
-                class="community-profile-menu__avatar"
-                src={member.avatarUrl}
-                alt=""
-              />
-            {:else}
-              <span
-                class="community-profile-menu__avatar community-profile-menu__avatar--fallback"
-                aria-hidden="true">{member.initials}</span
-              >
-            {/if}
-            <span
-              class="community-profile-menu__presence"
-              data-presence={presence}
-              aria-label={presenceLabel}
-              role="img"
-            ></span>
-          </span>
+          <CommunityMemberAvatar {member} showPresence decorative />
           {#if !compact}
             <span class="community-profile-menu__identity">
               <strong>{member.name}</strong>
@@ -89,25 +71,7 @@
       aria-label="Profile menu"
     >
       <DropdownMenu.Label class="community-profile-menu__menu-header">
-        <span class="community-profile-menu__avatar-wrap">
-          {#if member.avatarUrl}
-            <img
-              class="community-profile-menu__avatar"
-              src={member.avatarUrl}
-              alt={`${member.name} avatar`}
-            />
-          {:else}
-            <span
-              class="community-profile-menu__avatar community-profile-menu__avatar--fallback"
-              aria-hidden="true">{member.initials}</span
-            >
-          {/if}
-          <span
-            class="community-profile-menu__presence"
-            data-presence={presence}
-            aria-hidden="true"
-          ></span>
-        </span>
+        <CommunityMemberAvatar {member} showPresence decorative />
         <span class="community-profile-menu__menu-identity">
           <strong>{member.name}</strong>
           <Badge
@@ -171,6 +135,8 @@
 
 <style>
   .community-profile-menu {
+    --community-member-avatar-presence-ring: var(--sidebar, var(--background));
+
     padding: 0.5rem 0.75rem 0.75rem;
   }
 
@@ -220,49 +186,6 @@
     justify-content: center;
     margin-inline: auto;
     padding: 0;
-  }
-
-  .community-profile-menu__avatar-wrap {
-    position: relative;
-    display: block;
-    width: 2.25rem;
-    height: 2.25rem;
-    flex: none;
-  }
-
-  .community-profile-menu__avatar {
-    display: grid;
-    width: 100%;
-    height: 100%;
-    place-items: center;
-    border-radius: 999px;
-    object-fit: cover;
-  }
-
-  .community-profile-menu__avatar--fallback {
-    color: var(--primary-foreground);
-    background: var(--primary);
-    font-size: 0.6875rem;
-    font-weight: 700;
-  }
-
-  .community-profile-menu__presence {
-    position: absolute;
-    right: -0.125rem;
-    bottom: -0.125rem;
-    width: 0.625rem;
-    height: 0.625rem;
-    border: 2px solid var(--sidebar, var(--background));
-    border-radius: 999px;
-    background: var(--muted-foreground);
-  }
-
-  .community-profile-menu__presence[data-presence="online"] {
-    background: var(--success, #08b94e);
-  }
-
-  .community-profile-menu__presence[data-presence="away"] {
-    background: var(--warning, #d99a00);
   }
 
   .community-profile-menu__identity,

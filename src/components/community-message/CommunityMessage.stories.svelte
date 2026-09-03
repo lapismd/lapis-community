@@ -27,6 +27,7 @@
     onAddReaction: fn(),
     onCopyLink: fn(),
     onDelete: fn(),
+    onOpenProfile: fn(),
   }}
   play={async ({ canvas, args }) => {
     const message = canvas.getByLabelText("Message from Ben Stone");
@@ -34,7 +35,11 @@
     const addReaction = messageCanvas.getByRole("button", {
       name: "Add reaction",
     });
+    const avatar = messageCanvas.getByRole("button", {
+      name: "View Ben Stone's profile",
+    });
 
+    await expect(getComputedStyle(avatar).cursor).toBe("pointer");
     await expect(addReaction).not.toBeVisible();
     addReaction.focus();
     await waitFor(() => expect(addReaction).toBeVisible());
@@ -46,6 +51,10 @@
     await expect(args.onToggleReaction).toHaveBeenCalledWith(
       "message-release",
       "🎉",
+    );
+    await userEvent.click(avatar);
+    await expect(args.onOpenProfile).toHaveBeenCalledWith(
+      communityStoryMembers[1],
     );
   }}
 />

@@ -213,14 +213,15 @@
 
   .community-workspace-surface__actions {
     display: grid;
-    width: 100%;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    width: min(100%, 27rem);
+    grid-template-columns: repeat(2, minmax(0, 13.125rem));
     gap: 0.75rem;
     padding-block-start: 0.5rem;
   }
 
   .community-workspace-surface__actions:has(> :nth-child(3)) {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    width: min(100%, 40.875rem);
+    grid-template-columns: repeat(3, minmax(0, 13.125rem));
   }
 
   :global(
@@ -264,6 +265,7 @@
 
   @media (max-width: 34rem) {
     .community-workspace-surface__actions {
+      width: 100%;
       grid-template-columns: 1fr;
     }
   }

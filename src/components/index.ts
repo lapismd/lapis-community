@@ -11,6 +11,7 @@ export {
 } from "./community-login/model.js";
 export { default as CommunityEmojiPicker } from "./community-emoji-picker/CommunityEmojiPicker.svelte";
 export { default as CommunityMemberCommand } from "./community-member-command/CommunityMemberCommand.svelte";
+export { default as CommunityMemberAvatar } from "./community-member-avatar/CommunityMemberAvatar.svelte";
 export { default as CommunityRoomBrowser } from "./community-room-browser/CommunityRoomBrowser.svelte";
 export { default as CommunityRoomEditor } from "./community-room-editor/CommunityRoomEditor.svelte";
 export { default as CommunitySearchCommand } from "./community-search-command/CommunitySearchCommand.svelte";
