@@ -22,6 +22,7 @@
     type RegistryInstallRequest,
     type RegistryResolvedDetail,
   } from "../../registry/index.js";
+  import { registryFilterIcon } from "../registry-filter-icons.js";
   import RegistryMediaGallery from "../registry-media-gallery/RegistryMediaGallery.svelte";
   import RegistryPluginCard from "../registry-plugin-card/RegistryPluginCard.svelte";
 
@@ -32,6 +33,8 @@
     discussion,
     onInstall,
     onOpenPlugin = () => {},
+    onOpenCategory = () => {},
+    onOpenPlatform = () => {},
   }: {
     resolved: RegistryResolvedDetail;
     related?: readonly RegistryCatalogEntry[];
@@ -39,6 +42,8 @@
     discussion?: Snippet;
     onInstall?: (request: RegistryInstallRequest) => void | Promise<void>;
     onOpenPlugin?: (plugin: RegistryCatalogEntry) => void;
+    onOpenCategory?: (category: string) => void;
+    onOpenPlatform?: (platform: string) => void;
   } = $props();
 
   let activeTab = $state("overview");
@@ -96,6 +101,12 @@
               : "Install in Lapis"),
   );
   const author = $derived(detail.author || detail.owner.name);
+  const authorUrl = $derived(
+    detail.authorUrl ?? entry.authorUrl ?? detail.owner.url,
+  );
+  const authorAvatarUrl = $derived(
+    detail.authorAvatarUrl ?? entry.authorAvatarUrl,
+  );
   const bundleHealth = $derived(release?.bundle.pending === true ? 1 : 4);
 
   const dateFormatter = new Intl.DateTimeFormat("en", {
@@ -109,6 +120,16 @@
 
   function openExternal(url: string): void {
     window.open(url, "_blank", "noopener,noreferrer");
+  }
+
+  function initials(value: string): string {
+    return value
+      .split(/\s+/u)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((part) => part[0])
+      .join("")
+      .toLocaleUpperCase();
   }
 
   async function install(): Promise<void> {
@@ -132,6 +153,53 @@
     }
   }
 </script>
+
+{#snippet authorAvatar()}
+  <span class="registry-plugin-detail__author-avatar" aria-hidden="true">
+    {#if authorAvatarUrl}
+      <img src={authorAvatarUrl} alt="" />
+    {:else}
+      {initials(author)}
+    {/if}
+  </span>
+{/snippet}
+
+{#snippet authorLink(compact = false)}
+  {#if authorUrl}
+    <a
+      class="registry-plugin-detail__author-link"
+      class:compact
+      href={authorUrl}
+      target="_blank"
+      rel="noopener noreferrer"
+    >
+      {@render authorAvatar()}
+      <span class="registry-plugin-detail__author-name"
+        >{compact ? author : `By ${author}`}</span
+      >
+    </a>
+  {:else}
+    <span class="registry-plugin-detail__author-link disabled" class:compact>
+      {@render authorAvatar()}
+      <span class="registry-plugin-detail__author-name"
+        >{compact ? author : `By ${author}`}</span
+      >
+    </span>
+  {/if}
+{/snippet}
+
+{#snippet filterChip(type: "category" | "platform", value: string)}
+  {@const FilterIcon = registryFilterIcon(value)}
+  <button
+    type="button"
+    class="registry-plugin-detail__filter-chip"
+    onclick={() =>
+      type === "category" ? onOpenCategory(value) : onOpenPlatform(value)}
+  >
+    <FilterIcon aria-hidden="true" />
+    <span>{titleCaseRegistryValue(value)}</span>
+  </button>
+{/snippet}
 
 <article class="registry-plugin-detail">
   <header
@@ -157,10 +225,9 @@
         <div>
           <h1>{detail.name}</h1>
           <div class="registry-plugin-detail__hero-meta">
-            <span>By {author}</span>
+            {@render authorLink()}
             {#each entry.platforms as platform}
-              <Badge variant="outline">{titleCaseRegistryValue(platform)}</Badge
-              >
+              {@render filterChip("platform", platform)}
             {/each}
           </div>
         </div>
@@ -382,9 +449,9 @@
         <h2>About</h2>
         <p>{detail.description}</p>
         <div class="registry-plugin-detail__chips">
-          {#each entry.categories as category}<Badge variant="outline"
-              >{titleCaseRegistryValue(category)}</Badge
-            >{/each}
+          {#each entry.categories as category}
+            {@render filterChip("category", category)}
+          {/each}
         </div>
       </section>
       <section>
@@ -433,10 +500,7 @@
       <section>
         <h2>Author</h2>
         <div class="registry-plugin-detail__author">
-          {#if detail.authorAvatarUrl}<img
-              src={detail.authorAvatarUrl}
-              alt=""
-            />{/if}<strong>{author}</strong>
+          {@render authorLink(true)}
         </div>
       </section>
     </aside>
@@ -532,6 +596,94 @@
   .registry-plugin-detail__hero-meta {
     margin-top: 0.35rem;
     color: var(--muted-foreground);
+  }
+  .registry-plugin-detail__author-link,
+  .registry-plugin-detail__filter-chip {
+    display: inline-flex;
+    align-items: center;
+    border: 1px solid var(--border);
+    color: var(--foreground);
+    text-decoration: none;
+    transition:
+      background-color 140ms ease,
+      border-color 140ms ease,
+      color 140ms ease,
+      box-shadow 140ms ease;
+  }
+  .registry-plugin-detail__author-link {
+    gap: 0.35rem;
+    border-color: transparent;
+    border-radius: 999px;
+    padding: 0.125rem 0.35rem 0.125rem 0.125rem;
+    color: var(--muted-foreground);
+  }
+  .registry-plugin-detail__author-link.compact {
+    gap: 0.55rem;
+    padding: 0.25rem 0.5rem 0.25rem 0.25rem;
+    color: var(--foreground);
+    font-weight: 600;
+  }
+  .registry-plugin-detail__author-link:not(.disabled):hover,
+  .registry-plugin-detail__author-link:not(.disabled):focus-visible {
+    color: var(--muted-foreground);
+    background: transparent;
+  }
+  .registry-plugin-detail__author-link:not(.disabled):hover
+    .registry-plugin-detail__author-name,
+  .registry-plugin-detail__author-link:not(.disabled):focus-visible
+    .registry-plugin-detail__author-name {
+    color: var(--foreground);
+  }
+  .registry-plugin-detail__author-link:not(.disabled):focus-visible,
+  .registry-plugin-detail__filter-chip:focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+  .registry-plugin-detail__author-avatar {
+    display: grid;
+    width: 1.35rem;
+    height: 1.35rem;
+    flex: none;
+    place-items: center;
+    overflow: hidden;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    color: var(--primary);
+    background: color-mix(in srgb, var(--primary) 12%, var(--muted));
+    font-size: 0.65rem;
+    font-weight: 700;
+    line-height: 1;
+  }
+  .registry-plugin-detail__author-link.compact
+    .registry-plugin-detail__author-avatar {
+    width: 2rem;
+    height: 2rem;
+    font-size: 0.72rem;
+  }
+  .registry-plugin-detail__author-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+  .registry-plugin-detail__filter-chip {
+    gap: 0.3rem;
+    min-height: 1.5rem;
+    border-radius: 999px;
+    padding: 0.125rem 0.5rem;
+    background: var(--background);
+    font: inherit;
+    font-size: 0.8rem;
+    cursor: pointer;
+  }
+  .registry-plugin-detail__filter-chip:hover,
+  .registry-plugin-detail__filter-chip:focus-visible {
+    border-color: color-mix(in srgb, var(--primary) 32%, var(--border));
+    color: var(--primary);
+    background: color-mix(in srgb, var(--primary) 9%, var(--muted));
+  }
+  .registry-plugin-detail__filter-chip :global(svg) {
+    width: 0.9rem;
+    height: 0.9rem;
   }
   .registry-plugin-detail__description {
     max-width: 48rem;
@@ -678,12 +830,6 @@
     display: flex;
     align-items: center;
     gap: 0.6rem;
-  }
-  .registry-plugin-detail__author img {
-    width: 2rem;
-    height: 2rem;
-    border-radius: 999px;
-    object-fit: cover;
   }
   .registry-plugin-detail__discussion {
     min-width: 0;

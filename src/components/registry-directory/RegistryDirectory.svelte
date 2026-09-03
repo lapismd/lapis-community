@@ -4,32 +4,14 @@
   import { Input } from "@lapismd/design-core/shadcn/input";
   import * as Select from "@lapismd/design-core/shadcn/select";
   import { AppShell } from "@lapismd/design-core/shell";
-  import BadgeCheckIcon from "@lucide/svelte/icons/badge-check";
-  import BlocksIcon from "@lucide/svelte/icons/blocks";
   import CheckIcon from "@lucide/svelte/icons/check";
   import ChevronDownIcon from "@lucide/svelte/icons/chevron-down";
-  import CircleOffIcon from "@lucide/svelte/icons/circle-off";
-  import DatabaseIcon from "@lucide/svelte/icons/database";
-  import FileTextIcon from "@lucide/svelte/icons/file-text";
-  import GlobeIcon from "@lucide/svelte/icons/globe";
-  import LayoutDashboardIcon from "@lucide/svelte/icons/layout-dashboard";
   import LayoutGridIcon from "@lucide/svelte/icons/layout-grid";
   import ListIcon from "@lucide/svelte/icons/list";
-  import MonitorIcon from "@lucide/svelte/icons/monitor";
-  import NetworkIcon from "@lucide/svelte/icons/network";
-  import NotebookTabsIcon from "@lucide/svelte/icons/notebook-tabs";
   import PackageIcon from "@lucide/svelte/icons/package";
-  import PencilIcon from "@lucide/svelte/icons/pencil";
-  import PresentationIcon from "@lucide/svelte/icons/presentation";
-  import SearchIcon from "@lucide/svelte/icons/search";
-  import ShieldCheckIcon from "@lucide/svelte/icons/shield-check";
   import SlidersHorizontalIcon from "@lucide/svelte/icons/sliders-horizontal";
-  import SparklesIcon from "@lucide/svelte/icons/sparkles";
-  import SquareDashedMousePointerIcon from "@lucide/svelte/icons/square-dashed-mouse-pointer";
-  import TriangleAlertIcon from "@lucide/svelte/icons/triangle-alert";
-  import WrenchIcon from "@lucide/svelte/icons/wrench";
   import XIcon from "@lucide/svelte/icons/x";
-  import ZapIcon from "@lucide/svelte/icons/zap";
+  import type { Component } from "svelte";
 
   import {
     collectRegistryCategories,
@@ -40,6 +22,7 @@
     type RegistryCatalogStatus,
     type RegistryDirectoryState,
   } from "../../registry/index.js";
+  import { registryFilterIcon } from "../registry-filter-icons.js";
   import RegistryPluginCard from "../registry-plugin-card/RegistryPluginCard.svelte";
 
   let {
@@ -96,36 +79,6 @@
       filterWidth ?? filterElement?.getBoundingClientRect().width ?? 224,
     ),
   );
-
-  const registryFilterIcons: Record<string, typeof PackageIcon> = {
-    active: BadgeCheckIcon,
-    all: SlidersHorizontalIcon,
-    automation: ZapIcon,
-    canvas: SquareDashedMousePointerIcon,
-    database: DatabaseIcon,
-    deprecated: TriangleAlertIcon,
-    desktop: MonitorIcon,
-    "developer-tools": WrenchIcon,
-    diagnostics: SlidersHorizontalIcon,
-    disabled: CircleOffIcon,
-    documents: FileTextIcon,
-    editor: PencilIcon,
-    graph: NetworkIcon,
-    markdown: FileTextIcon,
-    notebook: NotebookTabsIcon,
-    official: ShieldCheckIcon,
-    organization: LayoutDashboardIcon,
-    package: PackageIcon,
-    pending: SparklesIcon,
-    presentation: PresentationIcon,
-    revoked: ShieldCheckIcon,
-    search: SearchIcon,
-    themes: BlocksIcon,
-    verified: BadgeCheckIcon,
-    viewer: FileTextIcon,
-    visualization: NetworkIcon,
-    web: GlobeIcon,
-  };
 
   function replaceState(next: Partial<RegistryDirectoryState>): void {
     directoryState = { ...directoryState, ...next };
@@ -212,8 +165,8 @@
     filterWidth = clampFilterWidth(nextWidth);
   }
 
-  function filterIcon(id: string, selected: boolean): typeof PackageIcon {
-    return selected ? CheckIcon : (registryFilterIcons[id] ?? PackageIcon);
+  function filterIcon(id: string, selected: boolean): Component {
+    return selected ? CheckIcon : registryFilterIcon(id);
   }
 </script>
 
@@ -452,7 +405,10 @@
   >
     <section class="registry-directory__results">
       <header class="registry-directory__heading">
-        <p aria-live="polite">{results.length} results</p>
+        <p aria-live="polite">
+          {results.length}
+          {results.length === 1 ? "result" : "results"}
+        </p>
         <div class="registry-directory__tools" aria-label="Result controls">
           <div class="registry-directory__view" aria-label="View mode">
             <Button

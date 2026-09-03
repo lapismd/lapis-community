@@ -104,6 +104,22 @@
     await expect(
       canvas.getAllByText("Seeded registry discussion")[0],
     ).toBeVisible();
+    await userEvent.click(canvas.getByRole("button", { name: "Desktop" }));
+    await expect(await canvas.findByText("8 results")).toBeVisible();
+    await expect(
+      canvas.getByRole("button", { name: /Desktop/u, pressed: true }),
+    ).toBeVisible();
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Open AI Assistant" }),
+    );
+    await expect(
+      await canvas.findByRole("heading", { name: "AI Assistant", level: 1 }),
+    ).toBeVisible();
+    await userEvent.click(canvas.getByRole("button", { name: "AI" }));
+    await expect(await canvas.findByText("1 result")).toBeVisible();
+    await expect(
+      canvas.getByRole("button", { name: /AI/u, pressed: true }),
+    ).toBeVisible();
   }}
 >
   {#snippet template()}

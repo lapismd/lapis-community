@@ -89,6 +89,21 @@
     navigate({ page: "directory" });
   }
 
+  function openDirectoryFilter(
+    key: "categories" | "platforms",
+    value: string,
+  ): void {
+    directoryState = {
+      ...directoryState,
+      query: "",
+      categories: key === "categories" ? [value] : [],
+      platforms: key === "platforms" ? [value] : [],
+      statuses: [],
+      officialOnly: false,
+    };
+    navigate({ page: "directory" });
+  }
+
   function openPlugin(plugin: RegistryCatalogEntry): void {
     navigate({ page: "plugin", pluginId: plugin.id });
   }
@@ -346,6 +361,10 @@
               : { installAction: installActions[selectedEntry.id] }}
             {...onInstall === undefined ? {} : { onInstall }}
             onOpenPlugin={openPlugin}
+            onOpenCategory={(category) =>
+              openDirectoryFilter("categories", category)}
+            onOpenPlatform={(platform) =>
+              openDirectoryFilter("platforms", platform)}
             {...supportsDiscussion ? { discussion: pluginDiscussion } : {}}
           />
         {/if}

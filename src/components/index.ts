@@ -5,6 +5,7 @@ export { default as CommunityLogin } from "./community-login/CommunityLogin.svel
 export {
   COMMUNITY_LOGIN_METHODS,
   DEFAULT_COMMUNITY_LOGIN_METHODS,
+  resolveCommunityLoginMethods,
   type CommunityLoginMethodKind,
   type CommunityLoginMethodModel,
 } from "./community-login/model.js";

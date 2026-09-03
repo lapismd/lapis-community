@@ -72,6 +72,9 @@
       `${replyCount} ${replyCount === 1 ? "reply" : "replies"}`
     );
   });
+  const showReplySummary = $derived(
+    (message.replyCount ?? 0) > 0 && onOpenThread !== undefined,
+  );
 </script>
 
 <Message
@@ -245,7 +248,7 @@
         <MessageMetadata timestamp={message.timestamp} />
       {/if}
       {#if message.edited}<span>edited</span>{/if}
-      {#if message.replyCount || onOpenThread}
+      {#if showReplySummary}
         <Button
           type="button"
           variant="ghost"

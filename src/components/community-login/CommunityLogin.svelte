@@ -26,6 +26,7 @@
     busy = false,
     pendingMethodId = "",
     error = "",
+    presentation = "page",
     onSelect = () => {},
     class: className,
     ...restProps
@@ -37,6 +38,7 @@
     busy?: boolean;
     pendingMethodId?: string;
     error?: string;
+    presentation?: "page" | "dialog";
     onSelect?: (methodId: string) => void | Promise<void>;
   } = $props();
 
@@ -54,11 +56,18 @@
   aria-label="Nostr sign in"
   aria-busy={busy}
   data-status={error ? "error" : busy ? "connecting" : "anonymous"}
+  data-presentation={presentation}
   {...restProps}
 >
   <Card.Root class="community-login__card">
     <Card.Header>
-      <Card.Title><h1 class="community-login__title">{title}</h1></Card.Title>
+      <Card.Title>
+        {#if presentation === "dialog"}
+          <span class="community-login__title">{title}</span>
+        {:else}
+          <h1 class="community-login__title">{title}</h1>
+        {/if}
+      </Card.Title>
       <Card.Description>{description}</Card.Description>
     </Card.Header>
 
@@ -143,8 +152,25 @@
     background-size: 4rem 4rem;
   }
 
+  .community-login[data-presentation="dialog"] {
+    display: block;
+    min-height: 0;
+    padding: 0;
+    background: transparent;
+  }
+
   :global(.community-login__card[data-ui-component="card"]) {
     width: min(100%, 28rem);
+  }
+
+  :global(
+      .community-login[data-presentation="dialog"]
+        .community-login__card[data-ui-component="card"]
+    ) {
+    width: 100%;
+    --card-spacing: 1rem;
+    background: transparent;
+    box-shadow: none;
   }
 
   .community-login__methods,

@@ -327,7 +327,7 @@
           {...onCopyMessage === undefined ? {} : { onCopyMessage }}
           {...onEditMessage === undefined ? {} : { onEditMessage }}
           {...onDeleteMessage === undefined ? {} : { onDeleteMessage }}
-          {onOpenProfile}
+          {...onOpenProfile === undefined ? {} : { onOpenProfile }}
           {...replyTarget === undefined ? {} : { replyTarget }}
           {communityEmojis}
           {...onCancelReply === undefined ? {} : { onCancelReply }}

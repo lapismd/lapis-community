@@ -19,6 +19,8 @@
       installAction: { state: "available" },
       onInstall: fn(),
       onOpenPlugin: fn(),
+      onOpenCategory: fn(),
+      onOpenPlatform: fn(),
     },
     parameters: {
       layout: "fullscreen",
@@ -51,6 +53,13 @@
     ).toBeVisible();
     await userEvent.click(canvas.getByRole("tab", { name: /Releases/u }));
     await expect(canvas.getByText("0.9.0")).toBeVisible();
+    await userEvent.click(canvas.getByRole("button", { name: "Desktop" }));
+    await expect(args.onOpenPlatform).toHaveBeenCalledWith("desktop");
+    await userEvent.click(canvas.getByRole("button", { name: "AI" }));
+    await expect(args.onOpenCategory).toHaveBeenCalledWith("ai");
+    await expect(
+      canvas.getByRole("link", { name: /By Lapis Labs/u }),
+    ).toHaveAttribute("href", "https://example.com/authors/ai");
   }}
 />
 

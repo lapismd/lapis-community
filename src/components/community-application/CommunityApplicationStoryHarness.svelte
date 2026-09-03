@@ -15,7 +15,6 @@
   } from "../../testing/index.js";
   import RegistryCommunityStoryHarness from "../registry-community/RegistryCommunityStoryHarness.svelte";
   import { createRegistryStoryDataSource } from "../registry-browser/story-fixtures.js";
-  import { COMMUNITY_LOGIN_METHODS } from "../community-login/model.js";
   import CommunityApplication from "./CommunityApplicationRoot.svelte";
 
   let { signedIn = true }: { signedIn?: boolean } = $props();
@@ -124,7 +123,7 @@
       ? {}
       : {
           loginOptions: {
-            methods: Object.values(COMMUNITY_LOGIN_METHODS),
+            allowLocalKeyMethods: true,
             connect: connectStoryIdentity,
           },
         }}

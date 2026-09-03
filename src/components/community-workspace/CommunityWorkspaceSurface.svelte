@@ -213,14 +213,13 @@
 
   .community-workspace-surface__actions {
     display: grid;
-    width: min(100%, 40rem);
+    width: 100%;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 0.75rem;
     padding-block-start: 0.5rem;
   }
 
   .community-workspace-surface__actions:has(> :nth-child(3)) {
-    width: min(100%, 56rem);
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
@@ -235,6 +234,17 @@
     border-radius: 1rem;
     text-align: start;
     white-space: normal;
+  }
+  :global(
+      .community-workspace-surface__action-card[data-ui-component="button"]:hover
+    )
+    .community-workspace-surface__action-icon,
+  :global(
+      .community-workspace-surface__action-card[data-ui-component="button"]:focus-visible
+    )
+    .community-workspace-surface__action-icon {
+    color: var(--primary);
+    background: color-mix(in srgb, var(--primary) 14%, var(--background));
   }
 
   .community-workspace-surface__action-icon {

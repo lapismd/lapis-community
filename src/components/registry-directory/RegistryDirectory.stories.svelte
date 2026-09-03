@@ -48,7 +48,7 @@
       name: "Search registry plugins",
     });
     await userEvent.type(search, "graph");
-    await expect(canvas.getByText("1 results")).toBeVisible();
+    await expect(canvas.getByText("1 result")).toBeVisible();
     await expect(
       canvas.getByRole("button", { name: "Open Graph View" }),
     ).toBeVisible();

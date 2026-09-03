@@ -163,7 +163,7 @@
           {message}
           isContinuation={isMessageContinuation(messages, index)}
           author={memberById(members, message.authorId)}
-          {onOpenProfile}
+          {...onOpenProfile === undefined ? {} : { onOpenProfile }}
           replyParticipants={(message.replyParticipantIds ?? []).map((id) =>
             memberById(members, id),
           )}
@@ -200,9 +200,27 @@
   }
 
   .community-conversation :global([data-ui-component="ai-chat-layout"]) {
+    --ui-ai-chat-max-content-width: 100%;
+
     flex: 1;
     min-width: 0;
     min-height: 0;
+  }
+
+  .community-conversation :global([data-ui-component="ai-chat-message-list"]) {
+    --ui-ai-chat-max-content-width: 100%;
+
+    width: 100%;
+    max-width: none;
+  }
+
+  .community-conversation
+    :global(
+      [data-ui-component="ai-chat-layout"] [data-ui-part="message-area"]
+    ) {
+    width: 100%;
+    max-width: none;
+    margin-inline: 0;
   }
 
   .community-conversation[data-composer-placement="row"]

@@ -24,21 +24,42 @@ export const COMMUNITY_LOGIN_METHODS = {
     id: "remote-signer",
     kind: "remote-signer",
     label: "Remote signer",
-    description: "NIP-46 — Amber, Nsec.app",
+    description: "NIP-46 — connect with a bunker URL",
   },
   createAccount: {
     id: "create-account",
     kind: "create-account",
     label: "Create a new account",
-    description: "Generate a fresh keypair with your chosen key manager",
+    description: "Generate and back up a fresh Nostr key",
   },
   privateKey: {
     id: "private-key",
     kind: "private-key",
-    label: "Use a private key",
-    description: "Import an nsec through a host-provided secure flow",
+    label: "Paste a private key",
+    description: "Import an existing nsec through a secure host flow",
   },
 } as const satisfies Record<string, CommunityLoginMethodModel>;
 
 export const DEFAULT_COMMUNITY_LOGIN_METHODS: readonly CommunityLoginMethodModel[] =
-  [COMMUNITY_LOGIN_METHODS.browserExtension];
+  [
+    COMMUNITY_LOGIN_METHODS.browserExtension,
+    COMMUNITY_LOGIN_METHODS.remoteSigner,
+  ];
+
+export function resolveCommunityLoginMethods(
+  methods: readonly CommunityLoginMethodModel[] = DEFAULT_COMMUNITY_LOGIN_METHODS,
+  allowLocalKeyMethods = false,
+): readonly CommunityLoginMethodModel[] {
+  const visible = methods.filter(
+    (method) =>
+      allowLocalKeyMethods ||
+      (method.kind !== "create-account" && method.kind !== "private-key"),
+  );
+  if (!allowLocalKeyMethods || methods !== DEFAULT_COMMUNITY_LOGIN_METHODS)
+    return visible;
+  return [
+    ...visible,
+    COMMUNITY_LOGIN_METHODS.createAccount,
+    COMMUNITY_LOGIN_METHODS.privateKey,
+  ];
+}

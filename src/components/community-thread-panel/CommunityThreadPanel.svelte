@@ -159,10 +159,19 @@
   }
 
   .community-thread-panel :global([data-ui-component="ai-chat-layout"]) {
+    --ui-ai-chat-max-content-width: 100%;
+
     display: grid;
     flex: 1;
     grid-template-rows: minmax(0, 1fr) auto;
     min-height: 0;
+  }
+
+  .community-thread-panel :global([data-ui-component="ai-chat-message-list"]) {
+    --ui-ai-chat-max-content-width: 100%;
+
+    width: 100%;
+    max-width: none;
   }
 
   .community-thread-panel
@@ -176,6 +185,9 @@
     :global(
       [data-ui-component="ai-chat-layout"] [data-ui-part="message-area"]
     ) {
+    width: 100%;
+    max-width: none;
+    margin-inline: 0;
     padding-block-end: 0.5rem;
   }
 

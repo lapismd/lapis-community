@@ -1,6 +1,6 @@
 <script module lang="ts">
   import { defineMeta } from "@storybook/addon-svelte-csf";
-  import { expect, userEvent } from "storybook/test";
+  import { expect, userEvent, waitFor, within } from "storybook/test";
 
   import CommunityApplication from "./CommunityApplicationRoot.svelte";
   import CommunityApplicationStoryHarness from "./CommunityApplicationStoryHarness.svelte";
@@ -141,16 +141,48 @@
 
 <Story
   name="Logged out"
-  play={async ({ canvas }) => {
+  play={async ({ canvas, canvasElement }) => {
     await expect(
-      await canvas.findByRole("heading", { name: "Connect to Nostr" }),
+      await canvas.findByRole("button", { name: "Registry" }),
     ).toBeVisible();
     await expect(
-      canvas.getByRole("button", { name: /Browser extension/u }),
+      canvas.queryByRole("heading", { name: "Connect to Nostr" }),
+    ).not.toBeInTheDocument();
+    await userEvent.click(canvas.getByRole("button", { name: "Registry" }));
+    await expect(
+      await canvas.findByRole("heading", { name: "Make Lapis Notes yours." }),
+    ).toBeVisible();
+    const overlay = within(canvasElement.ownerDocument.body);
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Open profile menu for Guest" }),
+    );
+    await userEvent.click(
+      await overlay.findByRole("menuitem", { name: "Update your status" }),
+    );
+    const dialog = await overlay.findByRole("dialog", {
+      name: "Connect to Nostr",
+    });
+    await expect(dialog).toBeVisible();
+    const login = within(dialog);
+    await expect(
+      login.getByRole("button", { name: /Browser extension/u }),
     ).toBeVisible();
     await expect(
-      canvas.getByRole("button", { name: /Remote signer/u }),
+      login.getByRole("button", { name: /Remote signer/u }),
     ).toBeVisible();
+    await expect(
+      login.getByRole("button", { name: /Create a new account/u }),
+    ).toBeVisible();
+    await expect(
+      login.getByRole("button", { name: /Paste a private key/u }),
+    ).toBeVisible();
+    await userEvent.click(login.getByRole("button", { name: "Close" }));
+    await waitFor(() => expect(dialog).not.toBeInTheDocument());
+    await waitFor(() =>
+      expect(canvasElement.ownerDocument.body.style.pointerEvents).not.toBe(
+        "none",
+      ),
+    );
   }}
 >
   {#snippet template()}
@@ -160,16 +192,38 @@
 
 <Story
   name="Login transition"
-  play={async ({ canvas }) => {
-    await expect(
-      await canvas.findByRole("heading", { name: "Connect to Nostr" }),
-    ).toBeVisible();
+  play={async ({ canvas, canvasElement }) => {
+    const overlay = within(canvasElement.ownerDocument.body);
     await userEvent.click(
-      canvas.getByRole("button", { name: /Remote signer/u }),
+      await canvas.findByRole("button", {
+        name: "Open profile menu for Guest",
+      }),
     );
-    await expect(
-      await canvas.findByRole("button", { name: "Registry" }),
-    ).toBeVisible();
+    await userEvent.click(
+      await overlay.findByRole("menuitem", { name: "Update your status" }),
+    );
+    const loginDialog = await overlay.findByRole("dialog", {
+      name: "Connect to Nostr",
+    });
+    await userEvent.click(
+      within(loginDialog).getByRole("button", { name: /Remote signer/u }),
+    );
+    await waitFor(() => expect(loginDialog).not.toBeInTheDocument(), {
+      timeout: 8_000,
+    });
+    const statusDialog = await overlay.findByRole("dialog", {
+      name: "Update your status",
+    });
+    await expect(statusDialog).toBeVisible();
+    await userEvent.click(
+      within(statusDialog).getByRole("button", { name: "Cancel" }),
+    );
+    await waitFor(() => expect(statusDialog).not.toBeInTheDocument());
+    await waitFor(() =>
+      expect(canvasElement.ownerDocument.body.style.pointerEvents).not.toBe(
+        "none",
+      ),
+    );
   }}
 >
   {#snippet template()}

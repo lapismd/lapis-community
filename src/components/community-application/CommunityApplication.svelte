@@ -79,6 +79,7 @@
     | "registry"
     | "settings"
     | string;
+  type CommunityAuthenticatedAction = () => void | Promise<void>;
 
   let {
     controller: community,
@@ -91,6 +92,7 @@
     registryOptions,
     extensions = {},
     linkBuilder,
+    onAuthenticationRequired = async (action) => void (await action()),
     onDestinationChange = () => {},
     onSectionAction = () => {},
     ...restProps
@@ -105,6 +107,9 @@
     registryOptions?: RegistryBrowserOptions;
     extensions?: CommunityApplicationExtensions;
     linkBuilder?: CommunityLinkBuilder;
+    onAuthenticationRequired?: (
+      action: CommunityAuthenticatedAction,
+    ) => Promise<void>;
     onDestinationChange?: (destinationId: string) => void;
     onSectionAction?: (
       section: CommunityNavigationSectionModel,
@@ -445,6 +450,16 @@
     if (community.state.status === "connecting") relayNoticeDismissed = false;
   });
 
+  async function runAuthenticated(
+    action: CommunityAuthenticatedAction,
+  ): Promise<void> {
+    if (community.state.authentication.status === "connected") {
+      await action();
+      return;
+    }
+    await onAuthenticationRequired(action);
+  }
+
   $effect(() => {
     if (
       hasCachedCommunityData &&
@@ -538,15 +553,13 @@
     emoji: string,
     custom?: { shortcode: string; url: string },
   ): void {
-    void community.actions
-      .toggleReaction(messageId, emoji, custom)
-      .catch((cause) =>
-        toast.error(
-          cause instanceof Error
-            ? cause.message
-            : "Reaction could not be saved",
-        ),
-      );
+    void runAuthenticated(() =>
+      community.actions.toggleReaction(messageId, emoji, custom),
+    ).catch((cause) =>
+      toast.error(
+        cause instanceof Error ? cause.message : "Reaction could not be saved",
+      ),
+    );
     lastAction = `reaction:${messageId}:${emoji}`;
   }
 
@@ -608,7 +621,9 @@
     if (action.id === "browse")
       openRoomBrowser(section.id === "forums" ? "forum" : "channel");
     else if (action.id === "create")
-      openRoomEditor(section.id === "forums" ? "forum" : "channel", "create");
+      void runAuthenticated(() =>
+        openRoomEditor(section.id === "forums" ? "forum" : "channel", "create"),
+      );
     else if (action.id === "new") {
       memberCommandMode = "select";
       selectedRecipientIds = [];
@@ -687,9 +702,11 @@
     const action = confirmation;
     confirmation = null;
     try {
-      if (action === "leave") await community.actions.leave(activeRoom.id);
-      if (action === "delete")
-        await community.actions.deleteRoom(activeRoom.id);
+      await runAuthenticated(async () => {
+        if (action === "leave") await community.actions.leave(activeRoom.id);
+        if (action === "delete")
+          await community.actions.deleteRoom(activeRoom.id);
+      });
       toast.success(action === "leave" ? "You left the room" : "Room deleted");
       closeSidePanel();
     } catch (cause) {
@@ -704,9 +721,11 @@
   async function saveRoom(
     update: Parameters<CommunityController["actions"]["updateRoom"]>[1],
   ): Promise<void> {
-    if (roomEditorMode === "create")
-      await community.actions.createRoom(roomEditorKind, update);
-    else await community.actions.updateRoom(activeRoom.id, update);
+    await runAuthenticated(async () => {
+      if (roomEditorMode === "create")
+        await community.actions.createRoom(roomEditorKind, update);
+      else await community.actions.updateRoom(activeRoom.id, update);
+    });
     toast.success(
       roomEditorMode === "create"
         ? `${roomEditorKind === "forum" ? "Forum" : "Channel"} created`
@@ -725,7 +744,9 @@
       return;
     }
     if (memberCommandMode === "manage") {
-      void community.actions.addMember(activeRoom.id, member.id).then(
+      void runAuthenticated(() =>
+        community.actions.addMember(activeRoom.id, member.id),
+      ).then(
         () => toast.success(`${member.name} added`),
         (cause) =>
           toast.error(
@@ -752,7 +773,7 @@
 
   async function saveStatus(): Promise<void> {
     try {
-      await community.actions.updateStatus(statusDraft);
+      await runAuthenticated(() => community.actions.updateStatus(statusDraft));
       statusOpen = false;
       toast.success("Status updated");
     } catch (cause) {
@@ -767,7 +788,9 @@
     content: string,
   ): Promise<void> {
     try {
-      await community.actions.sendReply(rootMessageId, content);
+      await runAuthenticated(() =>
+        community.actions.sendReply(rootMessageId, content),
+      );
       community.actions.clearReplyTarget();
       lastAction = "sent-reply";
     } catch (cause) {
@@ -780,7 +803,9 @@
 
   async function sendNewDirectMessage(content: string): Promise<void> {
     try {
-      await community.actions.sendDirectMessage(selectedRecipientIds, content);
+      await runAuthenticated(() =>
+        community.actions.sendDirectMessage(selectedRecipientIds, content),
+      );
       community.actions.openDirectMessage(selectedRecipientIds);
       setDestination(`dm:${selectedRecipientIds.join(",")}`, true);
       toast.success("Message sent");
@@ -838,24 +863,26 @@
     content: string,
   ): Promise<void> {
     try {
-      if (activeRoom.kind === "direct") {
-        const recipients = roomId
-          .replace(/^dm:/u, "")
-          .split(",")
-          .filter(Boolean);
-        await community.actions.sendDirectMessage(
-          recipients,
-          content,
-          community.state.replyTarget?.eventId,
-        );
-      } else if (community.state.replyTarget) {
-        await community.actions.sendReply(
-          community.state.replyTarget.eventId,
-          content,
-        );
-      } else {
-        await community.actions.sendMessage(roomId, content);
-      }
+      await runAuthenticated(async () => {
+        if (activeRoom.kind === "direct") {
+          const recipients = roomId
+            .replace(/^dm:/u, "")
+            .split(",")
+            .filter(Boolean);
+          await community.actions.sendDirectMessage(
+            recipients,
+            content,
+            community.state.replyTarget?.eventId,
+          );
+        } else if (community.state.replyTarget) {
+          await community.actions.sendReply(
+            community.state.replyTarget.eventId,
+            content,
+          );
+        } else {
+          await community.actions.sendMessage(roomId, content);
+        }
+      });
       community.actions.clearReplyTarget();
       lastAction = "sent-message";
     } catch (cause) {
@@ -1042,10 +1069,15 @@
             onAction={(action) => {
               if (action === "settings") openSettings();
               if (action === "community-settings") relaySettingsOpen = true;
-              if (action === "update-status") statusOpen = true;
+              if (action === "update-status")
+                void runAuthenticated(() => {
+                  statusOpen = true;
+                });
               if (action === "manage-members") {
-                memberCommandMode = "manage";
-                memberCommandOpen = true;
+                void runAuthenticated(() => {
+                  memberCommandMode = "manage";
+                  memberCommandOpen = true;
+                });
               }
               if (action === "send-feedback") void extensions.feedback?.();
             }}
@@ -1150,11 +1182,15 @@
                 }}
             {...emojiOperation === undefined ? {} : { emojiOperation }}
             onUpdateProfile={(profile) =>
-              community.actions.updateProfile(profile)}
+              runAuthenticated(() => community.actions.updateProfile(profile))}
             onAddCustomEmoji={(shortcode, url) =>
-              community.actions.setCustomEmoji(shortcode, url)}
+              runAuthenticated(() =>
+                community.actions.setCustomEmoji(shortcode, url),
+              )}
             onRemoveCustomEmoji={(shortcode) =>
-              community.actions.removeCustomEmoji(shortcode)}
+              runAuthenticated(() =>
+                community.actions.removeCustomEmoji(shortcode),
+              )}
           />
         </AppShell.Body.Content>
       </AppShell.Body>
@@ -1187,7 +1223,9 @@
           ? {}
           : { onEditMessage: extensions.editMessage }}
         onDeleteMessage={(messageId) =>
-          void community.actions.deleteEvent(messageId).then(
+          void runAuthenticated(() =>
+            community.actions.deleteEvent(messageId),
+          ).then(
             () => toast.success("Message deleted"),
             (cause) =>
               toast.error(
@@ -1332,7 +1370,9 @@
                 ? {}
                 : { onEditMessage: extensions.editMessage }),
               onDeleteMessage: (messageId) => {
-                void community.actions.deleteEvent(messageId).then(
+                void runAuthenticated(() =>
+                  community.actions.deleteEvent(messageId),
+                ).then(
                   () => toast.success("Message deleted"),
                   (cause) =>
                     toast.error(
@@ -1344,11 +1384,15 @@
                 lastAction = `deleted-message:${messageId}`;
               },
               onBrowseRooms: openRoomBrowser,
-              onCreateRoom: (kind) => openRoomEditor(kind, "create"),
+              onCreateRoom: (kind) =>
+                void runAuthenticated(() => openRoomEditor(kind, "create")),
               ...(extensions.agents === undefined
                 ? {}
                 : { onCreateAgent: extensions.agents }),
-              onCreateTopic: () => (topicComposerOpen = true),
+              onCreateTopic: () =>
+                void runAuthenticated(() => {
+                  topicComposerOpen = true;
+                }),
               onTopicAction: (topicId, action) => {
                 const topic = workspace.topics.find(
                   (candidate) => candidate.id === topicId,
@@ -1365,15 +1409,15 @@
                 if (action === "mute")
                   void community.actions.setRoomMuted(topicId, true);
                 if (action === "delete")
-                  void community.actions
-                    .deleteEvent(topicId)
-                    .catch((cause) =>
-                      toast.error(
-                        cause instanceof Error
-                          ? cause.message
-                          : "The relay rejected this deletion",
-                      ),
-                    );
+                  void runAuthenticated(() =>
+                    community.actions.deleteEvent(topicId),
+                  ).catch((cause) =>
+                    toast.error(
+                      cause instanceof Error
+                        ? cause.message
+                        : "The relay rejected this deletion",
+                    ),
+                  );
               },
               onClearReplyTarget: () => community.actions.clearReplyTarget(),
             }}
@@ -1431,7 +1475,9 @@
             ? {}
             : { onEditMessage: extensions.editMessage }}
           onDeleteMessage={(messageId) => {
-            void community.actions.deleteEvent(messageId).then(
+            void runAuthenticated(() =>
+              community.actions.deleteEvent(messageId),
+            ).then(
               () => toast.success("Message deleted"),
               (cause) =>
                 toast.error(
@@ -1533,13 +1579,13 @@
   bind:open={roomBrowserOpen}
   rooms={allRooms}
   initialKind={roomBrowserKind}
-  canCreate={community.state.authentication.status === "connected"}
+  canCreate={hasCommunityConnection}
   onSelect={(room) => {
     roomBrowserOpen = false;
     setDestination(room.id, true);
   }}
   onJoin={(room) =>
-    void community.actions.join(room.id).then(
+    void runAuthenticated(() => community.actions.join(room.id)).then(
       () => toast.success(`Joined ${room.name}`),
       (cause) =>
         toast.error(
@@ -1547,8 +1593,10 @@
         ),
     )}
   onCreate={(kind) => {
-    roomBrowserOpen = false;
-    openRoomEditor(kind, "create");
+    void runAuthenticated(() => {
+      roomBrowserOpen = false;
+      openRoomEditor(kind, "create");
+    });
   }}
 />
 
@@ -1570,7 +1618,9 @@
         (id) => id !== member.id,
       );
     else
-      void community.actions.removeMember(activeRoom.id, member.id).then(
+      void runAuthenticated(() =>
+        community.actions.removeMember(activeRoom.id, member.id),
+      ).then(
         () => toast.success(`${member.name} removed`),
         (cause) =>
           toast.error(
@@ -1588,7 +1638,8 @@
 <CommunityTopicComposer
   bind:open={topicComposerOpen}
   forumName={activeRoom.name}
-  onPublish={(draft) => community.actions.createTopic(activeRoom.id, draft)}
+  onPublish={(draft) =>
+    runAuthenticated(() => community.actions.createTopic(activeRoom.id, draft))}
 />
 
 <CommunitySearchCommand

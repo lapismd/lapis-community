@@ -1,6 +1,12 @@
 <script module lang="ts">
   import { defineMeta } from "@storybook/addon-svelte-csf";
-  import { expect, userEvent, waitFor, within } from "storybook/test";
+  import {
+    expect,
+    fireEvent,
+    userEvent,
+    waitFor,
+    within,
+  } from "storybook/test";
 
   import CommunityAppShell from "../community-app-shell/CommunityAppShell.svelte";
   import CommunityNavigationShellFixture from "../community-navigation/CommunityNavigationShellFixture.svelte";
@@ -228,8 +234,14 @@
       expect(frame).toHaveAttribute("data-community-status", "connected");
     });
     if (frame.dataset.communityBackend === "live") return;
-    await userEvent.click(
-      canvas.getAllByRole("button", { name: "0 replies" })[0]!,
+    await expect(
+      canvas.queryByRole("button", { name: "0 replies" }),
+    ).toBeNull();
+    await expect(
+      canvas.getAllByRole("button", { name: "Reply in thread" })[0]!,
+    ).toBeInTheDocument();
+    await fireEvent.click(
+      canvas.getAllByRole("button", { name: "Reply in thread" })[0]!,
     );
     const threadSidebar = await canvas.findByLabelText("Thread sidebar");
     const thread = within(threadSidebar);
