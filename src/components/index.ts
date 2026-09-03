@@ -52,6 +52,16 @@ export type {
   RegistryCommunityControllerOptions,
   RegistryCommunityProps,
 } from "./registry-community/registry-community-controller.svelte.js";
+export { default as RegistryBrowser } from "./registry-browser/RegistryBrowser.svelte";
+export type {
+  RegistryBrowserOptions,
+  RegistryBrowserProps,
+} from "./registry-browser/model.js";
+export { default as RegistryDirectory } from "./registry-directory/RegistryDirectory.svelte";
+export { default as RegistryLanding } from "./registry-landing/RegistryLanding.svelte";
+export { default as RegistryMediaGallery } from "./registry-media-gallery/RegistryMediaGallery.svelte";
+export { default as RegistryPluginCard } from "./registry-plugin-card/RegistryPluginCard.svelte";
+export { default as RegistryPluginDetail } from "./registry-plugin-detail/RegistryPluginDetail.svelte";
 export { default as ForumTopicList } from "./forum-topic-list/ForumTopicList.svelte";
 export * from "./community-workspace/model.js";
 export { filterCommunityNavigation } from "./community-navigation/model.js";

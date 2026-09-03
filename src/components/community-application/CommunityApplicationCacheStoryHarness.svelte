@@ -14,10 +14,13 @@
     createCommunityTestScenario,
     createMemoryCommunityEventStore,
   } from "../../testing/index.js";
+  import { createRegistryStoryDataSource } from "../registry-browser/story-fixtures.js";
   import CommunityApplication from "./CommunityApplication.svelte";
 
   let {
     scenario = "cached-offline",
+    registryConfigured = true,
+    initialDestination = "inbox",
   }: {
     scenario?:
       | "cached-offline"
@@ -25,6 +28,8 @@
       | "degraded"
       | "mid-session-disconnect"
       | "reconnect";
+    registryConfigured?: boolean;
+    initialDestination?: string;
   } = $props();
 
   const capabilities: CommunityCapabilities = {
@@ -41,6 +46,7 @@
 
   let community = $state<CommunityController>();
   let failure = $state("");
+  const registrySource = createRegistryStoryDataSource();
 
   onMount(() => {
     let active = true;
@@ -171,6 +177,10 @@
   <CommunityApplication
     controller={community}
     displayMode="desktop"
+    {initialDestination}
+    {...registryConfigured
+      ? { registryOptions: { source: registrySource } }
+      : {}}
     data-cache-scenario={scenario}
   />
 {:else}

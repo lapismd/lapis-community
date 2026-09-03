@@ -10,11 +10,13 @@
     type CommunityStoryRuntime,
   } from "../../testing/index.js";
   import RegistryCommunityStoryHarness from "../registry-community/RegistryCommunityStoryHarness.svelte";
+  import { createRegistryStoryDataSource } from "../registry-browser/story-fixtures.js";
   import CommunityApplication from "./CommunityApplication.svelte";
 
   let runtime = $state<CommunityStoryRuntime>();
   let community = $state<CommunityController>();
   let runtimeError = $state("");
+  const registrySource = createRegistryStoryDataSource();
 
   onMount(() => {
     let active = true;
@@ -79,18 +81,23 @@
     {runtimeError}
   </div>
 {:else if community && runtime}
+  {#snippet registryDiscussion()}
+    <div class="community-application-story__registry-discussion">
+      <RegistryCommunityStoryHarness />
+    </div>
+  {/snippet}
   <CommunityApplication
     controller={community}
     displayMode="desktop"
     data-testid="full-community-application"
     data-community-backend={runtime.backend}
-  >
-    {#snippet registry()}
-      <div class="community-application-story__registry">
-        <RegistryCommunityStoryHarness />
-      </div>
-    {/snippet}
-  </CommunityApplication>
+    registryOptions={{
+      source: registrySource,
+      discussion: registryDiscussion,
+      installActions: { ai: { state: "available" } },
+      onInstall: async () => {},
+    }}
+  />
 {:else}
   <p class="community-application-story__loading" role="status">
     Preparing signed community events…
@@ -110,9 +117,8 @@
     color: var(--destructive);
   }
 
-  .community-application-story__registry {
-    height: 100%;
-    overflow: auto;
-    padding: 1.5rem;
+  .community-application-story__registry-discussion {
+    border-top: 1px solid var(--border);
+    padding-top: 2rem;
   }
 </style>

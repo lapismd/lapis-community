@@ -92,8 +92,8 @@
         type="button"
         class="community-message__avatar"
         aria-label={`View ${author.name}'s profile`}
-        onclick={() => onOpenProfile?.(author)}
-      >{author.initials}</button>
+        onclick={() => onOpenProfile?.(author)}>{author.initials}</button
+      >
     {/if}
   {/snippet}
   {#snippet name()}

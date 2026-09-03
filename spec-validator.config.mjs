@@ -55,7 +55,7 @@ export default defineConfig(tableRequirements(), {
           chapters: ["spec/src/nostr-protocol.md", "spec/src/architecture.md"],
         },
         {
-          pattern: "^src/components/",
+          pattern: "^src/(?:components|registry)/",
           chapters: ["spec/src/components.md"],
         },
         {

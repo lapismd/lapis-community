@@ -23,7 +23,10 @@
 <article class="community-member-profile">
   <header>
     <span class="community-member-profile__avatar">
-      {#if member.avatarUrl}<img src={member.avatarUrl} alt="" />{:else}{member.initials}{/if}
+      {#if member.avatarUrl}<img
+          src={member.avatarUrl}
+          alt=""
+        />{:else}{member.initials}{/if}
     </span>
     <div>
       <h2>{member.name}</h2>
@@ -46,7 +49,9 @@
 
   <section>
     <h3>About</h3>
-    <p>{member.role ? `${member.role} in this community` : "Community member"}</p>
+    <p>
+      {member.role ? `${member.role} in this community` : "Community member"}
+    </p>
   </section>
 </article>
 

@@ -31,6 +31,11 @@
     CommunityController,
     CommunityLinkBuilder,
   } from "../../community/index.js";
+  import {
+    registryRouteFromDestination,
+    registryRouteToDestination,
+    type RegistryRoute,
+  } from "../../registry/index.js";
   import CommunityAppShell from "../community-app-shell/CommunityAppShell.svelte";
   import CommunityChannelSettings from "../community-channel-settings/CommunityChannelSettings.svelte";
   import CommunityEmojiPicker from "../community-emoji-picker/CommunityEmojiPicker.svelte";
@@ -58,6 +63,8 @@
   import CommunityThreadPanel from "../community-thread-panel/CommunityThreadPanel.svelte";
   import CommunityTopicComposer from "../community-topic-composer/CommunityTopicComposer.svelte";
   import CommunityWorkspaceSurface from "../community-workspace/CommunityWorkspaceSurface.svelte";
+  import RegistryBrowser from "../registry-browser/RegistryBrowser.svelte";
+  import type { RegistryBrowserOptions } from "../registry-browser/model.js";
   import {
     findCommunityRoom,
     memberById,
@@ -80,6 +87,7 @@
     mobileBreakpoint = 1024,
     desktopMinMainWidth = 0,
     registry,
+    registryOptions,
     extensions = {},
     linkBuilder,
     onDestinationChange = () => {},
@@ -93,6 +101,7 @@
     mobileBreakpoint?: number;
     desktopMinMainWidth?: number;
     registry?: Snippet;
+    registryOptions?: RegistryBrowserOptions;
     extensions?: CommunityApplicationExtensions;
     linkBuilder?: CommunityLinkBuilder;
     onDestinationChange?: (destinationId: string) => void;
@@ -114,6 +123,11 @@
   const shell = $derived(shellController ?? internalShellController);
   let activeDestination = $state(
     untrack(() => initialDestination) as CommunityApplicationDestination,
+  );
+  let registryRoute = $state<RegistryRoute>(
+    registryRouteFromDestination(untrack(() => initialDestination)) ?? {
+      page: "landing",
+    },
   );
   let settingsSection = $state<"profile" | "custom-emoji">("profile");
   let navigationHistory = $state<string[]>([untrack(() => initialDestination)]);
@@ -348,9 +362,14 @@
       .map((id) => workspace.members.find((member) => member.id === id))
       .filter((member) => member !== undefined),
   );
+  const isRegistryDestination = $derived(
+    registryRouteFromDestination(activeDestination) !== null,
+  );
   const activeItemId = $derived(
-    activeDestination === "inbox" || activeDestination === "registry"
-      ? activeDestination
+    activeDestination === "inbox" || isRegistryDestination
+      ? activeDestination === "inbox"
+        ? "inbox"
+        : "registry"
       : activeDestination === "settings"
         ? undefined
         : workspace.activeRoomId,
@@ -374,12 +393,12 @@
     selectedProfile
       ? "Profile"
       : activeDestination !== "inbox" && workspaceSidePanel === "thread"
-      ? "Thread"
-      : detailsRoom.kind === "channel"
-        ? "Channel settings"
-        : detailsRoom.kind === "forum"
-          ? "Forum settings"
-          : "Conversation details",
+        ? "Thread"
+        : detailsRoom.kind === "channel"
+          ? "Channel settings"
+          : detailsRoom.kind === "forum"
+            ? "Forum settings"
+            : "Conversation details",
   );
 
   function openProfile(member: CommunityMemberModel): void {
@@ -466,9 +485,11 @@
       navigationHistoryIndex = navigationHistory.length - 1;
     }
     activeDestination = destinationId;
+    const nextRegistryRoute = registryRouteFromDestination(destinationId);
+    if (nextRegistryRoute !== null) registryRoute = nextRegistryRoute;
     if (destinationId === "inbox") {
       community.actions.selectRoom(inbox.room.id);
-    } else if (destinationId !== "registry" && destinationId !== "settings") {
+    } else if (nextRegistryRoute === null && destinationId !== "settings") {
       community.actions.selectRoom(destinationId);
     }
     shell.right.close();
@@ -479,6 +500,10 @@
 
   function select(item: CommunityNavigationItemModel): void {
     setDestination(item.id, true);
+  }
+
+  function navigateRegistry(next: RegistryRoute): void {
+    setDestination(registryRouteToDestination(next), true);
   }
 
   function openSettings(recordHistory = true): void {
@@ -498,7 +523,9 @@
     if (destinationId === undefined) return;
     navigationHistoryIndex = nextIndex;
     if (destinationId === "settings") openSettings(false);
-    else {
+    else if (registryRouteFromDestination(destinationId) !== null) {
+      setDestination(destinationId, false);
+    } else {
       const item = itemFor(destinationId);
       if (item) setDestination(item.id, false);
     }
@@ -620,8 +647,7 @@
         );
       if (action === "copy-name")
         await copyText(item.label, "Channel name copied");
-      if (action === "copy-id")
-        await copyText(item.id, "Channel ID copied");
+      if (action === "copy-id") await copyText(item.id, "Channel ID copied");
       if (action === "mark-read") await community.actions.markRead(item.id);
       if (action === "mark-unread") await community.actions.markUnread(item.id);
       if (action === "star" || action === "unstar")
@@ -1028,7 +1054,34 @@
   </AppShell.Sidebar>
 
   <AppShell.Main>
-    {#if !hasCommunitySurface}
+    {#if isRegistryDestination}
+      {#if registry}
+        <AppShell.Body layout="regions" label="Plugin registry">
+          <AppShell.Body.Content label="Registry content">
+            {@render registry()}
+          </AppShell.Body.Content>
+        </AppShell.Body>
+      {:else if registryOptions}
+        <RegistryBrowser
+          {...registryOptions}
+          bind:route={registryRoute}
+          onRouteChange={navigateRegistry}
+        />
+      {:else}
+        <AppShell.Body layout="regions" label="Plugin registry">
+          <AppShell.Body.Content label="Registry content">
+            <section class="community-application__registry-empty">
+              <PackageSearchIcon aria-hidden="true" />
+              <h1>Plugin registry is not configured</h1>
+              <p>
+                Provide <code>registryOptions</code> with a catalog source, or
+                use the legacy <code>registry</code> snippet override.
+              </p>
+            </section>
+          </AppShell.Body.Content>
+        </AppShell.Body>
+      {/if}
+    {:else if !hasCommunitySurface}
       <AppShell.Body layout="regions" label="Connect to community relay">
         <AppShell.Body.Content label="Relay connection settings">
           <section class="community-application__disconnected">
@@ -1163,20 +1216,6 @@
               ))}
             onSend={sendNewDirectMessage}
           />
-        </AppShell.Body.Content>
-      </AppShell.Body>
-    {:else if activeDestination === "registry"}
-      <AppShell.Body layout="regions" label="Plugin registry">
-        <AppShell.Body.Content label="Registry content">
-          {#if registry}
-            {@render registry()}
-          {:else}
-            <section class="community-application__registry-empty">
-              <PackageSearchIcon aria-hidden="true" />
-              <h1>Plugin registry</h1>
-              <p>The host application can provide its registry surface here.</p>
-            </section>
-          {/if}
         </AppShell.Body.Content>
       </AppShell.Body>
     {:else}

@@ -22,6 +22,11 @@ topics, NIP-22 kind `1111` replies, and NIP-25 kind `7` reactions remain
 ordinary signed relay events. Clients render them in posting order and retain
 reply context without inventing a second persistence model.
 
+Catalog consumers read only the materialized projection and its verified
+content-addressed documents. That portable read path does not change release or
+curator authority, and discussion availability does not determine whether
+catalog metadata can be browsed.
+
 Private kind `14` rumors are materialized only after their NIP-17 gift wrap and
 kind `13` seal validate and decrypt for the connected identity. Application
 state uses eight recent per-device NIP-78 slots, a 32 KiB plaintext ceiling,

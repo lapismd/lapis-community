@@ -1,0 +1,100 @@
+<script module lang="ts">
+  import { defineMeta } from "@storybook/addon-svelte-csf";
+  import { expect, userEvent } from "storybook/test";
+
+  import RegistryBrowser from "./RegistryBrowser.svelte";
+  import RegistryBrowserStoryHarness from "./RegistryBrowserStoryHarness.svelte";
+
+  const { Story } = defineMeta({
+    title: "Community/Registry/Browser",
+    component: RegistryBrowser,
+    tags: ["visual-pending"],
+    parameters: {
+      layout: "fullscreen",
+      docs: {
+        story: { inline: false, iframeHeight: 760 },
+        source: {
+          language: "svelte",
+          code: `<RegistryBrowser {source} bind:route {installActions} onRouteChange={syncHistory} onInstall={installPlugin} />`,
+        },
+      },
+    },
+  });
+</script>
+
+<Story
+  name="Discovery to detail with discussion"
+  play={async ({ canvas }) => {
+    await expect(
+      canvas.queryByRole("navigation", { name: "breadcrumb" }),
+    ).not.toBeInTheDocument();
+    await expect(
+      await canvas.findByRole("heading", { name: "Make Lapis Notes yours." }),
+    ).toBeVisible();
+    await userEvent.click(
+      canvas.getAllByRole("button", { name: "Open AI Assistant" })[0]!,
+    );
+    await expect(
+      await canvas.findByRole("heading", { name: "AI Assistant", level: 1 }),
+    ).toBeVisible();
+    await expect(
+      await canvas.findByText("Seeded registry discussion"),
+    ).toBeVisible();
+    const breadcrumb = canvas.getByRole("navigation", { name: "breadcrumb" });
+    await expect(
+      breadcrumb.querySelector('[data-ui-part="breadcrumb-separator"]'),
+    ).toHaveTextContent("");
+    await expect(
+      breadcrumb.querySelector('[data-ui-part="breadcrumb-separator"] svg'),
+    ).not.toBeNull();
+    await expect(canvas.getByRole("link", { name: "Registry" })).toBeVisible();
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Install in Lapis" }),
+    );
+    await expect(
+      canvas.getByRole("button", { name: "Installed" }),
+    ).toBeDisabled();
+    await userEvent.click(canvas.getByRole("link", { name: "Registry" }));
+    await expect(
+      await canvas.findByRole("heading", { name: "Make Lapis Notes yours." }),
+    ).toBeVisible();
+    await expect(
+      canvas.queryByRole("navigation", { name: "breadcrumb" }),
+    ).not.toBeInTheDocument();
+  }}
+>
+  {#snippet template()}
+    <RegistryBrowserStoryHarness />
+  {/snippet}
+</Story>
+
+<Story
+  name="Directory state and detail cache"
+  play={async ({ canvas }) => {
+    const search = await canvas.findByRole("textbox", {
+      name: "Search registry plugins",
+    });
+    await userEvent.type(search, "AI");
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Open AI Assistant" }),
+    );
+    await expect(
+      await canvas.findByRole("heading", { name: "AI Assistant", level: 1 }),
+    ).toBeVisible();
+    await userEvent.click(canvas.getByRole("link", { name: "Plugins" }));
+    await expect(
+      canvas.getByRole("textbox", { name: "Search registry plugins" }),
+    ).toHaveValue("AI");
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Open AI Assistant" }),
+    );
+    await expect(
+      await canvas.findByRole("heading", { name: "AI Assistant", level: 1 }),
+    ).toBeVisible();
+    await expect(canvas.getByText("Seeded registry discussion")).toBeVisible();
+  }}
+>
+  {#snippet template()}
+    <RegistryBrowserStoryHarness initialRoute={{ page: "directory" }} />
+  {/snippet}
+</Story>

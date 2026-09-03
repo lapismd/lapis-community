@@ -1,5 +1,6 @@
 <script module lang="ts">
   import { defineMeta } from "@storybook/addon-svelte-csf";
+  import { expect, userEvent } from "storybook/test";
 
   import CommunityApplication from "./CommunityApplication.svelte";
   import CommunityApplicationStoryHarness from "./CommunityApplicationStoryHarness.svelte";
@@ -11,6 +12,7 @@
     CommunityApplication,
     RegistryCommunity,
   } from "@lapismd/lapis-community/components";
+  import { createHttpRegistryCatalogDataSource } from "@lapismd/lapis-community/registry";
   import {
     createBrowserCommunityConfigurationStore,
     createBrowserCommunityEventRuntime,
@@ -29,6 +31,9 @@
     configurationStore: createBrowserCommunityConfigurationStore(),
     runtime: createBrowserCommunityEventRuntime(),
   });
+  const registrySource = createHttpRegistryCatalogDataSource({
+    baseUrl: "/registry/",
+  });
 
   onMount(() => {
     community.initialize();
@@ -36,8 +41,7 @@
   });
 <\/script>
 
-<CommunityApplication controller={community}>
-  {#snippet registry()}
+{#snippet registryDiscussion()}
     <RegistryCommunity
       plugin={selectedPlugin}
       name={selectedPluginName}
@@ -45,8 +49,17 @@
       publisher={publisher}
       relays={JSON.stringify(relays)}
     />
-  {/snippet}
-</CommunityApplication>`;
+{/snippet}
+
+<CommunityApplication
+  controller={community}
+  registryOptions={{
+    source: registrySource,
+    discussion: registryDiscussion,
+    installActions,
+    onInstall: installPlugin,
+  }}
+/>`;
 
   const { Story } = defineMeta({
     title: "Community/Examples/App Shell",
@@ -67,19 +80,23 @@
   });
 </script>
 
-<Story name="Full community app">
-  {#snippet template()}
-    <CommunityApplicationStoryHarness />
-  {/snippet}
-</Story>
-
 <Story name="Cached startup offline">
   {#snippet template()}
     <CommunityApplicationCacheStoryHarness scenario="cached-offline" />
   {/snippet}
 </Story>
 
-<Story name="Cold cache offline">
+<Story
+  name="Cold cache offline"
+  play={async ({ canvas }) => {
+    await userEvent.click(
+      await canvas.findByRole("button", { name: "Registry" }),
+    );
+    await expect(
+      await canvas.findByRole("heading", { name: "Make Lapis Notes yours." }),
+    ).toBeVisible();
+  }}
+>
   {#snippet template()}
     <CommunityApplicationCacheStoryHarness scenario="cold-offline" />
   {/snippet}
@@ -100,5 +117,64 @@
 <Story name="Reconnect from cache">
   {#snippet template()}
     <CommunityApplicationCacheStoryHarness scenario="reconnect" />
+  {/snippet}
+</Story>
+
+<Story
+  name="Registry configuration required"
+  play={async ({ canvas }) => {
+    await expect(
+      await canvas.findByRole("heading", {
+        name: "Plugin registry is not configured",
+      }),
+    ).toBeVisible();
+  }}
+>
+  {#snippet template()}
+    <CommunityApplicationCacheStoryHarness
+      scenario="cold-offline"
+      initialDestination="registry"
+      registryConfigured={false}
+    />
+  {/snippet}
+</Story>
+
+<Story
+  name="Full community app"
+  play={async ({ canvas }) => {
+    await userEvent.click(
+      await canvas.findByRole("button", { name: "Registry" }),
+    );
+    await expect(
+      await canvas.findByRole("heading", { name: "Make Lapis Notes yours." }),
+    ).toBeVisible();
+    await userEvent.click(
+      canvas.getAllByRole("button", { name: /Plugins/u })[0]!,
+    );
+    await expect(
+      await canvas.findByRole("heading", { name: "Plugins", level: 1 }),
+    ).toBeVisible();
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Open AI Assistant" }),
+    );
+    await expect(
+      await canvas.findByRole("heading", { name: "AI Assistant", level: 1 }),
+    ).toBeVisible();
+    await userEvent.click(canvas.getByRole("button", { name: "Back" }));
+    await expect(
+      await canvas.findByRole("heading", { name: "Plugins", level: 1 }),
+    ).toBeVisible();
+    await userEvent.click(canvas.getByRole("button", { name: "Back" }));
+    await expect(
+      await canvas.findByRole("heading", { name: "Make Lapis Notes yours." }),
+    ).toBeVisible();
+    await userEvent.click(canvas.getByRole("button", { name: "Forward" }));
+    await expect(
+      await canvas.findByRole("heading", { name: "Plugins", level: 1 }),
+    ).toBeVisible();
+  }}
+>
+  {#snippet template()}
+    <CommunityApplicationStoryHarness />
   {/snippet}
 </Story>

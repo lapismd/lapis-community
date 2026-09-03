@@ -56,7 +56,9 @@
     onCopyMessage?: (messageId: string) => void;
     onEditMessage?: (messageId: string) => void;
     onDeleteMessage?: (messageId: string) => void;
-    onOpenProfile?: (member: import("../community-workspace/model.js").CommunityMemberModel) => void;
+    onOpenProfile?: (
+      member: import("../community-workspace/model.js").CommunityMemberModel,
+    ) => void;
     replyTarget?: CommunityReplyTarget;
     communityEmojis?: readonly CommunityCustomEmoji[];
     onCancelReply?: () => void;

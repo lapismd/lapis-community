@@ -20,3 +20,7 @@ requirements.
 Relay conformance tests live under the test-only package entry point. They run
 in memory by default and may target the disposable Docker relay without adding
 environment-specific branches to production controller or materializer code.
+
+The `src/registry` public entry point follows the component specification
+chapter because it supplies the typed models and projection-loading boundary
+consumed directly by the registry presentation components.
