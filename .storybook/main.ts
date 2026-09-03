@@ -42,6 +42,7 @@ const config: StorybookConfig = {
       resolve: { dedupe: ["svelte"] },
       plugins: [crossOriginIsolationPlugin()],
       optimizeDeps: {
+        force: true,
         include: ["nostr-tools/filter", "nostr-tools/nip44"],
         exclude: [
           "@tursodatabase/database-wasm",

@@ -103,7 +103,7 @@
     "relay:reset": "scripts/community-relay.sh reset",
     "check:format": "prettier . --check --log-level warn",
     "fmt": "prettier . --write --log-level warn",
-    "checks": "pnpm check:format && pnpm spec:check && pnpm check && pnpm test && pnpm test:storybook && pnpm build-storybook && pnpm build"
+    "checks": "pnpm check:format && pnpm spec:check && pnpm check && pnpm test && pnpm test:storybook && pnpm test:storybook:docker && pnpm build-storybook && pnpm build"
   },
   "dependencies": {
     "@emoji-mart/data": "^1.2.1",

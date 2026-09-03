@@ -273,21 +273,66 @@
     ).toBeVisible();
     await userEvent.click(canvas.getByRole("button", { name: "Forward" }));
     await expect(await canvas.findByText("8 results")).toBeVisible();
-    await userEvent.click(canvas.getByRole("button", { name: "general" }));
-    await userEvent.click(
-      await canvas.findByRole("button", { name: "View steve's profile" }),
+    const application = canvas.getByTestId("full-community-application");
+    const shell = application.querySelector<HTMLElement>(
+      "[data-right-sidebar-state]",
     );
-    await expect(await canvas.findByLabelText("Profile sidebar")).toBeVisible();
+    if (!shell) throw new Error("Expected the application shell state element");
+    const rightSidebars = (): NodeListOf<HTMLElement> =>
+      canvasElement.querySelectorAll<HTMLElement>('aside[data-side="right"]');
+    const expectRightPanel = async (
+      label: "Channel settings sidebar" | "Thread sidebar" | "Profile sidebar",
+    ): Promise<HTMLElement> => {
+      const sidebar = await canvas.findByLabelText(label);
+      await expect(sidebar).toBeVisible();
+      await expect(rightSidebars()).toHaveLength(1);
+      await expect(shell).toHaveAttribute(
+        "data-right-sidebar-state",
+        "expanded",
+      );
+      return sidebar;
+    };
+    const expectNoRightPanel = async (): Promise<void> => {
+      await waitFor(() => expect(rightSidebars()).toHaveLength(0));
+      await expect(shell).toHaveAttribute("data-right-sidebar-state", "closed");
+    };
+
+    if (application.dataset.communityBackend === "live") {
+      await expectNoRightPanel();
+      return;
+    }
+
+    await waitFor(
+      () =>
+        expect(application).toHaveAttribute(
+          "data-community-status",
+          "connected",
+        ),
+      { timeout: 15_000 },
+    );
+
+    await userEvent.click(
+      await canvas.findByRole("button", { name: "general" }),
+    );
+
+    await userEvent.click(
+      await canvas.findByRole("button", { name: "Manage channel" }),
+    );
+    await expectRightPanel("Channel settings sidebar");
+
     await fireEvent.click(
       canvas.getAllByRole("button", { name: "Reply in thread" })[0]!,
     );
-    const threadSidebar = await canvas.findByLabelText("Thread sidebar");
-    await expect(threadSidebar).toBeVisible();
-    await expect(canvas.queryByLabelText("Profile sidebar")).toBeNull();
-    await expect(
-      within(threadSidebar).getByLabelText("Replying to steve"),
-    ).toBeVisible();
-    await expect(threadSidebar).toHaveAttribute("data-state", "expanded");
+    let threadSidebar = await expectRightPanel("Thread sidebar");
+    await waitFor(
+      () =>
+        expect(
+          within(threadSidebar).getByRole("group", {
+            name: /^Replying to /u,
+          }),
+        ).toBeVisible(),
+      { timeout: 15_000 },
+    );
     await expect(threadSidebar.getBoundingClientRect().width).toBeGreaterThan(
       200,
     );
@@ -300,33 +345,104 @@
       getComputedStyle(roomTitle!).fontSize,
     );
     await expect(
-      within(threadSidebar).queryByLabelText("Thread from steve"),
+      within(threadSidebar).queryByLabelText(/^Thread from /u),
     ).toBeNull();
     await expect(
-      within(threadSidebar).getByText("Reply in thread to steve"),
+      within(threadSidebar).getByText(/^Reply in thread to /u),
     ).toBeVisible();
-    const threadToggle = within(threadSidebar).getByRole("button", {
-      name: "Close thread sidebar",
-    });
-    await userEvent.click(threadToggle);
-    await expect(
-      canvas.getByTestId("full-community-application"),
-    ).toHaveAttribute("data-last-action", "closed-side-panel");
-    await waitFor(() =>
-      expect(canvas.queryByLabelText("Thread sidebar")).toBeNull(),
+
+    await fireEvent.click(
+      within(threadSidebar).getAllByRole("button", {
+        name: /^View .+'s profile$/u,
+      })[0]!,
+    );
+    await expectRightPanel("Profile sidebar");
+    await expect(canvas.queryByLabelText("Thread sidebar")).toBeNull();
+
+    await userEvent.click(canvas.getByRole("button", { name: "Back" }));
+    threadSidebar = await expectRightPanel("Thread sidebar");
+    await waitFor(
+      () =>
+        expect(
+          within(threadSidebar).getByRole("group", {
+            name: /^Replying to /u,
+          }),
+        ).toBeVisible(),
+      { timeout: 15_000 },
+    );
+    await userEvent.click(canvas.getByRole("button", { name: "Back" }));
+    await expectRightPanel("Channel settings sidebar");
+    await userEvent.click(canvas.getByRole("button", { name: "Forward" }));
+    await expectRightPanel("Thread sidebar");
+    await userEvent.click(canvas.getByRole("button", { name: "Forward" }));
+    const profileSidebar = await expectRightPanel("Profile sidebar");
+
+    await userEvent.click(
+      within(profileSidebar).getByRole("button", { name: /Close/u }),
+    );
+    await expect(application).toHaveAttribute(
+      "data-last-action",
+      "closed-side-panel",
+    );
+    await expectNoRightPanel();
+    await userEvent.click(canvas.getByRole("button", { name: "Back" }));
+    await expectRightPanel("Profile sidebar");
+
+    await fireEvent.click(
+      canvas.getByRole("button", { name: "Manage channel" }),
     );
     await fireEvent.click(
       canvas.getAllByRole("button", { name: "Reply in thread" })[0]!,
     );
-    const reopenedThreadSidebar =
-      await canvas.findByLabelText("Thread sidebar");
-    await expect(reopenedThreadSidebar).toHaveAttribute(
-      "data-state",
-      "expanded",
+    await expectRightPanel("Thread sidebar");
+    await expect(canvas.queryByLabelText("Profile sidebar")).toBeNull();
+    await expect(
+      canvas.queryByLabelText("Channel settings sidebar"),
+    ).toBeNull();
+    await userEvent.click(canvas.getByRole("button", { name: "Registry" }));
+    await expect(
+      await canvas.findByRole("heading", { name: "Make Lapis Notes yours." }),
+    ).toBeVisible();
+    await expectNoRightPanel();
+
+    await userEvent.click(canvas.getByRole("button", { name: "Back" }));
+    await expectRightPanel("Thread sidebar");
+    await userEvent.click(canvas.getByRole("button", { name: "Forward" }));
+    await expect(
+      await canvas.findByRole("heading", { name: "Make Lapis Notes yours." }),
+    ).toBeVisible();
+    await expectNoRightPanel();
+
+    const overlay = within(canvasElement.ownerDocument.body);
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Open general menu" }),
+    );
+    await userEvent.click(
+      await overlay.findByRole("menuitem", { name: "Settings" }),
+    );
+    await expectRightPanel("Channel settings sidebar");
+    await waitFor(() =>
+      expect(canvasElement.ownerDocument.body.style.pointerEvents).not.toBe(
+        "none",
+      ),
+    );
+    await userEvent.click(canvas.getByRole("button", { name: "Back" }));
+    await expect(
+      await canvas.findByRole("heading", { name: "Make Lapis Notes yours." }),
+    ).toBeVisible();
+    await expectNoRightPanel();
+    await userEvent.click(canvas.getByRole("button", { name: "Forward" }));
+    await expectRightPanel("Channel settings sidebar");
+
+    await userEvent.click(canvas.getByRole("button", { name: "Inbox" }));
+    await expectNoRightPanel();
+    await fireEvent.click(
+      canvas.getAllByRole("button", { name: "Reply in thread" })[0]!,
     );
     await expect(
-      reopenedThreadSidebar.getBoundingClientRect().width,
-    ).toBeGreaterThan(200);
+      await canvas.findByRole("group", { name: /^Replying to /u }),
+    ).toBeVisible();
+    await expectNoRightPanel();
   }}
 >
   {#snippet template()}

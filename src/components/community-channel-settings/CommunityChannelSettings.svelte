@@ -20,12 +20,14 @@
     members,
     description,
     canArchive = false,
+    onClose = () => {},
     onAction = () => {},
   }: {
     room: CommunityRoomModel;
     members: CommunityMemberModel[];
     description: string;
     canArchive?: boolean;
+    onClose?: () => void;
     onAction?: (action: string) => void;
   } = $props();
 
@@ -50,7 +52,10 @@
 
 <AppShell.Sidebar.Header class="lc-channel-settings__header">
   <strong>{roomType} settings</strong>
-  <AppShell.Sidebar.Close label={`Close ${roomType.toLowerCase()} settings`} />
+  <AppShell.Sidebar.Close
+    label={`Close ${roomType.toLowerCase()} settings`}
+    onclick={onClose}
+  />
 </AppShell.Sidebar.Header>
 
 <AppShell.Sidebar.Body>

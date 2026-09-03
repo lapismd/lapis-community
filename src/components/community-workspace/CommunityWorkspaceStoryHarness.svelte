@@ -47,7 +47,9 @@
   let lastAction = $state("ready");
   let showSettings = $state(false);
   let settingsSection = $state<"profile" | "custom-emoji">("profile");
-  let threadSidebarCloseButton = $state<HTMLButtonElement | null>(null);
+  let requestedSidePanel = $state<CommunitySidePanel>(
+    untrack(() => initialModel.sidePanel ?? "none"),
+  );
   const model = $derived(community?.state.workspace ?? initialModel);
 
   onMount(() => {
@@ -144,11 +146,8 @@
       controller.left.collapsed &&
       !controller.left.previewed,
   );
-  const effectiveSidePanel = $derived<Exclude<CommunitySidePanel, "none">>(
-    model.sidePanel === "thread" && model.thread ? "thread" : "details",
-  );
   const sidePanelTitle = $derived(
-    effectiveSidePanel === "thread"
+    requestedSidePanel === "thread"
       ? "Thread"
       : activeRoom.kind === "channel"
         ? "Channel settings"
@@ -165,6 +164,7 @@
 
   function selectRoom(roomId: string): void {
     showSettings = false;
+    requestedSidePanel = "none";
     community?.actions.selectRoom(roomId);
     controller.right.close();
     controller.mobile.showMain();
@@ -182,6 +182,7 @@
   }
 
   function openSidePanel(panel: Exclude<CommunitySidePanel, "none">): void {
+    requestedSidePanel = panel;
     if (panel === "details") community?.actions.openDetails();
     controller.right.expand();
     if (controller.mobile.resolvedMode === "mobile") {
@@ -194,15 +195,11 @@
   }
 
   function closeSidePanel(): void {
+    requestedSidePanel = "none";
     community?.actions.closeSidePanel();
     if (controller.right.collapsed) controller.right.expand();
     controller.right.close();
     lastAction = "closed-side-panel";
-  }
-
-  function closeThreadSidebarFromGlyph(): void {
-    if (threadSidebarCloseButton) threadSidebarCloseButton.click();
-    else closeSidePanel();
   }
 </script>
 
@@ -379,6 +376,7 @@
                 lastAction = "sent-message";
               },
               onOpenTopic: (topicId) => {
+                requestedSidePanel = "none";
                 community?.actions.openTopic(topicId);
                 controller.right.close();
                 lastAction = `opened-topic:${topicId}`;
@@ -415,112 +413,118 @@
     {/if}
   </AppShell.Main>
 
-  <AppShell.Sidebar
-    side="right"
-    label={`${sidePanelTitle} sidebar`}
-    mobileLabel={sidePanelTitle}
-    resizeLabel={`Resize ${sidePanelTitle.toLowerCase()} sidebar`}
-    closeable
-  >
-    {#if effectiveSidePanel === "thread" && model.thread}
-      <AppShell.Sidebar.Header>
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon-sm"
-          data-ui-part="sidebar-toggle"
-          data-side="right"
-          data-state="expanded"
-          aria-label={`Close ${sidePanelTitle.toLowerCase()} sidebar`}
-          title={`Close ${sidePanelTitle.toLowerCase()} sidebar`}
-          onclick={closeThreadSidebarFromGlyph}
-        >
-          <svg
-            data-ui-part="sidebar-toggle-icon"
-            xmlns="http://www.w3.org/2000/svg"
-            width="24"
-            height="24"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            aria-hidden="true"
+  {#if requestedSidePanel !== "none"}
+    <AppShell.Sidebar
+      side="right"
+      label={`${sidePanelTitle} sidebar`}
+      mobileLabel={sidePanelTitle}
+      resizeLabel={`Resize ${sidePanelTitle.toLowerCase()} sidebar`}
+      closeable
+    >
+      {#if requestedSidePanel === "thread"}
+        <AppShell.Sidebar.Header>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-sm"
+            data-ui-part="sidebar-toggle"
+            data-side="right"
+            data-state="expanded"
+            aria-label={`Close ${sidePanelTitle.toLowerCase()} sidebar`}
+            title={`Close ${sidePanelTitle.toLowerCase()} sidebar`}
+            onclick={closeSidePanel}
           >
-            <rect x="1" y="2" width="22" height="20" rx="4"></rect>
-            <g transform="translate(24 0) scale(-1 1)">
-              <rect
-                x="4"
-                y="5"
-                width="6"
-                height="14"
-                rx="2"
-                fill="currentColor"
-                data-ui-part="sidebar-toggle-indicator"
-              ></rect>
-            </g>
-          </svg>
-        </Button>
-        <strong>{sidePanelTitle}</strong>
-        <AppShell.Sidebar.Close
-          bind:ref={threadSidebarCloseButton}
-          onclick={closeSidePanel}
-        />
-      </AppShell.Sidebar.Header>
-      <AppShell.Sidebar.Body>
-        <CommunityThreadPanel
-          thread={model.thread}
-          members={model.members}
-          {...community?.state.replyTarget === undefined
-            ? {}
-            : { replyTarget: community.state.replyTarget }}
-          onSendReply={(_rootMessageId, content) => {
-            community?.handlers.onSendReply?.(_rootMessageId, content);
-            community?.actions.clearReplyTarget();
-            lastAction = "sent-reply";
-          }}
-          onReply={(messageId) => {
-            community?.actions.setReplyTarget(messageId);
-            lastAction = `replying-to:${messageId}`;
-          }}
-          onCancelReply={() => community?.actions.clearReplyTarget()}
-          onToggleReaction={react}
-          onAddReaction={react}
-          onCopyMessageLink={(messageId) => {
-            lastAction = `copied-message-link:${messageId}`;
-          }}
-          onDeleteMessage={(messageId) => {
-            void community?.actions.deleteEvent(messageId);
-            lastAction = `deleted-message:${messageId}`;
-          }}
-        />
-      </AppShell.Sidebar.Body>
-    {:else if activeRoom.kind === "channel" || activeRoom.kind === "forum"}
-      <CommunityChannelSettings
-        room={activeRoom}
-        members={model.members}
-        description={model.details?.description ??
-          activeRoom.description ??
-          "Community channel"}
-        onAction={(action) => {
-          lastAction = `channel-settings:${action}`;
-        }}
-      />
-    {:else if model.details}
-      <AppShell.Sidebar.Header>
-        <strong>{sidePanelTitle}</strong>
-        <AppShell.Sidebar.Close onclick={closeSidePanel} />
-      </AppShell.Sidebar.Header>
-      <AppShell.Sidebar.Body>
-        <CommunityDetails
+            <svg
+              data-ui-part="sidebar-toggle-icon"
+              xmlns="http://www.w3.org/2000/svg"
+              width="24"
+              height="24"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+            >
+              <rect x="1" y="2" width="22" height="20" rx="4"></rect>
+              <g transform="translate(24 0) scale(-1 1)">
+                <rect
+                  x="4"
+                  y="5"
+                  width="6"
+                  height="14"
+                  rx="2"
+                  fill="currentColor"
+                  data-ui-part="sidebar-toggle-indicator"
+                ></rect>
+              </g>
+            </svg>
+          </Button>
+          <strong>{sidePanelTitle}</strong>
+          <AppShell.Sidebar.Close onclick={closeSidePanel} />
+        </AppShell.Sidebar.Header>
+        <AppShell.Sidebar.Body>
+          {#if model.thread}
+            <CommunityThreadPanel
+              thread={model.thread}
+              members={model.members}
+              {...community?.state.replyTarget === undefined
+                ? {}
+                : { replyTarget: community.state.replyTarget }}
+              onSendReply={(_rootMessageId, content) => {
+                community?.handlers.onSendReply?.(_rootMessageId, content);
+                community?.actions.clearReplyTarget();
+                lastAction = "sent-reply";
+              }}
+              onReply={(messageId) => {
+                community?.actions.setReplyTarget(messageId);
+                lastAction = `replying-to:${messageId}`;
+              }}
+              onCancelReply={() => community?.actions.clearReplyTarget()}
+              onToggleReaction={react}
+              onAddReaction={react}
+              onCopyMessageLink={(messageId) => {
+                lastAction = `copied-message-link:${messageId}`;
+              }}
+              onDeleteMessage={(messageId) => {
+                void community?.actions.deleteEvent(messageId);
+                lastAction = `deleted-message:${messageId}`;
+              }}
+            />
+          {:else}
+            <div class="community-workspace-story__panel-status" role="status">
+              Loading thread…
+            </div>
+          {/if}
+        </AppShell.Sidebar.Body>
+      {:else if activeRoom.kind === "channel" || activeRoom.kind === "forum"}
+        <CommunityChannelSettings
           room={activeRoom}
-          details={model.details}
           members={model.members}
+          description={model.details?.description ??
+            activeRoom.description ??
+            "Community channel"}
+          onClose={closeSidePanel}
+          onAction={(action) => {
+            lastAction = `channel-settings:${action}`;
+          }}
         />
-      </AppShell.Sidebar.Body>
-    {/if}
-  </AppShell.Sidebar>
+      {:else if model.details}
+        <AppShell.Sidebar.Header>
+          <strong>{sidePanelTitle}</strong>
+          <AppShell.Sidebar.Close onclick={closeSidePanel} />
+        </AppShell.Sidebar.Header>
+        <AppShell.Sidebar.Body>
+          <CommunityDetails
+            room={activeRoom}
+            details={model.details}
+            members={model.members}
+          />
+        </AppShell.Sidebar.Body>
+      {/if}
+    </AppShell.Sidebar>
+  {/if}
 </CommunityAppShell>
 
 <style>
@@ -563,5 +567,11 @@
 
   .community-workspace__toolbar-actions {
     margin-inline-start: auto;
+  }
+
+  .community-workspace-story__panel-status {
+    padding: 1rem;
+    color: var(--muted-foreground);
+    font-size: 0.875rem;
   }
 </style>

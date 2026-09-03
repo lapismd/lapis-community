@@ -54,7 +54,11 @@ export default defineConfig(({ command }) => ({
         test: {
           name: "unit",
           environment: "node",
-          include: ["src/**/*.test.ts", "scripts/**/*.test.mjs"],
+          include: [
+            "src/**/*.test.ts",
+            "scripts/**/*.test.mjs",
+            ".storybook/**/*.test.ts",
+          ],
         },
       },
       {

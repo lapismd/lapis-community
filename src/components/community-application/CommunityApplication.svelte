@@ -29,6 +29,7 @@
     CommunityApplicationExtensions,
     CommunityController,
     CommunityLinkBuilder,
+    CommunityReplyTarget,
   } from "../../community/index.js";
   import {
     registryRouteFromDestination,
@@ -71,14 +72,22 @@
     rootCommunityMessageId,
     type CommunityRoomModel,
     type CommunityMemberModel,
-    type CommunitySidePanel,
   } from "../community-workspace/model.js";
+  import {
+    communityApplicationPanelKey,
+    createCommunityApplicationHistory,
+    currentCommunityApplicationLocation,
+    moveCommunityApplicationHistory,
+    noCommunityApplicationPanel,
+    normalizeCommunityApplicationLocation,
+    pushCommunityApplicationLocation,
+    replaceCommunityApplicationLocation,
+    type CommunityApplicationDestination,
+    type CommunityApplicationHistory,
+    type CommunityApplicationLocation,
+    type CommunityApplicationPanel,
+  } from "./navigation.js";
 
-  type CommunityApplicationDestination =
-    | "inbox"
-    | "registry"
-    | "settings"
-    | string;
   type CommunityAuthenticatedAction = () => void | Promise<void>;
 
   let {
@@ -127,8 +136,8 @@
       }),
   );
   const shell = $derived(shellController ?? internalShellController);
-  let activeDestination = $state(
-    untrack(() => initialDestination) as CommunityApplicationDestination,
+  let navigationHistory = $state<CommunityApplicationHistory>(
+    createCommunityApplicationHistory(untrack(() => initialDestination)),
   );
   let registryRoute = $state<RegistryRoute>(
     registryRouteFromDestination(untrack(() => initialDestination)) ?? {
@@ -136,8 +145,6 @@
     },
   );
   let settingsSection = $state<"profile" | "custom-emoji">("profile");
-  let navigationHistory = $state<string[]>([untrack(() => initialDestination)]);
-  let navigationHistoryIndex = $state(0);
   let lastAction = $state("ready");
   let relayNoticeDismissed = $state(false);
   let relaySettingsOpen = $state(false);
@@ -153,7 +160,6 @@
   let memberCommandMode = $state<"view" | "manage" | "select">("view");
   let selectedRecipientIds = $state<string[]>([]);
   let topicComposerOpen = $state(false);
-  let threadSidebarCloseButton = $state<HTMLButtonElement | null>(null);
   let confirmation = $state<"leave" | "delete" | null>(null);
   let statusOpen = $state(false);
   let statusDraft = $state("");
@@ -163,9 +169,13 @@
   let sectionEditorMode = $state<"create" | "rename">("create");
   let sectionEditorId = $state("");
   let sectionName = $state("");
-  let selectedProfile = $state<CommunityMemberModel | null>(null);
 
   const workspace = $derived(community.state.workspace);
+  const applicationLocation = $derived(
+    currentCommunityApplicationLocation(navigationHistory),
+  );
+  const activeDestination = $derived(applicationLocation.destination);
+  const activePanel = $derived(applicationLocation.panel);
   const activeRoom = $derived(
     findCommunityRoom(workspace) ?? fallbackRoom(workspace.activeRoomId),
   );
@@ -387,39 +397,68 @@
       shell.left.collapsed &&
       !shell.left.previewed,
   );
-  const canNavigateBack = $derived(navigationHistoryIndex > 0);
+  const canNavigateBack = $derived(navigationHistory.index > 0);
   const canNavigateForward = $derived(
-    navigationHistoryIndex < navigationHistory.length - 1,
+    navigationHistory.index < navigationHistory.entries.length - 1,
   );
-  const workspaceSidePanel = $derived<Exclude<CommunitySidePanel, "none">>(
-    workspace.sidePanel === "thread" && workspace.thread ? "thread" : "details",
+  const selectedProfile = $derived(
+    activePanel.kind === "profile"
+      ? workspace.members.find((member) => member.id === activePanel.memberId)
+      : undefined,
+  );
+  const panelRoom = $derived(
+    activePanel.kind === "details" || activePanel.kind === "thread"
+      ? activePanel.roomId === inbox.room.id
+        ? inbox.room
+        : allRooms.find((room) => room.id === activePanel.roomId)
+      : undefined,
   );
   const detailsRoom = $derived(
-    activeDestination === "inbox" ? inbox.room : activeRoom,
+    activePanel.kind === "details" ? panelRoom : undefined,
+  );
+  const visibleThread = $derived(
+    activePanel.kind === "thread" &&
+      workspace.activeRoomId === activePanel.roomId &&
+      workspace.thread?.rootMessageId === activePanel.rootMessageId
+      ? workspace.thread
+      : undefined,
+  );
+  const threadReplyTarget = $derived.by(
+    (): CommunityReplyTarget | undefined => {
+      if (activePanel.kind !== "thread" || !activePanel.replyTargetId) {
+        return undefined;
+      }
+      const message = visibleThread?.messages.find(
+        (candidate) => candidate.id === activePanel.replyTargetId,
+      );
+      if (!message) return undefined;
+      const author = workspace.members.find(
+        (member) => member.id === message.authorId,
+      );
+      return {
+        eventId: message.id,
+        roomId: activePanel.roomId,
+        authorId: message.authorId,
+        authorName: author?.name ?? message.authorId.slice(0, 12),
+        content: message.content,
+        kind: panelRoom?.kind ?? activeRoom.kind,
+      };
+    },
   );
   const sidePanelTitle = $derived(
-    selectedProfile
+    activePanel.kind === "profile"
       ? "Profile"
-      : activeDestination !== "inbox" && workspaceSidePanel === "thread"
+      : activePanel.kind === "thread"
         ? "Thread"
-        : detailsRoom.kind === "channel"
+        : detailsRoom?.kind === "channel"
           ? "Channel settings"
-          : detailsRoom.kind === "forum"
+          : detailsRoom?.kind === "forum"
             ? "Forum settings"
             : "Conversation details",
   );
 
   function openProfile(member: CommunityMemberModel): void {
-    if (workspace.sidePanel !== "none") community.actions.closeSidePanel();
-    selectedProfile = member;
-    shell.right.expand();
-    if (shell.mobile.resolvedMode === "mobile") {
-      const returnFocus =
-        document.activeElement instanceof HTMLElement
-          ? document.activeElement
-          : undefined;
-      shell.mobile.show("right", "right", returnFocus);
-    }
+    openPanel({ kind: "profile", memberId: member.id });
     lastAction = `opened-profile:${member.id}`;
   }
   const emojiOperation = $derived.by(() =>
@@ -468,7 +507,49 @@
       activeDestination === "inbox" &&
       workspace.activeRoomId !== ""
     ) {
-      activeDestination = workspace.activeRoomId;
+      replaceLocation({
+        destination: workspace.activeRoomId,
+        panel: noCommunityApplicationPanel(),
+      });
+    }
+  });
+
+  $effect(() => {
+    if (activePanel.kind === "none") {
+      if (shell.right.collapsed) shell.right.expand();
+      shell.right.close();
+      return;
+    }
+    shell.right.expand();
+  });
+
+  $effect(() => {
+    const projectionSettled =
+      activePanel.kind === "none" ||
+      (activePanel.kind === "profile" && workspace.sidePanel === "none") ||
+      (activePanel.kind === "details" &&
+        (activePanel.roomId === inbox.room.id ||
+          workspace.sidePanel === "details")) ||
+      (activePanel.kind === "thread" &&
+        workspace.activeRoomId === activePanel.roomId &&
+        workspace.sidePanel === "thread");
+    if (!projectionSettled) return;
+
+    const normalized = normalizeCommunityApplicationLocation(
+      applicationLocation,
+      {
+        roomIds: [inbox.room.id, ...allRooms.map((room) => room.id)],
+        memberIds: workspace.members.map((member) => member.id),
+        ...(activePanel.kind === "thread"
+          ? {
+              messageIds:
+                workspace.thread?.messages.map((message) => message.id) ?? [],
+            }
+          : {}),
+      },
+    );
+    if (normalized.panel.kind === "none" && activePanel.kind !== "none") {
+      normalizeMissingPanel();
     }
   });
 
@@ -483,40 +564,101 @@
     }
   });
 
-  function itemFor(destinationId: string): CommunityNavigationItemModel | null {
-    return (
-      [
-        ...navigationModel.primaryItems,
-        ...navigationModel.sections.flatMap((section) => section.items),
-      ].find((item) => item.id === destinationId) ?? null
+  function applyLocation(
+    next: CommunityApplicationLocation,
+    previous: CommunityApplicationLocation,
+  ): void {
+    const nextRegistryRoute = registryRouteFromDestination(next.destination);
+    if (nextRegistryRoute !== null) registryRoute = nextRegistryRoute;
+
+    const roomId =
+      next.destination === "inbox"
+        ? inbox.room.id
+        : nextRegistryRoute === null &&
+            next.destination !== "settings" &&
+            next.destination !== "new-direct-message"
+          ? next.destination
+          : undefined;
+    if (roomId !== undefined && workspace.activeRoomId !== roomId) {
+      community.actions.selectRoom(roomId);
+    }
+
+    if (next.panel.kind === "thread") {
+      community.actions.clearReplyTarget();
+      community.actions.openThread(next.panel.rootMessageId);
+    } else if (
+      next.panel.kind === "details" &&
+      next.panel.roomId !== inbox.room.id
+    ) {
+      community.actions.clearReplyTarget();
+      community.actions.openDetails();
+    } else {
+      community.actions.closeSidePanel();
+    }
+
+    if (next.panel.kind === "none") shell.mobile.showMain();
+    else if (shell.mobile.resolvedMode === "mobile") {
+      const returnFocus =
+        document.activeElement instanceof HTMLElement
+          ? document.activeElement
+          : undefined;
+      shell.mobile.show("right", "right", returnFocus);
+    }
+
+    if (next.destination !== previous.destination) {
+      onDestinationChange(next.destination);
+    }
+  }
+
+  function pushLocation(next: CommunityApplicationLocation): void {
+    const previous = currentCommunityApplicationLocation(navigationHistory);
+    const updated = pushCommunityApplicationLocation(navigationHistory, next);
+    if (updated === navigationHistory) return;
+    navigationHistory = updated;
+    applyLocation(next, previous);
+  }
+
+  function replaceLocation(next: CommunityApplicationLocation): void {
+    const previous = currentCommunityApplicationLocation(navigationHistory);
+    const updated = replaceCommunityApplicationLocation(
+      navigationHistory,
+      next,
     );
+    if (updated === navigationHistory) return;
+    navigationHistory = updated;
+    applyLocation(next, previous);
   }
 
   function setDestination(
     destinationId: CommunityApplicationDestination,
     recordHistory: boolean,
   ): void {
-    selectedProfile = null;
-    if (recordHistory && destinationId !== activeDestination) {
-      navigationHistory = [
-        ...navigationHistory.slice(0, navigationHistoryIndex + 1),
-        destinationId,
-      ];
-      navigationHistoryIndex = navigationHistory.length - 1;
-    }
-    activeDestination = destinationId;
-    const nextRegistryRoute = registryRouteFromDestination(destinationId);
-    if (nextRegistryRoute !== null) registryRoute = nextRegistryRoute;
-    if (destinationId === "inbox") {
-      community.actions.selectRoom(inbox.room.id);
-    } else if (nextRegistryRoute === null && destinationId !== "settings") {
-      community.actions.selectRoom(destinationId);
-    }
-    if (shell.right.collapsed) shell.right.expand();
-    shell.right.close();
-    shell.mobile.showMain();
+    const next = {
+      destination: destinationId,
+      panel: noCommunityApplicationPanel(),
+    } satisfies CommunityApplicationLocation;
+    if (recordHistory) pushLocation(next);
+    else replaceLocation(next);
     lastAction = `selected:${destinationId}`;
-    onDestinationChange(destinationId);
+  }
+
+  function openPanel(panel: CommunityApplicationPanel): void {
+    pushLocation({ destination: activeDestination, panel });
+  }
+
+  function openPanelForDestination(
+    destination: CommunityApplicationDestination,
+    panel: CommunityApplicationPanel,
+  ): void {
+    pushLocation({ destination, panel });
+  }
+
+  function normalizeMissingPanel(): void {
+    replaceLocation({
+      destination: activeDestination,
+      panel: noCommunityApplicationPanel(),
+    });
+    lastAction = "unavailable-side-panel";
   }
 
   function select(item: CommunityNavigationItemModel): void {
@@ -539,17 +681,13 @@
   }
 
   function navigateHistory(offset: -1 | 1): void {
-    const nextIndex = navigationHistoryIndex + offset;
-    const destinationId = navigationHistory[nextIndex];
-    if (destinationId === undefined) return;
-    navigationHistoryIndex = nextIndex;
-    if (destinationId === "settings") openSettings(false);
-    else if (registryRouteFromDestination(destinationId) !== null) {
-      setDestination(destinationId, false);
-    } else {
-      const item = itemFor(destinationId);
-      if (item) setDestination(item.id, false);
-    }
+    const previous = currentCommunityApplicationLocation(navigationHistory);
+    const updated = moveCommunityApplicationHistory(navigationHistory, offset);
+    if (updated === navigationHistory) return;
+    const next = currentCommunityApplicationLocation(updated);
+    navigationHistory = updated;
+    applyLocation(next, previous);
+    lastAction = offset === -1 ? "navigated-back" : "navigated-forward";
   }
 
   function react(
@@ -689,11 +827,14 @@
         sectionEditorOpen = true;
       }
       if (action === "settings") {
-        setDestination(item.id, false);
-        openSidePanel("details");
+        openPanelForDestination(item.id, {
+          kind: "details",
+          roomId: item.id,
+        });
+        lastAction = "opened-details";
       }
       if (action === "leave" || action === "delete") {
-        setDestination(item.id, false);
+        setDestination(item.id, true);
         confirmation = action;
       }
     };
@@ -813,13 +954,22 @@
     content: string,
   ): Promise<void> {
     try {
+      const replyTargetId =
+        activePanel.kind === "thread"
+          ? (activePanel.replyTargetId ?? rootMessageId)
+          : rootMessageId;
       await runAuthenticated(() =>
-        community.actions.sendReply(
-          community.state.replyTarget?.eventId ?? rootMessageId,
-          content,
-        ),
+        community.actions.sendReply(replyTargetId, content),
       );
-      community.actions.clearReplyTarget();
+      if (activePanel.kind === "thread") {
+        openPanel({
+          kind: "thread",
+          roomId: activePanel.roomId,
+          rootMessageId: activePanel.rootMessageId,
+        });
+      } else {
+        community.actions.clearReplyTarget();
+      }
       lastAction = "sent-reply";
     } catch (cause) {
       toast.error(
@@ -865,32 +1015,9 @@
     }
   }
 
-  function openSidePanel(panel: Exclude<CommunitySidePanel, "none">): void {
-    selectedProfile = null;
-    if (activeDestination !== "inbox" && panel === "details") {
-      community.actions.openDetails();
-    }
-    shell.right.expand();
-    if (shell.mobile.resolvedMode === "mobile") {
-      const returnFocus =
-        document.activeElement instanceof HTMLElement
-          ? document.activeElement
-          : undefined;
-      shell.mobile.show("right", "right", returnFocus);
-    }
-  }
-
   function closeSidePanel(): void {
-    selectedProfile = null;
-    community.actions.closeSidePanel();
-    if (shell.right.collapsed) shell.right.expand();
-    shell.right.close();
+    openPanel(noCommunityApplicationPanel());
     lastAction = "closed-side-panel";
-  }
-
-  function closeThreadSidebarFromGlyph(): void {
-    if (threadSidebarCloseButton) threadSidebarCloseButton.click();
-    else closeSidePanel();
   }
 
   async function sendWorkspaceMessage(
@@ -1236,7 +1363,7 @@
         onSend={(content) => sendThreadReply(inbox.activeItemId, content)}
         onMarkAllRead={() => void community.actions.markAllRead()}
         onOpenChannelSettings={() => {
-          openSidePanel("details");
+          openPanel({ kind: "details", roomId: inbox.room.id });
           lastAction = "opened-details";
         }}
         onOpenChannel={() => setDestination(inbox.room.id, true)}
@@ -1363,7 +1490,7 @@
             aria-label={`Manage ${activeRoom.kind === "forum" ? "forum" : activeRoom.kind === "direct" ? "conversation" : "channel"}`}
             title={`Manage ${activeRoom.kind === "forum" ? "forum" : activeRoom.kind === "direct" ? "conversation" : "channel"}`}
             onclick={() => {
-              openSidePanel("details");
+              openPanel({ kind: "details", roomId: activeRoom.id });
               lastAction = "opened-details";
             }}
           >
@@ -1381,35 +1508,40 @@
             model={workspace}
             readOnly={community.state.status !== "connected"}
             {...community.state.replyTarget === undefined ||
-            workspaceSidePanel === "thread"
+            activePanel.kind === "thread"
               ? {}
               : { replyTarget: community.state.replyTarget }}
             communityEmojis={community.state.settings.customEmojis}
             handlers={{
               ...community.handlers,
-              onSelectRoom: (roomId) => setDestination(roomId, false),
+              onSelectRoom: (roomId) => setDestination(roomId, true),
               onSendMessage: sendWorkspaceMessage,
               onOpenTopic: (topicId) => {
                 community.actions.openTopic(topicId);
-                shell.right.close();
+                if (activePanel.kind !== "none") closeSidePanel();
                 lastAction = `opened-topic:${topicId}`;
               },
               onReply: (messageId) => {
-                selectedProfile = null;
-                community.actions.setReplyTarget(messageId);
-                if (activeRoom.kind !== "direct") {
-                  community.actions.openThread(
-                    rootCommunityMessageId(workspace.messages, messageId),
-                  );
-                  openSidePanel("thread");
-                }
+                if (activeRoom.kind === "direct")
+                  community.actions.setReplyTarget(messageId);
+                else
+                  openPanel({
+                    kind: "thread",
+                    roomId: activeRoom.id,
+                    rootMessageId: rootCommunityMessageId(
+                      workspace.messages,
+                      messageId,
+                    ),
+                    replyTargetId: messageId,
+                  });
                 lastAction = `replying-to:${messageId}`;
               },
               onOpenThread: (messageId) => {
-                selectedProfile = null;
-                community.actions.clearReplyTarget();
-                community.actions.openThread(messageId);
-                openSidePanel("thread");
+                openPanel({
+                  kind: "thread",
+                  roomId: activeRoom.id,
+                  rootMessageId: messageId,
+                });
                 lastAction = `opened-thread:${messageId}`;
               },
               onToggleReaction: react,
@@ -1484,160 +1616,187 @@
     {/if}
   </AppShell.Main>
 
-  <AppShell.Sidebar
-    side="right"
-    label={`${sidePanelTitle} sidebar`}
-    mobileLabel={sidePanelTitle}
-    resizeLabel={`Resize ${sidePanelTitle.toLowerCase()} sidebar`}
-    closeable
-  >
-    {#if selectedProfile}
-      <AppShell.Sidebar.Header>
-        <strong>Profile</strong>
-        <AppShell.Sidebar.Close onclick={closeSidePanel} />
-      </AppShell.Sidebar.Header>
-      <AppShell.Sidebar.Body>
-        <CommunityMemberProfile
-          member={selectedProfile}
-          onMessage={() => messageMember(selectedProfile!)}
-          onWave={() => toast.success(`Waved to ${selectedProfile!.name}`)}
-          onFollow={() => toast.success(`Following ${selectedProfile!.name}`)}
-        />
-      </AppShell.Sidebar.Body>
-    {:else if activeDestination !== "inbox" && workspaceSidePanel === "thread" && workspace.thread}
-      <AppShell.Sidebar.Header>
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon-sm"
-          data-ui-part="sidebar-toggle"
-          data-side="right"
-          data-state="expanded"
-          aria-label={`Close ${sidePanelTitle.toLowerCase()} sidebar`}
-          title={`Close ${sidePanelTitle.toLowerCase()} sidebar`}
-          onclick={closeThreadSidebarFromGlyph}
-        >
-          <svg
-            data-ui-part="sidebar-toggle-icon"
-            xmlns="http://www.w3.org/2000/svg"
-            width="24"
-            height="24"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            aria-hidden="true"
-          >
-            <rect x="1" y="2" width="22" height="20" rx="4"></rect>
-            <g transform="translate(24 0) scale(-1 1)">
-              <rect
-                x="4"
-                y="5"
-                width="6"
-                height="14"
-                rx="2"
-                fill="currentColor"
-                data-ui-part="sidebar-toggle-indicator"
-              ></rect>
-            </g>
-          </svg>
-        </Button>
-        <strong>{sidePanelTitle}</strong>
-        <AppShell.Sidebar.Close
-          bind:ref={threadSidebarCloseButton}
-          onclick={closeSidePanel}
-        />
-      </AppShell.Sidebar.Header>
-      <AppShell.Sidebar.Body>
-        <CommunityThreadPanel
-          thread={workspace.thread}
-          members={workspace.members}
-          onSendReply={sendThreadReply}
-          onReply={(messageId) => community.actions.setReplyTarget(messageId)}
-          onOpenProfile={openProfile}
-          onMessageMember={messageMember}
-          {...extensions.activityLog === undefined
-            ? {}
-            : { onViewMemberActivity: viewMemberActivity }}
-          {...community.state.replyTarget === undefined
-            ? {}
-            : { replyTarget: community.state.replyTarget }}
-          communityEmojis={community.state.settings.customEmojis}
-          onCancelReply={() => community.actions.clearReplyTarget()}
-          onToggleReaction={react}
-          onAddReaction={react}
-          onCopyMessageLink={copyMessageLink}
-          onCopyMessage={copyMessage}
-          {...extensions.editMessage === undefined
-            ? {}
-            : { onEditMessage: extensions.editMessage }}
-          onDeleteMessage={(messageId) => {
-            void runAuthenticated(() =>
-              community.actions.deleteEvent(messageId),
-            ).then(
-              () => toast.success("Message deleted"),
-              (cause) =>
-                toast.error(
-                  cause instanceof Error
-                    ? cause.message
-                    : "The relay rejected this deletion",
-                ),
-            );
-            lastAction = `deleted-message:${messageId}`;
-          }}
-        />
-      </AppShell.Sidebar.Body>
-    {:else if detailsRoom.kind === "channel" || detailsRoom.kind === "forum"}
-      <CommunityChannelSettings
-        room={detailsRoom}
-        members={workspace.members}
-        description={activeDestination === "inbox"
-          ? (inbox.room.description ?? "Community channel")
-          : (workspace.details?.description ??
-            detailsRoom.description ??
-            "Community channel")}
-        canArchive={extensions.archive !== undefined}
-        onAction={(action) => {
-          lastAction = `channel-settings:${action}`;
-          if (action === "edit-type" || action === "edit-visibility")
-            openRoomEditor(
-              detailsRoom.kind === "forum" ? "forum" : "channel",
-              "edit",
-            );
-          if (action === "members") {
-            memberCommandMode =
-              detailsRoom.permissions?.manageMembers.state === "enabled"
-                ? "manage"
-                : "view";
-            memberCommandOpen = true;
-          }
-          if (action === "copy-channel-id")
-            void copyText(
-              detailsRoom.id,
-              `${detailsRoom.kind === "forum" ? "Forum" : "Channel"} ID copied`,
-            );
-          if (action === "leave-channel") confirmation = "leave";
-          if (action === "delete-channel") confirmation = "delete";
-          if (action === "archive-channel")
-            void extensions.archive?.(detailsRoom.id);
-        }}
-      />
-    {:else if workspace.details}
-      <AppShell.Sidebar.Header>
-        <strong>{sidePanelTitle}</strong>
-        <AppShell.Sidebar.Close onclick={closeSidePanel} />
-      </AppShell.Sidebar.Header>
-      <AppShell.Sidebar.Body>
-        <CommunityDetails
-          room={detailsRoom}
-          details={workspace.details}
-          members={workspace.members}
-        />
-      </AppShell.Sidebar.Body>
-    {/if}
-  </AppShell.Sidebar>
+  {#if activePanel.kind !== "none"}
+    {#key communityApplicationPanelKey(activePanel)}
+      <AppShell.Sidebar
+        side="right"
+        label={`${sidePanelTitle} sidebar`}
+        mobileLabel={sidePanelTitle}
+        resizeLabel={`Resize ${sidePanelTitle.toLowerCase()} sidebar`}
+        closeable
+      >
+        {#if activePanel.kind === "profile"}
+          <AppShell.Sidebar.Header>
+            <strong>Profile</strong>
+            <AppShell.Sidebar.Close onclick={closeSidePanel} />
+          </AppShell.Sidebar.Header>
+          <AppShell.Sidebar.Body>
+            {#if selectedProfile}
+              <CommunityMemberProfile
+                member={selectedProfile}
+                onMessage={() => messageMember(selectedProfile)}
+                onWave={() => toast.success(`Waved to ${selectedProfile.name}`)}
+                onFollow={() =>
+                  toast.success(`Following ${selectedProfile.name}`)}
+              />
+            {:else}
+              <div class="community-application__panel-status" role="status">
+                Profile unavailable
+              </div>
+            {/if}
+          </AppShell.Sidebar.Body>
+        {:else if activePanel.kind === "thread"}
+          <AppShell.Sidebar.Header>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-sm"
+              data-ui-part="sidebar-toggle"
+              data-side="right"
+              data-state="expanded"
+              aria-label="Close thread sidebar"
+              title="Close thread sidebar"
+              onclick={closeSidePanel}
+            >
+              <svg
+                data-ui-part="sidebar-toggle-icon"
+                xmlns="http://www.w3.org/2000/svg"
+                width="24"
+                height="24"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                aria-hidden="true"
+              >
+                <rect x="1" y="2" width="22" height="20" rx="4"></rect>
+                <g transform="translate(24 0) scale(-1 1)">
+                  <rect
+                    x="4"
+                    y="5"
+                    width="6"
+                    height="14"
+                    rx="2"
+                    fill="currentColor"
+                    data-ui-part="sidebar-toggle-indicator"
+                  ></rect>
+                </g>
+              </svg>
+            </Button>
+            <strong>{sidePanelTitle}</strong>
+            <AppShell.Sidebar.Close onclick={closeSidePanel} />
+          </AppShell.Sidebar.Header>
+          <AppShell.Sidebar.Body>
+            {#if visibleThread}
+              <CommunityThreadPanel
+                thread={visibleThread}
+                members={workspace.members}
+                onSendReply={sendThreadReply}
+                onReply={(messageId) =>
+                  openPanel({ ...activePanel, replyTargetId: messageId })}
+                onOpenProfile={openProfile}
+                onMessageMember={messageMember}
+                {...extensions.activityLog === undefined
+                  ? {}
+                  : { onViewMemberActivity: viewMemberActivity }}
+                {...threadReplyTarget === undefined
+                  ? {}
+                  : { replyTarget: threadReplyTarget }}
+                communityEmojis={community.state.settings.customEmojis}
+                onCancelReply={() =>
+                  openPanel({
+                    kind: "thread",
+                    roomId: activePanel.roomId,
+                    rootMessageId: activePanel.rootMessageId,
+                  })}
+                onToggleReaction={react}
+                onAddReaction={react}
+                onCopyMessageLink={copyMessageLink}
+                onCopyMessage={copyMessage}
+                {...extensions.editMessage === undefined
+                  ? {}
+                  : { onEditMessage: extensions.editMessage }}
+                onDeleteMessage={(messageId) => {
+                  void runAuthenticated(() =>
+                    community.actions.deleteEvent(messageId),
+                  ).then(
+                    () => toast.success("Message deleted"),
+                    (cause) =>
+                      toast.error(
+                        cause instanceof Error
+                          ? cause.message
+                          : "The relay rejected this deletion",
+                      ),
+                  );
+                  lastAction = `deleted-message:${messageId}`;
+                }}
+              />
+            {:else}
+              <div class="community-application__panel-status" role="status">
+                Loading thread…
+              </div>
+            {/if}
+          </AppShell.Sidebar.Body>
+        {:else if detailsRoom?.kind === "channel" || detailsRoom?.kind === "forum"}
+          <CommunityChannelSettings
+            room={detailsRoom}
+            members={workspace.members}
+            description={activeDestination === "inbox"
+              ? (inbox.room.description ?? "Community channel")
+              : (workspace.details?.description ??
+                detailsRoom.description ??
+                "Community channel")}
+            canArchive={extensions.archive !== undefined}
+            onClose={closeSidePanel}
+            onAction={(action) => {
+              lastAction = `channel-settings:${action}`;
+              if (action === "edit-type" || action === "edit-visibility")
+                openRoomEditor(
+                  detailsRoom.kind === "forum" ? "forum" : "channel",
+                  "edit",
+                );
+              if (action === "members") {
+                memberCommandMode =
+                  detailsRoom.permissions?.manageMembers.state === "enabled"
+                    ? "manage"
+                    : "view";
+                memberCommandOpen = true;
+              }
+              if (action === "copy-channel-id")
+                void copyText(
+                  detailsRoom.id,
+                  `${detailsRoom.kind === "forum" ? "Forum" : "Channel"} ID copied`,
+                );
+              if (action === "leave-channel") confirmation = "leave";
+              if (action === "delete-channel") confirmation = "delete";
+              if (action === "archive-channel")
+                void extensions.archive?.(detailsRoom.id);
+            }}
+          />
+        {:else}
+          <AppShell.Sidebar.Header>
+            <strong>{sidePanelTitle}</strong>
+            <AppShell.Sidebar.Close onclick={closeSidePanel} />
+          </AppShell.Sidebar.Header>
+          <AppShell.Sidebar.Body>
+            {#if detailsRoom && workspace.details}
+              <CommunityDetails
+                room={detailsRoom}
+                details={workspace.details}
+                members={workspace.members}
+              />
+            {:else}
+              <div class="community-application__panel-status" role="status">
+                Loading details…
+              </div>
+            {/if}
+          </AppShell.Sidebar.Body>
+        {/if}
+      </AppShell.Sidebar>
+    {/key}
+  {/if}
 </CommunityAppShell>
 
 {#if activeConnection}
@@ -1757,10 +1916,11 @@
   }}
   onSelectMessage={(message) => {
     searchOpen = false;
-    selectedProfile = null;
-    community.actions.clearReplyTarget();
-    community.actions.openThread(message.id);
-    openSidePanel("thread");
+    openPanel({
+      kind: "thread",
+      roomId: activeRoom.id,
+      rootMessageId: rootCommunityMessageId(workspace.messages, message.id),
+    });
   }}
   onSelectMember={(member) => {
     searchOpen = false;
@@ -2039,5 +2199,11 @@
 
   .community-application__registry-empty p {
     color: var(--muted-foreground);
+  }
+
+  .community-application__panel-status {
+    padding: 1rem;
+    color: var(--muted-foreground);
+    font-size: 0.875rem;
   }
 </style>

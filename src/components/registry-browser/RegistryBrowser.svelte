@@ -68,6 +68,7 @@
   let detailController: AbortController | undefined;
   let loadGeneration = 0;
   let detailGeneration = 0;
+  let routeTimer: ReturnType<typeof setTimeout> | undefined;
 
   const selectedEntry = $derived.by(() => {
     const pluginId = route.page === "plugin" ? route.pluginId : undefined;
@@ -105,8 +106,12 @@
   );
 
   function navigate(next: RegistryRoute): void {
-    route = next;
-    onRouteChange(next);
+    clearTimeout(routeTimer);
+    routeTimer = setTimeout(() => {
+      routeTimer = undefined;
+      route = next;
+      onRouteChange(next);
+    }, 50);
   }
 
   function openDirectory(category?: string): void {
@@ -218,6 +223,7 @@
       detailGeneration += 1;
       catalogController?.abort();
       detailController?.abort();
+      clearTimeout(routeTimer);
       unsubscribe?.();
     };
   });

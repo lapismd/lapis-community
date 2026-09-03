@@ -93,7 +93,7 @@
     ).toBeVisible();
     await userEvent.click(canvas.getByRole("link", { name: "Plugins" }));
     await expect(
-      canvas.getByRole("textbox", { name: "Search registry plugins" }),
+      await canvas.findByRole("textbox", { name: "Search registry plugins" }),
     ).toHaveValue("AI");
     await userEvent.click(
       canvas.getByRole("button", { name: "Open AI Assistant" }),
@@ -102,7 +102,7 @@
       await canvas.findByRole("heading", { name: "AI Assistant", level: 1 }),
     ).toBeVisible();
     await expect(
-      canvas.getAllByText("Seeded registry discussion")[0],
+      (await canvas.findAllByText("Seeded registry discussion"))[0],
     ).toBeVisible();
     await userEvent.click(canvas.getByRole("button", { name: "Desktop" }));
     await expect(await canvas.findByText("8 results")).toBeVisible();

@@ -1,6 +1,6 @@
 <script lang="ts">
   import { AppShell, AppShellController } from "@lapismd/design-core/shell";
-  import { onMount } from "svelte";
+  import { onMount, untrack } from "svelte";
   import type { CommunityController } from "../../community/index.js";
   import {
     createCommunityStoryRuntime,
@@ -44,9 +44,11 @@
   let runtime = $state<CommunityStoryRuntime>();
   let community = $state<CommunityController>();
   let runtimeError = $state("");
-  let activeDestination = $state("");
+  let activeDestination = $state(untrack(() => initialActiveItemId));
   let settingsSection = $state<"profile" | "custom-emoji">("profile");
-  let navigationHistory = $state<string[]>([]);
+  let navigationHistory = $state<string[]>(
+    untrack(() => [initialActiveItemId]),
+  );
   let navigationHistoryIndex = $state(0);
   const workspace = $derived(community?.state.workspace);
   const currentMember = $derived(
@@ -113,12 +115,6 @@
       .map(([, operation]) => operation)
       .find((operation) => operation.status !== "idle"),
   );
-
-  $effect(() => {
-    activeDestination = initialActiveItemId;
-    navigationHistory = [initialActiveItemId];
-    navigationHistoryIndex = 0;
-  });
 
   onMount(() => {
     let active = true;

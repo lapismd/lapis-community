@@ -27,6 +27,7 @@
     members: communityInboxFixture.members,
     description:
       "This private channel is your home base for getting oriented and working with your community.",
+    onClose: fn(),
     onAction: fn(),
   }}
   play={async ({ canvas, canvasElement, args }) => {
@@ -52,6 +53,11 @@
       canvas.getByRole("button", { name: "Delete channel" }),
     );
     await expect(args.onAction).toHaveBeenCalledWith("delete-channel");
+
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Close channel settings" }),
+    );
+    await expect(args.onClose).toHaveBeenCalledOnce();
   }}
 >
   {#snippet template(args)}

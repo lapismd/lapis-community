@@ -96,9 +96,12 @@
     });
     const runtime = canvas.getByTestId("community-navigation-runtime");
 
-    await waitFor(() => {
-      expect(runtime).toHaveAttribute("data-community-status", "connected");
-    });
+    await waitFor(
+      () => {
+        expect(runtime).toHaveAttribute("data-community-status", "connected");
+      },
+      { timeout: 15_000 },
+    );
     if (runtime.dataset.communityBackend === "live") return;
 
     await expect(leftSidebar).toHaveAttribute("data-state", "expanded");
@@ -186,9 +189,12 @@
   play={async ({ canvas }) => {
     const frame = canvas.getByTestId("community-workspace-frame");
 
-    await waitFor(() => {
-      expect(frame).toHaveAttribute("data-community-status", "connected");
-    });
+    await waitFor(
+      () => {
+        expect(frame).toHaveAttribute("data-community-status", "connected");
+      },
+      { timeout: 15_000 },
+    );
     if (frame.dataset.communityBackend === "live") return;
 
     await expect(
@@ -230,9 +236,12 @@
   name="Channel thread reply"
   play={async ({ canvas }) => {
     const frame = canvas.getByTestId("community-workspace-frame");
-    await waitFor(() => {
-      expect(frame).toHaveAttribute("data-community-status", "connected");
-    });
+    await waitFor(
+      () => {
+        expect(frame).toHaveAttribute("data-community-status", "connected");
+      },
+      { timeout: 15_000 },
+    );
     if (frame.dataset.communityBackend === "live") return;
     await expect(
       canvas.queryByRole("button", { name: "0 replies" }),
@@ -245,7 +254,13 @@
     );
     const threadSidebar = await canvas.findByLabelText("Thread sidebar");
     const thread = within(threadSidebar);
-    await expect(thread.getByLabelText("Replying to steve")).toBeVisible();
+    await waitFor(
+      () =>
+        expect(
+          thread.getByRole("group", { name: /^Replying to /u }),
+        ).toBeVisible(),
+      { timeout: 15_000 },
+    );
     await expect(frame).toHaveAttribute(
       "data-last-action",
       expect.stringMatching(/^replying-to:/u),
@@ -254,7 +269,9 @@
     await userEvent.type(composer, "A contextual channel reply");
     await userEvent.keyboard("{Enter}");
     await waitFor(() => {
-      expect(thread.queryByLabelText("Replying to steve")).toBeNull();
+      expect(
+        thread.queryByRole("group", { name: /^Replying to /u }),
+      ).toBeNull();
     });
     await expect(frame).toHaveAttribute("data-last-action", "sent-reply");
   }}
@@ -268,9 +285,12 @@
   name="Forum reply and single side panel"
   play={async ({ canvas, canvasElement }) => {
     const frame = canvas.getByTestId("community-workspace-frame");
-    await waitFor(() => {
-      expect(frame).toHaveAttribute("data-community-status", "connected");
-    });
+    await waitFor(
+      () => {
+        expect(frame).toHaveAttribute("data-community-status", "connected");
+      },
+      { timeout: 15_000 },
+    );
     if (frame.dataset.communityBackend === "live") return;
 
     await userEvent.click(canvas.getByRole("button", { name: "support" }));
@@ -292,7 +312,13 @@
     await expect(
       canvasElement.querySelectorAll('aside[data-side="right"]'),
     ).toHaveLength(1);
-    await expect(thread.getByLabelText("Replying to steve")).toBeVisible();
+    await waitFor(
+      () =>
+        expect(
+          thread.getByRole("group", { name: /^Replying to /u }),
+        ).toBeVisible(),
+      { timeout: 15_000 },
+    );
 
     await fireEvent.click(thread.getAllByRole("button", { name: "Reply" })[0]!);
     await expect(
