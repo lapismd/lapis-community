@@ -30,13 +30,25 @@
   </header>
 
   <div class="community-member-profile__actions">
-    <Button variant="secondary" onclick={onMessage}>
+    <Button
+      class="community-member-profile__action"
+      variant="secondary"
+      onclick={onMessage}
+    >
       <MessageCircleIcon data-icon="inline-start" aria-hidden="true" />Message
     </Button>
-    <Button variant="secondary" onclick={onWave}>
+    <Button
+      class="community-member-profile__action"
+      variant="secondary"
+      onclick={onWave}
+    >
       <HandIcon data-icon="inline-start" aria-hidden="true" />Wave
     </Button>
-    <Button variant="secondary" onclick={onFollow}>
+    <Button
+      class="community-member-profile__action"
+      variant="secondary"
+      onclick={onFollow}
+    >
       <UserPlusIcon data-icon="inline-start" aria-hidden="true" />Follow
     </Button>
   </div>
@@ -96,11 +108,27 @@
     gap: 0.5rem;
   }
 
-  .community-member-profile__actions :global([data-ui-component="button"]) {
+  :global(.community-member-profile__action[data-ui-component="button"]) {
     height: 4.25rem;
     flex-direction: column;
     gap: 0.35rem;
     padding: 0.5rem;
+    transition:
+      background-color 140ms ease,
+      color 140ms ease,
+      box-shadow 140ms ease;
     white-space: normal;
+  }
+
+  :global(
+      .community-member-profile__action.community-member-profile__action:hover
+    ),
+  :global(
+      .community-member-profile__action.community-member-profile__action:focus-visible
+    ) {
+    background: color-mix(in oklab, var(--primary) 14%, var(--secondary));
+    color: var(--foreground);
+    box-shadow: inset 0 0 0 1px
+      color-mix(in oklab, var(--primary) 32%, transparent);
   }
 </style>

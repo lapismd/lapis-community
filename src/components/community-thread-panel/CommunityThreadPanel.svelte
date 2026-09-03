@@ -1,6 +1,7 @@
 <script lang="ts">
   import {
     Composer,
+    ComposerDrawer,
     Layout,
     LayoutScrollButton,
     MessageList,
@@ -113,28 +114,31 @@
           : `Reply in thread to ${rootAuthor.name}`}
         onSubmit={submit}
       >
-        {#snippet headerContext()}
+        {#snippet drawer()}
           {#if composerContext}
-            <div
-              class="community-thread-panel__reply-context"
+            <ComposerDrawer
+              role="group"
               aria-label={`${composerContext.isRoot ? "Thread from" : "Replying to"} ${composerContext.authorName}`}
             >
-              <span
-                ><strong
-                  >{composerContext.isRoot ? "Thread from" : "Replying to"}
-                  {composerContext.authorName}</strong
-                ><small>{composerContext.content.slice(0, 120)}</small></span
-              >
-              {#if !composerContext.isRoot && onCancelReply}
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon-sm"
-                  aria-label="Cancel reply"
-                  onclick={onCancelReply}><XIcon aria-hidden="true" /></Button
-                >
-              {/if}
-            </div>
+              <div class="community-thread-panel__reply-context">
+                <span>
+                  <strong
+                    >{composerContext.isRoot ? "Thread from" : "Replying to"}
+                    {composerContext.authorName}</strong
+                  >
+                  <small>{composerContext.content}</small>
+                </span>
+                {#if !composerContext.isRoot && onCancelReply}
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-sm"
+                    aria-label="Cancel reply"
+                    onclick={onCancelReply}><XIcon aria-hidden="true" /></Button
+                  >
+                {/if}
+              </div>
+            </ComposerDrawer>
           {/if}
         {/snippet}
         {#snippet footerActions()}
@@ -255,12 +259,13 @@
 
   .community-thread-panel__reply-context {
     display: flex;
+    width: 100%;
     min-width: 0;
-    align-items: center;
+    align-items: flex-start;
     justify-content: space-between;
     gap: 0.5rem;
-    padding: 0.45rem 0.55rem;
-    border-block-end: 1px solid var(--border);
+    border-inline-start: 0.1875rem solid var(--primary);
+    padding-inline-start: 0.625rem;
   }
 
   .community-thread-panel__reply-context > span {
@@ -268,9 +273,12 @@
     min-width: 0;
   }
   .community-thread-panel__reply-context small {
+    display: -webkit-box;
     overflow: hidden;
     color: var(--muted-foreground);
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    line-height: 1.35;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
   }
 </style>

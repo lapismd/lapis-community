@@ -135,9 +135,18 @@
     await expect(canvas.queryByRole("button", { name: "general" })).toBeNull();
     await userEvent.clear(search);
 
-    await userEvent.click(
-      canvas.getByRole("button", { name: "Collapse left sidebar" }),
-    );
+    const sidebarToggle = canvas.getByRole("button", {
+      name: "Collapse left sidebar",
+    });
+    await expect(
+      sidebarToggle.querySelector('[data-ui-part="sidebar-toggle-indicator"]'),
+    ).toHaveAttribute("width", "6");
+    await userEvent.click(sidebarToggle);
+    await expect(
+      canvas
+        .getByRole("button", { name: "Expand left sidebar" })
+        .querySelector('[data-ui-part="sidebar-toggle-indicator"]'),
+    ).toHaveAttribute("width", "2");
     await expect(canvas.getByLabelText("Left sidebar")).toHaveAttribute(
       "data-state",
       "collapsed",

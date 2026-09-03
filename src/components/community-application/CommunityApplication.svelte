@@ -16,7 +16,6 @@
   import HeadphonesIcon from "@lucide/svelte/icons/headphones";
   import LockIcon from "@lucide/svelte/icons/lock";
   import PackageSearchIcon from "@lucide/svelte/icons/package-search";
-  import PanelRightIcon from "@lucide/svelte/icons/panel-right";
   import SquareTerminalIcon from "@lucide/svelte/icons/square-terminal";
   import UsersIcon from "@lucide/svelte/icons/users";
   import WifiOffIcon from "@lucide/svelte/icons/wifi-off";
@@ -1456,7 +1455,10 @@
       </AppShell.Sidebar.Body>
     {:else if activeDestination !== "inbox" && workspaceSidePanel === "thread" && workspace.thread}
       <AppShell.Sidebar.Header>
-        <PanelRightIcon aria-hidden="true" />
+        <AppShell.Sidebar.Toggle
+          side="right"
+          sidebarName={sidePanelTitle.toLowerCase()}
+        />
         <strong>{sidePanelTitle}</strong>
         <AppShell.Sidebar.Close onclick={closeSidePanel} />
       </AppShell.Sidebar.Header>

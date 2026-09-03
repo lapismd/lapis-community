@@ -25,7 +25,10 @@
     await expect(
       canvas.getByRole("img", { name: /Ada Lovelace, Online/u }),
     ).toBeVisible();
-    await userEvent.click(canvas.getByRole("button", { name: "Message" }));
+    const messageAction = canvas.getByRole("button", { name: "Message" });
+    await userEvent.hover(messageAction);
+    await expect(messageAction).toHaveClass("community-member-profile__action");
+    await userEvent.click(messageAction);
     await expect(args.onMessage).toHaveBeenCalledOnce();
   }}
 />

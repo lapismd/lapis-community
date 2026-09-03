@@ -1,6 +1,6 @@
 <script module lang="ts">
   import { defineMeta } from "@storybook/addon-svelte-csf";
-  import { fn } from "storybook/test";
+  import { expect, fn, userEvent } from "storybook/test";
 
   import {
     communityStoryMembers,
@@ -48,6 +48,48 @@
     onAddReaction: fn(),
     onCopyMessageLink: fn(),
     onDeleteMessage: fn(),
+  }}
+>
+  {#snippet template(args)}
+    <div
+      style="width: min(100%, 54rem); height: 38rem; border: 1px solid var(--border);"
+    >
+      <CommunityConversation {...args} />
+    </div>
+  {/snippet}
+</Story>
+
+<Story
+  name="Reply context drawer"
+  args={{
+    room: generalRoom,
+    messages: groupedMessages,
+    members: communityStoryMembers,
+    replyTarget: {
+      eventId: "message-release",
+      roomId: generalRoom.id,
+      authorId: communityStoryMembers[0]!.id,
+      authorName: "Ada Lovelace",
+      content:
+        "I have published the AI plugin fixture so the release can be reviewed.",
+      kind: generalRoom.kind,
+    },
+    onSend: fn(),
+    onCancelReply: fn(),
+  }}
+  play={async ({ canvas, args }) => {
+    const context = await canvas.findByLabelText("Replying to Ada Lovelace");
+    await expect(context).toBeVisible();
+    await expect(
+      context.closest('[data-ui-component="ai-chat-composer-drawer"]'),
+    ).toBeVisible();
+    await expect(
+      canvas.getByText(
+        "I have published the AI plugin fixture so the release can be reviewed.",
+      ),
+    ).toBeVisible();
+    await userEvent.click(canvas.getByRole("button", { name: "Cancel reply" }));
+    await expect(args.onCancelReply).toHaveBeenCalledOnce();
   }}
 >
   {#snippet template(args)}

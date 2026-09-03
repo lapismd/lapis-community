@@ -285,6 +285,12 @@
     await expect(
       within(threadSidebar).getByLabelText("Thread from steve"),
     ).toBeVisible();
+    const threadToggle = within(threadSidebar).getByRole("button", {
+      name: "Collapse thread sidebar",
+    });
+    await expect(
+      threadToggle.querySelector('[data-ui-part="sidebar-toggle-indicator"]'),
+    ).toHaveStyle({ width: "6px" });
   }}
 >
   {#snippet template()}

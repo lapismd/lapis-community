@@ -49,6 +49,9 @@
         ? "Expand left sidebar"
         : "Collapse left sidebar"}
       aria-expanded={!controller.left.collapsed}
+      data-ui-part="sidebar-toggle"
+      data-side="left"
+      data-state={controller.left.collapsed ? "collapsed" : "expanded"}
       title={controller.left.collapsed
         ? "Expand left sidebar"
         : "Collapse left sidebar"}
@@ -67,7 +70,14 @@
         aria-hidden="true"
       >
         <rect x="1" y="2" width="22" height="20" rx="4"></rect>
-        <rect x="4" y="5" width="2" height="14" rx="2" fill="currentColor"
+        <rect
+          x="4"
+          y="5"
+          width={controller.left.collapsed ? 2 : 6}
+          height="14"
+          rx="2"
+          fill="currentColor"
+          data-ui-part="sidebar-toggle-indicator"
         ></rect>
       </svg>
     </Button>
@@ -139,6 +149,18 @@
     display: flex;
     align-items: center;
     gap: 0.125rem;
+  }
+
+  :global([data-ui-part="sidebar-toggle-indicator"]) {
+    width: 2px;
+    transition: width 140ms ease;
+  }
+
+  :global(
+      [data-ui-part="sidebar-toggle"][data-state="expanded"]
+        [data-ui-part="sidebar-toggle-indicator"]
+    ) {
+    width: 6px;
   }
 
   :global(.community-app-shell__surface) {

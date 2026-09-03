@@ -38,6 +38,11 @@
     const composer = canvas.getByRole("combobox", { name: "Message" });
     await expect(canvas.getByLabelText("Thread from Ben Stone")).toBeVisible();
     await expect(
+      canvas
+        .getByLabelText("Thread from Ben Stone")
+        .closest('[data-ui-component="ai-chat-composer-drawer"]'),
+    ).toBeVisible();
+    await expect(
       canvas.getAllByText(/I have published the AI plugin fixture/u)[0],
     ).toBeVisible();
     await userEvent.type(composer, "An isolated thread reply");
