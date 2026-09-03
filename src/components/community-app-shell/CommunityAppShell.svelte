@@ -34,22 +34,8 @@
     children?: Snippet;
   } = $props();
 
-  let leftSidebarToggle = $state<HTMLButtonElement | null>(null);
   let shellSurface = $state<HTMLDivElement | null>(null);
   const mobileMode = $derived(controller.mobile.resolvedMode === "mobile");
-  const mobileNavigationOpen = $derived(
-    mobileMode &&
-      controller.mobile.stage === "left" &&
-      controller.mobile.activePanelId("left") === "left",
-  );
-  const leftSidebarExpanded = $derived(
-    mobileMode ? mobileNavigationOpen : !controller.left.collapsed,
-  );
-  const leftSidebarLabel = $derived(
-    mobileMode
-      ? `${mobileNavigationOpen ? "Close" : "Open"} navigation sidebar`
-      : `${controller.left.collapsed ? "Expand" : "Collapse"} left sidebar`,
-  );
 
   $effect(() => {
     const rightSidebar = controller.right;
@@ -80,93 +66,90 @@
       if (mobileStage) mobileStage.scrollLeft = 0;
     });
   });
-
-  function toggleLeftSidebar(): void {
-    if (!mobileMode) {
-      controller.left.toggle();
-      return;
-    }
-    if (mobileNavigationOpen) {
-      controller.mobile.showMain();
-      return;
-    }
-    controller.mobile.show("left", "left", leftSidebarToggle);
-  }
 </script>
 
 <div
   {...restProps}
   class={["community-app-shell", className].filter(Boolean).join(" ")}
   data-ui-component="community-app-shell"
+  data-display-mode={controller.mobile.resolvedMode}
 >
-  <nav class="community-app-shell__header" aria-label="Application navigation">
-    <Button
-      bind:ref={leftSidebarToggle}
-      type="button"
-      variant="ghost"
-      size="icon-sm"
-      aria-label={leftSidebarLabel}
-      aria-expanded={leftSidebarExpanded}
-      data-ui-part="sidebar-toggle"
-      data-side="left"
-      data-state={leftSidebarExpanded ? "expanded" : "collapsed"}
-      title={leftSidebarLabel}
-      onclick={toggleLeftSidebar}
+  {#if !mobileMode}
+    <nav
+      class="community-app-shell__header"
+      aria-label="Application navigation"
     >
-      <svg
-        xmlns="http://www.w3.org/2000/svg"
-        width="24"
-        height="24"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        stroke-width="2"
-        stroke-linecap="round"
-        stroke-linejoin="round"
-        aria-hidden="true"
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon-sm"
+        aria-label={controller.left.collapsed
+          ? "Expand left sidebar"
+          : "Collapse left sidebar"}
+        aria-expanded={!controller.left.collapsed}
+        data-ui-part="sidebar-toggle"
+        data-side="left"
+        data-state={controller.left.collapsed ? "collapsed" : "expanded"}
+        title={controller.left.collapsed
+          ? "Expand left sidebar"
+          : "Collapse left sidebar"}
+        onclick={() => controller.left.toggle()}
       >
-        <rect x="1" y="2" width="22" height="20" rx="4"></rect>
-        <rect
-          x="4"
-          y="5"
-          width={leftSidebarExpanded ? 6 : 2}
-          height="14"
-          rx="2"
-          fill="currentColor"
-          data-ui-part="sidebar-toggle-indicator"
-        ></rect>
-      </svg>
-    </Button>
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="24"
+          height="24"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          aria-hidden="true"
+        >
+          <rect x="1" y="2" width="22" height="20" rx="4"></rect>
+          <rect
+            x="4"
+            y="5"
+            width={controller.left.collapsed ? 2 : 6}
+            height="14"
+            rx="2"
+            fill="currentColor"
+            data-ui-part="sidebar-toggle-indicator"
+          ></rect>
+        </svg>
+      </Button>
 
-    <div
-      class="community-app-shell__history"
-      role="group"
-      aria-label="Navigation history"
-    >
-      <Button
-        type="button"
-        variant="ghost"
-        size="icon-sm"
-        aria-label="Back"
-        title="Back"
-        disabled={!canNavigateBack}
-        onclick={() => onNavigateBack?.()}
+      <div
+        class="community-app-shell__history"
+        role="group"
+        aria-label="Navigation history"
       >
-        <ChevronLeftIcon aria-hidden="true" />
-      </Button>
-      <Button
-        type="button"
-        variant="ghost"
-        size="icon-sm"
-        aria-label="Forward"
-        title="Forward"
-        disabled={!canNavigateForward}
-        onclick={() => onNavigateForward?.()}
-      >
-        <ChevronRightIcon aria-hidden="true" />
-      </Button>
-    </div>
-  </nav>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-sm"
+          aria-label="Back"
+          title="Back"
+          disabled={!canNavigateBack}
+          onclick={() => onNavigateBack?.()}
+        >
+          <ChevronLeftIcon aria-hidden="true" />
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-sm"
+          aria-label="Forward"
+          title="Forward"
+          disabled={!canNavigateForward}
+          onclick={() => onNavigateForward?.()}
+        >
+          <ChevronRightIcon aria-hidden="true" />
+        </Button>
+      </div>
+    </nav>
+  {/if}
 
   <AppShell.Root
     bind:ref={shellSurface}
@@ -192,6 +175,10 @@
     overflow: hidden;
     color: var(--foreground);
     background: var(--muted);
+  }
+
+  .community-app-shell[data-display-mode="mobile"] {
+    grid-template-rows: minmax(0, 1fr);
   }
 
   .community-app-shell__header {

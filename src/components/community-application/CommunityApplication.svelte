@@ -11,6 +11,8 @@
     AppShellController,
     type AppShellDisplayMode,
   } from "@lapismd/design-core/shell";
+  import ChevronLeftIcon from "@lucide/svelte/icons/chevron-left";
+  import ChevronRightIcon from "@lucide/svelte/icons/chevron-right";
   import EllipsisIcon from "@lucide/svelte/icons/ellipsis";
   import HashIcon from "@lucide/svelte/icons/hash";
   import HeadphonesIcon from "@lucide/svelte/icons/headphones";
@@ -382,6 +384,13 @@
   );
   const isRegistryDestination = $derived(
     registryRouteFromDestination(activeDestination) !== null,
+  );
+  const usesRoomToolbar = $derived(
+    !isRegistryDestination &&
+      hasCommunitySurface &&
+      activeDestination !== "settings" &&
+      activeDestination !== "inbox" &&
+      activeDestination !== "new-direct-message",
   );
   const activeItemId = $derived(
     activeDestination === "inbox" || isRegistryDestination
@@ -1140,6 +1149,40 @@
   }
 </script>
 
+{#snippet mobileNavigationControls()}
+  <div class="community-application__mobile-navigation">
+    <AppShell.Sidebar.Toggle side="left" sidebarName="navigation" />
+    <div
+      class="community-application__mobile-history"
+      role="group"
+      aria-label="Navigation history"
+    >
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon-sm"
+        aria-label="Back"
+        title="Back"
+        disabled={!canNavigateBack}
+        onclick={() => navigateHistory(-1)}
+      >
+        <ChevronLeftIcon aria-hidden="true" />
+      </Button>
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon-sm"
+        aria-label="Forward"
+        title="Forward"
+        disabled={!canNavigateForward}
+        onclick={() => navigateHistory(1)}
+      >
+        <ChevronRightIcon aria-hidden="true" />
+      </Button>
+    </div>
+  </div>
+{/snippet}
+
 <CommunityAppShell
   controller={shell}
   {displayMode}
@@ -1259,6 +1302,12 @@
   </AppShell.Sidebar>
 
   <AppShell.Main>
+    {#if shell.mobile.resolvedMode === "mobile" && !usesRoomToolbar}
+      <AppShell.Toolbar label="Application navigation">
+        {@render mobileNavigationControls()}
+      </AppShell.Toolbar>
+    {/if}
+
     {#if isRegistryDestination}
       {#if registry}
         <AppShell.Body layout="regions" label="Plugin registry">
@@ -1436,7 +1485,9 @@
     {:else}
       <AppShell.Toolbar label={`${activeRoom.name} toolbar`}>
         <div class="community-application__toolbar-start">
-          {#if navigationCompact || shell.mobile.resolvedMode === "mobile"}
+          {#if shell.mobile.resolvedMode === "mobile"}
+            {@render mobileNavigationControls()}
+          {:else if navigationCompact}
             <AppShell.Sidebar.Toggle side="left" sidebarName="navigation" />
           {/if}
           <div class="community-application__room-title">
@@ -2035,11 +2086,18 @@
 
 <style>
   .community-application__toolbar-start,
-  .community-application__toolbar-actions {
+  .community-application__toolbar-actions,
+  .community-application__mobile-navigation,
+  .community-application__mobile-history {
     display: flex;
     min-width: 0;
     align-items: center;
     gap: 0.5rem;
+  }
+
+  .community-application__mobile-navigation,
+  .community-application__mobile-history {
+    gap: 0.125rem;
   }
 
   .community-application__disconnected {

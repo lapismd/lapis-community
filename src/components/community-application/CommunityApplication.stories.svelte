@@ -500,10 +500,22 @@
     await expect(mainLane).not.toHaveAttribute("aria-hidden", "true");
     await expect(leftLane).toHaveAttribute("aria-hidden", "true");
     await expect(rightLane).toHaveAttribute("aria-hidden", "true");
+    await expect(
+      canvas.queryByRole("navigation", { name: "Application navigation" }),
+    ).not.toBeInTheDocument();
 
     const navigationToggle = canvas.getByRole("button", {
       name: "Open navigation sidebar",
     });
+    const mainToolbar = navigationToggle.closest<HTMLElement>(
+      '[data-ui-part="toolbar"]',
+    );
+    if (!mainToolbar)
+      throw new Error("Expected mobile navigation in the main toolbar");
+    const mainToolbarButtons = within(mainToolbar).getAllByRole("button");
+    await expect(mainToolbarButtons[0]).toBe(navigationToggle);
+    await expect(mainToolbarButtons[1]).toHaveAccessibleName("Back");
+    await expect(mainToolbarButtons[2]).toHaveAccessibleName("Forward");
     await userEvent.click(navigationToggle);
     await expect(shell).toHaveAttribute("data-mobile-stage", "left");
     await expect(leftLane).not.toHaveAttribute("aria-hidden", "true");
