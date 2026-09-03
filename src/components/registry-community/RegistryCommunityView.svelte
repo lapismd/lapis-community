@@ -1,7 +1,6 @@
 <script lang="ts">
   import * as Card from "@lapismd/design-core/shadcn/card";
 
-  import CommunityHeader from "../community-header/CommunityHeader.svelte";
   import CommunitySummary from "../community-summary/CommunitySummary.svelte";
   import DiscussionComposer from "../discussion-composer/DiscussionComposer.svelte";
   import DiscussionHeading from "../discussion-heading/DiscussionHeading.svelte";
@@ -26,7 +25,6 @@
   const loadingNext = $derived(controller.loadingNext);
   const error = $derived(controller.error);
   const message = $derived(controller.message);
-  const relayUrls = $derived(controller.relayUrls);
   const participantCount = $derived(controller.participantCount);
   const currentPluginReactions = $derived(controller.currentPluginReactions);
   const pluginReactionSummary = $derived(controller.pluginReactionSummary);
@@ -79,7 +77,7 @@
 
 <section
   class="community"
-  aria-labelledby="community-title"
+  aria-label={`${name} community discussion`}
   data-design-core="0.1.0"
   data-comment-total={commentTotal}
   data-loaded-comments={reviews.length}
@@ -87,13 +85,6 @@
   data-page-end={pageEndIndex}
 >
   <Card.Root class="community-card">
-    <CommunityHeader
-      {name}
-      loading={loading || loadingJump}
-      {error}
-      relayCount={relayUrls.length}
-    />
-
     <Card.Content class="community-content">
       <CommunitySummary
         posts={commentTotal}

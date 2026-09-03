@@ -53,7 +53,12 @@ export function parseProfiles(
     ) {
       continue;
     }
-    const candidate = content as { display_name?: unknown; name?: unknown };
+    const candidate = content as {
+      display_name?: unknown;
+      name?: unknown;
+      picture?: unknown;
+      about?: unknown;
+    };
     const displayName =
       typeof candidate.display_name === "string"
         ? candidate.display_name.trim()
@@ -62,6 +67,8 @@ export function parseProfiles(
       typeof candidate.name === "string" ? candidate.name.trim() : "";
     const selected = displayName || name;
     if (selected.length === 0 || selected.length > 100) continue;
+    const picture = optionalProfileValue(candidate.picture, 2_048);
+    const about = optionalProfileValue(candidate.about, 500);
     const current = profiles.get(event.pubkey);
     if (
       current === undefined ||
@@ -71,7 +78,12 @@ export function parseProfiles(
     ) {
       profiles.set(event.pubkey, {
         event,
-        profile: { pubkey: event.pubkey, name: selected },
+        profile: {
+          pubkey: event.pubkey,
+          name: selected,
+          ...(picture === undefined ? {} : { picture }),
+          ...(about === undefined ? {} : { about }),
+        },
       });
     }
   }
@@ -298,9 +310,22 @@ export function timelineTimestamp(
 function shortKey(value: string): string {
   return value.length > 12 ? `${value.slice(0, 6)}…${value.slice(-4)}` : value;
 }
+
+function optionalProfileValue(
+  value: unknown,
+  maximumLength: number,
+): string | undefined {
+  if (typeof value !== "string") return undefined;
+  const selected = value.trim();
+  return selected.length > 0 && selected.length <= maximumLength
+    ? selected
+    : undefined;
+}
 export interface CommunityProfile {
   pubkey: string;
   name: string;
+  picture?: string;
+  about?: string;
 }
 
 export interface ForumPost {

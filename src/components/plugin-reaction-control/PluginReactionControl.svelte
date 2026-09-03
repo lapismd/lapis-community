@@ -1,7 +1,7 @@
 <script lang="ts">
   import { Button } from "@lapismd/design-core/shadcn/button";
-  import * as ToggleGroup from "@lapismd/design-core/shadcn/toggle-group";
 
+  import CommunityEmojiPicker from "../community-emoji-picker/CommunityEmojiPicker.svelte";
   import type { ReactionGroup } from "../registry-community/model.js";
 
   let {
@@ -34,19 +34,19 @@
       {/if}
     </p>
   </div>
-  <ToggleGroup.Root
-    type="single"
-    variant="outline"
-    bind:value={selected}
-    aria-labelledby="rating-label"
-    disabled={publishing}
-  >
-    {#each choices as reaction}
-      <ToggleGroup.Item value={reaction} aria-label={`React ${reaction}`}>
-        <span aria-hidden="true">{reaction}</span>
-      </ToggleGroup.Item>
-    {/each}
-  </ToggleGroup.Root>
+  <div class="rating-control__picker" aria-labelledby="rating-label">
+    {#if selected}
+      <span class="rating-control__selected" aria-label={`Selected ${selected}`}
+        >{selected}</span
+      >
+    {/if}
+    <CommunityEmojiPicker
+      label="Choose plugin reaction"
+      disabled={publishing}
+      presets={choices}
+      onSelect={(emoji) => (selected = emoji)}
+    />
+  </div>
   <Button
     size="sm"
     disabled={publishing || selected === "" || !releaseAvailable}
@@ -77,6 +77,22 @@
     margin: 0;
     color: var(--muted-foreground);
     font-size: 0.78rem;
+  }
+
+  .rating-control__picker {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+  }
+
+  .rating-control__selected {
+    display: grid;
+    min-width: 2rem;
+    min-height: 2rem;
+    place-items: center;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--background);
   }
 
   @media (max-width: 44rem) {

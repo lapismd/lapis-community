@@ -1,5 +1,6 @@
 <script module lang="ts">
   import { defineMeta } from "@storybook/addon-svelte-csf";
+  import { expect, userEvent, within } from "storybook/test";
 
   import { noop, storyPosts, storyProfiles } from "../story-fixtures.js";
   import DiscussionComposer from "./DiscussionComposer.svelte";
@@ -32,10 +33,22 @@
     replyingTo: storyPosts[1],
     profiles: storyProfiles,
     postNumber: () => 2,
-    signedInPubkey: "f".repeat(64),
+    signedInPubkey: storyPosts[0].event.pubkey,
     comment: "A progress affordance would help here.",
     onCancel: noop,
     onConnect: noop,
     onSubmit: noop,
+  }}
+  play={async ({ canvas }) => {
+    const textarea = canvas.getByRole("textbox", { name: "Reply to a post" });
+    await expect(getComputedStyle(textarea).backgroundColor).not.toBe(
+      "rgba(0, 0, 0, 0)",
+    );
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Open profile for Ada Lovelace" }),
+    );
+    await expect(
+      within(document.body).getByRole("heading", { name: "Ada Lovelace" }),
+    ).toBeVisible();
   }}
 />

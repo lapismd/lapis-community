@@ -16,6 +16,7 @@
   name="Community and standard emoji"
   args={{
     label: "Add reaction",
+    presets: ["👍", "❤️", "🎉", "👀", "⭐"],
     communityEmojis: [
       {
         shortcode: "lapis",
@@ -26,11 +27,15 @@
     ],
     onSelect: fn(),
   }}
-  play={async ({ canvasElement }) => {
+  play={async ({ args, canvasElement }) => {
     const canvas = within(canvasElement);
     await userEvent.click(canvas.getByRole("button", { name: "Add reaction" }));
     await expect(
       within(document.body).getByRole("heading", { name: "Emoji" }),
     ).toBeVisible();
+    await userEvent.click(
+      within(document.body).getByRole("button", { name: "React 👍" }),
+    );
+    await expect(args.onSelect).toHaveBeenCalledWith("👍");
   }}
 />

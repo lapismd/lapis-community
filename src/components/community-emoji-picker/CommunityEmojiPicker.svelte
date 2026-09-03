@@ -10,11 +10,15 @@
   let {
     open = $bindable(false),
     label = "Choose emoji",
+    disabled = false,
+    presets = [],
     communityEmojis = [],
     onSelect = () => {},
   }: {
     open?: boolean;
     label?: string;
+    disabled?: boolean;
+    presets?: readonly string[];
     communityEmojis?: readonly CommunityCustomEmoji[];
     onSelect?: (emoji: string, custom?: CommunityCustomEmoji) => void;
   } = $props();
@@ -63,6 +67,11 @@
     open = false;
   }
 
+  function selectPreset(emoji: string): void {
+    onSelect(emoji);
+    open = false;
+  }
+
   function normalizePickerAccessibility(picker: HTMLElement): void {
     const root = picker.shadowRoot;
     if (!root) return;
@@ -96,6 +105,7 @@
         type="button"
         variant="ghost"
         size="icon-sm"
+        {disabled}
         aria-label={label}
         title={label}
       >
@@ -111,9 +121,29 @@
     <Popover.Header class="community-emoji-picker__a11y-header">
       <Popover.Title><h2>Emoji</h2></Popover.Title>
       <Popover.Description>
-        Search standard emoji or choose one from this community.
+        Choose a suggested reaction, search standard emoji, or use one from this
+        community.
       </Popover.Description>
     </Popover.Header>
+    {#if presets.length}
+      <section
+        class="community-emoji-picker__presets"
+        aria-label="Suggested emoji"
+      >
+        {#each presets as emoji (emoji)}
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-sm"
+            aria-label={`React ${emoji}`}
+            title={`React ${emoji}`}
+            onclick={() => selectPreset(emoji)}
+          >
+            <span aria-hidden="true">{emoji}</span>
+          </Button>
+        {/each}
+      </section>
+    {/if}
     {#if communityEmojis.length}
       <section
         class="community-emoji-picker__community"
@@ -144,11 +174,17 @@
     overflow: hidden;
   }
 
+  .community-emoji-picker__presets,
   .community-emoji-picker__community {
     display: flex;
     gap: 0.25rem;
     padding: 0.25rem 0.5rem;
     overflow-x: auto;
+  }
+
+  .community-emoji-picker__presets {
+    padding-block: 0.5rem;
+    border-bottom: 1px solid var(--border);
   }
 
   :global(.community-emoji-picker__a11y-header) {

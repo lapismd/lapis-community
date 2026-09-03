@@ -1,6 +1,6 @@
 <script module lang="ts">
   import { defineMeta } from "@storybook/addon-svelte-csf";
-  import { expect, userEvent, waitFor } from "storybook/test";
+  import { expect, userEvent, waitFor, within } from "storybook/test";
 
   import RegistryCommunity from "./RegistryCommunity.svelte";
   import RegistryCommunityStoryHarness from "./RegistryCommunityStoryHarness.svelte";
@@ -44,10 +44,12 @@
     if (runtime.dataset.communityBackend === "live") return;
 
     await expect(
-      await canvas.findByText("Registry Demo community discussion"),
+      await canvas.findByRole("region", {
+        name: "Registry Demo community discussion",
+      }),
     ).toBeVisible();
     await expect(
-      await canvas.findByText("Seeded registry discussion"),
+      (await canvas.findAllByText("Seeded registry discussion"))[0],
     ).toBeVisible();
     await expect(
       canvas.getByText("The shared controller boundary keeps this portable."),
@@ -57,6 +59,17 @@
         canvas.queryByRole("button", { name: "Connect Nostr" }),
       ).toBeNull();
     });
+    await expect(canvas.queryByText("1 relay")).not.toBeInTheDocument();
+    await expect(canvas.getByText("Loaded posts 1–2 of 2.")).toBeVisible();
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Open profile for Publisher" }),
+    );
+    await expect(
+      await within(document.body).findByText("Nostr community profile"),
+    ).toBeVisible();
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Open profile for Publisher" }),
+    );
 
     const composer = canvas.getByRole("textbox", {
       name: "Add to the discussion",

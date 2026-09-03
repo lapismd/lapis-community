@@ -38,8 +38,18 @@
       await canvas.findByRole("heading", { name: "AI Assistant", level: 1 }),
     ).toBeVisible();
     await expect(
-      await canvas.findByText("Seeded registry discussion"),
+      (await canvas.findAllByText("Seeded registry discussion"))[0],
     ).toBeVisible();
+    const relatedHeading = canvas.getByRole("heading", {
+      name: "Related plugins",
+    });
+    const discussion = canvas.getByRole("region", {
+      name: "AI Assistant community",
+    });
+    await expect(
+      relatedHeading.compareDocumentPosition(discussion) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).not.toBe(0);
     const breadcrumb = canvas.getByRole("navigation", { name: "breadcrumb" });
     await expect(
       breadcrumb.querySelector('[data-ui-part="breadcrumb-separator"]'),
@@ -91,7 +101,9 @@
     await expect(
       await canvas.findByRole("heading", { name: "AI Assistant", level: 1 }),
     ).toBeVisible();
-    await expect(canvas.getByText("Seeded registry discussion")).toBeVisible();
+    await expect(
+      canvas.getAllByText("Seeded registry discussion")[0],
+    ).toBeVisible();
   }}
 >
   {#snippet template()}

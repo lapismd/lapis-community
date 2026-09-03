@@ -1,5 +1,7 @@
 <script lang="ts">
   import { Button } from "@lapismd/design-core/shadcn/button";
+  import * as Tooltip from "@lapismd/design-core/shadcn/tooltip";
+  import RefreshCwIcon from "@lucide/svelte/icons/refresh-cw";
 
   let {
     total = 0,
@@ -23,14 +25,30 @@
       {#if total === 0}
         Follow the conversation in posting order.
       {:else}
-        Loaded posts {displayedStart}–{displayedEnd} of {total}. Scroll for
-        adjacent posts or use the timeline to jump.
+        Loaded posts {displayedStart}–{displayedEnd} of {total}.
       {/if}
     </p>
   </div>
-  <Button variant="ghost" size="sm" disabled={loading} onclick={onRefresh}>
-    Refresh
-  </Button>
+  <Tooltip.Provider>
+    <Tooltip.Root>
+      <Tooltip.Trigger>
+        {#snippet child({ props })}
+          <Button
+            {...props}
+            type="button"
+            variant="ghost"
+            size="icon-sm"
+            disabled={loading}
+            aria-label="Refresh discussion"
+            onclick={onRefresh}
+          >
+            <RefreshCwIcon aria-hidden="true" />
+          </Button>
+        {/snippet}
+      </Tooltip.Trigger>
+      <Tooltip.Content><p>Refresh discussion</p></Tooltip.Content>
+    </Tooltip.Root>
+  </Tooltip.Provider>
 </div>
 
 <style>

@@ -442,15 +442,6 @@
     </aside>
   </div>
 
-  {#if discussion}
-    <section
-      class="registry-plugin-detail__discussion"
-      aria-label={`${detail.name} community`}
-    >
-      {@render discussion()}
-    </section>
-  {/if}
-
   {#if related.length > 0}
     <section class="registry-plugin-detail__related">
       <h2>Related plugins</h2>
@@ -461,6 +452,15 @@
             onOpen={onOpenPlugin}
           />{/each}
       </div>
+    </section>
+  {/if}
+
+  {#if discussion}
+    <section
+      class="registry-plugin-detail__discussion"
+      aria-label={`${detail.name} community`}
+    >
+      {@render discussion()}
     </section>
   {/if}
 </article>

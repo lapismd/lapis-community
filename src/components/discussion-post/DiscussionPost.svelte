@@ -1,6 +1,7 @@
 <script lang="ts">
   import { Button } from "@lapismd/design-core/shadcn/button";
 
+  import CommunityEmojiPicker from "../community-emoji-picker/CommunityEmojiPicker.svelte";
   import {
     avatarHue,
     displayName,
@@ -37,6 +38,14 @@
   } = $props();
 
   const authorName = $derived(displayName(post.event.pubkey, profiles));
+  const reactionPresets = ["👍", "❤️", "🎉", "👀", "⭐"] as const;
+
+  function excerpt(value: string, maximum = 96): string {
+    const normalized = value.replace(/\s+/gu, " ").trim();
+    return normalized.length > maximum
+      ? `${normalized.slice(0, maximum - 1).trimEnd()}…`
+      : normalized;
+  }
 
   function formatDate(timestamp: number): string {
     return new Intl.DateTimeFormat(undefined, {
@@ -60,7 +69,11 @@
         <strong id={`post-author-${post.event.id}`}>{authorName}</strong>
         {#if parent}
           <button class="reply-context" onclick={() => onNavigate(parent)}>
-            ↪ replying to {displayName(parent.event.pubkey, profiles)} · {parentReference}
+            <span>
+              ↪ replying to {displayName(parent.event.pubkey, profiles)} · {parentReference}
+            </span>
+            <span class="reply-context__excerpt">{excerpt(parent.content)}</span
+            >
           </button>
         {/if}
       </div>
@@ -96,15 +109,12 @@
         {/each}
       </div>
       <div class="post-actions">
-        {#if !groups.some((group) => group.content === "+")}
-          <Button
-            variant="ghost"
-            size="xs"
-            disabled={publishing}
-            aria-label={`Like post ${number}`}
-            onclick={() => onReact(post)}>♡ Like</Button
-          >
-        {/if}
+        <CommunityEmojiPicker
+          label={`React to post ${number}`}
+          disabled={publishing}
+          presets={reactionPresets}
+          onSelect={(emoji) => void onReact(post, emoji)}
+        />
         <Button
           variant="ghost"
           size="xs"
@@ -187,6 +197,8 @@
   }
 
   .reply-context {
+    display: grid;
+    gap: 0.15rem;
     width: fit-content;
     max-width: 100%;
     padding: 0.3rem 0.55rem;
@@ -201,8 +213,17 @@
     font: inherit;
     font-size: 0.72rem;
     text-align: left;
+  }
+
+  .reply-context > span {
+    overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+
+  .reply-context__excerpt {
+    color: var(--foreground);
+    font-size: 0.76rem;
   }
 
   .reply-context:hover {

@@ -66,7 +66,12 @@ describe("registry community model", () => {
       event(1, JSON.stringify({ name: "older" }), "01".repeat(32)),
       event(
         2,
-        JSON.stringify({ name: "maya", display_name: "Maya Chen" }),
+        JSON.stringify({
+          name: "maya",
+          display_name: "Maya Chen",
+          picture: "https://example.test/maya.png",
+          about: "Builds local-first tools.",
+        }),
         "02".repeat(32),
       ),
       event(3, "not json", "03".repeat(32)),
@@ -76,6 +81,10 @@ describe("registry community model", () => {
     );
 
     expect(displayName(pubkey, byPubkey)).toBe("Maya Chen");
+    expect(byPubkey.get(pubkey)).toMatchObject({
+      picture: "https://example.test/maya.png",
+      about: "Builds local-first tools.",
+    });
     expect(displayName("ef".repeat(32), byPubkey)).toBe("nostr:efefef…efef");
     expect(initials("Maya Chen")).toBe("MC");
     expect(avatarHue(pubkey)).toBeGreaterThanOrEqual(0);

@@ -29,14 +29,26 @@
   .topic-summary {
     display: grid;
     grid-template-columns: repeat(4, minmax(0, 1fr));
-    border-block: 1px solid var(--border);
   }
 
   .topic-summary > div {
     display: grid;
     gap: 0.15rem;
+    border-block: 1px solid var(--border);
     padding: 1rem;
     text-align: center;
+  }
+
+  .topic-summary > div:first-child {
+    border-inline-start: 1px solid var(--border);
+    border-start-start-radius: var(--radius);
+    border-end-start-radius: var(--radius);
+  }
+
+  .topic-summary > div:last-child {
+    border-inline-end: 1px solid var(--border);
+    border-start-end-radius: var(--radius);
+    border-end-end-radius: var(--radius);
   }
 
   .topic-summary > div + div {
@@ -57,13 +69,24 @@
       grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 
+    .topic-summary > div:nth-child(2) {
+      border-inline-end: 1px solid var(--border);
+      border-start-end-radius: var(--radius);
+    }
+
     .topic-summary > div:nth-child(3) {
-      border-left: 0;
-      border-top: 1px solid var(--border);
+      border-inline-start: 1px solid var(--border);
+      border-end-start-radius: var(--radius);
+      border-top: 0;
     }
 
     .topic-summary > div:nth-child(4) {
-      border-top: 1px solid var(--border);
+      border-start-end-radius: 0;
+      border-top: 0;
+    }
+
+    .topic-summary > div:first-child {
+      border-end-start-radius: 0;
     }
   }
 </style>
