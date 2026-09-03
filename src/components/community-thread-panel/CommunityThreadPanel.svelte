@@ -7,6 +7,7 @@
     MessageList,
   } from "@lapismd/design-core/ai/chat";
   import { Button } from "@lapismd/design-core/shadcn/button";
+  import ReplyIcon from "@lucide/svelte/icons/reply";
   import XIcon from "@lucide/svelte/icons/x";
 
   import type {
@@ -32,6 +33,10 @@
     onCopyMessage,
     onEditMessage,
     onDeleteMessage,
+    onReply,
+    onOpenProfile,
+    onMessageMember,
+    onViewMemberActivity,
     replyTarget,
     communityEmojis = [],
     onCancelReply,
@@ -56,6 +61,10 @@
     onCopyMessage?: (messageId: string) => void;
     onEditMessage?: (messageId: string) => void;
     onDeleteMessage?: (messageId: string) => void;
+    onReply?: (messageId: string) => void;
+    onOpenProfile?: (member: CommunityMemberModel) => void;
+    onMessageMember?: (member: CommunityMemberModel) => void;
+    onViewMemberActivity?: (member: CommunityMemberModel) => void;
     replyTarget?: CommunityReplyTarget;
     communityEmojis?: readonly CommunityCustomEmoji[];
     onCancelReply?: () => void;
@@ -70,21 +79,9 @@
       ? undefined
       : memberById(members, rootMessage.authorId),
   );
-  const composerContext = $derived.by(() => {
-    if (replyTarget) {
-      return {
-        authorName: replyTarget.authorName,
-        content: replyTarget.content,
-        isRoot: replyTarget.eventId === thread.rootMessageId,
-      };
-    }
-    if (rootMessage === undefined || rootAuthor === undefined) return undefined;
-    return {
-      authorName: rootAuthor.name,
-      content: rootMessage.content,
-      isRoot: true,
-    };
-  });
+  const composerContext = $derived(
+    replyTarget?.eventId === thread.rootMessageId ? undefined : replyTarget,
+  );
 
   function submit(content: string): void {
     const result = onSendReply?.(thread.rootMessageId, content);
@@ -118,17 +115,19 @@
           {#if composerContext}
             <ComposerDrawer
               role="group"
-              aria-label={`${composerContext.isRoot ? "Thread from" : "Replying to"} ${composerContext.authorName}`}
+              aria-label={`Replying to ${composerContext.authorName}`}
             >
               <div class="community-thread-panel__reply-context">
                 <span>
-                  <strong
-                    >{composerContext.isRoot ? "Thread from" : "Replying to"}
-                    {composerContext.authorName}</strong
+                  <strong>
+                    <ReplyIcon aria-hidden="true" />
+                    Replying to {composerContext.authorName}
+                  </strong>
+                  <small title={composerContext.content}
+                    >{composerContext.content}</small
                   >
-                  <small>{composerContext.content}</small>
                 </span>
-                {#if !composerContext.isRoot && onCancelReply}
+                {#if onCancelReply}
                   <Button
                     type="button"
                     variant="ghost"
@@ -178,6 +177,17 @@
           onCopyMessage={(messageId) => onCopyMessage?.(messageId)}
           onEdit={(messageId) => onEditMessage?.(messageId)}
           onDelete={(messageId) => onDeleteMessage?.(messageId)}
+          {...onOpenProfile === undefined ? {} : { onOpenProfile }}
+          {...onMessageMember === undefined ? {} : { onMessageMember }}
+          {...onViewMemberActivity === undefined
+            ? {}
+            : { onViewMemberActivity }}
+          {...message.id === thread.rootMessageId || onReply === undefined
+            ? {}
+            : {
+                onOpenThread: onReply,
+                replyActionLabel: "Reply",
+              }}
         />
       {/each}
     </MessageList>
@@ -261,24 +271,50 @@
     display: flex;
     width: 100%;
     min-width: 0;
-    align-items: flex-start;
+    align-items: center;
     justify-content: space-between;
     gap: 0.5rem;
-    border-inline-start: 0.1875rem solid var(--primary);
-    padding-inline-start: 0.625rem;
+  }
+
+  .community-thread-panel
+    :global([data-ui-component="ai-chat-composer-drawer"]) {
+    padding-block-start: 0.625rem;
+    background: color-mix(in srgb, var(--foreground) 4%, var(--background));
   }
 
   .community-thread-panel__reply-context > span {
     display: grid;
     min-width: 0;
+    flex: 1;
+    gap: 0.1rem;
   }
+
+  .community-thread-panel__reply-context strong {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-size: 0.78rem;
+    font-weight: 600;
+    line-height: 1rem;
+  }
+
+  .community-thread-panel__reply-context strong :global(svg) {
+    width: 0.8rem;
+    height: 0.8rem;
+  }
+
   .community-thread-panel__reply-context small {
-    display: -webkit-box;
+    display: block;
     overflow: hidden;
     color: var(--muted-foreground);
-    line-height: 1.35;
-    -webkit-box-orient: vertical;
-    -webkit-line-clamp: 2;
-    line-clamp: 2;
+    font-size: 0.72rem;
+    line-height: 1rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .community-thread-panel__reply-context :global([data-ui-component="button"]) {
+    width: 1.5rem;
+    height: 1.5rem;
   }
 </style>

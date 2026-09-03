@@ -152,6 +152,8 @@
   let memberCommandMode = $state<"view" | "manage" | "select">("view");
   let selectedRecipientIds = $state<string[]>([]);
   let topicComposerOpen = $state(false);
+  let threadSidebarCloseButton = $state<HTMLButtonElement | null>(null);
+  let closingThreadSidebarFromToggle = false;
   let confirmation = $state<"leave" | "delete" | null>(null);
   let statusOpen = $state(false);
   let statusDraft = $state("");
@@ -771,6 +773,27 @@
     }
   }
 
+  function messageMember(member: CommunityMemberModel): void {
+    selectedRecipientIds = [member.id];
+    community.actions.openDirectMessage(selectedRecipientIds);
+    setDestination(`dm:${member.id}`, true);
+  }
+
+  function viewMemberActivity(member: CommunityMemberModel): void {
+    if (extensions.activityLog === undefined) return;
+    const result = extensions.activityLog(member.id);
+    if (result instanceof Promise) {
+      void result.catch((cause) =>
+        toast.error(
+          cause instanceof Error
+            ? cause.message
+            : "The activity log could not be opened",
+        ),
+      );
+    }
+    lastAction = `viewed-activity:${member.id}`;
+  }
+
   async function saveStatus(): Promise<void> {
     try {
       await runAuthenticated(() => community.actions.updateStatus(statusDraft));
@@ -789,7 +812,10 @@
   ): Promise<void> {
     try {
       await runAuthenticated(() =>
-        community.actions.sendReply(rootMessageId, content),
+        community.actions.sendReply(
+          community.state.replyTarget?.eventId ?? rootMessageId,
+          content,
+        ),
       );
       community.actions.clearReplyTarget();
       lastAction = "sent-reply";
@@ -856,6 +882,23 @@
     community.actions.closeSidePanel();
     shell.right.close();
     lastAction = "closed-side-panel";
+  }
+
+  function closeThreadSidebarFromToggle(): void {
+    if (closingThreadSidebarFromToggle) return;
+    if (!threadSidebarCloseButton) {
+      closeSidePanel();
+      return;
+    }
+
+    // The toggle primitive collapses on desktop. Delegate to the colocated
+    // public close control so this affordance removes the panel in every mode.
+    closingThreadSidebarFromToggle = true;
+    try {
+      threadSidebarCloseButton.click();
+    } finally {
+      closingThreadSidebarFromToggle = false;
+    }
   }
 
   async function sendWorkspaceMessage(
@@ -1215,6 +1258,10 @@
         onReply={(messageId) => community.actions.setReplyTarget(messageId)}
         onToggleReaction={react}
         onOpenProfile={openProfile}
+        onMessageMember={messageMember}
+        {...extensions.activityLog === undefined
+          ? {}
+          : { onViewMemberActivity: viewMemberActivity }}
         {...inbox.room.kind === "direct"
           ? {}
           : { onCopyMessageLink: copyMessageLink }}
@@ -1341,7 +1388,8 @@
           <CommunityWorkspaceSurface
             model={workspace}
             readOnly={community.state.status !== "connected"}
-            {...community.state.replyTarget === undefined
+            {...community.state.replyTarget === undefined ||
+            workspaceSidePanel === "thread"
               ? {}
               : { replyTarget: community.state.replyTarget }}
             communityEmojis={community.state.settings.customEmojis}
@@ -1356,14 +1404,18 @@
               },
               onOpenThread: (messageId) => {
                 selectedProfile = null;
+                community.actions.clearReplyTarget();
                 community.actions.openThread(messageId);
-                community.actions.setReplyTarget(messageId);
                 openSidePanel("thread");
                 lastAction = `opened-thread:${messageId}`;
               },
               onToggleReaction: react,
               onAddReaction: react,
               onOpenProfile: openProfile,
+              onMessageMember: messageMember,
+              ...(extensions.activityLog === undefined
+                ? {}
+                : { onViewMemberActivity: viewMemberActivity }),
               ...(activeRoom.kind === "direct"
                 ? {}
                 : { onCopyMessageLink: copyMessageLink }),
@@ -1444,11 +1496,7 @@
       <AppShell.Sidebar.Body>
         <CommunityMemberProfile
           member={selectedProfile}
-          onMessage={() => {
-            selectedRecipientIds = [selectedProfile!.id];
-            community.actions.openDirectMessage(selectedRecipientIds);
-            setDestination(`dm:${selectedProfile!.id}`, true);
-          }}
+          onMessage={() => messageMember(selectedProfile!)}
           onWave={() => toast.success(`Waved to ${selectedProfile!.name}`)}
           onFollow={() => toast.success(`Following ${selectedProfile!.name}`)}
         />
@@ -1458,15 +1506,26 @@
         <AppShell.Sidebar.Toggle
           side="right"
           sidebarName={sidePanelTitle.toLowerCase()}
+          label={`Close ${sidePanelTitle.toLowerCase()} sidebar`}
+          onclick={closeThreadSidebarFromToggle}
         />
         <strong>{sidePanelTitle}</strong>
-        <AppShell.Sidebar.Close onclick={closeSidePanel} />
+        <AppShell.Sidebar.Close
+          bind:ref={threadSidebarCloseButton}
+          onclick={closeSidePanel}
+        />
       </AppShell.Sidebar.Header>
       <AppShell.Sidebar.Body>
         <CommunityThreadPanel
           thread={workspace.thread}
           members={workspace.members}
           onSendReply={sendThreadReply}
+          onReply={(messageId) => community.actions.setReplyTarget(messageId)}
+          onOpenProfile={openProfile}
+          onMessageMember={messageMember}
+          {...extensions.activityLog === undefined
+            ? {}
+            : { onViewMemberActivity: viewMemberActivity }}
           {...community.state.replyTarget === undefined
             ? {}
             : { replyTarget: community.state.replyTarget }}
@@ -1664,8 +1723,8 @@
   onSelectMessage={(message) => {
     searchOpen = false;
     selectedProfile = null;
+    community.actions.clearReplyTarget();
     community.actions.openThread(message.id);
-    community.actions.setReplyTarget(message.id);
     openSidePanel("thread");
   }}
   onSelectMember={(member) => {

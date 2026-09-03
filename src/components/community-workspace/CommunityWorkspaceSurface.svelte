@@ -96,6 +96,12 @@
       {...handlers.onOpenProfile === undefined
         ? {}
         : { onOpenProfile: handlers.onOpenProfile }}
+      {...handlers.onMessageMember === undefined
+        ? {}
+        : { onMessageMember: handlers.onMessageMember }}
+      {...handlers.onViewMemberActivity === undefined
+        ? {}
+        : { onViewMemberActivity: handlers.onViewMemberActivity }}
     >
       {#snippet intro()}
         {#if model.view === "forum-thread"}

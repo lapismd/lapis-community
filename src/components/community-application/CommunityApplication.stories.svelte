@@ -67,6 +67,7 @@
 
 <CommunityApplication
   controller={community}
+  extensions={{ activityLog: openMemberActivityLog }}
   registryOptions={{
     source: registrySource,
     discussion: registryDiscussion,
@@ -283,14 +284,21 @@
     const threadSidebar = await canvas.findByLabelText("Thread sidebar");
     await expect(threadSidebar).toBeVisible();
     await expect(
-      within(threadSidebar).getByLabelText("Thread from steve"),
+      within(threadSidebar).queryByLabelText("Thread from steve"),
+    ).toBeNull();
+    await expect(
+      within(threadSidebar).getByText("Reply in thread to steve"),
     ).toBeVisible();
     const threadToggle = within(threadSidebar).getByRole("button", {
-      name: "Collapse thread sidebar",
+      name: "Close thread sidebar",
     });
+    await userEvent.click(threadToggle);
     await expect(
-      threadToggle.querySelector('[data-ui-part="sidebar-toggle-indicator"]'),
-    ).toHaveStyle({ width: "6px" });
+      canvas.getByTestId("full-community-application"),
+    ).toHaveAttribute("data-last-action", "closed-side-panel");
+    await waitFor(() =>
+      expect(canvas.queryByLabelText("Thread sidebar")).toBeNull(),
+    );
   }}
 >
   {#snippet template()}

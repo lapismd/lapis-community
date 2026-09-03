@@ -12,10 +12,11 @@
   import MessageSquareReplyIcon from "@lucide/svelte/icons/message-square-reply";
   import PencilIcon from "@lucide/svelte/icons/pencil";
   import Trash2Icon from "@lucide/svelte/icons/trash-2";
+  import { onDestroy } from "svelte";
 
   import type { CommunityCustomEmoji } from "../../community/index.js";
   import CommunityEmojiPicker from "../community-emoji-picker/CommunityEmojiPicker.svelte";
-  import CommunityMemberAvatar from "../community-member-avatar/CommunityMemberAvatar.svelte";
+  import CommunityMemberHoverCard from "../community-member-hover-card/CommunityMemberHoverCard.svelte";
   import type {
     CommunityEmojiReference,
     CommunityMemberModel,
@@ -37,6 +38,9 @@
     onEdit,
     onDelete,
     onOpenProfile,
+    onMessageMember,
+    onViewMemberActivity,
+    replyActionLabel = "Reply in thread",
   }: {
     message: CommunityMessageModel;
     author: CommunityMemberModel;
@@ -60,7 +64,51 @@
     onEdit?: (messageId: string) => void;
     onDelete?: (messageId: string) => void;
     onOpenProfile?: (member: CommunityMemberModel) => void;
+    onMessageMember?: (member: CommunityMemberModel) => void;
+    onViewMemberActivity?: (member: CommunityMemberModel) => void;
+    replyActionLabel?: string;
   } = $props();
+
+  const actionOpenDelay = 180;
+  let actionOpenTimer: ReturnType<typeof setTimeout> | undefined;
+  let actionsVisible = $state(false);
+  let hasFocusWithin = false;
+
+  function clearActionOpenTimer(): void {
+    if (actionOpenTimer === undefined) return;
+    clearTimeout(actionOpenTimer);
+    actionOpenTimer = undefined;
+  }
+
+  function scheduleActions(): void {
+    clearActionOpenTimer();
+    actionOpenTimer = setTimeout(() => {
+      actionsVisible = true;
+      actionOpenTimer = undefined;
+    }, actionOpenDelay);
+  }
+
+  function hideActions(): void {
+    clearActionOpenTimer();
+    if (!hasFocusWithin) actionsVisible = false;
+  }
+
+  function focusActions(): void {
+    hasFocusWithin = true;
+    clearActionOpenTimer();
+    actionsVisible = true;
+  }
+
+  function blurActions(event: FocusEvent): void {
+    const next = event.relatedTarget;
+    if (next instanceof Node && event.currentTarget instanceof Node) {
+      if (event.currentTarget.contains(next)) return;
+    }
+    hasFocusWithin = false;
+    actionsVisible = false;
+  }
+
+  onDestroy(clearActionOpenTimer);
 
   const isSelected = $derived(
     message.reactions?.some((reaction) => reaction.selected) ?? false,
@@ -84,7 +132,12 @@
   class="community-message"
   data-selected={isSelected ? "" : undefined}
   data-continuation={isContinuation ? "" : undefined}
+  data-actions-visible={actionsVisible ? "" : undefined}
   aria-label={`Message from ${author.name}`}
+  onpointerenter={scheduleActions}
+  onpointerleave={hideActions}
+  onfocusin={focusActions}
+  onfocusout={blurActions}
 >
   {#snippet avatar()}
     {#if isContinuation}
@@ -92,14 +145,14 @@
         {message.timestamp}
       </span>
     {:else}
-      <button
-        type="button"
-        class="community-message__avatar"
-        aria-label={`View ${author.name}'s profile`}
-        onclick={() => onOpenProfile?.(author)}
-      >
-        <CommunityMemberAvatar member={author} decorative />
-      </button>
+      <CommunityMemberHoverCard
+        member={author}
+        {...onOpenProfile === undefined ? {} : { onOpenProfile }}
+        {...onMessageMember === undefined ? {} : { onMessage: onMessageMember }}
+        {...onViewMemberActivity === undefined
+          ? {}
+          : { onViewActivity: onViewMemberActivity }}
+      />
     {/if}
   {/snippet}
   {#snippet name()}
@@ -118,21 +171,10 @@
   {#if onAddReaction}
     <div
       class="community-message__actions"
+      data-ui-part="message-actions"
       role="group"
       aria-label={`Actions for ${author.name}'s message`}
     >
-      {#each ["👍", "❤️", "😂"] as emoji (emoji)}
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon-sm"
-          aria-label={`React with ${emoji}`}
-          title={`React with ${emoji}`}
-          onclick={() => onAddReaction(message.id, emoji)}
-        >
-          <span aria-hidden="true">{emoji}</span>
-        </Button>
-      {/each}
       <CommunityEmojiPicker
         label="Add reaction"
         {communityEmojis}
@@ -150,8 +192,8 @@
           type="button"
           variant="ghost"
           size="icon-sm"
-          aria-label="Reply in thread"
-          title="Reply in thread"
+          aria-label={replyActionLabel}
+          title={replyActionLabel}
           onclick={() => onOpenThread(message.id)}
         >
           <MessageSquareReplyIcon aria-hidden="true" />
@@ -304,16 +346,6 @@
     display: none;
   }
 
-  .community-message__avatar {
-    width: 2.25rem;
-    height: 2.25rem;
-    padding: 0;
-    border: 0;
-    border-radius: 50%;
-    background: transparent;
-    cursor: pointer;
-  }
-
   .community-message__continuation-time {
     display: flex;
     width: 2.25rem;
@@ -345,14 +377,14 @@
   .community-message__actions {
     position: absolute;
     z-index: 3;
-    inset-block-start: -1rem;
+    inset-block-start: 0;
     inset-inline-end: 0.5rem;
     display: flex;
     align-items: center;
     gap: 0.125rem;
     padding: 0.125rem;
     border: 1px solid var(--border);
-    border-radius: 0.55rem;
+    border-radius: 999px;
     opacity: 0;
     background: var(--popover, var(--background));
     box-shadow: var(--shadow-sm);
@@ -360,14 +392,14 @@
     transition:
       opacity 120ms ease,
       transform 120ms ease;
-    transform: translateY(0.2rem);
+    transform: translateY(calc(-100% - 0.05rem));
   }
 
-  :global(.community-message:hover) .community-message__actions,
-  :global(.community-message:focus-within) .community-message__actions {
+  :global(.community-message[data-actions-visible])
+    .community-message__actions {
     opacity: 1;
     pointer-events: auto;
-    transform: translateY(0);
+    transform: translateY(calc(-100% - 0.3rem));
   }
 
   .community-message__actions :global([data-ui-component="button"]:hover) {

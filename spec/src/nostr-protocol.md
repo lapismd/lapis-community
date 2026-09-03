@@ -34,3 +34,6 @@ Private kind `14` rumors are materialized only after their NIP-17 gift wrap and
 kind `13` seal validate and decrypt for the connected identity. Application
 state uses eight recent per-device NIP-78 slots, a 32 KiB plaintext ceiling,
 two-second debouncing, and message/thread marker pruning before room cursors.
+Host activity-log navigation is presentation-only: exposing it through the
+optional application extension MUST NOT create, query, or reinterpret a Nostr
+event.

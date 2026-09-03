@@ -33,13 +33,24 @@
     onAddReaction: fn(),
     onCopyMessageLink: fn(),
     onDeleteMessage: fn(),
+    onReply: fn(),
+    onCancelReply: fn(),
+    replyTarget: {
+      eventId: "thread-1",
+      roomId: "general",
+      authorId: "mara",
+      authorName: "Mara Chen",
+      content:
+        "Confirmed here too. The approval is visible in the public read model but the relay still treats it as an ordinary signed message.",
+      kind: "channel",
+    },
   }}
   play={async ({ canvas, args }) => {
     const composer = canvas.getByRole("combobox", { name: "Message" });
-    await expect(canvas.getByLabelText("Thread from Ben Stone")).toBeVisible();
+    await expect(canvas.queryByLabelText("Thread from Ben Stone")).toBeNull();
     await expect(
       canvas
-        .getByLabelText("Thread from Ben Stone")
+        .getByLabelText("Replying to Mara Chen")
         .closest('[data-ui-component="ai-chat-composer-drawer"]'),
     ).toBeVisible();
     await expect(
@@ -56,6 +67,11 @@
       canvas.getByRole("button", { name: "2 reactions with 👍" }),
     );
     await expect(args.onToggleReaction).toHaveBeenCalledWith("thread-1", "👍");
+
+    await userEvent.click(canvas.getAllByRole("button", { name: "Reply" })[0]!);
+    await expect(args.onReply).toHaveBeenCalledWith("thread-1");
+    await userEvent.click(canvas.getByRole("button", { name: "Cancel reply" }));
+    await expect(args.onCancelReply).toHaveBeenCalledOnce();
   }}
 >
   {#snippet template(args)}

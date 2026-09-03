@@ -34,6 +34,8 @@
     onEditMessage,
     onDeleteMessage,
     onOpenProfile,
+    onMessageMember,
+    onViewMemberActivity,
     replyTarget,
     communityEmojis = [],
     onCancelReply,
@@ -57,6 +59,12 @@
     onEditMessage?: (messageId: string) => void;
     onDeleteMessage?: (messageId: string) => void;
     onOpenProfile?: (
+      member: import("../community-workspace/model.js").CommunityMemberModel,
+    ) => void;
+    onMessageMember?: (
+      member: import("../community-workspace/model.js").CommunityMemberModel,
+    ) => void;
+    onViewMemberActivity?: (
       member: import("../community-workspace/model.js").CommunityMemberModel,
     ) => void;
     replyTarget?: CommunityReplyTarget;
@@ -328,6 +336,10 @@
           {...onEditMessage === undefined ? {} : { onEditMessage }}
           {...onDeleteMessage === undefined ? {} : { onDeleteMessage }}
           {...onOpenProfile === undefined ? {} : { onOpenProfile }}
+          {...onMessageMember === undefined ? {} : { onMessageMember }}
+          {...onViewMemberActivity === undefined
+            ? {}
+            : { onViewMemberActivity }}
           {...replyTarget === undefined ? {} : { replyTarget }}
           {communityEmojis}
           {...onCancelReply === undefined ? {} : { onCancelReply }}

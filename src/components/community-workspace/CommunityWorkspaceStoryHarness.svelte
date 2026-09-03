@@ -46,6 +46,8 @@
   let lastAction = $state("ready");
   let showSettings = $state(false);
   let settingsSection = $state<"profile" | "custom-emoji">("profile");
+  let threadSidebarCloseButton = $state<HTMLButtonElement | null>(null);
+  let closingThreadSidebarFromToggle = false;
   const model = $derived(community?.state.workspace ?? initialModel);
 
   onMount(() => {
@@ -195,6 +197,20 @@
     community?.actions.closeSidePanel();
     controller.right.close();
     lastAction = "closed-side-panel";
+  }
+
+  function closeThreadSidebarFromToggle(): void {
+    if (closingThreadSidebarFromToggle) return;
+    if (!threadSidebarCloseButton) {
+      closeSidePanel();
+      return;
+    }
+    closingThreadSidebarFromToggle = true;
+    try {
+      threadSidebarCloseButton.click();
+    } finally {
+      closingThreadSidebarFromToggle = false;
+    }
   }
 </script>
 
@@ -367,8 +383,8 @@
                 lastAction = `opened-topic:${topicId}`;
               },
               onOpenThread: (messageId) => {
+                community?.actions.clearReplyTarget();
                 community?.actions.openThread(messageId);
-                community?.actions.setReplyTarget(messageId);
                 openSidePanel("thread");
                 lastAction = `opened-thread:${messageId}`;
               },
@@ -400,9 +416,14 @@
         <AppShell.Sidebar.Toggle
           side="right"
           sidebarName={sidePanelTitle.toLowerCase()}
+          label={`Close ${sidePanelTitle.toLowerCase()} sidebar`}
+          onclick={closeThreadSidebarFromToggle}
         />
         <strong>{sidePanelTitle}</strong>
-        <AppShell.Sidebar.Close onclick={closeSidePanel} />
+        <AppShell.Sidebar.Close
+          bind:ref={threadSidebarCloseButton}
+          onclick={closeSidePanel}
+        />
       </AppShell.Sidebar.Header>
       <AppShell.Sidebar.Body>
         <CommunityThreadPanel

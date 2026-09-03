@@ -503,6 +503,7 @@ export interface CommunityApplicationExtensions {
   terminal?: () => void | Promise<void>;
   huddle?: (roomId: string) => void | Promise<void>;
   agents?: (roomId: string) => void | Promise<void>;
+  activityLog?: (memberId: string) => void | Promise<void>;
   archive?: (roomId: string) => void | Promise<void>;
   editMessage?: (messageId: string) => void | Promise<void>;
   feedback?: () => void | Promise<void>;

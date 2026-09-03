@@ -111,6 +111,7 @@
   <CommunityApplication
     controller={community}
     displayMode="desktop"
+    extensions={{ activityLog: () => {} }}
     data-testid="full-community-application"
     data-community-backend={runtime.backend}
     registryOptions={{

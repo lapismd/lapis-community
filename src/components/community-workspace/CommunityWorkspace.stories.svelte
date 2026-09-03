@@ -248,7 +248,8 @@
 
     await expect(threadSidebar).toBeVisible();
     await expect(thread.getByText("Thread")).toBeVisible();
-    await expect(thread.getByLabelText("Thread from steve")).toBeVisible();
+    await expect(thread.queryByLabelText("Thread from steve")).toBeNull();
+    await expect(thread.getByText("Reply in thread to steve")).toBeVisible();
     await expect(
       thread.getAllByText("Welcome to Lapis Community")[0],
     ).toBeVisible();
@@ -261,7 +262,7 @@
     await expect(frame).toHaveAttribute("data-last-action", "sent-reply");
 
     await userEvent.click(
-      thread.getByRole("button", { name: "Close right sidebar" }),
+      thread.getByRole("button", { name: "Close thread sidebar" }),
     );
     await waitFor(() => {
       expect(canvas.queryByLabelText("Thread sidebar")).toBeNull();

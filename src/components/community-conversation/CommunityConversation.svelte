@@ -8,6 +8,7 @@
     SystemMessage,
   } from "@lapismd/design-core/ai/chat";
   import { Button } from "@lapismd/design-core/shadcn/button";
+  import ReplyIcon from "@lucide/svelte/icons/reply";
   import XIcon from "@lucide/svelte/icons/x";
   import type { Snippet } from "svelte";
 
@@ -38,6 +39,8 @@
     onEditMessage,
     onDeleteMessage,
     onOpenProfile,
+    onMessageMember,
+    onViewMemberActivity,
     replyTarget,
     communityEmojis = [],
     onCancelReply,
@@ -66,6 +69,8 @@
     onEditMessage?: (messageId: string) => void;
     onDeleteMessage?: (messageId: string) => void;
     onOpenProfile?: (member: CommunityMemberModel) => void;
+    onMessageMember?: (member: CommunityMemberModel) => void;
+    onViewMemberActivity?: (member: CommunityMemberModel) => void;
     replyTarget?: CommunityReplyTarget;
     communityEmojis?: readonly CommunityCustomEmoji[];
     onCancelReply?: () => void;
@@ -129,8 +134,13 @@
             >
               <div class="community-conversation__reply-context">
                 <span>
-                  <strong>Replying to {replyTarget.authorName}</strong>
-                  <small>{replyTarget.content}</small>
+                  <strong>
+                    <ReplyIcon aria-hidden="true" />
+                    Replying to {replyTarget.authorName}
+                  </strong>
+                  <small title={replyTarget.content}
+                    >{replyTarget.content}</small
+                  >
                 </span>
                 <Button
                   type="button"
@@ -188,6 +198,10 @@
           onCopyMessage={(messageId) => onCopyMessage?.(messageId)}
           onEdit={(messageId) => onEditMessage?.(messageId)}
           onDelete={(messageId) => onDeleteMessage?.(messageId)}
+          {...onMessageMember === undefined ? {} : { onMessageMember }}
+          {...onViewMemberActivity === undefined
+            ? {}
+            : { onViewMemberActivity }}
         />
       {/each}
     </MessageList>
@@ -297,25 +311,50 @@
     display: flex;
     width: 100%;
     min-width: 0;
-    align-items: flex-start;
+    align-items: center;
     justify-content: space-between;
     gap: 0.75rem;
-    border-inline-start: 0.1875rem solid var(--primary);
-    padding-inline-start: 0.625rem;
+  }
+
+  .community-conversation
+    :global([data-ui-component="ai-chat-composer-drawer"]) {
+    padding-block-start: 0.625rem;
+    background: color-mix(in srgb, var(--foreground) 4%, var(--background));
   }
 
   .community-conversation__reply-context > span {
     display: grid;
     min-width: 0;
+    flex: 1;
+    gap: 0.1rem;
+  }
+
+  .community-conversation__reply-context strong {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-size: 0.78rem;
+    font-weight: 600;
+    line-height: 1rem;
+  }
+
+  .community-conversation__reply-context strong :global(svg) {
+    width: 0.8rem;
+    height: 0.8rem;
   }
 
   .community-conversation__reply-context small {
-    display: -webkit-box;
+    display: block;
     overflow: hidden;
     color: var(--muted-foreground);
-    line-height: 1.35;
-    -webkit-box-orient: vertical;
-    -webkit-line-clamp: 2;
-    line-clamp: 2;
+    font-size: 0.72rem;
+    line-height: 1rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .community-conversation__reply-context :global([data-ui-component="button"]) {
+    width: 1.5rem;
+    height: 1.5rem;
   }
 </style>
