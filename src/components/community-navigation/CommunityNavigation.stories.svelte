@@ -44,7 +44,7 @@
   name="Supported community destinations"
   parameters={{ layout: "fullscreen", communityAppShell: true }}
   play={async ({ canvas, canvasElement }) => {
-    const search = canvas.getByRole("searchbox", { name: "Search community" });
+    const search = canvas.getByRole("button", { name: "Search community" });
     const runtime = canvas.getByTestId("community-navigation-runtime");
 
     await waitFor(() => {
@@ -52,7 +52,12 @@
     });
     if (runtime.dataset.communityBackend === "live") return;
 
-    await expect(search).toHaveAttribute("placeholder", "Search everything");
+    await expect(search).toHaveTextContent("Search everything");
+    await expect(search).toHaveTextContent("⌘K");
+    await expect(parseFloat(getComputedStyle(search).marginInlineStart)).toBe(
+      12,
+    );
+    await userEvent.click(search);
     await expect(canvas.getByRole("button", { name: "Inbox" })).toHaveAttribute(
       "aria-current",
       "page",
@@ -67,6 +72,15 @@
     await expect(
       canvas.getByRole("heading", { name: "Direct messages" }),
     ).toBeVisible();
+    const directMessage = canvas.getByRole("button", { name: "Member" });
+    await expect(
+      directMessage.querySelector(
+        '[data-ui-component="community-member-avatar"]',
+      ),
+    ).not.toBeNull();
+    await expect(
+      directMessage.querySelector('[data-ui-part="presence"]'),
+    ).toHaveAttribute("data-presence", "offline");
     await expect(
       canvas.getByRole("button", { name: "Open Channels menu" }),
     ).toBeVisible();
@@ -130,11 +144,6 @@
       canvas.getByRole("button", { name: "support" }),
     ).toHaveAttribute("aria-current", "page");
 
-    await userEvent.type(search, "support");
-    await expect(canvas.getByRole("button", { name: "support" })).toBeVisible();
-    await expect(canvas.queryByRole("button", { name: "general" })).toBeNull();
-    await userEvent.clear(search);
-
     const sidebarToggle = canvas.getByRole("button", {
       name: "Collapse left sidebar",
     });
@@ -160,11 +169,8 @@
     });
     await expect(canvas.getByLabelText("Left sidebar")).toHaveAttribute(
       "data-state",
-      "expanded",
+      "collapsed",
     );
-    await expect(
-      canvas.getByRole("searchbox", { name: "Search community" }),
-    ).toHaveFocus();
   }}
 >
   {#snippet template()}

@@ -725,14 +725,16 @@ export function createCommunityController(
         query,
       });
       if (searchQuery === query && generation === requestedGeneration) {
-        searchResults = [...local];
+        searchResults = resolveSearchResultRooms(local);
       }
       const session = sessions.get(activeCommunityId);
       if (session === undefined) return;
       await runOperation("search", async () => {
         const result = await session.search(query, controllerAbort?.signal);
         if (searchQuery === query && generation === requestedGeneration) {
-          searchResults = distinctSearchResults([...local, ...result]);
+          searchResults = distinctSearchResults(
+            resolveSearchResultRooms([...local, ...result]),
+          );
         }
       });
     },
@@ -799,7 +801,7 @@ export function createCommunityController(
         content: message.content,
         kind: room.kind,
       };
-      if (room.kind !== "direct") {
+      if (room.kind === "channel") {
         activeThreadId = rootMessageId(activeEvents(), message.id);
         sidePanel = "thread";
       }
@@ -1388,6 +1390,17 @@ export function createCommunityController(
     return communityRooms(activeScope(), activeEvents()).find(
       (room) => room.id === roomId,
     );
+  }
+
+  function resolveSearchResultRooms(
+    results: readonly CommunitySearchResult[],
+  ): CommunitySearchResult[] {
+    const rooms = communityRooms(activeScope(), activeEvents());
+    return results.map((result) => {
+      const groupId = result.event.tags.find((tag) => tag[0] === "h")?.[1];
+      const room = rooms.find((candidate) => candidate.groupId === groupId);
+      return room === undefined ? result : { ...result, roomId: room.id };
+    });
   }
 
   function activeEvents(): readonly NostrEvent[] {

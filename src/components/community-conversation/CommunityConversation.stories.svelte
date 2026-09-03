@@ -101,3 +101,50 @@
     </div>
   {/snippet}
 </Story>
+
+<Story
+  name="Empty direct message"
+  args={{
+    room: {
+      id: "dm-fizz",
+      name: "Fizz",
+      kind: "direct",
+      participantIds: ["noor", "fizz"],
+      private: true,
+    },
+    messages: [],
+    members: communityStoryMembers,
+    directMember: {
+      id: "fizz",
+      name: "Fizz",
+      handle: "fizz",
+      initials: "F",
+      presence: "online",
+    },
+    onSend: fn(),
+  }}
+  play={async ({ canvas }) => {
+    await expect(canvas.getByRole("heading", { name: "Fizz" })).toBeVisible();
+    await expect(
+      canvas.getByText(
+        "This is the beginning of your direct message with Fizz.",
+      ),
+    ).toBeVisible();
+    await expect(
+      canvas.getByText("Today", { selector: '[data-ui-part="content"]' }),
+    ).toBeVisible();
+    await expect(
+      canvas
+        .getByRole("heading", { name: "Fizz" })
+        .parentElement?.querySelector('[data-ui-part="presence"]'),
+    ).toHaveAttribute("data-presence", "online");
+  }}
+>
+  {#snippet template(args)}
+    <div
+      style="width: min(100%, 54rem); height: 38rem; border: 1px solid var(--border);"
+    >
+      <CommunityConversation {...args} />
+    </div>
+  {/snippet}
+</Story>

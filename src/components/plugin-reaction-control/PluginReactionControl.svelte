@@ -1,6 +1,4 @@
 <script lang="ts">
-  import { Button } from "@lapismd/design-core/shadcn/button";
-
   import CommunityEmojiPicker from "../community-emoji-picker/CommunityEmojiPicker.svelte";
   import type { ReactionGroup } from "../registry-community/model.js";
 
@@ -9,7 +7,6 @@
     selected = $bindable(""),
     publishing = false,
     releaseAvailable = false,
-    hasOwnReaction = false,
     onSubmit,
   }: {
     summary?: ReactionGroup[];
@@ -17,10 +14,15 @@
     publishing?: boolean;
     releaseAvailable?: boolean;
     hasOwnReaction?: boolean;
-    onSubmit: () => void | Promise<void>;
+    onSubmit: (emoji: string) => void | Promise<void>;
   } = $props();
 
   const choices = ["👍", "❤️", "🎉", "👀", "⭐"] as const;
+
+  function selectReaction(emoji: string): void {
+    selected = emoji;
+    void onSubmit(emoji);
+  }
 </script>
 
 <div class="rating-control">
@@ -42,24 +44,17 @@
     {/if}
     <CommunityEmojiPicker
       label="Choose plugin reaction"
-      disabled={publishing}
+      disabled={publishing || !releaseAvailable}
       presets={choices}
-      onSelect={(emoji) => (selected = emoji)}
+      onSelect={selectReaction}
     />
   </div>
-  <Button
-    size="sm"
-    disabled={publishing || selected === "" || !releaseAvailable}
-    onclick={onSubmit}
-  >
-    {hasOwnReaction ? "Update reaction" : "Publish reaction"}
-  </Button>
 </div>
 
 <style>
   .rating-control {
     display: grid;
-    grid-template-columns: minmax(12rem, 1fr) auto auto;
+    grid-template-columns: minmax(12rem, 1fr) auto;
     align-items: center;
     gap: 1rem;
     padding: 1rem;

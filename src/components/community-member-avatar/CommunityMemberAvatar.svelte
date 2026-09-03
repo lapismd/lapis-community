@@ -28,12 +28,13 @@
 
 <span
   class="community-member-avatar"
+  data-ui-component="community-member-avatar"
   data-size={size}
   aria-hidden={decorative ? "true" : undefined}
   aria-label={accessibleLabel}
   role={decorative ? undefined : "img"}
 >
-  <span class="community-member-avatar__image">
+  <span class="community-member-avatar__image" data-ui-part="image">
     {#if member.avatarUrl}
       <img src={member.avatarUrl} alt="" />
     {:else}
@@ -43,6 +44,7 @@
   {#if showPresence}
     <span
       class="community-member-avatar__presence"
+      data-ui-part="presence"
       data-presence={presence}
       aria-hidden="true"
     ></span>

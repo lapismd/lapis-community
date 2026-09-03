@@ -1,6 +1,5 @@
 <script lang="ts">
   import "./CommunityNavigation.css";
-  import { SearchFilterBar } from "@lapismd/design-core/filter";
   import { Badge } from "@lapismd/design-core/shadcn/badge";
   import { Button } from "@lapismd/design-core/shadcn/button";
   import * as Collapsible from "@lapismd/design-core/shadcn/collapsible";
@@ -33,9 +32,9 @@
   import SettingsIcon from "@lucide/svelte/icons/settings";
   import StarIcon from "@lucide/svelte/icons/star";
   import TrashIcon from "@lucide/svelte/icons/trash-2";
-  import { tick, type Component, type Snippet } from "svelte";
+  import { type Component, type Snippet } from "svelte";
+  import CommunityMemberAvatar from "../community-member-avatar/CommunityMemberAvatar.svelte";
   import {
-    filterCommunityNavigation,
     type CommunityNavigationItemModel,
     type CommunityNavigationItemAction,
     type CommunityNavigationCustomSectionOption,
@@ -54,7 +53,6 @@
     onSectionAction = () => {},
     onItemAction = () => {},
     customSections = [],
-    onRequestExpand = () => {},
     headerStart,
     headerEnd,
     footer,
@@ -73,17 +71,13 @@
       action: CommunityNavigationItemAction,
     ) => void;
     customSections?: readonly CommunityNavigationCustomSectionOption[];
-    onRequestExpand?: () => void;
     headerStart?: Snippet;
     headerEnd?: Snippet;
     footer?: Snippet;
   } = $props();
 
-  let query = $state("");
-  let search = $state<{ focus: () => void } | null>(null);
   let sectionOpen = $state<Record<string, boolean>>({});
   let sectionSort = $state<Record<string, CommunityNavigationSortOrder>>({});
-  let filteredModel = $derived(filterCommunityNavigation(model, query));
 
   function iconFor(item: CommunityNavigationItemModel): Component {
     if (item.restricted) return LockKeyholeIcon;
@@ -134,7 +128,7 @@
   }
 
   function isSectionOpen(section: CommunityNavigationSectionModel): boolean {
-    if (compact || query.length > 0) return true;
+    if (compact) return true;
     return sectionOpen[section.id] ?? !section.initiallyCollapsed;
   }
 
@@ -142,24 +136,17 @@
     sectionOpen = { ...sectionOpen, [sectionId]: open };
   }
 
-  function setQuery(value: string): void {
-    query = value;
-    onSearch(value);
+  function requestSearch(): void {
+    onSearch("");
   }
 
-  async function handleShortcut(event: KeyboardEvent): Promise<void> {
+  function handleShortcut(event: KeyboardEvent): void {
     if (
       (event.metaKey || event.ctrlKey) &&
       event.key.toLocaleLowerCase() === "k"
     ) {
       event.preventDefault();
-      if (compact) {
-        onRequestExpand();
-        await tick();
-        search?.focus();
-      } else {
-        search?.focus();
-      }
+      requestSearch();
     }
   }
 </script>
@@ -399,21 +386,22 @@
       class="lc-community-navigation__compact-search"
       aria-label="Search community"
       title="Search community"
-      onclick={onRequestExpand}
+      onclick={requestSearch}
     >
       <SearchIcon aria-hidden="true" />
     </Button>
   {:else}
-    <SearchFilterBar
-      bind:this={search}
-      value={query}
-      inputMode="plain"
-      placeholder={model.searchPlaceholder ?? "Search everything"}
-      ariaLabel="Search community"
-      shortcut="⌘K"
-      onValueChange={setQuery}
-      onClearSearch={() => setQuery("")}
-    />
+    <Button
+      type="button"
+      variant="ghost"
+      class="lc-community-navigation__search-trigger"
+      aria-label="Search community"
+      onclick={requestSearch}
+    >
+      <SearchIcon aria-hidden="true" />
+      <span>{model.searchPlaceholder ?? "Search everything"}</span>
+      <kbd aria-hidden="true">⌘K</kbd>
+    </Button>
   {/if}
   {@render headerEnd?.()}
 </AppShell.Sidebar.Header>
@@ -421,7 +409,7 @@
 <AppShell.Sidebar.Body class="lc-community-navigation__body">
   <nav aria-label="Community navigation" data-compact={compact || undefined}>
     <div class="lc-community-navigation__primary">
-      {#each filteredModel.primaryItems as item (item.id)}
+      {#each model.primaryItems as item (item.id)}
         {@const ItemIcon = iconFor(item)}
         <Button
           variant="ghost"
@@ -442,7 +430,7 @@
       {/each}
     </div>
 
-    {#each filteredModel.sections as section (section.id)}
+    {#each model.sections as section (section.id)}
       <Collapsible.Root
         class="lc-community-navigation__section"
         open={isSectionOpen(section)}
@@ -564,7 +552,16 @@
                       title={item.label}
                       onclick={() => onSelect(item)}
                     >
-                      <ItemIcon aria-hidden="true" />
+                      {#if item.kind === "direct-message" && item.member}
+                        <CommunityMemberAvatar
+                          member={item.member}
+                          size="small"
+                          showPresence
+                          decorative
+                        />
+                      {:else}
+                        <ItemIcon aria-hidden="true" />
+                      {/if}
                       {#if !compact}<span>{item.label}</span>{/if}
                       {#if !compact && item.starred}<StarIcon
                           class="lc-community-navigation__state-icon"
@@ -605,10 +602,6 @@
         </Collapsible.Content>
       </Collapsible.Root>
     {/each}
-
-    {#if query && filteredModel.primaryItems.length === 0 && filteredModel.sections.length === 0}
-      <p class="lc-community-navigation__empty">No matching rooms</p>
-    {/if}
   </nav>
 </AppShell.Sidebar.Body>
 

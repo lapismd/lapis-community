@@ -1,3 +1,5 @@
+import type { CommunityMemberModel } from "../community-workspace/model.js";
+
 export type CommunityNavigationItemKind =
   | "inbox"
   | "registry"
@@ -10,6 +12,7 @@ export interface CommunityNavigationItemModel {
   label: string;
   kind: CommunityNavigationItemKind;
   icon?: string;
+  member?: CommunityMemberModel;
   restricted?: boolean;
   unreadCount?: number;
   activityAt?: string;

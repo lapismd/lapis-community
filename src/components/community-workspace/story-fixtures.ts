@@ -128,8 +128,20 @@ export const communityStoryNavigation: CommunityWorkspaceNavigationSectionModel[
       id: "direct-messages",
       label: "Direct messages",
       rooms: [
-        { id: "dm-ada", name: "Ada Lovelace", kind: "direct", private: true },
-        { id: "dm-mara", name: "Mara Chen", kind: "direct", private: true },
+        {
+          id: "dm-ada",
+          name: "Ada Lovelace",
+          kind: "direct",
+          participantIds: ["noor", "ada"],
+          private: true,
+        },
+        {
+          id: "dm-mara",
+          name: "Mara Chen",
+          kind: "direct",
+          participantIds: ["noor", "mara"],
+          private: true,
+        },
       ],
     },
   ];

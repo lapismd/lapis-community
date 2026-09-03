@@ -17,6 +17,7 @@
   import HashIcon from "@lucide/svelte/icons/hash";
   import HeadphonesIcon from "@lucide/svelte/icons/headphones";
   import LockIcon from "@lucide/svelte/icons/lock";
+  import MessagesSquareIcon from "@lucide/svelte/icons/messages-square";
   import PackageSearchIcon from "@lucide/svelte/icons/package-search";
   import SquareTerminalIcon from "@lucide/svelte/icons/square-terminal";
   import UsersIcon from "@lucide/svelte/icons/users";
@@ -47,6 +48,7 @@
   import type { CommunityInboxModel } from "../community-inbox/model.js";
   import CommunityNavigation from "../community-navigation/CommunityNavigation.svelte";
   import CommunityMemberCommand from "../community-member-command/CommunityMemberCommand.svelte";
+  import CommunityMemberAvatar from "../community-member-avatar/CommunityMemberAvatar.svelte";
   import CommunityMemberProfile from "../community-member-profile/CommunityMemberProfile.svelte";
   import type {
     CommunityNavigationItemModel,
@@ -60,11 +62,13 @@
   import CommunityRoomBrowser from "../community-room-browser/CommunityRoomBrowser.svelte";
   import CommunityRoomEditor from "../community-room-editor/CommunityRoomEditor.svelte";
   import CommunitySearchCommand from "../community-search-command/CommunitySearchCommand.svelte";
-  import { projectCommunitySearchResults } from "../community-search-command/model.js";
+  import {
+    projectCommunitySearchResults,
+    type CommunitySearchMessageModel,
+  } from "../community-search-command/model.js";
   import CommunitySettingsNavigation from "../community-settings-navigation/CommunitySettingsNavigation.svelte";
   import CommunitySettings from "../community-settings/CommunitySettings.svelte";
   import CommunityThreadPanel from "../community-thread-panel/CommunityThreadPanel.svelte";
-  import CommunityTopicComposer from "../community-topic-composer/CommunityTopicComposer.svelte";
   import CommunityWorkspaceSurface from "../community-workspace/CommunityWorkspaceSurface.svelte";
   import RegistryBrowser from "../registry-browser/RegistryBrowser.svelte";
   import type { RegistryBrowserOptions } from "../registry-browser/model.js";
@@ -161,7 +165,6 @@
   let memberCommandOpen = $state(false);
   let memberCommandMode = $state<"view" | "manage" | "select">("view");
   let selectedRecipientIds = $state<string[]>([]);
-  let topicComposerOpen = $state(false);
   let confirmation = $state<"leave" | "delete" | null>(null);
   let statusOpen = $state(false);
   let statusDraft = $state("");
@@ -180,6 +183,13 @@
   const activePanel = $derived(applicationLocation.panel);
   const activeRoom = $derived(
     findCommunityRoom(workspace) ?? fallbackRoom(workspace.activeRoomId),
+  );
+  const activeDirectMember = $derived(
+    directMemberForRoom(
+      activeRoom,
+      workspace.members,
+      workspace.currentMemberId,
+    ),
   );
   const inbox = $derived(
     community.state.inbox ?? fallbackInbox(activeRoom, workspace.members),
@@ -285,6 +295,15 @@
             label: room.name,
             kind:
               room.kind === "direct" ? ("direct-message" as const) : room.kind,
+            ...(room.kind === "direct"
+              ? {
+                  member: directMemberForRoom(
+                    room,
+                    workspace.members,
+                    workspace.currentMemberId,
+                  )!,
+                }
+              : {}),
             ...(room.private === undefined ? {} : { restricted: room.private }),
             ...(room.mentionCount === undefined &&
             room.unreadCount === undefined
@@ -330,6 +349,15 @@
             label: room.name,
             kind:
               room.kind === "direct" ? ("direct-message" as const) : room.kind,
+            ...(room.kind === "direct"
+              ? {
+                  member: directMemberForRoom(
+                    room,
+                    workspace.members,
+                    workspace.currentMemberId,
+                  )!,
+                }
+              : {}),
             starred: community.state.navigation.starredRoomIds.includes(
               room.id,
             ),
@@ -351,13 +379,23 @@
   const projectedSearchResults = $derived(
     projectCommunitySearchResults(community.state.searchResults),
   );
-  const searchMessages = $derived(
+  const searchMessages = $derived<readonly CommunitySearchMessageModel[]>(
     [
-      ...workspace.messages.filter((message) =>
-        message.content
-          .toLocaleLowerCase()
-          .includes(appSearchQuery.toLocaleLowerCase()),
-      ),
+      ...workspace.messages
+        .filter((message) =>
+          message.content
+            .toLocaleLowerCase()
+            .includes(appSearchQuery.toLocaleLowerCase()),
+        )
+        .map((message) => ({
+          ...message,
+          roomId: activeRoom.id,
+          ...(activeRoom.kind === "forum"
+            ? {
+                topicId: rootCommunityMessageId(workspace.messages, message.id),
+              }
+            : {}),
+        })),
       ...projectedSearchResults.messages,
     ].filter(
       (message, index, values) =>
@@ -376,6 +414,12 @@
       (member, index, values) =>
         values.findIndex((candidate) => candidate.id === member.id) === index,
     ),
+  );
+  const searchScopeRoom = $derived(
+    activeRoom.id === activeDestination &&
+      (activeRoom.kind === "channel" || activeRoom.kind === "forum")
+      ? activeRoom
+      : undefined,
   );
   const selectedRecipients = $derived(
     selectedRecipientIds
@@ -1109,6 +1153,36 @@
     };
   }
 
+  function directMemberForRoom(
+    room: CommunityRoomModel,
+    members: readonly CommunityMemberModel[],
+    currentMemberId: string | undefined,
+  ): CommunityMemberModel | undefined {
+    if (room.kind !== "direct") return undefined;
+    const peerId = room.participantIds?.find((id) => id !== currentMemberId);
+    const matchedMember =
+      (peerId === undefined
+        ? undefined
+        : members.find((member) => member.id === peerId)) ??
+      members.find((member) => member.name === room.name);
+    if (matchedMember) return matchedMember;
+
+    const name = room.name || "Direct message";
+    return {
+      id: peerId ?? room.id,
+      name,
+      handle: peerId?.slice(0, 12) ?? room.id,
+      initials:
+        name
+          .split(/\s+/u)
+          .filter(Boolean)
+          .slice(0, 2)
+          .map((part) => part[0]?.toLocaleUpperCase() ?? "")
+          .join("") || "?",
+      presence: "offline",
+    };
+  }
+
   function fallbackInbox(
     room: CommunityRoomModel,
     members: CommunityInboxModel["members"],
@@ -1219,7 +1293,7 @@
         onSelect={select}
         onSearch={(query) => {
           appSearchQuery = query;
-          searchOpen = query.trim() !== "";
+          searchOpen = true;
           void community.actions.search(query);
         }}
         onSectionAction={handleSectionAction}
@@ -1228,7 +1302,6 @@
           id: section.id,
           label: section.name,
         }))}
-        onRequestExpand={() => shell.left.expand()}
       >
         {#snippet footer()}
           {#if showRelayNotice && !navigationCompact}
@@ -1483,7 +1556,10 @@
         </AppShell.Body.Content>
       </AppShell.Body>
     {:else}
-      <AppShell.Toolbar label={`${activeRoom.name} toolbar`}>
+      <AppShell.Toolbar
+        label={`${activeRoom.name} toolbar`}
+        class="community-application__room-toolbar"
+      >
         <div class="community-application__toolbar-start">
           {#if shell.mobile.resolvedMode === "mobile"}
             {@render mobileNavigationControls()}
@@ -1492,10 +1568,22 @@
           {/if}
           <div class="community-application__room-title">
             <strong data-ui-part="room-title">
-              {#if activeRoom.private || activeRoom.kind === "direct"}
+              {#if activeRoom.kind === "direct" && activeDirectMember}
+                <CommunityMemberAvatar
+                  member={activeDirectMember}
+                  showPresence
+                  decorative
+                />
+              {:else if activeRoom.private}
                 <LockIcon data-icon="inline-start" aria-hidden="true" />
               {:else if activeRoom.kind === "channel"}
                 <HashIcon data-icon="inline-start" aria-hidden="true" />
+              {:else if activeRoom.kind === "forum"}
+                <MessagesSquareIcon
+                  data-icon="inline-start"
+                  data-ui-part="room-kind-icon"
+                  aria-hidden="true"
+                />
               {:else}
                 <span aria-hidden="true">●</span>
               {/if}
@@ -1574,7 +1662,15 @@
             communityEmojis={community.state.settings.customEmojis}
             handlers={{
               ...community.handlers,
-              onSelectRoom: (roomId) => setDestination(roomId, true),
+              onSelectRoom: (roomId) => {
+                if (
+                  roomId === activeRoom.id &&
+                  workspace.view === "forum-thread"
+                ) {
+                  community.actions.selectRoom(roomId);
+                  lastAction = `selected:${roomId}`;
+                } else setDestination(roomId, true);
+              },
               onSendMessage: sendWorkspaceMessage,
               onOpenTopic: (topicId) => {
                 community.actions.openTopic(topicId);
@@ -1582,7 +1678,7 @@
                 lastAction = `opened-topic:${topicId}`;
               },
               onReply: (messageId) => {
-                if (activeRoom.kind === "direct")
+                if (activeRoom.kind === "direct" || activeRoom.kind === "forum")
                   community.actions.setReplyTarget(messageId);
                 else
                   openPanel({
@@ -1638,10 +1734,10 @@
               ...(extensions.agents === undefined
                 ? {}
                 : { onCreateAgent: extensions.agents }),
-              onCreateTopic: () =>
-                void runAuthenticated(() => {
-                  topicComposerOpen = true;
-                }),
+              onCreateTopic: (_roomId, draft) =>
+                runAuthenticated(() =>
+                  community.actions.createTopic(activeRoom.id, draft),
+                ),
               onTopicAction: (topicId, action) => {
                 const topic = workspace.topics.find(
                   (candidate) => candidate.id === topicId,
@@ -1953,19 +2049,13 @@
     : () => (memberCommandOpen = false)}
 />
 
-<CommunityTopicComposer
-  bind:open={topicComposerOpen}
-  forumName={activeRoom.name}
-  onPublish={(draft) =>
-    runAuthenticated(() => community.actions.createTopic(activeRoom.id, draft))}
-/>
-
 <CommunitySearchCommand
   bind:open={searchOpen}
   query={appSearchQuery}
   rooms={searchRooms}
   messages={searchMessages}
   members={searchMembers}
+  {...searchScopeRoom === undefined ? {} : { scopeRoom: searchScopeRoom }}
   onQueryChange={(query) => {
     appSearchQuery = query;
     void community.actions.search(query);
@@ -1975,17 +2065,36 @@
     setDestination(room.id, true);
   }}
   onSelectMessage={(message) => {
+    const roomId = message.roomId ?? activeRoom.id;
+    const room = allRooms.find((candidate) => candidate.id === roomId);
     searchOpen = false;
-    openPanel({
+    if (room?.kind === "direct") {
+      setDestination(roomId, true);
+      return;
+    }
+    if (room?.kind === "forum") {
+      setDestination(roomId, true);
+      community.actions.openTopic(message.topicId ?? message.id);
+      return;
+    }
+    openPanelForDestination(roomId, {
       kind: "thread",
-      roomId: activeRoom.id,
-      rootMessageId: rootCommunityMessageId(workspace.messages, message.id),
+      roomId,
+      rootMessageId: rootCommunityMessageId(searchMessages, message.id),
     });
   }}
   onSelectMember={(member) => {
     searchOpen = false;
-    selectedRecipientIds = [member.id];
-    startDirectMessage();
+    messageMember(member);
+  }}
+  onBrowseChannels={() => {
+    searchOpen = false;
+    openRoomBrowser("channel");
+  }}
+  canCreateChannel={hasCommunityConnection}
+  onCreateChannel={() => {
+    searchOpen = false;
+    void runAuthenticated(() => openRoomEditor("channel", "create"));
   }}
 />
 
@@ -2202,6 +2311,10 @@
 
   .community-application__toolbar-start {
     flex: 1;
+  }
+
+  :global(.community-application__room-toolbar[data-ui-part="toolbar"]) {
+    padding-block: 0.625rem 0.375rem;
   }
 
   .community-application__room-title {

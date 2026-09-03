@@ -38,6 +38,7 @@ describe("projectCommunitySearchResults", () => {
       expect.objectContaining({
         id: message.id,
         content: "Welcome to Lapis Community",
+        roomId: "general",
       }),
     ]);
     expect(projection.members).toEqual([

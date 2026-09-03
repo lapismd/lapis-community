@@ -41,6 +41,15 @@
         description: "Community conversation",
       } satisfies CommunityRoomModel),
   );
+  const activeDirectMember = $derived(
+    activeRoom.kind === "direct"
+      ? (activeRoom.participantIds
+          ?.filter((id) => id !== model.currentMemberId)
+          .map((id) => model.members.find((member) => member.id === id))
+          .find((member) => member !== undefined) ??
+          model.members.find((member) => member.name === activeRoom.name))
+      : undefined,
+  );
 </script>
 
 <div class="community-workspace-surface" data-view={model.view}>
@@ -53,7 +62,12 @@
       {...handlers.onOpenTopic === undefined
         ? {}
         : { onOpenTopic: handlers.onOpenTopic }}
-      onCreateTopic={() => handlers.onCreateTopic?.(activeRoom.id)}
+      {...handlers.onCreateTopic === undefined
+        ? {}
+        : {
+            onCreateTopic: (draft) =>
+              Promise.resolve(handlers.onCreateTopic?.(activeRoom.id, draft)),
+          }}
       {...handlers.onTopicAction === undefined
         ? {}
         : { onTopicAction: handlers.onTopicAction }}
@@ -63,6 +77,9 @@
       room={activeRoom}
       messages={model.messages}
       members={model.members}
+      {...activeDirectMember === undefined
+        ? {}
+        : { directMember: activeDirectMember }}
       {...replyTarget === undefined ? {} : { replyTarget }}
       {communityEmojis}
       disabled={readOnly}
@@ -73,9 +90,12 @@
       composerPlacement="row"
       onSend={(content) => handlers.onSendMessage?.(activeRoom.id, content)}
       {...handlers.onReply === undefined ? {} : { onReply: handlers.onReply }}
-      {...handlers.onOpenThread === undefined
+      {...handlers.onOpenThread === undefined || activeRoom.kind === "forum"
         ? {}
         : { onOpenThread: handlers.onOpenThread }}
+      replyActionLabel={activeRoom.kind === "forum"
+        ? "Reply"
+        : "Reply in thread"}
       {...handlers.onToggleReaction === undefined
         ? {}
         : { onToggleReaction: handlers.onToggleReaction }}

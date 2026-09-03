@@ -247,6 +247,217 @@
 </Story>
 
 <Story
+  name="Discovery and search"
+  play={async ({ canvas, canvasElement }) => {
+    const application = await canvas.findByTestId(
+      "full-community-application",
+      {},
+      { timeout: 15_000 },
+    );
+    await waitFor(
+      () =>
+        expect(application).toHaveAttribute(
+          "data-community-status",
+          "connected",
+        ),
+      { timeout: 15_000 },
+    );
+    if (application.dataset.communityBackend === "live") return;
+
+    const overlay = within(canvasElement.ownerDocument.body);
+    const searchTrigger = canvas.getByRole("button", {
+      name: "Search community",
+    });
+    const waitForSearchTrigger = async (): Promise<void> => {
+      await waitFor(() =>
+        expect(getComputedStyle(searchTrigger).pointerEvents).not.toBe("none"),
+      );
+    };
+    await expect(searchTrigger.tagName).toBe("BUTTON");
+    await userEvent.click(searchTrigger);
+
+    let searchDialog = await overlay.findByRole("dialog", {
+      name: "Search community",
+    });
+    await expect(
+      within(searchDialog).getByRole("option", { name: "Browse channels" }),
+    ).toBeVisible();
+    await userEvent.click(
+      within(searchDialog).getByRole("option", { name: "Browse channels" }),
+    );
+
+    const roomBrowser = await overlay.findByRole("dialog", {
+      name: "Browse channels",
+    });
+    await expect(
+      within(roomBrowser).getByLabelText("Search channels"),
+    ).toBeVisible();
+    await expect(
+      within(roomBrowser).getByRole("button", {
+        name: "Sort channels by A to Z",
+      }),
+    ).toBeVisible();
+    await expect(
+      within(roomBrowser).getByRole("tab", { name: "All channels" }),
+    ).toBeVisible();
+    await userEvent.click(
+      within(roomBrowser).getByRole("button", {
+        name: "Create a new channel",
+      }),
+    );
+    const roomEditor = await overlay.findByRole("dialog", {
+      name: "Create channel",
+    });
+    await userEvent.click(
+      within(roomEditor).getByRole("button", { name: "Cancel" }),
+    );
+    await waitFor(() => expect(roomEditor).not.toBeInTheDocument());
+    await waitFor(() =>
+      expect(canvasElement.ownerDocument.body.style.pointerEvents).not.toBe(
+        "none",
+      ),
+    );
+    await waitForSearchTrigger();
+
+    await userEvent.click(searchTrigger);
+    searchDialog = await overlay.findByRole("dialog", {
+      name: "Search community",
+    });
+    let searchInput = within(searchDialog).getByLabelText("Search community");
+    await userEvent.type(searchInput, "portable");
+    await userEvent.click(
+      await within(searchDialog).findByRole("option", {
+        name: /How should portable forums work/u,
+      }),
+    );
+    await waitFor(() => expect(searchDialog).not.toBeInTheDocument());
+    await waitFor(() => {
+      expect(
+        application.querySelector('[data-ui-part="room-title"]'),
+      ).toHaveTextContent("support");
+    });
+    await expect(canvas.queryByLabelText("Thread sidebar")).toBeNull();
+    const forumToolbar = canvas.getByLabelText("support toolbar");
+    await expect(
+      forumToolbar.querySelector('[data-ui-part="room-kind-icon"]'),
+    ).not.toBeNull();
+    let backToPosts = await canvas.findByRole("button", {
+      name: "Back to posts",
+    });
+    await expect(
+      backToPosts.getBoundingClientRect().top,
+    ).toBeGreaterThanOrEqual(forumToolbar.getBoundingClientRect().bottom);
+    await expect(
+      backToPosts.getBoundingClientRect().top -
+        forumToolbar.getBoundingClientRect().bottom,
+    ).toBeLessThan(80);
+    await waitForSearchTrigger();
+    await userEvent.click(searchTrigger);
+    searchDialog = await overlay.findByRole("dialog", {
+      name: "Search community",
+    });
+    await userEvent.click(
+      within(searchDialog).getByRole("option", {
+        name: /Search in #support/u,
+      }),
+    );
+    searchDialog = await overlay.findByRole("dialog", {
+      name: "Search in #support",
+    });
+    searchInput = within(searchDialog).getByLabelText("Search in #support");
+    await userEvent.type(searchInput, "URLs");
+    await userEvent.click(
+      await within(searchDialog).findByRole("option", {
+        name: /Portable forum URLs should retain relay and group identity/u,
+      }),
+    );
+    await waitFor(() => expect(searchDialog).not.toBeInTheDocument());
+    await expect(
+      canvas.getByText("How should portable forums work?"),
+    ).toBeVisible();
+    await expect(
+      canvas.getByText(
+        "Agreed. The reply and activity columns should stay aligned.",
+      ),
+    ).toBeVisible();
+    backToPosts = await canvas.findByRole("button", {
+      name: "Back to posts",
+    });
+    await waitFor(() =>
+      expect(canvasElement.ownerDocument.body.style.pointerEvents).not.toBe(
+        "none",
+      ),
+    );
+    await userEvent.click(backToPosts);
+    const newPost = await canvas.findByRole("button", {
+      name: "Start a new post in support",
+    });
+    await userEvent.click(newPost);
+    await expect(
+      canvas.getByRole("combobox", { name: "Message" }),
+    ).toBeVisible();
+    await userEvent.click(canvas.getByRole("button", { name: "Cancel" }));
+    await waitFor(() =>
+      expect(canvasElement.ownerDocument.body.style.pointerEvents).not.toBe(
+        "none",
+      ),
+    );
+
+    await userEvent.click(searchTrigger);
+    searchDialog = await overlay.findByRole("dialog", {
+      name: "Search community",
+    });
+    searchInput = within(searchDialog).getByLabelText("Search community");
+    await userEvent.clear(searchInput);
+    await userEvent.type(searchInput, "Member");
+    const memberResults = await within(searchDialog).findAllByRole("option", {
+      name: /Member/u,
+    });
+    const directMessageResult = memberResults.find((result) =>
+      result.textContent?.includes("Direct message"),
+    );
+    if (!directMessageResult)
+      throw new Error("Expected the direct-message search result");
+    await userEvent.click(directMessageResult);
+    await waitFor(() => {
+      expect(
+        application.querySelector('[data-ui-part="room-title"]'),
+      ).toHaveTextContent("Member");
+    });
+    await expect(canvas.queryByLabelText("Thread sidebar")).toBeNull();
+    const directMessageNavigation = canvas.getByRole("button", {
+      name: "Member",
+    });
+    await expect(
+      directMessageNavigation.querySelector(
+        '[data-ui-component="community-member-avatar"]',
+      ),
+    ).not.toBeNull();
+    await expect(
+      directMessageNavigation.querySelector('[data-ui-part="presence"]'),
+    ).not.toBeNull();
+    await expect(
+      application
+        .querySelector('[data-ui-part="room-title"]')
+        ?.querySelector('[data-ui-component="community-member-avatar"]'),
+    ).not.toBeNull();
+    const directMessageToolbar = canvas.getByLabelText("Member toolbar");
+    await expect(
+      parseFloat(getComputedStyle(directMessageToolbar).paddingBlockStart),
+    ).toBeGreaterThanOrEqual(10);
+    await expect(
+      canvas.getByText(
+        "This is the beginning of your direct message with Member.",
+      ),
+    ).toBeVisible();
+  }}
+>
+  {#snippet template()}
+    <CommunityApplicationStoryHarness />
+  {/snippet}
+</Story>
+
+<Story
   name="Full community app"
   play={async ({ canvas, canvasElement }) => {
     await userEvent.click(

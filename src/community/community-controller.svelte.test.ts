@@ -214,6 +214,11 @@ describe("createCommunityController", () => {
     await vi.waitFor(() =>
       expect(controller.state.workspace.view).toBe("forum-thread"),
     );
+    controller.actions.setReplyTarget(
+      controller.state.workspace.messages.at(-1)!.id,
+    );
+    expect(controller.state.replyTarget?.kind).toBe("forum");
+    expect(controller.state.workspace.sidePanel).toBe("none");
   });
 
   it("publishes controller actions and reconciles live relay events", async () => {
@@ -268,6 +273,9 @@ describe("createCommunityController", () => {
 
     await controller.actions.search("member");
     expect(controller.state.searchResults.length).toBeGreaterThan(0);
+    expect(
+      controller.state.searchResults.find((result) => result.event.kind === 9),
+    ).toMatchObject({ roomId: "general" });
     expect(scenario.scope.id).toBe(
       controller.state.workspace.activeCommunityId,
     );
@@ -298,6 +306,12 @@ describe("createCommunityController", () => {
     expect(runtime.controller.state.workspace.activeRoomId).toBe(
       `dm:${memberPubkey}`,
     );
+    expect(
+      runtime.controller.state.workspace.navigationSections
+        .find((section) => section.id === "direct-messages")
+        ?.rooms.find((room) => room.id === `dm:${memberPubkey}`)
+        ?.participantIds,
+    ).toContain(memberPubkey);
     expect(runtime.controller.state.workspace.messages).toMatchObject([
       { content: "Encrypted hello" },
     ]);

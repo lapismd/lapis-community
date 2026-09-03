@@ -819,6 +819,7 @@ function directRoomModel(
       .map((pubkey) => profiles.get(pubkey)?.name ?? shortKey(pubkey))
       .join(", "),
     kind: "direct",
+    participantIds: conversation.participants,
     memberCount: conversation.participants.length,
     private: true,
     membership: "joined",

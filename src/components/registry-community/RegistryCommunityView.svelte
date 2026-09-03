@@ -3,7 +3,6 @@
 
   import CommunitySummary from "../community-summary/CommunitySummary.svelte";
   import DiscussionComposer from "../discussion-composer/DiscussionComposer.svelte";
-  import DiscussionHeading from "../discussion-heading/DiscussionHeading.svelte";
   import DiscussionPostStream from "../discussion-post-stream/DiscussionPostStream.svelte";
   import DiscussionTimeline from "../discussion-timeline/DiscussionTimeline.svelte";
   import PluginReactionControl from "../plugin-reaction-control/PluginReactionControl.svelte";
@@ -31,8 +30,6 @@
   const publishing = $derived(controller.publishing);
   const pluginRelease = $derived(controller.pluginRelease);
   const ownPluginReaction = $derived(controller.ownPluginReaction);
-  const displayedPostStart = $derived(controller.displayedPostStart);
-  const displayedPostEnd = $derived(controller.displayedPostEnd);
   const replyingReview = $derived(controller.replyingReview);
   const signedInPubkey = $derived(controller.signedInPubkey);
   const activeGlobalPostIndex = $derived(controller.activeGlobalPostIndex);
@@ -54,8 +51,8 @@
     controller.composerElement = composerElement;
   });
 
-  const submitPluginReaction = () => controller.submitPluginReaction();
-  const refresh = (targetIndex?: number) => controller.refresh(targetIndex);
+  const submitPluginReaction = (emoji: string) =>
+    controller.submitPluginReaction(emoji);
   const postNumber = (eventId: string) => controller.postNumber(eventId);
   const handleCurrentPost = (eventId: string) =>
     controller.handleCurrentPost(eventId);
@@ -110,19 +107,12 @@
 
       <div
         class="discussion"
+        class:discussion--with-timeline={commentTotal > 1 &&
+          threadFirstTimestamp > 0 &&
+          threadLastTimestamp > 0}
         aria-busy={loading || loadingJump || loadingPrevious || loadingNext}
       >
         <div class="topic-column">
-          <DiscussionHeading
-            total={commentTotal}
-            displayedStart={displayedPostStart}
-            displayedEnd={displayedPostEnd}
-            loading={loading || loadingJump}
-            onRefresh={async () => {
-              await refresh(activeGlobalPostIndex);
-            }}
-          />
-
           <DiscussionComposer
             bind:element={composerElement}
             {name}
@@ -133,15 +123,12 @@
             {publishing}
             bind:comment={controller.comment}
             onCancel={controller.cancelReply}
-            onConnect={controller.connect}
             onSubmit={controller.submitComment}
           />
 
           {#if loading}
             <p class="empty">Reading signed events from the relay…</p>
-          {:else if reviews.length === 0}
-            <p class="empty">No comments yet. Start the conversation.</p>
-          {:else}
+          {:else if reviews.length > 0}
             <DiscussionPostStream
               posts={reviews}
               contextPosts={allReviews}
@@ -227,6 +214,10 @@
 
   .discussion {
     display: grid;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .discussion--with-timeline {
     grid-template-columns: minmax(0, 1fr) 9rem;
     gap: clamp(1.5rem, 4vw, 3.5rem);
   }

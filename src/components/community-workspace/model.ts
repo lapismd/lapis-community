@@ -33,11 +33,13 @@ export interface CommunityRoomModel {
   id: string;
   name: string;
   kind: CommunityRoomKind;
+  participantIds?: readonly string[];
   description?: string;
   unreadCount?: number;
   mentionCount?: number;
   memberCount?: number;
   private?: boolean;
+  archived?: boolean;
   membership?: "joined" | "not-joined" | "unknown";
   memberListCompleteness?: "complete" | "partial" | "unavailable";
   lifecycle?: "ongoing" | "temporary";
@@ -160,7 +162,10 @@ export interface CommunityWorkspaceHandlers {
   onBrowseRooms?: (kind?: "channel" | "forum") => void;
   onCreateRoom?: (kind: "channel" | "forum") => void;
   onCreateAgent?: (roomId: string) => void;
-  onCreateTopic?: (roomId: string) => void;
+  onCreateTopic?: (
+    roomId: string,
+    draft: import("../../community/index.js").CommunityTopicDraft,
+  ) => void | Promise<void>;
   onTopicAction?: (
     topicId: string,
     action: "copy-link" | "mark-read" | "star" | "mute" | "delete",

@@ -16,6 +16,10 @@ export { default as CommunityMemberHoverCard } from "./community-member-hover-ca
 export { default as CommunityRoomBrowser } from "./community-room-browser/CommunityRoomBrowser.svelte";
 export { default as CommunityRoomEditor } from "./community-room-editor/CommunityRoomEditor.svelte";
 export { default as CommunitySearchCommand } from "./community-search-command/CommunitySearchCommand.svelte";
+export type {
+  CommunitySearchMessageModel,
+  CommunitySearchProjection,
+} from "./community-search-command/model.js";
 export { default as CommunityTopicComposer } from "./community-topic-composer/CommunityTopicComposer.svelte";
 export { default as CommunityAppShell } from "./community-app-shell/CommunityAppShell.svelte";
 export { default as CommunityChannelSettings } from "./community-channel-settings/CommunityChannelSettings.svelte";

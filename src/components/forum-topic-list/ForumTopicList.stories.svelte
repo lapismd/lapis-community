@@ -1,6 +1,6 @@
 <script module lang="ts">
   import { defineMeta } from "@storybook/addon-svelte-csf";
-  import { expect, fn, within } from "storybook/test";
+  import { expect, fn, userEvent, within } from "storybook/test";
 
   import {
     communityStoryMembers,
@@ -23,6 +23,7 @@
     topics: communityStoryTopics,
     members: communityStoryMembers,
     onOpenTopic: fn(),
+    onCreateTopic: fn(async () => {}),
   }}
   play={async ({ canvas }) => {
     const topic = canvas.getByRole("button", {
@@ -49,5 +50,13 @@
       replyCount.getBoundingClientRect().width / 2;
     await expect(Math.abs(headingCenter - countCenter)).toBeLessThanOrEqual(1);
     await expect(canvas.getByText("Aug 2025")).toBeVisible();
+    await userEvent.click(
+      canvas.getByRole("button", {
+        name: "Start a new post in support-ai",
+      }),
+    );
+    await expect(
+      canvas.getByRole("combobox", { name: "Message" }),
+    ).toBeVisible();
   }}
 />

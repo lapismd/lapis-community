@@ -367,6 +367,7 @@ export interface CommunityPrivateEvent {
 export interface CommunitySearchResult {
   event: NostrEvent;
   relayUrl: string;
+  roomId?: string;
 }
 
 export interface CommunitySessionSubscription {

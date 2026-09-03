@@ -10,6 +10,8 @@
   import StarIcon from "@lucide/svelte/icons/star";
   import TrashIcon from "@lucide/svelte/icons/trash-2";
 
+  import type { CommunityTopicDraft } from "../../community/index.js";
+  import CommunityTopicComposer from "../community-topic-composer/CommunityTopicComposer.svelte";
   import {
     memberById,
     type CommunityMemberModel,
@@ -30,7 +32,7 @@
     topics: CommunityTopicModel[];
     members: CommunityMemberModel[];
     onOpenTopic?: (topicId: string) => void;
-    onCreateTopic?: () => void;
+    onCreateTopic?: (draft: CommunityTopicDraft) => Promise<void>;
     onTopicAction?: (
       topicId: string,
       action: "copy-link" | "mark-read" | "star" | "mute" | "delete",
@@ -98,8 +100,11 @@
       <h1 id="forum-topic-list-title">{title}</h1>
       <p>{description}</p>
     </div>
-    <Button type="button" size="sm" onclick={onCreateTopic}>New topic</Button>
   </header>
+
+  {#if onCreateTopic}
+    <CommunityTopicComposer forumName={title} onPublish={onCreateTopic} />
+  {/if}
 
   <div class="forum-topic-list__columns" aria-hidden="true">
     <span>Topic</span><span>Replies</span><span>Activity</span>
@@ -195,7 +200,7 @@
     align-items: flex-start;
     justify-content: space-between;
     gap: 1rem;
-    padding-block-end: 1.4rem;
+    padding-block-end: 1rem;
   }
 
   h1,
@@ -221,6 +226,7 @@
   }
 
   .forum-topic-list__columns {
+    margin-block-start: 1.25rem;
     border-block-end: 1px solid var(--border);
     padding: 0.55rem 0.75rem;
     color: var(--muted-foreground);

@@ -88,6 +88,15 @@
               id: room.id,
               label: room.name,
               kind: room.kind === "direct" ? "direct-message" : room.kind,
+              ...(room.kind === "direct"
+                ? {
+                    member: workspace.members.find((member) =>
+                      room.participantIds
+                        ?.filter((id) => id !== workspace.currentMemberId)
+                        .includes(member.id),
+                    )!,
+                  }
+                : {}),
               ...(room.private === undefined
                 ? {}
                 : { restricted: room.private }),
@@ -271,7 +280,6 @@
           onSearch(query);
         }}
         {onSectionAction}
-        onRequestExpand={() => controller.left.expand()}
       >
         {#snippet footer()}
           {#if currentMember}

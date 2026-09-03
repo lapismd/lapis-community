@@ -7,7 +7,6 @@
   import LoaderCircleIcon from "@lucide/svelte/icons/loader-circle";
   import PackageSearchIcon from "@lucide/svelte/icons/package-search";
   import RefreshCwIcon from "@lucide/svelte/icons/refresh-cw";
-  import SlashIcon from "@lucide/svelte/icons/slash";
   import { onMount, untrack } from "svelte";
 
   import RegistryCommunity from "../registry-community/RegistryCommunity.svelte";
@@ -280,7 +279,7 @@
             }}>Registry</Breadcrumb.Link
           >
         </Breadcrumb.Item>
-        <Breadcrumb.Separator><SlashIcon /></Breadcrumb.Separator>
+        <Breadcrumb.Separator />
         <Breadcrumb.Item>
           {#if route.page === "directory"}
             <Breadcrumb.Page>Plugins</Breadcrumb.Page>
@@ -295,7 +294,7 @@
           {/if}
         </Breadcrumb.Item>
         {#if route.page === "plugin"}
-          <Breadcrumb.Separator><SlashIcon /></Breadcrumb.Separator>
+          <Breadcrumb.Separator />
           <Breadcrumb.Item>
             <Breadcrumb.Page>
               {selectedEntry?.name ?? route.pluginId}

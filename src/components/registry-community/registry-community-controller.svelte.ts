@@ -888,14 +888,17 @@ export function createRegistryCommunityController(
     return signer;
   }
 
-  async function submitPluginReaction(): Promise<void> {
+  async function submitPluginReaction(
+    reaction = selectedPluginReaction,
+  ): Promise<void> {
+    selectedPluginReaction = reaction;
     const activeSigner = await ensureSigner();
     if (activeSigner === undefined) return;
     if (pluginRelease === undefined) {
       error = "This plugin does not have an approved NIP-29 release yet.";
       return;
     }
-    if (!["👍", "❤️", "🎉", "👀", "⭐"].includes(selectedPluginReaction)) {
+    if (!["👍", "❤️", "🎉", "👀", "⭐"].includes(reaction)) {
       error = "Choose a reaction first.";
       return;
     }
@@ -906,7 +909,7 @@ export function createRegistryCommunityController(
       const event = await activeSigner.signEvent({
         kind: NIP29_KINDS.reaction,
         created_at: Math.floor(Date.now() / 1_000),
-        content: selectedPluginReaction,
+        content: reaction,
         tags: [
           ["e", pluginRelease.id],
           ["p", pluginRelease.pubkey],
@@ -923,9 +926,14 @@ export function createRegistryCommunityController(
     }
   }
 
-  async function submitComment(): Promise<void> {
+  async function submitComment(content = comment): Promise<boolean> {
+    const submittedComment = content.trim();
+    if (submittedComment === "") return false;
     const activeSigner = await ensureSigner();
-    if (activeSigner === undefined) return;
+    if (activeSigner === undefined) {
+      comment = submittedComment;
+      return false;
+    }
     publishing = true;
     error = "";
     message = "";
@@ -934,7 +942,7 @@ export function createRegistryCommunityController(
         replyingReview === undefined
           ? createNip29ForumThreadTemplate(
               supportGroupId,
-              comment,
+              submittedComment,
               Math.floor(Date.now() / 1_000),
             )
           : createNip29ForumCommentTemplate(
@@ -943,7 +951,7 @@ export function createRegistryCommunityController(
                 (review) => review.event.id === replyingReview.rootEventId,
               )?.event ?? replyingReview.event,
               replyingReview.event,
-              comment,
+              submittedComment,
               Math.floor(Date.now() / 1_000),
               relayUrls[0],
             );
@@ -953,8 +961,11 @@ export function createRegistryCommunityController(
       replyingTo = "";
       message = "Comment published.";
       await refresh(await globalIndexForEvent(event), event.id);
+      return true;
     } catch (cause) {
       error = cause instanceof Error ? cause.message : "Comment failed.";
+      comment = submittedComment;
+      return false;
     } finally {
       publishing = false;
     }

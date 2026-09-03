@@ -110,7 +110,7 @@
       canvas.queryByRole("button", { name: /right sidebar/i }),
     ).toBeNull();
     await expect(
-      canvas.getByRole("searchbox", { name: "Search community" }),
+      canvas.getByRole("button", { name: "Search community" }),
     ).toBeVisible();
     await expect(canvas.getByRole("button", { name: "general" })).toBeVisible();
     await expect(
@@ -282,8 +282,8 @@
 </Story>
 
 <Story
-  name="Forum reply and single side panel"
-  play={async ({ canvas, canvasElement }) => {
+  name="Forum replies remain inline"
+  play={async ({ canvas }) => {
     const frame = canvas.getByTestId("community-workspace-frame");
     await waitFor(
       () => {
@@ -299,32 +299,24 @@
         name: "Open topic Portable forums",
       }),
     );
-    await userEvent.click(canvas.getByRole("button", { name: "Manage forum" }));
+    await expect(canvas.queryByLabelText("Thread sidebar")).toBeNull();
+    const toolbar = canvas.getByLabelText("support toolbar");
+    const backToPosts = await canvas.findByRole("button", {
+      name: "Back to posts",
+    });
     await expect(
-      await canvas.findByLabelText("Forum settings sidebar"),
-    ).toBeVisible();
-    await fireEvent.click(
-      canvas.getAllByRole("button", { name: "Reply in thread" })[0]!,
-    );
-    const threadSidebar = await canvas.findByLabelText("Thread sidebar");
-    const thread = within(threadSidebar);
-    await expect(canvas.queryByLabelText("Forum settings sidebar")).toBeNull();
-    await expect(
-      canvasElement.querySelectorAll('aside[data-side="right"]'),
-    ).toHaveLength(1);
+      backToPosts.getBoundingClientRect().top -
+        toolbar.getBoundingClientRect().bottom,
+    ).toBeLessThan(80);
+    await fireEvent.click(canvas.getAllByRole("button", { name: "Reply" })[0]!);
     await waitFor(
       () =>
         expect(
-          thread.getByRole("group", { name: /^Replying to /u }),
+          canvas.getByRole("group", { name: /^Replying to /u }),
         ).toBeVisible(),
       { timeout: 15_000 },
     );
-
-    await fireEvent.click(thread.getAllByRole("button", { name: "Reply" })[0]!);
-    await expect(
-      thread.getByRole("group", { name: /^Replying to /u }),
-    ).toBeVisible();
-    await expect(canvas.getAllByLabelText("Thread sidebar")).toHaveLength(1);
+    await expect(canvas.queryByLabelText("Thread sidebar")).toBeNull();
   }}
 >
   {#snippet template()}

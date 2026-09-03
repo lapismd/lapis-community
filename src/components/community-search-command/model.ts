@@ -8,21 +8,32 @@ import type {
 const SEARCH_MESSAGE_KINDS = new Set([9, 11, 1_111]);
 
 export interface CommunitySearchProjection {
-  messages: readonly CommunityMessageModel[];
+  messages: readonly CommunitySearchMessageModel[];
   members: readonly CommunityMemberModel[];
+}
+
+export interface CommunitySearchMessageModel extends CommunityMessageModel {
+  roomId?: string;
+  topicId?: string;
 }
 
 export function projectCommunitySearchResults(
   results: readonly CommunitySearchResult[],
 ): CommunitySearchProjection {
-  const messages: CommunityMessageModel[] = [];
+  const messages: CommunitySearchMessageModel[] = [];
   const profiles = new Map<
     string,
     { event: NostrEvent; member: CommunityMemberModel }
   >();
 
-  for (const { event } of results) {
+  for (const { event, roomId } of results) {
     if (SEARCH_MESSAGE_KINDS.has(event.kind)) {
+      const destinationRoomId =
+        roomId ?? event.tags.find((tag) => tag[0] === "h")?.[1];
+      const topicId =
+        event.kind === 11
+          ? event.id
+          : event.tags.find((tag) => tag[0] === "E")?.[1];
       messages.push({
         id: event.id,
         authorId: event.pubkey,
@@ -30,6 +41,10 @@ export function projectCommunitySearchResults(
         timestamp: new Date(event.created_at * 1_000)
           .toISOString()
           .slice(11, 16),
+        ...(destinationRoomId === undefined
+          ? {}
+          : { roomId: destinationRoomId }),
+        ...(topicId === undefined ? {} : { topicId }),
       });
       continue;
     }

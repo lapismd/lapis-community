@@ -5,6 +5,7 @@
   import HashIcon from "@lucide/svelte/icons/hash";
   import HeadphonesIcon from "@lucide/svelte/icons/headphones";
   import LockIcon from "@lucide/svelte/icons/lock";
+  import MessagesSquareIcon from "@lucide/svelte/icons/messages-square";
   import SquareTerminalIcon from "@lucide/svelte/icons/square-terminal";
   import UsersIcon from "@lucide/svelte/icons/users";
   import { onMount, untrack } from "svelte";
@@ -242,7 +243,6 @@
         onSearch={(query) => {
           lastAction = `searched:${query}`;
         }}
-        onRequestExpand={() => controller.left.expand()}
       >
         {#snippet footer()}
           {#if currentMember}
@@ -302,6 +302,12 @@
                 <LockIcon data-icon="inline-start" aria-hidden="true" />
               {:else if activeRoom.kind === "channel"}
                 <HashIcon data-icon="inline-start" aria-hidden="true" />
+              {:else if activeRoom.kind === "forum"}
+                <MessagesSquareIcon
+                  data-icon="inline-start"
+                  data-ui-part="room-kind-icon"
+                  aria-hidden="true"
+                />
               {:else}
                 <span aria-hidden="true">●</span>
               {/if}
@@ -383,7 +389,7 @@
               },
               onReply: (messageId) => {
                 community?.actions.setReplyTarget(messageId);
-                if (activeRoom.kind !== "direct") {
+                if (activeRoom.kind === "channel") {
                   community?.actions.openThread(
                     rootCommunityMessageId(model.messages, messageId),
                   );
@@ -405,6 +411,10 @@
               onDeleteMessage: (messageId) => {
                 void community?.actions.deleteEvent(messageId);
                 lastAction = `deleted-message:${messageId}`;
+              },
+              onCreateTopic: async (roomId, draft) => {
+                await community?.actions.createTopic(roomId, draft);
+                lastAction = "created-topic";
               },
             }}
           />

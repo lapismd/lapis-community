@@ -1,6 +1,6 @@
 <script module lang="ts">
   import { defineMeta } from "@storybook/addon-svelte-csf";
-  import { expect, userEvent, within } from "storybook/test";
+  import { expect, fn, userEvent, within } from "storybook/test";
 
   import { noop, storyPosts, storyProfiles } from "../story-fixtures.js";
   import DiscussionComposer from "./DiscussionComposer.svelte";
@@ -21,8 +21,22 @@
     signedInPubkey: "",
     comment: "",
     onCancel: noop,
-    onConnect: noop,
-    onSubmit: noop,
+    onSubmit: fn(async () => true),
+  }}
+  play={async ({ canvas, args }) => {
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Start a discussion about AI" }),
+    );
+    const composer = canvas.getByRole("combobox", { name: "Message" });
+    await expect(composer).toHaveFocus();
+    await userEvent.type(composer, "A portable registry is useful.");
+    await userEvent.keyboard("{Enter}");
+    await expect(args.onSubmit).toHaveBeenCalledWith(
+      "A portable registry is useful.",
+    );
+    await expect(
+      canvas.getByRole("button", { name: "Start a discussion about AI" }),
+    ).toBeVisible();
   }}
 />
 
@@ -36,13 +50,17 @@
     signedInPubkey: storyPosts[0].event.pubkey,
     comment: "A progress affordance would help here.",
     onCancel: noop,
-    onConnect: noop,
     onSubmit: noop,
   }}
   play={async ({ canvas }) => {
-    const textarea = canvas.getByRole("textbox", { name: "Reply to a post" });
-    await expect(getComputedStyle(textarea).backgroundColor).not.toBe(
-      "rgba(0, 0, 0, 0)",
+    const composer = canvas.getByRole("combobox", { name: "Message" });
+    await expect(composer).toHaveTextContent(
+      "A progress affordance would help here.",
+    );
+    await expect(
+      canvas.getByRole("group", { name: "Replying to Ben Stone" }),
+    ).toHaveTextContent(
+      "I tested with roughly 8,000 notes. Index warm-up dominates, then responses stay comfortably interactive.",
     );
     await userEvent.click(
       canvas.getByRole("button", { name: "Open profile for Ada Lovelace" }),

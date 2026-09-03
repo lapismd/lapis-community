@@ -1,6 +1,6 @@
 <script module lang="ts">
   import { defineMeta } from "@storybook/addon-svelte-csf";
-  import { expect, userEvent, waitFor, within } from "storybook/test";
+  import { expect, userEvent, within } from "storybook/test";
 
   import RegistryCommunity from "./RegistryCommunity.svelte";
   import RegistryCommunityStoryHarness from "./RegistryCommunityStoryHarness.svelte";
@@ -54,13 +54,18 @@
     await expect(
       canvas.getByText("The shared controller boundary keeps this portable."),
     ).toBeVisible();
-    await waitFor(() => {
-      expect(
-        canvas.queryByRole("button", { name: "Connect Nostr" }),
-      ).toBeNull();
-    });
     await expect(canvas.queryByText("1 relay")).not.toBeInTheDocument();
-    await expect(canvas.getByText("Loaded posts 1–2 of 2.")).toBeVisible();
+    await expect(
+      canvas.queryByRole("heading", { name: "Discussion" }),
+    ).not.toBeInTheDocument();
+    await userEvent.click(
+      canvas.getByRole("button", {
+        name: "Start a discussion about Registry Demo",
+      }),
+    );
+    await expect(
+      canvas.queryByText("No comments yet. Start the conversation."),
+    ).not.toBeInTheDocument();
     await userEvent.click(
       canvas.getByRole("button", { name: "Open profile for Publisher" }),
     );
@@ -71,13 +76,9 @@
       canvas.getByRole("button", { name: "Open profile for Publisher" }),
     );
 
-    const composer = canvas.getByRole("textbox", {
-      name: "Add to the discussion",
-    });
+    const composer = canvas.getByRole("combobox", { name: "Message" });
     await userEvent.type(composer, "Published through the shared relay source");
-    await userEvent.click(
-      canvas.getByRole("button", { name: "Publish comment" }),
-    );
+    await userEvent.click(canvas.getByRole("button", { name: "Send message" }));
     await expect(
       await canvas.findByText("Published through the shared relay source"),
     ).toBeVisible();

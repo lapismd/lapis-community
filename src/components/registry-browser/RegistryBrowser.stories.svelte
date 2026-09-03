@@ -57,6 +57,11 @@
     await expect(
       breadcrumb.querySelector('[data-ui-part="breadcrumb-separator"] svg'),
     ).not.toBeNull();
+    await expect(
+      breadcrumb.querySelector(
+        '[data-ui-part="breadcrumb-separator"] svg.lucide-chevron-right',
+      ),
+    ).not.toBeNull();
     await expect(canvas.getByRole("link", { name: "Registry" })).toBeVisible();
     await userEvent.click(
       canvas.getByRole("button", { name: "Install in Lapis" }),

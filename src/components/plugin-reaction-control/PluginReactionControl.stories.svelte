@@ -32,9 +32,9 @@
       within(document.body).getByRole("button", { name: "React 👍" }),
     );
     await expect(canvas.getByLabelText("Selected 👍")).toBeVisible();
-    await userEvent.click(
-      canvas.getByRole("button", { name: "Update reaction" }),
-    );
-    await expect(args.onSubmit).toHaveBeenCalledOnce();
+    await expect(
+      canvas.queryByRole("button", { name: "Update reaction" }),
+    ).toBeNull();
+    await expect(args.onSubmit).toHaveBeenCalledWith("👍");
   }}
 />

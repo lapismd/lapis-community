@@ -1,6 +1,6 @@
 <script module lang="ts">
   import { defineMeta } from "@storybook/addon-svelte-csf";
-  import { expect, fn, userEvent, within } from "storybook/test";
+  import { expect, fn, userEvent } from "storybook/test";
   import CommunityTopicComposer from "./CommunityTopicComposer.svelte";
   const { Story } = defineMeta({
     title: "Community/Forums/Topic composer",
@@ -11,19 +11,21 @@
 
 <Story
   name="New topic"
-  args={{ open: true, forumName: "support", onPublish: fn() }}
-  play={async ({ canvasElement, args }) => {
-    const overlay = within(canvasElement.ownerDocument.body);
-    await userEvent.type(overlay.getByLabelText("Title"), "Portable forums");
+  args={{ forumName: "support", onPublish: fn(async () => {}) }}
+  play={async ({ canvas, args }) => {
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Start a new post in support" }),
+    );
     await userEvent.type(
-      overlay.getByLabelText("Message"),
+      canvas.getByRole("combobox", { name: "Message" }),
       "How should portable forums work?",
     );
-    await userEvent.click(
-      overlay.getByRole("button", { name: "Publish topic" }),
-    );
+    await userEvent.keyboard("{Enter}");
     await expect(args.onPublish).toHaveBeenCalledWith(
-      expect.objectContaining({ title: "Portable forums" }),
+      expect.objectContaining({
+        title: "How should portable forums work?",
+        content: "How should portable forums work?",
+      }),
     );
   }}
 >

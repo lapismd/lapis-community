@@ -13,6 +13,7 @@
     CommunityReplyTarget,
   } from "../../community/index.js";
   import CommunityEmojiPicker from "../community-emoji-picker/CommunityEmojiPicker.svelte";
+  import CommunityMemberAvatar from "../community-member-avatar/CommunityMemberAvatar.svelte";
   import CommunityMessage from "../community-message/CommunityMessage.svelte";
   import CommunityReplyContext from "../community-reply-context/CommunityReplyContext.svelte";
   import { isMessageContinuation } from "../community-message/grouping.js";
@@ -27,6 +28,7 @@
     room,
     messages,
     members,
+    directMember,
     onSend,
     onReply,
     onOpenThread,
@@ -45,11 +47,13 @@
     disabled = false,
     disabledReason = "Reconnect to send messages",
     composerPlacement = "overlay",
+    replyActionLabel = "Reply in thread",
     intro,
   }: {
     room: CommunityRoomModel;
     messages: CommunityMessageModel[];
     members: CommunityMemberModel[];
+    directMember?: CommunityMemberModel;
     onSend?: (content: string) => void | Promise<void>;
     onReply?: (messageId: string) => void;
     onOpenThread?: (messageId: string) => void;
@@ -76,11 +80,27 @@
     disabled?: boolean;
     disabledReason?: string;
     composerPlacement?: "overlay" | "row";
+    replyActionLabel?: string;
     intro?: Snippet;
   } = $props();
 
   let draft = $state("");
   const density = $derived(room.kind === "forum" ? "spacious" : "compact");
+  const displayedDirectMember = $derived(
+    directMember ?? {
+      id: room.id,
+      name: room.name,
+      handle: room.id,
+      initials:
+        room.name
+          .split(/\s+/u)
+          .filter(Boolean)
+          .slice(0, 2)
+          .map((part) => part[0]?.toLocaleUpperCase() ?? "")
+          .join("") || "?",
+      presence: "offline" as const,
+    },
+  );
 
   function submit(content: string): void {
     const result = onSend?.(content);
@@ -110,10 +130,31 @@
       />
     {/snippet}
     {#snippet emptyState()}
-      <div class="community-conversation__empty">
-        <strong>Start the conversation in {room.name}</strong>
-        <span>Messages published to this room will appear here.</span>
-      </div>
+      {#if room.kind === "direct"}
+        <div class="community-conversation__direct-empty">
+          <span class="community-conversation__direct-day" aria-hidden="true"
+            >Today</span
+          >
+          <section class="community-conversation__direct-intro">
+            <CommunityMemberAvatar
+              member={displayedDirectMember}
+              size="large"
+              showPresence
+              decorative
+            />
+            <h1>{displayedDirectMember.name}</h1>
+            <p>
+              This is the beginning of your direct message with {displayedDirectMember.name}.
+            </p>
+          </section>
+          <SystemMessage variant="divider">Today</SystemMessage>
+        </div>
+      {:else}
+        <div class="community-conversation__empty">
+          <strong>Start the conversation in {room.name}</strong>
+          <span>Messages published to this room will appear here.</span>
+        </div>
+      {/if}
     {/snippet}
     {#snippet composer()}
       <Composer
@@ -165,6 +206,7 @@
           )}
           {density}
           {communityEmojis}
+          {replyActionLabel}
           {...onReply === undefined ? {} : { onReply }}
           {...onOpenThread === undefined ? {} : { onOpenThread }}
           onToggleReaction={(messageId, emoji, custom) =>
@@ -286,5 +328,62 @@
 
   .community-conversation__empty strong {
     color: var(--foreground);
+  }
+
+  .community-conversation[data-room-kind="direct"]
+    :global([data-ui-part="empty-state"]) {
+    display: block;
+  }
+
+  .community-conversation[data-room-kind="forum"]
+    :global([data-ui-part="list-spacer"]) {
+    display: none;
+  }
+
+  .community-conversation[data-room-kind="forum"]
+    :global(
+      [data-ui-component="ai-chat-message-list"] [data-ui-part="list-inner"]
+    ) {
+    justify-content: flex-start;
+    padding-block-start: 0.5rem;
+  }
+
+  .community-conversation__direct-empty {
+    display: grid;
+    width: 100%;
+    align-content: start;
+    padding: 1rem 0.75rem 3rem;
+  }
+
+  .community-conversation__direct-day {
+    width: max-content;
+    margin-inline: auto;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    padding: 0.2rem 0.65rem;
+    color: var(--muted-foreground);
+    background: var(--background);
+    font-size: 0.75rem;
+    font-weight: 500;
+  }
+
+  .community-conversation__direct-intro {
+    display: grid;
+    gap: 0.5rem;
+    padding: 1.5rem 0.25rem 2rem;
+  }
+
+  .community-conversation__direct-intro h1,
+  .community-conversation__direct-intro p {
+    margin: 0;
+  }
+
+  .community-conversation__direct-intro h1 {
+    margin-block-start: 0.75rem;
+    font-size: 1.4rem;
+  }
+
+  .community-conversation__direct-intro p {
+    color: var(--muted-foreground);
   }
 </style>
