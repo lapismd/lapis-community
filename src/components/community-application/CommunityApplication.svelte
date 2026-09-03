@@ -58,6 +58,7 @@
   import CommunityRoomBrowser from "../community-room-browser/CommunityRoomBrowser.svelte";
   import CommunityRoomEditor from "../community-room-editor/CommunityRoomEditor.svelte";
   import CommunitySearchCommand from "../community-search-command/CommunitySearchCommand.svelte";
+  import { projectCommunitySearchResults } from "../community-search-command/model.js";
   import CommunitySettingsNavigation from "../community-settings-navigation/CommunitySettingsNavigation.svelte";
   import CommunitySettings from "../community-settings/CommunitySettings.svelte";
   import CommunityThreadPanel from "../community-thread-panel/CommunityThreadPanel.svelte";
@@ -329,6 +330,9 @@
         .includes(appSearchQuery.toLocaleLowerCase()),
     ),
   );
+  const projectedSearchResults = $derived(
+    projectCommunitySearchResults(community.state.searchResults),
+  );
   const searchMessages = $derived(
     [
       ...workspace.messages.filter((message) =>
@@ -336,25 +340,23 @@
           .toLocaleLowerCase()
           .includes(appSearchQuery.toLocaleLowerCase()),
       ),
-      ...community.state.searchResults.map(({ event }) => ({
-        id: event.id,
-        authorId: event.pubkey,
-        content: event.content,
-        timestamp: new Date(event.created_at * 1000).toLocaleTimeString([], {
-          hour: "2-digit",
-          minute: "2-digit",
-        }),
-      })),
+      ...projectedSearchResults.messages,
     ].filter(
       (message, index, values) =>
         values.findIndex((candidate) => candidate.id === message.id) === index,
     ),
   );
   const searchMembers = $derived(
-    workspace.members.filter((member) =>
-      `${member.name} ${member.handle}`
-        .toLocaleLowerCase()
-        .includes(appSearchQuery.toLocaleLowerCase()),
+    [
+      ...workspace.members.filter((member) =>
+        `${member.name} ${member.handle}`
+          .toLocaleLowerCase()
+          .includes(appSearchQuery.toLocaleLowerCase()),
+      ),
+      ...projectedSearchResults.members,
+    ].filter(
+      (member, index, values) =>
+        values.findIndex((candidate) => candidate.id === member.id) === index,
     ),
   );
   const selectedRecipients = $derived(

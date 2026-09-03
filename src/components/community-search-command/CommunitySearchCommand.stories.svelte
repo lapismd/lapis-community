@@ -23,11 +23,27 @@
         timestamp: "now",
       },
     ],
-    members: [{ id: "steve", name: "Steve", handle: "steve", initials: "SJ" }],
+    members: [
+      {
+        id: "steve",
+        name: "Lapis member",
+        handle: "steve",
+        initials: "LM",
+      },
+    ],
     onSelectRoom: fn(),
   }}
   play={async ({ canvasElement, args }) => {
     const overlay = within(canvasElement.ownerDocument.body);
+    await expect(
+      overlay.getByRole("option", { name: /Welcome to Lapis Community/u }),
+    ).toBeVisible();
+    await expect(
+      overlay.getByRole("option", { name: /Lapis member/u }),
+    ).toBeVisible();
+    await expect(
+      overlay.queryByRole("option", { name: /^\{/u }),
+    ).not.toBeInTheDocument();
     await userEvent.click(overlay.getByRole("option", { name: /general/ }));
     await expect(args.onSelectRoom).toHaveBeenCalledWith(
       expect.objectContaining({ id: "general" }),
