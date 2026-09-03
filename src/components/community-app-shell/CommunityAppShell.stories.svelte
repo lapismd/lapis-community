@@ -1,6 +1,7 @@
 <script module lang="ts">
   import { defineMeta } from "@storybook/addon-svelte-csf";
   import { AppShell, AppShellController } from "@lapismd/design-core/shell";
+  import { expect, waitFor } from "storybook/test";
 
   import CommunityAppShell from "./CommunityAppShell.svelte";
 
@@ -42,7 +43,18 @@
   });
 </script>
 
-<Story name="Shell frame contract">
+<Story
+  name="Shell frame contract"
+  play={async ({ canvas }) => {
+    controller.right.expand();
+    controller.right.collapse();
+    await waitFor(() => expect(controller.right.state).toBe("expanded"));
+    await expect(canvas.getByLabelText("Details")).toHaveAttribute(
+      "data-state",
+      "expanded",
+    );
+  }}
+>
   {#snippet template()}
     <CommunityAppShell
       {controller}

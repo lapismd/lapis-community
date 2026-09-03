@@ -22,6 +22,7 @@
     author: communityStoryMembers[1]!,
     replyParticipants: communityStoryMembers.slice(0, 3),
     density: "compact",
+    onReply: fn(),
     onOpenThread: fn(),
     onToggleReaction: fn(),
     onAddReaction: fn(),
@@ -55,6 +56,30 @@
 
     await userEvent.hover(message);
     await waitFor(() => expect(addReaction).toBeVisible());
+    const actions = messageCanvas.getByRole("group", {
+      name: "Actions for Ben Stone's message",
+    });
+    const reply = messageCanvas.getByRole("button", {
+      name: "Reply in thread",
+    });
+    await expect(actions.getBoundingClientRect().bottom).toBeGreaterThanOrEqual(
+      message.getBoundingClientRect().top,
+    );
+    await userEvent.unhover(message);
+    await userEvent.hover(reply);
+    await new Promise((resolve) => setTimeout(resolve, 180));
+    await expect(addReaction).toBeVisible();
+    await userEvent.click(reply);
+    await expect(args.onReply).toHaveBeenCalledWith("message-release");
+    await expect(args.onOpenThread).not.toHaveBeenCalled();
+
+    await userEvent.click(
+      messageCanvas.getByRole("button", {
+        name: "8 replies · last reply 4 minutes ago",
+      }),
+    );
+    await expect(args.onOpenThread).toHaveBeenCalledWith("message-release");
+
     await userEvent.click(
       messageCanvas.getByRole("button", {
         name: "4 reactions with 🎉",

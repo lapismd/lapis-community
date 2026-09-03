@@ -1,15 +1,11 @@
 <script lang="ts">
   import {
     Composer,
-    ComposerDrawer,
     Layout,
     LayoutScrollButton,
     MessageList,
     SystemMessage,
   } from "@lapismd/design-core/ai/chat";
-  import { Button } from "@lapismd/design-core/shadcn/button";
-  import ReplyIcon from "@lucide/svelte/icons/reply";
-  import XIcon from "@lucide/svelte/icons/x";
   import type { Snippet } from "svelte";
 
   import type {
@@ -18,6 +14,7 @@
   } from "../../community/index.js";
   import CommunityEmojiPicker from "../community-emoji-picker/CommunityEmojiPicker.svelte";
   import CommunityMessage from "../community-message/CommunityMessage.svelte";
+  import CommunityReplyContext from "../community-reply-context/CommunityReplyContext.svelte";
   import { isMessageContinuation } from "../community-message/grouping.js";
   import {
     memberById,
@@ -31,6 +28,7 @@
     messages,
     members,
     onSend,
+    onReply,
     onOpenThread,
     onToggleReaction,
     onAddReaction,
@@ -53,6 +51,7 @@
     messages: CommunityMessageModel[];
     members: CommunityMemberModel[];
     onSend?: (content: string) => void | Promise<void>;
+    onReply?: (messageId: string) => void;
     onOpenThread?: (messageId: string) => void;
     onToggleReaction?: (
       messageId: string,
@@ -128,31 +127,12 @@
       >
         {#snippet drawer()}
           {#if replyTarget}
-            <ComposerDrawer
-              role="group"
-              aria-label={`Replying to ${replyTarget.authorName}`}
-            >
-              <div class="community-conversation__reply-context">
-                <span>
-                  <strong>
-                    <ReplyIcon aria-hidden="true" />
-                    Replying to {replyTarget.authorName}
-                  </strong>
-                  <small title={replyTarget.content}
-                    >{replyTarget.content}</small
-                  >
-                </span>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon-sm"
-                  aria-label="Cancel reply"
-                  onclick={onCancelReply}
-                >
-                  <XIcon aria-hidden="true" />
-                </Button>
-              </div>
-            </ComposerDrawer>
+            <CommunityReplyContext
+              target={replyTarget}
+              {...onCancelReply === undefined
+                ? {}
+                : { onCancel: onCancelReply }}
+            />
           {/if}
         {/snippet}
         {#snippet footerActions()}
@@ -185,7 +165,8 @@
           )}
           {density}
           {communityEmojis}
-          onOpenThread={(messageId) => onOpenThread?.(messageId)}
+          {...onReply === undefined ? {} : { onReply }}
+          {...onOpenThread === undefined ? {} : { onOpenThread }}
           onToggleReaction={(messageId, emoji, custom) =>
             custom
               ? onToggleReaction?.(messageId, emoji, custom)
@@ -305,56 +286,5 @@
 
   .community-conversation__empty strong {
     color: var(--foreground);
-  }
-
-  .community-conversation__reply-context {
-    display: flex;
-    width: 100%;
-    min-width: 0;
-    align-items: center;
-    justify-content: space-between;
-    gap: 0.75rem;
-  }
-
-  .community-conversation
-    :global([data-ui-component="ai-chat-composer-drawer"]) {
-    padding-block-start: 0.625rem;
-    background: color-mix(in srgb, var(--foreground) 4%, var(--background));
-  }
-
-  .community-conversation__reply-context > span {
-    display: grid;
-    min-width: 0;
-    flex: 1;
-    gap: 0.1rem;
-  }
-
-  .community-conversation__reply-context strong {
-    display: flex;
-    align-items: center;
-    gap: 0.35rem;
-    font-size: 0.78rem;
-    font-weight: 600;
-    line-height: 1rem;
-  }
-
-  .community-conversation__reply-context strong :global(svg) {
-    width: 0.8rem;
-    height: 0.8rem;
-  }
-
-  .community-conversation__reply-context small {
-    display: block;
-    overflow: hidden;
-    color: var(--muted-foreground);
-    font-size: 0.72rem;
-    line-height: 1rem;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .community-conversation__reply-context :global([data-ui-component="button"]) {
-    width: 1.5rem;
-    height: 1.5rem;
   }
 </style>

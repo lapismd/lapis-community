@@ -227,7 +227,7 @@
 </Story>
 
 <Story
-  name="Channel thread open"
+  name="Channel thread reply"
   play={async ({ canvas }) => {
     const frame = canvas.getByTestId("community-workspace-frame");
     await waitFor(() => {
@@ -245,37 +245,63 @@
     );
     const threadSidebar = await canvas.findByLabelText("Thread sidebar");
     const thread = within(threadSidebar);
-
-    await expect(threadSidebar).toBeVisible();
-    await expect(thread.getByText("Thread")).toBeVisible();
-    await expect(thread.queryByLabelText("Thread from steve")).toBeNull();
-    await expect(thread.getByText("Reply in thread to steve")).toBeVisible();
-    await expect(
-      thread.getAllByText("Welcome to Lapis Community")[0],
-    ).toBeVisible();
-    const composer = thread.getByRole("combobox", { name: "Message" });
-    await userEvent.type(composer, "A thread interaction fixture");
-    await userEvent.keyboard("{Enter}");
-    await expect(
-      await thread.findByText("A thread interaction fixture"),
-    ).toBeVisible();
-    await expect(frame).toHaveAttribute("data-last-action", "sent-reply");
-
-    await userEvent.click(
-      thread.getByRole("button", { name: "Close thread sidebar" }),
-    );
-    await waitFor(() => {
-      expect(canvas.queryByLabelText("Thread sidebar")).toBeNull();
-    });
+    await expect(thread.getByLabelText("Replying to steve")).toBeVisible();
     await expect(frame).toHaveAttribute(
       "data-last-action",
-      "closed-side-panel",
+      expect.stringMatching(/^replying-to:/u),
     );
+    const composer = thread.getByRole("combobox", { name: "Message" });
+    await userEvent.type(composer, "A contextual channel reply");
+    await userEvent.keyboard("{Enter}");
+    await waitFor(() => {
+      expect(thread.queryByLabelText("Replying to steve")).toBeNull();
+    });
+    await expect(frame).toHaveAttribute("data-last-action", "sent-reply");
   }}
 >
   {#snippet template()}
-    <CommunityWorkspaceStoryHarness
-      initialModel={createChannelStoryModel("thread")}
-    />
+    <CommunityWorkspaceStoryHarness initialModel={createChannelStoryModel()} />
+  {/snippet}
+</Story>
+
+<Story
+  name="Forum reply and single side panel"
+  play={async ({ canvas, canvasElement }) => {
+    const frame = canvas.getByTestId("community-workspace-frame");
+    await waitFor(() => {
+      expect(frame).toHaveAttribute("data-community-status", "connected");
+    });
+    if (frame.dataset.communityBackend === "live") return;
+
+    await userEvent.click(canvas.getByRole("button", { name: "support" }));
+    await userEvent.click(
+      await canvas.findByRole("button", {
+        name: "Open topic Portable forums",
+      }),
+    );
+    await userEvent.click(canvas.getByRole("button", { name: "Manage forum" }));
+    await expect(
+      await canvas.findByLabelText("Forum settings sidebar"),
+    ).toBeVisible();
+    await fireEvent.click(
+      canvas.getAllByRole("button", { name: "Reply in thread" })[0]!,
+    );
+    const threadSidebar = await canvas.findByLabelText("Thread sidebar");
+    const thread = within(threadSidebar);
+    await expect(canvas.queryByLabelText("Forum settings sidebar")).toBeNull();
+    await expect(
+      canvasElement.querySelectorAll('aside[data-side="right"]'),
+    ).toHaveLength(1);
+    await expect(thread.getByLabelText("Replying to steve")).toBeVisible();
+
+    await fireEvent.click(thread.getAllByRole("button", { name: "Reply" })[0]!);
+    await expect(
+      thread.getByRole("group", { name: /^Replying to /u }),
+    ).toBeVisible();
+    await expect(canvas.getAllByLabelText("Thread sidebar")).toHaveLength(1);
+  }}
+>
+  {#snippet template()}
+    <CommunityWorkspaceStoryHarness initialModel={createChannelStoryModel()} />
   {/snippet}
 </Story>

@@ -1,14 +1,10 @@
 <script lang="ts">
   import {
     Composer,
-    ComposerDrawer,
     Layout,
     LayoutScrollButton,
     MessageList,
   } from "@lapismd/design-core/ai/chat";
-  import { Button } from "@lapismd/design-core/shadcn/button";
-  import ReplyIcon from "@lucide/svelte/icons/reply";
-  import XIcon from "@lucide/svelte/icons/x";
 
   import type {
     CommunityCustomEmoji,
@@ -16,6 +12,7 @@
   } from "../../community/index.js";
   import CommunityEmojiPicker from "../community-emoji-picker/CommunityEmojiPicker.svelte";
   import CommunityMessage from "../community-message/CommunityMessage.svelte";
+  import CommunityReplyContext from "../community-reply-context/CommunityReplyContext.svelte";
   import { isMessageContinuation } from "../community-message/grouping.js";
   import {
     memberById,
@@ -79,9 +76,6 @@
       ? undefined
       : memberById(members, rootMessage.authorId),
   );
-  const composerContext = $derived(
-    replyTarget?.eventId === thread.rootMessageId ? undefined : replyTarget,
-  );
 
   function submit(content: string): void {
     const result = onSendReply?.(thread.rootMessageId, content);
@@ -112,32 +106,13 @@
         onSubmit={submit}
       >
         {#snippet drawer()}
-          {#if composerContext}
-            <ComposerDrawer
-              role="group"
-              aria-label={`Replying to ${composerContext.authorName}`}
-            >
-              <div class="community-thread-panel__reply-context">
-                <span>
-                  <strong>
-                    <ReplyIcon aria-hidden="true" />
-                    Replying to {composerContext.authorName}
-                  </strong>
-                  <small title={composerContext.content}
-                    >{composerContext.content}</small
-                  >
-                </span>
-                {#if onCancelReply}
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon-sm"
-                    aria-label="Cancel reply"
-                    onclick={onCancelReply}><XIcon aria-hidden="true" /></Button
-                  >
-                {/if}
-              </div>
-            </ComposerDrawer>
+          {#if replyTarget}
+            <CommunityReplyContext
+              target={replyTarget}
+              {...onCancelReply === undefined
+                ? {}
+                : { onCancel: onCancelReply }}
+            />
           {/if}
         {/snippet}
         {#snippet footerActions()}
@@ -185,7 +160,7 @@
           {...message.id === thread.rootMessageId || onReply === undefined
             ? {}
             : {
-                onOpenThread: onReply,
+                onReply,
                 replyActionLabel: "Reply",
               }}
         />
@@ -265,56 +240,5 @@
 
   .community-thread-panel :global([data-ui-component="ai-chat-composer"]) {
     --ui-ai-chat-composer-radius: 0.75rem;
-  }
-
-  .community-thread-panel__reply-context {
-    display: flex;
-    width: 100%;
-    min-width: 0;
-    align-items: center;
-    justify-content: space-between;
-    gap: 0.5rem;
-  }
-
-  .community-thread-panel
-    :global([data-ui-component="ai-chat-composer-drawer"]) {
-    padding-block-start: 0.625rem;
-    background: color-mix(in srgb, var(--foreground) 4%, var(--background));
-  }
-
-  .community-thread-panel__reply-context > span {
-    display: grid;
-    min-width: 0;
-    flex: 1;
-    gap: 0.1rem;
-  }
-
-  .community-thread-panel__reply-context strong {
-    display: flex;
-    align-items: center;
-    gap: 0.35rem;
-    font-size: 0.78rem;
-    font-weight: 600;
-    line-height: 1rem;
-  }
-
-  .community-thread-panel__reply-context strong :global(svg) {
-    width: 0.8rem;
-    height: 0.8rem;
-  }
-
-  .community-thread-panel__reply-context small {
-    display: block;
-    overflow: hidden;
-    color: var(--muted-foreground);
-    font-size: 0.72rem;
-    line-height: 1rem;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .community-thread-panel__reply-context :global([data-ui-component="button"]) {
-    width: 1.5rem;
-    height: 1.5rem;
   }
 </style>

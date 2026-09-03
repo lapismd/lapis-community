@@ -327,7 +327,7 @@
           members={model.members}
           composerPlacement="row"
           {onSend}
-          {...onReply === undefined ? {} : { onOpenThread: onReply }}
+          {...onReply === undefined ? {} : { onReply, onOpenThread: onReply }}
           {...onToggleReaction === undefined
             ? {}
             : { onToggleReaction, onAddReaction: onToggleReaction }}

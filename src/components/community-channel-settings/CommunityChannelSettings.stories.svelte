@@ -31,9 +31,11 @@
   }}
   play={async ({ canvas, canvasElement, args }) => {
     await expect(canvas.getByText("Channel settings")).toBeVisible();
+    const channelType = canvas.getByRole("button", { name: /Channel type/ });
+    await expect(channelType).toBeVisible();
     await expect(
-      canvas.getByRole("button", { name: /Channel type/ }),
-    ).toBeVisible();
+      getComputedStyle(channelType.querySelector("strong")!).fontWeight,
+    ).toBe("400");
 
     const channelId = canvas.getByRole("button", { name: /Channel ID/ });
     const copyIcon = canvasElement.querySelector<SVGElement>(

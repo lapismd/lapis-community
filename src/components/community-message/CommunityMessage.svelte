@@ -30,6 +30,7 @@
     replyParticipants = [],
     communityEmojis = [],
     density = "compact",
+    onReply,
     onOpenThread,
     onToggleReaction,
     onAddReaction,
@@ -48,6 +49,7 @@
     replyParticipants?: CommunityMemberModel[];
     communityEmojis?: readonly CommunityCustomEmoji[];
     density?: "compact" | "balanced" | "spacious";
+    onReply?: (messageId: string) => void;
     onOpenThread?: (messageId: string) => void;
     onToggleReaction?: (
       messageId: string,
@@ -70,7 +72,9 @@
   } = $props();
 
   const actionOpenDelay = 180;
+  const actionCloseDelay = 150;
   let actionOpenTimer: ReturnType<typeof setTimeout> | undefined;
+  let actionCloseTimer: ReturnType<typeof setTimeout> | undefined;
   let actionsVisible = $state(false);
   let hasFocusWithin = false;
 
@@ -80,7 +84,15 @@
     actionOpenTimer = undefined;
   }
 
+  function clearActionCloseTimer(): void {
+    if (actionCloseTimer === undefined) return;
+    clearTimeout(actionCloseTimer);
+    actionCloseTimer = undefined;
+  }
+
   function scheduleActions(): void {
+    clearActionCloseTimer();
+    if (actionsVisible) return;
     clearActionOpenTimer();
     actionOpenTimer = setTimeout(() => {
       actionsVisible = true;
@@ -88,15 +100,25 @@
     }, actionOpenDelay);
   }
 
-  function hideActions(): void {
+  function keepActionsVisible(): void {
     clearActionOpenTimer();
-    if (!hasFocusWithin) actionsVisible = false;
+    clearActionCloseTimer();
+    actionsVisible = true;
+  }
+
+  function scheduleActionsHide(): void {
+    clearActionOpenTimer();
+    clearActionCloseTimer();
+    if (hasFocusWithin) return;
+    actionCloseTimer = setTimeout(() => {
+      actionsVisible = false;
+      actionCloseTimer = undefined;
+    }, actionCloseDelay);
   }
 
   function focusActions(): void {
     hasFocusWithin = true;
-    clearActionOpenTimer();
-    actionsVisible = true;
+    keepActionsVisible();
   }
 
   function blurActions(event: FocusEvent): void {
@@ -105,10 +127,14 @@
       if (event.currentTarget.contains(next)) return;
     }
     hasFocusWithin = false;
+    clearActionCloseTimer();
     actionsVisible = false;
   }
 
-  onDestroy(clearActionOpenTimer);
+  onDestroy(() => {
+    clearActionOpenTimer();
+    clearActionCloseTimer();
+  });
 
   const isSelected = $derived(
     message.reactions?.some((reaction) => reaction.selected) ?? false,
@@ -124,6 +150,7 @@
   const showReplySummary = $derived(
     (message.replyCount ?? 0) > 0 && onOpenThread !== undefined,
   );
+  const replyAction = $derived(onReply ?? onOpenThread);
 </script>
 
 <Message
@@ -135,7 +162,7 @@
   data-actions-visible={actionsVisible ? "" : undefined}
   aria-label={`Message from ${author.name}`}
   onpointerenter={scheduleActions}
-  onpointerleave={hideActions}
+  onpointerleave={scheduleActionsHide}
   onfocusin={focusActions}
   onfocusout={blurActions}
 >
@@ -174,6 +201,8 @@
       data-ui-part="message-actions"
       role="group"
       aria-label={`Actions for ${author.name}'s message`}
+      onpointerenter={keepActionsVisible}
+      onpointerleave={scheduleActionsHide}
     >
       <CommunityEmojiPicker
         label="Add reaction"
@@ -187,14 +216,14 @@
               : { shortcode: custom.shortcode, url: custom.url },
           )}
       />
-      {#if onOpenThread}
+      {#if replyAction}
         <Button
           type="button"
           variant="ghost"
           size="icon-sm"
           aria-label={replyActionLabel}
           title={replyActionLabel}
-          onclick={() => onOpenThread(message.id)}
+          onclick={() => replyAction(message.id)}
         >
           <MessageSquareReplyIcon aria-hidden="true" />
         </Button>
@@ -392,14 +421,14 @@
     transition:
       opacity 120ms ease,
       transform 120ms ease;
-    transform: translateY(calc(-100% - 0.05rem));
+    transform: translateY(calc(-100% + 0.15rem));
   }
 
   :global(.community-message[data-actions-visible])
     .community-message__actions {
     opacity: 1;
     pointer-events: auto;
-    transform: translateY(calc(-100% - 0.3rem));
+    transform: translateY(calc(-100% + 0.3rem));
   }
 
   .community-message__actions :global([data-ui-component="button"]:hover) {

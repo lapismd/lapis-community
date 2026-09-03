@@ -43,6 +43,7 @@
     messages: groupedMessages,
     members: communityStoryMembers,
     onSend: fn(),
+    onReply: fn(),
     onOpenThread: fn(),
     onToggleReaction: fn(),
     onAddReaction: fn(),

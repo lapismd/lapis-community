@@ -134,6 +134,7 @@ export interface CommunityWorkspaceHandlers {
   onSelectCommunity?: (communityId: string) => void;
   onSelectRoom?: (roomId: string) => void;
   onOpenTopic?: (topicId: string) => void;
+  onReply?: (messageId: string) => void;
   onOpenThread?: (messageId: string) => void;
   onCloseSidePanel?: () => void;
   onOpenDetails?: () => void;
@@ -174,6 +175,24 @@ export function findCommunityRoom(
   return model.navigationSections
     .flatMap((section) => section.rooms)
     .find((room) => room.id === model.activeRoomId);
+}
+
+export function rootCommunityMessageId(
+  messages: readonly CommunityMessageModel[],
+  messageId: string,
+): string {
+  const messagesById = new Map(
+    messages.map((message) => [message.id, message]),
+  );
+  const visited = new Set<string>();
+  let currentId = messageId;
+  while (!visited.has(currentId)) {
+    visited.add(currentId);
+    const parentId = messagesById.get(currentId)?.parentMessageId;
+    if (parentId === undefined || !messagesById.has(parentId)) return currentId;
+    currentId = parentId;
+  }
+  return messageId;
 }
 
 export function memberById(

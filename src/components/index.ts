@@ -32,6 +32,7 @@ export { default as CommunityNavigation } from "./community-navigation/Community
 export { default as CommunityMemberProfile } from "./community-member-profile/CommunityMemberProfile.svelte";
 export { default as CommunityProfileMenu } from "./community-profile-menu/CommunityProfileMenu.svelte";
 export { default as CommunityRelaySettings } from "./community-relay-settings/CommunityRelaySettings.svelte";
+export { default as CommunityReplyContext } from "./community-reply-context/CommunityReplyContext.svelte";
 export { default as CommunitySettings } from "./community-settings/CommunitySettings.svelte";
 export type { CommunitySettingsSection } from "./community-settings/model.js";
 export { default as CommunitySettingsNavigation } from "./community-settings-navigation/CommunitySettingsNavigation.svelte";

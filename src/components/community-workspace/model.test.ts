@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { findCommunityRoom, memberById } from "./model.js";
+import {
+  findCommunityRoom,
+  memberById,
+  rootCommunityMessageId,
+} from "./model.js";
 import { createForumIndexStoryModel } from "./story-fixtures.js";
 
 describe("community presentation models", () => {
@@ -21,5 +25,30 @@ describe("community presentation models", () => {
       initials: "?",
       presence: "offline",
     });
+  });
+
+  it("resolves nested replies to the visible conversation root", () => {
+    expect(
+      rootCommunityMessageId(
+        [
+          { id: "root", authorId: "ada", content: "Root", timestamp: "1" },
+          {
+            id: "reply",
+            authorId: "ben",
+            content: "Reply",
+            timestamp: "2",
+            parentMessageId: "root",
+          },
+          {
+            id: "nested",
+            authorId: "cy",
+            content: "Nested",
+            timestamp: "3",
+            parentMessageId: "reply",
+          },
+        ],
+        "nested",
+      ),
+    ).toBe("root");
   });
 });

@@ -27,6 +27,7 @@
   import {
     findCommunityRoom,
     memberById,
+    rootCommunityMessageId,
     type CommunityRoomModel,
     type CommunitySidePanel,
     type CommunityWorkspaceModel,
@@ -47,7 +48,6 @@
   let showSettings = $state(false);
   let settingsSection = $state<"profile" | "custom-emoji">("profile");
   let threadSidebarCloseButton = $state<HTMLButtonElement | null>(null);
-  let closingThreadSidebarFromToggle = false;
   const model = $derived(community?.state.workspace ?? initialModel);
 
   onMount(() => {
@@ -183,7 +183,7 @@
 
   function openSidePanel(panel: Exclude<CommunitySidePanel, "none">): void {
     if (panel === "details") community?.actions.openDetails();
-    controller.right.open();
+    controller.right.expand();
     if (controller.mobile.resolvedMode === "mobile") {
       const returnFocus =
         document.activeElement instanceof HTMLElement
@@ -195,22 +195,14 @@
 
   function closeSidePanel(): void {
     community?.actions.closeSidePanel();
+    if (controller.right.collapsed) controller.right.expand();
     controller.right.close();
     lastAction = "closed-side-panel";
   }
 
-  function closeThreadSidebarFromToggle(): void {
-    if (closingThreadSidebarFromToggle) return;
-    if (!threadSidebarCloseButton) {
-      closeSidePanel();
-      return;
-    }
-    closingThreadSidebarFromToggle = true;
-    try {
-      threadSidebarCloseButton.click();
-    } finally {
-      closingThreadSidebarFromToggle = false;
-    }
+  function closeThreadSidebarFromGlyph(): void {
+    if (threadSidebarCloseButton) threadSidebarCloseButton.click();
+    else closeSidePanel();
   }
 </script>
 
@@ -370,17 +362,36 @@
         <AppShell.Body.Content label={`${activeRoom.name} content`}>
           <CommunityWorkspaceSurface
             {model}
+            {...community?.state.replyTarget === undefined
+              ? {}
+              : { replyTarget: community.state.replyTarget }}
             handlers={{
               ...(community?.handlers ?? {}),
               onSelectRoom: selectRoom,
               onSendMessage: (roomId, content) => {
-                community?.handlers.onSendMessage?.(roomId, content);
+                if (community?.state.replyTarget)
+                  void community.actions.sendReply(
+                    community.state.replyTarget.eventId,
+                    content,
+                  );
+                else community?.handlers.onSendMessage?.(roomId, content);
+                community?.actions.clearReplyTarget();
                 lastAction = "sent-message";
               },
               onOpenTopic: (topicId) => {
                 community?.actions.openTopic(topicId);
                 controller.right.close();
                 lastAction = `opened-topic:${topicId}`;
+              },
+              onReply: (messageId) => {
+                community?.actions.setReplyTarget(messageId);
+                if (activeRoom.kind !== "direct") {
+                  community?.actions.openThread(
+                    rootCommunityMessageId(model.messages, messageId),
+                  );
+                  openSidePanel("thread");
+                }
+                lastAction = `replying-to:${messageId}`;
               },
               onOpenThread: (messageId) => {
                 community?.actions.clearReplyTarget();
@@ -413,12 +424,44 @@
   >
     {#if effectiveSidePanel === "thread" && model.thread}
       <AppShell.Sidebar.Header>
-        <AppShell.Sidebar.Toggle
-          side="right"
-          sidebarName={sidePanelTitle.toLowerCase()}
-          label={`Close ${sidePanelTitle.toLowerCase()} sidebar`}
-          onclick={closeThreadSidebarFromToggle}
-        />
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-sm"
+          data-ui-part="sidebar-toggle"
+          data-side="right"
+          data-state="expanded"
+          aria-label={`Close ${sidePanelTitle.toLowerCase()} sidebar`}
+          title={`Close ${sidePanelTitle.toLowerCase()} sidebar`}
+          onclick={closeThreadSidebarFromGlyph}
+        >
+          <svg
+            data-ui-part="sidebar-toggle-icon"
+            xmlns="http://www.w3.org/2000/svg"
+            width="24"
+            height="24"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"
+          >
+            <rect x="1" y="2" width="22" height="20" rx="4"></rect>
+            <g transform="translate(24 0) scale(-1 1)">
+              <rect
+                x="4"
+                y="5"
+                width="6"
+                height="14"
+                rx="2"
+                fill="currentColor"
+                data-ui-part="sidebar-toggle-indicator"
+              ></rect>
+            </g>
+          </svg>
+        </Button>
         <strong>{sidePanelTitle}</strong>
         <AppShell.Sidebar.Close
           bind:ref={threadSidebarCloseButton}
@@ -434,8 +477,14 @@
             : { replyTarget: community.state.replyTarget }}
           onSendReply={(_rootMessageId, content) => {
             community?.handlers.onSendReply?.(_rootMessageId, content);
+            community?.actions.clearReplyTarget();
             lastAction = "sent-reply";
           }}
+          onReply={(messageId) => {
+            community?.actions.setReplyTarget(messageId);
+            lastAction = `replying-to:${messageId}`;
+          }}
+          onCancelReply={() => community?.actions.clearReplyTarget()}
           onToggleReaction={react}
           onAddReaction={react}
           onCopyMessageLink={(messageId) => {

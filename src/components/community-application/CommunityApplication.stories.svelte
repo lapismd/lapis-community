@@ -248,7 +248,7 @@
 
 <Story
   name="Full community app"
-  play={async ({ canvas }) => {
+  play={async ({ canvas, canvasElement }) => {
     await userEvent.click(
       await canvas.findByRole("button", { name: "Registry" }),
     );
@@ -283,6 +283,22 @@
     );
     const threadSidebar = await canvas.findByLabelText("Thread sidebar");
     await expect(threadSidebar).toBeVisible();
+    await expect(canvas.queryByLabelText("Profile sidebar")).toBeNull();
+    await expect(
+      within(threadSidebar).getByLabelText("Replying to steve"),
+    ).toBeVisible();
+    await expect(threadSidebar).toHaveAttribute("data-state", "expanded");
+    await expect(threadSidebar.getBoundingClientRect().width).toBeGreaterThan(
+      200,
+    );
+    const roomTitle = canvasElement.querySelector<HTMLElement>(
+      '[data-ui-part="room-title"]',
+    );
+    const sidebarTitle = within(threadSidebar).getByText("Thread");
+    await expect(roomTitle).not.toBeNull();
+    await expect(getComputedStyle(sidebarTitle).fontSize).toBe(
+      getComputedStyle(roomTitle!).fontSize,
+    );
     await expect(
       within(threadSidebar).queryByLabelText("Thread from steve"),
     ).toBeNull();
@@ -299,6 +315,18 @@
     await waitFor(() =>
       expect(canvas.queryByLabelText("Thread sidebar")).toBeNull(),
     );
+    await fireEvent.click(
+      canvas.getAllByRole("button", { name: "Reply in thread" })[0]!,
+    );
+    const reopenedThreadSidebar =
+      await canvas.findByLabelText("Thread sidebar");
+    await expect(reopenedThreadSidebar).toHaveAttribute(
+      "data-state",
+      "expanded",
+    );
+    await expect(
+      reopenedThreadSidebar.getBoundingClientRect().width,
+    ).toBeGreaterThan(200);
   }}
 >
   {#snippet template()}

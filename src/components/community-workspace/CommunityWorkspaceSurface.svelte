@@ -72,6 +72,7 @@
         : { onCancelReply: handlers.onClearReplyTarget }}
       composerPlacement="row"
       onSend={(content) => handlers.onSendMessage?.(activeRoom.id, content)}
+      {...handlers.onReply === undefined ? {} : { onReply: handlers.onReply }}
       {...handlers.onOpenThread === undefined
         ? {}
         : { onOpenThread: handlers.onOpenThread }}

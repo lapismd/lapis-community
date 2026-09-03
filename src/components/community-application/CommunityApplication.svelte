@@ -68,6 +68,7 @@
   import {
     findCommunityRoom,
     memberById,
+    rootCommunityMessageId,
     type CommunityRoomModel,
     type CommunityMemberModel,
     type CommunitySidePanel,
@@ -153,7 +154,6 @@
   let selectedRecipientIds = $state<string[]>([]);
   let topicComposerOpen = $state(false);
   let threadSidebarCloseButton = $state<HTMLButtonElement | null>(null);
-  let closingThreadSidebarFromToggle = false;
   let confirmation = $state<"leave" | "delete" | null>(null);
   let statusOpen = $state(false);
   let statusDraft = $state("");
@@ -410,8 +410,9 @@
   );
 
   function openProfile(member: CommunityMemberModel): void {
+    if (workspace.sidePanel !== "none") community.actions.closeSidePanel();
     selectedProfile = member;
-    shell.right.open();
+    shell.right.expand();
     if (shell.mobile.resolvedMode === "mobile") {
       const returnFocus =
         document.activeElement instanceof HTMLElement
@@ -511,6 +512,7 @@
     } else if (nextRegistryRoute === null && destinationId !== "settings") {
       community.actions.selectRoom(destinationId);
     }
+    if (shell.right.collapsed) shell.right.expand();
     shell.right.close();
     shell.mobile.showMain();
     lastAction = `selected:${destinationId}`;
@@ -864,10 +866,11 @@
   }
 
   function openSidePanel(panel: Exclude<CommunitySidePanel, "none">): void {
+    selectedProfile = null;
     if (activeDestination !== "inbox" && panel === "details") {
       community.actions.openDetails();
     }
-    shell.right.open();
+    shell.right.expand();
     if (shell.mobile.resolvedMode === "mobile") {
       const returnFocus =
         document.activeElement instanceof HTMLElement
@@ -880,25 +883,14 @@
   function closeSidePanel(): void {
     selectedProfile = null;
     community.actions.closeSidePanel();
+    if (shell.right.collapsed) shell.right.expand();
     shell.right.close();
     lastAction = "closed-side-panel";
   }
 
-  function closeThreadSidebarFromToggle(): void {
-    if (closingThreadSidebarFromToggle) return;
-    if (!threadSidebarCloseButton) {
-      closeSidePanel();
-      return;
-    }
-
-    // The toggle primitive collapses on desktop. Delegate to the colocated
-    // public close control so this affordance removes the panel in every mode.
-    closingThreadSidebarFromToggle = true;
-    try {
-      threadSidebarCloseButton.click();
-    } finally {
-      closingThreadSidebarFromToggle = false;
-    }
+  function closeThreadSidebarFromGlyph(): void {
+    if (threadSidebarCloseButton) threadSidebarCloseButton.click();
+    else closeSidePanel();
   }
 
   async function sendWorkspaceMessage(
@@ -1312,7 +1304,7 @@
             <AppShell.Sidebar.Toggle side="left" sidebarName="navigation" />
           {/if}
           <div class="community-application__room-title">
-            <strong>
+            <strong data-ui-part="room-title">
               {#if activeRoom.private || activeRoom.kind === "direct"}
                 <LockIcon data-icon="inline-start" aria-hidden="true" />
               {:else if activeRoom.kind === "channel"}
@@ -1401,6 +1393,17 @@
                 community.actions.openTopic(topicId);
                 shell.right.close();
                 lastAction = `opened-topic:${topicId}`;
+              },
+              onReply: (messageId) => {
+                selectedProfile = null;
+                community.actions.setReplyTarget(messageId);
+                if (activeRoom.kind !== "direct") {
+                  community.actions.openThread(
+                    rootCommunityMessageId(workspace.messages, messageId),
+                  );
+                  openSidePanel("thread");
+                }
+                lastAction = `replying-to:${messageId}`;
               },
               onOpenThread: (messageId) => {
                 selectedProfile = null;
@@ -1503,12 +1506,44 @@
       </AppShell.Sidebar.Body>
     {:else if activeDestination !== "inbox" && workspaceSidePanel === "thread" && workspace.thread}
       <AppShell.Sidebar.Header>
-        <AppShell.Sidebar.Toggle
-          side="right"
-          sidebarName={sidePanelTitle.toLowerCase()}
-          label={`Close ${sidePanelTitle.toLowerCase()} sidebar`}
-          onclick={closeThreadSidebarFromToggle}
-        />
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-sm"
+          data-ui-part="sidebar-toggle"
+          data-side="right"
+          data-state="expanded"
+          aria-label={`Close ${sidePanelTitle.toLowerCase()} sidebar`}
+          title={`Close ${sidePanelTitle.toLowerCase()} sidebar`}
+          onclick={closeThreadSidebarFromGlyph}
+        >
+          <svg
+            data-ui-part="sidebar-toggle-icon"
+            xmlns="http://www.w3.org/2000/svg"
+            width="24"
+            height="24"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"
+          >
+            <rect x="1" y="2" width="22" height="20" rx="4"></rect>
+            <g transform="translate(24 0) scale(-1 1)">
+              <rect
+                x="4"
+                y="5"
+                width="6"
+                height="14"
+                rx="2"
+                fill="currentColor"
+                data-ui-part="sidebar-toggle-indicator"
+              ></rect>
+            </g>
+          </svg>
+        </Button>
         <strong>{sidePanelTitle}</strong>
         <AppShell.Sidebar.Close
           bind:ref={threadSidebarCloseButton}

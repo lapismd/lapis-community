@@ -7,7 +7,7 @@
   } from "@lapismd/design-core/shell";
   import ChevronLeftIcon from "@lucide/svelte/icons/chevron-left";
   import ChevronRightIcon from "@lucide/svelte/icons/chevron-right";
-  import type { Snippet } from "svelte";
+  import { untrack, type Snippet } from "svelte";
   import type { HTMLAttributes } from "svelte/elements";
 
   let {
@@ -33,6 +33,19 @@
     onNavigateForward?: () => void;
     children?: Snippet;
   } = $props();
+
+  $effect(() => {
+    const rightSidebar = controller.right;
+    const preventCollapsedRightSidebar = () => {
+      if (!rightSidebar.collapsed) return;
+      const wasClosed = rightSidebar.closed;
+      rightSidebar.expand();
+      if (wasClosed) rightSidebar.close();
+    };
+
+    untrack(preventCollapsedRightSidebar);
+    return rightSidebar.onLayoutChange(preventCollapsedRightSidebar);
+  });
 </script>
 
 <div
@@ -200,6 +213,12 @@
     ) {
     min-width: 0;
     flex: 1;
+  }
+
+  :global(
+      .community-app-shell__surface [data-ui-part="sidebar-header"] > strong
+    ) {
+    font-size: 0.88rem;
   }
 
   @media (hover: hover) {
