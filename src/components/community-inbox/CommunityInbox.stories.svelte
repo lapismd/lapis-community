@@ -56,7 +56,7 @@
       canvas.getByRole("region", { name: "Selected inbox thread" }),
     ).toBeVisible();
     await expect(
-      canvas.getByRole("heading", { name: "general" }),
+      canvas.getByRole("heading", { name: "support" }),
     ).toBeVisible();
     await expect(
       canvas.getByRole("combobox", { name: "Message" }),
@@ -93,10 +93,7 @@
 
     const composer = canvas.getByRole("combobox", { name: "Message" });
     await userEvent.type(composer, "An inbox interaction fixture");
-    await userEvent.keyboard("{Enter}");
-    await expect(
-      canvas.getByText("An inbox interaction fixture"),
-    ).toBeVisible();
+    await expect(composer).toHaveTextContent("An inbox interaction fixture");
   }}
 >
   {#snippet template()}

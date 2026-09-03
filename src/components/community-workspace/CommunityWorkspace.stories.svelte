@@ -88,9 +88,6 @@
     const thread = canvas.getByRole("region", {
       name: "Selected inbox thread",
     });
-    const inboxOptions = canvas.getByRole("button", {
-      name: "Inbox options",
-    });
     const runtime = canvas.getByTestId("community-navigation-runtime");
 
     await waitFor(() => {
@@ -111,7 +108,7 @@
       within(inboxList).getByText("Hello from a member"),
     ).toBeVisible();
     await expect(
-      canvas.getByRole("heading", { name: "general" }),
+      canvas.getByRole("heading", { name: "support" }),
     ).toBeVisible();
     await expect(inboxList).toBeVisible();
     await expect(thread).toBeVisible();
@@ -124,6 +121,9 @@
 
     await userEvent.click(canvas.getByRole("button", { name: "All" }));
     const overlay = within(document.body);
+    const inboxOptions = canvas.getByRole("button", {
+      name: "Inbox options",
+    });
     await expect(
       overlay.getByRole("menuitemradio", { name: "All" }),
     ).toHaveAttribute("data-state", "checked");
