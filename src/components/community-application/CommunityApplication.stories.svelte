@@ -2,7 +2,7 @@
   import { defineMeta } from "@storybook/addon-svelte-csf";
   import { expect, userEvent } from "storybook/test";
 
-  import CommunityApplication from "./CommunityApplication.svelte";
+  import CommunityApplication from "./CommunityApplicationRoot.svelte";
   import CommunityApplicationStoryHarness from "./CommunityApplicationStoryHarness.svelte";
   import CommunityApplicationCacheStoryHarness from "./CommunityApplicationCacheStoryHarness.svelte";
 
@@ -136,6 +136,44 @@
       initialDestination="registry"
       registryConfigured={false}
     />
+  {/snippet}
+</Story>
+
+<Story
+  name="Logged out"
+  play={async ({ canvas }) => {
+    await expect(
+      await canvas.findByRole("heading", { name: "Connect to Nostr" }),
+    ).toBeVisible();
+    await expect(
+      canvas.getByRole("button", { name: /Browser extension/u }),
+    ).toBeVisible();
+    await expect(
+      canvas.getByRole("button", { name: /Remote signer/u }),
+    ).toBeVisible();
+  }}
+>
+  {#snippet template()}
+    <CommunityApplicationStoryHarness signedIn={false} />
+  {/snippet}
+</Story>
+
+<Story
+  name="Login transition"
+  play={async ({ canvas }) => {
+    await expect(
+      await canvas.findByRole("heading", { name: "Connect to Nostr" }),
+    ).toBeVisible();
+    await userEvent.click(
+      canvas.getByRole("button", { name: /Remote signer/u }),
+    );
+    await expect(
+      await canvas.findByRole("button", { name: "Registry" }),
+    ).toBeVisible();
+  }}
+>
+  {#snippet template()}
+    <CommunityApplicationStoryHarness signedIn={false} />
   {/snippet}
 </Story>
 

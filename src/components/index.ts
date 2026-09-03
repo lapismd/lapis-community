@@ -1,5 +1,13 @@
 export { default as CommunityHeader } from "./community-header/CommunityHeader.svelte";
-export { default as CommunityApplication } from "./community-application/CommunityApplication.svelte";
+export { default as CommunityApplication } from "./community-application/CommunityApplicationRoot.svelte";
+export type { CommunityApplicationLoginOptions } from "./community-application/model.js";
+export { default as CommunityLogin } from "./community-login/CommunityLogin.svelte";
+export {
+  COMMUNITY_LOGIN_METHODS,
+  DEFAULT_COMMUNITY_LOGIN_METHODS,
+  type CommunityLoginMethodKind,
+  type CommunityLoginMethodModel,
+} from "./community-login/model.js";
 export { default as CommunityEmojiPicker } from "./community-emoji-picker/CommunityEmojiPicker.svelte";
 export { default as CommunityMemberCommand } from "./community-member-command/CommunityMemberCommand.svelte";
 export { default as CommunityRoomBrowser } from "./community-room-browser/CommunityRoomBrowser.svelte";

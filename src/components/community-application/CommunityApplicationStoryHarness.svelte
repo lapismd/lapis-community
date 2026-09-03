@@ -3,6 +3,10 @@
 
   import {
     createBrowserCommunityConfigurationStore,
+    createBrowserCommunityEventRuntime,
+    createCommunityController,
+    createNip29CommunitySource,
+    type CommunityIdentity,
     type CommunityController,
   } from "../../community/index.js";
   import {
@@ -11,7 +15,10 @@
   } from "../../testing/index.js";
   import RegistryCommunityStoryHarness from "../registry-community/RegistryCommunityStoryHarness.svelte";
   import { createRegistryStoryDataSource } from "../registry-browser/story-fixtures.js";
-  import CommunityApplication from "./CommunityApplication.svelte";
+  import { COMMUNITY_LOGIN_METHODS } from "../community-login/model.js";
+  import CommunityApplication from "./CommunityApplicationRoot.svelte";
+
+  let { signedIn = true }: { signedIn?: boolean } = $props();
 
   let runtime = $state<CommunityStoryRuntime>();
   let community = $state<CommunityController>();
@@ -23,6 +30,7 @@
     let runtimeGeneration = 0;
     const startRuntime = (): void => {
       const currentGeneration = ++runtimeGeneration;
+      if (community && community !== runtime?.controller) community.dispose();
       runtime?.dispose();
       runtime = undefined;
       community = undefined;
@@ -44,9 +52,18 @@
             return;
           }
           runtime = created;
-          community = created.controller;
+          community = signedIn
+            ? created.controller
+            : createCommunityController({
+                scopes: [created.scenario.scope],
+                source: createNip29CommunitySource({
+                  relayFactory: created.relayFactory,
+                }),
+                runtime: createBrowserCommunityEventRuntime(),
+                now: () => 1_700_000_100,
+              });
           community.initialize();
-          if (created.backend !== "live") {
+          if (created.backend !== "live" && signedIn) {
             const memberPubkey = await created.scenario.member.getPublicKey();
             if (!active || currentGeneration !== runtimeGeneration) return;
             community.actions.openDirectMessage([memberPubkey]);
@@ -71,9 +88,15 @@
         "community-story-backend-change",
         startRuntime,
       );
+      if (community && community !== runtime?.controller) community.dispose();
       runtime?.dispose();
     };
   });
+
+  async function connectStoryIdentity(): Promise<CommunityIdentity> {
+    if (!runtime) throw new Error("The community runtime is not ready");
+    return runtime.scenario.operator;
+  }
 </script>
 
 {#if runtimeError}
@@ -97,6 +120,14 @@
       installActions: { ai: { state: "available" } },
       onInstall: async () => {},
     }}
+    {...signedIn
+      ? {}
+      : {
+          loginOptions: {
+            methods: Object.values(COMMUNITY_LOGIN_METHODS),
+            connect: connectStoryIdentity,
+          },
+        }}
   />
 {:else}
   <p class="community-application-story__loading" role="status">

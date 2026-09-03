@@ -15,7 +15,7 @@
     createMemoryCommunityEventStore,
   } from "../../testing/index.js";
   import { createRegistryStoryDataSource } from "../registry-browser/story-fixtures.js";
-  import CommunityApplication from "./CommunityApplication.svelte";
+  import CommunityApplication from "./CommunityApplicationRoot.svelte";
 
   let {
     scenario = "cached-offline",
@@ -124,6 +124,7 @@
       community = createCommunityController({
         scopes: [fixture.scope],
         source,
+        identity: fixture.operator,
         runtime,
         now: () => 1_700_000_200,
       });

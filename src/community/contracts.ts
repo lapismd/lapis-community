@@ -473,7 +473,7 @@ export interface CommunityControllerActions {
   removeCustomEmoji(shortcode: string): Promise<void>;
   updateRelayUrl(communityId: string, relayUrl: string): Promise<void>;
   clearCache(communityId?: string): Promise<void>;
-  connectIdentity(): Promise<void>;
+  connectIdentity(connector?: CommunityIdentityConnector): Promise<void>;
 }
 
 export interface CommunityControllerOptions {

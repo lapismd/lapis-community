@@ -356,6 +356,35 @@ describe("createCommunityController", () => {
     relayFactory.reset();
   });
 
+  it("connects through an identity method selected after construction", async () => {
+    const scenario = createCommunityTestScenario();
+    const relayFactory = createInMemoryRelayFactory({
+      policy: new Nip29MemoryPolicy({
+        relaySecretKey: new Uint8Array(32).fill(24),
+        now: () => 1_700_000_000,
+      }),
+    });
+    await scenario.seed(relayFactory.relay(scenario.scope.relayUrl));
+    const connect = vi.fn(async () => scenario.operator);
+    const controller = createCommunityController({
+      scopes: [scenario.scope],
+      source: createNip29CommunitySource({ relayFactory }),
+      now: () => 1_700_000_100,
+    });
+    controller.initialize();
+    await vi.waitFor(() => expect(controller.state.status).toBe("connected"));
+
+    await controller.actions.connectIdentity({ connect });
+
+    expect(connect).toHaveBeenCalledTimes(1);
+    expect(controller.state.authentication).toEqual({
+      status: "connected",
+      pubkey: await scenario.operator.getPublicKey(),
+    });
+    controller.dispose();
+    relayFactory.reset();
+  });
+
   it("creates, updates, and deletes rooms through NIP-29 commands", async () => {
     runtime = await createCommunityTestRuntime();
     await connected(runtime);

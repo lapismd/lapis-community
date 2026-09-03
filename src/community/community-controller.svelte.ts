@@ -1019,16 +1019,16 @@ export function createCommunityController(
         eventsByScope = next;
       });
     },
-    async connectIdentity() {
+    async connectIdentity(connector = options.identityConnector) {
       if (identity !== undefined && identityPubkey !== "") return;
-      if (options.identityConnector === undefined) {
-        const message = "No NIP-07 identity connector is available";
+      if (connector === undefined) {
+        const message = "No identity connector is available";
         authentication = { status: "error", error: message };
         throw new Error(message);
       }
       authentication = { status: "connecting" };
       try {
-        identity = await options.identityConnector.connect();
+        identity = await connector.connect();
         const pubkey = await identity.getPublicKey();
         authentication = { status: "connected", pubkey };
         await reconnect();
