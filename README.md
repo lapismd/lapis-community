@@ -100,6 +100,12 @@ normal, reply, reaction, error, and long-discussion states. The package
 specification is under `spec/src` and is enforced by
 `@lapismd/spec-validator`.
 
+Storybook is supervised per checkout and port. Use `pnpm storybook:restart` to
+stop this checkout's listener and start a clean server, or
+`pnpm storybook:stop` to stop it. Set `STORYBOOK_PORT` to use another lane; the
+scripts refuse to stop a listener owned by a different checkout. Optional
+checkout-local settings can be placed in `.env.storybook.local`.
+
 Storybook uses an isolated in-memory relay by default. Its relay toolbar also
 offers the public `wss://community.lapis.md` registry relay without seeding or
 publishing fixture events. Override the live target or canonical room IDs when

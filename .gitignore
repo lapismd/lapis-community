@@ -6,6 +6,7 @@ artifacts/
 spec/book/
 storybook-static/
 .local/
+.cache/
 .turbo/
 .env
 .env.*
