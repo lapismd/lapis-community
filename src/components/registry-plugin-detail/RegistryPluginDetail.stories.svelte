@@ -1,6 +1,6 @@
 <script module lang="ts">
   import { defineMeta } from "@storybook/addon-svelte-csf";
-  import { expect, fn, userEvent } from "storybook/test";
+  import { expect, fn, userEvent, waitFor, within } from "storybook/test";
 
   import {
     registryStoryEntries,
@@ -9,6 +9,16 @@
   import RegistryPluginDetail from "./RegistryPluginDetail.svelte";
 
   const resolved = registryStoryResolvedDetail();
+  const iconResolved = {
+    ...resolved,
+    detail: {
+      ...resolved.detail,
+      appearance: {
+        icon: "sparkles",
+        accent: resolved.detail.appearance?.accent ?? "#8b5cf6",
+      },
+    },
+  };
   const { Story } = defineMeta({
     title: "Community/Registry/Plugin Detail",
     component: RegistryPluginDetail,
@@ -36,7 +46,31 @@
 
 <Story
   name="Available plugin"
-  play={async ({ args, canvas }) => {
+  play={async ({ args, canvas, canvasElement }) => {
+    const page = within(canvasElement.ownerDocument.body);
+    const banner = canvas.getByRole("button", {
+      name: /Open AI Assistant banner/u,
+    });
+    await userEvent.click(banner);
+    await expect(page.getByRole("dialog")).toBeVisible();
+    await userEvent.click(page.getByRole("button", { name: "Dark" }));
+    await expect(page.getByRole("dialog")).toHaveAttribute(
+      "data-media-mode",
+      "dark",
+    );
+    await userEvent.click(
+      page.getByRole("button", { name: "Close media viewer" }),
+    );
+    await waitFor(() => expect(banner).toHaveFocus());
+
+    const overview = canvas.getByRole("button", {
+      name: /Open AI Assistant overview image/u,
+    });
+    await userEvent.click(overview);
+    await expect(page.getByRole("dialog")).toBeVisible();
+    await userEvent.keyboard("{Escape}");
+    await waitFor(() => expect(overview).toHaveFocus());
+
     await userEvent.click(
       canvas.getByRole("button", { name: "Install in Lapis" }),
     );
@@ -64,6 +98,17 @@
 />
 
 <Story name="Installing" args={{ installAction: { state: "installing" } }} />
+<Story
+  name="Signed icon fallback"
+  args={{ resolved: iconResolved }}
+  play={async ({ canvasElement }) => {
+    await expect(
+      canvasElement.querySelector(
+        ".registry-plugin-detail__icon .lucide-sparkles",
+      ),
+    ).not.toBeNull();
+  }}
+/>
 <Story name="Installed" args={{ installAction: { state: "installed" } }} />
 <Story
   name="Disabled"

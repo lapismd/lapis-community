@@ -1,4 +1,3 @@
-import { createHash } from "node:crypto";
 import {
   copyFile,
   mkdir,
@@ -21,6 +20,12 @@ import {
   LAPIS_GROUPS,
 } from "../protocol/index.js";
 import type { JsonObject, JsonValue } from "../protocol/index.js";
+import {
+  projectionResourceSourceConfiguration,
+  resolveProjectionResourceSource,
+  verifyProjectionResourceBytes,
+  type ProjectionResource,
+} from "./projection-resource.js";
 
 const outputIndex = process.argv.indexOf("--output");
 const outputTarget = path.resolve(
@@ -36,6 +41,9 @@ const relayUrls = list("REGISTRY_RELAYS");
 if (relayUrls.length === 0)
   throw new Error("REGISTRY_RELAYS must not be empty");
 const publicUrls = list("REGISTRY_PUBLIC_RELAYS");
+const resourceSourceConfiguration = projectionResourceSourceConfiguration(
+  process.env,
+);
 const readerSigner = await loadReaderSigner();
 const authSigner = readerSigner.signEvent.bind(readerSigner);
 const relays = relayUrls.map(
@@ -139,13 +147,6 @@ async function jsonFile(filePath: string, value: unknown): Promise<void> {
   await writeFile(filePath, `${canonicalJson(value as JsonValue)}\n`, "utf8");
 }
 
-interface ProjectionResource {
-  url: string;
-  sourceUrl: string;
-  sha256: string;
-  size: number;
-}
-
 async function mirrorProjectionResources(
   plugins: ReadonlyMap<string, JsonObject>,
   targetRoot: string,
@@ -188,32 +189,21 @@ async function mirrorResource(
   targetRoot: string,
 ): Promise<void> {
   const pathname = new URL(resource.url, "https://community.lapis.md").pathname;
-  const origin = process.env.REGISTRY_ASSET_FETCH_ORIGIN?.trim();
-  const source = origin
-    ? new URL(
-        new URL(resource.sourceUrl).pathname.slice(1),
-        ensureSlash(origin),
-      )
-    : new URL(resource.sourceUrl);
+  const source = resolveProjectionResourceSource(
+    resource,
+    resourceSourceConfiguration,
+  );
   const response = await fetch(source);
   if (!response.ok)
     throw new Error(`${source.toString()} returned ${response.status}`);
   const bytes = new Uint8Array(await response.arrayBuffer());
-  if (bytes.byteLength !== resource.size)
-    throw new Error(`${resource.url} size mismatch`);
-  if (createHash("sha256").update(bytes).digest("hex") !== resource.sha256) {
-    throw new Error(`${resource.url} hash mismatch`);
-  }
+  verifyProjectionResourceBytes(resource, bytes);
   const target = path.resolve(targetRoot, pathname.slice("/registry/".length));
   if (!target.startsWith(`${path.resolve(targetRoot)}${path.sep}`)) {
     throw new Error(`Unsafe resource path ${resource.url}`);
   }
   await mkdir(path.dirname(target), { recursive: true });
   await writeFile(target, bytes);
-}
-
-function ensureSlash(value: string): URL {
-  return new URL(value.endsWith("/") ? value : `${value}/`);
 }
 
 function list(name: string): string[] {

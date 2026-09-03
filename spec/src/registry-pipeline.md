@@ -13,3 +13,11 @@ The local fixture is test infrastructure, not an alternate source of truth. It
 publishes the same signed events that production publishers, curators, and
 community members would submit and then exercises the normal relay-to-site
 pipeline.
+
+The materializer may use `BLOSSOM_URL` as an image-only fetch base when signed
+resource bytes live apart from the relay. This is distinct from the relay's
+advertised `BLOSSOM_PUBLIC_URL`: the projection still contains only
+hash-verified mirrored resources, and non-image resources retain the legacy
+fetch-origin behavior. The final smoke starts a fresh Storybook process proxied
+to the built registry site and exercises the materialized AI media in a real
+browser.

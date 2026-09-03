@@ -1,6 +1,8 @@
 import type { StorybookConfig } from "@storybook/svelte-vite";
 import { mergeConfig, type Plugin } from "vite";
 
+const registryProxyTarget = process.env.VITE_REGISTRY_PROXY_TARGET?.trim();
+
 function crossOriginIsolationPlugin(): Plugin {
   const applyHeaders = (
     _request: unknown,
@@ -55,6 +57,16 @@ const config: StorybookConfig = {
           "Cross-Origin-Embedder-Policy": "credentialless",
         },
         watch: { ignored: ["**/storybook-static/**"] },
+        ...(registryProxyTarget
+          ? {
+              proxy: {
+                "/registry": {
+                  target: registryProxyTarget,
+                  changeOrigin: true,
+                },
+              },
+            }
+          : {}),
       },
       preview: {
         headers: {

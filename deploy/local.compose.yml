@@ -102,6 +102,7 @@ services:
         "/projection/registry",
       ]
     environment:
+      BLOSSOM_URL: ${BLOSSOM_URL:-}
       REGISTRY_ASSET_FETCH_ORIGIN: http://registry-fixture:8090/
       REGISTRY_CURATOR_PUBKEYS: ${REGISTRY_CURATOR_PUBKEYS:?fixture curator is missing}
       REGISTRY_PUBLISHER_PUBKEYS: ${REGISTRY_PUBLISHER_PUBKEYS:?fixture publisher is missing}

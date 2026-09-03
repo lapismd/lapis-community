@@ -1,6 +1,6 @@
 <script module lang="ts">
   import { defineMeta } from "@storybook/addon-svelte-csf";
-  import { expect, userEvent, within } from "storybook/test";
+  import { expect, userEvent, waitFor, within } from "storybook/test";
 
   import { registryStoryDetail } from "../registry-browser/story-fixtures.js";
   import RegistryMediaGallery from "./RegistryMediaGallery.svelte";
@@ -25,20 +25,26 @@
 <Story
   name="Accessible viewer"
   play={async ({ canvas, canvasElement }) => {
-    await userEvent.click(
-      canvas.getByRole("button", { name: /Open screenshot 1/u }),
-    );
+    const trigger = canvas.getByRole("button", { name: /Open screenshot 1/u });
+    await userEvent.click(trigger);
     const overlay = within(canvasElement.ownerDocument.body);
-    await expect(overlay.getByRole("dialog")).toBeVisible();
     await expect(
-      overlay.getByRole("heading", { name: "AI Assistant screenshot 1" }),
+      overlay.getByRole("dialog", { name: "AI Assistant media viewer" }),
     ).toBeVisible();
-    await userEvent.click(
-      overlay.getByRole("button", { name: "Next screenshot" }),
+    await expect(
+      overlay.getByRole("button", { name: "Split" }),
+    ).toHaveAttribute("aria-pressed", "true");
+    await userEvent.click(overlay.getByRole("button", { name: "Light" }));
+    await expect(overlay.getByRole("dialog")).toHaveAttribute(
+      "data-media-mode",
+      "light",
     );
+    await userEvent.click(overlay.getByRole("button", { name: "Next image" }));
+    await expect(overlay.getByText(/2 of 2:/u)).toBeVisible();
     await expect(
-      overlay.getByRole("heading", { name: "AI Assistant screenshot 2" }),
-    ).toBeVisible();
+      overlay.getByRole("button", { name: "Next image" }),
+    ).toBeDisabled();
     await userEvent.keyboard("{Escape}");
+    await waitFor(() => expect(trigger).toHaveFocus());
   }}
 />

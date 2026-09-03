@@ -11,6 +11,8 @@ fi
 project_name=${COMPOSE_PROJECT_NAME:-lapis-registry-smoke-$$}
 smoke_tmp=$(mktemp -d "/tmp/lapis-registry-smoke.XXXXXX")
 port_base=$((24000 + ($$ % 20000)))
+storybook_port=$((port_base + 3))
+storybook_pid=
 
 export COMPOSE_PROJECT_NAME=${project_name}
 export REGISTRY_FIXTURE_PORT=${REGISTRY_FIXTURE_PORT:-${port_base}}
@@ -29,7 +31,12 @@ report_error() {
 cleanup() {
   exit_code=$?
   trap - EXIT
+  if [[ -n ${storybook_pid} ]]; then
+    kill "${storybook_pid}" >/dev/null 2>&1 || true
+    wait "${storybook_pid}" >/dev/null 2>&1 || true
+  fi
   if [[ ${exit_code} -ne 0 ]]; then
+    test ! -f "${smoke_tmp}/storybook.log" || tail -250 "${smoke_tmp}/storybook.log" >&2
     "${stack[@]}" ps || true
     "${stack[@]}" logs --no-color --tail=250 || true
   fi
@@ -109,6 +116,29 @@ plugin_id=$(jq -r '.plugins[0].id' "${smoke_tmp}/site-index.json")
 rg -q '<lapis-registry-community' "${smoke_tmp}/plugin.html"
 rg -q '/registry/client/registry-community.js' "${smoke_tmp}/plugin.html"
 
+VITE_REGISTRY_PROXY_TARGET="${site_base%/}" \
+  pnpm --dir "${repo_root}" exec storybook dev --no-open \
+    --config-dir .storybook --port "${storybook_port}" \
+    >"${smoke_tmp}/storybook.log" 2>&1 &
+storybook_pid=$!
+for _ in $(seq 1 120); do
+  if /usr/bin/curl -fsS \
+    "http://127.0.0.1:${storybook_port}/iframe.html?id=community-registry-browser-live--relay-materialized-ai-detail&viewMode=story" \
+    >/dev/null; then
+    break
+  fi
+  if ! kill -0 "${storybook_pid}" >/dev/null 2>&1; then
+    echo "Cold Storybook process stopped before the media smoke" >&2
+    exit 1
+  fi
+  sleep 1
+done
+pnpm --dir "${repo_root}" exec node scripts/smoke-registry-media.mjs \
+  "http://127.0.0.1:${storybook_port}/iframe.html?id=community-registry-browser-live--relay-materialized-ai-detail&viewMode=story"
+kill "${storybook_pid}" >/dev/null 2>&1 || true
+wait "${storybook_pid}" >/dev/null 2>&1 || true
+storybook_pid=
+
 set -a
 # shellcheck source=/dev/null
 source "${repo_root}/.local/registry-fixture/fixture.env"
@@ -116,6 +146,7 @@ set +a
 export REGISTRY_READER_SECRET_FILE="${repo_root}/.local/registry-fixture/materializer-reader.key"
 export REGISTRY_RELAYS="ws://registry.localhost:${LAPIS_RELAY_PORT}"
 export REGISTRY_PUBLIC_RELAYS="${REGISTRY_RELAYS}"
+export BLOSSOM_URL="${fixture_base}"
 export REGISTRY_ASSET_FETCH_ORIGIN="${fixture_base}"
 pnpm --dir "${repo_root}" build
 pnpm --dir "${repo_root}" registry:materialize --output "${smoke_tmp}/materialized"

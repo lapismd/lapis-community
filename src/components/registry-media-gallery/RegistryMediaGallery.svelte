@@ -1,10 +1,11 @@
 <script lang="ts">
-  import { Button } from "@lapismd/design-core/shadcn/button";
-  import * as Dialog from "@lapismd/design-core/shadcn/dialog";
+  import { onMount } from "svelte";
+
   import ChevronLeftIcon from "@lucide/svelte/icons/chevron-left";
   import ChevronRightIcon from "@lucide/svelte/icons/chevron-right";
 
   import type { RegistryGalleryItem } from "../../registry/index.js";
+  import RegistryMediaViewer from "../registry-media-viewer/RegistryMediaViewer.svelte";
 
   let {
     items,
@@ -14,18 +15,60 @@
     pluginName: string;
   } = $props();
 
-  let open = $state(false);
+  let track = $state<HTMLDivElement>();
+  let viewerOpen = $state(false);
   let selectedIndex = $state(0);
-  const selected = $derived(items[selectedIndex]);
+  let inlineIndex = $state(0);
+  let atStart = $state(true);
+  let atEnd = $state(false);
+  let opener = $state<HTMLElement | null>(null);
 
-  function show(index: number): void {
+  onMount(() => {
+    const observer = new ResizeObserver(updateTrackState);
+    if (!track) return;
+    observer.observe(track);
+    updateTrackState();
+    return () => observer.disconnect();
+  });
+
+  function show(index: number, target: HTMLElement): void {
     selectedIndex = index;
-    open = true;
+    opener = target;
+    viewerOpen = true;
   }
 
-  function move(offset: -1 | 1): void {
-    if (items.length === 0) return;
-    selectedIndex = (selectedIndex + offset + items.length) % items.length;
+  function moveTrack(offset: -1 | 1): void {
+    if (!track) return;
+    const nextIndex = Math.min(
+      Math.max(inlineIndex + offset, 0),
+      items.length - 1,
+    );
+    const target = track.children[nextIndex] as HTMLElement | undefined;
+    target?.scrollIntoView({
+      behavior: "smooth",
+      block: "nearest",
+      inline: "start",
+    });
+  }
+
+  function updateTrackState(): void {
+    const currentTrack = track;
+    if (!currentTrack) return;
+    const maximum = Math.max(
+      0,
+      currentTrack.scrollWidth - currentTrack.clientWidth,
+    );
+    atStart = currentTrack.scrollLeft <= 1;
+    atEnd = currentTrack.scrollLeft >= maximum - 1;
+    const children = [...currentTrack.children] as HTMLElement[];
+    inlineIndex = children.reduce(
+      (closest, child, index) =>
+        Math.abs(child.offsetLeft - currentTrack.scrollLeft) <
+        Math.abs(children[closest]!.offsetLeft - currentTrack.scrollLeft)
+          ? index
+          : closest,
+      0,
+    );
   }
 </script>
 
@@ -34,153 +77,206 @@
     class="registry-media-gallery"
     aria-labelledby="registry-media-gallery-title"
   >
-    <div class="registry-media-gallery__heading">
-      <h2 id="registry-media-gallery-title">{pluginName} screenshots</h2>
-      <span>{items.length} images</span>
-    </div>
-    <div
-      class="registry-media-gallery__track"
-      aria-label={`${pluginName} screenshot carousel`}
+    <h2
+      id="registry-media-gallery-title"
+      class="registry-media-gallery__sr-only"
     >
-      {#each items as item, index (item.id)}
-        <button
-          type="button"
-          aria-label={`Open screenshot ${index + 1} of ${items.length}: ${item.alt}`}
-          onclick={() => show(index)}
-        >
-          <picture>
-            <source
-              media="(prefers-color-scheme: dark)"
-              srcset={item.images.dark.url}
-            />
+      {pluginName} screenshots
+    </h2>
+    <div class="registry-media-gallery__frame">
+      <div
+        bind:this={track}
+        class="registry-media-gallery__track"
+        aria-label={`${pluginName} screenshot carousel`}
+        onscroll={updateTrackState}
+      >
+        {#each items as item, index (item.id)}
+          <button
+            type="button"
+            class:active={index === inlineIndex}
+            aria-label={`Open screenshot ${index + 1} of ${items.length}: ${item.alt}`}
+            onclick={(event) => show(index, event.currentTarget)}
+          >
             <img
-              src={item.images.preview.url}
-              width={item.images.preview.width}
-              height={item.images.preview.height}
-              alt={item.alt}
+              src={item.images.dark.url}
+              width={item.images.dark.width}
+              height={item.images.dark.height}
+              alt=""
               loading="lazy"
             />
-          </picture>
+          </button>
+        {/each}
+      </div>
+      <span
+        class="registry-media-gallery__fade registry-media-gallery__fade--start"
+        class:hidden={atStart}
+        aria-hidden="true"
+      ></span>
+      <span
+        class="registry-media-gallery__fade registry-media-gallery__fade--end"
+        class:hidden={atEnd}
+        aria-hidden="true"
+      ></span>
+      {#if items.length > 1}
+        <button
+          class="registry-media-gallery__previous"
+          type="button"
+          aria-label="Previous screenshots"
+          disabled={atStart}
+          onclick={() => moveTrack(-1)}
+        >
+          <ChevronLeftIcon aria-hidden="true" />
         </button>
-      {/each}
+        <button
+          class="registry-media-gallery__next"
+          type="button"
+          aria-label="Next screenshots"
+          disabled={atEnd}
+          onclick={() => moveTrack(1)}
+        >
+          <ChevronRightIcon aria-hidden="true" />
+        </button>
+      {/if}
     </div>
   </section>
 
-  <Dialog.Root bind:open>
-    <Dialog.Content class="registry-media-gallery__dialog">
-      <Dialog.Header>
-        <Dialog.Title>{pluginName} screenshot {selectedIndex + 1}</Dialog.Title>
-        <Dialog.Description>{selected?.alt}</Dialog.Description>
-      </Dialog.Header>
-      {#if selected}
-        <div class="registry-media-gallery__viewer">
-          <img src={selected.images.full.url} alt={selected.alt} />
-          {#if items.length > 1}
-            <Button
-              type="button"
-              size="icon"
-              variant="secondary"
-              aria-label="Previous screenshot"
-              onclick={() => move(-1)}
-            >
-              <ChevronLeftIcon aria-hidden="true" />
-            </Button>
-            <Button
-              type="button"
-              size="icon"
-              variant="secondary"
-              aria-label="Next screenshot"
-              onclick={() => move(1)}
-            >
-              <ChevronRightIcon aria-hidden="true" />
-            </Button>
-          {/if}
-        </div>
-      {/if}
-    </Dialog.Content>
-  </Dialog.Root>
+  <RegistryMediaViewer
+    {items}
+    {pluginName}
+    {opener}
+    bind:open={viewerOpen}
+    bind:selectedIndex
+  />
 {/if}
 
 <style>
   .registry-media-gallery {
-    display: grid;
-    gap: 0.9rem;
+    min-width: 0;
   }
-
-  .registry-media-gallery__heading {
-    display: flex;
-    align-items: baseline;
-    justify-content: space-between;
-    gap: 1rem;
+  .registry-media-gallery__frame {
+    position: relative;
   }
-
-  h2 {
-    margin: 0;
-    font-size: 1.1rem;
-  }
-
-  .registry-media-gallery__heading span {
-    color: var(--muted-foreground);
-    font-size: 0.8rem;
-  }
-
   .registry-media-gallery__track {
-    display: grid;
-    grid-auto-columns: minmax(18rem, 38rem);
-    grid-auto-flow: column;
-    gap: 0.75rem;
+    display: flex;
+    gap: 0.5rem;
     overflow-x: auto;
+    scrollbar-width: none;
+    scroll-behavior: smooth;
     scroll-snap-type: x mandatory;
+    overscroll-behavior-x: contain;
   }
-
-  .registry-media-gallery__track button {
+  .registry-media-gallery__track::-webkit-scrollbar {
+    display: none;
+  }
+  .registry-media-gallery__track > button {
+    flex: 0 0 calc(50% - 0.25rem);
+    max-width: 34.75rem;
     overflow: hidden;
-    border: 1px solid var(--border);
-    border-radius: calc(var(--radius) * 1.4);
+    border: 0;
+    border-radius: 0.65rem;
     padding: 0;
-    background: var(--muted);
+    background: #09090b;
     cursor: zoom-in;
+    opacity: 0.18;
     scroll-snap-align: start;
+    transition: opacity 180ms ease;
   }
-
+  .registry-media-gallery__track > button.active,
+  .registry-media-gallery__track > button:hover,
+  .registry-media-gallery__track > button:focus-visible {
+    opacity: 1;
+  }
+  .registry-media-gallery__track > button:focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: -2px;
+  }
   .registry-media-gallery__track img {
     display: block;
     width: 100%;
-    height: auto;
-    aspect-ratio: 16 / 9;
+    aspect-ratio: 3 / 2;
     object-fit: cover;
   }
-
-  :global(.registry-media-gallery__dialog) {
-    width: min(72rem, calc(100vw - 2rem));
-    max-width: 72rem;
-  }
-
-  .registry-media-gallery__viewer {
-    position: relative;
-    overflow: hidden;
-    border-radius: var(--radius);
-    background: var(--muted);
-  }
-
-  .registry-media-gallery__viewer img {
-    display: block;
-    max-width: 100%;
-    max-height: 70vh;
-    margin: auto;
-  }
-
-  .registry-media-gallery__viewer :global(button) {
+  .registry-media-gallery__fade {
     position: absolute;
+    z-index: 1;
+    top: 0;
+    bottom: 0;
+    width: 4rem;
+    pointer-events: none;
+    transition: opacity 160ms ease;
+  }
+  .registry-media-gallery__fade.hidden {
+    opacity: 0;
+  }
+  .registry-media-gallery__fade--start {
+    left: 0;
+    background: linear-gradient(to right, var(--background), transparent);
+  }
+  .registry-media-gallery__fade--end {
+    right: 0;
+    background: linear-gradient(to left, var(--background), transparent);
+  }
+  .registry-media-gallery__frame > button {
+    position: absolute;
+    z-index: 2;
     top: 50%;
+    display: grid;
+    width: 2rem;
+    height: 2rem;
+    place-items: center;
     transform: translateY(-50%);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    padding: 0;
+    color: var(--foreground);
+    background: color-mix(in srgb, var(--background) 88%, transparent);
+    box-shadow: 0 0.2rem 1rem rgb(0 0 0 / 18%);
+    cursor: pointer;
+    backdrop-filter: blur(8px);
   }
-
-  .registry-media-gallery__viewer :global(button:first-of-type) {
-    left: 0.75rem;
+  .registry-media-gallery__frame > button:disabled {
+    opacity: 0;
+    pointer-events: none;
   }
-
-  .registry-media-gallery__viewer :global(button:last-of-type) {
-    right: 0.75rem;
+  .registry-media-gallery__frame > button :global(svg) {
+    width: 1rem;
+    height: 1rem;
+  }
+  .registry-media-gallery__previous {
+    left: 0.6rem;
+  }
+  .registry-media-gallery__next {
+    right: 0.6rem;
+  }
+  .registry-media-gallery__sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+  @media (max-width: 45rem) {
+    .registry-media-gallery__track > button {
+      flex-basis: 100%;
+    }
+    .registry-media-gallery__fade,
+    .registry-media-gallery__frame > button {
+      display: none;
+    }
+  }
+  @media (hover: none), (pointer: coarse) {
+    .registry-media-gallery__fade,
+    .registry-media-gallery__frame > button {
+      display: none;
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .registry-media-gallery__track {
+      scroll-behavior: auto;
+    }
   }
 </style>

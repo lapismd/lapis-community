@@ -11,7 +11,6 @@
   import DownloadIcon from "@lucide/svelte/icons/download";
   import EllipsisIcon from "@lucide/svelte/icons/ellipsis";
   import ExternalLinkIcon from "@lucide/svelte/icons/external-link";
-  import PackageIcon from "@lucide/svelte/icons/package";
 
   import {
     formatRegistryBytes,
@@ -20,11 +19,14 @@
     type RegistryCatalogEntry,
     type RegistryInstallAction,
     type RegistryInstallRequest,
+    type RegistryMediaItem,
     type RegistryResolvedDetail,
   } from "../../registry/index.js";
   import { registryFilterIcon } from "../registry-filter-icons.js";
   import RegistryMediaGallery from "../registry-media-gallery/RegistryMediaGallery.svelte";
+  import RegistryMediaViewer from "../registry-media-viewer/RegistryMediaViewer.svelte";
   import RegistryPluginCard from "../registry-plugin-card/RegistryPluginCard.svelte";
+  import { registryPluginIcon } from "../registry-plugin-icons.js";
 
   let {
     resolved,
@@ -49,6 +51,9 @@
   let activeTab = $state("overview");
   let submitting = $state(false);
   let installError = $state("");
+  let detailViewerOpen = $state(false);
+  let detailViewerItems = $state<readonly RegistryMediaItem[]>([]);
+  let detailViewerOpener = $state<HTMLElement | null>(null);
   const entry = $derived(resolved.entry);
   const detail = $derived(resolved.detail);
   const release = $derived(detail.versions[detail.latestVersion]);
@@ -108,6 +113,9 @@
     detail.authorAvatarUrl ?? entry.authorAvatarUrl,
   );
   const bundleHealth = $derived(release?.bundle.pending === true ? 1 : 4);
+  const PluginIcon = $derived(
+    registryPluginIcon(detail.appearance?.icon ?? entry.categories[0]),
+  );
 
   const dateFormatter = new Intl.DateTimeFormat("en", {
     dateStyle: "medium",
@@ -151,6 +159,12 @@
     } finally {
       submitting = false;
     }
+  }
+
+  function showMedia(item: RegistryMediaItem, target: HTMLElement): void {
+    detailViewerItems = [item];
+    detailViewerOpener = target;
+    detailViewerOpen = true;
   }
 </script>
 
@@ -216,10 +230,12 @@
           {#if detail.appearance?.logo}
             <img
               src={detail.appearance.logo.url}
-              alt={detail.appearance.logo.alt}
+              alt=""
+              width={detail.appearance.logo.width}
+              height={detail.appearance.logo.height}
             />
           {:else}
-            <PackageIcon aria-hidden="true" />
+            <PluginIcon aria-hidden="true" />
           {/if}
         </span>
         <div>
@@ -319,13 +335,20 @@
       {/if}
     </div>
     {#if detail.media?.banner}
-      <img
+      <button
+        type="button"
         class="registry-plugin-detail__banner"
-        src={detail.media.banner.images.dark.url}
-        alt={detail.media.banner.alt}
-        width={detail.media.banner.images.dark.width}
-        height={detail.media.banner.images.dark.height}
-      />
+        aria-label={`Open ${detail.name} banner: ${detail.media.banner.alt}`}
+        onclick={(event) =>
+          showMedia(detail.media!.banner!, event.currentTarget)}
+      >
+        <img
+          src={detail.media.banner.images.dark.url}
+          alt=""
+          width={detail.media.banner.images.dark.width}
+          height={detail.media.banner.images.dark.height}
+        />
+      </button>
     {/if}
   </header>
 
@@ -352,12 +375,20 @@
         <Tabs.Content value="overview">
           <div class="registry-plugin-detail__prose">
             {#if detail.media?.overview}
-              <img
-                src={detail.media.overview.images.preview.url}
-                alt={detail.media.overview.alt}
-                width={detail.media.overview.images.preview.width}
-                height={detail.media.overview.images.preview.height}
-              />
+              <button
+                type="button"
+                class="registry-plugin-detail__overview-media"
+                aria-label={`Open ${detail.name} overview image: ${detail.media.overview.alt}`}
+                onclick={(event) =>
+                  showMedia(detail.media!.overview!, event.currentTarget)}
+              >
+                <img
+                  src={detail.media.overview.images.preview.url}
+                  alt=""
+                  width={detail.media.overview.images.preview.width}
+                  height={detail.media.overview.images.preview.height}
+                />
+              </button>
             {/if}
             {#if detail.highlights?.length}
               <section>
@@ -527,13 +558,20 @@
       {@render discussion()}
     </section>
   {/if}
+
+  <RegistryMediaViewer
+    items={detailViewerItems}
+    pluginName={detail.name}
+    opener={detailViewerOpener}
+    bind:open={detailViewerOpen}
+  />
 </article>
 
 <style>
   .registry-plugin-detail {
     display: grid;
     gap: clamp(1.5rem, 4vw, 3rem);
-    width: min(100%, 78rem);
+    width: min(100%, 70rem);
     margin-inline: auto;
     padding: clamp(1.25rem, 4vw, 3rem);
   }
@@ -541,24 +579,27 @@
     display: grid;
     gap: 2rem;
     align-items: center;
-    min-height: 20rem;
   }
   .registry-plugin-detail__hero.with-banner {
-    grid-template-columns: minmax(0, 1fr) minmax(20rem, 1fr);
+    grid-template-columns: minmax(0, 1fr) minmax(22.5rem, 32.5rem);
+    gap: 3rem;
   }
   .registry-plugin-detail__hero-copy {
     display: grid;
-    gap: 1.25rem;
+    gap: 1.125rem;
   }
   .registry-plugin-detail__identity {
-    display: flex;
+    display: grid;
+    grid-template-columns: 5rem minmax(0, 1fr);
     align-items: center;
-    gap: 1rem;
+    gap: 1.5rem;
   }
   .registry-plugin-detail__identity h1 {
     margin: 0;
-    font-size: clamp(2.25rem, 6vw, 4rem);
-    letter-spacing: -0.05em;
+    font-size: clamp(2rem, 4vw, 2.25rem);
+    font-weight: 600;
+    line-height: 1.1;
+    letter-spacing: -0.035em;
   }
   .registry-plugin-detail__icon {
     display: grid;
@@ -581,9 +622,9 @@
     height: 2.25rem;
   }
   .registry-plugin-detail__icon img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
+    width: 76%;
+    height: 76%;
+    object-fit: contain;
   }
   .registry-plugin-detail__hero-meta,
   .registry-plugin-detail__actions,
@@ -688,8 +729,8 @@
   .registry-plugin-detail__description {
     max-width: 48rem;
     margin: 0;
-    font-size: clamp(1.1rem, 2vw, 1.4rem);
-    line-height: 1.5;
+    font-size: clamp(1.1rem, 2vw, 1.25rem);
+    line-height: 1.4;
   }
   .registry-plugin-detail__error {
     margin: 0;
@@ -705,10 +746,19 @@
     background: var(--muted);
   }
   .registry-plugin-detail__banner {
+    display: block;
     width: 100%;
-    max-height: 22rem;
-    border: 1px solid var(--border);
-    border-radius: calc(var(--radius) * 1.5);
+    overflow: hidden;
+    border: 0;
+    border-radius: 1rem;
+    padding: 0;
+    background: #09090b;
+    cursor: zoom-in;
+  }
+  .registry-plugin-detail__banner img {
+    display: block;
+    width: 100%;
+    aspect-ratio: 3 / 2;
     object-fit: cover;
   }
   .registry-plugin-detail__layout {
@@ -732,9 +782,26 @@
     padding-block: 1.25rem;
     line-height: 1.65;
   }
-  .registry-plugin-detail__prose > img {
+  .registry-plugin-detail__overview-media {
+    display: block;
     width: 100%;
-    border-radius: var(--radius);
+    overflow: hidden;
+    border: 0;
+    border-radius: 0.65rem;
+    padding: 0;
+    background: #09090b;
+    cursor: zoom-in;
+  }
+  .registry-plugin-detail__overview-media img {
+    display: block;
+    width: 100%;
+    aspect-ratio: 3 / 2;
+    object-fit: cover;
+  }
+  .registry-plugin-detail__banner:focus-visible,
+  .registry-plugin-detail__overview-media:focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
   }
   .registry-plugin-detail__prose h2,
   .registry-plugin-detail__related h2,
@@ -854,6 +921,7 @@
   }
   @media (max-width: 38rem) {
     .registry-plugin-detail__identity {
+      grid-template-columns: 4rem minmax(0, 1fr);
       align-items: start;
     }
     .registry-plugin-detail__icon {

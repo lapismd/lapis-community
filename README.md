@@ -32,12 +32,22 @@ REGISTRY_PUBLIC_RELAYS=wss://relay.example \
 REGISTRY_PUBLISHER_PUBKEYS=<hex-pubkey> \
 REGISTRY_CURATOR_PUBKEYS=<hex-pubkey> \
 REGISTRY_READER_SECRET_FILE=/run/secrets/registry-reader \
+BLOSSOM_URL=https://blossom.example/ \
 pnpm registry:materialize --output artifacts/registry
 ```
 
 The reader file contains a single lowercase hex Nostr secret. It is only an
 authenticated read identity for relays that require NIP-42; it is not a
 publisher or curator key and must be supplied as a runtime secret.
+
+`BLOSSOM_URL` is optional and materializer-only. When configured, image
+resources are fetched from that absolute HTTP(S) base using the pathname in
+their signed `sourceUrl`; credentials in the URL are rejected. Images fall
+back to `REGISTRY_ASSET_FETCH_ORIGIN` and then their signed source. The legacy
+origin remains the override for non-image resources. Every fetched resource
+must still match its signed size and SHA-256 before it is mirrored, so browsers
+only receive verified `/registry/` assets. This is separate from the relay's
+`BLOSSOM_PUBLIC_URL`, which advertises the relay-owned Blossom endpoint.
 
 The output contains the index, plugin details, accepted signed events,
 provenance root, browser runtime configuration, mirrored resources, and the

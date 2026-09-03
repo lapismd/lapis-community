@@ -27,3 +27,6 @@ The public `registry` entry point models that projection independently of
 Svelte and relay transport. Its HTTP adapter validates projection documents and
 content references, while the component entry point owns host-controlled
 navigation, installation requests, and optional discussion composition.
+Projection-local image references are made absolute only at that HTTP adapter
+boundary and must remain beneath the configured registry root. Community does
+not fetch unverified image sources or depend on Blossom in the browser.

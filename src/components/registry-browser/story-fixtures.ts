@@ -211,9 +211,17 @@ function imageReference(
   label: string,
   accent: string,
   width = 960,
-  height = 540,
+  height = 640,
+  mode: "split" | "light" | "dark" = "split",
 ): RegistryImageReference {
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}"><rect width="100%" height="100%" fill="#111827"/><circle cx="${Math.round(width * 0.78)}" cy="${Math.round(height * 0.28)}" r="${Math.round(height * 0.34)}" fill="${accent}" opacity=".75"/><rect x="${Math.round(width * 0.08)}" y="${Math.round(height * 0.15)}" width="${Math.round(width * 0.56)}" height="${Math.round(height * 0.7)}" rx="24" fill="#f8fafc"/><rect x="${Math.round(width * 0.13)}" y="${Math.round(height * 0.27)}" width="${Math.round(width * 0.38)}" height="18" rx="9" fill="${accent}"/><rect x="${Math.round(width * 0.13)}" y="${Math.round(height * 0.38)}" width="${Math.round(width * 0.44)}" height="12" rx="6" fill="#cbd5e1"/><rect x="${Math.round(width * 0.13)}" y="${Math.round(height * 0.46)}" width="${Math.round(width * 0.34)}" height="12" rx="6" fill="#cbd5e1"/><text x="${Math.round(width * 0.13)}" y="${Math.round(height * 0.68)}" fill="#334155" font-family="system-ui" font-size="32" font-weight="700">${label}</text></svg>`;
+  const background = mode === "light" ? "#e2e8f0" : "#111827";
+  const panel = mode === "dark" ? "#27272a" : "#f8fafc";
+  const text = mode === "dark" ? "#f8fafc" : "#334155";
+  const divider =
+    mode === "split"
+      ? `<rect x="${width / 2}" width="${width / 2}" height="${height}" fill="#e2e8f0" opacity=".16"/>`
+      : "";
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}"><rect width="100%" height="100%" fill="${background}"/>${divider}<circle cx="${Math.round(width * 0.78)}" cy="${Math.round(height * 0.28)}" r="${Math.round(height * 0.34)}" fill="${accent}" opacity=".75"/><rect x="${Math.round(width * 0.08)}" y="${Math.round(height * 0.15)}" width="${Math.round(width * 0.56)}" height="${Math.round(height * 0.7)}" rx="24" fill="${panel}"/><rect x="${Math.round(width * 0.13)}" y="${Math.round(height * 0.27)}" width="${Math.round(width * 0.38)}" height="18" rx="9" fill="${accent}"/><rect x="${Math.round(width * 0.13)}" y="${Math.round(height * 0.38)}" width="${Math.round(width * 0.44)}" height="12" rx="6" fill="#94a3b8"/><rect x="${Math.round(width * 0.13)}" y="${Math.round(height * 0.46)}" width="${Math.round(width * 0.34)}" height="12" rx="6" fill="#94a3b8"/><text x="${Math.round(width * 0.13)}" y="${Math.round(height * 0.68)}" fill="${text}" font-family="system-ui" font-size="32" font-weight="700">${label} · ${mode}</text></svg>`;
   return {
     url: `data:image/svg+xml,${encodeURIComponent(svg)}`,
     sourceUrl: "https://example.com/registry-preview.svg",
@@ -225,12 +233,22 @@ function imageReference(
   };
 }
 
+function imageVariants(label: string, accent: string) {
+  return {
+    preview: imageReference(`${label} preview`, accent),
+    full: imageReference(label, accent, 1440, 960, "split"),
+    light: imageReference(label, accent, 1440, 960, "light"),
+    dark: imageReference(label, accent, 1440, 960, "dark"),
+  };
+}
+
 export function registryStoryDetail(
   entry = registryStoryEntries[0]!,
 ): RegistryCatalogDetail {
   const accent = entry.appearance?.accent ?? "#8b5cf6";
-  const firstImage = imageReference(`${entry.name} workspace`, accent);
-  const secondImage = imageReference(`${entry.name} settings`, "#0ea5e9");
+  const firstImages = imageVariants(`${entry.name} workspace`, accent);
+  const secondImages = imageVariants(`${entry.name} settings`, "#0ea5e9");
+  const overviewImages = imageVariants(`${entry.name} overview`, "#14b8a6");
   return {
     schemaVersion: 1,
     id: entry.id,
@@ -238,38 +256,34 @@ export function registryStoryDetail(
     description: entry.description,
     author: entry.author,
     authorUrl: entry.owner.url,
-    appearance: entry.appearance,
+    appearance: {
+      icon: entry.appearance?.icon ?? "package",
+      accent,
+      logo: {
+        ...imageReference(entry.name, accent, 160, 160, "light"),
+        alt: `${entry.name} logo`,
+      },
+    },
     media: {
       banner: {
         alt: `${entry.name} running inside Lapis Notes`,
-        images: {
-          preview: firstImage,
-          full: firstImage,
-          light: firstImage,
-          dark: firstImage,
-        },
+        images: firstImages,
+      },
+      overview: {
+        alt: `${entry.name} overview`,
+        images: overviewImages,
       },
     },
     gallery: [
       {
         id: "workspace",
         alt: `${entry.name} workspace`,
-        images: {
-          preview: firstImage,
-          full: firstImage,
-          light: firstImage,
-          dark: firstImage,
-        },
+        images: firstImages,
       },
       {
         id: "settings",
         alt: `${entry.name} settings`,
-        images: {
-          preview: secondImage,
-          full: secondImage,
-          light: secondImage,
-          dark: secondImage,
-        },
+        images: secondImages,
       },
     ],
     channel: entry.channel,

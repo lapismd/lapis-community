@@ -3,9 +3,14 @@ import {
   registryCatalogIndexSchema,
   registryRuntimeSchema,
   type RegistryCatalogDataSource,
+  type RegistryCatalogDetail,
   type RegistryCatalogEntry,
+  type RegistryAppearance,
+  type RegistryGalleryItem,
+  type RegistryImageReference,
   type RegistryLoadOptions,
   type RegistryMarkdownReference,
+  type RegistryMediaItem,
 } from "./model.js";
 
 export interface HttpRegistryCatalogDataSourceOptions {
@@ -35,9 +40,15 @@ export function createHttpRegistryCatalogDataSource(
 
   return {
     async loadIndex(loadOptions) {
-      return registryCatalogIndexSchema.parse(
+      const index = registryCatalogIndexSchema.parse(
         await readJson("index.json", loadOptions),
       );
+      return {
+        ...index,
+        plugins: index.plugins.map((plugin) =>
+          resolveEntryMedia(baseUrl, plugin),
+        ),
+      };
     },
     async loadRuntime(loadOptions) {
       const response = await request(
@@ -56,8 +67,11 @@ export function createHttpRegistryCatalogDataSource(
       entry: RegistryCatalogEntry,
       loadOptions?: RegistryLoadOptions,
     ) {
-      const detail = registryCatalogDetailSchema.parse(
-        await readJson(entry.detail, loadOptions),
+      const detail = resolveDetailMedia(
+        baseUrl,
+        registryCatalogDetailSchema.parse(
+          await readJson(entry.detail, loadOptions),
+        ),
       );
       if (detail.id !== entry.id) {
         throw new Error(
@@ -92,6 +106,100 @@ export function createHttpRegistryCatalogDataSource(
       }
       return new TextDecoder().decode(bytes);
     },
+  };
+}
+
+function resolveEntryMedia(
+  baseUrl: URL,
+  entry: RegistryCatalogEntry,
+): RegistryCatalogEntry {
+  if (entry.appearance?.logo === undefined) return entry;
+  return {
+    ...entry,
+    appearance: resolveAppearanceMedia(baseUrl, entry.appearance),
+  };
+}
+
+function resolveDetailMedia(
+  baseUrl: URL,
+  detail: RegistryCatalogDetail,
+): RegistryCatalogDetail {
+  return {
+    ...detail,
+    ...(detail.appearance === undefined
+      ? {}
+      : { appearance: resolveAppearanceMedia(baseUrl, detail.appearance) }),
+    ...(detail.media === undefined
+      ? {}
+      : {
+          media: {
+            ...(detail.media.banner === undefined
+              ? {}
+              : { banner: resolveMediaItem(baseUrl, detail.media.banner) }),
+            ...(detail.media.overview === undefined
+              ? {}
+              : {
+                  overview: resolveMediaItem(baseUrl, detail.media.overview),
+                }),
+          },
+        }),
+    ...(detail.gallery === undefined
+      ? {}
+      : {
+          gallery: detail.gallery.map((item) =>
+            resolveGalleryItem(baseUrl, item),
+          ),
+        }),
+  };
+}
+
+function resolveAppearanceMedia(
+  baseUrl: URL,
+  appearance: RegistryAppearance,
+): RegistryAppearance {
+  if (appearance.logo === undefined) return appearance;
+  return {
+    ...appearance,
+    logo: {
+      ...appearance.logo,
+      url: resolveRegistryUrl(baseUrl, appearance.logo.url).toString(),
+    },
+  };
+}
+
+function resolveMediaItem(
+  baseUrl: URL,
+  item: RegistryMediaItem,
+): RegistryMediaItem {
+  return { ...item, images: resolveImageVariants(baseUrl, item.images) };
+}
+
+function resolveGalleryItem(
+  baseUrl: URL,
+  item: RegistryGalleryItem,
+): RegistryGalleryItem {
+  return { ...item, images: resolveImageVariants(baseUrl, item.images) };
+}
+
+function resolveImageVariants(
+  baseUrl: URL,
+  images: RegistryGalleryItem["images"],
+): RegistryGalleryItem["images"] {
+  return {
+    preview: resolveImageReference(baseUrl, images.preview),
+    full: resolveImageReference(baseUrl, images.full),
+    light: resolveImageReference(baseUrl, images.light),
+    dark: resolveImageReference(baseUrl, images.dark),
+  };
+}
+
+function resolveImageReference(
+  baseUrl: URL,
+  reference: RegistryImageReference,
+): RegistryImageReference {
+  return {
+    ...reference,
+    url: resolveRegistryUrl(baseUrl, reference.url).toString(),
   };
 }
 
