@@ -237,8 +237,8 @@ export const communityStoryTopics: CommunityTopicModel[] = [
     authorId: "ada",
     tags: ["performance", "local-ai"],
     replyCount: 34,
-    participantIds: ["ada", "ben", "cy", "noor"],
-    lastActivityLabel: "12 min",
+    participantIds: ["noor", "cy", "ben", "ada"],
+    lastActivityLabel: "12m",
     pinned: true,
   },
   {
@@ -249,8 +249,8 @@ export const communityStoryTopics: CommunityTopicModel[] = [
     authorId: "mara",
     tags: ["guide", "privacy"],
     replyCount: 18,
-    participantIds: ["mara", "ada", "noor"],
-    lastActivityLabel: "1 hr",
+    participantIds: ["noor", "ada", "mara"],
+    lastActivityLabel: "1h",
     solved: true,
   },
   {
@@ -261,8 +261,8 @@ export const communityStoryTopics: CommunityTopicModel[] = [
     authorId: "cy",
     tags: ["design"],
     replyCount: 27,
-    participantIds: ["cy", "ben", "ada"],
-    lastActivityLabel: "3 hr",
+    participantIds: ["ada", "ben", "cy"],
+    lastActivityLabel: "3h",
   },
   {
     id: "topic-model-download",
@@ -272,8 +272,8 @@ export const communityStoryTopics: CommunityTopicModel[] = [
     authorId: "noor",
     tags: ["support"],
     replyCount: 9,
-    participantIds: ["noor", "ben"],
-    lastActivityLabel: "Yesterday",
+    participantIds: ["ben", "noor"],
+    lastActivityLabel: "Aug 2025",
   },
 ];
 

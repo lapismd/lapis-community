@@ -122,6 +122,86 @@ describe("materializeCommunityWorkspace", () => {
       reply.id,
     ]);
   });
+
+  it("orders recent forum participants and uses compact relative activity before dates", () => {
+    const topic = finalizeEvent(
+      {
+        kind: 11,
+        created_at: 1_700_000_000,
+        content: "Forum topic",
+        tags: [
+          ["h", "support"],
+          ["title", "Forum activity"],
+        ],
+      },
+      new Uint8Array(32).fill(60),
+    );
+    const oldTopic = finalizeEvent(
+      {
+        kind: 11,
+        created_at: 1_665_440_000,
+        content: "Old forum topic",
+        tags: [
+          ["h", "support"],
+          ["title", "Older activity"],
+        ],
+      },
+      new Uint8Array(32).fill(61),
+    );
+    const replyKeys = [61, 62, 63, 61].map((value) =>
+      new Uint8Array(32).fill(value),
+    );
+    const replies = replyKeys.map((key, index) =>
+      finalizeEvent(
+        {
+          kind: 1_111,
+          created_at: 1_700_000_060 + index * 60,
+          content: `Reply ${index + 1}`,
+          tags: [
+            ["h", "support"],
+            ["E", topic.id],
+          ],
+        },
+        key,
+      ),
+    );
+    const scope = {
+      id: "lapis",
+      name: "Lapis Community",
+      relayUrl: "memory://community.test",
+      rooms: [
+        {
+          id: "support",
+          groupId: "support",
+          name: "support",
+          kind: "forum" as const,
+        },
+      ],
+    };
+
+    const workspace = materializeCommunityWorkspace(
+      [scope],
+      { [scope.id]: [oldTopic, topic, ...replies] },
+      scope.id,
+      { activeRoomId: "support", asOf: 1_700_007_440 },
+    );
+
+    expect(workspace.topics[0]).toMatchObject({
+      id: topic.id,
+      replyCount: 4,
+      participantIds: [
+        replies[3]!.pubkey,
+        replies[2]!.pubkey,
+        replies[1]!.pubkey,
+      ],
+      lastActivityLabel: "2h",
+    });
+    expect(workspace.topics[1]).toMatchObject({
+      id: oldTopic.id,
+      participantIds: [],
+      lastActivityLabel: "Oct 2022",
+    });
+  });
 });
 
 describe("materializeCommunitySettings", () => {

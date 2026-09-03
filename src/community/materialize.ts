@@ -181,7 +181,7 @@ export function materializeCommunityWorkspace(
       : conversationMessages;
   const topics =
     activeRoom?.kind === "forum"
-      ? topicModels(activeRoom, visible, profiles)
+      ? topicModels(activeRoom, visible, profiles, options.asOf)
       : [];
   const thread =
     options.activeThreadId === undefined
@@ -698,6 +698,7 @@ function topicModels(
   room: CommunityRoomScope,
   events: readonly NostrEvent[],
   _profiles: ReadonlyMap<string, Profile>,
+  asOf: number | undefined,
 ): CommunityTopicModel[] {
   return events
     .filter(
@@ -712,6 +713,9 @@ function topicModels(
           candidate.kind === 1_111 &&
           candidate.tags.some((tag) => tag[0] === "E" && tag[1] === event.id),
       );
+      const orderedReplies = replies.toSorted(compareOldest);
+      const lastActivityAt =
+        orderedReplies.at(-1)?.created_at ?? event.created_at;
       return {
         id: event.id,
         title:
@@ -725,12 +729,9 @@ function topicModels(
           .flatMap((tag) => tag.slice(1)),
         replyCount: replies.length,
         participantIds: [
-          ...new Set([event.pubkey, ...replies.map((reply) => reply.pubkey)]),
-        ],
-        lastActivityLabel: timestamp(
-          replies.toSorted((left, right) => compareOldest(right, left))[0]
-            ?.created_at ?? event.created_at,
-        ),
+          ...new Set(orderedReplies.toReversed().map((reply) => reply.pubkey)),
+        ].slice(0, 3),
+        lastActivityLabel: forumActivityTimestamp(lastActivityAt, asOf),
       };
     });
 }
@@ -970,4 +971,32 @@ function relativeTimestamp(createdAt: number, asOf: number): string {
     year: "numeric",
     timeZone: "UTC",
   }).format(createdAt * 1_000)}`;
+}
+
+function forumActivityTimestamp(
+  createdAt: number,
+  asOf: number | undefined,
+): string {
+  if (asOf === undefined) return timestamp(createdAt);
+
+  const elapsedSeconds = Math.max(0, asOf - createdAt);
+  if (elapsedSeconds < 60) return "now";
+
+  const elapsedMinutes = Math.floor(elapsedSeconds / 60);
+  if (elapsedMinutes < 60) return `${elapsedMinutes}m`;
+
+  const elapsedHours = Math.floor(elapsedMinutes / 60);
+  if (elapsedHours < 24) return `${elapsedHours}h`;
+
+  const elapsedDays = Math.floor(elapsedHours / 24);
+  if (elapsedDays < 7) return `${elapsedDays}d`;
+
+  const activityDate = new Date(createdAt * 1_000);
+  const currentDate = new Date(asOf * 1_000);
+  return new Intl.DateTimeFormat("en", {
+    ...(activityDate.getUTCFullYear() === currentDate.getUTCFullYear()
+      ? { day: "numeric", month: "short" }
+      : { month: "short", year: "numeric" }),
+    timeZone: "UTC",
+  }).format(activityDate);
 }

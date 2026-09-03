@@ -1,6 +1,6 @@
 <script module lang="ts">
   import { defineMeta } from "@storybook/addon-svelte-csf";
-  import { fn } from "storybook/test";
+  import { expect, fn, within } from "storybook/test";
 
   import {
     communityStoryMembers,
@@ -23,5 +23,31 @@
     topics: communityStoryTopics,
     members: communityStoryMembers,
     onOpenTopic: fn(),
+  }}
+  play={async ({ canvas }) => {
+    const topic = canvas.getByRole("button", {
+      name: "Open topic First-token latency with a large vault",
+    });
+    const recentParticipants = topic.querySelector<HTMLElement>(
+      '[data-ui-part="forum-topic-participants"]',
+    );
+    await expect(recentParticipants).not.toBeNull();
+    await expect(recentParticipants).toHaveAttribute(
+      "title",
+      "Recent participants: Noor Rahman, Cy Park, Ben Stone",
+    );
+    await expect(recentParticipants?.children).toHaveLength(3);
+    await expect(within(topic).getByText("12m")).toBeVisible();
+
+    const replyHeading = canvas.getByText("Replies");
+    const replyCount = within(topic).getByText("34");
+    const headingCenter =
+      replyHeading.getBoundingClientRect().left +
+      replyHeading.getBoundingClientRect().width / 2;
+    const countCenter =
+      replyCount.getBoundingClientRect().left +
+      replyCount.getBoundingClientRect().width / 2;
+    await expect(Math.abs(headingCenter - countCenter)).toBeLessThanOrEqual(1);
+    await expect(canvas.getByText("Aug 2025")).toBeVisible();
   }}
 />

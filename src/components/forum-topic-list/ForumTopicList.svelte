@@ -108,6 +108,9 @@
   <div class="forum-topic-list__topics">
     {#each topics as topic (topic.id)}
       {@const author = memberById(members, topic.authorId)}
+      {@const participants = topic.participantIds
+        .slice(0, 3)
+        .map((participantId) => memberById(members, participantId))}
       <div class="forum-topic-list__topic-row">
         <ContextMenu.Root
           ><ContextMenu.Trigger
@@ -133,6 +136,24 @@
                     <Badge variant="outline">{tag}</Badge>
                   {/each}
                 </span>
+              </span>
+              <span
+                class="forum-topic-list__participants"
+                data-ui-part="forum-topic-participants"
+                title={participants.length
+                  ? `Recent participants: ${participants.map((participant) => participant.name).join(", ")}`
+                  : "No replies yet"}
+                aria-hidden="true"
+              >
+                {#each participants as participant (participant.id)}
+                  <span class="forum-topic-list__avatar">
+                    {#if participant.avatarUrl}
+                      <img src={participant.avatarUrl} alt="" />
+                    {:else}
+                      {participant.initials}
+                    {/if}
+                  </span>
+                {/each}
               </span>
               <span class="forum-topic-list__count">{topic.replyCount}</span>
               <span class="forum-topic-list__activity"
@@ -194,7 +215,7 @@
   .forum-topic-list__columns,
   :global(.forum-topic-list__topic[data-ui-component="button"]) {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) 5rem 7rem;
+    grid-template-columns: minmax(0, 1fr) 5rem 4.5rem 7rem;
     align-items: center;
     gap: 1rem;
   }
@@ -207,6 +228,10 @@
     font-weight: 700;
     letter-spacing: 0.06em;
     text-transform: uppercase;
+  }
+
+  .forum-topic-list__columns span:first-child {
+    grid-column: span 2;
   }
 
   .forum-topic-list__columns span:not(:first-child) {
@@ -238,6 +263,7 @@
   }
 
   :global(.forum-topic-list__topic[data-ui-component="button"]) {
+    width: 100%;
     height: auto;
     min-height: 5.25rem;
     border: 0;
@@ -294,6 +320,33 @@
     white-space: nowrap;
   }
 
+  .forum-topic-list__participants {
+    display: flex;
+    justify-content: flex-end;
+    padding-inline-end: 0.2rem;
+  }
+
+  .forum-topic-list__avatar {
+    display: grid;
+    width: 1.7rem;
+    height: 1.7rem;
+    place-items: center;
+    overflow: hidden;
+    margin-inline-end: -0.35rem;
+    border: 2px solid var(--background);
+    border-radius: 999px;
+    color: var(--primary-foreground);
+    background: var(--primary);
+    font-size: 0.55rem;
+    font-weight: 750;
+  }
+
+  .forum-topic-list__avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
   .forum-topic-list__count,
   .forum-topic-list__activity {
     text-align: center;
@@ -309,6 +362,10 @@
     }
 
     .forum-topic-list__activity {
+      display: none;
+    }
+
+    .forum-topic-list__participants {
       display: none;
     }
   }
