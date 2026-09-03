@@ -34,6 +34,23 @@
     children?: Snippet;
   } = $props();
 
+  let leftSidebarToggle = $state<HTMLButtonElement | null>(null);
+  let shellSurface = $state<HTMLDivElement | null>(null);
+  const mobileMode = $derived(controller.mobile.resolvedMode === "mobile");
+  const mobileNavigationOpen = $derived(
+    mobileMode &&
+      controller.mobile.stage === "left" &&
+      controller.mobile.activePanelId("left") === "left",
+  );
+  const leftSidebarExpanded = $derived(
+    mobileMode ? mobileNavigationOpen : !controller.left.collapsed,
+  );
+  const leftSidebarLabel = $derived(
+    mobileMode
+      ? `${mobileNavigationOpen ? "Close" : "Open"} navigation sidebar`
+      : `${controller.left.collapsed ? "Expand" : "Collapse"} left sidebar`,
+  );
+
   $effect(() => {
     const rightSidebar = controller.right;
     const preventCollapsedRightSidebar = () => {
@@ -46,6 +63,35 @@
     untrack(preventCollapsedRightSidebar);
     return rightSidebar.onLayoutChange(preventCollapsedRightSidebar);
   });
+
+  $effect(() => {
+    const stage = controller.mobile.stage;
+    if (!mobileMode || !shellSurface) return;
+    queueMicrotask(() => {
+      if (
+        controller.mobile.resolvedMode !== "mobile" ||
+        controller.mobile.stage !== stage
+      ) {
+        return;
+      }
+      const mobileStage = shellSurface?.querySelector<HTMLElement>(
+        '[data-ui-part="mobile-stage"]',
+      );
+      if (mobileStage) mobileStage.scrollLeft = 0;
+    });
+  });
+
+  function toggleLeftSidebar(): void {
+    if (!mobileMode) {
+      controller.left.toggle();
+      return;
+    }
+    if (mobileNavigationOpen) {
+      controller.mobile.showMain();
+      return;
+    }
+    controller.mobile.show("left", "left", leftSidebarToggle);
+  }
 </script>
 
 <div
@@ -55,20 +101,17 @@
 >
   <nav class="community-app-shell__header" aria-label="Application navigation">
     <Button
+      bind:ref={leftSidebarToggle}
       type="button"
       variant="ghost"
       size="icon-sm"
-      aria-label={controller.left.collapsed
-        ? "Expand left sidebar"
-        : "Collapse left sidebar"}
-      aria-expanded={!controller.left.collapsed}
+      aria-label={leftSidebarLabel}
+      aria-expanded={leftSidebarExpanded}
       data-ui-part="sidebar-toggle"
       data-side="left"
-      data-state={controller.left.collapsed ? "collapsed" : "expanded"}
-      title={controller.left.collapsed
-        ? "Expand left sidebar"
-        : "Collapse left sidebar"}
-      onclick={() => controller.left.toggle()}
+      data-state={leftSidebarExpanded ? "expanded" : "collapsed"}
+      title={leftSidebarLabel}
+      onclick={toggleLeftSidebar}
     >
       <svg
         xmlns="http://www.w3.org/2000/svg"
@@ -86,7 +129,7 @@
         <rect
           x="4"
           y="5"
-          width={controller.left.collapsed ? 2 : 6}
+          width={leftSidebarExpanded ? 6 : 2}
           height="14"
           rx="2"
           fill="currentColor"
@@ -126,6 +169,7 @@
   </nav>
 
   <AppShell.Root
+    bind:ref={shellSurface}
     {controller}
     {displayMode}
     {mobileBreakpoint}

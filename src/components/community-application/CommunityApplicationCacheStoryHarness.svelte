@@ -178,6 +178,7 @@
   <CommunityApplication
     controller={community}
     displayMode="desktop"
+    desktopMinMainWidth={0}
     {initialDestination}
     {...registryConfigured
       ? { registryOptions: { source: registrySource } }

@@ -22,7 +22,7 @@
   import XIcon from "@lucide/svelte/icons/x";
   import { nip19 } from "nostr-tools";
   import { toast, Toaster } from "svelte-sonner";
-  import { untrack, type Snippet } from "svelte";
+  import { tick, untrack, type Snippet } from "svelte";
   import type { HTMLAttributes } from "svelte/elements";
 
   import type {
@@ -96,7 +96,7 @@
     initialDestination = "inbox",
     displayMode = "auto",
     mobileBreakpoint = 1024,
-    desktopMinMainWidth = 0,
+    desktopMinMainWidth,
     registry,
     registryOptions,
     extensions = {},
@@ -602,7 +602,16 @@
         document.activeElement instanceof HTMLElement
           ? document.activeElement
           : undefined;
-      shell.mobile.show("right", "right", returnFocus);
+      const expectedPanelKey = communityApplicationPanelKey(next.panel);
+      void tick().then(() => {
+        const current = currentCommunityApplicationLocation(navigationHistory);
+        if (
+          shell.mobile.resolvedMode === "mobile" &&
+          communityApplicationPanelKey(current.panel) === expectedPanelKey
+        ) {
+          shell.mobile.show("right", "right", returnFocus);
+        }
+      });
     }
 
     if (next.destination !== previous.destination) {
@@ -1135,7 +1144,7 @@
   controller={shell}
   {displayMode}
   {mobileBreakpoint}
-  {desktopMinMainWidth}
+  {...desktopMinMainWidth === undefined ? {} : { desktopMinMainWidth }}
   {canNavigateBack}
   {canNavigateForward}
   onNavigateBack={() => navigateHistory(-1)}

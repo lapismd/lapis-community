@@ -17,10 +17,16 @@
   import { createRegistryStoryDataSource } from "../registry-browser/story-fixtures.js";
   import CommunityApplication from "./CommunityApplicationRoot.svelte";
 
-  let { signedIn = true }: { signedIn?: boolean } = $props();
+  let {
+    signedIn = true,
+    responsive = false,
+  }: {
+    signedIn?: boolean;
+    responsive?: boolean;
+  } = $props();
 
-  let runtime = $state<CommunityStoryRuntime>();
-  let community = $state<CommunityController>();
+  let runtime = $state.raw<CommunityStoryRuntime>();
+  let community = $state.raw<CommunityController>();
   let runtimeError = $state("");
   const registrySource = createRegistryStoryDataSource();
 
@@ -110,7 +116,8 @@
   {/snippet}
   <CommunityApplication
     controller={community}
-    displayMode="desktop"
+    displayMode={responsive ? "auto" : "desktop"}
+    {...responsive ? {} : { desktopMinMainWidth: 0 }}
     extensions={{ activityLog: () => {} }}
     data-testid="full-community-application"
     data-community-backend={runtime.backend}

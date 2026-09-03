@@ -449,3 +449,124 @@
     <CommunityApplicationStoryHarness />
   {/snippet}
 </Story>
+
+<Story
+  name="Responsive app shell"
+  parameters={{ viewport: { defaultViewport: "tablet" } }}
+  play={async ({ canvas, canvasElement }) => {
+    const application = await canvas.findByTestId(
+      "full-community-application",
+      {},
+      { timeout: 15_000 },
+    );
+    await waitFor(
+      () => {
+        expect(application).toHaveAttribute(
+          "data-community-status",
+          "connected",
+        );
+      },
+      { timeout: 15_000 },
+    );
+
+    const shell = application.querySelector<HTMLElement>("[data-shell-root]");
+    const mobileStage = application.querySelector<HTMLElement>(
+      '[data-ui-part="mobile-stage"]',
+    );
+    const mainLane = application.querySelector<HTMLElement>(
+      '[data-ui-part="mobile-main-lane"]',
+    );
+    const leftLane = application.querySelector<HTMLElement>(
+      '[data-ui-part="mobile-lane"][data-side="left"]',
+    );
+    const rightLane = application.querySelector<HTMLElement>(
+      '[data-ui-part="mobile-lane"][data-side="right"]',
+    );
+    if (!shell || !mobileStage || !mainLane || !leftLane || !rightLane) {
+      throw new Error("Expected the responsive App Shell lanes");
+    }
+
+    const expectedDisplayMode =
+      application.getBoundingClientRect().width < 1024 ? "mobile" : "desktop";
+    await waitFor(() => {
+      expect(shell).toHaveAttribute("data-display-mode", expectedDisplayMode);
+    });
+    await expect(canvasElement.ownerDocument.body.scrollWidth).toBe(
+      canvasElement.ownerDocument.body.clientWidth,
+    );
+    if (expectedDisplayMode === "desktop") return;
+
+    await expect(shell).toHaveAttribute("data-mobile-stage", "main");
+    await expect(mainLane).not.toHaveAttribute("aria-hidden", "true");
+    await expect(leftLane).toHaveAttribute("aria-hidden", "true");
+    await expect(rightLane).toHaveAttribute("aria-hidden", "true");
+
+    const navigationToggle = canvas.getByRole("button", {
+      name: "Open navigation sidebar",
+    });
+    await userEvent.click(navigationToggle);
+    await expect(shell).toHaveAttribute("data-mobile-stage", "left");
+    await expect(leftLane).not.toHaveAttribute("aria-hidden", "true");
+    await expect(mainLane).toHaveAttribute("aria-hidden", "true");
+    await userEvent.keyboard("{Escape}");
+    await waitFor(() => {
+      expect(shell).toHaveAttribute("data-mobile-stage", "main");
+      expect(navigationToggle).toHaveFocus();
+    });
+
+    await userEvent.click(navigationToggle);
+    await userEvent.click(canvas.getByRole("button", { name: "general" }));
+    await waitFor(() => {
+      expect(shell).toHaveAttribute("data-mobile-stage", "main");
+    });
+    await expect(
+      await canvas.findByRole(
+        "heading",
+        { name: "#general" },
+        { timeout: 15_000 },
+      ),
+    ).toBeVisible();
+
+    if (application.dataset.communityBackend === "live") return;
+
+    const replyButton = canvas.getAllByRole("button", {
+      name: "Reply in thread",
+    })[0];
+    if (!replyButton) throw new Error("Expected a thread reply control");
+    const message = canvas.getAllByRole("article", {
+      name: /^Message from /u,
+    })[0];
+    if (!message) throw new Error("Expected a message to open in a thread");
+    await userEvent.hover(message);
+    await waitFor(() => expect(replyButton).toBeVisible());
+    await userEvent.click(replyButton);
+    await waitFor(() => {
+      expect(shell).toHaveAttribute("data-mobile-stage", "right");
+      expect(mobileStage.scrollLeft).toBe(0);
+    });
+    const threadSidebar = await canvas.findByLabelText("Thread sidebar");
+    await expect(threadSidebar).toBeVisible();
+    await expect(rightLane).not.toHaveAttribute("aria-hidden", "true");
+    await expect(mainLane).toHaveAttribute("aria-hidden", "true");
+    await expect(
+      within(threadSidebar).getByRole("combobox", { name: "Message" }),
+    ).toBeVisible();
+
+    const closeRightLane = canvasElement.querySelector<HTMLButtonElement>(
+      '[data-ui-part="mobile-stage-dismiss"][data-side="right"]',
+    );
+    if (!closeRightLane)
+      throw new Error("Expected the mobile right-lane close");
+    await userEvent.click(closeRightLane);
+    await waitFor(() => {
+      expect(shell).toHaveAttribute("data-mobile-stage", "main");
+      expect(replyButton).toHaveFocus();
+    });
+    await expect(mainLane).not.toHaveAttribute("aria-hidden", "true");
+    await expect(rightLane).toHaveAttribute("aria-hidden", "true");
+  }}
+>
+  {#snippet template()}
+    <CommunityApplicationStoryHarness responsive />
+  {/snippet}
+</Story>
