@@ -21,6 +21,7 @@ export interface CommunityNavigationItemModel {
   settingsDisabled?: boolean;
   leaveDisabled?: boolean;
   deleteDisabled?: boolean;
+  archiveAvailable?: boolean;
   settingsReason?: string;
   leaveReason?: string;
   deleteReason?: string;

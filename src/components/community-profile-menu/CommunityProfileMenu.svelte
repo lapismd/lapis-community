@@ -2,6 +2,8 @@
   import { Badge } from "@lapismd/design-core/shadcn/badge";
   import { Button } from "@lapismd/design-core/shadcn/button";
   import * as DropdownMenu from "@lapismd/design-core/shadcn/dropdown-menu";
+  import LogInIcon from "@lucide/svelte/icons/log-in";
+  import LogOutIcon from "@lucide/svelte/icons/log-out";
   import SmileIcon from "@lucide/svelte/icons/smile";
 
   import type { CommunityConnectionStatus } from "../../community/index.js";
@@ -13,6 +15,7 @@
     member,
     communityName,
     compact = false,
+    authenticated = true,
     canManageCommunity = false,
     canSendFeedback = false,
     connectionStatus = "connected",
@@ -21,6 +24,7 @@
     member: CommunityMemberModel;
     communityName: string;
     compact?: boolean;
+    authenticated?: boolean;
     canManageCommunity?: boolean;
     canSendFeedback?: boolean;
     connectionStatus?: CommunityConnectionStatus;
@@ -84,15 +88,24 @@
         </span>
       </DropdownMenu.Label>
 
-      <DropdownMenu.Item
-        class="community-profile-menu__status-action"
-        onSelect={() => onAction("update-status")}
-      >
-        <SmileIcon data-icon="inline-start" aria-hidden="true" />
-        <span>Update your status</span>
-      </DropdownMenu.Item>
+      {#if authenticated}
+        <DropdownMenu.Item
+          class="community-profile-menu__status-action"
+          onSelect={() => onAction("update-status")}
+        >
+          <SmileIcon data-icon="inline-start" aria-hidden="true" />
+          <span>Update your status</span>
+        </DropdownMenu.Item>
 
-      <DropdownMenu.Separator />
+        <DropdownMenu.Separator />
+      {:else}
+        <DropdownMenu.Item onSelect={() => onAction("sign-in")}>
+          <LogInIcon data-icon="inline-start" aria-hidden="true" />
+          <span>Sign in</span>
+        </DropdownMenu.Item>
+
+        <DropdownMenu.Separator />
+      {/if}
 
       <DropdownMenu.Sub>
         <DropdownMenu.SubTrigger>
@@ -109,12 +122,11 @@
           <DropdownMenu.Item onSelect={() => onAction("community-settings")}>
             Community settings
           </DropdownMenu.Item>
-          <DropdownMenu.Item
-            disabled={!canManageCommunity}
-            onSelect={() => onAction("manage-members")}
-          >
-            Manage members
-          </DropdownMenu.Item>
+          {#if authenticated && canManageCommunity}
+            <DropdownMenu.Item onSelect={() => onAction("manage-members")}
+              >Manage members</DropdownMenu.Item
+            >
+          {/if}
         </DropdownMenu.SubContent>
       </DropdownMenu.Sub>
 
@@ -125,10 +137,16 @@
           >Send feedback</DropdownMenu.Item
         >
       {/if}
-      <DropdownMenu.Item onSelect={() => onAction("settings")}>
-        Settings
-        <DropdownMenu.Shortcut>⌘,</DropdownMenu.Shortcut>
-      </DropdownMenu.Item>
+      {#if authenticated}
+        <DropdownMenu.Item onSelect={() => onAction("settings")}>
+          Settings
+          <DropdownMenu.Shortcut>⌘,</DropdownMenu.Shortcut>
+        </DropdownMenu.Item>
+        <DropdownMenu.Item onSelect={() => onAction("sign-out")}>
+          <LogOutIcon data-icon="inline-start" aria-hidden="true" />
+          Sign out
+        </DropdownMenu.Item>
+      {/if}
     </DropdownMenu.Content>
   </DropdownMenu.Root>
 </div>

@@ -8,6 +8,7 @@
   import CommunityConversation from "../community-conversation/CommunityConversation.svelte";
   import type {
     CommunityCustomEmoji,
+    CommunityOperationState,
     CommunityReplyTarget,
   } from "../../community/index.js";
   import ForumTopicList from "../forum-topic-list/ForumTopicList.svelte";
@@ -24,12 +25,22 @@
     replyTarget,
     communityEmojis = [],
     readOnly = false,
+    readOnlyReason = "Reconnect to send messages",
+    operation,
+    onRetryOperation,
+    onDismissOperation,
+    showJoinAction = false,
   }: {
     model: CommunityWorkspaceModel;
     handlers?: CommunityWorkspaceHandlers;
     replyTarget?: CommunityReplyTarget;
     communityEmojis?: readonly CommunityCustomEmoji[];
     readOnly?: boolean;
+    readOnlyReason?: string;
+    operation?: CommunityOperationState;
+    onRetryOperation?: () => void | Promise<void>;
+    onDismissOperation?: () => void;
+    showJoinAction?: boolean;
   } = $props();
 
   const activeRoom = $derived(
@@ -53,6 +64,51 @@
 </script>
 
 <div class="community-workspace-surface" data-view={model.view}>
+  {#if operation?.status === "failed" || operation?.status === "accepted" || readOnly}
+    <section
+      class="community-workspace-surface__notice"
+      data-state={operation?.status ?? "unavailable"}
+      role={operation?.status === "failed" ? "alert" : "status"}
+    >
+      <div>
+        <strong>
+          {operation?.status === "failed"
+            ? "Action did not complete"
+            : operation?.status === "accepted"
+              ? "Accepted by relay"
+              : "Participation unavailable"}
+        </strong>
+        <span>{operation?.message ?? readOnlyReason}</span>
+      </div>
+      <div class="community-workspace-surface__notice-actions">
+        {#if operation?.status === "failed" && operation.failure?.retryable && onRetryOperation}
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onclick={onRetryOperation}>Retry</Button
+          >
+        {/if}
+        {#if readOnly && showJoinAction && handlers.onJoinRoom && activeRoom.kind !== "direct"}
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onclick={() => handlers.onJoinRoom?.(activeRoom.id)}
+            >Join {activeRoom.kind === "forum" ? "forum" : "channel"}</Button
+          >
+        {/if}
+        {#if operation && operation.status !== "idle" && onDismissOperation}
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onclick={onDismissOperation}>Dismiss</Button
+          >
+        {/if}
+      </div>
+    </section>
+  {/if}
   {#if model.view === "forum-index"}
     <ForumTopicList
       title={activeRoom.name}
@@ -68,6 +124,11 @@
             onCreateTopic: (draft) =>
               Promise.resolve(handlers.onCreateTopic?.(activeRoom.id, draft)),
           }}
+      disabled={readOnly}
+      {readOnlyReason}
+      canDeleteTopic={(topic) =>
+        topic.authorId === model.currentMemberId ||
+        activeRoom.permissions?.delete.state === "enabled"}
       {...handlers.onTopicAction === undefined
         ? {}
         : { onTopicAction: handlers.onTopicAction }}
@@ -83,7 +144,12 @@
       {...replyTarget === undefined ? {} : { replyTarget }}
       {communityEmojis}
       disabled={readOnly}
-      disabledReason="Reconnect to send messages"
+      disabledReason={readOnlyReason}
+      restrictMessageManagement
+      {...model.currentMemberId === undefined
+        ? {}
+        : { currentMemberId: model.currentMemberId }}
+      canDeleteAny={activeRoom.permissions?.delete.state === "enabled"}
       {...handlers.onClearReplyTarget === undefined
         ? {}
         : { onCancelReply: handlers.onClearReplyTarget }}
@@ -96,10 +162,10 @@
       replyActionLabel={activeRoom.kind === "forum"
         ? "Reply"
         : "Reply in thread"}
-      {...handlers.onToggleReaction === undefined
+      {...readOnly || handlers.onToggleReaction === undefined
         ? {}
         : { onToggleReaction: handlers.onToggleReaction }}
-      {...handlers.onAddReaction === undefined
+      {...readOnly || handlers.onAddReaction === undefined
         ? {}
         : { onAddReaction: handlers.onAddReaction }}
       {...handlers.onCopyMessageLink === undefined
@@ -192,10 +258,49 @@
 <style>
   .community-workspace-surface {
     display: flex;
+    flex-direction: column;
     width: 100%;
     min-width: 0;
     height: 100%;
     min-height: 0;
+  }
+
+  .community-workspace-surface > :global(.forum-topic-list),
+  .community-workspace-surface > :global(.community-conversation) {
+    flex: 1;
+    min-height: 0;
+  }
+
+  .community-workspace-surface__notice {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    border-block-end: 1px solid var(--border);
+    padding: 0.65rem 0.85rem;
+    background: color-mix(in srgb, var(--muted) 74%, var(--background));
+  }
+
+  .community-workspace-surface__notice[data-state="failed"] {
+    border-inline-start: 0.2rem solid var(--destructive);
+    color: var(--foreground);
+    background: color-mix(in srgb, var(--destructive) 8%, var(--background));
+  }
+
+  .community-workspace-surface__notice > div:first-child {
+    display: grid;
+    gap: 0.15rem;
+  }
+
+  .community-workspace-surface__notice span {
+    color: var(--muted-foreground);
+    font-size: 0.8rem;
+  }
+
+  .community-workspace-surface__notice-actions {
+    display: flex;
+    flex: none;
+    gap: 0.35rem;
   }
 
   .community-workspace-surface__intro {

@@ -1,5 +1,6 @@
 import type {
   CommunityMemberModel,
+  CommunityRoomModel,
   CommunityWorkspaceHandlers,
   CommunityWorkspaceModel,
 } from "../components/index.js";
@@ -24,6 +25,7 @@ import type {
   CommunityControllerActions,
   CommunityControllerOptions,
   CommunityControllerState,
+  CommunityOperationFailure,
   CommunityOperationState,
   CommunityPrivateEvent,
   CommunityReplyTarget,
@@ -78,6 +80,7 @@ export function createCommunityController(
   const sessions = new Map<string, CommunitySession>();
   const subscriptions = new Map<string, CommunitySessionSubscription>();
   const retries = new Map<string, () => Promise<void>>();
+  const acceptedEventIdsByOperation = new Map<string, readonly string[]>();
   const queuedEvents = new Map<string, NostrEvent[]>();
   const queuedEventGenerations = new Map<string, number>();
   const scheduledEventScopes = new Set<string>();
@@ -365,8 +368,19 @@ export function createCommunityController(
   }
 
   async function retry(operation: string): Promise<void> {
+    if (operations[operation]?.failure?.retryable !== true) return;
     const action = retries.get(operation);
     if (action !== undefined) await action();
+  }
+
+  function dismissOperation(operation: string): void {
+    retries.delete(operation);
+    acceptedEventIdsByOperation.delete(operation);
+    if (operations[operation] === undefined) return;
+    operations = {
+      ...operations,
+      [operation]: { status: "idle" },
+    };
   }
 
   const actions: CommunityControllerActions = {
@@ -440,9 +454,18 @@ export function createCommunityController(
       requestProjection();
     },
     async sendMessage(roomId, content) {
+      const operation = `send:${roomId}`;
       const room = roomById(roomId);
-      if (room === undefined || content.trim() === "") return;
-      await publishTemplate(`send:${roomId}`, {
+      if (room === undefined)
+        throwOperationFailure(operation, "validation", "Room is unavailable");
+      if (content.trim() === "")
+        throwOperationFailure(
+          operation,
+          "validation",
+          "Write a message before sending",
+        );
+      assertCanPublish(room.id, operation);
+      await publishTemplate(operation, {
         kind: 9,
         created_at: now(),
         content: content.trim(),
@@ -450,8 +473,14 @@ export function createCommunityController(
       });
     },
     async sendReply(rootMessageId, content) {
+      const operation = `reply:${rootMessageId}`;
       if (activeRoomModel()?.kind === "direct") {
-        if (content.trim() === "") return;
+        if (content.trim() === "")
+          throwOperationFailure(
+            operation,
+            "validation",
+            "Write a reply before sending",
+          );
         await actions.sendDirectMessage(
           currentDirectRecipients(),
           content.trim(),
@@ -461,8 +490,21 @@ export function createCommunityController(
       }
       const room = activeRoomScope();
       const parent = activeEvents().find((event) => event.id === rootMessageId);
-      if (room === undefined || parent === undefined || content.trim() === "")
-        return;
+      if (room === undefined)
+        throwOperationFailure(operation, "validation", "Room is unavailable");
+      if (parent === undefined)
+        throwOperationFailure(
+          operation,
+          "validation",
+          "The message being replied to is unavailable",
+        );
+      if (content.trim() === "")
+        throwOperationFailure(
+          operation,
+          "validation",
+          "Write a reply before sending",
+        );
+      assertCanPublish(room.id, operation);
       let template: NostrEventTemplate;
       if (room.kind === "forum") {
         const rootId =
@@ -495,12 +537,25 @@ export function createCommunityController(
           ],
         };
       }
-      await publishTemplate(`reply:${rootMessageId}`, template);
+      await publishTemplate(operation, template);
     },
     async createTopic(roomId, draft) {
+      const operation = `topic:${roomId}`;
       const room = roomById(roomId);
       const content = typeof draft === "string" ? draft : draft.content;
-      if (room?.kind !== "forum" || content.trim() === "") return;
+      if (room?.kind !== "forum")
+        throwOperationFailure(
+          operation,
+          "validation",
+          "Select a forum before creating a post",
+        );
+      if (content.trim() === "")
+        throwOperationFailure(
+          operation,
+          "validation",
+          "Write a post before publishing",
+        );
+      assertCanPublish(room.id, operation);
       const title =
         typeof draft === "string"
           ? content.trim().split(/\r?\n/u)[0]?.slice(0, 120) || "Discussion"
@@ -516,7 +571,7 @@ export function createCommunityController(
         content.trim(),
         now(),
       );
-      await publishTemplate(`topic:${roomId}`, {
+      await publishTemplate(operation, {
         ...template,
         tags: [
           ...template.tags.filter((tag) => tag[0] !== "title"),
@@ -529,14 +584,26 @@ export function createCommunityController(
       const peers = [...new Set(recipients)]
         .filter((pubkey) => pubkey !== identityPubkey)
         .toSorted();
-      if (peers.length === 0 || content.trim() === "") return;
+      const operation = `direct:${peers.length === 0 ? "new" : directConversationId(peers)}`;
+      if (peers.length === 0)
+        throwOperationFailure(
+          operation,
+          "validation",
+          "Choose at least one recipient",
+        );
+      if (content.trim() === "")
+        throwOperationFailure(
+          operation,
+          "validation",
+          "Write a message before sending",
+        );
       const roomId = directConversationId(peers);
       directParticipantsByRoom = {
         ...directParticipantsByRoom,
         [roomId]: peers,
       };
       activeRoomId = roomId;
-      await execute(`direct:${roomId}`, {
+      await execute(operation, {
         type: "direct-message",
         recipients: peers,
         content: content.trim(),
@@ -545,11 +612,24 @@ export function createCommunityController(
       replyTarget = undefined;
     },
     async toggleReaction(eventId, emoji, customEmoji) {
+      const operation = `reaction:${eventId}:${emoji.trim() || "unknown"}`;
+      validateCustomEmojiReaction(operation, customEmoji);
       if (activeRoomModel()?.kind === "direct") {
         const target = activePrivateEvents().find(
           (event) => event.id === eventId && event.kind === 14,
         );
-        if (target === undefined || emoji.trim() === "") return;
+        if (target === undefined)
+          throwOperationFailure(
+            operation,
+            "validation",
+            "The message being reacted to is unavailable",
+          );
+        if (emoji.trim() === "")
+          throwOperationFailure(
+            operation,
+            "validation",
+            "Choose a reaction before publishing",
+          );
         await ensureIdentity(`direct-reaction:${eventId}:${emoji}`);
         const previous = activePrivateEvents().find(
           (event) =>
@@ -573,8 +653,21 @@ export function createCommunityController(
       }
       const target = activeEvents().find((event) => event.id === eventId);
       const room = activeRoomScope();
-      if (target === undefined || room === undefined || emoji.trim() === "")
-        return;
+      if (target === undefined)
+        throwOperationFailure(
+          operation,
+          "validation",
+          "The message being reacted to is unavailable",
+        );
+      if (room === undefined)
+        throwOperationFailure(operation, "validation", "Room is unavailable");
+      if (emoji.trim() === "")
+        throwOperationFailure(
+          operation,
+          "validation",
+          "Choose a reaction before publishing",
+        );
+      assertCanPublish(room.id, operation);
       await ensureIdentity(`reaction:${eventId}:${emoji}`);
       const previous = activeEvents().find(
         (event) =>
@@ -609,13 +702,23 @@ export function createCommunityController(
       });
     },
     async deleteEvent(eventId) {
+      const operation = `delete:${eventId}`;
       if (activeRoomModel()?.kind === "direct") {
         const target = activePrivateEvents().find(
           (event) => event.id === eventId && event.kind === 14,
         );
-        if (target === undefined || target.pubkey !== identityPubkey) {
-          throw new Error("Only your own direct messages can be deleted");
-        }
+        if (target === undefined)
+          throwOperationFailure(
+            operation,
+            "validation",
+            "The direct message is unavailable",
+          );
+        if (target.pubkey !== identityPubkey)
+          throwOperationFailure(
+            operation,
+            "restricted",
+            "Only your own direct messages can be deleted",
+          );
         await execute(`direct-delete:${eventId}`, {
           type: "direct-message",
           recipients: currentDirectRecipients(),
@@ -627,14 +730,23 @@ export function createCommunityController(
       }
       const room = activeRoomScope();
       const target = activeEvents().find((event) => event.id === eventId);
-      if (room === undefined || target === undefined) return;
+      if (room === undefined)
+        throwOperationFailure(operation, "validation", "Room is unavailable");
+      if (target === undefined)
+        throwOperationFailure(
+          operation,
+          "validation",
+          "The message is unavailable",
+        );
       await ensureIdentity(`delete:${eventId}`);
       const owner = target.pubkey === identityPubkey;
       if (
         !owner &&
         !isGroupAdmin(activeEvents(), room.groupId, identityPubkey)
       ) {
-        throw new Error(
+        throwOperationFailure(
+          operation,
+          "restricted",
           "The relay has not granted permission to delete this message",
         );
       }
@@ -678,34 +790,42 @@ export function createCommunityController(
       sidePanel = "none";
       await refreshProjection(generation);
     },
-    async updateRoom(groupId, update) {
+    async updateRoom(roomId, update) {
+      const operation = `room:update:${roomId}`;
+      const room = roomById(roomId);
+      if (room === undefined)
+        throwOperationFailure(operation, "validation", "Room is unavailable");
       validateRoomUpdate(update, capabilities);
-      await execute(`room:update:${groupId}`, {
+      await execute(operation, {
         type: "update-room",
-        groupId,
+        groupId: room.groupId,
         update,
       });
       sidePanel = "none";
     },
-    async deleteRoom(groupId) {
-      const wasActive = activeRoomScope()?.groupId === groupId;
-      await execute(`room:delete:${groupId}`, {
+    async deleteRoom(roomId) {
+      const operation = `room:delete:${roomId}`;
+      const room = roomById(roomId);
+      if (room === undefined)
+        throwOperationFailure(operation, "validation", "Room is unavailable");
+      const wasActive = activeRoomScope()?.groupId === room.groupId;
+      await execute(operation, {
         type: "delete-room",
-        groupId,
+        groupId: room.groupId,
       });
       scopes = scopes.map((scope) =>
         scope.id === activeCommunityId
           ? {
               ...scope,
               rooms: (scope.rooms ?? []).filter(
-                (room) => room.groupId !== groupId,
+                (candidate) => candidate.groupId !== room.groupId,
               ),
             }
           : scope,
       );
       if (wasActive) {
         const replacement = communityRooms(activeScope(), activeEvents()).find(
-          (room) => room.groupId !== groupId,
+          (candidate) => candidate.groupId !== room.groupId,
         );
         activeRoomId = replacement?.id ?? "";
         sidePanel = "none";
@@ -783,12 +903,17 @@ export function createCommunityController(
       });
     },
     setReplyTarget(eventId) {
-      const message =
+      const workspaceMessage =
         workspace.messages.find((candidate) => candidate.id === eventId) ??
         workspace.thread?.messages.find(
           (candidate) => candidate.id === eventId,
         );
-      const room = activeRoomModel();
+      const inboxMessage = inbox?.messages.find(
+        (candidate) => candidate.id === eventId,
+      );
+      const message = workspaceMessage ?? inboxMessage;
+      const room =
+        workspaceMessage === undefined ? inbox?.room : activeRoomModel();
       if (message === undefined || room === undefined) return;
       const author = workspace.members.find(
         (member) => member.id === message.authorId,
@@ -801,7 +926,7 @@ export function createCommunityController(
         content: message.content,
         kind: room.kind,
       };
-      if (room.kind === "channel") {
+      if (workspaceMessage !== undefined && room.kind === "channel") {
         activeThreadId = rootMessageId(activeEvents(), message.id);
         sidePanel = "thread";
       }
@@ -919,24 +1044,50 @@ export function createCommunityController(
         sections: [...ordered, ...missing],
       });
     },
-    async join(groupId) {
-      await execute(`join:${groupId}`, { type: "join", groupId });
+    async join(roomId) {
+      const operation = `join:${roomId}`;
+      const room = roomById(roomId);
+      if (room === undefined)
+        throwOperationFailure(operation, "validation", "Room is unavailable");
+      await execute(operation, { type: "join", groupId: room.groupId });
+      if (workspaceRoomById(room.id)?.membership !== "joined") {
+        operations = {
+          ...operations,
+          [operation]: {
+            status: "accepted",
+            message:
+              "Join request accepted by the relay. Waiting for membership confirmation.",
+          },
+        };
+      }
     },
-    async leave(groupId) {
-      await execute(`leave:${groupId}`, { type: "leave", groupId });
+    async leave(roomId) {
+      const operation = `leave:${roomId}`;
+      const room = roomById(roomId);
+      if (room === undefined)
+        throwOperationFailure(operation, "validation", "Room is unavailable");
+      await execute(operation, { type: "leave", groupId: room.groupId });
     },
-    async addMember(groupId, pubkey, roles) {
-      await execute(`add-member:${groupId}:${pubkey}`, {
+    async addMember(roomId, pubkey, roles) {
+      const operation = `add-member:${roomId}:${pubkey}`;
+      const room = roomById(roomId);
+      if (room === undefined)
+        throwOperationFailure(operation, "validation", "Room is unavailable");
+      await execute(operation, {
         type: "add-member",
-        groupId,
+        groupId: room.groupId,
         pubkey,
         ...(roles === undefined ? {} : { roles }),
       });
     },
-    async removeMember(groupId, pubkey) {
-      await execute(`remove-member:${groupId}:${pubkey}`, {
+    async removeMember(roomId, pubkey) {
+      const operation = `remove-member:${roomId}:${pubkey}`;
+      const room = roomById(roomId);
+      if (room === undefined)
+        throwOperationFailure(operation, "validation", "Room is unavailable");
+      await execute(operation, {
         type: "remove-member",
-        groupId,
+        groupId: room.groupId,
         pubkey,
       });
     },
@@ -1043,6 +1194,25 @@ export function createCommunityController(
         throw cause;
       }
     },
+    async disconnectIdentity() {
+      identity = undefined;
+      identityPubkey = "";
+      authentication = { status: "anonymous" };
+      privateEventsByScope = {};
+      directParticipantsByRoom = {};
+      retries.clear();
+      acceptedEventIdsByOperation.clear();
+      operations = {};
+      activeTopicId = undefined;
+      activeThreadId = undefined;
+      sidePanel = "none";
+      replyTarget = undefined;
+      if (activeRoomId.startsWith("dm:")) {
+        activeRoomId =
+          communityRooms(activeScope(), activeEvents())[0]?.id ?? "";
+      }
+      await reconnect();
+    },
   };
 
   const handlers: CommunityWorkspaceHandlers = {
@@ -1052,26 +1222,13 @@ export function createCommunityController(
     onOpenThread: actions.openThread,
     onCloseSidePanel: actions.closeSidePanel,
     onOpenDetails: actions.openDetails,
-    onSendMessage: (roomId, content) => {
-      settleHandler(actions.sendMessage(roomId, content));
-    },
-    onSendReply: (rootMessageId, content) => {
-      settleHandler(actions.sendReply(rootMessageId, content));
-    },
-    onToggleReaction: (messageId, emoji) => {
-      settleHandler(actions.toggleReaction(messageId, emoji));
-    },
-    onAddReaction: (messageId, emoji) => {
-      settleHandler(actions.toggleReaction(messageId, emoji));
-    },
-    onSearch: (query) => {
-      settleHandler(actions.search(query));
-    },
+    onSendMessage: actions.sendMessage,
+    onSendReply: actions.sendReply,
+    onToggleReaction: actions.toggleReaction,
+    onAddReaction: actions.toggleReaction,
+    onJoinRoom: actions.join,
+    onSearch: actions.search,
   };
-
-  function settleHandler(operation: Promise<void>): void {
-    void operation.catch(() => undefined);
-  }
 
   async function publishTemplate(
     operation: string,
@@ -1084,26 +1241,60 @@ export function createCommunityController(
     operation: string,
     command: CommunityCommand,
   ): Promise<void> {
-    if (status !== "connected") {
-      throw new Error("Reconnect to perform this action");
-    }
-    await ensureIdentity(operation);
-    const session = sessions.get(activeCommunityId);
-    if (session === undefined) throw new Error("Community is not connected");
+    let acceptedEvents: readonly NostrEvent[] = [];
     await runOperation(operation, async () => {
-      const events = await session.execute(command, controllerAbort?.signal);
-      await cacheLiveEvents(activeCommunityId, events, generation);
+      if (status !== "connected") {
+        throw new CommunityActionFailure(
+          "network",
+          "Reconnect to perform this action",
+          true,
+        );
+      }
+      await ensureIdentity(operation);
+      const session = sessions.get(activeCommunityId);
+      if (session === undefined) {
+        throw new CommunityActionFailure(
+          "network",
+          "Community is not connected",
+          true,
+        );
+      }
+      acceptedEvents = await session.execute(command, controllerAbort?.signal);
+      await cacheLiveEvents(activeCommunityId, acceptedEvents, generation);
       if (commandNeedsReconciliation(command)) {
         await refreshScope(activeCommunityId, controllerAbort?.signal);
       }
     });
+    if (
+      command.type !== "direct-message" &&
+      acceptedEvents.length > 0 &&
+      acceptedEvents.some(
+        (event) =>
+          !(eventsByScope[activeCommunityId] ?? []).some(
+            (candidate) => candidate.id === event.id,
+          ),
+      )
+    ) {
+      acceptedEventIdsByOperation.set(
+        operation,
+        acceptedEvents.map((event) => event.id),
+      );
+      operations = {
+        ...operations,
+        [operation]: {
+          status: "accepted",
+          message: "Accepted by relay, still syncing.",
+        },
+      };
+    }
   }
 
   async function runOperation(
     operation: string,
     action: () => Promise<void>,
   ): Promise<void> {
-    retries.set(operation, async () => runOperation(operation, action));
+    retries.delete(operation);
+    acceptedEventIdsByOperation.delete(operation);
     operations = {
       ...operations,
       [operation]: { status: "pending" },
@@ -1116,13 +1307,91 @@ export function createCommunityController(
       };
       retries.delete(operation);
     } catch (cause) {
-      const message =
-        cause instanceof Error ? cause.message : "Community action failed";
+      const failure = normalizeCommunityOperationFailure(cause);
       operations = {
         ...operations,
-        [operation]: { status: "failed", message },
+        [operation]: {
+          status: "failed",
+          message: failure.message,
+          failure,
+        },
       };
+      if (failure.retryable) {
+        retries.set(operation, async () => runOperation(operation, action));
+      }
       throw cause;
+    }
+  }
+
+  function throwOperationFailure(
+    operation: string,
+    category: CommunityOperationFailure["category"],
+    message: string,
+  ): never {
+    const failure: CommunityOperationFailure = {
+      category,
+      message,
+      retryable: false,
+    };
+    retries.delete(operation);
+    operations = {
+      ...operations,
+      [operation]: { status: "failed", message, failure },
+    };
+    throw new CommunityActionFailure(category, message);
+  }
+
+  function assertCanPublish(roomId: string, operation: string): void {
+    const room = workspaceRoomById(roomId);
+    if (room === undefined) {
+      throwOperationFailure(operation, "validation", "Room is unavailable");
+    }
+    const availability = room.permissions?.publish;
+    if (availability?.state === "denied") {
+      throwOperationFailure(
+        operation,
+        room.membership === "not-joined" ? "membership" : "restricted",
+        availability.reason ??
+          "The relay has not granted permission to publish here",
+      );
+    }
+    if (availability?.state === "unsupported") {
+      throwOperationFailure(
+        operation,
+        "restricted",
+        availability.reason ?? "Publishing is not supported in this room",
+      );
+    }
+  }
+
+  function validateCustomEmojiReaction(
+    operation: string,
+    customEmoji?: { shortcode: string; url: string },
+  ): void {
+    if (customEmoji === undefined) return;
+    if (normalizeShortcode(customEmoji.shortcode) === "") {
+      throwOperationFailure(
+        operation,
+        "validation",
+        "Custom reactions require an emoji shortcode",
+      );
+    }
+    let url: URL;
+    try {
+      url = new URL(customEmoji.url);
+    } catch {
+      throwOperationFailure(
+        operation,
+        "validation",
+        "Custom reactions require a valid emoji image URL",
+      );
+    }
+    if (url.protocol !== "https:" && url.protocol !== "http:") {
+      throwOperationFailure(
+        operation,
+        "validation",
+        "Custom reaction images must use http:// or https://",
+      );
     }
   }
 
@@ -1162,6 +1431,7 @@ export function createCommunityController(
     )) {
       mergeAcceptedEvents(scopeId, acceptedEvents);
     }
+    reconcileAcceptedEventOperations();
     cache = {
       ...revision.cache,
       ...(status === "connected" ? { freshness: "current" as const } : {}),
@@ -1199,7 +1469,10 @@ export function createCommunityController(
       return;
     }
     runtimeRevision = revision.revision;
-    if (revision.workspace !== undefined) workspace = revision.workspace;
+    if (revision.workspace !== undefined) {
+      workspace = revision.workspace;
+      reconcileAcceptedMembershipOperations();
+    }
     inbox = revision.inbox;
     if (revision.settings !== undefined) settings = revision.settings;
   }
@@ -1211,6 +1484,36 @@ export function createCommunityController(
       error =
         cause instanceof Error ? cause.message : "Community projection failed";
     });
+  }
+
+  function reconcileAcceptedMembershipOperations(): void {
+    let next = operations;
+    let changed = false;
+    for (const [operation, operationState] of Object.entries(operations)) {
+      if (
+        !operation.startsWith("join:") ||
+        operationState.status !== "accepted"
+      )
+        continue;
+      const roomId = operation.slice("join:".length);
+      if (workspaceRoomById(roomId)?.membership !== "joined") continue;
+      next = { ...next, [operation]: { status: "idle" } };
+      changed = true;
+    }
+    if (changed) operations = next;
+  }
+
+  function reconcileAcceptedEventOperations(): void {
+    const eventIds = new Set(activeEvents().map((event) => event.id));
+    let next = operations;
+    let changed = false;
+    for (const [operation, acceptedIds] of acceptedEventIdsByOperation) {
+      if (!acceptedIds.every((eventId) => eventIds.has(eventId))) continue;
+      acceptedEventIdsByOperation.delete(operation);
+      next = { ...next, [operation]: { status: "idle" } };
+      changed = true;
+    }
+    if (changed) operations = next;
   }
 
   async function cacheSnapshot(
@@ -1388,8 +1691,14 @@ export function createCommunityController(
 
   function roomById(roomId: string) {
     return communityRooms(activeScope(), activeEvents()).find(
-      (room) => room.id === roomId,
+      (room) => room.id === roomId || room.groupId === roomId,
     );
+  }
+
+  function workspaceRoomById(roomId: string): CommunityRoomModel | undefined {
+    return workspace.navigationSections
+      .flatMap((section) => section.rooms)
+      .find((room) => room.id === roomId);
   }
 
   function resolveSearchResultRooms(
@@ -1422,8 +1731,25 @@ export function createCommunityController(
 
   async function ensureIdentity(operation: string): Promise<void> {
     if (identity !== undefined && identityPubkey !== "") return;
-    retries.set(operation, async () => actions.connectIdentity());
-    await actions.connectIdentity();
+    try {
+      await actions.connectIdentity();
+    } catch (cause) {
+      const message =
+        cause instanceof Error
+          ? cause.message
+          : "Connect an identity to continue";
+      const failure: CommunityOperationFailure = {
+        category: "authentication",
+        message,
+        retryable: false,
+      };
+      retries.delete(operation);
+      operations = {
+        ...operations,
+        [operation]: { status: "failed", message, failure },
+      };
+      throw cause;
+    }
   }
 
   function latestAuthoredEvent(kind: number): NostrEvent | undefined {
@@ -1580,7 +1906,83 @@ export function createCommunityController(
     reconnect,
     refresh,
     retry,
+    dismissOperation,
   };
+}
+
+class CommunityActionFailure extends Error {
+  readonly failure: CommunityOperationFailure;
+
+  constructor(
+    category: CommunityOperationFailure["category"],
+    message: string,
+    retryable = false,
+  ) {
+    super(message);
+    this.name = "CommunityActionFailure";
+    this.failure = { category, message, retryable };
+  }
+}
+
+export function normalizeCommunityOperationFailure(
+  cause: unknown,
+): CommunityOperationFailure {
+  if (cause instanceof CommunityActionFailure) return cause.failure;
+  const message =
+    cause instanceof Error ? cause.message : "Community action failed";
+  if (/recipients?.+not advertised.+(?:inbox )?relay/iu.test(message)) {
+    return {
+      category: "validation",
+      message,
+      relayReason: message,
+      retryable: false,
+    };
+  }
+  const relayMatch = message.match(
+    /(?:^|\s)(invalid|restricted|blocked|rate-limited|pow|mute|error):\s*(.*)$/iu,
+  );
+  if (relayMatch !== null) {
+    const prefix = relayMatch[1]!.toLocaleLowerCase();
+    const category = prefix === "error" ? "relay" : prefix;
+    return {
+      category: category as CommunityOperationFailure["category"],
+      message,
+      relayReason: message,
+      retryable: prefix === "rate-limited" || prefix === "error",
+    };
+  }
+  if (/timed?\s*out|timeout/iu.test(message)) {
+    return {
+      category: "timeout",
+      message,
+      relayReason: message,
+      retryable: true,
+    };
+  }
+  if (
+    /disconnect|network|socket|connection|reconnect|failed to fetch/iu.test(
+      message,
+    )
+  ) {
+    return {
+      category: "network",
+      message,
+      relayReason: message,
+      retryable: true,
+    };
+  }
+  if (/identity|sign[ -]?in|authentication|nip-07|nip-42/iu.test(message)) {
+    return { category: "authentication", message, retryable: false };
+  }
+  if (/member|join|permission|writer|administrator/iu.test(message)) {
+    return {
+      category: "membership",
+      message,
+      relayReason: message,
+      retryable: false,
+    };
+  }
+  return { category: "relay", message, relayReason: message, retryable: true };
 }
 
 function createGroupId(): string {

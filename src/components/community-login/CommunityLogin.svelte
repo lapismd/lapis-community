@@ -2,6 +2,7 @@
   import * as Alert from "@lapismd/design-core/shadcn/alert";
   import { Button } from "@lapismd/design-core/shadcn/button";
   import * as Card from "@lapismd/design-core/shadcn/card";
+  import { Input } from "@lapismd/design-core/shadcn/input";
   import { Spinner } from "@lapismd/design-core/shadcn/spinner";
   import CircleAlertIcon from "@lucide/svelte/icons/circle-alert";
   import KeyRoundIcon from "@lucide/svelte/icons/key-round";
@@ -14,6 +15,7 @@
 
   import {
     DEFAULT_COMMUNITY_LOGIN_METHODS,
+    type CommunityLoginCredentials,
     type CommunityLoginMethodKind,
     type CommunityLoginMethodModel,
   } from "./model.js";
@@ -39,8 +41,42 @@
     pendingMethodId?: string;
     error?: string;
     presentation?: "page" | "dialog";
-    onSelect?: (methodId: string) => void | Promise<void>;
+    onSelect?: (
+      methodId: string,
+      credentials?: CommunityLoginCredentials,
+    ) => void | Promise<void>;
   } = $props();
+
+  let privateKeyMethod = $state<CommunityLoginMethodModel>();
+  let privateKey = $state("");
+  let validationError = $state("");
+  const displayedError = $derived(validationError || error);
+
+  function selectMethod(method: CommunityLoginMethodModel): void {
+    validationError = "";
+    if (method.kind === "private-key") {
+      privateKeyMethod = method;
+      return;
+    }
+    void onSelect(method.id);
+  }
+
+  function closePrivateKeyForm(): void {
+    privateKey = "";
+    validationError = "";
+    privateKeyMethod = undefined;
+  }
+
+  async function submitPrivateKey(): Promise<void> {
+    const value = privateKey.trim();
+    if (value === "") {
+      validationError = "Paste a private key before signing in";
+      return;
+    }
+    if (privateKeyMethod === undefined) return;
+    validationError = "";
+    await onSelect(privateKeyMethod.id, { privateKey: value });
+  }
 
   function methodIcon(kind: CommunityLoginMethodKind): Component {
     if (kind === "browser-extension") return LockKeyholeIcon;
@@ -55,7 +91,7 @@
   class={["community-login", className].filter(Boolean).join(" ")}
   aria-label="Nostr sign in"
   aria-busy={busy}
-  data-status={error ? "error" : busy ? "connecting" : "anonymous"}
+  data-status={displayedError ? "error" : busy ? "connecting" : "anonymous"}
   data-presentation={presentation}
   {...restProps}
 >
@@ -72,15 +108,56 @@
     </Card.Header>
 
     <Card.Content>
-      {#if error}
+      {#if displayedError}
         <Alert.Root variant="destructive" class="community-login__error">
           <CircleAlertIcon aria-hidden="true" />
           <Alert.Title>Sign in failed</Alert.Title>
-          <Alert.Description>{error}</Alert.Description>
+          <Alert.Description>{displayedError}</Alert.Description>
         </Alert.Root>
       {/if}
 
-      {#if methods.length > 0}
+      {#if privateKeyMethod !== undefined}
+        <form
+          class="community-login__private-key"
+          onsubmit={(event) => {
+            event.preventDefault();
+            void submitPrivateKey();
+          }}
+        >
+          <div class="community-login__private-key-copy">
+            <strong>{privateKeyMethod.label}</strong>
+            <span>{privateKeyMethod.description}</span>
+          </div>
+          <label for="community-login-private-key">Private key</label>
+          <Input
+            id="community-login-private-key"
+            name="nostr-private-key"
+            type="password"
+            autocomplete="off"
+            autocapitalize="none"
+            spellcheck={false}
+            placeholder="nsec1… or 64-character hex"
+            aria-describedby="community-login-private-key-help"
+            disabled={busy}
+            bind:value={privateKey}
+          />
+          <p id="community-login-private-key-help">
+            The key is passed once to the configured identity provider and is
+            not saved by this component.
+          </p>
+          <div class="community-login__private-key-actions">
+            <Button
+              type="button"
+              variant="ghost"
+              disabled={busy}
+              onclick={closePrivateKeyForm}>Back</Button
+            >
+            <Button type="submit" disabled={busy}>
+              {busy ? "Signing in…" : "Sign in with private key"}
+            </Button>
+          </div>
+        </form>
+      {:else if methods.length > 0}
         <div class="community-login__methods">
           {#each methods as method (method.id)}
             {@const MethodIcon = methodIcon(method.kind)}
@@ -90,7 +167,7 @@
               variant="outline"
               class="community-login__method"
               disabled={busy || method.disabled}
-              onclick={() => void onSelect(method.id)}
+              onclick={() => selectMethod(method)}
             >
               {#if pending}
                 <span
@@ -174,7 +251,9 @@
   }
 
   .community-login__methods,
-  .community-login__method-copy {
+  .community-login__method-copy,
+  .community-login__private-key,
+  .community-login__private-key-copy {
     display: flex;
     min-width: 0;
     flex-direction: column;
@@ -182,6 +261,37 @@
 
   .community-login__methods {
     gap: 0.625rem;
+  }
+
+  .community-login__private-key {
+    gap: 0.75rem;
+  }
+
+  .community-login__private-key-copy {
+    gap: 0.125rem;
+  }
+
+  .community-login__private-key-copy > span,
+  .community-login__private-key > p {
+    color: var(--muted-foreground);
+    font-size: 0.75rem;
+    line-height: 1.4;
+  }
+
+  .community-login__private-key > label {
+    margin-bottom: -0.375rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+  }
+
+  .community-login__private-key > p {
+    margin: 0;
+  }
+
+  .community-login__private-key-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.5rem;
   }
 
   :global(.community-login__error[data-ui-component="alert"]) {

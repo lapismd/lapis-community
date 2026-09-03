@@ -27,7 +27,7 @@
     initialKind?: "all" | "channel" | "forum";
     canCreate?: boolean;
     onSelect?: (room: CommunityRoomModel) => void;
-    onJoin?: (room: CommunityRoomModel) => void;
+    onJoin?: (room: CommunityRoomModel) => void | Promise<void>;
     onCreate?: (kind: "channel" | "forum") => void;
   } = $props();
   let query = $state("");

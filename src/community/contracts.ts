@@ -107,9 +107,31 @@ export interface CommunityNavigationPreferences {
   sections: readonly CommunityNavigationSectionPreference[];
 }
 
+export type CommunityOperationFailureCategory =
+  | "validation"
+  | "authentication"
+  | "membership"
+  | "invalid"
+  | "restricted"
+  | "blocked"
+  | "rate-limited"
+  | "pow"
+  | "mute"
+  | "timeout"
+  | "network"
+  | "relay";
+
+export interface CommunityOperationFailure {
+  category: CommunityOperationFailureCategory;
+  message: string;
+  relayReason?: string;
+  retryable: boolean;
+}
+
 export interface CommunityOperationState {
-  status: "idle" | "pending" | "failed";
+  status: "idle" | "pending" | "accepted" | "failed";
   message?: string;
+  failure?: CommunityOperationFailure;
 }
 
 export interface CommunityControllerState {
@@ -416,6 +438,7 @@ export interface CommunityController {
   reconnect(): Promise<void>;
   refresh(): Promise<void>;
   retry(operation: string): Promise<void>;
+  dismissOperation(operation: string): void;
 }
 
 export interface CommunityControllerActions {
@@ -447,8 +470,8 @@ export interface CommunityControllerActions {
     roomKind: "channel" | "forum",
     update: CommunityRoomUpdate,
   ): Promise<void>;
-  updateRoom(groupId: string, update: CommunityRoomUpdate): Promise<void>;
-  deleteRoom(groupId: string): Promise<void>;
+  updateRoom(roomId: string, update: CommunityRoomUpdate): Promise<void>;
+  deleteRoom(roomId: string): Promise<void>;
   search(query: string): Promise<void>;
   searchMembers(query: string): Promise<void>;
   setReplyTarget(eventId: string): void;
@@ -464,10 +487,10 @@ export interface CommunityControllerActions {
   renameNavigationSection(sectionId: string, name: string): Promise<void>;
   deleteNavigationSection(sectionId: string): Promise<void>;
   reorderNavigationSections(sectionIds: readonly string[]): Promise<void>;
-  join(groupId: string): Promise<void>;
-  leave(groupId: string): Promise<void>;
-  addMember(groupId: string, pubkey: string, roles?: string[]): Promise<void>;
-  removeMember(groupId: string, pubkey: string): Promise<void>;
+  join(roomId: string): Promise<void>;
+  leave(roomId: string): Promise<void>;
+  addMember(roomId: string, pubkey: string, roles?: string[]): Promise<void>;
+  removeMember(roomId: string, pubkey: string): Promise<void>;
   updateProfile(profile: CommunityProfileUpdate): Promise<void>;
   updateStatus(status: string): Promise<void>;
   setCustomEmoji(shortcode: string, url: string): Promise<void>;
@@ -475,6 +498,7 @@ export interface CommunityControllerActions {
   updateRelayUrl(communityId: string, relayUrl: string): Promise<void>;
   clearCache(communityId?: string): Promise<void>;
   connectIdentity(connector?: CommunityIdentityConnector): Promise<void>;
+  disconnectIdentity(): Promise<void>;
 }
 
 export interface CommunityControllerOptions {
@@ -508,6 +532,8 @@ export interface CommunityApplicationExtensions {
   archive?: (roomId: string) => void | Promise<void>;
   editMessage?: (messageId: string) => void | Promise<void>;
   feedback?: () => void | Promise<void>;
+  wave?: (memberId: string) => void | Promise<void>;
+  follow?: (memberId: string) => void | Promise<void>;
 }
 
 export function communityActionAvailability(

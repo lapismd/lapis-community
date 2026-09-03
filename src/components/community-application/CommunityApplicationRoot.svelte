@@ -7,6 +7,7 @@
   import CommunityLogin from "../community-login/CommunityLogin.svelte";
   import {
     resolveCommunityLoginMethods,
+    type CommunityLoginCredentials,
     type CommunityLoginMethodModel,
   } from "../community-login/model.js";
   import CommunityAuthenticatedApplication from "./CommunityApplication.svelte";
@@ -71,12 +72,15 @@
     cancelled.resolve();
   }
 
-  async function connectIdentity(methodId: string): Promise<void> {
+  async function connectIdentity(
+    methodId: string,
+    credentials?: CommunityLoginCredentials,
+  ): Promise<void> {
     pendingLoginMethodId = methodId;
     loginError = "";
     try {
       if (loginOptions?.connect) {
-        const identity = await loginOptions.connect(methodId);
+        const identity = await loginOptions.connect(methodId, credentials);
         await controller.actions.connectIdentity({
           connect: async () => identity,
         });

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { Badge } from "@lapismd/design-core/shadcn/badge";
   import { Button } from "@lapismd/design-core/shadcn/button";
   import * as Alert from "@lapismd/design-core/shadcn/alert";
   import * as AlertDialog from "@lapismd/design-core/shadcn/alert-dialog";
@@ -223,6 +224,18 @@
   const displayMember = $derived<CommunityMemberModel>(
     currentMember ?? fallbackMember(community.state.settings),
   );
+  const authenticated = $derived(
+    community.state.authentication.status === "connected",
+  );
+  const activePublishAvailability = $derived(
+    activeRoom.permissions?.publish ??
+      (authenticated
+        ? ({ state: "enabled" } as const)
+        : ({
+            state: "requires-authentication",
+            reason: "Connect a NIP-07 identity to participate",
+          } as const)),
+  );
   const navigationModel = $derived<CommunityNavigationModel>({
     searchPlaceholder: "Search everything",
     primaryItems: [
@@ -242,27 +255,37 @@
         label: section.label,
         ...(section.id === "channels" && community.state.capabilities.channels
           ? {
-              primaryAction: { id: "create", label: "Create channel" },
+              ...(authenticated && community.state.capabilities.manageGroup
+                ? {
+                    primaryAction: { id: "create", label: "Create channel" },
+                  }
+                : {}),
               actions: [
                 {
                   id: "browse",
                   label: "Browse channels",
                   icon: "browse-channels" as const,
                 },
-                { id: "new-section", label: "New section" },
+                ...(authenticated
+                  ? [{ id: "new-section", label: "New section" }]
+                  : []),
               ],
             }
           : {}),
         ...(section.id === "forums" && community.state.capabilities.forums
           ? {
-              primaryAction: { id: "create", label: "Create forum" },
+              ...(authenticated && community.state.capabilities.manageGroup
+                ? { primaryAction: { id: "create", label: "Create forum" } }
+                : {}),
               actions: [
                 {
                   id: "browse",
                   label: "Browse forums",
                   icon: "browse-forums" as const,
                 },
-                { id: "new-section", label: "New section" },
+                ...(authenticated
+                  ? [{ id: "new-section", label: "New section" }]
+                  : []),
               ],
             }
           : {}),
@@ -322,6 +345,9 @@
             deleteDisabled:
               room.permissions?.delete.state === "denied" ||
               room.permissions?.delete.state === "unsupported",
+            archiveAvailable:
+              extensions.archive !== undefined &&
+              room.permissions?.update.state === "enabled",
             ...(room.permissions?.update.reason
               ? { settingsReason: room.permissions.update.reason }
               : {}),
@@ -397,10 +423,17 @@
             : {}),
         })),
       ...projectedSearchResults.messages,
-    ].filter(
-      (message, index, values) =>
-        values.findIndex((candidate) => candidate.id === message.id) === index,
-    ),
+    ]
+      .filter(
+        (message) =>
+          message.roomId !== undefined &&
+          allRooms.some((room) => room.id === message.roomId),
+      )
+      .filter(
+        (message, index, values) =>
+          values.findIndex((candidate) => candidate.id === message.id) ===
+          index,
+      ),
   );
   const searchMembers = $derived(
     [
@@ -539,9 +572,47 @@
   const inlineRelayMessage = $derived(
     inlineRelayError || relayOperation?.message || community.state.error || "",
   );
+  const activeParticipationOperationEntry = $derived.by(() => {
+    const targets = new Set([
+      activeRoom.id,
+      ...workspace.messages.map((message) => message.id),
+      ...(workspace.thread?.messages.map((message) => message.id) ?? []),
+      ...workspace.topics.map((topic) => topic.id),
+    ]);
+    return Object.entries(community.state.operations)
+      .filter(
+        ([key, operation]) =>
+          operation.status !== "idle" &&
+          /^(send|reply|reaction|topic|join|leave|delete|direct):/u.test(key) &&
+          [...targets].some((target) => key.includes(target)),
+      )
+      .toReversed()[0];
+  });
+  const activeParticipationOperation = $derived(
+    activeParticipationOperationEntry?.[1],
+  );
+  const participationReadOnly = $derived(
+    community.state.status !== "connected" ||
+      activePublishAvailability.state === "denied" ||
+      activePublishAvailability.state === "unsupported" ||
+      activeParticipationOperation?.status === "pending",
+  );
+  const participationReadOnlyReason = $derived(
+    community.state.status !== "connected"
+      ? "Reconnect to participate"
+      : activeParticipationOperation?.status === "pending"
+        ? "This action is still being published"
+        : (activePublishAvailability.reason ?? "Participation is unavailable"),
+  );
 
   $effect(() => {
     if (community.state.status === "connecting") relayNoticeDismissed = false;
+  });
+
+  $effect(() => {
+    if (!authenticated && activeDestination === "settings") {
+      setDestination("registry", false);
+    }
   });
 
   async function runAuthenticated(
@@ -752,19 +823,27 @@
     lastAction = offset === -1 ? "navigated-back" : "navigated-forward";
   }
 
-  function react(
+  async function react(
     messageId: string,
     emoji: string,
     custom?: { shortcode: string; url: string },
-  ): void {
-    void runAuthenticated(() =>
-      community.actions.toggleReaction(messageId, emoji, custom),
-    ).catch((cause) =>
+  ): Promise<void> {
+    try {
+      await runAuthenticated(() =>
+        community.actions.toggleReaction(messageId, emoji, custom),
+      );
+      lastAction = `reaction:${messageId}:${emoji}`;
+    } catch (cause) {
       toast.error(
         cause instanceof Error ? cause.message : "Reaction could not be saved",
-      ),
-    );
-    lastAction = `reaction:${messageId}:${emoji}`;
+      );
+      throw cause;
+    }
+  }
+
+  async function joinRoom(room: CommunityRoomModel): Promise<void> {
+    await runAuthenticated(() => community.actions.join(room.id));
+    lastAction = `join-requested:${room.id}`;
   }
 
   async function copyText(value: string, success: string): Promise<void> {
@@ -829,10 +908,12 @@
         openRoomEditor(section.id === "forums" ? "forum" : "channel", "create"),
       );
     else if (action.id === "new") {
-      memberCommandMode = "select";
-      selectedRecipientIds = [];
-      setDestination("new-direct-message", true);
-      memberCommandOpen = true;
+      void runAuthenticated(() => {
+        memberCommandMode = "select";
+        selectedRecipientIds = [];
+        setDestination("new-direct-message", true);
+        memberCommandOpen = true;
+      });
     } else if (action.id === "new-section") {
       sectionEditorMode = "create";
       sectionName = "";
@@ -914,7 +995,7 @@
         if (action === "delete")
           await community.actions.deleteRoom(activeRoom.id);
       });
-      toast.success(action === "leave" ? "You left the room" : "Room deleted");
+      if (action === "delete") toast.success("Room deleted");
       closeSidePanel();
     } catch (cause) {
       toast.error(
@@ -978,10 +1059,38 @@
     }
   }
 
-  function messageMember(member: CommunityMemberModel): void {
-    selectedRecipientIds = [member.id];
-    community.actions.openDirectMessage(selectedRecipientIds);
-    setDestination(`dm:${member.id}`, true);
+  async function messageMember(member: CommunityMemberModel): Promise<void> {
+    await runAuthenticated(() => {
+      selectedRecipientIds = [member.id];
+      community.actions.openDirectMessage(selectedRecipientIds);
+      setDestination(`dm:${member.id}`, true);
+    });
+  }
+
+  async function deleteMessage(messageId: string): Promise<void> {
+    await runAuthenticated(() => community.actions.deleteEvent(messageId));
+    toast.success("Message deleted");
+    lastAction = `deleted-message:${messageId}`;
+  }
+
+  async function handleTopicAction(
+    topicId: string,
+    action: "copy-link" | "mark-read" | "star" | "mute" | "delete",
+  ): Promise<void> {
+    const topic = workspace.topics.find(
+      (candidate) => candidate.id === topicId,
+    );
+    if (action === "copy-link" && topic && activeConnection) {
+      await copyText(
+        `nostr:${nip19.neventEncode({ id: topic.id, author: topic.authorId, relays: [activeConnection.relayUrl] })}`,
+        "Topic link copied",
+      );
+    }
+    if (action === "mark-read") await community.actions.markRead(activeRoom.id);
+    if (action === "star")
+      await community.actions.setRoomStarred(topicId, true);
+    if (action === "mute") await community.actions.setRoomMuted(topicId, true);
+    if (action === "delete") await deleteMessage(topicId);
   }
 
   function viewMemberActivity(member: CommunityMemberModel): void {
@@ -997,6 +1106,22 @@
       );
     }
     lastAction = `viewed-activity:${member.id}`;
+  }
+
+  function runMemberExtension(
+    action: "wave" | "follow",
+    member: CommunityMemberModel,
+  ): void {
+    const handler = extensions[action];
+    if (handler === undefined) return;
+    void Promise.resolve(handler(member.id)).catch((cause) =>
+      toast.error(
+        cause instanceof Error
+          ? cause.message
+          : `${action === "wave" ? "Wave" : "Follow"} could not be completed`,
+      ),
+    );
+    lastAction = `${action}:${member.id}`;
   }
 
   async function saveStatus(): Promise<void> {
@@ -1349,11 +1474,24 @@
                 community.state.status === "connected" ? "online" : "offline",
             }}
             communityName={currentCommunity?.name ?? "Community"}
+            {authenticated}
             compact={navigationCompact}
             connectionStatus={community.state.status}
-            canManageCommunity={community.state.capabilities.manageMembers}
+            canManageCommunity={activeRoom.permissions?.manageMembers.state ===
+              "enabled"}
             canSendFeedback={extensions.feedback !== undefined}
             onAction={(action) => {
+              if (action === "sign-in") void runAuthenticated(() => {});
+              if (action === "sign-out")
+                void community.actions
+                  .disconnectIdentity()
+                  .catch((cause) =>
+                    toast.error(
+                      cause instanceof Error
+                        ? cause.message
+                        : "Could not finish signing out",
+                    ),
+                  );
               if (action === "settings") openSettings();
               if (action === "community-settings") relaySettingsOpen = true;
               if (action === "update-status")
@@ -1490,6 +1628,12 @@
     {:else if activeDestination === "inbox"}
       <CommunityInbox
         model={inbox}
+        disabled={participationReadOnly}
+        disabledReason={participationReadOnlyReason}
+        {...workspace.currentMemberId === undefined
+          ? {}
+          : { currentMemberId: workspace.currentMemberId }}
+        canDeleteAny={inbox.room.permissions?.delete.state === "enabled"}
         onSelect={() => void community.actions.markRead(inbox.room.id)}
         onSend={(content) => sendThreadReply(inbox.activeItemId, content)}
         onMarkAllRead={() => void community.actions.markAllRead()}
@@ -1519,18 +1663,7 @@
         {...extensions.editMessage === undefined
           ? {}
           : { onEditMessage: extensions.editMessage }}
-        onDeleteMessage={(messageId) =>
-          void runAuthenticated(() =>
-            community.actions.deleteEvent(messageId),
-          ).then(
-            () => toast.success("Message deleted"),
-            (cause) =>
-              toast.error(
-                cause instanceof Error
-                  ? cause.message
-                  : "The relay rejected this deletion",
-              ),
-          )}
+        onDeleteMessage={deleteMessage}
         {...community.state.replyTarget === undefined
           ? {}
           : { replyTarget: community.state.replyTarget }}
@@ -1604,6 +1737,43 @@
               <SquareTerminalIcon aria-hidden="true" />
             </Button>
           {/if}
+          {#if activeRoom.kind !== "direct"}
+            <Badge
+              variant={activeRoom.membership === "joined"
+                ? "secondary"
+                : "outline"}
+              data-ui-part="room-membership"
+            >
+              {activeRoom.membership === "joined"
+                ? "Joined"
+                : activeParticipationOperation?.status === "accepted"
+                  ? "Join requested"
+                  : activeRoom.membership === "not-joined"
+                    ? "Not joined"
+                    : "Membership unknown"}
+            </Badge>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={activeParticipationOperation?.status === "pending" ||
+                activeParticipationOperation?.status === "accepted" ||
+                (activeRoom.membership === "joined"
+                  ? activeRoom.permissions?.leave.state === "denied" ||
+                    activeRoom.permissions?.leave.state === "unsupported"
+                  : activeRoom.permissions?.join.state === "denied" ||
+                    activeRoom.permissions?.join.state === "unsupported")}
+              title={activeRoom.membership === "joined"
+                ? activeRoom.permissions?.leave.reason
+                : activeRoom.permissions?.join.reason}
+              onclick={() => {
+                if (activeRoom.membership === "joined") confirmation = "leave";
+                else void joinRoom(activeRoom).catch(() => undefined);
+              }}
+            >
+              {activeRoom.membership === "joined" ? "Leave" : "Join"}
+            </Button>
+          {/if}
           {#if activeRoom.memberCount}
             <Button
               type="button"
@@ -1654,7 +1824,26 @@
         >
           <CommunityWorkspaceSurface
             model={workspace}
-            readOnly={community.state.status !== "connected"}
+            readOnly={participationReadOnly}
+            readOnlyReason={participationReadOnlyReason}
+            showJoinAction={community.state.status === "connected" &&
+              activeRoom.kind !== "direct" &&
+              activeRoom.membership !== "joined" &&
+              activeRoom.permissions?.join.state !== "denied" &&
+              activeRoom.permissions?.join.state !== "unsupported"}
+            {...activeParticipationOperation === undefined
+              ? {}
+              : { operation: activeParticipationOperation }}
+            {...activeParticipationOperationEntry === undefined
+              ? {}
+              : {
+                  onRetryOperation: () =>
+                    community.retry(activeParticipationOperationEntry[0]),
+                  onDismissOperation: () =>
+                    community.dismissOperation(
+                      activeParticipationOperationEntry[0],
+                    ),
+                }}
             {...community.state.replyTarget === undefined ||
             activePanel.kind === "thread"
               ? {}
@@ -1714,56 +1903,31 @@
               ...(extensions.editMessage === undefined
                 ? {}
                 : { onEditMessage: extensions.editMessage }),
-              onDeleteMessage: (messageId) => {
-                void runAuthenticated(() =>
-                  community.actions.deleteEvent(messageId),
-                ).then(
-                  () => toast.success("Message deleted"),
-                  (cause) =>
-                    toast.error(
-                      cause instanceof Error
-                        ? cause.message
-                        : "The relay rejected this deletion",
-                    ),
-                );
-                lastAction = `deleted-message:${messageId}`;
-              },
+              onDeleteMessage: deleteMessage,
               onBrowseRooms: openRoomBrowser,
-              onCreateRoom: (kind) =>
-                void runAuthenticated(() => openRoomEditor(kind, "create")),
-              ...(extensions.agents === undefined
+              ...(activeRoom.kind !== "direct" &&
+              activeRoom.membership !== "joined" &&
+              activeRoom.permissions?.join.state !== "denied" &&
+              activeRoom.permissions?.join.state !== "unsupported"
+                ? {
+                    onJoinRoom: (roomId: string) =>
+                      joinRoom({ ...activeRoom, id: roomId }),
+                  }
+                : {}),
+              ...(authenticated && community.state.capabilities.manageGroup
+                ? {
+                    onCreateRoom: (kind: "channel" | "forum") =>
+                      openRoomEditor(kind, "create"),
+                  }
+                : {}),
+              ...(!authenticated || extensions.agents === undefined
                 ? {}
                 : { onCreateAgent: extensions.agents }),
               onCreateTopic: (_roomId, draft) =>
                 runAuthenticated(() =>
                   community.actions.createTopic(activeRoom.id, draft),
                 ),
-              onTopicAction: (topicId, action) => {
-                const topic = workspace.topics.find(
-                  (candidate) => candidate.id === topicId,
-                );
-                if (action === "copy-link" && topic && activeConnection)
-                  void copyText(
-                    `nostr:${nip19.neventEncode({ id: topic.id, author: topic.authorId, relays: [activeConnection.relayUrl] })}`,
-                    "Topic link copied",
-                  );
-                if (action === "mark-read")
-                  void community.actions.markRead(activeRoom.id);
-                if (action === "star")
-                  void community.actions.setRoomStarred(topicId, true);
-                if (action === "mute")
-                  void community.actions.setRoomMuted(topicId, true);
-                if (action === "delete")
-                  void runAuthenticated(() =>
-                    community.actions.deleteEvent(topicId),
-                  ).catch((cause) =>
-                    toast.error(
-                      cause instanceof Error
-                        ? cause.message
-                        : "The relay rejected this deletion",
-                    ),
-                  );
-              },
+              onTopicAction: handleTopicAction,
               onClearReplyTarget: () => community.actions.clearReplyTarget(),
             }}
           />
@@ -1791,9 +1955,17 @@
               <CommunityMemberProfile
                 member={selectedProfile}
                 onMessage={() => messageMember(selectedProfile)}
-                onWave={() => toast.success(`Waved to ${selectedProfile.name}`)}
-                onFollow={() =>
-                  toast.success(`Following ${selectedProfile.name}`)}
+                {...extensions.wave === undefined
+                  ? {}
+                  : {
+                      onWave: () => runMemberExtension("wave", selectedProfile),
+                    }}
+                {...extensions.follow === undefined
+                  ? {}
+                  : {
+                      onFollow: () =>
+                        runMemberExtension("follow", selectedProfile),
+                    }}
               />
             {:else}
               <div class="community-application__panel-status" role="status">
@@ -1849,6 +2021,13 @@
               <CommunityThreadPanel
                 thread={visibleThread}
                 members={workspace.members}
+                disabled={participationReadOnly}
+                disabledReason={participationReadOnlyReason}
+                {...workspace.currentMemberId === undefined
+                  ? {}
+                  : { currentMemberId: workspace.currentMemberId }}
+                canDeleteAny={activeRoom.permissions?.delete.state ===
+                  "enabled"}
                 onSendReply={sendThreadReply}
                 onReply={(messageId) =>
                   openPanel({ ...activePanel, replyTargetId: messageId })}
@@ -1867,27 +2046,15 @@
                     roomId: activePanel.roomId,
                     rootMessageId: activePanel.rootMessageId,
                   })}
-                onToggleReaction={react}
-                onAddReaction={react}
+                {...participationReadOnly
+                  ? {}
+                  : { onToggleReaction: react, onAddReaction: react }}
                 onCopyMessageLink={copyMessageLink}
                 onCopyMessage={copyMessage}
                 {...extensions.editMessage === undefined
                   ? {}
                   : { onEditMessage: extensions.editMessage }}
-                onDeleteMessage={(messageId) => {
-                  void runAuthenticated(() =>
-                    community.actions.deleteEvent(messageId),
-                  ).then(
-                    () => toast.success("Message deleted"),
-                    (cause) =>
-                      toast.error(
-                        cause instanceof Error
-                          ? cause.message
-                          : "The relay rejected this deletion",
-                      ),
-                  );
-                  lastAction = `deleted-message:${messageId}`;
-                }}
+                onDeleteMessage={deleteMessage}
               />
             {:else}
               <div class="community-application__panel-status" role="status">
@@ -1993,18 +2160,18 @@
   bind:open={roomBrowserOpen}
   rooms={allRooms}
   initialKind={roomBrowserKind}
-  canCreate={hasCommunityConnection}
+  canCreate={authenticated &&
+    hasCommunityConnection &&
+    community.state.capabilities.manageGroup}
   onSelect={(room) => {
     roomBrowserOpen = false;
     setDestination(room.id, true);
   }}
   onJoin={(room) =>
-    void runAuthenticated(() => community.actions.join(room.id)).then(
-      () => toast.success(`Joined ${room.name}`),
-      (cause) =>
-        toast.error(
-          cause instanceof Error ? cause.message : "Could not join room",
-        ),
+    void joinRoom(room).catch((cause) =>
+      toast.error(
+        cause instanceof Error ? cause.message : "Could not join room",
+      ),
     )}
   onCreate={(kind) => {
     void runAuthenticated(() => {
@@ -2091,7 +2258,9 @@
     searchOpen = false;
     openRoomBrowser("channel");
   }}
-  canCreateChannel={hasCommunityConnection}
+  canCreateChannel={authenticated &&
+    hasCommunityConnection &&
+    community.state.capabilities.manageGroup}
   onCreateChannel={() => {
     searchOpen = false;
     void runAuthenticated(() => openRoomEditor("channel", "create"));

@@ -202,6 +202,102 @@ describe("materializeCommunityWorkspace", () => {
       lastActivityLabel: "Oct 2022",
     });
   });
+
+  it("derives publish availability from membership and writer roles", () => {
+    const reader = finalizeEvent(
+      { kind: 0, created_at: 1, content: "{}", tags: [] },
+      new Uint8Array(32).fill(70),
+    );
+    const writer = finalizeEvent(
+      { kind: 0, created_at: 1, content: "{}", tags: [] },
+      new Uint8Array(32).fill(71),
+    );
+    const relayKey = new Uint8Array(32).fill(72);
+    const events = [
+      finalizeEvent(
+        {
+          kind: 39_000,
+          created_at: 2,
+          content: JSON.stringify({ "write-restricted": true }),
+          tags: [["d", "writers"], ["write-restricted"]],
+        },
+        relayKey,
+      ),
+      finalizeEvent(
+        {
+          kind: 39_001,
+          created_at: 2,
+          content: "",
+          tags: [["d", "writers"]],
+        },
+        relayKey,
+      ),
+      finalizeEvent(
+        {
+          kind: 39_002,
+          created_at: 2,
+          content: "",
+          tags: [
+            ["d", "writers"],
+            ["p", reader.pubkey, "member"],
+            ["p", writer.pubkey, "writer"],
+          ],
+        },
+        relayKey,
+      ),
+    ];
+    const scope = {
+      id: "lapis",
+      name: "Lapis Community",
+      relayUrl: "memory://community.test",
+      rooms: [
+        {
+          id: "writers",
+          groupId: "writers",
+          name: "writers",
+          kind: "channel" as const,
+        },
+      ],
+    };
+    const project = (identityPubkey?: string) =>
+      materializeCommunityWorkspace([scope], { [scope.id]: events }, scope.id, {
+        activeRoomId: "writers",
+        ...(identityPubkey === undefined ? {} : { identityPubkey }),
+      }).navigationSections[0]?.rooms[0];
+
+    expect(project()?.permissions?.publish.state).toBe(
+      "requires-authentication",
+    );
+    expect(project(reader.pubkey)?.permissions?.publish).toMatchObject({
+      state: "denied",
+      reason: "A writer or administrator role is required to publish here",
+    });
+    expect(project(reader.pubkey)?.permissions?.manageMembers.state).toBe(
+      "denied",
+    );
+    expect(project(writer.pubkey)?.permissions?.publish.state).toBe("enabled");
+    const unknownMembership = materializeCommunityWorkspace(
+      [scope],
+      { [scope.id]: events.filter((event) => event.kind !== 39_002) },
+      scope.id,
+      { activeRoomId: "writers", identityPubkey: reader.pubkey },
+    ).navigationSections[0]?.rooms[0];
+    expect(unknownMembership).toMatchObject({
+      membership: "unknown",
+      permissions: { publish: { state: "enabled" } },
+    });
+    const unknownPermission = materializeCommunityWorkspace(
+      [scope],
+      {
+        [scope.id]: events.filter(
+          (event) => event.kind !== 39_001 && event.kind !== 39_002,
+        ),
+      },
+      scope.id,
+      { activeRoomId: "writers", identityPubkey: reader.pubkey },
+    ).navigationSections[0]?.rooms[0];
+    expect(unknownPermission?.permissions?.manageMembers.state).toBe("enabled");
+  });
 });
 
 describe("materializeCommunitySettings", () => {

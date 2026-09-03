@@ -32,3 +32,20 @@
     await expect(args.onMessage).toHaveBeenCalledOnce();
   }}
 />
+
+<Story
+  name="Portable actions only"
+  args={{
+    member: communityStoryMembers[0]!,
+    onMessage: fn(),
+  }}
+  play={async ({ canvas }) => {
+    await expect(canvas.getByRole("button", { name: "Message" })).toBeVisible();
+    await expect(
+      canvas.queryByRole("button", { name: "Wave" }),
+    ).not.toBeInTheDocument();
+    await expect(
+      canvas.queryByRole("button", { name: "Follow" }),
+    ).not.toBeInTheDocument();
+  }}
+/>

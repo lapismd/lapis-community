@@ -39,6 +39,10 @@
     replyTarget,
     communityEmojis = [],
     onCancelReply,
+    disabled = false,
+    disabledReason = "Reconnect to participate",
+    currentMemberId,
+    canDeleteAny = false,
   }: {
     model: CommunityInboxModel;
     onSelect?: (itemId: string) => void;
@@ -47,29 +51,33 @@
     onOpenChannelSettings?: () => void;
     onOpenChannel?: () => void;
     onViewParticipants?: () => void;
-    onHuddle?: () => void;
+    onHuddle?: () => void | Promise<void>;
     onReply?: (messageId: string) => void;
     onToggleReaction?: (
       messageId: string,
       emoji: string,
       custom?: { shortcode: string; url: string },
-    ) => void;
+    ) => void | Promise<void>;
     onCopyMessageLink?: (messageId: string) => void;
     onCopyMessage?: (messageId: string) => void;
-    onEditMessage?: (messageId: string) => void;
-    onDeleteMessage?: (messageId: string) => void;
+    onEditMessage?: (messageId: string) => void | Promise<void>;
+    onDeleteMessage?: (messageId: string) => void | Promise<void>;
     onOpenProfile?: (
       member: import("../community-workspace/model.js").CommunityMemberModel,
-    ) => void;
+    ) => void | Promise<void>;
     onMessageMember?: (
       member: import("../community-workspace/model.js").CommunityMemberModel,
-    ) => void;
+    ) => void | Promise<void>;
     onViewMemberActivity?: (
       member: import("../community-workspace/model.js").CommunityMemberModel,
-    ) => void;
+    ) => void | Promise<void>;
     replyTarget?: CommunityReplyTarget;
     communityEmojis?: readonly CommunityCustomEmoji[];
     onCancelReply?: () => void;
+    disabled?: boolean;
+    disabledReason?: string;
+    currentMemberId?: string;
+    canDeleteAny?: boolean;
   } = $props();
 
   let filter = $state("All");
@@ -326,9 +334,14 @@
           messages={model.messages}
           members={model.members}
           composerPlacement="row"
+          {disabled}
+          {disabledReason}
+          restrictMessageManagement
+          {...currentMemberId === undefined ? {} : { currentMemberId }}
+          {canDeleteAny}
           {onSend}
           {...onReply === undefined ? {} : { onReply, onOpenThread: onReply }}
-          {...onToggleReaction === undefined
+          {...disabled || onToggleReaction === undefined
             ? {}
             : { onToggleReaction, onAddReaction: onToggleReaction }}
           {...onCopyMessageLink === undefined ? {} : { onCopyMessageLink }}

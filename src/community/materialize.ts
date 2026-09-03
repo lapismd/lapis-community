@@ -437,6 +437,20 @@ function roomModel(
     identityPubkey !== undefined &&
     admins?.tags.some((tag) => tag[0] === "p" && tag[1] === identityPubkey) ===
       true;
+  const memberRoles =
+    members?.tags
+      .find((tag) => tag[0] === "p" && tag[1] === identityPubkey)
+      ?.slice(2) ?? [];
+  const metadataContent = parseJsonObject(metadata?.content);
+  const membershipRequired =
+    metadata?.tags.some(
+      (tag) => tag[0] === "restricted" || tag[0] === "closed",
+    ) === true ||
+    metadataContent?.restricted === true ||
+    metadataContent?.closed === true;
+  const writerRequired =
+    metadata?.tags.some((tag) => tag[0] === "write-restricted") === true ||
+    metadataContent?.["write-restricted"] === true;
   const authenticationRequired = {
     state: "requires-authentication" as const,
     reason: "Connect a NIP-07 identity to perform this action",
@@ -446,6 +460,20 @@ function roomModel(
     reason: "The relay has not granted permission for this room",
   };
   const enabled = { state: "enabled" as const };
+  const membershipDenied = {
+    state: "denied" as const,
+    reason: "Join this room before posting or reacting",
+  };
+  const writerDenied = {
+    state: "denied" as const,
+    reason: "A writer or administrator role is required to publish here",
+  };
+  const administrativeAvailability =
+    identityPubkey === undefined
+      ? authenticationRequired
+      : admins === undefined || administrator
+        ? enabled
+        : denied;
   return {
     id: room.id,
     name,
@@ -469,6 +497,19 @@ function roomModel(
           ).toISOString(),
         }),
     permissions: {
+      publish:
+        identityPubkey === undefined
+          ? authenticationRequired
+          : members !== undefined && joined !== true
+            ? membershipDenied
+            : writerRequired &&
+                members !== undefined &&
+                !administrator &&
+                !memberRoles.includes("writer")
+              ? writerDenied
+              : membershipRequired && joined === false
+                ? membershipDenied
+                : enabled,
       join:
         identityPubkey === undefined
           ? authenticationRequired
@@ -481,26 +522,25 @@ function roomModel(
           : joined === true
             ? enabled
             : denied,
-      update:
-        identityPubkey === undefined
-          ? authenticationRequired
-          : administrator
-            ? enabled
-            : denied,
-      delete:
-        identityPubkey === undefined
-          ? authenticationRequired
-          : administrator
-            ? enabled
-            : denied,
-      manageMembers:
-        identityPubkey === undefined
-          ? authenticationRequired
-          : administrator
-            ? enabled
-            : denied,
+      update: administrativeAvailability,
+      delete: administrativeAvailability,
+      manageMembers: administrativeAvailability,
     },
   };
+}
+
+function parseJsonObject(value: string | undefined): Record<string, unknown> {
+  if (value === undefined || value.trim() === "") return {};
+  try {
+    const parsed = JSON.parse(value) as unknown;
+    return parsed !== null &&
+      !Array.isArray(parsed) &&
+      typeof parsed === "object"
+      ? (parsed as Record<string, unknown>)
+      : {};
+  } catch {
+    return {};
+  }
 }
 
 function latestGroupState(

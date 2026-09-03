@@ -32,21 +32,17 @@
   } = $props();
 
   const roomType = $derived(room.kind === "forum" ? "Forum" : "Channel");
-  const updateDisabled = $derived(
-    room.permissions?.update.state === "denied" ||
-      room.permissions?.update.state === "unsupported",
+  const canUpdate = $derived(
+    room.permissions?.update.state === undefined ||
+      room.permissions.update.state === "enabled",
   );
-  const membersDisabled = $derived(
-    room.permissions?.manageMembers.state === "denied" ||
-      room.permissions?.manageMembers.state === "unsupported",
+  const canLeave = $derived(
+    room.permissions?.leave.state === undefined ||
+      room.permissions.leave.state === "enabled",
   );
-  const leaveDisabled = $derived(
-    room.permissions?.leave.state === "denied" ||
-      room.permissions?.leave.state === "unsupported",
-  );
-  const deleteDisabled = $derived(
-    room.permissions?.delete.state === "denied" ||
-      room.permissions?.delete.state === "unsupported",
+  const canDelete = $derived(
+    room.permissions?.delete.state === undefined ||
+      room.permissions.delete.state === "enabled",
   );
 </script>
 
@@ -75,49 +71,45 @@
     <section class="lc-channel-settings__details">
       <h2>Details</h2>
       <div class="lc-channel-settings__details-card">
+        {#if canUpdate}
+          <Button
+            variant="ghost"
+            class="lc-channel-settings__row"
+            onclick={() => onAction("edit-type")}
+          >
+            <span>
+              <strong>{roomType} type</strong>
+              <small
+                >{room.kind === "channel"
+                  ? "Ongoing"
+                  : "Posts and replies"}</small
+              >
+            </span>
+            <PencilIcon
+              class="lc-channel-settings__edit-icon"
+              data-icon="inline-end"
+              aria-hidden="true"
+            />
+          </Button>
+          <Button
+            variant="ghost"
+            class="lc-channel-settings__row"
+            onclick={() => onAction("edit-visibility")}
+          >
+            <span>
+              <strong>Visibility</strong>
+              <small>{room.private ? "Private" : "Public"}</small>
+            </span>
+            <PencilIcon
+              class="lc-channel-settings__edit-icon"
+              data-icon="inline-end"
+              aria-hidden="true"
+            />
+          </Button>
+        {/if}
         <Button
           variant="ghost"
           class="lc-channel-settings__row"
-          disabled={updateDisabled}
-          title={room.permissions?.update.reason}
-          onclick={() => onAction("edit-type")}
-        >
-          <span>
-            <strong>{roomType} type</strong>
-            <small
-              >{room.kind === "channel"
-                ? "Ongoing"
-                : "Posts and replies"}</small
-            >
-          </span>
-          <PencilIcon
-            class="lc-channel-settings__edit-icon"
-            data-icon="inline-end"
-            aria-hidden="true"
-          />
-        </Button>
-        <Button
-          variant="ghost"
-          class="lc-channel-settings__row"
-          disabled={updateDisabled}
-          title={room.permissions?.update.reason}
-          onclick={() => onAction("edit-visibility")}
-        >
-          <span>
-            <strong>Visibility</strong>
-            <small>{room.private ? "Private" : "Public"}</small>
-          </span>
-          <PencilIcon
-            class="lc-channel-settings__edit-icon"
-            data-icon="inline-end"
-            aria-hidden="true"
-          />
-        </Button>
-        <Button
-          variant="ghost"
-          class="lc-channel-settings__row"
-          disabled={membersDisabled}
-          title={room.permissions?.manageMembers.reason}
           onclick={() => onAction("members")}
         >
           <span>
@@ -149,7 +141,7 @@
     </section>
 
     <section class="lc-channel-settings__danger-zone">
-      {#if canArchive}
+      {#if canArchive && canUpdate}
         <Button
           variant="ghost"
           class="lc-channel-settings__row"
@@ -159,26 +151,26 @@
           <span>Archive {roomType.toLowerCase()}</span>
         </Button>
       {/if}
-      <Button
-        variant="ghost"
-        class="lc-channel-settings__row"
-        disabled={leaveDisabled}
-        title={room.permissions?.leave.reason}
-        onclick={() => onAction("leave-channel")}
-      >
-        <LogOutIcon data-icon="inline-start" aria-hidden="true" />
-        <span>Leave {roomType.toLowerCase()}</span>
-      </Button>
-      <Button
-        variant="ghost"
-        class="lc-channel-settings__row lc-channel-settings__delete"
-        disabled={deleteDisabled}
-        title={room.permissions?.delete.reason}
-        onclick={() => onAction("delete-channel")}
-      >
-        <Trash2Icon data-icon="inline-start" aria-hidden="true" />
-        <span>Delete {roomType.toLowerCase()}</span>
-      </Button>
+      {#if canLeave}
+        <Button
+          variant="ghost"
+          class="lc-channel-settings__row"
+          onclick={() => onAction("leave-channel")}
+        >
+          <LogOutIcon data-icon="inline-start" aria-hidden="true" />
+          <span>Leave {roomType.toLowerCase()}</span>
+        </Button>
+      {/if}
+      {#if canDelete}
+        <Button
+          variant="ghost"
+          class="lc-channel-settings__row lc-channel-settings__delete"
+          onclick={() => onAction("delete-channel")}
+        >
+          <Trash2Icon data-icon="inline-start" aria-hidden="true" />
+          <span>Delete {roomType.toLowerCase()}</span>
+        </Button>
+      {/if}
     </section>
   </div>
 </AppShell.Sidebar.Body>

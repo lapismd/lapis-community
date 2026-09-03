@@ -157,6 +157,19 @@
 <Story
   name="Logged out"
   play={async ({ canvas, canvasElement }) => {
+    const application = await canvas.findByTestId(
+      "full-community-application",
+      {},
+      { timeout: 15_000 },
+    );
+    await waitFor(
+      () =>
+        expect(application).toHaveAttribute(
+          "data-community-status",
+          "connected",
+        ),
+      { timeout: 15_000 },
+    );
     await expect(
       await canvas.findByRole("button", { name: "Registry" }),
     ).toBeVisible();
@@ -171,9 +184,49 @@
     await userEvent.click(
       canvas.getByRole("button", { name: "Open profile menu for Guest" }),
     );
+    await expect(
+      overlay.queryByRole("menuitem", { name: "Update your status" }),
+    ).not.toBeInTheDocument();
+    await expect(
+      overlay.queryByRole("menuitem", { name: /^Settings$/u }),
+    ).not.toBeInTheDocument();
+    await userEvent.click(overlay.getByRole("menuitem", { name: "Sign in" }));
+    const profileLoginDialog = await overlay.findByRole("dialog", {
+      name: "Connect to Nostr",
+    });
+    await expect(profileLoginDialog).toBeVisible();
     await userEvent.click(
-      await overlay.findByRole("menuitem", { name: "Update your status" }),
+      within(profileLoginDialog).getByRole("button", { name: "Close" }),
     );
+    await waitFor(() => expect(profileLoginDialog).not.toBeInTheDocument());
+    await waitFor(() =>
+      expect(canvasElement.ownerDocument.body.style.pointerEvents).not.toBe(
+        "none",
+      ),
+    );
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Open profile menu for Guest" }),
+    );
+    await expect(
+      overlay.getByRole("menuitem", { name: "Lapis Community" }),
+    ).toBeVisible();
+    await userEvent.hover(
+      overlay.getByRole("menuitem", { name: "Lapis Community" }),
+    );
+    await expect(
+      await overlay.findByRole("menuitem", { name: "Community settings" }),
+    ).toBeVisible();
+    await userEvent.keyboard("{Escape}");
+    await userEvent.keyboard("{Escape}");
+    await waitFor(() =>
+      expect(canvasElement.ownerDocument.body.style.pointerEvents).not.toBe(
+        "none",
+      ),
+    );
+    await userEvent.click(
+      await canvas.findByRole("button", { name: "general" }),
+    );
+    await userEvent.click(await canvas.findByRole("button", { name: "Join" }));
     const dialog = await overlay.findByRole("dialog", {
       name: "Connect to Nostr",
     });
@@ -191,6 +244,14 @@
     await expect(
       login.getByRole("button", { name: /Paste a private key/u }),
     ).toBeVisible();
+    await userEvent.click(
+      login.getByRole("button", { name: /Paste a private key/u }),
+    );
+    await expect(login.getByLabelText("Private key")).toHaveAttribute(
+      "type",
+      "password",
+    );
+    await userEvent.click(login.getByRole("button", { name: "Back" }));
     await userEvent.click(login.getByRole("button", { name: "Close" }));
     await waitFor(() => expect(dialog).not.toBeInTheDocument());
     await waitFor(() =>
@@ -208,37 +269,58 @@
 <Story
   name="Login transition"
   play={async ({ canvas, canvasElement }) => {
+    const application = await canvas.findByTestId(
+      "full-community-application",
+      {},
+      { timeout: 15_000 },
+    );
+    await waitFor(
+      () =>
+        expect(application).toHaveAttribute(
+          "data-community-status",
+          "connected",
+        ),
+      { timeout: 15_000 },
+    );
     const overlay = within(canvasElement.ownerDocument.body);
     await userEvent.click(
-      await canvas.findByRole("button", {
-        name: "Open profile menu for Guest",
-      }),
+      await canvas.findByRole("button", { name: "general" }),
     );
-    await userEvent.click(
-      await overlay.findByRole("menuitem", { name: "Update your status" }),
-    );
+    await userEvent.click(await canvas.findByRole("button", { name: "Join" }));
     const loginDialog = await overlay.findByRole("dialog", {
       name: "Connect to Nostr",
     });
+    const login = within(loginDialog);
     await userEvent.click(
-      within(loginDialog).getByRole("button", { name: /Remote signer/u }),
+      login.getByRole("button", { name: /Paste a private key/u }),
+    );
+    await userEvent.type(
+      login.getByLabelText("Private key"),
+      "nsec1storybookexample",
+    );
+    await userEvent.click(
+      login.getByRole("button", { name: "Sign in with private key" }),
     );
     await waitFor(() => expect(loginDialog).not.toBeInTheDocument(), {
       timeout: 8_000,
     });
-    const statusDialog = await overlay.findByRole("dialog", {
-      name: "Update your status",
-    });
-    await expect(statusDialog).toBeVisible();
-    await userEvent.click(
-      within(statusDialog).getByRole("button", { name: "Cancel" }),
-    );
-    await waitFor(() => expect(statusDialog).not.toBeInTheDocument());
+    await expect(await canvas.findByText("Joined")).toBeVisible();
     await waitFor(() =>
       expect(canvasElement.ownerDocument.body.style.pointerEvents).not.toBe(
         "none",
       ),
     );
+    await userEvent.click(
+      canvas.getByRole("button", { name: /Open profile menu for /u }),
+    );
+    await userEvent.click(overlay.getByRole("menuitem", { name: "Sign out" }));
+    await expect(
+      await canvas.findByRole(
+        "button",
+        { name: "Open profile menu for Guest" },
+        { timeout: 15_000 },
+      ),
+    ).toBeVisible();
   }}
 >
   {#snippet template()}
@@ -326,9 +408,11 @@
     let searchInput = within(searchDialog).getByLabelText("Search community");
     await userEvent.type(searchInput, "portable");
     await userEvent.click(
-      await within(searchDialog).findByRole("option", {
-        name: /How should portable forums work/u,
-      }),
+      (
+        await within(searchDialog).findAllByRole("option", {
+          name: /How should portable forums work/u,
+        })
+      )[0]!,
     );
     await waitFor(() => expect(searchDialog).not.toBeInTheDocument());
     await waitFor(() => {
@@ -367,9 +451,11 @@
     searchInput = within(searchDialog).getByLabelText("Search in #support");
     await userEvent.type(searchInput, "URLs");
     await userEvent.click(
-      await within(searchDialog).findByRole("option", {
-        name: /Portable forum URLs should retain relay and group identity/u,
-      }),
+      (
+        await within(searchDialog).findAllByRole("option", {
+          name: /Portable forum URLs should retain relay and group identity/u,
+        })
+      )[0]!,
     );
     await waitFor(() => expect(searchDialog).not.toBeInTheDocument());
     await expect(
@@ -410,23 +496,55 @@
     searchInput = within(searchDialog).getByLabelText("Search community");
     await userEvent.clear(searchInput);
     await userEvent.type(searchInput, "Member");
-    const memberResults = await within(searchDialog).findAllByRole("option", {
-      name: /Member/u,
-    });
-    const directMessageResult = memberResults.find((result) =>
-      result.textContent?.includes("Direct message"),
-    );
-    if (!directMessageResult)
-      throw new Error("Expected the direct-message search result");
-    await userEvent.click(directMessageResult);
+    let directMessageName = "Member";
+    if (application.dataset.communityBackend === "docker") {
+      await userEvent.click(
+        await within(searchDialog).findByRole("option", {
+          name: /Hello from a member/u,
+        }),
+      );
+      await waitFor(() => expect(searchDialog).not.toBeInTheDocument());
+      await waitFor(() =>
+        expect(canvasElement.ownerDocument.body.style.pointerEvents).not.toBe(
+          "none",
+        ),
+      );
+      const memberMessage = (
+        await canvas.findAllByLabelText(/^Message from /u)
+      ).find((message) => message.textContent?.includes("Hello from a member"));
+      if (!memberMessage) throw new Error("Expected the member's message");
+      directMessageName =
+        memberMessage
+          .getAttribute("aria-label")
+          ?.replace("Message from ", "") ?? "member";
+      await userEvent.click(
+        within(memberMessage).getByRole("button", {
+          name: `View ${directMessageName}'s profile`,
+        }),
+      );
+      const profileSidebar = await canvas.findByLabelText("Profile sidebar");
+      await userEvent.click(
+        within(profileSidebar).getByRole("button", { name: "Message" }),
+      );
+    } else {
+      const memberResults = await within(searchDialog).findAllByRole("option", {
+        name: /Member/u,
+      });
+      const directMessageResult = memberResults.find((result) =>
+        result.textContent?.includes("Direct message"),
+      );
+      if (!directMessageResult)
+        throw new Error("Expected the direct-message search result");
+      await userEvent.click(directMessageResult);
+    }
     await waitFor(() => {
       expect(
         application.querySelector('[data-ui-part="room-title"]'),
-      ).toHaveTextContent("Member");
+      ).toHaveTextContent(directMessageName);
     });
     await expect(canvas.queryByLabelText("Thread sidebar")).toBeNull();
     const directMessageNavigation = canvas.getByRole("button", {
-      name: "Member",
+      name: directMessageName,
     });
     await expect(
       directMessageNavigation.querySelector(
@@ -441,13 +559,15 @@
         .querySelector('[data-ui-part="room-title"]')
         ?.querySelector('[data-ui-component="community-member-avatar"]'),
     ).not.toBeNull();
-    const directMessageToolbar = canvas.getByLabelText("Member toolbar");
+    const directMessageToolbar = canvas.getByLabelText(
+      `${directMessageName} toolbar`,
+    );
     await expect(
       parseFloat(getComputedStyle(directMessageToolbar).paddingBlockStart),
     ).toBeGreaterThanOrEqual(10);
     await expect(
       canvas.getByText(
-        "This is the beginning of your direct message with Member.",
+        `This is the beginning of your direct message with ${directMessageName}.`,
       ),
     ).toBeVisible();
   }}

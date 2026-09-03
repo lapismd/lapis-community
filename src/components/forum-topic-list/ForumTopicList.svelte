@@ -26,6 +26,9 @@
     onOpenTopic,
     onCreateTopic,
     onTopicAction,
+    canDeleteTopic = () => true,
+    disabled = false,
+    readOnlyReason = "Posting is unavailable",
   }: {
     title?: string;
     description?: string;
@@ -36,62 +39,65 @@
     onTopicAction?: (
       topicId: string,
       action: "copy-link" | "mark-read" | "star" | "mute" | "delete",
-    ) => void;
+    ) => void | Promise<void>;
+    canDeleteTopic?: (topic: CommunityTopicModel) => boolean;
+    disabled?: boolean;
+    readOnlyReason?: string;
   } = $props();
 </script>
 
-{#snippet dropdownActions(topicId: string)}
+{#snippet dropdownActions(topic: CommunityTopicModel)}
   <DropdownMenu.Group
-    ><DropdownMenu.Item onSelect={() => onTopicAction?.(topicId, "copy-link")}
+    ><DropdownMenu.Item onSelect={() => onTopicAction?.(topic.id, "copy-link")}
       ><CopyIcon data-icon="inline-start" aria-hidden="true" />Copy link</DropdownMenu.Item
-    ><DropdownMenu.Item onSelect={() => onTopicAction?.(topicId, "mark-read")}
+    ><DropdownMenu.Item onSelect={() => onTopicAction?.(topic.id, "mark-read")}
       ><CheckIcon data-icon="inline-start" aria-hidden="true" />Mark read</DropdownMenu.Item
-    ><DropdownMenu.Item onSelect={() => onTopicAction?.(topicId, "star")}
+    ><DropdownMenu.Item onSelect={() => onTopicAction?.(topic.id, "star")}
       ><StarIcon
         data-icon="inline-start"
         aria-hidden="true"
       />Star</DropdownMenu.Item
-    ><DropdownMenu.Item onSelect={() => onTopicAction?.(topicId, "mute")}
+    ><DropdownMenu.Item onSelect={() => onTopicAction?.(topic.id, "mute")}
       ><BellOffIcon
         data-icon="inline-start"
         aria-hidden="true"
       />Mute</DropdownMenu.Item
     ></DropdownMenu.Group
-  ><DropdownMenu.Separator /><DropdownMenu.Item
-    variant="destructive"
-    onSelect={() => onTopicAction?.(topicId, "delete")}
-    ><TrashIcon
-      data-icon="inline-start"
-      aria-hidden="true"
-    />Delete</DropdownMenu.Item
-  >
+  >{#if canDeleteTopic(topic)}<DropdownMenu.Separator /><DropdownMenu.Item
+      variant="destructive"
+      onSelect={() => onTopicAction?.(topic.id, "delete")}
+      ><TrashIcon
+        data-icon="inline-start"
+        aria-hidden="true"
+      />Delete</DropdownMenu.Item
+    >{/if}
 {/snippet}
 
-{#snippet contextActions(topicId: string)}
+{#snippet contextActions(topic: CommunityTopicModel)}
   <ContextMenu.Group
-    ><ContextMenu.Item onSelect={() => onTopicAction?.(topicId, "copy-link")}
+    ><ContextMenu.Item onSelect={() => onTopicAction?.(topic.id, "copy-link")}
       ><CopyIcon data-icon="inline-start" aria-hidden="true" />Copy link</ContextMenu.Item
-    ><ContextMenu.Item onSelect={() => onTopicAction?.(topicId, "mark-read")}
+    ><ContextMenu.Item onSelect={() => onTopicAction?.(topic.id, "mark-read")}
       ><CheckIcon data-icon="inline-start" aria-hidden="true" />Mark read</ContextMenu.Item
-    ><ContextMenu.Item onSelect={() => onTopicAction?.(topicId, "star")}
+    ><ContextMenu.Item onSelect={() => onTopicAction?.(topic.id, "star")}
       ><StarIcon
         data-icon="inline-start"
         aria-hidden="true"
       />Star</ContextMenu.Item
-    ><ContextMenu.Item onSelect={() => onTopicAction?.(topicId, "mute")}
+    ><ContextMenu.Item onSelect={() => onTopicAction?.(topic.id, "mute")}
       ><BellOffIcon
         data-icon="inline-start"
         aria-hidden="true"
       />Mute</ContextMenu.Item
     ></ContextMenu.Group
-  ><ContextMenu.Separator /><ContextMenu.Item
-    variant="destructive"
-    onSelect={() => onTopicAction?.(topicId, "delete")}
-    ><TrashIcon
-      data-icon="inline-start"
-      aria-hidden="true"
-    />Delete</ContextMenu.Item
-  >
+  >{#if canDeleteTopic(topic)}<ContextMenu.Separator /><ContextMenu.Item
+      variant="destructive"
+      onSelect={() => onTopicAction?.(topic.id, "delete")}
+      ><TrashIcon
+        data-icon="inline-start"
+        aria-hidden="true"
+      />Delete</ContextMenu.Item
+    >{/if}
 {/snippet}
 
 <section class="forum-topic-list" aria-labelledby="forum-topic-list-title">
@@ -103,7 +109,12 @@
   </header>
 
   {#if onCreateTopic}
-    <CommunityTopicComposer forumName={title} onPublish={onCreateTopic} />
+    <CommunityTopicComposer
+      forumName={title}
+      onPublish={onCreateTopic}
+      {disabled}
+      disabledReason={readOnlyReason}
+    />
   {/if}
 
   <div class="forum-topic-list__columns" aria-hidden="true">
@@ -166,7 +177,7 @@
               >
             </Button></ContextMenu.Trigger
           ><ContextMenu.Content
-            >{@render contextActions(topic.id)}</ContextMenu.Content
+            >{@render contextActions(topic)}</ContextMenu.Content
           ></ContextMenu.Root
         ><DropdownMenu.Root
           ><DropdownMenu.Trigger
@@ -180,7 +191,7 @@
                 ><EllipsisIcon aria-hidden="true" /></Button
               >{/snippet}</DropdownMenu.Trigger
           ><DropdownMenu.Content align="end"
-            >{@render dropdownActions(topic.id)}</DropdownMenu.Content
+            >{@render dropdownActions(topic)}</DropdownMenu.Content
           ></DropdownMenu.Root
         >
       </div>

@@ -323,7 +323,11 @@ class Nip29CommunitySession implements CommunitySession {
           this.#scope.relayUrl,
         ];
         for (const url of urls) {
-          const result = await this.#deliveryRelay(url).publish(wrap, signal);
+          const result = await publishWithDuplicateRecovery(
+            this.#deliveryRelay(url),
+            wrap,
+            signal,
+          );
           if (!result.accepted) {
             throw new Error(
               result.message || "Relay rejected the direct message",
@@ -342,7 +346,11 @@ class Nip29CommunitySession implements CommunitySession {
         command.type === "publish" && command.optimisticEvent !== undefined
           ? command.optimisticEvent
           : await identity.signEvent(template);
-      const result = await this.#authority.publish(event, signal);
+      const result = await publishWithDuplicateRecovery(
+        this.#authority,
+        event,
+        signal,
+      );
       if (!result.accepted) {
         throw new Error(result.message || "Relay rejected the community event");
       }
@@ -659,6 +667,29 @@ class Nip29CommunitySession implements CommunitySession {
       editMessages: false,
     };
   }
+}
+
+async function publishWithDuplicateRecovery(
+  relay: CommunityRelay,
+  event: NostrEvent,
+  signal?: AbortSignal,
+): Promise<{ accepted: boolean; message: string }> {
+  try {
+    const result = await relay.publish(event, signal);
+    if (!result.accepted && isDuplicateRelayReason(result.message)) {
+      return { accepted: true, message: result.message };
+    }
+    return result;
+  } catch (cause) {
+    if (cause instanceof Error && isDuplicateRelayReason(cause.message)) {
+      return { accepted: true, message: cause.message };
+    }
+    throw cause;
+  }
+}
+
+function isDuplicateRelayReason(message: string): boolean {
+  return /(?:^|\s)duplicate:/iu.test(message);
 }
 
 function commandTemplates(

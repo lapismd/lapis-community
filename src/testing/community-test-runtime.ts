@@ -258,7 +258,7 @@ export function createCommunityTestScenario(
   ];
 
   const scope: CommunityScope = {
-    id: "lapis",
+    id: suffix ? `lapis-${suffix}` : "lapis",
     name: "Lapis Community",
     relayUrl,
     rooms: [

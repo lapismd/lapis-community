@@ -46,6 +46,9 @@
     onCancelReply,
     disabled = false,
     disabledReason = "Reconnect to send messages",
+    restrictMessageManagement = false,
+    currentMemberId,
+    canDeleteAny = false,
     composerPlacement = "overlay",
     replyActionLabel = "Reply in thread",
     intro,
@@ -61,24 +64,29 @@
       messageId: string,
       emoji: string,
       custom?: { shortcode: string; url: string },
-    ) => void;
+    ) => void | Promise<void>;
     onAddReaction?: (
       messageId: string,
       emoji: string,
       custom?: { shortcode: string; url: string },
-    ) => void;
+    ) => void | Promise<void>;
     onCopyMessageLink?: (messageId: string) => void;
     onCopyMessage?: (messageId: string) => void;
-    onEditMessage?: (messageId: string) => void;
-    onDeleteMessage?: (messageId: string) => void;
+    onEditMessage?: (messageId: string) => void | Promise<void>;
+    onDeleteMessage?: (messageId: string) => void | Promise<void>;
     onOpenProfile?: (member: CommunityMemberModel) => void;
-    onMessageMember?: (member: CommunityMemberModel) => void;
-    onViewMemberActivity?: (member: CommunityMemberModel) => void;
+    onMessageMember?: (member: CommunityMemberModel) => void | Promise<void>;
+    onViewMemberActivity?: (
+      member: CommunityMemberModel,
+    ) => void | Promise<void>;
     replyTarget?: CommunityReplyTarget;
     communityEmojis?: readonly CommunityCustomEmoji[];
     onCancelReply?: () => void;
     disabled?: boolean;
     disabledReason?: string;
+    restrictMessageManagement?: boolean;
+    currentMemberId?: string;
+    canDeleteAny?: boolean;
     composerPlacement?: "overlay" | "row";
     replyActionLabel?: string;
     intro?: Snippet;
@@ -219,8 +227,16 @@
               : onAddReaction?.(messageId, emoji)}
           onCopyLink={(messageId) => onCopyMessageLink?.(messageId)}
           onCopyMessage={(messageId) => onCopyMessage?.(messageId)}
-          onEdit={(messageId) => onEditMessage?.(messageId)}
-          onDelete={(messageId) => onDeleteMessage?.(messageId)}
+          {...onEditMessage === undefined ||
+          (restrictMessageManagement && message.authorId !== currentMemberId)
+            ? {}
+            : { onEdit: onEditMessage }}
+          {...onDeleteMessage === undefined ||
+          (restrictMessageManagement &&
+            message.authorId !== currentMemberId &&
+            !canDeleteAny)
+            ? {}
+            : { onDelete: onDeleteMessage }}
           {...onMessageMember === undefined ? {} : { onMessageMember }}
           {...onViewMemberActivity === undefined
             ? {}

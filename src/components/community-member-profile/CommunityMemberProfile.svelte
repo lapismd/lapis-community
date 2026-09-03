@@ -9,14 +9,14 @@
 
   let {
     member,
-    onMessage = () => {},
-    onWave = () => {},
-    onFollow = () => {},
+    onMessage,
+    onWave,
+    onFollow,
   }: {
     member: CommunityMemberModel;
-    onMessage?: () => void;
-    onWave?: () => void;
-    onFollow?: () => void;
+    onMessage?: () => void | Promise<void>;
+    onWave?: () => void | Promise<void>;
+    onFollow?: () => void | Promise<void>;
   } = $props();
 </script>
 
@@ -29,29 +29,40 @@
     </div>
   </header>
 
-  <div class="community-member-profile__actions">
-    <Button
-      class="community-member-profile__action"
-      variant="secondary"
-      onclick={onMessage}
-    >
-      <MessageCircleIcon data-icon="inline-start" aria-hidden="true" />Message
-    </Button>
-    <Button
-      class="community-member-profile__action"
-      variant="secondary"
-      onclick={onWave}
-    >
-      <HandIcon data-icon="inline-start" aria-hidden="true" />Wave
-    </Button>
-    <Button
-      class="community-member-profile__action"
-      variant="secondary"
-      onclick={onFollow}
-    >
-      <UserPlusIcon data-icon="inline-start" aria-hidden="true" />Follow
-    </Button>
-  </div>
+  {#if onMessage || onWave || onFollow}
+    <div class="community-member-profile__actions">
+      {#if onMessage}
+        <Button
+          class="community-member-profile__action"
+          variant="secondary"
+          onclick={onMessage}
+        >
+          <MessageCircleIcon
+            data-icon="inline-start"
+            aria-hidden="true"
+          />Message
+        </Button>
+      {/if}
+      {#if onWave}
+        <Button
+          class="community-member-profile__action"
+          variant="secondary"
+          onclick={onWave}
+        >
+          <HandIcon data-icon="inline-start" aria-hidden="true" />Wave
+        </Button>
+      {/if}
+      {#if onFollow}
+        <Button
+          class="community-member-profile__action"
+          variant="secondary"
+          onclick={onFollow}
+        >
+          <UserPlusIcon data-icon="inline-start" aria-hidden="true" />Follow
+        </Button>
+      {/if}
+    </div>
+  {/if}
 
   <section>
     <h3>About</h3>
@@ -104,7 +115,7 @@
 
   .community-member-profile__actions {
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(5.5rem, 1fr));
     gap: 0.5rem;
   }
 

@@ -13,6 +13,10 @@ export interface CommunityLoginMethodModel {
   disabled?: boolean;
 }
 
+export interface CommunityLoginCredentials {
+  privateKey: string;
+}
+
 export const COMMUNITY_LOGIN_METHODS = {
   browserExtension: {
     id: "browser-extension",

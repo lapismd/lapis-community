@@ -37,6 +37,10 @@
     replyTarget,
     communityEmojis = [],
     onCancelReply,
+    disabled = false,
+    disabledReason = "Reconnect to reply",
+    currentMemberId,
+    canDeleteAny = false,
   }: {
     thread: CommunityThreadModel;
     members: CommunityMemberModel[];
@@ -48,23 +52,29 @@
       messageId: string,
       emoji: string,
       custom?: { shortcode: string; url: string },
-    ) => void;
+    ) => void | Promise<void>;
     onAddReaction?: (
       messageId: string,
       emoji: string,
       custom?: { shortcode: string; url: string },
-    ) => void;
+    ) => void | Promise<void>;
     onCopyMessageLink?: (messageId: string) => void;
     onCopyMessage?: (messageId: string) => void;
-    onEditMessage?: (messageId: string) => void;
-    onDeleteMessage?: (messageId: string) => void;
+    onEditMessage?: (messageId: string) => void | Promise<void>;
+    onDeleteMessage?: (messageId: string) => void | Promise<void>;
     onReply?: (messageId: string) => void;
     onOpenProfile?: (member: CommunityMemberModel) => void;
-    onMessageMember?: (member: CommunityMemberModel) => void;
-    onViewMemberActivity?: (member: CommunityMemberModel) => void;
+    onMessageMember?: (member: CommunityMemberModel) => void | Promise<void>;
+    onViewMemberActivity?: (
+      member: CommunityMemberModel,
+    ) => void | Promise<void>;
     replyTarget?: CommunityReplyTarget;
     communityEmojis?: readonly CommunityCustomEmoji[];
     onCancelReply?: () => void;
+    disabled?: boolean;
+    disabledReason?: string;
+    currentMemberId?: string;
+    canDeleteAny?: boolean;
   } = $props();
 
   let draft = $state("");
@@ -99,6 +109,9 @@
     {#snippet composer()}
       <Composer
         density="compact"
+        {disabled}
+        aria-label={disabled ? disabledReason : undefined}
+        title={disabled ? disabledReason : undefined}
         bind:value={draft}
         placeholder={rootAuthor === undefined
           ? "Reply to thread"
@@ -150,8 +163,14 @@
               : onAddReaction?.(messageId, emoji)}
           onCopyLink={(messageId) => onCopyMessageLink?.(messageId)}
           onCopyMessage={(messageId) => onCopyMessage?.(messageId)}
-          onEdit={(messageId) => onEditMessage?.(messageId)}
-          onDelete={(messageId) => onDeleteMessage?.(messageId)}
+          {...onEditMessage === undefined ||
+          message.authorId !== currentMemberId
+            ? {}
+            : { onEdit: onEditMessage }}
+          {...onDeleteMessage === undefined ||
+          (message.authorId !== currentMemberId && !canDeleteAny)
+            ? {}
+            : { onDelete: onDeleteMessage }}
           {...onOpenProfile === undefined ? {} : { onOpenProfile }}
           {...onMessageMember === undefined ? {} : { onMessageMember }}
           {...onViewMemberActivity === undefined

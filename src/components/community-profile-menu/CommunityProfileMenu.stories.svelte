@@ -52,6 +52,9 @@
     await expect(
       overlay.getByRole("menuitem", { name: "Send feedback" }),
     ).toBeVisible();
+    await expect(
+      overlay.getByRole("menuitem", { name: "Sign out" }),
+    ).toBeVisible();
     await userEvent.click(overlay.getByRole("menuitem", { name: /Settings/ }));
     await expect(args.onAction).toHaveBeenCalledWith("settings");
   }}
@@ -65,5 +68,34 @@
     compact: true,
     canManageCommunity: true,
     onAction: fn(),
+  }}
+/>
+
+<Story
+  name="Logged-out reader"
+  args={{
+    member: { ...member, name: "Guest", handle: "not-signed-in" },
+    communityName: "buzz",
+    authenticated: false,
+    canManageCommunity: false,
+    canSendFeedback: true,
+    onAction: fn(),
+  }}
+  play={async ({ args, canvas, canvasElement }) => {
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Open profile menu for Guest" }),
+    );
+    const overlay = within(canvasElement.ownerDocument.body);
+    await expect(
+      overlay.queryByRole("menuitem", { name: "Update your status" }),
+    ).not.toBeInTheDocument();
+    await expect(
+      overlay.queryByRole("menuitem", { name: "Manage members" }),
+    ).not.toBeInTheDocument();
+    await expect(
+      overlay.queryByRole("menuitem", { name: /^Settings$/u }),
+    ).not.toBeInTheDocument();
+    await userEvent.click(overlay.getByRole("menuitem", { name: "Sign in" }));
+    await expect(args.onAction).toHaveBeenCalledWith("sign-in");
   }}
 />

@@ -68,6 +68,32 @@
 />
 
 <Story
+  name="Private key input"
+  args={{ methods, onSelect: fn() }}
+  play={async ({ canvas, args }) => {
+    await userEvent.click(
+      canvas.getByRole("button", { name: /Paste a private key/u }),
+    );
+    const input = canvas.getByLabelText("Private key");
+    await expect(input).toHaveAttribute("type", "password");
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Sign in with private key" }),
+    );
+    await expect(canvas.getByRole("alert")).toHaveTextContent(
+      "Paste a private key before signing in",
+    );
+    await expect(args.onSelect).not.toHaveBeenCalled();
+    await userEvent.type(input, "nsec1storybookexample");
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Sign in with private key" }),
+    );
+    await expect(args.onSelect).toHaveBeenCalledWith("private-key", {
+      privateKey: "nsec1storybookexample",
+    });
+  }}
+/>
+
+<Story
   name="Error on mobile"
   globals={{ colorMode: "dark" }}
   parameters={{ viewport: { defaultViewport: "mobile1" } }}

@@ -2,7 +2,10 @@ import { finalizeEvent } from "nostr-tools/pure";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { CommunityCapabilities } from "./contracts.js";
-import { createCommunityController } from "./community-controller.svelte.js";
+import {
+  createCommunityController,
+  normalizeCommunityOperationFailure,
+} from "./community-controller.svelte.js";
 import { createMemoryCommunityEventStore } from "./event-store.js";
 import { createInlineCommunityEventRuntime } from "./event-runtime.js";
 import {
@@ -291,8 +294,199 @@ describe("createCommunityController", () => {
     expect(runtime.controller.state.operations["send:general"]).toEqual({
       status: "failed",
       message: "policy rejected the message",
+      failure: {
+        category: "relay",
+        message: "policy rejected the message",
+        relayReason: "policy rejected the message",
+        retryable: true,
+      },
     });
     expect(runtime.controller.state.capabilities.archive).toBe(false);
+
+    runtime.relay.setFaults({});
+    await runtime.controller.retry("send:general");
+    expect(runtime.controller.state.operations["send:general"]).toEqual({
+      status: "idle",
+    });
+
+    const messageId = runtime.controller.state.workspace.messages[0]!.id;
+    await expect(
+      runtime.controller.actions.toggleReaction(messageId, "wave", {
+        shortcode: "wave",
+        url: "javascript:alert(1)",
+      }),
+    ).rejects.toThrow("Custom reaction images must use http:// or https://");
+    expect(
+      runtime.controller.state.operations[`reaction:${messageId}:wave`]
+        ?.failure,
+    ).toMatchObject({ category: "validation", retryable: false });
+    expect(runtime.controller.state.workspace.messages.at(-1)?.content).toBe(
+      "Rejected",
+    );
+  });
+
+  it("records invalid input instead of silently ignoring the action", async () => {
+    runtime = await createCommunityTestRuntime();
+    await connected(runtime);
+    const before = await runtime.relay.count({ kinds: [9] });
+
+    const submission = runtime.controller.handlers.onSendMessage?.(
+      "general",
+      "   ",
+    );
+    expect(submission).toBeInstanceOf(Promise);
+    await expect(submission).rejects.toThrow("Write a message before sending");
+
+    expect(await runtime.relay.count({ kinds: [9] })).toBe(before);
+    expect(
+      runtime.controller.state.operations["send:general"]?.failure,
+    ).toMatchObject({
+      category: "validation",
+      retryable: false,
+    });
+    runtime.controller.dismissOperation("send:general");
+    expect(runtime.controller.state.operations["send:general"]).toEqual({
+      status: "idle",
+    });
+  });
+
+  it("requires a known nonmember to join before publishing", async () => {
+    const scenario = createCommunityTestScenario({ namespace: "membership" });
+    const relayFactory = createInMemoryRelayFactory({
+      policy: new Nip29MemoryPolicy({
+        relaySecretKey: new Uint8Array(32).fill(24),
+        now: () => 1_700_000_000,
+      }),
+    });
+    await scenario.seed(relayFactory.relay(scenario.scope.relayUrl));
+    const controller = createCommunityController({
+      scopes: [scenario.scope],
+      source: createNip29CommunitySource({ relayFactory }),
+      identity: scenario.participant,
+      now: () => 1_700_000_100,
+    });
+    controller.initialize();
+    await vi.waitFor(() => expect(controller.state.status).toBe("connected"));
+
+    const room = controller.state.workspace.navigationSections
+      .flatMap((section) => section.rooms)
+      .find((candidate) => candidate.id === "general");
+    expect(room).toMatchObject({
+      membership: "not-joined",
+      permissions: {
+        publish: {
+          state: "denied",
+          reason: "Join this room before posting or reacting",
+        },
+      },
+    });
+    await expect(
+      controller.actions.sendMessage("general", "Before joining"),
+    ).rejects.toThrow("Join this room before posting or reacting");
+
+    await controller.actions.join("general");
+    expect(
+      controller.state.workspace.navigationSections
+        .flatMap((section) => section.rooms)
+        .find((candidate) => candidate.id === "general"),
+    ).toMatchObject({
+      membership: "joined",
+      permissions: { publish: { state: "enabled" } },
+    });
+    await controller.actions.sendMessage("general", "After joining");
+    expect(controller.state.workspace.messages.at(-1)?.content).toBe(
+      "After joining",
+    );
+    controller.dispose();
+    relayFactory.reset();
+  });
+
+  it("does not republish an accepted event while its projection is still syncing", async () => {
+    const scenario = createCommunityTestScenario();
+    const relayFactory = createInMemoryRelayFactory({
+      policy: new Nip29MemoryPolicy({
+        relaySecretKey: new Uint8Array(32).fill(25),
+        now: () => 1_700_000_000,
+      }),
+    });
+    await scenario.seed(relayFactory.relay(scenario.scope.relayUrl));
+    const eventRuntime = createInlineCommunityEventRuntime();
+    const controller = createCommunityController({
+      scopes: [scenario.scope],
+      source: createNip29CommunitySource({ relayFactory }),
+      identity: scenario.member,
+      runtime: eventRuntime,
+      now: () => 1_700_000_100,
+    });
+    controller.initialize();
+    await vi.waitFor(() => expect(controller.state.status).toBe("connected"));
+    vi.spyOn(eventRuntime, "ingest").mockResolvedValue(undefined);
+    const before = await relayFactory
+      .relay(scenario.scope.relayUrl)
+      .count({ kinds: [9] });
+
+    await controller.actions.sendMessage("general", "Waiting to project");
+
+    expect(controller.state.operations["send:general"]).toEqual({
+      status: "accepted",
+      message: "Accepted by relay, still syncing.",
+    });
+    expect(
+      controller.state.workspace.messages.some(
+        (message) => message.content === "Waiting to project",
+      ),
+    ).toBe(false);
+    expect(
+      await relayFactory.relay(scenario.scope.relayUrl).count({ kinds: [9] }),
+    ).toBe(before + 1);
+    await controller.retry("send:general");
+    expect(
+      await relayFactory.relay(scenario.scope.relayUrl).count({ kinds: [9] }),
+    ).toBe(before + 1);
+    controller.dispose();
+    relayFactory.reset();
+  });
+
+  it("normalizes relay acknowledgement reasons without discarding them", () => {
+    expect(
+      normalizeCommunityOperationFailure(
+        new Error("wss://relay.test: restricted: members only"),
+      ),
+    ).toEqual({
+      category: "restricted",
+      message: "wss://relay.test: restricted: members only",
+      relayReason: "wss://relay.test: restricted: members only",
+      retryable: false,
+    });
+    expect(
+      normalizeCommunityOperationFailure(new Error("publish timed out")),
+    ).toMatchObject({ category: "timeout", retryable: true });
+    for (const category of [
+      "invalid",
+      "blocked",
+      "rate-limited",
+      "pow",
+      "mute",
+    ] as const) {
+      const reason = `${category}: relay policy detail`;
+      expect(
+        normalizeCommunityOperationFailure(new Error(reason)),
+      ).toMatchObject({
+        category,
+        relayReason: reason,
+        retryable: category === "rate-limited",
+      });
+    }
+    expect(
+      normalizeCommunityOperationFailure(
+        new TypeError("WebSocket disconnected"),
+      ),
+    ).toMatchObject({ category: "network", retryable: true });
+    expect(
+      normalizeCommunityOperationFailure(
+        new Error("Recipient has not advertised a NIP-17 inbox relay"),
+      ),
+    ).toMatchObject({ category: "validation", retryable: false });
   });
 
   it("sends and materializes NIP-17 direct messages through the same source", async () => {
@@ -397,6 +591,27 @@ describe("createCommunityController", () => {
     });
     controller.dispose();
     relayFactory.reset();
+  });
+
+  it("disconnects the identity while retaining anonymous public browsing", async () => {
+    runtime = await createCommunityTestRuntime();
+    await connected(runtime);
+    const memberPubkey = await runtime.scenario.member.getPublicKey();
+    runtime.controller.actions.openDirectMessage([memberPubkey]);
+
+    await runtime.controller.actions.disconnectIdentity();
+
+    expect(runtime.controller.state.authentication).toEqual({
+      status: "anonymous",
+    });
+    expect(runtime.controller.state.settings.identityConnected).toBe(false);
+    expect(runtime.controller.state.workspace.currentMemberId).toBeUndefined();
+    expect(runtime.controller.state.workspace.activeRoomId).toBe("general");
+    expect(
+      runtime.controller.state.workspace.navigationSections
+        .flatMap((section) => section.rooms)
+        .find((room) => room.id === "general")?.permissions?.publish.state,
+    ).toBe("requires-authentication");
   });
 
   it("creates, updates, and deletes rooms through NIP-29 commands", async () => {

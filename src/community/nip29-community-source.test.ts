@@ -12,6 +12,45 @@ import { createNip29CommunitySource } from "./nip29-community-source.js";
 const relayKey = new Uint8Array(32).fill(41);
 
 describe("createNip29CommunitySource", () => {
+  it("treats an exact duplicate acknowledgement as idempotent success", async () => {
+    const scenario = createCommunityTestScenario();
+    const relayFactory = createInMemoryRelayFactory({
+      policy: new Nip29MemoryPolicy({
+        relaySecretKey: relayKey,
+        now: () => 1_700_000_000,
+      }),
+    });
+    const relay = relayFactory.relay(scenario.scope.relayUrl);
+    await scenario.seed(relay);
+    const event = await scenario.operator.signEvent({
+      kind: 9,
+      created_at: 1_700_000_100,
+      content: "Already stored",
+      tags: [["h", "general"]],
+    });
+    relay.inject(event);
+    relay.setFaults({ rejectPublish: "duplicate: event already stored" });
+    const session = await createNip29CommunitySource({ relayFactory }).open(
+      scenario.scope,
+      { identity: scenario.operator },
+    );
+
+    await expect(
+      session.execute({
+        type: "publish",
+        template: {
+          kind: event.kind,
+          created_at: event.created_at,
+          content: event.content,
+          tags: event.tags,
+        },
+        optimisticEvent: event,
+      }),
+    ).resolves.toEqual([event]);
+    session.close();
+    relayFactory.reset();
+  });
+
   it("loads group content, authoritative state, profiles, and referenced reactions", async () => {
     const scenario = createCommunityTestScenario();
     const relayFactory = createInMemoryRelayFactory({

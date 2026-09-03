@@ -1,5 +1,8 @@
 import type { CommunityIdentity } from "../../community/index.js";
-import type { CommunityLoginMethodModel } from "../community-login/model.js";
+import type {
+  CommunityLoginCredentials,
+  CommunityLoginMethodModel,
+} from "../community-login/model.js";
 
 export interface CommunityApplicationLoginOptions {
   methods?: readonly CommunityLoginMethodModel[];
@@ -7,5 +10,8 @@ export interface CommunityApplicationLoginOptions {
   title?: string;
   description?: string;
   footnote?: string;
-  connect?(methodId: string): Promise<CommunityIdentity>;
+  connect?(
+    methodId: string,
+    credentials?: CommunityLoginCredentials,
+  ): Promise<CommunityIdentity>;
 }

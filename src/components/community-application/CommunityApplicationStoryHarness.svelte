@@ -13,6 +13,7 @@
     createCommunityStoryRuntime,
     type CommunityStoryRuntime,
   } from "../../testing/index.js";
+  import type { CommunityLoginCredentials } from "../community-login/model.js";
   import RegistryCommunityStoryHarness from "../registry-community/RegistryCommunityStoryHarness.svelte";
   import { createRegistryStoryDataSource } from "../registry-browser/story-fixtures.js";
   import CommunityApplication from "./CommunityApplicationRoot.svelte";
@@ -98,8 +99,17 @@
     };
   });
 
-  async function connectStoryIdentity(): Promise<CommunityIdentity> {
+  async function connectStoryIdentity(
+    methodId: string,
+    credentials?: CommunityLoginCredentials,
+  ): Promise<CommunityIdentity> {
     if (!runtime) throw new Error("The community runtime is not ready");
+    if (
+      methodId === "private-key" &&
+      credentials?.privateKey !== "nsec1storybookexample"
+    ) {
+      throw new Error("The private key was not handed to the story host");
+    }
     return runtime.scenario.operator;
   }
 </script>

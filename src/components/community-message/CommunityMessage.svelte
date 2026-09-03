@@ -55,19 +55,21 @@
       messageId: string,
       emoji: string,
       customEmoji?: CommunityEmojiReference,
-    ) => void;
+    ) => void | Promise<void>;
     onAddReaction?: (
       messageId: string,
       emoji: string,
       customEmoji?: CommunityEmojiReference,
-    ) => void;
+    ) => void | Promise<void>;
     onCopyLink?: (messageId: string) => void;
     onCopyMessage?: (messageId: string) => void;
-    onEdit?: (messageId: string) => void;
-    onDelete?: (messageId: string) => void;
+    onEdit?: (messageId: string) => void | Promise<void>;
+    onDelete?: (messageId: string) => void | Promise<void>;
     onOpenProfile?: (member: CommunityMemberModel) => void;
-    onMessageMember?: (member: CommunityMemberModel) => void;
-    onViewMemberActivity?: (member: CommunityMemberModel) => void;
+    onMessageMember?: (member: CommunityMemberModel) => void | Promise<void>;
+    onViewMemberActivity?: (
+      member: CommunityMemberModel,
+    ) => void | Promise<void>;
     replyActionLabel?: string;
   } = $props();
 

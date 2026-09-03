@@ -14,12 +14,14 @@
     forumName,
     communityEmojis = [],
     disabled = false,
+    disabledReason = "Posting is unavailable",
     onPublish,
   }: {
     open?: boolean;
     forumName: string;
     communityEmojis?: readonly CommunityCustomEmoji[];
     disabled?: boolean;
+    disabledReason?: string;
     onPublish: (draft: CommunityTopicDraft) => Promise<void>;
   } = $props();
 
@@ -107,6 +109,7 @@
       variant="outline"
       class="community-topic-composer__trigger"
       aria-label={`Start a new post in ${forumName}`}
+      title={disabled ? disabledReason : undefined}
       {disabled}
       onclick={expand}
     >

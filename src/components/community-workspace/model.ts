@@ -14,6 +14,7 @@ export interface CommunityActionAvailability {
 }
 
 export interface CommunityRoomActionPermissions {
+  publish: CommunityActionAvailability;
   join: CommunityActionAvailability;
   leave: CommunityActionAvailability;
   update: CommunityActionAvailability;
@@ -140,28 +141,32 @@ export interface CommunityWorkspaceHandlers {
   onOpenThread?: (messageId: string) => void;
   onCloseSidePanel?: () => void;
   onOpenDetails?: () => void;
-  onSendMessage?: (roomId: string, content: string) => void;
-  onSendReply?: (rootMessageId: string, content: string) => void;
+  onSendMessage?: (roomId: string, content: string) => void | Promise<void>;
+  onSendReply?: (
+    rootMessageId: string,
+    content: string,
+  ) => void | Promise<void>;
   onToggleReaction?: (
     messageId: string,
     emoji: string,
     customEmoji?: CommunityEmojiReference,
-  ) => void;
+  ) => void | Promise<void>;
   onAddReaction?: (
     messageId: string,
     emoji: string,
     customEmoji?: CommunityEmojiReference,
-  ) => void;
+  ) => void | Promise<void>;
   onCopyMessageLink?: (messageId: string) => void;
   onCopyMessage?: (messageId: string) => void;
-  onEditMessage?: (messageId: string) => void;
-  onDeleteMessage?: (messageId: string) => void;
+  onEditMessage?: (messageId: string) => void | Promise<void>;
+  onDeleteMessage?: (messageId: string) => void | Promise<void>;
   onOpenProfile?: (member: CommunityMemberModel) => void;
-  onMessageMember?: (member: CommunityMemberModel) => void;
-  onViewMemberActivity?: (member: CommunityMemberModel) => void;
+  onMessageMember?: (member: CommunityMemberModel) => void | Promise<void>;
+  onViewMemberActivity?: (member: CommunityMemberModel) => void | Promise<void>;
   onBrowseRooms?: (kind?: "channel" | "forum") => void;
+  onJoinRoom?: (roomId: string) => void | Promise<void>;
   onCreateRoom?: (kind: "channel" | "forum") => void;
-  onCreateAgent?: (roomId: string) => void;
+  onCreateAgent?: (roomId: string) => void | Promise<void>;
   onCreateTopic?: (
     roomId: string,
     draft: import("../../community/index.js").CommunityTopicDraft,
@@ -169,7 +174,7 @@ export interface CommunityWorkspaceHandlers {
   onTopicAction?: (
     topicId: string,
     action: "copy-link" | "mark-read" | "star" | "mute" | "delete",
-  ) => void;
+  ) => void | Promise<void>;
   onClearReplyTarget?: () => void;
   onSearch?: (query: string) => void;
 }

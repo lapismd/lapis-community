@@ -149,6 +149,17 @@
       requestSearch();
     }
   }
+
+  function hasRoomManagementActions(
+    item: CommunityNavigationItemModel,
+  ): boolean {
+    return (
+      item.settingsDisabled !== true ||
+      item.leaveDisabled !== true ||
+      item.archiveAvailable === true ||
+      item.deleteDisabled !== true
+    );
+  }
 </script>
 
 {#snippet menuIcon(Icon?: Component)}
@@ -229,40 +240,23 @@
         : "Star"}</DropdownMenu.Item
     >
   </DropdownMenu.Group>
-  {#if item.kind !== "direct-message"}<DropdownMenu.Separator
+  {#if item.kind !== "direct-message" && hasRoomManagementActions(item)}<DropdownMenu.Separator
     /><DropdownMenu.Group
-      ><DropdownMenu.Item
-        {...item.settingsDisabled
-          ? {
-              disabled: true,
-              ...(item.settingsReason ? { title: item.settingsReason } : {}),
-            }
-          : {}}
-        onSelect={() => onItemAction(item, "settings")}
-        >{@render menuIcon(SettingsIcon)}Settings</DropdownMenu.Item
-      ><DropdownMenu.Item
-        variant="destructive"
-        {...item.leaveDisabled
-          ? {
-              disabled: true,
-              ...(item.leaveReason ? { title: item.leaveReason } : {}),
-            }
-          : {}}
-        onSelect={() => onItemAction(item, "leave")}
-        >{@render menuIcon(LogOutIcon)}Leave</DropdownMenu.Item
-      ><DropdownMenu.Item onSelect={() => onItemAction(item, "archive")}
-        >{@render menuIcon(ArchiveIcon)}Archive</DropdownMenu.Item
-      ><DropdownMenu.Item
-        variant="destructive"
-        {...item.deleteDisabled
-          ? {
-              disabled: true,
-              ...(item.deleteReason ? { title: item.deleteReason } : {}),
-            }
-          : {}}
-        onSelect={() => onItemAction(item, "delete")}
-        >{@render menuIcon(TrashIcon)}Delete</DropdownMenu.Item
-      ></DropdownMenu.Group
+      >{#if item.settingsDisabled !== true}<DropdownMenu.Item
+          onSelect={() => onItemAction(item, "settings")}
+          >{@render menuIcon(SettingsIcon)}Settings</DropdownMenu.Item
+        >{/if}{#if item.leaveDisabled !== true}<DropdownMenu.Item
+          variant="destructive"
+          onSelect={() => onItemAction(item, "leave")}
+          >{@render menuIcon(LogOutIcon)}Leave</DropdownMenu.Item
+        >{/if}{#if item.archiveAvailable}<DropdownMenu.Item
+          onSelect={() => onItemAction(item, "archive")}
+          >{@render menuIcon(ArchiveIcon)}Archive</DropdownMenu.Item
+        >{/if}{#if item.deleteDisabled !== true}<DropdownMenu.Item
+          variant="destructive"
+          onSelect={() => onItemAction(item, "delete")}
+          >{@render menuIcon(TrashIcon)}Delete</DropdownMenu.Item
+        >{/if}</DropdownMenu.Group
     >{/if}
 {/snippet}
 
@@ -338,40 +332,23 @@
         : "Star"}</ContextMenu.Item
     >
   </ContextMenu.Group>
-  {#if item.kind !== "direct-message"}<ContextMenu.Separator
+  {#if item.kind !== "direct-message" && hasRoomManagementActions(item)}<ContextMenu.Separator
     /><ContextMenu.Group
-      ><ContextMenu.Item
-        {...item.settingsDisabled
-          ? {
-              disabled: true,
-              ...(item.settingsReason ? { title: item.settingsReason } : {}),
-            }
-          : {}}
-        onSelect={() => onItemAction(item, "settings")}
-        >{@render menuIcon(SettingsIcon)}Settings</ContextMenu.Item
-      ><ContextMenu.Item
-        variant="destructive"
-        {...item.leaveDisabled
-          ? {
-              disabled: true,
-              ...(item.leaveReason ? { title: item.leaveReason } : {}),
-            }
-          : {}}
-        onSelect={() => onItemAction(item, "leave")}
-        >{@render menuIcon(LogOutIcon)}Leave</ContextMenu.Item
-      ><ContextMenu.Item onSelect={() => onItemAction(item, "archive")}
-        >{@render menuIcon(ArchiveIcon)}Archive</ContextMenu.Item
-      ><ContextMenu.Item
-        variant="destructive"
-        {...item.deleteDisabled
-          ? {
-              disabled: true,
-              ...(item.deleteReason ? { title: item.deleteReason } : {}),
-            }
-          : {}}
-        onSelect={() => onItemAction(item, "delete")}
-        >{@render menuIcon(TrashIcon)}Delete</ContextMenu.Item
-      ></ContextMenu.Group
+      >{#if item.settingsDisabled !== true}<ContextMenu.Item
+          onSelect={() => onItemAction(item, "settings")}
+          >{@render menuIcon(SettingsIcon)}Settings</ContextMenu.Item
+        >{/if}{#if item.leaveDisabled !== true}<ContextMenu.Item
+          variant="destructive"
+          onSelect={() => onItemAction(item, "leave")}
+          >{@render menuIcon(LogOutIcon)}Leave</ContextMenu.Item
+        >{/if}{#if item.archiveAvailable}<ContextMenu.Item
+          onSelect={() => onItemAction(item, "archive")}
+          >{@render menuIcon(ArchiveIcon)}Archive</ContextMenu.Item
+        >{/if}{#if item.deleteDisabled !== true}<ContextMenu.Item
+          variant="destructive"
+          onSelect={() => onItemAction(item, "delete")}
+          >{@render menuIcon(TrashIcon)}Delete</ContextMenu.Item
+        >{/if}</ContextMenu.Group
     >{/if}
 {/snippet}
 
