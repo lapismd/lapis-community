@@ -445,10 +445,7 @@
   >
     <section class="registry-directory__results">
       <header class="registry-directory__heading">
-        <div>
-          <h1>Plugins</h1>
-          <p aria-live="polite">{results.length} results</p>
-        </div>
+        <p aria-live="polite">{results.length} results</p>
         <div class="registry-directory__tools" aria-label="Result controls">
           <div class="registry-directory__view" aria-label="View mode">
             <Button
@@ -573,7 +570,7 @@
     padding: 0 0.65rem 2rem;
   }
 
-  :global(.registry-directory__filters-region) {
+  :global(.registry-directory__filters-region[data-side="left"]) {
     border-inline-end-color: transparent;
     background: var(--background);
   }
@@ -767,7 +764,7 @@
     min-width: 0;
     min-height: 100%;
     margin-inline: auto;
-    padding: clamp(1.25rem, 4vw, 3rem);
+    padding: 1rem clamp(1.25rem, 4vw, 3rem) clamp(1.25rem, 4vw, 3rem);
     container: registry-results / inline-size;
   }
 
@@ -786,16 +783,10 @@
     gap: 1rem;
   }
 
-  .registry-directory__heading h1,
   .registry-directory__heading p,
   .registry-directory__empty h2,
   .registry-directory__empty p {
     margin: 0;
-  }
-
-  .registry-directory__heading h1 {
-    font-size: clamp(2rem, 4vw, 3rem);
-    letter-spacing: -0.04em;
   }
 
   .registry-directory__heading p,

@@ -151,9 +151,7 @@
     await userEvent.click(
       canvas.getAllByRole("button", { name: /Plugins/u })[0]!,
     );
-    await expect(
-      await canvas.findByRole("heading", { name: "Plugins", level: 1 }),
-    ).toBeVisible();
+    await expect(await canvas.findByText("8 results")).toBeVisible();
     await userEvent.click(
       canvas.getByRole("button", { name: "Open AI Assistant" }),
     );
@@ -161,17 +159,13 @@
       await canvas.findByRole("heading", { name: "AI Assistant", level: 1 }),
     ).toBeVisible();
     await userEvent.click(canvas.getByRole("button", { name: "Back" }));
-    await expect(
-      await canvas.findByRole("heading", { name: "Plugins", level: 1 }),
-    ).toBeVisible();
+    await expect(await canvas.findByText("8 results")).toBeVisible();
     await userEvent.click(canvas.getByRole("button", { name: "Back" }));
     await expect(
       await canvas.findByRole("heading", { name: "Make Lapis Notes yours." }),
     ).toBeVisible();
     await userEvent.click(canvas.getByRole("button", { name: "Forward" }));
-    await expect(
-      await canvas.findByRole("heading", { name: "Plugins", level: 1 }),
-    ).toBeVisible();
+    await expect(await canvas.findByText("8 results")).toBeVisible();
   }}
 >
   {#snippet template()}

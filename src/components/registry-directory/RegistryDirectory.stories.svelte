@@ -41,6 +41,9 @@
 <Story
   name="Search, filters, sorting, and views"
   play={async ({ canvas }) => {
+    await expect(
+      canvas.queryByRole("heading", { name: "Plugins", level: 1 }),
+    ).not.toBeInTheDocument();
     const search = canvas.getByRole("textbox", {
       name: "Search registry plugins",
     });
