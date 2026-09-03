@@ -35,6 +35,7 @@
     onCopyMessage,
     onEdit,
     onDelete,
+    onOpenProfile,
   }: {
     message: CommunityMessageModel;
     author: CommunityMemberModel;
@@ -57,6 +58,7 @@
     onCopyMessage?: (messageId: string) => void;
     onEdit?: (messageId: string) => void;
     onDelete?: (messageId: string) => void;
+    onOpenProfile?: (member: CommunityMemberModel) => void;
   } = $props();
 
   const isSelected = $derived(
@@ -86,9 +88,12 @@
         {message.timestamp}
       </span>
     {:else}
-      <span class="community-message__avatar" aria-hidden="true"
-        >{author.initials}</span
-      >
+      <button
+        type="button"
+        class="community-message__avatar"
+        aria-label={`View ${author.name}'s profile`}
+        onclick={() => onOpenProfile?.(author)}
+      >{author.initials}</button>
     {/if}
   {/snippet}
   {#snippet name()}

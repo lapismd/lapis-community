@@ -25,6 +25,8 @@ export interface CommunityNavigationItemModel {
 
 export type CommunityNavigationItemAction =
   | "copy-link"
+  | "copy-name"
+  | "copy-id"
   | "mark-read"
   | "mark-unread"
   | "star"
@@ -34,7 +36,9 @@ export type CommunityNavigationItemAction =
   | "hide"
   | "settings"
   | "leave"
+  | "archive"
   | "delete"
+  | "create-section"
   | `section:${string}`;
 
 export interface CommunityNavigationCustomSectionOption {
@@ -52,7 +56,11 @@ export interface CommunityNavigationSectionModel {
   initiallyCollapsed?: boolean;
 }
 
-export type CommunityNavigationSectionActionIcon = "browse" | "compose";
+export type CommunityNavigationSectionActionIcon =
+  | "browse"
+  | "browse-channels"
+  | "browse-forums"
+  | "compose";
 
 export interface CommunityNavigationSectionActionModel {
   id: string;

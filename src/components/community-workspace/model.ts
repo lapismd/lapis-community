@@ -153,6 +153,7 @@ export interface CommunityWorkspaceHandlers {
   onCopyMessage?: (messageId: string) => void;
   onEditMessage?: (messageId: string) => void;
   onDeleteMessage?: (messageId: string) => void;
+  onOpenProfile?: (member: CommunityMemberModel) => void;
   onBrowseRooms?: (kind?: "channel" | "forum") => void;
   onCreateRoom?: (kind: "channel" | "forum") => void;
   onCreateAgent?: (roomId: string) => void;

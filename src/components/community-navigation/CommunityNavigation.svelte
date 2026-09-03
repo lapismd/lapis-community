@@ -23,11 +23,12 @@
   import PackageSearchIcon from "@lucide/svelte/icons/package-search";
   import PlusIcon from "@lucide/svelte/icons/plus";
   import SearchIcon from "@lucide/svelte/icons/search";
-  import BellOffIcon from "@lucide/svelte/icons/bell-off";
-  import CheckIcon from "@lucide/svelte/icons/check";
-  import CopyIcon from "@lucide/svelte/icons/copy";
-  import EyeOffIcon from "@lucide/svelte/icons/eye-off";
   import FolderInputIcon from "@lucide/svelte/icons/folder-input";
+  import FolderPlusIcon from "@lucide/svelte/icons/folder-plus";
+  import ArchiveIcon from "@lucide/svelte/icons/archive";
+  import BellOffIcon from "@lucide/svelte/icons/bell-off";
+  import CircleDotIcon from "@lucide/svelte/icons/circle-dot";
+  import CopyIcon from "@lucide/svelte/icons/copy";
   import LogOutIcon from "@lucide/svelte/icons/log-out";
   import SettingsIcon from "@lucide/svelte/icons/settings";
   import StarIcon from "@lucide/svelte/icons/star";
@@ -97,6 +98,8 @@
   function iconForAction(
     action: CommunityNavigationSectionActionModel,
   ): Component {
+    if (action.icon === "browse-channels") return HashIcon;
+    if (action.icon === "browse-forums") return MessagesSquareIcon;
     if (action.icon === "browse") return CompassIcon;
     if (action.icon === "compose") return MessageSquarePlusIcon;
     return LayoutGridIcon;
@@ -161,56 +164,65 @@
   }
 </script>
 
+{#snippet menuIcon(Icon?: Component)}
+  <span class="lc-community-navigation__menu-icon-slot" aria-hidden="true">
+    {#if Icon}<Icon />{/if}
+  </span>
+{/snippet}
+
 {#snippet dropdownItemActions(item: CommunityNavigationItemModel)}
   <DropdownMenu.Group>
-    <DropdownMenu.Item onSelect={() => onItemAction(item, "copy-link")}
-      ><CopyIcon data-icon="inline-start" aria-hidden="true" />Copy link</DropdownMenu.Item
-    >
-    <DropdownMenu.Item
-      onSelect={() =>
-        onItemAction(item, item.unreadCount ? "mark-read" : "mark-unread")}
-      ><CheckIcon
-        data-icon="inline-start"
-        aria-hidden="true"
-      />{item.unreadCount ? "Mark read" : "Mark unread"}</DropdownMenu.Item
-    >
-    <DropdownMenu.Item
-      onSelect={() => onItemAction(item, item.starred ? "unstar" : "star")}
-      ><StarIcon data-icon="inline-start" aria-hidden="true" />{item.starred
-        ? "Remove star"
-        : "Star"}</DropdownMenu.Item
-    >
-    <DropdownMenu.Item
-      onSelect={() => onItemAction(item, item.muted ? "unmute" : "mute")}
-      ><BellOffIcon data-icon="inline-start" aria-hidden="true" />{item.muted
-        ? "Unmute"
-        : "Mute"}</DropdownMenu.Item
-    >
-    <DropdownMenu.Item onSelect={() => onItemAction(item, "hide")}
-      ><EyeOffIcon
-        data-icon="inline-start"
-        aria-hidden="true"
-      />Hide</DropdownMenu.Item
-    >
-    {#if customSections.length}
+    <DropdownMenu.Sub>
+      <DropdownMenu.SubTrigger>{@render menuIcon(CopyIcon)}Copy</DropdownMenu.SubTrigger>
+      <DropdownMenu.SubContent class="lc-community-navigation__submenu-content">
+        <DropdownMenu.Group>
+          <DropdownMenu.Item onSelect={() => onItemAction(item, "copy-name")}>{@render menuIcon()}{item.kind === "forum" ? "Forum" : "Channel"} name</DropdownMenu.Item>
+          <DropdownMenu.Item onSelect={() => onItemAction(item, "copy-id")}>{@render menuIcon()}{item.kind === "forum" ? "Forum" : "Channel"} ID</DropdownMenu.Item>
+        </DropdownMenu.Group>
+      </DropdownMenu.SubContent>
+    </DropdownMenu.Sub>
+    {#if item.kind === "channel" || item.kind === "forum"}
       <DropdownMenu.Sub>
         <DropdownMenu.SubTrigger
-          ><FolderInputIcon data-icon="inline-start" aria-hidden="true" />Move
+          >{@render menuIcon(FolderInputIcon)}Move
           to section</DropdownMenu.SubTrigger
         >
-        <DropdownMenu.SubContent>
-          <DropdownMenu.Item onSelect={() => onItemAction(item, "section:")}
-            >No custom section</DropdownMenu.Item
-          >
-          {#each customSections as section (section.id)}<DropdownMenu.Item
-              onSelect={() => onItemAction(item, `section:${section.id}`)}
-              >{section.label}</DropdownMenu.Item
-            >{/each}
+        <DropdownMenu.SubContent class="lc-community-navigation__submenu-content">
+          <DropdownMenu.Group>
+            <DropdownMenu.Item onSelect={() => onItemAction(item, "section:")}
+              >{@render menuIcon(LayoutGridIcon)}No
+              custom section</DropdownMenu.Item
+            >
+            {#each customSections as section (section.id)}<DropdownMenu.Item
+                onSelect={() => onItemAction(item, `section:${section.id}`)}
+                >{@render menuIcon(FolderInputIcon)}{section.label}</DropdownMenu.Item
+              >{/each}
+          </DropdownMenu.Group>
+          <DropdownMenu.Separator />
+          <DropdownMenu.Group>
+            <DropdownMenu.Item onSelect={() => onItemAction(item, "create-section")}
+              >{@render menuIcon(FolderPlusIcon)}Create
+              new section</DropdownMenu.Item
+            >
+          </DropdownMenu.Group>
         </DropdownMenu.SubContent>
       </DropdownMenu.Sub>
     {/if}
-  </DropdownMenu.Group><DropdownMenu.Separator />
-  {#if item.kind !== "direct-message"}<DropdownMenu.Group
+  </DropdownMenu.Group>
+  <DropdownMenu.Separator />
+  <DropdownMenu.Group>
+    <DropdownMenu.Item onSelect={() => onItemAction(item, item.unreadCount ? "mark-read" : "mark-unread")}
+      >{@render menuIcon(CircleDotIcon)}{item.unreadCount ? "Mark read" : "Mark unread"}</DropdownMenu.Item>
+  </DropdownMenu.Group>
+  <DropdownMenu.Separator />
+  <DropdownMenu.Group>
+    <DropdownMenu.Item onSelect={() => onItemAction(item, item.muted ? "unmute" : "mute")}
+      >{@render menuIcon(BellOffIcon)}{item.muted ? "Unmute" : "Mute"}</DropdownMenu.Item>
+    <DropdownMenu.Item onSelect={() => onItemAction(item, item.starred ? "unstar" : "star")}
+      >{@render menuIcon(StarIcon)}{item.starred ? "Remove star" : "Star"}</DropdownMenu.Item>
+  </DropdownMenu.Group>
+  {#if item.kind !== "direct-message"}<DropdownMenu.Separator
+    /><DropdownMenu.Group
       ><DropdownMenu.Item
         {...item.settingsDisabled
           ? {
@@ -219,11 +231,9 @@
             }
           : {}}
         onSelect={() => onItemAction(item, "settings")}
-        ><SettingsIcon
-          data-icon="inline-start"
-          aria-hidden="true"
-        />Settings</DropdownMenu.Item
+        >{@render menuIcon(SettingsIcon)}Settings</DropdownMenu.Item
       ><DropdownMenu.Item
+        variant="destructive"
         {...item.leaveDisabled
           ? {
               disabled: true,
@@ -231,10 +241,9 @@
             }
           : {}}
         onSelect={() => onItemAction(item, "leave")}
-        ><LogOutIcon
-          data-icon="inline-start"
-          aria-hidden="true"
-        />Leave</DropdownMenu.Item
+        >{@render menuIcon(LogOutIcon)}Leave</DropdownMenu.Item
+      ><DropdownMenu.Item onSelect={() => onItemAction(item, "archive")}
+        >{@render menuIcon(ArchiveIcon)}Archive</DropdownMenu.Item
       ><DropdownMenu.Item
         variant="destructive"
         {...item.deleteDisabled
@@ -244,64 +253,64 @@
             }
           : {}}
         onSelect={() => onItemAction(item, "delete")}
-        ><TrashIcon
-          data-icon="inline-start"
-          aria-hidden="true"
-        />Delete</DropdownMenu.Item
+        >{@render menuIcon(TrashIcon)}Delete</DropdownMenu.Item
       ></DropdownMenu.Group
     >{/if}
 {/snippet}
 
 {#snippet contextItemActions(item: CommunityNavigationItemModel)}
   <ContextMenu.Group>
-    <ContextMenu.Item onSelect={() => onItemAction(item, "copy-link")}
-      ><CopyIcon data-icon="inline-start" aria-hidden="true" />Copy link</ContextMenu.Item
-    >
-    <ContextMenu.Item
-      onSelect={() =>
-        onItemAction(item, item.unreadCount ? "mark-read" : "mark-unread")}
-      ><CheckIcon
-        data-icon="inline-start"
-        aria-hidden="true"
-      />{item.unreadCount ? "Mark read" : "Mark unread"}</ContextMenu.Item
-    >
-    <ContextMenu.Item
-      onSelect={() => onItemAction(item, item.starred ? "unstar" : "star")}
-      ><StarIcon data-icon="inline-start" aria-hidden="true" />{item.starred
-        ? "Remove star"
-        : "Star"}</ContextMenu.Item
-    >
-    <ContextMenu.Item
-      onSelect={() => onItemAction(item, item.muted ? "unmute" : "mute")}
-      ><BellOffIcon data-icon="inline-start" aria-hidden="true" />{item.muted
-        ? "Unmute"
-        : "Mute"}</ContextMenu.Item
-    >
-    <ContextMenu.Item onSelect={() => onItemAction(item, "hide")}
-      ><EyeOffIcon
-        data-icon="inline-start"
-        aria-hidden="true"
-      />Hide</ContextMenu.Item
-    >
-    {#if customSections.length}
+    <ContextMenu.Sub>
+      <ContextMenu.SubTrigger>{@render menuIcon(CopyIcon)}Copy</ContextMenu.SubTrigger>
+      <ContextMenu.SubContent class="lc-community-navigation__submenu-content">
+        <ContextMenu.Group>
+          <ContextMenu.Item onSelect={() => onItemAction(item, "copy-name")}>{@render menuIcon()}{item.kind === "forum" ? "Forum" : "Channel"} name</ContextMenu.Item>
+          <ContextMenu.Item onSelect={() => onItemAction(item, "copy-id")}>{@render menuIcon()}{item.kind === "forum" ? "Forum" : "Channel"} ID</ContextMenu.Item>
+        </ContextMenu.Group>
+      </ContextMenu.SubContent>
+    </ContextMenu.Sub>
+    {#if item.kind === "channel" || item.kind === "forum"}
       <ContextMenu.Sub>
         <ContextMenu.SubTrigger
-          ><FolderInputIcon data-icon="inline-start" aria-hidden="true" />Move
+          >{@render menuIcon(FolderInputIcon)}Move
           to section</ContextMenu.SubTrigger
         >
-        <ContextMenu.SubContent>
-          <ContextMenu.Item onSelect={() => onItemAction(item, "section:")}
-            >No custom section</ContextMenu.Item
-          >
-          {#each customSections as section (section.id)}<ContextMenu.Item
-              onSelect={() => onItemAction(item, `section:${section.id}`)}
-              >{section.label}</ContextMenu.Item
-            >{/each}
+        <ContextMenu.SubContent class="lc-community-navigation__submenu-content">
+          <ContextMenu.Group>
+            <ContextMenu.Item onSelect={() => onItemAction(item, "section:")}
+              >{@render menuIcon(LayoutGridIcon)}No
+              custom section</ContextMenu.Item
+            >
+            {#each customSections as section (section.id)}<ContextMenu.Item
+                onSelect={() => onItemAction(item, `section:${section.id}`)}
+                >{@render menuIcon(FolderInputIcon)}{section.label}</ContextMenu.Item
+              >{/each}
+          </ContextMenu.Group>
+          <ContextMenu.Separator />
+          <ContextMenu.Group>
+            <ContextMenu.Item onSelect={() => onItemAction(item, "create-section")}
+              >{@render menuIcon(FolderPlusIcon)}Create
+              new section</ContextMenu.Item
+            >
+          </ContextMenu.Group>
         </ContextMenu.SubContent>
       </ContextMenu.Sub>
     {/if}
-  </ContextMenu.Group><ContextMenu.Separator />
-  {#if item.kind !== "direct-message"}<ContextMenu.Group
+  </ContextMenu.Group>
+  <ContextMenu.Separator />
+  <ContextMenu.Group>
+    <ContextMenu.Item onSelect={() => onItemAction(item, item.unreadCount ? "mark-read" : "mark-unread")}
+      >{@render menuIcon(CircleDotIcon)}{item.unreadCount ? "Mark read" : "Mark unread"}</ContextMenu.Item>
+  </ContextMenu.Group>
+  <ContextMenu.Separator />
+  <ContextMenu.Group>
+    <ContextMenu.Item onSelect={() => onItemAction(item, item.muted ? "unmute" : "mute")}
+      >{@render menuIcon(BellOffIcon)}{item.muted ? "Unmute" : "Mute"}</ContextMenu.Item>
+    <ContextMenu.Item onSelect={() => onItemAction(item, item.starred ? "unstar" : "star")}
+      >{@render menuIcon(StarIcon)}{item.starred ? "Remove star" : "Star"}</ContextMenu.Item>
+  </ContextMenu.Group>
+  {#if item.kind !== "direct-message"}<ContextMenu.Separator
+    /><ContextMenu.Group
       ><ContextMenu.Item
         {...item.settingsDisabled
           ? {
@@ -310,11 +319,9 @@
             }
           : {}}
         onSelect={() => onItemAction(item, "settings")}
-        ><SettingsIcon
-          data-icon="inline-start"
-          aria-hidden="true"
-        />Settings</ContextMenu.Item
+        >{@render menuIcon(SettingsIcon)}Settings</ContextMenu.Item
       ><ContextMenu.Item
+        variant="destructive"
         {...item.leaveDisabled
           ? {
               disabled: true,
@@ -322,10 +329,9 @@
             }
           : {}}
         onSelect={() => onItemAction(item, "leave")}
-        ><LogOutIcon
-          data-icon="inline-start"
-          aria-hidden="true"
-        />Leave</ContextMenu.Item
+        >{@render menuIcon(LogOutIcon)}Leave</ContextMenu.Item
+      ><ContextMenu.Item onSelect={() => onItemAction(item, "archive")}
+        >{@render menuIcon(ArchiveIcon)}Archive</ContextMenu.Item
       ><ContextMenu.Item
         variant="destructive"
         {...item.deleteDisabled
@@ -335,10 +341,7 @@
             }
           : {}}
         onSelect={() => onItemAction(item, "delete")}
-        ><TrashIcon
-          data-icon="inline-start"
-          aria-hidden="true"
-        />Delete</ContextMenu.Item
+        >{@render menuIcon(TrashIcon)}Delete</ContextMenu.Item
       ></ContextMenu.Group
     >{/if}
 {/snippet}
@@ -456,10 +459,7 @@
                           <DropdownMenu.Item
                             onSelect={() => onSectionAction(section, action)}
                           >
-                            <ActionIcon
-                              class="lc-community-navigation__menu-item-icon"
-                              aria-hidden="true"
-                            />
+                            {@render menuIcon(ActionIcon)}
                             <span>{action.label}</span>
                           </DropdownMenu.Item>
                         {/each}
@@ -472,30 +472,21 @@
                       <DropdownMenu.Group>
                         <DropdownMenu.Sub>
                           <DropdownMenu.SubTrigger>
-                            <ArrowUpDownIcon
-                              class="lc-community-navigation__menu-item-icon"
-                              aria-hidden="true"
-                            />
+                            {@render menuIcon(ArrowUpDownIcon)}
                             <span>Sort</span>
                           </DropdownMenu.SubTrigger>
-                          <DropdownMenu.SubContent>
+                          <DropdownMenu.SubContent class="lc-community-navigation__submenu-content">
                             <DropdownMenu.RadioGroup
                               value={sortFor(section.id)}
                               onValueChange={(value) =>
                                 sortSection(section, value)}
                             >
                               <DropdownMenu.RadioItem value="alphabetical">
-                                <ArrowDownAZIcon
-                                  class="lc-community-navigation__menu-item-icon"
-                                  aria-hidden="true"
-                                />
+                                {@render menuIcon(ArrowDownAZIcon)}
                                 <span>A - Z</span>
                               </DropdownMenu.RadioItem>
                               <DropdownMenu.RadioItem value="recent">
-                                <Clock3Icon
-                                  class="lc-community-navigation__menu-item-icon"
-                                  aria-hidden="true"
-                                />
+                                {@render menuIcon(Clock3Icon)}
                                 <span>Recent</span>
                               </DropdownMenu.RadioItem>
                             </DropdownMenu.RadioGroup>
@@ -520,6 +511,7 @@
                       variant="ghost"
                       size={compact ? "icon-sm" : "default"}
                       class="lc-community-navigation__item"
+                      data-unread={item.unreadCount ? "" : undefined}
                       data-active={activeItemId === item.id ? "" : undefined}
                       aria-current={activeItemId === item.id
                         ? "page"
@@ -539,7 +531,7 @@
                         >{/if}
                     </Button>
                   </ContextMenu.Trigger>
-                  <ContextMenu.Content
+                  <ContextMenu.Content class="lc-community-navigation__item-menu-content"
                     >{@render contextItemActions(item)}</ContextMenu.Content
                   >
                 </ContextMenu.Root>
@@ -555,7 +547,7 @@
                           ><EllipsisIcon aria-hidden="true" /></Button
                         >{/snippet}</DropdownMenu.Trigger
                     >
-                    <DropdownMenu.Content align="end"
+                    <DropdownMenu.Content align="end" class="lc-community-navigation__item-menu-content"
                       >{@render dropdownItemActions(item)}</DropdownMenu.Content
                     >
                   </DropdownMenu.Root>

@@ -18,6 +18,7 @@ export { default as CommunityDetails } from "./community-details/CommunityDetail
 export { default as CommunityDirectMessageComposer } from "./community-direct-message-composer/CommunityDirectMessageComposer.svelte";
 export { default as CommunityMessage } from "./community-message/CommunityMessage.svelte";
 export { default as CommunityNavigation } from "./community-navigation/CommunityNavigation.svelte";
+export { default as CommunityMemberProfile } from "./community-member-profile/CommunityMemberProfile.svelte";
 export { default as CommunityProfileMenu } from "./community-profile-menu/CommunityProfileMenu.svelte";
 export { default as CommunityRelaySettings } from "./community-relay-settings/CommunityRelaySettings.svelte";
 export { default as CommunitySettings } from "./community-settings/CommunitySettings.svelte";

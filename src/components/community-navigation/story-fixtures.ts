@@ -20,7 +20,9 @@ export const communityNavigationFixture: CommunityNavigationModel = {
       id: "channels",
       label: "Channels",
       primaryAction: { id: "create", label: "Create channel" },
-      actions: [{ id: "browse", label: "Browse channels", icon: "browse" }],
+      actions: [
+        { id: "browse", label: "Browse channels", icon: "browse-channels" },
+      ],
       sortable: true,
       items: [
         {
@@ -48,7 +50,9 @@ export const communityNavigationFixture: CommunityNavigationModel = {
       id: "forums",
       label: "Forums",
       primaryAction: { id: "create", label: "Create forum" },
-      actions: [{ id: "browse", label: "Browse forums", icon: "browse" }],
+      actions: [
+        { id: "browse", label: "Browse forums", icon: "browse-forums" },
+      ],
       sortable: true,
       items: [
         {

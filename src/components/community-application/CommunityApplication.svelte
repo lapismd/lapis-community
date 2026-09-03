@@ -40,6 +40,7 @@
   import type { CommunityInboxModel } from "../community-inbox/model.js";
   import CommunityNavigation from "../community-navigation/CommunityNavigation.svelte";
   import CommunityMemberCommand from "../community-member-command/CommunityMemberCommand.svelte";
+  import CommunityMemberProfile from "../community-member-profile/CommunityMemberProfile.svelte";
   import type {
     CommunityNavigationItemModel,
     CommunityNavigationItemAction,
@@ -141,6 +142,7 @@
   let sectionEditorMode = $state<"create" | "rename">("create");
   let sectionEditorId = $state("");
   let sectionName = $state("");
+  let selectedProfile = $state<CommunityMemberModel | null>(null);
 
   const workspace = $derived(community.state.workspace);
   const activeRoom = $derived(
@@ -202,7 +204,7 @@
                 {
                   id: "browse",
                   label: "Browse channels",
-                  icon: "browse" as const,
+                  icon: "browse-channels" as const,
                 },
                 { id: "new-section", label: "New section" },
               ],
@@ -215,8 +217,9 @@
                 {
                   id: "browse",
                   label: "Browse forums",
-                  icon: "browse" as const,
+                  icon: "browse-forums" as const,
                 },
+                { id: "new-section", label: "New section" },
               ],
             }
           : {}),
@@ -368,7 +371,9 @@
     activeDestination === "inbox" ? inbox.room : activeRoom,
   );
   const sidePanelTitle = $derived(
-    activeDestination !== "inbox" && workspaceSidePanel === "thread"
+    selectedProfile
+      ? "Profile"
+      : activeDestination !== "inbox" && workspaceSidePanel === "thread"
       ? "Thread"
       : detailsRoom.kind === "channel"
         ? "Channel settings"
@@ -376,6 +381,19 @@
           ? "Forum settings"
           : "Conversation details",
   );
+
+  function openProfile(member: CommunityMemberModel): void {
+    selectedProfile = member;
+    shell.right.open();
+    if (shell.mobile.resolvedMode === "mobile") {
+      const returnFocus =
+        document.activeElement instanceof HTMLElement
+          ? document.activeElement
+          : undefined;
+      shell.mobile.show("right", "right", returnFocus);
+    }
+    lastAction = `opened-profile:${member.id}`;
+  }
   const emojiOperation = $derived.by(() =>
     Object.entries(community.state.operations)
       .filter(([key]) => key.startsWith("settings:emoji:"))
@@ -600,6 +618,10 @@
           `${activeConnection.relayUrl}#${encodeURIComponent(item.id)}`,
           "Room link copied",
         );
+      if (action === "copy-name")
+        await copyText(item.label, "Channel name copied");
+      if (action === "copy-id")
+        await copyText(item.id, "Channel ID copied");
       if (action === "mark-read") await community.actions.markRead(item.id);
       if (action === "mark-unread") await community.actions.markUnread(item.id);
       if (action === "star" || action === "unstar")
@@ -608,11 +630,17 @@
         await community.actions.setRoomMuted(item.id, action === "mute");
       if (action === "hide")
         await community.actions.setRoomHidden(item.id, true);
+      if (action === "archive") await extensions.archive?.(item.id);
       if (action.startsWith("section:"))
         await community.actions.assignRoomToSection(
           item.id,
           action.slice("section:".length) || undefined,
         );
+      if (action === "create-section") {
+        sectionEditorMode = "create";
+        sectionName = "";
+        sectionEditorOpen = true;
+      }
       if (action === "settings") {
         setDestination(item.id, false);
         openSidePanel("details");
@@ -771,6 +799,7 @@
   }
 
   function closeSidePanel(): void {
+    selectedProfile = null;
     community.actions.closeSidePanel();
     shell.right.close();
     lastAction = "closed-side-panel";
@@ -1094,6 +1123,7 @@
           : { onHuddle: () => extensions.huddle?.(inbox.room.id) }}
         onReply={(messageId) => community.actions.setReplyTarget(messageId)}
         onToggleReaction={react}
+        onOpenProfile={openProfile}
         {...inbox.room.kind === "direct"
           ? {}
           : { onCopyMessageLink: copyMessageLink }}
@@ -1252,6 +1282,7 @@
               },
               onToggleReaction: react,
               onAddReaction: react,
+              onOpenProfile: openProfile,
               ...(activeRoom.kind === "direct"
                 ? {}
                 : { onCopyMessageLink: copyMessageLink }),
@@ -1318,7 +1349,24 @@
     resizeLabel={`Resize ${sidePanelTitle.toLowerCase()} sidebar`}
     closeable
   >
-    {#if activeDestination !== "inbox" && workspaceSidePanel === "thread" && workspace.thread}
+    {#if selectedProfile}
+      <AppShell.Sidebar.Header>
+        <strong>Profile</strong>
+        <AppShell.Sidebar.Close onclick={closeSidePanel} />
+      </AppShell.Sidebar.Header>
+      <AppShell.Sidebar.Body>
+        <CommunityMemberProfile
+          member={selectedProfile}
+          onMessage={() => {
+            selectedRecipientIds = [selectedProfile!.id];
+            community.actions.openDirectMessage(selectedRecipientIds);
+            setDestination(`dm:${selectedProfile!.id}`, true);
+          }}
+          onWave={() => toast.success(`Waved to ${selectedProfile!.name}`)}
+          onFollow={() => toast.success(`Following ${selectedProfile!.name}`)}
+        />
+      </AppShell.Sidebar.Body>
+    {:else if activeDestination !== "inbox" && workspaceSidePanel === "thread" && workspace.thread}
       <AppShell.Sidebar.Header>
         <PanelRightIcon aria-hidden="true" />
         <strong>{sidePanelTitle}</strong>
@@ -1589,7 +1637,7 @@
 </Dialog.Root>
 
 <Dialog.Root bind:open={sectionEditorOpen}>
-  <Dialog.Content>
+  <Dialog.Content class="community-application__section-dialog">
     <Dialog.Header
       ><Dialog.Title
         >{sectionEditorMode === "create"
@@ -1659,6 +1707,11 @@
   .community-application__status-input :global(input) {
     min-width: 0;
     flex: 1;
+  }
+
+  :global(.community-application__section-dialog) {
+    width: min(22rem, calc(100vw - 2rem));
+    max-width: 22rem;
   }
 
   :global(.community-application__relay-alert[data-ui-component="alert"]) {

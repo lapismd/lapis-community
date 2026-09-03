@@ -36,6 +36,7 @@
     onCopyMessage,
     onEditMessage,
     onDeleteMessage,
+    onOpenProfile,
     replyTarget,
     communityEmojis = [],
     onCancelReply,
@@ -63,6 +64,7 @@
     onCopyMessage?: (messageId: string) => void;
     onEditMessage?: (messageId: string) => void;
     onDeleteMessage?: (messageId: string) => void;
+    onOpenProfile?: (member: CommunityMemberModel) => void;
     replyTarget?: CommunityReplyTarget;
     communityEmojis?: readonly CommunityCustomEmoji[];
     onCancelReply?: () => void;
@@ -161,6 +163,7 @@
           {message}
           isContinuation={isMessageContinuation(messages, index)}
           author={memberById(members, message.authorId)}
+          {onOpenProfile}
           replyParticipants={(message.replyParticipantIds ?? []).map((id) =>
             memberById(members, id),
           )}
@@ -187,6 +190,8 @@
 
 <style>
   .community-conversation {
+    --ui-ai-chat-max-content-width: 100%;
+
     display: flex;
     width: 100%;
     min-width: 0;

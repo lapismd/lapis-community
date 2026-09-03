@@ -93,6 +93,9 @@
       {...handlers.onDeleteMessage === undefined
         ? {}
         : { onDeleteMessage: handlers.onDeleteMessage }}
+      {...handlers.onOpenProfile === undefined
+        ? {}
+        : { onOpenProfile: handlers.onOpenProfile }}
     >
       {#snippet intro()}
         {#if model.view === "forum-thread"}

@@ -149,12 +149,27 @@
 
 .lc-community-navigation__section-menu-content {
   width: max-content;
-  min-width: 11rem;
+  min-width: 15rem;
 }
 
-.lc-community-navigation__section-menu-content
-  .lc-community-navigation__menu-item-icon {
-  margin-inline-start: 0;
+.lc-community-navigation__item-menu-content,
+.lc-community-navigation__submenu-content {
+  width: max-content;
+  min-width: 15rem;
+}
+
+.lc-community-navigation__menu-icon-slot {
+  display: inline-flex;
+  width: 1rem;
+  height: 1rem;
+  flex: 0 0 1rem;
+  align-items: center;
+  justify-content: center;
+}
+
+.lc-community-navigation__menu-icon-slot > svg {
+  width: 1rem;
+  height: 1rem;
 }
 
 .lc-community-navigation__section [data-slot="collapsible-content"] {
@@ -220,6 +235,11 @@
 .lc-community-navigation__item[data-active][data-ui-component="button"] {
   color: var(--foreground);
   background: color-mix(in srgb, var(--foreground) 11%, transparent);
+}
+
+.lc-community-navigation__item[data-unread][data-ui-component="button"] {
+  color: var(--foreground);
+  font-weight: 650;
 }
 
 .lc-community-navigation__item > span:not([data-ui-component="badge"]) {
