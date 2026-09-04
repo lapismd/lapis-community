@@ -7,6 +7,12 @@
   import CommunityChannelSettings from "./CommunityChannelSettings.svelte";
 
   const controller = new AppShellController({ rightWidth: 320 });
+  const enabled = { state: "enabled" as const };
+  const requiresAuthentication = {
+    state: "requires-authentication" as const,
+    reason: "Sign in to manage this channel",
+    requirement: "authentication" as const,
+  };
 
   const { Story } = defineMeta({
     title: "Community/Channels/Channel Settings",
@@ -23,6 +29,15 @@
       ...communityInboxFixture.room,
       private: true,
       memberCount: communityInboxFixture.participantCount,
+      membership: "joined" as const,
+      permissions: {
+        publish: enabled,
+        join: enabled,
+        leave: enabled,
+        update: enabled,
+        delete: enabled,
+        manageMembers: enabled,
+      },
     },
     members: communityInboxFixture.members,
     description:
@@ -69,6 +84,53 @@
     await expect(
       canvas.getByRole("button", { name: "Close channel settings" }),
     ).toBeVisible();
+  }}
+>
+  {#snippet template(args)}
+    <CommunityAppShell
+      {controller}
+      displayMode="desktop"
+      desktopMinMainWidth={0}
+    >
+      <AppShell.Main>
+        <AppShell.Body label="Settings preview">Channel</AppShell.Body>
+      </AppShell.Main>
+      <AppShell.Sidebar side="right" label="Channel settings" closeable>
+        <CommunityChannelSettings {...args} />
+      </AppShell.Sidebar>
+    </CommunityAppShell>
+  {/snippet}
+</Story>
+
+<Story
+  name="Signed-out actions omitted"
+  args={{
+    room: {
+      ...communityInboxFixture.room,
+      permissions: {
+        publish: requiresAuthentication,
+        join: requiresAuthentication,
+        leave: requiresAuthentication,
+        update: requiresAuthentication,
+        delete: requiresAuthentication,
+        manageMembers: requiresAuthentication,
+      },
+    },
+    members: communityInboxFixture.members,
+    description: "Introductions and community onboarding",
+    onClose: fn(),
+    onAction: fn(),
+  }}
+  play={async ({ canvas, canvasElement }) => {
+    await expect(
+      canvas.queryByRole("button", { name: "Leave channel" }),
+    ).not.toBeInTheDocument();
+    await expect(
+      canvas.queryByRole("button", { name: "Delete channel" }),
+    ).not.toBeInTheDocument();
+    await expect(
+      canvasElement.querySelector(".lc-channel-settings__danger-zone"),
+    ).toBeNull();
   }}
 >
   {#snippet template(args)}

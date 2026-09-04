@@ -44,6 +44,9 @@
     room.permissions?.delete.state === undefined ||
       room.permissions.delete.state === "enabled",
   );
+  const hasDangerActions = $derived(
+    (canArchive && canUpdate) || canLeave || canDelete,
+  );
 </script>
 
 <AppShell.Sidebar.Header class="lc-channel-settings__header">
@@ -140,37 +143,39 @@
       </div>
     </section>
 
-    <section class="lc-channel-settings__danger-zone">
-      {#if canArchive && canUpdate}
-        <Button
-          variant="ghost"
-          class="lc-channel-settings__row"
-          onclick={() => onAction("archive-channel")}
-        >
-          <ArchiveIcon data-icon="inline-start" aria-hidden="true" />
-          <span>Archive {roomType.toLowerCase()}</span>
-        </Button>
-      {/if}
-      {#if canLeave}
-        <Button
-          variant="ghost"
-          class="lc-channel-settings__row lc-channel-settings__destructive"
-          onclick={() => onAction("leave-channel")}
-        >
-          <LogOutIcon data-icon="inline-start" aria-hidden="true" />
-          <span>Leave {roomType.toLowerCase()}</span>
-        </Button>
-      {/if}
-      {#if canDelete}
-        <Button
-          variant="ghost"
-          class="lc-channel-settings__row lc-channel-settings__destructive"
-          onclick={() => onAction("delete-channel")}
-        >
-          <Trash2Icon data-icon="inline-start" aria-hidden="true" />
-          <span>Delete {roomType.toLowerCase()}</span>
-        </Button>
-      {/if}
-    </section>
+    {#if hasDangerActions}
+      <section class="lc-channel-settings__danger-zone">
+        {#if canArchive && canUpdate}
+          <Button
+            variant="ghost"
+            class="lc-channel-settings__row"
+            onclick={() => onAction("archive-channel")}
+          >
+            <ArchiveIcon data-icon="inline-start" aria-hidden="true" />
+            <span>Archive {roomType.toLowerCase()}</span>
+          </Button>
+        {/if}
+        {#if canLeave}
+          <Button
+            variant="ghost"
+            class="lc-channel-settings__row lc-channel-settings__destructive"
+            onclick={() => onAction("leave-channel")}
+          >
+            <LogOutIcon data-icon="inline-start" aria-hidden="true" />
+            <span>Leave {roomType.toLowerCase()}</span>
+          </Button>
+        {/if}
+        {#if canDelete}
+          <Button
+            variant="ghost"
+            class="lc-channel-settings__row lc-channel-settings__destructive"
+            onclick={() => onAction("delete-channel")}
+          >
+            <Trash2Icon data-icon="inline-start" aria-hidden="true" />
+            <span>Delete {roomType.toLowerCase()}</span>
+          </Button>
+        {/if}
+      </section>
+    {/if}
   </div>
 </AppShell.Sidebar.Body>
