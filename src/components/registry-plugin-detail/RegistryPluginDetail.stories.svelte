@@ -48,6 +48,17 @@
   name="Available plugin"
   play={async ({ args, canvas, canvasElement }) => {
     const page = within(canvasElement.ownerDocument.body);
+    await userEvent.click(canvas.getByRole("button", { name: "More actions" }));
+    const menu = page.getByRole("menu");
+    await expect(
+      menu.querySelector('[data-ui-part$="-separator"]:last-child'),
+    ).toBeNull();
+    await userEvent.keyboard("{Escape}");
+    await waitFor(() =>
+      expect(canvasElement.ownerDocument.body.style.pointerEvents).not.toBe(
+        "none",
+      ),
+    );
     const banner = canvas.getByRole("button", {
       name: /Open AI Assistant banner/u,
     });
@@ -70,6 +81,11 @@
     await expect(page.getByRole("dialog")).toBeVisible();
     await userEvent.keyboard("{Escape}");
     await waitFor(() => expect(overview).toHaveFocus());
+    await waitFor(() =>
+      expect(canvasElement.ownerDocument.body.style.pointerEvents).not.toBe(
+        "none",
+      ),
+    );
 
     await userEvent.click(
       canvas.getByRole("button", { name: "Install in Lapis" }),

@@ -115,6 +115,9 @@
 
     await expect(browseChannels).toBeVisible();
     await expect(sortChannels).toBeVisible();
+    await expect(
+      menu.querySelector('[data-ui-part$="-separator"]:last-child'),
+    ).toBeNull();
     await expect(browseChannels).toHaveAttribute(
       "data-ui-part",
       "dropdown-menu-item",

@@ -78,6 +78,11 @@
     });
 
     await userEvent.click(inboxOptions);
+    await expect(
+      overlay
+        .getByRole("menu")
+        .querySelector('[data-ui-part$="-separator"]:last-child'),
+    ).toBeNull();
     await userEvent.click(
       overlay.getByRole("menuitemcheckbox", { name: "Show unread only" }),
     );

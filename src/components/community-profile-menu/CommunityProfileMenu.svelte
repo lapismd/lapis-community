@@ -88,64 +88,73 @@
         </span>
       </DropdownMenu.Label>
 
-      {#if authenticated}
-        <DropdownMenu.Item
-          class="community-profile-menu__status-action"
-          onSelect={() => onAction("update-status")}
-        >
-          <SmileIcon data-icon="inline-start" aria-hidden="true" />
-          <span>Update your status</span>
-        </DropdownMenu.Item>
-
-        <DropdownMenu.Separator />
-      {:else}
-        <DropdownMenu.Item onSelect={() => onAction("sign-in")}>
-          <LogInIcon data-icon="inline-start" aria-hidden="true" />
-          <span>Sign in</span>
-        </DropdownMenu.Item>
-
-        <DropdownMenu.Separator />
-      {/if}
-
-      <DropdownMenu.Sub>
-        <DropdownMenu.SubTrigger>
-          <span
-            class="community-profile-menu__community-icon"
-            aria-hidden="true">🐝</span
+      <DropdownMenu.Group>
+        {#if authenticated}
+          <DropdownMenu.Item
+            class="community-profile-menu__status-action"
+            onSelect={() => onAction("update-status")}
           >
-          <span class="community-profile-menu__community-label">
-            <span>{communityName}</span>
-            {#if connectionLabel}<small>{connectionLabel}</small>{/if}
-          </span>
-        </DropdownMenu.SubTrigger>
-        <DropdownMenu.SubContent>
-          <DropdownMenu.Item onSelect={() => onAction("community-settings")}>
-            Community settings
+            <SmileIcon data-icon="inline-start" aria-hidden="true" />
+            <span>Update your status</span>
           </DropdownMenu.Item>
-          {#if authenticated && canManageCommunity}
-            <DropdownMenu.Item onSelect={() => onAction("manage-members")}
-              >Manage members</DropdownMenu.Item
-            >
-          {/if}
-        </DropdownMenu.SubContent>
-      </DropdownMenu.Sub>
+        {:else}
+          <DropdownMenu.Item onSelect={() => onAction("sign-in")}>
+            <LogInIcon data-icon="inline-start" aria-hidden="true" />
+            <span>Sign in</span>
+          </DropdownMenu.Item>
+        {/if}
+      </DropdownMenu.Group>
 
       <DropdownMenu.Separator />
 
-      {#if canSendFeedback}
-        <DropdownMenu.Item onSelect={() => onAction("send-feedback")}
-          >Send feedback</DropdownMenu.Item
-        >
-      {/if}
-      {#if authenticated}
-        <DropdownMenu.Item onSelect={() => onAction("settings")}>
-          Settings
-          <DropdownMenu.Shortcut>⌘,</DropdownMenu.Shortcut>
-        </DropdownMenu.Item>
-        <DropdownMenu.Item onSelect={() => onAction("sign-out")}>
-          <LogOutIcon data-icon="inline-start" aria-hidden="true" />
-          Sign out
-        </DropdownMenu.Item>
+      <DropdownMenu.Group>
+        <DropdownMenu.Sub>
+          <DropdownMenu.SubTrigger>
+            <span
+              class="community-profile-menu__community-icon"
+              aria-hidden="true">🐝</span
+            >
+            <span class="community-profile-menu__community-label">
+              <span>{communityName}</span>
+              {#if connectionLabel}<small>{connectionLabel}</small>{/if}
+            </span>
+          </DropdownMenu.SubTrigger>
+          <DropdownMenu.SubContent>
+            <DropdownMenu.Group>
+              <DropdownMenu.Item
+                onSelect={() => onAction("community-settings")}
+              >
+                Community settings
+              </DropdownMenu.Item>
+              {#if authenticated && canManageCommunity}
+                <DropdownMenu.Item onSelect={() => onAction("manage-members")}
+                  >Manage members</DropdownMenu.Item
+                >
+              {/if}
+            </DropdownMenu.Group>
+          </DropdownMenu.SubContent>
+        </DropdownMenu.Sub>
+      </DropdownMenu.Group>
+
+      {#if canSendFeedback || authenticated}
+        <DropdownMenu.Separator />
+        <DropdownMenu.Group>
+          {#if canSendFeedback}
+            <DropdownMenu.Item onSelect={() => onAction("send-feedback")}
+              >Send feedback</DropdownMenu.Item
+            >
+          {/if}
+          {#if authenticated}
+            <DropdownMenu.Item onSelect={() => onAction("settings")}>
+              Settings
+              <DropdownMenu.Shortcut>⌘,</DropdownMenu.Shortcut>
+            </DropdownMenu.Item>
+            <DropdownMenu.Item onSelect={() => onAction("sign-out")}>
+              <LogOutIcon data-icon="inline-start" aria-hidden="true" />
+              Sign out
+            </DropdownMenu.Item>
+          {/if}
+        </DropdownMenu.Group>
       {/if}
     </DropdownMenu.Content>
   </DropdownMenu.Root>

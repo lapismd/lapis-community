@@ -1,6 +1,6 @@
 <script module lang="ts">
   import { defineMeta } from "@storybook/addon-svelte-csf";
-  import { expect, fn, userEvent, within } from "storybook/test";
+  import { expect, fn, userEvent, waitFor, within } from "storybook/test";
 
   import {
     communityStoryMembers,
@@ -25,7 +25,7 @@
     onOpenTopic: fn(),
     onCreateTopic: fn(async () => {}),
   }}
-  play={async ({ canvas }) => {
+  play={async ({ canvas, canvasElement }) => {
     const topic = canvas.getByRole("button", {
       name: "Open topic First-token latency with a large vault",
     });
@@ -50,6 +50,21 @@
       replyCount.getBoundingClientRect().width / 2;
     await expect(Math.abs(headingCenter - countCenter)).toBeLessThanOrEqual(1);
     await expect(canvas.getByText("Aug 2025")).toBeVisible();
+    await userEvent.click(
+      canvas.getByRole("button", {
+        name: "Open First-token latency with a large vault menu",
+      }),
+    );
+    const menu = within(canvasElement.ownerDocument.body).getByRole("menu");
+    await expect(
+      menu.querySelector('[data-ui-part$="-separator"]:last-child'),
+    ).toBeNull();
+    await userEvent.keyboard("{Escape}");
+    await waitFor(() =>
+      expect(canvasElement.ownerDocument.body.style.pointerEvents).not.toBe(
+        "none",
+      ),
+    );
     await userEvent.click(
       canvas.getByRole("button", {
         name: "Start a new post in support-ai",

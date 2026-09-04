@@ -63,13 +63,15 @@
         aria-hidden="true"
       />Mute</DropdownMenu.Item
     ></DropdownMenu.Group
-  >{#if canDeleteTopic(topic)}<DropdownMenu.Separator /><DropdownMenu.Item
-      variant="destructive"
-      onSelect={() => onTopicAction?.(topic.id, "delete")}
-      ><TrashIcon
-        data-icon="inline-start"
-        aria-hidden="true"
-      />Delete</DropdownMenu.Item
+  >{#if canDeleteTopic(topic)}<DropdownMenu.Separator /><DropdownMenu.Group
+      ><DropdownMenu.Item
+        variant="destructive"
+        onSelect={() => onTopicAction?.(topic.id, "delete")}
+        ><TrashIcon
+          data-icon="inline-start"
+          aria-hidden="true"
+        />Delete</DropdownMenu.Item
+      ></DropdownMenu.Group
     >{/if}
 {/snippet}
 
@@ -90,13 +92,15 @@
         aria-hidden="true"
       />Mute</ContextMenu.Item
     ></ContextMenu.Group
-  >{#if canDeleteTopic(topic)}<ContextMenu.Separator /><ContextMenu.Item
-      variant="destructive"
-      onSelect={() => onTopicAction?.(topic.id, "delete")}
-      ><TrashIcon
-        data-icon="inline-start"
-        aria-hidden="true"
-      />Delete</ContextMenu.Item
+  >{#if canDeleteTopic(topic)}<ContextMenu.Separator /><ContextMenu.Group
+      ><ContextMenu.Item
+        variant="destructive"
+        onSelect={() => onTopicAction?.(topic.id, "delete")}
+        ><TrashIcon
+          data-icon="inline-start"
+          aria-hidden="true"
+        />Delete</ContextMenu.Item
+      ></ContextMenu.Group
     >{/if}
 {/snippet}
 

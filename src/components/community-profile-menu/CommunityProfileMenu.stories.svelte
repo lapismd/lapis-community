@@ -78,7 +78,7 @@
     communityName: "buzz",
     authenticated: false,
     canManageCommunity: false,
-    canSendFeedback: true,
+    canSendFeedback: false,
     onAction: fn(),
   }}
   play={async ({ args, canvas, canvasElement }) => {
@@ -86,6 +86,10 @@
       canvas.getByRole("button", { name: "Open profile menu for Guest" }),
     );
     const overlay = within(canvasElement.ownerDocument.body);
+    const menu = overlay.getByRole("menu", { name: "Profile menu" });
+    await expect(
+      menu.querySelector('[data-ui-part$="-separator"]:last-child'),
+    ).toBeNull();
     await expect(
       overlay.queryByRole("menuitem", { name: "Update your status" }),
     ).not.toBeInTheDocument();

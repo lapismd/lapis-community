@@ -58,6 +58,13 @@
   const entry = $derived(resolved.entry);
   const detail = $derived(resolved.detail);
   const release = $derived(detail.versions[detail.latestVersion]);
+  const hasExternalLinks = $derived(
+    Boolean(
+      detail.links?.documentation ||
+        detail.links?.repository ||
+        detail.links?.issues,
+    ),
+  );
   const releases = $derived(
     Object.values(detail.versions).toSorted(
       (left, right) =>
@@ -290,43 +297,51 @@
             {/snippet}
           </DropdownMenu.Trigger>
           <DropdownMenu.Content align="start">
-            {#if detail.links?.documentation}
-              <DropdownMenu.Item
-                onSelect={() => openExternal(detail.links!.documentation!)}
-                ><BookOpenIcon
-                  data-icon="inline-start"
-                  aria-hidden="true"
-                />Documentation</DropdownMenu.Item
-              >
-            {/if}
-            {#if detail.links?.repository}
-              <DropdownMenu.Item
-                onSelect={() => openExternal(detail.links!.repository!)}
-                ><ExternalLinkIcon
-                  data-icon="inline-start"
-                  aria-hidden="true"
-                />Repository</DropdownMenu.Item
-              >
-            {/if}
-            {#if detail.links?.issues}
-              <DropdownMenu.Item
-                onSelect={() => openExternal(detail.links!.issues!)}
-                ><BugIcon data-icon="inline-start" aria-hidden="true" />Report
-                bug</DropdownMenu.Item
-              >
+            {#if hasExternalLinks}
+              <DropdownMenu.Group>
+                {#if detail.links?.documentation}
+                  <DropdownMenu.Item
+                    onSelect={() => openExternal(detail.links!.documentation!)}
+                    ><BookOpenIcon
+                      data-icon="inline-start"
+                      aria-hidden="true"
+                    />Documentation</DropdownMenu.Item
+                  >
+                {/if}
+                {#if detail.links?.repository}
+                  <DropdownMenu.Item
+                    onSelect={() => openExternal(detail.links!.repository!)}
+                    ><ExternalLinkIcon
+                      data-icon="inline-start"
+                      aria-hidden="true"
+                    />Repository</DropdownMenu.Item
+                  >
+                {/if}
+                {#if detail.links?.issues}
+                  <DropdownMenu.Item
+                    onSelect={() => openExternal(detail.links!.issues!)}
+                    ><BugIcon
+                      data-icon="inline-start"
+                      aria-hidden="true"
+                    />Report bug</DropdownMenu.Item
+                  >
+                {/if}
+              </DropdownMenu.Group>
             {/if}
             {#if release && release.bundle.pending !== true}
-              <DropdownMenu.Separator />
-              <DropdownMenu.Item
-                onSelect={() =>
-                  openExternal(
-                    release.bundle.downloadUrl ?? release.bundle.url,
-                  )}
-                ><DownloadIcon
-                  data-icon="inline-start"
-                  aria-hidden="true"
-                />Download .lapis-plugin</DropdownMenu.Item
-              >
+              {#if hasExternalLinks}<DropdownMenu.Separator />{/if}
+              <DropdownMenu.Group>
+                <DropdownMenu.Item
+                  onSelect={() =>
+                    openExternal(
+                      release.bundle.downloadUrl ?? release.bundle.url,
+                    )}
+                  ><DownloadIcon
+                    data-icon="inline-start"
+                    aria-hidden="true"
+                  />Download .lapis-plugin</DropdownMenu.Item
+                >
+              </DropdownMenu.Group>
             {/if}
           </DropdownMenu.Content>
         </DropdownMenu.Root>
