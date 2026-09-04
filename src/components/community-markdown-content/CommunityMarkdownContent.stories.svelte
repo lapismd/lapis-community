@@ -78,8 +78,34 @@
       ),
     ).toBeLessThan(2);
     const spoiler = canvas.getByRole("button", { name: "Reveal spoiler" });
-    await userEvent.click(spoiler);
+    const particleCanvas = spoiler.querySelector<HTMLCanvasElement>(
+      '[data-ui-part="spoiler-particles"]',
+    );
+    const spoilerContent = spoiler.querySelector<HTMLElement>(
+      '[data-ui-part="spoiler-content"]',
+    );
+    if (!particleCanvas || !spoilerContent) {
+      throw new Error("Expected the spoiler particle and content layers");
+    }
+    await expect(particleCanvas).toBeVisible();
+    await expect(particleCanvas.width).toBeGreaterThan(1);
+    await expect(getComputedStyle(spoilerContent).opacity).toBe("0");
+    await userEvent.hover(spoiler);
+    await expect(spoiler).toHaveAttribute("aria-pressed", "false");
+    spoiler.focus();
+    await expect(spoiler).toHaveAttribute("aria-pressed", "false");
+    await userEvent.keyboard("{Enter}");
     await expect(spoiler).toHaveAttribute("aria-pressed", "true");
+    await expect(spoiler).toHaveAttribute("data-revealed", "true");
+    await expect(spoilerContent).toHaveAttribute("aria-hidden", "false");
+  }}
+/>
+
+<Story
+  name="Sparkle spoilers"
+  args={{
+    content:
+      "The launch phrase is ||opal river||. A longer concealed passage like ||the relay migration begins after the final signature|| keeps its inline width while the particle density scales to the hidden content.",
   }}
 />
 

@@ -32,6 +32,11 @@
 For LC-UI-024, the composer shell MUST use Design Core's soft elevated shadow
 without adding a composer-wide focus ring around the Mira editing surface.
 
+For LC-UI-024, `||spoiler||` content MUST preserve its inline footprint while a
+theme-aware sparkle-particle surface conceals the text. Hover and focus MUST
+leave the content concealed, click and keyboard activation MUST toggle its
+revealed state, and reduced-motion rendering MUST keep the particles static.
+
 The package uses Design Core controls for shared interaction primitives. Local
 CSS owns the Discourse-inspired registry layout and the Slack/Buzz-style
 community content because timeline, post stream, room navigation, and
