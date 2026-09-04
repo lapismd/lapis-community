@@ -1,5 +1,5 @@
 <script module lang="ts">
-  import { expect, fn, userEvent, within } from "storybook/test";
+  import { expect, fn, userEvent, waitFor, within } from "storybook/test";
   import { defineMeta } from "@storybook/addon-svelte-csf";
 
   import CommunityEmojiPicker from "./CommunityEmojiPicker.svelte";
@@ -37,5 +37,38 @@
       within(document.body).getByRole("button", { name: "React 👍" }),
     );
     await expect(args.onSelect).toHaveBeenCalledWith("👍");
+  }}
+/>
+
+<Story
+  name="Full picker hover and selection"
+  args={{ label: "Choose reaction", onSelect: fn() }}
+  play={async ({ args, canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Choose reaction" }),
+    );
+    const picker = await waitFor(() => {
+      const element =
+        document.body.querySelector<HTMLElement>("em-emoji-picker");
+      expect(element?.shadowRoot).not.toBeNull();
+      return element!;
+    });
+    const emoji = await waitFor(() => {
+      const button = picker.shadowRoot?.querySelector<HTMLButtonElement>(
+        'button[aria-label="🤣"]',
+      );
+      expect(button).not.toBeNull();
+      return button!;
+    });
+    await userEvent.hover(emoji);
+    await waitFor(() => {
+      const background = emoji.querySelector<HTMLElement>(".background")!;
+      expect(getComputedStyle(background).backgroundColor).not.toBe(
+        "rgba(0, 0, 0, 0)",
+      );
+    });
+    await userEvent.click(emoji);
+    await expect(args.onSelect).toHaveBeenCalledWith("🤣");
   }}
 />

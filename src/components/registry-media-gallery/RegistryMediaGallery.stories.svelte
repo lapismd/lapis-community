@@ -6,11 +6,16 @@
   import RegistryMediaGallery from "./RegistryMediaGallery.svelte";
 
   const detail = registryStoryDetail();
+  const storyGallery = detail.gallery ?? [];
+  const galleryWithPreview = [
+    ...storyGallery,
+    { ...storyGallery[0]!, id: "third", alt: "Third screenshot preview" },
+  ];
   const { Story } = defineMeta({
     title: "Community/Registry/Media Gallery",
     component: RegistryMediaGallery,
     tags: ["visual-pending"],
-    args: { items: detail.gallery ?? [], pluginName: detail.name },
+    args: { items: storyGallery, pluginName: detail.name },
     parameters: {
       docs: {
         source: {
@@ -25,7 +30,19 @@
 <Story
   name="Accessible viewer"
   play={async ({ canvas, canvasElement }) => {
-    const trigger = canvas.getByRole("button", { name: /Open screenshot 1/u });
+    const slides = canvas.getAllByRole("button", { name: /Open screenshot/u });
+    const trigger = slides[0]!;
+    const frame = canvasElement.querySelector<HTMLElement>(
+      '[data-ui-part="registry-media-gallery-frame"]',
+    )!;
+    await expect(slides).toHaveLength(2);
+    await expect(slides[0]).toHaveAttribute("data-state", "active");
+    await expect(slides[1]).toHaveAttribute("data-state", "active");
+    await expect(Number(getComputedStyle(slides[0]!).opacity)).toBe(1);
+    await expect(Number(getComputedStyle(slides[1]!).opacity)).toBe(1);
+    await expect(slides[1]!.getBoundingClientRect().right).toBeLessThanOrEqual(
+      frame.getBoundingClientRect().right + 1,
+    );
     await userEvent.click(trigger);
     const overlay = within(canvasElement.ownerDocument.body);
     await expect(
@@ -46,5 +63,29 @@
     ).toBeDisabled();
     await userEvent.keyboard("{Escape}");
     await waitFor(() => expect(trigger).toHaveFocus());
+  }}
+/>
+
+<Story
+  name="Two images with next preview"
+  args={{ items: galleryWithPreview }}
+  play={async ({ canvas, canvasElement }) => {
+    const slides = canvas.getAllByRole("button", { name: /Open screenshot/u });
+    const frame = canvasElement.querySelector<HTMLElement>(
+      '[data-ui-part="registry-media-gallery-frame"]',
+    )!;
+    await expect(slides).toHaveLength(3);
+    await expect(slides[0]).toHaveAttribute("data-state", "active");
+    await expect(slides[1]).toHaveAttribute("data-state", "active");
+    await expect(slides[2]).toHaveAttribute("data-state", "preview");
+    await expect(Number(getComputedStyle(slides[0]!).opacity)).toBe(1);
+    await expect(Number(getComputedStyle(slides[1]!).opacity)).toBe(1);
+    await expect(Number(getComputedStyle(slides[2]!).opacity)).toBeLessThan(1);
+    await expect(slides[2]!.getBoundingClientRect().left).toBeLessThan(
+      frame.getBoundingClientRect().right,
+    );
+    await expect(slides[2]!.getBoundingClientRect().right).toBeGreaterThan(
+      frame.getBoundingClientRect().right,
+    );
   }}
 />

@@ -84,17 +84,25 @@
     >
       {pluginName} screenshots
     </h2>
-    <div class="registry-media-gallery__frame">
+    <div
+      class="registry-media-gallery__frame"
+      data-ui-part="registry-media-gallery-frame"
+    >
       <div
         bind:this={track}
         class="registry-media-gallery__track"
+        class:short={items.length < 3}
         aria-label={`${pluginName} screenshot carousel`}
         onscroll={updateTrackState}
       >
         {#each items as item, index (item.id)}
           <button
             type="button"
-            class:active={index === inlineIndex}
+            class:active={index >= inlineIndex && index < inlineIndex + 2}
+            data-ui-part="registry-media-gallery-item"
+            data-state={index >= inlineIndex && index < inlineIndex + 2
+              ? "active"
+              : "preview"}
             aria-label={`Open screenshot ${index + 1} of ${items.length}: ${item.alt}`}
             onclick={(event) => show(index, event.currentTarget)}
           >
@@ -108,16 +116,6 @@
           </button>
         {/each}
       </div>
-      <span
-        class="registry-media-gallery__fade registry-media-gallery__fade--start"
-        class:hidden={atStart}
-        aria-hidden="true"
-      ></span>
-      <span
-        class="registry-media-gallery__fade registry-media-gallery__fade--end"
-        class:hidden={atEnd}
-        aria-hidden="true"
-      ></span>
       {#if items.length > 1}
         <button
           class="registry-media-gallery__previous"
@@ -160,27 +158,35 @@
   .registry-media-gallery__track {
     display: flex;
     gap: 0.5rem;
+    padding-inline-end: 12%;
     overflow-x: auto;
     scrollbar-width: none;
     scroll-behavior: smooth;
     scroll-snap-type: x mandatory;
     overscroll-behavior-x: contain;
   }
+  .registry-media-gallery__track.short {
+    padding-inline-end: 0;
+  }
   .registry-media-gallery__track::-webkit-scrollbar {
     display: none;
   }
   .registry-media-gallery__track > button {
-    flex: 0 0 calc(50% - 0.25rem);
-    max-width: 34.75rem;
+    position: relative;
+    flex: 0 0 calc(44% - 0.25rem);
     overflow: hidden;
     border: 0;
     border-radius: 0.65rem;
     padding: 0;
     background: #09090b;
     cursor: zoom-in;
-    opacity: 0.18;
+    opacity: 0.28;
     scroll-snap-align: start;
-    transition: opacity 180ms ease;
+    scroll-snap-stop: always;
+    transition: opacity 200ms ease;
+  }
+  .registry-media-gallery__track.short > button {
+    flex-basis: calc(50% - 0.25rem);
   }
   .registry-media-gallery__track > button.active,
   .registry-media-gallery__track > button:hover,
@@ -196,26 +202,6 @@
     width: 100%;
     aspect-ratio: 3 / 2;
     object-fit: cover;
-  }
-  .registry-media-gallery__fade {
-    position: absolute;
-    z-index: 1;
-    top: 0;
-    bottom: 0;
-    width: 4rem;
-    pointer-events: none;
-    transition: opacity 160ms ease;
-  }
-  .registry-media-gallery__fade.hidden {
-    opacity: 0;
-  }
-  .registry-media-gallery__fade--start {
-    left: 0;
-    background: linear-gradient(to right, var(--background), transparent);
-  }
-  .registry-media-gallery__fade--end {
-    right: 0;
-    background: linear-gradient(to left, var(--background), transparent);
   }
   .registry-media-gallery__frame > button {
     position: absolute;
@@ -261,16 +247,17 @@
     border: 0;
   }
   @media (max-width: 45rem) {
+    .registry-media-gallery__track {
+      padding-inline-end: 0;
+    }
     .registry-media-gallery__track > button {
       flex-basis: 100%;
     }
-    .registry-media-gallery__fade,
     .registry-media-gallery__frame > button {
       display: none;
     }
   }
   @media (hover: none), (pointer: coarse) {
-    .registry-media-gallery__fade,
     .registry-media-gallery__frame > button {
       display: none;
     }

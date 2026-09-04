@@ -11,6 +11,7 @@ import {
   avatarHue,
   displayName,
   initials,
+  isValidNativeEmojiReaction,
   latestReactionByAuthor,
   materializeNip29Forum,
   materializeNip29Reactions,
@@ -49,6 +50,16 @@ describe("registry community model", () => {
     expect(
       anyRelayPublished([{ status: "rejected", reason: new Error("offline") }]),
     ).toBe(false);
+  });
+
+  it("accepts one native emoji grapheme for registry reactions", () => {
+    expect(isValidNativeEmojiReaction("🤣")).toBe(true);
+    expect(isValidNativeEmojiReaction("❤️")).toBe(true);
+    expect(isValidNativeEmojiReaction("🏳️‍🌈")).toBe(true);
+    expect(isValidNativeEmojiReaction("🇬🇧")).toBe(true);
+    expect(isValidNativeEmojiReaction("")).toBe(false);
+    expect(isValidNativeEmojiReaction("👍🎉")).toBe(false);
+    expect(isValidNativeEmojiReaction("reaction")).toBe(false);
   });
 
   it("projects current Nostr profiles with safe fallbacks", () => {

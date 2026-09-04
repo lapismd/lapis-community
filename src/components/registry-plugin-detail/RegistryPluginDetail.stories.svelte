@@ -50,6 +50,13 @@
     const page = within(canvasElement.ownerDocument.body);
     await userEvent.click(canvas.getByRole("button", { name: "More actions" }));
     const menu = page.getByRole("menu");
+    const downloadItem = page.getByRole("menuitem", {
+      name: "Download .lapis-plugin",
+    });
+    await expect(menu.scrollWidth).toBeLessThanOrEqual(menu.clientWidth);
+    await expect(downloadItem.scrollWidth).toBeLessThanOrEqual(
+      downloadItem.clientWidth,
+    );
     await expect(
       menu.querySelector('[data-ui-part$="-separator"]:last-child'),
     ).toBeNull();
@@ -110,6 +117,13 @@
     await expect(
       canvas.getByRole("link", { name: /By Lapis Labs/u }),
     ).toHaveAttribute("href", "https://example.com/authors/ai");
+    const healthBars = canvasElement.querySelectorAll(
+      '[data-ui-part="registry-plugin-health-bar"]',
+    );
+    await expect(healthBars).toHaveLength(2);
+    for (const bar of healthBars) {
+      await expect(bar.children).toHaveLength(4);
+    }
   }}
 />
 

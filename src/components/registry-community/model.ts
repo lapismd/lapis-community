@@ -31,6 +31,20 @@ export function anyRelayPublished(
   return results.some((result) => result.status === "fulfilled");
 }
 
+export function isValidNativeEmojiReaction(value: string): boolean {
+  const reaction = value.trim();
+  if (reaction === "") return false;
+  const graphemes = [
+    ...new Intl.Segmenter(undefined, { granularity: "grapheme" }).segment(
+      reaction,
+    ),
+  ];
+  return (
+    graphemes.length === 1 &&
+    /[\p{Extended_Pictographic}\p{Regional_Indicator}\u20e3]/u.test(reaction)
+  );
+}
+
 export function parseProfiles(
   events: readonly NostrEvent[],
 ): CommunityProfile[] {

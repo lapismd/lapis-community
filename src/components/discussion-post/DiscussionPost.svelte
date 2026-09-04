@@ -137,6 +137,7 @@
   }
 
   article.active {
+    border-radius: calc(var(--radius) * 1.25);
     background: linear-gradient(
       90deg,
       color-mix(in oklch, var(--primary) 10%, transparent),

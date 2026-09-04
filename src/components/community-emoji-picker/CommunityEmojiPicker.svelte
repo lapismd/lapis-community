@@ -34,6 +34,8 @@
       data,
       autoFocus: true,
       dynamicWidth: true,
+      emojiButtonColors: ["var(--community-emoji-picker-hover)"],
+      emojiButtonRadius: "0.4rem",
       navPosition: "bottom",
       previewPosition: "none",
       skinTonePosition: "search",
@@ -216,6 +218,11 @@
   }
 
   .community-emoji-picker__host :global(em-emoji-picker) {
+    --community-emoji-picker-hover: color-mix(
+      in srgb,
+      var(--foreground) 14%,
+      transparent
+    );
     --border-radius: 0;
     --shadow: none;
 

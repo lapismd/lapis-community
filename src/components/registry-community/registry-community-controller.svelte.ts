@@ -29,6 +29,7 @@ import {
 
 import {
   anyRelayPublished,
+  isValidNativeEmojiReaction,
   latestReactionByAuthor,
   materializeNip29Forum,
   materializeNip29Reactions,
@@ -892,14 +893,15 @@ export function createRegistryCommunityController(
   async function submitPluginReaction(
     reaction = selectedPluginReaction,
   ): Promise<void> {
-    selectedPluginReaction = reaction;
+    const normalizedReaction = reaction.trim();
+    selectedPluginReaction = normalizedReaction;
     const activeSigner = await ensureSigner();
     if (activeSigner === undefined) return;
     if (pluginRelease === undefined) {
       error = "This plugin does not have an approved NIP-29 release yet.";
       return;
     }
-    if (!["👍", "❤️", "🎉", "👀", "⭐"].includes(reaction)) {
+    if (!isValidNativeEmojiReaction(normalizedReaction)) {
       error = "Choose a reaction first.";
       return;
     }
@@ -910,7 +912,7 @@ export function createRegistryCommunityController(
       const event = await activeSigner.signEvent({
         kind: NIP29_KINDS.reaction,
         created_at: Math.floor(Date.now() / 1_000),
-        content: reaction,
+        content: normalizedReaction,
         tags: [
           ["e", pluginRelease.id],
           ["p", pluginRelease.pubkey],

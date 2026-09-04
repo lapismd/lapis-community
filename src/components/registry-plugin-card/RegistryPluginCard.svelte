@@ -84,20 +84,23 @@
     <span class="registry-plugin-card__description">{plugin.description}</span>
     {#if variant !== "compact"}
       <span class="registry-plugin-card__metadata">
-        <Badge variant="secondary">{registryStatusLabel(plugin.status)}</Badge>
         <span>{plugin.latestVersion}</span>
         {#if plugin.latestRelease}
           <span>{formatRegistryBytes(plugin.latestRelease.bundleSize)}</span>
         {/if}
         <span>{plugin.platforms.map(titleCaseRegistryValue).join(", ")}</span>
       </span>
-      {#if plugin.categories.length > 0}
-        <span class="registry-plugin-card__categories" aria-label="Categories">
-          {#each plugin.categories.slice(0, 3) as category}
-            <span>{titleCaseRegistryValue(category)}</span>
-          {/each}
-        </span>
-      {/if}
+      <span class="registry-plugin-card__categories" aria-label="Plugin tags">
+        <Badge
+          class="registry-plugin-card__status"
+          variant="outline"
+          data-status={plugin.status}
+          >{registryStatusLabel(plugin.status)}</Badge
+        >
+        {#each plugin.categories.slice(0, 3) as category}
+          <span>{titleCaseRegistryValue(category)}</span>
+        {/each}
+      </span>
     {/if}
   </span>
 </button>
@@ -212,8 +215,23 @@
   }
 
   .registry-plugin-card__categories > span {
+    border: 1px solid var(--border);
     border-radius: 999px;
     padding: 0.15rem 0.45rem;
-    background: var(--muted);
+    color: var(--foreground);
+    background: color-mix(in srgb, var(--secondary) 82%, var(--background));
+  }
+
+  :global(.registry-plugin-card__status) {
+    border-color: color-mix(in srgb, var(--primary) 34%, var(--border));
+    border-radius: 999px;
+    color: var(--foreground);
+    background: color-mix(in srgb, var(--primary) 12%, var(--background));
+  }
+
+  :global(.registry-plugin-card__status[data-status="active"]) {
+    border-color: color-mix(in srgb, #16a34a 44%, var(--border));
+    color: color-mix(in srgb, #16a34a 70%, var(--foreground));
+    background: color-mix(in srgb, #16a34a 14%, var(--background));
   }
 </style>

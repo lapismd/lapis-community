@@ -27,6 +27,8 @@
     onReact: fn(),
   }}
   play={async ({ args, canvas }) => {
+    const post = canvas.getByRole("article");
+    await expect(getComputedStyle(post).borderRadius).not.toBe("0px");
     await expect(
       canvas.getByText(/The local inference path is working well/u),
     ).toBeVisible();

@@ -296,7 +296,10 @@
               </Button>
             {/snippet}
           </DropdownMenu.Trigger>
-          <DropdownMenu.Content align="start">
+          <DropdownMenu.Content
+            align="start"
+            class="registry-plugin-detail__actions-menu"
+          >
             {#if hasExternalLinks}
               <DropdownMenu.Group>
                 {#if detail.links?.documentation}
@@ -479,23 +482,42 @@
         class="registry-plugin-detail__health"
         aria-label="Plugin health"
       >
-        <div>
-          <span><strong>Metadata</strong><strong>Signed</strong></span><progress
+        <div data-complete="true">
+          <span><strong>Metadata</strong><strong>Signed</strong></span>
+          <div
+            class="registry-plugin-detail__health-bar"
+            data-ui-part="registry-plugin-health-bar"
+            role="progressbar"
             aria-label="Metadata health"
-            max="4"
-            value="4"
-          ></progress>
+            aria-valuemin="0"
+            aria-valuemax="4"
+            aria-valuenow="4"
+            aria-valuetext="Signed, 4 of 4 checks ready"
+          >
+            {#each Array.from({ length: 4 }) as _}<i data-active="true"
+              ></i>{/each}
+          </div>
         </div>
-        <div>
+        <div data-complete={bundleHealth === 4 ? "true" : "false"}>
           <span
             ><strong>Plugin bundle</strong><strong
               >{bundleHealth === 4 ? "Ready" : "Pending"}</strong
             ></span
-          ><progress
+          >
+          <div
+            class="registry-plugin-detail__health-bar"
+            data-ui-part="registry-plugin-health-bar"
+            role="progressbar"
             aria-label="Plugin bundle health"
-            max="4"
-            value={bundleHealth}
-          ></progress>
+            aria-valuemin="0"
+            aria-valuemax="4"
+            aria-valuenow={bundleHealth}
+            aria-valuetext={`${bundleHealth === 4 ? "Ready" : "Pending"}, ${bundleHealth} of 4 checks ready`}
+          >
+            {#each Array.from({ length: 4 }) as _, index}
+              <i data-active={index < bundleHealth ? "true" : "false"}></i>
+            {/each}
+          </div>
         </div>
       </section>
       <section>
@@ -759,6 +781,18 @@
     color: var(--destructive);
   }
 
+  :global(
+      .registry-plugin-detail__actions-menu[data-ui-part="dropdown-menu-content"]
+    ) {
+    min-width: 13rem;
+  }
+
+  :global(
+      .registry-plugin-detail__actions-menu [data-ui-part="dropdown-menu-item"]
+    ) {
+    white-space: nowrap;
+  }
+
   .registry-plugin-detail__content-warning {
     margin: 0;
     border: 1px solid var(--border);
@@ -892,10 +926,31 @@
     gap: 1rem;
     font-size: 0.8rem;
   }
-  .registry-plugin-detail__health progress {
-    width: 100%;
-    height: 0.35rem;
-    accent-color: var(--primary);
+  .registry-plugin-detail__health
+    > div[data-complete="true"]
+    span
+    strong:last-child {
+    color: color-mix(in srgb, #16a34a 78%, var(--foreground));
+  }
+  .registry-plugin-detail__health-bar {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 0.25rem;
+    height: 0.375rem;
+  }
+  .registry-plugin-detail__health-bar i {
+    display: block;
+    border-radius: 999px;
+    background: var(--muted);
+  }
+  .registry-plugin-detail__health-bar i[data-active="true"] {
+    background: var(--primary);
+  }
+  .registry-plugin-detail__health
+    > div[data-complete="true"]
+    .registry-plugin-detail__health-bar
+    i[data-active="true"] {
+    background: color-mix(in srgb, #16a34a 78%, var(--primary));
   }
   dl {
     display: grid;
