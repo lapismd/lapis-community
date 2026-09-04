@@ -107,8 +107,12 @@
     "checks": "pnpm check:format && pnpm spec:check && pnpm check && pnpm test && pnpm test:storybook && pnpm test:storybook:docker && pnpm build-storybook && pnpm build"
   },
   "dependencies": {
+    "@codemirror/autocomplete": "^6.20.3",
+    "@codemirror/state": "^6.7.2",
+    "@codemirror/view": "^6.43.10",
     "@emoji-mart/data": "^1.2.1",
     "@lapismd/design-core": "^0.1.0",
+    "@lapismd/mira": "^0.0.2",
     "@lucide/svelte": "^1.21.0",
     "@noble/hashes": "^2.4.0",
     "@tursodatabase/database-wasm": "0.7.2",

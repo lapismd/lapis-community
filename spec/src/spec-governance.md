@@ -15,7 +15,10 @@ runtime dependencies use ordinary npm semantic-version ranges and never local
 workspace, file, or link dependencies. The package-owned rebuildable event
 cache uses `idb` for its durable fallback and lazily loads
 `@tursodatabase/database-wasm` only when the host meets the OPFS isolation
-requirements.
+requirements. The package-owned chat authoring surface uses the published
+`@lapismd/mira` package and its public CodeMirror peer APIs for live Markdown,
+completion, selection, and keyboard behavior; Design Core remains the owner of
+the surrounding buttons, dialogs, inputs, progress, and application chrome.
 
 Relay conformance tests live under the test-only package entry point. They run
 in memory by default and may target the disposable Docker relay without adding

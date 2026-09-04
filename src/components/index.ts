@@ -10,6 +10,19 @@ export {
   type CommunityLoginMethodModel,
 } from "./community-login/model.js";
 export { default as CommunityEmojiPicker } from "./community-emoji-picker/CommunityEmojiPicker.svelte";
+export { default as CommunityChatComposer } from "./community-chat-composer/CommunityChatComposer.svelte";
+export type {
+  CommunityComposerAttachment,
+  CommunityComposerAttachmentStatus,
+  CommunityComposerContext,
+  CommunityComposerDraft,
+  CommunityComposerDraftStore,
+  CommunityComposerReferences,
+  CommunityComposerSubmission,
+  CommunityMessageMediaAdapter,
+  CommunityUploadedMedia,
+} from "./community-chat-composer/model.js";
+export { default as CommunityMarkdownContent } from "./community-markdown-content/CommunityMarkdownContent.svelte";
 export { default as CommunityMemberCommand } from "./community-member-command/CommunityMemberCommand.svelte";
 export { default as CommunityMemberAvatar } from "./community-member-avatar/CommunityMemberAvatar.svelte";
 export { default as CommunityMemberHoverCard } from "./community-member-hover-card/CommunityMemberHoverCard.svelte";
