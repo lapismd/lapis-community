@@ -50,6 +50,26 @@
     onCopyMessageLink: fn(),
     onDeleteMessage: fn(),
   }}
+  play={async ({ canvas }) => {
+    const list = canvas.getByRole("log", { name: "general messages" });
+    const inner = list.querySelector<HTMLElement>(
+      ':scope > [data-ui-part="list-inner"]',
+    );
+    const spacer = inner?.querySelector<HTMLElement>(
+      ':scope > [data-ui-part="list-spacer"]',
+    );
+    const firstContent = spacer?.nextElementSibling as HTMLElement | null;
+    await expect(inner).not.toBeNull();
+    await expect(spacer).not.toBeNull();
+    await expect(firstContent).not.toBeNull();
+    await expect(getComputedStyle(spacer!).display).toBe("none");
+    await expect(
+      firstContent!.getBoundingClientRect().top -
+        inner!.getBoundingClientRect().top,
+    ).toBeLessThanOrEqual(
+      Number.parseFloat(getComputedStyle(inner!).paddingTop) + 1,
+    );
+  }}
 >
   {#snippet template(args)}
     <div

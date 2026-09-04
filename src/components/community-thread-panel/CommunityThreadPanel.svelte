@@ -220,6 +220,17 @@
     max-width: none;
   }
 
+  .community-thread-panel :global([data-ui-part="list-spacer"]) {
+    display: none;
+  }
+
+  .community-thread-panel
+    :global(
+      [data-ui-component="ai-chat-message-list"] [data-ui-part="list-inner"]
+    ) {
+    justify-content: flex-start;
+  }
+
   .community-thread-panel
     :global(
       [data-ui-component="ai-chat-layout"] > [data-ui-part="scroll-shell"]

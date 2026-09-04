@@ -64,6 +64,11 @@ clipping ancestor leaves insufficient room above. Its result list MUST use the
 public Design Core Scroll Area instead of applying native overflow to the
 listbox.
 
+For LC-UI-014, every channel, forum, direct-message, Inbox conversation, and
+thread message list MUST start its first content at the top padding of the
+available viewport instead of inserting Design Core's flexible bottom-alignment
+spacer.
+
 The package uses Design Core controls for shared interaction primitives. Local
 CSS owns the Discourse-inspired registry layout and the Slack/Buzz-style
 community content because timeline, post stream, room navigation, and

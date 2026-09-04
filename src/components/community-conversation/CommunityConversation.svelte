@@ -352,12 +352,11 @@
     display: block;
   }
 
-  .community-conversation[data-room-kind="forum"]
-    :global([data-ui-part="list-spacer"]) {
+  .community-conversation :global([data-ui-part="list-spacer"]) {
     display: none;
   }
 
-  .community-conversation[data-room-kind="forum"]
+  .community-conversation
     :global(
       [data-ui-component="ai-chat-message-list"] [data-ui-part="list-inner"]
     ) {
