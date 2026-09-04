@@ -706,10 +706,15 @@
   ): Promise<void> {
     await runAuthenticated(async () => {
       const room = roomByWorkspaceId(roomId);
+      const availability =
+        actionKind === "reaction"
+          ? (room?.permissions?.react ?? room?.permissions?.publish)
+          : room?.permissions?.publish;
       if (
         room === undefined ||
         room.kind === "direct" ||
-        room.membership !== "not-joined"
+        room.membership !== "not-joined" ||
+        availability?.requirement !== "membership"
       ) {
         await action();
         return;

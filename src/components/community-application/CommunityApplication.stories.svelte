@@ -363,7 +363,7 @@
 </Story>
 
 <Story
-  name="Post joins after login"
+  name="Open-group post publishes after login"
   play={async ({ canvas, canvasElement }) => {
     const application = await canvas.findByTestId(
       "full-community-application",
@@ -383,7 +383,7 @@
       await canvas.findByRole("button", { name: "general" }),
     );
     const composer = canvas.getByRole("combobox", { name: "Message" });
-    await userEvent.type(composer, "Send this after joining");
+    await userEvent.type(composer, "Send this after signing in");
     await userEvent.keyboard("{Enter}");
 
     const loginDialog = await overlay.findByRole("dialog", {
@@ -404,24 +404,14 @@
       timeout: 8_000,
     });
 
-    const joinDialog = await overlay.findByRole("alertdialog", {
-      name: "Join general to continue?",
-    });
     await expect(
-      within(joinDialog).getByText(/original action/u),
-    ).toBeVisible();
-    await expect(
-      canvas.queryByText("Send this after joining"),
+      overlay.queryByRole("alertdialog", {
+        name: "Join general to continue?",
+      }),
     ).not.toBeInTheDocument();
-    await userEvent.click(
-      within(joinDialog).getByRole("button", { name: "Join Channel" }),
-    );
-    await waitFor(() => expect(joinDialog).not.toBeInTheDocument(), {
-      timeout: 15_000,
-    });
     await expect(
       await canvas.findByText(
-        "Send this after joining",
+        "Send this after signing in",
         {},
         { timeout: 15_000 },
       ),
@@ -443,7 +433,7 @@
 </Story>
 
 <Story
-  name="Reaction joins after login"
+  name="Open-group reaction publishes after login"
   play={async ({ canvas, canvasElement }) => {
     const application = await canvas.findByTestId(
       "full-community-application",
@@ -508,18 +498,11 @@
       timeout: 8_000,
     });
 
-    const joinDialog = await overlay.findByRole("alertdialog", {
-      name: "Join support to continue?",
-    });
     await expect(
-      within(joinDialog).getByText(/reaction is sent/u),
-    ).toBeVisible();
-    await userEvent.click(
-      within(joinDialog).getByRole("button", { name: "Join Forum" }),
-    );
-    await waitFor(() => expect(joinDialog).not.toBeInTheDocument(), {
-      timeout: 15_000,
-    });
+      overlay.queryByRole("alertdialog", {
+        name: "Join support to continue?",
+      }),
+    ).not.toBeInTheDocument();
     await waitFor(
       () =>
         expect(application).toHaveAttribute(

@@ -11,10 +11,12 @@ export type CommunityActionAvailabilityState =
 export interface CommunityActionAvailability {
   state: CommunityActionAvailabilityState;
   reason?: string;
+  requirement?: "authentication" | "membership" | "writer";
 }
 
 export interface CommunityRoomActionPermissions {
   publish: CommunityActionAvailability;
+  react?: CommunityActionAvailability;
   join: CommunityActionAvailability;
   leave: CommunityActionAvailability;
   update: CommunityActionAvailability;

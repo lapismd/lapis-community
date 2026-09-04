@@ -667,7 +667,7 @@ export function createCommunityController(
           "validation",
           "Choose a reaction before publishing",
         );
-      assertCanPublish(room.id, operation);
+      assertCanReact(room.id, operation);
       await ensureIdentity(`reaction:${eventId}:${emoji}`);
       const previous = activeEvents().find(
         (event) =>
@@ -1342,15 +1342,28 @@ export function createCommunityController(
   }
 
   function assertCanPublish(roomId: string, operation: string): void {
+    assertRoomActionAvailable(roomId, operation, "publish");
+  }
+
+  function assertCanReact(roomId: string, operation: string): void {
+    assertRoomActionAvailable(roomId, operation, "react");
+  }
+
+  function assertRoomActionAvailable(
+    roomId: string,
+    operation: string,
+    action: "publish" | "react",
+  ): void {
     const room = workspaceRoomById(roomId);
     if (room === undefined) {
       throwOperationFailure(operation, "validation", "Room is unavailable");
     }
-    const availability = room.permissions?.publish;
+    const availability =
+      room.permissions?.[action] ?? room.permissions?.publish;
     if (availability?.state === "denied") {
       throwOperationFailure(
         operation,
-        room.membership === "not-joined" ? "membership" : "restricted",
+        availability.requirement === "membership" ? "membership" : "restricted",
         availability.reason ??
           "The relay has not granted permission to publish here",
       );
@@ -1359,7 +1372,8 @@ export function createCommunityController(
       throwOperationFailure(
         operation,
         "restricted",
-        availability.reason ?? "Publishing is not supported in this room",
+        availability.reason ??
+          `${action === "react" ? "Reacting" : "Publishing"} is not supported in this room`,
       );
     }
   }

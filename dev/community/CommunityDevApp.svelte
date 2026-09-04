@@ -19,7 +19,7 @@
     COMMUNITY_LOGIN_METHODS,
     type CommunityLoginMethodModel,
   } from "../../src/components/community-login/model.js";
-  import { createRegistryStoryDataSource } from "../../src/components/registry-browser/story-fixtures.js";
+  import { createNip29RegistryCatalogDataSource } from "../../src/registry/index.js";
   import { createWebSocketCommunityRelayFactory } from "../../src/nostr/index.js";
   import { LAPIS_GROUPS, lapisGroupId } from "../../src/protocol/index.js";
   import { hexToBytes } from "@noble/hashes/utils.js";
@@ -31,7 +31,39 @@
   const relayUrl =
     import.meta.env.VITE_COMMUNITY_LIVE_RELAY_URL?.trim() ||
     "ws://registry.localhost:8281";
-  const registrySource = createRegistryStoryDataSource();
+  const values = (value: string | undefined): string[] =>
+    (value ?? "")
+      .split(",")
+      .map((item) => item.trim())
+      .filter(Boolean);
+  const registryRelays = values(import.meta.env.VITE_REGISTRY_RELAYS);
+  const registryCurators = new Set(
+    values(import.meta.env.VITE_REGISTRY_CURATOR_PUBKEYS),
+  );
+  const registryPublishers = new Set(
+    values(import.meta.env.VITE_REGISTRY_PUBLISHER_PUBKEYS),
+  );
+  const registryConfigurationError =
+    registryRelays.length === 0 ||
+    registryCurators.size === 0 ||
+    registryPublishers.size === 0
+      ? "Run pnpm local:up before dev:community so the live registry trust configuration is available"
+      : "";
+  const registrySource =
+    registryConfigurationError === ""
+      ? createNip29RegistryCatalogDataSource({
+          relays: registryRelays,
+          authorities: {
+            curatorPubkeys: registryCurators,
+            publisherPubkeysByPlugin: new Map(),
+            defaultPublisherPubkeys: registryPublishers,
+          },
+          relayFactory: createWebSocketCommunityRelayFactory(),
+          ...(import.meta.env.VITE_BLOSSOM_URL?.trim()
+            ? { blossomUrl: import.meta.env.VITE_BLOSSOM_URL.trim() }
+            : {}),
+        })
+      : undefined;
   const loginMethods: readonly CommunityLoginMethodModel[] = [
     COMMUNITY_LOGIN_METHODS.browserExtension,
     COMMUNITY_LOGIN_METHODS.remoteSigner,
@@ -47,6 +79,13 @@
   let runtimeError = $state("");
   let remoteSignerUrl = $state("");
   let activeBunker = $state.raw<BunkerSigner>();
+  let activeIdentity = $state.raw<CommunityIdentity>();
+
+  $effect(() => {
+    if (controller?.state.authentication.status === "anonymous") {
+      activeIdentity = undefined;
+    }
+  });
 
   onMount(() => {
     const relayFactory = createWebSocketCommunityRelayFactory();
@@ -102,6 +141,7 @@
 
     return () => {
       controller?.dispose();
+      registrySource?.dispose();
       void activeBunker?.close();
     };
   });
@@ -148,22 +188,24 @@
     methodId: string,
     credentials?: CommunityLoginCredentials,
   ): Promise<CommunityIdentity> {
+    let identity: CommunityIdentity;
     if (methodId === COMMUNITY_LOGIN_METHODS.browserExtension.id) {
       const identity = new Nip07RegistrySigner();
       await identity.getPublicKey();
+      activeIdentity = identity;
       return identity;
-    }
-    if (methodId === COMMUNITY_LOGIN_METHODS.remoteSigner.id) {
-      return await remoteIdentity();
-    }
-    if (methodId === COMMUNITY_LOGIN_METHODS.createAccount.id) {
-      return new SecretKeyRegistrySigner(generateSecretKey());
-    }
-    if (methodId === COMMUNITY_LOGIN_METHODS.privateKey.id) {
+    } else if (methodId === COMMUNITY_LOGIN_METHODS.remoteSigner.id) {
+      identity = await remoteIdentity();
+    } else if (methodId === COMMUNITY_LOGIN_METHODS.createAccount.id) {
+      identity = new SecretKeyRegistrySigner(generateSecretKey());
+    } else if (methodId === COMMUNITY_LOGIN_METHODS.privateKey.id) {
       if (credentials === undefined) throw new Error("Private key is required");
-      return new SecretKeyRegistrySigner(secretKey(credentials.privateKey));
+      identity = new SecretKeyRegistrySigner(secretKey(credentials.privateKey));
+    } else {
+      throw new Error(`Unknown login method: ${methodId}`);
     }
-    throw new Error(`Unknown login method: ${methodId}`);
+    activeIdentity = identity;
+    return identity;
   }
 </script>
 
@@ -191,18 +233,29 @@
     {#if runtimeError}
       <div class="community-dev__error" role="alert">{runtimeError}</div>
     {:else if controller}
-      <CommunityApplication
-        {controller}
-        initialDestination="general"
-        registryOptions={{ source: registrySource }}
-        loginOptions={{
-          methods: loginMethods,
-          allowLocalKeyMethods: true,
-          connect: connectIdentity,
-          title: "Sign in to the live community",
-          description: "Choose a development identity provider",
-        }}
-      />
+      {#if registrySource}
+        <CommunityApplication
+          {controller}
+          initialDestination="general"
+          registryOptions={{
+            source: registrySource,
+            ...(activeIdentity === undefined
+              ? {}
+              : { discussionIdentity: activeIdentity }),
+          }}
+          loginOptions={{
+            methods: loginMethods,
+            allowLocalKeyMethods: true,
+            connect: connectIdentity,
+            title: "Sign in to the live community",
+            description: "Choose a development identity provider",
+          }}
+        />
+      {:else}
+        <div class="community-dev__error" role="alert">
+          {registryConfigurationError}
+        </div>
+      {/if}
     {:else}
       <p class="community-dev__loading" role="status">
         Connecting to {relayUrl}…

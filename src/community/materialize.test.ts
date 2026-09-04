@@ -272,10 +272,44 @@ describe("materializeCommunityWorkspace", () => {
       state: "denied",
       reason: "A writer or administrator role is required to publish here",
     });
+    expect(project(reader.pubkey)?.permissions?.react).toEqual({
+      state: "enabled",
+    });
     expect(project(reader.pubkey)?.permissions?.manageMembers.state).toBe(
       "denied",
     );
     expect(project(writer.pubkey)?.permissions?.publish.state).toBe("enabled");
+    const outsider = finalizeEvent(
+      { kind: 0, created_at: 1, content: "{}", tags: [] },
+      new Uint8Array(32).fill(74),
+    );
+    const closedEvents = events.map((event) =>
+      event.kind === 39_000
+        ? finalizeEvent(
+            {
+              kind: 39_000,
+              created_at: 3,
+              content: JSON.stringify({
+                closed: true,
+                "write-restricted": true,
+              }),
+              tags: [["d", "writers"], ["closed"], ["write-restricted"]],
+            },
+            relayKey,
+          )
+        : event,
+    );
+    const closedOutsider = materializeCommunityWorkspace(
+      [scope],
+      { [scope.id]: closedEvents },
+      scope.id,
+      { activeRoomId: "writers", identityPubkey: outsider.pubkey },
+    ).navigationSections[0]?.rooms[0];
+    expect(closedOutsider?.permissions?.publish.requirement).toBe("membership");
+    expect(closedOutsider?.permissions?.react).toMatchObject({
+      state: "denied",
+      requirement: "membership",
+    });
     const unknownMembership = materializeCommunityWorkspace(
       [scope],
       { [scope.id]: events.filter((event) => event.kind !== 39_002) },

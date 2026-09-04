@@ -350,7 +350,7 @@ describe("createCommunityController", () => {
     });
   });
 
-  it("requires a known nonmember to join before publishing", async () => {
+  it("lets a known nonmember publish to an open group", async () => {
     const scenario = createCommunityTestScenario({ namespace: "membership" });
     const relayFactory = createInMemoryRelayFactory({
       policy: new Nip29MemoryPolicy({
@@ -375,27 +375,14 @@ describe("createCommunityController", () => {
       membership: "not-joined",
       permissions: {
         publish: {
-          state: "denied",
-          reason: "Join this room before posting or reacting",
+          state: "enabled",
         },
+        react: { state: "enabled" },
       },
     });
-    await expect(
-      controller.actions.sendMessage("general", "Before joining"),
-    ).rejects.toThrow("Join this room before posting or reacting");
-
-    await controller.actions.join("general");
-    expect(
-      controller.state.workspace.navigationSections
-        .flatMap((section) => section.rooms)
-        .find((candidate) => candidate.id === "general"),
-    ).toMatchObject({
-      membership: "joined",
-      permissions: { publish: { state: "enabled" } },
-    });
-    await controller.actions.sendMessage("general", "After joining");
+    await controller.actions.sendMessage("general", "Before joining");
     expect(controller.state.workspace.messages.at(-1)?.content).toBe(
-      "After joining",
+      "Before joining",
     );
     controller.dispose();
     relayFactory.reset();

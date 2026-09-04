@@ -105,6 +105,10 @@ pnpm dev:community
 
 The app opens at `http://127.0.0.1:7036`, connects to
 `ws://registry.localhost:8281`, discovers public rooms, and uses Vite HMR. Its
+Registry view reads the live signed catalog and plugin discussions from that
+stack. The Vite config loads only the public curator and publisher keys from
+`.local/registry-fixture/fixture.env`; explicit `VITE_REGISTRY_*` values take
+precedence.
 Guest profile menu exposes browser-extension, NIP-46 remote-signer, ephemeral
 account, and private-key login flows. Expand **Development controls** before
 selecting Remote signer to provide its bunker URL; that value remains only in

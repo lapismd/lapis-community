@@ -488,6 +488,7 @@ function roomModel(
   const authenticationRequired = {
     state: "requires-authentication" as const,
     reason: "Connect a NIP-07 identity to perform this action",
+    requirement: "authentication" as const,
   };
   const denied = {
     state: "denied" as const,
@@ -496,11 +497,18 @@ function roomModel(
   const enabled = { state: "enabled" as const };
   const membershipDenied = {
     state: "denied" as const,
-    reason: "Join this room before posting or reacting",
+    reason: "Join this room before posting",
+    requirement: "membership" as const,
+  };
+  const reactionMembershipDenied = {
+    state: "denied" as const,
+    reason: "Join this room before reacting",
+    requirement: "membership" as const,
   };
   const writerDenied = {
     state: "denied" as const,
     reason: "A writer or administrator role is required to publish here",
+    requirement: "writer" as const,
   };
   const administrativeAvailability =
     identityPubkey === undefined
@@ -534,16 +542,20 @@ function roomModel(
       publish:
         identityPubkey === undefined
           ? authenticationRequired
-          : members !== undefined && joined !== true
+          : membershipRequired && joined === false
             ? membershipDenied
             : writerRequired &&
                 members !== undefined &&
                 !administrator &&
                 !memberRoles.includes("writer")
               ? writerDenied
-              : membershipRequired && joined === false
-                ? membershipDenied
-                : enabled,
+              : enabled,
+      react:
+        identityPubkey === undefined
+          ? authenticationRequired
+          : membershipRequired && joined === false
+            ? reactionMembershipDenied
+            : enabled,
       join:
         identityPubkey === undefined
           ? authenticationRequired
