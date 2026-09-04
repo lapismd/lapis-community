@@ -41,7 +41,7 @@
   name="Chat Markdown matrix"
   args={{
     content:
-      'Hello @Ben Stone — the **registry fixture** is ready in #plugin-development :lapis:.\n\n> Signed events remain the source of truth.\n\n- Verify the release manifest\n- Run `pnpm local:smoke`\n\n```ts\nconst source = "nostr";\n```\n\nA [safe link](https://lapis.md) and ||a spoiler for reviewers||.',
+      'Hello @Ben Stone — the **registry fixture** is ready in #plugin-development :lapis: :shipit:.\n\n> Signed events remain the source of truth.\n\n- Verify the release manifest\n- Run `pnpm local:smoke`\n\n```ts\nconst source = "nostr";\n```\n\nA [safe link](https://lapis.md) and ||a spoiler for reviewers||.',
     mentionPubkeys: ["ben"],
     members: communityComposerStoryMembers,
     rooms: communityComposerStoryRooms,
@@ -58,6 +58,8 @@
       canvas.getByRole("button", { name: "#plugin-development" }),
     );
     await expect(args.onOpenRoom).toHaveBeenCalledWith("plugin-development");
+    await expect(canvas.getByRole("img", { name: ":lapis:" })).toBeVisible();
+    await expect(canvas.getByRole("img", { name: ":shipit:" })).toBeVisible();
     const spoiler = canvas.getByRole("button", { name: "Reveal spoiler" });
     await userEvent.click(spoiler);
     await expect(spoiler).toHaveAttribute("aria-pressed", "true");

@@ -7,11 +7,12 @@ import {
   type CompletionContext,
   type CompletionResult,
 } from "@codemirror/autocomplete";
-import { Prec, type Range } from "@codemirror/state";
+import { Prec, StateEffect, type Range } from "@codemirror/state";
 import {
   Decoration,
   EditorView,
   ViewPlugin,
+  WidgetType,
   type DecorationSet,
   type ViewUpdate,
   keymap,
@@ -26,7 +27,11 @@ import type {
   CommunityMemberModel,
   CommunityRoomModel,
 } from "../community-workspace/model.js";
-import { isFencedCodePosition, isInlineCodePosition } from "./model.js";
+import {
+  isFencedCodePosition,
+  isInlineCodePosition,
+  isSafeCommunityEmojiUrl,
+} from "./model.js";
 
 export interface CommunityComposerEditorState {
   view: EditorView;
@@ -48,6 +53,8 @@ export interface CommunityComposerExtensionOptions {
   onEditLast(): boolean;
   onCancelEdit(): void;
 }
+
+const refreshCommunityComposerTokens = StateEffect.define<void>();
 
 export function createCommunityComposerExtension(
   options: CommunityComposerExtensionOptions,
@@ -262,7 +269,19 @@ function communityTokenDecorations(options: CommunityComposerExtensionOptions) {
       }
 
       update(update: ViewUpdate): void {
-        if (!update.docChanged && !update.viewportChanged) return;
+        const tokenModelChanged = update.transactions.some((transaction) =>
+          transaction.effects.some((effect) =>
+            effect.is(refreshCommunityComposerTokens),
+          ),
+        );
+        if (
+          !update.docChanged &&
+          !update.viewportChanged &&
+          !update.selectionSet &&
+          !tokenModelChanged
+        ) {
+          return;
+        }
         this.decorations = buildTokenDecorations(update.view, options);
       }
     },
@@ -287,6 +306,28 @@ function buildTokenDecorations(
       Decoration.mark({
         class: "community-composer-token community-composer-token--spoiler",
       }).range(from, to),
+    );
+  }
+
+  for (const match of communityEmojiMatches(value, options.emojis())) {
+    if (
+      decorated.some(
+        (range) => match.from < range.to && match.to > range.from,
+      ) ||
+      isFencedCodePosition(value, match.from) ||
+      isInlineCodePosition(value, match.from) ||
+      selectionTouchesRange(view, match.from, match.to)
+    ) {
+      continue;
+    }
+    decorated.push({ from: match.from, to: match.to });
+    ranges.push(
+      Decoration.replace({
+        widget: new CommunityEmojiWidget(
+          match.emoji.shortcode,
+          match.emoji.url,
+        ),
+      }).range(match.from, match.to),
     );
   }
 
@@ -318,6 +359,78 @@ function buildTokenDecorations(
   );
 }
 
+export function refreshCommunityComposerTokenDecorations(
+  view: EditorView,
+): void {
+  view.dispatch({ effects: refreshCommunityComposerTokens.of(undefined) });
+}
+
+class CommunityEmojiWidget extends WidgetType {
+  constructor(
+    readonly shortcode: string,
+    readonly url: string,
+  ) {
+    super();
+  }
+
+  override eq(other: CommunityEmojiWidget): boolean {
+    return other.shortcode === this.shortcode && other.url === this.url;
+  }
+
+  override toDOM(): HTMLElement {
+    const image = document.createElement("img");
+    image.className = "community-composer-emoji";
+    image.src = this.url;
+    image.alt = `:${this.shortcode}:`;
+    image.title = `:${this.shortcode}:`;
+    image.draggable = false;
+    image.dataset.uiPart = "composer-custom-emoji";
+    return image;
+  }
+}
+
+function communityEmojiMatches(
+  value: string,
+  emojis: readonly CommunityCustomEmoji[],
+): Array<{ from: number; to: number; emoji: CommunityCustomEmoji }> {
+  const normalizedValue = value.toLocaleLowerCase();
+  const byShortcode = new Map<string, CommunityCustomEmoji[]>();
+  for (const emoji of emojis) {
+    const shortcode = emoji.shortcode.trim().toLocaleLowerCase();
+    if (shortcode === "" || !isSafeCommunityEmojiUrl(emoji.url)) continue;
+    byShortcode.set(shortcode, [...(byShortcode.get(shortcode) ?? []), emoji]);
+  }
+
+  const matches: Array<{
+    from: number;
+    to: number;
+    emoji: CommunityCustomEmoji;
+  }> = [];
+  for (const entries of byShortcode.values()) {
+    if (entries.length !== 1) continue;
+    const emoji = entries[0]!;
+    const token = `:${emoji.shortcode.trim()}:`;
+    const normalizedToken = token.toLocaleLowerCase();
+    let from = normalizedValue.indexOf(normalizedToken);
+    while (from >= 0) {
+      matches.push({ from, to: from + token.length, emoji });
+      from = normalizedValue.indexOf(normalizedToken, from + 1);
+    }
+  }
+  return matches.sort((left, right) => left.from - right.from);
+}
+
+function selectionTouchesRange(
+  view: EditorView,
+  from: number,
+  to: number,
+): boolean {
+  const selection = view.state.selection.main;
+  return selection.empty
+    ? selection.head > from && selection.head < to
+    : selection.from < to && selection.to > from;
+}
+
 function uniqueReferenceTokens(
   options: CommunityComposerExtensionOptions,
 ): Array<{ token: string; kind: "reference" | "emoji" }> {
@@ -333,10 +446,13 @@ function uniqueReferenceTokens(
         token: `#${room.name.trim()}`,
         kind: "reference" as const,
       })),
-    ...options.emojis().map((emoji) => ({
-      token: `:${emoji.shortcode.trim()}:`,
-      kind: "emoji" as const,
-    })),
+    ...options
+      .emojis()
+      .filter((emoji) => isSafeCommunityEmojiUrl(emoji.url))
+      .map((emoji) => ({
+        token: `:${emoji.shortcode.trim()}:`,
+        kind: "emoji" as const,
+      })),
   ].filter((candidate) => candidate.token.length > 1);
   const counts = new Map<string, number>();
   for (const candidate of candidates) {

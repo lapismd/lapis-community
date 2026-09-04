@@ -12,6 +12,7 @@ import CommunityChannelReference from "./CommunityChannelReference.svelte";
 import CommunityEmojiReference from "./CommunityEmojiReference.svelte";
 import CommunityMemberReference from "./CommunityMemberReference.svelte";
 import CommunitySpoiler from "./CommunitySpoiler.svelte";
+import { isSafeCommunityEmojiUrl } from "../community-chat-composer/model.js";
 
 export type CommunityMarkdownSegment =
   | { kind: "text"; value: string }
@@ -79,7 +80,7 @@ export function tokenizeCommunityMarkdownText(
     id: room.id,
   }));
   const emojiTokens = uniqueTokenEntries(
-    emojis,
+    emojis.filter((emoji) => isSafeCommunityEmojiUrl(emoji.url)),
     (emoji) => emoji.shortcode,
   ).map(({ value: emoji, token }) => ({
     kind: "emoji" as const,

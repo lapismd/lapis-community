@@ -7,6 +7,7 @@ import type {
 import {
   isFencedCodePosition,
   isInlineCodePosition,
+  isSafeCommunityEmojiUrl,
   isSafeCommunityLink,
   resolveCommunityComposerReferences,
   tokenAppears,
@@ -78,5 +79,14 @@ describe("community composer markdown context", () => {
     expect(isSafeCommunityLink("/plugins/ai")).toBe(true);
     expect(isSafeCommunityLink("javascript:alert(1)")).toBe(false);
     expect(isSafeCommunityLink("data:text/html,bad")).toBe(false);
+  });
+
+  it("accepts only renderable custom emoji image sources", () => {
+    expect(isSafeCommunityEmojiUrl("https://cdn.example/lapis.webp")).toBe(
+      true,
+    );
+    expect(isSafeCommunityEmojiUrl("data:image/svg+xml,%3Csvg/%3E")).toBe(true);
+    expect(isSafeCommunityEmojiUrl("javascript:alert(1)")).toBe(false);
+    expect(isSafeCommunityEmojiUrl("data:text/html,bad")).toBe(false);
   });
 });

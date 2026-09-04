@@ -162,6 +162,17 @@ export function isSafeCommunityLink(value: string): boolean {
   }
 }
 
+export function isSafeCommunityEmojiUrl(value: string): boolean {
+  const trimmed = value.trim();
+  if (/^data:image\/[a-z0-9.+-]+(?:;[^,]*)?,/iu.test(trimmed)) return true;
+  try {
+    const url = new URL(trimmed);
+    return url.protocol === "http:" || url.protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
 export function formatCommunityAttachmentSize(bytes: number): string {
   if (bytes < 1_024) return `${bytes} B`;
   if (bytes < 1_024 * 1_024) return `${Math.round(bytes / 1_024)} KB`;

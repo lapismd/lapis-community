@@ -149,6 +149,32 @@
 />
 
 <Story
+  name="Custom emoji live preview"
+  args={{
+    ...commonArgs,
+    value: "Native emoji stay native 🚀. Custom emoji: ",
+  }}
+  play={async ({ canvas, canvasElement }) => {
+    const page = within(canvasElement.ownerDocument.body);
+    const editor = canvas.getByRole("textbox", { name: "Markdown editor" });
+    editor.focus();
+    await userEvent.keyboard("{End}");
+    await fireEvent.click(canvas.getByRole("button", { name: "Add emoji" }));
+    await fireEvent.click(await page.findByRole("button", { name: ":lapis:" }));
+    await expect(canvas.getByRole("img", { name: ":lapis:" })).toBeVisible();
+    await expect(editor).toHaveTextContent("🚀");
+    await userEvent.keyboard("{ArrowLeft}");
+    await waitFor(() =>
+      expect(canvas.queryByRole("img", { name: ":lapis:" })).toBeNull(),
+    );
+    await userEvent.keyboard("{End}");
+    await expect(
+      await canvas.findByRole("img", { name: ":lapis:" }),
+    ).toBeVisible();
+  }}
+/>
+
+<Story
   name="Markdown and expanded toolbar"
   args={{
     ...commonArgs,
@@ -167,6 +193,7 @@
       canvas.getByRole("button", { name: "Code block" }),
     ).toBeVisible();
     await expect(canvas.getByText("Release notes")).toBeVisible();
+    await expect(canvas.getByRole("img", { name: ":shipit:" })).toBeVisible();
   }}
 />
 

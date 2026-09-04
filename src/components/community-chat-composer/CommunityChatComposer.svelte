@@ -42,6 +42,7 @@
   import {
     createCommunityComposerExtension,
     openCommunityComposerAutocomplete,
+    refreshCommunityComposerTokenDecorations,
   } from "./composer-extension.js";
   import {
     communityEmojiToken,
@@ -125,6 +126,18 @@
   const attachmentControllers = new Map<string, AbortController>();
 
   const hasSelection = $derived(selectionTo > selectionFrom);
+  const tokenModelSignature = $derived(
+    [
+      ...members.map((member) => `member:${member.id}:${member.name}`),
+      ...rooms.map(
+        (room) =>
+          `room:${room.id}:${room.name}:${room.kind}:${room.archived === true}`,
+      ),
+      ...communityEmojis.map(
+        (emoji) => `emoji:${emoji.shortcode}:${emoji.url}`,
+      ),
+    ].join("\u0000"),
+  );
   const hasPendingAttachments = $derived(
     attachments.some((attachment) =>
       ["queued", "uploading", "failed"].includes(attachment.status),
@@ -199,6 +212,12 @@
       }
       for (const attachment of attachments) revokePreview(attachment);
     };
+  });
+
+  $effect(() => {
+    tokenModelSignature;
+    const view = editorView;
+    if (view) refreshCommunityComposerTokenDecorations(view);
   });
 
   $effect(() => {
@@ -683,7 +702,6 @@
       blockControls={false}
       outline={false}
       htmlPolicy="safe"
-      emoji
       class="community-chat-composer__mira"
     />
   </div>
@@ -1094,6 +1112,16 @@
 
   :global(.community-chat-composer__mira .community-composer-token--emoji) {
     color: color-mix(in srgb, var(--primary) 80%, var(--foreground));
+  }
+
+  :global(.community-chat-composer__mira .community-composer-emoji) {
+    display: inline-block;
+    width: 1.15em;
+    height: 1.15em;
+    margin-inline: 0.04em;
+    object-fit: contain;
+    user-select: none;
+    vertical-align: -0.2em;
   }
 
   :global(.community-chat-composer__mira .community-composer-token--spoiler) {

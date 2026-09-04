@@ -66,7 +66,6 @@
     value={content}
     extensions={[communityMarkdownExtension]}
     htmlPolicy="safe"
-    emoji
     highlight
   />
 </div>
