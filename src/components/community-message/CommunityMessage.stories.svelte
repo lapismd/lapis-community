@@ -124,10 +124,59 @@
       communityStoryMembers[1],
     );
     await userEvent.unhover(avatar);
+    await userEvent.keyboard("{Escape}");
     await waitFor(() =>
       expect(
         page.queryByLabelText("Ben Stone contact preview"),
       ).not.toBeInTheDocument(),
     );
+  }}
+/>
+
+<Story
+  name="Continuation message"
+  args={{
+    message: {
+      ...communityStoryMessages[1]!,
+      id: "message-continuation",
+      timestamp: "21:01",
+      content: "Bases 0.1.2 is ready for curator review.",
+      reactions: [],
+      replyCount: 0,
+      replyParticipantIds: [],
+    },
+    author: communityStoryMembers[1]!,
+    members: communityStoryMembers,
+    rooms: communityComposerStoryRooms,
+    communityEmojis: communityComposerStoryEmojis,
+    density: "compact",
+    isContinuation: true,
+  }}
+  play={async ({ canvas }) => {
+    const message = canvas.getByLabelText("Message from Ben Stone");
+    const timestamp = message.querySelector<HTMLElement>(
+      '[data-ui-part="continuation-time"]',
+    );
+    const firstLine = message.querySelector<HTMLElement>(
+      '[data-ui-component="community-markdown-content"] p',
+    );
+
+    await expect(timestamp).not.toBeNull();
+    await expect(firstLine).not.toBeNull();
+    await expect(Number.parseFloat(getComputedStyle(message).paddingTop)).toBe(
+      4,
+    );
+    await expect(getComputedStyle(timestamp!).opacity).toBe("0");
+
+    await userEvent.hover(message);
+    await waitFor(() => expect(getComputedStyle(timestamp!).opacity).toBe("1"));
+    await expect(
+      Math.abs(
+        timestamp!.getBoundingClientRect().top -
+          firstLine!.getBoundingClientRect().top,
+      ),
+    ).toBeLessThanOrEqual(1);
+
+    await userEvent.unhover(message);
   }}
 />

@@ -178,7 +178,11 @@
 >
   {#snippet avatar()}
     {#if isContinuation}
-      <span class="community-message__continuation-time" aria-hidden="true">
+      <span
+        class="community-message__continuation-time"
+        data-ui-part="continuation-time"
+        aria-hidden="true"
+      >
         {message.timestamp}
       </span>
     {:else}
@@ -387,7 +391,7 @@
   }
 
   :global(.community-message[data-continuation]) {
-    padding-block: 0.125rem;
+    padding-block: 0.25rem 0.125rem;
   }
 
   :global(.community-message[data-continuation] [data-ui-part="name"]) {
@@ -395,15 +399,13 @@
   }
 
   .community-message__continuation-time {
-    display: flex;
+    display: block;
     width: 2.25rem;
-    min-height: 1.5rem;
-    align-items: flex-start;
-    justify-content: flex-end;
-    padding-block-start: 0.2rem;
+    min-height: 1.375rem;
     color: var(--muted-foreground);
     font-size: 0.56rem;
-    line-height: 1;
+    line-height: 1.375rem;
+    text-align: right;
     opacity: 0;
     transition: opacity 120ms ease;
   }
@@ -411,6 +413,8 @@
   :global(.community-message[data-continuation]:hover)
     .community-message__continuation-time,
   :global(.community-message[data-continuation]:focus-within)
+    .community-message__continuation-time,
+  :global(.community-message[data-continuation][data-actions-visible])
     .community-message__continuation-time {
     opacity: 1;
   }
