@@ -140,7 +140,7 @@
   let mira = $state<MiraHandle>();
   let editorView = $state<EditorView>();
   let fileInput = $state<HTMLInputElement>();
-  let autocompleteList = $state<HTMLDivElement>();
+  let autocompleteList = $state<HTMLDivElement | null>(null);
   let selectionFrom = $state(0);
   let selectionTo = $state(0);
   let selectedMentionPubkeys = $state<string[]>([]);
@@ -775,60 +775,65 @@
       data-kind={autocompleteQuery.kind}
       data-placement={autocompletePlacement}
     >
-      <div
-        bind:this={autocompleteList}
+      <ScrollArea
+        bind:ref={autocompleteList}
         class="community-chat-composer__autocomplete"
-        role="listbox"
-        tabindex="-1"
-        aria-label={`${autocompleteQuery.kind === "member" ? "People" : autocompleteQuery.kind === "room" ? "Channels" : "Emoji"} suggestions`}
+        orientation="vertical"
         onpointerdown={(event) => event.preventDefault()}
       >
-        {#each autocompleteItems as item, index (item.id)}
-          <button
-            type="button"
-            role="option"
-            aria-selected={index === autocompleteSelectedIndex}
-            tabindex="-1"
-            class:community-chat-composer__autocomplete-option--selected={index ===
-              autocompleteSelectedIndex}
-            class="community-chat-composer__autocomplete-option"
-            onclick={() => selectAutocomplete(index)}
-          >
-            <span class="community-chat-composer__autocomplete-icon">
-              {#if item.member}
-                <CommunityMemberAvatar
-                  member={item.member}
-                  size="small"
-                  decorative
-                />
-              {:else if item.room}
-                <HashIcon aria-hidden="true" />
-              {:else if item.customEmoji}
-                <img
-                  src={item.customEmoji.url}
-                  alt={`:${item.customEmoji.shortcode}:`}
-                />
-              {:else if item.native}
-                <span aria-hidden="true">{item.native}</span>
-              {:else}
-                <SmileIcon aria-hidden="true" />
-              {/if}
-            </span>
-            <span class="community-chat-composer__autocomplete-copy">
-              <strong
-                >{item.kind === "member"
-                  ? `@${item.label}`
-                  : item.kind === "room"
-                    ? `#${item.label}`
-                    : `:${item.label}:`}</strong
-              >
-              {#if item.detail}
-                <small>{item.detail}</small>
-              {/if}
-            </span>
-          </button>
-        {/each}
-      </div>
+        <div
+          class="community-chat-composer__autocomplete-options"
+          role="listbox"
+          tabindex="-1"
+          aria-label={`${autocompleteQuery.kind === "member" ? "People" : autocompleteQuery.kind === "room" ? "Channels" : "Emoji"} suggestions`}
+        >
+          {#each autocompleteItems as item, index (item.id)}
+            <button
+              type="button"
+              role="option"
+              aria-selected={index === autocompleteSelectedIndex}
+              tabindex="-1"
+              class:community-chat-composer__autocomplete-option--selected={index ===
+                autocompleteSelectedIndex}
+              class="community-chat-composer__autocomplete-option"
+              onclick={() => selectAutocomplete(index)}
+            >
+              <span class="community-chat-composer__autocomplete-icon">
+                {#if item.member}
+                  <CommunityMemberAvatar
+                    member={item.member}
+                    size="small"
+                    decorative
+                  />
+                {:else if item.room}
+                  <HashIcon aria-hidden="true" />
+                {:else if item.customEmoji}
+                  <img
+                    src={item.customEmoji.url}
+                    alt={`:${item.customEmoji.shortcode}:`}
+                  />
+                {:else if item.native}
+                  <span aria-hidden="true">{item.native}</span>
+                {:else}
+                  <SmileIcon aria-hidden="true" />
+                {/if}
+              </span>
+              <span class="community-chat-composer__autocomplete-copy">
+                <strong
+                  >{item.kind === "member"
+                    ? `@${item.label}`
+                    : item.kind === "room"
+                      ? `#${item.label}`
+                      : `:${item.label}:`}</strong
+                >
+                {#if item.detail}
+                  <small>{item.detail}</small>
+                {/if}
+              </span>
+            </button>
+          {/each}
+        </div>
+      </ScrollArea>
     </div>
   {/if}
 
@@ -1316,19 +1321,29 @@
     bottom: auto;
   }
 
-  .community-chat-composer__autocomplete {
-    display: grid;
+  :global(
+      .community-chat-composer__autocomplete[data-ui-component="scroll-area"]
+    ) {
     max-height: 12rem;
-    gap: 0.125rem;
-    padding: 0.25rem;
-    overflow-y: auto;
     border: 1px solid color-mix(in srgb, var(--border) 72%, transparent);
     border-radius: 0.75rem;
-    background: color-mix(in srgb, var(--popover) 96%, transparent);
+    background: var(--popover);
     box-shadow:
       0 14px 36px color-mix(in srgb, var(--foreground) 16%, transparent),
       0 1px 2px color-mix(in srgb, var(--foreground) 8%, transparent);
-    backdrop-filter: blur(14px);
+  }
+
+  :global(
+      .community-chat-composer__autocomplete
+        > [data-ui-part="scroll-area-viewport"]
+    ) {
+    max-height: 12rem;
+  }
+
+  .community-chat-composer__autocomplete-options {
+    display: grid;
+    gap: 0.125rem;
+    padding: 0.25rem;
   }
 
   .community-chat-composer__autocomplete-option {

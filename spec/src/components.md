@@ -60,7 +60,9 @@ applied only to the placeholder, grow through seven lines, and then delegate
 overflow to a public Design Core Scroll Area. The final Markdown preview host and
 document layers MUST add no padding of their own. The autocomplete layer MUST
 prefer the space above the composer and flip directly below it when a viewport or
-clipping ancestor leaves insufficient room above.
+clipping ancestor leaves insufficient room above. Its result list MUST use the
+public Design Core Scroll Area instead of applying native overflow to the
+listbox.
 
 The package uses Design Core controls for shared interaction primitives. Local
 CSS owns the Discourse-inspired registry layout and the Slack/Buzz-style

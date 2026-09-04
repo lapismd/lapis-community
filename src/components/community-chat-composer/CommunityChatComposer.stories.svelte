@@ -269,6 +269,20 @@
       name: "People suggestions",
     });
     await expect(people).toBeVisible();
+    const peopleScrollArea = people.closest<HTMLElement>(
+      '[data-ui-component="scroll-area"][data-ui-part="scroll-area"]',
+    );
+    await expect(peopleScrollArea).not.toBeNull();
+    await expect(peopleScrollArea).toHaveAttribute(
+      "data-scroll-strategy",
+      "styled",
+    );
+    await expect(getComputedStyle(peopleScrollArea!).backgroundColor).not.toBe(
+      "rgba(0, 0, 0, 0)",
+    );
+    await expect(
+      peopleScrollArea!.querySelector('[data-ui-part="scroll-area-viewport"]'),
+    ).not.toBeNull();
     await expect(
       Number.parseFloat(getComputedStyle(people).rowGap),
     ).toBeGreaterThan(0);
@@ -288,7 +302,31 @@
     await expect(channel).toBeVisible();
     await userEvent.click(channel);
     await expect(editor).toHaveTextContent("#plugin-development");
-    await userEvent.keyboard("{End} :rock");
+    await userEvent.keyboard("{End} :ro");
+    const emoji = await canvas.findByRole("listbox", {
+      name: "Emoji suggestions",
+    });
+    const emojiScrollArea = emoji.closest<HTMLElement>(
+      '[data-ui-component="scroll-area"][data-ui-part="scroll-area"]',
+    );
+    const emojiViewport = emojiScrollArea?.querySelector<HTMLElement>(
+      '[data-ui-part="scroll-area-viewport"]',
+    );
+    await expect(emojiViewport).not.toBeNull();
+    await waitFor(() =>
+      expect(emojiViewport!.scrollHeight).toBeGreaterThan(
+        emojiViewport!.clientHeight,
+      ),
+    );
+    await userEvent.hover(emojiScrollArea!);
+    await waitFor(() =>
+      expect(
+        emojiScrollArea?.querySelector(
+          '[data-ui-part="scroll-area-scrollbar"]',
+        ),
+      ).not.toBeNull(),
+    );
+    await userEvent.keyboard("ck");
     const standardEmoji = await canvas.findByRole("option", {
       name: /:rocket:/,
     });
