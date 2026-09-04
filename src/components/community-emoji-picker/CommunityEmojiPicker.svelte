@@ -10,6 +10,7 @@
   let {
     open = $bindable(false),
     label = "Choose emoji",
+    selection,
     disabled = false,
     presets = [],
     communityEmojis = [],
@@ -17,6 +18,7 @@
   }: {
     open?: boolean;
     label?: string;
+    selection?: string;
     disabled?: boolean;
     presets?: readonly string[];
     communityEmojis?: readonly CommunityCustomEmoji[];
@@ -109,7 +111,11 @@
         aria-label={label}
         title={label}
       >
-        <SmilePlusIcon aria-hidden="true" />
+        {#if selection}
+          <span aria-hidden="true">{selection}</span>
+        {:else}
+          <SmilePlusIcon aria-hidden="true" />
+        {/if}
       </Button>
     {/snippet}
   </Popover.Trigger>

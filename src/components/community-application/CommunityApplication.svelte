@@ -68,6 +68,7 @@
   } from "../community-search-command/model.js";
   import CommunitySettingsNavigation from "../community-settings-navigation/CommunitySettingsNavigation.svelte";
   import CommunitySettings from "../community-settings/CommunitySettings.svelte";
+  import CommunityStatusDialog from "../community-status-dialog/CommunityStatusDialog.svelte";
   import CommunityThreadPanel from "../community-thread-panel/CommunityThreadPanel.svelte";
   import CommunityWorkspaceSurface from "../community-workspace/CommunityWorkspaceSurface.svelte";
   import RegistryBrowser from "../registry-browser/RegistryBrowser.svelte";
@@ -76,6 +77,7 @@
     findCommunityRoom,
     memberById,
     rootCommunityMessageId,
+    type CommunityPresence,
     type CommunityRoomModel,
     type CommunityMemberModel,
   } from "../community-workspace/model.js";
@@ -180,7 +182,7 @@
   let membershipJoinState = $state<"idle" | "pending" | "accepted">("idle");
   let membershipJoinError = $state("");
   let statusOpen = $state(false);
-  let statusDraft = $state("");
+  let presencePreference = $state<CommunityPresence>("online");
   let searchOpen = $state(false);
   let appSearchQuery = $state("");
   let sectionEditorOpen = $state(false);
@@ -238,6 +240,9 @@
   );
   const authenticated = $derived(
     community.state.authentication.status === "connected",
+  );
+  const statusOperation = $derived(
+    community.state.operations["settings:status"],
   );
   const activePublishAvailability = $derived(
     activeRoom.permissions?.publish ??
@@ -1267,15 +1272,29 @@
     lastAction = `${action}:${member.id}`;
   }
 
-  async function saveStatus(): Promise<void> {
+  async function saveStatus(status: string): Promise<void> {
     try {
-      await runAuthenticated(() => community.actions.updateStatus(statusDraft));
-      statusOpen = false;
-      toast.success("Status updated");
-    } catch (cause) {
-      toast.error(
-        cause instanceof Error ? cause.message : "Status could not be updated",
-      );
+      await runAuthenticated(() => community.actions.updateStatus(status));
+      if (
+        community.state.operations["settings:status"]?.status !== "accepted"
+      ) {
+        statusOpen = false;
+      }
+    } catch {
+      // The controller operation is rendered persistently inside the dialog.
+    }
+  }
+
+  async function retryStatus(): Promise<void> {
+    try {
+      await community.retry("settings:status");
+      if (
+        community.state.operations["settings:status"]?.status !== "accepted"
+      ) {
+        statusOpen = false;
+      }
+    } catch {
+      // The refreshed controller failure remains visible inside the dialog.
     }
   }
 
@@ -1616,7 +1635,9 @@
             member={{
               ...displayMember,
               presence:
-                community.state.status === "connected" ? "online" : "offline",
+                community.state.status === "connected"
+                  ? presencePreference
+                  : "offline",
             }}
             communityName={currentCommunity?.name ?? "Community"}
             {authenticated}
@@ -1625,6 +1646,10 @@
             canManageCommunity={activeRoom.permissions?.manageMembers.state ===
               "enabled"}
             canSendFeedback={extensions.feedback !== undefined}
+            onPresenceChange={(presence) => {
+              presencePreference = presence;
+              lastAction = `presence:${presence}`;
+            }}
             onAction={(action) => {
               if (action === "sign-in") void runAuthenticated(() => {});
               if (action === "sign-out")
@@ -2456,37 +2481,24 @@
   </AlertDialog.Content>
 </AlertDialog.Root>
 
-<Dialog.Root bind:open={statusOpen}>
-  <Dialog.Content class="community-application__status-dialog">
-    <Dialog.Header
-      ><Dialog.Title>Update your status</Dialog.Title><Dialog.Description
-        >Publish a portable NIP-38 status to your connected identity.</Dialog.Description
-      ></Dialog.Header
-    >
-    <Field.Field>
-      <Field.Label for="community-status">Status</Field.Label>
-      <div class="community-application__status-input">
-        <Input
-          id="community-status"
-          bind:value={statusDraft}
-          placeholder="What are you working on?"
-        /><CommunityEmojiPicker
-          communityEmojis={community.state.settings.customEmojis}
-          label="Add emoji to status"
-          onSelect={(emoji) => (statusDraft += emoji)}
-        />
-      </div>
-    </Field.Field>
-    <Dialog.Footer
-      ><Button
-        type="button"
-        variant="outline"
-        onclick={() => (statusOpen = false)}>Cancel</Button
-      ><Button type="button" onclick={saveStatus}>Save status</Button
-      ></Dialog.Footer
-    >
-  </Dialog.Content>
-</Dialog.Root>
+<CommunityStatusDialog
+  bind:open={statusOpen}
+  value={displayMember.status ?? ""}
+  pending={statusOperation?.status === "pending"}
+  {...statusOperation?.status === "accepted" && statusOperation.message
+    ? { operationMessage: statusOperation.message }
+    : {}}
+  {...statusOperation?.status === "failed" &&
+  (statusOperation.failure?.relayReason ?? statusOperation.message)
+    ? {
+        error: statusOperation.failure?.relayReason ?? statusOperation.message!,
+      }
+    : {}}
+  retryable={statusOperation?.failure?.retryable ?? false}
+  onSave={saveStatus}
+  onRetry={retryStatus}
+  onDismissError={() => community.dismissOperation("settings:status")}
+/>
 
 <Dialog.Root bind:open={sectionEditorOpen}>
   <Dialog.Content class="community-application__section-dialog">
@@ -2556,16 +2568,6 @@
     width: min(100%, 24rem);
     gap: 1rem;
     text-align: start;
-  }
-
-  .community-application__status-input {
-    display: flex;
-    align-items: center;
-    gap: 0.35rem;
-  }
-  .community-application__status-input :global(input) {
-    min-width: 0;
-    flex: 1;
   }
 
   .community-application__membership-error,

@@ -163,7 +163,7 @@ class Nip29CommunitySession implements CommunitySession {
         ? []
         : await this.#queryUnion(
             this.#relays,
-            { kinds: [0, 30_030], authors },
+            { kinds: [0, 30_030, 30_315], authors },
             signal,
           );
     await this.#subscribeToProfiles(authors, signal);
@@ -534,7 +534,7 @@ class Nip29CommunitySession implements CommunitySession {
     await Promise.all(
       this.#relays.map(async (relay) => {
         const subscription = await relay.subscribe(
-          { kinds: [0, 30_030], authors: [...authors] },
+          { kinds: [0, 30_030, 30_315], authors: [...authors] },
           { onevent: (event) => this.#emit([event]) },
           signal,
         );

@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { Badge } from "@lapismd/design-core/shadcn/badge";
   import { Button } from "@lapismd/design-core/shadcn/button";
   import * as DropdownMenu from "@lapismd/design-core/shadcn/dropdown-menu";
   import LogInIcon from "@lucide/svelte/icons/log-in";
@@ -8,7 +7,10 @@
 
   import type { CommunityConnectionStatus } from "../../community/index.js";
   import CommunityMemberAvatar from "../community-member-avatar/CommunityMemberAvatar.svelte";
-  import type { CommunityMemberModel } from "../community-workspace/model.js";
+  import type {
+    CommunityMemberModel,
+    CommunityPresence,
+  } from "../community-workspace/model.js";
   import type { CommunityProfileMenuAction } from "./model.js";
 
   let {
@@ -20,6 +22,7 @@
     canSendFeedback = false,
     connectionStatus = "connected",
     onAction = () => {},
+    onPresenceChange = () => {},
   }: {
     member: CommunityMemberModel;
     communityName: string;
@@ -29,7 +32,17 @@
     canSendFeedback?: boolean;
     connectionStatus?: CommunityConnectionStatus;
     onAction?: (action: CommunityProfileMenuAction) => void;
+    onPresenceChange?: (presence: CommunityPresence) => void;
   } = $props();
+
+  const presenceOptions: readonly {
+    value: CommunityPresence;
+    label: string;
+  }[] = [
+    { value: "online", label: "Online" },
+    { value: "away", label: "Away" },
+    { value: "offline", label: "Offline" },
+  ];
 
   const presence = $derived(member.presence ?? "offline");
   const presenceLabel = $derived(
@@ -60,7 +73,13 @@
           {#if !compact}
             <span class="community-profile-menu__identity">
               <strong>{member.name}</strong>
-              <small><span aria-hidden="true">🐝</span> {communityName}</small>
+              <small>
+                {#if authenticated && member.status}
+                  {member.status}
+                {:else}
+                  <span aria-hidden="true">🐝</span> {communityName}
+                {/if}
+              </small>
             </span>
           {/if}
         </Button>
@@ -74,19 +93,47 @@
       class="community-profile-menu__content"
       aria-label="Profile menu"
     >
-      <DropdownMenu.Label class="community-profile-menu__menu-header">
+      <DropdownMenu.Group class="community-profile-menu__menu-header">
         <CommunityMemberAvatar {member} showPresence decorative />
-        <span class="community-profile-menu__menu-identity">
+        <DropdownMenu.Label class="community-profile-menu__menu-identity">
           <strong>{member.name}</strong>
-          <Badge
-            variant="secondary"
-            class="community-profile-menu__status"
-            data-presence={presence}
-          >
-            {presenceLabel}
-          </Badge>
-        </span>
-      </DropdownMenu.Label>
+        </DropdownMenu.Label>
+        {#if authenticated}
+          <DropdownMenu.Sub>
+            <DropdownMenu.SubTrigger
+              class="community-profile-menu__presence-trigger"
+              data-presence={presence}
+              aria-label={`Presence: ${presenceLabel}`}
+            >
+              <span
+                class="community-profile-menu__presence-dot"
+                aria-hidden="true"
+              ></span>
+              <span>{presenceLabel}</span>
+            </DropdownMenu.SubTrigger>
+            <DropdownMenu.SubContent
+              class="community-profile-menu__presence-content"
+              aria-label="Presence status"
+            >
+              <DropdownMenu.RadioGroup value={presence}>
+                {#each presenceOptions as option (option.value)}
+                  <DropdownMenu.RadioItem
+                    value={option.value}
+                    onSelect={() => onPresenceChange(option.value)}
+                  >
+                    <span
+                      class="community-profile-menu__presence-option-dot"
+                      data-presence={option.value}
+                      aria-hidden="true"
+                    ></span>
+                    {option.label}
+                  </DropdownMenu.RadioItem>
+                {/each}
+              </DropdownMenu.RadioGroup>
+            </DropdownMenu.SubContent>
+          </DropdownMenu.Sub>
+        {/if}
+      </DropdownMenu.Group>
 
       <DropdownMenu.Group>
         {#if authenticated}
@@ -95,7 +142,7 @@
             onSelect={() => onAction("update-status")}
           >
             <SmileIcon data-icon="inline-start" aria-hidden="true" />
-            <span>Update your status</span>
+            <span>{member.status ?? "Update your status"}</span>
           </DropdownMenu.Item>
         {:else}
           <DropdownMenu.Item onSelect={() => onAction("sign-in")}>
@@ -216,7 +263,7 @@
   }
 
   .community-profile-menu__identity,
-  .community-profile-menu__menu-identity {
+  :global(.community-profile-menu__menu-identity) {
     display: grid;
     min-width: 0;
     text-align: start;
@@ -250,15 +297,27 @@
   }
 
   :global(.community-profile-menu__menu-header) {
-    display: flex;
+    display: grid;
+    grid-template-columns: 2.25rem minmax(0, 1fr);
+    grid-template-rows: auto 1fr;
     align-items: center;
-    gap: 0.75rem;
-    padding: 0.375rem 0.5rem 0.75rem;
+    column-gap: 0.75rem;
+    min-height: 3rem;
+    padding: 0.375rem 0.5rem;
+  }
+
+  :global(
+      .community-profile-menu__menu-header
+        > [data-ui-component="community-member-avatar"]
+    ) {
+    grid-row: 1 / span 2;
   }
 
   :global(.community-profile-menu__menu-identity) {
-    gap: 0.25rem;
+    grid-column: 2;
+    align-self: start;
     justify-items: start;
+    padding: 0;
   }
 
   :global(.community-profile-menu__menu-identity strong) {
@@ -272,24 +331,64 @@
     border-radius: 0.75rem;
   }
 
-  :global(.community-profile-menu__status[data-ui-component="badge"]) {
-    border: 0;
+  :global(
+      .community-profile-menu__presence-trigger[data-ui-part="dropdown-menu-sub-trigger"]
+    ) {
+    grid-column: 2;
+    align-self: end;
+    justify-self: start;
+    min-height: 1.125rem;
+    gap: 0.35rem;
+    border-radius: 999px;
+    padding: 0.0625rem 0.45rem;
     color: var(--muted-foreground);
-    background: color-mix(in srgb, var(--muted-foreground) 12%, transparent);
+    background: color-mix(in srgb, var(--muted-foreground) 10%, transparent);
+    font-size: 0.6875rem;
+    line-height: 1;
   }
 
   :global(
-      .community-profile-menu__status[data-ui-component="badge"][data-presence="online"]
+      .community-profile-menu__presence-trigger[data-ui-part="dropdown-menu-sub-trigger"]
+        [data-ui-part="dropdown-menu-sub-trigger-icon"]
     ) {
-    color: color-mix(in srgb, var(--success, #08b94e) 82%, var(--foreground));
-    background: color-mix(in srgb, var(--success, #08b94e) 16%, transparent);
+    display: none;
+  }
+
+  .community-profile-menu__presence-dot,
+  .community-profile-menu__presence-option-dot {
+    flex: none;
+    width: 0.45rem;
+    height: 0.45rem;
+    border-radius: 999px;
+    background: var(--muted-foreground);
   }
 
   :global(
-      .community-profile-menu__status[data-ui-component="badge"][data-presence="away"]
+      .community-profile-menu__presence-trigger[data-presence="online"]
+        .community-profile-menu__presence-dot
+    ),
+  .community-profile-menu__presence-option-dot[data-presence="online"] {
+    background: var(--success, #08b94e);
+  }
+
+  :global(
+      .community-profile-menu__presence-trigger[data-presence="away"]
+        .community-profile-menu__presence-dot
+    ),
+  .community-profile-menu__presence-option-dot[data-presence="away"] {
+    background: var(--warning, #d99a00);
+  }
+
+  :global(.community-profile-menu__presence-content) {
+    width: 11rem;
+    z-index: calc(var(--ui-workspace-overlay-z-index, 50) + 20);
+  }
+
+  :global(
+      .community-profile-menu__presence-content
+        [data-ui-part="dropdown-menu-radio-item"]
     ) {
-    color: color-mix(in srgb, var(--warning, #d99a00) 76%, var(--foreground));
-    background: color-mix(in srgb, var(--warning, #d99a00) 16%, transparent);
+    gap: 0.5rem;
   }
 
   :global(.community-profile-menu__community-icon) {

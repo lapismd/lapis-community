@@ -35,6 +35,7 @@ export { default as CommunityMessage } from "./community-message/CommunityMessag
 export { default as CommunityNavigation } from "./community-navigation/CommunityNavigation.svelte";
 export { default as CommunityMemberProfile } from "./community-member-profile/CommunityMemberProfile.svelte";
 export { default as CommunityProfileMenu } from "./community-profile-menu/CommunityProfileMenu.svelte";
+export { default as CommunityStatusDialog } from "./community-status-dialog/CommunityStatusDialog.svelte";
 export { default as CommunityRelaySettings } from "./community-relay-settings/CommunityRelaySettings.svelte";
 export { default as CommunityReplyContext } from "./community-reply-context/CommunityReplyContext.svelte";
 export { default as CommunitySettings } from "./community-settings/CommunitySettings.svelte";

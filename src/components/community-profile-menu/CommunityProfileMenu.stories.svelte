@@ -1,6 +1,6 @@
 <script module lang="ts">
   import { defineMeta } from "@storybook/addon-svelte-csf";
-  import { expect, fn, userEvent, within } from "storybook/test";
+  import { expect, fn, userEvent, waitFor, within } from "storybook/test";
 
   import CommunityProfileMenu from "./CommunityProfileMenu.svelte";
 
@@ -10,6 +10,7 @@
     handle: "steve",
     initials: "SJ",
     presence: "online" as const,
+    status: "🏠 Working remotely",
   };
 
   const { Story } = defineMeta({
@@ -39,6 +40,7 @@
     canManageCommunity: true,
     canSendFeedback: true,
     onAction: fn(),
+    onPresenceChange: fn(),
   }}
   play={async ({ args, canvas, canvasElement }) => {
     await userEvent.click(
@@ -46,8 +48,34 @@
     );
     const overlay = within(canvasElement.ownerDocument.body);
     await expect(
-      overlay.getByRole("menuitem", { name: "Update your status" }),
+      overlay.getByRole("menuitem", { name: "🏠 Working remotely" }),
     ).toBeVisible();
+    const profileMenu = overlay.getByRole("menu", { name: "Profile menu" });
+    await userEvent.hover(
+      overlay.getByRole("menuitem", { name: "Presence: Online" }),
+    );
+    const presenceMenu = await overlay.findByRole("menu", {
+      name: "Presence status",
+    });
+    await expect(
+      within(presenceMenu).queryByText("Presence status"),
+    ).toBeNull();
+    await expect(Number(getComputedStyle(presenceMenu).zIndex)).toBeGreaterThan(
+      Number(getComputedStyle(profileMenu).zIndex),
+    );
+    await userEvent.click(
+      within(presenceMenu).getByRole("menuitemradio", { name: "Away" }),
+    );
+    await expect(args.onPresenceChange).toHaveBeenCalledWith("away");
+    await userEvent.keyboard("{Escape}");
+    await waitFor(() =>
+      expect(canvasElement.ownerDocument.body.style.pointerEvents).not.toBe(
+        "none",
+      ),
+    );
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Open profile menu for steve" }),
+    );
     await expect(overlay.getByRole("menuitem", { name: "buzz" })).toBeVisible();
     await expect(
       overlay.getByRole("menuitem", { name: "Send feedback" }),

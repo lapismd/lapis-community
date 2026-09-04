@@ -142,6 +142,12 @@ export function createCommunityTestScenario(
       ],
     },
     {
+      kind: 30_315,
+      created_at: createdAt + 2,
+      content: "🏠 Working remotely",
+      tags: [["d", "general"]],
+    },
+    {
       kind: 10_050,
       created_at: createdAt + 2,
       content: "",

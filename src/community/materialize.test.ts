@@ -298,6 +298,80 @@ describe("materializeCommunityWorkspace", () => {
     ).navigationSections[0]?.rooms[0];
     expect(unknownPermission?.permissions?.manageMembers.state).toBe("enabled");
   });
+
+  it("projects the latest non-empty NIP-38 general status onto members", () => {
+    const key = new Uint8Array(32).fill(73);
+    const profile = finalizeEvent(
+      {
+        kind: 0,
+        created_at: 1,
+        content: JSON.stringify({ display_name: "Status member" }),
+        tags: [],
+      },
+      key,
+    );
+    const working = finalizeEvent(
+      {
+        kind: 30_315,
+        created_at: 2,
+        content: "🏠 Working remotely",
+        tags: [["d", "general"]],
+      },
+      key,
+    );
+    const meeting = finalizeEvent(
+      {
+        kind: 30_315,
+        created_at: 3,
+        content: "🗣️ In a meeting",
+        tags: [["d", "general"]],
+      },
+      key,
+    );
+    const scope = {
+      id: "lapis",
+      name: "Lapis Community",
+      relayUrl: "memory://community.test",
+      rooms: [
+        {
+          id: "general",
+          groupId: "general",
+          name: "general",
+          kind: "channel" as const,
+        },
+      ],
+    };
+
+    const workspace = materializeCommunityWorkspace(
+      [scope],
+      { [scope.id]: [profile, working, meeting] },
+      scope.id,
+      { activeRoomId: "general", identityPubkey: profile.pubkey },
+    );
+    expect(workspace.members).toContainEqual(
+      expect.objectContaining({
+        id: profile.pubkey,
+        status: "🗣️ In a meeting",
+      }),
+    );
+
+    const cleared = finalizeEvent(
+      {
+        kind: 30_315,
+        created_at: 4,
+        content: "",
+        tags: [["d", "general"]],
+      },
+      key,
+    );
+    const clearedWorkspace = materializeCommunityWorkspace(
+      [scope],
+      { [scope.id]: [profile, meeting, cleared] },
+      scope.id,
+      { activeRoomId: "general", identityPubkey: profile.pubkey },
+    );
+    expect(clearedWorkspace.members[0]).not.toHaveProperty("status");
+  });
 });
 
 describe("materializeCommunitySettings", () => {

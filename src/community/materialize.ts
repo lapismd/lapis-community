@@ -144,6 +144,7 @@ export function materializeCommunityWorkspace(
   const configuredActiveRoom =
     rooms.find((room) => room.id === options.activeRoomId) ?? rooms[0];
   const profiles = profilesFrom(events);
+  const statuses = statusesFrom(events);
   const directConversations = directConversationModels(
     options.privateEvents ?? [],
     options.identityPubkey,
@@ -164,8 +165,8 @@ export function materializeCommunityWorkspace(
   );
   const members =
     activeDirect === undefined
-      ? memberModels(activeRoom, visible, profiles)
-      : directMemberModels(activeDirect, profiles);
+      ? memberModels(activeRoom, visible, profiles, statuses)
+      : directMemberModels(activeDirect, profiles, statuses);
   const conversationMessages =
     activeDirect !== undefined
       ? directMessageModels(activeDirect, options.identityPubkey)
@@ -271,6 +272,7 @@ export function materializeCommunityInbox(
     const events = acceptedEvents(eventsByScope[scope.id] ?? []);
     const rooms = communityRooms(scope, events);
     const profiles = profilesFrom(events);
+    const statuses = statusesFrom(events);
     return events
       .filter(
         (event) =>
@@ -281,7 +283,7 @@ export function materializeCommunityInbox(
               (tag[0] === "p" || tag[0] === "P") && tag[1] === identityPubkey,
           ),
       )
-      .map((event) => ({ scope, rooms, profiles, event }));
+      .map((event) => ({ scope, rooms, profiles, statuses, event }));
   });
   const ordered = candidates.toSorted((left, right) =>
     compareOldest(right.event, left.event),
@@ -311,7 +313,12 @@ export function materializeCommunityInbox(
         (tag) => (tag[0] === "e" || tag[0] === "E") && tag[1] === rootId,
       ),
   );
-  const members = memberModels(roomScope, threadEvents, active.profiles);
+  const members = memberModels(
+    roomScope,
+    threadEvents,
+    active.profiles,
+    active.statuses,
+  );
   return {
     items: ordered.map(({ event, profiles }) => ({
       id: event.id,
@@ -407,6 +414,27 @@ function profilesFrom(events: readonly NostrEvent[]): Map<string, Profile> {
   }
   return new Map(
     [...selected].map(([pubkey, entry]) => [pubkey, entry.profile]),
+  );
+}
+
+function statusesFrom(events: readonly NostrEvent[]): Map<string, string> {
+  const selected = new Map<string, NostrEvent>();
+  for (const event of events) {
+    if (
+      event.kind !== 30_315 ||
+      !event.tags.some((tag) => tag[0] === "d" && tag[1] === "general")
+    ) {
+      continue;
+    }
+    const current = selected.get(event.pubkey);
+    if (current === undefined || newer(event, current)) {
+      selected.set(event.pubkey, event);
+    }
+  }
+  return new Map(
+    [...selected]
+      .filter(([, event]) => event.content.trim() !== "")
+      .map(([pubkey, event]) => [pubkey, event.content.trim()]),
   );
 }
 
@@ -567,6 +595,7 @@ function memberModels(
   room: CommunityRoomScope | undefined,
   events: readonly NostrEvent[],
   profiles: ReadonlyMap<string, Profile>,
+  statuses: ReadonlyMap<string, string>,
 ): CommunityMemberModel[] {
   const groupMembers =
     room === undefined
@@ -600,6 +629,9 @@ function memberModels(
         ? {}
         : { avatarUrl: profiles.get(pubkey)!.picture! }),
       presence: "offline",
+      ...(statuses.get(pubkey) === undefined
+        ? {}
+        : { status: statuses.get(pubkey)! }),
       ...(roles.get(pubkey) === undefined ? {} : { role: roles.get(pubkey)! }),
     };
   });
@@ -877,6 +909,7 @@ function directRoomModel(
 function directMemberModels(
   conversation: DirectConversation,
   profiles: ReadonlyMap<string, Profile>,
+  statuses: ReadonlyMap<string, string>,
 ): CommunityMemberModel[] {
   return conversation.participants.map((pubkey) => {
     const name = profiles.get(pubkey)?.name ?? shortKey(pubkey);
@@ -889,6 +922,9 @@ function directMemberModels(
         ? {}
         : { avatarUrl: profiles.get(pubkey)!.picture! }),
       presence: "offline",
+      ...(statuses.get(pubkey) === undefined
+        ? {}
+        : { status: statuses.get(pubkey)! }),
     };
   });
 }

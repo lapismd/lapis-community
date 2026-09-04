@@ -785,6 +785,97 @@
 </Story>
 
 <Story
+  name="Profile presence and status"
+  play={async ({ canvas, canvasElement }) => {
+    const application = await canvas.findByTestId(
+      "full-community-application",
+      {},
+      { timeout: 15_000 },
+    );
+    await waitFor(
+      () =>
+        expect(application).toHaveAttribute(
+          "data-community-status",
+          "connected",
+        ),
+      { timeout: 15_000 },
+    );
+    if (application.dataset.communityBackend === "live") return;
+
+    const overlay = within(canvasElement.ownerDocument.body);
+    let profileTrigger = canvas.getByRole("button", {
+      name: "Open profile menu for steve",
+    });
+    await waitFor(() =>
+      expect(getComputedStyle(profileTrigger).pointerEvents).not.toBe("none"),
+    );
+    await userEvent.click(profileTrigger);
+    await expect(
+      overlay.getByRole("menuitem", { name: "🏠 Working remotely" }),
+    ).toBeVisible();
+    await userEvent.hover(
+      overlay.getByRole("menuitem", { name: "Presence: Online" }),
+    );
+    await userEvent.click(
+      await overlay.findByRole("menuitemradio", { name: "Away" }),
+    );
+    await expect(application).toHaveAttribute(
+      "data-last-action",
+      "presence:away",
+    );
+    await userEvent.keyboard("{Escape}");
+    await waitFor(() =>
+      expect(canvasElement.ownerDocument.body.style.pointerEvents).not.toBe(
+        "none",
+      ),
+    );
+
+    profileTrigger = canvas.getByRole("button", {
+      name: "Open profile menu for steve",
+    });
+    await waitFor(() =>
+      expect(getComputedStyle(profileTrigger).pointerEvents).not.toBe("none"),
+    );
+    await userEvent.click(profileTrigger);
+    await userEvent.click(
+      overlay.getByRole("menuitem", { name: "🏠 Working remotely" }),
+    );
+    const dialog = await overlay.findByRole("dialog", { name: "Set a status" });
+    await expect(
+      within(dialog).getByLabelText("What's your status?"),
+    ).toHaveValue("Working remotely");
+    await userEvent.click(
+      within(dialog).getByRole("button", { name: "In a meeting" }),
+    );
+    await userEvent.click(within(dialog).getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(dialog).not.toBeInTheDocument(), {
+      timeout: 15_000,
+    });
+
+    profileTrigger = canvas.getByRole("button", {
+      name: "Open profile menu for steve",
+    });
+    await waitFor(() =>
+      expect(getComputedStyle(profileTrigger).pointerEvents).not.toBe("none"),
+    );
+    await userEvent.click(profileTrigger);
+    await expect(
+      overlay.getByRole("menuitem", { name: "🗣️ In a meeting" }),
+    ).toBeVisible();
+    await userEvent.keyboard("{Escape}");
+    await waitFor(() =>
+      expect(canvasElement.ownerDocument.body.style.pointerEvents).not.toBe(
+        "none",
+      ),
+    );
+  }}
+>
+  {#snippet template()}
+    <CommunityApplicationStoryHarness namespace="profile-status" />
+  {/snippet}
+</Story>
+
+<Story
   name="Full community app"
   play={async ({ canvas, canvasElement }) => {
     await userEvent.click(

@@ -62,6 +62,7 @@ export interface CommunityMemberModel {
   initials: string;
   avatarUrl?: string;
   presence?: CommunityPresence;
+  status?: string;
   role?: string;
 }
 

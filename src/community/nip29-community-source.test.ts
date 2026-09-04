@@ -81,6 +81,7 @@ describe("createNip29CommunitySource", () => {
     const snapshot = await session.snapshot();
     expect(snapshot.events.some((event) => event.kind === 39_000)).toBe(true);
     expect(snapshot.events.some((event) => event.kind === 0)).toBe(true);
+    expect(snapshot.events.some((event) => event.kind === 30_315)).toBe(true);
     expect(snapshot.events.some((event) => event.kind === 7)).toBe(true);
     expect(snapshot.capabilities.archive).toBe(false);
     session.close();
