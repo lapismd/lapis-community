@@ -86,7 +86,7 @@ describe("createNip29CommunitySource", () => {
     session.close();
   });
 
-  it("discovers public channel and forum groups from authoritative metadata", async () => {
+  it("discovers public rooms from standard and Buzz metadata", async () => {
     const scenario = createCommunityTestScenario();
     const relayFactory = createInMemoryRelayFactory({
       policy: new Nip29MemoryPolicy({
@@ -123,6 +123,32 @@ describe("createNip29CommunitySource", () => {
       ],
     });
     await relay.publish(topic);
+    await relay.publish(
+      await scenario.operator.signEvent({
+        kind: 9_007,
+        created_at: 1_700_000_022,
+        content: JSON.stringify({ name: "buzz-stream" }),
+        tags: [
+          ["h", "buzz-stream"],
+          ["name", "buzz-stream"],
+          ["visibility", "open"],
+          ["channel_type", "stream"],
+        ],
+      }),
+    );
+    await relay.publish(
+      await scenario.operator.signEvent({
+        kind: 9_007,
+        created_at: 1_700_000_023,
+        content: JSON.stringify({ name: "buzz-forum" }),
+        tags: [
+          ["h", "buzz-forum"],
+          ["name", "buzz-forum"],
+          ["visibility", "open"],
+          ["channel_type", "forum"],
+        ],
+      }),
+    );
 
     const scope = { ...scenario.scope, discoverPublicRooms: true };
     const session = await createNip29CommunitySource({ relayFactory }).open(
@@ -142,6 +168,16 @@ describe("createNip29CommunitySource", () => {
         .find((section) => section.id === "forums")
         ?.rooms.find((room) => room.id === groupId),
     ).toMatchObject({ name: "support-ai", kind: "forum" });
+    expect(
+      workspace.navigationSections
+        .find((section) => section.id === "channels")
+        ?.rooms.find((room) => room.id === "buzz-stream"),
+    ).toMatchObject({ name: "buzz-stream", kind: "channel" });
+    expect(
+      workspace.navigationSections
+        .find((section) => section.id === "forums")
+        ?.rooms.find((room) => room.id === "buzz-forum"),
+    ).toMatchObject({ name: "buzz-forum", kind: "forum" });
     expect(workspace.topics).toMatchObject([
       { id: topic.id, title: "AI provider fallback" },
     ]);

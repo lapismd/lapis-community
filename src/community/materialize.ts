@@ -100,7 +100,13 @@ export function communityRooms(
           ? "forum"
           : supportedKinds.has(9)
             ? "channel"
-            : undefined;
+            : metadata.tags.find((tag) => tag[0] === "channel_type")?.[1] ===
+                "forum"
+              ? "forum"
+              : metadata.tags.find((tag) => tag[0] === "channel_type")?.[1] ===
+                  "stream"
+                ? "channel"
+                : undefined;
       if (kind === undefined) return undefined;
       const name =
         metadata.tags.find((tag) => tag[0] === "name")?.[1]?.trim() || groupId;
