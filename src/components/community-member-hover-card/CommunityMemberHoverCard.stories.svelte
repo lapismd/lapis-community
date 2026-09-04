@@ -47,3 +47,20 @@
     </div>
   {/snippet}
 </Story>
+
+<Story
+  name="Mention trigger"
+  args={{
+    member: communityStoryMembers[1]!,
+    trigger: "mention",
+    triggerLabel: "@Ben Stone",
+    onOpenProfile: fn(),
+    openDelay: 120,
+  }}
+>
+  {#snippet template(args)}
+    <p style="min-height: 18rem; padding: 4rem;">
+      Ask <CommunityMemberHoverCard {...args} /> to review this message.
+    </p>
+  {/snippet}
+</Story>

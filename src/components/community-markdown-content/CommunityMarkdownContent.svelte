@@ -122,6 +122,21 @@
     overflow-x: auto;
   }
 
+  :global(
+      .community-markdown-content
+        .markdown-rendered
+        .markdown
+        img.community-emoji-reference
+    ) {
+    display: inline-block;
+    width: 1.15em;
+    height: 1.15em;
+    max-width: none;
+    margin-inline: 0.04em;
+    object-fit: contain;
+    vertical-align: -0.2em;
+  }
+
   :global(.community-markdown-content img:not(.community-emoji-reference)) {
     max-width: min(100%, 32rem);
     max-height: 24rem;

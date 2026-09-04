@@ -109,9 +109,19 @@
     mediaAdapter,
   }}
   play={async ({ canvas }) => {
-    await expect(
-      canvas.getByRole("textbox", { name: "Markdown editor" }),
-    ).toBeVisible();
+    const editor = canvas.getByRole("textbox", { name: "Markdown editor" });
+    const composer = editor.closest<HTMLElement>(
+      '[data-ui-component="ai-chat-composer"]',
+    );
+    const composerBody = composer?.querySelector<HTMLElement>(
+      ':scope > [data-ui-part="body"]',
+    );
+    await expect(editor).toBeVisible();
+    await expect(composer).toHaveAttribute("data-elevation", "low");
+    await expect(composerBody).not.toBeNull();
+    await expect(getComputedStyle(composerBody!).boxShadow).not.toBe("none");
+    await userEvent.click(editor);
+    await expect(getComputedStyle(composerBody!).outlineStyle).toBe("none");
     await expect(
       canvas.getByRole("button", { name: "Send message" }),
     ).toBeDisabled();
@@ -165,12 +175,14 @@
     await expect(editor).toHaveTextContent("🚀");
     await userEvent.keyboard("{ArrowLeft}");
     await waitFor(() =>
-      expect(canvas.queryByRole("img", { name: ":lapis:" })).toBeNull(),
+      expect(
+        canvasElement.querySelector('[data-ui-part="composer-custom-emoji"]'),
+      ).toBeNull(),
     );
     await userEvent.keyboard("{End}");
     await expect(
-      await canvas.findByRole("img", { name: ":lapis:" }),
-    ).toBeVisible();
+      canvasElement.querySelector('[data-ui-part="composer-custom-emoji"]'),
+    ).not.toBeNull();
   }}
 />
 
@@ -198,22 +210,42 @@
 />
 
 <Story
-  name="Mention and channel autocomplete"
+  name="Command autocomplete"
   args={{ ...commonArgs }}
   play={async ({ canvas, canvasElement }) => {
-    const page = within(canvasElement.ownerDocument.body);
     const editor = canvas.getByRole("textbox", { name: "Markdown editor" });
     await userEvent.click(editor);
-    await userEvent.type(editor, "Could you review this, @Mar");
-    const mara = await page.findByText("@Mara Chen");
-    await expect(mara).toBeVisible();
+    await userEvent.type(editor, "Could you review this, @Ben ");
+    const people = await canvas.findByRole("listbox", {
+      name: "People suggestions",
+    });
+    await expect(people).toBeVisible();
+    await expect(
+      Number.parseFloat(getComputedStyle(people).rowGap),
+    ).toBeGreaterThan(0);
+    await userEvent.keyboard("Sto");
+    const ben = await canvas.findByRole("option", { name: /@Ben Stone/ });
+    await expect(ben).toBeVisible();
+    await userEvent.keyboard("{Backspace}{Backspace}");
+    await expect(
+      canvas.getByRole("option", { name: /@Ben Stone/ }),
+    ).toBeVisible();
     await userEvent.keyboard("{Enter}");
-    await expect(editor).toHaveTextContent("@Mara Chen");
+    await expect(editor).toHaveTextContent("@Ben Stone");
     await userEvent.keyboard("{End} in #plugin-d");
-    const channel = await page.findByText("#plugin-development");
+    const channel = await canvas.findByRole("option", {
+      name: /#plugin-development/,
+    });
     await expect(channel).toBeVisible();
     await userEvent.click(channel);
     await expect(editor).toHaveTextContent("#plugin-development");
+    await userEvent.keyboard("{End} :rock");
+    const standardEmoji = await canvas.findByRole("option", {
+      name: /:rocket:/,
+    });
+    await expect(standardEmoji).toBeVisible();
+    await userEvent.click(standardEmoji);
+    await expect(editor).toHaveTextContent("🚀");
   }}
 />
 
@@ -223,9 +255,14 @@
     ...commonArgs,
     context: {
       kind: "reply",
-      id: "message-release",
-      label: "Ben Stone",
-      excerpt: "The registry now links back to the support forum.",
+      target: {
+        eventId: "message-release",
+        roomId: "general",
+        authorId: "ben",
+        authorName: "Ben Stone",
+        content: "The registry now links back to the support forum.",
+        kind: "channel",
+      },
     },
     mediaAdapter,
     onCancelContext: fn(),
@@ -244,14 +281,89 @@
             "registry-preview.svg",
             { type: "image/svg+xml" },
           ),
+          new File(["relay upload log"], "relay-log.txt", {
+            type: "text/plain",
+          }),
         ],
       },
     });
-    await expect(canvas.getByText("registry-preview.svg")).toBeVisible();
-    await waitFor(() => expect(canvas.getByText(/Ready/)).toBeVisible());
+    const imagePreview = canvas.getByRole("listitem", {
+      name: /registry-preview\.svg/,
+    });
+    const filePreview = canvas.getByRole("listitem", {
+      name: /relay-log\.txt/,
+    });
+    await waitFor(() =>
+      expect(imagePreview).toHaveAttribute("data-status", "uploaded"),
+    );
+    await waitFor(() =>
+      expect(filePreview).toHaveAttribute("data-status", "uploaded"),
+    );
+    await expect(imagePreview.querySelector("img")).not.toBeNull();
+    await expect(
+      Math.abs(
+        imagePreview.getBoundingClientRect().width -
+          imagePreview.getBoundingClientRect().height,
+      ),
+    ).toBeLessThan(1);
     await expect(
       canvas.getByRole("button", { name: "Cancel reply" }),
     ).toBeVisible();
+  }}
+/>
+
+<Story
+  name="Reply context and actionable error"
+  args={{
+    ...commonArgs,
+    value: "The message stays editable while the relay reconnects.",
+    context: {
+      kind: "reply",
+      target: {
+        eventId: "message-release",
+        roomId: "general",
+        authorId: "ben",
+        authorName: "Ben Stone",
+        content: "Can we verify the Markdown rendering before migration?",
+        kind: "channel",
+      },
+    },
+    composerStatus: {
+      type: "error",
+      message: "The relay rejected the previous attempt.",
+    },
+    onCancelContext: fn(),
+    onRetryComposerStatus: fn(),
+    onDismissComposerStatus: fn(),
+  }}
+  play={async ({ canvas, canvasElement, args }) => {
+    const reply = canvas.getByLabelText("Replying to Ben Stone");
+    const composer = reply.closest<HTMLElement>(
+      '[data-ui-component="ai-chat-composer"]',
+    );
+    const composerBody = composer?.querySelector<HTMLElement>(
+      ':scope > [data-ui-part="body"]',
+    );
+    const error = canvas.getByRole("alert");
+    await expect(reply).toBeVisible();
+    await expect(
+      reply.closest('[data-ui-component="ai-chat-composer-drawer"]'),
+    ).not.toBeNull();
+    await expect(composerBody).not.toBeNull();
+    await expect(getComputedStyle(reply).borderTopLeftRadius).toBe(
+      getComputedStyle(composerBody!).borderTopLeftRadius,
+    );
+    await expect(error).toHaveAttribute("data-status", "error");
+    await expect(error).toHaveTextContent(
+      "The relay rejected the previous attempt.",
+    );
+    await expect(
+      canvasElement.querySelector('[data-ui-part="composer-status-actions"]'),
+    ).not.toBeNull();
+    await userEvent.click(canvas.getByRole("button", { name: "Retry" }));
+    await expect(args.onRetryComposerStatus).toHaveBeenCalledOnce();
+    await userEvent.click(canvas.getByRole("button", { name: "Dismiss" }));
+    await expect(args.onDismissComposerStatus).toHaveBeenCalledOnce();
   }}
 />
 
@@ -281,8 +393,10 @@
       ),
     ).toBeVisible();
     await expect(
-      canvas.getByText("Upload interrupted — try again"),
-    ).toBeVisible();
+      canvas.getByRole("listitem", {
+        name: /release-log\.txt\. Upload interrupted — try again/,
+      }),
+    ).toHaveAttribute("data-status", "failed");
     await expect(
       canvas.getByRole("button", { name: "Send message" }),
     ).toBeDisabled();

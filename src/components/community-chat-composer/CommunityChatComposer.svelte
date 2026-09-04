@@ -5,6 +5,11 @@
     type MiraHandle,
     type MiraMarkdownActionId,
   } from "@lapismd/mira";
+  import {
+    Composer,
+    ComposerDrawer,
+    type ComposerStatus,
+  } from "@lapismd/design-core/ai/chat";
   import { Button } from "@lapismd/design-core/shadcn/button";
   import * as Dialog from "@lapismd/design-core/shadcn/dialog";
   import { Input } from "@lapismd/design-core/shadcn/input";
@@ -14,17 +19,18 @@
   import CodeIcon from "@lucide/svelte/icons/code";
   import EyeOffIcon from "@lucide/svelte/icons/eye-off";
   import FileTextIcon from "@lucide/svelte/icons/file-text";
+  import HashIcon from "@lucide/svelte/icons/hash";
   import ItalicIcon from "@lucide/svelte/icons/italic";
   import LinkIcon from "@lucide/svelte/icons/link";
   import ListIcon from "@lucide/svelte/icons/list";
   import ListOrderedIcon from "@lucide/svelte/icons/list-ordered";
   import LoaderCircleIcon from "@lucide/svelte/icons/loader-circle";
-  import MessageSquareReplyIcon from "@lucide/svelte/icons/message-square-reply";
   import PaperclipIcon from "@lucide/svelte/icons/paperclip";
   import PencilLineIcon from "@lucide/svelte/icons/pencil-line";
   import QuoteIcon from "@lucide/svelte/icons/quote";
   import RotateCcwIcon from "@lucide/svelte/icons/rotate-ccw";
   import SendIcon from "@lucide/svelte/icons/send";
+  import SmileIcon from "@lucide/svelte/icons/smile";
   import SquareCodeIcon from "@lucide/svelte/icons/square-code";
   import StrikethroughIcon from "@lucide/svelte/icons/strikethrough";
   import Trash2Icon from "@lucide/svelte/icons/trash-2";
@@ -39,14 +45,26 @@
     CommunityRoomModel,
   } from "../community-workspace/model.js";
   import CommunityEmojiPicker from "../community-emoji-picker/CommunityEmojiPicker.svelte";
+  import CommunityMemberAvatar from "../community-member-avatar/CommunityMemberAvatar.svelte";
+  import CommunityReplyContext from "../community-reply-context/CommunityReplyContext.svelte";
+  import "../community-composer-status.css";
+  import {
+    communityEmojiAutocompleteItems,
+    communityMemberAutocompleteItems,
+    communityRoomAutocompleteItems,
+    detectCommunityComposerAutocomplete,
+    type CommunityComposerAutocompleteItem,
+    type CommunityComposerAutocompleteQuery,
+  } from "./autocomplete.js";
   import {
     createCommunityComposerExtension,
-    openCommunityComposerAutocomplete,
     refreshCommunityComposerTokenDecorations,
   } from "./composer-extension.js";
   import {
     communityEmojiToken,
     formatCommunityAttachmentSize,
+    isFencedCodePosition,
+    isInlineCodePosition,
     isSafeCommunityLink,
     resolveCommunityComposerReferences,
     type CommunityComposerAttachment,
@@ -72,10 +90,13 @@
     mediaAdapter,
     disabled = false,
     disabledReason = "Messaging is unavailable",
+    composerStatus,
     busy = false,
     onSubmit,
     onCancelContext,
     onEditLastMessage,
+    onRetryComposerStatus,
+    onDismissComposerStatus,
     class: className = "",
   }: {
     value?: string;
@@ -93,18 +114,22 @@
     mediaAdapter?: CommunityMessageMediaAdapter;
     disabled?: boolean;
     disabledReason?: string;
+    composerStatus?: ComposerStatus;
     busy?: boolean;
     onSubmit?: (
       submission: CommunityComposerSubmission,
     ) => void | Promise<void>;
     onCancelContext?: () => void;
     onEditLastMessage?: () => void;
+    onRetryComposerStatus?: () => void | Promise<void>;
+    onDismissComposerStatus?: () => void;
     class?: string;
   } = $props();
 
   let mira = $state<MiraHandle>();
   let editorView = $state<EditorView>();
   let fileInput = $state<HTMLInputElement>();
+  let autocompleteList = $state<HTMLDivElement>();
   let selectionFrom = $state(0);
   let selectionTo = $state(0);
   let selectedMentionPubkeys = $state<string[]>([]);
@@ -118,6 +143,11 @@
   let linkError = $state("");
   let linkSelection = $state({ from: 0, to: 0 });
   let submitError = $state("");
+  let autocompleteQuery = $state<CommunityComposerAutocompleteQuery>();
+  let autocompleteItems = $state<CommunityComposerAutocompleteItem[]>([]);
+  let autocompleteSelectedIndex = $state(0);
+  let autocompleteGeneration = 0;
+  let retryStatusPending = $state(false);
   let draftReady = $state(
     untrack(() => draftStore === undefined || draftKey === undefined),
   );
@@ -149,6 +179,17 @@
       !hasPendingAttachments &&
       (value.trim() !== "" || attachments.some((item) => item.uploaded)),
   );
+  const activeStatus = $derived<ComposerStatus | undefined>(
+    submitError
+      ? {
+          type: "error",
+          message: submitError,
+        }
+      : (composerStatus ??
+          (disabled
+            ? { type: "warning", message: disabledReason }
+            : undefined)),
+  );
 
   const composerExtension = createCommunityComposerExtension({
     members: () => members,
@@ -156,6 +197,7 @@
     emojis: () => communityEmojis,
     disabled: () => disabled || busy || !onSubmit,
     editing: () => context?.kind === "edit",
+    autocompleteOpen: () => autocompleteItems.length > 0,
     onView(view) {
       editorView = view;
     },
@@ -165,11 +207,23 @@
       selectionTo = state.selectionTo;
       updateActiveActions(state.view);
     },
-    onMention(member) {
-      selectedMentionPubkeys = addUnique(selectedMentionPubkeys, member.id);
+    onAutocompleteQuery: updateAutocomplete,
+    onAutocompleteMove(direction) {
+      if (autocompleteItems.length === 0) return;
+      autocompleteSelectedIndex =
+        (autocompleteSelectedIndex + direction + autocompleteItems.length) %
+        autocompleteItems.length;
+      void tick().then(() => {
+        autocompleteList
+          ?.querySelector<HTMLElement>("[aria-selected='true']")
+          ?.scrollIntoView({ block: "nearest" });
+      });
     },
-    onChannel(room) {
-      selectedChannelIds = addUnique(selectedChannelIds, room.id);
+    onAutocompleteAccept() {
+      return selectAutocomplete(autocompleteSelectedIndex);
+    },
+    onAutocompleteDismiss() {
+      clearAutocomplete();
     },
     onSubmit() {
       void submit();
@@ -217,7 +271,22 @@
   $effect(() => {
     tokenModelSignature;
     const view = editorView;
-    if (view) refreshCommunityComposerTokenDecorations(view);
+    if (view) {
+      refreshCommunityComposerTokenDecorations(view);
+      const selection = view.state.selection.main;
+      const editorValue = view.state.doc.toString();
+      updateAutocomplete(
+        selection.empty &&
+          !isFencedCodePosition(editorValue, selection.head) &&
+          !isInlineCodePosition(editorValue, selection.head)
+          ? detectCommunityComposerAutocomplete(
+              editorValue,
+              selection.head,
+              members,
+            )
+          : null,
+      );
+    }
   });
 
   $effect(() => {
@@ -258,6 +327,76 @@
 
   function addUnique(values: string[], valueToAdd: string): string[] {
     return values.includes(valueToAdd) ? values : [...values, valueToAdd];
+  }
+
+  function updateAutocomplete(
+    query: CommunityComposerAutocompleteQuery | null,
+  ): void {
+    autocompleteGeneration += 1;
+    autocompleteQuery = query ?? undefined;
+    autocompleteSelectedIndex = 0;
+    if (!query) {
+      autocompleteItems = [];
+      return;
+    }
+    if (query.kind === "member") {
+      autocompleteItems = communityMemberAutocompleteItems(
+        members,
+        query.query,
+      );
+      return;
+    }
+    if (query.kind === "room") {
+      autocompleteItems = communityRoomAutocompleteItems(rooms, query.query);
+      return;
+    }
+    autocompleteItems = [];
+    const generation = autocompleteGeneration;
+    void communityEmojiAutocompleteItems(communityEmojis, query.query).then(
+      (items) => {
+        if (generation !== autocompleteGeneration) return;
+        autocompleteItems = items;
+      },
+    );
+  }
+
+  function clearAutocomplete(): void {
+    autocompleteGeneration += 1;
+    autocompleteQuery = undefined;
+    autocompleteItems = [];
+    autocompleteSelectedIndex = 0;
+  }
+
+  function selectAutocomplete(index: number): boolean {
+    const item = autocompleteItems[index];
+    const query = autocompleteQuery;
+    const view = editorView;
+    if (!item || !query || !view) return false;
+    const insert =
+      item.member !== undefined
+        ? `@${item.member.name} `
+        : item.room !== undefined
+          ? `#${item.room.name} `
+          : item.customEmoji !== undefined
+            ? `:${item.customEmoji.shortcode}: `
+            : `${item.native ?? ""} `;
+    if (insert.trim() === "") return false;
+    view.dispatch({
+      changes: { from: query.from, to: query.to, insert },
+      selection: { anchor: query.from + insert.length },
+    });
+    if (item.member) {
+      selectedMentionPubkeys = addUnique(
+        selectedMentionPubkeys,
+        item.member.id,
+      );
+    }
+    if (item.room) {
+      selectedChannelIds = addUnique(selectedChannelIds, item.room.id);
+    }
+    clearAutocomplete();
+    view.focus();
+    return true;
   }
 
   function updateActiveActions(view: EditorView): void {
@@ -326,7 +465,7 @@
   async function insertReferencePrefix(): Promise<void> {
     mira?.insertMarkdown("@");
     await tick();
-    if (editorView) openCommunityComposerAutocomplete(editorView);
+    editorView?.focus();
   }
 
   function insertEmoji(emoji: string, custom?: CommunityCustomEmoji): void {
@@ -495,6 +634,21 @@
     }
   }
 
+  function attachmentStatusLabel(
+    attachment: CommunityComposerAttachment,
+  ): string {
+    if (attachment.status === "uploading") {
+      return `Uploading ${Math.round(attachment.progress ?? 0)}%`;
+    }
+    if (attachment.status === "failed") {
+      return attachment.error ?? "Upload failed";
+    }
+    if (attachment.status === "uploaded") {
+      return `Ready, ${formatCommunityAttachmentSize(attachment.size)}`;
+    }
+    return `Waiting, ${formatCommunityAttachmentSize(attachment.size)}`;
+  }
+
   async function submit(): Promise<void> {
     if (!canSubmit || !onSubmit) return;
     submitError = "";
@@ -529,6 +683,25 @@
         cause instanceof Error ? cause.message : "Message could not be sent";
     }
   }
+
+  async function retryComposerStatus(): Promise<void> {
+    if (retryStatusPending) return;
+    retryStatusPending = true;
+    try {
+      if (submitError) {
+        await submit();
+      } else {
+        await onRetryComposerStatus?.();
+      }
+    } finally {
+      retryStatusPending = false;
+    }
+  }
+
+  function dismissComposerStatus(): void {
+    if (submitError) submitError = "";
+    else onDismissComposerStatus?.();
+  }
 </script>
 
 <div
@@ -541,353 +714,467 @@
   ondragover={handleDragOver}
   ondrop={handleDrop}
 >
-  {#if context}
+  {#if autocompleteQuery && autocompleteItems.length}
     <div
-      class="community-chat-composer__context"
-      data-ui-part="composer-context"
+      class="community-chat-composer__autocomplete-layer"
+      data-ui-part="composer-autocomplete-layer"
+      data-kind={autocompleteQuery.kind}
     >
-      <span class="community-chat-composer__context-icon">
-        {#if context.kind === "reply"}
-          <MessageSquareReplyIcon aria-hidden="true" />
-        {:else}
-          <PencilLineIcon aria-hidden="true" />
-        {/if}
-      </span>
-      <span class="community-chat-composer__context-copy">
-        <strong
-          >{context.kind === "reply"
-            ? `Replying to ${context.label}`
-            : "Editing message"}</strong
-        >
-        {#if context.kind === "reply" && context.excerpt}
-          <span>{context.excerpt}</span>
-        {/if}
-      </span>
-      {#if onCancelContext}
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon-xs"
-          aria-label={context.kind === "reply" ? "Cancel reply" : "Cancel edit"}
-          onclick={onCancelContext}
-        >
-          <XIcon aria-hidden="true" />
-        </Button>
-      {/if}
+      <div
+        bind:this={autocompleteList}
+        class="community-chat-composer__autocomplete"
+        role="listbox"
+        tabindex="-1"
+        aria-label={`${autocompleteQuery.kind === "member" ? "People" : autocompleteQuery.kind === "room" ? "Channels" : "Emoji"} suggestions`}
+        onpointerdown={(event) => event.preventDefault()}
+      >
+        {#each autocompleteItems as item, index (item.id)}
+          <button
+            type="button"
+            role="option"
+            aria-selected={index === autocompleteSelectedIndex}
+            tabindex="-1"
+            class:community-chat-composer__autocomplete-option--selected={index ===
+              autocompleteSelectedIndex}
+            class="community-chat-composer__autocomplete-option"
+            onclick={() => selectAutocomplete(index)}
+          >
+            <span class="community-chat-composer__autocomplete-icon">
+              {#if item.member}
+                <CommunityMemberAvatar
+                  member={item.member}
+                  size="small"
+                  decorative
+                />
+              {:else if item.room}
+                <HashIcon aria-hidden="true" />
+              {:else if item.customEmoji}
+                <img
+                  src={item.customEmoji.url}
+                  alt={`:${item.customEmoji.shortcode}:`}
+                />
+              {:else if item.native}
+                <span aria-hidden="true">{item.native}</span>
+              {:else}
+                <SmileIcon aria-hidden="true" />
+              {/if}
+            </span>
+            <span class="community-chat-composer__autocomplete-copy">
+              <strong
+                >{item.kind === "member"
+                  ? `@${item.label}`
+                  : item.kind === "room"
+                    ? `#${item.label}`
+                    : `:${item.label}:`}</strong
+              >
+              {#if item.detail}
+                <small>{item.detail}</small>
+              {/if}
+            </span>
+          </button>
+        {/each}
+      </div>
     </div>
   {/if}
 
-  {#if attachments.length}
-    <div
-      class="community-chat-composer__attachments"
-      data-ui-part="composer-attachments"
-      aria-label="Message attachments"
-    >
-      {#each attachments as attachment (attachment.id)}
-        <article
-          class="community-chat-composer__attachment"
-          data-status={attachment.status}
+  <Composer
+    class="community-chat-composer__surface"
+    {value}
+    density="spacious"
+    elevation="low"
+    disabled={disabled || busy}
+    interactiveDrawerWhenDisabled={activeStatus !== undefined}
+    {...activeStatus === undefined ? {} : { status: activeStatus }}
+    statusPosition="top"
+    aria-label="Message composer"
+    title={disabled ? disabledReason : undefined}
+    onSubmit={() => void submit()}
+  >
+    {#snippet drawer()}
+      {#if activeStatus && (submitError || onRetryComposerStatus || onDismissComposerStatus)}
+        <span
+          class="community-composer-status-actions"
+          data-ui-part="composer-status-actions"
         >
-          {#if attachment.previewUrl && attachment.mimeType.startsWith("image/")}
-            <img src={attachment.previewUrl} alt="" />
-          {:else}
-            <span class="community-chat-composer__file-icon">
-              <FileTextIcon aria-hidden="true" />
-            </span>
-          {/if}
-          <div class="community-chat-composer__attachment-copy">
-            <strong>{attachment.name}</strong>
-            <span>
-              {#if attachment.status === "uploading"}
-                Uploading {Math.round(attachment.progress ?? 0)}%
-              {:else if attachment.status === "failed"}
-                {attachment.error ?? "Upload failed"}
-              {:else if attachment.status === "uploaded"}
-                Ready · {formatCommunityAttachmentSize(attachment.size)}
-              {:else}
-                Waiting · {formatCommunityAttachmentSize(attachment.size)}
-              {/if}
-            </span>
-            {#if attachment.status === "uploading"}
-              <Progress
-                value={attachment.progress ?? 0}
-                aria-label={`Uploading ${attachment.name}`}
-              />
-            {/if}
-          </div>
-          <div class="community-chat-composer__attachment-actions">
-            {#if attachment.status === "failed" && attachmentFiles.has(attachment.id)}
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon-xs"
-                aria-label={`Retry ${attachment.name}`}
-                onclick={() => retryAttachment(attachment.id)}
-              >
-                <RotateCcwIcon aria-hidden="true" />
-              </Button>
-            {/if}
+          {#if submitError || onRetryComposerStatus}
             <Button
               type="button"
               variant="ghost"
               size="icon-xs"
-              aria-label={`Remove ${attachment.name}`}
-              onclick={() => removeAttachment(attachment.id)}
+              aria-label="Retry"
+              title="Retry"
+              disabled={retryStatusPending}
+              onclick={retryComposerStatus}
             >
-              <Trash2Icon aria-hidden="true" />
+              {#if retryStatusPending}
+                <LoaderCircleIcon
+                  class="community-chat-composer__spinner"
+                  aria-hidden="true"
+                />
+              {:else}
+                <RotateCcwIcon aria-hidden="true" />
+              {/if}
             </Button>
+          {/if}
+          {#if submitError || onDismissComposerStatus}
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-xs"
+              aria-label="Dismiss"
+              title="Dismiss"
+              onclick={dismissComposerStatus}
+            >
+              <XIcon aria-hidden="true" />
+            </Button>
+          {/if}
+        </span>
+      {/if}
+      {#if context?.kind === "reply"}
+        <CommunityReplyContext
+          target={context.target}
+          {...onCancelContext === undefined
+            ? {}
+            : { onCancel: onCancelContext }}
+        />
+      {:else if context?.kind === "edit"}
+        <ComposerDrawer
+          class="community-chat-composer__context-drawer"
+          role="group"
+          aria-label="Editing message"
+        >
+          <div
+            class="community-chat-composer__context"
+            data-ui-part="composer-context"
+          >
+            <span class="community-chat-composer__context-icon">
+              <PencilLineIcon aria-hidden="true" />
+            </span>
+            <span class="community-chat-composer__context-copy">
+              <strong>Editing message</strong>
+            </span>
+            {#if onCancelContext}
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-xs"
+                aria-label="Cancel edit"
+                onclick={onCancelContext}
+              >
+                <XIcon aria-hidden="true" />
+              </Button>
+            {/if}
           </div>
-        </article>
-      {/each}
-    </div>
-  {/if}
+        </ComposerDrawer>
+      {/if}
+    {/snippet}
 
-  <div class="community-chat-composer__editor-wrap">
-    {#if hasSelection && !disabled && !busy}
-      <div
-        class="community-chat-composer__selection-toolbar"
-        role="toolbar"
-        aria-label="Selection formatting"
-        data-ui-part="selection-toolbar"
-      >
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon-xs"
-          aria-label="Bold selection"
-          onclick={() => applyAction("bold")}
-          ><BoldIcon aria-hidden="true" /></Button
+    {#snippet input()}
+      {#if attachments.length}
+        <div
+          class="community-chat-composer__attachments"
+          data-ui-part="composer-attachments"
+          role="list"
+          aria-label="Message attachments"
         >
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon-xs"
-          aria-label="Italicize selection"
-          onclick={() => applyAction("italic")}
-          ><ItalicIcon aria-hidden="true" /></Button
-        >
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon-xs"
-          aria-label="Strike through selection"
-          onclick={() => applyAction("strikethrough")}
-          ><StrikethroughIcon aria-hidden="true" /></Button
-        >
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon-xs"
-          aria-label="Format selection as inline code"
-          onclick={() => applyAction("inlineCode")}
-          ><CodeIcon aria-hidden="true" /></Button
-        >
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon-xs"
-          aria-label="Link selection"
-          onclick={openLinkEditor}><LinkIcon aria-hidden="true" /></Button
-        >
+          {#each attachments as attachment (attachment.id)}
+            <div
+              class="community-chat-composer__attachment"
+              data-status={attachment.status}
+              role="listitem"
+              aria-label={`${attachment.name}. ${attachmentStatusLabel(attachment)}`}
+              title={attachment.name}
+            >
+              <div class="community-chat-composer__attachment-preview">
+                {#if attachment.previewUrl && attachment.mimeType.startsWith("image/")}
+                  <img src={attachment.previewUrl} alt="" />
+                {:else}
+                  <FileTextIcon aria-hidden="true" />
+                {/if}
+              </div>
+              <span class="community-chat-composer__sr-only">
+                {attachment.name}. {attachmentStatusLabel(attachment)}
+              </span>
+              {#if attachment.status === "uploading"}
+                <Progress
+                  value={attachment.progress ?? 0}
+                  aria-label={`Uploading ${attachment.name}`}
+                />
+              {/if}
+              <div class="community-chat-composer__attachment-actions">
+                {#if attachment.status === "failed" && attachmentFiles.has(attachment.id)}
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-xs"
+                    aria-label={`Retry ${attachment.name}`}
+                    onclick={() => retryAttachment(attachment.id)}
+                  >
+                    <RotateCcwIcon aria-hidden="true" />
+                  </Button>
+                {/if}
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-xs"
+                  aria-label={`Remove ${attachment.name}`}
+                  onclick={() => removeAttachment(attachment.id)}
+                >
+                  <Trash2Icon aria-hidden="true" />
+                </Button>
+              </div>
+            </div>
+          {/each}
+        </div>
+      {/if}
+
+      <div class="community-chat-composer__editor-wrap">
+        {#if hasSelection && !disabled && !busy}
+          <div
+            class="community-chat-composer__selection-toolbar"
+            role="toolbar"
+            aria-label="Selection formatting"
+            data-ui-part="selection-toolbar"
+          >
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-xs"
+              aria-label="Bold selection"
+              onclick={() => applyAction("bold")}
+              ><BoldIcon aria-hidden="true" /></Button
+            >
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-xs"
+              aria-label="Italicize selection"
+              onclick={() => applyAction("italic")}
+              ><ItalicIcon aria-hidden="true" /></Button
+            >
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-xs"
+              aria-label="Strike through selection"
+              onclick={() => applyAction("strikethrough")}
+              ><StrikethroughIcon aria-hidden="true" /></Button
+            >
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-xs"
+              aria-label="Format selection as inline code"
+              onclick={() => applyAction("inlineCode")}
+              ><CodeIcon aria-hidden="true" /></Button
+            >
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-xs"
+              aria-label="Link selection"
+              onclick={openLinkEditor}><LinkIcon aria-hidden="true" /></Button
+            >
+          </div>
+        {/if}
+        <Mira
+          bind:this={mira}
+          bind:value
+          mode="live-preview"
+          extensions={[composerExtension]}
+          readonly={disabled || busy}
+          {placeholder}
+          toolbar={false}
+          blockControls={false}
+          outline={false}
+          htmlPolicy="safe"
+          class="community-chat-composer__mira"
+        />
       </div>
-    {/if}
-    <Mira
-      bind:this={mira}
-      bind:value
-      mode="live-preview"
-      extensions={[composerExtension]}
-      readonly={disabled || busy}
-      {placeholder}
-      toolbar={false}
-      blockControls={false}
-      outline={false}
-      htmlPolicy="safe"
-      class="community-chat-composer__mira"
-    />
-  </div>
+    {/snippet}
 
-  {#if submitError}
-    <p class="community-chat-composer__error" role="alert">{submitError}</p>
-  {:else if disabled}
-    <p class="community-chat-composer__disabled-reason">{disabledReason}</p>
-  {/if}
-
-  <div
-    class="community-chat-composer__toolbar"
-    role="toolbar"
-    aria-label="Message formatting and actions"
-    data-ui-part="composer-toolbar"
-  >
-    <div class="community-chat-composer__toolbar-main">
-      {#if formattingOpen}
-        <Button
-          type="button"
-          variant="secondary"
-          size="icon-sm"
-          aria-label="Formatting options"
-          aria-pressed="true"
-          onclick={() => (formattingOpen = false)}
-          ><TypeIcon aria-hidden="true" /></Button
-        >
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon-sm"
-          aria-label="Hide formatting"
-          onclick={() => (formattingOpen = false)}
-          ><XIcon aria-hidden="true" /></Button
-        >
-        <span class="community-chat-composer__separator" aria-hidden="true"
-        ></span>
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon-sm"
-          aria-label="Bold"
-          aria-pressed={activeActions.has("bold")}
-          disabled={disabled || busy}
-          onclick={() => applyAction("bold")}
-          ><BoldIcon aria-hidden="true" /></Button
-        >
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon-sm"
-          aria-label="Italic"
-          aria-pressed={activeActions.has("italic")}
-          disabled={disabled || busy}
-          onclick={() => applyAction("italic")}
-          ><ItalicIcon aria-hidden="true" /></Button
-        >
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon-sm"
-          aria-label="Strikethrough"
-          aria-pressed={activeActions.has("strikethrough")}
-          disabled={disabled || busy}
-          onclick={() => applyAction("strikethrough")}
-          ><StrikethroughIcon aria-hidden="true" /></Button
-        >
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon-sm"
-          aria-label="Inline code"
-          aria-pressed={activeActions.has("inlineCode")}
-          disabled={disabled || busy}
-          onclick={() => applyAction("inlineCode")}
-          ><CodeIcon aria-hidden="true" /></Button
-        >
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon-sm"
-          aria-label="Code block"
-          disabled={disabled || busy}
-          onclick={insertCodeBlock}
-          ><SquareCodeIcon aria-hidden="true" /></Button
-        >
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon-sm"
-          aria-label="Link"
-          disabled={disabled || busy}
-          onclick={openLinkEditor}><LinkIcon aria-hidden="true" /></Button
-        >
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon-sm"
-          aria-label="Bulleted list"
-          disabled={disabled || busy}
-          onclick={() => applyAction("bulletList")}
-          ><ListIcon aria-hidden="true" /></Button
-        >
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon-sm"
-          aria-label="Numbered list"
-          disabled={disabled || busy}
-          onclick={() => applyAction("numberedList")}
-          ><ListOrderedIcon aria-hidden="true" /></Button
-        >
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon-sm"
-          aria-label="Quote"
-          disabled={disabled || busy}
-          onclick={() => applyAction("quote")}
-          ><QuoteIcon aria-hidden="true" /></Button
-        >
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon-sm"
-          aria-label="Spoiler"
-          disabled={disabled || busy}
-          onclick={() => wrapSelection("||", "||", "spoiler")}
-          ><EyeOffIcon aria-hidden="true" /></Button
-        >
-      {:else}
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon-sm"
-          aria-label="Mention someone"
-          disabled={disabled || busy}
-          onclick={insertReferencePrefix}
-          ><AtSignIcon aria-hidden="true" /></Button
-        >
-        {#if mediaAdapter}
+    {#snippet footerActions()}
+      <div
+        class="community-chat-composer__toolbar-main"
+        role="toolbar"
+        aria-label="Message formatting and actions"
+        data-ui-part="composer-toolbar"
+      >
+        {#if formattingOpen}
+          <Button
+            type="button"
+            variant="secondary"
+            size="icon-sm"
+            aria-label="Formatting options"
+            aria-pressed="true"
+            onclick={() => (formattingOpen = false)}
+            ><TypeIcon aria-hidden="true" /></Button
+          >
           <Button
             type="button"
             variant="ghost"
             size="icon-sm"
-            aria-label="Attach files"
-            disabled={disabled || busy || attachments.length >= maxAttachments}
-            onclick={chooseFiles}><PaperclipIcon aria-hidden="true" /></Button
+            aria-label="Hide formatting"
+            onclick={() => (formattingOpen = false)}
+            ><XIcon aria-hidden="true" /></Button
+          >
+          <span class="community-chat-composer__separator" aria-hidden="true"
+          ></span>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-sm"
+            aria-label="Bold"
+            aria-pressed={activeActions.has("bold")}
+            disabled={disabled || busy}
+            onclick={() => applyAction("bold")}
+            ><BoldIcon aria-hidden="true" /></Button
+          >
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-sm"
+            aria-label="Italic"
+            aria-pressed={activeActions.has("italic")}
+            disabled={disabled || busy}
+            onclick={() => applyAction("italic")}
+            ><ItalicIcon aria-hidden="true" /></Button
+          >
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-sm"
+            aria-label="Strikethrough"
+            aria-pressed={activeActions.has("strikethrough")}
+            disabled={disabled || busy}
+            onclick={() => applyAction("strikethrough")}
+            ><StrikethroughIcon aria-hidden="true" /></Button
+          >
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-sm"
+            aria-label="Inline code"
+            aria-pressed={activeActions.has("inlineCode")}
+            disabled={disabled || busy}
+            onclick={() => applyAction("inlineCode")}
+            ><CodeIcon aria-hidden="true" /></Button
+          >
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-sm"
+            aria-label="Code block"
+            disabled={disabled || busy}
+            onclick={insertCodeBlock}
+            ><SquareCodeIcon aria-hidden="true" /></Button
+          >
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-sm"
+            aria-label="Link"
+            disabled={disabled || busy}
+            onclick={openLinkEditor}><LinkIcon aria-hidden="true" /></Button
+          >
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-sm"
+            aria-label="Bulleted list"
+            disabled={disabled || busy}
+            onclick={() => applyAction("bulletList")}
+            ><ListIcon aria-hidden="true" /></Button
+          >
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-sm"
+            aria-label="Numbered list"
+            disabled={disabled || busy}
+            onclick={() => applyAction("numberedList")}
+            ><ListOrderedIcon aria-hidden="true" /></Button
+          >
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-sm"
+            aria-label="Quote"
+            disabled={disabled || busy}
+            onclick={() => applyAction("quote")}
+            ><QuoteIcon aria-hidden="true" /></Button
+          >
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-sm"
+            aria-label="Spoiler"
+            disabled={disabled || busy}
+            onclick={() => wrapSelection("||", "||", "spoiler")}
+            ><EyeOffIcon aria-hidden="true" /></Button
+          >
+        {:else}
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-sm"
+            aria-label="Mention someone"
+            disabled={disabled || busy}
+            onclick={insertReferencePrefix}
+            ><AtSignIcon aria-hidden="true" /></Button
+          >
+          {#if mediaAdapter}
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-sm"
+              aria-label="Attach files"
+              disabled={disabled ||
+                busy ||
+                attachments.length >= maxAttachments}
+              onclick={chooseFiles}><PaperclipIcon aria-hidden="true" /></Button
+            >
+          {/if}
+          <CommunityEmojiPicker
+            label="Add emoji"
+            disabled={disabled || busy}
+            {communityEmojis}
+            onSelect={insertEmoji}
+          />
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-sm"
+            aria-label="Show formatting"
+            aria-pressed="false"
+            disabled={disabled || busy}
+            onclick={() => (formattingOpen = true)}
+            ><TypeIcon aria-hidden="true" /></Button
           >
         {/if}
-        <CommunityEmojiPicker
-          label="Add emoji"
-          disabled={disabled || busy}
-          {communityEmojis}
-          onSelect={insertEmoji}
-        />
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon-sm"
-          aria-label="Show formatting"
-          aria-pressed="false"
-          disabled={disabled || busy}
-          onclick={() => (formattingOpen = true)}
-          ><TypeIcon aria-hidden="true" /></Button
-        >
-      {/if}
-    </div>
-    <Button
-      type="button"
-      size="icon-sm"
-      class="community-chat-composer__send"
-      aria-label={context?.kind === "edit" ? "Save message" : "Send message"}
-      disabled={!canSubmit || !onSubmit}
-      onclick={submit}
-    >
-      {#if busy}
-        <LoaderCircleIcon
-          class="community-chat-composer__spinner"
-          aria-hidden="true"
-        />
-      {:else}
-        <SendIcon aria-hidden="true" />
-      {/if}
-    </Button>
-  </div>
+      </div>
+    {/snippet}
+
+    {#snippet sendButton()}
+      <Button
+        type="button"
+        size="icon-sm"
+        class="community-chat-composer__send"
+        aria-label={context?.kind === "edit" ? "Save message" : "Send message"}
+        disabled={!canSubmit || !onSubmit}
+        onclick={submit}
+      >
+        {#if busy}
+          <LoaderCircleIcon
+            class="community-chat-composer__spinner"
+            aria-hidden="true"
+          />
+        {:else}
+          <SendIcon aria-hidden="true" />
+        {/if}
+      </Button>
+    {/snippet}
+  </Composer>
 
   <input
     bind:this={fileInput}
@@ -933,40 +1220,141 @@
     position: relative;
     width: 100%;
     overflow: visible;
-    border: 1px solid color-mix(in srgb, var(--border) 84%, transparent);
-    border-radius: 0.72rem;
-    background: var(--background);
-    box-shadow:
-      0 1px 2px color-mix(in srgb, var(--foreground) 7%, transparent),
-      0 8px 26px color-mix(in srgb, var(--foreground) 4%, transparent);
-    transition:
-      border-color 140ms ease,
-      box-shadow 140ms ease;
   }
 
-  .community-chat-composer:focus-within {
-    border-color: color-mix(in srgb, var(--ring) 68%, var(--border));
-    box-shadow:
-      0 0 0 2px color-mix(in srgb, var(--ring) 16%, transparent),
-      0 8px 26px color-mix(in srgb, var(--foreground) 5%, transparent);
+  :global(
+      .community-chat-composer__surface[data-ui-component="ai-chat-composer"]
+    ) {
+    --ui-ai-chat-composer-radius: 0.75rem;
+    --ui-ai-chat-composer-padding: 0.65rem;
+    width: 100%;
   }
 
-  .community-chat-composer[data-disabled] {
-    background: color-mix(in srgb, var(--muted) 48%, var(--background));
+  .community-chat-composer__autocomplete-layer {
+    position: absolute;
+    z-index: 50;
+    right: 0;
+    bottom: calc(100% + 0.4rem);
+    left: 0;
+    padding-inline: 0.2rem;
+  }
+
+  .community-chat-composer__autocomplete {
+    display: grid;
+    max-height: 12rem;
+    gap: 0.125rem;
+    padding: 0.25rem;
+    overflow-y: auto;
+    border: 1px solid color-mix(in srgb, var(--border) 72%, transparent);
+    border-radius: 0.75rem;
+    background: color-mix(in srgb, var(--popover) 96%, transparent);
+    box-shadow:
+      0 14px 36px color-mix(in srgb, var(--foreground) 16%, transparent),
+      0 1px 2px color-mix(in srgb, var(--foreground) 8%, transparent);
+    backdrop-filter: blur(14px);
+  }
+
+  .community-chat-composer__autocomplete-option {
+    display: flex;
+    width: 100%;
+    min-height: 2.65rem;
+    align-items: center;
+    gap: 0.65rem;
+    padding: 0.35rem 0.65rem;
+    border: 0;
+    border-radius: 0.55rem;
+    background: transparent;
+    color: var(--popover-foreground);
+    font: inherit;
+    text-align: start;
+    cursor: pointer;
+  }
+
+  .community-chat-composer__autocomplete-option:hover,
+  .community-chat-composer__autocomplete-option--selected {
+    background: var(--accent);
+    color: var(--accent-foreground);
+  }
+
+  .community-chat-composer__autocomplete-icon {
+    display: grid;
+    width: 2rem;
+    height: 2rem;
+    flex: 0 0 auto;
+    place-items: center;
+    border-radius: 50%;
+    background: color-mix(in srgb, var(--muted) 72%, transparent);
+    font-size: 1.2rem;
+  }
+
+  .community-chat-composer__autocomplete-icon :global(svg) {
+    width: 1rem;
+    height: 1rem;
+  }
+
+  .community-chat-composer__autocomplete-icon > img {
+    width: 1.35rem;
+    height: 1.35rem;
+    object-fit: contain;
+  }
+
+  .community-chat-composer__autocomplete-copy {
+    display: grid;
+    min-width: 0;
+    gap: 0.08rem;
+  }
+
+  .community-chat-composer__autocomplete-copy strong,
+  .community-chat-composer__autocomplete-copy small {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .community-chat-composer__autocomplete-copy strong {
+    font-size: 0.82rem;
+    font-weight: 620;
+  }
+
+  .community-chat-composer__autocomplete-copy small {
+    color: var(--muted-foreground);
+    font-size: 0.7rem;
   }
 
   .community-chat-composer__context {
     display: flex;
-    min-height: 2.8rem;
+    width: 100%;
+    min-width: 0;
+    min-height: 2rem;
     align-items: center;
     gap: 0.65rem;
-    padding: 0.55rem 0.65rem 0.5rem;
-    border-bottom: 1px solid var(--border);
     color: var(--muted-foreground);
   }
 
-  .community-chat-composer__context-icon,
-  .community-chat-composer__file-icon {
+  :global(
+      .community-chat-composer__context-drawer[data-ui-component="ai-chat-composer-drawer"]
+    ) {
+    border-radius: 0.75rem 0.75rem 0 0;
+  }
+
+  :global(
+      .community-chat-composer__surface[data-ui-component="ai-chat-composer"][data-disabled="true"][data-interactive-drawer-when-disabled="true"]:has(
+          > [data-ui-part="status"][data-position="top"]
+        )
+        > [data-ui-part="body"]
+        > [data-ui-part="input-area"]
+    ),
+  :global(
+      .community-chat-composer__surface[data-ui-component="ai-chat-composer"][data-disabled="true"][data-interactive-drawer-when-disabled="true"]:has(
+          > [data-ui-part="status"][data-position="top"]
+        )
+        > [data-ui-part="body"]
+        > [data-ui-part="footer"]
+    ) {
+    opacity: 0.7;
+  }
+
+  .community-chat-composer__context-icon {
     display: grid;
     width: 2rem;
     height: 2rem;
@@ -977,22 +1365,19 @@
     color: var(--muted-foreground);
   }
 
-  .community-chat-composer__context-icon :global(svg),
-  .community-chat-composer__file-icon :global(svg) {
+  .community-chat-composer__context-icon :global(svg) {
     width: 1rem;
     height: 1rem;
   }
 
-  .community-chat-composer__context-copy,
-  .community-chat-composer__attachment-copy {
+  .community-chat-composer__context-copy {
     display: grid;
     min-width: 0;
     flex: 1;
     gap: 0.1rem;
   }
 
-  .community-chat-composer__context-copy strong,
-  .community-chat-composer__attachment-copy strong {
+  .community-chat-composer__context-copy strong {
     overflow: hidden;
     color: var(--foreground);
     font-size: 0.78rem;
@@ -1001,8 +1386,7 @@
     white-space: nowrap;
   }
 
-  .community-chat-composer__context-copy span,
-  .community-chat-composer__attachment-copy span {
+  .community-chat-composer__context-copy span {
     overflow: hidden;
     font-size: 0.7rem;
     text-overflow: ellipsis;
@@ -1010,43 +1394,102 @@
   }
 
   .community-chat-composer__attachments {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(min(100%, 15rem), 1fr));
-    gap: 0.45rem;
-    padding: 0.55rem 0.65rem 0;
+    display: flex;
+    min-width: 0;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    padding-block: 0.1rem 0.45rem;
   }
 
   .community-chat-composer__attachment {
-    display: flex;
-    min-width: 0;
-    align-items: center;
-    gap: 0.55rem;
-    padding: 0.42rem;
+    position: relative;
+    display: grid;
+    width: 4.25rem;
+    height: 4.25rem;
+    flex: 0 0 4.25rem;
+    place-items: center;
+    overflow: hidden;
     border: 1px solid var(--border);
-    border-radius: 0.55rem;
-    background: color-mix(in srgb, var(--muted) 42%, transparent);
+    border-radius: 0.75rem;
+    background: color-mix(in srgb, var(--muted) 70%, var(--background));
   }
 
   .community-chat-composer__attachment[data-status="failed"] {
     border-color: color-mix(in srgb, var(--destructive) 45%, var(--border));
   }
 
-  .community-chat-composer__attachment > img {
-    width: 2.3rem;
-    height: 2.3rem;
-    flex: 0 0 auto;
-    border-radius: 0.42rem;
+  .community-chat-composer__attachment-preview,
+  .community-chat-composer__attachment-preview > img {
+    width: 100%;
+    height: 100%;
+  }
+
+  .community-chat-composer__attachment-preview {
+    display: grid;
+    place-items: center;
+    color: var(--muted-foreground);
+  }
+
+  .community-chat-composer__attachment-preview > img {
     object-fit: cover;
   }
 
-  .community-chat-composer__attachment-copy :global([data-ui-part="progress"]) {
+  .community-chat-composer__attachment-preview > :global(svg) {
+    width: 1.5rem;
+    height: 1.5rem;
+  }
+
+  .community-chat-composer__attachment > :global([data-ui-part="progress"]) {
+    position: absolute;
+    z-index: 2;
+    right: 0.25rem;
+    bottom: 0.25rem;
+    left: 0.25rem;
     height: 0.18rem;
-    margin-top: 0.18rem;
   }
 
   .community-chat-composer__attachment-actions {
+    position: absolute;
+    z-index: 3;
+    top: 0.2rem;
+    right: 0.2rem;
     display: flex;
     align-items: center;
+    gap: 0.1rem;
+    opacity: 0;
+    transition: opacity 120ms ease;
+  }
+
+  .community-chat-composer__attachment:hover
+    .community-chat-composer__attachment-actions,
+  .community-chat-composer__attachment:focus-within
+    .community-chat-composer__attachment-actions,
+  .community-chat-composer__attachment[data-status="failed"]
+    .community-chat-composer__attachment-actions {
+    opacity: 1;
+  }
+
+  .community-chat-composer__attachment-actions
+    :global([data-ui-component="button"]) {
+    width: 1.45rem;
+    height: 1.45rem;
+    border: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--background) 88%, transparent);
+    box-shadow: 0 1px 3px color-mix(in srgb, var(--foreground) 15%, transparent);
+    backdrop-filter: blur(6px);
+  }
+
+  .community-chat-composer__sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    border: 0;
+    margin: -1px;
+    white-space: nowrap;
   }
 
   .community-chat-composer__editor-wrap {
@@ -1105,7 +1548,17 @@
     outline: none;
   }
 
-  :global(.community-chat-composer__mira .community-composer-token--reference) {
+  :global(.community-chat-composer__mira .community-composer-token--mention) {
+    padding: 0.06em 0.24em;
+    border-radius: calc(var(--radius) - 0.2rem);
+    background: var(--secondary);
+    box-decoration-break: clone;
+    color: var(--secondary-foreground);
+    font-weight: 650;
+    -webkit-box-decoration-break: clone;
+  }
+
+  :global(.community-chat-composer__mira .community-composer-token--channel) {
     color: var(--primary);
     font-weight: 650;
   }
@@ -1128,15 +1581,6 @@
     border-radius: 0.2rem;
     background: var(--foreground);
     color: transparent;
-  }
-
-  .community-chat-composer__toolbar {
-    display: flex;
-    min-height: 2.65rem;
-    align-items: center;
-    justify-content: space-between;
-    gap: 0.5rem;
-    padding: 0.28rem 0.36rem 0.36rem;
   }
 
   .community-chat-composer__toolbar-main {
@@ -1178,18 +1622,6 @@
     animation: community-composer-spin 800ms linear infinite;
   }
 
-  .community-chat-composer__error,
-  .community-chat-composer__disabled-reason {
-    margin: 0;
-    padding: 0.1rem 0.75rem;
-    color: var(--destructive);
-    font-size: 0.72rem;
-  }
-
-  .community-chat-composer__disabled-reason {
-    color: var(--muted-foreground);
-  }
-
   .community-chat-composer__file-input {
     position: fixed;
     width: 1px;
@@ -1227,13 +1659,14 @@
   }
 
   @media (max-width: 38rem) {
-    .community-chat-composer[data-formatting-open]
-      .community-chat-composer__toolbar {
-      align-items: flex-end;
-    }
-
     .community-chat-composer__selection-toolbar {
       display: none;
+    }
+  }
+
+  @media (hover: none) {
+    .community-chat-composer__attachment-actions {
+      opacity: 1;
     }
   }
 </style>

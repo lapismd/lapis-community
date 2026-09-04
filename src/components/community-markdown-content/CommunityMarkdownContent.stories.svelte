@@ -1,6 +1,6 @@
 <script module lang="ts">
   import { defineMeta } from "@storybook/addon-svelte-csf";
-  import { expect, fn, userEvent } from "storybook/test";
+  import { expect, fn, userEvent, within } from "storybook/test";
 
   import {
     communityComposerStoryEmojis,
@@ -49,8 +49,16 @@
     onOpenMember: fn(),
     onOpenRoom: fn(),
   }}
-  play={async ({ canvas, args }) => {
-    await userEvent.click(canvas.getByRole("button", { name: "@Ben Stone" }));
+  play={async ({ canvas, canvasElement, args }) => {
+    const page = within(canvasElement.ownerDocument.body);
+    const mention = canvas.getByRole("button", { name: "@Ben Stone" });
+    await userEvent.hover(mention);
+    await expect(
+      await page.findByRole("group", {
+        name: "Ben Stone contact preview",
+      }),
+    ).toBeVisible();
+    await userEvent.click(mention);
     await expect(args.onOpenMember).toHaveBeenCalledWith(
       communityComposerStoryMembers[1],
     );
@@ -58,8 +66,17 @@
       canvas.getByRole("button", { name: "#plugin-development" }),
     );
     await expect(args.onOpenRoom).toHaveBeenCalledWith("plugin-development");
-    await expect(canvas.getByRole("img", { name: ":lapis:" })).toBeVisible();
-    await expect(canvas.getByRole("img", { name: ":shipit:" })).toBeVisible();
+    const lapisEmoji = canvas.getByRole("img", { name: ":lapis:" });
+    const shipitEmoji = canvas.getByRole("img", { name: ":shipit:" });
+    await expect(lapisEmoji).toBeVisible();
+    await expect(shipitEmoji).toBeVisible();
+    await expect(getComputedStyle(lapisEmoji).display).toBe("inline-block");
+    await expect(
+      Math.abs(
+        lapisEmoji.getBoundingClientRect().top -
+          shipitEmoji.getBoundingClientRect().top,
+      ),
+    ).toBeLessThan(2);
     const spoiler = canvas.getByRole("button", { name: "Reveal spoiler" });
     await userEvent.click(spoiler);
     await expect(spoiler).toHaveAttribute("aria-pressed", "true");

@@ -13,12 +13,16 @@
     onViewActivity,
     onMessage,
     openDelay = 280,
+    trigger = "avatar",
+    triggerLabel = `@${member.name}`,
   }: {
     member: CommunityMemberModel;
     onOpenProfile?: (member: CommunityMemberModel) => void;
     onViewActivity?: (member: CommunityMemberModel) => void;
     onMessage?: (member: CommunityMemberModel) => void;
     openDelay?: number;
+    trigger?: "avatar" | "mention";
+    triggerLabel?: string;
   } = $props();
 </script>
 
@@ -29,10 +33,18 @@
         {...props}
         type="button"
         class="community-member-hover-card__trigger"
-        aria-label={`View ${member.name}'s profile`}
+        class:community-member-hover-card__trigger--mention={trigger ===
+          "mention"}
+        aria-label={trigger === "mention"
+          ? triggerLabel
+          : `View ${member.name}'s profile`}
         onclick={() => onOpenProfile?.(member)}
       >
-        <CommunityMemberAvatar {member} decorative />
+        {#if trigger === "mention"}
+          {triggerLabel}
+        {:else}
+          <CommunityMemberAvatar {member} decorative />
+        {/if}
       </button>
     {/snippet}
   </HoverCard.Trigger>
@@ -101,6 +113,32 @@
     border-radius: 50%;
     background: transparent;
     cursor: pointer;
+  }
+
+  .community-member-hover-card__trigger--mention {
+    display: inline;
+    width: auto;
+    height: auto;
+    padding: 0.08em 0.3em;
+    border-radius: calc(var(--radius) - 0.2rem);
+    background: var(--secondary);
+    box-decoration-break: clone;
+    color: var(--secondary-foreground);
+    font: inherit;
+    font-weight: 600;
+    line-height: inherit;
+    text-align: start;
+    vertical-align: baseline;
+    -webkit-box-decoration-break: clone;
+  }
+
+  .community-member-hover-card__trigger--mention:hover {
+    background: color-mix(in srgb, var(--secondary) 72%, var(--primary) 28%);
+  }
+
+  .community-member-hover-card__trigger--mention:focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
   }
 
   :global(

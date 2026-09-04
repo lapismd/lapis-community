@@ -1,4 +1,7 @@
-import type { CommunityCustomEmoji } from "../../community/index.js";
+import type {
+  CommunityCustomEmoji,
+  CommunityReplyTarget,
+} from "../../community/index.js";
 import type {
   CommunityMemberModel,
   CommunityRoomModel,
@@ -62,9 +65,7 @@ export interface CommunityMessageMediaAdapter {
 export type CommunityComposerContext =
   | {
       kind: "reply";
-      id: string;
-      label: string;
-      excerpt?: string;
+      target: CommunityReplyTarget;
     }
   | {
       kind: "edit";

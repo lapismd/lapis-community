@@ -1,12 +1,3 @@
-import {
-  acceptCompletion,
-  autocompletion,
-  completionStatus,
-  startCompletion,
-  type Completion,
-  type CompletionContext,
-  type CompletionResult,
-} from "@codemirror/autocomplete";
 import { Prec, StateEffect, type Range } from "@codemirror/state";
 import {
   Decoration,
@@ -32,6 +23,10 @@ import {
   isInlineCodePosition,
   isSafeCommunityEmojiUrl,
 } from "./model.js";
+import {
+  detectCommunityComposerAutocomplete,
+  type CommunityComposerAutocompleteQuery,
+} from "./autocomplete.js";
 
 export interface CommunityComposerEditorState {
   view: EditorView;
@@ -45,10 +40,13 @@ export interface CommunityComposerExtensionOptions {
   emojis(): readonly CommunityCustomEmoji[];
   disabled(): boolean;
   editing(): boolean;
+  autocompleteOpen(): boolean;
   onView(view: EditorView): void;
   onSelection(state: CommunityComposerEditorState): void;
-  onMention(member: CommunityMemberModel): void;
-  onChannel(room: CommunityRoomModel): void;
+  onAutocompleteQuery(query: CommunityComposerAutocompleteQuery | null): void;
+  onAutocompleteMove(direction: -1 | 1): void;
+  onAutocompleteAccept(): boolean;
+  onAutocompleteDismiss(): void;
   onSubmit(): void;
   onEditLast(): boolean;
   onCancelEdit(): void;
@@ -59,41 +57,9 @@ const refreshCommunityComposerTokens = StateEffect.define<void>();
 export function createCommunityComposerExtension(
   options: CommunityComposerExtensionOptions,
 ): MiraExtension {
-  const autocompleteSource = (
-    context: CompletionContext,
-  ): CompletionResult | null => {
-    const match = prefixMatch(context);
-    if (match === null) return null;
-    if (
-      isFencedCodePosition(context.state.doc.toString(), context.pos) ||
-      isInlineCodePosition(context.state.doc.toString(), context.pos)
-    ) {
-      return null;
-    }
-
-    const query = match.query.toLocaleLowerCase();
-    const completions =
-      match.prefix === "@"
-        ? memberCompletions(options.members(), query, options.onMention)
-        : match.prefix === "#"
-          ? channelCompletions(options.rooms(), query, options.onChannel)
-          : emojiCompletions(options.emojis(), query);
-    if (completions.length === 0) return null;
-
-    return {
-      from: match.from,
-      options: completions,
-      filter: false,
-    };
-  };
-
   return defineMiraExtension({
     name: "community-chat-composer",
     codeMirror: () => [
-      autocompletion({
-        override: [autocompleteSource],
-        interactionDelay: 0,
-      }),
       communityTokenDecorations(options),
       EditorView.updateListener.of((update) => {
         if (!update.selectionSet && !update.docChanged) return;
@@ -103,15 +69,15 @@ export function createCommunityComposerExtension(
           selectionFrom: selection.from,
           selectionTo: selection.to,
         });
+        updateAutocompleteQuery(update.view, options);
       }),
       Prec.highest(
         keymap.of([
           {
             key: "Enter",
             run(view) {
-              if (completionStatus(view.state) !== null) {
-                return acceptCompletion(view);
-              }
+              if (options.autocompleteOpen())
+                return options.onAutocompleteAccept();
               if (view.composing || options.disabled()) return false;
               if (
                 isFencedCodePosition(
@@ -127,15 +93,27 @@ export function createCommunityComposerExtension(
           },
           {
             key: "Tab",
-            run(view) {
-              return completionStatus(view.state) === null
-                ? false
-                : acceptCompletion(view);
+            run() {
+              return options.autocompleteOpen()
+                ? options.onAutocompleteAccept()
+                : false;
+            },
+          },
+          {
+            key: "ArrowDown",
+            run() {
+              if (!options.autocompleteOpen()) return false;
+              options.onAutocompleteMove(1);
+              return true;
             },
           },
           {
             key: "ArrowUp",
             run(view) {
+              if (options.autocompleteOpen()) {
+                options.onAutocompleteMove(-1);
+                return true;
+              }
               if (
                 view.state.doc.toString().trim() !== "" ||
                 view.state.selection.main.head !== 0
@@ -148,6 +126,10 @@ export function createCommunityComposerExtension(
           {
             key: "Escape",
             run() {
+              if (options.autocompleteOpen()) {
+                options.onAutocompleteDismiss();
+                return true;
+              }
               if (!options.editing()) return false;
               options.onCancelEdit();
               return true;
@@ -165,98 +147,32 @@ export function createCommunityComposerExtension(
         selectionFrom: selection.from,
         selectionTo: selection.to,
       });
+      updateAutocompleteQuery(context.view, options);
     },
   });
 }
 
-export function openCommunityComposerAutocomplete(view: EditorView): void {
-  startCompletion(view);
-}
-
-function prefixMatch(context: CompletionContext): {
-  prefix: "@" | "#" | ":";
-  query: string;
-  from: number;
-} | null {
-  const line = context.state.doc.lineAt(context.pos);
-  const before = context.state.sliceDoc(line.from, context.pos);
-  const match = /(?:^|\s)([@#:])([\p{L}\p{N}_+-]*)$/u.exec(before);
-  const prefix = match?.[1];
-  if (prefix !== "@" && prefix !== "#" && prefix !== ":") return null;
-  const query = match?.[2] ?? "";
-  return {
-    prefix,
-    query,
-    from: context.pos - query.length - 1,
-  };
-}
-
-function memberCompletions(
-  members: readonly CommunityMemberModel[],
-  query: string,
-  onMention: (member: CommunityMemberModel) => void,
-): Completion[] {
-  return members
-    .filter((member) =>
-      `${member.name} ${member.handle}`.toLocaleLowerCase().includes(query),
-    )
-    .slice(0, 8)
-    .map((member) => ({
-      label: `@${member.name}`,
-      detail: `@${member.handle}`,
-      type: "variable",
-      apply(view, _completion, from, to) {
-        const insert = `@${member.name} `;
-        view.dispatch({
-          changes: { from, to, insert },
-          selection: { anchor: from + insert.length },
-        });
-        onMention(member);
-      },
-    }));
-}
-
-function channelCompletions(
-  rooms: readonly CommunityRoomModel[],
-  query: string,
-  onChannel: (room: CommunityRoomModel) => void,
-): Completion[] {
-  return rooms
-    .filter(
-      (room) =>
-        room.kind !== "direct" &&
-        room.archived !== true &&
-        room.name.toLocaleLowerCase().includes(query),
-    )
-    .slice(0, 8)
-    .map((room) => ({
-      label: `#${room.name}`,
-      detail: room.kind === "forum" ? "Forum" : "Channel",
-      type: "namespace",
-      apply(view, _completion, from, to) {
-        const insert = `#${room.name} `;
-        view.dispatch({
-          changes: { from, to, insert },
-          selection: { anchor: from + insert.length },
-        });
-        onChannel(room);
-      },
-    }));
-}
-
-function emojiCompletions(
-  emojis: readonly CommunityCustomEmoji[],
-  query: string,
-): Completion[] {
-  return emojis
-    .filter((emoji) => emoji.shortcode.toLocaleLowerCase().includes(query))
-    .slice(0, 8)
-    .map((emoji) => ({
-      label: `:${emoji.shortcode}:`,
-      detail: "Community emoji",
-      type: "keyword",
-      apply: `:${emoji.shortcode}: `,
-    }));
+function updateAutocompleteQuery(
+  view: EditorView,
+  options: CommunityComposerExtensionOptions,
+): void {
+  const selection = view.state.selection.main;
+  const value = view.state.doc.toString();
+  if (
+    !selection.empty ||
+    isFencedCodePosition(value, selection.head) ||
+    isInlineCodePosition(value, selection.head)
+  ) {
+    options.onAutocompleteQuery(null);
+    return;
+  }
+  options.onAutocompleteQuery(
+    detectCommunityComposerAutocomplete(
+      value,
+      selection.head,
+      options.members(),
+    ),
+  );
 }
 
 function communityTokenDecorations(options: CommunityComposerExtensionOptions) {
@@ -347,6 +263,13 @@ function buildTokenDecorations(
         ranges.push(
           Decoration.mark({
             class: `community-composer-token community-composer-token--${reference.kind}`,
+            ...(reference.memberId === undefined
+              ? {}
+              : {
+                  attributes: {
+                    "data-community-member-id": reference.memberId,
+                  },
+                }),
           }).range(from, to),
         );
       }
@@ -433,18 +356,23 @@ function selectionTouchesRange(
 
 function uniqueReferenceTokens(
   options: CommunityComposerExtensionOptions,
-): Array<{ token: string; kind: "reference" | "emoji" }> {
+): Array<{
+  token: string;
+  kind: "mention" | "channel" | "emoji";
+  memberId?: string;
+}> {
   const candidates = [
     ...options.members().map((member) => ({
       token: `@${member.name.trim()}`,
-      kind: "reference" as const,
+      kind: "mention" as const,
+      memberId: member.id,
     })),
     ...options
       .rooms()
       .filter((room) => room.kind !== "direct" && room.archived !== true)
       .map((room) => ({
         token: `#${room.name.trim()}`,
-        kind: "reference" as const,
+        kind: "channel" as const,
       })),
     ...options
       .emojis()

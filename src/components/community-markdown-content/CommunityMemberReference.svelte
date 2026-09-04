@@ -1,6 +1,7 @@
 <script lang="ts">
   import { getContext } from "svelte";
 
+  import CommunityMemberHoverCard from "../community-member-hover-card/CommunityMemberHoverCard.svelte";
   import {
     communityMarkdownInteractionContext,
     type CommunityMarkdownInteractionContext,
@@ -21,41 +22,37 @@
   const member = $derived(interactions.member(memberId));
 </script>
 
-{#if member && interactions.onOpenMember}
-  <button
-    bind:this={ref}
-    class="community-markdown-reference"
-    type="button"
-    onclick={() => interactions.onOpenMember?.(member!)}>{label}</button
-  >
+{#if member}
+  <span bind:this={ref} class="community-markdown-reference-host">
+    <CommunityMemberHoverCard
+      {member}
+      trigger="mention"
+      triggerLabel={label}
+      {...interactions.onOpenMember === undefined
+        ? {}
+        : { onOpenProfile: interactions.onOpenMember }}
+    />
+  </span>
 {:else}
   <span bind:this={ref} class="community-markdown-reference">{label}</span>
 {/if}
 
 <style>
+  .community-markdown-reference-host,
   .community-markdown-reference {
     display: inline;
+  }
+
+  .community-markdown-reference {
     padding: 0;
     border: 0;
-    background: transparent;
-    color: var(--primary);
+    border-radius: calc(var(--radius) - 0.2rem);
+    background: var(--secondary);
+    box-decoration-break: clone;
+    color: var(--secondary-foreground);
     font: inherit;
     font-weight: 600;
     text-decoration: none;
-  }
-
-  button.community-markdown-reference {
-    cursor: pointer;
-  }
-
-  button.community-markdown-reference:hover {
-    text-decoration: underline;
-    text-underline-offset: 0.15em;
-  }
-
-  button.community-markdown-reference:focus-visible {
-    border-radius: 0.2rem;
-    outline: 2px solid var(--ring);
-    outline-offset: 2px;
+    -webkit-box-decoration-break: clone;
   }
 </style>
