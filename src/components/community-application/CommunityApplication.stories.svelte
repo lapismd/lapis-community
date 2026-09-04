@@ -238,11 +238,17 @@
     await userEvent.click(
       await canvas.findByRole("button", { name: "general" }),
     );
+    const membership = canvasElement.querySelector(
+      '[data-ui-part="room-membership"]',
+    );
+    await expect(canvas.getByRole("button", { name: "Join" })).toBeVisible();
+    await expect(membership).not.toBeNull();
+    await expect(membership).toHaveTextContent("Viewing #general");
     await expect(
-      canvasElement.querySelector('[data-ui-part="room-membership"]'),
-    ).toBeNull();
+      canvas.queryByRole("textbox", { name: "Markdown editor" }),
+    ).not.toBeInTheDocument();
     await userEvent.click(
-      await canvas.findByRole("button", { name: "Join Channel" }),
+      canvas.getByRole("button", { name: "Join to participate" }),
     );
     const dialog = await overlay.findByRole("dialog", {
       name: "Connect to Nostr",
@@ -304,7 +310,7 @@
       await canvas.findByRole("button", { name: "general" }),
     );
     await userEvent.click(
-      await canvas.findByRole("button", { name: "Join Channel" }),
+      await canvas.findByRole("button", { name: "Join to participate" }),
     );
     const loginDialog = await overlay.findByRole("dialog", {
       name: "Connect to Nostr",
@@ -323,14 +329,20 @@
     await waitFor(() => expect(loginDialog).not.toBeInTheDocument(), {
       timeout: 8_000,
     });
-    await waitFor(() =>
-      expect(
-        canvas.queryByRole("button", { name: "Join Channel" }),
-      ).not.toBeInTheDocument(),
+    await waitFor(
+      () =>
+        expect(
+          canvasElement.querySelector('[data-ui-part="room-membership"]'),
+        ).toBeNull(),
+      { timeout: 15_000 },
     );
-    await expect(
-      canvasElement.querySelector('[data-ui-part="room-membership"]'),
-    ).toBeNull();
+    const composer = await canvas.findByRole("textbox", {
+      name: "Markdown editor",
+    });
+    await waitFor(
+      () => expect(composer).toHaveAttribute("contenteditable", "true"),
+      { timeout: 15_000 },
+    );
     await expect(
       await canvas.findByRole("button", { name: "Inbox" }),
     ).toBeVisible();
@@ -358,12 +370,16 @@
   }}
 >
   {#snippet template()}
-    <CommunityApplicationStoryHarness signedIn={false} />
+    <CommunityApplicationStoryHarness
+      signedIn={false}
+      loginIdentity="participant"
+      namespace="login-then-join"
+    />
   {/snippet}
 </Story>
 
 <Story
-  name="Open-group post publishes after login"
+  name="Nonmember joins before posting"
   play={async ({ canvas, canvasElement }) => {
     const application = await canvas.findByTestId(
       "full-community-application",
@@ -382,11 +398,9 @@
     await userEvent.click(
       await canvas.findByRole("button", { name: "general" }),
     );
-    const composer = canvas.getByRole("textbox", {
-      name: "Markdown editor",
-    });
-    await userEvent.type(composer, "Send this after signing in");
-    await userEvent.keyboard("{Enter}");
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Join to participate" }),
+    );
 
     const loginDialog = await overlay.findByRole("dialog", {
       name: "Connect to Nostr",
@@ -405,6 +419,18 @@
     await waitFor(() => expect(loginDialog).not.toBeInTheDocument(), {
       timeout: 8_000,
     });
+
+    const composer = await canvas.findByRole(
+      "textbox",
+      { name: "Markdown editor" },
+      { timeout: 15_000 },
+    );
+    await waitFor(
+      () => expect(composer).toHaveAttribute("contenteditable", "true"),
+      { timeout: 15_000 },
+    );
+    await userEvent.type(composer, "Send this after signing in");
+    await userEvent.keyboard("{Enter}");
 
     await expect(
       overlay.queryByRole("alertdialog", {
@@ -435,7 +461,7 @@
 </Story>
 
 <Story
-  name="Open-group reaction publishes after login"
+  name="Nonmember joins before reacting"
   play={async ({ canvas, canvasElement }) => {
     const application = await canvas.findByTestId(
       "full-community-application",
@@ -454,6 +480,35 @@
     await userEvent.click(
       await canvas.findByRole("button", { name: "support" }),
     );
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Join to participate" }),
+    );
+
+    const loginDialog = await overlay.findByRole("dialog", {
+      name: "Connect to Nostr",
+    });
+    const login = within(loginDialog);
+    await userEvent.click(
+      login.getByRole("button", { name: /Paste a private key/u }),
+    );
+    await userEvent.type(
+      login.getByLabelText("Private key"),
+      "nsec1storybookexample",
+    );
+    await userEvent.click(
+      login.getByRole("button", { name: "Sign in with private key" }),
+    );
+    await waitFor(() => expect(loginDialog).not.toBeInTheDocument(), {
+      timeout: 8_000,
+    });
+    await waitFor(
+      () =>
+        expect(
+          canvasElement.querySelector('[data-ui-part="room-membership"]'),
+        ).toBeNull(),
+      { timeout: 15_000 },
+    );
+
     await userEvent.click(
       await canvas.findByRole("button", { name: "Open topic Portable forums" }),
     );
@@ -481,24 +536,6 @@
       expect(standardEmoji).not.toBeNull();
     });
     await userEvent.click(standardEmoji!);
-
-    const loginDialog = await overlay.findByRole("dialog", {
-      name: "Connect to Nostr",
-    });
-    const login = within(loginDialog);
-    await userEvent.click(
-      login.getByRole("button", { name: /Paste a private key/u }),
-    );
-    await userEvent.type(
-      login.getByLabelText("Private key"),
-      "nsec1storybookexample",
-    );
-    await userEvent.click(
-      login.getByRole("button", { name: "Sign in with private key" }),
-    );
-    await waitFor(() => expect(loginDialog).not.toBeInTheDocument(), {
-      timeout: 8_000,
-    });
 
     await expect(
       overlay.queryByRole("alertdialog", {

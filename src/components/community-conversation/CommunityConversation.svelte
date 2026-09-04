@@ -56,6 +56,7 @@
     composerPlacement = "overlay",
     replyActionLabel = "Reply in thread",
     intro,
+    footer,
   }: {
     room: CommunityRoomModel;
     rooms?: readonly CommunityRoomModel[];
@@ -99,6 +100,7 @@
     composerPlacement?: "overlay" | "row";
     replyActionLabel?: string;
     intro?: Snippet;
+    footer?: Snippet;
   } = $props();
 
   let draft = $state("");
@@ -125,6 +127,7 @@
   class="community-conversation"
   data-room-kind={room.kind}
   data-composer-placement={composerPlacement}
+  data-footer={footer ? "custom" : "composer"}
 >
   <Layout
     {density}
@@ -166,30 +169,34 @@
       {/if}
     {/snippet}
     {#snippet composer()}
-      <CommunityChatComposer
-        bind:value={draft}
-        {members}
-        rooms={composerRooms}
-        {communityEmojis}
-        {...currentMemberId === undefined ? {} : { currentMemberId }}
-        {...replyTarget === undefined
-          ? {}
-          : { context: { kind: "reply" as const, target: replyTarget } }}
-        {disabled}
-        {disabledReason}
-        placeholder={`Message ${room.kind === "channel" ? "#" : ""}${room.name}`}
-        {...composerStatus === undefined ? {} : { composerStatus }}
-        {...onRetryComposerStatus === undefined
-          ? {}
-          : { onRetryComposerStatus }}
-        {...onDismissComposerStatus === undefined
-          ? {}
-          : { onDismissComposerStatus }}
-        {...onCancelReply === undefined
-          ? {}
-          : { onCancelContext: onCancelReply }}
-        onSubmit={(submission) => onSend?.(submission.content)}
-      />
+      {#if footer}
+        {@render footer()}
+      {:else}
+        <CommunityChatComposer
+          bind:value={draft}
+          {members}
+          rooms={composerRooms}
+          {communityEmojis}
+          {...currentMemberId === undefined ? {} : { currentMemberId }}
+          {...replyTarget === undefined
+            ? {}
+            : { context: { kind: "reply" as const, target: replyTarget } }}
+          {disabled}
+          {disabledReason}
+          placeholder={`Message ${room.kind === "channel" ? "#" : ""}${room.name}`}
+          {...composerStatus === undefined ? {} : { composerStatus }}
+          {...onRetryComposerStatus === undefined
+            ? {}
+            : { onRetryComposerStatus }}
+          {...onDismissComposerStatus === undefined
+            ? {}
+            : { onDismissComposerStatus }}
+          {...onCancelReply === undefined
+            ? {}
+            : { onCancelContext: onCancelReply }}
+          onSubmit={(submission) => onSend?.(submission.content)}
+        />
+      {/if}
     {/snippet}
 
     <MessageList
@@ -324,6 +331,14 @@
     :global([data-ui-part="composer-dock"] > [data-ui-part="composer-inner"]) {
     width: 100%;
     max-width: none;
+  }
+
+  .community-conversation[data-footer="custom"]
+    :global(
+      [data-ui-component="ai-chat-layout"] > [data-ui-part="composer-dock"]
+    ) {
+    border-block-start: 1px solid var(--border);
+    padding: 0;
   }
 
   .community-conversation[data-composer-placement="row"]

@@ -123,32 +123,28 @@
     showJoinAction: true,
     handlers: { onJoinRoom: fn() },
   }}
-  play={async ({ canvas, args }) => {
-    const warning = canvas.getByText(
-      "Join this room before posting or reacting",
+  play={async ({ canvas, canvasElement, args }) => {
+    const membership = canvasElement.querySelector(
+      '[data-ui-part="room-membership"]',
     );
-    await expect(warning).toBeVisible();
-    await expect(warning.closest('[data-ui-part="status"]')).toHaveAttribute(
-      "data-status",
-      "warning",
-    );
+    await expect(membership).not.toBeNull();
+    await expect(membership).toHaveTextContent("Viewing #general");
     await expect(
-      warning.closest('[data-ui-component="ai-chat-composer"]'),
+      membership?.closest('[data-ui-part="composer-dock"]'),
     ).not.toBeNull();
     await expect(
-      warning.closest('[data-ui-part="composer-dock"]'),
-    ).not.toBeNull();
-    await expect(
-      canvas.queryByText("Participation unavailable"),
+      canvas.queryByText("Join this room before posting or reacting"),
     ).not.toBeInTheDocument();
-    const join = canvas.getByRole("button", { name: "Join Channel" });
-    await expect(join).toHaveClass("community-workspace-surface__action-card");
+    await expect(
+      canvas.queryByRole("button", { name: "Browse channels" }),
+    ).not.toBeInTheDocument();
+    await expect(
+      canvas.queryByRole("textbox", { name: "Markdown editor" }),
+    ).not.toBeInTheDocument();
+    const join = canvas.getByRole("button", { name: "Join to participate" });
     await expect(join.querySelector("svg")).not.toBeNull();
     await userEvent.click(join);
     await expect(args.handlers?.onJoinRoom).toHaveBeenCalledWith("general");
-    await expect(
-      canvas.getByRole("textbox", { name: "Markdown editor" }),
-    ).toHaveAttribute("contenteditable", "false");
   }}
 />
 
@@ -161,30 +157,22 @@
     showJoinAction: true,
     handlers: { onJoinRoom: fn(), onCreateTopic: fn() },
   }}
-  play={async ({ canvas, args }) => {
-    const join = canvas.getByRole("button", { name: "Join Forum" });
-    await expect(join).toHaveClass("community-workspace-surface__action-card");
+  play={async ({ canvas, canvasElement, args }) => {
+    const membership = canvasElement.querySelector(
+      '[data-ui-part="room-membership"]',
+    );
+    await expect(membership).not.toBeNull();
+    await expect(membership).toHaveTextContent("Viewing support-ai");
+    const join = canvas.getByRole("button", { name: "Join to participate" });
     await expect(join.querySelector("svg")).not.toBeNull();
     await userEvent.click(join);
     await expect(args.handlers?.onJoinRoom).toHaveBeenCalledWith("support-ai");
-    const warning = canvas.getByText(
-      "Join this room before posting or reacting",
-    );
-    const topicComposer = warning.closest(
-      '[data-ui-component="ai-chat-composer"]',
-    );
-    await expect(topicComposer).not.toBeNull();
-    await expect(warning.closest('[data-ui-part="status"]')).toHaveAttribute(
-      "data-status",
-      "warning",
-    );
     await expect(
-      canvas.getByRole("textbox", { name: "Markdown editor" }),
-    ).toHaveAttribute("contenteditable", "false");
+      canvas.queryByRole("textbox", { name: "Markdown editor" }),
+    ).not.toBeInTheDocument();
     await expect(
-      topicComposer!.getBoundingClientRect().top -
-        join.getBoundingClientRect().bottom,
-    ).toBeGreaterThanOrEqual(16);
+      canvas.queryByText("Join this room before posting or reacting"),
+    ).not.toBeInTheDocument();
   }}
 />
 

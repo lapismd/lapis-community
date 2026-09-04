@@ -18,6 +18,7 @@
   import HashIcon from "@lucide/svelte/icons/hash";
   import HeadphonesIcon from "@lucide/svelte/icons/headphones";
   import LockIcon from "@lucide/svelte/icons/lock";
+  import LogInIcon from "@lucide/svelte/icons/log-in";
   import MessagesSquareIcon from "@lucide/svelte/icons/messages-square";
   import PackageSearchIcon from "@lucide/svelte/icons/package-search";
   import SquareTerminalIcon from "@lucide/svelte/icons/square-terminal";
@@ -253,6 +254,15 @@
             state: "requires-authentication",
             reason: "Connect a NIP-07 identity to participate",
           } as const)),
+  );
+  const activeRoomKnownNonmember = $derived(
+    activeRoom.kind !== "direct" && activeRoom.membership === "not-joined",
+  );
+  const activeRoomJoinVisible = $derived(
+    community.state.status === "connected" &&
+      activeRoomKnownNonmember &&
+      activeRoom.permissions?.join.state !== "denied" &&
+      activeRoom.permissions?.join.state !== "unsupported",
   );
   const navigationModel = $derived<CommunityNavigationModel>({
     searchPlaceholder: "Search everything",
@@ -1018,6 +1028,14 @@
     lastAction = joinRequested
       ? `join-requested:${room.id}`
       : `already-joined:${room.id}`;
+  }
+
+  function requestRoomJoin(room: CommunityRoomModel): void {
+    void joinRoom(room).catch((cause) => {
+      toast.error(
+        cause instanceof Error ? cause.message : "Could not join room",
+      );
+    });
   }
 
   async function copyText(value: string, success: string): Promise<void> {
@@ -1943,6 +1961,22 @@
               <SquareTerminalIcon aria-hidden="true" />
             </Button>
           {/if}
+          {#if activeRoomJoinVisible}
+            <Button
+              type="button"
+              size="sm"
+              disabled={activeParticipationOperation?.status === "pending" ||
+                activeParticipationOperation?.status === "accepted"}
+              onclick={() => requestRoomJoin(activeRoom)}
+            >
+              <LogInIcon data-icon="inline-start" aria-hidden="true" />
+              {activeParticipationOperation?.status === "accepted"
+                ? "Join requested"
+                : activeParticipationOperation?.status === "pending"
+                  ? "Joining…"
+                  : "Join"}
+            </Button>
+          {/if}
           {#if activeRoom.memberCount}
             <Button
               type="button"
@@ -1995,11 +2029,7 @@
             model={workspace}
             readOnly={participationReadOnly}
             readOnlyReason={participationReadOnlyReason}
-            showJoinAction={community.state.status === "connected" &&
-              activeRoom.kind !== "direct" &&
-              activeRoom.membership !== "joined" &&
-              activeRoom.permissions?.join.state !== "denied" &&
-              activeRoom.permissions?.join.state !== "unsupported"}
+            showJoinAction={activeRoomJoinVisible}
             {...activeParticipationOperation === undefined
               ? {}
               : { operation: activeParticipationOperation }}
@@ -2074,19 +2104,10 @@
                 : { onEditMessage: extensions.editMessage }),
               onDeleteMessage: deleteMessage,
               onBrowseRooms: openRoomBrowser,
-              ...(activeRoom.kind !== "direct" &&
-              activeRoom.membership !== "joined" &&
-              activeRoom.permissions?.join.state !== "denied" &&
-              activeRoom.permissions?.join.state !== "unsupported"
+              ...(activeRoomJoinVisible
                 ? {
                     onJoinRoom: (roomId: string) =>
-                      joinRoom({ ...activeRoom, id: roomId }).catch((cause) => {
-                        toast.error(
-                          cause instanceof Error
-                            ? cause.message
-                            : "Could not join room",
-                        );
-                      }),
+                      requestRoomJoin({ ...activeRoom, id: roomId }),
                   }
                 : {}),
               ...(authenticated && community.state.capabilities.manageGroup

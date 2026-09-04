@@ -4,6 +4,7 @@
   import ArrowLeftIcon from "@lucide/svelte/icons/arrow-left";
   import HashIcon from "@lucide/svelte/icons/hash";
   import LogInIcon from "@lucide/svelte/icons/log-in";
+  import MessagesSquareIcon from "@lucide/svelte/icons/messages-square";
   import PlusIcon from "@lucide/svelte/icons/plus";
   import SparklesIcon from "@lucide/svelte/icons/sparkles";
 
@@ -66,6 +67,10 @@
           model.members.find((member) => member.name === activeRoom.name))
       : undefined,
   );
+  const knownNonmember = $derived(
+    activeRoom.kind !== "direct" && activeRoom.membership === "not-joined",
+  );
+  const surfaceReadOnly = $derived(readOnly || knownNonmember);
   const roomJoinActionVisible = $derived(
     showJoinAction &&
       handlers.onJoinRoom !== undefined &&
@@ -103,32 +108,38 @@
   );
 </script>
 
-{#snippet roomJoinAction()}
-  <Button
-    type="button"
-    variant="outline"
-    class="community-workspace-surface__action-card"
-    disabled={roomJoinActionPending || roomJoinActionAccepted}
-    onclick={() => handlers.onJoinRoom?.(activeRoom.id)}
-  >
-    <span class="community-workspace-surface__action-icon">
-      <LogInIcon aria-hidden="true" />
-    </span>
-    <strong>
-      {roomJoinActionAccepted
-        ? "Join requested"
-        : roomJoinActionPending
-          ? `Joining ${activeRoom.kind === "forum" ? "Forum" : "Channel"}…`
-          : `Join ${activeRoom.kind === "forum" ? "Forum" : "Channel"}`}
-    </strong>
-  </Button>
-{/snippet}
-
-{#snippet forumJoinAction()}
+{#snippet roomMembershipFooter()}
   <div
-    class="community-workspace-surface__actions community-workspace-surface__forum-actions"
+    class="community-workspace-surface__membership"
+    data-ui-part="room-membership"
   >
-    {@render roomJoinAction()}
+    <span class="community-workspace-surface__membership-label">
+      {#if activeRoom.kind === "forum"}
+        <MessagesSquareIcon aria-hidden="true" />
+      {:else}
+        <HashIcon aria-hidden="true" />
+      {/if}
+      <span>
+        Viewing <strong
+          >{activeRoom.kind === "channel" ? "#" : ""}{activeRoom.name}</strong
+        >
+      </span>
+    </span>
+    {#if roomJoinActionVisible}
+      <Button
+        type="button"
+        size="sm"
+        disabled={roomJoinActionPending || roomJoinActionAccepted}
+        onclick={() => handlers.onJoinRoom?.(activeRoom.id)}
+      >
+        <LogInIcon data-icon="inline-start" aria-hidden="true" />
+        {roomJoinActionAccepted
+          ? "Join requested"
+          : roomJoinActionPending
+            ? "Joining…"
+            : "Join to participate"}
+      </Button>
+    {/if}
   </div>
 {/snippet}
 
@@ -146,13 +157,13 @@
       {...handlers.onOpenTopic === undefined
         ? {}
         : { onOpenTopic: handlers.onOpenTopic }}
-      {...handlers.onCreateTopic === undefined
+      {...knownNonmember || handlers.onCreateTopic === undefined
         ? {}
         : {
             onCreateTopic: (draft) =>
               Promise.resolve(handlers.onCreateTopic?.(activeRoom.id, draft)),
           }}
-      disabled={readOnly}
+      disabled={surfaceReadOnly}
       {readOnlyReason}
       {...composerStatus === undefined ? {} : { composerStatus }}
       {...retryComposerOperation === undefined
@@ -161,7 +172,6 @@
       {...dismissComposerOperation === undefined
         ? {}
         : { onDismissComposerStatus: dismissComposerOperation }}
-      {...roomJoinActionVisible ? { actions: forumJoinAction } : {}}
       canDeleteTopic={(topic) =>
         topic.authorId === model.currentMemberId ||
         activeRoom.permissions?.delete.state === "enabled"}
@@ -169,6 +179,9 @@
         ? {}
         : { onTopicAction: handlers.onTopicAction }}
     />
+    {#if knownNonmember}
+      {@render roomMembershipFooter()}
+    {/if}
   {:else}
     <CommunityConversation
       room={activeRoom}
@@ -180,7 +193,7 @@
         : { directMember: activeDirectMember }}
       {...replyTarget === undefined ? {} : { replyTarget }}
       {communityEmojis}
-      disabled={readOnly}
+      disabled={surfaceReadOnly}
       disabledReason={readOnlyReason}
       {...composerStatus === undefined ? {} : { composerStatus }}
       {...retryComposerOperation === undefined
@@ -198,18 +211,28 @@
         ? {}
         : { onCancelReply: handlers.onClearReplyTarget }}
       composerPlacement="row"
-      onSend={(content) => handlers.onSendMessage?.(activeRoom.id, content)}
-      {...handlers.onReply === undefined ? {} : { onReply: handlers.onReply }}
-      {...handlers.onOpenThread === undefined || activeRoom.kind === "forum"
+      {...knownNonmember ? { footer: roomMembershipFooter } : {}}
+      {...knownNonmember
+        ? {}
+        : {
+            onSend: (content: string) =>
+              handlers.onSendMessage?.(activeRoom.id, content),
+          }}
+      {...knownNonmember || handlers.onReply === undefined
+        ? {}
+        : { onReply: handlers.onReply }}
+      {...knownNonmember ||
+      handlers.onOpenThread === undefined ||
+      activeRoom.kind === "forum"
         ? {}
         : { onOpenThread: handlers.onOpenThread }}
       replyActionLabel={activeRoom.kind === "forum"
         ? "Reply"
         : "Reply in thread"}
-      {...readOnly || handlers.onToggleReaction === undefined
+      {...surfaceReadOnly || handlers.onToggleReaction === undefined
         ? {}
         : { onToggleReaction: handlers.onToggleReaction }}
-      {...readOnly || handlers.onAddReaction === undefined
+      {...surfaceReadOnly || handlers.onAddReaction === undefined
         ? {}
         : { onAddReaction: handlers.onAddReaction }}
       {...handlers.onCopyMessageLink === undefined
@@ -218,10 +241,10 @@
       {...handlers.onCopyMessage === undefined
         ? {}
         : { onCopyMessage: handlers.onCopyMessage }}
-      {...handlers.onEditMessage === undefined
+      {...knownNonmember || handlers.onEditMessage === undefined
         ? {}
         : { onEditMessage: handlers.onEditMessage }}
-      {...handlers.onDeleteMessage === undefined
+      {...knownNonmember || handlers.onDeleteMessage === undefined
         ? {}
         : { onDeleteMessage: handlers.onDeleteMessage }}
       {...handlers.onOpenProfile === undefined
@@ -253,7 +276,11 @@
         {:else}
           <section class="community-workspace-surface__intro">
             <span class="community-workspace-surface__image" aria-hidden="true">
-              <SparklesIcon />
+              {#if knownNonmember}
+                <HashIcon />
+              {:else}
+                <SparklesIcon />
+              {/if}
             </span>
             <h1>#{activeRoom.name}</h1>
             <p>
@@ -261,45 +288,44 @@
                 ? "private "
                 : ""}{activeRoom.name} channel.
             </p>
-            <div class="community-workspace-surface__actions">
-              {#if roomJoinActionVisible}
-                {@render roomJoinAction()}
-              {/if}
-              <Button
-                variant="outline"
-                class="community-workspace-surface__action-card"
-                onclick={() => handlers.onBrowseRooms?.("channel")}
-              >
-                <span class="community-workspace-surface__action-icon">
-                  <HashIcon aria-hidden="true" />
-                </span>
-                <strong>Browse channels</strong>
-              </Button>
-              {#if handlers.onCreateRoom}
+            {#if !knownNonmember}
+              <div class="community-workspace-surface__actions">
                 <Button
                   variant="outline"
                   class="community-workspace-surface__action-card"
-                  onclick={() => handlers.onCreateRoom?.("channel")}
+                  onclick={() => handlers.onBrowseRooms?.("channel")}
                 >
                   <span class="community-workspace-surface__action-icon">
-                    <PlusIcon aria-hidden="true" />
+                    <HashIcon aria-hidden="true" />
                   </span>
-                  <strong>Create a channel</strong>
+                  <strong>Browse channels</strong>
                 </Button>
-              {/if}
-              {#if handlers.onCreateAgent}
-                <Button
-                  variant="outline"
-                  class="community-workspace-surface__action-card"
-                  onclick={() => handlers.onCreateAgent?.(activeRoom.id)}
-                >
-                  <span class="community-workspace-surface__action-icon">
-                    <SparklesIcon aria-hidden="true" />
-                  </span>
-                  <strong>Create an agent</strong>
-                </Button>
-              {/if}
-            </div>
+                {#if handlers.onCreateRoom}
+                  <Button
+                    variant="outline"
+                    class="community-workspace-surface__action-card"
+                    onclick={() => handlers.onCreateRoom?.("channel")}
+                  >
+                    <span class="community-workspace-surface__action-icon">
+                      <PlusIcon aria-hidden="true" />
+                    </span>
+                    <strong>Create a channel</strong>
+                  </Button>
+                {/if}
+                {#if handlers.onCreateAgent}
+                  <Button
+                    variant="outline"
+                    class="community-workspace-surface__action-card"
+                    onclick={() => handlers.onCreateAgent?.(activeRoom.id)}
+                  >
+                    <span class="community-workspace-surface__action-icon">
+                      <SparklesIcon aria-hidden="true" />
+                    </span>
+                    <strong>Create an agent</strong>
+                  </Button>
+                {/if}
+              </div>
+            {/if}
           </section>
         {/if}
       {/snippet}
@@ -376,10 +402,6 @@
     grid-template-columns: repeat(3, minmax(0, 13.125rem));
   }
 
-  .community-workspace-surface__forum-actions {
-    padding-block: 0 1.25rem;
-  }
-
   :global(
       .community-workspace-surface__action-card[data-ui-component="button"]
     ) {
@@ -417,6 +439,41 @@
   .community-workspace-surface__action-icon :global(svg) {
     width: 1.15rem;
     height: 1.15rem;
+  }
+
+  .community-workspace-surface__membership {
+    display: flex;
+    width: 100%;
+    min-height: 4.5rem;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.75rem 1rem;
+    background: var(--background);
+  }
+
+  .community-workspace-surface > .community-workspace-surface__membership {
+    flex: none;
+    border-block-start: 1px solid var(--border);
+  }
+
+  .community-workspace-surface__membership-label {
+    display: flex;
+    min-width: 0;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
+  .community-workspace-surface__membership-label :global(svg) {
+    width: 1.25rem;
+    height: 1.25rem;
+    flex: none;
+  }
+
+  .community-workspace-surface__membership-label span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   @media (max-width: 34rem) {
