@@ -108,6 +108,10 @@
     await expect(retry).toHaveAttribute("data-size", "icon-xs");
     await expect(dismiss).toHaveAttribute("data-size", "icon-xs");
     const alertBounds = alert.getBoundingClientRect();
+    const composerBodyBounds = alert
+      .closest('[data-ui-component="ai-chat-composer"]')!
+      .querySelector(':scope > [data-ui-part="body"]')!
+      .getBoundingClientRect();
     const retryBounds = retry.getBoundingClientRect();
     const dismissBounds = dismiss.getBoundingClientRect();
     await expect(retryBounds.left).toBeGreaterThan(
@@ -116,6 +120,13 @@
     await expect(alertBounds.right - dismissBounds.right).toBeLessThanOrEqual(
       12,
     );
+    await expect(
+      Math.abs(
+        retryBounds.top +
+          retryBounds.height / 2 -
+          (alertBounds.top + (composerBodyBounds.top - alertBounds.top) / 2),
+      ),
+    ).toBeLessThanOrEqual(1);
     await expect(retry.querySelector("svg")).not.toBeNull();
     await expect(dismiss.querySelector("svg")).not.toBeNull();
     await userEvent.click(retry);
