@@ -82,3 +82,54 @@
     </div>
   {/snippet}
 </Story>
+
+<Story
+  name="Participation failure stays with reply composer"
+  args={{
+    thread: communityStoryThread,
+    members: communityStoryMembers,
+    disabled: true,
+    disabledReason: "Connection lost while publishing",
+    composerStatus: {
+      type: "error" as const,
+      message: "Connection lost while publishing",
+    },
+    onRetryComposerStatus: fn(),
+    onDismissComposerStatus: fn(),
+  }}
+  play={async ({ canvas, args }) => {
+    const alert = canvas.getByRole("alert");
+    await expect(alert).toHaveTextContent("Connection lost while publishing");
+    await expect(
+      alert.closest('[data-ui-component="ai-chat-composer"]'),
+    ).not.toBeNull();
+    const retry = canvas.getByRole("button", { name: "Retry" });
+    const dismiss = canvas.getByRole("button", { name: "Dismiss" });
+    await expect(retry).toHaveAttribute("data-size", "icon-xs");
+    await expect(dismiss).toHaveAttribute("data-size", "icon-xs");
+    const alertBounds = alert.getBoundingClientRect();
+    const retryBounds = retry.getBoundingClientRect();
+    const dismissBounds = dismiss.getBoundingClientRect();
+    await expect(retryBounds.left).toBeGreaterThan(
+      alertBounds.left + alertBounds.width / 2,
+    );
+    await expect(alertBounds.right - dismissBounds.right).toBeLessThanOrEqual(
+      12,
+    );
+    await expect(retry.querySelector("svg")).not.toBeNull();
+    await expect(dismiss.querySelector("svg")).not.toBeNull();
+    await userEvent.click(retry);
+    await expect(args.onRetryComposerStatus).toHaveBeenCalledOnce();
+    await userEvent.click(dismiss);
+    await expect(args.onDismissComposerStatus).toHaveBeenCalledOnce();
+    dismiss.blur();
+  }}
+>
+  {#snippet template(args)}
+    <div
+      style="width: min(100%, 28rem); height: 38rem; border: 1px solid var(--border);"
+    >
+      <CommunityThreadPanel {...args} />
+    </div>
+  {/snippet}
+</Story>

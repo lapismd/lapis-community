@@ -5,13 +5,18 @@
     LayoutScrollButton,
     MessageList,
     SystemMessage,
+    type ComposerStatus,
   } from "@lapismd/design-core/ai/chat";
+  import { Button } from "@lapismd/design-core/shadcn/button";
+  import RotateCcwIcon from "@lucide/svelte/icons/rotate-ccw";
+  import XIcon from "@lucide/svelte/icons/x";
   import type { Snippet } from "svelte";
 
   import type {
     CommunityCustomEmoji,
     CommunityReplyTarget,
   } from "../../community/index.js";
+  import "../community-composer-status.css";
   import CommunityEmojiPicker from "../community-emoji-picker/CommunityEmojiPicker.svelte";
   import CommunityMemberAvatar from "../community-member-avatar/CommunityMemberAvatar.svelte";
   import CommunityMessage from "../community-message/CommunityMessage.svelte";
@@ -46,6 +51,9 @@
     onCancelReply,
     disabled = false,
     disabledReason = "Reconnect to send messages",
+    composerStatus,
+    onRetryComposerStatus,
+    onDismissComposerStatus,
     restrictMessageManagement = false,
     currentMemberId,
     canDeleteAny = false,
@@ -84,6 +92,9 @@
     onCancelReply?: () => void;
     disabled?: boolean;
     disabledReason?: string;
+    composerStatus?: ComposerStatus;
+    onRetryComposerStatus?: () => void | Promise<void>;
+    onDismissComposerStatus?: () => void;
     restrictMessageManagement?: boolean;
     currentMemberId?: string;
     canDeleteAny?: boolean;
@@ -168,6 +179,9 @@
       <Composer
         {density}
         {disabled}
+        {...composerStatus === undefined ? {} : { status: composerStatus }}
+        statusPosition="top"
+        interactiveDrawerWhenDisabled={composerStatus !== undefined}
         aria-label={disabled ? disabledReason : undefined}
         title={disabled ? disabledReason : undefined}
         bind:value={draft}
@@ -175,6 +189,37 @@
         onSubmit={submit}
       >
         {#snippet drawer()}
+          {#if composerStatus && (onRetryComposerStatus || onDismissComposerStatus)}
+            <span
+              class="community-composer-status-actions"
+              data-ui-part="composer-status-actions"
+            >
+              {#if onRetryComposerStatus}
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-xs"
+                  aria-label="Retry"
+                  title="Retry"
+                  onclick={onRetryComposerStatus}
+                >
+                  <RotateCcwIcon aria-hidden="true" />
+                </Button>
+              {/if}
+              {#if onDismissComposerStatus}
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-xs"
+                  aria-label="Dismiss"
+                  title="Dismiss"
+                  onclick={onDismissComposerStatus}
+                >
+                  <XIcon aria-hidden="true" />
+                </Button>
+              {/if}
+            </span>
+          {/if}
           {#if replyTarget}
             <CommunityReplyContext
               target={replyTarget}

@@ -1,12 +1,15 @@
 <script lang="ts">
-  import { Composer } from "@lapismd/design-core/ai/chat";
+  import { Composer, type ComposerStatus } from "@lapismd/design-core/ai/chat";
   import { Button } from "@lapismd/design-core/shadcn/button";
+  import RotateCcwIcon from "@lucide/svelte/icons/rotate-ccw";
+  import XIcon from "@lucide/svelte/icons/x";
   import { tick } from "svelte";
 
   import type {
     CommunityCustomEmoji,
     CommunityTopicDraft,
   } from "../../community/index.js";
+  import "../community-composer-status.css";
   import CommunityEmojiPicker from "../community-emoji-picker/CommunityEmojiPicker.svelte";
 
   let {
@@ -15,6 +18,9 @@
     communityEmojis = [],
     disabled = false,
     disabledReason = "Posting is unavailable",
+    composerStatus,
+    onRetryComposerStatus,
+    onDismissComposerStatus,
     onPublish,
   }: {
     open?: boolean;
@@ -22,6 +28,9 @@
     communityEmojis?: readonly CommunityCustomEmoji[];
     disabled?: boolean;
     disabledReason?: string;
+    composerStatus?: ComposerStatus;
+    onRetryComposerStatus?: () => void | Promise<void>;
+    onDismissComposerStatus?: () => void;
     onPublish: (draft: CommunityTopicDraft) => Promise<void>;
   } = $props();
 
@@ -29,6 +38,10 @@
   let error = $state("");
   let pending = $state(false);
   let composer = $state<HTMLDivElement | null>(null);
+  const displayedStatus = $derived<ComposerStatus | undefined>(
+    error ? { type: "error", message: error } : composerStatus,
+  );
+  const expanded = $derived(open || displayedStatus !== undefined);
 
   async function expand(): Promise<void> {
     if (disabled) return;
@@ -76,17 +89,53 @@
   data-expanded={open ? "" : undefined}
   data-ui-component="community-topic-composer"
 >
-  {#if open}
+  {#if expanded}
     <Composer
       bind:ref={composer}
       bind:value={content}
       density="spacious"
       elevation="none"
       disabled={disabled || pending}
+      {...displayedStatus === undefined ? {} : { status: displayedStatus }}
+      statusPosition="top"
+      interactiveDrawerWhenDisabled={displayedStatus !== undefined}
       aria-label={`New post in ${forumName}`}
       placeholder="Write your post…"
       onSubmit={publish}
     >
+      {#snippet drawer()}
+        {#if displayedStatus && (onRetryComposerStatus || onDismissComposerStatus)}
+          <span
+            class="community-composer-status-actions"
+            data-ui-part="composer-status-actions"
+          >
+            {#if onRetryComposerStatus}
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-xs"
+                aria-label="Retry"
+                title="Retry"
+                onclick={onRetryComposerStatus}
+              >
+                <RotateCcwIcon aria-hidden="true" />
+              </Button>
+            {/if}
+            {#if onDismissComposerStatus}
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-xs"
+                aria-label="Dismiss"
+                title="Dismiss"
+                onclick={onDismissComposerStatus}
+              >
+                <XIcon aria-hidden="true" />
+              </Button>
+            {/if}
+          </span>
+        {/if}
+      {/snippet}
       {#snippet footerActions()}
         <CommunityEmojiPicker
           {communityEmojis}
@@ -100,9 +149,6 @@
         >
       {/snippet}
     </Composer>
-    {#if error}<p class="community-topic-composer__error" role="alert">
-        {error}
-      </p>{/if}
   {:else}
     <Button
       type="button"
@@ -165,11 +211,5 @@
       [data-ui-component="ai-chat-composer"] [data-ui-part="input-area"]
     ) {
     min-height: 3.25rem;
-  }
-
-  .community-topic-composer__error {
-    margin: 0.5rem 0 0;
-    color: var(--destructive);
-    font-size: 0.8rem;
   }
 </style>

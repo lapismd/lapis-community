@@ -1,0 +1,42 @@
+[data-ui-component="ai-chat-composer"]:has(
+    > [data-ui-part="drawer"] .community-composer-status-actions
+  )
+  > [data-ui-part="status"] {
+  padding-inline-end: 4.125rem;
+}
+
+.community-composer-status-actions {
+  position: absolute;
+  z-index: 3;
+  inset-block-start: 0.25rem;
+  inset-inline-end: 0.5rem;
+  display: flex;
+  align-items: center;
+  gap: 0.125rem;
+}
+
+[data-ui-component="ai-chat-composer"][data-disabled="true"][data-interactive-drawer-when-disabled="true"]:has(
+    > [data-ui-part="status"][data-position="top"]
+  )
+  > [data-ui-part="body"] {
+  opacity: 1;
+  background: var(--ui-ai-chat-composer-background, var(--background));
+}
+
+[data-ui-component="ai-chat-composer"][data-disabled="true"][data-interactive-drawer-when-disabled="true"]:has(
+    > [data-ui-part="status"][data-position="top"]
+  )
+  > [data-ui-part="body"]
+  > [data-ui-part="header"],
+[data-ui-component="ai-chat-composer"][data-disabled="true"][data-interactive-drawer-when-disabled="true"]:has(
+    > [data-ui-part="status"][data-position="top"]
+  )
+  > [data-ui-part="body"]
+  > [data-ui-part="input-area"],
+[data-ui-component="ai-chat-composer"][data-disabled="true"][data-interactive-drawer-when-disabled="true"]:has(
+    > [data-ui-part="status"][data-position="top"]
+  )
+  > [data-ui-part="body"]
+  > [data-ui-part="footer"] {
+  opacity: 0.6;
+}

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import type { ComposerStatus } from "@lapismd/design-core/ai/chat";
   import { Button } from "@lapismd/design-core/shadcn/button";
   import * as Alert from "@lapismd/design-core/shadcn/alert";
   import * as AlertDialog from "@lapismd/design-core/shadcn/alert-dialog";
@@ -620,6 +621,26 @@
       : activeParticipationOperation?.status === "pending"
         ? "This action is still being published"
         : (activePublishAvailability.reason ?? "Participation is unavailable"),
+  );
+  const participationComposerStatus = $derived<ComposerStatus | undefined>(
+    activeParticipationOperation?.status === "failed"
+      ? {
+          type: "error",
+          message:
+            activeParticipationOperation.message ??
+            activeParticipationOperation.failure?.message ??
+            "Action did not complete",
+        }
+      : activeParticipationOperation?.status === "accepted"
+        ? {
+            type: "warning",
+            message:
+              activeParticipationOperation.message ??
+              "Accepted by relay, still syncing",
+          }
+        : participationReadOnly
+          ? { type: "warning", message: participationReadOnlyReason }
+          : undefined,
   );
 
   $effect(() => {
@@ -2170,6 +2191,25 @@
                 members={workspace.members}
                 disabled={participationReadOnly}
                 disabledReason={participationReadOnlyReason}
+                {...participationComposerStatus === undefined
+                  ? {}
+                  : { composerStatus: participationComposerStatus }}
+                {...activeParticipationOperation?.status === "failed" &&
+                activeParticipationOperation.failure?.retryable &&
+                activeParticipationOperationEntry !== undefined
+                  ? {
+                      onRetryComposerStatus: () =>
+                        community.retry(activeParticipationOperationEntry[0]),
+                    }
+                  : {}}
+                {...activeParticipationOperationEntry === undefined
+                  ? {}
+                  : {
+                      onDismissComposerStatus: () =>
+                        community.dismissOperation(
+                          activeParticipationOperationEntry[0],
+                        ),
+                    }}
                 {...workspace.currentMemberId === undefined
                   ? {}
                   : { currentMemberId: workspace.currentMemberId }}

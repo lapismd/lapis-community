@@ -61,6 +61,59 @@
 </Story>
 
 <Story
+  name="Participation warning stays with composer"
+  args={{
+    room: generalRoom,
+    messages: groupedMessages,
+    members: communityStoryMembers,
+    disabled: true,
+    disabledReason: "Join this room before posting or reacting",
+    composerStatus: {
+      type: "warning" as const,
+      message: "Join this room before posting or reacting",
+    },
+    composerPlacement: "row" as const,
+  }}
+  play={async ({ canvas }) => {
+    const message = canvas.getByText(
+      "Join this room before posting or reacting",
+    );
+    const warning = message.closest('[data-ui-part="status"]');
+    await expect(warning).not.toBeNull();
+    await expect(warning).toHaveAttribute("data-status", "warning");
+    const composer = warning!.closest('[data-ui-component="ai-chat-composer"]');
+    await expect(composer).not.toBeNull();
+    await expect(
+      warning!.closest('[data-ui-part="composer-dock"]'),
+    ).not.toBeNull();
+    await expect(
+      getComputedStyle(
+        composer!.querySelector(':scope > [data-ui-part="body"]')!,
+      ).opacity,
+    ).toBe("1");
+    await expect(
+      getComputedStyle(
+        composer!.querySelector(
+          ':scope > [data-ui-part="body"] > [data-ui-part="input-area"]',
+        )!,
+      ).opacity,
+    ).toBe("0.6");
+    await expect(canvas.getByRole("combobox")).toHaveAttribute(
+      "aria-disabled",
+      "true",
+    );
+  }}
+>
+  {#snippet template(args)}
+    <div
+      style="width: min(100%, 54rem); height: 38rem; border: 1px solid var(--border);"
+    >
+      <CommunityConversation {...args} />
+    </div>
+  {/snippet}
+</Story>
+
+<Story
   name="Reply context drawer"
   args={{
     room: generalRoom,

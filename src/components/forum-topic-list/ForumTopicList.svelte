@@ -1,4 +1,5 @@
 <script lang="ts">
+  import type { ComposerStatus } from "@lapismd/design-core/ai/chat";
   import { Badge } from "@lapismd/design-core/shadcn/badge";
   import { Button } from "@lapismd/design-core/shadcn/button";
   import * as ContextMenu from "@lapismd/design-core/shadcn/context-menu";
@@ -31,6 +32,9 @@
     actions,
     disabled = false,
     readOnlyReason = "Posting is unavailable",
+    composerStatus,
+    onRetryComposerStatus,
+    onDismissComposerStatus,
   }: {
     title?: string;
     description?: string;
@@ -46,6 +50,9 @@
     actions?: Snippet;
     disabled?: boolean;
     readOnlyReason?: string;
+    composerStatus?: ComposerStatus;
+    onRetryComposerStatus?: () => void | Promise<void>;
+    onDismissComposerStatus?: () => void;
   } = $props();
 </script>
 
@@ -125,6 +132,11 @@
       onPublish={onCreateTopic}
       {disabled}
       disabledReason={readOnlyReason}
+      {...composerStatus === undefined ? {} : { composerStatus }}
+      {...onRetryComposerStatus === undefined ? {} : { onRetryComposerStatus }}
+      {...onDismissComposerStatus === undefined
+        ? {}
+        : { onDismissComposerStatus }}
     />
   {/if}
 

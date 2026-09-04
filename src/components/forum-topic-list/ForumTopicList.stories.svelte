@@ -75,3 +75,30 @@
     ).toBeVisible();
   }}
 />
+
+<Story
+  name="Read-only composer warning"
+  args={{
+    title: "support-ai",
+    description: "Questions, guides, and support for the AI plugin",
+    topics: communityStoryTopics,
+    members: communityStoryMembers,
+    onCreateTopic: fn(async () => {}),
+    disabled: true,
+    readOnlyReason: "Join this room before posting or reacting",
+    composerStatus: {
+      type: "warning" as const,
+      message: "Join this room before posting or reacting",
+    },
+  }}
+  play={async ({ canvas }) => {
+    const warning = canvas.getByRole("status");
+    await expect(warning).toHaveTextContent(
+      "Join this room before posting or reacting",
+    );
+    await expect(warning).toHaveAttribute("data-status", "warning");
+    await expect(
+      warning.closest('[data-ui-component="community-topic-composer"]'),
+    ).not.toBeNull();
+  }}
+/>

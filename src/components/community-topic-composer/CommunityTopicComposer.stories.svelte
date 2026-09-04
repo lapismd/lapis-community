@@ -31,3 +31,36 @@
 >
   {#snippet template(args)}<CommunityTopicComposer {...args} />{/snippet}</Story
 >
+
+<Story
+  name="Participation warning"
+  args={{
+    forumName: "support",
+    disabled: true,
+    disabledReason: "Join this room before posting or reacting",
+    composerStatus: {
+      type: "warning" as const,
+      message: "Join this room before posting or reacting",
+    },
+    onPublish: fn(async () => {}),
+  }}
+  play={async ({ canvas }) => {
+    const warning = canvas.getByRole("status");
+    await expect(warning).toHaveTextContent(
+      "Join this room before posting or reacting",
+    );
+    await expect(warning).toHaveAttribute("data-status", "warning");
+    await expect(
+      warning.closest('[data-ui-component="ai-chat-composer"]'),
+    ).not.toBeNull();
+    await expect(canvas.getByRole("combobox")).toHaveAttribute(
+      "aria-disabled",
+      "true",
+    );
+    await expect(
+      canvas.queryByRole("button", { name: "Start a new post in support" }),
+    ).not.toBeInTheDocument();
+  }}
+>
+  {#snippet template(args)}<CommunityTopicComposer {...args} />{/snippet}
+</Story>
