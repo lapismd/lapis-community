@@ -136,7 +136,6 @@
   {#if model.view === "forum-index"}
     <ForumTopicList
       title={activeRoom.name}
-      description={activeRoom.description ?? "Long-form community discussions"}
       topics={model.topics}
       members={model.members}
       {rooms}

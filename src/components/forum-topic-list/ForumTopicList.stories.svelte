@@ -26,6 +26,15 @@
     onCreateTopic: fn(async () => {}),
   }}
   play={async ({ canvas, canvasElement }) => {
+    await expect(
+      canvas.getByRole("region", { name: "support-ai topics" }),
+    ).toBeVisible();
+    await expect(
+      canvas.queryByRole("heading", { name: "support-ai" }),
+    ).not.toBeInTheDocument();
+    await expect(
+      canvas.queryByText("Questions, guides, and support for the AI plugin"),
+    ).not.toBeInTheDocument();
     const topic = canvas.getByRole("button", {
       name: "Open topic First-token latency with a large vault",
     });
@@ -80,7 +89,6 @@
   name="Read-only composer warning"
   args={{
     title: "support-ai",
-    description: "Questions, guides, and support for the AI plugin",
     topics: communityStoryTopics,
     members: communityStoryMembers,
     onCreateTopic: fn(async () => {}),

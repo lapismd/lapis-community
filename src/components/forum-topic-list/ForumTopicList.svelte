@@ -25,7 +25,6 @@
 
   let {
     title = "Forum",
-    description = "Long-form community discussions",
     topics,
     members,
     rooms = [],
@@ -123,14 +122,7 @@
     >{/if}
 {/snippet}
 
-<section class="forum-topic-list" aria-labelledby="forum-topic-list-title">
-  <header>
-    <div>
-      <h1 id="forum-topic-list-title">{title}</h1>
-      <p>{description}</p>
-    </div>
-  </header>
-
+<section class="forum-topic-list" aria-label={`${title} topics`}>
   {#if actions}
     {@render actions()}
   {/if}
@@ -240,28 +232,6 @@
     width: min(100%, 68rem);
     margin: 0 auto;
     padding: clamp(1rem, 3vw, 2.5rem);
-  }
-
-  header {
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: 1rem;
-    padding-block-end: 1rem;
-  }
-
-  h1,
-  p {
-    margin: 0;
-  }
-
-  h1 {
-    font-size: clamp(1.35rem, 2vw, 1.75rem);
-  }
-
-  header p {
-    margin-block-start: 0.35rem;
-    color: var(--muted-foreground);
   }
 
   .forum-topic-list__columns,
