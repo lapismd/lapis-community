@@ -34,3 +34,9 @@ navigation, installation requests, source-health presentation, and optional
 discussion composition. Projection-local image references are made absolute
 only at the HTTP adapter boundary and must remain beneath the configured
 registry root; relay-backed media is exposed only through verified Blob data.
+
+Normalized `CommunityMessageModel` values MAY retain the unique public keys from
+message `p` and `P` tags as optional mention metadata. Presentation components
+MUST combine that metadata with controller-owned member, room, and community
+emoji models when rendering safe Markdown; they MUST NOT reinterpret relay
+events or make unknown visible tokens interactive.

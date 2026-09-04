@@ -19,7 +19,7 @@
   }}
   play={async ({ canvas, args }) => {
     await userEvent.type(
-      canvas.getByRole("combobox", { name: "Message" }),
+      canvas.getByRole("textbox", { name: "Markdown editor" }),
       "Hello Member",
     );
     await userEvent.keyboard("{Enter}");

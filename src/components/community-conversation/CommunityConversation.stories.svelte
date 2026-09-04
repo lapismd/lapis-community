@@ -97,11 +97,10 @@
           ':scope > [data-ui-part="body"] > [data-ui-part="input-area"]',
         )!,
       ).opacity,
-    ).toBe("0.6");
-    await expect(canvas.getByRole("combobox")).toHaveAttribute(
-      "aria-disabled",
-      "true",
-    );
+    ).toBe("0.7");
+    await expect(
+      canvas.getByRole("textbox", { name: "Markdown editor" }),
+    ).toHaveAttribute("contenteditable", "false");
   }}
 >
   {#snippet template(args)}

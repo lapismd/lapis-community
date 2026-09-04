@@ -23,6 +23,11 @@
   const loadingPrevious = $derived(controller.loadingPrevious);
   const loadingNext = $derived(controller.loadingNext);
   const error = $derived(controller.error);
+  const composerStatus = $derived(
+    controller.commentError !== ""
+      ? { type: "error" as const, message: controller.commentError }
+      : undefined,
+  );
   const message = $derived(controller.message);
   const participantCount = $derived(controller.participantCount);
   const currentPluginReactions = $derived(controller.currentPluginReactions);
@@ -99,7 +104,7 @@
         onSubmit={submitPluginReaction}
       />
 
-      {#if error}
+      {#if error && composerStatus === undefined}
         <p class="notice error" role="alert">{error}</p>
       {:else if message}
         <p class="notice" role="status">{message}</p>
@@ -121,6 +126,8 @@
             {postNumber}
             {signedInPubkey}
             {publishing}
+            {...composerStatus === undefined ? {} : { composerStatus }}
+            onDismissComposerStatus={controller.dismissError}
             bind:comment={controller.comment}
             onCancel={controller.cancelReply}
             onSubmit={controller.submitComment}

@@ -1,12 +1,10 @@
 <script lang="ts">
-  import { Composer } from "@lapismd/design-core/ai/chat";
+  import type { ComposerStatus } from "@lapismd/design-core/ai/chat";
   import { Button } from "@lapismd/design-core/shadcn/button";
   import * as Popover from "@lapismd/design-core/shadcn/popover";
-  import ReplyIcon from "@lucide/svelte/icons/reply";
-  import XIcon from "@lucide/svelte/icons/x";
   import { tick } from "svelte";
 
-  import CommunityEmojiPicker from "../community-emoji-picker/CommunityEmojiPicker.svelte";
+  import CommunityChatComposer from "../community-chat-composer/CommunityChatComposer.svelte";
   import {
     displayName,
     avatarHue,
@@ -23,6 +21,8 @@
     postNumber,
     signedInPubkey,
     publishing = false,
+    composerStatus,
+    onDismissComposerStatus,
     comment = $bindable(""),
     onCancel,
     onSubmit,
@@ -34,6 +34,8 @@
     postNumber: (eventId: string) => number;
     signedInPubkey: string;
     publishing?: boolean;
+    composerStatus?: ComposerStatus;
+    onDismissComposerStatus?: () => void;
     comment?: string;
     onCancel: () => void;
     onSubmit: (content: string) => boolean | void | Promise<boolean | void>;
@@ -42,6 +44,30 @@
   const signedInProfile = $derived(profiles.get(signedInPubkey));
   const signedInName = $derived(
     signedInPubkey === "" ? "" : displayName(signedInPubkey, profiles),
+  );
+  const members = $derived(
+    [...profiles.values()].map((profile) => ({
+      id: profile.pubkey,
+      name: profile.name,
+      handle: shortKey(profile.pubkey),
+      initials: initials(profile.name),
+      ...(profile.picture === undefined ? {} : { avatarUrl: profile.picture }),
+    })),
+  );
+  const replyContext = $derived(
+    replyingTo === undefined
+      ? undefined
+      : {
+          kind: "reply" as const,
+          target: {
+            eventId: replyingTo.event.id,
+            roomId: name,
+            authorId: replyingTo.event.pubkey,
+            authorName: displayName(replyingTo.event.pubkey, profiles),
+            content: replyingTo.content,
+            kind: "forum" as const,
+          },
+        },
   );
   let open = $state(false);
   let composer = $state<HTMLDivElement | null>(null);
@@ -60,7 +86,11 @@
 
   async function focusComposer(): Promise<void> {
     await tick();
-    composer?.querySelector<HTMLElement>('[data-ui-part="editable"]')?.focus();
+    composer
+      ?.querySelector<HTMLElement>(
+        '[data-ui-part="editable"], .cm-content[contenteditable="true"]',
+      )
+      ?.focus();
   }
 
   async function expand(): Promise<void> {
@@ -84,129 +114,106 @@
       const published = await onSubmit(value);
       if (published === false) {
         comment = value;
-        return;
+        throw new Error(
+          composerStatus?.message ?? "Comment could not be published",
+        );
       }
       comment = "";
       open = false;
-    } catch {
+    } catch (cause) {
       comment = value;
+      throw cause;
     }
   }
 </script>
 
+{#snippet identityAction()}
+  {#if signedInPubkey === ""}
+    <span class="discussion-composer__signer-note">
+      A NIP-07 signer is required to publish.
+    </span>
+  {:else}
+    <Popover.Root>
+      <Popover.Trigger>
+        {#snippet child({ props })}
+          <Button
+            {...props}
+            type="button"
+            variant="ghost"
+            size="sm"
+            class="discussion-composer__identity"
+            aria-label={`Open profile for ${signedInName}`}
+          >
+            <span
+              class="discussion-composer__avatar"
+              style={`--avatar-hue: ${avatarHue(signedInPubkey)}`}
+              aria-hidden="true"
+            >
+              {#if signedInProfile?.picture}
+                <img src={signedInProfile.picture} alt="" />
+              {:else}
+                {initials(signedInName)}
+              {/if}
+            </span>
+            <span>{signedInName}</span>
+          </Button>
+        {/snippet}
+      </Popover.Trigger>
+      <Popover.Content align="start" class="discussion-composer__profile">
+        <div class="discussion-composer__profile-heading">
+          <span
+            class="discussion-composer__avatar discussion-composer__avatar--large"
+            style={`--avatar-hue: ${avatarHue(signedInPubkey)}`}
+            aria-hidden="true"
+          >
+            {#if signedInProfile?.picture}
+              <img src={signedInProfile.picture} alt="" />
+            {:else}
+              {initials(signedInName)}
+            {/if}
+          </span>
+          <div>
+            <Popover.Title><h3>{signedInName}</h3></Popover.Title>
+            <p>{shortKey(signedInPubkey)}</p>
+          </div>
+        </div>
+        <Popover.Description>
+          {signedInProfile?.about ?? "Nostr community profile"}
+        </Popover.Description>
+      </Popover.Content>
+    </Popover.Root>
+  {/if}
+{/snippet}
+
 <div
   class="discussion-composer"
   data-expanded={open ? "" : undefined}
+  data-reply-post={replyingTo ? postNumber(replyingTo.event.id) : undefined}
   data-ui-component="discussion-composer"
   bind:this={element}
 >
   {#if open}
-    <Composer
+    <CommunityChatComposer
       bind:ref={composer}
       bind:value={comment}
-      density="spacious"
-      elevation="none"
-      disabled={publishing}
-      aria-label={replyingTo
+      {members}
+      {...signedInPubkey === "" ? {} : { currentMemberId: signedInPubkey }}
+      {...replyContext === undefined ? {} : { context: replyContext }}
+      busy={publishing}
+      {...composerStatus === undefined ? {} : { composerStatus }}
+      {...onDismissComposerStatus === undefined
+        ? {}
+        : { onDismissComposerStatus }}
+      ariaLabel={replyingTo
         ? "Reply to discussion"
         : `Discussion about ${name}`}
+      submitLabel="Publish comment"
       placeholder={replyingTo ? "Write your reply…" : "Write your post…"}
-      onSubmit={publish}
-    >
-      {#snippet drawer()}
-        {#if replyingTo}
-          <div
-            class="discussion-composer__reply"
-            role="group"
-            aria-label={`Replying to ${displayName(replyingTo.event.pubkey, profiles)}`}
-          >
-            <span>
-              <ReplyIcon aria-hidden="true" />
-              <strong>
-                Replying to {displayName(replyingTo.event.pubkey, profiles)} · post
-                #{postNumber(replyingTo.event.id)}
-              </strong>
-              <small title={replyingTo.content}>{replyingTo.content}</small>
-            </span>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon-sm"
-              aria-label="Cancel reply"
-              onclick={cancelReply}
-            >
-              <XIcon aria-hidden="true" />
-            </Button>
-          </div>
-        {/if}
-      {/snippet}
-      {#snippet footerActions()}
-        <CommunityEmojiPicker
-          label="Add emoji to discussion"
-          onSelect={(emoji) => (comment += emoji)}
-        />
-        {#if signedInPubkey === ""}
-          <span class="discussion-composer__signer-note">
-            A NIP-07 signer is required to publish.
-          </span>
-        {:else}
-          <Popover.Root>
-            <Popover.Trigger>
-              {#snippet child({ props })}
-                <Button
-                  {...props}
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  class="discussion-composer__identity"
-                  aria-label={`Open profile for ${signedInName}`}
-                >
-                  <span
-                    class="discussion-composer__avatar"
-                    style={`--avatar-hue: ${avatarHue(signedInPubkey)}`}
-                    aria-hidden="true"
-                  >
-                    {#if signedInProfile?.picture}
-                      <img src={signedInProfile.picture} alt="" />
-                    {:else}
-                      {initials(signedInName)}
-                    {/if}
-                  </span>
-                  <span>{signedInName}</span>
-                </Button>
-              {/snippet}
-            </Popover.Trigger>
-            <Popover.Content align="start" class="discussion-composer__profile">
-              <div class="discussion-composer__profile-heading">
-                <span
-                  class="discussion-composer__avatar discussion-composer__avatar--large"
-                  style={`--avatar-hue: ${avatarHue(signedInPubkey)}`}
-                  aria-hidden="true"
-                >
-                  {#if signedInProfile?.picture}
-                    <img src={signedInProfile.picture} alt="" />
-                  {:else}
-                    {initials(signedInName)}
-                  {/if}
-                </span>
-                <div>
-                  <Popover.Title><h3>{signedInName}</h3></Popover.Title>
-                  <p>{shortKey(signedInPubkey)}</p>
-                </div>
-              </div>
-              <Popover.Description>
-                {signedInProfile?.about ?? "Nostr community profile"}
-              </Popover.Description>
-            </Popover.Content>
-          </Popover.Root>
-        {/if}
-      {/snippet}
-      {#snippet sendActions()}
-        <Button type="button" variant="ghost" size="sm" onclick={cancelComposer}
-          >Cancel</Button
-        >
-      {/snippet}
-    </Composer>
+      additionalActions={identityAction}
+      onCancel={cancelComposer}
+      {...replyingTo === undefined ? {} : { onCancelContext: cancelReply }}
+      onSubmit={(submission) => publish(submission.content)}
+    />
   {:else}
     <Button
       type="button"
@@ -250,70 +257,6 @@
     border-color: var(--border);
     color: var(--foreground);
     background: color-mix(in srgb, var(--foreground) 3%, transparent);
-  }
-
-  .discussion-composer[data-expanded]
-    :global([data-ui-component="ai-chat-composer"]) {
-    min-height: 7.5rem;
-  }
-
-  .discussion-composer[data-expanded]
-    :global([data-ui-component="ai-chat-composer"] [data-ui-part="body"]) {
-    min-height: 7.5rem;
-    border-color: var(--border);
-    background: var(--background);
-  }
-
-  .discussion-composer[data-expanded]
-    :global(
-      [data-ui-component="ai-chat-composer"] [data-ui-part="input-area"]
-    ) {
-    min-height: 3.25rem;
-  }
-
-  .discussion-composer__reply {
-    display: flex;
-    min-width: 0;
-    align-items: center;
-    justify-content: space-between;
-    gap: 0.5rem;
-    padding: 0.625rem 0.75rem 0;
-    background: color-mix(in srgb, var(--foreground) 4%, var(--background));
-  }
-
-  .discussion-composer__reply > span {
-    display: grid;
-    grid-template-columns: auto minmax(0, 1fr);
-    min-width: 0;
-    flex: 1;
-    column-gap: 0.35rem;
-    row-gap: 0.1rem;
-  }
-
-  .discussion-composer__reply strong {
-    grid-column: 2;
-    font-size: 0.78rem;
-    font-weight: 600;
-    line-height: 1rem;
-  }
-
-  .discussion-composer__reply > span > :global(svg) {
-    grid-row: 1 / span 2;
-    grid-column: 1;
-    width: 0.8rem;
-    height: 0.8rem;
-    margin-block-start: 0.1rem;
-  }
-
-  .discussion-composer__reply small {
-    display: block;
-    grid-column: 2;
-    overflow: hidden;
-    color: var(--muted-foreground);
-    font-size: 0.72rem;
-    line-height: 1rem;
-    text-overflow: ellipsis;
-    white-space: nowrap;
   }
 
   .discussion-composer__signer-note {

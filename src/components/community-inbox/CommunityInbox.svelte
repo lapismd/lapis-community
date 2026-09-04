@@ -13,6 +13,7 @@
 
   import CommunityConversation from "../community-conversation/CommunityConversation.svelte";
   import { memberById } from "../community-workspace/model.js";
+  import type { CommunityRoomModel } from "../community-workspace/model.js";
   import type { CommunityInboxModel } from "./model.js";
   import type {
     CommunityCustomEmoji,
@@ -22,6 +23,7 @@
 
   let {
     model,
+    rooms = [],
     onSelect = () => {},
     onSend = () => {},
     onMarkAllRead = () => {},
@@ -36,6 +38,7 @@
     onEditMessage,
     onDeleteMessage,
     onOpenProfile,
+    onOpenRoom,
     onMessageMember,
     onViewMemberActivity,
     replyTarget,
@@ -47,6 +50,7 @@
     canDeleteAny = false,
   }: {
     model: CommunityInboxModel;
+    rooms?: readonly CommunityRoomModel[];
     onSelect?: (itemId: string) => void;
     onSend?: (content: string) => void | Promise<void>;
     onMarkAllRead?: () => void;
@@ -67,6 +71,7 @@
     onOpenProfile?: (
       member: import("../community-workspace/model.js").CommunityMemberModel,
     ) => void | Promise<void>;
+    onOpenRoom?: (roomId: string) => void;
     onMessageMember?: (
       member: import("../community-workspace/model.js").CommunityMemberModel,
     ) => void | Promise<void>;
@@ -367,6 +372,7 @@
             room={model.room}
             messages={model.messages}
             members={model.members}
+            {rooms}
             composerPlacement="row"
             {disabled}
             {disabledReason}
@@ -383,6 +389,7 @@
             {...onEditMessage === undefined ? {} : { onEditMessage }}
             {...onDeleteMessage === undefined ? {} : { onDeleteMessage }}
             {...onOpenProfile === undefined ? {} : { onOpenProfile }}
+            {...onOpenRoom === undefined ? {} : { onOpenRoom }}
             {...onMessageMember === undefined ? {} : { onMessageMember }}
             {...onViewMemberActivity === undefined
               ? {}

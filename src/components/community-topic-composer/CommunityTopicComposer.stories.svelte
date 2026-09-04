@@ -17,7 +17,7 @@
       canvas.getByRole("button", { name: "Start a new post in support" }),
     );
     await userEvent.type(
-      canvas.getByRole("combobox", { name: "Message" }),
+      canvas.getByRole("textbox", { name: "Markdown editor" }),
       "How should portable forums work?",
     );
     await userEvent.keyboard("{Enter}");
@@ -53,10 +53,9 @@
     await expect(
       warning.closest('[data-ui-component="ai-chat-composer"]'),
     ).not.toBeNull();
-    await expect(canvas.getByRole("combobox")).toHaveAttribute(
-      "aria-disabled",
-      "true",
-    );
+    await expect(
+      canvas.getByRole("textbox", { name: "Markdown editor" }),
+    ).toHaveAttribute("contenteditable", "false");
     await expect(
       canvas.queryByRole("button", { name: "Start a new post in support" }),
     ).not.toBeInTheDocument();

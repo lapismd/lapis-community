@@ -12,7 +12,10 @@
   import TrashIcon from "@lucide/svelte/icons/trash-2";
   import type { Snippet } from "svelte";
 
-  import type { CommunityTopicDraft } from "../../community/index.js";
+  import type {
+    CommunityCustomEmoji,
+    CommunityTopicDraft,
+  } from "../../community/index.js";
   import CommunityTopicComposer from "../community-topic-composer/CommunityTopicComposer.svelte";
   import {
     memberById,
@@ -25,6 +28,9 @@
     description = "Long-form community discussions",
     topics,
     members,
+    rooms = [],
+    communityEmojis = [],
+    currentMemberId,
     onOpenTopic,
     onCreateTopic,
     onTopicAction,
@@ -40,6 +46,9 @@
     description?: string;
     topics: CommunityTopicModel[];
     members: CommunityMemberModel[];
+    rooms?: readonly import("../community-workspace/model.js").CommunityRoomModel[];
+    communityEmojis?: readonly CommunityCustomEmoji[];
+    currentMemberId?: string;
     onOpenTopic?: (topicId: string) => void;
     onCreateTopic?: (draft: CommunityTopicDraft) => Promise<void>;
     onTopicAction?: (
@@ -129,6 +138,10 @@
   {#if onCreateTopic}
     <CommunityTopicComposer
       forumName={title}
+      {members}
+      {rooms}
+      {communityEmojis}
+      {...currentMemberId === undefined ? {} : { currentMemberId }}
       onPublish={onCreateTopic}
       {disabled}
       disabledReason={readOnlyReason}

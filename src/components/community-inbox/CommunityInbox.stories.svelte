@@ -59,7 +59,7 @@
       ),
     ).toBeVisible();
     await expect(
-      canvas.queryByRole("combobox", { name: "Message" }),
+      canvas.queryByRole("textbox", { name: "Markdown editor" }),
     ).not.toBeInTheDocument();
   }}
 >
@@ -87,7 +87,7 @@
       canvas.getByRole("heading", { name: "support" }),
     ).toBeVisible();
     await expect(
-      canvas.getByRole("combobox", { name: "Message" }),
+      canvas.getByRole("textbox", { name: "Markdown editor" }),
     ).toBeVisible();
 
     await userEvent.click(canvas.getByRole("button", { name: "All" }));
@@ -124,7 +124,9 @@
     );
     await expect(canvas.getByText("No unread mentions")).toBeVisible();
 
-    const composer = canvas.getByRole("combobox", { name: "Message" });
+    const composer = canvas.getByRole("textbox", {
+      name: "Markdown editor",
+    });
     await userEvent.type(composer, "An inbox interaction fixture");
     await expect(composer).toHaveTextContent("An inbox interaction fixture");
   }}

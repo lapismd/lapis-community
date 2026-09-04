@@ -86,6 +86,7 @@
 
   :global(.community-markdown-content .mira-markdown-preview) {
     height: auto;
+    padding: 0;
     overflow: visible;
   }
 

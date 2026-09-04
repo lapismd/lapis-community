@@ -71,7 +71,7 @@
       }),
     );
     await expect(
-      canvas.getByRole("combobox", { name: "Message" }),
+      canvas.getByRole("textbox", { name: "Markdown editor" }),
     ).toBeVisible();
   }}
 />

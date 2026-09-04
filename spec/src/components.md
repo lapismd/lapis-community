@@ -37,6 +37,21 @@ theme-aware sparkle-particle surface conceals the text. Hover and focus MUST
 leave the content concealed, click and keyboard activation MUST toggle its
 revealed state, and reduced-motion rendering MUST keep the particles static.
 
+Following approval of the LC-UI-024 phase-one Storybook surface, phase two MUST
+replace conversation, thread, forum-topic, new-direct-message, and
+registry-discussion authoring inputs with `CommunityChatComposer`. Reply targets
+and actionable warning, failure, retry, and dismiss behavior MUST use its unified
+public API. Every `CommunityMessage` body MUST render through
+`CommunityMarkdownContent` with the known member, room, mention-pubkey, and emoji
+context. The embedded Mira editor MUST span the composer's available inner width
+without its document reading-column margins, internal scroller padding, or a
+reserved scrollbar gutter, and its empty state MUST retain a compact two-line
+minimum height. It MUST use a high-contrast four-pixel caret, grow through seven
+lines, and then delegate overflow to a public Design Core Scroll Area. The final
+Markdown preview host and document layers MUST add no padding of their own. The
+autocomplete layer MUST prefer the space above the composer and flip directly
+below it when a viewport or clipping ancestor leaves insufficient room above.
+
 The package uses Design Core controls for shared interaction primitives. Local
 CSS owns the Discourse-inspired registry layout and the Slack/Buzz-style
 community content because timeline, post stream, room navigation, and

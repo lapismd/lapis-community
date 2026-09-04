@@ -16,16 +16,20 @@
 
   import type { CommunityCustomEmoji } from "../../community/index.js";
   import CommunityEmojiPicker from "../community-emoji-picker/CommunityEmojiPicker.svelte";
+  import CommunityMarkdownContent from "../community-markdown-content/CommunityMarkdownContent.svelte";
   import CommunityMemberHoverCard from "../community-member-hover-card/CommunityMemberHoverCard.svelte";
   import type {
     CommunityEmojiReference,
     CommunityMemberModel,
     CommunityMessageModel,
+    CommunityRoomModel,
   } from "../community-workspace/model.js";
 
   let {
     message,
     author,
+    members = [],
+    rooms = [],
     isContinuation = false,
     replyParticipants = [],
     communityEmojis = [],
@@ -39,12 +43,15 @@
     onEdit,
     onDelete,
     onOpenProfile,
+    onOpenRoom,
     onMessageMember,
     onViewMemberActivity,
     replyActionLabel = "Reply in thread",
   }: {
     message: CommunityMessageModel;
     author: CommunityMemberModel;
+    members?: readonly CommunityMemberModel[];
+    rooms?: readonly CommunityRoomModel[];
     isContinuation?: boolean;
     replyParticipants?: CommunityMemberModel[];
     communityEmojis?: readonly CommunityCustomEmoji[];
@@ -66,6 +73,7 @@
     onEdit?: (messageId: string) => void | Promise<void>;
     onDelete?: (messageId: string) => void | Promise<void>;
     onOpenProfile?: (member: CommunityMemberModel) => void;
+    onOpenRoom?: (roomId: string) => void;
     onMessageMember?: (member: CommunityMemberModel) => void | Promise<void>;
     onViewMemberActivity?: (
       member: CommunityMemberModel,
@@ -194,7 +202,16 @@
   {/snippet}
 
   <MessageBubble variant="ghost" {density}>
-    <p class="community-message__content">{message.content}</p>
+    <CommunityMarkdownContent
+      class="community-message__content"
+      content={message.content}
+      mentionPubkeys={message.mentionPubkeys ?? []}
+      {members}
+      {rooms}
+      {communityEmojis}
+      {...onOpenProfile === undefined ? {} : { onOpenMember: onOpenProfile }}
+      {...onOpenRoom === undefined ? {} : { onOpenRoom }}
+    />
   </MessageBubble>
 
   {#if onAddReaction}
@@ -451,11 +468,10 @@
     text-transform: uppercase;
   }
 
-  .community-message__content {
+  :global(.community-message__content) {
     margin: 0;
     color: var(--foreground);
     line-height: 1.55;
-    white-space: pre-wrap;
   }
 
   .community-message__metadata {

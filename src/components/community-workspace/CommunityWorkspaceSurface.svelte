@@ -54,6 +54,9 @@
         description: "Community conversation",
       } satisfies CommunityRoomModel),
   );
+  const rooms = $derived(
+    model.navigationSections.flatMap((section) => section.rooms),
+  );
   const activeDirectMember = $derived(
     activeRoom.kind === "direct"
       ? (activeRoom.participantIds
@@ -136,6 +139,11 @@
       description={activeRoom.description ?? "Long-form community discussions"}
       topics={model.topics}
       members={model.members}
+      {rooms}
+      {communityEmojis}
+      {...model.currentMemberId === undefined
+        ? {}
+        : { currentMemberId: model.currentMemberId }}
       {...handlers.onOpenTopic === undefined
         ? {}
         : { onOpenTopic: handlers.onOpenTopic }}
@@ -167,6 +175,7 @@
       room={activeRoom}
       messages={model.messages}
       members={model.members}
+      {rooms}
       {...activeDirectMember === undefined
         ? {}
         : { directMember: activeDirectMember }}
@@ -219,6 +228,9 @@
       {...handlers.onOpenProfile === undefined
         ? {}
         : { onOpenProfile: handlers.onOpenProfile }}
+      {...handlers.onSelectRoom === undefined
+        ? {}
+        : { onOpenRoom: handlers.onSelectRoom }}
       {...handlers.onMessageMember === undefined
         ? {}
         : { onMessageMember: handlers.onMessageMember }}

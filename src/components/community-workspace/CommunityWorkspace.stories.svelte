@@ -122,7 +122,7 @@
     await expect(inboxList).toBeVisible();
     await expect(thread).toBeVisible();
     await expect(
-      canvas.getByRole("combobox", { name: "Message" }),
+      canvas.getByRole("textbox", { name: "Markdown editor" }),
     ).toBeVisible();
     await expect(mainBody).toHaveStyle("overflow: hidden");
     await expect(mainBody).toHaveAttribute("data-layout", "regions");
@@ -204,7 +204,9 @@
       canvas.getByRole("button", { name: "Browse channels" }),
     ).toBeVisible();
 
-    const composer = canvas.getByRole("combobox", { name: "Message" });
+    const composer = canvas.getByRole("textbox", {
+      name: "Markdown editor",
+    });
     await userEvent.type(composer, "A channel interaction fixture");
     await userEvent.keyboard("{Enter}");
     await expect(
@@ -265,7 +267,9 @@
       "data-last-action",
       expect.stringMatching(/^replying-to:/u),
     );
-    const composer = thread.getByRole("combobox", { name: "Message" });
+    const composer = thread.getByRole("textbox", {
+      name: "Markdown editor",
+    });
     await userEvent.type(composer, "A contextual channel reply");
     await userEvent.keyboard("{Enter}");
     await waitFor(() => {

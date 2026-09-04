@@ -702,10 +702,20 @@ function eventMessage(
   const replyCount = orderedReplies.length;
   const latestReply = orderedReplies.at(-1);
   const reactions = reactionModels(event.id, events, identityPubkey);
+  const mentionPubkeys = [
+    ...new Set(
+      event.tags
+        .filter(
+          (tag) => (tag[0] === "p" || tag[0] === "P") && tag[1] !== undefined,
+        )
+        .map((tag) => tag[1]!),
+    ),
+  ];
   return {
     id: event.id,
     authorId: event.pubkey,
     content: event.content,
+    ...(mentionPubkeys.length === 0 ? {} : { mentionPubkeys }),
     timestamp: timestamp(event.created_at),
     createdAt: new Date(event.created_at * 1_000).toISOString(),
     ...(parentMessageId === undefined ? {} : { parentMessageId }),
@@ -983,10 +993,21 @@ function directMessageModels(
             : {}),
         });
       }
+      const mentionPubkeys = [
+        ...new Set(
+          event.tags
+            .filter(
+              (tag) =>
+                (tag[0] === "p" || tag[0] === "P") && tag[1] !== undefined,
+            )
+            .map((tag) => tag[1]!),
+        ),
+      ];
       return {
         id: event.id,
         authorId: event.pubkey,
         content: event.content,
+        ...(mentionPubkeys.length === 0 ? {} : { mentionPubkeys }),
         timestamp: timestamp(event.created_at),
         createdAt: new Date(event.created_at * 1_000).toISOString(),
         ...(event.tags.find((tag) => tag[0] === "e")?.[1] === undefined

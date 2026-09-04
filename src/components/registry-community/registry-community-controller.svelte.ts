@@ -101,6 +101,7 @@ export function createRegistryCommunityController(
   let publishing = $state(false);
   let message = $state("");
   let error = $state("");
+  let commentError = $state("");
   let composerElement: HTMLDivElement | undefined;
   let scrollTargetPostId = $state("");
   let scrollRevision = $state(0);
@@ -929,9 +930,11 @@ export function createRegistryCommunityController(
   async function submitComment(content = comment): Promise<boolean> {
     const submittedComment = content.trim();
     if (submittedComment === "") return false;
+    commentError = "";
     const activeSigner = await ensureSigner();
     if (activeSigner === undefined) {
       comment = submittedComment;
+      commentError = error || "Could not connect to the Nostr signer.";
       return false;
     }
     publishing = true;
@@ -964,6 +967,7 @@ export function createRegistryCommunityController(
       return true;
     } catch (cause) {
       error = cause instanceof Error ? cause.message : "Comment failed.";
+      commentError = error;
       comment = submittedComment;
       return false;
     } finally {
@@ -1156,6 +1160,11 @@ export function createRegistryCommunityController(
     replyingTo = "";
   }
 
+  function dismissError(): void {
+    error = "";
+    commentError = "";
+  }
+
   return {
     get name() {
       return name;
@@ -1186,6 +1195,9 @@ export function createRegistryCommunityController(
     },
     set comment(value: string) {
       comment = value;
+    },
+    get commentError() {
+      return commentError;
     },
     get activePostId() {
       return activePostId;
@@ -1292,6 +1304,7 @@ export function createRegistryCommunityController(
     initialize,
     dispose,
     cancelReply,
+    dismissError,
     connect,
     submitPluginReaction,
     submitComment,

@@ -85,6 +85,7 @@ export interface CommunityMessageModel {
   id: string;
   authorId: string;
   content: string;
+  mentionPubkeys?: readonly string[];
   timestamp: string;
   createdAt?: string;
   edited?: boolean;

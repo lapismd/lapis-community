@@ -76,9 +76,13 @@
       canvas.getByRole("button", { name: "Open profile for Publisher" }),
     );
 
-    const composer = canvas.getByRole("combobox", { name: "Message" });
+    const composer = canvas.getByRole("textbox", {
+      name: "Markdown editor",
+    });
     await userEvent.type(composer, "Published through the shared relay source");
-    await userEvent.click(canvas.getByRole("button", { name: "Send message" }));
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Publish comment" }),
+    );
     await expect(
       await canvas.findByText("Published through the shared relay source"),
     ).toBeVisible();

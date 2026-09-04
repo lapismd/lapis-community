@@ -27,7 +27,9 @@
     await userEvent.click(
       canvas.getByRole("button", { name: "Start a discussion about AI" }),
     );
-    const composer = canvas.getByRole("combobox", { name: "Message" });
+    const composer = canvas.getByRole("textbox", {
+      name: "Markdown editor",
+    });
     await expect(composer).toHaveFocus();
     await userEvent.type(composer, "A portable registry is useful.");
     await userEvent.keyboard("{Enter}");
@@ -53,7 +55,9 @@
     onSubmit: noop,
   }}
   play={async ({ canvas }) => {
-    const composer = canvas.getByRole("combobox", { name: "Message" });
+    const composer = canvas.getByRole("textbox", {
+      name: "Markdown editor",
+    });
     await expect(composer).toHaveTextContent(
       "A progress affordance would help here.",
     );

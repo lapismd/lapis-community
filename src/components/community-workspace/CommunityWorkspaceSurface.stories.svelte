@@ -146,10 +146,9 @@
     await expect(join.querySelector("svg")).not.toBeNull();
     await userEvent.click(join);
     await expect(args.handlers?.onJoinRoom).toHaveBeenCalledWith("general");
-    await expect(canvas.getByRole("combobox")).toHaveAttribute(
-      "aria-disabled",
-      "true",
-    );
+    await expect(
+      canvas.getByRole("textbox", { name: "Markdown editor" }),
+    ).toHaveAttribute("contenteditable", "false");
   }}
 />
 
@@ -179,10 +178,9 @@
       "data-status",
       "warning",
     );
-    await expect(canvas.getByRole("combobox")).toHaveAttribute(
-      "aria-disabled",
-      "true",
-    );
+    await expect(
+      canvas.getByRole("textbox", { name: "Markdown editor" }),
+    ).toHaveAttribute("contenteditable", "false");
     await expect(
       topicComposer!.getBoundingClientRect().top -
         join.getBoundingClientRect().bottom,
@@ -248,10 +246,9 @@
     handlers: { onSendMessage: fn() },
   }}
   play={async ({ canvas }) => {
-    await expect(canvas.getByRole("combobox")).not.toHaveAttribute(
-      "aria-disabled",
-      "true",
-    );
+    await expect(
+      canvas.getByRole("textbox", { name: "Markdown editor" }),
+    ).toHaveAttribute("contenteditable", "true");
   }}
 />
 
@@ -274,10 +271,9 @@
     await expect(
       warning.closest('[data-ui-component="ai-chat-composer"]'),
     ).not.toBeNull();
-    await expect(canvas.getByRole("combobox")).toHaveAttribute(
-      "aria-disabled",
-      "true",
-    );
+    await expect(
+      canvas.getByRole("textbox", { name: "Markdown editor" }),
+    ).toHaveAttribute("contenteditable", "false");
   }}
 />
 
@@ -291,10 +287,9 @@
     await expect(
       canvas.queryByText("Participation unavailable"),
     ).not.toBeInTheDocument();
-    await expect(canvas.getByRole("combobox")).not.toHaveAttribute(
-      "aria-disabled",
-      "true",
-    );
+    await expect(
+      canvas.getByRole("textbox", { name: "Markdown editor" }),
+    ).toHaveAttribute("contenteditable", "true");
   }}
 />
 
@@ -328,10 +323,9 @@
     await expect(
       warning.closest('[data-ui-component="ai-chat-composer"]'),
     ).not.toBeNull();
-    await expect(canvas.getByRole("combobox")).toHaveAttribute(
-      "aria-disabled",
-      "true",
-    );
+    await expect(
+      canvas.getByRole("textbox", { name: "Markdown editor" }),
+    ).toHaveAttribute("contenteditable", "false");
   }}
 />
 

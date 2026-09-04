@@ -1832,6 +1832,7 @@
     {:else if activeDestination === "inbox"}
       <CommunityInbox
         model={inbox}
+        rooms={workspace.navigationSections.flatMap((section) => section.rooms)}
         disabled={participationReadOnly}
         disabledReason={participationReadOnlyReason}
         {...workspace.currentMemberId === undefined
@@ -1856,6 +1857,7 @@
         onReply={(messageId) => community.actions.setReplyTarget(messageId)}
         onToggleReaction={react}
         onOpenProfile={openProfile}
+        onOpenRoom={(roomId) => setDestination(roomId, true)}
         onMessageMember={messageMember}
         {...extensions.activityLog === undefined
           ? {}
@@ -2194,6 +2196,9 @@
               <CommunityThreadPanel
                 thread={visibleThread}
                 members={workspace.members}
+                rooms={workspace.navigationSections.flatMap(
+                  (section) => section.rooms,
+                )}
                 disabled={participationReadOnly}
                 disabledReason={participationReadOnlyReason}
                 {...participationComposerStatus === undefined
@@ -2224,6 +2229,7 @@
                 onReply={(messageId) =>
                   openPanel({ ...activePanel, replyTargetId: messageId })}
                 onOpenProfile={openProfile}
+                onOpenRoom={(roomId) => setDestination(roomId, true)}
                 onMessageMember={messageMember}
                 {...extensions.activityLog === undefined
                   ? {}

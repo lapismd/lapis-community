@@ -3,6 +3,10 @@
   import { expect, fn, userEvent, waitFor, within } from "storybook/test";
 
   import {
+    communityComposerStoryEmojis,
+    communityComposerStoryRooms,
+  } from "../community-chat-composer/story-fixtures.js";
+  import {
     communityStoryMembers,
     communityStoryMessages,
   } from "../community-workspace/story-fixtures.js";
@@ -18,8 +22,15 @@
 <Story
   name="Message with thread and reactions"
   args={{
-    message: communityStoryMessages[1]!,
+    message: {
+      ...communityStoryMessages[1]!,
+      content:
+        "The **release is ready** in #plugin-development :lapis:. ||Keep the relay key private.||",
+    },
     author: communityStoryMembers[1]!,
+    members: communityStoryMembers,
+    rooms: communityComposerStoryRooms,
+    communityEmojis: communityComposerStoryEmojis,
     replyParticipants: communityStoryMembers.slice(0, 3),
     density: "compact",
     onReply: fn(),
@@ -29,6 +40,7 @@
     onCopyLink: fn(),
     onDelete: fn(),
     onOpenProfile: fn(),
+    onOpenRoom: fn(),
     onMessageMember: fn(),
     onViewMemberActivity: fn(),
   }}
@@ -43,6 +55,15 @@
       name: "View Ben Stone's profile",
     });
 
+    await expect(messageCanvas.getByText("release is ready").tagName).toBe(
+      "STRONG",
+    );
+    await expect(
+      messageCanvas.getByRole("img", { name: ":lapis:" }),
+    ).toBeVisible();
+    await expect(
+      messageCanvas.getByRole("button", { name: "Reveal spoiler" }),
+    ).toBeVisible();
     await expect(getComputedStyle(avatar).cursor).toBe("pointer");
     await expect(
       messageCanvas.queryByRole("button", { name: "React with 👍" }),
@@ -89,6 +110,10 @@
       "message-release",
       "🎉",
     );
+    await userEvent.click(
+      messageCanvas.getByRole("button", { name: "#plugin-development" }),
+    );
+    await expect(args.onOpenRoom).toHaveBeenCalledWith("plugin-development");
 
     await userEvent.hover(avatar);
     await expect(
@@ -97,6 +122,12 @@
     await userEvent.click(avatar);
     await expect(args.onOpenProfile).toHaveBeenCalledWith(
       communityStoryMembers[1],
+    );
+    await userEvent.unhover(avatar);
+    await waitFor(() =>
+      expect(
+        page.queryByLabelText("Ben Stone contact preview"),
+      ).not.toBeInTheDocument(),
     );
   }}
 />

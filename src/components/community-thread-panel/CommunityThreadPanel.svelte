@@ -1,32 +1,28 @@
 <script lang="ts">
   import {
-    Composer,
     Layout,
     LayoutScrollButton,
     MessageList,
     type ComposerStatus,
   } from "@lapismd/design-core/ai/chat";
-  import { Button } from "@lapismd/design-core/shadcn/button";
-  import RotateCcwIcon from "@lucide/svelte/icons/rotate-ccw";
-  import XIcon from "@lucide/svelte/icons/x";
   import type {
     CommunityCustomEmoji,
     CommunityReplyTarget,
   } from "../../community/index.js";
-  import "../community-composer-status.css";
-  import CommunityEmojiPicker from "../community-emoji-picker/CommunityEmojiPicker.svelte";
+  import CommunityChatComposer from "../community-chat-composer/CommunityChatComposer.svelte";
   import CommunityMessage from "../community-message/CommunityMessage.svelte";
-  import CommunityReplyContext from "../community-reply-context/CommunityReplyContext.svelte";
   import { isMessageContinuation } from "../community-message/grouping.js";
   import {
     memberById,
     type CommunityMemberModel,
+    type CommunityRoomModel,
     type CommunityThreadModel,
   } from "../community-workspace/model.js";
 
   let {
     thread,
     members,
+    rooms = [],
     onSendReply,
     onToggleReaction,
     onAddReaction,
@@ -36,6 +32,7 @@
     onDeleteMessage,
     onReply,
     onOpenProfile,
+    onOpenRoom,
     onMessageMember,
     onViewMemberActivity,
     replyTarget,
@@ -51,6 +48,7 @@
   }: {
     thread: CommunityThreadModel;
     members: CommunityMemberModel[];
+    rooms?: readonly CommunityRoomModel[];
     onSendReply?: (
       rootMessageId: string,
       content: string,
@@ -71,6 +69,7 @@
     onDeleteMessage?: (messageId: string) => void | Promise<void>;
     onReply?: (messageId: string) => void;
     onOpenProfile?: (member: CommunityMemberModel) => void;
+    onOpenRoom?: (roomId: string) => void;
     onMessageMember?: (member: CommunityMemberModel) => void | Promise<void>;
     onViewMemberActivity?: (
       member: CommunityMemberModel,
@@ -96,11 +95,6 @@
       ? undefined
       : memberById(members, rootMessage.authorId),
   );
-
-  function submit(content: string): void {
-    const result = onSendReply?.(thread.rootMessageId, content);
-    if (result instanceof Promise) void result.catch(() => (draft = content));
-  }
 </script>
 
 <div class="community-thread-panel">
@@ -117,69 +111,35 @@
       />
     {/snippet}
     {#snippet composer()}
-      <Composer
-        density="compact"
-        {disabled}
-        {...composerStatus === undefined ? {} : { status: composerStatus }}
-        statusPosition="top"
-        interactiveDrawerWhenDisabled={composerStatus !== undefined}
-        aria-label={disabled ? disabledReason : undefined}
-        title={disabled ? disabledReason : undefined}
+      <CommunityChatComposer
         bind:value={draft}
+        {members}
+        {rooms}
+        {communityEmojis}
+        {...currentMemberId === undefined ? {} : { currentMemberId }}
+        {...replyTarget === undefined
+          ? {}
+          : { context: { kind: "reply" as const, target: replyTarget } }}
+        {disabled}
+        {disabledReason}
+        ariaLabel="Thread reply composer"
+        submitLabel="Send reply"
         placeholder={rootAuthor === undefined
           ? "Reply to thread"
           : `Reply in thread to ${rootAuthor.name}`}
-        onSubmit={submit}
-      >
-        {#snippet drawer()}
-          {#if composerStatus && (onRetryComposerStatus || onDismissComposerStatus)}
-            <span
-              class="community-composer-status-actions"
-              data-ui-part="composer-status-actions"
-            >
-              {#if onRetryComposerStatus}
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon-xs"
-                  aria-label="Retry"
-                  title="Retry"
-                  onclick={onRetryComposerStatus}
-                >
-                  <RotateCcwIcon aria-hidden="true" />
-                </Button>
-              {/if}
-              {#if onDismissComposerStatus}
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon-xs"
-                  aria-label="Dismiss"
-                  title="Dismiss"
-                  onclick={onDismissComposerStatus}
-                >
-                  <XIcon aria-hidden="true" />
-                </Button>
-              {/if}
-            </span>
-          {/if}
-          {#if replyTarget}
-            <CommunityReplyContext
-              target={replyTarget}
-              {...onCancelReply === undefined
-                ? {}
-                : { onCancel: onCancelReply }}
-            />
-          {/if}
-        {/snippet}
-        {#snippet footerActions()}
-          <CommunityEmojiPicker
-            {communityEmojis}
-            label="Add emoji to reply"
-            onSelect={(emoji) => (draft += emoji)}
-          />
-        {/snippet}
-      </Composer>
+        {...composerStatus === undefined ? {} : { composerStatus }}
+        {...onRetryComposerStatus === undefined
+          ? {}
+          : { onRetryComposerStatus }}
+        {...onDismissComposerStatus === undefined
+          ? {}
+          : { onDismissComposerStatus }}
+        {...onCancelReply === undefined
+          ? {}
+          : { onCancelContext: onCancelReply }}
+        onSubmit={(submission) =>
+          onSendReply?.(thread.rootMessageId, submission.content)}
+      />
     {/snippet}
 
     <MessageList
@@ -192,6 +152,8 @@
           {message}
           isContinuation={isMessageContinuation(thread.messages, index)}
           author={memberById(members, message.authorId)}
+          {members}
+          {rooms}
           replyParticipants={(message.replyParticipantIds ?? []).map((id) =>
             memberById(members, id),
           )}
@@ -216,6 +178,7 @@
             ? {}
             : { onDelete: onDeleteMessage }}
           {...onOpenProfile === undefined ? {} : { onOpenProfile }}
+          {...onOpenRoom === undefined ? {} : { onOpenRoom }}
           {...onMessageMember === undefined ? {} : { onMessageMember }}
           {...onViewMemberActivity === undefined
             ? {}

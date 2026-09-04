@@ -155,6 +155,49 @@
       page.getByRole("heading", { name: "Add a link" }),
     ).toBeVisible();
     await expect(page.getByLabelText("Text")).toHaveValue("Turn");
+    await userEvent.click(page.getByRole("button", { name: "Cancel" }));
+    await waitFor(() =>
+      expect(
+        page.queryByRole("heading", { name: "Add a link" }),
+      ).not.toBeInTheDocument(),
+    );
+  }}
+/>
+
+<Story
+  name="Seven-line growth and scrolling"
+  args={{
+    ...commonArgs,
+    value: "one\ntwo\nthree\nfour\nfive\nsix\nseven",
+  }}
+  play={async ({ canvas, canvasElement }) => {
+    const editor = canvas.getByRole("textbox", { name: "Markdown editor" });
+    const scrollArea = canvasElement.querySelector<HTMLElement>(
+      ".community-chat-composer__editor-scroll-area",
+    );
+    const viewport = scrollArea?.querySelector<HTMLElement>(
+      ':scope > [data-ui-part="scroll-area-viewport"]',
+    );
+    await expect(scrollArea).toHaveAttribute(
+      "data-ui-component",
+      "scroll-area",
+    );
+    await expect(viewport).not.toBeNull();
+    await expect(viewport!.scrollHeight).toBe(viewport!.clientHeight);
+
+    await userEvent.click(editor);
+    const cursor = canvasElement.querySelector<HTMLElement>(".cm-cursor");
+    await expect(cursor).not.toBeNull();
+    await expect(
+      Number.parseFloat(getComputedStyle(cursor!).borderInlineStartWidth),
+    ).toBeGreaterThanOrEqual(3.9);
+    await userEvent.keyboard("{End}{Shift>}{Enter}{/Shift}eight");
+    await waitFor(() =>
+      expect(viewport!.scrollHeight).toBeGreaterThan(viewport!.clientHeight),
+    );
+    await expect(
+      scrollArea?.querySelector('[data-ui-part="scroll-area-scrollbar"]'),
+    ).not.toBeNull();
   }}
 />
 
@@ -248,6 +291,37 @@
     await expect(editor).toHaveTextContent("🚀");
   }}
 />
+
+<Story
+  name="Autocomplete flips below near the top edge"
+  args={{ ...commonArgs }}
+  play={async ({ canvas, canvasElement }) => {
+    const editor = canvas.getByRole("textbox", { name: "Markdown editor" });
+    await userEvent.click(editor);
+    await userEvent.type(editor, "@Ben");
+    const suggestions = await canvas.findByRole("listbox", {
+      name: "People suggestions",
+    });
+    const layer = suggestions.closest<HTMLElement>(
+      '[data-ui-part="composer-autocomplete-layer"]',
+    );
+    const composer = canvasElement.querySelector<HTMLElement>(
+      '[data-ui-component="community-chat-composer"]',
+    );
+    await expect(layer).toHaveAttribute("data-placement", "below");
+    await expect(layer!.getBoundingClientRect().top).toBeGreaterThanOrEqual(
+      composer!.getBoundingClientRect().bottom,
+    );
+  }}
+>
+  {#snippet template(args)}
+    <div
+      style="position: fixed; top: 0.5rem; right: 2rem; left: 2rem; margin: 0 auto;"
+    >
+      <CommunityChatComposer {...args} />
+    </div>
+  {/snippet}
+</Story>
 
 <Story
   name="Reply with attachment"

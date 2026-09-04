@@ -1,21 +1,25 @@
 <script lang="ts">
-  import { Composer, type ComposerStatus } from "@lapismd/design-core/ai/chat";
+  import type { ComposerStatus } from "@lapismd/design-core/ai/chat";
   import { Button } from "@lapismd/design-core/shadcn/button";
-  import RotateCcwIcon from "@lucide/svelte/icons/rotate-ccw";
-  import XIcon from "@lucide/svelte/icons/x";
   import { tick } from "svelte";
 
   import type {
     CommunityCustomEmoji,
     CommunityTopicDraft,
   } from "../../community/index.js";
-  import "../community-composer-status.css";
-  import CommunityEmojiPicker from "../community-emoji-picker/CommunityEmojiPicker.svelte";
+  import CommunityChatComposer from "../community-chat-composer/CommunityChatComposer.svelte";
+  import type {
+    CommunityMemberModel,
+    CommunityRoomModel,
+  } from "../community-workspace/model.js";
 
   let {
     open = $bindable(false),
     forumName,
+    members = [],
+    rooms = [],
     communityEmojis = [],
+    currentMemberId,
     disabled = false,
     disabledReason = "Posting is unavailable",
     composerStatus,
@@ -25,7 +29,10 @@
   }: {
     open?: boolean;
     forumName: string;
+    members?: readonly CommunityMemberModel[];
+    rooms?: readonly CommunityRoomModel[];
     communityEmojis?: readonly CommunityCustomEmoji[];
+    currentMemberId?: string;
     disabled?: boolean;
     disabledReason?: string;
     composerStatus?: ComposerStatus;
@@ -35,32 +42,29 @@
   } = $props();
 
   let content = $state("");
-  let error = $state("");
   let pending = $state(false);
   let composer = $state<HTMLDivElement | null>(null);
-  const displayedStatus = $derived<ComposerStatus | undefined>(
-    error ? { type: "error", message: error } : composerStatus,
-  );
-  const expanded = $derived(open || displayedStatus !== undefined);
+  const expanded = $derived(open || composerStatus !== undefined);
 
   async function expand(): Promise<void> {
     if (disabled) return;
     open = true;
-    error = "";
     await tick();
-    composer?.querySelector<HTMLElement>('[data-ui-part="editable"]')?.focus();
+    composer
+      ?.querySelector<HTMLElement>(
+        '[data-ui-part="editable"], .cm-content[contenteditable="true"]',
+      )
+      ?.focus();
   }
 
   function cancel(): void {
     open = false;
     content = "";
-    error = "";
   }
 
   async function publish(value: string): Promise<void> {
     const normalized = value.trim();
     if (!normalized || pending) return;
-    error = "";
     pending = true;
     try {
       const firstLine = normalized.split(/\r?\n/u)[0] ?? normalized;
@@ -73,11 +77,6 @@
         tags: [],
       });
       open = false;
-      content = "";
-    } catch (cause) {
-      error =
-        cause instanceof Error ? cause.message : "Topic could not be published";
-      content = normalized;
     } finally {
       pending = false;
     }
@@ -90,65 +89,27 @@
   data-ui-component="community-topic-composer"
 >
   {#if expanded}
-    <Composer
+    <CommunityChatComposer
       bind:ref={composer}
       bind:value={content}
-      density="spacious"
-      elevation="none"
-      disabled={disabled || pending}
-      {...displayedStatus === undefined ? {} : { status: displayedStatus }}
-      statusPosition="top"
-      interactiveDrawerWhenDisabled={displayedStatus !== undefined}
-      aria-label={`New post in ${forumName}`}
+      {members}
+      {rooms}
+      {communityEmojis}
+      {...currentMemberId === undefined ? {} : { currentMemberId }}
+      {disabled}
+      {disabledReason}
+      busy={pending}
+      ariaLabel={`New post in ${forumName}`}
+      submitLabel="Publish post"
       placeholder="Write your post…"
-      onSubmit={publish}
-    >
-      {#snippet drawer()}
-        {#if displayedStatus && (onRetryComposerStatus || onDismissComposerStatus)}
-          <span
-            class="community-composer-status-actions"
-            data-ui-part="composer-status-actions"
-          >
-            {#if onRetryComposerStatus}
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon-xs"
-                aria-label="Retry"
-                title="Retry"
-                onclick={onRetryComposerStatus}
-              >
-                <RotateCcwIcon aria-hidden="true" />
-              </Button>
-            {/if}
-            {#if onDismissComposerStatus}
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon-xs"
-                aria-label="Dismiss"
-                title="Dismiss"
-                onclick={onDismissComposerStatus}
-              >
-                <XIcon aria-hidden="true" />
-              </Button>
-            {/if}
-          </span>
-        {/if}
-      {/snippet}
-      {#snippet footerActions()}
-        <CommunityEmojiPicker
-          {communityEmojis}
-          label="Add emoji to post"
-          onSelect={(emoji) => (content += emoji)}
-        />
-      {/snippet}
-      {#snippet sendActions()}
-        <Button type="button" variant="ghost" size="sm" onclick={cancel}
-          >Cancel</Button
-        >
-      {/snippet}
-    </Composer>
+      {...composerStatus === undefined ? {} : { composerStatus }}
+      {...onRetryComposerStatus === undefined ? {} : { onRetryComposerStatus }}
+      {...onDismissComposerStatus === undefined
+        ? {}
+        : { onDismissComposerStatus }}
+      onCancel={cancel}
+      onSubmit={(submission) => publish(submission.content)}
+    />
   {:else}
     <Button
       type="button"
@@ -166,8 +127,6 @@
 
 <style>
   .community-topic-composer {
-    --ui-ai-chat-composer-radius: 0.85rem;
-
     width: 100%;
   }
 
@@ -192,24 +151,5 @@
     border-color: var(--border);
     color: var(--foreground);
     background: color-mix(in srgb, var(--foreground) 3%, transparent);
-  }
-
-  .community-topic-composer[data-expanded]
-    :global([data-ui-component="ai-chat-composer"]) {
-    min-height: 7.5rem;
-  }
-
-  .community-topic-composer[data-expanded]
-    :global([data-ui-component="ai-chat-composer"] [data-ui-part="body"]) {
-    min-height: 7.5rem;
-    border-color: var(--border);
-    background: var(--background);
-  }
-
-  .community-topic-composer[data-expanded]
-    :global(
-      [data-ui-component="ai-chat-composer"] [data-ui-part="input-area"]
-    ) {
-    min-height: 3.25rem;
   }
 </style>

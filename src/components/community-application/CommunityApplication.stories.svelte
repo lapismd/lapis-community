@@ -382,7 +382,9 @@
     await userEvent.click(
       await canvas.findByRole("button", { name: "general" }),
     );
-    const composer = canvas.getByRole("combobox", { name: "Message" });
+    const composer = canvas.getByRole("textbox", {
+      name: "Markdown editor",
+    });
     await userEvent.type(composer, "Send this after signing in");
     await userEvent.keyboard("{Enter}");
 
@@ -674,7 +676,7 @@
     });
     await userEvent.click(newPost);
     await expect(
-      canvas.getByRole("combobox", { name: "Message" }),
+      canvas.getByRole("textbox", { name: "Markdown editor" }),
     ).toBeVisible();
     await userEvent.click(canvas.getByRole("button", { name: "Cancel" }));
     await waitFor(() =>
@@ -1184,7 +1186,9 @@
     await expect(rightLane).not.toHaveAttribute("aria-hidden", "true");
     await expect(mainLane).toHaveAttribute("aria-hidden", "true");
     await expect(
-      within(threadSidebar).getByRole("combobox", { name: "Message" }),
+      within(threadSidebar).getByRole("textbox", {
+        name: "Markdown editor",
+      }),
     ).toBeVisible();
 
     const closeRightLane = canvasElement.querySelector<HTMLButtonElement>(

@@ -1,10 +1,9 @@
 <script lang="ts">
-  import { Composer } from "@lapismd/design-core/ai/chat";
   import { Button } from "@lapismd/design-core/shadcn/button";
   import PlusIcon from "@lucide/svelte/icons/plus";
   import XIcon from "@lucide/svelte/icons/x";
   import type { CommunityCustomEmoji } from "../../community/index.js";
-  import CommunityEmojiPicker from "../community-emoji-picker/CommunityEmojiPicker.svelte";
+  import CommunityChatComposer from "../community-chat-composer/CommunityChatComposer.svelte";
   import type { CommunityMemberModel } from "../community-workspace/model.js";
   let {
     recipients = [],
@@ -20,11 +19,6 @@
     onSend?: (content: string) => void | Promise<void>;
   } = $props();
   let draft = $state("");
-  function submit(content: string): void {
-    if (!recipients.length) return;
-    const result = onSend(content);
-    if (result instanceof Promise) void result.catch(() => (draft = content));
-  }
 </script>
 
 <section
@@ -53,19 +47,18 @@
       ><PlusIcon data-icon="inline-start" aria-hidden="true" />Add people</Button
     >
   </div>
-  <Composer
+  <CommunityChatComposer
     bind:value={draft}
+    members={recipients}
+    disabled={!recipients.length}
+    disabledReason="Choose at least one recipient"
+    ariaLabel="Direct message composer"
     placeholder={recipients.length
       ? "Write a message"
       : "Choose at least one recipient"}
-    onSubmit={submit}
-  >
-    {#snippet footerActions()}<CommunityEmojiPicker
-        {communityEmojis}
-        label="Add emoji to message"
-        onSelect={(emoji) => (draft += emoji)}
-      />{/snippet}
-  </Composer>
+    {communityEmojis}
+    onSubmit={(submission) => onSend(submission.content)}
+  />
   {#if !recipients.length}<p class="community-direct-message-composer__hint">
       Choose a recipient before sending. People without an advertised NIP-17
       inbox relay will be rejected with an explanation.

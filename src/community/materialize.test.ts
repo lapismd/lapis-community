@@ -47,12 +47,17 @@ describe("materializeCommunityWorkspace", () => {
   });
 
   it("keeps channel replies in their thread and projects reply and reaction summaries", () => {
+    const mentionedPubkey = "ab".repeat(32);
     const root = finalizeEvent(
       {
         kind: 9,
         created_at: 1_700_000_000,
         content: "Root message",
-        tags: [["h", "general"]],
+        tags: [
+          ["h", "general"],
+          ["p", mentionedPubkey],
+          ["P", mentionedPubkey],
+        ],
       },
       new Uint8Array(32).fill(53),
     );
@@ -115,11 +120,15 @@ describe("materializeCommunityWorkspace", () => {
       replyCount: 1,
       replyParticipantIds: [reply.pubkey],
       reactions: [{ emoji: "👍", count: 1 }],
+      mentionPubkeys: [mentionedPubkey],
     });
     expect(workspace.messages[0]?.replyLabel).toContain("last reply");
     expect(workspace.thread?.messages.map((message) => message.id)).toEqual([
       root.id,
       reply.id,
+    ]);
+    expect(workspace.thread?.messages[1]?.mentionPubkeys).toEqual([
+      root.pubkey,
     ]);
   });
 

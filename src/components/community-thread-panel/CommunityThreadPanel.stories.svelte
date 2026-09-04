@@ -46,7 +46,9 @@
     },
   }}
   play={async ({ canvas, args }) => {
-    const composer = canvas.getByRole("combobox", { name: "Message" });
+    const composer = canvas.getByRole("textbox", {
+      name: "Markdown editor",
+    });
     await expect(canvas.queryByLabelText("Thread from Ben Stone")).toBeNull();
     await expect(
       canvas

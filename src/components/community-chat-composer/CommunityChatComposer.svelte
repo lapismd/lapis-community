@@ -14,6 +14,7 @@
   import * as Dialog from "@lapismd/design-core/shadcn/dialog";
   import { Input } from "@lapismd/design-core/shadcn/input";
   import { Progress } from "@lapismd/design-core/shadcn/progress";
+  import { ScrollArea } from "@lapismd/design-core/shadcn/scroll-area";
   import AtSignIcon from "@lucide/svelte/icons/at-sign";
   import BoldIcon from "@lucide/svelte/icons/bold";
   import CodeIcon from "@lucide/svelte/icons/code";
@@ -37,7 +38,7 @@
   import TypeIcon from "@lucide/svelte/icons/type";
   import XIcon from "@lucide/svelte/icons/x";
   import type { EditorView } from "@codemirror/view";
-  import { onMount, tick, untrack } from "svelte";
+  import { onMount, tick, type Snippet, untrack } from "svelte";
 
   import type { CommunityCustomEmoji } from "../../community/index.js";
   import type {
@@ -92,12 +93,17 @@
     disabledReason = "Messaging is unavailable",
     composerStatus,
     busy = false,
+    ariaLabel = "Message composer",
+    submitLabel,
+    additionalActions,
     onSubmit,
+    onCancel,
     onCancelContext,
     onEditLastMessage,
     onRetryComposerStatus,
     onDismissComposerStatus,
     class: className = "",
+    ref = $bindable(null),
   }: {
     value?: string;
     formattingOpen?: boolean;
@@ -116,14 +122,19 @@
     disabledReason?: string;
     composerStatus?: ComposerStatus;
     busy?: boolean;
+    ariaLabel?: string;
+    submitLabel?: string;
+    additionalActions?: Snippet;
     onSubmit?: (
       submission: CommunityComposerSubmission,
     ) => void | Promise<void>;
+    onCancel?: () => void;
     onCancelContext?: () => void;
     onEditLastMessage?: () => void;
     onRetryComposerStatus?: () => void | Promise<void>;
     onDismissComposerStatus?: () => void;
     class?: string;
+    ref?: HTMLDivElement | null;
   } = $props();
 
   let mira = $state<MiraHandle>();
@@ -146,6 +157,7 @@
   let autocompleteQuery = $state<CommunityComposerAutocompleteQuery>();
   let autocompleteItems = $state<CommunityComposerAutocompleteItem[]>([]);
   let autocompleteSelectedIndex = $state(0);
+  let autocompletePlacement = $state<"above" | "below">("above");
   let autocompleteGeneration = 0;
   let retryStatusPending = $state(false);
   let draftReady = $state(
@@ -268,6 +280,16 @@
     };
   });
 
+  onMount(() => {
+    const reposition = () => scheduleAutocompletePlacement();
+    window.addEventListener("resize", reposition);
+    window.addEventListener("scroll", reposition, true);
+    return () => {
+      window.removeEventListener("resize", reposition);
+      window.removeEventListener("scroll", reposition, true);
+    };
+  });
+
   $effect(() => {
     tokenModelSignature;
     const view = editorView;
@@ -344,10 +366,12 @@
         members,
         query.query,
       );
+      scheduleAutocompletePlacement();
       return;
     }
     if (query.kind === "room") {
       autocompleteItems = communityRoomAutocompleteItems(rooms, query.query);
+      scheduleAutocompletePlacement();
       return;
     }
     autocompleteItems = [];
@@ -356,8 +380,37 @@
       (items) => {
         if (generation !== autocompleteGeneration) return;
         autocompleteItems = items;
+        scheduleAutocompletePlacement();
       },
     );
+  }
+
+  function scheduleAutocompletePlacement(): void {
+    if (autocompleteItems.length === 0) return;
+    void tick().then(updateAutocompletePlacement);
+  }
+
+  function updateAutocompletePlacement(): void {
+    if (!ref || !autocompleteList || autocompleteItems.length === 0) return;
+    const composerBounds = ref.getBoundingClientRect();
+    let boundaryTop = 0;
+    let ancestor = ref.parentElement;
+    while (ancestor) {
+      const style = getComputedStyle(ancestor);
+      if (
+        /(auto|scroll|hidden|clip)/u.test(
+          `${style.overflow} ${style.overflowY}`,
+        )
+      ) {
+        const bounds = ancestor.getBoundingClientRect();
+        boundaryTop = Math.max(boundaryTop, bounds.top);
+      }
+      ancestor = ancestor.parentElement;
+    }
+    const gap = 0.4 * Number.parseFloat(getComputedStyle(ref).fontSize);
+    const popupHeight = autocompleteList.getBoundingClientRect().height;
+    autocompletePlacement =
+      composerBounds.top - boundaryTop - gap >= popupHeight ? "above" : "below";
   }
 
   function clearAutocomplete(): void {
@@ -700,17 +753,18 @@
 
   function dismissComposerStatus(): void {
     if (submitError) submitError = "";
-    else onDismissComposerStatus?.();
+    onDismissComposerStatus?.();
   }
 </script>
 
 <div
+  bind:this={ref}
   class={`community-chat-composer ${className}`.trim()}
   data-ui-component="community-chat-composer"
   data-disabled={disabled ? "" : undefined}
   data-formatting-open={formattingOpen ? "" : undefined}
   role="group"
-  aria-label="Message composer"
+  aria-label={ariaLabel}
   ondragover={handleDragOver}
   ondrop={handleDrop}
 >
@@ -719,6 +773,7 @@
       class="community-chat-composer__autocomplete-layer"
       data-ui-part="composer-autocomplete-layer"
       data-kind={autocompleteQuery.kind}
+      data-placement={autocompletePlacement}
     >
       <div
         bind:this={autocompleteList}
@@ -786,7 +841,7 @@
     interactiveDrawerWhenDisabled={activeStatus !== undefined}
     {...activeStatus === undefined ? {} : { status: activeStatus }}
     statusPosition="top"
-    aria-label="Message composer"
+    aria-label={ariaLabel}
     title={disabled ? disabledReason : undefined}
     onSubmit={() => void submit()}
   >
@@ -977,19 +1032,25 @@
             >
           </div>
         {/if}
-        <Mira
-          bind:this={mira}
-          bind:value
-          mode="live-preview"
-          extensions={[composerExtension]}
-          readonly={disabled || busy}
-          {placeholder}
-          toolbar={false}
-          blockControls={false}
-          outline={false}
-          htmlPolicy="safe"
-          class="community-chat-composer__mira"
-        />
+        <ScrollArea
+          type="auto"
+          orientation="vertical"
+          class="community-chat-composer__editor-scroll-area"
+        >
+          <Mira
+            bind:this={mira}
+            bind:value
+            mode="live-preview"
+            extensions={[composerExtension]}
+            readonly={disabled || busy}
+            {placeholder}
+            toolbar={false}
+            blockControls={false}
+            outline={false}
+            htmlPolicy="safe"
+            class="community-chat-composer__mira"
+          />
+        </ScrollArea>
       </div>
     {/snippet}
 
@@ -1153,14 +1214,25 @@
           >
         {/if}
       </div>
+      {#if additionalActions}{@render additionalActions()}{/if}
     {/snippet}
 
     {#snippet sendButton()}
+      {#if onCancel}
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          disabled={busy}
+          onclick={onCancel}>Cancel</Button
+        >
+      {/if}
       <Button
         type="button"
         size="icon-sm"
         class="community-chat-composer__send"
-        aria-label={context?.kind === "edit" ? "Save message" : "Send message"}
+        aria-label={submitLabel ??
+          (context?.kind === "edit" ? "Save message" : "Send message")}
         disabled={!canSubmit || !onSubmit}
         onclick={submit}
       >
@@ -1237,6 +1309,11 @@
     bottom: calc(100% + 0.4rem);
     left: 0;
     padding-inline: 0.2rem;
+  }
+
+  .community-chat-composer__autocomplete-layer[data-placement="below"] {
+    top: calc(100% + 0.4rem);
+    bottom: auto;
   }
 
   .community-chat-composer__autocomplete {
@@ -1493,7 +1570,31 @@
   }
 
   .community-chat-composer__editor-wrap {
+    --community-chat-composer-editor-max-height: calc(7 * 0.9rem * 1.55);
+
     position: relative;
+    width: 100%;
+    min-width: 0;
+  }
+
+  :global(
+      .community-chat-composer__editor-scroll-area[data-ui-component="scroll-area"]
+    ),
+  :global(
+      .community-chat-composer__editor-scroll-area
+        > [data-ui-part="scroll-area-viewport"]
+    ) {
+    width: 100%;
+    min-height: 3.25rem;
+    max-height: var(--community-chat-composer-editor-max-height);
+  }
+
+  :global(
+      .community-chat-composer__editor-scroll-area
+        > [data-ui-part="scroll-area-viewport"]:focus-visible
+    ) {
+    outline: none;
+    box-shadow: none;
   }
 
   .community-chat-composer__selection-toolbar {
@@ -1513,10 +1614,15 @@
   }
 
   :global(.community-chat-composer__mira.mira) {
-    --mira-editor-padding: 0.75rem 0.75rem 0.35rem;
+    --file-line-width: 100%;
+    --file-margins-x: 0;
+    --file-margins-y: 0;
+    --mira-editor-padding: 0;
     --mira-font-size: 0.9rem;
     --mira-line-height: 1.55;
-    min-height: 4.2rem;
+    width: 100%;
+    height: auto;
+    min-height: 3.25rem;
     border: 0;
     background: transparent;
   }
@@ -1525,19 +1631,37 @@
   :global(.community-chat-composer__mira .mira__pane),
   :global(.community-chat-composer__mira .mira__editor-scroll),
   :global(.community-chat-composer__mira .mira-code-editor) {
-    min-height: 4.2rem;
+    min-height: 3.25rem;
     border: 0;
     background: transparent;
   }
 
   :global(.community-chat-composer__mira .cm-editor) {
-    min-height: 4.2rem;
-    max-height: 16rem;
+    --file-line-width: 100%;
+    --file-margins-x: 0;
+    --file-margins-y: 0;
+    min-height: 3.25rem;
+    max-height: none;
     background: transparent;
   }
 
-  :global(.community-chat-composer__mira .cm-scroller) {
-    overflow-y: auto;
+  :global(.community-chat-composer__mira .cm-editor > .cm-scroller) {
+    padding: 0;
+    overflow: visible;
+    scrollbar-gutter: auto;
+  }
+
+  :global(.community-chat-composer__mira .cm-cursor) {
+    border-inline-start: 4px solid var(--foreground);
+    margin-inline-start: -2px;
+  }
+
+  :global(
+      .community-chat-composer__surface[data-ui-component="ai-chat-composer"][data-disabled="true"]
+        .community-chat-composer__mira
+        .cm-placeholder
+    ) {
+    color: var(--foreground);
   }
 
   :global(.community-chat-composer__mira .cm-gutters) {

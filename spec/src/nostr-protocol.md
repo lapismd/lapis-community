@@ -23,6 +23,13 @@ topics, NIP-22 kind `1111` replies, and NIP-25 kind `7` reactions remain
 ordinary signed relay events. Clients render them in posting order and retain
 reply context without inventing a second persistence model.
 
+When materializing NIP-29 kind `9` messages or validated, decrypted NIP-17
+rumors, the read model MAY preserve unique `p` and `P` tag values as mention
+public keys. Those routing and relationship tags are candidate identity
+metadata only: a renderer MUST link a visible member reference only when its
+text resolves to a known member and the corresponding public key is present;
+ambiguous or unknown text remains plain Markdown.
+
 The static catalog consumes only the materialized projection and its verified
 content-addressed documents. Community MAY build the same deterministic
 projection directly from signed relay events and exact manifests in browser
