@@ -95,6 +95,21 @@ pnpm local:validate
 pnpm smoke:local
 ```
 
+For live application debugging without Storybook, start the local relay stack
+and the dedicated Vite surface:
+
+```sh
+pnpm local:up
+pnpm dev:community
+```
+
+The app opens at `http://127.0.0.1:7036`, connects to
+`ws://registry.localhost:8281`, discovers public rooms, and uses Vite HMR. Its
+Guest profile menu exposes browser-extension, NIP-46 remote-signer, ephemeral
+account, and private-key login flows. Expand **Development controls** before
+selecting Remote signer to provide its bunker URL; that value remains only in
+browser memory. Override the relay with `VITE_COMMUNITY_LIVE_RELAY_URL`.
+
 Run `pnpm storybook` to browse the production community components in isolated
 normal, reply, reaction, error, and long-discussion states. The package
 specification is under `spec/src` and is enforced by

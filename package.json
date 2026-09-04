@@ -77,6 +77,7 @@
     "test:relay:docker": "scripts/community-relay.sh test",
     "test:storybook": "vitest run --project storybook",
     "test:storybook:docker": "scripts/community-relay.sh storybook-test",
+    "dev:community": "vite --config vite.community.config.ts --open",
     "storybook": "WATCHPACK_POLLING=250 node scripts/storybook-run.mjs --no-open --config-dir .storybook",
     "storybook:stop": "bash scripts/storybook-stop.sh",
     "storybook:restart": "bash scripts/storybook-restart.sh",

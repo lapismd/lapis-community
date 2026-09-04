@@ -55,6 +55,10 @@ export default defineConfig(tableRequirements(), {
           chapters: ["spec/src/nostr-protocol.md", "spec/src/architecture.md"],
         },
         {
+          pattern: "^dev/",
+          chapters: ["spec/src/architecture.md", "spec/src/spec-governance.md"],
+        },
+        {
           pattern: "^src/(?:components|registry)/",
           chapters: ["spec/src/components.md"],
         },
@@ -64,12 +68,12 @@ export default defineConfig(tableRequirements(), {
         },
         {
           pattern:
-            "^(?:package\\.json$|pnpm-(?:lock\\.yaml$|workspace\\.yaml$)|vite\\.config\\.ts$|tsconfig|\\.storybook/|AGENTS\\.md$|README\\.md$|spec-validator\\.config\\.mjs$)",
+            "^(?:package\\.json$|pnpm-(?:lock\\.yaml$|workspace\\.yaml$)|vite(?:\\.community)?\\.config\\.ts$|tsconfig|\\.storybook/|AGENTS\\.md$|README\\.md$|spec-validator\\.config\\.mjs$)",
           chapters: ["spec/src/spec-governance.md", "spec/src/architecture.md"],
         },
       ],
       protected: [
-        "^(?:package\\.json$|pnpm-(?:lock\\.yaml$|workspace\\.yaml$)|src/|deploy/|scripts/|docs/|\\.storybook/|vite\\.config\\.ts$|tsconfig|AGENTS\\.md$|README\\.md$|spec-validator\\.config\\.mjs$)",
+        "^(?:package\\.json$|pnpm-(?:lock\\.yaml$|workspace\\.yaml$)|src/|dev/|deploy/|scripts/|docs/|\\.storybook/|vite(?:\\.community)?\\.config\\.ts$|tsconfig|AGENTS\\.md$|README\\.md$|spec-validator\\.config\\.mjs$)",
       ],
     },
   },
