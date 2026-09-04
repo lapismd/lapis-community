@@ -10,10 +10,26 @@
   import CommunityInbox from "./CommunityInbox.svelte";
   import { communityInboxFixture } from "./story-fixtures.js";
 
+  let { empty = false }: { empty?: boolean } = $props();
+
   let runtime = $state<CommunityStoryRuntime>();
   let community = $state<CommunityController>();
   let runtimeError = $state("");
-  const model = $derived(community?.state.inbox ?? communityInboxFixture);
+  const projectedModel = $derived(
+    community?.state.inbox ?? communityInboxFixture,
+  );
+  const model = $derived(
+    empty
+      ? {
+          ...projectedModel,
+          activeItemId: "",
+          threadTitle: "Inbox",
+          participantCount: 0,
+          items: [],
+          messages: [],
+        }
+      : projectedModel,
+  );
   const controller = new AppShellController();
 
   onMount(() => {

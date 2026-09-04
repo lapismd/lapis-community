@@ -41,6 +41,34 @@
 </script>
 
 <Story
+  name="No messages"
+  play={async ({ canvas }) => {
+    const runtime = canvas.getByTestId("community-inbox-runtime");
+
+    await waitFor(() => {
+      expect(runtime).toHaveAttribute("data-community-status", "connected");
+    });
+    await expect(canvas.getByText("No activity yet")).toBeVisible();
+    await expect(
+      canvas.getByText("New activity will appear here."),
+    ).toBeVisible();
+    await expect(canvas.getByText("Select a message")).toBeVisible();
+    await expect(
+      canvas.getByText(
+        "Pick an inbox item to see the full message and react to it.",
+      ),
+    ).toBeVisible();
+    await expect(
+      canvas.queryByRole("combobox", { name: "Message" }),
+    ).not.toBeInTheDocument();
+  }}
+>
+  {#snippet template()}
+    <CommunityInboxStoryHarness empty />
+  {/snippet}
+</Story>
+
+<Story
   name="Selected thread"
   play={async ({ canvas, canvasElement }) => {
     const overlay = within(canvasElement.ownerDocument.body);
@@ -94,7 +122,7 @@
     await userEvent.click(
       overlay.getByRole("menuitem", { name: "Mark all as read" }),
     );
-    await expect(canvas.getByText("You're all caught up")).toBeVisible();
+    await expect(canvas.getByText("No unread mentions")).toBeVisible();
 
     const composer = canvas.getByRole("combobox", { name: "Message" });
     await userEvent.type(composer, "An inbox interaction fixture");

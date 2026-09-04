@@ -9,6 +9,7 @@
   import EllipsisIcon from "@lucide/svelte/icons/ellipsis";
   import StarIcon from "@lucide/svelte/icons/star";
   import TrashIcon from "@lucide/svelte/icons/trash-2";
+  import type { Snippet } from "svelte";
 
   import type { CommunityTopicDraft } from "../../community/index.js";
   import CommunityTopicComposer from "../community-topic-composer/CommunityTopicComposer.svelte";
@@ -27,6 +28,7 @@
     onCreateTopic,
     onTopicAction,
     canDeleteTopic = () => true,
+    actions,
     disabled = false,
     readOnlyReason = "Posting is unavailable",
   }: {
@@ -41,6 +43,7 @@
       action: "copy-link" | "mark-read" | "star" | "mute" | "delete",
     ) => void | Promise<void>;
     canDeleteTopic?: (topic: CommunityTopicModel) => boolean;
+    actions?: Snippet;
     disabled?: boolean;
     readOnlyReason?: string;
   } = $props();
@@ -111,6 +114,10 @@
       <p>{description}</p>
     </div>
   </header>
+
+  {#if actions}
+    {@render actions()}
+  {/if}
 
   {#if onCreateTopic}
     <CommunityTopicComposer

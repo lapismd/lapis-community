@@ -21,9 +21,13 @@
   let {
     signedIn = true,
     responsive = false,
+    loginIdentity = "operator",
+    namespace,
   }: {
     signedIn?: boolean;
     responsive?: boolean;
+    loginIdentity?: "operator" | "participant";
+    namespace?: string;
   } = $props();
 
   let runtime = $state.raw<CommunityStoryRuntime>();
@@ -51,6 +55,7 @@
           : undefined;
       void createCommunityStoryRuntime({
         ...(configurationStore === undefined ? {} : { configurationStore }),
+        ...(namespace === undefined ? {} : { namespace }),
       })
         .then(async (created) => {
           if (!active || currentGeneration !== runtimeGeneration) {
@@ -110,7 +115,7 @@
     ) {
       throw new Error("The private key was not handed to the story host");
     }
-    return runtime.scenario.operator;
+    return runtime.scenario[loginIdentity];
   }
 </script>
 

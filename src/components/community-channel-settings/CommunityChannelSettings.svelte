@@ -154,7 +154,7 @@
       {#if canLeave}
         <Button
           variant="ghost"
-          class="lc-channel-settings__row"
+          class="lc-channel-settings__row lc-channel-settings__destructive"
           onclick={() => onAction("leave-channel")}
         >
           <LogOutIcon data-icon="inline-start" aria-hidden="true" />
@@ -164,7 +164,7 @@
       {#if canDelete}
         <Button
           variant="ghost"
-          class="lc-channel-settings__row lc-channel-settings__delete"
+          class="lc-channel-settings__row lc-channel-settings__destructive"
           onclick={() => onAction("delete-channel")}
         >
           <Trash2Icon data-icon="inline-start" aria-hidden="true" />

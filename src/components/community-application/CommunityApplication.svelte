@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { Badge } from "@lapismd/design-core/shadcn/badge";
   import { Button } from "@lapismd/design-core/shadcn/button";
   import * as Alert from "@lapismd/design-core/shadcn/alert";
   import * as AlertDialog from "@lapismd/design-core/shadcn/alert-dialog";
@@ -96,6 +95,16 @@
   } from "./navigation.js";
 
   type CommunityAuthenticatedAction = () => void | Promise<void>;
+  type CommunityParticipationAction = "message" | "post" | "reaction" | "reply";
+  type PendingCommunityParticipation = {
+    roomId: string;
+    roomName: string;
+    roomKind: "channel" | "forum";
+    actionKind: CommunityParticipationAction;
+    action: CommunityAuthenticatedAction;
+    resolve: () => void;
+    reject: (cause: unknown) => void;
+  };
 
   let {
     controller: community,
@@ -167,6 +176,9 @@
   let memberCommandMode = $state<"view" | "manage" | "select">("view");
   let selectedRecipientIds = $state<string[]>([]);
   let confirmation = $state<"leave" | "delete" | null>(null);
+  let pendingParticipation = $state.raw<PendingCommunityParticipation>();
+  let membershipJoinState = $state<"idle" | "pending" | "accepted">("idle");
+  let membershipJoinError = $state("");
   let statusOpen = $state(false);
   let statusDraft = $state("");
   let searchOpen = $state(false);
@@ -239,7 +251,7 @@
   const navigationModel = $derived<CommunityNavigationModel>({
     searchPlaceholder: "Search everything",
     primaryItems: [
-      ...(hasCommunityConnection
+      ...(authenticated && hasCommunityConnection
         ? [{ id: "inbox", label: "Inbox", kind: "inbox" as const }]
         : []),
       {
@@ -610,7 +622,13 @@
   });
 
   $effect(() => {
-    if (!authenticated && activeDestination === "settings") {
+    const authenticationSettledWithoutIdentity =
+      community.state.authentication.status === "anonymous" ||
+      community.state.authentication.status === "error";
+    if (
+      authenticationSettledWithoutIdentity &&
+      (activeDestination === "settings" || activeDestination === "inbox")
+    ) {
       setDestination("registry", false);
     }
   });
@@ -624,6 +642,124 @@
     }
     await onAuthenticationRequired(action);
   }
+
+  function roomByWorkspaceId(roomId: string): CommunityRoomModel | undefined {
+    return (
+      allRooms.find((room) => room.id === roomId) ??
+      (activeRoom.id === roomId ? activeRoom : undefined)
+    );
+  }
+
+  function requestRoomMembership(
+    room: CommunityRoomModel,
+    actionKind: CommunityParticipationAction,
+    action: CommunityAuthenticatedAction,
+  ): Promise<void> {
+    membershipJoinState = "idle";
+    membershipJoinError = "";
+    return new Promise((resolve, reject) => {
+      pendingParticipation?.reject(
+        new Error("A newer participation action replaced this one"),
+      );
+      pendingParticipation = {
+        roomId: room.id,
+        roomName: room.name,
+        roomKind: room.kind === "forum" ? "forum" : "channel",
+        actionKind,
+        action,
+        resolve,
+        reject,
+      };
+    });
+  }
+
+  async function runParticipationAction(
+    roomId: string,
+    actionKind: CommunityParticipationAction,
+    action: CommunityAuthenticatedAction,
+  ): Promise<void> {
+    await runAuthenticated(async () => {
+      const room = roomByWorkspaceId(roomId);
+      if (
+        room === undefined ||
+        room.kind === "direct" ||
+        room.membership !== "not-joined"
+      ) {
+        await action();
+        return;
+      }
+      if (
+        room.permissions?.join.state === "denied" ||
+        room.permissions?.join.state === "unsupported"
+      ) {
+        throw new Error(
+          room.permissions.join.reason ??
+            `You cannot join this ${room.kind === "forum" ? "forum" : "channel"}`,
+        );
+      }
+      await requestRoomMembership(room, actionKind, action);
+    });
+  }
+
+  function cancelPendingParticipation(): void {
+    const pending = pendingParticipation;
+    if (pending === undefined) return;
+    pendingParticipation = undefined;
+    membershipJoinState = "idle";
+    membershipJoinError = "";
+    pending.reject(
+      new Error(
+        `Join this ${pending.roomKind} before sending your ${pending.actionKind}`,
+      ),
+    );
+  }
+
+  async function resumePendingParticipation(
+    pending: PendingCommunityParticipation,
+  ): Promise<void> {
+    if (pendingParticipation !== pending) return;
+    pendingParticipation = undefined;
+    membershipJoinState = "idle";
+    membershipJoinError = "";
+    try {
+      await pending.action();
+      pending.resolve();
+    } catch (cause) {
+      pending.reject(cause);
+    }
+  }
+
+  async function joinForPendingParticipation(): Promise<void> {
+    const pending = pendingParticipation;
+    if (pending === undefined || membershipJoinState !== "idle") return;
+    membershipJoinState = "pending";
+    membershipJoinError = "";
+    try {
+      await community.actions.join(pending.roomId);
+      if (pendingParticipation !== pending) return;
+      if (roomByWorkspaceId(pending.roomId)?.membership === "joined") {
+        await resumePendingParticipation(pending);
+      } else {
+        membershipJoinState = "accepted";
+      }
+    } catch (cause) {
+      if (pendingParticipation !== pending) return;
+      membershipJoinState = "idle";
+      membershipJoinError =
+        cause instanceof Error ? cause.message : "The join request failed";
+    }
+  }
+
+  $effect(() => {
+    const pending = pendingParticipation;
+    const membership =
+      pending === undefined
+        ? undefined
+        : roomByWorkspaceId(pending.roomId)?.membership;
+    if (pending !== undefined && membership === "joined") {
+      queueMicrotask(() => void resumePendingParticipation(pending));
+    }
+  });
 
   $effect(() => {
     if (
@@ -829,7 +965,7 @@
     custom?: { shortcode: string; url: string },
   ): Promise<void> {
     try {
-      await runAuthenticated(() =>
+      await runParticipationAction(activeRoom.id, "reaction", () =>
         community.actions.toggleReaction(messageId, emoji, custom),
       );
       lastAction = `reaction:${messageId}:${emoji}`;
@@ -842,8 +978,15 @@
   }
 
   async function joinRoom(room: CommunityRoomModel): Promise<void> {
-    await runAuthenticated(() => community.actions.join(room.id));
-    lastAction = `join-requested:${room.id}`;
+    let joinRequested = false;
+    await runAuthenticated(async () => {
+      if (roomByWorkspaceId(room.id)?.membership === "joined") return;
+      await community.actions.join(room.id);
+      joinRequested = true;
+    });
+    lastAction = joinRequested
+      ? `join-requested:${room.id}`
+      : `already-joined:${room.id}`;
   }
 
   async function copyText(value: string, success: string): Promise<void> {
@@ -1145,8 +1288,10 @@
         activePanel.kind === "thread"
           ? (activePanel.replyTargetId ?? rootMessageId)
           : rootMessageId;
-      await runAuthenticated(() =>
-        community.actions.sendReply(replyTargetId, content),
+      await runParticipationAction(
+        activePanel.kind === "thread" ? activePanel.roomId : activeRoom.id,
+        "reply",
+        () => community.actions.sendReply(replyTargetId, content),
       );
       if (activePanel.kind === "thread") {
         openPanel({
@@ -1212,7 +1357,7 @@
     content: string,
   ): Promise<void> {
     try {
-      await runAuthenticated(async () => {
+      await runParticipationAction(roomId, "message", async () => {
         if (activeRoom.kind === "direct") {
           const recipients = roomId
             .replace(/^dm:/u, "")
@@ -1737,43 +1882,6 @@
               <SquareTerminalIcon aria-hidden="true" />
             </Button>
           {/if}
-          {#if activeRoom.kind !== "direct"}
-            <Badge
-              variant={activeRoom.membership === "joined"
-                ? "secondary"
-                : "outline"}
-              data-ui-part="room-membership"
-            >
-              {activeRoom.membership === "joined"
-                ? "Joined"
-                : activeParticipationOperation?.status === "accepted"
-                  ? "Join requested"
-                  : activeRoom.membership === "not-joined"
-                    ? "Not joined"
-                    : "Membership unknown"}
-            </Badge>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              disabled={activeParticipationOperation?.status === "pending" ||
-                activeParticipationOperation?.status === "accepted" ||
-                (activeRoom.membership === "joined"
-                  ? activeRoom.permissions?.leave.state === "denied" ||
-                    activeRoom.permissions?.leave.state === "unsupported"
-                  : activeRoom.permissions?.join.state === "denied" ||
-                    activeRoom.permissions?.join.state === "unsupported")}
-              title={activeRoom.membership === "joined"
-                ? activeRoom.permissions?.leave.reason
-                : activeRoom.permissions?.join.reason}
-              onclick={() => {
-                if (activeRoom.membership === "joined") confirmation = "leave";
-                else void joinRoom(activeRoom).catch(() => undefined);
-              }}
-            >
-              {activeRoom.membership === "joined" ? "Leave" : "Join"}
-            </Button>
-          {/if}
           {#if activeRoom.memberCount}
             <Button
               type="button"
@@ -1911,7 +2019,13 @@
               activeRoom.permissions?.join.state !== "unsupported"
                 ? {
                     onJoinRoom: (roomId: string) =>
-                      joinRoom({ ...activeRoom, id: roomId }),
+                      joinRoom({ ...activeRoom, id: roomId }).catch((cause) => {
+                        toast.error(
+                          cause instanceof Error
+                            ? cause.message
+                            : "Could not join room",
+                        );
+                      }),
                   }
                 : {}),
               ...(authenticated && community.state.capabilities.manageGroup
@@ -1924,7 +2038,7 @@
                 ? {}
                 : { onCreateAgent: extensions.agents }),
               onCreateTopic: (_roomId, draft) =>
-                runAuthenticated(() =>
+                runParticipationAction(activeRoom.id, "post", () =>
                   community.actions.createTopic(activeRoom.id, draft),
                 ),
               onTopicAction: handleTopicAction,
@@ -2268,6 +2382,53 @@
 />
 
 <AlertDialog.Root
+  open={pendingParticipation !== undefined}
+  onOpenChange={(open) => {
+    if (!open && membershipJoinState !== "pending")
+      cancelPendingParticipation();
+  }}
+>
+  <AlertDialog.Content>
+    <AlertDialog.Header>
+      <AlertDialog.Title>
+        Join {pendingParticipation?.roomName ?? "this room"} to continue?
+      </AlertDialog.Title>
+      <AlertDialog.Description>
+        Join this {pendingParticipation?.roomKind ?? "room"} before your
+        {pendingParticipation?.actionKind ?? "action"} is sent. The original action
+        will continue automatically after membership is confirmed.
+      </AlertDialog.Description>
+    </AlertDialog.Header>
+    {#if membershipJoinError}
+      <p class="community-application__membership-error" role="alert">
+        {membershipJoinError}
+      </p>
+    {:else if membershipJoinState === "accepted"}
+      <p class="community-application__membership-status" role="status">
+        Join requested. Waiting for membership confirmation before sending the
+        original action.
+      </p>
+    {/if}
+    <AlertDialog.Footer>
+      <AlertDialog.Cancel disabled={membershipJoinState === "pending"}
+        >Cancel</AlertDialog.Cancel
+      >
+      <Button
+        type="button"
+        disabled={membershipJoinState !== "idle"}
+        onclick={joinForPendingParticipation}
+      >
+        {membershipJoinState === "pending"
+          ? "Joining…"
+          : membershipJoinState === "accepted"
+            ? "Join requested"
+            : `Join ${pendingParticipation?.roomKind === "forum" ? "Forum" : "Channel"}`}
+      </Button>
+    </AlertDialog.Footer>
+  </AlertDialog.Content>
+</AlertDialog.Root>
+
+<AlertDialog.Root
   open={confirmation !== null}
   onOpenChange={(open) => {
     if (!open) confirmation = null;
@@ -2405,6 +2566,20 @@
   .community-application__status-input :global(input) {
     min-width: 0;
     flex: 1;
+  }
+
+  .community-application__membership-error,
+  .community-application__membership-status {
+    margin: 0;
+    font-size: 0.875rem;
+  }
+
+  .community-application__membership-error {
+    color: var(--destructive);
+  }
+
+  .community-application__membership-status {
+    color: var(--muted-foreground);
   }
 
   :global(.community-application__section-dialog) {

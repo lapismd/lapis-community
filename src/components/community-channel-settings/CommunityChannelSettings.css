@@ -153,12 +153,12 @@
   gap: 0;
 }
 
-.lc-channel-settings__delete[data-ui-component="button"] {
+.lc-channel-settings__destructive[data-ui-component="button"] {
   color: var(--destructive);
 }
 
-.lc-channel-settings__delete[data-ui-component="button"]:hover,
-.lc-channel-settings__delete[data-ui-component="button"]:focus-visible {
+.lc-channel-settings__destructive[data-ui-component="button"]:hover,
+.lc-channel-settings__destructive[data-ui-component="button"]:focus-visible {
   color: color-mix(in srgb, var(--destructive) 70%, var(--foreground));
   background: color-mix(in srgb, var(--destructive) 8%, var(--background));
 }

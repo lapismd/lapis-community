@@ -3,7 +3,10 @@
   import { expect, fn, userEvent } from "storybook/test";
 
   import CommunityWorkspaceSurface from "./CommunityWorkspaceSurface.svelte";
-  import { createChannelStoryModel } from "./story-fixtures.js";
+  import {
+    createChannelStoryModel,
+    createForumIndexStoryModel,
+  } from "./story-fixtures.js";
 
   const baseModel = createChannelStoryModel();
   const nonmemberModel = {
@@ -12,6 +15,32 @@
       ...section,
       rooms: section.rooms.map((room) =>
         room.id === baseModel.activeRoomId
+          ? {
+              ...room,
+              membership: "not-joined" as const,
+              permissions: {
+                publish: {
+                  state: "denied" as const,
+                  reason: "Join this room before posting or reacting",
+                },
+                join: { state: "enabled" as const },
+                leave: { state: "denied" as const },
+                update: { state: "denied" as const },
+                delete: { state: "denied" as const },
+                manageMembers: { state: "denied" as const },
+              },
+            }
+          : room,
+      ),
+    })),
+  };
+  const forumBaseModel = createForumIndexStoryModel();
+  const forumNonmemberModel = {
+    ...forumBaseModel,
+    navigationSections: forumBaseModel.navigationSections.map((section) => ({
+      ...section,
+      rooms: section.rooms.map((room) =>
+        room.id === forumBaseModel.activeRoomId
           ? {
               ...room,
               membership: "not-joined" as const,
@@ -98,13 +127,60 @@
     await expect(
       canvas.getByText("Join this room before posting or reacting"),
     ).toBeVisible();
-    const join = canvas.getByRole("button", { name: "Join channel" });
+    const join = canvas.getByRole("button", { name: "Join Channel" });
+    await expect(join).toHaveClass("community-workspace-surface__action-card");
+    await expect(join.querySelector("svg")).not.toBeNull();
     await userEvent.click(join);
     await expect(args.handlers?.onJoinRoom).toHaveBeenCalledWith("general");
     await expect(canvas.getByRole("combobox")).toHaveAttribute(
       "aria-disabled",
       "true",
     );
+  }}
+/>
+
+<Story
+  name="Known forum nonmember"
+  args={{
+    model: forumNonmemberModel,
+    readOnly: true,
+    readOnlyReason: "Join this room before posting or reacting",
+    showJoinAction: true,
+    handlers: { onJoinRoom: fn(), onCreateTopic: fn() },
+  }}
+  play={async ({ canvas, args }) => {
+    const join = canvas.getByRole("button", { name: "Join Forum" });
+    await expect(join).toHaveClass("community-workspace-surface__action-card");
+    await expect(join.querySelector("svg")).not.toBeNull();
+    await userEvent.click(join);
+    await expect(args.handlers?.onJoinRoom).toHaveBeenCalledWith("support-ai");
+    const topicComposer = canvas.getByRole("button", {
+      name: "Start a new post in support-ai",
+    });
+    await expect(topicComposer).toBeDisabled();
+    await expect(
+      topicComposer.getBoundingClientRect().top -
+        join.getBoundingClientRect().bottom,
+    ).toBeGreaterThanOrEqual(16);
+  }}
+/>
+
+<Story
+  name="Join requested"
+  args={{
+    model: nonmemberModel,
+    readOnly: true,
+    readOnlyReason: "Join this room before posting or reacting",
+    showJoinAction: true,
+    operation: {
+      status: "accepted" as const,
+      message: "Join requested. Waiting for membership confirmation.",
+    },
+    handlers: { onJoinRoom: fn() },
+  }}
+  play={async ({ canvas }) => {
+    const requested = canvas.getByRole("button", { name: "Join requested" });
+    await expect(requested).toBeDisabled();
   }}
 />
 

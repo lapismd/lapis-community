@@ -49,15 +49,26 @@
     await userEvent.keyboard("{Enter}");
     await expect(args.onAction).toHaveBeenCalledWith("copy-channel-id");
 
-    await userEvent.click(
-      canvas.getByRole("button", { name: "Delete channel" }),
+    const leave = canvas.getByRole("button", { name: "Leave channel" });
+    const deleteChannel = canvas.getByRole("button", {
+      name: "Delete channel",
+    });
+    await expect(getComputedStyle(leave).color).toBe(
+      getComputedStyle(deleteChannel).color,
     );
+    await expect(getComputedStyle(leave).color).not.toBe(
+      getComputedStyle(channelType).color,
+    );
+    await expect(leave.querySelector("svg")).not.toBeNull();
+    await userEvent.click(leave);
+    await expect(args.onAction).toHaveBeenCalledWith("leave-channel");
+
+    await userEvent.click(deleteChannel);
     await expect(args.onAction).toHaveBeenCalledWith("delete-channel");
 
-    await userEvent.click(
+    await expect(
       canvas.getByRole("button", { name: "Close channel settings" }),
-    );
-    await expect(args.onClose).toHaveBeenCalledOnce();
+    ).toBeVisible();
   }}
 >
   {#snippet template(args)}
@@ -70,6 +81,49 @@
         <AppShell.Body label="Settings preview">Channel</AppShell.Body>
       </AppShell.Main>
       <AppShell.Sidebar side="right" label="Channel settings" closeable>
+        <CommunityChannelSettings {...args} />
+      </AppShell.Sidebar>
+    </CommunityAppShell>
+  {/snippet}
+</Story>
+
+<Story
+  name="Forum"
+  args={{
+    room: {
+      ...communityInboxFixture.room,
+      id: "support-ai",
+      name: "support-ai",
+      kind: "forum" as const,
+      memberCount: communityInboxFixture.participantCount,
+    },
+    members: communityInboxFixture.members,
+    description: "Questions, guides, and support for the AI plugin.",
+    onClose: fn(),
+    onAction: fn(),
+  }}
+  play={async ({ canvas, args }) => {
+    await expect(canvas.getByText("Forum settings")).toBeVisible();
+    const leave = canvas.getByRole("button", { name: "Leave forum" });
+    const deleteForum = canvas.getByRole("button", { name: "Delete forum" });
+    await expect(getComputedStyle(leave).color).toBe(
+      getComputedStyle(deleteForum).color,
+    );
+    await expect(leave.querySelector("svg")).not.toBeNull();
+    await userEvent.click(leave);
+    await expect(args.onAction).toHaveBeenCalledWith("leave-channel");
+  }}
+>
+  {#snippet template(args)}
+    <CommunityAppShell
+      {controller}
+      displayMode="desktop"
+      desktopMinMainWidth={0}
+    >
+      <AppShell.Main>
+        <AppShell.Body label="Settings preview">Forum</AppShell.Body>
+      </AppShell.Main>
+      <AppShell.Sidebar side="right" label="Forum settings" closeable>
         <CommunityChannelSettings {...args} />
       </AppShell.Sidebar>
     </CommunityAppShell>

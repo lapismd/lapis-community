@@ -2,6 +2,7 @@
   import { Button } from "@lapismd/design-core/shadcn/button";
   import ArrowLeftIcon from "@lucide/svelte/icons/arrow-left";
   import HashIcon from "@lucide/svelte/icons/hash";
+  import LogInIcon from "@lucide/svelte/icons/log-in";
   import PlusIcon from "@lucide/svelte/icons/plus";
   import SparklesIcon from "@lucide/svelte/icons/sparkles";
 
@@ -61,7 +62,43 @@
           model.members.find((member) => member.name === activeRoom.name))
       : undefined,
   );
+  const roomJoinActionVisible = $derived(
+    showJoinAction &&
+      handlers.onJoinRoom !== undefined &&
+      activeRoom.kind !== "direct",
+  );
+  const roomJoinActionPending = $derived(operation?.status === "pending");
+  const roomJoinActionAccepted = $derived(operation?.status === "accepted");
 </script>
+
+{#snippet roomJoinAction()}
+  <Button
+    type="button"
+    variant="outline"
+    class="community-workspace-surface__action-card"
+    disabled={roomJoinActionPending || roomJoinActionAccepted}
+    onclick={() => handlers.onJoinRoom?.(activeRoom.id)}
+  >
+    <span class="community-workspace-surface__action-icon">
+      <LogInIcon aria-hidden="true" />
+    </span>
+    <strong>
+      {roomJoinActionAccepted
+        ? "Join requested"
+        : roomJoinActionPending
+          ? `Joining ${activeRoom.kind === "forum" ? "Forum" : "Channel"}…`
+          : `Join ${activeRoom.kind === "forum" ? "Forum" : "Channel"}`}
+    </strong>
+  </Button>
+{/snippet}
+
+{#snippet forumJoinAction()}
+  <div
+    class="community-workspace-surface__actions community-workspace-surface__forum-actions"
+  >
+    {@render roomJoinAction()}
+  </div>
+{/snippet}
 
 <div class="community-workspace-surface" data-view={model.view}>
   {#if operation?.status === "failed" || operation?.status === "accepted" || readOnly}
@@ -87,15 +124,6 @@
             variant="outline"
             size="sm"
             onclick={onRetryOperation}>Retry</Button
-          >
-        {/if}
-        {#if readOnly && showJoinAction && handlers.onJoinRoom && activeRoom.kind !== "direct"}
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onclick={() => handlers.onJoinRoom?.(activeRoom.id)}
-            >Join {activeRoom.kind === "forum" ? "forum" : "channel"}</Button
           >
         {/if}
         {#if operation && operation.status !== "idle" && onDismissOperation}
@@ -126,6 +154,7 @@
           }}
       disabled={readOnly}
       {readOnlyReason}
+      {...roomJoinActionVisible ? { actions: forumJoinAction } : {}}
       canDeleteTopic={(topic) =>
         topic.authorId === model.currentMemberId ||
         activeRoom.permissions?.delete.state === "enabled"}
@@ -215,6 +244,9 @@
                 : ""}{activeRoom.name} channel.
             </p>
             <div class="community-workspace-surface__actions">
+              {#if roomJoinActionVisible}
+                {@render roomJoinAction()}
+              {/if}
               <Button
                 variant="outline"
                 class="community-workspace-surface__action-card"
@@ -225,16 +257,18 @@
                 </span>
                 <strong>Browse channels</strong>
               </Button>
-              <Button
-                variant="outline"
-                class="community-workspace-surface__action-card"
-                onclick={() => handlers.onCreateRoom?.("channel")}
-              >
-                <span class="community-workspace-surface__action-icon">
-                  <PlusIcon aria-hidden="true" />
-                </span>
-                <strong>Create a channel</strong>
-              </Button>
+              {#if handlers.onCreateRoom}
+                <Button
+                  variant="outline"
+                  class="community-workspace-surface__action-card"
+                  onclick={() => handlers.onCreateRoom?.("channel")}
+                >
+                  <span class="community-workspace-surface__action-icon">
+                    <PlusIcon aria-hidden="true" />
+                  </span>
+                  <strong>Create a channel</strong>
+                </Button>
+              {/if}
               {#if handlers.onCreateAgent}
                 <Button
                   variant="outline"
@@ -354,6 +388,10 @@
   .community-workspace-surface__actions:has(> :nth-child(3)) {
     width: min(100%, 40.875rem);
     grid-template-columns: repeat(3, minmax(0, 13.125rem));
+  }
+
+  .community-workspace-surface__forum-actions {
+    padding-block: 0 1.25rem;
   }
 
   :global(

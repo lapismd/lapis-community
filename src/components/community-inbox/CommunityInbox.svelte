@@ -1,12 +1,14 @@
 <script lang="ts">
   import { Button } from "@lapismd/design-core/shadcn/button";
   import * as DropdownMenu from "@lapismd/design-core/shadcn/dropdown-menu";
+  import * as Empty from "@lapismd/design-core/shadcn/empty";
   import { Switch } from "@lapismd/design-core/shadcn/switch";
   import { AppShell } from "@lapismd/design-core/shell";
   import ChevronDownIcon from "@lucide/svelte/icons/chevron-down";
   import EllipsisIcon from "@lucide/svelte/icons/ellipsis";
   import ExternalLinkIcon from "@lucide/svelte/icons/external-link";
   import HeadphonesIcon from "@lucide/svelte/icons/headphones";
+  import MailIcon from "@lucide/svelte/icons/mail";
   import UsersIcon from "@lucide/svelte/icons/users";
 
   import CommunityConversation from "../community-conversation/CommunityConversation.svelte";
@@ -80,7 +82,7 @@
     canDeleteAny?: boolean;
   } = $props();
 
-  let filter = $state("All");
+  let filter = $state<"All" | "Mentions" | "Threads">("All");
   let showUnreadOnly = $state(false);
   let allMarkedRead = $state(false);
   let bodyElement = $state<HTMLElement | null>(null);
@@ -94,6 +96,22 @@
       ? model.items.filter((item) => item.unread && !allMarkedRead)
       : model.items,
   );
+  let hasSelectedItem = $derived(
+    model.activeItemId !== "" &&
+      model.items.some((item) => item.id === model.activeItemId),
+  );
+
+  const emptyStateTitles = {
+    All: "No activity yet",
+    Mentions: "No mentions found",
+    Threads: "No threads found",
+  } as const;
+
+  const unreadEmptyStateTitles = {
+    All: "No unread activity",
+    Mentions: "No unread mentions",
+    Threads: "No unread threads",
+  } as const;
 
   function markAllRead(): void {
     allMarkedRead = true;
@@ -259,7 +277,22 @@
           </Button>
         {/each}
         {#if visibleItems.length === 0}
-          <p class="lc-community-inbox__empty">You're all caught up</p>
+          <Empty.Root class="lc-community-inbox__empty" role="status">
+            <Empty.Header>
+              <Empty.Title>
+                {showUnreadOnly
+                  ? unreadEmptyStateTitles[filter]
+                  : emptyStateTitles[filter]}
+              </Empty.Title>
+              <Empty.Description>
+                {showUnreadOnly
+                  ? "Turn off Show unread only to see read activity."
+                  : filter === "All"
+                    ? "New activity will appear here."
+                    : "Switch back to All to see other activity."}
+              </Empty.Description>
+            </Empty.Header>
+          </Empty.Root>
         {/if}
       </div>
     </div>
@@ -285,79 +318,93 @@
     label="Selected inbox thread"
     class="lc-community-inbox__thread-region"
   >
-    <section class="lc-community-inbox__thread">
-      <header class="lc-community-inbox__thread-header">
-        <h1>{model.threadTitle}</h1>
-        <div class="lc-community-inbox__thread-actions">
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            aria-label="Open thread in channel"
-            title="Open thread in channel"
-            onclick={onOpenChannel}
-          >
-            <ExternalLinkIcon aria-hidden="true" />
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            aria-label="Thread participants"
-            onclick={onViewParticipants}
-          >
-            <UsersIcon data-icon="inline-start" aria-hidden="true" />
-            {model.participantCount ?? 0}
-          </Button>
-          {#if onHuddle}<Button
+    {#if hasSelectedItem}
+      <section class="lc-community-inbox__thread">
+        <header class="lc-community-inbox__thread-header">
+          <h1>{model.threadTitle}</h1>
+          <div class="lc-community-inbox__thread-actions">
+            <Button
               variant="ghost"
               size="icon-sm"
-              aria-label="Start huddle"
-              title="Start huddle"
-              onclick={onHuddle}
+              aria-label="Open thread in channel"
+              title="Open thread in channel"
+              onclick={onOpenChannel}
             >
-              <HeadphonesIcon aria-hidden="true" />
-            </Button>{/if}
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            aria-label="Manage channel"
-            title="Manage channel"
-            onclick={onOpenChannelSettings}
-          >
-            <EllipsisIcon aria-hidden="true" />
-          </Button>
-        </div>
-      </header>
+              <ExternalLinkIcon aria-hidden="true" />
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              aria-label="Thread participants"
+              onclick={onViewParticipants}
+            >
+              <UsersIcon data-icon="inline-start" aria-hidden="true" />
+              {model.participantCount ?? 0}
+            </Button>
+            {#if onHuddle}<Button
+                variant="ghost"
+                size="icon-sm"
+                aria-label="Start huddle"
+                title="Start huddle"
+                onclick={onHuddle}
+              >
+                <HeadphonesIcon aria-hidden="true" />
+              </Button>{/if}
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              aria-label="Manage channel"
+              title="Manage channel"
+              onclick={onOpenChannelSettings}
+            >
+              <EllipsisIcon aria-hidden="true" />
+            </Button>
+          </div>
+        </header>
 
-      <div class="lc-community-inbox__conversation">
-        <CommunityConversation
-          room={model.room}
-          messages={model.messages}
-          members={model.members}
-          composerPlacement="row"
-          {disabled}
-          {disabledReason}
-          restrictMessageManagement
-          {...currentMemberId === undefined ? {} : { currentMemberId }}
-          {canDeleteAny}
-          {onSend}
-          {...onReply === undefined ? {} : { onReply, onOpenThread: onReply }}
-          {...disabled || onToggleReaction === undefined
-            ? {}
-            : { onToggleReaction, onAddReaction: onToggleReaction }}
-          {...onCopyMessageLink === undefined ? {} : { onCopyMessageLink }}
-          {...onCopyMessage === undefined ? {} : { onCopyMessage }}
-          {...onEditMessage === undefined ? {} : { onEditMessage }}
-          {...onDeleteMessage === undefined ? {} : { onDeleteMessage }}
-          {...onOpenProfile === undefined ? {} : { onOpenProfile }}
-          {...onMessageMember === undefined ? {} : { onMessageMember }}
-          {...onViewMemberActivity === undefined
-            ? {}
-            : { onViewMemberActivity }}
-          {...replyTarget === undefined ? {} : { replyTarget }}
-          {communityEmojis}
-          {...onCancelReply === undefined ? {} : { onCancelReply }}
-        />
-      </div>
-    </section>
+        <div class="lc-community-inbox__conversation">
+          <CommunityConversation
+            room={model.room}
+            messages={model.messages}
+            members={model.members}
+            composerPlacement="row"
+            {disabled}
+            {disabledReason}
+            restrictMessageManagement
+            {...currentMemberId === undefined ? {} : { currentMemberId }}
+            {canDeleteAny}
+            {onSend}
+            {...onReply === undefined ? {} : { onReply, onOpenThread: onReply }}
+            {...disabled || onToggleReaction === undefined
+              ? {}
+              : { onToggleReaction, onAddReaction: onToggleReaction }}
+            {...onCopyMessageLink === undefined ? {} : { onCopyMessageLink }}
+            {...onCopyMessage === undefined ? {} : { onCopyMessage }}
+            {...onEditMessage === undefined ? {} : { onEditMessage }}
+            {...onDeleteMessage === undefined ? {} : { onDeleteMessage }}
+            {...onOpenProfile === undefined ? {} : { onOpenProfile }}
+            {...onMessageMember === undefined ? {} : { onMessageMember }}
+            {...onViewMemberActivity === undefined
+              ? {}
+              : { onViewMemberActivity }}
+            {...replyTarget === undefined ? {} : { replyTarget }}
+            {communityEmojis}
+            {...onCancelReply === undefined ? {} : { onCancelReply }}
+          />
+        </div>
+      </section>
+    {:else}
+      <Empty.Root class="lc-community-inbox__selection-empty" role="status">
+        <Empty.Header>
+          <Empty.Media variant="icon">
+            <MailIcon aria-hidden="true" />
+          </Empty.Media>
+          <Empty.Title>Select a message</Empty.Title>
+          <Empty.Description>
+            Pick an inbox item to see the full message and react to it.
+          </Empty.Description>
+        </Empty.Header>
+      </Empty.Root>
+    {/if}
   </AppShell.Body.Content>
 </AppShell.Body>
