@@ -108,7 +108,7 @@
     placeholder: "Message #general",
     mediaAdapter,
   }}
-  play={async ({ canvas }) => {
+  play={async ({ canvas, canvasElement }) => {
     const editor = canvas.getByRole("textbox", { name: "Markdown editor" });
     const composer = editor.closest<HTMLElement>(
       '[data-ui-component="ai-chat-composer"]',
@@ -117,6 +117,12 @@
       ':scope > [data-ui-part="body"]',
     );
     await expect(editor).toBeVisible();
+    const placeholder =
+      canvasElement.querySelector<HTMLElement>(".cm-placeholder");
+    await expect(placeholder).not.toBeNull();
+    await expect(
+      Number.parseFloat(getComputedStyle(placeholder!).paddingInlineStart),
+    ).toBeGreaterThanOrEqual(3.9);
     await expect(composer).toHaveAttribute("data-elevation", "low");
     await expect(composerBody).not.toBeNull();
     await expect(getComputedStyle(composerBody!).boxShadow).not.toBe("none");
@@ -190,7 +196,7 @@
     await expect(cursor).not.toBeNull();
     await expect(
       Number.parseFloat(getComputedStyle(cursor!).borderInlineStartWidth),
-    ).toBeGreaterThanOrEqual(3.9);
+    ).toBeGreaterThanOrEqual(1.9);
     await userEvent.keyboard("{End}{Shift>}{Enter}{/Shift}eight");
     await waitFor(() =>
       expect(viewport!.scrollHeight).toBeGreaterThan(viewport!.clientHeight),

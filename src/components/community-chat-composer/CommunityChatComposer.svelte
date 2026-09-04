@@ -1652,8 +1652,12 @@
   }
 
   :global(.community-chat-composer__mira .cm-cursor) {
-    border-inline-start: 4px solid var(--foreground);
-    margin-inline-start: -2px;
+    border-inline-start: 2px solid var(--foreground);
+    margin-inline-start: -1px;
+  }
+
+  :global(.community-chat-composer__mira .cm-placeholder) {
+    padding-inline-start: 0.25rem;
   }
 
   :global(

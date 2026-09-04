@@ -46,11 +46,12 @@ public API. Every `CommunityMessage` body MUST render through
 context. The embedded Mira editor MUST span the composer's available inner width
 without its document reading-column margins, internal scroller padding, or a
 reserved scrollbar gutter, and its empty state MUST retain a compact two-line
-minimum height. It MUST use a high-contrast four-pixel caret, grow through seven
-lines, and then delegate overflow to a public Design Core Scroll Area. The final
-Markdown preview host and document layers MUST add no padding of their own. The
-autocomplete layer MUST prefer the space above the composer and flip directly
-below it when a viewport or clipping ancestor leaves insufficient room above.
+minimum height. It MUST use a high-contrast two-pixel caret with start spacing
+applied only to the placeholder, grow through seven lines, and then delegate
+overflow to a public Design Core Scroll Area. The final Markdown preview host and
+document layers MUST add no padding of their own. The autocomplete layer MUST
+prefer the space above the composer and flip directly below it when a viewport or
+clipping ancestor leaves insufficient room above.
 
 The package uses Design Core controls for shared interaction primitives. Local
 CSS owns the Discourse-inspired registry layout and the Slack/Buzz-style
