@@ -143,6 +143,7 @@
     {items}
     {pluginName}
     {opener}
+    initialMode="dark"
     bind:open={viewerOpen}
     bind:selectedIndex
   />

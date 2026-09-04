@@ -54,6 +54,9 @@
   let installError = $state("");
   let detailViewerOpen = $state(false);
   let detailViewerItems = $state<readonly RegistryMediaItem[]>([]);
+  let detailViewerInitialMode = $state<"preview" | "full" | "light" | "dark">(
+    "full",
+  );
   let detailViewerOpener = $state<HTMLElement | null>(null);
   const entry = $derived(resolved.entry);
   const detail = $derived(resolved.detail);
@@ -169,8 +172,13 @@
     }
   }
 
-  function showMedia(item: RegistryMediaItem, target: HTMLElement): void {
+  function showMedia(
+    item: RegistryMediaItem,
+    initialMode: "preview" | "full" | "light" | "dark",
+    target: HTMLElement,
+  ): void {
     detailViewerItems = [item];
+    detailViewerInitialMode = initialMode;
     detailViewerOpener = target;
     detailViewerOpen = true;
   }
@@ -364,7 +372,7 @@
         class="registry-plugin-detail__banner"
         aria-label={`Open ${detail.name} banner: ${detail.media.banner.alt}`}
         onclick={(event) =>
-          showMedia(detail.media!.banner!, event.currentTarget)}
+          showMedia(detail.media!.banner!, "dark", event.currentTarget)}
       >
         <RegistryVerifiedImage
           reference={detail.media.banner.images.dark}
@@ -404,7 +412,11 @@
                 class="registry-plugin-detail__overview-media"
                 aria-label={`Open ${detail.name} overview image: ${detail.media.overview.alt}`}
                 onclick={(event) =>
-                  showMedia(detail.media!.overview!, event.currentTarget)}
+                  showMedia(
+                    detail.media!.overview!,
+                    "preview",
+                    event.currentTarget,
+                  )}
               >
                 <RegistryVerifiedImage
                   reference={detail.media.overview.images.preview}
@@ -607,6 +619,7 @@
     items={detailViewerItems}
     pluginName={detail.name}
     opener={detailViewerOpener}
+    initialMode={detailViewerInitialMode}
     bind:open={detailViewerOpen}
   />
 </article>

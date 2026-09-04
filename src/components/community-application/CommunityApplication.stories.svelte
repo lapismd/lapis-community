@@ -909,6 +909,64 @@
 </Story>
 
 <Story
+  name="Plugin release messages"
+  play={async ({ canvas }) => {
+    const application = await canvas.findByTestId(
+      "full-community-application",
+      {},
+      { timeout: 15_000 },
+    );
+    if (application.dataset.communityBackend !== "memory") return;
+    await userEvent.click(
+      await canvas.findByRole(
+        "button",
+        { name: "plugin-releases" },
+        { timeout: 15_000 },
+      ),
+    );
+    const release = await canvas.findByText(
+      "AI Assistant 1.4.0 is ready for curator review.",
+      {},
+      { timeout: 15_000 },
+    );
+    await expect(release).toBeVisible();
+    await expect(canvas.getByText(/1 reply/u)).toBeVisible();
+    await expect(
+      canvas.getAllByRole("button", { name: /AI Assistant.*Approved/u }),
+    ).toHaveLength(1);
+    await userEvent.click(
+      canvas.getByRole("button", { name: /AI Assistant.*Approved/u }),
+    );
+    await expect(
+      await canvas.findByRole("heading", { name: "AI Assistant", level: 3 }),
+    ).toBeVisible();
+    await userEvent.click(
+      await canvas.findByRole("link", { name: "AI Assistant" }),
+    );
+    await expect(
+      await canvas.findByRole("heading", { name: "AI Assistant", level: 1 }),
+    ).toBeVisible();
+    await userEvent.click(canvas.getByRole("button", { name: "Back" }));
+    await expect(
+      await canvas.findByText(
+        "AI Assistant 1.4.0 is ready for curator review.",
+      ),
+    ).toBeVisible();
+    await userEvent.click(canvas.getByRole("button", { name: "general" }));
+    await expect(
+      canvas.queryByRole("button", { name: /AI Assistant.*Approved/u }),
+    ).not.toBeInTheDocument();
+  }}
+>
+  {#snippet template()}
+    <CommunityApplicationStoryHarness
+      namespace="plugin-release-messages"
+      releaseMessages
+    />
+  {/snippet}
+</Story>
+
+<Story
   name="Full community app"
   play={async ({ canvas, canvasElement }) => {
     await userEvent.click(

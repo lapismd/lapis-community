@@ -205,6 +205,57 @@ describe("NIP-29 registry catalog data source", () => {
       fresh: true,
       origin: "relay",
     });
+    await expect(
+      source.loadReleaseInspection?.(data.release.id),
+    ).resolves.toMatchObject({
+      eventId: data.release.id,
+      pluginId: "demo",
+      version: "1.0.0",
+      state: "approved",
+      preview: { entry: { id: "demo" }, detail: { id: "demo" } },
+    });
+    await expect(
+      source.loadReleaseInspection?.("f".repeat(64)),
+    ).resolves.toBeUndefined();
+    source.dispose();
+  });
+
+  it("does not fetch manifests for untrusted release publishers", async () => {
+    const data = fixture();
+    const untrustedKey = generateSecretKey();
+    const untrustedRelease = sign(
+      untrustedKey,
+      createNip29ReleaseMessageTemplate(
+        "demo",
+        {
+          url: "https://relay.example/manifest.json",
+          mimeType: "application/json",
+          sha256: sha(data.manifestBytes),
+          size: data.manifestBytes.byteLength,
+        },
+        1_700_000_002,
+        "Untrusted Demo 1.0.0",
+      ),
+    );
+    const fetch = vi.fn(async () => new Response(data.manifestBytes));
+    const source = createNip29RegistryCatalogDataSource({
+      relays: ["wss://relay.example"],
+      authorities: {
+        curatorPubkeys: new Set([data.curator]),
+        publisherPubkeysByPlugin: new Map([
+          ["demo", new Set([data.publisher])],
+        ]),
+      },
+      relayFactory: createInMemoryRelayFactory({ events: [untrustedRelease] }),
+      snapshotStore: createMemoryRegistrySnapshotStore(),
+      fetch,
+    });
+
+    await expect(source.loadIndex()).resolves.toMatchObject({ plugins: [] });
+    const inspected = await source.loadReleaseInspection?.(untrustedRelease.id);
+    expect(inspected).toMatchObject({ state: "untrusted" });
+    expect(inspected?.preview).toBeUndefined();
+    expect(fetch).not.toHaveBeenCalled();
     source.dispose();
   });
 

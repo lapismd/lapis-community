@@ -74,6 +74,7 @@
   import CommunityThreadPanel from "../community-thread-panel/CommunityThreadPanel.svelte";
   import CommunityWorkspaceSurface from "../community-workspace/CommunityWorkspaceSurface.svelte";
   import RegistryBrowser from "../registry-browser/RegistryBrowser.svelte";
+  import RegistryReleaseDisclosure from "../registry-release-disclosure/RegistryReleaseDisclosure.svelte";
   import type { RegistryBrowserOptions } from "../registry-browser/model.js";
   import {
     findCommunityRoom,
@@ -82,6 +83,7 @@
     type CommunityPresence,
     type CommunityRoomModel,
     type CommunityMemberModel,
+    type CommunityMessageModel,
   } from "../community-workspace/model.js";
   import {
     communityApplicationPanelKey,
@@ -1590,6 +1592,17 @@
   </div>
 {/snippet}
 
+{#snippet releaseMessageSupplement(message: CommunityMessageModel)}
+  {#if message.parentMessageId === undefined && registryOptions?.source.loadReleaseInspection}
+    <RegistryReleaseDisclosure
+      eventId={message.id}
+      source={registryOptions.source}
+      onOpenPlugin={(pluginId) =>
+        navigateRegistry({ page: "plugin", pluginId })}
+    />
+  {/if}
+{/snippet}
+
 <CommunityAppShell
   controller={shell}
   {displayMode}
@@ -2027,6 +2040,7 @@
         >
           <CommunityWorkspaceSurface
             model={workspace}
+            messageSupplement={releaseMessageSupplement}
             readOnly={participationReadOnly}
             readOnlyReason={participationReadOnlyReason}
             showJoinAction={activeRoomJoinVisible}

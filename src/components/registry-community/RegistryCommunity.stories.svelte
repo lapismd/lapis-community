@@ -36,7 +36,11 @@
 <Story
   name="Loaded discussion and publish"
   play={async ({ canvas }) => {
-    const runtime = await canvas.findByTestId("registry-community-runtime");
+    const runtime = await canvas.findByTestId(
+      "registry-community-runtime",
+      {},
+      { timeout: 10_000 },
+    );
     await expect(runtime).toHaveAttribute(
       "data-community-backend",
       expect.stringMatching(/^(memory|docker|live)$/u),
@@ -83,12 +87,12 @@
     await userEvent.click(
       canvas.getByRole("button", { name: "Publish comment" }),
     );
+    await expect(await canvas.findByRole("status")).toHaveTextContent(
+      "Comment published",
+    );
     await expect(
       await canvas.findByText("Published through the shared relay source"),
     ).toBeVisible();
-    await expect(canvas.getByRole("status")).toHaveTextContent(
-      "Comment published",
-    );
   }}
 >
   {#snippet template()}

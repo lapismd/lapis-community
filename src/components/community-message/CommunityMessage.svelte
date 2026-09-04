@@ -12,7 +12,7 @@
   import MessageSquareReplyIcon from "@lucide/svelte/icons/message-square-reply";
   import PencilIcon from "@lucide/svelte/icons/pencil";
   import Trash2Icon from "@lucide/svelte/icons/trash-2";
-  import { onDestroy } from "svelte";
+  import { onDestroy, type Snippet } from "svelte";
 
   import type { CommunityCustomEmoji } from "../../community/index.js";
   import CommunityEmojiPicker from "../community-emoji-picker/CommunityEmojiPicker.svelte";
@@ -47,6 +47,7 @@
     onMessageMember,
     onViewMemberActivity,
     replyActionLabel = "Reply in thread",
+    supplement,
   }: {
     message: CommunityMessageModel;
     author: CommunityMemberModel;
@@ -79,6 +80,7 @@
       member: CommunityMemberModel,
     ) => void | Promise<void>;
     replyActionLabel?: string;
+    supplement?: Snippet;
   } = $props();
 
   const actionOpenDelay = 180;
@@ -217,6 +219,15 @@
       {...onOpenRoom === undefined ? {} : { onOpenRoom }}
     />
   </MessageBubble>
+
+  {#if supplement}
+    <div
+      class="community-message__supplement"
+      data-ui-part="message-supplement"
+    >
+      {@render supplement()}
+    </div>
+  {/if}
 
   {#if onAddReaction}
     <div
@@ -375,6 +386,10 @@
 </Message>
 
 <style>
+  .community-message__supplement {
+    width: 100%;
+    min-width: 0;
+  }
   :global(.community-message) {
     position: relative;
     width: calc(100% + 1rem);

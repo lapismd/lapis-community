@@ -71,7 +71,10 @@
     });
     await userEvent.click(banner);
     await expect(page.getByRole("dialog")).toBeVisible();
-    await userEvent.click(page.getByRole("button", { name: "Dark" }));
+    await expect(page.getByRole("button", { name: "Dark" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
     await expect(page.getByRole("dialog")).toHaveAttribute(
       "data-media-mode",
       "dark",

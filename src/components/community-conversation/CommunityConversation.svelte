@@ -57,6 +57,7 @@
     replyActionLabel = "Reply in thread",
     intro,
     footer,
+    messageSupplement,
   }: {
     room: CommunityRoomModel;
     rooms?: readonly CommunityRoomModel[];
@@ -101,6 +102,7 @@
     replyActionLabel?: string;
     intro?: Snippet;
     footer?: Snippet;
+    messageSupplement?: Snippet<[CommunityMessageModel]>;
   } = $props();
 
   let draft = $state("");
@@ -209,6 +211,11 @@
       {/if}
       <SystemMessage variant="divider">Today</SystemMessage>
       {#each messages as message, index (message.id)}
+        {#snippet supplement()}
+          {#if messageSupplement}
+            {@render messageSupplement(message)}
+          {/if}
+        {/snippet}
         <CommunityMessage
           {message}
           isContinuation={isMessageContinuation(messages, index)}
@@ -223,6 +230,7 @@
           {density}
           {communityEmojis}
           {replyActionLabel}
+          {...messageSupplement === undefined ? {} : { supplement }}
           {...onReply === undefined ? {} : { onReply }}
           {...onOpenThread === undefined ? {} : { onOpenThread }}
           onToggleReaction={(messageId, emoji, custom) =>

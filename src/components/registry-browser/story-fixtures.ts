@@ -360,12 +360,18 @@ export function registryStoryResolvedDetail(
   };
 }
 
-export function createRegistryStoryDataSource(): RegistryCatalogDataSource & {
+export function createRegistryStoryDataSource(
+  releaseEventIds: readonly string[] = [],
+): RegistryCatalogDataSource & {
   detailLoads: ReadonlyMap<string, number>;
+  inspectionLoads: ReadonlyMap<string, number>;
 } {
   const detailLoads = new Map<string, number>();
+  const inspectionLoads = new Map<string, number>();
+  const recognizedReleaseEventIds = new Set(releaseEventIds);
   return {
     detailLoads,
+    inspectionLoads,
     async loadIndex() {
       return registryStoryIndex;
     },
@@ -380,6 +386,20 @@ export function createRegistryStoryDataSource(): RegistryCatalogDataSource & {
       return reference.url.includes("changelog")
         ? "# Changelog\n\n## 1.4.0\n\nImproved editor integration and accessibility."
         : "# Work with your notes\n\nKeep your ideas flowing with a plugin designed for the Lapis workspace.\n\n- Fast, focused commands\n- Theme-aware presentation\n- Community support";
+    },
+    async loadReleaseInspection(eventId) {
+      if (!recognizedReleaseEventIds.has(eventId)) return undefined;
+      inspectionLoads.set(eventId, (inspectionLoads.get(eventId) ?? 0) + 1);
+      const resolved = registryStoryResolvedDetail();
+      return {
+        eventId,
+        pluginId: resolved.entry.id,
+        version: resolved.entry.latestVersion,
+        manifestSha256: sha256,
+        state: "approved",
+        preview: { entry: resolved.entry, detail: resolved.detail },
+        diagnostics: [],
+      };
     },
   };
 }

@@ -10,6 +10,11 @@
     type CommunityController,
   } from "../../community/index.js";
   import {
+    createNip29ReleaseMessageTemplate,
+    LAPIS_GROUPS,
+    lapisGroupId,
+  } from "../../protocol/index.js";
+  import {
     createCommunityStoryRuntime,
     type CommunityStoryRuntime,
   } from "../../testing/index.js";
@@ -23,17 +28,19 @@
     responsive = false,
     loginIdentity = "operator",
     namespace,
+    releaseMessages = false,
   }: {
     signedIn?: boolean;
     responsive?: boolean;
     loginIdentity?: "operator" | "participant";
     namespace?: string;
+    releaseMessages?: boolean;
   } = $props();
 
   let runtime = $state.raw<CommunityStoryRuntime>();
   let community = $state.raw<CommunityController>();
   let runtimeError = $state("");
-  const registrySource = createRegistryStoryDataSource();
+  let registrySource = $state.raw(createRegistryStoryDataSource());
 
   onMount(() => {
     let active = true;
@@ -63,7 +70,66 @@
             return;
           }
           runtime = created;
-          community = signedIn
+          let releaseEventId: string | undefined;
+          if (releaseMessages && created.backend === "memory") {
+            const releaseGroupId = lapisGroupId(LAPIS_GROUPS.pluginReleases);
+            const releaseEvent = await created.scenario.operator.signEvent(
+              createNip29ReleaseMessageTemplate(
+                "ai",
+                {
+                  url: "https://example.com/ai-release-manifest.json",
+                  mimeType: "application/json",
+                  sha256: "0".repeat(64),
+                  size: 1,
+                },
+                1_700_000_020,
+                "AI Assistant 1.4.0 is ready for curator review.",
+              ),
+            );
+            const replyEvent = await created.scenario.member.signEvent({
+              kind: 9,
+              created_at: 1_700_000_021,
+              content: "The signed release notes are ready for review.",
+              tags: [
+                ["h", releaseGroupId],
+                ["e", releaseEvent.id, "", "reply"],
+              ],
+            });
+            const memoryRelay = (
+              created as CommunityStoryRuntime & {
+                relay: { inject(event: typeof releaseEvent): void };
+              }
+            ).relay;
+            memoryRelay.inject(releaseEvent);
+            memoryRelay.inject(replyEvent);
+            created.controller.dispose();
+            community = createCommunityController({
+              scopes: [
+                {
+                  ...created.scenario.scope,
+                  rooms: [
+                    ...(created.scenario.scope.rooms ?? []),
+                    {
+                      id: "plugin-releases",
+                      groupId: releaseGroupId,
+                      name: "plugin-releases",
+                      kind: "channel",
+                    },
+                  ],
+                },
+              ],
+              source: createNip29CommunitySource({
+                relayFactory: created.relayFactory,
+              }),
+              identity: created.scenario.operator,
+              now: () => 1_700_000_100,
+            });
+            releaseEventId = releaseEvent.id;
+            registrySource = createRegistryStoryDataSource([releaseEvent.id]);
+          } else {
+            registrySource = createRegistryStoryDataSource();
+          }
+          community ??= signedIn
             ? created.controller
             : createCommunityController({
                 scopes: [created.scenario.scope],
@@ -78,7 +144,9 @@
             const memberPubkey = await created.scenario.member.getPublicKey();
             if (!active || currentGeneration !== runtimeGeneration) return;
             community.actions.openDirectMessage([memberPubkey]);
-            community.actions.selectRoom("general");
+            community.actions.selectRoom(
+              releaseEventId === undefined ? "general" : "plugin-releases",
+            );
           }
         })
         .catch((cause: unknown) => {

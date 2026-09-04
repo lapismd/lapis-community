@@ -92,6 +92,7 @@ export { default as RegistryLanding } from "./registry-landing/RegistryLanding.s
 export { default as RegistryMediaGallery } from "./registry-media-gallery/RegistryMediaGallery.svelte";
 export { default as RegistryPluginCard } from "./registry-plugin-card/RegistryPluginCard.svelte";
 export { default as RegistryPluginDetail } from "./registry-plugin-detail/RegistryPluginDetail.svelte";
+export { default as RegistryReleaseDisclosure } from "./registry-release-disclosure/RegistryReleaseDisclosure.svelte";
 export { default as RegistryVerifiedImage } from "./registry-verified-image/RegistryVerifiedImage.svelte";
 export { default as ForumTopicList } from "./forum-topic-list/ForumTopicList.svelte";
 export * from "./community-workspace/model.js";

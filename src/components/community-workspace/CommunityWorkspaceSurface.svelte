@@ -7,6 +7,7 @@
   import MessagesSquareIcon from "@lucide/svelte/icons/messages-square";
   import PlusIcon from "@lucide/svelte/icons/plus";
   import SparklesIcon from "@lucide/svelte/icons/sparkles";
+  import type { Snippet } from "svelte";
 
   import CommunityConversation from "../community-conversation/CommunityConversation.svelte";
   import type {
@@ -33,6 +34,7 @@
     onRetryOperation,
     onDismissOperation,
     showJoinAction = false,
+    messageSupplement,
   }: {
     model: CommunityWorkspaceModel;
     handlers?: CommunityWorkspaceHandlers;
@@ -44,6 +46,7 @@
     onRetryOperation?: () => void | Promise<void>;
     onDismissOperation?: () => void;
     showJoinAction?: boolean;
+    messageSupplement?: Snippet<[import("./model.js").CommunityMessageModel]>;
   } = $props();
 
   const activeRoom = $derived(
@@ -193,6 +196,7 @@
         : { directMember: activeDirectMember }}
       {...replyTarget === undefined ? {} : { replyTarget }}
       {communityEmojis}
+      {...messageSupplement === undefined ? {} : { messageSupplement }}
       disabled={surfaceReadOnly}
       disabledReason={readOnlyReason}
       {...composerStatus === undefined ? {} : { composerStatus }}

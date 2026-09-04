@@ -44,8 +44,14 @@ import {
   type RegistryImageReference,
   type RegistryLoadOptions,
   type RegistryMarkdownReference,
+  type RegistryReleaseDiagnostic,
   type RegistryRuntime,
 } from "./model.js";
+import {
+  failedRegistryReleaseInspection,
+  inspectRegistryReleaseCandidate,
+  recognizeRegistryReleaseCandidate,
+} from "./release-inspection.js";
 import {
   createBrowserRegistrySnapshotStore,
   type RegistryEventSnapshot,
@@ -115,6 +121,7 @@ export function createNip29RegistryCatalogDataSource(
 
   let current: CurrentProjection | undefined;
   let currentEvents: NostrEvent[] = [];
+  let candidateEvents: NostrEvent[] = [];
   let state: RegistryCatalogSourceStatus = {
     phase: "loading",
     fresh: false,
@@ -281,6 +288,7 @@ export function createNip29RegistryCatalogDataSource(
           decisionResult.events,
           bufferedEvents,
         );
+        candidateEvents = events;
         const documents = await hydrateManifestDocuments(events, signal);
         const synchronizedAt = now().toISOString();
         setProjection(
@@ -327,6 +335,7 @@ export function createNip29RegistryCatalogDataSource(
     if (pendingEvents.size === 0 || current === undefined) return;
     const bufferedEvents = [...pendingEvents.values()];
     const events = mergeEvents(currentEvents, bufferedEvents);
+    candidateEvents = events;
     try {
       const documents = await hydrateManifestDocuments(
         events,
@@ -450,6 +459,7 @@ export function createNip29RegistryCatalogDataSource(
       },
     };
     currentEvents = mergeEvents(events);
+    candidateEvents = currentEvents;
     state = {
       phase: "ready",
       fresh,
@@ -600,6 +610,98 @@ export function createNip29RegistryCatalogDataSource(
     async loadImage(reference, loadOptions) {
       const bytes = await loadVerifiedResource(reference, loadOptions);
       return new Blob([bytes], { type: reference.mediaType });
+    },
+    async loadReleaseInspection(eventId, loadOptions) {
+      loadOptions?.signal?.throwIfAborted();
+      try {
+        await waitForSignal(start(), loadOptions?.signal);
+      } catch (cause) {
+        if (loadOptions?.signal?.aborted || isAbortError(cause)) throw cause;
+        // Candidate events captured before a failed projection remain inspectable.
+      }
+      const events = mergeEvents(candidateEvents, currentEvents, [
+        ...pendingEvents.values(),
+      ]);
+      const event = events.find((candidate) => candidate.id === eventId);
+      if (event === undefined) {
+        return undefined;
+      }
+      const candidate = recognizeRegistryReleaseCandidate(event, authorities);
+      if (candidate === undefined) return undefined;
+      if (!candidate.trusted || candidate.manifestSha256 === undefined) {
+        return inspectRegistryReleaseCandidate(
+          candidate,
+          events,
+          undefined,
+          now().toISOString(),
+          authorities,
+        );
+      }
+
+      const attachment = getNip29ManifestAttachment(event);
+      if (attachment === undefined) {
+        return inspectRegistryReleaseCandidate(
+          candidate,
+          events,
+          undefined,
+          now().toISOString(),
+          authorities,
+        );
+      }
+      try {
+        let document: Nip29ReleaseManifestDocument;
+        const cached = manifestBytes.get(attachment.sha256);
+        if (cached === undefined) {
+          const fetched = await fetchNip29ReleaseManifestDocuments([event], {
+            fetch: request,
+            mediaAuthSigner: signEvent,
+            relayUrls,
+            ...(loadOptions?.signal === undefined
+              ? {}
+              : { signal: loadOptions.signal }),
+          });
+          document = fetched[0]!;
+          manifestBytes.set(document.attachmentSha256, document.bytes);
+        } else {
+          document = manifestDocument(
+            attachment.sha256,
+            cached,
+            attachment.size,
+          );
+        }
+        return inspectRegistryReleaseCandidate(
+          candidate,
+          events,
+          document.manifest,
+          now().toISOString(),
+          authorities,
+        );
+      } catch (cause) {
+        if (loadOptions?.signal?.aborted || isAbortError(cause)) throw cause;
+        const message =
+          cause instanceof Error
+            ? cause.message
+            : "Release manifest could not be loaded";
+        const invalid =
+          cause instanceof SyntaxError ||
+          message.includes("failed size verification") ||
+          message.includes("failed SHA-256 verification") ||
+          message.includes("failed verification") ||
+          message.includes("must use HTTP(S)");
+        const diagnostic: RegistryReleaseDiagnostic = {
+          stage: invalid ? "manifest" : "attachment",
+          code: invalid ? "manifest-integrity" : "manifest-unavailable",
+          path: "manifest",
+          message: invalid
+            ? "Release manifest failed integrity or JSON verification."
+            : "Release manifest is currently unavailable.",
+        };
+        return failedRegistryReleaseInspection(
+          candidate,
+          invalid ? "invalid" : "unavailable",
+          diagnostic,
+        );
+      }
     },
     getStatus() {
       return state;

@@ -222,6 +222,45 @@ export interface RegistryLoadOptions {
   signal?: AbortSignal;
 }
 
+export type RegistryReleaseInspectionState =
+  | "approved"
+  | "pending"
+  | "rejected"
+  | "revoked"
+  | "untrusted"
+  | "invalid"
+  | "unavailable";
+
+export type RegistryReleaseValidationStage =
+  | "event"
+  | "authority"
+  | "attachment"
+  | "manifest"
+  | "schema"
+  | "projection";
+
+export interface RegistryReleaseDiagnostic {
+  stage: RegistryReleaseValidationStage;
+  code: string;
+  path?: string;
+  message: string;
+}
+
+export interface RegistryReleasePreview {
+  entry: RegistryCatalogEntry;
+  detail: RegistryCatalogDetail;
+}
+
+export interface RegistryReleaseInspection {
+  eventId: string;
+  state: RegistryReleaseInspectionState;
+  pluginId?: string;
+  version?: string;
+  manifestSha256?: string;
+  preview?: RegistryReleasePreview;
+  diagnostics: readonly RegistryReleaseDiagnostic[];
+}
+
 export type RegistryCatalogSourcePhase =
   | "loading"
   | "ready"
@@ -267,6 +306,10 @@ export interface RegistryCatalogDataSource {
     reference: RegistryImageReference,
     options?: RegistryLoadOptions,
   ): Promise<Blob>;
+  loadReleaseInspection?(
+    eventId: string,
+    options?: RegistryLoadOptions,
+  ): Promise<RegistryReleaseInspection | undefined>;
   getStatus?(): RegistryCatalogSourceStatus;
   subscribe?(listener: RegistryCatalogSourceListener): () => void;
   refresh?(options?: RegistryLoadOptions): Promise<void>;

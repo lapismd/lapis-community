@@ -8,19 +8,22 @@
   import type { RegistryMediaItem } from "../../registry/index.js";
   import RegistryVerifiedImage from "../registry-verified-image/RegistryVerifiedImage.svelte";
 
-  type MediaMode = "full" | "light" | "dark";
+  type MediaMode = "preview" | "full" | "light" | "dark";
+  type SelectableMediaMode = Exclude<MediaMode, "preview">;
 
   let {
     items,
     pluginName,
     open = $bindable(false),
     selectedIndex = $bindable(0),
+    initialMode = "full",
     opener = null,
   }: {
     items: readonly RegistryMediaItem[];
     pluginName: string;
     open?: boolean;
     selectedIndex?: number;
+    initialMode?: MediaMode;
     opener?: HTMLElement | null;
   } = $props();
 
@@ -37,7 +40,7 @@
     if (!dialog) return;
     if (open && !dialog.open) {
       selectedIndex = Math.min(Math.max(selectedIndex, 0), lastIndex);
-      mode = "full";
+      mode = initialMode;
       lockDocumentScroll();
       dialog.showModal();
       void tick().then(() => {
@@ -120,9 +123,13 @@
       (event.key === "ArrowLeft" || event.key === "ArrowRight")
     ) {
       event.preventDefault();
-      const modes: MediaMode[] = ["full", "light", "dark"];
+      const modes: SelectableMediaMode[] = ["full", "light", "dark"];
       const offset = event.key === "ArrowLeft" ? -1 : 1;
-      const next = (modes.indexOf(mode) + offset + modes.length) % modes.length;
+      const focusedMode = modeButton.getAttribute(
+        "data-media-mode",
+      ) as SelectableMediaMode;
+      const next =
+        (modes.indexOf(focusedMode) + offset + modes.length) % modes.length;
       setMode(modes[next]!);
       const buttons =
         dialog?.querySelectorAll<HTMLButtonElement>("[data-media-mode]");
