@@ -1,9 +1,12 @@
 <script lang="ts">
   import { Button } from "@lapismd/design-core/shadcn/button";
   import * as DropdownMenu from "@lapismd/design-core/shadcn/dropdown-menu";
+  import LinkIcon from "@lucide/svelte/icons/link-2";
   import LogInIcon from "@lucide/svelte/icons/log-in";
   import LogOutIcon from "@lucide/svelte/icons/log-out";
+  import SettingsIcon from "@lucide/svelte/icons/settings-2";
   import SmileIcon from "@lucide/svelte/icons/smile";
+  import UsersIcon from "@lucide/svelte/icons/users";
 
   import type { CommunityConnectionStatus } from "../../community/index.js";
   import CommunityMemberAvatar from "../community-member-avatar/CommunityMemberAvatar.svelte";
@@ -16,6 +19,7 @@
   let {
     member,
     communityName,
+    communityUrl,
     compact = false,
     authenticated = true,
     canManageCommunity = false,
@@ -26,6 +30,7 @@
   }: {
     member: CommunityMemberModel;
     communityName: string;
+    communityUrl?: string;
     compact?: boolean;
     authenticated?: boolean;
     canManageCommunity?: boolean;
@@ -156,7 +161,10 @@
 
       <DropdownMenu.Group>
         <DropdownMenu.Sub>
-          <DropdownMenu.SubTrigger>
+          <DropdownMenu.SubTrigger
+            class="community-profile-menu__community-trigger"
+            aria-label={`${communityName} community actions`}
+          >
             <span
               class="community-profile-menu__community-icon"
               aria-hidden="true">🐝</span
@@ -166,17 +174,30 @@
               {#if connectionLabel}<small>{connectionLabel}</small>{/if}
             </span>
           </DropdownMenu.SubTrigger>
-          <DropdownMenu.SubContent>
+          <DropdownMenu.SubContent
+            class="community-profile-menu__community-content"
+            aria-label="Community actions"
+          >
             <DropdownMenu.Group>
+              {#if communityUrl}
+                <DropdownMenu.Item
+                  onSelect={() => onAction("copy-community-url")}
+                >
+                  <LinkIcon data-icon="inline-start" aria-hidden="true" />
+                  Copy community URL
+                </DropdownMenu.Item>
+              {/if}
               <DropdownMenu.Item
                 onSelect={() => onAction("community-settings")}
               >
+                <SettingsIcon data-icon="inline-start" aria-hidden="true" />
                 Community settings
               </DropdownMenu.Item>
               {#if authenticated && canManageCommunity}
-                <DropdownMenu.Item onSelect={() => onAction("manage-members")}
-                  >Manage members</DropdownMenu.Item
-                >
+                <DropdownMenu.Item onSelect={() => onAction("manage-members")}>
+                  <UsersIcon data-icon="inline-start" aria-hidden="true" />
+                  Manage members
+                </DropdownMenu.Item>
               {/if}
             </DropdownMenu.Group>
           </DropdownMenu.SubContent>
@@ -392,8 +413,31 @@
   }
 
   :global(.community-profile-menu__community-icon) {
-    width: 1rem;
+    display: grid;
+    width: 1.25rem;
+    height: 1.25rem;
+    flex: none;
+    place-items: center;
+    border: 1px solid var(--border);
+    border-radius: 0.375rem;
+    background: color-mix(in srgb, var(--muted) 72%, transparent);
+    font-size: 0.75rem;
     text-align: center;
+  }
+
+  :global(
+      .community-profile-menu__community-trigger[data-ui-part="dropdown-menu-sub-trigger"]
+    ) {
+    min-height: 2.25rem;
+    gap: 0.5rem;
+    border-radius: 0.5rem;
+    padding: 0.5rem 0.75rem;
+  }
+
+  :global(.community-profile-menu__community-content) {
+    width: 15rem;
+    z-index: calc(var(--ui-workspace-overlay-z-index, 50) + 20);
+    padding: 0.25rem;
   }
 
   :global(.community-profile-menu__community-label) {

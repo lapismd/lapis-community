@@ -216,10 +216,14 @@
       canvas.getByRole("button", { name: "Open profile menu for Guest" }),
     );
     await expect(
-      overlay.getByRole("menuitem", { name: "Lapis Community" }),
+      overlay.getByRole("menuitem", {
+        name: "Lapis Community community actions",
+      }),
     ).toBeVisible();
     await userEvent.hover(
-      overlay.getByRole("menuitem", { name: "Lapis Community" }),
+      overlay.getByRole("menuitem", {
+        name: "Lapis Community community actions",
+      }),
     );
     await expect(
       await overlay.findByRole("menuitem", { name: "Community settings" }),
@@ -804,15 +808,19 @@
 
     const overlay = within(canvasElement.ownerDocument.body);
     let profileTrigger = canvas.getByRole("button", {
-      name: "Open profile menu for steve",
+      name: /Open profile menu for /u,
     });
     await waitFor(() =>
       expect(getComputedStyle(profileTrigger).pointerEvents).not.toBe("none"),
     );
     await userEvent.click(profileTrigger);
-    await expect(
-      overlay.getByRole("menuitem", { name: "🏠 Working remotely" }),
-    ).toBeVisible();
+    let statusAction = overlay
+      .getByRole("menu", { name: "Profile menu" })
+      .querySelector<HTMLElement>(".community-profile-menu__status-action")!;
+    await expect(statusAction).toBeVisible();
+    if (application.dataset.communityBackend === "memory") {
+      await expect(statusAction).toHaveTextContent("🏠 Working remotely");
+    }
     await userEvent.hover(
       overlay.getByRole("menuitem", { name: "Presence: Online" }),
     );
@@ -831,19 +839,22 @@
     );
 
     profileTrigger = canvas.getByRole("button", {
-      name: "Open profile menu for steve",
+      name: /Open profile menu for /u,
     });
     await waitFor(() =>
       expect(getComputedStyle(profileTrigger).pointerEvents).not.toBe("none"),
     );
     await userEvent.click(profileTrigger);
-    await userEvent.click(
-      overlay.getByRole("menuitem", { name: "🏠 Working remotely" }),
-    );
+    statusAction = overlay
+      .getByRole("menu", { name: "Profile menu" })
+      .querySelector<HTMLElement>(".community-profile-menu__status-action")!;
+    await userEvent.click(statusAction);
     const dialog = await overlay.findByRole("dialog", { name: "Set a status" });
-    await expect(
-      within(dialog).getByLabelText("What's your status?"),
-    ).toHaveValue("Working remotely");
+    if (application.dataset.communityBackend === "memory") {
+      await expect(
+        within(dialog).getByLabelText("What's your status?"),
+      ).toHaveValue("Working remotely");
+    }
     await userEvent.click(
       within(dialog).getByRole("button", { name: "In a meeting" }),
     );
@@ -853,7 +864,7 @@
     });
 
     profileTrigger = canvas.getByRole("button", {
-      name: "Open profile menu for steve",
+      name: /Open profile menu for /u,
     });
     await waitFor(() =>
       expect(getComputedStyle(profileTrigger).pointerEvents).not.toBe("none"),

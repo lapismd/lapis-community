@@ -614,6 +614,37 @@ describe("createCommunityController", () => {
     ).toBe("requires-authentication");
   });
 
+  it("publishes and projects profile metadata and the profile image", async () => {
+    runtime = await createCommunityTestRuntime();
+    await connected(runtime);
+    const pubkey = await runtime.scenario.operator.getPublicKey();
+    const picture =
+      "data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%3E%3C/svg%3E";
+
+    await runtime.controller.actions.updateProfile({
+      displayName: "Steve Updated",
+      username: "steve-updated",
+      about: "Profile changes are projected from the signed event.",
+      picture,
+    });
+
+    expect(runtime.controller.state.settings.profile).toEqual({
+      pubkey,
+      displayName: "Steve Updated",
+      username: "steve-updated",
+      about: "Profile changes are projected from the signed event.",
+      picture,
+    });
+    expect(
+      runtime.controller.state.workspace.members.find(
+        (member) => member.id === pubkey,
+      ),
+    ).toMatchObject({ name: "Steve Updated", avatarUrl: picture });
+    expect(runtime.controller.state.operations["settings:profile"]).toEqual({
+      status: "idle",
+    });
+  });
+
   it("creates, updates, and deletes rooms through NIP-29 commands", async () => {
     runtime = await createCommunityTestRuntime();
     await connected(runtime);

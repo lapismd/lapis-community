@@ -24,6 +24,7 @@
           code: `<CommunityProfileMenu
   {member}
   communityName="buzz"
+  communityUrl="wss://relay.example.com"
   onAction={(action) => handleProfileAction(action)}
 />`,
         },
@@ -37,6 +38,7 @@
   args={{
     member,
     communityName: "buzz",
+    communityUrl: "wss://relay.example.com",
     canManageCommunity: true,
     canSendFeedback: true,
     onAction: fn(),
@@ -76,7 +78,41 @@
     await userEvent.click(
       canvas.getByRole("button", { name: "Open profile menu for steve" }),
     );
-    await expect(overlay.getByRole("menuitem", { name: "buzz" })).toBeVisible();
+    const communityTrigger = overlay.getByRole("menuitem", {
+      name: "buzz community actions",
+    });
+    await expect(communityTrigger).toBeVisible();
+    await userEvent.hover(communityTrigger);
+    const communityMenu = await overlay.findByRole("menu", {
+      name: "Community actions",
+    });
+    const copyCommunityUrl = within(communityMenu).getByRole("menuitem", {
+      name: "Copy community URL",
+    });
+    await expect(copyCommunityUrl.querySelector("svg")).not.toBeNull();
+    await expect(
+      within(communityMenu)
+        .getByRole("menuitem", { name: "Community settings" })
+        .querySelector("svg"),
+    ).not.toBeNull();
+    await expect(
+      within(communityMenu)
+        .getByRole("menuitem", { name: "Manage members" })
+        .querySelector("svg"),
+    ).not.toBeNull();
+    copyCommunityUrl.focus();
+    await userEvent.keyboard("{Enter}");
+    await waitFor(() =>
+      expect(args.onAction).toHaveBeenCalledWith("copy-community-url"),
+    );
+    await waitFor(() =>
+      expect(canvasElement.ownerDocument.body.style.pointerEvents).not.toBe(
+        "none",
+      ),
+    );
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Open profile menu for steve" }),
+    );
     await expect(
       overlay.getByRole("menuitem", { name: "Send feedback" }),
     ).toBeVisible();

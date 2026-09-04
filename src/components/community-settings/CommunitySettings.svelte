@@ -5,6 +5,7 @@
   import * as Tabs from "@lapismd/design-core/shadcn/tabs";
   import { Textarea } from "@lapismd/design-core/shadcn/textarea";
   import CheckIcon from "@lucide/svelte/icons/check";
+  import ChevronRightIcon from "@lucide/svelte/icons/chevron-right";
   import ImageIcon from "@lucide/svelte/icons/image";
   import LinkIcon from "@lucide/svelte/icons/link-2";
   import PencilIcon from "@lucide/svelte/icons/pencil";
@@ -135,8 +136,8 @@
     }
   }
 
-  async function saveProfile(event: SubmitEvent): Promise<void> {
-    event.preventDefault();
+  async function saveProfile(event?: SubmitEvent): Promise<void> {
+    event?.preventDefault();
     if (await persistProfile("Profile saved to the relay.")) {
       editingProfile = false;
     }
@@ -353,13 +354,14 @@
           <header>
             <h2>Profile info</h2>
             <Button
-              type={editingProfile ? "submit" : "button"}
+              type="button"
               size="sm"
               variant={editingProfile ? "default" : "secondary"}
               disabled={!model.identityConnected ||
                 profileOperation?.status === "pending"}
               onclick={() => {
-                if (!editingProfile) editingProfile = true;
+                if (editingProfile) void saveProfile();
+                else editingProfile = true;
               }}
             >
               {#if editingProfile}
@@ -422,7 +424,10 @@
                   >Your Nostr public key is fixed by the connected signer.</small
                 >
               </span>
-              <span aria-hidden="true">⌄</span>
+              <ChevronRightIcon
+                class="community-settings__identity-chevron"
+                aria-hidden="true"
+              />
             </summary>
             <p>{model.profile.pubkey || "No identity connected"}</p>
           </details>
@@ -449,58 +454,81 @@
       <section class="community-settings__option-section">
         <header><h2>Add emoji</h2></header>
         <div class="community-settings__emoji-builder">
-          <div>
-            <h3>Upload an image</h3>
-            <p>
-              Square images work best. GIF, PNG, JPEG, and WebP files are
-              supported.
-            </p>
-          </div>
-          <label class="community-settings__emoji-upload">
-            <span class="community-settings__emoji-preview" aria-hidden="true">
-              {#if emojiUrl}
-                <img src={emojiUrl} alt="" />
-              {:else}
-                <ImageIcon />
-              {/if}
-            </span>
-            <span>{emojiFileName || "Upload image"}</span>
-            <input
-              type="file"
-              accept="image/png,image/jpeg,image/gif,image/webp"
-              aria-label="Upload custom emoji image"
-              onchange={(event) =>
-                readImage(event, (value, fileName) => {
-                  emojiUrl = value;
-                  emojiFileName = fileName;
-                  if (!shortcode) {
-                    shortcode = fileName
-                      .replace(/\.[^.]+$/, "")
-                      .toLowerCase()
-                      .replace(/[^a-z0-9_-]+/g, "-")
-                      .replace(/^-+|-+$/g, "");
-                  }
-                })}
-            />
-          </label>
-          <div>
-            <h3>Give it a name</h3>
-            <p>
-              This is what you’ll type to add this emoji to messages and
-              reactions.
-            </p>
-          </div>
-          <Field.Group>
-            <Field.Field>
-              <Field.Label for="community-emoji-shortcode">Name</Field.Label>
-              <Input
-                id="community-emoji-shortcode"
-                bind:value={shortcode}
-                placeholder="party-parrot"
+          <div
+            class="community-settings__emoji-row"
+            data-ui-part="custom-emoji-row"
+          >
+            <div class="community-settings__emoji-copy">
+              <h3>Upload an image</h3>
+              <p>
+                Square images work best. GIF, PNG, JPEG, and WebP files are
+                supported.
+              </p>
+            </div>
+            <label class="community-settings__emoji-upload">
+              <span
+                class="community-settings__emoji-preview"
+                aria-hidden="true"
+              >
+                {#if emojiUrl}
+                  <img src={emojiUrl} alt="" />
+                {:else}
+                  <ImageIcon />
+                {/if}
+              </span>
+              <span>{emojiFileName || "Upload image"}</span>
+              <input
+                type="file"
+                accept="image/png,image/jpeg,image/gif,image/webp"
+                aria-label="Upload custom emoji image"
+                onchange={(event) =>
+                  readImage(event, (value, fileName) => {
+                    emojiUrl = value;
+                    emojiFileName = fileName;
+                    if (!shortcode) {
+                      shortcode = fileName
+                        .replace(/\.[^.]+$/, "")
+                        .toLowerCase()
+                        .replace(/[^a-z0-9_-]+/g, "-")
+                        .replace(/^-+|-+$/g, "");
+                    }
+                  })}
               />
-              <Field.Description>:{shortcode || "name"}:</Field.Description>
-            </Field.Field>
-          </Field.Group>
+            </label>
+          </div>
+          <div
+            class="community-settings__emoji-row"
+            data-ui-part="custom-emoji-row"
+          >
+            <div class="community-settings__emoji-copy">
+              <h3>Give it a name</h3>
+              <p>
+                This is what you’ll type to add this emoji to messages and
+                reactions.
+              </p>
+            </div>
+            <Field.Group class="community-settings__emoji-name">
+              <Field.Field>
+                <Field.Label for="community-emoji-shortcode">Name</Field.Label>
+                <div class="community-settings__emoji-name-input">
+                  <span aria-hidden="true">:</span>
+                  <Input
+                    id="community-emoji-shortcode"
+                    bind:value={shortcode}
+                    placeholder="party-parrot"
+                    autocapitalize="none"
+                    autocomplete="off"
+                    spellcheck={false}
+                  />
+                  <span aria-hidden="true">:</span>
+                </div>
+                <Field.Description>
+                  Choose an image first; Lapis will suggest a name from the
+                  filename.
+                </Field.Description>
+              </Field.Field>
+            </Field.Group>
+          </div>
           <div class="community-settings__emoji-actions">
             <Button
               type="button"

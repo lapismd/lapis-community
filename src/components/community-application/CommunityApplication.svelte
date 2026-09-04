@@ -1640,6 +1640,9 @@
                   : "offline",
             }}
             communityName={currentCommunity?.name ?? "Community"}
+            {...activeConnection?.relayUrl === undefined
+              ? {}
+              : { communityUrl: activeConnection.relayUrl }}
             {authenticated}
             compact={navigationCompact}
             connectionStatus={community.state.status}
@@ -1663,6 +1666,11 @@
                     ),
                   );
               if (action === "settings") openSettings();
+              if (action === "copy-community-url" && activeConnection)
+                void copyText(
+                  activeConnection.relayUrl,
+                  "Community URL copied",
+                );
               if (action === "community-settings") relaySettingsOpen = true;
               if (action === "update-status")
                 void runAuthenticated(() => {
