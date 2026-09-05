@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { AppShellController } from "@lapismd/design-core/shell";
   import { onMount } from "svelte";
 
   import {
@@ -22,6 +23,10 @@
   import RegistryCommunityStoryHarness from "../registry-community/RegistryCommunityStoryHarness.svelte";
   import { createRegistryStoryDataSource } from "../registry-browser/story-fixtures.js";
   import CommunityApplication from "./CommunityApplicationRoot.svelte";
+  import {
+    COMMUNITY_APPLICATION_DESTINATION_STORAGE_KEY,
+    COMMUNITY_APPLICATION_SHELL_LAYOUT_STORAGE_KEY,
+  } from "./navigation.js";
 
   let {
     signedIn = true,
@@ -29,22 +34,41 @@
     loginIdentity = "operator",
     namespace,
     releaseMessages = false,
+    useDefaultShell = false,
+    persistenceScenario = false,
   }: {
     signedIn?: boolean;
     responsive?: boolean;
     loginIdentity?: "operator" | "participant";
     namespace?: string;
     releaseMessages?: boolean;
+    useDefaultShell?: boolean;
+    persistenceScenario?: boolean;
   } = $props();
 
   let runtime = $state.raw<CommunityStoryRuntime>();
   let community = $state.raw<CommunityController>();
   let runtimeError = $state("");
   let registrySource = $state.raw(createRegistryStoryDataSource());
+  let applicationGeneration = $state(0);
+  const storyShellController = new AppShellController({ rightClosed: true });
 
   onMount(() => {
     let active = true;
     let runtimeGeneration = 0;
+    try {
+      window.localStorage.removeItem(
+        COMMUNITY_APPLICATION_DESTINATION_STORAGE_KEY,
+      );
+      window.localStorage.removeItem(
+        COMMUNITY_APPLICATION_SHELL_LAYOUT_STORAGE_KEY,
+      );
+    } catch {
+      // Story coverage remains available when browser storage is unavailable.
+    }
+    const remountApplication = (): void => {
+      if (persistenceScenario) applicationGeneration += 1;
+    };
     const startRuntime = (): void => {
       const currentGeneration = ++runtimeGeneration;
       if (community && community !== runtime?.controller) community.dispose();
@@ -159,6 +183,10 @@
         });
     };
     window.addEventListener("community-story-backend-change", startRuntime);
+    window.addEventListener(
+      "community-story-remount-application",
+      remountApplication,
+    );
     startRuntime();
     return () => {
       active = false;
@@ -166,6 +194,10 @@
       window.removeEventListener(
         "community-story-backend-change",
         startRuntime,
+      );
+      window.removeEventListener(
+        "community-story-remount-application",
+        remountApplication,
       );
       if (community && community !== runtime?.controller) community.dispose();
       runtime?.dispose();
@@ -197,28 +229,32 @@
       <RegistryCommunityStoryHarness />
     </div>
   {/snippet}
-  <CommunityApplication
-    controller={community}
-    displayMode={responsive ? "auto" : "desktop"}
-    {...responsive ? {} : { desktopMinMainWidth: 0 }}
-    extensions={{ activityLog: () => {} }}
-    data-testid="full-community-application"
-    data-community-backend={runtime.backend}
-    registryOptions={{
-      source: registrySource,
-      discussion: registryDiscussion,
-      installActions: { ai: { state: "available" } },
-      onInstall: async () => {},
-    }}
-    {...signedIn
-      ? {}
-      : {
-          loginOptions: {
-            allowLocalKeyMethods: true,
-            connect: connectStoryIdentity,
-          },
-        }}
-  />
+  {#key applicationGeneration}
+    <CommunityApplication
+      controller={community}
+      {...useDefaultShell ? {} : { shellController: storyShellController }}
+      displayMode={responsive ? "auto" : "desktop"}
+      {...responsive ? {} : { desktopMinMainWidth: 0 }}
+      extensions={{ activityLog: () => {} }}
+      data-testid="full-community-application"
+      data-community-backend={runtime.backend}
+      data-application-generation={applicationGeneration}
+      registryOptions={{
+        source: registrySource,
+        discussion: registryDiscussion,
+        installActions: { ai: { state: "available" } },
+        onInstall: async () => {},
+      }}
+      {...signedIn
+        ? {}
+        : {
+            loginOptions: {
+              allowLocalKeyMethods: true,
+              connect: connectStoryIdentity,
+            },
+          }}
+    />
+  {/key}
 {:else}
   <p class="community-application-story__loading" role="status">
     Preparing signed community events…

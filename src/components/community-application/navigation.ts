@@ -31,6 +31,68 @@ export interface CommunityApplicationLocationTargets {
   messageIds?: readonly string[];
 }
 
+export const COMMUNITY_APPLICATION_DESTINATION_STORAGE_KEY =
+  "@lapismd/lapis-community/application-destination";
+export const COMMUNITY_APPLICATION_SHELL_LAYOUT_STORAGE_KEY =
+  "@lapismd/lapis-community/app-shell-layout";
+
+const COMMUNITY_APPLICATION_DESTINATION_VERSION = 1 as const;
+
+type CommunityApplicationDestinationStorage = Pick<
+  Storage,
+  "getItem" | "setItem"
+>;
+
+export function loadCommunityApplicationDestination(
+  storage: CommunityApplicationDestinationStorage | undefined,
+  key = COMMUNITY_APPLICATION_DESTINATION_STORAGE_KEY,
+): CommunityApplicationDestination | null {
+  if (!storage) return null;
+  try {
+    const serialized = storage.getItem(key);
+    if (!serialized) return null;
+    const value = JSON.parse(serialized) as unknown;
+    if (
+      typeof value !== "object" ||
+      value === null ||
+      !("version" in value) ||
+      value.version !== COMMUNITY_APPLICATION_DESTINATION_VERSION ||
+      !("destination" in value) ||
+      typeof value.destination !== "string"
+    ) {
+      return null;
+    }
+    const destination = value.destination;
+    return destination.length > 0 &&
+      destination.length <= 1024 &&
+      destination.trim() === destination &&
+      !/[\u0000-\u001f\u007f]/u.test(destination)
+      ? destination
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+export function saveCommunityApplicationDestination(
+  storage: CommunityApplicationDestinationStorage | undefined,
+  destination: CommunityApplicationDestination,
+  key = COMMUNITY_APPLICATION_DESTINATION_STORAGE_KEY,
+): void {
+  if (!storage) return;
+  try {
+    storage.setItem(
+      key,
+      JSON.stringify({
+        version: COMMUNITY_APPLICATION_DESTINATION_VERSION,
+        destination,
+      }),
+    );
+  } catch {
+    // Browser storage may be unavailable or full. Navigation remains usable.
+  }
+}
+
 export const noCommunityApplicationPanel = (): CommunityApplicationPanel => ({
   kind: "none",
 });

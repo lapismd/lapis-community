@@ -10,6 +10,7 @@
   import {
     AppShell,
     AppShellController,
+    createLocalStorageAppShellLayoutPersistence,
     type AppShellDisplayMode,
   } from "@lapismd/design-core/shell";
   import ChevronLeftIcon from "@lucide/svelte/icons/chevron-left";
@@ -87,14 +88,17 @@
     type CommunityMessageModel,
   } from "../community-workspace/model.js";
   import {
+    COMMUNITY_APPLICATION_SHELL_LAYOUT_STORAGE_KEY,
     communityApplicationPanelKey,
     createCommunityApplicationHistory,
     currentCommunityApplicationLocation,
+    loadCommunityApplicationDestination,
     moveCommunityApplicationHistory,
     noCommunityApplicationPanel,
     normalizeCommunityApplicationLocation,
     pushCommunityApplicationLocation,
     replaceCommunityApplicationLocation,
+    saveCommunityApplicationDestination,
     type CommunityApplicationDestination,
     type CommunityApplicationHistory,
     type CommunityApplicationLocation,
@@ -116,7 +120,7 @@
   let {
     controller: community,
     shellController,
-    initialDestination = "inbox",
+    initialDestination = "registry",
     displayMode = "auto",
     mobileBreakpoint = 1024,
     desktopMinMainWidth,
@@ -154,10 +158,14 @@
   const internalShellController = untrack(
     () =>
       new AppShellController({
+        leftCollapsed: true,
         rightClosed: true,
         rightWidth: 320,
         sidebarMinWidth: 48,
         sidebarMaxWidth: 440,
+        persistence: createLocalStorageAppShellLayoutPersistence(
+          COMMUNITY_APPLICATION_SHELL_LAYOUT_STORAGE_KEY,
+        ),
       }),
   );
   const shell = $derived(shellController ?? internalShellController);
@@ -165,11 +173,29 @@
     registryEnabled ??
       (registry !== undefined || registryOptions !== undefined),
   );
+  const browserStorage = untrack(() => {
+    try {
+      return typeof window === "undefined" ? undefined : window.localStorage;
+    } catch {
+      return undefined;
+    }
+  });
+  const initialApplicationDestination = untrack(() => {
+    const fallback =
+      !hasRegistry && registryRouteFromDestination(initialDestination) !== null
+        ? "inbox"
+        : initialDestination;
+    const persisted = loadCommunityApplicationDestination(browserStorage);
+    return persisted !== null &&
+      (hasRegistry || registryRouteFromDestination(persisted) === null)
+      ? persisted
+      : fallback;
+  });
   let navigationHistory = $state<CommunityApplicationHistory>(
-    createCommunityApplicationHistory(untrack(() => initialDestination)),
+    createCommunityApplicationHistory(initialApplicationDestination),
   );
   let registryRoute = $state<RegistryRoute>(
-    registryRouteFromDestination(untrack(() => initialDestination)) ?? {
+    registryRouteFromDestination(initialApplicationDestination) ?? {
       page: "landing",
     },
   );
@@ -200,6 +226,7 @@
   let sectionEditorMode = $state<"create" | "rename">("create");
   let sectionEditorId = $state("");
   let sectionName = $state("");
+  let initialLocationApplied = $state(false);
 
   const workspace = $derived(community.state.workspace);
   const applicationLocation = $derived(
@@ -856,6 +883,40 @@
         : roomByWorkspaceId(pending.roomId)?.membership;
     if (pending !== undefined && membership === "joined") {
       queueMicrotask(() => void resumePendingParticipation(pending));
+    }
+  });
+
+  $effect(() => {
+    saveCommunityApplicationDestination(browserStorage, activeDestination);
+  });
+
+  $effect(() => {
+    if (initialLocationApplied || !hasCommunitySurface) return;
+
+    const destination = activeDestination;
+    const registryDestination =
+      registryRouteFromDestination(destination) !== null;
+    const applicationDestination =
+      destination === "inbox" ||
+      destination === "settings" ||
+      destination === "new-direct-message" ||
+      registryDestination;
+    const room = applicationDestination
+      ? undefined
+      : allRooms.find((candidate) => candidate.id === destination);
+
+    initialLocationApplied = true;
+    if (!applicationDestination && !room) {
+      replaceLocation({
+        destination: hasRegistry
+          ? "registry"
+          : workspace.activeRoomId || "inbox",
+        panel: noCommunityApplicationPanel(),
+      });
+      return;
+    }
+    if (room && workspace.activeRoomId !== room.id) {
+      community.actions.selectRoom(room.id);
     }
   });
 

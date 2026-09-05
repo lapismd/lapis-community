@@ -1,13 +1,16 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  COMMUNITY_APPLICATION_DESTINATION_STORAGE_KEY,
   createCommunityApplicationHistory,
   currentCommunityApplicationLocation,
+  loadCommunityApplicationDestination,
   moveCommunityApplicationHistory,
   noCommunityApplicationPanel,
   normalizeCommunityApplicationLocation,
   pushCommunityApplicationLocation,
   replaceCommunityApplicationLocation,
+  saveCommunityApplicationDestination,
   type CommunityApplicationHistory,
   type CommunityApplicationLocation,
 } from "./navigation.js";
@@ -24,6 +27,57 @@ const push = (
   pushCommunityApplicationLocation(history, next);
 
 describe("Community application location history", () => {
+  it("persists only the current destination for refresh restoration", () => {
+    const values = new Map<string, string>();
+    const storage = {
+      getItem: (key: string) => values.get(key) ?? null,
+      setItem: (key: string, value: string) => values.set(key, value),
+    };
+
+    saveCommunityApplicationDestination(storage, "registry:plugin:ai");
+
+    expect(values.get(COMMUNITY_APPLICATION_DESTINATION_STORAGE_KEY)).toBe(
+      JSON.stringify({
+        version: 1,
+        destination: "registry:plugin:ai",
+      }),
+    );
+    expect(loadCommunityApplicationDestination(storage)).toBe(
+      "registry:plugin:ai",
+    );
+  });
+
+  it.each([
+    "not json",
+    JSON.stringify({ version: 2, destination: "registry" }),
+    JSON.stringify({ version: 1, destination: "" }),
+    JSON.stringify({ version: 1, destination: " registry" }),
+    JSON.stringify({ version: 1, destination: "registry\n" }),
+  ])("ignores an invalid persisted destination snapshot", (serialized) => {
+    expect(
+      loadCommunityApplicationDestination({
+        getItem: () => serialized,
+        setItem: () => undefined,
+      }),
+    ).toBeNull();
+  });
+
+  it("fails open when browser destination storage is unavailable", () => {
+    const storage = {
+      getItem: () => {
+        throw new Error("Storage is unavailable");
+      },
+      setItem: () => {
+        throw new Error("Storage is unavailable");
+      },
+    };
+
+    expect(loadCommunityApplicationDestination(storage)).toBeNull();
+    expect(() =>
+      saveCommunityApplicationDestination(storage, "registry"),
+    ).not.toThrow();
+  });
+
   it("records panel opening, replacement, and closing as exclusive states", () => {
     let history = createCommunityApplicationHistory("general");
     history = push(

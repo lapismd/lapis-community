@@ -16,6 +16,10 @@
   } from "../../testing/index.js";
   import { createRegistryStoryDataSource } from "../registry-browser/story-fixtures.js";
   import CommunityApplication from "./CommunityApplicationRoot.svelte";
+  import {
+    COMMUNITY_APPLICATION_DESTINATION_STORAGE_KEY,
+    COMMUNITY_APPLICATION_SHELL_LAYOUT_STORAGE_KEY,
+  } from "./navigation.js";
 
   let {
     scenario = "cached-offline",
@@ -50,6 +54,16 @@
 
   onMount(() => {
     let active = true;
+    try {
+      window.localStorage.removeItem(
+        COMMUNITY_APPLICATION_DESTINATION_STORAGE_KEY,
+      );
+      window.localStorage.removeItem(
+        COMMUNITY_APPLICATION_SHELL_LAYOUT_STORAGE_KEY,
+      );
+    } catch {
+      // Story coverage remains available when browser storage is unavailable.
+    }
     void start().catch((cause: unknown) => {
       if (active)
         failure = cause instanceof Error ? cause.message : "Cache story failed";

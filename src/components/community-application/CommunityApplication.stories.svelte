@@ -11,6 +11,10 @@
   import CommunityApplication from "./CommunityApplicationRoot.svelte";
   import CommunityApplicationStoryHarness from "./CommunityApplicationStoryHarness.svelte";
   import CommunityApplicationCacheStoryHarness from "./CommunityApplicationCacheStoryHarness.svelte";
+  import {
+    COMMUNITY_APPLICATION_DESTINATION_STORAGE_KEY,
+    COMMUNITY_APPLICATION_SHELL_LAYOUT_STORAGE_KEY,
+  } from "./navigation.js";
 
   const consumerSource = `<script lang="ts">
   import { onMount } from "svelte";
@@ -962,6 +966,118 @@
     <CommunityApplicationStoryHarness
       namespace="plugin-release-messages"
       releaseMessages
+    />
+  {/snippet}
+</Story>
+
+<Story
+  name="Persistent page and sidebar state"
+  play={async ({ canvas, canvasElement }) => {
+    const application = await canvas.findByTestId(
+      "full-community-application",
+      {},
+      { timeout: 15_000 },
+    );
+    await waitFor(
+      () =>
+        expect(application).toHaveAttribute(
+          "data-community-status",
+          "connected",
+        ),
+      { timeout: 15_000 },
+    );
+    await expect(
+      await canvas.findByRole("heading", { name: "Make Lapis Notes yours." }),
+    ).toBeVisible();
+    await expect(
+      canvas.getByRole("button", { name: "Expand left sidebar" }),
+    ).toBeVisible();
+
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Expand left sidebar" }),
+    );
+    await userEvent.click(
+      await canvas.findByRole("button", { name: "general" }),
+    );
+    await waitFor(() => {
+      const storage = canvasElement.ownerDocument.defaultView?.localStorage;
+      expect(
+        JSON.parse(
+          storage?.getItem(COMMUNITY_APPLICATION_DESTINATION_STORAGE_KEY) ??
+            "null",
+        ),
+      ).toEqual({ version: 1, destination: "general" });
+      expect(
+        JSON.parse(
+          storage?.getItem(COMMUNITY_APPLICATION_SHELL_LAYOUT_STORAGE_KEY) ??
+            "null",
+        ).panels.left.collapsed,
+      ).toBe(false);
+    });
+
+    const storyWindow = canvasElement.ownerDocument.defaultView;
+    if (!storyWindow) throw new Error("Expected a Storybook window");
+    storyWindow.dispatchEvent(
+      new storyWindow.Event("community-story-remount-application"),
+    );
+    await waitFor(() =>
+      expect(canvas.getByTestId("full-community-application")).toHaveAttribute(
+        "data-application-generation",
+        "1",
+      ),
+    );
+    await expect(
+      await canvas.findByRole("button", { name: "Collapse left sidebar" }),
+    ).toBeVisible();
+    await expect(
+      canvas.getByRole("button", { name: "general" }),
+    ).toHaveAttribute("aria-current", "page");
+
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Collapse left sidebar" }),
+    );
+    await userEvent.click(canvas.getByRole("button", { name: "Registry" }));
+    await expect(
+      await canvas.findByRole("heading", { name: "Make Lapis Notes yours." }),
+    ).toBeVisible();
+    await waitFor(() => {
+      const storage = canvasElement.ownerDocument.defaultView?.localStorage;
+      expect(
+        JSON.parse(
+          storage?.getItem(COMMUNITY_APPLICATION_DESTINATION_STORAGE_KEY) ??
+            "null",
+        ),
+      ).toEqual({ version: 1, destination: "registry" });
+      expect(
+        JSON.parse(
+          storage?.getItem(COMMUNITY_APPLICATION_SHELL_LAYOUT_STORAGE_KEY) ??
+            "null",
+        ).panels.left.collapsed,
+      ).toBe(true);
+    });
+
+    storyWindow.dispatchEvent(
+      new storyWindow.Event("community-story-remount-application"),
+    );
+    await waitFor(() =>
+      expect(canvas.getByTestId("full-community-application")).toHaveAttribute(
+        "data-application-generation",
+        "2",
+      ),
+    );
+    await expect(
+      canvas.getByRole("button", { name: "Expand left sidebar" }),
+    ).toBeVisible();
+    await expect(
+      canvas.getByRole("heading", { name: "Make Lapis Notes yours." }),
+    ).toBeVisible();
+  }}
+>
+  {#snippet template()}
+    <CommunityApplicationStoryHarness
+      namespace="persistent-application-state"
+      useDefaultShell
+      persistenceScenario
     />
   {/snippet}
 </Story>
