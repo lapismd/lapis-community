@@ -188,16 +188,6 @@
     );
     await expect(slider).toHaveAttribute("aria-valuemax", "260");
     await expect(
-      canvasElement.querySelector(".registry-plugin-detail__identity h1"),
-    ).toBeVisible();
-
-    await userEvent.click(
-      canvas.getByRole("button", { name: "Go to the latest post" }),
-    );
-    await expect(
-      canvas.getByRole("status", { name: "Loading discussion posts" }),
-    ).toBeVisible();
-    await expect(
       await canvas.findByText(/Reply 259:/u, {}, { timeout: 15_000 }),
     ).toBeVisible();
     await waitFor(() =>

@@ -23,6 +23,7 @@
     members = [],
     scopeRoom,
     canCreateChannel = false,
+    updating = false,
     onQueryChange = () => {},
     onSelectRoom = () => {},
     onSelectMessage = () => {},
@@ -37,6 +38,7 @@
     members?: readonly CommunityMemberModel[];
     scopeRoom?: CommunityRoomModel;
     canCreateChannel?: boolean;
+    updating?: boolean;
     onQueryChange?: (query: string) => void;
     onSelectRoom?: (room: CommunityRoomModel) => void;
     onSelectMessage?: (message: CommunitySearchMessageModel) => void;
@@ -140,6 +142,11 @@
       {/snippet}
     </Dialog.Close>
   </div>
+  {#if updating}
+    <p class="community-search-command__sync-status" role="status">
+      Updating older community results…
+    </p>
+  {/if}
   <Command.List id="community-search-command-results">
     {#if !scoped && scopeRoom}
       <Command.Group>
@@ -363,6 +370,11 @@
   :global(.community-search-command [data-ui-part="command-list"]) {
     max-height: min(39rem, calc(100vh - 9.5rem));
     padding: 0.75rem;
+  }
+  .community-search-command__sync-status {
+    margin: 0 0.5rem 0.35rem;
+    color: var(--muted-foreground);
+    font-size: 0.8rem;
   }
   :global(.community-search-command [data-ui-part="command-group"]) {
     padding: 0.25rem 0;

@@ -40,6 +40,7 @@
     composerStatus,
     onRetryComposerStatus,
     onDismissComposerStatus,
+    historyUpdating = false,
   }: {
     title?: string;
     description?: string;
@@ -61,6 +62,7 @@
     composerStatus?: ComposerStatus;
     onRetryComposerStatus?: () => void | Promise<void>;
     onDismissComposerStatus?: () => void;
+    historyUpdating?: boolean;
   } = $props();
 </script>
 
@@ -199,7 +201,13 @@
                   </span>
                 {/each}
               </span>
-              <span class="forum-topic-list__count">{topic.replyCount}</span>
+              <span
+                class="forum-topic-list__count"
+                aria-label={historyUpdating
+                  ? `${topic.replyCount} or more replies; older history is updating`
+                  : `${topic.replyCount} replies`}
+                >{topic.replyCount}{historyUpdating ? "+" : ""}</span
+              >
               <span class="forum-topic-list__activity"
                 >{topic.lastActivityLabel}</span
               >

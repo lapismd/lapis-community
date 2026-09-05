@@ -70,6 +70,19 @@
 </Story>
 
 <Story
+  name="Partial history"
+  play={async ({ canvas }) => {
+    await expect(
+      canvas.getByText("Updating older Inbox activity…"),
+    ).toBeVisible();
+  }}
+>
+  {#snippet template()}
+    <CommunityInboxStoryHarness historyUpdating />
+  {/snippet}
+</Story>
+
+<Story
   name="Selected thread"
   play={async ({ canvas, canvasElement }) => {
     const overlay = within(canvasElement.ownerDocument.body);
@@ -79,6 +92,12 @@
       expect(runtime).toHaveAttribute("data-community-status", "connected");
     });
     if (runtime.dataset.communityBackend === "live") return;
+    await waitFor(() => {
+      expect(runtime).toHaveAttribute(
+        "data-community-content-sync",
+        "complete",
+      );
+    });
 
     await expect(canvas.getByLabelText("Inbox conversations")).toBeVisible();
     await expect(

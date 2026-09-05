@@ -147,6 +147,7 @@ export interface CommunityControllerState {
   searchQuery: string;
   authentication: CommunityAuthenticationState;
   memberDirectory: CommunityMemberDirectoryState;
+  contentSync?: CommunityContentSyncState;
   navigation: CommunityNavigationPreferences;
   replyTarget?: CommunityReplyTarget;
   error?: string;
@@ -251,6 +252,39 @@ export interface CommunitySnapshot {
 
 export interface CommunitySynchronizationRequest {
   plan: CommunitySyncPlan;
+  strategy?: "complete" | "bootstrap";
+}
+
+export interface CommunityContentCursor {
+  createdAt: number;
+  eventId: string;
+}
+
+export type CommunityContentCollection =
+  | "channel-roots"
+  | "forum-topics"
+  | "thread"
+  | "room-history";
+
+export interface CommunityContentWindowRequest {
+  collection: CommunityContentCollection;
+  groupId: string;
+  rootEventId?: string;
+  before?: CommunityContentCursor;
+  limit: number;
+}
+
+export interface CommunityContentWindow {
+  events: readonly NostrEvent[];
+  primaryEventIds: readonly string[];
+  olderCursor?: CommunityContentCursor;
+  hasOlder: boolean;
+}
+
+export interface CommunityContentSyncState {
+  phase: "initial" | "background" | "complete" | "partial-error";
+  rooms: Readonly<Record<string, "unloaded" | "partial" | "complete">>;
+  message?: string;
 }
 
 export type CommunityCacheAudience =
@@ -262,6 +296,8 @@ export interface CommunitySyncCheckpoint {
   stream: string;
   createdAt: number;
   synchronizedAt: number;
+  cursorEventId?: string;
+  complete?: boolean;
 }
 
 export interface CommunityCachedScope {
@@ -402,6 +438,10 @@ export interface CommunitySession {
     request: CommunitySynchronizationRequest,
     signal?: AbortSignal,
   ): Promise<CommunitySnapshot>;
+  loadContentWindow?(
+    request: CommunityContentWindowRequest,
+    signal?: AbortSignal,
+  ): Promise<CommunityContentWindow>;
   subscribe(
     listener: (events: readonly NostrEvent[]) => void,
     signal?: AbortSignal,

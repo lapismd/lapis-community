@@ -309,6 +309,202 @@ describe("createNip29CommunitySource", () => {
     session.close();
   });
 
+  it("bootstraps authoritative state without querying unbounded room history", async () => {
+    const scenario = createCommunityTestScenario();
+    const relayFactory = createInMemoryRelayFactory({
+      policy: new Nip29MemoryPolicy({
+        relaySecretKey: relayKey,
+        now: () => 1_700_000_000,
+      }),
+    });
+    const relay = relayFactory.relay(scenario.scope.relayUrl);
+    await scenario.seed(relay);
+    const query = vi.spyOn(relay, "query");
+    const session = await createNip29CommunitySource({ relayFactory }).open(
+      scenario.scope,
+      { identity: scenario.operator },
+    );
+
+    const snapshot = await session.synchronize?.({
+      strategy: "bootstrap",
+      plan: { checkpoints: [], cachedEventIds: [] },
+    });
+
+    expect(snapshot?.complete).toBe(false);
+    expect(snapshot?.events.some((event) => event.kind === 39_000)).toBe(true);
+    expect(
+      query.mock.calls.some(
+        ([filter]) =>
+          filter["#h"] !== undefined &&
+          filter.kinds?.some((kind) => [9, 11, 1_111].includes(kind)),
+      ),
+    ).toBe(false);
+    session.close();
+  });
+
+  it("loads deterministic bounded room windows with exclusive cursors", async () => {
+    const scenario = createCommunityTestScenario();
+    const relayFactory = createInMemoryRelayFactory({
+      policy: new Nip29MemoryPolicy({
+        relaySecretKey: relayKey,
+        now: () => 1_700_000_000,
+      }),
+    });
+    const relay = relayFactory.relay(scenario.scope.relayUrl);
+    await scenario.seed(relay);
+    for (let index = 0; index < 5; index += 1) {
+      await relay.publish(
+        await scenario.member.signEvent({
+          kind: 9,
+          created_at: 1_700_000_100 + index,
+          content: `Paged message ${index + 1}`,
+          tags: [["h", "general"]],
+        }),
+      );
+    }
+    const session = await createNip29CommunitySource({ relayFactory }).open(
+      scenario.scope,
+      { identity: scenario.operator },
+    );
+
+    const latest = await session.loadContentWindow?.({
+      collection: "channel-roots",
+      groupId: "general",
+      limit: 2,
+    });
+    expect(latest?.primaryEventIds).toHaveLength(2);
+    expect(latest?.hasOlder).toBe(true);
+    const previous = await session.loadContentWindow?.({
+      collection: "channel-roots",
+      groupId: "general",
+      before: latest!.olderCursor!,
+      limit: 2,
+    });
+    expect(previous?.primaryEventIds).toHaveLength(2);
+    expect(
+      previous?.primaryEventIds.some((id) =>
+        latest?.primaryEventIds.includes(id),
+      ),
+    ).toBe(false);
+    session.close();
+  });
+
+  it("globally bounds merged relay windows and authenticates each relay once", async () => {
+    const scenario = createCommunityTestScenario({
+      relayUrl: "memory://bounded-primary.test",
+    });
+    const mirrorUrl = "memory://bounded-mirror.test";
+    const scope = { ...scenario.scope, readRelayUrls: [mirrorUrl] };
+    const relayFactory = createInMemoryRelayFactory();
+    const primary = relayFactory.relay(scope.relayUrl);
+    const mirror = relayFactory.relay(mirrorUrl);
+    const events = await Promise.all(
+      Array.from({ length: 4 }, (_, index) =>
+        scenario.member.signEvent({
+          kind: 9,
+          created_at: 1_700_000_100 + index,
+          content: `Merged message ${index + 1}`,
+          tags: [["h", "merged"]],
+        }),
+      ),
+    );
+    primary.inject(events[0]!);
+    primary.inject(events[2]!);
+    mirror.inject(events[1]!);
+    mirror.inject(events[2]!);
+    mirror.inject(events[3]!);
+    const primaryAuthenticate = vi.spyOn(primary, "authenticate");
+    const mirrorAuthenticate = vi.spyOn(mirror, "authenticate");
+    const session = await createNip29CommunitySource({ relayFactory }).open(
+      scope,
+      { identity: scenario.operator },
+    );
+
+    const first = await session.loadContentWindow?.({
+      collection: "channel-roots",
+      groupId: "merged",
+      limit: 2,
+    });
+    const second = await session.loadContentWindow?.({
+      collection: "channel-roots",
+      groupId: "merged",
+      limit: 2,
+    });
+
+    expect(first?.primaryEventIds).toEqual([events[2]!.id, events[3]!.id]);
+    expect(second?.primaryEventIds).toEqual(first?.primaryEventIds);
+    expect(primaryAuthenticate).toHaveBeenCalledTimes(1);
+    expect(mirrorAuthenticate).toHaveBeenCalledTimes(1);
+    session.close();
+  });
+
+  it("fills channel-root windows across reply-dense bounded relay pages", async () => {
+    const scenario = createCommunityTestScenario();
+    const relayFactory = createInMemoryRelayFactory({
+      policy: new Nip29MemoryPolicy({
+        relaySecretKey: relayKey,
+        now: () => 1_700_000_000,
+      }),
+    });
+    const relay = relayFactory.relay(scenario.scope.relayUrl);
+    const roots = await Promise.all(
+      Array.from({ length: 3 }, (_, index) =>
+        scenario.member.signEvent({
+          kind: 9,
+          created_at: 1_700_000_100 + index,
+          content: `Root ${index + 1}`,
+          tags: [["h", "dense"]],
+        }),
+      ),
+    );
+    for (const root of roots) relay.inject(root);
+    for (let index = 0; index < 120; index += 1) {
+      relay.inject(
+        await scenario.member.signEvent({
+          kind: 9,
+          created_at: 1_700_000_200 + index,
+          content: `Reply ${index + 1}`,
+          tags: [
+            ["h", "dense"],
+            ["e", roots[2]!.id, "", "root"],
+          ],
+        }),
+      );
+    }
+    const query = vi.spyOn(relay, "query");
+    const session = await createNip29CommunitySource({ relayFactory }).open(
+      scenario.scope,
+      { identity: scenario.operator },
+    );
+
+    const latest = await session.loadContentWindow?.({
+      collection: "channel-roots",
+      groupId: "dense",
+      limit: 2,
+    });
+    expect(latest?.primaryEventIds).toEqual([roots[1]!.id, roots[2]!.id]);
+    expect(latest?.hasOlder).toBe(true);
+    const previous = await session.loadContentWindow?.({
+      collection: "channel-roots",
+      groupId: "dense",
+      before: latest!.olderCursor!,
+      limit: 2,
+    });
+    expect(previous?.primaryEventIds).toEqual([roots[0]!.id]);
+    expect(previous?.hasOlder).toBe(false);
+    expect(
+      query.mock.calls
+        .map(([filter]) => filter)
+        .filter((filter) => filter["#h"]?.includes("dense"))
+        .every(
+          (filter) =>
+            filter.limit !== undefined &&
+            (filter.limit <= 100 || filter.limit === 1_001),
+        ),
+    ).toBe(true);
+    session.close();
+  });
+
   it("publishes signed commands through only the authoritative relay", async () => {
     const scenario = createCommunityTestScenario({
       relayUrl: "memory://authority.test",

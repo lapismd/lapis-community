@@ -64,6 +64,8 @@ function runEventStoreContract(
             stream: "content",
             createdAt: publicEvent.created_at,
             synchronizedAt: 1_700_000_020,
+            cursorEventId: publicEvent.id,
+            complete: false,
           },
         ],
       });
@@ -76,6 +78,8 @@ function runEventStoreContract(
           stream: "content",
           createdAt: publicEvent.created_at,
           synchronizedAt: 1_700_000_020,
+          cursorEventId: publicEvent.id,
+          complete: false,
         },
       ]);
       expect((await store.syncPlan(scope)).cachedEventIds).toEqual([

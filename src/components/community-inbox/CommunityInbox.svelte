@@ -48,6 +48,7 @@
     disabledReason = "Reconnect to participate",
     currentMemberId,
     canDeleteAny = false,
+    historyUpdating = false,
   }: {
     model: CommunityInboxModel;
     rooms?: readonly CommunityRoomModel[];
@@ -85,6 +86,7 @@
     disabledReason?: string;
     currentMemberId?: string;
     canDeleteAny?: boolean;
+    historyUpdating?: boolean;
   } = $props();
 
   let filter = $state<"All" | "Mentions" | "Threads">("All");
@@ -189,6 +191,11 @@
     class="lc-community-inbox__list-region"
   >
     <div class="lc-community-inbox__list">
+      {#if historyUpdating}
+        <p class="lc-community-inbox__sync-status" role="status">
+          Updating older Inbox activity…
+        </p>
+      {/if}
       <header class="lc-community-inbox__list-header">
         <DropdownMenu.Root>
           <DropdownMenu.Trigger>

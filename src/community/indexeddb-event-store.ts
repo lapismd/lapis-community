@@ -121,6 +121,12 @@ class IndexedDbCommunityEventStore extends BaseCommunityEventStore {
         stream: checkpoint.stream,
         createdAt: checkpoint.createdAt,
         synchronizedAt: checkpoint.synchronizedAt,
+        ...(checkpoint.cursorEventId === undefined
+          ? {}
+          : { cursorEventId: checkpoint.cursorEventId }),
+        ...(checkpoint.complete === undefined
+          ? {}
+          : { complete: checkpoint.complete }),
       })),
       approximateBytes: validRows.reduce((total, row) => total + row.bytes, 0),
     };

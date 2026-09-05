@@ -12,6 +12,8 @@ import { createNip17GiftWraps, unwrapNip17GiftWrap } from "./nip17.js";
 import type {
   CommunityCapabilities,
   CommunityCommand,
+  CommunityContentWindow,
+  CommunityContentWindowRequest,
   CommunityDataSource,
   CommunityDataSourceContext,
   CommunityPrivateEvent,
@@ -31,6 +33,7 @@ export interface Nip29CommunitySourceOptions {
 const COMMUNITY_CONTENT_KINDS = [5, 7, 9, 11, 1_111, 9_005] as const;
 const COMMUNITY_STATE_KINDS = [39_000, 39_001, 39_002] as const;
 const PUBLIC_ROOM_DISCOVERY_LIMIT = 1_000;
+const CONTENT_BOUNDARY_LIMIT = 1_000;
 
 export function createNip29CommunitySource(
   options: Nip29CommunitySourceOptions,
@@ -89,6 +92,73 @@ class Nip29CommunitySession implements CommunitySession {
     return this.#snapshot(request, signal);
   }
 
+  async loadContentWindow(
+    request: CommunityContentWindowRequest,
+    signal?: AbortSignal,
+  ): Promise<CommunityContentWindow> {
+    this.#assertOpen(signal);
+    if (request.groupId.trim() === "") {
+      throw new Error("A community content window requires a group ID");
+    }
+    if (request.collection === "thread" && !request.rootEventId) {
+      throw new Error("A thread content window requires a root event ID");
+    }
+    await Promise.all(
+      this.#relays.map(async (relay) => this.#authenticate(relay, signal)),
+    );
+    const requestedLimit = Math.floor(request.limit);
+    const limit = Number.isFinite(requestedLimit)
+      ? Math.max(1, Math.min(100, requestedLimit))
+      : 1;
+    const filter = contentWindowFilter(request);
+    const page = await this.#queryContentPage(
+      filter,
+      request.collection,
+      request.before,
+      limit,
+      signal,
+    );
+    const targets = page.events.map((event) => event.id);
+    const referenced =
+      targets.length === 0
+        ? []
+        : await this.#queryUnion(
+            this.#relays,
+            {
+              kinds: [5, 7, 9_005],
+              "#e": targets,
+              limit: Math.min(500, Math.max(25, targets.length * 10)),
+            },
+            signal,
+          );
+    const authors = [
+      ...new Set([...page.events, ...referenced].map((event) => event.pubkey)),
+    ];
+    const profiles =
+      authors.length === 0
+        ? []
+        : await this.#queryUnion(
+            this.#relays,
+            { kinds: [0, 30_030, 30_315], authors, limit: authors.length * 3 },
+            signal,
+          );
+    await this.#subscribeToTargets(targets, signal);
+    await this.#subscribeToProfiles(authors, signal);
+    return {
+      events: distinctEvents([...page.events, ...referenced, ...profiles]),
+      primaryEventIds: page.events.map((event) => event.id),
+      ...(page.events[0] === undefined
+        ? {}
+        : {
+            olderCursor: {
+              createdAt: page.events[0].created_at,
+              eventId: page.events[0].id,
+            },
+          }),
+      hasOlder: page.hasOlder,
+    };
+  }
+
   async #snapshot(
     request: CommunitySynchronizationRequest | undefined,
     signal?: AbortSignal,
@@ -120,16 +190,19 @@ class Nip29CommunitySession implements CommunitySession {
     }
     await this.#subscribeToRooms(groupIds, signal);
 
+    const bootstrap = request?.strategy === "bootstrap";
     const contentSince = synchronizationSince(request);
-    const content = await this.#queryUnion(
-      this.#relays,
-      {
-        kinds: [...COMMUNITY_CONTENT_KINDS],
-        "#h": groupIds,
-        ...(contentSince === undefined ? {} : { since: contentSince }),
-      },
-      signal,
-    );
+    const content = bootstrap
+      ? []
+      : await this.#queryUnion(
+          this.#relays,
+          {
+            kinds: [...COMMUNITY_CONTENT_KINDS],
+            "#h": groupIds,
+            ...(contentSince === undefined ? {} : { since: contentSince }),
+          },
+          signal,
+        );
     const state = await this.#queryUnion(
       [this.#authority],
       { kinds: [...COMMUNITY_STATE_KINDS], "#d": groupIds },
@@ -206,13 +279,103 @@ class Nip29CommunitySession implements CommunitySession {
         ? {}
         : { privateEvents: privateResult.events }),
       capabilities: this.#capabilities(),
-      checkpoints: this.#relays.map((relay) => ({
-        relayUrl: relay.url,
-        stream: "content",
-        createdAt,
-        synchronizedAt,
-      })),
-      complete: request === undefined || request.plan.checkpoints.length === 0,
+      ...(bootstrap
+        ? {}
+        : {
+            checkpoints: this.#relays.map((relay) => ({
+              relayUrl: relay.url,
+              stream: "content",
+              createdAt,
+              synchronizedAt,
+            })),
+          }),
+      complete:
+        !bootstrap &&
+        (request === undefined || request.plan.checkpoints.length === 0),
+    };
+  }
+
+  async #queryContentPage(
+    filter: RelayFilter,
+    collection: CommunityContentWindowRequest["collection"],
+    before: CommunityContentWindowRequest["before"],
+    limit: number,
+    signal?: AbortSignal,
+  ): Promise<{ events: NostrEvent[]; hasOlder: boolean }> {
+    const primary = new Map<string, NostrEvent>();
+    let cursor = before;
+    let hasOlder = false;
+    for (;;) {
+      const page = await this.#queryRawContentPage(
+        filter,
+        cursor,
+        Math.max(limit, 100),
+        signal,
+      );
+      for (const event of page.events) {
+        if (contentWindowPrimary(event, collection)) {
+          primary.set(event.id, event);
+        }
+      }
+      const selected = distinctEvents([...primary.values()]).slice(-limit);
+      hasOlder = page.hasOlder || primary.size > selected.length;
+      if (
+        selected.length >= limit ||
+        !page.hasOlder ||
+        page.events.length === 0
+      ) {
+        return { events: selected, hasOlder };
+      }
+      const oldest = page.events[0];
+      if (oldest === undefined) return { events: selected, hasOlder: false };
+      cursor = { createdAt: oldest.created_at, eventId: oldest.id };
+    }
+  }
+
+  async #queryRawContentPage(
+    filter: RelayFilter,
+    before: CommunityContentWindowRequest["before"],
+    limit: number,
+    signal?: AbortSignal,
+  ): Promise<{ events: NostrEvent[]; hasOlder: boolean }> {
+    const boundaryEvents =
+      before === undefined
+        ? []
+        : await this.#queryUnion(
+            this.#relays,
+            {
+              ...filter,
+              since: before.createdAt,
+              until: before.createdAt,
+              limit: CONTENT_BOUNDARY_LIMIT + 1,
+            },
+            signal,
+          );
+    if (boundaryEvents.length > CONTENT_BOUNDARY_LIMIT) {
+      throw new Error(
+        `More than ${CONTENT_BOUNDARY_LIMIT} community events share one relay timestamp`,
+      );
+    }
+    const older = await this.#queryUnion(
+      this.#relays,
+      {
+        ...filter,
+        ...(before === undefined ? {} : { until: before.createdAt - 1 }),
+        limit: Math.min(100, limit),
+      },
+      signal,
+    );
+    const candidates = distinctEvents([...older, ...boundaryEvents]).filter(
+      (event) =>
+        before === undefined ||
+        event.created_at < before.createdAt ||
+        (event.created_at === before.createdAt &&
+          event.id.localeCompare(before.eventId) < 0),
+    );
+    const selected = candidates.slice(-limit);
+    return {
+      events: selected,
+      hasOlder: candidates.length > selected.length || older.length >= limit,
     };
   }
 
@@ -450,7 +613,10 @@ class Nip29CommunitySession implements CommunitySession {
         `No configured community relay answered: ${messages.join("; ")}`,
       );
     }
-    return distinctEvents(successful.flatMap((result) => result.value));
+    const events = distinctEvents(successful.flatMap((result) => result.value));
+    return filter.limit === undefined
+      ? events
+      : events.slice(-Math.max(0, filter.limit));
   }
 
   async #authenticate(
@@ -806,6 +972,43 @@ function normalizeRelayUrl(value: string): string {
     throw new Error(`Unsupported community relay protocol: ${url.protocol}`);
   }
   return url.toString();
+}
+
+function contentWindowFilter(
+  request: CommunityContentWindowRequest,
+): RelayFilter {
+  const context = { "#h": [request.groupId] };
+  switch (request.collection) {
+    case "channel-roots":
+      return { kinds: [9], ...context };
+    case "forum-topics":
+      return { kinds: [11], ...context };
+    case "thread":
+      return {
+        kinds: [9, 1_111],
+        ...context,
+        "#e": [request.rootEventId!],
+      };
+    case "room-history":
+      return { kinds: [...COMMUNITY_CONTENT_KINDS], ...context };
+  }
+}
+
+function contentWindowPrimary(
+  event: NostrEvent,
+  collection: CommunityContentWindowRequest["collection"],
+): boolean {
+  if (collection === "channel-roots") {
+    return (
+      event.kind === 9 &&
+      !event.tags.some((tag) => tag[0] === "e" || tag[0] === "E")
+    );
+  }
+  if (collection === "forum-topics") return event.kind === 11;
+  if (collection === "thread") {
+    return event.kind === 9 || event.kind === 1_111;
+  }
+  return COMMUNITY_CONTENT_KINDS.some((kind) => kind === event.kind);
 }
 
 function distinctEvents(events: readonly NostrEvent[]): NostrEvent[] {

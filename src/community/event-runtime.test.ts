@@ -94,6 +94,71 @@ describe("CommunityEventRuntime", () => {
     restored.dispose();
   });
 
+  it("waits for durable checkpoint commits and surfaces commit failures", async () => {
+    const store = createMemoryCommunityEventStore();
+    const originalCommit = store.commit.bind(store);
+    let releaseCommit!: () => void;
+    const commitGate = new Promise<void>((resolve) => {
+      releaseCommit = resolve;
+    });
+    let failCheckpoint = false;
+    vi.spyOn(store, "commit").mockImplementation(async (batch) => {
+      if (batch.checkpoints !== undefined) {
+        await commitGate;
+        if (failCheckpoint) throw new Error("checkpoint storage failed");
+      }
+      await originalCommit(batch);
+    });
+    const runtime = createInlineCommunityEventRuntime({ store });
+    await runtime.restore([scope], 1);
+    const checkpoint = {
+      relayUrl: scope.relayUrl,
+      stream: "history:general",
+      createdAt: 1_700_000_000,
+      synchronizedAt: 1_700_000_010,
+      cursorEventId: "aa".repeat(32),
+      complete: false,
+    };
+    let settled = false;
+    const pending = runtime
+      .ingest({
+        generation: 1,
+        scope,
+        relayUrl: scope.relayUrl,
+        events: [],
+        checkpoints: [checkpoint],
+      })
+      .then(() => {
+        settled = true;
+      });
+    await new Promise<void>((resolve) => queueMicrotask(resolve));
+    expect(settled).toBe(false);
+    releaseCommit();
+    await pending;
+    const persistedCheckpoint = {
+      ...checkpoint,
+      relayUrl: "memory://runtime.test/",
+    };
+    expect((await store.syncPlan(scope)).checkpoints).toEqual([
+      persistedCheckpoint,
+    ]);
+
+    failCheckpoint = true;
+    await expect(
+      runtime.ingest({
+        generation: 1,
+        scope,
+        relayUrl: scope.relayUrl,
+        events: [],
+        checkpoints: [{ ...checkpoint, createdAt: 1_699_999_999 }],
+      }),
+    ).rejects.toThrow("checkpoint storage failed");
+    expect((await store.syncPlan(scope)).checkpoints).toEqual([
+      persistedCheckpoint,
+    ]);
+    runtime.dispose();
+  });
+
   it("caches registry publisher authorization without presenting it as a message or search result", async () => {
     const store = createMemoryCommunityEventStore();
     const runtime = createInlineCommunityEventRuntime({ store });

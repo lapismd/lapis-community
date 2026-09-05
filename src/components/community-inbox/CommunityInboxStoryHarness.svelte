@@ -10,7 +10,10 @@
   import CommunityInbox from "./CommunityInbox.svelte";
   import { communityInboxFixture } from "./story-fixtures.js";
 
-  let { empty = false }: { empty?: boolean } = $props();
+  let {
+    empty = false,
+    historyUpdating = false,
+  }: { empty?: boolean; historyUpdating?: boolean } = $props();
 
   let runtime = $state<CommunityStoryRuntime>();
   let community = $state<CommunityController>();
@@ -90,11 +93,13 @@
   desktopMinMainWidth={0}
   data-testid="community-inbox-runtime"
   data-community-status={community?.state.status ?? "loading"}
+  data-community-content-sync={community?.state.contentSync?.phase ?? "legacy"}
   data-community-backend={runtime?.backend ?? "loading"}
 >
   <AppShell.Main>
     <CommunityInbox
       {model}
+      {historyUpdating}
       onSend={send}
       onMarkAllRead={() => void community?.actions.markAllRead()}
     />

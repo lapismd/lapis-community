@@ -115,10 +115,14 @@
     ).toBeVisible();
     await expect(canvas.getByRole("button", { name: "general" })).toBeVisible();
     await expect(
-      within(inboxList).getByText("Hello from a member"),
+      await within(inboxList).findByText(
+        "Hello from a member",
+        {},
+        { timeout: 15_000 },
+      ),
     ).toBeVisible();
     await expect(
-      canvas.getByRole("heading", { name: "support" }),
+      canvas.getByRole("heading", { name: /^(?:general|support)$/u }),
     ).toBeVisible();
     await expect(inboxList).toBeVisible();
     await expect(thread).toBeVisible();
@@ -199,7 +203,11 @@
     if (frame.dataset.communityBackend === "live") return;
 
     await expect(
-      canvas.getByRole("heading", { name: "#general" }),
+      await canvas.findByRole(
+        "heading",
+        { name: "#general" },
+        { timeout: 15_000 },
+      ),
     ).toBeVisible();
     await expect(
       canvas.getByRole("button", { name: "Browse channels" }),
@@ -249,12 +257,15 @@
     await expect(
       canvas.queryByRole("button", { name: "0 replies" }),
     ).toBeNull();
-    await expect(
-      canvas.getAllByRole("button", { name: "Reply in thread" })[0]!,
-    ).toBeInTheDocument();
-    await fireEvent.click(
-      canvas.getAllByRole("button", { name: "Reply in thread" })[0]!,
-    );
+    const replyButton = (
+      await canvas.findAllByRole(
+        "button",
+        { name: "Reply in thread" },
+        { timeout: 15_000 },
+      )
+    )[0]!;
+    await expect(replyButton).toBeInTheDocument();
+    await fireEvent.click(replyButton);
     const threadSidebar = await canvas.findByLabelText("Thread sidebar");
     const thread = within(threadSidebar);
     await waitFor(

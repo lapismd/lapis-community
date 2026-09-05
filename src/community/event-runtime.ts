@@ -137,8 +137,10 @@ export class InlineCommunityEventRuntime implements CommunityEventRuntime {
           ? {}
           : { checkpoints: batch.checkpoints }),
       };
-      this.#writeQueue = this.#writeQueue
-        .then(() => this.#store.commit(persistedBatch))
+      const commit = this.#writeQueue.then(() =>
+        this.#store.commit(persistedBatch),
+      );
+      this.#writeQueue = commit
         .then(() => {
           this.#writeError = undefined;
         })
@@ -147,6 +149,7 @@ export class InlineCommunityEventRuntime implements CommunityEventRuntime {
             cause instanceof Error ? cause.message : String(cause)
           }`;
         });
+      if (batch.checkpoints !== undefined) await commit;
       this.#approximateBytes += accepted.reduce(
         (total, event) =>
           total +

@@ -110,3 +110,20 @@
     ).not.toBeNull();
   }}
 />
+
+<Story
+  name="Partial reply counts"
+  args={{
+    title: "support-ai",
+    topics: communityStoryTopics,
+    members: communityStoryMembers,
+    historyUpdating: true,
+    onOpenTopic: fn(),
+    onCreateTopic: fn(async () => {}),
+  }}
+  play={async ({ canvas }) => {
+    await expect(
+      canvas.getByLabelText("34 or more replies; older history is updating"),
+    ).toHaveTextContent("34+");
+  }}
+/>

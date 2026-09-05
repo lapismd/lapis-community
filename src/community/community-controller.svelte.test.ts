@@ -1,7 +1,10 @@
 import { finalizeEvent } from "nostr-tools/pure";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import type { CommunityCapabilities } from "./contracts.js";
+import type {
+  CommunityCapabilities,
+  CommunityContentWindowRequest,
+} from "./contracts.js";
 import {
   createCommunityController,
   normalizeCommunityOperationFailure,
@@ -41,6 +44,282 @@ async function connected(current: CommunityTestRuntime): Promise<void> {
 }
 
 describe("createCommunityController", () => {
+  it("becomes connected after bootstrap while bounded history continues", async () => {
+    const event = finalizeEvent(
+      {
+        kind: 9,
+        created_at: 1_700_000_000,
+        content: "Loaded after bootstrap",
+        tags: [["h", "general"]],
+      },
+      new Uint8Array(32).fill(44),
+    );
+    let releaseFirstWindow!: () => void;
+    const firstWindow = new Promise<void>((resolve) => {
+      releaseFirstWindow = resolve;
+    });
+    const synchronize = vi.fn(async () => ({
+      events: [],
+      capabilities: NO_TEST_CAPABILITIES,
+      complete: false,
+    }));
+    const loadContentWindow = vi.fn(
+      async (_request: CommunityContentWindowRequest) => {
+        if (loadContentWindow.mock.calls.length === 1) await firstWindow;
+        return {
+          events: [event],
+          primaryEventIds: [event.id],
+          olderCursor: { createdAt: event.created_at, eventId: event.id },
+          hasOlder: false,
+        };
+      },
+    );
+    const controller = createCommunityController({
+      scopes: [
+        {
+          id: "lapis",
+          name: "Lapis Community",
+          relayUrl: "memory://progressive.test",
+          rooms: [
+            {
+              id: "general",
+              groupId: "general",
+              name: "general",
+              kind: "channel",
+            },
+          ],
+        },
+      ],
+      source: {
+        async open() {
+          return {
+            async snapshot() {
+              throw new Error("complete snapshot should not be used");
+            },
+            synchronize,
+            loadContentWindow,
+            async subscribe() {
+              return { close() {} };
+            },
+            async execute() {
+              return [];
+            },
+            async search() {
+              return [];
+            },
+            close() {},
+          };
+        },
+      },
+    });
+
+    controller.initialize();
+    await vi.waitFor(() => expect(controller.state.status).toBe("connected"));
+    expect(controller.state.cache.freshness).toBe("synchronizing");
+    expect(controller.state.contentSync?.phase).toBe("background");
+    expect(synchronize).toHaveBeenCalledWith(
+      expect.objectContaining({ strategy: "bootstrap" }),
+      expect.any(AbortSignal),
+    );
+    expect(controller.state.workspace.messages).toHaveLength(0);
+
+    releaseFirstWindow();
+    await vi.waitFor(() =>
+      expect(controller.state.contentSync?.phase).toBe("complete"),
+    );
+    expect(controller.state.workspace.messages).toMatchObject([
+      { content: "Loaded after bootstrap" },
+    ]);
+    expect(controller.state.cache.freshness).toBe("current");
+    expect(loadContentWindow.mock.calls.map(([request]) => request)).toEqual([
+      expect.objectContaining({ collection: "channel-roots", limit: 50 }),
+      expect.objectContaining({ collection: "room-history", limit: 100 }),
+    ]);
+    controller.dispose();
+  });
+
+  it("interrupts background history to prioritize a newly selected room", async () => {
+    let firstGeneralSignal: AbortSignal | undefined;
+    let firstGeneralAborted = false;
+    const loadContentWindow = vi.fn(
+      async (request: CommunityContentWindowRequest, signal?: AbortSignal) => {
+        if (
+          request.collection === "channel-roots" &&
+          request.groupId === "general" &&
+          firstGeneralSignal === undefined
+        ) {
+          firstGeneralSignal = signal;
+          await new Promise<void>((_resolve, reject) => {
+            signal?.addEventListener(
+              "abort",
+              () => {
+                firstGeneralAborted = true;
+                reject(signal.reason);
+              },
+              { once: true },
+            );
+          });
+        }
+        return { events: [], primaryEventIds: [], hasOlder: false };
+      },
+    );
+    const controller = createCommunityController({
+      scopes: [
+        {
+          id: "lapis",
+          name: "Lapis Community",
+          relayUrl: "memory://priority.test",
+          rooms: [
+            {
+              id: "general",
+              groupId: "general",
+              name: "general",
+              kind: "channel",
+            },
+            {
+              id: "support",
+              groupId: "support",
+              name: "support",
+              kind: "forum",
+            },
+          ],
+        },
+      ],
+      source: {
+        async open() {
+          return {
+            async snapshot() {
+              throw new Error("complete snapshot should not be used");
+            },
+            async synchronize() {
+              return {
+                events: [],
+                capabilities: NO_TEST_CAPABILITIES,
+                complete: false,
+              };
+            },
+            loadContentWindow,
+            async subscribe() {
+              return { close() {} };
+            },
+            async execute() {
+              return [];
+            },
+            async search() {
+              return [];
+            },
+            close() {},
+          };
+        },
+      },
+    });
+
+    controller.initialize();
+    await vi.waitFor(() => expect(firstGeneralSignal).toBeDefined());
+    controller.actions.selectRoom("support");
+
+    await vi.waitFor(() => expect(firstGeneralAborted).toBe(true));
+    await vi.waitFor(() =>
+      expect(
+        loadContentWindow.mock.calls.some(
+          ([request]) =>
+            request.collection === "forum-topics" &&
+            request.groupId === "support",
+        ),
+      ).toBe(true),
+    );
+    expect(controller.state.workspace.activeRoomId).toBe("support");
+    controller.dispose();
+  });
+
+  it("keeps loaded data usable after background failure and resumes on refresh", async () => {
+    const event = finalizeEvent(
+      {
+        kind: 9,
+        created_at: 1_700_000_000,
+        content: "Recovered bounded history",
+        tags: [["h", "general"]],
+      },
+      new Uint8Array(32).fill(45),
+    );
+    let failNextWindow = true;
+    const loadContentWindow = vi.fn(
+      async (_request: CommunityContentWindowRequest) => {
+        if (failNextWindow) {
+          failNextWindow = false;
+          throw new Error("Background history is temporarily unavailable");
+        }
+        return {
+          events: [event],
+          primaryEventIds: [event.id],
+          olderCursor: { createdAt: event.created_at, eventId: event.id },
+          hasOlder: false,
+        };
+      },
+    );
+    const controller = createCommunityController({
+      scopes: [
+        {
+          id: "lapis",
+          name: "Lapis Community",
+          relayUrl: "memory://resume.test",
+          rooms: [
+            {
+              id: "general",
+              groupId: "general",
+              name: "general",
+              kind: "channel",
+            },
+          ],
+        },
+      ],
+      source: {
+        async open() {
+          return {
+            async snapshot() {
+              throw new Error("complete snapshot should not be used");
+            },
+            async synchronize() {
+              return {
+                events: [],
+                capabilities: NO_TEST_CAPABILITIES,
+                complete: false,
+              };
+            },
+            loadContentWindow,
+            async subscribe() {
+              return { close() {} };
+            },
+            async execute() {
+              return [];
+            },
+            async search() {
+              return [];
+            },
+            close() {},
+          };
+        },
+      },
+    });
+
+    controller.initialize();
+    await vi.waitFor(() =>
+      expect(controller.state.contentSync?.phase).toBe("partial-error"),
+    );
+    expect(controller.state.status).toBe("connected");
+    expect(controller.state.cache.freshness).toBe("synchronizing");
+
+    await controller.refresh();
+    await vi.waitFor(() =>
+      expect(controller.state.contentSync?.phase).toBe("complete"),
+    );
+    expect(controller.state.workspace.messages).toMatchObject([
+      { content: "Recovered bounded history" },
+    ]);
+    expect(controller.state.cache.freshness).toBe("current");
+    controller.dispose();
+  });
+
   it("restores cached public conversations when the relay is offline", async () => {
     const event = finalizeEvent(
       {

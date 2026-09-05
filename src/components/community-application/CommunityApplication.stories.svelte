@@ -141,6 +141,140 @@
 </Story>
 
 <Story
+  name="Progressive history bootstrap"
+  play={async ({ canvas }) => {
+    const application = await canvas.findByTestId(
+      "full-community-application",
+      {},
+      { timeout: 20_000 },
+    );
+    await waitFor(
+      () =>
+        expect(application).toHaveAttribute(
+          "data-community-status",
+          "connected",
+        ),
+      { timeout: 20_000 },
+    );
+    await waitFor(
+      () =>
+        expect(application).toHaveAttribute(
+          "data-community-content-sync",
+          "background",
+        ),
+      { timeout: 20_000 },
+    );
+    await expect(application).toHaveAttribute(
+      "data-community-cache-freshness",
+      "synchronizing",
+    );
+    await expect(
+      await canvas.findByRole("heading", { name: "Make Lapis Notes yours." }),
+    ).toBeVisible();
+    await waitFor(
+      () =>
+        expect(application).toHaveAttribute(
+          "data-community-content-sync",
+          "complete",
+        ),
+      { timeout: 30_000 },
+    );
+  }}
+>
+  {#snippet template()}
+    <CommunityApplicationStoryHarness
+      namespace="progressive-bootstrap"
+      progressiveDelayMs={150}
+    />
+  {/snippet}
+</Story>
+
+<Story
+  name="Background history failure and resume"
+  play={async ({ canvas }) => {
+    const application = await canvas.findByTestId(
+      "full-community-application",
+      {},
+      { timeout: 20_000 },
+    );
+    await waitFor(
+      () =>
+        expect(application).toHaveAttribute(
+          "data-community-content-sync",
+          "partial-error",
+        ),
+      { timeout: 20_000 },
+    );
+    await expect(application).toHaveAttribute(
+      "data-community-status",
+      "connected",
+    );
+    await expect(
+      await canvas.findByRole("heading", { name: "Make Lapis Notes yours." }),
+    ).toBeVisible();
+    await waitFor(
+      () =>
+        expect(application).toHaveAttribute(
+          "data-community-content-sync",
+          "complete",
+        ),
+      { timeout: 30_000 },
+    );
+  }}
+>
+  {#snippet template()}
+    <CommunityApplicationStoryHarness
+      namespace="progressive-recovery"
+      progressiveFailure
+    />
+  {/snippet}
+</Story>
+
+<Story
+  name="Progressive history mobile"
+  globals={{ viewport: { value: "mobile1", isRotated: false } }}
+>
+  {#snippet template()}
+    <CommunityApplicationStoryHarness
+      namespace="progressive-mobile"
+      progressiveDelayMs={150}
+      responsive
+    />
+  {/snippet}
+</Story>
+
+<Story
+  name="Progressive history constrained height"
+  parameters={{
+    viewport: {
+      options: {
+        constrainedHeight: {
+          name: "Constrained height",
+          styles: { width: "1100px", height: "600px" },
+        },
+      },
+    },
+  }}
+  globals={{ viewport: { value: "constrainedHeight", isRotated: false } }}
+>
+  {#snippet template()}
+    <CommunityApplicationStoryHarness
+      namespace="progressive-constrained-height"
+      progressiveDelayMs={150}
+    />
+  {/snippet}
+</Story>
+
+<Story name="Progressive history dark" globals={{ colorMode: "dark" }}>
+  {#snippet template()}
+    <CommunityApplicationStoryHarness
+      namespace="progressive-dark"
+      progressiveDelayMs={150}
+    />
+  {/snippet}
+</Story>
+
+<Story
   name="Community without registry"
   play={async ({ canvas, canvasElement }) => {
     await expect(
@@ -182,6 +316,14 @@
       expect(
         canvas.queryByRole("button", { name: "Inbox" }),
       ).not.toBeInTheDocument(),
+    );
+    await waitFor(
+      () =>
+        expect(application).toHaveAttribute(
+          "data-community-status",
+          "connected",
+        ),
+      { timeout: 15_000 },
     );
     await expect(
       canvas.queryByText("Select a message"),
@@ -341,13 +483,24 @@
         ).toBeNull(),
       { timeout: 15_000 },
     );
-    const composer = await canvas.findByRole("textbox", {
-      name: "Markdown editor",
-    });
-    await waitFor(
-      () => expect(composer).toHaveAttribute("contenteditable", "true"),
-      { timeout: 15_000 },
-    );
+    if (application.dataset.communityBackend === "docker") {
+      await waitFor(
+        () =>
+          expect(application).toHaveAttribute(
+            "data-last-action",
+            "join-requested:general",
+          ),
+        { timeout: 15_000 },
+      );
+    } else {
+      const composer = await canvas.findByRole("textbox", {
+        name: "Markdown editor",
+      });
+      await waitFor(
+        () => expect(composer).toHaveAttribute("contenteditable", "true"),
+        { timeout: 15_000 },
+      );
+    }
     await expect(
       await canvas.findByRole("button", { name: "Inbox" }),
     ).toBeVisible();
@@ -404,7 +557,11 @@
       await canvas.findByRole("button", { name: "general" }),
     );
     await userEvent.click(
-      canvas.getByRole("button", { name: "Join to participate" }),
+      await canvas.findByRole(
+        "button",
+        { name: "Join to participate" },
+        { timeout: 15_000 },
+      ),
     );
 
     const loginDialog = await overlay.findByRole("dialog", {
@@ -424,6 +581,26 @@
     await waitFor(() => expect(loginDialog).not.toBeInTheDocument(), {
       timeout: 8_000,
     });
+
+    if (application.dataset.communityBackend === "docker") {
+      await waitFor(
+        () =>
+          expect(application).toHaveAttribute(
+            "data-last-action",
+            "join-requested:general",
+          ),
+        { timeout: 15_000 },
+      );
+      await waitFor(
+        () =>
+          expect(application).toHaveAttribute(
+            "data-community-status",
+            "connected",
+          ),
+        { timeout: 15_000 },
+      );
+      return;
+    }
 
     const composer = await canvas.findByRole(
       "textbox",
@@ -486,7 +663,11 @@
       await canvas.findByRole("button", { name: "support" }),
     );
     await userEvent.click(
-      canvas.getByRole("button", { name: "Join to participate" }),
+      await canvas.findByRole(
+        "button",
+        { name: "Join to participate" },
+        { timeout: 15_000 },
+      ),
     );
 
     const loginDialog = await overlay.findByRole("dialog", {

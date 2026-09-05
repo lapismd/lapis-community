@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { ComposerStatus } from "@lapismd/design-core/ai/chat";
   import { Button } from "@lapismd/design-core/shadcn/button";
+  import { Skeleton } from "@lapismd/design-core/shadcn/skeleton";
   import ArrowLeftIcon from "@lucide/svelte/icons/arrow-left";
   import HashIcon from "@lucide/svelte/icons/hash";
   import LogInIcon from "@lucide/svelte/icons/log-in";
@@ -34,6 +35,8 @@
     onRetryOperation,
     onDismissOperation,
     showJoinAction = false,
+    historyUpdating = false,
+    historyLoading = false,
     messageSupplement,
   }: {
     model: CommunityWorkspaceModel;
@@ -46,6 +49,8 @@
     onRetryOperation?: () => void | Promise<void>;
     onDismissOperation?: () => void;
     showJoinAction?: boolean;
+    historyUpdating?: boolean;
+    historyLoading?: boolean;
     messageSupplement?: Snippet<[import("./model.js").CommunityMessageModel]>;
   } = $props();
 
@@ -148,7 +153,32 @@
 {/snippet}
 
 <div class="community-workspace-surface" data-view={model.view}>
-  {#if model.view === "forum-index"}
+  {#if historyLoading}
+    <div
+      class="community-workspace-surface__history-skeleton"
+      role="status"
+      aria-label="Loading community history"
+    >
+      {#each Array(5) as _, index (index)}
+        <div class="community-workspace-surface__history-skeleton-row">
+          <Skeleton
+            class="community-workspace-surface__history-skeleton-avatar"
+          />
+          <div>
+            <Skeleton
+              class="community-workspace-surface__history-skeleton-name"
+            />
+            <Skeleton
+              class="community-workspace-surface__history-skeleton-line"
+            />
+            <Skeleton
+              class="community-workspace-surface__history-skeleton-line short"
+            />
+          </div>
+        </div>
+      {/each}
+    </div>
+  {:else if model.view === "forum-index"}
     <ForumTopicList
       title={activeRoom.name}
       topics={model.topics}
@@ -179,6 +209,7 @@
       canDeleteTopic={(topic) =>
         topic.authorId === model.currentMemberId ||
         activeRoom.permissions?.delete.state === "enabled"}
+      {historyUpdating}
       {...handlers.onTopicAction === undefined
         ? {}
         : { onTopicAction: handlers.onTopicAction }}
@@ -339,6 +370,43 @@
 </div>
 
 <style>
+  .community-workspace-surface__history-skeleton {
+    display: grid;
+    gap: 1.25rem;
+    padding: 1.25rem;
+  }
+
+  .community-workspace-surface__history-skeleton-row {
+    display: grid;
+    grid-template-columns: 2.5rem minmax(0, 1fr);
+    gap: 0.75rem;
+    align-items: start;
+  }
+
+  .community-workspace-surface__history-skeleton-row > div {
+    display: grid;
+    gap: 0.5rem;
+  }
+
+  :global(.community-workspace-surface__history-skeleton-avatar) {
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: 999px;
+  }
+
+  :global(.community-workspace-surface__history-skeleton-name) {
+    width: min(10rem, 35%);
+    height: 0.9rem;
+  }
+
+  :global(.community-workspace-surface__history-skeleton-line) {
+    width: min(38rem, 90%);
+    height: 0.8rem;
+  }
+
+  :global(.community-workspace-surface__history-skeleton-line.short) {
+    width: min(24rem, 58%);
+  }
   .community-workspace-surface {
     display: flex;
     flex-direction: column;

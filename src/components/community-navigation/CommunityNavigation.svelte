@@ -54,6 +54,7 @@
     model,
     activeItemId,
     compact = false,
+    countsUpdating = false,
     onSelect = () => {},
     onSearch = () => {},
     onSectionAction = () => {},
@@ -66,6 +67,7 @@
     model: CommunityNavigationModel;
     activeItemId?: string;
     compact?: boolean;
+    countsUpdating?: boolean;
     onSelect?: (item: CommunityNavigationItemModel) => void;
     onSearch?: (query: string) => void;
     onSectionAction?: (
@@ -513,7 +515,13 @@
               <ItemIcon aria-hidden="true" />
               <span>{item.label}</span>
               {#if item.unreadCount}
-                <Badge variant="secondary">{item.unreadCount}</Badge>
+                <Badge
+                  variant="secondary"
+                  aria-label={countsUpdating
+                    ? `${item.unreadCount} or more unread; older history is updating`
+                    : `${item.unreadCount} unread`}
+                  >{item.unreadCount}{countsUpdating ? "+" : ""}</Badge
+                >
               {/if}
             </Button>
           {/if}
@@ -639,7 +647,7 @@
                               >
                             {:else if item.unreadCount}
                               <CommandView.ItemDescription
-                                >{item.unreadCount} unread</CommandView.ItemDescription
+                                >{item.unreadCount}{countsUpdating ? "+" : ""} unread</CommandView.ItemDescription
                               >
                             {/if}
                           </CommandView.Item>
@@ -810,7 +818,9 @@
                               aria-label="Starred"
                             />{/if}
                           {#if item.unreadCount}<Badge variant="secondary"
-                              >{item.unreadCount}</Badge
+                              >{item.unreadCount}{countsUpdating
+                                ? "+"
+                                : ""}</Badge
                             >{/if}
                         </Button>
                       </ContextMenu.Trigger>

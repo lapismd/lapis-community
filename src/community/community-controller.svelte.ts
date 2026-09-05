@@ -22,6 +22,9 @@ import {
 import type {
   CommunityCapabilities,
   CommunityCommand,
+  CommunityContentSyncState,
+  CommunityContentWindow,
+  CommunityContentWindowRequest,
   CommunityController,
   CommunityControllerActions,
   CommunityControllerOptions,
@@ -94,6 +97,8 @@ export function createCommunityController(
   let syncPlans: NonNullable<
     Awaited<ReturnType<typeof eventRuntime.restore>>["syncPlans"]
   > = {};
+  let progressiveRun = 0;
+  let progressiveAbort: AbortController | undefined;
 
   let status = $state<CommunityControllerState["status"]>("idle");
   let cache = $state<CommunityControllerState["cache"]>({
@@ -132,6 +137,10 @@ export function createCommunityController(
     query: "",
     results: [],
     completeness: "unavailable",
+  });
+  let contentSync = $state<CommunityContentSyncState>({
+    phase: "initial",
+    rooms: {},
   });
   let replyTarget = $state<CommunityReplyTarget | undefined>();
   let navigation = $state<CommunityControllerState["navigation"]>({
@@ -190,6 +199,7 @@ export function createCommunityController(
       searchQuery,
       authentication,
       memberDirectory,
+      contentSync,
       navigation,
       ...(replyTarget === undefined ? {} : { replyTarget }),
       ...(error === "" ? {} : { error }),
@@ -244,6 +254,7 @@ export function createCommunityController(
       syncPlans = restored.syncPlans ?? {};
       await refreshProjection(currentGeneration);
       status = "connecting";
+      let progressive = false;
       for (const scope of scopes) {
         signal.throwIfAborted();
         const session = await options.source.open(
@@ -275,7 +286,16 @@ export function createCommunityController(
         const snapshot =
           session.synchronize === undefined
             ? await session.snapshot(signal)
-            : await session.synchronize({ plan }, signal);
+            : await session.synchronize(
+                {
+                  plan,
+                  ...(session.loadContentWindow === undefined
+                    ? {}
+                    : { strategy: "bootstrap" as const }),
+                },
+                signal,
+              );
+        progressive ||= session.loadContentWindow !== undefined;
         if (generation !== currentGeneration) return;
         await cacheSnapshot(scope, snapshot, pendingEvents, currentGeneration);
         mergePrivateEvents(scope.id, snapshot.privateEvents ?? []);
@@ -295,11 +315,25 @@ export function createCommunityController(
       await refreshProjection(currentGeneration);
       cache = {
         ...cache,
-        freshness: "current",
+        freshness: progressive ? "synchronizing" : "current",
         ...(cache.lastSynchronizedAt === undefined
           ? { lastSynchronizedAt: now() }
           : {}),
       };
+      if (progressive) {
+        contentSync = {
+          phase: "background",
+          rooms: Object.fromEntries(
+            workspace.navigationSections
+              .flatMap((section) => section.rooms)
+              .filter((room) => room.kind !== "direct")
+              .map((room) => [room.id, "unloaded" as const]),
+          ),
+        };
+        void runProgressiveSynchronization(currentGeneration, signal);
+      } else {
+        contentSync = { phase: "complete", rooms: {} };
+      }
     } catch (cause) {
       if (signal.aborted) return;
       error =
@@ -311,6 +345,281 @@ export function createCommunityController(
         status = "error";
       }
     }
+  }
+
+  function updateRoomContentSync(
+    roomId: string,
+    roomState: CommunityContentSyncState["rooms"][string],
+  ): void {
+    contentSync = {
+      ...contentSync,
+      rooms: { ...contentSync.rooms, [roomId]: roomState },
+    };
+  }
+
+  async function cacheContentWindow(
+    scope: CommunityScope,
+    window: CommunityContentWindow,
+    currentGeneration: number,
+    checkpoint?: CommunitySnapshot["checkpoints"],
+  ): Promise<void> {
+    await cacheSnapshot(
+      scope,
+      {
+        events: window.events,
+        capabilities: capabilitiesByScope[scope.id] ?? NO_CAPABILITIES,
+        ...(checkpoint === undefined ? {} : { checkpoints: checkpoint }),
+      },
+      [],
+      currentGeneration,
+    );
+  }
+
+  async function loadInteractiveRoom(
+    scopeId: string,
+    roomId: string,
+    rootEventId?: string,
+    signal?: AbortSignal,
+  ): Promise<void> {
+    const requestedGeneration = generation;
+    const scope = scopes.find((candidate) => candidate.id === scopeId);
+    const session = sessions.get(scopeId);
+    const room =
+      scope === undefined
+        ? undefined
+        : communityRooms(scope, eventsByScope[scopeId] ?? []).find(
+            (candidate) => candidate.id === roomId,
+          );
+    if (
+      scope === undefined ||
+      session?.loadContentWindow === undefined ||
+      room === undefined
+    ) {
+      return;
+    }
+    const request: CommunityContentWindowRequest =
+      rootEventId === undefined
+        ? {
+            collection:
+              room.kind === "forum" ? "forum-topics" : "channel-roots",
+            groupId: room.groupId,
+            limit: 50,
+          }
+        : {
+            collection: "thread",
+            groupId: room.groupId,
+            rootEventId,
+            limit: 20,
+          };
+    try {
+      const window = await session.loadContentWindow(
+        request,
+        signal ?? controllerAbort?.signal,
+      );
+      if (generation !== requestedGeneration) return;
+      await cacheContentWindow(scope, window, requestedGeneration);
+      if (rootEventId === undefined) updateRoomContentSync(room.id, "partial");
+    } catch (cause) {
+      if (generation !== requestedGeneration || isAbort(cause)) return;
+      contentSync = {
+        ...contentSync,
+        phase: "partial-error",
+        message:
+          cause instanceof Error
+            ? cause.message
+            : "Recent community content could not be loaded",
+      };
+      throw cause;
+    }
+  }
+
+  async function runProgressiveSynchronization(
+    currentGeneration: number,
+    parentSignal: AbortSignal,
+    priority: {
+      scopeId: string;
+      roomId: string;
+      rootEventId?: string;
+    } = {
+      scopeId: activeCommunityId,
+      roomId: activeRoomId,
+    },
+  ): Promise<void> {
+    const run = ++progressiveRun;
+    progressiveAbort?.abort(
+      new DOMException("Community history priority changed", "AbortError"),
+    );
+    const runAbort = new AbortController();
+    progressiveAbort = runAbort;
+    const signal = AbortSignal.any([parentSignal, runAbort.signal]);
+    try {
+      await loadInteractiveRoom(
+        priority.scopeId,
+        priority.roomId,
+        priority.rootEventId,
+        signal,
+      );
+      if (run !== progressiveRun) return;
+      for (const scope of scopes) {
+        const session = sessions.get(scope.id);
+        if (session?.loadContentWindow === undefined) continue;
+        const rooms = communityRooms(scope, eventsByScope[scope.id] ?? []);
+        for (const room of rooms) {
+          signal.throwIfAborted();
+          if (generation !== currentGeneration || run !== progressiveRun)
+            return;
+          const stream = `history:${room.groupId}`;
+          const restoredCheckpoint = syncPlans[scope.id]?.checkpoints.find(
+            (checkpoint) => checkpoint.stream === stream,
+          );
+          updateRoomContentSync(room.id, "partial");
+          const recent = await session.loadContentWindow(
+            {
+              collection: "room-history",
+              groupId: room.groupId,
+              limit: 100,
+            },
+            signal,
+          );
+          if (generation !== currentGeneration || run !== progressiveRun)
+            return;
+          const canResume =
+            restoredCheckpoint !== undefined &&
+            restoredCheckpoint.cursorEventId !== undefined;
+          if (restoredCheckpoint?.complete || (canResume && recent.hasOlder)) {
+            await cacheContentWindow(scope, recent, currentGeneration);
+          } else {
+            const checkpoint = contentCheckpoint(scope, stream, recent, now());
+            await cacheContentWindow(scope, recent, currentGeneration, [
+              checkpoint,
+            ]);
+            rememberSyncCheckpoint(scope.id, checkpoint, recent.events);
+          }
+          if (restoredCheckpoint?.complete || !recent.hasOlder) {
+            updateRoomContentSync(room.id, "complete");
+            continue;
+          }
+          let before = canResume
+            ? {
+                createdAt: restoredCheckpoint.createdAt,
+                eventId: restoredCheckpoint.cursorEventId!,
+              }
+            : recent.olderCursor;
+          for (;;) {
+            if (before === undefined) break;
+            signal.throwIfAborted();
+            const window = await session.loadContentWindow(
+              {
+                collection: "room-history",
+                groupId: room.groupId,
+                ...(before === undefined ? {} : { before }),
+                limit: 100,
+              },
+              signal,
+            );
+            if (generation !== currentGeneration || run !== progressiveRun)
+              return;
+            const checkpoint = contentCheckpoint(scope, stream, window, now());
+            await cacheContentWindow(scope, window, currentGeneration, [
+              checkpoint,
+            ]);
+            rememberSyncCheckpoint(scope.id, checkpoint, window.events);
+            if (!window.hasOlder || window.olderCursor === undefined) break;
+            before = window.olderCursor;
+            await yieldToBrowser();
+          }
+          updateRoomContentSync(room.id, "complete");
+        }
+      }
+      if (generation !== currentGeneration || run !== progressiveRun) return;
+      contentSync = { ...contentSync, phase: "complete" };
+      cache = { ...cache, freshness: "current" };
+    } catch (cause) {
+      if (
+        generation !== currentGeneration ||
+        run !== progressiveRun ||
+        isAbort(cause)
+      )
+        return;
+      contentSync = {
+        ...contentSync,
+        phase: "partial-error",
+        message:
+          cause instanceof Error
+            ? cause.message
+            : "Older community history could not be synchronized",
+      };
+      cache = {
+        ...cache,
+        freshness: "synchronizing",
+        ...(contentSync.message === undefined
+          ? {}
+          : { degradedReason: contentSync.message }),
+      };
+    } finally {
+      if (run === progressiveRun && progressiveAbort === runAbort) {
+        progressiveAbort = undefined;
+      }
+    }
+  }
+
+  function contentCheckpoint(
+    scope: CommunityScope,
+    stream: string,
+    window: CommunityContentWindow,
+    synchronizedAt: number,
+  ): NonNullable<CommunitySnapshot["checkpoints"]>[number] {
+    return {
+      relayUrl: scope.relayUrl,
+      stream,
+      createdAt: window.olderCursor?.createdAt ?? 0,
+      synchronizedAt,
+      ...(window.olderCursor === undefined
+        ? {}
+        : { cursorEventId: window.olderCursor.eventId }),
+      complete: !window.hasOlder,
+    };
+  }
+
+  function rememberSyncCheckpoint(
+    scopeId: string,
+    checkpoint: NonNullable<CommunitySnapshot["checkpoints"]>[number],
+    events: readonly NostrEvent[],
+  ): void {
+    syncPlans = {
+      ...syncPlans,
+      [scopeId]: {
+        checkpoints: [
+          ...(syncPlans[scopeId]?.checkpoints ?? []).filter(
+            (candidate) => candidate.stream !== checkpoint.stream,
+          ),
+          checkpoint,
+        ],
+        cachedEventIds: [
+          ...new Set([
+            ...(syncPlans[scopeId]?.cachedEventIds ?? []),
+            ...events.map((event) => event.id),
+          ]),
+        ],
+      },
+    };
+  }
+
+  function prioritizeContent(
+    scopeId: string,
+    roomId: string,
+    rootEventId?: string,
+  ): void {
+    if (controllerAbort === undefined) return;
+    const session = sessions.get(scopeId);
+    if (session?.loadContentWindow === undefined) return;
+    contentSync = { ...contentSync, phase: "background" };
+    cache = { ...cache, freshness: "synchronizing" };
+    void runProgressiveSynchronization(generation, controllerAbort.signal, {
+      scopeId,
+      roomId,
+      ...(rootEventId === undefined ? {} : { rootEventId }),
+    });
   }
 
   function dispose(): void {
@@ -331,6 +640,9 @@ export function createCommunityController(
 
   function closeConnections(reason: string): void {
     generation += 1;
+    progressiveRun += 1;
+    progressiveAbort?.abort(new DOMException(reason, "AbortError"));
+    progressiveAbort = undefined;
     controllerAbort?.abort(new DOMException(reason, "AbortError"));
     controllerAbort = undefined;
     for (const subscription of subscriptions.values()) subscription.close();
@@ -355,7 +667,15 @@ export function createCommunityController(
   ): Promise<void> {
     const session = sessions.get(scopeId);
     if (session === undefined) return;
-    const snapshot = await session.snapshot(signal);
+    const plan = syncPlans[scopeId] ?? {
+      checkpoints: [],
+      cachedEventIds: [],
+    };
+    const snapshot =
+      session.loadContentWindow !== undefined &&
+      session.synchronize !== undefined
+        ? await session.synchronize({ plan, strategy: "bootstrap" }, signal)
+        : await session.snapshot(signal);
     const scope = scopes.find((candidate) => candidate.id === scopeId);
     if (scope !== undefined) {
       await cacheSnapshot(scope, snapshot, [], generation);
@@ -366,6 +686,18 @@ export function createCommunityController(
       [scopeId]: snapshot.capabilities,
     };
     await refreshProjection(generation);
+    if (
+      session.loadContentWindow !== undefined &&
+      controllerAbort !== undefined
+    ) {
+      contentSync = { ...contentSync, phase: "background" };
+      cache = { ...cache, freshness: "synchronizing" };
+      const requestedGeneration = generation;
+      void runProgressiveSynchronization(
+        requestedGeneration,
+        controllerAbort.signal,
+      );
+    }
   }
 
   async function retry(operation: string): Promise<void> {
@@ -401,6 +733,7 @@ export function createCommunityController(
       replyTarget = undefined;
       requestProjection();
       void persistSelection(scope.id);
+      prioritizeContent(scope.id, activeRoomId);
     },
     selectRoom(roomId) {
       const roomExists = workspace.navigationSections
@@ -414,17 +747,20 @@ export function createCommunityController(
       replyTarget = undefined;
       requestProjection();
       void persistSelection(activeCommunityId);
+      prioritizeContent(activeCommunityId, roomId);
     },
     openTopic(topicId) {
       activeTopicId = topicId;
       activeThreadId = undefined;
       sidePanel = "none";
       requestProjection();
+      prioritizeContent(activeCommunityId, activeRoomId, topicId);
     },
     openThread(messageId) {
       activeThreadId = messageId;
       sidePanel = "thread";
       requestProjection();
+      prioritizeContent(activeCommunityId, activeRoomId, messageId);
     },
     closeSidePanel() {
       activeThreadId = undefined;
@@ -1449,7 +1785,9 @@ export function createCommunityController(
     reconcileAcceptedEventOperations();
     cache = {
       ...revision.cache,
-      ...(status === "connected" ? { freshness: "current" as const } : {}),
+      ...(status === "connected" && contentSync.phase === "complete"
+        ? { freshness: "current" as const }
+        : {}),
     };
   }
 
@@ -2323,6 +2661,10 @@ function isAbort(cause: unknown): boolean {
     (cause instanceof DOMException && cause.name === "AbortError") ||
     (cause instanceof Error && cause.name === "AbortError")
   );
+}
+
+async function yieldToBrowser(): Promise<void> {
+  await new Promise<void>((resolve) => setTimeout(resolve, 0));
 }
 
 function createClientId(): string {

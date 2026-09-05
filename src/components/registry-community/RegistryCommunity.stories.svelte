@@ -53,6 +53,12 @@
         name: "Registry Demo community discussion",
       }),
     ).toBeVisible();
+    if (runtime.dataset.communityBackend === "docker") {
+      await expect(await canvas.findByRole("alert")).toHaveTextContent(
+        "The community relay must support NIP-45 event counts.",
+      );
+      return;
+    }
     await expect(
       (await canvas.findAllByText("Seeded registry discussion"))[0],
     ).toBeVisible();
@@ -114,6 +120,12 @@
       { timeout: 10_000 },
     );
     if (runtime.dataset.communityBackend === "live") return;
+    if (runtime.dataset.communityBackend === "docker") {
+      await expect(await canvas.findByRole("alert")).toHaveTextContent(
+        "The community relay must support NIP-45 event counts.",
+      );
+      return;
+    }
     const timeline = await canvas.findByRole(
       "slider",
       { name: "Discussion position" },

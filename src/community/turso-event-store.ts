@@ -37,6 +37,8 @@ interface TursoCheckpointRow extends Record<string, unknown> {
   stream: string;
   created_at: number;
   synchronized_at: number;
+  cursor_event_id: string | null;
+  complete: number | null;
 }
 
 export interface TursoCommunityEventStoreOptions
@@ -114,11 +116,27 @@ class TursoCommunityEventStore extends BaseCommunityEventStore {
           relay_url TEXT NOT NULL,
           stream TEXT NOT NULL,
           created_at INTEGER NOT NULL,
-          synchronized_at INTEGER NOT NULL
+          synchronized_at INTEGER NOT NULL,
+          cursor_event_id TEXT,
+          complete INTEGER
         );
         CREATE INDEX IF NOT EXISTS community_checkpoints_scope_idx
           ON community_checkpoints(scope_key);
       `);
+      try {
+        await this.#database.exec(
+          "ALTER TABLE community_checkpoints ADD COLUMN cursor_event_id TEXT",
+        );
+      } catch {
+        // Existing databases may already contain the additive cursor column.
+      }
+      try {
+        await this.#database.exec(
+          "ALTER TABLE community_checkpoints ADD COLUMN complete INTEGER",
+        );
+      } catch {
+        // Existing databases may already contain the additive completion column.
+      }
     } catch (cause) {
       this.#releaseLock?.();
       this.#releaseLock = undefined;
@@ -140,7 +158,8 @@ class TursoCommunityEventStore extends BaseCommunityEventStore {
         partitionKey,
       ),
       database.all<TursoCheckpointRow>(
-        `SELECT relay_url, stream, created_at, synchronized_at
+        `SELECT relay_url, stream, created_at, synchronized_at,
+                cursor_event_id, complete
          FROM community_checkpoints WHERE scope_key = ?`,
         scopeKey,
       ),
@@ -163,6 +182,12 @@ class TursoCommunityEventStore extends BaseCommunityEventStore {
         stream: row.stream,
         createdAt: Number(row.created_at),
         synchronizedAt: Number(row.synchronized_at),
+        ...(typeof row.cursor_event_id === "string"
+          ? { cursorEventId: row.cursor_event_id }
+          : {}),
+        ...(typeof row.complete === "number"
+          ? { complete: row.complete === 1 }
+          : {}),
       })),
       approximateBytes: rows.reduce(
         (total, row) => total + Number(row.bytes),
@@ -310,11 +335,14 @@ function checkpointStatement(
   const relayUrl = normalizeRelayUrl(checkpoint.relayUrl);
   return {
     sql: `INSERT INTO community_checkpoints(
-      cache_key, scope_key, relay_url, stream, created_at, synchronized_at
-    ) VALUES (?, ?, ?, ?, ?, ?)
+      cache_key, scope_key, relay_url, stream, created_at, synchronized_at,
+      cursor_event_id, complete
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     ON CONFLICT(cache_key) DO UPDATE SET
       created_at=excluded.created_at,
-      synchronized_at=excluded.synchronized_at`,
+      synchronized_at=excluded.synchronized_at,
+      cursor_event_id=excluded.cursor_event_id,
+      complete=excluded.complete`,
     args: [
       `${scopeKey}:${relayUrl}:${checkpoint.stream}`,
       scopeKey,
@@ -322,6 +350,8 @@ function checkpointStatement(
       checkpoint.stream,
       checkpoint.createdAt,
       checkpoint.synchronizedAt,
+      checkpoint.cursorEventId ?? null,
+      checkpoint.complete === undefined ? null : checkpoint.complete ? 1 : 0,
     ],
   };
 }

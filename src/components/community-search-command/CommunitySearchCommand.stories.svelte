@@ -150,3 +150,39 @@
     <CommunitySearchCommandStoryHarness {args} />
   {/snippet}</Story
 >
+
+<Story
+  name="Partial history"
+  args={{
+    open: true,
+    query: "",
+    updating: true,
+    rooms: [{ id: "general", name: "general", kind: "channel" }],
+    messages: [
+      {
+        id: "recent-message",
+        authorId: "steve",
+        content: "Recent results are available while older history updates",
+        timestamp: "now",
+        roomId: "general",
+      },
+    ],
+    members: [],
+    onSelectRoom: fn(),
+    onSelectMessage: fn(),
+    onSelectMember: fn(),
+    onQueryChange: fn(),
+    onBrowseChannels: fn(),
+    onCreateChannel: fn(),
+  }}
+  play={async ({ canvasElement }) => {
+    const overlay = within(canvasElement.ownerDocument.body);
+    await expect(
+      overlay.getByText("Updating older community results…"),
+    ).toBeVisible();
+  }}
+>
+  {#snippet template(args)}
+    <CommunitySearchCommandStoryHarness {args} />
+  {/snippet}
+</Story>

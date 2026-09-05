@@ -1730,6 +1730,8 @@
   onNavigateForward={() => navigateHistory(1)}
   data-last-action={lastAction}
   data-community-status={community.state.status}
+  data-community-cache-freshness={community.state.cache.freshness}
+  data-community-content-sync={community.state.contentSync?.phase ?? "legacy"}
   {...restProps}
 >
   <AppShell.Sidebar
@@ -1752,6 +1754,8 @@
         model={navigationModel}
         {...activeItemId === undefined ? {} : { activeItemId }}
         compact={navigationCompact}
+        countsUpdating={community.state.contentSync?.phase === "background" ||
+          community.state.contentSync?.phase === "partial-error"}
         onSelect={select}
         onSearch={(query) => {
           appSearchQuery = query;
@@ -1986,6 +1990,8 @@
           ? {}
           : { currentMemberId: workspace.currentMemberId }}
         canDeleteAny={inbox.room.permissions?.delete.state === "enabled"}
+        historyUpdating={community.state.contentSync?.phase === "background" ||
+          community.state.contentSync?.phase === "partial-error"}
         onSelect={() => void community.actions.markRead(inbox.room.id)}
         onSend={(content) => sendThreadReply(inbox.activeItemId, content)}
         onMarkAllRead={() => void community.actions.markAllRead()}
@@ -2156,6 +2162,12 @@
         >
           <CommunityWorkspaceSurface
             model={workspace}
+            historyLoading={community.state.contentSync?.rooms[
+              activeRoom.id
+            ] === "unloaded"}
+            historyUpdating={community.state.contentSync?.phase ===
+              "background" ||
+              community.state.contentSync?.phase === "partial-error"}
             messageSupplement={releaseMessageSupplement}
             readOnly={participationReadOnly}
             readOnlyReason={participationReadOnlyReason}
@@ -2571,6 +2583,8 @@
   rooms={searchRooms}
   messages={searchMessages}
   members={searchMembers}
+  updating={community.state.contentSync?.phase === "background" ||
+    community.state.contentSync?.phase === "partial-error"}
   {...searchScopeRoom === undefined ? {} : { scopeRoom: searchScopeRoom }}
   onQueryChange={(query) => {
     appSearchQuery = query;

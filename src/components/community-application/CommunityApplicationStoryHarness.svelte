@@ -7,6 +7,7 @@
     createBrowserCommunityEventRuntime,
     createCommunityController,
     createNip29CommunitySource,
+    type CommunityDataSource,
     type CommunityIdentity,
     type CommunityController,
   } from "../../community/index.js";
@@ -36,6 +37,8 @@
     releaseMessages = false,
     useDefaultShell = false,
     persistenceScenario = false,
+    progressiveDelayMs = 0,
+    progressiveFailure = false,
   }: {
     signedIn?: boolean;
     responsive?: boolean;
@@ -44,6 +47,8 @@
     releaseMessages?: boolean;
     useDefaultShell?: boolean;
     persistenceScenario?: boolean;
+    progressiveDelayMs?: number;
+    progressiveFailure?: boolean;
   } = $props();
 
   let runtime = $state.raw<CommunityStoryRuntime>();
@@ -51,6 +56,7 @@
   let runtimeError = $state("");
   let registrySource = $state.raw(createRegistryStoryDataSource());
   let applicationGeneration = $state(0);
+  let progressiveRetryTimer: number | undefined;
   const storyShellController = new AppShellController({ rightClosed: true });
 
   onMount(() => {
@@ -71,6 +77,10 @@
     };
     const startRuntime = (): void => {
       const currentGeneration = ++runtimeGeneration;
+      if (progressiveRetryTimer !== undefined) {
+        window.clearTimeout(progressiveRetryTimer);
+        progressiveRetryTimer = undefined;
+      }
       if (community && community !== runtime?.controller) community.dispose();
       runtime?.dispose();
       runtime = undefined;
@@ -150,6 +160,52 @@
             });
             releaseEventId = releaseEvent.id;
             registrySource = createRegistryStoryDataSource([releaseEvent.id]);
+          } else if (progressiveDelayMs > 0 || progressiveFailure) {
+            created.controller.dispose();
+            const baseSource = createNip29CommunitySource({
+              relayFactory: created.relayFactory,
+            });
+            let failNextWindow = progressiveFailure;
+            const source: CommunityDataSource = {
+              async open(scope, context, signal) {
+                const session = await baseSource.open(scope, context, signal);
+                return {
+                  snapshot: (nextSignal) => session.snapshot(nextSignal),
+                  synchronize: async (request, nextSignal) =>
+                    session.synchronize === undefined
+                      ? session.snapshot(nextSignal)
+                      : session.synchronize(request, nextSignal),
+                  loadContentWindow: async (request, nextSignal) => {
+                    if (progressiveDelayMs > 0) {
+                      await new Promise((resolve) =>
+                        window.setTimeout(resolve, progressiveDelayMs),
+                      );
+                      nextSignal?.throwIfAborted();
+                    }
+                    if (failNextWindow) {
+                      failNextWindow = false;
+                      throw new Error(
+                        "Story relay paused older history synchronization",
+                      );
+                    }
+                    return session.loadContentWindow!(request, nextSignal);
+                  },
+                  subscribe: (listener, nextSignal) =>
+                    session.subscribe(listener, nextSignal),
+                  execute: (command, nextSignal) =>
+                    session.execute(command, nextSignal),
+                  search: (query, nextSignal) =>
+                    session.search(query, nextSignal),
+                  close: () => session.close(),
+                };
+              },
+            };
+            community = createCommunityController({
+              scopes: [created.scenario.scope],
+              source,
+              identity: created.scenario.operator,
+              now: () => 1_700_000_100,
+            });
           } else {
             registrySource = createRegistryStoryDataSource();
           }
@@ -164,6 +220,12 @@
                 now: () => 1_700_000_100,
               });
           community.initialize();
+          if (progressiveFailure) {
+            progressiveRetryTimer = window.setTimeout(
+              () => void community?.refresh(),
+              2_000,
+            );
+          }
           if (created.backend !== "live" && signedIn) {
             const memberPubkey = await created.scenario.member.getPublicKey();
             if (!active || currentGeneration !== runtimeGeneration) return;
@@ -201,6 +263,9 @@
       );
       if (community && community !== runtime?.controller) community.dispose();
       runtime?.dispose();
+      if (progressiveRetryTimer !== undefined) {
+        window.clearTimeout(progressiveRetryTimer);
+      }
     };
   });
 

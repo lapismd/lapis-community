@@ -200,6 +200,13 @@
   gap: 0.25rem;
 }
 
+.lc-community-inbox__sync-status {
+  margin: 0;
+  padding: 0.5rem 0.75rem 0;
+  color: var(--muted-foreground);
+  font-size: 0.75rem;
+}
+
 .lc-community-inbox__item-heading {
   justify-content: space-between;
   gap: 0.75rem;
