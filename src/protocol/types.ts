@@ -79,6 +79,11 @@ export interface NostrReleaseProof {
   manifest: NostrReleaseProofManifest;
 }
 
+export interface NostrReleaseArtifactReference {
+  sha256: string;
+  size: number;
+}
+
 export interface VerifiedNostrReleaseProof {
   pluginId: string;
   version: string;

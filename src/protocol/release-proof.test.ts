@@ -105,6 +105,17 @@ describe("portable Nostr release proofs", () => {
       requiresRelayRefresh: true,
     });
 
+    expect(
+      verifyNostrReleaseProof(proof, {
+        artifact: { sha256: digest(payload), size: payload.byteLength },
+        trustedCuratorPubkeys: new Set([curator]),
+      }),
+    ).toMatchObject({
+      releaseEventId: releaseEvent.id,
+      decisionEventId: decisionEvent.id,
+      artifactSha256: digest(payload),
+    });
+
     expect(() =>
       verifyNostrReleaseProof(proof, {
         artifact: encoder.encode("tampered"),

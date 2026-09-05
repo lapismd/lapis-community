@@ -13,6 +13,7 @@ import {
 } from "./nip29.js";
 import type {
   NostrEvent,
+  NostrReleaseArtifactReference,
   NostrReleaseProof,
   VerifiedNostrReleaseProof,
 } from "./types.js";
@@ -36,7 +37,8 @@ export class NostrReleaseProofError extends Error {
 }
 
 export interface VerifyNostrReleaseProofOptions {
-  artifact: Uint8Array;
+  /** Exact bytes for installation, or a previously verified digest for freshness checks. */
+  artifact: Uint8Array | NostrReleaseArtifactReference;
   trustedCuratorPubkeys: ReadonlySet<string>;
   verifySignature?: ((event: NostrEvent) => boolean) | undefined;
 }
@@ -132,9 +134,19 @@ export function verifyNostrReleaseProof(
   }
 
   const expectedArtifact = manifest.data.release.artifact;
+  const suppliedArtifact =
+    options.artifact instanceof Uint8Array
+      ? {
+          sha256: digest(options.artifact),
+          size: options.artifact.byteLength,
+        }
+      : options.artifact;
   if (
-    options.artifact.byteLength !== expectedArtifact.size ||
-    digest(options.artifact) !== expectedArtifact.sha256
+    !/^[0-9a-f]{64}$/u.test(suppliedArtifact.sha256) ||
+    !Number.isSafeInteger(suppliedArtifact.size) ||
+    suppliedArtifact.size < 0 ||
+    suppliedArtifact.size !== expectedArtifact.size ||
+    suppliedArtifact.sha256 !== expectedArtifact.sha256
   ) {
     throw new NostrReleaseProofError(
       "artifact-invalid",
