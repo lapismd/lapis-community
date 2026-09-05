@@ -14,7 +14,8 @@ export interface CommunityLoginMethodModel {
 }
 
 export interface CommunityLoginCredentials {
-  privateKey: string;
+  privateKey?: string;
+  remoteSignerUrl?: string;
 }
 
 export const COMMUNITY_LOGIN_METHODS = {

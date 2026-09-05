@@ -50,6 +50,32 @@
 />
 
 <Story
+  name="Remote signer input"
+  args={{ methods, onSelect: fn() }}
+  play={async ({ canvas, args }) => {
+    await userEvent.click(
+      canvas.getByRole("button", { name: /Remote signer/u }),
+    );
+    const input = canvas.getByLabelText("Bunker URL");
+    await expect(input).toHaveAttribute("type", "password");
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Connect remote signer" }),
+    );
+    await expect(canvas.getByRole("alert")).toHaveTextContent(
+      "Paste a bunker URL before signing in",
+    );
+    await expect(args.onSelect).not.toHaveBeenCalled();
+    await userEvent.type(input, "bunker://remote-signer.example");
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Connect remote signer" }),
+    );
+    await expect(args.onSelect).toHaveBeenCalledWith("remote-signer", {
+      remoteSignerUrl: "bunker://remote-signer.example",
+    });
+  }}
+/>
+
+<Story
   name="Connecting"
   args={{
     methods,

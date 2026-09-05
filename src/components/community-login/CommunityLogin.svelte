@@ -49,11 +49,17 @@
 
   let privateKeyMethod = $state<CommunityLoginMethodModel>();
   let privateKey = $state("");
+  let remoteSignerMethod = $state<CommunityLoginMethodModel>();
+  let remoteSignerUrl = $state("");
   let validationError = $state("");
   const displayedError = $derived(validationError || error);
 
   function selectMethod(method: CommunityLoginMethodModel): void {
     validationError = "";
+    if (method.kind === "remote-signer") {
+      remoteSignerMethod = method;
+      return;
+    }
     if (method.kind === "private-key") {
       privateKeyMethod = method;
       return;
@@ -67,6 +73,24 @@
     privateKeyMethod = undefined;
   }
 
+  function closeRemoteSignerForm(): void {
+    remoteSignerUrl = "";
+    validationError = "";
+    remoteSignerMethod = undefined;
+  }
+
+  async function submitRemoteSigner(): Promise<void> {
+    const value = remoteSignerUrl.trim();
+    if (value === "") {
+      validationError = "Paste a bunker URL before signing in";
+      return;
+    }
+    if (remoteSignerMethod === undefined) return;
+    validationError = "";
+    await onSelect(remoteSignerMethod.id, { remoteSignerUrl: value });
+    closeRemoteSignerForm();
+  }
+
   async function submitPrivateKey(): Promise<void> {
     const value = privateKey.trim();
     if (value === "") {
@@ -76,6 +100,7 @@
     if (privateKeyMethod === undefined) return;
     validationError = "";
     await onSelect(privateKeyMethod.id, { privateKey: value });
+    closePrivateKeyForm();
   }
 
   function methodIcon(kind: CommunityLoginMethodKind): Component {
@@ -87,7 +112,8 @@
   }
 </script>
 
-<main
+<svelte:element
+  this={presentation === "dialog" ? "section" : "main"}
   class={["community-login", className].filter(Boolean).join(" ")}
   aria-label="Nostr sign in"
   aria-busy={busy}
@@ -116,15 +142,56 @@
         </Alert.Root>
       {/if}
 
-      {#if privateKeyMethod !== undefined}
+      {#if remoteSignerMethod !== undefined}
         <form
-          class="community-login__private-key"
+          class="community-login__credential-form"
+          onsubmit={(event) => {
+            event.preventDefault();
+            void submitRemoteSigner();
+          }}
+        >
+          <div class="community-login__credential-copy">
+            <strong>{remoteSignerMethod.label}</strong>
+            <span>{remoteSignerMethod.description}</span>
+          </div>
+          <label for="community-login-remote-signer">Bunker URL</label>
+          <Input
+            id="community-login-remote-signer"
+            name="nostr-bunker-url"
+            type="password"
+            autocomplete="off"
+            autocapitalize="none"
+            spellcheck={false}
+            placeholder="bunker://…"
+            aria-describedby="community-login-remote-signer-help"
+            disabled={busy}
+            bind:value={remoteSignerUrl}
+          />
+          <p id="community-login-remote-signer-help">
+            The connection invitation is passed once to the host and stored in
+            its secure credential store, never in plugin settings.
+          </p>
+          <div class="community-login__credential-actions">
+            <Button
+              type="button"
+              variant="ghost"
+              disabled={busy}
+              onclick={closeRemoteSignerForm}>Back</Button
+            >
+            <Button type="submit" disabled={busy}>
+              {busy ? "Connecting…" : "Connect remote signer"}
+            </Button>
+          </div>
+        </form>
+      {:else if privateKeyMethod !== undefined}
+        <form
+          class="community-login__credential-form"
           onsubmit={(event) => {
             event.preventDefault();
             void submitPrivateKey();
           }}
         >
-          <div class="community-login__private-key-copy">
+          <div class="community-login__credential-copy">
             <strong>{privateKeyMethod.label}</strong>
             <span>{privateKeyMethod.description}</span>
           </div>
@@ -145,7 +212,7 @@
             The key is passed once to the configured identity provider and is
             not saved by this component.
           </p>
-          <div class="community-login__private-key-actions">
+          <div class="community-login__credential-actions">
             <Button
               type="button"
               variant="ghost"
@@ -206,7 +273,7 @@
       </Card.Footer>
     {/if}
   </Card.Root>
-</main>
+</svelte:element>
 
 <style>
   .community-login {
@@ -252,8 +319,8 @@
 
   .community-login__methods,
   .community-login__method-copy,
-  .community-login__private-key,
-  .community-login__private-key-copy {
+  .community-login__credential-form,
+  .community-login__credential-copy {
     display: flex;
     min-width: 0;
     flex-direction: column;
@@ -263,32 +330,32 @@
     gap: 0.625rem;
   }
 
-  .community-login__private-key {
+  .community-login__credential-form {
     gap: 0.75rem;
   }
 
-  .community-login__private-key-copy {
+  .community-login__credential-copy {
     gap: 0.125rem;
   }
 
-  .community-login__private-key-copy > span,
-  .community-login__private-key > p {
+  .community-login__credential-copy > span,
+  .community-login__credential-form > p {
     color: var(--muted-foreground);
     font-size: 0.75rem;
     line-height: 1.4;
   }
 
-  .community-login__private-key > label {
+  .community-login__credential-form > label {
     margin-bottom: -0.375rem;
     font-size: 0.875rem;
     font-weight: 500;
   }
 
-  .community-login__private-key > p {
+  .community-login__credential-form > p {
     margin: 0;
   }
 
-  .community-login__private-key-actions {
+  .community-login__credential-actions {
     display: flex;
     justify-content: flex-end;
     gap: 0.5rem;
