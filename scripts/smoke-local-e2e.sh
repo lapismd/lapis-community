@@ -167,7 +167,7 @@ jq -e --slurpfile status "${smoke_tmp}/status.json" \
 jq -e --slurpfile status "${smoke_tmp}/status.json" '
   (.root | test("^[0-9a-f]{64}$")) and
   .sourceRegistryRoot == $status[0].registryRoot and
-  (.acceptedEventIds | length) == ($status[0].pluginCount * 2) and
+  (.acceptedEventIds | length) == $status[0].registryEventCount and
   (.relaySources | length) == 1
 ' "${smoke_tmp}/materialized/provenance.json" >/dev/null
 test -s "${smoke_tmp}/materialized/client/registry-community.js"

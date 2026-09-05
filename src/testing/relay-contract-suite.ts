@@ -10,6 +10,7 @@ export const relayContractBobKey = new Uint8Array(32).fill(2);
 export interface CommunityRelayContractContext {
   connection(secretKey?: Uint8Array): Promise<CommunityRelay>;
   uniqueId(label: string): string;
+  supportsCount?: boolean;
   dispose(): Promise<void> | void;
 }
 
@@ -58,12 +59,19 @@ export function registerCommunityRelayContract(
           )
           .map((event) => event.id),
       );
-      await expect(
-        relay.count?.({ kinds: [9], "#h": [groupId] }),
-      ).resolves.toBe(3);
-      expect(
-        (await relay.query({ kinds: [9], "#h": [groupId], limit: 1 }))[0]?.id,
-      ).toBe(events[0]?.id);
+      const count = relay.count?.({ kinds: [9], "#h": [groupId] });
+      if (context.supportsCount === false) {
+        await expect(count).rejects.toThrow(/(?:unsupported|NIP-45)/iu);
+      } else {
+        await expect(count).resolves.toBe(3);
+      }
+      const bounded = await relay.query({
+        kinds: [9],
+        "#h": [groupId],
+        limit: 1,
+      });
+      expect(bounded).toHaveLength(1);
+      expect(bounded[0]?.created_at).toBe(events[0]?.created_at);
     });
 
     it("accepts valid events and rejects invalid or mismatched authors", async () => {

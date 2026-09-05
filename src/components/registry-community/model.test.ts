@@ -200,4 +200,23 @@ describe("registry community model", () => {
     expect(result.probes).toBeLessThanOrEqual(9);
     expect(timelineTimestamp(2, 5, 100, 500)).toBe(300);
   });
+
+  it("reuses cached count brackets for later seeks", async () => {
+    const probes: number[] = [];
+    const result = await seekTimestampForCount(
+      75,
+      1_000,
+      100,
+      async (timestamp) => {
+        probes.push(timestamp);
+        return Math.floor(timestamp / 10);
+      },
+      { lowerTimestamp: 701, upperTimestamp: 800, upperCount: 80 },
+    );
+
+    expect(result.timestamp).toBe(750);
+    expect(
+      probes.every((timestamp) => timestamp >= 701 && timestamp <= 800),
+    ).toBe(true);
+  });
 });

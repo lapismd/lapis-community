@@ -2,6 +2,7 @@ import {
   NIP29_KINDS,
   getNip29ManifestAttachment,
   LAPIS_GROUPS,
+  LAPIS_PUBLISHER_AUTHORIZATION_TOPIC,
   LAPIS_RELEASE_TOPIC,
   lapisGroupId,
   materializeNip29Registry,
@@ -63,7 +64,7 @@ export async function loadNip29RelayRegistryState(
     {
       kinds: [NIP29_KINDS.streamMessage],
       "#h": [groupId],
-      "#t": [LAPIS_RELEASE_TOPIC],
+      "#t": [LAPIS_RELEASE_TOPIC, LAPIS_PUBLISHER_AUTHORIZATION_TOPIC],
       limit: 2_000,
     },
     options.signal,
@@ -72,7 +73,13 @@ export async function loadNip29RelayRegistryState(
     options.relays,
     {
       kinds: [NIP29_KINDS.reaction],
-      "#e": releaseResult.events.map((event) => event.id),
+      "#e": releaseResult.events
+        .filter((event) =>
+          event.tags.some(
+            (tag) => tag[0] === "t" && tag[1] === LAPIS_RELEASE_TOPIC,
+          ),
+        )
+        .map((event) => event.id),
       limit: 2_000,
     },
     options.signal,

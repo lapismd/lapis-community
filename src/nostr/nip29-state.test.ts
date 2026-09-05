@@ -10,6 +10,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import {
   createNip29CuratorDecisionTemplate,
+  createNip29PublisherAuthorizationTemplate,
   createNip29ReleaseMessageTemplate,
 } from "../protocol/index.js";
 import type {
@@ -39,7 +40,19 @@ class FixtureRelay implements RegistryRelay {
 
   async query(filter: RelayFilter): Promise<NostrEvent[]> {
     if (!this.authenticated) throw new Error("NIP-42 required");
-    return this.events.filter((event) => filter.kinds?.includes(event.kind));
+    return this.events.filter(
+      (event) =>
+        (filter.kinds === undefined || filter.kinds.includes(event.kind)) &&
+        Object.entries(filter).every(([key, values]) => {
+          if (!key.startsWith("#") || !Array.isArray(values)) return true;
+          const tagName = key.slice(1);
+          return event.tags.some(
+            (tag) =>
+              tag[0] === tagName &&
+              values.some((value) => String(value) === (tag[1] ?? "")),
+          );
+        }),
+    );
   }
 
   async publish(): Promise<RelayPublishResult> {
@@ -108,7 +121,16 @@ describe("loadNip29RelayRegistryState", () => {
       curatorKey,
       createNip29CuratorDecisionTemplate(release.id, "approved", 1_700_000_001),
     );
-    const relay = new FixtureRelay([release, approval]);
+    const authorization = sign(
+      curatorKey,
+      createNip29PublisherAuthorizationTemplate(
+        "demo",
+        publisher,
+        "authorized",
+        1_699_999_999,
+      ),
+    );
+    const relay = new FixtureRelay([authorization, release, approval]);
     let mediaAuthorization = "";
     const fetchMock = vi
       .spyOn(globalThis, "fetch")
@@ -130,7 +152,7 @@ describe("loadNip29RelayRegistryState", () => {
       relays: [relay],
       authorities: {
         curatorPubkeys: new Set([curator]),
-        publisherPubkeysByPlugin: new Map([["demo", new Set([publisher])]]),
+        publisherPubkeysByPlugin: new Map(),
       },
       generatedAt: "2026-09-01T11:00:00.000Z",
       authSigner: async (template) => sign(publisherKey, template),
@@ -144,7 +166,7 @@ describe("loadNip29RelayRegistryState", () => {
     expect(state.sources).toEqual([
       {
         relay: relay.url,
-        eventIds: [approval.id, release.id].toSorted(),
+        eventIds: [approval.id, authorization.id, release.id].toSorted(),
       },
     ]);
     const mediaAuth = JSON.parse(

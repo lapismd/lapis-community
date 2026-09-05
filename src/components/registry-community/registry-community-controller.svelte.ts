@@ -46,7 +46,6 @@ import {
   DiscussionPaginationError,
   adjacentDiscussionWindow,
   centeredDiscussionWindow,
-  initialDiscussionWindow,
   mergeDiscussionPosts,
   sliceBoundaryWindow,
   type DiscussionLoadDirection,
@@ -116,6 +115,7 @@ export function createRegistryCommunityController(
   let loadSequence = 0;
   let streamGeneration = 0;
   let jumpController: AbortController | undefined;
+  let pluginCommunityLoaded = false;
 
   const dataSource =
     options.dataSource ??
@@ -132,6 +132,14 @@ export function createRegistryCommunityController(
   const boundaryBucketLimit = 1_000;
   const parentContextLimit = 80;
   const parentContextDepth = 12;
+  const relayAuthentication = new WeakMap<
+    CommunityRelay,
+    { signer: RegistrySigner; promise: Promise<void> }
+  >();
+  const countProbeCache = new Map<number, number>();
+  const commentWindowCache = new Map<string, LoadedCommentWindow>();
+  const countProbeCacheLimit = 128;
+  const commentWindowCacheLimit = 12;
 
   const relayUrls = $derived(parseRelayUrls(relays));
   const supportGroupId = $derived(
@@ -202,6 +210,32 @@ export function createRegistryCommunityController(
     return dataSource.relay(url);
   }
 
+  async function authenticateRelay(
+    client: CommunityRelay,
+    activeSigner: RegistrySigner,
+    signal?: AbortSignal,
+  ): Promise<void> {
+    const cached = relayAuthentication.get(client);
+    if (cached?.signer === activeSigner) {
+      await cached.promise;
+      return;
+    }
+    const promise = authenticateRegistryRelay(
+      client,
+      activeSigner,
+      signal,
+    ).then(() => undefined);
+    relayAuthentication.set(client, { signer: activeSigner, promise });
+    try {
+      await promise;
+    } catch (cause) {
+      if (relayAuthentication.get(client)?.promise === promise) {
+        relayAuthentication.delete(client);
+      }
+      throw cause;
+    }
+  }
+
   async function queryAll(
     filter: Parameters<CommunityRelay["query"]>[0],
     signal?: AbortSignal,
@@ -210,7 +244,7 @@ export function createRegistryCommunityController(
     const results = await Promise.allSettled(
       relayUrls.map(async (url) => {
         const client = relay(url);
-        await authenticateRegistryRelay(client, signer ?? readSigner, signal);
+        await authenticateRelay(client, signer ?? readSigner, signal);
         return await client.query(filter, signal);
       }),
     );
@@ -224,8 +258,12 @@ export function createRegistryCommunityController(
         .flatMap((result) => result.value)
         .map((event) => [event.id, event] as const),
     );
+    const ordered = [...events.values()].toSorted(compareEvents);
     return {
-      events: [...events.values()],
+      events:
+        filter.limit === undefined
+          ? ordered
+          : ordered.slice(-Math.max(0, filter.limit)),
       availableRelays: successful.length,
     };
   }
@@ -238,13 +276,11 @@ export function createRegistryCommunityController(
     const results = await Promise.allSettled(
       relayUrls.map(async (url) => {
         const client = relay(url);
-        await authenticateRegistryRelay(client, signer ?? readSigner, signal);
+        await authenticateRelay(client, signer ?? readSigner, signal);
         if (client.count !== undefined) {
           return await client.count(filter, signal);
         }
-        const countFilter = { ...filter };
-        delete countFilter.limit;
-        return (await client.query(countFilter, signal)).length;
+        throw new Error(`${client.url}: relay does not support NIP-45 counts`);
       }),
     );
     signal?.throwIfAborted();
@@ -322,19 +358,308 @@ export function createRegistryCommunityController(
     profiles: CommunityProfile[];
   }
 
+  function cacheCountProbe(timestamp: number, count: number): void {
+    countProbeCache.delete(timestamp);
+    countProbeCache.set(timestamp, count);
+    while (countProbeCache.size > countProbeCacheLimit) {
+      const oldest = countProbeCache.keys().next().value;
+      if (oldest === undefined) break;
+      countProbeCache.delete(oldest);
+    }
+  }
+
+  function countSeekBounds(
+    targetCount: number,
+    latestTimestamp: number,
+    totalCount: number,
+  ):
+    | {
+        lowerTimestamp: number;
+        upperTimestamp: number;
+        upperCount: number;
+      }
+    | undefined {
+    let lowerTimestamp = 0;
+    let upperTimestamp = latestTimestamp;
+    let upperCount = totalCount;
+    let narrowed = false;
+    for (const [timestamp, count] of countProbeCache) {
+      if (timestamp < 0 || timestamp > latestTimestamp) continue;
+      if (count < targetCount && timestamp + 1 > lowerTimestamp) {
+        lowerTimestamp = timestamp + 1;
+        narrowed = true;
+      }
+      if (count >= targetCount && timestamp < upperTimestamp) {
+        upperTimestamp = timestamp;
+        upperCount = count;
+        narrowed = true;
+      }
+    }
+    return narrowed && lowerTimestamp <= upperTimestamp
+      ? { lowerTimestamp, upperTimestamp, upperCount }
+      : undefined;
+  }
+
+  async function seekCommentTimestamp(
+    targetCount: number,
+    latestTimestamp: number,
+    totalCount: number,
+    baseFilter: Parameters<CommunityRelay["query"]>[0],
+    signal?: AbortSignal,
+  ) {
+    return seekTimestampForCount(
+      targetCount,
+      latestTimestamp,
+      totalCount,
+      async (until) => {
+        const cached = countProbeCache.get(until);
+        if (cached !== undefined) {
+          cacheCountProbe(until, cached);
+          return cached;
+        }
+        const result = await countAll({ ...baseFilter, until }, signal);
+        if (result.availableRelays === 0) {
+          throw new Error(
+            "The community relay stopped responding to NIP-45 counts.",
+          );
+        }
+        cacheCountProbe(until, result.count);
+        return result.count;
+      },
+      countSeekBounds(targetCount, latestTimestamp, totalCount),
+    );
+  }
+
+  function commentWindowCacheKey(window: LoadedCommentWindow): string {
+    return `${window.total}:${window.startIndex}:${window.endIndex}`;
+  }
+
+  function cacheCommentWindow(window: LoadedCommentWindow): void {
+    const key = commentWindowCacheKey(window);
+    commentWindowCache.delete(key);
+    commentWindowCache.set(key, window);
+    while (commentWindowCache.size > commentWindowCacheLimit) {
+      const oldest = commentWindowCache.keys().next().value;
+      if (oldest === undefined) break;
+      commentWindowCache.delete(oldest);
+    }
+  }
+
+  function cachedCommentWindow(
+    targetIndex: number,
+  ): LoadedCommentWindow | undefined {
+    for (const [key, window] of [...commentWindowCache].reverse()) {
+      if (
+        window.total === commentTotal &&
+        targetIndex >= window.startIndex &&
+        targetIndex < window.endIndex
+      ) {
+        commentWindowCache.delete(key);
+        commentWindowCache.set(key, window);
+        return { ...window, targetIndex };
+      }
+    }
+    return undefined;
+  }
+
+  async function loadPreviousCommentWindow(
+    baseFilter: Parameters<CommunityRelay["query"]>[0],
+    currentRange: DiscussionWindowRange,
+    signal?: AbortSignal,
+  ): Promise<LoadedCommentWindow | undefined> {
+    const cursor = reviews[0]?.event;
+    if (cursor === undefined || currentRange.startIndex <= 0) return undefined;
+    const page = adjacentDiscussionWindow(
+      commentTotal,
+      currentRange.startIndex,
+      currentRange.endIndex,
+      "prepend",
+      commentPageSize,
+    );
+    const expected = page.endIndex - page.startIndex;
+    const boundaryResult = await queryAll(
+      {
+        ...baseFilter,
+        since: cursor.created_at,
+        until: cursor.created_at,
+        limit: boundaryBucketLimit + 1,
+      },
+      signal,
+    );
+    if (boundaryResult.events.length > boundaryBucketLimit) {
+      throw new DiscussionPaginationError(
+        `More than ${boundaryBucketLimit} posts share one relay timestamp. Narrow pagination cannot be proven safely.`,
+      );
+    }
+    const boundaryEvents = boundaryResult.events
+      .filter((event) => compareEvents(event, cursor) < 0)
+      .toSorted(compareEvents);
+    const olderNeeded = Math.max(0, expected - boundaryEvents.length);
+    const olderResult =
+      olderNeeded === 0
+        ? { events: [], availableRelays: boundaryResult.availableRelays }
+        : await queryAll(
+            {
+              ...baseFilter,
+              until: cursor.created_at - 1,
+              limit: olderNeeded,
+            },
+            signal,
+          );
+    const pageEvents = [...olderResult.events, ...boundaryEvents]
+      .toSorted(compareEvents)
+      .slice(-expected);
+    if (pageEvents.length !== expected) {
+      throw new DiscussionPaginationError(
+        "The relay could not provide the complete previous discussion window. Retry the request.",
+      );
+    }
+    const events = await loadParentContext(pageEvents, signal);
+    return {
+      events,
+      visibleIds: new Set(pageEvents.map((event) => event.id)),
+      total: commentTotal,
+      ...page,
+      firstTimestamp:
+        page.startIndex === 0
+          ? (pageEvents[0]?.created_at ?? threadFirstTimestamp)
+          : threadFirstTimestamp,
+      lastTimestamp:
+        threadLastTimestamp || reviews.at(-1)?.event.created_at || 0,
+      availableRelays: Math.max(
+        boundaryResult.availableRelays,
+        olderResult.availableRelays,
+      ),
+    };
+  }
+
+  async function loadNewestCommentWindow(
+    baseFilter: Parameters<CommunityRelay["query"]>[0],
+    countResult: { count: number; availableRelays: number },
+    newestResult: { events: NostrEvent[]; availableRelays: number },
+    signal?: AbortSignal,
+  ): Promise<LoadedCommentWindow> {
+    const newestCandidates = newestResult.events.toSorted(compareEvents);
+    const oldestCandidate = newestCandidates[0];
+    const latestEvent = newestCandidates.at(-1);
+    if (
+      countResult.count === 0 ||
+      oldestCandidate === undefined ||
+      latestEvent === undefined
+    ) {
+      return {
+        events: [],
+        visibleIds: new Set(),
+        total: 0,
+        startIndex: 0,
+        endIndex: 0,
+        targetIndex: 0,
+        firstTimestamp: 0,
+        lastTimestamp: 0,
+        availableRelays: Math.max(
+          countResult.availableRelays,
+          newestResult.availableRelays,
+        ),
+      };
+    }
+
+    const [beforeBoundary, throughBoundary] = await Promise.all([
+      countAll(
+        { ...baseFilter, until: oldestCandidate.created_at - 1 },
+        signal,
+      ),
+      countAll({ ...baseFilter, until: oldestCandidate.created_at }, signal),
+    ]);
+    cacheCountProbe(oldestCandidate.created_at - 1, beforeBoundary.count);
+    cacheCountProbe(oldestCandidate.created_at, throughBoundary.count);
+    const boundaryCount = throughBoundary.count - beforeBoundary.count;
+    if (boundaryCount <= 0 || boundaryCount > boundaryBucketLimit) {
+      throw new DiscussionPaginationError(
+        boundaryCount > boundaryBucketLimit
+          ? `More than ${boundaryBucketLimit} posts share one relay timestamp. Narrow pagination cannot be proven safely.`
+          : "The relay count index changed while the newest discussion window was loading. Retry the request.",
+      );
+    }
+    const boundaryResult = await queryAll(
+      {
+        ...baseFilter,
+        since: oldestCandidate.created_at,
+        until: oldestCandidate.created_at,
+        limit: boundaryCount,
+      },
+      signal,
+    );
+    if (boundaryResult.events.length !== boundaryCount) {
+      throw new DiscussionPaginationError(
+        "The relay returned an incomplete same-second event bucket.",
+      );
+    }
+
+    const pageEvents = [
+      ...newestCandidates.filter(
+        (event) => event.created_at > oldestCandidate.created_at,
+      ),
+      ...boundaryResult.events,
+    ]
+      .toSorted(compareEvents)
+      .slice(-Math.min(commentPageSize, countResult.count));
+    const expected = Math.min(commentPageSize, countResult.count);
+    if (pageEvents.length !== expected) {
+      throw new DiscussionPaginationError(
+        "The relay returned an incomplete newest discussion window. Retry the request.",
+      );
+    }
+    const events = await loadParentContext(pageEvents, signal);
+    const startIndex = countResult.count - pageEvents.length;
+    return {
+      events,
+      visibleIds: new Set(pageEvents.map((event) => event.id)),
+      total: countResult.count,
+      startIndex,
+      endIndex: countResult.count,
+      targetIndex: countResult.count - 1,
+      firstTimestamp:
+        startIndex === 0
+          ? (pageEvents[0]?.created_at ?? threadFirstTimestamp)
+          : threadFirstTimestamp,
+      lastTimestamp: latestEvent.created_at,
+      availableRelays: Math.max(
+        countResult.availableRelays,
+        newestResult.availableRelays,
+        boundaryResult.availableRelays,
+      ),
+    };
+  }
+
   async function loadCommentWindow(
     targetIndex: number,
     direction: DiscussionLoadDirection,
     currentRange: DiscussionWindowRange,
+    preferLatest = false,
     signal?: AbortSignal,
   ): Promise<LoadedCommentWindow> {
     const baseFilter = {
       kinds: [NIP29_KINDS.forumThread, NIP29_KINDS.comment],
       "#h": [supportGroupId],
     };
+    if (direction === "replace" && !preferLatest && commentTotal > 0) {
+      const cached = cachedCommentWindow(targetIndex);
+      if (cached !== undefined) return cached;
+    }
+    if (direction === "prepend") {
+      const previous = await loadPreviousCommentWindow(
+        baseFilter,
+        currentRange,
+        signal,
+      );
+      if (previous !== undefined) return previous;
+    }
     const [countResult, latestResult] = await Promise.all([
       countAll(baseFilter, signal),
-      queryAll({ ...baseFilter, limit: 1 }, signal),
+      queryAll(
+        { ...baseFilter, limit: preferLatest ? commentPageSize : 1 },
+        signal,
+      ),
     ]);
     if (countResult.availableRelays === 0) {
       throw new Error("The community relay must support NIP-45 event counts.");
@@ -357,15 +682,22 @@ export function createRegistryCommunityController(
       };
     }
 
+    if (direction === "replace" && preferLatest) {
+      return loadNewestCommentWindow(
+        baseFilter,
+        countResult,
+        latestResult,
+        signal,
+      );
+    }
+
     const page =
       direction === "replace"
-        ? pageEndIndex === 0 && targetIndex <= 0
-          ? initialDiscussionWindow(countResult.count, commentPageSize)
-          : centeredDiscussionWindow(
-              countResult.count,
-              targetIndex,
-              commentPageSize,
-            )
+        ? centeredDiscussionWindow(
+            countResult.count,
+            targetIndex,
+            commentPageSize,
+          )
         : adjacentDiscussionWindow(
             countResult.count,
             currentRange.startIndex,
@@ -387,25 +719,17 @@ export function createRegistryCommunityController(
         ),
       };
     }
-    const countCache = new Map<number, number>([
-      [latestEvent.created_at, countResult.count],
-    ]);
-    const boundary = await seekTimestampForCount(
+    if (commentTotal !== 0 && commentTotal !== countResult.count) {
+      countProbeCache.clear();
+      commentWindowCache.clear();
+    }
+    cacheCountProbe(latestEvent.created_at, countResult.count);
+    const boundary = await seekCommentTimestamp(
       page.endIndex,
       latestEvent.created_at,
       countResult.count,
-      async (until) => {
-        const cached = countCache.get(until);
-        if (cached !== undefined) return cached;
-        const result = await countAll({ ...baseFilter, until }, signal);
-        if (result.availableRelays === 0) {
-          throw new Error(
-            "The community relay stopped responding to NIP-45 counts.",
-          );
-        }
-        countCache.set(until, result.count);
-        return result.count;
-      },
+      baseFilter,
+      signal,
     );
     const countBeforeBoundary =
       boundary.timestamp <= 0
@@ -415,6 +739,8 @@ export function createRegistryCommunityController(
             signal,
           );
     const expectedBoundaryCount = boundary.count - countBeforeBoundary.count;
+    cacheCountProbe(boundary.timestamp - 1, countBeforeBoundary.count);
+    cacheCountProbe(boundary.timestamp, boundary.count);
     if (
       expectedBoundaryCount <= 0 ||
       expectedBoundaryCount > boundaryBucketLimit
@@ -470,30 +796,10 @@ export function createRegistryCommunityController(
       );
     }
     const events = await loadParentContext(pageEvents, signal);
-    let firstTimestamp =
+    const firstTimestamp =
       page.startIndex === 0
         ? (pageEvents[0]?.created_at ?? threadFirstTimestamp)
         : threadFirstTimestamp;
-    if (firstTimestamp === 0) {
-      const firstBoundary = await seekTimestampForCount(
-        1,
-        latestEvent.created_at,
-        countResult.count,
-        async (until) => {
-          const cached = countCache.get(until);
-          if (cached !== undefined) return cached;
-          const result = await countAll({ ...baseFilter, until }, signal);
-          if (result.availableRelays === 0) {
-            throw new Error(
-              "The community relay stopped responding to NIP-45 counts.",
-            );
-          }
-          countCache.set(until, result.count);
-          return result.count;
-        },
-      );
-      firstTimestamp = firstBoundary.timestamp;
-    }
 
     return {
       events,
@@ -553,6 +859,32 @@ export function createRegistryCommunityController(
       reactions: nextReactions,
       profiles: parseProfiles(profileEvents),
     };
+  }
+
+  async function resolveThreadStartTimestamp(
+    total: number,
+    latestTimestamp: number,
+    generation: number,
+  ): Promise<void> {
+    if (total <= 0 || latestTimestamp <= 0 || threadFirstTimestamp > 0) return;
+    const baseFilter = {
+      kinds: [NIP29_KINDS.forumThread, NIP29_KINDS.comment],
+      "#h": [supportGroupId],
+    };
+    try {
+      const boundary = await seekCommentTimestamp(
+        1,
+        latestTimestamp,
+        total,
+        baseFilter,
+      );
+      if (generation === streamGeneration && threadFirstTimestamp === 0) {
+        threadFirstTimestamp = boundary.timestamp;
+      }
+    } catch {
+      // The visible newest window remains useful when optional timeline
+      // endpoint metadata cannot be resolved.
+    }
   }
 
   async function loadPluginCommunity(signal?: AbortSignal): Promise<{
@@ -633,6 +965,7 @@ export function createRegistryCommunityController(
     direction: DiscussionLoadDirection,
     targetEventId = "",
   ): void {
+    cacheCommentWindow(window);
     const incomingVisible = hydrated.posts.filter((post) =>
       window.visibleIds.has(post.event.id),
     );
@@ -790,11 +1123,18 @@ export function createRegistryCommunityController(
         targetIndex,
       };
       const [pluginCommunity, commentWindow] = await Promise.all([
-        loadPluginCommunity(controller.signal),
+        pluginCommunityLoaded
+          ? Promise.resolve({
+              release: pluginRelease,
+              reactions: pluginReactions,
+              profiles: [] as CommunityProfile[],
+            })
+          : loadPluginCommunity(controller.signal),
         loadCommentWindow(
           targetIndex,
           "replace",
           currentRange,
+          initialLoad && targetEventId === "",
           controller.signal,
         ),
       ]);
@@ -805,12 +1145,20 @@ export function createRegistryCommunityController(
       if (sequence !== loadSequence || generation !== streamGeneration)
         return false;
       pluginRelease = pluginCommunity.release;
+      pluginCommunityLoaded = true;
       pluginReactions = mergeReactions(
         pluginReactions,
         pluginCommunity.reactions,
       );
       mergeProfiles(pluginCommunity.profiles);
       applyCommentWindow(commentWindow, hydrated, "replace", targetEventId);
+      if (commentWindow.firstTimestamp === 0) {
+        void resolveThreadStartTimestamp(
+          commentWindow.total,
+          commentWindow.lastTimestamp,
+          generation,
+        );
+      }
       if (activePostId !== "") requestPostScroll(activePostId);
       return true;
     } catch (cause) {
@@ -855,6 +1203,7 @@ export function createRegistryCommunityController(
         activeGlobalPostIndex,
         direction,
         currentRange,
+        false,
       );
       const hydrated = await hydrateCommentWindow(window);
       if (generation !== streamGeneration) return false;
@@ -927,7 +1276,7 @@ export function createRegistryCommunityController(
       const pubkey = await connectedSigner.getPublicKey();
       const authenticated = await Promise.allSettled(
         relayUrls.map(async (url) =>
-          authenticateRegistryRelay(relay(url), connectedSigner),
+          authenticateRelay(relay(url), connectedSigner),
         ),
       );
       if (!authenticated.some((result) => result.status === "fulfilled")) {
@@ -959,7 +1308,7 @@ export function createRegistryCommunityController(
     const results = await Promise.allSettled(
       relayUrls.map(async (url) => {
         const client = relay(url);
-        await authenticateRegistryRelay(client, activeSigner);
+        await authenticateRelay(client, activeSigner);
         return await client.publish(event);
       }),
     );

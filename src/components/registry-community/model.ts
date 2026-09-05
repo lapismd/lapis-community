@@ -307,6 +307,11 @@ export async function seekTimestampForCount(
   latestTimestamp: number,
   totalCount: number,
   countUntil: (timestamp: number) => Promise<number>,
+  bounds?: {
+    lowerTimestamp: number;
+    upperTimestamp: number;
+    upperCount: number;
+  },
 ): Promise<CountTimestamp> {
   if (targetCount <= 0 || totalCount <= 0 || latestTimestamp <= 0) {
     return { timestamp: 0, count: 0, probes: 0 };
@@ -319,9 +324,17 @@ export async function seekTimestampForCount(
     };
   }
 
-  let lower = 0;
-  let upper = Math.floor(latestTimestamp);
-  let upperCount = totalCount;
+  let lower = Math.max(0, Math.floor(bounds?.lowerTimestamp ?? 0));
+  let upper = Math.min(
+    Math.floor(latestTimestamp),
+    Math.floor(bounds?.upperTimestamp ?? latestTimestamp),
+  );
+  let upperCount = bounds?.upperCount ?? totalCount;
+  if (lower > upper || upperCount < targetCount) {
+    lower = 0;
+    upper = Math.floor(latestTimestamp);
+    upperCount = totalCount;
+  }
   let probes = 0;
   while (lower < upper) {
     const candidate = lower + Math.floor((upper - lower) / 2);

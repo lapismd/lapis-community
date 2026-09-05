@@ -6,7 +6,7 @@ WORKDIR /app
 COPY --chown=node:node . .
 RUN chown node:node /app
 USER node
-RUN pnpm install --frozen-lockfile
+RUN pnpm install --frozen-lockfile --ignore-pnpmfile
 RUN pnpm build
 
 FROM node:24-alpine@sha256:e67514e5d0f6c46656005e1b693b2ec9d52e80b641307de684d4a015ba7a4eaf AS runtime

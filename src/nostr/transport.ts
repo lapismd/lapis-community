@@ -188,7 +188,6 @@ export class WebSocketRegistryRelay implements CommunityRelay {
     signal?.throwIfAborted();
     const relay = await this.#connect(signal);
     const queryFilter = { ...filter };
-    delete queryFilter.limit;
 
     return await new Promise<NostrEvent[]>((resolve, reject) => {
       const events: NostrEvent[] = [];
@@ -234,45 +233,33 @@ export class WebSocketRegistryRelay implements CommunityRelay {
   async count(filter: RelayFilter, signal?: AbortSignal): Promise<number> {
     signal?.throwIfAborted();
     const relay = await this.#connect(signal);
-    try {
-      return await new Promise<number>((resolve, reject) => {
-        let settled = false;
-        const settle = (callback: () => void): void => {
-          if (settled) return;
-          settled = true;
-          clearTimeout(timeout);
-          callback();
-        };
-        const timeout = setTimeout(
-          () =>
-            settle(() => {
-              relay.close();
-              this.#connection = undefined;
-              reject(new Error(`${this.url}: COUNT timed out`));
-            }),
-          this.#eoseTimeoutMs,
-        );
-        void relay
-          .count([filter], {})
-          .then((count) => settle(() => resolve(count)))
-          .catch((cause: unknown) => settle(() => reject(cause)));
-        signal?.addEventListener(
-          "abort",
-          () => settle(() => reject(signal.reason)),
-          { once: true },
-        );
-      });
-    } catch (cause) {
-      if (
-        cause instanceof Error &&
-        cause.message.includes("does not support NIP-45")
-      ) {
-        const countFilter = { ...filter };
-        delete countFilter.limit;
-        return (await this.query(countFilter, signal)).length;
-      }
-      throw cause;
-    }
+    return await new Promise<number>((resolve, reject) => {
+      let settled = false;
+      const settle = (callback: () => void): void => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timeout);
+        callback();
+      };
+      const timeout = setTimeout(
+        () =>
+          settle(() => {
+            relay.close();
+            this.#connection = undefined;
+            reject(new Error(`${this.url}: COUNT timed out`));
+          }),
+        this.#eoseTimeoutMs,
+      );
+      void relay
+        .count([filter], {})
+        .then((count) => settle(() => resolve(count)))
+        .catch((cause: unknown) => settle(() => reject(cause)));
+      signal?.addEventListener(
+        "abort",
+        () => settle(() => reject(signal.reason)),
+        { once: true },
+      );
+    });
   }
 
   async subscribe(

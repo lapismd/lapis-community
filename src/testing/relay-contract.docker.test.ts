@@ -28,6 +28,7 @@ if (relayUrl === undefined || relayUrl === "") {
       });
       const connections = new Set<CommunityRelay>();
       return {
+        supportsCount: false,
         async connection(secretKey = relayContractAliceKey) {
           const relay = factory.create(relayUrl);
           connections.add(relay);
