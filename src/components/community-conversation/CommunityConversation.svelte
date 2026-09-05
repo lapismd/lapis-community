@@ -345,8 +345,11 @@
     :global(
       [data-ui-component="ai-chat-layout"] > [data-ui-part="composer-dock"]
     ) {
+    z-index: 1;
+    overflow: hidden;
     border-block-start: 1px solid var(--border);
     padding: 0;
+    background: var(--background);
   }
 
   .community-conversation[data-composer-placement="row"]

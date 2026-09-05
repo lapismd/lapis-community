@@ -2517,7 +2517,7 @@
       cancelPendingParticipation();
   }}
 >
-  <AlertDialog.Content>
+  <AlertDialog.Content class="community-application__alert-dialog">
     <AlertDialog.Header>
       <AlertDialog.Title>
         Join {pendingParticipation?.roomName ?? "this room"} to continue?
@@ -2539,9 +2539,11 @@
       </p>
     {/if}
     <AlertDialog.Footer>
-      <AlertDialog.Cancel disabled={membershipJoinState === "pending"}
-        >Cancel</AlertDialog.Cancel
-      >
+      <AlertDialog.Cancel disabled={membershipJoinState === "pending"}>
+        {#snippet child({ props })}
+          <Button {...props} variant="outline">Cancel</Button>
+        {/snippet}
+      </AlertDialog.Cancel>
       <Button
         type="button"
         disabled={membershipJoinState !== "idle"}
@@ -2563,7 +2565,7 @@
     if (!open) confirmation = null;
   }}
 >
-  <AlertDialog.Content>
+  <AlertDialog.Content class="community-application__alert-dialog">
     <AlertDialog.Header>
       <AlertDialog.Title
         >{confirmation === "delete"
@@ -2577,10 +2579,18 @@
       </AlertDialog.Description>
     </AlertDialog.Header>
     <AlertDialog.Footer>
-      <AlertDialog.Cancel>Cancel</AlertDialog.Cancel>
-      <AlertDialog.Action onclick={confirmRoomAction}
-        >{confirmation === "delete" ? "Delete" : "Leave"}</AlertDialog.Action
-      >
+      <AlertDialog.Cancel>
+        {#snippet child({ props })}
+          <Button {...props} variant="outline">Cancel</Button>
+        {/snippet}
+      </AlertDialog.Cancel>
+      <AlertDialog.Action onclick={confirmRoomAction}>
+        {#snippet child({ props })}
+          <Button {...props} variant="destructive">
+            {confirmation === "delete" ? "Delete" : "Leave"}
+          </Button>
+        {/snippet}
+      </AlertDialog.Action>
     </AlertDialog.Footer>
   </AlertDialog.Content>
 </AlertDialog.Root>
@@ -2691,6 +2701,13 @@
   :global(.community-application__section-dialog) {
     width: min(22rem, calc(100vw - 2rem));
     max-width: 22rem;
+  }
+
+  :global(
+      .community-application__alert-dialog[data-ui-part="alert-dialog-content"]
+    ) {
+    width: min(28rem, calc(100vw - 2rem));
+    max-width: 28rem;
   }
 
   :global(.community-application__relay-alert[data-ui-component="alert"]) {

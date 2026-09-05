@@ -151,7 +151,7 @@
 </Dialog.Root>
 
 <AlertDialog.Root bind:open={clearConfirmationOpen}>
-  <AlertDialog.Content>
+  <AlertDialog.Content class="community-relay-settings__alert-dialog">
     <AlertDialog.Header>
       <AlertDialog.Title>Clear local community data?</AlertDialog.Title>
       <AlertDialog.Description>
@@ -160,13 +160,21 @@
       </AlertDialog.Description>
     </AlertDialog.Header>
     <AlertDialog.Footer>
-      <AlertDialog.Cancel>Cancel</AlertDialog.Cancel>
+      <AlertDialog.Cancel>
+        {#snippet child({ props })}
+          <Button {...props} variant="outline">Cancel</Button>
+        {/snippet}
+      </AlertDialog.Cancel>
       <AlertDialog.Action
         onclick={() => {
           clearConfirmationOpen = false;
           void onClearCache?.();
-        }}>Clear cache</AlertDialog.Action
+        }}
       >
+        {#snippet child({ props })}
+          <Button {...props} variant="destructive">Clear cache</Button>
+        {/snippet}
+      </AlertDialog.Action>
     </AlertDialog.Footer>
   </AlertDialog.Content>
 </AlertDialog.Root>
@@ -174,6 +182,13 @@
 <style>
   :global(.community-relay-settings) {
     width: min(calc(100vw - 2rem), 31rem);
+  }
+
+  :global(
+      .community-relay-settings__alert-dialog[data-ui-part="alert-dialog-content"]
+    ) {
+    width: min(28rem, calc(100vw - 2rem));
+    max-width: 28rem;
   }
 
   .community-relay-settings__form {

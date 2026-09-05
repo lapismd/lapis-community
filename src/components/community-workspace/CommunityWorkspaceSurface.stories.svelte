@@ -128,10 +128,29 @@
       '[data-ui-part="room-membership"]',
     );
     await expect(membership).not.toBeNull();
+    await expect(membership?.tagName).toBe("FOOTER");
     await expect(membership).toHaveTextContent("Viewing #general");
+    const composerDock = membership?.closest<HTMLElement>(
+      '[data-ui-part="composer-dock"]',
+    );
+    const chatLayout = membership?.closest<HTMLElement>(
+      '[data-ui-component="ai-chat-layout"]',
+    );
+    const scrollShell = chatLayout?.querySelector<HTMLElement>(
+      '[data-ui-part="scroll-shell"]',
+    );
+    await expect(composerDock).not.toBeNull();
+    await expect(scrollShell).not.toBeNull();
+    await expect(scrollShell?.contains(membership)).toBe(false);
     await expect(
-      membership?.closest('[data-ui-part="composer-dock"]'),
-    ).not.toBeNull();
+      Math.abs(
+        (scrollShell?.getBoundingClientRect().bottom ?? 0) -
+          (composerDock?.getBoundingClientRect().top ?? 0),
+      ),
+    ).toBeLessThanOrEqual(1);
+    await expect(getComputedStyle(membership!).backgroundColor).not.toBe(
+      "rgba(0, 0, 0, 0)",
+    );
     await expect(
       canvas.queryByText("Join this room before posting or reacting"),
     ).not.toBeInTheDocument();

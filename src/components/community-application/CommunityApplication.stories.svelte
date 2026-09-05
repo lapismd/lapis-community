@@ -994,6 +994,7 @@
     await userEvent.click(canvas.getByRole("button", { name: "Forward" }));
     await expect(await canvas.findByText("8 results")).toBeVisible();
     const application = canvas.getByTestId("full-community-application");
+    const overlay = within(canvasElement.ownerDocument.body);
     const shell = application.querySelector<HTMLElement>(
       "[data-right-sidebar-state]",
     );
@@ -1039,6 +1040,31 @@
       await canvas.findByRole("button", { name: "Manage channel" }),
     );
     await expectRightPanel("Channel settings sidebar");
+
+    const leaveChannel = canvas.getByRole("button", {
+      name: "Leave channel",
+    });
+    const destructiveColor = getComputedStyle(leaveChannel).color;
+    await userEvent.click(leaveChannel);
+    const leaveDialog = await overlay.findByRole("alertdialog", {
+      name: "Leave general?",
+    });
+    await expect(leaveDialog).toBeVisible();
+    await expect(leaveDialog.getBoundingClientRect().width).toBeLessThanOrEqual(
+      448,
+    );
+    await expect(leaveDialog.getBoundingClientRect().width).toBeLessThan(
+      canvasElement.ownerDocument.documentElement.clientWidth,
+    );
+    await expect(
+      getComputedStyle(
+        within(leaveDialog).getByRole("button", { name: "Leave" }),
+      ).backgroundColor,
+    ).toBe(destructiveColor);
+    await userEvent.click(
+      within(leaveDialog).getByRole("button", { name: "Cancel" }),
+    );
+    await waitFor(() => expect(leaveDialog).not.toBeInTheDocument());
 
     await fireEvent.click(
       canvas.getAllByRole("button", { name: "Reply in thread" })[0]!,
@@ -1133,7 +1159,6 @@
     ).toBeVisible();
     await expectNoRightPanel();
 
-    const overlay = within(canvasElement.ownerDocument.body);
     await userEvent.click(
       canvas.getByRole("button", { name: "Open general menu" }),
     );

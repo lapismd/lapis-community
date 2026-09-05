@@ -112,9 +112,10 @@
 </script>
 
 {#snippet roomMembershipFooter()}
-  <div
+  <footer
     class="community-workspace-surface__membership"
     data-ui-part="room-membership"
+    aria-label="Room membership"
   >
     <span class="community-workspace-surface__membership-label">
       {#if activeRoom.kind === "forum"}
@@ -143,7 +144,7 @@
             : "Join to participate"}
       </Button>
     {/if}
-  </div>
+  </footer>
 {/snippet}
 
 <div class="community-workspace-surface" data-view={model.view}>
@@ -446,13 +447,17 @@
   }
 
   .community-workspace-surface__membership {
+    position: relative;
+    z-index: 1;
     display: flex;
     width: 100%;
     min-height: 4.5rem;
+    flex: none;
     align-items: center;
     justify-content: space-between;
     gap: 1rem;
     padding: 0.75rem 1rem;
+    isolation: isolate;
     background: var(--background);
   }
 
