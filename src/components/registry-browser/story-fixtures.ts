@@ -380,7 +380,15 @@ export function createRegistryStoryDataSource(
     },
     async loadPluginDetail(entry) {
       detailLoads.set(entry.id, (detailLoads.get(entry.id) ?? 0) + 1);
-      return registryStoryDetail(entry);
+      const catalogEntry = registryStoryEntries.find(
+        (candidate) => candidate.id === entry.id,
+      );
+      if (catalogEntry === undefined) {
+        throw new Error(
+          `${entry.id}: plugin detail is not in the story catalog`,
+        );
+      }
+      return registryStoryDetail(catalogEntry);
     },
     async loadMarkdown(reference) {
       return reference.url.includes("changelog")

@@ -204,7 +204,7 @@ describe("HTTP registry catalog data source", () => {
     );
   });
 
-  it("rejects unsafe paths and detail mismatches", async () => {
+  it("derives safe detail paths from stable IDs and rejects mismatches", async () => {
     const source = createHttpRegistryCatalogDataSource({
       baseUrl: "https://community.example/registry/",
       fetch: vi.fn<typeof fetch>(async () =>
@@ -218,11 +218,10 @@ describe("HTTP registry catalog data source", () => {
     });
     await expect(
       source.loadPluginDetail({
-        ...plugin,
-        detail: "https://evil.example/plugin.json",
+        id: "../../../evil",
       }),
     ).rejects.toThrow("must stay under");
-    await expect(source.loadPluginDetail(plugin)).rejects.toThrow(
+    await expect(source.loadPluginDetail({ id: plugin.id })).rejects.toThrow(
       "does not match the index",
     );
   });

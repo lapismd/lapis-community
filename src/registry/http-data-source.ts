@@ -81,14 +81,11 @@ export function createHttpRegistryCatalogDataSource(
       }
       return registryRuntimeSchema.parse(await response.json());
     },
-    async loadPluginDetail(
-      entry: RegistryCatalogEntry,
-      loadOptions?: RegistryLoadOptions,
-    ) {
+    async loadPluginDetail(entry, loadOptions) {
       const detail = resolveDetailMedia(
         baseUrl,
         registryCatalogDetailSchema.parse(
-          await readJson(entry.detail, loadOptions),
+          await readJson(`plugins/${entry.id}.json`, loadOptions),
         ),
       );
       if (detail.id !== entry.id) {

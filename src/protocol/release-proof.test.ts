@@ -121,6 +121,8 @@ describe("portable Nostr release proofs", () => {
         artifact: encoder.encode("tampered"),
         trustedCuratorPubkeys: new Set([curator]),
       }),
-    ).toThrowError("Plugin artifact bytes do not match the curated release manifest");
+    ).toThrowError(
+      "Plugin artifact bytes do not match the curated release manifest",
+    );
   });
 });
