@@ -41,9 +41,9 @@ settings drawer MUST NOT render an empty bordered action card.
 
 For LC-UI-021, the registry discussion reaction picker MUST accept any single
 native emoji grapheme, visibly distinguish hovered emoji, and round the active
-post highlight. The plugin gallery MUST keep two slides fully visible and opaque
-when available, with only a third or next slide shown as a small translucent
-preview.
+post highlight while insetting it on every side from the discussion separators.
+The plugin gallery MUST keep two slides fully visible and opaque when available,
+with only a third or next slide shown as a small translucent preview.
 Detail actions MUST remain readable without clipping, plugin health MUST use
 four discrete progress segments, and directory cards MUST place a
 high-contrast status tag beside their category tags.

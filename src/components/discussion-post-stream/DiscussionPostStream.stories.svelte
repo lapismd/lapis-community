@@ -1,5 +1,6 @@
 <script module lang="ts">
   import { defineMeta } from "@storybook/addon-svelte-csf";
+  import { expect } from "storybook/test";
 
   import {
     noMorePosts,
@@ -37,5 +38,15 @@
     onNavigate: noop,
     onReply: noop,
     onReact: noop,
+  }}
+  play={async ({ canvas }) => {
+    const activePost = canvas.getAllByRole("article")[0]!;
+    const activeStyle = getComputedStyle(activePost);
+    await expect(Number.parseFloat(activeStyle.marginTop)).toBeGreaterThan(0);
+    await expect(Number.parseFloat(activeStyle.marginRight)).toBeGreaterThan(0);
+    await expect(Number.parseFloat(activeStyle.marginBottom)).toBeGreaterThan(
+      0,
+    );
+    await expect(Number.parseFloat(activeStyle.marginLeft)).toBeGreaterThan(0);
   }}
 />

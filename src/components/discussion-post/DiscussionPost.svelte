@@ -137,6 +137,7 @@
   }
 
   article.active {
+    margin: 0.35rem;
     border-radius: calc(var(--radius) * 1.25);
     background: linear-gradient(
       90deg,
