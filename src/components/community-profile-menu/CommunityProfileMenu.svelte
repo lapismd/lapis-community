@@ -1,6 +1,7 @@
 <script lang="ts">
   import { Button } from "@lapismd/design-core/shadcn/button";
   import * as DropdownMenu from "@lapismd/design-core/shadcn/dropdown-menu";
+  import * as Tooltip from "@lapismd/design-core/shadcn/tooltip";
   import LinkIcon from "@lucide/svelte/icons/link-2";
   import LogInIcon from "@lucide/svelte/icons/log-in";
   import LogOutIcon from "@lucide/svelte/icons/log-out";
@@ -60,172 +61,199 @@
         ? "Reconnecting to relay…"
         : "",
   );
+  let menuOpen = $state(false);
+  let tooltipOpen = $state(false);
 </script>
 
 <div class="community-profile-menu" data-compact={compact || undefined}>
-  <DropdownMenu.Root>
-    <DropdownMenu.Trigger>
-      {#snippet child({ props })}
-        <Button
-          {...props}
-          type="button"
-          variant="ghost"
-          class="community-profile-menu__trigger"
-          aria-label={`Open profile menu for ${member.name}`}
-          title={compact ? `Open profile menu for ${member.name}` : undefined}
-        >
-          <CommunityMemberAvatar {member} showPresence decorative />
-          {#if !compact}
-            <span class="community-profile-menu__identity">
-              <strong>{member.name}</strong>
-              <small>
-                {#if authenticated && member.status}
-                  {member.status}
-                {:else}
-                  <span aria-hidden="true">🐝</span> {communityName}
-                {/if}
-              </small>
-            </span>
-          {/if}
-        </Button>
-      {/snippet}
-    </DropdownMenu.Trigger>
-
-    <DropdownMenu.Content
-      side="top"
-      align="start"
-      sideOffset={8}
-      class="community-profile-menu__content"
-      aria-label="Profile menu"
+  <Tooltip.Provider>
+    <DropdownMenu.Root
+      open={menuOpen}
+      onOpenChange={(open) => {
+        menuOpen = open;
+        if (open) tooltipOpen = false;
+      }}
     >
-      <DropdownMenu.Group class="community-profile-menu__menu-header">
-        <CommunityMemberAvatar {member} showPresence decorative />
-        <DropdownMenu.Label class="community-profile-menu__menu-identity">
-          <strong>{member.name}</strong>
-        </DropdownMenu.Label>
-        {#if authenticated}
-          <DropdownMenu.Sub>
-            <DropdownMenu.SubTrigger
-              class="community-profile-menu__presence-trigger"
-              data-presence={presence}
-              aria-label={`Presence: ${presenceLabel}`}
-            >
-              <span
-                class="community-profile-menu__presence-dot"
-                aria-hidden="true"
-              ></span>
-              <span>{presenceLabel}</span>
-            </DropdownMenu.SubTrigger>
-            <DropdownMenu.SubContent
-              class="community-profile-menu__presence-content"
-              aria-label="Presence status"
-            >
-              <DropdownMenu.RadioGroup value={presence}>
-                {#each presenceOptions as option (option.value)}
-                  <DropdownMenu.RadioItem
-                    value={option.value}
-                    onSelect={() => onPresenceChange(option.value)}
-                  >
-                    <span
-                      class="community-profile-menu__presence-option-dot"
-                      data-presence={option.value}
-                      aria-hidden="true"
-                    ></span>
-                    {option.label}
-                  </DropdownMenu.RadioItem>
-                {/each}
-              </DropdownMenu.RadioGroup>
-            </DropdownMenu.SubContent>
-          </DropdownMenu.Sub>
-        {/if}
-      </DropdownMenu.Group>
-
-      <DropdownMenu.Group>
-        {#if authenticated}
-          <DropdownMenu.Item
-            class="community-profile-menu__status-action"
-            onSelect={() => onAction("update-status")}
-          >
-            <SmileIcon data-icon="inline-start" aria-hidden="true" />
-            <span>{member.status ?? "Update your status"}</span>
-          </DropdownMenu.Item>
-        {:else}
-          <DropdownMenu.Item onSelect={() => onAction("sign-in")}>
-            <LogInIcon data-icon="inline-start" aria-hidden="true" />
-            <span>Sign in</span>
-          </DropdownMenu.Item>
-        {/if}
-      </DropdownMenu.Group>
-
-      <DropdownMenu.Separator />
-
-      <DropdownMenu.Group>
-        <DropdownMenu.Sub>
-          <DropdownMenu.SubTrigger
-            class="community-profile-menu__community-trigger"
-            aria-label={`${communityName} community actions`}
-          >
+      <Tooltip.Root open={tooltipOpen} disabled={!compact || menuOpen}>
+        <Tooltip.Trigger>
+          {#snippet child({ props: tooltipProps })}
             <span
-              class="community-profile-menu__community-icon"
-              aria-hidden="true">🐝</span
+              {...tooltipProps}
+              class="community-profile-menu__tooltip-anchor"
+              onpointerenter={() => (tooltipOpen = true)}
+              onpointerleave={() => (tooltipOpen = false)}
             >
-            <span class="community-profile-menu__community-label">
-              <span>{communityName}</span>
-              {#if connectionLabel}<small>{connectionLabel}</small>{/if}
+              <DropdownMenu.Trigger>
+                {#snippet child({ props })}
+                  <Button
+                    {...props}
+                    type="button"
+                    variant="ghost"
+                    class="community-profile-menu__trigger"
+                    aria-label={`Open profile menu for ${member.name}`}
+                  >
+                    <CommunityMemberAvatar {member} showPresence decorative />
+                    {#if !compact}
+                      <span class="community-profile-menu__identity">
+                        <strong>{member.name}</strong>
+                        <small>
+                          {#if authenticated && member.status}
+                            {member.status}
+                          {:else}
+                            <span aria-hidden="true">🐝</span> {communityName}
+                          {/if}
+                        </small>
+                      </span>
+                    {/if}
+                  </Button>
+                {/snippet}
+              </DropdownMenu.Trigger>
             </span>
-          </DropdownMenu.SubTrigger>
-          <DropdownMenu.SubContent
-            class="community-profile-menu__community-content"
-            aria-label="Community actions"
-          >
-            <DropdownMenu.Group>
-              {#if communityUrl}
-                <DropdownMenu.Item
-                  onSelect={() => onAction("copy-community-url")}
-                >
-                  <LinkIcon data-icon="inline-start" aria-hidden="true" />
-                  Copy community URL
-                </DropdownMenu.Item>
-              {/if}
-              <DropdownMenu.Item
-                onSelect={() => onAction("community-settings")}
-              >
-                <SettingsIcon data-icon="inline-start" aria-hidden="true" />
-                Community settings
-              </DropdownMenu.Item>
-              {#if authenticated && canManageCommunity}
-                <DropdownMenu.Item onSelect={() => onAction("manage-members")}>
-                  <UsersIcon data-icon="inline-start" aria-hidden="true" />
-                  Manage members
-                </DropdownMenu.Item>
-              {/if}
-            </DropdownMenu.Group>
-          </DropdownMenu.SubContent>
-        </DropdownMenu.Sub>
-      </DropdownMenu.Group>
+          {/snippet}
+        </Tooltip.Trigger>
+        <Tooltip.Content side="right" sideOffset={8}
+          >{member.name}</Tooltip.Content
+        >
+      </Tooltip.Root>
 
-      {#if canSendFeedback || authenticated}
-        <DropdownMenu.Separator />
-        <DropdownMenu.Group>
-          {#if canSendFeedback}
-            <DropdownMenu.Item onSelect={() => onAction("send-feedback")}
-              >Send feedback</DropdownMenu.Item
-            >
-          {/if}
+      <DropdownMenu.Content
+        side="top"
+        align="start"
+        sideOffset={8}
+        class="community-profile-menu__content"
+        aria-label="Profile menu"
+      >
+        <DropdownMenu.Group class="community-profile-menu__menu-header">
+          <CommunityMemberAvatar {member} showPresence decorative />
+          <DropdownMenu.Label class="community-profile-menu__menu-identity">
+            <strong>{member.name}</strong>
+          </DropdownMenu.Label>
           {#if authenticated}
-            <DropdownMenu.Item onSelect={() => onAction("settings")}>
-              Settings
-              <DropdownMenu.Shortcut>⌘,</DropdownMenu.Shortcut>
+            <DropdownMenu.Sub>
+              <DropdownMenu.SubTrigger
+                class="community-profile-menu__presence-trigger"
+                data-presence={presence}
+                aria-label={`Presence: ${presenceLabel}`}
+              >
+                <span
+                  class="community-profile-menu__presence-dot"
+                  aria-hidden="true"
+                ></span>
+                <span>{presenceLabel}</span>
+              </DropdownMenu.SubTrigger>
+              <DropdownMenu.SubContent
+                class="community-profile-menu__presence-content"
+                aria-label="Presence status"
+              >
+                <DropdownMenu.RadioGroup value={presence}>
+                  {#each presenceOptions as option (option.value)}
+                    <DropdownMenu.RadioItem
+                      value={option.value}
+                      onSelect={() => onPresenceChange(option.value)}
+                    >
+                      <span
+                        class="community-profile-menu__presence-option-dot"
+                        data-presence={option.value}
+                        aria-hidden="true"
+                      ></span>
+                      {option.label}
+                    </DropdownMenu.RadioItem>
+                  {/each}
+                </DropdownMenu.RadioGroup>
+              </DropdownMenu.SubContent>
+            </DropdownMenu.Sub>
+          {/if}
+        </DropdownMenu.Group>
+
+        <DropdownMenu.Group>
+          {#if authenticated}
+            <DropdownMenu.Item
+              class="community-profile-menu__status-action"
+              onSelect={() => onAction("update-status")}
+            >
+              <SmileIcon data-icon="inline-start" aria-hidden="true" />
+              <span>{member.status ?? "Update your status"}</span>
             </DropdownMenu.Item>
-            <DropdownMenu.Item onSelect={() => onAction("sign-out")}>
-              <LogOutIcon data-icon="inline-start" aria-hidden="true" />
-              Sign out
+          {:else}
+            <DropdownMenu.Item onSelect={() => onAction("sign-in")}>
+              <LogInIcon data-icon="inline-start" aria-hidden="true" />
+              <span>Sign in</span>
             </DropdownMenu.Item>
           {/if}
         </DropdownMenu.Group>
-      {/if}
-    </DropdownMenu.Content>
-  </DropdownMenu.Root>
+
+        <DropdownMenu.Separator />
+
+        <DropdownMenu.Group>
+          <DropdownMenu.Sub>
+            <DropdownMenu.SubTrigger
+              class="community-profile-menu__community-trigger"
+              aria-label={`${communityName} community actions`}
+            >
+              <span
+                class="community-profile-menu__community-icon"
+                aria-hidden="true">🐝</span
+              >
+              <span class="community-profile-menu__community-label">
+                <span>{communityName}</span>
+                {#if connectionLabel}<small>{connectionLabel}</small>{/if}
+              </span>
+            </DropdownMenu.SubTrigger>
+            <DropdownMenu.SubContent
+              class="community-profile-menu__community-content"
+              aria-label="Community actions"
+            >
+              <DropdownMenu.Group>
+                {#if communityUrl}
+                  <DropdownMenu.Item
+                    onSelect={() => onAction("copy-community-url")}
+                  >
+                    <LinkIcon data-icon="inline-start" aria-hidden="true" />
+                    Copy community URL
+                  </DropdownMenu.Item>
+                {/if}
+                <DropdownMenu.Item
+                  onSelect={() => onAction("community-settings")}
+                >
+                  <SettingsIcon data-icon="inline-start" aria-hidden="true" />
+                  Community settings
+                </DropdownMenu.Item>
+                {#if authenticated && canManageCommunity}
+                  <DropdownMenu.Item
+                    onSelect={() => onAction("manage-members")}
+                  >
+                    <UsersIcon data-icon="inline-start" aria-hidden="true" />
+                    Manage members
+                  </DropdownMenu.Item>
+                {/if}
+              </DropdownMenu.Group>
+            </DropdownMenu.SubContent>
+          </DropdownMenu.Sub>
+        </DropdownMenu.Group>
+
+        {#if canSendFeedback || authenticated}
+          <DropdownMenu.Separator />
+          <DropdownMenu.Group>
+            {#if canSendFeedback}
+              <DropdownMenu.Item onSelect={() => onAction("send-feedback")}
+                >Send feedback</DropdownMenu.Item
+              >
+            {/if}
+            {#if authenticated}
+              <DropdownMenu.Item onSelect={() => onAction("settings")}>
+                Settings
+                <DropdownMenu.Shortcut>⌘,</DropdownMenu.Shortcut>
+              </DropdownMenu.Item>
+              <DropdownMenu.Item onSelect={() => onAction("sign-out")}>
+                <LogOutIcon data-icon="inline-start" aria-hidden="true" />
+                Sign out
+              </DropdownMenu.Item>
+            {/if}
+          </DropdownMenu.Group>
+        {/if}
+      </DropdownMenu.Content>
+    </DropdownMenu.Root>
+  </Tooltip.Provider>
 </div>
 
 <style>
@@ -237,6 +265,11 @@
 
   .community-profile-menu[data-compact] {
     padding-inline: 0.5rem;
+  }
+
+  .community-profile-menu__tooltip-anchor {
+    display: flex;
+    width: 100%;
   }
 
   :global(.community-profile-menu__trigger[data-ui-component="button"]) {

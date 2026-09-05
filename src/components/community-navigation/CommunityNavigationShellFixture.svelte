@@ -21,14 +21,19 @@
     CommunityNavigationSectionActionModel,
     CommunityNavigationSectionModel,
   } from "./model.js";
+  import { withStarredCommunityNavigationSection } from "./model.js";
 
   let {
     initialActiveItemId = "inbox",
+    initialCollapsed = false,
+    includeStarred = false,
     onSelect = () => {},
     onSearch = () => {},
     onSectionAction = () => {},
   }: {
     initialActiveItemId?: string;
+    initialCollapsed?: boolean;
+    includeStarred?: boolean;
     onSelect?: (item: CommunityNavigationItemModel) => void;
     onSearch?: (query: string) => void;
     onSectionAction?: (
@@ -38,6 +43,7 @@
   } = $props();
 
   const controller = new AppShellController({
+    leftCollapsed: untrack(() => initialCollapsed),
     rightClosed: true,
     rightWidth: 320,
   });
@@ -66,7 +72,7 @@
   const inbox = $derived(community?.state.inbox ?? communityInboxFixture);
   const navigationModel = $derived.by<CommunityNavigationModel>(() => ({
     ...communityNavigationFixture,
-    sections:
+    sections: withStarredCommunityNavigationSection(
       workspace?.navigationSections.map((section) => {
         const fixture = communityNavigationFixture.sections.find(
           (candidate) => candidate.id === section.id,
@@ -74,6 +80,7 @@
         return {
           id: section.id,
           label: section.label,
+          ...(fixture?.kind === undefined ? {} : { kind: fixture.kind }),
           ...(fixture?.primaryAction === undefined
             ? {}
             : { primaryAction: fixture.primaryAction }),
@@ -83,8 +90,11 @@
           ...(fixture?.sortable === undefined
             ? {}
             : { sortable: fixture.sortable }),
-          items: section.rooms.map(
-            (room): CommunityNavigationItemModel => ({
+          items: section.rooms.map((room): CommunityNavigationItemModel => {
+            const fixtureItem = fixture?.items.find(
+              (candidate) => candidate.id === room.id,
+            );
+            return {
               id: room.id,
               label: room.name,
               kind: room.kind === "direct" ? "direct-message" : room.kind,
@@ -104,10 +114,17 @@
               room.unreadCount === undefined
                 ? {}
                 : { unreadCount: room.mentionCount ?? room.unreadCount }),
-            }),
-          ),
+              ...(includeStarred &&
+              (room.id === "general" || room.id === "support")
+                ? { starred: true }
+                : fixtureItem?.starred === undefined
+                  ? {}
+                  : { starred: fixtureItem.starred }),
+            };
+          }),
         };
       }) ?? communityNavigationFixture.sections,
+    ),
   }));
   const activeItemId = $derived(
     activeDestination === "inbox" || activeDestination === "registry"
@@ -124,8 +141,12 @@
       .map(([, operation]) => operation)
       .find((operation) => operation.status !== "idle"),
   );
+  let navigationCompact = $state(untrack(() => initialCollapsed));
 
   onMount(() => {
+    const unsubscribeLayout = controller.left.onLayoutChange(() => {
+      navigationCompact = controller.left.collapsed;
+    });
     let active = true;
     let runtimeGeneration = 0;
     const startRuntime = (): void => {
@@ -169,6 +190,7 @@
         "community-story-backend-change",
         startRuntime,
       );
+      unsubscribeLayout();
       runtime?.dispose();
     };
   });
@@ -273,7 +295,7 @@
       <CommunityNavigation
         model={navigationModel}
         {activeItemId}
-        compact={controller.left.collapsed}
+        compact={navigationCompact}
         onSelect={select}
         onSearch={(query) => {
           void community?.actions.search(query);
@@ -292,7 +314,7 @@
                     : "offline",
               }}
               communityName={activeCommunity?.name ?? "Lapis Community"}
-              compact={controller.left.collapsed}
+              compact={navigationCompact}
               canManageCommunity={community?.state.capabilities.manageMembers ??
                 false}
               onAction={(action) => {

@@ -41,6 +41,76 @@
 </script>
 
 <Story
+  name="Collapsed section pickers"
+  parameters={{ layout: "fullscreen", communityAppShell: true }}
+  play={async ({ canvas }) => {
+    const runtime = canvas.getByTestId("community-navigation-runtime");
+    await waitFor(() => {
+      expect(runtime).toHaveAttribute("data-community-status", "connected");
+    });
+    if (runtime.dataset.communityBackend === "live") return;
+
+    const sidebar = canvas.getByLabelText("Left sidebar");
+    await fireEvent.click(
+      canvas.getByRole("button", { name: "Collapse left sidebar" }),
+    );
+    await waitFor(() => {
+      expect(sidebar).toHaveAttribute("data-state", "collapsed");
+    });
+    await waitFor(() =>
+      expect(canvas.queryByRole("button", { name: "general" })).toBeNull(),
+    );
+    await expect(canvas.queryByRole("button", { name: "support" })).toBeNull();
+
+    const registry = canvas.getByRole("button", { name: "Registry" });
+    const starred = canvas.getByRole("button", { name: "Starred" });
+    const channels = canvas.getByRole("button", { name: "Channels" });
+    const forums = canvas.getByRole("button", { name: "Forums" });
+    const directMessages = canvas.getByRole("button", {
+      name: "Direct messages",
+    });
+    await expect(
+      registry.compareDocumentPosition(starred) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    await expect(
+      starred.compareDocumentPosition(channels) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    await expect(starred).toHaveAttribute(
+      "data-navigation-section-kind",
+      "starred",
+    );
+    await expect(channels).toHaveAttribute(
+      "data-navigation-section-kind",
+      "channels",
+    );
+    await expect(forums).toHaveAttribute(
+      "data-navigation-section-kind",
+      "forums",
+    );
+    await expect(directMessages).toHaveAttribute(
+      "data-navigation-section-kind",
+      "direct-messages",
+    );
+    await expect(directMessages.querySelector(".lucide-mails")).not.toBeNull();
+
+    await userEvent.click(channels);
+    await expect(channels).toHaveAttribute("aria-expanded", "true");
+    await userEvent.keyboard("{Escape}");
+    await expect(channels).toHaveFocus();
+    await expect(channels).toHaveAttribute("aria-expanded", "false");
+    await expect(
+      directMessages.closest("[data-tooltip-trigger]"),
+    ).toHaveAttribute("data-tooltip-trigger", "");
+  }}
+>
+  {#snippet template()}
+    <CommunityNavigationShellFixture includeStarred />
+  {/snippet}
+</Story>
+
+<Story
   name="Supported community destinations"
   parameters={{ layout: "fullscreen", communityAppShell: true }}
   play={async ({ canvas, canvasElement }) => {
@@ -92,13 +162,16 @@
       canvas.queryByRole("button", { name: "Workflows" }),
     ).toBeNull();
 
-    await userEvent.click(canvas.getByRole("button", { name: "Channels" }));
-    await waitFor(() => {
-      expect(canvas.queryByRole("button", { name: "general" })).toBeNull();
+    const channelsDisclosure = canvas.getByRole("button", {
+      name: "Channels",
     });
-    await userEvent.click(canvas.getByRole("button", { name: "Channels" }));
+    await userEvent.click(channelsDisclosure);
     await waitFor(() => {
-      expect(canvas.getByRole("button", { name: "general" })).toBeVisible();
+      expect(channelsDisclosure).toHaveAttribute("aria-expanded", "false");
+    });
+    await userEvent.click(channelsDisclosure);
+    await waitFor(() => {
+      expect(channelsDisclosure).toHaveAttribute("aria-expanded", "true");
     });
 
     await userEvent.click(
@@ -142,10 +215,13 @@
       );
     });
 
-    await userEvent.click(canvas.getByRole("button", { name: "support" }));
-    await expect(
-      canvas.getByRole("button", { name: "support" }),
-    ).toHaveAttribute("aria-current", "page");
+    const supportDestinations = canvas.getAllByRole("button", {
+      name: "support",
+    });
+    const supportDestination = supportDestinations.at(-1);
+    if (!supportDestination) throw new Error("Expected a support destination");
+    await userEvent.click(supportDestination);
+    await expect(supportDestination).toHaveAttribute("aria-current", "page");
 
     const sidebarToggle = canvas.getByRole("button", {
       name: "Collapse left sidebar",

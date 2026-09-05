@@ -19,7 +19,12 @@ export const communityNavigationFixture: CommunityNavigationModel = {
     {
       id: "channels",
       label: "Channels",
-      primaryAction: { id: "create", label: "Create channel" },
+      kind: "channels",
+      primaryAction: {
+        id: "create",
+        label: "Create channel",
+        icon: "create",
+      },
       actions: [
         { id: "browse", label: "Browse channels", icon: "browse-channels" },
       ],
@@ -49,7 +54,12 @@ export const communityNavigationFixture: CommunityNavigationModel = {
     {
       id: "forums",
       label: "Forums",
-      primaryAction: { id: "create", label: "Create forum" },
+      kind: "forums",
+      primaryAction: {
+        id: "create",
+        label: "Create forum",
+        icon: "create",
+      },
       actions: [
         { id: "browse", label: "Browse forums", icon: "browse-forums" },
       ],
@@ -72,6 +82,7 @@ export const communityNavigationFixture: CommunityNavigationModel = {
     {
       id: "direct-messages",
       label: "Direct messages",
+      kind: "direct-messages",
       actions: [{ id: "new", label: "New direct message", icon: "compose" }],
       sortable: true,
       items: [],

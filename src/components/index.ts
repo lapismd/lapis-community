@@ -64,6 +64,7 @@ export type {
   CommunityNavigationModel,
   CommunityNavigationSectionActionIcon,
   CommunityNavigationSectionActionModel,
+  CommunityNavigationSectionKind,
   CommunityNavigationSectionModel,
   CommunityNavigationSortOrder,
 } from "./community-navigation/model.js";

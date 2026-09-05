@@ -249,7 +249,8 @@
 }
 
 .lc-community-navigation__item > svg,
-.lc-community-navigation__compact-search > svg {
+.lc-community-navigation__compact-search > svg,
+.lc-community-navigation__compact-section-trigger > svg {
   width: 1.25rem;
   height: 1.25rem;
   flex: none;
@@ -271,6 +272,62 @@
 .lc-community-navigation__item[data-active][data-ui-component="button"] {
   color: var(--foreground);
   background: color-mix(in srgb, var(--foreground) 11%, transparent);
+}
+
+.lc-community-navigation__compact-section {
+  display: flex;
+  justify-content: center;
+  margin-block-start: 0.5rem;
+}
+
+.lc-community-navigation__compact-tooltip-anchor {
+  display: inline-flex;
+}
+
+.lc-community-navigation__compact-section-trigger[data-ui-component="button"] {
+  color: color-mix(in srgb, var(--foreground) 76%, transparent);
+}
+
+.lc-community-navigation__compact-section-trigger[data-ui-component="button"]:hover,
+.lc-community-navigation__compact-section-trigger[data-ui-component="button"]:focus-visible,
+.lc-community-navigation__compact-section-trigger[data-ui-component="button"][data-state="open"] {
+  color: var(--foreground);
+  background: color-mix(in srgb, var(--foreground) 7%, transparent);
+}
+
+.lc-community-navigation__compact-section-trigger[data-active][data-ui-component="button"] {
+  color: var(--foreground);
+  background: color-mix(in srgb, var(--foreground) 11%, transparent);
+}
+
+.lc-community-navigation__section-picker {
+  --ui-popover-gap: 0;
+  --ui-popover-padding: 0;
+  --ui-popover-width: min(22rem, calc(100vw - 5rem));
+  --ui-command-view-list-max-height: min(24rem, calc(100vh - 4rem));
+}
+
+.lc-community-navigation__section-picker
+  [data-ui-component="command-view"][data-ui-part="item"][data-active] {
+  background: var(--ui-command-view-item-selected-background);
+}
+
+.lc-community-navigation__section-picker
+  [data-ui-component="community-member-avatar"] {
+  --community-member-avatar-presence-ring: var(
+    --ui-command-view-background,
+    var(--popover)
+  );
+}
+
+.lc-community-navigation__sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  clip-path: inset(50%);
 }
 
 .lc-community-navigation__item[data-unread][data-ui-component="button"] {
@@ -305,15 +362,8 @@
 
 .lc-community-navigation__body
   nav[data-compact]
-  .lc-community-navigation__section {
+  .lc-community-navigation__compact-section {
   margin-block-start: 0.5rem;
-}
-
-.lc-community-navigation__body
-  nav[data-compact]
-  .lc-community-navigation__section
-  [data-slot="collapsible-content"] {
-  padding-block-start: 0;
 }
 
 .lc-community-navigation__body

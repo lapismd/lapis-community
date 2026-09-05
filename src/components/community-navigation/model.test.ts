@@ -1,7 +1,11 @@
 import { describe, expect, it } from "vitest";
 
 import { communityNavigationFixture } from "./story-fixtures.js";
-import { filterCommunityNavigation } from "./model.js";
+import {
+  communityNavigationSectionKind,
+  filterCommunityNavigation,
+  withStarredCommunityNavigationSection,
+} from "./model.js";
 
 describe("community navigation", () => {
   it("filters supported destinations without mutating the fixture", () => {
@@ -45,5 +49,71 @@ describe("community navigation", () => {
       ["forums", 2],
       ["direct-messages", 1],
     ]);
+  });
+
+  it("resolves standard and custom section kinds without requiring consumers to migrate", () => {
+    expect(
+      communityNavigationFixture.sections.map((section) =>
+        communityNavigationSectionKind(section),
+      ),
+    ).toEqual(["channels", "forums", "direct-messages"]);
+    expect(
+      communityNavigationSectionKind({
+        id: "projects",
+        label: "Projects",
+        items: [],
+      }),
+    ).toBe("section");
+  });
+
+  it("prepends unique starred channel and forum shortcuts while retaining originals", () => {
+    const directMessage = {
+      id: "dm",
+      label: "Member",
+      kind: "direct-message" as const,
+      starred: true,
+    };
+    const channel = {
+      id: "general",
+      label: "general",
+      kind: "channel" as const,
+      starred: true,
+    };
+    const forum = {
+      id: "support",
+      label: "support",
+      kind: "forum" as const,
+      starred: true,
+    };
+    const sections = withStarredCommunityNavigationSection([
+      { id: "channels", label: "Channels", items: [channel] },
+      { id: "forums", label: "Forums", items: [forum, channel] },
+      {
+        id: "direct-messages",
+        label: "Direct messages",
+        items: [directMessage],
+      },
+    ]);
+
+    expect(sections[0]).toMatchObject({
+      id: "starred",
+      kind: "starred",
+      items: [channel, forum],
+    });
+    expect(sections[1]?.items).toContain(channel);
+    expect(sections[2]?.items).toContain(forum);
+    expect(sections[0]?.items).not.toContain(directMessage);
+  });
+
+  it("omits an empty starred section", () => {
+    const sections = [
+      {
+        id: "channels",
+        label: "Channels",
+        items: [{ id: "general", label: "general", kind: "channel" as const }],
+      },
+    ];
+
+    expect(withStarredCommunityNavigationSection(sections)).toEqual(sections);
   });
 });

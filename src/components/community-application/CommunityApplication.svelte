@@ -59,6 +59,7 @@
     CommunityNavigationSectionActionModel,
     CommunityNavigationSectionModel,
   } from "../community-navigation/model.js";
+  import { withStarredCommunityNavigationSection } from "../community-navigation/model.js";
   import CommunityProfileMenu from "../community-profile-menu/CommunityProfileMenu.svelte";
   import CommunityRelaySettings from "../community-relay-settings/CommunityRelaySettings.svelte";
   import CommunityRoomBrowser from "../community-room-browser/CommunityRoomBrowser.svelte";
@@ -289,15 +290,27 @@
           ]
         : []),
     ],
-    sections: [
+    sections: withStarredCommunityNavigationSection([
       ...workspace.navigationSections.map((section) => ({
         id: section.id,
         label: section.label,
+        kind:
+          section.id === "channels"
+            ? ("channels" as const)
+            : section.id === "forums"
+              ? ("forums" as const)
+              : section.id === "direct-messages"
+                ? ("direct-messages" as const)
+                : ("section" as const),
         ...(section.id === "channels" && community.state.capabilities.channels
           ? {
               ...(authenticated && community.state.capabilities.manageGroup
                 ? {
-                    primaryAction: { id: "create", label: "Create channel" },
+                    primaryAction: {
+                      id: "create",
+                      label: "Create channel",
+                      icon: "create" as const,
+                    },
                   }
                 : {}),
               actions: [
@@ -307,7 +320,13 @@
                   icon: "browse-channels" as const,
                 },
                 ...(authenticated
-                  ? [{ id: "new-section", label: "New section" }]
+                  ? [
+                      {
+                        id: "new-section",
+                        label: "New section",
+                        icon: "new-section" as const,
+                      },
+                    ]
                   : []),
               ],
             }
@@ -315,7 +334,13 @@
         ...(section.id === "forums" && community.state.capabilities.forums
           ? {
               ...(authenticated && community.state.capabilities.manageGroup
-                ? { primaryAction: { id: "create", label: "Create forum" } }
+                ? {
+                    primaryAction: {
+                      id: "create",
+                      label: "Create forum",
+                      icon: "create" as const,
+                    },
+                  }
                 : {}),
               actions: [
                 {
@@ -324,7 +349,13 @@
                   icon: "browse-forums" as const,
                 },
                 ...(authenticated
-                  ? [{ id: "new-section", label: "New section" }]
+                  ? [
+                      {
+                        id: "new-section",
+                        label: "New section",
+                        icon: "new-section" as const,
+                      },
+                    ]
                   : []),
               ],
             }
@@ -402,9 +433,18 @@
       ...community.state.navigation.sections.map((section) => ({
         id: section.id,
         label: section.name,
+        kind: "section" as const,
         actions: [
-          { id: "rename-section", label: "Rename section" },
-          { id: "delete-section", label: "Delete section" },
+          {
+            id: "rename-section",
+            label: "Rename section",
+            icon: "rename" as const,
+          },
+          {
+            id: "delete-section",
+            label: "Delete section",
+            icon: "delete" as const,
+          },
         ],
         sortable: true,
         items: workspace.navigationSections
@@ -424,13 +464,18 @@
                   )!,
                 }
               : {}),
+            ...(room.private === undefined ? {} : { restricted: room.private }),
+            ...(room.mentionCount === undefined &&
+            room.unreadCount === undefined
+              ? {}
+              : { unreadCount: room.mentionCount ?? room.unreadCount }),
             starred: community.state.navigation.starredRoomIds.includes(
               room.id,
             ),
             muted: community.state.navigation.mutedRoomIds.includes(room.id),
           })),
       })),
-    ],
+    ]),
   });
   const allRooms = $derived(
     workspace.navigationSections.flatMap((section) => section.rooms),
