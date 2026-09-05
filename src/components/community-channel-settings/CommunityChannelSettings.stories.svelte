@@ -18,7 +18,11 @@
     title: "Community/Channels/Channel Settings",
     component: CommunityChannelSettings,
     tags: ["visual-pending"],
-    parameters: { layout: "fullscreen", communityAppShell: true },
+    globals: { viewport: { value: "desktop", isRotated: false } },
+    parameters: {
+      layout: "fullscreen",
+      communityAppShell: true,
+    },
   });
 </script>
 

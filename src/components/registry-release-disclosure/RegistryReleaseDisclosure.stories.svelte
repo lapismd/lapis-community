@@ -221,7 +221,7 @@
 
 <Story
   name="Responsive"
-  parameters={{ viewport: { defaultViewport: "mobile1" } }}
+  globals={{ viewport: { value: "mobile1", isRotated: false } }}
   play={expand}
 />
 

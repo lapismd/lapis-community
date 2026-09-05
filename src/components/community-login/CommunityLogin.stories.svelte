@@ -21,6 +21,7 @@
     title: "Community/Navigation/Login",
     component: CommunityLogin,
     tags: ["visual-pending"],
+    globals: { viewport: { value: "desktop", isRotated: false } },
     parameters: {
       layout: "fullscreen",
       docs: { source: { language: "svelte", code: consumerSource } },
@@ -121,8 +122,10 @@
 
 <Story
   name="Error on mobile"
-  globals={{ colorMode: "dark" }}
-  parameters={{ viewport: { defaultViewport: "mobile1" } }}
+  globals={{
+    colorMode: "dark",
+    viewport: { value: "mobile1", isRotated: false },
+  }}
   args={{
     methods,
     error: "The selected signer did not approve this connection.",

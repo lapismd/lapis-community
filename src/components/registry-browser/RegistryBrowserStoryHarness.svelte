@@ -18,12 +18,12 @@
     sourceMode = "static",
   }: {
     initialRoute?: RegistryRoute;
-    sourceMode?: "static" | "cached";
+    sourceMode?: "static" | "cached" | "loading";
   } = $props();
   const fixtureSource = createRegistryStoryDataSource();
   const sourceListeners = new Set<RegistryCatalogSourceListener>();
   let liveStatus: RegistryCatalogSourceStatus = {
-    phase: "ready",
+    phase: "degraded",
     fresh: false,
     installReady: false,
     origin: "cache",
@@ -33,37 +33,66 @@
     relays: [{ relay: "wss://relay.example", error: "offline" }],
   };
   const initialSourceMode = untrack(() => sourceMode);
+  const loadingStatus: RegistryCatalogSourceStatus = {
+    phase: "loading",
+    fresh: false,
+    installReady: false,
+    message: "Checking configured registry relays.",
+    relays: [{ relay: "wss://relay.example" }],
+  };
+
+  function waitForAbort<T>(signal?: AbortSignal): Promise<T> {
+    return new Promise<T>((_resolve, reject) => {
+      const abort = () =>
+        reject(signal?.reason ?? new DOMException("Aborted", "AbortError"));
+      if (signal?.aborted) abort();
+      else signal?.addEventListener("abort", abort, { once: true });
+    });
+  }
+
+  const loadingSource: RegistryCatalogDataSource = {
+    ...fixtureSource,
+    getStatus: () => loadingStatus,
+    subscribe(listener) {
+      listener({ type: "status", status: loadingStatus });
+      return () => {};
+    },
+    loadIndex: (options) => waitForAbort(options?.signal),
+    loadRuntime: (options) => waitForAbort(options?.signal),
+  };
   const source: RegistryCatalogDataSource & {
-    detailLoads: ReadonlyMap<string, number>;
+    detailLoads?: ReadonlyMap<string, number>;
   } =
     initialSourceMode === "static"
       ? fixtureSource
-      : {
-          ...fixtureSource,
-          getStatus: () => liveStatus,
-          subscribe(listener) {
-            sourceListeners.add(listener);
-            listener({ type: "status", status: liveStatus });
-            return () => sourceListeners.delete(listener);
-          },
-          async refresh() {
-            liveStatus = {
-              phase: "ready",
-              fresh: true,
-              installReady: true,
-              origin: "relay",
-              registryRoot: "fresh-story-root",
-              synchronizedAt: "2026-09-03T12:01:00.000Z",
-              relays: [{ relay: "wss://relay.example" }],
-            };
-            for (const listener of sourceListeners) {
-              listener({ type: "revision", status: liveStatus });
-            }
-          },
-          dispose() {
-            sourceListeners.clear();
-          },
-        };
+      : initialSourceMode === "loading"
+        ? loadingSource
+        : {
+            ...fixtureSource,
+            getStatus: () => liveStatus,
+            subscribe(listener) {
+              sourceListeners.add(listener);
+              listener({ type: "status", status: liveStatus });
+              return () => sourceListeners.delete(listener);
+            },
+            async refresh() {
+              liveStatus = {
+                phase: "ready",
+                fresh: true,
+                installReady: true,
+                origin: "relay",
+                registryRoot: "fresh-story-root",
+                synchronizedAt: "2026-09-03T12:01:00.000Z",
+                relays: [{ relay: "wss://relay.example" }],
+              };
+              for (const listener of sourceListeners) {
+                listener({ type: "revision", status: liveStatus });
+              }
+            },
+            dispose() {
+              sourceListeners.clear();
+            },
+          };
   const shell = untrack(
     () =>
       new AppShellController({
@@ -93,7 +122,7 @@
   class="registry-browser-story"
   style="--ui-shell-height: 100vh"
   data-route={route.page}
-  data-ai-detail-loads={fixtureSource.detailLoads.get("ai") ?? 0}
+  data-ai-detail-loads={source.detailLoads?.get("ai") ?? 0}
 >
   <AppShell.Main>
     <RegistryBrowser

@@ -15,6 +15,7 @@
       onOpenPlugin: fn(),
       onOpenCategory: fn(),
     },
+    globals: { viewport: { value: "desktop", isRotated: false } },
     parameters: {
       layout: "fullscreen",
       docs: {

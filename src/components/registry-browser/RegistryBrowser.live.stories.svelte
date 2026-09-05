@@ -8,6 +8,7 @@
     title: "Community/Registry/Browser Live",
     component: RegistryBrowser,
     tags: ["visual-pending", "!test"],
+    globals: { viewport: { value: "desktop", isRotated: false } },
     parameters: {
       layout: "fullscreen",
       docs: {

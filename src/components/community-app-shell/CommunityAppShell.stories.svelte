@@ -29,6 +29,7 @@
     title: "Community/Examples/App Shell",
     component: CommunityAppShell,
     tags: ["visual-pending"],
+    globals: { viewport: { value: "desktop", isRotated: false } },
     parameters: {
       layout: "fullscreen",
       communityAppShell: true,

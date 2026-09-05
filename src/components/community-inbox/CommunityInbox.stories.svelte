@@ -26,6 +26,7 @@
     title: "Community/Inbox/Inbox",
     component: CommunityInbox,
     tags: ["visual-pending"],
+    globals: { viewport: { value: "desktop", isRotated: false } },
     parameters: {
       layout: "fullscreen",
       communityAppShell: true,

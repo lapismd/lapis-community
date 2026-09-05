@@ -7,6 +7,7 @@
     title: "Community/Navigation/Settings navigation",
     component: CommunitySettingsNavigation,
     tags: ["visual-pending"],
+    globals: { viewport: { value: "desktop", isRotated: false } },
     parameters: {
       layout: "fullscreen",
       docs: {

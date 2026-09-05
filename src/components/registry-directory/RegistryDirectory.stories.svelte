@@ -26,6 +26,7 @@
       state: initialState,
       onOpenPlugin: fn(),
     },
+    globals: { viewport: { value: "desktop", isRotated: false } },
     parameters: {
       layout: "fullscreen",
       docs: {
@@ -146,7 +147,7 @@
 <Story
   name="Dark compact directory"
   args={{ state: { ...initialState, view: "list" } }}
-  parameters={{ viewport: { defaultViewport: "mobile1" } }}
+  globals={{ viewport: { value: "mobile1", isRotated: false } }}
 >
   {#snippet template(args)}
     <RegistryDirectoryStoryHarness {...args} dark />

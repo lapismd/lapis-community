@@ -9,6 +9,7 @@
     title: "Community/Registry/Browser",
     component: RegistryBrowser,
     tags: ["visual-pending"],
+    globals: { viewport: { value: "desktop", isRotated: false } },
     parameters: {
       layout: "fullscreen",
       docs: {
@@ -21,6 +22,46 @@
     },
   });
 </script>
+
+<Story
+  name="Loading skeleton"
+  play={async ({ canvas, canvasElement }) => {
+    await expect(
+      await canvas.findByRole("status", {
+        name: "Loading the plugin registry",
+      }),
+    ).toBeVisible();
+    await expect(
+      canvasElement.querySelectorAll('[data-ui-component="skeleton"]').length,
+    ).toBeGreaterThan(8);
+    await expect(
+      canvasElement.querySelector(".lucide-loader-circle"),
+    ).toBeNull();
+  }}
+>
+  {#snippet template()}
+    <RegistryBrowserStoryHarness sourceMode="loading" />
+  {/snippet}
+</Story>
+
+<Story
+  name="Cached registry notice"
+  play={async ({ canvas }) => {
+    await expect(await canvas.findByRole("status")).toHaveTextContent(
+      "Showing a verified cached registry.",
+    );
+    await expect(
+      canvas.getByText("The registry relay is unavailable."),
+    ).toBeVisible();
+    const refresh = canvas.getByRole("button", { name: "Refresh registry" });
+    await expect(refresh).toBeVisible();
+    await expect(refresh).toHaveTextContent("");
+  }}
+>
+  {#snippet template()}
+    <RegistryBrowserStoryHarness sourceMode="cached" />
+  {/snippet}
+</Story>
 
 <Story
   name="Discovery to detail with discussion"
@@ -144,7 +185,9 @@
     await expect(
       canvas.getByRole("button", { name: "Install unavailable" }),
     ).toBeDisabled();
-    await userEvent.click(canvas.getByRole("button", { name: "Refresh" }));
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Refresh registry" }),
+    );
     await expect(
       canvas.queryByText("Showing a verified cached registry."),
     ).not.toBeInTheDocument();

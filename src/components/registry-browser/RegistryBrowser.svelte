@@ -2,11 +2,13 @@
   import { Button } from "@lapismd/design-core/shadcn/button";
   import * as Breadcrumb from "@lapismd/design-core/shadcn/breadcrumb";
   import * as Empty from "@lapismd/design-core/shadcn/empty";
+  import { Skeleton } from "@lapismd/design-core/shadcn/skeleton";
+  import * as Tooltip from "@lapismd/design-core/shadcn/tooltip";
   import { AppShell } from "@lapismd/design-core/shell";
   import CircleAlertIcon from "@lucide/svelte/icons/circle-alert";
-  import LoaderCircleIcon from "@lucide/svelte/icons/loader-circle";
   import PackageSearchIcon from "@lucide/svelte/icons/package-search";
   import RefreshCwIcon from "@lucide/svelte/icons/refresh-cw";
+  import TriangleAlertIcon from "@lucide/svelte/icons/triangle-alert";
   import { onMount, untrack } from "svelte";
 
   import RegistryCommunity from "../registry-community/RegistryCommunity.svelte";
@@ -63,11 +65,15 @@
     () => new RegistryCatalogSession(catalogSource),
   );
   const hoverScrollbarProps = { scrollbarVisibility: "hover" } as const;
+  const skeletonLanes = [0, 1, 2] as const;
+  const sourceNoticeDelayMs = 15_000;
   let catalogController: AbortController | undefined;
   let detailController: AbortController | undefined;
   let loadGeneration = 0;
   let detailGeneration = 0;
   let routeTimer: ReturnType<typeof setTimeout> | undefined;
+  let sourceNoticeTimer: ReturnType<typeof setTimeout> | undefined;
+  let sourceNoticeDelayElapsed = $state(false);
 
   const selectedEntry = $derived.by(() => {
     const pluginId = route.page === "plugin" ? route.pluginId : undefined;
@@ -103,6 +109,17 @@
           "Connect to a registry relay to confirm current approvals and revocations before installing",
       };
     },
+  );
+  const sourceNoticeIsTransient = $derived(
+    sourceStatus?.phase === "loading" ||
+      sourceStatus?.phase === "refreshing" ||
+      (sourceStatus?.phase === "ready" && sourceStatus.origin === "cache"),
+  );
+  const showSourceNotice = $derived(
+    index !== undefined &&
+      sourceStatus !== undefined &&
+      (!sourceStatus.installReady || sourceStatus.phase === "degraded") &&
+      (!sourceNoticeIsTransient || sourceNoticeDelayElapsed),
   );
 
   function navigate(next: RegistryRoute): void {
@@ -224,8 +241,24 @@
       catalogController?.abort();
       detailController?.abort();
       clearTimeout(routeTimer);
+      clearTimeout(sourceNoticeTimer);
       unsubscribe?.();
     };
+  });
+
+  $effect(() => {
+    const transient = sourceNoticeIsTransient;
+    untrack(() => {
+      clearTimeout(sourceNoticeTimer);
+      if (!transient) {
+        sourceNoticeDelayElapsed = true;
+        return;
+      }
+      sourceNoticeDelayElapsed = false;
+      sourceNoticeTimer = setTimeout(() => {
+        sourceNoticeDelayElapsed = true;
+      }, sourceNoticeDelayMs);
+    });
   });
 
   $effect(() => {
@@ -243,6 +276,44 @@
     }
   });
 </script>
+
+{#snippet loadingSkeleton(label: string)}
+  <div
+    class="registry-browser__loading"
+    role="status"
+    aria-label={label}
+    aria-live="polite"
+  >
+    <span class="registry-browser__sr-only">{label}</span>
+    <div class="registry-browser__skeleton" aria-hidden="true">
+      <header class="registry-browser__skeleton-hero">
+        <Skeleton class="registry-browser__skeleton-eyebrow" />
+        <Skeleton class="registry-browser__skeleton-title" />
+        <Skeleton class="registry-browser__skeleton-copy" />
+      </header>
+      <div class="registry-browser__skeleton-heading">
+        <Skeleton />
+        <Skeleton />
+      </div>
+      <div class="registry-browser__skeleton-lanes">
+        {#each skeletonLanes as lane (lane)}
+          <section>
+            <Skeleton class="registry-browser__skeleton-lane-title" />
+            {#each skeletonLanes as row (row)}
+              <div class="registry-browser__skeleton-row">
+                <Skeleton class="registry-browser__skeleton-icon" />
+                <span>
+                  <Skeleton class="registry-browser__skeleton-row-title" />
+                  <Skeleton class="registry-browser__skeleton-row-copy" />
+                </span>
+              </div>
+            {/each}
+          </section>
+        {/each}
+      </div>
+    </div>
+  </div>
+{/snippet}
 
 {#snippet pluginDiscussion()}
   {#if discussion}
@@ -307,12 +378,13 @@
   </AppShell.Toolbar>
 {/if}
 
-{#if index && sourceStatus && (!sourceStatus.installReady || sourceStatus.phase === "degraded")}
+{#if showSourceNotice && sourceStatus}
   <AppShell.Toolbar
     class="registry-browser__source-toolbar"
     label="Registry source status"
   >
-    <aside class="registry-browser__source-notice" role="status">
+    <div class="registry-browser__source-notice" role="status">
+      <TriangleAlertIcon aria-hidden="true" />
       <span>
         <strong>
           {sourceStatus.fresh
@@ -323,17 +395,29 @@
           "Connect to a registry relay to confirm current approvals and revocations."}
       </span>
       {#if catalogSource.refresh}
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          onclick={() => void refreshCatalog()}
-        >
-          <RefreshCwIcon aria-hidden="true" />
-          Refresh
-        </Button>
+        <Tooltip.Provider>
+          <Tooltip.Root>
+            <Tooltip.Trigger>
+              {#snippet child({ props })}
+                <Button
+                  {...props}
+                  type="button"
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-label="Refresh registry"
+                  onclick={() => void refreshCatalog()}
+                >
+                  <RefreshCwIcon aria-hidden="true" />
+                </Button>
+              {/snippet}
+            </Tooltip.Trigger>
+            <Tooltip.Content side="bottom" sideOffset={6}>
+              Refresh registry
+            </Tooltip.Content>
+          </Tooltip.Root>
+        </Tooltip.Provider>
       {/if}
-    </aside>
+    </div>
   </AppShell.Toolbar>
 {/if}
 
@@ -348,13 +432,7 @@
     <AppShell.Body.Content {...hoverScrollbarProps} label="Registry content">
       <section class="registry-browser" data-registry-page={route.page}>
         {#if catalogLoading}
-          <div class="registry-browser__state" role="status">
-            <LoaderCircleIcon
-              class="registry-browser__spinner"
-              aria-hidden="true"
-            />
-            <p>Loading the plugin registry…</p>
-          </div>
+          {@render loadingSkeleton("Loading the plugin registry")}
         {:else if catalogError}
           <Empty.Root class="registry-browser__empty">
             <Empty.Header>
@@ -411,13 +489,7 @@
             </Empty.Content>
           </Empty.Root>
         {:else if detailLoading}
-          <div class="registry-browser__state" role="status">
-            <LoaderCircleIcon
-              class="registry-browser__spinner"
-              aria-hidden="true"
-            />
-            <p>Loading {selectedEntry.name}…</p>
-          </div>
+          {@render loadingSkeleton(`Loading ${selectedEntry.name}`)}
         {:else if detailError || selectedDetail === undefined}
           <Empty.Root class="registry-browser__empty">
             <Empty.Header>
@@ -502,13 +574,13 @@
   }
 
   .registry-browser__source-notice {
-    display: flex;
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
     align-items: center;
-    justify-content: space-between;
     gap: 1rem;
     width: 100%;
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
+    border: 0;
+    border-radius: var(--radius) var(--radius) 0 0;
     padding: 0.65rem 0.75rem;
     color: var(--muted-foreground);
     background: var(--muted);
@@ -517,12 +589,13 @@
 
   :global(.registry-browser__source-toolbar) {
     min-height: auto;
-    padding: 0.5rem 0.75rem;
+    padding: 0;
   }
 
   .registry-browser__source-notice span {
     display: grid;
     gap: 0.15rem;
+    min-width: 0;
   }
 
   .registry-browser__source-notice strong {
@@ -534,7 +607,10 @@
     height: 0.9rem;
   }
 
-  .registry-browser__state,
+  .registry-browser__source-notice > :global(svg:first-child) {
+    color: var(--muted-foreground);
+  }
+
   :global(.registry-browser__empty) {
     display: grid;
     place-content: center;
@@ -543,31 +619,121 @@
     text-align: center;
   }
 
-  .registry-browser__state {
-    gap: 0.75rem;
-    color: var(--muted-foreground);
+  .registry-browser__loading {
+    width: 100%;
+    min-height: 24rem;
   }
 
-  .registry-browser__state p {
-    margin: 0;
+  .registry-browser__sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    clip-path: inset(50%);
   }
 
-  :global(.registry-browser__spinner) {
-    width: 1.5rem;
-    height: 1.5rem;
+  .registry-browser__skeleton {
+    display: grid;
+    gap: clamp(2rem, 5vw, 4rem);
+    width: min(100%, 76rem);
     margin-inline: auto;
-    animation: registry-spin 0.9s linear infinite;
+    padding: clamp(2rem, 6vw, 5rem) clamp(1rem, 4vw, 3rem);
   }
 
-  @keyframes registry-spin {
-    to {
-      transform: rotate(360deg);
-    }
+  .registry-browser__skeleton-hero {
+    display: grid;
+    justify-items: center;
+    gap: 0.85rem;
+    padding-block: clamp(1rem, 5vw, 3rem);
   }
 
-  @media (prefers-reduced-motion: reduce) {
-    :global(.registry-browser__spinner) {
-      animation: none;
+  :global(.registry-browser__skeleton-eyebrow) {
+    width: 8rem;
+    height: 0.9rem;
+  }
+
+  :global(.registry-browser__skeleton-title) {
+    width: min(75%, 29rem);
+    height: clamp(2.5rem, 6vw, 4.5rem);
+  }
+
+  :global(.registry-browser__skeleton-copy) {
+    width: min(60%, 22rem);
+    height: 1rem;
+  }
+
+  .registry-browser__skeleton-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+  }
+
+  .registry-browser__skeleton-heading
+    :global([data-ui-component="skeleton"]:first-child) {
+    width: 8rem;
+    height: 1.5rem;
+  }
+
+  .registry-browser__skeleton-heading
+    :global([data-ui-component="skeleton"]:last-child) {
+    width: 1.25rem;
+    height: 1.25rem;
+  }
+
+  .registry-browser__skeleton-lanes {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: clamp(1.5rem, 4vw, 3rem);
+  }
+
+  .registry-browser__skeleton-lanes section {
+    display: grid;
+    align-content: start;
+    gap: 1rem;
+  }
+
+  :global(.registry-browser__skeleton-lane-title) {
+    width: 5rem;
+    height: 1rem;
+  }
+
+  .registry-browser__skeleton-row {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: center;
+    gap: 0.75rem;
+    min-width: 0;
+    padding-block: 0.25rem;
+  }
+
+  .registry-browser__skeleton-row > span {
+    display: grid;
+    gap: 0.45rem;
+    min-width: 0;
+  }
+
+  :global(.registry-browser__skeleton-icon) {
+    width: 2.25rem;
+    height: 2.25rem;
+    border-radius: var(--radius);
+  }
+
+  :global(.registry-browser__skeleton-row-title) {
+    width: min(65%, 8rem);
+    height: 0.85rem;
+  }
+
+  :global(.registry-browser__skeleton-row-copy) {
+    width: 100%;
+    height: 0.7rem;
+  }
+
+  @media (max-width: 54rem) {
+    .registry-browser__skeleton-lanes {
+      grid-template-columns: 1fr;
     }
   }
 </style>

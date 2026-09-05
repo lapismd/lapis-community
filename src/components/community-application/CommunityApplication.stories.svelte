@@ -84,6 +84,7 @@
     title: "Community/Examples/App Shell",
     component: CommunityApplication,
     tags: ["visual-pending"],
+    globals: { viewport: { value: "desktop", isRotated: false } },
     parameters: {
       layout: "fullscreen",
       communityAppShell: true,
@@ -1313,7 +1314,7 @@
 
 <Story
   name="Responsive app shell"
-  parameters={{ viewport: { defaultViewport: "tablet" } }}
+  globals={{ viewport: { value: "tablet", isRotated: false } }}
   play={async ({ canvas, canvasElement }) => {
     const application = await canvas.findByTestId(
       "full-community-application",
