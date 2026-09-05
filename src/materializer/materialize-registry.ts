@@ -1,11 +1,4 @@
-import {
-  cp,
-  mkdir,
-  readFile,
-  rename,
-  rm,
-  writeFile,
-} from "node:fs/promises";
+import { cp, mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 import { SecretKeyRegistrySigner } from "../auth/index.js";
@@ -23,6 +16,7 @@ import type { JsonObject, JsonValue } from "../protocol/index.js";
 import {
   projectionResourceSourceConfiguration,
   resolveProjectionResourceSource,
+  resolveProjectionSourceUrl,
   verifyProjectionResourceBytes,
   type ProjectionResource,
 } from "./projection-resource.js";
@@ -76,6 +70,19 @@ try {
     },
     generatedAt,
     authSigner,
+    fetch: async (input, init) => {
+      const source =
+        input instanceof Request
+          ? new URL(input.url)
+          : new URL(input instanceof URL ? input : String(input));
+      return await fetch(
+        resolveProjectionSourceUrl(
+          source,
+          resourceSourceConfiguration.legacyOrigin,
+        ),
+        init,
+      );
+    },
   });
   const acceptedEventIds = new Set(state.registry.acceptedEventIds);
   const acceptedEvents = state.events

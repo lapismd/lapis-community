@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 import {
   projectionResourceSourceConfiguration,
   resolveProjectionResourceSource,
+  resolveProjectionSourceUrl,
   verifyProjectionResourceBytes,
   type ProjectionResource,
 } from "./projection-resource.js";
@@ -78,6 +79,15 @@ describe("projection resource source resolution", () => {
     expect(resolveProjectionResourceSource(image).toString()).toBe(
       image.sourceUrl,
     );
+  });
+
+  it("rebases manifest URLs onto the internal fixture origin", () => {
+    expect(
+      resolveProjectionSourceUrl(
+        "http://127.0.0.1:8090/manifest-hash.json",
+        new URL("http://registry-fixture:8090/"),
+      ).toString(),
+    ).toBe("http://registry-fixture:8090/manifest-hash.json");
   });
 });
 

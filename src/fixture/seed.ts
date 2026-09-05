@@ -25,6 +25,8 @@ import { finalizeEvent, getPublicKey } from "nostr-tools/pure";
 
 import { parseFixtureSecrets } from "./keys.js";
 import type { FixtureSecretName, FixtureSecrets } from "./keys.js";
+import { mirrorUploadedManifest } from "./manifest-mirror.js";
+import type { UploadedBlobDescriptor } from "./manifest-mirror.js";
 import { loadLocalPluginFixtures } from "./source.js";
 import { encodeNostrHttpAuthorization } from "../nostr/http-authorization.js";
 
@@ -37,13 +39,6 @@ interface FixtureStatus {
   registryRoot: string;
   relayCopies: number;
   groupIds: Record<string, string>;
-}
-
-interface BlobDescriptor {
-  url: string;
-  sha256: string;
-  size: number;
-  type: string;
 }
 
 const REGISTRY_PUBLISHER_AUTHORIZATION_TOPIC =
@@ -371,10 +366,7 @@ async function seed(): Promise<{
     const bytes = new TextEncoder().encode(JSON.stringify(manifest));
     const descriptor = await uploadBlob(httpBase, bytes, publisherSecret);
     const attachment: Nip29ManifestAttachment = {
-      url: descriptor.url,
-      mimeType: descriptor.type,
-      sha256: descriptor.sha256,
-      size: descriptor.size,
+      ...mirrorUploadedManifest(descriptor, bytes, artifactBase, artifacts),
       filename: `${fixture.plugin.pluginId}-${release.version}.manifest.json`,
     };
     manifests.push({ attachmentSha256: descriptor.sha256, manifest });
@@ -616,7 +608,7 @@ async function uploadBlob(
   httpBase: string,
   bytes: Uint8Array,
   secretKey: Uint8Array,
-): Promise<BlobDescriptor> {
+): Promise<UploadedBlobDescriptor> {
   const body = Uint8Array.from(bytes);
   const sha256 = bytesToHex(
     new Uint8Array(
@@ -646,7 +638,7 @@ async function uploadBlob(
   });
   if (!response.ok)
     throw new Error(`NIP-29 manifest upload returned ${response.status}`);
-  return (await response.json()) as BlobDescriptor;
+  return (await response.json()) as UploadedBlobDescriptor;
 }
 
 function discussionSentence(index: number): string {

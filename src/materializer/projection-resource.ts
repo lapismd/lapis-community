@@ -36,8 +36,16 @@ export function resolveProjectionResourceSource(
   const override = resource.mediaType?.startsWith("image/")
     ? (configuration.blossomUrl ?? configuration.legacyOrigin)
     : configuration.legacyOrigin;
-  if (override === undefined) return source;
-  return new URL(source.pathname.replace(/^\/+/, ""), override);
+  return resolveProjectionSourceUrl(source, override);
+}
+
+export function resolveProjectionSourceUrl(
+  source: string | URL,
+  override: URL | undefined,
+): URL {
+  const resolved = new URL(source);
+  if (override === undefined) return resolved;
+  return new URL(resolved.pathname.replace(/^\/+/, ""), override);
 }
 
 export function verifyProjectionResourceBytes(

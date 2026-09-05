@@ -2,6 +2,8 @@ import { mkdtemp, mkdir, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
+import { sha256 } from "@noble/hashes/sha2.js";
+import { bytesToHex } from "@noble/hashes/utils.js";
 import { describe, expect, it } from "vitest";
 
 import { encodeNostrHttpAuthorization } from "../nostr/http-authorization.js";
@@ -10,6 +12,7 @@ import {
   fixturePublicKeys,
   parseFixtureSecrets,
 } from "./keys.js";
+import { mirrorUploadedManifest } from "./manifest-mirror.js";
 import { loadLocalPluginFixtures } from "./source.js";
 
 async function writeJson(filePath: string, value: unknown): Promise<void> {
@@ -17,6 +20,50 @@ async function writeJson(filePath: string, value: unknown): Promise<void> {
 }
 
 describe("local registry fixture", () => {
+  it("publishes uploaded manifests through the loopback fixture server", () => {
+    const bytes = new TextEncoder().encode('{"schema":"fixture"}');
+    const digest = bytesToHex(sha256(bytes));
+    const artifacts = new Map<string, Uint8Array>();
+
+    const attachment = mirrorUploadedManifest(
+      {
+        url: `http://registry.localhost:8281/${digest}.json`,
+        sha256: digest,
+        size: bytes.byteLength,
+        type: "application/json",
+      },
+      bytes,
+      new URL("http://127.0.0.1:8090/"),
+      artifacts,
+    );
+
+    expect(attachment).toEqual({
+      url: `http://127.0.0.1:8090/${digest}.json`,
+      mimeType: "application/json",
+      sha256: digest,
+      size: bytes.byteLength,
+    });
+    expect(artifacts.get(`/${digest}.json`)).toEqual(bytes);
+  });
+
+  it("rejects a mismatched uploaded manifest descriptor", () => {
+    const bytes = new TextEncoder().encode('{"schema":"fixture"}');
+
+    expect(() =>
+      mirrorUploadedManifest(
+        {
+          url: "http://registry.localhost:8281/invalid.json",
+          sha256: "0".repeat(64),
+          size: bytes.byteLength,
+          type: "application/json",
+        },
+        bytes,
+        new URL("http://127.0.0.1:8090/"),
+        new Map(),
+      ),
+    ).toThrow("Uploaded release manifest descriptor failed verification");
+  });
+
   it("uses standard base64 for Blossom authorization events", () => {
     const event = {
       id: "ff".repeat(32),
