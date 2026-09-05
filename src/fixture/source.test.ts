@@ -117,7 +117,7 @@ describe("local registry fixture", () => {
     expect(first).toHaveLength(1);
     expect(first[0]).toMatchObject({
       plugin: { pluginId: "wordcount", status: "active" },
-      release: { version: "0.1.2", platforms: ["web", "electron"] },
+      release: { version: "0.1.2", platforms: ["web", "desktop"] },
     });
     expect(first[0]?.artifact.sha256).toBe(second[0]?.artifact.sha256);
     expect(new TextDecoder().decode(first[0]?.artifact.bytes)).toContain(

@@ -175,7 +175,7 @@ export async function loadLocalPluginFixtures(
       ...(repositoryUrl === undefined ? {} : { url: repositoryUrl }),
     };
     const platforms =
-      manifest.isDesktopOnly === true ? ["electron"] : ["web", "electron"];
+      manifest.isDesktopOnly === true ? ["desktop"] : ["web", "desktop"];
     const resources: LocalFixtureResource[] = [];
     const appearance = await resolveAppearance({
       packageRoot,
