@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import type { NostrReleaseProof } from "../protocol/index.js";
+
 const nonEmptyString = z.string().min(1);
 const sha256 = z.string().regex(/^[0-9a-f]{64}$/u);
 
@@ -311,6 +313,11 @@ export interface RegistryCatalogDataSource {
     eventId: string,
     options?: RegistryLoadOptions,
   ): Promise<RegistryReleaseInspection | undefined>;
+  loadReleaseProof?(
+    pluginId: string,
+    version: string,
+    options?: RegistryLoadOptions,
+  ): Promise<NostrReleaseProof>;
   getStatus?(): RegistryCatalogSourceStatus;
   subscribe?(listener: RegistryCatalogSourceListener): () => void;
   refresh?(options?: RegistryLoadOptions): Promise<void>;
@@ -323,6 +330,11 @@ export interface LiveRegistryCatalogDataSource
     reference: RegistryImageReference,
     options?: RegistryLoadOptions,
   ): Promise<Blob>;
+  loadReleaseProof(
+    pluginId: string,
+    version: string,
+    options?: RegistryLoadOptions,
+  ): Promise<NostrReleaseProof>;
   getStatus(): RegistryCatalogSourceStatus;
   subscribe(listener: RegistryCatalogSourceListener): () => void;
   refresh(options?: RegistryLoadOptions): Promise<void>;

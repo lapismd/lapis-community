@@ -28,9 +28,11 @@ import {
   NIP29_KINDS,
   projectNip29Registry,
   type JsonObject,
+  type MaterializedNip29Registry,
   type Nip29RegistryAuthorities,
   type Nip29ReleaseManifestSource,
   type NostrEvent,
+  type NostrReleaseProof,
 } from "../protocol/index.js";
 
 import {
@@ -78,6 +80,7 @@ interface CurrentProjection {
   index: RegistryCatalogIndex;
   details: ReadonlyMap<string, RegistryCatalogDetail>;
   runtime: RegistryRuntime;
+  registry: MaterializedNip29Registry;
 }
 
 const RELEASE_LIMIT = 2_000;
@@ -467,6 +470,7 @@ export function createNip29RegistryCatalogDataSource(
     current = {
       index,
       details,
+      registry,
       runtime: {
         schemaVersion: 1,
         backend: "nostr-nip29",
@@ -730,6 +734,46 @@ export function createNip29RegistryCatalogDataSource(
           diagnostic,
         );
       }
+    },
+    async loadReleaseProof(pluginId, version, loadOptions) {
+      loadOptions?.signal?.throwIfAborted();
+      await waitForSignal(start(), loadOptions?.signal);
+      if (!state.installReady) {
+        throw new Error(
+          "Registry relay quorum is required before creating an install proof",
+        );
+      }
+      const release = requireCurrent()
+        .registry.plugins.find((plugin) => plugin.content.pluginId === pluginId)
+        ?.releases.find((candidate) => candidate.content.version === version);
+      if (release === undefined) {
+        throw new Error(
+          `${pluginId}@${version}: curated release is unavailable`,
+        );
+      }
+      if (release.authorizationEvent === undefined) {
+        throw new Error(
+          `${pluginId}@${version}: portable proof requires a signed publisher authorization`,
+        );
+      }
+      const bytes = manifestBytes.get(release.attachment.sha256);
+      if (bytes === undefined) {
+        throw new Error(
+          `${pluginId}@${version}: release manifest is unavailable`,
+        );
+      }
+      const proof: NostrReleaseProof = {
+        schema: "lapis.plugin.release-proof/1",
+        authorizationEvent: release.authorizationEvent,
+        releaseEvent: release.event,
+        decisionEvent: release.decisionEvent,
+        manifest: {
+          sha256: release.attachment.sha256,
+          size: bytes.byteLength,
+          content: new TextDecoder("utf-8", { fatal: true }).decode(bytes),
+        },
+      };
+      return proof;
     },
     getStatus() {
       return state;

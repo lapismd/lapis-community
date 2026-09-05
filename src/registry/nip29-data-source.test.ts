@@ -219,6 +219,9 @@ describe("NIP-29 registry catalog data source", () => {
     await expect(
       source.loadReleaseInspection?.("f".repeat(64)),
     ).resolves.toBeUndefined();
+    await expect(source.loadReleaseProof("demo", "1.0.0")).rejects.toThrow(
+      "portable proof requires a signed publisher authorization",
+    );
     source.dispose();
   });
 
@@ -252,6 +255,17 @@ describe("NIP-29 registry catalog data source", () => {
     expect(source.getStatus()).toMatchObject({
       fresh: true,
       installReady: true,
+    });
+    await expect(source.loadReleaseProof("demo", "1.0.0")).resolves.toEqual({
+      schema: "lapis.plugin.release-proof/1",
+      authorizationEvent: authorization,
+      releaseEvent: data.release,
+      decisionEvent: data.approval,
+      manifest: {
+        sha256: sha(data.manifestBytes),
+        size: data.manifestBytes.byteLength,
+        content: new TextDecoder().decode(data.manifestBytes),
+      },
     });
     source.dispose();
   });
@@ -460,6 +474,9 @@ describe("NIP-29 registry catalog data source", () => {
         { relay: "wss://offline.example/", error: expect.any(String) },
       ],
     });
+    await expect(source.loadReleaseProof("demo", "1.0.0")).rejects.toThrow(
+      "Registry relay quorum is required",
+    );
     source.dispose();
   });
 
