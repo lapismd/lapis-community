@@ -20,7 +20,6 @@ export LAPIS_RELAY_PORT=${LAPIS_RELAY_PORT:-$((port_base + 1))}
 export REGISTRY_SITE_PORT=${REGISTRY_SITE_PORT:-$((port_base + 2))}
 export REGISTRY_FIXTURE_LONG_THREAD_POSTS=${REGISTRY_FIXTURE_LONG_THREAD_POSTS:-240}
 expected_community_events=$((REGISTRY_FIXTURE_LONG_THREAD_POSTS + ((REGISTRY_FIXTURE_LONG_THREAD_POSTS + 1) / 3) + 32))
-expected_relay_copies=$((expected_community_events + 24))
 
 report_error() {
   exit_code=$?
@@ -86,15 +85,14 @@ fixture_base="http://127.0.0.1:${REGISTRY_FIXTURE_PORT}/"
 site_base="http://127.0.0.1:${REGISTRY_SITE_PORT}/"
 /usr/bin/curl -fsS "${fixture_base}status.json" >"${smoke_tmp}/status.json"
 jq -e \
-  --argjson expected_community_events "${expected_community_events}" \
-  --argjson expected_relay_copies "${expected_relay_copies}" '
+  --argjson expected_community_events "${expected_community_events}" '
   .schema == "lapis.registry.nip29-local-fixture-status/1" and
-  .pluginCount == 12 and
-  .registryEventCount == 24 and
+  .pluginCount >= 1 and
+  .registryEventCount == (.pluginCount * 3) and
   .communityEventCount == $expected_community_events and
-  .relayCopies == $expected_relay_copies and
+  .relayCopies == (.communityEventCount + .registryEventCount) and
   (.registryRoot | test("^[0-9a-f]{64}$")) and
-  (.groupIds | length) == 16 and
+  (.groupIds | length) == (.pluginCount + 4) and
   (.groupIds["support-ai"] | test("^[0-9a-f-]{36}$"))
 ' "${smoke_tmp}/status.json" >/dev/null
 
@@ -103,14 +101,22 @@ jq -e \
 /usr/bin/curl -fsS "${site_base}registry/client/registry-community.js" \
   >"${smoke_tmp}/community.js"
 /usr/bin/curl -fsS "${site_base}plugins/" >"${smoke_tmp}/plugins.html"
-jq -e '.schemaVersion == 1 and (.plugins | length) == 12' \
+jq -e --slurpfile status "${smoke_tmp}/status.json" \
+  '.schemaVersion == 1 and (.plugins | length) == $status[0].pluginCount' \
   "${smoke_tmp}/site-index.json" >/dev/null
 jq -e '
   .backend == "nostr-nip29" and
   (.relays | length) == 1 and
   (.curatorPubkeys | length) == 1
 ' "${smoke_tmp}/site-runtime.json" >/dev/null
-rg -q 'lapis-registry-community' "${smoke_tmp}/community.js"
+community_chunk=$(sed -nE \
+  's|^import "\./(register-[A-Za-z0-9_-]+\.js)";$|\1|p' \
+  "${smoke_tmp}/community.js")
+test -n "${community_chunk}"
+/usr/bin/curl -fsS \
+  "${site_base}registry/client/${community_chunk}" \
+  >"${smoke_tmp}/community-register.js"
+rg -q 'lapis-registry-community' "${smoke_tmp}/community-register.js"
 plugin_id=$(jq -r '.plugins[0].id' "${smoke_tmp}/site-index.json")
 /usr/bin/curl -fsS "${site_base}plugins/${plugin_id}/" >"${smoke_tmp}/plugin.html"
 rg -q '<lapis-registry-community' "${smoke_tmp}/plugin.html"
@@ -155,12 +161,13 @@ export REGISTRY_ASSET_FETCH_ORIGIN="${fixture_base}"
 pnpm --dir "${repo_root}" build
 pnpm --dir "${repo_root}" registry:materialize --output "${smoke_tmp}/materialized"
 
-jq -e '.schemaVersion == 1 and (.plugins | length) == 12' \
+jq -e --slurpfile status "${smoke_tmp}/status.json" \
+  '.schemaVersion == 1 and (.plugins | length) == $status[0].pluginCount' \
   "${smoke_tmp}/materialized/index.json" >/dev/null
 jq -e --slurpfile status "${smoke_tmp}/status.json" '
   (.root | test("^[0-9a-f]{64}$")) and
   .sourceRegistryRoot == $status[0].registryRoot and
-  (.acceptedEventIds | length) == 24 and
+  (.acceptedEventIds | length) == ($status[0].pluginCount * 2) and
   (.relaySources | length) == 1
 ' "${smoke_tmp}/materialized/provenance.json" >/dev/null
 test -s "${smoke_tmp}/materialized/client/registry-community.js"

@@ -46,6 +46,30 @@ interface BlobDescriptor {
   type: string;
 }
 
+const REGISTRY_PUBLISHER_AUTHORIZATION_TOPIC =
+  "lapis-plugin-publisher-authorization";
+
+function publisherAuthorizationTemplate(
+  pluginId: string,
+  publisherPubkey: string,
+  createdAt: number,
+): NostrEventTemplate {
+  return {
+    kind: 9,
+    created_at: createdAt,
+    content: JSON.stringify({
+      schema: "lapis.registry.publisher-authorization/1",
+      status: "authorized",
+    }),
+    tags: [
+      ["h", lapisGroupId(LAPIS_GROUPS.pluginReleases)],
+      ["t", REGISTRY_PUBLISHER_AUTHORIZATION_TOPIC],
+      ["t", `plugin:${pluginId}`],
+      ["p", publisherPubkey],
+    ],
+  };
+}
+
 function required(name: string, fallback?: string): string {
   const value = process.env[name] ?? fallback;
   if (value === undefined || value.trim() === "")
@@ -322,6 +346,14 @@ async function seed(): Promise<{
   const manifests: Nip29ReleaseManifestSource[] = [];
   const releaseByPlugin = new Map<string, NostrEvent>();
   for (const fixture of fixtures) {
+    const authorization = sign(
+      curatorSecret,
+      publisherAuthorizationTemplate(
+        fixture.plugin.pluginId,
+        publisher,
+        createdAt++,
+      ),
+    );
     const release: ReleaseContent = {
       ...fixture.release,
       releasedAt: new Date(createdAt * 1_000).toISOString(),
@@ -363,9 +395,10 @@ async function seed(): Promise<{
         createdAt++,
       ),
     );
+    await publish(authorization, curatorSecret);
     await publish(submission, publisherSecret);
     await publish(approval, curatorSecret);
-    registryEvents.push(submission, approval);
+    registryEvents.push(authorization, submission, approval);
     releaseByPlugin.set(fixture.plugin.pluginId, submission);
   }
 

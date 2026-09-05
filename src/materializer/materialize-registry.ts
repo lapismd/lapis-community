@@ -1,5 +1,5 @@
 import {
-  copyFile,
+  cp,
   mkdir,
   readFile,
   rename,
@@ -138,9 +138,9 @@ async function copyCommunityBundle(targetRoot: string): Promise<void> {
     process.env.REGISTRY_COMMUNITY_BUNDLE_PATH?.trim() ||
       "dist/client/registry-community.js",
   );
-  const target = path.join(targetRoot, "client", "registry-community.js");
-  await mkdir(path.dirname(target), { recursive: true });
-  await copyFile(source, target);
+  const target = path.join(targetRoot, "client");
+  await mkdir(target, { recursive: true });
+  await cp(path.dirname(source), target, { recursive: true });
 }
 
 async function jsonFile(filePath: string, value: unknown): Promise<void> {
