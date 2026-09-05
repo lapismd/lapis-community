@@ -298,7 +298,7 @@ export interface RegistryCatalogDataSource {
   loadIndex(options?: RegistryLoadOptions): Promise<RegistryCatalogIndex>;
   loadRuntime(options?: RegistryLoadOptions): Promise<RegistryRuntime | null>;
   loadPluginDetail(
-    entry: RegistryCatalogEntry,
+    entry: Pick<RegistryCatalogEntry, "id">,
     options?: RegistryLoadOptions,
   ): Promise<RegistryCatalogDetail>;
   loadMarkdown(
