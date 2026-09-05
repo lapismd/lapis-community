@@ -27,6 +27,11 @@ topics, NIP-22 kind `1111` replies, and NIP-25 kind `7` reactions remain
 ordinary signed relay events. Clients render them in posting order and retain
 reply context without inventing a second persistence model.
 
+The disposable browser event cache does not alter those protocol semantics.
+When its Turso-WASM/OPFS implementation is available, the browser owner context
+opens the cache so the database driver can own its worker pool; verified event
+envelopes remain the only values passed into the shared runtime projection.
+
 When materializing NIP-29 kind `9` messages or validated, decrypted NIP-17
 rumors, the read model MAY preserve unique `p` and `P` tag values as mention
 public keys. Those routing and relationship tags are candidate identity

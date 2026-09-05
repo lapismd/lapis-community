@@ -9,6 +9,7 @@ import type {
 } from "./contracts.js";
 import { createBrowserCommunityEventStore } from "./browser-event-store.js";
 import { createInlineCommunityEventRuntime } from "./event-runtime.js";
+import { canUseTursoCommunityEventStore } from "./turso-event-store.js";
 
 interface WorkerLike {
   postMessage(value: unknown): void;
@@ -32,17 +33,30 @@ export interface BrowserCommunityEventRuntimeOptions {
 export function createBrowserCommunityEventRuntime(
   options: BrowserCommunityEventRuntimeOptions = {},
 ): CommunityEventRuntime {
+  // Turso's browser driver owns a WASM worker pool. Opening it from this
+  // runtime's application worker would create a nested worker graph and can
+  // leave the driver's pthread registry incomplete. Keep the database in the
+  // browser owner context, matching the Lapis app database integration.
+  if (canUseTursoCommunityEventStore()) {
+    return createInlineBrowserCommunityEventRuntime(options);
+  }
   if (typeof Worker === "undefined" && options.workerFactory === undefined) {
     options.onDegraded?.("Web Workers are unavailable; using inline runtime");
-    return createInlineCommunityEventRuntime({
-      store: createBrowserCommunityEventStore({
-        ...(options.onDegraded === undefined
-          ? {}
-          : { onDegraded: options.onDegraded }),
-      }),
-    });
+    return createInlineBrowserCommunityEventRuntime(options);
   }
   return new BrowserCommunityEventRuntime(options);
+}
+
+function createInlineBrowserCommunityEventRuntime(
+  options: BrowserCommunityEventRuntimeOptions,
+): CommunityEventRuntime {
+  return createInlineCommunityEventRuntime({
+    store: createBrowserCommunityEventStore({
+      ...(options.onDegraded === undefined
+        ? {}
+        : { onDegraded: options.onDegraded }),
+    }),
+  });
 }
 
 class BrowserCommunityEventRuntime implements CommunityEventRuntime {
@@ -192,13 +206,7 @@ class BrowserCommunityEventRuntime implements CommunityEventRuntime {
     this.#options.onDegraded?.(
       "Community worker failed repeatedly; using the inline runtime",
     );
-    const fallback = createInlineCommunityEventRuntime({
-      store: createBrowserCommunityEventStore({
-        ...(this.#options.onDegraded === undefined
-          ? {}
-          : { onDegraded: this.#options.onDegraded }),
-      }),
-    });
+    const fallback = createInlineBrowserCommunityEventRuntime(this.#options);
     this.#fallback = fallback;
     if (this.#scopes.length > 0) {
       await fallback.restore(this.#scopes, this.#generation);

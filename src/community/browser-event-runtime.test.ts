@@ -6,6 +6,7 @@ import type {
   CommunityScope,
 } from "./contracts.js";
 import { createBrowserCommunityEventRuntime } from "./browser-event-runtime.js";
+import { InlineCommunityEventRuntime } from "./event-runtime.js";
 
 const scope: CommunityScope = {
   id: "lapis",
@@ -58,6 +59,27 @@ class FakeWorker {
 }
 
 describe("BrowserCommunityEventRuntime", () => {
+  it("opens Turso from the browser owner context instead of nesting its workers", () => {
+    const workerFactory = vi.fn(() => new FakeWorker());
+    vi.stubGlobal("navigator", {
+      storage: { getDirectory: vi.fn() },
+      locks: { request: vi.fn() },
+    });
+    vi.stubGlobal("SharedArrayBuffer", class SharedArrayBuffer {});
+    vi.stubGlobal("Atomics", {});
+    vi.stubGlobal("crossOriginIsolated", true);
+
+    try {
+      const runtime = createBrowserCommunityEventRuntime({ workerFactory });
+
+      expect(runtime).toBeInstanceOf(InlineCommunityEventRuntime);
+      expect(workerFactory).not.toHaveBeenCalled();
+      runtime.dispose();
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
   it("recreates and restores its worker once after a crash", async () => {
     const workers: FakeWorker[] = [];
     const runtime = createBrowserCommunityEventRuntime({
