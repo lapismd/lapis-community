@@ -87,6 +87,53 @@ describe("createNip29CommunitySource", () => {
     session.close();
   });
 
+  it("retains publisher authorization events without exposing them as community content", async () => {
+    const scenario = createCommunityTestScenario();
+    const relayFactory = createInMemoryRelayFactory({
+      policy: new Nip29MemoryPolicy({
+        relaySecretKey: relayKey,
+        now: () => 1_700_000_000,
+      }),
+    });
+    const relay = relayFactory.relay(scenario.scope.relayUrl);
+    await scenario.seed(relay);
+    const authorization = await scenario.operator.signEvent({
+      kind: 9,
+      created_at: 1_700_000_015,
+      content: JSON.stringify({
+        schema: "lapis.registry.publisher-authorization/1",
+        status: "authorized",
+      }),
+      tags: [
+        ["h", "general"],
+        ["t", "lapis-plugin-publisher-authorization"],
+        ["t", "plugin:ai"],
+      ],
+    });
+    await relay.publish(authorization);
+
+    const session = await createNip29CommunitySource({ relayFactory }).open(
+      scenario.scope,
+      { identity: scenario.operator },
+    );
+    const snapshot = await session.snapshot();
+    const workspace = materializeCommunityWorkspace(
+      [scenario.scope],
+      { [scenario.scope.id]: snapshot.events },
+      scenario.scope.id,
+      { activeRoomId: "general" },
+    );
+
+    expect(snapshot.events.map((event) => event.id)).toContain(
+      authorization.id,
+    );
+    expect(workspace.messages.map((message) => message.id)).not.toContain(
+      authorization.id,
+    );
+    await expect(session.search("authorized")).resolves.toEqual([]);
+    session.close();
+  });
+
   it("discovers public rooms from standard and Buzz metadata", async () => {
     const scenario = createCommunityTestScenario();
     const relayFactory = createInMemoryRelayFactory({

@@ -11,6 +11,7 @@ import {
   type NostrEvent,
   type NostrEventTemplate,
 } from "../protocol/index.js";
+import { isRegistryPublisherAuthorizationEvent } from "../protocol/registry-control.js";
 
 import {
   communityRooms,
@@ -1719,11 +1720,13 @@ export function createCommunityController(
     results: readonly CommunitySearchResult[],
   ): CommunitySearchResult[] {
     const rooms = communityRooms(activeScope(), activeEvents());
-    return results.map((result) => {
-      const groupId = result.event.tags.find((tag) => tag[0] === "h")?.[1];
-      const room = rooms.find((candidate) => candidate.groupId === groupId);
-      return room === undefined ? result : { ...result, roomId: room.id };
-    });
+    return results
+      .filter((result) => !isRegistryPublisherAuthorizationEvent(result.event))
+      .map((result) => {
+        const groupId = result.event.tags.find((tag) => tag[0] === "h")?.[1];
+        const room = rooms.find((candidate) => candidate.groupId === groupId);
+        return room === undefined ? result : { ...result, roomId: room.id };
+      });
   }
 
   function activeEvents(): readonly NostrEvent[] {

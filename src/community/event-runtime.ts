@@ -1,4 +1,5 @@
 import type { NostrEvent } from "../protocol/index.js";
+import { isRegistryPublisherAuthorizationEvent } from "../protocol/registry-control.js";
 
 import type {
   CommunityCacheState,
@@ -231,7 +232,11 @@ export class InlineCommunityEventRuntime implements CommunityEventRuntime {
       ? [...(this.#events.get(request.scopeId)?.values() ?? [])]
       : [...this.#events.values()].flatMap((scope) => [...scope.values()]);
     return events
-      .filter((event) => event.content.toLocaleLowerCase().includes(query))
+      .filter(
+        (event) =>
+          !isRegistryPublisherAuthorizationEvent(event) &&
+          event.content.toLocaleLowerCase().includes(query),
+      )
       .toSorted(
         (left, right) =>
           right.created_at - left.created_at || right.id.localeCompare(left.id),

@@ -94,6 +94,53 @@ describe("CommunityEventRuntime", () => {
     restored.dispose();
   });
 
+  it("caches registry publisher authorization without presenting it as a message or search result", async () => {
+    const store = createMemoryCommunityEventStore();
+    const runtime = createInlineCommunityEventRuntime({ store });
+    const authorization = finalizeEvent(
+      {
+        kind: 9,
+        created_at: 1_700_000_002,
+        content: JSON.stringify({
+          schema: "lapis.registry.publisher-authorization/1",
+          status: "authorized",
+        }),
+        tags: [
+          ["h", "general"],
+          ["t", "lapis-plugin-publisher-authorization"],
+          ["t", "plugin:ai"],
+        ],
+      },
+      new Uint8Array(32).fill(46),
+    );
+
+    await runtime.restore([scope], 1);
+    await runtime.ingest({
+      generation: 1,
+      scope,
+      relayUrl: scope.relayUrl,
+      events: [authorization],
+    });
+    const projection = await runtime.project({
+      generation: 1,
+      scopes: [scope],
+      activeCommunityId: scope.id,
+      activeRoomId: "general",
+    });
+    await runtime.restore([scope], 1);
+
+    expect(projection.workspace?.messages).toEqual([]);
+    await expect(
+      runtime.search({
+        generation: 1,
+        scopeId: scope.id,
+        query: "authorized",
+      }),
+    ).resolves.toEqual([]);
+    expect((await store.restore(scope)).events).toContainEqual(authorization);
+    runtime.dispose();
+  });
+
   it("returns only accepted deltas after the initial restore", async () => {
     const runtime = createInlineCommunityEventRuntime();
     const firstEvent = finalizeEvent(
