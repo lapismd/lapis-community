@@ -121,6 +121,7 @@
     desktopMinMainWidth,
     registry,
     registryOptions,
+    registryEnabled,
     extensions = {},
     linkBuilder,
     onAuthenticationRequired = async (action) => void (await action()),
@@ -136,6 +137,7 @@
     desktopMinMainWidth?: number;
     registry?: Snippet;
     registryOptions?: RegistryBrowserOptions;
+    registryEnabled?: boolean;
     extensions?: CommunityApplicationExtensions;
     linkBuilder?: CommunityLinkBuilder;
     onAuthenticationRequired?: (
@@ -158,6 +160,10 @@
       }),
   );
   const shell = $derived(shellController ?? internalShellController);
+  const hasRegistry = $derived(
+    registryEnabled ??
+      (registry !== undefined || registryOptions !== undefined),
+  );
   let navigationHistory = $state<CommunityApplicationHistory>(
     createCommunityApplicationHistory(untrack(() => initialDestination)),
   );
@@ -272,12 +278,16 @@
       ...(authenticated && hasCommunityConnection
         ? [{ id: "inbox", label: "Inbox", kind: "inbox" as const }]
         : []),
-      {
-        id: "registry",
-        label: "Registry",
-        kind: "registry",
-        icon: "package-search",
-      },
+      ...(hasRegistry
+        ? [
+            {
+              id: "registry",
+              label: "Registry",
+              kind: "registry" as const,
+              icon: "package-search" as const,
+            },
+          ]
+        : []),
     ],
     sections: [
       ...workspace.navigationSections.map((section) => ({
@@ -490,7 +500,7 @@
       .filter((member) => member !== undefined),
   );
   const isRegistryDestination = $derived(
-    registryRouteFromDestination(activeDestination) !== null,
+    hasRegistry && registryRouteFromDestination(activeDestination) !== null,
   );
   const usesRoomToolbar = $derived(
     !isRegistryDestination &&
@@ -1593,7 +1603,7 @@
 {/snippet}
 
 {#snippet releaseMessageSupplement(message: CommunityMessageModel)}
-  {#if message.parentMessageId === undefined && registryOptions?.source.loadReleaseInspection}
+  {#if hasRegistry && message.parentMessageId === undefined && registryOptions?.source.loadReleaseInspection}
     <RegistryReleaseDisclosure
       eventId={message.id}
       source={registryOptions.source}

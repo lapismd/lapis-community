@@ -276,6 +276,7 @@ export interface RegistryCatalogRelayStatus {
 export interface RegistryCatalogSourceStatus {
   phase: RegistryCatalogSourcePhase;
   fresh: boolean;
+  installReady: boolean;
   origin?: "cache" | "relay";
   registryRoot?: string;
   synchronizedAt?: string;

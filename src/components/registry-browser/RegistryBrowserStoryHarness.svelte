@@ -25,6 +25,7 @@
   let liveStatus: RegistryCatalogSourceStatus = {
     phase: "ready",
     fresh: false,
+    installReady: false,
     origin: "cache",
     registryRoot: "cached-story-root",
     synchronizedAt: "2026-09-03T12:00:00.000Z",
@@ -49,6 +50,7 @@
             liveStatus = {
               phase: "ready",
               fresh: true,
+              installReady: true,
               origin: "relay",
               registryRoot: "fresh-story-root",
               synchronizedAt: "2026-09-03T12:01:00.000Z",

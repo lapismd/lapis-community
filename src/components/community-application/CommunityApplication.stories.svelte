@@ -136,19 +136,19 @@
 </Story>
 
 <Story
-  name="Registry configuration required"
-  play={async ({ canvas }) => {
+  name="Community without registry"
+  play={async ({ canvas, canvasElement }) => {
     await expect(
-      await canvas.findByRole("heading", {
-        name: "Plugin registry is not configured",
-      }),
-    ).toBeVisible();
+      canvas.queryByRole("button", { name: "Registry" }),
+    ).not.toBeInTheDocument();
+    await expect(
+      canvasElement.querySelector('[data-cache-scenario="cold-offline"]'),
+    ).not.toBeNull();
   }}
 >
   {#snippet template()}
     <CommunityApplicationCacheStoryHarness
       scenario="cold-offline"
-      initialDestination="registry"
       registryConfigured={false}
     />
   {/snippet}

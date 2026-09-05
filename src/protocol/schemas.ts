@@ -4,6 +4,8 @@ import { z } from "zod";
 import type {
   JsonValue,
   Nip29ReleaseManifest,
+  Nip29PublisherAuthorizationContent,
+  NostrReleaseProof,
   NostrEvent,
   PluginDefinitionContent,
   ReleaseContent,
@@ -88,5 +90,29 @@ export const nip29ReleaseManifestSchema: z.ZodType<Nip29ReleaseManifest> = z
     schema: z.literal("lapis.registry.nip29-release/1"),
     plugin: pluginDefinitionContentSchema,
     release: releaseContentSchema,
+  })
+  .strict();
+
+export const nip29PublisherAuthorizationContentSchema: z.ZodType<Nip29PublisherAuthorizationContent> =
+  z
+    .object({
+      schema: z.literal("lapis.registry.publisher-authorization/1"),
+      status: z.enum(["authorized", "revoked"]),
+    })
+    .strict();
+
+export const nostrReleaseProofSchema: z.ZodType<NostrReleaseProof> = z
+  .object({
+    schema: z.literal("lapis.plugin.release-proof/1"),
+    authorizationEvent: nostrEventSchema,
+    releaseEvent: nostrEventSchema,
+    decisionEvent: nostrEventSchema,
+    manifest: z
+      .object({
+        sha256: hex64,
+        size: z.number().int().positive(),
+        content: z.string().min(1),
+      })
+      .strict(),
   })
   .strict();

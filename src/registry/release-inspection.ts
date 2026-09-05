@@ -2,11 +2,13 @@ import { z } from "zod";
 
 import {
   getNip29ManifestAttachment,
+  isNip29PublisherAuthorized,
   LAPIS_GROUPS,
   LAPIS_RELEASE_TOPIC,
   lapisGroupId,
   nip29ReleaseManifestSchema,
   NIP29_KINDS,
+  parseNip29CuratorDecision,
   projectRegistry,
   type Nip29CuratorDecision,
   type Nip29RegistryAuthorities,
@@ -33,6 +35,7 @@ export interface RegistryReleaseCandidate {
 export function recognizeRegistryReleaseCandidate(
   event: NostrEvent,
   authorities: Nip29RegistryAuthorities,
+  events: readonly NostrEvent[] = [event],
 ): RegistryReleaseCandidate | undefined {
   if (event.kind !== NIP29_KINDS.streamMessage) return undefined;
   if (tagValues(event, "h")[0] !== lapisGroupId(LAPIS_GROUPS.pluginReleases))
@@ -57,12 +60,9 @@ export function recognizeRegistryReleaseCandidate(
     });
   }
 
-  const publishers =
-    pluginId === undefined
-      ? undefined
-      : (authorities.publisherPubkeysByPlugin.get(pluginId) ??
-        authorities.defaultPublisherPubkeys);
-  const trusted = publishers?.has(event.pubkey) === true;
+  const trusted =
+    pluginId !== undefined &&
+    isNip29PublisherAuthorized(events, authorities, pluginId, event.pubkey);
   if (pluginId !== undefined && !trusted) {
     diagnostics.push({
       stage: "authority",
@@ -215,35 +215,18 @@ function latestDecision(
   authorities: Nip29RegistryAuthorities,
 ): Nip29CuratorDecision | undefined {
   return events
-    .filter(
-      (event) =>
-        event.kind === NIP29_KINDS.reaction &&
-        authorities.curatorPubkeys.has(event.pubkey) &&
-        tagValues(event, "e").length === 1 &&
-        tagValues(event, "e")[0] === eventId,
-    )
     .flatMap((event) => {
-      const decision = parseDecision(event.content);
-      return decision === undefined ? [] : [{ event, decision }];
+      const parsed = parseNip29CuratorDecision(event, eventId);
+      return parsed === undefined ||
+        !authorities.curatorPubkeys.has(event.pubkey)
+        ? []
+        : [{ event, decision: parsed.decision }];
     })
     .toSorted((left, right) =>
       left.event.created_at === right.event.created_at
         ? left.event.id.localeCompare(right.event.id)
         : right.event.created_at - left.event.created_at,
     )[0]?.decision;
-}
-
-function parseDecision(content: string): Nip29CuratorDecision | undefined {
-  switch (content.trim()) {
-    case "✅":
-      return "approved";
-    case "❌":
-      return "rejected";
-    case "🚫":
-      return "revoked";
-    default:
-      return undefined;
-  }
 }
 
 function zodDiagnostics(

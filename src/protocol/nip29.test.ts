@@ -10,6 +10,7 @@ import {
   createNip29CuratorDecisionTemplate,
   createNip29ForumCommentTemplate,
   createNip29ForumThreadTemplate,
+  createNip29PublisherAuthorizationTemplate,
   createNip29ReleaseMessageTemplate,
   LAPIS_GROUPS,
   lapisGroupId,
@@ -239,5 +240,66 @@ describe("NIP-29 registry protocol", () => {
     );
     expect(result.plugins).toEqual([]);
     expect(result.acceptedEventIds).toEqual([]);
+  });
+
+  it("derives publisher authority from curator events and rejects off-group decisions", () => {
+    const signedAuthorization = sign(
+      curatorKey,
+      createNip29PublisherAuthorizationTemplate(
+        "ai",
+        publisher,
+        "authorized",
+        9,
+      ),
+    );
+    const release = sign(
+      publisherKey,
+      createNip29ReleaseMessageTemplate("ai", attachment, 10, "release"),
+    );
+    const approval = sign(
+      curatorKey,
+      createNip29CuratorDecisionTemplate(release.id, "approved", 11),
+    );
+    const authorities = {
+      curatorPubkeys: new Set([curator]),
+      publisherPubkeysByPlugin: new Map(),
+    };
+
+    const accepted = materializeNip29Registry(
+      [approval, release, signedAuthorization],
+      [{ attachmentSha256: attachment.sha256, manifest }],
+      authorities,
+    );
+    expect(accepted.plugins).toHaveLength(1);
+    expect(accepted.acceptedEventIds).toEqual(
+      [approval.id, release.id, signedAuthorization.id].toSorted(),
+    );
+
+    const offGroupApproval = sign(curatorKey, {
+      ...createNip29CuratorDecisionTemplate(release.id, "approved", 12),
+      tags: [
+        ["h", lapisGroupId("another-group")],
+        ["e", release.id],
+      ],
+    });
+    expect(
+      materializeNip29Registry(
+        [offGroupApproval, release, signedAuthorization],
+        [{ attachmentSha256: attachment.sha256, manifest }],
+        authorities,
+      ).plugins,
+    ).toEqual([]);
+
+    const revokedAuthorization = sign(
+      curatorKey,
+      createNip29PublisherAuthorizationTemplate("ai", publisher, "revoked", 13),
+    );
+    expect(
+      materializeNip29Registry(
+        [approval, release, signedAuthorization, revokedAuthorization],
+        [{ attachmentSha256: attachment.sha256, manifest }],
+        authorities,
+      ).plugins,
+    ).toEqual([]);
   });
 });

@@ -4,10 +4,15 @@ import { verifyEvent } from "nostr-tools/pure";
 import semver from "semver";
 
 import { canonicalHash, canonicalJson } from "./canonical.js";
-import { nip29ReleaseManifestSchema, nostrEventSchema } from "./schemas.js";
+import {
+  nip29PublisherAuthorizationContentSchema,
+  nip29ReleaseManifestSchema,
+  nostrEventSchema,
+} from "./schemas.js";
 import type {
   JsonObject,
   JsonValue,
+  Nip29PublisherAuthorizationContent,
   NostrEvent,
   NostrEventTemplate,
   PluginDefinitionContent,
@@ -35,6 +40,8 @@ export const LAPIS_GROUPS = {
 } as const;
 
 export const LAPIS_RELEASE_TOPIC = "lapis-plugin-release";
+export const LAPIS_PUBLISHER_AUTHORIZATION_TOPIC =
+  "lapis-plugin-publisher-authorization";
 
 const DNS_NAMESPACE = Uint8Array.from([
   0x6b, 0xa7, 0xb8, 0x10, 0x9d, 0xad, 0x11, 0xd1, 0x80, 0xb4, 0x00, 0xc0, 0x4f,
@@ -62,6 +69,25 @@ export interface Nip29RegistryAuthorities {
   defaultPublisherPubkeys?: ReadonlySet<string> | undefined;
 }
 
+export interface Nip29PublisherAuthorization {
+  event: NostrEvent;
+  pluginId: string;
+  publisherPubkey: string;
+  status: Nip29PublisherAuthorizationContent["status"];
+}
+
+export interface ParsedNip29Release {
+  event: NostrEvent;
+  pluginId: string;
+  attachment: Nip29ManifestAttachment;
+}
+
+export interface ParsedNip29CuratorDecision {
+  event: NostrEvent;
+  releaseEventId: string;
+  decision: Nip29CuratorDecision;
+}
+
 export interface MaterializedNip29Release {
   event: NostrEvent;
   plugin: PluginDefinitionContent;
@@ -69,6 +95,7 @@ export interface MaterializedNip29Release {
   attachment: Nip29ManifestAttachment;
   decision: Nip29CuratorDecision;
   decisionEvent: NostrEvent;
+  authorizationEvent?: NostrEvent | undefined;
 }
 
 export interface MaterializedNip29Plugin {
@@ -148,6 +175,131 @@ export function createNip29CuratorDecisionTemplate(
   };
 }
 
+export function createNip29PublisherAuthorizationTemplate(
+  pluginId: string,
+  publisherPubkey: string,
+  status: Nip29PublisherAuthorizationContent["status"],
+  createdAt: number,
+): NostrEventTemplate {
+  if (!/^[a-z0-9][a-z0-9-]{0,127}$/u.test(pluginId)) {
+    throw new Error(`Invalid plugin id: ${pluginId}`);
+  }
+  if (!/^[0-9a-f]{64}$/u.test(publisherPubkey)) {
+    throw new Error("Publisher public key must be 32-byte lowercase hex");
+  }
+  return {
+    kind: NIP29_KINDS.streamMessage,
+    created_at: createdAt,
+    content: canonicalJson({
+      schema: "lapis.registry.publisher-authorization/1",
+      status,
+    }),
+    tags: [
+      ["h", lapisGroupId(LAPIS_GROUPS.pluginReleases)],
+      ["t", LAPIS_PUBLISHER_AUTHORIZATION_TOPIC],
+      ["t", `plugin:${pluginId}`],
+      ["p", publisherPubkey],
+    ],
+  };
+}
+
+export function parseNip29ReleaseEvent(
+  event: NostrEvent,
+): ParsedNip29Release | undefined {
+  if (event.kind !== NIP29_KINDS.streamMessage || event.tags.length !== 4) {
+    return undefined;
+  }
+  const group = exactTagValue(event, "h");
+  const topics = tagValues(event, "t");
+  const pluginTopics = topics.filter((topic) => topic.startsWith("plugin:"));
+  if (
+    group !== lapisGroupId(LAPIS_GROUPS.pluginReleases) ||
+    topics.length !== 2 ||
+    !topics.includes(LAPIS_RELEASE_TOPIC) ||
+    pluginTopics.length !== 1
+  ) {
+    return undefined;
+  }
+  const pluginId = pluginTopics[0]!.slice("plugin:".length);
+  if (!/^[a-z0-9][a-z0-9-]{0,127}$/u.test(pluginId)) return undefined;
+  const attachment = getNip29ManifestAttachment(event);
+  if (attachment === undefined || attachment.mimeType !== "application/json") {
+    return undefined;
+  }
+  if (
+    event.tags.some(
+      (tag) =>
+        (tag[0] !== "h" && tag[0] !== "t" && tag[0] !== "imeta") ||
+        (tag[0] !== "imeta" && tag.length !== 2),
+    )
+  ) {
+    return undefined;
+  }
+  return { event, pluginId, attachment };
+}
+
+export function parseNip29PublisherAuthorization(
+  event: NostrEvent,
+): Nip29PublisherAuthorization | undefined {
+  if (event.kind !== NIP29_KINDS.streamMessage || event.tags.length !== 4) {
+    return undefined;
+  }
+  const group = exactTagValue(event, "h");
+  const publisherPubkey = exactTagValue(event, "p");
+  const topics = tagValues(event, "t");
+  const pluginTopics = topics.filter((topic) => topic.startsWith("plugin:"));
+  if (
+    group !== lapisGroupId(LAPIS_GROUPS.pluginReleases) ||
+    publisherPubkey === undefined ||
+    !/^[0-9a-f]{64}$/u.test(publisherPubkey) ||
+    topics.length !== 2 ||
+    !topics.includes(LAPIS_PUBLISHER_AUTHORIZATION_TOPIC) ||
+    pluginTopics.length !== 1 ||
+    event.tags.some((tag) => tag.length !== 2)
+  ) {
+    return undefined;
+  }
+  const pluginId = pluginTopics[0]!.slice("plugin:".length);
+  if (!/^[a-z0-9][a-z0-9-]{0,127}$/u.test(pluginId)) return undefined;
+  let content: unknown;
+  try {
+    content = JSON.parse(event.content) as unknown;
+  } catch {
+    return undefined;
+  }
+  const parsed = nip29PublisherAuthorizationContentSchema.safeParse(content);
+  return parsed.success
+    ? { event, pluginId, publisherPubkey, status: parsed.data.status }
+    : undefined;
+}
+
+export function parseNip29CuratorDecision(
+  event: NostrEvent,
+  expectedReleaseEventId?: string,
+): ParsedNip29CuratorDecision | undefined {
+  if (
+    event.kind !== NIP29_KINDS.reaction ||
+    event.tags.length !== 2 ||
+    event.tags.some((tag) => tag.length !== 2)
+  ) {
+    return undefined;
+  }
+  const group = exactTagValue(event, "h");
+  const releaseEventId = exactTagValue(event, "e");
+  const decision = parseDecision(event.content);
+  if (
+    group !== lapisGroupId(LAPIS_GROUPS.pluginReleases) ||
+    releaseEventId === undefined ||
+    !/^[0-9a-f]{64}$/u.test(releaseEventId) ||
+    (expectedReleaseEventId !== undefined &&
+      releaseEventId !== expectedReleaseEventId) ||
+    decision === undefined
+  ) {
+    return undefined;
+  }
+  return { event, releaseEventId, decision };
+}
+
 export function createNip29ForumThreadTemplate(
   groupId: string,
   content: string,
@@ -211,7 +363,6 @@ export function materializeNip29Registry(
   const manifests = new Map(
     manifestSources.map((source) => [source.attachmentSha256, source.manifest]),
   );
-  const releaseGroup = lapisGroupId(LAPIS_GROUPS.pluginReleases);
   const releases = new Map<
     string,
     {
@@ -219,31 +370,37 @@ export function materializeNip29Registry(
       plugin: PluginDefinitionContent;
       content: ReleaseContent;
       attachment: Nip29ManifestAttachment;
+      authorizationEvent?: NostrEvent | undefined;
     }
   >();
 
   for (const event of events) {
-    if (event.kind !== NIP29_KINDS.streamMessage) continue;
-    if (tagValues(event, "h")[0] !== releaseGroup) continue;
-    const topics = new Set(tagValues(event, "t"));
-    if (!topics.has(LAPIS_RELEASE_TOPIC)) continue;
-    const pluginTopics = [...topics]
-      .filter((topic) => topic.startsWith("plugin:"))
-      .map((topic) => topic.slice("plugin:".length));
-    if (pluginTopics.length !== 1) {
-      recordIssue(
-        issues,
-        event,
-        "tags",
-        "Release must name exactly one plugin topic",
-      );
+    if (
+      event.kind !== NIP29_KINDS.streamMessage ||
+      !tagValues(event, "t").includes(LAPIS_RELEASE_TOPIC)
+    ) {
       continue;
     }
-    const pluginId = pluginTopics[0]!;
-    const publishers =
-      authorities.publisherPubkeysByPlugin.get(pluginId) ??
-      authorities.defaultPublisherPubkeys;
-    if (!publishers?.has(event.pubkey)) {
+    const release = parseNip29ReleaseEvent(event);
+    if (release === undefined) {
+      recordIssue(issues, event, "tags", "Release event shape is invalid");
+      continue;
+    }
+    const authorization = latestNip29PublisherAuthorization(
+      events,
+      authorities,
+      release.pluginId,
+      event.pubkey,
+    );
+    if (
+      authorization?.status !== "authorized" &&
+      (authorization !== undefined ||
+        !isLegacyPublisherAuthorized(
+          authorities,
+          release.pluginId,
+          event.pubkey,
+        ))
+    ) {
       recordIssue(
         issues,
         event,
@@ -252,23 +409,13 @@ export function materializeNip29Registry(
       );
       continue;
     }
-    const attachment = getNip29ManifestAttachment(event);
-    if (attachment === undefined) {
-      recordIssue(
-        issues,
-        event,
-        "tags",
-        "Release must carry one valid NIP-92 manifest attachment",
-      );
-      continue;
-    }
     const parsedManifest = nip29ReleaseManifestSchema.safeParse(
-      manifests.get(attachment.sha256),
+      manifests.get(release.attachment.sha256),
     );
     if (
       !parsedManifest.success ||
-      parsedManifest.data.plugin.pluginId !== pluginId ||
-      parsedManifest.data.release.pluginId !== pluginId
+      parsedManifest.data.plugin.pluginId !== release.pluginId ||
+      parsedManifest.data.release.pluginId !== release.pluginId
     ) {
       recordIssue(
         issues,
@@ -278,7 +425,9 @@ export function materializeNip29Registry(
       );
       continue;
     }
-    if (parsedManifest.data.release.artifact.sha256 === attachment.sha256) {
+    if (
+      parsedManifest.data.release.artifact.sha256 === release.attachment.sha256
+    ) {
       recordIssue(
         issues,
         event,
@@ -291,7 +440,10 @@ export function materializeNip29Registry(
       event,
       plugin: parsedManifest.data.plugin,
       content: parsedManifest.data.release,
-      attachment,
+      attachment: release.attachment,
+      ...(authorization?.status === "authorized"
+        ? { authorizationEvent: authorization.event }
+        : {}),
     });
   }
 
@@ -300,11 +452,13 @@ export function materializeNip29Registry(
     { event: NostrEvent; decision: Nip29CuratorDecision }
   >();
   for (const event of events) {
-    if (event.kind !== NIP29_KINDS.reaction) continue;
-    const decision = parseDecision(event.content);
-    if (decision === undefined) continue;
-    const targets = tagValues(event, "e");
-    if (targets.length !== 1 || !releases.has(targets[0]!)) continue;
+    const parsedDecision = parseNip29CuratorDecision(event);
+    if (
+      parsedDecision === undefined ||
+      !releases.has(parsedDecision.releaseEventId)
+    ) {
+      continue;
+    }
     if (!authorities.curatorPubkeys.has(event.pubkey)) {
       recordIssue(
         issues,
@@ -314,9 +468,12 @@ export function materializeNip29Registry(
       );
       continue;
     }
-    const current = decisions.get(targets[0]!);
+    const current = decisions.get(parsedDecision.releaseEventId);
     if (current === undefined || eventWins(event, current.event)) {
-      decisions.set(targets[0]!, { event, decision });
+      decisions.set(parsedDecision.releaseEventId, {
+        event,
+        decision: parsedDecision.decision,
+      });
     }
   }
 
@@ -357,6 +514,9 @@ export function materializeNip29Registry(
       plugin.releases.flatMap((release) => [
         release.event.id,
         release.decisionEvent.id,
+        ...(release.authorizationEvent === undefined
+          ? []
+          : [release.authorizationEvent.id]),
       ]),
     )
     .toSorted();
@@ -369,6 +529,9 @@ export function materializeNip29Registry(
       releases: plugin.releases.map((release) => ({
         releaseEventId: release.event.id,
         decisionEventId: release.decisionEvent.id,
+        ...(release.authorizationEvent === undefined
+          ? {}
+          : { authorizationEventId: release.authorizationEvent.id }),
         version: release.content.version,
         manifestSha256: release.attachment.sha256,
         artifactSha256: release.content.artifact.sha256,
@@ -500,6 +663,59 @@ function parseDecision(content: string): Nip29CuratorDecision | undefined {
   }
 }
 
+export function latestNip29PublisherAuthorization(
+  events: readonly NostrEvent[],
+  authorities: Nip29RegistryAuthorities,
+  pluginId: string,
+  publisherPubkey: string,
+): Nip29PublisherAuthorization | undefined {
+  return events
+    .flatMap((event) => {
+      const authorization = parseNip29PublisherAuthorization(event);
+      return authorization === undefined ||
+        authorization.pluginId !== pluginId ||
+        authorization.publisherPubkey !== publisherPubkey ||
+        !authorities.curatorPubkeys.has(event.pubkey)
+        ? []
+        : [authorization];
+    })
+    .toSorted((left, right) =>
+      eventWins(left.event, right.event)
+        ? -1
+        : eventWins(right.event, left.event)
+          ? 1
+          : 0,
+    )[0];
+}
+
+export function isNip29PublisherAuthorized(
+  events: readonly NostrEvent[],
+  authorities: Nip29RegistryAuthorities,
+  pluginId: string,
+  publisherPubkey: string,
+): boolean {
+  const authorization = latestNip29PublisherAuthorization(
+    events,
+    authorities,
+    pluginId,
+    publisherPubkey,
+  );
+  return authorization === undefined
+    ? isLegacyPublisherAuthorized(authorities, pluginId, publisherPubkey)
+    : authorization.status === "authorized";
+}
+
+function isLegacyPublisherAuthorized(
+  authorities: Nip29RegistryAuthorities,
+  pluginId: string,
+  publisherPubkey: string,
+): boolean {
+  const publishers =
+    authorities.publisherPubkeysByPlugin.get(pluginId) ??
+    authorities.defaultPublisherPubkeys;
+  return publishers?.has(publisherPubkey) === true;
+}
+
 function eventWins(candidate: NostrEvent, current: NostrEvent): boolean {
   return (
     candidate.created_at > current.created_at ||
@@ -511,6 +727,11 @@ function tagValues(event: NostrEvent, name: string): string[] {
   return event.tags.flatMap((tag) =>
     tag[0] === name && tag[1] !== undefined ? [tag[1]] : [],
   );
+}
+
+function exactTagValue(event: NostrEvent, name: string): string | undefined {
+  const values = tagValues(event, name);
+  return values.length === 1 ? values[0] : undefined;
 }
 
 function recordIssue(

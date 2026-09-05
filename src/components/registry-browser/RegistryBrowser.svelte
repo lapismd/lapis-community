@@ -89,7 +89,8 @@
     () => {
       if (selectedEntry === undefined) return undefined;
       const configured = installActions[selectedEntry.id];
-      if (sourceStatus === undefined || sourceStatus.fresh) return configured;
+      if (sourceStatus === undefined || sourceStatus.installReady)
+        return configured;
       if (
         configured?.state === "installed" ||
         configured?.state === "installing"
@@ -306,14 +307,18 @@
   </AppShell.Toolbar>
 {/if}
 
-{#if index && sourceStatus && (!sourceStatus.fresh || sourceStatus.phase === "degraded")}
+{#if index && sourceStatus && (!sourceStatus.installReady || sourceStatus.phase === "degraded")}
   <AppShell.Toolbar
     class="registry-browser__source-toolbar"
     label="Registry source status"
   >
     <aside class="registry-browser__source-notice" role="status">
       <span>
-        <strong>Showing a verified cached registry.</strong>
+        <strong>
+          {sourceStatus.fresh
+            ? "Browsing is available; installs are paused."
+            : "Showing a verified cached registry."}
+        </strong>
         {sourceStatus.message ??
           "Connect to a registry relay to confirm current approvals and revocations."}
       </span>

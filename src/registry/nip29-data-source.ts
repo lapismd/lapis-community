@@ -19,7 +19,9 @@ import { encodeNostrHttpAuthorization } from "../nostr/http-authorization.js";
 import {
   canonicalHash,
   getNip29ManifestAttachment,
+  isNip29PublisherAuthorized,
   LAPIS_GROUPS,
+  LAPIS_PUBLISHER_AUTHORIZATION_TOPIC,
   LAPIS_RELEASE_TOPIC,
   lapisGroupId,
   materializeNip29Registry,
@@ -69,6 +71,7 @@ export interface Nip29RegistryCatalogDataSourceOptions {
   fetch?: typeof globalThis.fetch;
   now?: () => Date;
   liveBatchMs?: number;
+  installQuorum?: number;
 }
 
 interface CurrentProjection {
@@ -90,11 +93,13 @@ export function createNip29RegistryCatalogDataSource(
   if (authorities.curatorPubkeys.size === 0) {
     throw new Error("At least one registry curator is required");
   }
+  const installQuorum = options.installQuorum ?? relayUrls.length;
   if (
-    authorities.defaultPublisherPubkeys?.size === 0 &&
-    authorities.publisherPubkeysByPlugin.size === 0
+    !Number.isInteger(installQuorum) ||
+    installQuorum < 1 ||
+    installQuorum > relayUrls.length
   ) {
-    throw new Error("At least one registry publisher is required");
+    throw new Error("installQuorum must be between one and the relay count");
   }
 
   const blossomUrl =
@@ -125,6 +130,7 @@ export function createNip29RegistryCatalogDataSource(
   let state: RegistryCatalogSourceStatus = {
     phase: "loading",
     fresh: false,
+    installReady: false,
     relays: relayUrls.map((relay) => ({ relay })),
   };
   let storePromise: Promise<void> | undefined;
@@ -204,7 +210,10 @@ export function createNip29RegistryCatalogDataSource(
                 {
                   kinds: [NIP29_KINDS.streamMessage],
                   "#h": [releaseGroupId],
-                  "#t": [LAPIS_RELEASE_TOPIC],
+                  "#t": [
+                    LAPIS_RELEASE_TOPIC,
+                    LAPIS_PUBLISHER_AUTHORIZATION_TOPIC,
+                  ],
                 },
                 handlers,
                 signal,
@@ -245,7 +254,7 @@ export function createNip29RegistryCatalogDataSource(
           {
             kinds: [NIP29_KINDS.streamMessage],
             "#h": [releaseGroupId],
-            "#t": [LAPIS_RELEASE_TOPIC],
+            "#t": [LAPIS_RELEASE_TOPIC, LAPIS_PUBLISHER_AUTHORIZATION_TOPIC],
             limit: RELEASE_LIMIT,
           },
           signal,
@@ -255,7 +264,13 @@ export function createNip29RegistryCatalogDataSource(
           currentEvents,
           releaseResult.events,
           bufferedEvents,
-        ).filter((event) => event.kind === NIP29_KINDS.streamMessage);
+        ).filter(
+          (event) =>
+            event.kind === NIP29_KINDS.streamMessage &&
+            event.tags.some(
+              (tag) => tag[0] === "t" && tag[1] === LAPIS_RELEASE_TOPIC,
+            ),
+        );
         const releaseIds = releases.map((event) => event.id);
         const decisionResult =
           releaseIds.length === 0
@@ -313,6 +328,7 @@ export function createNip29RegistryCatalogDataSource(
           ...state,
           phase: current === undefined ? "error" : "degraded",
           fresh: false,
+          installReady: false,
           message,
         });
         throw cause;
@@ -359,6 +375,7 @@ export function createNip29RegistryCatalogDataSource(
         ...state,
         phase: "degraded",
         fresh: false,
+        installReady: false,
         message:
           cause instanceof Error
             ? cause.message
@@ -443,6 +460,9 @@ export function createNip29RegistryCatalogDataSource(
       ...[...authorities.publisherPubkeysByPlugin.values()].flatMap(
         (values) => [...values],
       ),
+      ...registry.plugins.flatMap((plugin) =>
+        plugin.releases.map((release) => release.event.pubkey),
+      ),
     ];
     current = {
       index,
@@ -463,6 +483,10 @@ export function createNip29RegistryCatalogDataSource(
     state = {
       phase: "ready",
       fresh,
+      installReady:
+        origin === "relay" &&
+        relayStatuses.filter((relay) => relay.error === undefined).length >=
+          installQuorum,
       origin,
       registryRoot,
       synchronizedAt,
@@ -626,7 +650,11 @@ export function createNip29RegistryCatalogDataSource(
       if (event === undefined) {
         return undefined;
       }
-      const candidate = recognizeRegistryReleaseCandidate(event, authorities);
+      const candidate = recognizeRegistryReleaseCandidate(
+        event,
+        authorities,
+        events,
+      );
       if (candidate === undefined) return undefined;
       if (!candidate.trusted || candidate.manifestSha256 === undefined) {
         return inspectRegistryReleaseCandidate(
@@ -836,10 +864,12 @@ function authorizedReleaseEvents(
       .filter((tag) => tag[0] === "t" && tag[1]?.startsWith("plugin:") === true)
       .map((tag) => tag[1]!.slice("plugin:".length));
     if (pluginTopics.length !== 1) return false;
-    const publishers =
-      authorities.publisherPubkeysByPlugin.get(pluginTopics[0]!) ??
-      authorities.defaultPublisherPubkeys;
-    return publishers?.has(event.pubkey) === true;
+    return isNip29PublisherAuthorized(
+      events,
+      authorities,
+      pluginTopics[0]!,
+      event.pubkey,
+    );
   });
 }
 

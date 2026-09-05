@@ -11,6 +11,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import {
   createNip29CuratorDecisionTemplate,
+  createNip29PublisherAuthorizationTemplate,
   createNip29ReleaseMessageTemplate,
   type NostrEvent,
   type NostrEventTemplate,
@@ -203,6 +204,7 @@ describe("NIP-29 registry catalog data source", () => {
     expect(source.getStatus()).toMatchObject({
       phase: "ready",
       fresh: true,
+      installReady: true,
       origin: "relay",
     });
     await expect(
@@ -217,6 +219,40 @@ describe("NIP-29 registry catalog data source", () => {
     await expect(
       source.loadReleaseInspection?.("f".repeat(64)),
     ).resolves.toBeUndefined();
+    source.dispose();
+  });
+
+  it("discovers curator-signed publisher authorization without a static publisher map", async () => {
+    const data = fixture();
+    const authorization = sign(
+      data.curatorKey,
+      createNip29PublisherAuthorizationTemplate(
+        "demo",
+        data.publisher,
+        "authorized",
+        1_699_999_999,
+      ),
+    );
+    const source = createNip29RegistryCatalogDataSource({
+      relays: ["wss://relay.example"],
+      authorities: {
+        curatorPubkeys: new Set([data.curator]),
+        publisherPubkeysByPlugin: new Map(),
+      },
+      relayFactory: createInMemoryRelayFactory({
+        events: [authorization, data.release, data.approval],
+      }),
+      snapshotStore: createMemoryRegistrySnapshotStore(),
+      fetch: async () => new Response(data.manifestBytes),
+    });
+
+    await expect(source.loadIndex()).resolves.toMatchObject({
+      plugins: [{ id: "demo" }],
+    });
+    expect(source.getStatus()).toMatchObject({
+      fresh: true,
+      installReady: true,
+    });
     source.dispose();
   });
 
@@ -417,6 +453,7 @@ describe("NIP-29 registry catalog data source", () => {
     });
     expect(source.getStatus()).toMatchObject({
       fresh: true,
+      installReady: false,
       message: "Some configured registry relays were unavailable",
       relays: [
         { relay: "wss://healthy.example/" },
@@ -552,6 +589,7 @@ describe("NIP-29 registry catalog data source", () => {
       expect(source.getStatus()).toMatchObject({
         phase: "degraded",
         fresh: false,
+        installReady: false,
       }),
     );
     expect(await source.loadIndex()).toEqual(previous);

@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   createNip29CuratorDecisionTemplate,
   createNip29ReleaseMessageTemplate,
+  lapisGroupId,
   type Nip29RegistryAuthorities,
   type NostrEvent,
   type NostrEventTemplate,
@@ -157,5 +158,26 @@ describe("registry release inspection", () => {
     );
     expect(inspected).toMatchObject({ state: "untrusted" });
     expect(inspected.preview).toBeUndefined();
+  });
+
+  it("ignores curator reactions outside the canonical release group", () => {
+    const release = releaseEvent();
+    const candidate = recognizeRegistryReleaseCandidate(release, authorities)!;
+    const offGroup = {
+      ...decision(release.id, "approved", 101),
+      tags: [
+        ["h", lapisGroupId("another-group")],
+        ["e", release.id],
+      ],
+    };
+    expect(
+      inspectRegistryReleaseCandidate(
+        candidate,
+        [release, offGroup],
+        manifest(),
+        "2026-09-03T12:00:00.000Z",
+        authorities,
+      ).state,
+    ).toBe("pending");
   });
 });

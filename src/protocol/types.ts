@@ -60,6 +60,38 @@ export interface Nip29ReleaseManifest {
   release: ReleaseContent;
 }
 
+export interface Nip29PublisherAuthorizationContent {
+  schema: "lapis.registry.publisher-authorization/1";
+  status: "authorized" | "revoked";
+}
+
+export interface NostrReleaseProofManifest {
+  sha256: string;
+  size: number;
+  content: string;
+}
+
+export interface NostrReleaseProof {
+  schema: "lapis.plugin.release-proof/1";
+  authorizationEvent: NostrEvent;
+  releaseEvent: NostrEvent;
+  decisionEvent: NostrEvent;
+  manifest: NostrReleaseProofManifest;
+}
+
+export interface VerifiedNostrReleaseProof {
+  pluginId: string;
+  version: string;
+  authorizationEventId: string;
+  releaseEventId: string;
+  decisionEventId: string;
+  manifestSha256: string;
+  artifactSha256: string;
+  artifactSize: number;
+  requiresRelayRefresh: true;
+  manifest: Nip29ReleaseManifest;
+}
+
 export interface RegistryIssue {
   eventId: string;
   code: "authority" | "content" | "duplicate-conflict" | "signature" | "tags";
