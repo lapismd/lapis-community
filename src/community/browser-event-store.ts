@@ -18,6 +18,20 @@ import {
   createTursoCommunityEventStore,
 } from "./turso-event-store.js";
 
+const DEFAULT_TURSO_DATABASE_NAME = "lapismd-community-event-cache-v1.db";
+const SHARED_TURSO_STORES = Symbol.for(
+  "@lapismd/lapis-community/browser-turso-stores/v1",
+);
+
+interface SharedTursoStoreEntry {
+  readonly store: CommunityEventStore;
+  readonly open: Promise<void>;
+  readonly maxBytes: number | undefined;
+  references: number;
+}
+
+type SharedTursoStoreRegistry = Map<string, SharedTursoStoreEntry>;
+
 export interface BrowserCommunityEventStoreOptions
   extends CommunityEventStoreOptions {
   databaseName?: string;
@@ -123,7 +137,7 @@ class BrowserCommunityEventStore implements CommunityEventStore {
     };
     return [
       ...(canUseTursoCommunityEventStore()
-        ? [createTursoCommunityEventStore(options)]
+        ? [createSharedTursoCommunityEventStore(options)]
         : []),
       ...(typeof indexedDB === "undefined"
         ? []
@@ -142,4 +156,132 @@ class BrowserCommunityEventStore implements CommunityEventStore {
     }
     return this.#store;
   }
+}
+
+function createSharedTursoCommunityEventStore(
+  options: Pick<BrowserCommunityEventStoreOptions, "databaseName" | "maxBytes">,
+): CommunityEventStore {
+  return new SharedTursoCommunityEventStore(options);
+}
+
+/**
+ * Shares one Turso connection between Community runtimes in this browser
+ * owner context. This covers multiple views and hot-reloaded package copies
+ * without exposing a second OPFS opener to the driver's worker pool.
+ */
+class SharedTursoCommunityEventStore implements CommunityEventStore {
+  readonly mode = "turso-opfs" as const;
+  readonly #databaseName: string;
+  readonly #maxBytes: number | undefined;
+  #entry: SharedTursoStoreEntry | undefined;
+
+  constructor(
+    options: Pick<
+      BrowserCommunityEventStoreOptions,
+      "databaseName" | "maxBytes"
+    >,
+  ) {
+    this.#databaseName = options.databaseName ?? DEFAULT_TURSO_DATABASE_NAME;
+    this.#maxBytes = options.maxBytes;
+  }
+
+  async open(): Promise<void> {
+    if (this.#entry !== undefined) return;
+    const registry = sharedTursoStoreRegistry();
+    let entry = registry.get(this.#databaseName);
+    if (entry !== undefined && entry.maxBytes !== this.#maxBytes) {
+      throw new Error(
+        `Community cache ${this.#databaseName} is already open with different retention options`,
+      );
+    }
+    if (entry === undefined) {
+      const store = createTursoCommunityEventStore({
+        databaseName: this.#databaseName,
+        ...(this.#maxBytes === undefined ? {} : { maxBytes: this.#maxBytes }),
+      });
+      entry = {
+        store,
+        open: Promise.resolve(),
+        maxBytes: this.#maxBytes,
+        references: 0,
+      };
+      entry = {
+        ...entry,
+        open: store.open().catch((cause: unknown) => {
+          if (registry.get(this.#databaseName) === entry) {
+            registry.delete(this.#databaseName);
+          }
+          throw cause;
+        }),
+      };
+      registry.set(this.#databaseName, entry);
+    }
+
+    entry.references += 1;
+    this.#entry = entry;
+    await entry.open;
+  }
+
+  restore(
+    scope: CommunityScope,
+    audience?: CommunityCacheAudience,
+  ): Promise<CommunityCachedScope> {
+    return this.#store().restore(scope, audience);
+  }
+
+  commit(batch: CommunityVerifiedEventBatch): Promise<void> {
+    return this.#store().commit(batch);
+  }
+
+  syncPlan(scope: CommunityScope): Promise<CommunitySyncPlan> {
+    return this.#store().syncPlan(scope);
+  }
+
+  markSynchronized(
+    scope: CommunityScope,
+    checkpoints: readonly CommunitySyncCheckpoint[],
+  ): Promise<void> {
+    return this.#store().markSynchronized(scope, checkpoints);
+  }
+
+  prune(): Promise<void> {
+    return this.#store().prune();
+  }
+
+  clear(scope?: CommunityScope): Promise<void> {
+    return this.#store().clear(scope);
+  }
+
+  async close(): Promise<void> {
+    const entry = this.#entry;
+    if (entry === undefined) return;
+    this.#entry = undefined;
+    entry.references -= 1;
+    if (entry.references > 0) return;
+
+    const registry = sharedTursoStoreRegistry();
+    if (registry.get(this.#databaseName) === entry) {
+      registry.delete(this.#databaseName);
+    }
+    await entry.open.catch(() => undefined);
+    await entry.store.close();
+  }
+
+  #store(): CommunityEventStore {
+    if (this.#entry === undefined) {
+      throw new Error("Shared Community Turso store is not open");
+    }
+    return this.#entry.store;
+  }
+}
+
+function sharedTursoStoreRegistry(): SharedTursoStoreRegistry {
+  const owner = globalThis as unknown as Record<symbol, unknown>;
+  const existing = owner[SHARED_TURSO_STORES];
+  if (existing instanceof Map) {
+    return existing as SharedTursoStoreRegistry;
+  }
+  const registry: SharedTursoStoreRegistry = new Map();
+  owner[SHARED_TURSO_STORES] = registry;
+  return registry;
 }
