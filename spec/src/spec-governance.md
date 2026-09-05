@@ -19,6 +19,9 @@ requirements. The package-owned chat authoring surface uses the published
 `@lapismd/mira` package and its public CodeMirror peer APIs for live Markdown,
 completion, selection, and keyboard behavior; Design Core remains the owner of
 the surrounding buttons, dialogs, inputs, progress, and application chrome.
+The package manifest exposes the production NIP-29 catalog source through a
+lightweight `registry/nip29` subpath so Notes can reuse protocol and proof
+policy without importing Community's presentation barrel.
 
 Relay conformance tests live under the test-only package entry point. They run
 in memory by default and may target the disposable Docker relay without adding

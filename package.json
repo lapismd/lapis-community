@@ -59,6 +59,11 @@
       "import": "./dist/registry/index.js",
       "default": "./dist/registry/index.js"
     },
+    "./registry/nip29": {
+      "types": "./dist/registry/nip29-data-source.d.ts",
+      "import": "./dist/registry/nip29-data-source.js",
+      "default": "./dist/registry/nip29-data-source.js"
+    },
     "./testing": {
       "types": "./dist/testing/index.d.ts",
       "import": "./dist/testing/index.js",
