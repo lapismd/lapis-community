@@ -19,7 +19,9 @@ import {
   parseRelayUrls,
   reactionGroups,
   seekTimestampForCount,
+  shouldShowTimelineBack,
   timelineIndexFromPosition,
+  timelineMarkersOverlap,
   timelinePosition,
   timelineTimestamp,
 } from "./model.js";
@@ -135,6 +137,11 @@ describe("registry community model", () => {
     expect(timelineIndexFromPosition(275, 300, 24)).toBe(23);
     expect(timelineIndexFromPosition(-100, 300, 24)).toBe(0);
     expect(timelineIndexFromPosition(1_000, 300, 24)).toBe(23);
+    expect(shouldShowTimelineBack(0, 4, 24)).toBe(true);
+    expect(shouldShowTimelineBack(1, 4, 24)).toBe(false);
+    expect(shouldShowTimelineBack(0, 22, 24)).toBe(false);
+    expect(timelineMarkersOverlap(8, 9, 24, 300)).toBe(true);
+    expect(timelineMarkersOverlap(0, 20, 24, 300)).toBe(false);
   });
 
   it("materializes signed NIP-29 forum roots, nested replies, and reactions", () => {

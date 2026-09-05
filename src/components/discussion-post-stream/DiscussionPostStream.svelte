@@ -2,6 +2,7 @@
   import { onMount, tick } from "svelte";
 
   import { Button } from "@lapismd/design-core/shadcn/button";
+  import { Skeleton } from "@lapismd/design-core/shadcn/skeleton";
 
   import DiscussionPost from "../discussion-post/DiscussionPost.svelte";
   import {
@@ -182,7 +183,7 @@
 
   function sentinel(node: HTMLElement, direction: "prepend" | "append") {
     let pending = false;
-    let retryTimer: ReturnType<typeof setTimeout> | undefined;
+    let disposed = false;
     const observer = new IntersectionObserver(
       (entries) => {
         if (entries.some((entry) => entry.isIntersecting)) void loadMore();
@@ -197,47 +198,62 @@
         direction === "prepend" ? loadingPrevious : loadingNext;
       if (!available || externallyLoading || pending) return;
       pending = true;
-      let anchorId = "";
-      let anchorTop = 0;
-      if (direction === "prepend") {
-        const firstVisible = posts
-          .map((post) => wrappers.get(post.event.id))
-          .find(
-            (element) =>
-              element !== undefined &&
-              element.getBoundingClientRect().bottom > 0,
+      try {
+        let keepLoading = true;
+        while (keepLoading && !disposed) {
+          const request = direction === "prepend" ? onPrepend() : onAppend();
+          await tick();
+
+          let anchorId = "";
+          let anchorTop = 0;
+          if (direction === "prepend") {
+            const firstTracked = posts
+              .map((post) => wrappers.get(post.event.id))
+              .find(
+                (element) =>
+                  element !== undefined &&
+                  element.getBoundingClientRect().bottom > 0,
+              );
+            anchorId = firstTracked?.dataset.postId ?? "";
+            anchorTop = firstTracked?.getBoundingClientRect().top ?? 0;
+          }
+
+          const changed = await request;
+          await tick();
+
+          const compensate = () => {
+            if (!changed || anchorId === "") return;
+            const anchor = wrappers.get(anchorId);
+            if (anchor === undefined) return;
+            const delta = anchor.getBoundingClientRect().top - anchorTop;
+            if (Math.abs(delta) > 0.5) window.scrollBy(0, delta);
+          };
+          compensate();
+          await new Promise<void>((resolve) =>
+            requestAnimationFrame(() => resolve()),
           );
-        anchorId = firstVisible?.dataset.postId ?? "";
-        anchorTop = firstVisible?.getBoundingClientRect().top ?? 0;
-      }
-      const changed =
-        direction === "prepend" ? await onPrepend() : await onAppend();
-      await tick();
-      if (changed && anchorId !== "") {
-        const nextAnchor = wrappers.get(anchorId);
-        if (nextAnchor !== undefined) {
-          window.scrollBy(
-            0,
-            nextAnchor.getBoundingClientRect().top - anchorTop,
-          );
+          compensate();
+
+          scheduleViewportUpdate();
+          const bounds = node.getBoundingClientRect();
+          const margin = window.innerHeight;
+          const stillNearViewport =
+            bounds.bottom >= -margin &&
+            bounds.top <= window.innerHeight + margin;
+          const stillAvailable =
+            direction === "prepend" ? hasPrevious : hasNext;
+          keepLoading = changed && stillAvailable && stillNearViewport;
         }
-      }
-      pending = false;
-      scheduleViewportUpdate();
-      const bounds = node.getBoundingClientRect();
-      const margin = window.innerHeight;
-      const stillNearViewport =
-        bounds.bottom >= -margin && bounds.top <= window.innerHeight + margin;
-      if (changed && stillNearViewport) {
-        retryTimer = setTimeout(() => void loadMore(), 100);
+      } finally {
+        pending = false;
       }
     }
 
     observer.observe(node);
     return {
       destroy() {
+        disposed = true;
         observer.disconnect();
-        if (retryTimer !== undefined) clearTimeout(retryTimer);
       },
     };
   }
@@ -316,7 +332,13 @@
           Retry earlier posts
         </Button>
       {:else if loadingPrevious}
-        <span role="status">Loading earlier posts…</span>
+        <div
+          class="load-skeleton"
+          role="status"
+          aria-label="Loading earlier posts"
+        >
+          <Skeleton /><Skeleton /><Skeleton />
+        </div>
       {:else}
         <span aria-hidden="true">Earlier posts load as you scroll</span>
       {/if}
@@ -374,7 +396,13 @@
           Retry later posts
         </Button>
       {:else if loadingNext}
-        <span role="status">Loading later posts…</span>
+        <div
+          class="load-skeleton"
+          role="status"
+          aria-label="Loading later posts"
+        >
+          <Skeleton /><Skeleton /><Skeleton />
+        </div>
       {:else}
         <span aria-hidden="true">Later posts load as you scroll</span>
       {/if}
@@ -417,5 +445,24 @@
   .load-row p {
     margin: 0;
     color: var(--destructive);
+  }
+
+  .load-skeleton {
+    display: grid;
+    gap: 0.45rem;
+    width: min(100%, 34rem);
+    padding: 0.7rem 0;
+  }
+
+  .load-skeleton :global(*) {
+    height: 0.7rem;
+  }
+
+  .load-skeleton :global(*:nth-child(1)) {
+    width: 28%;
+  }
+
+  .load-skeleton :global(*:nth-child(3)) {
+    width: 64%;
   }
 </style>

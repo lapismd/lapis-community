@@ -4,6 +4,7 @@
 
   import RegistryCommunity from "./RegistryCommunity.svelte";
   import RegistryCommunityStoryHarness from "./RegistryCommunityStoryHarness.svelte";
+  import RegistryCommunityLongTimelineStoryHarness from "./RegistryCommunityLongTimelineStoryHarness.svelte";
 
   const consumerSource = `<script lang="ts">
   import { RegistryCommunity } from "@lapismd/lapis-community/components";
@@ -97,5 +98,41 @@
 >
   {#snippet template()}
     <RegistryCommunityStoryHarness />
+  {/snippet}
+</Story>
+
+<Story
+  name="Delayed 260 post timeline"
+  parameters={{
+    layout: "fullscreen",
+    viewport: { defaultViewport: "desktop" },
+  }}
+  play={async ({ canvas }) => {
+    const runtime = await canvas.findByTestId(
+      "long-timeline-runtime",
+      {},
+      { timeout: 10_000 },
+    );
+    if (runtime.dataset.communityBackend === "live") return;
+    const timeline = await canvas.findByRole(
+      "slider",
+      { name: "Discussion position" },
+      { timeout: 15_000 },
+    );
+    await expect(timeline).toHaveAttribute("aria-valuemax", "260");
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Go to the latest post" }),
+    );
+    await expect(
+      canvas.getByRole("status", { name: "Loading discussion posts" }),
+    ).toBeVisible();
+    await expect(timeline).toHaveAttribute("aria-valuenow", "260");
+    await expect(
+      await canvas.findByText(/Reply 259:/u, {}, { timeout: 15_000 }),
+    ).toBeVisible();
+  }}
+>
+  {#snippet template()}
+    <RegistryCommunityLongTimelineStoryHarness />
   {/snippet}
 </Story>

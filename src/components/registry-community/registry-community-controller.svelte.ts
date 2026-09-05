@@ -52,6 +52,12 @@ import {
   type DiscussionLoadDirection,
   type DiscussionWindowRange,
 } from "../discussion-post-stream/discussion-stream.js";
+import {
+  readRegistryDiscussionCursor,
+  registryDiscussionReadKey,
+  writeRegistryDiscussionCursor,
+  type RegistryDiscussionReadCursor,
+} from "./registry-discussion-read-state.js";
 
 export interface RegistryCommunityProps {
   plugin?: string;
@@ -86,7 +92,8 @@ export function createRegistryCommunityController(
   let comment = $state("");
   let replyingTo = $state("");
   let activePostId = $state("");
-  let timelineReturnIndex = $state<number | undefined>();
+  let lastReadCursor = $state<RegistryDiscussionReadCursor | undefined>();
+  let lastReadIndex = $state<number | undefined>();
   let commentTotal = $state(0);
   let pageStartIndex = $state(0);
   let pageEndIndex = $state(0);
@@ -129,6 +136,9 @@ export function createRegistryCommunityController(
   const relayUrls = $derived(parseRelayUrls(relays));
   const supportGroupId = $derived(
     plugin === "" ? "" : lapisPluginSupportGroupId(plugin),
+  );
+  const readStateKey = $derived(
+    registryDiscussionReadKey(relayUrls, supportGroupId, signedInPubkey),
   );
   const releaseGroupId = lapisGroupId(LAPIS_GROUPS.pluginReleases);
   const reviews = $derived(
@@ -683,6 +693,75 @@ export function createRegistryCommunityController(
     );
   }
 
+  function browserStorage(): Storage | undefined {
+    try {
+      return typeof window === "undefined" ? undefined : window.localStorage;
+    } catch {
+      return undefined;
+    }
+  }
+
+  function loadStoredLastReadCursor(): void {
+    const storage = browserStorage();
+    lastReadCursor =
+      storage === undefined
+        ? undefined
+        : readRegistryDiscussionCursor(storage, readStateKey);
+    lastReadIndex = undefined;
+  }
+
+  async function resolveStoredLastReadCursor(): Promise<void> {
+    const storage = browserStorage();
+    if (storage === undefined || supportGroupId === "") return;
+    const key = readStateKey;
+    const cursor = readRegistryDiscussionCursor(storage, key);
+    lastReadCursor = cursor;
+    lastReadIndex = undefined;
+    if (cursor === undefined) return;
+    try {
+      const result = await queryAll({
+        kinds: [NIP29_KINDS.forumThread, NIP29_KINDS.comment],
+        ids: [cursor.eventId],
+        "#h": [supportGroupId],
+        limit: 1,
+      });
+      if (key !== readStateKey) return;
+      const event = result.events.find(
+        (candidate) =>
+          candidate.id === cursor.eventId &&
+          candidate.created_at === cursor.createdAt,
+      );
+      if (event === undefined) return;
+      lastReadIndex = await globalIndexForEvent(event);
+    } catch {
+      if (key === readStateKey) lastReadIndex = undefined;
+    }
+  }
+
+  function recordLastRead(eventId: string, globalIndex: number): void {
+    const storage = browserStorage();
+    if (storage === undefined || loading || loadingJump) return;
+    const post = reviews.find((review) => review.event.id === eventId);
+    if (post === undefined) return;
+    const cursor = {
+      eventId: post.event.id,
+      createdAt: post.event.created_at,
+    };
+    const current = lastReadCursor;
+    if (
+      current !== undefined &&
+      (current.createdAt > cursor.createdAt ||
+        (current.createdAt === cursor.createdAt &&
+          current.eventId.localeCompare(cursor.eventId) >= 0))
+    ) {
+      return;
+    }
+    if (writeRegistryDiscussionCursor(storage, readStateKey, cursor)) {
+      lastReadCursor = cursor;
+      lastReadIndex = globalIndex;
+    }
+  }
+
   async function refresh(
     targetIndex = activeGlobalPostIndex,
     targetEventId = "",
@@ -856,11 +935,15 @@ export function createRegistryCommunityController(
       }
       signer = connectedSigner;
       signedInPubkey = pubkey;
+      loadStoredLastReadCursor();
+      void resolveStoredLastReadCursor();
       selectedPluginReaction = ownPluginReaction?.content ?? "";
       message = "Connected to the relay with your Nostr signer.";
     } catch (cause) {
       signer = undefined;
       signedInPubkey = "";
+      loadStoredLastReadCursor();
+      void resolveStoredLastReadCursor();
       error =
         cause instanceof Error
           ? cause.message
@@ -1025,13 +1108,14 @@ export function createRegistryCommunityController(
       : value;
   }
 
-  function handleCurrentPost(eventId: string): void {
+  function handleCurrentPost(eventId: string, globalIndex: number): void {
     activePostId = eventId;
+    recordLastRead(eventId, globalIndex);
   }
 
   async function navigateTimelineToIndex(
     index: number,
-    rememberOrigin = true,
+    _rememberOrigin = true,
     targetEventId = "",
   ): Promise<void> {
     if (commentTotal === 0 || loadingJump) return;
@@ -1043,14 +1127,8 @@ export function createRegistryCommunityController(
       (targetEventId === "" || localTarget.event.id === targetEventId)
     ) {
       if (localTarget.event.id === activePostId) return;
-      if (rememberOrigin && timelineReturnIndex === undefined) {
-        timelineReturnIndex = activeGlobalPostIndex;
-      }
       requestPostScroll(localTarget.event.id);
       return;
-    }
-    if (rememberOrigin && timelineReturnIndex === undefined) {
-      timelineReturnIndex = activeGlobalPostIndex;
     }
     await refresh(targetIndex, targetEventId);
   }
@@ -1112,15 +1190,35 @@ export function createRegistryCommunityController(
   }
 
   async function returnToTimelineOrigin(): Promise<void> {
-    const target = timelineReturnIndex;
-    timelineReturnIndex = undefined;
-    if (target !== undefined) await navigateTimelineToIndex(target, false);
+    const cursor = lastReadCursor;
+    if (cursor === undefined) return;
+    try {
+      const result = await queryAll({
+        kinds: [NIP29_KINDS.forumThread, NIP29_KINDS.comment],
+        ids: [cursor.eventId],
+        "#h": [supportGroupId],
+        limit: 1,
+      });
+      const event = result.events.find(
+        (candidate) =>
+          candidate.id === cursor.eventId &&
+          candidate.created_at === cursor.createdAt,
+      );
+      if (event === undefined) return;
+      const index = await globalIndexForEvent(event);
+      lastReadIndex = index;
+      await navigateTimelineToIndex(index, false, event.id);
+    } catch {
+      lastReadIndex = undefined;
+    }
   }
 
   async function initializeDiscussion(): Promise<void> {
     if (signer !== undefined && signedInPubkey === "") {
       signedInPubkey = await signer.getPublicKey();
     }
+    loadStoredLastReadCursor();
+    void resolveStoredLastReadCursor();
     const linkedEventId = window.location.hash.startsWith("#post-")
       ? window.location.hash.slice("#post-".length)
       : "";
@@ -1205,7 +1303,10 @@ export function createRegistryCommunityController(
       return activePostId;
     },
     get timelineReturnIndex() {
-      return timelineReturnIndex;
+      return lastReadIndex;
+    },
+    get lastReadIndex() {
+      return lastReadIndex;
     },
     get commentTotal() {
       return commentTotal;

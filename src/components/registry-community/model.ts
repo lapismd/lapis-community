@@ -271,6 +271,37 @@ export function timelineIndexFromPosition(
   return Math.round((handleStart / availableLength) * (total - 1));
 }
 
+export function shouldShowTimelineBack(
+  currentIndex: number,
+  lastReadIndex: number | undefined,
+  total: number,
+): boolean {
+  if (lastReadIndex === undefined || total < 2) return false;
+  const currentPost = currentIndex + 1;
+  const lastReadPost = lastReadIndex + 1;
+  return (
+    lastReadPost > 3 &&
+    lastReadPost - currentPost > 3 &&
+    total - lastReadPost > 1
+  );
+}
+
+export function timelineMarkersOverlap(
+  currentIndex: number,
+  markerIndex: number,
+  total: number,
+  trackLength: number,
+  handleLength = 50,
+): boolean {
+  if (total < 2 || trackLength <= 0) return false;
+  const availableLength = Math.max(0, trackLength - handleLength);
+  const currentTop =
+    (timelinePosition(currentIndex, total) / 100) * availableLength;
+  const markerTop =
+    (timelinePosition(markerIndex, total) / 100) * availableLength;
+  return Math.abs(currentTop - markerTop) < handleLength;
+}
+
 export async function seekTimestampForCount(
   targetCount: number,
   latestTimestamp: number,

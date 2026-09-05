@@ -33,6 +33,9 @@ export interface RegistryCommunityTestScenarioOptions {
   version?: string;
   createdAt?: number;
   namespace?: string;
+  postCount?: number;
+  latencyMs?: number;
+  includeReleaseEvents?: boolean;
 }
 
 export interface RegistryCommunityTestScenario {
@@ -75,6 +78,8 @@ export function createRegistryCommunityTestScenario(
   const publisher = publicKey(publisherKey);
   const memberPubkey = publicKey(memberKey);
   const groupId = lapisPluginSupportGroupId(plugin);
+  const postCount = Math.max(2, Math.floor(options.postCount ?? 2));
+  const includeReleaseEvents = options.includeReleaseEvents ?? true;
   const releaseGroupId = lapisGroupId(LAPIS_GROUPS.pluginReleases);
   const release = finalizeEvent(
     createNip29ReleaseMessageTemplate(
@@ -99,17 +104,25 @@ export function createRegistryCommunityTestScenario(
     ),
     memberKey,
   );
-  const reply = finalizeEvent(
-    createNip29ForumCommentTemplate(
-      groupId,
-      thread,
-      thread,
-      "The shared controller boundary keeps this portable.",
-      createdAt + 4,
-      relayUrl,
-    ),
-    publisherKey,
-  );
+  const discussionEvents: NostrEvent[] = [thread];
+  for (let index = 1; index < postCount; index += 1) {
+    const key = index % 2 === 0 ? memberKey : publisherKey;
+    discussionEvents.push(
+      finalizeEvent(
+        createNip29ForumCommentTemplate(
+          groupId,
+          thread,
+          thread,
+          index === 1
+            ? "The shared controller boundary keeps this portable."
+            : `Reply ${index}: bounded timeline navigation keeps the reading position stable.`,
+          createdAt + 3 + index,
+          relayUrl,
+        ),
+        key,
+      ),
+    );
+  }
   const events = [
     finalizeEvent(
       {
@@ -124,19 +137,23 @@ export function createRegistryCommunityTestScenario(
       },
       publisherKey,
     ),
-    finalizeEvent(
-      {
-        kind: 9_007,
-        created_at: createdAt - 2,
-        content: JSON.stringify({ name: "Plugin releases" }),
-        tags: [
-          ["h", releaseGroupId],
-          ["name", "Plugin releases"],
-          ["supported_kinds", "9", "7"],
-        ],
-      },
-      publisherKey,
-    ),
+    ...(includeReleaseEvents
+      ? [
+          finalizeEvent(
+            {
+              kind: 9_007,
+              created_at: createdAt - 2,
+              content: JSON.stringify({ name: "Plugin releases" }),
+              tags: [
+                ["h", releaseGroupId],
+                ["name", "Plugin releases"],
+                ["supported_kinds", "9", "7"],
+              ],
+            },
+            publisherKey,
+          ),
+        ]
+      : []),
     finalizeEvent(
       {
         kind: 9_000,
@@ -167,22 +184,25 @@ export function createRegistryCommunityTestScenario(
       },
       memberKey,
     ),
-    release,
-    thread,
-    reply,
-    finalizeEvent(
-      {
-        kind: NIP29_KINDS.reaction,
-        created_at: createdAt + 5,
-        content: "👍",
-        tags: [
-          ["e", release.id],
-          ["p", release.pubkey],
-          ["k", release.kind.toString()],
-        ],
-      },
-      memberKey,
-    ),
+    ...(includeReleaseEvents ? [release] : []),
+    ...discussionEvents,
+    ...(includeReleaseEvents
+      ? [
+          finalizeEvent(
+            {
+              kind: NIP29_KINDS.reaction,
+              created_at: createdAt + postCount + 4,
+              content: "👍",
+              tags: [
+                ["e", release.id],
+                ["p", release.pubkey],
+                ["k", release.kind.toString()],
+              ],
+            },
+            memberKey,
+          ),
+        ]
+      : []),
   ];
 
   return {
@@ -240,7 +260,11 @@ export async function createRegistryCommunityStoryRuntime(
   if (backend === "memory") {
     const relayFactory = createInMemoryRelayFactory();
     const scenario = createRegistryCommunityTestScenario(options);
-    await scenario.seed(relayFactory.relay(scenario.relayUrl));
+    const relay = relayFactory.relay(scenario.relayUrl);
+    await scenario.seed(relay);
+    if (options.latencyMs !== undefined) {
+      relay.setFaults({ latencyMs: options.latencyMs });
+    }
     const dataSource = createRegistryCommunityDataSource({ relayFactory });
     return runtime(
       backend,
@@ -262,7 +286,11 @@ export async function createRegistryCommunityStoryRuntime(
     ...options,
     relayUrl,
     ...(backend === "docker"
-      ? { namespace: options.namespace ?? crypto.randomUUID() }
+      ? {
+          namespace: [options.namespace, crypto.randomUUID()]
+            .filter((part): part is string => part !== undefined && part !== "")
+            .join("-"),
+        }
       : {}),
   });
   const relayFactory = createWebSocketCommunityRelayFactory();

@@ -25,7 +25,11 @@
 Plugin support discussions use one NIP-29 group per plugin. NIP-7D kind `11`
 topics, NIP-22 kind `1111` replies, and NIP-25 kind `7` reactions remain
 ordinary signed relay events. Clients render them in posting order and retain
-reply context without inventing a second persistence model.
+reply context without inventing a second content persistence model. A private,
+versioned browser-local last-read cursor may retain only a post event ID and
+timestamp scoped by normalized relay set, support group, and viewer. It is a
+navigation preference, never relay or Registry state, and invalid or
+unavailable cursors fail closed without delaying the signed discussion load.
 
 The disposable browser event cache does not alter those protocol semantics.
 When its Turso-WASM/OPFS implementation is available, the browser owner context

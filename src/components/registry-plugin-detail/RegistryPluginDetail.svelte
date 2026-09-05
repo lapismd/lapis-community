@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { Snippet } from "svelte";
+  import { tick, type Snippet } from "svelte";
 
   import * as Alert from "@lapismd/design-core/shadcn/alert";
   import { Badge } from "@lapismd/design-core/shadcn/badge";
@@ -30,6 +30,7 @@
   import RegistryPluginCard from "../registry-plugin-card/RegistryPluginCard.svelte";
   import RegistryVerifiedImage from "../registry-verified-image/RegistryVerifiedImage.svelte";
   import { registryPluginIcon } from "../registry-plugin-icons.js";
+  import { provideRegistryDiscussionIsolation } from "./discussion-isolation-context.js";
 
   let {
     resolved,
@@ -60,6 +61,9 @@
     "full",
   );
   let detailViewerOpener = $state<HTMLElement | null>(null);
+  let discussionIsolated = $state(false);
+  let discussionSection = $state<HTMLElement | undefined>();
+  let isolationRevision = 0;
   const entry = $derived(resolved.entry);
   const detail = $derived(resolved.detail);
   const release = $derived(detail.versions[detail.latestVersion]);
@@ -190,6 +194,45 @@
     detailViewerOpener = target;
     detailViewerOpen = true;
   }
+
+  function discussionAnchor(): HTMLElement | undefined {
+    const active = discussionSection?.querySelector("article.active");
+    return (
+      (active?.closest<HTMLElement>("[data-post-id]") ?? undefined) ||
+      discussionSection?.querySelector<HTMLElement>("[data-post-id]") ||
+      discussionSection
+    );
+  }
+
+  function compensateDiscussionAnchor(
+    anchor: HTMLElement | undefined,
+    top: number | undefined,
+  ): void {
+    if (anchor === undefined || top === undefined || !anchor.isConnected)
+      return;
+    const delta = anchor.getBoundingClientRect().top - top;
+    if (Math.abs(delta) > 0.5) window.scrollBy(0, delta);
+  }
+
+  function setDiscussionIsolated(isolated: boolean): void {
+    if (isolated === discussionIsolated) return;
+    const anchor = discussionAnchor();
+    const top = anchor?.getBoundingClientRect().top;
+    const revision = ++isolationRevision;
+    discussionIsolated = isolated;
+    void tick().then(() => {
+      requestAnimationFrame(() => {
+        if (revision !== isolationRevision) return;
+        compensateDiscussionAnchor(anchor, top);
+        requestAnimationFrame(() => {
+          if (revision === isolationRevision)
+            compensateDiscussionAnchor(anchor, top);
+        });
+      });
+    });
+  }
+
+  provideRegistryDiscussionIsolation({ setIsolated: setDiscussionIsolated });
 </script>
 
 {#snippet pluginIcon()}
@@ -243,383 +286,390 @@
   </button>
 {/snippet}
 
-<article class="registry-plugin-detail">
-  <header
-    class="registry-plugin-detail__hero"
-    class:with-banner={Boolean(detail.media?.banner)}
-  >
-    <div class="registry-plugin-detail__hero-copy">
-      <div class="registry-plugin-detail__identity">
-        <span
-          class="registry-plugin-detail__icon"
-          style:--registry-plugin-accent={detail.appearance?.accent ??
-            "var(--primary)"}
-        >
-          {#if detail.appearance?.logo}
-            <RegistryVerifiedImage
-              reference={detail.appearance.logo}
-              alt=""
-              width={detail.appearance.logo.width}
-              height={detail.appearance.logo.height}
-              fallback={pluginIcon}
-            />
-          {:else}
-            <PluginIcon aria-hidden="true" />
-          {/if}
-        </span>
-        <div>
-          <h1>{detail.name}</h1>
-          <div class="registry-plugin-detail__hero-meta">
-            {@render authorLink()}
-            {#each entry.platforms as platform}
-              {@render filterChip("platform", platform)}
-            {/each}
-          </div>
-        </div>
-      </div>
-      <p class="registry-plugin-detail__description">{detail.description}</p>
-      <div class="registry-plugin-detail__actions">
-        <Button
-          type="button"
-          disabled={installDisabled}
-          aria-busy={submitting ||
-            effectiveInstallAction.state === "installing"}
-          title={effectiveInstallAction.state === "disabled"
-            ? effectiveInstallAction.reason
-            : undefined}
-          onclick={() => void install()}
-        >
-          {#if effectiveInstallAction.state === "installed"}<CheckCircleIcon
-              data-icon="inline-start"
-              aria-hidden="true"
-            />{:else}<DownloadIcon
-              data-icon="inline-start"
-              aria-hidden="true"
-            />{/if}
-          {installLabel}
-        </Button>
-        <DropdownMenu.Root>
-          <DropdownMenu.Trigger>
-            {#snippet child({ props })}
-              <Button
-                {...props}
-                type="button"
-                size="icon"
-                variant="secondary"
-                aria-label="More actions"
-              >
-                <EllipsisIcon aria-hidden="true" />
-              </Button>
-            {/snippet}
-          </DropdownMenu.Trigger>
-          <DropdownMenu.Content
-            align="start"
-            class="registry-plugin-detail__actions-menu"
-          >
-            {#if hasExternalLinks}
-              <DropdownMenu.Group>
-                {#if detail.links?.documentation}
-                  <DropdownMenu.Item
-                    onSelect={() => openExternal(detail.links!.documentation!)}
-                    ><BookOpenIcon
-                      data-icon="inline-start"
-                      aria-hidden="true"
-                    />Documentation</DropdownMenu.Item
-                  >
-                {/if}
-                {#if detail.links?.repository}
-                  <DropdownMenu.Item
-                    onSelect={() => openExternal(detail.links!.repository!)}
-                    ><ExternalLinkIcon
-                      data-icon="inline-start"
-                      aria-hidden="true"
-                    />Repository</DropdownMenu.Item
-                  >
-                {/if}
-                {#if detail.links?.issues}
-                  <DropdownMenu.Item
-                    onSelect={() => openExternal(detail.links!.issues!)}
-                    ><BugIcon
-                      data-icon="inline-start"
-                      aria-hidden="true"
-                    />Report bug</DropdownMenu.Item
-                  >
-                {/if}
-              </DropdownMenu.Group>
-            {/if}
-            {#if release && release.bundle.pending !== true}
-              {#if hasExternalLinks}<DropdownMenu.Separator />{/if}
-              <DropdownMenu.Group>
-                <DropdownMenu.Item
-                  onSelect={() =>
-                    openExternal(
-                      release.bundle.downloadUrl ?? release.bundle.url,
-                    )}
-                  ><DownloadIcon
-                    data-icon="inline-start"
-                    aria-hidden="true"
-                  />Download .lapis-plugin</DropdownMenu.Item
-                >
-              </DropdownMenu.Group>
-            {/if}
-          </DropdownMenu.Content>
-        </DropdownMenu.Root>
-      </div>
-      {#if displayedInstallError}
-        <Alert.Root
-          variant="destructive"
-          class="registry-plugin-detail__install-error"
-        >
-          <CircleAlertIcon aria-hidden="true" />
-          <Alert.Title>Couldn’t install {detail.name}</Alert.Title>
-          <Alert.Description>{displayedInstallError}</Alert.Description>
-        </Alert.Root>
-      {/if}
-    </div>
-    {#if detail.media?.banner}
-      <button
-        type="button"
-        class="registry-plugin-detail__banner"
-        aria-label={`Open ${detail.name} banner: ${detail.media.banner.alt}`}
-        onclick={(event) =>
-          showMedia(detail.media!.banner!, "dark", event.currentTarget)}
-      >
-        <RegistryVerifiedImage
-          reference={detail.media.banner.images.dark}
-          alt=""
-          width={detail.media.banner.images.dark.width}
-          height={detail.media.banner.images.dark.height}
-        />
-      </button>
-    {/if}
-  </header>
-
-  {#if detail.gallery?.length}
-    <RegistryMediaGallery items={detail.gallery} pluginName={detail.name} />
-  {/if}
-
-  {#if resolved.contentError}
-    <p class="registry-plugin-detail__content-warning" role="status">
-      {resolved.contentError} The verified catalog metadata is still available.
-    </p>
-  {/if}
-
-  <div class="registry-plugin-detail__layout">
-    <section class="registry-plugin-detail__content">
-      <Tabs.Root bind:value={activeTab}>
-        <Tabs.List aria-label="Plugin sections">
-          <Tabs.Trigger value="overview">Overview</Tabs.Trigger>
-          <Tabs.Trigger value="changelog">Changelog</Tabs.Trigger>
-          <Tabs.Trigger value="releases"
-            >Releases <span>{releases.length}</span></Tabs.Trigger
-          >
-        </Tabs.List>
-        <Tabs.Content value="overview">
-          <div class="registry-plugin-detail__prose">
-            {#if detail.media?.overview}
-              <button
-                type="button"
-                class="registry-plugin-detail__overview-media"
-                aria-label={`Open ${detail.name} overview image: ${detail.media.overview.alt}`}
-                onclick={(event) =>
-                  showMedia(
-                    detail.media!.overview!,
-                    "preview",
-                    event.currentTarget,
-                  )}
-              >
-                <RegistryVerifiedImage
-                  reference={detail.media.overview.images.preview}
-                  alt=""
-                  width={detail.media.overview.images.preview.width}
-                  height={detail.media.overview.images.preview.height}
-                  loading="lazy"
-                />
-              </button>
-            {/if}
-            {#if detail.highlights?.length}
-              <section>
-                <h2>Highlights</h2>
-                <ul>
-                  {#each detail.highlights as highlight}<li>
-                      {highlight}
-                    </li>{/each}
-                </ul>
-              </section>
-            {/if}
-            {#if resolved.overviewHtml}
-              <section class="registry-plugin-detail__markdown">
-                {@html resolved.overviewHtml}
-              </section>
-            {:else}
-              <p>{detail.description}</p>
-            {/if}
-            {#if filePatterns.length > 0}
-              <section>
-                <h2>File handlers</h2>
-                <div class="registry-plugin-detail__file-patterns">
-                  {#each filePatterns as pattern}<code>{pattern}</code>{/each}
-                </div>
-              </section>
-            {/if}
-          </div>
-        </Tabs.Content>
-        <Tabs.Content value="changelog">
-          <div class="registry-plugin-detail__prose">
-            {#if resolved.changelogHtml}
-              <section class="registry-plugin-detail__markdown">
-                {@html resolved.changelogHtml}
-              </section>
-            {:else}<p>
-                No structured changelog is available for this plugin yet.
-              </p>{/if}
-          </div>
-        </Tabs.Content>
-        <Tabs.Content value="releases">
-          <div class="registry-plugin-detail__releases">
-            {#each releases as item (item.version)}
-              <article>
-                <div>
-                  <h3>{item.version}</h3>
-                  <p>
-                    Lapis {item.minAppVersion}+ · {item.platforms
-                      .map(titleCaseRegistryValue)
-                      .join(", ")} · {formatRegistryBytes(item.bundle.size)}
-                  </p>
-                </div>
-                <Badge variant={item.bundle.pending ? "outline" : "secondary"}
-                  >{item.bundle.pending
-                    ? "Pending bundle"
-                    : "Signed bundle"}</Badge
-                >
-              </article>
-            {/each}
-          </div>
-        </Tabs.Content>
-      </Tabs.Root>
-    </section>
-
-    <aside class="registry-plugin-detail__sidebar">
-      <section
-        class="registry-plugin-detail__health"
-        aria-label="Plugin health"
-      >
-        <div data-complete="true">
-          <span><strong>Metadata</strong><strong>Signed</strong></span>
-          <div
-            class="registry-plugin-detail__health-bar"
-            data-ui-part="registry-plugin-health-bar"
-            role="progressbar"
-            aria-label="Metadata health"
-            aria-valuemin="0"
-            aria-valuemax="4"
-            aria-valuenow="4"
-            aria-valuetext="Signed, 4 of 4 checks ready"
-          >
-            {#each Array.from({ length: 4 }) as _}<i data-active="true"
-              ></i>{/each}
-          </div>
-        </div>
-        <div data-complete={bundleHealth === 4 ? "true" : "false"}>
+<article
+  class="registry-plugin-detail"
+  class:registry-plugin-detail--discussion-isolated={discussionIsolated}
+>
+  {#if !discussionIsolated}
+    <header
+      class="registry-plugin-detail__hero"
+      class:with-banner={Boolean(detail.media?.banner)}
+    >
+      <div class="registry-plugin-detail__hero-copy">
+        <div class="registry-plugin-detail__identity">
           <span
-            ><strong>Plugin bundle</strong><strong
-              >{bundleHealth === 4 ? "Ready" : "Pending"}</strong
-            ></span
+            class="registry-plugin-detail__icon"
+            style:--registry-plugin-accent={detail.appearance?.accent ??
+              "var(--primary)"}
           >
-          <div
-            class="registry-plugin-detail__health-bar"
-            data-ui-part="registry-plugin-health-bar"
-            role="progressbar"
-            aria-label="Plugin bundle health"
-            aria-valuemin="0"
-            aria-valuemax="4"
-            aria-valuenow={bundleHealth}
-            aria-valuetext={`${bundleHealth === 4 ? "Ready" : "Pending"}, ${bundleHealth} of 4 checks ready`}
+            {#if detail.appearance?.logo}
+              <RegistryVerifiedImage
+                reference={detail.appearance.logo}
+                alt=""
+                width={detail.appearance.logo.width}
+                height={detail.appearance.logo.height}
+                fallback={pluginIcon}
+              />
+            {:else}
+              <PluginIcon aria-hidden="true" />
+            {/if}
+          </span>
+          <div>
+            <h1>{detail.name}</h1>
+            <div class="registry-plugin-detail__hero-meta">
+              {@render authorLink()}
+              {#each entry.platforms as platform}
+                {@render filterChip("platform", platform)}
+              {/each}
+            </div>
+          </div>
+        </div>
+        <p class="registry-plugin-detail__description">{detail.description}</p>
+        <div class="registry-plugin-detail__actions">
+          <Button
+            type="button"
+            disabled={installDisabled}
+            aria-busy={submitting ||
+              effectiveInstallAction.state === "installing"}
+            title={effectiveInstallAction.state === "disabled"
+              ? effectiveInstallAction.reason
+              : undefined}
+            onclick={() => void install()}
           >
-            {#each Array.from({ length: 4 }) as _, index}
-              <i data-active={index < bundleHealth ? "true" : "false"}></i>
+            {#if effectiveInstallAction.state === "installed"}<CheckCircleIcon
+                data-icon="inline-start"
+                aria-hidden="true"
+              />{:else}<DownloadIcon
+                data-icon="inline-start"
+                aria-hidden="true"
+              />{/if}
+            {installLabel}
+          </Button>
+          <DropdownMenu.Root>
+            <DropdownMenu.Trigger>
+              {#snippet child({ props })}
+                <Button
+                  {...props}
+                  type="button"
+                  size="icon"
+                  variant="secondary"
+                  aria-label="More actions"
+                >
+                  <EllipsisIcon aria-hidden="true" />
+                </Button>
+              {/snippet}
+            </DropdownMenu.Trigger>
+            <DropdownMenu.Content
+              align="start"
+              class="registry-plugin-detail__actions-menu"
+            >
+              {#if hasExternalLinks}
+                <DropdownMenu.Group>
+                  {#if detail.links?.documentation}
+                    <DropdownMenu.Item
+                      onSelect={() =>
+                        openExternal(detail.links!.documentation!)}
+                      ><BookOpenIcon
+                        data-icon="inline-start"
+                        aria-hidden="true"
+                      />Documentation</DropdownMenu.Item
+                    >
+                  {/if}
+                  {#if detail.links?.repository}
+                    <DropdownMenu.Item
+                      onSelect={() => openExternal(detail.links!.repository!)}
+                      ><ExternalLinkIcon
+                        data-icon="inline-start"
+                        aria-hidden="true"
+                      />Repository</DropdownMenu.Item
+                    >
+                  {/if}
+                  {#if detail.links?.issues}
+                    <DropdownMenu.Item
+                      onSelect={() => openExternal(detail.links!.issues!)}
+                      ><BugIcon
+                        data-icon="inline-start"
+                        aria-hidden="true"
+                      />Report bug</DropdownMenu.Item
+                    >
+                  {/if}
+                </DropdownMenu.Group>
+              {/if}
+              {#if release && release.bundle.pending !== true}
+                {#if hasExternalLinks}<DropdownMenu.Separator />{/if}
+                <DropdownMenu.Group>
+                  <DropdownMenu.Item
+                    onSelect={() =>
+                      openExternal(
+                        release.bundle.downloadUrl ?? release.bundle.url,
+                      )}
+                    ><DownloadIcon
+                      data-icon="inline-start"
+                      aria-hidden="true"
+                    />Download .lapis-plugin</DropdownMenu.Item
+                  >
+                </DropdownMenu.Group>
+              {/if}
+            </DropdownMenu.Content>
+          </DropdownMenu.Root>
+        </div>
+        {#if displayedInstallError}
+          <Alert.Root
+            variant="destructive"
+            class="registry-plugin-detail__install-error"
+          >
+            <CircleAlertIcon aria-hidden="true" />
+            <Alert.Title>Couldn’t install {detail.name}</Alert.Title>
+            <Alert.Description>{displayedInstallError}</Alert.Description>
+          </Alert.Root>
+        {/if}
+      </div>
+      {#if detail.media?.banner}
+        <button
+          type="button"
+          class="registry-plugin-detail__banner"
+          aria-label={`Open ${detail.name} banner: ${detail.media.banner.alt}`}
+          onclick={(event) =>
+            showMedia(detail.media!.banner!, "dark", event.currentTarget)}
+        >
+          <RegistryVerifiedImage
+            reference={detail.media.banner.images.dark}
+            alt=""
+            width={detail.media.banner.images.dark.width}
+            height={detail.media.banner.images.dark.height}
+          />
+        </button>
+      {/if}
+    </header>
+
+    {#if detail.gallery?.length}
+      <RegistryMediaGallery items={detail.gallery} pluginName={detail.name} />
+    {/if}
+
+    {#if resolved.contentError}
+      <p class="registry-plugin-detail__content-warning" role="status">
+        {resolved.contentError} The verified catalog metadata is still available.
+      </p>
+    {/if}
+
+    <div class="registry-plugin-detail__layout">
+      <section class="registry-plugin-detail__content">
+        <Tabs.Root bind:value={activeTab}>
+          <Tabs.List aria-label="Plugin sections">
+            <Tabs.Trigger value="overview">Overview</Tabs.Trigger>
+            <Tabs.Trigger value="changelog">Changelog</Tabs.Trigger>
+            <Tabs.Trigger value="releases"
+              >Releases <span>{releases.length}</span></Tabs.Trigger
+            >
+          </Tabs.List>
+          <Tabs.Content value="overview">
+            <div class="registry-plugin-detail__prose">
+              {#if detail.media?.overview}
+                <button
+                  type="button"
+                  class="registry-plugin-detail__overview-media"
+                  aria-label={`Open ${detail.name} overview image: ${detail.media.overview.alt}`}
+                  onclick={(event) =>
+                    showMedia(
+                      detail.media!.overview!,
+                      "preview",
+                      event.currentTarget,
+                    )}
+                >
+                  <RegistryVerifiedImage
+                    reference={detail.media.overview.images.preview}
+                    alt=""
+                    width={detail.media.overview.images.preview.width}
+                    height={detail.media.overview.images.preview.height}
+                    loading="lazy"
+                  />
+                </button>
+              {/if}
+              {#if detail.highlights?.length}
+                <section>
+                  <h2>Highlights</h2>
+                  <ul>
+                    {#each detail.highlights as highlight}<li>
+                        {highlight}
+                      </li>{/each}
+                  </ul>
+                </section>
+              {/if}
+              {#if resolved.overviewHtml}
+                <section class="registry-plugin-detail__markdown">
+                  {@html resolved.overviewHtml}
+                </section>
+              {:else}
+                <p>{detail.description}</p>
+              {/if}
+              {#if filePatterns.length > 0}
+                <section>
+                  <h2>File handlers</h2>
+                  <div class="registry-plugin-detail__file-patterns">
+                    {#each filePatterns as pattern}<code>{pattern}</code>{/each}
+                  </div>
+                </section>
+              {/if}
+            </div>
+          </Tabs.Content>
+          <Tabs.Content value="changelog">
+            <div class="registry-plugin-detail__prose">
+              {#if resolved.changelogHtml}
+                <section class="registry-plugin-detail__markdown">
+                  {@html resolved.changelogHtml}
+                </section>
+              {:else}<p>
+                  No structured changelog is available for this plugin yet.
+                </p>{/if}
+            </div>
+          </Tabs.Content>
+          <Tabs.Content value="releases">
+            <div class="registry-plugin-detail__releases">
+              {#each releases as item (item.version)}
+                <article>
+                  <div>
+                    <h3>{item.version}</h3>
+                    <p>
+                      Lapis {item.minAppVersion}+ · {item.platforms
+                        .map(titleCaseRegistryValue)
+                        .join(", ")} · {formatRegistryBytes(item.bundle.size)}
+                    </p>
+                  </div>
+                  <Badge variant={item.bundle.pending ? "outline" : "secondary"}
+                    >{item.bundle.pending
+                      ? "Pending bundle"
+                      : "Signed bundle"}</Badge
+                  >
+                </article>
+              {/each}
+            </div>
+          </Tabs.Content>
+        </Tabs.Root>
+      </section>
+
+      <aside class="registry-plugin-detail__sidebar">
+        <section
+          class="registry-plugin-detail__health"
+          aria-label="Plugin health"
+        >
+          <div data-complete="true">
+            <span><strong>Metadata</strong><strong>Signed</strong></span>
+            <div
+              class="registry-plugin-detail__health-bar"
+              data-ui-part="registry-plugin-health-bar"
+              role="progressbar"
+              aria-label="Metadata health"
+              aria-valuemin="0"
+              aria-valuemax="4"
+              aria-valuenow="4"
+              aria-valuetext="Signed, 4 of 4 checks ready"
+            >
+              {#each Array.from({ length: 4 }) as _}<i data-active="true"
+                ></i>{/each}
+            </div>
+          </div>
+          <div data-complete={bundleHealth === 4 ? "true" : "false"}>
+            <span
+              ><strong>Plugin bundle</strong><strong
+                >{bundleHealth === 4 ? "Ready" : "Pending"}</strong
+              ></span
+            >
+            <div
+              class="registry-plugin-detail__health-bar"
+              data-ui-part="registry-plugin-health-bar"
+              role="progressbar"
+              aria-label="Plugin bundle health"
+              aria-valuemin="0"
+              aria-valuemax="4"
+              aria-valuenow={bundleHealth}
+              aria-valuetext={`${bundleHealth === 4 ? "Ready" : "Pending"}, ${bundleHealth} of 4 checks ready`}
+            >
+              {#each Array.from({ length: 4 }) as _, index}
+                <i data-active={index < bundleHealth ? "true" : "false"}></i>
+              {/each}
+            </div>
+          </div>
+        </section>
+        <section>
+          <h2>About</h2>
+          <p>{detail.description}</p>
+          <div class="registry-plugin-detail__chips">
+            {#each entry.categories as category}
+              {@render filterChip("category", category)}
             {/each}
           </div>
-        </div>
-      </section>
-      <section>
-        <h2>About</h2>
-        <p>{detail.description}</p>
-        <div class="registry-plugin-detail__chips">
-          {#each entry.categories as category}
-            {@render filterChip("category", category)}
-          {/each}
-        </div>
-      </section>
-      <section>
-        <h2>Details</h2>
-        <dl>
-          <div>
-            <dt>Current version</dt>
-            <dd>{detail.latestVersion}</dd>
+        </section>
+        <section>
+          <h2>Details</h2>
+          <dl>
+            <div>
+              <dt>Current version</dt>
+              <dd>{detail.latestVersion}</dd>
+            </div>
+            <div>
+              <dt>Last updated</dt>
+              <dd>{formatDate(release?.releasedAt)}</dd>
+            </div>
+            <div>
+              <dt>Releases</dt>
+              <dd>{releases.length}</dd>
+            </div>
+            <div>
+              <dt>Status</dt>
+              <dd>{registryStatusLabel(detail.status)}</dd>
+            </div>
+            <div>
+              <dt>Compatible with</dt>
+              <dd>Lapis {release?.minAppVersion ?? entry.minAppVersion}+</dd>
+            </div>
+            <div>
+              <dt>Platforms</dt>
+              <dd>{entry.platforms.map(titleCaseRegistryValue).join(", ")}</dd>
+            </div>
+            <div>
+              <dt>License</dt>
+              <dd>{detail.license ?? "Not specified"}</dd>
+            </div>
+            <div>
+              <dt>Trust</dt>
+              <dd>{detail.owner.verified ? "Verified" : "Community"}</dd>
+            </div>
+            <div>
+              <dt>Bundle size</dt>
+              <dd>
+                {release ? formatRegistryBytes(release.bundle.size) : "Unknown"}
+              </dd>
+            </div>
+          </dl>
+        </section>
+        <section>
+          <h2>Author</h2>
+          <div class="registry-plugin-detail__author">
+            {@render authorLink(true)}
           </div>
-          <div>
-            <dt>Last updated</dt>
-            <dd>{formatDate(release?.releasedAt)}</dd>
-          </div>
-          <div>
-            <dt>Releases</dt>
-            <dd>{releases.length}</dd>
-          </div>
-          <div>
-            <dt>Status</dt>
-            <dd>{registryStatusLabel(detail.status)}</dd>
-          </div>
-          <div>
-            <dt>Compatible with</dt>
-            <dd>Lapis {release?.minAppVersion ?? entry.minAppVersion}+</dd>
-          </div>
-          <div>
-            <dt>Platforms</dt>
-            <dd>{entry.platforms.map(titleCaseRegistryValue).join(", ")}</dd>
-          </div>
-          <div>
-            <dt>License</dt>
-            <dd>{detail.license ?? "Not specified"}</dd>
-          </div>
-          <div>
-            <dt>Trust</dt>
-            <dd>{detail.owner.verified ? "Verified" : "Community"}</dd>
-          </div>
-          <div>
-            <dt>Bundle size</dt>
-            <dd>
-              {release ? formatRegistryBytes(release.bundle.size) : "Unknown"}
-            </dd>
-          </div>
-        </dl>
-      </section>
-      <section>
-        <h2>Author</h2>
-        <div class="registry-plugin-detail__author">
-          {@render authorLink(true)}
-        </div>
-      </section>
-    </aside>
-  </div>
+        </section>
+      </aside>
+    </div>
 
-  {#if related.length > 0}
-    <section class="registry-plugin-detail__related">
-      <h2>Related plugins</h2>
-      <div>
-        {#each related as plugin (plugin.id)}<RegistryPluginCard
-            {plugin}
-            variant="compact"
-            onOpen={onOpenPlugin}
-          />{/each}
-      </div>
-    </section>
+    {#if related.length > 0}
+      <section class="registry-plugin-detail__related">
+        <h2>Related plugins</h2>
+        <div>
+          {#each related as plugin (plugin.id)}<RegistryPluginCard
+              {plugin}
+              variant="compact"
+              onOpen={onOpenPlugin}
+            />{/each}
+        </div>
+      </section>
+    {/if}
   {/if}
 
   {#if discussion}
     <section
       class="registry-plugin-detail__discussion"
       aria-label={`${detail.name} community`}
+      bind:this={discussionSection}
     >
       {@render discussion()}
     </section>
@@ -641,6 +691,10 @@
     width: min(100%, 70rem);
     margin-inline: auto;
     padding: clamp(1.25rem, 4vw, 3rem);
+  }
+  .registry-plugin-detail--discussion-isolated {
+    gap: 0;
+    padding-top: 1rem;
   }
   .registry-plugin-detail__hero {
     display: grid;

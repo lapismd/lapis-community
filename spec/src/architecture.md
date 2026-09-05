@@ -1,5 +1,10 @@
 # Architecture
 
+Registry’s built-in community composition may temporarily isolate the bounded
+discussion stream from plugin-detail presentation while earlier windows remain
+available. That private presentation context does not alter consumer-provided
+discussion snippets or add a public component or data-source interface.
+
 ## Requirements
 
 | ID          | Requirement                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |

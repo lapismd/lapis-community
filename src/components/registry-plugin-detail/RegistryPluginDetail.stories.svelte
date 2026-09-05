@@ -7,6 +7,7 @@
     registryStoryResolvedDetail,
   } from "../registry-browser/story-fixtures.js";
   import RegistryPluginDetail from "./RegistryPluginDetail.svelte";
+  import RegistryPluginDetailLongDiscussionStoryHarness from "./RegistryPluginDetailLongDiscussionStoryHarness.svelte";
 
   const resolved = registryStoryResolvedDetail();
   const iconResolved = {
@@ -176,3 +177,52 @@
     await expect(canvas.getAllByRole("alert")).toHaveLength(1);
   }}
 />
+
+<Story
+  name="Bounded discussion isolation"
+  play={async ({ canvas, canvasElement }) => {
+    const slider = await canvas.findByRole(
+      "slider",
+      { name: "Discussion position" },
+      { timeout: 15_000 },
+    );
+    await expect(slider).toHaveAttribute("aria-valuemax", "260");
+    await expect(
+      canvasElement.querySelector(".registry-plugin-detail__identity h1"),
+    ).toBeVisible();
+
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Go to the latest post" }),
+    );
+    await expect(
+      canvas.getByRole("status", { name: "Loading discussion posts" }),
+    ).toBeVisible();
+    await expect(
+      await canvas.findByText(/Reply 259:/u, {}, { timeout: 15_000 }),
+    ).toBeVisible();
+    await waitFor(() =>
+      expect(
+        canvasElement.querySelector(".registry-plugin-detail__identity h1"),
+      ).not.toBeInTheDocument(),
+    );
+
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Go to the first post" }),
+    );
+    const openingPost = await canvas.findAllByText(
+      "Seeded registry discussion",
+      {},
+      { timeout: 15_000 },
+    );
+    await expect(openingPost[0]).toBeVisible();
+    await waitFor(() =>
+      expect(
+        canvasElement.querySelector(".registry-plugin-detail__identity h1"),
+      ).toBeVisible(),
+    );
+  }}
+>
+  {#snippet template()}
+    <RegistryPluginDetailLongDiscussionStoryHarness />
+  {/snippet}
+</Story>

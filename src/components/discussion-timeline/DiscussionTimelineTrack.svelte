@@ -1,8 +1,12 @@
 <script lang="ts">
+  import { onMount } from "svelte";
+
   import {
     timelineIndexFromPosition,
+    timelineMarkersOverlap,
     timelinePosition,
     timelineTimestamp,
+    shouldShowTimelineBack,
   } from "../registry-community/model.js";
 
   let {
@@ -34,17 +38,38 @@
   } = $props();
 
   let previewIndex = $state<number | undefined>();
+  let pendingIndex = $state<number | undefined>();
   let dragging = $state(false);
   let pointerId: number | undefined;
   let dragOffset = 0;
   let activeTrack: HTMLElement | undefined;
+  let trackTop = 0;
+  let trackHeight = 0;
+  let handleHeight = 50;
+  let trackElement = $state<HTMLElement | undefined>();
+  let measuredTrackHeight = $state(0);
 
-  const displayIndex = $derived(previewIndex ?? currentIndex);
+  const busy = $derived(disabled || pendingIndex !== undefined);
+  const displayIndex = $derived(previewIndex ?? pendingIndex ?? currentIndex);
   const displayTimestamp = $derived(
-    previewIndex === undefined
+    previewIndex === undefined && pendingIndex === undefined
       ? currentTimestamp
       : timelineTimestamp(displayIndex, total, firstTimestamp, lastTimestamp),
   );
+  const backVisible = $derived(
+    shouldShowTimelineBack(currentIndex, returnIndex, total),
+  );
+  const backOverlapsHandle = $derived.by(() => {
+    if (!backVisible || returnIndex === undefined || measuredTrackHeight <= 0)
+      return false;
+    return timelineMarkersOverlap(
+      displayIndex,
+      returnIndex,
+      total,
+      measuredTrackHeight,
+      handleHeight,
+    );
+  });
 
   function formatShortDate(timestamp: number): string {
     return new Intl.DateTimeFormat(undefined, {
@@ -53,43 +78,45 @@
     }).format(timestamp * 1_000);
   }
 
-  function indexForPointer(track: HTMLElement, clientY: number): number {
-    const bounds = track.getBoundingClientRect();
-    const handle = track.querySelector<HTMLElement>(".history-handle");
+  function indexForPointer(clientY: number): number {
     return timelineIndexFromPosition(
-      clientY - bounds.top - dragOffset,
-      bounds.height,
+      clientY - trackTop - dragOffset,
+      trackHeight,
       total,
-      handle?.getBoundingClientRect().height ?? 50,
+      handleHeight,
     );
   }
 
   function startDrag(event: PointerEvent): void {
-    if (event.button !== 0 || total < 2 || disabled) return;
+    if (event.button !== 0 || total < 2 || busy) return;
     const target = event.target;
     if (target instanceof Element && target.closest(".history-back") !== null)
       return;
     const track = event.currentTarget as HTMLElement;
     const handle = track.querySelector<HTMLElement>(".history-handle");
-    const bounds = handle?.getBoundingClientRect();
+    const trackBounds = track.getBoundingClientRect();
+    const handleBounds = handle?.getBoundingClientRect();
+    trackTop = trackBounds.top;
+    trackHeight = trackBounds.height;
+    handleHeight = handleBounds?.height ?? 50;
     dragOffset =
       target instanceof Element &&
       target.closest(".history-handle") !== null &&
-      bounds !== undefined
-        ? event.clientY - (bounds.top + bounds.height / 2)
+      handleBounds !== undefined
+        ? event.clientY - (handleBounds.top + handleBounds.height / 2)
         : 0;
     dragging = true;
     pointerId = event.pointerId;
     activeTrack = track;
     track.setPointerCapture(event.pointerId);
-    previewIndex = indexForPointer(track, event.clientY);
+    previewIndex = indexForPointer(event.clientY);
     event.preventDefault();
   }
 
   function moveDrag(event: PointerEvent): void {
     if (!dragging || event.pointerId !== pointerId || activeTrack === undefined)
       return;
-    previewIndex = indexForPointer(activeTrack, event.clientY);
+    previewIndex = indexForPointer(event.clientY);
     event.preventDefault();
   }
 
@@ -102,24 +129,40 @@
   }
 
   async function commit(index: number): Promise<void> {
-    if (disabled || total === 0) return;
-    await onJump(Math.max(0, Math.min(index, total - 1)));
-    onCommitted();
+    if (busy || total === 0) return;
+    const targetIndex = Math.max(0, Math.min(index, total - 1));
+    pendingIndex = targetIndex;
+    try {
+      await onJump(targetIndex);
+    } finally {
+      pendingIndex = undefined;
+      onCommitted();
+    }
   }
 
-  function finishDrag(event: PointerEvent): void {
+  function finishDrag(event: PointerEvent, usePointerPosition = true): void {
     if (!dragging || event.pointerId !== pointerId || activeTrack === undefined)
       return;
-    const targetIndex = indexForPointer(activeTrack, event.clientY);
+    const targetIndex = usePointerPosition
+      ? indexForPointer(event.clientY)
+      : (previewIndex ?? currentIndex);
     if (activeTrack.hasPointerCapture(event.pointerId)) {
       activeTrack.releasePointerCapture(event.pointerId);
     }
+    pendingIndex = targetIndex;
     resetDrag();
-    void commit(targetIndex);
+    void (async () => {
+      try {
+        await onJump(targetIndex);
+      } finally {
+        pendingIndex = undefined;
+        onCommitted();
+      }
+    })();
   }
 
   function handleKey(event: KeyboardEvent): void {
-    let targetIndex = currentIndex;
+    let targetIndex = displayIndex;
     if (event.key === "ArrowUp" || event.key === "ArrowLeft") targetIndex -= 1;
     else if (event.key === "ArrowDown" || event.key === "ArrowRight")
       targetIndex += 1;
@@ -133,16 +176,34 @@
   }
 
   async function returnToOrigin(): Promise<void> {
-    await onReturn();
-    onCommitted();
+    if (busy || returnIndex === undefined) return;
+    pendingIndex = returnIndex;
+    try {
+      await onReturn();
+    } finally {
+      pendingIndex = undefined;
+      onCommitted();
+    }
   }
+
+  onMount(() => {
+    if (trackElement === undefined) return;
+    const observer = new ResizeObserver(([entry]) => {
+      measuredTrackHeight = entry?.contentRect.height ?? 0;
+      const handle =
+        trackElement?.querySelector<HTMLElement>(".history-handle");
+      handleHeight = handle?.getBoundingClientRect().height ?? 50;
+    });
+    observer.observe(trackElement);
+    return () => observer.disconnect();
+  });
 </script>
 
 <div class:fluid class="timeline-track-shell">
   <button
     class="history-date"
     aria-label="Go to the first post"
-    {disabled}
+    disabled={busy}
     onclick={() => commit(0)}
   >
     <time datetime={new Date(firstTimestamp * 1_000).toISOString()}>
@@ -152,21 +213,24 @@
   <div
     class="history-track"
     class:dragging
+    bind:this={trackElement}
     role="group"
     aria-label="Discussion timeline"
     onpointerdown={startDrag}
     onpointermove={moveDrag}
     onpointerup={finishDrag}
     onpointercancel={(event) => {
-      if (event.pointerId === pointerId) resetDrag();
+      if (event.pointerId === pointerId) finishDrag(event, false);
     }}
   >
     <span class="history-line" aria-hidden="true"></span>
-    {#if returnIndex !== undefined && returnIndex !== currentIndex}
+    {#if backVisible && !backOverlapsHandle && !dragging && returnIndex !== undefined}
       <button
         class="history-back"
         style={`--timeline-return-position: ${timelinePosition(returnIndex, total) / 100}`}
-        aria-label={`Back to post ${returnIndex + 1}`}
+        aria-label="Return to your last-read position"
+        title="Return to your last-read position"
+        disabled={busy}
         onpointerdown={(event) => event.stopPropagation()}
         onclick={returnToOrigin}
       >
@@ -193,11 +257,22 @@
         <span>{formatShortDate(displayTimestamp)}</span>
       </span>
     </div>
+    {#if backVisible && backOverlapsHandle && !dragging}
+      <button
+        class="history-back history-back--docked"
+        style={`--timeline-position: ${timelinePosition(displayIndex, total) / 100}`}
+        aria-label="Return to your last-read position"
+        title="Return to your last-read position"
+        disabled={busy}
+        onpointerdown={(event) => event.stopPropagation()}
+        onclick={returnToOrigin}>Back</button
+      >
+    {/if}
   </div>
   <button
     class="history-date"
     aria-label="Go to the latest post"
-    {disabled}
+    disabled={busy}
     onclick={() => commit(total - 1)}
   >
     <time datetime={new Date(lastTimestamp * 1_000).toISOString()}>
@@ -296,6 +371,7 @@
 
   .history-current {
     display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
     gap: 0.05rem;
     min-width: 0;
     padding: 0.4rem 0.45rem;
@@ -310,11 +386,13 @@
   }
 
   .history-current strong {
+    grid-column: 1;
     font-size: 0.9rem;
     line-height: 1rem;
   }
 
   .history-current span {
+    grid-column: 1;
     color: var(--muted-foreground);
     line-height: 1rem;
   }
@@ -342,6 +420,23 @@
     width: 0.9rem;
     height: 1px;
     background: currentColor;
+  }
+
+  .history-back--docked {
+    z-index: 3;
+    top: calc(
+      (100% - var(--timeline-handle-height)) * var(--timeline-position) +
+        var(--timeline-handle-height) / 2
+    );
+    right: 0.25rem;
+    left: auto;
+    padding: 0.25rem 0.45rem;
+    border-radius: var(--radius);
+    background: var(--primary);
+    color: var(--primary-foreground);
+    font-size: 0.7rem;
+    font-weight: 600;
+    transform: translateY(-50%);
   }
 
   @media (prefers-reduced-motion: reduce) {
