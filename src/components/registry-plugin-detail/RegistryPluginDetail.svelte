@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { Snippet } from "svelte";
 
+  import * as Alert from "@lapismd/design-core/shadcn/alert";
   import { Badge } from "@lapismd/design-core/shadcn/badge";
   import { Button } from "@lapismd/design-core/shadcn/button";
   import * as DropdownMenu from "@lapismd/design-core/shadcn/dropdown-menu";
@@ -8,6 +9,7 @@
   import BookOpenIcon from "@lucide/svelte/icons/book-open";
   import BugIcon from "@lucide/svelte/icons/bug";
   import CheckCircleIcon from "@lucide/svelte/icons/circle-check";
+  import CircleAlertIcon from "@lucide/svelte/icons/circle-alert";
   import DownloadIcon from "@lucide/svelte/icons/download";
   import EllipsisIcon from "@lucide/svelte/icons/ellipsis";
   import ExternalLinkIcon from "@lucide/svelte/icons/external-link";
@@ -115,6 +117,12 @@
             : effectiveInstallAction.state === "rejected"
               ? "Retry install"
               : "Install in Lapis"),
+  );
+  const displayedInstallError = $derived(
+    installError ||
+      (effectiveInstallAction.state === "rejected"
+        ? (effectiveInstallAction.reason ?? "The plugin could not be installed")
+        : ""),
   );
   const author = $derived(detail.author || detail.owner.name);
   const authorUrl = $derived(
@@ -357,13 +365,15 @@
           </DropdownMenu.Content>
         </DropdownMenu.Root>
       </div>
-      {#if installError}<p class="registry-plugin-detail__error" role="alert">
-          {installError}
-        </p>{/if}
-      {#if effectiveInstallAction.state === "rejected"}
-        <p class="registry-plugin-detail__error" role="status">
-          {effectiveInstallAction.reason}
-        </p>
+      {#if displayedInstallError}
+        <Alert.Root
+          variant="destructive"
+          class="registry-plugin-detail__install-error"
+        >
+          <CircleAlertIcon aria-hidden="true" />
+          <Alert.Title>Couldn’t install {detail.name}</Alert.Title>
+          <Alert.Description>{displayedInstallError}</Alert.Description>
+        </Alert.Root>
       {/if}
     </div>
     {#if detail.media?.banner}
@@ -789,9 +799,27 @@
     font-size: clamp(1.1rem, 2vw, 1.25rem);
     line-height: 1.4;
   }
-  .registry-plugin-detail__error {
-    margin: 0;
-    color: var(--destructive);
+  :global(.registry-plugin-detail__install-error[data-ui-component="alert"]) {
+    width: min(100%, 38rem);
+    border-color: color-mix(in srgb, var(--destructive) 30%, var(--border));
+    border-radius: calc(var(--radius) + 0.25rem);
+    color: color-mix(in srgb, var(--destructive) 78%, var(--foreground));
+    background: color-mix(in srgb, var(--destructive) 6%, var(--card));
+    box-shadow: 0 0.25rem 1rem
+      color-mix(in srgb, var(--destructive) 8%, transparent);
+  }
+
+  :global(
+      .registry-plugin-detail__install-error[data-ui-component="alert"] > svg
+    ) {
+    margin-block-start: 0.125rem;
+  }
+
+  :global(
+      .registry-plugin-detail__install-error [data-ui-part="alert-description"]
+    ) {
+    color: inherit;
+    opacity: 1;
   }
 
   :global(

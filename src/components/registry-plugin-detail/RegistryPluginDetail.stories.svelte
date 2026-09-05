@@ -153,11 +153,25 @@
   }}
 />
 <Story
-  name="Rejected"
+  name="Installation failed"
   args={{
     installAction: {
       state: "rejected",
-      reason: "The host rejected the verified bundle",
+      reason: "Plugin ai is not compatible: platform-unsupported",
     },
+  }}
+  play={async ({ canvas }) => {
+    const alert = canvas.getByRole("alert");
+    await expect(alert).toBeVisible();
+    await expect(
+      canvas.getByText("Couldn’t install AI Assistant"),
+    ).toBeVisible();
+    await expect(
+      canvas.getByText("Plugin ai is not compatible: platform-unsupported"),
+    ).toBeVisible();
+    await expect(
+      canvas.getByRole("button", { name: "Retry install" }),
+    ).toBeVisible();
+    await expect(canvas.getAllByRole("alert")).toHaveLength(1);
   }}
 />
