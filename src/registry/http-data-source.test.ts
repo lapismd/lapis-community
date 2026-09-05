@@ -227,7 +227,7 @@ describe("HTTP registry catalog data source", () => {
     );
   });
 
-  it("returns null for missing runtime and surfaces HTTP and schema failures", async () => {
+  it("returns null for missing runtime and HTML document fallbacks", async () => {
     const missing = createHttpRegistryCatalogDataSource({
       baseUrl: "https://community.example/registry/",
       fetch: vi.fn<typeof fetch>(
@@ -237,11 +237,37 @@ describe("HTTP registry catalog data source", () => {
     await expect(missing.loadRuntime()).resolves.toBeNull();
     await expect(missing.loadIndex()).rejects.toThrow("failed with 404");
 
+    const htmlFallback = createHttpRegistryCatalogDataSource({
+      baseUrl: "https://community.example/registry/",
+      fetch: vi.fn<typeof fetch>(
+        async () =>
+          new Response("<!doctype html><title>Registry</title>", {
+            headers: { "content-type": "text/html; charset=utf-8" },
+          }),
+      ),
+    });
+    await expect(htmlFallback.loadRuntime()).resolves.toBeNull();
+  });
+
+  it("surfaces schema and non-JSON runtime failures", async () => {
     const invalid = createHttpRegistryCatalogDataSource({
       baseUrl: "https://community.example/registry/",
       fetch: vi.fn<typeof fetch>(async () => json({ schemaVersion: 2 })),
     });
     await expect(invalid.loadIndex()).rejects.toThrow();
+
+    const text = createHttpRegistryCatalogDataSource({
+      baseUrl: "https://community.example/registry/",
+      fetch: vi.fn<typeof fetch>(
+        async () =>
+          new Response("not json", {
+            headers: { "content-type": "text/plain" },
+          }),
+      ),
+    });
+    await expect(text.loadRuntime()).rejects.toThrow(
+      "Registry runtime response was not JSON",
+    );
   });
 
   it("verifies mirrored Markdown size and SHA-256", async () => {

@@ -32,6 +32,7 @@
 
 | LC-UI-026 | The public live registry data-source contract MUST expose install-proof loading separately from catalog presentation. Proof loading MUST identify one accepted plugin version and return its exact Nostr authorization, release, approval, and manifest evidence without exposing relay or materializer internals to the consumer. |
 | LC-UI-027 | Registry detail sources MUST resolve by stable plugin ID without requiring a consumer to supply Community-specific row presentation. Existing full catalog entries MUST remain valid detail lookup inputs. |
+| LC-UI-028 | The HTTP registry source MUST treat 404 and HTML document fallbacks as absent optional runtime metadata while rejecting other non-JSON runtime responses. Catalog loading MUST remain available when optional runtime metadata is absent. |
 
 For LC-UI-015, Channel and Forum settings MUST show Leave only when the room
 permission is enabled or absent for a legacy consumer. Actions that require
