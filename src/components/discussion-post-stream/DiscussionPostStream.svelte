@@ -70,6 +70,8 @@
   let viewportFrame = 0;
   let lastViewportWidth = 0;
   let settledScrollRevision = $state(0);
+  let streamElement: HTMLOListElement;
+  let scrollViewport: HTMLElement | undefined;
 
   const contextById = $derived(
     new Map(contextPosts.map((post) => [post.event.id, post] as const)),
@@ -106,10 +108,52 @@
     });
   }
 
+  function findScrollViewport(node: HTMLElement): HTMLElement | undefined {
+    let candidate = node.parentElement;
+    while (candidate !== null) {
+      const overflowY = getComputedStyle(candidate).overflowY;
+      if (/^(auto|overlay|scroll)$/u.test(overflowY)) return candidate;
+      candidate = candidate.parentElement;
+    }
+    return undefined;
+  }
+
+  function viewportMetrics(): {
+    top: number;
+    bottom: number;
+    height: number;
+    scrollTop: number;
+    scrollHeight: number;
+  } {
+    if (scrollViewport !== undefined) {
+      const bounds = scrollViewport.getBoundingClientRect();
+      return {
+        top: bounds.top,
+        bottom: bounds.bottom,
+        height: scrollViewport.clientHeight,
+        scrollTop: scrollViewport.scrollTop,
+        scrollHeight: scrollViewport.scrollHeight,
+      };
+    }
+    return {
+      top: 0,
+      bottom: window.innerHeight,
+      height: window.innerHeight,
+      scrollTop: window.scrollY,
+      scrollHeight: document.documentElement.scrollHeight,
+    };
+  }
+
+  function scrollViewportBy(delta: number): void {
+    if (scrollViewport !== undefined) scrollViewport.scrollBy(0, delta);
+    else window.scrollBy(0, delta);
+  }
+
   function updateViewport(): void {
     if (wrappers.size === 0) return;
-    const viewportHeight = window.innerHeight;
-    const eyeline = Math.min(220, viewportHeight * 0.28);
+    const viewport = viewportMetrics();
+    const viewportHeight = viewport.height;
+    const eyeline = viewport.top + Math.min(220, viewportHeight * 0.28);
     const ordered = posts
       .map((post, index) => ({
         id: post.event.id,
@@ -126,12 +170,16 @@
       }));
     if (ordered.length === 0) return;
 
-    const current =
-      ordered.find(
-        (item) => item.bounds.top <= eyeline && item.bounds.bottom > eyeline,
-      ) ??
-      ordered.find((item) => item.bounds.top > eyeline) ??
-      ordered.at(-1)!;
+    const atLoadedEnd =
+      !hasNext &&
+      Math.ceil(viewport.scrollTop + viewportHeight) >= viewport.scrollHeight;
+    const current = atLoadedEnd
+      ? ordered.at(-1)!
+      : (ordered.find(
+          (item) => item.bounds.top <= eyeline && item.bounds.bottom > eyeline,
+        ) ??
+        ordered.find((item) => item.bounds.top > eyeline) ??
+        ordered.at(-1)!);
     if (current.id !== activePostId) {
       onCurrentPost(current.id, startIndex + current.index);
     }
@@ -146,7 +194,14 @@
         item.element.contains(document.activeElement);
       if (
         measuredHeights.has(item.id) &&
-        shouldCloakDiscussionPost(item.bounds, viewportHeight, protectedPost)
+        shouldCloakDiscussionPost(
+          {
+            top: item.bounds.top - viewport.top,
+            bottom: item.bounds.bottom - viewport.top,
+          },
+          viewportHeight,
+          protectedPost,
+        )
       ) {
         nextCloaked.add(item.id);
       }
@@ -184,12 +239,37 @@
   function sentinel(node: HTMLElement, direction: "prepend" | "append") {
     let pending = false;
     let disposed = false;
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries.some((entry) => entry.isIntersecting)) void loadMore();
-      },
-      { rootMargin: `${window.innerHeight}px 0px`, threshold: 0 },
-    );
+    const observerRoot = findScrollViewport(node);
+    const scrollTarget: HTMLElement | Window = observerRoot ?? window;
+    let lastScrollTop = observerRoot?.scrollTop ?? window.scrollY;
+
+    function isNearViewport(): boolean {
+      const bounds = node.getBoundingClientRect();
+      const rootBounds = observerRoot?.getBoundingClientRect();
+      const top = rootBounds?.top ?? 0;
+      const bottom = rootBounds?.bottom ?? window.innerHeight;
+      const margin = observerRoot?.clientHeight ?? window.innerHeight;
+      return bounds.bottom >= top - margin && bounds.top <= bottom + margin;
+    }
+
+    function requestFromDirection(nextScrollTop: number): void {
+      const movedToward =
+        direction === "prepend"
+          ? nextScrollTop < lastScrollTop
+          : nextScrollTop > lastScrollTop;
+      lastScrollTop = nextScrollTop;
+      if (movedToward && isNearViewport()) void loadMore();
+    }
+
+    function handleScroll(): void {
+      requestFromDirection(observerRoot?.scrollTop ?? window.scrollY);
+    }
+
+    function handleWheel(event: Event): void {
+      const { deltaY } = event as WheelEvent;
+      const movedToward = direction === "prepend" ? deltaY < 0 : deltaY > 0;
+      if (movedToward && isNearViewport()) void loadMore();
+    }
 
     async function loadMore(): Promise<void> {
       if (scrollRevision > settledScrollRevision) return;
@@ -207,12 +287,13 @@
           let anchorId = "";
           let anchorTop = 0;
           if (direction === "prepend") {
+            const viewport = viewportMetrics();
             const firstTracked = posts
               .map((post) => wrappers.get(post.event.id))
               .find(
                 (element) =>
                   element !== undefined &&
-                  element.getBoundingClientRect().bottom > 0,
+                  element.getBoundingClientRect().bottom > viewport.top,
               );
             anchorId = firstTracked?.dataset.postId ?? "";
             anchorTop = firstTracked?.getBoundingClientRect().top ?? 0;
@@ -226,7 +307,7 @@
             const anchor = wrappers.get(anchorId);
             if (anchor === undefined) return;
             const delta = anchor.getBoundingClientRect().top - anchorTop;
-            if (Math.abs(delta) > 0.5) window.scrollBy(0, delta);
+            if (Math.abs(delta) > 0.5) scrollViewportBy(delta);
           };
           compensate();
           await new Promise<void>((resolve) =>
@@ -236,10 +317,11 @@
 
           scheduleViewportUpdate();
           const bounds = node.getBoundingClientRect();
-          const margin = window.innerHeight;
+          const viewport = viewportMetrics();
+          const margin = viewport.height;
           const stillNearViewport =
-            bounds.bottom >= -margin &&
-            bounds.top <= window.innerHeight + margin;
+            bounds.bottom >= viewport.top - margin &&
+            bounds.top <= viewport.bottom + margin;
           const stillAvailable =
             direction === "prepend" ? hasPrevious : hasNext;
           keepLoading = changed && stillAvailable && stillNearViewport;
@@ -249,11 +331,13 @@
       }
     }
 
-    observer.observe(node);
+    scrollTarget.addEventListener("scroll", handleScroll, { passive: true });
+    scrollTarget.addEventListener("wheel", handleWheel, { passive: true });
     return {
       destroy() {
         disposed = true;
-        observer.disconnect();
+        scrollTarget.removeEventListener("scroll", handleScroll);
+        scrollTarget.removeEventListener("wheel", handleWheel);
       },
     };
   }
@@ -285,7 +369,9 @@
 
   onMount(() => {
     lastViewportWidth = window.innerWidth;
+    scrollViewport = findScrollViewport(streamElement);
     postObserver = new IntersectionObserver(scheduleViewportUpdate, {
+      root: scrollViewport ?? null,
       rootMargin: "100% 0px",
       threshold: [0, 0.01],
     });
@@ -304,7 +390,8 @@
       postObserver.observe(element);
       resizeObserver.observe(element);
     }
-    window.addEventListener("scroll", scheduleViewportUpdate, {
+    const scrollTarget: HTMLElement | Window = scrollViewport ?? window;
+    scrollTarget.addEventListener("scroll", scheduleViewportUpdate, {
       passive: true,
     });
     window.addEventListener("resize", handleResize, { passive: true });
@@ -312,7 +399,7 @@
     return () => {
       postObserver?.disconnect();
       resizeObserver?.disconnect();
-      window.removeEventListener("scroll", scheduleViewportUpdate);
+      scrollTarget.removeEventListener("scroll", scheduleViewportUpdate);
       window.removeEventListener("resize", handleResize);
       if (viewportFrame !== 0) cancelAnimationFrame(viewportFrame);
     };
@@ -320,6 +407,7 @@
 </script>
 
 <ol
+  bind:this={streamElement}
   class="post-stream"
   data-loaded-posts={posts.length}
   data-rendered-posts={posts.length - cloakedIds.size}
@@ -423,6 +511,7 @@
 
   .post-wrapper {
     min-height: 1px;
+    scroll-margin-top: min(220px, 28vh);
   }
 
   .post-placeholder {

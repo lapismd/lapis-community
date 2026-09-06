@@ -1,18 +1,34 @@
 <script lang="ts">
   let {
     posts = 0,
+    postsApproximate = false,
+    postsUnavailable = false,
     reactions = 0,
     participants = 0,
     pluginReactions = 0,
   }: {
     posts?: number;
+    postsApproximate?: boolean;
+    postsUnavailable?: boolean;
     reactions?: number;
     participants?: number;
     pluginReactions?: number;
   } = $props();
 
   const metrics = $derived([
-    { label: "posts", value: posts },
+    {
+      label: "posts",
+      value: postsApproximate
+        ? `~${posts}`
+        : postsUnavailable
+          ? `${posts}+`
+          : posts,
+      accessibleValue: postsApproximate
+        ? `Approximately ${posts} posts`
+        : postsUnavailable
+          ? `At least ${posts} loaded posts; total count unavailable`
+          : `${posts} posts`,
+    },
     { label: "page reactions", value: reactions },
     { label: "page participants", value: participants },
     { label: "plugin reactions", value: pluginReactions },
@@ -21,7 +37,11 @@
 
 <div class="topic-summary" aria-live="polite">
   {#each metrics as metric}
-    <div><strong>{metric.value}</strong><span>{metric.label}</span></div>
+    <div
+      aria-label={metric.accessibleValue ?? `${metric.value} ${metric.label}`}
+    >
+      <strong>{metric.value}</strong><span>{metric.label}</span>
+    </div>
   {/each}
 </div>
 

@@ -98,6 +98,35 @@ export function mergeDiscussionPosts<T>(
   ].toSorted(compare);
 }
 
+export function completeNewestBoundedSlice<T>(options: {
+  requestedEvents: readonly T[];
+  boundaryEvents: readonly T[];
+  size: number;
+  eventId: (event: T) => string;
+  createdAt: (event: T) => number;
+  compare: (left: T, right: T) => number;
+}): { events: T[]; hasOlder: boolean } {
+  const requested = options.requestedEvents.toSorted(options.compare);
+  const oldest = requested[0];
+  if (oldest === undefined || options.size <= 0) {
+    return { events: [], hasOlder: false };
+  }
+  const oldestTimestamp = options.createdAt(oldest);
+  const candidates = [
+    ...requested.filter((event) => options.createdAt(event) > oldestTimestamp),
+    ...options.boundaryEvents,
+  ];
+  const distinct = [
+    ...new Map(
+      candidates.map((event) => [options.eventId(event), event] as const),
+    ).values(),
+  ].toSorted(options.compare);
+  return {
+    events: distinct.slice(-options.size),
+    hasOlder: requested.length > options.size || distinct.length > options.size,
+  };
+}
+
 export function sliceBoundaryWindow<T>(options: {
   olderEvents: readonly T[];
   boundaryEvents: readonly T[];

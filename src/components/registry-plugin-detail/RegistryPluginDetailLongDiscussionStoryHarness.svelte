@@ -10,6 +10,7 @@
   {#snippet discussion()}
     <RegistryCommunityLongTimelineStoryHarness
       namespace="stable-timeline-detail"
+      latencyMs={250}
     />
   {/snippet}
 </RegistryPluginDetail>

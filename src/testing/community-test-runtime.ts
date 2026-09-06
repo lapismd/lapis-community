@@ -2,6 +2,7 @@ import { SecretKeyRegistrySigner } from "../auth/index.js";
 import {
   createCommunityController,
   createBrowserCommunityEventRuntime,
+  createInlineCommunityEventRuntime,
   createNip07CommunityIdentityConnector,
   createNip29CommunitySource,
   type CommunityConfigurationStore,
@@ -439,7 +440,10 @@ export async function createCommunityStoryRuntime(
     ...(options.configurationStore === undefined
       ? {}
       : { configurationStore: options.configurationStore }),
-    runtime: createBrowserCommunityEventRuntime(),
+    runtime:
+      backend === "live"
+        ? createBrowserCommunityEventRuntime()
+        : createInlineCommunityEventRuntime(),
     now:
       backend === "live"
         ? () => Math.floor(Date.now() / 1_000)

@@ -22,8 +22,17 @@ try {
     }
   });
   await page.goto(storyUrl, { waitUntil: "networkidle" });
+  const pluginHero = page.locator(".registry-plugin-detail__hero h1");
+  if (!(await pluginHero.isVisible())) {
+    const firstPost = page.getByRole("button", {
+      name: "Go to the first post",
+    });
+    if (await firstPost.isVisible()) {
+      await firstPost.click();
+    }
+  }
   try {
-    await page.locator(".registry-plugin-detail__hero h1").waitFor();
+    await pluginHero.waitFor();
   } catch (cause) {
     const content = await page.locator("body").innerText();
     throw new Error(

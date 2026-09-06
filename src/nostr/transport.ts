@@ -12,6 +12,12 @@ export interface RelayPublishResult {
   message: string;
 }
 
+export interface RelayCountResult {
+  count: number;
+  approximate: boolean;
+  hyperLogLog?: string;
+}
+
 export type RelayAuthSigner = (
   template: NostrEventTemplate,
 ) => Promise<NostrEvent>;
@@ -23,6 +29,10 @@ export interface RegistryRelay {
     signal?: AbortSignal,
   ): Promise<RelayPublishResult>;
   count?(filter: RelayFilter, signal?: AbortSignal): Promise<number>;
+  countMany?(
+    filters: readonly RelayFilter[],
+    signal?: AbortSignal,
+  ): Promise<RelayCountResult>;
   query(filter: RelayFilter, signal?: AbortSignal): Promise<NostrEvent[]>;
   publish(event: NostrEvent, signal?: AbortSignal): Promise<RelayPublishResult>;
   close(): void;
@@ -231,9 +241,19 @@ export class WebSocketRegistryRelay implements CommunityRelay {
   }
 
   async count(filter: RelayFilter, signal?: AbortSignal): Promise<number> {
+    return (await this.countMany([filter], signal)).count;
+  }
+
+  async countMany(
+    filters: readonly RelayFilter[],
+    signal?: AbortSignal,
+  ): Promise<RelayCountResult> {
+    if (filters.length === 0) {
+      throw new Error(`${this.url}: COUNT requires at least one filter`);
+    }
     signal?.throwIfAborted();
     const relay = await this.#connect(signal);
-    return await new Promise<number>((resolve, reject) => {
+    return await new Promise<RelayCountResult>((resolve, reject) => {
       let settled = false;
       const settle = (callback: () => void): void => {
         if (settled) return;
@@ -246,13 +266,37 @@ export class WebSocketRegistryRelay implements CommunityRelay {
           settle(() => {
             relay.close();
             this.#connection = undefined;
+            this.#authentication = undefined;
             reject(new Error(`${this.url}: COUNT timed out`));
           }),
         this.#eoseTimeoutMs,
       );
       void relay
-        .count([filter], {})
-        .then((count) => settle(() => resolve(count)))
+        .countWithHLL([...filters], {})
+        .then((payload) =>
+          settle(() => {
+            const response = payload as {
+              count?: unknown;
+              approximate?: unknown;
+              hll?: unknown;
+            };
+            if (
+              typeof response.count !== "number" ||
+              !Number.isSafeInteger(response.count) ||
+              response.count < 0
+            ) {
+              reject(new Error(`${this.url}: relay returned an invalid COUNT`));
+              return;
+            }
+            resolve({
+              count: response.count,
+              approximate: response.approximate === true,
+              ...(typeof response.hll === "string"
+                ? { hyperLogLog: response.hll }
+                : {}),
+            });
+          }),
+        )
         .catch((cause: unknown) => settle(() => reject(cause)));
       signal?.addEventListener(
         "abort",

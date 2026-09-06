@@ -18,6 +18,7 @@ import {
   parseProfiles,
   parseRelayUrls,
   reactionGroups,
+  selectRelayCount,
   seekTimestampForCount,
   shouldShowTimelineBack,
   timelineIndexFromPosition,
@@ -27,6 +28,23 @@ import {
 } from "./model.js";
 
 describe("registry community model", () => {
+  it("prefers the greatest exact relay count over estimates", () => {
+    expect(
+      selectRelayCount([
+        { count: 420, approximate: true },
+        { count: 39, approximate: false, hyperLogLog: "exact-a" },
+        { count: 41, approximate: false, hyperLogLog: "exact-b" },
+      ]),
+    ).toEqual({ count: 41, approximate: false, hyperLogLog: "exact-b" });
+    expect(
+      selectRelayCount([
+        { count: 420, approximate: true },
+        { count: 430, approximate: true },
+      ]),
+    ).toEqual({ count: 430, approximate: true });
+    expect(selectRelayCount([])).toBeUndefined();
+  });
+
   it("accepts unique WebSocket relay URLs and rejects other input", () => {
     expect(
       parseRelayUrls(

@@ -7,7 +7,21 @@
   } from "../../testing/index.js";
   import RegistryCommunity from "./RegistryCommunity.svelte";
 
-  let { namespace = "stable-timeline" }: { namespace?: string } = $props();
+  let {
+    namespace = "stable-timeline",
+    countMode = "exact",
+    countLatencyMs = 0,
+    latencyMs = 75,
+    postCount = 260,
+    postsPerSecond = 1,
+  }: {
+    namespace?: string;
+    countMode?: "exact" | "approximate" | "unavailable";
+    countLatencyMs?: number;
+    latencyMs?: number;
+    postCount?: number;
+    postsPerSecond?: number;
+  } = $props();
 
   let runtime = $state<RegistryCommunityStoryRuntime>();
   let runtimeError = $state("");
@@ -15,10 +29,14 @@
   onMount(() => {
     let active = true;
     void createRegistryCommunityStoryRuntime({
-      postCount: 260,
-      latencyMs: 75,
+      ...(countMode === "exact" ? {} : { backend: "memory" as const }),
+      postCount,
+      postsPerSecond,
+      latencyMs,
       includeReleaseEvents: false,
       namespace,
+      countMode,
+      countLatencyMs,
     })
       .then((created) => {
         if (active) runtime = created;
@@ -43,6 +61,7 @@
     class="long-timeline-story"
     data-testid="long-timeline-runtime"
     data-community-backend={runtime.backend}
+    data-count-mode={countMode}
   >
     <RegistryCommunity
       plugin={runtime.scenario.plugin}
@@ -55,7 +74,7 @@
     />
   </div>
 {:else}
-  <p role="status">Preparing 260 signed discussion posts…</p>
+  <p role="status">Preparing {postCount} signed discussion posts…</p>
 {/if}
 
 <style>

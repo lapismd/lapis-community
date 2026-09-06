@@ -283,7 +283,7 @@
           "data-community-content-sync",
           "complete",
         ),
-      { timeout: 30_000 },
+      { timeout: 15_000 },
     );
   }}
 >
@@ -835,12 +835,19 @@
       }),
     ).not.toBeInTheDocument();
     await waitFor(
-      () =>
+      () => {
+        const failure = canvasElement.ownerDocument.querySelector(
+          '[data-sonner-toast][data-type="error"]',
+        );
+        if (failure !== null) {
+          throw new Error(`Reaction failed: ${failure.textContent?.trim()}`);
+        }
         expect(application).toHaveAttribute(
           "data-last-action",
           expect.stringMatching(/^reaction:/u),
-        ),
-      { timeout: 15_000 },
+        );
+      },
+      { timeout: 30_000 },
     );
   }}
 >

@@ -190,10 +190,16 @@
     await expect(
       await canvas.findByText(/Reply 259:/u, {}, { timeout: 15_000 }),
     ).toBeVisible();
+    const detail = canvasElement.querySelector<HTMLElement>(
+      ".registry-plugin-detail",
+    );
+    await expect(detail).not.toBeNull();
     await waitFor(() =>
-      expect(
-        canvasElement.querySelector(".registry-plugin-detail__identity h1"),
-      ).not.toBeInTheDocument(),
+      expect(detail).toHaveClass("registry-plugin-detail--discussion-isolated"),
+    );
+    await waitFor(
+      () => expect(slider).toHaveAttribute("aria-disabled", "false"),
+      { timeout: 15_000 },
     );
 
     await userEvent.click(
@@ -205,11 +211,32 @@
       { timeout: 15_000 },
     );
     await expect(openingPost[0]).toBeVisible();
-    await waitFor(() =>
-      expect(
-        canvasElement.querySelector(".registry-plugin-detail__identity h1"),
-      ).toBeVisible(),
+    await waitFor(() => expect(slider).toHaveAttribute("aria-valuenow", "1"), {
+      timeout: 15_000,
+    });
+    await waitFor(
+      () => expect(slider).toHaveAttribute("aria-disabled", "false"),
+      { timeout: 15_000 },
     );
+    await waitFor(
+      () =>
+        expect(
+          canvas.getByRole("region", {
+            name: "Registry Demo community discussion",
+          }),
+        ).toHaveAttribute("data-page-start", "0"),
+      { timeout: 15_000 },
+    );
+    await waitFor(
+      () =>
+        expect(detail).not.toHaveClass(
+          "registry-plugin-detail--discussion-isolated",
+        ),
+      { timeout: 15_000 },
+    );
+    await expect(
+      detail.querySelector(".registry-plugin-detail__identity h1"),
+    ).toBeVisible();
   }}
 >
   {#snippet template()}

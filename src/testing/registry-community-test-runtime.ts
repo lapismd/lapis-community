@@ -34,8 +34,11 @@ export interface RegistryCommunityTestScenarioOptions {
   createdAt?: number;
   namespace?: string;
   postCount?: number;
+  postsPerSecond?: number;
   latencyMs?: number;
   includeReleaseEvents?: boolean;
+  countMode?: "exact" | "approximate" | "unavailable";
+  countLatencyMs?: number;
 }
 
 export interface RegistryCommunityTestScenario {
@@ -79,6 +82,7 @@ export function createRegistryCommunityTestScenario(
   const memberPubkey = publicKey(memberKey);
   const groupId = lapisPluginSupportGroupId(plugin);
   const postCount = Math.max(2, Math.floor(options.postCount ?? 2));
+  const postsPerSecond = Math.max(1, Math.floor(options.postsPerSecond ?? 1));
   const includeReleaseEvents = options.includeReleaseEvents ?? true;
   const releaseGroupId = lapisGroupId(LAPIS_GROUPS.pluginReleases);
   const release = finalizeEvent(
@@ -116,7 +120,7 @@ export function createRegistryCommunityTestScenario(
           index === 1
             ? "The shared controller boundary keeps this portable."
             : `Reply ${index}: bounded timeline navigation keeps the reading position stable.`,
-          createdAt + 3 + index,
+          createdAt + 3 + Math.floor(index / postsPerSecond),
           relayUrl,
         ),
         key,
@@ -262,9 +266,18 @@ export async function createRegistryCommunityStoryRuntime(
     const scenario = createRegistryCommunityTestScenario(options);
     const relay = relayFactory.relay(scenario.relayUrl);
     await scenario.seed(relay);
-    if (options.latencyMs !== undefined) {
-      relay.setFaults({ latencyMs: options.latencyMs });
-    }
+    relay.setFaults({
+      ...(options.latencyMs === undefined
+        ? {}
+        : { latencyMs: options.latencyMs }),
+      ...(options.countLatencyMs === undefined
+        ? {}
+        : { countLatencyMs: options.countLatencyMs }),
+      countApproximate: options.countMode === "approximate",
+      ...(options.countMode === "unavailable"
+        ? { rejectCount: "NIP-45 count unavailable" }
+        : {}),
+    });
     const dataSource = createRegistryCommunityDataSource({ relayFactory });
     return runtime(
       backend,

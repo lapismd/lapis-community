@@ -5,6 +5,7 @@
   import {
     createBrowserCommunityConfigurationStore,
     createBrowserCommunityEventRuntime,
+    createInlineCommunityEventRuntime,
     createCommunityController,
     createNip29CommunitySource,
     type CommunityDataSource,
@@ -248,7 +249,10 @@
                 source: createNip29CommunitySource({
                   relayFactory: created.relayFactory,
                 }),
-                runtime: createBrowserCommunityEventRuntime(),
+                runtime:
+                  created.backend === "live"
+                    ? createBrowserCommunityEventRuntime()
+                    : createInlineCommunityEventRuntime(),
                 now: () => 1_700_000_100,
               });
           community.initialize();

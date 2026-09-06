@@ -15,6 +15,8 @@
 
   const name = $derived(controller.name);
   const commentTotal = $derived(controller.commentTotal);
+  const commentTotalApproximate = $derived(controller.commentTotalApproximate);
+  const commentCountAvailable = $derived(controller.commentCountAvailable);
   const reviews = $derived(controller.reviews);
   const allReviews = $derived(controller.allReviews);
   const reactions = $derived(controller.reactions);
@@ -61,7 +63,7 @@
   });
 
   $effect(() => {
-    isolation?.setIsolated(hasPrevious);
+    isolation?.setIsolated(hasPrevious && pageStartIndex > 0);
   });
 
   onDestroy(() => isolation?.setIsolated(false));
@@ -128,6 +130,8 @@
   aria-label={`${name} community discussion`}
   data-design-core="0.1.0"
   data-comment-total={commentTotal}
+  data-comment-total-approximate={commentTotalApproximate}
+  data-comment-count-available={commentCountAvailable}
   data-loaded-comments={reviews.length}
   data-page-start={pageStartIndex}
   data-page-end={pageEndIndex}
@@ -135,7 +139,9 @@
   <Card.Root class="community-card">
     <Card.Content class="community-content">
       <CommunitySummary
-        posts={commentTotal}
+        posts={commentCountAvailable ? commentTotal : reviews.length}
+        postsApproximate={commentTotalApproximate}
+        postsUnavailable={!commentCountAvailable}
         reactions={reactions.length}
         participants={participantCount}
         pluginReactions={currentPluginReactions.length}
@@ -158,7 +164,8 @@
 
       <div
         class="discussion"
-        class:discussion--with-timeline={commentTotal > 1 &&
+        class:discussion--with-timeline={commentCountAvailable &&
+          commentTotal > 1 &&
           threadFirstTimestamp > 0 &&
           threadLastTimestamp > 0}
         aria-busy={loading || loadingJump || loadingPrevious || loadingNext}
@@ -211,7 +218,7 @@
           {/if}
         </div>
 
-        {#if commentTotal > 1 && threadFirstTimestamp > 0 && threadLastTimestamp > 0}
+        {#if commentCountAvailable && commentTotal > 1 && threadFirstTimestamp > 0 && threadLastTimestamp > 0}
           <DiscussionTimeline
             total={commentTotal}
             currentIndex={activeGlobalPostIndex}
@@ -219,7 +226,8 @@
             firstTimestamp={threadFirstTimestamp}
             lastTimestamp={threadLastTimestamp}
             returnIndex={timelineReturnIndex}
-            disabled={loadingJump}
+            disabled={loadingJump || commentTotalApproximate}
+            approximate={commentTotalApproximate}
             pageSize={commentPageSize}
             onJump={navigateTimelineToIndex}
             onReturn={returnToTimelineOrigin}

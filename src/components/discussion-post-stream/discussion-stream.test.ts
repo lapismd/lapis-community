@@ -4,6 +4,7 @@ import {
   DiscussionPaginationError,
   adjacentDiscussionWindow,
   centeredDiscussionWindow,
+  completeNewestBoundedSlice,
   initialDiscussionWindow,
   mergeDiscussionPosts,
   shouldCloakDiscussionPost,
@@ -62,6 +63,27 @@ describe("discussion stream windows", () => {
         left.createdAt - right.createdAt || left.id.localeCompare(right.id),
     );
     expect(posts.map((post) => post.id)).toEqual(["a", "b", "c"]);
+  });
+
+  it("completes the oldest same-second bucket before slicing a bounded page", () => {
+    const result = completeNewestBoundedSlice({
+      requestedEvents: [
+        { id: "01", createdAt: 1 },
+        { id: "03", createdAt: 2 },
+      ],
+      boundaryEvents: [
+        { id: "01", createdAt: 1 },
+        { id: "02", createdAt: 1 },
+      ],
+      size: 2,
+      eventId: (event) => event.id,
+      createdAt: (event) => event.createdAt,
+      compare: (left, right) =>
+        left.createdAt - right.createdAt || left.id.localeCompare(right.id),
+    });
+
+    expect(result.events.map((event) => event.id)).toEqual(["02", "03"]);
+    expect(result.hasOlder).toBe(true);
   });
 
   it("slices a window across a deterministic same-second boundary", () => {

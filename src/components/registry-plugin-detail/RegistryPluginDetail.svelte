@@ -204,6 +204,20 @@
     );
   }
 
+  function discussionScrollViewport(
+    node: HTMLElement,
+  ): HTMLElement | undefined {
+    let candidate = node.parentElement;
+    while (candidate !== null) {
+      if (
+        /^(auto|overlay|scroll)$/u.test(getComputedStyle(candidate).overflowY)
+      )
+        return candidate;
+      candidate = candidate.parentElement;
+    }
+    return undefined;
+  }
+
   function compensateDiscussionAnchor(
     anchor: HTMLElement | undefined,
     top: number | undefined,
@@ -211,7 +225,10 @@
     if (anchor === undefined || top === undefined || !anchor.isConnected)
       return;
     const delta = anchor.getBoundingClientRect().top - top;
-    if (Math.abs(delta) > 0.5) window.scrollBy(0, delta);
+    if (Math.abs(delta) <= 0.5) return;
+    const viewport = discussionScrollViewport(anchor);
+    if (viewport !== undefined) viewport.scrollBy(0, delta);
+    else window.scrollBy(0, delta);
   }
 
   function setDiscussionIsolated(isolated: boolean): void {

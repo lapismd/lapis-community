@@ -1,6 +1,6 @@
 <script module lang="ts">
   import { defineMeta } from "@storybook/addon-svelte-csf";
-  import { expect, userEvent, within } from "storybook/test";
+  import { expect, userEvent, waitFor, within } from "storybook/test";
 
   import RegistryCommunity from "./RegistryCommunity.svelte";
   import RegistryCommunityStoryHarness from "./RegistryCommunityStoryHarness.svelte";
@@ -53,12 +53,6 @@
         name: "Registry Demo community discussion",
       }),
     ).toBeVisible();
-    if (runtime.dataset.communityBackend === "docker") {
-      await expect(await canvas.findByRole("alert")).toHaveTextContent(
-        "The community relay must support NIP-45 event counts.",
-      );
-      return;
-    }
     await expect(
       (await canvas.findAllByText("Seeded registry discussion"))[0],
     ).toBeVisible();
@@ -78,13 +72,21 @@
       canvas.queryByText("No comments yet. Start the conversation."),
     ).not.toBeInTheDocument();
     await userEvent.click(
-      canvas.getByRole("button", { name: "Open profile for Publisher" }),
+      await canvas.findByRole(
+        "button",
+        { name: "Open profile for Publisher" },
+        { timeout: 15_000 },
+      ),
     );
     await expect(
       await within(document.body).findByText("Nostr community profile"),
     ).toBeVisible();
     await userEvent.click(
-      canvas.getByRole("button", { name: "Open profile for Publisher" }),
+      await canvas.findByRole(
+        "button",
+        { name: "Open profile for Publisher" },
+        { timeout: 15_000 },
+      ),
     );
 
     const composer = canvas.getByRole("textbox", {
@@ -120,21 +122,78 @@
       { timeout: 10_000 },
     );
     if (runtime.dataset.communityBackend === "live") return;
-    if (runtime.dataset.communityBackend === "docker") {
-      await expect(await canvas.findByRole("alert")).toHaveTextContent(
-        "The community relay must support NIP-45 event counts.",
-      );
-      return;
-    }
+    const community = await canvas.findByRole("region", {
+      name: "Registry Demo community discussion",
+    });
+    await expect(
+      await canvas.findByText(/Reply 259:/u, {}, { timeout: 15_000 }),
+    ).toBeVisible();
+    await expect(community).toHaveAttribute(
+      "data-comment-count-available",
+      "false",
+    );
     const timeline = await canvas.findByRole(
       "slider",
       { name: "Discussion position" },
       { timeout: 15_000 },
     );
     await expect(timeline).toHaveAttribute("aria-valuemax", "260");
+    const track = canvas.getByRole("group", {
+      name: "Discussion timeline",
+    });
+    const handleBounds = timeline.getBoundingClientRect();
+    const trackBounds = track.getBoundingClientRect();
+    let loadedWhileDragging = false;
+    timeline.addEventListener(
+      "pointermove",
+      () => {
+        loadedWhileDragging =
+          canvas.queryByRole("status", {
+            name: "Loading discussion posts",
+          }) !== null;
+      },
+      { once: true },
+    );
+    await userEvent.pointer([
+      {
+        keys: "[MouseLeft>]",
+        target: timeline,
+        coords: {
+          x: handleBounds.left + handleBounds.width / 2,
+          y: handleBounds.top + handleBounds.height / 2,
+        },
+      },
+      {
+        target: timeline,
+        coords: {
+          x: trackBounds.left + trackBounds.width / 2,
+          y: trackBounds.top + trackBounds.height / 2,
+        },
+      },
+      {
+        keys: "[/MouseLeft]",
+        target: timeline,
+        coords: {
+          x: trackBounds.left + trackBounds.width / 2,
+          y: trackBounds.top + trackBounds.height / 2,
+        },
+      },
+    ]);
+    await expect(loadedWhileDragging).toBe(false);
     await expect(
-      await canvas.findByText(/Reply 259:/u, {}, { timeout: 15_000 }),
+      canvas.getByRole("status", { name: "Loading discussion posts" }),
     ).toBeVisible();
+    await waitFor(
+      () =>
+        expect(Number(timeline.getAttribute("aria-valuenow"))).toBeLessThan(
+          240,
+        ),
+      { timeout: 15_000 },
+    );
+    await waitFor(
+      () => expect(timeline).toHaveAttribute("aria-disabled", "false"),
+      { timeout: 15_000 },
+    );
     await userEvent.click(
       canvas.getByRole("button", { name: "Go to the first post" }),
     );
@@ -152,6 +211,7 @@
         )
       )[0],
     ).toBeVisible();
+    await waitFor(() => expect(timeline).toHaveAttribute("aria-valuenow", "1"));
     await userEvent.click(
       canvas.getByRole("button", { name: "Go to the latest post" }),
     );
@@ -161,9 +221,97 @@
     await expect(
       await canvas.findByText(/Reply 259:/u, {}, { timeout: 15_000 }),
     ).toBeVisible();
+    await waitFor(
+      () => expect(timeline).toHaveAttribute("aria-valuenow", "260"),
+      { timeout: 15_000 },
+    );
   }}
 >
   {#snippet template()}
-    <RegistryCommunityLongTimelineStoryHarness />
+    <RegistryCommunityLongTimelineStoryHarness
+      countLatencyMs={700}
+      postsPerSecond={2}
+    />
+  {/snippet}
+</Story>
+
+<Story
+  name="Approximate discussion count"
+  parameters={{
+    layout: "fullscreen",
+    viewport: { defaultViewport: "desktop" },
+  }}
+  play={async ({ canvas }) => {
+    const community = await canvas.findByRole(
+      "region",
+      { name: "Registry Demo community discussion" },
+      { timeout: 15_000 },
+    );
+    await waitFor(
+      () =>
+        expect(community).toHaveAttribute(
+          "data-comment-total-approximate",
+          "true",
+        ),
+      { timeout: 15_000 },
+    );
+    await expect(canvas.getByLabelText("Approximately 40 posts")).toBeVisible();
+    const timeline = canvas.getByRole("slider", {
+      name: "Discussion position",
+    });
+    await expect(timeline).toHaveAttribute("aria-disabled", "true");
+    await expect(timeline).toHaveAttribute(
+      "aria-valuetext",
+      "Approximately 40 posts; exact timeline navigation unavailable",
+    );
+    await expect(
+      await canvas.findByText(/Reply 39:/u, {}, { timeout: 15_000 }),
+    ).toBeVisible();
+  }}
+>
+  {#snippet template()}
+    <RegistryCommunityLongTimelineStoryHarness
+      namespace="approximate-timeline"
+      countMode="approximate"
+      postCount={40}
+    />
+  {/snippet}
+</Story>
+
+<Story
+  name="Unavailable discussion count"
+  parameters={{
+    layout: "fullscreen",
+    viewport: { defaultViewport: "desktop" },
+  }}
+  play={async ({ canvas }) => {
+    const community = await canvas.findByRole(
+      "region",
+      { name: "Registry Demo community discussion" },
+      { timeout: 15_000 },
+    );
+    await expect(
+      await canvas.findByText(/Reply 39:/u, {}, { timeout: 15_000 }),
+    ).toBeVisible();
+    await expect(community).toHaveAttribute(
+      "data-comment-count-available",
+      "false",
+    );
+    await expect(
+      canvas.getByLabelText(
+        "At least 20 loaded posts; total count unavailable",
+      ),
+    ).toBeVisible();
+    await expect(
+      canvas.queryByRole("slider", { name: "Discussion position" }),
+    ).not.toBeInTheDocument();
+  }}
+>
+  {#snippet template()}
+    <RegistryCommunityLongTimelineStoryHarness
+      namespace="unavailable-timeline"
+      countMode="unavailable"
+      postCount={40}
+    />
   {/snippet}
 </Story>

@@ -17,6 +17,7 @@
     lastTimestamp,
     returnIndex,
     disabled = false,
+    approximate = false,
     pageSize = 20,
     fluid = false,
     onJump,
@@ -30,6 +31,7 @@
     lastTimestamp: number;
     returnIndex?: number | undefined;
     disabled?: boolean;
+    approximate?: boolean;
     pageSize?: number;
     fluid?: boolean;
     onJump: (index: number) => void | Promise<void>;
@@ -216,6 +218,7 @@
     bind:this={trackElement}
     role="group"
     aria-label="Discussion timeline"
+    aria-disabled={busy}
     onpointerdown={startDrag}
     onpointermove={moveDrag}
     onpointerup={finishDrag}
@@ -245,15 +248,22 @@
       role="slider"
       tabindex="0"
       aria-label="Discussion position"
+      aria-disabled={busy}
       aria-valuemin="1"
       aria-valuemax={total}
       aria-valuenow={displayIndex + 1}
-      aria-valuetext={`Post ${displayIndex + 1} of ${total}, ${formatShortDate(displayTimestamp)}`}
+      aria-valuetext={approximate
+        ? `Approximately ${total} posts; exact timeline navigation unavailable`
+        : `Post ${displayIndex + 1} of ${total}, ${formatShortDate(displayTimestamp)}`}
       onkeydown={handleKey}
     >
       <span class="history-handle-bar" aria-hidden="true"></span>
       <span class="history-current">
-        <strong>{displayIndex + 1} / {total}</strong>
+        <strong
+          >{approximate
+            ? `~${total}`
+            : `${displayIndex + 1} / ${total}`}</strong
+        >
         <span>{formatShortDate(displayTimestamp)}</span>
       </span>
     </div>

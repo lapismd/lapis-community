@@ -9,6 +9,7 @@
     lastTimestamp,
     returnIndex,
     disabled = false,
+    approximate = false,
     pageSize = 20,
     onJump,
     onReturn,
@@ -20,6 +21,7 @@
     lastTimestamp: number;
     returnIndex?: number | undefined;
     disabled?: boolean;
+    approximate?: boolean;
     pageSize?: number;
     onJump: (index: number) => void | Promise<void>;
     onReturn: () => void | Promise<void>;
@@ -44,6 +46,7 @@
       {lastTimestamp}
       {returnIndex}
       {disabled}
+      {approximate}
       {pageSize}
       {onJump}
       {onReturn}
@@ -58,7 +61,11 @@
   aria-controls="discussion-mobile-timeline"
   onclick={() => (mobileOpen = true)}
 >
-  <span>Post {currentIndex + 1} of {total}</span>
+  <span>
+    {approximate
+      ? `Approximately ${total} posts`
+      : `Post ${currentIndex + 1} of ${total}`}
+  </span>
   <strong>Timeline</strong>
 </button>
 
@@ -77,7 +84,11 @@
     <header>
       <div>
         <strong>Discussion timeline</strong>
-        <span>Jump through {total} posts without loading the whole topic.</span>
+        <span>
+          {approximate
+            ? `Approximately ${total} posts. Exact timeline navigation is unavailable.`
+            : `Jump through ${total} posts without loading the whole topic.`}
+        </span>
       </div>
       <button
         type="button"
@@ -96,6 +107,7 @@
         {lastTimestamp}
         {returnIndex}
         {disabled}
+        {approximate}
         {pageSize}
         fluid
         {onJump}

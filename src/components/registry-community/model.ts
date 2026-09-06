@@ -1,6 +1,19 @@
 import { verifyEvent } from "nostr-tools/pure";
 
+import type { RelayCountResult } from "../../nostr/index.js";
 import { NIP29_KINDS, type NostrEvent } from "../../protocol/index.js";
+
+export function selectRelayCount(
+  results: readonly RelayCountResult[],
+): RelayCountResult | undefined {
+  const exact = results.filter((result) => !result.approximate);
+  const candidates = exact.length > 0 ? exact : results;
+  return candidates.toSorted(
+    (left, right) =>
+      right.count - left.count ||
+      (left.hyperLogLog ?? "").localeCompare(right.hyperLogLog ?? ""),
+  )[0];
+}
 
 export function parseRelayUrls(value: string): string[] {
   try {

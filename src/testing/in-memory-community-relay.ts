@@ -10,6 +10,7 @@ import type {
   RelayFilter,
   RelayPublishResult,
 } from "../nostr/index.js";
+import type { RelayCountResult } from "../nostr/transport.js";
 import type {
   NostrEvent,
   NostrEventTemplate,
@@ -18,6 +19,9 @@ import type {
 
 export interface InMemoryRelayFaults {
   latencyMs?: number;
+  countLatencyMs?: number;
+  countApproximate?: boolean;
+  rejectCount?: string;
   disconnected?: boolean;
   dropSubscriptions?: boolean;
   duplicateDeliveries?: number;
@@ -193,6 +197,45 @@ export class InMemoryCommunityRelay implements CommunityRelay {
     return [...this.#events.values()].filter((event) =>
       matchFilter(countFilter, event),
     ).length;
+  }
+
+  async countMany(
+    filters: readonly RelayFilter[],
+    signal?: AbortSignal,
+  ): Promise<RelayCountResult> {
+    await this.#beforeOperation(signal, this.#authentication.read === true);
+    if (this.#faults.rejectCount !== undefined) {
+      throw new Error(this.#faults.rejectCount);
+    }
+    const countLatency = filters.some(
+      (filter) => filter.since === undefined && filter.until === undefined,
+    )
+      ? Math.max(0, this.#faults.countLatencyMs ?? 0)
+      : 0;
+    if (countLatency > 0) {
+      await new Promise<void>((resolve, reject) => {
+        const timeout = setTimeout(resolve, countLatency);
+        signal?.addEventListener(
+          "abort",
+          () => {
+            clearTimeout(timeout);
+            reject(signal.reason);
+          },
+          { once: true },
+        );
+      });
+    }
+    const countFilters = filters.map((filter) => {
+      const countFilter = { ...filter };
+      delete countFilter.limit;
+      return countFilter;
+    });
+    return {
+      count: [...this.#events.values()].filter((event) =>
+        countFilters.some((filter) => matchFilter(filter, event)),
+      ).length,
+      approximate: this.#faults.countApproximate === true,
+    };
   }
 
   async subscribe(

@@ -40,6 +40,37 @@ registerCommunityRelayContract("InMemoryCommunityRelay contract", () => {
 });
 
 describe("InMemoryCommunityRelay fault controls", () => {
+  it("counts multiple filters as a deduplicated OR and ignores limits", async () => {
+    const relay = new InMemoryCommunityRelay();
+    const first = finalizeEvent(
+      {
+        kind: 9,
+        created_at: 100,
+        content: "first",
+        tags: [["h", "general"]],
+      },
+      relayContractAliceKey,
+    );
+    const second = finalizeEvent(
+      {
+        kind: 9,
+        created_at: 101,
+        content: "second",
+        tags: [["h", "general"]],
+      },
+      relayContractAliceKey,
+    );
+    await relay.publish(first);
+    await relay.publish(second);
+
+    await expect(
+      relay.countMany([
+        { kinds: [9], limit: 1 },
+        { ids: [first.id], "#h": ["general"] },
+      ]),
+    ).resolves.toEqual({ count: 2, approximate: false });
+  });
+
   it("delivers configured duplicates and stops after subscription close", async () => {
     const relay = new InMemoryCommunityRelay({
       faults: { duplicateDeliveries: 2 },
