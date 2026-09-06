@@ -5,6 +5,10 @@ discussion stream from plugin-detail presentation while earlier windows remain
 available. That private presentation context does not alter consumer-provided
 discussion snippets or add a public component or data-source interface.
 
+Dependency refreshes advance the minimum compatible Design Core release in the
+portable package manifest and committed lockfile together, without changing the
+public import boundary.
+
 ## Requirements
 
 | ID          | Requirement                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |

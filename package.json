@@ -116,7 +116,7 @@
     "@codemirror/state": "^6.7.2",
     "@codemirror/view": "^6.43.10",
     "@emoji-mart/data": "^1.2.1",
-    "@lapismd/design-core": "^0.1.0",
+    "@lapismd/design-core": "^0.1.2",
     "@lapismd/mira": "^0.0.2",
     "@lucide/svelte": "^1.21.0",
     "@noble/hashes": "^2.4.0",

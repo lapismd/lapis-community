@@ -1,5 +1,9 @@
 # Nostr Protocol and Trust
 
+Protocol-backed presentation follows the package's portable, published Design
+Core semver boundary; dependency refreshes do not alter event interpretation or
+trust decisions.
+
 ## Requirements
 
 | ID           | Requirement                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
