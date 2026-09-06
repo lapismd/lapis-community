@@ -60,6 +60,15 @@
       ),
     })),
   };
+  const scrollableForumNonmemberModel = {
+    ...forumNonmemberModel,
+    topics: Array.from({ length: 3 }, (_, page) =>
+      forumNonmemberModel.topics.map((topic) => ({
+        ...topic,
+        id: `${topic.id}-${page + 1}`,
+      })),
+    ).flat(),
+  };
   const withActiveRoom = (
     membership: "joined" | "not-joined" | "unknown",
     publish: { state: "enabled" | "denied"; reason?: string },
@@ -170,7 +179,7 @@
 <Story
   name="Known forum nonmember"
   args={{
-    model: forumNonmemberModel,
+    model: scrollableForumNonmemberModel,
     readOnly: true,
     readOnlyReason: "Join this room before posting or reacting",
     showJoinAction: true,
@@ -180,8 +189,32 @@
     const membership = canvasElement.querySelector(
       '[data-ui-part="room-membership"]',
     );
+    const scrollShell = canvasElement.querySelector<HTMLElement>(
+      '[data-ui-part="forum-scroll-shell"]',
+    );
     await expect(membership).not.toBeNull();
+    await expect(scrollShell).not.toBeNull();
     await expect(membership).toHaveTextContent("Viewing support-ai");
+    await expect(scrollShell?.contains(membership)).toBe(false);
+    await expect(scrollShell!.scrollHeight).toBeGreaterThan(
+      scrollShell!.clientHeight,
+    );
+    await expect(
+      Math.abs(
+        scrollShell!.getBoundingClientRect().bottom -
+          membership!.getBoundingClientRect().top,
+      ),
+    ).toBeLessThanOrEqual(1);
+    const footerTop = membership!.getBoundingClientRect().top;
+    scrollShell!.scrollTop = scrollShell!.scrollHeight;
+    scrollShell!.dispatchEvent(new Event("scroll"));
+    await new Promise<void>((resolve) => {
+      requestAnimationFrame(() => resolve());
+    });
+    await expect(scrollShell!.scrollTop).toBeGreaterThan(0);
+    await expect(
+      Math.abs(membership!.getBoundingClientRect().top - footerTop),
+    ).toBeLessThanOrEqual(1);
     const join = canvas.getByRole("button", { name: "Join to participate" });
     await expect(join.querySelector("svg")).not.toBeNull();
     await userEvent.click(join);
@@ -193,7 +226,15 @@
       canvas.queryByText("Join this room before posting or reacting"),
     ).not.toBeInTheDocument();
   }}
-/>
+>
+  {#snippet template(args)}
+    <div
+      style="height: min(34rem, 80vh); min-height: 24rem; border: 1px solid var(--border);"
+    >
+      <CommunityWorkspaceSurface {...args} />
+    </div>
+  {/snippet}
+</Story>
 
 <Story
   name="Join requested"

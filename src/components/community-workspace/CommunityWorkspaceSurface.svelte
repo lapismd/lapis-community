@@ -236,41 +236,46 @@
       {/if}
     </div>
   {:else if model.view === "forum-index"}
-    <ForumTopicList
-      title={activeRoom.name}
-      topics={model.topics}
-      members={model.members}
-      {rooms}
-      {communityEmojis}
-      {...model.currentMemberId === undefined
-        ? {}
-        : { currentMemberId: model.currentMemberId }}
-      {...handlers.onOpenTopic === undefined
-        ? {}
-        : { onOpenTopic: handlers.onOpenTopic }}
-      {...knownNonmember || handlers.onCreateTopic === undefined
-        ? {}
-        : {
-            onCreateTopic: (draft) =>
-              Promise.resolve(handlers.onCreateTopic?.(activeRoom.id, draft)),
-          }}
-      disabled={surfaceReadOnly}
-      {readOnlyReason}
-      {...composerStatus === undefined ? {} : { composerStatus }}
-      {...retryComposerOperation === undefined
-        ? {}
-        : { onRetryComposerStatus: retryComposerOperation }}
-      {...dismissComposerOperation === undefined
-        ? {}
-        : { onDismissComposerStatus: dismissComposerOperation }}
-      canDeleteTopic={(topic) =>
-        topic.authorId === model.currentMemberId ||
-        activeRoom.permissions?.delete.state === "enabled"}
-      {historyUpdating}
-      {...handlers.onTopicAction === undefined
-        ? {}
-        : { onTopicAction: handlers.onTopicAction }}
-    />
+    <div
+      class="community-workspace-surface__forum-scroll-shell"
+      data-ui-part="forum-scroll-shell"
+    >
+      <ForumTopicList
+        title={activeRoom.name}
+        topics={model.topics}
+        members={model.members}
+        {rooms}
+        {communityEmojis}
+        {...model.currentMemberId === undefined
+          ? {}
+          : { currentMemberId: model.currentMemberId }}
+        {...handlers.onOpenTopic === undefined
+          ? {}
+          : { onOpenTopic: handlers.onOpenTopic }}
+        {...knownNonmember || handlers.onCreateTopic === undefined
+          ? {}
+          : {
+              onCreateTopic: (draft) =>
+                Promise.resolve(handlers.onCreateTopic?.(activeRoom.id, draft)),
+            }}
+        disabled={surfaceReadOnly}
+        {readOnlyReason}
+        {...composerStatus === undefined ? {} : { composerStatus }}
+        {...retryComposerOperation === undefined
+          ? {}
+          : { onRetryComposerStatus: retryComposerOperation }}
+        {...dismissComposerOperation === undefined
+          ? {}
+          : { onDismissComposerStatus: dismissComposerOperation }}
+        canDeleteTopic={(topic) =>
+          topic.authorId === model.currentMemberId ||
+          activeRoom.permissions?.delete.state === "enabled"}
+        {historyUpdating}
+        {...handlers.onTopicAction === undefined
+          ? {}
+          : { onTopicAction: handlers.onTopicAction }}
+      />
+    </div>
     {#if knownNonmember}
       {@render roomMembershipFooter()}
     {/if}
@@ -590,10 +595,17 @@
     min-height: 0;
   }
 
-  .community-workspace-surface > :global(.forum-topic-list),
   .community-workspace-surface > :global(.community-conversation) {
     flex: 1;
     min-height: 0;
+  }
+
+  .community-workspace-surface__forum-scroll-shell {
+    min-width: 0;
+    min-height: 0;
+    flex: 1;
+    overflow-y: auto;
+    overscroll-behavior: contain;
   }
 
   .community-workspace-surface__intro {
