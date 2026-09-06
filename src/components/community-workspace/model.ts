@@ -1,3 +1,5 @@
+import type { NostrEvent } from "../../protocol/index.js";
+
 export type CommunityRoomKind = "channel" | "forum" | "direct";
 export type CommunityPresence = "online" | "away" | "offline";
 export type CommunityMainView = "channel" | "forum-index" | "forum-thread";
@@ -85,6 +87,8 @@ export interface CommunityMessageModel {
   id: string;
   authorId: string;
   content: string;
+  /** The verified public relay event backing this message, when available. */
+  sourceEvent?: NostrEvent;
   mentionPubkeys?: readonly string[];
   timestamp: string;
   createdAt?: string;
@@ -166,6 +170,7 @@ export interface CommunityWorkspaceHandlers {
   ) => void | Promise<void>;
   onCopyMessageLink?: (messageId: string) => void;
   onCopyMessage?: (messageId: string) => void;
+  onCopyEvent?: (messageId: string) => void;
   onEditMessage?: (messageId: string) => void | Promise<void>;
   onDeleteMessage?: (messageId: string) => void | Promise<void>;
   onOpenProfile?: (member: CommunityMemberModel) => void;

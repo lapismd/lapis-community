@@ -7,8 +7,11 @@
   import { ReactionBar } from "@lapismd/design-core/ai/experimental";
   import { Button } from "@lapismd/design-core/shadcn/button";
   import * as DropdownMenu from "@lapismd/design-core/shadcn/dropdown-menu";
+  import ClipboardCopyIcon from "@lucide/svelte/icons/clipboard-copy";
   import CopyIcon from "@lucide/svelte/icons/copy";
   import EllipsisIcon from "@lucide/svelte/icons/ellipsis";
+  import FileJson2Icon from "@lucide/svelte/icons/file-json-2";
+  import LinkIcon from "@lucide/svelte/icons/link";
   import MessageSquareReplyIcon from "@lucide/svelte/icons/message-square-reply";
   import PencilIcon from "@lucide/svelte/icons/pencil";
   import Trash2Icon from "@lucide/svelte/icons/trash-2";
@@ -40,6 +43,7 @@
     onAddReaction,
     onCopyLink,
     onCopyMessage,
+    onCopyEvent,
     onEdit,
     onDelete,
     onOpenProfile,
@@ -71,6 +75,7 @@
     ) => void | Promise<void>;
     onCopyLink?: (messageId: string) => void;
     onCopyMessage?: (messageId: string) => void;
+    onCopyEvent?: (messageId: string) => void;
     onEdit?: (messageId: string) => void | Promise<void>;
     onDelete?: (messageId: string) => void | Promise<void>;
     onOpenProfile?: (member: CommunityMemberModel) => void;
@@ -163,6 +168,9 @@
     (message.replyCount ?? 0) > 0 && onOpenThread !== undefined,
   );
   const replyAction = $derived(onReply ?? onOpenThread);
+  const canCopyEvent = $derived(
+    onCopyEvent !== undefined && message.sourceEvent !== undefined,
+  );
 </script>
 
 <Message
@@ -229,7 +237,7 @@
     </div>
   {/if}
 
-  {#if onAddReaction}
+  {#if onAddReaction || replyAction || onCopyLink || onCopyMessage || canCopyEvent || onEdit || onDelete}
     <div
       class="community-message__actions"
       data-ui-part="message-actions"
@@ -238,18 +246,20 @@
       onpointerenter={keepActionsVisible}
       onpointerleave={scheduleActionsHide}
     >
-      <CommunityEmojiPicker
-        label="Add reaction"
-        {communityEmojis}
-        onSelect={(emoji, custom) =>
-          onAddReaction(
-            message.id,
-            emoji,
-            custom === undefined
-              ? undefined
-              : { shortcode: custom.shortcode, url: custom.url },
-          )}
-      />
+      {#if onAddReaction}
+        <CommunityEmojiPicker
+          label="Add reaction"
+          {communityEmojis}
+          onSelect={(emoji, custom) =>
+            onAddReaction(
+              message.id,
+              emoji,
+              custom === undefined
+                ? undefined
+                : { shortcode: custom.shortcode, url: custom.url },
+            )}
+        />
+      {/if}
       {#if replyAction}
         <Button
           type="button"
@@ -274,7 +284,7 @@
           <CopyIcon aria-hidden="true" />
         </Button>
       {/if}
-      {#if onCopyLink || onCopyMessage || onEdit || onDelete}
+      {#if onCopyLink || onCopyMessage || canCopyEvent || onEdit || onDelete}
         <DropdownMenu.Root>
           <DropdownMenu.Trigger>
             {#snippet child({ props })}
@@ -290,40 +300,59 @@
               </Button>
             {/snippet}
           </DropdownMenu.Trigger>
-          <DropdownMenu.Content align="end" sideOffset={4}>
-            {#if onCopyMessage}
+          <DropdownMenu.Content
+            class="community-message__menu-content"
+            align="end"
+            sideOffset={4}
+          >
+            {#if onCopyMessage || canCopyEvent || onCopyLink}
               <DropdownMenu.Group>
-                <DropdownMenu.Item onSelect={() => onCopyMessage(message.id)}>
-                  <CopyIcon data-icon="inline-start" aria-hidden="true" />
-                  Copy message
-                </DropdownMenu.Item>
+                {#if onCopyMessage}
+                  <DropdownMenu.Item onSelect={() => onCopyMessage(message.id)}>
+                    <ClipboardCopyIcon
+                      data-icon="inline-start"
+                      aria-hidden="true"
+                    />
+                    Copy message
+                  </DropdownMenu.Item>
+                {/if}
+                {#if canCopyEvent}
+                  <DropdownMenu.Item onSelect={() => onCopyEvent?.(message.id)}>
+                    <FileJson2Icon
+                      data-icon="inline-start"
+                      aria-hidden="true"
+                    />
+                    Copy event
+                  </DropdownMenu.Item>
+                {/if}
+                {#if onCopyLink}
+                  <DropdownMenu.Item onSelect={() => onCopyLink(message.id)}>
+                    <LinkIcon data-icon="inline-start" aria-hidden="true" />
+                    Copy message link
+                  </DropdownMenu.Item>
+                {/if}
               </DropdownMenu.Group>
             {/if}
-            {#if onCopyLink}
-              <DropdownMenu.Group>
-                <DropdownMenu.Item onSelect={() => onCopyLink(message.id)}>
-                  <CopyIcon data-icon="inline-start" aria-hidden="true" />
-                  Copy message link
-                </DropdownMenu.Item>
-              </DropdownMenu.Group>
+            {#if (onCopyMessage || canCopyEvent || onCopyLink) && (onEdit || onDelete)}
+              <DropdownMenu.Separator />
             {/if}
-            {#if onEdit}
+            {#if onEdit || onDelete}
               <DropdownMenu.Group>
-                <DropdownMenu.Item onSelect={() => onEdit(message.id)}>
-                  <PencilIcon data-icon="inline-start" aria-hidden="true" />
-                  Edit message
-                </DropdownMenu.Item>
-              </DropdownMenu.Group>
-            {/if}
-            {#if onDelete}
-              <DropdownMenu.Group>
-                <DropdownMenu.Item
-                  variant="destructive"
-                  onSelect={() => onDelete(message.id)}
-                >
-                  <Trash2Icon data-icon="inline-start" aria-hidden="true" />
-                  Delete message
-                </DropdownMenu.Item>
+                {#if onEdit}
+                  <DropdownMenu.Item onSelect={() => onEdit(message.id)}>
+                    <PencilIcon data-icon="inline-start" aria-hidden="true" />
+                    Edit message
+                  </DropdownMenu.Item>
+                {/if}
+                {#if onDelete}
+                  <DropdownMenu.Item
+                    variant="destructive"
+                    onSelect={() => onDelete(message.id)}
+                  >
+                    <Trash2Icon data-icon="inline-start" aria-hidden="true" />
+                    Delete message
+                  </DropdownMenu.Item>
+                {/if}
               </DropdownMenu.Group>
             {/if}
           </DropdownMenu.Content>
@@ -473,6 +502,10 @@
     background: color-mix(in srgb, var(--foreground) 12%, transparent);
     box-shadow: inset 0 0 0 1px
       color-mix(in srgb, var(--foreground) 10%, transparent);
+  }
+
+  :global(.community-message__menu-content) {
+    min-width: 13.5rem;
   }
 
   .community-message__author {

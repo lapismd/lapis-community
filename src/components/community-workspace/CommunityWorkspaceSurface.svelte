@@ -339,6 +339,9 @@
       {...handlers.onCopyMessage === undefined
         ? {}
         : { onCopyMessage: handlers.onCopyMessage }}
+      {...handlers.onCopyEvent === undefined
+        ? {}
+        : { onCopyEvent: handlers.onCopyEvent }}
       {...knownNonmember || handlers.onEditMessage === undefined
         ? {}
         : { onEditMessage: handlers.onEditMessage }}

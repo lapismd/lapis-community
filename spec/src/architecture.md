@@ -5,6 +5,10 @@ discussion stream from plugin-detail presentation while earlier windows remain
 available. That private presentation context does not alter consumer-provided
 discussion snippets or add a public component or data-source interface.
 
+For LC-ARCH-008, a normalized public message MAY retain its already verified
+source event for explicit export actions. Presentation MUST treat that event as
+read-only evidence and MUST continue to render only normalized safe content.
+
 For LC-ARCH-010, `CommunityApplication` MUST privately share the controller's
 active identity and existing deferred authentication runner with nested
 Registry discussions. This bridge MUST remain internal to the application

@@ -35,6 +35,7 @@
     onToggleReaction,
     onCopyMessageLink,
     onCopyMessage,
+    onCopyEvent,
     onEditMessage,
     onDeleteMessage,
     onOpenProfile,
@@ -67,6 +68,7 @@
     ) => void | Promise<void>;
     onCopyMessageLink?: (messageId: string) => void;
     onCopyMessage?: (messageId: string) => void;
+    onCopyEvent?: (messageId: string) => void;
     onEditMessage?: (messageId: string) => void | Promise<void>;
     onDeleteMessage?: (messageId: string) => void | Promise<void>;
     onOpenProfile?: (
@@ -393,6 +395,7 @@
               : { onToggleReaction, onAddReaction: onToggleReaction }}
             {...onCopyMessageLink === undefined ? {} : { onCopyMessageLink }}
             {...onCopyMessage === undefined ? {} : { onCopyMessage }}
+            {...onCopyEvent === undefined ? {} : { onCopyEvent }}
             {...onEditMessage === undefined ? {} : { onEditMessage }}
             {...onDeleteMessage === undefined ? {} : { onDeleteMessage }}
             {...onOpenProfile === undefined ? {} : { onOpenProfile }}

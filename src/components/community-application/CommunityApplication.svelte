@@ -90,6 +90,7 @@
     type CommunityMemberModel,
     type CommunityMessageModel,
   } from "../community-workspace/model.js";
+  import { formatCommunityEventCopy } from "../community-message/copy-event.js";
   import {
     COMMUNITY_APPLICATION_SHELL_LAYOUT_STORAGE_KEY,
     communityApplicationPanelKey,
@@ -1304,6 +1305,20 @@
     if (message) void copyText(message.content, "Message copied");
   }
 
+  function copyEvent(messageId: string): void {
+    const message =
+      workspace.messages.find((candidate) => candidate.id === messageId) ??
+      workspace.thread?.messages.find(
+        (candidate) => candidate.id === messageId,
+      );
+    if (message?.sourceEvent === undefined) return;
+    void copyText(
+      formatCommunityEventCopy(message.content, message.sourceEvent),
+      "Event copied",
+    );
+    lastAction = `copied-event:${messageId}`;
+  }
+
   function openRoomEditor(
     kind: "channel" | "forum",
     mode: "create" | "edit",
@@ -2130,6 +2145,7 @@
           ? {}
           : { onCopyMessageLink: copyMessageLink }}
         onCopyMessage={copyMessage}
+        onCopyEvent={copyEvent}
         {...extensions.editMessage === undefined
           ? {}
           : { onEditMessage: extensions.editMessage }}
@@ -2351,6 +2367,7 @@
                 ? {}
                 : { onCopyMessageLink: copyMessageLink }),
               onCopyMessage: copyMessage,
+              onCopyEvent: copyEvent,
               ...(extensions.editMessage === undefined
                 ? {}
                 : { onEditMessage: extensions.editMessage }),
@@ -2522,6 +2539,7 @@
                   : { onToggleReaction: react, onAddReaction: react }}
                 onCopyMessageLink={copyMessageLink}
                 onCopyMessage={copyMessage}
+                onCopyEvent={copyEvent}
                 {...extensions.editMessage === undefined
                   ? {}
                   : { onEditMessage: extensions.editMessage }}

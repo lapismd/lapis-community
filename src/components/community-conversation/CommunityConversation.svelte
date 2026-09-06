@@ -36,6 +36,7 @@
     onAddReaction,
     onCopyMessageLink,
     onCopyMessage,
+    onCopyEvent,
     onEditMessage,
     onDeleteMessage,
     onOpenProfile,
@@ -79,6 +80,7 @@
     ) => void | Promise<void>;
     onCopyMessageLink?: (messageId: string) => void;
     onCopyMessage?: (messageId: string) => void;
+    onCopyEvent?: (messageId: string) => void;
     onEditMessage?: (messageId: string) => void | Promise<void>;
     onDeleteMessage?: (messageId: string) => void | Promise<void>;
     onOpenProfile?: (member: CommunityMemberModel) => void;
@@ -243,6 +245,7 @@
               : onAddReaction?.(messageId, emoji)}
           onCopyLink={(messageId) => onCopyMessageLink?.(messageId)}
           onCopyMessage={(messageId) => onCopyMessage?.(messageId)}
+          {...onCopyEvent === undefined ? {} : { onCopyEvent }}
           {...onEditMessage === undefined ||
           (restrictMessageManagement && message.authorId !== currentMemberId)
             ? {}

@@ -718,6 +718,7 @@ function eventMessage(
     id: event.id,
     authorId: event.pubkey,
     content: event.content,
+    sourceEvent: event,
     ...(mentionPubkeys.length === 0 ? {} : { mentionPubkeys }),
     timestamp: timestamp(event.created_at),
     createdAt: new Date(event.created_at * 1_000).toISOString(),

@@ -17,6 +17,18 @@
     component: CommunityMessage,
     tags: ["visual-pending"],
   });
+
+  const releaseContent =
+    "The **release is ready** in #plugin-development :lapis:. ||Keep the relay key private.||";
+  const releaseEvent = {
+    id: "message-release",
+    pubkey: "ben",
+    created_at: 1_788_340_680,
+    kind: 9,
+    tags: [["h", "plugin-releases"]],
+    content: releaseContent,
+    sig: "story-signature",
+  };
 </script>
 
 <Story
@@ -24,8 +36,8 @@
   args={{
     message: {
       ...communityStoryMessages[1]!,
-      content:
-        "The **release is ready** in #plugin-development :lapis:. ||Keep the relay key private.||",
+      content: releaseContent,
+      sourceEvent: releaseEvent,
     },
     author: communityStoryMembers[1]!,
     members: communityStoryMembers,
@@ -38,6 +50,8 @@
     onToggleReaction: fn(),
     onAddReaction: fn(),
     onCopyLink: fn(),
+    onCopyMessage: fn(),
+    onCopyEvent: fn(),
     onDelete: fn(),
     onOpenProfile: fn(),
     onOpenRoom: fn(),
@@ -130,6 +144,21 @@
         page.queryByLabelText("Ben Stone contact preview"),
       ).not.toBeInTheDocument(),
     );
+
+    await userEvent.hover(message);
+    await userEvent.click(
+      messageCanvas.getByRole("button", { name: "More message actions" }),
+    );
+    const copyEvent = await page.findByRole("menuitem", {
+      name: "Copy event",
+    });
+    const menu = copyEvent.closest<HTMLElement>('[role="menu"]');
+    await expect(menu).not.toBeNull();
+    await expect(menu!.getBoundingClientRect().width).toBeGreaterThanOrEqual(
+      216,
+    );
+    await userEvent.click(copyEvent);
+    await expect(args.onCopyEvent).toHaveBeenCalledWith("message-release");
   }}
 />
 
