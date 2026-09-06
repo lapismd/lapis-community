@@ -53,7 +53,8 @@ jq -e \
     .target == "/run/lapis-registry/materializer-reader.key" and .read_only == true) and
   $compose.services["registry-materializer"].environment.REGISTRY_READER_SECRET_FILE ==
     "/run/lapis-registry/materializer-reader.key" and
-  $compose.services["registry-materializer"].environment.BLOSSOM_URL == "" and
+  ($compose.services["registry-materializer"].environment.BLOSSOM_URL |
+    startswith("http://registry.localhost:")) and
   ($compose.services["registry-materializer"].environment.REGISTRY_RELAYS |
     startswith("ws://registry.localhost:")) and
   $compose.services["registry-site-builder"].environment.LAPIS_REGISTRY_SOURCE_DIR ==

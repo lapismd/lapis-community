@@ -64,6 +64,42 @@
 </Story>
 
 <Story
+  name="Cached registry while relay loads"
+  play={async ({ canvas, canvasElement }) => {
+    await expect(
+      await canvas.findByText("Showing a verified cached registry."),
+    ).toBeVisible();
+    await expect(
+      canvas.getByText("Checking the registry relay for updates."),
+    ).toBeVisible();
+    await userEvent.click(
+      canvas.getAllByRole("button", { name: "Open AI Assistant" })[0]!,
+    );
+    await expect(
+      await canvas.findByRole("heading", { name: "AI Assistant", level: 1 }),
+    ).toBeVisible();
+    const status = canvas
+      .getByText("Showing a verified cached registry.")
+      .closest('[role="status"]');
+    const breadcrumb = canvas.getByRole("navigation", {
+      name: "breadcrumb",
+    });
+    await expect(status).not.toBeNull();
+    await expect(
+      status!.compareDocumentPosition(breadcrumb) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).not.toBe(0);
+    await expect(
+      canvasElement.querySelectorAll('[data-ui-part="toolbar"]'),
+    ).toHaveLength(1);
+  }}
+>
+  {#snippet template()}
+    <RegistryBrowserStoryHarness sourceMode="refreshing-cache" />
+  {/snippet}
+</Story>
+
+<Story
   name="Discovery to detail with discussion"
   play={async ({ canvas }) => {
     await expect(

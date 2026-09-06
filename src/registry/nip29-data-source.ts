@@ -105,10 +105,11 @@ export function createNip29RegistryCatalogDataSource(
     throw new Error("installQuorum must be between one and the relay count");
   }
 
-  const blossomUrl =
+  const blossomUrls =
     options.blossomUrl === undefined
-      ? undefined
-      : credentialFreeHttpUrl(options.blossomUrl, "blossomUrl", true);
+      ? relayUrls.map(relayHttpBaseUrl)
+      : [credentialFreeHttpUrl(options.blossomUrl, "blossomUrl", true)];
+  const blossomUrl = blossomUrls[0]!;
   const request =
     options.fetch ?? ((input, init) => globalThis.fetch(input, init));
   const now = options.now ?? (() => new Date());
@@ -423,6 +424,7 @@ export function createNip29RegistryCatalogDataSource(
         fetch: request,
         mediaAuthSigner: signEvent,
         relayUrls,
+        blossomUrls,
         signal,
       });
       for (const document of fetched) {
@@ -450,7 +452,10 @@ export function createNip29RegistryCatalogDataSource(
     const details = new Map(
       [...projection.plugins.entries()].map(([pluginId, detail]) => [
         pluginId,
-        registryCatalogDetailSchema.parse(detail),
+        relayBackedDetail(
+          registryCatalogDetailSchema.parse(detail),
+          blossomUrl,
+        ),
       ]),
     );
     const registryRoot = projectionRoot(
@@ -536,7 +541,7 @@ export function createNip29RegistryCatalogDataSource(
       }
     }
     let finalError: unknown;
-    for (const source of resourceSources(reference, blossomUrl)) {
+    for (const source of resourceSources(reference, blossomUrls)) {
       try {
         const authorization = await resourceAuthorization(source);
         const response = await request(source, {
@@ -688,6 +693,7 @@ export function createNip29RegistryCatalogDataSource(
             fetch: request,
             mediaAuthSigner: signEvent,
             relayUrls,
+            blossomUrls,
             ...(loadOptions?.signal === undefined
               ? {}
               : { signal: loadOptions.signal }),
@@ -1002,17 +1008,108 @@ function digest(bytes: Uint8Array): string {
 
 function resourceSources(
   reference: RegistryImageReference | RegistryMarkdownReference,
-  blossomUrl: URL | undefined,
+  blossomUrls: readonly URL[],
 ): URL[] {
-  const source = credentialFreeHttpUrl(
-    reference.sourceUrl,
-    "Registry resource sourceUrl",
-  );
-  if (!reference.mediaType.startsWith("image/") || blossomUrl === undefined) {
-    return [source];
-  }
-  const blossom = new URL(source.pathname.replace(/^\/+/, ""), blossomUrl);
-  return blossom.href === source.href ? [source] : [blossom, source];
+  return [
+    ...new Map(
+      blossomUrls.map((base) => {
+        const source = new URL(reference.sha256, base);
+        return [source.href, source] as const;
+      }),
+    ).values(),
+  ];
+}
+
+function relayBackedDetail(
+  detail: RegistryCatalogDetail,
+  blossomUrl: URL,
+): RegistryCatalogDetail {
+  const resource = <
+    T extends RegistryImageReference | RegistryMarkdownReference,
+  >(
+    reference: T,
+  ): T => ({
+    ...reference,
+    sourceUrl: new URL(reference.sha256, blossomUrl).toString(),
+  });
+  const images = (item: {
+    preview: RegistryImageReference;
+    full: RegistryImageReference;
+    light: RegistryImageReference;
+    dark: RegistryImageReference;
+  }) => ({
+    preview: resource(item.preview),
+    full: resource(item.full),
+    light: resource(item.light),
+    dark: resource(item.dark),
+  });
+
+  return registryCatalogDetailSchema.parse({
+    ...detail,
+    ...(detail.appearance?.logo === undefined
+      ? {}
+      : {
+          appearance: {
+            ...detail.appearance,
+            logo: resource(detail.appearance.logo),
+          },
+        }),
+    ...(detail.media === undefined
+      ? {}
+      : {
+          media: {
+            ...(detail.media.banner === undefined
+              ? {}
+              : {
+                  banner: {
+                    ...detail.media.banner,
+                    images: images(detail.media.banner.images),
+                  },
+                }),
+            ...(detail.media.overview === undefined
+              ? {}
+              : {
+                  overview: {
+                    ...detail.media.overview,
+                    images: images(detail.media.overview.images),
+                  },
+                }),
+          },
+        }),
+    ...(detail.gallery === undefined
+      ? {}
+      : {
+          gallery: detail.gallery.map((item) => ({
+            ...item,
+            images: images(item.images),
+          })),
+        }),
+    ...(detail.content === undefined
+      ? {}
+      : {
+          content: {
+            ...(detail.content.overview === undefined
+              ? {}
+              : { overview: resource(detail.content.overview) }),
+            ...(detail.content.changelog === undefined
+              ? {}
+              : { changelog: resource(detail.content.changelog) }),
+          },
+        }),
+    versions: Object.fromEntries(
+      Object.entries(detail.versions).map(([version, release]) => [
+        version,
+        {
+          ...release,
+          bundle: {
+            ...release.bundle,
+            url: new URL(release.bundle.sha256, blossomUrl).toString(),
+            downloadUrl: undefined,
+          },
+        },
+      ]),
+    ),
+  });
 }
 
 function credentialFreeHttpUrl(
@@ -1048,9 +1145,16 @@ function normalizeRelayUrl(value: string): string {
 }
 
 function relayHttpOrigin(relayUrl: string): string {
+  return relayHttpBaseUrl(relayUrl).origin;
+}
+
+function relayHttpBaseUrl(relayUrl: string): URL {
   const url = new URL(relayUrl);
   url.protocol = url.protocol === "wss:" ? "https:" : "http:";
-  return url.origin;
+  url.pathname = "/";
+  url.search = "";
+  url.hash = "";
+  return url;
 }
 
 function combinedSignal(

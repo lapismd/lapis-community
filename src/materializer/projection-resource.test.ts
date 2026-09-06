@@ -20,14 +20,19 @@ const image: ProjectionResource = {
 };
 
 describe("projection resource source resolution", () => {
-  it("prefers BLOSSOM_URL for images and retains the signed pathname", () => {
+  it("loads every resource from BLOSSOM_URL by its verified content hash", () => {
     const configuration = projectionResourceSourceConfiguration({
       BLOSSOM_URL: "https://blossom.example/blobs",
       REGISTRY_ASSET_FETCH_ORIGIN: "https://legacy.example/files/",
     });
     expect(
       resolveProjectionResourceSource(image, configuration).toString(),
-    ).toBe("https://blossom.example/blobs/assets/ai/image.webp");
+    ).toBe(`https://blossom.example/blobs/${image.sha256}`);
+
+    const markdown = { ...image, mediaType: "text/markdown" };
+    expect(
+      resolveProjectionResourceSource(markdown, configuration).toString(),
+    ).toBe(`https://blossom.example/blobs/${image.sha256}`);
   });
 
   it("uses the legacy override for images when Blossom is absent", () => {
@@ -39,14 +44,14 @@ describe("projection resource source resolution", () => {
     ).toBe("https://legacy.example/files/assets/ai/image.webp");
   });
 
-  it("limits BLOSSOM_URL to images while retaining legacy non-image behavior", () => {
+  it("retains legacy non-image behavior only when Blossom is absent", () => {
     const markdown = { ...image, mediaType: "text/markdown" };
     const blossomOnly = projectionResourceSourceConfiguration({
       BLOSSOM_URL: "https://blossom.example/",
     });
     expect(
       resolveProjectionResourceSource(markdown, blossomOnly).toString(),
-    ).toBe(image.sourceUrl);
+    ).toBe(`https://blossom.example/${image.sha256}`);
 
     const withLegacy = projectionResourceSourceConfiguration({
       BLOSSOM_URL: "https://blossom.example/",
@@ -54,7 +59,7 @@ describe("projection resource source resolution", () => {
     });
     expect(
       resolveProjectionResourceSource(markdown, withLegacy).toString(),
-    ).toBe("https://legacy.example/assets/ai/image.webp");
+    ).toBe(`https://blossom.example/${image.sha256}`);
   });
 
   it.each([

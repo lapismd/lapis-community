@@ -26,8 +26,6 @@ const relayUrl =
   process.env.VITE_COMMUNITY_LIVE_RELAY_URL?.trim() ||
   "ws://registry.localhost:8281";
 const registryRelays = process.env.VITE_REGISTRY_RELAYS?.trim() || relayUrl;
-const blossomUrl =
-  process.env.VITE_BLOSSOM_URL?.trim() || relayUrl.replace(/^ws/u, "http");
 
 export default defineConfig({
   root: path.join(packageDirectory, "dev/community"),
@@ -41,7 +39,6 @@ export default defineConfig({
     "import.meta.env.VITE_REGISTRY_PUBLISHER_PUBKEYS": JSON.stringify(
       fixtureValue("REGISTRY_PUBLISHER_PUBKEYS"),
     ),
-    "import.meta.env.VITE_BLOSSOM_URL": JSON.stringify(blossomUrl),
   },
   resolve: { dedupe: ["svelte"] },
   optimizeDeps: {

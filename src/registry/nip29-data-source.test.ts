@@ -156,13 +156,13 @@ describe("NIP-29 registry catalog data source", () => {
     });
     const fetch = vi.fn(async (input: RequestInfo | URL) => {
       const url = new URL(input.toString());
-      if (url.pathname === "/manifest.json") {
+      if (url.pathname.endsWith(sha(data.manifestBytes))) {
         return new Response(data.manifestBytes);
       }
-      if (url.pathname.endsWith(".webp")) {
+      if (url.pathname.endsWith(data.image.sha256)) {
         return new Response(data.imageBytes);
       }
-      if (url.pathname.endsWith("overview.md")) {
+      if (url.pathname.endsWith(data.markdown.sha256)) {
         return new Response(data.markdownBytes);
       }
       return new Response("missing", { status: 404 });
@@ -194,13 +194,17 @@ describe("NIP-29 registry catalog data source", () => {
     const blob = await source.loadImage(data.image);
 
     expect(detail.id).toBe("demo");
+    expect(detail.versions["1.0.0"]?.bundle).toMatchObject({
+      url: `https://blossom.example/base/${"b".repeat(64)}`,
+    });
     expect(blob.type).toBe("image/webp");
     expect(new Uint8Array(await blob.arrayBuffer())).toEqual(data.imageBytes);
     expect(
       fetch.mock.calls.map(([input]) => new URL(input.toString()).href),
-    ).toContain(
-      `https://blossom.example/base/registry/assets/demo/${data.image.sha256}.webp`,
-    );
+    ).toContain(`https://blossom.example/base/${data.image.sha256}`);
+    expect(
+      fetch.mock.calls.map(([input]) => new URL(input.toString()).origin),
+    ).not.toContain("https://assets.example");
     expect(source.getStatus()).toMatchObject({
       phase: "ready",
       fresh: true,
@@ -327,7 +331,7 @@ describe("NIP-29 registry catalog data source", () => {
         events: [data.release, data.approval],
       });
       const fetch = async (input: RequestInfo | URL) =>
-        new URL(input.toString()).pathname === "/manifest.json"
+        new URL(input.toString()).pathname.endsWith(sha(data.manifestBytes))
           ? new Response(data.manifestBytes)
           : new Response(data.imageBytes);
       const options = {
@@ -429,7 +433,7 @@ describe("NIP-29 registry catalog data source", () => {
       relayFactory: factory,
       snapshotStore: createMemoryRegistrySnapshotStore(),
       fetch: async (input) =>
-        new URL(input.toString()).pathname === "/manifest.json"
+        new URL(input.toString()).pathname.endsWith(sha(data.manifestBytes))
           ? new Response(data.manifestBytes)
           : new Response("tampered"),
     });
@@ -480,7 +484,7 @@ describe("NIP-29 registry catalog data source", () => {
     source.dispose();
   });
 
-  it("falls back from Blossom to the signed image source and still verifies bytes", async () => {
+  it("loads resources from relay-owned Blossom by hash without using signed external sources", async () => {
     const data = fixture();
     const factory = createInMemoryRelayFactory({
       events: [data.release, data.approval],
@@ -500,11 +504,8 @@ describe("NIP-29 registry catalog data source", () => {
       fetch: async (input) => {
         const url = new URL(input.toString());
         requested.push(url.href);
-        if (url.pathname === "/manifest.json") {
+        if (url.pathname.endsWith(sha(data.manifestBytes))) {
           return new Response(data.manifestBytes);
-        }
-        if (url.hostname === "blossom.example") {
-          return new Response("unavailable", { status: 503 });
         }
         return new Response(data.imageBytes);
       },
@@ -512,10 +513,10 @@ describe("NIP-29 registry catalog data source", () => {
     await source.loadIndex();
 
     await expect(source.loadImage(data.image)).resolves.toBeInstanceOf(Blob);
-    expect(requested.slice(-2)).toEqual([
-      `https://blossom.example/registry/assets/demo/${data.image.sha256}.webp`,
-      data.image.sourceUrl,
-    ]);
+    expect(requested.at(-1)).toBe(
+      `https://blossom.example/${data.image.sha256}`,
+    );
+    expect(requested).not.toContain(data.image.sourceUrl);
     source.dispose();
   });
 
@@ -578,7 +579,7 @@ describe("NIP-29 registry catalog data source", () => {
       relayFactory: factory,
       snapshotStore: createMemoryRegistrySnapshotStore(),
       fetch: async (input) =>
-        new URL(input.toString()).pathname === "/manifest.json"
+        new URL(input.toString()).pathname.endsWith(sha(data.manifestBytes))
           ? new Response(data.manifestBytes)
           : new Response("missing", { status: 404 }),
       liveBatchMs: 0,

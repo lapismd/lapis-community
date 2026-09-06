@@ -132,14 +132,16 @@ describe("loadNip29RelayRegistryState", () => {
     );
     const relay = new FixtureRelay([authorization, release, approval]);
     let mediaAuthorization = "";
+    let mediaUrl = "";
     const fetchMock = vi
       .spyOn(globalThis, "fetch")
       .mockImplementation(async function (
         this: typeof globalThis,
-        _input,
+        input,
         init,
       ) {
         expect(this).toBe(globalThis);
+        mediaUrl = input.toString();
         mediaAuthorization =
           new Headers(init?.headers).get("Authorization") ?? "";
         return new Response(bytes, {
@@ -169,6 +171,7 @@ describe("loadNip29RelayRegistryState", () => {
         eventIds: [approval.id, authorization.id, release.id].toSorted(),
       },
     ]);
+    expect(mediaUrl).toBe(`https://relay.example/${manifestSha256}`);
     const mediaAuth = JSON.parse(
       Buffer.from(mediaAuthorization.slice("Nostr ".length), "base64").toString(
         "utf8",

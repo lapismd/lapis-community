@@ -35,7 +35,7 @@ REGISTRY_PUBLIC_RELAYS=wss://relay.example \
 REGISTRY_PUBLISHER_PUBKEYS=<hex-pubkey> \
 REGISTRY_CURATOR_PUBKEYS=<hex-pubkey> \
 REGISTRY_READER_SECRET_FILE=/run/secrets/registry-reader \
-BLOSSOM_URL=https://blossom.example/ \
+BLOSSOM_URL=https://relay.example/ \
 pnpm registry:materialize --output artifacts/registry
 ```
 
@@ -43,14 +43,11 @@ The reader file contains a single lowercase hex Nostr secret. It is only an
 authenticated read identity for relays that require NIP-42; it is not a
 publisher or curator key and must be supplied as a runtime secret.
 
-`BLOSSOM_URL` is optional and materializer-only. When configured, image
-resources are fetched from that absolute HTTP(S) base using the pathname in
-their signed `sourceUrl`; credentials in the URL are rejected. Images fall
-back to `REGISTRY_ASSET_FETCH_ORIGIN` and then their signed source. The legacy
-origin remains the override for non-image resources. Every fetched resource
-must still match its signed size and SHA-256 before it is mirrored, so browsers
-only receive verified `/registry/` assets. This is separate from the relay's
-`BLOSSOM_PUBLIC_URL`, which advertises the relay-owned Blossom endpoint.
+`BLOSSOM_URL` identifies the configured relay's HTTP Blossom endpoint. The
+materializer loads manifests, images, Markdown, and bundles from that endpoint
+by their signed SHA-256 rather than contacting an attachment's publisher URL.
+Every fetched resource must still match its signed size and SHA-256 before it
+is mirrored, so browsers only receive verified `/registry/` assets.
 
 The output contains the index, plugin details, accepted signed events,
 provenance root, browser runtime configuration, mirrored resources, and the
@@ -64,7 +61,6 @@ const source = createNip29RegistryCatalogDataSource({
   relays,
   authorities: { curatorPubkeys, publisherPubkeysByPlugin },
   relayFactory: createWebSocketCommunityRelayFactory(),
-  blossomUrl: "https://blossom.example/",
 });
 ```
 
@@ -79,12 +75,12 @@ The host that creates the source also owns calling `source.dispose()` when its
 application lifetime ends; mounting and unmounting a registry route does not
 dispose a shared source.
 
-For the live source, `blossomUrl` is an optional credential-free HTTP(S) image
-base. Images use its path first and their signed `sourceUrl` otherwise;
-Markdown uses its signed source. Every response must match the signed size and
-SHA-256 before Community receives a Blob or text value, with no unverified URL
-fallback. This browser option is separate from materializer `BLOSSOM_URL` and
-relay-owned `BLOSSOM_PUBLIC_URL`.
+For the live source, the relay WebSocket URL determines its HTTP Blossom
+endpoint. Manifests, images, Markdown, and install bundle references use that
+relay endpoint and the signed content hash; Community never falls back to a
+publisher or fixture asset server. `blossomUrl` remains available for relays
+that publish Blossom below a non-root path. Every response must match the
+signed size and SHA-256 before Community receives a Blob or text value.
 
 ## Verify locally
 

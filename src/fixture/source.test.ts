@@ -2,8 +2,6 @@ import { mkdtemp, mkdir, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
-import { sha256 } from "@noble/hashes/sha2.js";
-import { bytesToHex } from "@noble/hashes/utils.js";
 import { describe, expect, it } from "vitest";
 
 import { encodeNostrHttpAuthorization } from "../nostr/http-authorization.js";
@@ -12,7 +10,6 @@ import {
   fixturePublicKeys,
   parseFixtureSecrets,
 } from "./keys.js";
-import { mirrorUploadedManifest } from "./manifest-mirror.js";
 import { loadLocalPluginFixtures } from "./source.js";
 
 async function writeJson(filePath: string, value: unknown): Promise<void> {
@@ -20,50 +17,6 @@ async function writeJson(filePath: string, value: unknown): Promise<void> {
 }
 
 describe("local registry fixture", () => {
-  it("publishes uploaded manifests through the loopback fixture server", () => {
-    const bytes = new TextEncoder().encode('{"schema":"fixture"}');
-    const digest = bytesToHex(sha256(bytes));
-    const artifacts = new Map<string, Uint8Array>();
-
-    const attachment = mirrorUploadedManifest(
-      {
-        url: `http://registry.localhost:8281/${digest}.json`,
-        sha256: digest,
-        size: bytes.byteLength,
-        type: "application/json",
-      },
-      bytes,
-      new URL("http://127.0.0.1:8090/"),
-      artifacts,
-    );
-
-    expect(attachment).toEqual({
-      url: `http://127.0.0.1:8090/${digest}.json`,
-      mimeType: "application/json",
-      sha256: digest,
-      size: bytes.byteLength,
-    });
-    expect(artifacts.get(`/${digest}.json`)).toEqual(bytes);
-  });
-
-  it("rejects a mismatched uploaded manifest descriptor", () => {
-    const bytes = new TextEncoder().encode('{"schema":"fixture"}');
-
-    expect(() =>
-      mirrorUploadedManifest(
-        {
-          url: "http://registry.localhost:8281/invalid.json",
-          sha256: "0".repeat(64),
-          size: bytes.byteLength,
-          type: "application/json",
-        },
-        bytes,
-        new URL("http://127.0.0.1:8090/"),
-        new Map(),
-      ),
-    ).toThrow("Uploaded release manifest descriptor failed verification");
-  });
-
   it("uses standard base64 for Blossom authorization events", () => {
     const event = {
       id: "ff".repeat(32),
@@ -106,11 +59,17 @@ describe("local registry fixture", () => {
       schemaVersion: 1,
       categories: ["writing"],
       highlights: ["Counts words locally"],
+      content: { overview: "README.md" },
     });
+    await writeFile(
+      path.join(pluginRoot, "README.md"),
+      "# Word Count\n",
+      "utf8",
+    );
 
     const options = {
       limit: 1,
-      publicBaseUrl: new URL("http://127.0.0.1:8090/"),
+      publicBaseUrl: new URL("http://registry.localhost:8281/"),
     };
     const first = await loadLocalPluginFixtures(root, options);
     const second = await loadLocalPluginFixtures(root, options);
@@ -120,6 +79,16 @@ describe("local registry fixture", () => {
       release: { version: "0.1.2", platforms: ["web", "desktop"] },
     });
     expect(first[0]?.artifact.sha256).toBe(second[0]?.artifact.sha256);
+    const overview = first[0]?.plugin.detail.content as {
+      overview: { sourceUrl: string; sha256: string };
+    };
+    expect(overview.overview.sourceUrl).toBe(
+      `http://registry.localhost:8281/${overview.overview.sha256}`,
+    );
+    expect(first[0]?.resources[0]).toMatchObject({
+      mediaType: "text/markdown",
+      sha256: overview.overview.sha256,
+    });
     expect(new TextDecoder().decode(first[0]?.artifact.bytes)).toContain(
       "lapis.registry.local-source-fixture/1",
     );

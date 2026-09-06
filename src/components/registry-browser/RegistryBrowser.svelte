@@ -111,9 +111,9 @@
     },
   );
   const sourceNoticeIsTransient = $derived(
-    sourceStatus?.phase === "loading" ||
-      sourceStatus?.phase === "refreshing" ||
-      (sourceStatus?.phase === "ready" && sourceStatus.origin === "cache"),
+    sourceStatus?.origin !== "cache" &&
+      (sourceStatus?.phase === "loading" ||
+        sourceStatus?.phase === "refreshing"),
   );
   const showSourceNotice = $derived(
     index !== undefined &&
@@ -335,54 +335,8 @@
   {/if}
 {/snippet}
 
-{#if route.page !== "landing"}
-  <AppShell.Toolbar
-    class="registry-browser__toolbar"
-    label="Registry navigation"
-  >
-    <Breadcrumb.Root aria-label="Registry breadcrumb">
-      <Breadcrumb.List>
-        <Breadcrumb.Item>
-          <Breadcrumb.Link
-            href="#registry"
-            onclick={(event) => {
-              event.preventDefault();
-              navigate({ page: "landing" });
-            }}>Registry</Breadcrumb.Link
-          >
-        </Breadcrumb.Item>
-        <Breadcrumb.Separator />
-        <Breadcrumb.Item>
-          {#if route.page === "directory"}
-            <Breadcrumb.Page>Plugins</Breadcrumb.Page>
-          {:else}
-            <Breadcrumb.Link
-              href="#registry:plugins"
-              onclick={(event) => {
-                event.preventDefault();
-                openDirectory();
-              }}>Plugins</Breadcrumb.Link
-            >
-          {/if}
-        </Breadcrumb.Item>
-        {#if route.page === "plugin"}
-          <Breadcrumb.Separator />
-          <Breadcrumb.Item>
-            <Breadcrumb.Page>
-              {selectedEntry?.name ?? route.pluginId}
-            </Breadcrumb.Page>
-          </Breadcrumb.Item>
-        {/if}
-      </Breadcrumb.List>
-    </Breadcrumb.Root>
-  </AppShell.Toolbar>
-{/if}
-
-{#if showSourceNotice && sourceStatus}
-  <AppShell.Toolbar
-    class="registry-browser__source-toolbar"
-    label="Registry source status"
-  >
+{#snippet registrySourceNotice()}
+  {#if showSourceNotice && sourceStatus}
     <div class="registry-browser__source-notice" role="status">
       <TriangleAlertIcon aria-hidden="true" />
       <span>
@@ -418,6 +372,61 @@
         </Tooltip.Provider>
       {/if}
     </div>
+  {/if}
+{/snippet}
+
+{#if route.page !== "landing"}
+  <AppShell.Toolbar
+    class={showSourceNotice
+      ? "registry-browser__toolbar registry-browser__toolbar--with-source"
+      : "registry-browser__toolbar"}
+    label="Registry navigation"
+  >
+    {@render registrySourceNotice()}
+    <div class="registry-browser__navigation-row">
+      <Breadcrumb.Root aria-label="Registry breadcrumb">
+        <Breadcrumb.List>
+          <Breadcrumb.Item>
+            <Breadcrumb.Link
+              href="#registry"
+              onclick={(event) => {
+                event.preventDefault();
+                navigate({ page: "landing" });
+              }}>Registry</Breadcrumb.Link
+            >
+          </Breadcrumb.Item>
+          <Breadcrumb.Separator />
+          <Breadcrumb.Item>
+            {#if route.page === "directory"}
+              <Breadcrumb.Page>Plugins</Breadcrumb.Page>
+            {:else}
+              <Breadcrumb.Link
+                href="#registry:plugins"
+                onclick={(event) => {
+                  event.preventDefault();
+                  openDirectory();
+                }}>Plugins</Breadcrumb.Link
+              >
+            {/if}
+          </Breadcrumb.Item>
+          {#if route.page === "plugin"}
+            <Breadcrumb.Separator />
+            <Breadcrumb.Item>
+              <Breadcrumb.Page>
+                {selectedEntry?.name ?? route.pluginId}
+              </Breadcrumb.Page>
+            </Breadcrumb.Item>
+          {/if}
+        </Breadcrumb.List>
+      </Breadcrumb.Root>
+    </div>
+  </AppShell.Toolbar>
+{:else if showSourceNotice && sourceStatus}
+  <AppShell.Toolbar
+    class="registry-browser__source-toolbar"
+    label="Registry source status"
+  >
+    {@render registrySourceNotice()}
   </AppShell.Toolbar>
 {/if}
 
@@ -530,6 +539,25 @@
 
 <style>
   :global(.registry-browser__toolbar) {
+    padding-inline: 0.75rem;
+  }
+
+  :global(.registry-browser__toolbar--with-source) {
+    flex-direction: column;
+    align-items: stretch;
+    min-height: auto;
+    padding: 0;
+  }
+
+  .registry-browser__navigation-row {
+    display: flex;
+    align-items: center;
+    width: 100%;
+  }
+
+  :global(.registry-browser__toolbar--with-source)
+    .registry-browser__navigation-row {
+    min-height: 2.75rem;
     padding-inline: 0.75rem;
   }
 

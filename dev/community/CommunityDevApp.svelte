@@ -59,9 +59,6 @@
             defaultPublisherPubkeys: registryPublishers,
           },
           relayFactory: createWebSocketCommunityRelayFactory(),
-          ...(import.meta.env.VITE_BLOSSOM_URL?.trim()
-            ? { blossomUrl: import.meta.env.VITE_BLOSSOM_URL.trim() }
-            : {}),
         })
       : undefined;
   const loginMethods: readonly CommunityLoginMethodModel[] = [

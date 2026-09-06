@@ -25,8 +25,6 @@ import { finalizeEvent, getPublicKey } from "nostr-tools/pure";
 
 import { parseFixtureSecrets } from "./keys.js";
 import type { FixtureSecretName, FixtureSecrets } from "./keys.js";
-import { mirrorUploadedManifest } from "./manifest-mirror.js";
-import type { UploadedBlobDescriptor } from "./manifest-mirror.js";
 import { loadLocalPluginFixtures } from "./source.js";
 import { encodeNostrHttpAuthorization } from "../nostr/http-authorization.js";
 
@@ -131,9 +129,7 @@ async function seed(): Promise<{
   const httpBase = relayUrl
     .replace(/^ws:/u, "http:")
     .replace(/^wss:/u, "https:");
-  const artifactBase = new URL(
-    required("REGISTRY_FIXTURE_ARTIFACT_BASE_URL", "http://127.0.0.1:8090/"),
-  );
+  const artifactBase = new URL(httpBase);
   const pluginLimitRaw =
     process.env.REGISTRY_FIXTURE_PLUGIN_LIMIT?.trim() ?? "all";
   const longThreadPostCount = positiveInteger(
@@ -169,6 +165,22 @@ async function seed(): Promise<{
   );
   const publisher = getPublicKey(publisherSecret);
   const curator = getPublicKey(curatorSecret);
+  for (const fixture of fixtures) {
+    await uploadBlob(
+      httpBase,
+      fixture.artifact.bytes,
+      publisherSecret,
+      "application/json",
+    );
+    for (const resource of fixture.resources) {
+      await uploadBlob(
+        httpBase,
+        resource.bytes,
+        publisherSecret,
+        resource.mediaType,
+      );
+    }
+  }
   const relays = new Map<string, WebSocketRegistryRelay>();
   const relayFor = async (
     secretKey: Uint8Array,
@@ -353,7 +365,7 @@ async function seed(): Promise<{
       ...fixture.release,
       releasedAt: new Date(createdAt * 1_000).toISOString(),
       artifact: {
-        url: new URL(fixture.artifact.path, artifactBase).toString(),
+        url: new URL(fixture.artifact.sha256, artifactBase).toString(),
         sha256: fixture.artifact.sha256,
         size: fixture.artifact.bytes.byteLength,
       },
@@ -364,9 +376,17 @@ async function seed(): Promise<{
       release,
     };
     const bytes = new TextEncoder().encode(JSON.stringify(manifest));
-    const descriptor = await uploadBlob(httpBase, bytes, publisherSecret);
+    const descriptor = await uploadBlob(
+      httpBase,
+      bytes,
+      publisherSecret,
+      "application/json",
+    );
     const attachment: Nip29ManifestAttachment = {
-      ...mirrorUploadedManifest(descriptor, bytes, artifactBase, artifacts),
+      url: descriptor.url,
+      mimeType: descriptor.type,
+      sha256: descriptor.sha256,
+      size: descriptor.size,
       filename: `${fixture.plugin.pluginId}-${release.version}.manifest.json`,
     };
     manifests.push({ attachmentSha256: descriptor.sha256, manifest });
@@ -608,7 +628,13 @@ async function uploadBlob(
   httpBase: string,
   bytes: Uint8Array,
   secretKey: Uint8Array,
-): Promise<UploadedBlobDescriptor> {
+  mediaType: string,
+): Promise<{
+  url: string;
+  sha256: string;
+  size: number;
+  type: string;
+}> {
   const body = Uint8Array.from(bytes);
   const sha256 = bytesToHex(
     new Uint8Array(
@@ -619,7 +645,7 @@ async function uploadBlob(
   const auth = sign(secretKey, {
     kind: 24_242,
     created_at: now,
-    content: "Upload Lapis release manifest",
+    content: "Upload Lapis registry blob",
     tags: [
       ["t", "upload"],
       ["x", sha256],
@@ -631,14 +657,24 @@ async function uploadBlob(
     method: "PUT",
     headers: {
       Authorization: encodeNostrHttpAuthorization(auth),
-      "Content-Type": "application/json",
+      "Content-Type": mediaType,
       "X-SHA-256": sha256,
     },
     body: Buffer.from(body),
   });
-  if (!response.ok)
-    throw new Error(`NIP-29 manifest upload returned ${response.status}`);
-  return (await response.json()) as UploadedBlobDescriptor;
+  if (!response.ok) {
+    throw new Error(`Registry blob upload returned ${response.status}`);
+  }
+  const descriptor = (await response.json()) as {
+    url: string;
+    sha256: string;
+    size: number;
+    type: string;
+  };
+  if (descriptor.sha256 !== sha256 || descriptor.size !== body.byteLength) {
+    throw new Error("Uploaded registry blob descriptor failed verification");
+  }
+  return descriptor;
 }
 
 function discussionSentence(index: number): string {

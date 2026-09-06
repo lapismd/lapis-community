@@ -39,6 +39,7 @@ export interface Nip29RelayRegistryStateOptions {
   authorities: Nip29RegistryAuthorities;
   generatedAt: string;
   authSigner?: RelayAuthSigner | undefined;
+  blossomUrl?: string | URL | undefined;
   fetch?: typeof globalThis.fetch | undefined;
   signal?: AbortSignal | undefined;
 }
@@ -92,6 +93,9 @@ export async function loadNip29RelayRegistryState(
     fetch: options.fetch ?? ((input, init) => globalThis.fetch(input, init)),
     mediaAuthSigner: options.authSigner,
     relayUrls: options.relays.map((relay) => relay.url),
+    ...(options.blossomUrl === undefined
+      ? {}
+      : { blossomUrls: [options.blossomUrl] }),
     signal: options.signal,
   });
   const registry = materializeNip29Registry(
@@ -114,6 +118,7 @@ export async function fetchNip29ReleaseManifests(
     fetch: typeof globalThis.fetch;
     mediaAuthSigner?: RelayAuthSigner | undefined;
     relayUrls?: readonly string[] | undefined;
+    blossomUrls?: readonly (string | URL)[] | undefined;
     signal?: AbortSignal | undefined;
   },
 ): Promise<Nip29ReleaseManifestSource[]> {
@@ -126,6 +131,7 @@ export async function fetchNip29ReleaseManifestDocuments(
     fetch: typeof globalThis.fetch;
     mediaAuthSigner?: RelayAuthSigner | undefined;
     relayUrls?: readonly string[] | undefined;
+    blossomUrls?: readonly (string | URL)[] | undefined;
     signal?: AbortSignal | undefined;
   },
 ): Promise<Nip29ReleaseManifestDocument[]> {
@@ -145,60 +151,104 @@ export async function fetchNip29ReleaseManifestDocuments(
     [...attachments.values()]
       .toSorted((left, right) => left.sha256.localeCompare(right.sha256))
       .map(async (attachment) => {
-        const attachmentUrl = credentialFreeHttpUrl(
-          attachment.url,
-          `Release manifest ${attachment.sha256}`,
+        let finalError: unknown;
+        for (const attachmentUrl of manifestSources(attachment, options)) {
+          try {
+            const origin = attachmentUrl.origin;
+            const authorization =
+              options.mediaAuthSigner !== undefined && mediaOrigins.has(origin)
+                ? await mediaAuthorization(
+                    origin,
+                    options.mediaAuthSigner,
+                    authorizationByOrigin,
+                  )
+                : undefined;
+            const response = await options.fetch(attachmentUrl, {
+              ...(options.signal === undefined
+                ? {}
+                : { signal: options.signal }),
+              headers: {
+                Accept: "application/json",
+                ...(authorization === undefined
+                  ? {}
+                  : { Authorization: authorization }),
+              },
+            });
+            if (!response.ok) {
+              throw new Error(
+                `Release manifest ${attachment.sha256} returned ${response.status}`,
+              );
+            }
+            const bytes = new Uint8Array(await response.arrayBuffer());
+            if (bytes.byteLength !== attachment.size) {
+              throw new Error(
+                `Release manifest ${attachment.sha256} failed size verification`,
+              );
+            }
+            const digest = new Uint8Array(
+              await globalThis.crypto.subtle.digest("SHA-256", bytes),
+            );
+            const actual = [...digest]
+              .map((value) => value.toString(16).padStart(2, "0"))
+              .join("");
+            if (actual !== attachment.sha256) {
+              throw new Error(
+                `Release manifest ${attachment.sha256} failed SHA-256 verification`,
+              );
+            }
+            return {
+              attachmentSha256: attachment.sha256,
+              bytes,
+              manifest: JSON.parse(new TextDecoder().decode(bytes)) as unknown,
+            };
+          } catch (cause) {
+            if (options.signal?.aborted === true) throw cause;
+            finalError = cause;
+          }
+        }
+        throw (
+          finalError ??
+          new Error(`Release manifest ${attachment.sha256} has no relay source`)
         );
-        const origin = attachmentUrl.origin;
-        const authorization =
-          options.mediaAuthSigner !== undefined && mediaOrigins.has(origin)
-            ? await mediaAuthorization(
-                origin,
-                options.mediaAuthSigner,
-                authorizationByOrigin,
-              )
-            : undefined;
-        const response = await options.fetch(attachmentUrl, {
-          ...(options.signal === undefined ? {} : { signal: options.signal }),
-          headers: {
-            Accept: "application/json",
-            ...(authorization === undefined
-              ? {}
-              : { Authorization: authorization }),
-          },
-        });
-        if (!response.ok) {
-          throw new Error(
-            `Release manifest ${attachment.sha256} returned ${response.status}`,
-          );
-        }
-        const bytes = new Uint8Array(await response.arrayBuffer());
-        if (bytes.byteLength !== attachment.size) {
-          throw new Error(
-            `Release manifest ${attachment.sha256} failed size verification`,
-          );
-        }
-        const digest = new Uint8Array(
-          await globalThis.crypto.subtle.digest("SHA-256", bytes),
-        );
-        const actual = [...digest]
-          .map((value) => value.toString(16).padStart(2, "0"))
-          .join("");
-        if (actual !== attachment.sha256) {
-          throw new Error(
-            `Release manifest ${attachment.sha256} failed SHA-256 verification`,
-          );
-        }
-        return {
-          attachmentSha256: attachment.sha256,
-          bytes,
-          manifest: JSON.parse(new TextDecoder().decode(bytes)) as unknown,
-        };
       }),
   );
 }
 
-function credentialFreeHttpUrl(value: string, label: string): URL {
+function manifestSources(
+  attachment: { url: string; sha256: string },
+  options: {
+    relayUrls?: readonly string[] | undefined;
+    blossomUrls?: readonly (string | URL)[] | undefined;
+  },
+): URL[] {
+  const configured = options.blossomUrls?.map((value) =>
+    credentialFreeHttpUrl(value, "Registry relay Blossom URL", true),
+  );
+  const relayBases = (options.relayUrls ?? []).map(relayHttpBaseUrl);
+  const bases = configured?.length ? configured : relayBases;
+  if (bases.length === 0) {
+    return [
+      credentialFreeHttpUrl(
+        attachment.url,
+        `Release manifest ${attachment.sha256}`,
+      ),
+    ];
+  }
+  return [
+    ...new Map(
+      bases.map((base) => {
+        const source = new URL(attachment.sha256, base);
+        return [source.href, source] as const;
+      }),
+    ).values(),
+  ];
+}
+
+function credentialFreeHttpUrl(
+  value: string | URL,
+  label: string,
+  directory = false,
+): URL {
   const url = new URL(value);
   if (
     (url.protocol !== "http:" && url.protocol !== "https:") ||
@@ -207,13 +257,21 @@ function credentialFreeHttpUrl(value: string, label: string): URL {
   ) {
     throw new Error(`${label} must use HTTP(S) without credentials`);
   }
+  if (directory && !url.pathname.endsWith("/")) url.pathname += "/";
   return url;
 }
 
 function relayHttpOrigin(relayUrl: string): string {
+  return relayHttpBaseUrl(relayUrl).origin;
+}
+
+function relayHttpBaseUrl(relayUrl: string): URL {
   const url = new URL(relayUrl);
   url.protocol = url.protocol === "wss:" ? "https:" : "http:";
-  return url.origin;
+  url.pathname = "/";
+  url.search = "";
+  url.hash = "";
+  return url;
 }
 
 async function mediaAuthorization(

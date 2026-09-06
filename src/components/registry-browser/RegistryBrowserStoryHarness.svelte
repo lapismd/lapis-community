@@ -18,21 +18,24 @@
     sourceMode = "static",
   }: {
     initialRoute?: RegistryRoute;
-    sourceMode?: "static" | "cached" | "loading";
+    sourceMode?: "static" | "cached" | "refreshing-cache" | "loading";
   } = $props();
   const fixtureSource = createRegistryStoryDataSource();
   const sourceListeners = new Set<RegistryCatalogSourceListener>();
+  const initialSourceMode = untrack(() => sourceMode);
   let liveStatus: RegistryCatalogSourceStatus = {
-    phase: "degraded",
+    phase: initialSourceMode === "refreshing-cache" ? "refreshing" : "degraded",
     fresh: false,
     installReady: false,
     origin: "cache",
     registryRoot: "cached-story-root",
     synchronizedAt: "2026-09-03T12:00:00.000Z",
-    message: "The registry relay is unavailable.",
+    message:
+      initialSourceMode === "refreshing-cache"
+        ? "Checking the registry relay for updates."
+        : "The registry relay is unavailable.",
     relays: [{ relay: "wss://relay.example", error: "offline" }],
   };
-  const initialSourceMode = untrack(() => sourceMode);
   const loadingStatus: RegistryCatalogSourceStatus = {
     phase: "loading",
     fresh: false,

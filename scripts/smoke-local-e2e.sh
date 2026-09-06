@@ -130,7 +130,7 @@ set +a
 VITE_REGISTRY_RELAYS="ws://registry.localhost:${LAPIS_RELAY_PORT}" \
 VITE_REGISTRY_CURATOR_PUBKEYS="${REGISTRY_CURATOR_PUBKEYS}" \
 VITE_REGISTRY_PUBLISHER_PUBKEYS="${REGISTRY_PUBLISHER_PUBKEYS}" \
-VITE_BLOSSOM_URL="${fixture_base}" \
+VITE_BLOSSOM_URL="http://registry.localhost:${LAPIS_RELAY_PORT}/" \
   pnpm --dir "${repo_root}" exec storybook dev --no-open \
     --config-dir .storybook --port "${storybook_port}" \
     >"${smoke_tmp}/storybook.log" 2>&1 &
@@ -156,8 +156,8 @@ storybook_pid=
 export REGISTRY_READER_SECRET_FILE="${repo_root}/.local/registry-fixture/materializer-reader.key"
 export REGISTRY_RELAYS="ws://registry.localhost:${LAPIS_RELAY_PORT}"
 export REGISTRY_PUBLIC_RELAYS="${REGISTRY_RELAYS}"
-export BLOSSOM_URL="${fixture_base}"
-export REGISTRY_ASSET_FETCH_ORIGIN="${fixture_base}"
+export BLOSSOM_URL="http://registry.localhost:${LAPIS_RELAY_PORT}/"
+unset REGISTRY_ASSET_FETCH_ORIGIN
 pnpm --dir "${repo_root}" build
 pnpm --dir "${repo_root}" registry:materialize --output "${smoke_tmp}/materialized"
 

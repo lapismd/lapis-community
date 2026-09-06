@@ -19,6 +19,7 @@ export interface LocalFixtureResource {
   path: string;
   bytes: Uint8Array;
   sha256: string;
+  mediaType: string;
 }
 
 export interface LocalPluginFixture {
@@ -365,12 +366,20 @@ async function resolveContent(
           path.join(options.packageRoot, relativePath),
         );
         const resourcePath = `registry/content/${options.pluginId}/${kind}.md`;
-        const resource = addResource(options.resources, resourcePath, bytes);
+        const resource = addResource(
+          options.resources,
+          resourcePath,
+          bytes,
+          "text/markdown",
+        );
         return [
           kind,
           {
             url: `/${resourcePath}`,
-            sourceUrl: new URL(resourcePath, options.publicBaseUrl).toString(),
+            sourceUrl: new URL(
+              resource.sha256,
+              options.publicBaseUrl,
+            ).toString(),
             sha256: resource.sha256,
             size: bytes.byteLength,
             mediaType: "text/markdown",
@@ -495,10 +504,16 @@ async function resolveImage(
   const extension = metadata.format === "svg" ? "svg" : metadata.format;
   const digest = createHash("sha256").update(bytes).digest("hex");
   const resourcePath = `registry/assets/${options.pluginId}/${digest}.${extension}`;
-  addResource(options.resources, resourcePath, bytes, digest);
+  addResource(
+    options.resources,
+    resourcePath,
+    bytes,
+    metadata.format === "svg" ? "image/svg+xml" : `image/${metadata.format}`,
+    digest,
+  );
   return {
     url: `/${resourcePath}`,
-    sourceUrl: new URL(resourcePath, options.publicBaseUrl).toString(),
+    sourceUrl: new URL(digest, options.publicBaseUrl).toString(),
     sha256: digest,
     size: bytes.byteLength,
     mediaType:
@@ -512,9 +527,10 @@ function addResource(
   resources: LocalFixtureResource[],
   resourcePath: string,
   bytes: Uint8Array,
+  mediaType: string,
   digest = createHash("sha256").update(bytes).digest("hex"),
 ): LocalFixtureResource {
-  const resource = { path: resourcePath, bytes, sha256: digest };
+  const resource = { path: resourcePath, bytes, sha256: digest, mediaType };
   if (!resources.some((candidate) => candidate.path === resourcePath)) {
     resources.push(resource);
   }

@@ -70,6 +70,9 @@ try {
     },
     generatedAt,
     authSigner,
+    ...(resourceSourceConfiguration.blossomUrl === undefined
+      ? {}
+      : { blossomUrl: resourceSourceConfiguration.blossomUrl }),
     fetch: async (input, init) => {
       const source =
         input instanceof Request
