@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 const connect = vi.hoisted(() => vi.fn());
 
-vi.mock("@tursodatabase/database-wasm/vite", () => ({ connect }));
+vi.mock("@tursodatabase/database-wasm/bundle", () => ({ connect }));
 
 import { createBrowserCommunityEventStore } from "./browser-event-store.js";
 

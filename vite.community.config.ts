@@ -51,7 +51,7 @@ export default defineConfig({
       "@lapismd/design-core/ai/chat",
       "@lapismd/design-core/ai/experimental",
       "@lapismd/design-core/shell",
-      "@tursodatabase/database-wasm/vite",
+      "@tursodatabase/database-wasm/bundle",
       "@tursodatabase/database-wasm-common",
     ],
     esbuildOptions: { target: "esnext" },

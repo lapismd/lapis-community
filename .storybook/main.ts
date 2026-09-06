@@ -45,7 +45,7 @@ const config: StorybookConfig = {
         force: true,
         include: ["nostr-tools/filter", "nostr-tools/nip44"],
         exclude: [
-          "@tursodatabase/database-wasm/vite",
+          "@tursodatabase/database-wasm/bundle",
           "@tursodatabase/database-wasm-common",
         ],
       },

@@ -86,11 +86,11 @@ class TursoCommunityEventStore extends BaseCommunityEventStore {
     }
     this.#releaseLock = await acquireDatabaseLock(this.#databaseName);
     try {
-      // The package's Vite-aware export avoids recursively transforming its
-      // prebundled worker entry in development while retaining the default
-      // worker and WASM implementation in production builds.
+      // The package's prebuilt browser bundle keeps its WASM worker graph
+      // self-contained. The Vite development entry currently initializes an
+      // incomplete emnapi worker pool and fails while reading `whenLoaded`.
       const { connect } = (await import(
-        "@tursodatabase/database-wasm/vite" as string
+        "@tursodatabase/database-wasm/bundle" as string
       )) as { connect(path: string): Promise<TursoDatabase> };
       this.#database = await connect(this.#databaseName);
       await this.#database.exec(`

@@ -33,8 +33,9 @@ unavailable cursors fail closed without delaying the signed discussion load.
 
 The disposable browser event cache does not alter those protocol semantics.
 When its Turso-WASM/OPFS implementation is available, the browser owner context
-opens the cache so the database driver can own its worker pool; verified event
-envelopes remain the only values passed into the shared runtime projection.
+opens the cache through the driver's self-contained browser bundle so it can own
+its complete worker pool; verified event envelopes remain the only values passed
+into the shared runtime projection.
 Multiple Community runtimes in that owner context share the same disposable
 cache connection and cannot change event authority or verification semantics.
 
