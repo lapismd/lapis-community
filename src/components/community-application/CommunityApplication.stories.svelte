@@ -686,6 +686,33 @@
     const composer = scoped.getByRole("textbox", {
       name: "Markdown editor",
     });
+    await userEvent.type(composer, "@ste");
+    const people = await scoped.findByRole("listbox", {
+      name: "People suggestions",
+    });
+    await expect(
+      within(people).getByRole("option", { name: /steve/u }),
+    ).toBeVisible();
+    await userEvent.keyboard("{Escape}");
+    await userEvent.clear(composer);
+    await userEvent.type(composer, "#gen");
+    const rooms = await scoped.findByRole("listbox", {
+      name: "Channels suggestions",
+    });
+    await expect(
+      within(rooms).getByRole("option", { name: /general/iu }),
+    ).toBeVisible();
+    await userEvent.keyboard("{Escape}");
+    await userEvent.clear(composer);
+    await userEvent.type(composer, ":lap");
+    const emoji = await scoped.findByRole("listbox", {
+      name: "Emoji suggestions",
+    });
+    await expect(
+      within(emoji).getByRole("option", { name: /lapis/iu }),
+    ).toBeVisible();
+    await userEvent.keyboard("{Escape}");
+    await userEvent.clear(composer);
     await userEvent.type(
       composer,
       "Published after the host-provided login completed.",
@@ -1081,8 +1108,10 @@
       canvas.getByText("How should portable forums work?"),
     ).toBeVisible();
     await expect(
-      canvas.getByText(
+      await canvas.findByText(
         "Agreed. The reply and activity columns should stay aligned.",
+        {},
+        { timeout: 15_000 },
       ),
     ).toBeVisible();
     backToPosts = await canvas.findByRole("button", {

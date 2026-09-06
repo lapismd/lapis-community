@@ -109,6 +109,7 @@
     type CommunityApplicationLocation,
     type CommunityApplicationPanel,
   } from "./navigation.js";
+  import { provideCommunityApplicationComposer } from "./composer-context.js";
 
   type CommunityAuthenticatedAction = () => void | Promise<void>;
   type CommunityParticipationAction = "message" | "post" | "reaction" | "reply";
@@ -264,6 +265,11 @@
   const allRooms = $derived(
     workspace.navigationSections.flatMap((section) => section.rooms),
   );
+  provideCommunityApplicationComposer({
+    members: () => workspace.members,
+    rooms: () => allRooms,
+    emojis: () => community.state.settings.customEmojis,
+  });
   const startupDestinationRoom = $derived(
     communityStartupPending
       ? allRooms.find((room) => room.id === activeDestination)

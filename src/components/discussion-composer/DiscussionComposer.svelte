@@ -11,6 +11,7 @@
 
   import CommunityChatComposer from "../community-chat-composer/CommunityChatComposer.svelte";
   import type { CommunityComposerDraftStore } from "../community-chat-composer/model.js";
+  import { useCommunityApplicationComposer } from "../community-application/composer-context.js";
   import {
     displayName,
     avatarHue,
@@ -63,11 +64,8 @@
     onSubmit: (content: string) => boolean | void | Promise<boolean | void>;
   } = $props();
 
-  const signedInProfile = $derived(profiles.get(signedInPubkey));
-  const signedInName = $derived(
-    signedInPubkey === "" ? "" : displayName(signedInPubkey, profiles),
-  );
-  const members = $derived(
+  const applicationComposer = useCommunityApplicationComposer();
+  const profileMembers = $derived(
     [...profiles.values()].map((profile) => ({
       id: profile.pubkey,
       name: profile.name,
@@ -75,6 +73,29 @@
       initials: initials(profile.name),
       ...(profile.picture === undefined ? {} : { avatarUrl: profile.picture }),
     })),
+  );
+  const members = $derived.by(() => {
+    const applicationMembers = applicationComposer?.members() ?? [];
+    const applicationMemberIds = new Set(
+      applicationMembers.map((member) => member.id),
+    );
+    return [
+      ...applicationMembers,
+      ...profileMembers.filter(
+        (member) => !applicationMemberIds.has(member.id),
+      ),
+    ];
+  });
+  const rooms = $derived(applicationComposer?.rooms() ?? []);
+  const communityEmojis = $derived(applicationComposer?.emojis() ?? []);
+  const signedInMember = $derived(
+    members.find((member) => member.id === signedInPubkey),
+  );
+  const signedInProfile = $derived(profiles.get(signedInPubkey));
+  const signedInName = $derived(
+    signedInPubkey === ""
+      ? ""
+      : (signedInMember?.name ?? displayName(signedInPubkey, profiles)),
   );
   const replyContext = $derived(
     replyingTo === undefined
@@ -446,6 +467,8 @@
           bind:ref={composer}
           bind:value={comment}
           {members}
+          {rooms}
+          {communityEmojis}
           {...signedInPubkey === "" ? {} : { currentMemberId: signedInPubkey }}
           {...replyContext === undefined ? {} : { context: replyContext }}
           {...draftKey === undefined ? {} : { draftKey }}
