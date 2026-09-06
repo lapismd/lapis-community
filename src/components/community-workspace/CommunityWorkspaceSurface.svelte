@@ -157,26 +157,83 @@
     <div
       class="community-workspace-surface__history-skeleton"
       role="status"
-      aria-label="Loading community history"
+      aria-label={activeRoom.kind === "forum"
+        ? "Loading forum topics"
+        : "Loading channel messages"}
+      data-kind={activeRoom.kind === "forum" ? "forum" : "channel"}
     >
-      {#each Array(5) as _, index (index)}
-        <div class="community-workspace-surface__history-skeleton-row">
-          <Skeleton
-            class="community-workspace-surface__history-skeleton-avatar"
-          />
+      {#if activeRoom.kind === "forum"}
+        <div class="community-workspace-surface__forum-skeleton-heading">
           <div>
             <Skeleton
-              class="community-workspace-surface__history-skeleton-name"
+              class="community-workspace-surface__forum-skeleton-title"
             />
             <Skeleton
-              class="community-workspace-surface__history-skeleton-line"
-            />
-            <Skeleton
-              class="community-workspace-surface__history-skeleton-line short"
+              class="community-workspace-surface__forum-skeleton-description"
             />
           </div>
+          <Skeleton
+            class="community-workspace-surface__forum-skeleton-action"
+          />
         </div>
-      {/each}
+        <div class="community-workspace-surface__forum-skeleton-table">
+          <div class="community-workspace-surface__forum-skeleton-columns">
+            <Skeleton />
+            <Skeleton />
+            <Skeleton />
+          </div>
+          {#each Array(4) as _, index (index)}
+            <div class="community-workspace-surface__forum-skeleton-row">
+              <div>
+                <Skeleton
+                  class="community-workspace-surface__forum-skeleton-topic"
+                />
+                <Skeleton
+                  class="community-workspace-surface__forum-skeleton-excerpt"
+                />
+                <Skeleton
+                  class="community-workspace-surface__forum-skeleton-meta"
+                />
+              </div>
+              <Skeleton
+                class="community-workspace-surface__forum-skeleton-count"
+              />
+              <Skeleton
+                class="community-workspace-surface__forum-skeleton-activity"
+              />
+            </div>
+          {/each}
+        </div>
+      {:else}
+        <div class="community-workspace-surface__channel-skeleton-rows">
+          {#each Array(5) as _, index (index)}
+            <div class="community-workspace-surface__history-skeleton-row">
+              <Skeleton
+                class="community-workspace-surface__history-skeleton-avatar"
+              />
+              <div>
+                <Skeleton
+                  class="community-workspace-surface__history-skeleton-name"
+                />
+                <Skeleton
+                  class="community-workspace-surface__history-skeleton-line"
+                />
+                <Skeleton
+                  class="community-workspace-surface__history-skeleton-line short"
+                />
+              </div>
+            </div>
+          {/each}
+        </div>
+        <div class="community-workspace-surface__composer-skeleton">
+          <Skeleton
+            class="community-workspace-surface__composer-skeleton-label"
+          />
+          <Skeleton
+            class="community-workspace-surface__composer-skeleton-action"
+          />
+        </div>
+      {/if}
     </div>
   {:else if model.view === "forum-index"}
     <ForumTopicList
@@ -371,9 +428,16 @@
 
 <style>
   .community-workspace-surface__history-skeleton {
+    display: flex;
+    min-height: 100%;
+    flex-direction: column;
+    gap: 1.5rem;
+    padding: 1.25rem;
+  }
+
+  .community-workspace-surface__channel-skeleton-rows {
     display: grid;
     gap: 1.25rem;
-    padding: 1.25rem;
   }
 
   .community-workspace-surface__history-skeleton-row {
@@ -406,6 +470,116 @@
 
   :global(.community-workspace-surface__history-skeleton-line.short) {
     width: min(24rem, 58%);
+  }
+
+  .community-workspace-surface__composer-skeleton {
+    display: flex;
+    min-height: 5.5rem;
+    align-items: flex-end;
+    gap: 1rem;
+    margin-top: auto;
+    padding: 1rem;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-xl, 0.875rem);
+    background: var(--background);
+    box-shadow: var(--shadow-sm);
+  }
+
+  :global(.community-workspace-surface__composer-skeleton-label) {
+    width: min(24rem, 68%);
+    height: 0.85rem;
+  }
+
+  :global(.community-workspace-surface__composer-skeleton-action) {
+    width: 2rem;
+    height: 2rem;
+    margin-inline-start: auto;
+    border-radius: 999px;
+  }
+
+  .community-workspace-surface__forum-skeleton-heading {
+    display: flex;
+    align-items: start;
+    justify-content: space-between;
+    gap: 1rem;
+    padding-block: 0.25rem 0.5rem;
+  }
+
+  .community-workspace-surface__forum-skeleton-heading > div {
+    display: grid;
+    min-width: 0;
+    gap: 0.65rem;
+  }
+
+  :global(.community-workspace-surface__forum-skeleton-title) {
+    width: min(12rem, 42vw);
+    height: 1.5rem;
+  }
+
+  :global(.community-workspace-surface__forum-skeleton-description) {
+    width: min(20rem, 58vw);
+    height: 0.8rem;
+  }
+
+  :global(.community-workspace-surface__forum-skeleton-action) {
+    width: 6rem;
+    height: 2.25rem;
+    border-radius: var(--radius-md, 0.5rem);
+  }
+
+  .community-workspace-surface__forum-skeleton-table {
+    display: grid;
+    border-block-start: 1px solid var(--border);
+  }
+
+  .community-workspace-surface__forum-skeleton-columns,
+  .community-workspace-surface__forum-skeleton-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 4rem 5rem;
+    gap: 1.25rem;
+    align-items: center;
+  }
+
+  .community-workspace-surface__forum-skeleton-columns {
+    padding: 0.75rem;
+  }
+
+  .community-workspace-surface__forum-skeleton-columns :global(*) {
+    width: 2.75rem;
+    height: 0.65rem;
+  }
+
+  .community-workspace-surface__forum-skeleton-row {
+    min-height: 6rem;
+    padding: 1rem 0.75rem;
+    border-block-start: 1px solid var(--border);
+  }
+
+  .community-workspace-surface__forum-skeleton-row > div {
+    display: grid;
+    min-width: 0;
+    gap: 0.5rem;
+  }
+
+  :global(.community-workspace-surface__forum-skeleton-topic) {
+    width: min(24rem, 72%);
+    height: 0.95rem;
+  }
+
+  :global(.community-workspace-surface__forum-skeleton-excerpt) {
+    width: min(38rem, 92%);
+    height: 0.75rem;
+  }
+
+  :global(.community-workspace-surface__forum-skeleton-meta) {
+    width: 8rem;
+    height: 0.7rem;
+  }
+
+  :global(.community-workspace-surface__forum-skeleton-count),
+  :global(.community-workspace-surface__forum-skeleton-activity) {
+    width: 2.5rem;
+    height: 0.8rem;
   }
   .community-workspace-surface {
     display: flex;

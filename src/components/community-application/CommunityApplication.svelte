@@ -244,8 +244,38 @@
   );
   const activeDestination = $derived(applicationLocation.destination);
   const activePanel = $derived(applicationLocation.panel);
+  const communityStartupPending = $derived(
+    community.state.status === "idle" ||
+      community.state.status === "restoring" ||
+      community.state.status === "connecting" ||
+      community.state.status === "synchronizing",
+  );
+  const allRooms = $derived(
+    workspace.navigationSections.flatMap((section) => section.rooms),
+  );
+  const startupDestinationRoom = $derived(
+    communityStartupPending
+      ? allRooms.find((room) => room.id === activeDestination)
+      : undefined,
+  );
   const activeRoom = $derived(
-    findCommunityRoom(workspace) ?? fallbackRoom(workspace.activeRoomId),
+    startupDestinationRoom ??
+      findCommunityRoom(workspace) ??
+      fallbackRoom(workspace.activeRoomId || activeDestination),
+  );
+  const workspaceSurfaceModel = $derived(
+    startupDestinationRoom === undefined
+      ? workspace
+      : {
+          ...workspace,
+          activeRoomId: startupDestinationRoom.id,
+          view:
+            startupDestinationRoom.kind === "forum"
+              ? ("forum-index" as const)
+              : ("channel" as const),
+          messages: [],
+          topics: [],
+        },
   );
   const activeDirectMember = $derived(
     directMemberForRoom(
@@ -410,7 +440,10 @@
             }
           : {}),
         sortable: true,
-        items: (hasCommunitySurface ? section.rooms : [])
+        items: (hasCommunitySurface || communityStartupPending
+          ? section.rooms
+          : []
+        )
           .filter(
             (room) =>
               !community.state.navigation.hiddenRoomIds.includes(room.id),
@@ -514,9 +547,6 @@
       })),
     ]),
   });
-  const allRooms = $derived(
-    workspace.navigationSections.flatMap((section) => section.rooms),
-  );
   const searchRooms = $derived(
     allRooms.filter((room) =>
       `${room.name} ${room.description ?? ""}`
@@ -586,7 +616,7 @@
   );
   const usesRoomToolbar = $derived(
     !isRegistryDestination &&
-      hasCommunitySurface &&
+      (hasCommunitySurface || communityStartupPending) &&
       activeDestination !== "settings" &&
       activeDestination !== "inbox" &&
       activeDestination !== "new-direct-message",
@@ -1911,7 +1941,7 @@
           </AppShell.Body.Content>
         </AppShell.Body>
       {/if}
-    {:else if !hasCommunitySurface}
+    {:else if !hasCommunitySurface && !communityStartupPending}
       <AppShell.Body layout="regions" label="Connect to community relay">
         <AppShell.Body.Content label="Relay connection settings">
           <section class="community-application__disconnected">
@@ -2171,10 +2201,9 @@
           label={`${activeRoom.name} content`}
         >
           <CommunityWorkspaceSurface
-            model={workspace}
-            historyLoading={community.state.contentSync?.rooms[
-              activeRoom.id
-            ] === "unloaded"}
+            model={workspaceSurfaceModel}
+            historyLoading={communityStartupPending ||
+              community.state.contentSync?.rooms[activeRoom.id] === "unloaded"}
             historyUpdating={community.state.contentSync?.phase ===
               "background" ||
               community.state.contentSync?.phase === "partial-error"}

@@ -128,6 +128,112 @@
   {/snippet}
 </Story>
 
+<Story
+  name="Channel startup skeleton"
+  play={async ({ canvas }) => {
+    const application = await canvas.findByTestId(
+      "full-community-application",
+      {},
+      { timeout: 15_000 },
+    );
+    await expect(
+      await canvas.findByRole(
+        "status",
+        { name: "Loading channel messages" },
+        { timeout: 5_000 },
+      ),
+    ).toBeVisible();
+    await expect(
+      canvas.queryByRole("heading", { name: "Connect to a community relay" }),
+    ).not.toBeInTheDocument();
+    await waitFor(
+      () =>
+        expect(application).toHaveAttribute(
+          "data-community-status",
+          "connected",
+        ),
+      { timeout: 15_000 },
+    );
+  }}
+>
+  {#snippet template()}
+    <CommunityApplicationStoryHarness
+      namespace="channel-startup-skeleton"
+      initialDestination="general"
+      bootstrapDelayMs={2_500}
+    />
+  {/snippet}
+</Story>
+
+<Story
+  name="Forum startup skeleton"
+  play={async ({ canvas }) => {
+    const application = await canvas.findByTestId(
+      "full-community-application",
+      {},
+      { timeout: 15_000 },
+    );
+    await expect(
+      await canvas.findByRole(
+        "status",
+        { name: "Loading forum topics" },
+        { timeout: 5_000 },
+      ),
+    ).toBeVisible();
+    await expect(
+      canvas.queryByRole("heading", { name: "Connect to a community relay" }),
+    ).not.toBeInTheDocument();
+    await waitFor(
+      () =>
+        expect(application).toHaveAttribute(
+          "data-community-status",
+          "connected",
+        ),
+      { timeout: 15_000 },
+    );
+  }}
+>
+  {#snippet template()}
+    <CommunityApplicationStoryHarness
+      namespace="forum-startup-skeleton"
+      initialDestination="support"
+      bootstrapDelayMs={2_500}
+    />
+  {/snippet}
+</Story>
+
+<Story
+  name="Failed room startup"
+  play={async ({ canvas }) => {
+    await expect(
+      await canvas.findByRole(
+        "status",
+        { name: "Loading channel messages" },
+        { timeout: 5_000 },
+      ),
+    ).toBeVisible();
+    await expect(
+      await canvas.findByText(
+        "Connect to a community relay",
+        {},
+        { timeout: 5_000 },
+      ),
+    ).toBeVisible();
+    await expect(
+      canvas.queryByRole("status", { name: "Loading channel messages" }),
+    ).not.toBeInTheDocument();
+  }}
+>
+  {#snippet template()}
+    <CommunityApplicationStoryHarness
+      namespace="failed-room-startup"
+      initialDestination="general"
+      bootstrapDelayMs={500}
+      bootstrapFailure
+    />
+  {/snippet}
+</Story>
+
 <Story name="Mid-session disconnect">
   {#snippet template()}
     <CommunityApplicationCacheStoryHarness scenario="mid-session-disconnect" />

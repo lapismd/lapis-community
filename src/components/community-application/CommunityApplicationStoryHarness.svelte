@@ -27,6 +27,7 @@
   import {
     COMMUNITY_APPLICATION_DESTINATION_STORAGE_KEY,
     COMMUNITY_APPLICATION_SHELL_LAYOUT_STORAGE_KEY,
+    type CommunityApplicationDestination,
   } from "./navigation.js";
 
   let {
@@ -37,6 +38,9 @@
     releaseMessages = false,
     useDefaultShell = false,
     persistenceScenario = false,
+    initialDestination = "registry",
+    bootstrapDelayMs = 0,
+    bootstrapFailure = false,
     progressiveDelayMs = 0,
     progressiveFailure = false,
   }: {
@@ -47,6 +51,9 @@
     releaseMessages?: boolean;
     useDefaultShell?: boolean;
     persistenceScenario?: boolean;
+    initialDestination?: CommunityApplicationDestination;
+    bootstrapDelayMs?: number;
+    bootstrapFailure?: boolean;
     progressiveDelayMs?: number;
     progressiveFailure?: boolean;
   } = $props();
@@ -160,7 +167,12 @@
             });
             releaseEventId = releaseEvent.id;
             registrySource = createRegistryStoryDataSource([releaseEvent.id]);
-          } else if (progressiveDelayMs > 0 || progressiveFailure) {
+          } else if (
+            bootstrapDelayMs > 0 ||
+            bootstrapFailure ||
+            progressiveDelayMs > 0 ||
+            progressiveFailure
+          ) {
             created.controller.dispose();
             const baseSource = createNip29CommunitySource({
               relayFactory: created.relayFactory,
@@ -169,12 +181,32 @@
             const source: CommunityDataSource = {
               async open(scope, context, signal) {
                 const session = await baseSource.open(scope, context, signal);
+                const delayBootstrap = async (
+                  nextSignal?: AbortSignal,
+                ): Promise<void> => {
+                  if (bootstrapDelayMs <= 0) return;
+                  await new Promise((resolve) =>
+                    window.setTimeout(resolve, bootstrapDelayMs),
+                  );
+                  nextSignal?.throwIfAborted();
+                };
                 return {
-                  snapshot: (nextSignal) => session.snapshot(nextSignal),
-                  synchronize: async (request, nextSignal) =>
-                    session.synchronize === undefined
+                  snapshot: async (nextSignal) => {
+                    await delayBootstrap(nextSignal);
+                    if (bootstrapFailure) {
+                      throw new Error("Story community bootstrap failed");
+                    }
+                    return session.snapshot(nextSignal);
+                  },
+                  synchronize: async (request, nextSignal) => {
+                    await delayBootstrap(nextSignal);
+                    if (bootstrapFailure) {
+                      throw new Error("Story community bootstrap failed");
+                    }
+                    return session.synchronize === undefined
                       ? session.snapshot(nextSignal)
-                      : session.synchronize(request, nextSignal),
+                      : session.synchronize(request, nextSignal);
+                  },
                   loadContentWindow: async (request, nextSignal) => {
                     if (progressiveDelayMs > 0) {
                       await new Promise((resolve) =>
@@ -297,6 +329,7 @@
   {#key applicationGeneration}
     <CommunityApplication
       controller={community}
+      {initialDestination}
       {...useDefaultShell ? {} : { shellController: storyShellController }}
       displayMode={responsive ? "auto" : "desktop"}
       {...responsive ? {} : { desktopMinMainWidth: 0 }}
