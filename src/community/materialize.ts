@@ -690,6 +690,8 @@ function eventMessage(
   asOf: number | undefined,
   identityPubkey: string | undefined,
 ): CommunityMessageModel {
+  const edit = latestMessageEdit(event, events);
+  const renderedEvent = edit ?? event;
   const parentMessageId =
     event.tags.find((tag) => tag[0] === "e" && tag[3] === "reply")?.[1] ??
     event.tags.find((tag) => tag[0] === "e")?.[1];
@@ -707,7 +709,7 @@ function eventMessage(
   const reactions = reactionModels(event.id, events, identityPubkey);
   const mentionPubkeys = [
     ...new Set(
-      event.tags
+      renderedEvent.tags
         .filter(
           (tag) => (tag[0] === "p" || tag[0] === "P") && tag[1] !== undefined,
         )
@@ -717,8 +719,9 @@ function eventMessage(
   return {
     id: event.id,
     authorId: event.pubkey,
-    content: event.content,
+    content: renderedEvent.content,
     sourceEvent: event,
+    ...(edit === undefined ? {} : { edited: true }),
     ...(mentionPubkeys.length === 0 ? {} : { mentionPubkeys }),
     timestamp: timestamp(event.created_at),
     createdAt: new Date(event.created_at * 1_000).toISOString(),
@@ -747,6 +750,27 @@ function eventMessage(
         }),
     ...(reactions.length === 0 ? {} : { reactions }),
   };
+}
+
+function latestMessageEdit(
+  target: NostrEvent,
+  events: readonly NostrEvent[],
+): NostrEvent | undefined {
+  const groupId = target.tags.find((tag) => tag[0] === "h")?.[1];
+  if (groupId === undefined) return undefined;
+  return events
+    .filter(
+      (event) =>
+        event.kind === 40_003 &&
+        event.pubkey === target.pubkey &&
+        event.content.trim() !== "" &&
+        event.tags.some((tag) => tag[0] === "h" && tag[1] === groupId) &&
+        event.tags.some((tag) => tag[0] === "e" && tag[1] === target.id),
+    )
+    .toSorted(
+      (left, right) =>
+        right.created_at - left.created_at || right.id.localeCompare(left.id),
+    )[0];
 }
 
 function reactionModels(

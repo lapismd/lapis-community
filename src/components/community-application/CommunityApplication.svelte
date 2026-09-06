@@ -36,6 +36,7 @@
     CommunityApplicationExtensions,
     CommunityController,
     CommunityLinkBuilder,
+    CommunityMessageReport,
     CommunityReplyTarget,
   } from "../../community/index.js";
   import {
@@ -1510,9 +1511,60 @@
   }
 
   async function deleteMessage(messageId: string): Promise<void> {
-    await runAuthenticated(() => community.actions.deleteEvent(messageId));
-    toast.success("Message deleted");
-    lastAction = `deleted-message:${messageId}`;
+    try {
+      await runAuthenticated(() => community.actions.deleteEvent(messageId));
+      toast.success("Message deleted");
+      lastAction = `deleted-message:${messageId}`;
+    } catch (cause) {
+      toast.error(
+        cause instanceof Error ? cause.message : "Message could not be deleted",
+      );
+      throw cause;
+    }
+  }
+
+  async function editMessage(
+    messageId: string,
+    content: string,
+  ): Promise<void> {
+    try {
+      const editEvent = community.actions.editEvent;
+      if (editEvent === undefined) {
+        throw new Error(
+          "This community source does not support message editing",
+        );
+      }
+      await runAuthenticated(() => editEvent(messageId, content));
+      toast.success("Message updated");
+      lastAction = `edited-message:${messageId}`;
+    } catch (cause) {
+      toast.error(
+        cause instanceof Error ? cause.message : "Message could not be updated",
+      );
+      throw cause;
+    }
+  }
+
+  async function reportMessage(
+    messageId: string,
+    report: CommunityMessageReport,
+  ): Promise<void> {
+    try {
+      const reportEvent = community.actions.reportEvent;
+      if (reportEvent === undefined) {
+        throw new Error(
+          "This community source does not support message reports",
+        );
+      }
+      await runAuthenticated(() => reportEvent(messageId, report));
+      toast.success("Report sent privately to the community curators");
+      lastAction = `reported-message:${messageId}`;
+    } catch (cause) {
+      toast.error(
+        cause instanceof Error ? cause.message : "Report could not be sent",
+      );
+      throw cause;
+    }
   }
 
   async function handleTopicAction(
@@ -2153,9 +2205,14 @@
         onCopyMessage={copyMessage}
         onCopyEvent={copyEvent}
         {...extensions.editMessage === undefined
-          ? {}
+          ? community.actions.editEvent === undefined
+            ? {}
+            : { onSaveMessageEdit: editMessage }
           : { onEditMessage: extensions.editMessage }}
         onDeleteMessage={deleteMessage}
+        {...community.actions.reportEvent === undefined
+          ? {}
+          : { onReportMessage: reportMessage }}
         {...community.state.replyTarget === undefined
           ? {}
           : { replyTarget: community.state.replyTarget }}
@@ -2375,9 +2432,14 @@
               onCopyMessage: copyMessage,
               onCopyEvent: copyEvent,
               ...(extensions.editMessage === undefined
-                ? {}
+                ? community.actions.editEvent === undefined
+                  ? {}
+                  : { onSaveMessageEdit: editMessage }
                 : { onEditMessage: extensions.editMessage }),
               onDeleteMessage: deleteMessage,
+              ...(community.actions.reportEvent === undefined
+                ? {}
+                : { onReportMessage: reportMessage }),
               onBrowseRooms: openRoomBrowser,
               ...(activeRoomJoinVisible
                 ? {
@@ -2547,9 +2609,14 @@
                 onCopyMessage={copyMessage}
                 onCopyEvent={copyEvent}
                 {...extensions.editMessage === undefined
-                  ? {}
+                  ? community.actions.editEvent === undefined
+                    ? {}
+                    : { onSaveMessageEdit: editMessage }
                   : { onEditMessage: extensions.editMessage }}
                 onDeleteMessage={deleteMessage}
+                {...community.actions.reportEvent === undefined
+                  ? {}
+                  : { onReportMessage: reportMessage }}
               />
             {:else}
               <div class="community-application__panel-status" role="status">

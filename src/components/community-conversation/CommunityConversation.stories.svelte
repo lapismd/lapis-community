@@ -1,6 +1,6 @@
 <script module lang="ts">
   import { defineMeta } from "@storybook/addon-svelte-csf";
-  import { expect, fn, userEvent } from "storybook/test";
+  import { expect, fn, userEvent, waitFor, within } from "storybook/test";
 
   import {
     communityStoryMembers,
@@ -163,6 +163,99 @@
     ).toBeVisible();
     await userEvent.click(canvas.getByRole("button", { name: "Cancel reply" }));
     await expect(args.onCancelReply).toHaveBeenCalledOnce();
+  }}
+>
+  {#snippet template(args)}
+    <div
+      style="width: min(100%, 54rem); height: 38rem; border: 1px solid var(--border);"
+    >
+      <CommunityConversation {...args} />
+    </div>
+  {/snippet}
+</Story>
+
+<Story
+  name="Edit an authored message"
+  args={{
+    room: generalRoom,
+    messages: groupedMessages,
+    members: communityStoryMembers,
+    currentMemberId: "ben",
+    restrictMessageManagement: true,
+    onSaveMessageEdit: fn(),
+  }}
+  play={async ({ canvas, canvasElement, args }) => {
+    const page = within(canvasElement.ownerDocument.body);
+    const message = canvas.getByLabelText("Message from Ben Stone");
+    const view = within(message);
+    await userEvent.hover(view.getByText(/published the AI plugin fixture/));
+    const moreActions = view.getByRole("button", {
+      name: "More message actions",
+    });
+    await waitFor(() => expect(moreActions).toBeVisible());
+    await userEvent.click(moreActions);
+    await userEvent.click(
+      await page.findByRole("menuitem", { name: "Edit message" }),
+    );
+
+    await expect(canvas.getByLabelText("Editing message")).toBeVisible();
+    const editor = canvas.getByRole("textbox", { name: "Markdown editor" });
+    await expect(editor).toHaveTextContent(
+      "I have published the AI plugin fixture",
+    );
+    await userEvent.click(editor);
+    await userEvent.type(editor, "Update: ");
+    await userEvent.click(canvas.getByRole("button", { name: "Save message" }));
+    await expect(args.onSaveMessageEdit).toHaveBeenCalledWith(
+      "message-release",
+      "Update: I have published the AI plugin fixture against the local relay. The release message and its approval resolve correctly, and the rendered registry now links back to the support forum.",
+    );
+  }}
+>
+  {#snippet template(args)}
+    <div
+      style="width: min(100%, 54rem); height: 38rem; border: 1px solid var(--border);"
+    >
+      <CommunityConversation {...args} />
+    </div>
+  {/snippet}
+</Story>
+
+<Story
+  name="Forum post author actions"
+  args={{
+    room: {
+      id: "support-ai",
+      name: "support-ai",
+      kind: "forum" as const,
+    },
+    messages: [communityStoryMessages[0]!],
+    members: communityStoryMembers,
+    currentMemberId: "ada",
+    restrictMessageManagement: true,
+    onSaveMessageEdit: fn(),
+    onDeleteMessage: fn(),
+    onReportMessage: fn(),
+  }}
+  play={async ({ canvas, canvasElement }) => {
+    const page = within(canvasElement.ownerDocument.body);
+    const post = canvas.getByLabelText("Message from Ada Lovelace");
+    const view = within(post);
+    await userEvent.hover(view.getByText(/Morning everyone/));
+    const moreActions = view.getByRole("button", {
+      name: "More message actions",
+    });
+    await waitFor(() => expect(moreActions).toBeVisible());
+    await userEvent.click(moreActions);
+    await expect(
+      await page.findByRole("menuitem", { name: "Edit message" }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("menuitem", { name: "Report message" }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("menuitem", { name: "Delete message" }),
+    ).toBeVisible();
   }}
 >
   {#snippet template(args)}

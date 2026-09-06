@@ -129,20 +129,10 @@
     );
     await expect(args.onOpenRoom).toHaveBeenCalledWith("plugin-development");
 
-    await userEvent.hover(avatar);
-    await expect(
-      await page.findByLabelText("Ben Stone contact preview"),
-    ).toBeVisible();
-    await userEvent.click(avatar);
+    avatar.focus();
+    await userEvent.keyboard("{Enter}");
     await expect(args.onOpenProfile).toHaveBeenCalledWith(
       communityStoryMembers[1],
-    );
-    await userEvent.unhover(avatar);
-    await userEvent.keyboard("{Escape}");
-    await waitFor(() =>
-      expect(
-        page.queryByLabelText("Ben Stone contact preview"),
-      ).not.toBeInTheDocument(),
     );
 
     await userEvent.hover(message);
@@ -159,6 +149,70 @@
     );
     await userEvent.click(copyEvent);
     await expect(args.onCopyEvent).toHaveBeenCalledWith("message-release");
+  }}
+/>
+
+<Story
+  name="Author edit delete and report actions"
+  args={{
+    message: communityStoryMessages[3]!,
+    author: communityStoryMembers[3]!,
+    members: communityStoryMembers,
+    rooms: communityComposerStoryRooms,
+    density: "compact",
+    isContinuation: true,
+    onEdit: fn(),
+    onDelete: fn(),
+    onReport: fn(),
+  }}
+  play={async ({ canvas, canvasElement, args }) => {
+    const page = within(canvasElement.ownerDocument.body);
+    const message = canvas.getByLabelText("Message from Mara Chen");
+    const view = within(message);
+    await expect(view.getByText("(edited)")).toBeVisible();
+
+    await userEvent.hover(view.getByText(/UI category is derived/));
+    await waitFor(() =>
+      expect(
+        view.getByRole("button", { name: "More message actions" }),
+      ).toBeVisible(),
+    );
+    await userEvent.click(
+      view.getByRole("button", { name: "More message actions" }),
+    );
+    await userEvent.click(
+      await page.findByRole("menuitem", { name: "Edit message" }),
+    );
+    await expect(args.onEdit).toHaveBeenCalledWith("message-answer");
+
+    await userEvent.click(
+      view.getByRole("button", { name: "More message actions" }),
+    );
+    await userEvent.click(
+      await page.findByRole("menuitem", { name: "Report message" }),
+    );
+    const report = await page.findByRole("dialog", { name: "Report message" });
+    await userEvent.click(within(report).getByRole("radio", { name: "Spam" }));
+    await userEvent.click(
+      within(report).getByRole("button", { name: "Submit report" }),
+    );
+    await expect(args.onReport).toHaveBeenCalledWith("message-answer", {
+      category: "spam",
+    });
+
+    await userEvent.click(
+      view.getByRole("button", { name: "More message actions" }),
+    );
+    await userEvent.click(
+      await page.findByRole("menuitem", { name: "Delete message" }),
+    );
+    const confirmation = await page.findByRole("alertdialog", {
+      name: "Delete message?",
+    });
+    await userEvent.click(
+      within(confirmation).getByRole("button", { name: "Delete message" }),
+    );
+    await expect(args.onDelete).toHaveBeenCalledWith("message-answer");
   }}
 />
 

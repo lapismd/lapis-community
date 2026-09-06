@@ -132,6 +132,104 @@ describe("materializeCommunityWorkspace", () => {
     ]);
   });
 
+  it("projects only the latest same-author, same-room message edit", () => {
+    const authorKey = new Uint8Array(32).fill(55);
+    const otherKey = new Uint8Array(32).fill(56);
+    const original = finalizeEvent(
+      {
+        kind: 9,
+        created_at: 10,
+        content: "Original message",
+        tags: [["h", "general"]],
+      },
+      authorKey,
+    );
+    const firstEdit = finalizeEvent(
+      {
+        kind: 40_003,
+        created_at: 11,
+        content: "First correction",
+        tags: [
+          ["h", "general"],
+          ["e", original.id],
+        ],
+      },
+      authorKey,
+    );
+    const forgedEdit = finalizeEvent(
+      {
+        kind: 40_003,
+        created_at: 13,
+        content: "Forged correction",
+        tags: [
+          ["h", "general"],
+          ["e", original.id],
+        ],
+      },
+      otherKey,
+    );
+    const wrongRoomEdit = finalizeEvent(
+      {
+        kind: 40_003,
+        created_at: 14,
+        content: "Wrong room correction",
+        tags: [
+          ["h", "elsewhere"],
+          ["e", original.id],
+        ],
+      },
+      authorKey,
+    );
+    const latestEdit = finalizeEvent(
+      {
+        kind: 40_003,
+        created_at: 12,
+        content: "Final correction",
+        tags: [
+          ["h", "general"],
+          ["e", original.id],
+        ],
+      },
+      authorKey,
+    );
+    const scope = {
+      id: "lapis",
+      name: "Lapis Community",
+      relayUrl: "memory://community.test",
+      rooms: [
+        {
+          id: "general",
+          groupId: "general",
+          name: "general",
+          kind: "channel" as const,
+        },
+      ],
+    };
+
+    const workspace = materializeCommunityWorkspace(
+      [scope],
+      {
+        [scope.id]: [
+          wrongRoomEdit,
+          forgedEdit,
+          latestEdit,
+          original,
+          firstEdit,
+        ],
+      },
+      scope.id,
+      { activeRoomId: "general" },
+    );
+
+    expect(workspace.messages).toHaveLength(1);
+    expect(workspace.messages[0]).toMatchObject({
+      id: original.id,
+      content: "Final correction",
+      edited: true,
+      sourceEvent: original,
+    });
+  });
+
   it("orders recent forum participants and uses compact relative activity before dates", () => {
     const topic = finalizeEvent(
       {

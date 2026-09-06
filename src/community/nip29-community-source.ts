@@ -31,7 +31,7 @@ export interface Nip29CommunitySourceOptions {
   searchLimit?: number;
 }
 
-const COMMUNITY_CONTENT_KINDS = [5, 7, 9, 11, 1_111, 9_005] as const;
+const COMMUNITY_CONTENT_KINDS = [5, 7, 9, 11, 1_111, 9_005, 40_003] as const;
 const COMMUNITY_STATE_KINDS = [39_000, 39_001, 39_002] as const;
 const PUBLIC_ROOM_DISCOVERY_LIMIT = 1_000;
 const CONTENT_BOUNDARY_LIMIT = 1_000;
@@ -126,7 +126,7 @@ class Nip29CommunitySession implements CommunitySession {
         : await this.#queryUnion(
             this.#relays,
             {
-              kinds: [5, 7, 9_005],
+              kinds: [5, 7, 9_005, 40_003],
               "#e": targets,
               limit: Math.min(500, Math.max(25, targets.length * 10)),
             },
@@ -215,7 +215,7 @@ class Nip29CommunitySession implements CommunitySession {
         ? []
         : await this.#queryUnion(
             this.#relays,
-            { kinds: [5, 7, 9_005], "#e": targets },
+            { kinds: [5, 7, 9_005, 40_003], "#e": targets },
             signal,
           );
     const identityPubkey = await this.#context.identity?.getPublicKey();
@@ -648,7 +648,7 @@ class Nip29CommunitySession implements CommunitySession {
       await Promise.all(
         this.#relays.map(async (relay) => {
           const subscription = await relay.subscribe(
-            { kinds: [5, 7, 9_005], "#e": ids },
+            { kinds: [5, 7, 9_005, 40_003], "#e": ids },
             { onevent: (event) => this.#emit([event]) },
             signal,
           );
@@ -833,7 +833,7 @@ class Nip29CommunitySession implements CommunitySession {
       manageMembers: signedIn,
       deleteEvents: signedIn,
       archive: false,
-      editMessages: false,
+      editMessages: signedIn,
     };
   }
 }

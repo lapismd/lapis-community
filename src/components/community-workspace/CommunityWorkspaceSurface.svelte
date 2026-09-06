@@ -345,9 +345,15 @@
       {...knownNonmember || handlers.onEditMessage === undefined
         ? {}
         : { onEditMessage: handlers.onEditMessage }}
+      {...knownNonmember || handlers.onSaveMessageEdit === undefined
+        ? {}
+        : { onSaveMessageEdit: handlers.onSaveMessageEdit }}
       {...knownNonmember || handlers.onDeleteMessage === undefined
         ? {}
         : { onDeleteMessage: handlers.onDeleteMessage }}
+      {...handlers.onReportMessage === undefined
+        ? {}
+        : { onReportMessage: handlers.onReportMessage }}
       {...handlers.onOpenProfile === undefined
         ? {}
         : { onOpenProfile: handlers.onOpenProfile }}

@@ -172,7 +172,15 @@ export interface CommunityWorkspaceHandlers {
   onCopyMessage?: (messageId: string) => void;
   onCopyEvent?: (messageId: string) => void;
   onEditMessage?: (messageId: string) => void | Promise<void>;
+  onSaveMessageEdit?: (
+    messageId: string,
+    content: string,
+  ) => void | Promise<void>;
   onDeleteMessage?: (messageId: string) => void | Promise<void>;
+  onReportMessage?: (
+    messageId: string,
+    report: import("../../community/index.js").CommunityMessageReport,
+  ) => void | Promise<void>;
   onOpenProfile?: (member: CommunityMemberModel) => void;
   onMessageMember?: (member: CommunityMemberModel) => void | Promise<void>;
   onViewMemberActivity?: (member: CommunityMemberModel) => void | Promise<void>;

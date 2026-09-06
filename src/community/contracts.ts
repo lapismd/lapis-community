@@ -205,6 +205,20 @@ export interface CommunityCustomEmojiReference {
   url: string;
 }
 
+export type CommunityMessageReportCategory =
+  | "spam"
+  | "profanity"
+  | "nudity"
+  | "impersonation"
+  | "malware"
+  | "illegal"
+  | "other";
+
+export interface CommunityMessageReport {
+  category: CommunityMessageReportCategory;
+  context?: string;
+}
+
 export type CommunityIdentity = CommunitySigner;
 
 export type CommunityCommand =
@@ -505,7 +519,9 @@ export interface CommunityControllerActions {
     emoji: string,
     customEmoji?: CommunityCustomEmojiReference,
   ): Promise<void>;
+  editEvent?(eventId: string, content: string): Promise<void>;
   deleteEvent(eventId: string): Promise<void>;
+  reportEvent?(eventId: string, report: CommunityMessageReport): Promise<void>;
   createRoom(
     roomKind: "channel" | "forum",
     update: CommunityRoomUpdate,

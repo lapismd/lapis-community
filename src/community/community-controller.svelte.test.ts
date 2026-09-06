@@ -800,6 +800,75 @@ describe("createCommunityController", () => {
     expect(await runtime.relay.count({ kinds: [1_059] })).toBe(6);
   });
 
+  it("lets an author edit and delete their own message", async () => {
+    runtime = await createCommunityTestRuntime();
+    await connected(runtime);
+    const operatorPubkey = await runtime.scenario.operator.getPublicKey();
+    const ownMessage = runtime.controller.state.workspace.messages.find(
+      (message) => message.authorId === operatorPubkey,
+    )!;
+    const otherMessage = runtime.controller.state.workspace.messages.find(
+      (message) => message.authorId !== operatorPubkey,
+    )!;
+
+    await runtime.controller.actions.editEvent!(
+      ownMessage.id,
+      "Welcome to the edited Lapis Community",
+    );
+
+    expect(runtime.controller.state.workspace.messages).toContainEqual(
+      expect.objectContaining({
+        id: ownMessage.id,
+        content: "Welcome to the edited Lapis Community",
+        edited: true,
+      }),
+    );
+    expect(await runtime.relay.count({ kinds: [40_003] })).toBe(1);
+    await expect(
+      runtime.controller.actions.editEvent!(otherMessage.id, "Forged edit"),
+    ).rejects.toThrow("Only the author can edit this message");
+
+    await runtime.controller.actions.deleteEvent(ownMessage.id);
+    expect(runtime.controller.state.workspace.messages).not.toContainEqual(
+      expect.objectContaining({ id: ownMessage.id }),
+    );
+    expect(await runtime.relay.count({ kinds: [5] })).toBe(1);
+  });
+
+  it("sends reports privately to every configured curator", async () => {
+    runtime = await createCommunityTestRuntime();
+    await connected(runtime);
+    const memberPubkey = await runtime.scenario.member.getPublicKey();
+    const target = runtime.controller.state.workspace.messages.find(
+      (message) => message.authorId === memberPubkey,
+    )!;
+    await runtime.controller.actions.addMember("general", memberPubkey, [
+      "curator",
+    ]);
+
+    await runtime.controller.actions.reportEvent!(target.id, {
+      category: "spam",
+      context: "Repeated links across rooms",
+    });
+
+    expect(await runtime.relay.count({ kinds: [1_059] })).toBe(2);
+    expect(runtime.controller.state.workspace.activeRoomId).toBe("general");
+  });
+
+  it("fails visibly when no curator recipients are configured", async () => {
+    runtime = await createCommunityTestRuntime();
+    await connected(runtime);
+    const operatorPubkey = await runtime.scenario.operator.getPublicKey();
+    const target = runtime.controller.state.workspace.messages.find(
+      (message) => message.authorId !== operatorPubkey,
+    )!;
+
+    await expect(
+      runtime.controller.actions.reportEvent!(target.id, { category: "other" }),
+    ).rejects.toThrow("No curator recipients are configured on this relay");
+    expect(await runtime.relay.count({ kinds: [1_059] })).toBe(0);
+  });
+
   it("connects a NIP-07-style identity and retries a protected action once", async () => {
     const scenario = createCommunityTestScenario();
     const relayFactory = createInMemoryRelayFactory({

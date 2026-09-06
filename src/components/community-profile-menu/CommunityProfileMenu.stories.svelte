@@ -53,7 +53,7 @@
       overlay.getByRole("menuitem", { name: "🏠 Working remotely" }),
     ).toBeVisible();
     const profileMenu = overlay.getByRole("menu", { name: "Profile menu" });
-    await userEvent.hover(
+    await userEvent.click(
       overlay.getByRole("menuitem", { name: "Presence: Online" }),
     );
     const presenceMenu = await overlay.findByRole("menu", {
@@ -82,7 +82,7 @@
       name: "buzz community actions",
     });
     await expect(communityTrigger).toBeVisible();
-    await userEvent.hover(communityTrigger);
+    await userEvent.click(communityTrigger);
     const communityMenu = await overlay.findByRole("menu", {
       name: "Community actions",
     });

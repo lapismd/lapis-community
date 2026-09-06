@@ -10,6 +10,7 @@
 
   import type {
     CommunityCustomEmoji,
+    CommunityMessageReport,
     CommunityReplyTarget,
   } from "../../community/index.js";
   import CommunityChatComposer from "../community-chat-composer/CommunityChatComposer.svelte";
@@ -38,7 +39,9 @@
     onCopyMessage,
     onCopyEvent,
     onEditMessage,
+    onSaveMessageEdit,
     onDeleteMessage,
+    onReportMessage,
     onOpenProfile,
     onOpenRoom,
     onMessageMember,
@@ -82,7 +85,15 @@
     onCopyMessage?: (messageId: string) => void;
     onCopyEvent?: (messageId: string) => void;
     onEditMessage?: (messageId: string) => void | Promise<void>;
+    onSaveMessageEdit?: (
+      messageId: string,
+      content: string,
+    ) => void | Promise<void>;
     onDeleteMessage?: (messageId: string) => void | Promise<void>;
+    onReportMessage?: (
+      messageId: string,
+      report: CommunityMessageReport,
+    ) => void | Promise<void>;
     onOpenProfile?: (member: CommunityMemberModel) => void;
     onOpenRoom?: (roomId: string) => void;
     onMessageMember?: (member: CommunityMemberModel) => void | Promise<void>;
@@ -108,6 +119,7 @@
   } = $props();
 
   let draft = $state("");
+  let editingMessageId = $state<string | undefined>();
   const density = $derived(room.kind === "forum" ? "spacious" : "compact");
   const composerRooms = $derived(rooms.length > 0 ? rooms : [room]);
   const displayedDirectMember = $derived(
@@ -125,6 +137,29 @@
       presence: "offline" as const,
     },
   );
+
+  function startEditing(message: CommunityMessageModel): void {
+    editingMessageId = message.id;
+    draft = message.content;
+  }
+
+  function cancelComposerContext(): void {
+    if (editingMessageId !== undefined) {
+      editingMessageId = undefined;
+      draft = "";
+      return;
+    }
+    onCancelReply?.();
+  }
+
+  async function submitComposer(content: string): Promise<void> {
+    if (editingMessageId !== undefined && onSaveMessageEdit !== undefined) {
+      await onSaveMessageEdit(editingMessageId, content);
+      editingMessageId = undefined;
+      return;
+    }
+    await onSend?.(content);
+  }
 </script>
 
 <div
@@ -182,9 +217,17 @@
           rooms={composerRooms}
           {communityEmojis}
           {...currentMemberId === undefined ? {} : { currentMemberId }}
-          {...replyTarget === undefined
-            ? {}
-            : { context: { kind: "reply" as const, target: replyTarget } }}
+          {...editingMessageId !== undefined
+            ? {
+                context: {
+                  kind: "edit" as const,
+                  id: editingMessageId,
+                  label: "Editing message",
+                },
+              }
+            : replyTarget === undefined
+              ? {}
+              : { context: { kind: "reply" as const, target: replyTarget } }}
           {disabled}
           {disabledReason}
           placeholder={`Message ${room.kind === "channel" ? "#" : ""}${room.name}`}
@@ -195,10 +238,10 @@
           {...onDismissComposerStatus === undefined
             ? {}
             : { onDismissComposerStatus }}
-          {...onCancelReply === undefined
+          {...editingMessageId === undefined && onCancelReply === undefined
             ? {}
-            : { onCancelContext: onCancelReply }}
-          onSubmit={(submission) => onSend?.(submission.content)}
+            : { onCancelContext: cancelComposerContext }}
+          onSubmit={(submission) => submitComposer(submission.content)}
         />
       {/if}
     {/snippet}
@@ -246,16 +289,24 @@
           onCopyLink={(messageId) => onCopyMessageLink?.(messageId)}
           onCopyMessage={(messageId) => onCopyMessage?.(messageId)}
           {...onCopyEvent === undefined ? {} : { onCopyEvent }}
-          {...onEditMessage === undefined ||
+          {...(onEditMessage === undefined &&
+            onSaveMessageEdit === undefined) ||
           (restrictMessageManagement && message.authorId !== currentMemberId)
             ? {}
-            : { onEdit: onEditMessage }}
+            : {
+                onEdit: onSaveMessageEdit
+                  ? () => startEditing(message)
+                  : onEditMessage,
+              }}
           {...onDeleteMessage === undefined ||
           (restrictMessageManagement &&
             message.authorId !== currentMemberId &&
             !canDeleteAny)
             ? {}
             : { onDelete: onDeleteMessage }}
+          {...onReportMessage === undefined
+            ? {}
+            : { onReport: onReportMessage }}
           {...onMessageMember === undefined ? {} : { onMessageMember }}
           {...onViewMemberActivity === undefined
             ? {}

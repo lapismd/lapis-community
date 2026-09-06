@@ -7,6 +7,7 @@
   } from "@lapismd/design-core/ai/chat";
   import type {
     CommunityCustomEmoji,
+    CommunityMessageReport,
     CommunityReplyTarget,
   } from "../../community/index.js";
   import CommunityChatComposer from "../community-chat-composer/CommunityChatComposer.svelte";
@@ -30,7 +31,9 @@
     onCopyMessage,
     onCopyEvent,
     onEditMessage,
+    onSaveMessageEdit,
     onDeleteMessage,
+    onReportMessage,
     onReply,
     onOpenProfile,
     onOpenRoom,
@@ -68,7 +71,15 @@
     onCopyMessage?: (messageId: string) => void;
     onCopyEvent?: (messageId: string) => void;
     onEditMessage?: (messageId: string) => void | Promise<void>;
+    onSaveMessageEdit?: (
+      messageId: string,
+      content: string,
+    ) => void | Promise<void>;
     onDeleteMessage?: (messageId: string) => void | Promise<void>;
+    onReportMessage?: (
+      messageId: string,
+      report: CommunityMessageReport,
+    ) => void | Promise<void>;
     onReply?: (messageId: string) => void;
     onOpenProfile?: (member: CommunityMemberModel) => void;
     onOpenRoom?: (roomId: string) => void;
@@ -89,6 +100,7 @@
   } = $props();
 
   let draft = $state("");
+  let editingMessageId = $state<string | undefined>();
   const rootMessage = $derived(
     thread.messages.find((message) => message.id === thread.rootMessageId),
   );
@@ -97,6 +109,33 @@
       ? undefined
       : memberById(members, rootMessage.authorId),
   );
+
+  function startEditing(messageId: string): void {
+    const message = thread.messages.find(
+      (candidate) => candidate.id === messageId,
+    );
+    if (message === undefined) return;
+    editingMessageId = message.id;
+    draft = message.content;
+  }
+
+  function cancelComposerContext(): void {
+    if (editingMessageId !== undefined) {
+      editingMessageId = undefined;
+      draft = "";
+      return;
+    }
+    onCancelReply?.();
+  }
+
+  async function submitComposer(content: string): Promise<void> {
+    if (editingMessageId !== undefined && onSaveMessageEdit !== undefined) {
+      await onSaveMessageEdit(editingMessageId, content);
+      editingMessageId = undefined;
+      return;
+    }
+    await onSendReply?.(thread.rootMessageId, content);
+  }
 </script>
 
 <div class="community-thread-panel">
@@ -119,9 +158,17 @@
         {rooms}
         {communityEmojis}
         {...currentMemberId === undefined ? {} : { currentMemberId }}
-        {...replyTarget === undefined
-          ? {}
-          : { context: { kind: "reply" as const, target: replyTarget } }}
+        {...editingMessageId !== undefined
+          ? {
+              context: {
+                kind: "edit" as const,
+                id: editingMessageId,
+                label: "Editing message",
+              },
+            }
+          : replyTarget === undefined
+            ? {}
+            : { context: { kind: "reply" as const, target: replyTarget } }}
         {disabled}
         {disabledReason}
         ariaLabel="Thread reply composer"
@@ -136,11 +183,10 @@
         {...onDismissComposerStatus === undefined
           ? {}
           : { onDismissComposerStatus }}
-        {...onCancelReply === undefined
+        {...editingMessageId === undefined && onCancelReply === undefined
           ? {}
-          : { onCancelContext: onCancelReply }}
-        onSubmit={(submission) =>
-          onSendReply?.(thread.rootMessageId, submission.content)}
+          : { onCancelContext: cancelComposerContext }}
+        onSubmit={(submission) => submitComposer(submission.content)}
       />
     {/snippet}
 
@@ -172,14 +218,22 @@
           onCopyLink={(messageId) => onCopyMessageLink?.(messageId)}
           onCopyMessage={(messageId) => onCopyMessage?.(messageId)}
           {...onCopyEvent === undefined ? {} : { onCopyEvent }}
-          {...onEditMessage === undefined ||
+          {...(onEditMessage === undefined &&
+            onSaveMessageEdit === undefined) ||
           message.authorId !== currentMemberId
             ? {}
-            : { onEdit: onEditMessage }}
+            : {
+                onEdit: onSaveMessageEdit
+                  ? () => startEditing(message.id)
+                  : onEditMessage,
+              }}
           {...onDeleteMessage === undefined ||
           (message.authorId !== currentMemberId && !canDeleteAny)
             ? {}
             : { onDelete: onDeleteMessage }}
+          {...onReportMessage === undefined
+            ? {}
+            : { onReport: onReportMessage }}
           {...onOpenProfile === undefined ? {} : { onOpenProfile }}
           {...onOpenRoom === undefined ? {} : { onOpenRoom }}
           {...onMessageMember === undefined ? {} : { onMessageMember }}

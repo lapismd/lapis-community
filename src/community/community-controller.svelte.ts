@@ -32,6 +32,7 @@ import type {
   CommunityOperationFailure,
   CommunityOperationState,
   CommunityPrivateEvent,
+  CommunityMessageReport,
   CommunityReplyTarget,
   CommunityRoomUpdate,
   CommunityRuntimeRevision,
@@ -1039,6 +1040,63 @@ export function createCommunityController(
         ],
       });
     },
+    async editEvent(eventId, content) {
+      const operation = `edit:${eventId}`;
+      if (activeRoomModel()?.kind === "direct") {
+        throwOperationFailure(
+          operation,
+          "restricted",
+          "Direct messages cannot be edited",
+        );
+      }
+      const room = activeRoomScope();
+      const target = activeEvents().find((event) => event.id === eventId);
+      if (room === undefined)
+        throwOperationFailure(operation, "validation", "Room is unavailable");
+      if (
+        target === undefined ||
+        ![9, 11, 1_111].includes(target.kind) ||
+        !target.tags.some((tag) => tag[0] === "h" && tag[1] === room.groupId)
+      ) {
+        throwOperationFailure(
+          operation,
+          "validation",
+          "The message is unavailable",
+        );
+      }
+      if (content.trim() === "") {
+        throwOperationFailure(
+          operation,
+          "validation",
+          "Write a message before saving",
+        );
+      }
+      await ensureIdentity(operation);
+      if (target.pubkey !== identityPubkey) {
+        throwOperationFailure(
+          operation,
+          "restricted",
+          "Only the author can edit this message",
+        );
+      }
+      if (!capabilities.editMessages) {
+        throwOperationFailure(
+          operation,
+          "restricted",
+          "This community source does not support message editing",
+        );
+      }
+      assertCanPublish(room.id, operation);
+      await publishTemplate(operation, {
+        kind: 40_003,
+        created_at: now(),
+        content: content.trim(),
+        tags: [
+          ["h", room.groupId],
+          ["e", target.id],
+        ],
+      });
+    },
     async deleteEvent(eventId) {
       const operation = `delete:${eventId}`;
       if (activeRoomModel()?.kind === "direct") {
@@ -1093,6 +1151,47 @@ export function createCommunityController(
         eventId,
         groupId: room.groupId,
         mode: owner ? "owner" : "moderator",
+      });
+    },
+    async reportEvent(eventId, report) {
+      const operation = `report:${eventId}`;
+      if (activeRoomModel()?.kind === "direct") {
+        throwOperationFailure(
+          operation,
+          "restricted",
+          "Direct messages cannot be reported from this view",
+        );
+      }
+      const room = activeRoomScope();
+      const target = activeEvents().find(
+        (event) => event.id === eventId && [9, 11, 1_111].includes(event.kind),
+      );
+      if (room === undefined)
+        throwOperationFailure(operation, "validation", "Room is unavailable");
+      if (
+        target === undefined ||
+        !target.tags.some((tag) => tag[0] === "h" && tag[1] === room.groupId)
+      )
+        throwOperationFailure(
+          operation,
+          "validation",
+          "The message is unavailable",
+        );
+      await ensureIdentity(operation);
+      const recipients = configuredCuratorPubkeys(activeEvents()).filter(
+        (pubkey) => pubkey !== identityPubkey,
+      );
+      if (recipients.length === 0) {
+        throwOperationFailure(
+          operation,
+          "restricted",
+          "No curator recipients are configured on this relay",
+        );
+      }
+      await execute(operation, {
+        type: "direct-message",
+        recipients,
+        content: formatMessageReport(target, room.name, report),
       });
     },
     async createRoom(roomKind, update) {
@@ -2633,6 +2732,87 @@ function isGroupAdmin(
       )[0]
       ?.tags.some((tag) => tag[0] === "p" && tag[1] === pubkey) === true
   );
+}
+
+function configuredCuratorPubkeys(events: readonly NostrEvent[]): string[] {
+  const snapshots = new Map<string, NostrEvent>();
+  for (const event of events) {
+    if (event.kind !== 39_002) continue;
+    const groupId = event.tags.find((tag) => tag[0] === "d")?.[1];
+    if (groupId === undefined) continue;
+    const current = snapshots.get(groupId);
+    if (
+      current === undefined ||
+      event.created_at > current.created_at ||
+      (event.created_at === current.created_at && event.id > current.id)
+    ) {
+      snapshots.set(groupId, event);
+    }
+  }
+  return [
+    ...new Set(
+      [...snapshots.values()].flatMap((snapshot) =>
+        snapshot.tags
+          .filter(
+            (tag) =>
+              tag[0] === "p" &&
+              tag[1] !== undefined &&
+              tag
+                .slice(2)
+                .some(
+                  (role) => role === "curator" || role === "registry-curator",
+                ),
+          )
+          .map((tag) => tag[1]!),
+      ),
+    ),
+  ].toSorted();
+}
+
+function formatMessageReport(
+  target: NostrEvent,
+  roomName: string,
+  report: CommunityMessageReport,
+): string {
+  const reason = messageReportReason(report.category);
+  const quote = target.content
+    .split("\n")
+    .map((line) => `> ${line}`)
+    .join("\n");
+  return [
+    "🚩 **Community message report**",
+    "",
+    `**Reason:** ${reason}`,
+    `**Room:** ${roomName}`,
+    `**Author:** \`${target.pubkey}\``,
+    `**Event:** \`${target.id}\``,
+    "",
+    quote,
+    ...(report.context?.trim()
+      ? ["", `**Additional context:** ${report.context.trim()}`]
+      : []),
+  ].join("\n");
+}
+
+function messageReportReason(
+  category: CommunityMessageReport["category"],
+): string {
+  switch (category) {
+    case "spam":
+      return "Spam";
+    case "profanity":
+      return "Profanity or hate speech";
+    case "nudity":
+      return "Nudity or sexual content";
+    case "impersonation":
+      return "Impersonation";
+    case "malware":
+      return "Malware or scam";
+    case "illegal":
+      return "Illegal content";
+    case "other":
+      return "Other";
+  }
 }
 
 function parseJsonObject(value: string | undefined): Record<string, unknown> {

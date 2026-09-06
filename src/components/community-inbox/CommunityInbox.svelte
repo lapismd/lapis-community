@@ -17,6 +17,7 @@
   import type { CommunityInboxModel } from "./model.js";
   import type {
     CommunityCustomEmoji,
+    CommunityMessageReport,
     CommunityReplyTarget,
   } from "../../community/index.js";
   import "./CommunityInbox.css";
@@ -37,7 +38,9 @@
     onCopyMessage,
     onCopyEvent,
     onEditMessage,
+    onSaveMessageEdit,
     onDeleteMessage,
+    onReportMessage,
     onOpenProfile,
     onOpenRoom,
     onMessageMember,
@@ -70,7 +73,15 @@
     onCopyMessage?: (messageId: string) => void;
     onCopyEvent?: (messageId: string) => void;
     onEditMessage?: (messageId: string) => void | Promise<void>;
+    onSaveMessageEdit?: (
+      messageId: string,
+      content: string,
+    ) => void | Promise<void>;
     onDeleteMessage?: (messageId: string) => void | Promise<void>;
+    onReportMessage?: (
+      messageId: string,
+      report: CommunityMessageReport,
+    ) => void | Promise<void>;
     onOpenProfile?: (
       member: import("../community-workspace/model.js").CommunityMemberModel,
     ) => void | Promise<void>;
@@ -397,7 +408,9 @@
             {...onCopyMessage === undefined ? {} : { onCopyMessage }}
             {...onCopyEvent === undefined ? {} : { onCopyEvent }}
             {...onEditMessage === undefined ? {} : { onEditMessage }}
+            {...onSaveMessageEdit === undefined ? {} : { onSaveMessageEdit }}
             {...onDeleteMessage === undefined ? {} : { onDeleteMessage }}
+            {...onReportMessage === undefined ? {} : { onReportMessage }}
             {...onOpenProfile === undefined ? {} : { onOpenProfile }}
             {...onOpenRoom === undefined ? {} : { onOpenRoom }}
             {...onMessageMember === undefined ? {} : { onMessageMember }}
