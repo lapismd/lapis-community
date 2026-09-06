@@ -318,6 +318,9 @@ export function registryStoryDetail(
     versions: {
       [entry.latestVersion]: {
         version: entry.latestVersion,
+        releaseEventId: "1".repeat(64),
+        manifestSha256: "2".repeat(64),
+        releaseSequence: "2",
         minAppVersion: entry.minAppVersion,
         releasedAt:
           entry.latestRelease?.releasedAt ?? "2026-08-01T00:00:00.000Z",
@@ -332,6 +335,9 @@ export function registryStoryDetail(
       },
       "0.9.0": {
         version: "0.9.0",
+        releaseEventId: "3".repeat(64),
+        manifestSha256: "4".repeat(64),
+        releaseSequence: "1",
         minAppVersion: "1.0.0",
         releasedAt: "2026-07-14T12:00:00.000Z",
         platforms: entry.platforms,

@@ -43,6 +43,8 @@
   const registryPublishers = new Set(
     values(import.meta.env.VITE_REGISTRY_PUBLISHER_PUBKEYS),
   );
+  const registryAuthorityEpoch =
+    import.meta.env.VITE_REGISTRY_AUTHORITY_EPOCH?.trim() || undefined;
   const registryConfigurationError =
     registryRelays.length === 0 ||
     registryCurators.size === 0 ||
@@ -57,6 +59,9 @@
             curatorPubkeys: registryCurators,
             publisherPubkeysByPlugin: new Map(),
             defaultPublisherPubkeys: registryPublishers,
+            ...(registryAuthorityEpoch === undefined
+              ? {}
+              : { authorityEpoch: registryAuthorityEpoch }),
           },
           relayFactory: createWebSocketCommunityRelayFactory(),
         })

@@ -9,6 +9,7 @@ import {
   nip29ReleaseManifestSchema,
   NIP29_KINDS,
   parseNip29CuratorDecision,
+  parseNip29PublisherWithdrawal,
   projectRegistry,
   type Nip29CuratorDecision,
   type Nip29RegistryAuthorities,
@@ -171,7 +172,7 @@ export function inspectRegistryReleaseCandidate(
     return inspection(candidate, "invalid", diagnostics);
   }
 
-  const state = latestDecision(events, event.id, authorities) ?? "pending";
+  const state = releaseState(events, event, authorities);
   return {
     eventId: event.id,
     pluginId,
@@ -229,11 +230,25 @@ function latestDecision(
     )[0]?.decision;
 }
 
+function releaseState(
+  events: readonly NostrEvent[],
+  release: NostrEvent,
+  authorities: Nip29RegistryAuthorities,
+): RegistryReleaseInspectionState {
+  const withdrawn = events.some((event) => {
+    const parsed = parseNip29PublisherWithdrawal(event, release.id);
+    return parsed !== undefined && event.pubkey === release.pubkey;
+  });
+  return withdrawn
+    ? "withdrawn"
+    : (latestDecision(events, release.id, authorities) ?? "pending");
+}
+
 function zodDiagnostics(
   error: z.ZodError,
   stage: "schema" | "projection",
 ): RegistryReleaseDiagnostic[] {
-  return error.issues.map((issue) => ({
+  return mostSpecificZodIssues(error.issues).map((issue) => ({
     stage,
     code: issue.code,
     path:
@@ -244,6 +259,37 @@ function zodDiagnostics(
         : issue.path.map(String).join("."),
     message: issue.message,
   }));
+}
+
+type ZodIssue = z.ZodError["issues"][number];
+
+function mostSpecificZodIssues(issues: readonly ZodIssue[]): ZodIssue[] {
+  return issues.flatMap((issue) => {
+    if (issue.code !== "invalid_union") return [issue];
+
+    const branches = issue.errors.map((branch) =>
+      mostSpecificZodIssues(branch),
+    );
+    return (
+      branches.toSorted((left, right) => {
+        const discriminatorDifference =
+          discriminatorIssueCount(left) - discriminatorIssueCount(right);
+        if (discriminatorDifference !== 0) return discriminatorDifference;
+        if (left.length !== right.length) return left.length - right.length;
+        return issueSpecificity(right) - issueSpecificity(left);
+      })[0] ?? [issue]
+    );
+  });
+}
+
+function discriminatorIssueCount(issues: readonly ZodIssue[]): number {
+  return issues.filter(
+    (issue) => issue.code === "invalid_value" && issue.path.at(-1) === "schema",
+  ).length;
+}
+
+function issueSpecificity(issues: readonly ZodIssue[]): number {
+  return issues.reduce((total, issue) => total + issue.path.length, 0);
 }
 
 function tagValues(event: NostrEvent, name: string): string[] {

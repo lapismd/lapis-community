@@ -7,6 +7,7 @@ import {
   createNip29CuratorDecisionTemplate,
   createNip29ForumCommentTemplate,
   createNip29ForumThreadTemplate,
+  createNip29RegistryHeadTemplate,
   createNip29ReleaseMessageTemplate,
   LAPIS_GROUPS,
   lapisGroupId,
@@ -41,6 +42,7 @@ interface FixtureStatus {
 
 const REGISTRY_PUBLISHER_AUTHORIZATION_TOPIC =
   "lapis-plugin-publisher-authorization";
+const REGISTRY_AUTHORITY_EPOCH = "local-fixture-v1";
 
 function publisherAuthorizationTemplate(
   pluginId: string,
@@ -347,6 +349,38 @@ async function seed(): Promise<{
         ? [publisher, curator]
         : [],
     );
+    if (group.id === lapisGroupId(LAPIS_GROUPS.pluginReleases)) {
+      const relay = await relayFor(operatorSecret);
+      await relay.publish(
+        sign(operatorSecret, {
+          kind: 9_000,
+          created_at: createdAt++,
+          content: "",
+          tags: [
+            ["h", group.id],
+            ["p", curator, "writer", "registry-curator"],
+          ],
+        }),
+      );
+      await retry(async () => {
+        const members = await relay.query({
+          kinds: [39_002],
+          "#d": [group.id],
+        });
+        if (
+          !members.some((member) =>
+            member.tags.some(
+              (tag) =>
+                tag[0] === "p" &&
+                tag[1] === curator &&
+                tag.slice(2).includes("registry-curator"),
+            ),
+          )
+        ) {
+          throw new Error("Fixture curator role was not projected");
+        }
+      }, "grant Registry curator role");
+    }
   }
 
   const registryEvents: NostrEvent[] = [];
@@ -407,10 +441,40 @@ async function seed(): Promise<{
         createdAt++,
       ),
     );
+    const headCreatedAt = createdAt++;
+    const headIssuedAt = new Date(headCreatedAt * 1_000);
+    const head = sign(
+      curatorSecret,
+      createNip29RegistryHeadTemplate(
+        {
+          schema: "lapis.registry.plugin-head/1",
+          pluginId: fixture.plugin.pluginId,
+          authorityEpoch: REGISTRY_AUTHORITY_EPOCH,
+          headRevision: "1",
+          activeReleaseEventId: submission.id,
+          releases: [
+            {
+              releaseEventId: submission.id,
+              manifestSha256: descriptor.sha256,
+              version: release.version,
+              releaseSequence: "0",
+              state: "approved",
+              decisionEventId: approval.id,
+            },
+          ],
+          issuedAt: headIssuedAt.toISOString(),
+          validUntil: new Date(
+            headIssuedAt.getTime() + 30 * 24 * 60 * 60 * 1_000,
+          ).toISOString(),
+        },
+        headCreatedAt,
+      ),
+    );
     await publish(authorization, curatorSecret);
     await publish(submission, publisherSecret);
     await publish(approval, curatorSecret);
-    registryEvents.push(authorization, submission, approval);
+    await publish(head, curatorSecret);
+    registryEvents.push(authorization, submission, approval, head);
     releaseByPlugin.set(fixture.plugin.pluginId, submission);
   }
 
@@ -580,6 +644,7 @@ async function seed(): Promise<{
     curatorPubkeys: new Set([curator]),
     publisherPubkeysByPlugin: new Map(),
     defaultPublisherPubkeys: new Set([publisher]),
+    authorityEpoch: REGISTRY_AUTHORITY_EPOCH,
   });
   if (
     registry.plugins.length !== fixtures.length ||

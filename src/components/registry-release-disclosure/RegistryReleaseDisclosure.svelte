@@ -1,7 +1,15 @@
 <script lang="ts">
   import { Badge } from "@lapismd/design-core/shadcn/badge";
+  import * as AlertDialog from "@lapismd/design-core/shadcn/alert-dialog";
+  import { Button } from "@lapismd/design-core/shadcn/button";
   import * as Collapsible from "@lapismd/design-core/shadcn/collapsible";
+  import BanIcon from "@lucide/svelte/icons/ban";
+  import CheckIcon from "@lucide/svelte/icons/check";
   import ChevronRightIcon from "@lucide/svelte/icons/chevron-right";
+  import PackageXIcon from "@lucide/svelte/icons/package-x";
+  import RefreshCwIcon from "@lucide/svelte/icons/refresh-cw";
+  import XIcon from "@lucide/svelte/icons/x";
+  import { toast } from "svelte-sonner";
   import { untrack } from "svelte";
 
   import {
@@ -10,12 +18,15 @@
     titleCaseRegistryValue,
     type RegistryCatalogDataSource,
     type RegistryReleaseInspection,
+    type RegistryReleaseManagementAction,
+    type RegistryReleaseManagementCapabilities,
     type RegistryResolvedDetail,
   } from "../../registry/index.js";
   import { registryPluginIcon } from "../registry-plugin-icons.js";
   import { provideRegistryImageLoader } from "../registry-verified-image/context.js";
   import RegistryVerifiedImage from "../registry-verified-image/RegistryVerifiedImage.svelte";
   import RegistryPluginPreview from "./RegistryPluginPreview.svelte";
+  import { useCommunityApplicationAuthentication } from "../community-application/authentication-context.js";
 
   let {
     eventId,
@@ -34,8 +45,12 @@
   let contentError = $state("");
   let acceptedPlugin = $state(false);
   let revision = $state.raw({});
+  let capabilities = $state<RegistryReleaseManagementCapabilities>();
+  let confirmingAction = $state<RegistryReleaseManagementAction>();
+  let performingAction = $state(false);
 
   const initialSource = untrack(() => source);
+  const applicationAuthentication = useCommunityApplicationAuthentication();
   provideRegistryImageLoader(initialSource.loadImage?.bind(initialSource));
 
   $effect(() => {
@@ -59,6 +74,37 @@
       })
       .finally(() => {
         if (active) loading = false;
+      });
+    return () => {
+      active = false;
+      controller.abort();
+    };
+  });
+
+  $effect(() => {
+    const current = inspection;
+    if (
+      !open ||
+      current === undefined ||
+      source.loadReleaseManagementCapabilities === undefined
+    ) {
+      capabilities = undefined;
+      return;
+    }
+    revision;
+    const controller = new AbortController();
+    let active = true;
+    void source
+      .loadReleaseManagementCapabilities(
+        eventId,
+        applicationAuthentication?.identity(),
+        { signal: controller.signal },
+      )
+      .then((next) => {
+        if (active) capabilities = next;
+      })
+      .catch(() => {
+        if (active) capabilities = undefined;
       });
     return () => {
       active = false;
@@ -150,6 +196,60 @@
         : "Unavailable"
       : inspection.state[0]!.toLocaleUpperCase() + inspection.state.slice(1),
   );
+
+  const actionLabels: Record<RegistryReleaseManagementAction, string> = {
+    approve: "Approve release",
+    reject: "Reject release",
+    revoke: "Revoke release",
+    withdraw: "Withdraw release",
+    renew: "Renew Registry freshness",
+  };
+
+  function actionLabel(action: RegistryReleaseManagementAction): string {
+    return action === "renew" && capabilities?.trust === "legacy"
+      ? "Establish Registry trust head"
+      : actionLabels[action];
+  }
+
+  async function performAction(): Promise<void> {
+    const action = confirmingAction;
+    const signer = applicationAuthentication?.identity();
+    if (
+      action === undefined ||
+      signer === undefined ||
+      source.performReleaseAction === undefined
+    ) {
+      confirmingAction = undefined;
+      return;
+    }
+    performingAction = true;
+    try {
+      await source.performReleaseAction(
+        {
+          action,
+          eventId,
+          ...(inspection?.manifestSha256 === undefined
+            ? {}
+            : { expectedManifestSha256: inspection.manifestSha256 }),
+          ...(capabilities?.headEventId === undefined
+            ? {}
+            : { expectedHeadEventId: capabilities.headEventId }),
+        },
+        signer,
+      );
+      toast.success(`${actionLabel(action)} completed`);
+      confirmingAction = undefined;
+      revision = {};
+    } catch (cause) {
+      toast.error(
+        cause instanceof Error
+          ? cause.message
+          : `${actionLabel(action)} failed`,
+      );
+    } finally {
+      performingAction = false;
+    }
+  }
 </script>
 
 {#if inspection !== undefined}
@@ -257,9 +357,78 @@
           Loading verified plugin preview…
         </p>
       {/if}
+      {#if capabilities && capabilities.actions.length > 0}
+        <section
+          class="registry-release-disclosure__management"
+          aria-label="Release management"
+        >
+          <p>Release management</p>
+          <div>
+            {#each capabilities.actions as action (action)}
+              <Button
+                type="button"
+                size="sm"
+                variant={action === "approve" || action === "renew"
+                  ? "default"
+                  : "outline"}
+                disabled={performingAction}
+                onclick={() => (confirmingAction = action)}
+              >
+                {#if action === "approve"}<CheckIcon
+                    data-icon="inline-start"
+                    aria-hidden="true"
+                  />{:else if action === "reject"}<XIcon
+                    data-icon="inline-start"
+                    aria-hidden="true"
+                  />{:else if action === "revoke"}<BanIcon
+                    data-icon="inline-start"
+                    aria-hidden="true"
+                  />{:else if action === "withdraw"}<PackageXIcon
+                    data-icon="inline-start"
+                    aria-hidden="true"
+                  />{:else}<RefreshCwIcon
+                    data-icon="inline-start"
+                    aria-hidden="true"
+                  />{/if}
+                {actionLabel(action)}
+              </Button>
+            {/each}
+          </div>
+        </section>
+      {/if}
     </Collapsible.Content>
   </Collapsible.Root>
 {/if}
+
+<AlertDialog.Root
+  open={confirmingAction !== undefined}
+  onOpenChange={(next) => {
+    if (!next && !performingAction) confirmingAction = undefined;
+  }}
+>
+  <AlertDialog.Content>
+    <AlertDialog.Header>
+      <AlertDialog.Title>
+        {confirmingAction === undefined
+          ? "Manage release"
+          : `${actionLabel(confirmingAction)}?`}
+      </AlertDialog.Title>
+      <AlertDialog.Description>
+        The release identity, manifest hash, curator role, pinned authority, and
+        current Registry head will be checked again before signing.
+      </AlertDialog.Description>
+    </AlertDialog.Header>
+    <AlertDialog.Footer>
+      <AlertDialog.Cancel disabled={performingAction}>Cancel</AlertDialog.Cancel
+      >
+      <AlertDialog.Action
+        disabled={performingAction}
+        onclick={() => void performAction()}
+        >{performingAction ? "Signing…" : "Continue"}</AlertDialog.Action
+      >
+    </AlertDialog.Footer>
+  </AlertDialog.Content>
+</AlertDialog.Root>
 
 {#snippet summaryIconFallback()}
   <SummaryIcon aria-hidden="true" />
@@ -440,7 +609,8 @@
   :global(
       .registry-release-disclosure__state[data-state="invalid"],
       .registry-release-disclosure__state[data-state="rejected"],
-      .registry-release-disclosure__state[data-state="revoked"]
+      .registry-release-disclosure__state[data-state="revoked"],
+      .registry-release-disclosure__state[data-state="withdrawn"]
     ) {
     border-color: color-mix(in srgb, var(--destructive) 42%, var(--border));
     color: var(--foreground);
@@ -516,6 +686,21 @@
   .registry-release-disclosure__notice {
     color: var(--muted-foreground);
     font-size: 0.85rem;
+  }
+  .registry-release-disclosure__management {
+    display: grid;
+    gap: 0.65rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid var(--border);
+  }
+  .registry-release-disclosure__management > p {
+    margin: 0;
+    font-size: 0.875rem;
+  }
+  .registry-release-disclosure__management > div {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
   }
   @media (max-width: 38rem) {
     :global(.registry-release-disclosure__trigger) {

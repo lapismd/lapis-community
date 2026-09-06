@@ -5,7 +5,9 @@ import {
   filterRegistryEntries,
   registryLandingSections,
   registryRouteFromDestination,
+  registryRouteFromHash,
   registryRouteToDestination,
+  registryRouteToHash,
   registryStatusLabel,
   relatedRegistryPlugins,
 } from "./catalog.js";
@@ -140,5 +142,23 @@ describe("registry catalog helpers", () => {
     expect(
       registryRouteFromDestination("registry:plugin:not:valid"),
     ).toBeNull();
+  });
+
+  it("round-trips canonical version-pinned review and post hashes", () => {
+    const route = {
+      page: "plugin" as const,
+      pluginId: "lapis-ai",
+      version: "1.2.3-beta.1",
+      view: "reviews" as const,
+      postId: "a".repeat(64),
+    };
+    const hash =
+      "#/registry/plugins/lapis-ai/versions/1.2.3-beta.1/reviews/posts/" +
+      "a".repeat(64);
+    expect(registryRouteToHash(route)).toBe(hash);
+    expect(registryRouteFromHash(hash)).toEqual(route);
+    expect(
+      registryRouteFromHash("#/registry/plugins/lapis-ai/versions/no%20spaces"),
+    ).toMatchObject({ version: "no spaces" });
   });
 });

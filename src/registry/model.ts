@@ -1,6 +1,11 @@
 import { z } from "zod";
 
-import type { NostrReleaseProof } from "../protocol/index.js";
+import type { RegistrySigner } from "../auth/index.js";
+import type {
+  NostrEvent,
+  NostrReleaseProof,
+  ReleaseContent,
+} from "../protocol/index.js";
 
 const nonEmptyString = z.string().min(1);
 const sha256 = z.string().regex(/^[0-9a-f]{64}$/u);
@@ -55,6 +60,12 @@ export const registryMarkdownReferenceSchema = z.object({
 
 export const registryReleaseSchema = z.object({
   version: nonEmptyString,
+  releaseEventId: sha256.optional(),
+  manifestSha256: sha256.optional(),
+  releaseSequence: z
+    .string()
+    .regex(/^[1-9][0-9]*$/u)
+    .optional(),
   minAppVersion: nonEmptyString,
   releasedAt: z.string().datetime({ offset: true }),
   platforms: z.array(nonEmptyString).min(1),
@@ -169,6 +180,8 @@ export const registryRuntimeSchema = z.object({
   sourceRegistryRoot: nonEmptyString.optional(),
   relays: z.array(z.string().url()),
   releaseGroupId: nonEmptyString,
+  authorityEpoch: nonEmptyString.optional(),
+  curatorRole: nonEmptyString.optional(),
   curatorPubkeys: z.array(nonEmptyString),
   publisherPubkeys: z.array(nonEmptyString),
 });
@@ -196,6 +209,8 @@ export type RegistryRoute =
       page: "plugin";
       pluginId: string;
       view?: RegistryPluginView;
+      version?: string;
+      postId?: string;
     };
 
 export type RegistryPluginView = "details" | "reviews";
@@ -214,11 +229,21 @@ export interface RegistryDirectoryState {
 }
 
 export type RegistryInstallAction =
-  | { state: "available"; label?: string }
-  | { state: "installing"; label?: string }
-  | { state: "installed"; label?: string }
-  | { state: "disabled"; label?: string; reason: string }
-  | { state: "rejected"; label?: string; reason: string };
+  | { state: "available"; label?: string; installedVersion?: string }
+  | { state: "installing"; label?: string; installedVersion?: string }
+  | { state: "installed"; label?: string; installedVersion?: string }
+  | {
+      state: "disabled";
+      label?: string;
+      reason: string;
+      installedVersion?: string;
+    }
+  | {
+      state: "rejected";
+      label?: string;
+      reason: string;
+      installedVersion?: string;
+    };
 
 export interface RegistryInstallRequest {
   pluginId: string;
@@ -235,6 +260,7 @@ export type RegistryReleaseInspectionState =
   | "pending"
   | "rejected"
   | "revoked"
+  | "withdrawn"
   | "untrusted"
   | "invalid"
   | "unavailable";
@@ -267,6 +293,53 @@ export interface RegistryReleaseInspection {
   manifestSha256?: string;
   preview?: RegistryReleasePreview;
   diagnostics: readonly RegistryReleaseDiagnostic[];
+  trust?: RegistryTrustState;
+}
+
+export type RegistryTrustState =
+  | "legacy"
+  | "fresh"
+  | "stale"
+  | "rollback"
+  | "equivocation";
+
+export interface RegistryVersionSnapshot {
+  entry: RegistryCatalogEntry;
+  detail: RegistryCatalogDetail;
+  release: RegistryRelease;
+  manifestSha256: string;
+  releaseEvent: NostrEvent;
+  releaseSequence?: string;
+  latestStatus: RegistryReleaseInspectionState;
+}
+
+export type RegistryReleaseManagementAction =
+  | "approve"
+  | "reject"
+  | "revoke"
+  | "withdraw"
+  | "renew";
+
+export interface RegistryReleaseManagementCapabilities {
+  eventId: string;
+  state: RegistryReleaseInspectionState;
+  trust: RegistryTrustState;
+  actions: readonly RegistryReleaseManagementAction[];
+  headEventId?: string;
+}
+
+export interface RegistryReleaseManagementRequest {
+  action: RegistryReleaseManagementAction;
+  eventId: string;
+  expectedManifestSha256?: string;
+  expectedHeadEventId?: string;
+}
+
+export interface RegistryReleaseManagementResult {
+  action: RegistryReleaseManagementAction;
+  eventId: string;
+  decisionEventId?: string;
+  headEventId?: string;
 }
 
 export type RegistryCatalogSourcePhase =
@@ -290,6 +363,7 @@ export interface RegistryCatalogSourceStatus {
   synchronizedAt?: string;
   message?: string;
   relays: readonly RegistryCatalogRelayStatus[];
+  trust?: RegistryTrustState;
 }
 
 export type RegistryCatalogSourceEvent =
@@ -307,6 +381,11 @@ export interface RegistryCatalogDataSource {
     entry: Pick<RegistryCatalogEntry, "id">,
     options?: RegistryLoadOptions,
   ): Promise<RegistryCatalogDetail>;
+  loadPluginVersionDetail?(
+    pluginId: string,
+    version: string,
+    options?: RegistryLoadOptions,
+  ): Promise<RegistryVersionSnapshot>;
   loadMarkdown(
     reference: RegistryMarkdownReference,
     options?: RegistryLoadOptions,
@@ -324,6 +403,17 @@ export interface RegistryCatalogDataSource {
     version: string,
     options?: RegistryLoadOptions,
   ): Promise<NostrReleaseProof>;
+  loadReleaseManagementCapabilities?(
+    eventId: string,
+    signer: RegistrySigner | undefined,
+    options?: RegistryLoadOptions,
+  ): Promise<RegistryReleaseManagementCapabilities | undefined>;
+  performReleaseAction?(
+    request: RegistryReleaseManagementRequest,
+    signer: RegistrySigner,
+    options?: RegistryLoadOptions,
+  ): Promise<RegistryReleaseManagementResult>;
+  resetTrustHistory?(pluginId?: string): Promise<void>;
   getStatus?(): RegistryCatalogSourceStatus;
   subscribe?(listener: RegistryCatalogSourceListener): () => void;
   refresh?(options?: RegistryLoadOptions): Promise<void>;

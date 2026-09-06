@@ -11,6 +11,8 @@ import {
   createNip29ForumCommentTemplate,
   createNip29ForumThreadTemplate,
   createNip29PublisherAuthorizationTemplate,
+  createNip29PublisherWithdrawalTemplate,
+  createNip29RegistryHeadTemplate,
   createNip29ReleaseMessageTemplate,
   LAPIS_GROUPS,
   lapisGroupId,
@@ -23,6 +25,7 @@ import type {
   NostrEventTemplate,
   PluginDefinitionContent,
   ReleaseContent,
+  SequencedReleaseContent,
 } from "./types.js";
 
 const publisherKey = generateSecretKey();
@@ -240,6 +243,96 @@ describe("NIP-29 registry protocol", () => {
     );
     expect(result.plugins).toEqual([]);
     expect(result.acceptedEventIds).toEqual([]);
+  });
+
+  it("materializes a contiguous v2 release only through a fresh signed head", () => {
+    const v2Attachment = {
+      ...attachment,
+      sha256: "c".repeat(64),
+      url: `https://relay.example/media/${"c".repeat(64)}.json`,
+    };
+    const v2Release: SequencedReleaseContent = {
+      ...releaseManifest,
+      schema: "lapis.registry.release/2",
+      version: "2.0.0",
+      releaseSequence: "1",
+      artifact: { ...releaseManifest.artifact, sha256: "d".repeat(64) },
+    };
+    const release = sign(
+      publisherKey,
+      createNip29ReleaseMessageTemplate("ai", v2Attachment, 100, "AI 2"),
+    );
+    const approval = sign(
+      curatorKey,
+      createNip29CuratorDecisionTemplate(release.id, "approved", 101),
+    );
+    const issuedAt = new Date(102_000);
+    const head = sign(
+      curatorKey,
+      createNip29RegistryHeadTemplate(
+        {
+          schema: "lapis.registry.plugin-head/1",
+          pluginId: "ai",
+          authorityEpoch: "epoch-1",
+          headRevision: "1",
+          activeReleaseEventId: release.id,
+          releases: [
+            {
+              releaseEventId: release.id,
+              manifestSha256: v2Attachment.sha256,
+              version: "2.0.0",
+              releaseSequence: "1",
+              state: "approved",
+              decisionEventId: approval.id,
+            },
+          ],
+          issuedAt: issuedAt.toISOString(),
+          validUntil: new Date(
+            issuedAt.getTime() + 30 * 24 * 60 * 60 * 1_000,
+          ).toISOString(),
+        },
+        102,
+      ),
+    );
+    const authorities = {
+      curatorPubkeys: new Set([curator]),
+      publisherPubkeysByPlugin: new Map([["ai", new Set([publisher])]]),
+      authorityEpoch: "epoch-1",
+    };
+    const sources = [
+      {
+        attachmentSha256: v2Attachment.sha256,
+        manifest: {
+          schema: "lapis.registry.nip29-release/2",
+          plugin,
+          release: v2Release,
+        },
+      },
+    ];
+    const result = materializeNip29Registry(
+      [release, approval, head],
+      sources,
+      authorities,
+      { now: new Date(103_000) },
+    );
+    expect(result.plugins[0]).toMatchObject({
+      latestVersion: "2.0.0",
+      releases: [{ head: { event: { id: head.id }, fresh: true } }],
+    });
+    expect(result.heads.get("ai")?.content.headRevision).toBe("1");
+
+    const withdrawal = sign(
+      publisherKey,
+      createNip29PublisherWithdrawalTemplate(release.id, 104),
+    );
+    expect(
+      materializeNip29Registry(
+        [release, approval, head, withdrawal],
+        sources,
+        authorities,
+        { now: new Date(105_000) },
+      ).plugins,
+    ).toEqual([]);
   });
 
   it("derives publisher authority from curator events and rejects off-group decisions", () => {

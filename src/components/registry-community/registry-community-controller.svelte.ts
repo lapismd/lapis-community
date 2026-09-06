@@ -76,6 +76,7 @@ export interface RegistryCommunityProps {
   plugin?: string;
   name?: string;
   version?: string;
+  releaseEventId?: string;
   publisher?: string;
   relays?: string;
 }
@@ -110,6 +111,8 @@ export function createRegistryCommunityController(
   let reactions = $state<ForumReaction[]>([]);
   let pluginRelease = $state<NostrEvent | undefined>();
   let pluginReactions = $state<ForumReaction[]>([]);
+  let releaseEventId = $state(options.releaseEventId ?? "");
+  let pluginCommunityGeneration = 0;
   let profiles = $state<ReadonlyMap<string, CommunityProfile>>(new Map());
   let signer = $state<RegistrySigner | undefined>(options.identity);
   let signedInPubkey = $state("");
@@ -1153,6 +1156,7 @@ export function createRegistryCommunityController(
     const releaseResult = await queryAll(
       {
         kinds: [NIP29_KINDS.streamMessage],
+        ...(releaseEventId === "" ? {} : { ids: [releaseEventId] }),
         "#h": [releaseGroupId],
         "#t": [`plugin:${plugin}`],
         ...(publisher === "" ? {} : { authors: [publisher] }),
@@ -1208,8 +1212,11 @@ export function createRegistryCommunityController(
         profiles: [],
       });
     }
-    pluginCommunityPromise ??= loadPluginCommunity(signal)
+    const generation = pluginCommunityGeneration;
+    if (pluginCommunityPromise !== undefined) return pluginCommunityPromise;
+    const pending = loadPluginCommunity(signal)
       .then((result) => {
+        if (generation !== pluginCommunityGeneration) return result;
         pluginRelease = result.release;
         pluginCommunityLoaded = true;
         pluginReactions = mergeReactions(pluginReactions, result.reactions);
@@ -1217,9 +1224,25 @@ export function createRegistryCommunityController(
         return result;
       })
       .finally(() => {
-        pluginCommunityPromise = undefined;
+        if (pluginCommunityPromise === pending) {
+          pluginCommunityPromise = undefined;
+        }
       });
-    return pluginCommunityPromise;
+    pluginCommunityPromise = pending;
+    return pending;
+  }
+
+  async function setReleaseEventId(nextReleaseEventId: string | undefined) {
+    const next = nextReleaseEventId ?? "";
+    if (next === releaseEventId) return;
+    releaseEventId = next;
+    pluginCommunityGeneration += 1;
+    pluginCommunityPromise = undefined;
+    pluginCommunityLoaded = false;
+    pluginRelease = undefined;
+    pluginReactions = [];
+    selectedPluginReaction = "";
+    await ensurePluginCommunity();
   }
 
   function ensureCommentCount(
@@ -2411,6 +2434,7 @@ export function createRegistryCommunityController(
     get pluginRelease() {
       return pluginRelease;
     },
+    setReleaseEventId,
     get currentPluginReactions() {
       return currentPluginReactions;
     },

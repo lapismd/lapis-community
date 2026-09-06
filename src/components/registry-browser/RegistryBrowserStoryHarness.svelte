@@ -18,7 +18,12 @@
     sourceMode = "static",
   }: {
     initialRoute?: RegistryRoute;
-    sourceMode?: "static" | "cached" | "refreshing-cache" | "loading";
+    sourceMode?:
+      | "static"
+      | "cached"
+      | "refreshing-cache"
+      | "loading"
+      | "rollback";
   } = $props();
   const fixtureSource = createRegistryStoryDataSource();
   const sourceListeners = new Set<RegistryCatalogSourceListener>();
@@ -27,13 +32,16 @@
     phase: initialSourceMode === "refreshing-cache" ? "refreshing" : "degraded",
     fresh: false,
     installReady: false,
-    origin: "cache",
+    origin: initialSourceMode === "rollback" ? "relay" : "cache",
     registryRoot: "cached-story-root",
     synchronizedAt: "2026-09-03T12:00:00.000Z",
     message:
-      initialSourceMode === "refreshing-cache"
-        ? "Checking the registry relay for updates."
-        : "The registry relay is unavailable.",
+      initialSourceMode === "rollback"
+        ? "The Registry relay returned an older trusted checkpoint."
+        : initialSourceMode === "refreshing-cache"
+          ? "Checking the registry relay for updates."
+          : "The registry relay is unavailable.",
+    ...(initialSourceMode === "rollback" ? { trust: "rollback" as const } : {}),
     relays: [{ relay: "wss://relay.example", error: "offline" }],
   };
   const loadingStatus: RegistryCatalogSourceStatus = {
@@ -92,6 +100,9 @@
                 listener({ type: "revision", status: liveStatus });
               }
             },
+            async resetTrustHistory() {
+              trustResetCount += 1;
+            },
             dispose() {
               sourceListeners.clear();
             },
@@ -105,6 +116,7 @@
       }),
   );
   let route = $state<RegistryRoute>(untrack(() => initialRoute));
+  let trustResetCount = $state(0);
   let installActions = $state<Record<string, RegistryInstallAction>>({
     ai: { state: "available" },
   });
@@ -123,8 +135,12 @@
 <AppShell.Root
   controller={shell}
   class="registry-browser-story"
+  data-testid="registry-browser-story"
   style="--ui-shell-height: 100vh"
   data-route={route.page}
+  data-view={route.page === "plugin" ? (route.view ?? "details") : ""}
+  data-version={route.page === "plugin" ? (route.version ?? "latest") : ""}
+  data-trust-resets={trustResetCount}
   data-ai-detail-loads={source.detailLoads?.get("ai") ?? 0}
 >
   <AppShell.Main>

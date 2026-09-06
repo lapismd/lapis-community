@@ -49,6 +49,28 @@ describe.each([
     expect((await store.loadResource("b".repeat(64)))?.bytes).toEqual(
       new Uint8Array([4, 5, 6]),
     );
+    await store.saveTrust({
+      schemaVersion: 1,
+      key: "ai-trust",
+      pluginId: "ai",
+      authorityEpoch: "2026-09",
+      headRevision: "2",
+      headEventId: "c".repeat(64),
+      headHash: "d".repeat(64),
+      activeReleaseEventId: "e".repeat(64),
+      activeReleaseSequence: "3",
+      seenWithdrawalEventIds: ["f".repeat(64)],
+      updatedAt: "2026-09-03T12:00:00.000Z",
+    });
+    await store.clear();
+    await expect(
+      store.loadSnapshot("trusted-snapshot"),
+    ).resolves.toBeUndefined();
+    await expect(store.loadTrust("ai-trust")).resolves.toMatchObject({
+      headRevision: "2",
+    });
+    await store.resetTrust("ai-trust");
+    await expect(store.loadTrust("ai-trust")).resolves.toBeUndefined();
     await store.close();
   });
 });

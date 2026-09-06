@@ -20,6 +20,16 @@
       },
     },
   };
+  const singleVersionResolved = {
+    ...resolved,
+    detail: {
+      ...resolved.detail,
+      versions: {
+        [resolved.entry.latestVersion]:
+          resolved.detail.versions[resolved.entry.latestVersion]!,
+      },
+    },
+  };
   const { Story } = defineMeta({
     title: "Community/Registry/Plugin Detail",
     component: RegistryPluginDetail,
@@ -32,6 +42,7 @@
       onOpenPlugin: fn(),
       onOpenCategory: fn(),
       onOpenPlatform: fn(),
+      onSelectVersion: fn(),
     },
     globals: { viewport: { value: "desktop", isRotated: false } },
     parameters: {
@@ -119,7 +130,13 @@
     );
     await expect(releasesCount).toHaveAttribute("data-ui-component", "badge");
     await userEvent.click(releasesTab);
-    await expect(canvas.getByText("0.9.0")).toBeVisible();
+    const historicalRelease = canvas.getByRole("link", { name: "0.9.0" });
+    await expect(historicalRelease).toHaveAttribute(
+      "href",
+      "#/registry/plugins/ai/versions/0.9.0",
+    );
+    await userEvent.click(historicalRelease);
+    await expect(args.onSelectVersion).toHaveBeenCalledWith("0.9.0");
     await userEvent.click(canvas.getByRole("button", { name: "Desktop" }));
     await expect(args.onOpenPlatform).toHaveBeenCalledWith("desktop");
     await userEvent.click(canvas.getByRole("button", { name: "AI" }));
@@ -150,6 +167,18 @@
   }}
 />
 <Story name="Installed" args={{ installAction: { state: "installed" } }} />
+<Story
+  name="Single version unchanged"
+  args={{ resolved: singleVersionResolved }}
+  play={async ({ canvas }) => {
+    await expect(
+      canvas.queryByRole("combobox", { name: "Select plugin version" }),
+    ).not.toBeInTheDocument();
+    await expect(
+      canvas.getByText("Current version").nextElementSibling,
+    ).toHaveTextContent(resolved.entry.latestVersion);
+  }}
+/>
 <Story
   name="Disabled"
   args={{

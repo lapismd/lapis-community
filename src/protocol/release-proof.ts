@@ -9,6 +9,7 @@ import {
 import {
   parseNip29CuratorDecision,
   parseNip29PublisherAuthorization,
+  parseNip29RegistryHead,
   parseNip29ReleaseEvent,
 } from "./nip29.js";
 import type {
@@ -24,7 +25,9 @@ export type NostrReleaseProofErrorCode =
   | "authority-invalid"
   | "manifest-invalid"
   | "artifact-invalid"
-  | "decision-invalid";
+  | "decision-invalid"
+  | "head-invalid"
+  | "head-stale";
 
 export class NostrReleaseProofError extends Error {
   readonly code: NostrReleaseProofErrorCode;
@@ -40,6 +43,8 @@ export interface VerifyNostrReleaseProofOptions {
   /** Exact bytes for installation, or a previously verified digest for freshness checks. */
   artifact: Uint8Array | NostrReleaseArtifactReference;
   trustedCuratorPubkeys: ReadonlySet<string>;
+  authorityEpoch?: string | undefined;
+  now?: Date | undefined;
   verifySignature?: ((event: NostrEvent) => boolean) | undefined;
 }
 
@@ -64,6 +69,9 @@ export function verifyNostrReleaseProof(
     proof.authorizationEvent,
     proof.releaseEvent,
     proof.decisionEvent,
+    ...(proof.schema === "lapis.plugin.release-proof/2"
+      ? [proof.headEvent]
+      : []),
   ]) {
     if (!verifySignature(event)) {
       throw new NostrReleaseProofError(
@@ -171,6 +179,44 @@ export function verifyNostrReleaseProof(
     );
   }
 
+  let head: ReturnType<typeof parseNip29RegistryHead> | undefined;
+  if (proof.schema === "lapis.plugin.release-proof/2") {
+    head = parseNip29RegistryHead(proof.headEvent, release.pluginId);
+    const now = (options.now ?? new Date()).getTime();
+    const releaseSequence =
+      manifest.data.release.schema === "lapis.registry.release/2"
+        ? manifest.data.release.releaseSequence
+        : "0";
+    const item = head?.content.releases.find(
+      (candidate) => candidate.releaseEventId === proof.releaseEvent.id,
+    );
+    if (
+      head === undefined ||
+      !options.trustedCuratorPubkeys.has(proof.headEvent.pubkey) ||
+      (options.authorityEpoch !== undefined &&
+        head.content.authorityEpoch !== options.authorityEpoch) ||
+      item?.state !== "approved" ||
+      item.decisionEventId !== proof.decisionEvent.id ||
+      item.manifestSha256 !== proof.manifest.sha256 ||
+      item.version !== manifest.data.release.version ||
+      item.releaseSequence !== releaseSequence
+    ) {
+      throw new NostrReleaseProofError(
+        "head-invalid",
+        "Release is not included as approved in the trusted Registry head",
+      );
+    }
+    if (
+      Date.parse(head.content.issuedAt) > now ||
+      now > Date.parse(head.content.validUntil)
+    ) {
+      throw new NostrReleaseProofError(
+        "head-stale",
+        "The trusted Registry head has expired and must be renewed",
+      );
+    }
+  }
+
   return {
     pluginId: release.pluginId,
     version: manifest.data.release.version,
@@ -182,6 +228,16 @@ export function verifyNostrReleaseProof(
     artifactSize: expectedArtifact.size,
     requiresRelayRefresh: true,
     manifest: manifest.data,
+    ...(manifest.data.release.schema === "lapis.registry.release/2"
+      ? { releaseSequence: manifest.data.release.releaseSequence }
+      : {}),
+    ...(head === undefined
+      ? {}
+      : {
+          headEventId: head.event.id,
+          headRevision: head.content.headRevision,
+          validUntil: head.content.validUntil,
+        }),
   };
 }
 

@@ -1,6 +1,7 @@
 import { sha256 } from "@noble/hashes/sha2.js";
 import { bytesToHex } from "@noble/hashes/utils.js";
 import { generateSecretKey, verifyEvent } from "nostr-tools/pure";
+import semver from "semver";
 
 import {
   SecretKeyRegistrySigner,
@@ -18,17 +19,29 @@ import {
 import { encodeNostrHttpAuthorization } from "../nostr/http-authorization.js";
 import {
   canonicalHash,
+  compareCanonicalDecimal,
+  createNip29CuratorDecisionTemplate,
+  createNip29PublisherWithdrawalTemplate,
+  createNip29RegistryHeadTemplate,
   getNip29ManifestAttachment,
   isNip29PublisherAuthorized,
   LAPIS_GROUPS,
   LAPIS_PUBLISHER_AUTHORIZATION_TOPIC,
+  LAPIS_REGISTRY_HEAD_TOPIC,
   LAPIS_RELEASE_TOPIC,
   lapisGroupId,
   materializeNip29Registry,
+  nip29ReleaseManifestSchema,
   NIP29_KINDS,
+  parseNip29ReleaseEvent,
+  parseNip29CuratorDecision,
+  parseNip29PublisherWithdrawal,
+  parseNip29RegistryHead,
   projectNip29Registry,
+  projectRegistry,
   type JsonObject,
   type MaterializedNip29Registry,
+  type MaterializedNip29Release,
   type Nip29RegistryAuthorities,
   type Nip29ReleaseManifestSource,
   type NostrEvent,
@@ -49,7 +62,12 @@ import {
   type RegistryLoadOptions,
   type RegistryMarkdownReference,
   type RegistryReleaseDiagnostic,
+  type RegistryReleaseManagementAction,
+  type RegistryReleaseManagementCapabilities,
+  type RegistryReleaseManagementResult,
   type RegistryRuntime,
+  type RegistryVersionSnapshot,
+  type RegistryTrustState,
 } from "./model.js";
 import {
   failedRegistryReleaseInspection,
@@ -61,6 +79,7 @@ import {
   type RegistryEventSnapshot,
   type RegistryManifestSnapshot,
   type RegistrySnapshotStore,
+  type RegistryTrustRecord,
 } from "./snapshot-store.js";
 
 export interface Nip29RegistryCatalogDataSourceOptions {
@@ -81,6 +100,7 @@ interface CurrentProjection {
   details: ReadonlyMap<string, RegistryCatalogDetail>;
   runtime: RegistryRuntime;
   registry: MaterializedNip29Registry;
+  versions: ReadonlyMap<string, RegistryVersionSnapshot>;
 }
 
 const RELEASE_LIMIT = 2_000;
@@ -168,7 +188,7 @@ export function createNip29RegistryCatalogDataSource(
       if (cached !== undefined) {
         try {
           const documents = verifiedSnapshotDocuments(cached, authorities);
-          setProjection(
+          await setProjection(
             cached.events,
             documents,
             cached.synchronizedAt,
@@ -176,6 +196,7 @@ export function createNip29RegistryCatalogDataSource(
             "cache",
             relayUrls.map((relay) => ({ relay })),
             false,
+            undefined,
           );
           for (const document of cached.manifests) {
             manifestBytes.set(document.attachmentSha256, document.bytes);
@@ -217,6 +238,7 @@ export function createNip29RegistryCatalogDataSource(
                   "#t": [
                     LAPIS_RELEASE_TOPIC,
                     LAPIS_PUBLISHER_AUTHORIZATION_TOPIC,
+                    LAPIS_REGISTRY_HEAD_TOPIC,
                   ],
                 },
                 handlers,
@@ -258,7 +280,11 @@ export function createNip29RegistryCatalogDataSource(
           {
             kinds: [NIP29_KINDS.streamMessage],
             "#h": [releaseGroupId],
-            "#t": [LAPIS_RELEASE_TOPIC, LAPIS_PUBLISHER_AUTHORIZATION_TOPIC],
+            "#t": [
+              LAPIS_RELEASE_TOPIC,
+              LAPIS_PUBLISHER_AUTHORIZATION_TOPIC,
+              LAPIS_REGISTRY_HEAD_TOPIC,
+            ],
             limit: RELEASE_LIMIT,
           },
           signal,
@@ -310,7 +336,7 @@ export function createNip29RegistryCatalogDataSource(
         candidateEvents = events;
         const documents = await hydrateManifestDocuments(events, signal);
         const synchronizedAt = now().toISOString();
-        setProjection(
+        await setProjection(
           events,
           documents,
           synchronizedAt,
@@ -318,6 +344,12 @@ export function createNip29RegistryCatalogDataSource(
           "relay",
           relayStatuses,
           true,
+          new Map(
+            releaseResult.sources.map((source) => [
+              source.relay,
+              new Set(source.eventIds),
+            ]),
+          ),
         );
         removePendingEvents(bufferedEvents);
         await saveSnapshot(events, documents, synchronizedAt);
@@ -353,39 +385,9 @@ export function createNip29RegistryCatalogDataSource(
 
   async function applyPendingLiveEvents(): Promise<void> {
     if (pendingEvents.size === 0 || current === undefined) return;
-    const bufferedEvents = [...pendingEvents.values()];
-    const events = mergeEvents(currentEvents, bufferedEvents);
-    candidateEvents = events;
-    try {
-      const documents = await hydrateManifestDocuments(
-        events,
-        lifecycleController.signal,
-      );
-      const synchronizedAt = now().toISOString();
-      setProjection(
-        events,
-        documents,
-        synchronizedAt,
-        state.fresh,
-        "relay",
-        state.relays,
-        true,
-      );
-      removePendingEvents(bufferedEvents);
-      await saveSnapshot(events, documents, synchronizedAt);
-    } catch (cause) {
-      if (lifecycleController.signal.aborted || isAbortError(cause)) return;
-      updateStatus({
-        ...state,
-        phase: "degraded",
-        fresh: false,
-        installReady: false,
-        message:
-          cause instanceof Error
-            ? cause.message
-            : "A live registry update could not be verified",
-      });
-    }
+    // A subscription proves only that one relay observed the event. Re-query all
+    // configured relays before a live release or head can affect trusted state.
+    await synchronize(lifecycleController.signal);
   }
 
   function removePendingEvents(events: readonly NostrEvent[]): void {
@@ -437,7 +439,7 @@ export function createNip29RegistryCatalogDataSource(
     );
   }
 
-  function setProjection(
+  async function setProjection(
     events: readonly NostrEvent[],
     documents: readonly Nip29ReleaseManifestSource[],
     synchronizedAt: string,
@@ -445,8 +447,18 @@ export function createNip29RegistryCatalogDataSource(
     origin: "cache" | "relay",
     relayStatuses: readonly RegistryCatalogRelayStatus[],
     announceRevision: boolean,
-  ): void {
-    const registry = materializeNip29Registry(events, documents, authorities);
+    relayEventIds?: ReadonlyMap<string, ReadonlySet<string>>,
+  ): Promise<void> {
+    const registry = materializeNip29Registry(events, documents, authorities, {
+      now: now(),
+    });
+    const trustAssessment = await assessRegistryTrust(
+      registry,
+      events,
+      origin,
+      synchronizedAt,
+      relayEventIds,
+    );
     const projection = projectNip29Registry(registry, synchronizedAt);
     const index = registryCatalogIndexSchema.parse(projection.index);
     const details = new Map(
@@ -458,6 +470,20 @@ export function createNip29RegistryCatalogDataSource(
         ),
       ]),
     );
+    const versions = new Map<string, RegistryVersionSnapshot>();
+    for (const plugin of registry.plugins) {
+      for (const release of plugin.releases) {
+        const snapshot = projectVersionSnapshot(
+          release,
+          synchronizedAt,
+          blossomUrl,
+        );
+        versions.set(
+          versionSnapshotKey(plugin.content.pluginId, release.content.version),
+          snapshot,
+        );
+      }
+    }
     const registryRoot = projectionRoot(
       registry.acceptedEventIds,
       projection.index,
@@ -476,6 +502,7 @@ export function createNip29RegistryCatalogDataSource(
       index,
       details,
       registry,
+      versions,
       runtime: {
         schemaVersion: 1,
         backend: "nostr-nip29",
@@ -483,6 +510,10 @@ export function createNip29RegistryCatalogDataSource(
         sourceRegistryRoot: registry.root,
         relays: relayUrls,
         releaseGroupId,
+        ...(authorities.authorityEpoch === undefined
+          ? {}
+          : { authorityEpoch: authorities.authorityEpoch }),
+        curatorRole: "registry-curator",
         curatorPubkeys: [...authorities.curatorPubkeys].toSorted(),
         publisherPubkeys: [...new Set(publisherPubkeys)].toSorted(),
       },
@@ -490,22 +521,211 @@ export function createNip29RegistryCatalogDataSource(
     currentEvents = mergeEvents(events);
     candidateEvents = currentEvents;
     state = {
-      phase: "ready",
-      fresh,
+      phase:
+        trustAssessment.trust === "fresh" || trustAssessment.trust === "legacy"
+          ? "ready"
+          : "degraded",
+      fresh:
+        fresh &&
+        (trustAssessment.trust === "fresh" ||
+          trustAssessment.trust === "legacy"),
       installReady:
         origin === "relay" &&
+        (trustAssessment.trust === "fresh" ||
+          trustAssessment.trust === "legacy") &&
         relayStatuses.filter((relay) => relay.error === undefined).length >=
           installQuorum,
       origin,
       registryRoot,
       synchronizedAt,
       relays: relayStatuses,
-      ...(relayStatuses.some((relay) => relay.error !== undefined)
-        ? { message: "Some configured registry relays were unavailable" }
-        : {}),
+      trust: trustAssessment.trust,
+      ...(trustAssessment.message !== undefined
+        ? { message: trustAssessment.message }
+        : relayStatuses.some((relay) => relay.error !== undefined)
+          ? { message: "Some configured registry relays were unavailable" }
+          : {}),
     };
     if (announceRevision) emit({ type: "revision", status: state });
     else emit({ type: "status", status: state });
+  }
+
+  async function assessRegistryTrust(
+    registry: MaterializedNip29Registry,
+    events: readonly NostrEvent[],
+    origin: "cache" | "relay",
+    synchronizedAt: string,
+    relayEventIds?: ReadonlyMap<string, ReadonlySet<string>>,
+  ): Promise<{ trust: RegistryTrustState; message?: string }> {
+    const headsByRevision = new Map<string, string>();
+    for (const event of events) {
+      if (!authorities.curatorPubkeys.has(event.pubkey)) continue;
+      const head = parseNip29RegistryHead(event);
+      if (
+        head === undefined ||
+        authorities.authorityEpoch === undefined ||
+        head.content.authorityEpoch !== authorities.authorityEpoch
+      ) {
+        continue;
+      }
+      const key = `${head.content.pluginId}\u0000${head.content.headRevision}`;
+      const previous = headsByRevision.get(key);
+      if (previous !== undefined && previous !== event.id) {
+        return {
+          trust: "equivocation",
+          message:
+            "Conflicting signed Registry heads were observed at the same revision.",
+        };
+      }
+      headsByRevision.set(key, event.id);
+    }
+    const pluginIds = new Set(
+      events.flatMap((event) => {
+        const release = parseNip29ReleaseEvent(event);
+        return release === undefined ? [] : [release.pluginId];
+      }),
+    );
+    if (registry.heads.size === 0) {
+      for (const pluginId of pluginIds) {
+        if (
+          (await store.loadTrust(registryTrustKey(authorities, pluginId))) !==
+          undefined
+        ) {
+          return {
+            trust: "rollback",
+            message:
+              "A previously trusted Registry head is missing; installs and management are paused.",
+          };
+        }
+      }
+      return { trust: "legacy" };
+    }
+
+    let sawStale = false;
+    const pendingTrustRecords: RegistryTrustRecord[] = [];
+    for (const [pluginId, head] of registry.heads) {
+      const key = registryTrustKey(authorities, pluginId);
+      const stored = await store.loadTrust(key);
+      const headHash = canonicalHash(head.content as unknown as JsonObject);
+      const active = head.content.releases.find(
+        (release) =>
+          release.releaseEventId === head.content.activeReleaseEventId,
+      );
+      if (
+        origin === "relay" &&
+        [...(relayEventIds?.values() ?? [])].filter((ids) =>
+          ids.has(head.event.id),
+        ).length < installQuorum
+      ) {
+        return {
+          trust: "rollback",
+          message:
+            "The current signed Registry head is not present on the configured install quorum.",
+        };
+      }
+      const releaseOwners = new Map(
+        events.flatMap((event) => {
+          const release = parseNip29ReleaseEvent(event);
+          return release?.pluginId === pluginId
+            ? [[event.id, event.pubkey] as const]
+            : [];
+        }),
+      );
+      const unreconciledWithdrawal = events.some((event) => {
+        const withdrawal = parseNip29PublisherWithdrawal(event);
+        return (
+          withdrawal !== undefined &&
+          releaseOwners.get(withdrawal.releaseEventId) === event.pubkey &&
+          !head.content.releases.some(
+            (release) =>
+              release.state === "withdrawn" &&
+              release.decisionEventId === event.id,
+          )
+        );
+      });
+      if (unreconciledWithdrawal) {
+        return {
+          trust: "stale",
+          message:
+            "A publisher withdrawal is awaiting a curator checkpoint; installs and ordinary management are paused.",
+        };
+      }
+      if (stored !== undefined) {
+        const revision = compareCanonicalDecimal(
+          head.content.headRevision,
+          stored.headRevision,
+        );
+        if (
+          revision < 0 ||
+          (stored.activeReleaseSequence !== undefined &&
+            active?.releaseSequence !== undefined &&
+            compareCanonicalDecimal(
+              active.releaseSequence,
+              stored.activeReleaseSequence,
+            ) < 0)
+        ) {
+          return {
+            trust: "rollback",
+            message:
+              "The Registry relay returned an older trusted checkpoint; installs and management are paused.",
+          };
+        }
+        if (revision === 0 && stored.headHash !== headHash) {
+          return {
+            trust: "equivocation",
+            message:
+              "Conflicting signed Registry heads were observed at the same revision.",
+          };
+        }
+        if (
+          stored.seenWithdrawalEventIds.some(
+            (id) =>
+              !head.content.releases.some(
+                (release) =>
+                  release.state === "withdrawn" &&
+                  release.decisionEventId === id,
+              ),
+          )
+        ) {
+          return {
+            trust: "rollback",
+            message:
+              "Previously observed publisher withdrawals are missing from the Registry head.",
+          };
+        }
+      }
+      sawStale ||= !head.fresh;
+      if (origin === "relay") {
+        pendingTrustRecords.push({
+          schemaVersion: 1,
+          key,
+          pluginId,
+          authorityEpoch: head.content.authorityEpoch,
+          headRevision: head.content.headRevision,
+          headEventId: head.event.id,
+          headHash,
+          ...(head.content.activeReleaseEventId === undefined
+            ? {}
+            : { activeReleaseEventId: head.content.activeReleaseEventId }),
+          ...(active?.releaseSequence === undefined
+            ? {}
+            : { activeReleaseSequence: active.releaseSequence }),
+          seenWithdrawalEventIds: head.content.releases
+            .filter((release) => release.state === "withdrawn")
+            .map((release) => release.decisionEventId)
+            .toSorted(),
+          updatedAt: synchronizedAt,
+        });
+      }
+    }
+    for (const record of pendingTrustRecords) await store.saveTrust(record);
+    return sawStale
+      ? {
+          trust: "stale",
+          message:
+            "The signed Registry freshness window has expired; browsing remains available while installs are paused.",
+        }
+      : { trust: "fresh" };
   }
 
   async function saveSnapshot(
@@ -614,6 +834,292 @@ export function createNip29RegistryCatalogDataSource(
     if (disposed) throw new Error("Registry catalog source is disposed");
   }
 
+  function releaseManagementState(
+    event: NostrEvent,
+  ): "approved" | "pending" | "rejected" | "revoked" | "withdrawn" {
+    const events = mergeEvents(candidateEvents, currentEvents, [
+      ...pendingEvents.values(),
+    ]);
+    if (
+      events.some((candidate) => {
+        const withdrawal = parseNip29PublisherWithdrawal(candidate, event.id);
+        return withdrawal !== undefined && candidate.pubkey === event.pubkey;
+      })
+    ) {
+      return "withdrawn";
+    }
+    const decision = events
+      .flatMap((candidate) => {
+        const parsed = parseNip29CuratorDecision(candidate, event.id);
+        return parsed === undefined ||
+          !authorities.curatorPubkeys.has(candidate.pubkey)
+          ? []
+          : [{ event: candidate, decision: parsed.decision }];
+      })
+      .toSorted((left, right) =>
+        left.event.created_at === right.event.created_at
+          ? left.event.id.localeCompare(right.event.id)
+          : right.event.created_at - left.event.created_at,
+      )[0];
+    return decision?.decision ?? "pending";
+  }
+
+  async function hasCuratorRole(
+    pubkey: string,
+    signal?: AbortSignal,
+  ): Promise<boolean> {
+    const results = await Promise.allSettled(
+      relays.map(async (relay) => {
+        const snapshots = await relay.query(
+          {
+            kinds: [NIP29_KINDS.groupMembers],
+            "#d": [releaseGroupId],
+            limit: 1,
+          },
+          signal,
+        );
+        const snapshot = snapshots
+          .filter(verifyEvent)
+          .toSorted((left, right) =>
+            left.created_at === right.created_at
+              ? left.id.localeCompare(right.id)
+              : right.created_at - left.created_at,
+          )[0];
+        return (
+          snapshot?.tags.some(
+            (tag) =>
+              tag[0] === "p" &&
+              tag[1] === pubkey &&
+              tag.slice(2).includes("registry-curator"),
+          ) === true
+        );
+      }),
+    );
+    return (
+      results.filter((result) => result.status === "fulfilled" && result.value)
+        .length >= installQuorum
+    );
+  }
+
+  async function loadManagementCapabilities(
+    eventId: string,
+    signer: RegistrySigner | undefined,
+    signal?: AbortSignal,
+  ): Promise<RegistryReleaseManagementCapabilities | undefined> {
+    if (signer === undefined || authorities.authorityEpoch === undefined)
+      return undefined;
+    await waitForSignal(start(), signal);
+    const event = mergeEvents(candidateEvents, currentEvents, [
+      ...pendingEvents.values(),
+    ]).find((candidate) => candidate.id === eventId);
+    const release =
+      event === undefined ? undefined : parseNip29ReleaseEvent(event);
+    if (event === undefined || release === undefined) return undefined;
+    const pubkey = await signer.getPublicKey();
+    const stateValue = releaseManagementState(event);
+    const trust = state.trust ?? "legacy";
+    const curator =
+      authorities.curatorPubkeys.has(pubkey) &&
+      (await hasCuratorRole(pubkey, signal));
+    const author = pubkey === event.pubkey;
+    const actions: RegistryReleaseManagementAction[] = [];
+    if (trust === "stale" && curator) actions.push("renew");
+    if (
+      trust === "legacy" &&
+      curator &&
+      current?.registry.heads.get(release.pluginId) === undefined
+    ) {
+      actions.push("renew");
+    }
+    if (trust === "fresh" || trust === "legacy") {
+      if (curator && stateValue === "pending")
+        actions.push("approve", "reject");
+      if (curator && stateValue === "approved") actions.push("revoke");
+      if (author && (stateValue === "pending" || stateValue === "approved"))
+        actions.push("withdraw");
+    }
+    return {
+      eventId,
+      state: stateValue,
+      trust,
+      actions,
+      ...(current?.registry.heads.get(release.pluginId) === undefined
+        ? {}
+        : {
+            headEventId: current.registry.heads.get(release.pluginId)!.event.id,
+          }),
+    };
+  }
+
+  async function publishToWriteQuorum(
+    event: NostrEvent,
+    signer: RegistrySigner,
+    signal?: AbortSignal,
+  ): Promise<void> {
+    const results = await Promise.allSettled(
+      relays.map(async (relay) => {
+        await authenticateRegistryRelay(relay, signer, signal);
+        return await relay.publish(event, signal);
+      }),
+    );
+    const accepted = results.filter(
+      (result) => result.status === "fulfilled" && result.value.accepted,
+    ).length;
+    if (accepted < installQuorum) {
+      throw new Error(
+        `Registry write quorum was not reached (${accepted}/${installQuorum})`,
+      );
+    }
+  }
+
+  function buildRegistryHeadTemplate(
+    pluginId: string,
+    extraEvents: readonly NostrEvent[],
+    createdAt: number,
+  ) {
+    const allEvents = mergeEvents(
+      candidateEvents,
+      currentEvents,
+      [...pendingEvents.values()],
+      extraEvents,
+    );
+    const evidence = allEvents.flatMap((event) => {
+      const release = parseNip29ReleaseEvent(event);
+      if (
+        release === undefined ||
+        release.pluginId !== pluginId ||
+        !isNip29PublisherAuthorized(
+          allEvents,
+          authorities,
+          pluginId,
+          event.pubkey,
+        )
+      ) {
+        return [];
+      }
+      const bytes = manifestBytes.get(release.attachment.sha256);
+      if (bytes === undefined) return [];
+      let value: unknown;
+      try {
+        value = JSON.parse(
+          new TextDecoder("utf-8", { fatal: true }).decode(bytes),
+        );
+      } catch {
+        return [];
+      }
+      const manifest = nip29ReleaseManifestSchema.safeParse(value);
+      if (!manifest.success || manifest.data.release.pluginId !== pluginId)
+        return [];
+      const withdrawal = allEvents.find((candidate) => {
+        const parsed = parseNip29PublisherWithdrawal(candidate, event.id);
+        return parsed !== undefined && candidate.pubkey === event.pubkey;
+      });
+      const decision = allEvents
+        .flatMap((candidate) => {
+          const parsed = parseNip29CuratorDecision(candidate, event.id);
+          return parsed === undefined ||
+            !authorities.curatorPubkeys.has(candidate.pubkey)
+            ? []
+            : [{ event: candidate, state: parsed.decision }];
+        })
+        .toSorted((left, right) =>
+          left.event.created_at === right.event.created_at
+            ? left.event.id.localeCompare(right.event.id)
+            : right.event.created_at - left.event.created_at,
+        )[0];
+      if (withdrawal === undefined && decision === undefined) return [];
+      return [
+        {
+          release,
+          manifest: manifest.data,
+          state:
+            withdrawal === undefined ? decision!.state : ("withdrawn" as const),
+          decisionEventId: withdrawal?.id ?? decision!.event.id,
+        },
+      ];
+    });
+    const previous = current?.registry.heads.get(pluginId);
+    const approved = evidence.filter((item) => item.state === "approved");
+    const active = approved.toSorted((left, right) => {
+      const leftSequence =
+        left.manifest.release.schema === "lapis.registry.release/2"
+          ? left.manifest.release.releaseSequence
+          : "0";
+      const rightSequence =
+        right.manifest.release.schema === "lapis.registry.release/2"
+          ? right.manifest.release.releaseSequence
+          : "0";
+      const sequence = compareCanonicalDecimal(rightSequence, leftSequence);
+      return sequence !== 0
+        ? sequence
+        : right.release.event.created_at - left.release.event.created_at ||
+            left.release.event.id.localeCompare(right.release.event.id);
+    })[0];
+    const releases = evidence
+      .map((item) => ({
+        releaseEventId: item.release.event.id,
+        manifestSha256: item.release.attachment.sha256,
+        version: item.manifest.release.version,
+        ...(item.manifest.release.schema === "lapis.registry.release/2"
+          ? { releaseSequence: item.manifest.release.releaseSequence }
+          : item.release.event.id === active?.release.event.id
+            ? { releaseSequence: "0" }
+            : {}),
+        state: item.state,
+        decisionEventId: item.decisionEventId,
+      }))
+      .toSorted((left, right) => {
+        if (
+          left.releaseSequence === undefined &&
+          right.releaseSequence !== undefined
+        )
+          return -1;
+        if (
+          left.releaseSequence !== undefined &&
+          right.releaseSequence === undefined
+        )
+          return 1;
+        if (
+          left.releaseSequence !== undefined &&
+          right.releaseSequence !== undefined
+        ) {
+          const sequence = compareCanonicalDecimal(
+            left.releaseSequence,
+            right.releaseSequence,
+          );
+          if (sequence !== 0) return sequence;
+        } else {
+          const version = semver.compare(left.version, right.version);
+          if (version !== 0) return version;
+        }
+        return left.releaseEventId.localeCompare(right.releaseEventId);
+      });
+    const issuedAt = new Date(createdAt * 1_000);
+    return createNip29RegistryHeadTemplate(
+      {
+        schema: "lapis.registry.plugin-head/1",
+        pluginId,
+        authorityEpoch: authorities.authorityEpoch!,
+        headRevision:
+          previous === undefined
+            ? "1"
+            : (BigInt(previous.content.headRevision) + 1n).toString(),
+        ...(previous === undefined
+          ? {}
+          : { previousHeadEventId: previous.event.id }),
+        ...(active === undefined
+          ? {}
+          : { activeReleaseEventId: active.release.event.id }),
+        releases,
+        issuedAt: issuedAt.toISOString(),
+        validUntil: new Date(
+          issuedAt.getTime() + 30 * 24 * 60 * 60 * 1_000,
+        ).toISOString(),
+      },
+      createdAt,
+    );
+  }
+
   return {
     async loadIndex(loadOptions) {
       loadOptions?.signal?.throwIfAborted();
@@ -635,6 +1141,19 @@ export function createNip29RegistryCatalogDataSource(
         );
       }
       return detail;
+    },
+    async loadPluginVersionDetail(pluginId, version, loadOptions) {
+      loadOptions?.signal?.throwIfAborted();
+      await waitForSignal(start(), loadOptions?.signal);
+      const snapshot = requireCurrent().versions.get(
+        versionSnapshotKey(pluginId, version),
+      );
+      if (snapshot === undefined) {
+        throw new Error(
+          `${pluginId}@${version}: accepted release is unavailable`,
+        );
+      }
+      return snapshot;
     },
     async loadMarkdown(reference, loadOptions) {
       const bytes = await loadVerifiedResource(reference, loadOptions);
@@ -768,18 +1287,158 @@ export function createNip29RegistryCatalogDataSource(
           `${pluginId}@${version}: release manifest is unavailable`,
         );
       }
-      const proof: NostrReleaseProof = {
-        schema: "lapis.plugin.release-proof/1",
-        authorizationEvent: release.authorizationEvent,
-        releaseEvent: release.event,
-        decisionEvent: release.decisionEvent,
-        manifest: {
-          sha256: release.attachment.sha256,
-          size: bytes.byteLength,
-          content: new TextDecoder("utf-8", { fatal: true }).decode(bytes),
-        },
-      };
+      const proof: NostrReleaseProof =
+        release.head === undefined
+          ? {
+              schema: "lapis.plugin.release-proof/1",
+              authorizationEvent: release.authorizationEvent,
+              releaseEvent: release.event,
+              decisionEvent: release.decisionEvent,
+              manifest: {
+                sha256: release.attachment.sha256,
+                size: bytes.byteLength,
+                content: new TextDecoder("utf-8", { fatal: true }).decode(
+                  bytes,
+                ),
+              },
+            }
+          : {
+              schema: "lapis.plugin.release-proof/2",
+              authorizationEvent: release.authorizationEvent,
+              releaseEvent: release.event,
+              decisionEvent: release.decisionEvent,
+              headEvent: release.head.event,
+              manifest: {
+                sha256: release.attachment.sha256,
+                size: bytes.byteLength,
+                content: new TextDecoder("utf-8", { fatal: true }).decode(
+                  bytes,
+                ),
+              },
+            };
       return proof;
+    },
+    async loadReleaseManagementCapabilities(eventId, signer, loadOptions) {
+      loadOptions?.signal?.throwIfAborted();
+      return await loadManagementCapabilities(
+        eventId,
+        signer,
+        loadOptions?.signal,
+      );
+    },
+    async performReleaseAction(requested, signer, loadOptions) {
+      loadOptions?.signal?.throwIfAborted();
+      const capabilities = await loadManagementCapabilities(
+        requested.eventId,
+        signer,
+        loadOptions?.signal,
+      );
+      if (
+        capabilities === undefined ||
+        !capabilities.actions.includes(requested.action)
+      ) {
+        throw new Error(
+          "The connected identity is not allowed to perform this action",
+        );
+      }
+      const event = mergeEvents(candidateEvents, currentEvents, [
+        ...pendingEvents.values(),
+      ]).find((candidate) => candidate.id === requested.eventId);
+      const release =
+        event === undefined ? undefined : parseNip29ReleaseEvent(event);
+      if (event === undefined || release === undefined) {
+        throw new Error("The targeted Registry release is unavailable");
+      }
+      if (
+        requested.expectedManifestSha256 !== undefined &&
+        requested.expectedManifestSha256 !== release.attachment.sha256
+      ) {
+        throw new Error(
+          "The release manifest changed before the action was signed",
+        );
+      }
+      const currentHead = current?.registry.heads.get(release.pluginId);
+      if (
+        requested.expectedHeadEventId !== undefined &&
+        requested.expectedHeadEventId !== currentHead?.event.id
+      ) {
+        throw new Error(
+          "The Registry head changed before the action was signed",
+        );
+      }
+      const createdAt = Math.max(
+        Math.floor(now().getTime() / 1_000),
+        event.created_at + 1,
+        (current?.registry.heads.get(release.pluginId)?.event.created_at ??
+          -1) + 1,
+        ...mergeEvents(candidateEvents, currentEvents, [
+          ...pendingEvents.values(),
+        ])
+          .filter((candidate) =>
+            candidate.tags.some((tag) => tag[0] === "e" && tag[1] === event.id),
+          )
+          .map((candidate) => candidate.created_at + 1),
+      );
+      let decisionEvent: NostrEvent | undefined;
+      if (requested.action === "withdraw") {
+        decisionEvent = await signer.signEvent(
+          createNip29PublisherWithdrawalTemplate(event.id, createdAt),
+        );
+        await publishToWriteQuorum(decisionEvent, signer, loadOptions?.signal);
+        pendingEvents.set(decisionEvent.id, decisionEvent);
+        await synchronize(loadOptions?.signal).catch(() => undefined);
+        return {
+          action: requested.action,
+          eventId: event.id,
+          decisionEventId: decisionEvent.id,
+        } satisfies RegistryReleaseManagementResult;
+      }
+      if (requested.action !== "renew") {
+        const decision =
+          requested.action === "approve"
+            ? "approved"
+            : requested.action === "reject"
+              ? "rejected"
+              : "revoked";
+        decisionEvent = await signer.signEvent(
+          createNip29CuratorDecisionTemplate(event.id, decision, createdAt),
+        );
+        await publishToWriteQuorum(decisionEvent, signer, loadOptions?.signal);
+        pendingEvents.set(decisionEvent.id, decisionEvent);
+      }
+      const headEvent = await signer.signEvent(
+        buildRegistryHeadTemplate(
+          release.pluginId,
+          decisionEvent === undefined ? [] : [decisionEvent],
+          createdAt,
+        ),
+      );
+      await publishToWriteQuorum(headEvent, signer, loadOptions?.signal);
+      pendingEvents.set(headEvent.id, headEvent);
+      await synchronize(loadOptions?.signal);
+      return {
+        action: requested.action,
+        eventId: event.id,
+        ...(decisionEvent === undefined
+          ? {}
+          : { decisionEventId: decisionEvent.id }),
+        headEventId: headEvent.id,
+      } satisfies RegistryReleaseManagementResult;
+    },
+    async resetTrustHistory(pluginId) {
+      await openStore();
+      if (pluginId === undefined) {
+        await store.resetTrust();
+      } else {
+        await store.resetTrust(registryTrustKey(authorities, pluginId));
+      }
+      // The explicit recovery action must re-bootstrap exclusively from the
+      // next complete relay snapshot. Keep the rendered projection available
+      // while discarding cached event merge inputs that could otherwise pin a
+      // missing high-water head into the next synchronization.
+      currentEvents = [];
+      candidateEvents = [];
+      pendingEvents.clear();
     },
     getStatus() {
       return state;
@@ -824,6 +1483,83 @@ function copyAuthorities(
       : {
           defaultPublisherPubkeys: new Set(authorities.defaultPublisherPubkeys),
         }),
+    ...(authorities.authorityEpoch === undefined
+      ? {}
+      : { authorityEpoch: authorities.authorityEpoch }),
+  };
+}
+
+function versionSnapshotKey(pluginId: string, version: string): string {
+  return `${pluginId}\u0000${version}`;
+}
+
+function registryTrustKey(
+  authorities: Nip29RegistryAuthorities,
+  pluginId: string,
+): string {
+  return canonicalHash({
+    schema: "lapis.registry.trust-scope/1",
+    pluginId,
+    releaseGroupId: lapisGroupId(LAPIS_GROUPS.pluginReleases),
+    authorityEpoch: authorities.authorityEpoch ?? "legacy",
+    curatorPubkeys: [...authorities.curatorPubkeys].toSorted(),
+  });
+}
+
+function projectVersionSnapshot(
+  release: MaterializedNip29Release,
+  generatedAt: string,
+  blossomUrl: URL,
+): RegistryVersionSnapshot {
+  const projection = projectRegistry(
+    [
+      {
+        content: release.plugin,
+        releases: [release.content],
+        latestVersion: release.content.version,
+      },
+    ],
+    { generatedAt },
+    {
+      backend: "nostr",
+      root: release.event.id,
+      acceptedEventIds: [release.event.id, release.decisionEvent.id],
+      exclusionCounts: {},
+    },
+  );
+  const index = registryCatalogIndexSchema.parse(projection.index);
+  const entry = index.plugins[0];
+  const detailValue = projection.plugins.get(release.content.pluginId);
+  if (entry === undefined || detailValue === undefined) {
+    throw new Error(`${release.content.pluginId}: version projection failed`);
+  }
+  const detail = relayBackedDetail(
+    registryCatalogDetailSchema.parse(detailValue),
+    blossomUrl,
+  );
+  const version = detail.versions[release.content.version];
+  if (version === undefined) {
+    throw new Error(
+      `${release.content.pluginId}@${release.content.version}: version projection failed`,
+    );
+  }
+  return {
+    entry,
+    detail,
+    release: {
+      ...version,
+      releaseEventId: release.event.id,
+      manifestSha256: release.attachment.sha256,
+      ...(release.content.schema === "lapis.registry.release/2"
+        ? { releaseSequence: release.content.releaseSequence }
+        : {}),
+    },
+    manifestSha256: release.attachment.sha256,
+    releaseEvent: release.event,
+    ...(release.content.schema === "lapis.registry.release/2"
+      ? { releaseSequence: release.content.releaseSequence }
+      : {}),
+    latestStatus: "approved",
   };
 }
 

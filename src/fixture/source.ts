@@ -6,8 +6,8 @@ import { canonicalJson } from "../protocol/index.js";
 import type {
   JsonObject,
   JsonValue,
+  LegacyReleaseContent,
   PluginDefinitionContent,
-  ReleaseContent,
 } from "../protocol/index.js";
 import semver from "semver";
 import sharp from "sharp";
@@ -25,7 +25,7 @@ export interface LocalFixtureResource {
 export interface LocalPluginFixture {
   directory: string;
   plugin: PluginDefinitionContent;
-  release: Omit<ReleaseContent, "artifact" | "releasedAt">;
+  release: Omit<LegacyReleaseContent, "artifact" | "releasedAt">;
   artifact: {
     path: string;
     bytes: Uint8Array;

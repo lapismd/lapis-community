@@ -22,6 +22,20 @@ export interface RegistryResourceSnapshot {
   lastAccessedAt: number;
 }
 
+export interface RegistryTrustRecord {
+  schemaVersion: 1;
+  key: string;
+  pluginId: string;
+  authorityEpoch: string;
+  headRevision: string;
+  headEventId: string;
+  headHash: string;
+  activeReleaseEventId?: string;
+  activeReleaseSequence?: string;
+  seenWithdrawalEventIds: readonly string[];
+  updatedAt: string;
+}
+
 export interface RegistrySnapshotStore {
   readonly mode: "memory" | "indexeddb";
   open(): Promise<void>;
@@ -29,6 +43,9 @@ export interface RegistrySnapshotStore {
   saveSnapshot(snapshot: RegistryEventSnapshot): Promise<void>;
   loadResource(sha256: string): Promise<RegistryResourceSnapshot | undefined>;
   saveResource(resource: RegistryResourceSnapshot): Promise<void>;
+  loadTrust(key: string): Promise<RegistryTrustRecord | undefined>;
+  saveTrust(record: RegistryTrustRecord): Promise<void>;
+  resetTrust(key?: string): Promise<void>;
   clear(): Promise<void>;
   close(): Promise<void>;
 }
@@ -73,6 +90,7 @@ class MemoryRegistrySnapshotStore implements RegistrySnapshotStore {
   readonly #maxSnapshots: number;
   readonly #snapshots = new Map<string, RegistryEventSnapshot>();
   readonly #resources = new Map<string, RegistryResourceSnapshot>();
+  readonly #trust = new Map<string, RegistryTrustRecord>();
   #opened = false;
 
   constructor(maxResourceBytes: number, maxSnapshots: number) {
@@ -119,6 +137,23 @@ class MemoryRegistrySnapshotStore implements RegistrySnapshotStore {
     this.#prune();
   }
 
+  async loadTrust(key: string): Promise<RegistryTrustRecord | undefined> {
+    this.#assertOpen();
+    const record = this.#trust.get(key);
+    return record === undefined ? undefined : cloneTrust(record);
+  }
+
+  async saveTrust(record: RegistryTrustRecord): Promise<void> {
+    this.#assertOpen();
+    this.#trust.set(record.key, cloneTrust(record));
+  }
+
+  async resetTrust(key?: string): Promise<void> {
+    this.#assertOpen();
+    if (key === undefined) this.#trust.clear();
+    else this.#trust.delete(key);
+  }
+
   async clear(): Promise<void> {
     this.#assertOpen();
     this.#snapshots.clear();
@@ -158,6 +193,10 @@ interface RegistryCacheDb extends DBSchema {
     value: RegistryResourceSnapshot;
     indexes: { access: number };
   };
+  trust: {
+    key: string;
+    value: RegistryTrustRecord;
+  };
 }
 
 class IndexedDbRegistrySnapshotStore implements RegistrySnapshotStore {
@@ -179,13 +218,20 @@ class IndexedDbRegistrySnapshotStore implements RegistrySnapshotStore {
 
   async open(): Promise<void> {
     if (this.#database !== undefined) return;
-    this.#database = await openDB<RegistryCacheDb>(this.#databaseName, 1, {
+    this.#database = await openDB<RegistryCacheDb>(this.#databaseName, 2, {
       upgrade(database) {
-        database.createObjectStore("snapshots", { keyPath: "key" });
-        const resources = database.createObjectStore("resources", {
-          keyPath: "sha256",
-        });
-        resources.createIndex("access", "lastAccessedAt");
+        if (!database.objectStoreNames.contains("snapshots")) {
+          database.createObjectStore("snapshots", { keyPath: "key" });
+        }
+        if (!database.objectStoreNames.contains("resources")) {
+          const resources = database.createObjectStore("resources", {
+            keyPath: "sha256",
+          });
+          resources.createIndex("access", "lastAccessedAt");
+        }
+        if (!database.objectStoreNames.contains("trust")) {
+          database.createObjectStore("trust", { keyPath: "key" });
+        }
       },
     });
   }
@@ -224,6 +270,20 @@ class IndexedDbRegistrySnapshotStore implements RegistrySnapshotStore {
     const database = this.#requireDatabase();
     await database.put("resources", resource);
     await this.#prune();
+  }
+
+  async loadTrust(key: string): Promise<RegistryTrustRecord | undefined> {
+    return await this.#requireDatabase().get("trust", key);
+  }
+
+  async saveTrust(record: RegistryTrustRecord): Promise<void> {
+    await this.#requireDatabase().put("trust", record);
+  }
+
+  async resetTrust(key?: string): Promise<void> {
+    const database = this.#requireDatabase();
+    if (key === undefined) await database.clear("trust");
+    else await database.delete("trust", key);
   }
 
   async clear(): Promise<void> {
@@ -318,6 +378,18 @@ class BrowserRegistrySnapshotStore implements RegistrySnapshotStore {
     return this.#requireStore().saveResource(resource);
   }
 
+  loadTrust(key: string): Promise<RegistryTrustRecord | undefined> {
+    return this.#requireStore().loadTrust(key);
+  }
+
+  saveTrust(record: RegistryTrustRecord): Promise<void> {
+    return this.#requireStore().saveTrust(record);
+  }
+
+  resetTrust(key?: string): Promise<void> {
+    return this.#requireStore().resetTrust(key);
+  }
+
   clear(): Promise<void> {
     return this.#requireStore().clear();
   }
@@ -353,4 +425,11 @@ function cloneResource(
   resource: RegistryResourceSnapshot,
 ): RegistryResourceSnapshot {
   return { ...resource, bytes: resource.bytes.slice() };
+}
+
+function cloneTrust(record: RegistryTrustRecord): RegistryTrustRecord {
+  return {
+    ...record,
+    seenWithdrawalEventIds: [...record.seenWithdrawalEventIds],
+  };
 }

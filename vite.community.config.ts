@@ -39,6 +39,9 @@ export default defineConfig({
     "import.meta.env.VITE_REGISTRY_PUBLISHER_PUBKEYS": JSON.stringify(
       fixtureValue("REGISTRY_PUBLISHER_PUBKEYS"),
     ),
+    "import.meta.env.VITE_REGISTRY_AUTHORITY_EPOCH": JSON.stringify(
+      fixtureValue("REGISTRY_AUTHORITY_EPOCH"),
+    ),
   },
   resolve: { dedupe: ["svelte"] },
   optimizeDeps: {

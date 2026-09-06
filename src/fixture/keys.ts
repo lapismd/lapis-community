@@ -102,6 +102,7 @@ export async function createFixtureFiles(
     [
       `REGISTRY_CURATOR_PUBKEYS=${publicKeys.curator}`,
       `REGISTRY_PUBLISHER_PUBKEYS=${publicKeys.publisher}`,
+      "REGISTRY_AUTHORITY_EPOCH=local-fixture-v1",
       `REGISTRY_OPERATOR_PUBKEYS=${publicKeys.operator}`,
       `REGISTRY_READER_SECRET_FILE=${readerSecretFile}`,
       `REGISTRY_FIXTURE_CREATED_AT=${createdAt}`,

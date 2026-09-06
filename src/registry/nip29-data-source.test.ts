@@ -9,10 +9,14 @@ import {
 } from "nostr-tools/pure";
 import { describe, expect, it, vi } from "vitest";
 
+import { SecretKeyRegistrySigner } from "../auth/index.js";
 import {
   createNip29CuratorDecisionTemplate,
   createNip29PublisherAuthorizationTemplate,
+  createNip29RegistryHeadTemplate,
   createNip29ReleaseMessageTemplate,
+  LAPIS_GROUPS,
+  lapisGroupId,
   type NostrEvent,
   type NostrEventTemplate,
   type PluginDefinitionContent,
@@ -143,7 +147,119 @@ function fixture() {
     markdownBytes,
     publisher,
     publisherKey,
+    plugin,
     release,
+    releaseContent,
+  };
+}
+
+function sequencedFixture() {
+  const data = fixture();
+  const authorization = sign(
+    data.curatorKey,
+    createNip29PublisherAuthorizationTemplate(
+      "demo",
+      data.publisher,
+      "authorized",
+      1_699_999_999,
+    ),
+  );
+  const manifest = {
+    schema: "lapis.registry.nip29-release/2" as const,
+    plugin: data.plugin,
+    release: {
+      ...data.releaseContent,
+      schema: "lapis.registry.release/2" as const,
+      version: "2.0.0",
+      releaseSequence: "1",
+      previousReleaseEventId: data.release.id,
+    },
+  };
+  const manifestBytes = new TextEncoder().encode(JSON.stringify(manifest));
+  const release = sign(
+    data.publisherKey,
+    createNip29ReleaseMessageTemplate(
+      "demo",
+      {
+        url: "https://relay.example/manifest-2.json",
+        mimeType: "application/json",
+        sha256: sha(manifestBytes),
+        size: manifestBytes.byteLength,
+      },
+      1_700_000_100,
+      "Demo 2.0.0",
+    ),
+  );
+  const approval = sign(
+    data.curatorKey,
+    createNip29CuratorDecisionTemplate(release.id, "approved", 1_700_000_101),
+  );
+  const headOne = sign(
+    data.curatorKey,
+    createNip29RegistryHeadTemplate(
+      {
+        schema: "lapis.registry.plugin-head/1",
+        pluginId: "demo",
+        authorityEpoch: "epoch-1",
+        headRevision: "1",
+        activeReleaseEventId: data.release.id,
+        releases: [
+          {
+            releaseEventId: data.release.id,
+            manifestSha256: sha(data.manifestBytes),
+            version: "1.0.0",
+            releaseSequence: "0",
+            state: "approved",
+            decisionEventId: data.approval.id,
+          },
+        ],
+        issuedAt: new Date(1_700_000_102_000).toISOString(),
+        validUntil: new Date(1_702_592_102_000).toISOString(),
+      },
+      1_700_000_102,
+    ),
+  );
+  const headTwo = sign(
+    data.curatorKey,
+    createNip29RegistryHeadTemplate(
+      {
+        schema: "lapis.registry.plugin-head/1",
+        pluginId: "demo",
+        authorityEpoch: "epoch-1",
+        headRevision: "2",
+        previousHeadEventId: headOne.id,
+        activeReleaseEventId: release.id,
+        releases: [
+          {
+            releaseEventId: data.release.id,
+            manifestSha256: sha(data.manifestBytes),
+            version: "1.0.0",
+            state: "approved",
+            decisionEventId: data.approval.id,
+          },
+          {
+            releaseEventId: release.id,
+            manifestSha256: sha(manifestBytes),
+            version: "2.0.0",
+            releaseSequence: "1",
+            state: "approved",
+            decisionEventId: approval.id,
+          },
+        ],
+        issuedAt: new Date(1_700_000_103_000).toISOString(),
+        validUntil: new Date(1_702_592_103_000).toISOString(),
+      },
+      1_700_000_103,
+    ),
+  );
+  return {
+    ...data,
+    authorization,
+    manifestTwoBytes: manifestBytes,
+    releaseTwo: release,
+    approvalTwo: approval,
+    headOne,
+    headTwo,
   };
 }
 
@@ -270,6 +386,325 @@ describe("NIP-29 registry catalog data source", () => {
         size: data.manifestBytes.byteLength,
         content: new TextDecoder().decode(data.manifestBytes),
       },
+    });
+    source.dispose();
+  });
+
+  it("loads pinned historical snapshots and v2 proofs from a fresh signed head", async () => {
+    const data = sequencedFixture();
+    const factory = createInMemoryRelayFactory({
+      events: [
+        data.authorization,
+        data.release,
+        data.approval,
+        data.releaseTwo,
+        data.approvalTwo,
+        data.headOne,
+        data.headTwo,
+      ],
+    });
+    const source = createNip29RegistryCatalogDataSource({
+      relays: ["wss://relay.example"],
+      authorities: {
+        curatorPubkeys: new Set([data.curator]),
+        publisherPubkeysByPlugin: new Map(),
+        authorityEpoch: "epoch-1",
+      },
+      relayFactory: factory,
+      snapshotStore: createMemoryRegistrySnapshotStore(),
+      fetch: async (input) => {
+        const path = new URL(input.toString()).pathname;
+        return new Response(
+          path.endsWith(sha(data.manifestTwoBytes))
+            ? data.manifestTwoBytes
+            : data.manifestBytes,
+        );
+      },
+      now: () => new Date(1_700_000_200_000),
+    });
+
+    await expect(source.loadIndex()).resolves.toMatchObject({
+      plugins: [{ id: "demo", latestVersion: "2.0.0" }],
+    });
+    expect(source.getStatus()).toMatchObject({
+      trust: "fresh",
+      installReady: true,
+    });
+    await expect(
+      source.loadPluginVersionDetail?.("demo", "1.0.0"),
+    ).resolves.toMatchObject({
+      entry: { id: "demo", latestVersion: "1.0.0" },
+      release: { version: "1.0.0" },
+      releaseEvent: { id: data.release.id },
+      latestStatus: "approved",
+    });
+    await expect(
+      source.loadPluginVersionDetail?.("demo", "2.0.0"),
+    ).resolves.toMatchObject({
+      release: { version: "2.0.0", releaseSequence: "1" },
+      releaseEvent: { id: data.releaseTwo.id },
+      releaseSequence: "1",
+      latestStatus: "approved",
+    });
+    await expect(
+      source.loadReleaseProof("demo", "2.0.0"),
+    ).resolves.toMatchObject({
+      schema: "lapis.plugin.release-proof/2",
+      releaseEvent: { id: data.releaseTwo.id },
+      decisionEvent: { id: data.approvalTwo.id },
+      headEvent: { id: data.headTwo.id },
+    });
+    await expect(
+      source.loadPluginVersionDetail?.("demo", "3.0.0"),
+    ).rejects.toThrow("accepted release is unavailable");
+    source.dispose();
+  });
+
+  it("retains its trusted high-water checkpoint when a relay rolls back", async () => {
+    const data = sequencedFixture();
+    const store = createMemoryRegistrySnapshotStore();
+    const shared = {
+      relays: ["wss://relay.example"],
+      authorities: {
+        curatorPubkeys: new Set([data.curator]),
+        publisherPubkeysByPlugin: new Map<string, Set<string>>(),
+        authorityEpoch: "epoch-1",
+      },
+      snapshotStore: store,
+      fetch: async (input: RequestInfo | URL) => {
+        const path = new URL(input.toString()).pathname;
+        return new Response(
+          path.endsWith(sha(data.manifestTwoBytes))
+            ? data.manifestTwoBytes
+            : data.manifestBytes,
+        );
+      },
+      now: () => new Date(1_700_000_200_000),
+    } as const;
+    const current = createNip29RegistryCatalogDataSource({
+      ...shared,
+      relayFactory: createInMemoryRelayFactory({
+        events: [
+          data.authorization,
+          data.release,
+          data.approval,
+          data.releaseTwo,
+          data.approvalTwo,
+          data.headOne,
+          data.headTwo,
+        ],
+      }),
+    });
+    await current.loadIndex();
+    current.dispose();
+
+    const rolledBack = createNip29RegistryCatalogDataSource({
+      ...shared,
+      relayFactory: createInMemoryRelayFactory({
+        events: [data.authorization, data.release, data.approval, data.headOne],
+      }),
+    });
+    await rolledBack.loadIndex();
+    await rolledBack.refresh();
+    expect(rolledBack.getStatus()).toMatchObject({
+      phase: "degraded",
+      trust: "rollback",
+      installReady: false,
+    });
+    await rolledBack.resetTrustHistory?.("demo");
+    await rolledBack.refresh();
+    expect(rolledBack.getStatus()).toMatchObject({
+      trust: "fresh",
+      installReady: true,
+    });
+    rolledBack.dispose();
+  });
+
+  it("intersects the pinned curator set with relay roles before managing releases", async () => {
+    const data = sequencedFixture();
+    const roleSnapshot = sign(generateSecretKey(), {
+      kind: 39_002,
+      created_at: 1_700_000_104,
+      content: "",
+      tags: [
+        ["d", lapisGroupId(LAPIS_GROUPS.pluginReleases)],
+        ["p", data.curator, "registry-curator"],
+      ],
+    });
+    const factory = createInMemoryRelayFactory({
+      events: [
+        data.authorization,
+        data.release,
+        data.approval,
+        data.releaseTwo,
+        data.approvalTwo,
+        data.headOne,
+        data.headTwo,
+        roleSnapshot,
+      ],
+    });
+    const source = createNip29RegistryCatalogDataSource({
+      relays: ["wss://relay.example"],
+      authorities: {
+        curatorPubkeys: new Set([data.curator]),
+        publisherPubkeysByPlugin: new Map(),
+        authorityEpoch: "epoch-1",
+      },
+      relayFactory: factory,
+      snapshotStore: createMemoryRegistrySnapshotStore(),
+      fetch: async (input) => {
+        const path = new URL(input.toString()).pathname;
+        return new Response(
+          path.endsWith(sha(data.manifestTwoBytes))
+            ? data.manifestTwoBytes
+            : data.manifestBytes,
+        );
+      },
+      now: () => new Date(1_700_000_200_000),
+      liveBatchMs: 0,
+    });
+    await source.loadIndex();
+
+    const curatorSigner = new SecretKeyRegistrySigner(data.curatorKey);
+    const publisherSigner = new SecretKeyRegistrySigner(data.publisherKey);
+    const unrelatedSigner = new SecretKeyRegistrySigner(generateSecretKey());
+    await expect(
+      source.loadReleaseManagementCapabilities?.(
+        data.releaseTwo.id,
+        curatorSigner,
+      ),
+    ).resolves.toMatchObject({ actions: ["revoke"], trust: "fresh" });
+    await expect(
+      source.loadReleaseManagementCapabilities?.(
+        data.releaseTwo.id,
+        publisherSigner,
+      ),
+    ).resolves.toMatchObject({ actions: ["withdraw"] });
+    await expect(
+      source.loadReleaseManagementCapabilities?.(
+        data.releaseTwo.id,
+        unrelatedSigner,
+      ),
+    ).resolves.toMatchObject({ actions: [] });
+
+    await expect(
+      source.performReleaseAction?.(
+        {
+          action: "revoke",
+          eventId: data.releaseTwo.id,
+          expectedManifestSha256: sha(data.manifestTwoBytes),
+          expectedHeadEventId: data.headTwo.id,
+        },
+        curatorSigner,
+      ),
+    ).resolves.toMatchObject({
+      action: "revoke",
+      eventId: data.releaseTwo.id,
+      decisionEventId: expect.stringMatching(/^[0-9a-f]{64}$/u),
+      headEventId: expect.stringMatching(/^[0-9a-f]{64}$/u),
+    });
+    await expect(source.loadIndex()).resolves.toMatchObject({
+      plugins: [{ id: "demo", latestVersion: "1.0.0" }],
+    });
+    source.dispose();
+  });
+
+  it("blocks a head that is not present on the configured install quorum", async () => {
+    const data = sequencedFixture();
+    const common = [
+      data.authorization,
+      data.release,
+      data.approval,
+      data.headOne,
+    ];
+    const source = createNip29RegistryCatalogDataSource({
+      relays: ["wss://current.example", "wss://lagging.example"],
+      authorities: {
+        curatorPubkeys: new Set([data.curator]),
+        publisherPubkeysByPlugin: new Map(),
+        authorityEpoch: "epoch-1",
+      },
+      relayFactory: createInMemoryRelayFactory({
+        relayOptions: (url) => ({
+          events: url.includes("current")
+            ? [...common, data.releaseTwo, data.approvalTwo, data.headTwo]
+            : common,
+        }),
+      }),
+      installQuorum: 2,
+      snapshotStore: createMemoryRegistrySnapshotStore(),
+      fetch: async (input) => {
+        const path = new URL(input.toString()).pathname;
+        return new Response(
+          path.endsWith(sha(data.manifestTwoBytes))
+            ? data.manifestTwoBytes
+            : data.manifestBytes,
+        );
+      },
+      now: () => new Date(1_700_000_200_000),
+    });
+
+    await source.loadIndex();
+    expect(source.getStatus()).toMatchObject({
+      phase: "degraded",
+      trust: "rollback",
+      installReady: false,
+      message: expect.stringContaining("install quorum"),
+    });
+    await expect(source.loadReleaseProof("demo", "2.0.0")).rejects.toThrow(
+      "quorum",
+    );
+    source.dispose();
+  });
+
+  it("fails closed on two curator-signed heads at one revision", async () => {
+    const data = sequencedFixture();
+    const conflictingHead = sign(
+      data.curatorKey,
+      createNip29RegistryHeadTemplate(
+        {
+          ...JSON.parse(data.headTwo.content),
+          validUntil: new Date(1_702_592_102_000).toISOString(),
+        },
+        data.headTwo.created_at,
+      ),
+    );
+    const source = createNip29RegistryCatalogDataSource({
+      relays: ["wss://relay.example"],
+      authorities: {
+        curatorPubkeys: new Set([data.curator]),
+        publisherPubkeysByPlugin: new Map(),
+        authorityEpoch: "epoch-1",
+      },
+      relayFactory: createInMemoryRelayFactory({
+        events: [
+          data.authorization,
+          data.release,
+          data.approval,
+          data.releaseTwo,
+          data.approvalTwo,
+          data.headOne,
+          data.headTwo,
+          conflictingHead,
+        ],
+      }),
+      snapshotStore: createMemoryRegistrySnapshotStore(),
+      fetch: async (input) => {
+        const path = new URL(input.toString()).pathname;
+        return new Response(
+          path.endsWith(sha(data.manifestTwoBytes))
+            ? data.manifestTwoBytes
+            : data.manifestBytes,
+        );
+      },
+      now: () => new Date(1_700_000_200_000),
+    });
+
+    await source.loadIndex();
+    expect(source.getStatus()).toMatchObject({
+      phase: "degraded",
+      trust: "equivocation",
+      installReady: false,
     });
     source.dispose();
   });

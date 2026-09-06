@@ -355,3 +355,116 @@
     />
   {/snippet}
 </Story>
+
+<Story
+  name="Pinned historical release"
+  play={async ({ canvas, canvasElement }) => {
+    const story = await canvas.findByTestId("registry-browser-story");
+    await expect(story).toHaveAttribute("data-version", "0.9.0");
+    await expect(
+      await canvas.findByRole("heading", { name: "AI Assistant", level: 1 }),
+    ).toBeVisible();
+    await expect(
+      canvas.getByRole("combobox", { name: "Select plugin version" }),
+    ).toHaveTextContent("0.9.0 Historical");
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Install in Lapis" }),
+    );
+    const page = within(canvasElement.ownerDocument.body);
+    await expect(
+      page.getByRole("alertdialog", { name: "Install historical release?" }),
+    ).toBeVisible();
+    await expect(
+      page.getByText(/current trusted release is 1\.4\.0/u),
+    ).toBeVisible();
+  }}
+>
+  {#snippet template()}
+    <RegistryBrowserStoryHarness
+      initialRoute={{ page: "plugin", pluginId: "ai", version: "0.9.0" }}
+    />
+  {/snippet}
+</Story>
+
+<Story
+  name="Unavailable pinned release"
+  play={async ({ canvas }) => {
+    await expect(
+      await canvas.findByText(
+        "Plugin version unavailable",
+        {},
+        { timeout: 5_000 },
+      ),
+    ).toBeVisible();
+    await expect(
+      canvas.getByRole("button", { name: "Open current trusted release" }),
+    ).toBeVisible();
+  }}
+>
+  {#snippet template()}
+    <RegistryBrowserStoryHarness
+      initialRoute={{ page: "plugin", pluginId: "ai", version: "9.9.9" }}
+    />
+  {/snippet}
+</Story>
+
+<Story
+  name="Pinned release reviews"
+  play={async ({ canvas }) => {
+    const story = await canvas.findByTestId("registry-browser-story");
+    await expect(story).toHaveAttribute("data-version", "0.9.0");
+    await expect(story).toHaveAttribute("data-view", "reviews");
+    await userEvent.click(canvas.getByRole("button", { name: "Details" }));
+    await waitFor(() => expect(story).toHaveAttribute("data-view", "details"));
+    await expect(story).toHaveAttribute("data-version", "0.9.0");
+    await userEvent.click(canvas.getByRole("button", { name: /Reviews/u }));
+    await waitFor(() => expect(story).toHaveAttribute("data-view", "reviews"));
+    await expect(story).toHaveAttribute("data-version", "0.9.0");
+  }}
+>
+  {#snippet template()}
+    <RegistryBrowserStoryHarness
+      initialRoute={{
+        page: "plugin",
+        pluginId: "ai",
+        version: "0.9.0",
+        view: "reviews",
+      }}
+    />
+  {/snippet}
+</Story>
+
+<Story
+  name="Rollback trust recovery"
+  play={async ({ canvas, canvasElement }) => {
+    const story = await canvas.findByTestId("registry-browser-story");
+    await userEvent.click(
+      await canvas.findByRole("button", { name: "Reset trust history" }),
+    );
+    const page = within(canvasElement.ownerDocument.body);
+    await expect(
+      page.getByRole("alertdialog", { name: "Reset Registry trust history?" }),
+    ).toBeVisible();
+    const dialog = page.getByRole("alertdialog", {
+      name: "Reset Registry trust history?",
+    });
+    await userEvent.click(
+      within(dialog).getByRole("button", { name: "Reset trust history" }),
+    );
+    await waitFor(() =>
+      expect(story).toHaveAttribute("data-trust-resets", "1"),
+    );
+    await expect(
+      canvas.queryByText(
+        "The Registry relay returned an older trusted checkpoint.",
+      ),
+    ).not.toBeInTheDocument();
+  }}
+>
+  {#snippet template()}
+    <RegistryBrowserStoryHarness
+      initialRoute={{ page: "plugin", pluginId: "ai" }}
+      sourceMode="rollback"
+    />
+  {/snippet}
+</Story>

@@ -67,6 +67,10 @@ try {
       curatorPubkeys: new Set(curator),
       publisherPubkeysByPlugin: new Map(),
       defaultPublisherPubkeys: new Set(publishers),
+      authorityEpoch: required(
+        process.env.REGISTRY_AUTHORITY_EPOCH,
+        "REGISTRY_AUTHORITY_EPOCH",
+      ),
     },
     generatedAt,
     authSigner,

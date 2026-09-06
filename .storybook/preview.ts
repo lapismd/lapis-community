@@ -51,6 +51,11 @@ const registryPublisherPubkeys = (
     env?: { VITE_REGISTRY_PUBLISHER_PUBKEYS?: string };
   }
 ).env?.VITE_REGISTRY_PUBLISHER_PUBKEYS;
+const registryAuthorityEpoch = (
+  import.meta as ImportMeta & {
+    env?: { VITE_REGISTRY_AUTHORITY_EPOCH?: string };
+  }
+).env?.VITE_REGISTRY_AUTHORITY_EPOCH;
 const registryBlossomUrl = (
   import.meta as ImportMeta & { env?: { VITE_BLOSSOM_URL?: string } }
 ).env?.VITE_BLOSSOM_URL;
@@ -197,6 +202,7 @@ const preview: Preview = {
           registryRelays,
           registryCuratorPubkeys,
           registryPublisherPubkeys,
+          registryAuthorityEpoch,
           registryBlossomUrl,
         })) {
           if (value) document.documentElement.dataset[key] = value;

@@ -3,6 +3,7 @@ import {
   getNip29ManifestAttachment,
   LAPIS_GROUPS,
   LAPIS_PUBLISHER_AUTHORIZATION_TOPIC,
+  LAPIS_REGISTRY_HEAD_TOPIC,
   LAPIS_RELEASE_TOPIC,
   lapisGroupId,
   materializeNip29Registry,
@@ -65,7 +66,11 @@ export async function loadNip29RelayRegistryState(
     {
       kinds: [NIP29_KINDS.streamMessage],
       "#h": [groupId],
-      "#t": [LAPIS_RELEASE_TOPIC, LAPIS_PUBLISHER_AUTHORIZATION_TOPIC],
+      "#t": [
+        LAPIS_RELEASE_TOPIC,
+        LAPIS_PUBLISHER_AUTHORIZATION_TOPIC,
+        LAPIS_REGISTRY_HEAD_TOPIC,
+      ],
       limit: 2_000,
     },
     options.signal,

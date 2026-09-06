@@ -28,7 +28,7 @@
   import XIcon from "@lucide/svelte/icons/x";
   import { nip19 } from "nostr-tools";
   import { toast, Toaster } from "svelte-sonner";
-  import { tick, untrack, type Snippet } from "svelte";
+  import { onMount, tick, untrack, type Snippet } from "svelte";
   import type { HTMLAttributes } from "svelte/elements";
 
   import type {
@@ -39,7 +39,9 @@
   } from "../../community/index.js";
   import {
     registryRouteFromDestination,
+    registryRouteFromHash,
     registryRouteToDestination,
+    registryRouteToHash,
     type RegistryRoute,
   } from "../../registry/index.js";
   import CommunityAppShell from "../community-app-shell/CommunityAppShell.svelte";
@@ -196,6 +198,13 @@
         ? "inbox"
         : initialDestination;
     const persisted = loadCommunityApplicationDestination(browserStorage);
+    const hashRoute =
+      typeof window === "undefined"
+        ? null
+        : registryRouteFromHash(window.location.hash);
+    if (hasRegistry && hashRoute !== null) {
+      return registryRouteToDestination(hashRoute);
+    }
     return persisted !== null &&
       (hasRegistry || registryRouteFromDestination(persisted) === null)
       ? persisted
@@ -1084,6 +1093,7 @@
     if (updated === navigationHistory) return;
     navigationHistory = updated;
     applyLocation(next, previous);
+    pushBrowserRegistryLocation(next.destination);
   }
 
   function replaceLocation(next: CommunityApplicationLocation): void {
@@ -1095,7 +1105,66 @@
     if (updated === navigationHistory) return;
     navigationHistory = updated;
     applyLocation(next, previous);
+    replaceBrowserRegistryLocation(next.destination);
   }
+
+  function pushBrowserRegistryLocation(destination: string): void {
+    if (typeof window === "undefined") return;
+    const route = registryRouteFromDestination(destination);
+    if (route === null) {
+      clearBrowserRegistryLocation("push");
+      return;
+    }
+    const hash = registryRouteToHash(route);
+    if (window.location.hash !== hash) window.history.pushState(null, "", hash);
+  }
+
+  function replaceBrowserRegistryLocation(destination: string): void {
+    if (typeof window === "undefined") return;
+    const route = registryRouteFromDestination(destination);
+    if (route === null) {
+      clearBrowserRegistryLocation("replace");
+      return;
+    }
+    const hash = registryRouteToHash(route);
+    if (window.location.hash !== hash)
+      window.history.replaceState(null, "", hash);
+  }
+
+  function clearBrowserRegistryLocation(mode: "push" | "replace"): void {
+    if (
+      registryRouteFromHash(window.location.hash) === null &&
+      !window.location.hash.startsWith("#post-")
+    ) {
+      return;
+    }
+    const url = `${window.location.pathname}${window.location.search}`;
+    if (mode === "push") window.history.pushState(null, "", url);
+    else window.history.replaceState(null, "", url);
+  }
+
+  onMount(() => {
+    const applyBrowserLocation = () => {
+      let route = registryRouteFromHash(window.location.hash);
+      if (route === null && window.location.hash.startsWith("#post-")) {
+        const postId = window.location.hash.slice("#post-".length);
+        route =
+          registryRoute.page === "plugin" && /^[0-9a-f]{64}$/u.test(postId)
+            ? { ...registryRoute, view: "reviews", postId }
+            : null;
+      }
+      if (route === null || !hasRegistry) return;
+      const destination = registryRouteToDestination(route);
+      if (destination === activeDestination) return;
+      setDestination(destination, false);
+    };
+    window.addEventListener("hashchange", applyBrowserLocation);
+    window.addEventListener("popstate", applyBrowserLocation);
+    return () => {
+      window.removeEventListener("hashchange", applyBrowserLocation);
+      window.removeEventListener("popstate", applyBrowserLocation);
+    };
+  });
 
   function setDestination(
     destinationId: CommunityApplicationDestination,
@@ -1155,6 +1224,7 @@
     const next = currentCommunityApplicationLocation(updated);
     navigationHistory = updated;
     applyLocation(next, previous);
+    replaceBrowserRegistryLocation(next.destination);
     lastAction = offset === -1 ? "navigated-back" : "navigated-forward";
   }
 

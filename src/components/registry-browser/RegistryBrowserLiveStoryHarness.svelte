@@ -21,6 +21,7 @@
       relays: values(dataset.registryRelays),
       curatorPubkeys: new Set(values(dataset.registryCuratorPubkeys)),
       publisherPubkeys: new Set(values(dataset.registryPublisherPubkeys)),
+      authorityEpoch: dataset.registryAuthorityEpoch?.trim() || undefined,
       blossomUrl: dataset.registryBlossomUrl,
     };
   });
@@ -35,6 +36,9 @@
             curatorPubkeys: configuration.curatorPubkeys,
             publisherPubkeysByPlugin: new Map(),
             defaultPublisherPubkeys: configuration.publisherPubkeys,
+            ...(configuration.authorityEpoch === undefined
+              ? {}
+              : { authorityEpoch: configuration.authorityEpoch }),
           },
           relayFactory: createWebSocketCommunityRelayFactory(),
           ...(configuration.blossomUrl

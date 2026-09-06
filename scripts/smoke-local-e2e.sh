@@ -130,6 +130,7 @@ set +a
 VITE_REGISTRY_RELAYS="ws://registry.localhost:${LAPIS_RELAY_PORT}" \
 VITE_REGISTRY_CURATOR_PUBKEYS="${REGISTRY_CURATOR_PUBKEYS}" \
 VITE_REGISTRY_PUBLISHER_PUBKEYS="${REGISTRY_PUBLISHER_PUBKEYS}" \
+VITE_REGISTRY_AUTHORITY_EPOCH="${REGISTRY_AUTHORITY_EPOCH}" \
 VITE_BLOSSOM_URL="http://registry.localhost:${LAPIS_RELAY_PORT}/" \
   pnpm --dir "${repo_root}" exec storybook dev --no-open \
     --config-dir .storybook --port "${storybook_port}" \

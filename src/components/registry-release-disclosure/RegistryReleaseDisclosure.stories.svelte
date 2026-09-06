@@ -1,7 +1,8 @@
 <script module lang="ts">
   import { defineMeta } from "@storybook/addon-svelte-csf";
-  import { expect, userEvent, within } from "storybook/test";
+  import { expect, fn, userEvent, within } from "storybook/test";
 
+  import { SecretKeyRegistrySigner } from "../../auth/index.js";
   import type {
     RegistryCatalogDataSource,
     RegistryReleaseInspection,
@@ -11,6 +12,7 @@
     registryStoryResolvedDetail,
   } from "../registry-browser/story-fixtures.js";
   import RegistryReleaseDisclosure from "./RegistryReleaseDisclosure.svelte";
+  import RegistryReleaseDisclosureManagementStoryHarness from "./RegistryReleaseDisclosureManagementStoryHarness.svelte";
 
   const eventId = "release-event";
   const resolved = registryStoryResolvedDetail();
@@ -47,6 +49,28 @@
   }
 
   const approved = sourceFor(inspection("approved"));
+  const performReleaseAction = fn(async (request) => ({
+    action: request.action,
+    eventId: request.eventId,
+    decisionEventId: "d".repeat(64),
+    headEventId: "e".repeat(64),
+  }));
+  const managementSource: RegistryCatalogDataSource = {
+    ...sourceFor(inspection("pending")),
+    async loadReleaseManagementCapabilities(requestedEventId) {
+      return requestedEventId === eventId
+        ? {
+            eventId,
+            state: "pending",
+            trust: "fresh",
+            actions: ["approve", "reject"],
+            headEventId: "a".repeat(64),
+          }
+        : undefined;
+    },
+    performReleaseAction,
+  };
+  const curatorSigner = new SecretKeyRegistrySigner(new Uint8Array(32).fill(7));
   async function expand({ canvas }: { canvas: ReturnType<typeof within> }) {
     await userEvent.click(
       await canvas.findByRole("button", { name: /1\.4\.0/u }),
@@ -160,6 +184,47 @@
   args={{ source: sourceFor(inspection("revoked")) }}
   play={expand}
 />
+
+<Story
+  name="Withdrawn"
+  args={{ source: sourceFor(inspection("withdrawn")) }}
+  play={expand}
+/>
+
+<Story
+  name="Curator management"
+  play={async ({ canvas, canvasElement }) => {
+    await expand({ canvas });
+    await expect(
+      await canvas.findByRole("region", { name: "Release management" }),
+    ).toBeVisible();
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Approve release" }),
+    );
+    const page = within(canvasElement.ownerDocument.body);
+    await expect(
+      page.getByRole("alertdialog", { name: "Approve release?" }),
+    ).toBeVisible();
+    await userEvent.click(page.getByRole("button", { name: "Continue" }));
+    await expect(performReleaseAction).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: "approve",
+        eventId,
+        expectedManifestSha256: "0".repeat(64),
+        expectedHeadEventId: "a".repeat(64),
+      }),
+      curatorSigner,
+    );
+  }}
+>
+  {#snippet template()}
+    <RegistryReleaseDisclosureManagementStoryHarness
+      {eventId}
+      source={managementSource}
+      signer={curatorSigner}
+    />
+  {/snippet}
+</Story>
 
 <Story
   name="Untrusted"

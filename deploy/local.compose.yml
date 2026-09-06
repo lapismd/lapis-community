@@ -22,6 +22,9 @@ services:
       GROUPS_PRIVATE_ADMIN_ONLY: "true"
       GROUPS_PRIVATE_RELAY_ADMIN_ACCESS: "false"
       GROUP_REWRITE_DEBOUNCE_MS: "0"
+      REGISTRY_POLICY_ENABLED: "true"
+      REGISTRY_RELEASE_GROUP_ID: d792e601-8c97-5ac6-9446-d8215835de3c
+      REGISTRY_CURATOR_ROLE: registry-curator
       BLOSSOM_ENABLED: "true"
       BLOSSOM_PUBLIC_URL: http://registry.localhost:${LAPIS_RELAY_PORT:-8281}
     ports:
@@ -104,6 +107,7 @@ services:
       BLOSSOM_URL: http://registry.localhost:${LAPIS_RELAY_PORT:-8281}/
       REGISTRY_CURATOR_PUBKEYS: ${REGISTRY_CURATOR_PUBKEYS:?fixture curator is missing}
       REGISTRY_PUBLISHER_PUBKEYS: ${REGISTRY_PUBLISHER_PUBKEYS:?fixture publisher is missing}
+      REGISTRY_AUTHORITY_EPOCH: ${REGISTRY_AUTHORITY_EPOCH:?fixture authority epoch is missing}
       REGISTRY_READER_SECRET_FILE: /run/lapis-registry/materializer-reader.key
       REGISTRY_RELAYS: ws://registry.localhost:${LAPIS_RELAY_PORT:-8281}
       REGISTRY_PUBLIC_RELAYS: ws://registry.localhost:${LAPIS_RELAY_PORT:-8281}

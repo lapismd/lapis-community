@@ -5,6 +5,7 @@ import semver from "semver";
 
 import { canonicalHash, canonicalJson } from "./canonical.js";
 import {
+  nip29RegistryHeadContentSchema,
   nip29PublisherAuthorizationContentSchema,
   nip29ReleaseManifestSchema,
   nostrEventSchema,
@@ -12,6 +13,8 @@ import {
 import type {
   JsonObject,
   JsonValue,
+  Nip29RegistryHeadContent,
+  Nip29RegistryHeadRelease,
   Nip29PublisherAuthorizationContent,
   NostrEvent,
   NostrEventTemplate,
@@ -42,6 +45,7 @@ export const LAPIS_GROUPS = {
 export const LAPIS_RELEASE_TOPIC = "lapis-plugin-release";
 export const LAPIS_PUBLISHER_AUTHORIZATION_TOPIC =
   "lapis-plugin-publisher-authorization";
+export const LAPIS_REGISTRY_HEAD_TOPIC = "lapis-plugin-registry-head";
 
 const DNS_NAMESPACE = Uint8Array.from([
   0x6b, 0xa7, 0xb8, 0x10, 0x9d, 0xad, 0x11, 0xd1, 0x80, 0xb4, 0x00, 0xc0, 0x4f,
@@ -67,6 +71,7 @@ export interface Nip29RegistryAuthorities {
   curatorPubkeys: ReadonlySet<string>;
   publisherPubkeysByPlugin: ReadonlyMap<string, ReadonlySet<string>>;
   defaultPublisherPubkeys?: ReadonlySet<string> | undefined;
+  authorityEpoch?: string | undefined;
 }
 
 export interface Nip29PublisherAuthorization {
@@ -88,6 +93,23 @@ export interface ParsedNip29CuratorDecision {
   decision: Nip29CuratorDecision;
 }
 
+export interface ParsedNip29PublisherWithdrawal {
+  event: NostrEvent;
+  releaseEventId: string;
+  decision: "withdrawn";
+}
+
+export interface ParsedNip29RegistryHead {
+  event: NostrEvent;
+  content: Nip29RegistryHeadContent;
+}
+
+export interface MaterializedNip29RegistryHead {
+  event: NostrEvent;
+  content: Nip29RegistryHeadContent;
+  fresh: boolean;
+}
+
 export interface MaterializedNip29Release {
   event: NostrEvent;
   plugin: PluginDefinitionContent;
@@ -96,6 +118,7 @@ export interface MaterializedNip29Release {
   decision: Nip29CuratorDecision;
   decisionEvent: NostrEvent;
   authorizationEvent?: NostrEvent | undefined;
+  head?: MaterializedNip29RegistryHead | undefined;
 }
 
 export interface MaterializedNip29Plugin {
@@ -110,10 +133,20 @@ export interface MaterializedNip29Registry {
   plugins: MaterializedNip29Plugin[];
   acceptedEventIds: string[];
   issues: RegistryIssue[];
+  heads: ReadonlyMap<string, MaterializedNip29RegistryHead>;
 }
 
 export interface MaterializeNip29RegistryOptions {
   verifySignature?: ((event: NostrEvent) => boolean) | undefined;
+  now?: Date | undefined;
+}
+
+interface MaterializableNip29Release {
+  event: NostrEvent;
+  plugin: PluginDefinitionContent;
+  content: ReleaseContent;
+  attachment: Nip29ManifestAttachment;
+  authorizationEvent?: NostrEvent | undefined;
 }
 
 export function lapisGroupId(path: string): string {
@@ -171,6 +204,44 @@ export function createNip29CuratorDecisionTemplate(
     tags: [
       ["h", lapisGroupId(LAPIS_GROUPS.pluginReleases)],
       ["e", releaseEventId],
+    ],
+  };
+}
+
+export function createNip29PublisherWithdrawalTemplate(
+  releaseEventId: string,
+  createdAt: number,
+): NostrEventTemplate {
+  if (!/^[0-9a-f]{64}$/u.test(releaseEventId)) {
+    throw new Error("Release event id must be 32-byte lowercase hex");
+  }
+  return {
+    kind: NIP29_KINDS.reaction,
+    created_at: createdAt,
+    content: "withdrawn",
+    tags: [
+      ["h", lapisGroupId(LAPIS_GROUPS.pluginReleases)],
+      ["e", releaseEventId],
+    ],
+  };
+}
+
+export function createNip29RegistryHeadTemplate(
+  content: Nip29RegistryHeadContent,
+  createdAt: number,
+): NostrEventTemplate {
+  const parsed = nip29RegistryHeadContentSchema.safeParse(content);
+  if (!parsed.success || !isCanonicalRegistryHead(parsed.data, createdAt)) {
+    throw new Error("Registry head content is invalid or non-canonical");
+  }
+  return {
+    kind: NIP29_KINDS.streamMessage,
+    created_at: createdAt,
+    content: canonicalJson(parsed.data as unknown as JsonValue),
+    tags: [
+      ["h", lapisGroupId(LAPIS_GROUPS.pluginReleases)],
+      ["t", LAPIS_REGISTRY_HEAD_TOPIC],
+      ["t", `plugin:${parsed.data.pluginId}`],
     ],
   };
 }
@@ -300,6 +371,71 @@ export function parseNip29CuratorDecision(
   return { event, releaseEventId, decision };
 }
 
+export function parseNip29PublisherWithdrawal(
+  event: NostrEvent,
+  expectedReleaseEventId?: string,
+): ParsedNip29PublisherWithdrawal | undefined {
+  if (
+    event.kind !== NIP29_KINDS.reaction ||
+    event.content !== "withdrawn" ||
+    event.tags.length !== 2 ||
+    event.tags.some((tag) => tag.length !== 2)
+  ) {
+    return undefined;
+  }
+  const group = exactTagValue(event, "h");
+  const releaseEventId = exactTagValue(event, "e");
+  if (
+    group !== lapisGroupId(LAPIS_GROUPS.pluginReleases) ||
+    releaseEventId === undefined ||
+    !/^[0-9a-f]{64}$/u.test(releaseEventId) ||
+    (expectedReleaseEventId !== undefined &&
+      releaseEventId !== expectedReleaseEventId)
+  ) {
+    return undefined;
+  }
+  return { event, releaseEventId, decision: "withdrawn" };
+}
+
+export function parseNip29RegistryHead(
+  event: NostrEvent,
+  expectedPluginId?: string,
+): ParsedNip29RegistryHead | undefined {
+  if (event.kind !== NIP29_KINDS.streamMessage || event.tags.length !== 3) {
+    return undefined;
+  }
+  const group = exactTagValue(event, "h");
+  const topics = tagValues(event, "t");
+  const pluginTopics = topics.filter((topic) => topic.startsWith("plugin:"));
+  if (
+    group !== lapisGroupId(LAPIS_GROUPS.pluginReleases) ||
+    topics.length !== 2 ||
+    !topics.includes(LAPIS_REGISTRY_HEAD_TOPIC) ||
+    pluginTopics.length !== 1 ||
+    event.tags.some((tag) => tag.length !== 2)
+  ) {
+    return undefined;
+  }
+  let value: unknown;
+  try {
+    value = JSON.parse(event.content) as unknown;
+  } catch {
+    return undefined;
+  }
+  const parsed = nip29RegistryHeadContentSchema.safeParse(value);
+  const pluginId = pluginTopics[0]!.slice("plugin:".length);
+  if (
+    !parsed.success ||
+    parsed.data.pluginId !== pluginId ||
+    (expectedPluginId !== undefined &&
+      parsed.data.pluginId !== expectedPluginId) ||
+    !isCanonicalRegistryHead(parsed.data, event.created_at)
+  ) {
+    return undefined;
+  }
+  return { event, content: parsed.data };
+}
+
 export function createNip29ForumThreadTemplate(
   groupId: string,
   content: string,
@@ -363,16 +499,7 @@ export function materializeNip29Registry(
   const manifests = new Map(
     manifestSources.map((source) => [source.attachmentSha256, source.manifest]),
   );
-  const releases = new Map<
-    string,
-    {
-      event: NostrEvent;
-      plugin: PluginDefinitionContent;
-      content: ReleaseContent;
-      attachment: Nip29ManifestAttachment;
-      authorizationEvent?: NostrEvent | undefined;
-    }
-  >();
+  const releases = new Map<string, MaterializableNip29Release>();
 
   for (const event of events) {
     if (
@@ -447,7 +574,15 @@ export function materializeNip29Registry(
     });
   }
 
-  const decisions = new Map<
+  const decisionsById = new Map<
+    string,
+    {
+      event: NostrEvent;
+      releaseEventId: string;
+      decision: Nip29CuratorDecision;
+    }
+  >();
+  const latestDecisions = new Map<
     string,
     { event: NostrEvent; decision: Nip29CuratorDecision }
   >();
@@ -468,13 +603,109 @@ export function materializeNip29Registry(
       );
       continue;
     }
-    const current = decisions.get(parsedDecision.releaseEventId);
+    decisionsById.set(event.id, {
+      event,
+      releaseEventId: parsedDecision.releaseEventId,
+      decision: parsedDecision.decision,
+    });
+    const current = latestDecisions.get(parsedDecision.releaseEventId);
     if (current === undefined || eventWins(event, current.event)) {
-      decisions.set(parsedDecision.releaseEventId, {
+      latestDecisions.set(parsedDecision.releaseEventId, {
         event,
         decision: parsedDecision.decision,
       });
     }
+  }
+
+  const withdrawalsById = new Map<
+    string,
+    { event: NostrEvent; releaseEventId: string }
+  >();
+  const latestWithdrawals = new Map<string, NostrEvent>();
+  for (const event of events) {
+    const withdrawal = parseNip29PublisherWithdrawal(event);
+    const release =
+      withdrawal === undefined
+        ? undefined
+        : releases.get(withdrawal.releaseEventId);
+    if (withdrawal === undefined || release === undefined) continue;
+    if (event.pubkey !== release.event.pubkey) {
+      recordIssue(
+        issues,
+        event,
+        "authority",
+        "Release withdrawal signer does not own the targeted release",
+      );
+      continue;
+    }
+    withdrawalsById.set(event.id, {
+      event,
+      releaseEventId: withdrawal.releaseEventId,
+    });
+    const current = latestWithdrawals.get(withdrawal.releaseEventId);
+    if (current === undefined || eventWins(event, current)) {
+      latestWithdrawals.set(withdrawal.releaseEventId, event);
+    }
+  }
+
+  const eligibleReleases = validateReleaseSequences(releases, issues);
+  const headCandidates = new Map<string, ParsedNip29RegistryHead[]>();
+  for (const event of events) {
+    if (!tagValues(event, "t").includes(LAPIS_REGISTRY_HEAD_TOPIC)) continue;
+    const head = parseNip29RegistryHead(event);
+    if (head === undefined) {
+      recordIssue(issues, event, "content", "Registry head is invalid");
+      continue;
+    }
+    if (!authorities.curatorPubkeys.has(event.pubkey)) {
+      recordIssue(
+        issues,
+        event,
+        "authority",
+        "Registry head signer is not a configured curator",
+      );
+      continue;
+    }
+    if (
+      authorities.authorityEpoch === undefined ||
+      head.content.authorityEpoch !== authorities.authorityEpoch
+    ) {
+      recordIssue(
+        issues,
+        event,
+        "authority",
+        "Registry head authority epoch does not match the configured epoch",
+      );
+      continue;
+    }
+    const candidates = headCandidates.get(head.content.pluginId) ?? [];
+    candidates.push(head);
+    headCandidates.set(head.content.pluginId, candidates);
+  }
+
+  const heads = new Map<string, MaterializedNip29RegistryHead>();
+  for (const [pluginId, candidates] of headCandidates) {
+    const head = selectRegistryHeadChain(pluginId, candidates, issues);
+    if (
+      head === undefined ||
+      !headContentMatchesEvidence(
+        head,
+        eligibleReleases,
+        decisionsById,
+        withdrawalsById,
+        issues,
+      )
+    ) {
+      continue;
+    }
+    const now = (options.now ?? new Date()).getTime();
+    heads.set(pluginId, {
+      event: head.event,
+      content: head.content,
+      fresh:
+        Date.parse(head.content.issuedAt) <= now &&
+        now <= Date.parse(head.content.validUntil),
+    });
   }
 
   const plugins: MaterializedNip29Plugin[] = [];
@@ -484,23 +715,77 @@ export function materializeNip29Registry(
     ),
   ].toSorted();
   for (const pluginId of pluginIds) {
-    const accepted = [...releases.values()]
-      .filter((release) => release.content.pluginId === pluginId)
-      .flatMap((release): MaterializedNip29Release[] => {
-        const finalDecision = decisions.get(release.event.id);
-        return finalDecision?.decision === "approved"
-          ? [
-              {
-                ...release,
-                decision: finalDecision.decision,
-                decisionEvent: finalDecision.event,
-              },
-            ]
-          : [];
-      })
-      .toSorted((left, right) =>
-        semver.rcompare(left.content.version, right.content.version),
+    const head = heads.get(pluginId);
+    const hadHeadCandidates = headCandidates.has(pluginId);
+    const pluginReleases = [...eligibleReleases.values()].filter(
+      (release) => release.content.pluginId === pluginId,
+    );
+    let accepted: MaterializedNip29Release[];
+    let activeReleaseEventId: string | undefined;
+    if (head !== undefined) {
+      activeReleaseEventId = head.content.activeReleaseEventId;
+      accepted = head.content.releases.flatMap(
+        (headRelease): MaterializedNip29Release[] => {
+          if (
+            headRelease.state !== "approved" ||
+            latestWithdrawals.has(headRelease.releaseEventId)
+          ) {
+            return [];
+          }
+          const release = eligibleReleases.get(headRelease.releaseEventId);
+          const decision = decisionsById.get(headRelease.decisionEventId);
+          return release === undefined || decision?.decision !== "approved"
+            ? []
+            : [
+                {
+                  ...release,
+                  decision: "approved",
+                  decisionEvent: decision.event,
+                  head,
+                },
+              ];
+        },
       );
+    } else if (hadHeadCandidates) {
+      // Head-aware plugins must not silently fall back to legacy selection when
+      // their signed checkpoint is malformed, conflicting, or unverifiable.
+      accepted = [];
+    } else {
+      accepted = pluginReleases.flatMap(
+        (release): MaterializedNip29Release[] => {
+          if (
+            release.content.schema !== "lapis.registry.release/1" ||
+            latestWithdrawals.has(release.event.id)
+          ) {
+            return [];
+          }
+          const finalDecision = latestDecisions.get(release.event.id);
+          return finalDecision?.decision === "approved"
+            ? [
+                {
+                  ...release,
+                  decision: finalDecision.decision,
+                  decisionEvent: finalDecision.event,
+                },
+              ]
+            : [];
+        },
+      );
+    }
+    accepted = accepted.toSorted((left, right) => {
+      if (left.event.id === activeReleaseEventId) return -1;
+      if (right.event.id === activeReleaseEventId) return 1;
+      if (
+        left.content.schema === "lapis.registry.release/2" &&
+        right.content.schema === "lapis.registry.release/2"
+      ) {
+        return -compareCanonicalDecimal(
+          left.content.releaseSequence,
+          right.content.releaseSequence,
+        );
+      }
+      return semver.rcompare(left.content.version, right.content.version);
+    });
     if (accepted.length === 0) continue;
     plugins.push({
       content: accepted[0]!.plugin,
@@ -514,6 +799,7 @@ export function materializeNip29Registry(
       plugin.releases.flatMap((release) => [
         release.event.id,
         release.decisionEvent.id,
+        ...(release.head === undefined ? [] : [release.head.event.id]),
         ...(release.authorizationEvent === undefined
           ? []
           : [release.authorizationEvent.id]),
@@ -535,11 +821,21 @@ export function materializeNip29Registry(
         version: release.content.version,
         manifestSha256: release.attachment.sha256,
         artifactSha256: release.content.artifact.sha256,
+        ...(release.content.schema === "lapis.registry.release/2"
+          ? { releaseSequence: release.content.releaseSequence }
+          : {}),
       })),
+      ...(heads.get(plugin.content.pluginId) === undefined
+        ? {}
+        : {
+            headEventId: heads.get(plugin.content.pluginId)!.event.id,
+            headRevision: heads.get(plugin.content.pluginId)!.content
+              .headRevision,
+          }),
     })),
   } as JsonObject);
 
-  return { schemaVersion: 2, root, plugins, acceptedEventIds, issues };
+  return { schemaVersion: 2, root, plugins, acceptedEventIds, issues, heads };
 }
 
 export function projectNip29Registry(
@@ -547,7 +843,7 @@ export function projectNip29Registry(
   generatedAt: string,
   indexBase?: JsonObject,
 ): RegistryProjection {
-  return projectRegistry(
+  const projection = projectRegistry(
     registry.plugins.map((plugin) => ({
       content: plugin.content,
       releases: plugin.releases.map((release) => release.content),
@@ -561,6 +857,37 @@ export function projectNip29Registry(
       exclusionCounts: {},
     },
   );
+  for (const plugin of registry.plugins) {
+    const detail = projection.plugins.get(plugin.content.pluginId);
+    if (detail === undefined) continue;
+    const versions = detail.versions;
+    if (
+      versions === null ||
+      Array.isArray(versions) ||
+      typeof versions !== "object"
+    ) {
+      continue;
+    }
+    for (const release of plugin.releases) {
+      const version = versions[release.content.version];
+      if (
+        version === null ||
+        Array.isArray(version) ||
+        typeof version !== "object"
+      ) {
+        continue;
+      }
+      versions[release.content.version] = {
+        ...version,
+        releaseEventId: release.event.id,
+        manifestSha256: release.attachment.sha256,
+        ...(release.content.schema === "lapis.registry.release/2"
+          ? { releaseSequence: release.content.releaseSequence }
+          : {}),
+      };
+    }
+  }
+  return projection;
 }
 
 export function getNip29ManifestAttachment(
@@ -598,6 +925,236 @@ export function getNip29ManifestAttachment(
     size,
     ...(filename === undefined ? {} : { filename }),
   };
+}
+
+function validateReleaseSequences(
+  releases: ReadonlyMap<string, MaterializableNip29Release>,
+  issues: RegistryIssue[],
+): Map<string, MaterializableNip29Release> {
+  const eligible = new Map(releases);
+  const byPlugin = groupValues(
+    releases.values(),
+    (release) => release.content.pluginId,
+  );
+  for (const pluginReleases of byPlugin.values()) {
+    const byVersion = groupValues(
+      pluginReleases,
+      (release) => release.content.version,
+    );
+    const sequenced = pluginReleases.filter(
+      (release) => release.content.schema === "lapis.registry.release/2",
+    );
+    const bySequence = groupValues(sequenced, (release) =>
+      release.content.schema === "lapis.registry.release/2"
+        ? release.content.releaseSequence
+        : "",
+    );
+    for (const conflicts of [...byVersion.values(), ...bySequence.values()]) {
+      if (conflicts.length < 2) continue;
+      for (const conflict of conflicts) {
+        eligible.delete(conflict.event.id);
+        recordIssue(
+          issues,
+          conflict.event,
+          "duplicate-conflict",
+          "Plugin releases must use unique versions and release sequences",
+        );
+      }
+    }
+
+    const chain = sequenced
+      .filter((release) => eligible.has(release.event.id))
+      .toSorted((left, right) =>
+        compareCanonicalDecimal(
+          left.content.schema === "lapis.registry.release/2"
+            ? left.content.releaseSequence
+            : "0",
+          right.content.schema === "lapis.registry.release/2"
+            ? right.content.releaseSequence
+            : "0",
+        ),
+      );
+    let previous: MaterializableNip29Release | undefined;
+    for (const release of chain) {
+      if (release.content.schema !== "lapis.registry.release/2") continue;
+      const expected =
+        previous === undefined
+          ? "1"
+          : (
+              BigInt(
+                previous.content.schema === "lapis.registry.release/2"
+                  ? previous.content.releaseSequence
+                  : "0",
+              ) + 1n
+            ).toString();
+      const firstPredecessor = release.content.previousReleaseEventId;
+      const validFirstPredecessor =
+        previous !== undefined ||
+        firstPredecessor === undefined ||
+        pluginReleases.some(
+          (candidate) =>
+            candidate.event.id === firstPredecessor &&
+            candidate.content.schema === "lapis.registry.release/1",
+        );
+      if (
+        release.content.releaseSequence !== expected ||
+        !validFirstPredecessor ||
+        (previous !== undefined &&
+          release.content.previousReleaseEventId !== previous.event.id)
+      ) {
+        eligible.delete(release.event.id);
+        recordIssue(
+          issues,
+          release.event,
+          "content",
+          "Release sequence is not contiguous with its signed predecessor",
+        );
+        continue;
+      }
+      previous = release;
+    }
+  }
+  return eligible;
+}
+
+function selectRegistryHeadChain(
+  pluginId: string,
+  candidates: readonly ParsedNip29RegistryHead[],
+  issues: RegistryIssue[],
+): ParsedNip29RegistryHead | undefined {
+  const byRevision = groupValues(
+    candidates,
+    (head) => head.content.headRevision,
+  );
+  if ([...byRevision.values()].some((heads) => heads.length > 1)) {
+    for (const heads of byRevision.values()) {
+      if (heads.length < 2) continue;
+      for (const head of heads) {
+        recordIssue(
+          issues,
+          head.event,
+          "duplicate-conflict",
+          "Conflicting Registry heads use the same revision",
+        );
+      }
+    }
+    return undefined;
+  }
+  const ordered = candidates.toSorted((left, right) =>
+    compareCanonicalDecimal(
+      left.content.headRevision,
+      right.content.headRevision,
+    ),
+  );
+  let previous: ParsedNip29RegistryHead | undefined;
+  for (const head of ordered) {
+    const expected =
+      previous === undefined
+        ? "1"
+        : (BigInt(previous.content.headRevision) + 1n).toString();
+    if (
+      head.content.pluginId !== pluginId ||
+      head.content.headRevision !== expected ||
+      (previous !== undefined &&
+        head.content.previousHeadEventId !== previous.event.id)
+    ) {
+      recordIssue(
+        issues,
+        head.event,
+        "content",
+        "Registry head revision is not contiguous with its predecessor",
+      );
+      return undefined;
+    }
+    previous = head;
+  }
+  return previous;
+}
+
+function headContentMatchesEvidence(
+  head: ParsedNip29RegistryHead,
+  releases: ReadonlyMap<string, MaterializableNip29Release>,
+  decisionsById: ReadonlyMap<
+    string,
+    {
+      event: NostrEvent;
+      releaseEventId: string;
+      decision: Nip29CuratorDecision;
+    }
+  >,
+  withdrawalsById: ReadonlyMap<
+    string,
+    { event: NostrEvent; releaseEventId: string }
+  >,
+  issues: RegistryIssue[],
+): boolean {
+  let valid = true;
+  for (const item of head.content.releases) {
+    const release = releases.get(item.releaseEventId);
+    const sequence =
+      release?.content.schema === "lapis.registry.release/2"
+        ? release.content.releaseSequence
+        : item.releaseEventId === head.content.activeReleaseEventId
+          ? "0"
+          : undefined;
+    if (
+      release === undefined ||
+      release.content.pluginId !== head.content.pluginId ||
+      release.content.version !== item.version ||
+      release.attachment.sha256 !== item.manifestSha256 ||
+      item.releaseSequence !== sequence
+    ) {
+      valid = false;
+      recordIssue(
+        issues,
+        head.event,
+        "content",
+        "Registry head release metadata does not match signed release evidence",
+      );
+      continue;
+    }
+    if (item.state === "withdrawn") {
+      const withdrawal = withdrawalsById.get(item.decisionEventId);
+      if (withdrawal?.releaseEventId !== item.releaseEventId) {
+        valid = false;
+        recordIssue(
+          issues,
+          head.event,
+          "content",
+          "Registry head withdrawal does not match publisher evidence",
+        );
+      }
+      continue;
+    }
+    const decision = decisionsById.get(item.decisionEventId);
+    if (
+      decision?.releaseEventId !== item.releaseEventId ||
+      decision.decision !== item.state
+    ) {
+      valid = false;
+      recordIssue(
+        issues,
+        head.event,
+        "content",
+        "Registry head state does not match curator decision evidence",
+      );
+    }
+  }
+  return valid;
+}
+
+function groupValues<T, K>(
+  values: Iterable<T>,
+  keyFor: (value: T) => K,
+): Map<K, T[]> {
+  const groups = new Map<K, T[]>();
+  for (const value of values) {
+    const key = keyFor(value);
+    const group = groups.get(key) ?? [];
+    group.push(value);
+    groups.set(key, group);
+  }
+  return groups;
 }
 
 function verifiedDistinctEvents(
@@ -661,6 +1218,88 @@ function parseDecision(content: string): Nip29CuratorDecision | undefined {
     default:
       return undefined;
   }
+}
+
+export function compareCanonicalDecimal(left: string, right: string): number {
+  const length = left.length - right.length;
+  return length === 0 ? left.localeCompare(right) : length;
+}
+
+function compareHeadRelease(
+  left: Nip29RegistryHeadRelease,
+  right: Nip29RegistryHeadRelease,
+): number {
+  if (left.releaseSequence === undefined && right.releaseSequence !== undefined)
+    return -1;
+  if (left.releaseSequence !== undefined && right.releaseSequence === undefined)
+    return 1;
+  if (
+    left.releaseSequence !== undefined &&
+    right.releaseSequence !== undefined
+  ) {
+    const sequence = compareCanonicalDecimal(
+      left.releaseSequence,
+      right.releaseSequence,
+    );
+    if (sequence !== 0) return sequence;
+  } else {
+    const version = semver.compare(left.version, right.version);
+    if (version !== 0) return version;
+  }
+  return left.releaseEventId.localeCompare(right.releaseEventId);
+}
+
+function isCanonicalRegistryHead(
+  content: Nip29RegistryHeadContent,
+  createdAt: number,
+): boolean {
+  const issuedAt = Date.parse(content.issuedAt);
+  const validUntil = Date.parse(content.validUntil);
+  const revision = BigInt(content.headRevision);
+  const thirtyDays = 30 * 24 * 60 * 60 * 1_000;
+  if (
+    !Number.isFinite(issuedAt) ||
+    !Number.isFinite(validUntil) ||
+    Math.floor(issuedAt / 1_000) !== createdAt ||
+    validUntil <= issuedAt ||
+    validUntil - issuedAt > thirtyDays ||
+    (revision === 1n) !== (content.previousHeadEventId === undefined)
+  ) {
+    return false;
+  }
+  const eventIds = new Set<string>();
+  const versions = new Set<string>();
+  const sequences = new Set<string>();
+  for (const release of content.releases) {
+    if (
+      eventIds.has(release.releaseEventId) ||
+      versions.has(release.version) ||
+      (release.releaseSequence !== undefined &&
+        sequences.has(release.releaseSequence))
+    ) {
+      return false;
+    }
+    eventIds.add(release.releaseEventId);
+    versions.add(release.version);
+    if (release.releaseSequence !== undefined)
+      sequences.add(release.releaseSequence);
+  }
+  if (
+    content.releases.some(
+      (release, index) =>
+        index > 0 &&
+        compareHeadRelease(content.releases[index - 1]!, release) >= 0,
+    )
+  ) {
+    return false;
+  }
+  if (content.activeReleaseEventId !== undefined) {
+    const active = content.releases.find(
+      (release) => release.releaseEventId === content.activeReleaseEventId,
+    );
+    if (active?.state !== "approved") return false;
+  }
+  return true;
 }
 
 export function latestNip29PublisherAuthorization(

@@ -2,10 +2,12 @@
   import { tick, type Snippet } from "svelte";
 
   import * as Alert from "@lapismd/design-core/shadcn/alert";
+  import * as AlertDialog from "@lapismd/design-core/shadcn/alert-dialog";
   import { Badge } from "@lapismd/design-core/shadcn/badge";
   import { Button } from "@lapismd/design-core/shadcn/button";
   import * as DropdownMenu from "@lapismd/design-core/shadcn/dropdown-menu";
   import * as Tabs from "@lapismd/design-core/shadcn/tabs";
+  import * as Select from "@lapismd/design-core/shadcn/select";
   import BookOpenIcon from "@lucide/svelte/icons/book-open";
   import BugIcon from "@lucide/svelte/icons/bug";
   import CheckCircleIcon from "@lucide/svelte/icons/circle-check";
@@ -36,20 +38,26 @@
     resolved,
     related = [],
     installAction,
+    selectedVersion,
+    currentVersion,
     discussion,
     onInstall,
     onOpenPlugin = () => {},
     onOpenCategory = () => {},
     onOpenPlatform = () => {},
+    onSelectVersion = () => {},
   }: {
     resolved: RegistryResolvedDetail;
     related?: readonly RegistryCatalogEntry[];
     installAction?: RegistryInstallAction;
+    selectedVersion?: string;
+    currentVersion?: string;
     discussion?: Snippet;
     onInstall?: (request: RegistryInstallRequest) => void | Promise<void>;
     onOpenPlugin?: (plugin: RegistryCatalogEntry) => void;
     onOpenCategory?: (category: string) => void;
     onOpenPlatform?: (platform: string) => void;
+    onSelectVersion?: (version: string) => void;
   } = $props();
 
   let activeTab = $state("overview");
@@ -62,11 +70,15 @@
   );
   let detailViewerOpener = $state<HTMLElement | null>(null);
   let discussionIsolated = $state(false);
+  let historicalConfirmationOpen = $state(false);
   let discussionSection = $state<HTMLElement | undefined>();
   let isolationRevision = 0;
   const entry = $derived(resolved.entry);
   const detail = $derived(resolved.detail);
-  const release = $derived(detail.versions[detail.latestVersion]);
+  const displayedVersion = $derived(selectedVersion ?? detail.latestVersion);
+  const trustedCurrentVersion = $derived(currentVersion ?? entry.latestVersion);
+  const release = $derived(detail.versions[displayedVersion]);
+  const historical = $derived(displayedVersion !== trustedCurrentVersion);
   const hasExternalLinks = $derived(
     Boolean(
       detail.links?.documentation ||
@@ -75,10 +87,11 @@
     ),
   );
   const releases = $derived(
-    Object.values(detail.versions).toSorted(
-      (left, right) =>
-        right.releasedAt.localeCompare(left.releasedAt) ||
-        right.version.localeCompare(left.version),
+    Object.values(detail.versions).toSorted((left, right) =>
+      left.releaseSequence !== undefined && right.releaseSequence !== undefined
+        ? compareDecimal(right.releaseSequence, left.releaseSequence)
+        : right.releasedAt.localeCompare(left.releasedAt) ||
+          right.version.localeCompare(left.version),
     ),
   );
   const filePatterns = $derived(
@@ -166,6 +179,15 @@
   async function install(): Promise<void> {
     if (installDisabled || onInstall === undefined || release === undefined)
       return;
+    if (historical) {
+      historicalConfirmationOpen = true;
+      return;
+    }
+    await performInstall();
+  }
+
+  async function performInstall(): Promise<void> {
+    if (onInstall === undefined || release === undefined) return;
     submitting = true;
     installError = "";
     try {
@@ -182,6 +204,17 @@
     } finally {
       submitting = false;
     }
+  }
+
+  function compareDecimal(left: string, right: string): number {
+    return left.length === right.length
+      ? left.localeCompare(right)
+      : left.length - right.length;
+  }
+
+  function selectVersion(version: string): void {
+    activeTab = "overview";
+    onSelectVersion(version);
   }
 
   function showMedia(
@@ -550,7 +583,15 @@
               {#each releases as item (item.version)}
                 <article>
                   <div>
-                    <h3>{item.version}</h3>
+                    <h3>
+                      <a
+                        href={`#/registry/plugins/${encodeURIComponent(detail.id)}/versions/${encodeURIComponent(item.version)}`}
+                        onclick={(event) => {
+                          event.preventDefault();
+                          selectVersion(item.version);
+                        }}>{item.version}</a
+                      >
+                    </h3>
                     <p>
                       Lapis {item.minAppVersion}+ · {item.platforms
                         .map(titleCaseRegistryValue)
@@ -626,7 +667,44 @@
           <dl>
             <div>
               <dt>Current version</dt>
-              <dd>{detail.latestVersion}</dd>
+              <dd>
+                {#if releases.length > 1}
+                  <Select.Root
+                    type="single"
+                    value={displayedVersion}
+                    onValueChange={(value) => {
+                      if (value) selectVersion(value);
+                    }}
+                  >
+                    <Select.Trigger
+                      size="sm"
+                      class="registry-plugin-detail__version-trigger"
+                      aria-label="Select plugin version"
+                      role="combobox"
+                    >
+                      {displayedVersion}
+                      <span>{historical ? "Historical" : "Latest"}</span>
+                    </Select.Trigger>
+                    <Select.Content aria-label="Plugin versions">
+                      <Select.Group>
+                        {#each releases as item (item.version)}
+                          <Select.Item
+                            value={item.version}
+                            label={item.version}
+                          >
+                            {item.version} · {item.version ===
+                            trustedCurrentVersion
+                              ? "Latest"
+                              : "Historical"}
+                          </Select.Item>
+                        {/each}
+                      </Select.Group>
+                    </Select.Content>
+                  </Select.Root>
+                {:else}
+                  {detail.latestVersion}
+                {/if}
+              </dd>
             </div>
             <div>
               <dt>Last updated</dt>
@@ -696,6 +774,33 @@
       {@render discussion()}
     </section>
   {/if}
+
+  <AlertDialog.Root bind:open={historicalConfirmationOpen}>
+    <AlertDialog.Content>
+      <AlertDialog.Header>
+        <AlertDialog.Title>Install historical release?</AlertDialog.Title>
+        <AlertDialog.Description>
+          {#if effectiveInstallAction.installedVersion}
+            This replaces installed version {effectiveInstallAction.installedVersion}
+            with historical version {displayedVersion}. The current trusted
+            release is {trustedCurrentVersion}.
+          {:else}
+            You are installing historical version {displayedVersion}. The
+            current trusted release is {trustedCurrentVersion}.
+          {/if}
+        </AlertDialog.Description>
+      </AlertDialog.Header>
+      <AlertDialog.Footer>
+        <AlertDialog.Cancel>Cancel</AlertDialog.Cancel>
+        <AlertDialog.Action
+          onclick={() => {
+            historicalConfirmationOpen = false;
+            void performInstall();
+          }}>Install {displayedVersion}</AlertDialog.Action
+        >
+      </AlertDialog.Footer>
+    </AlertDialog.Content>
+  </AlertDialog.Root>
 
   <RegistryMediaViewer
     items={detailViewerItems}
@@ -1039,6 +1144,23 @@
   .registry-plugin-detail__releases h3,
   .registry-plugin-detail__releases p {
     margin: 0;
+  }
+  .registry-plugin-detail__releases a {
+    color: inherit;
+    text-decoration: none;
+  }
+  .registry-plugin-detail__releases a:hover,
+  .registry-plugin-detail__releases a:focus-visible {
+    color: var(--primary);
+    text-decoration: underline;
+  }
+  :global(.registry-plugin-detail__version-trigger) {
+    min-width: 10rem;
+    justify-content: space-between;
+  }
+  :global(.registry-plugin-detail__version-trigger > span) {
+    color: var(--muted-foreground);
+    font-size: 0.7rem;
   }
   .registry-plugin-detail__releases p {
     color: var(--muted-foreground);

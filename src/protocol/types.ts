@@ -43,7 +43,7 @@ export interface ReleaseArtifact {
   size: number;
 }
 
-export interface ReleaseContent {
+export interface LegacyReleaseContent {
   schema: "lapis.registry.release/1";
   pluginId: string;
   version: string;
@@ -54,10 +54,64 @@ export interface ReleaseContent {
   metadata: JsonObject;
 }
 
-export interface Nip29ReleaseManifest {
+export interface SequencedReleaseContent {
+  schema: "lapis.registry.release/2";
+  pluginId: string;
+  version: string;
+  /** Canonical positive decimal string. */
+  releaseSequence: string;
+  previousReleaseEventId?: string | undefined;
+  minAppVersion: string;
+  platforms: string[];
+  releasedAt: string;
+  artifact: ReleaseArtifact;
+  metadata: JsonObject;
+}
+
+export type ReleaseContent = LegacyReleaseContent | SequencedReleaseContent;
+
+export interface LegacyNip29ReleaseManifest {
   schema: "lapis.registry.nip29-release/1";
   plugin: PluginDefinitionContent;
-  release: ReleaseContent;
+  release: LegacyReleaseContent;
+}
+
+export interface SequencedNip29ReleaseManifest {
+  schema: "lapis.registry.nip29-release/2";
+  plugin: PluginDefinitionContent;
+  release: SequencedReleaseContent;
+}
+
+export type Nip29ReleaseManifest =
+  | LegacyNip29ReleaseManifest
+  | SequencedNip29ReleaseManifest;
+
+export type Nip29RegistryReleaseState =
+  | "approved"
+  | "rejected"
+  | "revoked"
+  | "withdrawn";
+
+export interface Nip29RegistryHeadRelease {
+  releaseEventId: string;
+  manifestSha256: string;
+  version: string;
+  releaseSequence?: string | undefined;
+  state: Nip29RegistryReleaseState;
+  decisionEventId: string;
+}
+
+export interface Nip29RegistryHeadContent {
+  schema: "lapis.registry.plugin-head/1";
+  pluginId: string;
+  authorityEpoch: string;
+  /** Canonical positive decimal string. */
+  headRevision: string;
+  previousHeadEventId?: string | undefined;
+  activeReleaseEventId?: string | undefined;
+  releases: Nip29RegistryHeadRelease[];
+  issuedAt: string;
+  validUntil: string;
 }
 
 export interface Nip29PublisherAuthorizationContent {
@@ -71,13 +125,26 @@ export interface NostrReleaseProofManifest {
   content: string;
 }
 
-export interface NostrReleaseProof {
+export interface LegacyNostrReleaseProof {
   schema: "lapis.plugin.release-proof/1";
   authorizationEvent: NostrEvent;
   releaseEvent: NostrEvent;
   decisionEvent: NostrEvent;
   manifest: NostrReleaseProofManifest;
 }
+
+export interface CurrentNostrReleaseProof {
+  schema: "lapis.plugin.release-proof/2";
+  authorizationEvent: NostrEvent;
+  releaseEvent: NostrEvent;
+  decisionEvent: NostrEvent;
+  headEvent: NostrEvent;
+  manifest: NostrReleaseProofManifest;
+}
+
+export type NostrReleaseProof =
+  | LegacyNostrReleaseProof
+  | CurrentNostrReleaseProof;
 
 export interface NostrReleaseArtifactReference {
   sha256: string;
@@ -95,6 +162,10 @@ export interface VerifiedNostrReleaseProof {
   artifactSize: number;
   requiresRelayRefresh: true;
   manifest: Nip29ReleaseManifest;
+  releaseSequence?: string | undefined;
+  headEventId?: string | undefined;
+  headRevision?: string | undefined;
+  validUntil?: string | undefined;
 }
 
 export interface RegistryIssue {

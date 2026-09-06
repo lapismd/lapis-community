@@ -1,6 +1,6 @@
 <script lang="ts">
   import { AppShellController } from "@lapismd/design-core/shell";
-  import { onMount } from "svelte";
+  import { onMount, tick } from "svelte";
 
   import {
     createBrowserCommunityConfigurationStore,
@@ -71,6 +71,13 @@
     let active = true;
     let runtimeGeneration = 0;
     try {
+      if (window.location.hash !== "") {
+        window.history.replaceState(
+          null,
+          "",
+          `${window.location.pathname}${window.location.search}`,
+        );
+      }
       window.localStorage.removeItem(
         COMMUNITY_APPLICATION_DESTINATION_STORAGE_KEY,
       );
@@ -255,6 +262,7 @@
                     : createInlineCommunityEventRuntime(),
                 now: () => 1_700_000_100,
               });
+          await tick();
           community.initialize();
           if (progressiveFailure) {
             progressiveRetryTimer = window.setTimeout(

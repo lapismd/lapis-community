@@ -184,9 +184,13 @@ export function relatedRegistryPlugins(
 export function registryRouteToDestination(route: RegistryRoute): string {
   if (route.page === "landing") return "registry";
   if (route.page === "directory") return "registry:plugins";
-  return route.view === "reviews"
-    ? `registry:plugin:${route.pluginId}:reviews`
-    : `registry:plugin:${route.pluginId}`;
+  const version =
+    route.version === undefined
+      ? ""
+      : `:version:${encodeURIComponent(route.version)}`;
+  const view = route.view === "reviews" ? ":reviews" : "";
+  const post = route.postId === undefined ? "" : `:post:${route.postId}`;
+  return `registry:plugin:${route.pluginId}${version}${view}${post}`;
 }
 
 export function registryRouteFromDestination(
@@ -197,16 +201,73 @@ export function registryRouteFromDestination(
   const prefix = "registry:plugin:";
   if (!destination.startsWith(prefix)) return null;
   const pluginDestination = destination.slice(prefix.length);
-  const reviewsSuffix = ":reviews";
-  const reviews = pluginDestination.endsWith(reviewsSuffix);
-  const pluginId = reviews
-    ? pluginDestination.slice(0, -reviewsSuffix.length)
-    : pluginDestination;
+  const match =
+    /^(?<pluginId>[a-z0-9][a-z0-9-]{0,127})(?::version:(?<version>[^:]+))?(?::(?<reviews>reviews))?(?::post:(?<postId>[0-9a-f]{64}))?$/u.exec(
+      pluginDestination,
+    );
+  if (match?.groups === undefined) return null;
+  const { pluginId, version: encodedVersion, reviews, postId } = match.groups;
+  if (pluginId === undefined) return null;
+  let version: string | undefined;
+  try {
+    version =
+      encodedVersion === undefined
+        ? undefined
+        : decodeURIComponent(encodedVersion);
+  } catch {
+    return null;
+  }
   return /^[a-z0-9][a-z0-9-]{0,127}$/u.test(pluginId)
     ? {
         page: "plugin",
         pluginId,
-        ...(reviews ? { view: "reviews" as const } : {}),
+        ...(version === undefined ? {} : { version }),
+        ...(reviews === undefined ? {} : { view: "reviews" as const }),
+        ...(postId === undefined ? {} : { postId }),
       }
     : null;
+}
+
+export function registryRouteToHash(route: RegistryRoute): string {
+  if (route.page === "landing") return "#/registry";
+  if (route.page === "directory") return "#/registry/plugins";
+  const base = `#/registry/plugins/${encodeURIComponent(route.pluginId)}`;
+  const version =
+    route.version === undefined
+      ? ""
+      : `/versions/${encodeURIComponent(route.version)}`;
+  const view = route.view === "reviews" ? "/reviews" : "";
+  const post = route.postId === undefined ? "" : `/posts/${route.postId}`;
+  return `${base}${version}${view}${post}`;
+}
+
+export function registryRouteFromHash(hash: string): RegistryRoute | null {
+  if (hash === "#/registry") return { page: "landing" };
+  if (hash === "#/registry/plugins") return { page: "directory" };
+  const match =
+    /^#\/registry\/plugins\/(?<pluginId>[^/]+)(?:\/versions\/(?<version>[^/]+))?(?:\/(?<reviews>reviews))?(?:\/posts\/(?<postId>[0-9a-f]{64}))?$/u.exec(
+      hash,
+    );
+  if (match?.groups === undefined) return null;
+  try {
+    const pluginId = decodeURIComponent(match.groups.pluginId!);
+    if (!/^[a-z0-9][a-z0-9-]{0,127}$/u.test(pluginId)) return null;
+    const version =
+      match.groups.version === undefined
+        ? undefined
+        : decodeURIComponent(match.groups.version);
+    return {
+      page: "plugin",
+      pluginId,
+      ...(version === undefined ? {} : { version }),
+      ...(match.groups.reviews === undefined
+        ? {}
+        : { view: "reviews" as const }),
+      ...(match.groups.postId === undefined
+        ? {}
+        : { postId: match.groups.postId }),
+    };
+  } catch {
+    return null;
+  }
 }

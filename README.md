@@ -135,7 +135,8 @@ pnpm storybook
 
 The registry live story uses the same direct source with
 `VITE_REGISTRY_RELAYS`, `VITE_REGISTRY_CURATOR_PUBKEYS`,
-`VITE_REGISTRY_PUBLISHER_PUBKEYS`, and optional `VITE_BLOSSOM_URL`.
+`VITE_REGISTRY_PUBLISHER_PUBKEYS`, `VITE_REGISTRY_AUTHORITY_EPOCH`, and
+optional `VITE_BLOSSOM_URL`.
 
 Live stories are read-only unless the browser provides a user-controlled
 NIP-07 signer. Docker remains the writable WebSocket-backed fixture lane via

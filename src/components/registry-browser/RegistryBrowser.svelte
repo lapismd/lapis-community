@@ -1,5 +1,6 @@
 <script lang="ts">
   import { Button } from "@lapismd/design-core/shadcn/button";
+  import * as AlertDialog from "@lapismd/design-core/shadcn/alert-dialog";
   import * as ButtonGroup from "@lapismd/design-core/shadcn/button-group";
   import { Badge } from "@lapismd/design-core/shadcn/badge";
   import * as Breadcrumb from "@lapismd/design-core/shadcn/breadcrumb";
@@ -12,6 +13,7 @@
   import MessagesSquareIcon from "@lucide/svelte/icons/messages-square";
   import PackageSearchIcon from "@lucide/svelte/icons/package-search";
   import RefreshCwIcon from "@lucide/svelte/icons/refresh-cw";
+  import ShieldAlertIcon from "@lucide/svelte/icons/shield-alert";
   import TriangleAlertIcon from "@lucide/svelte/icons/triangle-alert";
   import { onMount, untrack } from "svelte";
 
@@ -85,6 +87,8 @@
   let routeTimer: ReturnType<typeof setTimeout> | undefined;
   let sourceNoticeTimer: ReturnType<typeof setTimeout> | undefined;
   let sourceNoticeDelayElapsed = $state(false);
+  let trustResetOpen = $state(false);
+  let trustResetting = $state(false);
   let communityController = $state<RegistryCommunityController>();
   let communityControllerKey = "";
 
@@ -178,8 +182,14 @@
     navigate({
       page: "plugin",
       pluginId: route.pluginId,
+      ...(route.version === undefined ? {} : { version: route.version }),
       ...(view === "reviews" ? { view } : {}),
     });
+  }
+
+  function selectPluginVersion(version: string): void {
+    if (route.page !== "plugin") return;
+    navigate({ page: "plugin", pluginId: route.pluginId, version });
   }
 
   function disposeCommunityController(): void {
@@ -225,7 +235,24 @@
     }
   }
 
-  async function resolveDetail(entry: RegistryCatalogEntry): Promise<void> {
+  async function resetRegistryTrustHistory(): Promise<void> {
+    if (catalogSource.resetTrustHistory === undefined) return;
+    trustResetting = true;
+    try {
+      await catalogSource.resetTrustHistory(
+        route.page === "plugin" ? route.pluginId : undefined,
+      );
+      trustResetOpen = false;
+      await refreshCatalog();
+    } finally {
+      trustResetting = false;
+    }
+  }
+
+  async function resolveDetail(
+    entry: RegistryCatalogEntry,
+    version?: string,
+  ): Promise<void> {
     const generation = ++detailGeneration;
     detailController?.abort();
     detailController = new AbortController();
@@ -233,11 +260,47 @@
     detailLoading = true;
     detailError = "";
     try {
-      const resolved = await catalogSession.loadDetail(entry, {
+      const base = await catalogSession.loadDetail(entry, {
         signal: detailController.signal,
       });
+      const resolved =
+        version === undefined
+          ? base
+          : source.loadPluginVersionDetail === undefined
+            ? base.detail.versions[version] === undefined
+              ? (() => {
+                  throw new Error(
+                    `${entry.id}@${version}: this release is unavailable`,
+                  );
+                })()
+              : base
+            : (
+                await catalogSession.loadVersionDetail(entry.id, version, {
+                  signal: detailController.signal,
+                })
+              ).resolved;
       if (generation !== detailGeneration) return;
-      selectedDetail = resolved;
+      selectedDetail =
+        version === undefined
+          ? resolved
+          : {
+              ...resolved,
+              entry: {
+                ...resolved.entry,
+                latestVersion: version,
+                minAppVersion:
+                  resolved.detail.versions[version]?.minAppVersion ??
+                  resolved.entry.minAppVersion,
+                platforms:
+                  resolved.detail.versions[version]?.platforms ??
+                  resolved.entry.platforms,
+              },
+              detail: {
+                ...resolved.detail,
+                latestVersion: version,
+                versions: base.detail.versions,
+              },
+            };
     } catch (cause) {
       if (generation !== detailGeneration || isAbortError(cause)) return;
       detailError =
@@ -250,7 +313,11 @@
   }
 
   function retryDetail(): void {
-    if (selectedEntry !== undefined) void resolveDetail(selectedEntry);
+    if (selectedEntry !== undefined)
+      void resolveDetail(
+        selectedEntry,
+        route.page === "plugin" ? route.version : undefined,
+      );
   }
 
   function isAbortError(cause: unknown): boolean {
@@ -295,6 +362,7 @@
 
   $effect(() => {
     const entry = selectedEntry;
+    const version = route.page === "plugin" ? route.version : undefined;
     if (route.page !== "plugin") {
       untrack(() => {
         detailGeneration += 1;
@@ -304,7 +372,7 @@
         detailError = "";
       });
     } else if (entry !== undefined) {
-      untrack(() => void resolveDetail(entry));
+      untrack(() => void resolveDetail(entry, version));
     }
   });
 
@@ -356,6 +424,14 @@
     const identity =
       discussionIdentity ?? applicationAuthentication?.identity();
     untrack(() => void controller?.setIdentity(identity));
+  });
+
+  $effect(() => {
+    const controller = communityController;
+    const releaseId =
+      selectedDetail?.detail.versions[selectedDetail.detail.latestVersion]
+        ?.releaseEventId;
+    untrack(() => void controller?.setReleaseEventId(releaseId));
   });
 
   $effect(() => {
@@ -498,6 +574,17 @@
         {sourceStatus.message ??
           "Connect to a registry relay to confirm current approvals and revocations."}
       </span>
+      {#if (sourceStatus.trust === "rollback" || sourceStatus.trust === "equivocation") && catalogSource.resetTrustHistory}
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onclick={() => (trustResetOpen = true)}
+        >
+          <ShieldAlertIcon data-icon="inline-start" aria-hidden="true" />
+          Reset trust history
+        </Button>
+      {/if}
       {#if catalogSource.refresh}
         <Tooltip.Provider>
           <Tooltip.Root>
@@ -562,7 +649,7 @@
           {#if route.page === "plugin"}
             <Breadcrumb.Separator />
             <Breadcrumb.Item>
-              {#if pluginView === "reviews"}
+              {#if pluginView === "reviews" || route.version !== undefined}
                 <Breadcrumb.Link
                   href={`#registry:plugin:${route.pluginId}`}
                   onclick={(event) => {
@@ -578,6 +665,22 @@
                 </Breadcrumb.Page>
               {/if}
             </Breadcrumb.Item>
+            {#if route.version !== undefined}
+              <Breadcrumb.Separator />
+              <Breadcrumb.Item>
+                {#if pluginView === "reviews"}
+                  <Breadcrumb.Link
+                    href={`#registry:plugin:${route.pluginId}:version:${encodeURIComponent(route.version)}`}
+                    onclick={(event) => {
+                      event.preventDefault();
+                      setPluginView("details");
+                    }}>{route.version}</Breadcrumb.Link
+                  >
+                {:else}
+                  <Breadcrumb.Page>{route.version}</Breadcrumb.Page>
+                {/if}
+              </Breadcrumb.Item>
+            {/if}
             {#if pluginView === "reviews"}
               <Breadcrumb.Separator />
               <Breadcrumb.Item>
@@ -600,6 +703,31 @@
     {@render registrySourceNotice()}
   </AppShell.Toolbar>
 {/if}
+
+<AlertDialog.Root bind:open={trustResetOpen}>
+  <AlertDialog.Content>
+    <AlertDialog.Header>
+      <AlertDialog.Title>Reset Registry trust history?</AlertDialog.Title>
+      <AlertDialog.Description>
+        This removes the local anti-rollback checkpoint
+        {route.page === "plugin"
+          ? ` for ${selectedEntry?.name ?? route.pluginId}`
+          : " for every plugin"}. Only continue when you have independently
+        confirmed that the configured curator authority and Registry quorum are
+        trustworthy.
+      </AlertDialog.Description>
+    </AlertDialog.Header>
+    <AlertDialog.Footer>
+      <AlertDialog.Cancel disabled={trustResetting}>Cancel</AlertDialog.Cancel>
+      <AlertDialog.Action
+        disabled={trustResetting}
+        onclick={() => void resetRegistryTrustHistory()}
+      >
+        {trustResetting ? "Resetting…" : "Reset trust history"}
+      </AlertDialog.Action>
+    </AlertDialog.Footer>
+  </AlertDialog.Content>
+</AlertDialog.Root>
 
 {#if !catalogLoading && !catalogError && index && route.page === "directory"}
   <RegistryDirectory
@@ -676,20 +804,38 @@
               <Empty.Media variant="icon"
                 ><CircleAlertIcon aria-hidden="true" /></Empty.Media
               >
-              <Empty.Title>Plugin details unavailable</Empty.Title>
+              <Empty.Title>
+                {route.page === "plugin" && route.version !== undefined
+                  ? "Plugin version unavailable"
+                  : "Plugin details unavailable"}
+              </Empty.Title>
               <Empty.Description>
                 {detailError || "The plugin details could not be loaded."}
               </Empty.Description>
             </Empty.Header>
             <Empty.Content>
-              <Button type="button" variant="outline" onclick={retryDetail}
-                >Try again</Button
-              >
+              {#if route.page === "plugin" && route.version !== undefined}
+                <Button
+                  type="button"
+                  variant="outline"
+                  onclick={() =>
+                    navigate({ page: "plugin", pluginId: selectedEntry.id })}
+                  >Open current trusted release</Button
+                >
+              {:else}
+                <Button type="button" variant="outline" onclick={retryDetail}
+                  >Try again</Button
+                >
+              {/if}
             </Empty.Content>
           </Empty.Root>
         {:else if pluginView === "details"}
           <RegistryPluginDetail
             resolved={selectedDetail}
+            currentVersion={selectedEntry.latestVersion}
+            {...route.page === "plugin" && route.version !== undefined
+              ? { selectedVersion: route.version }
+              : {}}
             {related}
             {...selectedInstallAction === undefined
               ? {}
@@ -700,6 +846,7 @@
               openDirectoryFilter("categories", category)}
             onOpenPlatform={(platform) =>
               openDirectoryFilter("platforms", platform)}
+            onSelectVersion={selectPluginVersion}
           />
         {:else}
           <section
