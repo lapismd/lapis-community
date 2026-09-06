@@ -73,6 +73,10 @@ export { default as CommunitySwitcher } from "./community-switcher/CommunitySwit
 export { default as CommunityThreadPanel } from "./community-thread-panel/CommunityThreadPanel.svelte";
 export { default as CommunityWorkspaceSurface } from "./community-workspace/CommunityWorkspaceSurface.svelte";
 export { default as DiscussionComposer } from "./discussion-composer/DiscussionComposer.svelte";
+export type {
+  DiscussionComposerPresentation,
+  DiscussionComposerVariant,
+} from "./discussion-composer/model.js";
 export { default as DiscussionHeading } from "./discussion-heading/DiscussionHeading.svelte";
 export { default as DiscussionPost } from "./discussion-post/DiscussionPost.svelte";
 export { default as DiscussionPostStream } from "./discussion-post-stream/DiscussionPostStream.svelte";
@@ -101,3 +105,4 @@ export * from "./community-workspace/model.js";
 export { filterCommunityNavigation } from "./community-navigation/model.js";
 export * from "./discussion-post-stream/discussion-stream.js";
 export * from "./registry-community/model.js";
+export { createBrowserCommunityComposerDraftStore } from "./community-chat-composer/browser-draft-store.js";

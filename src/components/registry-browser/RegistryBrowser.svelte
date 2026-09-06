@@ -409,69 +409,79 @@
     aria-label="Plugin reactions and reviews"
   >
     {#if communityController}
-      {#each communityController.pluginReactionSummary.slice(0, 3) as reaction (reaction.symbol)}
-        <Button
-          type="button"
-          size="sm"
-          variant="outline"
-          data-selected={communityController.ownPluginReaction?.content ===
-            reaction.symbol}
-          aria-label={`React ${reaction.symbol}; ${reaction.count} ${reaction.count === 1 ? "reaction" : "reactions"}`}
+      <ButtonGroup.Root
+        class="registry-browser__reaction-actions"
+        aria-label="React to this plugin"
+      >
+        {#each communityController.pluginReactionSummary.slice(0, 3) as reaction (reaction.symbol)}
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            data-selected={communityController.ownPluginReaction?.content ===
+              reaction.symbol}
+            aria-label={`React ${reaction.symbol}; ${reaction.count} ${reaction.count === 1 ? "reaction" : "reactions"}`}
+            disabled={communityController.publishing ||
+              communityController.pluginRelease === undefined}
+            onclick={() =>
+              void communityController?.submitPluginReaction(reaction.symbol)}
+          >
+            <span aria-hidden="true">{reaction.symbol}</span>
+            <span>{reaction.count}</span>
+          </Button>
+        {/each}
+        <CommunityEmojiPicker
+          label="Choose plugin reaction"
+          {...communityController.ownPluginReaction === undefined
+            ? {}
+            : { selection: communityController.ownPluginReaction.content }}
           disabled={communityController.publishing ||
             communityController.pluginRelease === undefined}
-          onclick={() =>
-            void communityController?.submitPluginReaction(reaction.symbol)}
-        >
-          <span aria-hidden="true">{reaction.symbol}</span>
-          <span>{reaction.count}</span>
-        </Button>
-      {/each}
-      <CommunityEmojiPicker
-        label="Choose plugin reaction"
-        {...communityController.ownPluginReaction === undefined
-          ? {}
-          : { selection: communityController.ownPluginReaction.content }}
-        disabled={communityController.publishing ||
-          communityController.pluginRelease === undefined}
-        presets={["👍", "❤️", "🎉", "👀", "⭐"]}
-        onSelect={(emoji) =>
-          void communityController?.submitPluginReaction(emoji)}
-      />
+          presets={["👍", "❤️", "🎉", "👀", "⭐"]}
+          onSelect={(emoji) =>
+            void communityController?.submitPluginReaction(emoji)}
+        />
+      </ButtonGroup.Root>
     {/if}
-    <Button
-      type="button"
-      size="sm"
-      variant="outline"
-      data-selected={pluginView === "details"}
-      aria-pressed={pluginView === "details"}
-      onclick={() => setPluginView("details")}
+    <ButtonGroup.Root
+      class="registry-browser__view-actions"
+      aria-label="Plugin view"
     >
-      <InfoIcon data-icon="inline-start" aria-hidden="true" />
-      Details
-    </Button>
-    <Button
-      type="button"
-      size="sm"
-      variant="outline"
-      data-selected={pluginView === "reviews"}
-      aria-pressed={pluginView === "reviews"}
-      onclick={() => setPluginView("reviews")}
-    >
-      <MessagesSquareIcon data-icon="inline-start" aria-hidden="true" />
-      Reactions &amp; reviews
-      {#if communityController?.commentCountAvailable}
-        <Badge
-          variant="outline"
-          aria-label={communityController.commentTotalApproximate
-            ? `Approximately ${communityController.commentTotal} posts`
-            : `${communityController.commentTotal} posts`}
-        >
-          {communityController.commentTotalApproximate
-            ? "~"
-            : ""}{communityController.commentTotal}
-        </Badge>
-      {/if}
-    </Button>
+      <Button
+        type="button"
+        size="sm"
+        variant="outline"
+        data-selected={pluginView === "details"}
+        aria-pressed={pluginView === "details"}
+        onclick={() => setPluginView("details")}
+      >
+        <InfoIcon data-icon="inline-start" aria-hidden="true" />
+        Details
+      </Button>
+      <Button
+        type="button"
+        size="sm"
+        variant="outline"
+        data-selected={pluginView === "reviews"}
+        aria-pressed={pluginView === "reviews"}
+        onclick={() => setPluginView("reviews")}
+      >
+        <MessagesSquareIcon data-icon="inline-start" aria-hidden="true" />
+        Reviews
+        {#if communityController?.commentCountAvailable}
+          <Badge
+            variant="secondary"
+            aria-label={communityController.commentTotalApproximate
+              ? `Approximately ${communityController.commentTotal} posts`
+              : `${communityController.commentTotal} posts`}
+          >
+            {communityController.commentTotalApproximate
+              ? "~"
+              : ""}{communityController.commentTotal}
+          </Badge>
+        {/if}
+      </Button>
+    </ButtonGroup.Root>
   </ButtonGroup.Root>
 {/snippet}
 
@@ -696,12 +706,6 @@
             class="registry-browser__reviews"
             aria-label={`${selectedEntry.name} reactions and reviews`}
           >
-            <header class="registry-browser__reviews-header">
-              <div>
-                <h1>Reactions &amp; reviews</h1>
-                <p>Community discussion about {selectedEntry.name}.</p>
-              </div>
-            </header>
             {#if discussion}
               {@render discussion()}
             {:else if communityController}
@@ -728,7 +732,7 @@
 
 <style>
   :global(.registry-browser__toolbar) {
-    padding-inline: 0.75rem;
+    padding-inline: 1rem;
   }
 
   :global(.registry-browser__toolbar--with-source) {
@@ -745,6 +749,7 @@
     flex-wrap: wrap;
     gap: 0.5rem 1rem;
     width: 100%;
+    min-height: 3rem;
   }
 
   :global(.registry-browser__toolbar--with-source)
@@ -808,59 +813,69 @@
   }
 
   :global(
+      .registry-browser__reaction-actions[data-ui-component="button-group"]
+    ) {
+    gap: 0.4rem;
+  }
+
+  :global(
+      .registry-browser__reaction-actions[data-ui-component="button-group"]
+        > [data-slot]
+    ) {
+    border-left-width: 1px !important;
+    border-radius: min(var(--radius-md), 10px) !important;
+  }
+
+  :global(
       .registry-browser__community-actions[data-ui-component="button-group"]
-        > [data-ui-component="button"]
+        [data-ui-component="button"]
     ) {
     border-color: var(--border);
   }
 
   :global(
       .registry-browser__community-actions[data-ui-component="button-group"]
+        [data-ui-component="button"][data-selected="true"]
+    ) {
+    color: var(--primary);
+    background: color-mix(in srgb, var(--primary) 10%, var(--background));
+  }
+
+  :global(
+      .registry-browser__view-actions[data-ui-component="button-group"]
         > [data-ui-component="button"][data-selected="true"]
     ) {
-    background: var(--secondary);
+    color: var(--primary);
+    box-shadow: inset 0 -2px 0 var(--primary);
   }
 
   :global(.registry-browser__community-actions [data-ui-component="badge"]) {
+    min-width: 1.5rem;
+    justify-content: center;
     margin-inline-start: 0.2rem;
+    border: 1px solid color-mix(in srgb, var(--primary) 18%, var(--border));
+    border-radius: 999px;
+    padding-inline: 0.38rem;
+    color: var(--foreground);
+    background: color-mix(in srgb, var(--primary) 7%, var(--muted));
+    font-size: 0.7rem;
+    font-variant-numeric: tabular-nums;
+    line-height: 1;
   }
 
   .registry-browser__reviews {
     display: grid;
-    gap: 1.5rem;
     width: min(100%, 76rem);
     min-height: 100%;
     margin-inline: auto;
     padding: clamp(1rem, 3vw, 2rem);
   }
 
-  .registry-browser__reviews-header {
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: 1.5rem;
-  }
-
-  .registry-browser__reviews-header h1,
-  .registry-browser__reviews-header p {
-    margin: 0;
-  }
-
-  .registry-browser__reviews-header p {
-    color: var(--muted-foreground);
-  }
-
   @media (max-width: 52rem) {
-    .registry-browser__reviews-header {
-      display: grid;
-    }
-
     :global(
         .registry-browser__community-actions[data-ui-component="button-group"]
       ) {
-      flex-basis: 100%;
       justify-content: flex-end;
-      width: 100%;
     }
   }
 

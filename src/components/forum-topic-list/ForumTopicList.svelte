@@ -41,6 +41,8 @@
     onRetryComposerStatus,
     onDismissComposerStatus,
     historyUpdating = false,
+    embedded = false,
+    showTopicActions = true,
   }: {
     title?: string;
     description?: string;
@@ -63,6 +65,8 @@
     onRetryComposerStatus?: () => void | Promise<void>;
     onDismissComposerStatus?: () => void;
     historyUpdating?: boolean;
+    embedded?: boolean;
+    showTopicActions?: boolean;
   } = $props();
 </script>
 
@@ -124,7 +128,76 @@
     >{/if}
 {/snippet}
 
-<section class="forum-topic-list" aria-label={`${title} topics`}>
+{#snippet topicButton(topic: CommunityTopicModel)}
+  {@const author = memberById(members, topic.authorId)}
+  {@const participants = topic.participantIds
+    .slice(0, 3)
+    .map((participantId) => memberById(members, participantId))}
+  {@const replyCountAvailable = topic.replyCountAvailable ?? true}
+  <Button
+    type="button"
+    variant="ghost"
+    class="forum-topic-list__topic"
+    aria-label={`Open topic ${topic.title}`}
+    onclick={() => onOpenTopic?.(topic.id)}
+  >
+    <span class="forum-topic-list__topic-main">
+      <span class="forum-topic-list__title-row">
+        {#if topic.pinned}<span aria-label="Pinned topic">⌁</span>{/if}
+        <strong>{topic.title}</strong>
+        {#if topic.solved}<Badge variant="secondary">Solved</Badge>{/if}
+        {#if topic.unread}<Badge>Unread</Badge>{:else if topic.isNew}<Badge
+            variant="secondary">New</Badge
+          >{/if}
+      </span>
+      <span class="forum-topic-list__excerpt">{topic.excerpt}</span>
+      <span class="forum-topic-list__meta">
+        Started by {author.name}
+        {#each topic.tags ?? [] as tag (tag)}
+          <Badge variant="outline">{tag}</Badge>
+        {/each}
+      </span>
+    </span>
+    <span
+      class="forum-topic-list__participants"
+      data-ui-part="forum-topic-participants"
+      title={participants.length
+        ? `Recent participants: ${participants.map((participant) => participant.name).join(", ")}`
+        : "No replies yet"}
+      aria-hidden="true"
+    >
+      {#each participants as participant (participant.id)}
+        <span class="forum-topic-list__avatar">
+          {#if participant.avatarUrl}
+            <img src={participant.avatarUrl} alt="" />
+          {:else}
+            {participant.initials}
+          {/if}
+        </span>
+      {/each}
+    </span>
+    <span
+      class="forum-topic-list__count"
+      aria-label={!replyCountAvailable
+        ? "Reply count unavailable"
+        : topic.replyCountApproximate
+          ? `Approximately ${topic.replyCount} replies`
+          : historyUpdating
+            ? `${topic.replyCount} or more replies; older history is updating`
+            : `${topic.replyCount} replies`}
+      >{#if !replyCountAvailable}—{:else if topic.replyCountApproximate}~{/if}{replyCountAvailable
+        ? topic.replyCount
+        : ""}{replyCountAvailable && historyUpdating ? "+" : ""}</span
+    >
+    <span class="forum-topic-list__activity">{topic.lastActivityLabel}</span>
+  </Button>
+{/snippet}
+
+<section
+  class="forum-topic-list"
+  class:forum-topic-list--embedded={embedded}
+  aria-label={`${title} topics`}
+>
   {#if actions}
     {@render actions()}
   {/if}
@@ -153,83 +226,32 @@
 
   <div class="forum-topic-list__topics">
     {#each topics as topic (topic.id)}
-      {@const author = memberById(members, topic.authorId)}
-      {@const participants = topic.participantIds
-        .slice(0, 3)
-        .map((participantId) => memberById(members, participantId))}
       <div class="forum-topic-list__topic-row">
-        <ContextMenu.Root
-          ><ContextMenu.Trigger
-            ><Button
-              type="button"
-              variant="ghost"
-              class="forum-topic-list__topic"
-              aria-label={`Open topic ${topic.title}`}
-              onclick={() => onOpenTopic?.(topic.id)}
-            >
-              <span class="forum-topic-list__topic-main">
-                <span class="forum-topic-list__title-row">
-                  {#if topic.pinned}<span aria-label="Pinned topic">⌁</span
-                    >{/if}
-                  <strong>{topic.title}</strong>
-                  {#if topic.solved}<Badge variant="secondary">Solved</Badge
-                    >{/if}
-                </span>
-                <span class="forum-topic-list__excerpt">{topic.excerpt}</span>
-                <span class="forum-topic-list__meta">
-                  Started by {author.name}
-                  {#each topic.tags ?? [] as tag (tag)}
-                    <Badge variant="outline">{tag}</Badge>
-                  {/each}
-                </span>
-              </span>
-              <span
-                class="forum-topic-list__participants"
-                data-ui-part="forum-topic-participants"
-                title={participants.length
-                  ? `Recent participants: ${participants.map((participant) => participant.name).join(", ")}`
-                  : "No replies yet"}
-                aria-hidden="true"
-              >
-                {#each participants as participant (participant.id)}
-                  <span class="forum-topic-list__avatar">
-                    {#if participant.avatarUrl}
-                      <img src={participant.avatarUrl} alt="" />
-                    {:else}
-                      {participant.initials}
-                    {/if}
-                  </span>
-                {/each}
-              </span>
-              <span
-                class="forum-topic-list__count"
-                aria-label={historyUpdating
-                  ? `${topic.replyCount} or more replies; older history is updating`
-                  : `${topic.replyCount} replies`}
-                >{topic.replyCount}{historyUpdating ? "+" : ""}</span
-              >
-              <span class="forum-topic-list__activity"
-                >{topic.lastActivityLabel}</span
-              >
-            </Button></ContextMenu.Trigger
-          ><ContextMenu.Content
-            >{@render contextActions(topic)}</ContextMenu.Content
-          ></ContextMenu.Root
-        ><DropdownMenu.Root
-          ><DropdownMenu.Trigger
-            >{#snippet child({ props })}<Button
-                {...props}
-                type="button"
-                variant="ghost"
-                size="icon-sm"
-                class="forum-topic-list__menu"
-                aria-label={`Open ${topic.title} menu`}
-                ><EllipsisIcon aria-hidden="true" /></Button
-              >{/snippet}</DropdownMenu.Trigger
-          ><DropdownMenu.Content align="end"
-            >{@render dropdownActions(topic)}</DropdownMenu.Content
-          ></DropdownMenu.Root
-        >
+        {#if showTopicActions}
+          <ContextMenu.Root
+            ><ContextMenu.Trigger
+              >{@render topicButton(topic)}</ContextMenu.Trigger
+            ><ContextMenu.Content
+              >{@render contextActions(topic)}</ContextMenu.Content
+            ></ContextMenu.Root
+          ><DropdownMenu.Root
+            ><DropdownMenu.Trigger
+              >{#snippet child({ props })}<Button
+                  {...props}
+                  type="button"
+                  variant="ghost"
+                  size="icon-sm"
+                  class="forum-topic-list__menu"
+                  aria-label={`Open ${topic.title} menu`}
+                  ><EllipsisIcon aria-hidden="true" /></Button
+                >{/snippet}</DropdownMenu.Trigger
+            ><DropdownMenu.Content align="end"
+              >{@render dropdownActions(topic)}</DropdownMenu.Content
+            ></DropdownMenu.Root
+          >
+        {:else}
+          {@render topicButton(topic)}
+        {/if}
       </div>
     {/each}
   </div>
@@ -240,6 +262,11 @@
     width: min(100%, 68rem);
     margin: 0 auto;
     padding: clamp(1rem, 3vw, 2.5rem);
+  }
+
+  .forum-topic-list--embedded {
+    width: 100%;
+    padding: 0;
   }
 
   .forum-topic-list__columns,

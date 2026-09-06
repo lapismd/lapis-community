@@ -666,6 +666,9 @@
         })
       )[0]!,
     );
+    await userEvent.click(
+      await canvas.findByRole("button", { name: /Reviews/u }),
+    );
     const discussion = await canvas.findByRole(
       "region",
       { name: "Registry Demo community discussion" },

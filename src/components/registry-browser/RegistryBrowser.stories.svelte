@@ -1,8 +1,9 @@
 <script module lang="ts">
   import { defineMeta } from "@storybook/addon-svelte-csf";
-  import { expect, userEvent } from "storybook/test";
+  import { expect, userEvent, waitFor, within } from "storybook/test";
 
   import RegistryBrowser from "./RegistryBrowser.svelte";
+  import RegistryBrowserCommunityStoryHarness from "./RegistryBrowserCommunityStoryHarness.svelte";
   import RegistryBrowserStoryHarness from "./RegistryBrowserStoryHarness.svelte";
 
   const { Story } = defineMeta({
@@ -41,6 +42,109 @@
 >
   {#snippet template()}
     <RegistryBrowserStoryHarness sourceMode="loading" />
+  {/snippet}
+</Story>
+
+<Story
+  name="Routed reviews controller"
+  play={async ({ canvas }) => {
+    const story = await canvas.findByTestId(
+      "registry-browser-community-story",
+      {},
+      { timeout: 10_000 },
+    );
+    await expect(story).toHaveAttribute("data-route", "reviews");
+    await expect(
+      await canvas.findByRole(
+        "region",
+        { name: "AI Assistant community discussion" },
+        { timeout: 15_000 },
+      ),
+    ).toBeVisible();
+    await expect(
+      await canvas.findByText(/Reply 41:/u, {}, { timeout: 15_000 }),
+    ).toBeVisible();
+    await expect(
+      await canvas.findByRole(
+        "heading",
+        { name: "New & Unread Topics" },
+        { timeout: 15_000 },
+      ),
+    ).toBeVisible();
+    await expect(
+      canvas.getByRole("button", { name: /Suggested Registry topic 2/u }),
+    ).toBeVisible();
+    const suggestions = await canvas.findByRole(
+      "region",
+      { name: "New & Unread topics" },
+      { timeout: 15_000 },
+    );
+    await expect(within(suggestions).getByText("Replies")).toBeVisible();
+    await expect(within(suggestions).getByText("Activity")).toBeVisible();
+    await expect(
+      within(suggestions).queryByRole("button", { name: / menu$/u }),
+    ).not.toBeInTheDocument();
+    await expect(
+      canvas.queryByText("Community discussion about AI Assistant."),
+    ).not.toBeInTheDocument();
+    await userEvent.click(canvas.getByRole("button", { name: "Details" }));
+    await waitFor(() => expect(story).toHaveAttribute("data-route", "details"));
+    await expect(
+      await canvas.findByRole("heading", { name: "AI Assistant", level: 1 }),
+    ).toBeVisible();
+    await expect(canvas.queryByText(/Reply 41:/u)).not.toBeInTheDocument();
+    await userEvent.click(canvas.getByRole("button", { name: /Reviews/u }));
+    await waitFor(() => expect(story).toHaveAttribute("data-route", "reviews"));
+    await expect(canvas.getByText(/Reply 41:/u)).toBeVisible();
+    await expect(
+      canvas.queryByRole("status", { name: "Loading discussion posts" }),
+    ).not.toBeInTheDocument();
+  }}
+>
+  {#snippet template()}
+    <RegistryBrowserCommunityStoryHarness />
+  {/snippet}
+</Story>
+
+<Story
+  name="Routed reviews mobile"
+  globals={{ viewport: { value: "mobile2", isRotated: false } }}
+  play={async ({ canvas }) => {
+    await expect(
+      await canvas.findByRole(
+        "region",
+        { name: "AI Assistant community discussion" },
+        { timeout: 15_000 },
+      ),
+    ).toBeVisible();
+    await expect(
+      await canvas.findByText(/Reply 41:/u, {}, { timeout: 15_000 }),
+    ).toBeVisible();
+  }}
+>
+  {#snippet template()}
+    <RegistryBrowserCommunityStoryHarness />
+  {/snippet}
+</Story>
+
+<Story
+  name="Routed reviews dark"
+  globals={{ colorMode: "dark" }}
+  play={async ({ canvas }) => {
+    await expect(
+      await canvas.findByRole(
+        "region",
+        { name: "AI Assistant community discussion" },
+        { timeout: 15_000 },
+      ),
+    ).toBeVisible();
+    await expect(
+      await canvas.findByText(/Reply 41:/u, {}, { timeout: 15_000 }),
+    ).toBeVisible();
+  }}
+>
+  {#snippet template()}
+    <RegistryBrowserCommunityStoryHarness />
   {/snippet}
 </Story>
 
@@ -139,15 +243,15 @@
     await expect(
       canvas.getByRole("button", { name: "Installed" }),
     ).toBeDisabled();
-    await userEvent.click(
-      canvas.getByRole("button", { name: "Reactions & reviews" }),
-    );
+    await userEvent.click(canvas.getByRole("button", { name: /Reviews/u }));
     await expect(
-      await canvas.findByRole("heading", {
-        name: "Reactions & reviews",
-        level: 1,
+      await canvas.findByRole("region", {
+        name: "AI Assistant reactions and reviews",
       }),
     ).toBeVisible();
+    await expect(
+      canvas.queryByText("Community discussion about AI Assistant."),
+    ).not.toBeInTheDocument();
     await expect(
       (await canvas.findAllByText("Seeded registry discussion"))[0],
     ).toBeVisible();

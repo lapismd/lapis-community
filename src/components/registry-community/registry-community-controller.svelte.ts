@@ -30,6 +30,7 @@ import {
 
 import {
   anyRelayPublished,
+  displayName,
   isValidNativeEmojiReaction,
   latestReactionByAuthor,
   materializeNip29Forum,
@@ -44,6 +45,15 @@ import {
   type ForumPost,
   type ForumReaction,
 } from "./model.js";
+import {
+  advanceRegistryDiscussionTopicCursor,
+  emptyRegistryDiscussionPreferences,
+  markRegistryDiscussionTopicUnread,
+  readRegistryDiscussionPreferences,
+  registryDiscussionPreferenceKey,
+  writeRegistryDiscussionPreferences,
+  type RegistryDiscussionPreferences,
+} from "./registry-discussion-preferences.js";
 import {
   DiscussionPaginationError,
   adjacentDiscussionWindow,
@@ -74,6 +84,17 @@ export interface RegistryCommunityControllerOptions
   extends RegistryCommunityProps {
   dataSource?: RegistryCommunityDataSource;
   identity?: RegistrySigner;
+}
+
+export interface RegistrySuggestedTopic {
+  post: ForumPost;
+  title: string;
+  author: string;
+  activityTimestamp: number;
+  replyCount?: number;
+  replyCountApproximate?: boolean;
+  unread: boolean;
+  isNew: boolean;
 }
 
 export function createRegistryCommunityController(
@@ -119,7 +140,15 @@ export function createRegistryCommunityController(
   let message = $state("");
   let error = $state("");
   let commentError = $state("");
-  let composerElement: HTMLDivElement | undefined;
+  let preferences = $state<RegistryDiscussionPreferences>(
+    emptyRegistryDiscussionPreferences(),
+  );
+  let preferencesStorageKey = "";
+  let suggestedTopics = $state<RegistrySuggestedTopic[]>([]);
+  let suggestionsLoading = $state(false);
+  let suggestionsLoaded = false;
+  let suggestionsRootEventId = "";
+  let suggestionsController: AbortController | undefined;
   let scrollTargetPostId = $state("");
   let scrollRevision = $state(0);
   let loadSequence = 0;
@@ -167,6 +196,9 @@ export function createRegistryCommunityController(
   const readStateKey = $derived(
     registryDiscussionReadKey(relayUrls, supportGroupId, signedInPubkey),
   );
+  const preferenceKey = $derived(
+    registryDiscussionPreferenceKey(relayUrls, supportGroupId, signedInPubkey),
+  );
   const releaseGroupId = lapisGroupId(LAPIS_GROUPS.pluginReleases);
   const reviews = $derived(
     allReviews.filter((entry) => visibleReviewIds.has(entry.event.id)),
@@ -209,6 +241,24 @@ export function createRegistryCommunityController(
         threadLastTimestamp,
       )
     );
+  });
+  const activeRootEventId = $derived.by(() => {
+    const active = allReviews.find((post) => post.event.id === activePostId);
+    return active?.rootEventId ?? reviews.at(-1)?.rootEventId ?? "";
+  });
+  const activeTopicPreference = $derived(preferences.topics[activeRootEventId]);
+  const unreadPostCount = $derived.by(() => {
+    if (!preferences.followed || activeRootEventId === "") return 0;
+    const cursor = activeTopicPreference?.readCursor;
+    const later = allReviews.filter(
+      (post) =>
+        post.rootEventId === activeRootEventId &&
+        (cursor === undefined ||
+          post.event.created_at > cursor.createdAt ||
+          (post.event.created_at === cursor.createdAt &&
+            post.event.id.localeCompare(cursor.eventId) > 0)),
+    ).length;
+    return Math.max(activeTopicPreference?.forcedUnread ? 1 : 0, later);
   });
   const hasPrevious = $derived(commentHasPrevious);
   const hasNext = $derived(commentHasNext);
@@ -1352,6 +1402,67 @@ export function createRegistryCommunityController(
     lastReadIndex = undefined;
   }
 
+  function loadLocalPreferences(): void {
+    if (preferencesStorageKey === preferenceKey) return;
+    const storage = browserStorage();
+    preferencesStorageKey = preferenceKey;
+    preferences =
+      storage === undefined
+        ? emptyRegistryDiscussionPreferences()
+        : readRegistryDiscussionPreferences(storage, preferenceKey);
+    suggestionsLoaded = false;
+    suggestionsRootEventId = "";
+    suggestedTopics = [];
+  }
+
+  function persistLocalPreferences(next: RegistryDiscussionPreferences): void {
+    if (next === preferences) return;
+    preferences = next;
+    const storage = browserStorage();
+    if (storage !== undefined) {
+      writeRegistryDiscussionPreferences(storage, preferenceKey, next);
+    }
+  }
+
+  function toggleFollow(): void {
+    persistLocalPreferences({
+      ...preferences,
+      followed: !preferences.followed,
+    });
+  }
+
+  function toggleBookmark(): void {
+    persistLocalPreferences({
+      ...preferences,
+      bookmarked: !preferences.bookmarked,
+    });
+  }
+
+  function markUnread(): void {
+    if (activeRootEventId === "") return;
+    persistLocalPreferences(
+      markRegistryDiscussionTopicUnread(preferences, activeRootEventId),
+    );
+  }
+
+  function setComposerHeight(height: number): void {
+    if (!Number.isFinite(height)) return;
+    persistLocalPreferences({
+      ...preferences,
+      composerHeight: Math.round(height),
+    });
+  }
+
+  function recordTopicRead(post: ForumPost): void {
+    if (loading || loadingJump) return;
+    persistLocalPreferences(
+      advanceRegistryDiscussionTopicCursor(preferences, post.rootEventId, {
+        eventId: post.event.id,
+        createdAt: post.event.created_at,
+      }),
+    );
+  }
+
   async function resolveStoredLastReadCursor(): Promise<void> {
     const storage = browserStorage();
     if (storage === undefined || supportGroupId === "") return;
@@ -1459,6 +1570,13 @@ export function createRegistryCommunityController(
         ]);
         if (sequence !== loadSequence || generation !== streamGeneration)
           return false;
+        const resolvedCount = commentCountAvailable
+          ? {
+              count: commentTotal,
+              approximate: commentTotalApproximate,
+              availableRelays: 1,
+            }
+          : undefined;
         applyCommentWindow(
           commentWindow,
           {
@@ -1468,6 +1586,9 @@ export function createRegistryCommunityController(
           },
           "replace",
         );
+        if (resolvedCount !== undefined) {
+          applyCommentCount(resolvedCount, generation);
+        }
         loading = false;
         if (activePostId !== "") requestPostScroll(activePostId);
 
@@ -1658,6 +1779,7 @@ export function createRegistryCommunityController(
       }
       signer = connectedSigner;
       signedInPubkey = pubkey;
+      loadLocalPreferences();
       loadStoredLastReadCursor();
       void resolveStoredLastReadCursor();
       selectedPluginReaction = ownPluginReaction?.content ?? "";
@@ -1665,6 +1787,7 @@ export function createRegistryCommunityController(
     } catch (cause) {
       signer = undefined;
       signedInPubkey = "";
+      loadLocalPreferences();
       loadStoredLastReadCursor();
       void resolveStoredLastReadCursor();
       error =
@@ -1686,6 +1809,7 @@ export function createRegistryCommunityController(
     if (nextIdentity === undefined) {
       signedInPubkey = "";
       selectedPluginReaction = "";
+      loadLocalPreferences();
       loadStoredLastReadCursor();
       void resolveStoredLastReadCursor();
       return;
@@ -1694,6 +1818,7 @@ export function createRegistryCommunityController(
       const pubkey = await nextIdentity.getPublicKey();
       if (revision !== identityRevision || signer !== nextIdentity) return;
       signedInPubkey = pubkey;
+      loadLocalPreferences();
       loadStoredLastReadCursor();
       void resolveStoredLastReadCursor();
       selectedPluginReaction = ownPluginReaction?.content ?? "";
@@ -1701,6 +1826,7 @@ export function createRegistryCommunityController(
       if (revision !== identityRevision || signer !== nextIdentity) return;
       signer = undefined;
       signedInPubkey = "";
+      loadLocalPreferences();
     }
   }
 
@@ -1853,9 +1979,6 @@ export function createRegistryCommunityController(
 
   function startReply(review: ForumPost): void {
     replyingTo = review.event.id;
-    requestAnimationFrame(() =>
-      composerElement?.scrollIntoView({ behavior: "smooth", block: "center" }),
-    );
   }
 
   function postNumber(eventId: string): number {
@@ -1872,6 +1995,118 @@ export function createRegistryCommunityController(
   function handleCurrentPost(eventId: string, globalIndex: number): void {
     activePostId = eventId;
     recordLastRead(eventId, globalIndex);
+    const post = allReviews.find((review) => review.event.id === eventId);
+    if (post !== undefined) recordTopicRead(post);
+  }
+
+  async function loadSuggestedTopics(): Promise<void> {
+    if (
+      (suggestionsLoaded && suggestionsRootEventId === activeRootEventId) ||
+      suggestionsLoading ||
+      hasNext
+    )
+      return;
+    suggestionsLoading = true;
+    suggestionsController?.abort();
+    const controller = new AbortController();
+    suggestionsController = controller;
+    const key = preferenceKey;
+    try {
+      const rootResult = await queryAll(
+        {
+          kinds: [NIP29_KINDS.forumThread],
+          "#h": [supportGroupId],
+          limit: 20,
+        },
+        controller.signal,
+      );
+      const roots = materializeNip29Forum(
+        rootResult.events,
+        supportGroupId,
+      ).filter((post) => post.rootEventId !== activeRootEventId);
+      const candidates = await Promise.all(
+        roots.slice(-8).map(async (post): Promise<RegistrySuggestedTopic> => {
+          const [latestResult, countResult] = await Promise.allSettled([
+            queryAll(
+              {
+                kinds: [NIP29_KINDS.comment],
+                "#h": [supportGroupId],
+                "#E": [post.event.id],
+                limit: 1,
+              },
+              controller.signal,
+            ),
+            countAll(
+              {
+                kinds: [NIP29_KINDS.comment],
+                "#h": [supportGroupId],
+                "#E": [post.event.id],
+              },
+              controller.signal,
+            ),
+          ]);
+          const latestReply =
+            latestResult.status === "fulfilled"
+              ? latestResult.value.events.at(-1)
+              : undefined;
+          const preference = preferences.topics[post.event.id];
+          const activityTimestamp = Math.max(
+            post.event.created_at,
+            latestReply?.created_at ?? 0,
+          );
+          const unread =
+            preference?.forcedUnread === true ||
+            (preference?.readCursor !== undefined &&
+              activityTimestamp > preference.readCursor.createdAt);
+          const title =
+            post.event.tags.find((tag) => tag[0] === "title")?.[1]?.trim() ||
+            post.content.trim().split(/\r?\n/u)[0]?.slice(0, 120) ||
+            "Discussion";
+          const count =
+            countResult.status === "fulfilled" &&
+            countResult.value.availableRelays > 0
+              ? countResult.value
+              : undefined;
+          return {
+            post,
+            title,
+            author: displayName(post.event.pubkey, profiles),
+            activityTimestamp,
+            ...(count === undefined ? {} : { replyCount: count.count }),
+            ...(count === undefined
+              ? {}
+              : { replyCountApproximate: count.approximate }),
+            unread,
+            isNew:
+              preference === undefined &&
+              post.event.created_at >= preferences.forumFirstSeenAt,
+          };
+        }),
+      );
+      if (controller.signal.aborted || key !== preferenceKey) return;
+      suggestedTopics = candidates
+        .toSorted(
+          (left, right) =>
+            Number(right.unread) - Number(left.unread) ||
+            Number(right.isNew) - Number(left.isNew) ||
+            right.activityTimestamp - left.activityTimestamp ||
+            left.post.event.id.localeCompare(right.post.event.id),
+        )
+        .slice(0, 5);
+      suggestionsLoaded = true;
+      suggestionsRootEventId = activeRootEventId;
+    } catch (cause) {
+      if (!isAbort(cause)) {
+        suggestedTopics = [];
+        suggestionsLoaded = true;
+        suggestionsRootEventId = activeRootEventId;
+      }
+    } finally {
+      if (suggestionsController === controller) {
+        suggestionsController = undefined;
+        suggestionsLoading = false;
+      }
+    }
   }
 
   async function navigateTimelineToIndex(
@@ -1989,8 +2224,14 @@ export function createRegistryCommunityController(
     if (discussionInitialized) return;
     discussionInitialized = true;
     if (signer !== undefined && signedInPubkey === "") {
-      signedInPubkey = await signer.getPublicKey();
+      try {
+        signedInPubkey = await signer.getPublicKey();
+      } catch {
+        signer = undefined;
+        signedInPubkey = "";
+      }
     }
+    loadLocalPreferences();
     loadStoredLastReadCursor();
     void resolveStoredLastReadCursor();
     const linkedEventId = window.location.hash.startsWith("#post-")
@@ -2032,6 +2273,7 @@ export function createRegistryCommunityController(
         signedInPubkey = "";
       }
     }
+    loadLocalPreferences();
     try {
       await Promise.allSettled([
         ensurePluginCommunity(summaryController.signal),
@@ -2050,6 +2292,7 @@ export function createRegistryCommunityController(
   function dispose(): void {
     jumpController?.abort();
     summaryController?.abort();
+    suggestionsController?.abort();
     dataSource.close();
   }
 
@@ -2186,6 +2429,33 @@ export function createRegistryCommunityController(
     get activePostTimestamp() {
       return activePostTimestamp;
     },
+    get activeRootEventId() {
+      return activeRootEventId;
+    },
+    get followed() {
+      return preferences.followed;
+    },
+    get bookmarked() {
+      return preferences.bookmarked;
+    },
+    get forcedUnread() {
+      return activeTopicPreference?.forcedUnread === true;
+    },
+    get unreadPostCount() {
+      return unreadPostCount;
+    },
+    get composerHeight() {
+      return preferences.composerHeight ?? 320;
+    },
+    get composerDraftKey() {
+      return preferenceKey;
+    },
+    get suggestedTopics() {
+      return suggestedTopics;
+    },
+    get suggestionsLoading() {
+      return suggestionsLoading;
+    },
     get hasPrevious() {
       return hasPrevious;
     },
@@ -2204,18 +2474,17 @@ export function createRegistryCommunityController(
     get commentPageSize() {
       return commentPageSize;
     },
-    get composerElement() {
-      return composerElement;
-    },
-    set composerElement(value: HTMLDivElement | undefined) {
-      composerElement = value;
-    },
     initialize,
     initializeSummary,
     initializeDiscussion,
     dispose,
     cancelReply,
     dismissError,
+    toggleFollow,
+    toggleBookmark,
+    markUnread,
+    setComposerHeight,
+    loadSuggestedTopics,
     connect,
     setIdentity,
     submitPluginReaction,

@@ -1,4 +1,6 @@
 <script lang="ts">
+  import type { Snippet } from "svelte";
+
   import DiscussionTimelineTrack from "./DiscussionTimelineTrack.svelte";
 
   let {
@@ -11,6 +13,7 @@
     disabled = false,
     approximate = false,
     pageSize = 20,
+    actions,
     onJump,
     onReturn,
   }: {
@@ -23,6 +26,7 @@
     disabled?: boolean;
     approximate?: boolean;
     pageSize?: number;
+    actions?: Snippet;
     onJump: (index: number) => void | Promise<void>;
     onReturn: () => void | Promise<void>;
   } = $props();
@@ -51,6 +55,9 @@
       {onJump}
       {onReturn}
     />
+    {#if actions}
+      <div class="history-actions">{@render actions()}</div>
+    {/if}
   </div>
 </aside>
 
@@ -114,6 +121,11 @@
         {onReturn}
         onCommitted={() => (mobileOpen = false)}
       />
+      {#if actions}
+        <div class="history-actions history-actions--mobile">
+          {@render actions()}
+        </div>
+      {/if}
     </div>
   </div>
 {/if}
@@ -122,6 +134,18 @@
   .history-sticky {
     position: sticky;
     top: calc(56px + 2.5rem);
+    display: grid;
+    gap: 0.75rem;
+  }
+
+  .history-actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+  }
+
+  .history-actions--mobile {
+    margin-top: 1rem;
   }
 
   .mobile-timeline-trigger,

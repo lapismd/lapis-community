@@ -472,12 +472,14 @@
     <div class="registry-plugin-detail__layout">
       <section class="registry-plugin-detail__content">
         <Tabs.Root bind:value={activeTab}>
-          <Tabs.List aria-label="Plugin sections">
+          <Tabs.List variant="line" aria-label="Plugin sections">
             <Tabs.Trigger value="overview">Overview</Tabs.Trigger>
             <Tabs.Trigger value="changelog">Changelog</Tabs.Trigger>
             <Tabs.Trigger value="releases"
               >Releases
-              <Badge variant="outline" class="registry-plugin-detail__tab-count"
+              <Badge
+                variant="secondary"
+                class="registry-plugin-detail__tab-count"
                 >{releases.length}</Badge
               ></Tabs.Trigger
             >
@@ -945,15 +947,33 @@
   .registry-plugin-detail__content :global([data-ui-part="tabs"]) {
     display: grid;
   }
+  .registry-plugin-detail__content :global([data-ui-part="tabs-list"]) {
+    justify-content: flex-start;
+    width: 100%;
+    border-bottom: 1px solid var(--border);
+    border-radius: 0;
+    padding: 0;
+  }
+  .registry-plugin-detail__content :global([data-ui-part="tabs-trigger"]) {
+    flex: 0 0 auto;
+    border-radius: 0;
+    padding: 0.65rem 0.85rem;
+  }
+  .registry-plugin-detail__content
+    :global([data-ui-part="tabs-trigger"][data-state="active"]) {
+    color: var(--primary);
+  }
+  .registry-plugin-detail__content
+    :global([data-ui-part="tabs-trigger"][data-state="active"]::after) {
+    background: var(--primary);
+  }
   .registry-plugin-detail__content :global([data-ui-part="tabs-content"]) {
     min-width: 0;
   }
   :global(.registry-plugin-detail__tab-count[data-ui-component="badge"]) {
     min-width: 1.25rem;
     justify-content: center;
-    border-color: color-mix(in srgb, currentColor 22%, transparent);
     padding-inline: 0.35rem;
-    background: color-mix(in srgb, var(--background) 78%, transparent);
     font-size: 0.7rem;
     font-variant-numeric: tabular-nums;
     line-height: 1;

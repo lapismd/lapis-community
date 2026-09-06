@@ -1585,7 +1585,10 @@
   }
 
   .community-chat-composer__editor-wrap {
-    --community-chat-composer-editor-max-height: calc(7 * 0.9rem * 1.55);
+    --community-chat-composer-editor-max-height: var(
+      --community-chat-composer-editor-max-height-override,
+      calc(7 * 0.9rem * 1.55)
+    );
 
     position: relative;
     width: 100%;

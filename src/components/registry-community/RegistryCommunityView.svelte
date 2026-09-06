@@ -1,14 +1,29 @@
 <script lang="ts">
-  import { onDestroy, tick } from "svelte";
+  import { onDestroy, tick, untrack } from "svelte";
   import * as Card from "@lapismd/design-core/shadcn/card";
+  import { Button } from "@lapismd/design-core/shadcn/button";
+  import * as ButtonGroup from "@lapismd/design-core/shadcn/button-group";
   import { Skeleton } from "@lapismd/design-core/shadcn/skeleton";
+  import * as Tooltip from "@lapismd/design-core/shadcn/tooltip";
+  import BellIcon from "@lucide/svelte/icons/bell";
+  import BellRingIcon from "@lucide/svelte/icons/bell-ring";
+  import BookmarkIcon from "@lucide/svelte/icons/bookmark";
+  import BookmarkCheckIcon from "@lucide/svelte/icons/bookmark-check";
+  import MessageSquareReplyIcon from "@lucide/svelte/icons/message-square-reply";
 
+  import { createBrowserCommunityComposerDraftStore } from "../community-chat-composer/browser-draft-store.js";
   import CommunitySummary from "../community-summary/CommunitySummary.svelte";
   import DiscussionComposer from "../discussion-composer/DiscussionComposer.svelte";
+  import type { DiscussionComposerPresentation } from "../discussion-composer/model.js";
   import DiscussionPostStream from "../discussion-post-stream/DiscussionPostStream.svelte";
   import DiscussionTimeline from "../discussion-timeline/DiscussionTimeline.svelte";
-  import PluginReactionControl from "../plugin-reaction-control/PluginReactionControl.svelte";
+  import ForumTopicList from "../forum-topic-list/ForumTopicList.svelte";
+  import type {
+    CommunityMemberModel,
+    CommunityTopicModel,
+  } from "../community-workspace/model.js";
   import { useRegistryDiscussionIsolation } from "../registry-plugin-detail/discussion-isolation-context.js";
+  import { initials } from "./model.js";
   import type { RegistryCommunityController } from "./registry-community-controller.svelte.js";
 
   let { controller }: { controller: RegistryCommunityController } = $props();
@@ -36,10 +51,7 @@
   const message = $derived(controller.message);
   const participantCount = $derived(controller.participantCount);
   const currentPluginReactions = $derived(controller.currentPluginReactions);
-  const pluginReactionSummary = $derived(controller.pluginReactionSummary);
   const publishing = $derived(controller.publishing);
-  const pluginRelease = $derived(controller.pluginRelease);
-  const ownPluginReaction = $derived(controller.ownPluginReaction);
   const replyingReview = $derived(controller.replyingReview);
   const signedInPubkey = $derived(controller.signedInPubkey);
   const activeGlobalPostIndex = $derived(controller.activeGlobalPostIndex);
@@ -55,21 +67,70 @@
   const activePostTimestamp = $derived(controller.activePostTimestamp);
   const timelineReturnIndex = $derived(controller.timelineReturnIndex);
   const commentPageSize = $derived(controller.commentPageSize);
-  let composerElement = $state<HTMLDivElement>();
+  const followed = $derived(controller.followed);
+  const bookmarked = $derived(controller.bookmarked);
+  const unreadPostCount = $derived(controller.unreadPostCount);
+  const suggestedTopics = $derived(controller.suggestedTopics);
+  const suggestionsLoading = $derived(controller.suggestionsLoading);
+  const activeRootEventId = $derived(controller.activeRootEventId);
+  const suggestedTopicModels = $derived<CommunityTopicModel[]>(
+    suggestedTopics.map((topic) => ({
+      id: topic.post.event.id,
+      title: topic.title,
+      excerpt: topic.post.content,
+      authorId: topic.post.event.pubkey,
+      replyCount: topic.replyCount ?? 0,
+      replyCountAvailable: topic.replyCount !== undefined,
+      ...(topic.replyCountApproximate === undefined
+        ? {}
+        : { replyCountApproximate: topic.replyCountApproximate }),
+      participantIds: [topic.post.event.pubkey],
+      lastActivityLabel: formatActivity(topic.activityTimestamp),
+      unread: topic.unread,
+      isNew: topic.isNew,
+    })),
+  );
+  const suggestedTopicMembers = $derived<CommunityMemberModel[]>(
+    suggestedTopics.map((topic) => {
+      const profile = profiles.get(topic.post.event.pubkey);
+      const displayName = profile?.name ?? topic.author;
+      return {
+        id: topic.post.event.pubkey,
+        name: displayName,
+        handle: topic.post.event.pubkey.slice(0, 12),
+        initials: initials(displayName),
+        ...(profile?.picture === undefined
+          ? {}
+          : { avatarUrl: profile.picture }),
+      };
+    }),
+  );
+  let composerPresentation = $state<DiscussionComposerPresentation>("closed");
+  let composerHeight = $state(untrack(() => controller.composerHeight));
+  const draftStore = untrack(() =>
+    typeof window === "undefined"
+      ? undefined
+      : createBrowserCommunityComposerDraftStore(),
+  );
   const isolation = useRegistryDiscussionIsolation();
-
-  $effect(() => {
-    controller.composerElement = composerElement;
-  });
 
   $effect(() => {
     isolation?.setIsolated(hasPrevious && pageStartIndex > 0);
   });
 
+  $effect(() => {
+    if (composerPresentation !== "closed") return;
+    composerHeight = controller.composerHeight;
+  });
+
+  $effect(() => {
+    activeRootEventId;
+    if (hasNext || reviews.length === 0) return;
+    untrack(() => void controller.loadSuggestedTopics());
+  });
+
   onDestroy(() => isolation?.setIsolated(false));
 
-  const submitPluginReaction = (emoji: string) =>
-    controller.submitPluginReaction(emoji);
   const postNumber = (eventId: string) => controller.postNumber(eventId);
   const handleCurrentPost = (eventId: string, globalIndex: number) =>
     controller.handleCurrentPost(eventId, globalIndex);
@@ -78,8 +139,10 @@
   const navigateToReview: RegistryCommunityController["navigateToReview"] = (
     review,
   ) => controller.navigateToReview(review);
-  const startReply: RegistryCommunityController["startReply"] = (review) =>
+  const startReply: RegistryCommunityController["startReply"] = (review) => {
     controller.startReply(review);
+    composerPresentation = "open";
+  };
   const submitReaction: RegistryCommunityController["submitReaction"] = (
     review,
     content,
@@ -101,7 +164,29 @@
     await controller.returnToTimelineOrigin();
     await waitForTargetScroll();
   };
+
+  function openComposer(): void {
+    composerPresentation = "open";
+  }
+
+  function formatActivity(timestamp: number): string {
+    return new Intl.DateTimeFormat(undefined, {
+      day: "numeric",
+      month: "short",
+    }).format(new Date(timestamp * 1_000));
+  }
+
+  function openSuggestedTopic(topicId: string): void {
+    const topic = suggestedTopics.find(
+      (candidate) => candidate.post.event.id === topicId,
+    );
+    if (topic !== undefined) void navigateToReview(topic.post);
+  }
 </script>
+
+{#snippet suggestionsHeading()}
+  <h2 class="discussion-suggestions__title">New &amp; Unread Topics</h2>
+{/snippet}
 
 {#snippet postStreamSkeleton()}
   <div
@@ -123,6 +208,65 @@
       </div>
     {/each}
   </div>
+{/snippet}
+
+{#snippet timelineActions()}
+  <Tooltip.Provider>
+    <ButtonGroup.Root aria-label="Discussion timeline actions">
+      <Tooltip.Root>
+        <Tooltip.Trigger>
+          {#snippet child({ props })}
+            <Button
+              {...props}
+              type="button"
+              variant="outline"
+              size="icon-sm"
+              aria-label="Reply to this discussion"
+              onclick={openComposer}
+            >
+              <MessageSquareReplyIcon aria-hidden="true" />
+            </Button>
+          {/snippet}
+        </Tooltip.Trigger>
+        <Tooltip.Content side="left">Reply to this discussion</Tooltip.Content>
+      </Tooltip.Root>
+      <Tooltip.Root>
+        <Tooltip.Trigger>
+          {#snippet child({ props })}
+            <Button
+              {...props}
+              class="timeline-follow-action"
+              type="button"
+              variant="outline"
+              size="icon-sm"
+              aria-label={followed
+                ? "Stop following this discussion"
+                : "Follow new activity"}
+              aria-pressed={followed}
+              onclick={controller.toggleFollow}
+            >
+              {#if followed}
+                <BellRingIcon aria-hidden="true" />
+              {:else}
+                <BellIcon aria-hidden="true" />
+              {/if}
+              {#if unreadPostCount > 0}
+                <span
+                  class="timeline-follow-action__count"
+                  aria-label={`${unreadPostCount} unread posts`}
+                >
+                  {unreadPostCount > 9 ? "9+" : unreadPostCount}
+                </span>
+              {/if}
+            </Button>
+          {/snippet}
+        </Tooltip.Trigger>
+        <Tooltip.Content side="left">
+          {followed ? "Stop following this discussion" : "Follow new activity"}
+        </Tooltip.Content>
+      </Tooltip.Root>
+    </ButtonGroup.Root>
+  </Tooltip.Provider>
 {/snippet}
 
 <section
@@ -147,15 +291,6 @@
         pluginReactions={currentPluginReactions.length}
       />
 
-      <PluginReactionControl
-        summary={pluginReactionSummary}
-        bind:selected={controller.selectedPluginReaction}
-        {publishing}
-        releaseAvailable={pluginRelease !== undefined}
-        hasOwnReaction={ownPluginReaction !== undefined}
-        onSubmit={submitPluginReaction}
-      />
-
       {#if error && composerStatus === undefined}
         <p class="notice error" role="alert">{error}</p>
       {:else if message}
@@ -169,11 +304,10 @@
           threadFirstTimestamp > 0 &&
           threadLastTimestamp > 0}
         aria-busy={loading || loadingJump || loadingPrevious || loadingNext}
+        style={`--discussion-composer-space: ${composerPresentation === "open" ? composerHeight + 24 : 0}px`}
       >
         <div class="topic-column">
-          {#if loading}
-            <p class="empty">Reading signed events from the relay…</p>
-          {:else if loadingJump}
+          {#if loading || loadingJump}
             {@render postStreamSkeleton()}
           {:else if reviews.length > 0}
             <DiscussionPostStream
@@ -202,18 +336,93 @@
             />
           {/if}
 
+          {#if !hasNext && reviews.length > 0}
+            <footer
+              class="discussion-topic-footer"
+              aria-label="Discussion actions"
+            >
+              <Button type="button" onclick={openComposer}>
+                <MessageSquareReplyIcon
+                  data-icon="inline-start"
+                  aria-hidden="true"
+                />
+                Reply
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                aria-pressed={bookmarked}
+                onclick={controller.toggleBookmark}
+              >
+                {#if bookmarked}
+                  <BookmarkCheckIcon
+                    data-icon="inline-start"
+                    aria-hidden="true"
+                  />
+                  Remove bookmark
+                {:else}
+                  <BookmarkIcon data-icon="inline-start" aria-hidden="true" />
+                  Bookmark
+                {/if}
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                onclick={controller.markUnread}
+              >
+                <BellIcon data-icon="inline-start" aria-hidden="true" />
+                Mark unread
+              </Button>
+            </footer>
+
+            {#if suggestionsLoading}
+              <section
+                class="discussion-suggestions"
+                aria-label="New and unread topics"
+              >
+                <h2>New &amp; Unread Topics</h2>
+                <div
+                  class="discussion-suggestions__skeleton"
+                  role="status"
+                  aria-label="Loading topic suggestions"
+                >
+                  {#each Array.from({ length: 3 }) as _}
+                    <Skeleton />
+                  {/each}
+                </div>
+              </section>
+            {:else if suggestedTopics.length > 0}
+              <div class="discussion-suggestions">
+                <ForumTopicList
+                  title="New & Unread"
+                  topics={suggestedTopicModels}
+                  members={suggestedTopicMembers}
+                  onOpenTopic={openSuggestedTopic}
+                  actions={suggestionsHeading}
+                  embedded
+                  showTopicActions={false}
+                />
+              </div>
+            {/if}
+          {/if}
+
           <DiscussionComposer
-            bind:element={composerElement}
             {name}
             replyingTo={replyingReview}
             {profiles}
             {postNumber}
             {signedInPubkey}
             {publishing}
+            variant="docked"
+            bind:presentation={composerPresentation}
+            bind:height={composerHeight}
+            draftKey={controller.composerDraftKey}
+            {...draftStore === undefined ? {} : { draftStore }}
             {...composerStatus === undefined ? {} : { composerStatus }}
             onDismissComposerStatus={controller.dismissError}
             bind:comment={controller.comment}
             onCancel={controller.cancelReply}
+            onHeightCommit={controller.setComposerHeight}
             onSubmit={controller.submitComment}
           />
         </div>
@@ -231,6 +440,7 @@
             pageSize={commentPageSize}
             onJump={navigateTimelineToIndex}
             onReturn={returnToTimelineOrigin}
+            actions={timelineActions}
           />
         {/if}
       </div>
@@ -258,8 +468,7 @@
     gap: 1.4rem;
   }
 
-  .notice,
-  .empty {
+  .notice {
     margin: 0;
     color: var(--muted-foreground);
     font-size: 0.9rem;
@@ -289,10 +498,67 @@
     display: grid;
     gap: 1.25rem;
     min-width: 0;
+    padding-bottom: var(--discussion-composer-space, 0);
+  }
+
+  .discussion-topic-footer {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    padding-block: 1rem;
+    border-top: 1px solid var(--border);
+  }
+
+  .discussion-suggestions {
+    display: grid;
+    gap: 0.75rem;
+    padding-block: 1rem;
+    border-top: 1px solid var(--border);
+  }
+
+  :global(.discussion-suggestions__title) {
+    margin: 0;
+    font-size: 1rem;
+  }
+
+  .discussion-suggestions__skeleton {
+    display: grid;
+  }
+
+  .discussion-suggestions__skeleton {
+    gap: 0.25rem;
+  }
+
+  .discussion-suggestions__skeleton :global([data-ui-component="skeleton"]) {
+    height: 3.5rem;
   }
 
   .topic-column :global(.post-stream) {
     margin-top: 0;
+  }
+
+  :global(.timeline-follow-action) {
+    position: relative;
+  }
+
+  .timeline-follow-action__count {
+    position: absolute;
+    top: -0.35rem;
+    right: -0.35rem;
+    display: grid;
+    place-items: center;
+    min-width: 1rem;
+    height: 1rem;
+    padding-inline: 0.2rem;
+    border: 1px solid var(--background);
+    border-radius: 999px;
+    background: var(--primary);
+    color: var(--primary-foreground);
+    font-size: 0.6rem;
+    font-weight: 700;
+    line-height: 1;
   }
 
   .discussion-seek-skeleton {

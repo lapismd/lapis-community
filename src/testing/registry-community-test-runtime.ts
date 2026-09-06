@@ -35,6 +35,7 @@ export interface RegistryCommunityTestScenarioOptions {
   namespace?: string;
   postCount?: number;
   postsPerSecond?: number;
+  suggestedTopicCount?: number;
   latencyMs?: number;
   includeReleaseEvents?: boolean;
   countMode?: "exact" | "approximate" | "unavailable";
@@ -83,6 +84,10 @@ export function createRegistryCommunityTestScenario(
   const groupId = lapisPluginSupportGroupId(plugin);
   const postCount = Math.max(2, Math.floor(options.postCount ?? 2));
   const postsPerSecond = Math.max(1, Math.floor(options.postsPerSecond ?? 1));
+  const suggestedTopicCount = Math.max(
+    0,
+    Math.floor(options.suggestedTopicCount ?? 0),
+  );
   const includeReleaseEvents = options.includeReleaseEvents ?? true;
   const releaseGroupId = lapisGroupId(LAPIS_GROUPS.pluginReleases);
   const release = finalizeEvent(
@@ -124,6 +129,31 @@ export function createRegistryCommunityTestScenario(
           relayUrl,
         ),
         key,
+      ),
+    );
+  }
+  const suggestedDiscussionEvents: NostrEvent[] = [];
+  for (let index = 0; index < suggestedTopicCount; index += 1) {
+    const suggested = finalizeEvent(
+      createNip29ForumThreadTemplate(
+        groupId,
+        `Suggested Registry topic ${index + 1}`,
+        createdAt + postCount + index * 2 + 10,
+      ),
+      index % 2 === 0 ? publisherKey : memberKey,
+    );
+    suggestedDiscussionEvents.push(
+      suggested,
+      finalizeEvent(
+        createNip29ForumCommentTemplate(
+          groupId,
+          suggested,
+          suggested,
+          `Follow-up for suggested topic ${index + 1}`,
+          suggested.created_at + 1,
+          relayUrl,
+        ),
+        index % 2 === 0 ? memberKey : publisherKey,
       ),
     );
   }
@@ -190,6 +220,7 @@ export function createRegistryCommunityTestScenario(
     ),
     ...(includeReleaseEvents ? [release] : []),
     ...discussionEvents,
+    ...suggestedDiscussionEvents,
     ...(includeReleaseEvents
       ? [
           finalizeEvent(

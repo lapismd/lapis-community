@@ -136,10 +136,12 @@
     await expect(
       await canvas.findByText(/Reply 259:/u, {}, { timeout: 15_000 }),
     ).toBeVisible();
-    await expect(community).toHaveAttribute(
-      "data-comment-count-available",
-      "false",
-    );
+    if (runtime.dataset.communityBackend === "memory") {
+      await expect(community).toHaveAttribute(
+        "data-comment-count-available",
+        "false",
+      );
+    }
     const timeline = await canvas.findByRole(
       "slider",
       { name: "Discussion position" },
@@ -149,6 +151,28 @@
     const track = canvas.getByRole("group", {
       name: "Discussion timeline",
     });
+    const timelineActions = canvas.getByRole("group", {
+      name: "Discussion timeline actions",
+    });
+    const timelineReply = within(timelineActions).getByRole("button", {
+      name: "Reply to this discussion",
+    });
+    const timelineFollow = within(timelineActions).getByRole("button", {
+      name: "Follow new activity",
+    });
+    await expect(timelineReply.textContent?.trim()).toBe("");
+    await expect(timelineFollow.textContent?.trim()).toBe("");
+    await userEvent.click(timelineFollow);
+    await expect(
+      within(timelineActions).getByRole("button", {
+        name: "Stop following this discussion",
+      }),
+    ).toHaveAttribute("aria-pressed", "true");
+    const bookmark = canvas.getByRole("button", { name: "Bookmark" });
+    await userEvent.click(bookmark);
+    await expect(
+      canvas.getByRole("button", { name: "Remove bookmark" }),
+    ).toHaveAttribute("aria-pressed", "true");
     const handleBounds = timeline.getBoundingClientRect();
     const trackBounds = track.getBoundingClientRect();
     let loadedWhileDragging = false;
@@ -237,7 +261,7 @@
 >
   {#snippet template()}
     <RegistryCommunityLongTimelineStoryHarness
-      countLatencyMs={700}
+      countLatencyMs={4_000}
       postsPerSecond={2}
     />
   {/snippet}
@@ -264,6 +288,17 @@
       { timeout: 15_000 },
     );
     await expect(canvas.getByLabelText("Approximately 40 posts")).toBeVisible();
+    await expect(
+      await canvas.findByText(/Reply 39:/u, {}, { timeout: 15_000 }),
+    ).toBeVisible();
+    await waitFor(
+      () =>
+        expect(community).toHaveAttribute(
+          "data-comment-total-approximate",
+          "true",
+        ),
+      { timeout: 15_000 },
+    );
     const timeline = canvas.getByRole("slider", {
       name: "Discussion position",
     });
@@ -272,9 +307,6 @@
       "aria-valuetext",
       "Approximately 40 posts; exact timeline navigation unavailable",
     );
-    await expect(
-      await canvas.findByText(/Reply 39:/u, {}, { timeout: 15_000 }),
-    ).toBeVisible();
   }}
 >
   {#snippet template()}

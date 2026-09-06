@@ -104,8 +104,12 @@ export interface CommunityTopicModel {
   authorId: string;
   tags?: string[];
   replyCount: number;
+  replyCountAvailable?: boolean;
+  replyCountApproximate?: boolean;
   participantIds: string[];
   lastActivityLabel: string;
+  unread?: boolean;
+  isNew?: boolean;
   pinned?: boolean;
   solved?: boolean;
 }

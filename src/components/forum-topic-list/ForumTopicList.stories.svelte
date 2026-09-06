@@ -127,3 +127,39 @@
     ).toHaveTextContent("34+");
   }}
 />
+
+<Story
+  name="Embedded topic states"
+  args={{
+    title: "New & Unread",
+    topics: [
+      {
+        ...communityStoryTopics[0]!,
+        unread: true,
+        replyCountApproximate: true,
+      },
+      {
+        ...communityStoryTopics[1]!,
+        isNew: true,
+        replyCountAvailable: false,
+      },
+    ],
+    members: communityStoryMembers,
+    onOpenTopic: fn(),
+    embedded: true,
+    showTopicActions: false,
+  }}
+  play={async ({ canvas }) => {
+    await expect(canvas.getByText("Unread")).toBeVisible();
+    await expect(canvas.getByText("New")).toBeVisible();
+    await expect(
+      canvas.getByLabelText("Approximately 34 replies"),
+    ).toHaveTextContent("~34");
+    await expect(
+      canvas.getByLabelText("Reply count unavailable"),
+    ).toHaveTextContent("—");
+    await expect(
+      canvas.queryByRole("button", { name: / menu$/u }),
+    ).not.toBeInTheDocument();
+  }}
+/>
