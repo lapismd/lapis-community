@@ -198,17 +198,38 @@
     await expect(
       await canvas.findByRole("region", { name: "Release management" }),
     ).toBeVisible();
-    await userEvent.click(
-      canvas.getByRole("button", { name: "Approve release" }),
+    const document = canvasElement.ownerDocument;
+    const destructiveProbe = document.createElement("span");
+    destructiveProbe.style.color = "var(--destructive)";
+    document.body.append(destructiveProbe);
+    const destructiveColor = getComputedStyle(destructiveProbe).color;
+    destructiveProbe.remove();
+    const reject = canvas.getByRole("button", { name: "Reject release" });
+    await expect(getComputedStyle(reject).backgroundColor).toBe(
+      destructiveColor,
     );
-    const page = within(canvasElement.ownerDocument.body);
+    await userEvent.click(reject);
+    const page = within(document.body);
+    const rejectDialog = page.getByRole("alertdialog", {
+      name: "Reject release?",
+    });
     await expect(
-      page.getByRole("alertdialog", { name: "Approve release?" }),
-    ).toBeVisible();
-    await userEvent.click(page.getByRole("button", { name: "Continue" }));
+      rejectDialog.getBoundingClientRect().width,
+    ).toBeLessThanOrEqual(448);
+    await expect(rejectDialog.getBoundingClientRect().width).toBeLessThan(
+      document.documentElement.clientWidth,
+    );
+    await expect(
+      getComputedStyle(
+        within(rejectDialog).getByRole("button", { name: "Continue" }),
+      ).backgroundColor,
+    ).toBe(destructiveColor);
+    await userEvent.click(
+      within(rejectDialog).getByRole("button", { name: "Continue" }),
+    );
     await expect(performReleaseAction).toHaveBeenCalledWith(
       expect.objectContaining({
-        action: "approve",
+        action: "reject",
         eventId,
         expectedManifestSha256: "0".repeat(64),
         expectedHeadEventId: "a".repeat(64),

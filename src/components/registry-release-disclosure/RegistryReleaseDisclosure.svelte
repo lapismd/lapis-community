@@ -1,4 +1,5 @@
 <script lang="ts">
+  import "../community-confirm-dialog.css";
   import { Badge } from "@lapismd/design-core/shadcn/badge";
   import * as AlertDialog from "@lapismd/design-core/shadcn/alert-dialog";
   import { Button } from "@lapismd/design-core/shadcn/button";
@@ -48,6 +49,12 @@
   let capabilities = $state<RegistryReleaseManagementCapabilities>();
   let confirmingAction = $state<RegistryReleaseManagementAction>();
   let performingAction = $state(false);
+
+  const destructiveActions = new Set<RegistryReleaseManagementAction>([
+    "reject",
+    "revoke",
+    "withdraw",
+  ]);
 
   const initialSource = untrack(() => source);
   const applicationAuthentication = useCommunityApplicationAuthentication();
@@ -368,9 +375,9 @@
               <Button
                 type="button"
                 size="sm"
-                variant={action === "approve" || action === "renew"
-                  ? "default"
-                  : "outline"}
+                variant={destructiveActions.has(action)
+                  ? "destructive"
+                  : "default"}
                 disabled={performingAction}
                 onclick={() => (confirmingAction = action)}
               >
@@ -406,7 +413,7 @@
     if (!next && !performingAction) confirmingAction = undefined;
   }}
 >
-  <AlertDialog.Content>
+  <AlertDialog.Content class="community-confirm-dialog">
     <AlertDialog.Header>
       <AlertDialog.Title>
         {confirmingAction === undefined
@@ -419,13 +426,25 @@
       </AlertDialog.Description>
     </AlertDialog.Header>
     <AlertDialog.Footer>
-      <AlertDialog.Cancel disabled={performingAction}>Cancel</AlertDialog.Cancel
-      >
+      <AlertDialog.Cancel disabled={performingAction}>
+        {#snippet child({ props })}
+          <Button {...props} variant="outline">Cancel</Button>
+        {/snippet}
+      </AlertDialog.Cancel>
       <AlertDialog.Action
         disabled={performingAction}
         onclick={() => void performAction()}
-        >{performingAction ? "Signing…" : "Continue"}</AlertDialog.Action
       >
+        {#snippet child({ props })}
+          <Button
+            {...props}
+            variant={confirmingAction !== undefined &&
+            destructiveActions.has(confirmingAction)
+              ? "destructive"
+              : "default"}>{performingAction ? "Signing…" : "Continue"}</Button
+          >
+        {/snippet}
+      </AlertDialog.Action>
     </AlertDialog.Footer>
   </AlertDialog.Content>
 </AlertDialog.Root>

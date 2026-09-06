@@ -1,4 +1,5 @@
 <script lang="ts">
+  import "../community-confirm-dialog.css";
   import { Button } from "@lapismd/design-core/shadcn/button";
   import * as AlertDialog from "@lapismd/design-core/shadcn/alert-dialog";
   import * as ButtonGroup from "@lapismd/design-core/shadcn/button-group";
@@ -705,7 +706,7 @@
 {/if}
 
 <AlertDialog.Root bind:open={trustResetOpen}>
-  <AlertDialog.Content>
+  <AlertDialog.Content class="community-confirm-dialog">
     <AlertDialog.Header>
       <AlertDialog.Title>Reset Registry trust history?</AlertDialog.Title>
       <AlertDialog.Description>
@@ -718,12 +719,20 @@
       </AlertDialog.Description>
     </AlertDialog.Header>
     <AlertDialog.Footer>
-      <AlertDialog.Cancel disabled={trustResetting}>Cancel</AlertDialog.Cancel>
+      <AlertDialog.Cancel disabled={trustResetting}>
+        {#snippet child({ props })}
+          <Button {...props} variant="outline">Cancel</Button>
+        {/snippet}
+      </AlertDialog.Cancel>
       <AlertDialog.Action
         disabled={trustResetting}
         onclick={() => void resetRegistryTrustHistory()}
       >
-        {trustResetting ? "Resetting…" : "Reset trust history"}
+        {#snippet child({ props })}
+          <Button {...props} variant="destructive">
+            {trustResetting ? "Resetting…" : "Reset trust history"}
+          </Button>
+        {/snippet}
       </AlertDialog.Action>
     </AlertDialog.Footer>
   </AlertDialog.Content>

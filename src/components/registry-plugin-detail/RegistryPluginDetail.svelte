@@ -1,4 +1,5 @@
 <script lang="ts">
+  import "../community-confirm-dialog.css";
   import { tick, type Snippet } from "svelte";
 
   import * as Alert from "@lapismd/design-core/shadcn/alert";
@@ -776,7 +777,7 @@
   {/if}
 
   <AlertDialog.Root bind:open={historicalConfirmationOpen}>
-    <AlertDialog.Content>
+    <AlertDialog.Content class="community-confirm-dialog">
       <AlertDialog.Header>
         <AlertDialog.Title>Install historical release?</AlertDialog.Title>
         <AlertDialog.Description>
@@ -791,13 +792,21 @@
         </AlertDialog.Description>
       </AlertDialog.Header>
       <AlertDialog.Footer>
-        <AlertDialog.Cancel>Cancel</AlertDialog.Cancel>
+        <AlertDialog.Cancel>
+          {#snippet child({ props })}
+            <Button {...props} variant="outline">Cancel</Button>
+          {/snippet}
+        </AlertDialog.Cancel>
         <AlertDialog.Action
           onclick={() => {
             historicalConfirmationOpen = false;
             void performInstall();
-          }}>Install {displayedVersion}</AlertDialog.Action
+          }}
         >
+          {#snippet child({ props })}
+            <Button {...props}>Install {displayedVersion}</Button>
+          {/snippet}
+        </AlertDialog.Action>
       </AlertDialog.Footer>
     </AlertDialog.Content>
   </AlertDialog.Root>

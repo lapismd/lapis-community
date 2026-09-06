@@ -45,9 +45,10 @@ the Astro renderer, while the sibling `nostr-relay` repository owns relay
 deployment and persistence.
 
 Community presentation filtering happens after verified events enter the raw
-event runtime. Registry control events therefore remain available to the
-registry verifier and disposable cache even when timelines, Inbox, activity,
-and search projections omit their machine-readable payloads.
+event runtime. Registry publisher-authorization and registry-head control
+events therefore remain available to the registry verifier and disposable
+cache even when timelines, Inbox, activity, and search projections omit their
+machine-readable payloads.
 
 The public `registry` entry point models that projection independently of
 Svelte and relay transport. Its HTTP adapter validates static projection

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import "../community-confirm-dialog.css";
   import type { ComposerStatus } from "@lapismd/design-core/ai/chat";
   import { Button } from "@lapismd/design-core/shadcn/button";
   import * as Alert from "@lapismd/design-core/shadcn/alert";
@@ -2746,7 +2747,9 @@
       cancelPendingParticipation();
   }}
 >
-  <AlertDialog.Content class="community-application__alert-dialog">
+  <AlertDialog.Content
+    class="community-application__alert-dialog community-confirm-dialog"
+  >
     <AlertDialog.Header>
       <AlertDialog.Title>
         Join {pendingParticipation?.roomName ?? "this room"} to continue?
@@ -2794,7 +2797,9 @@
     if (!open) confirmation = null;
   }}
 >
-  <AlertDialog.Content class="community-application__alert-dialog">
+  <AlertDialog.Content
+    class="community-application__alert-dialog community-confirm-dialog"
+  >
     <AlertDialog.Header>
       <AlertDialog.Title
         >{confirmation === "delete"
@@ -2930,13 +2935,6 @@
   :global(.community-application__section-dialog) {
     width: min(22rem, calc(100vw - 2rem));
     max-width: 22rem;
-  }
-
-  :global(
-      .community-application__alert-dialog[data-ui-part="alert-dialog-content"]
-    ) {
-    width: min(28rem, calc(100vw - 2rem));
-    max-width: 28rem;
   }
 
   :global(.community-application__relay-alert[data-ui-component="alert"]) {

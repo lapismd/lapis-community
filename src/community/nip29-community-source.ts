@@ -5,7 +5,7 @@ import type {
   RelayFilter,
 } from "../nostr/index.js";
 import type { NostrEvent, NostrEventTemplate } from "../protocol/index.js";
-import { isRegistryPublisherAuthorizationEvent } from "../protocol/registry-control.js";
+import { isRegistryControlEvent } from "../protocol/registry-control.js";
 
 import { communityRooms } from "./materialize.js";
 import { createNip17GiftWraps, unwrapNip17GiftWrap } from "./nip17.js";
@@ -565,7 +565,7 @@ class Nip29CommunitySession implements CommunitySession {
     return events
       .filter(
         (event) =>
-          !isRegistryPublisherAuthorizationEvent(event) &&
+          !isRegistryControlEvent(event) &&
           event.content.toLocaleLowerCase().includes(normalized),
       )
       .map((event) => ({ event, relayUrl: this.#scope.relayUrl }));

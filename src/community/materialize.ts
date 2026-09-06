@@ -9,7 +9,7 @@ import type {
   CommunityWorkspaceModel,
 } from "../components/index.js";
 import type { NostrEvent } from "../protocol/index.js";
-import { isRegistryPublisherAuthorizationEvent } from "../protocol/registry-control.js";
+import { isRegistryControlEvent } from "../protocol/registry-control.js";
 
 import type {
   CommunityPrivateEvent,
@@ -351,10 +351,7 @@ export function materializeCommunityInbox(
 function acceptedEvents(events: readonly NostrEvent[]): NostrEvent[] {
   const accepted = new Map<string, NostrEvent>();
   for (const event of events) {
-    if (
-      isVerifiedNostrEvent(event) &&
-      !isRegistryPublisherAuthorizationEvent(event)
-    ) {
+    if (isVerifiedNostrEvent(event) && !isRegistryControlEvent(event)) {
       accepted.set(event.id, event);
     }
   }

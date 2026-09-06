@@ -371,9 +371,14 @@
       canvas.getByRole("button", { name: "Install in Lapis" }),
     );
     const page = within(canvasElement.ownerDocument.body);
-    await expect(
-      page.getByRole("alertdialog", { name: "Install historical release?" }),
-    ).toBeVisible();
+    const dialog = page.getByRole("alertdialog", {
+      name: "Install historical release?",
+    });
+    await expect(dialog).toBeVisible();
+    await expect(dialog.getBoundingClientRect().width).toBeLessThanOrEqual(448);
+    await expect(dialog.getBoundingClientRect().width).toBeLessThan(
+      canvasElement.ownerDocument.documentElement.clientWidth,
+    );
     await expect(
       page.getByText(/current trusted release is 1\.4\.0/u),
     ).toBeVisible();
@@ -448,6 +453,20 @@
     const dialog = page.getByRole("alertdialog", {
       name: "Reset Registry trust history?",
     });
+    await expect(dialog.getBoundingClientRect().width).toBeLessThanOrEqual(448);
+    await expect(dialog.getBoundingClientRect().width).toBeLessThan(
+      canvasElement.ownerDocument.documentElement.clientWidth,
+    );
+    const destructiveProbe = canvasElement.ownerDocument.createElement("span");
+    destructiveProbe.style.color = "var(--destructive)";
+    canvasElement.ownerDocument.body.append(destructiveProbe);
+    const destructiveColor = getComputedStyle(destructiveProbe).color;
+    destructiveProbe.remove();
+    await expect(
+      getComputedStyle(
+        within(dialog).getByRole("button", { name: "Reset trust history" }),
+      ).backgroundColor,
+    ).toBe(destructiveColor);
     await userEvent.click(
       within(dialog).getByRole("button", { name: "Reset trust history" }),
     );

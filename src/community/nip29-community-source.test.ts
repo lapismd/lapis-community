@@ -87,7 +87,7 @@ describe("createNip29CommunitySource", () => {
     session.close();
   });
 
-  it("retains publisher authorization events without exposing them as community content", async () => {
+  it("retains registry control events without exposing them as community content", async () => {
     const scenario = createCommunityTestScenario();
     const relayFactory = createInMemoryRelayFactory({
       policy: new Nip29MemoryPolicy({
@@ -111,6 +111,17 @@ describe("createNip29CommunitySource", () => {
       ],
     });
     await relay.publish(authorization);
+    const head = await scenario.operator.signEvent({
+      kind: 9,
+      created_at: 1_700_000_016,
+      content: JSON.stringify({ schema: "lapis.registry.plugin-head/1" }),
+      tags: [
+        ["h", "general"],
+        ["t", "lapis-plugin-registry-head"],
+        ["t", "plugin:ai"],
+      ],
+    });
+    await relay.publish(head);
 
     const session = await createNip29CommunitySource({ relayFactory }).open(
       scenario.scope,
@@ -124,13 +135,13 @@ describe("createNip29CommunitySource", () => {
       { activeRoomId: "general" },
     );
 
-    expect(snapshot.events.map((event) => event.id)).toContain(
-      authorization.id,
+    expect(snapshot.events.map((event) => event.id)).toEqual(
+      expect.arrayContaining([authorization.id, head.id]),
     );
-    expect(workspace.messages.map((message) => message.id)).not.toContain(
-      authorization.id,
+    expect(workspace.messages.map((message) => message.id)).toEqual(
+      expect.not.arrayContaining([authorization.id, head.id]),
     );
-    await expect(session.search("authorized")).resolves.toEqual([]);
+    await expect(session.search("lapis.registry")).resolves.toEqual([]);
     session.close();
   });
 

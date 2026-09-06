@@ -159,7 +159,7 @@ describe("CommunityEventRuntime", () => {
     runtime.dispose();
   });
 
-  it("caches registry publisher authorization without presenting it as a message or search result", async () => {
+  it("caches registry control events without presenting them as messages or search results", async () => {
     const store = createMemoryCommunityEventStore();
     const runtime = createInlineCommunityEventRuntime({ store });
     const authorization = finalizeEvent(
@@ -178,13 +178,26 @@ describe("CommunityEventRuntime", () => {
       },
       new Uint8Array(32).fill(46),
     );
+    const head = finalizeEvent(
+      {
+        kind: 9,
+        created_at: 1_700_000_003,
+        content: JSON.stringify({ schema: "lapis.registry.plugin-head/1" }),
+        tags: [
+          ["h", "general"],
+          ["t", "lapis-plugin-registry-head"],
+          ["t", "plugin:ai"],
+        ],
+      },
+      new Uint8Array(32).fill(47),
+    );
 
     await runtime.restore([scope], 1);
     await runtime.ingest({
       generation: 1,
       scope,
       relayUrl: scope.relayUrl,
-      events: [authorization],
+      events: [authorization, head],
     });
     const projection = await runtime.project({
       generation: 1,
@@ -199,10 +212,12 @@ describe("CommunityEventRuntime", () => {
       runtime.search({
         generation: 1,
         scopeId: scope.id,
-        query: "authorized",
+        query: "lapis.registry",
       }),
     ).resolves.toEqual([]);
-    expect((await store.restore(scope)).events).toContainEqual(authorization);
+    expect((await store.restore(scope)).events).toEqual(
+      expect.arrayContaining([authorization, head]),
+    );
     runtime.dispose();
   });
 

@@ -1,5 +1,5 @@
 import type { NostrEvent } from "../protocol/index.js";
-import { isRegistryPublisherAuthorizationEvent } from "../protocol/registry-control.js";
+import { isRegistryControlEvent } from "../protocol/registry-control.js";
 
 import type {
   CommunityCacheState,
@@ -237,7 +237,7 @@ export class InlineCommunityEventRuntime implements CommunityEventRuntime {
     return events
       .filter(
         (event) =>
-          !isRegistryPublisherAuthorizationEvent(event) &&
+          !isRegistryControlEvent(event) &&
           event.content.toLocaleLowerCase().includes(query),
       )
       .toSorted(

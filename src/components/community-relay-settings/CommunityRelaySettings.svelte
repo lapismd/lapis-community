@@ -1,4 +1,5 @@
 <script lang="ts">
+  import "../community-confirm-dialog.css";
   import { Button } from "@lapismd/design-core/shadcn/button";
   import * as AlertDialog from "@lapismd/design-core/shadcn/alert-dialog";
   import * as Dialog from "@lapismd/design-core/shadcn/dialog";
@@ -151,7 +152,9 @@
 </Dialog.Root>
 
 <AlertDialog.Root bind:open={clearConfirmationOpen}>
-  <AlertDialog.Content class="community-relay-settings__alert-dialog">
+  <AlertDialog.Content
+    class="community-relay-settings__alert-dialog community-confirm-dialog"
+  >
     <AlertDialog.Header>
       <AlertDialog.Title>Clear local community data?</AlertDialog.Title>
       <AlertDialog.Description>
@@ -182,13 +185,6 @@
 <style>
   :global(.community-relay-settings) {
     width: min(calc(100vw - 2rem), 31rem);
-  }
-
-  :global(
-      .community-relay-settings__alert-dialog[data-ui-part="alert-dialog-content"]
-    ) {
-    width: min(28rem, calc(100vw - 2rem));
-    max-width: 28rem;
   }
 
   .community-relay-settings__form {
