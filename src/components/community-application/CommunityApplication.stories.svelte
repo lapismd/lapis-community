@@ -643,6 +643,90 @@
 </Story>
 
 <Story
+  name="Registry discussion login transition"
+  play={async ({ canvas, canvasElement }) => {
+    const application = await canvas.findByTestId(
+      "full-community-application",
+      {},
+      { timeout: 15_000 },
+    );
+    await waitFor(
+      () =>
+        expect(application).toHaveAttribute(
+          "data-community-status",
+          "connected",
+        ),
+      { timeout: 15_000 },
+    );
+    if (application.dataset.communityBackend !== "memory") return;
+    await userEvent.click(
+      (
+        await canvas.findAllByRole("button", {
+          name: "Open AI Assistant",
+        })
+      )[0]!,
+    );
+    const discussion = await canvas.findByRole(
+      "region",
+      { name: "Registry Demo community discussion" },
+      { timeout: 15_000 },
+    );
+    const scoped = within(discussion);
+    await expect(
+      scoped.queryByText(/NIP-07|signer is required/iu),
+    ).not.toBeInTheDocument();
+    await userEvent.click(
+      scoped.getByRole("button", {
+        name: "Start a discussion about Registry Demo",
+      }),
+    );
+    const composer = scoped.getByRole("textbox", {
+      name: "Markdown editor",
+    });
+    await userEvent.type(
+      composer,
+      "Published after the host-provided login completed.",
+    );
+    await userEvent.click(
+      scoped.getByRole("button", { name: "Publish comment" }),
+    );
+
+    const overlay = within(canvasElement.ownerDocument.body);
+    const loginDialog = await overlay.findByRole("dialog", {
+      name: "Connect to Nostr",
+    });
+    const login = within(loginDialog);
+    await userEvent.click(
+      login.getByRole("button", { name: /Paste a private key/u }),
+    );
+    await userEvent.type(
+      login.getByLabelText("Private key"),
+      "nsec1storybookexample",
+    );
+    await userEvent.click(
+      login.getByRole("button", { name: "Sign in with private key" }),
+    );
+    await waitFor(() => expect(loginDialog).not.toBeInTheDocument(), {
+      timeout: 15_000,
+    });
+    await expect(
+      await scoped.findByText(
+        "Published after the host-provided login completed.",
+        {},
+        { timeout: 15_000 },
+      ),
+    ).toBeVisible();
+  }}
+>
+  {#snippet template()}
+    <CommunityApplicationStoryHarness
+      namespace="registry-discussion-login"
+      signedIn={false}
+    />
+  {/snippet}
+</Story>
+
+<Story
   name="Nonmember joins before posting"
   play={async ({ canvas, canvasElement }) => {
     const application = await canvas.findByTestId(

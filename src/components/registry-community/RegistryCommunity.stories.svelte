@@ -59,15 +59,23 @@
     await expect(
       canvas.getByText("The shared controller boundary keeps this portable."),
     ).toBeVisible();
+    const composerTrigger = canvas.getByRole("button", {
+      name: "Start a discussion about Registry Demo",
+    });
+    const finalPost = canvas
+      .getByText("The shared controller boundary keeps this portable.")
+      .closest("[data-post-id]");
+    if (finalPost === null)
+      throw new Error("Expected the final discussion post");
+    await expect(
+      finalPost.compareDocumentPosition(composerTrigger) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).not.toBe(0);
     await expect(canvas.queryByText("1 relay")).not.toBeInTheDocument();
     await expect(
       canvas.queryByRole("heading", { name: "Discussion" }),
     ).not.toBeInTheDocument();
-    await userEvent.click(
-      canvas.getByRole("button", {
-        name: "Start a discussion about Registry Demo",
-      }),
-    );
+    await userEvent.click(composerTrigger);
     await expect(
       canvas.queryByText("No comments yet. Start the conversation."),
     ).not.toBeInTheDocument();

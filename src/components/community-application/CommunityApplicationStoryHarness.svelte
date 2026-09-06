@@ -327,7 +327,7 @@
 {:else if community && runtime}
   {#snippet registryDiscussion()}
     <div class="community-application-story__registry-discussion">
-      <RegistryCommunityStoryHarness />
+      <RegistryCommunityStoryHarness useHostIdentity />
     </div>
   {/snippet}
   {#key applicationGeneration}

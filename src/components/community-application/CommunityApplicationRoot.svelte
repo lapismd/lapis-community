@@ -4,6 +4,8 @@
   import XIcon from "@lucide/svelte/icons/x";
   import { tick, type ComponentProps } from "svelte";
 
+  import { readCommunityControllerIdentity } from "../../community/controller-identity-context.js";
+  import type { CommunityIdentity } from "../../community/index.js";
   import CommunityLogin from "../community-login/CommunityLogin.svelte";
   import {
     resolveCommunityLoginMethods,
@@ -11,6 +13,7 @@
     type CommunityLoginMethodModel,
   } from "../community-login/model.js";
   import CommunityAuthenticatedApplication from "./CommunityApplication.svelte";
+  import { provideCommunityApplicationAuthentication } from "./authentication-context.js";
   import type { CommunityApplicationLoginOptions } from "./model.js";
 
   type AuthenticatedApplicationProps = ComponentProps<
@@ -35,6 +38,7 @@
   let pendingLoginMethodId = $state("");
   let loginError = $state("");
   let pendingAction = $state<PendingAction>();
+  let connectedIdentity = $state<CommunityIdentity>();
   const loginMethods = $derived<readonly CommunityLoginMethodModel[]>(
     resolveCommunityLoginMethods(
       loginOptions?.methods,
@@ -48,6 +52,24 @@
   const loginMessage = $derived(
     loginError || controller.state.authentication.error || "",
   );
+
+  provideCommunityApplicationAuthentication({
+    requestAuthentication,
+    identity: () => {
+      controller.state.authentication.status;
+      return (
+        connectedIdentity ??
+        readCommunityControllerIdentity(controller) ??
+        authenticatedProps.registryOptions?.discussionIdentity
+      );
+    },
+  });
+
+  $effect(() => {
+    if (controller.state.authentication.status !== "connected") {
+      connectedIdentity = undefined;
+    }
+  });
 
   function requestAuthentication(action: AuthenticatedAction): Promise<void> {
     if (controller.state.authentication.status === "connected")
@@ -84,6 +106,7 @@
         await controller.actions.connectIdentity({
           connect: async () => identity,
         });
+        connectedIdentity = identity;
       } else {
         if (methodId !== "browser-extension") {
           const method = loginMethods.find(
@@ -94,6 +117,7 @@
           );
         }
         await controller.actions.connectIdentity();
+        connectedIdentity = readCommunityControllerIdentity(controller);
       }
 
       const resumed = pendingAction;

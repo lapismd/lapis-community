@@ -128,11 +128,7 @@
 </script>
 
 {#snippet identityAction()}
-  {#if signedInPubkey === ""}
-    <span class="discussion-composer__signer-note">
-      A NIP-07 signer is required to publish.
-    </span>
-  {:else}
+  {#if signedInPubkey !== ""}
     <Popover.Root>
       <Popover.Trigger>
         {#snippet child({ props })}
@@ -257,11 +253,6 @@
     border-color: var(--border);
     color: var(--foreground);
     background: color-mix(in srgb, var(--foreground) 3%, transparent);
-  }
-
-  .discussion-composer__signer-note {
-    color: var(--muted-foreground);
-    font-size: 0.78rem;
   }
 
   :global(.discussion-composer__identity) {

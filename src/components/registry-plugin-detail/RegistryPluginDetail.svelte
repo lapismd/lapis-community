@@ -476,7 +476,10 @@
             <Tabs.Trigger value="overview">Overview</Tabs.Trigger>
             <Tabs.Trigger value="changelog">Changelog</Tabs.Trigger>
             <Tabs.Trigger value="releases"
-              >Releases <span>{releases.length}</span></Tabs.Trigger
+              >Releases
+              <Badge variant="outline" class="registry-plugin-detail__tab-count"
+                >{releases.length}</Badge
+              ></Tabs.Trigger
             >
           </Tabs.List>
           <Tabs.Content value="overview">
@@ -943,6 +946,16 @@
   }
   .registry-plugin-detail__content :global([data-ui-part="tabs-content"]) {
     min-width: 0;
+  }
+  :global(.registry-plugin-detail__tab-count[data-ui-component="badge"]) {
+    min-width: 1.25rem;
+    justify-content: center;
+    border-color: color-mix(in srgb, currentColor 22%, transparent);
+    padding-inline: 0.35rem;
+    background: color-mix(in srgb, var(--background) 78%, transparent);
+    font-size: 0.7rem;
+    font-variant-numeric: tabular-nums;
+    line-height: 1;
   }
   .registry-plugin-detail__prose {
     display: grid;

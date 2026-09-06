@@ -24,6 +24,9 @@
     onSubmit: fn(async () => true),
   }}
   play={async ({ canvas, args }) => {
+    await expect(
+      canvas.queryByText(/NIP-07|signer is required/iu),
+    ).not.toBeInTheDocument();
     await userEvent.click(
       canvas.getByRole("button", { name: "Start a discussion about AI" }),
     );
@@ -31,6 +34,9 @@
       name: "Markdown editor",
     });
     await expect(composer).toHaveFocus();
+    await expect(
+      canvas.queryByText(/NIP-07|signer is required/iu),
+    ).not.toBeInTheDocument();
     await userEvent.type(composer, "A portable registry is useful.");
     await userEvent.keyboard("{Enter}");
     await expect(args.onSubmit).toHaveBeenCalledWith(

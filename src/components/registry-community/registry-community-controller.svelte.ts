@@ -60,6 +60,7 @@ import {
   writeRegistryDiscussionCursor,
   type RegistryDiscussionReadCursor,
 } from "./registry-discussion-read-state.js";
+import type { CommunityApplicationAuthenticationContext } from "../community-application/authentication-context.js";
 
 export interface RegistryCommunityProps {
   plugin?: string;
@@ -77,6 +78,7 @@ export interface RegistryCommunityControllerOptions
 
 export function createRegistryCommunityController(
   options: RegistryCommunityControllerOptions,
+  applicationAuthentication?: CommunityApplicationAuthenticationContext,
 ) {
   const plugin = options.plugin ?? "";
   const name = options.name ?? "Plugin";
@@ -123,6 +125,7 @@ export function createRegistryCommunityController(
   let streamGeneration = 0;
   let jumpController: AbortController | undefined;
   let pluginCommunityLoaded = false;
+  let identityRevision = 0;
 
   const dataSource =
     options.dataSource ??
@@ -1625,6 +1628,36 @@ export function createRegistryCommunityController(
     }
   }
 
+  async function setIdentity(nextIdentity: RegistrySigner | undefined) {
+    if (
+      signer === nextIdentity &&
+      (nextIdentity === undefined || signedInPubkey !== "")
+    ) {
+      return;
+    }
+    const revision = ++identityRevision;
+    signer = nextIdentity;
+    if (nextIdentity === undefined) {
+      signedInPubkey = "";
+      selectedPluginReaction = "";
+      loadStoredLastReadCursor();
+      void resolveStoredLastReadCursor();
+      return;
+    }
+    try {
+      const pubkey = await nextIdentity.getPublicKey();
+      if (revision !== identityRevision || signer !== nextIdentity) return;
+      signedInPubkey = pubkey;
+      loadStoredLastReadCursor();
+      void resolveStoredLastReadCursor();
+      selectedPluginReaction = ownPluginReaction?.content ?? "";
+    } catch {
+      if (revision !== identityRevision || signer !== nextIdentity) return;
+      signer = undefined;
+      signedInPubkey = "";
+    }
+  }
+
   async function publish(event: NostrEvent): Promise<void> {
     const activeSigner = signer;
     if (activeSigner === undefined) {
@@ -1643,7 +1676,16 @@ export function createRegistryCommunityController(
   }
 
   async function ensureSigner(): Promise<RegistrySigner | undefined> {
-    if (signer === undefined) await connect();
+    if (signer !== undefined) return signer;
+    if (applicationAuthentication !== undefined) {
+      let resumed = false;
+      await applicationAuthentication.requestAuthentication(async () => {
+        resumed = true;
+        await setIdentity(applicationAuthentication.identity());
+      });
+      return resumed ? signer : undefined;
+    }
+    await connect();
     return signer;
   }
 
@@ -1693,7 +1735,6 @@ export function createRegistryCommunityController(
     const activeSigner = await ensureSigner();
     if (activeSigner === undefined) {
       comment = submittedComment;
-      commentError = error || "Could not connect to the Nostr signer.";
       return false;
     }
     publishing = true;
@@ -2100,6 +2141,7 @@ export function createRegistryCommunityController(
     cancelReply,
     dismissError,
     connect,
+    setIdentity,
     submitPluginReaction,
     submitComment,
     submitReaction,

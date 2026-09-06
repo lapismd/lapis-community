@@ -113,7 +113,12 @@
     await expect(
       canvas.getByRole("heading", { name: "Changelog" }),
     ).toBeVisible();
-    await userEvent.click(canvas.getByRole("tab", { name: /Releases/u }));
+    const releasesTab = canvas.getByRole("tab", { name: /Releases/u });
+    const releasesCount = within(releasesTab).getByText(
+      Object.keys(args.resolved.detail.versions).length.toString(),
+    );
+    await expect(releasesCount).toHaveAttribute("data-ui-component", "badge");
+    await userEvent.click(releasesTab);
     await expect(canvas.getByText("0.9.0")).toBeVisible();
     await userEvent.click(canvas.getByRole("button", { name: "Desktop" }));
     await expect(args.onOpenPlatform).toHaveBeenCalledWith("desktop");

@@ -7,6 +7,8 @@
   } from "../../testing/index.js";
   import RegistryCommunity from "./RegistryCommunity.svelte";
 
+  let { useHostIdentity = false }: { useHostIdentity?: boolean } = $props();
+
   let runtime = $state<RegistryCommunityStoryRuntime>();
   let runtimeError = $state("");
 
@@ -64,7 +66,9 @@
       publisher={runtime.scenario.publisher}
       relays={JSON.stringify([runtime.scenario.relayUrl])}
       dataSource={runtime.dataSource}
-      {...runtime.identity === undefined ? {} : { identity: runtime.identity }}
+      {...useHostIdentity || runtime.identity === undefined
+        ? {}
+        : { identity: runtime.identity }}
     />
   </div>
 {:else}

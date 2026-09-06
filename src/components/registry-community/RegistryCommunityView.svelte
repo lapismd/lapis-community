@@ -171,21 +171,6 @@
         aria-busy={loading || loadingJump || loadingPrevious || loadingNext}
       >
         <div class="topic-column">
-          <DiscussionComposer
-            bind:element={composerElement}
-            {name}
-            replyingTo={replyingReview}
-            {profiles}
-            {postNumber}
-            {signedInPubkey}
-            {publishing}
-            {...composerStatus === undefined ? {} : { composerStatus }}
-            onDismissComposerStatus={controller.dismissError}
-            bind:comment={controller.comment}
-            onCancel={controller.cancelReply}
-            onSubmit={controller.submitComment}
-          />
-
           {#if loading}
             <p class="empty">Reading signed events from the relay…</p>
           {:else if loadingJump}
@@ -216,6 +201,21 @@
               onReact={submitReaction}
             />
           {/if}
+
+          <DiscussionComposer
+            bind:element={composerElement}
+            {name}
+            replyingTo={replyingReview}
+            {profiles}
+            {postNumber}
+            {signedInPubkey}
+            {publishing}
+            {...composerStatus === undefined ? {} : { composerStatus }}
+            onDismissComposerStatus={controller.dismissError}
+            bind:comment={controller.comment}
+            onCancel={controller.cancelReply}
+            onSubmit={controller.submitComment}
+          />
         </div>
 
         {#if commentCountAvailable && commentTotal > 1 && threadFirstTimestamp > 0 && threadLastTimestamp > 0}
@@ -286,7 +286,13 @@
   }
 
   .topic-column {
+    display: grid;
+    gap: 1.25rem;
     min-width: 0;
+  }
+
+  .topic-column :global(.post-stream) {
+    margin-top: 0;
   }
 
   .discussion-seek-skeleton {

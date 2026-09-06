@@ -5,6 +5,11 @@ discussion stream from plugin-detail presentation while earlier windows remain
 available. That private presentation context does not alter consumer-provided
 discussion snippets or add a public component or data-source interface.
 
+For LC-ARCH-010, `CommunityApplication` MUST privately share the controller's
+active identity and existing deferred authentication runner with nested
+Registry discussions. This bridge MUST remain internal to the application
+composition and MUST NOT add signer access to the public controller contract.
+
 Dependency refreshes advance the minimum compatible Design Core release in the
 portable package manifest and committed lockfile together, without changing the
 public import boundary.

@@ -49,6 +49,7 @@ import {
   normalizeShortcode,
 } from "./materialize-settings.js";
 import { createInlineCommunityEventRuntime } from "./event-runtime.js";
+import { registerCommunityControllerIdentityReader } from "./controller-identity-context.js";
 
 const NO_CAPABILITIES: CommunityCapabilities = {
   channels: false,
@@ -2250,7 +2251,7 @@ export function createCommunityController(
     };
   }
 
-  return {
+  const controller: CommunityController = {
     get state() {
       return state;
     },
@@ -2263,6 +2264,8 @@ export function createCommunityController(
     retry,
     dismissOperation,
   };
+  registerCommunityControllerIdentityReader(controller, () => identity);
+  return controller;
 }
 
 class CommunityActionFailure extends Error {
