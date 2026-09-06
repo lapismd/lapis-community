@@ -2,9 +2,11 @@ import { describe, expect, it } from "vitest";
 
 import {
   COMMUNITY_APPLICATION_DESTINATION_STORAGE_KEY,
+  COMMUNITY_APPLICATION_SHELL_LAYOUT_STORAGE_KEY,
   createCommunityApplicationHistory,
   currentCommunityApplicationLocation,
   loadCommunityApplicationDestination,
+  loadCommunityApplicationInitialShellLayout,
   moveCommunityApplicationHistory,
   noCommunityApplicationPanel,
   normalizeCommunityApplicationLocation,
@@ -27,6 +29,64 @@ const push = (
   pushCommunityApplicationLocation(history, next);
 
 describe("Community application location history", () => {
+  it("prehydrates the shell from a valid persisted layout", () => {
+    const storage = {
+      getItem: (key: string) =>
+        key === COMMUNITY_APPLICATION_SHELL_LAYOUT_STORAGE_KEY
+          ? JSON.stringify({
+              version: 1,
+              panels: {
+                left: {
+                  side: "left",
+                  collapsed: false,
+                  closed: false,
+                  width: 336,
+                },
+                right: {
+                  side: "right",
+                  collapsed: true,
+                  closed: true,
+                  width: 360,
+                },
+              },
+            })
+          : null,
+    };
+
+    expect(loadCommunityApplicationInitialShellLayout(storage)).toEqual({
+      left: {
+        side: "left",
+        collapsed: false,
+        closed: false,
+        width: 336,
+      },
+      right: {
+        side: "right",
+        collapsed: true,
+        closed: true,
+        width: 360,
+      },
+    });
+  });
+
+  it.each([
+    "not json",
+    JSON.stringify({ version: 2, panels: {} }),
+    JSON.stringify({ version: 1, panels: [] }),
+    JSON.stringify({
+      version: 1,
+      panels: {
+        left: { side: "right", collapsed: false, closed: false },
+      },
+    }),
+  ])("ignores an invalid persisted shell layout", (serialized) => {
+    expect(
+      loadCommunityApplicationInitialShellLayout({
+        getItem: () => serialized,
+      }),
+    ).toEqual({});
+  });
+
   it("persists only the current destination for refresh restoration", () => {
     const values = new Map<string, string>();
     const storage = {

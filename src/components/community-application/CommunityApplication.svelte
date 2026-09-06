@@ -93,6 +93,7 @@
     createCommunityApplicationHistory,
     currentCommunityApplicationLocation,
     loadCommunityApplicationDestination,
+    loadCommunityApplicationInitialShellLayout,
     moveCommunityApplicationHistory,
     noCommunityApplicationPanel,
     normalizeCommunityApplicationLocation,
@@ -155,16 +156,32 @@
     ) => void;
   } = $props();
 
+  const browserStorage = untrack(() => {
+    try {
+      return typeof window === "undefined" ? undefined : window.localStorage;
+    } catch {
+      return undefined;
+    }
+  });
+  const initialShellLayout = untrack(() =>
+    loadCommunityApplicationInitialShellLayout(browserStorage),
+  );
   const internalShellController = untrack(
     () =>
       new AppShellController({
-        leftCollapsed: true,
-        rightClosed: true,
-        rightWidth: 320,
+        leftCollapsed: initialShellLayout.left?.collapsed ?? true,
+        leftClosed: initialShellLayout.left?.closed ?? false,
+        ...(initialShellLayout.left?.width === undefined
+          ? {}
+          : { leftWidth: initialShellLayout.left.width }),
+        rightCollapsed: initialShellLayout.right?.collapsed ?? false,
+        rightClosed: initialShellLayout.right?.closed ?? true,
+        rightWidth: initialShellLayout.right?.width ?? 320,
         sidebarMinWidth: 48,
         sidebarMaxWidth: 440,
         persistence: createLocalStorageAppShellLayoutPersistence(
           COMMUNITY_APPLICATION_SHELL_LAYOUT_STORAGE_KEY,
+          browserStorage,
         ),
       }),
   );
@@ -173,13 +190,6 @@
     registryEnabled ??
       (registry !== undefined || registryOptions !== undefined),
   );
-  const browserStorage = untrack(() => {
-    try {
-      return typeof window === "undefined" ? undefined : window.localStorage;
-    } catch {
-      return undefined;
-    }
-  });
   const initialApplicationDestination = untrack(() => {
     const fallback =
       !hasRegistry && registryRouteFromDestination(initialDestination) !== null

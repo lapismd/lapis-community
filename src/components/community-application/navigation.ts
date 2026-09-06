@@ -1,3 +1,8 @@
+import {
+  APP_SHELL_LAYOUT_VERSION,
+  type AppShellSidebarLayout,
+} from "@lapismd/design-core/shell";
+
 export type CommunityApplicationDestination =
   | "inbox"
   | "registry"
@@ -42,6 +47,76 @@ type CommunityApplicationDestinationStorage = Pick<
   Storage,
   "getItem" | "setItem"
 >;
+
+type CommunityApplicationShellLayoutStorage = Pick<Storage, "getItem">;
+
+export interface CommunityApplicationInitialShellLayout {
+  left?: AppShellSidebarLayout;
+  right?: AppShellSidebarLayout;
+}
+
+export function loadCommunityApplicationInitialShellLayout(
+  storage: CommunityApplicationShellLayoutStorage | undefined,
+  key = COMMUNITY_APPLICATION_SHELL_LAYOUT_STORAGE_KEY,
+): CommunityApplicationInitialShellLayout {
+  if (!storage) return {};
+  try {
+    const serialized = storage.getItem(key);
+    if (!serialized) return {};
+    const value = JSON.parse(serialized) as unknown;
+    if (
+      typeof value !== "object" ||
+      value === null ||
+      !("version" in value) ||
+      value.version !== APP_SHELL_LAYOUT_VERSION ||
+      !("panels" in value) ||
+      typeof value.panels !== "object" ||
+      value.panels === null
+    ) {
+      return {};
+    }
+
+    const panels = value.panels as Record<string, unknown>;
+    const readPanel = (
+      id: "left" | "right",
+    ): AppShellSidebarLayout | undefined => {
+      const panel = panels[id];
+      if (
+        typeof panel !== "object" ||
+        panel === null ||
+        !("side" in panel) ||
+        panel.side !== id ||
+        !("collapsed" in panel) ||
+        typeof panel.collapsed !== "boolean" ||
+        !("closed" in panel) ||
+        typeof panel.closed !== "boolean"
+      ) {
+        return undefined;
+      }
+      const width =
+        "width" in panel &&
+        typeof panel.width === "number" &&
+        Number.isFinite(panel.width)
+          ? panel.width
+          : undefined;
+      return {
+        side: id,
+        collapsed: panel.collapsed,
+        closed: panel.closed,
+        ...(width === undefined ? {} : { width }),
+      };
+    };
+
+    const left = readPanel("left");
+    const right = readPanel("right");
+    return {
+      ...(left === undefined ? {} : { left }),
+      ...(right === undefined ? {} : { right }),
+    };
+  } catch {
+    return {};
+  }
+}
 
 export function loadCommunityApplicationDestination(
   storage: CommunityApplicationDestinationStorage | undefined,

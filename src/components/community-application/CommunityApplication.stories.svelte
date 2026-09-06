@@ -1211,6 +1211,18 @@
     await expect(
       await canvas.findByRole("button", { name: "Collapse left sidebar" }),
     ).toBeVisible();
+    const restoredExpandedSidebar = await canvas.findByLabelText(
+      "Community navigation sidebar",
+    );
+    await expect(restoredExpandedSidebar).toHaveAttribute(
+      "data-state",
+      "expanded",
+    );
+    await expect(
+      within(restoredExpandedSidebar).getByRole("navigation", {
+        name: "Community navigation",
+      }),
+    ).not.toHaveAttribute("data-compact");
     await expect(
       canvas.getByRole("button", { name: "general" }),
     ).toHaveAttribute("aria-current", "page");
@@ -1250,6 +1262,18 @@
     await expect(
       canvas.getByRole("button", { name: "Expand left sidebar" }),
     ).toBeVisible();
+    const restoredCollapsedSidebar = await canvas.findByLabelText(
+      "Community navigation sidebar",
+    );
+    await expect(restoredCollapsedSidebar).toHaveAttribute(
+      "data-state",
+      "collapsed",
+    );
+    await expect(
+      within(restoredCollapsedSidebar).getByRole("navigation", {
+        name: "Community navigation",
+      }),
+    ).toHaveAttribute("data-compact", "true");
     await expect(
       canvas.getByRole("heading", { name: "Make Lapis Notes yours." }),
     ).toBeVisible();
