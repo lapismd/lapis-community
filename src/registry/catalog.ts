@@ -184,7 +184,9 @@ export function relatedRegistryPlugins(
 export function registryRouteToDestination(route: RegistryRoute): string {
   if (route.page === "landing") return "registry";
   if (route.page === "directory") return "registry:plugins";
-  return `registry:plugin:${route.pluginId}`;
+  return route.view === "reviews"
+    ? `registry:plugin:${route.pluginId}:reviews`
+    : `registry:plugin:${route.pluginId}`;
 }
 
 export function registryRouteFromDestination(
@@ -194,8 +196,17 @@ export function registryRouteFromDestination(
   if (destination === "registry:plugins") return { page: "directory" };
   const prefix = "registry:plugin:";
   if (!destination.startsWith(prefix)) return null;
-  const pluginId = destination.slice(prefix.length);
+  const pluginDestination = destination.slice(prefix.length);
+  const reviewsSuffix = ":reviews";
+  const reviews = pluginDestination.endsWith(reviewsSuffix);
+  const pluginId = reviews
+    ? pluginDestination.slice(0, -reviewsSuffix.length)
+    : pluginDestination;
   return /^[a-z0-9][a-z0-9-]{0,127}$/u.test(pluginId)
-    ? { page: "plugin", pluginId }
+    ? {
+        page: "plugin",
+        pluginId,
+        ...(reviews ? { view: "reviews" as const } : {}),
+      }
     : null;
 }

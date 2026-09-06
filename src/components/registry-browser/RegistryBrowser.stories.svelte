@@ -115,18 +115,11 @@
       await canvas.findByRole("heading", { name: "AI Assistant", level: 1 }),
     ).toBeVisible();
     await expect(
-      (await canvas.findAllByText("Seeded registry discussion"))[0],
-    ).toBeVisible();
-    const relatedHeading = canvas.getByRole("heading", {
-      name: "Related plugins",
-    });
-    const discussion = canvas.getByRole("region", {
-      name: "AI Assistant community",
-    });
+      canvas.queryByText("Seeded registry discussion"),
+    ).not.toBeInTheDocument();
     await expect(
-      relatedHeading.compareDocumentPosition(discussion) &
-        Node.DOCUMENT_POSITION_FOLLOWING,
-    ).not.toBe(0);
+      canvas.getByRole("group", { name: "Plugin reactions and reviews" }),
+    ).toBeVisible();
     const breadcrumb = canvas.getByRole("navigation", { name: "breadcrumb" });
     await expect(
       breadcrumb.querySelector('[data-ui-part="breadcrumb-separator"]'),
@@ -146,6 +139,25 @@
     await expect(
       canvas.getByRole("button", { name: "Installed" }),
     ).toBeDisabled();
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Reactions & reviews" }),
+    );
+    await expect(
+      await canvas.findByRole("heading", {
+        name: "Reactions & reviews",
+        level: 1,
+      }),
+    ).toBeVisible();
+    await expect(
+      (await canvas.findAllByText("Seeded registry discussion"))[0],
+    ).toBeVisible();
+    await expect(
+      canvas.getByRole("link", { name: "AI Assistant" }),
+    ).toBeVisible();
+    await userEvent.click(canvas.getByRole("link", { name: "AI Assistant" }));
+    await expect(
+      await canvas.findByRole("heading", { name: "AI Assistant", level: 1 }),
+    ).toBeVisible();
     await userEvent.click(canvas.getByRole("link", { name: "Registry" }));
     await expect(
       await canvas.findByRole("heading", { name: "Make Lapis Notes yours." }),
@@ -184,8 +196,8 @@
       await canvas.findByRole("heading", { name: "AI Assistant", level: 1 }),
     ).toBeVisible();
     await expect(
-      (await canvas.findAllByText("Seeded registry discussion"))[0],
-    ).toBeVisible();
+      canvas.queryByText("Seeded registry discussion"),
+    ).not.toBeInTheDocument();
     await userEvent.click(canvas.getByRole("button", { name: "Desktop" }));
     await expect(await canvas.findByText("8 results")).toBeVisible();
     await expect(

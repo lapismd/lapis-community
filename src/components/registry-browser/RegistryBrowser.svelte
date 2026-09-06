@@ -1,17 +1,27 @@
 <script lang="ts">
   import { Button } from "@lapismd/design-core/shadcn/button";
+  import * as ButtonGroup from "@lapismd/design-core/shadcn/button-group";
+  import { Badge } from "@lapismd/design-core/shadcn/badge";
   import * as Breadcrumb from "@lapismd/design-core/shadcn/breadcrumb";
   import * as Empty from "@lapismd/design-core/shadcn/empty";
   import { Skeleton } from "@lapismd/design-core/shadcn/skeleton";
   import * as Tooltip from "@lapismd/design-core/shadcn/tooltip";
   import { AppShell } from "@lapismd/design-core/shell";
   import CircleAlertIcon from "@lucide/svelte/icons/circle-alert";
+  import InfoIcon from "@lucide/svelte/icons/info";
+  import MessagesSquareIcon from "@lucide/svelte/icons/messages-square";
   import PackageSearchIcon from "@lucide/svelte/icons/package-search";
   import RefreshCwIcon from "@lucide/svelte/icons/refresh-cw";
   import TriangleAlertIcon from "@lucide/svelte/icons/triangle-alert";
   import { onMount, untrack } from "svelte";
 
-  import RegistryCommunity from "../registry-community/RegistryCommunity.svelte";
+  import CommunityEmojiPicker from "../community-emoji-picker/CommunityEmojiPicker.svelte";
+  import RegistryCommunityView from "../registry-community/RegistryCommunityView.svelte";
+  import {
+    createRegistryCommunityController,
+    type RegistryCommunityController,
+  } from "../registry-community/registry-community-controller.svelte.js";
+  import { useCommunityApplicationAuthentication } from "../community-application/authentication-context.js";
   import RegistryDirectory from "../registry-directory/RegistryDirectory.svelte";
   import RegistryLanding from "../registry-landing/RegistryLanding.svelte";
   import RegistryPluginDetail from "../registry-plugin-detail/RegistryPluginDetail.svelte";
@@ -41,6 +51,7 @@
   }: RegistryBrowserProps = $props();
 
   const catalogSource = untrack(() => source);
+  const applicationAuthentication = useCommunityApplicationAuthentication();
   provideRegistryImageLoader(catalogSource.loadImage?.bind(catalogSource));
 
   let index = $state<RegistryCatalogIndex>();
@@ -74,12 +85,17 @@
   let routeTimer: ReturnType<typeof setTimeout> | undefined;
   let sourceNoticeTimer: ReturnType<typeof setTimeout> | undefined;
   let sourceNoticeDelayElapsed = $state(false);
+  let communityController = $state<RegistryCommunityController>();
+  let communityControllerKey = "";
 
   const selectedEntry = $derived.by(() => {
     const pluginId = route.page === "plugin" ? route.pluginId : undefined;
     if (pluginId === undefined) return undefined;
     return index?.plugins.find((plugin) => plugin.id === pluginId);
   });
+  const pluginView = $derived(
+    route.page === "plugin" && route.view === "reviews" ? "reviews" : "details",
+  );
   const related = $derived(
     selectedDetail === undefined || index === undefined
       ? []
@@ -155,6 +171,21 @@
 
   function openPlugin(plugin: RegistryCatalogEntry): void {
     navigate({ page: "plugin", pluginId: plugin.id });
+  }
+
+  function setPluginView(view: "details" | "reviews"): void {
+    if (route.page !== "plugin") return;
+    navigate({
+      page: "plugin",
+      pluginId: route.pluginId,
+      ...(view === "reviews" ? { view } : {}),
+    });
+  }
+
+  function disposeCommunityController(): void {
+    communityController?.dispose();
+    communityController = undefined;
+    communityControllerKey = "";
   }
 
   async function loadCatalog(background = false): Promise<void> {
@@ -242,6 +273,7 @@
       detailController?.abort();
       clearTimeout(routeTimer);
       clearTimeout(sourceNoticeTimer);
+      disposeCommunityController();
       unsubscribe?.();
     };
   });
@@ -274,6 +306,62 @@
     } else if (entry !== undefined) {
       untrack(() => void resolveDetail(entry));
     }
+  });
+
+  $effect(() => {
+    const entry = selectedEntry;
+    const currentRuntime = runtime;
+    const builtInDiscussion = discussion === undefined;
+    const nextKey =
+      route.page === "plugin" &&
+      entry !== undefined &&
+      currentRuntime !== null &&
+      currentRuntime.publisherPubkeys.length > 0 &&
+      currentRuntime.relays.length > 0 &&
+      builtInDiscussion
+        ? JSON.stringify([
+            entry.id,
+            currentRuntime.publisherPubkeys[0] ?? "",
+            currentRuntime.relays,
+          ])
+        : "";
+    untrack(() => {
+      if (nextKey === communityControllerKey) return;
+      disposeCommunityController();
+      if (nextKey === "" || entry === undefined || currentRuntime === null)
+        return;
+      communityControllerKey = nextKey;
+      communityController = createRegistryCommunityController(
+        {
+          plugin: entry.id,
+          name: entry.name,
+          version: entry.latestVersion,
+          publisher: currentRuntime.publisherPubkeys[0] ?? "",
+          relays: JSON.stringify(currentRuntime.relays),
+          ...(discussionDataSource === undefined
+            ? {}
+            : { dataSource: discussionDataSource }),
+          ...(discussionIdentity === undefined
+            ? {}
+            : { identity: discussionIdentity }),
+        },
+        applicationAuthentication,
+      );
+      void communityController.initializeSummary();
+    });
+  });
+
+  $effect(() => {
+    const controller = communityController;
+    const identity =
+      discussionIdentity ?? applicationAuthentication?.identity();
+    untrack(() => void controller?.setIdentity(identity));
+  });
+
+  $effect(() => {
+    const controller = communityController;
+    if (pluginView !== "reviews" || controller === undefined) return;
+    untrack(() => void controller.initializeDiscussion());
   });
 </script>
 
@@ -315,24 +403,76 @@
   </div>
 {/snippet}
 
-{#snippet pluginDiscussion()}
-  {#if discussion}
-    {@render discussion()}
-  {:else if runtime && selectedEntry}
-    <RegistryCommunity
-      plugin={selectedEntry.id}
-      name={selectedEntry.name}
-      version={selectedEntry.latestVersion}
-      publisher={runtime.publisherPubkeys[0] ?? ""}
-      relays={JSON.stringify(runtime.relays)}
-      {...discussionDataSource === undefined
-        ? {}
-        : { dataSource: discussionDataSource }}
-      {...discussionIdentity === undefined
-        ? {}
-        : { identity: discussionIdentity }}
-    />
-  {/if}
+{#snippet registryCommunityActions()}
+  <ButtonGroup.Root
+    class="registry-browser__community-actions"
+    aria-label="Plugin reactions and reviews"
+  >
+    {#if communityController}
+      {#each communityController.pluginReactionSummary.slice(0, 3) as reaction (reaction.symbol)}
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          data-selected={communityController.ownPluginReaction?.content ===
+            reaction.symbol}
+          aria-label={`React ${reaction.symbol}; ${reaction.count} ${reaction.count === 1 ? "reaction" : "reactions"}`}
+          disabled={communityController.publishing ||
+            communityController.pluginRelease === undefined}
+          onclick={() =>
+            void communityController?.submitPluginReaction(reaction.symbol)}
+        >
+          <span aria-hidden="true">{reaction.symbol}</span>
+          <span>{reaction.count}</span>
+        </Button>
+      {/each}
+      <CommunityEmojiPicker
+        label="Choose plugin reaction"
+        {...communityController.ownPluginReaction === undefined
+          ? {}
+          : { selection: communityController.ownPluginReaction.content }}
+        disabled={communityController.publishing ||
+          communityController.pluginRelease === undefined}
+        presets={["👍", "❤️", "🎉", "👀", "⭐"]}
+        onSelect={(emoji) =>
+          void communityController?.submitPluginReaction(emoji)}
+      />
+    {/if}
+    <Button
+      type="button"
+      size="sm"
+      variant="outline"
+      data-selected={pluginView === "details"}
+      aria-pressed={pluginView === "details"}
+      onclick={() => setPluginView("details")}
+    >
+      <InfoIcon data-icon="inline-start" aria-hidden="true" />
+      Details
+    </Button>
+    <Button
+      type="button"
+      size="sm"
+      variant="outline"
+      data-selected={pluginView === "reviews"}
+      aria-pressed={pluginView === "reviews"}
+      onclick={() => setPluginView("reviews")}
+    >
+      <MessagesSquareIcon data-icon="inline-start" aria-hidden="true" />
+      Reactions &amp; reviews
+      {#if communityController?.commentCountAvailable}
+        <Badge
+          variant="outline"
+          aria-label={communityController.commentTotalApproximate
+            ? `Approximately ${communityController.commentTotal} posts`
+            : `${communityController.commentTotal} posts`}
+        >
+          {communityController.commentTotalApproximate
+            ? "~"
+            : ""}{communityController.commentTotal}
+        </Badge>
+      {/if}
+    </Button>
+  </ButtonGroup.Root>
 {/snippet}
 
 {#snippet registrySourceNotice()}
@@ -412,13 +552,34 @@
           {#if route.page === "plugin"}
             <Breadcrumb.Separator />
             <Breadcrumb.Item>
-              <Breadcrumb.Page>
-                {selectedEntry?.name ?? route.pluginId}
-              </Breadcrumb.Page>
+              {#if pluginView === "reviews"}
+                <Breadcrumb.Link
+                  href={`#registry:plugin:${route.pluginId}`}
+                  onclick={(event) => {
+                    event.preventDefault();
+                    setPluginView("details");
+                  }}
+                >
+                  {selectedEntry?.name ?? route.pluginId}
+                </Breadcrumb.Link>
+              {:else}
+                <Breadcrumb.Page>
+                  {selectedEntry?.name ?? route.pluginId}
+                </Breadcrumb.Page>
+              {/if}
             </Breadcrumb.Item>
+            {#if pluginView === "reviews"}
+              <Breadcrumb.Separator />
+              <Breadcrumb.Item>
+                <Breadcrumb.Page>Reactions &amp; reviews</Breadcrumb.Page>
+              </Breadcrumb.Item>
+            {/if}
           {/if}
         </Breadcrumb.List>
       </Breadcrumb.Root>
+      {#if route.page === "plugin" && supportsDiscussion}
+        {@render registryCommunityActions()}
+      {/if}
     </div>
   </AppShell.Toolbar>
 {:else if showSourceNotice && sourceStatus}
@@ -516,7 +677,7 @@
               >
             </Empty.Content>
           </Empty.Root>
-        {:else}
+        {:else if pluginView === "details"}
           <RegistryPluginDetail
             resolved={selectedDetail}
             {related}
@@ -529,8 +690,36 @@
               openDirectoryFilter("categories", category)}
             onOpenPlatform={(platform) =>
               openDirectoryFilter("platforms", platform)}
-            {...supportsDiscussion ? { discussion: pluginDiscussion } : {}}
           />
+        {:else}
+          <section
+            class="registry-browser__reviews"
+            aria-label={`${selectedEntry.name} reactions and reviews`}
+          >
+            <header class="registry-browser__reviews-header">
+              <div>
+                <h1>Reactions &amp; reviews</h1>
+                <p>Community discussion about {selectedEntry.name}.</p>
+              </div>
+            </header>
+            {#if discussion}
+              {@render discussion()}
+            {:else if communityController}
+              <RegistryCommunityView controller={communityController} />
+            {:else}
+              <Empty.Root class="registry-browser__empty">
+                <Empty.Header>
+                  <Empty.Media variant="icon"
+                    ><MessagesSquareIcon aria-hidden="true" /></Empty.Media
+                  >
+                  <Empty.Title>Reviews unavailable</Empty.Title>
+                  <Empty.Description>
+                    This registry does not expose a community discussion source.
+                  </Empty.Description>
+                </Empty.Header>
+              </Empty.Root>
+            {/if}
+          </section>
         {/if}
       </section>
     </AppShell.Body.Content>
@@ -552,6 +741,9 @@
   .registry-browser__navigation-row {
     display: flex;
     align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 0.5rem 1rem;
     width: 100%;
   }
 
@@ -564,6 +756,10 @@
   :global(.registry-browser__toolbar [data-ui-part="breadcrumb"]),
   :global(.registry-browser__toolbar [data-ui-part="breadcrumb-list"]) {
     min-width: 0;
+  }
+
+  :global(.registry-browser__toolbar [data-ui-part="breadcrumb"]) {
+    flex: 1 1 auto;
   }
 
   :global(.registry-browser__toolbar [data-ui-part="breadcrumb-list"]) {
@@ -599,6 +795,73 @@
     min-height: 100%;
     color: var(--foreground);
     background: var(--background);
+  }
+
+  :global(
+      .registry-browser__community-actions[data-ui-component="button-group"]
+    ) {
+    flex: 0 0 auto;
+    justify-content: flex-end;
+    max-width: 100%;
+    margin-inline-start: auto;
+    overflow-x: auto;
+  }
+
+  :global(
+      .registry-browser__community-actions[data-ui-component="button-group"]
+        > [data-ui-component="button"]
+    ) {
+    border-color: var(--border);
+  }
+
+  :global(
+      .registry-browser__community-actions[data-ui-component="button-group"]
+        > [data-ui-component="button"][data-selected="true"]
+    ) {
+    background: var(--secondary);
+  }
+
+  :global(.registry-browser__community-actions [data-ui-component="badge"]) {
+    margin-inline-start: 0.2rem;
+  }
+
+  .registry-browser__reviews {
+    display: grid;
+    gap: 1.5rem;
+    width: min(100%, 76rem);
+    min-height: 100%;
+    margin-inline: auto;
+    padding: clamp(1rem, 3vw, 2rem);
+  }
+
+  .registry-browser__reviews-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1.5rem;
+  }
+
+  .registry-browser__reviews-header h1,
+  .registry-browser__reviews-header p {
+    margin: 0;
+  }
+
+  .registry-browser__reviews-header p {
+    color: var(--muted-foreground);
+  }
+
+  @media (max-width: 52rem) {
+    .registry-browser__reviews-header {
+      display: grid;
+    }
+
+    :global(
+        .registry-browser__community-actions[data-ui-component="button-group"]
+      ) {
+      flex-basis: 100%;
+      justify-content: flex-end;
+      width: 100%;
+    }
   }
 
   .registry-browser__source-notice {

@@ -109,6 +109,7 @@ export function createRegistryCommunityController(
   let threadFirstTimestamp = $state(0);
   let threadLastTimestamp = $state(0);
   let loading = $state(true);
+  let summaryLoading = $state(false);
   let loadingPrevious = $state(false);
   let loadingNext = $state(false);
   let loadingJump = $state(false);
@@ -124,7 +125,15 @@ export function createRegistryCommunityController(
   let loadSequence = 0;
   let streamGeneration = 0;
   let jumpController: AbortController | undefined;
+  let summaryController: AbortController | undefined;
   let pluginCommunityLoaded = false;
+  let discussionInitialized = false;
+  let pluginCommunityPromise:
+    | Promise<Awaited<ReturnType<typeof loadPluginCommunity>>>
+    | undefined;
+  let commentCountPromise:
+    | Promise<RelayCountResult & { availableRelays: number }>
+    | undefined;
   let identityRevision = 0;
 
   const dataSource =
@@ -1139,6 +1148,53 @@ export function createRegistryCommunityController(
     };
   }
 
+  function ensurePluginCommunity(
+    signal?: AbortSignal,
+  ): Promise<Awaited<ReturnType<typeof loadPluginCommunity>>> {
+    if (pluginCommunityLoaded) {
+      return Promise.resolve({
+        release: pluginRelease,
+        reactions: pluginReactions,
+        profiles: [],
+      });
+    }
+    pluginCommunityPromise ??= loadPluginCommunity(signal)
+      .then((result) => {
+        pluginRelease = result.release;
+        pluginCommunityLoaded = true;
+        pluginReactions = mergeReactions(pluginReactions, result.reactions);
+        mergeProfiles(result.profiles);
+        return result;
+      })
+      .finally(() => {
+        pluginCommunityPromise = undefined;
+      });
+    return pluginCommunityPromise;
+  }
+
+  function ensureCommentCount(
+    signal?: AbortSignal,
+  ): Promise<RelayCountResult & { availableRelays: number }> {
+    if (commentCountPromise !== undefined) return commentCountPromise;
+    const baseFilter = {
+      kinds: [NIP29_KINDS.forumThread, NIP29_KINDS.comment],
+      "#h": [supportGroupId],
+    };
+    commentCountPromise = countAll(baseFilter, signal)
+      .then((result) => {
+        if (result.availableRelays > 0) {
+          commentCountAvailable = true;
+          commentTotalApproximate = result.approximate;
+          commentTotal = Math.max(result.count, reviews.length);
+        }
+        return result;
+      })
+      .finally(() => {
+        commentCountPromise = undefined;
+      });
+    return commentCountPromise;
+  }
+
   function mergeProfiles(nextProfiles: readonly CommunityProfile[]): void {
     profiles = new Map([
       ...profiles,
@@ -1381,14 +1437,10 @@ export function createRegistryCommunityController(
           kinds: [NIP29_KINDS.forumThread, NIP29_KINDS.comment],
           "#h": [supportGroupId],
         };
-        const countPromise = countAll(baseFilter, controller.signal);
-        const pluginCommunityPromise = pluginCommunityLoaded
-          ? Promise.resolve({
-              release: pluginRelease,
-              reactions: pluginReactions,
-              profiles: [] as CommunityProfile[],
-            })
-          : loadPluginCommunity(controller.signal);
+        const countPromise = ensureCommentCount(summaryController?.signal);
+        const pluginCommunityPromise = ensurePluginCommunity(
+          summaryController?.signal,
+        );
         const backgroundMetadata = Promise.allSettled([
           pluginCommunityPromise,
           countPromise,
@@ -1451,13 +1503,7 @@ export function createRegistryCommunityController(
         return true;
       }
       const [pluginCommunity, commentWindow] = await Promise.all([
-        pluginCommunityLoaded
-          ? Promise.resolve({
-              release: pluginRelease,
-              reactions: pluginReactions,
-              profiles: [] as CommunityProfile[],
-            })
-          : loadPluginCommunity(controller.signal),
+        ensurePluginCommunity(summaryController?.signal),
         loadCommentWindow(
           targetIndex,
           "replace",
@@ -1940,6 +1986,8 @@ export function createRegistryCommunityController(
   }
 
   async function initializeDiscussion(): Promise<void> {
+    if (discussionInitialized) return;
+    discussionInitialized = true;
     if (signer !== undefined && signedInPubkey === "") {
       signedInPubkey = await signer.getPublicKey();
     }
@@ -1973,12 +2021,35 @@ export function createRegistryCommunityController(
     await refresh(0);
   }
 
+  async function initializeSummary(): Promise<void> {
+    if (summaryController !== undefined) return;
+    summaryController = new AbortController();
+    summaryLoading = true;
+    if (signer !== undefined && signedInPubkey === "") {
+      try {
+        signedInPubkey = await signer.getPublicKey();
+      } catch {
+        signedInPubkey = "";
+      }
+    }
+    try {
+      await Promise.allSettled([
+        ensurePluginCommunity(summaryController.signal),
+        ensureCommentCount(summaryController.signal),
+      ]);
+    } finally {
+      summaryLoading = false;
+    }
+  }
+
   function initialize(): void {
+    void initializeSummary();
     void initializeDiscussion();
   }
 
   function dispose(): void {
     jumpController?.abort();
+    summaryController?.abort();
     dataSource.close();
   }
 
@@ -2057,6 +2128,9 @@ export function createRegistryCommunityController(
     },
     get loading() {
       return loading;
+    },
+    get summaryLoading() {
+      return summaryLoading;
     },
     get loadingPrevious() {
       return loadingPrevious;
@@ -2137,6 +2211,8 @@ export function createRegistryCommunityController(
       composerElement = value;
     },
     initialize,
+    initializeSummary,
+    initializeDiscussion,
     dispose,
     cancelReply,
     dismissError,

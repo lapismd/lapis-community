@@ -721,6 +721,7 @@
     gap: 2rem;
     align-items: center;
   }
+
   .registry-plugin-detail__hero.with-banner {
     grid-template-columns: minmax(0, 1fr) minmax(22.5rem, 32.5rem);
     gap: 3rem;

@@ -192,7 +192,13 @@ export type RegistryRuntime = z.infer<typeof registryRuntimeSchema>;
 export type RegistryRoute =
   | { page: "landing" }
   | { page: "directory" }
-  | { page: "plugin"; pluginId: string };
+  | {
+      page: "plugin";
+      pluginId: string;
+      view?: RegistryPluginView;
+    };
+
+export type RegistryPluginView = "details" | "reviews";
 
 export type RegistryDirectorySort = "name" | "new" | "updated" | "status";
 export type RegistryDirectoryView = "grid" | "list";

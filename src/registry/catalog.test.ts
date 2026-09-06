@@ -120,6 +120,20 @@ describe("registry catalog helpers", () => {
     expect(
       registryRouteToDestination({ page: "plugin", pluginId: "lapis-ai" }),
     ).toBe("registry:plugin:lapis-ai");
+    expect(
+      registryRouteToDestination({
+        page: "plugin",
+        pluginId: "lapis-ai",
+        view: "reviews",
+      }),
+    ).toBe("registry:plugin:lapis-ai:reviews");
+    expect(
+      registryRouteFromDestination("registry:plugin:lapis-ai:reviews"),
+    ).toEqual({
+      page: "plugin",
+      pluginId: "lapis-ai",
+      view: "reviews",
+    });
     expect(registryRouteFromDestination("registry:plugins")).toEqual({
       page: "directory",
     });
