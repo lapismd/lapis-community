@@ -4,6 +4,7 @@ import type {
   CommunityRelaySubscription,
   RelayFilter,
 } from "../nostr/index.js";
+import { authenticateRegistryRelay } from "../auth/index.js";
 import type { NostrEvent, NostrEventTemplate } from "../protocol/index.js";
 import { isRegistryControlEvent } from "../protocol/registry-control.js";
 
@@ -631,10 +632,7 @@ class Nip29CommunitySession implements CommunitySession {
       return;
     }
     const identity = this.#context.identity;
-    await relay.authenticate(
-      async (template) => identity.signEvent(template),
-      signal,
-    );
+    await authenticateRegistryRelay(relay, identity, signal);
     this.#authenticated.add(relay);
   }
 

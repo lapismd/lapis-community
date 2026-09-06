@@ -1,4 +1,8 @@
-import { SecretKeyRegistrySigner, type RegistrySigner } from "../auth/index.js";
+import {
+  authenticateRegistryRelay,
+  SecretKeyRegistrySigner,
+  type RegistrySigner,
+} from "../auth/index.js";
 import {
   createRegistryCommunityDataSource,
   type RegistryCommunityDataSource,
@@ -277,7 +281,7 @@ export async function seedRegistryCommunityTestScenario(
         relay = relayFactory.create(scenario.relayUrl);
         relays.set(event.pubkey, relay);
       }
-      await relay.authenticate?.((template) => identity.signEvent(template));
+      await authenticateRegistryRelay(relay, identity);
       await relay.publish(event);
     }
   } finally {

@@ -17,6 +17,7 @@ import {
   materializeNip29Reactions,
   parseProfiles,
   parseRelayUrls,
+  relayPublishFailureMessage,
   reactionGroups,
   selectRelayCount,
   seekTimestampForCount,
@@ -70,6 +71,24 @@ describe("registry community model", () => {
     expect(
       anyRelayPublished([{ status: "rejected", reason: new Error("offline") }]),
     ).toBe(false);
+    expect(
+      relayPublishFailureMessage([
+        {
+          status: "rejected",
+          reason: new Error(
+            "restricted: you cannot publish events on behalf of others",
+          ),
+        },
+        {
+          status: "rejected",
+          reason: new Error(
+            "restricted: you cannot publish events on behalf of others",
+          ),
+        },
+      ]),
+    ).toBe(
+      "No community relay accepted the signed event: restricted: you cannot publish events on behalf of others",
+    );
   });
 
   it("accepts one native emoji grapheme for registry reactions", () => {

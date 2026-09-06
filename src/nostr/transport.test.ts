@@ -1,4 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  finalizeEvent,
+  generateSecretKey,
+  getPublicKey,
+} from "nostr-tools/pure";
 
 const relayMocks = vi.hoisted(() => ({
   auth: vi.fn(),
@@ -13,8 +18,18 @@ vi.mock("nostr-tools/relay", () => ({
 }));
 
 import { WebSocketRegistryRelay } from "./transport.js";
+import { authenticateRegistryRelay } from "../auth/relay-auth.js";
+import type { RegistrySigner } from "../auth/types.js";
 
-describe("WebSocketRegistryRelay bounded queries", () => {
+function createSigner(): RegistrySigner {
+  const secretKey = generateSecretKey();
+  return {
+    getPublicKey: async () => getPublicKey(secretKey),
+    signEvent: async (template) => finalizeEvent(template, secretKey),
+  };
+}
+
+describe("WebSocketRegistryRelay", () => {
   beforeEach(() => {
     relayMocks.connect.mockReset();
     relayMocks.auth.mockReset();
@@ -45,6 +60,65 @@ describe("WebSocketRegistryRelay bounded queries", () => {
     await relay.countMany([{ kinds: [9] }, { kinds: [11] }]);
 
     expect(relayMocks.auth).toHaveBeenCalledTimes(1);
+  });
+
+  it("publishes with a replacement signer's authenticated connection", async () => {
+    const connections = [0, 1].map(() => ({
+      auth: vi.fn(
+        async (
+          signEvent: Parameters<
+            InstanceType<typeof WebSocketRegistryRelay>["authenticate"]
+          >[0],
+        ) => {
+          const event = await signEvent({
+            kind: 22_242,
+            created_at: 1,
+            tags: [
+              ["relay", "wss://relay.example/"],
+              ["challenge", "challenge"],
+            ],
+            content: "",
+          });
+          return `authenticated ${event.pubkey}`;
+        },
+      ),
+      close: vi.fn(),
+      count: vi.fn(),
+      countWithHLL: vi.fn(),
+      publish: vi.fn().mockResolvedValue("stored"),
+      publishTimeout: 0,
+      subscribe: vi.fn(),
+    }));
+    relayMocks.connect
+      .mockResolvedValueOnce(connections[0])
+      .mockResolvedValueOnce(connections[1]);
+    const relay = new WebSocketRegistryRelay("wss://relay.example");
+    const reader = createSigner();
+    const author = createSigner();
+
+    await authenticateRegistryRelay(relay, reader);
+    await authenticateRegistryRelay(relay, reader);
+    await authenticateRegistryRelay(relay, author);
+    const event = await author.signEvent({
+      kind: 11,
+      created_at: 2,
+      tags: [["h", "support-plugin"]],
+      content: "A review",
+    });
+    await relay.publish(event);
+
+    expect(relayMocks.connect).toHaveBeenCalledTimes(2);
+    expect(connections[0]!.auth).toHaveBeenCalledTimes(1);
+    expect(connections[1]!.auth).toHaveBeenCalledTimes(1);
+    expect(connections[0]!.publish).not.toHaveBeenCalled();
+    expect(connections[1]!.publish).toHaveBeenCalledWith(event);
+    expect(connections[0]!.close).not.toHaveBeenCalled();
+
+    relay.close();
+    await vi.waitFor(() => {
+      expect(connections[0]!.close).toHaveBeenCalledOnce();
+      expect(connections[1]!.close).toHaveBeenCalledOnce();
+    });
   });
 
   it("sends the requested limit to the relay", async () => {

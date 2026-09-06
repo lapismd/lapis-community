@@ -44,6 +44,26 @@ export function anyRelayPublished(
   return results.some((result) => result.status === "fulfilled");
 }
 
+export function relayPublishFailureMessage(
+  results: readonly PromiseSettledResult<unknown>[],
+): string {
+  const reasons = [
+    ...new Set(
+      results.flatMap((result) => {
+        if (result.status !== "rejected") return [];
+        return [
+          result.reason instanceof Error
+            ? result.reason.message
+            : String(result.reason),
+        ];
+      }),
+    ),
+  ].filter((reason) => reason.trim() !== "");
+  return reasons.length === 0
+    ? "No community relay accepted the signed event."
+    : `No community relay accepted the signed event: ${reasons.join("; ")}`;
+}
+
 export function isValidNativeEmojiReaction(value: string): boolean {
   const reaction = value.trim();
   if (reaction === "") return false;

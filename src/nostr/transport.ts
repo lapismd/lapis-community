@@ -68,6 +68,13 @@ export interface WebSocketRelayOptions {
   publishTimeoutMs?: number;
 }
 
+interface WebSocketRelayConnectionState {
+  signer: RelayAuthSigner | undefined;
+  connection: Promise<Relay> | undefined;
+  authentication: Promise<string> | undefined;
+  pubkey: string | undefined;
+}
+
 export class WebSocketRegistryRelay implements CommunityRelay {
   readonly url: string;
   readonly #connectTimeoutMs: number;
@@ -75,9 +82,20 @@ export class WebSocketRegistryRelay implements CommunityRelay {
   readonly #publishTimeoutMs: number;
   readonly #authenticationRelayUrl: string | undefined;
   readonly #enableReconnect: boolean;
-  #connection: Promise<Relay> | undefined;
-  #authSigner: RelayAuthSigner | undefined;
-  #authentication: Promise<string> | undefined;
+  readonly #anonymousConnection: WebSocketRelayConnectionState = {
+    signer: undefined,
+    connection: undefined,
+    authentication: undefined,
+    pubkey: undefined,
+  };
+  readonly #authenticatedConnections = new WeakMap<
+    RelayAuthSigner,
+    WebSocketRelayConnectionState
+  >();
+  readonly #connectionStates = new Set<WebSocketRelayConnectionState>([
+    this.#anonymousConnection,
+  ]);
+  #activeConnection = this.#anonymousConnection;
   #closed = false;
 
   constructor(url: string, options: WebSocketRelayOptions = {}) {
@@ -92,24 +110,29 @@ export class WebSocketRegistryRelay implements CommunityRelay {
     this.#publishTimeoutMs = options.publishTimeoutMs ?? 5_000;
   }
 
-  async #connect(signal?: AbortSignal): Promise<Relay> {
+  async #connect(
+    signal?: AbortSignal,
+    state = this.#activeConnection,
+  ): Promise<Relay> {
     signal?.throwIfAborted();
     if (this.#closed) throw new Error(`${this.url}: relay is closed`);
-    this.#connection ??= Relay.connect(this.url, {
+    state.connection ??= Relay.connect(this.url, {
       timeout: this.#connectTimeoutMs,
       ...(signal === undefined ? {} : { abort: signal }),
       enableReconnect: this.#enableReconnect,
     });
 
     try {
-      const relay = await this.#connection;
+      const relay = await state.connection;
       relay.publishTimeout = this.#publishTimeoutMs;
-      if (this.#authSigner !== undefined) {
-        await this.#authenticateConnection(relay, this.#authSigner, signal);
+      if (state.signer !== undefined) {
+        await this.#authenticateConnection(relay, state, signal);
       }
       return relay;
     } catch (error) {
-      this.#connection = undefined;
+      state.connection = undefined;
+      state.authentication = undefined;
+      state.pubkey = undefined;
       throw error;
     }
   }
@@ -119,34 +142,44 @@ export class WebSocketRegistryRelay implements CommunityRelay {
     signal?: AbortSignal,
   ): Promise<RelayPublishResult> {
     signal?.throwIfAborted();
-    if (this.#authSigner !== signEvent) {
-      this.#authSigner = signEvent;
-      this.#authentication = undefined;
+    let state = this.#authenticatedConnections.get(signEvent);
+    if (state === undefined) {
+      state = {
+        signer: signEvent,
+        connection: undefined,
+        authentication: undefined,
+        pubkey: undefined,
+      };
+      this.#authenticatedConnections.set(signEvent, state);
+      this.#connectionStates.add(state);
     }
-    const relay = await this.#connect(signal);
-    const message = await this.#authenticateConnection(
-      relay,
-      signEvent,
-      signal,
-    );
+    this.#activeConnection = state;
+    const relay = await this.#connect(signal, state);
+    const message = await this.#authenticateConnection(relay, state, signal);
     signal?.throwIfAborted();
     return { accepted: true, message };
   }
 
   async #authenticateConnection(
     relay: Relay,
-    signEvent: RelayAuthSigner,
+    state: WebSocketRelayConnectionState,
     signal?: AbortSignal,
   ): Promise<string> {
-    this.#authentication ??= this.#authenticateAfterChallenge(
+    const signEvent = state.signer;
+    if (signEvent === undefined) {
+      throw new Error(`${this.url}: authenticated connection has no signer`);
+    }
+    state.authentication ??= this.#authenticateAfterChallenge(
       relay,
       signEvent,
+      state,
       signal,
     );
     try {
-      return await this.#authentication;
+      return await state.authentication;
     } catch (error) {
-      this.#authentication = undefined;
+      state.authentication = undefined;
+      state.pubkey = undefined;
       throw error;
     }
   }
@@ -154,13 +187,15 @@ export class WebSocketRegistryRelay implements CommunityRelay {
   async #authenticateAfterChallenge(
     relay: Relay,
     signEvent: RelayAuthSigner,
+    state: WebSocketRelayConnectionState,
     signal?: AbortSignal,
   ): Promise<string> {
     const expiresAt = Date.now() + this.#connectTimeoutMs;
     for (;;) {
       signal?.throwIfAborted();
       try {
-        return await relay.auth(async (template) => {
+        let pubkey = "";
+        const message = await relay.auth(async (template) => {
           const requestedTemplate =
             this.#authenticationRelayUrl === undefined
               ? template
@@ -176,8 +211,11 @@ export class WebSocketRegistryRelay implements CommunityRelay {
           if (!verifyEvent(event)) {
             throw new Error("NIP-42 signer returned an invalid event");
           }
+          pubkey = event.pubkey;
           return event;
         });
+        state.pubkey = pubkey;
+        return message;
       } catch (error) {
         if (
           !(error instanceof Error) ||
@@ -196,7 +234,7 @@ export class WebSocketRegistryRelay implements CommunityRelay {
     signal?: AbortSignal,
   ): Promise<NostrEvent[]> {
     signal?.throwIfAborted();
-    const relay = await this.#connect(signal);
+    const relay = await this.#connect(signal, this.#activeConnection);
     const queryFilter = { ...filter };
 
     return await new Promise<NostrEvent[]>((resolve, reject) => {
@@ -252,7 +290,8 @@ export class WebSocketRegistryRelay implements CommunityRelay {
       throw new Error(`${this.url}: COUNT requires at least one filter`);
     }
     signal?.throwIfAborted();
-    const relay = await this.#connect(signal);
+    const state = this.#activeConnection;
+    const relay = await this.#connect(signal, state);
     return await new Promise<RelayCountResult>((resolve, reject) => {
       let settled = false;
       const settle = (callback: () => void): void => {
@@ -265,8 +304,9 @@ export class WebSocketRegistryRelay implements CommunityRelay {
         () =>
           settle(() => {
             relay.close();
-            this.#connection = undefined;
-            this.#authentication = undefined;
+            state.connection = undefined;
+            state.authentication = undefined;
+            state.pubkey = undefined;
             reject(new Error(`${this.url}: COUNT timed out`));
           }),
         this.#eoseTimeoutMs,
@@ -312,7 +352,7 @@ export class WebSocketRegistryRelay implements CommunityRelay {
     signal?: AbortSignal,
   ): Promise<CommunityRelaySubscription> {
     signal?.throwIfAborted();
-    const relay = await this.#connect(signal);
+    const relay = await this.#connect(signal, this.#activeConnection);
     const subscription = relay.subscribe([filter], {
       ...(signal === undefined ? {} : { abort: signal }),
       onevent: handlers.onevent,
@@ -329,7 +369,11 @@ export class WebSocketRegistryRelay implements CommunityRelay {
     signal?: AbortSignal,
   ): Promise<RelayPublishResult> {
     signal?.throwIfAborted();
-    const relay = await this.#connect(signal);
+    const state =
+      [...this.#connectionStates].find(
+        (candidate) => candidate.pubkey === event.pubkey,
+      ) ?? this.#activeConnection;
+    const relay = await this.#connect(signal, state);
     const message = await relay.publish(event);
     signal?.throwIfAborted();
     return { accepted: true, message };
@@ -338,11 +382,14 @@ export class WebSocketRegistryRelay implements CommunityRelay {
   close(): void {
     if (this.#closed) return;
     this.#closed = true;
-    void this.#connection
-      ?.then((relay) => relay.close())
-      .catch(() => undefined);
-    this.#connection = undefined;
-    this.#authentication = undefined;
+    for (const state of this.#connectionStates) {
+      void state.connection
+        ?.then((relay) => relay.close())
+        .catch(() => undefined);
+      state.connection = undefined;
+      state.authentication = undefined;
+      state.pubkey = undefined;
+    }
   }
 }
 

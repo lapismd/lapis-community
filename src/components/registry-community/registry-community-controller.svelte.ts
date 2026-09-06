@@ -37,6 +37,7 @@ import {
   materializeNip29Reactions,
   parseProfiles,
   parseRelayUrls,
+  relayPublishFailureMessage,
   reactionGroups,
   selectRelayCount,
   seekTimestampForCount,
@@ -1866,7 +1867,7 @@ export function createRegistryCommunityController(
       }),
     );
     if (!anyRelayPublished(results)) {
-      throw new Error("No community relay accepted the signed event.");
+      throw new Error(relayPublishFailureMessage(results));
     }
   }
 
