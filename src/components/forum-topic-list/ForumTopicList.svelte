@@ -138,16 +138,23 @@
     type="button"
     variant="ghost"
     class="forum-topic-list__topic"
-    aria-label={`Open topic ${topic.title}`}
+    aria-label={`Open ${topic.unread ? "unread " : topic.isNew ? "new " : ""}topic ${topic.title}`}
     onclick={() => onOpenTopic?.(topic.id)}
   >
     <span class="forum-topic-list__topic-main">
       <span class="forum-topic-list__title-row">
+        {#if topic.unread}
+          <span
+            class="forum-topic-list__unread-marker"
+            data-ui-part="forum-topic-unread-marker"
+            role="img"
+            aria-label="Unread topic"
+          ></span>
+        {/if}
         {#if topic.pinned}<span aria-label="Pinned topic">⌁</span>{/if}
         <strong>{topic.title}</strong>
         {#if topic.solved}<Badge variant="secondary">Solved</Badge>{/if}
-        {#if topic.unread}<Badge>Unread</Badge>{:else if topic.isNew}<Badge
-            variant="secondary">New</Badge
+        {#if !topic.unread && topic.isNew}<Badge variant="secondary">New</Badge
           >{/if}
       </span>
       <span class="forum-topic-list__excerpt">{topic.excerpt}</span>
@@ -358,6 +365,24 @@
     flex-wrap: wrap;
     align-items: center;
     gap: 0.4rem;
+  }
+
+  .forum-topic-list__title-row {
+    position: relative;
+  }
+
+  .forum-topic-list__unread-marker {
+    position: absolute;
+    inset-block-start: 0.72em;
+    inset-inline-start: -0.65rem;
+    width: 0.4rem;
+    height: 0.4rem;
+    border-radius: 999px;
+    background: var(--primary);
+    box-shadow: 0 0 0 0.16rem
+      color-mix(in srgb, var(--primary) 16%, transparent);
+    transform: translateY(-50%);
+    pointer-events: none;
   }
 
   .forum-topic-list__title-row strong {

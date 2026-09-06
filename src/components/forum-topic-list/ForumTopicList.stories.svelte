@@ -135,6 +135,7 @@
     topics: [
       {
         ...communityStoryTopics[0]!,
+        pinned: false,
         unread: true,
         replyCountApproximate: true,
       },
@@ -150,7 +151,27 @@
     showTopicActions: false,
   }}
   play={async ({ canvas }) => {
-    await expect(canvas.getByText("Unread")).toBeVisible();
+    const unreadTopic = canvas.getByRole("button", {
+      name: "Open unread topic First-token latency with a large vault",
+    });
+    const unreadMarker = within(unreadTopic).getByRole("img", {
+      name: "Unread topic",
+    });
+    const unreadTitle = within(unreadTopic).getByText(
+      "First-token latency with a large vault",
+    );
+    const unreadExcerpt = within(unreadTopic).getByText(
+      communityStoryTopics[0]!.excerpt,
+    );
+    await expect(unreadMarker).toBeVisible();
+    await expect(getComputedStyle(unreadMarker).position).toBe("absolute");
+    await expect(
+      Math.abs(
+        unreadTitle.getBoundingClientRect().left -
+          unreadExcerpt.getBoundingClientRect().left,
+      ),
+    ).toBeLessThanOrEqual(1);
+    await expect(canvas.queryByText("Unread")).not.toBeInTheDocument();
     await expect(canvas.getByText("New")).toBeVisible();
     await expect(
       canvas.getByLabelText("Approximately 34 replies"),

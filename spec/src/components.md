@@ -41,7 +41,8 @@ settings drawer MUST NOT render an empty bordered action card.
 
 For LC-UI-004, the lazily loaded New & Unread topic suggestions MUST reuse the
 public forum topic-list presentation, including its responsive columns,
-participant treatment, state badges, accessible exact or approximate reply
+participant treatment, an out-of-flow accessible accent marker for unread
+topics, a secondary New badge, accessible exact or approximate reply
 counts, and whole-row navigation. Registry embedding MAY omit topic-management
 menus and the forum composer without creating a duplicate list renderer.
 
