@@ -46,7 +46,7 @@ const plugin: PluginDefinitionContent = {
   channel: "official",
   status: "active",
   index: { author: "Lapis Notes", categories: ["ai"] },
-  detail: { license: "AGPL-3.0-or-later" },
+  detail: { license: "Apache-2.0" },
 };
 
 const releaseManifest: ReleaseContent = {

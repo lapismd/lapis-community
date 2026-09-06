@@ -2,7 +2,7 @@
   "name": "@lapismd/lapis-community",
   "version": "0.1.0",
   "description": "Nostr protocol, relay access, registry materialization, and community components for Lapis",
-  "license": "AGPL-3.0-or-later",
+  "license": "Apache-2.0",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/lapismd/lapis-community.git"
