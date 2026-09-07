@@ -159,14 +159,18 @@ describe("registry community model", () => {
     });
 
     expect(
-      reactionGroups(targetEventId, [
-        reaction("+", "11".repeat(32)),
-        reaction("+", "12".repeat(32)),
-        reaction("💡", "13".repeat(32)),
-      ]),
+      reactionGroups(
+        targetEventId,
+        [
+          reaction("+", "11".repeat(32)),
+          reaction("+", "12".repeat(32)),
+          reaction("💡", "13".repeat(32)),
+        ],
+        "ab".repeat(32),
+      ),
     ).toEqual([
-      { content: "+", symbol: "❤", count: 2 },
-      { content: "💡", symbol: "💡", count: 1 },
+      { content: "+", symbol: "❤", count: 2, selected: true },
+      { content: "💡", symbol: "💡", count: 1, selected: true },
     ]);
     expect(timelinePosition(0, 24)).toBe(0);
     expect(timelinePosition(23, 24)).toBe(100);

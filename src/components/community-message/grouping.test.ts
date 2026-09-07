@@ -41,4 +41,18 @@ describe("isMessageContinuation", () => {
     expect(isMessageContinuation(messages, 1)).toBe(false);
     expect(isMessageContinuation(messages, 2)).toBe(false);
   });
+
+  it("keeps channel lifecycle activity as a standalone timeline item", () => {
+    const messages = [
+      message("first", "author", "2026-09-02T09:00:00Z"),
+      {
+        ...message("created", "author", "2026-09-02T09:01:00Z"),
+        activity: { type: "channel-created" as const },
+      },
+      message("after", "author", "2026-09-02T09:02:00Z"),
+    ];
+
+    expect(isMessageContinuation(messages, 1)).toBe(false);
+    expect(isMessageContinuation(messages, 2)).toBe(false);
+  });
 });

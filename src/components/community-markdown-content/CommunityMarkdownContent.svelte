@@ -22,6 +22,8 @@
     rooms = [],
     communityEmojis = [],
     onOpenMember,
+    onMessageMember,
+    onWaveMember,
     onOpenRoom,
     class: className = "",
   }: {
@@ -31,6 +33,8 @@
     rooms?: readonly CommunityRoomModel[];
     communityEmojis?: readonly CommunityCustomEmoji[];
     onOpenMember?: (member: CommunityMemberModel) => void;
+    onMessageMember?: (member: CommunityMemberModel) => void | Promise<void>;
+    onWaveMember?: (member: CommunityMemberModel) => void | Promise<void>;
     onOpenRoom?: (roomId: string) => void;
     class?: string;
   } = $props();
@@ -43,6 +47,12 @@
       },
       get onOpenMember() {
         return onOpenMember;
+      },
+      get onMessageMember() {
+        return onMessageMember;
+      },
+      get onWaveMember() {
+        return onWaveMember;
       },
       get onOpenRoom() {
         return onOpenRoom;

@@ -11,6 +11,8 @@ export function isMessageContinuation(
   if (
     previous === undefined ||
     current === undefined ||
+    previous.activity !== undefined ||
+    current.activity !== undefined ||
     previous.authorId !== current.authorId ||
     previous.createdAt === undefined ||
     current.createdAt === undefined

@@ -8,6 +8,13 @@ For LC-NOSTR-007, public channel and forum message projections MAY retain their
 verified source event so an explicit copy action can export the complete signed
 envelope. Decrypted private-message rumors MUST NOT use that public-event path.
 
+For LC-NOSTR-010, accepted kinds `9007`, `9000`, `9001`, `9021`, and `9022`
+from the authoritative relay MUST remain available through bounded channel
+history and live subscriptions. Channel presentation MUST project them as
+standalone creation, addition, removal, join, or leave activity without message
+mutation controls; referenced members MUST use the shared interactive member
+reference, and the connected identity MUST be labelled `You`.
+
 ## Requirements
 
 | ID           | Requirement                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |

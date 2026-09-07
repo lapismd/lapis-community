@@ -166,17 +166,28 @@ export function avatarHue(pubkey: string): number {
 export function reactionGroups(
   targetEventId: string,
   reactions: readonly ForumReaction[],
+  currentMemberId = "",
 ): ReactionGroup[] {
-  const values = new Map<string, number>();
+  const values = new Map<string, { count: number; selected: boolean }>();
   for (const reaction of reactions) {
     if (reaction.targetEventId !== targetEventId) continue;
-    values.set(reaction.content, (values.get(reaction.content) ?? 0) + 1);
+    const current = values.get(reaction.content) ?? {
+      count: 0,
+      selected: false,
+    };
+    values.set(reaction.content, {
+      count: current.count + 1,
+      selected:
+        current.selected ||
+        (currentMemberId !== "" && reaction.event.pubkey === currentMemberId),
+    });
   }
   return [...values.entries()]
-    .map(([content, count]) => ({
+    .map(([content, value]) => ({
       content,
       symbol: content === "+" ? "❤" : content,
-      count,
+      count: value.count,
+      ...(value.selected ? { selected: true } : {}),
     }))
     .toSorted(
       (left, right) =>
@@ -471,6 +482,7 @@ export interface ReactionGroup {
   content: string;
   symbol: string;
   count: number;
+  selected?: boolean;
 }
 
 export interface CountTimestamp {

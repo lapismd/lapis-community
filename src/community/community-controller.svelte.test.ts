@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type {
   CommunityCapabilities,
   CommunityContentWindowRequest,
+  CommunityEventRuntime,
 } from "./contracts.js";
 import {
   createCommunityController,
@@ -475,8 +476,15 @@ describe("createCommunityController", () => {
     const { controller } = runtime;
     expect(controller.state.workspace.activeRoomId).toBe("general");
     expect(
-      controller.state.workspace.messages.map((message) => message.content),
+      controller.state.workspace.messages
+        .filter((message) => message.activity === undefined)
+        .map((message) => message.content),
     ).toEqual(["Welcome to Lapis Community", "Hello from a member"]);
+    expect(
+      controller.state.workspace.messages
+        .map((message) => message.activity?.type)
+        .filter((activity) => activity !== undefined),
+    ).toEqual(["channel-created", "member-added"]);
     expect(controller.state.inbox?.items).toHaveLength(3);
     expect(controller.state.capabilities.manageMembers).toBe(true);
 
@@ -637,7 +645,9 @@ describe("createCommunityController", () => {
       status: "idle",
     });
 
-    const messageId = runtime.controller.state.workspace.messages[0]!.id;
+    const messageId = runtime.controller.state.workspace.messages.find(
+      (message) => message.activity === undefined,
+    )!.id;
     await expect(
       runtime.controller.actions.toggleReaction(messageId, "wave", {
         shortcode: "wave",
@@ -854,10 +864,12 @@ describe("createCommunityController", () => {
     await connected(runtime);
     const operatorPubkey = await runtime.scenario.operator.getPublicKey();
     const ownMessage = runtime.controller.state.workspace.messages.find(
-      (message) => message.authorId === operatorPubkey,
+      (message) =>
+        message.authorId === operatorPubkey && message.activity === undefined,
     )!;
     const otherMessage = runtime.controller.state.workspace.messages.find(
-      (message) => message.authorId !== operatorPubkey,
+      (message) =>
+        message.authorId !== operatorPubkey && message.activity === undefined,
     )!;
 
     await runtime.controller.actions.editEvent!(
@@ -977,6 +989,54 @@ describe("createCommunityController", () => {
     relayFactory.reset();
   });
 
+  it("reuses restored runtime state when the identity changes", async () => {
+    const scenario = createCommunityTestScenario();
+    const relayFactory = createInMemoryRelayFactory({
+      policy: new Nip29MemoryPolicy({
+        relaySecretKey: new Uint8Array(32).fill(24),
+        now: () => 1_700_000_000,
+      }),
+    });
+    await scenario.seed(relayFactory.relay(scenario.scope.relayUrl));
+    const baseRuntime = createInlineCommunityEventRuntime();
+    const restore = vi.fn(
+      async (...args: Parameters<CommunityEventRuntime["restore"]>) => {
+        if (restore.mock.calls.length > 1) {
+          throw new Error("Identity reconnect replayed the local cache");
+        }
+        return await baseRuntime.restore(...args);
+      },
+    );
+    const eventRuntime: CommunityEventRuntime = {
+      restore,
+      ingest: (batch) => baseRuntime.ingest(batch),
+      project: (selection) => baseRuntime.project(selection),
+      search: (query) => baseRuntime.search(query),
+      clear: (scope) => baseRuntime.clear(scope),
+      dispose: () => baseRuntime.dispose(),
+    };
+    const controller = createCommunityController({
+      scopes: [scenario.scope],
+      source: createNip29CommunitySource({ relayFactory }),
+      runtime: eventRuntime,
+      now: () => 1_700_000_100,
+    });
+    controller.initialize();
+    await vi.waitFor(() => expect(controller.state.status).toBe("connected"));
+
+    await controller.actions.connectIdentity({
+      connect: async () => scenario.operator,
+    });
+
+    expect(restore).toHaveBeenCalledTimes(1);
+    expect(controller.state.authentication).toEqual({
+      status: "connected",
+      pubkey: await scenario.operator.getPublicKey(),
+    });
+    controller.dispose();
+    relayFactory.reset();
+  });
+
   it("disconnects the identity while retaining anonymous public browsing", async () => {
     runtime = await createCommunityTestRuntime();
     await connected(runtime);
@@ -1069,7 +1129,9 @@ describe("createCommunityController", () => {
   it("adds NIP-30 tags to custom reactions", async () => {
     runtime = await createCommunityTestRuntime();
     await connected(runtime);
-    const target = runtime.controller.state.workspace.messages[0]!;
+    const target = runtime.controller.state.workspace.messages.find(
+      (message) => message.activity === undefined,
+    )!;
 
     await runtime.controller.actions.toggleReaction(target.id, "lapis", {
       shortcode: "lapis",

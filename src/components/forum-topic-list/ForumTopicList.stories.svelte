@@ -86,6 +86,25 @@
 />
 
 <Story
+  name="No active topics"
+  args={{
+    title: "support-ai",
+    description: "Questions, guides, and support for the AI plugin",
+    topics: [],
+    members: communityStoryMembers,
+  }}
+  play={async ({ canvas }) => {
+    await expect(
+      canvas.getByRole("heading", { name: "No active topics in support-ai" }),
+    ).toBeVisible();
+    await expect(
+      canvas.getByText("Questions, guides, and support for the AI plugin"),
+    ).toBeVisible();
+    await expect(canvas.queryByText("Replies")).not.toBeInTheDocument();
+  }}
+/>
+
+<Story
   name="Read-only composer warning"
   args={{
     title: "support-ai",

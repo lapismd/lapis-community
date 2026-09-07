@@ -45,6 +45,7 @@
     onOpenProfile,
     onOpenRoom,
     onMessageMember,
+    onWaveMember,
     onViewMemberActivity,
     replyTarget,
     communityEmojis = [],
@@ -97,6 +98,7 @@
     onOpenProfile?: (member: CommunityMemberModel) => void;
     onOpenRoom?: (roomId: string) => void;
     onMessageMember?: (member: CommunityMemberModel) => void | Promise<void>;
+    onWaveMember?: (member: CommunityMemberModel) => void | Promise<void>;
     onViewMemberActivity?: (
       member: CommunityMemberModel,
     ) => void | Promise<void>;
@@ -137,6 +139,53 @@
       presence: "offline" as const,
     },
   );
+
+  function messageDay(message: CommunityMessageModel): string {
+    if (message.createdAt === undefined) return "unknown";
+    const date = new Date(message.createdAt);
+    if (!Number.isFinite(date.getTime())) return "unknown";
+    return `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
+  }
+
+  function startsMessageDay(
+    entries: readonly CommunityMessageModel[],
+    index: number,
+  ): boolean {
+    return (
+      index === 0 ||
+      messageDay(entries[index - 1]!) !== messageDay(entries[index]!)
+    );
+  }
+
+  function messageDayLabel(message: CommunityMessageModel): string {
+    if (message.createdAt === undefined) return "Today";
+    const date = new Date(message.createdAt);
+    if (!Number.isFinite(date.getTime())) return "Today";
+    const today = new Date();
+    const dateStart = new Date(
+      date.getFullYear(),
+      date.getMonth(),
+      date.getDate(),
+    );
+    const todayStart = new Date(
+      today.getFullYear(),
+      today.getMonth(),
+      today.getDate(),
+    );
+    const elapsedDays = Math.round(
+      (todayStart.getTime() - dateStart.getTime()) / 86_400_000,
+    );
+    if (elapsedDays === 0) return "Today";
+    if (elapsedDays === 1) return "Yesterday";
+    return new Intl.DateTimeFormat("en", {
+      weekday: "long",
+      month: "long",
+      day: "numeric",
+      ...(date.getFullYear() === today.getFullYear()
+        ? {}
+        : { year: "numeric" }),
+    }).format(date);
+  }
 
   function startEditing(message: CommunityMessageModel): void {
     editingMessageId = message.id;
@@ -200,6 +249,10 @@
           </section>
           <SystemMessage variant="divider">Today</SystemMessage>
         </div>
+      {:else if intro}
+        <div class="community-conversation__room-empty">
+          {@render intro()}
+        </div>
       {:else}
         <div class="community-conversation__empty">
           <strong>Start the conversation in {room.name}</strong>
@@ -217,6 +270,11 @@
           rooms={composerRooms}
           {communityEmojis}
           {...currentMemberId === undefined ? {} : { currentMemberId }}
+          {...onOpenProfile === undefined
+            ? {}
+            : { onOpenMember: onOpenProfile }}
+          {...onMessageMember === undefined ? {} : { onMessageMember }}
+          {...onWaveMember === undefined ? {} : { onWaveMember }}
           {...editingMessageId !== undefined
             ? {
                 context: {
@@ -254,8 +312,12 @@
       {#if intro}
         {@render intro()}
       {/if}
-      <SystemMessage variant="divider">Today</SystemMessage>
       {#each messages as message, index (message.id)}
+        {#if startsMessageDay(messages, index)}
+          <SystemMessage variant="divider">
+            {messageDayLabel(message)}
+          </SystemMessage>
+        {/if}
         {#snippet supplement()}
           {#if messageSupplement}
             {@render messageSupplement(message)}
@@ -274,6 +336,7 @@
           )}
           {density}
           {communityEmojis}
+          {...currentMemberId === undefined ? {} : { currentMemberId }}
           {replyActionLabel}
           {...messageSupplement === undefined ? {} : { supplement }}
           {...onReply === undefined ? {} : { onReply }}
@@ -308,6 +371,7 @@
             ? {}
             : { onReport: onReportMessage }}
           {...onMessageMember === undefined ? {} : { onMessageMember }}
+          {...onWaveMember === undefined ? {} : { onWaveMember }}
           {...onViewMemberActivity === undefined
             ? {}
             : { onViewMemberActivity }}
@@ -421,6 +485,19 @@
     padding: 3rem 1rem;
     color: var(--muted-foreground);
     text-align: center;
+  }
+
+  .community-conversation__room-empty {
+    width: 100%;
+    min-height: 100%;
+  }
+
+  .community-conversation[data-room-kind="channel"]
+    :global(
+      [data-ui-part="empty-state"]:has(.community-conversation__room-empty)
+    ) {
+    display: block;
+    width: 100%;
   }
 
   .community-conversation__empty strong {

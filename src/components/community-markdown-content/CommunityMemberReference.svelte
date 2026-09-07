@@ -31,6 +31,12 @@
       {...interactions.onOpenMember === undefined
         ? {}
         : { onOpenProfile: interactions.onOpenMember }}
+      {...interactions.onMessageMember === undefined
+        ? {}
+        : { onMessage: interactions.onMessageMember }}
+      {...interactions.onWaveMember === undefined
+        ? {}
+        : { onWave: interactions.onWaveMember }}
     />
   </span>
 {:else}

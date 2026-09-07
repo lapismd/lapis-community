@@ -134,6 +134,7 @@
       }
     } catch (cause) {
       loginError = cause instanceof Error ? cause.message : "Sign in failed";
+      throw cause;
     } finally {
       pendingLoginMethodId = "";
     }

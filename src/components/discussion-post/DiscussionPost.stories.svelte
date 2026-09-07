@@ -10,35 +10,67 @@
     component: DiscussionPost,
     tags: ["visual-pending"],
   });
+
+  const recentPost = {
+    ...storyPosts[1],
+    event: {
+      ...storyPosts[1]!.event,
+      created_at: Math.floor(Date.now() / 1_000) - 120,
+    },
+  };
 </script>
 
 <Story
   name="Reply with reactions"
   args={{
-    post: storyPosts[1],
+    post: recentPost,
     parent: storyPosts[0],
     profiles: storyProfiles,
     number: 2,
     parentReference: "#1",
     active: true,
-    groups: [{ content: "👍", symbol: "👍", count: 4 }],
+    groups: [{ content: "👍", symbol: "👍", count: 4, selected: true }],
     onNavigate: noop,
     onReply: noop,
     onReact: fn(),
+    onOpenProfile: fn(),
+    onMessageMember: fn(),
+    onWaveMember: fn(),
   }}
   play={async ({ args, canvas }) => {
     const post = canvas.getByRole("article");
+    const page = within(post.ownerDocument.body);
     await expect(getComputedStyle(post).borderRadius).not.toBe("0px");
     await expect(
       canvas.getByText(/The local inference path is working well/u),
     ).toBeVisible();
+    const existingReaction = canvas.getByRole("button", {
+      name: "4 reactions with 👍",
+    });
+    await expect(existingReaction).toHaveAttribute("aria-pressed", "true");
+    await userEvent.click(existingReaction);
+    await expect(args.onReact).toHaveBeenCalledWith(recentPost, "👍");
+
+    const timestamp = canvas.getByRole("link", { name: "Link to post 2" });
+    await expect(timestamp).toHaveTextContent(/minutes? ago/u);
+    await expect(timestamp).toHaveAttribute(
+      "title",
+      new Intl.DateTimeFormat(undefined, {
+        dateStyle: "medium",
+        timeStyle: "short",
+      }).format(recentPost.event.created_at * 1_000),
+    );
+
+    const avatar = canvas.getByRole("button", {
+      name: "View Ben Stone's profile",
+    });
+    await expect(avatar).toBeVisible();
+
     await userEvent.click(
       canvas.getByRole("button", { name: "React to post 2" }),
     );
-    await userEvent.click(
-      within(document.body).getByRole("button", { name: "React ❤️" }),
-    );
-    await expect(args.onReact).toHaveBeenCalledWith(storyPosts[1], "❤️");
+    await userEvent.click(page.getByRole("button", { name: "React ❤️" }));
+    await expect(args.onReact).toHaveBeenCalledWith(recentPost, "❤️");
   }}
 />
 

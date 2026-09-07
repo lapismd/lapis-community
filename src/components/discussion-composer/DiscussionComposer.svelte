@@ -91,6 +91,7 @@
   });
   const rooms = $derived(applicationComposer?.rooms() ?? []);
   const communityEmojis = $derived(applicationComposer?.emojis() ?? []);
+  const onWaveMember = $derived(applicationComposer?.onWaveMember());
   const signedInMember = $derived(
     members.find((member) => member.id === signedInPubkey),
   );
@@ -493,6 +494,13 @@
           {rooms}
           {communityEmojis}
           {...signedInPubkey === "" ? {} : { currentMemberId: signedInPubkey }}
+          {...applicationComposer === undefined
+            ? {}
+            : {
+                onOpenMember: applicationComposer.onOpenMember(),
+                onMessageMember: applicationComposer.onMessageMember(),
+              }}
+          {...onWaveMember === undefined ? {} : { onWaveMember }}
           {...composerContext === undefined ? {} : { context: composerContext }}
           {...draftKey === undefined || editingPost !== undefined
             ? {}

@@ -449,6 +449,48 @@ describe("createNip29CommunitySource", () => {
     session.close();
   });
 
+  it("loads channel lifecycle history only from the authoritative relay", async () => {
+    const scenario = createCommunityTestScenario({
+      relayUrl: "memory://activity-authority.test",
+    });
+    const mirrorUrl = "memory://activity-mirror.test";
+    const scope = { ...scenario.scope, readRelayUrls: [mirrorUrl] };
+    const relayFactory = createInMemoryRelayFactory();
+    const authority = relayFactory.relay(scope.relayUrl);
+    const mirror = relayFactory.relay(mirrorUrl);
+    const acceptedCreation = await scenario.operator.signEvent({
+      kind: 9_007,
+      created_at: 1_700_000_100,
+      content: "",
+      tags: [["h", "general"]],
+    });
+    const mirrorOnlyRemoval = await scenario.operator.signEvent({
+      kind: 9_001,
+      created_at: 1_700_000_101,
+      content: "",
+      tags: [
+        ["h", "general"],
+        ["p", await scenario.member.getPublicKey()],
+      ],
+    });
+    authority.inject(acceptedCreation);
+    mirror.inject(mirrorOnlyRemoval);
+    const session = await createNip29CommunitySource({ relayFactory }).open(
+      scope,
+      { identity: scenario.operator },
+    );
+
+    const history = await session.loadContentWindow?.({
+      collection: "channel-roots",
+      groupId: "general",
+      limit: 10,
+    });
+
+    expect(history?.primaryEventIds).toContain(acceptedCreation.id);
+    expect(history?.primaryEventIds).not.toContain(mirrorOnlyRemoval.id);
+    session.close();
+  });
+
   it("fills channel-root windows across reply-dense bounded relay pages", async () => {
     const scenario = createCommunityTestScenario();
     const relayFactory = createInMemoryRelayFactory({

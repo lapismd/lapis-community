@@ -33,6 +33,7 @@
     CommunityMessageModel,
     CommunityRoomModel,
   } from "../community-workspace/model.js";
+  import { memberById } from "../community-workspace/model.js";
 
   let {
     message,
@@ -56,7 +57,9 @@
     onOpenProfile,
     onOpenRoom,
     onMessageMember,
+    onWaveMember,
     onViewMemberActivity,
+    currentMemberId,
     replyActionLabel = "Reply in thread",
     supplement,
   }: {
@@ -92,9 +95,11 @@
     onOpenProfile?: (member: CommunityMemberModel) => void;
     onOpenRoom?: (roomId: string) => void;
     onMessageMember?: (member: CommunityMemberModel) => void | Promise<void>;
+    onWaveMember?: (member: CommunityMemberModel) => void | Promise<void>;
     onViewMemberActivity?: (
       member: CommunityMemberModel,
     ) => void | Promise<void>;
+    currentMemberId?: string;
     replyActionLabel?: string;
     supplement?: Snippet;
   } = $props();
@@ -171,6 +176,38 @@
   const isSelected = $derived(
     message.reactions?.some((reaction) => reaction.selected) ?? false,
   );
+  const authorName = $derived(
+    author.id === currentMemberId ? "You" : author.name,
+  );
+  const activityMembers = $derived(
+    currentMemberId === undefined
+      ? members
+      : members.map((member) =>
+          member.id === currentMemberId ? { ...member, name: "You" } : member,
+        ),
+  );
+  const activityContent = $derived.by(() => {
+    const activity = message.activity;
+    if (activity === undefined) return "";
+    const target =
+      activity.targetMemberId === undefined
+        ? undefined
+        : memberById(activityMembers, activity.targetMemberId);
+    const targetReference =
+      target === undefined ? "a member" : `@${target.name}`;
+    switch (activity.type) {
+      case "channel-created":
+        return "created this channel";
+      case "member-added":
+        return `added ${targetReference} to this channel`;
+      case "member-removed":
+        return `removed ${targetReference} from this channel`;
+      case "member-joined":
+        return "joined this channel";
+      case "member-left":
+        return "left this channel";
+    }
+  });
 
   const replyLabel = $derived.by(() => {
     const replyCount = message.replyCount ?? 0;
@@ -182,9 +219,13 @@
   const showReplySummary = $derived(
     (message.replyCount ?? 0) > 0 && onOpenThread !== undefined,
   );
-  const replyAction = $derived(onReply ?? onOpenThread);
+  const replyAction = $derived(
+    message.activity === undefined ? (onReply ?? onOpenThread) : undefined,
+  );
   const canCopyEvent = $derived(
-    onCopyEvent !== undefined && message.sourceEvent !== undefined,
+    message.activity === undefined &&
+      onCopyEvent !== undefined &&
+      message.sourceEvent !== undefined,
   );
 
   async function confirmDelete(): Promise<void> {
@@ -212,7 +253,7 @@
   data-selected={isSelected ? "" : undefined}
   data-continuation={isContinuation ? "" : undefined}
   data-actions-visible={actionsVisible ? "" : undefined}
-  aria-label={`Message from ${author.name}`}
+  aria-label={`Message from ${authorName}`}
   onpointerenter={scheduleActions}
   onpointerleave={scheduleActionsHide}
   onfocusin={focusActions}
@@ -232,6 +273,7 @@
         member={author}
         {...onOpenProfile === undefined ? {} : { onOpenProfile }}
         {...onMessageMember === undefined ? {} : { onMessage: onMessageMember }}
+        {...onWaveMember === undefined ? {} : { onWave: onWaveMember }}
         {...onViewMemberActivity === undefined
           ? {}
           : { onViewActivity: onViewMemberActivity }}
@@ -240,7 +282,7 @@
   {/snippet}
   {#snippet name()}
     {#if !isContinuation}
-      <span class="community-message__author">{author.name}</span>
+      <span class="community-message__author">{authorName}</span>
       {#if author.role}
         <span class="community-message__role">{author.role}</span>
       {/if}
@@ -248,16 +290,50 @@
   {/snippet}
 
   <MessageBubble variant="ghost" {density}>
-    <CommunityMarkdownContent
-      class="community-message__content"
-      content={message.content}
-      mentionPubkeys={message.mentionPubkeys ?? []}
-      {members}
-      {rooms}
-      {communityEmojis}
-      {...onOpenProfile === undefined ? {} : { onOpenMember: onOpenProfile }}
-      {...onOpenRoom === undefined ? {} : { onOpenRoom }}
-    />
+    {#if message.activity}
+      <CommunityMarkdownContent
+        class="community-message__content community-message__activity"
+        content={activityContent}
+        mentionPubkeys={message.activity.targetMemberId === undefined
+          ? []
+          : [message.activity.targetMemberId]}
+        members={activityMembers}
+        {rooms}
+        {communityEmojis}
+        {...onOpenProfile === undefined
+          ? {}
+          : {
+              onOpenMember: (member: CommunityMemberModel) =>
+                onOpenProfile(memberById(members, member.id)),
+            }}
+        {...onOpenRoom === undefined ? {} : { onOpenRoom }}
+        {...onMessageMember === undefined
+          ? {}
+          : {
+              onMessageMember: (member: CommunityMemberModel) =>
+                onMessageMember(memberById(members, member.id)),
+            }}
+        {...onWaveMember === undefined
+          ? {}
+          : {
+              onWaveMember: (member: CommunityMemberModel) =>
+                onWaveMember(memberById(members, member.id)),
+            }}
+      />
+    {:else}
+      <CommunityMarkdownContent
+        class="community-message__content"
+        content={message.content}
+        mentionPubkeys={message.mentionPubkeys ?? []}
+        {members}
+        {rooms}
+        {communityEmojis}
+        {...onOpenProfile === undefined ? {} : { onOpenMember: onOpenProfile }}
+        {...onMessageMember === undefined ? {} : { onMessageMember }}
+        {...onWaveMember === undefined ? {} : { onWaveMember }}
+        {...onOpenRoom === undefined ? {} : { onOpenRoom }}
+      />
+    {/if}
   </MessageBubble>
 
   {#if supplement}
@@ -269,12 +345,12 @@
     </div>
   {/if}
 
-  {#if onAddReaction || replyAction || onCopyLink || onCopyMessage || canCopyEvent || onEdit || onDelete || onReport}
+  {#if message.activity === undefined && (onAddReaction || replyAction || onCopyLink || onCopyMessage || canCopyEvent || onEdit || onDelete || onReport)}
     <div
       class="community-message__actions"
       data-ui-part="message-actions"
       role="group"
-      aria-label={`Actions for ${author.name}'s message`}
+      aria-label={`Actions for ${authorName}'s message`}
       onpointerenter={keepActionsVisible}
       onpointerleave={scheduleActionsHide}
     >
@@ -407,7 +483,7 @@
   {#if message.reactions?.length}
     <ReactionBar
       reactions={message.reactions}
-      label={`Reactions to ${author.name}'s message`}
+      label={`Reactions to ${authorName}'s message`}
       onToggle={(emoji) => {
         const reaction = message.reactions?.find(
           (candidate) => candidate.emoji === emoji,

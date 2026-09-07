@@ -71,10 +71,36 @@
     performReleaseAction,
   };
   const curatorSigner = new SecretKeyRegistrySigner(new Uint8Array(32).fill(7));
-  async function expand({ canvas }: { canvas: ReturnType<typeof within> }) {
+  async function expectFullCanvasWidth(canvasElement: HTMLElement) {
+    const disclosure = canvasElement.querySelector<HTMLElement>(
+      '[data-ui-part="registry-release-disclosure"]',
+    );
+    if (disclosure === null) {
+      throw new Error("Expected the release disclosure");
+    }
+    const rootStyle = getComputedStyle(canvasElement);
+    const availableWidth =
+      canvasElement.clientWidth -
+      Number.parseFloat(rootStyle.paddingLeft) -
+      Number.parseFloat(rootStyle.paddingRight);
+    await expect(disclosure.getBoundingClientRect().width).toBeCloseTo(
+      availableWidth,
+      0,
+    );
+  }
+
+  async function expand({
+    canvas,
+    canvasElement,
+  }: {
+    canvas: ReturnType<typeof within>;
+    canvasElement: HTMLElement;
+  }) {
+    await expectFullCanvasWidth(canvasElement);
     await userEvent.click(
       await canvas.findByRole("button", { name: /1\.4\.0/u }),
     );
+    await expectFullCanvasWidth(canvasElement);
   }
   const { Story } = defineMeta({
     title: "Community/Registry/Release Disclosure",
@@ -86,7 +112,7 @@
       onOpenPlugin: () => {},
     },
     parameters: {
-      layout: "centered",
+      layout: "padded",
       docs: {
         source: {
           language: "svelte",
@@ -97,7 +123,12 @@
   });
 </script>
 
-<Story name="Approved collapsed" />
+<Story
+  name="Approved collapsed"
+  play={async ({ canvasElement }) => {
+    await expectFullCanvasWidth(canvasElement);
+  }}
+/>
 
 <Story
   name="Approved expanded"
@@ -194,7 +225,7 @@
 <Story
   name="Curator management"
   play={async ({ canvas, canvasElement }) => {
-    await expand({ canvas });
+    await expand({ canvas, canvasElement });
     await expect(
       await canvas.findByRole("region", { name: "Release management" }),
     ).toBeVisible();

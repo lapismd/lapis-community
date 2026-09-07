@@ -21,7 +21,6 @@
     title: "Community/Navigation/Login",
     component: CommunityLogin,
     tags: ["visual-pending"],
-    globals: { viewport: { value: "desktop", isRotated: false } },
     parameters: {
       layout: "fullscreen",
       docs: { source: { language: "svelte", code: consumerSource } },
@@ -117,6 +116,34 @@
     await expect(args.onSelect).toHaveBeenCalledWith("private-key", {
       privateKey: "nsec1storybookexample",
     });
+  }}
+/>
+
+<Story
+  name="Private key retry"
+  args={{
+    methods,
+    error: "The relay could not complete sign in. Try again.",
+    onSelect: fn(async () => {
+      throw new Error("The relay could not complete sign in. Try again.");
+    }),
+  }}
+  play={async ({ canvas, args }) => {
+    await userEvent.click(
+      canvas.getByRole("button", { name: /Paste a private key/u }),
+    );
+    const input = canvas.getByLabelText("Private key");
+    await userEvent.type(input, "nsec1retryableexample");
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Sign in with private key" }),
+    );
+    await expect(args.onSelect).toHaveBeenCalledWith("private-key", {
+      privateKey: "nsec1retryableexample",
+    });
+    await expect(input).toHaveValue("nsec1retryableexample");
+    await expect(canvas.getByRole("alert")).toHaveTextContent(
+      "The relay could not complete sign in. Try again.",
+    );
   }}
 />
 

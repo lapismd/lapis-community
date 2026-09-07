@@ -10,6 +10,11 @@ export interface CommunityApplicationComposerContext {
   members(): readonly CommunityMemberModel[];
   rooms(): readonly CommunityRoomModel[];
   emojis(): readonly CommunityCustomEmoji[];
+  onOpenMember(): (member: CommunityMemberModel) => void;
+  onMessageMember(): (member: CommunityMemberModel) => void | Promise<void>;
+  onWaveMember():
+    | ((member: CommunityMemberModel) => void | Promise<void>)
+    | undefined;
 }
 
 const composerContextKey = Symbol("community-application-composer");

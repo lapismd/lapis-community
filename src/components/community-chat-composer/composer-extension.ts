@@ -41,6 +41,15 @@ export interface CommunityComposerExtensionOptions {
   disabled(): boolean;
   editing(): boolean;
   autocompleteOpen(): boolean;
+  onOpenMember():
+    | ((member: CommunityMemberModel) => void | Promise<void>)
+    | undefined;
+  onMessageMember():
+    | ((member: CommunityMemberModel) => void | Promise<void>)
+    | undefined;
+  onWaveMember():
+    | ((member: CommunityMemberModel) => void | Promise<void>)
+    | undefined;
   onView(view: EditorView): void;
   onSelection(state: CommunityComposerEditorState): void;
   onAutocompleteQuery(query: CommunityComposerAutocompleteQuery | null): void;
@@ -260,18 +269,36 @@ function buildTokenDecorations(
         !decorated.some((range) => from < range.to && to > range.from)
       ) {
         decorated.push({ from, to });
-        ranges.push(
-          Decoration.mark({
-            class: `community-composer-token community-composer-token--${reference.kind}`,
-            ...(reference.memberId === undefined
-              ? {}
-              : {
-                  attributes: {
-                    "data-community-member-id": reference.memberId,
-                  },
-                }),
-          }).range(from, to),
-        );
+        const member =
+          reference.memberId === undefined
+            ? undefined
+            : options
+                .members()
+                .find((candidate) => candidate.id === reference.memberId);
+        if (member !== undefined && !selectionTouchesRange(view, from, to)) {
+          ranges.push(
+            Decoration.replace({
+              widget: new CommunityMemberWidget(
+                member,
+                reference.token,
+                options,
+              ),
+            }).range(from, to),
+          );
+        } else {
+          ranges.push(
+            Decoration.mark({
+              class: `community-composer-token community-composer-token--${reference.kind}`,
+              ...(reference.memberId === undefined
+                ? {}
+                : {
+                    attributes: {
+                      "data-community-member-id": reference.memberId,
+                    },
+                  }),
+            }).range(from, to),
+          );
+        }
       }
       from = normalizedValue.indexOf(normalizedToken, from + 1);
     }
@@ -310,6 +337,207 @@ class CommunityEmojiWidget extends WidgetType {
     image.dataset.uiPart = "composer-custom-emoji";
     return image;
   }
+}
+
+const memberWidgetCleanup = new WeakMap<HTMLElement, () => void>();
+
+class CommunityMemberWidget extends WidgetType {
+  constructor(
+    readonly member: CommunityMemberModel,
+    readonly label: string,
+    readonly options: CommunityComposerExtensionOptions,
+  ) {
+    super();
+  }
+
+  override eq(other: CommunityMemberWidget): boolean {
+    return (
+      other.member.id === this.member.id &&
+      other.member.name === this.member.name &&
+      other.member.avatarUrl === this.member.avatarUrl &&
+      other.label === this.label
+    );
+  }
+
+  override toDOM(): HTMLElement {
+    const host = document.createElement("span");
+    host.className = "community-composer-member-reference";
+    host.dataset.uiPart = "composer-member-reference";
+    const trigger = document.createElement("button");
+    trigger.type = "button";
+    trigger.className = "community-composer-member-reference__trigger";
+    trigger.ariaLabel = this.label;
+    trigger.setAttribute("aria-haspopup", "dialog");
+    trigger.append(
+      composerMemberAvatar(this.member, "inline"),
+      Object.assign(document.createElement("span"), {
+        textContent: this.label,
+      }),
+    );
+
+    const popover = composerMemberPopover(this.member, this.options);
+    document.body.append(popover);
+    let hideTimer: ReturnType<typeof setTimeout> | undefined;
+    let positioned = false;
+
+    const positionPopover = () => {
+      if (popover.hidden) return;
+      const triggerBounds = trigger.getBoundingClientRect();
+      const popoverBounds = popover.getBoundingClientRect();
+      const edge = 8;
+      const gap = 8;
+      const right = triggerBounds.right + gap;
+      const left = Math.min(
+        Math.max(edge, right),
+        window.innerWidth - popoverBounds.width - edge,
+      );
+      const below = triggerBounds.bottom + gap;
+      const top =
+        below + popoverBounds.height <= window.innerHeight - edge
+          ? below
+          : Math.max(edge, triggerBounds.top - popoverBounds.height - gap);
+      popover.style.left = `${left}px`;
+      popover.style.top = `${top}px`;
+      positioned = true;
+    };
+    const showPopover = () => {
+      if (hideTimer !== undefined) clearTimeout(hideTimer);
+      hideTimer = undefined;
+      popover.hidden = false;
+      trigger.setAttribute("aria-expanded", "true");
+      positionPopover();
+      window.addEventListener("resize", positionPopover);
+      window.addEventListener("scroll", positionPopover, true);
+    };
+    const hidePopover = () => {
+      popover.hidden = true;
+      trigger.setAttribute("aria-expanded", "false");
+      window.removeEventListener("resize", positionPopover);
+      window.removeEventListener("scroll", positionPopover, true);
+    };
+    const scheduleHide = () => {
+      if (hideTimer !== undefined) clearTimeout(hideTimer);
+      hideTimer = setTimeout(hidePopover, 120);
+    };
+    const cancelHide = () => {
+      if (hideTimer !== undefined) clearTimeout(hideTimer);
+      hideTimer = undefined;
+    };
+    const openProfile = () => {
+      void this.options.onOpenMember()?.(this.member);
+    };
+
+    trigger.addEventListener("pointerenter", showPopover);
+    trigger.addEventListener("pointerleave", scheduleHide);
+    trigger.addEventListener("focus", showPopover);
+    trigger.addEventListener("blur", scheduleHide);
+    trigger.addEventListener("click", openProfile);
+    popover.addEventListener("pointerenter", cancelHide);
+    popover.addEventListener("pointerleave", scheduleHide);
+    popover.addEventListener("focusin", cancelHide);
+    popover.addEventListener("focusout", scheduleHide);
+    host.append(trigger);
+
+    memberWidgetCleanup.set(host, () => {
+      if (hideTimer !== undefined) clearTimeout(hideTimer);
+      if (positioned) hidePopover();
+      popover.remove();
+    });
+    return host;
+  }
+
+  override destroy(dom: HTMLElement): void {
+    memberWidgetCleanup.get(dom)?.();
+    memberWidgetCleanup.delete(dom);
+  }
+}
+
+function composerMemberAvatar(
+  member: CommunityMemberModel,
+  size: "inline" | "large",
+): HTMLElement {
+  const avatar = document.createElement("span");
+  avatar.className = "community-composer-member-avatar";
+  avatar.dataset.size = size;
+  avatar.dataset.uiComponent = "community-member-avatar";
+  avatar.setAttribute("aria-hidden", "true");
+  if (member.avatarUrl === undefined) {
+    avatar.textContent = member.initials;
+  } else {
+    const image = document.createElement("img");
+    image.src = member.avatarUrl;
+    image.alt = "";
+    avatar.append(image);
+  }
+  return avatar;
+}
+
+function composerMemberPopover(
+  member: CommunityMemberModel,
+  options: CommunityComposerExtensionOptions,
+): HTMLElement {
+  const popover = document.createElement("div");
+  popover.className = "community-composer-member-popover";
+  popover.hidden = true;
+  popover.role = "group";
+  popover.ariaLabel = `${member.name} contact preview`;
+
+  const identity = document.createElement("button");
+  identity.type = "button";
+  identity.className = "community-composer-member-popover__identity";
+  identity.ariaLabel = `Open ${member.name}'s profile`;
+  const copy = document.createElement("span");
+  const name = document.createElement("strong");
+  name.textContent = member.name;
+  const handle = document.createElement("small");
+  handle.textContent = `@${member.handle}`;
+  copy.append(name, handle);
+  identity.append(composerMemberAvatar(member, "large"), copy);
+  identity.addEventListener("click", () => {
+    void options.onOpenMember()?.(member);
+  });
+  popover.append(identity);
+
+  if (member.role) {
+    const role = document.createElement("p");
+    role.className = "community-composer-member-popover__role";
+    role.textContent = member.role;
+    popover.append(role);
+  }
+
+  const actions = document.createElement("div");
+  actions.className = "community-composer-member-popover__actions";
+  const onMessage = options.onMessageMember();
+  const onWave = options.onWaveMember();
+  if (onMessage !== undefined) {
+    actions.append(
+      composerMemberAction(`Message ${member.name}`, "Message", () => {
+        void onMessage(member);
+      }),
+    );
+  }
+  if (onWave !== undefined) {
+    actions.append(
+      composerMemberAction(`Wave to ${member.name}`, "Wave", () => {
+        void onWave(member);
+      }),
+    );
+  }
+  if (actions.childElementCount > 0) popover.append(actions);
+  return popover;
+}
+
+function composerMemberAction(
+  label: string,
+  text: string,
+  action: () => void,
+): HTMLButtonElement {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.ariaLabel = label;
+  button.textContent = text;
+  button.addEventListener("click", action);
+  return button;
 }
 
 function communityEmojiMatches(

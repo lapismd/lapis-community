@@ -8,6 +8,7 @@
   import CheckIcon from "@lucide/svelte/icons/check";
   import CopyIcon from "@lucide/svelte/icons/copy";
   import EllipsisIcon from "@lucide/svelte/icons/ellipsis";
+  import MessagesSquareIcon from "@lucide/svelte/icons/messages-square";
   import StarIcon from "@lucide/svelte/icons/star";
   import TrashIcon from "@lucide/svelte/icons/trash-2";
   import type { Snippet } from "svelte";
@@ -25,6 +26,7 @@
 
   let {
     title = "Forum",
+    description = "",
     topics,
     members,
     rooms = [],
@@ -43,6 +45,7 @@
     historyUpdating = false,
     embedded = false,
     showTopicActions = true,
+    emptyState,
   }: {
     title?: string;
     description?: string;
@@ -67,6 +70,7 @@
     historyUpdating?: boolean;
     embedded?: boolean;
     showTopicActions?: boolean;
+    emptyState?: Snippet;
   } = $props();
 </script>
 
@@ -227,41 +231,55 @@
     />
   {/if}
 
-  <div class="forum-topic-list__columns" aria-hidden="true">
-    <span>Topic</span><span>Replies</span><span>Activity</span>
-  </div>
+  {#if topics.length === 0}
+    {#if emptyState}
+      {@render emptyState()}
+    {:else}
+      <section class="forum-topic-list__empty">
+        <span aria-hidden="true"><MessagesSquareIcon /></span>
+        <h2>No active topics in {title}</h2>
+        <p>
+          {description || "Start a discussion or check back for new activity."}
+        </p>
+      </section>
+    {/if}
+  {:else}
+    <div class="forum-topic-list__columns" aria-hidden="true">
+      <span>Topic</span><span>Replies</span><span>Activity</span>
+    </div>
 
-  <div class="forum-topic-list__topics">
-    {#each topics as topic (topic.id)}
-      <div class="forum-topic-list__topic-row">
-        {#if showTopicActions}
-          <ContextMenu.Root
-            ><ContextMenu.Trigger
-              >{@render topicButton(topic)}</ContextMenu.Trigger
-            ><ContextMenu.Content
-              >{@render contextActions(topic)}</ContextMenu.Content
-            ></ContextMenu.Root
-          ><DropdownMenu.Root
-            ><DropdownMenu.Trigger
-              >{#snippet child({ props })}<Button
-                  {...props}
-                  type="button"
-                  variant="ghost"
-                  size="icon-sm"
-                  class="forum-topic-list__menu"
-                  aria-label={`Open ${topic.title} menu`}
-                  ><EllipsisIcon aria-hidden="true" /></Button
-                >{/snippet}</DropdownMenu.Trigger
-            ><DropdownMenu.Content align="end"
-              >{@render dropdownActions(topic)}</DropdownMenu.Content
-            ></DropdownMenu.Root
-          >
-        {:else}
-          {@render topicButton(topic)}
-        {/if}
-      </div>
-    {/each}
-  </div>
+    <div class="forum-topic-list__topics">
+      {#each topics as topic (topic.id)}
+        <div class="forum-topic-list__topic-row">
+          {#if showTopicActions}
+            <ContextMenu.Root
+              ><ContextMenu.Trigger
+                >{@render topicButton(topic)}</ContextMenu.Trigger
+              ><ContextMenu.Content
+                >{@render contextActions(topic)}</ContextMenu.Content
+              ></ContextMenu.Root
+            ><DropdownMenu.Root
+              ><DropdownMenu.Trigger
+                >{#snippet child({ props })}<Button
+                    {...props}
+                    type="button"
+                    variant="ghost"
+                    size="icon-sm"
+                    class="forum-topic-list__menu"
+                    aria-label={`Open ${topic.title} menu`}
+                    ><EllipsisIcon aria-hidden="true" /></Button
+                  >{/snippet}</DropdownMenu.Trigger
+              ><DropdownMenu.Content align="end"
+                >{@render dropdownActions(topic)}</DropdownMenu.Content
+              ></DropdownMenu.Root
+            >
+          {:else}
+            {@render topicButton(topic)}
+          {/if}
+        </div>
+      {/each}
+    </div>
+  {/if}
 </section>
 
 <style>
@@ -305,6 +323,39 @@
 
   .forum-topic-list__topics {
     display: grid;
+  }
+
+  .forum-topic-list__empty {
+    display: grid;
+    justify-items: start;
+    gap: 0.5rem;
+    padding: clamp(2rem, 8vh, 5rem) 0.5rem;
+  }
+
+  .forum-topic-list__empty > span {
+    display: grid;
+    width: 3rem;
+    height: 3rem;
+    place-items: center;
+    border: 1px solid var(--border);
+    border-radius: 0.85rem;
+    color: var(--primary);
+    background: color-mix(in srgb, var(--primary) 10%, transparent);
+  }
+
+  .forum-topic-list__empty h2,
+  .forum-topic-list__empty p {
+    margin: 0;
+  }
+
+  .forum-topic-list__empty h2 {
+    margin-block-start: 0.75rem;
+    font-size: 1.4rem;
+  }
+
+  .forum-topic-list__empty p {
+    max-width: 36rem;
+    color: var(--muted-foreground);
   }
   .forum-topic-list__topic-row {
     position: relative;

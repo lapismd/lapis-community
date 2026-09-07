@@ -19,6 +19,7 @@
     onOpenProfile: fn(),
     onViewActivity: fn(),
     onMessage: fn(),
+    onWave: fn(),
     openDelay: 120,
   }}
   play={async ({ canvas, canvasElement, args }) => {
@@ -39,6 +40,14 @@
       page.getByRole("button", { name: "Message Ben Stone" }),
     );
     await expect(args.onMessage).toHaveBeenCalledWith(communityStoryMembers[1]);
+    await userEvent.click(
+      page.getByRole("button", { name: "Wave to Ben Stone" }),
+    );
+    await expect(args.onWave).toHaveBeenCalledWith(communityStoryMembers[1]);
+    await userEvent.click(avatar);
+    await expect(args.onOpenProfile).toHaveBeenCalledWith(
+      communityStoryMembers[1],
+    );
   }}
 >
   {#snippet template(args)}

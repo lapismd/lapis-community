@@ -223,6 +223,7 @@ export function createCommunityController(
   async function connect(
     currentGeneration: number,
     signal: AbortSignal,
+    restoreRuntime = true,
   ): Promise<void> {
     status = "restoring";
     error = "";
@@ -252,13 +253,15 @@ export function createCommunityController(
           if (stored !== undefined) applyStoredState(scope, stored, true);
         }
       }
-      const restored = await eventRuntime.restore(
-        scopes.map(runtimeScope),
-        currentGeneration,
-      );
-      if (generation !== currentGeneration) return;
-      applyRuntimeRevision(restored);
-      syncPlans = restored.syncPlans ?? {};
+      if (restoreRuntime) {
+        const restored = await eventRuntime.restore(
+          scopes.map(runtimeScope),
+          currentGeneration,
+        );
+        if (generation !== currentGeneration) return;
+        applyRuntimeRevision(restored);
+        syncPlans = restored.syncPlans ?? {};
+      }
       await refreshProjection(currentGeneration);
       status = "connecting";
       let progressive = false;
@@ -635,11 +638,11 @@ export function createCommunityController(
     status = "idle";
   }
 
-  async function reconnect(): Promise<void> {
+  async function reconnect(restoreRuntime = true): Promise<void> {
     closeConnections("Controller reconnecting");
     controllerAbort = new AbortController();
     const currentGeneration = ++generation;
-    await connect(currentGeneration, controllerAbort.signal);
+    await connect(currentGeneration, controllerAbort.signal, restoreRuntime);
     if (status === "error") {
       throw new Error(error || "Community connection failed");
     }
@@ -1634,7 +1637,7 @@ export function createCommunityController(
         identity = await connector.connect();
         const pubkey = await identity.getPublicKey();
         authentication = { status: "connected", pubkey };
-        await reconnect();
+        await reconnect(false);
       } catch (cause) {
         const message =
           cause instanceof Error ? cause.message : "Sign in failed";
@@ -1661,7 +1664,7 @@ export function createCommunityController(
         activeRoomId =
           communityRooms(activeScope(), activeEvents())[0]?.id ?? "";
       }
-      await reconnect();
+      await reconnect(false);
     },
   };
 

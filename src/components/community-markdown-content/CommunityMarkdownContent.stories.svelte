@@ -19,7 +19,7 @@
     component: CommunityMarkdownContent,
     tags: ["visual-pending"],
     parameters: {
-      layout: "centered",
+      layout: "padded",
       docs: {
         source: {
           code: `<CommunityMarkdownContent
@@ -47,17 +47,46 @@
     rooms: communityComposerStoryRooms,
     communityEmojis: communityComposerStoryEmojis,
     onOpenMember: fn(),
+    onMessageMember: fn(),
+    onWaveMember: fn(),
     onOpenRoom: fn(),
   }}
   play={async ({ canvas, canvasElement, args }) => {
     const page = within(canvasElement.ownerDocument.body);
     const mention = canvas.getByRole("button", { name: "@Ben Stone" });
+    await expect(
+      mention.querySelector('[data-ui-component="community-member-avatar"]'),
+    ).not.toBeNull();
+    const mentionAvatar = mention.querySelector<HTMLElement>(
+      '[data-ui-component="community-member-avatar"]',
+    )!;
+    await expect(
+      Math.abs(
+        mention.getBoundingClientRect().top +
+          mention.getBoundingClientRect().height / 2 -
+          (mentionAvatar.getBoundingClientRect().top +
+            mentionAvatar.getBoundingClientRect().height / 2),
+      ),
+    ).toBeLessThan(1);
     await userEvent.hover(mention);
     await expect(
       await page.findByRole("group", {
         name: "Ben Stone contact preview",
       }),
     ).toBeVisible();
+    await userEvent.click(
+      page.getByRole("button", { name: "Message Ben Stone" }),
+    );
+    await expect(args.onMessageMember).toHaveBeenCalledWith(
+      communityComposerStoryMembers[1],
+    );
+    await userEvent.hover(mention);
+    await userEvent.click(
+      page.getByRole("button", { name: "Wave to Ben Stone" }),
+    );
+    await expect(args.onWaveMember).toHaveBeenCalledWith(
+      communityComposerStoryMembers[1],
+    );
     await userEvent.click(mention);
     await expect(args.onOpenMember).toHaveBeenCalledWith(
       communityComposerStoryMembers[1],

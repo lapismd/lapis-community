@@ -38,6 +38,7 @@
     onOpenProfile,
     onOpenRoom,
     onMessageMember,
+    onWaveMember,
     onViewMemberActivity,
     replyTarget,
     communityEmojis = [],
@@ -84,6 +85,7 @@
     onOpenProfile?: (member: CommunityMemberModel) => void;
     onOpenRoom?: (roomId: string) => void;
     onMessageMember?: (member: CommunityMemberModel) => void | Promise<void>;
+    onWaveMember?: (member: CommunityMemberModel) => void | Promise<void>;
     onViewMemberActivity?: (
       member: CommunityMemberModel,
     ) => void | Promise<void>;
@@ -158,6 +160,9 @@
         {rooms}
         {communityEmojis}
         {...currentMemberId === undefined ? {} : { currentMemberId }}
+        {...onOpenProfile === undefined ? {} : { onOpenMember: onOpenProfile }}
+        {...onMessageMember === undefined ? {} : { onMessageMember }}
+        {...onWaveMember === undefined ? {} : { onWaveMember }}
         {...editingMessageId !== undefined
           ? {
               context: {
@@ -237,6 +242,7 @@
           {...onOpenProfile === undefined ? {} : { onOpenProfile }}
           {...onOpenRoom === undefined ? {} : { onOpenRoom }}
           {...onMessageMember === undefined ? {} : { onMessageMember }}
+          {...onWaveMember === undefined ? {} : { onWaveMember }}
           {...onViewMemberActivity === undefined
             ? {}
             : { onViewMemberActivity }}

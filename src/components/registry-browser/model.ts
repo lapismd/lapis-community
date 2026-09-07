@@ -2,6 +2,7 @@ import type { Snippet } from "svelte";
 
 import type { RegistrySigner } from "../../auth/index.js";
 import type { RegistryCommunityDataSource } from "../../community/index.js";
+import type { CommunityMemberModel } from "../community-workspace/model.js";
 import type {
   RegistryCatalogDataSource,
   RegistryInstallAction,
@@ -16,6 +17,9 @@ export interface RegistryBrowserOptions {
   discussion?: Snippet;
   installActions?: Readonly<Record<string, RegistryInstallAction>>;
   onInstall?: (request: RegistryInstallRequest) => void | Promise<void>;
+  onOpenMemberProfile?: (member: CommunityMemberModel) => void;
+  onMessageMember?: (member: CommunityMemberModel) => void | Promise<void>;
+  onWaveMember?: (member: CommunityMemberModel) => void | Promise<void>;
 }
 
 export interface RegistryBrowserProps extends RegistryBrowserOptions {

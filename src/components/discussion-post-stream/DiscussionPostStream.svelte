@@ -6,6 +6,7 @@
 
   import type { CommunityMessageReport } from "../../community/index.js";
   import DiscussionPost from "../discussion-post/DiscussionPost.svelte";
+  import type { CommunityMemberModel } from "../community-workspace/model.js";
   import {
     reactionGroups,
     type CommunityProfile,
@@ -41,6 +42,9 @@
     onEdit,
     onDelete,
     onReport,
+    onOpenProfile,
+    onMessageMember,
+    onWaveMember,
   }: {
     posts: ForumPost[];
     contextPosts: ForumPost[];
@@ -71,6 +75,9 @@
       post: ForumPost,
       report: CommunityMessageReport,
     ) => void | Promise<void>;
+    onOpenProfile?: (member: CommunityMemberModel) => void;
+    onMessageMember?: (member: CommunityMemberModel) => void | Promise<void>;
+    onWaveMember?: (member: CommunityMemberModel) => void | Promise<void>;
   } = $props();
 
   let cloakedIds = $state<ReadonlySet<string>>(new Set());
@@ -447,10 +454,11 @@
 
   {#each posts as post, index (post.event.id)}
     {@const parent = parentOf(post)}
-    {@const groups = reactionGroups(post.event.id, reactions)}
+    {@const groups = reactionGroups(post.event.id, reactions, currentMemberId)}
     <li
       id={`post-${post.event.id}`}
       class="post-wrapper"
+      class:post-wrapper--first={index === 0}
       class:cloaked={cloakedIds.has(post.event.id)}
       data-post-id={post.event.id}
       data-post-index={startIndex + index}
@@ -487,6 +495,9 @@
           {...onEdit === undefined ? {} : { onEdit }}
           {...onDelete === undefined ? {} : { onDelete }}
           {...onReport === undefined ? {} : { onReport }}
+          {...onOpenProfile === undefined ? {} : { onOpenProfile }}
+          {...onMessageMember === undefined ? {} : { onMessageMember }}
+          {...onWaveMember === undefined ? {} : { onWaveMember }}
         />
       {/if}
     </li>
@@ -523,6 +534,10 @@
 
   .post-stream > li {
     border-top: 1px solid var(--border);
+  }
+
+  .post-stream > .post-wrapper--first {
+    border-top: 0;
   }
 
   .post-wrapper {

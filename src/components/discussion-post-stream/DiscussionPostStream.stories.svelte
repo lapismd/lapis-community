@@ -55,9 +55,16 @@
     onReply: noop,
     onReact: noop,
   }}
-  play={async ({ canvas }) => {
+  play={async ({ canvas, canvasElement }) => {
     const activePost = canvas.getAllByRole("article")[0]!;
     const activeStyle = getComputedStyle(activePost);
+    const postWrappers = canvasElement.querySelectorAll<HTMLElement>(
+      ".post-stream > .post-wrapper",
+    );
+    await expect(getComputedStyle(postWrappers[0]!).borderTopWidth).toBe("0px");
+    await expect(
+      Number.parseFloat(getComputedStyle(postWrappers[1]!).borderTopWidth),
+    ).toBeGreaterThan(0);
     await expect(Number.parseFloat(activeStyle.marginTop)).toBeGreaterThan(0);
     await expect(Number.parseFloat(activeStyle.marginRight)).toBeGreaterThan(0);
     await expect(Number.parseFloat(activeStyle.marginBottom)).toBeGreaterThan(

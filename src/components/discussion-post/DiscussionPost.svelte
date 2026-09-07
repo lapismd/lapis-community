@@ -1,7 +1,9 @@
 <script lang="ts">
   import * as AlertDialog from "@lapismd/design-core/shadcn/alert-dialog";
+  import { ReactionBar } from "@lapismd/design-core/ai/experimental";
   import { Button } from "@lapismd/design-core/shadcn/button";
   import * as DropdownMenu from "@lapismd/design-core/shadcn/dropdown-menu";
+  import * as Tooltip from "@lapismd/design-core/shadcn/tooltip";
   import EllipsisIcon from "@lucide/svelte/icons/ellipsis";
   import FlagIcon from "@lucide/svelte/icons/flag";
   import PencilIcon from "@lucide/svelte/icons/pencil";
@@ -9,9 +11,10 @@
 
   import type { CommunityMessageReport } from "../../community/index.js";
   import CommunityEmojiPicker from "../community-emoji-picker/CommunityEmojiPicker.svelte";
+  import CommunityMemberHoverCard from "../community-member-hover-card/CommunityMemberHoverCard.svelte";
   import CommunityReportDialog from "../community-report-dialog/CommunityReportDialog.svelte";
+  import type { CommunityMemberModel } from "../community-workspace/model.js";
   import {
-    avatarHue,
     displayName,
     initials,
     type CommunityProfile,
@@ -35,6 +38,9 @@
     onEdit,
     onDelete,
     onReport,
+    onOpenProfile,
+    onMessageMember,
+    onWaveMember,
   }: {
     post: ForumPost;
     parent?: ForumPost | undefined;
@@ -54,9 +60,21 @@
       post: ForumPost,
       report: CommunityMessageReport,
     ) => void | Promise<void>;
+    onOpenProfile?: (member: CommunityMemberModel) => void;
+    onMessageMember?: (member: CommunityMemberModel) => void | Promise<void>;
+    onWaveMember?: (member: CommunityMemberModel) => void | Promise<void>;
   } = $props();
 
   const authorName = $derived(displayName(post.event.pubkey, profiles));
+  const authorMember = $derived<CommunityMemberModel>({
+    id: post.event.pubkey,
+    name: authorName,
+    handle: post.event.pubkey.slice(0, 12),
+    initials: initials(authorName),
+    ...(profiles.get(post.event.pubkey)?.picture === undefined
+      ? {}
+      : { avatarUrl: profiles.get(post.event.pubkey)!.picture }),
+  });
   const canManage = $derived(
     currentMemberId !== "" && post.event.pubkey === currentMemberId,
   );
@@ -77,11 +95,33 @@
       : normalized;
   }
 
-  function formatDate(timestamp: number): string {
+  function formatFullDate(timestamp: number): string {
     return new Intl.DateTimeFormat(undefined, {
       dateStyle: "medium",
       timeStyle: "short",
     }).format(timestamp * 1_000);
+  }
+
+  function formatPostDate(timestamp: number): string {
+    const elapsedSeconds = Math.max(
+      0,
+      Math.floor(Date.now() / 1_000) - timestamp,
+    );
+    if (elapsedSeconds < 60) return "just now";
+
+    const elapsedMinutes = Math.floor(elapsedSeconds / 60);
+    const relative = new Intl.RelativeTimeFormat(undefined, {
+      numeric: "auto",
+      style: "long",
+    });
+    if (elapsedMinutes < 60) return relative.format(-elapsedMinutes, "minute");
+
+    const elapsedHours = Math.floor(elapsedMinutes / 60);
+    if (elapsedHours < 24) return relative.format(-elapsedHours, "hour");
+
+    const elapsedDays = Math.floor(elapsedHours / 24);
+    if (elapsedDays < 7) return relative.format(-elapsedDays, "day");
+    return formatFullDate(timestamp);
   }
 
   async function confirmDelete(): Promise<void> {
@@ -103,13 +143,12 @@
 </script>
 
 <article class:active aria-labelledby={`post-author-${post.event.id}`}>
-  <div
-    class="avatar"
-    style={`--avatar-hue: ${avatarHue(post.event.pubkey)}`}
-    aria-hidden="true"
-  >
-    {initials(authorName)}
-  </div>
+  <CommunityMemberHoverCard
+    member={authorMember}
+    {...onOpenProfile === undefined ? {} : { onOpenProfile }}
+    {...onMessageMember === undefined ? {} : { onMessage: onMessageMember }}
+    {...onWaveMember === undefined ? {} : { onWave: onWaveMember }}
+  />
   <div class="post-content">
     <header class="post-header">
       <div class="post-author-line">
@@ -124,12 +163,32 @@
           </button>
         {/if}
       </div>
-      <a href={`#post-${post.event.id}`} aria-label={`Link to post ${number}`}>
-        <time datetime={new Date(post.event.created_at * 1_000).toISOString()}>
-          {formatDate(post.event.created_at)}
-        </time>
-        {#if post.edited}<span>(edited)</span>{/if}
-      </a>
+      <Tooltip.Provider delayDuration={0}>
+        <Tooltip.Root>
+          <Tooltip.Trigger>
+            {#snippet child({ props })}
+              <a
+                {...props}
+                href={`#post-${post.event.id}`}
+                aria-label={`Link to post ${number}`}
+                title={formatFullDate(post.event.created_at)}
+              >
+                <time
+                  datetime={new Date(
+                    post.event.created_at * 1_000,
+                  ).toISOString()}
+                >
+                  {formatPostDate(post.event.created_at)}
+                </time>
+                {#if post.edited}<span>(edited)</span>{/if}
+              </a>
+            {/snippet}
+          </Tooltip.Trigger>
+          <Tooltip.Content side="top" sideOffset={6}>
+            {formatFullDate(post.event.created_at)}
+          </Tooltip.Content>
+        </Tooltip.Root>
+      </Tooltip.Provider>
     </header>
     <div class="post-body">
       {#each post.content.split("\n") as paragraph}
@@ -137,25 +196,19 @@
       {/each}
     </div>
     <footer class="post-footer">
-      <div
-        class="reaction-list"
-        role="group"
-        aria-label={`Reactions to post ${number}`}
-      >
-        {#each groups as group (`${post.event.id}:${group.content}`)}
-          <Button
-            class="reaction-chip"
-            variant="outline"
-            size="xs"
-            disabled={publishing}
-            aria-label={`React ${group.symbol}; ${group.count} existing`}
-            onclick={() => onReact(post, group.content)}
-          >
-            <span aria-hidden="true">{group.symbol}</span>
-            <span>{group.count}</span>
-          </Button>
-        {/each}
-      </div>
+      <ReactionBar
+        class="discussion-post__reactions"
+        reactions={groups.map((group) => ({
+          emoji: group.symbol,
+          count: group.count,
+          ...(group.selected === undefined ? {} : { selected: group.selected }),
+        }))}
+        label={`Reactions to post ${number}`}
+        onToggle={(emoji) => {
+          const group = groups.find((candidate) => candidate.symbol === emoji);
+          if (group !== undefined) void onReact(post, group.content);
+        }}
+      />
       <div class="post-actions">
         <CommunityEmojiPicker
           label={`React to post ${number}`}
@@ -164,6 +217,7 @@
           onSelect={(emoji) => void onReact(post, emoji)}
         />
         <Button
+          class="post-reply-action"
           variant="ghost"
           size="xs"
           disabled={publishing}
@@ -266,7 +320,7 @@
 <style>
   article {
     display: grid;
-    grid-template-columns: 2.8rem minmax(0, 1fr);
+    grid-template-columns: 2.25rem minmax(0, 1fr);
     gap: 0.9rem;
     padding: 1.4rem 0.35rem;
     scroll-margin-top: calc(56px + 1.5rem);
@@ -283,28 +337,13 @@
     );
   }
 
-  .avatar {
-    display: grid;
-    width: 2.65rem;
-    height: 2.65rem;
-    place-items: center;
-    border: 1px solid hsl(var(--avatar-hue) 55% 55% / 0.48);
-    border-radius: 50%;
-    background: hsl(var(--avatar-hue) 42% 28%);
-    color: hsl(var(--avatar-hue) 70% 90%);
-    font-size: 0.78rem;
-    font-weight: 700;
-    letter-spacing: 0.04em;
-  }
-
   .post-content {
     min-width: 0;
   }
 
   .post-header,
   .post-footer,
-  .post-actions,
-  .reaction-list {
+  .post-actions {
     display: flex;
     align-items: center;
   }
@@ -391,8 +430,7 @@
     min-height: 2rem;
   }
 
-  .post-actions,
-  .reaction-list {
+  .post-actions {
     flex-wrap: wrap;
     gap: 0.4rem;
   }
@@ -422,9 +460,9 @@
     font-size: 0.875rem;
   }
 
-  :global(.reaction-chip) {
-    min-width: 2.8rem;
-    border-radius: 999px;
+  :global(.post-reply-action[data-ui-component="button"]) {
+    padding-inline: 0.65rem;
+    border-radius: var(--radius);
   }
 
   @media (max-width: 44rem) {
@@ -436,12 +474,6 @@
     article {
       grid-template-columns: 2.3rem minmax(0, 1fr);
       gap: 0.7rem;
-    }
-
-    .avatar {
-      width: 2.2rem;
-      height: 2.2rem;
-      font-size: 0.68rem;
     }
 
     .post-footer {

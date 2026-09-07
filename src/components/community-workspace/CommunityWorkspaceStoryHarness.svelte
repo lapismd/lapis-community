@@ -371,6 +371,9 @@
             handlers={{
               ...(community?.handlers ?? {}),
               onSelectRoom: selectRoom,
+              onBrowseRooms: (kind) => {
+                lastAction = `browsed-${kind}s`;
+              },
               onSendMessage: (roomId, content) => {
                 if (community?.state.replyTarget)
                   void community.actions.sendReply(

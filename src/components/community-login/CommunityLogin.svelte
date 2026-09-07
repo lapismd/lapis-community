@@ -64,7 +64,7 @@
       privateKeyMethod = method;
       return;
     }
-    void onSelect(method.id);
+    void Promise.resolve(onSelect(method.id)).catch(() => undefined);
   }
 
   function closePrivateKeyForm(): void {
@@ -87,8 +87,13 @@
     }
     if (remoteSignerMethod === undefined) return;
     validationError = "";
-    await onSelect(remoteSignerMethod.id, { remoteSignerUrl: value });
-    closeRemoteSignerForm();
+    try {
+      await onSelect(remoteSignerMethod.id, { remoteSignerUrl: value });
+      closeRemoteSignerForm();
+    } catch {
+      // The host owns the displayed error. Keep the credential form available
+      // so the user can correct it without pasting the value again.
+    }
   }
 
   async function submitPrivateKey(): Promise<void> {
@@ -99,8 +104,13 @@
     }
     if (privateKeyMethod === undefined) return;
     validationError = "";
-    await onSelect(privateKeyMethod.id, { privateKey: value });
-    closePrivateKeyForm();
+    try {
+      await onSelect(privateKeyMethod.id, { privateKey: value });
+      closePrivateKeyForm();
+    } catch {
+      // The host owns the displayed error. Keep this in component state only
+      // for an in-dialog retry and clear it when the form closes.
+    }
   }
 
   function methodIcon(kind: CommunityLoginMethodKind): Component {
@@ -363,6 +373,14 @@
 
   :global(.community-login__error[data-ui-component="alert"]) {
     margin-block-end: 1rem;
+    color: color-mix(in srgb, var(--destructive) 78%, var(--foreground));
+  }
+
+  :global(
+      .community-login__error[data-ui-component="alert"]
+        [data-ui-part="alert-description"]
+    ) {
+    color: color-mix(in srgb, var(--destructive) 72%, var(--foreground));
   }
 
   :global(.community-login__method[data-ui-component="button"]) {

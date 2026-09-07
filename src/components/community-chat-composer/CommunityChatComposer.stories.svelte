@@ -240,10 +240,14 @@
   args={{
     ...commonArgs,
     formattingOpen: true,
+    onOpenMember: fn(),
+    onMessageMember: fn(),
+    onWaveMember: fn(),
     value:
       "**Release notes** are ready for @Ben Stone in #plugin-development.\n\n> The signed event remains the source of truth.\n\n`pnpm local:smoke` :shipit:",
   }}
-  play={async ({ canvas }) => {
+  play={async ({ canvas, canvasElement, args }) => {
+    const page = within(canvasElement.ownerDocument.body);
     await expect(
       canvas.getByRole("button", { name: "Formatting options" }),
     ).toHaveAttribute("aria-pressed", "true");
@@ -255,6 +259,38 @@
     ).toBeVisible();
     await expect(canvas.getByText("Release notes")).toBeVisible();
     await expect(canvas.getByRole("img", { name: ":shipit:" })).toBeVisible();
+    const mention = canvas.getByRole("button", { name: "@Ben Stone" });
+    await expect(
+      mention.querySelector('[data-ui-component="community-member-avatar"]'),
+    ).not.toBeNull();
+    const mentionAvatar = mention.querySelector<HTMLElement>(
+      '[data-ui-component="community-member-avatar"]',
+    )!;
+    await expect(
+      Math.abs(
+        mention.getBoundingClientRect().top +
+          mention.getBoundingClientRect().height / 2 -
+          (mentionAvatar.getBoundingClientRect().top +
+            mentionAvatar.getBoundingClientRect().height / 2),
+      ),
+    ).toBeLessThan(1);
+    await userEvent.hover(mention);
+    await expect(
+      await page.findByRole("group", { name: "Ben Stone contact preview" }),
+    ).toBeVisible();
+    await userEvent.click(
+      page.getByRole("button", { name: "Message Ben Stone" }),
+    );
+    await expect(args.onMessageMember).toHaveBeenCalledWith(
+      communityComposerStoryMembers[1],
+    );
+    await userEvent.hover(mention);
+    await userEvent.click(
+      page.getByRole("button", { name: "Wave to Ben Stone" }),
+    );
+    await expect(args.onWaveMember).toHaveBeenCalledWith(
+      communityComposerStoryMembers[1],
+    );
   }}
 />
 
@@ -531,10 +567,12 @@
   play={async ({ canvas }) => {
     const editor = canvas.getByRole("textbox", { name: "Markdown editor" });
     await waitFor(() =>
-      expect(editor).toHaveTextContent(
-        "Draft restored locally for @Mara Chen in #plugin-development.",
-      ),
+      expect(editor).toHaveTextContent("Draft restored locally for"),
     );
+    await expect(
+      canvas.getByRole("button", { name: "@Mara Chen" }),
+    ).toBeVisible();
+    await expect(editor).toHaveTextContent("in #plugin-development.");
   }}
 />
 

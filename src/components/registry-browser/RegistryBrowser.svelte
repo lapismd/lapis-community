@@ -19,6 +19,7 @@
   import { onMount, untrack } from "svelte";
 
   import CommunityEmojiPicker from "../community-emoji-picker/CommunityEmojiPicker.svelte";
+  import CommunitySummary from "../community-summary/CommunitySummary.svelte";
   import RegistryCommunityView from "../registry-community/RegistryCommunityView.svelte";
   import {
     createRegistryCommunityController,
@@ -51,6 +52,9 @@
     discussion,
     installActions = {},
     onInstall,
+    onOpenMemberProfile,
+    onMessageMember,
+    onWaveMember,
   }: RegistryBrowserProps = $props();
 
   const catalogSource = untrack(() => source);
@@ -615,9 +619,15 @@
 
 {#if route.page !== "landing"}
   <AppShell.Toolbar
-    class={showSourceNotice
-      ? "registry-browser__toolbar registry-browser__toolbar--with-source"
-      : "registry-browser__toolbar"}
+    class={[
+      "registry-browser__toolbar",
+      showSourceNotice ? "registry-browser__toolbar--with-source" : "",
+      route.page === "plugin" && pluginView === "reviews" && communityController
+        ? "registry-browser__toolbar--with-summary"
+        : "",
+    ]
+      .filter(Boolean)
+      .join(" ")}
     label="Registry navigation"
   >
     {@render registrySourceNotice()}
@@ -695,6 +705,20 @@
         {@render registryCommunityActions()}
       {/if}
     </div>
+    {#if route.page === "plugin" && pluginView === "reviews" && communityController}
+      <div class="registry-browser__reviews-summary">
+        <CommunitySummary
+          posts={communityController.commentCountAvailable
+            ? communityController.commentTotal
+            : communityController.reviews.length}
+          postsApproximate={communityController.commentTotalApproximate}
+          postsUnavailable={!communityController.commentCountAvailable}
+          reactions={communityController.reactions.length}
+          participants={communityController.participantCount}
+          pluginReactions={communityController.currentPluginReactions.length}
+        />
+      </div>
+    {/if}
   </AppShell.Toolbar>
 {:else if showSourceNotice && sourceStatus}
   <AppShell.Toolbar
@@ -865,7 +889,15 @@
             {#if discussion}
               {@render discussion()}
             {:else if communityController}
-              <RegistryCommunityView controller={communityController} />
+              <RegistryCommunityView
+                controller={communityController}
+                showSummary={false}
+                {...onOpenMemberProfile === undefined
+                  ? {}
+                  : { onOpenProfile: onOpenMemberProfile }}
+                {...onMessageMember === undefined ? {} : { onMessageMember }}
+                {...onWaveMember === undefined ? {} : { onWaveMember }}
+              />
             {:else}
               <Empty.Root class="registry-browser__empty">
                 <Empty.Header>
@@ -896,6 +928,25 @@
     align-items: stretch;
     min-height: auto;
     padding: 0;
+  }
+
+  :global(.registry-browser__toolbar--with-summary) {
+    flex-direction: column;
+    align-items: stretch;
+    min-height: auto;
+    padding-inline: 0;
+    background: var(--background);
+  }
+
+  :global(.registry-browser__toolbar--with-summary)
+    .registry-browser__navigation-row {
+    padding-inline: 1rem;
+  }
+
+  .registry-browser__reviews-summary {
+    width: 100%;
+    padding: 0.75rem 1rem 1rem;
+    background: var(--background);
   }
 
   .registry-browser__navigation-row {
@@ -1025,6 +1076,7 @@
     min-height: 100%;
     margin-inline: auto;
     padding: clamp(1rem, 3vw, 2rem);
+    padding-block-start: 0;
   }
 
   @media (max-width: 52rem) {

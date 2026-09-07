@@ -2038,22 +2038,50 @@ export function createRegistryCommunityController(
   ): Promise<void> {
     const activeSigner = await ensureSigner();
     if (activeSigner === undefined) return;
+    const previous = reactions.filter(
+      (reaction) =>
+        reaction.targetEventId === review.event.id &&
+        reaction.event.pubkey === signedInPubkey &&
+        reaction.content === content,
+    );
     publishing = true;
     error = "";
     message = "";
     try {
-      const event = await activeSigner.signEvent({
-        kind: NIP29_KINDS.reaction,
-        created_at: Math.floor(Date.now() / 1_000),
-        content,
-        tags: [
-          ["e", review.event.id],
-          ["p", review.event.pubkey],
-          ["k", review.event.kind.toString()],
-        ],
-      });
+      const event = await activeSigner.signEvent(
+        previous.length === 0
+          ? {
+              kind: NIP29_KINDS.reaction,
+              created_at: Math.floor(Date.now() / 1_000),
+              content,
+              tags: [
+                ["h", supportGroupId],
+                ["e", review.event.id],
+                ["p", review.event.pubkey],
+                ["k", review.event.kind.toString()],
+              ],
+            }
+          : {
+              kind: 5,
+              created_at: Math.floor(Date.now() / 1_000),
+              content: "",
+              tags: [
+                ["h", supportGroupId],
+                ...previous.map((reaction) => ["e", reaction.event.id]),
+              ],
+            },
+      );
       await publish(event);
-      message = "Reaction published.";
+      if (previous.length > 0) {
+        const removedIds = new Set(
+          previous.map((reaction) => reaction.event.id),
+        );
+        reactions = reactions.filter(
+          (reaction) => !removedIds.has(reaction.event.id),
+        );
+      }
+      message =
+        previous.length === 0 ? "Reaction published." : "Reaction removed.";
       await refreshCurrentReactions();
     } catch (cause) {
       error = cause instanceof Error ? cause.message : "Reaction failed.";

@@ -81,6 +81,72 @@
 </Story>
 
 <Story
+  name="Channel lifecycle history"
+  args={{
+    room: generalRoom,
+    currentMemberId: "noor",
+    members: communityStoryMembers,
+    messages: [
+      {
+        id: "channel-created",
+        authorId: "noor",
+        timestamp: "15:50",
+        createdAt: "2026-08-29T15:50:00Z",
+        content: "",
+        activity: { type: "channel-created" as const },
+      },
+      {
+        id: "member-added",
+        authorId: "noor",
+        timestamp: "15:51",
+        createdAt: "2026-08-29T15:51:00Z",
+        content: "",
+        activity: {
+          type: "member-added" as const,
+          targetMemberId: "ben",
+        },
+      },
+      {
+        id: "member-removed",
+        authorId: "ada",
+        timestamp: "15:52",
+        createdAt: "2026-08-29T15:52:00Z",
+        content: "",
+        activity: {
+          type: "member-removed" as const,
+          targetMemberId: "noor",
+        },
+      },
+    ],
+    onReply: fn(),
+    onAddReaction: fn(),
+    onCopyMessage: fn(),
+  }}
+  play={async ({ canvas }) => {
+    await expect(canvas.getAllByText("You")).toHaveLength(2);
+    await expect(canvas.getByText("created this channel")).toBeVisible();
+    await expect(
+      canvas.getByRole("button", { name: "@Ben Stone" }),
+    ).toBeVisible();
+    await expect(canvas.getByRole("button", { name: "@You" })).toBeVisible();
+    await expect(
+      canvas.queryByRole("button", { name: "Reply in thread" }),
+    ).not.toBeInTheDocument();
+    await expect(
+      canvas.queryByRole("button", { name: "More message actions" }),
+    ).not.toBeInTheDocument();
+  }}
+>
+  {#snippet template(args)}
+    <div
+      style="width: min(100%, 54rem); height: 28rem; border: 1px solid var(--border);"
+    >
+      <CommunityConversation {...args} />
+    </div>
+  {/snippet}
+</Story>
+
+<Story
   name="Participation warning stays with composer"
   args={{
     room: generalRoom,
@@ -186,7 +252,7 @@
   }}
   play={async ({ canvas, canvasElement, args }) => {
     const page = within(canvasElement.ownerDocument.body);
-    const message = canvas.getByLabelText("Message from Ben Stone");
+    const message = canvas.getByLabelText("Message from You");
     const view = within(message);
     await userEvent.hover(view.getByText(/published the AI plugin fixture/));
     const moreActions = view.getByRole("button", {
@@ -239,7 +305,7 @@
   }}
   play={async ({ canvas, canvasElement }) => {
     const page = within(canvasElement.ownerDocument.body);
-    const post = canvas.getByLabelText("Message from Ada Lovelace");
+    const post = canvas.getByLabelText("Message from You");
     const view = within(post);
     await userEvent.hover(view.getByText(/Morning everyone/));
     const moreActions = view.getByRole("button", {

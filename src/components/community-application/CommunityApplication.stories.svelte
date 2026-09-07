@@ -84,7 +84,6 @@
     title: "Community/Examples/App Shell",
     component: CommunityApplication,
     tags: ["visual-pending"],
-    globals: { viewport: { value: "desktop", isRotated: false } },
     parameters: {
       layout: "fullscreen",
       communityAppShell: true,
@@ -1858,9 +1857,7 @@
       name: "Reply in thread",
     })[0];
     if (!replyButton) throw new Error("Expected a thread reply control");
-    const message = canvas.getAllByRole("article", {
-      name: /^Message from /u,
-    })[0];
+    const message = replyButton.closest<HTMLElement>("article");
     if (!message) throw new Error("Expected a message to open in a thread");
     await userEvent.hover(message);
     await waitFor(() => expect(replyButton).toBeVisible());

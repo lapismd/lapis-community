@@ -2,6 +2,7 @@
   import { Button } from "@lapismd/design-core/shadcn/button";
   import * as HoverCard from "@lapismd/design-core/shadcn/hover-card";
   import ActivityIcon from "@lucide/svelte/icons/activity";
+  import HandIcon from "@lucide/svelte/icons/hand";
   import MessageCircleIcon from "@lucide/svelte/icons/message-circle";
 
   import CommunityMemberAvatar from "../community-member-avatar/CommunityMemberAvatar.svelte";
@@ -12,6 +13,7 @@
     onOpenProfile,
     onViewActivity,
     onMessage,
+    onWave,
     openDelay = 280,
     trigger = "avatar",
     triggerLabel = `@${member.name}`,
@@ -20,6 +22,7 @@
     onOpenProfile?: (member: CommunityMemberModel) => void;
     onViewActivity?: (member: CommunityMemberModel) => void;
     onMessage?: (member: CommunityMemberModel) => void;
+    onWave?: (member: CommunityMemberModel) => void;
     openDelay?: number;
     trigger?: "avatar" | "mention";
     triggerLabel?: string;
@@ -41,7 +44,8 @@
         onclick={() => onOpenProfile?.(member)}
       >
         {#if trigger === "mention"}
-          {triggerLabel}
+          <CommunityMemberAvatar {member} size="small" decorative />
+          <span>{triggerLabel}</span>
         {:else}
           <CommunityMemberAvatar {member} decorative />
         {/if}
@@ -99,6 +103,18 @@
           Message
         </Button>
       {/if}
+      {#if onWave}
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          aria-label={`Wave to ${member.name}`}
+          onclick={() => onWave?.(member)}
+        >
+          <HandIcon data-icon="inline-start" aria-hidden="true" />
+          Wave
+        </Button>
+      {/if}
     </div>
   </HoverCard.Content>
 </HoverCard.Root>
@@ -116,9 +132,11 @@
   }
 
   .community-member-hover-card__trigger--mention {
-    display: inline;
+    display: inline-flex;
     width: auto;
     height: auto;
+    align-items: center;
+    gap: 0.22em;
     padding: 0.08em 0.3em;
     border-radius: calc(var(--radius) - 0.2rem);
     background: var(--secondary);
@@ -128,8 +146,15 @@
     font-weight: 600;
     line-height: inherit;
     text-align: start;
-    vertical-align: baseline;
+    vertical-align: middle;
     -webkit-box-decoration-break: clone;
+  }
+
+  .community-member-hover-card__trigger--mention
+    :global(.community-member-avatar) {
+    --community-member-avatar-size: 1.15em;
+
+    display: block;
   }
 
   .community-member-hover-card__trigger--mention:hover {
@@ -204,7 +229,7 @@
 
   .community-member-hover-card__actions {
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(5.5rem, 1fr));
     gap: 0.25rem;
     border-block-start: 1px solid var(--border);
     padding-block-start: 0.5rem;

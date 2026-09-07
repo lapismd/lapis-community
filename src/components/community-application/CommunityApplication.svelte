@@ -237,6 +237,7 @@
   let memberCommandOpen = $state(false);
   let memberCommandMode = $state<"view" | "manage" | "select">("view");
   let selectedRecipientIds = $state<string[]>([]);
+  let profileOverride = $state<CommunityMemberModel>();
   let confirmation = $state<"leave" | "delete" | null>(null);
   let pendingParticipation = $state.raw<PendingCommunityParticipation>();
   let membershipJoinState = $state<"idle" | "pending" | "accepted">("idle");
@@ -270,6 +271,12 @@
     members: () => workspace.members,
     rooms: () => allRooms,
     emojis: () => community.state.settings.customEmojis,
+    onOpenMember: () => openProfile,
+    onMessageMember: () => messageMember,
+    onWaveMember: () =>
+      extensions.wave === undefined
+        ? undefined
+        : (member: CommunityMemberModel) => runMemberExtension("wave", member),
   });
   const startupDestinationRoom = $derived(
     communityStartupPending
@@ -659,7 +666,12 @@
   );
   const selectedProfile = $derived(
     activePanel.kind === "profile"
-      ? workspace.members.find((member) => member.id === activePanel.memberId)
+      ? (workspace.members.find(
+          (member) => member.id === activePanel.memberId,
+        ) ??
+          (profileOverride?.id === activePanel.memberId
+            ? profileOverride
+            : undefined))
       : undefined,
   );
   const panelRoom = $derived(
@@ -714,6 +726,7 @@
   );
 
   function openProfile(member: CommunityMemberModel): void {
+    profileOverride = member;
     openPanel({ kind: "profile", memberId: member.id });
     lastAction = `opened-profile:${member.id}`;
   }
@@ -1016,7 +1029,10 @@
       applicationLocation,
       {
         roomIds: [inbox.room.id, ...allRooms.map((room) => room.id)],
-        memberIds: workspace.members.map((member) => member.id),
+        memberIds: [
+          ...workspace.members.map((member) => member.id),
+          ...(profileOverride === undefined ? [] : [profileOverride.id]),
+        ],
         ...(activePanel.kind === "thread"
           ? {
               messageIds:
@@ -2070,6 +2086,14 @@
           {...registryOptions}
           bind:route={registryRoute}
           onRouteChange={navigateRegistry}
+          onOpenMemberProfile={openProfile}
+          onMessageMember={messageMember}
+          {...extensions.wave === undefined
+            ? {}
+            : {
+                onWaveMember: (member: CommunityMemberModel) =>
+                  runMemberExtension("wave", member),
+              }}
         />
       {:else}
         <AppShell.Body layout="regions" label="Plugin registry">
@@ -2423,6 +2447,12 @@
               onAddReaction: react,
               onOpenProfile: openProfile,
               onMessageMember: messageMember,
+              ...(extensions.wave === undefined
+                ? {}
+                : {
+                    onWaveMember: (member: CommunityMemberModel) =>
+                      runMemberExtension("wave", member),
+                  }),
               ...(extensions.activityLog === undefined
                 ? {}
                 : { onViewMemberActivity: viewMemberActivity }),
@@ -2589,6 +2619,12 @@
                 onOpenProfile={openProfile}
                 onOpenRoom={(roomId) => setDestination(roomId, true)}
                 onMessageMember={messageMember}
+                {...extensions.wave === undefined
+                  ? {}
+                  : {
+                      onWaveMember: (member: CommunityMemberModel) =>
+                        runMemberExtension("wave", member),
+                    }}
                 {...extensions.activityLog === undefined
                   ? {}
                   : { onViewMemberActivity: viewMemberActivity }}

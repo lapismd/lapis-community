@@ -100,6 +100,9 @@
     onCancel,
     onCancelContext,
     onEditLastMessage,
+    onOpenMember,
+    onMessageMember,
+    onWaveMember,
     onRetryComposerStatus,
     onDismissComposerStatus,
     class: className = "",
@@ -131,6 +134,9 @@
     onCancel?: () => void;
     onCancelContext?: () => void;
     onEditLastMessage?: () => void;
+    onOpenMember?: (member: CommunityMemberModel) => void | Promise<void>;
+    onMessageMember?: (member: CommunityMemberModel) => void | Promise<void>;
+    onWaveMember?: (member: CommunityMemberModel) => void | Promise<void>;
     onRetryComposerStatus?: () => void | Promise<void>;
     onDismissComposerStatus?: () => void;
     class?: string;
@@ -210,6 +216,9 @@
     disabled: () => disabled || busy || !onSubmit,
     editing: () => context?.kind === "edit",
     autocompleteOpen: () => autocompleteItems.length > 0,
+    onOpenMember: () => onOpenMember,
+    onMessageMember: () => onMessageMember,
+    onWaveMember: () => onWaveMember,
     onView(view) {
       editorView = view;
     },
@@ -1702,6 +1711,156 @@
     color: var(--secondary-foreground);
     font-weight: 650;
     -webkit-box-decoration-break: clone;
+  }
+
+  :global(.community-composer-member-reference) {
+    display: inline;
+  }
+
+  :global(.community-composer-member-reference__trigger) {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.22em;
+    padding: 0.08em 0.3em;
+    border: 0;
+    border-radius: calc(var(--radius) - 0.2rem);
+    background: var(--secondary);
+    color: var(--secondary-foreground);
+    font: inherit;
+    font-weight: 650;
+    line-height: inherit;
+    vertical-align: middle;
+    cursor: pointer;
+  }
+
+  :global(.community-composer-member-reference__trigger:hover) {
+    background: color-mix(in srgb, var(--secondary) 72%, var(--primary) 28%);
+  }
+
+  :global(.community-composer-member-reference__trigger:focus-visible) {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+
+  :global(.community-composer-member-avatar) {
+    display: grid;
+    width: 1.15em;
+    height: 1.15em;
+    flex: none;
+    place-items: center;
+    overflow: hidden;
+    border-radius: 50%;
+    background: var(--primary);
+    color: var(--primary-foreground);
+    font-size: 0.35em;
+    font-weight: 700;
+  }
+
+  :global(.community-composer-member-avatar[data-size="large"]) {
+    width: 3rem;
+    height: 3rem;
+    font-size: 0.8rem;
+  }
+
+  :global(.community-composer-member-avatar > img) {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  :global(.community-composer-member-popover) {
+    position: fixed;
+    z-index: 80;
+    display: grid;
+    width: 15rem;
+    gap: 0.625rem;
+    padding: 0.625rem;
+    border: 1px solid var(--border);
+    border-radius: 0.85rem;
+    background: var(--popover);
+    color: var(--popover-foreground);
+    box-shadow: 0 12px 32px
+      color-mix(in srgb, var(--foreground) 16%, transparent);
+  }
+
+  :global(.community-composer-member-popover[hidden]) {
+    display: none;
+  }
+
+  :global(.community-composer-member-popover__identity) {
+    display: grid;
+    width: 100%;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.375rem;
+    border: 0;
+    border-radius: 0.65rem;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    text-align: start;
+    cursor: pointer;
+  }
+
+  :global(.community-composer-member-popover__identity:hover),
+  :global(.community-composer-member-popover__identity:focus-visible),
+  :global(.community-composer-member-popover__actions > button:hover),
+  :global(.community-composer-member-popover__actions > button:focus-visible) {
+    background: var(--accent);
+    color: var(--accent-foreground);
+    outline: none;
+  }
+
+  :global(.community-composer-member-popover__identity > span:last-child) {
+    display: grid;
+    min-width: 0;
+    gap: 0.125rem;
+  }
+
+  :global(.community-composer-member-popover__identity strong),
+  :global(.community-composer-member-popover__identity small) {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  :global(.community-composer-member-popover__identity strong) {
+    font-size: 0.9rem;
+  }
+
+  :global(.community-composer-member-popover__identity small),
+  :global(.community-composer-member-popover__role) {
+    color: var(--muted-foreground);
+    font-size: 0.75rem;
+  }
+
+  :global(.community-composer-member-popover__role) {
+    margin: -0.125rem 0 0;
+    padding-inline: 0.375rem;
+    text-transform: capitalize;
+  }
+
+  :global(.community-composer-member-popover__actions) {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(5.5rem, 1fr));
+    gap: 0.25rem;
+    padding-block-start: 0.5rem;
+    border-block-start: 1px solid var(--border);
+  }
+
+  :global(.community-composer-member-popover__actions > button) {
+    min-height: 2rem;
+    padding-inline: 0.5rem;
+    border: 0;
+    border-radius: 0.45rem;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    font-size: 0.75rem;
+    text-align: start;
+    cursor: pointer;
   }
 
   :global(.community-chat-composer__mira .community-composer-token--channel) {

@@ -32,6 +32,9 @@ export interface Nip29CommunitySourceOptions {
 }
 
 const COMMUNITY_CONTENT_KINDS = [5, 7, 9, 11, 1_111, 9_005, 40_003] as const;
+const COMMUNITY_CHANNEL_ACTIVITY_KINDS = [
+  9_000, 9_001, 9_007, 9_021, 9_022,
+] as const;
 const COMMUNITY_STATE_KINDS = [39_000, 39_001, 39_002] as const;
 const PUBLIC_ROOM_DISCOVERY_LIMIT = 1_000;
 const CONTENT_BOUNDARY_LIMIT = 1_000;
@@ -112,13 +115,29 @@ class Nip29CommunitySession implements CommunitySession {
       ? Math.max(1, Math.min(100, requestedLimit))
       : 1;
     const filter = contentWindowFilter(request);
-    const page = await this.#queryContentPage(
+    const contentPage = await this.#queryContentPage(
       filter,
       request.collection,
       request.before,
       limit,
       signal,
     );
+    const activityPage =
+      request.collection === "channel-roots" ||
+      request.collection === "room-history"
+        ? await this.#queryContentPage(
+            {
+              kinds: [...COMMUNITY_CHANNEL_ACTIVITY_KINDS],
+              "#h": [request.groupId],
+            },
+            request.collection,
+            request.before,
+            limit,
+            signal,
+            [this.#authority],
+          )
+        : { events: [], hasOlder: false };
+    const page = mergeContentPages([contentPage, activityPage], limit);
     const targets = page.events.map((event) => event.id);
     const referenced =
       targets.length === 0
@@ -133,7 +152,14 @@ class Nip29CommunitySession implements CommunitySession {
             signal,
           );
     const authors = [
-      ...new Set([...page.events, ...referenced].map((event) => event.pubkey)),
+      ...new Set(
+        [...page.events, ...referenced].flatMap((event) => [
+          event.pubkey,
+          ...event.tags
+            .filter((tag) => tag[0] === "p" && tag[1] !== undefined)
+            .map((tag) => tag[1]!),
+        ]),
+      ),
     ];
     const profiles =
       authors.length === 0
@@ -204,12 +230,25 @@ class Nip29CommunitySession implements CommunitySession {
           },
           signal,
         );
+    const activity = bootstrap
+      ? []
+      : await this.#queryUnion(
+          [this.#authority],
+          {
+            kinds: [...COMMUNITY_CHANNEL_ACTIVITY_KINDS],
+            "#h": groupIds,
+            ...(contentSince === undefined ? {} : { since: contentSince }),
+          },
+          signal,
+        );
     const state = await this.#queryUnion(
       [this.#authority],
       { kinds: [...COMMUNITY_STATE_KINDS], "#d": groupIds },
       signal,
     );
-    const targets = [...content, ...state].map((event) => event.id);
+    const targets = [...content, ...activity, ...state].map(
+      (event) => event.id,
+    );
     const referenced =
       targets.length === 0
         ? []
@@ -221,9 +260,14 @@ class Nip29CommunitySession implements CommunitySession {
     const identityPubkey = await this.#context.identity?.getPublicKey();
     const authors = [
       ...new Set(
-        [...content, ...state, ...referenced]
+        [...content, ...activity, ...state, ...referenced]
           .map((event) => event.pubkey)
           .concat(
+            activity.flatMap((event) =>
+              event.tags
+                .filter((tag) => tag[0] === "p" && tag[1] !== undefined)
+                .map((tag) => tag[1]!),
+            ),
             state.flatMap((event) =>
               event.tags
                 .filter((tag) => tag[0] === "p" && tag[1] !== undefined)
@@ -263,11 +307,13 @@ class Nip29CommunitySession implements CommunitySession {
     const createdAt = Math.max(
       previousCreatedAt,
       ...content.map((event) => event.created_at),
+      ...activity.map((event) => event.created_at),
     );
     return {
       events: distinctEvents([
         ...discoveredMetadata,
         ...content,
+        ...activity,
         ...state,
         ...referenced,
         ...profiles,
@@ -302,6 +348,7 @@ class Nip29CommunitySession implements CommunitySession {
     before: CommunityContentWindowRequest["before"],
     limit: number,
     signal?: AbortSignal,
+    relays: readonly CommunityRelay[] = this.#relays,
   ): Promise<{ events: NostrEvent[]; hasOlder: boolean }> {
     const primary = new Map<string, NostrEvent>();
     let cursor = before;
@@ -312,6 +359,7 @@ class Nip29CommunitySession implements CommunitySession {
         cursor,
         Math.max(limit, 100),
         signal,
+        relays,
       );
       for (const event of page.events) {
         if (contentWindowPrimary(event, collection)) {
@@ -338,12 +386,13 @@ class Nip29CommunitySession implements CommunitySession {
     before: CommunityContentWindowRequest["before"],
     limit: number,
     signal?: AbortSignal,
+    relays: readonly CommunityRelay[] = this.#relays,
   ): Promise<{ events: NostrEvent[]; hasOlder: boolean }> {
     const boundaryEvents =
       before === undefined
         ? []
         : await this.#queryUnion(
-            this.#relays,
+            relays,
             {
               ...filter,
               since: before.createdAt,
@@ -358,7 +407,7 @@ class Nip29CommunitySession implements CommunitySession {
       );
     }
     const older = await this.#queryUnion(
-      this.#relays,
+      relays,
       {
         ...filter,
         ...(before === undefined ? {} : { until: before.createdAt - 1 }),
@@ -683,6 +732,14 @@ class Nip29CommunitySession implements CommunitySession {
           { onevent: (event) => this.#emit([event]) },
           signal,
         ),
+        this.#authority.subscribe(
+          {
+            kinds: [...COMMUNITY_CHANNEL_ACTIVITY_KINDS],
+            "#h": [groupId],
+          },
+          { onevent: (event) => this.#emit([event]) },
+          signal,
+        ),
       ]);
       for (const subscription of subscriptions) {
         this.#subscriptions.add(subscription);
@@ -998,15 +1055,32 @@ function contentWindowPrimary(
 ): boolean {
   if (collection === "channel-roots") {
     return (
-      event.kind === 9 &&
-      !event.tags.some((tag) => tag[0] === "e" || tag[0] === "E")
+      COMMUNITY_CHANNEL_ACTIVITY_KINDS.some((kind) => kind === event.kind) ||
+      (event.kind === 9 &&
+        !event.tags.some((tag) => tag[0] === "e" || tag[0] === "E"))
     );
   }
   if (collection === "forum-topics") return event.kind === 11;
   if (collection === "thread") {
     return event.kind === 9 || event.kind === 1_111;
   }
-  return COMMUNITY_CONTENT_KINDS.some((kind) => kind === event.kind);
+  return (
+    COMMUNITY_CONTENT_KINDS.some((kind) => kind === event.kind) ||
+    COMMUNITY_CHANNEL_ACTIVITY_KINDS.some((kind) => kind === event.kind)
+  );
+}
+
+function mergeContentPages(
+  pages: readonly { events: readonly NostrEvent[]; hasOlder: boolean }[],
+  limit: number,
+): { events: NostrEvent[]; hasOlder: boolean } {
+  const candidates = distinctEvents(pages.flatMap((page) => page.events));
+  const events = candidates.slice(-limit);
+  return {
+    events,
+    hasOlder:
+      candidates.length > events.length || pages.some((page) => page.hasOlder),
+  };
 }
 
 function distinctEvents(events: readonly NostrEvent[]): NostrEvent[] {

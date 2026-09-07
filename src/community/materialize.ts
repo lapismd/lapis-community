@@ -41,6 +41,8 @@ interface Profile {
   picture?: string;
 }
 
+const CHANNEL_ACTIVITY_KINDS = new Set([9_000, 9_001, 9_007, 9_021, 9_022]);
+
 function compareOldest(left: NostrEvent, right: NostrEvent): number {
   return left.created_at - right.created_at || left.id.localeCompare(right.id);
 }
@@ -633,6 +635,11 @@ function memberModels(
   const pubkeys = new Set([
     ...roles.keys(),
     ...events.map((event) => event.pubkey),
+    ...events.flatMap((event) =>
+      event.tags
+        .filter((tag) => tag[0] === "p" && tag[1] !== undefined)
+        .map((tag) => tag[1]!),
+    ),
   ]);
   return [...pubkeys].toSorted().map((pubkey) => {
     const name = profiles.get(pubkey)?.name ?? shortKey(pubkey);
@@ -661,7 +668,10 @@ function messageModels(
   asOf: number | undefined,
   identityPubkey: string | undefined,
 ): CommunityMessageModel[] {
-  const kinds = room.kind === "channel" ? new Set([9]) : new Set([11, 1_111]);
+  const kinds =
+    room.kind === "channel"
+      ? new Set([9, ...CHANNEL_ACTIVITY_KINDS])
+      : new Set([11, 1_111]);
   const roomEvents = events.filter(
     (event) =>
       kinds.has(event.kind) &&
@@ -680,8 +690,39 @@ function messageModels(
   return selected
     .toSorted(compareOldest)
     .map((event) =>
-      eventMessage(event, events, profiles, asOf, identityPubkey),
+      CHANNEL_ACTIVITY_KINDS.has(event.kind)
+        ? channelActivityMessage(event)
+        : eventMessage(event, events, profiles, asOf, identityPubkey),
     );
+}
+
+function channelActivityMessage(event: NostrEvent): CommunityMessageModel {
+  const targetMemberId =
+    event.kind === 9_021 || event.kind === 9_022
+      ? event.pubkey
+      : event.tags.find((tag) => tag[0] === "p")?.[1];
+  const type =
+    event.kind === 9_007
+      ? ("channel-created" as const)
+      : event.kind === 9_000
+        ? ("member-added" as const)
+        : event.kind === 9_001
+          ? ("member-removed" as const)
+          : event.kind === 9_021
+            ? ("member-joined" as const)
+            : ("member-left" as const);
+  return {
+    id: event.id,
+    authorId: event.pubkey,
+    content: "",
+    sourceEvent: event,
+    activity: {
+      type,
+      ...(targetMemberId === undefined ? {} : { targetMemberId }),
+    },
+    timestamp: timestamp(event.created_at),
+    createdAt: new Date(event.created_at * 1_000).toISOString(),
+  };
 }
 
 function eventMessage(

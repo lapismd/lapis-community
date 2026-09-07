@@ -27,7 +27,6 @@
     title: "Community/Navigation/Sidebar",
     component: CommunityNavigation,
     tags: ["visual-pending"],
-    globals: { viewport: { value: "desktop", isRotated: false } },
     parameters: {
       layout: "fullscreen",
       docs: {

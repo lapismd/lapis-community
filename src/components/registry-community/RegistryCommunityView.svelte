@@ -26,7 +26,19 @@
   import { initials } from "./model.js";
   import type { RegistryCommunityController } from "./registry-community-controller.svelte.js";
 
-  let { controller }: { controller: RegistryCommunityController } = $props();
+  let {
+    controller,
+    showSummary = true,
+    onOpenProfile,
+    onMessageMember,
+    onWaveMember,
+  }: {
+    controller: RegistryCommunityController;
+    showSummary?: boolean;
+    onOpenProfile?: (member: CommunityMemberModel) => void;
+    onMessageMember?: (member: CommunityMemberModel) => void | Promise<void>;
+    onWaveMember?: (member: CommunityMemberModel) => void | Promise<void>;
+  } = $props();
 
   const name = $derived(controller.name);
   const commentTotal = $derived(controller.commentTotal);
@@ -287,14 +299,16 @@
 >
   <Card.Root class="community-card">
     <Card.Content class="community-content">
-      <CommunitySummary
-        posts={commentCountAvailable ? commentTotal : reviews.length}
-        postsApproximate={commentTotalApproximate}
-        postsUnavailable={!commentCountAvailable}
-        reactions={reactions.length}
-        participants={participantCount}
-        pluginReactions={currentPluginReactions.length}
-      />
+      {#if showSummary}
+        <CommunitySummary
+          posts={commentCountAvailable ? commentTotal : reviews.length}
+          postsApproximate={commentTotalApproximate}
+          postsUnavailable={!commentCountAvailable}
+          reactions={reactions.length}
+          participants={participantCount}
+          pluginReactions={currentPluginReactions.length}
+        />
+      {/if}
 
       {#if error && composerStatus === undefined}
         <p class="notice error" role="alert">{error}</p>
@@ -342,6 +356,9 @@
               onEdit={startEdit}
               onDelete={controller.deleteReview}
               onReport={controller.reportReview}
+              {...onOpenProfile === undefined ? {} : { onOpenProfile }}
+              {...onMessageMember === undefined ? {} : { onMessageMember }}
+              {...onWaveMember === undefined ? {} : { onWaveMember }}
             />
           {/if}
 
@@ -469,13 +486,21 @@
     box-sizing: border-box;
   }
 
-  :global(.community-card) {
+  :global(.community-card[data-ui-component="card"][data-ui-part="card"]) {
     overflow: visible;
+    border: 0;
+    background-color: transparent;
+    box-shadow: none;
   }
 
   :global(.community-content) {
     display: grid;
     gap: 1.4rem;
+    padding: 0;
+  }
+
+  .community {
+    container: registry-discussion / inline-size;
   }
 
   .notice {
@@ -500,8 +525,8 @@
   }
 
   .discussion--with-timeline {
-    grid-template-columns: minmax(0, 1fr) 9rem;
-    gap: clamp(1.5rem, 4vw, 3.5rem);
+    grid-template-columns: minmax(0, 1fr) clamp(6.5rem, 15cqi, 9rem);
+    gap: clamp(1rem, 4cqi, 3.5rem);
   }
 
   .topic-column {
@@ -623,7 +648,7 @@
     border: 0;
   }
 
-  @media (max-width: 62rem) {
+  @container registry-discussion (max-width: 30rem) {
     .discussion {
       grid-template-columns: minmax(0, 1fr);
     }

@@ -132,6 +132,100 @@ describe("materializeCommunityWorkspace", () => {
     ]);
   });
 
+  it("projects accepted channel creation and membership commands as timeline activity", () => {
+    const operatorKey = new Uint8Array(32).fill(61);
+    const memberKey = new Uint8Array(32).fill(62);
+    const created = finalizeEvent(
+      {
+        kind: 9_007,
+        created_at: 1_700_000_000,
+        content: "",
+        tags: [["h", "general"]],
+      },
+      operatorKey,
+    );
+    const memberProfile = finalizeEvent(
+      {
+        kind: 0,
+        created_at: 1_700_000_001,
+        content: JSON.stringify({ display_name: "Maya Chen" }),
+        tags: [],
+      },
+      memberKey,
+    );
+    const added = finalizeEvent(
+      {
+        kind: 9_000,
+        created_at: 1_700_000_002,
+        content: "",
+        tags: [
+          ["h", "general"],
+          ["p", memberProfile.pubkey, "member"],
+        ],
+      },
+      operatorKey,
+    );
+    const removed = finalizeEvent(
+      {
+        kind: 9_001,
+        created_at: 1_700_000_003,
+        content: "",
+        tags: [
+          ["h", "general"],
+          ["p", memberProfile.pubkey],
+        ],
+      },
+      operatorKey,
+    );
+    const scope = {
+      id: "lapis",
+      name: "Lapis Community",
+      relayUrl: "memory://community.test",
+      rooms: [
+        {
+          id: "general",
+          groupId: "general",
+          name: "general",
+          kind: "channel" as const,
+        },
+      ],
+    };
+
+    const workspace = materializeCommunityWorkspace(
+      [scope],
+      { [scope.id]: [removed, memberProfile, created, added] },
+      scope.id,
+      { activeRoomId: "general", identityPubkey: created.pubkey },
+    );
+
+    expect(workspace.messages).toMatchObject([
+      {
+        id: created.id,
+        authorId: created.pubkey,
+        activity: { type: "channel-created" },
+      },
+      {
+        id: added.id,
+        authorId: added.pubkey,
+        activity: {
+          type: "member-added",
+          targetMemberId: memberProfile.pubkey,
+        },
+      },
+      {
+        id: removed.id,
+        authorId: removed.pubkey,
+        activity: {
+          type: "member-removed",
+          targetMemberId: memberProfile.pubkey,
+        },
+      },
+    ]);
+    expect(
+      workspace.members.find((member) => member.id === memberProfile.pubkey),
+    ).toMatchObject({ name: "Maya Chen" });
+  });
+
   it("projects only the latest same-author, same-room message edit", () => {
     const authorKey = new Uint8Array(32).fill(55);
     const otherKey = new Uint8Array(32).fill(56);

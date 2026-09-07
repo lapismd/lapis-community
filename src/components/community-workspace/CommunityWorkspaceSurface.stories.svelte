@@ -11,6 +11,7 @@
   const baseModel = createChannelStoryModel();
   const nonmemberModel = {
     ...baseModel,
+    messages: [],
     navigationSections: baseModel.navigationSections.map((section) => ({
       ...section,
       rooms: section.rooms.map((room) =>
@@ -68,6 +69,10 @@
         id: `${topic.id}-${page + 1}`,
       })),
     ).flat(),
+  };
+  const emptyForumNonmemberModel = {
+    ...forumNonmemberModel,
+    topics: [],
   };
   const withActiveRoom = (
     membership: "joined" | "not-joined" | "unknown",
@@ -130,7 +135,11 @@
     readOnly: true,
     readOnlyReason: "Join this room before posting or reacting",
     showJoinAction: true,
-    handlers: { onJoinRoom: fn() },
+    handlers: {
+      onJoinRoom: fn(),
+      onBrowseRooms: fn(),
+      onCreateAgent: fn(),
+    },
   }}
   play={async ({ canvas, canvasElement, args }) => {
     const membership = canvasElement.querySelector(
@@ -164,15 +173,89 @@
       canvas.queryByText("Join this room before posting or reacting"),
     ).not.toBeInTheDocument();
     await expect(
-      canvas.queryByRole("button", { name: "Browse channels" }),
+      canvas.getByRole("heading", { name: "#general" }),
+    ).toBeVisible();
+    await expect(
+      canvas.getByText("This is the beginning of the regular channel."),
+    ).toBeVisible();
+    await expect(
+      canvas.getByText(
+        "Say hi, ask a question, or share what brought you here.",
+      ),
+    ).toBeVisible();
+    const browse = canvas.getByRole("button", { name: "Browse channels" });
+    await expect(browse).toBeVisible();
+    await expect(
+      canvas.queryByRole("button", { name: "Create a channel" }),
+    ).not.toBeInTheDocument();
+    await expect(
+      canvas.queryByRole("button", { name: "Create an agent" }),
     ).not.toBeInTheDocument();
     await expect(
       canvas.queryByRole("textbox", { name: "Markdown editor" }),
     ).not.toBeInTheDocument();
-    const join = canvas.getByRole("button", { name: "Join to participate" });
-    await expect(join.querySelector("svg")).not.toBeNull();
-    await userEvent.click(join);
+    const bodyJoin = canvas.getByRole("button", { name: "Join channel" });
+    const footerJoin = canvas.getByRole("button", {
+      name: "Join to participate",
+    });
+    await expect(bodyJoin.querySelector("svg")).not.toBeNull();
+    await expect(footerJoin.querySelector("svg")).not.toBeNull();
+    await userEvent.click(bodyJoin);
+    await userEvent.click(footerJoin);
+    await userEvent.click(browse);
+    await expect(args.handlers?.onJoinRoom).toHaveBeenCalledTimes(2);
     await expect(args.handlers?.onJoinRoom).toHaveBeenCalledWith("general");
+    await expect(args.handlers?.onBrowseRooms).toHaveBeenCalledWith("channel");
+  }}
+/>
+
+<Story
+  name="Empty forum nonmember"
+  args={{
+    model: emptyForumNonmemberModel,
+    readOnly: true,
+    readOnlyReason: "Join this room before posting or reacting",
+    showJoinAction: true,
+    handlers: { onJoinRoom: fn(), onBrowseRooms: fn() },
+  }}
+  play={async ({ canvas, args }) => {
+    await expect(
+      canvas.getByRole("heading", { name: "support-ai" }),
+    ).toBeVisible();
+    await expect(
+      canvas.getByText("This forum has no active topics yet."),
+    ).toBeVisible();
+    const bodyJoin = canvas.getByRole("button", { name: "Join forum" });
+    const footerJoin = canvas.getByRole("button", {
+      name: "Join to participate",
+    });
+    const browse = canvas.getByRole("button", { name: "Browse forums" });
+    await expect(
+      canvas.queryByRole("button", { name: "Create a forum" }),
+    ).not.toBeInTheDocument();
+    await userEvent.click(bodyJoin);
+    await userEvent.click(footerJoin);
+    await userEvent.click(browse);
+    await expect(args.handlers?.onJoinRoom).toHaveBeenCalledTimes(2);
+    await expect(args.handlers?.onJoinRoom).toHaveBeenCalledWith("support-ai");
+    await expect(args.handlers?.onBrowseRooms).toHaveBeenCalledWith("forum");
+  }}
+/>
+
+<Story
+  name="Empty channel manager"
+  args={{
+    model: { ...withActiveRoom("joined", { state: "enabled" }), messages: [] },
+    handlers: { onBrowseRooms: fn(), onCreateRoom: fn() },
+  }}
+  play={async ({ canvas, args }) => {
+    const create = canvas.getByRole("button", { name: "Create a channel" });
+    await expect(create).toBeVisible();
+    await expect(
+      canvas.queryByRole("button", { name: "Create an agent" }),
+    ).not.toBeInTheDocument();
+    await userEvent.click(create);
+    await expect(args.handlers?.onCreateRoom).toHaveBeenCalledWith("channel");
   }}
 />
 
@@ -250,8 +333,11 @@
     handlers: { onJoinRoom: fn() },
   }}
   play={async ({ canvas }) => {
-    const requested = canvas.getByRole("button", { name: "Join requested" });
-    await expect(requested).toBeDisabled();
+    const requested = canvas.getAllByRole("button", {
+      name: "Join requested",
+    });
+    await expect(requested).toHaveLength(2);
+    for (const button of requested) await expect(button).toBeDisabled();
   }}
 />
 

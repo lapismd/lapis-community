@@ -83,10 +83,22 @@ export interface CommunityEmojiReference {
   url: string;
 }
 
+export interface CommunityMessageActivity {
+  type:
+    | "channel-created"
+    | "member-added"
+    | "member-removed"
+    | "member-joined"
+    | "member-left";
+  targetMemberId?: string;
+}
+
 export interface CommunityMessageModel {
   id: string;
   authorId: string;
   content: string;
+  /** An accepted NIP-29 channel lifecycle command rendered in the timeline. */
+  activity?: CommunityMessageActivity;
   /** The verified public relay event backing this message, when available. */
   sourceEvent?: NostrEvent;
   mentionPubkeys?: readonly string[];
@@ -183,6 +195,7 @@ export interface CommunityWorkspaceHandlers {
   ) => void | Promise<void>;
   onOpenProfile?: (member: CommunityMemberModel) => void;
   onMessageMember?: (member: CommunityMemberModel) => void | Promise<void>;
+  onWaveMember?: (member: CommunityMemberModel) => void | Promise<void>;
   onViewMemberActivity?: (member: CommunityMemberModel) => void | Promise<void>;
   onBrowseRooms?: (kind?: "channel" | "forum") => void;
   onJoinRoom?: (roomId: string) => void | Promise<void>;

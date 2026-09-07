@@ -152,6 +152,79 @@
   </footer>
 {/snippet}
 
+{#snippet roomIntro(kind: "channel" | "forum")}
+  <section class="community-workspace-surface__intro">
+    <span class="community-workspace-surface__image" aria-hidden="true">
+      {#if kind === "forum"}
+        <MessagesSquareIcon />
+      {:else}
+        <SparklesIcon />
+      {/if}
+    </span>
+    <h1>{kind === "channel" ? "#" : ""}{activeRoom.name}</h1>
+    {#if kind === "forum"}
+      <p>This forum has no active topics yet.</p>
+      <p>Start a discussion or browse another forum.</p>
+    {:else}
+      <p>
+        This is the beginning of the {activeRoom.private
+          ? "private"
+          : "regular"} channel.
+      </p>
+      <p>Say hi, ask a question, or share what brought you here.</p>
+    {/if}
+    <div class="community-workspace-surface__actions">
+      {#if knownNonmember && roomJoinActionVisible}
+        <Button
+          variant="outline"
+          class="community-workspace-surface__action-card"
+          disabled={roomJoinActionPending || roomJoinActionAccepted}
+          onclick={() => handlers.onJoinRoom?.(activeRoom.id)}
+        >
+          <span class="community-workspace-surface__action-icon">
+            <LogInIcon aria-hidden="true" />
+          </span>
+          <strong>
+            {roomJoinActionAccepted
+              ? "Join requested"
+              : roomJoinActionPending
+                ? "Joining…"
+                : `Join ${kind}`}
+          </strong>
+        </Button>
+      {/if}
+      {#if handlers.onBrowseRooms}
+        <Button
+          variant="outline"
+          class="community-workspace-surface__action-card"
+          onclick={() => handlers.onBrowseRooms?.(kind)}
+        >
+          <span class="community-workspace-surface__action-icon">
+            {#if kind === "forum"}
+              <MessagesSquareIcon aria-hidden="true" />
+            {:else}
+              <HashIcon aria-hidden="true" />
+            {/if}
+          </span>
+          <strong>Browse {kind === "forum" ? "forums" : "channels"}</strong>
+        </Button>
+      {/if}
+      {#if handlers.onCreateRoom}
+        <Button
+          variant="outline"
+          class="community-workspace-surface__action-card"
+          onclick={() => handlers.onCreateRoom?.(kind)}
+        >
+          <span class="community-workspace-surface__action-icon">
+            <PlusIcon aria-hidden="true" />
+          </span>
+          <strong>Create a {kind}</strong>
+        </Button>
+      {/if}
+    </div>
+  </section>
+{/snippet}
+
 <div class="community-workspace-surface" data-view={model.view}>
   {#if historyLoading}
     <div
@@ -274,7 +347,11 @@
         {...handlers.onTopicAction === undefined
           ? {}
           : { onTopicAction: handlers.onTopicAction }}
-      />
+      >
+        {#snippet emptyState()}
+          {@render roomIntro("forum")}
+        {/snippet}
+      </ForumTopicList>
     </div>
     {#if knownNonmember}
       {@render roomMembershipFooter()}
@@ -363,6 +440,9 @@
       {...handlers.onMessageMember === undefined
         ? {}
         : { onMessageMember: handlers.onMessageMember }}
+      {...handlers.onWaveMember === undefined
+        ? {}
+        : { onWaveMember: handlers.onWaveMember }}
       {...handlers.onViewMemberActivity === undefined
         ? {}
         : { onViewMemberActivity: handlers.onViewMemberActivity }}
@@ -381,59 +461,7 @@
             </Button>
           </div>
         {:else}
-          <section class="community-workspace-surface__intro">
-            <span class="community-workspace-surface__image" aria-hidden="true">
-              {#if knownNonmember}
-                <HashIcon />
-              {:else}
-                <SparklesIcon />
-              {/if}
-            </span>
-            <h1>#{activeRoom.name}</h1>
-            <p>
-              This is the beginning of the {activeRoom.private
-                ? "private "
-                : ""}{activeRoom.name} channel.
-            </p>
-            {#if !knownNonmember}
-              <div class="community-workspace-surface__actions">
-                <Button
-                  variant="outline"
-                  class="community-workspace-surface__action-card"
-                  onclick={() => handlers.onBrowseRooms?.("channel")}
-                >
-                  <span class="community-workspace-surface__action-icon">
-                    <HashIcon aria-hidden="true" />
-                  </span>
-                  <strong>Browse channels</strong>
-                </Button>
-                {#if handlers.onCreateRoom}
-                  <Button
-                    variant="outline"
-                    class="community-workspace-surface__action-card"
-                    onclick={() => handlers.onCreateRoom?.("channel")}
-                  >
-                    <span class="community-workspace-surface__action-icon">
-                      <PlusIcon aria-hidden="true" />
-                    </span>
-                    <strong>Create a channel</strong>
-                  </Button>
-                {/if}
-                {#if handlers.onCreateAgent}
-                  <Button
-                    variant="outline"
-                    class="community-workspace-surface__action-card"
-                    onclick={() => handlers.onCreateAgent?.(activeRoom.id)}
-                  >
-                    <span class="community-workspace-surface__action-icon">
-                      <SparklesIcon aria-hidden="true" />
-                    </span>
-                    <strong>Create an agent</strong>
-                  </Button>
-                {/if}
-              </div>
-            {/if}
-          </section>
+          {@render roomIntro("channel")}
         {/if}
       {/snippet}
     </CommunityConversation>
@@ -620,7 +648,7 @@
   .community-workspace-surface__intro {
     display: grid;
     gap: 0.5rem;
-    padding: 1.5rem 0.5rem 1rem;
+    padding: 1.5rem 1.25rem 1rem;
   }
 
   .community-workspace-surface__forum-back {

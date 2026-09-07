@@ -16,7 +16,6 @@
       open: true,
       selectedIndex: 0,
     },
-    globals: { viewport: { value: "desktop", isRotated: false } },
     parameters: {
       layout: "fullscreen",
       docs: {

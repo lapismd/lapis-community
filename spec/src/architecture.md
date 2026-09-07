@@ -14,6 +14,11 @@ active identity and existing deferred authentication runner with nested
 Registry discussions. This bridge MUST remain internal to the application
 composition and MUST NOT add signer access to the public controller contract.
 
+For LC-UI-022, an identity-only controller reconnect MUST reuse the active
+verified public runtime projection and synchronization plan instead of
+replaying the disposable cache. It MUST reopen author-bound relay access and
+refresh identity-private state without making public browsing unavailable.
+
 Dependency refreshes advance the minimum compatible Design Core release in the
 portable package manifest and committed lockfile together, without changing the
 public import boundary.

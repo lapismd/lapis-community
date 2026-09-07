@@ -10,7 +10,6 @@
     title: "Community/Registry/Browser",
     component: RegistryBrowser,
     tags: ["visual-pending"],
-    globals: { viewport: { value: "desktop", isRotated: false } },
     parameters: {
       layout: "fullscreen",
       docs: {
@@ -47,7 +46,7 @@
 
 <Story
   name="Routed reviews controller"
-  play={async ({ canvas }) => {
+  play={async ({ canvas, canvasElement }) => {
     const story = await canvas.findByTestId(
       "registry-browser-community-story",
       {},
@@ -64,6 +63,25 @@
     await expect(
       await canvas.findByText(/Reply 41:/u, {}, { timeout: 15_000 }),
     ).toBeVisible();
+    const summary = canvasElement.querySelector(".topic-summary");
+    const toolbar = canvasElement.querySelector(
+      ".registry-browser__toolbar--with-summary",
+    );
+    await expect(summary).not.toBeNull();
+    await expect(toolbar).not.toBeNull();
+    await expect(toolbar?.contains(summary)).toBe(true);
+    await expect(
+      canvasElement.querySelector(".registry-browser__reviews .topic-summary"),
+    ).toBeNull();
+    const discussionCard = canvasElement.querySelector<HTMLElement>(
+      ".registry-browser__reviews .community-card",
+    );
+    await expect(discussionCard).not.toBeNull();
+    await expect(getComputedStyle(discussionCard!).backgroundColor).toBe(
+      "rgba(0, 0, 0, 0)",
+    );
+    await expect(getComputedStyle(discussionCard!).borderTopWidth).toBe("0px");
+    await expect(getComputedStyle(discussionCard!).boxShadow).toBe("none");
     await expect(
       await canvas.findByRole(
         "heading",

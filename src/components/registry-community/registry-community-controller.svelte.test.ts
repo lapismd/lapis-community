@@ -210,4 +210,52 @@ describe("createRegistryCommunityController authored reviews", () => {
     reopenedRelay.close();
     controller.dispose();
   });
+
+  it("toggles an authored reaction with a group-scoped owner deletion", async () => {
+    runtime = await createRegistryCommunityStoryRuntime({ backend: "memory" });
+    const { dataSource, scenario } = runtime;
+    const controller = createRegistryCommunityController({
+      plugin: scenario.plugin,
+      name: scenario.name,
+      version: scenario.version,
+      publisher: scenario.publisher,
+      relays: JSON.stringify([scenario.relayUrl]),
+      dataSource,
+      identity: scenario.identity,
+    });
+
+    await controller.initializeSummary();
+    await controller.refresh(0);
+    const review = controller.allReviews.find(
+      (candidate) => candidate.event.pubkey !== scenario.publisher,
+    );
+    expect(review).toBeDefined();
+    if (review === undefined) return;
+
+    const relay = runtime.relayFactory.create(scenario.relayUrl);
+    const supportGroupId = lapisPluginSupportGroupId(scenario.plugin);
+    await controller.submitReaction(review, "🫡");
+    const published = await relay.query({
+      kinds: [7],
+      "#e": [review.event.id],
+    });
+    const ownReaction = published.find(
+      (event) => event.pubkey === scenario.publisher && event.content === "🫡",
+    );
+    expect(ownReaction).toBeDefined();
+    expect(ownReaction?.tags).toContainEqual(["h", supportGroupId]);
+
+    await controller.submitReaction(review, "🫡");
+    expect(controller.message).toBe("Reaction removed.");
+    const deletions = await relay.query({
+      kinds: [5],
+      "#e": [ownReaction!.id],
+    });
+    expect(deletions).toHaveLength(1);
+    expect(deletions[0]?.pubkey).toBe(scenario.publisher);
+    expect(deletions[0]?.tags).toContainEqual(["h", supportGroupId]);
+
+    relay.close();
+    controller.dispose();
+  });
 });
