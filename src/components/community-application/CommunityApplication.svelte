@@ -315,6 +315,13 @@
       ? memberById(workspace.members, workspace.currentMemberId)
       : undefined,
   );
+  const activeRoomMemberIds = $derived(
+    activeRoom.kind === "direct"
+      ? (activeRoom.participantIds ?? [])
+      : workspace.members
+          .filter((member) => member.role !== undefined)
+          .map((member) => member.id),
+  );
   const currentCommunity = $derived(
     workspace.communities.find(
       (candidate) => candidate.id === workspace.activeCommunityId,
@@ -2456,7 +2463,11 @@
               size="sm"
               aria-label={`View ${activeRoom.kind === "forum" ? "forum" : activeRoom.kind === "direct" ? "conversation" : "channel"} members (${activeRoom.memberCount})`}
               onclick={() => {
-                memberCommandMode = "view";
+                memberCommandMode =
+                  activeRoom.kind !== "direct" &&
+                  activeRoom.permissions?.manageMembers.state === "enabled"
+                    ? "manage"
+                    : "view";
                 memberCommandOpen = true;
               }}
             >
@@ -2894,10 +2905,15 @@
   bind:open={memberCommandOpen}
   title={memberCommandMode === "select"
     ? "New direct message"
-    : `${activeRoom.name} members`}
+    : `${activeRoom.kind === "forum" ? "Forum" : activeRoom.kind === "direct" ? "Conversation" : "Channel"} members`}
   mode={memberCommandMode}
   members={workspace.members}
   results={community.state.memberDirectory.results}
+  groupMemberIds={activeRoomMemberIds}
+  {...workspace.currentMemberId === undefined
+    ? {}
+    : { currentMemberId: workspace.currentMemberId }}
+  roomKind={activeRoom.kind === "direct" ? "conversation" : activeRoom.kind}
   selectedIds={selectedRecipientIds}
   completeness={activeRoom.memberListCompleteness ?? "unavailable"}
   onSearch={(query) => void community.actions.searchMembers(query)}

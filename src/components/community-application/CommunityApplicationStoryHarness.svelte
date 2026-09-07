@@ -268,6 +268,26 @@
           } else {
             registrySource = createRegistryStoryDataSource();
           }
+          if (
+            community === undefined &&
+            signedIn &&
+            loginIdentity === "participant"
+          ) {
+            created.controller.dispose();
+            community = createCommunityController({
+              scopes: [created.scenario.scope],
+              source: createNip29CommunitySource({
+                relayFactory: created.relayFactory,
+              }),
+              identity: created.scenario.participant,
+              runtime:
+                created.backend === "live"
+                  ? createBrowserCommunityEventRuntime()
+                  : createInlineCommunityEventRuntime(),
+              pulse,
+              now: () => 1_700_000_100,
+            });
+          }
           community ??= signedIn
             ? created.controller
             : createCommunityController({

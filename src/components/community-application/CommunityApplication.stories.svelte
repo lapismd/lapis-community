@@ -510,6 +510,195 @@
 </Story>
 
 <Story
+  name="Contextual channel and forum members"
+  play={async ({ canvas, canvasElement }) => {
+    const outsideMemberPubkey =
+      "29ce758bb2d21def214cea069addbd16896ec77924bf0ec9219e00dcf077605e";
+    const outsideMemberName = outsideMemberPubkey.slice(0, 12);
+    const application = await canvas.findByTestId(
+      "full-community-application",
+      {},
+      { timeout: 15_000 },
+    );
+    await waitFor(
+      () =>
+        expect(application).toHaveAttribute(
+          "data-community-status",
+          "connected",
+        ),
+      { timeout: 15_000 },
+    );
+
+    const overlay = within(canvasElement.ownerDocument.body);
+    await userEvent.click(
+      await canvas.findByRole("button", { name: /View channel members/u }),
+    );
+    const channelDialog = await overlay.findByRole("dialog", {
+      name: "Channel members",
+    });
+    const channelMembers = within(channelDialog);
+    await expect(
+      channelMembers.getByRole("option", { name: "Manage You" }),
+    ).toBeVisible();
+    await expect(
+      channelMembers.getByRole("option", {
+        name: /Manage (Community )?member/iu,
+      }),
+    ).toBeVisible();
+    await expect(
+      channelMembers.queryByText(outsideMemberName),
+    ).not.toBeInTheDocument();
+
+    const channelSearch = channelMembers.getByRole("combobox", {
+      name: "Search members",
+    });
+    await userEvent.type(channelSearch, outsideMemberPubkey);
+    await expect(
+      await channelMembers.findByText("In this channel"),
+    ).toBeVisible();
+    await expect(channelMembers.getByText("Not in this channel")).toBeVisible();
+    const addChannelMember = await channelMembers.findByRole("option", {
+      name: /^Add .+ to channel$/u,
+    });
+    const outsideMemberDisplayName = addChannelMember
+      .getAttribute("aria-label")!
+      .replace(/^Add /u, "")
+      .replace(/ to channel$/u, "");
+    await userEvent.click(addChannelMember);
+    await expect(
+      await overlay.findByText(`${outsideMemberDisplayName} added`),
+    ).toBeInTheDocument();
+
+    const outsideMemberManager = await channelMembers.findByRole(
+      "option",
+      { name: `Manage ${outsideMemberDisplayName}` },
+      { timeout: 8_000 },
+    );
+    await userEvent.click(outsideMemberManager);
+    await userEvent.click(
+      await overlay.findByRole("menuitem", { name: "Remove from channel" }),
+    );
+    await expect(
+      await overlay.findByText(`${outsideMemberDisplayName} removed`),
+    ).toBeInTheDocument();
+    await expect(
+      await channelMembers.findByRole(
+        "option",
+        {
+          name: /^Add .+ to channel$/u,
+        },
+        { timeout: 8_000 },
+      ),
+    ).toBeVisible();
+
+    await userEvent.click(
+      channelMembers.getByRole("button", { name: "Close members" }),
+    );
+    await waitFor(() => expect(channelDialog).not.toBeInTheDocument());
+    await userEvent.click(
+      await canvas.findByRole("button", { name: "support" }),
+    );
+    await userEvent.click(
+      await canvas.findByRole("button", { name: /View forum members/u }),
+    );
+    const forumDialog = await overlay.findByRole("dialog", {
+      name: "Forum members",
+    });
+    const forumMembers = within(forumDialog);
+    await expect(
+      forumMembers.getByRole("option", { name: "Manage You" }),
+    ).toBeVisible();
+    await expect(
+      forumMembers.queryByText(/Community Member|^Member$/u),
+    ).not.toBeInTheDocument();
+    await userEvent.type(
+      forumMembers.getByRole("combobox", { name: "Search members" }),
+      outsideMemberPubkey,
+    );
+    await expect(await forumMembers.findByText("In this forum")).toBeVisible();
+    await expect(forumMembers.getByText("Not in this forum")).toBeVisible();
+    await expect(
+      await forumMembers.findByRole("option", {
+        name: /^Add .+ to forum$/u,
+      }),
+    ).toBeVisible();
+    await userEvent.click(
+      forumMembers.getByRole("button", { name: "Close members" }),
+    );
+    await waitFor(() => expect(forumDialog).not.toBeInTheDocument());
+    await waitFor(() =>
+      expect(canvasElement.ownerDocument.body.style.pointerEvents).not.toBe(
+        "none",
+      ),
+    );
+  }}
+>
+  {#snippet template()}
+    <CommunityApplicationStoryHarness
+      namespace="contextual-members"
+      initialDestination="general"
+    />
+  {/snippet}
+</Story>
+
+<Story
+  name="Member view without management permission"
+  play={async ({ canvas, canvasElement }) => {
+    const application = await canvas.findByTestId(
+      "full-community-application",
+      {},
+      { timeout: 15_000 },
+    );
+    await waitFor(
+      () =>
+        expect(application).toHaveAttribute(
+          "data-community-status",
+          "connected",
+        ),
+      { timeout: 15_000 },
+    );
+    await waitFor(() =>
+      expect(canvasElement.ownerDocument.body.style.pointerEvents).not.toBe(
+        "none",
+      ),
+    );
+
+    const overlay = within(canvasElement.ownerDocument.body);
+    await userEvent.click(
+      await canvas.findByRole("button", { name: /View channel members/u }),
+    );
+    const dialog = await overlay.findByRole("dialog", {
+      name: "Channel members",
+    });
+    const members = within(dialog);
+    await expect(dialog.querySelector('[aria-haspopup="menu"]')).toBeNull();
+    await userEvent.type(
+      members.getByRole("combobox", { name: "Search members" }),
+      "noor",
+    );
+    await expect(await members.findByText("In this channel")).toBeVisible();
+    await expect(members.getByText("Not in this channel")).toBeVisible();
+    await expect(members.getByText("You")).toBeVisible();
+    await expect(
+      members.queryByRole("option", { name: /Add .* to channel/u }),
+    ).not.toBeInTheDocument();
+    await expect(dialog.querySelector('[aria-haspopup="menu"]')).toBeNull();
+    await userEvent.click(
+      members.getByRole("button", { name: "Close members" }),
+    );
+    await waitFor(() => expect(dialog).not.toBeInTheDocument());
+  }}
+>
+  {#snippet template()}
+    <CommunityApplicationStoryHarness
+      namespace="contextual-member-view"
+      initialDestination="general"
+      loginIdentity="participant"
+    />
+  {/snippet}
+</Story>
+
+<Story
   name="Community without registry"
   play={async ({ canvas, canvasElement }) => {
     await expect(

@@ -2,6 +2,40 @@
   import { defineMeta } from "@storybook/addon-svelte-csf";
   import { expect, fn, userEvent, within } from "storybook/test";
   import CommunityMemberCommand from "./CommunityMemberCommand.svelte";
+
+  const directory = [
+    {
+      id: "steve",
+      name: "Steve",
+      handle: "steve",
+      initials: "SJ",
+      presence: "online" as const,
+      role: "owner",
+    },
+    {
+      id: "ada",
+      name: "Ada Chen",
+      handle: "ada",
+      initials: "AC",
+      presence: "online" as const,
+      role: "member",
+    },
+    {
+      id: "mara",
+      name: "Mara Singh",
+      handle: "mara",
+      initials: "MS",
+      presence: "away" as const,
+    },
+    {
+      id: "noor",
+      name: "Noor Rahman",
+      handle: "noor",
+      initials: "NR",
+      presence: "offline" as const,
+    },
+  ];
+
   const { Story } = defineMeta({
     title: "Community/Members/Member command",
     component: CommunityMemberCommand,
@@ -10,28 +44,144 @@
 </script>
 
 <Story
-  name="Manage members"
+  name="Contextual channel members"
   args={{
     open: true,
+    title: "Channel members",
+    roomKind: "channel",
     mode: "manage",
-    members: [
-      {
-        id: "steve",
-        name: "Steve",
-        handle: "steve",
-        initials: "SJ",
-        presence: "online",
-      },
-    ],
+    members: directory,
+    results: directory,
+    groupMemberIds: ["steve", "ada"],
+    currentMemberId: "steve",
+    onSearch: fn(),
     onSelect: fn(),
     onRemove: fn(),
   }}
   play={async ({ canvasElement, args }) => {
     const overlay = within(canvasElement.ownerDocument.body);
-    await userEvent.click(overlay.getByRole("option", { name: /Steve/ }));
-    await expect(args.onRemove).toHaveBeenCalledWith(
-      expect.objectContaining({ id: "steve" }),
+    const dialog = await overlay.findByRole("dialog", {
+      name: "Channel members",
+    });
+    const command = within(dialog);
+
+    await expect(command.getByText("You")).toBeVisible();
+    await expect(command.getByText("Ada Chen")).toBeVisible();
+    await expect(command.queryByText("Mara Singh")).not.toBeInTheDocument();
+    await expect(
+      command.queryByRole("button", { name: "Done" }),
+    ).not.toBeInTheDocument();
+
+    await userEvent.type(
+      command.getByRole("combobox", { name: "Search members" }),
+      "a",
     );
+    await expect(command.getByText("In this channel")).toBeVisible();
+    await expect(command.getByText("Not in this channel")).toBeVisible();
+    await expect(command.getByText("Ada Chen")).toBeVisible();
+    await expect(command.getByText("Mara Singh")).toBeVisible();
+
+    await userEvent.click(
+      command.getByRole("option", { name: "Add Mara Singh to channel" }),
+    );
+    await expect(args.onSelect).toHaveBeenCalledWith(
+      expect.objectContaining({ id: "mara" }),
+    );
+
+    await userEvent.click(
+      command.getByRole("option", { name: "Manage Ada Chen" }),
+    );
+    await userEvent.click(
+      await overlay.findByRole("menuitem", { name: "Remove from channel" }),
+    );
+    await expect(args.onRemove).toHaveBeenCalledWith(
+      expect.objectContaining({ id: "ada" }),
+    );
+  }}
+>
+  {#snippet template(args)}
+    <CommunityMemberCommand {...args} />
+  {/snippet}
+</Story>
+
+<Story
+  name="Contextual forum members"
+  args={{
+    open: true,
+    title: "Forum members",
+    roomKind: "forum",
+    mode: "manage",
+    members: directory,
+    results: directory,
+    groupMemberIds: ["steve"],
+    currentMemberId: "steve",
+    onSearch: fn(),
+    onSelect: fn(),
+    onRemove: fn(),
+  }}
+  play={async ({ canvasElement }) => {
+    const overlay = within(canvasElement.ownerDocument.body);
+    const dialog = await overlay.findByRole("dialog", {
+      name: "Forum members",
+    });
+    const command = within(dialog);
+
+    await expect(command.getByText("You")).toBeVisible();
+    await expect(command.queryByText("Noor Rahman")).not.toBeInTheDocument();
+    await userEvent.type(
+      command.getByRole("combobox", { name: "Search members" }),
+      "noor",
+    );
+    await expect(command.getByText("In this forum")).toBeVisible();
+    await expect(command.getByText("Not in this forum")).toBeVisible();
+    await expect(
+      command.getByRole("option", { name: "Add Noor Rahman to forum" }),
+    ).toBeVisible();
+
+    await userEvent.clear(
+      command.getByRole("combobox", { name: "Search members" }),
+    );
+    await userEvent.click(command.getByRole("option", { name: "Manage You" }));
+    await expect(
+      await overlay.findByRole("menuitem", { name: "Remove from forum" }),
+    ).toBeVisible();
+  }}
+>
+  {#snippet template(args)}
+    <CommunityMemberCommand {...args} />
+  {/snippet}
+</Story>
+
+<Story
+  name="Permission-aware member view"
+  args={{
+    open: true,
+    title: "Channel members",
+    roomKind: "channel",
+    mode: "view",
+    members: directory,
+    results: directory,
+    groupMemberIds: ["steve", "ada"],
+    currentMemberId: "ada",
+    onSearch: fn(),
+    onSelect: fn(),
+    onRemove: fn(),
+  }}
+  play={async ({ canvasElement }) => {
+    const overlay = within(canvasElement.ownerDocument.body);
+    const dialog = await overlay.findByRole("dialog", {
+      name: "Channel members",
+    });
+    const command = within(dialog);
+    await userEvent.type(
+      command.getByRole("combobox", { name: "Search members" }),
+      "mara",
+    );
+    await expect(command.getByText("Mara Singh")).toBeVisible();
+    await expect(
+      command.queryByRole("option", { name: "Add Mara Singh to channel" }),
+    ).not.toBeInTheDocument();
+    await expect(dialog.querySelector('[aria-haspopup="menu"]')).toBeNull();
   }}
 >
   {#snippet template(args)}
