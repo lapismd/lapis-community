@@ -273,10 +273,7 @@
     emojis: () => community.state.settings.customEmojis,
     onOpenMember: () => openProfile,
     onMessageMember: () => messageMember,
-    onWaveMember: () =>
-      extensions.wave === undefined
-        ? undefined
-        : (member: CommunityMemberModel) => runMemberExtension("wave", member),
+    onWaveMember: () => waveMember,
   });
   const startupDestinationRoom = $derived(
     communityStartupPending
@@ -1619,7 +1616,7 @@
   }
 
   function runMemberExtension(
-    action: "wave" | "follow",
+    action: "follow",
     member: CommunityMemberModel,
   ): void {
     const handler = extensions[action];
@@ -1628,10 +1625,32 @@
       toast.error(
         cause instanceof Error
           ? cause.message
-          : `${action === "wave" ? "Wave" : "Follow"} could not be completed`,
+          : "Follow could not be completed",
       ),
     );
     lastAction = `${action}:${member.id}`;
+  }
+
+  async function waveMember(member: CommunityMemberModel): Promise<void> {
+    try {
+      if (extensions.wave === undefined) {
+        await runAuthenticated(() =>
+          community.actions.sendDirectMessage([member.id], "👋"),
+        );
+        community.actions.openDirectMessage([member.id]);
+        setDestination(`dm:${member.id}`, true);
+      } else {
+        const wave = extensions.wave;
+        await runAuthenticated(() => Promise.resolve(wave(member.id)));
+      }
+      toast.success(`Waved to ${member.name}`);
+      lastAction = `wave:${member.id}`;
+    } catch (cause) {
+      toast.error(
+        cause instanceof Error ? cause.message : "Wave could not be sent",
+      );
+      throw cause;
+    }
   }
 
   async function saveStatus(status: string): Promise<void> {
@@ -2088,12 +2107,7 @@
           onRouteChange={navigateRegistry}
           onOpenMemberProfile={openProfile}
           onMessageMember={messageMember}
-          {...extensions.wave === undefined
-            ? {}
-            : {
-                onWaveMember: (member: CommunityMemberModel) =>
-                  runMemberExtension("wave", member),
-              }}
+          onWaveMember={waveMember}
         />
       {:else}
         <AppShell.Body layout="regions" label="Plugin registry">
@@ -2447,12 +2461,7 @@
               onAddReaction: react,
               onOpenProfile: openProfile,
               onMessageMember: messageMember,
-              ...(extensions.wave === undefined
-                ? {}
-                : {
-                    onWaveMember: (member: CommunityMemberModel) =>
-                      runMemberExtension("wave", member),
-                  }),
+              onWaveMember: waveMember,
               ...(extensions.activityLog === undefined
                 ? {}
                 : { onViewMemberActivity: viewMemberActivity }),
@@ -2518,11 +2527,7 @@
               <CommunityMemberProfile
                 member={selectedProfile}
                 onMessage={() => messageMember(selectedProfile)}
-                {...extensions.wave === undefined
-                  ? {}
-                  : {
-                      onWave: () => runMemberExtension("wave", selectedProfile),
-                    }}
+                onWave={() => waveMember(selectedProfile)}
                 {...extensions.follow === undefined
                   ? {}
                   : {
@@ -2619,12 +2624,7 @@
                 onOpenProfile={openProfile}
                 onOpenRoom={(roomId) => setDestination(roomId, true)}
                 onMessageMember={messageMember}
-                {...extensions.wave === undefined
-                  ? {}
-                  : {
-                      onWaveMember: (member: CommunityMemberModel) =>
-                        runMemberExtension("wave", member),
-                    }}
+                onWaveMember={waveMember}
                 {...extensions.activityLog === undefined
                   ? {}
                   : { onViewMemberActivity: viewMemberActivity }}

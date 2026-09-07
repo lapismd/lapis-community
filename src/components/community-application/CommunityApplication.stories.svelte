@@ -1669,7 +1669,10 @@
         name: /^View .+'s profile$/u,
       })[0]!,
     );
-    await expectRightPanel("Profile sidebar");
+    const openedProfileSidebar = await expectRightPanel("Profile sidebar");
+    await expect(
+      within(openedProfileSidebar).getByRole("button", { name: "Wave" }),
+    ).toBeVisible();
     await expect(canvas.queryByLabelText("Thread sidebar")).toBeNull();
 
     await userEvent.click(canvas.getByRole("button", { name: "Back" }));

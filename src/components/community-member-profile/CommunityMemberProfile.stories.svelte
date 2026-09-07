@@ -30,6 +30,9 @@
     await expect(messageAction).toHaveClass("community-member-profile__action");
     await userEvent.click(messageAction);
     await expect(args.onMessage).toHaveBeenCalledOnce();
+    const waveAction = canvas.getByRole("button", { name: "Wave" });
+    await userEvent.click(waveAction);
+    await expect(args.onWave).toHaveBeenCalledOnce();
   }}
 />
 
