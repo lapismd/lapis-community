@@ -65,6 +65,8 @@ import {
   type RegistryReleaseManagementAction,
   type RegistryReleaseManagementCapabilities,
   type RegistryReleaseManagementResult,
+  type RegistryReleaseReviewEntry,
+  type RegistryReleaseInspection,
   type RegistryRuntime,
   type RegistryVersionSnapshot,
   type RegistryTrustState,
@@ -1120,6 +1122,101 @@ export function createNip29RegistryCatalogDataSource(
     );
   }
 
+  async function loadReleaseInspection(
+    eventId: string,
+    loadOptions?: RegistryLoadOptions,
+  ): Promise<RegistryReleaseInspection | undefined> {
+    loadOptions?.signal?.throwIfAborted();
+    try {
+      await waitForSignal(start(), loadOptions?.signal);
+    } catch (cause) {
+      if (loadOptions?.signal?.aborted || isAbortError(cause)) throw cause;
+      // Candidate events captured before a failed projection remain inspectable.
+    }
+    const events = mergeEvents(candidateEvents, currentEvents, [
+      ...pendingEvents.values(),
+    ]);
+    const event = events.find((candidate) => candidate.id === eventId);
+    if (event === undefined) return undefined;
+    const candidate = recognizeRegistryReleaseCandidate(
+      event,
+      authorities,
+      events,
+    );
+    if (candidate === undefined) return undefined;
+    if (!candidate.trusted || candidate.manifestSha256 === undefined) {
+      return inspectRegistryReleaseCandidate(
+        candidate,
+        events,
+        undefined,
+        now().toISOString(),
+        authorities,
+      );
+    }
+
+    const attachment = getNip29ManifestAttachment(event);
+    if (attachment === undefined) {
+      return inspectRegistryReleaseCandidate(
+        candidate,
+        events,
+        undefined,
+        now().toISOString(),
+        authorities,
+      );
+    }
+    try {
+      let document: Nip29ReleaseManifestDocument;
+      const cached = manifestBytes.get(attachment.sha256);
+      if (cached === undefined) {
+        const fetched = await fetchNip29ReleaseManifestDocuments([event], {
+          fetch: request,
+          mediaAuthSigner: signEvent,
+          relayUrls,
+          blossomUrls,
+          ...(loadOptions?.signal === undefined
+            ? {}
+            : { signal: loadOptions.signal }),
+        });
+        document = fetched[0]!;
+        manifestBytes.set(document.attachmentSha256, document.bytes);
+      } else {
+        document = manifestDocument(attachment.sha256, cached, attachment.size);
+      }
+      return inspectRegistryReleaseCandidate(
+        candidate,
+        events,
+        document.manifest,
+        now().toISOString(),
+        authorities,
+      );
+    } catch (cause) {
+      if (loadOptions?.signal?.aborted || isAbortError(cause)) throw cause;
+      const message =
+        cause instanceof Error
+          ? cause.message
+          : "Release manifest could not be loaded";
+      const invalid =
+        cause instanceof SyntaxError ||
+        message.includes("failed size verification") ||
+        message.includes("failed SHA-256 verification") ||
+        message.includes("failed verification") ||
+        message.includes("must use HTTP(S)");
+      const diagnostic: RegistryReleaseDiagnostic = {
+        stage: invalid ? "manifest" : "attachment",
+        code: invalid ? "manifest-integrity" : "manifest-unavailable",
+        path: "manifest",
+        message: invalid
+          ? "Release manifest failed integrity or JSON verification."
+          : "Release manifest is currently unavailable.",
+      };
+      return failedRegistryReleaseInspection(
+        candidate,
+        invalid ? "invalid" : "unavailable",
+        diagnostic,
+      );
+    }
+  }
+
   return {
     async loadIndex(loadOptions) {
       loadOptions?.signal?.throwIfAborted();
@@ -1163,102 +1260,57 @@ export function createNip29RegistryCatalogDataSource(
       const bytes = await loadVerifiedResource(reference, loadOptions);
       return new Blob([bytes], { type: reference.mediaType });
     },
-    async loadReleaseInspection(eventId, loadOptions) {
+    loadReleaseInspection,
+    async loadReleaseReviewEntries(loadOptions) {
       loadOptions?.signal?.throwIfAborted();
       try {
         await waitForSignal(start(), loadOptions?.signal);
       } catch (cause) {
         if (loadOptions?.signal?.aborted || isAbortError(cause)) throw cause;
-        // Candidate events captured before a failed projection remain inspectable.
+        // Preserve the same degraded-read behavior as release inspection.
       }
       const events = mergeEvents(candidateEvents, currentEvents, [
         ...pendingEvents.values(),
       ]);
-      const event = events.find((candidate) => candidate.id === eventId);
-      if (event === undefined) {
-        return undefined;
-      }
-      const candidate = recognizeRegistryReleaseCandidate(
-        event,
-        authorities,
-        events,
-      );
-      if (candidate === undefined) return undefined;
-      if (!candidate.trusted || candidate.manifestSha256 === undefined) {
-        return inspectRegistryReleaseCandidate(
-          candidate,
-          events,
-          undefined,
-          now().toISOString(),
-          authorities,
+      const releaseEvents = events
+        .filter(
+          (event) =>
+            recognizeRegistryReleaseCandidate(event, authorities, events) !==
+            undefined,
+        )
+        .toSorted((left, right) =>
+          left.created_at === right.created_at
+            ? left.id.localeCompare(right.id)
+            : right.created_at - left.created_at,
         );
-      }
-
-      const attachment = getNip29ManifestAttachment(event);
-      if (attachment === undefined) {
-        return inspectRegistryReleaseCandidate(
-          candidate,
-          events,
-          undefined,
-          now().toISOString(),
-          authorities,
-        );
-      }
-      try {
-        let document: Nip29ReleaseManifestDocument;
-        const cached = manifestBytes.get(attachment.sha256);
-        if (cached === undefined) {
-          const fetched = await fetchNip29ReleaseManifestDocuments([event], {
-            fetch: request,
-            mediaAuthSigner: signEvent,
-            relayUrls,
-            blossomUrls,
-            ...(loadOptions?.signal === undefined
-              ? {}
-              : { signal: loadOptions.signal }),
-          });
-          document = fetched[0]!;
-          manifestBytes.set(document.attachmentSha256, document.bytes);
-        } else {
-          document = manifestDocument(
-            attachment.sha256,
-            cached,
-            attachment.size,
+      const entries = await Promise.all(
+        releaseEvents.map(async (releaseEvent) => {
+          const inspection = await loadReleaseInspection(
+            releaseEvent.id,
+            loadOptions,
           );
-        }
-        return inspectRegistryReleaseCandidate(
-          candidate,
-          events,
-          document.manifest,
-          now().toISOString(),
-          authorities,
-        );
-      } catch (cause) {
-        if (loadOptions?.signal?.aborted || isAbortError(cause)) throw cause;
-        const message =
-          cause instanceof Error
-            ? cause.message
-            : "Release manifest could not be loaded";
-        const invalid =
-          cause instanceof SyntaxError ||
-          message.includes("failed size verification") ||
-          message.includes("failed SHA-256 verification") ||
-          message.includes("failed verification") ||
-          message.includes("must use HTTP(S)");
-        const diagnostic: RegistryReleaseDiagnostic = {
-          stage: invalid ? "manifest" : "attachment",
-          code: invalid ? "manifest-integrity" : "manifest-unavailable",
-          path: "manifest",
-          message: invalid
-            ? "Release manifest failed integrity or JSON verification."
-            : "Release manifest is currently unavailable.",
-        };
-        return failedRegistryReleaseInspection(
-          candidate,
-          invalid ? "invalid" : "unavailable",
-          diagnostic,
-        );
-      }
+          if (inspection === undefined) return [];
+          const curatorDecisionEvents = events
+            .filter(
+              (event) =>
+                authorities.curatorPubkeys.has(event.pubkey) &&
+                parseNip29CuratorDecision(event, releaseEvent.id) !== undefined,
+            )
+            .toSorted((left, right) =>
+              left.created_at === right.created_at
+                ? left.id.localeCompare(right.id)
+                : right.created_at - left.created_at,
+            );
+          return [
+            {
+              releaseEvent,
+              inspection,
+              curatorDecisionEvents,
+            } satisfies RegistryReleaseReviewEntry,
+          ];
+        }),
+      );
+      return entries.flat();
     },
     async loadReleaseProof(pluginId, version, loadOptions) {
       loadOptions?.signal?.throwIfAborted();

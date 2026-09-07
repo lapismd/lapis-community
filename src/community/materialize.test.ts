@@ -115,6 +115,7 @@ describe("materializeCommunityWorkspace", () => {
     );
 
     expect(workspace.messages).toHaveLength(1);
+    expect(workspace.navigationSections[0]?.rooms[0]?.groupId).toBe("general");
     expect(workspace.messages[0]).toMatchObject({
       id: root.id,
       replyCount: 1,

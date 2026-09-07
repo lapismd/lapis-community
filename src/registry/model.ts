@@ -296,6 +296,12 @@ export interface RegistryReleaseInspection {
   trust?: RegistryTrustState;
 }
 
+export interface RegistryReleaseReviewEntry {
+  releaseEvent: NostrEvent;
+  inspection: RegistryReleaseInspection;
+  curatorDecisionEvents: readonly NostrEvent[];
+}
+
 export type RegistryTrustState =
   | "legacy"
   | "fresh"
@@ -398,6 +404,9 @@ export interface RegistryCatalogDataSource {
     eventId: string,
     options?: RegistryLoadOptions,
   ): Promise<RegistryReleaseInspection | undefined>;
+  loadReleaseReviewEntries?(
+    options?: RegistryLoadOptions,
+  ): Promise<readonly RegistryReleaseReviewEntry[]>;
   loadReleaseProof?(
     pluginId: string,
     version: string,

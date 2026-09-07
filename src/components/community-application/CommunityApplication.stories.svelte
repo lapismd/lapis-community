@@ -15,6 +15,7 @@
   import CommunityApplicationCacheStoryHarness from "./CommunityApplicationCacheStoryHarness.svelte";
   import {
     COMMUNITY_APPLICATION_DESTINATION_STORAGE_KEY,
+    COMMUNITY_APPLICATION_RELEASE_OVERVIEW_PANEL_ID,
     COMMUNITY_APPLICATION_SHELL_LAYOUT_STORAGE_KEY,
   } from "./navigation.js";
 
@@ -1922,13 +1923,16 @@
 
 <Story
   name="Plugin release messages"
-  play={async ({ canvas }) => {
+  play={async ({ canvas, canvasElement }) => {
     const application = await canvas.findByTestId(
       "full-community-application",
       {},
       { timeout: 15_000 },
     );
     if (application.dataset.communityBackend !== "memory") return;
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Expand left sidebar" }),
+    );
     await userEvent.click(
       await canvas.findByRole(
         "button",
@@ -1946,6 +1950,143 @@
     await expect(
       canvas.getAllByRole("button", { name: /AI Assistant.*Approved/u }),
     ).toHaveLength(1);
+    const overview = await canvas.findByRole("navigation", {
+      name: "Plugin release overview",
+    });
+    await expect(overview).toBeVisible();
+    const applicationNavigation = canvas.getByRole("navigation", {
+      name: "Application navigation",
+    });
+    const overviewToggle = within(applicationNavigation).getByRole("button", {
+      name: "Hide plugin release overview",
+    });
+    const applicationBounds = application.getBoundingClientRect();
+    const toggleBounds = overviewToggle.getBoundingClientRect();
+    await expect(
+      applicationBounds.right - toggleBounds.right,
+    ).toBeLessThanOrEqual(16);
+    const overviewSidebar = canvas.getByLabelText(
+      "Plugin release overview sidebar",
+    );
+    const resize = canvas.getByRole("slider", {
+      name: "Resize plugin release overview sidebar",
+    });
+    const widthBefore = overviewSidebar.getBoundingClientRect().width;
+    resize.focus();
+    await userEvent.keyboard("{ArrowLeft}");
+    await expect(overviewSidebar.getBoundingClientRect().width).toBe(
+      widthBefore + 16,
+    );
+    await waitFor(() => {
+      const stored = JSON.parse(
+        canvasElement.ownerDocument.defaultView?.localStorage.getItem(
+          COMMUNITY_APPLICATION_SHELL_LAYOUT_STORAGE_KEY,
+        ) ?? "null",
+      ) as { panels?: Record<string, { width?: number }> } | null;
+      expect(
+        stored?.panels?.[COMMUNITY_APPLICATION_RELEASE_OVERVIEW_PANEL_ID]
+          ?.width,
+      ).toBe(widthBefore + 16);
+    });
+
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Manage channel" }),
+    );
+    const channelSettings = await canvas.findByLabelText(
+      "Channel settings sidebar",
+    );
+    await expect(channelSettings).toBeVisible();
+    await expect(overview).toBeVisible();
+    const mainSurface = canvasElement.querySelector<HTMLElement>(
+      '[data-ui-part="main"]',
+    );
+    await expect(mainSurface).not.toBeNull();
+    const mainBounds = mainSurface!.getBoundingClientRect();
+    const settingsBounds = channelSettings.getBoundingClientRect();
+    const overviewBounds = overviewSidebar.getBoundingClientRect();
+    await expect(mainBounds.right).toBeLessThanOrEqual(settingsBounds.left + 1);
+    await expect(settingsBounds.right).toBeLessThan(overviewBounds.left);
+
+    await userEvent.click(
+      within(overview).getByRole("button", { name: /Reviews/u }),
+    );
+    const reviewsHeading = await canvas.findByRole("heading", {
+      name: "Reviews",
+      level: 1,
+    });
+    await expect(reviewsHeading).toBeVisible();
+    const reviewsSheet = reviewsHeading.closest<HTMLElement>(
+      '[data-ui-part="release-sheet"]',
+    );
+    await expect(reviewsSheet).not.toBeNull();
+    await waitFor(() =>
+      expect(
+        canvas.queryByRole("navigation", { name: "Plugin release overview" }),
+      ).not.toBeInTheDocument(),
+    );
+    await expect(mainSurface).toHaveAttribute("aria-hidden", "true");
+    await expect(channelSettings).toHaveAttribute("aria-hidden", "true");
+    const sheetBounds = reviewsSheet!.getBoundingClientRect();
+    await expect(sheetBounds.left).toBeGreaterThan(mainBounds.left);
+    await expect(sheetBounds.left - mainBounds.left).toBeLessThanOrEqual(120);
+    await expect(sheetBounds.right).toBeGreaterThanOrEqual(
+      overviewBounds.right - 9,
+    );
+    await expect(
+      canvas.getByRole("heading", { name: "Reviewed", level: 2 }),
+    ).toBeVisible();
+
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Close Reviews" }),
+    );
+    const reopenedOverview = await canvas.findByRole("navigation", {
+      name: "Plugin release overview",
+    });
+    await expect(reopenedOverview).toBeVisible();
+    await expect(channelSettings).toBeVisible();
+    await expect(channelSettings).not.toHaveAttribute("aria-hidden", "true");
+    await userEvent.click(
+      within(reopenedOverview).getByRole("button", { name: /People/u }),
+    );
+    await expect(
+      await canvas.findByRole("heading", { name: "People", level: 1 }),
+    ).toBeVisible();
+    const profileAction = canvas.getAllByRole("button", {
+      name: /Open .*'s profile/u,
+    })[0]!;
+    await userEvent.click(profileAction);
+    await expect(canvas.getByLabelText("Profile sidebar")).toBeVisible();
+    await expect(
+      await canvas.findByRole("navigation", {
+        name: "Plugin release overview",
+      }),
+    ).toBeVisible();
+    await expect(
+      canvas.queryByRole("heading", { name: "People", level: 1 }),
+    ).not.toBeInTheDocument();
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Close right sidebar" }),
+    );
+    await userEvent.click(
+      within(
+        canvas.getByRole("navigation", {
+          name: "Plugin release overview",
+        }),
+      ).getByRole("button", { name: /People/u }),
+    );
+    await userEvent.click(canvas.getByRole("button", { name: "Close People" }));
+    await expect(mainSurface).not.toHaveAttribute("aria-hidden", "true");
+    await userEvent.click(canvas.getByRole("button", { name: "Back" }));
+    await expect(
+      await canvas.findByRole("heading", { name: "People", level: 1 }),
+    ).toBeVisible();
+    await userEvent.click(canvas.getByRole("button", { name: "Forward" }));
+    await waitFor(() =>
+      expect(
+        canvas.queryByRole("heading", { name: "People", level: 1 }),
+      ).not.toBeInTheDocument(),
+    );
+
     await userEvent.click(
       canvas.getByRole("button", { name: /AI Assistant.*Approved/u }),
     );
@@ -1968,12 +2109,20 @@
     await expect(
       canvas.queryByRole("button", { name: /AI Assistant.*Approved/u }),
     ).not.toBeInTheDocument();
+    await waitFor(() =>
+      expect(
+        canvas.queryByRole("button", {
+          name: /plugin release overview/u,
+        }),
+      ).not.toBeInTheDocument(),
+    );
   }}
 >
   {#snippet template()}
     <CommunityApplicationStoryHarness
       namespace="plugin-release-messages"
       releaseMessages
+      useDefaultShell
     />
   {/snippet}
 </Story>

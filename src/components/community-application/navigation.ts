@@ -21,9 +21,15 @@ export type CommunityApplicationPanel =
     }
   | { kind: "profile"; memberId: string };
 
+export type CommunityApplicationMainSurface =
+  | "release-reviews"
+  | "release-people";
+
 export interface CommunityApplicationLocation {
   destination: CommunityApplicationDestination;
   panel: CommunityApplicationPanel;
+  /** Omission preserves the destination's normal workspace surface. */
+  mainSurface?: CommunityApplicationMainSurface;
 }
 
 export interface CommunityApplicationHistory {
@@ -35,12 +41,15 @@ export interface CommunityApplicationLocationTargets {
   roomIds: readonly string[];
   memberIds: readonly string[];
   messageIds?: readonly string[];
+  releaseRoomIds?: readonly string[];
 }
 
 export const COMMUNITY_APPLICATION_DESTINATION_STORAGE_KEY =
   "@lapismd/lapis-community/application-destination";
 export const COMMUNITY_APPLICATION_SHELL_LAYOUT_STORAGE_KEY =
   "@lapismd/lapis-community/app-shell-layout";
+export const COMMUNITY_APPLICATION_RELEASE_OVERVIEW_PANEL_ID =
+  "plugin-release-overview";
 
 const COMMUNITY_APPLICATION_DESTINATION_VERSION = 1 as const;
 
@@ -54,6 +63,7 @@ type CommunityApplicationShellLayoutStorage = Pick<Storage, "getItem">;
 export interface CommunityApplicationInitialShellLayout {
   left?: AppShellSidebarLayout;
   right?: AppShellSidebarLayout;
+  releaseOverview?: AppShellSidebarLayout;
 }
 
 export function loadCommunityApplicationInitialShellLayout(
@@ -79,14 +89,15 @@ export function loadCommunityApplicationInitialShellLayout(
 
     const panels = value.panels as Record<string, unknown>;
     const readPanel = (
-      id: "left" | "right",
+      id: string,
+      side: "left" | "right",
     ): AppShellSidebarLayout | undefined => {
       const panel = panels[id];
       if (
         typeof panel !== "object" ||
         panel === null ||
         !("side" in panel) ||
-        panel.side !== id ||
+        panel.side !== side ||
         !("collapsed" in panel) ||
         typeof panel.collapsed !== "boolean" ||
         !("closed" in panel) ||
@@ -101,18 +112,23 @@ export function loadCommunityApplicationInitialShellLayout(
           ? panel.width
           : undefined;
       return {
-        side: id,
+        side,
         collapsed: panel.collapsed,
         closed: panel.closed,
         ...(width === undefined ? {} : { width }),
       };
     };
 
-    const left = readPanel("left");
-    const right = readPanel("right");
+    const left = readPanel("left", "left");
+    const right = readPanel("right", "right");
+    const releaseOverview = readPanel(
+      COMMUNITY_APPLICATION_RELEASE_OVERVIEW_PANEL_ID,
+      "right",
+    );
     return {
       ...(left === undefined ? {} : { left }),
       ...(right === undefined ? {} : { right }),
+      ...(releaseOverview === undefined ? {} : { releaseOverview }),
     };
   } catch {
     return {};
@@ -258,6 +274,7 @@ export function communityApplicationLocationsEqual(
 ): boolean {
   return (
     left.destination === right.destination &&
+    left.mainSurface === right.mainSurface &&
     communityApplicationPanelKey(left.panel) ===
       communityApplicationPanelKey(right.panel)
   );
@@ -281,10 +298,18 @@ export function normalizeCommunityApplicationLocation(
       (panel.replyTargetId === undefined ||
         targets.messageIds.includes(panel.replyTargetId)));
 
-  return roomExists && memberExists && messageExists
-    ? location
-    : {
-        destination: location.destination,
-        panel: noCommunityApplicationPanel(),
-      };
+  const panelExists = roomExists && memberExists && messageExists;
+  const surfaceExists =
+    location.mainSurface === undefined ||
+    targets.releaseRoomIds?.includes(location.destination) === true;
+  if (panelExists && surfaceExists) return location;
+  return {
+    destination: location.destination,
+    panel: panelExists ? location.panel : noCommunityApplicationPanel(),
+    ...(surfaceExists || location.mainSurface === undefined
+      ? location.mainSurface === undefined
+        ? {}
+        : { mainSurface: location.mainSurface }
+      : {}),
+  };
 }

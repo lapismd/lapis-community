@@ -19,6 +19,9 @@
     canNavigateForward = false,
     onNavigateBack,
     onNavigateForward,
+    headerEnd,
+    overlay,
+    overlayMainAllowance = 0,
     class: className,
     children,
     ...restProps
@@ -31,10 +34,15 @@
     canNavigateForward?: boolean;
     onNavigateBack?: () => void;
     onNavigateForward?: () => void;
+    headerEnd?: Snippet;
+    overlay?: Snippet;
+    overlayMainAllowance?: number;
     children?: Snippet;
   } = $props();
 
   let shellSurface = $state<HTMLDivElement | null>(null);
+  let surfaceStage = $state<HTMLDivElement | null>(null);
+  let overlayInsetInlineStart = $state(0);
   const mobileMode = $derived(controller.mobile.resolvedMode === "mobile");
 
   $effect(() => {
@@ -48,6 +56,27 @@
 
     untrack(preventCollapsedRightSidebar);
     return rightSidebar.onLayoutChange(preventCollapsedRightSidebar);
+  });
+
+  $effect(() => {
+    if (!overlay || !surfaceStage || !shellSurface) return;
+    const updateOverlayInset = () => {
+      const main = shellSurface?.querySelector<HTMLElement>(
+        '[data-ui-part="main"]',
+      );
+      if (!main || !surfaceStage) return;
+      const stageBounds = surfaceStage.getBoundingClientRect();
+      const mainBounds = main.getBoundingClientRect();
+      overlayInsetInlineStart = Math.max(
+        0,
+        mainBounds.left - stageBounds.left + overlayMainAllowance,
+      );
+    };
+    updateOverlayInset();
+    const observer = new ResizeObserver(updateOverlayInset);
+    observer.observe(surfaceStage);
+    observer.observe(shellSurface);
+    return () => observer.disconnect();
   });
 
   $effect(() => {
@@ -148,19 +177,35 @@
           <ChevronRightIcon aria-hidden="true" />
         </Button>
       </div>
+
+      {#if headerEnd}
+        <div class="community-app-shell__header-end">
+          {@render headerEnd()}
+        </div>
+      {/if}
     </nav>
   {/if}
 
-  <AppShell.Root
-    bind:ref={shellSurface}
-    {controller}
-    {displayMode}
-    {mobileBreakpoint}
-    {...desktopMinMainWidth === undefined ? {} : { desktopMinMainWidth }}
-    class="community-app-shell__surface"
-  >
-    {@render children?.()}
-  </AppShell.Root>
+  <div class="community-app-shell__stage" bind:this={surfaceStage}>
+    <AppShell.Root
+      bind:ref={shellSurface}
+      {controller}
+      {displayMode}
+      {mobileBreakpoint}
+      {...desktopMinMainWidth === undefined ? {} : { desktopMinMainWidth }}
+      class="community-app-shell__surface"
+    >
+      {@render children?.()}
+    </AppShell.Root>
+    {#if overlay}
+      <div
+        class="community-app-shell__overlay-host"
+        style:inset-inline-start={`${overlayInsetInlineStart}px`}
+      >
+        {@render overlay()}
+      </div>
+    {/if}
+  </div>
 </div>
 
 <style>
@@ -195,6 +240,34 @@
     gap: 0.125rem;
   }
 
+  .community-app-shell__header-end {
+    display: flex;
+    align-items: center;
+    margin-inline-start: auto;
+  }
+
+  .community-app-shell__stage {
+    position: relative;
+    display: flex;
+    min-width: 0;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .community-app-shell__overlay-host {
+    position: absolute;
+    z-index: 40;
+    inset-block: 0;
+    inset-inline-end: 0;
+    min-width: 0;
+    min-height: 0;
+    pointer-events: none;
+  }
+
+  .community-app-shell__overlay-host > :global(*) {
+    pointer-events: auto;
+  }
+
   :global([data-ui-part="sidebar-toggle-indicator"]) {
     width: 2px;
     transition: width 140ms ease;
@@ -211,6 +284,8 @@
     --ui-shell-height: 100%;
     --ui-shell-right-sidebar-gap: 0;
 
+    width: auto;
+    flex: 1;
     border: 0;
     border-radius: 0;
     box-shadow: none;

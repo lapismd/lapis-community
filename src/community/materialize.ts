@@ -532,6 +532,7 @@ function roomModel(
         : denied;
   return {
     id: room.id,
+    groupId: room.groupId,
     name,
     kind: room.kind,
     ...(description === undefined ? {} : { description }),

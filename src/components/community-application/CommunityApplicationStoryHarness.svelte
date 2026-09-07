@@ -213,7 +213,26 @@
               now: () => 1_700_000_100,
             });
             releaseEventId = releaseEvent.id;
-            registrySource = createRegistryStoryDataSource([releaseEvent.id]);
+            const reviewSource = createRegistryStoryDataSource([
+              releaseEvent.id,
+            ]);
+            registrySource = {
+              ...reviewSource,
+              async loadReleaseReviewEntries() {
+                const inspection = await reviewSource.loadReleaseInspection?.(
+                  releaseEvent.id,
+                );
+                return inspection === undefined
+                  ? []
+                  : [
+                      {
+                        releaseEvent,
+                        inspection,
+                        curatorDecisionEvents: [],
+                      },
+                    ];
+              },
+            };
           } else if (
             bootstrapDelayMs > 0 ||
             bootstrapFailure ||

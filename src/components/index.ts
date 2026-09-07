@@ -63,6 +63,16 @@ export type {
   CommunityPulseAgentActivityModel,
   CommunityPulseModel,
 } from "../community/contracts.js";
+export { default as CommunityReleasePeople } from "./community-release-people/CommunityReleasePeople.svelte";
+export {
+  communityReleaseMemberActivity,
+  type CommunityReleaseMemberActivity,
+} from "./community-release-people/model.js";
+export { default as CommunityReleaseReviews } from "./community-release-reviews/CommunityReleaseReviews.svelte";
+export {
+  groupCommunityReleaseReviews,
+  type CommunityReleaseReviewGroups,
+} from "./community-release-reviews/model.js";
 export { default as CommunityStatusDialog } from "./community-status-dialog/CommunityStatusDialog.svelte";
 export { default as CommunityRelaySettings } from "./community-relay-settings/CommunityRelaySettings.svelte";
 export { default as CommunityReplyContext } from "./community-reply-context/CommunityReplyContext.svelte";

@@ -16,7 +16,9 @@ import {
   createNip29RegistryHeadTemplate,
   createNip29ReleaseMessageTemplate,
   LAPIS_GROUPS,
+  LAPIS_RELEASE_TOPIC,
   lapisGroupId,
+  NIP29_KINDS,
   type NostrEvent,
   type NostrEventTemplate,
   type PluginDefinitionContent,
@@ -343,6 +345,97 @@ describe("NIP-29 registry catalog data source", () => {
       "portable proof requires a signed publisher authorization",
     );
     source.dispose();
+  });
+
+  it("enumerates every release-shaped post deterministically for review", async () => {
+    const data = fixture();
+    const attachment = {
+      url: "https://relay.example/manifest.json",
+      mimeType: "application/json",
+      sha256: sha(data.manifestBytes),
+      size: data.manifestBytes.byteLength,
+    };
+    const pendingRelease = sign(
+      data.publisherKey,
+      createNip29ReleaseMessageTemplate(
+        "demo",
+        attachment,
+        1_700_000_002,
+        "Demo pending",
+      ),
+    );
+    const untrustedRelease = sign(
+      generateSecretKey(),
+      createNip29ReleaseMessageTemplate(
+        "demo",
+        attachment,
+        1_700_000_003,
+        "Demo untrusted",
+      ),
+    );
+    const invalidRelease = sign(data.publisherKey, {
+      kind: NIP29_KINDS.streamMessage,
+      created_at: 1_700_000_004,
+      content: "Demo missing its manifest attachment",
+      tags: [
+        ["h", lapisGroupId(LAPIS_GROUPS.pluginReleases)],
+        ["t", LAPIS_RELEASE_TOPIC],
+        ["t", "plugin:demo"],
+      ],
+    });
+    const events = [
+      data.release,
+      data.approval,
+      pendingRelease,
+      untrustedRelease,
+      invalidRelease,
+      data.release,
+    ];
+    const createSource = (orderedEvents: readonly NostrEvent[]) =>
+      createNip29RegistryCatalogDataSource({
+        relays: ["wss://relay.example"],
+        authorities: {
+          curatorPubkeys: new Set([data.curator]),
+          publisherPubkeysByPlugin: new Map([
+            ["demo", new Set([data.publisher])],
+          ]),
+        },
+        relayFactory: createInMemoryRelayFactory({ events: orderedEvents }),
+        snapshotStore: createMemoryRegistrySnapshotStore(),
+        fetch: async () => new Response(data.manifestBytes),
+        liveBatchMs: 0,
+      });
+    const source = createSource(events);
+    const replayed = createSource(events.toReversed());
+
+    const entries = await source.loadReleaseReviewEntries?.();
+    const replayedEntries = await replayed.loadReleaseReviewEntries?.();
+    const summarize = (values: NonNullable<typeof entries>) =>
+      values.map((entry) => ({
+        id: entry.releaseEvent.id,
+        state: entry.inspection.state,
+        decisions: entry.curatorDecisionEvents.map((event) => event.id),
+      }));
+
+    expect(summarize(entries ?? [])).toEqual([
+      { id: invalidRelease.id, state: "invalid", decisions: [] },
+      { id: untrustedRelease.id, state: "untrusted", decisions: [] },
+      { id: pendingRelease.id, state: "pending", decisions: [] },
+      {
+        id: data.release.id,
+        state: "approved",
+        decisions: [data.approval.id],
+      },
+    ]);
+    expect(summarize(replayedEntries ?? [])).toEqual(summarize(entries ?? []));
+
+    const aborted = new AbortController();
+    aborted.abort();
+    await expect(
+      source.loadReleaseReviewEntries?.({ signal: aborted.signal }),
+    ).rejects.toBeDefined();
+    source.dispose();
+    replayed.dispose();
   });
 
   it("discovers curator-signed publisher authorization without a static publisher map", async () => {

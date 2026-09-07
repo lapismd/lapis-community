@@ -19,6 +19,7 @@
   import EllipsisIcon from "@lucide/svelte/icons/ellipsis";
   import HashIcon from "@lucide/svelte/icons/hash";
   import HeadphonesIcon from "@lucide/svelte/icons/headphones";
+  import GitPullRequestIcon from "@lucide/svelte/icons/git-pull-request";
   import LockIcon from "@lucide/svelte/icons/lock";
   import LogInIcon from "@lucide/svelte/icons/log-in";
   import MessagesSquareIcon from "@lucide/svelte/icons/messages-square";
@@ -39,11 +40,13 @@
     CommunityMessageReport,
     CommunityReplyTarget,
   } from "../../community/index.js";
+  import { LAPIS_GROUPS, lapisGroupId } from "../../protocol/index.js";
   import {
     registryRouteFromDestination,
     registryRouteFromHash,
     registryRouteToDestination,
     registryRouteToHash,
+    type RegistryReleaseReviewEntry,
     type RegistryRoute,
   } from "../../registry/index.js";
   import CommunityAppShell from "../community-app-shell/CommunityAppShell.svelte";
@@ -68,6 +71,8 @@
   import { withStarredCommunityNavigationSection } from "../community-navigation/model.js";
   import CommunityProfileMenu from "../community-profile-menu/CommunityProfileMenu.svelte";
   import CommunityPulse from "../community-pulse/CommunityPulse.svelte";
+  import CommunityReleasePeople from "../community-release-people/CommunityReleasePeople.svelte";
+  import CommunityReleaseReviews from "../community-release-reviews/CommunityReleaseReviews.svelte";
   import CommunityRelaySettings from "../community-relay-settings/CommunityRelaySettings.svelte";
   import CommunityRoomBrowser from "../community-room-browser/CommunityRoomBrowser.svelte";
   import CommunityRoomEditor from "../community-room-editor/CommunityRoomEditor.svelte";
@@ -96,6 +101,8 @@
   import { formatCommunityEventCopy } from "../community-message/copy-event.js";
   import {
     COMMUNITY_APPLICATION_SHELL_LAYOUT_STORAGE_KEY,
+    COMMUNITY_APPLICATION_RELEASE_OVERVIEW_PANEL_ID,
+    communityApplicationLocationsEqual,
     communityApplicationPanelKey,
     createCommunityApplicationHistory,
     currentCommunityApplicationLocation,
@@ -110,6 +117,7 @@
     type CommunityApplicationDestination,
     type CommunityApplicationHistory,
     type CommunityApplicationLocation,
+    type CommunityApplicationMainSurface,
     type CommunityApplicationPanel,
   } from "./navigation.js";
   import { provideCommunityApplicationComposer } from "./composer-context.js";
@@ -125,6 +133,12 @@
     resolve: () => void;
     reject: (cause: unknown) => void;
   };
+  const pluginReleaseGroupId = lapisGroupId(LAPIS_GROUPS.pluginReleases);
+
+  let releaseOverviewToggleElement = $state<HTMLButtonElement | null>(null);
+  let releaseOverviewSidebarElement = $state<HTMLElement | null>(null);
+  let releaseOverviewConstrained = $state(false);
+  let releaseOverviewDomPreview = $state(false);
 
   let {
     controller: community,
@@ -194,6 +208,21 @@
       }),
   );
   const shell = $derived(shellController ?? internalShellController);
+  const releaseOverviewSidebar = untrack(
+    () =>
+      shell.getPanel(COMMUNITY_APPLICATION_RELEASE_OVERVIEW_PANEL_ID) ??
+      shell.createSidebar(
+        COMMUNITY_APPLICATION_RELEASE_OVERVIEW_PANEL_ID,
+        "right",
+        {
+          collapsed: initialShellLayout.releaseOverview?.collapsed ?? false,
+          closed: initialShellLayout.releaseOverview?.closed ?? true,
+          width: initialShellLayout.releaseOverview?.width ?? 320,
+          minWidth: 220,
+          maxWidth: 440,
+        },
+      ),
+  );
   const hasRegistry = $derived(
     registryEnabled ??
       (registry !== undefined || registryOptions !== undefined),
@@ -255,6 +284,17 @@
   let sectionEditorId = $state("");
   let sectionName = $state("");
   let initialLocationApplied = $state(false);
+  let releaseOverviewInitialized = $state(false);
+  let releaseSheetWasOpen = $state(false);
+  let releaseReviewEntries = $state.raw<readonly RegistryReleaseReviewEntry[]>(
+    [],
+  );
+  let releaseReviewsLoading = $state(false);
+  let releaseReviewsError = $state("");
+  let releaseReviewRevision = $state.raw({});
+  let releaseSheetElement = $state<HTMLElement | null>(null);
+  let standardRightSidebarElement = $state<HTMLElement | null>(null);
+  let releaseSurfaceReturnFocus = $state<HTMLElement>();
 
   const workspace = $derived(community.state.workspace);
   const applicationLocation = $derived(
@@ -262,6 +302,7 @@
   );
   const activeDestination = $derived(applicationLocation.destination);
   const activePanel = $derived(applicationLocation.panel);
+  const activeMainSurface = $derived(applicationLocation.mainSurface);
   const communityStartupPending = $derived(
     community.state.status === "idle" ||
       community.state.status === "restoring" ||
@@ -288,6 +329,19 @@
     startupDestinationRoom ??
       findCommunityRoom(workspace) ??
       fallbackRoom(workspace.activeRoomId || activeDestination),
+  );
+  const isPluginReleaseRoom = $derived(
+    activeRoom.groupId === pluginReleaseGroupId &&
+      activeDestination === activeRoom.id,
+  );
+  const releaseSheetOpen = $derived(
+    isPluginReleaseRoom && activeMainSurface !== undefined,
+  );
+  const releaseOverviewShown = $derived(
+    activeMainSurface === undefined &&
+      (releaseOverviewConstrained
+        ? releaseOverviewDomPreview
+        : !releaseOverviewSidebar.closed && !releaseOverviewSidebar.collapsed),
   );
   const workspaceSurfaceModel = $derived(
     startupDestinationRoom === undefined
@@ -324,6 +378,19 @@
       : workspace.members
           .filter((member) => member.role !== undefined)
           .map((member) => member.id),
+  );
+  const releaseRoomMembers = $derived(
+    isPluginReleaseRoom
+      ? activeRoomMemberIds.length === 0
+        ? workspace.members
+        : workspace.members.filter((member) =>
+            activeRoomMemberIds.includes(member.id),
+          )
+      : [],
+  );
+  const pendingReleaseReviewCount = $derived(
+    releaseReviewEntries.filter((entry) => entry.inspection.state === "pending")
+      .length,
   );
   const currentCommunity = $derived(
     workspace.communities.find(
@@ -768,6 +835,15 @@
     openPanel({ kind: "profile", memberId: member.id });
     lastAction = `opened-profile:${member.id}`;
   }
+
+  function openReleaseProfile(member: CommunityMemberModel): void {
+    profileOverride = member;
+    pushLocation({
+      destination: activeDestination,
+      panel: { kind: "profile", memberId: member.id },
+    });
+    lastAction = `opened-profile:${member.id}`;
+  }
   const emojiOperation = $derived.by(() =>
     Object.entries(community.state.operations)
       .filter(([key]) => key.startsWith("settings:emoji:"))
@@ -1086,6 +1162,145 @@
   });
 
   $effect(() => {
+    if (!isPluginReleaseRoom || releaseOverviewInitialized) return;
+    releaseOverviewInitialized = true;
+    if (activeMainSurface !== undefined) return;
+    if (initialShellLayout.releaseOverview === undefined) {
+      releaseOverviewSidebar.expand();
+    }
+  });
+
+  $effect(() => {
+    const sidebar = releaseOverviewSidebarElement;
+    const root = sidebar?.closest<HTMLElement>("[data-shell-root]");
+    if (!sidebar || !root) {
+      releaseOverviewConstrained = false;
+      releaseOverviewDomPreview = false;
+      return;
+    }
+
+    const syncPreview = () => {
+      releaseOverviewConstrained =
+        root
+          .getAttribute("data-desktop-overlay-panels")
+          ?.split(/\s+/)
+          .includes(COMMUNITY_APPLICATION_RELEASE_OVERVIEW_PANEL_ID) ?? false;
+      if (!releaseOverviewConstrained) {
+        sidebar.removeAttribute("data-desktop-overlay-preview");
+      }
+      releaseOverviewDomPreview =
+        releaseOverviewConstrained &&
+        sidebar.hasAttribute("data-desktop-overlay-preview");
+    };
+
+    syncPreview();
+    const observer = new MutationObserver(syncPreview);
+    observer.observe(root, {
+      attributes: true,
+      attributeFilter: ["data-desktop-overlay-panels"],
+    });
+    observer.observe(sidebar, {
+      attributes: true,
+      attributeFilter: ["data-desktop-overlay-preview"],
+    });
+    return () => observer.disconnect();
+  });
+
+  $effect(() => {
+    if (releaseSheetOpen) {
+      releaseSheetWasOpen = true;
+      releaseOverviewSidebar.close();
+      return;
+    }
+    if (!releaseSheetWasOpen) return;
+    releaseSheetWasOpen = false;
+    if (isPluginReleaseRoom) releaseOverviewSidebar.expand();
+  });
+
+  $effect(() => {
+    if (!isPluginReleaseRoom || registryOptions?.source.subscribe === undefined)
+      return;
+    return registryOptions.source.subscribe((event) => {
+      if (event.type === "revision") releaseReviewRevision = {};
+    });
+  });
+
+  $effect(() => {
+    const source = registryOptions?.source;
+    if (
+      !isPluginReleaseRoom ||
+      source?.loadReleaseReviewEntries === undefined
+    ) {
+      releaseReviewEntries = [];
+      releaseReviewsLoading = false;
+      releaseReviewsError = "";
+      return;
+    }
+    releaseReviewRevision;
+    const controller = new AbortController();
+    let active = true;
+    releaseReviewsLoading = true;
+    releaseReviewsError = "";
+    void source
+      .loadReleaseReviewEntries({ signal: controller.signal })
+      .then((entries) => {
+        if (active) releaseReviewEntries = entries;
+      })
+      .catch((cause: unknown) => {
+        if (
+          active &&
+          (!(cause instanceof DOMException) || cause.name !== "AbortError")
+        ) {
+          releaseReviewsError =
+            cause instanceof Error
+              ? cause.message
+              : "Plugin release reviews are unavailable.";
+        }
+      })
+      .finally(() => {
+        if (active) releaseReviewsLoading = false;
+      });
+    return () => {
+      active = false;
+      controller.abort();
+    };
+  });
+
+  $effect(() => {
+    const surface = activeMainSurface;
+    if (!isPluginReleaseRoom || surface === undefined) return;
+    void tick().then(() => {
+      if (applicationLocation.mainSurface === surface) {
+        releaseSheetElement?.focus({ preventScroll: true });
+      }
+    });
+  });
+
+  $effect(() => {
+    if (!releaseSheetOpen || typeof window === "undefined") return;
+    const handleKeydown = (event: KeyboardEvent) => {
+      if (
+        event.defaultPrevented ||
+        !(event.target instanceof Node) ||
+        !releaseSheetElement?.contains(event.target)
+      ) {
+        return;
+      }
+      closeReleaseSurfaceOnEscape(event);
+    };
+    window.addEventListener("keydown", handleKeydown);
+    return () => window.removeEventListener("keydown", handleKeydown);
+  });
+
+  $effect(() => {
+    const sidebar = standardRightSidebarElement;
+    if (!sidebar) return;
+    sidebar.inert = releaseSheetOpen;
+    if (releaseSheetOpen) sidebar.setAttribute("aria-hidden", "true");
+    else sidebar.removeAttribute("aria-hidden");
+  });
+
+  $effect(() => {
     const projectionSettled =
       activePanel.kind === "none" ||
       (activePanel.kind === "profile" && workspace.sidePanel === "none") ||
@@ -1101,6 +1316,9 @@
       applicationLocation,
       {
         roomIds: [inbox.room.id, ...allRooms.map((room) => room.id)],
+        releaseRoomIds: allRooms
+          .filter((room) => room.groupId === pluginReleaseGroupId)
+          .map((room) => room.id),
         memberIds: [
           ...workspace.members.map((member) => member.id),
           ...(profileOverride === undefined ? [] : [profileOverride.id]),
@@ -1113,8 +1331,12 @@
           : {}),
       },
     );
-    if (normalized.panel.kind === "none" && activePanel.kind !== "none") {
-      normalizeMissingPanel();
+    if (!communityApplicationLocationsEqual(normalized, applicationLocation)) {
+      replaceLocation(normalized);
+      lastAction =
+        normalized.mainSurface === activeMainSurface
+          ? "unavailable-side-panel"
+          : "unavailable-main-surface";
     }
   });
 
@@ -1278,7 +1500,13 @@
   }
 
   function openPanel(panel: CommunityApplicationPanel): void {
-    pushLocation({ destination: activeDestination, panel });
+    pushLocation({
+      destination: activeDestination,
+      panel,
+      ...(activeMainSurface === undefined
+        ? {}
+        : { mainSurface: activeMainSurface }),
+    });
   }
 
   function openPanelForDestination(
@@ -1288,12 +1516,40 @@
     pushLocation({ destination, panel });
   }
 
-  function normalizeMissingPanel(): void {
-    replaceLocation({
+  function openReleaseSurface(surface: CommunityApplicationMainSurface): void {
+    if (!isPluginReleaseRoom) return;
+    releaseSurfaceReturnFocus =
+      document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : undefined;
+    releaseOverviewInitialized = true;
+    releaseOverviewSidebar.close();
+    pushLocation({
       destination: activeDestination,
-      panel: noCommunityApplicationPanel(),
+      panel: activePanel,
+      mainSurface: surface,
     });
-    lastAction = "unavailable-side-panel";
+    lastAction = `opened-${surface}`;
+  }
+
+  function closeReleaseSurface(): void {
+    if (activeMainSurface === undefined) return;
+    pushLocation({ destination: activeDestination, panel: activePanel });
+    const returnFocus = releaseSurfaceReturnFocus;
+    releaseSurfaceReturnFocus = undefined;
+    void tick().then(() => {
+      const focusTarget = returnFocus?.isConnected
+        ? returnFocus
+        : releaseOverviewToggleElement;
+      focusTarget?.focus({ preventScroll: true });
+    });
+    lastAction = "closed-release-surface";
+  }
+
+  function closeReleaseSurfaceOnEscape(event: KeyboardEvent): void {
+    if (event.key !== "Escape") return;
+    event.preventDefault();
+    closeReleaseSurface();
   }
 
   function select(item: CommunityNavigationItemModel): void {
@@ -2065,6 +2321,178 @@
   </div>
 {/snippet}
 
+{#snippet releaseOverviewToggle()}
+  <Button
+    bind:ref={releaseOverviewToggleElement}
+    type="button"
+    variant="ghost"
+    size="icon-sm"
+    data-ui-part="release-overview-toggle"
+    aria-label={releaseOverviewShown
+      ? "Hide plugin release overview"
+      : "Show plugin release overview"}
+    aria-expanded={releaseOverviewShown}
+    title={releaseOverviewShown
+      ? "Hide plugin release overview"
+      : "Show plugin release overview"}
+    onclick={() => {
+      releaseOverviewInitialized = true;
+      if (activeMainSurface !== undefined) {
+        pushLocation({ destination: activeDestination, panel: activePanel });
+        releaseOverviewSidebar.expand();
+        lastAction = "opened-release-overview";
+      } else if (releaseOverviewConstrained && releaseOverviewSidebarElement) {
+        const preview = !releaseOverviewDomPreview;
+        releaseOverviewSidebarElement.toggleAttribute(
+          "data-desktop-overlay-preview",
+          preview,
+        );
+        releaseOverviewDomPreview = preview;
+        if (preview) {
+          void tick().then(() =>
+            releaseOverviewSidebarElement?.focus({ preventScroll: true }),
+          );
+        }
+        lastAction = preview
+          ? "opened-release-overview"
+          : "closed-release-overview";
+      } else if (
+        releaseOverviewSidebar.closed ||
+        releaseOverviewSidebar.collapsed
+      ) {
+        releaseOverviewSidebar.expand();
+        lastAction = "opened-release-overview";
+      } else {
+        releaseOverviewSidebar.close();
+        lastAction = "closed-release-overview";
+      }
+    }}
+  >
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width="24"
+      height="24"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      stroke-width="2"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+      aria-hidden="true"
+    >
+      <rect x="1" y="2" width="22" height="20" rx="4"></rect>
+      <rect
+        x={releaseOverviewShown ? 14 : 18}
+        y="5"
+        width={releaseOverviewShown ? 6 : 2}
+        height="14"
+        rx="2"
+        fill="currentColor"
+      ></rect>
+    </svg>
+  </Button>
+{/snippet}
+
+{#snippet releaseOverviewRail()}
+  <AppShell.Sidebar
+    bind:ref={releaseOverviewSidebarElement}
+    side="right"
+    sidebarController={releaseOverviewSidebar}
+    class="community-application__release-overview-sidebar"
+    label="Plugin release overview sidebar"
+    mobileLabel="Plugin release overview"
+    resizeLabel="Resize plugin release overview sidebar"
+  >
+    <AppShell.Sidebar.Body>
+      <nav
+        class="community-application__release-overview"
+        aria-label="Plugin release overview"
+      >
+        <Button
+          type="button"
+          variant="ghost"
+          class="community-application__release-overview-item"
+          onclick={() => openReleaseSurface("release-reviews")}
+        >
+          <GitPullRequestIcon data-icon="inline-start" aria-hidden="true" />
+          <span>Reviews</span>
+          {#if registryOptions?.source.loadReleaseReviewEntries !== undefined}
+            <small aria-label={`${pendingReleaseReviewCount} pending reviews`}>
+              {pendingReleaseReviewCount}
+            </small>
+          {/if}
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          class="community-application__release-overview-item"
+          onclick={() => openReleaseSurface("release-people")}
+        >
+          <UsersIcon data-icon="inline-start" aria-hidden="true" />
+          <span>People</span>
+          <small
+            aria-label={`${activeRoom.memberCount ?? releaseRoomMembers.length} people`}
+          >
+            {activeRoom.memberCount ?? releaseRoomMembers.length}
+          </small>
+        </Button>
+      </nav>
+    </AppShell.Sidebar.Body>
+  </AppShell.Sidebar>
+{/snippet}
+
+{#snippet releaseSheet()}
+  <section
+    class="community-application__release-sheet"
+    data-ui-part="release-sheet"
+    aria-labelledby="community-application-release-sheet-title"
+    tabindex="-1"
+    bind:this={releaseSheetElement}
+  >
+    <header class="community-application__release-sheet-header">
+      <h1 id="community-application-release-sheet-title">
+        {activeMainSurface === "release-people" ? "People" : "Reviews"}
+      </h1>
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon-sm"
+        aria-label={`Close ${activeMainSurface === "release-people" ? "People" : "Reviews"}`}
+        title={`Close ${activeMainSurface === "release-people" ? "People" : "Reviews"}`}
+        onclick={closeReleaseSurface}
+      >
+        <XIcon aria-hidden="true" />
+      </Button>
+    </header>
+    <div class="community-application__release-sheet-body">
+      {#if activeMainSurface === "release-people"}
+        <CommunityReleasePeople
+          members={releaseRoomMembers}
+          entries={releaseReviewEntries}
+          activityLoading={releaseReviewsLoading}
+          activityUnavailable={registryOptions?.source
+            .loadReleaseReviewEntries === undefined}
+          completeness={activeRoom.memberListCompleteness ?? "unavailable"}
+          onOpenProfile={openReleaseProfile}
+        />
+      {:else if registryOptions}
+        <CommunityReleaseReviews
+          entries={releaseReviewEntries}
+          source={registryOptions.source}
+          loading={releaseReviewsLoading}
+          error={releaseReviewsError}
+          onOpenPlugin={(pluginId) =>
+            navigateRegistry({ page: "plugin", pluginId })}
+        />
+      {:else}
+        <p class="community-application__release-unavailable" role="status">
+          Reviews are unavailable because no registry data source was provided.
+        </p>
+      {/if}
+    </div>
+  </section>
+{/snippet}
+
 {#snippet releaseMessageSupplement(message: CommunityMessageModel)}
   {#if hasRegistry && message.parentMessageId === undefined && registryOptions?.source.loadReleaseInspection}
     <RegistryReleaseDisclosure
@@ -2085,6 +2513,13 @@
   {canNavigateForward}
   onNavigateBack={() => navigateHistory(-1)}
   onNavigateForward={() => navigateHistory(1)}
+  {...isPluginReleaseRoom ? { headerEnd: releaseOverviewToggle } : {}}
+  {...releaseSheetOpen
+    ? {
+        overlay: releaseSheet,
+        overlayMainAllowance: shell.mobile.resolvedMode === "mobile" ? 0 : 112,
+      }
+    : {}}
   data-last-action={lastAction}
   data-community-status={community.state.status}
   data-community-cache-freshness={community.state.cache.freshness}
@@ -2224,7 +2659,11 @@
     {/if}
   </AppShell.Sidebar>
 
-  <AppShell.Main>
+  <AppShell.Main
+    class="community-application__main"
+    inert={releaseSheetOpen}
+    aria-hidden={releaseSheetOpen ? "true" : undefined}
+  >
     {#if shell.mobile.resolvedMode === "mobile" && !usesRoomToolbar}
       <AppShell.Toolbar label="Application navigation">
         {@render mobileNavigationControls()}
@@ -2462,6 +2901,8 @@
       <AppShell.Toolbar
         label={`${activeRoom.name} toolbar`}
         class="community-application__room-toolbar"
+        inert={releaseSheetOpen}
+        aria-hidden={releaseSheetOpen ? "true" : undefined}
       >
         <div class="community-application__toolbar-start">
           {#if shell.mobile.resolvedMode === "mobile"}
@@ -2567,129 +3008,153 @@
           >
             <EllipsisIcon aria-hidden="true" />
           </Button>
+          {#if isPluginReleaseRoom && shell.mobile.resolvedMode === "mobile"}
+            <AppShell.Sidebar.Toggle
+              side="right"
+              sidebarController={releaseOverviewSidebar}
+              sidebarName="plugin release overview"
+              onclick={() => {
+                lastAction = "toggled-release-overview";
+              }}
+            />
+          {/if}
         </div>
       </AppShell.Toolbar>
 
-      <AppShell.Body layout="regions" label="Community workspace">
+      <AppShell.Body
+        layout="regions"
+        label="Community workspace"
+        inert={releaseSheetOpen}
+        aria-hidden={releaseSheetOpen ? "true" : undefined}
+      >
         <AppShell.Body.Content
           class="community-application__workspace-content"
           label={`${activeRoom.name} content`}
         >
-          <CommunityWorkspaceSurface
-            model={workspaceSurfaceModel}
-            historyLoading={communityStartupPending ||
-              community.state.contentSync?.rooms[activeRoom.id] === "unloaded"}
-            historyUpdating={community.state.contentSync?.phase ===
-              "background" ||
-              community.state.contentSync?.phase === "partial-error"}
-            messageSupplement={releaseMessageSupplement}
-            readOnly={participationReadOnly}
-            readOnlyReason={participationReadOnlyReason}
-            showJoinAction={activeRoomJoinVisible}
-            {...activeParticipationOperation === undefined
-              ? {}
-              : { operation: activeParticipationOperation }}
-            {...activeParticipationOperationEntry === undefined
-              ? {}
-              : {
-                  onRetryOperation: () =>
-                    community.retry(activeParticipationOperationEntry[0]),
-                  onDismissOperation: () =>
-                    community.dismissOperation(
-                      activeParticipationOperationEntry[0],
-                    ),
-                }}
-            {...community.state.replyTarget === undefined ||
-            activePanel.kind === "thread"
-              ? {}
-              : { replyTarget: community.state.replyTarget }}
-            communityEmojis={community.state.settings.customEmojis}
-            handlers={{
-              ...community.handlers,
-              onSelectRoom: (roomId) => {
-                if (
-                  roomId === activeRoom.id &&
-                  workspace.view === "forum-thread"
-                ) {
-                  community.actions.selectRoom(roomId);
-                  lastAction = `selected:${roomId}`;
-                } else setDestination(roomId, true);
-              },
-              onSendMessage: sendWorkspaceMessage,
-              onOpenTopic: (topicId) => {
-                community.actions.openTopic(topicId);
-                if (activePanel.kind !== "none") closeSidePanel();
-                lastAction = `opened-topic:${topicId}`;
-              },
-              onReply: (messageId) => {
-                if (activeRoom.kind === "direct" || activeRoom.kind === "forum")
-                  community.actions.setReplyTarget(messageId);
-                else
-                  openPanel({
-                    kind: "thread",
-                    roomId: activeRoom.id,
-                    rootMessageId: rootCommunityMessageId(
-                      workspace.messages,
-                      messageId,
-                    ),
-                    replyTargetId: messageId,
-                  });
-                lastAction = `replying-to:${messageId}`;
-              },
-              onOpenThread: (messageId) => {
-                openPanel({
-                  kind: "thread",
-                  roomId: activeRoom.id,
-                  rootMessageId: messageId,
-                });
-                lastAction = `opened-thread:${messageId}`;
-              },
-              onToggleReaction: react,
-              onAddReaction: react,
-              onOpenProfile: openProfile,
-              onMessageMember: messageMember,
-              onWaveMember: waveMember,
-              ...(extensions.activityLog === undefined
-                ? {}
-                : { onViewMemberActivity: viewMemberActivity }),
-              ...(activeRoom.kind === "direct"
-                ? {}
-                : { onCopyMessageLink: copyMessageLink }),
-              onCopyMessage: copyMessage,
-              onCopyEvent: copyEvent,
-              ...(extensions.editMessage === undefined
-                ? community.actions.editEvent === undefined
+          <div class="community-application__workspace-stack">
+            <div class="community-application__workspace-layer">
+              <CommunityWorkspaceSurface
+                model={workspaceSurfaceModel}
+                historyLoading={communityStartupPending ||
+                  community.state.contentSync?.rooms[activeRoom.id] ===
+                    "unloaded"}
+                historyUpdating={community.state.contentSync?.phase ===
+                  "background" ||
+                  community.state.contentSync?.phase === "partial-error"}
+                messageSupplement={releaseMessageSupplement}
+                readOnly={participationReadOnly}
+                readOnlyReason={participationReadOnlyReason}
+                showJoinAction={activeRoomJoinVisible}
+                {...activeParticipationOperation === undefined
                   ? {}
-                  : { onSaveMessageEdit: editMessage }
-                : { onEditMessage: extensions.editMessage }),
-              onDeleteMessage: deleteMessage,
-              ...(community.actions.reportEvent === undefined
-                ? {}
-                : { onReportMessage: reportMessage }),
-              onBrowseRooms: openRoomBrowser,
-              ...(activeRoomJoinVisible
-                ? {
-                    onJoinRoom: (roomId: string) =>
-                      requestRoomJoin({ ...activeRoom, id: roomId }),
-                  }
-                : {}),
-              ...(authenticated && community.state.capabilities.manageGroup
-                ? {
-                    onCreateRoom: (kind: "channel" | "forum") =>
-                      openRoomEditor(kind, "create"),
-                  }
-                : {}),
-              ...(!authenticated || extensions.agents === undefined
-                ? {}
-                : { onCreateAgent: extensions.agents }),
-              onCreateTopic: (_roomId, draft) =>
-                runParticipationAction(activeRoom.id, "post", () =>
-                  community.actions.createTopic(activeRoom.id, draft),
-                ),
-              onTopicAction: handleTopicAction,
-              onClearReplyTarget: () => community.actions.clearReplyTarget(),
-            }}
-          />
+                  : { operation: activeParticipationOperation }}
+                {...activeParticipationOperationEntry === undefined
+                  ? {}
+                  : {
+                      onRetryOperation: () =>
+                        community.retry(activeParticipationOperationEntry[0]),
+                      onDismissOperation: () =>
+                        community.dismissOperation(
+                          activeParticipationOperationEntry[0],
+                        ),
+                    }}
+                {...community.state.replyTarget === undefined ||
+                activePanel.kind === "thread"
+                  ? {}
+                  : { replyTarget: community.state.replyTarget }}
+                communityEmojis={community.state.settings.customEmojis}
+                handlers={{
+                  ...community.handlers,
+                  onSelectRoom: (roomId) => {
+                    if (
+                      roomId === activeRoom.id &&
+                      workspace.view === "forum-thread"
+                    ) {
+                      community.actions.selectRoom(roomId);
+                      lastAction = `selected:${roomId}`;
+                    } else setDestination(roomId, true);
+                  },
+                  onSendMessage: sendWorkspaceMessage,
+                  onOpenTopic: (topicId) => {
+                    community.actions.openTopic(topicId);
+                    if (activePanel.kind !== "none") closeSidePanel();
+                    lastAction = `opened-topic:${topicId}`;
+                  },
+                  onReply: (messageId) => {
+                    if (
+                      activeRoom.kind === "direct" ||
+                      activeRoom.kind === "forum"
+                    )
+                      community.actions.setReplyTarget(messageId);
+                    else
+                      openPanel({
+                        kind: "thread",
+                        roomId: activeRoom.id,
+                        rootMessageId: rootCommunityMessageId(
+                          workspace.messages,
+                          messageId,
+                        ),
+                        replyTargetId: messageId,
+                      });
+                    lastAction = `replying-to:${messageId}`;
+                  },
+                  onOpenThread: (messageId) => {
+                    openPanel({
+                      kind: "thread",
+                      roomId: activeRoom.id,
+                      rootMessageId: messageId,
+                    });
+                    lastAction = `opened-thread:${messageId}`;
+                  },
+                  onToggleReaction: react,
+                  onAddReaction: react,
+                  onOpenProfile: openProfile,
+                  onMessageMember: messageMember,
+                  onWaveMember: waveMember,
+                  ...(extensions.activityLog === undefined
+                    ? {}
+                    : { onViewMemberActivity: viewMemberActivity }),
+                  ...(activeRoom.kind === "direct"
+                    ? {}
+                    : { onCopyMessageLink: copyMessageLink }),
+                  onCopyMessage: copyMessage,
+                  onCopyEvent: copyEvent,
+                  ...(extensions.editMessage === undefined
+                    ? community.actions.editEvent === undefined
+                      ? {}
+                      : { onSaveMessageEdit: editMessage }
+                    : { onEditMessage: extensions.editMessage }),
+                  onDeleteMessage: deleteMessage,
+                  ...(community.actions.reportEvent === undefined
+                    ? {}
+                    : { onReportMessage: reportMessage }),
+                  onBrowseRooms: openRoomBrowser,
+                  ...(activeRoomJoinVisible
+                    ? {
+                        onJoinRoom: (roomId: string) =>
+                          requestRoomJoin({ ...activeRoom, id: roomId }),
+                      }
+                    : {}),
+                  ...(authenticated && community.state.capabilities.manageGroup
+                    ? {
+                        onCreateRoom: (kind: "channel" | "forum") =>
+                          openRoomEditor(kind, "create"),
+                      }
+                    : {}),
+                  ...(!authenticated || extensions.agents === undefined
+                    ? {}
+                    : { onCreateAgent: extensions.agents }),
+                  onCreateTopic: (_roomId, draft) =>
+                    runParticipationAction(activeRoom.id, "post", () =>
+                      community.actions.createTopic(activeRoom.id, draft),
+                    ),
+                  onTopicAction: handleTopicAction,
+                  onClearReplyTarget: () =>
+                    community.actions.clearReplyTarget(),
+                }}
+              />
+            </div>
+          </div>
         </AppShell.Body.Content>
       </AppShell.Body>
     {/if}
@@ -2698,6 +3163,7 @@
   {#if activePanel.kind !== "none"}
     {#key communityApplicationPanelKey(activePanel)}
       <AppShell.Sidebar
+        bind:ref={standardRightSidebarElement}
         side="right"
         label={`${sidePanelTitle} sidebar`}
         mobileLabel={sidePanelTitle}
@@ -2918,6 +3384,9 @@
         {/if}
       </AppShell.Sidebar>
     {/key}
+  {/if}
+  {#if isPluginReleaseRoom && !releaseSheetOpen}
+    {@render releaseOverviewRail()}
   {/if}
 </CommunityAppShell>
 
@@ -3380,6 +3849,10 @@
     margin-inline-start: auto;
   }
 
+  :global(.community-application__main[data-ui-part="main"]) {
+    position: relative;
+  }
+
   :global(
       .community-application__workspace-content
         > [data-ui-part="scroll-area"]
@@ -3397,6 +3870,152 @@
     display: flex;
     height: 100%;
     min-height: 0;
+  }
+
+  .community-application__workspace-stack,
+  .community-application__workspace-layer {
+    display: flex;
+    width: 100%;
+    height: 100%;
+    min-width: 0;
+    min-height: 0;
+  }
+
+  .community-application__workspace-stack {
+    position: relative;
+    flex: 1;
+  }
+
+  .community-application__release-sheet {
+    position: absolute;
+    z-index: 8;
+    inset: 0 0.5rem 0.5rem 0;
+    display: grid;
+    overflow: hidden;
+    grid-template-rows: auto minmax(0, 1fr);
+    border: 1px solid var(--border);
+    border-radius: calc(var(--radius-lg, 0.75rem) + 0.25rem);
+    outline: none;
+    background: var(--background);
+    box-shadow:
+      0 1.25rem 3rem -1.75rem color-mix(in oklab, var(--foreground) 28%, transparent),
+      0 0.25rem 1rem -0.5rem color-mix(in oklab, var(--foreground) 12%, transparent);
+  }
+
+  .community-application__release-sheet:focus-visible {
+    box-shadow:
+      0 0 0 2px var(--ring),
+      0 1.25rem 3rem -1.75rem color-mix(in oklab, var(--foreground) 28%, transparent);
+  }
+
+  .community-application__release-sheet-header {
+    display: flex;
+    min-height: var(--ui-shell-toolbar-height, 3rem);
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.625rem 0.75rem 0.625rem 1rem;
+    border-block-end: 1px solid var(--border);
+  }
+
+  .community-application__release-sheet-header h1 {
+    margin: 0;
+    font-size: 1rem;
+    font-weight: 650;
+  }
+
+  .community-application__release-sheet-body {
+    min-width: 0;
+    min-height: 0;
+    overflow: auto;
+    padding: 1rem;
+  }
+
+  .community-application__release-unavailable {
+    margin: 0;
+    padding: 1rem;
+    color: var(--muted-foreground);
+    font-size: 0.875rem;
+  }
+
+  .community-application__release-overview {
+    display: grid;
+    width: 100%;
+    gap: 0.25rem;
+    padding: 1rem 0.75rem;
+  }
+
+  :global(
+      .community-app-shell__surface
+        > .ui-minimal-app-shell__composition
+        > .community-application__release-overview-sidebar[data-side="right"][data-presentation="inline"]
+    ) {
+    margin-block: 0;
+    margin-inline: var(--ui-shell-main-block-inset) 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+  }
+
+  :global(
+      .community-app-shell__surface[data-desktop-overlay-panels~="plugin-release-overview"]
+        > .ui-minimal-app-shell__composition
+        > .community-application__release-overview-sidebar:not(
+          [data-desktop-overlay-preview]
+        )
+    ) {
+    display: none;
+  }
+
+  :global(
+      .community-app-shell__surface:has(
+          > .ui-minimal-app-shell__composition
+            > .community-application__release-overview-sidebar[data-side="right"][data-presentation="inline"]
+        ):not(
+          :has(
+              > .ui-minimal-app-shell__composition
+                > .ui-minimal-app-shell__sidebar[data-side="right"][data-presentation="inline"]:not(
+                  .community-application__release-overview-sidebar
+                )
+            )
+        )
+        > .ui-minimal-app-shell__composition
+        > .ui-minimal-app-shell__main
+    ) {
+    border-start-end-radius: var(--ui-shell-main-radius);
+    border-end-end-radius: var(--ui-shell-main-radius);
+  }
+
+  :global(
+      .community-application__release-overview-item[data-ui-component="button"]
+    ) {
+    display: grid;
+    width: 100%;
+    height: 2.5rem;
+    grid-template-columns: 1.125rem minmax(0, 1fr) auto;
+    justify-content: stretch;
+    gap: 0.625rem;
+    padding-inline: 0.625rem;
+    text-align: start;
+  }
+
+  :global(
+      .community-application__release-overview-item[data-ui-component="button"][data-active="true"]
+    ) {
+    background: var(--accent);
+    color: var(--accent-foreground);
+  }
+
+  :global(.community-application__release-overview-item > span) {
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  :global(.community-application__release-overview-item > small) {
+    color: var(--muted-foreground);
+    font-size: 0.75rem;
+    font-variant-numeric: tabular-nums;
   }
 
   .community-application__registry-empty {
@@ -3429,5 +4048,16 @@
     padding: 1rem;
     color: var(--muted-foreground);
     font-size: 0.875rem;
+  }
+
+  @media (max-width: 64rem) {
+    .community-application__release-sheet {
+      inset: 0.25rem;
+      border-radius: var(--radius-lg, 0.75rem);
+    }
+
+    .community-application__release-sheet-body {
+      padding: 0.75rem;
+    }
   }
 </style>

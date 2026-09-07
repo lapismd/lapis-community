@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   COMMUNITY_APPLICATION_DESTINATION_STORAGE_KEY,
+  COMMUNITY_APPLICATION_RELEASE_OVERVIEW_PANEL_ID,
   COMMUNITY_APPLICATION_SHELL_LAYOUT_STORAGE_KEY,
   createCommunityApplicationHistory,
   currentCommunityApplicationLocation,
@@ -20,7 +21,12 @@ import {
 const location = (
   destination: string,
   panel: CommunityApplicationLocation["panel"] = noCommunityApplicationPanel(),
-): CommunityApplicationLocation => ({ destination, panel });
+  mainSurface?: CommunityApplicationLocation["mainSurface"],
+): CommunityApplicationLocation => ({
+  destination,
+  panel,
+  ...(mainSurface === undefined ? {} : { mainSurface }),
+});
 
 const push = (
   history: CommunityApplicationHistory,
@@ -48,6 +54,12 @@ describe("Community application location history", () => {
                   closed: true,
                   width: 360,
                 },
+                [COMMUNITY_APPLICATION_RELEASE_OVERVIEW_PANEL_ID]: {
+                  side: "right",
+                  collapsed: false,
+                  closed: false,
+                  width: 304,
+                },
               },
             })
           : null,
@@ -65,6 +77,12 @@ describe("Community application location history", () => {
         collapsed: true,
         closed: true,
         width: 360,
+      },
+      releaseOverview: {
+        side: "right",
+        collapsed: false,
+        closed: false,
+        width: 304,
       },
     });
   });
@@ -204,6 +222,49 @@ describe("Community application location history", () => {
     );
   });
 
+  it("records release sheets independently from the exclusive right panel", () => {
+    let history = createCommunityApplicationHistory("plugin-releases");
+    history = push(
+      history,
+      location(
+        "plugin-releases",
+        noCommunityApplicationPanel(),
+        "release-reviews",
+      ),
+    );
+    history = push(
+      history,
+      location(
+        "plugin-releases",
+        { kind: "profile", memberId: "steve" },
+        "release-reviews",
+      ),
+    );
+
+    expect(history.entries).toEqual([
+      location("plugin-releases"),
+      location(
+        "plugin-releases",
+        noCommunityApplicationPanel(),
+        "release-reviews",
+      ),
+      location(
+        "plugin-releases",
+        { kind: "profile", memberId: "steve" },
+        "release-reviews",
+      ),
+    ]);
+
+    history = moveCommunityApplicationHistory(history, -1);
+    expect(currentCommunityApplicationLocation(history)).toEqual(
+      location(
+        "plugin-releases",
+        noCommunityApplicationPanel(),
+        "release-reviews",
+      ),
+    );
+  });
+
   it("ignores duplicates and truncates forward history after a new transition", () => {
     let history = createCommunityApplicationHistory("general");
     const details = location("general", { kind: "details", roomId: "general" });
@@ -248,6 +309,34 @@ describe("Community application location history", () => {
         messageIds: ["root", "reply"],
       }),
     ).toEqual(location("general"));
+  });
+
+  it("normalizes release sheets outside the canonical release room", () => {
+    expect(
+      normalizeCommunityApplicationLocation(
+        location("general", noCommunityApplicationPanel(), "release-people"),
+        {
+          roomIds: ["general", "plugin-releases"],
+          memberIds: ["steve"],
+          releaseRoomIds: ["plugin-releases"],
+        },
+      ),
+    ).toEqual(location("general"));
+  });
+
+  it("retains release sheets for the canonical release room", () => {
+    const candidate = location(
+      "plugin-releases",
+      noCommunityApplicationPanel(),
+      "release-reviews",
+    );
+    expect(
+      normalizeCommunityApplicationLocation(candidate, {
+        roomIds: ["plugin-releases"],
+        memberIds: ["steve"],
+        releaseRoomIds: ["plugin-releases"],
+      }),
+    ).toBe(candidate);
   });
 
   it("keeps a destination and its details panel in one composite entry", () => {

@@ -15,6 +15,13 @@ standalone creation, addition, removal, join, or leave activity without message
 mutation controls; referenced members MUST use the shared interactive member
 reference, and the connected identity MUST be labelled `You`.
 
+For LC-UI-033, the plugin-release review ledger MUST enumerate each distinct
+signed release event in the canonical plugin-release group, retain its verified
+inspection and configured-curator decisions, and remain deterministic across
+reordered or duplicated relay replay. Release and curator activity counts are
+derived presentation data and MUST NOT introduce a second protocol or source of
+truth.
+
 ## Requirements
 
 | ID           | Requirement                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
