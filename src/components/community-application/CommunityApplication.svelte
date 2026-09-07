@@ -66,6 +66,7 @@
   } from "../community-navigation/model.js";
   import { withStarredCommunityNavigationSection } from "../community-navigation/model.js";
   import CommunityProfileMenu from "../community-profile-menu/CommunityProfileMenu.svelte";
+  import CommunityPulse from "../community-pulse/CommunityPulse.svelte";
   import CommunityRelaySettings from "../community-relay-settings/CommunityRelaySettings.svelte";
   import CommunityRoomBrowser from "../community-room-browser/CommunityRoomBrowser.svelte";
   import CommunityRoomEditor from "../community-room-editor/CommunityRoomEditor.svelte";
@@ -368,6 +369,11 @@
       ...(authenticated && hasCommunityConnection
         ? [{ id: "inbox", label: "Inbox", kind: "inbox" as const }]
         : []),
+      ...(community.state.capabilities.pulse === true &&
+      community.state.pulse !== undefined &&
+      community.actions.pulse !== undefined
+        ? [{ id: "pulse", label: "Pulse", kind: "pulse" as const }]
+        : []),
       ...(hasRegistry
         ? [
             {
@@ -641,13 +647,18 @@
       (hasCommunitySurface || communityStartupPending) &&
       activeDestination !== "settings" &&
       activeDestination !== "inbox" &&
+      activeDestination !== "pulse" &&
       activeDestination !== "new-direct-message",
   );
   const activeItemId = $derived(
-    activeDestination === "inbox" || isRegistryDestination
+    activeDestination === "inbox" ||
+      activeDestination === "pulse" ||
+      isRegistryDestination
       ? activeDestination === "inbox"
         ? "inbox"
-        : "registry"
+        : activeDestination === "pulse"
+          ? "pulse"
+          : "registry"
       : activeDestination === "settings"
         ? undefined
         : workspace.activeRoomId,
@@ -804,9 +815,42 @@
           ? { type: "warning", message: participationReadOnlyReason }
           : undefined,
   );
+  const pulsePublishOperationEntry = $derived.by(
+    () =>
+      Object.entries(community.state.operations)
+        .filter(
+          ([key, operation]) =>
+            key.startsWith("pulse:publish:") && operation.status !== "idle",
+        )
+        .toReversed()[0],
+  );
+  const pulsePublishOperation = $derived(pulsePublishOperationEntry?.[1]);
+  const pulseComposerStatus = $derived<ComposerStatus | undefined>(
+    pulsePublishOperation?.status === "failed"
+      ? {
+          type: "error",
+          message:
+            pulsePublishOperation.message ??
+            pulsePublishOperation.failure?.message ??
+            "The note could not be published",
+        }
+      : pulsePublishOperation?.status === "accepted"
+        ? {
+            type: "warning",
+            message:
+              pulsePublishOperation.message ??
+              "Accepted by relay, still syncing",
+          }
+        : undefined,
+  );
 
   $effect(() => {
     if (community.state.status === "connecting") relayNoticeDismissed = false;
+  });
+
+  $effect(() => {
+    const active = activeDestination === "pulse";
+    untrack(() => community.actions.pulse?.setActive(active));
   });
 
   $effect(() => {
@@ -966,6 +1010,7 @@
       registryRouteFromDestination(destination) !== null;
     const applicationDestination =
       destination === "inbox" ||
+      destination === "pulse" ||
       destination === "settings" ||
       destination === "new-direct-message" ||
       registryDestination;
@@ -1065,6 +1110,7 @@
       next.destination === "inbox"
         ? inbox.room.id
         : nextRegistryRoute === null &&
+            next.destination !== "pulse" &&
             next.destination !== "settings" &&
             next.destination !== "new-direct-message"
           ? next.destination
@@ -1314,6 +1360,24 @@
       `nostr:${nip19.neventEncode({ id: message.id, author: message.authorId, relays: [activeConnection.relayUrl] })}`;
     void copyText(url, "Message link copied");
     lastAction = `copied-message-link:${messageId}`;
+  }
+
+  function copyPulseLink(noteId: string): void {
+    const note = community.state.pulse?.notes.find(
+      (candidate) => candidate.id === noteId,
+    );
+    if (!note) {
+      toast.error("The note is no longer available");
+      return;
+    }
+    const relays = activeConnection ? [activeConnection.relayUrl] : undefined;
+    const url = `nostr:${nip19.neventEncode({
+      id: note.id,
+      author: note.author.id,
+      ...(relays === undefined ? {} : { relays }),
+    })}`;
+    void copyText(url, "Note link copied");
+    lastAction = `copied-pulse-link:${noteId}`;
   }
 
   function copyMessage(messageId: string): void {
@@ -2199,6 +2263,51 @@
               runAuthenticated(() =>
                 community.actions.removeCustomEmoji(shortcode),
               )}
+          />
+        </AppShell.Body.Content>
+      </AppShell.Body>
+    {:else if activeDestination === "pulse" && community.state.pulse && community.actions.pulse}
+      <AppShell.Body layout="regions" label="Pulse">
+        <AppShell.Body.Content label="Pulse feed">
+          <CommunityPulse
+            model={community.state.pulse}
+            currentMember={displayMember}
+            rooms={allRooms}
+            communityEmojis={community.state.settings.customEmojis}
+            {...pulsePublishOperation === undefined
+              ? {}
+              : { publishOperation: pulsePublishOperation }}
+            {...pulseComposerStatus === undefined
+              ? {}
+              : { composerStatus: pulseComposerStatus }}
+            onSelectTab={(tab) => {
+              const selectTab = () => community.actions.pulse!.selectTab(tab);
+              return tab === "following" || tab === "liked" || tab === "mine"
+                ? runAuthenticated(selectTab)
+                : selectTab();
+            }}
+            onPublish={(submission, replyToEventId) =>
+              runAuthenticated(() =>
+                community.actions.pulse!.publish(submission, replyToEventId),
+              )}
+            onToggleLike={(eventId) =>
+              runAuthenticated(() =>
+                community.actions.pulse!.toggleLike(eventId),
+              )}
+            onShare={copyPulseLink}
+            onOpenProfile={openProfile}
+            onMessageMember={(member) => messageMember(member)}
+            onRetry={() => {
+              if (pulsePublishOperationEntry)
+                return community.retry(pulsePublishOperationEntry[0]);
+              return community.actions.pulse!.refresh();
+            }}
+            {...pulsePublishOperationEntry === undefined
+              ? {}
+              : {
+                  onDismissError: () =>
+                    community.dismissOperation(pulsePublishOperationEntry[0]),
+                }}
           />
         </AppShell.Body.Content>
       </AppShell.Body>

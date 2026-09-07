@@ -40,6 +40,11 @@ reference, and the connected identity MUST be labelled `You`.
 
 | LC-NOSTR-019 | Pulse MUST load verified public kind `1` notes from configured Community read relays without adding a database or submission API. Everyone, Mine, NIP-02 Following, undeleted `+` kind-7 Liked, and optionally supplied agent-author feeds MUST deduplicate and order deterministically, exclude NIP-34 `30617:` project comments, resolve reply parents and kind-0 profiles, and ignore forged or author-invalid kind-5 deletions. Pulse publication MUST remain behind the injected signer, use kind `1` with marked reply and mention/media tags, use kind `7` content `+` for likes, and use same-author kind `5` deletion of the reaction for unlike. The recent Pulse window MUST remain memory-only and refresh only while active. |
 
+For LC-UI-030, production-component stories project signed kind `0`, `1`, `3`,
+`5`, and `7` test events through the same Pulse controller boundary used by
+configured relays. Fixture signatures and author relationships remain subject
+to the LC-NOSTR-019 verification and deterministic materialization rules.
+
 Plugin support discussions use one NIP-29 group per plugin. NIP-7D kind `11`
 topics, NIP-22 kind `1111` replies, and NIP-25 kind `7` reactions remain
 ordinary signed relay events. Clients render them in posting order and retain

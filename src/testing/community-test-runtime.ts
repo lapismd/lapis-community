@@ -35,6 +35,7 @@ export interface CommunityTestScenarioOptions {
   relayUrl?: string;
   createdAt?: number;
   namespace?: string;
+  includePulseFixtures?: boolean;
 }
 
 export interface CommunityTestScenario {
@@ -249,6 +250,102 @@ export function createCommunityTestScenario(
       operatorKey,
     ),
   );
+  const pulseMemberNote = finalizeEvent(
+    {
+      kind: 1,
+      created_at: createdAt + 10,
+      content:
+        "Portable social feeds feel best when the relay remains the source of truth.",
+      tags: [],
+    },
+    memberKey,
+  );
+  const pulseAgentNote = finalizeEvent(
+    {
+      kind: 1,
+      created_at: createdAt + 11,
+      content: "I finished checking the latest community projection.",
+      tags: [["p", operatorPubkey]],
+    },
+    participantKey,
+  );
+  const pulseAgentFollowUp = finalizeEvent(
+    {
+      kind: 1,
+      created_at: createdAt + 12,
+      content: "All deterministic replay checks are green.",
+      tags: [],
+    },
+    participantKey,
+  );
+  const pulseOwnNote = finalizeEvent(
+    {
+      kind: 1,
+      created_at: createdAt + 13,
+      content: "Building a calmer place for communities to work in public.",
+      tags: [],
+    },
+    operatorKey,
+  );
+  const deletedLike = finalizeEvent(
+    {
+      kind: 7,
+      created_at: createdAt + 14,
+      content: "+",
+      tags: [
+        ["e", pulseOwnNote.id],
+        ["p", operatorPubkey],
+        ["k", "1"],
+      ],
+    },
+    memberKey,
+  );
+  if (options.includePulseFixtures) {
+    events.push(
+      pulseMemberNote,
+      pulseAgentNote,
+      pulseAgentFollowUp,
+      pulseOwnNote,
+      finalizeEvent(
+        {
+          kind: 3,
+          created_at: createdAt + 14,
+          content: "",
+          tags: [
+            ["p", memberPubkey],
+            ["p", publicKey(participantKey)],
+          ],
+        },
+        operatorKey,
+      ),
+      finalizeEvent(
+        {
+          kind: 7,
+          created_at: createdAt + 15,
+          content: "+",
+          tags: [
+            ["e", pulseMemberNote.id],
+            ["p", memberPubkey],
+            ["k", "1"],
+          ],
+        },
+        operatorKey,
+      ),
+      deletedLike,
+      finalizeEvent(
+        {
+          kind: 5,
+          created_at: createdAt + 16,
+          content: "",
+          tags: [
+            ["e", deletedLike.id],
+            ["k", "7"],
+          ],
+        },
+        memberKey,
+      ),
+    );
+  }
   const commands = [
     finalizeEvent(
       {
@@ -344,10 +441,20 @@ export async function createCommunityTestRuntime(
   const relay = relayFactory.relay(scenario.scope.relayUrl);
   await scenario.seed(relay);
   const source = createNip29CommunitySource({ relayFactory });
+  const participantPubkey = await scenario.participant.getPublicKey();
   const controller = createCommunityController({
     scopes: [scenario.scope],
     source,
     identity: scenario.operator,
+    pulse: {
+      agents: [
+        {
+          pubkey: participantPubkey,
+          name: "Noor Automations",
+          status: "Projection checks complete",
+        },
+      ],
+    },
     now: () => (options.createdAt ?? 1_700_000_000) + 100,
   });
   return {
@@ -431,12 +538,22 @@ export async function createCommunityStoryRuntime(
           ],
         }
       : scenario.scope;
+  const participantPubkey = await scenario.participant.getPublicKey();
   const controller = createCommunityController({
     scopes: [liveScope],
     source: createNip29CommunitySource({ relayFactory }),
     ...(backend === "live"
       ? { identityConnector: createNip07CommunityIdentityConnector() }
       : { identity: scenario.operator }),
+    pulse: {
+      agents: [
+        {
+          pubkey: participantPubkey,
+          name: "Noor Automations",
+          status: "Projection checks complete",
+        },
+      ],
+    },
     ...(options.configurationStore === undefined
       ? {}
       : { configurationStore: options.configurationStore }),

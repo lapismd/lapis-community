@@ -5,6 +5,7 @@ import {
 
 export type CommunityApplicationDestination =
   | "inbox"
+  | "pulse"
   | "registry"
   | "settings"
   | string;

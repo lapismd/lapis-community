@@ -38,6 +38,7 @@
     loginIdentity = "operator",
     namespace,
     releaseMessages = false,
+    pulseFixtures = false,
     useDefaultShell = false,
     persistenceScenario = false,
     initialDestination = "registry",
@@ -51,6 +52,7 @@
     loginIdentity?: "operator" | "participant";
     namespace?: string;
     releaseMessages?: boolean;
+    pulseFixtures?: boolean;
     useDefaultShell?: boolean;
     persistenceScenario?: boolean;
     initialDestination?: CommunityApplicationDestination;
@@ -113,6 +115,7 @@
             })
           : undefined;
       void createCommunityStoryRuntime({
+        includePulseFixtures: pulseFixtures,
         ...(configurationStore === undefined ? {} : { configurationStore }),
         ...(namespace === undefined ? {} : { namespace }),
       })
@@ -122,6 +125,17 @@
             return;
           }
           runtime = created;
+          const participantPubkey =
+            await created.scenario.participant.getPublicKey();
+          const pulse = {
+            agents: [
+              {
+                pubkey: participantPubkey,
+                name: "Noor Automations",
+                status: "Projection checks complete",
+              },
+            ],
+          } as const;
           let releaseEventId: string | undefined;
           if (releaseMessages && created.backend === "memory") {
             const releaseGroupId = lapisGroupId(LAPIS_GROUPS.pluginReleases);
@@ -174,6 +188,7 @@
                 relayFactory: created.relayFactory,
               }),
               identity: created.scenario.operator,
+              pulse,
               now: () => 1_700_000_100,
             });
             releaseEventId = releaseEvent.id;
@@ -247,6 +262,7 @@
               scopes: [created.scenario.scope],
               source,
               identity: created.scenario.operator,
+              pulse,
               now: () => 1_700_000_100,
             });
           } else {
@@ -263,6 +279,7 @@
                   created.backend === "live"
                     ? createBrowserCommunityEventRuntime()
                     : createInlineCommunityEventRuntime(),
+                pulse,
                 now: () => 1_700_000_100,
               });
           await tick();

@@ -48,6 +48,20 @@ export { default as CommunityMessage } from "./community-message/CommunityMessag
 export { default as CommunityNavigation } from "./community-navigation/CommunityNavigation.svelte";
 export { default as CommunityMemberProfile } from "./community-member-profile/CommunityMemberProfile.svelte";
 export { default as CommunityProfileMenu } from "./community-profile-menu/CommunityProfileMenu.svelte";
+export { default as CommunityPulse } from "./community-pulse/CommunityPulse.svelte";
+export type {
+  CommunityPulseHandlers,
+  CommunityPulseProps,
+} from "./community-pulse/model.js";
+export type {
+  CommunityPulseTab,
+  CommunityPulseFeedTab,
+  CommunityPulseAgentIdentity,
+  CommunityPulseParentModel,
+  CommunityPulseNoteModel,
+  CommunityPulseAgentActivityModel,
+  CommunityPulseModel,
+} from "../community/contracts.js";
 export { default as CommunityStatusDialog } from "./community-status-dialog/CommunityStatusDialog.svelte";
 export { default as CommunityRelaySettings } from "./community-relay-settings/CommunityRelaySettings.svelte";
 export { default as CommunityReplyContext } from "./community-reply-context/CommunityReplyContext.svelte";

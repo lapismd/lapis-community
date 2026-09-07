@@ -2,6 +2,7 @@ import type { CommunityMemberModel } from "../community-workspace/model.js";
 
 export type CommunityNavigationItemKind =
   | "inbox"
+  | "pulse"
   | "registry"
   | "channel"
   | "forum"

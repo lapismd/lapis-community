@@ -17,6 +17,7 @@
     openDelay = 280,
     trigger = "avatar",
     triggerLabel = `@${member.name}`,
+    avatarSize = "medium",
   }: {
     member: CommunityMemberModel;
     onOpenProfile?: (member: CommunityMemberModel) => void;
@@ -26,6 +27,7 @@
     openDelay?: number;
     trigger?: "avatar" | "mention";
     triggerLabel?: string;
+    avatarSize?: "xsmall" | "small" | "medium";
   } = $props();
 </script>
 
@@ -38,6 +40,7 @@
         class="community-member-hover-card__trigger"
         class:community-member-hover-card__trigger--mention={trigger ===
           "mention"}
+        data-size={avatarSize}
         aria-label={trigger === "mention"
           ? triggerLabel
           : `View ${member.name}'s profile`}
@@ -47,7 +50,7 @@
           <CommunityMemberAvatar {member} size="small" decorative />
           <span>{triggerLabel}</span>
         {:else}
-          <CommunityMemberAvatar {member} decorative />
+          <CommunityMemberAvatar {member} size={avatarSize} decorative />
         {/if}
       </button>
     {/snippet}
@@ -148,6 +151,16 @@
     text-align: start;
     vertical-align: middle;
     -webkit-box-decoration-break: clone;
+  }
+
+  .community-member-hover-card__trigger[data-size="small"] {
+    width: 2rem;
+    height: 2rem;
+  }
+
+  .community-member-hover-card__trigger[data-size="xsmall"] {
+    width: 1.5rem;
+    height: 1.5rem;
   }
 
   .community-member-hover-card__trigger--mention

@@ -25,6 +25,11 @@ materialized outside the persistent community event runtime; only events
 published by the local signer may pass through the existing cache path. Custom
 sources and controllers that omit the Pulse capability remain compatible.
 
+For LC-UI-030, the public testing runtime supplies signed Pulse profile,
+contact-list, note, reaction, and deletion events so application and component
+stories exercise the production controller projection rather than a visual
+duplicate.
+
 Dependency refreshes advance the minimum compatible Design Core release in the
 portable package manifest and committed lockfile together, without changing the
 public import boundary.

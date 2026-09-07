@@ -94,7 +94,7 @@
         source: { language: "svelte", code: consumerSource },
         description: {
           component:
-            "The near-final application composition: one controller-backed shell for Inbox, Registry, independently scrolling channels, forums, direct messages, settings, profile identity, history, fixed composers, reaction summaries, threads, and detail panels.",
+            "The near-final application composition: one controller-backed shell for Inbox, Pulse, Registry, independently scrolling channels, forums, direct messages, settings, profile identity, history, fixed composers, reaction summaries, threads, and detail panels.",
         },
       },
     },
@@ -377,6 +377,134 @@
     <CommunityApplicationStoryHarness
       namespace="progressive-dark"
       progressiveDelayMs={150}
+    />
+  {/snippet}
+</Story>
+
+<Story
+  name="Pulse"
+  play={async ({ canvas }) => {
+    const application = await canvas.findByTestId(
+      "full-community-application",
+      {},
+      { timeout: 15_000 },
+    );
+    await waitFor(
+      () =>
+        expect(application).toHaveAttribute(
+          "data-community-status",
+          "connected",
+        ),
+      { timeout: 15_000 },
+    );
+    await expect(
+      await canvas.findByRole("button", { name: "Pulse" }),
+    ).toBeVisible();
+    await expect(
+      await canvas.findByText(
+        "Building a calmer place for communities to work in public.",
+      ),
+    ).toBeVisible();
+    const memberNote = canvas.getByRole("article", {
+      name: /^(?:Member|Community member)$/u,
+    });
+    await userEvent.click(
+      within(memberNote).getByRole("button", {
+        name: /^(?:Member|Community member)$/u,
+      }),
+    );
+    await expect(await canvas.findByLabelText("Profile sidebar")).toBeVisible();
+    await userEvent.click(canvas.getByRole("tab", { name: /^Agents/u }));
+    await expect(await canvas.findByText("Noor Automations")).toBeVisible();
+    await expect(
+      canvas.queryByRole("group", { name: "Pulse composer" }),
+    ).not.toBeInTheDocument();
+  }}
+>
+  {#snippet template()}
+    <CommunityApplicationStoryHarness
+      namespace="pulse"
+      initialDestination="pulse"
+      pulseFixtures
+    />
+  {/snippet}
+</Story>
+
+<Story
+  name="Pulse dark"
+  globals={{ colorMode: "dark" }}
+  play={async ({ canvas }) => {
+    await expect(
+      await canvas.findByRole("region", { name: "Pulse feed" }),
+    ).toBeVisible();
+  }}
+>
+  {#snippet template()}
+    <CommunityApplicationStoryHarness
+      namespace="pulse-dark"
+      initialDestination="pulse"
+      pulseFixtures
+    />
+  {/snippet}
+</Story>
+
+<Story
+  name="Pulse authentication resume"
+  play={async ({ canvas, canvasElement }) => {
+    const application = await canvas.findByTestId(
+      "full-community-application",
+      {},
+      { timeout: 15_000 },
+    );
+    await waitFor(
+      () =>
+        expect(application).toHaveAttribute(
+          "data-community-status",
+          "connected",
+        ),
+      { timeout: 15_000 },
+    );
+    await expect(
+      await canvas.findByRole("button", { name: "Pulse" }, { timeout: 15_000 }),
+    ).toBeVisible();
+    await expect(
+      canvas.queryByRole("button", { name: "Inbox" }),
+    ).not.toBeInTheDocument();
+
+    await userEvent.click(canvas.getByRole("tab", { name: "Liked" }));
+    const overlay = within(canvasElement.ownerDocument.body);
+    const dialog = await overlay.findByRole("dialog", {
+      name: "Connect to Nostr",
+    });
+    const login = within(dialog);
+    await userEvent.click(
+      login.getByRole("button", { name: /Paste a private key/u }),
+    );
+    await userEvent.type(
+      login.getByLabelText("Private key"),
+      "nsec1storybookexample",
+    );
+    await userEvent.click(
+      login.getByRole("button", { name: "Sign in with private key" }),
+    );
+    await waitFor(() => expect(dialog).not.toBeInTheDocument(), {
+      timeout: 8_000,
+    });
+    await expect(canvas.getByRole("tab", { name: "Liked" })).toHaveAttribute(
+      "data-state",
+      "active",
+    );
+    await expect(
+      await canvas.findByRole("button", { name: "Inbox" }),
+    ).toBeVisible();
+  }}
+>
+  {#snippet template()}
+    <CommunityApplicationStoryHarness
+      namespace="pulse-authentication-resume"
+      initialDestination="pulse"
+      pulseFixtures
+      signedIn={false}
     />
   {/snippet}
 </Story>
