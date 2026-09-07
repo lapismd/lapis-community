@@ -53,6 +53,7 @@
   import CommunityDirectMessageComposer from "../community-direct-message-composer/CommunityDirectMessageComposer.svelte";
   import CommunityInbox from "../community-inbox/CommunityInbox.svelte";
   import type { CommunityInboxModel } from "../community-inbox/model.js";
+  import CommunityGroupInviteDialog from "../community-group-invite-dialog/CommunityGroupInviteDialog.svelte";
   import CommunityNavigation from "../community-navigation/CommunityNavigation.svelte";
   import CommunityMemberCommand from "../community-member-command/CommunityMemberCommand.svelte";
   import CommunityMemberAvatar from "../community-member-avatar/CommunityMemberAvatar.svelte";
@@ -238,6 +239,8 @@
   let memberCommandOpen = $state(false);
   let memberCommandMode = $state<"view" | "manage" | "select">("view");
   let selectedRecipientIds = $state<string[]>([]);
+  let groupInviteOpen = $state(false);
+  let groupInviteMode = $state<"create" | "join">("join");
   let profileOverride = $state<CommunityMemberModel>();
   let confirmation = $state<"leave" | "delete" | null>(null);
   let pendingParticipation = $state.raw<PendingCommunityParticipation>();
@@ -421,6 +424,16 @@
                   label: "Browse channels",
                   icon: "browse-channels" as const,
                 },
+                ...(community.state.capabilities.groupInvites === true &&
+                community.actions.joinWithInvite !== undefined
+                  ? [
+                      {
+                        id: "join-invite",
+                        label: "Join with invite",
+                        icon: "join-invite" as const,
+                      },
+                    ]
+                  : []),
                 ...(authenticated
                   ? [
                       {
@@ -450,6 +463,16 @@
                   label: "Browse forums",
                   icon: "browse-forums" as const,
                 },
+                ...(community.state.capabilities.groupInvites === true &&
+                community.actions.joinWithInvite !== undefined
+                  ? [
+                      {
+                        id: "join-invite",
+                        label: "Join with invite",
+                        icon: "join-invite" as const,
+                      },
+                    ]
+                  : []),
                 ...(authenticated
                   ? [
                       {
@@ -1441,6 +1464,9 @@
         setDestination("new-direct-message", true);
         memberCommandOpen = true;
       });
+    } else if (action.id === "join-invite") {
+      groupInviteMode = "join";
+      groupInviteOpen = true;
     } else if (action.id === "new-section") {
       sectionEditorMode = "create";
       sectionName = "";
@@ -1547,6 +1573,47 @@
         : "Room settings saved",
     );
     closeSidePanel();
+  }
+
+  async function setMemberRoles(
+    member: CommunityMemberModel,
+    roles: readonly string[],
+  ): Promise<void> {
+    const action = community.actions.setMemberRoles;
+    if (action === undefined) throw new Error("Member roles are unavailable");
+    await runAuthenticated(() => action(activeRoom.id, member.id, roles));
+    toast.success(`${member.name}'s roles updated`);
+  }
+
+  async function createGroupInvite() {
+    const action = community.actions.createGroupInvite;
+    if (action === undefined) throw new Error("Group invites are unavailable");
+    let invite: Awaited<ReturnType<typeof action>> | undefined;
+    await runAuthenticated(async () => {
+      invite = await action(activeRoom.id);
+    });
+    if (invite === undefined) throw new Error("Invite creation was cancelled");
+    toast.success("Invite created");
+    return invite;
+  }
+
+  async function joinWithInvite(value: string): Promise<void> {
+    const action = community.actions.joinWithInvite;
+    if (action === undefined) throw new Error("Invite joining is unavailable");
+    await runAuthenticated(() => action(value));
+    toast.success("Join request accepted");
+  }
+
+  async function copyInvite(value: string): Promise<void> {
+    try {
+      await navigator.clipboard.writeText(value);
+      toast.success("Invite link copied");
+    } catch (cause) {
+      toast.error("Could not copy to the clipboard");
+      throw cause instanceof Error
+        ? cause
+        : new Error("Invite link could not be copied");
+    }
   }
 
   function selectMember(member: CommunityMemberModel): void {
@@ -2792,10 +2859,18 @@
                 detailsRoom.description ??
                 "Community channel")}
             canArchive={extensions.archive !== undefined}
+            writerPolicySupported={community.state.capabilities
+              .writeRestrictedRooms === true}
+            groupInvitesSupported={community.state.capabilities.groupInvites ===
+              true && community.actions.createGroupInvite !== undefined}
             onClose={closeSidePanel}
             onAction={(action) => {
               lastAction = `channel-settings:${action}`;
-              if (action === "edit-type" || action === "edit-visibility")
+              if (
+                action === "edit-type" ||
+                action === "edit-visibility" ||
+                action === "edit-posting"
+              )
                 openRoomEditor(
                   detailsRoom.kind === "forum" ? "forum" : "channel",
                   "edit",
@@ -2812,6 +2887,10 @@
                   detailsRoom.id,
                   `${detailsRoom.kind === "forum" ? "Forum" : "Channel"} ID copied`,
                 );
+              if (action === "create-invite") {
+                groupInviteMode = "create";
+                groupInviteOpen = true;
+              }
               if (action === "leave-channel") confirmation = "leave";
               if (action === "delete-channel") confirmation = "delete";
               if (action === "archive-channel")
@@ -2861,6 +2940,8 @@
   roomKind={roomEditorKind}
   retentionSupported={community.state.capabilities.configurableRetention ??
     false}
+  writerPolicySupported={community.state.capabilities.writeRestrictedRooms ===
+    true}
   {...roomEditorMode === "edit"
     ? {
         initial: {
@@ -2870,6 +2951,7 @@
             ? ("private" as const)
             : ("public" as const),
           lifecycle: activeRoom.lifecycle ?? ("ongoing" as const),
+          postingPolicy: activeRoom.postingPolicy ?? ("standard" as const),
         },
       }
     : {}}
@@ -2916,6 +2998,7 @@
   roomKind={activeRoom.kind === "direct" ? "conversation" : activeRoom.kind}
   selectedIds={selectedRecipientIds}
   completeness={activeRoom.memberListCompleteness ?? "unavailable"}
+  roleDefinitions={activeRoom.roleDefinitions ?? []}
   onSearch={(query) => void community.actions.searchMembers(query)}
   onSelect={selectMember}
   onRemove={(member) => {
@@ -2936,9 +3019,22 @@
           ),
       );
   }}
+  {...community.state.capabilities.memberRoles === true &&
+  community.actions.setMemberRoles !== undefined
+    ? { onSetRoles: setMemberRoles }
+    : {}}
   onConfirm={memberCommandMode === "select"
     ? startDirectMessage
     : () => (memberCommandOpen = false)}
+/>
+
+<CommunityGroupInviteDialog
+  bind:open={groupInviteOpen}
+  mode={groupInviteMode}
+  {...groupInviteMode === "create" ? { roomName: activeRoom.name } : {}}
+  onCreate={createGroupInvite}
+  onJoin={joinWithInvite}
+  onCopy={copyInvite}
 />
 
 <CommunitySearchCommand

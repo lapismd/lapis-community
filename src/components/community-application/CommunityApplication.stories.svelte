@@ -538,13 +538,28 @@
     });
     const channelMembers = within(channelDialog);
     await expect(
-      channelMembers.getByRole("option", { name: "Manage You" }),
+      channelMembers.getByRole("option", { name: "You, administrator" }),
     ).toBeVisible();
-    await expect(
-      channelMembers.getByRole("option", {
-        name: /Manage (Community )?member/iu,
-      }),
-    ).toBeVisible();
+    const managedMember = channelMembers.getByRole("option", {
+      name: /Manage (Community )?member/iu,
+    });
+    await expect(managedMember).toBeVisible();
+    await userEvent.click(managedMember);
+    await userEvent.click(
+      await overlay.findByRole("menuitem", { name: "Manage roles" }),
+    );
+    const rolesDialog = await overlay.findByRole("dialog", {
+      name: "Manage roles",
+    });
+    await expect(within(rolesDialog).getByText("Member")).toBeVisible();
+    await userEvent.click(
+      within(rolesDialog).getByRole("checkbox", { name: "Writer" }),
+    );
+    await userEvent.click(
+      within(rolesDialog).getByRole("button", { name: "Save roles" }),
+    );
+    await waitFor(() => expect(rolesDialog).not.toBeInTheDocument());
+    await expect(await channelMembers.findByText("writer")).toBeVisible();
     await expect(
       channelMembers.queryByText(outsideMemberName),
     ).not.toBeInTheDocument();
@@ -579,9 +594,6 @@
       await overlay.findByRole("menuitem", { name: "Remove from channel" }),
     );
     await expect(
-      await overlay.findByText(`${outsideMemberDisplayName} removed`),
-    ).toBeInTheDocument();
-    await expect(
       await channelMembers.findByRole(
         "option",
         {
@@ -606,7 +618,7 @@
     });
     const forumMembers = within(forumDialog);
     await expect(
-      forumMembers.getByRole("option", { name: "Manage You" }),
+      forumMembers.getByRole("option", { name: "You, administrator" }),
     ).toBeVisible();
     await expect(
       forumMembers.queryByText(/Community Member|^Member$/u),
@@ -637,6 +649,239 @@
     <CommunityApplicationStoryHarness
       namespace="contextual-members"
       initialDestination="general"
+    />
+  {/snippet}
+</Story>
+
+<Story
+  name="Posting policy and private invites"
+  play={async ({ canvas, canvasElement }) => {
+    const application = await canvas.findByTestId(
+      "full-community-application",
+      {},
+      { timeout: 15_000 },
+    );
+    await waitFor(
+      () =>
+        expect(application).toHaveAttribute(
+          "data-community-status",
+          "connected",
+        ),
+      { timeout: 15_000 },
+    );
+    const overlay = within(canvasElement.ownerDocument.body);
+    await userEvent.click(
+      await canvas.findByRole("button", { name: "general" }),
+    );
+    await userEvent.click(
+      await canvas.findByRole("button", { name: "Manage channel" }),
+    );
+    await userEvent.click(
+      await canvas.findByRole("button", { name: /Posting permissions/ }),
+    );
+    const editor = await overlay.findByRole("dialog", {
+      name: "Edit channel",
+    });
+    await userEvent.click(
+      within(editor).getByRole("button", { name: "Private" }),
+    );
+    await userEvent.click(
+      within(editor).getByRole("radio", {
+        name: /Writers and administrators/,
+      }),
+    );
+    await userEvent.click(within(editor).getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(editor).not.toBeInTheDocument());
+    await waitFor(() =>
+      expect(canvasElement.ownerDocument.body.style.pointerEvents).not.toBe(
+        "none",
+      ),
+    );
+
+    await userEvent.click(
+      await canvas.findByRole("button", { name: "Manage channel" }),
+    );
+    await expect(
+      await canvas.findByText(
+        "Writers and administrators",
+        {},
+        { timeout: 15_000 },
+      ),
+    ).toBeVisible();
+    await userEvent.click(
+      canvas.getByRole("button", { name: /Create invite link/ }),
+    );
+    const inviteDialog = await overlay.findByRole("dialog", {
+      name: "Create invite link",
+    });
+    const storyWindow = canvasElement.ownerDocument.defaultView;
+    if (!storyWindow) throw new Error("Expected the Storybook window");
+    const clipboardDescriptor = Object.getOwnPropertyDescriptor(
+      storyWindow.navigator,
+      "clipboard",
+    );
+    const writeText =
+      fn<(value: string) => Promise<void>>().mockResolvedValue();
+    Object.defineProperty(storyWindow.navigator, "clipboard", {
+      configurable: true,
+      value: { writeText },
+    });
+    try {
+      await userEvent.click(
+        within(inviteDialog).getByRole("button", { name: "Create invite" }),
+      );
+      const inviteInput = await within(inviteDialog).findByLabelText(
+        "Invite link",
+        {},
+        { timeout: 15_000 },
+      );
+      const inviteUri = (inviteInput as HTMLInputElement).value;
+      await expect(inviteUri).toMatch(/^nostr:naddr.+\?invite=/u);
+      await expect(
+        within(inviteDialog).getByText(/Invite created\. Copy it/),
+      ).toBeVisible();
+      await userEvent.click(
+        within(inviteDialog).getByRole("button", { name: "Copy" }),
+      );
+      await expect(writeText).toHaveBeenCalledWith(inviteUri);
+      await expect(
+        within(inviteDialog).getByText(
+          "Invite created and copied to the clipboard.",
+        ),
+      ).toBeVisible();
+      await userEvent.click(
+        within(inviteDialog).getByRole("button", { name: "Done" }),
+      );
+      await waitFor(() => expect(inviteDialog).not.toBeInTheDocument());
+      await waitFor(() =>
+        expect(canvasElement.ownerDocument.body.style.pointerEvents).not.toBe(
+          "none",
+        ),
+      );
+
+      await userEvent.click(
+        canvas.getByRole("button", { name: "Open Forums menu" }),
+      );
+      await expect(
+        await overlay.findByRole("menuitem", { name: "Join with invite" }),
+      ).toBeVisible();
+      await userEvent.keyboard("{Escape}");
+      await waitFor(() =>
+        expect(canvasElement.ownerDocument.body.style.pointerEvents).not.toBe(
+          "none",
+        ),
+      );
+      await userEvent.click(
+        canvas.getByRole("button", { name: "Open Channels menu" }),
+      );
+      await userEvent.click(
+        await overlay.findByRole("menuitem", { name: "Join with invite" }),
+      );
+      const joinDialog = await overlay.findByRole("dialog", {
+        name: "Join with invite",
+      });
+      await userEvent.type(
+        within(joinDialog).getByLabelText("Invite link"),
+        inviteUri,
+      );
+      await userEvent.click(
+        within(joinDialog).getByRole("button", { name: "Join group" }),
+      );
+      await waitFor(() => expect(joinDialog).not.toBeInTheDocument());
+      await expect(
+        canvas.getByRole("button", { name: "general" }),
+      ).toBeVisible();
+    } finally {
+      toast.dismiss();
+      if (clipboardDescriptor) {
+        Object.defineProperty(
+          storyWindow.navigator,
+          "clipboard",
+          clipboardDescriptor,
+        );
+      } else {
+        Reflect.deleteProperty(storyWindow.navigator, "clipboard");
+      }
+    }
+  }}
+>
+  {#snippet template()}
+    <CommunityApplicationStoryHarness
+      namespace="posting-policy-and-invites"
+      initialDestination="general"
+    />
+  {/snippet}
+</Story>
+
+<Story
+  name="Invite authentication resume"
+  play={async ({ canvas, canvasElement }) => {
+    const application = await canvas.findByTestId(
+      "full-community-application",
+      {},
+      { timeout: 15_000 },
+    );
+    await waitFor(
+      () =>
+        expect(application).toHaveAttribute(
+          "data-community-status",
+          "connected",
+        ),
+      { timeout: 15_000 },
+    );
+    const overlay = within(canvasElement.ownerDocument.body);
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Open Channels menu" }),
+    );
+    await userEvent.click(
+      await overlay.findByRole("menuitem", { name: "Join with invite" }),
+    );
+    const joinDialog = await overlay.findByRole("dialog", {
+      name: "Join with invite",
+    });
+    await waitFor(() =>
+      expect(application.dataset.storyInviteUri).toMatch(
+        /^nostr:naddr.+\?invite=/u,
+      ),
+    );
+    const inviteUri = application.dataset.storyInviteUri!;
+    const inviteInput = within(joinDialog).getByLabelText("Invite link");
+    await userEvent.type(inviteInput, inviteUri);
+    await userEvent.click(
+      within(joinDialog).getByRole("button", { name: "Join group" }),
+    );
+
+    const loginDialog = await overlay.findByRole("dialog", {
+      name: "Connect to Nostr",
+    });
+    await expect(inviteInput).toHaveValue(inviteUri);
+    const login = within(loginDialog);
+    await userEvent.click(
+      login.getByRole("button", { name: /Paste a private key/u }),
+    );
+    await userEvent.type(
+      login.getByLabelText("Private key"),
+      "nsec1storybookexample",
+    );
+    await userEvent.click(
+      login.getByRole("button", { name: "Sign in with private key" }),
+    );
+    await waitFor(() => expect(loginDialog).not.toBeInTheDocument(), {
+      timeout: 8_000,
+    });
+    await waitFor(() => expect(joinDialog).not.toBeInTheDocument(), {
+      timeout: 8_000,
+    });
+    await expect(
+      await canvas.findByRole("button", { name: "Inbox" }),
+    ).toBeVisible();
+  }}
+>
+  {#snippet template()}
+    <CommunityApplicationStoryHarness
+      namespace="invite-authentication-resume"
+      initialDestination="general"
+      signedIn={false}
     />
   {/snippet}
 </Story>
@@ -902,9 +1147,10 @@
     });
     await waitFor(
       () =>
-        expect(
-          canvasElement.querySelector('[data-ui-part="room-membership"]'),
-        ).toBeNull(),
+        expect(application).toHaveAttribute(
+          "data-story-active-membership",
+          "joined",
+        ),
       { timeout: 15_000 },
     );
     if (application.dataset.communityBackend === "docker") {
@@ -1200,6 +1446,16 @@
     await userEvent.click(
       await canvas.findByRole("button", { name: "support" }),
     );
+    if (application.dataset.communityBackend === "docker") {
+      const relayRewriteSecond = Math.floor(Date.now() / 1_000);
+      await waitFor(
+        () =>
+          expect(Math.floor(Date.now() / 1_000)).toBeGreaterThan(
+            relayRewriteSecond,
+          ),
+        { timeout: 2_000, interval: 50 },
+      );
+    }
     await userEvent.click(
       await canvas.findByRole(
         "button",
@@ -1227,9 +1483,10 @@
     });
     await waitFor(
       () =>
-        expect(
-          canvasElement.querySelector('[data-ui-part="room-membership"]'),
-        ).toBeNull(),
+        expect(application).toHaveAttribute(
+          "data-story-active-membership",
+          "joined",
+        ),
       { timeout: 15_000 },
     );
 
@@ -1249,17 +1506,22 @@
     });
     await waitFor(() => expect(addReaction).toBeVisible());
     await userEvent.click(addReaction);
-    let standardEmoji: HTMLButtonElement | null = null;
-    await waitFor(() => {
-      standardEmoji =
-        canvasElement.ownerDocument
-          .querySelector("em-emoji-picker")
-          ?.shadowRoot?.querySelector<HTMLButtonElement>(
-            ".category button[aria-label]",
-          ) ?? null;
-      expect(standardEmoji).not.toBeNull();
+    const picker = await waitFor(() => {
+      const element =
+        canvasElement.ownerDocument.querySelector<HTMLElement>(
+          "em-emoji-picker",
+        );
+      expect(element?.shadowRoot).not.toBeNull();
+      return element!;
     });
-    await userEvent.click(standardEmoji!);
+    const standardEmoji = await waitFor(() => {
+      const button = picker.shadowRoot?.querySelector<HTMLButtonElement>(
+        'button[aria-label="🤣"]',
+      );
+      expect(button).not.toBeNull();
+      return button!;
+    });
+    await userEvent.click(standardEmoji);
 
     await expect(
       overlay.queryByRole("alertdialog", {

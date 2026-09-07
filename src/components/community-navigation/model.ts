@@ -75,6 +75,7 @@ export type CommunityNavigationSectionActionIcon =
   | "browse-forums"
   | "compose"
   | "create"
+  | "join-invite"
   | "new-section"
   | "rename"
   | "delete";

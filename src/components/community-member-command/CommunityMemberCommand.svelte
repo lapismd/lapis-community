@@ -1,15 +1,21 @@
 <script lang="ts">
   import { Button } from "@lapismd/design-core/shadcn/button";
+  import { Badge } from "@lapismd/design-core/shadcn/badge";
+  import { Checkbox } from "@lapismd/design-core/shadcn/checkbox";
   import * as Command from "@lapismd/design-core/shadcn/command";
   import * as Dialog from "@lapismd/design-core/shadcn/dialog";
   import * as DropdownMenu from "@lapismd/design-core/shadcn/dropdown-menu";
   import EllipsisIcon from "@lucide/svelte/icons/ellipsis";
+  import ShieldCheckIcon from "@lucide/svelte/icons/shield-check";
   import Trash2Icon from "@lucide/svelte/icons/trash-2";
   import UserMinusIcon from "@lucide/svelte/icons/user-minus";
   import XIcon from "@lucide/svelte/icons/x";
 
   import CommunityMemberAvatar from "../community-member-avatar/CommunityMemberAvatar.svelte";
-  import type { CommunityMemberModel } from "../community-workspace/model.js";
+  import type {
+    CommunityMemberModel,
+    CommunityRoleDefinition,
+  } from "../community-workspace/model.js";
 
   let {
     open = $bindable(false),
@@ -26,6 +32,8 @@
     onSearch,
     onSelect,
     onRemove,
+    roleDefinitions = [],
+    onSetRoles,
     onConfirm,
   }: {
     open?: boolean;
@@ -42,11 +50,21 @@
     onSearch: (query: string) => void;
     onSelect: (member: CommunityMemberModel) => void;
     onRemove: (member: CommunityMemberModel) => void;
+    roleDefinitions?: readonly CommunityRoleDefinition[];
+    onSetRoles?: (
+      member: CommunityMemberModel,
+      roles: readonly string[],
+    ) => Promise<void>;
     onConfirm?: () => void;
   } = $props();
 
   let query = $state("");
   let wasOpen = false;
+  let roleDialogOpen = $state(false);
+  let roleMember = $state<CommunityMemberModel>();
+  let selectedRoles = $state<string[]>([]);
+  let rolePending = $state(false);
+  let roleError = $state("");
 
   const normalizedQuery = $derived(query.trim().toLocaleLowerCase());
   const isSearching = $derived(normalizedQuery !== "");
@@ -80,6 +98,9 @@
       : completeness === "partial"
         ? "This relay returned a partial member list. Search may find additional profiles."
         : "The relay does not expose a complete member list. Enter an npub or hex public key to continue.",
+  );
+  const availableRoleDefinitions = $derived(
+    distinctRoleDefinitions(roleDefinitions, roleMember?.roles ?? []),
   );
 
   $effect(() => {
@@ -115,6 +136,70 @@
   function memberName(member: CommunityMemberModel): string {
     return member.id === currentMemberId ? "You" : member.name;
   }
+
+  function openRoleDialog(member: CommunityMemberModel): void {
+    roleMember = member;
+    selectedRoles = (member.roles ?? []).filter(isAssignableRole);
+    roleError = "";
+    roleDialogOpen = true;
+  }
+
+  function toggleRole(roleId: string, checked: boolean): void {
+    selectedRoles = checked
+      ? [...new Set([...selectedRoles, roleId])].toSorted()
+      : selectedRoles.filter((candidate) => candidate !== roleId);
+  }
+
+  async function saveRoles(event: SubmitEvent): Promise<void> {
+    event.preventDefault();
+    if (roleMember === undefined || onSetRoles === undefined) return;
+    rolePending = true;
+    roleError = "";
+    try {
+      await onSetRoles(roleMember, selectedRoles);
+      roleDialogOpen = false;
+    } catch (cause) {
+      roleError =
+        cause instanceof Error
+          ? cause.message
+          : `Could not update ${memberName(roleMember)}`;
+    } finally {
+      rolePending = false;
+    }
+  }
+
+  function distinctRoleDefinitions(
+    definitions: readonly CommunityRoleDefinition[],
+    assignedRoles: readonly string[],
+  ): CommunityRoleDefinition[] {
+    const byId = new Map(
+      definitions
+        .filter((definition) => isAssignableRole(definition.id))
+        .map((definition) => [definition.id, definition]),
+    );
+    for (const role of assignedRoles) {
+      if (isAssignableRole(role) && !byId.has(role)) {
+        byId.set(role, {
+          id: role,
+          label: role
+            .split(/[-_\s]+/u)
+            .filter(Boolean)
+            .map((part) => part[0]!.toLocaleUpperCase() + part.slice(1))
+            .join(" "),
+          description: "This role is currently assigned by the relay.",
+        });
+      }
+    }
+    return [...byId.values()].toSorted((left, right) =>
+      left.label.localeCompare(right.label),
+    );
+  }
+
+  function isAssignableRole(role: string): boolean {
+    return !["member", "admin", "administrator"].includes(
+      role.trim().toLocaleLowerCase(),
+    );
+  }
 </script>
 
 {#snippet memberIdentity(member: CommunityMemberModel)}
@@ -122,13 +207,15 @@
   <span class="community-member-command__member-copy">
     <span class="community-member-command__member-heading">
       <strong>{memberName(member)}</strong>
-      {#if member.role}
-        <small class="community-member-command__member-role"
-          >{member.role}</small
-        >
+      {#if member.administrator}
+        <Badge variant="secondary">Administrator</Badge>
+      {:else if member.role && member.role !== "member"}
+        <Badge variant="outline">{member.role}</Badge>
       {/if}
     </span>
-    <small>{member.handle}</small>
+    <small>
+      {member.handle}{member.administrator ? " · Relay-managed access" : ""}
+    </small>
   </span>
 {/snippet}
 
@@ -202,7 +289,7 @@
           : "Members"}
     >
       {#each currentMembers as member (member.id)}
-        {#if mode === "manage"}
+        {#if mode === "manage" && !member.administrator}
           <DropdownMenu.Root>
             <DropdownMenu.Trigger>
               {#snippet child({ props })}
@@ -229,6 +316,15 @@
               sideOffset={4}
             >
               <DropdownMenu.Group>
+                {#if onSetRoles}
+                  <DropdownMenu.Item onSelect={() => openRoleDialog(member)}>
+                    <ShieldCheckIcon
+                      data-icon="inline-start"
+                      aria-hidden="true"
+                    />
+                    Manage roles
+                  </DropdownMenu.Item>
+                {/if}
                 <DropdownMenu.Item
                   variant="destructive"
                   onSelect={() => onRemove(member)}
@@ -239,6 +335,14 @@
               </DropdownMenu.Group>
             </DropdownMenu.Content>
           </DropdownMenu.Root>
+        {:else if mode === "manage" && member.administrator}
+          <Command.Item
+            value={`${member.name} ${member.handle} ${member.id}`}
+            aria-label={`${memberName(member)}, administrator`}
+            onSelect={() => {}}
+          >
+            {@render memberIdentity(member)}
+          </Command.Item>
         {:else}
           <Command.Item
             value={`${member.name} ${member.handle} ${member.id}`}
@@ -295,6 +399,65 @@
     </div>
   {/if}
 </Command.Dialog>
+
+<Dialog.Root bind:open={roleDialogOpen}>
+  <Dialog.Content class="community-member-role-dialog">
+    <form class="community-member-role-dialog__form" onsubmit={saveRoles}>
+      <Dialog.Header>
+        <Dialog.Title>Manage roles</Dialog.Title>
+        <Dialog.Description>
+          Choose the relay-defined roles for {roleMember
+            ? memberName(roleMember)
+            : "this member"}. Member access is always retained.
+        </Dialog.Description>
+      </Dialog.Header>
+
+      <div class="community-member-role-dialog__roles">
+        <div class="community-member-role-dialog__baseline">
+          <span>
+            <strong>Member</strong>
+            <small>Can access this {roomNoun} under the relay's policy.</small>
+          </span>
+          <Badge variant="secondary">Always on</Badge>
+        </div>
+        {#each availableRoleDefinitions as definition (definition.id)}
+          <label class="community-member-role-dialog__role">
+            <Checkbox
+              checked={selectedRoles.includes(definition.id)}
+              onCheckedChange={(checked) =>
+                toggleRole(definition.id, checked === true)}
+              aria-label={definition.label}
+            />
+            <span>
+              <strong>{definition.label}</strong>
+              {#if definition.description}
+                <small>{definition.description}</small>
+              {/if}
+            </span>
+          </label>
+        {/each}
+      </div>
+
+      {#if roleError}
+        <p class="community-member-role-dialog__error" role="alert">
+          {roleError}
+        </p>
+      {/if}
+
+      <Dialog.Footer>
+        <Button
+          type="button"
+          variant="outline"
+          disabled={rolePending}
+          onclick={() => (roleDialogOpen = false)}>Cancel</Button
+        >
+        <Button type="submit" disabled={rolePending}>
+          {rolePending ? "Saving…" : "Save roles"}
+        </Button>
+      </Dialog.Footer>
+    </form>
+  </Dialog.Content>
+</Dialog.Root>
 
 <style>
   :global(.community-member-command) {
@@ -456,8 +619,49 @@
     font-weight: 400;
   }
 
-  .community-member-command__member-role {
-    flex: none;
+  :global(.community-member-role-dialog) {
+    width: min(calc(100vw - 2rem), 30rem);
+  }
+
+  .community-member-role-dialog__form,
+  .community-member-role-dialog__roles {
+    display: grid;
+    gap: 1rem;
+  }
+
+  .community-member-role-dialog__baseline,
+  .community-member-role-dialog__role {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 0.85rem;
+  }
+
+  .community-member-role-dialog__baseline {
+    align-items: center;
+    justify-content: space-between;
+    background: var(--muted);
+  }
+
+  .community-member-role-dialog__baseline > span,
+  .community-member-role-dialog__role > span {
+    display: grid;
+    flex: 1;
+    gap: 0.2rem;
+  }
+
+  :global(.community-member-role-dialog small) {
+    color: var(--muted-foreground);
+    font-size: 0.82rem;
+    font-weight: 400;
+  }
+
+  .community-member-role-dialog__error {
+    margin: 0;
+    color: var(--destructive);
+    font-size: 0.875rem;
   }
 
   :global(

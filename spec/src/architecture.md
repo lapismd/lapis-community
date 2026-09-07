@@ -30,6 +30,11 @@ contact-list, note, reaction, and deletion events so application and component
 stories exercise the production controller projection rather than a visual
 duplicate.
 
+For LC-UI-032, the shared memory and Docker relay contract exercises writer
+grant and revocation, writer-only publication, reusable invite creation, and
+invite-backed joining through the same NIP-29 controls used by the production
+application.
+
 For LC-NOSTR-020, relay-defined role and invite support remains an additive
 session/controller capability. The controller owns authentication, configured
 relay authority validation, pending membership, and publication rollback;

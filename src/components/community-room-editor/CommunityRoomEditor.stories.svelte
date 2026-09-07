@@ -19,18 +19,64 @@
       description: "Community chat",
       visibility: "public",
       lifecycle: "ongoing",
+      postingPolicy: "standard",
     },
-    onSave: fn(),
+    writerPolicySupported: true,
+    onSave: fn(async () => {}),
   }}
   play={async ({ canvasElement, args }) => {
     const overlay = within(canvasElement.ownerDocument.body);
     const name = overlay.getByLabelText("Name");
     await userEvent.clear(name);
     await userEvent.type(name, "announcements");
+    await userEvent.click(
+      overlay.getByRole("radio", { name: /Writers and administrators/ }),
+    );
     await userEvent.click(overlay.getByRole("button", { name: "Save" }));
     await expect(args.onSave).toHaveBeenCalledWith(
-      expect.objectContaining({ name: "announcements" }),
+      expect.objectContaining({
+        name: "announcements",
+        postingPolicy: "writers",
+      }),
     );
+  }}
+>
+  {#snippet template(args)}
+    <CommunityRoomEditor {...args} />
+  {/snippet}
+</Story>
+
+<Story
+  name="Private forum error on mobile dark"
+  globals={{
+    colorMode: "dark",
+    viewport: { value: "mobile1", isRotated: false },
+  }}
+  args={{
+    open: true,
+    roomKind: "forum",
+    initial: {
+      name: "reviewers",
+      description: "Private review forum",
+      visibility: "private",
+      lifecycle: "ongoing",
+      postingPolicy: "writers",
+    },
+    writerPolicySupported: true,
+    onSave: fn(async () => {
+      throw new Error("Relay denied metadata update");
+    }),
+  }}
+  play={async ({ canvasElement }) => {
+    const overlay = within(canvasElement.ownerDocument.body);
+    await userEvent.click(overlay.getByRole("button", { name: "Save" }));
+    await expect(
+      overlay.getByText("Relay denied metadata update"),
+    ).toBeVisible();
+    await expect(overlay.getByLabelText("Name")).toHaveValue("reviewers");
+    await expect(
+      overlay.getByRole("radio", { name: /Writers and administrators/ }),
+    ).toBeChecked();
   }}
 >
   {#snippet template(args)}

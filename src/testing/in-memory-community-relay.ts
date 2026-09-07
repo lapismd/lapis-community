@@ -429,6 +429,7 @@ interface Nip29MemoryGroup {
   metadata: Map<string, NostrTag>;
   admins: Map<string, readonly string[]>;
   members: Map<string, readonly string[]>;
+  invites: Set<string>;
 }
 
 export interface Nip29MemoryPolicyOptions {
@@ -454,6 +455,21 @@ export class Nip29MemoryPolicy implements InMemoryRelayPolicy {
   }
 
   process(event: NostrEvent): InMemoryRelayPolicyResult | undefined {
+    if ([9, 11, 1_111].includes(event.kind)) {
+      const contentGroupId = event.tags.find((tag) => tag[0] === "h")?.[1];
+      const contentGroup =
+        contentGroupId === undefined
+          ? undefined
+          : this.#groups.get(contentGroupId);
+      if (
+        contentGroup?.metadata.has("write-restricted") === true &&
+        !contentGroup.admins.has(event.pubkey) &&
+        !contentGroup.members.get(event.pubkey)?.includes("writer")
+      ) {
+        throw new Error("NIP-29 writer permission required");
+      }
+      return undefined;
+    }
     if (event.kind < 9_000 || event.kind > 9_022) return undefined;
     const groupId = event.tags.find((tag) => tag[0] === "h")?.[1];
     if (groupId === undefined || groupId === "") {
@@ -482,6 +498,7 @@ export class Nip29MemoryPolicy implements InMemoryRelayPolicy {
         metadata,
         admins: new Map([[event.pubkey, ["admin"]]]),
         members: new Map([[event.pubkey, ["admin"]]]),
+        invites: new Set(),
       };
       this.#groups.set(groupId, group);
       return { generatedEvents: this.#stateEvents(group, event.created_at) };
@@ -490,8 +507,22 @@ export class Nip29MemoryPolicy implements InMemoryRelayPolicy {
     const group = this.#groups.get(groupId);
     if (group === undefined) throw new Error(`Unknown NIP-29 group ${groupId}`);
     const isAdmin = group.admins.has(event.pubkey);
-    if ([9_000, 9_001, 9_002, 9_005, 9_008].includes(event.kind) && !isAdmin) {
+    if (
+      [9_000, 9_001, 9_002, 9_005, 9_008, 9_009].includes(event.kind) &&
+      !isAdmin
+    ) {
       throw new Error("NIP-29 administrator permission required");
+    }
+
+    if (
+      event.kind === 9_021 &&
+      group.metadata.has("private") &&
+      !group.members.has(event.pubkey)
+    ) {
+      const code = event.tags.find((tag) => tag[0] === "code")?.[1];
+      if (code === undefined || !group.invites.has(code)) {
+        throw new Error("NIP-29 invite code required");
+      }
     }
 
     if (event.kind === 9_000) {
@@ -506,11 +537,22 @@ export class Nip29MemoryPolicy implements InMemoryRelayPolicy {
         }
       }
     } else if (event.kind === 9_002) {
+      const content = parseObject(event.content);
+      if (content?.private === false) group.metadata.delete("private");
+      if (content?.["write-restricted"] === false) {
+        group.metadata.delete("write-restricted");
+      }
       for (const tag of event.tags) {
         if (tag[0] !== "h" && tag[0] !== undefined) {
           group.metadata.set(tag[0], [...tag]);
         }
       }
+    } else if (event.kind === 9_009) {
+      const code = event.tags.find((tag) => tag[0] === "code")?.[1];
+      if (code === undefined || code === "") {
+        throw new Error("NIP-29 invite code is required");
+      }
+      group.invites.add(code);
     } else if (event.kind === 9_021) {
       group.members.set(event.pubkey, []);
     } else if (event.kind === 9_022) {
@@ -521,7 +563,7 @@ export class Nip29MemoryPolicy implements InMemoryRelayPolicy {
       return {
         removeEvents: (stored) =>
           stored.kind >= 39_000 &&
-          stored.kind <= 39_002 &&
+          stored.kind <= 39_003 &&
           stored.tags.some((tag) => tag[0] === "d" && tag[1] === groupId),
       };
     } else if (event.kind === 9_005) {
@@ -574,6 +616,19 @@ export class Nip29MemoryPolicy implements InMemoryRelayPolicy {
           ...[...group.members.entries()]
             .toSorted(([left], [right]) => left.localeCompare(right))
             .map(([pubkey, roles]) => ["p", pubkey, ...roles]),
+        ],
+      }),
+      this.#sign({
+        kind: 39_003,
+        created_at: createdAt,
+        content: "",
+        tags: [
+          ["d", group.id],
+          [
+            "role",
+            "writer",
+            "Can publish when this group is limited to writers.",
+          ],
         ],
       }),
     ];

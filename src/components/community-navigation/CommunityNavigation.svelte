@@ -38,6 +38,7 @@
   import SettingsIcon from "@lucide/svelte/icons/settings";
   import StarIcon from "@lucide/svelte/icons/star";
   import TrashIcon from "@lucide/svelte/icons/trash-2";
+  import UserRoundPlusIcon from "@lucide/svelte/icons/user-round-plus";
   import { type Component, type Snippet } from "svelte";
   import CommunityMemberAvatar from "../community-member-avatar/CommunityMemberAvatar.svelte";
   import {
@@ -119,6 +120,7 @@
     if (action.icon === "browse") return CompassIcon;
     if (action.icon === "compose") return MessageSquarePlusIcon;
     if (action.icon === "create") return PlusIcon;
+    if (action.icon === "join-invite") return UserRoundPlusIcon;
     if (action.icon === "new-section") return FolderPlusIcon;
     if (action.icon === "rename") return PencilIcon;
     if (action.icon === "delete") return TrashIcon;

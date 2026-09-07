@@ -63,6 +63,7 @@ export interface CommunityStoryRuntime {
   backend: CommunityStoryBackend;
   controller: CommunityController;
   relayFactory: CommunityRelayFactory;
+  relayAuthorityPubkey?: string;
   scenario: CommunityTestScenario;
   dispose(): void;
 }
@@ -485,7 +486,11 @@ export async function createCommunityStoryRuntime(
   const backend = options.backend ?? configured.backend;
   if (backend === "memory") {
     const runtime = await createCommunityTestRuntime(options);
-    return { ...runtime, backend };
+    return {
+      ...runtime,
+      backend,
+      relayAuthorityPubkey: publicKey(relayKey),
+    };
   }
 
   const relayUrl = options.relayUrl ?? configured.relayUrl;
@@ -500,8 +505,26 @@ export async function createCommunityStoryRuntime(
     namespace: options.namespace ?? crypto.randomUUID(),
   });
   const relayFactory = createWebSocketCommunityRelayFactory();
+  let relayAuthorityPubkey: string | undefined;
   if (backend === "docker") {
     await seedCommunityTestScenario(scenario, relayFactory);
+    const relay = relayFactory.create(relayUrl);
+    try {
+      await relay.authenticate?.((template) =>
+        scenario.operator.signEvent(template),
+      );
+      relayAuthorityPubkey = (
+        await relay.query({
+          kinds: [39_000],
+          "#d": [scenario.scope.rooms?.[0]?.groupId ?? ""],
+        })
+      ).sort(
+        (left, right) =>
+          right.created_at - left.created_at || right.id.localeCompare(left.id),
+      )[0]?.pubkey;
+    } finally {
+      relay.close();
+    }
   }
   const liveScope: CommunityScope =
     backend === "live"
@@ -574,6 +597,7 @@ export async function createCommunityStoryRuntime(
     backend,
     controller,
     relayFactory,
+    ...(relayAuthorityPubkey === undefined ? {} : { relayAuthorityPubkey }),
     scenario,
     dispose() {
       controller.dispose();

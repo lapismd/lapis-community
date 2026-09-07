@@ -61,7 +61,7 @@
     await userEvent.click(
       canvas.getByRole("button", { name: "Edit profile photo" }),
     );
-    await userEvent.click(canvas.getByRole("tab", { name: "Emoji" }));
+    await userEvent.click(await canvas.findByRole("tab", { name: "Emoji" }));
     await userEvent.click(
       canvas.getByRole("button", { name: "Use 🐝 as profile photo" }),
     );

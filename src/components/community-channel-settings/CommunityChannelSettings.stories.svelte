@@ -45,6 +45,8 @@
     members: communityInboxFixture.members,
     description:
       "This private channel is your home base for getting oriented and working with your community.",
+    writerPolicySupported: true,
+    groupInvitesSupported: true,
     onClose: fn(),
     onAction: fn(),
   }}
@@ -66,6 +68,15 @@
     await waitFor(() => expect(copyIcon).toBeVisible());
     await userEvent.keyboard("{Enter}");
     await expect(args.onAction).toHaveBeenCalledWith("copy-channel-id");
+
+    await userEvent.click(
+      canvas.getByRole("button", { name: /Posting permissions/ }),
+    );
+    await expect(args.onAction).toHaveBeenCalledWith("edit-posting");
+    await userEvent.click(
+      canvas.getByRole("button", { name: /Create invite link/ }),
+    );
+    await expect(args.onAction).toHaveBeenCalledWith("create-invite");
 
     const leave = canvas.getByRole("button", { name: "Leave channel" });
     const deleteChannel = canvas.getByRole("button", {
@@ -106,6 +117,56 @@
 </Story>
 
 <Story
+  name="Management capabilities unavailable"
+  args={{
+    room: {
+      ...communityInboxFixture.room,
+      private: true,
+      permissions: {
+        publish: enabled,
+        join: enabled,
+        leave: enabled,
+        update: enabled,
+        delete: enabled,
+        manageMembers: enabled,
+      },
+    },
+    members: communityInboxFixture.members,
+    description: "A relay without role, writer-policy, or invite support.",
+    writerPolicySupported: false,
+    groupInvitesSupported: false,
+    onClose: fn(),
+    onAction: fn(),
+  }}
+  play={async ({ canvas }) => {
+    await expect(
+      canvas.getByRole("button", { name: /Visibility/ }),
+    ).toBeVisible();
+    await expect(
+      canvas.queryByRole("button", { name: /Posting permissions/ }),
+    ).not.toBeInTheDocument();
+    await expect(
+      canvas.queryByRole("button", { name: /Create invite link/ }),
+    ).not.toBeInTheDocument();
+  }}
+>
+  {#snippet template(args)}
+    <CommunityAppShell
+      {controller}
+      displayMode="desktop"
+      desktopMinMainWidth={0}
+    >
+      <AppShell.Main>
+        <AppShell.Body label="Settings preview">Channel</AppShell.Body>
+      </AppShell.Main>
+      <AppShell.Sidebar side="right" label="Channel settings" closeable>
+        <CommunityChannelSettings {...args} />
+      </AppShell.Sidebar>
+    </CommunityAppShell>
+  {/snippet}
+</Story>
+
+<Story
   name="Signed-out actions omitted"
   args={{
     room: {
@@ -121,6 +182,8 @@
     },
     members: communityInboxFixture.members,
     description: "Introductions and community onboarding",
+    writerPolicySupported: true,
+    groupInvitesSupported: true,
     onClose: fn(),
     onAction: fn(),
   }}
@@ -130,6 +193,12 @@
     ).not.toBeInTheDocument();
     await expect(
       canvas.queryByRole("button", { name: "Delete channel" }),
+    ).not.toBeInTheDocument();
+    await expect(
+      canvas.queryByRole("button", { name: /Posting permissions/ }),
+    ).not.toBeInTheDocument();
+    await expect(
+      canvas.queryByRole("button", { name: /Create invite link/ }),
     ).not.toBeInTheDocument();
     await expect(
       canvasElement.querySelector(".lc-channel-settings__danger-zone"),
@@ -161,14 +230,23 @@
       name: "support-ai",
       kind: "forum" as const,
       memberCount: communityInboxFixture.participantCount,
+      postingPolicy: "writers" as const,
+      private: true,
     },
     members: communityInboxFixture.members,
     description: "Questions, guides, and support for the AI plugin.",
+    writerPolicySupported: true,
+    groupInvitesSupported: true,
     onClose: fn(),
     onAction: fn(),
   }}
   play={async ({ canvas, args }) => {
     await expect(canvas.getByText("Forum settings")).toBeVisible();
+    await expect(canvas.getByText("Writers and administrators")).toBeVisible();
+    await userEvent.click(
+      canvas.getByRole("button", { name: /Create invite link/ }),
+    );
+    await expect(args.onAction).toHaveBeenCalledWith("create-invite");
     const leave = canvas.getByRole("button", { name: "Leave forum" });
     const deleteForum = canvas.getByRole("button", { name: "Delete forum" });
     await expect(getComputedStyle(leave).color).toBe(

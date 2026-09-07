@@ -7,7 +7,9 @@
   import LogOutIcon from "@lucide/svelte/icons/log-out";
   import MessagesSquareIcon from "@lucide/svelte/icons/messages-square";
   import PencilIcon from "@lucide/svelte/icons/pencil";
+  import ShieldCheckIcon from "@lucide/svelte/icons/shield-check";
   import Trash2Icon from "@lucide/svelte/icons/trash-2";
+  import UserPlusIcon from "@lucide/svelte/icons/user-plus";
 
   import type {
     CommunityMemberModel,
@@ -21,6 +23,8 @@
     members,
     description,
     canArchive = false,
+    writerPolicySupported = false,
+    groupInvitesSupported = false,
     onClose,
     onAction,
   }: {
@@ -28,6 +32,8 @@
     members: CommunityMemberModel[];
     description: string;
     canArchive?: boolean;
+    writerPolicySupported?: boolean;
+    groupInvitesSupported?: boolean;
     onClose: () => void;
     onAction: (action: string) => void;
   } = $props();
@@ -44,6 +50,10 @@
   const canDelete = $derived(
     room.permissions?.delete.state === undefined ||
       room.permissions.delete.state === "enabled",
+  );
+  const canManageMembers = $derived(
+    room.permissions?.manageMembers.state === undefined ||
+      room.permissions.manageMembers.state === "enabled",
   );
   const hasDangerActions = $derived(
     (canArchive && canUpdate) || canLeave || canDelete,
@@ -110,6 +120,27 @@
               aria-hidden="true"
             />
           </Button>
+          {#if writerPolicySupported}
+            <Button
+              variant="ghost"
+              class="lc-channel-settings__row"
+              onclick={() => onAction("edit-posting")}
+            >
+              <span>
+                <strong>Posting permissions</strong>
+                <small>
+                  {room.postingPolicy === "writers"
+                    ? "Writers and administrators"
+                    : "Everyone with access"}
+                </small>
+              </span>
+              <ShieldCheckIcon
+                class="lc-channel-settings__edit-icon"
+                data-icon="inline-end"
+                aria-hidden="true"
+              />
+            </Button>
+          {/if}
         {/if}
         <Button
           variant="ghost"
@@ -126,6 +157,21 @@
             {/each}
           </span>
         </Button>
+        {#if room.private && canManageMembers && groupInvitesSupported}
+          <Button
+            variant="ghost"
+            class="lc-channel-settings__row"
+            onclick={() => onAction("create-invite")}
+          >
+            <span>
+              <strong>Create invite link</strong>
+              <small
+                >Invite someone to this private {roomType.toLowerCase()}.</small
+              >
+            </span>
+            <UserPlusIcon data-icon="inline-end" aria-hidden="true" />
+          </Button>
+        {/if}
         <Button
           variant="ghost"
           class="lc-channel-settings__row"

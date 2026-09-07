@@ -46,6 +46,10 @@ For LC-UI-030, production-component stories project signed kind `0`, `1`, `3`,
 configured relays. Fixture signatures and author relationships remain subject
 to the LC-NOSTR-019 verification and deterministic materialization rules.
 
+For LC-UI-032, relay-contract fixtures retain the LC-NOSTR-020 authority and
+command shapes while exercising the role, writer-policy, and invite controls
+rendered by the production application.
+
 Plugin support discussions use one NIP-29 group per plugin. NIP-7D kind `11`
 topics, NIP-22 kind `1111` replies, and NIP-25 kind `7` reactions remain
 ordinary signed relay events. Clients render them in posting order and retain

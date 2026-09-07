@@ -4,6 +4,8 @@
   import * as Field from "@lapismd/design-core/shadcn/field";
   import { Input } from "@lapismd/design-core/shadcn/input";
   import { Textarea } from "@lapismd/design-core/shadcn/textarea";
+  import * as ToggleGroup from "@lapismd/design-core/shadcn/toggle-group";
+  import { untrack } from "svelte";
 
   import type {
     CommunityOperationState,
@@ -17,6 +19,7 @@
     roomKind,
     initial,
     retentionSupported = false,
+    writerPolicySupported = false,
     operation,
     onSave,
   }: {
@@ -25,6 +28,7 @@
     roomKind: Exclude<CommunityRoomKind, "direct">;
     initial?: Partial<CommunityRoomUpdate>;
     retentionSupported?: boolean;
+    writerPolicySupported?: boolean;
     operation?: CommunityOperationState;
     onSave: (update: CommunityRoomUpdate) => Promise<void>;
   } = $props();
@@ -33,17 +37,26 @@
   let description = $state("");
   let visibility = $state<"public" | "private">("public");
   let lifecycle = $state<"ongoing" | "temporary">("ongoing");
+  let postingPolicy = $state<"standard" | "writers">("standard");
   let localError = $state("");
+  let initializedOpen = false;
   const noun = $derived(roomKind === "forum" ? "forum" : "channel");
   const error = $derived(localError || operation?.message || "");
   const pending = $derived(operation?.status === "pending");
 
   $effect(() => {
-    if (!open) return;
-    name = initial?.name ?? "";
-    description = initial?.description ?? "";
-    visibility = initial?.visibility ?? "public";
-    lifecycle = initial?.lifecycle ?? "ongoing";
+    if (!open) {
+      initializedOpen = false;
+      return;
+    }
+    if (initializedOpen) return;
+    initializedOpen = true;
+    const openingInitial = untrack(() => initial);
+    name = openingInitial?.name ?? "";
+    description = openingInitial?.description ?? "";
+    visibility = openingInitial?.visibility ?? "public";
+    lifecycle = openingInitial?.lifecycle ?? "ongoing";
+    postingPolicy = openingInitial?.postingPolicy ?? "standard";
     localError = "";
   });
 
@@ -51,7 +64,13 @@
     event.preventDefault();
     localError = "";
     try {
-      await onSave({ name, description, visibility, lifecycle });
+      await onSave({
+        name,
+        description,
+        visibility,
+        lifecycle,
+        ...(writerPolicySupported ? { postingPolicy } : {}),
+      });
       open = false;
     } catch (cause) {
       localError =
@@ -76,6 +95,39 @@
           <Field.Label for="community-room-name">Name</Field.Label>
           <Input id="community-room-name" bind:value={name} required />
         </Field.Field>
+        {#if writerPolicySupported}
+          <Field.Field>
+            <Field.Legend>Posting permissions</Field.Legend>
+            <ToggleGroup.Root
+              class="community-room-editor__posting-policy"
+              type="single"
+              value={postingPolicy}
+              onValueChange={(value) => {
+                if (value === "standard" || value === "writers")
+                  postingPolicy = value;
+              }}
+              orientation="vertical"
+              spacing={2}
+              aria-label="Posting permissions"
+            >
+              <ToggleGroup.Item value="standard" variant="outline">
+                <span>
+                  <strong>Everyone with access</strong>
+                  <small>All members can post in this {noun}.</small>
+                </span>
+              </ToggleGroup.Item>
+              <ToggleGroup.Item value="writers" variant="outline">
+                <span>
+                  <strong>Writers and administrators</strong>
+                  <small>
+                    Only relay administrators and members with the Writer role
+                    can post.
+                  </small>
+                </span>
+              </ToggleGroup.Item>
+            </ToggleGroup.Root>
+          </Field.Field>
+        {/if}
         <Field.Field>
           <Field.Label for="community-room-description">Description</Field.Label
           >
@@ -155,5 +207,29 @@
   .community-room-editor__choices {
     display: flex;
     gap: 0.5rem;
+  }
+
+  :global(.community-room-editor__posting-policy) {
+    width: 100%;
+  }
+
+  :global(
+      .community-room-editor__posting-policy [data-ui-part="toggle-group-item"]
+    ) {
+    width: 100%;
+    height: auto;
+    justify-content: flex-start;
+    padding: 0.8rem;
+    text-align: start;
+  }
+
+  :global(.community-room-editor__posting-policy span) {
+    display: grid;
+    gap: 0.2rem;
+  }
+
+  :global(.community-room-editor__posting-policy small) {
+    color: var(--muted-foreground);
+    font-weight: 400;
   }
 </style>

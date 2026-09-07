@@ -3,6 +3,7 @@
   import { onMount, tick } from "svelte";
 
   import {
+    buildCommunityGroupInvite,
     createBrowserCommunityConfigurationStore,
     createBrowserCommunityEventRuntime,
     createInlineCommunityEventRuntime,
@@ -67,9 +68,19 @@
   let runtimeError = $state("");
   let registrySource = $state.raw(createRegistryStoryDataSource());
   let applicationGeneration = $state(0);
+  let storyInviteUri = $state("");
   let installedPluginIds = $state<string[]>([]);
   let progressiveRetryTimer: number | undefined;
   const storyShellController = new AppShellController({ rightClosed: true });
+  const storyActiveMembership = $derived.by(() => {
+    const workspace = community?.state.workspace;
+    if (!workspace) return "";
+    return (
+      workspace.navigationSections
+        .flatMap((section) => section.rooms)
+        .find((room) => room.id === workspace.activeRoomId)?.membership ?? ""
+    );
+  });
 
   onMount(() => {
     let active = true;
@@ -105,6 +116,7 @@
       runtime = undefined;
       community = undefined;
       runtimeError = "";
+      storyInviteUri = "";
       installedPluginIds = [];
       const selectedBackend =
         document.documentElement.dataset.communityBackend ?? "memory";
@@ -125,6 +137,15 @@
             return;
           }
           runtime = created;
+          const inviteRoom = created.scenario.scope.rooms?.[0];
+          if (inviteRoom && created.relayAuthorityPubkey) {
+            storyInviteUri = buildCommunityGroupInvite({
+              groupId: inviteRoom.groupId,
+              relayUrl: created.scenario.scope.relayUrl,
+              relayPubkey: created.relayAuthorityPubkey,
+              code: "storybook-invite",
+            }).uri;
+          }
           const participantPubkey =
             await created.scenario.participant.getPublicKey();
           const pulse = {
@@ -248,6 +269,12 @@
                     }
                     return session.loadContentWindow!(request, nextSignal);
                   },
+                  ...(session.loadGroup === undefined
+                    ? {}
+                    : {
+                        loadGroup: (request, nextSignal) =>
+                          session.loadGroup!(request, nextSignal),
+                      }),
                   subscribe: (listener, nextSignal) =>
                     session.subscribe(listener, nextSignal),
                   execute: (command, nextSignal) =>
@@ -387,6 +414,8 @@
       {...responsive ? {} : { desktopMinMainWidth: 0 }}
       data-testid="full-community-application"
       data-community-backend={runtime.backend}
+      data-story-active-membership={storyActiveMembership}
+      data-story-invite-uri={storyInviteUri}
       data-application-generation={applicationGeneration}
       registryOptions={{
         source: registrySource,

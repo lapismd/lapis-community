@@ -10,7 +10,8 @@
       handle: "steve",
       initials: "SJ",
       presence: "online" as const,
-      role: "owner",
+      role: "administrator",
+      administrator: true,
     },
     {
       id: "ada",
@@ -18,7 +19,8 @@
       handle: "ada",
       initials: "AC",
       presence: "online" as const,
-      role: "member",
+      role: "writer",
+      roles: ["writer"],
     },
     {
       id: "mara",
@@ -41,6 +43,19 @@
     component: CommunityMemberCommand,
     tags: ["visual-pending"],
   });
+
+  const roleDefinitions = [
+    {
+      id: "writer",
+      label: "Writer",
+      description: "Can post when the room is limited to writers.",
+    },
+    {
+      id: "moderator",
+      label: "Moderator",
+      description: "Can moderate content when supported by the relay.",
+    },
+  ];
 </script>
 
 <Story
@@ -54,9 +69,11 @@
     results: directory,
     groupMemberIds: ["steve", "ada"],
     currentMemberId: "steve",
+    roleDefinitions,
     onSearch: fn(),
     onSelect: fn(),
     onRemove: fn(),
+    onSetRoles: fn(async () => {}),
   }}
   play={async ({ canvasElement, args }) => {
     const overlay = within(canvasElement.ownerDocument.body);
@@ -92,11 +109,82 @@
       command.getByRole("option", { name: "Manage Ada Chen" }),
     );
     await userEvent.click(
+      await overlay.findByRole("menuitem", { name: "Manage roles" }),
+    );
+    const rolesDialog = await overlay.findByRole("dialog", {
+      name: "Manage roles",
+    });
+    await expect(within(rolesDialog).getByText("Member")).toBeVisible();
+    await userEvent.click(
+      within(rolesDialog).getByRole("checkbox", { name: "Moderator" }),
+    );
+    await userEvent.click(
+      within(rolesDialog).getByRole("button", { name: "Save roles" }),
+    );
+    await expect(args.onSetRoles).toHaveBeenCalledWith(
+      expect.objectContaining({ id: "ada" }),
+      ["moderator", "writer"],
+    );
+
+    await userEvent.click(
+      command.getByRole("option", { name: "Manage Ada Chen" }),
+    );
+    await userEvent.click(
       await overlay.findByRole("menuitem", { name: "Remove from channel" }),
     );
     await expect(args.onRemove).toHaveBeenCalledWith(
       expect.objectContaining({ id: "ada" }),
     );
+  }}
+>
+  {#snippet template(args)}
+    <CommunityMemberCommand {...args} />
+  {/snippet}
+</Story>
+
+<Story
+  name="Role update failure retained"
+  args={{
+    open: true,
+    title: "Forum members",
+    roomKind: "forum",
+    mode: "manage",
+    members: [directory[1]],
+    results: [directory[1]],
+    groupMemberIds: ["ada"],
+    roleDefinitions,
+    onSearch: fn(),
+    onSelect: fn(),
+    onRemove: fn(),
+    onSetRoles: fn(async () => {
+      throw new Error("Relay denied role replacement");
+    }),
+  }}
+  play={async ({ canvasElement }) => {
+    const overlay = within(canvasElement.ownerDocument.body);
+    const membersDialog = await overlay.findByRole("dialog", {
+      name: "Forum members",
+    });
+    await userEvent.click(
+      within(membersDialog).getByRole("option", { name: "Manage Ada Chen" }),
+    );
+    await userEvent.click(
+      await overlay.findByRole("menuitem", { name: "Manage roles" }),
+    );
+    const rolesDialog = await overlay.findByRole("dialog", {
+      name: "Manage roles",
+    });
+    const moderator = within(rolesDialog).getByRole("checkbox", {
+      name: "Moderator",
+    });
+    await userEvent.click(moderator);
+    await userEvent.click(
+      within(rolesDialog).getByRole("button", { name: "Save roles" }),
+    );
+    await expect(within(rolesDialog).getByRole("alert")).toHaveTextContent(
+      "Relay denied role replacement",
+    );
+    await expect(moderator).toBeChecked();
   }}
 >
   {#snippet template(args)}
@@ -115,9 +203,11 @@
     results: directory,
     groupMemberIds: ["steve"],
     currentMemberId: "steve",
+    roleDefinitions,
     onSearch: fn(),
     onSelect: fn(),
     onRemove: fn(),
+    onSetRoles: fn(async () => {}),
   }}
   play={async ({ canvasElement }) => {
     const overlay = within(canvasElement.ownerDocument.body);
@@ -141,10 +231,12 @@
     await userEvent.clear(
       command.getByRole("combobox", { name: "Search members" }),
     );
-    await userEvent.click(command.getByRole("option", { name: "Manage You" }));
     await expect(
-      await overlay.findByRole("menuitem", { name: "Remove from forum" }),
+      command.getByRole("option", { name: "You, administrator" }),
     ).toBeVisible();
+    await expect(
+      command.queryByRole("option", { name: "Manage You" }),
+    ).not.toBeInTheDocument();
   }}
 >
   {#snippet template(args)}

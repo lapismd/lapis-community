@@ -179,13 +179,14 @@ export function registerCommunityRelayContract(
       ).toHaveLength(1);
     });
 
-    it("materializes NIP-29 create, join, leave, and permission transitions", async () => {
+    it("materializes NIP-29 membership, writer policy, and invite transitions", async () => {
       const groupId = context.uniqueId("group");
+      const createdAt = Math.floor(Date.now() / 1_000);
       const admin = await context.connection(relayContractAliceKey);
       await admin.publish(
         sign(relayContractAliceKey, {
           kind: 9_007,
-          created_at: 150,
+          created_at: createdAt,
           content: JSON.stringify({ name: "Contract group" }),
           tags: [
             ["h", groupId],
@@ -206,7 +207,7 @@ export function registerCommunityRelayContract(
       await member.publish(
         sign(relayContractBobKey, {
           kind: 9_021,
-          created_at: 151,
+          created_at: createdAt + 1,
           content: "",
           tags: [["h", groupId]],
         }),
@@ -226,7 +227,7 @@ export function registerCommunityRelayContract(
         member.publish(
           sign(relayContractBobKey, {
             kind: 9_002,
-            created_at: 152,
+            created_at: createdAt + 2,
             content: "",
             tags: [
               ["h", groupId],
@@ -235,22 +236,166 @@ export function registerCommunityRelayContract(
           }),
         ),
       ).rejects.toThrow();
-      await member.publish(
-        sign(relayContractBobKey, {
-          kind: 9_022,
-          created_at: 153,
+
+      const roleAdmin = await context.connection(relayContractAliceKey);
+      await roleAdmin.publish(
+        sign(relayContractAliceKey, {
+          kind: 9_000,
+          created_at: createdAt + 3,
           content: "",
-          tags: [["h", groupId]],
+          tags: [
+            ["h", groupId],
+            ["p", memberPubkey, "writer"],
+          ],
         }),
       );
       await expect(
         waitForEvents(
-          member,
+          roleAdmin,
+          { kinds: [39_002], "#d": [groupId] },
+          1,
+          (events) =>
+            events[0]?.tags.some(
+              (tag) =>
+                tag[0] === "p" &&
+                tag[1] === memberPubkey &&
+                tag.includes("writer"),
+            ) === true,
+        ),
+      ).resolves.toHaveLength(1);
+      await roleAdmin.publish(
+        sign(relayContractAliceKey, {
+          kind: 9_002,
+          created_at: createdAt + 4,
+          content: JSON.stringify({
+            name: "Contract group",
+            private: true,
+            "write-restricted": true,
+          }),
+          tags: [
+            ["h", groupId],
+            ["name", "Contract group"],
+            ["private"],
+            ["write-restricted"],
+          ],
+        }),
+      );
+      await expect(
+        waitForEvents(
+          roleAdmin,
+          { kinds: [39_000], "#d": [groupId] },
+          1,
+          (events) =>
+            events[0]?.tags.some((tag) => tag[0] === "write-restricted") ===
+            true,
+        ),
+      ).resolves.toHaveLength(1);
+      const writerMember = await context.connection(relayContractBobKey);
+      await expect(
+        writerMember.publish(
+          message(
+            relayContractBobKey,
+            createdAt + 5,
+            "writer message",
+            groupId,
+          ),
+        ),
+      ).resolves.toMatchObject({ accepted: true });
+      const clearingAdmin = await context.connection(relayContractAliceKey);
+      await clearingAdmin.publish(
+        sign(relayContractAliceKey, {
+          kind: 9_000,
+          created_at: createdAt + 6,
+          content: "",
+          tags: [
+            ["h", groupId],
+            ["p", memberPubkey],
+          ],
+        }),
+      );
+      await expect(
+        waitForEvents(
+          clearingAdmin,
+          { kinds: [39_002], "#d": [groupId] },
+          1,
+          (events) =>
+            events[0]?.tags.some(
+              (tag) =>
+                tag[0] === "p" && tag[1] === memberPubkey && tag.length === 2,
+            ) === true,
+        ),
+      ).resolves.toHaveLength(1);
+      const restrictedMember = await context.connection(relayContractBobKey);
+      await expect(
+        restrictedMember.publish(
+          message(relayContractBobKey, createdAt + 7, "not a writer", groupId),
+        ),
+      ).rejects.toThrow();
+      await restrictedMember.publish(
+        sign(relayContractBobKey, {
+          kind: 9_022,
+          created_at: createdAt + 8,
+          content: "",
+          tags: [["h", groupId]],
+        }),
+      );
+      const leaveObserver = await context.connection(relayContractAliceKey);
+      await expect(
+        waitForEvents(
+          leaveObserver,
           { kinds: [39_002], "#d": [groupId] },
           1,
           (events) =>
             events[0]?.tags.every(
               (tag) => tag[0] !== "p" || tag[1] !== memberPubkey,
+            ) === true,
+        ),
+      ).resolves.toHaveLength(1);
+      const inviteAdmin = await context.connection(relayContractAliceKey);
+      await inviteAdmin.publish(
+        sign(relayContractAliceKey, {
+          kind: 9_009,
+          created_at: createdAt + 9,
+          content: "",
+          tags: [
+            ["h", groupId],
+            ["code", "contract-invite"],
+          ],
+        }),
+      );
+      const invitedMember = await context.connection(relayContractBobKey);
+      await expect(
+        invitedMember.publish(
+          sign(relayContractBobKey, {
+            kind: 9_021,
+            created_at: createdAt + 10,
+            content: "",
+            tags: [
+              ["h", groupId],
+              ["code", "wrong-code"],
+            ],
+          }),
+        ),
+      ).rejects.toThrow();
+      await invitedMember.publish(
+        sign(relayContractBobKey, {
+          kind: 9_021,
+          created_at: createdAt + 11,
+          content: "",
+          tags: [
+            ["h", groupId],
+            ["code", "contract-invite"],
+          ],
+        }),
+      );
+      await expect(
+        waitForEvents(
+          invitedMember,
+          { kinds: [39_002], "#d": [groupId] },
+          1,
+          (events) =>
+            events[0]?.tags.some(
+              (tag) => tag[0] === "p" && tag[1] === memberPubkey,
             ) === true,
         ),
       ).resolves.toHaveLength(1);
@@ -323,11 +468,22 @@ async function waitForEvents(
   predicate: (events: readonly NostrEvent[]) => boolean = () => true,
 ): Promise<NostrEvent[]> {
   const deadline = Date.now() + 5_000;
+  let lastEvents: readonly NostrEvent[] = [];
   for (;;) {
     const events = await relay.query(filter);
+    lastEvents = events;
     if (events.length >= minimum && predicate(events)) return events;
     if (Date.now() >= deadline) {
-      throw new Error("Relay state transition timed out");
+      throw new Error(
+        `Relay state transition timed out: ${JSON.stringify(
+          lastEvents.map((event) => ({
+            kind: event.kind,
+            createdAt: event.created_at,
+            tags: event.tags,
+            content: event.content,
+          })),
+        )}`,
+      );
     }
     await new Promise((resolve) => setTimeout(resolve, 20));
   }
