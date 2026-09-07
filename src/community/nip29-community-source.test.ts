@@ -706,6 +706,185 @@ describe("createNip29CommunitySource", () => {
     session.close();
   });
 
+  it("encodes roles, writer policy, invites, and invite joins exactly", async () => {
+    const scenario = createCommunityTestScenario();
+    const relayFactory = createInMemoryRelayFactory({
+      policy: new Nip29MemoryPolicy({
+        relaySecretKey: relayKey,
+        now: () => 1_700_000_100,
+      }),
+    });
+    const relay = relayFactory.relay(scenario.scope.relayUrl);
+    await scenario.seed(relay);
+    const memberPubkey = await scenario.member.getPublicKey();
+    const session = await createNip29CommunitySource({ relayFactory }).open(
+      scenario.scope,
+      { identity: scenario.operator },
+    );
+
+    await session.execute({
+      type: "update-room",
+      groupId: "general",
+      update: {
+        name: "Announcements",
+        description: "Important updates",
+        visibility: "private",
+        lifecycle: "ongoing",
+        postingPolicy: "writers",
+      },
+    });
+    await session.execute({
+      type: "update-room",
+      groupId: "general",
+      update: {
+        name: "Announcements and updates",
+        description: "Important updates",
+        visibility: "private",
+        lifecycle: "ongoing",
+      },
+    });
+    await session.execute({
+      type: "add-member",
+      groupId: "general",
+      pubkey: memberPubkey,
+      roles: ["moderator", "writer"],
+    });
+    await session.execute({
+      type: "create-invite",
+      groupId: "general",
+      code: "private-code",
+    });
+    await session.execute({
+      type: "join",
+      groupId: "general",
+      code: "private-code",
+    });
+
+    const update = (await relay.query({ kinds: [9_002], "#h": ["general"] }))
+      .toSorted(
+        (left, right) =>
+          left.created_at - right.created_at || left.id.localeCompare(right.id),
+      )
+      .at(-1)!;
+    expect(update.tags).toContainEqual(["private"]);
+    expect(update.tags).toContainEqual(["write-restricted"]);
+    expect(update.tags).toContainEqual(["supported_kinds", "9", "7"]);
+    expect(JSON.parse(update.content)).toMatchObject({
+      name: "Announcements and updates",
+      private: true,
+      "write-restricted": true,
+    });
+    expect(
+      (await relay.query({ kinds: [9_000], "#h": ["general"] })).some((event) =>
+        event.tags.some(
+          (tag) =>
+            tag[0] === "p" &&
+            tag[1] === memberPubkey &&
+            tag.slice(2).join(",") === "moderator,writer",
+        ),
+      ),
+    ).toBe(true);
+    expect(
+      (await relay.query({ kinds: [9_009], "#h": ["general"] })).at(-1)?.tags,
+    ).toEqual([
+      ["h", "general"],
+      ["code", "private-code"],
+    ]);
+    expect(
+      (await relay.query({ kinds: [9_021], "#h": ["general"] })).at(-1)?.tags,
+    ).toEqual([
+      ["h", "general"],
+      ["code", "private-code"],
+    ]);
+    session.close();
+  });
+
+  it("advances room edits beyond the authoritative metadata timestamp", async () => {
+    const scenario = createCommunityTestScenario();
+    const relayFactory = createInMemoryRelayFactory({
+      policy: new Nip29MemoryPolicy({
+        relaySecretKey: relayKey,
+        now: () => 1_700_000_000,
+      }),
+    });
+    const relay = relayFactory.relay(scenario.scope.relayUrl);
+    await scenario.seed(relay);
+    const session = await createNip29CommunitySource({ relayFactory }).open(
+      scenario.scope,
+      { identity: scenario.operator },
+    );
+    const dateNow = vi
+      .spyOn(Date, "now")
+      .mockReturnValue(1_700_000_000 * 1_000);
+
+    try {
+      const [metadata] = await relay.query({
+        kinds: [39_000],
+        "#d": ["general"],
+      });
+      await session.execute({
+        type: "update-room",
+        groupId: "general",
+        update: {
+          name: "Announcements",
+          description: "Important updates",
+          visibility: "private",
+          lifecycle: "ongoing",
+          postingPolicy: "writers",
+        },
+      });
+      const [update] = await relay.query({
+        kinds: [9_002],
+        "#h": ["general"],
+      });
+      expect(update?.created_at).toBe((metadata?.created_at ?? 0) + 1);
+    } finally {
+      dateNow.mockRestore();
+      session.close();
+    }
+  });
+
+  it("advances role updates beyond the authoritative membership timestamp", async () => {
+    const scenario = createCommunityTestScenario();
+    const relayFactory = createInMemoryRelayFactory({
+      policy: new Nip29MemoryPolicy({
+        relaySecretKey: relayKey,
+        now: () => 1_700_000_000,
+      }),
+    });
+    const relay = relayFactory.relay(scenario.scope.relayUrl);
+    await scenario.seed(relay);
+    const session = await createNip29CommunitySource({ relayFactory }).open(
+      scenario.scope,
+      { identity: scenario.operator },
+    );
+    const memberPubkey = await scenario.member.getPublicKey();
+    const dateNow = vi
+      .spyOn(Date, "now")
+      .mockReturnValue(1_700_000_000 * 1_000);
+
+    try {
+      const [membership] = await relay.query({
+        kinds: [39_002],
+        "#d": ["general"],
+      });
+      await session.execute({
+        type: "add-member",
+        groupId: "general",
+        pubkey: memberPubkey,
+        roles: ["writer"],
+      });
+      const [update] = await relay.query({
+        kinds: [9_000],
+        "#h": ["general"],
+      });
+      expect(update?.created_at).toBe((membership?.created_at ?? 0) + 1);
+    } finally {
+      dateNow.mockRestore();
+      session.close();
+    }
+  });
+
   it("routes NIP-17 gift wraps to each participant's advertised inbox relay", async () => {
     const scenario = createCommunityTestScenario({
       relayUrl: "memory://authority.test",

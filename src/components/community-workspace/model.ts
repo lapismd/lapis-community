@@ -44,6 +44,8 @@ export interface CommunityRoomModel {
   mentionCount?: number;
   memberCount?: number;
   private?: boolean;
+  postingPolicy?: "standard" | "writers";
+  roleDefinitions?: readonly CommunityRoleDefinition[];
   archived?: boolean;
   membership?: "joined" | "not-joined" | "unknown";
   memberListCompleteness?: "complete" | "partial" | "unavailable";
@@ -68,6 +70,14 @@ export interface CommunityMemberModel {
   presence?: CommunityPresence;
   status?: string;
   role?: string;
+  roles?: readonly string[];
+  administrator?: boolean;
+}
+
+export interface CommunityRoleDefinition {
+  id: string;
+  label: string;
+  description?: string;
 }
 
 export interface CommunityReactionModel {

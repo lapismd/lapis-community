@@ -534,6 +534,126 @@ describe("materializeCommunityWorkspace", () => {
     expect(unknownPermission?.permissions?.manageMembers.state).toBe("enabled");
   });
 
+  it("projects multiple member roles and only authority-matched role definitions", () => {
+    const relayKey = new Uint8Array(32).fill(81);
+    const attackerKey = new Uint8Array(32).fill(82);
+    const member = finalizeEvent(
+      { kind: 0, created_at: 1, content: "{}", tags: [] },
+      new Uint8Array(32).fill(83),
+    );
+    const administrator = finalizeEvent(
+      { kind: 0, created_at: 1, content: "{}", tags: [] },
+      new Uint8Array(32).fill(84),
+    );
+    const events = [
+      finalizeEvent(
+        {
+          kind: 39_000,
+          created_at: 2,
+          content: "{}",
+          tags: [["d", "roles"], ["write-restricted"]],
+        },
+        relayKey,
+      ),
+      finalizeEvent(
+        {
+          kind: 39_001,
+          created_at: 3,
+          content: "",
+          tags: [
+            ["d", "roles"],
+            ["p", administrator.pubkey],
+          ],
+        },
+        relayKey,
+      ),
+      finalizeEvent(
+        {
+          kind: 39_002,
+          created_at: 3,
+          content: "",
+          tags: [
+            ["d", "roles"],
+            ["p", member.pubkey, "moderator", "moderator"],
+            ["p", member.pubkey, "writer"],
+            ["p", administrator.pubkey],
+          ],
+        },
+        relayKey,
+      ),
+      finalizeEvent(
+        {
+          kind: 39_003,
+          created_at: 3,
+          content: "",
+          tags: [
+            ["d", "roles"],
+            ["role", "moderator", "Can moderate room content."],
+          ],
+        },
+        relayKey,
+      ),
+      finalizeEvent(
+        {
+          kind: 39_003,
+          created_at: 4,
+          content: "",
+          tags: [
+            ["d", "roles"],
+            ["role", "forged", "Ignore me"],
+          ],
+        },
+        attackerKey,
+      ),
+    ];
+    const scope = {
+      id: "lapis",
+      name: "Lapis Community",
+      relayUrl: "memory://community.test",
+      rooms: [
+        {
+          id: "roles",
+          groupId: "roles",
+          name: "roles",
+          kind: "channel" as const,
+        },
+      ],
+    };
+    const workspace = materializeCommunityWorkspace(
+      [scope],
+      { [scope.id]: events },
+      scope.id,
+      { activeRoomId: "roles", identityPubkey: member.pubkey },
+    );
+
+    expect(
+      workspace.members.find((candidate) => candidate.id === member.pubkey),
+    ).toMatchObject({
+      roles: ["moderator", "writer"],
+      role: "moderator",
+    });
+    expect(
+      workspace.members.find(
+        (candidate) => candidate.id === administrator.pubkey,
+      ),
+    ).toMatchObject({ administrator: true, role: "administrator", roles: [] });
+    expect(workspace.navigationSections[0]?.rooms[0]?.roleDefinitions).toEqual([
+      {
+        id: "moderator",
+        label: "Moderator",
+        description: "Can moderate room content.",
+      },
+      {
+        id: "writer",
+        label: "Writer",
+        description: "Can publish when this room is limited to writers.",
+      },
+    ]);
+    expect(
+      workspace.navigationSections[0]?.rooms[0]?.permissions?.publish.state,
+    ).toBe("enabled");
+  });
+
   it("projects the latest non-empty NIP-38 general status onto members", () => {
     const key = new Uint8Array(32).fill(73);
     const profile = finalizeEvent(

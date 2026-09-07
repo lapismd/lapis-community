@@ -70,6 +70,7 @@ export interface CommunityStoryRuntime {
 export interface CommunityTestRuntimeOptions
   extends CommunityTestScenarioOptions {
   faults?: InMemoryRelayFaults;
+  inviteCodeFactory?: () => string;
 }
 
 export interface CommunityTestRuntime {
@@ -456,6 +457,9 @@ export async function createCommunityTestRuntime(
       ],
     },
     now: () => (options.createdAt ?? 1_700_000_000) + 100,
+    ...(options.inviteCodeFactory === undefined
+      ? {}
+      : { inviteCodeFactory: options.inviteCodeFactory }),
   });
   return {
     controller,

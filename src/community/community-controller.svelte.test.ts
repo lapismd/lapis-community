@@ -1210,6 +1210,93 @@ describe("createCommunityController", () => {
     expect(runtime.controller.state.workspace.activeRoomId).not.toBe(groupId);
   });
 
+  it("replaces member roles and creates private group invites", async () => {
+    runtime = await createCommunityTestRuntime({
+      inviteCodeFactory: () => "controller-invite",
+    });
+    await connected(runtime);
+    const memberPubkey = await runtime.scenario.member.getPublicKey();
+
+    await runtime.controller.actions.setMemberRoles!("general", memberPubkey, [
+      "writer",
+      "writer",
+      "",
+    ]);
+    expect(
+      runtime.controller.state.workspace.members.find(
+        (member) => member.id === memberPubkey,
+      ),
+    ).toMatchObject({ roles: ["writer"], role: "writer" });
+
+    await runtime.controller.actions.setMemberRoles!(
+      "general",
+      memberPubkey,
+      [],
+    );
+    expect(
+      runtime.controller.state.workspace.members.find(
+        (member) => member.id === memberPubkey,
+      ),
+    ).toMatchObject({ roles: [], role: "member" });
+    const operatorPubkey = await runtime.scenario.operator.getPublicKey();
+    await expect(
+      runtime.controller.actions.setMemberRoles!("general", operatorPubkey, [
+        "writer",
+      ]),
+    ).rejects.toThrow("Relay administrators cannot be changed from Community");
+
+    await runtime.controller.actions.updateRoom("general", {
+      name: "general",
+      description: "Community chat",
+      visibility: "private",
+      lifecycle: "ongoing",
+      postingPolicy: "writers",
+    });
+    const invite =
+      await runtime.controller.actions.createGroupInvite!("general");
+    expect(invite).toMatchObject({
+      code: "controller-invite",
+      groupId: "general",
+      relayUrl: runtime.scenario.scope.relayUrl,
+    });
+    expect(invite.uri).toContain("?invite=controller-invite");
+    expect(
+      (await runtime.relay.query({ kinds: [9_009], "#h": ["general"] })).at(-1)
+        ?.tags,
+    ).toContainEqual(["code", "controller-invite"]);
+
+    const invitedController = createCommunityController({
+      scopes: [
+        {
+          ...runtime.scenario.scope,
+          rooms: runtime.scenario.scope.rooms!.filter(
+            (room) => room.groupId !== "general",
+          ),
+        },
+      ],
+      source: createNip29CommunitySource({
+        relayFactory: runtime.relayFactory,
+      }),
+      identity: runtime.scenario.participant,
+      now: () => 1_700_000_200,
+    });
+    try {
+      invitedController.initialize();
+      await vi.waitFor(() =>
+        expect(invitedController.state.status).toBe("connected"),
+      );
+      await invitedController.actions.joinWithInvite!(invite.uri);
+      expect(invitedController.state.workspace.activeRoomId).toBe("general");
+      expect(
+        invitedController.state.workspace.navigationSections
+          .flatMap((section) => section.rooms)
+          .find((room) => room.id === "general"),
+      ).toMatchObject({ private: true, membership: "joined" });
+    } finally {
+      invitedController.dispose();
+    }
+  });
+
   it("adds NIP-30 tags to custom reactions", async () => {
     runtime = await createCommunityTestRuntime();
     await connected(runtime);

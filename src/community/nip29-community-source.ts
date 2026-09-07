@@ -13,6 +13,8 @@ import { createNip17GiftWraps, unwrapNip17GiftWrap } from "./nip17.js";
 import type {
   CommunityCapabilities,
   CommunityCommand,
+  CommunityGroupLoadRequest,
+  CommunityGroupLoadResult,
   CommunityContentWindow,
   CommunityContentWindowRequest,
   CommunityDataSource,
@@ -20,6 +22,7 @@ import type {
   CommunityPrivateEvent,
   CommunityPulseWindow,
   CommunityPulseWindowRequest,
+  CommunityRoomScope,
   CommunityScope,
   CommunitySearchResult,
   CommunitySession,
@@ -43,7 +46,7 @@ const COMMUNITY_CONTENT_KINDS = [5, 7, 9, 11, 1_111, 9_005, 40_003] as const;
 const COMMUNITY_CHANNEL_ACTIVITY_KINDS = [
   9_000, 9_001, 9_007, 9_021, 9_022,
 ] as const;
-const COMMUNITY_STATE_KINDS = [39_000, 39_001, 39_002] as const;
+const COMMUNITY_STATE_KINDS = [39_000, 39_001, 39_002, 39_003] as const;
 const PUBLIC_ROOM_DISCOVERY_LIMIT = 1_000;
 const CONTENT_BOUNDARY_LIMIT = 1_000;
 const PULSE_NOTE_LIMIT = 50;
@@ -73,6 +76,7 @@ class Nip29CommunitySession implements CommunitySession {
   readonly #deliveryRelays = new Map<string, CommunityRelay>();
   #closed = false;
   #baseSubscriptionsStarted = false;
+  #lastCommandCreatedAt = 0;
   #knownGroupIds = new Set<string>();
   #roomSubscriptionIds = new Set<string>();
   #targetSubscriptionKeys = new Set<string>();
@@ -817,7 +821,41 @@ class Nip29CommunitySession implements CommunitySession {
       this.#emit(wraps);
       return wraps;
     }
-    const templates = commandTemplates(command, Math.floor(Date.now() / 1_000));
+    const currentMetadata =
+      command.type === "update-room"
+        ? latestVerifiedEvent(
+            await this.#queryUnion(
+              [this.#authority],
+              { kinds: [39_000], "#d": [command.groupId] },
+              signal,
+            ),
+          )
+        : undefined;
+    const currentMembership =
+      command.type === "join" ||
+      command.type === "leave" ||
+      command.type === "add-member" ||
+      command.type === "remove-member"
+        ? latestVerifiedEvent(
+            await this.#queryUnion(
+              [this.#authority],
+              { kinds: [39_002], "#d": [command.groupId] },
+              signal,
+            ),
+          )
+        : undefined;
+    const commandCreatedAt = Math.max(
+      Math.floor(Date.now() / 1_000),
+      this.#lastCommandCreatedAt + 1,
+      (currentMetadata?.created_at ?? 0) + 1,
+      (currentMembership?.created_at ?? 0) + 1,
+    );
+    this.#lastCommandCreatedAt = commandCreatedAt;
+    const templates = commandTemplates(
+      command,
+      commandCreatedAt,
+      currentMetadata,
+    );
     const events: NostrEvent[] = [];
     for (const template of templates) {
       signal?.throwIfAborted();
@@ -835,7 +873,11 @@ class Nip29CommunitySession implements CommunitySession {
       }
       events.push(event);
     }
-    if (command.type === "create-room" || command.type === "update-room") {
+    if (
+      command.type === "create-room" ||
+      command.type === "update-room" ||
+      command.type === "join"
+    ) {
       this.#knownGroupIds.add(command.groupId);
       await this.#subscribeToRooms([command.groupId], signal);
     }
@@ -844,6 +886,40 @@ class Nip29CommunitySession implements CommunitySession {
     }
     this.#emit(events);
     return events;
+  }
+
+  async loadGroup(
+    request: CommunityGroupLoadRequest,
+    signal?: AbortSignal,
+  ): Promise<CommunityGroupLoadResult> {
+    this.#assertOpen(signal);
+    await this.#authenticate(this.#authority, signal);
+    const metadata = latestVerifiedEvent(
+      await this.#queryUnion(
+        [this.#authority],
+        { kinds: [39_000], "#d": [request.groupId] },
+        signal,
+      ),
+    );
+    if (metadata === undefined) throw new Error("Invite group is unavailable");
+    if (
+      request.relayPubkey !== undefined &&
+      metadata.pubkey !== request.relayPubkey.toLowerCase()
+    ) {
+      throw new Error("Invite group is not signed by the referenced relay");
+    }
+    const room = roomScopeFromMetadata(metadata);
+    const events = verifiedCommunityEvents(
+      await this.#queryUnion(
+        [this.#authority],
+        { kinds: [...COMMUNITY_STATE_KINDS], "#d": [request.groupId] },
+        signal,
+      ),
+    );
+    this.#knownGroupIds.add(request.groupId);
+    await this.#subscribeToRooms([request.groupId], signal);
+    this.#emit(events);
+    return { room, metadata, events };
   }
 
   async search(
@@ -990,7 +1066,7 @@ class Nip29CommunitySession implements CommunitySession {
         this.#authority.subscribe(
           {
             kinds: this.#scope.discoverPublicRooms
-              ? [39_001, 39_002]
+              ? [39_001, 39_002, 39_003]
               : [...COMMUNITY_STATE_KINDS],
             "#d": [groupId],
           },
@@ -1157,6 +1233,9 @@ class Nip29CommunitySession implements CommunitySession {
       archive: false,
       editMessages: signedIn,
       pulse: true,
+      memberRoles: true,
+      writeRestrictedRooms: true,
+      groupInvites: true,
     };
   }
 }
@@ -1187,22 +1266,49 @@ function isDuplicateRelayReason(message: string): boolean {
 function commandTemplates(
   command: CommunityCommand,
   createdAt: number,
+  currentMetadata?: NostrEvent,
 ): readonly NostrEventTemplate[] {
   if (command.type === "direct-message") return [];
   if (command.type === "publish") return [command.template];
   if (command.type === "create-room" || command.type === "update-room") {
+    const metadataContent = parseMetadataContent(currentMetadata?.content);
+    const writerRestricted =
+      command.update.postingPolicy === undefined
+        ? currentMetadata?.tags.some((tag) => tag[0] === "write-restricted") ===
+            true || metadataContent["write-restricted"] === true
+        : command.update.postingPolicy === "writers";
+    const content = {
+      ...metadataContent,
+      name: command.update.name.trim(),
+      about: command.update.description.trim(),
+      private: command.update.visibility === "private",
+      "write-restricted": writerRestricted,
+    };
+    const preservedTags =
+      command.type === "update-room"
+        ? (currentMetadata?.tags ?? []).filter(
+            (tag) =>
+              ![
+                "d",
+                "h",
+                "name",
+                "about",
+                "private",
+                "write-restricted",
+                "member_count",
+              ].includes(tag[0] ?? ""),
+          )
+        : [];
     return [
       {
         kind: command.type === "create-room" ? 9_007 : 9_002,
         created_at: createdAt,
-        content: JSON.stringify({
-          name: command.update.name.trim(),
-          about: command.update.description.trim(),
-        }),
+        content: JSON.stringify(content),
         tags: [
           ["h", command.groupId],
           ["name", command.update.name.trim()],
           ["about", command.update.description.trim()],
+          ...preservedTags,
           ...(command.type === "create-room"
             ? [
                 [
@@ -1214,6 +1320,7 @@ function commandTemplates(
               ]
             : []),
           ...(command.update.visibility === "private" ? [["private"]] : []),
+          ...(writerRestricted ? [["write-restricted"]] : []),
         ],
       },
     ];
@@ -1247,7 +1354,12 @@ function commandTemplates(
         kind: command.type === "join" ? 9_021 : 9_022,
         created_at: createdAt,
         content: "",
-        tags: [["h", command.groupId]],
+        tags: [
+          ["h", command.groupId],
+          ...(command.type === "join" && command.code !== undefined
+            ? [["code", command.code]]
+            : []),
+        ],
       },
     ];
   }
@@ -1264,6 +1376,19 @@ function commandTemplates(
       },
     ];
   }
+  if (command.type === "create-invite") {
+    return [
+      {
+        kind: 9_009,
+        created_at: createdAt,
+        content: "",
+        tags: [
+          ["h", command.groupId],
+          ["code", command.code],
+        ],
+      },
+    ];
+  }
   return [
     {
       kind: 9_001,
@@ -1275,6 +1400,81 @@ function commandTemplates(
       ],
     },
   ];
+}
+
+function latestVerifiedEvent(
+  events: readonly NostrEvent[],
+): NostrEvent | undefined {
+  return verifiedCommunityEvents(events)
+    .toSorted(
+      (left, right) =>
+        left.created_at - right.created_at || left.id.localeCompare(right.id),
+    )
+    .at(-1);
+}
+
+function verifiedCommunityEvents(events: readonly NostrEvent[]): NostrEvent[] {
+  return events.flatMap((event) => verifiedNostrEvent(event) ?? []);
+}
+
+function parseMetadataContent(
+  value: string | undefined,
+): Record<string, unknown> {
+  if (value === undefined || value.trim() === "") return {};
+  try {
+    const parsed = JSON.parse(value) as unknown;
+    return parsed !== null &&
+      !Array.isArray(parsed) &&
+      typeof parsed === "object"
+      ? (parsed as Record<string, unknown>)
+      : {};
+  } catch {
+    return {};
+  }
+}
+
+function roomScopeFromMetadata(metadata: NostrEvent): CommunityRoomScope {
+  const groupId = metadata.tags.find((tag) => tag[0] === "d")?.[1];
+  if (groupId === undefined || groupId === "") {
+    throw new Error("Invite group metadata is missing its group ID");
+  }
+  const supportedKinds = new Set(
+    metadata.tags
+      .filter((tag) => tag[0] === "supported_kinds")
+      .flatMap((tag) => tag.slice(1))
+      .map(Number),
+  );
+  const compatibilityKind = metadata.tags.find(
+    (tag) => tag[0] === "channel_type",
+  )?.[1];
+  const kind =
+    supportedKinds.has(11) ||
+    supportedKinds.has(1_111) ||
+    compatibilityKind === "forum"
+      ? "forum"
+      : supportedKinds.has(9) || compatibilityKind === "stream"
+        ? "channel"
+        : undefined;
+  if (kind === undefined)
+    throw new Error("Invite does not reference a supported room");
+  const content = parseMetadataContent(metadata.content);
+  const name =
+    metadata.tags.find((tag) => tag[0] === "name")?.[1]?.trim() ||
+    (typeof content.name === "string" ? content.name.trim() : "") ||
+    groupId;
+  const description =
+    metadata.tags.find((tag) => tag[0] === "about")?.[1]?.trim() ||
+    (typeof content.about === "string" ? content.about.trim() : "");
+  return {
+    id: groupId,
+    groupId,
+    name,
+    kind,
+    ...(description === "" ? {} : { description }),
+    private:
+      metadata.tags.some((tag) => tag[0] === "private") ||
+      content.private === true,
+  };
 }
 
 function distinctRelayUrls(scope: CommunityScope): string[] {

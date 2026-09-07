@@ -4,6 +4,7 @@ import type {
   CommunityMemberModel,
   CommunityMessageModel,
   CommunityReactionModel,
+  CommunityRoleDefinition,
   CommunityRoomModel,
   CommunityTopicModel,
   CommunityWorkspaceModel,
@@ -452,6 +453,11 @@ function roomModel(
   const metadata = latestGroupState(events, 39_000, room.groupId);
   const members = latestGroupState(events, 39_002, room.groupId);
   const admins = latestGroupState(events, 39_001, room.groupId);
+  const rolesState = latestGroupRoleState(
+    events,
+    room.groupId,
+    metadata?.pubkey,
+  );
   const name =
     metadata?.tags.find((tag) => tag[0] === "name")?.[1] ?? room.name;
   const description =
@@ -477,10 +483,11 @@ function roomModel(
     identityPubkey !== undefined &&
     admins?.tags.some((tag) => tag[0] === "p" && tag[1] === identityPubkey) ===
       true;
-  const memberRoles =
+  const memberRoles = normalizeRoles(
     members?.tags
-      .find((tag) => tag[0] === "p" && tag[1] === identityPubkey)
-      ?.slice(2) ?? [];
+      .filter((tag) => tag[0] === "p" && tag[1] === identityPubkey)
+      .flatMap((tag) => tag.slice(2)) ?? [],
+  );
   const metadataContent = parseJsonObject(metadata?.content);
   const membershipRequired =
     metadata?.tags.some(
@@ -491,6 +498,7 @@ function roomModel(
   const writerRequired =
     metadata?.tags.some((tag) => tag[0] === "write-restricted") === true ||
     metadataContent?.["write-restricted"] === true;
+  const roleDefinitions = communityRoleDefinitions(metadata, rolesState);
   const authenticationRequired = {
     state: "requires-authentication" as const,
     reason: "Connect a NIP-07 identity to perform this action",
@@ -529,6 +537,8 @@ function roomModel(
     ...(description === undefined ? {} : { description }),
     ...(memberCount === undefined ? {} : { memberCount }),
     private: privateRoom,
+    postingPolicy: writerRequired ? "writers" : "standard",
+    roleDefinitions,
     membership:
       members === undefined
         ? "unknown"
@@ -609,6 +619,22 @@ function latestGroupState(
     .toSorted((left, right) => compareOldest(right, left))[0];
 }
 
+function latestGroupRoleState(
+  events: readonly NostrEvent[],
+  groupId: string,
+  relayPubkey: string | undefined,
+): NostrEvent | undefined {
+  if (relayPubkey === undefined) return undefined;
+  return events
+    .filter(
+      (event) =>
+        event.kind === 39_003 &&
+        event.pubkey === relayPubkey &&
+        event.tags.some((tag) => tag[0] === "d" && tag[1] === groupId),
+    )
+    .toSorted((left, right) => compareOldest(right, left))[0];
+}
+
 function memberModels(
   room: CommunityRoomScope | undefined,
   events: readonly NostrEvent[],
@@ -623,14 +649,24 @@ function memberModels(
     room === undefined
       ? undefined
       : latestGroupState(events, 39_001, room.groupId);
-  const roles = new Map<string, string>();
+  const roles = new Map<string, string[]>();
+  const administratorIds = new Set<string>();
   for (const tag of groupMembers?.tags ?? []) {
-    if (tag[0] === "p" && tag[1] !== undefined)
-      roles.set(tag[1], tag[2] ?? "member");
+    if (tag[0] === "p" && tag[1] !== undefined) {
+      roles.set(
+        tag[1],
+        normalizeRoles([...(roles.get(tag[1]) ?? []), ...tag.slice(2)]),
+      );
+    }
   }
   for (const tag of groupAdmins?.tags ?? []) {
-    if (tag[0] === "p" && tag[1] !== undefined)
-      roles.set(tag[1], tag[2] ?? "admin");
+    if (tag[0] === "p" && tag[1] !== undefined) {
+      administratorIds.add(tag[1]);
+      roles.set(
+        tag[1],
+        normalizeRoles([...(roles.get(tag[1]) ?? []), ...tag.slice(2)]),
+      );
+    }
   }
   const pubkeys = new Set([
     ...roles.keys(),
@@ -655,9 +691,60 @@ function memberModels(
       ...(statuses.get(pubkey) === undefined
         ? {}
         : { status: statuses.get(pubkey)! }),
-      ...(roles.get(pubkey) === undefined ? {} : { role: roles.get(pubkey)! }),
+      ...(roles.get(pubkey) === undefined
+        ? {}
+        : {
+            roles: roles.get(pubkey)!,
+            role: administratorIds.has(pubkey)
+              ? "administrator"
+              : (roles.get(pubkey)?.[0] ?? "member"),
+          }),
+      ...(administratorIds.has(pubkey) ? { administrator: true } : {}),
     };
   });
+}
+
+function communityRoleDefinitions(
+  metadata: NostrEvent | undefined,
+  rolesState: NostrEvent | undefined,
+): CommunityRoleDefinition[] {
+  const definitions = new Map<string, CommunityRoleDefinition>();
+  if (metadata !== undefined && rolesState?.pubkey === metadata.pubkey) {
+    for (const tag of rolesState.tags) {
+      if (tag[0] !== "role" || tag[1]?.trim() === "") continue;
+      const id = tag[1]!.trim();
+      if (definitions.has(id)) continue;
+      definitions.set(id, {
+        id,
+        label: roleLabel(id),
+        ...(tag[2]?.trim() ? { description: tag[2]!.trim() } : {}),
+      });
+    }
+  }
+  if (!definitions.has("writer")) {
+    definitions.set("writer", {
+      id: "writer",
+      label: "Writer",
+      description: "Can publish when this room is limited to writers.",
+    });
+  }
+  return [...definitions.values()].toSorted((left, right) =>
+    left.id.localeCompare(right.id),
+  );
+}
+
+function normalizeRoles(roles: readonly string[]): string[] {
+  return [
+    ...new Set(roles.map((role) => role.trim()).filter(Boolean)),
+  ].toSorted();
+}
+
+function roleLabel(role: string): string {
+  return role
+    .split(/[-_\s]+/u)
+    .filter(Boolean)
+    .map((part) => part[0]!.toLocaleUpperCase() + part.slice(1))
+    .join(" ");
 }
 
 function messageModels(

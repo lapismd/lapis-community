@@ -29,6 +29,7 @@ import type {
   CommunityControllerActions,
   CommunityControllerOptions,
   CommunityControllerState,
+  CommunityGroupInvite,
   CommunityOperationFailure,
   CommunityOperationState,
   CommunityPrivateEvent,
@@ -47,6 +48,12 @@ import type {
   CommunityStateScope,
   CommunityStoredState,
 } from "./contracts.js";
+import {
+  buildCommunityGroupInvite,
+  createCommunityInviteCode,
+  normalizeInviteRelayUrl,
+  parseCommunityGroupInvite,
+} from "./group-invites.js";
 import {
   materializeCommunityPulse,
   pulseEventTargetId,
@@ -93,6 +100,8 @@ export function createCommunityController(
   }
   let scopes = $state<CommunityScope[]>(initialScopes);
   const now = options.now ?? (() => Math.floor(Date.now() / 1_000));
+  const inviteCodeFactory =
+    options.inviteCodeFactory ?? createCommunityInviteCode;
   const eventRuntime = options.runtime ?? createInlineCommunityEventRuntime();
   const clientId = options.clientId ?? createClientId();
   const sessions = new Map<string, CommunitySession>();
@@ -1922,6 +1931,165 @@ export function createCommunityController(
         pubkey,
       });
     },
+    async setMemberRoles(roomId, pubkey, roles) {
+      const operation = `member-roles:${roomId}:${pubkey}`;
+      const room = roomById(roomId);
+      const roomModel = workspaceRoomById(roomId);
+      if (room === undefined || roomModel === undefined) {
+        throwOperationFailure(operation, "validation", "Room is unavailable");
+      }
+      if (roomModel.permissions?.manageMembers.state !== "enabled") {
+        throwOperationFailure(
+          operation,
+          "restricted",
+          roomModel.permissions?.manageMembers.reason ??
+            "The relay has not granted permission to manage member roles",
+        );
+      }
+      if (
+        workspace.members.find((member) => member.id === pubkey)
+          ?.administrator === true
+      ) {
+        throwOperationFailure(
+          operation,
+          "restricted",
+          "Relay administrators cannot be changed from Community",
+        );
+      }
+      await execute(operation, {
+        type: "add-member",
+        groupId: room.groupId,
+        pubkey,
+        roles: normalizeMemberRoles(roles),
+      });
+    },
+    async createGroupInvite(roomId): Promise<CommunityGroupInvite> {
+      const operation = `group-invite:create:${roomId}`;
+      const room = roomById(roomId);
+      const roomModel = workspaceRoomById(roomId);
+      if (room === undefined || roomModel === undefined) {
+        throwOperationFailure(operation, "validation", "Room is unavailable");
+      }
+      const metadata = latestGroupEvent(activeEvents(), 39_000, room.groupId);
+      const metadataContent = parseJsonObject(metadata?.content);
+      const privateRoom =
+        roomModel.private === true ||
+        metadata?.tags.some((tag) => tag[0] === "private") === true ||
+        metadataContent.private === true;
+      if (!privateRoom) {
+        throwOperationFailure(
+          operation,
+          "validation",
+          "Invite links are available for private rooms",
+        );
+      }
+      if (roomModel.permissions?.manageMembers.state !== "enabled") {
+        throwOperationFailure(
+          operation,
+          "restricted",
+          roomModel.permissions?.manageMembers.reason ??
+            "The relay has not granted permission to create invites",
+        );
+      }
+      const scope = scopes.find(
+        (candidate) => candidate.id === activeCommunityId,
+      );
+      if (metadata === undefined || scope === undefined) {
+        throwOperationFailure(
+          operation,
+          "validation",
+          "Current relay group metadata is unavailable",
+        );
+      }
+      const code = inviteCodeFactory().trim();
+      if (code === "") {
+        throwOperationFailure(
+          operation,
+          "validation",
+          "Invite code is unavailable",
+        );
+      }
+      await execute(operation, {
+        type: "create-invite",
+        groupId: room.groupId,
+        code,
+      });
+      return buildCommunityGroupInvite({
+        groupId: room.groupId,
+        relayUrl: scope.relayUrl,
+        relayPubkey: metadata.pubkey,
+        code,
+      });
+    },
+    async joinWithInvite(value) {
+      const parsed = parseCommunityGroupInvite(value);
+      const operation = `group-invite:join:${parsed.groupId}`;
+      const scope = scopes.find(
+        (candidate) =>
+          normalizeInviteRelayUrl(candidate.relayUrl) === parsed.relayUrl,
+      );
+      if (scope === undefined) {
+        throwOperationFailure(
+          operation,
+          "validation",
+          "This invite does not belong to a configured Community relay",
+        );
+      }
+      await ensureIdentity(operation);
+      const session = sessions.get(scope.id);
+      if (session?.loadGroup === undefined) {
+        throwOperationFailure(
+          operation,
+          "restricted",
+          "This Community source cannot load invite-only groups",
+        );
+      }
+      let loaded: Awaited<
+        ReturnType<NonNullable<CommunitySession["loadGroup"]>>
+      >;
+      try {
+        loaded = await session.loadGroup(
+          { groupId: parsed.groupId, relayPubkey: parsed.relayPubkey },
+          controllerAbort?.signal,
+        );
+      } catch (cause) {
+        throwOperationFailure(
+          operation,
+          "invalid",
+          cause instanceof Error
+            ? cause.message
+            : "Invite group is unavailable",
+        );
+      }
+      await cacheLiveEvents(scope.id, loaded.events, generation);
+      await execute(
+        operation,
+        { type: "join", groupId: parsed.groupId, code: parsed.code },
+        scope.id,
+      );
+      scopes = scopes.map((candidate) =>
+        candidate.id === scope.id &&
+        !(candidate.rooms ?? []).some((room) => room.groupId === parsed.groupId)
+          ? { ...candidate, rooms: [...(candidate.rooms ?? []), loaded.room] }
+          : candidate,
+      );
+      activeCommunityId = scope.id;
+      activeRoomId = loaded.room.id;
+      activeTopicId = undefined;
+      activeThreadId = undefined;
+      sidePanel = "none";
+      await refreshProjection(generation);
+      if (workspaceRoomById(loaded.room.id)?.membership !== "joined") {
+        operations = {
+          ...operations,
+          [operation]: {
+            status: "accepted",
+            message:
+              "Join request accepted by the relay. Waiting for membership confirmation.",
+          },
+        };
+      }
+    },
     async updateProfile(profile) {
       await ensureIdentity("settings:profile");
       const previous = latestAuthoredEvent(0);
@@ -2072,6 +2240,7 @@ export function createCommunityController(
   async function execute(
     operation: string,
     command: CommunityCommand,
+    scopeId = activeCommunityId,
   ): Promise<void> {
     let acceptedEvents: readonly NostrEvent[] = [];
     await runOperation(operation, async () => {
@@ -2083,7 +2252,7 @@ export function createCommunityController(
         );
       }
       await ensureIdentity(operation);
-      const session = sessions.get(activeCommunityId);
+      const session = sessions.get(scopeId);
       if (session === undefined) {
         throw new CommunityActionFailure(
           "network",
@@ -2092,9 +2261,9 @@ export function createCommunityController(
         );
       }
       acceptedEvents = await session.execute(command, controllerAbort?.signal);
-      await cacheLiveEvents(activeCommunityId, acceptedEvents, generation);
+      await cacheLiveEvents(scopeId, acceptedEvents, generation);
       if (commandNeedsReconciliation(command)) {
-        await refreshScope(activeCommunityId, controllerAbort?.signal);
+        await refreshScope(scopeId, controllerAbort?.signal);
       }
     });
     if (
@@ -2102,7 +2271,7 @@ export function createCommunityController(
       acceptedEvents.length > 0 &&
       acceptedEvents.some(
         (event) =>
-          !(eventsByScope[activeCommunityId] ?? []).some(
+          !(eventsByScope[scopeId] ?? []).some(
             (candidate) => candidate.id === event.id,
           ),
       )
@@ -2857,6 +3026,12 @@ function validateRoomUpdate(
       "This relay does not advertise configurable group retention",
     );
   }
+  if (
+    update.postingPolicy === "writers" &&
+    capabilities.writeRestrictedRooms !== true
+  ) {
+    throw new Error("This relay does not advertise writer-restricted rooms");
+  }
 }
 
 function eventDeleted(events: readonly NostrEvent[], eventId: string): boolean {
@@ -2935,6 +3110,29 @@ function parsePublicKey(value: string): string | undefined {
   } catch {
     return undefined;
   }
+}
+
+function normalizeMemberRoles(roles: readonly string[]): string[] {
+  return [
+    ...new Set(roles.map((role) => role.trim()).filter(Boolean)),
+  ].toSorted();
+}
+
+function latestGroupEvent(
+  events: readonly NostrEvent[],
+  kind: number,
+  groupId: string,
+): NostrEvent | undefined {
+  return events
+    .filter(
+      (event) =>
+        event.kind === kind &&
+        event.tags.some((tag) => tag[0] === "d" && tag[1] === groupId),
+    )
+    .toSorted(
+      (left, right) =>
+        right.created_at - left.created_at || right.id.localeCompare(left.id),
+    )[0];
 }
 
 function persistentPublicEvents(

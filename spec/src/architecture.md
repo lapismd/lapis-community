@@ -30,6 +30,12 @@ contact-list, note, reaction, and deletion events so application and component
 stories exercise the production controller projection rather than a visual
 duplicate.
 
+For LC-NOSTR-020, relay-defined role and invite support remains an additive
+session/controller capability. The controller owns authentication, configured
+relay authority validation, pending membership, and publication rollback;
+consumers that omit the optional group-loading and management actions remain
+compatible.
+
 Dependency refreshes advance the minimum compatible Design Core release in the
 portable package manifest and committed lockfile together, without changing the
 public import boundary.

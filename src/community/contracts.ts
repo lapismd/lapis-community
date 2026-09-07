@@ -69,6 +69,9 @@ export interface CommunityCapabilities {
   /** Whether this source can load and publish the public kind-1 Pulse feed. */
   pulse?: boolean;
   configurableRetention?: boolean;
+  memberRoles?: boolean;
+  writeRestrictedRooms?: boolean;
+  groupInvites?: boolean;
 }
 
 export type CommunityPulseTab =
@@ -267,6 +270,26 @@ export interface CommunityRoomUpdate {
   description: string;
   visibility: "public" | "private";
   lifecycle: "ongoing" | "temporary";
+  postingPolicy?: "standard" | "writers";
+}
+
+export interface CommunityGroupInvite {
+  uri: string;
+  code: string;
+  groupId: string;
+  relayUrl: string;
+  relayPubkey: string;
+}
+
+export interface CommunityGroupLoadRequest {
+  groupId: string;
+  relayPubkey?: string;
+}
+
+export interface CommunityGroupLoadResult {
+  room: CommunityRoomScope;
+  metadata: NostrEvent;
+  events: readonly NostrEvent[];
 }
 
 export interface CommunityTopicDraft {
@@ -316,10 +339,11 @@ export type CommunityCommand =
     }
   | { type: "update-room"; groupId: string; update: CommunityRoomUpdate }
   | { type: "delete-room"; groupId: string }
-  | { type: "join"; groupId: string }
+  | { type: "join"; groupId: string; code?: string }
   | { type: "leave"; groupId: string }
   | { type: "add-member"; groupId: string; pubkey: string; roles?: string[] }
   | { type: "remove-member"; groupId: string; pubkey: string }
+  | { type: "create-invite"; groupId: string; code: string }
   | {
       type: "direct-message";
       recipients: readonly string[];
@@ -548,6 +572,10 @@ export interface CommunitySession {
     request: CommunityPulseWindowRequest,
     signal?: AbortSignal,
   ): Promise<CommunityPulseWindow>;
+  loadGroup?(
+    request: CommunityGroupLoadRequest,
+    signal?: AbortSignal,
+  ): Promise<CommunityGroupLoadResult>;
   subscribe(
     listener: (events: readonly NostrEvent[]) => void,
     signal?: AbortSignal,
@@ -639,6 +667,13 @@ export interface CommunityControllerActions {
   leave(roomId: string): Promise<void>;
   addMember(roomId: string, pubkey: string, roles?: string[]): Promise<void>;
   removeMember(roomId: string, pubkey: string): Promise<void>;
+  setMemberRoles?(
+    roomId: string,
+    pubkey: string,
+    roles: readonly string[],
+  ): Promise<void>;
+  createGroupInvite?(roomId: string): Promise<CommunityGroupInvite>;
+  joinWithInvite?(value: string): Promise<void>;
   updateProfile(profile: CommunityProfileUpdate): Promise<void>;
   updateStatus(status: string): Promise<void>;
   setCustomEmoji(shortcode: string, url: string): Promise<void>;
@@ -664,6 +699,7 @@ export interface CommunityControllerOptions {
   clientId?: string;
   now?: () => number;
   pulse?: CommunityPulseOptions;
+  inviteCodeFactory?: () => string;
 }
 
 export interface CommunityLinkBuilder {
