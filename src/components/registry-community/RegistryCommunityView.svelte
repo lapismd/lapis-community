@@ -424,6 +424,9 @@
                   topics={suggestedTopicModels}
                   members={suggestedTopicMembers}
                   onOpenTopic={openSuggestedTopic}
+                  {...onOpenProfile === undefined ? {} : { onOpenProfile }}
+                  {...onMessageMember === undefined ? {} : { onMessageMember }}
+                  {...onWaveMember === undefined ? {} : { onWaveMember }}
                   actions={suggestionsHeading}
                   embedded
                   showTopicActions={false}

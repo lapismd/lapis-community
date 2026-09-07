@@ -23,9 +23,12 @@
     topics: communityStoryTopics,
     members: communityStoryMembers,
     onOpenTopic: fn(),
+    onOpenProfile: fn(),
+    onMessageMember: fn(),
+    onWaveMember: fn(),
     onCreateTopic: fn(async () => {}),
   }}
-  play={async ({ canvas, canvasElement }) => {
+  play={async ({ args, canvas, canvasElement }) => {
     await expect(
       canvas.getByRole("region", { name: "support-ai topics" }),
     ).toBeVisible();
@@ -38,7 +41,9 @@
     const topic = canvas.getByRole("button", {
       name: "Open topic First-token latency with a large vault",
     });
-    const recentParticipants = topic.querySelector<HTMLElement>(
+    const topicRow = topic.closest<HTMLElement>(".forum-topic-list__topic-row");
+    await expect(topicRow).not.toBeNull();
+    const recentParticipants = topicRow?.querySelector<HTMLElement>(
       '[data-ui-part="forum-topic-participants"]',
     );
     await expect(recentParticipants).not.toBeNull();
@@ -47,12 +52,46 @@
       "Recent participants: Noor Rahman, Cy Park, Ben Stone",
     );
     await expect(recentParticipants?.children).toHaveLength(3);
-    await expect(within(topic).getByText("12m")).toBeVisible();
-    await expect(getComputedStyle(topic).borderBottomLeftRadius).toBe("0px");
-    await expect(getComputedStyle(topic).borderBottomRightRadius).toBe("0px");
+    await expect(within(topicRow!).getByText("12m")).toBeVisible();
+    await expect(getComputedStyle(topicRow!).borderBottomLeftRadius).toBe(
+      "0px",
+    );
+    await expect(getComputedStyle(topicRow!).borderBottomRightRadius).toBe(
+      "0px",
+    );
+
+    const author = within(topicRow!).getByRole("button", {
+      name: "Ada Lovelace",
+    });
+    await userEvent.hover(author);
+    const contactPreview = await within(
+      canvasElement.ownerDocument.body,
+    ).findByRole("group", { name: "Ada Lovelace contact preview" });
+    await expect(contactPreview).toBeVisible();
+    await expect(
+      within(contactPreview).getByRole("button", {
+        name: "Message Ada Lovelace",
+      }),
+    ).toBeVisible();
+    await expect(
+      within(contactPreview).getByRole("button", {
+        name: "Wave to Ada Lovelace",
+      }),
+    ).toBeVisible();
+    await userEvent.click(
+      within(contactPreview).getByRole("button", {
+        name: "Open Ada Lovelace's profile",
+      }),
+    );
+    await expect(args.onOpenProfile).toHaveBeenCalledWith(
+      communityStoryMembers[0],
+    );
+    await expect(args.onOpenTopic).not.toHaveBeenCalled();
+    await userEvent.click(topic);
+    await expect(args.onOpenTopic).toHaveBeenCalledWith("topic-large-vault");
 
     const replyHeading = canvas.getByText("Replies");
-    const replyCount = within(topic).getByText("34");
+    const replyCount = within(topicRow!).getByText("34");
     const headingCenter =
       replyHeading.getBoundingClientRect().left +
       replyHeading.getBoundingClientRect().width / 2;
@@ -175,13 +214,17 @@
     const unreadTopic = canvas.getByRole("button", {
       name: "Open unread topic First-token latency with a large vault",
     });
-    const unreadMarker = within(unreadTopic).getByRole("img", {
+    const unreadTopicRow = unreadTopic.closest<HTMLElement>(
+      ".forum-topic-list__topic-row",
+    );
+    await expect(unreadTopicRow).not.toBeNull();
+    const unreadMarker = within(unreadTopicRow!).getByRole("img", {
       name: "Unread topic",
     });
-    const unreadTitle = within(unreadTopic).getByText(
+    const unreadTitle = within(unreadTopicRow!).getByText(
       "First-token latency with a large vault",
     );
-    const unreadExcerpt = within(unreadTopic).getByText(
+    const unreadExcerpt = within(unreadTopicRow!).getByText(
       communityStoryTopics[0]!.excerpt,
     );
     await expect(unreadMarker).toBeVisible();

@@ -18,8 +18,9 @@
     CommunityCustomEmoji,
     CommunityTopicDraft,
   } from "../../community/index.js";
-  import CommunityTopicComposer from "../community-topic-composer/CommunityTopicComposer.svelte";
   import CommunityMemberAvatar from "../community-member-avatar/CommunityMemberAvatar.svelte";
+  import CommunityMemberHoverCard from "../community-member-hover-card/CommunityMemberHoverCard.svelte";
+  import CommunityTopicComposer from "../community-topic-composer/CommunityTopicComposer.svelte";
   import {
     memberById,
     type CommunityMemberModel,
@@ -35,6 +36,9 @@
     communityEmojis = [],
     currentMemberId,
     onOpenTopic,
+    onOpenProfile,
+    onMessageMember,
+    onWaveMember,
     onCreateTopic,
     onTopicAction,
     canDeleteTopic = () => true,
@@ -57,6 +61,9 @@
     communityEmojis?: readonly CommunityCustomEmoji[];
     currentMemberId?: string;
     onOpenTopic?: (topicId: string) => void;
+    onOpenProfile?: (member: CommunityMemberModel) => void;
+    onMessageMember?: (member: CommunityMemberModel) => void | Promise<void>;
+    onWaveMember?: (member: CommunityMemberModel) => void | Promise<void>;
     onCreateTopic?: (draft: CommunityTopicDraft) => Promise<void>;
     onTopicAction?: (
       topicId: string,
@@ -135,75 +142,85 @@
 {/snippet}
 
 {#snippet topicButton(topic: CommunityTopicModel)}
-  {@const author = memberById(members, topic.authorId)}
-  {@const participants = topic.participantIds
-    .slice(0, 3)
-    .map((participantId) => memberById(members, participantId))}
-  {@const replyCountAvailable = topic.replyCountAvailable ?? true}
   <Button
     type="button"
     variant="ghost"
     class="forum-topic-list__topic"
     aria-label={`Open ${topic.unread ? "unread " : topic.isNew ? "new " : ""}topic ${topic.title}`}
     onclick={() => onOpenTopic?.(topic.id)}
-  >
-    <span class="forum-topic-list__topic-main">
-      <span class="forum-topic-list__title-row">
-        {#if topic.unread}
-          <span
-            class="forum-topic-list__unread-marker"
-            data-ui-part="forum-topic-unread-marker"
-            role="img"
-            aria-label="Unread topic"
-          ></span>
-        {/if}
-        {#if topic.pinned}<span aria-label="Pinned topic">⌁</span>{/if}
-        <strong>{topic.title}</strong>
-        {#if topic.solved}<Badge variant="secondary">Solved</Badge>{/if}
-        {#if !topic.unread && topic.isNew}<Badge variant="secondary">New</Badge
-          >{/if}
-      </span>
-      <span class="forum-topic-list__excerpt">{topic.excerpt}</span>
-      <span class="forum-topic-list__meta">
-        Started by {author.name}
-        {#each topic.tags ?? [] as tag (tag)}
-          <Badge variant="outline">{tag}</Badge>
-        {/each}
-      </span>
+  ></Button>
+{/snippet}
+
+{#snippet topicContent(topic: CommunityTopicModel)}
+  {@const author = memberById(members, topic.authorId)}
+  {@const participants = topic.participantIds
+    .slice(0, 3)
+    .map((participantId) => memberById(members, participantId))}
+  {@const replyCountAvailable = topic.replyCountAvailable ?? true}
+  <span class="forum-topic-list__topic-main">
+    <span class="forum-topic-list__title-row">
+      {#if topic.unread}
+        <span
+          class="forum-topic-list__unread-marker"
+          data-ui-part="forum-topic-unread-marker"
+          role="img"
+          aria-label="Unread topic"
+        ></span>
+      {/if}
+      {#if topic.pinned}<span aria-label="Pinned topic">⌁</span>{/if}
+      <strong>{topic.title}</strong>
+      {#if topic.solved}<Badge variant="secondary">Solved</Badge>{/if}
+      {#if !topic.unread && topic.isNew}<Badge variant="secondary">New</Badge
+        >{/if}
     </span>
-    <span
-      class="forum-topic-list__participants"
-      data-ui-part="forum-topic-participants"
-      title={participants.length
-        ? `Recent participants: ${participants.map((participant) => participant.name).join(", ")}`
-        : "No replies yet"}
-      aria-hidden="true"
-    >
-      {#each participants as participant (participant.id)}
-        <span class="forum-topic-list__avatar">
-          <CommunityMemberAvatar
-            member={participant}
-            size="xsmall"
-            decorative
-          />
-        </span>
+    <span class="forum-topic-list__excerpt">{topic.excerpt}</span>
+    <span class="forum-topic-list__meta">
+      <span>Started by</span>
+      <span class="forum-topic-list__author">
+        <CommunityMemberHoverCard
+          member={author}
+          trigger="mention"
+          triggerLabel={author.name}
+          {...onOpenProfile === undefined ? {} : { onOpenProfile }}
+          {...onMessageMember === undefined
+            ? {}
+            : { onMessage: onMessageMember }}
+          {...onWaveMember === undefined ? {} : { onWave: onWaveMember }}
+        />
+      </span>
+      {#each topic.tags ?? [] as tag (tag)}
+        <Badge variant="outline">{tag}</Badge>
       {/each}
     </span>
-    <span
-      class="forum-topic-list__count"
-      aria-label={!replyCountAvailable
-        ? "Reply count unavailable"
-        : topic.replyCountApproximate
-          ? `Approximately ${topic.replyCount} replies`
-          : historyUpdating
-            ? `${topic.replyCount} or more replies; older history is updating`
-            : `${topic.replyCount} replies`}
-      >{#if !replyCountAvailable}—{:else if topic.replyCountApproximate}~{/if}{replyCountAvailable
-        ? topic.replyCount
-        : ""}{replyCountAvailable && historyUpdating ? "+" : ""}</span
-    >
-    <span class="forum-topic-list__activity">{topic.lastActivityLabel}</span>
-  </Button>
+  </span>
+  <span
+    class="forum-topic-list__participants"
+    data-ui-part="forum-topic-participants"
+    title={participants.length
+      ? `Recent participants: ${participants.map((participant) => participant.name).join(", ")}`
+      : "No replies yet"}
+    aria-hidden="true"
+  >
+    {#each participants as participant (participant.id)}
+      <span class="forum-topic-list__avatar">
+        <CommunityMemberAvatar member={participant} size="xsmall" decorative />
+      </span>
+    {/each}
+  </span>
+  <span
+    class="forum-topic-list__count"
+    aria-label={!replyCountAvailable
+      ? "Reply count unavailable"
+      : topic.replyCountApproximate
+        ? `Approximately ${topic.replyCount} replies`
+        : historyUpdating
+          ? `${topic.replyCount} or more replies; older history is updating`
+          : `${topic.replyCount} replies`}
+    >{#if !replyCountAvailable}—{:else if topic.replyCountApproximate}~{/if}{replyCountAvailable
+      ? topic.replyCount
+      : ""}{replyCountAvailable && historyUpdating ? "+" : ""}</span
+  >
+  <span class="forum-topic-list__activity">{topic.lastActivityLabel}</span>
 {/snippet}
 
 <section
@@ -285,6 +302,7 @@
           {:else}
             {@render topicButton(topic)}
           {/if}
+          {@render topicContent(topic)}
         </div>
       {/each}
     </div>
@@ -304,7 +322,7 @@
   }
 
   .forum-topic-list__columns,
-  :global(.forum-topic-list__topic[data-ui-component="button"]) {
+  .forum-topic-list__topic-row {
     display: grid;
     grid-template-columns: minmax(0, 1fr) 5rem 4.5rem 7rem;
     align-items: center;
@@ -343,16 +361,19 @@
   }
   .forum-topic-list__topic-row {
     position: relative;
-    display: flex;
     min-width: 0;
+    min-height: 5.25rem;
+    border-block-end: 1px solid var(--border);
+    padding: 1rem 0.75rem;
   }
   .forum-topic-list__topic-row
     > :global([data-ui-part="context-menu-trigger"]) {
-    min-width: 0;
-    flex: 1;
+    position: absolute;
+    inset: 0;
   }
   :global(.forum-topic-list__menu[data-ui-component="button"]) {
     position: absolute;
+    z-index: 2;
     inset-block-start: 0.75rem;
     inset-inline-end: 0.5rem;
     opacity: 0;
@@ -363,18 +384,13 @@
   }
 
   :global(.forum-topic-list__topic[data-ui-component="button"]) {
+    position: absolute;
+    inset: 0;
     width: 100%;
-    height: auto;
-    min-height: 5.25rem;
+    height: 100%;
     border: 0;
-    border-block-end: 1px solid var(--border);
     border-radius: 0;
-    padding: 1rem 0.75rem;
-    color: var(--foreground);
     background: transparent;
-    font: inherit;
-    text-align: start;
-    white-space: normal;
     cursor: pointer;
   }
 
@@ -389,9 +405,12 @@
   }
 
   .forum-topic-list__topic-main {
+    position: relative;
+    z-index: 1;
     display: grid;
     min-width: 0;
     gap: 0.32rem;
+    pointer-events: none;
   }
 
   .forum-topic-list__title-row,
@@ -405,6 +424,13 @@
 
   .forum-topic-list__title-row {
     position: relative;
+  }
+
+  .forum-topic-list__author {
+    position: relative;
+    z-index: 2;
+    display: inline-flex;
+    pointer-events: auto;
   }
 
   .forum-topic-list__unread-marker {
@@ -440,9 +466,12 @@
   }
 
   .forum-topic-list__participants {
+    position: relative;
+    z-index: 1;
     display: flex;
     justify-content: flex-end;
     padding-inline-end: 0.2rem;
+    pointer-events: none;
   }
 
   .forum-topic-list__avatar {
@@ -454,6 +483,9 @@
 
   .forum-topic-list__count,
   .forum-topic-list__activity {
+    position: relative;
+    z-index: 1;
+    pointer-events: none;
     text-align: center;
   }
 
@@ -462,7 +494,7 @@
       display: none;
     }
 
-    :global(.forum-topic-list__topic[data-ui-component="button"]) {
+    .forum-topic-list__topic-row {
       grid-template-columns: minmax(0, 1fr) auto;
     }
 

@@ -325,6 +325,15 @@
         {...handlers.onOpenTopic === undefined
           ? {}
           : { onOpenTopic: handlers.onOpenTopic }}
+        {...handlers.onOpenProfile === undefined
+          ? {}
+          : { onOpenProfile: handlers.onOpenProfile }}
+        {...handlers.onMessageMember === undefined
+          ? {}
+          : { onMessageMember: handlers.onMessageMember }}
+        {...handlers.onWaveMember === undefined
+          ? {}
+          : { onWaveMember: handlers.onWaveMember }}
         {...knownNonmember || handlers.onCreateTopic === undefined
           ? {}
           : {
