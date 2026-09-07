@@ -1114,6 +1114,23 @@
         { timeout: 15_000 },
       ),
     ).toBeVisible();
+    const forumComposer = canvas.getByRole("textbox", {
+      name: "Markdown editor",
+    });
+    await userEvent.type(forumComposer, "A visible top-level forum reply");
+    await userEvent.click(canvas.getByRole("button", { name: "Send message" }));
+    await expect(
+      await canvas.findByText(
+        "A visible top-level forum reply",
+        {},
+        { timeout: 15_000 },
+      ),
+    ).toBeVisible();
+    await waitFor(
+      () =>
+        expect(application).toHaveAttribute("data-last-action", "sent-message"),
+      { timeout: 15_000 },
+    );
     backToPosts = await canvas.findByRole("button", {
       name: "Back to posts",
     });

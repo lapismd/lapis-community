@@ -802,6 +802,14 @@ export function createCommunityController(
       const room = roomById(roomId);
       if (room === undefined)
         throwOperationFailure(operation, "validation", "Room is unavailable");
+      if (
+        room.kind === "forum" &&
+        room.id === activeRoomId &&
+        activeTopicId !== undefined
+      ) {
+        await actions.sendReply(activeTopicId, content);
+        return;
+      }
       if (content.trim() === "")
         throwOperationFailure(
           operation,

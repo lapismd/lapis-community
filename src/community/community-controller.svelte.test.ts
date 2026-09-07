@@ -503,6 +503,55 @@ describe("createCommunityController", () => {
     expect(controller.state.workspace.sidePanel).toBe("none");
   });
 
+  it("publishes an undirected forum-thread message as a reply to the topic root", async () => {
+    runtime = await createCommunityTestRuntime();
+    await connected(runtime);
+    const { controller, relay } = runtime;
+
+    controller.actions.selectRoom("support");
+    await vi.waitFor(() =>
+      expect(controller.state.workspace.view).toBe("forum-index"),
+    );
+    const topic = controller.state.workspace.topics[0]!;
+    controller.actions.openTopic(topic.id);
+    await vi.waitFor(() =>
+      expect(controller.state.workspace.view).toBe("forum-thread"),
+    );
+
+    await controller.actions.sendMessage("support", "A top-level forum reply");
+
+    await vi.waitFor(() =>
+      expect(controller.state.workspace.messages.at(-1)?.content).toBe(
+        "A top-level forum reply",
+      ),
+    );
+    const [published] = await relay.query({
+      kinds: [1_111],
+      "#E": [topic.id],
+    });
+    expect(published).toMatchObject({
+      kind: 1_111,
+      content: "A top-level forum reply",
+    });
+    expect(published?.tags).toContainEqual([
+      "E",
+      topic.id,
+      runtime.scenario.scope.relayUrl,
+      expect.any(String),
+    ]);
+    expect(published?.tags).toContainEqual([
+      "e",
+      topic.id,
+      runtime.scenario.scope.relayUrl,
+      expect.any(String),
+    ]);
+    expect(
+      await relay.query({ kinds: [9], "#h": ["support"] }),
+    ).not.toContainEqual(
+      expect.objectContaining({ content: published?.content }),
+    );
+  });
+
   it("publishes controller actions and reconciles live relay events", async () => {
     runtime = await createCommunityTestRuntime();
     await connected(runtime);

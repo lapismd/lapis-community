@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it } from "vitest";
 
 import { COMMUNITY_MESSAGE_EDIT_KIND } from "../../community/message-moderation.js";
+import { lapisPluginSupportGroupId } from "../../protocol/index.js";
 import {
   createRegistryCommunityStoryRuntime,
   type RegistryCommunityStoryRuntime,
@@ -16,6 +17,65 @@ afterEach(() => {
 });
 
 describe("createRegistryCommunityController authored reviews", () => {
+  it("publishes an undirected review as a top-level reply to the active discussion root", async () => {
+    runtime = await createRegistryCommunityStoryRuntime({ backend: "memory" });
+    const { dataSource, scenario } = runtime;
+    const controller = createRegistryCommunityController({
+      plugin: scenario.plugin,
+      name: scenario.name,
+      version: scenario.version,
+      publisher: scenario.publisher,
+      relays: JSON.stringify([scenario.relayUrl]),
+      dataSource,
+      identity: scenario.identity,
+    });
+
+    await controller.initializeSummary();
+    await controller.refresh(0);
+    const active = controller.allReviews.find(
+      (review) => review.event.id === controller.activePostId,
+    );
+    expect(active).toBeDefined();
+    if (active === undefined) return;
+    const relay = runtime.relayFactory.create(scenario.relayUrl);
+    const supportGroupId = lapisPluginSupportGroupId(scenario.plugin);
+    const rootsBefore = await relay.query({
+      kinds: [11],
+      "#h": [supportGroupId],
+    });
+
+    await expect(
+      controller.submitComment("An undirected Registry review"),
+    ).resolves.toBe(true);
+
+    const replies = await relay.query({
+      kinds: [1_111],
+      "#E": [active.rootEventId],
+    });
+    const published = replies.find(
+      (event) => event.content === "An undirected Registry review",
+    );
+    expect(published).toBeDefined();
+    expect(published?.tags).toContainEqual([
+      "E",
+      active.rootEventId,
+      scenario.relayUrl,
+      expect.any(String),
+    ]);
+    expect(published?.tags).toContainEqual([
+      "e",
+      active.rootEventId,
+      scenario.relayUrl,
+      expect.any(String),
+    ]);
+    expect(
+      await relay.query({ kinds: [11], "#h": [supportGroupId] }),
+    ).toHaveLength(rootsBefore.length);
+
+    relay.close();
+    controller.dispose();
+  });
+
   it("publishes edits and deletions while retaining the original review identity", async () => {
     runtime = await createRegistryCommunityStoryRuntime({ backend: "memory" });
     const { dataSource, scenario } = runtime;

@@ -1989,8 +1989,19 @@ export function createRegistryCommunityController(
         message = "Message edited.";
         return true;
       }
+      const targetRootId = replyingReview?.rootEventId ?? activeRootEventId;
+      const targetRoot = allReviews.find(
+        (review) =>
+          review.event.id === targetRootId &&
+          review.event.kind === NIP29_KINDS.forumThread,
+      );
+      if (targetRootId !== "" && targetRoot === undefined) {
+        throw new Error(
+          "The discussion root is unavailable. Refresh and retry.",
+        );
+      }
       const template =
-        replyingReview === undefined
+        targetRoot === undefined
           ? createNip29ForumThreadTemplate(
               supportGroupId,
               submittedComment,
@@ -1998,10 +2009,8 @@ export function createRegistryCommunityController(
             )
           : createNip29ForumCommentTemplate(
               supportGroupId,
-              reviews.find(
-                (review) => review.event.id === replyingReview.rootEventId,
-              )?.event ?? replyingReview.event,
-              replyingReview.event,
+              targetRoot.event,
+              replyingReview?.event ?? targetRoot.event,
               submittedComment,
               Math.floor(Date.now() / 1_000),
               relayUrls[0],
