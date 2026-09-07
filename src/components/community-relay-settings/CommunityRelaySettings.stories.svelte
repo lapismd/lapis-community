@@ -35,7 +35,7 @@
       name: "Lapis Community",
       relayUrl: "ws://registry.localhost:8281",
     },
-    onSave: async () => {},
+    onSave: fn(async () => {}),
   }}
 />
 
@@ -53,7 +53,7 @@
       approximateBytes: 24_576,
       lastSynchronizedAt: 1_700_000_000,
     },
-    onSave: async () => {},
+    onSave: fn(async () => {}),
     onClearCache: fn(async () => {}),
   }}
   play={async ({ canvas, canvasElement, args }) => {

@@ -21,11 +21,11 @@
   let {
     plugin,
     variant = "card",
-    onOpen = () => {},
+    onOpen,
   }: {
     plugin: RegistryCatalogEntry;
     variant?: "card" | "list" | "compact";
-    onOpen?: (plugin: RegistryCatalogEntry) => void;
+    onOpen: (plugin: RegistryCatalogEntry) => void;
   } = $props();
 
   const fallbackIcon = $derived(
@@ -50,18 +50,31 @@
                     ? FileTextIcon
                     : PackageIcon,
   );
+
+  function openPlugin(event: MouseEvent): void {
+    if (
+      event.button !== 0 ||
+      event.metaKey ||
+      event.ctrlKey ||
+      event.shiftKey ||
+      event.altKey
+    )
+      return;
+    event.preventDefault();
+    onOpen(plugin);
+  }
 </script>
 
 {#snippet pluginIcon()}
   <PluginIcon aria-hidden="true" />
 {/snippet}
 
-<button
-  type="button"
+<a
+  href={`#/registry/plugins/${encodeURIComponent(plugin.id)}`}
   class="registry-plugin-card"
   data-variant={variant}
   aria-label={`Open ${plugin.name}`}
-  onclick={() => onOpen(plugin)}
+  onclick={openPlugin}
 >
   <span
     class="registry-plugin-card__identity"
@@ -103,7 +116,7 @@
       </span>
     {/if}
   </span>
-</button>
+</a>
 
 <style>
   .registry-plugin-card {
@@ -117,6 +130,7 @@
     color: var(--foreground);
     background: color-mix(in srgb, var(--card) 94%, transparent);
     text-align: start;
+    text-decoration: none;
     cursor: pointer;
     transition:
       border-color 150ms ease,

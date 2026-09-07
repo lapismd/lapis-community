@@ -26,8 +26,8 @@
     canManageCommunity = false,
     canSendFeedback = false,
     connectionStatus = "connected",
-    onAction = () => {},
-    onPresenceChange = () => {},
+    onAction,
+    onPresenceChange,
   }: {
     member: CommunityMemberModel;
     communityName: string;
@@ -37,8 +37,8 @@
     canManageCommunity?: boolean;
     canSendFeedback?: boolean;
     connectionStatus?: CommunityConnectionStatus;
-    onAction?: (action: CommunityProfileMenuAction) => void;
-    onPresenceChange?: (presence: CommunityPresence) => void;
+    onAction: (action: CommunityProfileMenuAction) => void;
+    onPresenceChange: (presence: CommunityPresence) => void;
   } = $props();
 
   const presenceOptions: readonly {

@@ -8,7 +8,7 @@
     decorative = false,
   }: {
     member: CommunityMemberModel;
-    size?: "small" | "medium" | "large";
+    size?: "xsmall" | "small" | "medium" | "large";
     showPresence?: boolean;
     decorative?: boolean;
   } = $props();
@@ -66,6 +66,11 @@
   .community-member-avatar[data-size="small"] {
     --community-member-avatar-size: 2rem;
     --community-member-avatar-presence-size: 0.55rem;
+  }
+
+  .community-member-avatar[data-size="xsmall"] {
+    --community-member-avatar-size: 1.5rem;
+    --community-member-avatar-presence-size: 0.45rem;
   }
 
   .community-member-avatar[data-size="large"] {

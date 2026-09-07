@@ -24,12 +24,12 @@
     scopeRoom,
     canCreateChannel = false,
     updating = false,
-    onQueryChange = () => {},
-    onSelectRoom = () => {},
-    onSelectMessage = () => {},
-    onSelectMember = () => {},
-    onBrowseChannels = () => {},
-    onCreateChannel = () => {},
+    onQueryChange,
+    onSelectRoom,
+    onSelectMessage,
+    onSelectMember,
+    onBrowseChannels,
+    onCreateChannel,
   }: {
     open?: boolean;
     query?: string;
@@ -39,12 +39,12 @@
     scopeRoom?: CommunityRoomModel;
     canCreateChannel?: boolean;
     updating?: boolean;
-    onQueryChange?: (query: string) => void;
-    onSelectRoom?: (room: CommunityRoomModel) => void;
-    onSelectMessage?: (message: CommunitySearchMessageModel) => void;
-    onSelectMember?: (member: CommunityMemberModel) => void;
-    onBrowseChannels?: () => void;
-    onCreateChannel?: () => void;
+    onQueryChange: (query: string) => void;
+    onSelectRoom: (room: CommunityRoomModel) => void;
+    onSelectMessage: (message: CommunitySearchMessageModel) => void;
+    onSelectMember: (member: CommunityMemberModel) => void;
+    onBrowseChannels: () => void;
+    onCreateChannel: () => void;
   } = $props();
 
   let scopedRoomId = $state("");

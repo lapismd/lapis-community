@@ -8,15 +8,15 @@
   let {
     recipients = [],
     communityEmojis = [],
-    onChooseRecipients = () => {},
-    onRemoveRecipient = () => {},
-    onSend = () => {},
+    onChooseRecipients,
+    onRemoveRecipient,
+    onSend,
   }: {
     recipients?: readonly CommunityMemberModel[];
     communityEmojis?: readonly CommunityCustomEmoji[];
-    onChooseRecipients?: () => void;
-    onRemoveRecipient?: (member: CommunityMemberModel) => void;
-    onSend?: (content: string) => void | Promise<void>;
+    onChooseRecipients: () => void;
+    onRemoveRecipient: (member: CommunityMemberModel) => void;
+    onSend: (content: string) => void | Promise<void>;
   } = $props();
   let draft = $state("");
 </script>

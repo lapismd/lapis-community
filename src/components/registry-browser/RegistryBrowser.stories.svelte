@@ -195,7 +195,7 @@
       canvas.getByText("Checking the registry relay for updates."),
     ).toBeVisible();
     await userEvent.click(
-      canvas.getAllByRole("button", { name: "Open AI Assistant" })[0]!,
+      canvas.getAllByRole("link", { name: "Open AI Assistant" })[0]!,
     );
     await expect(
       await canvas.findByRole("heading", { name: "AI Assistant", level: 1 }),
@@ -231,7 +231,7 @@
       await canvas.findByRole("heading", { name: "Make Lapis Notes yours." }),
     ).toBeVisible();
     await userEvent.click(
-      canvas.getAllByRole("button", { name: "Open AI Assistant" })[0]!,
+      canvas.getAllByRole("link", { name: "Open AI Assistant" })[0]!,
     );
     await expect(
       await canvas.findByRole("heading", { name: "AI Assistant", level: 1 }),
@@ -302,7 +302,7 @@
     });
     await userEvent.type(search, "AI");
     await userEvent.click(
-      canvas.getByRole("button", { name: "Open AI Assistant" }),
+      canvas.getByRole("link", { name: "Open AI Assistant" }),
     );
     await expect(
       await canvas.findByRole("heading", { name: "AI Assistant", level: 1 }),
@@ -312,7 +312,7 @@
       await canvas.findByRole("textbox", { name: "Search registry plugins" }),
     ).toHaveValue("AI");
     await userEvent.click(
-      canvas.getByRole("button", { name: "Open AI Assistant" }),
+      canvas.getByRole("link", { name: "Open AI Assistant" }),
     );
     await expect(
       await canvas.findByRole("heading", { name: "AI Assistant", level: 1 }),
@@ -326,7 +326,7 @@
       canvas.getByRole("button", { name: /Desktop/u, pressed: true }),
     ).toBeVisible();
     await userEvent.click(
-      canvas.getByRole("button", { name: "Open AI Assistant" }),
+      canvas.getByRole("link", { name: "Open AI Assistant" }),
     );
     await expect(
       await canvas.findByRole("heading", { name: "AI Assistant", level: 1 }),

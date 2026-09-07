@@ -1,5 +1,9 @@
 <script lang="ts">
-  import { onMount, tick } from "svelte";
+  import { tick } from "svelte";
+
+  import { Button } from "@lapismd/design-core/shadcn/button";
+  import * as Dialog from "@lapismd/design-core/shadcn/dialog";
+  import * as ToggleGroup from "@lapismd/design-core/shadcn/toggle-group";
 
   import ChevronLeftIcon from "@lucide/svelte/icons/chevron-left";
   import ChevronRightIcon from "@lucide/svelte/icons/chevron-right";
@@ -27,46 +31,29 @@
     opener?: HTMLElement | null;
   } = $props();
 
-  let dialog = $state<HTMLDialogElement>();
+  let dialog = $state<HTMLElement | null>(null);
   let track = $state<HTMLDivElement>();
-  let closeButton = $state<HTMLButtonElement>();
   let mode = $state<MediaMode>("full");
-  let locked = false;
-  let previousBodyOverflow = "";
-  let previousRootOverflow = "";
+  let wasOpen = false;
   const lastIndex = $derived(Math.max(0, items.length - 1));
+  const mediaModes = [
+    ["full", "Split"],
+    ["light", "Light"],
+    ["dark", "Dark"],
+  ] as const;
 
   $effect(() => {
-    if (!dialog) return;
-    if (open && !dialog.open) {
+    if (open && !wasOpen) {
       selectedIndex = Math.min(Math.max(selectedIndex, 0), lastIndex);
       mode = initialMode;
-      lockDocumentScroll();
-      dialog.showModal();
       void tick().then(() => {
         scrollToSelected("auto");
-        closeButton?.focus();
       });
-    } else if (!open && dialog.open) {
-      dialog.close();
+    } else if (!open && wasOpen) {
+      const returnTarget = opener;
+      requestAnimationFrame(() => returnTarget?.focus());
     }
-  });
-
-  onMount(() => {
-    const handleDocumentKeydown = (event: KeyboardEvent) => {
-      if (
-        open &&
-        dialog !== undefined &&
-        !dialog.contains(event.target as Node)
-      ) {
-        handleKeydown(event);
-      }
-    };
-    document.addEventListener("keydown", handleDocumentKeydown);
-    return () => {
-      document.removeEventListener("keydown", handleDocumentKeydown);
-      unlockDocumentScroll();
-    };
+    wasOpen = open;
   });
 
   function imageFor(item: RegistryMediaItem) {
@@ -75,23 +62,6 @@
 
   function setMode(nextMode: MediaMode): void {
     mode = nextMode;
-  }
-
-  function closeViewer(): void {
-    open = false;
-    if (dialog?.open) dialog.close();
-    finishClose();
-  }
-
-  function afterClose(): void {
-    open = false;
-    finishClose();
-  }
-
-  function finishClose(): void {
-    unlockDocumentScroll();
-    const returnTarget = opener;
-    requestAnimationFrame(() => returnTarget?.focus());
   }
 
   function moveTo(index: number): void {
@@ -149,131 +119,121 @@
     } else if (event.key === "End") {
       event.preventDefault();
       moveTo(lastIndex);
-    } else if (event.key === "Escape") {
-      event.preventDefault();
-      closeViewer();
     }
-  }
-
-  function lockDocumentScroll(): void {
-    if (locked || typeof document === "undefined") return;
-    previousBodyOverflow = document.body.style.overflow;
-    previousRootOverflow = document.documentElement.style.overflow;
-    document.body.style.overflow = "hidden";
-    document.documentElement.style.overflow = "hidden";
-    locked = true;
-  }
-
-  function unlockDocumentScroll(): void {
-    if (!locked || typeof document === "undefined") return;
-    document.body.style.overflow = previousBodyOverflow;
-    document.documentElement.style.overflow = previousRootOverflow;
-    locked = false;
   }
 </script>
 
-<dialog
-  bind:this={dialog}
-  class="registry-media-viewer"
-  aria-labelledby="registry-media-viewer-title"
-  data-media-mode={mode}
-  onclose={afterClose}
-  oncancel={(event) => {
-    event.preventDefault();
-    closeViewer();
-  }}
-  onkeydown={handleKeydown}
-  onclick={(event) => {
-    if (event.target === dialog) closeViewer();
-  }}
->
-  <h2 id="registry-media-viewer-title" class="registry-media-viewer__sr-only">
-    {pluginName} media viewer
-  </h2>
-  <div
-    class="registry-media-viewer__modes"
-    role="group"
-    aria-label="Image theme"
-  >
-    {#each [["full", "Split"], ["light", "Light"], ["dark", "Dark"]] as [value, label]}
-      <button
-        type="button"
-        data-media-mode={value}
-        aria-pressed={mode === value}
-        onclick={() => setMode(value as MediaMode)}>{label}</button
+<Dialog.Root bind:open>
+  {#if open}
+    <Dialog.Content
+      bind:ref={dialog}
+      class="registry-media-viewer"
+      showCloseButton={false}
+      data-media-mode={mode}
+      onkeydown={handleKeydown}
+    >
+      <Dialog.Title class="sr-only">
+        {pluginName} media viewer
+      </Dialog.Title>
+      <ToggleGroup.Root
+        type="single"
+        value={mode}
+        onValueChange={(value) => value && setMode(value as MediaMode)}
+        size="sm"
+        spacing={1}
+        variant="outline"
+        class="registry-media-viewer__modes"
+        aria-label="Image theme"
       >
-    {/each}
-  </div>
-  <button
-    bind:this={closeButton}
-    class="registry-media-viewer__close"
-    type="button"
-    aria-label="Close media viewer"
-    onclick={closeViewer}
-  >
-    <XIcon aria-hidden="true" />
-  </button>
+        {#each mediaModes as [value, label]}
+          <ToggleGroup.Item {value} data-media-mode={value}
+            >{label}</ToggleGroup.Item
+          >
+        {/each}
+      </ToggleGroup.Root>
+      <Dialog.Close>
+        {#snippet child({ props })}
+          <Button
+            {...props}
+            class="registry-media-viewer__close"
+            type="button"
+            variant="ghost"
+            size="icon"
+            aria-label="Close media viewer"
+          >
+            <XIcon aria-hidden="true" />
+          </Button>
+        {/snippet}
+      </Dialog.Close>
 
-  <div
-    bind:this={track}
-    class="registry-media-viewer__track"
-    role="listbox"
-    aria-label={`${pluginName} media`}
-    tabindex="0"
-    onscroll={updateSelectedFromScroll}
-    onkeydown={(event) => {
-      event.stopPropagation();
-      handleKeydown(event);
-    }}
-  >
-    {#each items as item, index}
-      {@const image = imageFor(item)}
       <div
-        class="registry-media-viewer__slide"
-        role="option"
-        aria-selected={index === selectedIndex}
+        bind:this={track}
+        class="registry-media-viewer__track"
+        role="listbox"
+        aria-label={`${pluginName} media`}
+        tabindex="0"
+        onscroll={updateSelectedFromScroll}
+        onkeydown={(event) => {
+          event.stopPropagation();
+          handleKeydown(event);
+        }}
       >
-        <RegistryVerifiedImage
-          reference={image}
-          alt={item.alt}
-          width={image.width}
-          height={image.height}
-          loading={index === selectedIndex ? "eager" : "lazy"}
-        />
+        {#each items as item, index}
+          {@const image = imageFor(item)}
+          <div
+            class="registry-media-viewer__slide"
+            role="option"
+            aria-selected={index === selectedIndex}
+          >
+            <RegistryVerifiedImage
+              reference={image}
+              alt={item.alt}
+              width={image.width}
+              height={image.height}
+              loading={index === selectedIndex ? "eager" : "lazy"}
+            />
+          </div>
+        {/each}
       </div>
-    {/each}
-  </div>
 
-  {#if items.length > 1}
-    <button
-      class="registry-media-viewer__previous"
-      type="button"
-      aria-label="Previous image"
-      disabled={selectedIndex === 0}
-      onclick={() => moveTo(selectedIndex - 1)}
-    >
-      <ChevronLeftIcon aria-hidden="true" />
-    </button>
-    <button
-      class="registry-media-viewer__next"
-      type="button"
-      aria-label="Next image"
-      disabled={selectedIndex === lastIndex}
-      onclick={() => moveTo(selectedIndex + 1)}
-    >
-      <ChevronRightIcon aria-hidden="true" />
-    </button>
+      {#if items.length > 1}
+        <Button
+          class="registry-media-viewer__previous"
+          type="button"
+          variant="ghost"
+          size="icon"
+          aria-label="Previous image"
+          disabled={selectedIndex === 0}
+          onclick={() => moveTo(selectedIndex - 1)}
+        >
+          <ChevronLeftIcon aria-hidden="true" />
+        </Button>
+        <Button
+          class="registry-media-viewer__next"
+          type="button"
+          variant="ghost"
+          size="icon"
+          aria-label="Next image"
+          disabled={selectedIndex === lastIndex}
+          onclick={() => moveTo(selectedIndex + 1)}
+        >
+          <ChevronRightIcon aria-hidden="true" />
+        </Button>
+      {/if}
+
+      <p class="registry-media-viewer__status" aria-live="polite">
+        {selectedIndex + 1} of {items.length}: {items[selectedIndex]?.alt}
+      </p>
+    </Dialog.Content>
   {/if}
-
-  <p class="registry-media-viewer__status" aria-live="polite">
-    {selectedIndex + 1} of {items.length}: {items[selectedIndex]?.alt}
-  </p>
-</dialog>
+</Dialog.Root>
 
 <style>
-  .registry-media-viewer {
+  :global(.registry-media-viewer) {
     position: fixed;
     inset: 0;
+    top: 0;
+    left: 0;
     box-sizing: border-box;
     width: 100vw;
     max-width: none;
@@ -284,10 +244,9 @@
     padding: 0;
     color: white;
     background: #000;
+    box-shadow: none;
     overflow: hidden;
-  }
-  .registry-media-viewer::backdrop {
-    background: #000;
+    translate: none;
   }
   .registry-media-viewer__track {
     display: flex;
@@ -319,7 +278,7 @@
     max-height: 86dvh;
     object-fit: contain;
   }
-  .registry-media-viewer__modes {
+  :global(.registry-media-viewer__modes) {
     position: fixed;
     z-index: 2;
     top: 1rem;
@@ -333,7 +292,7 @@
     background: rgb(24 24 27 / 88%);
     backdrop-filter: blur(12px);
   }
-  .registry-media-viewer__modes button {
+  :global(.registry-media-viewer__modes [data-ui-part="toggle-group-item"]) {
     min-height: 2rem;
     border: 0;
     border-radius: 999px;
@@ -344,16 +303,26 @@
     font-size: 0.78rem;
     cursor: pointer;
   }
-  .registry-media-viewer__modes button[aria-pressed="true"] {
+  :global(
+      .registry-media-viewer__modes
+        [data-ui-part="toggle-group-item"][data-state="on"]
+    ) {
     color: white;
     background: rgb(255 255 255 / 14%);
   }
-  .registry-media-viewer__modes button:focus-visible,
-  .registry-media-viewer > button:focus-visible {
+  :global(
+      .registry-media-viewer__modes
+        [data-ui-part="toggle-group-item"]:focus-visible
+    ),
+  :global(.registry-media-viewer__close:focus-visible),
+  :global(.registry-media-viewer__previous:focus-visible),
+  :global(.registry-media-viewer__next:focus-visible) {
     outline: 2px solid white;
     outline-offset: 2px;
   }
-  .registry-media-viewer > button {
+  :global(.registry-media-viewer__close),
+  :global(.registry-media-viewer__previous),
+  :global(.registry-media-viewer__next) {
     position: fixed;
     z-index: 2;
     display: grid;
@@ -368,27 +337,30 @@
     cursor: pointer;
     backdrop-filter: blur(12px);
   }
-  .registry-media-viewer > button :global(svg) {
+  :global(.registry-media-viewer__close svg),
+  :global(.registry-media-viewer__previous svg),
+  :global(.registry-media-viewer__next svg) {
     width: 1.15rem;
     height: 1.15rem;
   }
-  .registry-media-viewer > button:disabled {
+  :global(.registry-media-viewer__previous:disabled),
+  :global(.registry-media-viewer__next:disabled) {
     opacity: 0.25;
     cursor: default;
   }
-  .registry-media-viewer__close {
+  :global(.registry-media-viewer__close) {
     top: 1rem;
     right: 1rem;
   }
-  .registry-media-viewer__previous,
-  .registry-media-viewer__next {
+  :global(.registry-media-viewer__previous),
+  :global(.registry-media-viewer__next) {
     top: 50%;
     transform: translateY(-50%);
   }
-  .registry-media-viewer__previous {
+  :global(.registry-media-viewer__previous) {
     left: 1rem;
   }
-  .registry-media-viewer__next {
+  :global(.registry-media-viewer__next) {
     right: 1rem;
   }
   .registry-media-viewer__status {
@@ -402,20 +374,9 @@
     font-size: 0.78rem;
     text-align: center;
   }
-  .registry-media-viewer__sr-only {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    padding: 0;
-    margin: -1px;
-    overflow: hidden;
-    clip: rect(0, 0, 0, 0);
-    white-space: nowrap;
-    border: 0;
-  }
   @media (max-width: 45rem) {
-    .registry-media-viewer__previous,
-    .registry-media-viewer__next {
+    :global(.registry-media-viewer__previous),
+    :global(.registry-media-viewer__next) {
       display: none !important;
     }
     .registry-media-viewer__slide {

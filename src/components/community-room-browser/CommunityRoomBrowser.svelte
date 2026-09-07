@@ -1,6 +1,7 @@
 <script lang="ts">
   import { Button } from "@lapismd/design-core/shadcn/button";
   import * as Dialog from "@lapismd/design-core/shadcn/dialog";
+  import * as Empty from "@lapismd/design-core/shadcn/empty";
   import * as InputGroup from "@lapismd/design-core/shadcn/input-group";
   import * as Tabs from "@lapismd/design-core/shadcn/tabs";
   import ArrowDownAZIcon from "@lucide/svelte/icons/arrow-down-a-z";
@@ -18,17 +19,17 @@
     rooms,
     initialKind = "all",
     canCreate = false,
-    onSelect = () => {},
-    onJoin = () => {},
-    onCreate = () => {},
+    onSelect,
+    onJoin,
+    onCreate,
   }: {
     open?: boolean;
     rooms: readonly CommunityRoomModel[];
     initialKind?: "all" | "channel" | "forum";
     canCreate?: boolean;
-    onSelect?: (room: CommunityRoomModel) => void;
-    onJoin?: (room: CommunityRoomModel) => void | Promise<void>;
-    onCreate?: (kind: "channel" | "forum") => void;
+    onSelect: (room: CommunityRoomModel) => void;
+    onJoin: (room: CommunityRoomModel) => void | Promise<void>;
+    onCreate: (kind: "channel" | "forum") => void;
   } = $props();
   let query = $state("");
   let membership = $state<"all" | "joined" | "archived">("all");
@@ -176,7 +177,19 @@
             >{/if}
         </div>
       {:else}
-        <p class="community-room-browser__empty">No matching rooms</p>
+        <Empty.Root class="community-room-browser__empty">
+          <Empty.Header>
+            <Empty.Media variant="icon"
+              ><SearchIcon aria-hidden="true" /></Empty.Media
+            >
+            <Empty.Title role="heading" aria-level={2}>
+              No matching rooms
+            </Empty.Title>
+            <Empty.Description>
+              Try a different search or filter.
+            </Empty.Description>
+          </Empty.Header>
+        </Empty.Root>
       {/each}
     </div>
   </Dialog.Content>
@@ -308,13 +321,11 @@
   .community-room-browser__room > button:hover strong {
     text-decoration: underline;
   }
-  .community-room-browser__room small,
-  .community-room-browser__empty {
+  .community-room-browser__room small {
     color: var(--muted-foreground);
   }
-  .community-room-browser__empty {
+  :global(.community-room-browser__empty) {
     padding: 1.5rem;
-    text-align: center;
   }
 
   @media (max-width: 40rem) {

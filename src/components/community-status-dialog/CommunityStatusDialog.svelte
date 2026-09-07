@@ -27,7 +27,7 @@
     operationMessage,
     error,
     retryable = false,
-    onSave = () => {},
+    onSave,
     onRetry,
     onDismissError,
   }: {
@@ -37,7 +37,7 @@
     operationMessage?: string;
     error?: string;
     retryable?: boolean;
-    onSave?: (status: string) => void | Promise<void>;
+    onSave: (status: string) => void | Promise<void>;
     onRetry?: () => void | Promise<void>;
     onDismissError?: () => void;
   } = $props();

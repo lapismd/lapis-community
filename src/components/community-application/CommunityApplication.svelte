@@ -137,8 +137,8 @@
     extensions = {},
     linkBuilder,
     onAuthenticationRequired = async (action) => void (await action()),
-    onDestinationChange = () => {},
-    onSectionAction = () => {},
+    onDestinationChange,
+    onSectionAction,
     ...restProps
   }: HTMLAttributes<HTMLDivElement> & {
     controller: CommunityController;
@@ -1105,7 +1105,7 @@
     }
 
     if (next.destination !== previous.destination) {
-      onDestinationChange(next.destination);
+      onDestinationChange?.(next.destination);
     }
   }
 
@@ -1390,7 +1390,7 @@
           ),
       );
     }
-    onSectionAction(section, action);
+    onSectionAction?.(section, action);
   }
 
   function handleItemAction(

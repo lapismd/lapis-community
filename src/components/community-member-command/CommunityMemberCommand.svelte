@@ -18,9 +18,9 @@
     mode = "view",
     completeness = "complete",
     maxSelected = 8,
-    onSearch = () => {},
-    onSelect = () => {},
-    onRemove = () => {},
+    onSearch,
+    onSelect,
+    onRemove,
     onConfirm,
   }: {
     open?: boolean;
@@ -31,9 +31,9 @@
     mode?: "view" | "manage" | "select";
     completeness?: "complete" | "partial" | "unavailable";
     maxSelected?: number;
-    onSearch?: (query: string) => void;
-    onSelect?: (member: CommunityMemberModel) => void;
-    onRemove?: (member: CommunityMemberModel) => void;
+    onSearch: (query: string) => void;
+    onSelect: (member: CommunityMemberModel) => void;
+    onRemove: (member: CommunityMemberModel) => void;
     onConfirm?: () => void;
   } = $props();
 

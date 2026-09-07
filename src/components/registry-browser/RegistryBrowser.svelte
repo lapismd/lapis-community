@@ -46,7 +46,7 @@
   let {
     source,
     route = $bindable({ page: "landing" }),
-    onRouteChange = () => {},
+    onRouteChange,
     discussionDataSource,
     discussionIdentity,
     discussion,
@@ -152,7 +152,7 @@
     routeTimer = setTimeout(() => {
       routeTimer = undefined;
       route = next;
-      onRouteChange(next);
+      onRouteChange?.(next);
     }, 50);
   }
 

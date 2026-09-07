@@ -12,6 +12,7 @@
   import UsersIcon from "@lucide/svelte/icons/users";
 
   import CommunityConversation from "../community-conversation/CommunityConversation.svelte";
+  import CommunityMemberAvatar from "../community-member-avatar/CommunityMemberAvatar.svelte";
   import { memberById } from "../community-workspace/model.js";
   import type { CommunityRoomModel } from "../community-workspace/model.js";
   import type { CommunityInboxModel } from "./model.js";
@@ -25,10 +26,10 @@
   let {
     model,
     rooms = [],
-    onSelect = () => {},
-    onSend = () => {},
-    onMarkAllRead = () => {},
-    onOpenChannelSettings = () => {},
+    onSelect,
+    onSend,
+    onMarkAllRead,
+    onOpenChannelSettings,
     onOpenChannel,
     onViewParticipants,
     onHuddle,
@@ -56,10 +57,10 @@
   }: {
     model: CommunityInboxModel;
     rooms?: readonly CommunityRoomModel[];
-    onSelect?: (itemId: string) => void;
-    onSend?: (content: string) => void | Promise<void>;
-    onMarkAllRead?: () => void;
-    onOpenChannelSettings?: () => void;
+    onSelect: (itemId: string) => void;
+    onSend: (content: string) => void | Promise<void>;
+    onMarkAllRead: () => void;
+    onOpenChannelSettings: () => void;
     onOpenChannel?: () => void;
     onViewParticipants?: () => void;
     onHuddle?: () => void | Promise<void>;
@@ -288,9 +289,7 @@
             aria-pressed={item.id === model.activeItemId}
             onclick={() => onSelect(item.id)}
           >
-            <span class="lc-community-inbox__avatar" aria-hidden="true">
-              {author.initials}
-            </span>
+            <CommunityMemberAvatar member={author} size="small" decorative />
             <span class="lc-community-inbox__item-body">
               <span class="lc-community-inbox__item-heading">
                 <strong>{author.name}</strong>

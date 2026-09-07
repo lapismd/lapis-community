@@ -11,11 +11,11 @@
   import { tick } from "svelte";
 
   import CommunityChatComposer from "../community-chat-composer/CommunityChatComposer.svelte";
+  import CommunityMemberAvatar from "../community-member-avatar/CommunityMemberAvatar.svelte";
   import type { CommunityComposerDraftStore } from "../community-chat-composer/model.js";
   import { useCommunityApplicationComposer } from "../community-application/composer-context.js";
   import {
     displayName,
-    avatarHue,
     initials,
     type CommunityProfile,
     type ForumPost,
@@ -100,6 +100,17 @@
     signedInPubkey === ""
       ? ""
       : (signedInMember?.name ?? displayName(signedInPubkey, profiles)),
+  );
+  const signedInAvatarMember = $derived(
+    signedInMember ?? {
+      id: signedInPubkey,
+      name: signedInName,
+      handle: shortKey(signedInPubkey),
+      initials: initials(signedInName),
+      ...(signedInProfile?.picture === undefined
+        ? {}
+        : { avatarUrl: signedInProfile.picture }),
+    },
   );
   const composerContext = $derived(
     editingPost !== undefined
@@ -357,34 +368,22 @@
             class="discussion-composer__identity"
             aria-label={`Open profile for ${signedInName}`}
           >
-            <span
-              class="discussion-composer__avatar"
-              style={`--avatar-hue: ${avatarHue(signedInPubkey)}`}
-              aria-hidden="true"
-            >
-              {#if signedInProfile?.picture}
-                <img src={signedInProfile.picture} alt="" />
-              {:else}
-                {initials(signedInName)}
-              {/if}
-            </span>
+            <CommunityMemberAvatar
+              member={signedInAvatarMember}
+              size="xsmall"
+              decorative
+            />
             <span>{signedInName}</span>
           </Button>
         {/snippet}
       </Popover.Trigger>
       <Popover.Content align="start" class="discussion-composer__profile">
         <div class="discussion-composer__profile-heading">
-          <span
-            class="discussion-composer__avatar discussion-composer__avatar--large"
-            style={`--avatar-hue: ${avatarHue(signedInPubkey)}`}
-            aria-hidden="true"
-          >
-            {#if signedInProfile?.picture}
-              <img src={signedInProfile.picture} alt="" />
-            {:else}
-              {initials(signedInName)}
-            {/if}
-          </span>
+          <CommunityMemberAvatar
+            member={signedInAvatarMember}
+            size="large"
+            decorative
+          />
           <div>
             <Popover.Title><h3>{signedInName}</h3></Popover.Title>
             <p>{shortKey(signedInPubkey)}</p>
@@ -823,33 +822,6 @@
     justify-content: flex-start;
     padding-inline-start: 0.3rem;
     color: var(--foreground);
-  }
-
-  .discussion-composer__avatar {
-    display: grid;
-    width: 1.65rem;
-    height: 1.65rem;
-    flex: 0 0 auto;
-    place-items: center;
-    overflow: hidden;
-    border: 1px solid hsl(var(--avatar-hue) 55% 55% / 0.48);
-    border-radius: 50%;
-    background: hsl(var(--avatar-hue) 42% 28%);
-    color: hsl(var(--avatar-hue) 70% 90%);
-    font-size: 0.62rem;
-    font-weight: 700;
-  }
-
-  .discussion-composer__avatar--large {
-    width: 2.75rem;
-    height: 2.75rem;
-    font-size: 0.85rem;
-  }
-
-  .discussion-composer__avatar img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
   }
 
   :global(.discussion-composer__profile) {

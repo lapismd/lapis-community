@@ -18,6 +18,7 @@
   let runtime = $state<CommunityStoryRuntime>();
   let community = $state<CommunityController>();
   let runtimeError = $state("");
+  let selectedItemId = $state("");
   const projectedModel = $derived(
     community?.state.inbox ?? communityInboxFixture,
   );
@@ -31,7 +32,10 @@
           items: [],
           messages: [],
         }
-      : projectedModel,
+      : {
+          ...projectedModel,
+          activeItemId: selectedItemId || projectedModel.activeItemId,
+        },
   );
   const controller = new AppShellController();
 
@@ -100,8 +104,10 @@
     <CommunityInbox
       {model}
       {historyUpdating}
+      onSelect={(itemId) => (selectedItemId = itemId)}
       onSend={send}
       onMarkAllRead={() => void community?.actions.markAllRead()}
+      onOpenChannelSettings={() => controller.right.open()}
     />
   </AppShell.Main>
 </CommunityAppShell>

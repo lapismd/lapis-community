@@ -34,17 +34,15 @@
       canvas.getByRole("heading", { name: "Make Lapis Notes yours." }),
     ).toBeVisible();
     await userEvent.click(
-      canvas.getAllByRole("button", { name: "Open AI Assistant" })[0]!,
+      canvas.getAllByRole("link", { name: "Open AI Assistant" })[0]!,
     );
     await expect(args.onOpenPlugin).toHaveBeenCalledWith(
       registryStoryEntries[0],
     );
-    await userEvent.click(
-      canvas.getByRole("button", { name: /AI, 1 plugin/u }),
-    );
+    await userEvent.click(canvas.getByRole("link", { name: /AI, 1 plugin/u }));
     await expect(args.onOpenCategory).toHaveBeenCalledWith("ai");
     await userEvent.click(
-      canvas.getAllByRole("button", { name: /Plugins/u })[0]!,
+      canvas.getAllByRole("link", { name: /Plugins/u })[0]!,
     );
     await expect(args.onOpenDirectory).toHaveBeenCalled();
   }}

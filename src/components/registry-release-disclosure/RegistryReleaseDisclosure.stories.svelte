@@ -1,6 +1,6 @@
 <script module lang="ts">
   import { defineMeta } from "@storybook/addon-svelte-csf";
-  import { expect, fn, userEvent, within } from "storybook/test";
+  import { expect, fn, userEvent, waitFor, within } from "storybook/test";
 
   import { SecretKeyRegistrySigner } from "../../auth/index.js";
   import type {
@@ -109,7 +109,7 @@
     args: {
       eventId,
       source: approved,
-      onOpenPlugin: () => {},
+      onOpenPlugin: fn(),
     },
     parameters: {
       layout: "padded",
@@ -134,7 +134,8 @@
   name="Approved expanded"
   play={async (context) => {
     await expand(context);
-    const { canvas } = context;
+    const { canvas, canvasElement } = context;
+    const page = within(canvasElement.ownerDocument.body);
     await expect(
       await canvas.findByRole("heading", { name: "AI Assistant", level: 3 }),
     ).toBeVisible();
@@ -156,36 +157,46 @@
     await expect(overview).toBeVisible();
     await userEvent.click(banner);
     await expect(
-      await canvas.findByRole("heading", { name: "AI Assistant media viewer" }),
+      await page.findByRole("heading", { name: "AI Assistant media viewer" }),
     ).toBeVisible();
-    await expect(canvas.getByRole("dialog")).toHaveAttribute(
+    await expect(page.getByRole("dialog")).toHaveAttribute(
       "data-media-mode",
       "dark",
     );
-    await expect(canvas.getByRole("button", { name: "Dark" })).toHaveAttribute(
-      "aria-pressed",
+    await expect(page.getByRole("radio", { name: "Dark" })).toHaveAttribute(
+      "aria-checked",
       "true",
     );
-    await expect(canvas.getAllByRole("option")).toHaveLength(1);
+    await expect(page.getAllByRole("option")).toHaveLength(1);
     await expect(
-      canvas.getByRole("option", {
+      page.getByRole("option", {
         name: "AI Assistant running inside Lapis Notes",
       }),
     ).toHaveAttribute("aria-selected", "true");
     await userEvent.click(
-      canvas.getByRole("button", { name: "Close media viewer" }),
+      page.getByRole("button", { name: "Close media viewer" }),
+    );
+    await waitFor(() =>
+      expect(canvasElement.ownerDocument.body.style.pointerEvents).not.toBe(
+        "none",
+      ),
     );
     await userEvent.click(overview);
-    await expect(canvas.getAllByRole("option")).toHaveLength(1);
+    await expect(page.getAllByRole("option")).toHaveLength(1);
     await expect(
-      canvas.getByRole("option", { name: "AI Assistant overview" }),
+      page.getByRole("option", { name: "AI Assistant overview" }),
     ).toHaveAttribute("aria-selected", "true");
-    await expect(canvas.getByRole("dialog")).toHaveAttribute(
+    await expect(page.getByRole("dialog")).toHaveAttribute(
       "data-media-mode",
       "preview",
     );
     await userEvent.click(
-      canvas.getByRole("button", { name: "Close media viewer" }),
+      page.getByRole("button", { name: "Close media viewer" }),
+    );
+    await waitFor(() =>
+      expect(canvasElement.ownerDocument.body.style.pointerEvents).not.toBe(
+        "none",
+      ),
     );
     await userEvent.click(canvas.getByRole("tab", { name: /Releases/u }));
     await expect(canvas.getAllByText("Signed bundle")).toHaveLength(2);

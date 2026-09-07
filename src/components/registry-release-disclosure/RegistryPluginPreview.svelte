@@ -15,6 +15,7 @@
   import { registryFilterIcon } from "../registry-filter-icons.js";
   import RegistryMediaGallery from "../registry-media-gallery/RegistryMediaGallery.svelte";
   import RegistryMediaViewer from "../registry-media-viewer/RegistryMediaViewer.svelte";
+  import CommunityMemberAvatar from "../community-member-avatar/CommunityMemberAvatar.svelte";
   import { registryPluginIcon } from "../registry-plugin-icons.js";
   import RegistryVerifiedImage from "../registry-verified-image/RegistryVerifiedImage.svelte";
 
@@ -50,6 +51,13 @@
   const authorAvatarUrl = $derived(
     detail.authorAvatarUrl ?? entry.authorAvatarUrl,
   );
+  const authorMember = $derived({
+    id: authorUrl ?? author,
+    name: author,
+    handle: author,
+    initials: initials(author),
+    ...(authorAvatarUrl === undefined ? {} : { avatarUrl: authorAvatarUrl }),
+  });
   const PluginIcon = $derived(
     registryPluginIcon(detail.appearance?.icon ?? entry.categories[0]),
   );
@@ -134,16 +142,11 @@
               target="_blank"
               rel="noopener noreferrer"
             >
-              <span
-                class="registry-plugin-preview__author-avatar"
-                aria-hidden="true"
-              >
-                {#if authorAvatarUrl}
-                  <img src={authorAvatarUrl} alt="" />
-                {:else}
-                  {initials(author)}
-                {/if}
-              </span>
+              <CommunityMemberAvatar
+                member={authorMember}
+                size="xsmall"
+                decorative
+              />
               <span>By {author}</span>
             </a>
           {:else}
@@ -151,16 +154,11 @@
               class="registry-plugin-preview__author-link disabled"
               aria-label={`By ${author}`}
             >
-              <span
-                class="registry-plugin-preview__author-avatar"
-                aria-hidden="true"
-              >
-                {#if authorAvatarUrl}
-                  <img src={authorAvatarUrl} alt="" />
-                {:else}
-                  {initials(author)}
-                {/if}
-              </span>
+              <CommunityMemberAvatar
+                member={authorMember}
+                size="xsmall"
+                decorative
+              />
               <span>By {author}</span>
             </span>
           {/if}
@@ -697,26 +695,6 @@
     text-align: right;
     font-size: 0.82rem;
     font-weight: 600;
-  }
-  .registry-plugin-preview__author-avatar {
-    display: grid;
-    width: 1.4rem;
-    height: 1.4rem;
-    flex: none;
-    place-items: center;
-    overflow: hidden;
-    border: 1px solid var(--border);
-    border-radius: 999px;
-    color: var(--primary);
-    background: color-mix(in srgb, var(--primary) 12%, var(--muted));
-    font-size: 0.58rem;
-    font-weight: 700;
-    line-height: 1;
-  }
-  .registry-plugin-preview__author-avatar :global(img) {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
   }
   @media (max-width: 36rem) {
     .registry-plugin-preview__hero.with-banner {

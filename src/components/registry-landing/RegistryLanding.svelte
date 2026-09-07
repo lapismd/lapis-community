@@ -10,17 +10,30 @@
 
   let {
     plugins,
-    onOpenDirectory = () => {},
-    onOpenPlugin = () => {},
-    onOpenCategory = () => {},
+    onOpenDirectory,
+    onOpenPlugin,
+    onOpenCategory,
   }: {
     plugins: readonly RegistryCatalogEntry[];
-    onOpenDirectory?: () => void;
-    onOpenPlugin?: (plugin: RegistryCatalogEntry) => void;
-    onOpenCategory?: (category: string) => void;
+    onOpenDirectory: () => void;
+    onOpenPlugin: (plugin: RegistryCatalogEntry) => void;
+    onOpenCategory: (category: string) => void;
   } = $props();
 
   const sections = $derived(registryLandingSections(plugins));
+
+  function interceptNavigation(event: MouseEvent, action: () => void): void {
+    if (
+      event.button !== 0 ||
+      event.metaKey ||
+      event.ctrlKey ||
+      event.shiftKey ||
+      event.altKey
+    )
+      return;
+    event.preventDefault();
+    action();
+  }
 </script>
 
 <div class="registry-landing">
@@ -38,23 +51,23 @@
     class="registry-landing__section"
     aria-labelledby="registry-landing-plugins"
   >
-    <button
+    <a
       class="registry-landing__section-link"
-      type="button"
-      onclick={onOpenDirectory}
+      href="#/registry/plugins"
+      onclick={(event) => interceptNavigation(event, onOpenDirectory)}
     >
       <h2 id="registry-landing-plugins">Plugins</h2>
       <ChevronRightIcon aria-hidden="true" />
-    </button>
+    </a>
     <div class="registry-landing__lanes">
       <section>
-        <button
-          type="button"
+        <a
           class="registry-landing__lane-link"
-          onclick={onOpenDirectory}
+          href="#/registry/plugins"
+          onclick={(event) => interceptNavigation(event, onOpenDirectory)}
         >
           Featured <ChevronRightIcon aria-hidden="true" />
-        </button>
+        </a>
         <div class="registry-landing__list">
           {#each sections.featured.slice(0, 5) as plugin (plugin.id)}
             <RegistryPluginCard
@@ -66,13 +79,13 @@
         </div>
       </section>
       <section>
-        <button
-          type="button"
+        <a
           class="registry-landing__lane-link"
-          onclick={onOpenDirectory}
+          href="#/registry/plugins"
+          onclick={(event) => interceptNavigation(event, onOpenDirectory)}
         >
           New <ChevronRightIcon aria-hidden="true" />
-        </button>
+        </a>
         <div class="registry-landing__list">
           {#each sections.newlyReleased as plugin (plugin.id)}
             <RegistryPluginCard
@@ -84,13 +97,13 @@
         </div>
       </section>
       <section>
-        <button
-          type="button"
+        <a
           class="registry-landing__lane-link"
-          onclick={onOpenDirectory}
+          href="#/registry/plugins"
+          onclick={(event) => interceptNavigation(event, onOpenDirectory)}
         >
           Updated <ChevronRightIcon aria-hidden="true" />
-        </button>
+        </a>
         <div class="registry-landing__list">
           {#each sections.recentlyUpdated as plugin (plugin.id)}
             <RegistryPluginCard
@@ -108,25 +121,26 @@
     class="registry-landing__section"
     aria-labelledby="registry-landing-categories"
   >
-    <button
+    <a
       class="registry-landing__section-link"
-      type="button"
-      onclick={onOpenDirectory}
+      href="#/registry/plugins"
+      onclick={(event) => interceptNavigation(event, onOpenDirectory)}
     >
       <h2 id="registry-landing-categories">Categories</h2>
       <ChevronRightIcon aria-hidden="true" />
-    </button>
+    </a>
     <div class="registry-landing__categories">
       {#each sections.categories as category (category.id)}
-        <button
-          type="button"
+        <a
+          href="#/registry/plugins"
           aria-label={`${category.label}, ${category.count} plugin${category.count === 1 ? "" : "s"}`}
-          onclick={() => onOpenCategory(category.id)}
+          onclick={(event) =>
+            interceptNavigation(event, () => onOpenCategory(category.id))}
         >
           <PackageIcon aria-hidden="true" />
           <strong>{category.label}</strong>
           <span>{category.count}</span>
-        </button>
+        </a>
       {/each}
     </div>
   </section>
@@ -200,6 +214,7 @@
     font: inherit;
     font-weight: 700;
     cursor: pointer;
+    text-decoration: none;
   }
 
   .registry-landing__section-link :global(svg) {
@@ -235,7 +250,7 @@
     gap: 0.75rem;
   }
 
-  .registry-landing__categories button {
+  .registry-landing__categories a {
     display: grid;
     grid-template-columns: auto minmax(0, 1fr) auto;
     align-items: center;
@@ -247,16 +262,17 @@
     background: var(--card);
     text-align: start;
     cursor: pointer;
+    text-decoration: none;
   }
 
-  .registry-landing__categories button:hover,
-  .registry-landing__categories button:focus-visible {
+  .registry-landing__categories a:hover,
+  .registry-landing__categories a:focus-visible {
     border-color: color-mix(in srgb, var(--primary) 45%, var(--border));
     background: var(--accent);
     outline: none;
   }
 
-  .registry-landing__categories button > span {
+  .registry-landing__categories a > span {
     color: var(--muted-foreground);
   }
 

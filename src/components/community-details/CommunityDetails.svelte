@@ -1,6 +1,8 @@
 <script lang="ts">
   import { Badge } from "@lapismd/design-core/shadcn/badge";
 
+  import CommunityMemberAvatar from "../community-member-avatar/CommunityMemberAvatar.svelte";
+
   import {
     memberById,
     type CommunityDetailsModel,
@@ -50,18 +52,16 @@
     <div class="community-details__members">
       {#each visibleMembers as member (member.id)}
         <div class="community-details__member">
-          <span class="community-details__avatar" aria-hidden="true"
-            >{member.initials}</span
-          >
+          <CommunityMemberAvatar
+            {member}
+            size="small"
+            showPresence
+            decorative
+          />
           <span>
             <strong>{member.name}</strong>
             <small>@{member.handle}</small>
           </span>
-          <i
-            role="img"
-            class:online={member.presence === "online"}
-            aria-label={member.presence ?? "offline"}
-          ></i>
         </div>
       {/each}
     </div>
@@ -121,7 +121,7 @@
 
   .community-details__member {
     display: grid;
-    grid-template-columns: 2rem minmax(0, 1fr) auto;
+    grid-template-columns: 2rem minmax(0, 1fr);
     align-items: center;
     gap: 0.55rem;
     border-radius: var(--radius);
@@ -147,29 +147,5 @@
   .community-details__member small {
     color: var(--muted-foreground);
     font-size: 0.68rem;
-  }
-
-  .community-details__avatar {
-    display: grid;
-    width: 2rem;
-    height: 2rem;
-    place-items: center;
-    border-radius: 0.6rem;
-    color: var(--primary-foreground);
-    background: var(--primary);
-    font-size: 0.65rem;
-    font-weight: 700;
-  }
-
-  i {
-    width: 0.5rem;
-    height: 0.5rem;
-    border: 1px solid var(--muted-foreground);
-    border-radius: 999px;
-  }
-
-  i.online {
-    border-color: oklch(0.66 0.16 150);
-    background: oklch(0.66 0.16 150);
   }
 </style>

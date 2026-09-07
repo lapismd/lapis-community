@@ -12,6 +12,7 @@
     type CommunityIdentity,
     type CommunityController,
   } from "../../community/index.js";
+  import type { RegistryInstallRequest } from "../../registry/index.js";
   import {
     createNip29ReleaseMessageTemplate,
     LAPIS_GROUPS,
@@ -64,6 +65,7 @@
   let runtimeError = $state("");
   let registrySource = $state.raw(createRegistryStoryDataSource());
   let applicationGeneration = $state(0);
+  let installedPluginIds = $state<string[]>([]);
   let progressiveRetryTimer: number | undefined;
   const storyShellController = new AppShellController({ rightClosed: true });
 
@@ -101,6 +103,7 @@
       runtime = undefined;
       community = undefined;
       runtimeError = "";
+      installedPluginIds = [];
       const selectedBackend =
         document.documentElement.dataset.communityBackend ?? "memory";
       const configurationStore =
@@ -345,15 +348,24 @@
       {...useDefaultShell ? {} : { shellController: storyShellController }}
       displayMode={responsive ? "auto" : "desktop"}
       {...responsive ? {} : { desktopMinMainWidth: 0 }}
-      extensions={{ activityLog: () => {} }}
       data-testid="full-community-application"
       data-community-backend={runtime.backend}
       data-application-generation={applicationGeneration}
       registryOptions={{
         source: registrySource,
         discussion: registryDiscussion,
-        installActions: { ai: { state: "available" } },
-        onInstall: async () => {},
+        installActions: {
+          ai: {
+            state: installedPluginIds.includes("ai")
+              ? "installed"
+              : "available",
+          },
+        },
+        onInstall: async (request: RegistryInstallRequest) => {
+          installedPluginIds = Array.from(
+            new Set([...installedPluginIds, request.pluginId]),
+          );
+        },
       }}
       {...signedIn
         ? {}

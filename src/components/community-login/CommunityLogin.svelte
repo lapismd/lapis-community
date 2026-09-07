@@ -29,7 +29,7 @@
     pendingMethodId = "",
     error = "",
     presentation = "page",
-    onSelect = () => {},
+    onSelect,
     class: className,
     ...restProps
   }: HTMLAttributes<HTMLElement> & {
@@ -41,7 +41,7 @@
     pendingMethodId?: string;
     error?: string;
     presentation?: "page" | "dialog";
-    onSelect?: (
+    onSelect: (
       methodId: string,
       credentials?: CommunityLoginCredentials,
     ) => void | Promise<void>;

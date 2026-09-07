@@ -25,6 +25,7 @@
   } from "../../community/index.js";
   import CommunityEmojiPicker from "../community-emoji-picker/CommunityEmojiPicker.svelte";
   import CommunityMarkdownContent from "../community-markdown-content/CommunityMarkdownContent.svelte";
+  import CommunityMemberAvatar from "../community-member-avatar/CommunityMemberAvatar.svelte";
   import CommunityMemberHoverCard from "../community-member-hover-card/CommunityMemberHoverCard.svelte";
   import CommunityReportDialog from "../community-report-dialog/CommunityReportDialog.svelte";
   import type {
@@ -517,11 +518,11 @@
             <span class="community-message__reply-avatars" aria-hidden="true">
               {#each replyParticipants.slice(0, 3) as participant (participant.id)}
                 <span title={participant.name}>
-                  {#if participant.avatarUrl}
-                    <img src={participant.avatarUrl} alt="" />
-                  {:else}
-                    {participant.initials}
-                  {/if}
+                  <CommunityMemberAvatar
+                    member={participant}
+                    size="xsmall"
+                    decorative
+                  />
                 </span>
               {/each}
             </span>
@@ -731,23 +732,9 @@
   }
 
   .community-message__reply-avatars > span {
-    display: grid;
-    width: 1.3rem;
-    height: 1.3rem;
-    place-items: center;
-    overflow: hidden;
+    display: block;
     margin-inline-start: -0.2rem;
-    border: 2px solid var(--background);
     border-radius: 50%;
-    color: var(--primary-foreground);
-    background: var(--primary);
-    font-size: 0.46rem;
-    font-weight: 750;
-  }
-
-  .community-message__reply-avatars img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
+    outline: 2px solid var(--background);
   }
 </style>

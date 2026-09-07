@@ -14,7 +14,7 @@
     disabled = false,
     presets = [],
     communityEmojis = [],
-    onSelect = () => {},
+    onSelect,
   }: {
     open?: boolean;
     label?: string;
@@ -22,7 +22,7 @@
     disabled?: boolean;
     presets?: readonly string[];
     communityEmojis?: readonly CommunityCustomEmoji[];
-    onSelect?: (emoji: string, custom?: CommunityCustomEmoji) => void;
+    onSelect: (emoji: string, custom?: CommunityCustomEmoji) => void;
   } = $props();
 
   let pickerHost = $state<HTMLDivElement>();

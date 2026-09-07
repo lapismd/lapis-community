@@ -27,9 +27,9 @@
     initialActiveItemId = "inbox",
     initialCollapsed = false,
     includeStarred = false,
-    onSelect = () => {},
-    onSearch = () => {},
-    onSectionAction = () => {},
+    onSelect,
+    onSearch,
+    onSectionAction,
   }: {
     initialActiveItemId?: string;
     initialCollapsed?: boolean;
@@ -52,6 +52,10 @@
   let runtimeError = $state("");
   let activeDestination = $state(untrack(() => initialActiveItemId));
   let settingsSection = $state<"profile" | "custom-emoji">("profile");
+  let presencePreference = $state<"online" | "away" | "offline">("online");
+  let selectedInboxItemId = $state("");
+  let channelSettingsAction = $state("");
+  let navigationAction = $state("");
   let navigationHistory = $state<string[]>(
     untrack(() => [initialActiveItemId]),
   );
@@ -216,7 +220,7 @@
     } else {
       activeDestination = item.id;
     }
-    onSelect(item);
+    onSelect?.(item);
   }
 
   function select(item: CommunityNavigationItemModel): void {
@@ -299,9 +303,16 @@
         onSelect={select}
         onSearch={(query) => {
           void community?.actions.search(query);
-          onSearch(query);
+          onSearch?.(query);
         }}
-        {onSectionAction}
+        onSectionAction={(section, action) => {
+          navigationAction = `${action.label}: ${section.label}`;
+          onSectionAction?.(section, action);
+        }}
+        onItemAction={(item, action) => {
+          if (action === "mark-unread")
+            void community?.actions.markUnread(item.id);
+        }}
       >
         {#snippet footer()}
           {#if currentMember}
@@ -310,7 +321,7 @@
                 ...currentMember,
                 presence:
                   community?.state.status === "connected"
-                    ? "online"
+                    ? presencePreference
                     : "offline",
               }}
               communityName={activeCommunity?.name ?? "Lapis Community"}
@@ -320,10 +331,16 @@
               onAction={(action) => {
                 if (action === "settings") openSettings();
               }}
+              onPresenceChange={(presence) => (presencePreference = presence)}
             />
           {/if}
         {/snippet}
       </CommunityNavigation>
+      {#if navigationAction}
+        <p class="lc-community-shell-frame__action" role="status">
+          {navigationAction}
+        </p>
+      {/if}
     {/if}
   </AppShell.Sidebar>
 
@@ -352,7 +369,11 @@
       </AppShell.Body>
     {:else}
       <CommunityInbox
-        model={inbox}
+        model={{
+          ...inbox,
+          activeItemId: selectedInboxItemId || inbox.activeItemId,
+        }}
+        onSelect={(itemId) => (selectedInboxItemId = itemId)}
         onSend={(content) =>
           community?.handlers.onSendReply?.(inbox.activeItemId, content)}
         onMarkAllRead={() => void community?.actions.markAllRead()}
@@ -372,6 +393,15 @@
       }}
       members={communityInboxFixture.members}
       description="This private channel is your home base for getting oriented. Fizz, Honey, and Pollen can help you learn the app, troubleshoot setup, and work through something you are building."
+      onClose={() => controller.right.close()}
+      onAction={(action) => {
+        channelSettingsAction = action;
+      }}
     />
+    {#if channelSettingsAction}
+      <p class="lc-community-shell-frame__action" role="status">
+        Channel settings action: {channelSettingsAction}
+      </p>
+    {/if}
   </AppShell.Sidebar>
 </CommunityAppShell>

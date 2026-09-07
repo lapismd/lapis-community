@@ -182,18 +182,6 @@
   font-size: 0.875rem;
 }
 
-.lc-community-inbox__avatar {
-  display: grid;
-  width: 2.5rem;
-  height: 2.5rem;
-  place-items: center;
-  border-radius: 50%;
-  color: var(--primary-foreground);
-  background: var(--primary);
-  font-size: 0.72rem;
-  font-weight: 750;
-}
-
 .lc-community-inbox__item-body {
   display: grid;
   min-width: 0;

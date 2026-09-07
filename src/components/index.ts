@@ -1,4 +1,3 @@
-export { default as CommunityHeader } from "./community-header/CommunityHeader.svelte";
 export { default as CommunityApplication } from "./community-application/CommunityApplicationRoot.svelte";
 export type { CommunityApplicationLoginOptions } from "./community-application/model.js";
 export { default as CommunityLogin } from "./community-login/CommunityLogin.svelte";
@@ -70,7 +69,6 @@ export type {
   CommunityNavigationSortOrder,
 } from "./community-navigation/model.js";
 export { default as CommunitySummary } from "./community-summary/CommunitySummary.svelte";
-export { default as CommunitySwitcher } from "./community-switcher/CommunitySwitcher.svelte";
 export { default as CommunityThreadPanel } from "./community-thread-panel/CommunityThreadPanel.svelte";
 export { default as CommunityWorkspaceSurface } from "./community-workspace/CommunityWorkspaceSurface.svelte";
 export { default as DiscussionComposer } from "./discussion-composer/DiscussionComposer.svelte";
@@ -78,12 +76,10 @@ export type {
   DiscussionComposerPresentation,
   DiscussionComposerVariant,
 } from "./discussion-composer/model.js";
-export { default as DiscussionHeading } from "./discussion-heading/DiscussionHeading.svelte";
 export { default as DiscussionPost } from "./discussion-post/DiscussionPost.svelte";
 export { default as DiscussionPostStream } from "./discussion-post-stream/DiscussionPostStream.svelte";
 export { default as DiscussionTimeline } from "./discussion-timeline/DiscussionTimeline.svelte";
 export { default as DiscussionTimelineTrack } from "./discussion-timeline/DiscussionTimelineTrack.svelte";
-export { default as PluginReactionControl } from "./plugin-reaction-control/PluginReactionControl.svelte";
 export { default as RegistryCommunity } from "./registry-community/RegistryCommunity.svelte";
 export type {
   RegistryCommunityControllerOptions,

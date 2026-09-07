@@ -243,6 +243,12 @@
         onSearch={(query) => {
           lastAction = `searched:${query}`;
         }}
+        onSectionAction={(_section, action) => {
+          lastAction = `section:${action.id}`;
+        }}
+        onItemAction={(item, action) => {
+          lastAction = `${action}:${item.id}`;
+        }}
       >
         {#snippet footer()}
           {#if currentMember}
@@ -259,6 +265,9 @@
                   controller.right.close();
                   lastAction = "opened-settings";
                 }
+              }}
+              onPresenceChange={(presence) => {
+                lastAction = `presence:${presence}`;
               }}
             />
           {/if}

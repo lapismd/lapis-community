@@ -1,6 +1,7 @@
 <script lang="ts">
   import { Button } from "@lapismd/design-core/shadcn/button";
   import * as Collapsible from "@lapismd/design-core/shadcn/collapsible";
+  import * as Empty from "@lapismd/design-core/shadcn/empty";
   import { Input } from "@lapismd/design-core/shadcn/input";
   import * as Select from "@lapismd/design-core/shadcn/select";
   import { AppShell } from "@lapismd/design-core/shell";
@@ -28,11 +29,11 @@
   let {
     plugins,
     state: directoryState = $bindable(),
-    onOpenPlugin = () => {},
+    onOpenPlugin,
   }: {
     plugins: readonly RegistryCatalogEntry[];
     state: RegistryDirectoryState;
-    onOpenPlugin?: (plugin: RegistryCatalogEntry) => void;
+    onOpenPlugin: (plugin: RegistryCatalogEntry) => void;
   } = $props();
 
   let bodyElement = $state<HTMLElement | null>(null);
@@ -507,14 +508,24 @@
       {/if}
 
       {#if results.length === 0}
-        <section class="registry-directory__empty">
-          <PackageIcon aria-hidden="true" />
-          <h2>No plugins match</h2>
-          <p>Try changing the search or plugin filters.</p>
-          <Button type="button" variant="outline" onclick={resetFilters}
-            >Reset filters</Button
-          >
-        </section>
+        <Empty.Root class="registry-directory__empty">
+          <Empty.Header>
+            <Empty.Media variant="icon"
+              ><PackageIcon aria-hidden="true" /></Empty.Media
+            >
+            <Empty.Title role="heading" aria-level={2}>
+              No plugins match
+            </Empty.Title>
+            <Empty.Description>
+              Try changing the search or plugin filters.
+            </Empty.Description>
+          </Empty.Header>
+          <Empty.Content>
+            <Button type="button" variant="outline" onclick={resetFilters}
+              >Reset filters</Button
+            >
+          </Empty.Content>
+        </Empty.Root>
       {:else}
         <div class="registry-directory__list" data-view={directoryState.view}>
           {#each results as plugin (plugin.id)}
@@ -766,14 +777,11 @@
     gap: 1rem;
   }
 
-  .registry-directory__heading p,
-  .registry-directory__empty h2,
-  .registry-directory__empty p {
+  .registry-directory__heading p {
     margin: 0;
   }
 
-  .registry-directory__heading p,
-  .registry-directory__empty p {
+  .registry-directory__heading p {
     color: var(--muted-foreground);
   }
 
@@ -827,19 +835,8 @@
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
-  .registry-directory__empty {
-    display: grid;
-    justify-items: center;
-    gap: 0.6rem;
+  :global(.registry-directory__empty) {
     border: 1px dashed var(--border);
-    border-radius: calc(var(--radius) * 1.4);
-    padding: 4rem 1rem;
-    text-align: center;
-  }
-
-  .registry-directory__empty :global(svg) {
-    width: 2rem;
-    color: var(--muted-foreground);
   }
 
   @media (max-width: 68rem) {

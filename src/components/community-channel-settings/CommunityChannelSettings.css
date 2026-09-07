@@ -134,19 +134,10 @@
   border-block-end: 1px solid var(--border);
 }
 
-.lc-channel-settings__avatars i {
-  display: grid;
-  width: 1.5rem;
-  height: 1.5rem;
+.lc-channel-settings__avatars [data-ui-component="community-member-avatar"] {
   margin-inline-start: -0.35rem;
-  place-items: center;
-  border: 2px solid var(--background);
+  outline: 2px solid var(--background);
   border-radius: 50%;
-  color: var(--primary-foreground);
-  background: var(--primary);
-  font-size: 0.52rem;
-  font-style: normal;
-  font-weight: 700;
 }
 
 .lc-channel-settings__danger-zone {

@@ -55,10 +55,10 @@
     activeItemId,
     compact = false,
     countsUpdating = false,
-    onSelect = () => {},
-    onSearch = () => {},
-    onSectionAction = () => {},
-    onItemAction = () => {},
+    onSelect,
+    onSearch,
+    onSectionAction,
+    onItemAction,
     customSections = [],
     headerStart,
     headerEnd,
@@ -68,13 +68,13 @@
     activeItemId?: string;
     compact?: boolean;
     countsUpdating?: boolean;
-    onSelect?: (item: CommunityNavigationItemModel) => void;
-    onSearch?: (query: string) => void;
-    onSectionAction?: (
+    onSelect: (item: CommunityNavigationItemModel) => void;
+    onSearch: (query: string) => void;
+    onSectionAction: (
       section: CommunityNavigationSectionModel,
       action: CommunityNavigationSectionActionModel,
     ) => void;
-    onItemAction?: (
+    onItemAction: (
       item: CommunityNavigationItemModel,
       action: CommunityNavigationItemAction,
     ) => void;

@@ -4,6 +4,7 @@
   import { Button } from "@lapismd/design-core/shadcn/button";
   import * as ContextMenu from "@lapismd/design-core/shadcn/context-menu";
   import * as DropdownMenu from "@lapismd/design-core/shadcn/dropdown-menu";
+  import * as Empty from "@lapismd/design-core/shadcn/empty";
   import BellOffIcon from "@lucide/svelte/icons/bell-off";
   import CheckIcon from "@lucide/svelte/icons/check";
   import CopyIcon from "@lucide/svelte/icons/copy";
@@ -18,6 +19,7 @@
     CommunityTopicDraft,
   } from "../../community/index.js";
   import CommunityTopicComposer from "../community-topic-composer/CommunityTopicComposer.svelte";
+  import CommunityMemberAvatar from "../community-member-avatar/CommunityMemberAvatar.svelte";
   import {
     memberById,
     type CommunityMemberModel,
@@ -179,11 +181,11 @@
     >
       {#each participants as participant (participant.id)}
         <span class="forum-topic-list__avatar">
-          {#if participant.avatarUrl}
-            <img src={participant.avatarUrl} alt="" />
-          {:else}
-            {participant.initials}
-          {/if}
+          <CommunityMemberAvatar
+            member={participant}
+            size="xsmall"
+            decorative
+          />
         </span>
       {/each}
     </span>
@@ -235,13 +237,20 @@
     {#if emptyState}
       {@render emptyState()}
     {:else}
-      <section class="forum-topic-list__empty">
-        <span aria-hidden="true"><MessagesSquareIcon /></span>
-        <h2>No active topics in {title}</h2>
-        <p>
-          {description || "Start a discussion or check back for new activity."}
-        </p>
-      </section>
+      <Empty.Root class="forum-topic-list__empty">
+        <Empty.Header>
+          <Empty.Media variant="icon">
+            <MessagesSquareIcon aria-hidden="true" />
+          </Empty.Media>
+          <Empty.Title role="heading" aria-level={2}>
+            No active topics in {title}
+          </Empty.Title>
+          <Empty.Description>
+            {description ||
+              "Start a discussion or check back for new activity."}
+          </Empty.Description>
+        </Empty.Header>
+      </Empty.Root>
     {/if}
   {:else}
     <div class="forum-topic-list__columns" aria-hidden="true">
@@ -325,37 +334,12 @@
     display: grid;
   }
 
-  .forum-topic-list__empty {
-    display: grid;
+  :global(.forum-topic-list__empty) {
+    align-items: start;
     justify-items: start;
-    gap: 0.5rem;
     padding: clamp(2rem, 8vh, 5rem) 0.5rem;
-  }
-
-  .forum-topic-list__empty > span {
-    display: grid;
-    width: 3rem;
-    height: 3rem;
-    place-items: center;
-    border: 1px solid var(--border);
-    border-radius: 0.85rem;
-    color: var(--primary);
-    background: color-mix(in srgb, var(--primary) 10%, transparent);
-  }
-
-  .forum-topic-list__empty h2,
-  .forum-topic-list__empty p {
-    margin: 0;
-  }
-
-  .forum-topic-list__empty h2 {
-    margin-block-start: 0.75rem;
-    font-size: 1.4rem;
-  }
-
-  .forum-topic-list__empty p {
     max-width: 36rem;
-    color: var(--muted-foreground);
+    text-align: start;
   }
   .forum-topic-list__topic-row {
     position: relative;
@@ -462,24 +446,10 @@
   }
 
   .forum-topic-list__avatar {
-    display: grid;
-    width: 1.7rem;
-    height: 1.7rem;
-    place-items: center;
-    overflow: hidden;
+    display: block;
     margin-inline-end: -0.35rem;
-    border: 2px solid var(--background);
     border-radius: 999px;
-    color: var(--primary-foreground);
-    background: var(--primary);
-    font-size: 0.55rem;
-    font-weight: 750;
-  }
-
-  .forum-topic-list__avatar img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
+    outline: 2px solid var(--background);
   }
 
   .forum-topic-list__count,

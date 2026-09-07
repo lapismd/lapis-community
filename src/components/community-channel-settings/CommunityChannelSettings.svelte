@@ -13,6 +13,7 @@
     CommunityMemberModel,
     CommunityRoomModel,
   } from "../community-workspace/model.js";
+  import CommunityMemberAvatar from "../community-member-avatar/CommunityMemberAvatar.svelte";
   import "./CommunityChannelSettings.css";
 
   let {
@@ -20,15 +21,15 @@
     members,
     description,
     canArchive = false,
-    onClose = () => {},
-    onAction = () => {},
+    onClose,
+    onAction,
   }: {
     room: CommunityRoomModel;
     members: CommunityMemberModel[];
     description: string;
     canArchive?: boolean;
-    onClose?: () => void;
-    onAction?: (action: string) => void;
+    onClose: () => void;
+    onAction: (action: string) => void;
   } = $props();
 
   const roomType = $derived(room.kind === "forum" ? "Forum" : "Channel");
@@ -121,7 +122,7 @@
           </span>
           <span class="lc-channel-settings__avatars" aria-hidden="true">
             {#each members.slice(0, 3) as member (member.id)}
-              <i>{member.initials}</i>
+              <CommunityMemberAvatar {member} size="xsmall" decorative />
             {/each}
           </span>
         </Button>

@@ -50,7 +50,7 @@
     await userEvent.type(search, "graph");
     await expect(canvas.getByText("1 result")).toBeVisible();
     await expect(
-      canvas.getByRole("button", { name: "Open Graph View" }),
+      canvas.getByRole("link", { name: "Open Graph View" }),
     ).toBeVisible();
 
     await userEvent.clear(search);
@@ -75,7 +75,7 @@
       "aria-pressed",
       "true",
     );
-    const listCard = canvas.getByRole("button", { name: "Open AI Assistant" });
+    const listCard = canvas.getByRole("link", { name: "Open AI Assistant" });
     await expect(getComputedStyle(listCard).borderRadius).not.toBe("0px");
     await expect(getComputedStyle(listCard).backgroundColor).not.toBe(
       "rgba(0, 0, 0, 0)",

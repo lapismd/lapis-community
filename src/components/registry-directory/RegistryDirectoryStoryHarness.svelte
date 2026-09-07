@@ -11,12 +11,12 @@
   let {
     plugins,
     state: initialState,
-    onOpenPlugin = () => {},
+    onOpenPlugin,
     dark = false,
   }: {
     plugins: readonly RegistryCatalogEntry[];
     state: RegistryDirectoryState;
-    onOpenPlugin?: (plugin: RegistryCatalogEntry) => void;
+    onOpenPlugin: (plugin: RegistryCatalogEntry) => void;
     dark?: boolean;
   } = $props();
 

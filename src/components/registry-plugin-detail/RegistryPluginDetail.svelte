@@ -30,6 +30,7 @@
   import { registryFilterIcon } from "../registry-filter-icons.js";
   import RegistryMediaGallery from "../registry-media-gallery/RegistryMediaGallery.svelte";
   import RegistryMediaViewer from "../registry-media-viewer/RegistryMediaViewer.svelte";
+  import CommunityMemberAvatar from "../community-member-avatar/CommunityMemberAvatar.svelte";
   import RegistryPluginCard from "../registry-plugin-card/RegistryPluginCard.svelte";
   import RegistryVerifiedImage from "../registry-verified-image/RegistryVerifiedImage.svelte";
   import { registryPluginIcon } from "../registry-plugin-icons.js";
@@ -43,10 +44,10 @@
     currentVersion,
     discussion,
     onInstall,
-    onOpenPlugin = () => {},
-    onOpenCategory = () => {},
-    onOpenPlatform = () => {},
-    onSelectVersion = () => {},
+    onOpenPlugin,
+    onOpenCategory,
+    onOpenPlatform,
+    onSelectVersion,
   }: {
     resolved: RegistryResolvedDetail;
     related?: readonly RegistryCatalogEntry[];
@@ -55,10 +56,10 @@
     currentVersion?: string;
     discussion?: Snippet;
     onInstall?: (request: RegistryInstallRequest) => void | Promise<void>;
-    onOpenPlugin?: (plugin: RegistryCatalogEntry) => void;
-    onOpenCategory?: (category: string) => void;
-    onOpenPlatform?: (platform: string) => void;
-    onSelectVersion?: (version: string) => void;
+    onOpenPlugin: (plugin: RegistryCatalogEntry) => void;
+    onOpenCategory: (category: string) => void;
+    onOpenPlatform: (platform: string) => void;
+    onSelectVersion: (version: string) => void;
   } = $props();
 
   let activeTab = $state("overview");
@@ -149,6 +150,13 @@
   const authorAvatarUrl = $derived(
     detail.authorAvatarUrl ?? entry.authorAvatarUrl,
   );
+  const authorMember = $derived({
+    id: authorUrl ?? author,
+    name: author,
+    handle: author,
+    initials: initials(author),
+    ...(authorAvatarUrl === undefined ? {} : { avatarUrl: authorAvatarUrl }),
+  });
   const bundleHealth = $derived(release?.bundle.pending === true ? 1 : 4);
   const PluginIcon = $derived(
     registryPluginIcon(detail.appearance?.icon ?? entry.categories[0]),
@@ -290,14 +298,12 @@
   <PluginIcon aria-hidden="true" />
 {/snippet}
 
-{#snippet authorAvatar()}
-  <span class="registry-plugin-detail__author-avatar" aria-hidden="true">
-    {#if authorAvatarUrl}
-      <img src={authorAvatarUrl} alt="" />
-    {:else}
-      {initials(author)}
-    {/if}
-  </span>
+{#snippet authorAvatar(compact = false)}
+  <CommunityMemberAvatar
+    member={authorMember}
+    size={compact ? "small" : "xsmall"}
+    decorative
+  />
 {/snippet}
 
 {#snippet authorLink(compact = false)}
@@ -309,14 +315,14 @@
       target="_blank"
       rel="noopener noreferrer"
     >
-      {@render authorAvatar()}
+      {@render authorAvatar(compact)}
       <span class="registry-plugin-detail__author-name"
         >{compact ? author : `By ${author}`}</span
       >
     </a>
   {:else}
     <span class="registry-plugin-detail__author-link disabled" class:compact>
-      {@render authorAvatar()}
+      {@render authorAvatar(compact)}
       <span class="registry-plugin-detail__author-name"
         >{compact ? author : `By ${author}`}</span
       >
@@ -937,32 +943,6 @@
   .registry-plugin-detail__filter-chip:focus-visible {
     outline: 2px solid var(--ring);
     outline-offset: 2px;
-  }
-  .registry-plugin-detail__author-avatar {
-    display: grid;
-    width: 1.35rem;
-    height: 1.35rem;
-    flex: none;
-    place-items: center;
-    overflow: hidden;
-    border: 1px solid var(--border);
-    border-radius: 999px;
-    color: var(--primary);
-    background: color-mix(in srgb, var(--primary) 12%, var(--muted));
-    font-size: 0.65rem;
-    font-weight: 700;
-    line-height: 1;
-  }
-  .registry-plugin-detail__author-link.compact
-    .registry-plugin-detail__author-avatar {
-    width: 2rem;
-    height: 2rem;
-    font-size: 0.72rem;
-  }
-  .registry-plugin-detail__author-avatar img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
   }
   .registry-plugin-detail__filter-chip {
     gap: 0.3rem;

@@ -22,7 +22,7 @@
     fluid = false,
     onJump,
     onReturn,
-    onCommitted = () => {},
+    onCommitted,
   }: {
     total: number;
     currentIndex: number;
@@ -138,7 +138,7 @@
       await onJump(targetIndex);
     } finally {
       pendingIndex = undefined;
-      onCommitted();
+      onCommitted?.();
     }
   }
 
@@ -158,7 +158,7 @@
         await onJump(targetIndex);
       } finally {
         pendingIndex = undefined;
-        onCommitted();
+        onCommitted?.();
       }
     })();
   }
@@ -184,7 +184,7 @@
       await onReturn();
     } finally {
       pendingIndex = undefined;
-      onCommitted();
+      onCommitted?.();
     }
   }
 

@@ -48,11 +48,11 @@
     await expect(
       overlay.getByRole("dialog", { name: "AI Assistant media viewer" }),
     ).toBeVisible();
-    await expect(overlay.getByRole("button", { name: "Dark" })).toHaveAttribute(
-      "aria-pressed",
+    await expect(overlay.getByRole("radio", { name: "Dark" })).toHaveAttribute(
+      "aria-checked",
       "true",
     );
-    await userEvent.click(overlay.getByRole("button", { name: "Light" }));
+    await userEvent.click(overlay.getByRole("radio", { name: "Light" }));
     await expect(overlay.getByRole("dialog")).toHaveAttribute(
       "data-media-mode",
       "light",

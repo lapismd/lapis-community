@@ -24,7 +24,7 @@
 <Story
   name="Catalog card"
   play={async ({ args, canvas }) => {
-    const card = canvas.getByRole("button", { name: "Open AI Assistant" });
+    const card = canvas.getByRole("link", { name: "Open AI Assistant" });
     const tags = canvas.getByLabelText("Plugin tags");
     const status = within(tags).getByText("Available");
     await expect(tags.firstElementChild).toBe(status);
@@ -51,7 +51,7 @@
   name="Compact row"
   args={{ variant: "compact" }}
   play={async ({ canvas }) => {
-    const card = canvas.getByRole("button", { name: "Open AI Assistant" });
+    const card = canvas.getByRole("link", { name: "Open AI Assistant" });
     card.focus();
     await expect(card).toHaveFocus();
   }}

@@ -83,8 +83,8 @@
     });
     await userEvent.click(banner);
     await expect(page.getByRole("dialog")).toBeVisible();
-    await expect(page.getByRole("button", { name: "Dark" })).toHaveAttribute(
-      "aria-pressed",
+    await expect(page.getByRole("radio", { name: "Dark" })).toHaveAttribute(
+      "aria-checked",
       "true",
     );
     await expect(page.getByRole("dialog")).toHaveAttribute(
@@ -95,6 +95,11 @@
       page.getByRole("button", { name: "Close media viewer" }),
     );
     await waitFor(() => expect(banner).toHaveFocus());
+    await waitFor(() =>
+      expect(canvasElement.ownerDocument.body.style.pointerEvents).not.toBe(
+        "none",
+      ),
+    );
 
     const overview = canvas.getByRole("button", {
       name: /Open AI Assistant overview image/u,

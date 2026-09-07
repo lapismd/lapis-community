@@ -25,3 +25,12 @@
     ).toBeVisible();
   }}
 />
+
+<Story
+  name="Compact avatar"
+  args={{
+    member: communityStoryMembers[1]!,
+    size: "xsmall",
+    showPresence: false,
+  }}
+/>
