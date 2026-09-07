@@ -5,6 +5,7 @@ import {
   createNip29ForumCommentTemplate,
   createNip29ForumThreadTemplate,
 } from "../../protocol/index.js";
+import { COMMUNITY_MESSAGE_EDIT_KIND } from "../../community/message-moderation.js";
 
 import {
   anyRelayPublished,
@@ -220,6 +221,81 @@ describe("registry community model", () => {
     );
     expect(reactions).toHaveLength(1);
     expect(latestReactionByAuthor(reactions, nested.id)[0]?.content).toBe("👍");
+  });
+
+  it("projects only the latest valid same-author Registry review edit", () => {
+    const author = generateSecretKey();
+    const otherAuthor = generateSecretKey();
+    const groupId = "36c6a816-9330-581a-86fd-9a8d8091c39d";
+    const root = finalizeEvent(
+      createNip29ForumThreadTemplate(groupId, "Original", 10),
+      author,
+    );
+    const edit = (
+      content: string,
+      createdAt: number,
+      key = author,
+      group = groupId,
+    ) =>
+      finalizeEvent(
+        {
+          kind: COMMUNITY_MESSAGE_EDIT_KIND,
+          created_at: createdAt,
+          content,
+          tags: [
+            ["h", group],
+            ["e", root.id],
+          ],
+        },
+        key,
+      );
+
+    const posts = materializeNip29Forum(
+      [
+        root,
+        edit("Older edit", 11),
+        edit("Forged edit", 13, otherAuthor),
+        edit("Wrong group", 14, author, "another-group"),
+        edit("Latest valid edit", 12),
+      ],
+      groupId,
+    );
+
+    expect(posts).toHaveLength(1);
+    expect(posts[0]).toMatchObject({
+      content: "Latest valid edit",
+      edited: true,
+      event: { id: root.id, created_at: root.created_at },
+    });
+
+    const deletion = finalizeEvent(
+      {
+        kind: 5,
+        created_at: 15,
+        content: "",
+        tags: [
+          ["h", groupId],
+          ["e", root.id],
+        ],
+      },
+      author,
+    );
+    const forgedDeletion = finalizeEvent(
+      {
+        kind: 5,
+        created_at: 16,
+        content: "",
+        tags: [
+          ["h", groupId],
+          ["e", root.id],
+        ],
+      },
+      otherAuthor,
+    );
+    expect(materializeNip29Forum([root, forgedDeletion], groupId)).toHaveLength(
+      1,
+    );
+    expect(materializeNip29Forum([root, deletion], groupId)).toEqual([]);
   });
 
   it("seeks a page boundary with relay counts instead of loading prior posts", async () => {

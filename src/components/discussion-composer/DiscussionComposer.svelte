@@ -5,6 +5,7 @@
   import * as Tooltip from "@lapismd/design-core/shadcn/tooltip";
   import Maximize2Icon from "@lucide/svelte/icons/maximize-2";
   import MinusIcon from "@lucide/svelte/icons/minus";
+  import PencilLineIcon from "@lucide/svelte/icons/pencil-line";
   import ReplyIcon from "@lucide/svelte/icons/reply";
   import XIcon from "@lucide/svelte/icons/x";
   import { tick } from "svelte";
@@ -28,6 +29,7 @@
     element = $bindable(),
     name,
     replyingTo,
+    editingPost,
     profiles,
     postNumber,
     signedInPubkey,
@@ -47,6 +49,7 @@
     element?: HTMLDivElement | undefined;
     name: string;
     replyingTo?: ForumPost | undefined;
+    editingPost?: ForumPost | undefined;
     profiles: ReadonlyMap<string, CommunityProfile>;
     postNumber: (eventId: string) => number;
     signedInPubkey: string;
@@ -97,56 +100,67 @@
       ? ""
       : (signedInMember?.name ?? displayName(signedInPubkey, profiles)),
   );
-  const replyContext = $derived(
-    replyingTo === undefined
-      ? undefined
-      : {
-          kind: "reply" as const,
-          target: {
-            eventId: replyingTo.event.id,
-            roomId: name,
-            authorId: replyingTo.event.pubkey,
-            authorName: displayName(replyingTo.event.pubkey, profiles),
-            content: replyingTo.content,
-            kind: "forum" as const,
+  const composerContext = $derived(
+    editingPost !== undefined
+      ? {
+          kind: "edit" as const,
+          id: editingPost.event.id,
+          label: "Editing message",
+        }
+      : replyingTo === undefined
+        ? undefined
+        : {
+            kind: "reply" as const,
+            target: {
+              eventId: replyingTo.event.id,
+              roomId: name,
+              authorId: replyingTo.event.pubkey,
+              authorName: displayName(replyingTo.event.pubkey, profiles),
+              content: replyingTo.content,
+              kind: "forum" as const,
+            },
           },
-        },
   );
   let composer = $state<HTMLDivElement | null>(null);
   let trigger = $state<HTMLButtonElement | null>(null);
   let dockBounds = $state("");
   let initialized = false;
-  let previousReplyId = "";
+  let previousContextId = "";
   const open = $derived(
     presentation === "open" || presentation === "fullscreen",
   );
   const dockTitle = $derived(
-    replyingTo
-      ? `Replying to ${displayName(replyingTo.event.pubkey, profiles)}`
-      : `Discussion about ${name}`,
+    editingPost
+      ? "Editing message"
+      : replyingTo
+        ? `Replying to ${displayName(replyingTo.event.pubkey, profiles)}`
+        : `Discussion about ${name}`,
   );
   const minimumHeight = 220;
   let maximumHeight = $state(720);
 
   $effect(() => {
-    const replyId = replyingTo?.event.id ?? "";
+    const contextId =
+      editingPost === undefined
+        ? (replyingTo?.event.id ?? "")
+        : `edit:${editingPost.event.id}`;
     if (!initialized) {
       initialized = true;
-      previousReplyId = replyId;
+      previousContextId = contextId;
       if (
         presentation === "closed" &&
-        (replyId !== "" || comment.trim() !== "")
+        (contextId !== "" || comment.trim() !== "")
       ) {
         presentation = "open";
         void focusComposer();
       }
       return;
     }
-    if (replyId !== "" && replyId !== previousReplyId) {
+    if (contextId !== "" && contextId !== previousContextId) {
       presentation = "open";
       void focusComposer();
     }
-    previousReplyId = replyId;
+    previousContextId = contextId;
   });
 
   $effect(() => {
@@ -389,6 +403,7 @@
   data-variant={variant}
   data-presentation={presentation}
   data-reply-post={replyingTo ? postNumber(replyingTo.event.id) : undefined}
+  data-edit-post={editingPost ? postNumber(editingPost.event.id) : undefined}
   data-ui-component="discussion-composer"
   bind:this={element}
 >
@@ -429,12 +444,20 @@
               aria-label={`Restore composer. ${dockTitle}`}
               onclick={expand}
             >
-              <ReplyIcon aria-hidden="true" />
+              {#if editingPost}
+                <PencilLineIcon aria-hidden="true" />
+              {:else}
+                <ReplyIcon aria-hidden="true" />
+              {/if}
               <span>{dockTitle}</span>
             </button>
           {:else}
             <div class="discussion-composer__dock-title">
-              <ReplyIcon aria-hidden="true" />
+              {#if editingPost}
+                <PencilLineIcon aria-hidden="true" />
+              {:else}
+                <ReplyIcon aria-hidden="true" />
+              {/if}
               <span>{dockTitle}</span>
             </div>
           {/if}
@@ -470,22 +493,34 @@
           {rooms}
           {communityEmojis}
           {...signedInPubkey === "" ? {} : { currentMemberId: signedInPubkey }}
-          {...replyContext === undefined ? {} : { context: replyContext }}
-          {...draftKey === undefined ? {} : { draftKey }}
-          {...draftStore === undefined ? {} : { draftStore }}
+          {...composerContext === undefined ? {} : { context: composerContext }}
+          {...draftKey === undefined || editingPost !== undefined
+            ? {}
+            : { draftKey }}
+          {...draftStore === undefined || editingPost !== undefined
+            ? {}
+            : { draftStore }}
           busy={publishing}
           {...composerStatus === undefined ? {} : { composerStatus }}
           {...onDismissComposerStatus === undefined
             ? {}
             : { onDismissComposerStatus }}
-          ariaLabel={replyingTo
-            ? "Reply to discussion"
-            : `Discussion about ${name}`}
-          submitLabel="Publish comment"
-          placeholder={replyingTo ? "Write your reply…" : "Write your post…"}
+          ariaLabel={editingPost
+            ? "Edit discussion message"
+            : replyingTo
+              ? "Reply to discussion"
+              : `Discussion about ${name}`}
+          submitLabel={editingPost ? "Save message" : "Publish comment"}
+          placeholder={editingPost
+            ? "Edit your message…"
+            : replyingTo
+              ? "Write your reply…"
+              : "Write your post…"}
           additionalActions={identityAction}
           onCancel={cancelComposer}
-          {...replyingTo === undefined ? {} : { onCancelContext: cancelReply }}
+          {...composerContext === undefined
+            ? {}
+            : { onCancelContext: cancelReply }}
           onSubmit={(submission) => publish(submission.content)}
         />
       {/if}

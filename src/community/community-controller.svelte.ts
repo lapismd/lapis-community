@@ -51,6 +51,11 @@ import {
 } from "./materialize-settings.js";
 import { createInlineCommunityEventRuntime } from "./event-runtime.js";
 import { registerCommunityControllerIdentityReader } from "./controller-identity-context.js";
+import {
+  COMMUNITY_MESSAGE_EDIT_KIND,
+  configuredCuratorPubkeys,
+  formatCommunityMessageReport,
+} from "./message-moderation.js";
 
 const NO_CAPABILITIES: CommunityCapabilities = {
   channels: false,
@@ -1088,7 +1093,7 @@ export function createCommunityController(
       }
       assertCanPublish(room.id, operation);
       await publishTemplate(operation, {
-        kind: 40_003,
+        kind: COMMUNITY_MESSAGE_EDIT_KIND,
         created_at: now(),
         content: content.trim(),
         tags: [
@@ -1191,7 +1196,7 @@ export function createCommunityController(
       await execute(operation, {
         type: "direct-message",
         recipients,
-        content: formatMessageReport(target, room.name, report),
+        content: formatCommunityMessageReport(target, room.name, report),
       });
     },
     async createRoom(roomKind, update) {
@@ -2732,87 +2737,6 @@ function isGroupAdmin(
       )[0]
       ?.tags.some((tag) => tag[0] === "p" && tag[1] === pubkey) === true
   );
-}
-
-function configuredCuratorPubkeys(events: readonly NostrEvent[]): string[] {
-  const snapshots = new Map<string, NostrEvent>();
-  for (const event of events) {
-    if (event.kind !== 39_002) continue;
-    const groupId = event.tags.find((tag) => tag[0] === "d")?.[1];
-    if (groupId === undefined) continue;
-    const current = snapshots.get(groupId);
-    if (
-      current === undefined ||
-      event.created_at > current.created_at ||
-      (event.created_at === current.created_at && event.id > current.id)
-    ) {
-      snapshots.set(groupId, event);
-    }
-  }
-  return [
-    ...new Set(
-      [...snapshots.values()].flatMap((snapshot) =>
-        snapshot.tags
-          .filter(
-            (tag) =>
-              tag[0] === "p" &&
-              tag[1] !== undefined &&
-              tag
-                .slice(2)
-                .some(
-                  (role) => role === "curator" || role === "registry-curator",
-                ),
-          )
-          .map((tag) => tag[1]!),
-      ),
-    ),
-  ].toSorted();
-}
-
-function formatMessageReport(
-  target: NostrEvent,
-  roomName: string,
-  report: CommunityMessageReport,
-): string {
-  const reason = messageReportReason(report.category);
-  const quote = target.content
-    .split("\n")
-    .map((line) => `> ${line}`)
-    .join("\n");
-  return [
-    "🚩 **Community message report**",
-    "",
-    `**Reason:** ${reason}`,
-    `**Room:** ${roomName}`,
-    `**Author:** \`${target.pubkey}\``,
-    `**Event:** \`${target.id}\``,
-    "",
-    quote,
-    ...(report.context?.trim()
-      ? ["", `**Additional context:** ${report.context.trim()}`]
-      : []),
-  ].join("\n");
-}
-
-function messageReportReason(
-  category: CommunityMessageReport["category"],
-): string {
-  switch (category) {
-    case "spam":
-      return "Spam";
-    case "profanity":
-      return "Profanity or hate speech";
-    case "nudity":
-      return "Nudity or sexual content";
-    case "impersonation":
-      return "Impersonation";
-    case "malware":
-      return "Malware or scam";
-    case "illegal":
-      return "Illegal content";
-    case "other":
-      return "Other";
-  }
 }
 
 function parseJsonObject(value: string | undefined): Record<string, unknown> {

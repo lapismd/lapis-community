@@ -53,6 +53,7 @@
   const currentPluginReactions = $derived(controller.currentPluginReactions);
   const publishing = $derived(controller.publishing);
   const replyingReview = $derived(controller.replyingReview);
+  const editingReview = $derived(controller.editingReview);
   const signedInPubkey = $derived(controller.signedInPubkey);
   const activeGlobalPostIndex = $derived(controller.activeGlobalPostIndex);
   const activePostId = $derived(controller.activePostId);
@@ -141,6 +142,10 @@
   ) => controller.navigateToReview(review);
   const startReply: RegistryCommunityController["startReply"] = (review) => {
     controller.startReply(review);
+    composerPresentation = "open";
+  };
+  const startEdit: RegistryCommunityController["startEdit"] = (review) => {
+    controller.startEdit(review);
     composerPresentation = "open";
   };
   const submitReaction: RegistryCommunityController["submitReaction"] = (
@@ -321,6 +326,7 @@
               targetPostId={scrollTargetPostId}
               {scrollRevision}
               {publishing}
+              currentMemberId={signedInPubkey}
               {hasPrevious}
               {hasNext}
               {loadingPrevious}
@@ -333,6 +339,9 @@
               onNavigate={navigateToReview}
               onReply={startReply}
               onReact={submitReaction}
+              onEdit={startEdit}
+              onDelete={controller.deleteReview}
+              onReport={controller.reportReview}
             />
           {/if}
 
@@ -409,6 +418,7 @@
           <DiscussionComposer
             {name}
             replyingTo={replyingReview}
+            editingPost={editingReview}
             {profiles}
             {postNumber}
             {signedInPubkey}

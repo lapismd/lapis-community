@@ -11,8 +11,15 @@ import {
 } from "../../auth/index.js";
 import {
   createRegistryCommunityDataSource,
+  type CommunityMessageReport,
+  type CommunitySession,
   type RegistryCommunityDataSource,
 } from "../../community/index.js";
+import {
+  COMMUNITY_MESSAGE_EDIT_KIND,
+  configuredCuratorPubkeys,
+  formatCommunityMessageReport,
+} from "../../community/message-moderation.js";
 import {
   createWebSocketCommunityRelayFactory,
   type CommunityRelay,
@@ -120,6 +127,7 @@ export function createRegistryCommunityController(
   let selectedPluginReaction = $state("");
   let comment = $state("");
   let replyingTo = $state("");
+  let editingPostId = $state("");
   let activePostId = $state("");
   let lastReadCursor = $state<RegistryDiscussionReadCursor | undefined>();
   let lastReadIndex = $state<number | undefined>();
@@ -168,6 +176,10 @@ export function createRegistryCommunityController(
     | Promise<RelayCountResult & { availableRelays: number }>
     | undefined;
   let identityRevision = 0;
+  let reportSession:
+    | { identity: RegistrySigner; session: CommunitySession }
+    | undefined;
+  const reportSessions = new Set<CommunitySession>();
 
   const dataSource =
     options.dataSource ??
@@ -224,6 +236,9 @@ export function createRegistryCommunityController(
   );
   const replyingReview = $derived(
     reviews.find((review) => review.event.id === replyingTo),
+  );
+  const editingReview = $derived(
+    allReviews.find((review) => review.event.id === editingPostId),
   );
   const activePostIndex = $derived.by(() => {
     const index = reviews.findIndex(
@@ -1083,20 +1098,32 @@ export function createRegistryCommunityController(
     signal?: AbortSignal,
   ): Promise<HydratedCommentWindow> {
     const visiblePostIds = [...window.visibleIds];
-    const reactionEvents =
+    const [reactionEvents, mutationEvents] =
       visiblePostIds.length === 0
-        ? []
-        : (
-            await queryAll(
+        ? [[], []]
+        : await Promise.all([
+            queryAll(
               {
                 kinds: [NIP29_KINDS.reaction],
                 "#e": visiblePostIds,
                 limit: Math.min(5_000, visiblePostIds.length * 25),
               },
               signal,
-            )
-          ).events;
-    const posts = materializeNip29Forum(window.events, supportGroupId);
+            ).then((result) => result.events),
+            queryAll(
+              {
+                kinds: [5, COMMUNITY_MESSAGE_EDIT_KIND],
+                "#h": [supportGroupId],
+                "#e": visiblePostIds,
+                limit: Math.min(1_000, visiblePostIds.length * 10),
+              },
+              signal,
+            ).then((result) => result.events),
+          ]);
+    const posts = materializeNip29Forum(
+      [...window.events, ...mutationEvents],
+      supportGroupId,
+    );
     const nextReactions = materializeNip29Reactions(
       reactionEvents,
       window.visibleIds,
@@ -1937,6 +1964,31 @@ export function createRegistryCommunityController(
     error = "";
     message = "";
     try {
+      if (editingReview !== undefined) {
+        if (editingReview.event.pubkey !== signedInPubkey) {
+          throw new Error("Only the author can edit this message.");
+        }
+        const event = await activeSigner.signEvent({
+          kind: COMMUNITY_MESSAGE_EDIT_KIND,
+          created_at: Math.floor(Date.now() / 1_000),
+          content: submittedComment,
+          tags: [
+            ["h", supportGroupId],
+            ["e", editingReview.event.id],
+          ],
+        });
+        await publish(event);
+        const editedId = editingReview.event.id;
+        allReviews = allReviews.map((review) =>
+          review.event.id === editedId
+            ? { ...review, content: submittedComment, edited: true }
+            : review,
+        );
+        comment = "";
+        editingPostId = "";
+        message = "Message edited.";
+        return true;
+      }
       const template =
         replyingReview === undefined
           ? createNip29ForumThreadTemplate(
@@ -2002,7 +2054,151 @@ export function createRegistryCommunityController(
   }
 
   function startReply(review: ForumPost): void {
+    editingPostId = "";
+    comment = "";
     replyingTo = review.event.id;
+  }
+
+  function startEdit(review: ForumPost): void {
+    if (review.event.pubkey !== signedInPubkey) return;
+    replyingTo = "";
+    editingPostId = review.event.id;
+    comment = review.content;
+  }
+
+  async function deleteReview(review: ForumPost): Promise<void> {
+    const target = allReviews.find(
+      (candidate) => candidate.event.id === review.event.id,
+    );
+    if (target === undefined) throw new Error("The message is unavailable.");
+    const activeSigner = await ensureSigner();
+    if (activeSigner === undefined) {
+      throw new Error("Sign in before deleting a message.");
+    }
+    if (target.event.pubkey !== signedInPubkey) {
+      throw new Error("Only the author can delete this message.");
+    }
+    publishing = true;
+    error = "";
+    message = "";
+    try {
+      const event = await activeSigner.signEvent({
+        kind: 5,
+        created_at: Math.floor(Date.now() / 1_000),
+        content: "",
+        tags: [
+          ["e", target.event.id],
+          ["h", supportGroupId],
+        ],
+      });
+      await publish(event);
+      const targetIndex = Math.max(
+        0,
+        pageStartIndex +
+          Math.max(
+            0,
+            reviews.findIndex(
+              (candidate) => candidate.event.id === target.event.id,
+            ) - 1,
+          ),
+      );
+      allReviews = allReviews.filter(
+        (candidate) => candidate.event.id !== target.event.id,
+      );
+      visibleReviewIds = new Set(
+        [...visibleReviewIds].filter((eventId) => eventId !== target.event.id),
+      );
+      reactions = reactions.filter(
+        (reaction) => reaction.targetEventId !== target.event.id,
+      );
+      if (replyingTo === target.event.id) replyingTo = "";
+      if (editingPostId === target.event.id) {
+        editingPostId = "";
+        comment = "";
+      }
+      countProbeCache.clear();
+      commentWindowCache.clear();
+      threadFirstTimestamp = 0;
+      await refresh(targetIndex);
+      message = "Message deleted.";
+    } catch (cause) {
+      error = cause instanceof Error ? cause.message : "Delete failed.";
+      throw cause;
+    } finally {
+      publishing = false;
+    }
+  }
+
+  async function reportReview(
+    review: ForumPost,
+    report: CommunityMessageReport,
+  ): Promise<void> {
+    const target = allReviews.find(
+      (candidate) => candidate.event.id === review.event.id,
+    );
+    if (target === undefined) throw new Error("The message is unavailable.");
+    const activeSigner = await ensureSigner();
+    if (activeSigner === undefined) {
+      throw new Error("Sign in before reporting a message.");
+    }
+    publishing = true;
+    error = "";
+    message = "";
+    try {
+      const snapshots = await queryAll({
+        kinds: [NIP29_KINDS.groupMembers],
+        limit: 1_000,
+      });
+      const recipients = configuredCuratorPubkeys(snapshots.events).filter(
+        (pubkey) => pubkey !== signedInPubkey,
+      );
+      if (recipients.length === 0) {
+        throw new Error("No curator recipients are configured on this relay.");
+      }
+      const authorityRelay = relayUrls[0];
+      if (authorityRelay === undefined) {
+        throw new Error("No community relays are configured.");
+      }
+      if (reportSession?.identity !== activeSigner) {
+        const session = await dataSource.open(
+          {
+            id: `registry-reports:${plugin}`,
+            name: `${name} reviews`,
+            relayUrl: authorityRelay,
+            groupId: supportGroupId,
+            ...(relayUrls.length <= 1
+              ? {}
+              : { readRelayUrls: relayUrls.slice(1) }),
+            rooms: [
+              {
+                id: supportGroupId,
+                groupId: supportGroupId,
+                name: `${name} reviews`,
+                kind: "forum",
+              },
+            ],
+          },
+          { identity: activeSigner },
+        );
+        reportSessions.add(session);
+        reportSession = { identity: activeSigner, session };
+      }
+      await reportSession.session.execute({
+        type: "direct-message",
+        recipients,
+        content: formatCommunityMessageReport(
+          { ...target.event, content: target.content },
+          `${name} reviews`,
+          report,
+        ),
+      });
+      message = "Report sent privately to the community curators.";
+    } catch (cause) {
+      error = cause instanceof Error ? cause.message : "Report failed.";
+      throw cause;
+    } finally {
+      publishing = false;
+    }
   }
 
   function postNumber(eventId: string): number {
@@ -2317,11 +2513,16 @@ export function createRegistryCommunityController(
     jumpController?.abort();
     summaryController?.abort();
     suggestionsController?.abort();
+    for (const session of reportSessions) session.close();
+    reportSessions.clear();
+    reportSession = undefined;
     dataSource.close();
   }
 
   function cancelReply(): void {
     replyingTo = "";
+    editingPostId = "";
+    comment = "";
   }
 
   function dismissError(): void {
@@ -2448,6 +2649,9 @@ export function createRegistryCommunityController(
     get replyingReview() {
       return replyingReview;
     },
+    get editingReview() {
+      return editingReview;
+    },
     get activeGlobalPostIndex() {
       return activeGlobalPostIndex;
     },
@@ -2516,6 +2720,9 @@ export function createRegistryCommunityController(
     submitComment,
     submitReaction,
     startReply,
+    startEdit,
+    deleteReview,
+    reportReview,
     postNumber,
     shortKey,
     handleCurrentPost,

@@ -4,6 +4,7 @@
   import { Button } from "@lapismd/design-core/shadcn/button";
   import { Skeleton } from "@lapismd/design-core/shadcn/skeleton";
 
+  import type { CommunityMessageReport } from "../../community/index.js";
   import DiscussionPost from "../discussion-post/DiscussionPost.svelte";
   import {
     reactionGroups,
@@ -24,6 +25,7 @@
     targetPostId = "",
     scrollRevision = 0,
     publishing = false,
+    currentMemberId = "",
     hasPrevious,
     hasNext,
     loadingPrevious,
@@ -36,6 +38,9 @@
     onNavigate,
     onReply,
     onReact,
+    onEdit,
+    onDelete,
+    onReport,
   }: {
     posts: ForumPost[];
     contextPosts: ForumPost[];
@@ -47,6 +52,7 @@
     targetPostId?: string;
     scrollRevision?: number;
     publishing?: boolean;
+    currentMemberId?: string;
     hasPrevious: boolean;
     hasNext: boolean;
     loadingPrevious: boolean;
@@ -59,6 +65,12 @@
     onNavigate: (post: ForumPost) => void | Promise<void>;
     onReply: (post: ForumPost) => void;
     onReact: (post: ForumPost, content?: string) => void | Promise<void>;
+    onEdit?: (post: ForumPost) => void | Promise<void>;
+    onDelete?: (post: ForumPost) => void | Promise<void>;
+    onReport?: (
+      post: ForumPost,
+      report: CommunityMessageReport,
+    ) => void | Promise<void>;
   } = $props();
 
   let cloakedIds = $state<ReadonlySet<string>>(new Set());
@@ -468,9 +480,13 @@
           parentReference={parent === undefined ? "" : postReference(parent)}
           active={post.event.id === activePostId}
           {publishing}
+          {currentMemberId}
           {onNavigate}
           {onReply}
           {onReact}
+          {...onEdit === undefined ? {} : { onEdit }}
+          {...onDelete === undefined ? {} : { onDelete }}
+          {...onReport === undefined ? {} : { onReport }}
         />
       {/if}
     </li>

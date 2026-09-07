@@ -16,6 +16,7 @@ import type {
   CommunityRoomScope,
   CommunityScope,
 } from "./contracts.js";
+import { COMMUNITY_MESSAGE_EDIT_KIND } from "./message-moderation.js";
 import { isVerifiedNostrEvent } from "./verified-events.js";
 
 export interface CommunityProjectionOptions {
@@ -761,7 +762,7 @@ function latestMessageEdit(
   return events
     .filter(
       (event) =>
-        event.kind === 40_003 &&
+        event.kind === COMMUNITY_MESSAGE_EDIT_KIND &&
         event.pubkey === target.pubkey &&
         event.content.trim() !== "" &&
         event.tags.some((tag) => tag[0] === "h" && tag[1] === groupId) &&

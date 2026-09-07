@@ -118,6 +118,57 @@
 </Story>
 
 <Story
+  name="Authored Registry review actions"
+  play={async ({ canvas, canvasElement }) => {
+    const runtime = await canvas.findByTestId(
+      "registry-community-runtime",
+      {},
+      { timeout: 10_000 },
+    );
+    if (runtime.dataset.communityBackend === "live") return;
+    const page = within(canvasElement.ownerDocument.body);
+    const content = await canvas.findByText(
+      "The shared controller boundary keeps this portable.",
+    );
+    const post = content.closest("article");
+    if (post === null) throw new Error("Expected an authored Registry review");
+    const view = within(post);
+    const moreActions = view.getByRole("button", {
+      name: "More actions for post 2",
+    });
+    moreActions.focus();
+    await waitFor(() => expect(moreActions).toBeVisible());
+    await userEvent.click(moreActions);
+    await expect(
+      await page.findByRole("menuitem", { name: "Edit message" }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("menuitem", { name: "Report message" }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("menuitem", { name: "Delete message" }),
+    ).toBeVisible();
+    await userEvent.click(page.getByRole("menuitem", { name: "Edit message" }));
+    await waitFor(() =>
+      expect(page.queryByRole("menu")).not.toBeInTheDocument(),
+    );
+
+    await expect(canvas.getByLabelText("Editing message")).toBeVisible();
+    const editor = canvas.getByRole("textbox", { name: "Markdown editor" });
+    await expect(editor).toHaveTextContent(
+      "The shared controller boundary keeps this portable.",
+    );
+    await expect(
+      canvas.getByRole("button", { name: "Save message" }),
+    ).toBeVisible();
+  }}
+>
+  {#snippet template()}
+    <RegistryCommunityStoryHarness includeReleaseEvents={false} />
+  {/snippet}
+</Story>
+
+<Story
   name="Delayed 260 post timeline"
   parameters={{
     layout: "fullscreen",

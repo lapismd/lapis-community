@@ -1,5 +1,6 @@
 import { verifyEvent } from "nostr-tools/pure";
 
+import { COMMUNITY_MESSAGE_EDIT_KIND } from "../../community/message-moderation.js";
 import type { RelayCountResult } from "../../nostr/index.js";
 import { NIP29_KINDS, type NostrEvent } from "../../protocol/index.js";
 
@@ -187,19 +188,51 @@ export function materializeNip29Forum(
   events: readonly NostrEvent[],
   groupId: string,
 ): ForumPost[] {
+  const verified = events.filter((event) => verifyEvent(event));
   const distinct = new Map(
-    events
+    verified
       .filter(
         (event) =>
-          verifyEvent(event) &&
           (event.kind === NIP29_KINDS.forumThread ||
             event.kind === NIP29_KINDS.comment) &&
           event.tags.some((tag) => tag[0] === "h" && tag[1] === groupId),
       )
       .map((event) => [event.id, event] as const),
   );
+  const deletedEventIds = new Set(
+    verified
+      .filter(
+        (event) =>
+          event.kind === 5 &&
+          event.tags.some((tag) => tag[0] === "h" && tag[1] === groupId),
+      )
+      .flatMap((event) =>
+        event.tags
+          .filter((tag) => tag[0] === "e" && tag[1] !== undefined)
+          .map((tag) => ({ eventId: tag[1]!, author: event.pubkey })),
+      )
+      .filter(({ eventId, author }) => distinct.get(eventId)?.pubkey === author)
+      .map(({ eventId }) => eventId),
+  );
   return [...distinct.values()]
+    .filter((event) => !deletedEventIds.has(event.id))
     .map((event): ForumPost => {
+      const edit = verified
+        .filter(
+          (candidate) =>
+            candidate.kind === COMMUNITY_MESSAGE_EDIT_KIND &&
+            candidate.pubkey === event.pubkey &&
+            candidate.content.trim() !== "" &&
+            candidate.tags.some(
+              (tag) => tag[0] === "h" && tag[1] === groupId,
+            ) &&
+            candidate.tags.some((tag) => tag[0] === "e" && tag[1] === event.id),
+        )
+        .toSorted(
+          (left, right) =>
+            right.created_at - left.created_at ||
+            right.id.localeCompare(left.id),
+        )[0];
       const parentEventId =
         event.kind === NIP29_KINDS.comment
           ? event.tags.find((tag) => tag[0] === "e")?.[1]
@@ -212,9 +245,10 @@ export function materializeNip29Forum(
             event.id);
       return {
         event,
-        content: event.content,
+        content: edit?.content ?? event.content,
         rootEventId,
         ...(parentEventId === undefined ? {} : { parentEventId }),
+        ...(edit === undefined ? {} : { edited: true }),
       };
     })
     .toSorted(
@@ -424,6 +458,7 @@ export interface ForumPost {
   content: string;
   rootEventId: string;
   parentEventId?: string | undefined;
+  edited?: boolean;
 }
 
 export interface ForumReaction {

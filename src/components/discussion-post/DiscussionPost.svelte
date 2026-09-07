@@ -1,7 +1,15 @@
 <script lang="ts">
+  import * as AlertDialog from "@lapismd/design-core/shadcn/alert-dialog";
   import { Button } from "@lapismd/design-core/shadcn/button";
+  import * as DropdownMenu from "@lapismd/design-core/shadcn/dropdown-menu";
+  import EllipsisIcon from "@lucide/svelte/icons/ellipsis";
+  import FlagIcon from "@lucide/svelte/icons/flag";
+  import PencilIcon from "@lucide/svelte/icons/pencil";
+  import Trash2Icon from "@lucide/svelte/icons/trash-2";
 
+  import type { CommunityMessageReport } from "../../community/index.js";
   import CommunityEmojiPicker from "../community-emoji-picker/CommunityEmojiPicker.svelte";
+  import CommunityReportDialog from "../community-report-dialog/CommunityReportDialog.svelte";
   import {
     avatarHue,
     displayName,
@@ -20,9 +28,13 @@
     parentReference = "",
     active = false,
     publishing = false,
+    currentMemberId = "",
     onNavigate,
     onReply,
     onReact,
+    onEdit,
+    onDelete,
+    onReport,
   }: {
     post: ForumPost;
     parent?: ForumPost | undefined;
@@ -32,13 +44,31 @@
     parentReference?: string;
     active?: boolean;
     publishing?: boolean;
+    currentMemberId?: string;
     onNavigate: (post: ForumPost) => void | Promise<void>;
     onReply: (post: ForumPost) => void;
     onReact: (post: ForumPost, content?: string) => void | Promise<void>;
+    onEdit?: (post: ForumPost) => void | Promise<void>;
+    onDelete?: (post: ForumPost) => void | Promise<void>;
+    onReport?: (
+      post: ForumPost,
+      report: CommunityMessageReport,
+    ) => void | Promise<void>;
   } = $props();
 
   const authorName = $derived(displayName(post.event.pubkey, profiles));
+  const canManage = $derived(
+    currentMemberId !== "" && post.event.pubkey === currentMemberId,
+  );
+  const hasMenu = $derived(
+    onReport !== undefined ||
+      (canManage && (onEdit !== undefined || onDelete !== undefined)),
+  );
   const reactionPresets = ["👍", "❤️", "🎉", "👀", "⭐"] as const;
+  let deleteOpen = $state(false);
+  let deletePending = $state(false);
+  let deleteError = $state("");
+  let reportOpen = $state(false);
 
   function excerpt(value: string, maximum = 96): string {
     const normalized = value.replace(/\s+/gu, " ").trim();
@@ -52,6 +82,23 @@
       dateStyle: "medium",
       timeStyle: "short",
     }).format(timestamp * 1_000);
+  }
+
+  async function confirmDelete(): Promise<void> {
+    if (onDelete === undefined || deletePending) return;
+    deletePending = true;
+    deleteError = "";
+    try {
+      await onDelete(post);
+      deleteOpen = false;
+    } catch (cause) {
+      deleteError =
+        cause instanceof Error
+          ? cause.message
+          : "The message could not be deleted";
+    } finally {
+      deletePending = false;
+    }
   }
 </script>
 
@@ -81,6 +128,7 @@
         <time datetime={new Date(post.event.created_at * 1_000).toISOString()}>
           {formatDate(post.event.created_at)}
         </time>
+        {#if post.edited}<span>(edited)</span>{/if}
       </a>
     </header>
     <div class="post-body">
@@ -121,10 +169,99 @@
           disabled={publishing}
           onclick={() => onReply(post)}>↩ Reply</Button
         >
+        {#if hasMenu}
+          <DropdownMenu.Root>
+            <DropdownMenu.Trigger>
+              {#snippet child({ props })}
+                <Button
+                  {...props}
+                  class="post-menu-trigger"
+                  variant="ghost"
+                  size="icon-xs"
+                  aria-label={`More actions for post ${number}`}
+                  disabled={publishing}
+                >
+                  <EllipsisIcon aria-hidden="true" />
+                </Button>
+              {/snippet}
+            </DropdownMenu.Trigger>
+            <DropdownMenu.Content
+              class="discussion-post__menu"
+              align="end"
+              sideOffset={4}
+            >
+              {#if canManage && onEdit}
+                <DropdownMenu.Group>
+                  <DropdownMenu.Item onSelect={() => onEdit(post)}>
+                    <PencilIcon data-icon="inline-start" aria-hidden="true" />
+                    Edit message
+                  </DropdownMenu.Item>
+                </DropdownMenu.Group>
+              {/if}
+              {#if canManage && onEdit && (onReport || onDelete)}
+                <DropdownMenu.Separator />
+              {/if}
+              {#if onReport || (canManage && onDelete)}
+                <DropdownMenu.Group>
+                  {#if onReport}
+                    <DropdownMenu.Item onSelect={() => (reportOpen = true)}>
+                      <FlagIcon data-icon="inline-start" aria-hidden="true" />
+                      Report message
+                    </DropdownMenu.Item>
+                  {/if}
+                  {#if canManage && onDelete}
+                    <DropdownMenu.Item
+                      variant="destructive"
+                      onSelect={() => (deleteOpen = true)}
+                    >
+                      <Trash2Icon data-icon="inline-start" aria-hidden="true" />
+                      Delete message
+                    </DropdownMenu.Item>
+                  {/if}
+                </DropdownMenu.Group>
+              {/if}
+            </DropdownMenu.Content>
+          </DropdownMenu.Root>
+        {/if}
       </div>
     </footer>
   </div>
 </article>
+
+{#if onReport}
+  <CommunityReportDialog
+    bind:open={reportOpen}
+    onSubmit={(report) => onReport(post, report)}
+  />
+{/if}
+
+{#if canManage && onDelete}
+  <AlertDialog.Root bind:open={deleteOpen}>
+    <AlertDialog.Content class="discussion-post__delete-dialog">
+      <AlertDialog.Header>
+        <AlertDialog.Title>Delete message?</AlertDialog.Title>
+        <AlertDialog.Description>
+          This removes your message from the discussion. This action cannot be
+          undone.
+        </AlertDialog.Description>
+      </AlertDialog.Header>
+      {#if deleteError}<p class="delete-error" role="alert">
+          {deleteError}
+        </p>{/if}
+      <AlertDialog.Footer>
+        <AlertDialog.Cancel disabled={deletePending}>Cancel</AlertDialog.Cancel>
+        <Button
+          type="button"
+          variant="destructive"
+          disabled={deletePending}
+          onclick={confirmDelete}
+        >
+          {deletePending ? "Deleting…" : "Delete message"}
+        </Button>
+      </AlertDialog.Footer>
+    </AlertDialog.Content>
+  </AlertDialog.Root>
+{/if}
 
 <style>
   article {
@@ -183,6 +320,9 @@
   }
 
   .post-header a {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
     flex-shrink: 0;
     color: var(--muted-foreground);
     font-size: 0.73rem;
@@ -257,6 +397,31 @@
     gap: 0.4rem;
   }
 
+  :global(.post-menu-trigger) {
+    opacity: 0;
+    transition: opacity 120ms ease;
+  }
+
+  article:hover :global(.post-menu-trigger),
+  article:focus-within :global(.post-menu-trigger),
+  :global(.post-menu-trigger[data-state="open"]) {
+    opacity: 1;
+  }
+
+  :global(.discussion-post__menu) {
+    min-width: 13.5rem;
+  }
+
+  :global(.discussion-post__delete-dialog) {
+    width: min(calc(100vw - 2rem), 28rem);
+  }
+
+  .delete-error {
+    margin: 0;
+    color: var(--destructive);
+    font-size: 0.875rem;
+  }
+
   :global(.reaction-chip) {
     min-width: 2.8rem;
     border-radius: 999px;
@@ -282,6 +447,12 @@
     .post-footer {
       align-items: flex-start;
       flex-direction: column;
+    }
+  }
+
+  @media (hover: none) {
+    :global(.post-menu-trigger) {
+      opacity: 1;
     }
   }
 </style>

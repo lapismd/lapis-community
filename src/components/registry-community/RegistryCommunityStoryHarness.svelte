@@ -7,7 +7,13 @@
   } from "../../testing/index.js";
   import RegistryCommunity from "./RegistryCommunity.svelte";
 
-  let { useHostIdentity = false }: { useHostIdentity?: boolean } = $props();
+  let {
+    useHostIdentity = false,
+    includeReleaseEvents = true,
+  }: {
+    useHostIdentity?: boolean;
+    includeReleaseEvents?: boolean;
+  } = $props();
 
   let runtime = $state<RegistryCommunityStoryRuntime>();
   let runtimeError = $state("");
@@ -20,7 +26,7 @@
       runtime?.dispose();
       runtime = undefined;
       runtimeError = "";
-      void createRegistryCommunityStoryRuntime()
+      void createRegistryCommunityStoryRuntime({ includeReleaseEvents })
         .then((created) => {
           if (!active || currentGeneration !== runtimeGeneration) {
             created.dispose();
