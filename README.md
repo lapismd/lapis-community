@@ -106,9 +106,9 @@ stack. The Vite config loads only the public curator and publisher keys from
 `.local/registry-fixture/fixture.env`; explicit `VITE_REGISTRY_*` values take
 precedence.
 Guest profile menu exposes browser-extension, NIP-46 remote-signer, ephemeral
-account, and private-key login flows. Expand **Development controls** before
-selecting Remote signer to provide its bunker URL; that value remains only in
-browser memory. Override the relay with `VITE_COMMUNITY_LIVE_RELAY_URL`.
+account, and private-key login flows. The Remote signer login collects its
+bunker URL within the host-provided login flow and keeps it only in browser
+memory. Override the relay with `VITE_COMMUNITY_LIVE_RELAY_URL`.
 
 Run `pnpm storybook` to browse the production community components in isolated
 normal, reply, reaction, error, and long-discussion states. The package

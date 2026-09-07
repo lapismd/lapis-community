@@ -79,7 +79,6 @@
 
   let controller = $state.raw<CommunityController>();
   let runtimeError = $state("");
-  let remoteSignerUrl = $state("");
   let activeBunker = $state.raw<BunkerSigner>();
   let activeIdentity = $state.raw<CommunityIdentity>();
 
@@ -160,12 +159,12 @@
     throw new Error("Use an nsec or a 64-character hexadecimal private key");
   }
 
-  async function remoteIdentity(): Promise<CommunityIdentity> {
-    const input = remoteSignerUrl.trim();
+  async function remoteIdentity(
+    value: string | undefined,
+  ): Promise<CommunityIdentity> {
+    const input = value?.trim() ?? "";
     if (input === "") {
-      throw new Error(
-        "Enter a bunker URL in the development controls before using Remote signer",
-      );
+      throw new Error("Paste a bunker URL before using Remote signer");
     }
     const pointer = await parseBunkerInput(input);
     if (pointer === null) throw new Error("The remote signer URL is invalid");
@@ -197,7 +196,7 @@
       activeIdentity = identity;
       return identity;
     } else if (methodId === COMMUNITY_LOGIN_METHODS.remoteSigner.id) {
-      identity = await remoteIdentity();
+      identity = await remoteIdentity(credentials?.remoteSignerUrl);
     } else if (methodId === COMMUNITY_LOGIN_METHODS.createAccount.id) {
       identity = new SecretKeyRegistrySigner(generateSecretKey());
     } else if (methodId === COMMUNITY_LOGIN_METHODS.privateKey.id) {
@@ -212,25 +211,6 @@
 </script>
 
 <div class="community-dev">
-  <details class="community-dev__controls">
-    <summary>Development controls</summary>
-    <div class="community-dev__controls-body">
-      <span><strong>Relay</strong> {relayUrl}</span>
-      <label>
-        <span>Remote signer bunker URL</span>
-        <input
-          type="password"
-          autocomplete="off"
-          autocapitalize="none"
-          spellcheck={false}
-          placeholder="bunker://… or name@example.com"
-          bind:value={remoteSignerUrl}
-        />
-      </label>
-      <span>The value stays in memory and is never logged or persisted.</span>
-    </div>
-  </details>
-
   <main class="community-dev__app">
     {#if runtimeError}
       <div class="community-dev__error" role="alert">{runtimeError}</div>
@@ -268,59 +248,10 @@
 
 <style>
   .community-dev {
-    display: grid;
-    grid-template-rows: auto minmax(0, 1fr);
     width: 100%;
     height: 100%;
     min-width: 0;
     min-height: 0;
-  }
-
-  .community-dev__controls {
-    position: relative;
-    z-index: 50;
-    border-bottom: 1px solid var(--border);
-    background: var(--background);
-    color: var(--foreground);
-    font-size: 0.75rem;
-  }
-
-  .community-dev__controls summary {
-    width: fit-content;
-    padding: 0.4rem 0.75rem;
-    cursor: pointer;
-    font-weight: 600;
-  }
-
-  .community-dev__controls-body {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.75rem 1rem;
-    align-items: end;
-    padding: 0.5rem 0.75rem 0.75rem;
-    border-top: 1px solid var(--border);
-    color: var(--muted-foreground);
-  }
-
-  .community-dev__controls-body label {
-    display: grid;
-    gap: 0.25rem;
-    min-width: min(28rem, 100%);
-  }
-
-  .community-dev__controls-body input {
-    min-height: 2rem;
-    padding: 0.35rem 0.5rem;
-    border: 1px solid var(--input);
-    border-radius: var(--radius);
-    outline: none;
-    color: var(--foreground);
-    background: var(--background);
-  }
-
-  .community-dev__controls-body input:focus-visible {
-    border-color: var(--ring);
-    box-shadow: 0 0 0 2px color-mix(in srgb, var(--ring) 30%, transparent);
   }
 
   .community-dev__app {
