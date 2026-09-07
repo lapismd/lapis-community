@@ -70,7 +70,8 @@ and render accepted room creation and membership changes in the same timeline.
 The connected author MUST display as `You`, and every inline member reference
 MUST include a line-centered avatar-led profile treatment. Rendered Markdown
 and live-edit references MUST expose the configured profile, Message, and Wave
-actions from the same hover or keyboard-focus preview.
+actions from the same hover or keyboard-focus preview. Forum topic rows MUST
+use straight full-width separators without inheriting the Button radius.
 
 For LC-UI-021, the registry discussion reaction picker MUST accept any single
 native emoji grapheme, visibly distinguish hovered emoji, and round the active

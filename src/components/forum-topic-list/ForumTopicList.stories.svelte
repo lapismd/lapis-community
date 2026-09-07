@@ -48,6 +48,8 @@
     );
     await expect(recentParticipants?.children).toHaveLength(3);
     await expect(within(topic).getByText("12m")).toBeVisible();
+    await expect(getComputedStyle(topic).borderBottomLeftRadius).toBe("0px");
+    await expect(getComputedStyle(topic).borderBottomRightRadius).toBe("0px");
 
     const replyHeading = canvas.getByText("Replies");
     const replyCount = within(topic).getByText("34");

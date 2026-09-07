@@ -384,6 +384,7 @@
     min-height: 5.25rem;
     border: 0;
     border-block-end: 1px solid var(--border);
+    border-radius: 0;
     padding: 1rem 0.75rem;
     color: var(--foreground);
     background: transparent;
