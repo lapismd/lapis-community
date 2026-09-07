@@ -12,6 +12,113 @@ import { createNip29CommunitySource } from "./nip29-community-source.js";
 const relayKey = new Uint8Array(32).fill(41);
 
 describe("createNip29CommunitySource", () => {
+  it("loads verified Buzz-compatible Pulse feed variants", async () => {
+    const scenario = createCommunityTestScenario();
+    const relayFactory = createInMemoryRelayFactory({
+      policy: new Nip29MemoryPolicy({
+        relaySecretKey: relayKey,
+        now: () => 1_700_000_100,
+      }),
+    });
+    const relay = relayFactory.relay(scenario.scope.relayUrl);
+    await scenario.seed(relay);
+    const operatorPubkey = await scenario.operator.getPublicKey();
+    const memberPubkey = await scenario.member.getPublicKey();
+    const participantPubkey = await scenario.participant.getPublicKey();
+    const memberNote = await scenario.member.signEvent({
+      kind: 1,
+      created_at: 1_700_000_050,
+      content: "Member pulse",
+      tags: [],
+    });
+    const participantNote = await scenario.participant.signEvent({
+      kind: 1,
+      created_at: 1_700_000_051,
+      content: "Agent pulse",
+      tags: [],
+    });
+    const ownNote = await scenario.operator.signEvent({
+      kind: 1,
+      created_at: 1_700_000_052,
+      content: "Own pulse",
+      tags: [],
+    });
+    const projectComment = await scenario.member.signEvent({
+      kind: 1,
+      created_at: 1_700_000_053,
+      content: "Project comment",
+      tags: [["a", `30617:${memberPubkey}:issue`]],
+    });
+    const contacts = await scenario.operator.signEvent({
+      kind: 3,
+      created_at: 1_700_000_054,
+      content: "",
+      tags: [["p", memberPubkey]],
+    });
+    const like = await scenario.operator.signEvent({
+      kind: 7,
+      created_at: 1_700_000_055,
+      content: "+",
+      tags: [
+        ["e", participantNote.id],
+        ["p", participantPubkey],
+      ],
+    });
+    const invalid = {
+      ...(await scenario.member.signEvent({
+        kind: 1,
+        created_at: 1_700_000_056,
+        content: "Valid before tampering",
+        tags: [],
+      })),
+      content: "Tampered",
+    };
+    for (const event of [
+      memberNote,
+      participantNote,
+      ownNote,
+      projectComment,
+      contacts,
+      like,
+    ]) {
+      relay.inject(event);
+    }
+    relay.inject(invalid, { verify: false });
+
+    const session = await createNip29CommunitySource({ relayFactory }).open(
+      scenario.scope,
+      { identity: scenario.operator },
+    );
+    const everyone = await session.loadPulseWindow?.({ tab: "everyone" });
+    const following = await session.loadPulseWindow?.({ tab: "following" });
+    const liked = await session.loadPulseWindow?.({ tab: "liked" });
+    const mine = await session.loadPulseWindow?.({ tab: "mine" });
+    const agents = await session.loadPulseWindow?.({
+      tab: "agents",
+      agentPubkeys: [participantPubkey],
+    });
+
+    expect(everyone?.primaryEventIds).toEqual([
+      ownNote.id,
+      participantNote.id,
+      memberNote.id,
+    ]);
+    expect(everyone?.events.some((event) => event.id === invalid.id)).toBe(
+      false,
+    );
+    expect(
+      everyone?.events.some((event) => event.id === projectComment.id),
+    ).toBe(false);
+    expect(following?.primaryEventIds).toEqual([memberNote.id]);
+    expect(liked?.primaryEventIds).toEqual([participantNote.id]);
+    expect(mine?.primaryEventIds).toEqual([ownNote.id]);
+    expect(agents?.primaryEventIds).toEqual([participantNote.id]);
+    expect((await session.snapshot()).capabilities.pulse).toBe(true);
+    expect(operatorPubkey).toHaveLength(64);
+    session.close();
+    relayFactory.reset();
+  });
+
   it("treats an exact duplicate acknowledgement as idempotent success", async () => {
     const scenario = createCommunityTestScenario();
     const relayFactory = createInMemoryRelayFactory({

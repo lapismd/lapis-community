@@ -45,6 +45,90 @@ async function connected(current: CommunityTestRuntime): Promise<void> {
 }
 
 describe("createCommunityController", () => {
+  it("publishes Pulse notes, replies, likes, and unlikes through the signer boundary", async () => {
+    runtime = await createCommunityTestRuntime();
+    const memberPubkey = await runtime.scenario.member.getPublicKey();
+    const operatorPubkey = await runtime.scenario.operator.getPublicKey();
+    const target = await runtime.scenario.member.signEvent({
+      kind: 1,
+      created_at: 1_700_000_050,
+      content: "Reply to this Pulse note",
+      tags: [],
+    });
+    runtime.relay.inject(target);
+    await connected(runtime);
+    const pulse = runtime.controller.actions.pulse;
+    expect(pulse).toBeDefined();
+    pulse!.setActive(true);
+    await vi.waitFor(() =>
+      expect(runtime?.controller.state.pulse?.notes[0]?.id).toBe(target.id),
+    );
+
+    await pulse!.publish({
+      content: "A new Pulse note",
+      mentionPubkeys: [memberPubkey],
+      channelIds: [],
+      attachments: [
+        {
+          url: "https://cdn.example/pulse.png",
+          mimeType: "image/png",
+          size: 42,
+          sha256: "a".repeat(64),
+          alt: "Pulse preview",
+          width: 640,
+          height: 360,
+        },
+      ],
+    });
+    await pulse!.publish(
+      {
+        content: "A Pulse reply",
+        mentionPubkeys: [],
+        channelIds: [],
+        attachments: [],
+      },
+      target.id,
+    );
+    const authored = await runtime.relay.query({
+      kinds: [1],
+      authors: [operatorPubkey],
+    });
+    const note = authored.find((event) => event.content === "A new Pulse note");
+    const reply = authored.find((event) => event.content === "A Pulse reply");
+    expect(note?.tags).toEqual(
+      expect.arrayContaining([
+        ["p", memberPubkey],
+        expect.arrayContaining(["imeta", "url https://cdn.example/pulse.png"]),
+      ]),
+    );
+    expect(reply?.tags).toEqual(
+      expect.arrayContaining([
+        ["e", target.id, runtime.scenario.scope.relayUrl, "reply"],
+        ["p", memberPubkey],
+      ]),
+    );
+
+    await pulse!.toggleLike(target.id);
+    const reactions = await runtime.relay.query({
+      kinds: [7],
+      authors: [operatorPubkey],
+      "#e": [target.id],
+    });
+    expect(reactions).toMatchObject([
+      { content: "+", tags: expect.arrayContaining([["k", "1"]]) },
+    ]);
+    await pulse!.toggleLike(target.id);
+    const deletions = await runtime.relay.query({
+      kinds: [5],
+      authors: [operatorPubkey],
+      "#e": [reactions[0]!.id],
+    });
+    expect(deletions).toMatchObject([
+      { tags: expect.arrayContaining([["k", "7"]]) },
+    ]);
+    pulse!.setActive(false);
+  });
+
   it("becomes connected after bootstrap while bounded history continues", async () => {
     const event = finalizeEvent(
       {

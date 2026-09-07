@@ -35,6 +35,9 @@ import type {
   CommunityMessageReport,
   CommunityReplyTarget,
   CommunityRoomUpdate,
+  CommunityPulseFeedTab,
+  CommunityPulseModel,
+  CommunityPulseTab,
   CommunityRuntimeRevision,
   CommunityScope,
   CommunitySearchResult,
@@ -44,6 +47,10 @@ import type {
   CommunityStateScope,
   CommunityStoredState,
 } from "./contracts.js";
+import {
+  materializeCommunityPulse,
+  pulseEventTargetId,
+} from "./materialize-pulse.js";
 import { createCommunityStoredState } from "./state-store.js";
 import {
   materializeCommunitySettings,
@@ -106,6 +113,13 @@ export function createCommunityController(
   > = {};
   let progressiveRun = 0;
   let progressiveAbort: AbortController | undefined;
+  let pulseAbort: AbortController | undefined;
+  let pulseRun = 0;
+  let pulseActive = false;
+  let pulseNoteTimer: ReturnType<typeof setInterval> | undefined;
+  let pulseReactionTimer: ReturnType<typeof setInterval> | undefined;
+  let pulseEvents: NostrEvent[] = [];
+  let pulsePrimaryEventIds: string[] = [];
 
   let status = $state<CommunityControllerState["status"]>("idle");
   let cache = $state<CommunityControllerState["cache"]>({
@@ -150,6 +164,7 @@ export function createCommunityController(
     rooms: {},
   });
   let replyTarget = $state<CommunityReplyTarget | undefined>();
+  let pulse = $state<CommunityPulseModel | undefined>();
   let navigation = $state<CommunityControllerState["navigation"]>({
     starredRoomIds: [],
     mutedRoomIds: [],
@@ -209,6 +224,7 @@ export function createCommunityController(
       contentSync,
       navigation,
       ...(replyTarget === undefined ? {} : { replyTarget }),
+      ...(pulse === undefined ? {} : { pulse }),
       ...(error === "" ? {} : { error }),
     }),
   );
@@ -323,6 +339,11 @@ export function createCommunityController(
       }
       status = "connected";
       await refreshProjection(currentGeneration);
+      updatePulseAvailability();
+      if (pulseActive) {
+        startPulseRefreshTimers();
+        void refreshPulse().catch(() => undefined);
+      }
       cache = {
         ...cache,
         freshness: progressive ? "synchronizing" : "current",
@@ -632,7 +653,150 @@ export function createCommunityController(
     });
   }
 
+  function updatePulseAvailability(): void {
+    const session = sessions.get(activeCommunityId);
+    if (
+      capabilitiesByScope[activeCommunityId]?.pulse !== true ||
+      session?.loadPulseWindow === undefined
+    ) {
+      pulse = undefined;
+      return;
+    }
+    if (pulse !== undefined) {
+      pulse = {
+        ...pulse,
+        canDirectMessage: capabilities.directMessages,
+        ...(options.pulse?.agents === undefined
+          ? {}
+          : { agents: options.pulse.agents }),
+      };
+      return;
+    }
+    pulse = {
+      tab: "everyone",
+      status: "idle",
+      notes: [],
+      agentActivities: [],
+      members: [],
+      ...(options.pulse?.agents === undefined
+        ? {}
+        : { agents: options.pulse.agents }),
+      canDirectMessage: capabilities.directMessages,
+    };
+  }
+
+  async function refreshPulse(
+    kind: "notes" | "reactions" = "notes",
+  ): Promise<void> {
+    if (pulse === undefined) return;
+    const currentPulse = pulse;
+    const selected = currentPulse.tab;
+    if (selected === "search") return;
+    const session = sessions.get(activeCommunityId);
+    if (session?.loadPulseWindow === undefined) return;
+    const requestedGeneration = generation;
+    const run = ++pulseRun;
+    pulseAbort?.abort(new DOMException("Pulse request replaced", "AbortError"));
+    const requestAbort = new AbortController();
+    pulseAbort = requestAbort;
+    const parentSignal = controllerAbort?.signal;
+    const signal =
+      parentSignal === undefined
+        ? requestAbort.signal
+        : AbortSignal.any([parentSignal, requestAbort.signal]);
+    const { error: _currentError, ...pulseWithoutError } = currentPulse;
+    pulse = {
+      ...pulseWithoutError,
+      status: currentPulse.notes.length === 0 ? "loading" : "refreshing",
+    };
+    try {
+      const window = await session.loadPulseWindow(
+        {
+          tab: selected,
+          ...(selected === "agents"
+            ? {
+                agentPubkeys:
+                  options.pulse?.agents?.map((agent) => agent.pubkey) ?? [],
+              }
+            : {}),
+          ...(kind === "reactions" && currentPulse.notes.length > 0
+            ? { noteIds: currentPulse.notes.map((note) => note.id) }
+            : {}),
+        },
+        signal,
+      );
+      if (
+        run !== pulseRun ||
+        requestedGeneration !== generation ||
+        pulse?.tab !== selected
+      ) {
+        return;
+      }
+      pulseEvents = [...window.events];
+      pulsePrimaryEventIds = [...window.primaryEventIds];
+      pulse = materializeCommunityPulse(pulseEvents, {
+        tab: selected,
+        primaryEventIds: pulsePrimaryEventIds,
+        ...(identityPubkey === "" ? {} : { identityPubkey }),
+        ...(options.pulse?.agents === undefined
+          ? {}
+          : { agents: options.pulse.agents }),
+        asOf: now(),
+        canDirectMessage: capabilities.directMessages,
+      });
+    } catch (cause) {
+      if (
+        isAbort(cause) ||
+        run !== pulseRun ||
+        requestedGeneration !== generation
+      ) {
+        return;
+      }
+      const message =
+        cause instanceof Error ? cause.message : "Pulse could not be loaded";
+      pulse = {
+        ...(pulse ?? {
+          tab: selected,
+          notes: [],
+          agentActivities: [],
+          members: [],
+          canDirectMessage: capabilities.directMessages,
+        }),
+        status: "error",
+        error: message,
+      };
+      throw cause;
+    } finally {
+      if (pulseAbort === requestAbort) pulseAbort = undefined;
+    }
+  }
+
+  function startPulseRefreshTimers(): void {
+    stopPulseRefreshTimers("Pulse timers restarted");
+    if (!pulseActive || pulse === undefined) return;
+    pulseNoteTimer = setInterval(
+      () => void refreshPulse("notes").catch(() => undefined),
+      30_000,
+    );
+    pulseReactionTimer = setInterval(
+      () => void refreshPulse("reactions").catch(() => undefined),
+      60_000,
+    );
+  }
+
+  function stopPulseRefreshTimers(reason: string): void {
+    if (pulseNoteTimer !== undefined) clearInterval(pulseNoteTimer);
+    if (pulseReactionTimer !== undefined) clearInterval(pulseReactionTimer);
+    pulseNoteTimer = undefined;
+    pulseReactionTimer = undefined;
+    pulseAbort?.abort(new DOMException(reason, "AbortError"));
+    pulseAbort = undefined;
+    pulseRun += 1;
+  }
+
   function dispose(): void {
+    pulseActive = false;
+    stopPulseRefreshTimers("Controller disposed");
     closeConnections("Controller disposed");
     eventRuntime.dispose();
     status = "idle";
@@ -653,6 +817,7 @@ export function createCommunityController(
     progressiveRun += 1;
     progressiveAbort?.abort(new DOMException(reason, "AbortError"));
     progressiveAbort = undefined;
+    stopPulseRefreshTimers(reason);
     controllerAbort?.abort(new DOMException(reason, "AbortError"));
     controllerAbort = undefined;
     for (const subscription of subscriptions.values()) subscription.close();
@@ -695,6 +860,7 @@ export function createCommunityController(
       ...capabilitiesByScope,
       [scopeId]: snapshot.capabilities,
     };
+    if (scopeId === activeCommunityId) updatePulseAvailability();
     await refreshProjection(generation);
     if (
       session.loadContentWindow !== undefined &&
@@ -726,7 +892,217 @@ export function createCommunityController(
     };
   }
 
+  function rematerializePulse(
+    status: CommunityPulseModel["status"] = "ready",
+    pulseError?: string,
+  ): void {
+    const selected = pulse?.tab;
+    if (selected === undefined || selected === "search") return;
+    pulse = {
+      ...materializeCommunityPulse(pulseEvents, {
+        tab: selected,
+        primaryEventIds: pulsePrimaryEventIds,
+        ...(identityPubkey === "" ? {} : { identityPubkey }),
+        ...(options.pulse?.agents === undefined
+          ? {}
+          : { agents: options.pulse.agents }),
+        asOf: now(),
+        canDirectMessage: capabilities.directMessages,
+      }),
+      status,
+      ...(pulseError === undefined ? {} : { error: pulseError }),
+    };
+  }
+
+  async function selectPulseTab(tab: CommunityPulseTab): Promise<void> {
+    if (tab === "agents" && options.pulse?.agents === undefined) return;
+    if (tab === "following" || tab === "liked" || tab === "mine") {
+      await ensureIdentity(`pulse:tab:${tab}`);
+    }
+    updatePulseAvailability();
+    if (pulse === undefined) return;
+    pulseAbort?.abort(new DOMException("Pulse tab changed", "AbortError"));
+    pulseRun += 1;
+    pulseEvents = [];
+    pulsePrimaryEventIds = [];
+    const { error: _previousError, ...pulseWithoutError } = pulse;
+    pulse = {
+      ...pulseWithoutError,
+      tab,
+      status: tab === "search" ? "ready" : "idle",
+      notes: [],
+      agentActivities: [],
+      members: [],
+    };
+    if (tab !== "search") await refreshPulse();
+  }
+
+  async function publishPulse(
+    submission: import("../components/index.js").CommunityComposerSubmission,
+    replyToEventId?: string,
+  ): Promise<void> {
+    const content = submission.content.trim();
+    const operation = `pulse:publish:${replyToEventId ?? "note"}`;
+    if (content === "") {
+      throwOperationFailure(
+        operation,
+        "validation",
+        "Write a note before publishing",
+      );
+    }
+    await ensureIdentity(operation);
+    const parent =
+      replyToEventId === undefined
+        ? undefined
+        : pulseEvents.find(
+            (event) => event.kind === 1 && event.id === replyToEventId,
+          );
+    if (replyToEventId !== undefined && parent === undefined) {
+      throwOperationFailure(
+        operation,
+        "validation",
+        "The note being replied to is unavailable",
+      );
+    }
+    const mentions = [
+      ...new Set([
+        ...submission.mentionPubkeys,
+        ...(parent === undefined ? [] : [parent.pubkey]),
+      ]),
+    ];
+    const template: NostrEventTemplate = {
+      kind: 1,
+      created_at: now(),
+      content,
+      tags: [
+        ...(parent === undefined
+          ? []
+          : [["e", parent.id, activeScope().relayUrl, "reply"]]),
+        ...mentions.map((pubkey) => ["p", pubkey]),
+        ...submission.attachments.map((media) => [
+          "imeta",
+          `url ${media.url}`,
+          `m ${media.mimeType}`,
+          `x ${media.sha256}`,
+          `size ${media.size}`,
+          ...(media.width === undefined || media.height === undefined
+            ? []
+            : [`dim ${media.width}x${media.height}`]),
+          ...(media.alt === undefined ? [] : [`alt ${media.alt}`]),
+        ]),
+      ],
+    };
+    const signed = await identity!.signEvent(template);
+    const previousEvents = pulseEvents;
+    const previousIds = pulsePrimaryEventIds;
+    pulseEvents = [...pulseEvents, signed];
+    if (pulse?.tab === "everyone" || pulse?.tab === "mine") {
+      pulsePrimaryEventIds = [
+        signed.id,
+        ...pulsePrimaryEventIds.filter((id) => id !== signed.id),
+      ];
+    }
+    rematerializePulse("refreshing");
+    try {
+      await execute(operation, {
+        type: "publish",
+        template,
+        optimisticEvent: signed,
+      });
+    } catch (cause) {
+      pulseEvents = previousEvents;
+      pulsePrimaryEventIds = previousIds;
+      rematerializePulse(
+        "error",
+        cause instanceof Error
+          ? cause.message
+          : "The note could not be published",
+      );
+      throw cause;
+    }
+    await refreshPulse().catch(() => undefined);
+  }
+
+  async function togglePulseLike(eventId: string): Promise<void> {
+    const operation = `pulse:like:${eventId}`;
+    await ensureIdentity(operation);
+    const target = pulseEvents.find(
+      (event) => event.kind === 1 && event.id === eventId,
+    );
+    if (target === undefined) {
+      throwOperationFailure(operation, "validation", "The note is unavailable");
+    }
+    const previousReaction = pulseEvents.find(
+      (event) =>
+        event.kind === 7 &&
+        event.pubkey === identityPubkey &&
+        event.content === "+" &&
+        pulseEventTargetId(event) === eventId &&
+        !eventDeleted(pulseEvents, event.id),
+    );
+    const template: NostrEventTemplate =
+      previousReaction === undefined
+        ? {
+            kind: 7,
+            created_at: now(),
+            content: "+",
+            tags: [
+              ["e", target.id],
+              ["p", target.pubkey],
+              ["k", "1"],
+            ],
+          }
+        : {
+            kind: 5,
+            created_at: now(),
+            content: "",
+            tags: [
+              ["e", previousReaction.id],
+              ["k", "7"],
+            ],
+          };
+    const signed = await identity!.signEvent(template);
+    const previousEvents = pulseEvents;
+    pulseEvents = [...pulseEvents, signed];
+    rematerializePulse("refreshing");
+    try {
+      await execute(operation, {
+        type: "publish",
+        template,
+        optimisticEvent: signed,
+      });
+    } catch (cause) {
+      pulseEvents = previousEvents;
+      rematerializePulse(
+        "error",
+        cause instanceof Error
+          ? cause.message
+          : "The reaction could not be published",
+      );
+      throw cause;
+    }
+    await refreshPulse("reactions").catch(() => undefined);
+  }
+
   const actions: CommunityControllerActions = {
+    pulse: {
+      setActive(active) {
+        pulseActive = active;
+        updatePulseAvailability();
+        if (!active) {
+          stopPulseRefreshTimers("Pulse closed");
+          return;
+        }
+        startPulseRefreshTimers();
+        if (pulse?.status === "idle") {
+          void refreshPulse().catch(() => undefined);
+        }
+      },
+      selectTab: selectPulseTab,
+      refresh: refreshPulse,
+      publish: publishPulse,
+      toggleLike: togglePulseLike,
+    },
     selectCommunity(communityId) {
       const scope = scopes.find((candidate) => candidate.id === communityId);
       if (scope === undefined) return;
@@ -744,6 +1120,8 @@ export function createCommunityController(
       requestProjection();
       void persistSelection(scope.id);
       prioritizeContent(scope.id, activeRoomId);
+      updatePulseAvailability();
+      if (pulseActive) void refreshPulse().catch(() => undefined);
     },
     selectRoom(roomId) {
       const roomExists = workspace.navigationSections
@@ -1660,6 +2038,7 @@ export function createCommunityController(
       activeThreadId = undefined;
       sidePanel = "none";
       replyTarget = undefined;
+      if (pulse !== undefined) pulse = { ...pulse, tab: "everyone" };
       if (activeRoomId.startsWith("dm:")) {
         activeRoomId =
           communityRooms(activeScope(), activeEvents())[0]?.id ?? "";

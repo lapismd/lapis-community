@@ -9,6 +9,7 @@ export * from "./turso-event-store.js";
 export * from "./identity-connector.js";
 export * from "./materialize.js";
 export * from "./materialize-settings.js";
+export * from "./materialize-pulse.js";
 export * from "./nip17.js";
 export * from "./nip29-community-source.js";
 export * from "./registry-community-source.js";

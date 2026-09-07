@@ -19,6 +19,12 @@ verified public runtime projection and synchronization plan instead of
 replaying the disposable cache. It MUST reopen author-bound relay access and
 refresh identity-private state without making public browsing unavailable.
 
+For LC-NOSTR-019, Pulse is an optional live window on `CommunitySession` and an
+additive controller model/action group. Relay responses are verified and
+materialized outside the persistent community event runtime; only events
+published by the local signer may pass through the existing cache path. Custom
+sources and controllers that omit the Pulse capability remain compatible.
+
 Dependency refreshes advance the minimum compatible Design Core release in the
 portable package manifest and committed lockfile together, without changing the
 public import boundary.

@@ -18,6 +18,8 @@ import type {
   CommunityDataSource,
   CommunityDataSourceContext,
   CommunityPrivateEvent,
+  CommunityPulseWindow,
+  CommunityPulseWindowRequest,
   CommunityScope,
   CommunitySearchResult,
   CommunitySession,
@@ -25,6 +27,12 @@ import type {
   CommunitySnapshot,
   CommunitySynchronizationRequest,
 } from "./contracts.js";
+import {
+  isNip34ProjectComment,
+  pulseEventTargetId,
+  pulseReplyParentId,
+} from "./materialize-pulse.js";
+import { verifiedNostrEvent } from "./verified-events.js";
 
 export interface Nip29CommunitySourceOptions {
   relayFactory: CommunityRelayFactory;
@@ -38,6 +46,9 @@ const COMMUNITY_CHANNEL_ACTIVITY_KINDS = [
 const COMMUNITY_STATE_KINDS = [39_000, 39_001, 39_002] as const;
 const PUBLIC_ROOM_DISCOVERY_LIMIT = 1_000;
 const CONTENT_BOUNDARY_LIMIT = 1_000;
+const PULSE_NOTE_LIMIT = 50;
+const PULSE_FOLLOWING_LIMIT = 200;
+const PULSE_MAX_FOLLOWS = 100;
 
 export function createNip29CommunitySource(
   options: Nip29CommunitySourceOptions,
@@ -183,6 +194,260 @@ class Nip29CommunitySession implements CommunitySession {
             },
           }),
       hasOlder: page.hasOlder,
+    };
+  }
+
+  async loadPulseWindow(
+    request: CommunityPulseWindowRequest,
+    signal?: AbortSignal,
+  ): Promise<CommunityPulseWindow> {
+    this.#assertOpen(signal);
+    await Promise.all(
+      this.#relays.map(async (relay) => this.#authenticate(relay, signal)),
+    );
+    const identityPubkey = await this.#context.identity?.getPublicKey();
+    const supporting: NostrEvent[] = [];
+    let primary: NostrEvent[] = [];
+    let requestedOrder: string[] | undefined;
+
+    if (request.noteIds !== undefined) {
+      const noteIds = [...new Set(request.noteIds)].slice(
+        0,
+        PULSE_FOLLOWING_LIMIT,
+      );
+      primary =
+        noteIds.length === 0
+          ? []
+          : verifiedPulseEvents(
+              await this.#queryUnion(
+                this.#relays,
+                { ids: noteIds, kinds: [1], limit: noteIds.length },
+                signal,
+              ),
+            );
+      requestedOrder = noteIds;
+    } else if (request.tab === "everyone") {
+      primary = verifiedPulseEvents(
+        await this.#queryUnion(
+          this.#relays,
+          { kinds: [1], limit: PULSE_NOTE_LIMIT },
+          signal,
+        ),
+      );
+    } else if (request.tab === "agents") {
+      const authors = [...new Set(request.agentPubkeys ?? [])];
+      primary =
+        authors.length === 0
+          ? []
+          : verifiedPulseEvents(
+              await this.#queryUnion(
+                this.#relays,
+                { kinds: [1], authors, limit: PULSE_FOLLOWING_LIMIT },
+                signal,
+              ),
+            );
+    } else {
+      if (identityPubkey === undefined) {
+        throw new Error(`Sign in to view ${request.tab}`);
+      }
+      if (request.tab === "mine") {
+        primary = verifiedPulseEvents(
+          await this.#queryUnion(
+            this.#relays,
+            { kinds: [1], authors: [identityPubkey], limit: PULSE_NOTE_LIMIT },
+            signal,
+          ),
+        );
+      } else if (request.tab === "following") {
+        const contacts = verifiedPulseEvents(
+          await this.#queryUnion(
+            this.#relays,
+            { kinds: [3], authors: [identityPubkey], limit: 25 },
+            signal,
+          ),
+        );
+        const latestContacts = contacts.at(-1);
+        if (latestContacts !== undefined) supporting.push(latestContacts);
+        const followed = [
+          ...new Set(
+            latestContacts?.tags
+              .filter((tag) => tag[0] === "p" && tag[1] !== undefined)
+              .map((tag) => tag[1]!) ?? [],
+          ),
+        ].slice(0, PULSE_MAX_FOLLOWS);
+        primary =
+          followed.length === 0
+            ? []
+            : verifiedPulseEvents(
+                await this.#queryUnion(
+                  this.#relays,
+                  {
+                    kinds: [1],
+                    authors: followed,
+                    limit: PULSE_FOLLOWING_LIMIT,
+                  },
+                  signal,
+                ),
+              );
+      } else {
+        const likes = verifiedPulseEvents(
+          await this.#queryUnion(
+            this.#relays,
+            { kinds: [7], authors: [identityPubkey], limit: 1_000 },
+            signal,
+          ),
+        ).filter((event) => event.content === "+");
+        const likeIds = likes.map((event) => event.id);
+        const deletions =
+          likeIds.length === 0
+            ? []
+            : verifiedPulseEvents(
+                await this.#queryUnion(
+                  this.#relays,
+                  {
+                    kinds: [5],
+                    authors: [identityPubkey],
+                    "#e": likeIds,
+                    limit: Math.max(50, likeIds.length * 2),
+                  },
+                  signal,
+                ),
+              );
+        supporting.push(...likes, ...deletions);
+        const deletedLikes = new Set(
+          deletions.flatMap((event) =>
+            event.tags
+              .filter((tag) => tag[0] === "e" && tag[1] !== undefined)
+              .map((tag) => tag[1]!),
+          ),
+        );
+        const activeLikes = likes
+          .filter((event) => !deletedLikes.has(event.id))
+          .toSorted(
+            (left, right) =>
+              right.created_at - left.created_at ||
+              right.id.localeCompare(left.id),
+          );
+        requestedOrder = [
+          ...new Set(
+            activeLikes.flatMap((event) => pulseEventTargetId(event) ?? []),
+          ),
+        ];
+        primary =
+          requestedOrder.length === 0
+            ? []
+            : verifiedPulseEvents(
+                await this.#queryUnion(
+                  this.#relays,
+                  {
+                    ids: requestedOrder,
+                    kinds: [1],
+                    limit: requestedOrder.length,
+                  },
+                  signal,
+                ),
+              );
+      }
+    }
+
+    primary = primary.filter(
+      (event) => event.kind === 1 && !isNip34ProjectComment(event),
+    );
+    const primaryById = new Map(primary.map((event) => [event.id, event]));
+    const primaryEventIds = (
+      requestedOrder ??
+      primary
+        .toSorted(
+          (left, right) =>
+            right.created_at - left.created_at ||
+            right.id.localeCompare(left.id),
+        )
+        .map((event) => event.id)
+    ).filter((id) => primaryById.has(id));
+    const parentIds = [
+      ...new Set(primary.flatMap((event) => pulseReplyParentId(event) ?? [])),
+    ];
+    const parents =
+      parentIds.length === 0
+        ? []
+        : verifiedPulseEvents(
+            await this.#queryUnion(
+              this.#relays,
+              { ids: parentIds, kinds: [1], limit: parentIds.length },
+              signal,
+            ),
+          );
+    const reactions =
+      primaryEventIds.length === 0
+        ? []
+        : verifiedPulseEvents(
+            await this.#queryUnion(
+              this.#relays,
+              {
+                kinds: [7],
+                "#e": primaryEventIds,
+                limit: Math.min(
+                  2_000,
+                  Math.max(100, primaryEventIds.length * 20),
+                ),
+              },
+              signal,
+            ),
+          );
+    const deletionTargets = [
+      ...new Set([
+        ...primaryEventIds,
+        ...parents.map((event) => event.id),
+        ...reactions.map((event) => event.id),
+      ]),
+    ];
+    const deletions =
+      deletionTargets.length === 0
+        ? []
+        : verifiedPulseEvents(
+            await this.#queryUnion(
+              this.#relays,
+              {
+                kinds: [5],
+                "#e": deletionTargets,
+                limit: Math.min(
+                  2_000,
+                  Math.max(100, deletionTargets.length * 4),
+                ),
+              },
+              signal,
+            ),
+          );
+    const authors = [
+      ...new Set(
+        [...primary, ...parents].flatMap((event) => [
+          event.pubkey,
+          ...event.tags
+            .filter((tag) => tag[0] === "p" && tag[1] !== undefined)
+            .map((tag) => tag[1]!),
+        ]),
+      ),
+    ];
+    const profiles =
+      authors.length === 0
+        ? []
+        : verifiedPulseEvents(
+            await this.#queryUnion(
+              this.#relays,
+              { kinds: [0], authors, limit: authors.length * 3 },
+              signal,
+            ),
+          );
+    return {
+      events: distinctEvents([
+        ...primary,
+        ...parents,
+        ...reactions,
+        ...deletions,
+        ...profiles,
+        ...supporting,
+      ]),
+      primaryEventIds,
     };
   }
 
@@ -891,6 +1156,7 @@ class Nip29CommunitySession implements CommunitySession {
       deleteEvents: signedIn,
       archive: false,
       editMessages: signedIn,
+      pulse: true,
     };
   }
 }
@@ -1090,6 +1356,10 @@ function distinctEvents(events: readonly NostrEvent[]): NostrEvent[] {
     (left, right) =>
       left.created_at - right.created_at || left.id.localeCompare(right.id),
   );
+}
+
+function verifiedPulseEvents(events: readonly NostrEvent[]): NostrEvent[] {
+  return events.flatMap((event) => verifiedNostrEvent(event) ?? []);
 }
 
 function chunks<T>(items: readonly T[], size: number): T[][] {

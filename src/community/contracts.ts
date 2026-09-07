@@ -1,6 +1,7 @@
 import type { CommunitySigner } from "../auth/index.js";
 import type {
   CommunityActionAvailability,
+  CommunityComposerSubmission,
   CommunityInboxModel,
   CommunityMemberModel,
   CommunityRoomKind,
@@ -65,7 +66,80 @@ export interface CommunityCapabilities {
   deleteEvents: boolean;
   archive: boolean;
   editMessages: boolean;
+  /** Whether this source can load and publish the public kind-1 Pulse feed. */
+  pulse?: boolean;
   configurableRetention?: boolean;
+}
+
+export type CommunityPulseTab =
+  | "search"
+  | "everyone"
+  | "following"
+  | "liked"
+  | "agents"
+  | "mine";
+
+export type CommunityPulseFeedTab = Exclude<CommunityPulseTab, "search">;
+
+export interface CommunityPulseAgentIdentity {
+  pubkey: string;
+  name: string;
+  avatarUrl?: string;
+  status?: string;
+}
+
+export interface CommunityPulseOptions {
+  /** Omit this property to hide the Agents tab; an empty array keeps it visible. */
+  agents?: readonly CommunityPulseAgentIdentity[];
+}
+
+export interface CommunityPulseParentModel {
+  id: string;
+  author: CommunityMemberModel;
+  content: string;
+}
+
+export interface CommunityPulseNoteModel {
+  id: string;
+  author: CommunityMemberModel;
+  content: string;
+  createdAt: number;
+  sourceEvent: NostrEvent;
+  mentionPubkeys: readonly string[];
+  parent?: CommunityPulseParentModel;
+  likeCount: number;
+  likedByCurrentUser: boolean;
+  currentUserOwns: boolean;
+  likePending?: boolean;
+}
+
+export interface CommunityPulseAgentActivityModel {
+  id: string;
+  agent: CommunityPulseAgentIdentity;
+  notes: readonly CommunityPulseNoteModel[];
+}
+
+export interface CommunityPulseModel {
+  tab: CommunityPulseTab;
+  status: "idle" | "loading" | "refreshing" | "ready" | "error";
+  notes: readonly CommunityPulseNoteModel[];
+  agentActivities: readonly CommunityPulseAgentActivityModel[];
+  members: readonly CommunityMemberModel[];
+  agents?: readonly CommunityPulseAgentIdentity[];
+  canDirectMessage: boolean;
+  lastUpdatedAt?: number;
+  error?: string;
+}
+
+export interface CommunityPulseActions {
+  setActive(active: boolean): void;
+  selectTab(tab: CommunityPulseTab): Promise<void>;
+  refresh(kind?: "notes" | "reactions"): Promise<void>;
+  publish(
+    submission: CommunityComposerSubmission,
+    replyToEventId?: string,
+  ): Promise<void>;
+  toggleLike(eventId: string): Promise<void>;
 }
 
 export interface CommunityIdentityConnector {
@@ -150,6 +224,7 @@ export interface CommunityControllerState {
   contentSync?: CommunityContentSyncState;
   navigation: CommunityNavigationPreferences;
   replyTarget?: CommunityReplyTarget;
+  pulse?: CommunityPulseModel;
   error?: string;
 }
 
@@ -293,6 +368,19 @@ export interface CommunityContentWindow {
   primaryEventIds: readonly string[];
   olderCursor?: CommunityContentCursor;
   hasOlder: boolean;
+}
+
+export interface CommunityPulseWindowRequest {
+  tab: CommunityPulseFeedTab;
+  agentPubkeys?: readonly string[];
+  /** Reuse the current note set while only refreshing reactions. */
+  noteIds?: readonly string[];
+}
+
+export interface CommunityPulseWindow {
+  events: readonly NostrEvent[];
+  /** Newest-first note order after applying the selected feed semantics. */
+  primaryEventIds: readonly string[];
 }
 
 export interface CommunityContentSyncState {
@@ -456,6 +544,10 @@ export interface CommunitySession {
     request: CommunityContentWindowRequest,
     signal?: AbortSignal,
   ): Promise<CommunityContentWindow>;
+  loadPulseWindow?(
+    request: CommunityPulseWindowRequest,
+    signal?: AbortSignal,
+  ): Promise<CommunityPulseWindow>;
   subscribe(
     listener: (events: readonly NostrEvent[]) => void,
     signal?: AbortSignal,
@@ -555,6 +647,8 @@ export interface CommunityControllerActions {
   clearCache(communityId?: string): Promise<void>;
   connectIdentity(connector?: CommunityIdentityConnector): Promise<void>;
   disconnectIdentity(): Promise<void>;
+  /** Additive so custom controllers that do not implement Pulse remain valid. */
+  pulse?: CommunityPulseActions;
 }
 
 export interface CommunityControllerOptions {
@@ -569,6 +663,7 @@ export interface CommunityControllerOptions {
   initialRoomId?: string;
   clientId?: string;
   now?: () => number;
+  pulse?: CommunityPulseOptions;
 }
 
 export interface CommunityLinkBuilder {
