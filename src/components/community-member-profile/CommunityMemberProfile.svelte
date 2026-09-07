@@ -1,5 +1,6 @@
 <script lang="ts">
   import { Button } from "@lapismd/design-core/shadcn/button";
+  import CopyIcon from "@lucide/svelte/icons/copy";
   import HandIcon from "@lucide/svelte/icons/hand";
   import MessageCircleIcon from "@lucide/svelte/icons/message-circle";
   import UserPlusIcon from "@lucide/svelte/icons/user-plus";
@@ -9,11 +10,13 @@
 
   let {
     member,
+    onCopyPublicKey,
     onMessage,
     onWave,
     onFollow,
   }: {
     member: CommunityMemberModel;
+    onCopyPublicKey?: () => void | Promise<void>;
     onMessage?: () => void | Promise<void>;
     onWave?: () => void | Promise<void>;
     onFollow?: () => void | Promise<void>;
@@ -24,7 +27,20 @@
   <header>
     <CommunityMemberAvatar {member} size="large" showPresence />
     <div>
-      <h2>{member.name}</h2>
+      <h2>
+        {#if onCopyPublicKey}
+          <Button
+            class="community-member-profile__identity-copy"
+            variant="ghost"
+            aria-label={`Copy ${member.name}'s public key`}
+            onclick={onCopyPublicKey}
+          >
+            {member.name}<CopyIcon data-icon="inline-end" aria-hidden="true" />
+          </Button>
+        {:else}
+          {member.name}
+        {/if}
+      </h2>
       <p>@{member.handle}</p>
     </div>
   </header>
@@ -100,6 +116,17 @@
 
   h2 {
     font-size: 1.1rem;
+  }
+
+  :global(
+      .community-member-profile__identity-copy[data-ui-component="button"]
+    ) {
+    height: auto;
+    justify-content: flex-start;
+    margin: -0.125rem -0.25rem;
+    padding: 0.125rem 0.25rem;
+    font-size: inherit;
+    line-height: inherit;
   }
 
   h3 {

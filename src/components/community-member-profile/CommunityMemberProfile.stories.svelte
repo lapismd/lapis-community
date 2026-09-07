@@ -16,6 +16,7 @@
   name="Member actions"
   args={{
     member: communityStoryMembers[0]!,
+    onCopyPublicKey: fn(),
     onMessage: fn(),
     onWave: fn(),
     onFollow: fn(),
@@ -25,6 +26,16 @@
     await expect(
       canvas.getByRole("img", { name: /Ada Lovelace, Online/u }),
     ).toBeVisible();
+    const copyPublicKey = canvas.getByRole("button", {
+      name: "Copy Ada Lovelace's public key",
+    });
+    await expect(
+      copyPublicKey.querySelector('[data-icon="inline-end"]'),
+    ).not.toBeNull();
+    copyPublicKey.focus();
+    await expect(copyPublicKey).toHaveFocus();
+    await userEvent.keyboard("{Enter}");
+    await expect(args.onCopyPublicKey).toHaveBeenCalledOnce();
     const messageAction = canvas.getByRole("button", { name: "Message" });
     await userEvent.hover(messageAction);
     await expect(messageAction).toHaveClass("community-member-profile__action");
@@ -43,6 +54,14 @@
     onMessage: fn(),
   }}
   play={async ({ canvas }) => {
+    await expect(
+      canvas.getByRole("heading", { name: "Ada Lovelace" }),
+    ).toBeVisible();
+    await expect(
+      canvas.queryByRole("button", {
+        name: "Copy Ada Lovelace's public key",
+      }),
+    ).not.toBeInTheDocument();
     await expect(canvas.getByRole("button", { name: "Message" })).toBeVisible();
     await expect(
       canvas.queryByRole("button", { name: "Wave" }),

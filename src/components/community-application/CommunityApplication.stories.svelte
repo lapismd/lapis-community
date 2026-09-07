@@ -1,8 +1,10 @@
 <script module lang="ts">
   import { defineMeta } from "@storybook/addon-svelte-csf";
+  import { toast } from "svelte-sonner";
   import {
     expect,
     fireEvent,
+    fn,
     userEvent,
     waitFor,
     within,
@@ -1673,6 +1675,53 @@
     await expect(
       within(openedProfileSidebar).getByRole("button", { name: "Wave" }),
     ).toBeVisible();
+    const storyWindow = canvasElement.ownerDocument.defaultView;
+    if (!storyWindow) throw new Error("Expected the Storybook window");
+    const clipboardDescriptor = Object.getOwnPropertyDescriptor(
+      storyWindow.navigator,
+      "clipboard",
+    );
+    const writeText =
+      fn<(value: string) => Promise<void>>().mockResolvedValue();
+    Object.defineProperty(storyWindow.navigator, "clipboard", {
+      configurable: true,
+      value: { writeText },
+    });
+    try {
+      const copyPublicKey = within(openedProfileSidebar).getByRole("button", {
+        name: /^Copy .+'s public key$/u,
+      });
+      await userEvent.click(copyPublicKey);
+      await expect(writeText).toHaveBeenCalledOnce();
+      await expect(writeText).toHaveBeenCalledWith(
+        expect.stringMatching(/^[0-9a-f]{64}$/u),
+      );
+      await expect(
+        await overlay.findByText("Public key copied"),
+      ).toBeInTheDocument();
+
+      writeText.mockRejectedValueOnce(new Error("Clipboard unavailable"));
+      await userEvent.click(copyPublicKey);
+      await expect(
+        await overlay.findByText("Could not copy to the clipboard"),
+      ).toBeInTheDocument();
+    } finally {
+      toast.dismiss();
+      await waitFor(() =>
+        expect(
+          canvasElement.ownerDocument.querySelectorAll("[data-sonner-toast]"),
+        ).toHaveLength(0),
+      );
+      if (clipboardDescriptor) {
+        Object.defineProperty(
+          storyWindow.navigator,
+          "clipboard",
+          clipboardDescriptor,
+        );
+      } else {
+        Reflect.deleteProperty(storyWindow.navigator, "clipboard");
+      }
+    }
     await expect(canvas.queryByLabelText("Thread sidebar")).toBeNull();
 
     await userEvent.click(canvas.getByRole("button", { name: "Back" }));

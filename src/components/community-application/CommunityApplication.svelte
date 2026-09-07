@@ -2526,6 +2526,8 @@
             {#if selectedProfile}
               <CommunityMemberProfile
                 member={selectedProfile}
+                onCopyPublicKey={() =>
+                  copyText(selectedProfile.id, "Public key copied")}
                 onMessage={() => messageMember(selectedProfile)}
                 onWave={() => waveMember(selectedProfile)}
                 {...extensions.follow === undefined
@@ -3008,7 +3010,7 @@
   </Dialog.Content>
 </Dialog.Root>
 
-<Toaster position="bottom-right" richColors />
+<Toaster position="bottom-right" />
 
 <style>
   .community-application__toolbar-start,
