@@ -1930,9 +1930,10 @@
       { timeout: 15_000 },
     );
     if (application.dataset.communityBackend !== "memory") return;
-    await userEvent.click(
-      canvas.getByRole("button", { name: "Expand left sidebar" }),
-    );
+    const expandNavigation = canvas.queryByRole("button", {
+      name: "Expand left sidebar",
+    });
+    if (expandNavigation) await userEvent.click(expandNavigation);
     await userEvent.click(
       await canvas.findByRole(
         "button",
@@ -2146,6 +2147,248 @@
 </Story>
 
 <Story
+  name="Plugin release constrained sidebars"
+  parameters={{
+    viewport: {
+      options: {
+        pluginReleaseConstrained: {
+          name: "Plugin release constrained desktop",
+          styles: { width: "1375px", height: "998px" },
+        },
+      },
+    },
+  }}
+  globals={{
+    viewport: { value: "pluginReleaseConstrained", isRotated: false },
+  }}
+  play={async ({ canvas }) => {
+    const application = await canvas.findByTestId(
+      "full-community-application",
+      {},
+      { timeout: 15_000 },
+    );
+    if (application.dataset.communityBackend !== "memory") return;
+
+    const expandNavigation = canvas.queryByRole("button", {
+      name: "Expand left sidebar",
+    });
+    if (expandNavigation) await userEvent.click(expandNavigation);
+    await userEvent.click(
+      await canvas.findByRole(
+        "button",
+        { name: "plugin-releases" },
+        { timeout: 15_000 },
+      ),
+    );
+    const overview = await canvas.findByRole("navigation", {
+      name: "Plugin release overview",
+    });
+    const mainSurface = application.querySelector<HTMLElement>(
+      '[data-ui-part="main"]',
+    );
+    const shell = application.querySelector<HTMLElement>("[data-shell-root]");
+    if (!mainSurface || !shell) {
+      throw new Error("Expected the plugin release App Shell surfaces");
+    }
+
+    await expect(overview).toBeVisible();
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Manage channel" }),
+    );
+    const channelSettings = await canvas.findByLabelText(
+      "Channel settings sidebar",
+    );
+    const constrainedOverviewSidebar = await canvas.findByLabelText(
+      "Plugin release overview sidebar",
+    );
+
+    await waitFor(() => {
+      expect(shell).toHaveAttribute("data-display-mode", "desktop");
+      expect(
+        shell.getAttribute("data-desktop-overlay-panels")?.split(/\s+/),
+      ).toContain("right");
+      expect(
+        shell.getAttribute("data-desktop-overlay-panels")?.split(/\s+/),
+      ).not.toContain(COMMUNITY_APPLICATION_RELEASE_OVERVIEW_PANEL_ID);
+      expect(getComputedStyle(channelSettings).position).toBe("absolute");
+    });
+    await expect(channelSettings).toBeVisible();
+    await expect(constrainedOverviewSidebar).toBeVisible();
+    await expect(mainSurface).toHaveAttribute("inert");
+    await expect(mainSurface).toHaveAttribute("aria-hidden", "true");
+    await expect(
+      getComputedStyle(channelSettings).borderTopRightRadius,
+    ).not.toBe("0px");
+    await expect(getComputedStyle(channelSettings).boxShadow).toBe("none");
+    await expect(getComputedStyle(mainSurface).borderTopRightRadius).not.toBe(
+      "0px",
+    );
+
+    const mainBounds = mainSurface.getBoundingClientRect();
+    const settingsBounds = channelSettings.getBoundingClientRect();
+    const overviewBounds = constrainedOverviewSidebar.getBoundingClientRect();
+    await expect(
+      Math.abs(settingsBounds.left - mainBounds.left),
+    ).toBeLessThanOrEqual(1);
+    await expect(
+      Math.abs(settingsBounds.right - mainBounds.right),
+    ).toBeLessThanOrEqual(1);
+    await expect(
+      Math.abs(settingsBounds.top - mainBounds.top),
+    ).toBeLessThanOrEqual(1);
+    await expect(
+      Math.abs(settingsBounds.bottom - mainBounds.bottom),
+    ).toBeLessThanOrEqual(1);
+    await expect(settingsBounds.right).toBeLessThan(overviewBounds.left);
+
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Collapse left sidebar" }),
+    );
+    await waitFor(() => {
+      expect(
+        shell.getAttribute("data-desktop-overlay-panels")?.split(/\s+/) ?? [],
+      ).not.toContain("right");
+      expect(getComputedStyle(channelSettings).position).toBe("relative");
+      expect(mainSurface).not.toHaveAttribute("inert");
+      expect(mainSurface).not.toHaveAttribute("aria-hidden", "true");
+    });
+    const inlineMainBounds = mainSurface.getBoundingClientRect();
+    const inlineSettingsBounds = channelSettings.getBoundingClientRect();
+    await expect(inlineMainBounds.right).toBeLessThanOrEqual(
+      inlineSettingsBounds.left + 1,
+    );
+
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Expand left sidebar" }),
+    );
+    await waitFor(() => {
+      expect(
+        shell.getAttribute("data-desktop-overlay-panels")?.split(/\s+/),
+      ).toContain("right");
+      expect(getComputedStyle(channelSettings).position).toBe("absolute");
+      expect(mainSurface).toHaveAttribute("inert");
+      expect(mainSurface).toHaveAttribute("aria-hidden", "true");
+    });
+    await waitFor(() => {
+      const restoredMainBounds = mainSurface.getBoundingClientRect();
+      const restoredSettingsBounds = channelSettings.getBoundingClientRect();
+      expect(
+        Math.abs(restoredSettingsBounds.left - restoredMainBounds.left),
+      ).toBeLessThanOrEqual(1);
+      expect(
+        Math.abs(restoredSettingsBounds.right - restoredMainBounds.right),
+      ).toBeLessThanOrEqual(1);
+      expect(
+        Math.abs(restoredSettingsBounds.top - restoredMainBounds.top),
+      ).toBeLessThanOrEqual(1);
+      expect(
+        Math.abs(restoredSettingsBounds.bottom - restoredMainBounds.bottom),
+      ).toBeLessThanOrEqual(1);
+    });
+
+    await userEvent.click(
+      within(channelSettings).getByRole("button", {
+        name: "Close channel settings",
+      }),
+    );
+    await waitFor(() => {
+      expect(mainSurface).not.toHaveAttribute("inert");
+      expect(mainSurface).not.toHaveAttribute("aria-hidden", "true");
+      expect(
+        shell.getAttribute("data-desktop-overlay-panels")?.split(/\s+/) ?? [],
+      ).not.toContain("right");
+      expect(
+        canvas.getAllByLabelText("Plugin release overview sidebar"),
+      ).toHaveLength(1);
+      expect(
+        application.querySelectorAll(
+          ".community-application__standard-right-sidebar",
+        ),
+      ).toHaveLength(0);
+    });
+    await expect(
+      canvas.getByLabelText("Plugin release overview sidebar"),
+    ).toBeVisible();
+
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Manage channel" }),
+    );
+    const reopenedSettings = await canvas.findByLabelText(
+      "Channel settings sidebar",
+    );
+    await waitFor(() => {
+      expect(getComputedStyle(reopenedSettings).position).toBe("absolute");
+      expect(
+        canvas.getAllByLabelText("Plugin release overview sidebar"),
+      ).toHaveLength(1);
+      expect(
+        application.querySelectorAll(
+          ".community-application__standard-right-sidebar",
+        ),
+      ).toHaveLength(1);
+    });
+    await userEvent.click(
+      within(reopenedSettings).getByRole("button", {
+        name: "Close channel settings",
+      }),
+    );
+    await waitFor(() => {
+      expect(
+        canvas.queryByLabelText("Channel settings sidebar"),
+      ).not.toBeInTheDocument();
+      expect(
+        canvas.getAllByLabelText("Plugin release overview sidebar"),
+      ).toHaveLength(1);
+      expect(
+        application.querySelectorAll(
+          ".community-application__standard-right-sidebar",
+        ),
+      ).toHaveLength(0);
+    });
+
+    for (let cycle = 0; cycle < 2; cycle += 1) {
+      await userEvent.click(
+        canvas.getByRole("button", { name: "Hide plugin release overview" }),
+      );
+      await waitFor(() => {
+        expect(
+          canvas.queryByRole("navigation", {
+            name: "Plugin release overview",
+          }),
+        ).not.toBeInTheDocument();
+        expect(
+          application.querySelectorAll(
+            ".community-application__release-overview-sidebar",
+          ).length,
+        ).toBeLessThanOrEqual(1);
+        expect(
+          canvas.getByRole("button", { name: "Show plugin release overview" }),
+        ).toBeVisible();
+      });
+      await userEvent.click(
+        canvas.getByRole("button", { name: "Show plugin release overview" }),
+      );
+      await waitFor(() => {
+        expect(
+          canvas.getAllByLabelText("Plugin release overview sidebar"),
+        ).toHaveLength(1);
+        expect(
+          canvas.getByLabelText("Plugin release overview sidebar"),
+        ).toBeVisible();
+      });
+    }
+  }}
+>
+  {#snippet template()}
+    <CommunityApplicationStoryHarness
+      namespace="plugin-release-constrained-sidebars"
+      releaseMessages
+      responsive
+    />
+  {/snippet}
+</Story>
+
+<Story
   name="Persistent page and sidebar state"
   play={async ({ canvas, canvasElement }) => {
     const application = await canvas.findByTestId(
@@ -2315,7 +2558,9 @@
     );
     if (!shell) throw new Error("Expected the application shell state element");
     const rightSidebars = (): NodeListOf<HTMLElement> =>
-      canvasElement.querySelectorAll<HTMLElement>('aside[data-side="right"]');
+      canvasElement.querySelectorAll<HTMLElement>(
+        'aside[data-side="right"]:not([hidden])',
+      );
     const expectRightPanel = async (
       label: "Channel settings sidebar" | "Thread sidebar" | "Profile sidebar",
     ): Promise<HTMLElement> => {

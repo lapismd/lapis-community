@@ -39,9 +39,16 @@ For LC-UI-033, `CommunityApplication` owns the plugin-release overview as an
 optional, history-aware main surface and composes its menu through an
 independently registered Design Core right-sidebar controller. The outer
 overview and the built-in details/thread/profile right sidebar may therefore be
-present together. The public review data-source method and Reviews and People
+present together. When desktop main-width protection constrains that
+composition, the outer overview retains its rail while the built-in right
+sidebar becomes a replacement-like inset overlay spanning the inert main
+workspace. The public review data-source method and Reviews and People
 components remain additive, so existing sources and locations that omit them
 retain the ordinary workspace.
+Closing that constrained overlay restores the single overview registration and
+the ordinary rounded main-workspace geometry. Collapsing the left sidebar while
+the built-in panel remains open returns it to normal inline composition as soon
+as the protected main width fits.
 
 For LC-NOSTR-020, relay-defined role and invite support remains an additive
 session/controller capability. The controller owns authentication, configured

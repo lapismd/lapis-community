@@ -293,7 +293,9 @@
   let releaseReviewsError = $state("");
   let releaseReviewRevision = $state.raw({});
   let releaseSheetElement = $state<HTMLElement | null>(null);
+  let mainSurfaceElement = $state<HTMLElement | null>(null);
   let standardRightSidebarElement = $state<HTMLElement | null>(null);
+  let standardRightSidebarConstrained = $state(false);
   let releaseSurfaceReturnFocus = $state<HTMLElement>();
 
   const workspace = $derived(community.state.workspace);
@@ -1154,8 +1156,12 @@
 
   $effect(() => {
     if (activePanel.kind === "none") {
+      const sidebar = standardRightSidebarElement;
       if (shell.right.collapsed) shell.right.expand();
       shell.right.close();
+      if (shell.mobile.resolvedMode !== "mobile") {
+        void tick().then(() => sidebar?.remove());
+      }
       return;
     }
     shell.right.expand();
@@ -1207,9 +1213,84 @@
   });
 
   $effect(() => {
+    const sidebar = releaseOverviewSidebarElement;
+    const root = sidebar?.closest<HTMLElement>("[data-shell-root]");
+    const main = mainSurfaceElement;
+    if (!sidebar || !root || !main || typeof ResizeObserver === "undefined")
+      return;
+
+    const updateOverlayInsets = () => {
+      const rootBounds = root.getBoundingClientRect();
+      const mainBounds = main.getBoundingClientRect();
+      const endInset = Math.max(0, rootBounds.right - mainBounds.right);
+      const startInset = Math.max(0, mainBounds.left - rootBounds.left);
+      const blockStartInset = Math.max(0, mainBounds.top - rootBounds.top);
+      const blockEndInset = Math.max(0, rootBounds.bottom - mainBounds.bottom);
+      root.style.setProperty(
+        "--community-application-main-end-inset",
+        `${endInset}px`,
+      );
+      root.style.setProperty(
+        "--community-application-main-start-inset",
+        `${startInset}px`,
+      );
+      root.style.setProperty(
+        "--community-application-main-block-start-inset",
+        `${blockStartInset}px`,
+      );
+      root.style.setProperty(
+        "--community-application-main-block-end-inset",
+        `${blockEndInset}px`,
+      );
+    };
+
+    let animationFrame: number | undefined;
+    let settledAnimationFrame: number | undefined;
+    const scheduleOverlayInsets = () => {
+      if (animationFrame !== undefined)
+        window.cancelAnimationFrame(animationFrame);
+      if (settledAnimationFrame !== undefined)
+        window.cancelAnimationFrame(settledAnimationFrame);
+      animationFrame = window.requestAnimationFrame(() => {
+        animationFrame = undefined;
+        updateOverlayInsets();
+        settledAnimationFrame = window.requestAnimationFrame(() => {
+          settledAnimationFrame = undefined;
+          updateOverlayInsets();
+        });
+      });
+    };
+
+    updateOverlayInsets();
+    const observer = new ResizeObserver(scheduleOverlayInsets);
+    observer.observe(root);
+    observer.observe(sidebar);
+    observer.observe(main);
+    const mutationObserver = new MutationObserver(scheduleOverlayInsets);
+    mutationObserver.observe(root, {
+      attributes: true,
+      attributeFilter: ["data-desktop-overlay-panels"],
+    });
+    return () => {
+      observer.disconnect();
+      mutationObserver.disconnect();
+      if (animationFrame !== undefined)
+        window.cancelAnimationFrame(animationFrame);
+      if (settledAnimationFrame !== undefined)
+        window.cancelAnimationFrame(settledAnimationFrame);
+      root.style.removeProperty("--community-application-main-end-inset");
+      root.style.removeProperty("--community-application-main-start-inset");
+      root.style.removeProperty(
+        "--community-application-main-block-start-inset",
+      );
+      root.style.removeProperty("--community-application-main-block-end-inset");
+    };
+  });
+
+  $effect(() => {
     if (releaseSheetOpen) {
       releaseSheetWasOpen = true;
-      releaseOverviewSidebar.close();
+      closeReleaseOverviewSidebar();
       return;
     }
     if (!releaseSheetWasOpen) return;
@@ -1298,6 +1379,35 @@
     sidebar.inert = releaseSheetOpen;
     if (releaseSheetOpen) sidebar.setAttribute("aria-hidden", "true");
     else sidebar.removeAttribute("aria-hidden");
+  });
+
+  $effect(() => {
+    const sidebar = standardRightSidebarElement;
+    const root = sidebar?.closest<HTMLElement>("[data-shell-root]");
+    if (!sidebar || !root || activePanel.kind === "none") {
+      standardRightSidebarConstrained = false;
+      return;
+    }
+
+    const syncConstrainedPresentation = () => {
+      const constrained =
+        root
+          .getAttribute("data-desktop-overlay-panels")
+          ?.split(/\s+/)
+          .includes("right") ?? false;
+      standardRightSidebarConstrained = constrained;
+    };
+
+    syncConstrainedPresentation();
+    const observer = new MutationObserver(syncConstrainedPresentation);
+    observer.observe(root, {
+      attributes: true,
+      attributeFilter: ["data-desktop-overlay-panels"],
+    });
+    return () => {
+      observer.disconnect();
+      standardRightSidebarConstrained = false;
+    };
   });
 
   $effect(() => {
@@ -1516,6 +1626,15 @@
     pushLocation({ destination, panel });
   }
 
+  function closeReleaseOverviewSidebar(): void {
+    const sidebar = releaseOverviewSidebarElement;
+    sidebar?.setAttribute("hidden", "");
+    releaseOverviewSidebar.close();
+    if (shell.mobile.resolvedMode !== "mobile") {
+      void tick().then(() => sidebar?.remove());
+    }
+  }
+
   function openReleaseSurface(surface: CommunityApplicationMainSurface): void {
     if (!isPluginReleaseRoom) return;
     releaseSurfaceReturnFocus =
@@ -1523,7 +1642,7 @@
         ? document.activeElement
         : undefined;
     releaseOverviewInitialized = true;
-    releaseOverviewSidebar.close();
+    closeReleaseOverviewSidebar();
     pushLocation({
       destination: activeDestination,
       panel: activePanel,
@@ -2142,8 +2261,13 @@
   }
 
   function closeSidePanel(): void {
+    const sidebar = standardRightSidebarElement;
+    shell.right.close();
     openPanel(noCommunityApplicationPanel());
     lastAction = "closed-side-panel";
+    if (shell.mobile.resolvedMode !== "mobile") {
+      void tick().then(() => sidebar?.remove());
+    }
   }
 
   async function sendWorkspaceMessage(
@@ -2341,31 +2465,43 @@
         pushLocation({ destination: activeDestination, panel: activePanel });
         releaseOverviewSidebar.expand();
         lastAction = "opened-release-overview";
-      } else if (releaseOverviewConstrained && releaseOverviewSidebarElement) {
-        const preview = !releaseOverviewDomPreview;
-        releaseOverviewSidebarElement.toggleAttribute(
-          "data-desktop-overlay-preview",
-          preview,
-        );
-        releaseOverviewDomPreview = preview;
-        if (preview) {
-          void tick().then(() =>
-            releaseOverviewSidebarElement?.focus({ preventScroll: true }),
-          );
-        }
-        lastAction = preview
-          ? "opened-release-overview"
-          : "closed-release-overview";
-      } else if (
-        releaseOverviewSidebar.closed ||
-        releaseOverviewSidebar.collapsed
-      ) {
-        releaseOverviewSidebar.expand();
-        lastAction = "opened-release-overview";
-      } else {
-        releaseOverviewSidebar.close();
-        lastAction = "closed-release-overview";
+        return;
       }
+
+      const currentlyVisible =
+        releaseOverviewSidebarElement !== null &&
+        getComputedStyle(releaseOverviewSidebarElement).display !== "none" &&
+        releaseOverviewSidebarElement.getClientRects().length > 0;
+      releaseOverviewSidebarElement?.removeAttribute(
+        "data-desktop-overlay-preview",
+      );
+      releaseOverviewDomPreview = false;
+      if (releaseOverviewShown || currentlyVisible) {
+        releaseOverviewConstrained = false;
+        closeReleaseOverviewSidebar();
+        lastAction = "closed-release-overview";
+        return;
+      }
+
+      releaseOverviewSidebarElement?.removeAttribute("hidden");
+      releaseOverviewSidebar.expand();
+      lastAction = "opened-release-overview";
+      void tick().then(() => {
+        const sidebar = releaseOverviewSidebarElement;
+        sidebar?.removeAttribute("hidden");
+        const root = sidebar?.closest("[data-shell-root]");
+        const constrained =
+          root
+            ?.getAttribute("data-desktop-overlay-panels")
+            ?.split(/\s+/)
+            .includes(COMMUNITY_APPLICATION_RELEASE_OVERVIEW_PANEL_ID) ?? false;
+        releaseOverviewConstrained = constrained;
+        if (constrained && sidebar) {
+          sidebar.setAttribute("data-desktop-overlay-preview", "");
+          releaseOverviewDomPreview = true;
+          sidebar.focus({ preventScroll: true });
+        }
+      });
     }}
   >
     <svg
@@ -2660,9 +2796,12 @@
   </AppShell.Sidebar>
 
   <AppShell.Main
+    bind:ref={mainSurfaceElement}
     class="community-application__main"
-    inert={releaseSheetOpen}
-    aria-hidden={releaseSheetOpen ? "true" : undefined}
+    inert={releaseSheetOpen || standardRightSidebarConstrained}
+    aria-hidden={releaseSheetOpen || standardRightSidebarConstrained
+      ? "true"
+      : undefined}
   >
     {#if shell.mobile.resolvedMode === "mobile" && !usesRoomToolbar}
       <AppShell.Toolbar label="Application navigation">
@@ -3160,16 +3299,18 @@
     {/if}
   </AppShell.Main>
 
-  {#if activePanel.kind !== "none"}
+  <AppShell.Sidebar
+    bind:ref={standardRightSidebarElement}
+    side="right"
+    class="community-application__standard-right-sidebar"
+    label={`${sidePanelTitle} sidebar`}
+    mobileLabel={sidePanelTitle}
+    resizeLabel={`Resize ${sidePanelTitle.toLowerCase()} sidebar`}
+    closeable
+    hidden={activePanel.kind === "none"}
+  >
     {#key communityApplicationPanelKey(activePanel)}
-      <AppShell.Sidebar
-        bind:ref={standardRightSidebarElement}
-        side="right"
-        label={`${sidePanelTitle} sidebar`}
-        mobileLabel={sidePanelTitle}
-        resizeLabel={`Resize ${sidePanelTitle.toLowerCase()} sidebar`}
-        closeable
-      >
+      {#if activePanel.kind !== "none"}
         {#if activePanel.kind === "profile"}
           <AppShell.Sidebar.Header>
             <strong>Profile</strong>
@@ -3382,9 +3523,9 @@
             {/if}
           </AppShell.Sidebar.Body>
         {/if}
-      </AppShell.Sidebar>
+      {/if}
     {/key}
-  {/if}
+  </AppShell.Sidebar>
   {#if isPluginReleaseRoom && !releaseSheetOpen}
     {@render releaseOverviewRail()}
   {/if}
@@ -3969,6 +4110,51 @@
   }
 
   :global(
+      .community-app-shell__surface[data-desktop-overlay-panels~="right"]
+        > .ui-minimal-app-shell__composition
+        > .community-application__release-overview-sidebar[data-side="right"][data-presentation="inline"]:not(
+          [data-desktop-overlay-preview]
+        ):not([hidden])
+    ) {
+    display: flex;
+  }
+
+  :global(
+      .community-app-shell__surface[data-desktop-overlay-panels~="right"]
+        > .ui-minimal-app-shell__composition
+        > .community-application__standard-right-sidebar[data-mobile-panel-id="right"][data-presentation="inline"]:not(
+          [hidden]
+        )
+    ) {
+    position: absolute;
+    z-index: 31;
+    display: flex !important;
+    inset-block-start: var(--community-application-main-block-start-inset, 0px);
+    inset-block-end: var(--community-application-main-block-end-inset, 0px);
+    inset-inline-start: var(--community-application-main-start-inset, 0px);
+    inset-inline-end: var(--community-application-main-end-inset, 0px);
+    width: auto;
+    overflow: hidden;
+    margin: 0;
+    border: var(--ui-shell-main-border);
+    border-radius: var(--ui-shell-main-radius);
+    background: var(--background);
+    box-shadow: none;
+  }
+
+  :global(
+      .community-app-shell__surface[data-desktop-overlay-panels~="right"]:has(
+          > .ui-minimal-app-shell__composition
+            > .community-application__standard-right-sidebar[data-mobile-panel-id="right"][data-presentation="inline"]
+        )
+        > .ui-minimal-app-shell__composition
+        > .community-application__main
+    ) {
+    border-start-end-radius: var(--ui-shell-main-radius);
+    border-end-end-radius: var(--ui-shell-main-radius);
+  }
+
+  :global(
       .community-app-shell__surface:has(
           > .ui-minimal-app-shell__composition
             > .community-application__release-overview-sidebar[data-side="right"][data-presentation="inline"]
@@ -3977,7 +4163,7 @@
               > .ui-minimal-app-shell__composition
                 > .ui-minimal-app-shell__sidebar[data-side="right"][data-presentation="inline"]:not(
                   .community-application__release-overview-sidebar
-                )
+                ):not([hidden])
             )
         )
         > .ui-minimal-app-shell__composition
