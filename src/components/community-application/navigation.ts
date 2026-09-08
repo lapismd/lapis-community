@@ -23,7 +23,12 @@ export type CommunityApplicationPanel =
 
 export type CommunityApplicationMainSurface =
   | "release-reviews"
-  | "release-people";
+  | "release-people"
+  | "project-tasks"
+  | "project-reviews"
+  | "project-commits"
+  | "project-files"
+  | "project-people";
 
 export interface CommunityApplicationLocation {
   destination: CommunityApplicationDestination;
@@ -42,6 +47,7 @@ export interface CommunityApplicationLocationTargets {
   memberIds: readonly string[];
   messageIds?: readonly string[];
   releaseRoomIds?: readonly string[];
+  projectDestinationIds?: readonly string[];
 }
 
 export const COMMUNITY_APPLICATION_DESTINATION_STORAGE_KEY =
@@ -50,6 +56,8 @@ export const COMMUNITY_APPLICATION_SHELL_LAYOUT_STORAGE_KEY =
   "@lapismd/lapis-community/app-shell-layout";
 export const COMMUNITY_APPLICATION_RELEASE_OVERVIEW_PANEL_ID =
   "plugin-release-overview";
+export const COMMUNITY_APPLICATION_PROJECT_OVERVIEW_PANEL_ID =
+  "project-overview";
 
 const COMMUNITY_APPLICATION_DESTINATION_VERSION = 1 as const;
 
@@ -64,6 +72,7 @@ export interface CommunityApplicationInitialShellLayout {
   left?: AppShellSidebarLayout;
   right?: AppShellSidebarLayout;
   releaseOverview?: AppShellSidebarLayout;
+  projectOverview?: AppShellSidebarLayout;
 }
 
 export function loadCommunityApplicationInitialShellLayout(
@@ -125,10 +134,15 @@ export function loadCommunityApplicationInitialShellLayout(
       COMMUNITY_APPLICATION_RELEASE_OVERVIEW_PANEL_ID,
       "right",
     );
+    const projectOverview = readPanel(
+      COMMUNITY_APPLICATION_PROJECT_OVERVIEW_PANEL_ID,
+      "right",
+    );
     return {
       ...(left === undefined ? {} : { left }),
       ...(right === undefined ? {} : { right }),
       ...(releaseOverview === undefined ? {} : { releaseOverview }),
+      ...(projectOverview === undefined ? {} : { projectOverview }),
     };
   } catch {
     return {};
@@ -301,7 +315,10 @@ export function normalizeCommunityApplicationLocation(
   const panelExists = roomExists && memberExists && messageExists;
   const surfaceExists =
     location.mainSurface === undefined ||
-    targets.releaseRoomIds?.includes(location.destination) === true;
+    (location.mainSurface.startsWith("release-") &&
+      targets.releaseRoomIds?.includes(location.destination) === true) ||
+    (location.mainSurface.startsWith("project-") &&
+      targets.projectDestinationIds?.includes(location.destination) === true);
   if (panelExists && surfaceExists) return location;
   return {
     destination: location.destination,
@@ -312,4 +329,29 @@ export function normalizeCommunityApplicationLocation(
         : { mainSurface: location.mainSurface }
       : {}),
   };
+}
+
+export function projectDestinationFromCoordinate(coordinate: string): string {
+  return `projects/${encodeURIComponent(coordinate)}`;
+}
+
+export function projectCoordinateFromDestination(
+  destination: string,
+): string | undefined {
+  if (!destination.startsWith("projects/")) return undefined;
+  try {
+    const coordinate = decodeURIComponent(
+      destination.slice("projects/".length),
+    );
+    return coordinate.length > 0 ? coordinate : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+export function isProjectDestination(destination: string): boolean {
+  return (
+    destination === "projects" ||
+    projectCoordinateFromDestination(destination) !== undefined
+  );
 }

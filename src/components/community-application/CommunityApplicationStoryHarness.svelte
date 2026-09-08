@@ -26,6 +26,7 @@
   import type { CommunityLoginCredentials } from "../community-login/model.js";
   import RegistryCommunityStoryHarness from "../registry-community/RegistryCommunityStoryHarness.svelte";
   import { createRegistryStoryDataSource } from "../registry-browser/story-fixtures.js";
+  import { createProjectStoryDataSource } from "../community-projects/story-fixtures.js";
   import CommunityApplication from "./CommunityApplicationRoot.svelte";
   import {
     COMMUNITY_APPLICATION_DESTINATION_STORAGE_KEY,
@@ -47,6 +48,7 @@
     bootstrapFailure = false,
     progressiveDelayMs = 0,
     progressiveFailure = false,
+    projects = false,
   }: {
     signedIn?: boolean;
     responsive?: boolean;
@@ -61,12 +63,18 @@
     bootstrapFailure?: boolean;
     progressiveDelayMs?: number;
     progressiveFailure?: boolean;
+    projects?: boolean;
   } = $props();
 
   let runtime = $state.raw<CommunityStoryRuntime>();
   let community = $state.raw<CommunityController>();
   let runtimeError = $state("");
   let registrySource = $state.raw(createRegistryStoryDataSource());
+  const projectSource = $derived.by(() =>
+    createProjectStoryDataSource(
+      namespace ? `general-${namespace}` : "general",
+    ),
+  );
   let applicationGeneration = $state(0);
   let storyInviteUri = $state("");
   let installedPluginIds = $state<string[]>([]);
@@ -452,6 +460,7 @@
           );
         },
       }}
+      {...projects ? { projectsOptions: { source: projectSource } } : {}}
       {...signedIn
         ? {}
         : {

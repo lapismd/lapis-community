@@ -17,7 +17,9 @@
     COMMUNITY_APPLICATION_DESTINATION_STORAGE_KEY,
     COMMUNITY_APPLICATION_RELEASE_OVERVIEW_PANEL_ID,
     COMMUNITY_APPLICATION_SHELL_LAYOUT_STORAGE_KEY,
+    projectDestinationFromCoordinate,
   } from "./navigation.js";
+  import { projectStoryProjectCoordinate } from "../community-projects/story-fixtures.js";
 
   const consumerSource = `<script lang="ts">
   import { onMount } from "svelte";
@@ -105,6 +107,46 @@
 <Story name="Cached startup offline">
   {#snippet template()}
     <CommunityApplicationCacheStoryHarness scenario="cached-offline" />
+  {/snippet}
+</Story>
+
+<Story
+  name="Project workspace with overview rail"
+  play={async ({ canvas }) => {
+    const application = await canvas.findByTestId(
+      "full-community-application",
+      {},
+      { timeout: 15_000 },
+    );
+    await waitFor(
+      () =>
+        expect(application).toHaveAttribute(
+          "data-community-status",
+          "connected",
+        ),
+      { timeout: 15_000 },
+    );
+    await expect(
+      await canvas.findByRole("navigation", { name: "Project overview" }),
+    ).toBeVisible();
+    await expect(canvas.getByRole("button", { name: /Tasks/u })).toBeVisible();
+    await userEvent.click(canvas.getByRole("button", { name: /Reviews/u }));
+    await expect(
+      await canvas.findByRole("heading", { name: "Reviews", level: 1 }),
+    ).toBeVisible();
+    await expect(
+      canvas.getByText("Add project file and diff views"),
+    ).toBeVisible();
+  }}
+>
+  {#snippet template()}
+    <CommunityApplicationStoryHarness
+      namespace="projects"
+      projects
+      initialDestination={projectDestinationFromCoordinate(
+        projectStoryProjectCoordinate,
+      )}
+    />
   {/snippet}
 </Story>
 

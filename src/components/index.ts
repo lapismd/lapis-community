@@ -66,6 +66,15 @@ export { default as CommunityNavigation } from "./community-navigation/Community
 export { default as CommunityMemberProfile } from "./community-member-profile/CommunityMemberProfile.svelte";
 export { default as CommunityProfileMenu } from "./community-profile-menu/CommunityProfileMenu.svelte";
 export { default as CommunityPulse } from "./community-pulse/CommunityPulse.svelte";
+export { default as CommunityProjects } from "./community-projects/CommunityProjects.svelte";
+export type {
+  CommunityProjectsCreateProject,
+  CommunityProjectsCreatePullRequest,
+  CommunityProjectsCreateRepository,
+  CommunityProjectsCreateTask,
+  CommunityProjectsOptions,
+  CommunityProjectsProps,
+} from "./community-projects/model.js";
 export type {
   CommunityPulseHandlers,
   CommunityPulseProps,

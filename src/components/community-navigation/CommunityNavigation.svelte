@@ -24,6 +24,7 @@
   import MessageSquarePlusIcon from "@lucide/svelte/icons/message-square-plus";
   import MessagesSquareIcon from "@lucide/svelte/icons/messages-square";
   import PackageSearchIcon from "@lucide/svelte/icons/package-search";
+  import FolderGit2Icon from "@lucide/svelte/icons/folder-git-2";
   import PencilIcon from "@lucide/svelte/icons/pencil";
   import PlusIcon from "@lucide/svelte/icons/plus";
   import SearchIcon from "@lucide/svelte/icons/search";
@@ -105,6 +106,7 @@
     if (item.restricted) return LockKeyholeIcon;
     if (item.kind === "inbox") return InboxIcon;
     if (item.kind === "pulse") return ActivityIcon;
+    if (item.kind === "projects") return FolderGit2Icon;
     if (item.icon === "package-search") return PackageSearchIcon;
     if (item.kind === "channel") return HashIcon;
     if (item.kind === "forum") return MessagesSquareIcon;
