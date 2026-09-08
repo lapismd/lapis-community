@@ -10,7 +10,10 @@ support without exercising the real relay and its private forge sidecar.
 The dedicated Vite development application also composes the production NIP-34
 project source against its active Community relay. The ordinary local stack
 therefore seeds the signed project graph and owns WalGit/RustFS startup without
-giving the Vite process sidecar credentials or filesystem Git access.
+giving the Vite process sidecar credentials or filesystem Git access. Its
+checkout-local process supervisor MUST retain HMR for source updates, restart
+when generated fixture configuration changes, expose clean restart and stop
+commands, and refuse to replace a listener owned by another checkout.
 
 ## Requirements
 

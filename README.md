@@ -108,6 +108,11 @@ does not give the browser a sidecar credential or require a local Git checkout.
 The Vite config loads only the public curator and publisher keys from
 `.local/registry-fixture/fixture.env`; explicit `VITE_REGISTRY_*` values take
 precedence.
+`dev:community` supervises a checkout-owned Vite process and automatically
+restarts it when the generated fixture environment changes. Use
+`pnpm dev:community:restart` for a clean replacement and
+`pnpm dev:community:stop` to stop only this checkout's process tree. A listener
+owned by another checkout is never replaced.
 Guest profile menu exposes browser-extension, NIP-46 remote-signer, ephemeral
 account, and private-key login flows. The Remote signer login collects its
 bunker URL within the host-provided login flow and keeps it only in browser

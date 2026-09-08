@@ -1435,6 +1435,7 @@
     const overviewSurface = projectsOverviewSurface;
     const pullRequestId = selectedPullRequestId;
     const path = selectedProjectPath;
+    community.state.status;
     community.state.authentication.status;
     if (!options || !relayUrl) return;
 
@@ -1569,52 +1570,69 @@
         surface === undefined ||
         surface === "overview"
       ) {
-        const commits = await openedSession.loadCommits(
-          hostedRepository.address.coordinate,
-          undefined,
-          controller.signal,
-        );
-        projectCommits = commits.commits;
-        const refs = await openedSession.loadRefs(
-          hostedRepository.address.coordinate,
-          controller.signal,
-        );
-        const revision = refs.head?.name ?? refs.head?.sha;
-        if (revision) {
-          projectTree = await openedSession.loadTree(
+        try {
+          const commits = await openedSession.loadCommits(
             hostedRepository.address.coordinate,
-            revision,
-            "",
+            undefined,
             controller.signal,
           );
-        }
-      } else if (surface === "files") {
-        const refs = await openedSession.loadRefs(
-          hostedRepository.address.coordinate,
-          controller.signal,
-        );
-        const revision = refs.head?.name ?? refs.head?.sha;
-        if (revision) {
-          projectTree = await openedSession.loadTree(
+          projectCommits = commits.commits;
+          const refs = await openedSession.loadRefs(
             hostedRepository.address.coordinate,
-            revision,
-            "",
             controller.signal,
           );
-          if (path) {
-            projectBlob = await openedSession.loadBlob(
+          const revision = refs.head?.name ?? refs.head?.sha;
+          if (revision) {
+            projectTree = await openedSession.loadTree(
               hostedRepository.address.coordinate,
               revision,
-              path,
+              "",
               controller.signal,
             );
           }
+        } catch (cause) {
+          if (controller.signal.aborted) throw cause;
+          projectCommits = [];
+          projectTree = undefined;
+        }
+      } else if (surface === "files") {
+        try {
+          const refs = await openedSession.loadRefs(
+            hostedRepository.address.coordinate,
+            controller.signal,
+          );
+          const revision = refs.head?.name ?? refs.head?.sha;
+          if (revision) {
+            projectTree = await openedSession.loadTree(
+              hostedRepository.address.coordinate,
+              revision,
+              "",
+              controller.signal,
+            );
+            if (path) {
+              projectBlob = await openedSession.loadBlob(
+                hostedRepository.address.coordinate,
+                revision,
+                path,
+                controller.signal,
+              );
+            }
+          }
+        } catch (cause) {
+          if (controller.signal.aborted) throw cause;
+          projectTree = undefined;
+          projectBlob = undefined;
         }
       } else if (surface === "reviews" && pullRequestId) {
-        projectPullRequestDiff = await openedSession.loadPullRequestDiff(
-          pullRequestId,
-          { signal: controller.signal },
-        );
+        try {
+          projectPullRequestDiff = await openedSession.loadPullRequestDiff(
+            pullRequestId,
+            { signal: controller.signal },
+          );
+        } catch (cause) {
+          if (controller.signal.aborted) throw cause;
+          projectPullRequestDiff = undefined;
+        }
       }
     })()
       .catch((cause) => {

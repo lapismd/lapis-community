@@ -7,6 +7,11 @@ token or assumes a local Git checkout. The dedicated Vite application composes
 the NIP-34 project source from the same relay factory and active Community
 identity as channels and Registry, so the ordinary local stack exercises the
 production-shaped browser path rather than a Storybook-only adapter.
+That application runs under a checkout-owned supervisor: source updates remain
+Vite HMR events, while generated fixture-environment updates restart Vite so
+its compile-time public trust configuration cannot become stale. Ownership is
+recorded per checkout and port, and replacement fails closed for a listener
+owned by another checkout.
 
 Registry’s built-in community composition may temporarily isolate the bounded
 discussion stream from plugin-detail presentation while earlier windows remain

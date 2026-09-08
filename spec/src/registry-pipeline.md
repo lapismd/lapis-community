@@ -27,6 +27,11 @@ by SHA-256. Project fixtures likewise use normal signed NIP-34 events; hosted
 repository provisioning and browser reads stay behind the relay's existing
 NIP-98/NIP-29 gateway.
 
+The dedicated Community Vite lane is checkout-owned. Its supervisor watches
+the local stack's generated public fixture environment, restarts Vite when
+those compile-time values change, and refuses to replace a listener whose
+working directory belongs to another checkout.
+
 The materializer uses the relay's `BLOSSOM_URL` for manifests and every
 content-addressed Registry resource. The projection still contains only
 hash-verified mirrored resources. The final smoke starts a fresh Storybook
