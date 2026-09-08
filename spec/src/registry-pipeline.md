@@ -1,5 +1,10 @@
 # Local Registry Pipeline
 
+For LC-OPS-004, hosted-project Storybook acceptance layers the sibling relay's
+digest-pinned WalGit and RustFS composition onto the disposable controller
+stack. Its runtime credentials MUST be generated outside Compose, kept in the
+ignored runtime directory, and removed with containers and volumes on exit.
+
 ## Requirements
 
 | ID         | Requirement                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |

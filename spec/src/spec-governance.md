@@ -3,6 +3,10 @@
 Published UI dependency refreshes update the portable manifest and committed
 lockfile together while retaining the existing package-ownership boundary.
 
+For LC-SPEC-004, the aggregate package checks include the isolated project
+Storybook Docker lane so the package manifest cannot claim hosted-project
+support without exercising the real relay and its private forge sidecar.
+
 ## Requirements
 
 | ID          | Requirement                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |

@@ -11,6 +11,7 @@ const communityRelayUrl = (
     env?: {
       VITE_COMMUNITY_RELAY_BACKEND?: string;
       VITE_COMMUNITY_RELAY_URL?: string;
+      VITE_COMMUNITY_PROJECT_FORGE?: string;
       VITE_COMMUNITY_LIVE_RELAY_URL?: string;
       VITE_COMMUNITY_LIVE_CHANNEL_GROUP_ID?: string;
       VITE_COMMUNITY_LIVE_FORUM_GROUP_ID?: string;
@@ -38,6 +39,11 @@ const communityRelayBackend = (
     env?: { VITE_COMMUNITY_RELAY_BACKEND?: string };
   }
 ).env?.VITE_COMMUNITY_RELAY_BACKEND;
+const communityProjectForge = (
+  import.meta as ImportMeta & {
+    env?: { VITE_COMMUNITY_PROJECT_FORGE?: string };
+  }
+).env?.VITE_COMMUNITY_PROJECT_FORGE;
 const registryRelays = (
   import.meta as ImportMeta & { env?: { VITE_REGISTRY_RELAYS?: string } }
 ).env?.VITE_REGISTRY_RELAYS;
@@ -183,6 +189,11 @@ const preview: Preview = {
         } else {
           document.documentElement.dataset.communityRelayUrl =
             communityRelayUrl;
+        }
+        if (communityProjectForge === "true") {
+          document.documentElement.dataset.communityProjectForge = "true";
+        } else {
+          delete document.documentElement.dataset.communityProjectForge;
         }
         document.documentElement.dataset.communityLiveRelayUrl =
           communityLiveRelayUrl;

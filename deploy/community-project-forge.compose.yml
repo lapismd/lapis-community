@@ -1,0 +1,72 @@
+services:
+  community-relay:
+    environment:
+      GIT_ENABLED: "true"
+      GIT_PUBLIC_URL: ${COMMUNITY_RELAY_HTTP_URL:?set by scripts/community-relay.sh}
+      GIT_BACKEND_URL: http://walgit:8080
+      GIT_RECONCILE_INTERVAL: 1s
+      GIT_MAX_DIFF_BYTES: "8388608"
+      GIT_MAX_DIFF_FILES: "2000"
+      WALGIT_RELAY_TOKEN: ${COMMUNITY_WALGIT_RELAY_TOKEN:?set by scripts/community-relay.sh}
+      WALGIT_WEBHOOK_SECRET: ${COMMUNITY_WALGIT_WEBHOOK_SECRET:?set by scripts/community-relay.sh}
+    depends_on:
+      walgit: { condition: service_healthy }
+    networks:
+      default:
+        aliases: [relay]
+
+  walgit:
+    image: lapis-walgit:community-test
+    build:
+      context: ${LAPIS_RELAY_PATH:?set by scripts/community-relay.sh}
+      dockerfile: third_party/walgit/Containerfile
+      args:
+        WALGIT_COMMIT: e5295e6ee45f5267c661f8bbd27ed0a07e55e7db
+        WALGIT_ARCHIVE_SHA256: 9bb48e21c5647950e158068e1999bcb85cbae08c2730a5c3771b05259ec9d1ef
+    environment:
+      WALGIT_RELAY_TOKEN: ${COMMUNITY_WALGIT_RELAY_TOKEN:?set by scripts/community-relay.sh}
+      WALGIT__EVENTS__WEBHOOK_SECRET: ${COMMUNITY_WALGIT_WEBHOOK_SECRET:?set by scripts/community-relay.sh}
+      WALGIT__SERVER__PUBLIC_URL: ${COMMUNITY_RELAY_HTTP_URL:?set by scripts/community-relay.sh}
+      AWS_ACCESS_KEY_ID: ${COMMUNITY_RUSTFS_ACCESS_KEY:?set by scripts/community-relay.sh}
+      AWS_SECRET_ACCESS_KEY: ${COMMUNITY_RUSTFS_SECRET_KEY:?set by scripts/community-relay.sh}
+    volumes:
+      - community-walgit-cache:/var/lib/walgit
+    depends_on:
+      create-walgit-bucket: { condition: service_completed_successfully }
+    restart: "no"
+
+  rustfs:
+    image: rustfs/rustfs@sha256:b7014e0ce2bc703c1316b3ef760e29dfae61fe4a50d1a66fa89638e0f8ea211f
+    environment:
+      RUSTFS_ACCESS_KEY: ${COMMUNITY_RUSTFS_ACCESS_KEY:?set by scripts/community-relay.sh}
+      RUSTFS_SECRET_KEY: ${COMMUNITY_RUSTFS_SECRET_KEY:?set by scripts/community-relay.sh}
+      RUSTFS_ADDRESS: 0.0.0.0:9000
+      RUSTFS_CONSOLE_ADDRESS: 0.0.0.0:9001
+      RUSTFS_VOLUMES: /data
+    volumes:
+      - community-rustfs-data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://127.0.0.1:9000/minio/health/live"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+    restart: "no"
+
+  create-walgit-bucket:
+    image: amazon/aws-cli@sha256:b6aeb95d19d7f5a8cae4eb814cb16739b6b2a4f2f46f427ada6a8c9a20d9881d
+    depends_on:
+      rustfs: { condition: service_healthy }
+    environment:
+      AWS_ACCESS_KEY_ID: ${COMMUNITY_RUSTFS_ACCESS_KEY:?set by scripts/community-relay.sh}
+      AWS_SECRET_ACCESS_KEY: ${COMMUNITY_RUSTFS_SECRET_KEY:?set by scripts/community-relay.sh}
+      AWS_DEFAULT_REGION: us-east-1
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - >-
+        aws --endpoint-url http://rustfs:9000 s3api head-bucket --bucket lapis-walgit
+        || aws --endpoint-url http://rustfs:9000 s3api create-bucket --bucket lapis-walgit
+    restart: "no"
+
+volumes:
+  community-walgit-cache:
+  community-rustfs-data:

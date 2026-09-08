@@ -1,4 +1,12 @@
 import type { NostrEvent, NostrEventTemplate } from "../../protocol/index.js";
+import {
+  addRepositoryToProjectTemplate,
+  createProjectTemplate,
+  createPullRequestTemplate,
+  createRepositoryTemplate,
+  createReviewDecisionTemplate,
+  createTaskTemplate,
+} from "../../projects/index.js";
 import type {
   ProjectForgeCatalog,
   ProjectForgeDataSource,
@@ -7,12 +15,206 @@ import type {
   ProjectForgeWorkItems,
   PullRequestState,
 } from "../../projects/index.js";
+import type { RegistrySigner } from "../../auth/index.js";
 import type { CommunityMemberModel } from "../community-workspace/model.js";
 
-export const projectStoryOwner = "a".repeat(64);
-export const projectStoryAuthor = "b".repeat(64);
+export const projectStoryOwner =
+  "d793631af7aa0e709439dd47fc001acd0b0727670b6670ea528ac83cb0127f4a";
+export const projectStoryAuthor =
+  "a8397a935f0dfceba6ba9618f6451ef4d80637abf4e6af2669fbc9de6a8fd2ac";
 export const projectStoryProjectCoordinate = `30621:${projectStoryOwner}:community-client`;
 export const projectStoryRepositoryCoordinate = `30617:${projectStoryOwner}:community-client`;
+
+export async function seedProjectStoryRelay(options: {
+  source: ProjectForgeDataSource;
+  relayUrl: string;
+  channelId: string;
+  owner: RegistrySigner;
+  author: RegistrySigner;
+}): Promise<void> {
+  const httpBaseUrl = relayHttpBaseUrl(options.relayUrl);
+  const ownerSession = await options.source.open({
+    relayUrl: options.relayUrl,
+    httpBaseUrl,
+    identity: options.owner,
+  });
+  const authorSession = await options.source.open({
+    relayUrl: options.relayUrl,
+    httpBaseUrl,
+    identity: options.author,
+  });
+
+  try {
+    let catalog = await ownerSession.loadCatalog(options.channelId);
+    let repository = catalog.repositories.find(
+      (candidate) =>
+        candidate.address.coordinate === projectStoryRepositoryCoordinate,
+    );
+    let project = catalog.projects.find(
+      (candidate) =>
+        candidate.address.coordinate === projectStoryProjectCoordinate,
+    );
+
+    if (!repository) {
+      const event = await ownerSession.publish(
+        createRepositoryTemplate(
+          {
+            identifier: "community-client",
+            name: "community-client",
+            description: "Hosted browser and desktop client.",
+            channelId: options.channelId,
+          },
+          1_700_000_011,
+        ),
+      );
+      catalog = await ownerSession.loadCatalog(options.channelId);
+      repository = catalog.repositories.find(
+        (candidate) => candidate.event.id === event.id,
+      );
+    }
+
+    if (!project) {
+      const event = await ownerSession.publishHttp(
+        createProjectTemplate(
+          {
+            identifier: "community-client",
+            name: "Community Client",
+            description: "The shared Lapis community experience.",
+            channelId: options.channelId,
+          },
+          1_700_000_010,
+        ),
+      );
+      catalog = await ownerSession.loadCatalog(options.channelId);
+      project = catalog.projects.find(
+        (candidate) => candidate.event.id === event.id,
+      );
+    }
+
+    if (!repository || !project) {
+      throw new Error(
+        "The Docker project fixture could not create its catalog",
+      );
+    }
+
+    if (
+      !project.repositories.some(
+        (reference) =>
+          reference.coordinate === projectStoryRepositoryCoordinate,
+      )
+    ) {
+      await ownerSession.publish(
+        addRepositoryToProjectTemplate(
+          project.event,
+          projectStoryRepositoryCoordinate,
+          options.relayUrl,
+          1_700_000_012,
+        ),
+      );
+    }
+
+    await waitForHostedRepository(ownerSession);
+
+    let workItems = await ownerSession.loadWorkItems(repository.event);
+    if (
+      !workItems.tasks.some(
+        (task) => task.title === "Polish the project overview rail",
+      )
+    ) {
+      await authorSession.publish(
+        createTaskTemplate(
+          {
+            repository: projectStoryRepositoryCoordinate,
+            repositoryOwner: projectStoryOwner,
+            title: "Polish the project overview rail",
+            content: "Keep the shell shape aligned with plugin releases.",
+            labels: ["design"],
+            assignees: [projectStoryAuthor],
+          },
+          1_700_000_020,
+        ),
+      );
+    }
+
+    workItems = await ownerSession.loadWorkItems(repository.event);
+    let pullRequest = workItems.pullRequests.find(
+      (candidate) => candidate.title === "Add project file and diff views",
+    );
+    if (!pullRequest) {
+      const event = await authorSession.publishHttp(
+        createPullRequestTemplate(
+          {
+            repository: projectStoryRepositoryCoordinate,
+            repositoryOwner: projectStoryOwner,
+            title: "Add project file and diff views",
+            content:
+              "Adds hosted file browsing and a browser-safe review surface.",
+            commit: "d".repeat(40),
+            cloneUrls: [
+              new URL(
+                `/git/${projectStoryOwner}/community-client.git`,
+                httpBaseUrl,
+              ).toString(),
+            ],
+            branchName: "projects-ui",
+            targetBranch: "main",
+            mergeBase: "c".repeat(40),
+          },
+          1_700_000_030,
+        ),
+      );
+      pullRequest = (
+        await ownerSession.loadWorkItems(repository.event)
+      ).pullRequests.find((candidate) => candidate.root.id === event.id);
+    }
+
+    if (!pullRequest) {
+      throw new Error("The Docker project fixture could not create its review");
+    }
+    if (pullRequest.approvals.length === 0) {
+      await ownerSession.publish(
+        createReviewDecisionTemplate(
+          pullRequest.root,
+          projectStoryRepositoryCoordinate,
+          "approved",
+          pullRequest.currentCommit,
+          "The responsive file layout looks good.",
+          1_700_000_040,
+        ),
+      );
+    }
+  } finally {
+    authorSession.close();
+    ownerSession.close();
+  }
+}
+
+function relayHttpBaseUrl(relayUrl: string): URL {
+  const url = new URL(relayUrl);
+  url.protocol = url.protocol === "wss:" ? "https:" : "http:";
+  url.pathname = "/";
+  url.search = "";
+  url.hash = "";
+  return url;
+}
+
+async function waitForHostedRepository(
+  session: ProjectForgeSession,
+): Promise<void> {
+  let lastError: unknown;
+  for (let attempt = 0; attempt < 40; attempt += 1) {
+    try {
+      await session.loadRefs(projectStoryRepositoryCoordinate);
+      return;
+    } catch (cause) {
+      lastError = cause;
+      await new Promise((resolve) => globalThis.setTimeout(resolve, 100));
+    }
+  }
+  throw new Error("The Docker project fixture could not reach hosted Git", {
+    cause: lastError,
+  });
+}
 
 function storyEvent(
   id: string,

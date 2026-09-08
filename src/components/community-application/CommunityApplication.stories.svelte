@@ -135,7 +135,11 @@
       await canvas.findByRole("heading", { name: "Reviews", level: 1 }),
     ).toBeVisible();
     await expect(
-      canvas.getByText("Add project file and diff views"),
+      await canvas.findByText(
+        "Add project file and diff views",
+        {},
+        { timeout: 15_000 },
+      ),
     ).toBeVisible();
   }}
 >
@@ -592,9 +596,11 @@
     await expect(
       channelMembers.getByRole("option", { name: "You, administrator" }),
     ).toBeVisible();
-    const managedMember = channelMembers.getByRole("option", {
-      name: /Manage (Community )?member/iu,
-    });
+    const managedMember = await channelMembers.findByRole(
+      "option",
+      { name: /^Manage /u },
+      { timeout: 15_000 },
+    );
     await expect(managedMember).toBeVisible();
     await userEvent.click(managedMember);
     await userEvent.click(

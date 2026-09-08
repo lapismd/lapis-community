@@ -6,7 +6,7 @@ command=${1:-up}
 [[ $# -eq 0 ]] || shift
 
 case "${command}" in
-  test | storybook | storybook-test)
+  test | storybook | storybook-test | project-storybook | project-storybook-test)
     export COMPOSE_PROJECT_NAME=${COMPOSE_PROJECT_NAME:-lapis-community-relay-${PPID}-${RANDOM}}
     ;;
   *)
@@ -75,6 +75,7 @@ chmod 600 "${secret_file}"
 export COMMUNITY_RELAY_PORT
 export COMMUNITY_RELAY_SECRET_FILE=${secret_file}
 export COMMUNITY_RELAY_URL=ws://community-relay.localhost:${COMMUNITY_RELAY_PORT}
+export COMMUNITY_RELAY_HTTP_URL=http://community-relay.localhost:${COMMUNITY_RELAY_PORT}
 export LAPIS_RELAY_PATH
 LAPIS_RELAY_PATH=$(resolve_relay_path)
 
@@ -84,8 +85,39 @@ compose=(
   -f "${repo_root}/deploy/community-relay.compose.yml"
 )
 
+forge_enabled=false
+forge_secret_files=()
+case "${command}" in
+  project-storybook | project-storybook-test)
+    forge_enabled=true
+    for secret_name in walgit-relay-token walgit-webhook-secret rustfs-access-key rustfs-secret-key; do
+      generated_secret=${runtime_dir}/${secret_name}
+      if [[ ! -f ${generated_secret} ]]; then
+        umask 077
+        openssl rand -hex 32 >"${generated_secret}"
+      fi
+      chmod 600 "${generated_secret}"
+      forge_secret_files+=("${generated_secret}")
+    done
+    export COMMUNITY_WALGIT_RELAY_TOKEN
+    export COMMUNITY_WALGIT_WEBHOOK_SECRET
+    export COMMUNITY_RUSTFS_ACCESS_KEY
+    export COMMUNITY_RUSTFS_SECRET_KEY
+    COMMUNITY_WALGIT_RELAY_TOKEN=$(<"${runtime_dir}/walgit-relay-token")
+    COMMUNITY_WALGIT_WEBHOOK_SECRET=$(<"${runtime_dir}/walgit-webhook-secret")
+    COMMUNITY_RUSTFS_ACCESS_KEY=$(<"${runtime_dir}/rustfs-access-key")
+    COMMUNITY_RUSTFS_SECRET_KEY=$(<"${runtime_dir}/rustfs-secret-key")
+    compose+=(
+      -f "${repo_root}/deploy/community-project-forge.compose.yml"
+    )
+    ;;
+esac
+
 start_relay() {
   "${compose[@]}" pull postgres
+  if [[ ${forge_enabled} == true ]]; then
+    "${compose[@]}" pull rustfs create-walgit-bucket
+  fi
   "${compose[@]}" up -d --build --wait
 }
 
@@ -101,7 +133,7 @@ stop_relay() {
 
 cleanup_ephemeral() {
   "${compose[@]}" down --volumes --remove-orphans >/dev/null 2>&1 || true
-  rm -f "${port_file}" "${secret_file}"
+  rm -f "${port_file}" "${secret_file}" "${forge_secret_files[@]}"
   rmdir "${runtime_dir}" 2>/dev/null || true
 }
 
@@ -147,12 +179,34 @@ case "${command}" in
       src/components/community-workspace/CommunityWorkspace.stories.svelte \
       src/components/registry-community/RegistryCommunity.stories.svelte
     ;;
+  project-storybook)
+    trap cleanup_ephemeral EXIT INT TERM
+    start_relay
+    seed_relay
+    VITE_COMMUNITY_RELAY_BACKEND=docker \
+      VITE_COMMUNITY_RELAY_URL=${COMMUNITY_RELAY_URL} \
+      VITE_COMMUNITY_PROJECT_FORGE=true \
+      pnpm --dir "${repo_root}" storybook "$@"
+    ;;
+  project-storybook-test)
+    trap cleanup_ephemeral EXIT INT TERM
+    start_relay
+    seed_relay
+    VITE_COMMUNITY_RELAY_BACKEND=docker \
+      VITE_COMMUNITY_RELAY_URL=${COMMUNITY_RELAY_URL} \
+      VITE_COMMUNITY_PROJECT_FORGE=true \
+      pnpm --dir "${repo_root}" exec vitest run \
+      --project storybook \
+      --maxWorkers=1 \
+      --testNamePattern ProjectWorkspaceWithOverviewRail \
+      src/components/community-application/CommunityApplication.stories.svelte
+    ;;
   down)
     stop_relay
     ;;
   reset)
     stop_relay
-    rm -f "${port_file}" "${secret_file}"
+    rm -f "${port_file}" "${secret_file}" "${forge_secret_files[@]}"
     rmdir "${runtime_dir}" 2>/dev/null || true
     echo "Removed the disposable relay volumes and generated runtime credentials."
     ;;
@@ -160,7 +214,7 @@ case "${command}" in
     "${compose[@]}" "${command}" "$@"
     ;;
   *)
-    echo "usage: community-relay.sh {up|seed|url|test|storybook|storybook-test|down|reset|config|logs|ps|restart|stop}" >&2
+    echo "usage: community-relay.sh {up|seed|url|test|storybook|storybook-test|project-storybook|project-storybook-test|down|reset|config|logs|ps|restart|stop}" >&2
     exit 2
     ;;
 esac
