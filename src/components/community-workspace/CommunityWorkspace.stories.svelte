@@ -164,12 +164,13 @@
     });
 
     await userEvent.click(manageChannel);
-    await expect(canvas.getByLabelText("Channel settings")).toBeVisible();
+    const channelSettings = canvas.getByLabelText("Channel settings");
+    await expect(channelSettings).toBeVisible();
     await expect(canvas.getByText("Channel settings")).toBeVisible();
     await userEvent.click(
       canvas.getByRole("button", { name: "Close channel settings" }),
     );
-    await expect(canvas.queryByLabelText("Channel settings")).toBeNull();
+    await expect(channelSettings).not.toBeVisible();
     await expect(shellRoot).toBeInTheDocument();
     if (storybookRoot) {
       await expect(getComputedStyle(storybookRoot).padding).toBe("0px");

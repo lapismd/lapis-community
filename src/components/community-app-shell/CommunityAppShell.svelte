@@ -20,8 +20,6 @@
     onNavigateBack,
     onNavigateForward,
     headerEnd,
-    overlay,
-    overlayMainAllowance = 0,
     class: className,
     children,
     ...restProps
@@ -35,16 +33,10 @@
     onNavigateBack?: () => void;
     onNavigateForward?: () => void;
     headerEnd?: Snippet;
-    overlay?: Snippet;
-    overlayMainAllowance?: number;
     children?: Snippet;
   } = $props();
 
   let shellSurface = $state<HTMLDivElement | null>(null);
-  let surfaceStage = $state<HTMLDivElement | null>(null);
-  let overlayInsetInlineStart = $state(0);
-  let overlayInsetBlockStart = $state(0);
-  let overlayInsetBlockEnd = $state(0);
   const mobileMode = $derived(controller.mobile.resolvedMode === "mobile");
 
   $effect(() => {
@@ -58,29 +50,6 @@
 
     untrack(preventCollapsedRightSidebar);
     return rightSidebar.onLayoutChange(preventCollapsedRightSidebar);
-  });
-
-  $effect(() => {
-    if (!overlay || !surfaceStage || !shellSurface) return;
-    const updateOverlayInset = () => {
-      const main = shellSurface?.querySelector<HTMLElement>(
-        '[data-ui-part="main"]',
-      );
-      if (!main || !surfaceStage) return;
-      const stageBounds = surfaceStage.getBoundingClientRect();
-      const mainBounds = main.getBoundingClientRect();
-      overlayInsetInlineStart = Math.max(0, mainBounds.left - stageBounds.left);
-      overlayInsetBlockStart = Math.max(0, mainBounds.top - stageBounds.top);
-      overlayInsetBlockEnd = Math.max(
-        0,
-        stageBounds.bottom - mainBounds.bottom,
-      );
-    };
-    updateOverlayInset();
-    const observer = new ResizeObserver(updateOverlayInset);
-    observer.observe(surfaceStage);
-    observer.observe(shellSurface);
-    return () => observer.disconnect();
   });
 
   $effect(() => {
@@ -190,7 +159,7 @@
     </nav>
   {/if}
 
-  <div class="community-app-shell__stage" bind:this={surfaceStage}>
+  <div class="community-app-shell__stage">
     <AppShell.Root
       bind:ref={shellSurface}
       {controller}
@@ -201,17 +170,6 @@
     >
       {@render children?.()}
     </AppShell.Root>
-    {#if overlay}
-      <div
-        class="community-app-shell__overlay-host"
-        style:inset-inline-start={`${overlayInsetInlineStart}px`}
-        style:inset-block-start={`${overlayInsetBlockStart}px`}
-        style:inset-block-end={`${overlayInsetBlockEnd}px`}
-        style:--community-app-shell-overlay-main-allowance={`${Math.max(0, overlayMainAllowance)}px`}
-      >
-        {@render overlay()}
-      </div>
-    {/if}
   </div>
 </div>
 
@@ -259,19 +217,6 @@
     min-width: 0;
     min-height: 0;
     overflow: hidden;
-  }
-
-  .community-app-shell__overlay-host {
-    position: absolute;
-    z-index: 40;
-    inset-inline-end: 0;
-    min-width: 0;
-    min-height: 0;
-    pointer-events: none;
-  }
-
-  .community-app-shell__overlay-host > :global(*) {
-    pointer-events: auto;
   }
 
   :global([data-ui-part="sidebar-toggle-indicator"]) {
@@ -360,8 +305,8 @@
       .community-app-shell__surface:has(
           > .ui-minimal-app-shell__composition
             > .ui-minimal-app-shell__sidebar[data-side="right"][data-presentation="inline"]:not(
-              [hidden]
-            )
+              [data-variant="rail"]
+            ):not([hidden])
         )
         > .ui-minimal-app-shell__composition
         > .ui-minimal-app-shell__main
@@ -373,7 +318,9 @@
   :global(
       .community-app-shell__surface
         > .ui-minimal-app-shell__composition
-        > .ui-minimal-app-shell__sidebar[data-side="right"][data-presentation="inline"]
+        > .ui-minimal-app-shell__sidebar[data-side="right"][data-presentation="inline"]:not(
+          [data-variant="rail"]
+        )
     ) {
     margin-block: var(--ui-shell-main-block-inset);
     margin-inline-end: var(--ui-shell-main-block-inset);

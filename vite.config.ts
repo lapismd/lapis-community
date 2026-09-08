@@ -75,6 +75,7 @@ export default defineConfig(({ command }) => ({
           browser: {
             enabled: true,
             headless: true,
+            fileParallelism: false,
             provider: playwright({}),
             instances: [
               { browser: "chromium", viewport: { width: 1280, height: 800 } },

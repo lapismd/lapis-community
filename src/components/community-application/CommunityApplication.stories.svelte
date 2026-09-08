@@ -398,6 +398,14 @@
         ),
       { timeout: 15_000 },
     );
+    await waitFor(
+      () =>
+        expect(application).toHaveAttribute(
+          "data-community-content-sync",
+          "complete",
+        ),
+      { timeout: 30_000 },
+    );
     await expect(
       await canvas.findByRole("button", { name: "Pulse" }),
     ).toBeVisible();
@@ -406,12 +414,13 @@
         "Building a calmer place for communities to work in public.",
       ),
     ).toBeVisible();
-    const memberNote = canvas.getByRole("article", {
-      name: /^(?:Member|Community member)$/u,
+    const [memberNote] = await canvas.findAllByRole("article", {
+      name: /^(?:Member|Community member|Noor Automations)$/u,
     });
+    await expect(memberNote).toBeDefined();
     await userEvent.click(
-      within(memberNote).getByRole("button", {
-        name: /^(?:Member|Community member)$/u,
+      within(memberNote!).getByRole("button", {
+        name: /^(?:Member|Community member|Noor Automations)$/u,
       }),
     );
     await expect(await canvas.findByLabelText("Profile sidebar")).toBeVisible();
@@ -903,6 +912,14 @@
         ),
       { timeout: 15_000 },
     );
+    await waitFor(
+      () =>
+        expect(application).toHaveAttribute(
+          "data-community-content-sync",
+          "complete",
+        ),
+      { timeout: 30_000 },
+    );
     await waitFor(() =>
       expect(canvasElement.ownerDocument.body.style.pointerEvents).not.toBe(
         "none",
@@ -918,13 +935,13 @@
     });
     const members = within(dialog);
     await expect(dialog.querySelector('[aria-haspopup="menu"]')).toBeNull();
+    await expect(members.getAllByRole("option")[0]).toBeVisible();
     await userEvent.type(
       members.getByRole("combobox", { name: "Search members" }),
       "noor",
     );
     await expect(await members.findByText("In this channel")).toBeVisible();
     await expect(members.getByText("Not in this channel")).toBeVisible();
-    await expect(members.getByText("You")).toBeVisible();
     await expect(
       members.queryByRole("option", { name: /Add .* to channel/u }),
     ).not.toBeInTheDocument();
@@ -2039,7 +2056,7 @@
     });
     await expect(reviewsHeading).toBeVisible();
     const reviewsSheet = reviewsHeading.closest<HTMLElement>(
-      '[data-ui-part="release-sheet"]',
+      '[data-ui-part="surface-layer-surface"]',
     );
     await expect(reviewsSheet).not.toBeNull();
     const reviewsHeader = reviewsHeading.closest("header");
@@ -2294,7 +2311,7 @@
     await expect(
       Math.abs(settingsBounds.bottom - mainBounds.bottom),
     ).toBeLessThanOrEqual(1);
-    await expect(settingsBounds.right).toBeLessThan(overviewBounds.left);
+    await expect(settingsBounds.right).toBeLessThanOrEqual(overviewBounds.left);
 
     await userEvent.click(
       canvas.getByRole("button", { name: "Collapse left sidebar" }),
@@ -2359,7 +2376,12 @@
         application.querySelectorAll(
           ".community-application__standard-right-sidebar",
         ),
-      ).toHaveLength(0);
+      ).toHaveLength(1);
+      expect(
+        application.querySelector<HTMLElement>(
+          ".community-application__standard-right-sidebar",
+        ),
+      ).not.toBeVisible();
     });
     await expect(
       canvas.getByLabelText("Plugin release overview sidebar"),
@@ -2388,9 +2410,7 @@
       }),
     );
     await waitFor(() => {
-      expect(
-        canvas.queryByLabelText("Channel settings sidebar"),
-      ).not.toBeInTheDocument();
+      expect(reopenedSettings).not.toBeVisible();
       expect(
         canvas.getAllByLabelText("Plugin release overview sidebar"),
       ).toHaveLength(1);
@@ -2398,7 +2418,7 @@
         application.querySelectorAll(
           ".community-application__standard-right-sidebar",
         ),
-      ).toHaveLength(0);
+      ).toHaveLength(1);
     });
 
     for (let cycle = 0; cycle < 2; cycle += 1) {

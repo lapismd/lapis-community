@@ -136,9 +136,6 @@
   const pluginReleaseGroupId = lapisGroupId(LAPIS_GROUPS.pluginReleases);
 
   let releaseOverviewToggleElement = $state<HTMLButtonElement | null>(null);
-  let releaseOverviewSidebarElement = $state<HTMLElement | null>(null);
-  let releaseOverviewConstrained = $state(false);
-  let releaseOverviewDomPreview = $state(false);
 
   let {
     controller: community,
@@ -285,18 +282,12 @@
   let sectionName = $state("");
   let initialLocationApplied = $state(false);
   let releaseOverviewInitialized = $state(false);
-  let releaseSheetWasOpen = $state(false);
   let releaseReviewEntries = $state.raw<readonly RegistryReleaseReviewEntry[]>(
     [],
   );
   let releaseReviewsLoading = $state(false);
   let releaseReviewsError = $state("");
   let releaseReviewRevision = $state.raw({});
-  let releaseSheetElement = $state<HTMLElement | null>(null);
-  let mainSurfaceElement = $state<HTMLElement | null>(null);
-  let standardRightSidebarElement = $state<HTMLElement | null>(null);
-  let standardRightSidebarConstrained = $state(false);
-  let releaseSurfaceReturnFocus = $state<HTMLElement>();
 
   const workspace = $derived(community.state.workspace);
   const applicationLocation = $derived(
@@ -341,9 +332,8 @@
   );
   const releaseOverviewShown = $derived(
     activeMainSurface === undefined &&
-      (releaseOverviewConstrained
-        ? releaseOverviewDomPreview
-        : !releaseOverviewSidebar.closed && !releaseOverviewSidebar.collapsed),
+      !releaseOverviewSidebar.closed &&
+      !releaseOverviewSidebar.collapsed,
   );
   const workspaceSurfaceModel = $derived(
     startupDestinationRoom === undefined
@@ -1156,12 +1146,8 @@
 
   $effect(() => {
     if (activePanel.kind === "none") {
-      const sidebar = standardRightSidebarElement;
       if (shell.right.collapsed) shell.right.expand();
       shell.right.close();
-      if (shell.mobile.resolvedMode !== "mobile") {
-        void tick().then(() => sidebar?.remove());
-      }
       return;
     }
     shell.right.expand();
@@ -1174,128 +1160,6 @@
     if (initialShellLayout.releaseOverview === undefined) {
       releaseOverviewSidebar.expand();
     }
-  });
-
-  $effect(() => {
-    const sidebar = releaseOverviewSidebarElement;
-    const root = sidebar?.closest<HTMLElement>("[data-shell-root]");
-    if (!sidebar || !root) {
-      releaseOverviewConstrained = false;
-      releaseOverviewDomPreview = false;
-      return;
-    }
-
-    const syncPreview = () => {
-      releaseOverviewConstrained =
-        root
-          .getAttribute("data-desktop-overlay-panels")
-          ?.split(/\s+/)
-          .includes(COMMUNITY_APPLICATION_RELEASE_OVERVIEW_PANEL_ID) ?? false;
-      if (!releaseOverviewConstrained) {
-        sidebar.removeAttribute("data-desktop-overlay-preview");
-      }
-      releaseOverviewDomPreview =
-        releaseOverviewConstrained &&
-        sidebar.hasAttribute("data-desktop-overlay-preview");
-    };
-
-    syncPreview();
-    const observer = new MutationObserver(syncPreview);
-    observer.observe(root, {
-      attributes: true,
-      attributeFilter: ["data-desktop-overlay-panels"],
-    });
-    observer.observe(sidebar, {
-      attributes: true,
-      attributeFilter: ["data-desktop-overlay-preview"],
-    });
-    return () => observer.disconnect();
-  });
-
-  $effect(() => {
-    const sidebar = releaseOverviewSidebarElement;
-    const root = sidebar?.closest<HTMLElement>("[data-shell-root]");
-    const main = mainSurfaceElement;
-    if (!sidebar || !root || !main || typeof ResizeObserver === "undefined")
-      return;
-
-    const updateOverlayInsets = () => {
-      const rootBounds = root.getBoundingClientRect();
-      const mainBounds = main.getBoundingClientRect();
-      const endInset = Math.max(0, rootBounds.right - mainBounds.right);
-      const startInset = Math.max(0, mainBounds.left - rootBounds.left);
-      const blockStartInset = Math.max(0, mainBounds.top - rootBounds.top);
-      const blockEndInset = Math.max(0, rootBounds.bottom - mainBounds.bottom);
-      root.style.setProperty(
-        "--community-application-main-end-inset",
-        `${endInset}px`,
-      );
-      root.style.setProperty(
-        "--community-application-main-start-inset",
-        `${startInset}px`,
-      );
-      root.style.setProperty(
-        "--community-application-main-block-start-inset",
-        `${blockStartInset}px`,
-      );
-      root.style.setProperty(
-        "--community-application-main-block-end-inset",
-        `${blockEndInset}px`,
-      );
-    };
-
-    let animationFrame: number | undefined;
-    let settledAnimationFrame: number | undefined;
-    const scheduleOverlayInsets = () => {
-      if (animationFrame !== undefined)
-        window.cancelAnimationFrame(animationFrame);
-      if (settledAnimationFrame !== undefined)
-        window.cancelAnimationFrame(settledAnimationFrame);
-      animationFrame = window.requestAnimationFrame(() => {
-        animationFrame = undefined;
-        updateOverlayInsets();
-        settledAnimationFrame = window.requestAnimationFrame(() => {
-          settledAnimationFrame = undefined;
-          updateOverlayInsets();
-        });
-      });
-    };
-
-    updateOverlayInsets();
-    const observer = new ResizeObserver(scheduleOverlayInsets);
-    observer.observe(root);
-    observer.observe(sidebar);
-    observer.observe(main);
-    const mutationObserver = new MutationObserver(scheduleOverlayInsets);
-    mutationObserver.observe(root, {
-      attributes: true,
-      attributeFilter: ["data-desktop-overlay-panels"],
-    });
-    return () => {
-      observer.disconnect();
-      mutationObserver.disconnect();
-      if (animationFrame !== undefined)
-        window.cancelAnimationFrame(animationFrame);
-      if (settledAnimationFrame !== undefined)
-        window.cancelAnimationFrame(settledAnimationFrame);
-      root.style.removeProperty("--community-application-main-end-inset");
-      root.style.removeProperty("--community-application-main-start-inset");
-      root.style.removeProperty(
-        "--community-application-main-block-start-inset",
-      );
-      root.style.removeProperty("--community-application-main-block-end-inset");
-    };
-  });
-
-  $effect(() => {
-    if (releaseSheetOpen) {
-      releaseSheetWasOpen = true;
-      closeReleaseOverviewSidebar();
-      return;
-    }
-    if (!releaseSheetWasOpen) return;
-    releaseSheetWasOpen = false;
-    if (isPluginReleaseRoom) releaseOverviewSidebar.expand();
   });
 
   $effect(() => {
@@ -1344,69 +1208,6 @@
     return () => {
       active = false;
       controller.abort();
-    };
-  });
-
-  $effect(() => {
-    const surface = activeMainSurface;
-    if (!isPluginReleaseRoom || surface === undefined) return;
-    void tick().then(() => {
-      if (applicationLocation.mainSurface === surface) {
-        releaseSheetElement?.focus({ preventScroll: true });
-      }
-    });
-  });
-
-  $effect(() => {
-    if (!releaseSheetOpen || typeof window === "undefined") return;
-    const handleKeydown = (event: KeyboardEvent) => {
-      if (
-        event.defaultPrevented ||
-        !(event.target instanceof Node) ||
-        !releaseSheetElement?.contains(event.target)
-      ) {
-        return;
-      }
-      closeReleaseSurfaceOnEscape(event);
-    };
-    window.addEventListener("keydown", handleKeydown);
-    return () => window.removeEventListener("keydown", handleKeydown);
-  });
-
-  $effect(() => {
-    const sidebar = standardRightSidebarElement;
-    if (!sidebar) return;
-    sidebar.inert = releaseSheetOpen;
-    if (releaseSheetOpen) sidebar.setAttribute("aria-hidden", "true");
-    else sidebar.removeAttribute("aria-hidden");
-  });
-
-  $effect(() => {
-    const sidebar = standardRightSidebarElement;
-    const root = sidebar?.closest<HTMLElement>("[data-shell-root]");
-    if (!sidebar || !root || activePanel.kind === "none") {
-      standardRightSidebarConstrained = false;
-      return;
-    }
-
-    const syncConstrainedPresentation = () => {
-      const constrained =
-        root
-          .getAttribute("data-desktop-overlay-panels")
-          ?.split(/\s+/)
-          .includes("right") ?? false;
-      standardRightSidebarConstrained = constrained;
-    };
-
-    syncConstrainedPresentation();
-    const observer = new MutationObserver(syncConstrainedPresentation);
-    observer.observe(root, {
-      attributes: true,
-      attributeFilter: ["data-desktop-overlay-panels"],
-    });
-    return () => {
-      observer.disconnect();
-      standardRightSidebarConstrained = false;
     };
   });
 
@@ -1626,23 +1427,9 @@
     pushLocation({ destination, panel });
   }
 
-  function closeReleaseOverviewSidebar(): void {
-    const sidebar = releaseOverviewSidebarElement;
-    sidebar?.setAttribute("hidden", "");
-    releaseOverviewSidebar.close();
-    if (shell.mobile.resolvedMode !== "mobile") {
-      void tick().then(() => sidebar?.remove());
-    }
-  }
-
   function openReleaseSurface(surface: CommunityApplicationMainSurface): void {
     if (!isPluginReleaseRoom) return;
-    releaseSurfaceReturnFocus =
-      document.activeElement instanceof HTMLElement
-        ? document.activeElement
-        : undefined;
     releaseOverviewInitialized = true;
-    closeReleaseOverviewSidebar();
     pushLocation({
       destination: activeDestination,
       panel: activePanel,
@@ -1654,21 +1441,7 @@
   function closeReleaseSurface(): void {
     if (activeMainSurface === undefined) return;
     pushLocation({ destination: activeDestination, panel: activePanel });
-    const returnFocus = releaseSurfaceReturnFocus;
-    releaseSurfaceReturnFocus = undefined;
-    void tick().then(() => {
-      const focusTarget = returnFocus?.isConnected
-        ? returnFocus
-        : releaseOverviewToggleElement;
-      focusTarget?.focus({ preventScroll: true });
-    });
     lastAction = "closed-release-surface";
-  }
-
-  function closeReleaseSurfaceOnEscape(event: KeyboardEvent): void {
-    if (event.key !== "Escape") return;
-    event.preventDefault();
-    closeReleaseSurface();
   }
 
   function select(item: CommunityNavigationItemModel): void {
@@ -2261,13 +2034,9 @@
   }
 
   function closeSidePanel(): void {
-    const sidebar = standardRightSidebarElement;
     shell.right.close();
     openPanel(noCommunityApplicationPanel());
     lastAction = "closed-side-panel";
-    if (shell.mobile.resolvedMode !== "mobile") {
-      void tick().then(() => sidebar?.remove());
-    }
   }
 
   async function sendWorkspaceMessage(
@@ -2446,95 +2215,67 @@
 {/snippet}
 
 {#snippet releaseOverviewToggle()}
-  <Button
-    bind:ref={releaseOverviewToggleElement}
-    type="button"
-    variant="ghost"
-    size="icon-sm"
-    data-ui-part="release-overview-toggle"
-    aria-label={releaseOverviewShown
-      ? "Hide plugin release overview"
-      : "Show plugin release overview"}
-    aria-expanded={releaseOverviewShown}
-    title={releaseOverviewShown
-      ? "Hide plugin release overview"
-      : "Show plugin release overview"}
-    onclick={() => {
-      releaseOverviewInitialized = true;
-      if (activeMainSurface !== undefined) {
-        pushLocation({ destination: activeDestination, panel: activePanel });
+  {#if activeMainSurface !== undefined}
+    <Button
+      bind:ref={releaseOverviewToggleElement}
+      type="button"
+      variant="ghost"
+      size="icon-sm"
+      class="community-application__release-overview-toggle"
+      aria-label="Show plugin release overview"
+      title="Show plugin release overview"
+      onclick={() => {
+        closeReleaseSurface();
         releaseOverviewSidebar.expand();
         lastAction = "opened-release-overview";
-        return;
-      }
-
-      const currentlyVisible =
-        releaseOverviewSidebarElement !== null &&
-        getComputedStyle(releaseOverviewSidebarElement).display !== "none" &&
-        releaseOverviewSidebarElement.getClientRects().length > 0;
-      releaseOverviewSidebarElement?.removeAttribute(
-        "data-desktop-overlay-preview",
-      );
-      releaseOverviewDomPreview = false;
-      if (releaseOverviewShown || currentlyVisible) {
-        releaseOverviewConstrained = false;
-        closeReleaseOverviewSidebar();
-        lastAction = "closed-release-overview";
-        return;
-      }
-
-      releaseOverviewSidebarElement?.removeAttribute("hidden");
-      releaseOverviewSidebar.expand();
-      lastAction = "opened-release-overview";
-      void tick().then(() => {
-        const sidebar = releaseOverviewSidebarElement;
-        sidebar?.removeAttribute("hidden");
-        const root = sidebar?.closest("[data-shell-root]");
-        const constrained =
-          root
-            ?.getAttribute("data-desktop-overlay-panels")
-            ?.split(/\s+/)
-            .includes(COMMUNITY_APPLICATION_RELEASE_OVERVIEW_PANEL_ID) ?? false;
-        releaseOverviewConstrained = constrained;
-        if (constrained && sidebar) {
-          sidebar.setAttribute("data-desktop-overlay-preview", "");
-          releaseOverviewDomPreview = true;
-          sidebar.focus({ preventScroll: true });
-        }
-      });
-    }}
-  >
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      width="24"
-      height="24"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      stroke-width="2"
-      stroke-linecap="round"
-      stroke-linejoin="round"
-      aria-hidden="true"
+      }}
     >
-      <rect x="1" y="2" width="22" height="20" rx="4"></rect>
-      <rect
-        x={releaseOverviewShown ? 14 : 18}
-        y="5"
-        width={releaseOverviewShown ? 6 : 2}
-        height="14"
-        rx="2"
-        fill="currentColor"
-      ></rect>
-    </svg>
-  </Button>
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        width="24"
+        height="24"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        aria-hidden="true"
+      >
+        <rect x="1" y="2" width="22" height="20" rx="4"></rect>
+        <rect x="18" y="5" width="2" height="14" rx="2" fill="currentColor"
+        ></rect>
+      </svg>
+    </Button>
+  {:else}
+    <AppShell.Sidebar.Toggle
+      bind:ref={releaseOverviewToggleElement}
+      shellController={shell}
+      side="right"
+      sidebarController={releaseOverviewSidebar}
+      sidebarName="plugin release overview"
+      label={releaseOverviewShown
+        ? "Hide plugin release overview"
+        : "Show plugin release overview"}
+      class="community-application__release-overview-toggle"
+      onclick={() => {
+        releaseOverviewInitialized = true;
+        if (releaseOverviewSidebar.collapsed) releaseOverviewSidebar.close();
+        lastAction = releaseOverviewSidebar.closed
+          ? "closed-release-overview"
+          : "opened-release-overview";
+      }}
+    />
+  {/if}
 {/snippet}
 
 {#snippet releaseOverviewRail()}
   <AppShell.Sidebar
-    bind:ref={releaseOverviewSidebarElement}
     side="right"
     sidebarController={releaseOverviewSidebar}
     class="community-application__release-overview-sidebar"
+    variant="rail"
+    constraintPriority={100}
     label="Plugin release overview sidebar"
     mobileLabel="Plugin release overview"
     resizeLabel="Resize plugin release overview sidebar"
@@ -2578,65 +2319,63 @@
 {/snippet}
 
 {#snippet releaseSheet()}
-  <div class="community-application__release-sheet-layer">
-    <button
-      type="button"
-      class="community-application__release-sheet-scrim"
-      aria-label={`Back to ${activeRoom.name}`}
-      onclick={closeReleaseSurface}
-    ></button>
-    <section
-      class="community-application__release-sheet"
-      data-ui-part="release-sheet"
-      aria-labelledby="community-application-release-sheet-title"
-      tabindex="-1"
-      bind:this={releaseSheetElement}
+  <AppShell.SurfaceLayer
+    open={releaseSheetOpen}
+    label={activeMainSurface === "release-people" ? "People" : "Reviews"}
+    coverPanelIds={["right"]}
+    suspendPanelIds={[COMMUNITY_APPLICATION_RELEASE_OVERVIEW_PANEL_ID]}
+    dismissLabel={`Back to ${activeRoom.name}`}
+    onDismiss={closeReleaseSurface}
+    class="community-application__release-sheet-layer"
+    style="--ui-shell-surface-layer-main-start-allowance: 7rem; --ui-shell-surface-layer-inline-end-inset: 0px"
+  >
+    <AppShell.SurfaceLayer.Header
+      class="community-application__release-sheet-header"
     >
-      <header class="community-application__release-sheet-header">
-        <h1 id="community-application-release-sheet-title">
-          {activeMainSurface === "release-people" ? "People" : "Reviews"}
-        </h1>
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon-sm"
-          aria-label={`Close ${activeMainSurface === "release-people" ? "People" : "Reviews"}`}
-          title={`Close ${activeMainSurface === "release-people" ? "People" : "Reviews"}`}
-          onclick={closeReleaseSurface}
-        >
-          <XIcon aria-hidden="true" />
-        </Button>
-      </header>
-      <div class="community-application__release-sheet-body">
-        {#if activeMainSurface === "release-people"}
-          <CommunityReleasePeople
-            members={releaseRoomMembers}
-            entries={releaseReviewEntries}
-            activityLoading={releaseReviewsLoading}
-            activityUnavailable={registryOptions?.source
-              .loadReleaseReviewEntries === undefined}
-            completeness={activeRoom.memberListCompleteness ?? "unavailable"}
-            onOpenProfile={openReleaseProfile}
-          />
-        {:else if registryOptions}
-          <CommunityReleaseReviews
-            entries={releaseReviewEntries}
-            source={registryOptions.source}
-            members={releaseRoomMembers}
-            loading={releaseReviewsLoading}
-            error={releaseReviewsError}
-            onOpenPlugin={(pluginId) =>
-              navigateRegistry({ page: "plugin", pluginId })}
-          />
-        {:else}
-          <p class="community-application__release-unavailable" role="status">
-            Reviews are unavailable because no registry data source was
-            provided.
-          </p>
-        {/if}
-      </div>
-    </section>
-  </div>
+      <h1 id="community-application-release-sheet-title">
+        {activeMainSurface === "release-people" ? "People" : "Reviews"}
+      </h1>
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon-sm"
+        aria-label={`Close ${activeMainSurface === "release-people" ? "People" : "Reviews"}`}
+        title={`Close ${activeMainSurface === "release-people" ? "People" : "Reviews"}`}
+        onclick={closeReleaseSurface}
+      >
+        <XIcon aria-hidden="true" />
+      </Button>
+    </AppShell.SurfaceLayer.Header>
+    <AppShell.SurfaceLayer.Body
+      class="community-application__release-sheet-body"
+    >
+      {#if activeMainSurface === "release-people"}
+        <CommunityReleasePeople
+          members={releaseRoomMembers}
+          entries={releaseReviewEntries}
+          activityLoading={releaseReviewsLoading}
+          activityUnavailable={registryOptions?.source
+            .loadReleaseReviewEntries === undefined}
+          completeness={activeRoom.memberListCompleteness ?? "unavailable"}
+          onOpenProfile={openReleaseProfile}
+        />
+      {:else if registryOptions}
+        <CommunityReleaseReviews
+          entries={releaseReviewEntries}
+          source={registryOptions.source}
+          members={releaseRoomMembers}
+          loading={releaseReviewsLoading}
+          error={releaseReviewsError}
+          onOpenPlugin={(pluginId) =>
+            navigateRegistry({ page: "plugin", pluginId })}
+        />
+      {:else}
+        <p class="community-application__release-unavailable" role="status">
+          Reviews are unavailable because no registry data source was provided.
+        </p>
+      {/if}
+    </AppShell.SurfaceLayer.Body>
+  </AppShell.SurfaceLayer>
 {/snippet}
 
 {#snippet releaseMessageSupplement(message: CommunityMessageModel)}
@@ -2660,12 +2399,6 @@
   onNavigateBack={() => navigateHistory(-1)}
   onNavigateForward={() => navigateHistory(1)}
   {...isPluginReleaseRoom ? { headerEnd: releaseOverviewToggle } : {}}
-  {...releaseSheetOpen
-    ? {
-        overlay: releaseSheet,
-        overlayMainAllowance: shell.mobile.resolvedMode === "mobile" ? 0 : 112,
-      }
-    : {}}
   data-last-action={lastAction}
   data-community-status={community.state.status}
   data-community-cache-freshness={community.state.cache.freshness}
@@ -2805,14 +2538,7 @@
     {/if}
   </AppShell.Sidebar>
 
-  <AppShell.Main
-    bind:ref={mainSurfaceElement}
-    class="community-application__main"
-    inert={releaseSheetOpen || standardRightSidebarConstrained}
-    aria-hidden={releaseSheetOpen || standardRightSidebarConstrained
-      ? "true"
-      : undefined}
-  >
+  <AppShell.Main class="community-application__main">
     {#if shell.mobile.resolvedMode === "mobile" && !usesRoomToolbar}
       <AppShell.Toolbar label="Application navigation">
         {@render mobileNavigationControls()}
@@ -3050,8 +2776,6 @@
       <AppShell.Toolbar
         label={`${activeRoom.name} toolbar`}
         class="community-application__room-toolbar"
-        inert={releaseSheetOpen}
-        aria-hidden={releaseSheetOpen ? "true" : undefined}
       >
         <div class="community-application__toolbar-start">
           {#if shell.mobile.resolvedMode === "mobile"}
@@ -3170,12 +2894,7 @@
         </div>
       </AppShell.Toolbar>
 
-      <AppShell.Body
-        layout="regions"
-        label="Community workspace"
-        inert={releaseSheetOpen}
-        aria-hidden={releaseSheetOpen ? "true" : undefined}
-      >
+      <AppShell.Body layout="regions" label="Community workspace">
         <AppShell.Body.Content
           class="community-application__workspace-content"
           label={`${activeRoom.name} content`}
@@ -3310,9 +3029,10 @@
   </AppShell.Main>
 
   <AppShell.Sidebar
-    bind:ref={standardRightSidebarElement}
     side="right"
     class="community-application__standard-right-sidebar"
+    constraintPriority={0}
+    constrainedPresentation="replace-main"
     label={`${sidePanelTitle} sidebar`}
     mobileLabel={sidePanelTitle}
     resizeLabel={`Resize ${sidePanelTitle.toLowerCase()} sidebar`}
@@ -3536,8 +3256,9 @@
       {/if}
     {/key}
   </AppShell.Sidebar>
-  {#if isPluginReleaseRoom && !releaseSheetOpen}
+  {#if isPluginReleaseRoom}
     {@render releaseOverviewRail()}
+    {@render releaseSheet()}
   {/if}
 </CommunityAppShell>
 
@@ -4037,75 +3758,16 @@
     flex: 1;
   }
 
-  .community-application__release-sheet-layer {
-    position: absolute;
-    inset: 0;
-  }
-
-  .community-application__release-sheet-scrim {
-    position: absolute;
-    z-index: 0;
-    inset: 0;
-    margin: 0;
-    border: 0;
-    border-radius: var(--ui-shell-main-radius, 1rem);
-    background: color-mix(in oklab, var(--background) 75%, transparent);
-    cursor: pointer;
-    transition: background-color 150ms ease;
-  }
-
-  .community-application__release-sheet-scrim:hover {
-    background: color-mix(in oklab, var(--background) 65%, transparent);
-  }
-
-  :global([data-ui-theme="dark"]) .community-application__release-sheet-scrim {
-    background: color-mix(in oklab, var(--background) 80%, transparent);
-  }
-
-  :global([data-ui-theme="dark"])
-    .community-application__release-sheet-scrim:hover {
-    background: color-mix(in oklab, var(--background) 70%, transparent);
-  }
-
-  .community-application__release-sheet {
-    position: absolute;
-    z-index: 1;
-    inset-block: 0;
-    inset-inline: var(--community-app-shell-overlay-main-allowance, 0px) 0.5rem;
-    display: grid;
-    overflow: hidden;
-    grid-template-rows: auto minmax(0, 1fr);
-    border: 1px solid var(--border);
-    border-radius: calc(var(--radius-lg, 0.75rem) + 0.25rem);
-    outline: none;
-    background: var(--background);
-    box-shadow: none;
-  }
-
-  .community-application__release-sheet:focus-visible {
-    outline: 2px solid var(--ring);
-    outline-offset: -2px;
-  }
-
-  .community-application__release-sheet-header {
-    display: flex;
-    min-height: var(--ui-shell-toolbar-height, 3rem);
-    align-items: center;
-    justify-content: space-between;
-    gap: 1rem;
-    padding: 0.625rem 0.75rem 0.625rem 1rem;
-  }
-
-  .community-application__release-sheet-header h1 {
+  :global(.community-application__release-sheet-header h1) {
     margin: 0;
     font-size: 1rem;
     font-weight: 650;
   }
 
-  .community-application__release-sheet-body {
-    min-width: 0;
-    min-height: 0;
-    overflow: auto;
+  :global(
+      .community-application__release-sheet-body
+        [data-ui-part="scroll-area-viewport"]
+    ) {
     padding: 1rem;
   }
 
@@ -4121,93 +3783,6 @@
     width: 100%;
     gap: 0.25rem;
     padding: 1rem 0.75rem;
-  }
-
-  :global(
-      .community-app-shell__surface
-        > .ui-minimal-app-shell__composition
-        > .community-application__release-overview-sidebar[data-side="right"][data-presentation="inline"]
-    ) {
-    margin-block: 0;
-    margin-inline: var(--ui-shell-main-block-inset) 0;
-    border: 0;
-    border-radius: 0;
-    background: transparent;
-    box-shadow: none;
-  }
-
-  :global(
-      .community-app-shell__surface[data-desktop-overlay-panels~="plugin-release-overview"]
-        > .ui-minimal-app-shell__composition
-        > .community-application__release-overview-sidebar:not(
-          [data-desktop-overlay-preview]
-        )
-    ) {
-    display: none;
-  }
-
-  :global(
-      .community-app-shell__surface[data-desktop-overlay-panels~="right"]
-        > .ui-minimal-app-shell__composition
-        > .community-application__release-overview-sidebar[data-side="right"][data-presentation="inline"]:not(
-          [data-desktop-overlay-preview]
-        ):not([hidden])
-    ) {
-    display: flex;
-  }
-
-  :global(
-      .community-app-shell__surface[data-desktop-overlay-panels~="right"]
-        > .ui-minimal-app-shell__composition
-        > .community-application__standard-right-sidebar[data-mobile-panel-id="right"][data-presentation="inline"]:not(
-          [hidden]
-        )
-    ) {
-    position: absolute;
-    z-index: 31;
-    display: flex !important;
-    inset-block-start: var(--community-application-main-block-start-inset, 0px);
-    inset-block-end: var(--community-application-main-block-end-inset, 0px);
-    inset-inline-start: var(--community-application-main-start-inset, 0px);
-    inset-inline-end: var(--community-application-main-end-inset, 0px);
-    width: auto;
-    overflow: hidden;
-    margin: 0;
-    border: var(--ui-shell-main-border);
-    border-radius: var(--ui-shell-main-radius);
-    background: var(--background);
-    box-shadow: none;
-  }
-
-  :global(
-      .community-app-shell__surface[data-desktop-overlay-panels~="right"]:has(
-          > .ui-minimal-app-shell__composition
-            > .community-application__standard-right-sidebar[data-mobile-panel-id="right"][data-presentation="inline"]
-        )
-        > .ui-minimal-app-shell__composition
-        > .community-application__main
-    ) {
-    border-start-end-radius: var(--ui-shell-main-radius);
-    border-end-end-radius: var(--ui-shell-main-radius);
-  }
-
-  :global(
-      .community-app-shell__surface:has(
-          > .ui-minimal-app-shell__composition
-            > .community-application__release-overview-sidebar[data-side="right"][data-presentation="inline"]
-        ):not(
-          :has(
-              > .ui-minimal-app-shell__composition
-                > .ui-minimal-app-shell__sidebar[data-side="right"][data-presentation="inline"]:not(
-                  .community-application__release-overview-sidebar
-                ):not([hidden])
-            )
-        )
-        > .ui-minimal-app-shell__composition
-        > .ui-minimal-app-shell__main
-    ) {
-    border-start-end-radius: var(--ui-shell-main-radius);
-    border-end-end-radius: var(--ui-shell-main-radius);
   }
 
   :global(
@@ -4297,12 +3872,10 @@
   }
 
   @media (max-width: 64rem) {
-    .community-application__release-sheet {
-      inset-inline-start: 0;
-      border-radius: var(--radius-lg, 0.75rem);
-    }
-
-    .community-application__release-sheet-body {
+    :global(
+        .community-application__release-sheet-body
+          [data-ui-part="scroll-area-viewport"]
+      ) {
       padding: 0.75rem;
     }
   }

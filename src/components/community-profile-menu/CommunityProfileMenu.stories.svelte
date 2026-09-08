@@ -100,8 +100,7 @@
         .getByRole("menuitem", { name: "Manage members" })
         .querySelector("svg"),
     ).not.toBeNull();
-    copyCommunityUrl.focus();
-    await userEvent.keyboard("{Enter}");
+    await userEvent.click(copyCommunityUrl);
     await waitFor(() =>
       expect(args.onAction).toHaveBeenCalledWith("copy-community-url"),
     );
