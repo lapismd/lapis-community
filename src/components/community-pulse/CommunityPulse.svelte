@@ -5,7 +5,6 @@
   import * as InputGroup from "@lapismd/design-core/shadcn/input-group";
   import { Skeleton } from "@lapismd/design-core/shadcn/skeleton";
   import * as Tabs from "@lapismd/design-core/shadcn/tabs";
-  import * as Tooltip from "@lapismd/design-core/shadcn/tooltip";
   import AlertCircleIcon from "@lucide/svelte/icons/circle-alert";
   import BotIcon from "@lucide/svelte/icons/bot";
   import HeartIcon from "@lucide/svelte/icons/heart";
@@ -26,6 +25,7 @@
   import CommunityChatComposer from "../community-chat-composer/CommunityChatComposer.svelte";
   import CommunityMarkdownContent from "../community-markdown-content/CommunityMarkdownContent.svelte";
   import CommunityMemberAvatar from "../community-member-avatar/CommunityMemberAvatar.svelte";
+  import CommunityRelativeTime from "../community-relative-time/CommunityRelativeTime.svelte";
   import CommunityMemberHoverCard from "../community-member-hover-card/CommunityMemberHoverCard.svelte";
   import type { CommunityPulseProps } from "./model.js";
 
@@ -121,31 +121,6 @@
     }
   }
 
-  function fullDate(timestamp: number): string {
-    return new Intl.DateTimeFormat(undefined, {
-      dateStyle: "medium",
-      timeStyle: "short",
-    }).format(timestamp * 1_000);
-  }
-
-  function relativeDate(timestamp: number): string {
-    const seconds = Math.max(0, Math.floor(Date.now() / 1_000) - timestamp);
-    const relative = new Intl.RelativeTimeFormat(undefined, {
-      numeric: "auto",
-    });
-    if (seconds < 60) return relative.format(-seconds, "second");
-    const minutes = Math.floor(seconds / 60);
-    if (minutes < 60) return relative.format(-minutes, "minute");
-    const hours = Math.floor(minutes / 60);
-    if (hours < 24) return relative.format(-hours, "hour");
-    const days = Math.floor(hours / 24);
-    if (days < 7) return relative.format(-days, "day");
-    return new Intl.DateTimeFormat(undefined, {
-      month: "short",
-      day: "numeric",
-    }).format(timestamp * 1_000);
-  }
-
   async function chooseTab(tab: CommunityPulseTab): Promise<void> {
     localError = "";
     try {
@@ -231,25 +206,11 @@
   });
 </script>
 
-{#snippet noteTime(note: CommunityPulseNoteModel, className = "")}
-  <Tooltip.Provider delayDuration={0}>
-    <Tooltip.Root>
-      <Tooltip.Trigger>
-        {#snippet child({ props })}
-          <time
-            {...props}
-            class={className}
-            datetime={new Date(note.createdAt * 1_000).toISOString()}
-          >
-            {relativeDate(note.createdAt)}
-          </time>
-        {/snippet}
-      </Tooltip.Trigger>
-      <Tooltip.Content side="top" sideOffset={6}>
-        {fullDate(note.createdAt)}
-      </Tooltip.Content>
-    </Tooltip.Root>
-  </Tooltip.Provider>
+{#snippet noteTime(
+  note: CommunityPulseNoteModel,
+  className = "community-pulse__note-time",
+)}
+  <CommunityRelativeTime timestamp={note.createdAt} class={className} />
 {/snippet}
 
 {#snippet noteActions(note: CommunityPulseNoteModel)}
@@ -817,13 +778,13 @@
     cursor: pointer;
   }
 
-  .community-pulse__note-header time {
+  :global(.community-pulse__note-time) {
     flex: none;
     color: var(--muted-foreground);
     font-size: 0.75rem;
   }
 
-  .community-pulse__agent-note-time {
+  :global(.community-pulse__agent-note-time) {
     color: var(--muted-foreground);
     font-size: 0.75rem;
   }

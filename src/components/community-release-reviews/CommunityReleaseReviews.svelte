@@ -1,8 +1,10 @@
 <script lang="ts">
   import * as Empty from "@lapismd/design-core/shadcn/empty";
   import { Skeleton } from "@lapismd/design-core/shadcn/skeleton";
+  import * as ToggleGroup from "@lapismd/design-core/shadcn/toggle-group";
   import CircleSlashIcon from "@lucide/svelte/icons/circle-slash";
   import ClipboardCheckIcon from "@lucide/svelte/icons/clipboard-check";
+  import Clock3Icon from "@lucide/svelte/icons/clock-3";
 
   import type {
     RegistryCatalogDataSource,
@@ -10,6 +12,9 @@
   } from "../../registry/index.js";
   import CommunityChip from "../community-chip/CommunityChip.svelte";
   import { communityChipToneForState } from "../community-chip/model.js";
+  import CommunityMemberAvatar from "../community-member-avatar/CommunityMemberAvatar.svelte";
+  import CommunityRelativeTime from "../community-relative-time/CommunityRelativeTime.svelte";
+  import type { CommunityMemberModel } from "../community-workspace/model.js";
   import RegistryReleaseDisclosure from "../registry-release-disclosure/RegistryReleaseDisclosure.svelte";
   import { groupCommunityReleaseReviews } from "./model.js";
 
@@ -18,25 +23,51 @@
     source,
     loading = false,
     error = "",
+    members = [],
     onOpenPlugin,
   }: {
     entries?: readonly RegistryReleaseReviewEntry[];
     source: RegistryCatalogDataSource;
     loading?: boolean;
     error?: string;
+    members?: readonly CommunityMemberModel[];
     onOpenPlugin?: (pluginId: string) => void;
   } = $props();
+
+  type ReviewSectionId = "pending" | "reviewed" | "blocked";
 
   const groups = $derived(groupCommunityReleaseReviews(entries));
   const sections = $derived([
     {
-      id: "pending",
+      id: "pending" as const,
       label: "Pending review",
       entries: groups.pending,
+      icon: Clock3Icon,
     },
-    { id: "reviewed", label: "Reviewed", entries: groups.reviewed },
-    { id: "blocked", label: "Blocked", entries: groups.blocked },
+    {
+      id: "reviewed" as const,
+      label: "Reviewed",
+      entries: groups.reviewed,
+      icon: ClipboardCheckIcon,
+    },
+    {
+      id: "blocked" as const,
+      label: "Blocked",
+      entries: groups.blocked,
+      icon: CircleSlashIcon,
+    },
   ]);
+  let activeSections = $state<ReviewSectionId[]>([
+    "pending",
+    "reviewed",
+    "blocked",
+  ]);
+  const selectedSections = $derived(
+    sections.filter((section) => activeSections.includes(section.id)),
+  );
+  const memberById = $derived(
+    new Map(members.map((member) => [member.id, member] as const)),
+  );
 
   function stateLabel(entry: RegistryReleaseReviewEntry): string {
     const state = entry.inspection.state;
@@ -57,11 +88,18 @@
       : pubkey;
   }
 
-  function releaseDate(createdAt: number): string {
-    return new Intl.DateTimeFormat(undefined, {
-      dateStyle: "medium",
-      timeStyle: "short",
-    }).format(new Date(createdAt * 1_000));
+  function releaseAuthor(
+    entry: RegistryReleaseReviewEntry,
+  ): CommunityMemberModel {
+    const pubkey = entry.releaseEvent.pubkey;
+    return (
+      memberById.get(pubkey) ?? {
+        id: pubkey,
+        name: shortKey(pubkey),
+        handle: shortKey(pubkey),
+        initials: pubkey.slice(0, 2).toLocaleUpperCase(),
+      }
+    );
   }
 </script>
 
@@ -107,28 +145,53 @@
       </Empty.Header>
     </Empty.Root>
   {:else}
-    {#each sections as section (section.id)}
-      {#if section.entries.length > 0}
-        <section
-          class="community-release-reviews__section"
-          aria-labelledby={`community-release-reviews-${section.id}`}
+    <ToggleGroup.Root
+      type="multiple"
+      bind:value={activeSections}
+      variant="outline"
+      size="sm"
+      spacing={0}
+      class="community-release-reviews__filters"
+      aria-label="Review status"
+    >
+      {#each sections as section (section.id)}
+        {@const SectionIcon = section.icon}
+        <ToggleGroup.Item
+          value={section.id}
+          disabled={section.entries.length === 0}
         >
-          <div class="community-release-reviews__section-heading">
-            <h2 id={`community-release-reviews-${section.id}`}>
-              {section.label}
-            </h2>
-            <CommunityChip variant="muted" size="compact"
-              >{section.entries.length}</CommunityChip
+          <SectionIcon data-icon="inline-start" aria-hidden="true" />
+          <span>{section.label}</span>
+          <CommunityChip variant="muted" size="indicator">
+            {section.entries.length}
+          </CommunityChip>
+        </ToggleGroup.Item>
+      {/each}
+    </ToggleGroup.Root>
+
+    {#each selectedSections as section (section.id)}
+      <section
+        class="community-release-reviews__section"
+        aria-labelledby={`community-release-reviews-${section.id}`}
+      >
+        <h2 class="sr-only" id={`community-release-reviews-${section.id}`}>
+          {section.label}
+        </h2>
+        <div class="community-release-reviews__list">
+          {#each section.entries as entry (entry.releaseEvent.id)}
+            {@const author = releaseAuthor(entry)}
+            <article
+              class="community-release-reviews__entry"
+              aria-label={`${releaseLabel(entry)} ${stateLabel(entry)}`}
             >
-          </div>
-          <div class="community-release-reviews__list">
-            {#each section.entries as entry (entry.releaseEvent.id)}
-              <article
-                class="community-release-reviews__entry"
-                aria-label={`${releaseLabel(entry)} ${stateLabel(entry)}`}
-              >
-                <div class="community-release-reviews__meta">
-                  <div>
+              <div class="community-release-reviews__meta">
+                <div class="community-release-reviews__title">
+                  <CommunityMemberAvatar
+                    member={author}
+                    size="xsmall"
+                    decorative
+                  />
+                  <div class="community-release-reviews__title-copy">
                     <strong>{releaseLabel(entry)}</strong>
                     {#if entry.inspection.version}
                       <span class="community-release-reviews__version"
@@ -136,31 +199,28 @@
                       >
                     {/if}
                   </div>
-                  <CommunityChip
-                    tone={communityChipToneForState(entry.inspection.state)}
-                  >
-                    {stateLabel(entry)}
-                  </CommunityChip>
                 </div>
-                <p class="community-release-reviews__byline">
-                  Posted by {shortKey(entry.releaseEvent.pubkey)} ·
-                  <time
-                    datetime={new Date(
-                      entry.releaseEvent.created_at * 1_000,
-                    ).toISOString()}
-                    >{releaseDate(entry.releaseEvent.created_at)}</time
-                  >
-                </p>
-                <RegistryReleaseDisclosure
-                  eventId={entry.releaseEvent.id}
-                  {source}
-                  {...onOpenPlugin === undefined ? {} : { onOpenPlugin }}
+                <CommunityChip
+                  tone={communityChipToneForState(entry.inspection.state)}
+                >
+                  {stateLabel(entry)}
+                </CommunityChip>
+              </div>
+              <p class="community-release-reviews__byline">
+                Posted by {author.name} ·
+                <CommunityRelativeTime
+                  timestamp={entry.releaseEvent.created_at}
                 />
-              </article>
-            {/each}
-          </div>
-        </section>
-      {/if}
+              </p>
+              <RegistryReleaseDisclosure
+                eventId={entry.releaseEvent.id}
+                {source}
+                {...onOpenPlugin === undefined ? {} : { onOpenPlugin }}
+              />
+            </article>
+          {/each}
+        </div>
+      </section>
     {/each}
   {/if}
 </div>
@@ -219,24 +279,21 @@
     gap: 0.75rem;
   }
 
-  .community-release-reviews__section-heading,
   .community-release-reviews__meta,
-  .community-release-reviews__meta > div {
+  .community-release-reviews__title,
+  .community-release-reviews__title-copy {
     display: flex;
     min-width: 0;
     align-items: center;
   }
 
-  .community-release-reviews__section-heading {
-    justify-content: space-between;
-    gap: 0.75rem;
-    padding-inline: 0.25rem;
+  :global(.community-release-reviews__filters) {
+    width: fit-content;
+    max-width: 100%;
   }
 
-  .community-release-reviews__section-heading h2 {
-    margin: 0;
-    font-size: 0.875rem;
-    font-weight: 600;
+  :global(.community-release-reviews__filters [data-ui-part="community-chip"]) {
+    margin-inline-start: 0.15rem;
   }
 
   .community-release-reviews__entry {
@@ -246,6 +303,19 @@
     border: 1px solid var(--border);
     border-radius: var(--radius-lg, 0.75rem);
     background: var(--background);
+    transition: background-color 120ms ease;
+  }
+
+  .community-release-reviews__entry:hover,
+  .community-release-reviews__entry:focus-within {
+    background: color-mix(in srgb, var(--foreground) 3%, var(--background));
+  }
+
+  .community-release-reviews__entry:hover
+    :global(.registry-release-disclosure__trigger),
+  .community-release-reviews__entry:focus-within
+    :global(.registry-release-disclosure__trigger) {
+    background: var(--background);
   }
 
   .community-release-reviews__meta {
@@ -253,7 +323,12 @@
     gap: 0.75rem;
   }
 
-  .community-release-reviews__meta > div {
+  .community-release-reviews__title {
+    overflow: hidden;
+    gap: 0.625rem;
+  }
+
+  .community-release-reviews__title-copy {
     overflow: hidden;
     gap: 0.45rem;
   }

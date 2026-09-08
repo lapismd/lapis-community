@@ -1961,6 +1961,10 @@
     const reviewsLabel = within(reviewsButton).getByText("Reviews");
     const reviewsCount =
       within(reviewsButton).getByLabelText(/pending reviews/u);
+    await expect(getComputedStyle(reviewsButton).fontSize).toBe("14px");
+    await expect(
+      reviewsButton.getBoundingClientRect().height,
+    ).toBeLessThanOrEqual(29);
     await expect(getComputedStyle(reviewsLabel).color).toBe(
       getComputedStyle(reviewsCount).color,
     );
@@ -2050,15 +2054,42 @@
     );
     await expect(mainSurface).toHaveAttribute("aria-hidden", "true");
     await expect(channelSettings).toHaveAttribute("aria-hidden", "true");
+    const releaseSheetScrim = canvas.getByRole("button", {
+      name: "Back to plugin-releases",
+    });
     const sheetBounds = reviewsSheet!.getBoundingClientRect();
+    const scrimBounds = releaseSheetScrim.getBoundingClientRect();
+    const openApplicationBounds = application.getBoundingClientRect();
+    const coveredSettingsBounds = channelSettings.getBoundingClientRect();
     await expect(sheetBounds.left).toBeGreaterThan(mainBounds.left);
     await expect(sheetBounds.left - mainBounds.left).toBeLessThanOrEqual(120);
-    await expect(sheetBounds.right).toBeGreaterThanOrEqual(
-      overviewBounds.right - 9,
+    await expect(
+      openApplicationBounds.right - sheetBounds.right,
+    ).toBeGreaterThanOrEqual(7);
+    await expect(
+      openApplicationBounds.right - sheetBounds.right,
+    ).toBeLessThanOrEqual(9);
+    await expect(
+      Math.abs(sheetBounds.top - mainBounds.top),
+    ).toBeLessThanOrEqual(1);
+    await expect(
+      Math.abs(sheetBounds.bottom - coveredSettingsBounds.bottom),
+    ).toBeLessThanOrEqual(1);
+    await expect(
+      Math.abs(scrimBounds.left - mainBounds.left),
+    ).toBeLessThanOrEqual(1);
+    await expect(
+      Math.abs(scrimBounds.top - mainBounds.top),
+    ).toBeLessThanOrEqual(1);
+    await expect(
+      Math.abs(scrimBounds.bottom - coveredSettingsBounds.bottom),
+    ).toBeLessThanOrEqual(1);
+    await expect(getComputedStyle(releaseSheetScrim).backgroundColor).not.toBe(
+      "rgba(0, 0, 0, 0)",
     );
     await expect(
-      canvas.getByRole("heading", { name: "Reviewed", level: 2 }),
-    ).toBeVisible();
+      canvas.getByRole("button", { name: /Reviewed/u }),
+    ).toHaveAttribute("data-state", "on");
     const reviewedEntry = canvas.getAllByRole("article", {
       name: /Approved$/u,
     })[0]!;
@@ -2081,9 +2112,7 @@
     await expect(reviewStateStyle.lineHeight).toBe(pluginStateStyle.lineHeight);
     await expect(reviewStateStyle.fontWeight).toBe(pluginStateStyle.fontWeight);
 
-    await userEvent.click(
-      canvas.getByRole("button", { name: "Close Reviews" }),
-    );
+    await userEvent.click(releaseSheetScrim);
     const reopenedOverview = await canvas.findByRole("navigation", {
       name: "Plugin release overview",
     });

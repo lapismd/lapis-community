@@ -2578,55 +2578,65 @@
 {/snippet}
 
 {#snippet releaseSheet()}
-  <section
-    class="community-application__release-sheet"
-    data-ui-part="release-sheet"
-    aria-labelledby="community-application-release-sheet-title"
-    tabindex="-1"
-    bind:this={releaseSheetElement}
-  >
-    <header class="community-application__release-sheet-header">
-      <h1 id="community-application-release-sheet-title">
-        {activeMainSurface === "release-people" ? "People" : "Reviews"}
-      </h1>
-      <Button
-        type="button"
-        variant="ghost"
-        size="icon-sm"
-        aria-label={`Close ${activeMainSurface === "release-people" ? "People" : "Reviews"}`}
-        title={`Close ${activeMainSurface === "release-people" ? "People" : "Reviews"}`}
-        onclick={closeReleaseSurface}
-      >
-        <XIcon aria-hidden="true" />
-      </Button>
-    </header>
-    <div class="community-application__release-sheet-body">
-      {#if activeMainSurface === "release-people"}
-        <CommunityReleasePeople
-          members={releaseRoomMembers}
-          entries={releaseReviewEntries}
-          activityLoading={releaseReviewsLoading}
-          activityUnavailable={registryOptions?.source
-            .loadReleaseReviewEntries === undefined}
-          completeness={activeRoom.memberListCompleteness ?? "unavailable"}
-          onOpenProfile={openReleaseProfile}
-        />
-      {:else if registryOptions}
-        <CommunityReleaseReviews
-          entries={releaseReviewEntries}
-          source={registryOptions.source}
-          loading={releaseReviewsLoading}
-          error={releaseReviewsError}
-          onOpenPlugin={(pluginId) =>
-            navigateRegistry({ page: "plugin", pluginId })}
-        />
-      {:else}
-        <p class="community-application__release-unavailable" role="status">
-          Reviews are unavailable because no registry data source was provided.
-        </p>
-      {/if}
-    </div>
-  </section>
+  <div class="community-application__release-sheet-layer">
+    <button
+      type="button"
+      class="community-application__release-sheet-scrim"
+      aria-label={`Back to ${activeRoom.name}`}
+      onclick={closeReleaseSurface}
+    ></button>
+    <section
+      class="community-application__release-sheet"
+      data-ui-part="release-sheet"
+      aria-labelledby="community-application-release-sheet-title"
+      tabindex="-1"
+      bind:this={releaseSheetElement}
+    >
+      <header class="community-application__release-sheet-header">
+        <h1 id="community-application-release-sheet-title">
+          {activeMainSurface === "release-people" ? "People" : "Reviews"}
+        </h1>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-sm"
+          aria-label={`Close ${activeMainSurface === "release-people" ? "People" : "Reviews"}`}
+          title={`Close ${activeMainSurface === "release-people" ? "People" : "Reviews"}`}
+          onclick={closeReleaseSurface}
+        >
+          <XIcon aria-hidden="true" />
+        </Button>
+      </header>
+      <div class="community-application__release-sheet-body">
+        {#if activeMainSurface === "release-people"}
+          <CommunityReleasePeople
+            members={releaseRoomMembers}
+            entries={releaseReviewEntries}
+            activityLoading={releaseReviewsLoading}
+            activityUnavailable={registryOptions?.source
+              .loadReleaseReviewEntries === undefined}
+            completeness={activeRoom.memberListCompleteness ?? "unavailable"}
+            onOpenProfile={openReleaseProfile}
+          />
+        {:else if registryOptions}
+          <CommunityReleaseReviews
+            entries={releaseReviewEntries}
+            source={registryOptions.source}
+            members={releaseRoomMembers}
+            loading={releaseReviewsLoading}
+            error={releaseReviewsError}
+            onOpenPlugin={(pluginId) =>
+              navigateRegistry({ page: "plugin", pluginId })}
+          />
+        {:else}
+          <p class="community-application__release-unavailable" role="status">
+            Reviews are unavailable because no registry data source was
+            provided.
+          </p>
+        {/if}
+      </div>
+    </section>
+  </div>
 {/snippet}
 
 {#snippet releaseMessageSupplement(message: CommunityMessageModel)}
@@ -4027,10 +4037,41 @@
     flex: 1;
   }
 
+  .community-application__release-sheet-layer {
+    position: absolute;
+    inset: 0;
+  }
+
+  .community-application__release-sheet-scrim {
+    position: absolute;
+    z-index: 0;
+    inset: 0;
+    margin: 0;
+    border: 0;
+    border-radius: var(--ui-shell-main-radius, 1rem);
+    background: color-mix(in oklab, var(--background) 75%, transparent);
+    cursor: pointer;
+    transition: background-color 150ms ease;
+  }
+
+  .community-application__release-sheet-scrim:hover {
+    background: color-mix(in oklab, var(--background) 65%, transparent);
+  }
+
+  :global([data-ui-theme="dark"]) .community-application__release-sheet-scrim {
+    background: color-mix(in oklab, var(--background) 80%, transparent);
+  }
+
+  :global([data-ui-theme="dark"])
+    .community-application__release-sheet-scrim:hover {
+    background: color-mix(in oklab, var(--background) 70%, transparent);
+  }
+
   .community-application__release-sheet {
     position: absolute;
-    z-index: 8;
-    inset: 0 0.5rem 0.5rem 0;
+    z-index: 1;
+    inset-block: 0;
+    inset-inline: var(--community-app-shell-overlay-main-allowance, 0px) 0.5rem;
     display: grid;
     overflow: hidden;
     grid-template-rows: auto minmax(0, 1fr);
@@ -4038,15 +4079,12 @@
     border-radius: calc(var(--radius-lg, 0.75rem) + 0.25rem);
     outline: none;
     background: var(--background);
-    box-shadow:
-      0 1.25rem 3rem -1.75rem color-mix(in oklab, var(--foreground) 28%, transparent),
-      0 0.25rem 1rem -0.5rem color-mix(in oklab, var(--foreground) 12%, transparent);
+    box-shadow: none;
   }
 
   .community-application__release-sheet:focus-visible {
-    box-shadow:
-      0 0 0 2px var(--ring),
-      0 1.25rem 3rem -1.75rem color-mix(in oklab, var(--foreground) 28%, transparent);
+    outline: 2px solid var(--ring);
+    outline-offset: -2px;
   }
 
   .community-application__release-sheet-header {
@@ -4177,12 +4215,15 @@
     ) {
     display: grid;
     width: 100%;
-    height: 2.5rem;
-    grid-template-columns: 1.125rem minmax(0, 1fr) auto;
+    height: 1.75rem;
+    grid-template-columns: 0.875rem minmax(0, 1fr) auto;
     justify-content: stretch;
-    gap: 0.625rem;
-    padding-inline: 0.625rem;
+    gap: 0.75rem;
+    padding-inline: 0.5rem;
     color: var(--muted-foreground);
+    font-size: 0.875rem;
+    font-weight: 400;
+    line-height: 1.25rem;
     text-align: start;
     transition:
       background-color 120ms ease,
@@ -4210,6 +4251,11 @@
   :global(.community-application__release-overview-item > span) {
     overflow: hidden;
     text-overflow: ellipsis;
+  }
+
+  :global(.community-application__release-overview-item > svg) {
+    width: 0.875rem;
+    height: 0.875rem;
   }
 
   :global(.community-application__release-overview-item > small) {
@@ -4252,7 +4298,7 @@
 
   @media (max-width: 64rem) {
     .community-application__release-sheet {
-      inset: 0.25rem;
+      inset-inline-start: 0;
       border-radius: var(--radius-lg, 0.75rem);
     }
 

@@ -125,8 +125,11 @@
 
 <Story
   name="Approved collapsed"
-  play={async ({ canvasElement }) => {
+  play={async ({ canvas, canvasElement }) => {
     await expectFullCanvasWidth(canvasElement);
+    const trigger = await canvas.findByRole("button", { name: /1\.4\.0/u });
+    await userEvent.hover(trigger);
+    await expect(trigger).toBeVisible();
   }}
 />
 

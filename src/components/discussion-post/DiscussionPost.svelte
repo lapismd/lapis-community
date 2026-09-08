@@ -3,7 +3,6 @@
   import { ReactionBar } from "@lapismd/design-core/ai/experimental";
   import { Button } from "@lapismd/design-core/shadcn/button";
   import * as DropdownMenu from "@lapismd/design-core/shadcn/dropdown-menu";
-  import * as Tooltip from "@lapismd/design-core/shadcn/tooltip";
   import EllipsisIcon from "@lucide/svelte/icons/ellipsis";
   import FlagIcon from "@lucide/svelte/icons/flag";
   import PencilIcon from "@lucide/svelte/icons/pencil";
@@ -12,6 +11,7 @@
   import type { CommunityMessageReport } from "../../community/index.js";
   import CommunityEmojiPicker from "../community-emoji-picker/CommunityEmojiPicker.svelte";
   import CommunityMemberHoverCard from "../community-member-hover-card/CommunityMemberHoverCard.svelte";
+  import CommunityRelativeTime from "../community-relative-time/CommunityRelativeTime.svelte";
   import CommunityReportDialog from "../community-report-dialog/CommunityReportDialog.svelte";
   import type { CommunityMemberModel } from "../community-workspace/model.js";
   import {
@@ -95,35 +95,6 @@
       : normalized;
   }
 
-  function formatFullDate(timestamp: number): string {
-    return new Intl.DateTimeFormat(undefined, {
-      dateStyle: "medium",
-      timeStyle: "short",
-    }).format(timestamp * 1_000);
-  }
-
-  function formatPostDate(timestamp: number): string {
-    const elapsedSeconds = Math.max(
-      0,
-      Math.floor(Date.now() / 1_000) - timestamp,
-    );
-    if (elapsedSeconds < 60) return "just now";
-
-    const elapsedMinutes = Math.floor(elapsedSeconds / 60);
-    const relative = new Intl.RelativeTimeFormat(undefined, {
-      numeric: "auto",
-      style: "long",
-    });
-    if (elapsedMinutes < 60) return relative.format(-elapsedMinutes, "minute");
-
-    const elapsedHours = Math.floor(elapsedMinutes / 60);
-    if (elapsedHours < 24) return relative.format(-elapsedHours, "hour");
-
-    const elapsedDays = Math.floor(elapsedHours / 24);
-    if (elapsedDays < 7) return relative.format(-elapsedDays, "day");
-    return formatFullDate(timestamp);
-  }
-
   async function confirmDelete(): Promise<void> {
     if (onDelete === undefined || deletePending) return;
     deletePending = true;
@@ -163,32 +134,16 @@
           </button>
         {/if}
       </div>
-      <Tooltip.Provider delayDuration={0}>
-        <Tooltip.Root>
-          <Tooltip.Trigger>
-            {#snippet child({ props })}
-              <a
-                {...props}
-                href={`#post-${post.event.id}`}
-                aria-label={`Link to post ${number}`}
-                title={formatFullDate(post.event.created_at)}
-              >
-                <time
-                  datetime={new Date(
-                    post.event.created_at * 1_000,
-                  ).toISOString()}
-                >
-                  {formatPostDate(post.event.created_at)}
-                </time>
-                {#if post.edited}<span>(edited)</span>{/if}
-              </a>
-            {/snippet}
-          </Tooltip.Trigger>
-          <Tooltip.Content side="top" sideOffset={6}>
-            {formatFullDate(post.event.created_at)}
-          </Tooltip.Content>
-        </Tooltip.Root>
-      </Tooltip.Provider>
+      <CommunityRelativeTime
+        timestamp={post.event.created_at}
+        href={`#post-${post.event.id}`}
+        ariaLabel={`Link to post ${number}`}
+        class="discussion-post__timestamp"
+      >
+        {#snippet suffix()}
+          {#if post.edited}<span>(edited)</span>{/if}
+        {/snippet}
+      </CommunityRelativeTime>
     </header>
     <div class="post-body">
       {#each post.content.split("\n") as paragraph}
@@ -358,7 +313,7 @@
     align-items: flex-start;
   }
 
-  .post-header a {
+  :global(.discussion-post__timestamp) {
     display: flex;
     align-items: center;
     gap: 0.35rem;
@@ -368,7 +323,7 @@
     text-decoration: none;
   }
 
-  .post-header a:hover {
+  :global(.discussion-post__timestamp:hover) {
     color: var(--foreground);
   }
 

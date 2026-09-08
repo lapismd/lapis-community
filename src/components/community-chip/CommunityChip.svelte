@@ -88,7 +88,7 @@
     {...buttonProps}
     type="button"
     variant={badgeVariant}
-    size="sm"
+    size={size === "inline" ? "xs" : "sm"}
     class={classes}
     data-ui-part="community-chip"
     data-chip-variant={variant}
@@ -153,16 +153,30 @@
     font-variant-numeric: tabular-nums;
   }
 
-  :global(.community-chip[data-chip-size="inline"]) {
+  :global(.community-chip[data-ui-component][data-chip-size="inline"]) {
     width: auto;
     height: auto;
     min-height: 0;
+    gap: 0.22em;
+    border: 0;
+    border-radius: calc(var(--radius) - 0.2rem);
     padding: 0.08em 0.3em;
+    box-decoration-break: clone;
     font: inherit;
     font-weight: 600;
     line-height: inherit;
     text-align: start;
     vertical-align: middle;
+    -webkit-box-decoration-break: clone;
+  }
+
+  :global(
+      .community-chip[data-ui-component][data-chip-size="inline"]
+        [data-ui-component="community-member-avatar"]
+    ) {
+    --community-member-avatar-size: 1.15em;
+
+    display: block;
   }
 
   :global(.community-chip[data-chip-tone="accent"]) {

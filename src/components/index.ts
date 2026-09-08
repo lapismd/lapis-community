@@ -37,6 +37,12 @@ export { default as CommunityMemberCommand } from "./community-member-command/Co
 export { default as CommunityGroupInviteDialog } from "./community-group-invite-dialog/CommunityGroupInviteDialog.svelte";
 export { default as CommunityMemberAvatar } from "./community-member-avatar/CommunityMemberAvatar.svelte";
 export { default as CommunityMemberHoverCard } from "./community-member-hover-card/CommunityMemberHoverCard.svelte";
+export { default as CommunityRelativeTime } from "./community-relative-time/CommunityRelativeTime.svelte";
+export {
+  formatCommunityFullDate,
+  formatCommunityRelativeTime,
+  type CommunityRelativeTimeOptions,
+} from "./community-relative-time/model.js";
 export { default as CommunityRoomBrowser } from "./community-room-browser/CommunityRoomBrowser.svelte";
 export { default as CommunityRoomEditor } from "./community-room-editor/CommunityRoomEditor.svelte";
 export { default as CommunitySearchCommand } from "./community-search-command/CommunitySearchCommand.svelte";

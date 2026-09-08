@@ -479,7 +479,8 @@
   }
   :global(.registry-release-disclosure__trigger:hover) {
     background: var(--accent);
-    box-shadow: 0 0 0 1px color-mix(in srgb, var(--primary) 48%, var(--border));
+    box-shadow: 0 0 0 2px
+      color-mix(in srgb, var(--foreground) 18%, var(--border));
   }
   :global(
       .community-message:hover .registry-release-disclosure__trigger,

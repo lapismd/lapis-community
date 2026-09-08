@@ -60,6 +60,16 @@
     const mentionAvatar = mention.querySelector<HTMLElement>(
       '[data-ui-component="community-member-avatar"]',
     )!;
+    const mentionStyle = getComputedStyle(mention);
+    const mentionFontSize = Number.parseFloat(mentionStyle.fontSize);
+    const mentionLineHeight =
+      Number.parseFloat(mentionStyle.lineHeight) || mentionFontSize * 1.5;
+    await expect(mention.getBoundingClientRect().height).toBeLessThanOrEqual(
+      mentionLineHeight + mentionFontSize * 0.2,
+    );
+    await expect(
+      mentionAvatar.getBoundingClientRect().height,
+    ).toBeLessThanOrEqual(mentionFontSize * 1.2);
     await expect(
       Math.abs(
         mention.getBoundingClientRect().top +

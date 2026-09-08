@@ -43,6 +43,8 @@
   let shellSurface = $state<HTMLDivElement | null>(null);
   let surfaceStage = $state<HTMLDivElement | null>(null);
   let overlayInsetInlineStart = $state(0);
+  let overlayInsetBlockStart = $state(0);
+  let overlayInsetBlockEnd = $state(0);
   const mobileMode = $derived(controller.mobile.resolvedMode === "mobile");
 
   $effect(() => {
@@ -67,9 +69,11 @@
       if (!main || !surfaceStage) return;
       const stageBounds = surfaceStage.getBoundingClientRect();
       const mainBounds = main.getBoundingClientRect();
-      overlayInsetInlineStart = Math.max(
+      overlayInsetInlineStart = Math.max(0, mainBounds.left - stageBounds.left);
+      overlayInsetBlockStart = Math.max(0, mainBounds.top - stageBounds.top);
+      overlayInsetBlockEnd = Math.max(
         0,
-        mainBounds.left - stageBounds.left + overlayMainAllowance,
+        stageBounds.bottom - mainBounds.bottom,
       );
     };
     updateOverlayInset();
@@ -201,6 +205,9 @@
       <div
         class="community-app-shell__overlay-host"
         style:inset-inline-start={`${overlayInsetInlineStart}px`}
+        style:inset-block-start={`${overlayInsetBlockStart}px`}
+        style:inset-block-end={`${overlayInsetBlockEnd}px`}
+        style:--community-app-shell-overlay-main-allowance={`${Math.max(0, overlayMainAllowance)}px`}
       >
         {@render overlay()}
       </div>
@@ -257,7 +264,6 @@
   .community-app-shell__overlay-host {
     position: absolute;
     z-index: 40;
-    inset-block: 0;
     inset-inline-end: 0;
     min-width: 0;
     min-height: 0;

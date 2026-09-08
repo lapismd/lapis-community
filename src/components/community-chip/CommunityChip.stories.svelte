@@ -35,12 +35,18 @@
       <CommunityChip tone="success">Approved</CommunityChip>
       <CommunityChip tone="warning">Pending</CommunityChip>
       <CommunityChip tone="danger">Rejected</CommunityChip>
+      <CommunityChip size="indicator" tone="accent">3</CommunityChip>
       <CommunityChip size="compact" variant="muted">13</CommunityChip>
       <CommunityChip tone="success">
         {#snippet leading()}<CheckIcon aria-hidden="true" />{/snippet}
         Verified
       </CommunityChip>
     </div>
+    <p class="community-chip-story__inline">
+      Ask <CommunityChip variant="muted" size="inline">@Ben Stone</CommunityChip
+      >
+      to review this message.
+    </p>
   {/snippet}
 </Story>
 
@@ -101,5 +107,9 @@
     align-items: center;
     gap: 0.5rem;
     padding: 1rem;
+  }
+
+  .community-chip-story__inline {
+    padding-inline: 1rem;
   }
 </style>

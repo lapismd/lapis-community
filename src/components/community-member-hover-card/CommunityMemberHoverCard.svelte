@@ -149,22 +149,6 @@
     height: 1.5rem;
   }
 
-  .community-member-hover-card__trigger--mention
-    :global(.community-member-avatar) {
-    --community-member-avatar-size: 1.15em;
-
-    display: block;
-  }
-
-  .community-member-hover-card__trigger--mention:hover {
-    background: color-mix(in srgb, var(--secondary) 72%, var(--primary) 28%);
-  }
-
-  .community-member-hover-card__trigger--mention:focus-visible {
-    outline: 2px solid var(--ring);
-    outline-offset: 2px;
-  }
-
   :global(
       .community-member-hover-card__content[data-ui-component="hover-card"]
     ) {

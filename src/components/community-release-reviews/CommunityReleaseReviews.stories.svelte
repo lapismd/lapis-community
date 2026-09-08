@@ -1,6 +1,6 @@
 <script module lang="ts">
   import { defineMeta } from "@storybook/addon-svelte-csf";
-  import { expect, fn, within } from "storybook/test";
+  import { expect, fn, userEvent, within } from "storybook/test";
 
   import type {
     RegistryCatalogDataSource,
@@ -9,6 +9,7 @@
     RegistryReleaseReviewEntry,
   } from "../../registry/index.js";
   import type { NostrEvent } from "../../protocol/index.js";
+  import type { CommunityMemberModel } from "../community-workspace/model.js";
   import {
     createRegistryStoryDataSource,
     registryStoryResolvedDetail,
@@ -87,6 +88,21 @@
     },
   };
   const unavailableSource = createRegistryStoryDataSource();
+  const members: readonly CommunityMemberModel[] = [
+    {
+      id: "lapis-publisher",
+      name: "Lapis Publisher",
+      handle: "@lapis-publisher",
+      initials: "LP",
+      role: "Publisher",
+    },
+    {
+      id: "unknown",
+      name: "Unknown publisher",
+      handle: "@unknown",
+      initials: "UP",
+    },
+  ];
 
   const { Story } = defineMeta({
     title: "Community/Registry/Release Reviews",
@@ -95,6 +111,7 @@
     args: {
       entries,
       source,
+      members,
       onOpenPlugin: fn(),
     },
     parameters: {
@@ -112,37 +129,90 @@
 <Story
   name="Review ledger"
   play={async ({ canvas }) => {
-    await expect(
-      canvas.getByRole("heading", { name: "Pending review" }),
-    ).toBeVisible();
-    await expect(
-      canvas.getByRole("heading", { name: "Reviewed" }),
-    ).toBeVisible();
-    await expect(
-      canvas.getByRole("heading", { name: "Blocked" }),
-    ).toBeVisible();
+    const pendingToggle = canvas.getByRole("button", {
+      name: /Pending review 1/u,
+    });
+    const reviewedToggle = canvas.getByRole("button", {
+      name: /Reviewed 2/u,
+    });
+    const blockedToggle = canvas.getByRole("button", {
+      name: /Blocked 1/u,
+    });
+    await expect(pendingToggle).toHaveAttribute("data-state", "on");
+    await expect(reviewedToggle).toBeEnabled();
+    await expect(blockedToggle).toBeEnabled();
     const pending = canvas.getByRole("article", {
       name: "AI Assistant Pending",
     });
+    await expect(pending).toBeVisible();
+    await expect(
+      pending.querySelector('[data-ui-component="community-member-avatar"]'),
+    ).not.toBeNull();
+
     const approved = canvas.getByRole("article", {
       name: "AI Assistant Approved",
     });
-    const untrusted = canvas.getByRole("article", {
+    await expect(approved).toBeVisible();
+    const untrusted = canvas.getByRole("article", { name: /Untrusted$/u });
+    await expect(untrusted).toBeVisible();
+
+    await userEvent.click(reviewedToggle);
+    await expect(reviewedToggle).toHaveAttribute("data-state", "off");
+    await expect(
+      canvas.queryByRole("article", { name: "AI Assistant Approved" }),
+    ).toBeNull();
+    await expect(pending).toBeVisible();
+    await expect(untrusted).toBeVisible();
+
+    await userEvent.click(reviewedToggle);
+    await expect(reviewedToggle).toHaveAttribute("data-state", "on");
+    const restoredApproved = canvas.getByRole("article", {
+      name: "AI Assistant Approved",
+    });
+    await expect(restoredApproved).toBeVisible();
+    await expect(
+      within(restoredApproved).getByText(/Posted by Lapis Publisher/u),
+    ).toBeVisible();
+
+    await userEvent.hover(restoredApproved);
+    const pluginCard = await within(restoredApproved).findByRole("button", {
+      name: /AI Assistant/u,
+    });
+    await userEvent.hover(pluginCard);
+    await expect(pluginCard).toBeVisible();
+    await expect(within(pluginCard).getByText("AI Assistant")).toBeVisible();
+    const approvedStateBadge =
+      within(restoredApproved).getAllByText("Approved")[0];
+    await expect(approvedStateBadge).toHaveAttribute(
+      "data-ui-component",
+      "badge",
+    );
+    await expect(approvedStateBadge).toHaveAttribute(
+      "data-ui-part",
+      "community-chip",
+    );
+
+    await userEvent.click(blockedToggle);
+    await expect(blockedToggle).toHaveAttribute("data-state", "off");
+    await expect(
+      canvas.queryByRole("article", { name: /Untrusted$/u }),
+    ).toBeNull();
+    await userEvent.click(blockedToggle);
+    const restoredUntrusted = canvas.getByRole("article", {
       name: /Untrusted$/u,
     });
-    for (const [article, label] of [
-      [pending, "Pending"],
-      [approved, "Approved"],
-      [untrusted, "Untrusted"],
-    ] as const) {
-      const stateBadge = within(article).getAllByText(label)[0];
-      await expect(stateBadge).toBeVisible();
-      await expect(stateBadge).toHaveAttribute("data-ui-component", "badge");
-      await expect(stateBadge).toHaveAttribute(
-        "data-ui-part",
-        "community-chip",
-      );
-    }
+    await expect(restoredUntrusted).toBeVisible();
+    const untrustedStateBadge =
+      within(restoredUntrusted).getAllByText("Untrusted")[0];
+    await expect(untrustedStateBadge).toBeVisible();
+    await expect(untrustedStateBadge).toHaveAttribute(
+      "data-ui-component",
+      "badge",
+    );
+    await expect(untrustedStateBadge).toHaveAttribute(
+      "data-ui-part",
+      "community-chip",
+    );
   }}
 />
 
