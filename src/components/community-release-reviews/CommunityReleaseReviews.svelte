@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { Badge } from "@lapismd/design-core/shadcn/badge";
   import * as Empty from "@lapismd/design-core/shadcn/empty";
   import { Skeleton } from "@lapismd/design-core/shadcn/skeleton";
   import CircleSlashIcon from "@lucide/svelte/icons/circle-slash";
@@ -9,6 +8,8 @@
     RegistryCatalogDataSource,
     RegistryReleaseReviewEntry,
   } from "../../registry/index.js";
+  import CommunityChip from "../community-chip/CommunityChip.svelte";
+  import { communityChipToneForState } from "../community-chip/model.js";
   import RegistryReleaseDisclosure from "../registry-release-disclosure/RegistryReleaseDisclosure.svelte";
   import { groupCommunityReleaseReviews } from "./model.js";
 
@@ -116,7 +117,9 @@
             <h2 id={`community-release-reviews-${section.id}`}>
               {section.label}
             </h2>
-            <Badge variant="secondary">{section.entries.length}</Badge>
+            <CommunityChip variant="muted" size="compact"
+              >{section.entries.length}</CommunityChip
+            >
           </div>
           <div class="community-release-reviews__list">
             {#each section.entries as entry (entry.releaseEvent.id)}
@@ -128,16 +131,16 @@
                   <div>
                     <strong>{releaseLabel(entry)}</strong>
                     {#if entry.inspection.version}
-                      <span>{entry.inspection.version}</span>
+                      <span class="community-release-reviews__version"
+                        >{entry.inspection.version}</span
+                      >
                     {/if}
                   </div>
-                  <Badge
-                    variant={entry.inspection.state === "pending"
-                      ? "outline"
-                      : "secondary"}
+                  <CommunityChip
+                    tone={communityChipToneForState(entry.inspection.state)}
                   >
                     {stateLabel(entry)}
-                  </Badge>
+                  </CommunityChip>
                 </div>
                 <p class="community-release-reviews__byline">
                   Posted by {shortKey(entry.releaseEvent.pubkey)} ·
@@ -256,13 +259,13 @@
   }
 
   .community-release-reviews__meta strong,
-  .community-release-reviews__meta span {
+  .community-release-reviews__version {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
 
-  .community-release-reviews__meta span,
+  .community-release-reviews__version,
   .community-release-reviews__byline {
     color: var(--muted-foreground);
     font-size: 0.78rem;

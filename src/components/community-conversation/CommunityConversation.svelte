@@ -13,6 +13,7 @@
     CommunityMessageReport,
     CommunityReplyTarget,
   } from "../../community/index.js";
+  import CommunityChip from "../community-chip/CommunityChip.svelte";
   import CommunityChatComposer from "../community-chat-composer/CommunityChatComposer.svelte";
   import CommunityMemberAvatar from "../community-member-avatar/CommunityMemberAvatar.svelte";
   import CommunityMessage from "../community-message/CommunityMessage.svelte";
@@ -232,8 +233,10 @@
     {#snippet emptyState()}
       {#if room.kind === "direct"}
         <div class="community-conversation__direct-empty">
-          <span class="community-conversation__direct-day" aria-hidden="true"
-            >Today</span
+          <CommunityChip
+            class="community-conversation__direct-day"
+            variant="muted"
+            ariaHidden>Today</CommunityChip
           >
           <section class="community-conversation__direct-intro">
             <CommunityMemberAvatar
@@ -528,16 +531,9 @@
     padding: 1rem 0.75rem 3rem;
   }
 
-  .community-conversation__direct-day {
+  :global(.community-conversation__direct-day[data-ui-part="community-chip"]) {
     width: max-content;
     margin-inline: auto;
-    border: 1px solid var(--border);
-    border-radius: 999px;
-    padding: 0.2rem 0.65rem;
-    color: var(--muted-foreground);
-    background: var(--background);
-    font-size: 0.75rem;
-    font-weight: 500;
   }
 
   .community-conversation__direct-intro {

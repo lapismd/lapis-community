@@ -1,6 +1,5 @@
 <script lang="ts">
   import * as Alert from "@lapismd/design-core/shadcn/alert";
-  import { Badge } from "@lapismd/design-core/shadcn/badge";
   import { Button } from "@lapismd/design-core/shadcn/button";
   import * as Empty from "@lapismd/design-core/shadcn/empty";
   import * as InputGroup from "@lapismd/design-core/shadcn/input-group";
@@ -23,6 +22,7 @@
     CommunityPulseNoteModel,
     CommunityPulseTab,
   } from "../../community/index.js";
+  import CommunityChip from "../community-chip/CommunityChip.svelte";
   import CommunityChatComposer from "../community-chat-composer/CommunityChatComposer.svelte";
   import CommunityMarkdownContent from "../community-markdown-content/CommunityMarkdownContent.svelte";
   import CommunityMemberAvatar from "../community-member-avatar/CommunityMemberAvatar.svelte";
@@ -424,8 +424,11 @@
         <strong id={`pulse-agent-${activity.id}`}>{activity.agent.name}</strong>
         {#if activity.agent.status}<small>{activity.agent.status}</small>{/if}
       </span>
-      <Badge variant="secondary"
-        ><BotIcon data-icon="inline-start" aria-hidden="true" />Agent</Badge
+      <CommunityChip variant="muted"
+        ><BotIcon
+          data-icon="inline-start"
+          aria-hidden="true"
+        />Agent</CommunityChip
       >
     </header>
     <div class="community-pulse__agent-notes">
@@ -457,7 +460,12 @@
               {:else}
                 {tabLabel(tab)}
                 {#if tab === "agents"}
-                  <Badge variant="secondary">{model.agents?.length ?? 0}</Badge>
+                  <CommunityChip
+                    variant="muted"
+                    size="compact"
+                    tone={model.tab === "agents" ? "accent" : "neutral"}
+                    >{model.agents?.length ?? 0}</CommunityChip
+                  >
                 {/if}
               {/if}
             </Tabs.Trigger>
@@ -695,29 +703,6 @@
   .community-pulse__tab-scroll
     :global([data-ui-part="tabs-trigger"][data-state="active"]) {
     background: var(--muted);
-  }
-
-  .community-pulse__tab-scroll
-    :global([data-ui-part="tabs-trigger"] [data-ui-component="badge"]) {
-    width: 1.25rem;
-    height: 1.25rem;
-    padding: 0;
-    border: 1px solid
-      color-mix(in oklab, var(--muted-foreground) 16%, transparent);
-    border-radius: 999px;
-    background: color-mix(in oklab, var(--muted) 86%, var(--background));
-    line-height: 1;
-  }
-
-  .community-pulse__tab-scroll
-    :global(
-      [data-ui-part="tabs-trigger"][data-state="active"]
-        [data-ui-component="badge"]
-    ) {
-    border-color: color-mix(in oklab, var(--foreground) 12%, transparent);
-    background: var(--background);
-    box-shadow: 0 1px 2px
-      color-mix(in oklab, var(--foreground) 10%, transparent);
   }
 
   .community-pulse :global(.community-pulse__content) {

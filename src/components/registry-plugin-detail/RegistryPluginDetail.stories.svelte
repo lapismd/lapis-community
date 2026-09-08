@@ -133,6 +133,10 @@
       Object.keys(args.resolved.detail.versions).length.toString(),
     );
     await expect(releasesCount).toHaveAttribute("data-ui-component", "badge");
+    await expect(releasesCount).toHaveAttribute(
+      "data-ui-part",
+      "community-chip",
+    );
     await userEvent.click(releasesTab);
     const historicalRelease = canvas.getByRole("link", { name: "0.9.0" });
     await expect(historicalRelease).toHaveAttribute(
@@ -141,9 +145,21 @@
     );
     await userEvent.click(historicalRelease);
     await expect(args.onSelectVersion).toHaveBeenCalledWith("0.9.0");
-    await userEvent.click(canvas.getByRole("button", { name: "Desktop" }));
+    const platformBadge = canvas.getByRole("button", { name: "Desktop" });
+    await expect(platformBadge).toHaveAttribute("data-ui-component", "button");
+    await expect(platformBadge).toHaveAttribute(
+      "data-ui-part",
+      "community-chip",
+    );
+    await userEvent.click(platformBadge);
     await expect(args.onOpenPlatform).toHaveBeenCalledWith("desktop");
-    await userEvent.click(canvas.getByRole("button", { name: "AI" }));
+    const categoryBadge = canvas.getByRole("button", { name: "AI" });
+    await expect(categoryBadge).toHaveAttribute("data-ui-component", "button");
+    await expect(categoryBadge).toHaveAttribute(
+      "data-ui-part",
+      "community-chip",
+    );
+    await userEvent.click(categoryBadge);
     await expect(args.onOpenCategory).toHaveBeenCalledWith("ai");
     await expect(
       canvas.getByRole("link", { name: /By Lapis Labs/u }),

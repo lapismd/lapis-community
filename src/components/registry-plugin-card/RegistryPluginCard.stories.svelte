@@ -28,6 +28,10 @@
     const tags = canvas.getByLabelText("Plugin tags");
     const status = within(tags).getByText("Available");
     await expect(tags.firstElementChild).toBe(status);
+    for (const tag of tags.children) {
+      await expect(tag).toHaveAttribute("data-ui-component", "badge");
+      await expect(tag).toHaveAttribute("data-ui-part", "community-chip");
+    }
     await expect(getComputedStyle(status).backgroundColor).not.toBe(
       "rgba(0, 0, 0, 0)",
     );

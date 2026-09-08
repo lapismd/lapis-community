@@ -5,6 +5,7 @@
   import { Spinner } from "@lapismd/design-core/shadcn/spinner";
   import XIcon from "@lucide/svelte/icons/x";
 
+  import CommunityChip from "../community-chip/CommunityChip.svelte";
   import CommunityEmojiPicker from "../community-emoji-picker/CommunityEmojiPicker.svelte";
 
   type StatusPreset = {
@@ -154,17 +155,17 @@
         aria-label="Suggested statuses"
       >
         {#each statusPresets as preset (preset.label)}
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
+          <CommunityChip
             disabled={busy}
-            aria-pressed={emoji === preset.emoji && message === preset.label}
+            pressed={emoji === preset.emoji && message === preset.label}
+            tone={emoji === preset.emoji && message === preset.label
+              ? "accent"
+              : "neutral"}
             onclick={() => choosePreset(preset)}
           >
             <span aria-hidden="true">{preset.emoji}</span>
             {preset.label}
-          </Button>
+          </CommunityChip>
         {/each}
       </div>
 
@@ -299,20 +300,6 @@
     display: flex;
     flex-wrap: wrap;
     gap: 0.5rem;
-  }
-
-  .community-status-dialog__presets :global([data-ui-component="button"]) {
-    min-height: 2rem;
-    border-radius: 999px;
-    padding-inline: 0.7rem;
-    color: var(--muted-foreground);
-  }
-
-  .community-status-dialog__presets
-    :global([data-ui-component="button"][aria-pressed="true"]) {
-    border-color: color-mix(in srgb, var(--foreground) 28%, var(--border));
-    color: var(--foreground);
-    background: var(--accent);
   }
 
   .community-status-dialog__error {

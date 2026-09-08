@@ -67,7 +67,9 @@
     );
     await expect(canvas.getByText("5 results")).toBeVisible();
     const activeButtons = canvas.getAllByRole("button", { name: /Available/u });
-    await userEvent.click(activeButtons.at(-1)!);
+    const activeFilter = activeButtons.at(-1)!;
+    await expect(activeFilter).toHaveAttribute("data-ui-component", "button");
+    await userEvent.click(activeFilter);
     await expect(canvas.getByText("8 results")).toBeVisible();
 
     await userEvent.click(canvas.getByRole("button", { name: "List" }));

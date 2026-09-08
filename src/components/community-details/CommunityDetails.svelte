@@ -1,6 +1,5 @@
 <script lang="ts">
-  import { Badge } from "@lapismd/design-core/shadcn/badge";
-
+  import CommunityChip from "../community-chip/CommunityChip.svelte";
   import CommunityMemberAvatar from "../community-member-avatar/CommunityMemberAvatar.svelte";
 
   import {
@@ -31,8 +30,9 @@
     <p>{details.description}</p>
     <div class="community-details__facts">
       <span>{room.memberCount ?? visibleMembers.length} members</span>
-      <Badge variant="outline">{room.kind}</Badge>
-      {#if room.private}<Badge variant="secondary">Private</Badge>{/if}
+      <CommunityChip>{room.kind}</CommunityChip>
+      {#if room.private}<CommunityChip variant="muted">Private</CommunityChip
+        >{/if}
     </div>
   </section>
 

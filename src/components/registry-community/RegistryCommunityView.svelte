@@ -12,6 +12,7 @@
   import MessageSquareReplyIcon from "@lucide/svelte/icons/message-square-reply";
 
   import { createBrowserCommunityComposerDraftStore } from "../community-chat-composer/browser-draft-store.js";
+  import CommunityChip from "../community-chip/CommunityChip.svelte";
   import CommunitySummary from "../community-summary/CommunitySummary.svelte";
   import DiscussionComposer from "../discussion-composer/DiscussionComposer.svelte";
   import type { DiscussionComposerPresentation } from "../discussion-composer/model.js";
@@ -268,12 +269,15 @@
                 <BellIcon aria-hidden="true" />
               {/if}
               {#if unreadPostCount > 0}
-                <span
+                <CommunityChip
                   class="timeline-follow-action__count"
-                  aria-label={`${unreadPostCount} unread posts`}
+                  variant="solid"
+                  tone="accent"
+                  size="indicator"
+                  ariaLabel={`${unreadPostCount} unread posts`}
                 >
                   {unreadPostCount > 9 ? "9+" : unreadPostCount}
-                </span>
+                </CommunityChip>
               {/if}
             </Button>
           {/snippet}
@@ -581,22 +585,10 @@
     position: relative;
   }
 
-  .timeline-follow-action__count {
+  :global(.timeline-follow-action__count[data-ui-part="community-chip"]) {
     position: absolute;
     top: -0.35rem;
     right: -0.35rem;
-    display: grid;
-    place-items: center;
-    min-width: 1rem;
-    height: 1rem;
-    padding-inline: 0.2rem;
-    border: 1px solid var(--background);
-    border-radius: 999px;
-    background: var(--primary);
-    color: var(--primary-foreground);
-    font-size: 0.6rem;
-    font-weight: 700;
-    line-height: 1;
   }
 
   .discussion-seek-skeleton {

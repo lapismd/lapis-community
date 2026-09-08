@@ -4,7 +4,6 @@
 
   import * as Alert from "@lapismd/design-core/shadcn/alert";
   import * as AlertDialog from "@lapismd/design-core/shadcn/alert-dialog";
-  import { Badge } from "@lapismd/design-core/shadcn/badge";
   import { Button } from "@lapismd/design-core/shadcn/button";
   import * as DropdownMenu from "@lapismd/design-core/shadcn/dropdown-menu";
   import * as Tabs from "@lapismd/design-core/shadcn/tabs";
@@ -27,6 +26,7 @@
     type RegistryMediaItem,
     type RegistryResolvedDetail,
   } from "../../registry/index.js";
+  import CommunityChip from "../community-chip/CommunityChip.svelte";
   import { registryFilterIcon } from "../registry-filter-icons.js";
   import RegistryMediaGallery from "../registry-media-gallery/RegistryMediaGallery.svelte";
   import RegistryMediaViewer from "../registry-media-viewer/RegistryMediaViewer.svelte";
@@ -332,15 +332,14 @@
 
 {#snippet filterChip(type: "category" | "platform", value: string)}
   {@const FilterIcon = registryFilterIcon(value)}
-  <button
-    type="button"
-    class="registry-plugin-detail__filter-chip"
-    onclick={() =>
-      type === "category" ? onOpenCategory(value) : onOpenPlatform(value)}
+  <CommunityChip
+    onclick={() => {
+      type === "category" ? onOpenCategory(value) : onOpenPlatform(value);
+    }}
   >
-    <FilterIcon aria-hidden="true" />
+    <FilterIcon data-icon="inline-start" aria-hidden="true" />
     <span>{titleCaseRegistryValue(value)}</span>
-  </button>
+  </CommunityChip>
 {/snippet}
 
 <article
@@ -517,10 +516,11 @@
             <Tabs.Trigger value="changelog">Changelog</Tabs.Trigger>
             <Tabs.Trigger value="releases"
               >Releases
-              <Badge
-                variant="secondary"
+              <CommunityChip
+                variant="muted"
+                size="compact"
                 class="registry-plugin-detail__tab-count"
-                >{releases.length}</Badge
+                >{releases.length}</CommunityChip
               ></Tabs.Trigger
             >
           </Tabs.List>
@@ -605,10 +605,12 @@
                         .join(", ")} · {formatRegistryBytes(item.bundle.size)}
                     </p>
                   </div>
-                  <Badge variant={item.bundle.pending ? "outline" : "secondary"}
+                  <CommunityChip
+                    variant={item.bundle.pending ? "outline" : "muted"}
+                    tone={item.bundle.pending ? "warning" : "success"}
                     >{item.bundle.pending
                       ? "Pending bundle"
-                      : "Signed bundle"}</Badge
+                      : "Signed bundle"}</CommunityChip
                   >
                 </article>
               {/each}
@@ -902,8 +904,7 @@
     margin-top: 0.35rem;
     color: var(--muted-foreground);
   }
-  .registry-plugin-detail__author-link,
-  .registry-plugin-detail__filter-chip {
+  .registry-plugin-detail__author-link {
     display: inline-flex;
     align-items: center;
     border: 1px solid var(--border);
@@ -939,30 +940,9 @@
     .registry-plugin-detail__author-name {
     color: var(--foreground);
   }
-  .registry-plugin-detail__author-link:not(.disabled):focus-visible,
-  .registry-plugin-detail__filter-chip:focus-visible {
+  .registry-plugin-detail__author-link:not(.disabled):focus-visible {
     outline: 2px solid var(--ring);
     outline-offset: 2px;
-  }
-  .registry-plugin-detail__filter-chip {
-    gap: 0.3rem;
-    min-height: 1.5rem;
-    border-radius: 999px;
-    padding: 0.125rem 0.5rem;
-    background: var(--background);
-    font: inherit;
-    font-size: 0.8rem;
-    cursor: pointer;
-  }
-  .registry-plugin-detail__filter-chip:hover,
-  .registry-plugin-detail__filter-chip:focus-visible {
-    border-color: color-mix(in srgb, var(--primary) 32%, var(--border));
-    color: var(--primary);
-    background: color-mix(in srgb, var(--primary) 9%, var(--muted));
-  }
-  .registry-plugin-detail__filter-chip :global(svg) {
-    width: 0.9rem;
-    height: 0.9rem;
   }
   .registry-plugin-detail__description {
     max-width: 48rem;
@@ -1064,13 +1044,10 @@
   .registry-plugin-detail__content :global([data-ui-part="tabs-content"]) {
     min-width: 0;
   }
-  :global(.registry-plugin-detail__tab-count[data-ui-component="badge"]) {
+  :global(.registry-plugin-detail__tab-count[data-ui-part="community-chip"]) {
     min-width: 1.25rem;
     justify-content: center;
-    padding-inline: 0.35rem;
-    font-size: 0.7rem;
     font-variant-numeric: tabular-nums;
-    line-height: 1;
   }
   .registry-plugin-detail__prose {
     display: grid;

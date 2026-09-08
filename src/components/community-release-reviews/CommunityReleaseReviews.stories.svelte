@@ -130,9 +130,19 @@
     const untrusted = canvas.getByRole("article", {
       name: /Untrusted$/u,
     });
-    await expect(within(pending).getAllByText("Pending")[0]).toBeVisible();
-    await expect(within(approved).getAllByText("Approved")[0]).toBeVisible();
-    await expect(within(untrusted).getAllByText("Untrusted")[0]).toBeVisible();
+    for (const [article, label] of [
+      [pending, "Pending"],
+      [approved, "Approved"],
+      [untrusted, "Untrusted"],
+    ] as const) {
+      const stateBadge = within(article).getAllByText(label)[0];
+      await expect(stateBadge).toBeVisible();
+      await expect(stateBadge).toHaveAttribute("data-ui-component", "badge");
+      await expect(stateBadge).toHaveAttribute(
+        "data-ui-part",
+        "community-chip",
+      );
+    }
   }}
 />
 

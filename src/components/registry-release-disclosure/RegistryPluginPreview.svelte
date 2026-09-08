@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { Badge } from "@lapismd/design-core/shadcn/badge";
   import * as Tabs from "@lapismd/design-core/shadcn/tabs";
   import CalendarIcon from "@lucide/svelte/icons/calendar";
   import HardDriveIcon from "@lucide/svelte/icons/hard-drive";
@@ -12,6 +11,7 @@
     type RegistryMediaItem,
     type RegistryResolvedDetail,
   } from "../../registry/index.js";
+  import CommunityChip from "../community-chip/CommunityChip.svelte";
   import { registryFilterIcon } from "../registry-filter-icons.js";
   import RegistryMediaGallery from "../registry-media-gallery/RegistryMediaGallery.svelte";
   import RegistryMediaViewer from "../registry-media-viewer/RegistryMediaViewer.svelte";
@@ -90,10 +90,10 @@
 
 {#snippet filterChip(value: string)}
   {@const FilterIcon = registryFilterIcon(value)}
-  <span class="registry-plugin-preview__filter-chip">
-    <FilterIcon aria-hidden="true" />
+  <CommunityChip>
+    <FilterIcon data-icon="inline-start" aria-hidden="true" />
     <span>{titleCaseRegistryValue(value)}</span>
-  </span>
+  </CommunityChip>
 {/snippet}
 
 <article class="registry-plugin-preview" aria-label={`${detail.name} preview`}>
@@ -163,7 +163,8 @@
             </span>
           {/if}
           <div class="registry-plugin-preview__badges">
-            <Badge variant="secondary">{detail.latestVersion}</Badge>
+            <CommunityChip variant="muted">{detail.latestVersion}</CommunityChip
+            >
             {#each entry.platforms as platform}
               {@render filterChip(platform)}
             {/each}
@@ -202,8 +203,10 @@
         <Tabs.Trigger value="overview">Overview</Tabs.Trigger>
         <Tabs.Trigger value="changelog">Changelog</Tabs.Trigger>
         <Tabs.Trigger value="releases"
-          >Releases <span class="registry-plugin-preview__tab-count"
-            >{releases.length}</span
+          >Releases <CommunityChip
+            class="registry-plugin-preview__tab-count"
+            variant="muted"
+            size="compact">{releases.length}</CommunityChip
           ></Tabs.Trigger
         >
         <Tabs.Trigger value="details">Details</Tabs.Trigger>
@@ -269,12 +272,13 @@
                     .join(", ")} · {formatRegistryBytes(item.bundle.size)}
                 </p>
               </div>
-              <span
+              <CommunityChip
                 class="registry-plugin-preview__bundle-chip"
-                data-state={item.bundle.pending ? "pending" : "signed"}
+                variant={item.bundle.pending ? "outline" : "muted"}
+                tone={item.bundle.pending ? "warning" : "success"}
                 >{item.bundle.pending
                   ? "Pending bundle"
-                  : "Signed bundle"}</span
+                  : "Signed bundle"}</CommunityChip
               >
             </article>
           {/each}
@@ -480,23 +484,6 @@
     gap: 0.4rem;
     margin-top: 0.45rem;
   }
-  .registry-plugin-preview__filter-chip {
-    display: inline-flex;
-    min-height: 1.5rem;
-    align-items: center;
-    gap: 0.3rem;
-    border: 1px solid var(--border);
-    border-radius: 999px;
-    padding: 0.125rem 0.5rem;
-    color: var(--foreground);
-    background: var(--background);
-    font-size: 0.8rem;
-    line-height: 1;
-  }
-  .registry-plugin-preview__filter-chip :global(svg) {
-    width: 0.9rem;
-    height: 0.9rem;
-  }
   .registry-plugin-preview__banner,
   .registry-plugin-preview__overview-media {
     display: block;
@@ -569,19 +556,10 @@
     justify-content: flex-start;
     overflow-x: auto;
   }
-  .registry-plugin-preview__tab-count {
-    display: inline-grid;
+  :global(.registry-plugin-preview__tab-count[data-ui-part="community-chip"]) {
     min-width: 1.25rem;
-    min-height: 1.25rem;
     margin-inline-start: 0.25rem;
-    place-items: center;
-    border: 1px solid color-mix(in srgb, currentColor 22%, transparent);
-    border-radius: 999px;
-    padding-inline: 0.3rem;
-    background: color-mix(in srgb, currentColor 8%, transparent);
-    font-size: 0.7rem;
     font-variant-numeric: tabular-nums;
-    line-height: 1;
   }
   .registry-plugin-preview__prose {
     display: grid;
@@ -644,27 +622,6 @@
     color: var(--muted-foreground);
     font-size: 0.82rem;
     line-height: 1.5;
-  }
-  .registry-plugin-preview__bundle-chip {
-    display: inline-flex;
-    min-height: 1.55rem;
-    flex: none;
-    align-items: center;
-    border: 1px solid
-      color-mix(in srgb, var(--muted-foreground) 32%, var(--border));
-    border-radius: 999px;
-    padding: 0.15rem 0.55rem;
-    color: var(--muted-foreground);
-    background: color-mix(in srgb, var(--muted) 76%, var(--background));
-    font-size: 0.75rem;
-    font-weight: 550;
-    line-height: 1;
-    white-space: nowrap;
-  }
-  .registry-plugin-preview__bundle-chip[data-state="signed"] {
-    border-color: color-mix(in srgb, #16a34a 42%, var(--border));
-    color: color-mix(in srgb, #15803d 78%, var(--foreground));
-    background: color-mix(in srgb, #22c55e 10%, var(--background));
   }
   .registry-plugin-preview__details {
     display: grid;

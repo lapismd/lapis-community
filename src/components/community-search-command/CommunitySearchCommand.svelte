@@ -10,6 +10,7 @@
   import PlusIcon from "@lucide/svelte/icons/plus";
   import SearchIcon from "@lucide/svelte/icons/search";
   import UserIcon from "@lucide/svelte/icons/user";
+  import CommunityChip from "../community-chip/CommunityChip.svelte";
   import type {
     CommunityMemberModel,
     CommunityRoomModel,
@@ -117,17 +118,15 @@
       oninput={(event) => onQueryChange(event.currentTarget.value)}
     />
     {#if scoped && scopeRoom}
-      <Button
-        type="button"
-        variant="secondary"
-        size="sm"
+      <CommunityChip
+        variant="muted"
         class="community-search-command__scope"
-        aria-label={`Remove #${scopeRoom.name} search scope`}
+        ariaLabel={`Remove #${scopeRoom.name} search scope`}
         onclick={clearScope}
       >
         #{scopeRoom.name}
         <span aria-hidden="true">×</span>
-      </Button>
+      </CommunityChip>
     {/if}
     <Dialog.Close>
       {#snippet child({ props })}
@@ -335,16 +334,10 @@
     ) {
     padding-inline-start: var(--community-search-scope-padding, 6rem);
   }
-  :global(.community-search-command__scope[data-ui-component="button"]) {
+  :global(.community-search-command__scope[data-ui-part="community-chip"]) {
     position: absolute;
     z-index: 1;
     left: 3.75rem;
-    height: 1.7rem;
-    gap: 0.25rem;
-    border-radius: 0.4rem;
-    padding-inline: 0.5rem;
-    font-size: 0.8rem;
-    font-weight: 500;
   }
   :global(
       .community-search-command__input-row [data-slot="input-group-control"]

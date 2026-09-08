@@ -38,6 +38,13 @@ repository owns the relay.
   leading item icons at the start and reserve the end position for shortcuts,
   state, or submenu affordances. Use the menu group's radio and submenu
   primitives for their corresponding behavior.
+- Render every status, category, platform, tag, count, mention, and filter token
+  with the public `CommunityChip`. It owns the approved sizes, tones, optional
+  leading-icon treatment, links, and interactive Button composition on top of
+  Design Core. Do not import Design Core `Badge` outside `CommunityChip`,
+  recreate chip geometry on native elements, spoof Badge hooks, or restyle chip
+  typography, colour, padding, borders, or radius in consumer CSS. Add a typed
+  `CommunityChip` variant when a genuinely new chip treatment is required.
 - Use the shared Lucide icon set where available. Icon-only controls require an
   accessible name, and decorative icons must not create duplicate accessible
   content.

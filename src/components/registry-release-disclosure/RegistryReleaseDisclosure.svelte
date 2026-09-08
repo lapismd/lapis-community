@@ -1,6 +1,5 @@
 <script lang="ts">
   import "../community-confirm-dialog.css";
-  import { Badge } from "@lapismd/design-core/shadcn/badge";
   import * as AlertDialog from "@lapismd/design-core/shadcn/alert-dialog";
   import { Button } from "@lapismd/design-core/shadcn/button";
   import * as Collapsible from "@lapismd/design-core/shadcn/collapsible";
@@ -25,6 +24,8 @@
   } from "../../registry/index.js";
   import { registryPluginIcon } from "../registry-plugin-icons.js";
   import { provideRegistryImageLoader } from "../registry-verified-image/context.js";
+  import CommunityChip from "../community-chip/CommunityChip.svelte";
+  import { communityChipToneForState } from "../community-chip/model.js";
   import RegistryVerifiedImage from "../registry-verified-image/RegistryVerifiedImage.svelte";
   import RegistryPluginPreview from "./RegistryPluginPreview.svelte";
   import { useCommunityApplicationAuthentication } from "../community-application/authentication-context.js";
@@ -315,13 +316,11 @@
           {/if}
         </span>
         <span class="registry-release-disclosure__categories">
-          <Badge
-            class="registry-release-disclosure__state"
-            variant="outline"
-            data-state={inspection.state}>{stateLabel}</Badge
+          <CommunityChip tone={communityChipToneForState(inspection.state)}
+            >{stateLabel}</CommunityChip
           >
           {#each summaryEntry?.categories.slice(0, 3) ?? [] as category}
-            <span>{titleCaseRegistryValue(category)}</span>
+            <CommunityChip>{titleCaseRegistryValue(category)}</CommunityChip>
           {/each}
         </span>
       </span>
@@ -592,48 +591,6 @@
   }
   .registry-release-disclosure__metadata {
     min-width: 0;
-  }
-  .registry-release-disclosure__categories > span {
-    display: inline-flex;
-    min-height: 1.45rem;
-    align-items: center;
-    border: 1px solid color-mix(in srgb, var(--foreground) 14%, var(--border));
-    border-radius: 999px;
-    padding: 0.18rem 0.55rem;
-    color: var(--foreground);
-    background: color-mix(in srgb, var(--background) 76%, transparent);
-    font-weight: 500;
-    line-height: 1;
-  }
-  :global(.registry-release-disclosure__state) {
-    min-height: 1.45rem;
-    border-color: color-mix(in srgb, var(--primary) 38%, var(--border));
-    border-radius: 999px;
-    padding-inline: 0.55rem;
-    color: var(--foreground);
-    background: color-mix(in srgb, var(--primary) 12%, var(--background));
-    font-weight: 550;
-    line-height: 1;
-  }
-  :global(.registry-release-disclosure__state[data-state="approved"]) {
-    border-color: color-mix(in srgb, #16a34a 44%, var(--border));
-    color: color-mix(in srgb, #16a34a 70%, var(--foreground));
-    background: color-mix(in srgb, #16a34a 14%, var(--background));
-  }
-  :global(.registry-release-disclosure__state[data-state="pending"]) {
-    border-color: color-mix(in srgb, #d97706 42%, var(--border));
-    color: color-mix(in srgb, #b45309 78%, var(--foreground));
-    background: color-mix(in srgb, #f59e0b 13%, var(--background));
-  }
-  :global(
-      .registry-release-disclosure__state[data-state="invalid"],
-      .registry-release-disclosure__state[data-state="rejected"],
-      .registry-release-disclosure__state[data-state="revoked"],
-      .registry-release-disclosure__state[data-state="withdrawn"]
-    ) {
-    border-color: color-mix(in srgb, var(--destructive) 42%, var(--border));
-    color: var(--foreground);
-    background: color-mix(in srgb, var(--destructive) 10%, var(--background));
   }
   .registry-release-disclosure__status {
     display: flex;

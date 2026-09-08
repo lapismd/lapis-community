@@ -1,6 +1,5 @@
 <script lang="ts">
   import "./CommunityNavigation.css";
-  import { Badge } from "@lapismd/design-core/shadcn/badge";
   import { Button } from "@lapismd/design-core/shadcn/button";
   import * as Collapsible from "@lapismd/design-core/shadcn/collapsible";
   import * as CommandView from "@lapismd/design-core/shadcn/command-view";
@@ -40,6 +39,7 @@
   import TrashIcon from "@lucide/svelte/icons/trash-2";
   import UserRoundPlusIcon from "@lucide/svelte/icons/user-round-plus";
   import { type Component, type Snippet } from "svelte";
+  import CommunityChip from "../community-chip/CommunityChip.svelte";
   import CommunityMemberAvatar from "../community-member-avatar/CommunityMemberAvatar.svelte";
   import {
     type CommunityNavigationItemModel,
@@ -519,12 +519,13 @@
               <ItemIcon aria-hidden="true" />
               <span>{item.label}</span>
               {#if item.unreadCount}
-                <Badge
-                  variant="secondary"
-                  aria-label={countsUpdating
+                <CommunityChip
+                  variant="muted"
+                  size="compact"
+                  ariaLabel={countsUpdating
                     ? `${item.unreadCount} or more unread; older history is updating`
                     : `${item.unreadCount} unread`}
-                  >{item.unreadCount}{countsUpdating ? "+" : ""}</Badge
+                  >{item.unreadCount}{countsUpdating ? "+" : ""}</CommunityChip
                 >
               {/if}
             </Button>
@@ -821,10 +822,12 @@
                               class="lc-community-navigation__state-icon"
                               aria-label="Starred"
                             />{/if}
-                          {#if item.unreadCount}<Badge variant="secondary"
+                          {#if item.unreadCount}<CommunityChip
+                              variant="muted"
+                              size="compact"
                               >{item.unreadCount}{countsUpdating
                                 ? "+"
-                                : ""}</Badge
+                                : ""}</CommunityChip
                             >{/if}
                         </Button>
                       </ContextMenu.Trigger>

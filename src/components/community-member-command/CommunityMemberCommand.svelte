@@ -1,6 +1,5 @@
 <script lang="ts">
   import { Button } from "@lapismd/design-core/shadcn/button";
-  import { Badge } from "@lapismd/design-core/shadcn/badge";
   import { Checkbox } from "@lapismd/design-core/shadcn/checkbox";
   import * as Command from "@lapismd/design-core/shadcn/command";
   import * as Dialog from "@lapismd/design-core/shadcn/dialog";
@@ -12,6 +11,7 @@
   import XIcon from "@lucide/svelte/icons/x";
 
   import CommunityMemberAvatar from "../community-member-avatar/CommunityMemberAvatar.svelte";
+  import CommunityChip from "../community-chip/CommunityChip.svelte";
   import type {
     CommunityMemberModel,
     CommunityRoleDefinition,
@@ -208,9 +208,9 @@
     <span class="community-member-command__member-heading">
       <strong>{memberName(member)}</strong>
       {#if member.administrator}
-        <Badge variant="secondary">Administrator</Badge>
+        <CommunityChip variant="muted">Administrator</CommunityChip>
       {:else if member.role && member.role !== "member"}
-        <Badge variant="outline">{member.role}</Badge>
+        <CommunityChip>{member.role}</CommunityChip>
       {/if}
     </span>
     <small>
@@ -262,15 +262,13 @@
     >
       {#each selectedIds as id (id)}
         {@const member = members.find((candidate) => candidate.id === id)}
-        <Button
-          type="button"
-          variant="secondary"
-          size="sm"
+        <CommunityChip
+          variant="muted"
           onclick={() => member && onRemove(member)}
         >
           {member?.name ?? id.slice(0, 12)}
           <XIcon data-icon="inline-end" aria-hidden="true" />
-        </Button>
+        </CommunityChip>
       {/each}
     </div>
   {/if}
@@ -418,7 +416,7 @@
             <strong>Member</strong>
             <small>Can access this {roomNoun} under the relay's policy.</small>
           </span>
-          <Badge variant="secondary">Always on</Badge>
+          <CommunityChip variant="muted">Always on</CommunityChip>
         </div>
         {#each availableRoleDefinitions as definition (definition.id)}
           <label class="community-member-role-dialog__role">

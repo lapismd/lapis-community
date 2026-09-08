@@ -23,6 +23,7 @@
     type RegistryCatalogStatus,
     type RegistryDirectoryState,
   } from "../../registry/index.js";
+  import CommunityChip from "../community-chip/CommunityChip.svelte";
   import { registryFilterIcon } from "../registry-filter-icons.js";
   import RegistryPluginCard from "../registry-plugin-card/RegistryPluginCard.svelte";
 
@@ -472,37 +473,39 @@
           aria-label="Active filters"
         >
           {#each directoryState.categories as value}
-            <button
-              type="button"
+            <CommunityChip
+              variant="muted"
               onclick={() => toggleListValue("categories", value)}
               >{titleCaseRegistryValue(value)}
-              <XIcon aria-hidden="true" /></button
+              <XIcon data-icon="inline-end" aria-hidden="true" /></CommunityChip
             >
           {/each}
           {#each directoryState.platforms as value}
-            <button
-              type="button"
+            <CommunityChip
+              variant="muted"
               onclick={() => toggleListValue("platforms", value)}
               >{titleCaseRegistryValue(value)}
-              <XIcon aria-hidden="true" /></button
+              <XIcon data-icon="inline-end" aria-hidden="true" /></CommunityChip
             >
           {/each}
           {#each directoryState.statuses as value}
-            <button
-              type="button"
+            <CommunityChip
+              variant="muted"
               onclick={() => toggleListValue("statuses", value)}
-              >{registryStatusLabel(value)} <XIcon aria-hidden="true" /></button
+              >{registryStatusLabel(value)}
+              <XIcon data-icon="inline-end" aria-hidden="true" /></CommunityChip
             >
           {/each}
           {#if directoryState.officialOnly}
-            <button
-              type="button"
+            <CommunityChip
+              variant="muted"
               onclick={() => replaceState({ officialOnly: false })}
-              >Official <XIcon aria-hidden="true" /></button
+              >Official
+              <XIcon data-icon="inline-end" aria-hidden="true" /></CommunityChip
             >
           {/if}
-          <button type="button" class="clear" onclick={resetFilters}
-            >Clear all</button
+          <Button type="button" size="sm" variant="ghost" onclick={resetFilters}
+            >Clear all</Button
           >
         </div>
       {/if}
@@ -801,29 +804,6 @@
     display: flex;
     flex-wrap: wrap;
     gap: 0.4rem;
-  }
-
-  .registry-directory__active-filters button {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.25rem;
-    border: 1px solid var(--border);
-    border-radius: 999px;
-    padding: 0.3rem 0.55rem;
-    color: var(--foreground);
-    background: var(--muted);
-    font-size: 0.78rem;
-    cursor: pointer;
-  }
-
-  .registry-directory__active-filters button.clear {
-    border-color: transparent;
-    color: var(--muted-foreground);
-    background: transparent;
-  }
-
-  .registry-directory__active-filters :global(svg) {
-    width: 0.8rem;
   }
 
   .registry-directory__list {

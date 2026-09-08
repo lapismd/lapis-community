@@ -5,6 +5,7 @@
   import HandIcon from "@lucide/svelte/icons/hand";
   import MessageCircleIcon from "@lucide/svelte/icons/message-circle";
 
+  import CommunityChip from "../community-chip/CommunityChip.svelte";
   import CommunityMemberAvatar from "../community-member-avatar/CommunityMemberAvatar.svelte";
   import type { CommunityMemberModel } from "../community-workspace/model.js";
 
@@ -34,25 +35,29 @@
 <HoverCard.Root {openDelay} closeDelay={120}>
   <HoverCard.Trigger>
     {#snippet child({ props })}
-      <button
-        {...props}
-        type="button"
-        class="community-member-hover-card__trigger"
-        class:community-member-hover-card__trigger--mention={trigger ===
-          "mention"}
-        data-size={avatarSize}
-        aria-label={trigger === "mention"
-          ? triggerLabel
-          : `View ${member.name}'s profile`}
-        onclick={() => onOpenProfile?.(member)}
-      >
-        {#if trigger === "mention"}
+      {#if trigger === "mention"}
+        <CommunityChip
+          buttonProps={props}
+          variant="muted"
+          size="inline"
+          ariaLabel={triggerLabel}
+          onclick={() => onOpenProfile?.(member)}
+        >
           <CommunityMemberAvatar {member} size="small" decorative />
           <span>{triggerLabel}</span>
-        {:else}
+        </CommunityChip>
+      {:else}
+        <button
+          {...props}
+          type="button"
+          class="community-member-hover-card__trigger"
+          data-size={avatarSize}
+          aria-label={`View ${member.name}'s profile`}
+          onclick={() => onOpenProfile?.(member)}
+        >
           <CommunityMemberAvatar {member} size={avatarSize} decorative />
-        {/if}
-      </button>
+        </button>
+      {/if}
     {/snippet}
   </HoverCard.Trigger>
 
@@ -132,25 +137,6 @@
     border-radius: 50%;
     background: transparent;
     cursor: pointer;
-  }
-
-  .community-member-hover-card__trigger--mention {
-    display: inline-flex;
-    width: auto;
-    height: auto;
-    align-items: center;
-    gap: 0.22em;
-    padding: 0.08em 0.3em;
-    border-radius: calc(var(--radius) - 0.2rem);
-    background: var(--secondary);
-    box-decoration-break: clone;
-    color: var(--secondary-foreground);
-    font: inherit;
-    font-weight: 600;
-    line-height: inherit;
-    text-align: start;
-    vertical-align: middle;
-    -webkit-box-decoration-break: clone;
   }
 
   .community-member-hover-card__trigger[data-size="small"] {

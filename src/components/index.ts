@@ -1,5 +1,15 @@
 export { default as CommunityApplication } from "./community-application/CommunityApplicationRoot.svelte";
 export type { CommunityApplicationLoginOptions } from "./community-application/model.js";
+export { default as CommunityChip } from "./community-chip/CommunityChip.svelte";
+export {
+  COMMUNITY_CHIP_SIZES,
+  COMMUNITY_CHIP_TONES,
+  COMMUNITY_CHIP_VARIANTS,
+  communityChipToneForState,
+  type CommunityChipSize,
+  type CommunityChipTone,
+  type CommunityChipVariant,
+} from "./community-chip/model.js";
 export { default as CommunityLogin } from "./community-login/CommunityLogin.svelte";
 export {
   COMMUNITY_LOGIN_METHODS,

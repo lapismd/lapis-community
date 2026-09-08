@@ -77,4 +77,13 @@ export default defineConfig(tableRequirements(), {
       ],
     },
   },
+  check: {
+    lanes: [
+      {
+        name: "community chips",
+        command: "node",
+        args: ["scripts/check-community-chips.mjs"],
+      },
+    ],
+  },
 });

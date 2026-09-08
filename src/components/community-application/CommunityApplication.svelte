@@ -4056,7 +4056,6 @@
     justify-content: space-between;
     gap: 1rem;
     padding: 0.625rem 0.75rem 0.625rem 1rem;
-    border-block-end: 1px solid var(--border);
   }
 
   .community-application__release-sheet-header h1 {

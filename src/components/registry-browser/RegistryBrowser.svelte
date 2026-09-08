@@ -3,7 +3,6 @@
   import { Button } from "@lapismd/design-core/shadcn/button";
   import * as AlertDialog from "@lapismd/design-core/shadcn/alert-dialog";
   import * as ButtonGroup from "@lapismd/design-core/shadcn/button-group";
-  import { Badge } from "@lapismd/design-core/shadcn/badge";
   import * as Breadcrumb from "@lapismd/design-core/shadcn/breadcrumb";
   import * as Empty from "@lapismd/design-core/shadcn/empty";
   import { Skeleton } from "@lapismd/design-core/shadcn/skeleton";
@@ -17,6 +16,8 @@
   import ShieldAlertIcon from "@lucide/svelte/icons/shield-alert";
   import TriangleAlertIcon from "@lucide/svelte/icons/triangle-alert";
   import { onMount, untrack } from "svelte";
+
+  import CommunityChip from "../community-chip/CommunityChip.svelte";
 
   import CommunityEmojiPicker from "../community-emoji-picker/CommunityEmojiPicker.svelte";
   import CommunitySummary from "../community-summary/CommunitySummary.svelte";
@@ -550,16 +551,18 @@
         <MessagesSquareIcon data-icon="inline-start" aria-hidden="true" />
         Reviews
         {#if communityController?.commentCountAvailable}
-          <Badge
-            variant="secondary"
-            aria-label={communityController.commentTotalApproximate
+          <CommunityChip
+            class="registry-browser__community-count"
+            variant="muted"
+            size="compact"
+            ariaLabel={communityController.commentTotalApproximate
               ? `Approximately ${communityController.commentTotal} posts`
               : `${communityController.commentTotal} posts`}
           >
             {communityController.commentTotalApproximate
               ? "~"
               : ""}{communityController.commentTotal}
-          </Badge>
+          </CommunityChip>
         {/if}
       </Button>
     </ButtonGroup.Root>
@@ -1056,18 +1059,8 @@
     box-shadow: inset 0 -2px 0 var(--primary);
   }
 
-  :global(.registry-browser__community-actions [data-ui-component="badge"]) {
-    min-width: 1.5rem;
-    justify-content: center;
+  :global(.registry-browser__community-count[data-ui-part="community-chip"]) {
     margin-inline-start: 0.2rem;
-    border: 1px solid color-mix(in srgb, var(--primary) 18%, var(--border));
-    border-radius: 999px;
-    padding-inline: 0.38rem;
-    color: var(--foreground);
-    background: color-mix(in srgb, var(--primary) 7%, var(--muted));
-    font-size: 0.7rem;
-    font-variant-numeric: tabular-nums;
-    line-height: 1;
   }
 
   .registry-browser__reviews {

@@ -23,6 +23,7 @@
     CommunityCustomEmoji,
     CommunityMessageReport,
   } from "../../community/index.js";
+  import CommunityChip from "../community-chip/CommunityChip.svelte";
   import CommunityEmojiPicker from "../community-emoji-picker/CommunityEmojiPicker.svelte";
   import CommunityMarkdownContent from "../community-markdown-content/CommunityMarkdownContent.svelte";
   import CommunityMemberAvatar from "../community-member-avatar/CommunityMemberAvatar.svelte";
@@ -506,12 +507,10 @@
       {/if}
       {#if message.edited}<span>(edited)</span>{/if}
       {#if showReplySummary}
-        <Button
-          type="button"
-          variant="ghost"
-          size="xs"
+        <CommunityChip
+          variant="muted"
           class="community-message__reply-summary"
-          aria-label={replyLabel}
+          ariaLabel={replyLabel}
           onclick={() => onOpenThread?.(message.id)}
         >
           {#if replyParticipants.length}
@@ -528,7 +527,7 @@
             </span>
           {/if}
           <span>{replyLabel}</span>
-        </Button>
+        </CommunityChip>
       {/if}
     </div>
   {/snippet}
@@ -706,24 +705,6 @@
     min-height: 1.5rem;
     margin-top: 0;
     line-height: 1;
-  }
-
-  :global(.community-message__reply-summary[data-ui-component="button"]) {
-    height: 1.5rem;
-    gap: 0.4rem;
-    padding: 0 0.35rem;
-    border-radius: 999px;
-    color: var(--muted-foreground);
-    font-size: 0.72rem;
-    line-height: 1;
-  }
-
-  :global(.community-message__reply-summary[data-ui-component="button"]:hover),
-  :global(
-      .community-message__reply-summary[data-ui-component="button"]:focus-visible
-    ) {
-    color: var(--foreground);
-    background: color-mix(in srgb, var(--foreground) 8%, transparent);
   }
 
   .community-message__reply-avatars {

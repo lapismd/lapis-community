@@ -145,6 +145,14 @@
     await expect(
       canvas.getByRole("link", { name: "By Lapis Labs" }),
     ).toBeVisible();
+    for (const label of ["Desktop", "Web"]) {
+      const chip = canvas
+        .getByText(label)
+        .closest<HTMLElement>('[data-ui-part="community-chip"]');
+      await expect(chip).not.toBeNull();
+      await expect(chip).toHaveAttribute("data-ui-component", "badge");
+      await expect(chip?.querySelector("svg")).not.toBeNull();
+    }
     await expect(
       canvas.getAllByRole("button", { name: /Open screenshot/u }),
     ).toHaveLength(2);
@@ -199,7 +207,15 @@
       ),
     );
     await userEvent.click(canvas.getByRole("tab", { name: /Releases/u }));
-    await expect(canvas.getAllByText("Signed bundle")).toHaveLength(2);
+    const signedBundles = canvas.getAllByText("Signed bundle");
+    await expect(signedBundles).toHaveLength(2);
+    for (const signedBundle of signedBundles) {
+      await expect(signedBundle).toHaveAttribute("data-ui-component", "badge");
+      await expect(signedBundle).toHaveAttribute(
+        "data-ui-part",
+        "community-chip",
+      );
+    }
     await userEvent.click(canvas.getByRole("tab", { name: "Details" }));
     await expect(canvas.getByText("Current version")).toBeVisible();
     await userEvent.click(canvas.getByRole("tab", { name: "Changelog" }));

@@ -335,14 +335,14 @@
   font-weight: 650;
 }
 
-.lc-community-navigation__item > span:not([data-ui-component="badge"]) {
+.lc-community-navigation__item > span:not([data-ui-part="community-chip"]) {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.lc-community-navigation__item [data-ui-component="badge"] {
+.lc-community-navigation__item [data-ui-part="community-chip"] {
   margin-inline-start: auto;
 }
 

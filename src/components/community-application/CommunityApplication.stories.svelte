@@ -2038,6 +2038,11 @@
       '[data-ui-part="release-sheet"]',
     );
     await expect(reviewsSheet).not.toBeNull();
+    const reviewsHeader = reviewsHeading.closest("header");
+    await expect(reviewsHeader).not.toBeNull();
+    await expect(getComputedStyle(reviewsHeader!).borderBottomWidth).toBe(
+      "0px",
+    );
     await waitFor(() =>
       expect(
         canvas.queryByRole("navigation", { name: "Plugin release overview" }),
@@ -2054,6 +2059,27 @@
     await expect(
       canvas.getByRole("heading", { name: "Reviewed", level: 2 }),
     ).toBeVisible();
+    const reviewedEntry = canvas.getAllByRole("article", {
+      name: /Approved$/u,
+    })[0]!;
+    const approvedBadges = within(reviewedEntry).getAllByText("Approved");
+    await expect(approvedBadges.length).toBeGreaterThanOrEqual(2);
+    const reviewStateBadge = approvedBadges[0]!;
+    const pluginStateBadge = approvedBadges[1]!;
+    await expect(reviewStateBadge).toHaveAttribute(
+      "data-ui-component",
+      "badge",
+    );
+    await expect(reviewStateBadge).toHaveAttribute(
+      "data-ui-part",
+      "community-chip",
+    );
+    await expect(reviewStateBadge).toHaveAttribute("data-chip-tone", "success");
+    const reviewStateStyle = getComputedStyle(reviewStateBadge);
+    const pluginStateStyle = getComputedStyle(pluginStateBadge);
+    await expect(reviewStateStyle.fontSize).toBe(pluginStateStyle.fontSize);
+    await expect(reviewStateStyle.lineHeight).toBe(pluginStateStyle.lineHeight);
+    await expect(reviewStateStyle.fontWeight).toBe(pluginStateStyle.fontWeight);
 
     await userEvent.click(
       canvas.getByRole("button", { name: "Close Reviews" }),

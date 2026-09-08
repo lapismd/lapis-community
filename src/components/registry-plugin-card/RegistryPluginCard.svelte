@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { Badge } from "@lapismd/design-core/shadcn/badge";
   import BookmarkIcon from "@lucide/svelte/icons/bookmark";
   import FileTextIcon from "@lucide/svelte/icons/file-text";
   import HistoryIcon from "@lucide/svelte/icons/history";
@@ -16,6 +15,8 @@
     titleCaseRegistryValue,
     type RegistryCatalogEntry,
   } from "../../registry/index.js";
+  import CommunityChip from "../community-chip/CommunityChip.svelte";
+  import { communityChipToneForState } from "../community-chip/model.js";
   import RegistryVerifiedImage from "../registry-verified-image/RegistryVerifiedImage.svelte";
 
   let {
@@ -104,14 +105,11 @@
         <span>{plugin.platforms.map(titleCaseRegistryValue).join(", ")}</span>
       </span>
       <span class="registry-plugin-card__categories" aria-label="Plugin tags">
-        <Badge
-          class="registry-plugin-card__status"
-          variant="outline"
-          data-status={plugin.status}
-          >{registryStatusLabel(plugin.status)}</Badge
+        <CommunityChip tone={communityChipToneForState(plugin.status)}
+          >{registryStatusLabel(plugin.status)}</CommunityChip
         >
         {#each plugin.categories.slice(0, 3) as category}
-          <span>{titleCaseRegistryValue(category)}</span>
+          <CommunityChip>{titleCaseRegistryValue(category)}</CommunityChip>
         {/each}
       </span>
     {/if}
@@ -226,26 +224,5 @@
     gap: 0.4rem 0.65rem;
     color: var(--muted-foreground);
     font-size: 0.75rem;
-  }
-
-  .registry-plugin-card__categories > span {
-    border: 1px solid var(--border);
-    border-radius: 999px;
-    padding: 0.15rem 0.45rem;
-    color: var(--foreground);
-    background: color-mix(in srgb, var(--secondary) 82%, var(--background));
-  }
-
-  :global(.registry-plugin-card__status) {
-    border-color: color-mix(in srgb, var(--primary) 34%, var(--border));
-    border-radius: 999px;
-    color: var(--foreground);
-    background: color-mix(in srgb, var(--primary) 12%, var(--background));
-  }
-
-  :global(.registry-plugin-card__status[data-status="active"]) {
-    border-color: color-mix(in srgb, #16a34a 44%, var(--border));
-    color: color-mix(in srgb, #16a34a 70%, var(--foreground));
-    background: color-mix(in srgb, #16a34a 14%, var(--background));
   }
 </style>

@@ -1,6 +1,5 @@
 <script lang="ts">
   import type { ComposerStatus } from "@lapismd/design-core/ai/chat";
-  import { Badge } from "@lapismd/design-core/shadcn/badge";
   import { Button } from "@lapismd/design-core/shadcn/button";
   import * as ContextMenu from "@lapismd/design-core/shadcn/context-menu";
   import * as DropdownMenu from "@lapismd/design-core/shadcn/dropdown-menu";
@@ -19,6 +18,7 @@
     CommunityTopicDraft,
   } from "../../community/index.js";
   import CommunityMemberAvatar from "../community-member-avatar/CommunityMemberAvatar.svelte";
+  import CommunityChip from "../community-chip/CommunityChip.svelte";
   import CommunityMemberHoverCard from "../community-member-hover-card/CommunityMemberHoverCard.svelte";
   import CommunityTopicComposer from "../community-topic-composer/CommunityTopicComposer.svelte";
   import {
@@ -169,8 +169,12 @@
       {/if}
       {#if topic.pinned}<span aria-label="Pinned topic">⌁</span>{/if}
       <strong>{topic.title}</strong>
-      {#if topic.solved}<Badge variant="secondary">Solved</Badge>{/if}
-      {#if !topic.unread && topic.isNew}<Badge variant="secondary">New</Badge
+      {#if topic.solved}<CommunityChip variant="muted" tone="success"
+          >Solved</CommunityChip
+        >{/if}
+      {#if !topic.unread && topic.isNew}<CommunityChip
+          variant="muted"
+          tone="accent">New</CommunityChip
         >{/if}
     </span>
     <span class="forum-topic-list__excerpt">{topic.excerpt}</span>
@@ -189,7 +193,7 @@
         />
       </span>
       {#each topic.tags ?? [] as tag (tag)}
-        <Badge variant="outline">{tag}</Badge>
+        <CommunityChip>{tag}</CommunityChip>
       {/each}
     </span>
   </span>

@@ -24,3 +24,9 @@ process against the seeded relay,
 rejects static index or detail requests, and exercises Blob-backed AI media in a
 real browser. It separately retains the materializer and built Astro route
 assertions without modifying the sibling renderer.
+
+The repository's deterministic script lane scans Community Svelte and CSS
+sources for direct Badge use outside `CommunityChip`, native chip-like markup,
+forged Badge hooks, and consumer-level chip appearance overrides before the
+remaining specification and pipeline checks run. Unit fixtures cover the
+accepted shared component boundary and rejected look-alikes or local restyles.
