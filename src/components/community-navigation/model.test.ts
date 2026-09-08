@@ -63,7 +63,39 @@ describe("community navigation", () => {
         label: "Projects",
         items: [],
       }),
-    ).toBe("section");
+    ).toBe("projects");
+  });
+
+  it("keeps a project parent when one of its attached channels matches", () => {
+    const model = {
+      primaryItems: [],
+      sections: [
+        {
+          id: "projects",
+          label: "Projects",
+          kind: "projects" as const,
+          items: [
+            {
+              id: "projects/community",
+              label: "Community",
+              kind: "projects" as const,
+              children: [
+                { id: "general", label: "#general", kind: "channel" as const },
+              ],
+            },
+          ],
+        },
+      ],
+    };
+
+    expect(
+      filterCommunityNavigation(model, "general").sections[0]?.items,
+    ).toEqual([
+      {
+        ...model.sections[0]!.items[0],
+        children: model.sections[0]!.items[0]!.children,
+      },
+    ]);
   });
 
   it("prepends unique starred channel and forum shortcuts while retaining originals", () => {

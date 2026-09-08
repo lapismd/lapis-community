@@ -32,6 +32,9 @@ export async function seedProjectStoryRelay(options: {
   owner: RegistrySigner;
   author: RegistrySigner;
 }): Promise<void> {
+  const relatedChannelId = options.channelId.startsWith("general-")
+    ? `support-${options.channelId.slice("general-".length)}`
+    : "support";
   const httpBaseUrl = relayHttpBaseUrl(options.relayUrl);
   const ownerSession = await options.source.open({
     relayUrl: options.relayUrl,
@@ -74,17 +77,17 @@ export async function seedProjectStoryRelay(options: {
     }
 
     if (!project) {
-      const event = await ownerSession.publishHttp(
-        createProjectTemplate(
-          {
-            identifier: "community-client",
-            name: "Community Client",
-            description: "The shared Lapis community experience.",
-            channelId: options.channelId,
-          },
-          1_700_000_010,
-        ),
+      const template = createProjectTemplate(
+        {
+          identifier: "community-client",
+          name: "Community Client",
+          description: "The shared Lapis community experience.",
+          channelId: options.channelId,
+        },
+        1_700_000_010,
       );
+      template.tags.push(["buzz-related-channel", relatedChannelId]);
+      const event = await ownerSession.publishHttp(template);
       catalog = await ownerSession.loadCatalog(options.channelId);
       project = catalog.projects.find(
         (candidate) => candidate.event.id === event.id,
@@ -236,6 +239,9 @@ function storyEvent(
 }
 
 export function createProjectStoryFixture(channelId = "general-projects") {
+  const relatedChannelId = channelId.startsWith("general-")
+    ? `support-${channelId.slice("general-".length)}`
+    : "support";
   const projectEvent = storyEvent(
     "1",
     30_621,
@@ -245,6 +251,7 @@ export function createProjectStoryFixture(channelId = "general-projects") {
       ["name", "Community Client"],
       ["description", "The shared Lapis community experience."],
       ["buzz-channel", channelId],
+      ["buzz-related-channel", relatedChannelId],
       ["r", projectStoryRepositoryCoordinate, "wss://relay.example.com"],
     ],
     "",
@@ -289,6 +296,7 @@ export function createProjectStoryFixture(channelId = "general-projects") {
     name: "Community Client",
     description: "The shared Lapis community experience.",
     channelId,
+    relatedChannelIds: [relatedChannelId],
     repositories: [
       {
         coordinate: projectStoryRepositoryCoordinate,

@@ -9,6 +9,7 @@ export interface LocalProjectForgeFixtureOptions {
   ownerPubkey: string;
   contributorPubkey: string;
   channelId: string;
+  relatedChannelId?: string;
   relayUrl: string;
   createdAt: number;
 }
@@ -48,6 +49,9 @@ export function createLocalProjectForgeFixture(
     ["a", repositoryCoordinate, options.relayUrl],
     ["a", taskAnchorCoordinate, options.relayUrl],
   );
+  if (options.relatedChannelId) {
+    project.tags.push(["buzz-related-channel", options.relatedChannelId]);
+  }
   const repository = createRepositoryTemplate(
     {
       identifier: repositoryIdentifier,

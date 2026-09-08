@@ -2,12 +2,14 @@ import type { RegistrySigner } from "../../auth/index.js";
 import type { CommunityCustomEmoji } from "../../community/index.js";
 import type {
   ProjectForgeBlobResponse,
+  ProjectForgeActivityItem,
   ProjectForgeCommit,
   ProjectForgeDataSource,
   ProjectForgeDiffFile,
   ProjectForgeProject,
   ProjectForgePullRequestDiff,
   ProjectForgeRepository,
+  ProjectForgeOverviewSurface,
   ProjectForgeSurface,
   ProjectForgeTreeResponse,
   ProjectTaskState,
@@ -61,10 +63,11 @@ export interface CommunityProjectsCreatePullRequest {
 }
 
 export interface CommunityProjectsProps {
-  view: "directory" | ProjectForgeSurface;
+  view: "directory" | ProjectForgeOverviewSurface | ProjectForgeSurface;
   projects: readonly ProjectForgeProject[];
   selectedProject?: ProjectForgeProject;
   repositories?: readonly ProjectForgeRepository[];
+  activity?: readonly ProjectForgeActivityItem[];
   tasks?: readonly ProjectTaskState[];
   pullRequests?: readonly PullRequestState[];
   selectedPullRequest?: PullRequestState;
@@ -82,6 +85,10 @@ export interface CommunityProjectsProps {
   error?: string;
   operation?: string;
   canCollaborate?: boolean;
+  onSelectView?: (
+    view: ProjectForgeOverviewSurface | ProjectForgeSurface,
+  ) => void;
+  onBack?: () => void;
   onSelectProject?: (project: ProjectForgeProject) => void;
   onCreateProject?: (input: CommunityProjectsCreateProject) => Promise<void>;
   onCreateRepository?: (

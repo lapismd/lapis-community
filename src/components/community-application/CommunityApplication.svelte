@@ -21,6 +21,7 @@
   import HashIcon from "@lucide/svelte/icons/hash";
   import HeadphonesIcon from "@lucide/svelte/icons/headphones";
   import GitPullRequestIcon from "@lucide/svelte/icons/git-pull-request";
+  import GitBranchIcon from "@lucide/svelte/icons/git-branch";
   import GitCommitHorizontalIcon from "@lucide/svelte/icons/git-commit-horizontal";
   import FilesIcon from "@lucide/svelte/icons/files";
   import ListTodoIcon from "@lucide/svelte/icons/list-todo";
@@ -47,6 +48,7 @@
   import { LAPIS_GROUPS, lapisGroupId } from "../../protocol/index.js";
   import {
     addRepositoryToProjectTemplate,
+    buildProjectForgeActivity,
     buzzWorkItemFilters,
     createBuzzCommentTemplate,
     createProjectTaskAnchorTemplate,
@@ -56,13 +58,17 @@
     createReviewDecisionTemplate,
     createTaskTemplate,
     createWorkItemStatusTemplate,
+    projectForgeBoundChannels,
+    projectForgeChildChannels,
     type ProjectForgeBlobResponse,
     type ProjectForgeCatalog,
     type ProjectForgeCommit,
+    type ProjectForgeCommitActivity,
     type ProjectForgeDataSource,
     type ProjectForgePullRequestDiff,
     type ProjectForgeSession,
     type ProjectForgeSurface,
+    type ProjectForgeOverviewSurface,
     type ProjectForgeTreeResponse,
     type ProjectForgeWorkItems,
     type PullRequestState,
@@ -366,6 +372,9 @@
   let projectOverviewInitialized = $state(false);
   let selectedPullRequestId = $state("");
   let projectCommits = $state.raw<readonly ProjectForgeCommit[]>([]);
+  let projectCommitActivity = $state.raw<readonly ProjectForgeCommitActivity[]>(
+    [],
+  );
   let selectedProjectCommit = $state.raw<ProjectForgeCommit>();
   let projectTree = $state.raw<ProjectForgeTreeResponse>();
   let projectBlob = $state.raw<ProjectForgeBlobResponse>();
@@ -415,6 +424,32 @@
     activeMainSurface?.startsWith("project-")
       ? (activeMainSurface.slice("project-".length) as ProjectForgeSurface)
       : undefined,
+  );
+  const projectsOverviewSurface = $derived<ProjectForgeOverviewSurface>(
+    activeMainSurface?.startsWith("projects-")
+      ? (activeMainSurface.slice(
+          "projects-".length,
+        ) as ProjectForgeOverviewSurface)
+      : "activity",
+  );
+  const activeProjectSurface = $derived<ProjectForgeSurface>(
+    selectedProjectSurface ?? "overview",
+  );
+  const projectActivity = $derived(
+    buildProjectForgeActivity(
+      projectCatalog,
+      projectWorkItems,
+      projectCommitActivity,
+    ),
+  );
+  const projectChannelCount = $derived(
+    new Set(
+      projectCatalog.projects.flatMap((project) =>
+        projectForgeBoundChannels(project, projectCatalog.repositories).map(
+          (binding) => binding.channelId,
+        ),
+      ),
+    ).size,
   );
   const selectedPullRequest = $derived(
     projectWorkItems.pullRequests.find(
@@ -469,9 +504,7 @@
     selectedProject !== undefined && selectedProjectSurface !== undefined,
   );
   const projectOverviewShown = $derived(
-    selectedProjectSurface === undefined &&
-      !projectOverviewSidebar.closed &&
-      !projectOverviewSidebar.collapsed,
+    !projectOverviewSidebar.closed && !projectOverviewSidebar.collapsed,
   );
   const releaseOverviewShown = $derived(
     activeMainSurface === undefined &&
@@ -618,6 +651,56 @@
         : []),
     ],
     sections: withStarredCommunityNavigationSection([
+      ...(hasProjects && projectCatalog.projects.length > 0
+        ? [
+            {
+              id: "projects",
+              label: "Projects",
+              kind: "projects" as const,
+              actions: [
+                {
+                  id: "browse",
+                  label: "Browse projects",
+                  icon: "browse" as const,
+                },
+              ],
+              sortable: true,
+              items: projectCatalog.projects.map((project) => ({
+                id: projectDestinationFromCoordinate(
+                  project.address.coordinate,
+                ),
+                label: project.name,
+                kind: "projects" as const,
+                initiallyExpanded:
+                  selectedProjectCoordinate === project.address.coordinate,
+                children: projectForgeChildChannels(
+                  project,
+                  projectCatalog.repositories,
+                ).flatMap((binding) => {
+                  const room = allRooms.find(
+                    (candidate) =>
+                      candidate.groupId === binding.channelId ||
+                      candidate.id === binding.channelId,
+                  );
+                  if (!room) return [];
+                  return [
+                    {
+                      id: room.id,
+                      label: `#${room.name}`,
+                      kind:
+                        room.kind === "direct"
+                          ? ("direct-message" as const)
+                          : room.kind,
+                      ...(room.private === undefined
+                        ? {}
+                        : { restricted: room.private }),
+                    },
+                  ];
+                }),
+              })),
+            },
+          ]
+        : []),
       ...workspace.navigationSections.map((section) => ({
         id: section.id,
         label: section.label,
@@ -896,7 +979,7 @@
   );
   const usesRoomToolbar = $derived(
     !isRegistryDestination &&
-      !isProjectDirectory &&
+      !isProjectsDestination &&
       (hasCommunitySurface || communityStartupPending) &&
       activeDestination !== "settings" &&
       activeDestination !== "inbox" &&
@@ -913,7 +996,9 @@
         : activeDestination === "pulse"
           ? "pulse"
           : isProjectsDestination
-            ? "projects"
+            ? selectedProjectCoordinate === undefined
+              ? "projects"
+              : activeDestination
             : "registry"
       : activeDestination === "settings"
         ? undefined
@@ -1313,16 +1398,6 @@
   });
 
   $effect(() => {
-    if (
-      selectedProject !== undefined &&
-      selectedProjectRoom !== undefined &&
-      workspace.activeRoomId !== selectedProjectRoom.id
-    ) {
-      community.actions.selectRoom(selectedProjectRoom.id);
-    }
-  });
-
-  $effect(() => {
     if (activePanel.kind === "none") {
       if (shell.right.collapsed) shell.right.expand();
       shell.right.close();
@@ -1341,7 +1416,7 @@
   });
 
   $effect(() => {
-    if (selectedProject === undefined || projectOverviewInitialized) return;
+    if (!isProjectsDestination || projectOverviewInitialized) return;
     projectOverviewInitialized = true;
     if (selectedProjectSurface !== undefined) return;
     if (initialShellLayout.projectOverview === undefined) {
@@ -1357,10 +1432,11 @@
     const destinationActive = isProjectsDestination;
     const projectCoordinate = selectedProjectCoordinate;
     const surface = selectedProjectSurface;
+    const overviewSurface = projectsOverviewSurface;
     const pullRequestId = selectedPullRequestId;
     const path = selectedProjectPath;
     community.state.authentication.status;
-    if (!options || !relayUrl || !destinationActive) return;
+    if (!options || !relayUrl) return;
 
     const controller = new AbortController();
     let openedSession: ProjectForgeSession | undefined;
@@ -1407,21 +1483,20 @@
         controller.signal,
       );
 
+      if (!destinationActive) return;
+
       const project = catalog.projects.find(
         (candidate) => candidate.address.coordinate === projectCoordinate,
       );
-      if (!project) {
-        projectWorkItems = { tasks: [], pullRequests: [], events: [] };
-        return;
-      }
-      const repositories = project.repositories
-        .map((reference) =>
-          catalog.repositories.find(
-            (repository) =>
-              repository.address.coordinate === reference.coordinate,
-          ),
-        )
-        .filter((repository) => repository !== undefined);
+      const projectsToLoad = project ? [project] : catalog.projects;
+      const repositoryCoordinates = new Set(
+        projectsToLoad.flatMap((candidate) =>
+          candidate.repositories.map((reference) => reference.coordinate),
+        ),
+      );
+      const repositories = catalog.repositories.filter((repository) =>
+        repositoryCoordinates.has(repository.address.coordinate),
+      );
       const workItemBundles = await Promise.all(
         repositories.map((repository) =>
           openedSession!.loadWorkItems(repository.event, controller.signal),
@@ -1450,20 +1525,69 @@
         );
       }
 
-      const hostedRepository = repositories.find(
+      const hostedRepositories = repositories.filter(
         (repository) => repository.repositoryClass === "hosted",
       );
+      if (!project && overviewSurface === "activity") {
+        const activityCommits = await Promise.all(
+          hostedRepositories.map(async (repository) => {
+            const owner = catalog.projects.find((candidate) =>
+              candidate.repositories.some(
+                (reference) =>
+                  reference.coordinate === repository.address.coordinate,
+              ),
+            );
+            if (!owner) return [];
+            try {
+              const response = await openedSession!.loadCommits(
+                repository.address.coordinate,
+                undefined,
+                controller.signal,
+              );
+              return response.commits.map((commit) => ({
+                projectCoordinate: owner.address.coordinate,
+                repositoryCoordinate: repository.address.coordinate,
+                commit,
+              }));
+            } catch {
+              return [];
+            }
+          }),
+        );
+        projectCommitActivity = activityCommits.flat();
+      } else if (!project) {
+        projectCommitActivity = [];
+      }
+
+      const hostedRepository = project ? hostedRepositories[0] : undefined;
       if (!hostedRepository) {
         projectCommits = [];
         projectTree = undefined;
         projectBlob = undefined;
-      } else if (surface === "commits") {
+      } else if (
+        surface === "commits" ||
+        surface === undefined ||
+        surface === "overview"
+      ) {
         const commits = await openedSession.loadCommits(
           hostedRepository.address.coordinate,
           undefined,
           controller.signal,
         );
         projectCommits = commits.commits;
+        const refs = await openedSession.loadRefs(
+          hostedRepository.address.coordinate,
+          controller.signal,
+        );
+        const revision = refs.head?.name ?? refs.head?.sha;
+        if (revision) {
+          projectTree = await openedSession.loadTree(
+            hostedRepository.address.coordinate,
+            revision,
+            "",
+            controller.signal,
+          );
+        }
       } else if (surface === "files") {
         const refs = await openedSession.loadRefs(
           hostedRepository.address.coordinate,
@@ -1820,6 +1944,18 @@
       mainSurface: `project-${surface}`,
     });
     lastAction = `opened-project-${surface}`;
+  }
+
+  function openProjectsOverviewSurface(
+    surface: ProjectForgeOverviewSurface,
+  ): void {
+    if (!isProjectDirectory) return;
+    pushLocation({
+      destination: "projects",
+      panel: activePanel,
+      mainSurface: `projects-${surface}`,
+    });
+    lastAction = `opened-projects-${surface}`;
   }
 
   function closeProjectSurface(): void {
@@ -2281,7 +2417,9 @@
     section: CommunityNavigationSectionModel,
     action: CommunityNavigationSectionActionModel,
   ): void {
-    if (action.id === "browse")
+    if (action.id === "browse" && section.id === "projects")
+      setDestination("projects", true);
+    else if (action.id === "browse")
       openRoomBrowser(section.id === "forums" ? "forum" : "channel");
     else if (action.id === "create")
       void runAuthenticated(() =>
@@ -3061,41 +3199,23 @@
 {/snippet}
 
 {#snippet projectOverviewToggle()}
-  {#if selectedProjectSurface !== undefined}
-    <Button
-      bind:ref={projectOverviewToggleElement}
-      type="button"
-      variant="ghost"
-      size="icon-sm"
-      aria-label="Show project overview"
-      title="Show project overview"
-      onclick={() => {
-        closeProjectSurface();
-        projectOverviewSidebar.expand();
-        lastAction = "opened-project-overview";
-      }}
-    >
-      <CodeXmlIcon aria-hidden="true" />
-    </Button>
-  {:else}
-    <AppShell.Sidebar.Toggle
-      bind:ref={projectOverviewToggleElement}
-      shellController={shell}
-      side="right"
-      sidebarController={projectOverviewSidebar}
-      sidebarName="project overview"
-      label={projectOverviewShown
-        ? "Hide project overview"
-        : "Show project overview"}
-      onclick={() => {
-        projectOverviewInitialized = true;
-        if (projectOverviewSidebar.collapsed) projectOverviewSidebar.close();
-        lastAction = projectOverviewSidebar.closed
-          ? "closed-project-overview"
-          : "opened-project-overview";
-      }}
-    />
-  {/if}
+  <AppShell.Sidebar.Toggle
+    bind:ref={projectOverviewToggleElement}
+    shellController={shell}
+    side="right"
+    sidebarController={projectOverviewSidebar}
+    sidebarName="project overview"
+    label={projectOverviewShown
+      ? "Hide project overview"
+      : "Show project overview"}
+    onclick={() => {
+      projectOverviewInitialized = true;
+      if (projectOverviewSidebar.collapsed) projectOverviewSidebar.close();
+      lastAction = projectOverviewSidebar.closed
+        ? "closed-project-overview"
+        : "opened-project-overview";
+    }}
+  />
 {/snippet}
 
 {#snippet projectOverviewRail()}
@@ -3114,80 +3234,134 @@
         class="community-application__project-overview"
         aria-label="Project overview"
       >
-        <Button
-          type="button"
-          variant="ghost"
-          class="community-application__project-overview-item"
-          onclick={() => openProjectSurface("tasks")}
-        >
-          <ListTodoIcon data-icon="inline-start" aria-hidden="true" />
-          <span>Tasks</span>
-          <CommunityChip
-            size="compact"
-            ariaLabel={`${projectWorkItems.tasks.length} tasks`}
-            >{projectWorkItems.tasks.length}</CommunityChip
+        {#if selectedProject}
+          <div class="community-application__project-overview-heading">
+            <strong>{selectedProject.name}</strong>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-sm"
+              aria-label="Add repository"
+              title="Add repository"
+              onclick={() => openProjectSurface("overview")}
+            >
+              <CodeXmlIcon aria-hidden="true" />
+            </Button>
+          </div>
+          {#each selectedProjectRepositories as repository (repository.address.coordinate)}
+            <div class="community-application__project-overview-repository">
+              <strong>{repository.name}</strong>
+              <span
+                >{repository.repositoryClass === "hosted"
+                  ? "Relay hosted"
+                  : repository.repositoryClass === "external"
+                    ? "Remote"
+                    : "Project task anchor"}</span
+              >
+            </div>
+          {/each}
+          <p class="community-application__project-overview-label">Details</p>
+          <Button
+            type="button"
+            variant="ghost"
+            class="community-application__project-overview-item"
+            onclick={() => openProjectSurface("commits")}
           >
-        </Button>
-        <Button
-          type="button"
-          variant="ghost"
-          class="community-application__project-overview-item"
-          onclick={() => openProjectSurface("reviews")}
-        >
-          <GitPullRequestIcon data-icon="inline-start" aria-hidden="true" />
-          <span>Reviews</span>
-          <CommunityChip
-            size="compact"
-            ariaLabel={`${projectWorkItems.pullRequests.length} reviews`}
-            >{projectWorkItems.pullRequests.length}</CommunityChip
+            <GitCommitHorizontalIcon
+              data-icon="inline-start"
+              aria-hidden="true"
+            />
+            <span>Latest</span>
+            <code>{projectCommits[0]?.sha.slice(0, 7) ?? "—"}</code>
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            class="community-application__project-overview-item"
+            onclick={() => openProjectSurface("files")}
           >
-        </Button>
-        <Button
-          type="button"
-          variant="ghost"
-          class="community-application__project-overview-item"
-          onclick={() => openProjectSurface("commits")}
-        >
-          <GitCommitHorizontalIcon
-            data-icon="inline-start"
-            aria-hidden="true"
-          />
-          <span>Commits</span>
-          <CommunityChip
-            size="compact"
-            ariaLabel={`${projectCommits.length} loaded commits`}
-            >{projectCommits.length}</CommunityChip
+            <FilesIcon data-icon="inline-start" aria-hidden="true" />
+            <span>Files</span>
+            <CommunityChip size="compact"
+              >{projectTree?.entries.length ?? 0}</CommunityChip
+            >
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            class="community-application__project-overview-item"
+            onclick={() => openProjectSurface("contributors")}
           >
-        </Button>
-        <Button
-          type="button"
-          variant="ghost"
-          class="community-application__project-overview-item"
-          onclick={() => openProjectSurface("files")}
-        >
-          <FilesIcon data-icon="inline-start" aria-hidden="true" />
-          <span>Files</span>
-          <CommunityChip
-            size="compact"
-            ariaLabel={`${projectTree?.entries.length ?? 0} loaded files`}
-            >{projectTree?.entries.length ?? 0}</CommunityChip
+            <UsersIcon data-icon="inline-start" aria-hidden="true" />
+            <span>Contributors</span>
+            <CommunityChip size="compact"
+              >{selectedProjectRoom?.memberCount ??
+                activeRoomMemberIds.length}</CommunityChip
+            >
+          </Button>
+        {:else}
+          <p class="community-application__project-overview-label">Activity</p>
+          <Button
+            type="button"
+            variant="ghost"
+            class="community-application__project-overview-item"
+            onclick={() => openProjectsOverviewSurface("projects")}
           >
-        </Button>
-        <Button
-          type="button"
-          variant="ghost"
-          class="community-application__project-overview-item"
-          onclick={() => openProjectSurface("people")}
-        >
-          <UsersIcon data-icon="inline-start" aria-hidden="true" />
-          <span>People</span>
-          <CommunityChip
-            size="compact"
-            ariaLabel={`${selectedProjectRoom?.memberCount ?? activeRoomMemberIds.length} project people`}
-            >{selectedProjectRoom?.memberCount ??
-              activeRoomMemberIds.length}</CommunityChip
+            <CodeXmlIcon data-icon="inline-start" aria-hidden="true" />
+            <span>Projects</span>
+            <CommunityChip size="compact"
+              >{projectCatalog.projects.length}</CommunityChip
+            >
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            class="community-application__project-overview-item"
+            onclick={() => openProjectsOverviewSurface("repositories")}
           >
-        </Button>
+            <GitBranchIcon data-icon="inline-start" aria-hidden="true" />
+            <span>Repositories</span>
+            <CommunityChip size="compact"
+              >{projectCatalog.repositories.filter(
+                (repository) => repository.repositoryClass !== "task-anchor",
+              ).length}</CommunityChip
+            >
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            class="community-application__project-overview-item"
+            onclick={() => openProjectsOverviewSurface("channels")}
+          >
+            <HashIcon data-icon="inline-start" aria-hidden="true" />
+            <span>Channels</span>
+            <CommunityChip size="compact">{projectChannelCount}</CommunityChip>
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            class="community-application__project-overview-item"
+            onclick={() => openProjectsOverviewSurface("tasks")}
+          >
+            <ListTodoIcon data-icon="inline-start" aria-hidden="true" />
+            <span>Tasks</span>
+            <CommunityChip size="compact"
+              >{projectWorkItems.tasks.length}</CommunityChip
+            >
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            class="community-application__project-overview-item"
+            onclick={() => openProjectsOverviewSurface("reviews")}
+          >
+            <GitPullRequestIcon data-icon="inline-start" aria-hidden="true" />
+            <span>Reviews</span>
+            <CommunityChip size="compact"
+              >{projectWorkItems.pullRequests.length}</CommunityChip
+            >
+          </Button>
+        {/if}
       </nav>
     </AppShell.Sidebar.Body>
   </AppShell.Sidebar>
@@ -3316,7 +3490,7 @@
   {canNavigateForward}
   onNavigateBack={() => navigateHistory(-1)}
   onNavigateForward={() => navigateHistory(1)}
-  {...selectedProject !== undefined
+  {...isProjectsDestination
     ? { headerEnd: projectOverviewToggle }
     : isPluginReleaseRoom
       ? { headerEnd: releaseOverviewToggle }
@@ -3467,18 +3641,83 @@
       </AppShell.Toolbar>
     {/if}
 
-    {#if isProjectDirectory}
+    {#if isProjectsDestination}
       <AppShell.Body layout="regions" label="Projects">
-        <AppShell.Body.Content label="Project directory">
+        <AppShell.Body.Content label={selectedProject?.name ?? "Projects"}>
           <CommunityProjects
-            view="directory"
+            view={selectedProject
+              ? activeProjectSurface
+              : projectsOverviewSurface}
             projects={projectCatalog.projects}
+            {...selectedProject === undefined ? {} : { selectedProject }}
+            repositories={selectedProject
+              ? selectedProjectRepositories
+              : projectCatalog.repositories}
+            activity={projectActivity}
+            tasks={projectWorkItems.tasks}
+            pullRequests={projectWorkItems.pullRequests}
+            {...selectedPullRequest === undefined
+              ? {}
+              : { selectedPullRequest }}
+            commits={projectCommits}
+            {...selectedProjectCommit === undefined
+              ? {}
+              : { selectedCommit: selectedProjectCommit }}
+            {...projectTree === undefined ? {} : { tree: projectTree }}
+            selectedPath={selectedProjectPath}
+            {...projectBlob === undefined ? {} : { blob: projectBlob }}
+            {...projectPullRequestDiff === undefined
+              ? {}
+              : { pullRequestDiff: projectPullRequestDiff }}
+            members={selectedProjectRoom === undefined
+              ? workspace.members
+              : workspace.members.filter((member) =>
+                  activeRoomMemberIds.includes(member.id),
+                )}
+            rooms={allRooms}
+            communityEmojis={community.state.settings.customEmojis}
+            {...workspace.currentMemberId === undefined
+              ? {}
+              : { currentMemberId: workspace.currentMemberId }}
             loading={projectLoading}
             error={projectError}
             operation={projectOperation}
             canCollaborate={authenticated}
+            onSelectView={(surface) => {
+              if (selectedProject)
+                openProjectSurface(surface as ProjectForgeSurface);
+              else
+                openProjectsOverviewSurface(
+                  surface as ProjectForgeOverviewSurface,
+                );
+            }}
+            onBack={() => setDestination("projects", true)}
             onSelectProject={selectProject}
             onCreateProject={createProject}
+            onCreateRepository={createRepository}
+            onCreateTask={createTask}
+            onUpdateTaskLifecycle={updateTaskLifecycle}
+            onCreatePullRequest={createPullRequest}
+            onSelectPullRequest={(pullRequest) => {
+              selectedPullRequestId = pullRequest.root.id;
+              projectPullRequestDiff = undefined;
+            }}
+            onClosePullRequest={() => {
+              selectedPullRequestId = "";
+              projectPullRequestDiff = undefined;
+            }}
+            onApprovePullRequest={(pullRequest) =>
+              publishReviewDecision(pullRequest, "approved")}
+            onRequestChanges={(pullRequest) =>
+              publishReviewDecision(pullRequest, "changes-requested")}
+            onUpdatePullRequestLifecycle={updatePullRequestLifecycle}
+            onAddPullRequestComment={publishPullRequestComment}
+            onAddInlineComment={publishInlineComment}
+            onSelectCommit={(commit) => (selectedProjectCommit = commit)}
+            onSelectPath={(path) => {
+              selectedProjectPath = path;
+              projectBlob = undefined;
+            }}
             onRetry={repairProjectMembership}
           />
         </AppShell.Body.Content>
@@ -4198,9 +4437,8 @@
     {@render releaseOverviewRail()}
     {@render releaseSheet()}
   {/if}
-  {#if selectedProject}
+  {#if isProjectsDestination}
     {@render projectOverviewRail()}
-    {@render projectSheet()}
   {/if}
 </CommunityAppShell>
 
@@ -4746,6 +4984,37 @@
     width: 100%;
     gap: 0.25rem;
     padding: 1rem 0.75rem;
+  }
+
+  .community-application__project-overview-heading {
+    display: grid;
+    min-height: 2rem;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0 0.5rem 0.4rem;
+  }
+
+  .community-application__project-overview-repository {
+    display: grid;
+    gap: 0.15rem;
+    padding: 0.5rem;
+    border-radius: var(--radius);
+  }
+
+  .community-application__project-overview-repository span,
+  .community-application__project-overview-label {
+    color: var(--muted-foreground);
+    font-size: 0.75rem;
+  }
+
+  .community-application__project-overview-label {
+    margin: 1rem 0.5rem 0.25rem;
+  }
+
+  :global(.community-application__project-overview-item code) {
+    color: var(--muted-foreground);
+    font-size: 0.72rem;
   }
 
   :global(

@@ -129,10 +129,16 @@
     await expect(
       await canvas.findByRole("navigation", { name: "Project overview" }),
     ).toBeVisible();
-    await expect(canvas.getByRole("button", { name: /Tasks/u })).toBeVisible();
-    await userEvent.click(canvas.getByRole("button", { name: /Reviews/u }));
+    await expect(canvas.getByRole("tab", { name: "Overview" })).toBeVisible();
     await expect(
-      await canvas.findByRole("heading", { name: "Reviews", level: 1 }),
+      await canvas.findByRole("heading", { name: "Projects" }),
+    ).toBeVisible();
+    await expect(
+      await canvas.findByRole("button", { name: "#support" }),
+    ).toBeVisible();
+    await userEvent.click(canvas.getByRole("tab", { name: "Review" }));
+    await expect(
+      await canvas.findByRole("heading", { name: "Reviews", level: 2 }),
     ).toBeVisible();
     await expect(
       await canvas.findByText(
@@ -150,6 +156,46 @@
       initialDestination={projectDestinationFromCoordinate(
         projectStoryProjectCoordinate,
       )}
+    />
+  {/snippet}
+</Story>
+
+<Story
+  name="Projects activity workspace"
+  play={async ({ canvas }) => {
+    const application = await canvas.findByTestId(
+      "full-community-application",
+      {},
+      { timeout: 15_000 },
+    );
+    await waitFor(
+      () =>
+        expect(application).toHaveAttribute(
+          "data-community-status",
+          "connected",
+        ),
+      { timeout: 15_000 },
+    );
+    await expect(
+      await canvas.findByRole("heading", { name: "Projects Activity" }),
+    ).toBeVisible();
+    await expect(canvas.getByRole("tab", { name: "Activity" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+    await expect(
+      canvas.getByRole("navigation", { name: "Project overview" }),
+    ).toBeVisible();
+    await expect(
+      await canvas.findByRole("button", { name: "Community Client" }),
+    ).toBeVisible();
+  }}
+>
+  {#snippet template()}
+    <CommunityApplicationStoryHarness
+      namespace="projects-activity"
+      projects
+      initialDestination="projects"
     />
   {/snippet}
 </Story>

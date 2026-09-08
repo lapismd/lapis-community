@@ -401,6 +401,7 @@ async function seed(): Promise<{
     ownerPubkey: getPublicKey(operatorSecret),
     contributorPubkey: getPublicKey(communitySecrets[0]!),
     channelId: lapisGroupId(LAPIS_GROUPS.pluginDevelopment),
+    relatedChannelId: lapisGroupId(LAPIS_GROUPS.general),
     relayUrl,
     createdAt,
   });

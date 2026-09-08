@@ -17,11 +17,22 @@ export const PROJECT_FORGE_KINDS = {
 } as const;
 
 export type ProjectForgeSurface =
+  | "overview"
   | "tasks"
   | "reviews"
   | "commits"
   | "files"
+  | "channels"
+  | "contributors"
   | "people";
+
+export type ProjectForgeOverviewSurface =
+  | "activity"
+  | "projects"
+  | "repositories"
+  | "tasks"
+  | "reviews"
+  | "channels";
 
 export interface NostrAddress {
   kind: number;
@@ -41,8 +52,15 @@ export interface ProjectForgeProject {
   name: string;
   description: string;
   channelId: string;
+  relatedChannelIds: readonly string[];
   visibility?: string;
   repositories: readonly ProjectRepositoryReference[];
+}
+
+export interface ProjectForgeBoundChannel {
+  channelId: string;
+  repositoryCoordinate?: string;
+  role: "home" | "related";
 }
 
 export type ProjectForgeRepositoryClass = "hosted" | "external" | "task-anchor";
@@ -203,6 +221,37 @@ export interface ProjectForgeCommit {
   author_date?: string;
   author_name?: string;
   author_email?: string;
+}
+
+export interface ProjectForgeCommitActivity {
+  projectCoordinate: string;
+  repositoryCoordinate: string;
+  commit: ProjectForgeCommit;
+}
+
+export type ProjectForgeActivityKind =
+  | "project"
+  | "repository"
+  | "task"
+  | "comment"
+  | "assignment"
+  | "review"
+  | "review-update"
+  | "approval"
+  | "changes-requested"
+  | "commit";
+
+export interface ProjectForgeActivityItem {
+  id: string;
+  kind: ProjectForgeActivityKind;
+  createdAt: number;
+  actorPubkey: string;
+  action: string;
+  title: string;
+  body: string;
+  detail?: string;
+  projectCoordinate: string;
+  repositoryCoordinate?: string;
 }
 
 export interface ProjectForgeCommitsResponse {

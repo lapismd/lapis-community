@@ -27,6 +27,8 @@ export interface CommunityNavigationItemModel {
   settingsReason?: string;
   leaveReason?: string;
   deleteReason?: string;
+  children?: readonly CommunityNavigationItemModel[];
+  initiallyExpanded?: boolean;
 }
 
 export type CommunityNavigationItemAction =
@@ -54,6 +56,7 @@ export interface CommunityNavigationCustomSectionOption {
 
 export type CommunityNavigationSectionKind =
   | "starred"
+  | "projects"
   | "channels"
   | "forums"
   | "direct-messages"
@@ -100,6 +103,7 @@ export function communityNavigationSectionKind(
 ): CommunityNavigationSectionKind {
   if (section.kind) return section.kind;
   if (section.id === "starred") return "starred";
+  if (section.id === "projects") return "projects";
   if (section.id === "channels") return "channels";
   if (section.id === "forums") return "forums";
   if (section.id === "direct-messages") return "direct-messages";
@@ -151,13 +155,25 @@ export function filterCommunityNavigation(
   const matches = (item: CommunityNavigationItemModel) =>
     item.label.toLocaleLowerCase().includes(normalizedQuery);
 
+  const filterItem = (
+    item: CommunityNavigationItemModel,
+  ): CommunityNavigationItemModel | undefined => {
+    if (matches(item)) return item;
+    const children = item.children?.filter(matches) ?? [];
+    return children.length > 0 ? { ...item, children } : undefined;
+  };
+
   return {
     ...model,
     primaryItems: model.primaryItems.filter(matches),
     sections: model.sections
       .map((section) => ({
         ...section,
-        items: section.items.filter(matches),
+        items: section.items
+          .map(filterItem)
+          .filter(
+            (item): item is CommunityNavigationItemModel => item !== undefined,
+          ),
       }))
       .filter((section) => section.items.length > 0),
   };

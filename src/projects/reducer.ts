@@ -350,12 +350,21 @@ export function projectFromEvent(
           PROJECT_FORGE_KINDS.repository,
         ) !== undefined,
     );
+  const channelId = firstTagValue(event, "buzz-channel");
+  const relatedChannelIds = [
+    ...new Set(
+      tagsNamed(event, "buzz-related-channel")
+        .map((tag) => tag[1]?.trim() ?? "")
+        .filter((value) => value !== "" && value !== channelId),
+    ),
+  ].slice(0, 64);
   return {
     event,
     address,
     name: firstTagValue(event, "name") || address.identifier,
     description: firstTagValue(event, "description") || event.content,
-    channelId: firstTagValue(event, "buzz-channel"),
+    channelId,
+    relatedChannelIds,
     ...(firstTagValue(event, "buzz-visibility")
       ? { visibility: firstTagValue(event, "buzz-visibility") }
       : {}),

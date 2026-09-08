@@ -12,6 +12,7 @@
   import * as Field from "@lapismd/design-core/shadcn/field";
   import { Input } from "@lapismd/design-core/shadcn/input";
   import * as Select from "@lapismd/design-core/shadcn/select";
+  import * as Tabs from "@lapismd/design-core/shadcn/tabs";
   import { Textarea } from "@lapismd/design-core/shadcn/textarea";
   import ArrowLeftIcon from "@lucide/svelte/icons/arrow-left";
   import CheckIcon from "@lucide/svelte/icons/check";
@@ -28,11 +29,13 @@
 
   import {
     splitProjectForgePatch,
+    projectForgeBoundChannels,
     type PullRequestComment,
   } from "../../projects/index.js";
   import CommunityChatComposer from "../community-chat-composer/CommunityChatComposer.svelte";
   import CommunityChip from "../community-chip/CommunityChip.svelte";
   import CommunityMemberAvatar from "../community-member-avatar/CommunityMemberAvatar.svelte";
+  import CommunityMarkdownContent from "../community-markdown-content/CommunityMarkdownContent.svelte";
   import CommunityMessage from "../community-message/CommunityMessage.svelte";
   import CommunityRelativeTime from "../community-relative-time/CommunityRelativeTime.svelte";
   import type {
@@ -53,6 +56,7 @@
     projects,
     selectedProject,
     repositories = [],
+    activity = [],
     tasks = [],
     pullRequests = [],
     selectedPullRequest,
@@ -70,6 +74,8 @@
     error = "",
     operation = "",
     canCollaborate = false,
+    onSelectView,
+    onBack,
     onSelectProject,
     onCreateProject,
     onCreateRepository,
@@ -151,6 +157,54 @@
     })) ?? [],
   );
   const busy = $derived(operation !== "");
+  const weekActivityCount = $derived(
+    activity.filter(
+      (item) => item.createdAt >= Math.floor(Date.now() / 1_000) - 604_800,
+    ).length,
+  );
+  const overviewTabs = [
+    { value: "activity", label: "Activity" },
+    { value: "projects", label: "Projects" },
+    { value: "repositories", label: "Repositories" },
+    { value: "tasks", label: "Tasks" },
+    { value: "reviews", label: "Reviews" },
+    { value: "channels", label: "Channels" },
+  ] as const;
+  const projectTabs = [
+    { value: "overview", label: "Overview" },
+    { value: "files", label: "Files" },
+    { value: "commits", label: "Commits" },
+    { value: "tasks", label: "Tasks" },
+    { value: "reviews", label: "Review" },
+    { value: "channels", label: "Channels" },
+    { value: "contributors", label: "Contributors" },
+  ] as const;
+  const projectChannels = $derived(
+    selectedProject
+      ? projectForgeBoundChannels(selectedProject, repositories).map(
+          (binding) => ({
+            ...binding,
+            projectCoordinate: selectedProject.address.coordinate,
+          }),
+        )
+      : projects.flatMap((project) =>
+          projectForgeBoundChannels(project, repositories).map((binding) => ({
+            ...binding,
+            projectCoordinate: project.address.coordinate,
+          })),
+        ),
+  );
+
+  function projectName(coordinate: string): string {
+    return (
+      projects.find((project) => project.address.coordinate === coordinate)
+        ?.name ?? "project"
+    );
+  }
+
+  function activityMember(pubkey: string): CommunityMemberModel {
+    return memberForPubkey(pubkey || "relay");
+  }
 
   function resetError(): void {
     localError = "";
@@ -357,12 +411,46 @@
   </header>
 {/snippet}
 
+<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
 <section
   class="community-projects"
   data-ui-component="community-projects"
   data-view={view}
   aria-busy={loading}
+  aria-label={selectedProject
+    ? `${selectedProject.name} project workspace`
+    : "Projects workspace"}
+  tabindex="0"
 >
+  <div class="community-projects__tabs">
+    {#if selectedProject && onBack}
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon-sm"
+        aria-label="Back to projects"
+        title="Back to projects"
+        onclick={onBack}
+      >
+        <ArrowLeftIcon aria-hidden="true" />
+      </Button>
+    {/if}
+    <Tabs.Root value={view === "directory" ? "projects" : view}>
+      <Tabs.List
+        aria-label={selectedProject
+          ? `${selectedProject.name} sections`
+          : "Project sections"}
+      >
+        {#each selectedProject ? projectTabs : overviewTabs as tab (tab.value)}
+          <Tabs.Trigger
+            value={tab.value}
+            onclick={() => onSelectView?.(tab.value)}>{tab.label}</Tabs.Trigger
+          >
+        {/each}
+      </Tabs.List>
+    </Tabs.Root>
+  </div>
+
   {#if error}
     <Alert.Root variant="destructive" class="community-projects__alert">
       <Alert.Title>Projects could not be loaded</Alert.Title>
@@ -375,7 +463,66 @@
     </Alert.Root>
   {/if}
 
-  {#if view === "directory"}
+  {#if view === "activity"}
+    <div class="community-projects__workspace">
+      <header class="community-projects__page-heading">
+        <h1>Projects Activity</h1>
+        <p>
+          This week: {weekActivityCount}
+          updates across {projects.length}
+          {projects.length === 1 ? "project" : "projects"}.
+        </p>
+      </header>
+      <div class="community-projects__section-divider">
+        <span>{weekActivityCount > 0 ? "This week" : "Earlier"}</span>
+      </div>
+      <div class="community-projects__activity">
+        {#each activity as item (item.id)}
+          {@const actor = activityMember(item.actorPubkey)}
+          <article class="community-projects__activity-item">
+            <CommunityMemberAvatar member={actor} decorative />
+            <span class="community-projects__activity-line" aria-hidden="true"
+            ></span>
+            <div class="community-projects__activity-copy">
+              <div>
+                <strong>{actor.name}</strong>
+                <span>{item.action} {projectName(item.projectCoordinate)}</span>
+              </div>
+              <CommunityRelativeTime timestamp={item.createdAt} />
+              <button
+                type="button"
+                class="community-projects__activity-card"
+                onclick={() => {
+                  const project = projects.find(
+                    (candidate) =>
+                      candidate.address.coordinate === item.projectCoordinate,
+                  );
+                  if (project) onSelectProject?.(project);
+                }}
+              >
+                <span class="community-projects__activity-title">
+                  {#if item.kind === "review" || item.kind === "approval" || item.kind === "changes-requested"}
+                    <GitPullRequestIcon aria-hidden="true" />
+                  {:else if item.kind === "commit"}
+                    <GitCommitHorizontalIcon aria-hidden="true" />
+                  {:else}
+                    <CodeXmlIcon aria-hidden="true" />
+                  {/if}
+                  <strong>{item.title}</strong>
+                </span>
+                {#if item.body}<span>{item.body}</span>{/if}
+                {#if item.detail}<CommunityChip size="compact"
+                    >{item.detail}</CommunityChip
+                  >{/if}
+              </button>
+            </div>
+          </article>
+        {:else}
+          <p class="community-projects__status">No project activity yet.</p>
+        {/each}
+      </div>
+    </div>
+  {:else if view === "directory" || view === "projects"}
     <header class="community-projects__directory-header">
       <div>
         <p class="community-projects__eyebrow">Nostr-native collaboration</p>
@@ -440,6 +587,111 @@
         {/each}
       </div>
     {/if}
+  {:else if view === "overview"}
+    <article class="community-projects__workspace community-projects__readme">
+      <header class="community-projects__page-heading">
+        <h1>{selectedProject?.name}</h1>
+        {#if selectedProject?.description}<p>
+            {selectedProject.description}
+          </p>{/if}
+      </header>
+      {#if tree?.readme}
+        <CommunityMarkdownContent
+          content={tree.readme}
+          {members}
+          {rooms}
+          {communityEmojis}
+        />
+      {:else if loading}
+        <p class="community-projects__status" role="status">
+          Loading repository overview…
+        </p>
+      {:else}
+        <Empty.Root class="community-projects__empty">
+          <Empty.Header>
+            <Empty.Media variant="icon"
+              ><FileIcon aria-hidden="true" /></Empty.Media
+            >
+            <Empty.Title>No repository overview yet</Empty.Title>
+            <Empty.Description>
+              Add a README to a relay-hosted repository to show it here.
+              External repositories remain linked without assuming local Git
+              access.
+            </Empty.Description>
+          </Empty.Header>
+        </Empty.Root>
+      {/if}
+    </article>
+  {:else if view === "repositories"}
+    {@render surfaceHeader(
+      "Repositories",
+      "Relay-hosted repositories and external repository announcements.",
+    )}
+    <div class="community-projects__list">
+      {#each repositories as repository (repository.address.coordinate)}
+        <article class="community-projects__row">
+          <span class="community-projects__row-icon"
+            ><GitBranchIcon aria-hidden="true" /></span
+          >
+          <div class="community-projects__row-main">
+            <strong>{repository.name}</strong>
+            <span
+              >{repository.description || repository.address.identifier}</span
+            >
+          </div>
+          <div class="community-projects__row-meta">
+            <CommunityChip size="compact"
+              >{repository.repositoryClass}</CommunityChip
+            >
+            {#if repository.webUrls[0]}
+              <a href={repository.webUrls[0]} target="_blank" rel="noreferrer">
+                <ExternalLinkIcon aria-hidden="true" /> Open
+              </a>
+            {/if}
+          </div>
+        </article>
+      {:else}
+        <p class="community-projects__status">No repositories are attached.</p>
+      {/each}
+    </div>
+  {:else if view === "channels"}
+    {@render surfaceHeader(
+      "Channels",
+      selectedProject
+        ? "The project home and attached Community channels."
+        : "Community channels attached to your projects.",
+    )}
+    <div class="community-projects__list">
+      {#each projectChannels as binding (`${binding.channelId}:${binding.repositoryCoordinate ?? ""}`)}
+        {@const room = rooms.find(
+          (candidate) =>
+            candidate.groupId === binding.channelId ||
+            candidate.id === binding.channelId,
+        )}
+        <article class="community-projects__row">
+          <span class="community-projects__row-icon"
+            ><CodeXmlIcon aria-hidden="true" /></span
+          >
+          <div class="community-projects__row-main">
+            <strong>#{room?.name ?? binding.channelId}</strong>
+            <span
+              >{binding.role === "home"
+                ? "Project home"
+                : "Attached channel"}</span
+            >
+          </div>
+          {#if !selectedProject}
+            <CommunityChip size="compact"
+              >{projectName(binding.projectCoordinate)}</CommunityChip
+            >
+          {/if}
+        </article>
+      {:else}
+        <p class="community-projects__status">
+          No project channels are available.
+        </p>
+      {/each}
+    </div>
   {:else if view === "tasks"}
     {@render surfaceHeader(
       "Tasks",
@@ -842,9 +1094,9 @@
           </p>{/if}
       </section>
     </div>
-  {:else if view === "people"}
+  {:else if view === "people" || view === "contributors"}
     {@render surfaceHeader(
-      "People",
+      "Contributors",
       "Project collaborators are inherited from the project's NIP-29 channel.",
     )}
     <div class="community-projects__people">

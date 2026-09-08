@@ -89,6 +89,7 @@
 
   let sectionOpen = $state<Record<string, boolean>>({});
   let sectionSort = $state<Record<string, CommunityNavigationSortOrder>>({});
+  let itemOpen = $state<Record<string, boolean>>({});
   let compactSectionId = $state("");
   let compactTooltipId = $state("");
   let compactSectionQuery = $state("");
@@ -136,6 +137,7 @@
   function iconForSection(section: CommunityNavigationSectionModel): Component {
     const kind = communityNavigationSectionKind(section);
     if (kind === "starred") return StarIcon;
+    if (kind === "projects") return FolderGit2Icon;
     if (kind === "channels") return HashIcon;
     if (kind === "forums") return MessagesSquareIcon;
     if (kind === "direct-messages") return MailsIcon;
@@ -154,7 +156,30 @@
   function sectionContainsActive(
     section: CommunityNavigationSectionModel,
   ): boolean {
-    return section.items.some((item) => item.id === activeItemId);
+    return section.items.some(
+      (item) =>
+        item.id === activeItemId ||
+        item.children?.some((child) => child.id === activeItemId),
+    );
+  }
+
+  function isItemOpen(item: CommunityNavigationItemModel): boolean {
+    return (
+      item.children?.some((child) => child.id === activeItemId) ||
+      item.initiallyExpanded ||
+      itemOpen[item.id] ||
+      false
+    );
+  }
+
+  function setItemOpen(itemId: string, open: boolean): void {
+    itemOpen = { ...itemOpen, [itemId]: open };
+  }
+
+  function compactItems(
+    section: CommunityNavigationSectionModel,
+  ): readonly CommunityNavigationItemModel[] {
+    return section.items.flatMap((item) => [item, ...(item.children ?? [])]);
   }
 
   function setCompactSectionOpen(sectionId: string, open: boolean): void {
@@ -619,7 +644,7 @@
                     >
                     {#if section.items.length}
                       <CommandView.Group heading={section.label}>
-                        {#each section.items as item (item.id)}
+                        {#each compactItems(section) as item (item.id)}
                           {@const ItemIcon = iconFor(item)}
                           <CommandView.Item
                             value={`${item.label} ${item.id}`}
@@ -791,73 +816,117 @@
               <div class="lc-community-navigation__items">
                 {#each sortedItems(section) as item (item.id)}
                   {@const ItemIcon = iconFor(item)}
-                  <div class="lc-community-navigation__item-row">
-                    <ContextMenu.Root>
-                      <ContextMenu.Trigger>
-                        <Button
-                          variant="ghost"
-                          size="default"
-                          class="lc-community-navigation__item"
-                          data-unread={item.unreadCount ? "" : undefined}
-                          data-active={activeItemId === item.id
-                            ? ""
-                            : undefined}
-                          aria-current={activeItemId === item.id
-                            ? "page"
-                            : undefined}
-                          aria-label={item.label}
-                          title={item.label}
-                          onclick={() => onSelect(item)}
-                        >
-                          {#if item.kind === "direct-message" && item.member}
-                            <CommunityMemberAvatar
-                              member={item.member}
-                              size="small"
-                              showPresence
-                              decorative
-                            />
-                          {:else}
-                            <ItemIcon aria-hidden="true" />
-                          {/if}
-                          <span>{item.label}</span>
-                          {#if item.starred}<StarIcon
-                              class="lc-community-navigation__state-icon"
-                              aria-label="Starred"
-                            />{/if}
-                          {#if item.unreadCount}<CommunityChip
-                              variant="muted"
-                              size="compact"
-                              >{item.unreadCount}{countsUpdating
-                                ? "+"
-                                : ""}</CommunityChip
-                            >{/if}
-                        </Button>
-                      </ContextMenu.Trigger>
-                      <ContextMenu.Content
-                        class="lc-community-navigation__item-menu-content"
-                        >{@render contextItemActions(item)}</ContextMenu.Content
-                      >
-                    </ContextMenu.Root>
-                    <DropdownMenu.Root>
-                      <DropdownMenu.Trigger
-                        >{#snippet child({ props })}<Button
-                            {...props}
+                  <Collapsible.Root
+                    class="lc-community-navigation__item-tree"
+                    open={item.children?.length ? isItemOpen(item) : false}
+                    onOpenChange={(open) => setItemOpen(item.id, open)}
+                  >
+                    <div class="lc-community-navigation__item-row">
+                      <ContextMenu.Root>
+                        <ContextMenu.Trigger>
+                          <Button
                             variant="ghost"
-                            size="icon-sm"
-                            class="lc-community-navigation__item-menu"
-                            aria-label={`Open ${item.label} menu`}
-                            ><EllipsisIcon aria-hidden="true" /></Button
-                          >{/snippet}</DropdownMenu.Trigger
-                      >
-                      <DropdownMenu.Content
-                        align="end"
-                        class="lc-community-navigation__item-menu-content"
-                        >{@render dropdownItemActions(
-                          item,
-                        )}</DropdownMenu.Content
-                      >
-                    </DropdownMenu.Root>
-                  </div>
+                            size="default"
+                            class="lc-community-navigation__item"
+                            data-unread={item.unreadCount ? "" : undefined}
+                            data-active={activeItemId === item.id
+                              ? ""
+                              : undefined}
+                            aria-current={activeItemId === item.id
+                              ? "page"
+                              : undefined}
+                            aria-label={item.label}
+                            title={item.label}
+                            onclick={() => onSelect(item)}
+                          >
+                            {#if item.kind === "direct-message" && item.member}
+                              <CommunityMemberAvatar
+                                member={item.member}
+                                size="small"
+                                showPresence
+                                decorative
+                              />
+                            {:else}
+                              <ItemIcon aria-hidden="true" />
+                            {/if}
+                            <span>{item.label}</span>
+                            {#if item.starred}<StarIcon
+                                class="lc-community-navigation__state-icon"
+                                aria-label="Starred"
+                              />{/if}
+                            {#if item.unreadCount}<CommunityChip
+                                variant="muted"
+                                size="compact"
+                                >{item.unreadCount}{countsUpdating
+                                  ? "+"
+                                  : ""}</CommunityChip
+                              >{/if}
+                          </Button>
+                        </ContextMenu.Trigger>
+                        <ContextMenu.Content
+                          class="lc-community-navigation__item-menu-content"
+                          >{@render contextItemActions(
+                            item,
+                          )}</ContextMenu.Content
+                        >
+                      </ContextMenu.Root>
+                      {#if item.children?.length}
+                        <Collapsible.Trigger
+                          class="lc-community-navigation__item-toggle"
+                          aria-label={`${isItemOpen(item) ? "Collapse" : "Expand"} ${item.label}`}
+                          title={`${isItemOpen(item) ? "Collapse" : "Expand"} ${item.label}`}
+                        >
+                          <ChevronRightIcon aria-hidden="true" />
+                        </Collapsible.Trigger>
+                      {:else}
+                        <DropdownMenu.Root>
+                          <DropdownMenu.Trigger
+                            >{#snippet child({ props })}<Button
+                                {...props}
+                                variant="ghost"
+                                size="icon-sm"
+                                class="lc-community-navigation__item-menu"
+                                aria-label={`Open ${item.label} menu`}
+                                ><EllipsisIcon aria-hidden="true" /></Button
+                              >{/snippet}</DropdownMenu.Trigger
+                          >
+                          <DropdownMenu.Content
+                            align="end"
+                            class="lc-community-navigation__item-menu-content"
+                            >{@render dropdownItemActions(
+                              item,
+                            )}</DropdownMenu.Content
+                          >
+                        </DropdownMenu.Root>
+                      {/if}
+                    </div>
+                    {#if item.children?.length}
+                      <Collapsible.Content>
+                        <div class="lc-community-navigation__item-children">
+                          {#each item.children as child (child.id)}
+                            {@const ChildIcon = iconFor(child)}
+                            <Button
+                              variant="ghost"
+                              size="default"
+                              class="lc-community-navigation__item lc-community-navigation__item--child"
+                              data-active={activeItemId === child.id
+                                ? ""
+                                : undefined}
+                              aria-current={activeItemId === child.id
+                                ? "page"
+                                : undefined}
+                              aria-label={child.label}
+                              title={child.label}
+                              onclick={() => onSelect(child)}
+                            >
+                              <ChildIcon aria-hidden="true" />
+                              <span>{child.label}</span>
+                            </Button>
+                          {/each}
+                        </div>
+                      </Collapsible.Content>
+                    {/if}
+                  </Collapsible.Root>
                 {/each}
               </div>
             </Collapsible.Content>

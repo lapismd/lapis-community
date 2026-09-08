@@ -226,6 +226,55 @@
   min-width: 0;
   align-items: center;
 }
+.lc-community-navigation__item-tree {
+  min-width: 0;
+}
+.lc-community-navigation__item-toggle {
+  position: absolute;
+  inset-inline-end: 0.35rem;
+  display: grid;
+  width: 1.5rem;
+  height: 1.5rem;
+  place-items: center;
+  border: 0;
+  border-radius: 0.45rem;
+  color: var(--muted-foreground);
+  background: transparent;
+  cursor: pointer;
+}
+.lc-community-navigation__item-toggle:hover,
+.lc-community-navigation__item-toggle:focus-visible {
+  color: var(--foreground);
+  background: color-mix(in srgb, var(--foreground) 8%, transparent);
+}
+.lc-community-navigation__item-toggle > svg {
+  width: 0.875rem;
+  height: 0.875rem;
+  transition: transform 120ms ease;
+}
+.lc-community-navigation__item-tree[data-state="open"]
+  .lc-community-navigation__item-toggle
+  > svg {
+  transform: rotate(90deg);
+}
+.lc-community-navigation__item-row:has(.lc-community-navigation__item-toggle)
+  .lc-community-navigation__item {
+  padding-inline-end: 2.25rem;
+}
+.lc-community-navigation__item-children {
+  display: grid;
+}
+.lc-community-navigation__item--child[data-ui-component="button"] {
+  --ui-button-padding-inline: 1.65rem 0.625rem;
+
+  min-height: 1.75rem;
+  color: var(--muted-foreground);
+  font-size: 0.875rem;
+}
+.lc-community-navigation__item--child > svg {
+  width: 0.875rem;
+  height: 0.875rem;
+}
 .lc-community-navigation__item-row > [data-ui-part="context-menu-trigger"] {
   min-width: 0;
   flex: 1;

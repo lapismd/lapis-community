@@ -24,10 +24,19 @@ export type CommunityApplicationPanel =
 export type CommunityApplicationMainSurface =
   | "release-reviews"
   | "release-people"
+  | "projects-activity"
+  | "projects-projects"
+  | "projects-repositories"
+  | "projects-tasks"
+  | "projects-reviews"
+  | "projects-channels"
+  | "project-overview"
   | "project-tasks"
   | "project-reviews"
   | "project-commits"
   | "project-files"
+  | "project-channels"
+  | "project-contributors"
   | "project-people";
 
 export interface CommunityApplicationLocation {
@@ -317,6 +326,8 @@ export function normalizeCommunityApplicationLocation(
     location.mainSurface === undefined ||
     (location.mainSurface.startsWith("release-") &&
       targets.releaseRoomIds?.includes(location.destination) === true) ||
+    (location.mainSurface.startsWith("projects-") &&
+      location.destination === "projects") ||
     (location.mainSurface.startsWith("project-") &&
       targets.projectDestinationIds?.includes(location.destination) === true);
   if (panelExists && surfaceExists) return location;

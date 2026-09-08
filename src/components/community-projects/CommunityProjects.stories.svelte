@@ -3,6 +3,7 @@
   import { expect, fn, userEvent, within } from "storybook/test";
 
   import CommunityProjects from "./CommunityProjects.svelte";
+  import { buildProjectForgeActivity } from "../../projects/index.js";
   import {
     createProjectStoryFixture,
     projectStoryAuthor,
@@ -10,6 +11,7 @@
 
   const fixture = createProjectStoryFixture();
   const onSelectProject = fn();
+  const onSelectView = fn();
   const onUpdateTaskLifecycle = fn(async () => undefined);
   const onAddPullRequestComment = fn(async () => undefined);
   const onAddInlineComment = fn(async () => undefined);
@@ -68,13 +70,50 @@
 </script>
 
 <Story
-  name="Directory"
-  args={{ view: "directory", onSelectProject }}
+  name="Activity workspace"
+  args={{
+    view: "activity",
+    selectedProject: undefined,
+    repositories: fixture.catalog.repositories,
+    activity: buildProjectForgeActivity(fixture.catalog, fixture.workItems),
+    onSelectProject,
+    onSelectView,
+  }}
   play={async ({ canvas }) => {
-    const project = canvas.getByRole("button", { name: /Community Client/u });
-    await expect(project).toBeVisible();
-    await userEvent.click(project);
-    await expect(onSelectProject).toHaveBeenCalledWith(fixture.project);
+    await expect(
+      canvas.getByRole("heading", { name: "Projects Activity" }),
+    ).toBeVisible();
+    await userEvent.click(canvas.getByRole("tab", { name: "Projects" }));
+    await expect(onSelectView).toHaveBeenCalledWith("projects");
+  }}
+/>
+
+<Story
+  name="Project overview"
+  args={{
+    view: "overview",
+    tree: {
+      ref: "main",
+      sha: "d".repeat(40),
+      path: "",
+      entries: [
+        { name: "README.md", type: "blob", size: 912 },
+        { name: "src", type: "tree" },
+      ],
+      readme:
+        "# Community Client\n\nNostr-native project collaboration for teams that work in channels and relay-hosted repositories.",
+    },
+    onSelectView,
+  }}
+  play={async ({ canvas }) => {
+    await expect(
+      canvas.getAllByRole("heading", { name: "Community Client", level: 1 })[0],
+    ).toBeVisible();
+    await expect(
+      canvas.getByText(
+        "Nostr-native project collaboration for teams that work in channels and relay-hosted repositories.",
+      ),
+    ).toBeVisible();
   }}
 />
 

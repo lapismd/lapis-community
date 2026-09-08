@@ -10,6 +10,7 @@ describe("local project forge fixture", () => {
       ownerPubkey,
       contributorPubkey,
       channelId: "project-development",
+      relatedChannelId: "general",
       relayUrl: "ws://registry.localhost:8281/",
       createdAt: 1_700_000_000,
     });
@@ -31,6 +32,7 @@ describe("local project forge fixture", () => {
       ["a", fixture.repositoryCoordinate, "ws://registry.localhost:8281/"],
       ["a", fixture.taskAnchorCoordinate, "ws://registry.localhost:8281/"],
     ]);
+    expect(project?.tags).toContainEqual(["buzz-related-channel", "general"]);
     expect(repository?.tags.some((tag) => tag[0] === "clone")).toBe(false);
     expect(repository?.tags).not.toContainEqual([
       "project-task-anchor",
