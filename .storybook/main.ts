@@ -1,6 +1,8 @@
 import type { StorybookConfig } from "@storybook/svelte-vite";
 import { mergeConfig, type Plugin } from "vite";
 
+import { tursoBundleBuildPlugin } from "../scripts/vite-turso-bundle.js";
+
 const registryProxyTarget = process.env.VITE_REGISTRY_PROXY_TARGET?.trim();
 
 function crossOriginIsolationPlugin(): Plugin {
@@ -40,7 +42,7 @@ const config: StorybookConfig = {
   viteFinal: async (viteConfig) =>
     mergeConfig(viteConfig, {
       resolve: { dedupe: ["svelte"] },
-      plugins: [crossOriginIsolationPlugin()],
+      plugins: [tursoBundleBuildPlugin(), crossOriginIsolationPlugin()],
       optimizeDeps: {
         force: true,
         include: ["nostr-tools/filter", "nostr-tools/nip44"],
@@ -51,6 +53,7 @@ const config: StorybookConfig = {
       },
       worker: {
         format: "es",
+        plugins: () => [tursoBundleBuildPlugin()],
       },
       server: {
         headers: {

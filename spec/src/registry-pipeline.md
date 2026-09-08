@@ -32,6 +32,12 @@ the local stack's generated public fixture environment, restarts Vite when
 those compile-time values change, and refuses to replace a listener whose
 working directory belongs to another checkout.
 
+Vite and Storybook share one narrowly scoped pre-transform for the generated
+Turso browser bundle. It preserves the bundle's runtime behavior while keeping
+Vite's dependency scanner from recursively parsing the embedded WebAssembly
+data URL and worker constructor; all other dependencies use the ordinary Vite
+pipeline.
+
 The materializer uses the relay's `BLOSSOM_URL` for manifests and every
 content-addressed Registry resource. The projection still contains only
 hash-verified mirrored resources. The final smoke starts a fresh Storybook

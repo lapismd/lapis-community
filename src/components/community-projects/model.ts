@@ -4,6 +4,7 @@ import type {
   ProjectForgeBlobResponse,
   ProjectForgeActivityItem,
   ProjectForgeCommit,
+  ProjectForgeCommitResponse,
   ProjectForgeDataSource,
   ProjectForgeDiffFile,
   ProjectForgeProject,
@@ -62,6 +63,11 @@ export interface CommunityProjectsCreatePullRequest {
   targetBranch: string;
 }
 
+export interface CommunityProjectsDialogRequest {
+  id: number;
+  kind: "project" | "repository" | "task" | "review";
+}
+
 export interface CommunityProjectsProps {
   view: "directory" | ProjectForgeOverviewSurface | ProjectForgeSurface;
   projects: readonly ProjectForgeProject[];
@@ -69,10 +75,18 @@ export interface CommunityProjectsProps {
   repositories?: readonly ProjectForgeRepository[];
   activity?: readonly ProjectForgeActivityItem[];
   tasks?: readonly ProjectTaskState[];
+  selectedTask?: ProjectTaskState;
   pullRequests?: readonly PullRequestState[];
   selectedPullRequest?: PullRequestState;
   commits?: readonly ProjectForgeCommit[];
+  /** Active repository head shown beside commit rows, when available. */
+  commitBranch?: string;
   selectedCommit?: ProjectForgeCommit;
+  selectedCommitDetail?: ProjectForgeCommitResponse;
+  /** Source-read failure shared by overview, file, and commit surfaces. */
+  sourceError?: string;
+  /** @deprecated Use `sourceError`; retained for existing commit consumers. */
+  selectedCommitError?: string;
   tree?: ProjectForgeTreeResponse;
   selectedPath?: string;
   blob?: ProjectForgeBlobResponse;
@@ -85,16 +99,33 @@ export interface CommunityProjectsProps {
   error?: string;
   operation?: string;
   canCollaborate?: boolean;
+  dialogRequest?: CommunityProjectsDialogRequest;
+  showNavigation?: boolean;
+  /** Render the pull-request title in this surface instead of an owning shell header. */
+  showReviewHeader?: boolean;
   onSelectView?: (
     view: ProjectForgeOverviewSurface | ProjectForgeSurface,
   ) => void;
   onBack?: () => void;
   onSelectProject?: (project: ProjectForgeProject) => void;
+  onSelectChannel?: (roomId: string) => void;
+  onOpenProfile?: (member: CommunityMemberModel) => void;
+  onMessageMember?: (member: CommunityMemberModel) => void | Promise<void>;
+  onWaveMember?: (member: CommunityMemberModel) => void | Promise<void>;
   onCreateProject?: (input: CommunityProjectsCreateProject) => Promise<void>;
   onCreateRepository?: (
     input: CommunityProjectsCreateRepository,
   ) => Promise<void>;
   onCreateTask?: (input: CommunityProjectsCreateTask) => Promise<void>;
+  onSelectTask?: (task: ProjectTaskState) => void;
+  onCloseTask?: () => void;
+  onUpdateTaskAssignment?: (
+    task: ProjectTaskState,
+    assignee: string,
+    assigned: boolean,
+  ) => Promise<void>;
+  onManageTaskAssignments?: (task: ProjectTaskState) => void;
+  onAddTaskComment?: (task: ProjectTaskState, content: string) => Promise<void>;
   onUpdateTaskLifecycle?: (
     task: ProjectTaskState,
     lifecycle: "open" | "closed",
@@ -119,6 +150,7 @@ export interface CommunityProjectsProps {
     input: { path: string; side: "old" | "new"; line: number; content: string },
   ) => Promise<void>;
   onSelectCommit?: (commit: ProjectForgeCommit) => void;
+  onCloseCommit?: () => void;
   onSelectPath?: (path: string) => void;
   onRetry?: () => void;
 }

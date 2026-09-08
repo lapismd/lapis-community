@@ -190,6 +190,8 @@ export interface ProjectForgeRefsResponse {
 
 export interface ProjectForgeTreeEntry {
   name: string;
+  /** Repository-relative path when a client has expanded a nested tree. */
+  path?: string;
   type: "tree" | "blob";
   mode?: string;
   size?: number;
@@ -263,8 +265,16 @@ export interface ProjectForgeCommitsResponse {
 
 export interface ProjectForgeCommitResponse {
   commit: ProjectForgeCommit;
-  stats?: { additions?: number; deletions?: number; files?: number };
+  stats?: readonly ProjectForgeCommitFileStat[];
   patch?: string;
+}
+
+export interface ProjectForgeCommitFileStat {
+  path: string;
+  old_path?: string;
+  additions: number;
+  deletions: number;
+  binary?: boolean;
 }
 
 export interface ProjectForgeDiffFile {

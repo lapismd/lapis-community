@@ -15,6 +15,11 @@ checkout-local process supervisor MUST retain HMR for source updates, restart
 when generated fixture configuration changes, expose clean restart and stop
 commands, and refuse to replace a listener owned by another checkout.
 
+Project component stories that exercise Design Core AppShell body regions MUST
+render inside the production `CommunityAppShell` context. Their interactions
+MUST cover collapsed review sections before targeting inline diff controls and
+the shared member-command entry point used by task assignment.
+
 ## Requirements
 
 | ID          | Requirement                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |

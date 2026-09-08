@@ -112,7 +112,7 @@
 
 <Story
   name="Project workspace with overview rail"
-  play={async ({ canvas }) => {
+  play={async ({ canvas, canvasElement }) => {
     const application = await canvas.findByTestId(
       "full-community-application",
       {},
@@ -129,12 +129,14 @@
     await expect(
       await canvas.findByRole("navigation", { name: "Project overview" }),
     ).toBeVisible();
-    await expect(canvas.getByRole("tab", { name: "Overview" })).toBeVisible();
+    await expect(
+      await canvas.findByRole("tab", { name: "Overview" }, { timeout: 15_000 }),
+    ).toBeVisible();
     await expect(
       await canvas.findByRole("heading", { name: "Projects" }),
     ).toBeVisible();
     await expect(
-      await canvas.findByRole("button", { name: "#support" }),
+      await canvas.findByRole("button", { name: "general" }),
     ).toBeVisible();
     await userEvent.click(canvas.getByRole("tab", { name: "Review" }));
     await expect(
@@ -147,6 +149,33 @@
         { timeout: 15_000 },
       ),
     ).toBeVisible();
+    await userEvent.click(canvas.getByRole("tab", { name: "Tasks" }));
+    await userEvent.click(
+      await canvas.findByRole("button", {
+        name: /Polish the project overview rail/u,
+      }),
+    );
+    await userEvent.click(
+      await canvas.findByRole("button", { name: "Assign" }),
+    );
+    const assignmentDialog = await within(
+      canvasElement.ownerDocument.body,
+    ).findByRole("dialog", {
+      name: "Assign Polish the project overview rail",
+    });
+    await expect(
+      within(assignmentDialog).getByRole("combobox", {
+        name: "Search members",
+      }),
+    ).toBeVisible();
+    await expect(
+      within(assignmentDialog).getByRole("button", {
+        name: "Update assignees",
+      }),
+    ).toBeVisible();
+    await userEvent.click(
+      within(assignmentDialog).getByRole("button", { name: "Cancel" }),
+    );
   }}
 >
   {#snippet template()}

@@ -8,6 +8,7 @@
   import * as Empty from "@lapismd/design-core/shadcn/empty";
   import * as Field from "@lapismd/design-core/shadcn/field";
   import { Input } from "@lapismd/design-core/shadcn/input";
+  import * as Tabs from "@lapismd/design-core/shadcn/tabs";
   import {
     AppShell,
     AppShellController,
@@ -16,6 +17,9 @@
   } from "@lapismd/design-core/shell";
   import ChevronLeftIcon from "@lucide/svelte/icons/chevron-left";
   import ChevronRightIcon from "@lucide/svelte/icons/chevron-right";
+  import ArrowLeftIcon from "@lucide/svelte/icons/arrow-left";
+  import CircleCheckIcon from "@lucide/svelte/icons/circle-check";
+  import CircleDotIcon from "@lucide/svelte/icons/circle-dot";
   import CodeXmlIcon from "@lucide/svelte/icons/code-xml";
   import EllipsisIcon from "@lucide/svelte/icons/ellipsis";
   import HashIcon from "@lucide/svelte/icons/hash";
@@ -24,18 +28,23 @@
   import GitBranchIcon from "@lucide/svelte/icons/git-branch";
   import GitCommitHorizontalIcon from "@lucide/svelte/icons/git-commit-horizontal";
   import FilesIcon from "@lucide/svelte/icons/files";
+  import FolderKanbanIcon from "@lucide/svelte/icons/folder-kanban";
   import ListTodoIcon from "@lucide/svelte/icons/list-todo";
   import LockIcon from "@lucide/svelte/icons/lock";
   import LogInIcon from "@lucide/svelte/icons/log-in";
   import MessagesSquareIcon from "@lucide/svelte/icons/messages-square";
+  import MessageCircleIcon from "@lucide/svelte/icons/message-circle";
   import PackageSearchIcon from "@lucide/svelte/icons/package-search";
+  import PlusIcon from "@lucide/svelte/icons/plus";
+  import SearchIcon from "@lucide/svelte/icons/search";
   import SquareTerminalIcon from "@lucide/svelte/icons/square-terminal";
   import UsersIcon from "@lucide/svelte/icons/users";
+  import UserRoundPlusIcon from "@lucide/svelte/icons/user-round-plus";
   import WifiOffIcon from "@lucide/svelte/icons/wifi-off";
   import XIcon from "@lucide/svelte/icons/x";
   import { nip19 } from "nostr-tools";
   import { toast, Toaster } from "svelte-sonner";
-  import { onMount, tick, untrack, type Snippet } from "svelte";
+  import { onMount, tick, untrack, type Component, type Snippet } from "svelte";
   import type { HTMLAttributes } from "svelte/elements";
 
   import type {
@@ -50,6 +59,7 @@
     addRepositoryToProjectTemplate,
     buildProjectForgeActivity,
     buzzWorkItemFilters,
+    createAssignmentTemplate,
     createBuzzCommentTemplate,
     createProjectTaskAnchorTemplate,
     createProjectTemplate,
@@ -63,6 +73,7 @@
     type ProjectForgeBlobResponse,
     type ProjectForgeCatalog,
     type ProjectForgeCommit,
+    type ProjectForgeCommitResponse,
     type ProjectForgeCommitActivity,
     type ProjectForgeDataSource,
     type ProjectForgePullRequestDiff,
@@ -71,6 +82,7 @@
     type ProjectForgeOverviewSurface,
     type ProjectForgeTreeResponse,
     type ProjectForgeWorkItems,
+    type ProjectTaskState,
     type PullRequestState,
   } from "../../projects/index.js";
   import {
@@ -94,6 +106,7 @@
   import CommunityMemberCommand from "../community-member-command/CommunityMemberCommand.svelte";
   import CommunityMemberAvatar from "../community-member-avatar/CommunityMemberAvatar.svelte";
   import CommunityMemberProfile from "../community-member-profile/CommunityMemberProfile.svelte";
+  import CommunityRelativeTime from "../community-relative-time/CommunityRelativeTime.svelte";
   import type {
     CommunityNavigationItemModel,
     CommunityNavigationItemAction,
@@ -110,6 +123,7 @@
     CommunityProjectsCreatePullRequest,
     CommunityProjectsCreateRepository,
     CommunityProjectsCreateTask,
+    CommunityProjectsDialogRequest,
     CommunityProjectsOptions,
   } from "../community-projects/model.js";
   import CommunityReleasePeople from "../community-release-people/CommunityReleasePeople.svelte";
@@ -179,6 +193,52 @@
     resolve: () => void;
     reject: (cause: unknown) => void;
   };
+
+  function repositoryEntryPath(parent: string, name: string): string {
+    const normalizedParent = parent.replace(/^\/+|\/+$/gu, "");
+    const normalizedName = name.replace(/^\/+|\/+$/gu, "");
+    return [normalizedParent, normalizedName].filter(Boolean).join("/");
+  }
+
+  async function loadRepositoryFileTree(
+    session: ProjectForgeSession,
+    repository: string,
+    revision: string,
+    signal: AbortSignal,
+  ): Promise<ProjectForgeTreeResponse> {
+    const root = await session.loadTree(repository, revision, "", signal);
+    const files: Array<ProjectForgeTreeResponse["entries"][number]> = [];
+    const pendingDirectories: string[] = [];
+    const visitedDirectories = new Set<string>([""]);
+
+    function collectEntries(tree: ProjectForgeTreeResponse, parent: string) {
+      for (const entry of tree.entries) {
+        const path = repositoryEntryPath(parent, entry.name);
+        if (entry.type === "tree") {
+          if (!visitedDirectories.has(path)) pendingDirectories.push(path);
+          continue;
+        }
+        files.push({ ...entry, path });
+      }
+    }
+
+    collectEntries(root, "");
+    while (pendingDirectories.length > 0) {
+      const path = pendingDirectories.shift();
+      if (!path || visitedDirectories.has(path)) continue;
+      visitedDirectories.add(path);
+      const directory = await session.loadTree(
+        repository,
+        revision,
+        path,
+        signal,
+      );
+      collectEntries(directory, path);
+    }
+
+    return { ...root, path: "", entries: files };
+  }
+
   const pluginReleaseGroupId = lapisGroupId(LAPIS_GROUPS.pluginReleases);
 
   let releaseOverviewToggleElement = $state<HTMLButtonElement | null>(null);
@@ -331,6 +391,7 @@
   let memberCommandOpen = $state(false);
   let memberCommandMode = $state<"view" | "manage" | "select">("view");
   let selectedRecipientIds = $state<string[]>([]);
+  let memberCommandTask = $state<ProjectTaskState>();
   let groupInviteOpen = $state(false);
   let groupInviteMode = $state<"create" | "join">("join");
   let profileOverride = $state<CommunityMemberModel>();
@@ -371,11 +432,17 @@
   let projectReloadRevision = $state(0);
   let projectOverviewInitialized = $state(false);
   let selectedPullRequestId = $state("");
+  let selectedTaskId = $state("");
+  let projectDialogRequest = $state<CommunityProjectsDialogRequest>();
+  let projectDialogSequence = 0;
   let projectCommits = $state.raw<readonly ProjectForgeCommit[]>([]);
+  let projectCommitBranch = $state("");
   let projectCommitActivity = $state.raw<readonly ProjectForgeCommitActivity[]>(
     [],
   );
   let selectedProjectCommit = $state.raw<ProjectForgeCommit>();
+  let projectCommitDetail = $state.raw<ProjectForgeCommitResponse>();
+  let projectSourceError = $state("");
   let projectTree = $state.raw<ProjectForgeTreeResponse>();
   let projectBlob = $state.raw<ProjectForgeBlobResponse>();
   let selectedProjectPath = $state("");
@@ -456,6 +523,26 @@
       (pullRequest) => pullRequest.root.id === selectedPullRequestId,
     ),
   );
+  const selectedTask = $derived(
+    projectWorkItems.tasks.find((task) => task.root.id === selectedTaskId),
+  );
+  const projectOverviewTabs = [
+    { value: "activity", label: "Activity" },
+    { value: "projects", label: "Projects" },
+    { value: "repositories", label: "Repositories" },
+    { value: "tasks", label: "Tasks" },
+    { value: "reviews", label: "Reviews" },
+    { value: "channels", label: "Channels" },
+  ] as const;
+  const selectedProjectTabs = [
+    { value: "overview", label: "Overview" },
+    { value: "files", label: "Files" },
+    { value: "commits", label: "Commits" },
+    { value: "tasks", label: "Tasks" },
+    { value: "reviews", label: "Review" },
+    { value: "channels", label: "Channels" },
+    { value: "contributors", label: "Contributors" },
+  ] as const;
   const communityStartupPending = $derived(
     community.state.status === "idle" ||
       community.state.status === "restoring" ||
@@ -686,7 +773,7 @@
                   return [
                     {
                       id: room.id,
-                      label: `#${room.name}`,
+                      label: room.name,
                       kind:
                         room.kind === "direct"
                           ? ("direct-message" as const)
@@ -1434,6 +1521,7 @@
     const surface = selectedProjectSurface;
     const overviewSurface = projectsOverviewSurface;
     const pullRequestId = selectedPullRequestId;
+    const selectedCommitSha = selectedProjectCommit?.sha;
     const path = selectedProjectPath;
     community.state.status;
     community.state.authentication.status;
@@ -1445,6 +1533,7 @@
     let unsubscribeWorkItems: (() => void) | undefined;
     projectLoading = true;
     projectError = "";
+    projectSourceError = "";
 
     void (async () => {
       openedSession = await options.source.open(
@@ -1563,67 +1652,144 @@
       const hostedRepository = project ? hostedRepositories[0] : undefined;
       if (!hostedRepository) {
         projectCommits = [];
+        projectCommitBranch = "";
+        projectCommitDetail = undefined;
+        projectSourceError = "";
         projectTree = undefined;
         projectBlob = undefined;
-      } else if (
-        surface === "commits" ||
-        surface === undefined ||
-        surface === "overview"
-      ) {
-        try {
-          const commits = await openedSession.loadCommits(
-            hostedRepository.address.coordinate,
-            undefined,
-            controller.signal,
-          );
-          projectCommits = commits.commits;
-          const refs = await openedSession.loadRefs(
-            hostedRepository.address.coordinate,
-            controller.signal,
-          );
-          const revision = refs.head?.name ?? refs.head?.sha;
-          if (revision) {
-            projectTree = await openedSession.loadTree(
-              hostedRepository.address.coordinate,
-              revision,
-              "",
+      } else {
+        const repository = hostedRepository.address.coordinate;
+        const readsRepository =
+          surface === undefined ||
+          surface === "overview" ||
+          surface === "files" ||
+          surface === "commits";
+
+        if (
+          surface === undefined ||
+          surface === "overview" ||
+          surface === "commits"
+        ) {
+          try {
+            const commits = await openedSession.loadCommits(
+              repository,
+              undefined,
               controller.signal,
             );
-          }
-        } catch (cause) {
-          if (controller.signal.aborted) throw cause;
-          projectCommits = [];
-          projectTree = undefined;
-        }
-      } else if (surface === "files") {
-        try {
-          const refs = await openedSession.loadRefs(
-            hostedRepository.address.coordinate,
-            controller.signal,
-          );
-          const revision = refs.head?.name ?? refs.head?.sha;
-          if (revision) {
-            projectTree = await openedSession.loadTree(
-              hostedRepository.address.coordinate,
-              revision,
-              "",
-              controller.signal,
-            );
-            if (path) {
-              projectBlob = await openedSession.loadBlob(
-                hostedRepository.address.coordinate,
-                revision,
-                path,
-                controller.signal,
-              );
+            projectCommits = commits.commits;
+          } catch (cause) {
+            if (controller.signal.aborted) throw cause;
+            projectCommits = [];
+            if (surface === "commits") {
+              projectSourceError =
+                cause instanceof Error
+                  ? cause.message
+                  : "The commit history could not be loaded";
             }
           }
-        } catch (cause) {
-          if (controller.signal.aborted) throw cause;
-          projectTree = undefined;
-          projectBlob = undefined;
         }
-      } else if (surface === "reviews" && pullRequestId) {
+
+        if (surface === "commits" && selectedCommitSha) {
+          try {
+            projectCommitDetail = await openedSession.loadCommit(
+              repository,
+              selectedCommitSha,
+              controller.signal,
+            );
+          } catch (cause) {
+            if (controller.signal.aborted) throw cause;
+            projectCommitDetail = undefined;
+            projectSourceError =
+              cause instanceof Error
+                ? cause.message
+                : "The commit diff could not be loaded";
+          }
+        } else {
+          projectCommitDetail = undefined;
+          if (surface !== "commits") projectSourceError = "";
+        }
+
+        if (readsRepository) {
+          try {
+            const refs = await openedSession.loadRefs(
+              repository,
+              controller.signal,
+            );
+            projectCommitBranch = refs.head?.name ?? "";
+            const revision = refs.head?.name ?? refs.head?.sha;
+            if (
+              revision &&
+              (surface === undefined ||
+                surface === "overview" ||
+                surface === "files")
+            ) {
+              let tree =
+                surface === "files"
+                  ? await loadRepositoryFileTree(
+                      openedSession,
+                      repository,
+                      revision,
+                      controller.signal,
+                    )
+                  : await openedSession.loadTree(
+                      repository,
+                      revision,
+                      "",
+                      controller.signal,
+                    );
+              if (
+                (surface === undefined || surface === "overview") &&
+                !tree.readme?.trim()
+              ) {
+                const readme = tree.entries.find(
+                  (entry) =>
+                    entry.type === "blob" &&
+                    /^readme(?:\.(?:md|markdown|mdown|rst|txt))?$/iu.test(
+                      entry.name,
+                    ),
+                );
+                if (readme) {
+                  try {
+                    const blob = await openedSession.loadBlob(
+                      repository,
+                      revision,
+                      readme.path ?? readme.name,
+                      controller.signal,
+                    );
+                    if (!blob.binary && !blob.too_large && blob.contents) {
+                      tree = { ...tree, readme: blob.contents };
+                    }
+                  } catch (cause) {
+                    if (controller.signal.aborted) throw cause;
+                  }
+                }
+              }
+              projectTree = tree;
+              if (surface === "files" && path) {
+                projectBlob = await openedSession.loadBlob(
+                  repository,
+                  revision,
+                  path,
+                  controller.signal,
+                );
+              } else {
+                projectBlob = undefined;
+              }
+            }
+          } catch (cause) {
+            if (controller.signal.aborted) throw cause;
+            projectCommitBranch = "";
+            projectTree = undefined;
+            projectBlob = undefined;
+            projectSourceError =
+              cause instanceof Error
+                ? cause.message
+                : "The repository source could not be loaded";
+          }
+        }
+      }
+
+      if (surface === "reviews" && pullRequestId) {
         try {
           projectPullRequestDiff = await openedSession.loadPullRequestDiff(
             pullRequestId,
@@ -1897,6 +2063,10 @@
     destinationId: CommunityApplicationDestination,
     recordHistory: boolean,
   ): void {
+    if (destinationId === "projects") {
+      selectedTaskId = "";
+      selectedPullRequestId = "";
+    }
     const next = {
       destination: destinationId,
       panel: noCommunityApplicationPanel(),
@@ -1945,6 +2115,10 @@
   ): void {
     projectOverviewInitialized = false;
     selectedPullRequestId = "";
+    selectedTaskId = "";
+    selectedProjectCommit = undefined;
+    projectCommitDetail = undefined;
+    projectSourceError = "";
     selectedProjectPath = "";
     pushLocation({
       destination: projectDestinationFromCoordinate(project.address.coordinate),
@@ -1953,8 +2127,14 @@
     lastAction = `selected-project:${project.address.coordinate}`;
   }
 
-  function openProjectSurface(surface: ProjectForgeSurface): void {
+  function activateProjectSurface(surface: ProjectForgeSurface): void {
     if (!selectedProject) return;
+    if (surface !== "tasks") selectedTaskId = "";
+    if (surface !== "commits") {
+      selectedProjectCommit = undefined;
+      projectCommitDetail = undefined;
+      projectSourceError = "";
+    }
     projectOverviewInitialized = true;
     pushLocation({
       destination: activeDestination,
@@ -1964,10 +2144,85 @@
     lastAction = `opened-project-${surface}`;
   }
 
+  function hasProjectSourceIdentity(): boolean {
+    return Boolean(
+      projectsOptions?.identity ?? applicationAuthentication?.identity(),
+    );
+  }
+
+  function requestProjectSourceAccess(action: () => void): void {
+    if (hasProjectSourceIdentity()) {
+      action();
+      return;
+    }
+    void runAuthenticated(action).catch((cause) => {
+      projectError =
+        cause instanceof Error
+          ? cause.message
+          : "Connect a Nostr identity to view hosted source";
+    });
+  }
+
+  function openProjectSurface(surface: ProjectForgeSurface): void {
+    if (
+      (surface === "files" || surface === "commits") &&
+      !hasProjectSourceIdentity()
+    ) {
+      requestProjectSourceAccess(() => activateProjectSurface(surface));
+      return;
+    }
+    activateProjectSurface(surface);
+  }
+
+  function activateProjectCommit(commit: ProjectForgeCommit): void {
+    selectedProjectCommit = commit;
+    projectCommitDetail = undefined;
+    projectSourceError = "";
+    selectedPullRequestId = "";
+    projectPullRequestDiff = undefined;
+    activateProjectSurface("commits");
+  }
+
+  function selectProjectCommit(commit: ProjectForgeCommit): void {
+    requestProjectSourceAccess(() => activateProjectCommit(commit));
+  }
+
+  function closeProjectCommit(): void {
+    selectedProjectCommit = undefined;
+    projectCommitDetail = undefined;
+    projectSourceError = "";
+    lastAction = "closed-project-commit";
+  }
+
+  function closeProjectPullRequest(): void {
+    selectedPullRequestId = "";
+    projectPullRequestDiff = undefined;
+    lastAction = "closed-project-review";
+  }
+
+  function selectProjectTask(task: ProjectTaskState): void {
+    const project = projectCatalog.projects.find((candidate) =>
+      candidate.repositories.some(
+        (reference) => reference.coordinate === task.repository.coordinate,
+      ),
+    );
+    if (!project) return;
+    selectedTaskId = task.root.id;
+    projectOverviewInitialized = true;
+    pushLocation({
+      destination: projectDestinationFromCoordinate(project.address.coordinate),
+      panel: noCommunityApplicationPanel(),
+      mainSurface: "project-tasks",
+    });
+    lastAction = `selected-project-task:${task.root.id}`;
+  }
+
   function openProjectsOverviewSurface(
     surface: ProjectForgeOverviewSurface,
   ): void {
     if (!isProjectDirectory) return;
+    selectedTaskId = "";
+    selectedPullRequestId = "";
     pushLocation({
       destination: "projects",
       panel: activePanel,
@@ -1976,9 +2231,17 @@
     lastAction = `opened-projects-${surface}`;
   }
 
+  function requestProjectDialog(
+    kind: CommunityProjectsDialogRequest["kind"],
+  ): void {
+    projectDialogSequence += 1;
+    projectDialogRequest = { id: projectDialogSequence, kind };
+  }
+
   function closeProjectSurface(): void {
     if (selectedProjectSurface === undefined) return;
     selectedPullRequestId = "";
+    selectedTaskId = "";
     projectPullRequestDiff = undefined;
     pushLocation({ destination: activeDestination, panel: activePanel });
     lastAction = "closed-project-surface";
@@ -2207,6 +2470,43 @@
       },
     );
     toast.success(lifecycle === "closed" ? "Task closed" : "Task reopened");
+  }
+
+  async function updateTaskAssignment(
+    task: ProjectTaskState,
+    assignee: string,
+    assigned: boolean,
+  ): Promise<void> {
+    await withProjectMutation(
+      assigned ? "Assigning task…" : "Removing assignment…",
+      async (session) => {
+        await session.publish(
+          createAssignmentTemplate(
+            task.root,
+            task.repository.coordinate,
+            [assignee],
+            assigned,
+          ),
+        );
+      },
+    );
+    toast.success(assigned ? "Task assigned" : "Assignment removed");
+  }
+
+  async function publishTaskComment(
+    task: ProjectTaskState,
+    content: string,
+  ): Promise<void> {
+    await withProjectMutation("Publishing comment…", async (session) => {
+      await session.publish(
+        createBuzzCommentTemplate(
+          task.root,
+          task.repository.coordinate,
+          content,
+        ),
+      );
+    });
+    toast.success("Comment published");
   }
 
   async function updatePullRequestLifecycle(
@@ -2445,6 +2745,7 @@
       );
     else if (action.id === "new") {
       void runAuthenticated(() => {
+        memberCommandTask = undefined;
         memberCommandMode = "select";
         selectedRecipientIds = [];
         setDestination("new-direct-message", true);
@@ -2637,6 +2938,57 @@
       community.actions.openDirectMessage(selectedRecipientIds);
       setDestination(`dm:${selectedRecipientIds.join(",")}`, true);
     }
+  }
+
+  function openTaskAssignmentCommand(task: ProjectTaskState): void {
+    memberCommandTask = task;
+    memberCommandMode = "select";
+    selectedRecipientIds = [...task.assignees];
+    memberCommandOpen = true;
+  }
+
+  async function updateSelectedTaskAssignments(): Promise<void> {
+    const task = memberCommandTask;
+    if (!task) {
+      startDirectMessage();
+      return;
+    }
+
+    const previous = new Set(task.assignees);
+    const selected = new Set(selectedRecipientIds);
+    const added = selectedRecipientIds.filter((id) => !previous.has(id));
+    const removed = task.assignees.filter((id) => !selected.has(id));
+    if (added.length === 0 && removed.length === 0) {
+      memberCommandOpen = false;
+      memberCommandTask = undefined;
+      return;
+    }
+
+    await withProjectMutation("Updating task assignees…", async (session) => {
+      if (removed.length > 0) {
+        await session.publish(
+          createAssignmentTemplate(
+            task.root,
+            task.repository.coordinate,
+            removed,
+            false,
+          ),
+        );
+      }
+      if (added.length > 0) {
+        await session.publish(
+          createAssignmentTemplate(
+            task.root,
+            task.repository.coordinate,
+            added,
+            true,
+          ),
+        );
+      }
+    });
+    memberCommandOpen = false;
+    memberCommandTask = undefined;
+    toast.success("Task assignees updated");
   }
 
   async function messageMember(member: CommunityMemberModel): Promise<void> {
@@ -3236,6 +3588,18 @@
   />
 {/snippet}
 
+{#snippet projectRailStat(
+  Icon: Component,
+  label: string,
+  value: string | number,
+)}
+  <div class="community-application__project-overview-item">
+    <Icon aria-hidden="true" />
+    <span>{label}</span>
+    <strong title={String(value)}>{value}</strong>
+  </div>
+{/snippet}
+
 {#snippet projectOverviewRail()}
   <AppShell.Sidebar
     side="right"
@@ -3252,133 +3616,444 @@
         class="community-application__project-overview"
         aria-label="Project overview"
       >
-        {#if selectedProject}
+        {#if selectedTask}
           <div class="community-application__project-overview-heading">
-            <strong>{selectedProject.name}</strong>
+            <strong>{selectedTask.title}</strong>
+          </div>
+          {#if workspace.currentMemberId}
             <Button
               type="button"
               variant="ghost"
-              size="icon-sm"
-              aria-label="Add repository"
-              title="Add repository"
-              onclick={() => openProjectSurface("overview")}
+              class="community-application__project-overview-action"
+              disabled={!authenticated || projectOperation !== ""}
+              onclick={() =>
+                updateTaskAssignment(
+                  selectedTask,
+                  workspace.currentMemberId!,
+                  !selectedTask.assignees.includes(workspace.currentMemberId!),
+                )}
             >
-              <CodeXmlIcon aria-hidden="true" />
+              <UserRoundPlusIcon data-icon="inline-start" aria-hidden="true" />
+              {selectedTask.assignees.includes(workspace.currentMemberId)
+                ? "Unassign me"
+                : "Assign to me"}
             </Button>
-          </div>
-          {#each selectedProjectRepositories as repository (repository.address.coordinate)}
-            <div class="community-application__project-overview-repository">
-              <strong>{repository.name}</strong>
-              <span
-                >{repository.repositoryClass === "hosted"
-                  ? "Relay hosted"
-                  : repository.repositoryClass === "external"
-                    ? "Remote"
-                    : "Project task anchor"}</span
-              >
-            </div>
-          {/each}
+          {/if}
+          <Button
+            type="button"
+            variant="ghost"
+            class="community-application__project-overview-action"
+            disabled={!authenticated || projectOperation !== ""}
+            onclick={() =>
+              updateTaskLifecycle(
+                selectedTask,
+                selectedTask.lifecycle === "closed" ? "open" : "closed",
+              )}
+          >
+            <CircleCheckIcon data-icon="inline-start" aria-hidden="true" />
+            {selectedTask.lifecycle === "closed" ? "Reopen task" : "Close task"}
+          </Button>
           <p class="community-application__project-overview-label">Details</p>
+          {@render projectRailStat(
+            CircleDotIcon,
+            "Status",
+            selectedTask.lifecycle === "applied"
+              ? "Done"
+              : selectedTask.lifecycle[0]!.toUpperCase() +
+                  selectedTask.lifecycle.slice(1),
+          )}
+          {@render projectRailStat(
+            UsersIcon,
+            "Assignees",
+            selectedTask.assignees.length,
+          )}
+          {@render projectRailStat(
+            MessageCircleIcon,
+            "Comments",
+            selectedTask.activity.filter(
+              (entry) => !entry.assignment && entry.event.content.trim() !== "",
+            ).length,
+          )}
+        {:else if selectedPullRequest}
+          <div class="community-application__project-overview-heading">
+            <strong>{selectedPullRequest.title}</strong>
+          </div>
           <Button
             type="button"
             variant="ghost"
-            class="community-application__project-overview-item"
-            onclick={() => openProjectSurface("commits")}
+            class="community-application__project-overview-action"
+            disabled={!authenticated || projectOperation !== ""}
+            onclick={() => requestProjectDialog("review")}
           >
-            <GitCommitHorizontalIcon
-              data-icon="inline-start"
-              aria-hidden="true"
-            />
-            <span>Latest</span>
-            <code>{projectCommits[0]?.sha.slice(0, 7) ?? "—"}</code>
+            <PlusIcon data-icon="inline-start" aria-hidden="true" />
+            Create review
           </Button>
-          <Button
-            type="button"
-            variant="ghost"
-            class="community-application__project-overview-item"
-            onclick={() => openProjectSurface("files")}
-          >
-            <FilesIcon data-icon="inline-start" aria-hidden="true" />
-            <span>Files</span>
-            <CommunityChip size="compact"
-              >{projectTree?.entries.length ?? 0}</CommunityChip
+          <p class="community-application__project-overview-label">Details</p>
+          {@render projectRailStat(
+            GitBranchIcon,
+            "Branch",
+            `${selectedPullRequest.branchName || "unknown"} → ${selectedPullRequest.targetBranch || "default"}`,
+          )}
+          {@render projectRailStat(
+            GitPullRequestIcon,
+            "Status",
+            selectedPullRequest.lifecycle[0]!.toUpperCase() +
+              selectedPullRequest.lifecycle.slice(1),
+          )}
+          {@render projectRailStat(
+            UsersIcon,
+            "Reviewers",
+            selectedPullRequest.reviewers.length,
+          )}
+          {@render projectRailStat(
+            CircleCheckIcon,
+            "Approvals",
+            selectedPullRequest.approvals.length,
+          )}
+        {:else if selectedProject}
+          <div class="community-application__project-overview-heading">
+            <strong
+              >{activeProjectSurface === "overview"
+                ? selectedProject.name
+                : activeProjectSurface === "reviews"
+                  ? "Reviews"
+                  : activeProjectSurface[0]!.toUpperCase() +
+                    activeProjectSurface.slice(1)}</strong
             >
-          </Button>
-          <Button
-            type="button"
-            variant="ghost"
-            class="community-application__project-overview-item"
-            onclick={() => openProjectSurface("contributors")}
-          >
-            <UsersIcon data-icon="inline-start" aria-hidden="true" />
-            <span>Contributors</span>
-            <CommunityChip size="compact"
-              >{selectedProjectRoom?.memberCount ??
-                activeRoomMemberIds.length}</CommunityChip
-            >
-          </Button>
-        {:else}
-          <p class="community-application__project-overview-label">Activity</p>
-          <Button
-            type="button"
-            variant="ghost"
-            class="community-application__project-overview-item"
-            onclick={() => openProjectsOverviewSurface("projects")}
-          >
-            <CodeXmlIcon data-icon="inline-start" aria-hidden="true" />
-            <span>Projects</span>
-            <CommunityChip size="compact"
-              >{projectCatalog.projects.length}</CommunityChip
-            >
-          </Button>
-          <Button
-            type="button"
-            variant="ghost"
-            class="community-application__project-overview-item"
-            onclick={() => openProjectsOverviewSurface("repositories")}
-          >
-            <GitBranchIcon data-icon="inline-start" aria-hidden="true" />
-            <span>Repositories</span>
-            <CommunityChip size="compact"
-              >{projectCatalog.repositories.filter(
+            {#if activeProjectSurface === "overview"}
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                aria-label="Add repository"
+                title="Add repository"
+                disabled={!authenticated || projectOperation !== ""}
+                onclick={() => requestProjectDialog("repository")}
+                ><PlusIcon aria-hidden="true" /></Button
+              >
+            {:else if activeProjectSurface === "tasks"}
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                aria-label="Create task"
+                title="Create task"
+                disabled={!authenticated || projectOperation !== ""}
+                onclick={() => requestProjectDialog("task")}
+                ><PlusIcon aria-hidden="true" /></Button
+              >
+            {:else if activeProjectSurface === "reviews"}
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                class="community-application__project-overview-review-create"
+                aria-label="Create review"
+                title="Create review"
+                disabled={!authenticated ||
+                  projectOperation !== "" ||
+                  selectedProjectRepositories.every(
+                    (repository) => repository.repositoryClass !== "hosted",
+                  )}
+                onclick={() => requestProjectDialog("review")}
+                ><PlusIcon aria-hidden="true" /></Button
+              >
+            {/if}
+          </div>
+          {#if activeProjectSurface === "overview"}
+            {#each selectedProjectRepositories.filter((repository) => repository.repositoryClass !== "task-anchor") as repository (repository.address.coordinate)}
+              <div class="community-application__project-overview-repository">
+                <strong>{repository.name}</strong>
+                <span
+                  >{repository.repositoryClass === "hosted"
+                    ? "Relay hosted"
+                    : "Remote"}</span
+                >
+              </div>
+            {/each}
+            <p class="community-application__project-overview-label">Details</p>
+            {@render projectRailStat(
+              GitCommitHorizontalIcon,
+              "Latest",
+              projectCommits[0]?.sha.slice(0, 7) ?? "—",
+            )}
+            {@render projectRailStat(
+              FilesIcon,
+              "Files",
+              projectTree?.entries.length ?? 0,
+            )}
+            {@render projectRailStat(
+              UsersIcon,
+              "Contributors",
+              selectedProjectRoom?.memberCount ?? activeRoomMemberIds.length,
+            )}
+          {:else if activeProjectSurface === "files"}
+            {@render projectRailStat(
+              GitBranchIcon,
+              "Repositories",
+              selectedProjectRepositories.filter(
                 (repository) => repository.repositoryClass !== "task-anchor",
-              ).length}</CommunityChip
+              ).length,
+            )}
+            {@render projectRailStat(
+              FilesIcon,
+              "Files",
+              projectTree?.entries.length ?? 0,
+            )}
+          {:else if activeProjectSurface === "commits"}
+            {@render projectRailStat(
+              GitCommitHorizontalIcon,
+              "Commits",
+              projectCommits.length,
+            )}
+            {@render projectRailStat(
+              GitBranchIcon,
+              "Latest",
+              projectCommits[0]?.sha.slice(0, 7) ?? "—",
+            )}
+          {:else if activeProjectSurface === "tasks"}
+            {@render projectRailStat(
+              ListTodoIcon,
+              "Tasks",
+              projectWorkItems.tasks.length,
+            )}
+            {@render projectRailStat(
+              CircleDotIcon,
+              "Active",
+              projectWorkItems.tasks.filter(
+                (task) =>
+                  task.lifecycle !== "closed" && task.lifecycle !== "applied",
+              ).length,
+            )}
+            {@render projectRailStat(
+              CircleCheckIcon,
+              "Completed",
+              projectWorkItems.tasks.filter(
+                (task) =>
+                  task.lifecycle === "closed" || task.lifecycle === "applied",
+              ).length,
+            )}
+          {:else if activeProjectSurface === "reviews"}
+            {@render projectRailStat(
+              GitPullRequestIcon,
+              "Reviews",
+              projectWorkItems.pullRequests.length,
+            )}
+            {@render projectRailStat(
+              CircleDotIcon,
+              "Open",
+              projectWorkItems.pullRequests.filter(
+                (review) =>
+                  review.lifecycle === "open" || review.lifecycle === "draft",
+              ).length,
+            )}
+            {@render projectRailStat(
+              CircleCheckIcon,
+              "Merged",
+              projectWorkItems.pullRequests.filter(
+                (review) => review.lifecycle === "merged",
+              ).length,
+            )}
+          {:else if activeProjectSurface === "channels"}
+            {@render projectRailStat(
+              HashIcon,
+              "Channels",
+              projectForgeBoundChannels(
+                selectedProject,
+                selectedProjectRepositories,
+              ).length,
+            )}
+            {@render projectRailStat(
+              GitBranchIcon,
+              "Repositories",
+              selectedProjectRepositories.filter(
+                (repository) => repository.repositoryClass !== "task-anchor",
+              ).length,
+            )}
+          {:else}
+            {@render projectRailStat(
+              UsersIcon,
+              "Contributors",
+              selectedProjectRoom?.memberCount ?? activeRoomMemberIds.length,
+            )}
+          {/if}
+        {:else}
+          <div class="community-application__project-overview-heading">
+            <strong
+              >{projectsOverviewSurface === "activity"
+                ? "Activity"
+                : projectsOverviewSurface === "reviews"
+                  ? "Reviews"
+                  : projectsOverviewSurface[0]!.toUpperCase() +
+                    projectsOverviewSurface.slice(1)}</strong
             >
-          </Button>
-          <Button
-            type="button"
-            variant="ghost"
-            class="community-application__project-overview-item"
-            onclick={() => openProjectsOverviewSurface("channels")}
-          >
-            <HashIcon data-icon="inline-start" aria-hidden="true" />
-            <span>Channels</span>
-            <CommunityChip size="compact">{projectChannelCount}</CommunityChip>
-          </Button>
-          <Button
-            type="button"
-            variant="ghost"
-            class="community-application__project-overview-item"
-            onclick={() => openProjectsOverviewSurface("tasks")}
-          >
-            <ListTodoIcon data-icon="inline-start" aria-hidden="true" />
-            <span>Tasks</span>
-            <CommunityChip size="compact"
-              >{projectWorkItems.tasks.length}</CommunityChip
-            >
-          </Button>
-          <Button
-            type="button"
-            variant="ghost"
-            class="community-application__project-overview-item"
-            onclick={() => openProjectsOverviewSurface("reviews")}
-          >
-            <GitPullRequestIcon data-icon="inline-start" aria-hidden="true" />
-            <span>Reviews</span>
-            <CommunityChip size="compact"
-              >{projectWorkItems.pullRequests.length}</CommunityChip
-            >
-          </Button>
+            {#if projectsOverviewSurface === "projects"}
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                aria-label="Create project"
+                title="Create project"
+                disabled={!authenticated || projectOperation !== ""}
+                onclick={() => requestProjectDialog("project")}
+                ><PlusIcon aria-hidden="true" /></Button
+              >
+            {:else if projectsOverviewSurface === "repositories"}
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                aria-label="Add repository"
+                title="Select a project to add a repository"
+                disabled><PlusIcon aria-hidden="true" /></Button
+              >
+            {:else if projectsOverviewSurface === "tasks"}
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                aria-label="Create task"
+                title="Select a project to create a task"
+                disabled><PlusIcon aria-hidden="true" /></Button
+              >
+            {:else if projectsOverviewSurface === "reviews"}
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                aria-label="Create review"
+                title="Create review"
+                disabled={!authenticated ||
+                  projectOperation !== "" ||
+                  projectCatalog.repositories.every(
+                    (repository) => repository.repositoryClass !== "hosted",
+                  )}
+                onclick={() => requestProjectDialog("review")}
+                ><PlusIcon aria-hidden="true" /></Button
+              >
+            {:else if projectsOverviewSurface === "channels"}
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                aria-label="Add channel"
+                title="Select a project to add a channel"
+                disabled><PlusIcon aria-hidden="true" /></Button
+              >
+            {/if}
+          </div>
+          {#if projectsOverviewSurface === "tasks"}
+            {@render projectRailStat(
+              ListTodoIcon,
+              "Tasks",
+              projectWorkItems.tasks.length,
+            )}
+            {@render projectRailStat(
+              CircleDotIcon,
+              "Active",
+              projectWorkItems.tasks.filter(
+                (task) =>
+                  task.lifecycle !== "closed" && task.lifecycle !== "applied",
+              ).length,
+            )}
+            {@render projectRailStat(
+              CircleCheckIcon,
+              "Completed",
+              projectWorkItems.tasks.filter(
+                (task) =>
+                  task.lifecycle === "closed" || task.lifecycle === "applied",
+              ).length,
+            )}
+          {:else if projectsOverviewSurface === "reviews"}
+            {@render projectRailStat(
+              GitPullRequestIcon,
+              "Reviews",
+              projectWorkItems.pullRequests.length,
+            )}
+            {@render projectRailStat(
+              CircleDotIcon,
+              "Open",
+              projectWorkItems.pullRequests.filter(
+                (review) =>
+                  review.lifecycle === "open" || review.lifecycle === "draft",
+              ).length,
+            )}
+            {@render projectRailStat(
+              CircleCheckIcon,
+              "Merged",
+              projectWorkItems.pullRequests.filter(
+                (review) => review.lifecycle === "merged",
+              ).length,
+            )}
+          {:else if projectsOverviewSurface === "repositories"}
+            {@render projectRailStat(
+              GitBranchIcon,
+              "Repositories",
+              projectCatalog.repositories.length,
+            )}
+            {@render projectRailStat(
+              ListTodoIcon,
+              "Active tasks",
+              projectWorkItems.tasks.filter(
+                (task) =>
+                  task.lifecycle !== "closed" && task.lifecycle !== "applied",
+              ).length,
+            )}
+            {@render projectRailStat(
+              GitPullRequestIcon,
+              "Open reviews",
+              projectWorkItems.pullRequests.filter(
+                (review) =>
+                  review.lifecycle === "open" || review.lifecycle === "draft",
+              ).length,
+            )}
+          {:else if projectsOverviewSurface === "channels"}
+            {@render projectRailStat(HashIcon, "Channels", projectChannelCount)}
+            {@render projectRailStat(
+              FolderKanbanIcon,
+              "Projects",
+              projectCatalog.projects.length,
+            )}
+            {@render projectRailStat(
+              GitBranchIcon,
+              "Repositories",
+              projectCatalog.repositories.length,
+            )}
+          {:else if projectsOverviewSurface === "projects"}
+            {@render projectRailStat(
+              FolderKanbanIcon,
+              "Projects",
+              projectCatalog.projects.length,
+            )}
+            {@render projectRailStat(
+              GitBranchIcon,
+              "Repositories",
+              projectCatalog.repositories.length,
+            )}
+            {@render projectRailStat(HashIcon, "Channels", projectChannelCount)}
+          {:else}
+            {@render projectRailStat(
+              FolderKanbanIcon,
+              "Projects",
+              projectCatalog.projects.length,
+            )}
+            {@render projectRailStat(
+              GitBranchIcon,
+              "Repositories",
+              projectCatalog.repositories.length,
+            )}
+            {@render projectRailStat(HashIcon, "Channels", projectChannelCount)}
+            {@render projectRailStat(
+              ListTodoIcon,
+              "Tasks",
+              projectWorkItems.tasks.length,
+            )}
+            {@render projectRailStat(
+              GitPullRequestIcon,
+              "Reviews",
+              projectWorkItems.pullRequests.length,
+            )}
+          {/if}
         {/if}
       </nav>
     </AppShell.Sidebar.Body>
@@ -3434,9 +4109,14 @@
           pullRequests={projectWorkItems.pullRequests}
           {...selectedPullRequest === undefined ? {} : { selectedPullRequest }}
           commits={projectCommits}
+          commitBranch={projectCommitBranch}
           {...selectedProjectCommit === undefined
             ? {}
             : { selectedCommit: selectedProjectCommit }}
+          {...projectCommitDetail === undefined
+            ? {}
+            : { selectedCommitDetail: projectCommitDetail }}
+          sourceError={projectSourceError}
           {...projectTree === undefined ? {} : { tree: projectTree }}
           selectedPath={selectedProjectPath}
           {...projectBlob === undefined ? {} : { blob: projectBlob }}
@@ -3457,6 +4137,9 @@
           error={projectError}
           operation={projectOperation}
           canCollaborate={authenticated}
+          onOpenProfile={openProfile}
+          onMessageMember={messageMember}
+          onWaveMember={waveMember}
           onCreateRepository={createRepository}
           onCreateTask={createTask}
           onUpdateTaskLifecycle={updateTaskLifecycle}
@@ -3465,10 +4148,7 @@
             selectedPullRequestId = pullRequest.root.id;
             projectPullRequestDiff = undefined;
           }}
-          onClosePullRequest={() => {
-            selectedPullRequestId = "";
-            projectPullRequestDiff = undefined;
-          }}
+          onClosePullRequest={closeProjectPullRequest}
           onApprovePullRequest={(pullRequest) =>
             publishReviewDecision(pullRequest, "approved")}
           onRequestChanges={(pullRequest) =>
@@ -3476,7 +4156,8 @@
           onUpdatePullRequestLifecycle={updatePullRequestLifecycle}
           onAddPullRequestComment={publishPullRequestComment}
           onAddInlineComment={publishInlineComment}
-          onSelectCommit={(commit) => (selectedProjectCommit = commit)}
+          onSelectCommit={selectProjectCommit}
+          onCloseCommit={closeProjectCommit}
           onSelectPath={(path) => {
             selectedProjectPath = path;
             projectBlob = undefined;
@@ -3659,87 +4340,187 @@
       </AppShell.Toolbar>
     {/if}
 
+    {#if isProjectsDestination && selectedPullRequest}
+      <AppShell.Toolbar
+        label="Review navigation"
+        class="community-application__project-review-toolbar"
+      >
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-sm"
+          class="community-application__project-review-back"
+          aria-label="Back to reviews"
+          title="Back to reviews"
+          onclick={closeProjectPullRequest}
+        >
+          <ArrowLeftIcon aria-hidden="true" />
+        </Button>
+        <div class="community-application__project-review-heading">
+          <h1>
+            {selectedPullRequest.title}
+            <span>#{selectedPullRequest.root.id.slice(0, 8)}</span>
+          </h1>
+          <p>
+            Review opened <CommunityRelativeTime
+              timestamp={selectedPullRequest.createdAt}
+            />
+          </p>
+        </div>
+      </AppShell.Toolbar>
+    {/if}
+
+    {#if isProjectsDestination && !selectedTask && !selectedPullRequest}
+      <AppShell.Toolbar
+        label="Project sections"
+        class="community-application__project-toolbar"
+      >
+        {#if selectedProject}
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-sm"
+            class="community-application__project-toolbar-back"
+            aria-label="Back to projects"
+            title="Back to projects"
+            onclick={() => setDestination("projects", true)}
+          >
+            <ArrowLeftIcon aria-hidden="true" />
+          </Button>
+        {:else}
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-sm"
+            class="community-application__project-toolbar-search"
+            aria-label="Search projects"
+            title="Search projects"
+            onclick={() => (searchOpen = true)}
+          >
+            <SearchIcon aria-hidden="true" />
+          </Button>
+        {/if}
+        <Tabs.Root
+          value={selectedProject
+            ? activeProjectSurface
+            : projectsOverviewSurface}
+        >
+          <Tabs.List
+            class="community-application__project-tab-list"
+            aria-label={selectedProject
+              ? `${selectedProject.name} sections`
+              : "Project sections"}
+          >
+            {#each selectedProject ? selectedProjectTabs : projectOverviewTabs as tab (tab.value)}
+              <Tabs.Trigger
+                class="community-application__project-tab-trigger"
+                value={tab.value}
+                onclick={() => {
+                  if (selectedProject)
+                    openProjectSurface(tab.value as ProjectForgeSurface);
+                  else
+                    openProjectsOverviewSurface(
+                      tab.value as ProjectForgeOverviewSurface,
+                    );
+                }}
+              >
+                {tab.label}
+              </Tabs.Trigger>
+            {/each}
+          </Tabs.List>
+        </Tabs.Root>
+      </AppShell.Toolbar>
+    {/if}
+
     {#if isProjectsDestination}
-      <AppShell.Body layout="regions" label="Projects">
-        <AppShell.Body.Content label={selectedProject?.name ?? "Projects"}>
-          <CommunityProjects
-            view={selectedProject
-              ? activeProjectSurface
-              : projectsOverviewSurface}
-            projects={projectCatalog.projects}
-            {...selectedProject === undefined ? {} : { selectedProject }}
-            repositories={selectedProject
-              ? selectedProjectRepositories
-              : projectCatalog.repositories}
-            activity={projectActivity}
-            tasks={projectWorkItems.tasks}
-            pullRequests={projectWorkItems.pullRequests}
-            {...selectedPullRequest === undefined
-              ? {}
-              : { selectedPullRequest }}
-            commits={projectCommits}
-            {...selectedProjectCommit === undefined
-              ? {}
-              : { selectedCommit: selectedProjectCommit }}
-            {...projectTree === undefined ? {} : { tree: projectTree }}
-            selectedPath={selectedProjectPath}
-            {...projectBlob === undefined ? {} : { blob: projectBlob }}
-            {...projectPullRequestDiff === undefined
-              ? {}
-              : { pullRequestDiff: projectPullRequestDiff }}
-            members={selectedProjectRoom === undefined
-              ? workspace.members
-              : workspace.members.filter((member) =>
-                  activeRoomMemberIds.includes(member.id),
-                )}
-            rooms={allRooms}
-            communityEmojis={community.state.settings.customEmojis}
-            {...workspace.currentMemberId === undefined
-              ? {}
-              : { currentMemberId: workspace.currentMemberId }}
-            loading={projectLoading}
-            error={projectError}
-            operation={projectOperation}
-            canCollaborate={authenticated}
-            onSelectView={(surface) => {
-              if (selectedProject)
-                openProjectSurface(surface as ProjectForgeSurface);
-              else
-                openProjectsOverviewSurface(
-                  surface as ProjectForgeOverviewSurface,
-                );
-            }}
-            onBack={() => setDestination("projects", true)}
-            onSelectProject={selectProject}
-            onCreateProject={createProject}
-            onCreateRepository={createRepository}
-            onCreateTask={createTask}
-            onUpdateTaskLifecycle={updateTaskLifecycle}
-            onCreatePullRequest={createPullRequest}
-            onSelectPullRequest={(pullRequest) => {
-              selectedPullRequestId = pullRequest.root.id;
-              projectPullRequestDiff = undefined;
-            }}
-            onClosePullRequest={() => {
-              selectedPullRequestId = "";
-              projectPullRequestDiff = undefined;
-            }}
-            onApprovePullRequest={(pullRequest) =>
-              publishReviewDecision(pullRequest, "approved")}
-            onRequestChanges={(pullRequest) =>
-              publishReviewDecision(pullRequest, "changes-requested")}
-            onUpdatePullRequestLifecycle={updatePullRequestLifecycle}
-            onAddPullRequestComment={publishPullRequestComment}
-            onAddInlineComment={publishInlineComment}
-            onSelectCommit={(commit) => (selectedProjectCommit = commit)}
-            onSelectPath={(path) => {
-              selectedProjectPath = path;
-              projectBlob = undefined;
-            }}
-            onRetry={repairProjectMembership}
-          />
-        </AppShell.Body.Content>
-      </AppShell.Body>
+      <CommunityProjects
+        view={selectedProject ? activeProjectSurface : projectsOverviewSurface}
+        projects={projectCatalog.projects}
+        {...selectedProject === undefined ? {} : { selectedProject }}
+        repositories={selectedProject
+          ? selectedProjectRepositories
+          : projectCatalog.repositories}
+        activity={projectActivity}
+        tasks={projectWorkItems.tasks}
+        {...selectedTask === undefined ? {} : { selectedTask }}
+        pullRequests={projectWorkItems.pullRequests}
+        {...selectedPullRequest === undefined ? {} : { selectedPullRequest }}
+        commits={projectCommits}
+        commitBranch={projectCommitBranch}
+        {...selectedProjectCommit === undefined
+          ? {}
+          : { selectedCommit: selectedProjectCommit }}
+        {...projectCommitDetail === undefined
+          ? {}
+          : { selectedCommitDetail: projectCommitDetail }}
+        sourceError={projectSourceError}
+        {...projectTree === undefined ? {} : { tree: projectTree }}
+        selectedPath={selectedProjectPath}
+        {...projectBlob === undefined ? {} : { blob: projectBlob }}
+        {...projectPullRequestDiff === undefined
+          ? {}
+          : { pullRequestDiff: projectPullRequestDiff }}
+        members={selectedProjectRoom === undefined
+          ? workspace.members
+          : workspace.members.filter((member) =>
+              activeRoomMemberIds.includes(member.id),
+            )}
+        rooms={allRooms}
+        communityEmojis={community.state.settings.customEmojis}
+        {...workspace.currentMemberId === undefined
+          ? {}
+          : { currentMemberId: workspace.currentMemberId }}
+        loading={projectLoading}
+        error={projectError}
+        operation={projectOperation}
+        canCollaborate={authenticated}
+        {...projectDialogRequest === undefined
+          ? {}
+          : { dialogRequest: projectDialogRequest }}
+        showNavigation={false}
+        showReviewHeader={false}
+        onSelectView={(surface) => {
+          if (selectedProject)
+            openProjectSurface(surface as ProjectForgeSurface);
+          else
+            openProjectsOverviewSurface(surface as ProjectForgeOverviewSurface);
+        }}
+        onBack={() => setDestination("projects", true)}
+        onSelectProject={selectProject}
+        onSelectChannel={(roomId) => setDestination(roomId, true)}
+        onOpenProfile={openProfile}
+        onMessageMember={messageMember}
+        onWaveMember={waveMember}
+        onCreateProject={createProject}
+        onCreateRepository={createRepository}
+        onCreateTask={createTask}
+        onSelectTask={selectProjectTask}
+        onCloseTask={() => (selectedTaskId = "")}
+        onUpdateTaskAssignment={updateTaskAssignment}
+        onManageTaskAssignments={openTaskAssignmentCommand}
+        onAddTaskComment={publishTaskComment}
+        onUpdateTaskLifecycle={updateTaskLifecycle}
+        onCreatePullRequest={createPullRequest}
+        onSelectPullRequest={(pullRequest) => {
+          selectedPullRequestId = pullRequest.root.id;
+          projectPullRequestDiff = undefined;
+        }}
+        onClosePullRequest={closeProjectPullRequest}
+        onApprovePullRequest={(pullRequest) =>
+          publishReviewDecision(pullRequest, "approved")}
+        onRequestChanges={(pullRequest) =>
+          publishReviewDecision(pullRequest, "changes-requested")}
+        onUpdatePullRequestLifecycle={updatePullRequestLifecycle}
+        onAddPullRequestComment={publishPullRequestComment}
+        onAddInlineComment={publishInlineComment}
+        onSelectCommit={selectProjectCommit}
+        onCloseCommit={closeProjectCommit}
+        onSelectPath={(path) => {
+          selectedProjectPath = path;
+          projectBlob = undefined;
+        }}
+        onRetry={repairProjectMembership}
+      />
     {:else if isRegistryDestination}
       {#if registry}
         <AppShell.Body layout="regions" label="Plugin registry">
@@ -3956,6 +4737,7 @@
             recipients={selectedRecipients}
             communityEmojis={community.state.settings.customEmojis}
             onChooseRecipients={() => {
+              memberCommandTask = undefined;
               memberCommandMode = "select";
               memberCommandOpen = true;
             }}
@@ -4524,9 +5306,11 @@
 
 <CommunityMemberCommand
   bind:open={memberCommandOpen}
-  title={memberCommandMode === "select"
-    ? "New direct message"
-    : `${activeRoom.kind === "forum" ? "Forum" : activeRoom.kind === "direct" ? "Conversation" : "Channel"} members`}
+  title={memberCommandMode === "select" && memberCommandTask
+    ? `Assign ${memberCommandTask.title}`
+    : memberCommandMode === "select"
+      ? "New direct message"
+      : `${activeRoom.kind === "forum" ? "Forum" : activeRoom.kind === "direct" ? "Conversation" : "Channel"} members`}
   mode={memberCommandMode}
   members={workspace.members}
   results={community.state.memberDirectory.results}
@@ -4536,6 +5320,14 @@
     : { currentMemberId: workspace.currentMemberId }}
   roomKind={activeRoom.kind === "direct" ? "conversation" : activeRoom.kind}
   selectedIds={selectedRecipientIds}
+  selectionLabel={memberCommandMode === "select" && memberCommandTask
+    ? "Selected assignees"
+    : "Selected recipients"}
+  confirmLabel={memberCommandMode === "select" && memberCommandTask
+    ? "Update assignees"
+    : "Start message"}
+  allowEmptySelection={memberCommandMode === "select" &&
+    memberCommandTask !== undefined}
   completeness={activeRoom.memberListCompleteness ?? "unavailable"}
   roleDefinitions={activeRoom.roleDefinitions ?? []}
   onSearch={(query) => void community.actions.searchMembers(query)}
@@ -4563,7 +5355,7 @@
     ? { onSetRoles: setMemberRoles }
     : {}}
   onConfirm={memberCommandMode === "select"
-    ? startDirectMessage
+    ? () => void updateSelectedTaskAssignments()
     : () => (memberCommandOpen = false)}
 />
 
@@ -5000,8 +5792,135 @@
   .community-application__project-overview {
     display: grid;
     width: 100%;
+    gap: 0.15rem;
+    padding: 0.85rem 0.75rem;
+  }
+
+  :global(.community-application__project-overview-sidebar[data-side="right"]) {
+    border-inline-start-color: transparent !important;
+  }
+
+  :global(
+      .community-application__project-overview-sidebar
+        [data-ui-part="sidebar-resize-indicator"]
+    ) {
+    background: transparent !important;
+  }
+
+  :global(.community-application__project-toolbar[data-ui-part="toolbar"]) {
+    min-height: 3.25rem;
+    gap: 0.45rem;
+    border-block-end: 0;
+    padding: 0.55rem 1rem;
+    overflow: hidden;
+    background: color-mix(in srgb, var(--background) 97%, transparent);
+  }
+
+  :global(
+      .community-application__project-review-toolbar[data-ui-part="toolbar"]
+    ) {
+    min-height: 4.75rem;
+    flex: none;
+    align-items: center;
+    gap: 0.55rem;
+    border-block-end: 1px solid var(--border);
+    padding: 0.55rem 0.75rem;
+    overflow: hidden;
+    background: color-mix(in srgb, var(--background) 97%, transparent);
+  }
+
+  :global(
+      .community-application__project-review-back[data-ui-component="button"]
+    ) {
+    flex: none;
+    margin: 0;
+    border-radius: 999px;
+  }
+
+  .community-application__project-review-heading {
+    min-width: 0;
+  }
+
+  .community-application__project-review-heading h1,
+  .community-application__project-review-heading p {
+    margin: 0;
+  }
+
+  .community-application__project-review-heading h1 {
+    overflow: hidden;
+    font-size: 1.05rem;
+    font-weight: 600;
+    line-height: 1.4;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .community-application__project-review-heading h1 span {
+    color: var(--muted-foreground);
+    font-weight: 400;
+  }
+
+  .community-application__project-review-heading p {
+    display: flex;
+    align-items: center;
     gap: 0.25rem;
-    padding: 1rem 0.75rem;
+    margin-top: 0.15rem;
+    color: var(--muted-foreground);
+    font-size: 0.72rem;
+  }
+
+  :global(.community-application__project-toolbar [data-slot="tabs-root"]) {
+    min-width: 0;
+    overflow-x: auto;
+  }
+
+  :global(
+      .community-application__project-toolbar
+        .community-application__project-tab-list[data-slot="tabs-list"]
+    ) {
+    display: flex;
+    width: max-content;
+    height: auto;
+    gap: 0.4rem;
+    border-radius: 0;
+    padding: 0;
+    background: transparent;
+    box-shadow: none;
+  }
+
+  :global(
+      .community-application__project-toolbar
+        .community-application__project-tab-trigger[data-slot="tabs-trigger"]
+    ) {
+    min-height: 1.75rem;
+    flex: none;
+    border: 0;
+    border-radius: 999px;
+    padding: 0.22rem 0.75rem;
+    color: var(--muted-foreground);
+    background: color-mix(in srgb, var(--muted) 35%, transparent);
+    box-shadow: none;
+    font-size: 0.75rem;
+    font-weight: 500;
+  }
+
+  :global(
+      .community-application__project-toolbar
+        .community-application__project-tab-trigger[data-slot="tabs-trigger"][data-state="active"]
+    ) {
+    color: var(--foreground);
+    background: var(--muted);
+    box-shadow: none;
+  }
+
+  :global(
+      .community-application__project-toolbar-back[data-ui-component="button"]
+    ),
+  :global(
+      .community-application__project-toolbar-search[data-ui-component="button"]
+    ) {
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--muted) 35%, transparent);
   }
 
   .community-application__project-overview-heading {
@@ -5010,14 +5929,36 @@
     grid-template-columns: minmax(0, 1fr) auto;
     align-items: center;
     gap: 0.5rem;
-    padding: 0 0.5rem 0.4rem;
+    padding: 0 0.4rem 0.55rem;
+    font-size: 0.8rem;
+    font-weight: 500;
+  }
+
+  .community-application__project-overview-heading > strong {
+    font-weight: 500;
+  }
+
+  :global(
+      .community-application__project-overview-heading
+        > [data-ui-component="button"]
+    ) {
+    width: 1.75rem;
+    min-width: 1.75rem;
+    height: 1.75rem;
+    min-height: 1.75rem;
+  }
+
+  :global(
+      .community-application__project-overview-review-create[data-ui-component="button"]
+    ) {
+    margin-inline-end: -0.6rem;
   }
 
   .community-application__project-overview-repository {
     display: grid;
-    gap: 0.15rem;
-    padding: 0.5rem;
-    border-radius: var(--radius);
+    gap: 0.08rem;
+    padding: 0.3rem 0.4rem;
+    font-size: 0.8rem;
   }
 
   .community-application__project-overview-repository span,
@@ -5027,12 +5968,50 @@
   }
 
   .community-application__project-overview-label {
-    margin: 1rem 0.5rem 0.25rem;
+    margin: 0.9rem 0.4rem 0.3rem;
   }
 
   :global(.community-application__project-overview-item code) {
     color: var(--muted-foreground);
     font-size: 0.72rem;
+  }
+
+  .community-application__project-overview-item {
+    display: grid;
+    width: 100%;
+    min-height: 2rem;
+    box-sizing: border-box;
+    grid-template-columns: 0.9rem minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 0.7rem;
+    padding: 0.3rem 0.4rem;
+    color: var(--muted-foreground);
+    font-size: 0.8rem;
+  }
+
+  .community-application__project-overview-item > strong {
+    max-width: 9rem;
+    overflow: hidden;
+    color: var(--foreground);
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .community-application__project-overview-item > :global(svg) {
+    width: 0.9rem;
+    height: 0.9rem;
+  }
+
+  :global(
+      .community-application__project-overview-action[data-ui-component="button"]
+    ) {
+    width: 100%;
+    justify-content: flex-start;
+    color: var(--foreground);
+    font-size: 0.8rem;
+    font-weight: 450;
   }
 
   :global(

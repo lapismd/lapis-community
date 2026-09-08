@@ -6,10 +6,13 @@ import { storybookTest } from "@storybook/addon-vitest/vitest-plugin";
 import { playwright } from "@vitest/browser-playwright";
 import { defineConfig } from "vitest/config";
 
+import { tursoBundleBuildPlugin } from "./scripts/vite-turso-bundle.js";
+
 const packageDirectory = path.dirname(fileURLToPath(import.meta.url));
 
 export default defineConfig(({ command }) => ({
   plugins: [
+    tursoBundleBuildPlugin(),
     tailwindcss(),
     svelte({
       compilerOptions: { customElement: command === "build" },
@@ -35,6 +38,7 @@ export default defineConfig(({ command }) => ({
   ssr: { noExternal: ["aria-query"] },
   worker: {
     format: "es",
+    plugins: () => [tursoBundleBuildPlugin()],
   },
   build: {
     target: "es2023",

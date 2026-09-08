@@ -317,6 +317,17 @@ export function createProjectStoryFixture(channelId = "general-projects") {
     "Keep the shell shape aligned with plugin releases.",
     1_700_000_020,
   );
+  const taskComment = storyEvent(
+    "7",
+    1,
+    projectStoryOwner,
+    [
+      ["e", taskRoot.id, "", "root"],
+      ["a", projectStoryRepositoryCoordinate],
+    ],
+    "The sidebar should stay contextual and quiet as the task changes.",
+    1_700_000_022,
+  );
   const pullRequestRoot = storyEvent(
     "4",
     1_618,
@@ -431,13 +442,25 @@ export function createProjectStoryFixture(channelId = "general-projects") {
         labels: ["design"],
         lifecycle: "open",
         assignees: [projectStoryAuthor],
-        activity: [],
+        activity: [
+          {
+            event: taskComment,
+            encoding: "buzz-kind-1",
+            assignees: [],
+          },
+        ],
         createdAt: taskRoot.created_at,
         updatedAt: taskRoot.created_at,
       },
     ],
     pullRequests: [pullRequest],
-    events: [taskRoot, pullRequestRoot, reviewCommentEvent, inlineCommentEvent],
+    events: [
+      taskRoot,
+      taskComment,
+      pullRequestRoot,
+      reviewCommentEvent,
+      inlineCommentEvent,
+    ],
   };
   const diff: ProjectForgePullRequestDiff = {
     pull_request: pullRequestRoot.id,
@@ -545,10 +568,16 @@ export function createProjectStoryDataSource(
             ref: revision,
             sha: "d".repeat(40),
             path,
-            entries: [
-              { name: "README.md", type: "blob", size: 912 },
-              { name: "src", type: "tree" },
-            ],
+            entries:
+              path === "src"
+                ? [
+                    { name: "app.ts", type: "blob", size: 1_842 },
+                    { name: "index.ts", type: "blob", size: 318 },
+                  ]
+                : [
+                    { name: "README.md", type: "blob", size: 912 },
+                    { name: "src", type: "tree" },
+                  ],
           };
         },
         async loadBlob(_repository, _revision, path) {

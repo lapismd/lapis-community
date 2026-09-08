@@ -323,11 +323,27 @@ class Nip34ProjectForgeSession implements ProjectForgeSession {
     path = "",
     signal?: AbortSignal,
   ): Promise<ProjectForgeTreeResponse> {
-    return await this.#forgeGet(
+    const response = await this.#forgeGet<
+      Omit<ProjectForgeTreeResponse, "readme"> & {
+        readme?: string | { name?: string; contents?: string } | null;
+      }
+    >(
       repository,
       `tree/${encodeURIComponent(revision)}/${encodePath(path)}`,
       signal,
     );
+    const readme =
+      typeof response.readme === "string"
+        ? response.readme
+        : response.readme?.contents;
+    return {
+      ref: response.ref,
+      sha: response.sha,
+      path: response.path,
+      entries: response.entries,
+      ...(response.commit === undefined ? {} : { commit: response.commit }),
+      ...(typeof readme === "string" ? { readme } : {}),
+    };
   }
 
   async loadBlob(

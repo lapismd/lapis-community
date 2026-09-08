@@ -715,6 +715,9 @@
         {:else}
           <Collapsible.Root
             class="lc-community-navigation__section"
+            data-navigation-section-kind={communityNavigationSectionKind(
+              section,
+            )}
             open={isSectionOpen(section)}
             onOpenChange={(open) => setSectionOpen(section.id, open)}
           >

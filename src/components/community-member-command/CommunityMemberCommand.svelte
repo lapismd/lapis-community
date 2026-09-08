@@ -27,6 +27,9 @@
     roomKind = "channel",
     selectedIds = [],
     mode = "view",
+    selectionLabel = "Selected recipients",
+    confirmLabel = "Start message",
+    allowEmptySelection = false,
     completeness = "complete",
     maxSelected = 8,
     onSearch,
@@ -45,6 +48,9 @@
     roomKind?: "channel" | "forum" | "conversation";
     selectedIds?: readonly string[];
     mode?: "view" | "manage" | "select";
+    selectionLabel?: string;
+    confirmLabel?: string;
+    allowEmptySelection?: boolean;
     completeness?: "complete" | "partial" | "unavailable";
     maxSelected?: number;
     onSearch: (query: string) => void;
@@ -256,10 +262,7 @@
   </div>
 
   {#if mode === "select" && selectedIds.length}
-    <div
-      class="community-member-command__chips"
-      aria-label="Selected recipients"
-    >
+    <div class="community-member-command__chips" aria-label={selectionLabel}>
       {#each selectedIds as id (id)}
         {@const member = members.find((candidate) => candidate.id === id)}
         <CommunityChip
@@ -391,8 +394,8 @@
       </Dialog.Close>
       <Button
         type="button"
-        disabled={selectedIds.length === 0}
-        onclick={onConfirm}>Start message</Button
+        disabled={!allowEmptySelection && selectedIds.length === 0}
+        onclick={onConfirm}>{confirmLabel}</Button
       >
     </div>
   {/if}
