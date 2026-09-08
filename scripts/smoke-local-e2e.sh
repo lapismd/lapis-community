@@ -88,9 +88,11 @@ jq -e \
   --argjson expected_community_events "${expected_community_events}" '
   .schema == "lapis.registry.nip29-local-fixture-status/1" and
   .pluginCount >= 1 and
-  .registryEventCount == (.pluginCount * 3) and
+  .registryEventCount == (.pluginCount * 4) and
   .communityEventCount == $expected_community_events and
-  .relayCopies == (.communityEventCount + .registryEventCount) and
+  .projectCount == 1 and
+  .projectEventCount == 5 and
+  .relayCopies == (.communityEventCount + .registryEventCount + .projectEventCount) and
   (.registryRoot | test("^[0-9a-f]{64}$")) and
   (.groupIds | length) == (.pluginCount + 4) and
   (.groupIds["support-ai"] | test("^[0-9a-f-]{36}$"))

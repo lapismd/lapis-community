@@ -20,6 +20,7 @@
     type CommunityLoginMethodModel,
   } from "../../src/components/community-login/model.js";
   import { createNip29RegistryCatalogDataSource } from "../../src/registry/index.js";
+  import { createNip34ProjectForgeDataSource } from "../../src/projects/index.js";
   import { createWebSocketCommunityRelayFactory } from "../../src/nostr/index.js";
   import { LAPIS_GROUPS, lapisGroupId } from "../../src/protocol/index.js";
   import { hexToBytes } from "@noble/hashes/utils.js";
@@ -45,6 +46,7 @@
   );
   const registryAuthorityEpoch =
     import.meta.env.VITE_REGISTRY_AUTHORITY_EPOCH?.trim() || undefined;
+  const relayFactory = createWebSocketCommunityRelayFactory();
   const registryConfigurationError =
     registryRelays.length === 0 ||
     registryCurators.size === 0 ||
@@ -63,9 +65,10 @@
               ? {}
               : { authorityEpoch: registryAuthorityEpoch }),
           },
-          relayFactory: createWebSocketCommunityRelayFactory(),
+          relayFactory,
         })
       : undefined;
+  const projectSource = createNip34ProjectForgeDataSource({ relayFactory });
   const loginMethods: readonly CommunityLoginMethodModel[] = [
     COMMUNITY_LOGIN_METHODS.browserExtension,
     COMMUNITY_LOGIN_METHODS.remoteSigner,
@@ -89,7 +92,6 @@
   });
 
   onMount(() => {
-    const relayFactory = createWebSocketCommunityRelayFactory();
     const scope: CommunityScope = {
       id: "registry",
       name: "Registry",
@@ -225,6 +227,7 @@
               ? {}
               : { discussionIdentity: activeIdentity }),
           }}
+          projectsOptions={{ source: projectSource }}
           loginOptions={{
             methods: loginMethods,
             allowLocalKeyMethods: true,

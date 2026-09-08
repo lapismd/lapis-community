@@ -26,6 +26,7 @@ import { finalizeEvent, getPublicKey } from "nostr-tools/pure";
 
 import { parseFixtureSecrets } from "./keys.js";
 import type { FixtureSecretName, FixtureSecrets } from "./keys.js";
+import { createLocalProjectForgeFixture } from "./projects.js";
 import { loadLocalPluginFixtures } from "./source.js";
 import { encodeNostrHttpAuthorization } from "../nostr/http-authorization.js";
 
@@ -35,6 +36,8 @@ interface FixtureStatus {
   pluginIds: string[];
   registryEventCount: number;
   communityEventCount: number;
+  projectCount: number;
+  projectEventCount: number;
   registryRoot: string;
   relayCopies: number;
   groupIds: Record<string, string>;
@@ -307,7 +310,14 @@ async function seed(): Promise<{
   const baseGroups = [
     [LAPIS_GROUPS.pluginReleases, "plugin-releases", [9, 7]],
     [LAPIS_GROUPS.general, "general", [9, 7]],
-    [LAPIS_GROUPS.pluginDevelopment, "plugin-development", [9, 7]],
+    [
+      LAPIS_GROUPS.pluginDevelopment,
+      "plugin-development",
+      [
+        9, 7, 1, 5, 1_111, 1_618, 1_619, 1_621, 1_630, 1_631, 1_632, 1_633,
+        30_617, 30_621,
+      ],
+    ],
     [LAPIS_GROUPS.forums, "forums", [11, 1_111, 7]],
   ] as const;
   const groups = [
@@ -382,6 +392,27 @@ async function seed(): Promise<{
       }, "grant Registry curator role");
     }
   }
+
+  const communitySecrets = [
+    secret(secrets, "communityOne"),
+    secret(secrets, "communityTwo"),
+  ];
+  const projectFixture = createLocalProjectForgeFixture({
+    ownerPubkey: getPublicKey(operatorSecret),
+    contributorPubkey: getPublicKey(communitySecrets[0]!),
+    channelId: lapisGroupId(LAPIS_GROUPS.pluginDevelopment),
+    relayUrl,
+    createdAt,
+  });
+  const projectEvents: NostrEvent[] = [];
+  for (const publication of projectFixture.publications) {
+    const secretKey =
+      publication.signer === "owner" ? operatorSecret : communitySecrets[0]!;
+    const event = sign(secretKey, publication.template);
+    await publish(event, secretKey);
+    projectEvents.push(event);
+  }
+  createdAt += projectFixture.publications.length;
 
   const registryEvents: NostrEvent[] = [];
   const manifests: Nip29ReleaseManifestSource[] = [];
@@ -479,10 +510,6 @@ async function seed(): Promise<{
   }
 
   const forumId = lapisPluginSupportGroupId("ai");
-  const communitySecrets = [
-    secret(secrets, "communityOne"),
-    secret(secrets, "communityTwo"),
-  ];
   if (enabled("REGISTRY_EXPECT_ADMIN_ONLY_GROUP_CREATION")) {
     const probeSecret = communitySecrets[0]!;
     const probeGroupId = "lapis-non-admin-creation-probe";
@@ -680,6 +707,8 @@ async function seed(): Promise<{
       pluginIds: fixtures.map((fixture) => fixture.plugin.pluginId),
       registryEventCount: registryEvents.length,
       communityEventCount: communityEvents.length,
+      projectCount: 1,
+      projectEventCount: projectEvents.length,
       registryRoot: registry.root,
       relayCopies: retained.length,
       groupIds: Object.fromEntries(
@@ -797,7 +826,7 @@ function startServer(
   });
   server.listen(port, "0.0.0.0", () => {
     console.log(
-      `Seeded ${status.pluginCount} plugins and ${status.communityEventCount} NIP-29 community events.`,
+      `Seeded ${status.pluginCount} plugins, ${status.communityEventCount} NIP-29 community events, and ${status.projectCount} project.`,
     );
   });
 }

@@ -3,7 +3,10 @@
 For LC-ARCH-021, Docker-backed project acceptance composes the sibling relay's
 private WalGit and RustFS services behind the public relay gateway. Community
 receives only the ordinary relay and HTTP origins and never receives a sidecar
-token or assumes a local Git checkout.
+token or assumes a local Git checkout. The dedicated Vite application composes
+the NIP-34 project source from the same relay factory and active Community
+identity as channels and Registry, so the ordinary local stack exercises the
+production-shaped browser path rather than a Storybook-only adapter.
 
 Registry’s built-in community composition may temporarily isolate the bounded
 discussion stream from plugin-detail presentation while earlier windows remain

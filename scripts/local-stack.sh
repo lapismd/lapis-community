@@ -5,6 +5,7 @@ repo_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 fixture_dir="${repo_root}/.local/registry-fixture"
 fixture_env="${fixture_dir}/fixture.env"
 relay_env="${fixture_dir}/lapis-relay.env"
+forge_env="${fixture_dir}/lapis-forge.env"
 reader_secret="${fixture_dir}/materializer-reader.key"
 
 resolve_directory() {
@@ -49,6 +50,21 @@ printf "LAPIS_RELAY_SECRET=%s\nLAPIS_RELAY_ADMIN_PUBKEYS='\"%s\"'\n" \
   "${operator_secret}" "${operator_pubkey}" >"${relay_env}"
 chmod 600 "${relay_env}"
 
+if [[ ! -f ${forge_env} ]] ||
+  ! rg -q '^LAPIS_WALGIT_RELAY_TOKEN=[0-9a-f]{64}$' "${forge_env}" ||
+  ! rg -q '^LAPIS_WALGIT_WEBHOOK_SECRET=[0-9a-f]{64}$' "${forge_env}" ||
+  ! rg -q '^LAPIS_RUSTFS_ACCESS_KEY=[0-9a-f]{64}$' "${forge_env}" ||
+  ! rg -q '^LAPIS_RUSTFS_SECRET_KEY=[0-9a-f]{64}$' "${forge_env}"; then
+  umask 077
+  {
+    printf 'LAPIS_WALGIT_RELAY_TOKEN=%s\n' "$(openssl rand -hex 32)"
+    printf 'LAPIS_WALGIT_WEBHOOK_SECRET=%s\n' "$(openssl rand -hex 32)"
+    printf 'LAPIS_RUSTFS_ACCESS_KEY=%s\n' "$(openssl rand -hex 32)"
+    printf 'LAPIS_RUSTFS_SECRET_KEY=%s\n' "$(openssl rand -hex 32)"
+  } >"${forge_env}"
+fi
+chmod 600 "${forge_env}"
+
 export LAPIS_PLUGINS_PATH
 LAPIS_PLUGINS_PATH=$(resolve_directory "${LAPIS_PLUGINS_PATH:-}" "${repo_root}/../lapis-plugins")
 export PLUGIN_REGISTRY_PATH
@@ -63,6 +79,7 @@ compose=(
   --env-file "${repo_root}/deploy/.env.example"
   --env-file "${fixture_env}"
   --env-file "${relay_env}"
+  --env-file "${forge_env}"
   -f "${repo_root}/deploy/local.compose.yml"
 )
 
@@ -70,18 +87,19 @@ command=${1:-up}
 [[ $# -eq 0 ]] || shift
 case "${command}" in
   up)
-    "${compose[@]}" pull postgres
+    "${compose[@]}" pull postgres rustfs create-walgit-bucket
     "${compose[@]}" up -d --build "$@"
     echo "Rendered registry: http://localhost:${REGISTRY_SITE_PORT:-4321}/"
     echo "Fixture status:   http://127.0.0.1:${REGISTRY_FIXTURE_PORT:-8090}/status.json"
     echo "Registry relay:   ws://registry.localhost:${LAPIS_RELAY_PORT:-8281}"
+    echo "Project forge:    enabled behind the Registry relay"
     ;;
   down)
     "${compose[@]}" down --remove-orphans "$@"
     ;;
   reset)
     "${compose[@]}" down --volumes --remove-orphans "$@"
-    rm -f "${fixture_env}" "${REGISTRY_FIXTURE_SECRETS_FILE}" "${reader_secret}" "${relay_env}"
+    rm -f "${fixture_env}" "${REGISTRY_FIXTURE_SECRETS_FILE}" "${reader_secret}" "${relay_env}" "${forge_env}"
     ;;
   config | logs | port | ps | restart | stop)
     "${compose[@]}" "${command}" "$@"

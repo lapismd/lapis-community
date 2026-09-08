@@ -27,6 +27,14 @@ services:
       REGISTRY_CURATOR_ROLE: registry-curator
       BLOSSOM_ENABLED: "true"
       BLOSSOM_PUBLIC_URL: http://registry.localhost:${LAPIS_RELAY_PORT:-8281}
+      GIT_ENABLED: "true"
+      GIT_PUBLIC_URL: http://registry.localhost:${LAPIS_RELAY_PORT:-8281}
+      GIT_BACKEND_URL: http://walgit:8080
+      GIT_RECONCILE_INTERVAL: 1s
+      GIT_MAX_DIFF_BYTES: "8388608"
+      GIT_MAX_DIFF_FILES: "2000"
+      WALGIT_RELAY_TOKEN: ${LAPIS_WALGIT_RELAY_TOKEN:?ignored local WalGit token is missing}
+      WALGIT_WEBHOOK_SECRET: ${LAPIS_WALGIT_WEBHOOK_SECRET:?ignored local WalGit webhook secret is missing}
     ports:
       - "${LAPIS_RELAY_PORT:-8281}:3334"
     volumes:
@@ -34,6 +42,7 @@ services:
       - lapis-relay-media:/app/media
     depends_on:
       postgres: { condition: service_healthy }
+      walgit: { condition: service_healthy }
     healthcheck:
       test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:3334/health"]
       interval: 5s
@@ -56,6 +65,58 @@ services:
       timeout: 5s
       retries: 20
     restart: unless-stopped
+
+  walgit:
+    image: lapis-walgit:local
+    build:
+      context: ${LAPIS_RELAY_PATH:?run the local stack through local-stack.sh}
+      dockerfile: third_party/walgit/Containerfile
+      args:
+        WALGIT_COMMIT: e5295e6ee45f5267c661f8bbd27ed0a07e55e7db
+        WALGIT_ARCHIVE_SHA256: 9bb48e21c5647950e158068e1999bcb85cbae08c2730a5c3771b05259ec9d1ef
+    environment:
+      WALGIT_RELAY_TOKEN: ${LAPIS_WALGIT_RELAY_TOKEN:?ignored local WalGit token is missing}
+      WALGIT__EVENTS__WEBHOOK_SECRET: ${LAPIS_WALGIT_WEBHOOK_SECRET:?ignored local WalGit webhook secret is missing}
+      WALGIT__SERVER__PUBLIC_URL: http://registry.localhost:${LAPIS_RELAY_PORT:-8281}
+      AWS_ACCESS_KEY_ID: ${LAPIS_RUSTFS_ACCESS_KEY:?ignored local RustFS access key is missing}
+      AWS_SECRET_ACCESS_KEY: ${LAPIS_RUSTFS_SECRET_KEY:?ignored local RustFS secret key is missing}
+    volumes:
+      - lapis-walgit-cache:/var/lib/walgit
+    depends_on:
+      create-walgit-bucket: { condition: service_completed_successfully }
+    restart: unless-stopped
+
+  rustfs:
+    image: rustfs/rustfs@sha256:b7014e0ce2bc703c1316b3ef760e29dfae61fe4a50d1a66fa89638e0f8ea211f
+    environment:
+      RUSTFS_ACCESS_KEY: ${LAPIS_RUSTFS_ACCESS_KEY:?ignored local RustFS access key is missing}
+      RUSTFS_SECRET_KEY: ${LAPIS_RUSTFS_SECRET_KEY:?ignored local RustFS secret key is missing}
+      RUSTFS_ADDRESS: 0.0.0.0:9000
+      RUSTFS_CONSOLE_ADDRESS: 0.0.0.0:9001
+      RUSTFS_VOLUMES: /data
+    volumes:
+      - lapis-rustfs-data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://127.0.0.1:9000/minio/health/live"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+    restart: unless-stopped
+
+  create-walgit-bucket:
+    image: amazon/aws-cli@sha256:b6aeb95d19d7f5a8cae4eb814cb16739b6b2a4f2f46f427ada6a8c9a20d9881d
+    depends_on:
+      rustfs: { condition: service_healthy }
+    environment:
+      AWS_ACCESS_KEY_ID: ${LAPIS_RUSTFS_ACCESS_KEY:?ignored local RustFS access key is missing}
+      AWS_SECRET_ACCESS_KEY: ${LAPIS_RUSTFS_SECRET_KEY:?ignored local RustFS secret key is missing}
+      AWS_DEFAULT_REGION: us-east-1
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - >-
+        aws --endpoint-url http://rustfs:9000 s3api head-bucket --bucket lapis-walgit
+        || aws --endpoint-url http://rustfs:9000 s3api create-bucket --bucket lapis-walgit
+    restart: "no"
 
   registry-fixture:
     image: ${REGISTRY_FIXTURE_IMAGE:-lapis-registry-local-fixture:local}
@@ -161,5 +222,7 @@ volumes:
   lapis-relay-config:
   lapis-relay-media:
   lapis-relay-postgres-data:
+  lapis-walgit-cache:
+  lapis-rustfs-data:
   registry-projection:
   registry-site:

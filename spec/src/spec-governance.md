@@ -7,6 +7,11 @@ For LC-SPEC-004, the aggregate package checks include the isolated project
 Storybook Docker lane so the package manifest cannot claim hosted-project
 support without exercising the real relay and its private forge sidecar.
 
+The dedicated Vite development application also composes the production NIP-34
+project source against its active Community relay. The ordinary local stack
+therefore seeds the signed project graph and owns WalGit/RustFS startup without
+giving the Vite process sidecar credentials or filesystem Git access.
+
 ## Requirements
 
 | ID          | Requirement                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |

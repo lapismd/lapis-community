@@ -14,12 +14,15 @@ fi
 
 jq -e '
   .services | keys == [
+    "create-walgit-bucket",
     "postgres",
     "registry-fixture",
     "registry-materializer",
     "registry-relay",
     "registry-site",
-    "registry-site-builder"
+    "registry-site-builder",
+    "rustfs",
+    "walgit"
   ]
 ' "${validation_tmp}/compose.json" >/dev/null
 
@@ -31,12 +34,18 @@ jq -e \
   ($compose.services["registry-relay"].build.context | endswith("/nostr-relay")) and
   $compose.services["registry-relay"].environment.GROUPS_ADMIN_CREATE_ONLY == "true" and
   $compose.services["registry-relay"].environment.GROUPS_PRIVATE_ADMIN_ONLY == "true" and
+  $compose.services["registry-relay"].environment.GIT_ENABLED == "true" and
+  $compose.services["registry-relay"].environment.GIT_BACKEND_URL == "http://walgit:8080" and
   ($compose.services["registry-relay"].environment.BLOSSOM_PUBLIC_URL |
     startswith("http://registry.localhost:")) and
   $compose.services["registry-fixture"].read_only == true and
   $compose.services["registry-site"].read_only == true and
   $compose.services["registry-fixture"].depends_on["registry-relay"].condition ==
     "service_healthy" and
+  $compose.services["registry-relay"].depends_on.walgit.condition ==
+    "service_healthy" and
+  $compose.services.walgit.depends_on["create-walgit-bucket"].condition ==
+    "service_completed_successfully" and
   $compose.services["registry-materializer"].depends_on["registry-fixture"].condition ==
     "service_healthy" and
   $compose.services["registry-site-builder"].depends_on["registry-materializer"].condition ==
@@ -68,7 +77,8 @@ fi
 
 secret_file="${repo_root}/.local/registry-fixture/fixture-secrets.json"
 reader_secret_file="${repo_root}/.local/registry-fixture/materializer-reader.key"
-for secret_file in "${secret_file}" "${reader_secret_file}"; do
+forge_secret_file="${repo_root}/.local/registry-fixture/lapis-forge.env"
+for secret_file in "${secret_file}" "${reader_secret_file}" "${forge_secret_file}"; do
   secret_mode=$(stat -f '%Lp' "${secret_file}" 2>/dev/null || stat -c '%a' "${secret_file}")
   [[ ${secret_mode} == 600 ]] || {
     echo "Secret file ${secret_file} mode is ${secret_mode}; expected 600" >&2
