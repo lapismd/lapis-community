@@ -1954,6 +1954,24 @@
       name: "Plugin release overview",
     });
     await expect(overview).toBeVisible();
+    const reviewsButton = within(overview).getByRole("button", {
+      name: /^Reviews/u,
+    });
+    const reviewsLabel = within(reviewsButton).getByText("Reviews");
+    const reviewsCount =
+      within(reviewsButton).getByLabelText(/pending reviews/u);
+    await expect(getComputedStyle(reviewsLabel).color).toBe(
+      getComputedStyle(reviewsCount).color,
+    );
+    const overviewItemBackground =
+      getComputedStyle(reviewsButton).backgroundColor;
+    reviewsButton.focus();
+    await waitFor(() => {
+      expect(getComputedStyle(reviewsButton).backgroundColor).not.toBe(
+        overviewItemBackground,
+      );
+    });
+    reviewsButton.blur();
     const applicationNavigation = canvas.getByRole("navigation", {
       name: "Application navigation",
     });

@@ -3997,7 +3997,22 @@
     justify-content: stretch;
     gap: 0.625rem;
     padding-inline: 0.625rem;
+    color: var(--muted-foreground);
     text-align: start;
+    transition:
+      background-color 120ms ease,
+      color 120ms ease;
+  }
+
+  :global(
+      .community-application__release-overview-item[data-ui-component="button"]:hover:not(
+          :disabled
+        )
+    ),
+  :global(
+      .community-application__release-overview-item[data-ui-component="button"]:focus-visible
+    ) {
+    background-color: color-mix(in oklab, currentColor 10%, transparent);
   }
 
   :global(
