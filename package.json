@@ -43,6 +43,11 @@
       "import": "./dist/protocol/index.js",
       "default": "./dist/protocol/index.js"
     },
+    "./projects": {
+      "types": "./dist/projects/index.d.ts",
+      "import": "./dist/projects/index.js",
+      "default": "./dist/projects/index.js"
+    },
     "./components": {
       "types": "./dist/components/index.d.ts",
       "svelte": "./dist/components/index.js",

@@ -26,6 +26,12 @@ The package manifest exposes the production NIP-29 catalog source through a
 lightweight `registry/nip29` subpath so Notes can reuse protocol and proof
 policy without importing Community's presentation barrel.
 
+The package manifest exposes NIP-34 project collaboration through the
+lightweight `projects` subpath. The canonical protocol and architecture
+chapters own that source, event-builder, deterministic-reducer, pagination,
+patch, and hosted-read boundary; components consume it without importing
+transport internals.
+
 Relay conformance tests live under the test-only package entry point. They run
 in memory by default and may target the disposable Docker relay without adding
 environment-specific branches to production controller or materializer code.
