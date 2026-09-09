@@ -122,6 +122,8 @@ export interface CommunityProjectsProps {
   selectedPath?: string;
   blob?: ProjectForgeBlobResponse;
   pullRequestDiff?: ProjectForgePullRequestDiff;
+  /** Relay gateway failure while loading the selected pull request diff. */
+  pullRequestDiffError?: string;
   members?: readonly CommunityMemberModel[];
   rooms?: readonly CommunityRoomModel[];
   communityEmojis?: readonly CommunityCustomEmoji[];

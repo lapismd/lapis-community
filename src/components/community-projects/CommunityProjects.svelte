@@ -113,6 +113,7 @@
     selectedPath = "",
     blob,
     pullRequestDiff,
+    pullRequestDiffError = "",
     members = [],
     rooms = [],
     communityEmojis = [],
@@ -2507,6 +2508,8 @@
                   <p class="community-projects__status" role="status">
                     Loading repository diff…
                   </p>
+                {:else if pullRequestDiffError}
+                  {@render projectSourceError(pullRequestDiffError)}
                 {:else if pullRequestDiff}
                   <div class="community-projects__diff-summary">
                     <strong>{pullRequestDiff.files.length} changed files</strong

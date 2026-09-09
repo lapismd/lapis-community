@@ -492,6 +492,23 @@ index 3333333..4444444 100644
 />
 
 <Story
+  name="Review diff failure"
+  args={{
+    view: "reviews",
+    selectedPullRequest: fixture.pullRequest,
+    pullRequestDiffError: "The relay could not load this comparison",
+  }}
+  play={async ({ canvas }) => {
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Files changed" }),
+    );
+    await expect(canvas.getByRole("alert")).toHaveTextContent(
+      "The relay could not load this comparison",
+    );
+  }}
+/>
+
+<Story
   name="GitHub-backed files"
   args={{
     view: "files",

@@ -446,6 +446,7 @@
   let projectSourceRepositoryCoordinate = $state("");
   let projectRepositoryRevision = $state("");
   let projectPullRequestDiff = $state.raw<ProjectForgePullRequestDiff>();
+  let projectPullRequestDiffError = $state("");
   let pendingProjectMembership = $state.raw<{
     project: import("../../protocol/index.js").NostrEvent;
     repositoryCoordinate: string;
@@ -1667,6 +1668,9 @@
       ? activeRepositorySurface
       : selectedProjectSurface;
     const overviewSurface = projectsOverviewSurface;
+    const pullRequestSurface = repositoryCoordinate
+      ? activeRepositorySurface
+      : (selectedProjectSurface ?? overviewSurface);
     const pullRequestId = selectedPullRequestId;
     const selectedCommitSha = selectedProjectCommit?.sha;
     if (
@@ -1688,6 +1692,7 @@
     projectSourceRepositoryCoordinate = "";
     projectRepositoryRevision = "";
     projectBlob = undefined;
+    projectPullRequestDiffError = "";
 
     void (async () => {
       openedSession = await options.source.open(
@@ -1993,7 +1998,7 @@
         }
       }
 
-      if (surface === "reviews" && pullRequestId) {
+      if (pullRequestSurface === "reviews" && pullRequestId) {
         try {
           projectPullRequestDiff = await openedSession.loadPullRequestDiff(
             pullRequestId,
@@ -2002,6 +2007,10 @@
         } catch (cause) {
           if (controller.signal.aborted) throw cause;
           projectPullRequestDiff = undefined;
+          projectPullRequestDiffError =
+            cause instanceof Error
+              ? cause.message
+              : "The pull request diff could not be loaded";
         }
       }
     })()
@@ -2486,13 +2495,50 @@
   }
 
   function activateProjectCommit(commit: ProjectForgeCommit): void {
+    const pullRequestRepository =
+      selectedRepository === undefined && selectedProject === undefined
+        ? projectCatalog.repositories.find(
+            (repository) =>
+              repository.address.coordinate ===
+              selectedPullRequest?.repository.coordinate,
+          )
+        : undefined;
+    if (
+      selectedRepository === undefined &&
+      selectedProject === undefined &&
+      pullRequestRepository === undefined
+    )
+      return;
     selectedProjectCommit = commit;
     projectCommitDetail = undefined;
     projectSourceError = "";
     selectedPullRequestId = "";
     projectPullRequestDiff = undefined;
-    if (selectedRepository) activateRepositorySurface("commits");
-    else activateProjectSurface("commits");
+    if (selectedRepository) {
+      activateRepositorySurface("commits");
+    } else if (selectedProject) {
+      activateProjectSurface("commits");
+    } else if (pullRequestRepository) {
+      const owningProject = projectCatalog.projects.find((project) =>
+        project.repositories.some(
+          (reference) =>
+            reference.coordinate === pullRequestRepository.address.coordinate,
+        ),
+      );
+      selectedRepositoryCoordinate = pullRequestRepository.address.coordinate;
+      activeRepositorySurface = "commits";
+      projectOverviewInitialized = true;
+      pushLocation({
+        destination:
+          owningProject === undefined
+            ? "projects"
+            : projectDestinationFromCoordinate(
+                owningProject.address.coordinate,
+              ),
+        panel: noCommunityApplicationPanel(),
+      });
+      lastAction = `selected-review-commit:${commit.sha}`;
+    }
   }
 
   function selectProjectCommit(commit: ProjectForgeCommit): void {
@@ -5274,6 +5320,7 @@
           {...projectPullRequestDiff === undefined
             ? {}
             : { pullRequestDiff: projectPullRequestDiff }}
+          pullRequestDiffError={projectPullRequestDiffError}
           members={selectedProjectRoom === undefined
             ? []
             : workspace.members.filter((member) =>
@@ -5656,6 +5703,7 @@
         {...projectPullRequestDiff === undefined
           ? {}
           : { pullRequestDiff: projectPullRequestDiff }}
+        pullRequestDiffError={projectPullRequestDiffError}
         members={selectedProjectRoom === undefined
           ? workspace.members
           : workspace.members.filter((member) =>

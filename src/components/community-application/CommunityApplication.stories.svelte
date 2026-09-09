@@ -413,6 +413,32 @@
     await expect(
       await canvas.findByRole("button", { name: "Community Client" }),
     ).toBeVisible();
+    const reviewsTab = canvas.getByRole("tab", { name: "Reviews" });
+    await waitFor(
+      () => expect(getComputedStyle(reviewsTab).pointerEvents).not.toBe("none"),
+      { timeout: 15_000 },
+    );
+    await userEvent.click(reviewsTab);
+    await userEvent.click(
+      await canvas.findByRole("button", {
+        name: "Add project file and diff views",
+      }),
+    );
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Files changed" }),
+    );
+    await expect(
+      await canvas.findByRole("button", { name: "project.conf" }),
+    ).toBeVisible();
+    await userEvent.click(canvas.getByRole("button", { name: "Commits" }));
+    await userEvent.click(
+      canvas.getByRole("button", {
+        name: /Add project file and diff views d{7}/u,
+      }),
+    );
+    await expect(
+      await canvas.findByRole("button", { name: "Back to commits" }),
+    ).toBeVisible();
   }}
 >
   {#snippet template()}
