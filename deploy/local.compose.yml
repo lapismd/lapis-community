@@ -78,6 +78,8 @@ services:
       WALGIT_RELAY_TOKEN: ${LAPIS_WALGIT_RELAY_TOKEN:?ignored local WalGit token is missing}
       WALGIT__EVENTS__WEBHOOK_SECRET: ${LAPIS_WALGIT_WEBHOOK_SECRET:?ignored local WalGit webhook secret is missing}
       WALGIT__SERVER__PUBLIC_URL: http://registry.localhost:${LAPIS_RELAY_PORT:-8281}
+      S3_ACCESS_KEY_ID: ${LAPIS_RUSTFS_ACCESS_KEY:?ignored local RustFS access key is missing}
+      S3_SECRET_ACCESS_KEY: ${LAPIS_RUSTFS_SECRET_KEY:?ignored local RustFS secret key is missing}
       AWS_ACCESS_KEY_ID: ${LAPIS_RUSTFS_ACCESS_KEY:?ignored local RustFS access key is missing}
       AWS_SECRET_ACCESS_KEY: ${LAPIS_RUSTFS_SECRET_KEY:?ignored local RustFS secret key is missing}
     volumes:
