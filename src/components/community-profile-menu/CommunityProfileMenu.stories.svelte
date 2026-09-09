@@ -1,6 +1,13 @@
 <script module lang="ts">
   import { defineMeta } from "@storybook/addon-svelte-csf";
-  import { expect, fn, userEvent, waitFor, within } from "storybook/test";
+  import {
+    expect,
+    fireEvent,
+    fn,
+    userEvent,
+    waitFor,
+    within,
+  } from "storybook/test";
 
   import CommunityProfileMenu from "./CommunityProfileMenu.svelte";
 
@@ -103,9 +110,13 @@
     await expect(Number(getComputedStyle(presenceMenu).zIndex)).toBeGreaterThan(
       Number(getComputedStyle(profileMenu).zIndex),
     );
-    await userEvent.click(
-      within(presenceMenu).getByRole("menuitemradio", { name: "Away" }),
+    const away = within(presenceMenu).getByRole("menuitemradio", {
+      name: "Away",
+    });
+    await waitFor(() =>
+      expect(getComputedStyle(away).pointerEvents).not.toBe("none"),
     );
+    await fireEvent.keyDown(away, { key: "Enter" });
     await waitFor(() => expect(args.onPresenceChange).toHaveBeenCalledTimes(1));
     await expect(args.onPresenceChange).toHaveBeenCalledWith("away");
     await userEvent.keyboard("{Escape}");
