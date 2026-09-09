@@ -15,6 +15,9 @@ behavior from clone URLs or exposing provider credentials to the browser.
 Authenticated repository GET results MUST use a short-lived, identity-scoped
 in-memory cache that survives presentation-session replacement, remains
 bounded, bypasses progress streams, and is cleared after forge mutations.
+When the active Community relay supplies project transport, project loading
+MUST wait for relay and identity restoration to settle, close while the relay
+is unavailable, and resume once after reconnection.
 That application runs under a checkout-owned supervisor: source updates remain
 Vite HMR events, while generated fixture-environment updates restart Vite so
 its compile-time public trust configuration cannot become stale. Ownership is

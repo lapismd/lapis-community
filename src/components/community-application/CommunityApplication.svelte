@@ -1654,8 +1654,11 @@
   $effect(() => {
     projectReloadRevision;
     const options = projectsOptions;
+    const usesActiveCommunityRelay = options?.relayUrl === undefined;
     const relayUrl = options?.relayUrl ?? activeConnection?.relayUrl;
     const identity = options?.identity ?? applicationAuthentication?.identity();
+    const communityStatus = community.state.status;
+    const authenticationStatus = community.state.authentication.status;
     const destinationActive =
       isProjectsDestination || activeChannelProjectCoordinate !== undefined;
     const projectCoordinate =
@@ -1667,7 +1670,13 @@
     const overviewSurface = projectsOverviewSurface;
     const pullRequestId = selectedPullRequestId;
     const selectedCommitSha = selectedProjectCommit?.sha;
-    if (!options || !relayUrl) return;
+    if (
+      !options ||
+      !relayUrl ||
+      (usesActiveCommunityRelay && communityStatus !== "connected") ||
+      (options.identity === undefined && authenticationStatus === "connecting")
+    )
+      return;
 
     const controller = new AbortController();
     let openedSession: ProjectForgeSession | undefined;

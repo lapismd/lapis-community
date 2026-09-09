@@ -33,6 +33,8 @@ Selecting a file MUST fetch only that blob without reopening the project
 catalog, work-item subscriptions, repository capabilities, refs, or tree.
 Recursive file discovery MUST bound concurrency while loading independent
 directories in parallel.
+When projects use the active Community relay, their presentation MUST wait
+until relay and identity restoration settle and MUST resume after reconnect.
 
 ## Requirements
 
