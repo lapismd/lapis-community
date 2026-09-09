@@ -101,7 +101,9 @@ resolved so that unsupported actions do not appear transiently during loading.
 Project Activity author affordances MUST use the shared
 `CommunityMemberHoverCard`, open the author's profile when selected, and retain
 the available message and wave actions. Repository-creation activity MUST use
-the Lucide `folder-git-2` glyph rather than a generic code glyph.
+the Lucide `folder-git-2` glyph rather than a generic code glyph. Activity body
+excerpts MUST use the shared safe Markdown preview so formatting is preserved
+without exposing hidden HTML metadata as visible text.
 
 For LC-UI-036, repository source presentation MUST use relay-resolved browse
 capabilities rather than the announcement's hosted/external classification.

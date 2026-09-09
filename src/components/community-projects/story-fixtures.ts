@@ -354,7 +354,7 @@ export function createProjectStoryFixture(channelId = "general-projects") {
       ["c", "d".repeat(40)],
       ["t", "approval"],
     ],
-    "The responsive file layout looks good.",
+    "The responsive file layout looks good. <!-- lapis:story-review-comment -->",
     1_700_000_040,
   );
   const inlineCommentEvent = storyEvent(

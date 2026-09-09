@@ -255,14 +255,25 @@
   font-weight: 550;
 }
 
-.community-projects__activity-card
-  > span:not(.community-projects__activity-title):not(
-    .community-projects__activity-status
-  ) {
+.community-projects__activity-body {
   grid-column: 1 / -1;
+  min-width: 0;
   overflow: hidden;
   color: var(--muted-foreground);
   font-size: 0.83rem;
+  line-height: inherit;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.community-projects__activity-body
+  :is(
+    .mira-markdown-preview,
+    .markdown-preview-surface,
+    .markdown-view__document,
+    p
+  ) {
+  overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }

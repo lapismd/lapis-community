@@ -206,6 +206,13 @@ index 3333333..4444444 100644
     await expect(
       repositoryActivity.querySelector(".lucide-folder-git-2"),
     ).not.toBeNull();
+    const reviewCommentActivity = canvas.getByRole("button", {
+      name: /Add project file and diff views The responsive file layout looks good\./u,
+    });
+    await expect(reviewCommentActivity).toBeVisible();
+    await expect(reviewCommentActivity).not.toHaveTextContent(
+      "lapis:story-review-comment",
+    );
   }}
 />
 

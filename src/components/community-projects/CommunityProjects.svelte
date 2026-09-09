@@ -1834,7 +1834,15 @@
                       {/if}
                       <strong>{item.title}</strong>
                     </span>
-                    {#if item.body}<span>{item.body}</span>{/if}
+                    {#if item.body}
+                      <CommunityMarkdownContent
+                        class="community-projects__activity-body"
+                        content={item.body}
+                        {members}
+                        {rooms}
+                        {communityEmojis}
+                      />
+                    {/if}
                     {#if item.detail && (item.kind === "task" || item.kind === "review")}
                       <span class="community-projects__activity-status">
                         <CommunityChip
