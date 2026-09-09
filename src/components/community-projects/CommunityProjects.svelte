@@ -35,6 +35,7 @@
   import CopyIcon from "@lucide/svelte/icons/copy";
   import ExternalLinkIcon from "@lucide/svelte/icons/external-link";
   import FileIcon from "@lucide/svelte/icons/file";
+  import FolderGit2Icon from "@lucide/svelte/icons/folder-git-2";
   import FolderKanbanIcon from "@lucide/svelte/icons/folder-kanban";
   import FolderPlusIcon from "@lucide/svelte/icons/folder-plus";
   import GitBranchIcon from "@lucide/svelte/icons/git-branch";
@@ -1741,7 +1742,16 @@
             {#each visibleActivity as item (item.id)}
               {@const actor = activityMember(item.actorPubkey)}
               <article class="community-projects__activity-item">
-                <CommunityMemberAvatar member={actor} decorative />
+                <CommunityMemberHoverCard
+                  member={actor}
+                  {...onOpenProfile === undefined ? {} : { onOpenProfile }}
+                  {...onMessageMember === undefined
+                    ? {}
+                    : { onMessage: onMessageMember }}
+                  {...onWaveMember === undefined
+                    ? {}
+                    : { onWave: onWaveMember }}
+                />
                 <span
                   class="community-projects__activity-line"
                   aria-hidden="true"
@@ -1764,6 +1774,10 @@
                         <GitPullRequestIcon aria-hidden="true" />
                       {:else if item.kind === "commit"}
                         <GitCommitHorizontalIcon aria-hidden="true" />
+                      {:else if item.kind === "repository"}
+                        <FolderGit2Icon aria-hidden="true" />
+                      {:else if item.kind === "project"}
+                        <FolderKanbanIcon aria-hidden="true" />
                       {:else if item.kind === "task"}
                         <CircleIcon aria-hidden="true" />
                       {:else if item.kind === "comment" || item.kind === "assignment"}

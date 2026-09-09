@@ -87,6 +87,10 @@ For LC-UI-036, project Channel rows MUST expose the resolved channel
 description, visible projected message count, and relative last-message time.
 Repository rows MUST withhold provider actions until relay capabilities have
 resolved so that unsupported actions do not appear transiently during loading.
+Project Activity author affordances MUST use the shared
+`CommunityMemberHoverCard`, open the author's profile when selected, and retain
+the available message and wave actions. Repository-creation activity MUST use
+the Lucide `folder-git-2` glyph rather than a generic code glyph.
 
 For LC-UI-036, repository source presentation MUST use relay-resolved browse
 capabilities rather than the announcement's hosted/external classification.

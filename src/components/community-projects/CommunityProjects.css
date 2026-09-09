@@ -185,7 +185,9 @@
 }
 
 .community-projects__activity-item
-  > [data-ui-component="community-member-avatar"] {
+  > [data-ui-component="community-member-avatar"],
+.community-projects__activity-item > .community-member-hover-card__trigger {
+  position: relative;
   z-index: 1;
 }
 

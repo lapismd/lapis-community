@@ -54,6 +54,9 @@
   const onSelectProject = fn();
   const onSelectChannel = fn();
   const onSelectView = fn();
+  const onOpenProfile = fn();
+  const onMessageMember = fn();
+  const onWaveMember = fn();
   const onUpdateProject = fn(async () => undefined);
   const onUpdateTaskLifecycle = fn(async () => undefined);
   const onUpdateTaskAssignment = fn(async () => undefined);
@@ -181,13 +184,27 @@ index 3333333..4444444 100644
     activity: buildProjectForgeActivity(fixture.catalog, fixture.workItems),
     onSelectProject,
     onSelectView,
+    onOpenProfile,
+    onMessageMember,
+    onWaveMember,
   }}
   play={async ({ canvas }) => {
     await expect(
       canvas.getByRole("heading", { name: "Projects Activity" }),
     ).toBeVisible();
-    await userEvent.click(canvas.getByRole("tab", { name: "Projects" }));
-    await expect(onSelectView).toHaveBeenCalledWith("projects");
+    const actorAvatar = canvas.getAllByRole("button", {
+      name: "View Maya Chen's profile",
+    })[0]!;
+    await expect(actorAvatar).toHaveAttribute("aria-haspopup", "dialog");
+    await userEvent.click(actorAvatar);
+    await userEvent.unhover(actorAvatar);
+    await expect(onOpenProfile).toHaveBeenCalledWith(fixture.members[0]);
+    const repositoryActivity = canvas.getByRole("button", {
+      name: /^community-client Hosted browser and desktop client\./u,
+    });
+    await expect(
+      repositoryActivity.querySelector(".lucide-folder-git-2"),
+    ).not.toBeNull();
   }}
 />
 
