@@ -45,6 +45,7 @@
     isContinuation = false,
     replyParticipants = [],
     communityEmojis = [],
+    reactionOptions,
     density = "compact",
     onReply,
     onOpenThread,
@@ -72,6 +73,7 @@
     isContinuation?: boolean;
     replyParticipants?: CommunityMemberModel[];
     communityEmojis?: readonly CommunityCustomEmoji[];
+    reactionOptions?: readonly string[];
     density?: "compact" | "balanced" | "spacious";
     onReply?: (messageId: string) => void;
     onOpenThread?: (messageId: string) => void;
@@ -359,7 +361,9 @@
       {#if onAddReaction}
         <CommunityEmojiPicker
           label="Add reaction"
-          {communityEmojis}
+          communityEmojis={reactionOptions === undefined ? communityEmojis : []}
+          presets={reactionOptions ?? []}
+          presetsOnly={reactionOptions !== undefined}
           onSelect={(emoji, custom) =>
             onAddReaction(
               message.id,

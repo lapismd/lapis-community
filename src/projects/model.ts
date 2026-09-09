@@ -11,10 +11,23 @@ export const PROJECT_FORGE_KINDS = {
   statusClosed: 1_632,
   statusDraft: 1_633,
   note: 1,
+  reaction: 7,
   comment: 1_111,
   deletion: 5,
   httpAuth: 27_235,
 } as const;
+
+/** The complete reaction vocabulary accepted by GitHub's Reactions API. */
+export const GITHUB_REVIEW_COMMENT_REACTIONS = [
+  "👍",
+  "👎",
+  "😄",
+  "😕",
+  "❤️",
+  "🎉",
+  "🚀",
+  "👀",
+] as const;
 
 export type ProjectForgeSurface =
   | "overview"
@@ -123,6 +136,13 @@ export interface PullRequestComment {
   decision?: PullRequestDecisionKind;
   isTrustedDecision: boolean;
   decisionStatus?: PullRequestDecisionStatus;
+  reactions: readonly ProjectForgeReaction[];
+}
+
+export interface ProjectForgeReaction {
+  emoji: string;
+  count: number;
+  selected?: boolean;
 }
 
 export interface PullRequestDecision {

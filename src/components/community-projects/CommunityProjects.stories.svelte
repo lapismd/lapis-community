@@ -23,7 +23,7 @@
       git_authority_backend: "github",
       content_backend: "github",
       git_backend: "github",
-      collaboration_backend: "relay",
+      collaboration_backend: "github",
       clone: {
         available: true,
         url: "https://github.com/lapismd/community-client.git",
@@ -69,6 +69,7 @@
   const onAutoSelectPath = fn();
   const onAddPullRequestComment = fn(async () => undefined);
   const onAddInlineComment = fn(async () => undefined);
+  const onTogglePullRequestCommentReaction = fn(async () => undefined);
   const githubConnection = {
     id: "ghc-lapis",
     provider: "github" as const,
@@ -443,6 +444,7 @@ index 3333333..4444444 100644
     pullRequestDiff: fixture.diff,
     onAddPullRequestComment,
     onAddInlineComment,
+    onTogglePullRequestCommentReaction,
   }}
   play={async ({ canvas }) => {
     await expect(
@@ -453,12 +455,29 @@ index 3333333..4444444 100644
     await expect(
       canvas.getByRole("button", { name: "Merge unavailable" }),
     ).toBeDisabled();
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Files changed" }),
+    );
     await expect(canvas.getByLabelText("Message from You")).toHaveTextContent(
       "Can we retain a note explaining why projects were disabled?",
     );
 
-    await userEvent.click(
-      canvas.getByRole("button", { name: "Files changed" }),
+    const reviewComment = canvas.getByLabelText("Message from You");
+    const addReaction = reviewComment.querySelector<HTMLButtonElement>(
+      'button[aria-label="Add reaction"]',
+    );
+    if (!addReaction) throw new Error("Expected the review reaction action");
+    await userEvent.hover(reviewComment);
+    await waitFor(() => expect(addReaction).toBeVisible());
+    const heart = reviewComment.querySelector<HTMLButtonElement>(
+      'button[aria-label="2 reactions with ❤️"]',
+    );
+    if (!heart) throw new Error("Expected the projected heart reaction");
+    await userEvent.click(heart);
+    await expect(onTogglePullRequestCommentReaction).toHaveBeenCalledWith(
+      fixture.pullRequest,
+      fixture.pullRequest.comments[1],
+      "❤️",
     );
 
     const commentButton = canvas.getAllByRole("button", {

@@ -451,6 +451,27 @@ export function createDeletionTemplate(
   };
 }
 
+export function createProjectReactionTemplate(
+  target: NostrEvent,
+  repository: string,
+  emoji: string,
+  createdAt = unixNow(),
+): NostrEventTemplate {
+  requiredRepository(repository);
+  requiredText(emoji, "Reaction", 64);
+  return {
+    kind: PROJECT_FORGE_KINDS.reaction,
+    created_at: createdAt,
+    content: emoji,
+    tags: [
+      ["e", target.id],
+      ["p", target.pubkey],
+      ["k", String(target.kind)],
+      ["a", repository],
+    ],
+  };
+}
+
 function statusKind(
   lifecycle: ProjectTaskLifecycleInput | PullRequestLifecycleInput,
 ): number {

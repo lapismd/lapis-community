@@ -410,6 +410,7 @@ export function createProjectStoryFixture(channelId = "general-projects") {
         decision: "approved",
         isTrustedDecision: true,
         decisionStatus: "current",
+        reactions: [],
       },
       {
         event: inlineCommentEvent,
@@ -422,6 +423,7 @@ export function createProjectStoryFixture(channelId = "general-projects") {
         isTrustedReviewRequest: false,
         reviewerPubkeys: [],
         isTrustedDecision: false,
+        reactions: [{ emoji: "❤️", count: 2, selected: true }],
       },
     ],
     createdAt: pullRequestRoot.created_at,

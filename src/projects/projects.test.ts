@@ -3,6 +3,8 @@ import { describe, expect, it } from "vitest";
 import type { NostrEvent } from "../protocol/index.js";
 import {
   addRepositoryToProjectTemplate,
+  createDeletionTemplate,
+  createProjectReactionTemplate,
   createProjectTaskAnchorTemplate,
   createProjectTemplate,
   createPullRequestTemplate,
@@ -14,6 +16,7 @@ import { buzzWorkItemFilters, parseSseResult } from "./data-source.js";
 import { PROJECT_FORGE_KINDS } from "./model.js";
 import {
   materializeProjectForgeCatalog,
+  materializeProjectForgeWorkItems,
   reduceProjectTask,
   reducePullRequest,
 } from "./reducer.js";
@@ -52,6 +55,26 @@ const repository = event("9", PROJECT_FORGE_KINDS.repository, owner, 1, [
 ]);
 
 describe("project forge builders", () => {
+  it("creates a NIP-25 reaction with an exact project comment target", () => {
+    const comment = event("6", PROJECT_FORGE_KINDS.note, reviewer, 3, [
+      ["e", "1".repeat(64), "", "root"],
+      ["a", repositoryCoordinate],
+    ]);
+    expect(
+      createProjectReactionTemplate(comment, repositoryCoordinate, "🚀", 4),
+    ).toEqual({
+      kind: PROJECT_FORGE_KINDS.reaction,
+      created_at: 4,
+      content: "🚀",
+      tags: [
+        ["e", comment.id],
+        ["p", reviewer],
+        ["k", String(PROJECT_FORGE_KINDS.note)],
+        ["a", repositoryCoordinate],
+      ],
+    });
+  });
+
   it("creates a project without eagerly creating or referencing a repository", () => {
     expect(
       createProjectTemplate(
@@ -411,12 +434,79 @@ describe("project forge reducers", () => {
     expect(projected?.isInlineComment).toBe(true);
     expect(projected?.anchor).toBeUndefined();
   });
+
+  it("groups visible pull request comment reactions and marks the current author", () => {
+    const root = event("1", PROJECT_FORGE_KINDS.pullRequest, author, 2, [
+      ["a", repositoryCoordinate],
+      ["p", owner],
+      ["subject", "Editor"],
+      ["c", commitA],
+      ["clone", "https://relay.example/git/notes"],
+    ]);
+    const comment = event("2", PROJECT_FORGE_KINDS.note, reviewer, 3, [
+      ["e", root.id, "", "root"],
+      ["a", repositoryCoordinate],
+      ["c", commitA],
+    ]);
+    const selectedReaction = event(
+      "3",
+      PROJECT_FORGE_KINDS.reaction,
+      author,
+      4,
+      [
+        ["e", comment.id],
+        ["p", reviewer],
+        ["k", String(PROJECT_FORGE_KINDS.note)],
+        ["a", repositoryCoordinate],
+      ],
+      "👍",
+    );
+    const otherReaction = event(
+      "4",
+      PROJECT_FORGE_KINDS.reaction,
+      outsider,
+      5,
+      selectedReaction.tags,
+      "👍",
+    );
+    const removedReaction = event(
+      "5",
+      PROJECT_FORGE_KINDS.reaction,
+      author,
+      6,
+      selectedReaction.tags,
+      "🎉",
+    );
+    const deletionTemplate = createDeletionTemplate(removedReaction, 7);
+    const deletion = event(
+      "6",
+      deletionTemplate.kind,
+      author,
+      deletionTemplate.created_at,
+      deletionTemplate.tags,
+    );
+    const state = materializeProjectForgeWorkItems(
+      repository,
+      [
+        root,
+        comment,
+        selectedReaction,
+        otherReaction,
+        removedReaction,
+        deletion,
+      ],
+      author,
+    );
+    expect(state.pullRequests[0]?.comments[0]?.reactions).toEqual([
+      { emoji: "👍", count: 2, selected: true },
+    ]);
+  });
 });
 
 describe("Buzz transport compatibility", () => {
-  it("uses the four repository-scoped 2,000-event query filters", () => {
+  it("uses the five repository-scoped 2,000-event query filters", () => {
     const filters = buzzWorkItemFilters(repositoryCoordinate);
-    expect(filters).toHaveLength(4);
+    expect(filters).toHaveLength(5);
     expect(
       filters.every(
         (filter) =>

@@ -20,6 +20,7 @@ import type {
   ProjectForgeSurface,
   ProjectForgeTreeResponse,
   ProjectTaskState,
+  PullRequestComment,
   PullRequestState,
 } from "../../projects/index.js";
 import type {
@@ -206,6 +207,11 @@ export interface CommunityProjectsProps {
   onAddInlineComment?: (
     pullRequest: PullRequestState,
     input: { path: string; side: "old" | "new"; line: number; content: string },
+  ) => Promise<void>;
+  onTogglePullRequestCommentReaction?: (
+    pullRequest: PullRequestState,
+    comment: PullRequestComment,
+    emoji: string,
   ) => Promise<void>;
   onSelectCommit?: (commit: ProjectForgeCommit) => void;
   onCloseCommit?: () => void;

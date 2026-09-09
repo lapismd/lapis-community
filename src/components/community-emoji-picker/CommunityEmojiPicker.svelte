@@ -13,6 +13,7 @@
     selection,
     disabled = false,
     presets = [],
+    presetsOnly = false,
     communityEmojis = [],
     onSelect,
   }: {
@@ -21,6 +22,7 @@
     selection?: string;
     disabled?: boolean;
     presets?: readonly string[];
+    presetsOnly?: boolean;
     communityEmojis?: readonly CommunityCustomEmoji[];
     onSelect: (emoji: string, custom?: CommunityCustomEmoji) => void;
   } = $props();
@@ -29,7 +31,7 @@
 
   $effect(() => {
     const host = pickerHost;
-    if (!open || !host) return;
+    if (!open || !host || presetsOnly) return;
     const picker = new Picker({
       data,
       autoFocus: true,
@@ -124,13 +126,18 @@
   <Popover.Content
     align="end"
     sideOffset={6}
-    class="community-emoji-picker__content"
+    class={presetsOnly
+      ? "community-emoji-picker__content community-emoji-picker__content--presets-only"
+      : "community-emoji-picker__content"}
   >
     <Popover.Header class="community-emoji-picker__a11y-header">
-      <Popover.Title><h2>Emoji</h2></Popover.Title>
+      <Popover.Title
+        ><h2>{presetsOnly ? "Reaction" : "Emoji"}</h2></Popover.Title
+      >
       <Popover.Description>
-        Choose a suggested reaction, search standard emoji, or use one from this
-        community.
+        {presetsOnly
+          ? "Choose a supported reaction."
+          : "Choose a suggested reaction, search standard emoji, or use one from this community."}
       </Popover.Description>
     </Popover.Header>
     {#if presets.length}
@@ -152,7 +159,7 @@
         {/each}
       </section>
     {/if}
-    {#if communityEmojis.length}
+    {#if !presetsOnly && communityEmojis.length}
       <section
         class="community-emoji-picker__community"
         aria-label="Community emoji"
@@ -171,7 +178,9 @@
         {/each}
       </section>
     {/if}
-    <div class="community-emoji-picker__host" bind:this={pickerHost}></div>
+    {#if !presetsOnly}
+      <div class="community-emoji-picker__host" bind:this={pickerHost}></div>
+    {/if}
   </Popover.Content>
 </Popover.Root>
 
@@ -180,6 +189,13 @@
     width: min(28rem, calc(100vw - 1rem));
     padding: 0;
     overflow: hidden;
+  }
+
+  :global(
+      .community-emoji-picker__content--presets-only[data-ui-part="popover-content"]
+    ) {
+    width: max-content;
+    max-width: calc(100vw - 1rem);
   }
 
   .community-emoji-picker__presets,

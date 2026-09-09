@@ -258,14 +258,18 @@ class Nip34ProjectForgeSession implements ProjectForgeSession {
     const tombstones = await this.#queryByEventIds(
       PROJECT_FORGE_KINDS.deletion,
       "#e",
-      [...rootIds, ...bundles.flat().map((event) => event.id)],
+      [
+        ...rootIds,
+        ...bundles.flat().map((event) => event.id),
+        ...nip22.map((event) => event.id),
+      ],
       signal,
     );
-    return materializeProjectForgeWorkItems(repository, [
-      ...bundles.flat(),
-      ...nip22,
-      ...tombstones,
-    ]);
+    return materializeProjectForgeWorkItems(
+      repository,
+      [...bundles.flat(), ...nip22, ...tombstones],
+      this.#cacheIdentity === "anonymous" ? undefined : this.#cacheIdentity,
+    );
   }
 
   async publish(
@@ -763,6 +767,11 @@ export function buzzWorkItemFilters(
     },
     {
       kinds: [PROJECT_FORGE_KINDS.note],
+      "#a": [repositoryCoordinate],
+      limit: WORK_ITEM_LIMIT,
+    },
+    {
+      kinds: [PROJECT_FORGE_KINDS.reaction],
       "#a": [repositoryCoordinate],
       limit: WORK_ITEM_LIMIT,
     },

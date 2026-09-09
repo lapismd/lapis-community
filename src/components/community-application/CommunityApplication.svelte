@@ -65,8 +65,10 @@
     buzzWorkItemFilters,
     createAssignmentTemplate,
     createBuzzCommentTemplate,
+    createDeletionTemplate,
     createProjectTaskAnchorTemplate,
     createProjectTemplate,
+    createProjectReactionTemplate,
     createPullRequestTemplate,
     createRepositoryTemplate,
     createReviewDecisionTemplate,
@@ -77,6 +79,8 @@
     projectForgeChildChannels,
     loadProjectRepositoryFileTree,
     updateProjectTemplate,
+    GITHUB_REVIEW_COMMENT_REACTIONS,
+    PROJECT_FORGE_KINDS,
     type ProjectForgeBlobResponse,
     type ProjectForgeCatalog,
     type ProjectForgeCommit,
@@ -99,6 +103,7 @@
     type ProjectForgeTreeResponse,
     type ProjectForgeWorkItems,
     type ProjectTaskState,
+    type PullRequestComment,
     type PullRequestState,
   } from "../../projects/index.js";
   import {
@@ -3245,6 +3250,58 @@
     toast.success("Comment published");
   }
 
+  async function togglePullRequestCommentReaction(
+    pullRequest: PullRequestState,
+    comment: PullRequestComment,
+    emoji: string,
+  ): Promise<void> {
+    const capabilities =
+      projectRepositoryCapabilities[pullRequest.repository.coordinate];
+    if (
+      (capabilities?.collaboration_backend === "github" ||
+        comment.event.tags.some(
+          (tag) => tag[0] === "external-provider" && tag[1] === "github",
+        )) &&
+      !GITHUB_REVIEW_COMMENT_REACTIONS.some((supported) => supported === emoji)
+    ) {
+      throw new Error("GitHub does not support that reaction");
+    }
+    await withProjectMutation(
+      "Updating reaction…",
+      async (session, identity) => {
+        const pubkey = await identity.getPublicKey();
+        const existing = projectWorkItems.events.find(
+          (event) =>
+            event.kind === PROJECT_FORGE_KINDS.reaction &&
+            event.pubkey === pubkey &&
+            event.content === emoji &&
+            event.tags.some(
+              (tag) => tag[0] === "e" && tag[1] === comment.event.id,
+            ) &&
+            event.tags.some(
+              (tag) => tag[0] === "p" && tag[1] === comment.event.pubkey,
+            ) &&
+            event.tags.some(
+              (tag) => tag[0] === "k" && tag[1] === String(comment.event.kind),
+            ) &&
+            event.tags.some(
+              (tag) =>
+                tag[0] === "a" && tag[1] === pullRequest.repository.coordinate,
+            ),
+        );
+        await session.publish(
+          existing
+            ? createDeletionTemplate(existing)
+            : createProjectReactionTemplate(
+                comment.event,
+                pullRequest.repository.coordinate,
+                emoji,
+              ),
+        );
+      },
+    );
+  }
+
   async function publishInlineComment(
     pullRequest: PullRequestState,
     input: {
@@ -5358,6 +5415,7 @@
           onUpdatePullRequestLifecycle={updatePullRequestLifecycle}
           onAddPullRequestComment={publishPullRequestComment}
           onAddInlineComment={publishInlineComment}
+          onTogglePullRequestCommentReaction={togglePullRequestCommentReaction}
           onSelectCommit={selectProjectCommit}
           onCloseCommit={closeProjectCommit}
           onSelectPath={(path) => {
@@ -5770,6 +5828,7 @@
         onUpdatePullRequestLifecycle={updatePullRequestLifecycle}
         onAddPullRequestComment={publishPullRequestComment}
         onAddInlineComment={publishInlineComment}
+        onTogglePullRequestCommentReaction={togglePullRequestCommentReaction}
         onSelectCommit={selectProjectCommit}
         onCloseCommit={closeProjectCommit}
         onSelectPath={(path) => {

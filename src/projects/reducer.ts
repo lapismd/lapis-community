@@ -63,6 +63,7 @@ export function materializeProjectForgeCatalog(
 export function materializeProjectForgeWorkItems(
   repositoryEvent: NostrEvent,
   events: readonly NostrEvent[],
+  currentPubkey?: string,
 ): ProjectForgeWorkItems {
   const repository = eventAddress(repositoryEvent);
   if (
@@ -87,7 +88,9 @@ export function materializeProjectForgeWorkItems(
       ),
     pullRequests: roots
       .filter((event) => event.kind === PROJECT_FORGE_KINDS.pullRequest)
-      .map((event) => reducePullRequest(event, repositoryEvent, visible))
+      .map((event) =>
+        reducePullRequest(event, repositoryEvent, visible, currentPubkey),
+      )
       .toSorted((left, right) =>
         compareNewestSmallestId(left.root, right.root),
       ),
@@ -174,6 +177,7 @@ export function reducePullRequest(
   root: NostrEvent,
   repositoryEvent: NostrEvent,
   related: readonly NostrEvent[],
+  currentPubkey?: string,
 ): PullRequestState {
   const repository = eventAddress(repositoryEvent);
   if (
@@ -235,7 +239,17 @@ export function reducePullRequest(
             String(PROJECT_FORGE_KINDS.pullRequest) &&
           firstTagValue(event, "E") === root.id),
     )
-    .map((event) => parsePullRequestComment(event));
+    .map((event) =>
+      parsePullRequestComment(
+        event,
+        pullRequestCommentReactions(
+          event,
+          relatedOrdered,
+          repository.coordinate,
+          currentPubkey,
+        ),
+      ),
+    );
 
   const reviewers = new Set(validPubkeys(root, "p"));
   for (const comment of comments) {
@@ -426,7 +440,41 @@ function newestReplaceableEvents(events: readonly NostrEvent[]): NostrEvent[] {
   return [...byAddress.values()];
 }
 
-function parsePullRequestComment(event: NostrEvent): PullRequestComment {
+function pullRequestCommentReactions(
+  comment: NostrEvent,
+  related: readonly NostrEvent[],
+  repositoryCoordinate: string,
+  currentPubkey?: string,
+): PullRequestComment["reactions"] {
+  const grouped = new Map<string, { count: number; selected: boolean }>();
+  for (const event of related) {
+    if (
+      event.kind !== PROJECT_FORGE_KINDS.reaction ||
+      firstTagValue(event, "e") !== comment.id ||
+      firstTagValue(event, "p") !== comment.pubkey ||
+      firstTagValue(event, "k") !== String(comment.kind) ||
+      firstTagValue(event, "a") !== repositoryCoordinate ||
+      event.content.length === 0
+    ) {
+      continue;
+    }
+    const current = grouped.get(event.content) ?? {
+      count: 0,
+      selected: false,
+    };
+    current.count += 1;
+    current.selected ||= event.pubkey === currentPubkey;
+    grouped.set(event.content, current);
+  }
+  return [...grouped.entries()]
+    .toSorted(([left], [right]) => left.localeCompare(right))
+    .map(([emoji, reaction]) => ({ emoji, ...reaction }));
+}
+
+function parsePullRequestComment(
+  event: NostrEvent,
+  reactions: PullRequestComment["reactions"] = [],
+): PullRequestComment {
   const labels = allTagValues(event, "t").map((value) =>
     value.toLocaleLowerCase(),
   );
@@ -453,6 +501,7 @@ function parsePullRequestComment(event: NostrEvent): PullRequestComment {
     reviewerPubkeys: isReviewRequest ? validPubkeys(event, "p") : [],
     ...(decision === undefined ? {} : { decision }),
     isTrustedDecision: false,
+    reactions,
   };
 }
 

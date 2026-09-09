@@ -2,6 +2,7 @@
   import { expect, fn, userEvent, waitFor, within } from "storybook/test";
   import { defineMeta } from "@storybook/addon-svelte-csf";
 
+  import { GITHUB_REVIEW_COMMENT_REACTIONS } from "../../projects/index.js";
   import CommunityEmojiPicker from "./CommunityEmojiPicker.svelte";
 
   const { Story } = defineMeta({
@@ -37,6 +38,31 @@
       within(document.body).getByRole("button", { name: "React 👍" }),
     );
     await expect(args.onSelect).toHaveBeenCalledWith("👍");
+  }}
+/>
+
+<Story
+  name="GitHub review reactions"
+  args={{
+    label: "Add GitHub reaction",
+    presets: GITHUB_REVIEW_COMMENT_REACTIONS,
+    presetsOnly: true,
+    onSelect: fn(),
+  }}
+  play={async ({ args, canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Add GitHub reaction" }),
+    );
+    const page = within(document.body);
+    await expect(
+      page.getAllByRole("button", { name: /^React /u }),
+    ).toHaveLength(8);
+    await expect(
+      document.body.querySelector("em-emoji-picker"),
+    ).not.toBeInTheDocument();
+    await userEvent.click(page.getByRole("button", { name: "React ❤️" }));
+    await expect(args.onSelect).toHaveBeenCalledWith("❤️");
   }}
 />
 

@@ -57,6 +57,7 @@
   import UserRoundPlusIcon from "@lucide/svelte/icons/user-round-plus";
 
   import {
+    GITHUB_REVIEW_COMMENT_REACTIONS,
     projectForgeBranchName,
     projectForgeBranchRefs,
     splitProjectForgePatch,
@@ -157,6 +158,7 @@
     onUpdatePullRequestLifecycle,
     onAddPullRequestComment,
     onAddInlineComment,
+    onTogglePullRequestCommentReaction,
     onLoadRepositoryRefs,
     onSelectCommit,
     onCloseCommit,
@@ -1226,6 +1228,41 @@
     return !comment.isInlineComment || comment.inlineStatus !== "current";
   }
 
+  function isExternalReviewDecision(comment: PullRequestComment): boolean {
+    return comment.event.tags.some((tag) => tag[0] === "external-decision");
+  }
+
+  function canReactToPullRequestComment(comment: PullRequestComment): boolean {
+    return (
+      canCollaborate &&
+      onTogglePullRequestCommentReaction !== undefined &&
+      !comment.isReviewRequest &&
+      !isExternalReviewDecision(comment)
+    );
+  }
+
+  function isGitHubReviewComment(comment: PullRequestComment): boolean {
+    return (
+      repositoryCapabilities[selectedPullRequest?.repository.coordinate ?? ""]
+        ?.collaboration_backend === "github" ||
+      comment.event.tags.some(
+        (tag) => tag[0] === "external-provider" && tag[1] === "github",
+      )
+    );
+  }
+
+  function pullRequestReactionOptions(
+    comment: PullRequestComment,
+  ): readonly string[] | undefined {
+    if (
+      !canReactToPullRequestComment(comment) ||
+      !isGitHubReviewComment(comment)
+    ) {
+      return undefined;
+    }
+    return GITHUB_REVIEW_COMMENT_REACTIONS;
+  }
+
   function memberForPubkey(pubkey: string): CommunityMemberModel {
     const known = members.find((member) => member.id === pubkey);
     if (known) return known;
@@ -1310,6 +1347,15 @@
         minute: "2-digit",
       }).format(createdAt),
       createdAt: createdAt.toISOString(),
+      reactions: comment.reactions
+        .filter(
+          (reaction) =>
+            !isGitHubReviewComment(comment) ||
+            GITHUB_REVIEW_COMMENT_REACTIONS.some(
+              (supported) => supported === reaction.emoji,
+            ),
+        )
+        .map((reaction) => ({ ...reaction })),
     };
   }
 </script>
@@ -2565,6 +2611,8 @@
                             aria-label={`Discussion on ${context.path} line ${context.lineNumber}`}
                           >
                             {#each inlineComments as comment (comment.event.id)}
+                              {@const commentReactionOptions =
+                                pullRequestReactionOptions(comment)}
                               {#snippet inlineLabels()}
                                 <div class="community-projects__message-labels">
                                   {#if comment.decision}<CommunityChip
@@ -2587,6 +2635,33 @@
                                   : { currentMemberId }}
                                 supplement={inlineLabels}
                                 density="compact"
+                                {...canReactToPullRequestComment(comment)
+                                  ? {
+                                      onAddReaction: (
+                                        _messageId: string,
+                                        emoji: string,
+                                      ) =>
+                                        onTogglePullRequestCommentReaction!(
+                                          selectedPullRequest,
+                                          comment,
+                                          emoji,
+                                        ),
+                                      onToggleReaction: (
+                                        _messageId: string,
+                                        emoji: string,
+                                      ) =>
+                                        onTogglePullRequestCommentReaction!(
+                                          selectedPullRequest,
+                                          comment,
+                                          emoji,
+                                        ),
+                                    }
+                                  : {}}
+                                {...commentReactionOptions === undefined
+                                  ? {}
+                                  : {
+                                      reactionOptions: commentReactionOptions,
+                                    }}
                               />
                             {/each}
                             {#if inlineComposerMatches(context)}
@@ -2749,6 +2824,8 @@
                   aria-label="Pull request conversation"
                 >
                   {#each selectedPullRequest.comments.filter(conversationComment) as comment (comment.event.id)}
+                    {@const commentReactionOptions =
+                      pullRequestReactionOptions(comment)}
                     {#snippet reviewLabels()}
                       <div class="community-projects__message-labels">
                         {#if comment.decision}<CommunityChip
@@ -2773,6 +2850,31 @@
                         : { currentMemberId }}
                       supplement={reviewLabels}
                       density="compact"
+                      {...canReactToPullRequestComment(comment)
+                        ? {
+                            onAddReaction: (
+                              _messageId: string,
+                              emoji: string,
+                            ) =>
+                              onTogglePullRequestCommentReaction!(
+                                selectedPullRequest,
+                                comment,
+                                emoji,
+                              ),
+                            onToggleReaction: (
+                              _messageId: string,
+                              emoji: string,
+                            ) =>
+                              onTogglePullRequestCommentReaction!(
+                                selectedPullRequest,
+                                comment,
+                                emoji,
+                              ),
+                          }
+                        : {}}
+                      {...commentReactionOptions === undefined
+                        ? {}
+                        : { reactionOptions: commentReactionOptions }}
                     />
                   {:else}<p class="community-projects__status">
                       No review comments yet.
