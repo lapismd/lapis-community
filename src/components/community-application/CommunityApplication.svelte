@@ -76,6 +76,7 @@
     projectForgeBranchRefs,
     projectForgeBoundChannels,
     projectForgeChildChannels,
+    loadProjectRepositoryFileTree,
     updateProjectTemplate,
     type ProjectForgeBlobResponse,
     type ProjectForgeCatalog,
@@ -210,51 +211,6 @@
     resolve: () => void;
     reject: (cause: unknown) => void;
   };
-
-  function repositoryEntryPath(parent: string, name: string): string {
-    const normalizedParent = parent.replace(/^\/+|\/+$/gu, "");
-    const normalizedName = name.replace(/^\/+|\/+$/gu, "");
-    return [normalizedParent, normalizedName].filter(Boolean).join("/");
-  }
-
-  async function loadRepositoryFileTree(
-    session: ProjectForgeSession,
-    repository: string,
-    revision: string,
-    signal: AbortSignal,
-  ): Promise<ProjectForgeTreeResponse> {
-    const root = await session.loadTree(repository, revision, "", signal);
-    const files: Array<ProjectForgeTreeResponse["entries"][number]> = [];
-    const pendingDirectories: string[] = [];
-    const visitedDirectories = new Set<string>([""]);
-
-    function collectEntries(tree: ProjectForgeTreeResponse, parent: string) {
-      for (const entry of tree.entries) {
-        const path = repositoryEntryPath(parent, entry.name);
-        if (entry.type === "tree") {
-          if (!visitedDirectories.has(path)) pendingDirectories.push(path);
-          continue;
-        }
-        files.push({ ...entry, path });
-      }
-    }
-
-    collectEntries(root, "");
-    while (pendingDirectories.length > 0) {
-      const path = pendingDirectories.shift();
-      if (!path || visitedDirectories.has(path)) continue;
-      visitedDirectories.add(path);
-      const directory = await session.loadTree(
-        repository,
-        revision,
-        path,
-        signal,
-      );
-      collectEntries(directory, path);
-    }
-
-    return { ...root, path: "", entries: files };
-  }
 
   function repositorySupportsBrowsing(
     repository: ProjectForgeRepository,
@@ -488,6 +444,8 @@
   let projectTree = $state.raw<ProjectForgeTreeResponse>();
   let projectBlob = $state.raw<ProjectForgeBlobResponse>();
   let selectedProjectPath = $state("");
+  let projectSourceRepositoryCoordinate = $state("");
+  let projectRepositoryRevision = $state("");
   let projectPullRequestDiff = $state.raw<ProjectForgePullRequestDiff>();
   let pendingProjectMembership = $state.raw<{
     project: import("../../protocol/index.js").NostrEvent;
@@ -1709,9 +1667,6 @@
     const overviewSurface = projectsOverviewSurface;
     const pullRequestId = selectedPullRequestId;
     const selectedCommitSha = selectedProjectCommit?.sha;
-    const path = selectedProjectPath;
-    community.state.status;
-    community.state.authentication.status;
     if (!options || !relayUrl) return;
 
     const controller = new AbortController();
@@ -1722,6 +1677,9 @@
     projectError = "";
     projectSourceError = "";
     projectRepositoryCapabilities = {};
+    projectSourceRepositoryCoordinate = "";
+    projectRepositoryRevision = "";
+    projectBlob = undefined;
 
     void (async () => {
       openedSession = await options.source.open(
@@ -1904,6 +1862,7 @@
         projectBlob = undefined;
       } else {
         const repository = sourceRepository.address.coordinate;
+        projectSourceRepositoryCoordinate = repository;
         const readsRepository =
           surface === undefined ||
           surface === "overview" ||
@@ -1962,6 +1921,7 @@
             );
             projectCommitBranch = refs.head?.name ?? "";
             const revision = refs.head?.name ?? refs.head?.sha;
+            projectRepositoryRevision = revision ?? "";
             if (
               revision &&
               (surface === undefined ||
@@ -1970,7 +1930,7 @@
             ) {
               let tree =
                 surface === "files"
-                  ? await loadRepositoryFileTree(
+                  ? await loadProjectRepositoryFileTree(
                       openedSession,
                       repository,
                       revision,
@@ -2010,20 +1970,11 @@
                 }
               }
               projectTree = tree;
-              if (surface === "files" && path) {
-                projectBlob = await openedSession.loadBlob(
-                  repository,
-                  revision,
-                  path,
-                  controller.signal,
-                );
-              } else {
-                projectBlob = undefined;
-              }
             }
           } catch (cause) {
             if (controller.signal.aborted) throw cause;
             projectCommitBranch = "";
+            projectRepositoryRevision = "";
             projectTree = undefined;
             projectBlob = undefined;
             projectSourceError =
@@ -2064,6 +2015,37 @@
       openedSession?.close();
       if (projectSession === openedSession) projectSession = undefined;
     };
+  });
+
+  $effect(() => {
+    const session = projectSession;
+    const repository = projectSourceRepositoryCoordinate;
+    const revision = projectRepositoryRevision;
+    const path = selectedProjectPath;
+    const surface = selectedRepositoryCoordinate
+      ? activeRepositorySurface
+      : selectedProjectSurface;
+    if (surface !== "files" || !session || !repository || !revision || !path) {
+      projectBlob = undefined;
+      return;
+    }
+
+    const controller = new AbortController();
+    projectBlob = undefined;
+    void session
+      .loadBlob(repository, revision, path, controller.signal)
+      .then((blob) => {
+        if (!controller.signal.aborted) projectBlob = blob;
+      })
+      .catch((cause) => {
+        if (controller.signal.aborted) return;
+        projectSourceError =
+          cause instanceof Error
+            ? cause.message
+            : "The selected file could not be loaded";
+      });
+
+    return () => controller.abort();
   });
 
   $effect(() => {

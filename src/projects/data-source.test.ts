@@ -24,6 +24,49 @@ function authorizationEvent(value: string): NostrEvent {
 }
 
 describe("NIP-34 project forge data source", () => {
+  it("reuses recent authenticated repository reads across sessions", async () => {
+    let now = new Date("2026-09-09T12:00:00.000Z");
+    const fetch = vi.fn(async () =>
+      json({
+        name: "README.md",
+        path: "README.md",
+        contents: "# Notes",
+      }),
+    );
+    const identity = new SecretKeyRegistrySigner(generateSecretKey());
+    const source = createNip34ProjectForgeDataSource({
+      relayFactory: createInMemoryRelayFactory(),
+      fetch,
+      now: () => now,
+    });
+
+    const first = await source.open({
+      relayUrl: "wss://relay.example",
+      identity,
+    });
+    await first.loadBlob(repository, "main", "README.md");
+    first.close();
+
+    const second = await source.open({
+      relayUrl: "wss://relay.example",
+      identity,
+    });
+    await expect(
+      second.loadBlob(repository, "main", "README.md"),
+    ).resolves.toMatchObject({ contents: "# Notes" });
+    expect(fetch).toHaveBeenCalledTimes(1);
+    second.close();
+
+    now = new Date("2026-09-09T12:00:15.001Z");
+    const expired = await source.open({
+      relayUrl: "wss://relay.example",
+      identity,
+    });
+    await expired.loadBlob(repository, "main", "README.md");
+    expect(fetch).toHaveBeenCalledTimes(2);
+    expired.close();
+  });
+
   it("discovers provider-neutral repository capabilities and preserves full ref paths", async () => {
     const requests: Array<{ url: string; authorization: string }> = [];
     const fetch = vi.fn(

@@ -39,6 +39,13 @@ import {
 const PROJECT_PAGE_SIZE = 500;
 const WORK_ITEM_LIMIT = 2_000;
 const TOMBSTONE_CHUNK_SIZE = 100;
+const PROJECT_FORGE_READ_CACHE_TTL_MS = 15_000;
+const PROJECT_FORGE_READ_CACHE_MAX_ENTRIES = 256;
+
+interface ProjectForgeReadCacheEntry {
+  expiresAt: number;
+  value: unknown;
+}
 
 export interface ProjectForgeDataSourceContext {
   relayUrl: string;
@@ -152,6 +159,7 @@ export interface ProjectForgeDataSource {
 export function createNip34ProjectForgeDataSource(
   options: ProjectForgeDataSourceOptions,
 ): ProjectForgeDataSource {
+  const readCache = new Map<string, ProjectForgeReadCacheEntry>();
   return {
     async open(context, signal) {
       signal?.throwIfAborted();
@@ -161,7 +169,17 @@ export function createNip34ProjectForgeDataSource(
       if (context.identity) {
         await authenticateRegistryRelay(relay, context.identity, signal);
       }
-      return new Nip34ProjectForgeSession(relay, context, request, now);
+      const cacheIdentity = context.identity
+        ? await context.identity.getPublicKey()
+        : "anonymous";
+      return new Nip34ProjectForgeSession(
+        relay,
+        context,
+        request,
+        now,
+        readCache,
+        cacheIdentity,
+      );
     },
   };
 }
@@ -172,6 +190,8 @@ class Nip34ProjectForgeSession implements ProjectForgeSession {
   readonly #context: ProjectForgeDataSourceContext;
   readonly #fetch: typeof globalThis.fetch;
   readonly #now: () => Date;
+  readonly #readCache: Map<string, ProjectForgeReadCacheEntry>;
+  readonly #cacheIdentity: string;
   readonly #subscriptions = new Set<CommunityRelaySubscription>();
   #closed = false;
 
@@ -180,12 +200,16 @@ class Nip34ProjectForgeSession implements ProjectForgeSession {
     context: ProjectForgeDataSourceContext,
     request: typeof globalThis.fetch,
     now: () => Date,
+    readCache: Map<string, ProjectForgeReadCacheEntry>,
+    cacheIdentity: string,
   ) {
     this.relayUrl = relay.url;
     this.#relay = relay;
     this.#context = context;
     this.#fetch = request;
     this.#now = now;
+    this.#readCache = readCache;
+    this.#cacheIdentity = cacheIdentity;
   }
 
   async loadCatalog(
@@ -580,6 +604,16 @@ class Nip34ProjectForgeSession implements ProjectForgeSession {
     this.#assertOpen(options.signal);
     const identity = this.#requiredIdentity();
     const url = new URL(path, this.#httpBaseUrl());
+    const cacheKey = `${this.#cacheIdentity}:${url.toString()}`;
+    if (options.onProgress === undefined) {
+      const cached = this.#readCache.get(cacheKey);
+      if (cached && cached.expiresAt > this.#now().getTime()) {
+        this.#readCache.delete(cacheKey);
+        this.#readCache.set(cacheKey, cached);
+        return cached.value as T;
+      }
+      if (cached) this.#readCache.delete(cacheKey);
+    }
     const auth = await identity.signEvent({
       kind: PROJECT_FORGE_KINDS.httpAuth,
       created_at: Math.floor(this.#now().getTime() / 1_000),
@@ -599,7 +633,19 @@ class Nip34ProjectForgeSession implements ProjectForgeSession {
     if (response.headers.get("content-type")?.includes("text/event-stream")) {
       return parseSseResult<T>(await response.text(), options.onProgress);
     }
-    return (await response.json()) as T;
+    const value = (await response.json()) as T;
+    if (options.onProgress === undefined) {
+      this.#readCache.set(cacheKey, {
+        expiresAt: this.#now().getTime() + PROJECT_FORGE_READ_CACHE_TTL_MS,
+        value,
+      });
+      while (this.#readCache.size > PROJECT_FORGE_READ_CACHE_MAX_ENTRIES) {
+        const oldestKey = this.#readCache.keys().next().value;
+        if (oldestKey === undefined) break;
+        this.#readCache.delete(oldestKey);
+      }
+    }
+    return value;
   }
 
   async #authenticatedJsonRequest(
@@ -639,6 +685,11 @@ class Nip34ProjectForgeSession implements ProjectForgeSession {
     value?: unknown,
     signal?: AbortSignal,
   ): Promise<T> {
+    if (method === "GET")
+      return await this.#strictGet(
+        path,
+        signal === undefined ? {} : { signal },
+      );
     this.#assertOpen(signal);
     const body = value === undefined ? undefined : JSON.stringify(value);
     const url = new URL(path, this.#httpBaseUrl());
@@ -669,7 +720,9 @@ class Nip34ProjectForgeSession implements ProjectForgeSession {
       ...(signal === undefined ? {} : { signal }),
     });
     if (!response.ok) throw await responseError(response);
-    return (await response.json()) as T;
+    const result = (await response.json()) as T;
+    this.#readCache.clear();
+    return result;
   }
 
   #httpBaseUrl(): URL {

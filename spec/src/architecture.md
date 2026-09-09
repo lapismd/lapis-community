@@ -12,6 +12,9 @@ the relay's per-coordinate provider-neutral capability document to select any
 content backend that explicitly advertises browsing. This allows WalGit and
 GitHub-backed repositories to share the same relay gateway without inferring
 behavior from clone URLs or exposing provider credentials to the browser.
+Authenticated repository GET results MUST use a short-lived, identity-scoped
+in-memory cache that survives presentation-session replacement, remains
+bounded, bypasses progress streams, and is cleared after forge mutations.
 That application runs under a checkout-owned supervisor: source updates remain
 Vite HMR events, while generated fixture-environment updates restart Vite so
 its compile-time public trust configuration cannot become stale. Ownership is

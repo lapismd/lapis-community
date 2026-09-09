@@ -29,6 +29,10 @@ For LC-UI-036, the repository Files surface MUST select its first file when no
 path is active, retain the active selection when that row is selected again,
 and replace the right-hand preview with an accessible skeleton while the active
 file contents are loading.
+Selecting a file MUST fetch only that blob without reopening the project
+catalog, work-item subscriptions, repository capabilities, refs, or tree.
+Recursive file discovery MUST bound concurrency while loading independent
+directories in parallel.
 
 ## Requirements
 
