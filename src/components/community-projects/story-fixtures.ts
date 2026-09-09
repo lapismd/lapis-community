@@ -526,8 +526,21 @@ export function createProjectStoryFixture(channelId = "general-projects") {
 
 export function createProjectStoryDataSource(
   channelId = "general-projects",
+  repositoryBackend: "github" | "walgit" = "walgit",
 ): ProjectForgeDataSource {
   const fixture = createProjectStoryFixture(channelId);
+  const catalog =
+    repositoryBackend === "github"
+      ? {
+          ...fixture.catalog,
+          repositories: fixture.catalog.repositories.map((repository) => ({
+            ...repository,
+            cloneUrls: ["https://github.com/lapismd/community-client.git"],
+            webUrls: ["https://github.com/lapismd/community-client"],
+            repositoryClass: "external" as const,
+          })),
+        }
+      : fixture.catalog;
   return {
     async open(context): Promise<ProjectForgeSession> {
       const publish = async (template: NostrEventTemplate) => {
@@ -538,7 +551,7 @@ export function createProjectStoryDataSource(
       return {
         relayUrl: context.relayUrl,
         async loadCatalog() {
-          return fixture.catalog;
+          return catalog;
         },
         async loadWorkItems() {
           return fixture.workItems;
@@ -561,9 +574,9 @@ export function createProjectStoryDataSource(
           return {
             repository,
             capabilities: {
-              git_authority_backend: "walgit",
-              content_backend: "walgit",
-              git_backend: "walgit",
+              git_authority_backend: repositoryBackend,
+              content_backend: repositoryBackend,
+              git_backend: repositoryBackend,
               collaboration_backend: "relay",
               clone: { available: true, auth: "nostr" },
               smart_http: { read: true, write: true },

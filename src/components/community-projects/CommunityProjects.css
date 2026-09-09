@@ -536,6 +536,62 @@
   margin-top: 0;
 }
 
+.community-projects__overview-skeleton {
+  width: min(100%, 52rem);
+}
+
+.community-projects__overview-skeleton > div {
+  display: grid;
+  gap: 1rem;
+}
+
+.community-projects__overview-skeleton-title {
+  width: min(28rem, 58%);
+  height: 2rem;
+}
+
+.community-projects__overview-skeleton-heading {
+  width: min(18rem, 38%);
+  height: 1.35rem;
+  margin-top: 0.75rem;
+}
+
+.community-projects__overview-skeleton-paragraph {
+  display: grid;
+  gap: 0.6rem;
+}
+
+.community-projects__overview-skeleton-paragraph > * {
+  width: 100%;
+  height: 0.8rem;
+}
+
+.community-projects__overview-skeleton-paragraph > *:nth-child(2) {
+  width: 92%;
+}
+
+.community-projects__overview-skeleton-paragraph > *:last-child {
+  width: 68%;
+}
+
+.community-projects__overview-skeleton-code {
+  display: grid;
+  gap: 0.55rem;
+  padding: 1rem;
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  background: color-mix(in srgb, var(--muted) 38%, transparent);
+}
+
+.community-projects__overview-skeleton-code > * {
+  width: 72%;
+  height: 0.7rem;
+}
+
+.community-projects__overview-skeleton-code > *:nth-child(2n) {
+  width: 88%;
+}
+
 .community-projects__directory-header,
 .community-projects__surface-header,
 .community-projects__review-header {
@@ -1192,6 +1248,140 @@
   padding: 0 0.25rem 0.5rem;
   color: var(--muted-foreground);
   font-size: 0.75rem;
+}
+
+.community-projects__files-loading {
+  display: grid;
+  width: 100%;
+  min-width: 0;
+  min-height: 100%;
+  grid-template-columns:
+    minmax(12rem, var(--ui-shell-body-sidebar-width, min(17rem, 32%)))
+    1px minmax(0, 1fr);
+}
+
+.community-projects__files-loading-sidebar,
+.community-projects__files-loading-preview {
+  min-width: 0;
+  padding: 0.6rem;
+}
+
+.community-projects__files-loading-toolbar {
+  display: flex;
+  min-height: 2rem;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0 0.25rem 0.5rem;
+}
+
+.community-projects__files-loading-toolbar > *:first-child {
+  width: 3.5rem;
+  height: 0.7rem;
+}
+
+.community-projects__files-loading-toolbar > span {
+  display: flex;
+  gap: 0.2rem;
+}
+
+.community-projects__files-loading-toolbar > span > * {
+  width: 1.65rem;
+  height: 1.65rem;
+  border-radius: 0.3rem;
+}
+
+.community-projects__files-loading-list {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.community-projects__files-loading-list > div {
+  display: grid;
+  min-height: 2rem;
+  grid-template-columns: 1rem minmax(0, 1fr);
+  align-items: center;
+  gap: 0.5rem;
+  padding-inline: 0.5rem;
+}
+
+.community-projects__files-loading-list > div > *:first-child {
+  width: 0.9rem;
+  height: 1rem;
+}
+
+.community-projects__files-loading-list > div > *:last-child {
+  width: min(9rem, 76%);
+  height: 0.7rem;
+}
+
+.community-projects__files-loading-list > div:nth-child(2n) > *:last-child {
+  width: min(6.5rem, 58%);
+}
+
+.community-projects__files-loading-divider {
+  width: 1px;
+  height: 100%;
+  background: var(--border);
+}
+
+.community-projects__files-loading-preview {
+  display: grid;
+  align-content: start;
+  padding: 0.5rem;
+}
+
+.community-projects__files-loading-preview-header {
+  display: flex;
+  min-height: 2.5rem;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding-inline: 1rem;
+  border: 1px solid var(--border);
+  border-radius: 0.4rem 0.4rem 0 0;
+  background: color-mix(in srgb, var(--muted) 32%, transparent);
+}
+
+.community-projects__files-loading-preview-header > *:first-child {
+  width: min(12rem, 34%);
+  height: 0.7rem;
+}
+
+.community-projects__files-loading-preview-header > *:last-child {
+  width: 1rem;
+  height: 1rem;
+}
+
+.community-projects__files-loading-code {
+  display: grid;
+  min-height: 24rem;
+  align-content: start;
+  gap: 0.65rem;
+  padding: 1rem 0.75rem;
+  border: 1px solid var(--border);
+  border-top: 0;
+  border-radius: 0 0 0.4rem 0.4rem;
+}
+
+.community-projects__files-loading-code > div {
+  display: grid;
+  grid-template-columns: 1.5rem minmax(0, 1fr);
+  gap: 0.8rem;
+}
+
+.community-projects__files-loading-code > div > *:first-child {
+  width: 1rem;
+  height: 0.7rem;
+}
+
+.community-projects__files-loading-code > div > *:last-child {
+  width: min(42rem, 82%);
+  height: 0.7rem;
+}
+
+.community-projects__files-loading-code > div:nth-child(3n) > *:last-child {
+  width: min(30rem, 58%);
 }
 
 .community-projects__diff-content,

@@ -29,6 +29,10 @@ For LC-UI-036, the repository Files surface MUST select its first file when no
 path is active, retain the active selection when that row is selected again,
 and replace the right-hand preview with an accessible skeleton while the active
 file contents are loading.
+Initial repository Files loading MUST use an accessible skeleton that preserves
+the file-list sidebar, divider, preview header, and code-line geometry. Project
+Overview loading MUST use an accessible Markdown-shaped skeleton with heading,
+paragraph, section, and code-block geometry.
 Selecting a file MUST fetch only that blob without reopening the project
 catalog, work-item subscriptions, repository capabilities, refs, or tree.
 Recursive file discovery MUST bound concurrency while loading independent
@@ -87,7 +91,9 @@ immediately before the repository name without exposing provider secrets. An
 external repository overview MUST expose a contextual GitHub App connection or
 management action to authenticated identities because static relay
 administrators may not appear in the NIP-29 member projection; the relay MUST
-remain the authoritative administrator gate. The connection command MUST
+remain the authoritative administrator gate. That contextual action MUST use a
+leading GitHub mark and a visible hover and keyboard-focus surface. The
+connection command MUST
 discover active installations through authenticated relay endpoints, list only
 provider repositories whose clone and web URLs both match the signed repository
 announcement, and attach the selected provider repository without exposing

@@ -222,6 +222,25 @@ index 3333333..4444444 100644
 />
 
 <Story
+  name="Repository overview loading"
+  args={{
+    view: "overview",
+    repositories: [githubRepository],
+    repositoryCapabilities: githubRepositoryCapabilities,
+    tree: undefined,
+    loading: true,
+  }}
+  play={async ({ canvas }) => {
+    await expect(
+      canvas.getByRole("status", { name: "Loading repository overview" }),
+    ).toBeVisible();
+    await expect(
+      canvas.queryByText("Loading repository overview…"),
+    ).not.toBeInTheDocument();
+  }}
+/>
+
+<Story
   name="Project settings"
   args={{
     view: "overview",
@@ -490,6 +509,33 @@ index 3333333..4444444 100644
     await expect(
       canvas.getByRole("status", { name: "Loading README.md" }),
     ).toBeVisible();
+  }}
+/>
+
+<Story
+  name="Repository files loading"
+  args={{
+    view: "files",
+    repositories: [githubRepository],
+    repositoryCapabilities: githubRepositoryCapabilities,
+    tree: undefined,
+    selectedPath: "",
+    loading: true,
+  }}
+  play={async ({ canvas }) => {
+    const loader = canvas.getByRole("status", {
+      name: "Loading repository files",
+    });
+    await expect(loader).toBeVisible();
+    await expect(
+      loader.querySelector(".community-projects__files-loading-sidebar"),
+    ).not.toBeNull();
+    await expect(
+      loader.querySelector(".community-projects__files-loading-preview"),
+    ).not.toBeNull();
+    await expect(
+      canvas.queryByText("Loading repository files…"),
+    ).not.toBeInTheDocument();
   }}
 />
 

@@ -425,6 +425,53 @@
 </Story>
 
 <Story
+  name="GitHub repository overview action"
+  play={async ({ canvas }) => {
+    const application = await canvas.findByTestId(
+      "full-community-application",
+      {},
+      { timeout: 15_000 },
+    );
+    await waitFor(
+      () =>
+        expect(application).toHaveAttribute(
+          "data-community-status",
+          "connected",
+        ),
+      { timeout: 15_000 },
+    );
+    if (application.dataset.communityBackend !== "memory") return;
+
+    await userEvent.click(canvas.getByRole("tab", { name: "Repositories" }));
+    await userEvent.click(
+      await canvas.findByRole("button", {
+        name: /community-client Hosted browser and desktop client/u,
+      }),
+    );
+    const action = await canvas.findByRole("button", {
+      name: "Manage GitHub App",
+    });
+    await expect(action.querySelector("svg")).not.toBeNull();
+    const restingBackground = getComputedStyle(action).backgroundColor;
+    action.focus();
+    await waitFor(() =>
+      expect(getComputedStyle(action).backgroundColor).not.toBe(
+        restingBackground,
+      ),
+    );
+  }}
+>
+  {#snippet template()}
+    <CommunityApplicationStoryHarness
+      namespace="github-project-action"
+      projects
+      projectBackend="github"
+      initialDestination="projects"
+    />
+  {/snippet}
+</Story>
+
+<Story
   name="Cold cache offline"
   play={async ({ canvas }) => {
     await userEvent.click(

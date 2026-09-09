@@ -1889,9 +1889,33 @@
               {communityEmojis}
             />
           {:else if loading}
-            <p class="community-projects__status" role="status">
-              Loading repository overview…
-            </p>
+            <div
+              class="community-projects__overview-skeleton"
+              role="status"
+              aria-label="Loading repository overview"
+            >
+              <div aria-hidden="true">
+                <Skeleton class="community-projects__overview-skeleton-title" />
+                <div class="community-projects__overview-skeleton-paragraph">
+                  <Skeleton />
+                  <Skeleton />
+                  <Skeleton />
+                </div>
+                <Skeleton
+                  class="community-projects__overview-skeleton-heading"
+                />
+                <div class="community-projects__overview-skeleton-paragraph">
+                  <Skeleton />
+                  <Skeleton />
+                </div>
+                <div class="community-projects__overview-skeleton-code">
+                  <Skeleton />
+                  <Skeleton />
+                  <Skeleton />
+                  <Skeleton />
+                </div>
+              </div>
+            </div>
           {:else if !canCollaborate && repositorySources.length > 0}
             <Empty.Root class="community-projects__empty">
               <Empty.Header>
@@ -3137,9 +3161,54 @@
         {/if}
       {:else if view === "files"}
         {#if loading && !tree}
-          <p class="community-projects__status" role="status">
-            Loading repository files…
-          </p>
+          <div
+            class="community-projects__files-loading"
+            role="status"
+            aria-label="Loading repository files"
+          >
+            <aside
+              class="community-projects__files-loading-sidebar"
+              aria-hidden="true"
+            >
+              <div class="community-projects__files-loading-toolbar">
+                <Skeleton />
+                <span>
+                  <Skeleton />
+                  <Skeleton />
+                  <Skeleton />
+                </span>
+              </div>
+              <div class="community-projects__files-loading-list">
+                {#each [0, 1, 2, 3, 4] as row (row)}
+                  <div>
+                    <Skeleton />
+                    <Skeleton />
+                  </div>
+                {/each}
+              </div>
+            </aside>
+            <span
+              class="community-projects__files-loading-divider"
+              aria-hidden="true"
+            ></span>
+            <section
+              class="community-projects__files-loading-preview"
+              aria-hidden="true"
+            >
+              <div class="community-projects__files-loading-preview-header">
+                <Skeleton />
+                <Skeleton />
+              </div>
+              <div class="community-projects__files-loading-code">
+                {#each [0, 1, 2, 3, 4, 5, 6] as row (row)}
+                  <div>
+                    <Skeleton />
+                    <Skeleton />
+                  </div>
+                {/each}
+              </div>
+            </section>
+          </div>
         {:else if !canCollaborate && repositorySources.length > 0}
           <Empty.Root class="community-projects__empty">
             <Empty.Header>

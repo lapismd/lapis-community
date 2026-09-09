@@ -29,7 +29,6 @@
   import GitPullRequestIcon from "@lucide/svelte/icons/git-pull-request";
   import GitBranchIcon from "@lucide/svelte/icons/git-branch";
   import GitCommitHorizontalIcon from "@lucide/svelte/icons/git-commit-horizontal";
-  import GitForkIcon from "@lucide/svelte/icons/git-fork";
   import FilesIcon from "@lucide/svelte/icons/files";
   import FolderKanbanIcon from "@lucide/svelte/icons/folder-kanban";
   import FolderPlusIcon from "@lucide/svelte/icons/folder-plus";
@@ -4711,7 +4710,16 @@
                 disabled={projectOperation !== ""}
                 onclick={() => requestProjectDialog("connect-github")}
               >
-                <GitForkIcon data-icon="inline-start" aria-hidden="true" />
+                <svg
+                  data-icon="inline-start"
+                  viewBox="0 0 24 24"
+                  fill="currentColor"
+                  aria-hidden="true"
+                >
+                  <path
+                    d="M12 .3a12 12 0 0 0-3.8 23.4c.6.1.8-.3.8-.6v-2.3c-3.3.7-4-1.4-4-1.4-.5-1.4-1.3-1.8-1.3-1.8-1.1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1.1 1.8 2.8 1.3 3.4 1 .1-.8.4-1.3.8-1.6-2.7-.3-5.5-1.3-5.5-5.9 0-1.3.5-2.4 1.2-3.2-.1-.3-.5-1.5.1-3.2 0 0 1-.3 3.3 1.2a11.4 11.4 0 0 1 6 0c2.3-1.5 3.3-1.2 3.3-1.2.6 1.7.2 2.9.1 3.2.8.8 1.2 1.9 1.2 3.2 0 4.6-2.8 5.6-5.5 5.9.4.4.8 1.1.8 2.2v3.3c0 .3.2.7.8.6A12 12 0 0 0 12 .3Z"
+                  />
+                </svg>
                 {selectedRepositoryGitHubConnected
                   ? "Manage GitHub App"
                   : "Connect GitHub App"}
@@ -7432,6 +7440,17 @@
     color: var(--foreground);
     font-size: 0.8rem;
     font-weight: 450;
+  }
+
+  :global(
+      .community-application__project-overview-action[data-ui-component="button"]:hover:not(
+          :disabled
+        )
+    ),
+  :global(
+      .community-application__project-overview-action[data-ui-component="button"]:focus-visible
+    ) {
+    background-color: color-mix(in oklab, currentColor 10%, transparent);
   }
 
   :global(

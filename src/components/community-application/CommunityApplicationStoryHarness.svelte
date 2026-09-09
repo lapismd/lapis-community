@@ -56,6 +56,7 @@
     progressiveDelayMs = 0,
     progressiveFailure = false,
     projects = false,
+    projectBackend = "walgit",
   }: {
     signedIn?: boolean;
     responsive?: boolean;
@@ -71,6 +72,7 @@
     progressiveDelayMs?: number;
     progressiveFailure?: boolean;
     projects?: boolean;
+    projectBackend?: "github" | "walgit";
   } = $props();
 
   let runtime = $state.raw<CommunityStoryRuntime>();
@@ -133,6 +135,7 @@
       installedPluginIds = [];
       projectSource = createProjectStoryDataSource(
         namespace ? `general-${namespace}` : "general",
+        projectBackend,
       );
       const selectedBackend =
         document.documentElement.dataset.communityBackend ?? "memory";
