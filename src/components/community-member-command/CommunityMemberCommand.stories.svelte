@@ -248,7 +248,7 @@
   name="Permission-aware member view"
   args={{
     open: true,
-    title: "Channel members",
+    title: "Permission-aware channel members",
     roomKind: "channel",
     mode: "view",
     members: directory,
@@ -262,7 +262,7 @@
   play={async ({ canvasElement }) => {
     const overlay = within(canvasElement.ownerDocument.body);
     const dialog = await overlay.findByRole("dialog", {
-      name: "Channel members",
+      name: "Permission-aware channel members",
     });
     const command = within(dialog);
     await userEvent.type(
