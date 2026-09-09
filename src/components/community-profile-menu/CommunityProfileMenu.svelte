@@ -50,7 +50,8 @@
     { value: "offline", label: "Offline" },
   ];
 
-  const presence = $derived(member.presence ?? "offline");
+  let selectedPresence = $state<CommunityPresence>();
+  const presence = $derived(selectedPresence ?? member.presence ?? "offline");
   const presenceLabel = $derived(
     presence === "online" ? "Online" : presence === "away" ? "Away" : "Offline",
   );
@@ -63,6 +64,17 @@
   );
   let menuOpen = $state(false);
   let tooltipOpen = $state(false);
+
+  function requestPresenceChange(value: CommunityPresence): void {
+    if (value === presence) return;
+
+    selectedPresence = value;
+    onPresenceChange(value);
+  }
+
+  $effect(() => {
+    if (selectedPresence === member.presence) selectedPresence = undefined;
+  });
 </script>
 
 <div class="community-profile-menu" data-compact={compact || undefined}>
@@ -148,10 +160,13 @@
                 <DropdownMenu.RadioGroup
                   value={presence}
                   onValueChange={(value) =>
-                    onPresenceChange(value as CommunityPresence)}
+                    requestPresenceChange(value as CommunityPresence)}
                 >
                   {#each presenceOptions as option (option.value)}
-                    <DropdownMenu.RadioItem value={option.value}>
+                    <DropdownMenu.RadioItem
+                      value={option.value}
+                      onSelect={() => requestPresenceChange(option.value)}
+                    >
                       <span
                         class="community-profile-menu__presence-option-dot"
                         data-presence={option.value}

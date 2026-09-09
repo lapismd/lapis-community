@@ -232,6 +232,10 @@ relay-integration lifecycle story. It renders the production component with a
 reusable signed-event scenario and runs through the same memory/Docker backend
 selector as the full workspace story.
 
+Presence-option activation MUST update the session-local selection immediately
+and dispatch one host callback even when the underlying menu primitive reports
+the same activation through both item selection and radio-group value change.
+
 ## Full application action inventory
 
 | Surface                         | Visible result and owner                                                                                                                                                                                                                                                   |

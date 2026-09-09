@@ -106,6 +106,7 @@
     await userEvent.click(
       within(presenceMenu).getByRole("menuitemradio", { name: "Away" }),
     );
+    await waitFor(() => expect(args.onPresenceChange).toHaveBeenCalledTimes(1));
     await expect(args.onPresenceChange).toHaveBeenCalledWith("away");
     await userEvent.keyboard("{Escape}");
     await waitFor(() =>
