@@ -652,6 +652,7 @@
   .community-pulse__tab-scroll :global([data-ui-part="tabs-trigger"]) {
     min-width: fit-content;
     border-radius: 999px;
+    font-size: 0.75rem;
     transition:
       background-color 140ms ease,
       color 140ms ease;

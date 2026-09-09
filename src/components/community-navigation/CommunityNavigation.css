@@ -259,7 +259,11 @@
 }
 .lc-community-navigation__item-row:has(.lc-community-navigation__item-toggle)
   .lc-community-navigation__item {
-  padding-inline-end: 2.25rem;
+  padding-inline-end: 4rem;
+}
+.lc-community-navigation__item-row:has(.lc-community-navigation__item-toggle)
+  .lc-community-navigation__item-toggle {
+  inset-inline-end: 1.85rem;
 }
 .lc-community-navigation__item-children {
   display: grid;
@@ -310,6 +314,12 @@
 .lc-community-navigation__item-row:has(.lc-community-navigation__item-menu)
   .lc-community-navigation__item {
   padding-inline-end: 2.5rem;
+}
+.lc-community-navigation__item-row:has(
+    .lc-community-navigation__item-toggle
+  ):has(.lc-community-navigation__item-menu)
+  .lc-community-navigation__item {
+  padding-inline-end: 4rem;
 }
 .lc-community-navigation__state-icon {
   margin-inline-start: auto;

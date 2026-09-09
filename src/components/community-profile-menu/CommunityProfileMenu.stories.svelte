@@ -53,6 +53,44 @@
       overlay.getByRole("menuitem", { name: "🏠 Working remotely" }),
     ).toBeVisible();
     const profileMenu = overlay.getByRole("menu", { name: "Profile menu" });
+    const communityTrigger = overlay.getByRole("menuitem", {
+      name: "buzz community actions",
+    });
+    await expect(communityTrigger).toBeVisible();
+    await userEvent.click(communityTrigger);
+    const communityMenu = await overlay.findByRole("menu", {
+      name: "Community actions",
+    });
+    const copyCommunityUrl = within(communityMenu).getByRole("menuitem", {
+      name: "Copy community URL",
+    });
+    await expect(copyCommunityUrl).toBeVisible();
+    await waitFor(() =>
+      expect(getComputedStyle(copyCommunityUrl).pointerEvents).not.toBe("none"),
+    );
+    await expect(copyCommunityUrl.querySelector("svg")).not.toBeNull();
+    await expect(
+      within(communityMenu)
+        .getByRole("menuitem", { name: "Community settings" })
+        .querySelector("svg"),
+    ).not.toBeNull();
+    await expect(
+      within(communityMenu)
+        .getByRole("menuitem", { name: "Manage members" })
+        .querySelector("svg"),
+    ).not.toBeNull();
+    await userEvent.click(copyCommunityUrl);
+    await waitFor(() =>
+      expect(args.onAction).toHaveBeenCalledWith("copy-community-url"),
+    );
+    await waitFor(() =>
+      expect(canvasElement.ownerDocument.body.style.pointerEvents).not.toBe(
+        "none",
+      ),
+    );
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Open profile menu for steve" }),
+    );
     await userEvent.click(
       overlay.getByRole("menuitem", { name: "Presence: Online" }),
     );
@@ -70,40 +108,6 @@
     );
     await expect(args.onPresenceChange).toHaveBeenCalledWith("away");
     await userEvent.keyboard("{Escape}");
-    await waitFor(() =>
-      expect(canvasElement.ownerDocument.body.style.pointerEvents).not.toBe(
-        "none",
-      ),
-    );
-    await userEvent.click(
-      canvas.getByRole("button", { name: "Open profile menu for steve" }),
-    );
-    const communityTrigger = overlay.getByRole("menuitem", {
-      name: "buzz community actions",
-    });
-    await expect(communityTrigger).toBeVisible();
-    await userEvent.click(communityTrigger);
-    const communityMenu = await overlay.findByRole("menu", {
-      name: "Community actions",
-    });
-    const copyCommunityUrl = within(communityMenu).getByRole("menuitem", {
-      name: "Copy community URL",
-    });
-    await expect(copyCommunityUrl.querySelector("svg")).not.toBeNull();
-    await expect(
-      within(communityMenu)
-        .getByRole("menuitem", { name: "Community settings" })
-        .querySelector("svg"),
-    ).not.toBeNull();
-    await expect(
-      within(communityMenu)
-        .getByRole("menuitem", { name: "Manage members" })
-        .querySelector("svg"),
-    ).not.toBeNull();
-    await userEvent.click(copyCommunityUrl);
-    await waitFor(() =>
-      expect(args.onAction).toHaveBeenCalledWith("copy-community-url"),
-    );
     await waitFor(() =>
       expect(canvasElement.ownerDocument.body.style.pointerEvents).not.toBe(
         "none",

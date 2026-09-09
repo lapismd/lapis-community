@@ -427,9 +427,11 @@ export function createCommunityController(
     const room =
       scope === undefined
         ? undefined
-        : communityRooms(scope, eventsByScope[scopeId] ?? []).find(
-            (candidate) => candidate.id === roomId,
-          );
+        : communityRooms(
+            scope,
+            eventsByScope[scopeId] ?? [],
+            identityPubkey || undefined,
+          ).find((candidate) => candidate.id === roomId);
     if (
       scope === undefined ||
       session?.loadContentWindow === undefined ||
@@ -503,7 +505,11 @@ export function createCommunityController(
       for (const scope of scopes) {
         const session = sessions.get(scope.id);
         if (session?.loadContentWindow === undefined) continue;
-        const rooms = communityRooms(scope, eventsByScope[scope.id] ?? []);
+        const rooms = communityRooms(
+          scope,
+          eventsByScope[scope.id] ?? [],
+          identityPubkey || undefined,
+        );
         for (const room of rooms) {
           signal.throwIfAborted();
           if (generation !== currentGeneration || run !== progressiveRun)
@@ -1116,7 +1122,11 @@ export function createCommunityController(
       const scope = scopes.find((candidate) => candidate.id === communityId);
       if (scope === undefined) return;
       activeCommunityId = communityId;
-      const rooms = communityRooms(scope, eventsByScope[scope.id] ?? []);
+      const rooms = communityRooms(
+        scope,
+        eventsByScope[scope.id] ?? [],
+        identityPubkey || undefined,
+      );
       if (!rooms.some((room) => room.id === activeRoomId)) {
         activeRoomId = rooms[0]?.id ?? "";
       }
@@ -1664,9 +1674,11 @@ export function createCommunityController(
           : scope,
       );
       if (wasActive) {
-        const replacement = communityRooms(activeScope(), activeEvents()).find(
-          (candidate) => candidate.groupId !== room.groupId,
-        );
+        const replacement = communityRooms(
+          activeScope(),
+          activeEvents(),
+          identityPubkey || undefined,
+        ).find((candidate) => candidate.groupId !== room.groupId);
         activeRoomId = replacement?.id ?? "";
         sidePanel = "none";
       }
@@ -1775,9 +1787,11 @@ export function createCommunityController(
       replyTarget = undefined;
     },
     async markRead(roomId) {
-      const room = communityRooms(activeScope(), activeEvents()).find(
-        (candidate) => candidate.id === roomId,
-      );
+      const room = communityRooms(
+        activeScope(),
+        activeEvents(),
+        identityPubkey || undefined,
+      ).find((candidate) => candidate.id === roomId);
       if (room === undefined) return;
       const latest = activeEvents()
         .filter((event) =>
@@ -1810,7 +1824,11 @@ export function createCommunityController(
       await setNavigationList("forcedUnreadRoomIds", roomId, true);
     },
     async markAllRead() {
-      for (const room of communityRooms(activeScope(), activeEvents())) {
+      for (const room of communityRooms(
+        activeScope(),
+        activeEvents(),
+        identityPubkey || undefined,
+      )) {
         await actions.markRead(room.id);
       }
     },
@@ -2209,7 +2227,11 @@ export function createCommunityController(
       if (pulse !== undefined) pulse = { ...pulse, tab: "everyone" };
       if (activeRoomId.startsWith("dm:")) {
         activeRoomId =
-          communityRooms(activeScope(), activeEvents())[0]?.id ?? "";
+          communityRooms(
+            activeScope(),
+            activeEvents(),
+            identityPubkey || undefined,
+          )[0]?.id ?? "";
       }
       await reconnect(false);
     },
@@ -2695,9 +2717,11 @@ export function createCommunityController(
   }
 
   function activeRoomScope() {
-    return communityRooms(activeScope(), activeEvents()).find(
-      (room) => room.id === activeRoomId,
-    );
+    return communityRooms(
+      activeScope(),
+      activeEvents(),
+      identityPubkey || undefined,
+    ).find((room) => room.id === activeRoomId);
   }
 
   function activeRoomModel() {
@@ -2707,9 +2731,11 @@ export function createCommunityController(
   }
 
   function roomById(roomId: string) {
-    return communityRooms(activeScope(), activeEvents()).find(
-      (room) => room.id === roomId || room.groupId === roomId,
-    );
+    return communityRooms(
+      activeScope(),
+      activeEvents(),
+      identityPubkey || undefined,
+    ).find((room) => room.id === roomId || room.groupId === roomId);
   }
 
   function workspaceRoomById(roomId: string): CommunityRoomModel | undefined {
@@ -2721,7 +2747,11 @@ export function createCommunityController(
   function resolveSearchResultRooms(
     results: readonly CommunitySearchResult[],
   ): CommunitySearchResult[] {
-    const rooms = communityRooms(activeScope(), activeEvents());
+    const rooms = communityRooms(
+      activeScope(),
+      activeEvents(),
+      identityPubkey || undefined,
+    );
     return results
       .filter((result) => !isRegistryControlEvent(result.event))
       .map((result) => {
@@ -2897,9 +2927,11 @@ export function createCommunityController(
     const selected = stored.preferences.activeRoomId?.value;
     if (
       typeof selected === "string" &&
-      (communityRooms(scope, eventsByScope[scope.id] ?? []).some(
-        (room) => room.id === selected,
-      ) ||
+      (communityRooms(
+        scope,
+        eventsByScope[scope.id] ?? [],
+        identityPubkey || undefined,
+      ).some((room) => room.id === selected) ||
         selected.startsWith("dm:"))
     ) {
       activeRoomId = selected;

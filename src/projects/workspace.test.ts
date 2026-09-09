@@ -34,7 +34,7 @@ function event(
 }
 
 describe("project workspace projection", () => {
-  it("projects unique related and repository channels while omitting the home channel", () => {
+  it("projects every unique bound channel, including the project home channel", () => {
     const catalog = materializeProjectForgeCatalog([
       event("1", PROJECT_FORGE_KINDS.project, 10, [
         ["d", "notes"],
@@ -54,6 +54,7 @@ describe("project workspace projection", () => {
     expect(
       projectForgeChildChannels(catalog.projects[0]!, catalog.repositories),
     ).toEqual([
+      { channelId: "home", role: "home" },
       { channelId: "planning", role: "related" },
       {
         channelId: "development",

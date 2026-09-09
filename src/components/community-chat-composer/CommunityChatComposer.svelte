@@ -95,6 +95,7 @@
     busy = false,
     ariaLabel = "Message composer",
     submitLabel,
+    showSubmitButton = true,
     additionalActions,
     onSubmit,
     onCancel,
@@ -127,6 +128,7 @@
     busy?: boolean;
     ariaLabel?: string;
     submitLabel?: string;
+    showSubmitButton?: boolean;
     additionalActions?: Snippet;
     onSubmit?: (
       submission: CommunityComposerSubmission,
@@ -213,7 +215,7 @@
     members: () => members,
     rooms: () => rooms,
     emojis: () => communityEmojis,
-    disabled: () => disabled || busy || !onSubmit,
+    disabled: () => disabled || busy || (showSubmitButton && !onSubmit),
     editing: () => context?.kind === "edit",
     autocompleteOpen: () => autocompleteItems.length > 0,
     onOpenMember: () => onOpenMember,
@@ -857,7 +859,9 @@
     statusPosition="top"
     aria-label={ariaLabel}
     title={disabled ? disabledReason : undefined}
-    onSubmit={() => void submit()}
+    onSubmit={() => {
+      if (showSubmitButton) void submit();
+    }}
   >
     {#snippet drawer()}
       {#if activeStatus && (submitError || onRetryComposerStatus || onDismissComposerStatus)}
@@ -1232,33 +1236,35 @@
     {/snippet}
 
     {#snippet sendButton()}
-      {#if onCancel}
+      {#if showSubmitButton}
+        {#if onCancel}
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            disabled={busy}
+            onclick={onCancel}>Cancel</Button
+          >
+        {/if}
         <Button
           type="button"
-          variant="ghost"
-          size="sm"
-          disabled={busy}
-          onclick={onCancel}>Cancel</Button
+          size="icon-sm"
+          class="community-chat-composer__send"
+          aria-label={submitLabel ??
+            (context?.kind === "edit" ? "Save message" : "Send message")}
+          disabled={!canSubmit || !onSubmit}
+          onclick={submit}
         >
+          {#if busy}
+            <LoaderCircleIcon
+              class="community-chat-composer__spinner"
+              aria-hidden="true"
+            />
+          {:else}
+            <SendIcon aria-hidden="true" />
+          {/if}
+        </Button>
       {/if}
-      <Button
-        type="button"
-        size="icon-sm"
-        class="community-chat-composer__send"
-        aria-label={submitLabel ??
-          (context?.kind === "edit" ? "Save message" : "Send message")}
-        disabled={!canSubmit || !onSubmit}
-        onclick={submit}
-      >
-        {#if busy}
-          <LoaderCircleIcon
-            class="community-chat-composer__spinner"
-            aria-hidden="true"
-          />
-        {:else}
-          <SendIcon aria-hidden="true" />
-        {/if}
-      </Button>
     {/snippet}
   </Composer>
 

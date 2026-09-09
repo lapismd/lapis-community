@@ -27,8 +27,12 @@ services:
       WALGIT_RELAY_TOKEN: ${COMMUNITY_WALGIT_RELAY_TOKEN:?set by scripts/community-relay.sh}
       WALGIT__EVENTS__WEBHOOK_SECRET: ${COMMUNITY_WALGIT_WEBHOOK_SECRET:?set by scripts/community-relay.sh}
       WALGIT__SERVER__PUBLIC_URL: ${COMMUNITY_RELAY_HTTP_URL:?set by scripts/community-relay.sh}
-      AWS_ACCESS_KEY_ID: ${COMMUNITY_RUSTFS_ACCESS_KEY:?set by scripts/community-relay.sh}
-      AWS_SECRET_ACCESS_KEY: ${COMMUNITY_RUSTFS_SECRET_KEY:?set by scripts/community-relay.sh}
+      WALGIT__STORE__BUCKET: lapis-walgit
+      WALGIT__STORE__S3__ENDPOINT: http://rustfs:9000
+      WALGIT__STORE__S3__REGION: us-east-1
+      WALGIT__STORE__S3__FORCE_PATH_STYLE: "true"
+      S3_ACCESS_KEY_ID: ${COMMUNITY_RUSTFS_ACCESS_KEY:?set by scripts/community-relay.sh}
+      S3_SECRET_ACCESS_KEY: ${COMMUNITY_RUSTFS_SECRET_KEY:?set by scripts/community-relay.sh}
     volumes:
       - community-walgit-cache:/var/lib/walgit
     depends_on:
@@ -53,18 +57,21 @@ services:
     restart: "no"
 
   create-walgit-bucket:
-    image: amazon/aws-cli@sha256:b6aeb95d19d7f5a8cae4eb814cb16739b6b2a4f2f46f427ada6a8c9a20d9881d
+    image: rustfs/rc@sha256:fad686174251b22de1e7b11438b3389932c93d2043c4eec981e1168c59edf92f
     depends_on:
       rustfs: { condition: service_healthy }
     environment:
-      AWS_ACCESS_KEY_ID: ${COMMUNITY_RUSTFS_ACCESS_KEY:?set by scripts/community-relay.sh}
-      AWS_SECRET_ACCESS_KEY: ${COMMUNITY_RUSTFS_SECRET_KEY:?set by scripts/community-relay.sh}
-      AWS_DEFAULT_REGION: us-east-1
-    entrypoint: ["/bin/sh", "-c"]
+      S3_ACCESS_KEY_ID: ${COMMUNITY_RUSTFS_ACCESS_KEY:?set by scripts/community-relay.sh}
+      S3_SECRET_ACCESS_KEY: ${COMMUNITY_RUSTFS_SECRET_KEY:?set by scripts/community-relay.sh}
+      S3_REGION: us-east-1
+      S3_ENDPOINT: http://rustfs:9000
+      S3_BUCKET: lapis-walgit
+    entrypoint: ["/bin/sh", "-ec"]
     command:
       - >-
-        aws --endpoint-url http://rustfs:9000 s3api head-bucket --bucket lapis-walgit
-        || aws --endpoint-url http://rustfs:9000 s3api create-bucket --bucket lapis-walgit
+        rc alias set --quiet --region "$$S3_REGION" --bucket-lookup path
+        local "$$S3_ENDPOINT" "$$S3_ACCESS_KEY_ID" "$$S3_SECRET_ACCESS_KEY"
+        && rc bucket create --quiet --ignore-existing "local/$$S3_BUCKET"
     restart: "no"
 
 volumes:

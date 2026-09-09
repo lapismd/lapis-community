@@ -21,6 +21,7 @@
     canCreate = false,
     onSelect,
     onJoin,
+    onLeave,
     onCreate,
   }: {
     open?: boolean;
@@ -29,7 +30,8 @@
     canCreate?: boolean;
     onSelect: (room: CommunityRoomModel) => void;
     onJoin: (room: CommunityRoomModel) => void | Promise<void>;
-    onCreate: (kind: "channel" | "forum") => void;
+    onLeave: (room: CommunityRoomModel) => void | Promise<void>;
+    onCreate: (kind: "channel" | "forum", name?: string) => void;
   } = $props();
   let query = $state("");
   let membership = $state<"all" | "joined" | "archived">("all");
@@ -66,6 +68,18 @@
     kind === "channel" ? "channel" : kind === "forum" ? "forum" : "room",
   );
   const roomNounPlural = $derived(`${roomNoun}s`);
+  const createKind = $derived(kind === "forum" ? "forum" : "channel");
+  const createName = $derived(query.trim());
+  const hasExactMatch = $derived(
+    createName !== "" &&
+      rooms.some(
+        (room) =>
+          (kind === "all" || room.kind === createKind) &&
+          room.name.localeCompare(createName, undefined, {
+            sensitivity: "accent",
+          }) === 0,
+      ),
+  );
   const sortLabel = $derived(
     sort === "alphabetical"
       ? "A to Z"
@@ -81,6 +95,11 @@
         : sort === "activity"
           ? "members"
           : "alphabetical";
+  }
+
+  function createRoom(): void {
+    if (createName) onCreate(createKind, createName);
+    else onCreate(createKind);
   }
 
   function roomSummary(room: CommunityRoomModel): string {
@@ -149,17 +168,24 @@
         </div>
       {/if}
     </div>
-    {#if canCreate}
+    {#if canCreate && !hasExactMatch}
       <button
         type="button"
         class="community-room-browser__create"
-        onclick={() => onCreate(kind === "forum" ? "forum" : "channel")}
+        onclick={createRoom}
       >
         <span><PlusIcon aria-hidden="true" /></span>
-        Create a new {kind === "forum" ? "forum" : "channel"}
+        {#if createName}
+          Create {createKind} “{createName}”
+        {:else}
+          Create a new {createKind}
+        {/if}
       </button>
     {/if}
-    <div class="community-room-browser__list">
+    <div
+      class="community-room-browser__list"
+      data-empty={filtered.length === 0 ? "" : undefined}
+    >
       {#each filtered as room (room.id)}
         <div class="community-room-browser__room">
           {#if room.kind === "forum"}<MessagesSquareIcon
@@ -169,10 +195,17 @@
             ><strong>{room.name}</strong><small>{roomSummary(room)}</small
             ></button
           >
-          {#if room.membership !== "joined"}<Button
+          {#if room.membership === "joined"}<Button
+              type="button"
+              size="sm"
+              variant="destructive"
+              aria-label={`Leave ${room.name}`}
+              onclick={() => onLeave(room)}>Leave</Button
+            >{:else}<Button
               type="button"
               size="sm"
               variant="outline"
+              aria-label={`Join ${room.name}`}
               onclick={() => onJoin(room)}>Join</Button
             >{/if}
         </div>
@@ -183,10 +216,16 @@
               ><SearchIcon aria-hidden="true" /></Empty.Media
             >
             <Empty.Title role="heading" aria-level={2}>
-              No matching rooms
+              {query.trim()
+                ? `No ${roomNounPlural} match your search`
+                : `No ${roomNounPlural} available`}
             </Empty.Title>
             <Empty.Description>
-              Try a different search or filter.
+              {#if query.trim() && canCreate && !hasExactMatch}
+                No {roomNoun} by that name yet — create it to get started.
+              {:else}
+                Try a different search or filter.
+              {/if}
             </Empty.Description>
           </Empty.Header>
         </Empty.Root>
@@ -205,11 +244,39 @@
     box-shadow:
       0 2rem 5rem -1.25rem rgb(0 0 0 / 28%),
       0 0.75rem 2rem -1rem rgb(0 0 0 / 20%) !important;
-    font-size: 1rem;
+    font-size: 0.875rem;
   }
   :global(.community-room-browser [data-ui-part="dialog-title"]) {
-    font-size: 1.5rem;
+    font-size: 1.125rem;
     font-weight: 650;
+  }
+  :global(.community-room-browser [data-ui-part="dialog-content-anon-0"]) {
+    display: grid;
+    width: 2rem;
+    min-width: 2rem;
+    height: 2rem;
+    min-height: 2rem;
+    place-items: center;
+    border-radius: 999px;
+    padding: 0;
+    line-height: 0;
+  }
+  :global(.community-room-browser [data-ui-part="dialog-content-anon-0"] svg) {
+    display: block;
+    width: 0.75rem;
+    height: 0.75rem;
+    margin: 0;
+  }
+  :global(
+      .community-room-browser
+        [data-ui-part="dialog-content-anon-0"]:hover:not(:disabled)
+    ),
+  :global(
+      .community-room-browser
+        [data-ui-part="dialog-content-anon-0"]:focus-visible
+    ) {
+    color: var(--foreground);
+    background: var(--muted);
   }
   :global([data-ui-part="dialog-overlay"]:has(+ .community-room-browser)) {
     background: color-mix(in srgb, var(--background) 68%, transparent);
@@ -226,7 +293,7 @@
     background: color-mix(in srgb, var(--muted) 45%, transparent);
   }
   :global(.community-room-browser__search input) {
-    font-size: 1rem;
+    font-size: 0.875rem;
   }
   :global(.community-room-browser__search svg) {
     width: 1.2rem;
@@ -244,7 +311,7 @@
     flex: none;
     border-radius: 0;
     padding-inline: 0;
-    font-size: 0.9375rem;
+    font-size: 0.8125rem;
   }
   :global(
       .community-room-browser__tabs
@@ -278,8 +345,8 @@
   }
   .community-room-browser__create > span {
     display: inline-flex;
-    width: 2rem;
-    height: 2rem;
+    width: 2.5rem;
+    height: 2.5rem;
     flex: none;
     align-items: center;
     justify-content: center;
@@ -296,6 +363,9 @@
     overflow: auto;
     border: 1px solid var(--border);
     border-radius: 0.85rem;
+  }
+  .community-room-browser__list[data-empty] {
+    border: 0;
   }
   .community-room-browser__room {
     display: grid;

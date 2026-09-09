@@ -8,6 +8,7 @@ import {
   createPullRequestTemplate,
   createReviewDecisionTemplate,
   createTaskTemplate,
+  updateProjectTemplate,
 } from "./builders.js";
 import { buzzWorkItemFilters, parseSseResult } from "./data-source.js";
 import { PROJECT_FORGE_KINDS } from "./model.js";
@@ -106,6 +107,44 @@ describe("project forge builders", () => {
         (tag) => tag[0] === "clone" || tag[0] === "web",
       ),
     ).toBe(false);
+  });
+
+  it("updates editable project settings while preserving its address and extensions", () => {
+    const project = event("8", PROJECT_FORGE_KINDS.project, owner, 1, [
+      ["d", "notes"],
+      ["name", "Notes"],
+      ["description", "Old description"],
+      ["buzz-channel", "notes-dev"],
+      ["buzz-visibility", "public"],
+      ["buzz-related-channel", "notes-support"],
+      ["x-extension", "preserve-me"],
+    ]);
+
+    expect(
+      updateProjectTemplate(
+        project,
+        {
+          name: "Notes Desktop",
+          description: "Updated description",
+          channelId: "notes-private",
+          visibility: "private",
+        },
+        12,
+      ),
+    ).toEqual({
+      kind: PROJECT_FORGE_KINDS.project,
+      created_at: 12,
+      content: "",
+      tags: [
+        ["d", "notes"],
+        ["buzz-related-channel", "notes-support"],
+        ["x-extension", "preserve-me"],
+        ["name", "Notes Desktop"],
+        ["description", "Updated description"],
+        ["buzz-channel", "notes-private"],
+        ["buzz-visibility", "private"],
+      ],
+    });
   });
 
   it("preserves project extension tags when a repository is added", () => {

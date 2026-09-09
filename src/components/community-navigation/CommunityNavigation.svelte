@@ -881,27 +881,26 @@
                         >
                           <ChevronRightIcon aria-hidden="true" />
                         </Collapsible.Trigger>
-                      {:else}
-                        <DropdownMenu.Root>
-                          <DropdownMenu.Trigger
-                            >{#snippet child({ props })}<Button
-                                {...props}
-                                variant="ghost"
-                                size="icon-sm"
-                                class="lc-community-navigation__item-menu"
-                                aria-label={`Open ${item.label} menu`}
-                                ><EllipsisIcon aria-hidden="true" /></Button
-                              >{/snippet}</DropdownMenu.Trigger
-                          >
-                          <DropdownMenu.Content
-                            align="end"
-                            class="lc-community-navigation__item-menu-content"
-                            >{@render dropdownItemActions(
-                              item,
-                            )}</DropdownMenu.Content
-                          >
-                        </DropdownMenu.Root>
                       {/if}
+                      <DropdownMenu.Root>
+                        <DropdownMenu.Trigger
+                          >{#snippet child({ props })}<Button
+                              {...props}
+                              variant="ghost"
+                              size="icon-sm"
+                              class="lc-community-navigation__item-menu"
+                              aria-label={`Open ${item.label} menu`}
+                              ><EllipsisIcon aria-hidden="true" /></Button
+                            >{/snippet}</DropdownMenu.Trigger
+                        >
+                        <DropdownMenu.Content
+                          align="end"
+                          class="lc-community-navigation__item-menu-content"
+                          >{@render dropdownItemActions(
+                            item,
+                          )}</DropdownMenu.Content
+                        >
+                      </DropdownMenu.Root>
                     </div>
                     {#if item.children?.length}
                       <Collapsible.Content>

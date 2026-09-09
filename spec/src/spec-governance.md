@@ -20,6 +20,11 @@ render inside the production `CommunityAppShell` context. Their interactions
 MUST cover collapsed review sections before targeting inline diff controls and
 the shared member-command entry point used by task assignment.
 
+The Storybook Vitest plugin owns project annotation registration. The shared
+Vitest setup file MUST remain limited to package-specific runtime diagnostic
+guards and deterministic portal teardown so annotations are not registered a
+second time outside the plugin lifecycle.
+
 ## Requirements
 
 | ID          | Requirement                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |

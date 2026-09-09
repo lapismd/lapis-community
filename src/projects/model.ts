@@ -177,6 +177,114 @@ export interface ProjectForgeWorkItems {
   events: readonly NostrEvent[];
 }
 
+export type ProjectForgeCloneAuth = "none" | "nostr" | "provider";
+
+export interface ProjectForgeCloneCapability {
+  available: boolean;
+  url?: string;
+  auth: ProjectForgeCloneAuth;
+  provider?: string;
+}
+
+export interface ProjectForgeSmartHttpCapability {
+  read: boolean;
+  write: boolean;
+}
+
+export interface ProjectForgeCapabilityLimits {
+  maximum_blob_bytes?: number;
+  maximum_changed_files?: number;
+  maximum_tree_entries?: number;
+  maximum_patch_bytes?: number;
+  may_truncate_compare?: boolean;
+  may_truncate_tree?: boolean;
+}
+
+/**
+ * Provider-neutral operational capabilities resolved by the relay for a
+ * signed kind 30617 repository coordinate.
+ */
+export interface ProjectForgeRepositoryCapabilities {
+  git_authority_backend: string;
+  content_backend: string;
+  git_backend: string;
+  collaboration_backend: string;
+  mirror_backend?: string;
+  git_replication_target_backend?: string;
+  ci_backend?: string;
+  clone: ProjectForgeCloneCapability;
+  smart_http: ProjectForgeSmartHttpCapability;
+  browse: boolean;
+  compare: boolean;
+  ref_events: boolean;
+  provision: boolean;
+  import: boolean;
+  issues: boolean;
+  pull_requests: boolean;
+  reviews: boolean;
+  merge: boolean;
+  mirror: boolean;
+  git_replication_target?: boolean;
+  ci: boolean;
+  local_replica?: boolean;
+  replica_state?: string;
+  /** Legacy alias retained by the relay during the capability transition. */
+  limits?: ProjectForgeCapabilityLimits;
+  capability_limits: ProjectForgeCapabilityLimits;
+}
+
+export interface ProjectForgeRepositoryCapabilitiesResponse {
+  repository: string;
+  capabilities: ProjectForgeRepositoryCapabilities;
+}
+
+export interface ProjectForgeGitHubConnection {
+  id: string;
+  provider: "github";
+  host: "github.com";
+  installation_id: number;
+  account_id: string;
+  account_login: string;
+  bridge_pubkey: string;
+  status: string;
+}
+
+export interface ProjectForgeGitHubConnectionsResponse {
+  connections: readonly ProjectForgeGitHubConnection[];
+}
+
+export interface ProjectForgeGitHubRepository {
+  id: number;
+  full_name: string;
+  name: string;
+  default_branch: string;
+  clone_url: string;
+  html_url: string;
+  private: boolean;
+  archived: boolean;
+  disabled: boolean;
+  owner: { id: number; login: string };
+}
+
+export interface ProjectForgeGitHubRepositoriesResponse {
+  repositories: readonly ProjectForgeGitHubRepository[];
+}
+
+export interface ProjectForgeAttachGitHubRepositoryInput {
+  expectedAnnouncementId: string;
+  connectionId: string;
+  externalRepositoryId: string;
+}
+
+export interface ProjectForgeRepositoryIntegrationResponse {
+  integration?: Record<string, unknown>;
+  capabilities: ProjectForgeRepositoryCapabilities;
+}
+
+export type ProjectForgeRepositoryCapabilitiesByCoordinate = Readonly<
+  Record<string, ProjectForgeRepositoryCapabilities>
+>;
+
 export interface ProjectForgeRef {
   name: string;
   sha: string;
@@ -186,6 +294,34 @@ export interface ProjectForgeRefsResponse {
   head: ProjectForgeRef | null;
   refs?: readonly ProjectForgeRef[];
   more?: boolean;
+}
+
+/**
+ * Return a displayable branch name for a provider-neutral ref. Tag refs are
+ * deliberately excluded from branch selectors.
+ */
+export function projectForgeBranchName(name: string): string | undefined {
+  const value = name.trim();
+  if (!value) return undefined;
+  if (value.startsWith("refs/heads/")) return value.slice("refs/heads/".length);
+  if (value.startsWith("heads/")) return value.slice("heads/".length);
+  if (value.startsWith("refs/tags/") || value.startsWith("tags/"))
+    return undefined;
+  return value;
+}
+
+/** Build a stable, de-duplicated branch list with the repository head first. */
+export function projectForgeBranchRefs(
+  response: ProjectForgeRefsResponse,
+): readonly ProjectForgeRef[] {
+  const branches = new Map<string, ProjectForgeRef>();
+  for (const ref of [response.head, ...(response.refs ?? [])]) {
+    if (!ref) continue;
+    const name = projectForgeBranchName(ref.name);
+    if (!name || branches.has(name)) continue;
+    branches.set(name, { ...ref, name });
+  }
+  return [...branches.values()];
 }
 
 export interface ProjectForgeTreeEntry {

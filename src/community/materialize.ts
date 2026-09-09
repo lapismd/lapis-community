@@ -58,6 +58,7 @@ function newer(left: NostrEvent, right: NostrEvent): boolean {
 export function communityRooms(
   scope: CommunityScope,
   events: readonly NostrEvent[] = [],
+  identityPubkey?: string,
 ): readonly CommunityRoomScope[] {
   const configured =
     scope.rooms !== undefined && scope.rooms.length > 0
@@ -75,15 +76,34 @@ export function communityRooms(
   if (!scope.discoverPublicRooms) return configured;
 
   const configuredGroupIds = new Set(configured.map((room) => room.groupId));
+  const membershipsByGroup = new Map<string, NostrEvent>();
+  for (const event of events) {
+    if (event.kind !== 39_002 || !isVerifiedNostrEvent(event)) continue;
+    const groupId = event.tags.find((tag) => tag[0] === "d")?.[1];
+    if (groupId === undefined || groupId === "") continue;
+    const current = membershipsByGroup.get(groupId);
+    if (current === undefined || newer(event, current)) {
+      membershipsByGroup.set(groupId, event);
+    }
+  }
   const metadataByGroup = new Map<string, NostrEvent>();
   for (const event of events) {
     if (event.kind !== 39_000 || !isVerifiedNostrEvent(event)) continue;
     const groupId = event.tags.find((tag) => tag[0] === "d")?.[1];
+    const privateRoom = event.tags.some(
+      (tag) => tag[0] === "private" || tag[0] === "hidden",
+    );
+    const joined =
+      identityPubkey !== undefined &&
+      membershipsByGroup
+        .get(groupId ?? "")
+        ?.tags.some((tag) => tag[0] === "p" && tag[1] === identityPubkey) ===
+        true;
     if (
       groupId === undefined ||
       groupId === "" ||
       configuredGroupIds.has(groupId) ||
-      event.tags.some((tag) => tag[0] === "private" || tag[0] === "hidden")
+      (privateRoom && !joined)
     ) {
       continue;
     }
@@ -118,12 +138,16 @@ export function communityRooms(
       const description = metadata.tags
         .find((tag) => tag[0] === "about")?.[1]
         ?.trim();
+      const privateRoom = metadata.tags.some(
+        (tag) => tag[0] === "private" || tag[0] === "hidden",
+      );
       return {
         id: groupId,
         groupId,
         name,
         kind,
         ...(description ? { description } : {}),
+        ...(privateRoom ? { private: true } : {}),
       };
     })
     .filter((room): room is CommunityRoomScope => room !== undefined)
@@ -145,7 +169,7 @@ export function materializeCommunityWorkspace(
     scopes.find((candidate) => candidate.id === activeCommunityId) ?? scopes[0];
   if (scope === undefined) return emptyWorkspace();
   const events = acceptedEvents(eventsByScope[scope.id] ?? []);
-  const rooms = communityRooms(scope, events);
+  const rooms = communityRooms(scope, events, options.identityPubkey);
   const configuredActiveRoom =
     rooms.find((room) => room.id === options.activeRoomId) ?? rooms[0];
   const profiles = profilesFrom(events);
@@ -275,7 +299,7 @@ export function materializeCommunityInbox(
   if (identityPubkey === undefined) return undefined;
   const candidates = scopes.flatMap((scope) => {
     const events = acceptedEvents(eventsByScope[scope.id] ?? []);
-    const rooms = communityRooms(scope, events);
+    const rooms = communityRooms(scope, events, identityPubkey);
     const profiles = profilesFrom(events);
     const statuses = statusesFrom(events);
     return events

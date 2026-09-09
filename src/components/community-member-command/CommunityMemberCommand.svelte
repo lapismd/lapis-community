@@ -65,7 +65,7 @@
   } = $props();
 
   let query = $state("");
-  let wasOpen = false;
+  let wasOpen = open;
   let roleDialogOpen = $state(false);
   let roleMember = $state<CommunityMemberModel>();
   let selectedRoles = $state<string[]>([]);
@@ -471,7 +471,7 @@
     box-shadow:
       0 2rem 5rem -1.25rem rgb(0 0 0 / 34%),
       0 0.75rem 2rem -1rem rgb(0 0 0 / 26%) !important;
-    font-size: 1rem;
+    font-size: 0.875rem;
   }
 
   :global([data-ui-part="dialog-overlay"]:has(+ .community-member-command)) {
@@ -494,7 +494,7 @@
 
   .community-member-command__header h2 {
     margin: 0;
-    font-size: 1.45rem;
+    font-size: 1.125rem;
     font-weight: 650;
     letter-spacing: -0.02em;
   }
@@ -544,14 +544,14 @@
   :global(
       .community-member-command__input-row [data-slot="input-group-control"]
     ) {
-    font-size: 1.15rem;
+    font-size: 0.875rem;
   }
 
   :global(
       .community-member-command__input-row [data-ui-part="command-search-icon"]
     ) {
-    width: 1.35rem;
-    height: 1.35rem;
+    width: 1.1rem;
+    height: 1.1rem;
     opacity: 1;
   }
 
@@ -573,7 +573,7 @@
 
   :global(.community-member-command [data-ui-part="command-group-heading"]) {
     padding: 0.75rem 0.5rem 0.5rem;
-    font-size: 0.95rem;
+    font-size: 0.8rem;
     font-weight: 500;
   }
 
@@ -582,7 +582,7 @@
     gap: 1rem;
     border-radius: 0.8rem !important;
     padding: 0.65rem 0.75rem;
-    font-size: 1rem;
+    font-size: 0.875rem;
   }
 
   :global(
@@ -616,7 +616,7 @@
 
   .community-member-command__member-copy small {
     color: var(--muted-foreground);
-    font-size: 0.9rem;
+    font-size: 0.78rem;
     font-weight: 400;
   }
 

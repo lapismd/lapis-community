@@ -463,6 +463,7 @@ class Nip29CommunitySession implements CommunitySession {
     await Promise.all(
       this.#relays.map(async (relay) => this.#authenticate(relay, signal)),
     );
+    const identityPubkey = await this.#context.identity?.getPublicKey();
     const discoveredMetadata = this.#scope.discoverPublicRooms
       ? await this.#queryUnion(
           [this.#authority],
@@ -470,7 +471,47 @@ class Nip29CommunitySession implements CommunitySession {
           signal,
         )
       : [];
-    const rooms = communityRooms(this.#scope, discoveredMetadata);
+    const discoveredMemberships =
+      this.#scope.discoverPublicRooms && identityPubkey !== undefined
+        ? await this.#queryUnion(
+            [this.#authority],
+            {
+              kinds: [39_002],
+              "#p": [identityPubkey],
+              limit: PUBLIC_ROOM_DISCOVERY_LIMIT,
+            },
+            signal,
+          )
+        : [];
+    const memberGroupIds = [
+      ...new Set(
+        verifiedCommunityEvents(discoveredMemberships)
+          .filter((event) =>
+            event.tags.some(
+              (tag) => tag[0] === "p" && tag[1] === identityPubkey,
+            ),
+          )
+          .flatMap((event) =>
+            event.tags
+              .filter((tag) => tag[0] === "d" && tag[1] !== undefined)
+              .map((tag) => tag[1]!),
+          ),
+      ),
+    ];
+    const memberMetadata =
+      memberGroupIds.length === 0
+        ? []
+        : await this.#queryUnion(
+            [this.#authority],
+            { kinds: [39_000], "#d": memberGroupIds },
+            signal,
+          );
+    const discoveryEvents = distinctEvents([
+      ...discoveredMetadata,
+      ...discoveredMemberships,
+      ...memberMetadata,
+    ]);
+    const rooms = communityRooms(this.#scope, discoveryEvents, identityPubkey);
     const groupIds = [
       ...new Set([
         ...rooms.map((room) => room.groupId),
@@ -480,7 +521,7 @@ class Nip29CommunitySession implements CommunitySession {
     for (const groupId of groupIds) this.#knownGroupIds.add(groupId);
     if (groupIds.length === 0) {
       return {
-        events: discoveredMetadata,
+        events: discoveryEvents,
         capabilities: this.#capabilities(),
       };
     }
@@ -526,7 +567,6 @@ class Nip29CommunitySession implements CommunitySession {
             { kinds: [5, 7, 9_005, 40_003], "#e": targets },
             signal,
           );
-    const identityPubkey = await this.#context.identity?.getPublicKey();
     const authors = [
       ...new Set(
         [...content, ...activity, ...state, ...referenced]
@@ -580,7 +620,7 @@ class Nip29CommunitySession implements CommunitySession {
     );
     return {
       events: distinctEvents([
-        ...discoveredMetadata,
+        ...discoveryEvents,
         ...content,
         ...activity,
         ...state,

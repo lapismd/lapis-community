@@ -145,12 +145,13 @@
                 class="community-profile-menu__presence-content"
                 aria-label="Presence status"
               >
-                <DropdownMenu.RadioGroup value={presence}>
+                <DropdownMenu.RadioGroup
+                  value={presence}
+                  onValueChange={(value) =>
+                    onPresenceChange(value as CommunityPresence)}
+                >
                   {#each presenceOptions as option (option.value)}
-                    <DropdownMenu.RadioItem
-                      value={option.value}
-                      onSelect={() => onPresenceChange(option.value)}
-                    >
+                    <DropdownMenu.RadioItem value={option.value}>
                       <span
                         class="community-profile-menu__presence-option-dot"
                         data-presence={option.value}

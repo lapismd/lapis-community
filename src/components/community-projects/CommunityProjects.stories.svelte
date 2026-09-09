@@ -1,17 +1,60 @@
 <script module lang="ts">
   import { defineMeta } from "@storybook/addon-svelte-csf";
-  import { expect, fn, userEvent, within } from "storybook/test";
+  import { expect, fn, userEvent, waitFor, within } from "storybook/test";
 
   import CommunityProjectsStoryHarness from "./CommunityProjectsStoryHarness.svelte";
   import { buildProjectForgeActivity } from "../../projects/index.js";
   import {
     createProjectStoryFixture,
     projectStoryAuthor,
+    projectStoryRepositoryCoordinate,
   } from "./story-fixtures.js";
 
   const fixture = createProjectStoryFixture();
+  const githubRepository = {
+    ...fixture.repository,
+    description: "GitHub-backed browser and desktop client.",
+    cloneUrls: ["https://github.com/lapismd/community-client.git"],
+    webUrls: ["https://github.com/lapismd/community-client"],
+    repositoryClass: "external" as const,
+  };
+  const githubRepositoryCapabilities = {
+    [projectStoryRepositoryCoordinate]: {
+      git_authority_backend: "github",
+      content_backend: "github",
+      git_backend: "github",
+      collaboration_backend: "relay",
+      clone: {
+        available: true,
+        url: "https://github.com/lapismd/community-client.git",
+        auth: "provider" as const,
+        provider: "github",
+      },
+      smart_http: { read: false, write: false },
+      browse: true,
+      compare: true,
+      ref_events: true,
+      provision: false,
+      import: false,
+      issues: false,
+      pull_requests: false,
+      reviews: false,
+      merge: false,
+      mirror: false,
+      ci: false,
+      capability_limits: {
+        maximum_blob_bytes: 100_000_000,
+        maximum_changed_files: 300,
+        maximum_tree_entries: 1_000,
+        may_truncate_compare: true,
+        may_truncate_tree: true,
+      },
+    },
+  };
   const onSelectProject = fn();
+  const onSelectChannel = fn();
   const onSelectView = fn();
+  const onUpdateProject = fn(async () => undefined);
   const onUpdateTaskLifecycle = fn(async () => undefined);
   const onUpdateTaskAssignment = fn(async () => undefined);
   const onManageTaskAssignments = fn();
@@ -19,8 +62,39 @@
   const onSelectTask = fn();
   const onCloseTask = fn();
   const onCloseCommit = fn();
+  const onSelectPath = fn();
+  const onAutoSelectPath = fn();
   const onAddPullRequestComment = fn(async () => undefined);
   const onAddInlineComment = fn(async () => undefined);
+  const githubConnection = {
+    id: "ghc-lapis",
+    provider: "github" as const,
+    host: "github.com" as const,
+    installation_id: 99,
+    account_id: "7",
+    account_login: "lapismd",
+    bridge_pubkey: "2".repeat(64),
+    status: "active",
+  };
+  const githubProviderRepository = {
+    id: 42,
+    full_name: "lapismd/community-client",
+    name: "community-client",
+    default_branch: "main",
+    clone_url: "https://github.com/lapismd/community-client.git",
+    html_url: "https://github.com/lapismd/community-client",
+    private: false,
+    archived: false,
+    disabled: false,
+    owner: { id: 7, login: "lapismd" },
+  };
+  const onLoadGitHubConnections = fn(async () => ({
+    connections: [githubConnection],
+  }));
+  const onLoadGitHubRepositories = fn(async () => ({
+    repositories: [githubProviderRepository],
+  }));
+  const onAttachGitHubRepository = fn(async () => undefined);
   const hostedCommit = {
     sha: "d".repeat(40),
     subject: "Add project file and diff views",
@@ -80,7 +154,7 @@ index 3333333..4444444 100644
         source: { language: "svelte", code: consumerSource },
         description: {
           component:
-            "The Nostr-native project directory and task, review, hosted file, commit, and people surfaces used by the Community application shell.",
+            "The Nostr-native project directory and task, review, capability-backed file, commit, and people surfaces used by the Community application shell.",
         },
       },
     },
@@ -148,6 +222,93 @@ index 3333333..4444444 100644
 />
 
 <Story
+  name="Project settings"
+  args={{
+    view: "overview",
+    dialogRequest: {
+      id: 2,
+      kind: "edit-project",
+      projectCoordinate: fixture.project.address.coordinate,
+    },
+    onUpdateProject,
+  }}
+  play={async () => {
+    const overlay = within(document.body);
+    const dialog = await overlay.findByRole("dialog", {
+      name: "Project settings",
+    });
+    const name = within(dialog).getByRole("textbox", { name: "Name" });
+    await expect(name).toHaveValue("Community Client");
+    await userEvent.clear(name);
+    await userEvent.type(name, "Community Workspace");
+    await userEvent.click(
+      within(dialog).getByRole("button", { name: "Save changes" }),
+    );
+    await expect(onUpdateProject).toHaveBeenCalledWith(fixture.project, {
+      name: "Community Workspace",
+      description: "The shared Lapis community experience.",
+      channelId: "general-projects",
+      visibility: "public",
+    });
+  }}
+/>
+
+<Story
+  name="GitHub repository link"
+  args={{
+    view: "repositories",
+    repositories: [githubRepository],
+    repositoryCapabilities: githubRepositoryCapabilities,
+  }}
+  play={async ({ canvas }) => {
+    const link = canvas.getByRole("link", {
+      name: "Open community-client on GitHub",
+    });
+    await expect(link).toBeVisible();
+    await expect(link).toHaveAttribute(
+      "href",
+      "https://github.com/lapismd/community-client",
+    );
+  }}
+/>
+
+<Story
+  name="Connect GitHub repository"
+  args={{
+    view: "overview",
+    selectedProject: undefined,
+    selectedRepository: githubRepository,
+    repositories: [githubRepository],
+    repositoryCapabilities: {},
+    canManageForge: true,
+    dialogRequest: { id: 1, kind: "connect-github" },
+    onLoadGitHubConnections,
+    onLoadGitHubRepositories,
+    onAttachGitHubRepository,
+  }}
+  play={async () => {
+    const overlay = within(document.body);
+    const dialog = await overlay.findByRole("dialog", {
+      name: "Connect to a GitHub App",
+    });
+    await userEvent.click(
+      within(dialog).getByRole("option", { name: /@lapismd/ }),
+    );
+    await expect(onLoadGitHubRepositories).toHaveBeenCalledWith("ghc-lapis");
+    await userEvent.click(
+      await within(dialog).findByRole("option", {
+        name: /lapismd\/community-client/,
+      }),
+    );
+    await expect(onAttachGitHubRepository).toHaveBeenCalledWith(
+      githubRepository,
+      githubConnection,
+      githubProviderRepository,
+    );
+  }}
+/>
+
+<Story
   name="Tasks"
   args={{ view: "tasks", onSelectTask }}
   play={async ({ canvas }) => {
@@ -158,6 +319,28 @@ index 3333333..4444444 100644
       canvas.getByRole("button", { name: /Polish the project overview rail/ }),
     );
     await expect(onSelectTask).toHaveBeenCalledWith(fixture.workItems.tasks[0]);
+  }}
+/>
+
+<Story
+  name="Project channels"
+  args={{
+    view: "channels",
+    rooms: [
+      {
+        id: "general",
+        groupId: fixture.project.channelId,
+        name: "general",
+        kind: "channel",
+      },
+    ],
+    onSelectChannel,
+  }}
+  play={async ({ canvas }) => {
+    await userEvent.click(
+      canvas.getByRole("button", { name: /#general Project channel/u }),
+    );
+    await expect(onSelectChannel).toHaveBeenCalledWith("general");
   }}
 />
 
@@ -248,9 +431,11 @@ index 3333333..4444444 100644
 />
 
 <Story
-  name="Hosted files"
+  name="GitHub-backed files"
   args={{
     view: "files",
+    repositories: [githubRepository],
+    repositoryCapabilities: githubRepositoryCapabilities,
     tree: {
       ref: "main",
       sha: "d".repeat(40),
@@ -268,6 +453,43 @@ index 3333333..4444444 100644
       contents: "# Community Client\n\nNostr-native project collaboration.",
       size: 55,
     },
+    onSelectPath,
+  }}
+  play={async ({ canvas }) => {
+    onSelectPath.mockClear();
+    await userEvent.click(
+      canvas.getByRole("button", { name: "README.md", exact: true }),
+    );
+    await expect(onSelectPath).not.toHaveBeenCalled();
+  }}
+/>
+
+<Story
+  name="Repository file preview loading"
+  args={{
+    view: "files",
+    repositories: [githubRepository],
+    repositoryCapabilities: githubRepositoryCapabilities,
+    tree: {
+      ref: "main",
+      sha: "d".repeat(40),
+      path: "",
+      entries: [
+        { name: "README.md", path: "README.md", type: "blob", size: 912 },
+        { name: "app.ts", path: "src/app.ts", type: "blob", size: 1_842 },
+      ],
+    },
+    selectedPath: "",
+    loading: true,
+    onSelectPath: onAutoSelectPath,
+  }}
+  play={async ({ canvas }) => {
+    await waitFor(() =>
+      expect(onAutoSelectPath).toHaveBeenCalledWith("README.md"),
+    );
+    await expect(
+      canvas.getByRole("status", { name: "Loading README.md" }),
+    ).toBeVisible();
   }}
 />
 

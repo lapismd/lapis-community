@@ -1,0 +1,246 @@
+import { sha256 } from "@noble/hashes/sha2.js";
+import { bytesToHex } from "@noble/hashes/utils.js";
+import { generateSecretKey } from "nostr-tools/pure";
+import { describe, expect, it, vi } from "vitest";
+
+import { SecretKeyRegistrySigner } from "../auth/index.js";
+import type { NostrEvent } from "../protocol/index.js";
+import { createInMemoryRelayFactory } from "../testing/index.js";
+import { createNip34ProjectForgeDataSource } from "./data-source.js";
+
+const owner = "1".repeat(64);
+const repository = `30617:${owner}:notes`;
+
+function json(value: unknown): Response {
+  return new Response(JSON.stringify(value), {
+    headers: { "content-type": "application/json" },
+  });
+}
+
+function authorizationEvent(value: string): NostrEvent {
+  return JSON.parse(
+    Buffer.from(value.slice("Nostr ".length), "base64").toString("utf8"),
+  ) as NostrEvent;
+}
+
+describe("NIP-34 project forge data source", () => {
+  it("discovers provider-neutral repository capabilities and preserves full ref paths", async () => {
+    const requests: Array<{ url: string; authorization: string }> = [];
+    const fetch = vi.fn(
+      async (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = input.toString();
+        requests.push({
+          url,
+          authorization: new Headers(init?.headers).get("Authorization") ?? "",
+        });
+        if (url.endsWith(`/${owner}/notes/capabilities`)) {
+          return json({
+            repository,
+            capabilities: {
+              git_authority_backend: "github",
+              content_backend: "github",
+              git_backend: "github",
+              collaboration_backend: "relay",
+              clone: {
+                available: true,
+                url: "https://github.com/lapismd/notes.git",
+                auth: "provider",
+                provider: "github",
+              },
+              smart_http: { read: false, write: false },
+              browse: true,
+              compare: true,
+              ref_events: true,
+              provision: false,
+              import: false,
+              issues: false,
+              pull_requests: false,
+              reviews: false,
+              merge: false,
+              mirror: false,
+              ci: false,
+              capability_limits: {
+                maximum_blob_bytes: 100_000_000,
+                maximum_changed_files: 300,
+                maximum_tree_entries: 1_000,
+                may_truncate_compare: true,
+                may_truncate_tree: true,
+              },
+            },
+          });
+        }
+        if (url.endsWith(`/blob/refs/heads/main/README.md`)) {
+          return json({
+            name: "README.md",
+            path: "README.md",
+            contents: "# Notes",
+          });
+        }
+        return new Response("missing", { status: 404 });
+      },
+    );
+    const source = createNip34ProjectForgeDataSource({
+      relayFactory: createInMemoryRelayFactory(),
+      fetch,
+      now: () => new Date("2026-09-09T12:00:00.000Z"),
+    });
+    const session = await source.open({
+      relayUrl: "wss://relay.example",
+      identity: new SecretKeyRegistrySigner(generateSecretKey()),
+    });
+
+    await expect(session.loadCapabilities(repository)).resolves.toMatchObject({
+      repository,
+      capabilities: {
+        content_backend: "github",
+        browse: true,
+        clone: { auth: "provider" },
+        capability_limits: {
+          maximum_changed_files: 300,
+          maximum_tree_entries: 1_000,
+        },
+      },
+    });
+    await expect(
+      session.loadBlob(repository, "refs/heads/main", "README.md"),
+    ).resolves.toMatchObject({ contents: "# Notes" });
+
+    expect(requests.map((request) => request.url)).toEqual([
+      `https://relay.example/api/forge/repositories/${owner}/notes/capabilities`,
+      `https://relay.example/api/git/${owner}/notes/blob/refs/heads/main/README.md`,
+    ]);
+    for (const request of requests) {
+      const auth = authorizationEvent(request.authorization);
+      expect(auth.tags).toContainEqual(["u", request.url]);
+      expect(auth.tags).toContainEqual(["method", "GET"]);
+    }
+    session.close();
+  });
+
+  it("discovers GitHub App connections and attaches a matching provider repository", async () => {
+    const requests: Array<{
+      url: string;
+      method: string;
+      authorization: string;
+      body: string;
+    }> = [];
+    const fetch = vi.fn(
+      async (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = input.toString();
+        const method = init?.method ?? "GET";
+        const body = typeof init?.body === "string" ? init.body : "";
+        requests.push({
+          url,
+          method,
+          authorization: new Headers(init?.headers).get("Authorization") ?? "",
+          body,
+        });
+        if (url.endsWith("/api/forge/connections/github")) {
+          return json({
+            connections: [
+              {
+                id: "ghc-lapis",
+                provider: "github",
+                host: "github.com",
+                installation_id: 99,
+                account_id: "7",
+                account_login: "lapismd",
+                bridge_pubkey: "2".repeat(64),
+                status: "active",
+              },
+            ],
+          });
+        }
+        if (
+          url.endsWith("/api/forge/connections/github/ghc-lapis/repositories")
+        ) {
+          return json({
+            repositories: [
+              {
+                id: 42,
+                full_name: "lapismd/notes",
+                name: "notes",
+                default_branch: "main",
+                clone_url: "https://github.com/lapismd/notes.git",
+                html_url: "https://github.com/lapismd/notes",
+                private: false,
+                archived: false,
+                disabled: false,
+                owner: { id: 7, login: "lapismd" },
+              },
+            ],
+          });
+        }
+        if (
+          url.endsWith(`/api/forge/repositories/${owner}/notes/integration`)
+        ) {
+          return json({
+            capabilities: {
+              git_authority_backend: "github",
+              content_backend: "github",
+              collaboration_backend: "relay",
+            },
+          });
+        }
+        return new Response("missing", { status: 404 });
+      },
+    );
+    const source = createNip34ProjectForgeDataSource({
+      relayFactory: createInMemoryRelayFactory(),
+      fetch,
+      now: () => new Date("2026-09-09T12:00:00.000Z"),
+    });
+    const session = await source.open({
+      relayUrl: "wss://relay.example",
+      identity: new SecretKeyRegistrySigner(generateSecretKey()),
+    });
+
+    await expect(session.loadGitHubConnections()).resolves.toMatchObject({
+      connections: [{ id: "ghc-lapis", account_login: "lapismd" }],
+    });
+    await expect(
+      session.loadGitHubRepositories("ghc-lapis"),
+    ).resolves.toMatchObject({
+      repositories: [{ id: 42, full_name: "lapismd/notes" }],
+    });
+    await expect(
+      session.attachGitHubRepository(repository, {
+        expectedAnnouncementId: "3".repeat(64),
+        connectionId: "ghc-lapis",
+        externalRepositoryId: "42",
+      }),
+    ).resolves.toMatchObject({
+      capabilities: { git_authority_backend: "github" },
+    });
+
+    expect(requests.map(({ url, method }) => ({ url, method }))).toEqual([
+      {
+        url: "https://relay.example/api/forge/connections/github",
+        method: "GET",
+      },
+      {
+        url: "https://relay.example/api/forge/connections/github/ghc-lapis/repositories",
+        method: "GET",
+      },
+      {
+        url: `https://relay.example/api/forge/repositories/${owner}/notes/integration`,
+        method: "PUT",
+      },
+    ]);
+    expect(JSON.parse(requests[2]!.body)).toEqual({
+      expected_announcement_id: "3".repeat(64),
+      git_authority_backend: "github",
+      content_backend: "github",
+      collaboration_backend: "relay",
+      connection_id: "ghc-lapis",
+      external_repository_id: "42",
+    });
+    const auth = authorizationEvent(requests[2]!.authorization);
+    expect(auth.tags).toContainEqual(["method", "PUT"]);
+    expect(auth.tags).toContainEqual([
+      "payload",
+      bytesToHex(sha256(new TextEncoder().encode(requests[2]!.body))),
+    ]);
+    session.close();
+  });
+});

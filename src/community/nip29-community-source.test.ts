@@ -350,6 +350,74 @@ describe("createNip29CommunitySource", () => {
     session.close();
   });
 
+  it("restores joined private rooms without exposing them anonymously", async () => {
+    const scenario = createCommunityTestScenario();
+    const relayFactory = createInMemoryRelayFactory({
+      policy: new Nip29MemoryPolicy({
+        relaySecretKey: relayKey,
+        now: () => 1_700_000_100,
+      }),
+    });
+    const relay = relayFactory.relay(scenario.scope.relayUrl);
+    await scenario.seed(relay);
+    const scope = { ...scenario.scope, discoverPublicRooms: true };
+    const groupId = "private-reload";
+
+    const creatingSession = await createNip29CommunitySource({
+      relayFactory,
+    }).open(scope, { identity: scenario.operator });
+    await creatingSession.execute({
+      type: "create-room",
+      groupId,
+      roomKind: "channel",
+      update: {
+        name: "Private reload",
+        description: "Visible to members after reconnecting",
+        visibility: "private",
+        lifecycle: "ongoing",
+      },
+    });
+    creatingSession.close();
+
+    const identityPubkey = await scenario.operator.getPublicKey();
+    const memberSession = await createNip29CommunitySource({
+      relayFactory,
+    }).open(scope, { identity: scenario.operator });
+    const memberSnapshot = await memberSession.snapshot();
+    const memberWorkspace = materializeCommunityWorkspace(
+      [scope],
+      { [scope.id]: memberSnapshot.events },
+      scope.id,
+      { activeRoomId: groupId, identityPubkey },
+    );
+    expect(
+      memberWorkspace.navigationSections
+        .find((section) => section.id === "channels")
+        ?.rooms.find((room) => room.id === groupId),
+    ).toMatchObject({
+      name: "Private reload",
+      private: true,
+      membership: "joined",
+    });
+    memberSession.close();
+
+    const anonymousSession = await createNip29CommunitySource({
+      relayFactory,
+    }).open(scope);
+    const anonymousSnapshot = await anonymousSession.snapshot();
+    const anonymousWorkspace = materializeCommunityWorkspace(
+      [scope],
+      { [scope.id]: anonymousSnapshot.events },
+      scope.id,
+    );
+    expect(
+      anonymousWorkspace.navigationSections
+        .flatMap((section) => section.rooms)
+        .some((room) => room.id === groupId),
+    ).toBe(false);
+    anonymousSession.close();
+  });
+
   it("subscribes before snapshots without losing a concurrent event", async () => {
     const scenario = createCommunityTestScenario();
     const relayFactory = createInMemoryRelayFactory({

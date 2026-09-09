@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { untrack } from "svelte";
   import { AppShell, AppShellController } from "@lapismd/design-core/shell";
 
   import CommunityAppShell from "../community-app-shell/CommunityAppShell.svelte";
@@ -7,10 +8,16 @@
 
   const controller = new AppShellController();
   const props: CommunityProjectsProps = $props();
+  let selectedPath = $state(untrack(() => props.selectedPath ?? ""));
+
+  function selectPath(path: string): void {
+    selectedPath = path;
+    props.onSelectPath?.(path);
+  }
 </script>
 
 <CommunityAppShell {controller} displayMode="desktop" desktopMinMainWidth={0}>
   <AppShell.Main>
-    <CommunityProjects {...props} />
+    <CommunityProjects {...props} {selectedPath} onSelectPath={selectPath} />
   </AppShell.Main>
 </CommunityAppShell>

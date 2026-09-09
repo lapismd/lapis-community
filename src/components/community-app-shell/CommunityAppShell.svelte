@@ -19,6 +19,7 @@
     canNavigateForward = false,
     onNavigateBack,
     onNavigateForward,
+    headerCenter,
     headerEnd,
     class: className,
     children,
@@ -32,12 +33,37 @@
     canNavigateForward?: boolean;
     onNavigateBack?: () => void;
     onNavigateForward?: () => void;
+    headerCenter?: Snippet;
     headerEnd?: Snippet;
     children?: Snippet;
   } = $props();
 
   let shellSurface = $state<HTMLDivElement | null>(null);
+  let headerMainStart = $state(0);
+  let headerMainWidth = $state(0);
   const mobileMode = $derived(controller.mobile.resolvedMode === "mobile");
+
+  $effect(() => {
+    const surface = shellSurface;
+    if (!surface || mobileMode) return;
+    const main = surface.querySelector<HTMLElement>('[data-ui-part="main"]');
+    if (!main) return;
+    const updateHeaderMainStart = () => {
+      const surfaceBounds = surface.getBoundingClientRect();
+      const mainBounds = main.getBoundingClientRect();
+      headerMainStart = Math.max(
+        0,
+        Math.round(mainBounds.left - surfaceBounds.left),
+      );
+      headerMainWidth = Math.max(0, Math.round(mainBounds.width));
+    };
+    updateHeaderMainStart();
+    if (typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(updateHeaderMainStart);
+    observer.observe(surface);
+    observer.observe(main);
+    return () => observer.disconnect();
+  });
 
   $effect(() => {
     const rightSidebar = controller.right;
@@ -80,76 +106,85 @@
     <nav
       class="community-app-shell__header"
       aria-label="Application navigation"
+      style={`--community-app-shell-header-main-start: ${headerMainStart}px; --community-app-shell-header-main-width: ${headerMainWidth}px`}
     >
-      <Button
-        type="button"
-        variant="ghost"
-        size="icon-sm"
-        aria-label={controller.left.collapsed
-          ? "Expand left sidebar"
-          : "Collapse left sidebar"}
-        aria-expanded={!controller.left.collapsed}
-        data-ui-part="sidebar-toggle"
-        data-side="left"
-        data-state={controller.left.collapsed ? "collapsed" : "expanded"}
-        title={controller.left.collapsed
-          ? "Expand left sidebar"
-          : "Collapse left sidebar"}
-        onclick={() => controller.left.toggle()}
-      >
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          width="24"
-          height="24"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-          aria-hidden="true"
+      <div class="community-app-shell__header-start">
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-sm"
+          aria-label={controller.left.collapsed
+            ? "Expand left sidebar"
+            : "Collapse left sidebar"}
+          aria-expanded={!controller.left.collapsed}
+          data-ui-part="sidebar-toggle"
+          data-side="left"
+          data-state={controller.left.collapsed ? "collapsed" : "expanded"}
+          title={controller.left.collapsed
+            ? "Expand left sidebar"
+            : "Collapse left sidebar"}
+          onclick={() => controller.left.toggle()}
         >
-          <rect x="1" y="2" width="22" height="20" rx="4"></rect>
-          <rect
-            x="4"
-            y="5"
-            width={controller.left.collapsed ? 2 : 6}
-            height="14"
-            rx="2"
-            fill="currentColor"
-            data-ui-part="sidebar-toggle-indicator"
-          ></rect>
-        </svg>
-      </Button>
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="24"
+            height="24"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"
+          >
+            <rect x="1" y="2" width="22" height="20" rx="4"></rect>
+            <rect
+              x="4"
+              y="5"
+              width={controller.left.collapsed ? 2 : 6}
+              height="14"
+              rx="2"
+              fill="currentColor"
+              data-ui-part="sidebar-toggle-indicator"
+            ></rect>
+          </svg>
+        </Button>
 
-      <div
-        class="community-app-shell__history"
-        role="group"
-        aria-label="Navigation history"
-      >
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon-sm"
-          aria-label="Back"
-          title="Back"
-          disabled={!canNavigateBack}
-          onclick={() => onNavigateBack?.()}
+        <div
+          class="community-app-shell__history"
+          role="group"
+          aria-label="Navigation history"
         >
-          <ChevronLeftIcon aria-hidden="true" />
-        </Button>
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon-sm"
-          aria-label="Forward"
-          title="Forward"
-          disabled={!canNavigateForward}
-          onclick={() => onNavigateForward?.()}
-        >
-          <ChevronRightIcon aria-hidden="true" />
-        </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-sm"
+            aria-label="Back"
+            title="Back"
+            disabled={!canNavigateBack}
+            onclick={() => onNavigateBack?.()}
+          >
+            <ChevronLeftIcon aria-hidden="true" />
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-sm"
+            aria-label="Forward"
+            title="Forward"
+            disabled={!canNavigateForward}
+            onclick={() => onNavigateForward?.()}
+          >
+            <ChevronRightIcon aria-hidden="true" />
+          </Button>
+        </div>
       </div>
+
+      {#if headerCenter}
+        <div class="community-app-shell__header-center">
+          {@render headerCenter()}
+        </div>
+      {/if}
 
       {#if headerEnd}
         <div class="community-app-shell__header-end">
@@ -192,17 +227,39 @@
   }
 
   .community-app-shell__header {
+    position: relative;
     display: flex;
     align-items: center;
-    gap: 0.125rem;
-    padding-inline: 0.5rem 0.75rem;
+    gap: 0;
+    padding-inline-end: 0.75rem;
     background: var(--sidebar, var(--muted));
+  }
+
+  .community-app-shell__header-start {
+    display: flex;
+    box-sizing: border-box;
+    align-items: center;
+    gap: 0.125rem;
+    padding-inline-start: 0.5rem;
   }
 
   .community-app-shell__history {
     display: flex;
     align-items: center;
     gap: 0.125rem;
+  }
+
+  .community-app-shell__header-center {
+    position: absolute;
+    inset-inline-start: var(--community-app-shell-header-main-start);
+    display: flex;
+    width: var(--community-app-shell-header-main-width);
+    min-width: 0;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+    padding-inline: 1.25rem;
+    overflow: hidden;
   }
 
   .community-app-shell__header-end {

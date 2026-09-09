@@ -111,6 +111,62 @@
 </Story>
 
 <Story
+  name="Created private channel becomes active"
+  play={async ({ canvas, canvasElement }) => {
+    const application = await canvas.findByTestId(
+      "full-community-application",
+      {},
+      { timeout: 15_000 },
+    );
+    await waitFor(
+      () =>
+        expect(application).toHaveAttribute(
+          "data-community-status",
+          "connected",
+        ),
+      { timeout: 15_000 },
+    );
+    if (application.dataset.communityBackend === "live") return;
+
+    await userEvent.click(
+      await canvas.findByRole("button", { name: "Create channel" }),
+    );
+    const dialog = await within(canvasElement.ownerDocument.body).findByRole(
+      "dialog",
+      { name: "New channel" },
+    );
+    await userEvent.type(
+      within(dialog).getByLabelText("Name"),
+      "release-planning",
+    );
+    await userEvent.click(
+      within(dialog).getByRole("radio", { name: "Private" }),
+    );
+    await userEvent.click(
+      within(dialog).getByRole("button", { name: "Create channel" }),
+    );
+
+    await waitFor(() => expect(dialog).not.toBeInTheDocument());
+    await expect(
+      await canvas.findByRole("button", { name: "release-planning" }),
+    ).toHaveAttribute("aria-current", "page");
+    await expect(
+      await canvas.findByRole("heading", { name: "#release-planning" }),
+    ).toBeVisible();
+    await expect(
+      await canvas.findByText("This is the beginning of the private channel."),
+    ).toBeVisible();
+  }}
+>
+  {#snippet template()}
+    <CommunityApplicationStoryHarness
+      namespace="created-channel-navigation"
+      initialDestination="general"
+    />
+  {/snippet}
+</Story>
+
+<Story
   name="Project workspace with overview rail"
   play={async ({ canvas, canvasElement }) => {
     const application = await canvas.findByTestId(
@@ -126,6 +182,43 @@
         ),
       { timeout: 15_000 },
     );
+    const overlay = within(canvasElement.ownerDocument.body);
+    const createChannel = await canvas.findByRole("button", {
+      name: "Create channel",
+    });
+    const createProject = await canvas.findByRole("button", {
+      name: "Create project",
+    });
+    await expect(createChannel).toBeVisible();
+    await expect(createProject).toBeVisible();
+
+    await userEvent.click(createChannel);
+    const channelDialog = await overlay.findByRole("dialog", {
+      name: "New channel",
+    });
+    await userEvent.click(
+      within(channelDialog).getByRole("button", { name: "Close" }),
+    );
+    await waitFor(() => expect(channelDialog).not.toBeInTheDocument());
+    await waitFor(() =>
+      expect(canvasElement.ownerDocument.body.style.pointerEvents).not.toBe(
+        "none",
+      ),
+    );
+
+    await userEvent.click(createProject);
+    const projectDialog = await overlay.findByRole("dialog", {
+      name: "Create a new project",
+    });
+    await userEvent.click(
+      within(projectDialog).getByRole("button", { name: "Close" }),
+    );
+    await waitFor(() => expect(projectDialog).not.toBeInTheDocument());
+    await waitFor(() =>
+      expect(canvasElement.ownerDocument.body.style.pointerEvents).not.toBe(
+        "none",
+      ),
+    );
     await expect(
       await canvas.findByRole("navigation", { name: "Project overview" }),
     ).toBeVisible();
@@ -136,7 +229,12 @@
       await canvas.findByRole("heading", { name: "Projects" }),
     ).toBeVisible();
     await expect(
-      await canvas.findByRole("button", { name: "general" }),
+      (
+        await canvas.findAllByRole("button", {
+          name: "general",
+          exact: true,
+        })
+      )[0],
     ).toBeVisible();
     await userEvent.click(canvas.getByRole("tab", { name: "Review" }));
     await expect(
@@ -176,6 +274,103 @@
     await userEvent.click(
       within(assignmentDialog).getByRole("button", { name: "Cancel" }),
     );
+    await waitFor(() => expect(assignmentDialog).not.toBeInTheDocument());
+    await waitFor(() =>
+      expect(canvasElement.ownerDocument.body.style.pointerEvents).not.toBe(
+        "none",
+      ),
+    );
+
+    const navigationSidebar = canvas.getByRole("complementary", {
+      name: "Community navigation sidebar",
+    });
+    const projectToggle = within(navigationSidebar).getByRole("button", {
+      name: "Collapse Community Client",
+    });
+    const projectTree = projectToggle.closest(
+      ".lc-community-navigation__item-tree",
+    );
+    if (!projectTree) throw new Error("Expected the Community Client tree");
+    const projectChannel = within(projectTree as HTMLElement).getByRole(
+      "button",
+      { name: "general", exact: true },
+    );
+    await expect(projectChannel).toBeVisible();
+    await userEvent.click(projectChannel);
+    await expect(
+      await canvas.findByRole("button", { name: "Hide project overview" }),
+    ).toHaveAttribute("aria-expanded", "true");
+    await expect(
+      canvas.getByRole("complementary", { name: "Project overview sidebar" }),
+    ).toBeVisible();
+    const addFiles = await canvas.findByRole("button", {
+      name: "Add files Add a repo.",
+    });
+    const browseChannels = canvas.getByRole("button", {
+      name: "Browse channels",
+    });
+    const createChannelCard = canvas.getByRole("button", {
+      name: "Create a channel",
+    });
+    await expect(addFiles).toBeVisible();
+    await expect(addFiles.getBoundingClientRect().width).toBeCloseTo(
+      browseChannels.getBoundingClientRect().width,
+      0,
+    );
+    await expect(addFiles.getBoundingClientRect().width).toBeCloseTo(
+      createChannelCard.getBoundingClientRect().width,
+      0,
+    );
+    await expect(addFiles.getBoundingClientRect().top).toBeCloseTo(
+      browseChannels.getBoundingClientRect().top,
+      0,
+    );
+    const actionRow = addFiles.closest(".community-workspace-surface__actions");
+    if (!actionRow) throw new Error("Expected the channel action row");
+    const cardWidth = addFiles.getBoundingClientRect().width;
+    const rowWidth = actionRow.getBoundingClientRect().width;
+    const gap = Number.parseFloat(getComputedStyle(actionRow).columnGap);
+    if (rowWidth >= cardWidth * 3 + gap * 2) {
+      await expect(addFiles.getBoundingClientRect().top).toBeCloseTo(
+        createChannelCard.getBoundingClientRect().top,
+        0,
+      );
+    } else {
+      await expect(
+        createChannelCard.getBoundingClientRect().top,
+      ).toBeGreaterThan(addFiles.getBoundingClientRect().top);
+    }
+    await expect(
+      addFiles.compareDocumentPosition(browseChannels) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+
+    const activeProjectToggle = within(navigationSidebar).getByRole("button", {
+      name: "Collapse Community Client",
+    });
+    const activeProjectTree = activeProjectToggle.closest(
+      ".lc-community-navigation__item-tree",
+    );
+    const activeProjectRow = activeProjectToggle.closest(
+      ".lc-community-navigation__item-row",
+    );
+    if (!activeProjectTree || !activeProjectRow)
+      throw new Error("Expected the active Community Client tree");
+    await userEvent.hover(activeProjectRow);
+    await userEvent.click(
+      within(activeProjectTree as HTMLElement).getByRole("button", {
+        name: "Open Community Client menu",
+      }),
+    );
+    await userEvent.click(
+      await overlay.findByRole("menuitem", { name: "Settings" }),
+    );
+    const settingsDialog = await overlay.findByRole("dialog", {
+      name: "Project settings",
+    });
+    await expect(
+      within(settingsDialog).getByRole("textbox", { name: "Name" }),
+    ).toHaveValue("Community Client");
   }}
 >
   {#snippet template()}
@@ -816,14 +1011,16 @@
       name: "Edit channel",
     });
     await userEvent.click(
-      within(editor).getByRole("button", { name: "Private" }),
+      within(editor).getByRole("radio", { name: "Private" }),
     );
     await userEvent.click(
       within(editor).getByRole("radio", {
         name: /Writers and administrators/,
       }),
     );
-    await userEvent.click(within(editor).getByRole("button", { name: "Save" }));
+    await userEvent.click(
+      within(editor).getByRole("button", { name: "Save changes" }),
+    );
     await waitFor(() => expect(editor).not.toBeInTheDocument());
     await waitFor(() =>
       expect(canvasElement.ownerDocument.body.style.pointerEvents).not.toBe(
@@ -1755,10 +1952,10 @@
       }),
     );
     const roomEditor = await overlay.findByRole("dialog", {
-      name: "Create channel",
+      name: "New channel",
     });
     await userEvent.click(
-      within(roomEditor).getByRole("button", { name: "Cancel" }),
+      within(roomEditor).getByRole("button", { name: "Close" }),
     );
     await waitFor(() => expect(roomEditor).not.toBeInTheDocument());
     await waitFor(() =>

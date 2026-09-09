@@ -38,6 +38,7 @@
     historyUpdating = false,
     historyLoading = false,
     messageSupplement,
+    channelActions,
   }: {
     model: CommunityWorkspaceModel;
     handlers?: CommunityWorkspaceHandlers;
@@ -52,6 +53,7 @@
     historyUpdating?: boolean;
     historyLoading?: boolean;
     messageSupplement?: Snippet<[import("./model.js").CommunityMessageModel]>;
+    channelActions?: Snippet;
   } = $props();
 
   const activeRoom = $derived(
@@ -174,6 +176,9 @@
       <p>Say hi, ask a question, or share what brought you here.</p>
     {/if}
     <div class="community-workspace-surface__actions">
+      {#if kind === "channel" && channelActions}
+        {@render channelActions()}
+      {/if}
       {#if knownNonmember && roomJoinActionVisible}
         <Button
           variant="outline"
@@ -695,29 +700,34 @@
   }
 
   .community-workspace-surface__actions {
-    display: grid;
-    width: min(100%, 27rem);
-    grid-template-columns: repeat(2, minmax(0, 13.125rem));
+    display: flex;
+    width: 100%;
+    flex-wrap: wrap;
     gap: 0.75rem;
     padding-block-start: 0.5rem;
-  }
-
-  .community-workspace-surface__actions:has(> :nth-child(3)) {
-    width: min(100%, 40.875rem);
-    grid-template-columns: repeat(3, minmax(0, 13.125rem));
   }
 
   :global(
       .community-workspace-surface__action-card[data-ui-component="button"]
     ) {
     display: grid;
+    width: 13.125rem;
+    max-width: 100%;
     height: 7.5rem;
+    flex: 0 0 13.125rem;
     align-content: space-between;
     justify-items: start;
     padding: 1rem;
     border-radius: 1rem;
     text-align: start;
     white-space: normal;
+  }
+  :global(
+      .community-workspace-surface__action-card[data-ui-component="button"]
+        strong
+    ) {
+    font-size: 0.9rem;
+    font-weight: 550;
   }
   :global(
       .community-workspace-surface__action-card[data-ui-component="button"]:hover
@@ -783,12 +793,5 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-  }
-
-  @media (max-width: 34rem) {
-    .community-workspace-surface__actions {
-      width: 100%;
-      grid-template-columns: 1fr;
-    }
   }
 </style>

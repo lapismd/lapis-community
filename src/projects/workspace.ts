@@ -43,9 +43,7 @@ export function projectForgeChildChannels(
   project: ProjectForgeProject,
   repositories: readonly ProjectForgeRepository[],
 ): ProjectForgeBoundChannel[] {
-  return projectForgeBoundChannels(project, repositories).filter(
-    (channel) => channel.role !== "home",
-  );
+  return projectForgeBoundChannels(project, repositories);
 }
 
 export function buildProjectForgeActivity(

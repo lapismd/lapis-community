@@ -17,11 +17,16 @@ import {
   PROJECT_FORGE_KINDS,
   allTagValues,
   type ProjectForgeBlobResponse,
+  type ProjectForgeAttachGitHubRepositoryInput,
   type ProjectForgeCatalog,
   type ProjectForgeCommitResponse,
   type ProjectForgeCommitsResponse,
+  type ProjectForgeGitHubConnectionsResponse,
+  type ProjectForgeGitHubRepositoriesResponse,
   type ProjectForgeProgress,
   type ProjectForgePullRequestDiff,
+  type ProjectForgeRepositoryCapabilitiesResponse,
+  type ProjectForgeRepositoryIntegrationResponse,
   type ProjectForgeRefsResponse,
   type ProjectForgeTreeResponse,
   type ProjectForgeWorkItems,
@@ -85,6 +90,22 @@ export interface ProjectForgeSession {
     listener: (event: ProjectForgeSourceEvent) => void,
     signal?: AbortSignal,
   ): Promise<() => void>;
+  loadCapabilities(
+    repository: string,
+    signal?: AbortSignal,
+  ): Promise<ProjectForgeRepositoryCapabilitiesResponse>;
+  loadGitHubConnections(
+    signal?: AbortSignal,
+  ): Promise<ProjectForgeGitHubConnectionsResponse>;
+  loadGitHubRepositories(
+    connectionId: string,
+    signal?: AbortSignal,
+  ): Promise<ProjectForgeGitHubRepositoriesResponse>;
+  attachGitHubRepository(
+    repository: string,
+    input: ProjectForgeAttachGitHubRepositoryInput,
+    signal?: AbortSignal,
+  ): Promise<ProjectForgeRepositoryIntegrationResponse>;
   loadRefs(
     repository: string,
     signal?: AbortSignal,
@@ -317,6 +338,68 @@ class Nip34ProjectForgeSession implements ProjectForgeSession {
     return await this.#forgeGet(repository, "refs", signal);
   }
 
+  async loadCapabilities(
+    repository: string,
+    signal?: AbortSignal,
+  ): Promise<ProjectForgeRepositoryCapabilitiesResponse> {
+    const address = repositoryAddress(repository);
+    const response =
+      await this.#strictGet<ProjectForgeRepositoryCapabilitiesResponse>(
+        `/api/forge/repositories/${address.owner}/${encodeURIComponent(address.identifier)}/capabilities`,
+        signal === undefined ? {} : { signal },
+      );
+    if (response.repository !== repository) {
+      throw new Error(
+        "Repository capability response does not match the request",
+      );
+    }
+    return response;
+  }
+
+  async loadGitHubConnections(
+    signal?: AbortSignal,
+  ): Promise<ProjectForgeGitHubConnectionsResponse> {
+    return await this.#forgeJsonRequest(
+      "GET",
+      "/api/forge/connections/github",
+      undefined,
+      signal,
+    );
+  }
+
+  async loadGitHubRepositories(
+    connectionId: string,
+    signal?: AbortSignal,
+  ): Promise<ProjectForgeGitHubRepositoriesResponse> {
+    return await this.#forgeJsonRequest(
+      "GET",
+      `/api/forge/connections/github/${encodeURIComponent(connectionId)}/repositories`,
+      undefined,
+      signal,
+    );
+  }
+
+  async attachGitHubRepository(
+    repository: string,
+    input: ProjectForgeAttachGitHubRepositoryInput,
+    signal?: AbortSignal,
+  ): Promise<ProjectForgeRepositoryIntegrationResponse> {
+    const address = repositoryAddress(repository);
+    return await this.#forgeJsonRequest(
+      "PUT",
+      `/api/forge/repositories/${address.owner}/${encodeURIComponent(address.identifier)}/integration`,
+      {
+        expected_announcement_id: input.expectedAnnouncementId,
+        git_authority_backend: "github",
+        content_backend: "github",
+        collaboration_backend: "relay",
+        connection_id: input.connectionId,
+        external_repository_id: input.externalRepositoryId,
+      },
+      signal,
+    );
+  }
+
   async loadTree(
     repository: string,
     revision: string,
@@ -327,11 +410,7 @@ class Nip34ProjectForgeSession implements ProjectForgeSession {
       Omit<ProjectForgeTreeResponse, "readme"> & {
         readme?: string | { name?: string; contents?: string } | null;
       }
-    >(
-      repository,
-      `tree/${encodeURIComponent(revision)}/${encodePath(path)}`,
-      signal,
-    );
+    >(repository, `tree/${encodePath(revision)}/${encodePath(path)}`, signal);
     const readme =
       typeof response.readme === "string"
         ? response.readme
@@ -354,7 +433,7 @@ class Nip34ProjectForgeSession implements ProjectForgeSession {
   ): Promise<ProjectForgeBlobResponse> {
     return await this.#forgeGet(
       repository,
-      `blob/${encodeURIComponent(revision)}/${encodePath(path)}`,
+      `blob/${encodePath(revision)}/${encodePath(path)}`,
       signal,
     );
   }
@@ -484,19 +563,9 @@ class Nip34ProjectForgeSession implements ProjectForgeSession {
     suffix: string,
     signal?: AbortSignal,
   ): Promise<T> {
-    const address = coordinate.split(":");
-    if (
-      address.length < 3 ||
-      address[0] !== String(PROJECT_FORGE_KINDS.repository) ||
-      !/^[0-9a-f]{64}$/u.test(address[1] ?? "")
-    ) {
-      throw new Error(
-        "Hosted Git reads require a kind 30617 repository coordinate",
-      );
-    }
-    const identifier = address.slice(2).join(":");
+    const address = repositoryAddress(coordinate);
     return await this.#strictGet(
-      `/api/git/${address[1]}/${encodeURIComponent(identifier)}/${suffix}`,
+      `/api/git/${address.owner}/${encodeURIComponent(address.identifier)}/${suffix}`,
       signal === undefined ? {} : { signal },
     );
   }
@@ -562,6 +631,45 @@ class Nip34ProjectForgeSession implements ProjectForgeSession {
     });
     if (!response.ok) throw await responseError(response);
     return response;
+  }
+
+  async #forgeJsonRequest<T>(
+    method: "GET" | "PUT",
+    path: string,
+    value?: unknown,
+    signal?: AbortSignal,
+  ): Promise<T> {
+    this.#assertOpen(signal);
+    const body = value === undefined ? undefined : JSON.stringify(value);
+    const url = new URL(path, this.#httpBaseUrl());
+    const tags = [
+      ["u", url.toString()],
+      ["method", method],
+      ["nonce", randomNonce()],
+    ];
+    if (body !== undefined) {
+      tags.push([
+        "payload",
+        bytesToHex(sha256(new TextEncoder().encode(body))),
+      ]);
+    }
+    const auth = await this.#requiredIdentity().signEvent({
+      kind: PROJECT_FORGE_KINDS.httpAuth,
+      created_at: Math.floor(this.#now().getTime() / 1_000),
+      content: "",
+      tags,
+    });
+    const response = await this.#fetch(url, {
+      method,
+      headers: {
+        Authorization: encodeNostrHttpAuthorization(auth),
+        ...(body === undefined ? {} : { "Content-Type": "application/json" }),
+      },
+      ...(body === undefined ? {} : { body }),
+      ...(signal === undefined ? {} : { signal }),
+    });
+    if (!response.ok) throw await responseError(response);
+    return (await response.json()) as T;
   }
 
   #httpBaseUrl(): URL {
@@ -669,6 +777,23 @@ function distinctEvents(events: readonly NostrEvent[]): NostrEvent[] {
 
 function encodePath(path: string): string {
   return path.split("/").filter(Boolean).map(encodeURIComponent).join("/");
+}
+
+function repositoryAddress(coordinate: string): {
+  owner: string;
+  identifier: string;
+} {
+  const address = coordinate.split(":");
+  if (
+    address.length < 3 ||
+    address[0] !== String(PROJECT_FORGE_KINDS.repository) ||
+    !/^[0-9a-f]{64}$/u.test(address[1] ?? "")
+  ) {
+    throw new Error(
+      "Repository reads require a kind 30617 repository coordinate",
+    );
+  }
+  return { owner: address[1]!, identifier: address.slice(2).join(":") };
 }
 
 function randomNonce(): string {

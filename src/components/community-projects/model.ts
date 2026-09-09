@@ -7,9 +7,15 @@ import type {
   ProjectForgeCommitResponse,
   ProjectForgeDataSource,
   ProjectForgeDiffFile,
+  ProjectForgeGitHubConnection,
+  ProjectForgeGitHubConnectionsResponse,
+  ProjectForgeGitHubRepositoriesResponse,
+  ProjectForgeGitHubRepository,
   ProjectForgeProject,
   ProjectForgePullRequestDiff,
   ProjectForgeRepository,
+  ProjectForgeRepositoryCapabilitiesByCoordinate,
+  ProjectForgeRefsResponse,
   ProjectForgeOverviewSurface,
   ProjectForgeSurface,
   ProjectForgeTreeResponse,
@@ -36,9 +42,21 @@ export interface CommunityProjectsCreateProject {
   identifier: string;
   description: string;
   channelId: string;
+  visibility: "public" | "private";
+  /** UI preference until project-list visibility receives signed persistence. */
+  listing: "listed" | "unlisted";
+}
+
+export interface CommunityProjectsUpdateProject {
+  name: string;
+  description: string;
+  channelId: string;
+  visibility: "public" | "private";
 }
 
 export interface CommunityProjectsCreateRepository {
+  project: string;
+  channelId: string;
   name: string;
   identifier: string;
   description: string;
@@ -48,7 +66,9 @@ export interface CommunityProjectsCreateRepository {
 }
 
 export interface CommunityProjectsCreateTask {
+  project: string;
   repository: string | "project";
+  category: "issue" | "change-request" | "improvement";
   title: string;
   content: string;
 }
@@ -57,15 +77,21 @@ export interface CommunityProjectsCreatePullRequest {
   repository: string;
   title: string;
   content: string;
-  commit: string;
-  cloneUrl: string;
   branchName: string;
   targetBranch: string;
 }
 
 export interface CommunityProjectsDialogRequest {
   id: number;
-  kind: "project" | "repository" | "task" | "review";
+  kind:
+    | "project"
+    | "edit-project"
+    | "repository"
+    | "select-repository"
+    | "connect-github"
+    | "task"
+    | "review";
+  projectCoordinate?: string;
 }
 
 export interface CommunityProjectsProps {
@@ -73,6 +99,11 @@ export interface CommunityProjectsProps {
   projects: readonly ProjectForgeProject[];
   selectedProject?: ProjectForgeProject;
   repositories?: readonly ProjectForgeRepository[];
+  /** Repository announcements available for attachment outside the current project scope. */
+  repositoryOptions?: readonly ProjectForgeRepository[];
+  selectedRepository?: ProjectForgeRepository;
+  /** Relay-resolved operational capabilities keyed by repository coordinate. */
+  repositoryCapabilities?: ProjectForgeRepositoryCapabilitiesByCoordinate;
   activity?: readonly ProjectForgeActivityItem[];
   tasks?: readonly ProjectTaskState[];
   selectedTask?: ProjectTaskState;
@@ -99,8 +130,12 @@ export interface CommunityProjectsProps {
   error?: string;
   operation?: string;
   canCollaborate?: boolean;
+  /** Relay-admin capability for provider connection management. */
+  canManageForge?: boolean;
   dialogRequest?: CommunityProjectsDialogRequest;
   showNavigation?: boolean;
+  /** Keep project dialogs mounted without rendering the project workspace. */
+  showContent?: boolean;
   /** Render the pull-request title in this surface instead of an owning shell header. */
   showReviewHeader?: boolean;
   onSelectView?: (
@@ -108,13 +143,31 @@ export interface CommunityProjectsProps {
   ) => void;
   onBack?: () => void;
   onSelectProject?: (project: ProjectForgeProject) => void;
+  onSelectRepository?: (repository: ProjectForgeRepository) => void;
   onSelectChannel?: (roomId: string) => void;
   onOpenProfile?: (member: CommunityMemberModel) => void;
   onMessageMember?: (member: CommunityMemberModel) => void | Promise<void>;
   onWaveMember?: (member: CommunityMemberModel) => void | Promise<void>;
   onCreateProject?: (input: CommunityProjectsCreateProject) => Promise<void>;
+  onUpdateProject?: (
+    project: ProjectForgeProject,
+    input: CommunityProjectsUpdateProject,
+  ) => Promise<void>;
   onCreateRepository?: (
     input: CommunityProjectsCreateRepository,
+  ) => Promise<void>;
+  onAttachRepository?: (
+    projectCoordinate: string,
+    repositoryCoordinate: string,
+  ) => Promise<void>;
+  onLoadGitHubConnections?: () => Promise<ProjectForgeGitHubConnectionsResponse>;
+  onLoadGitHubRepositories?: (
+    connectionId: string,
+  ) => Promise<ProjectForgeGitHubRepositoriesResponse>;
+  onAttachGitHubRepository?: (
+    repository: ProjectForgeRepository,
+    connection: ProjectForgeGitHubConnection,
+    providerRepository: ProjectForgeGitHubRepository,
   ) => Promise<void>;
   onCreateTask?: (input: CommunityProjectsCreateTask) => Promise<void>;
   onSelectTask?: (task: ProjectTaskState) => void;
@@ -133,6 +186,9 @@ export interface CommunityProjectsProps {
   onCreatePullRequest?: (
     input: CommunityProjectsCreatePullRequest,
   ) => Promise<void>;
+  onLoadRepositoryRefs?: (
+    repositoryCoordinate: string,
+  ) => Promise<ProjectForgeRefsResponse>;
   onSelectPullRequest?: (pullRequest: PullRequestState) => void;
   onClosePullRequest?: () => void;
   onApprovePullRequest?: (pullRequest: PullRequestState) => Promise<void>;

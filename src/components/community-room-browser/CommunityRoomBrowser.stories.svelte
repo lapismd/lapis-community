@@ -37,6 +37,8 @@
       },
     ],
     onSelect: fn(),
+    onJoin: fn(),
+    onLeave: fn(),
     onCreate: fn(),
   }}
   play={async ({ canvasElement, args }) => {
@@ -54,13 +56,19 @@
     ).toHaveAttribute("data-state", "active");
     await expect(overlay.getByRole("tab", { name: "Joined" })).toBeVisible();
     await expect(overlay.getByRole("tab", { name: "Archived" })).toBeVisible();
+    const leave = overlay.getByRole("button", { name: "Leave general" });
+    await expect(leave).toHaveAttribute("data-variant", "destructive");
+    await userEvent.click(leave);
+    await expect(args.onLeave).toHaveBeenCalledWith(
+      expect.objectContaining({ id: "general" }),
+    );
     await userEvent.click(
       overlay.getByRole("button", { name: "Create a new channel" }),
     );
     await expect(args.onCreate).toHaveBeenCalledWith("channel");
     await userEvent.type(search, "help");
     await expect(overlay.queryByText("general")).toBeNull();
-    await userEvent.click(overlay.getByRole("button", { name: /help/i }));
+    await userEvent.click(overlay.getByRole("button", { name: /^help/u }));
     await expect(args.onSelect).toHaveBeenCalledWith(
       expect.objectContaining({ id: "help" }),
     );

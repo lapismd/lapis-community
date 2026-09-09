@@ -18,6 +18,13 @@ export interface CreateProjectInput {
   visibility?: string;
 }
 
+export interface UpdateProjectInput {
+  name: string;
+  description?: string;
+  channelId: string;
+  visibility?: string;
+}
+
 export interface CreateRepositoryInput {
   identifier: string;
   name: string;
@@ -67,6 +74,43 @@ export function createProjectTemplate(
     content: "",
     tags: [
       ["d", input.identifier],
+      ["name", input.name],
+      ...(input.description ? [["description", input.description]] : []),
+      ["buzz-channel", input.channelId],
+      ...(input.visibility ? [["buzz-visibility", input.visibility]] : []),
+    ],
+  };
+}
+
+export function updateProjectTemplate(
+  project: NostrEvent,
+  input: UpdateProjectInput,
+  createdAt = unixNow(),
+): NostrEventTemplate {
+  if (
+    project.kind !== PROJECT_FORGE_KINDS.project ||
+    eventAddress(project) === undefined
+  ) {
+    throw new Error("Project settings require a kind 30621 project");
+  }
+  requiredText(input.name, "Project name", 256);
+  requiredText(input.channelId, "Project channel", 256);
+  optionalText(input.description, "Project description", 2_048);
+  optionalText(input.visibility, "Project visibility", 256);
+  const editableTags = new Set([
+    "name",
+    "description",
+    "buzz-channel",
+    "buzz-visibility",
+  ]);
+  return {
+    kind: project.kind,
+    created_at: createdAt,
+    content: project.content,
+    tags: [
+      ...project.tags
+        .filter((tag) => !editableTags.has(tag[0] ?? ""))
+        .map((tag) => [...tag]),
       ["name", input.name],
       ...(input.description ? [["description", input.description]] : []),
       ["buzz-channel", input.channelId],

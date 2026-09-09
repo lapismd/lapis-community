@@ -557,6 +557,40 @@ export function createProjectStoryDataSource(
           });
           return () => undefined;
         },
+        async loadCapabilities(repository) {
+          return {
+            repository,
+            capabilities: {
+              git_authority_backend: "walgit",
+              content_backend: "walgit",
+              git_backend: "walgit",
+              collaboration_backend: "relay",
+              clone: { available: true, auth: "nostr" },
+              smart_http: { read: true, write: true },
+              browse: true,
+              compare: true,
+              ref_events: true,
+              provision: true,
+              import: false,
+              issues: false,
+              pull_requests: false,
+              reviews: false,
+              merge: false,
+              mirror: false,
+              ci: false,
+              capability_limits: {},
+            },
+          };
+        },
+        async loadGitHubConnections() {
+          return { connections: [] };
+        },
+        async loadGitHubRepositories() {
+          return { repositories: [] };
+        },
+        async attachGitHubRepository() {
+          throw new Error("GitHub attachment is not configured in this story");
+        },
         async loadRefs() {
           return {
             head: { name: "main", sha: "d".repeat(40) },

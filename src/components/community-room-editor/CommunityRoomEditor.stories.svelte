@@ -32,7 +32,9 @@
     await userEvent.click(
       overlay.getByRole("radio", { name: /Writers and administrators/ }),
     );
-    await userEvent.click(overlay.getByRole("button", { name: "Save" }));
+    await userEvent.click(
+      overlay.getByRole("button", { name: "Save changes" }),
+    );
     await expect(args.onSave).toHaveBeenCalledWith(
       expect.objectContaining({
         name: "announcements",
@@ -69,7 +71,9 @@
   }}
   play={async ({ canvasElement }) => {
     const overlay = within(canvasElement.ownerDocument.body);
-    await userEvent.click(overlay.getByRole("button", { name: "Save" }));
+    await userEvent.click(
+      overlay.getByRole("button", { name: "Save changes" }),
+    );
     await expect(
       overlay.getByText("Relay denied metadata update"),
     ).toBeVisible();

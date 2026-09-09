@@ -8,6 +8,11 @@ never exposed to browser code. Disposable credentials are removed with their
 containers and volumes on exit; persistent local credentials are removed by
 the explicit reset command.
 
+WalGit MUST receive its documented S3-specific credential and endpoint
+variables rather than generic AWS aliases. The RustFS bucket initializer MUST
+use the digest-pinned RustFS client against that same path-style endpoint so
+the acceptance stack verifies the storage contract actually used by WalGit.
+
 ## Requirements
 
 | ID         | Requirement                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
