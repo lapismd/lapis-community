@@ -45,6 +45,8 @@ export interface CommunityRoomModel {
   unreadCount?: number;
   mentionCount?: number;
   memberCount?: number;
+  /** Number of visible room messages in the current relay projection. */
+  messageCount?: number;
   private?: boolean;
   postingPolicy?: "standard" | "writers";
   roleDefinitions?: readonly CommunityRoleDefinition[];

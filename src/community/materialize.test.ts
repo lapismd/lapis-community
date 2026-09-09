@@ -89,6 +89,24 @@ describe("materializeCommunityWorkspace", () => {
       },
       new Uint8Array(32).fill(54),
     );
+    const deletedMessage = finalizeEvent(
+      {
+        kind: 9,
+        created_at: 1_700_000_015,
+        content: "Deleted message",
+        tags: [["h", "general"]],
+      },
+      new Uint8Array(32).fill(55),
+    );
+    const deletion = finalizeEvent(
+      {
+        kind: 5,
+        created_at: 1_700_000_020,
+        content: "",
+        tags: [["e", deletedMessage.id]],
+      },
+      new Uint8Array(32).fill(55),
+    );
     const scope = {
       id: "lapis",
       name: "Lapis Community",
@@ -99,13 +117,14 @@ describe("materializeCommunityWorkspace", () => {
           groupId: "general",
           name: "general",
           kind: "channel" as const,
+          description: "General project coordination.",
         },
       ],
     };
 
     const workspace = materializeCommunityWorkspace(
       [scope],
-      { [scope.id]: [root, reply, reaction] },
+      { [scope.id]: [root, reply, reaction, deletedMessage, deletion] },
       scope.id,
       {
         activeRoomId: "general",
@@ -115,7 +134,12 @@ describe("materializeCommunityWorkspace", () => {
     );
 
     expect(workspace.messages).toHaveLength(1);
-    expect(workspace.navigationSections[0]?.rooms[0]?.groupId).toBe("general");
+    expect(workspace.navigationSections[0]?.rooms[0]).toMatchObject({
+      groupId: "general",
+      description: "General project coordination.",
+      messageCount: 2,
+      lastActivityAt: "2023-11-14T22:13:30.000Z",
+    });
     expect(workspace.messages[0]).toMatchObject({
       id: root.id,
       replyCount: 1,

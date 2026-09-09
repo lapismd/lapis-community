@@ -102,6 +102,12 @@ metadata only: a renderer MUST link a visible member reference only when its
 text resolves to a known member and the corresponding public key is present;
 ambiguous or unknown text remains plain Markdown.
 
+For LC-NOSTR-007, normalized room metadata MUST count visible kind `9`, `11`,
+and `1111` events carrying the room's exact NIP-29 `h` tag and derive last
+activity from the newest event in that same set. Reactions, administrative
+events, deleted messages, and events for other groups MUST NOT inflate either
+aggregate.
+
 The static catalog consumes only the materialized projection and its verified
 content-addressed documents. Community MAY build the same deterministic
 projection directly from signed relay events and exact manifests in browser

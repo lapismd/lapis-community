@@ -1000,13 +1000,15 @@
 
 .community-projects__channel-row {
   display: grid;
-  grid-template-columns: 1rem minmax(10rem, 1fr) minmax(8rem, 0.45fr) 3rem;
+  grid-template-columns:
+    1rem minmax(9rem, 0.65fr) minmax(12rem, 1fr) minmax(3rem, auto)
+    minmax(5.5rem, auto);
 }
 
 .community-projects__list[data-layout="grid"] .community-projects__channel-row {
-  min-height: 5.25rem;
+  min-height: 6.25rem;
   grid-template-columns: 1rem minmax(0, 1fr) auto;
-  grid-template-rows: auto 1fr;
+  grid-template-rows: auto 1fr auto;
   align-content: start;
   align-items: start;
   row-gap: 0.55rem;
@@ -1024,8 +1026,8 @@
 }
 
 .community-projects__list[data-layout="grid"]
-  .community-projects__channel-role {
-  grid-column: 2;
+  .community-projects__channel-description {
+  grid-column: 2 / -1;
   grid-row: 2;
 }
 
@@ -1034,6 +1036,13 @@
   .community-projects__row-count {
   grid-column: 3;
   grid-row: 1;
+}
+
+.community-projects__list[data-layout="grid"]
+  .community-projects__channel-activity {
+  grid-column: 2 / -1;
+  grid-row: 3;
+  align-self: end;
 }
 
 .community-projects__task-list[data-layout="grid"]
@@ -1093,9 +1102,13 @@
   text-align: left;
 }
 
-.community-projects__channel-role {
+.community-projects__channel-description,
+.community-projects__channel-activity {
+  overflow: hidden;
   color: var(--muted-foreground);
   font-size: 0.75rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .community-projects__list,
@@ -2667,6 +2680,28 @@ button.community-projects__project-option:focus-visible {
 
   .community-projects__task-row {
     grid-template-columns: 1rem minmax(0, 1fr) 2rem 6.5rem;
+  }
+
+  .community-projects__channel-row {
+    grid-template-columns: 1rem minmax(0, 1fr) auto;
+    grid-template-rows: auto auto auto;
+    align-items: start;
+    row-gap: 0.25rem;
+  }
+
+  .community-projects__channel-row .community-projects__channel-description {
+    grid-column: 2 / -1;
+    grid-row: 2;
+  }
+
+  .community-projects__channel-row .community-projects__row-count {
+    grid-column: 3;
+    grid-row: 1;
+  }
+
+  .community-projects__channel-row .community-projects__channel-activity {
+    grid-column: 2 / -1;
+    grid-row: 3;
   }
 
   .community-projects__task-repository,

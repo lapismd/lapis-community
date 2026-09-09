@@ -77,6 +77,7 @@
   import type {
     CommunityMemberModel,
     CommunityMessageModel,
+    CommunityRoomModel,
   } from "../community-workspace/model.js";
   import type {
     CommunityProjectsCreateProject,
@@ -1126,15 +1127,6 @@
     );
   }
 
-  function channelRepositoryCount(
-    binding: (typeof projectChannels)[number],
-  ): number {
-    const project = projects.find(
-      (candidate) => candidate.address.coordinate === binding.projectCoordinate,
-    );
-    return project ? projectRepositoriesFor(project).length : 0;
-  }
-
   function taskStatusLabel(
     lifecycle: (typeof tasks)[number]["lifecycle"],
   ): string {
@@ -1170,6 +1162,14 @@
     return [...bindings].sort((left, right) =>
       channelName(left).localeCompare(channelName(right)),
     );
+  }
+
+  function roomActivityTimestamp(
+    room: CommunityRoomModel | undefined,
+  ): number | undefined {
+    if (!room?.lastActivityAt) return undefined;
+    const timestamp = Date.parse(room.lastActivityAt);
+    return Number.isNaN(timestamp) ? undefined : Math.floor(timestamp / 1_000);
   }
 
   function openActivityItem(item: (typeof activity)[number]): void {
@@ -1404,6 +1404,7 @@
       candidate.groupId === binding.channelId ||
       candidate.id === binding.channelId,
   )}
+  {@const lastActivityTimestamp = roomActivityTimestamp(room)}
   <button
     type="button"
     class="community-projects__row community-projects__row--button community-projects__channel-row"
@@ -1415,15 +1416,21 @@
     <div class="community-projects__row-main">
       <strong>#{room?.name ?? binding.channelId}</strong>
     </div>
-    <span class="community-projects__channel-role">
-      {binding.role === "home"
-        ? "Project channel"
-        : `${channelRepositoryCount(binding)} repositories`}
+    <span class="community-projects__channel-description">
+      {room?.description || "No channel description"}
     </span>
-    {#if room?.memberCount !== undefined}
-      <span class="community-projects__row-count"
-        ><MessageSquareIcon aria-hidden="true" />{room.memberCount}</span
-      >
+    <span
+      class="community-projects__row-count"
+      aria-label={`${room?.messageCount ?? 0} messages`}
+      ><MessageSquareIcon aria-hidden="true" />{room?.messageCount ?? 0}</span
+    >
+    {#if lastActivityTimestamp !== undefined}
+      <CommunityRelativeTime
+        timestamp={lastActivityTimestamp}
+        class="community-projects__channel-activity"
+      />
+    {:else}
+      <span class="community-projects__channel-activity">No messages yet</span>
     {/if}
   </button>
 {/snippet}
@@ -2013,7 +2020,7 @@
                 <CommunityRelativeTime
                   timestamp={repository.event.created_at}
                 />
-                {#if repository.webUrls[0] && repositoryCapabilities[repository.address.coordinate]?.content_backend !== "github"}
+                {#if repository.webUrls[0] && repositoryCapabilities[repository.address.coordinate] !== undefined && repositoryCapabilities[repository.address.coordinate]?.content_backend !== "github"}
                   <a
                     aria-label={`Open ${repository.name}`}
                     title="Open repository"

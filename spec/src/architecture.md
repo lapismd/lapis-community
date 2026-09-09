@@ -59,6 +59,12 @@ grant and revocation, writer-only publication, reusable invite creation, and
 invite-backed joining through the same NIP-29 controls used by the production
 application.
 
+For LC-ARCH-007, the shared Community materializer MUST derive room message
+totals and last activity from the same verified, visible group-message event
+set used by production, memory, Storybook, and Docker projections. These
+aggregates remain read-model metadata and MUST NOT become a second content
+authority.
+
 For LC-UI-033, `CommunityApplication` owns plugin-release scope, history, menu
 content, counts, and review projections while Design Core owns the structural
 multi-panel convention. The built-in details/thread/profile panel and the

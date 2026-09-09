@@ -351,15 +351,40 @@ index 3333333..4444444 100644
         groupId: fixture.project.channelId,
         name: "general",
         kind: "channel",
+        description: "Plan and coordinate the Community client.",
+        messageCount: 3,
+        lastActivityAt: "2026-09-08T12:00:00.000Z",
       },
     ],
     onSelectChannel,
   }}
   play={async ({ canvas }) => {
-    await userEvent.click(
-      canvas.getByRole("button", { name: /#general Project channel/u }),
-    );
+    const channel = canvas.getByRole("button", {
+      name: /#general Plan and coordinate the Community client/u,
+    });
+    await expect(within(channel).getByLabelText("3 messages")).toBeVisible();
+    await expect(
+      channel.querySelector('time[datetime="2026-09-08T12:00:00.000Z"]'),
+    ).not.toBeNull();
+    await userEvent.click(channel);
     await expect(onSelectChannel).toHaveBeenCalledWith("general");
+  }}
+/>
+
+<Story
+  name="Repository capabilities loading"
+  args={{
+    view: "repositories",
+    repositories: [githubRepository],
+    repositoryCapabilities: {},
+  }}
+  play={async ({ canvas }) => {
+    await expect(
+      canvas.queryByRole("link", { name: "Open community-client" }),
+    ).not.toBeInTheDocument();
+    await expect(
+      canvas.getByRole("button", { name: /community-client/u }),
+    ).toBeVisible();
   }}
 />
 
