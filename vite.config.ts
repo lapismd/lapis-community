@@ -59,6 +59,7 @@ export default defineConfig(({ command }) => ({
           name: "unit",
           environment: "node",
           include: [
+            "dev/**/*.test.ts",
             "src/**/*.test.ts",
             "scripts/**/*.test.mjs",
             ".storybook/**/*.test.ts",

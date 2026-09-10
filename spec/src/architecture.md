@@ -7,6 +7,9 @@ token or assumes a local Git checkout. The dedicated Vite application composes
 the NIP-34 project source from the same relay factory and active Community
 identity as channels and Registry, so the ordinary local stack exercises the
 production-shaped browser path rather than a Storybook-only adapter.
+The integrated Community, Registry, and Projects destinations resolve one
+canonical development relay endpoint; only isolated Storybook scenarios may
+select an independent Registry relay.
 Repository announcements remain signed-event authority, while Community reads
 the relay's per-coordinate provider-neutral capability document to select any
 content backend that explicitly advertises browsing. This allows WalGit and

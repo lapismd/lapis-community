@@ -117,6 +117,10 @@ Guest profile menu exposes browser-extension, NIP-46 remote-signer, ephemeral
 account, and private-key login flows. The Remote signer login collects its
 bunker URL within the host-provided login flow and keeps it only in browser
 memory. Override the relay with `VITE_COMMUNITY_LIVE_RELAY_URL`.
+The Vite development application uses that one endpoint for Community,
+Registry, and Projects so navigation cannot silently cross between relay
+datasets. `VITE_REGISTRY_RELAYS` remains available only to the standalone live
+Registry Storybook story.
 
 Run `pnpm storybook` to browse the production community components in isolated
 normal, reply, reaction, error, and long-discussion states. The package

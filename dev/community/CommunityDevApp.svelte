@@ -21,6 +21,7 @@
   } from "../../src/components/community-login/model.js";
   import { createNip29RegistryCatalogDataSource } from "../../src/registry/index.js";
   import { createNip34ProjectForgeDataSource } from "../../src/projects/index.js";
+  import { resolveCommunityDevRelayConfiguration } from "./config.js";
   import { createWebSocketCommunityRelayFactory } from "../../src/nostr/index.js";
   import { LAPIS_GROUPS, lapisGroupId } from "../../src/protocol/index.js";
   import { hexToBytes } from "@noble/hashes/utils.js";
@@ -29,15 +30,14 @@
   import { generateSecretKey } from "nostr-tools/pure";
   import { onMount } from "svelte";
 
-  const relayUrl =
-    import.meta.env.VITE_COMMUNITY_LIVE_RELAY_URL?.trim() ||
-    "ws://registry.localhost:8281";
+  const { relayUrl, registryRelays } = resolveCommunityDevRelayConfiguration(
+    import.meta.env,
+  );
   const values = (value: string | undefined): string[] =>
     (value ?? "")
       .split(",")
       .map((item) => item.trim())
       .filter(Boolean);
-  const registryRelays = values(import.meta.env.VITE_REGISTRY_RELAYS);
   const registryCurators = new Set(
     values(import.meta.env.VITE_REGISTRY_CURATOR_PUBKEYS),
   );
@@ -48,9 +48,7 @@
     import.meta.env.VITE_REGISTRY_AUTHORITY_EPOCH?.trim() || undefined;
   const relayFactory = createWebSocketCommunityRelayFactory();
   const registryConfigurationError =
-    registryRelays.length === 0 ||
-    registryCurators.size === 0 ||
-    registryPublishers.size === 0
+    registryCurators.size === 0 || registryPublishers.size === 0
       ? "Run pnpm local:up before dev:community so the live registry trust configuration is available"
       : "";
   const registrySource =
