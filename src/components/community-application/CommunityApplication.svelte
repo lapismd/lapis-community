@@ -480,6 +480,9 @@
           (project) => project.address.coordinate === selectedProjectCoordinate,
         ),
   );
+  const listedProjects = $derived(
+    projectCatalog.projects.filter((project) => project.listing === "listed"),
+  );
   const selectedProjectRepositories = $derived(
     selectedProject === undefined
       ? []
@@ -556,7 +559,7 @@
   );
   const projectChannelCount = $derived(
     new Set(
-      projectCatalog.projects.flatMap((project) =>
+      listedProjects.flatMap((project) =>
         projectForgeBoundChannels(project, projectCatalog.repositories).map(
           (binding) => binding.channelId,
         ),
@@ -854,7 +857,7 @@
         : []),
     ],
     sections: withStarredCommunityNavigationSection([
-      ...(hasProjects && projectCatalog.projects.length > 0
+      ...(hasProjects && listedProjects.length > 0
         ? [
             {
               id: "projects",
@@ -877,7 +880,7 @@
                 },
               ],
               sortable: true,
-              items: projectCatalog.projects.map((project) => ({
+              items: listedProjects.map((project) => ({
                 id: projectDestinationFromCoordinate(
                   project.address.coordinate,
                 ),
@@ -5271,7 +5274,7 @@
             {@render projectRailStat(
               FolderKanbanIcon,
               "Projects",
-              projectCatalog.projects.length,
+              listedProjects.length,
             )}
             {@render projectRailStat(
               GitBranchIcon,
@@ -5282,7 +5285,7 @@
             {@render projectRailStat(
               FolderKanbanIcon,
               "Projects",
-              projectCatalog.projects.length,
+              listedProjects.length,
             )}
             {@render projectRailStat(
               GitBranchIcon,
@@ -5294,7 +5297,7 @@
             {@render projectRailStat(
               FolderKanbanIcon,
               "Projects",
-              projectCatalog.projects.length,
+              listedProjects.length,
             )}
             {@render projectRailStat(
               GitBranchIcon,
@@ -5735,7 +5738,9 @@
             : projectsOverviewSurface}
         projects={selectedRepositoryProject
           ? [selectedRepositoryProject]
-          : projectCatalog.projects}
+          : selectedProject
+            ? projectCatalog.projects
+            : listedProjects}
         {...selectedProject === undefined ? {} : { selectedProject }}
         {...selectedRepository === undefined ? {} : { selectedRepository }}
         repositories={selectedRepository

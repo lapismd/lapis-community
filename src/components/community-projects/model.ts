@@ -43,8 +43,6 @@ export interface CommunityProjectsCreateProject {
   identifier: string;
   description: string;
   channelId: string;
-  visibility: "public" | "private";
-  /** UI preference until project-list visibility receives signed persistence. */
   listing: "listed" | "unlisted";
 }
 
@@ -52,7 +50,7 @@ export interface CommunityProjectsUpdateProject {
   name: string;
   description: string;
   channelId: string;
-  visibility: "public" | "private";
+  listing: "listed" | "unlisted";
   /** Replaces direct project-channel attachments when provided. */
   relatedChannelIds?: readonly string[];
 }

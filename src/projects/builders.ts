@@ -15,14 +15,14 @@ export interface CreateProjectInput {
   name: string;
   description?: string;
   channelId: string;
-  visibility?: string;
+  listing?: "listed" | "unlisted";
 }
 
 export interface UpdateProjectInput {
   name: string;
   description?: string;
   channelId: string;
-  visibility?: string;
+  listing?: "listed" | "unlisted";
   /** Replaces direct project-channel attachments when provided. */
   relatedChannelIds?: readonly string[];
 }
@@ -69,7 +69,6 @@ export function createProjectTemplate(
   requiredText(input.name, "Project name", 256);
   requiredText(input.channelId, "Project channel", 256);
   optionalText(input.description, "Project description", 2_048);
-  optionalText(input.visibility, "Project visibility", 256);
   return {
     kind: PROJECT_FORGE_KINDS.project,
     created_at: createdAt,
@@ -79,7 +78,9 @@ export function createProjectTemplate(
       ["name", input.name],
       ...(input.description ? [["description", input.description]] : []),
       ["buzz-channel", input.channelId],
-      ...(input.visibility ? [["buzz-visibility", input.visibility]] : []),
+      ...(input.listing === "unlisted"
+        ? [["buzz-visibility", "unlisted"]]
+        : []),
     ],
   };
 }
@@ -98,7 +99,6 @@ export function updateProjectTemplate(
   requiredText(input.name, "Project name", 256);
   requiredText(input.channelId, "Project channel", 256);
   optionalText(input.description, "Project description", 2_048);
-  optionalText(input.visibility, "Project visibility", 256);
   const relatedChannelIds =
     input.relatedChannelIds === undefined
       ? undefined
@@ -128,7 +128,9 @@ export function updateProjectTemplate(
       ["name", input.name],
       ...(input.description ? [["description", input.description]] : []),
       ["buzz-channel", input.channelId],
-      ...(input.visibility ? [["buzz-visibility", input.visibility]] : []),
+      ...(input.listing === "unlisted"
+        ? [["buzz-visibility", "unlisted"]]
+        : []),
       ...(relatedChannelIds?.map((channelId) => [
         "buzz-related-channel",
         channelId,

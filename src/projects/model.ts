@@ -66,7 +66,8 @@ export interface ProjectForgeProject {
   description: string;
   channelId: string;
   relatedChannelIds: readonly string[];
-  visibility?: string;
+  /** Buzz listing intent. Absent and unknown tag values materialize as listed. */
+  listing: "listed" | "unlisted";
   repositories: readonly ProjectRepositoryReference[];
 }
 

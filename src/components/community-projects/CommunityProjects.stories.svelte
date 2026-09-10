@@ -357,8 +357,17 @@ index 3333333..4444444 100644
     });
     const name = within(dialog).getByRole("textbox", { name: "Name" });
     await expect(name).toHaveValue("Community Client");
+    await expect(
+      within(dialog).getByLabelText("Project visibility"),
+    ).toHaveTextContent("Public");
     await userEvent.clear(name);
     await userEvent.type(name, "Community Workspace");
+    await userEvent.click(
+      within(dialog).getByRole("button", { name: "Project list" }),
+    );
+    await userEvent.click(
+      await overlay.findByRole("option", { name: "Unlisted" }),
+    );
     await userEvent.click(
       within(dialog).getByRole("button", { name: "Save changes" }),
     );
@@ -366,7 +375,7 @@ index 3333333..4444444 100644
       name: "Community Workspace",
       description: "The shared Lapis community experience.",
       channelId: "general-projects",
-      visibility: "public",
+      listing: "unlisted",
     });
   }}
 />
@@ -561,7 +570,7 @@ index 3333333..4444444 100644
       name: "Community Client",
       description: "The shared Lapis community experience.",
       channelId: "general-projects",
-      visibility: "public",
+      listing: "listed",
       relatedChannelIds: [],
     });
   }}

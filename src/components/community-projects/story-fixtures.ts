@@ -297,6 +297,7 @@ export function createProjectStoryFixture(channelId = "general-projects") {
     description: "The shared Lapis community experience.",
     channelId,
     relatedChannelIds: [relatedChannelId],
+    listing: "listed" as const,
     repositories: [
       {
         coordinate: projectStoryRepositoryCoordinate,

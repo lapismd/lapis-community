@@ -294,7 +294,9 @@
     event.preventDefault();
     filesSidebarWidth = clampFilesSidebarWidth(nextWidth);
   }
-  let projectDraft = $state<CommunityProjectsCreateProject>({
+  let projectDraft = $state<
+    CommunityProjectsCreateProject & { visibility: "public" | "private" }
+  >({
     name: "",
     identifier: "",
     description: "",
@@ -485,15 +487,22 @@
     onSelectPath(firstPath);
   });
   const busy = $derived(operation !== "");
+  const listedProjects = $derived(
+    projects.filter((project) => project.listing === "listed"),
+  );
   const mineProjects = $derived(
     currentMemberId
-      ? projects.filter((project) => project.event.pubkey === currentMemberId)
+      ? listedProjects.filter(
+          (project) => project.event.pubkey === currentMemberId,
+        )
       : [],
   );
   const otherProjects = $derived(
     currentMemberId
-      ? projects.filter((project) => project.event.pubkey !== currentMemberId)
-      : projects,
+      ? listedProjects.filter(
+          (project) => project.event.pubkey !== currentMemberId,
+        )
+      : listedProjects,
   );
   const visibleRepositories = $derived(
     repositories.filter(
@@ -672,8 +681,8 @@
           identifier: project.address.identifier,
           description: project.description,
           channelId: project.channelId,
-          visibility: project.visibility === "private" ? "private" : "public",
-          listing: "listed",
+          visibility: "public",
+          listing: project.listing,
         }
       : {
           name: "",
@@ -689,6 +698,12 @@
         projectDraft.channelId = channel.groupId ?? channel.id;
         projectDraft.visibility = channel.private ? "private" : "public";
       }
+    } else {
+      const channel = availableProjectChannels.find(
+        (candidate) =>
+          (candidate.groupId ?? candidate.id) === projectDraft.channelId,
+      );
+      projectDraft.visibility = channel?.private ? "private" : "public";
     }
     projectDialogOpen = true;
   }
@@ -984,13 +999,16 @@
           name: projectDraft.name,
           description: projectDraft.description,
           channelId: projectDraft.channelId,
-          visibility: projectDraft.visibility,
+          listing: projectDraft.listing,
         };
         await onUpdateProject?.(projectDialogProject, update);
       } else {
         await onCreateProject?.({
-          ...projectDraft,
+          name: projectDraft.name,
           identifier: projectIdentifier(projectDraft.name),
+          description: projectDraft.description,
+          channelId: projectDraft.channelId,
+          listing: projectDraft.listing,
         });
       }
       projectDialogOpen = false;
@@ -1301,7 +1319,7 @@
         name: project.name,
         description: project.description,
         channelId: project.channelId,
-        visibility: project.visibility === "private" ? "private" : "public",
+        listing: project.listing,
         relatedChannelIds: project.relatedChannelIds.filter(
           (channelId) => channelId !== binding.channelId,
         ),
@@ -3891,26 +3909,14 @@
         </Field.Field>
 
         <div class="community-projects__project-options">
-          <div class="community-projects__project-option">
+          <div
+            class="community-projects__project-option"
+            aria-label="Project visibility"
+          >
             <span>Visibility</span>
-            <Select.Root
-              type="single"
-              value={projectDraft.visibility}
-              onValueChange={(value) => {
-                if (value === "public" || value === "private")
-                  projectDraft.visibility = value;
-              }}
-            >
-              <Select.Trigger aria-label="Project visibility">
-                {projectDraft.visibility === "private" ? "Private" : "Public"}
-              </Select.Trigger>
-              <Select.Content>
-                <Select.Item value="public" label="Public">Public</Select.Item>
-                <Select.Item value="private" label="Private"
-                  >Private</Select.Item
-                >
-              </Select.Content>
-            </Select.Root>
+            <span class="community-projects__project-option-choice">
+              {projectDraft.visibility === "private" ? "Private" : "Public"}
+            </span>
           </div>
 
           <button

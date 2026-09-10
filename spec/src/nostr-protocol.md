@@ -61,6 +61,11 @@ When a project owner removes a direct channel attachment, the kind `30621`
 replacement MUST replace the complete bounded `buzz-related-channel` set while
 preserving every other non-editable tag. Omitting that set from an ordinary
 settings update MUST preserve the existing related-channel tags.
+Project listing MUST use Buzz's `buzz-visibility` semantics: only `unlisted`
+is emitted, absent or unknown values materialize as `listed`, and returning a
+project to Listed MUST remove a prior `buzz-visibility` tag. Public/private
+access MUST remain derived from the authoritative NIP-29 home channel rather
+than being encoded in the project announcement.
 
 Task assignee edits under LC-NOSTR-021 MUST compare the projected assignee set
 with the command selection and publish explicit assignment and removal events

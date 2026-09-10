@@ -129,6 +129,11 @@ membership authority. Removing a directly attached project channel MUST remain
 an owner-authorized project replacement through that same mutation boundary;
 it MUST NOT delete the NIP-29 channel or silently detach a repository-owned
 channel association.
+The shared project model MUST distinguish signed listing intent from NIP-29
+access. Reducers normalize only the Buzz `unlisted` value, builders omit the
+tag for the default listed state, and presentation filters aggregate discovery
+without removing unlisted projects from the underlying catalog needed by exact
+routes and bound-channel context.
 
 The static registry remains a deterministic projection. It can be rebuilt from
 the event graph, configured trusted publisher and curator keys, and immutable

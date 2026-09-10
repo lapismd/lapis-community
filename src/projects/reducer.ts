@@ -379,9 +379,10 @@ export function projectFromEvent(
     description: firstTagValue(event, "description") || event.content,
     channelId,
     relatedChannelIds,
-    ...(firstTagValue(event, "buzz-visibility")
-      ? { visibility: firstTagValue(event, "buzz-visibility") }
-      : {}),
+    listing:
+      firstTagValue(event, "buzz-visibility") === "unlisted"
+        ? "unlisted"
+        : "listed",
     repositories,
   };
 }

@@ -117,6 +117,11 @@ replacement, while the required home channel and repository-derived channels
 MUST identify why removal is unavailable without deleting the channel itself.
 Repository rows MUST withhold provider actions until relay capabilities have
 resolved so that unsupported actions do not appear transiently during loading.
+Project visibility MUST be presented as read-only context inherited from the
+selected home channel. Project listing MUST be a separate Listed/Unlisted
+setting persisted through `buzz-visibility`; aggregate Projects surfaces and
+the left navigation MUST omit unlisted projects while an exact project route
+or bound-channel context remains able to open them.
 Project Activity author affordances MUST use the shared
 `CommunityMemberHoverCard`, open the author's profile when selected, and retain
 the available message and wave actions. Repository-creation activity MUST use

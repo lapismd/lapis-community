@@ -97,6 +97,25 @@ describe("project forge builders", () => {
     });
   });
 
+  it("persists only Buzz unlisted intent and leaves listed projects tagless", () => {
+    expect(
+      createProjectTemplate({
+        identifier: "hidden",
+        name: "Hidden",
+        channelId: "private-work",
+        listing: "unlisted",
+      }).tags,
+    ).toContainEqual(["buzz-visibility", "unlisted"]);
+    expect(
+      createProjectTemplate({
+        identifier: "listed",
+        name: "Listed",
+        channelId: "public-work",
+        listing: "listed",
+      }).tags.some((tag) => tag[0] === "buzz-visibility"),
+    ).toBe(false);
+  });
+
   it("creates a lazy task anchor and avoids a real repository collision", () => {
     const project = event("8", PROJECT_FORGE_KINDS.project, owner, 1, [
       ["d", "notes"],
@@ -138,7 +157,7 @@ describe("project forge builders", () => {
       ["name", "Notes"],
       ["description", "Old description"],
       ["buzz-channel", "notes-dev"],
-      ["buzz-visibility", "public"],
+      ["buzz-visibility", "unlisted"],
       ["buzz-related-channel", "notes-support"],
       ["x-extension", "preserve-me"],
     ]);
@@ -150,7 +169,7 @@ describe("project forge builders", () => {
           name: "Notes Desktop",
           description: "Updated description",
           channelId: "notes-private",
-          visibility: "private",
+          listing: "listed",
         },
         12,
       ),
@@ -165,7 +184,6 @@ describe("project forge builders", () => {
         ["name", "Notes Desktop"],
         ["description", "Updated description"],
         ["buzz-channel", "notes-private"],
-        ["buzz-visibility", "private"],
       ],
     });
   });
@@ -187,7 +205,7 @@ describe("project forge builders", () => {
           name: "Notes",
           description: "",
           channelId: "notes-dev",
-          visibility: "private",
+          listing: "unlisted",
           relatedChannelIds: ["notes-design"],
         },
         12,
@@ -197,7 +215,7 @@ describe("project forge builders", () => {
       ["x-extension", "preserve-me"],
       ["name", "Notes"],
       ["buzz-channel", "notes-dev"],
-      ["buzz-visibility", "private"],
+      ["buzz-visibility", "unlisted"],
       ["buzz-related-channel", "notes-design"],
     ]);
   });
@@ -278,6 +296,37 @@ describe("project forge builders", () => {
 });
 
 describe("project forge reducers", () => {
+  it("defaults absent and unknown listing values to listed", () => {
+    const listed = event("8", PROJECT_FORGE_KINDS.project, owner, 1, [
+      ["d", "listed"],
+      ["name", "Listed"],
+    ]);
+    const unknown = event("7", PROJECT_FORGE_KINDS.project, owner, 1, [
+      ["d", "unknown"],
+      ["name", "Unknown"],
+      ["buzz-visibility", "private"],
+    ]);
+    const unlisted = event("6", PROJECT_FORGE_KINDS.project, owner, 1, [
+      ["d", "unlisted"],
+      ["name", "Unlisted"],
+      ["buzz-visibility", "unlisted"],
+    ]);
+    const projects = materializeProjectForgeCatalog([
+      listed,
+      unknown,
+      unlisted,
+    ]).projects;
+    expect(
+      Object.fromEntries(
+        projects.map((project) => [project.name, project.listing]),
+      ),
+    ).toEqual({
+      Listed: "listed",
+      Unknown: "listed",
+      Unlisted: "unlisted",
+    });
+  });
+
   it("selects replaceable project events by newest timestamp and smallest same-second ID", () => {
     const older = event("c", PROJECT_FORGE_KINDS.project, owner, 1, [
       ["d", "notes"],
