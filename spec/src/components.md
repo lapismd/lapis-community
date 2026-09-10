@@ -40,6 +40,20 @@ directories in parallel.
 When projects use the active Community relay, their presentation MUST wait
 until relay and identity restoration settle and MUST resume after reconnect.
 
+For LC-UI-036, aggregate repository and task collections MUST split into
+collapsible Mine and Other groups. Mine repositories are authored by the
+connected member; Mine tasks are authored by or assigned to that member.
+Collapsed groups MUST retain their item count. Repository rows MUST expose a
+Buzz-aligned proportional activity bar with independently labelled commit,
+review, and task segments, and their relative time MUST reflect the newest
+activity represented by the row.
+
+Every member identity rendered by Projects directory cards, repository, task,
+review, and commit rows, task and review details, activity, or contributors
+MUST use the shared member hover card with profile, Message, and Wave actions.
+Overlapping compact task avatars MUST retain separate interactive triggers and
+a surface-coloured ring so every member remains visually distinct.
+
 For LC-UI-036, pull-request review comments MUST project visible NIP-25 kind
 `7` reactions into the existing `CommunityMessage` reaction bar, including
 aggregate counts and the connected author's selected state. Hovering a

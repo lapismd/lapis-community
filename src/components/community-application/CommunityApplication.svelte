@@ -1820,7 +1820,11 @@
           capabilities[repository.address.coordinate],
         ),
       );
-      if (!project && !requestedRepository && overviewSurface === "activity") {
+      if (
+        !project &&
+        !requestedRepository &&
+        (overviewSurface === "activity" || overviewSurface === "repositories")
+      ) {
         const activityCommits = await Promise.all(
           browsableRepositories.map(async (repository) => {
             const owner = catalog.projects.find((candidate) =>

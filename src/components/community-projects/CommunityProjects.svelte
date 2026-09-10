@@ -22,6 +22,7 @@
   import * as Select from "@lapismd/design-core/shadcn/select";
   import { Skeleton } from "@lapismd/design-core/shadcn/skeleton";
   import * as Tabs from "@lapismd/design-core/shadcn/tabs";
+  import * as Tooltip from "@lapismd/design-core/shadcn/tooltip";
   import * as ToggleGroup from "@lapismd/design-core/shadcn/toggle-group";
   import ArrowLeftIcon from "@lucide/svelte/icons/arrow-left";
   import CheckIcon from "@lucide/svelte/icons/check";
@@ -66,6 +67,7 @@
     projectForgeBoundChannels,
     type ProjectForgeProject,
     type ProjectForgeRepository,
+    type ProjectTaskState,
     type ProjectForgeGitHubConnection,
     type ProjectForgeGitHubRepository,
     type ProjectForgeRefsResponse,
@@ -73,7 +75,6 @@
   } from "../../projects/index.js";
   import CommunityChatComposer from "../community-chat-composer/CommunityChatComposer.svelte";
   import CommunityChip from "../community-chip/CommunityChip.svelte";
-  import CommunityMemberAvatar from "../community-member-avatar/CommunityMemberAvatar.svelte";
   import CommunityMemberHoverCard from "../community-member-hover-card/CommunityMemberHoverCard.svelte";
   import CommunityMarkdownContent from "../community-markdown-content/CommunityMarkdownContent.svelte";
   import CommunityMessage from "../community-message/CommunityMessage.svelte";
@@ -175,6 +176,10 @@
   let projectChannelCommandOpen = $state(false);
   let mineProjectsOpen = $state(true);
   let otherProjectsOpen = $state(true);
+  let mineRepositoriesOpen = $state(true);
+  let otherRepositoriesOpen = $state(true);
+  let mineTasksOpen = $state(true);
+  let otherTasksOpen = $state(true);
   let repositoryDialogOpen = $state(false);
   let repositoryCommandOpen = $state(false);
   let repositoryCommandStep = $state<"repository" | "project">("repository");
@@ -489,6 +494,51 @@
     currentMemberId
       ? projects.filter((project) => project.event.pubkey !== currentMemberId)
       : projects,
+  );
+  const visibleRepositories = $derived(
+    repositories.filter(
+      (repository) => repository.repositoryClass !== "task-anchor",
+    ),
+  );
+  const mineRepositories = $derived(
+    currentMemberId
+      ? visibleRepositories.filter(
+          (repository) => repository.event.pubkey === currentMemberId,
+        )
+      : [],
+  );
+  const otherRepositories = $derived(
+    currentMemberId
+      ? visibleRepositories.filter(
+          (repository) => repository.event.pubkey !== currentMemberId,
+        )
+      : visibleRepositories,
+  );
+  const scopedTasks = $derived(
+    selectedRepository
+      ? tasks.filter(
+          (task) =>
+            task.repository.coordinate ===
+            selectedRepository.address.coordinate,
+        )
+      : selectedProject
+        ? tasks.filter((task) =>
+            selectedProject.repositories.some(
+              (repository) =>
+                repository.coordinate === task.repository.coordinate,
+            ),
+          )
+        : tasks,
+  );
+  const mineTasks = $derived(
+    currentMemberId
+      ? scopedTasks.filter((task) => taskIsMine(task, currentMemberId))
+      : [],
+  );
+  const otherTasks = $derived(
+    currentMemberId
+      ? scopedTasks.filter((task) => !taskIsMine(task, currentMemberId))
+      : scopedTasks,
   );
   const visibleActivity = $derived(
     activity.filter((item) => {
@@ -1102,26 +1152,58 @@
       .length;
   }
 
-  function projectRepositoriesFor(project: (typeof projects)[number]) {
-    const coordinates = new Set(
-      project.repositories.map((repository) => repository.coordinate),
-    );
-    return repositories.filter((repository) =>
-      coordinates.has(repository.address.coordinate),
+  function repositoryReviewCount(coordinate: string): number {
+    return pullRequests.filter(
+      (pullRequest) => pullRequest.repository.coordinate === coordinate,
+    ).length;
+  }
+
+  function repositoryCommitCount(coordinate: string): number {
+    return new Set(
+      activity
+        .filter(
+          (item) =>
+            item.kind === "commit" && item.repositoryCoordinate === coordinate,
+        )
+        .map((item) => item.id),
+    ).size;
+  }
+
+  function repositoryActivitySummary(coordinate: string) {
+    const commits = repositoryCommitCount(coordinate);
+    const reviews = repositoryReviewCount(coordinate);
+    const taskCount = repositoryTaskCount(coordinate);
+    return {
+      commits,
+      reviews,
+      tasks: taskCount,
+      total: commits + reviews + taskCount,
+    };
+  }
+
+  function repositoryUpdatedAt(repository: ProjectForgeRepository): number {
+    const coordinate = repository.address.coordinate;
+    return Math.max(
+      repository.event.created_at,
+      ...tasks
+        .filter((task) => task.repository.coordinate === coordinate)
+        .map((task) => task.updatedAt),
+      ...pullRequests
+        .filter(
+          (pullRequest) => pullRequest.repository.coordinate === coordinate,
+        )
+        .map((pullRequest) => pullRequest.updatedAt),
+      ...activity
+        .filter(
+          (item) =>
+            item.kind === "commit" && item.repositoryCoordinate === coordinate,
+        )
+        .map((item) => item.createdAt),
     );
   }
 
-  function projectTasksFor(project: (typeof projects)[number]) {
-    const coordinates = new Set(
-      project.repositories.map((repository) => repository.coordinate),
-    );
-    return tasks.filter((task) => coordinates.has(task.repository.coordinate));
-  }
-
-  function repositoryTasksFor(repository: (typeof repositories)[number]) {
-    return tasks.filter(
-      (task) => task.repository.coordinate === repository.address.coordinate,
-    );
+  function taskIsMine(task: ProjectTaskState, memberId: string): boolean {
+    return task.root.pubkey === memberId || task.assignees.includes(memberId);
   }
 
   function projectPullRequestsFor(project: (typeof projects)[number]) {
@@ -1483,31 +1565,149 @@
   </span>
 {/snippet}
 
+{#snippet repositoryActivitySegment(
+  count: number,
+  singular: "commit" | "review" | "task",
+  className: string,
+  total: number,
+)}
+  {#if count > 0}
+    {@const label = `${count} ${singular}${count === 1 ? "" : "s"}`}
+    <Tooltip.Root>
+      <Tooltip.Trigger>
+        {#snippet child({ props })}
+          <span
+            {...props}
+            class={`community-projects__repository-activity-segment ${className}`}
+            style:width={`${(count / total) * 100}%`}
+            role="img"
+            aria-label={label}
+          ></span>
+        {/snippet}
+      </Tooltip.Trigger>
+      <Tooltip.Content side="top" sideOffset={6}>
+        <span class="community-projects__repository-activity-tooltip">
+          <span class={className}></span>
+          {label}
+        </span>
+      </Tooltip.Content>
+    </Tooltip.Root>
+  {/if}
+{/snippet}
+
+{#snippet repositoryActivityBar(repository: ProjectForgeRepository)}
+  {@const summary = repositoryActivitySummary(repository.address.coordinate)}
+  <Tooltip.Provider delayDuration={0}>
+    <span
+      class="community-projects__repository-activity"
+      role="group"
+      aria-label={`${summary.commits} commits, ${summary.reviews} reviews, ${summary.tasks} tasks`}
+    >
+      {@render repositoryActivitySegment(
+        summary.commits,
+        "commit",
+        "community-projects__repository-activity-segment--commits",
+        summary.total,
+      )}
+      {@render repositoryActivitySegment(
+        summary.reviews,
+        "review",
+        "community-projects__repository-activity-segment--reviews",
+        summary.total,
+      )}
+      {@render repositoryActivitySegment(
+        summary.tasks,
+        "task",
+        "community-projects__repository-activity-segment--tasks",
+        summary.total,
+      )}
+    </span>
+  </Tooltip.Provider>
+{/snippet}
+
+{#snippet memberHoverAvatar(
+  member: CommunityMemberModel,
+  avatarSize: "xsmall" | "small" | "medium" = "xsmall",
+)}
+  <CommunityMemberHoverCard
+    {member}
+    {avatarSize}
+    {...onOpenProfile === undefined ? {} : { onOpenProfile }}
+    {...onMessageMember === undefined ? {} : { onMessage: onMessageMember }}
+    {...onWaveMember === undefined ? {} : { onWave: onWaveMember }}
+  />
+{/snippet}
+
+{#snippet repositoryListRow(repository: ProjectForgeRepository)}
+  <article class="community-projects__row community-projects__repository-row">
+    {#if repositoryCapabilities[repository.address.coordinate]?.content_backend === "github" && repository.webUrls[0]}
+      <a
+        class="community-projects__row-icon community-projects__repository-provider-link"
+        aria-label={`Open ${repository.name} on GitHub`}
+        title="Open repository on GitHub"
+        href={repository.webUrls[0]}
+        target="_blank"
+        rel="noreferrer"
+      >
+        <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+          <path
+            d="M12 .3a12 12 0 0 0-3.8 23.4c.6.1.8-.3.8-.6v-2.3c-3.3.7-4-1.4-4-1.4-.5-1.4-1.3-1.8-1.3-1.8-1.1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1.1 1.8 2.8 1.3 3.4 1 .1-.8.4-1.3.8-1.6-2.7-.3-5.5-1.3-5.5-5.9 0-1.3.5-2.4 1.2-3.2-.1-.3-.5-1.5.1-3.2 0 0 1-.3 3.3 1.2a11.4 11.4 0 0 1 6 0c2.3-1.5 3.3-1.2 3.3-1.2.6 1.7.2 2.9.1 3.2.8.8 1.2 1.9 1.2 3.2 0 4.6-2.8 5.6-5.5 5.9.4.4.8 1.1.8 2.2v3.3c0 .3.2.7.8.6A12 12 0 0 0 12 .3Z"
+          />
+        </svg>
+      </a>
+    {:else}
+      <span class="community-projects__row-icon"
+        ><GitBranchIcon aria-hidden="true" /></span
+      >
+    {/if}
+    <button
+      type="button"
+      class="community-projects__row-main community-projects__repository-target"
+      onclick={() => onSelectRepository?.(repository)}
+    >
+      <span
+        ><strong>{repository.name}</strong>
+        {repository.description || repository.address.identifier}</span
+      >
+    </button>
+    <div class="community-projects__row-meta">
+      {@render memberHoverAvatar(activityMember(repository.event.pubkey))}
+      {@render repositoryActivityBar(repository)}
+      <CommunityRelativeTime timestamp={repositoryUpdatedAt(repository)} />
+      {#if repository.webUrls[0] && repositoryCapabilities[repository.address.coordinate] !== undefined && repositoryCapabilities[repository.address.coordinate]?.content_backend !== "github"}
+        <a
+          aria-label={`Open ${repository.name}`}
+          title="Open repository"
+          href={repository.webUrls[0]}
+          target="_blank"
+          rel="noreferrer"
+        >
+          <ExternalLinkIcon aria-hidden="true" />
+        </a>
+      {/if}
+    </div>
+  </article>
+{/snippet}
+
 {#snippet taskListRow(task: (typeof tasks)[number])}
-  <button
-    type="button"
-    class="community-projects__task-row"
-    onclick={() => onSelectTask?.(task)}
-  >
+  <article class="community-projects__task-row">
+    <button
+      type="button"
+      class="community-projects__task-row-target"
+      aria-label={`Open task ${task.title}`}
+      onclick={() => onSelectTask?.(task)}
+    ></button>
     {@render taskStatusIcon(task.lifecycle)}
     <strong>{task.title}</strong>
     <span class="community-projects__task-repository">
       {taskRepositoryName(task)}
     </span>
     <span class="community-projects__task-row-assignees">
-      <CommunityMemberAvatar
-        member={memberForPubkey(task.root.pubkey)}
-        size="xsmall"
-        decorative
-      />
+      {@render memberHoverAvatar(memberForPubkey(task.root.pubkey))}
       {#each task.assignees
         .filter((assignee) => assignee !== task.root.pubkey)
         .slice(0, 1) as assignee (assignee)}
-        <CommunityMemberAvatar
-          member={memberForPubkey(assignee)}
-          size="xsmall"
-          decorative
-        />
+        {@render memberHoverAvatar(memberForPubkey(assignee))}
       {/each}
     </span>
     <span class="community-projects__task-comments">
@@ -1515,7 +1715,7 @@
       {taskComments(task).length}
     </span>
     <CommunityRelativeTime timestamp={task.updatedAt} />
-  </button>
+  </article>
 {/snippet}
 
 {#snippet channelListRow(binding: (typeof projectChannels)[number])}
@@ -1592,11 +1792,13 @@
 {/snippet}
 
 {#snippet projectDirectoryCard(project: (typeof projects)[number])}
-  <button
-    type="button"
-    class="community-projects__card"
-    onclick={() => onSelectProject?.(project)}
-  >
+  <article class="community-projects__card">
+    <button
+      type="button"
+      class="community-projects__card-target"
+      aria-label={`Open project ${project.name}`}
+      onclick={() => onSelectProject?.(project)}
+    ></button>
     <span class="community-projects__card-icon"
       ><FolderKanbanIcon aria-hidden="true" /></span
     >
@@ -1610,14 +1812,10 @@
       <span class="community-projects__row-count"
         ><GitBranchIcon aria-hidden="true" />{project.repositories.length}</span
       >
-      <CommunityMemberAvatar
-        member={activityMember(project.event.pubkey)}
-        size="xsmall"
-        decorative
-      />
+      {@render memberHoverAvatar(activityMember(project.event.pubkey))}
       <CommunityRelativeTime timestamp={project.event.created_at} />
     </span>
-  </button>
+  </article>
 {/snippet}
 
 {#snippet layoutControls()}
@@ -1897,16 +2095,7 @@
             {#each visibleActivity as item (item.id)}
               {@const actor = activityMember(item.actorPubkey)}
               <article class="community-projects__activity-item">
-                <CommunityMemberHoverCard
-                  member={actor}
-                  {...onOpenProfile === undefined ? {} : { onOpenProfile }}
-                  {...onMessageMember === undefined
-                    ? {}
-                    : { onMessage: onMessageMember }}
-                  {...onWaveMember === undefined
-                    ? {}
-                    : { onWave: onWaveMember }}
-                />
+                {@render memberHoverAvatar(actor, "medium")}
                 <span
                   class="community-projects__activity-line"
                   aria-hidden="true"
@@ -2008,6 +2197,11 @@
               >
                 <FolderKanbanIcon aria-hidden="true" />
                 <strong>Mine</strong>
+                {#if !mineProjectsOpen}
+                  <span class="community-projects__list-group-count"
+                    >{mineProjects.length}</span
+                  >
+                {/if}
                 {#if mineProjectsOpen}
                   <ChevronDownIcon
                     class="community-projects__list-group-chevron"
@@ -2039,6 +2233,11 @@
               >
                 <FolderKanbanIcon aria-hidden="true" />
                 <strong>Other projects</strong>
+                {#if !otherProjectsOpen}
+                  <span class="community-projects__list-group-count"
+                    >{otherProjects.length}</span
+                  >
+                {/if}
                 {#if otherProjectsOpen}
                   <ChevronDownIcon
                     class="community-projects__list-group-chevron"
@@ -2135,87 +2334,92 @@
           "Repositories",
           "Relay-hosted repositories and external repository announcements.",
         )}
-        <div class="community-projects__list-group-heading">
-          <FolderKanbanIcon aria-hidden="true" />
-          <strong>{selectedProject?.name ?? "Other repositories"}</strong>
-        </div>
-        <div class="community-projects__list" data-layout={listLayout}>
-          {#each repositories as repository (repository.address.coordinate)}
-            <article class="community-projects__row">
-              {#if repositoryCapabilities[repository.address.coordinate]?.content_backend === "github" && repository.webUrls[0]}
-                <a
-                  class="community-projects__row-icon community-projects__repository-provider-link"
-                  aria-label={`Open ${repository.name} on GitHub`}
-                  title="Open repository on GitHub"
-                  href={repository.webUrls[0]}
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  <svg
-                    viewBox="0 0 24 24"
-                    fill="currentColor"
-                    aria-hidden="true"
-                  >
-                    <path
-                      d="M12 .3a12 12 0 0 0-3.8 23.4c.6.1.8-.3.8-.6v-2.3c-3.3.7-4-1.4-4-1.4-.5-1.4-1.3-1.8-1.3-1.8-1.1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1.1 1.8 2.8 1.3 3.4 1 .1-.8.4-1.3.8-1.6-2.7-.3-5.5-1.3-5.5-5.9 0-1.3.5-2.4 1.2-3.2-.1-.3-.5-1.5.1-3.2 0 0 1-.3 3.3 1.2a11.4 11.4 0 0 1 6 0c2.3-1.5 3.3-1.2 3.3-1.2.6 1.7.2 2.9.1 3.2.8.8 1.2 1.9 1.2 3.2 0 4.6-2.8 5.6-5.5 5.9.4.4.8 1.1.8 2.2v3.3c0 .3.2.7.8.6A12 12 0 0 0 12 .3Z"
-                    />
-                  </svg>
-                </a>
-              {:else}
-                <span class="community-projects__row-icon"
-                  ><GitBranchIcon aria-hidden="true" /></span
-                >
-              {/if}
-              <button
-                type="button"
-                class="community-projects__row-main community-projects__repository-target"
-                onclick={() => onSelectRepository?.(repository)}
+        {#if mineRepositories.length > 0 || otherRepositories.length > 0}
+          <div class="community-projects__collection-groups">
+            {#if mineRepositories.length > 0}
+              <Collapsible.Root
+                class="community-projects__collection-group"
+                bind:open={mineRepositoriesOpen}
               >
-                <span
-                  ><strong>{repository.name}</strong>
-                  {repository.description ||
-                    repository.address.identifier}</span
+                <Collapsible.Trigger
+                  class="community-projects__list-group-heading"
                 >
-              </button>
-              <div class="community-projects__row-meta">
-                <CommunityMemberAvatar
-                  member={activityMember(repository.event.pubkey)}
-                  size="xsmall"
-                  decorative
-                />
-                <span class="community-projects__row-count"
-                  ><CircleIcon aria-hidden="true" />{repositoryTaskCount(
-                    repository.address.coordinate,
-                  )}</span
+                  <FolderGit2Icon aria-hidden="true" />
+                  <strong>Mine</strong>
+                  {#if !mineRepositoriesOpen}
+                    <span class="community-projects__list-group-count"
+                      >{mineRepositories.length}</span
+                    >
+                  {/if}
+                  {#if mineRepositoriesOpen}
+                    <ChevronDownIcon
+                      class="community-projects__list-group-chevron"
+                      aria-hidden="true"
+                    />
+                  {:else}
+                    <ChevronRightIcon
+                      class="community-projects__list-group-chevron"
+                      aria-hidden="true"
+                    />
+                  {/if}
+                </Collapsible.Trigger>
+                <Collapsible.Content>
+                  <div
+                    class="community-projects__list"
+                    data-layout={listLayout}
+                  >
+                    {#each mineRepositories as repository (repository.address.coordinate)}
+                      {@render repositoryListRow(repository)}
+                    {/each}
+                  </div>
+                </Collapsible.Content>
+              </Collapsible.Root>
+            {/if}
+            {#if otherRepositories.length > 0}
+              <Collapsible.Root
+                class="community-projects__collection-group"
+                bind:open={otherRepositoriesOpen}
+              >
+                <Collapsible.Trigger
+                  class="community-projects__list-group-heading"
                 >
-                {#if repositoryTaskCount(repository.address.coordinate) > 0}
-                  <span
-                    class="community-projects__repository-activity"
-                    aria-hidden="true"><span></span></span
+                  <FolderGit2Icon aria-hidden="true" />
+                  <strong>Other repositories</strong>
+                  {#if !otherRepositoriesOpen}
+                    <span class="community-projects__list-group-count"
+                      >{otherRepositories.length}</span
+                    >
+                  {/if}
+                  {#if otherRepositoriesOpen}
+                    <ChevronDownIcon
+                      class="community-projects__list-group-chevron"
+                      aria-hidden="true"
+                    />
+                  {:else}
+                    <ChevronRightIcon
+                      class="community-projects__list-group-chevron"
+                      aria-hidden="true"
+                    />
+                  {/if}
+                </Collapsible.Trigger>
+                <Collapsible.Content>
+                  <div
+                    class="community-projects__list"
+                    data-layout={listLayout}
                   >
-                {/if}
-                <CommunityRelativeTime
-                  timestamp={repository.event.created_at}
-                />
-                {#if repository.webUrls[0] && repositoryCapabilities[repository.address.coordinate] !== undefined && repositoryCapabilities[repository.address.coordinate]?.content_backend !== "github"}
-                  <a
-                    aria-label={`Open ${repository.name}`}
-                    title="Open repository"
-                    href={repository.webUrls[0]}
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    <ExternalLinkIcon aria-hidden="true" />
-                  </a>
-                {/if}
-              </div>
-            </article>
-          {:else}
-            <p class="community-projects__status">
-              No repositories are attached.
-            </p>
-          {/each}
-        </div>
+                    {#each otherRepositories as repository (repository.address.coordinate)}
+                      {@render repositoryListRow(repository)}
+                    {/each}
+                  </div>
+                </Collapsible.Content>
+              </Collapsible.Root>
+            {/if}
+          </div>
+        {:else}
+          <p class="community-projects__status">
+            No repositories are attached.
+          </p>
+        {/if}
       {:else if view === "channels"}
         {@render surfaceHeader(
           "Channels",
@@ -2306,11 +2510,10 @@
                 <dt><UserIcon aria-hidden="true" /> Assignees</dt>
                 <dd class="community-projects__task-assignees">
                   {#each selectedTask.assignees as assignee (assignee)}
-                    <CommunityMemberAvatar
-                      member={memberForPubkey(assignee)}
-                      size="small"
-                      decorative
-                    />
+                    {@render memberHoverAvatar(
+                      memberForPubkey(assignee),
+                      "small",
+                    )}
                   {/each}
                   {#if currentMemberId}
                     <Button
@@ -2453,56 +2656,96 @@
           </article>
         {:else}
           {@render surfaceHeader("Tasks", "Project tasks")}
-          <div class="community-projects__task-list" data-layout={listLayout}>
-            {#if selectedRepository}
-              <div
-                class="community-projects__list-group-heading community-projects__list-group-heading--inset"
-              >
-                <GitBranchIcon aria-hidden="true" />
-                <strong>{selectedRepository.name}</strong>
-              </div>
-              {#each repositoryTasksFor(selectedRepository) as task (task.root.id)}
-                {@render taskListRow(task)}
-              {:else}
-                <p class="community-projects__status">
-                  No tasks in this repository.
-                </p>
-              {/each}
-            {:else if selectedProject}
-              <div
-                class="community-projects__list-group-heading community-projects__list-group-heading--inset"
-              >
-                <FolderKanbanIcon aria-hidden="true" />
-                <strong>{selectedProject.name}</strong>
-              </div>
-              {#each projectTasksFor(selectedProject) as task (task.root.id)}
-                {@render taskListRow(task)}
-              {:else}
-                <p class="community-projects__status">
-                  No tasks in this project.
-                </p>
-              {/each}
-            {:else}
-              {#each projects as project (project.address.coordinate)}
-                {@const projectTasks = projectTasksFor(project)}
-                {#if projectTasks.length > 0}
-                  <div
-                    class="community-projects__list-group-heading community-projects__list-group-heading--inset"
+          {#if mineTasks.length > 0 || otherTasks.length > 0}
+            <div class="community-projects__collection-groups">
+              {#if mineTasks.length > 0}
+                <Collapsible.Root
+                  class="community-projects__collection-group"
+                  bind:open={mineTasksOpen}
+                >
+                  <Collapsible.Trigger
+                    class="community-projects__list-group-heading"
                   >
-                    <FolderKanbanIcon aria-hidden="true" />
-                    <strong>{project.name}</strong>
-                  </div>
-                  {#each projectTasks as task (task.root.id)}
-                    {@render taskListRow(task)}
-                  {/each}
-                {/if}
-              {:else}
-                <p class="community-projects__status">
-                  No tasks in this project.
-                </p>
-              {/each}
-            {/if}
-          </div>
+                    <ListTodoIcon aria-hidden="true" />
+                    <strong>Mine</strong>
+                    {#if !mineTasksOpen}
+                      <span class="community-projects__list-group-count"
+                        >{mineTasks.length}</span
+                      >
+                    {/if}
+                    {#if mineTasksOpen}
+                      <ChevronDownIcon
+                        class="community-projects__list-group-chevron"
+                        aria-hidden="true"
+                      />
+                    {:else}
+                      <ChevronRightIcon
+                        class="community-projects__list-group-chevron"
+                        aria-hidden="true"
+                      />
+                    {/if}
+                  </Collapsible.Trigger>
+                  <Collapsible.Content>
+                    <div
+                      class="community-projects__task-list"
+                      data-layout={listLayout}
+                    >
+                      {#each mineTasks as task (task.root.id)}
+                        {@render taskListRow(task)}
+                      {/each}
+                    </div>
+                  </Collapsible.Content>
+                </Collapsible.Root>
+              {/if}
+              {#if otherTasks.length > 0}
+                <Collapsible.Root
+                  class="community-projects__collection-group"
+                  bind:open={otherTasksOpen}
+                >
+                  <Collapsible.Trigger
+                    class="community-projects__list-group-heading"
+                  >
+                    <ListTodoIcon aria-hidden="true" />
+                    <strong>Other tasks</strong>
+                    {#if !otherTasksOpen}
+                      <span class="community-projects__list-group-count"
+                        >{otherTasks.length}</span
+                      >
+                    {/if}
+                    {#if otherTasksOpen}
+                      <ChevronDownIcon
+                        class="community-projects__list-group-chevron"
+                        aria-hidden="true"
+                      />
+                    {:else}
+                      <ChevronRightIcon
+                        class="community-projects__list-group-chevron"
+                        aria-hidden="true"
+                      />
+                    {/if}
+                  </Collapsible.Trigger>
+                  <Collapsible.Content>
+                    <div
+                      class="community-projects__task-list"
+                      data-layout={listLayout}
+                    >
+                      {#each otherTasks as task (task.root.id)}
+                        {@render taskListRow(task)}
+                      {/each}
+                    </div>
+                  </Collapsible.Content>
+                </Collapsible.Root>
+              {/if}
+            </div>
+          {:else}
+            <p class="community-projects__status">
+              {selectedRepository
+                ? "No tasks in this repository."
+                : selectedProject
+                  ? "No tasks in this project."
+                  : "No project tasks are available."}
+            </p>
+          {/if}
         {/if}
       {:else if view === "reviews"}
         {#if selectedPullRequest}
@@ -2592,11 +2835,7 @@
                 <dd class="community-projects__review-reviewers">
                   {#each selectedPullRequest.reviewers as reviewer (reviewer)}
                     {@const reviewerMember = memberForPubkey(reviewer)}
-                    <CommunityMemberAvatar
-                      member={reviewerMember}
-                      size="xsmall"
-                      decorative
-                    />
+                    {@render memberHoverAvatar(reviewerMember)}
                     <span>{reviewerMember.name}</span>
                   {:else}
                     <span class="community-projects__muted">No reviewers</span>
@@ -3165,11 +3404,7 @@
                             <MessageSquareIcon aria-hidden="true" />
                             {pullRequest.comments.length}
                           </span>
-                          <CommunityMemberAvatar
-                            member={author}
-                            size="xsmall"
-                            decorative
-                          />
+                          {@render memberHoverAvatar(author)}
                           <CommunityRelativeTime
                             timestamp={pullRequest.updatedAt}
                           />
@@ -3377,11 +3612,7 @@
                       class="community-projects__commit-row-author"
                       title={`Committed by ${author.name}`}
                     >
-                      <CommunityMemberAvatar
-                        member={author}
-                        size="xsmall"
-                        decorative
-                      />
+                      {@render memberHoverAvatar(author)}
                     </span>
                     <Button
                       type="button"
@@ -3595,16 +3826,7 @@
                 ></button>
               {/if}
               <span class="community-projects__person-avatar">
-                <CommunityMemberHoverCard
-                  {member}
-                  {...onOpenProfile === undefined ? {} : { onOpenProfile }}
-                  {...onMessageMember === undefined
-                    ? {}
-                    : { onMessage: onMessageMember }}
-                  {...onWaveMember === undefined
-                    ? {}
-                    : { onWave: onWaveMember }}
-                />
+                {@render memberHoverAvatar(member, "medium")}
               </span>
               <div class="community-projects__person-copy">
                 <strong>{member.name}</strong><span>{member.handle}</span>

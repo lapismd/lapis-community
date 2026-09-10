@@ -413,6 +413,23 @@
     await expect(
       await canvas.findByRole("button", { name: "Community Client" }),
     ).toBeVisible();
+    const repositoriesTab = canvas.getByRole("tab", { name: "Repositories" });
+    await waitFor(
+      () =>
+        expect(getComputedStyle(repositoriesTab).pointerEvents).not.toBe(
+          "none",
+        ),
+      { timeout: 15_000 },
+    );
+    await userEvent.click(repositoriesTab);
+    await expect(
+      await canvas.findByRole("button", {
+        name: /^(Mine|Other repositories)$/u,
+      }),
+    ).toHaveAttribute("aria-expanded", "true");
+    await expect(
+      await canvas.findByRole("img", { name: "1 commit" }),
+    ).toBeVisible();
     const reviewsTab = canvas.getByRole("tab", { name: "Reviews" });
     await waitFor(
       () => expect(getComputedStyle(reviewsTab).pointerEvents).not.toBe("none"),

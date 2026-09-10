@@ -52,6 +52,67 @@
       },
     },
   };
+  const mineRepositoryCoordinate = `30617:${projectStoryAuthor}:community-tools`;
+  const mineRepository = {
+    ...fixture.repository,
+    event: {
+      ...fixture.repository.event,
+      id: "8".repeat(64),
+      pubkey: projectStoryAuthor,
+      created_at: 1_700_000_015,
+    },
+    address: {
+      kind: 30_617,
+      owner: projectStoryAuthor,
+      identifier: "community-tools",
+      coordinate: mineRepositoryCoordinate,
+    },
+    name: "community-tools",
+    description: "Contributor-owned project utilities.",
+  };
+  const otherTask = {
+    ...fixture.workItems.tasks[0],
+    root: {
+      ...fixture.workItems.tasks[0]!.root,
+      id: "9".repeat(64),
+      pubkey: projectStoryOwner,
+      created_at: 1_700_000_025,
+    },
+    title: "Document the hosted repository flow",
+    content: "Keep the repository onboarding path concise.",
+    assignees: [projectStoryOwner],
+    activity: [],
+    createdAt: 1_700_000_025,
+    updatedAt: 1_700_000_025,
+  };
+  const groupedTask = {
+    ...fixture.workItems.tasks[0]!,
+    assignees: [projectStoryAuthor, projectStoryOwner],
+  };
+  const repositoryActivity = [
+    {
+      id: "commit:community-client:1",
+      kind: "commit" as const,
+      createdAt: 1_700_000_050,
+      actorPubkey: projectStoryAuthor,
+      action: "pushed a commit to",
+      title: "Align repository groups",
+      body: "",
+      projectCoordinate: fixture.project.address.coordinate,
+      repositoryCoordinate: projectStoryRepositoryCoordinate,
+    },
+    {
+      id: "commit:community-client:2",
+      kind: "commit" as const,
+      createdAt: 1_700_000_060,
+      actorPubkey: projectStoryAuthor,
+      action: "pushed a commit to",
+      title: "Segment repository activity",
+      body: "",
+      projectCoordinate: fixture.project.address.coordinate,
+      repositoryCoordinate: projectStoryRepositoryCoordinate,
+    },
+  ];
   const onSelectProject = fn();
   const onSelectChannel = fn();
   const onSelectView = fn();
@@ -173,6 +234,9 @@ index 3333333..4444444 100644
       members: fixture.members,
       currentMemberId: projectStoryAuthor,
       canCollaborate: true,
+      onOpenProfile,
+      onMessageMember,
+      onWaveMember,
     },
   });
 </script>
@@ -198,8 +262,7 @@ index 3333333..4444444 100644
       name: "View Maya Chen's profile",
     })[0]!;
     await expect(actorAvatar).toHaveAttribute("aria-haspopup", "dialog");
-    await userEvent.click(actorAvatar);
-    await userEvent.unhover(actorAvatar);
+    actorAvatar.click();
     await expect(onOpenProfile).toHaveBeenCalledWith(fixture.members[0]);
     const repositoryActivity = canvas.getByRole("button", {
       name: /^community-client Hosted browser and desktop client\./u,
@@ -312,8 +375,11 @@ index 3333333..4444444 100644
   name="GitHub repository link"
   args={{
     view: "repositories",
-    repositories: [githubRepository],
+    repositories: [mineRepository, githubRepository],
     repositoryCapabilities: githubRepositoryCapabilities,
+    tasks: [fixture.workItems.tasks[0], otherTask],
+    pullRequests: fixture.workItems.pullRequests,
+    activity: repositoryActivity,
   }}
   play={async ({ canvas }) => {
     const link = canvas.getByRole("link", {
@@ -324,6 +390,25 @@ index 3333333..4444444 100644
       "href",
       "https://github.com/lapismd/community-client",
     );
+    await expect(canvas.getByRole("button", { name: "Mine" })).toHaveAttribute(
+      "aria-expanded",
+      "true",
+    );
+    await expect(
+      canvas.getByRole("button", { name: "Other repositories" }),
+    ).toHaveAttribute("aria-expanded", "true");
+    await expect(canvas.getByRole("img", { name: "2 commits" })).toBeVisible();
+    await expect(canvas.getByRole("img", { name: "1 review" })).toBeVisible();
+    await expect(canvas.getByRole("img", { name: "2 tasks" })).toBeVisible();
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Other repositories" }),
+    );
+    await waitFor(async () => {
+      await expect(link).not.toBeVisible();
+    });
+    await expect(
+      canvas.getByRole("button", { name: "Other repositories 1" }),
+    ).toHaveAttribute("aria-expanded", "false");
   }}
 />
 
@@ -365,15 +450,48 @@ index 3333333..4444444 100644
 
 <Story
   name="Tasks"
-  args={{ view: "tasks", onSelectTask }}
+  args={{
+    view: "tasks",
+    tasks: [groupedTask, otherTask],
+    onSelectTask,
+  }}
   play={async ({ canvas }) => {
     await expect(
       canvas.getByText("Polish the project overview rail"),
     ).toBeVisible();
-    await userEvent.click(
-      canvas.getByRole("button", { name: /Polish the project overview rail/ }),
+    await expect(canvas.getByRole("button", { name: "Mine" })).toHaveAttribute(
+      "aria-expanded",
+      "true",
     );
-    await expect(onSelectTask).toHaveBeenCalledWith(fixture.workItems.tasks[0]);
+    await expect(
+      canvas.getByRole("button", { name: "Other tasks" }),
+    ).toHaveAttribute("aria-expanded", "true");
+    const noorAvatar = canvas.getByRole("button", {
+      name: "View Noor Patel's profile",
+    });
+    const mayaAvatar = canvas.getAllByRole("button", {
+      name: "View Maya Chen's profile",
+    })[0]!;
+    await expect(noorAvatar).toHaveAttribute("aria-haspopup", "dialog");
+    await expect(mayaAvatar).toHaveAttribute("aria-haspopup", "dialog");
+    await expect(
+      getComputedStyle(noorAvatar.querySelector('[data-ui-part="image"]')!)
+        .boxShadow,
+    ).not.toBe("none");
+    mayaAvatar.click();
+    await expect(onOpenProfile).toHaveBeenCalledWith(fixture.members[0]);
+    await userEvent.click(canvas.getByRole("button", { name: "Other tasks" }));
+    await waitFor(async () => {
+      await expect(
+        canvas.getByText("Document the hosted repository flow"),
+      ).not.toBeVisible();
+    });
+    await userEvent.click(
+      canvas.getByRole("button", {
+        name: "Open task Polish the project overview rail",
+      }),
+    );
+    await expect(onSelectTask).toHaveBeenCalledWith(groupedTask);
   }}
 />
 
