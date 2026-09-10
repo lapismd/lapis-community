@@ -87,6 +87,7 @@
     type ProjectReviewViewedFilesScope,
     type PullRequestState,
     type PullRequestComment,
+    type PullRequestLifecycleEvent,
     type PullRequestReviewKind,
   } from "../../projects/index.js";
   import CommunityChatComposer from "../community-chat-composer/CommunityChatComposer.svelte";
@@ -116,6 +117,25 @@
   } from "./repository-browser.js";
   import "../community-confirm-dialog.css";
   import "./CommunityProjects.css";
+
+  type ReviewTimelineEntry =
+    | { kind: "opened"; event: PullRequestState["root"] }
+    | {
+        kind: "lifecycle";
+        event: PullRequestLifecycleEvent["event"];
+        lifecycle: PullRequestLifecycleEvent["lifecycle"];
+        mergeCommit: string;
+      }
+    | {
+        kind: "review-request";
+        event: PullRequestComment["event"];
+        comment: PullRequestComment;
+      }
+    | {
+        kind: "comment";
+        event: PullRequestComment["event"];
+        comment: PullRequestComment;
+      };
 
   let {
     view,
@@ -659,6 +679,32 @@
     { lifecycle: "merged", label: "Merged" },
     { lifecycle: "closed", label: "Closed" },
   ] as const;
+  const reviewTimeline: readonly ReviewTimelineEntry[] = $derived.by(() => {
+    if (!selectedPullRequest) return [];
+    const entries: ReviewTimelineEntry[] = [
+      { kind: "opened", event: selectedPullRequest.root },
+      ...selectedPullRequest.lifecycleEvents.map((entry) => ({
+        kind: "lifecycle" as const,
+        event: entry.event,
+        lifecycle: entry.lifecycle,
+        mergeCommit: entry.mergeCommit,
+      })),
+      ...selectedPullRequest.comments
+        .filter(conversationComment)
+        .map((comment) => ({
+          kind: comment.isReviewRequest
+            ? ("review-request" as const)
+            : ("comment" as const),
+          event: comment.event,
+          comment,
+        })),
+    ];
+    return entries.toSorted(
+      (left, right) =>
+        left.event.created_at - right.event.created_at ||
+        left.event.id.localeCompare(right.event.id),
+    );
+  });
   const projectChannels = $derived(
     selectedProject
       ? projectForgeBoundChannels(selectedProject, repositories).map(
@@ -1716,6 +1762,7 @@
 
   function updateSelectedPullRequestLifecycle(): void {
     if (!selectedPullRequest || !onUpdatePullRequestLifecycle) return;
+    if (selectedPullRequest.lifecycle === "merged") return;
     if (selectedPullRequest.lifecycle === "closed") {
       void onUpdatePullRequestLifecycle(selectedPullRequest, "open");
       return;
@@ -1764,8 +1811,50 @@
     return !comment.isInlineComment || comment.inlineStatus !== "current";
   }
 
+  function eventTagValue(
+    event: PullRequestState["root"],
+    name: string,
+  ): string {
+    return event.tags.find((tag) => tag[0] === name)?.[1]?.trim() ?? "";
+  }
+
+  function reviewTimelineActor(event: PullRequestState["root"]): string {
+    const external = eventTagValue(event, "external-author");
+    if (external) return `@${external}`;
+    if (eventTagValue(event, "external-provider") === "github") return "GitHub";
+    return memberForPubkey(event.pubkey).name;
+  }
+
+  function reviewRequestTarget(comment: PullRequestComment): string {
+    const external = eventTagValue(comment.event, "external-reviewer");
+    if (external) return `@${external}`;
+    const reviewer = comment.reviewerPubkeys[0];
+    return reviewer ? memberForPubkey(reviewer).name : "a reviewer";
+  }
+
+  function reviewLifecycleAction(
+    entry: Extract<ReviewTimelineEntry, { kind: "lifecycle" }>,
+  ): string {
+    if (entry.lifecycle === "merged") return "merged this review";
+    if (entry.lifecycle === "closed") return "closed this review";
+    if (entry.lifecycle === "draft") return "converted this review to draft";
+    return "reopened this review";
+  }
+
   function isExternalReviewDecision(comment: PullRequestComment): boolean {
     return comment.event.tags.some((tag) => tag[0] === "external-decision");
+  }
+
+  function reviewCommentDecision(
+    comment: PullRequestComment,
+  ): "approved" | "changes-requested" | undefined {
+    if (comment.decision) return comment.decision;
+    const external = eventTagValue(comment.event, "external-decision")
+      .toLocaleLowerCase()
+      .replaceAll("_", "-");
+    if (external === "approved") return "approved";
+    if (external === "changes-requested") return "changes-requested";
+    return undefined;
   }
 
   function canReactToPullRequestComment(comment: PullRequestComment): boolean {
@@ -3758,155 +3847,246 @@
                   class="community-projects__review-conversation"
                   aria-label="Pull request conversation"
                 >
-                  {#each selectedPullRequest.comments.filter(conversationComment) as comment (comment.event.id)}
-                    {@const commentReactionOptions =
-                      pullRequestReactionOptions(comment)}
-                    {#snippet reviewLabels()}
-                      <div class="community-projects__message-labels">
-                        {#if comment.decision}<CommunityChip
-                            size="compact"
-                            tone={comment.decision === "approved"
-                              ? "success"
-                              : "warning"}>{comment.decision}</CommunityChip
-                          >{/if}
-                        {#if comment.inlineStatus}<CommunityChip size="compact"
-                            >{comment.inlineStatus}</CommunityChip
-                          >{/if}
-                      </div>
-                    {/snippet}
-                    <CommunityMessage
-                      message={commentMessage(comment)}
-                      author={memberForPubkey(comment.event.pubkey)}
-                      {members}
-                      {rooms}
-                      {communityEmojis}
-                      {...currentMemberId === undefined
-                        ? {}
-                        : { currentMemberId }}
-                      supplement={reviewLabels}
-                      density="compact"
-                      {...canReactToPullRequestComment(comment)
-                        ? {
-                            onAddReaction: (
-                              _messageId: string,
-                              emoji: string,
-                            ) =>
-                              onTogglePullRequestCommentReaction!(
-                                selectedPullRequest,
-                                comment,
-                                emoji,
-                              ),
-                            onToggleReaction: (
-                              _messageId: string,
-                              emoji: string,
-                            ) =>
-                              onTogglePullRequestCommentReaction!(
-                                selectedPullRequest,
-                                comment,
-                                emoji,
-                              ),
-                          }
-                        : {}}
-                      {...commentReactionOptions === undefined
-                        ? {}
-                        : { reactionOptions: commentReactionOptions }}
-                    />
-                  {:else}<p class="community-projects__status">
-                      No review comments yet.
-                    </p>{/each}
-                  <div class="community-projects__review-actions">
-                    <Button
-                      type="button"
-                      size="sm"
-                      disabled={!canCollaborate ||
-                        busy ||
-                        !canMergePullRequest(selectedPullRequest)}
-                      title={selectedPullRequest.lifecycle === "merged"
-                        ? "This pull request is already merged"
-                        : canMergePullRequest(selectedPullRequest)
-                          ? "Merge this pull request through the repository provider"
-                          : "The repository does not advertise merge capability"}
-                      onclick={() =>
-                        void mergeSelectedPullRequest(selectedPullRequest)}
-                    >
-                      <GitMergeIcon
-                        data-icon="inline-start"
-                        aria-hidden="true"
-                      />
-                      {selectedPullRequest.lifecycle === "merged"
-                        ? `Merged${selectedPullRequest.mergeCommit ? ` as ${selectedPullRequest.mergeCommit.slice(0, 8)}` : ""}`
-                        : canMergePullRequest(selectedPullRequest)
-                          ? "Merge pull request"
-                          : "Merge unavailable"}
-                    </Button>
-                    <span class="community-projects__review-action-spacer"
-                    ></span>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      disabled={!canCollaborate ||
-                        busy ||
-                        (!onSubmitPullRequestReview &&
-                          !onAddPullRequestComment &&
-                          !onApprovePullRequest &&
-                          !onRequestChanges)}
-                      onclick={openReviewSubmission}
-                    >
-                      <CheckIcon data-icon="inline-start" aria-hidden="true" />
-                      Submit review
-                    </Button>
-                    {#if onUpdatePullRequestLifecycle}
+                  <div class="community-projects__review-timeline">
+                    {#each reviewTimeline as entry (`${entry.kind}:${entry.event.id}`)}
+                      <article
+                        class="community-projects__review-timeline-item"
+                        data-kind={entry.kind}
+                      >
+                        <span
+                          class="community-projects__review-timeline-marker"
+                          data-status={entry.kind === "lifecycle"
+                            ? entry.lifecycle
+                            : entry.kind}
+                        >
+                          {#if entry.kind === "opened"}
+                            <GitPullRequestIcon aria-hidden="true" />
+                          {:else if entry.kind === "review-request"}
+                            <UserRoundPlusIcon aria-hidden="true" />
+                          {:else if entry.kind === "lifecycle" && entry.lifecycle === "merged"}
+                            <GitMergeIcon aria-hidden="true" />
+                          {:else if entry.kind === "lifecycle" && entry.lifecycle === "closed"}
+                            <CircleXIcon aria-hidden="true" />
+                          {:else if entry.kind === "lifecycle" && entry.lifecycle === "draft"}
+                            <CircleDashedIcon aria-hidden="true" />
+                          {:else if entry.kind === "lifecycle"}
+                            <RotateCcwIcon aria-hidden="true" />
+                          {:else if reviewCommentDecision(entry.comment) === "approved"}
+                            <CheckIcon aria-hidden="true" />
+                          {:else if reviewCommentDecision(entry.comment) === "changes-requested"}
+                            <CircleXIcon aria-hidden="true" />
+                          {:else}
+                            <MessageSquareIcon aria-hidden="true" />
+                          {/if}
+                        </span>
+                        <div
+                          class="community-projects__review-timeline-content"
+                        >
+                          {#if entry.kind === "opened"}
+                            <div
+                              class="community-projects__review-timeline-summary"
+                            >
+                              <span
+                                ><strong
+                                  >{reviewTimelineActor(entry.event)}</strong
+                                > opened this review</span
+                              >
+                              <CommunityRelativeTime
+                                timestamp={entry.event.created_at}
+                              />
+                            </div>
+                          {:else if entry.kind === "review-request"}
+                            <div
+                              class="community-projects__review-timeline-summary"
+                            >
+                              <span
+                                ><strong
+                                  >{reviewTimelineActor(entry.event)}</strong
+                                >
+                                requested a review from
+                                <strong
+                                  >{reviewRequestTarget(entry.comment)}</strong
+                                ></span
+                              >
+                              <CommunityRelativeTime
+                                timestamp={entry.event.created_at}
+                              />
+                            </div>
+                          {:else if entry.kind === "lifecycle"}
+                            <div
+                              class="community-projects__review-timeline-summary"
+                            >
+                              <span
+                                ><strong
+                                  >{reviewTimelineActor(entry.event)}</strong
+                                >
+                                {reviewLifecycleAction(entry)}</span
+                              >
+                              <CommunityRelativeTime
+                                timestamp={entry.event.created_at}
+                              />
+                            </div>
+                            {#if entry.mergeCommit}
+                              <code
+                                class="community-projects__review-timeline-commit"
+                                >{entry.mergeCommit.slice(0, 8)}</code
+                              >
+                            {/if}
+                          {:else}
+                            {@const comment = entry.comment}
+                            {@const timelineDecision =
+                              reviewCommentDecision(comment)}
+                            {@const commentReactionOptions =
+                              pullRequestReactionOptions(comment)}
+                            {#snippet reviewLabels()}
+                              <div class="community-projects__message-labels">
+                                {#if timelineDecision}<CommunityChip
+                                    size="compact"
+                                    tone={timelineDecision === "approved"
+                                      ? "success"
+                                      : "warning"}
+                                    >{timelineDecision}</CommunityChip
+                                  >{/if}
+                                {#if comment.inlineStatus}<CommunityChip
+                                    size="compact"
+                                    >{comment.inlineStatus}</CommunityChip
+                                  >{/if}
+                              </div>
+                            {/snippet}
+                            <CommunityMessage
+                              message={commentMessage(comment)}
+                              author={memberForPubkey(comment.event.pubkey)}
+                              {members}
+                              {rooms}
+                              {communityEmojis}
+                              {...currentMemberId === undefined
+                                ? {}
+                                : { currentMemberId }}
+                              supplement={reviewLabels}
+                              density="compact"
+                              {...canReactToPullRequestComment(comment)
+                                ? {
+                                    onAddReaction: (
+                                      _messageId: string,
+                                      emoji: string,
+                                    ) =>
+                                      onTogglePullRequestCommentReaction!(
+                                        selectedPullRequest,
+                                        comment,
+                                        emoji,
+                                      ),
+                                    onToggleReaction: (
+                                      _messageId: string,
+                                      emoji: string,
+                                    ) =>
+                                      onTogglePullRequestCommentReaction!(
+                                        selectedPullRequest,
+                                        comment,
+                                        emoji,
+                                      ),
+                                  }
+                                : {}}
+                              {...commentReactionOptions === undefined
+                                ? {}
+                                : { reactionOptions: commentReactionOptions }}
+                            />
+                          {/if}
+                        </div>
+                      </article>
+                    {/each}
+                  </div>
+                  {#if selectedPullRequest.lifecycle !== "merged"}
+                    <div class="community-projects__review-actions">
                       <Button
                         type="button"
-                        variant={selectedPullRequest.lifecycle === "closed"
-                          ? "outline"
-                          : "destructive"}
                         size="sm"
                         disabled={!canCollaborate ||
                           busy ||
-                          selectedPullRequest.lifecycle === "merged"}
-                        onclick={updateSelectedPullRequestLifecycle}
-                        >{selectedPullRequest.lifecycle === "closed"
-                          ? "Reopen"
-                          : "Close"}</Button
+                          !canMergePullRequest(selectedPullRequest)}
+                        title={canMergePullRequest(selectedPullRequest)
+                          ? "Merge this pull request through the repository provider"
+                          : "The repository does not advertise merge capability"}
+                        onclick={() =>
+                          void mergeSelectedPullRequest(selectedPullRequest)}
                       >
+                        <GitMergeIcon
+                          data-icon="inline-start"
+                          aria-hidden="true"
+                        />
+                        {canMergePullRequest(selectedPullRequest)
+                          ? "Merge pull request"
+                          : "Merge unavailable"}
+                      </Button>
+                      <span class="community-projects__review-action-spacer"
+                      ></span>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        disabled={!canCollaborate ||
+                          busy ||
+                          (!onSubmitPullRequestReview &&
+                            !onAddPullRequestComment &&
+                            !onApprovePullRequest &&
+                            !onRequestChanges)}
+                        onclick={openReviewSubmission}
+                      >
+                        <CheckIcon
+                          data-icon="inline-start"
+                          aria-hidden="true"
+                        />
+                        Submit review
+                      </Button>
+                      {#if onUpdatePullRequestLifecycle}
+                        <Button
+                          type="button"
+                          variant={selectedPullRequest.lifecycle === "closed"
+                            ? "outline"
+                            : "destructive"}
+                          size="sm"
+                          disabled={!canCollaborate || busy}
+                          onclick={updateSelectedPullRequestLifecycle}
+                          >{selectedPullRequest.lifecycle === "closed"
+                            ? "Reopen"
+                            : "Close"}</Button
+                        >
+                      {/if}
+                    </div>
+                    {#if pullRequestMergeError}
+                      <p
+                        class="community-projects__review-merge-error"
+                        role="alert"
+                      >
+                        {pullRequestMergeError}
+                      </p>
+                    {:else if pullRequestMergeStatus}
+                      <p
+                        class="community-projects__review-merge-status"
+                        role="status"
+                      >
+                        {pullRequestMergeStatus}
+                      </p>
                     {/if}
-                  </div>
-                  {#if pullRequestMergeError}
-                    <p
-                      class="community-projects__review-merge-error"
-                      role="alert"
-                    >
-                      {pullRequestMergeError}
-                    </p>
-                  {:else if pullRequestMergeStatus}
-                    <p
-                      class="community-projects__review-merge-status"
-                      role="status"
-                    >
-                      {pullRequestMergeStatus}
-                    </p>
-                  {/if}
-                  {#if onAddPullRequestComment}
-                    <CommunityChatComposer
-                      class="community-projects__conversation-composer"
-                      bind:value={pullRequestComment}
-                      placeholder="Add to the review conversation"
-                      ariaLabel="Pull request comment"
-                      submitLabel="Comment"
-                      {members}
-                      {rooms}
-                      {communityEmojis}
-                      {...currentMemberId === undefined
-                        ? {}
-                        : { currentMemberId }}
-                      {busy}
-                      disabled={!canCollaborate}
-                      disabledReason="Sign in to comment on this review"
-                      onSubmit={(submission) =>
-                        submitPullRequestComment(submission.content)}
-                    />
+                    {#if onAddPullRequestComment}
+                      <CommunityChatComposer
+                        class="community-projects__conversation-composer"
+                        bind:value={pullRequestComment}
+                        placeholder="Add to the review conversation"
+                        ariaLabel="Pull request comment"
+                        submitLabel="Comment"
+                        {members}
+                        {rooms}
+                        {communityEmojis}
+                        {...currentMemberId === undefined
+                          ? {}
+                          : { currentMemberId }}
+                        {busy}
+                        disabled={!canCollaborate}
+                        disabledReason="Sign in to comment on this review"
+                        onSubmit={(submission) =>
+                          submitPullRequestComment(submission.content)}
+                      />
+                    {/if}
                   {/if}
                 </section>
               </Collapsible.Content>

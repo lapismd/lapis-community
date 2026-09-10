@@ -197,6 +197,12 @@ layout is scoped by normalized relay, Community, and signed-in member; viewed
 files add repository, pull-request, base, and head identity so a revision
 change cannot inherit stale progress. Anonymous review preferences remain
 memory-only for the component session.
+Pull-request reduction MUST retain every trusted lifecycle event in
+chronological order in addition to the latest effective state. Presentation
+MUST compose that history with the root and review activity without granting
+authority to external observation events. A merged provider-backed review's
+historical file set remains provider collaboration data and MUST NOT be
+re-derived from the current target-branch comparison.
 
 GitHub App connection administration for LC-ARCH-021 MUST remain behind the
 relay's authenticated forge API and relay-administrator policy. The Community

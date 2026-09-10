@@ -219,7 +219,7 @@ export function reducePullRequest(
     (latestUpdate && firstTagValue(latestUpdate, "merge-base")) ||
     firstTagValue(root, "merge-base");
 
-  const statusEvent = relatedOrdered
+  const lifecycleEvents = relatedOrdered
     .filter(
       (event) =>
         STATUS_KINDS.has(event.kind) &&
@@ -227,6 +227,14 @@ export function reducePullRequest(
         repositoryMatchesIfPresent(event, repository.coordinate) &&
         trustedRootActors.has(event.pubkey),
     )
+    .map((event) => ({
+      event,
+      lifecycle: pullRequestLifecycle(event.kind),
+      mergeCommit: firstTagValue(event, "merge-commit"),
+      mergeReferences: allTagValues(event, "r"),
+    }));
+  const statusEvent = lifecycleEvents
+    .map((entry) => entry.event)
     .toSorted(compareNewestSmallestId)[0];
   const comments = relatedOrdered
     .filter(
@@ -338,6 +346,7 @@ export function reducePullRequest(
       (decision) => decision.decision === "changes-requested",
     ),
     updates,
+    lifecycleEvents,
     comments,
     createdAt: root.created_at,
     updatedAt: Math.max(

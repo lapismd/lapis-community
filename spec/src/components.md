@@ -109,7 +109,15 @@ Comment, Approve, and Request changes; Comment and Request changes MUST require
 a Markdown body while Approve leaves it optional.
 Closing an open pull request MUST use the destructive button treatment and MUST
 require confirmation in the shared alert-dialog pattern before publishing the
-lifecycle update; reopening a closed pull request MAY remain immediate.
+lifecycle update; reopening a closed pull request MAY remain immediate. A merged
+pull request MUST expose neither merge, review, comment, close, nor reopen
+controls. Review lists and details MUST distinguish merged from closed state.
+The expanded Activity section MUST present the root opening, trusted lifecycle
+transitions, review requests, decisions, and comments in chronological order on
+one connected timeline while preserving reactions and inline-comment context.
+Provider-backed merged reviews MUST continue to show the provider's original
+pull-request file set instead of recomputing a comparison against the advanced
+target branch.
 
 ## Requirements
 

@@ -71,6 +71,12 @@ events rooted at the pull request and repository, bind the reviewed commit with
 `changes-requested`. Line comments MUST retain the existing
 `inline-comment`, `file`, `side`, and `line` tags so the relay can map
 them to provider-native review comments without changing Nostr authorship.
+Trusted `1630` through `1633` events MUST remain individually available to the
+client projection for review history while only the deterministic latest event
+sets effective lifecycle. Kind `1` events carrying `t=review-request` MUST
+remain visible as review activity; only a trusted root actor may extend the
+Nostr reviewer set, and an external reviewer tag is presentation provenance
+rather than a Nostr authorization grant.
 GitHub connection creation, complete replacement, and revalidation MUST sign
 the exact relay forge endpoint and HTTP method with NIP-98. Requests containing
 connection configuration MUST bind the complete JSON payload, while a

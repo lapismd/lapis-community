@@ -14,6 +14,7 @@
     buildProjectForgeActivity,
     createBrowserProjectReviewPreferenceStore,
     type ProjectForgeGitHubConnectionInput,
+    type PullRequestState,
   } from "../../projects/index.js";
   import {
     createProjectStoryFixture,
@@ -23,6 +24,78 @@
   } from "./story-fixtures.js";
 
   const fixture = createProjectStoryFixture();
+  const reviewRequestEvent = {
+    ...fixture.pullRequest.root,
+    id: "7".repeat(64),
+    kind: 1,
+    created_at: fixture.pullRequest.createdAt + 5,
+    content: "@maintainer requested a review from @reviewer",
+    tags: [
+      ["e", fixture.pullRequest.root.id, "", "root"],
+      ["a", fixture.pullRequest.repository.coordinate],
+      ["t", "review-request"],
+      ["external-provider", "github"],
+      ["external-author", "maintainer"],
+      ["external-reviewer", "reviewer"],
+    ],
+  };
+  const mergedEvent = {
+    ...fixture.pullRequest.root,
+    id: "8".repeat(64),
+    kind: 1_631,
+    created_at: fixture.pullRequest.updatedAt + 5,
+    content: "",
+    tags: [
+      ["e", fixture.pullRequest.root.id, "", "root"],
+      ["a", fixture.pullRequest.repository.coordinate],
+      ["merge-commit", "e".repeat(40)],
+      ["r", "e".repeat(40)],
+      ["external-provider", "github"],
+    ],
+  };
+  const mergedPullRequest: PullRequestState = {
+    ...fixture.pullRequest,
+    lifecycle: "merged",
+    statusEvent: mergedEvent,
+    mergeCommit: "e".repeat(40),
+    mergeReferences: ["e".repeat(40)],
+    lifecycleEvents: [
+      {
+        event: mergedEvent,
+        lifecycle: "merged",
+        mergeCommit: "e".repeat(40),
+        mergeReferences: ["e".repeat(40)],
+      },
+    ],
+    comments: [
+      {
+        event: reviewRequestEvent,
+        encoding: "buzz-kind-1",
+        commit: "d".repeat(40),
+        isInlineComment: false,
+        isReviewRequest: true,
+        isTrustedReviewRequest: true,
+        reviewerPubkeys: [],
+        isTrustedDecision: false,
+        reactions: [],
+      },
+      ...fixture.pullRequest.comments,
+    ],
+    updatedAt: mergedEvent.created_at,
+  };
+  const closedPullRequest: PullRequestState = {
+    ...fixture.pullRequest,
+    root: {
+      ...fixture.pullRequest.root,
+      id: "9".repeat(64),
+      created_at: fixture.pullRequest.createdAt + 1,
+    },
+    title: "Close superseded review",
+    lifecycle: "closed",
+    mergeCommit: "",
+    mergeReferences: [],
+    lifecycleEvents: [],
+  };
   const githubRepository = {
     ...fixture.repository,
     description: "GitHub-backed browser and desktop client.",
@@ -1022,6 +1095,68 @@ index 3333333..4444444 100644
       fixture.pullRequest,
       "closed",
     );
+  }}
+/>
+
+<Story
+  name="Merged review timeline"
+  args={{
+    view: "reviews",
+    selectedPullRequest: mergedPullRequest,
+    pullRequestDiff: fixture.diff,
+    repositoryCapabilities: githubMergeCapabilities,
+    canCollaborate: true,
+    onMergePullRequest,
+    onAddPullRequestComment,
+    onSubmitPullRequestReview,
+    onUpdatePullRequestLifecycle,
+  }}
+  play={async ({ canvas }) => {
+    await expect(canvas.getByText("Merged", { selector: "dd" })).toBeVisible();
+    await expect(canvas.getByText(/opened this review/u)).toBeVisible();
+    await expect(
+      canvas.getByText(/requested a review from/u),
+    ).toHaveTextContent("@maintainer requested a review from @reviewer");
+    await expect(canvas.getByText(/merged this review/u)).toBeVisible();
+    await expect(canvas.getByText("eeeeeeee")).toBeVisible();
+    await expect(
+      canvas.queryByRole("button", { name: "Merge pull request" }),
+    ).not.toBeInTheDocument();
+    await expect(
+      canvas.queryByRole("button", { name: "Submit review" }),
+    ).not.toBeInTheDocument();
+    await expect(
+      canvas.queryByRole("button", { name: "Reopen" }),
+    ).not.toBeInTheDocument();
+    await expect(
+      canvas.queryByRole("group", { name: "Pull request comment" }),
+    ).not.toBeInTheDocument();
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Files changed" }),
+    );
+    await expect(canvas.getByText("2 changed files")).toBeVisible();
+  }}
+/>
+
+<Story
+  name="Review lifecycle groups"
+  args={{
+    view: "reviews",
+    pullRequests: [mergedPullRequest, closedPullRequest],
+  }}
+  play={async ({ canvas }) => {
+    await expect(
+      canvas.getByText("Merged", { selector: "span" }),
+    ).toBeVisible();
+    await expect(
+      canvas.getByText("Closed", { selector: "span" }),
+    ).toBeVisible();
+    await expect(
+      canvas.getByRole("button", { name: "Add project file and diff views" }),
+    ).toBeVisible();
+    await expect(
+      canvas.getByRole("button", { name: "Close superseded review" }),
+    ).toBeVisible();
   }}
 />
 

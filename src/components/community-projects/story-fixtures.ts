@@ -399,6 +399,7 @@ export function createProjectStoryFixture(channelId = "general-projects") {
     ],
     changeRequests: [],
     updates: [],
+    lifecycleEvents: [],
     comments: [
       {
         event: reviewCommentEvent,

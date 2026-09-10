@@ -497,6 +497,54 @@ describe("project forge reducers", () => {
     ).toBe(true);
   });
 
+  it("retains trusted pull request lifecycle history in chronological order", () => {
+    const root = event("1", PROJECT_FORGE_KINDS.pullRequest, author, 2, [
+      ["a", repositoryCoordinate],
+      ["p", owner],
+      ["subject", "Editor"],
+      ["c", commitA],
+      ["clone", "https://relay.example/git/notes"],
+    ]);
+    const closed = event("2", PROJECT_FORGE_KINDS.statusClosed, owner, 5, [
+      ["e", root.id, "", "root"],
+      ["a", repositoryCoordinate],
+    ]);
+    const reopened = event("3", PROJECT_FORGE_KINDS.statusOpen, owner, 6, [
+      ["e", root.id, "", "root"],
+      ["a", repositoryCoordinate],
+    ]);
+    const merged = event("4", PROJECT_FORGE_KINDS.statusMerged, owner, 7, [
+      ["e", root.id, "", "root"],
+      ["a", repositoryCoordinate],
+      ["merge-commit", commitB],
+      ["r", commitB],
+    ]);
+    const untrusted = event(
+      "5",
+      PROJECT_FORGE_KINDS.statusClosed,
+      outsider,
+      8,
+      [
+        ["e", root.id, "", "root"],
+        ["a", repositoryCoordinate],
+      ],
+    );
+
+    const state = reducePullRequest(root, repository, [
+      merged,
+      untrusted,
+      closed,
+      reopened,
+    ]);
+    expect(state.lifecycle).toBe("merged");
+    expect(state.lifecycleEvents.map((entry) => entry.lifecycle)).toEqual([
+      "closed",
+      "open",
+      "merged",
+    ]);
+    expect(state.lifecycleEvents[2]?.mergeCommit).toBe(commitB);
+  });
+
   it("trusts only requested reviewers and keeps invalid inline anchors visible", () => {
     const root = event("1", PROJECT_FORGE_KINDS.pullRequest, author, 2, [
       ["a", repositoryCoordinate],

@@ -2509,7 +2509,7 @@
 
 .community-projects__review-status-icon[data-status="merged"],
 .community-projects__review-status[data-status="merged"] {
-  color: #a855f7;
+  color: color-mix(in srgb, #a855f7 55%, var(--foreground));
 }
 
 .community-projects__review-status-icon[data-status="draft"],
@@ -2769,6 +2769,104 @@
   gap: 0.6rem;
   padding: 0.15rem 1.5rem 1rem;
   border-top: 0;
+}
+
+.community-projects__review-timeline {
+  position: relative;
+  display: grid;
+  gap: 0.35rem;
+  padding-block: 0.25rem 0.75rem;
+}
+
+.community-projects__review-timeline::before {
+  position: absolute;
+  inset-block: 1.15rem 1.25rem;
+  inset-inline-start: 0.95rem;
+  width: 1px;
+  background: var(--border);
+  content: "";
+}
+
+.community-projects__review-timeline-item {
+  position: relative;
+  display: grid;
+  min-width: 0;
+  grid-template-columns: 2rem minmax(0, 1fr);
+  align-items: start;
+  gap: 0.65rem;
+}
+
+.community-projects__review-timeline-marker {
+  z-index: 1;
+  display: flex;
+  width: 2rem;
+  height: 2rem;
+  box-sizing: border-box;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  color: var(--muted-foreground);
+  background: var(--background);
+}
+
+.community-projects__review-timeline-marker svg {
+  width: 0.9rem;
+  height: 0.9rem;
+}
+
+.community-projects__review-timeline-marker[data-status="open"] {
+  color: color-mix(in srgb, #16a34a 72%, var(--foreground));
+}
+
+.community-projects__review-timeline-marker[data-status="merged"] {
+  color: color-mix(in srgb, #a855f7 55%, var(--foreground));
+}
+
+.community-projects__review-timeline-marker[data-status="closed"] {
+  color: var(--destructive);
+}
+
+.community-projects__review-timeline-marker[data-status="draft"] {
+  color: var(--muted-foreground);
+}
+
+.community-projects__review-timeline-content {
+  min-width: 0;
+  padding-block: 0.4rem 0.7rem;
+}
+
+.community-projects__review-timeline-summary {
+  display: flex;
+  min-width: 0;
+  align-items: baseline;
+  gap: 1rem;
+  font-size: 0.82rem;
+}
+
+.community-projects__review-timeline-summary > span {
+  min-width: 0;
+  flex: 1;
+}
+
+.community-projects__review-timeline-summary time {
+  flex: none;
+  color: var(--muted-foreground);
+  font-size: 0.75rem;
+}
+
+.community-projects__review-timeline-commit {
+  display: inline-block;
+  margin-block-start: 0.3rem;
+  border-radius: 999px;
+  padding: 0.15rem 0.45rem;
+  color: var(--muted-foreground);
+  background: var(--muted);
+  font-size: 0.7rem;
+}
+
+.community-projects__review-timeline-content > .community-message {
+  margin-block: -0.35rem -0.45rem;
 }
 
 .community-projects__review-actions {

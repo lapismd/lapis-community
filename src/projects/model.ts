@@ -161,6 +161,13 @@ export interface PullRequestUpdate {
   mergeBase: string;
 }
 
+export interface PullRequestLifecycleEvent {
+  event: NostrEvent;
+  lifecycle: PullRequestLifecycle;
+  mergeCommit: string;
+  mergeReferences: readonly string[];
+}
+
 export interface PullRequestState {
   root: NostrEvent;
   repository: NostrAddress;
@@ -182,6 +189,7 @@ export interface PullRequestState {
   approvals: readonly PullRequestDecision[];
   changeRequests: readonly PullRequestDecision[];
   updates: readonly PullRequestUpdate[];
+  lifecycleEvents: readonly PullRequestLifecycleEvent[];
   comments: readonly PullRequestComment[];
   createdAt: number;
   updatedAt: number;
