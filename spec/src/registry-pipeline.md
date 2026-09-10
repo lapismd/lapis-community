@@ -56,3 +56,7 @@ sources for direct Badge use outside `CommunityChip`, native chip-like markup,
 forged Badge hooks, and consumer-level chip appearance overrides before the
 remaining specification and pipeline checks run. Unit fixtures cover the
 accepted shared component boundary and rejected look-alikes or local restyles.
+
+The media smoke operates the public image-theme radio group and verifies each
+selected variant still uses a verified Blob URL. The smoke selectors follow
+the control’s accessibility semantics.

@@ -8,4 +8,5 @@ coverage
 /deploy
 /docs
 /scripts/*
+!/scripts/vite-turso-bundle.ts
 /README.md

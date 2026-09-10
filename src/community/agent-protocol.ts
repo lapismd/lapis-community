@@ -139,6 +139,40 @@ function text(value: unknown, fallback = ""): string {
   return typeof value === "string" ? value.slice(0, 4_096) : fallback;
 }
 
+/** Current, signed relay membership; public channels need not include the viewer. */
+export function agentChannelMemberships(
+  input: readonly NostrEvent[],
+  relay: string,
+): Map<string, ReadonlySet<string>> {
+  const events = input.flatMap((event) => {
+    const verified = signedAgentEvent(event);
+    return verified ? [verified] : [];
+  });
+  const candidates = new Map<string, NostrEvent[]>();
+  for (const event of events) {
+    const id = agentTag(event, "d");
+    if (event.kind === 39002 && event.pubkey === relay && id)
+      candidates.set(id, [...(candidates.get(id) ?? []), event]);
+  }
+  return new Map(
+    [...candidates].flatMap(([id, snapshots]) => {
+      const latest = newestAgentEvent(snapshots)!;
+      return deleted(latest, events)
+        ? []
+        : [
+            [
+              id,
+              new Set(
+                latest.tags
+                  .filter(([tag]) => tag === "p")
+                  .map((tag) => tag[1]!),
+              ),
+            ] as const,
+          ];
+    }),
+  );
+}
+
 export function materializeAgentDirectory(
   input: readonly NostrEvent[],
   owner: string,
@@ -153,18 +187,13 @@ export function materializeAgentDirectory(
     ).values(),
   ];
   const profiles = new Map<string, NostrEvent[]>();
-  const memberships = new Map<string, NostrEvent[]>();
+  const memberships = agentChannelMemberships(events, relay);
   for (const event of events) {
     if (event.kind === 0)
       profiles.set(event.pubkey, [
         ...(profiles.get(event.pubkey) ?? []),
         event,
       ]);
-    if (event.kind === 39002 && event.pubkey === relay) {
-      const channel = agentTag(event, "d");
-      if (channel)
-        memberships.set(channel, [...(memberships.get(channel) ?? []), event]);
-    }
   }
   const contacts = newestAgentEvent(
     events.filter((event) => event.kind === 3 && event.pubkey === owner),
@@ -188,15 +217,7 @@ export function materializeAgentDirectory(
         : {};
     const picture = text(metadata.picture);
     const channelIds = [...memberships]
-      .flatMap(([id, candidates]) => {
-        const state = newestAgentEvent(candidates)!;
-        return !deleted(state, events) &&
-          [owner, pubkey].every((key) =>
-            state.tags.some(([tag, value]) => tag === "p" && value === key),
-          )
-          ? [id]
-          : [];
-      })
+      .flatMap(([id, members]) => (members.has(pubkey) ? [id] : []))
       .sort();
     result.push({
       pubkey,

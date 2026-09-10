@@ -85,7 +85,7 @@ try {
     ["Light", "light"],
     ["Dark", "dark"],
   ]) {
-    await viewer.getByRole("button", { name: label }).click();
+    await viewer.getByRole("radio", { name: label }).click();
     if ((await viewer.getAttribute("data-media-mode")) !== mode) {
       throw new Error(`${label} did not select the ${mode} media variant`);
     }

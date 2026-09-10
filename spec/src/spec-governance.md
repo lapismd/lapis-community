@@ -30,6 +30,11 @@ Vitest setup file MUST remain limited to package-specific runtime diagnostic
 guards and deterministic portal teardown so annotations are not registered a
 second time outside the plugin lifecycle.
 
+The Docker build context must include the Turso Vite bundle helper imported by
+`vite.config.ts`. Local relay-to-site smoke validation builds from that clean
+context, including the encrypted agent archive, instead of depending on files
+available only in the host checkout.
+
 ## Requirements
 
 | ID          | Requirement                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
@@ -75,3 +80,7 @@ The agent owner-proof verifier uses the direct `@noble/curves` dependency for
 BIP-340 signatures. The committed lockfile resolves Design Core from the npm
 registry. An ignored local package hook may substitute a sibling artifact for
 source validation without rewriting the committed dependency metadata.
+
+The agent UI acceptance lane resolves the upstream Bits UI 2.19.2 lifecycle
+fix and verifies it with cold application navigation. Unrelated dependency
+resolutions remain unchanged. Visual baseline approval remains manual.

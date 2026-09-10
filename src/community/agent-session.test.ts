@@ -123,31 +123,37 @@ describe("agent relay session", () => {
     );
     expect(fixture.requests).toEqual([]);
   });
-  it("paginates a full same-second boundary using before_id", async () => {
-    const fixture = setup();
-    for (let index = 0; index < 501; index++)
-      fixture.events.push(
-        finalizeEvent(
-          {
-            kind: 30177,
-            created_at: now,
-            tags: [["d", `legacy-${index}`]],
-            content: "{}",
-          },
-          ownerKey,
-        ),
-      );
-    const result = await fixture.session.loadDirectory();
-    expect(result.events.filter((event) => event.kind === 30177)).toHaveLength(
-      501,
-    );
-    expect(
-      fixture.requests
-        .flat()
-        .some((filter) => filter.before_id && filter.until === now),
-    ).toBe(true);
-    expect(result.partial).toBe(false);
-  });
+  // Keep the real 501 signatures: the boundary test is intentionally larger
+  // than one HTTP page and can exceed five seconds in the concurrent suite.
+  it(
+    "paginates a full same-second boundary using before_id",
+    { timeout: 20_000 },
+    async () => {
+      const fixture = setup();
+      for (let index = 0; index < 501; index++)
+        fixture.events.push(
+          finalizeEvent(
+            {
+              kind: 30177,
+              created_at: now,
+              tags: [["d", `legacy-${index}`]],
+              content: "{}",
+            },
+            ownerKey,
+          ),
+        );
+      const result = await fixture.session.loadDirectory();
+      expect(
+        result.events.filter((event) => event.kind === 30177),
+      ).toHaveLength(501);
+      expect(
+        fixture.requests
+          .flat()
+          .some((filter) => filter.before_id && filter.until === now),
+      ).toBe(true);
+      expect(result.partial).toBe(false);
+    },
+  );
   it("preserves contact tags and content across serialized follow and unfollow", async () => {
     const fixture = setup();
     const other = getPublicKey(new Uint8Array(32).fill(64));

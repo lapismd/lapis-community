@@ -15,6 +15,7 @@ import type {
 import {
   AGENT_TYPING_TTL,
   agentPresence,
+  agentChannelMemberships,
   agentTag,
   parseAgentObserver,
   signedAgentEvent,
@@ -44,10 +45,14 @@ export class CommunityAgentsController {
   #subscription: { close(): void } | undefined;
   #subscriptionKey = "";
   #directory: CommunityAgentDirectory | undefined;
+  #ownerChannels = new Set<string>();
   #metadataIds = new Set<string>();
   #seen = new Set<string>();
   #unknownFrames: NostrEvent[] = [];
-  #workingUntil = new Map<string, number>();
+  #workingUntil = new Map<
+    string,
+    Map<string, { until: number; timestamp: number; seq: number }>
+  >();
   #typingUntil = new Map<string, number>();
   #refreshRun: Promise<void> | undefined;
   #refreshTimer: ReturnType<typeof setTimeout> | undefined;
@@ -189,6 +194,11 @@ export class CommunityAgentsController {
       );
       if (this.#closed) return;
       this.#directory = directory;
+      this.#ownerChannels = new Set(
+        [...agentChannelMemberships(directory.events, directory.relayPubkey)]
+          .filter(([, members]) => members.has(this.#options.scope.ownerPubkey))
+          .map(([id]) => id),
+      );
       this.#metadataIds = new Set(directory.events.map((event) => event.id));
       this.#options.onDirectory?.(directory.events);
       const allowed = new Set(directory.agents.map((agent) => agent.pubkey));
@@ -201,7 +211,11 @@ export class CommunityAgentsController {
         capabilities: directory.capabilities,
         partial: directory.partial,
         error: directory.reason,
-        status: directory.capabilities.directory ? "ready" : "unsupported",
+        status: directory.capabilities.directory
+          ? this.#subscription
+            ? this.#state.status
+            : "loading"
+          : "unsupported",
         presence: Object.fromEntries(
           Object.entries(this.#state.presence).filter(([key]) =>
             allowed.has(key),
@@ -243,6 +257,7 @@ export class CommunityAgentsController {
         this.#subscription = subscription;
         this.#subscriptionKey = key;
       }
+      if (directory.capabilities.directory) this.#update({ status: "ready" });
       const pending = this.#unknownFrames;
       this.#unknownFrames = [];
       for (const event of pending)
@@ -348,7 +363,12 @@ export class CommunityAgentsController {
       )
         return;
       const channel = agentTag(event, "h");
-      if (channel && !agent.channelIds.includes(channel)) return;
+      if (
+        channel &&
+        (!agent.channelIds.includes(channel) ||
+          !this.#ownerChannels.has(channel))
+      )
+        return;
       this.#seen.add(event.id);
       if (this.#seen.size > 4_096)
         this.#seen.delete(this.#seen.values().next().value!);
@@ -431,19 +451,45 @@ export class CommunityAgentsController {
           if (!frame) return;
           const channel = agentTag(event, "h");
           if (channel && frame.channelId && channel !== frame.channelId) return;
-          if (frame.kind === "turn_started")
-            this.#workingUntil.set(event.pubkey, this.#now() + 180);
-          else if (
-            [
+          const turns =
+            this.#workingUntil.get(event.pubkey) ??
+            new Map<
+              string,
+              { until: number; timestamp: number; seq: number }
+            >();
+          const turnKey = JSON.stringify([
+            frame.startedAt,
+            frame.agentIndex,
+            frame.sessionId,
+            frame.turnId,
+          ]);
+          const timestamp = Date.parse(frame.timestamp);
+          const previous = turns.get(turnKey);
+          if (
+            !previous ||
+            timestamp > previous.timestamp ||
+            (timestamp === previous.timestamp && frame.seq > previous.seq)
+          ) {
+            const terminal = [
               "turn_completed",
+              "turn_finished",
               "turn_failed",
               "turn_cancelled",
               "agent_stopped",
-            ].includes(frame.kind)
-          )
-            this.#workingUntil.delete(event.pubkey);
-          else if (this.#workingUntil.has(event.pubkey))
-            this.#workingUntil.set(event.pubkey, this.#now() + 180);
+            ].includes(frame.kind);
+            if (frame.kind === "agent_stopped") turns.clear();
+            const until = terminal
+              ? 0
+              : frame.kind === "turn_started" ||
+                  (previous?.until ?? 0) > this.#now()
+                ? Math.min(this.#now() + 180, event.created_at + 180)
+                : 0;
+            turns.set(turnKey, { until, timestamp, seq: frame.seq });
+            // Retain terminal ordering briefly without growing with archived history.
+            if (turns.size > 512) turns.delete(turns.keys().next().value!);
+            this.#workingUntil.set(event.pubkey, turns);
+            if (terminal) this.#typingUntil.delete(event.pubkey);
+          }
           this.#tick(false);
           if (
             !this.#browsingHistory &&
@@ -488,7 +534,9 @@ export class CommunityAgentsController {
       this.#state.agents.map((agent) => [
         agent.pubkey,
         Math.max(
-          this.#workingUntil.get(agent.pubkey) ?? 0,
+          ...[...(this.#workingUntil.get(agent.pubkey)?.values() ?? [])].map(
+            (turn) => turn.until,
+          ),
           this.#typingUntil.get(agent.pubkey) ?? 0,
         ) > now,
       ]),
@@ -616,7 +664,12 @@ export class CommunityAgentsController {
       ...new Map(
         [...this.#state.activity, ...items].map((item) => [item.id, item]),
       ).values(),
-    ].sort((a, b) => b.createdAt - a.createdAt || b.id.localeCompare(a.id));
+    ].sort(
+      (a, b) =>
+        b.createdAt - a.createdAt ||
+        Date.parse(b.frame.timestamp) - Date.parse(a.frame.timestamp) ||
+        b.id.localeCompare(a.id),
+    );
     // History is paged from storage; only a bounded decoded window is retained.
     this.#update({
       activity: older ? merged.slice(-500) : merged.slice(0, 500),

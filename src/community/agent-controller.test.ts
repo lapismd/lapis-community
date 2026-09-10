@@ -150,6 +150,18 @@ describe("agent activity controller", () => {
     });
     expect(controller.state.activity).toHaveLength(1);
   });
+  it("clears working on Buzz turn_finished and ignores an out-of-order start", async () => {
+    const { controller, receive } = await setup();
+    receive(frame(2, "turn_finished"));
+    receive(frame(1, "turn_started"));
+    await controller.actions.openActivity(agent);
+    await vi.waitFor(() => expect(controller.state.activity).toHaveLength(2));
+    expect(controller.state.working[agent]).toBe(false);
+    receive(frame(3, "turn_started"));
+    await vi.waitFor(() => expect(controller.state.working[agent]).toBe(true));
+    receive(frame(4, "turn_finished"));
+    await vi.waitFor(() => expect(controller.state.working[agent]).toBe(false));
+  });
   it("does not infer current working state from historical activity", async () => {
     const { controller, archive } = await setup();
     await archive.append(scope, [{ event: frame(), profile, receivedAt: now }]);
@@ -172,6 +184,36 @@ describe("agent activity controller", () => {
     );
     await controller.actions.openActivity(agent);
     expect(controller.state.activity).toEqual([]);
+  });
+  it("does not capture scoped telemetry when only the agent belongs to a public channel", async () => {
+    const { controller, session, receive, archive } = await setup();
+    const publicMembership = finalizeEvent(
+      {
+        ...channel,
+        created_at: now + 1,
+        tags: [
+          ["d", "general"],
+          ["p", agent],
+        ],
+      },
+      relayKey,
+    );
+    vi.mocked(session.loadDirectory).mockResolvedValue({
+      agents: materializeAgentDirectory(
+        [profile, publicMembership],
+        owner,
+        relay,
+      ),
+      events: [profile, publicMembership],
+      relayPubkey: relay,
+      capabilities: { directory: true, presence: true, activity: true },
+      partial: false,
+    });
+    await controller.actions.refresh();
+    expect(controller.state.agents[0]?.channelIds).toEqual(["general"]);
+    receive(frame());
+    await controller.actions.openActivity(agent);
+    expect((await archive.page({ scope })).records).toEqual([]);
   });
   it("stops publishing decoded results when the owning controller is disposed", async () => {
     const { controller, receive, decrypt, onState } = await setup();

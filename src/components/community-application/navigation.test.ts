@@ -13,6 +13,8 @@ import {
   noCommunityApplicationPanel,
   normalizeCommunityApplicationLocation,
   pushCommunityApplicationLocation,
+  agentLocationFromHash,
+  agentLocationToHash,
   projectRouteFromHash,
   projectRouteToHash,
   replaceCommunityApplicationLocation,
@@ -430,5 +432,58 @@ describe("Community application location history", () => {
     expect(currentCommunityApplicationLocation(history)).toEqual(
       location("general", { kind: "details", roomId: "general" }),
     );
+  });
+});
+
+describe("agent navigation", () => {
+  const agent = "a".repeat(64);
+  it("roundtrips gallery, profile, activity, and escaped channel filters", () => {
+    for (const next of [
+      location("agents"),
+      location("agents", { kind: "profile", memberId: agent }),
+      location("agents", {
+        kind: "agent-activity",
+        agentPubkey: agent,
+        channelId: "research / plans",
+      }),
+    ]) {
+      expect(agentLocationFromHash(agentLocationToHash(next)!)).toEqual(next);
+    }
+    expect(agentLocationFromHash("#/agents?agent=forged")).toBeNull();
+    expect(
+      agentLocationFromHash(`#/agents?agent=${agent}&channel=%00`),
+    ).toBeNull();
+  });
+  it("preserves archived agent panels and closes unavailable ones", () => {
+    const next = location("agents", {
+      kind: "agent-activity",
+      agentPubkey: agent,
+    });
+    expect(
+      normalizeCommunityApplicationLocation(next, {
+        roomIds: [],
+        memberIds: [],
+        agentIds: [agent],
+      }),
+    ).toEqual(next);
+    expect(
+      normalizeCommunityApplicationLocation(next, {
+        roomIds: [],
+        memberIds: [],
+        agentIds: [],
+      }).panel,
+    ).toEqual({ kind: "none" });
+    const history = push(
+      push(
+        createCommunityApplicationHistory("agents"),
+        location("agents", { kind: "profile", memberId: agent }),
+      ),
+      next,
+    );
+    expect(
+      currentCommunityApplicationLocation(
+        moveCommunityApplicationHistory(history, -1),
+      ).panel.kind,
+    ).toBe("profile");
   });
 });

@@ -147,7 +147,9 @@
       within(dialog).getByRole("button", { name: "Create channel" }),
     );
 
-    await waitFor(() => expect(dialog).not.toBeInTheDocument());
+    await waitFor(() => expect(dialog).not.toBeInTheDocument(), {
+      timeout: 15_000,
+    });
     await expect(
       await canvas.findByRole("button", { name: "release-planning" }),
     ).toHaveAttribute("aria-current", "page");

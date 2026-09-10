@@ -5,6 +5,13 @@ subscriptions, and contact-list mutations. Its protocol rules are defined in
 [Agents and saved activity](agents.md). Custom Community sources may omit this
 boundary without changing existing behavior. The direct `@noble/curves`
 runtime dependency supplies BIP-340 verification for NIP-OA owner attestations.
+Live working state tracks independent turns and their timestamp/sequence order,
+so late starts cannot resurrect completed turns and saved events never mark an
+agent as running. The application consumes the optional agent model through
+its existing navigation and exclusive sidebar composition.
+Community resolves Bits UI 2.19.2 within Design Core’s existing range: its
+scroll-area resize handler no longer schedules work after a sidebar is
+destroyed. The agent application stories cover these rapid panel transitions.
 
 For LC-SPEC-002, Community dialog close controls retain the shared Design Core
 button identity while the owning component supplies the compact Lucide X size,

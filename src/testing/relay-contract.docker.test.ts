@@ -1,3 +1,4 @@
+import { registerAgentDockerContract } from "./agent-contract.docker.js";
 import { finalizeEvent } from "nostr-tools/pure";
 import { describe, expect, it, vi } from "vitest";
 
@@ -18,6 +19,7 @@ if (relayUrl === undefined || relayUrl === "") {
     it("requires COMMUNITY_RELAY_URL", () => undefined);
   });
 } else {
+  registerAgentDockerContract(relayUrl);
   registerCommunityRelayContract(
     "WebSocketCommunityRelay Docker contract",
     () => {

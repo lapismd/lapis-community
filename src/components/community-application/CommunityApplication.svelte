@@ -133,6 +133,10 @@
   import CommunityNavigation from "../community-navigation/CommunityNavigation.svelte";
   import CommunityMemberCommand from "../community-member-command/CommunityMemberCommand.svelte";
   import CommunityMemberAvatar from "../community-member-avatar/CommunityMemberAvatar.svelte";
+  import CommunityAgents from "../community-agents/CommunityAgents.svelte";
+  import CommunityAgentProfile from "../community-agent-profile/CommunityAgentProfile.svelte";
+  import CommunityAgentActivity from "../community-agent-activity/CommunityAgentActivity.svelte";
+  import { communityAgentMember } from "../community-agents/model.js";
   import CommunityMemberProfile from "../community-member-profile/CommunityMemberProfile.svelte";
   import CommunityRelativeTime from "../community-relative-time/CommunityRelativeTime.svelte";
   import type {
@@ -187,6 +191,8 @@
     COMMUNITY_APPLICATION_SHELL_LAYOUT_STORAGE_KEY,
     COMMUNITY_APPLICATION_RELEASE_OVERVIEW_PANEL_ID,
     COMMUNITY_APPLICATION_PROJECT_OVERVIEW_PANEL_ID,
+    agentLocationFromHash,
+    agentLocationToHash,
     communityApplicationLocationsEqual,
     communityApplicationPanelKey,
     createCommunityApplicationHistory,
@@ -373,6 +379,11 @@
         registryRouteFromDestination(initialDestination) !== null
           ? "inbox"
           : initialDestination;
+      const agentRoute =
+        typeof window === "undefined"
+          ? null
+          : agentLocationFromHash(window.location.hash);
+      if (agentRoute) return agentRoute;
       const persisted = loadCommunityApplicationLocation(browserStorage);
       const projectHashRoute =
         typeof window === "undefined"
@@ -942,6 +953,13 @@
       ...(hasProjects
         ? [{ id: "projects", label: "Projects", kind: "projects" as const }]
         : []),
+      ...(authenticated &&
+      community.state.agents &&
+      community.actions.agents &&
+      (community.state.agents.status !== "unsupported" ||
+        community.state.agents.archivedAgents.length > 0)
+        ? [{ id: "agents", label: "Agents", kind: "agents" as const }]
+        : []),
     ],
     sections: withStarredCommunityNavigationSection([
       ...(hasProjects && listedProjects.length > 0
@@ -1288,22 +1306,26 @@
       activeDestination !== "settings" &&
       activeDestination !== "inbox" &&
       activeDestination !== "pulse" &&
+      activeDestination !== "agents" &&
       activeDestination !== "new-direct-message",
   );
   const activeItemId = $derived(
     activeDestination === "inbox" ||
       activeDestination === "pulse" ||
+      activeDestination === "agents" ||
       isRegistryDestination ||
       isProjectsDestination
       ? activeDestination === "inbox"
         ? "inbox"
         : activeDestination === "pulse"
           ? "pulse"
-          : isProjectsDestination
-            ? selectedProjectCoordinate === undefined
-              ? "projects"
-              : activeDestination
-            : "registry"
+          : activeDestination === "agents"
+            ? "agents"
+            : isProjectsDestination
+              ? selectedProjectCoordinate === undefined
+                ? "projects"
+                : activeDestination
+              : "registry"
       : activeDestination === "settings"
         ? undefined
         : workspace.activeRoomId,
@@ -1317,6 +1339,36 @@
   const canNavigateForward = $derived(
     navigationHistory.index < navigationHistory.entries.length - 1,
   );
+  const selectedAgent = $derived(
+    activePanel.kind === "profile"
+      ? community.state.agents?.agents.find(
+          (agent) => agent.pubkey === activePanel.memberId,
+        )
+      : undefined,
+  );
+  const knownAgentIds = $derived([
+    ...new Set([
+      ...(community.state.agents?.agents.map((agent) => agent.pubkey) ?? []),
+      ...(community.state.agents?.archivedAgents.map((agent) => agent.pubkey) ??
+        []),
+    ]),
+  ]);
+  const activityRouteKey = $derived(
+    activePanel.kind === "agent-activity" &&
+      knownAgentIds.includes(activePanel.agentPubkey)
+      ? `${workspace.activeCommunityId}:${community.state.authentication.pubkey ?? ""}:${communityApplicationPanelKey(activePanel)}`
+      : "",
+  );
+  $effect(() => {
+    if (!activityRouteKey) return;
+    untrack(() => {
+      if (activePanel.kind === "agent-activity")
+        void community.actions.agents?.openActivity(
+          activePanel.agentPubkey,
+          activePanel.channelId,
+        );
+    });
+  });
   const selectedProfile = $derived(
     activePanel.kind === "profile"
       ? (workspace.members.find(
@@ -1369,19 +1421,36 @@
   const sidePanelTitle = $derived(
     activePanel.kind === "profile"
       ? "Profile"
-      : activePanel.kind === "thread"
-        ? "Thread"
-        : detailsRoom?.kind === "channel"
-          ? "Channel settings"
-          : detailsRoom?.kind === "forum"
-            ? "Forum settings"
-            : "Conversation details",
+      : activePanel.kind === "agent-activity"
+        ? "Agent activity"
+        : activePanel.kind === "thread"
+          ? "Thread"
+          : detailsRoom?.kind === "channel"
+            ? "Channel settings"
+            : detailsRoom?.kind === "forum"
+              ? "Forum settings"
+              : "Conversation details",
   );
 
   function openProfile(member: CommunityMemberModel): void {
     profileOverride = member;
     openPanel({ kind: "profile", memberId: member.id });
     lastAction = `opened-profile:${member.id}`;
+  }
+
+  function openAgentProfile(pubkey: string): void {
+    const agent = community.state.agents?.agents.find(
+      (entry) => entry.pubkey === pubkey,
+    );
+    if (agent) openProfile(communityAgentMember(agent));
+    else closeSidePanel();
+  }
+  function openAgentActivity(pubkey: string, channelId?: string): void {
+    openPanel({
+      kind: "agent-activity",
+      agentPubkey: pubkey,
+      ...(channelId ? { channelId } : {}),
+    });
   }
 
   function openReleaseProfile(member: CommunityMemberModel): void {
@@ -1665,6 +1734,7 @@
     const applicationDestination =
       destination === "inbox" ||
       destination === "pulse" ||
+      destination === "agents" ||
       destination === "settings" ||
       destination === "new-direct-message" ||
       (hasProjects && isProjectDestination(destination)) ||
@@ -2270,9 +2340,17 @@
   });
 
   $effect(() => {
+    if (
+      (activePanel.kind === "profile" ||
+        activePanel.kind === "agent-activity") &&
+      (community.state.agents?.status === "loading" || communityStartupPending)
+    )
+      return;
     const projectionSettled =
       activePanel.kind === "none" ||
-      (activePanel.kind === "profile" && workspace.sidePanel === "none") ||
+      ((activePanel.kind === "profile" ||
+        activePanel.kind === "agent-activity") &&
+        workspace.sidePanel === "none") ||
       (activePanel.kind === "details" &&
         (activePanel.roomId === inbox.room.id ||
           workspace.sidePanel === "details")) ||
@@ -2291,7 +2369,9 @@
         projectDestinationIds: projectCatalog.projects.map((project) =>
           projectDestinationFromCoordinate(project.address.coordinate),
         ),
+        agentIds: knownAgentIds,
         memberIds: [
+          ...knownAgentIds,
           ...workspace.members.map((member) => member.id),
           ...(profileOverride === undefined ? [] : [profileOverride.id]),
         ],
@@ -2343,6 +2423,7 @@
         ? inbox.room.id
         : nextRegistryRoute === null &&
             next.destination !== "pulse" &&
+            next.destination !== "agents" &&
             next.destination !== "settings" &&
             next.destination !== "new-direct-message"
           ? next.destination
@@ -2410,6 +2491,12 @@
 
   function pushBrowserLocation(location: CommunityApplicationLocation): void {
     if (typeof window === "undefined") return;
+    const agentHash = agentLocationToHash(location);
+    if (agentHash !== null) {
+      if (window.location.hash !== agentHash)
+        window.history.pushState(null, "", agentHash);
+      return;
+    }
     if (location.projectRoute !== undefined) {
       const hash = projectRouteToHash(location.projectRoute);
       if (window.location.hash !== hash)
@@ -2434,6 +2521,12 @@
     location: CommunityApplicationLocation,
   ): void {
     if (typeof window === "undefined") return;
+    const agentHash = agentLocationToHash(location);
+    if (agentHash !== null) {
+      if (window.location.hash !== agentHash)
+        window.history.replaceState(null, "", agentHash);
+      return;
+    }
     if (location.projectRoute !== undefined) {
       const hash = projectRouteToHash(location.projectRoute);
       if (window.location.hash !== hash)
@@ -2457,6 +2550,7 @@
 
   function clearBrowserApplicationLocation(mode: "push" | "replace"): void {
     if (
+      agentLocationFromHash(window.location.hash) === null &&
       registryRouteFromHash(window.location.hash) === null &&
       projectRouteFromHash(window.location.hash) === null &&
       window.location.hash !== "#/projects" &&
@@ -2470,7 +2564,14 @@
   }
 
   onMount(() => {
+    if (activeDestination === "agents")
+      replaceBrowserLocation(applicationLocation);
     const applyBrowserLocation = () => {
+      const agentRoute = agentLocationFromHash(window.location.hash);
+      if (agentRoute) {
+        replaceLocation(agentRoute);
+        return;
+      }
       if (window.location.hash === "#/projects" && hasProjects) {
         const location = {
           destination: "projects",
@@ -4186,6 +4287,10 @@
   }
 
   function viewMemberActivity(member: CommunityMemberModel): void {
+    if (knownAgentIds.includes(member.id) && community.actions.agents) {
+      openAgentActivity(member.id);
+      return;
+    }
     if (extensions.activityLog === undefined) return;
     const result = extensions.activityLog(member.id);
     if (result instanceof Promise) {
@@ -6406,6 +6511,22 @@
           </AppShell.Body.Content>
         </AppShell.Body>
       {/if}
+    {:else if activeDestination === "agents"}
+      <AppShell.Body layout="regions" label="Agents">
+        <AppShell.Body.Content label="Your agents">
+          {#if community.state.agents && community.actions.agents}
+            <CommunityAgents
+              model={community.state.agents}
+              onProfile={openAgentProfile}
+              onActivity={openAgentActivity}
+              onRefresh={() => community.actions.agents!.refresh()}
+              onClearHistory={() => community.actions.agents!.clearHistory()}
+            />
+          {:else}<div class="community-application__panel-status" role="status">
+              Sign in to a community with agent support to view your agents.
+            </div>{/if}
+        </AppShell.Body.Content>
+      </AppShell.Body>
     {:else if !hasCommunitySurface && !communityStartupPending}
       <AppShell.Body layout="regions" label="Connect to community relay">
         <AppShell.Body.Content label="Relay connection settings">
@@ -6882,7 +7003,45 @@
             <AppShell.Sidebar.Close onclick={closeSidePanel} />
           </AppShell.Sidebar.Header>
           <AppShell.Sidebar.Body>
-            {#if selectedProfile}
+            {#if selectedAgent && community.actions.agents}
+              <CommunityAgentProfile
+                agent={selectedAgent}
+                rooms={allRooms}
+                {...community.state.agents?.presence[selectedAgent.pubkey]
+                  ? {
+                      presence:
+                        community.state.agents.presence[selectedAgent.pubkey],
+                    }
+                  : {}}
+                working={community.state.agents?.working[
+                  selectedAgent.pubkey
+                ] === true}
+                canMessage={community.state.capabilities.directMessages}
+                connected={community.state.status === "connected"}
+                onMessage={() =>
+                  messageMember(communityAgentMember(selectedAgent))}
+                onFollow={(following) =>
+                  community.actions.agents!.setFollow(
+                    selectedAgent.pubkey,
+                    following,
+                  )}
+                onActivity={() => openAgentActivity(selectedAgent.pubkey)}
+                onCopy={() =>
+                  copyText(selectedAgent.pubkey, "Public key copied")}
+                onOpenChannel={(id) => setDestination(id, true)}
+                onAddChannel={async (id) => {
+                  await community.actions.addMember(id, selectedAgent.pubkey);
+                  await community.actions.agents!.refresh();
+                }}
+                onRemoveChannel={async (id) => {
+                  await community.actions.removeMember(
+                    id,
+                    selectedAgent.pubkey,
+                  );
+                  await community.actions.agents!.refresh();
+                }}
+              />
+            {:else if selectedProfile}
               <CommunityMemberProfile
                 member={selectedProfile}
                 onCopyPublicKey={() =>
@@ -6900,6 +7059,44 @@
               <div class="community-application__panel-status" role="status">
                 Profile unavailable
               </div>
+            {/if}
+          </AppShell.Sidebar.Body>
+        {:else if activePanel.kind === "agent-activity"}
+          <AppShell.Sidebar.Header
+            ><strong>Agent activity</strong><AppShell.Sidebar.Close
+              onclick={closeSidePanel}
+            /></AppShell.Sidebar.Header
+          >
+          <AppShell.Sidebar.Body>
+            {#if community.state.agents && community.actions.agents}
+              <CommunityAgentActivity
+                model={community.state.agents}
+                rooms={allRooms}
+                onBack={() => {
+                  if (activePanel.kind === "agent-activity")
+                    openAgentProfile(activePanel.agentPubkey);
+                }}
+                onSelectAgent={(pubkey) => openAgentActivity(pubkey)}
+                onSelectChannel={(channelId) => {
+                  if (activePanel.kind === "agent-activity")
+                    openAgentActivity(activePanel.agentPubkey, channelId);
+                }}
+                onLatest={() => {
+                  if (activePanel.kind === "agent-activity")
+                    return community.actions.agents!.openActivity(
+                      activePanel.agentPubkey,
+                      activePanel.channelId,
+                    );
+                }}
+                onLoadOlder={() =>
+                  community.actions.agents!.loadOlderActivity()}
+                onClearHistory={async () => {
+                  if (activePanel.kind === "agent-activity")
+                    await community.actions.agents!.clearHistory(
+                      activePanel.agentPubkey,
+                    );
+                }}
+              />
             {/if}
           </AppShell.Sidebar.Body>
         {:else if activePanel.kind === "thread"}

@@ -234,10 +234,7 @@ class AgentSession implements CommunityAgentSession {
     const owner = await this.#options.identity.getPublicKey();
     const [owned, membership, contacts] = await Promise.all([
       this.#all({ kinds: [30177], authors: [owner] }, signal),
-      this.#all(
-        { kinds: [39002], authors: [info.self], "#p": [owner] },
-        signal,
-      ),
+      this.#all({ kinds: [39002], authors: [info.self] }, signal),
       this.#query([{ kinds: [3], authors: [owner], limit: 1 }], signal),
     ]);
     const candidateKeys = new Set<string>();
@@ -349,9 +346,9 @@ class AgentSession implements CommunityAgentSession {
     await this.#options.authenticate(signal);
     const filters: RelayFilter[] = [
       { kinds: [30177, 3, 5], authors: [owner] },
-      { kinds: [39002], authors: [info.self], "#p": [owner] },
+      { kinds: [39002], authors: [info.self] },
       ...(info.capabilities.activity
-        ? [{ kinds: [24200], "#p": [owner], since: this.#now() }]
+        ? [{ kinds: [24200], "#p": [owner], since: this.#now() - 300 }]
         : []),
     ];
     for (let start = 0; start < pubkeys.length; start += 100)

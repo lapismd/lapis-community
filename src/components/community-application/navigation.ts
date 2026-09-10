@@ -7,6 +7,7 @@ import type { ProjectForgeSurface } from "../../projects/index.js";
 export type CommunityApplicationDestination =
   | "inbox"
   | "pulse"
+  | "agents"
   | "registry"
   | "settings"
   | string;
@@ -20,7 +21,8 @@ export type CommunityApplicationPanel =
       rootMessageId: string;
       replyTargetId?: string;
     }
-  | { kind: "profile"; memberId: string };
+  | { kind: "profile"; memberId: string }
+  | { kind: "agent-activity"; agentPubkey: string; channelId?: string };
 
 export type CommunityApplicationMainSurface =
   | "release-reviews"
@@ -69,6 +71,7 @@ export interface CommunityApplicationHistory {
 export interface CommunityApplicationLocationTargets {
   roomIds: readonly string[];
   memberIds: readonly string[];
+  agentIds?: readonly string[];
   messageIds?: readonly string[];
   releaseRoomIds?: readonly string[];
   projectDestinationIds?: readonly string[];
@@ -357,6 +360,8 @@ export function communityApplicationPanelKey(
       return `details:${panel.roomId}`;
     case "profile":
       return `profile:${panel.memberId}`;
+    case "agent-activity":
+      return `agent-activity:${panel.agentPubkey}:${panel.channelId ?? ""}`;
     case "thread":
       return `thread:${panel.roomId}:${panel.rootMessageId}:${panel.replyTargetId ?? ""}`;
   }
@@ -394,7 +399,11 @@ export function normalizeCommunityApplicationLocation(
       (panel.replyTargetId === undefined ||
         targets.messageIds.includes(panel.replyTargetId)));
 
-  const panelExists = roomExists && memberExists && messageExists;
+  const agentExists =
+    panel.kind !== "agent-activity" ||
+    (targets.agentIds ?? targets.memberIds).includes(panel.agentPubkey);
+  const panelExists =
+    roomExists && memberExists && messageExists && agentExists;
   const surfaceExists =
     location.mainSurface === undefined ||
     (location.mainSurface.startsWith("release-") &&
@@ -529,4 +538,44 @@ export function projectRouteFromHash(
   } catch {
     return null;
   }
+}
+
+/** Agent routes contain identities and filters, never decoded private activity. */
+export function agentLocationToHash(
+  location: CommunityApplicationLocation,
+): string | null {
+  if (location.destination !== "agents") return null;
+  const panel = location.panel;
+  const params = new URLSearchParams();
+  if (panel.kind === "profile") params.set("agent", panel.memberId);
+  if (panel.kind === "agent-activity") {
+    params.set("agent", panel.agentPubkey);
+    params.set("activity", "1");
+    if (panel.channelId) params.set("channel", panel.channelId);
+  }
+  return `#/agents${params.size ? `?${params}` : ""}`;
+}
+
+export function agentLocationFromHash(
+  hash: string,
+): CommunityApplicationLocation | null {
+  if (hash !== "#/agents" && !hash.startsWith("#/agents?")) return null;
+  const params = new URLSearchParams(hash.split("?")[1]);
+  const agent = params.get("agent");
+  const channel = params.get("channel");
+  if (agent !== null && !/^[0-9a-f]{64}$/u.test(agent)) return null;
+  if (channel !== null && !validRouteCoordinate(channel)) return null;
+  return {
+    destination: "agents",
+    panel:
+      agent === null
+        ? { kind: "none" }
+        : params.get("activity") === "1"
+          ? {
+              kind: "agent-activity",
+              agentPubkey: agent,
+              ...(channel ? { channelId: channel } : {}),
+            }
+          : { kind: "profile", memberId: agent },
+  };
 }

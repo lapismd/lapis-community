@@ -140,6 +140,20 @@ describe("agent ownership and protocol", () => {
     expect(result).toHaveLength(1);
     expect(result[0]?.channelIds).toEqual(["general"]);
     expect(result[0]?.name).toBe("Research agent");
+    const publicMembership = finalizeEvent(
+      {
+        ...membership,
+        tags: [
+          ["d", "public"],
+          ["p", agent],
+        ],
+      },
+      relayKey,
+    );
+    expect(
+      materializeAgentDirectory([profile(), publicMembership], owner, relay)[0]
+        ?.channelIds,
+    ).toEqual(["public"]);
   });
   it("honours signed profile deletions and rejects foreign deletions", () => {
     const event = profile();

@@ -5,6 +5,7 @@ export type CommunityNavigationItemKind =
   | "pulse"
   | "registry"
   | "projects"
+  | "agents"
   | "channel"
   | "forum"
   | "direct-message";

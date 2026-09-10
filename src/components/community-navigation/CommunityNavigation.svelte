@@ -8,6 +8,7 @@
   import * as Popover from "@lapismd/design-core/shadcn/popover";
   import * as Tooltip from "@lapismd/design-core/shadcn/tooltip";
   import { AppShell } from "@lapismd/design-core/shell";
+  import BotIcon from "@lucide/svelte/icons/bot";
   import ActivityIcon from "@lucide/svelte/icons/activity";
   import ArrowDownAZIcon from "@lucide/svelte/icons/arrow-down-a-z";
   import ArrowUpDownIcon from "@lucide/svelte/icons/arrow-up-down";
@@ -106,6 +107,7 @@
   function iconFor(item: CommunityNavigationItemModel): Component {
     if (item.restricted) return LockKeyholeIcon;
     if (item.kind === "inbox") return InboxIcon;
+    if (item.kind === "agents") return BotIcon;
     if (item.kind === "pulse") return ActivityIcon;
     if (item.kind === "projects") return FolderGit2Icon;
     if (item.icon === "package-search") return PackageSearchIcon;

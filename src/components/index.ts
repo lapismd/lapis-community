@@ -154,3 +154,7 @@ export { filterCommunityNavigation } from "./community-navigation/model.js";
 export * from "./discussion-post-stream/discussion-stream.js";
 export * from "./registry-community/model.js";
 export { createBrowserCommunityComposerDraftStore } from "./community-chat-composer/browser-draft-store.js";
+
+export { default as CommunityAgents } from "./community-agents/CommunityAgents.svelte";
+export { default as CommunityAgentProfile } from "./community-agent-profile/CommunityAgentProfile.svelte";
+export { default as CommunityAgentActivity } from "./community-agent-activity/CommunityAgentActivity.svelte";

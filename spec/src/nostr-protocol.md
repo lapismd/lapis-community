@@ -169,3 +169,9 @@ Community ID, and optional project channel. An exact cached catalog MAY restore
 immediately, but MUST remain visibly stale until a live query succeeds. A
 scope change MUST clear the active project projection before another partition
 is restored, and invalid cached events MUST invalidate the snapshot.
+
+For LC-NOSTR-022, Buzz observer lifecycle handling includes `turn_finished`.
+Live turn ordering is tracked separately from stored event pagination so a
+late start cannot revive a completed turn. Profile and channel UI permissions
+consume signed ownership and relay membership without granting owners room
+administration rights.
