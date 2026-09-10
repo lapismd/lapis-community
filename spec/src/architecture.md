@@ -1,5 +1,11 @@
 # Architecture
 
+For LC-SPEC-002, Community dialog close controls retain the shared Design Core
+button identity while the owning component supplies the compact Lucide X size,
+rounded target, and hover/focus-visible feedback required by its visual
+context. The production-component story verifies those local presentation
+contracts.
+
 For LC-ARCH-021, Docker-backed project acceptance composes the sibling relay's
 private WalGit and RustFS services behind the public relay gateway. Community
 receives only the ordinary relay and HTTP origins and never receives a sidecar

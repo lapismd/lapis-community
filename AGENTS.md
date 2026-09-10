@@ -48,6 +48,10 @@ repository owns the relay.
 - Use the shared Lucide icon set where available. Icon-only controls require an
   accessible name, and decorative icons must not create duplicate accessible
   content.
+- Dialog close controls must use the established compact Lucide X treatment:
+  a small icon inside a rounded hit target with visible hover and focus-visible
+  background feedback. Cover the icon size and interaction feedback in the
+  owning component story.
 
 ## Storybook ownership and regression evidence
 
