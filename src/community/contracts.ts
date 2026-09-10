@@ -235,6 +235,8 @@ export interface CommunityConnectionSettings {
   communityId: string;
   name: string;
   relayUrl: string;
+  defaultRelayUrl: string;
+  relayUrlSource: "default" | "override";
 }
 
 export interface CommunityProfileSettings {
@@ -679,6 +681,7 @@ export interface CommunityControllerActions {
   setCustomEmoji(shortcode: string, url: string): Promise<void>;
   removeCustomEmoji(shortcode: string): Promise<void>;
   updateRelayUrl(communityId: string, relayUrl: string): Promise<void>;
+  resetRelayUrl(communityId: string): Promise<void>;
   clearCache(communityId?: string): Promise<void>;
   connectIdentity(connector?: CommunityIdentityConnector): Promise<void>;
   disconnectIdentity(): Promise<void>;
@@ -733,6 +736,7 @@ export function communityActionAvailability(
 export interface CommunityConfigurationStore {
   loadRelayUrl(communityId: string): Promise<string | undefined>;
   saveRelayUrl(communityId: string, relayUrl: string): Promise<void>;
+  removeRelayUrl(communityId: string): Promise<void>;
 }
 
 export interface CommunityStateScope {

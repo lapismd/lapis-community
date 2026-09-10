@@ -45,6 +45,9 @@ export function createBrowserCommunityConfigurationStore(
     async saveRelayUrl(communityId, relayUrl) {
       storage.setItem(`${prefix}:${encodeURIComponent(communityId)}`, relayUrl);
     },
+    async removeRelayUrl(communityId) {
+      storage.removeItem(`${prefix}:${encodeURIComponent(communityId)}`);
+    },
   };
 }
 

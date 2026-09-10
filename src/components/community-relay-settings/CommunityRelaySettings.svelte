@@ -18,6 +18,7 @@
     operation,
     cache,
     onSave,
+    onReset,
     onClearCache,
   }: {
     open?: boolean;
@@ -25,6 +26,7 @@
     operation?: CommunityOperationState;
     cache?: CommunityCacheState;
     onSave: (relayUrl: string) => Promise<void>;
+    onReset: () => Promise<void>;
     onClearCache?: () => Promise<void>;
   } = $props();
 
@@ -51,6 +53,19 @@
         cause instanceof Error
           ? cause.message
           : "Relay settings could not be saved";
+    }
+  }
+
+  async function reset(): Promise<void> {
+    localError = "";
+    try {
+      await onReset();
+      open = false;
+    } catch (cause) {
+      localError =
+        cause instanceof Error
+          ? cause.message
+          : "The app default relay could not be restored";
     }
   }
 
@@ -95,6 +110,24 @@
             aria-invalid={error ? true : undefined}
             required
           />
+          <div class="community-relay-settings__source">
+            <Field.Description>
+              {connection.relayUrlSource === "override"
+                ? `Using a saved override. App default: ${connection.defaultRelayUrl}`
+                : "Using the app-provided default relay."}
+            </Field.Description>
+            {#if connection.relayUrlSource === "override"}
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={pending}
+                onclick={() => void reset()}
+              >
+                Use app default
+              </Button>
+            {/if}
+          </div>
           {#if error}
             <Field.Error>{error}</Field.Error>
           {/if}
@@ -194,6 +227,17 @@
 
   :global(.community-relay-settings__fields[data-ui-part="field-group"]) {
     gap: 1rem;
+  }
+
+  .community-relay-settings__source {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 0.75rem;
+  }
+
+  .community-relay-settings__source :global([data-ui-component="button"]) {
+    flex: none;
   }
 
   .community-relay-settings__local-data {

@@ -6864,6 +6864,8 @@
     {...relayOperation === undefined ? {} : { operation: relayOperation }}
     onSave={(relayUrl) =>
       community.actions.updateRelayUrl(activeConnection.communityId, relayUrl)}
+    onReset={() =>
+      community.actions.resetRelayUrl(activeConnection.communityId)}
     onClearCache={() =>
       community.actions.clearCache(activeConnection.communityId)}
   />

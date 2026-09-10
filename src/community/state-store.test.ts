@@ -4,6 +4,7 @@ import { SecretKeyRegistrySigner } from "../auth/index.js";
 import { createInMemoryRelayFactory } from "../testing/index.js";
 import type { CommunityStateScope, CommunityStoredState } from "./contracts.js";
 import {
+  createBrowserCommunityConfigurationStore,
   createBrowserCommunityStateStore,
   createCommunityStoredState,
   createNip78CommunityStateStore,
@@ -21,6 +22,20 @@ function storage(): StorageLike {
 }
 
 describe("community state stores", () => {
+  it("removes a browser-local relay override", async () => {
+    const local = createBrowserCommunityConfigurationStore({
+      storage: storage(),
+    });
+    await local.saveRelayUrl("lapis", "wss://override.example");
+    await expect(local.loadRelayUrl("lapis")).resolves.toBe(
+      "wss://override.example",
+    );
+
+    await local.removeRelayUrl("lapis");
+
+    await expect(local.loadRelayUrl("lapis")).resolves.toBeUndefined();
+  });
+
   it("persists browser-local state without a relay", async () => {
     const local = createBrowserCommunityStateStore({ storage: storage() });
     const scope: CommunityStateScope = {

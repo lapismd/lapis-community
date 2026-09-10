@@ -34,8 +34,37 @@
       communityId: "lapis-community",
       name: "Lapis Community",
       relayUrl: "ws://registry.localhost:8281",
+      defaultRelayUrl: "ws://registry.localhost:8281",
+      relayUrlSource: "default" as const,
     },
     onSave: fn(async () => {}),
+    onReset: fn(async () => {}),
+  }}
+/>
+
+<Story
+  name="Saved relay override"
+  args={{
+    open: true,
+    connection: {
+      communityId: "lapis-community",
+      name: "Lapis Community",
+      relayUrl: "wss://relay-override.example",
+      defaultRelayUrl: "ws://registry.localhost:8281",
+      relayUrlSource: "override" as const,
+    },
+    onSave: fn(async () => {}),
+    onReset: fn(async () => {}),
+  }}
+  play={async ({ canvasElement, args }) => {
+    const overlay = within(canvasElement.ownerDocument.body);
+    await expect(
+      overlay.getByText("Using a saved override.", { exact: false }),
+    ).toBeVisible();
+    await userEvent.click(
+      overlay.getByRole("button", { name: "Use app default" }),
+    );
+    await expect(args.onReset).toHaveBeenCalledOnce();
   }}
 />
 
@@ -47,6 +76,8 @@
       communityId: "lapis-community",
       name: "Lapis Community",
       relayUrl: "ws://registry.localhost:8281",
+      defaultRelayUrl: "ws://registry.localhost:8281",
+      relayUrlSource: "default" as const,
     },
     cache: {
       mode: "indexeddb" as const,
@@ -54,6 +85,7 @@
       lastSynchronizedAt: 1_700_000_000,
     },
     onSave: fn(async () => {}),
+    onReset: fn(async () => {}),
     onClearCache: fn(async () => {}),
   }}
   play={async ({ canvas, canvasElement, args }) => {

@@ -72,6 +72,7 @@ export interface CommunityTestRuntimeOptions
   extends CommunityTestScenarioOptions {
   faults?: InMemoryRelayFaults;
   inviteCodeFactory?: () => string;
+  configurationStore?: CommunityConfigurationStore;
 }
 
 export interface CommunityTestRuntime {
@@ -461,6 +462,9 @@ export async function createCommunityTestRuntime(
     ...(options.inviteCodeFactory === undefined
       ? {}
       : { inviteCodeFactory: options.inviteCodeFactory }),
+    ...(options.configurationStore === undefined
+      ? {}
+      : { configurationStore: options.configurationStore }),
   });
   return {
     controller,

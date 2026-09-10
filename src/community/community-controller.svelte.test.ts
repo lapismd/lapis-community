@@ -20,6 +20,7 @@ import {
   type CommunityTestRuntime,
 } from "../testing/index.js";
 import { createNip29CommunitySource } from "./nip29-community-source.js";
+import { createBrowserCommunityConfigurationStore } from "./state-store.js";
 
 let runtime: CommunityTestRuntime | undefined;
 
@@ -45,6 +46,37 @@ async function connected(current: CommunityTestRuntime): Promise<void> {
 }
 
 describe("createCommunityController", () => {
+  it("identifies a saved relay override and restores the app default", async () => {
+    const values = new Map<string, string>();
+    const configurationStore = createBrowserCommunityConfigurationStore({
+      storage: {
+        getItem: (key) => values.get(key) ?? null,
+        setItem: (key, value) => values.set(key, value),
+        removeItem: (key) => values.delete(key),
+      },
+    });
+    await configurationStore.saveRelayUrl("lapis", "wss://override.test");
+    runtime = await createCommunityTestRuntime({ configurationStore });
+
+    await connected(runtime);
+    expect(runtime.controller.state.connections[0]).toMatchObject({
+      relayUrl: "wss://override.test/",
+      defaultRelayUrl: "memory://community.test",
+      relayUrlSource: "override",
+    });
+
+    await runtime.controller.actions.resetRelayUrl("lapis");
+
+    expect(runtime.controller.state.connections[0]).toMatchObject({
+      relayUrl: "memory://community.test",
+      defaultRelayUrl: "memory://community.test",
+      relayUrlSource: "default",
+    });
+    await expect(
+      configurationStore.loadRelayUrl("lapis"),
+    ).resolves.toBeUndefined();
+  });
+
   it("publishes Pulse notes, replies, likes, and unlikes through the signer boundary", async () => {
     runtime = await createCommunityTestRuntime();
     const memberPubkey = await runtime.scenario.member.getPublicKey();

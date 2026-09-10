@@ -98,7 +98,11 @@ export function createCommunityController(
       "CommunityController requires at least one community scope",
     );
   }
+  const defaultRelayUrls = new Map(
+    initialScopes.map((scope) => [scope.id, scope.relayUrl]),
+  );
   let scopes = $state<CommunityScope[]>(initialScopes);
+  let relayUrlOverrideIds = $state<string[]>([]);
   const now = options.now ?? (() => Math.floor(Date.now() / 1_000));
   const inviteCodeFactory =
     options.inviteCodeFactory ?? createCommunityInviteCode;
@@ -220,6 +224,10 @@ export function createCommunityController(
         communityId: scope.id,
         name: scope.name,
         relayUrl: scope.relayUrl,
+        defaultRelayUrl: defaultRelayUrls.get(scope.id) ?? scope.relayUrl,
+        relayUrlSource: relayUrlOverrideIds.includes(scope.id)
+          ? "override"
+          : "default",
       })),
       workspace,
       ...(inbox === undefined ? {} : { inbox }),
@@ -254,17 +262,22 @@ export function createCommunityController(
     error = "";
     try {
       if (!configurationLoaded && options.configurationStore !== undefined) {
+        const overrideIds: string[] = [];
         const configuredScopes = await Promise.all(
           scopes.map(async (scope) => {
             const configuredRelayUrl =
               await options.configurationStore!.loadRelayUrl(scope.id);
-            return configuredRelayUrl === undefined
-              ? scope
-              : { ...scope, relayUrl: normalizeRelayUrl(configuredRelayUrl) };
+            if (configuredRelayUrl === undefined) return scope;
+            overrideIds.push(scope.id);
+            return {
+              ...scope,
+              relayUrl: normalizeRelayUrl(configuredRelayUrl),
+            };
           }),
         );
         if (generation !== currentGeneration) return;
         scopes = configuredScopes;
+        relayUrlOverrideIds = overrideIds;
         configurationLoaded = true;
       }
       identityPubkey = identity ? await identity.getPublicKey() : "";
@@ -2162,6 +2175,29 @@ export function createCommunityController(
           candidate.id === communityId
             ? { ...candidate, relayUrl: normalizedRelayUrl }
             : candidate,
+        );
+        relayUrlOverrideIds = [
+          ...relayUrlOverrideIds.filter((id) => id !== communityId),
+          communityId,
+        ];
+        if (communityId === activeCommunityId) await reconnect();
+      });
+    },
+    async resetRelayUrl(communityId) {
+      const scope = scopes.find((candidate) => candidate.id === communityId);
+      const defaultRelayUrl = defaultRelayUrls.get(communityId);
+      if (scope === undefined || defaultRelayUrl === undefined) {
+        throw new Error("Community was not found");
+      }
+      await runOperation(`settings:relay:${communityId}`, async () => {
+        await options.configurationStore?.removeRelayUrl(communityId);
+        scopes = scopes.map((candidate) =>
+          candidate.id === communityId
+            ? { ...candidate, relayUrl: defaultRelayUrl }
+            : candidate,
+        );
+        relayUrlOverrideIds = relayUrlOverrideIds.filter(
+          (id) => id !== communityId,
         );
         if (communityId === activeCommunityId) await reconnect();
       });
