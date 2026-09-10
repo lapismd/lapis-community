@@ -10,6 +10,12 @@ import type {
 } from "../components/index.js";
 import type { NostrEvent, NostrEventTemplate } from "../protocol/index.js";
 import type { JsonValue } from "../protocol/index.js";
+import type {
+  CommunityAgentSession,
+  CommunityAgentActivityStore,
+  CommunityAgentsState,
+  CommunityAgentsActions,
+} from "./agent-contracts.js";
 
 export type CommunityConnectionStatus =
   | "idle"
@@ -212,6 +218,7 @@ export interface CommunityOperationState {
 }
 
 export interface CommunityControllerState {
+  agents?: CommunityAgentsState;
   status: CommunityConnectionStatus;
   cache: CommunityCacheState;
   connections: readonly CommunityConnectionSettings[];
@@ -504,6 +511,7 @@ export interface CommunityRuntimeSearch {
 }
 
 export interface CommunityEventRuntime {
+  readonly agentActivity?: CommunityAgentActivityStore | undefined;
   restore(
     scopes: readonly CommunityScope[],
     generation?: number,
@@ -522,6 +530,7 @@ export interface CommunityEventRuntime {
 }
 
 export interface CommunityEventStore {
+  readonly agentActivity?: CommunityAgentActivityStore | undefined;
   readonly mode: CommunityStorageMode;
   open(): Promise<void>;
   restore(
@@ -561,6 +570,8 @@ export interface CommunitySessionSubscription {
 }
 
 export interface CommunitySession {
+  /** Optional relay-backed agents; custom sources remain compatible. */
+  readonly agents?: CommunityAgentSession | undefined;
   snapshot(signal?: AbortSignal): Promise<CommunitySnapshot>;
   synchronize?(
     request: CommunitySynchronizationRequest,
@@ -618,6 +629,7 @@ export interface CommunityController {
 }
 
 export interface CommunityControllerActions {
+  agents?: CommunityAgentsActions;
   selectCommunity(communityId: string): void;
   selectRoom(roomId: string): void;
   openTopic(topicId: string): void;

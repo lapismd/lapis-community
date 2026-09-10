@@ -10,6 +10,7 @@ import type {
   CommunityVerifiedEventRecord,
 } from "./contracts.js";
 import { isVerifiedNostrEvent } from "./verified-events.js";
+import { createMemoryAgentActivityStore } from "./agent-archive.js";
 
 export interface CommunityEventStoreOptions {
   maxBytes?: number;
@@ -77,6 +78,7 @@ export abstract class BaseCommunityEventStore implements CommunityEventStore {
 }
 
 class MemoryCommunityEventStore extends BaseCommunityEventStore {
+  readonly agentActivity = createMemoryAgentActivityStore();
   readonly mode = "memory" as const;
   readonly #records = new Map<string, Map<string, StoredRecord>>();
   readonly #checkpoints = new Map<

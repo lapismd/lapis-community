@@ -13,6 +13,10 @@ import {
   type CommunityEventStoreOptions,
 } from "./event-store.js";
 import { isVerifiedNostrEvent, verifiedNostrEvent } from "./verified-events.js";
+import {
+  createTursoAgentActivityStore,
+  initializeAgentArchiveDatabase,
+} from "./agent-archive-turso.js";
 
 interface TursoDatabase {
   exec(sql: string): Promise<void>;
@@ -66,6 +70,9 @@ export function createTursoCommunityEventStore(
 }
 
 class TursoCommunityEventStore extends BaseCommunityEventStore {
+  readonly agentActivity = createTursoAgentActivityStore(() =>
+    this.#requireDatabase(),
+  );
   readonly mode = "turso-opfs" as const;
   readonly #databaseName: string;
   readonly #maxBytes: number;
@@ -93,6 +100,7 @@ class TursoCommunityEventStore extends BaseCommunityEventStore {
         "@tursodatabase/database-wasm/bundle" as string
       )) as { connect(path: string): Promise<TursoDatabase> };
       this.#database = await connect(this.#databaseName);
+      await initializeAgentArchiveDatabase(this.#database);
       await this.#database.exec(`
         CREATE TABLE IF NOT EXISTS community_events (
           cache_key TEXT PRIMARY KEY,

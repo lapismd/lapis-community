@@ -66,6 +66,11 @@ import {
 import { createInlineCommunityEventRuntime } from "./event-runtime.js";
 import { registerCommunityControllerIdentityReader } from "./controller-identity-context.js";
 import {
+  createCommunityAgentsController,
+  type CommunityAgentsController,
+} from "./agent-controller.js";
+import type { CommunityAgentsState } from "./agent-contracts.js";
+import {
   COMMUNITY_MESSAGE_EDIT_KIND,
   configuredCuratorPubkeys,
   formatCommunityMessageReport,
@@ -133,6 +138,8 @@ export function createCommunityController(
   let pulseReactionTimer: ReturnType<typeof setInterval> | undefined;
   let pulseEvents: NostrEvent[] = [];
   let pulsePrimaryEventIds: string[] = [];
+  let agentController: CommunityAgentsController | undefined;
+  let agents = $state<CommunityAgentsState | undefined>();
 
   let status = $state<CommunityControllerState["status"]>("idle");
   let cache = $state<CommunityControllerState["cache"]>({
@@ -242,6 +249,7 @@ export function createCommunityController(
       navigation,
       ...(replyTarget === undefined ? {} : { replyTarget }),
       ...(pulse === undefined ? {} : { pulse }),
+      ...(agents === undefined ? {} : { agents }),
       ...(error === "" ? {} : { error }),
     }),
   );
@@ -315,6 +323,7 @@ export function createCommunityController(
           return;
         }
         sessions.set(scope.id, session);
+        if (scope.id === activeCommunityId) startAgents();
         let snapshotReady = false;
         const pendingEvents: NostrEvent[] = [];
         const subscription = await session.subscribe((events) => {
@@ -681,6 +690,52 @@ export function createCommunityController(
     });
   }
 
+  function stopAgents(): void {
+    agentController?.dispose();
+    agentController = undefined;
+    agents = undefined;
+  }
+
+  function startAgents(): void {
+    stopAgents();
+    const session = sessions.get(activeCommunityId)?.agents;
+    if (!session || !identity || !identityPubkey) return;
+    const scope = activeScope();
+    const currentGeneration = generation;
+    const controller = createCommunityAgentsController({
+      scope: {
+        communityId: scope.id,
+        ownerPubkey: identityPubkey,
+        relayUrls: [scope.relayUrl, ...(scope.readRelayUrls ?? [])],
+      },
+      identity,
+      session,
+      archive: eventRuntime.agentActivity,
+      now,
+      storageMode: () => cache.mode,
+      onState: (next) => {
+        if (agentController !== controller || generation !== currentGeneration)
+          return;
+        const identitiesChanged = agents?.agents !== next.agents;
+        agents = next;
+        if (identitiesChanged) updatePulseAvailability();
+      },
+      onDirectory: (events) => {
+        if (agentController === controller && generation === currentGeneration)
+          queueLiveEvents(scope.id, events, currentGeneration);
+      },
+    });
+    agentController = controller;
+    void controller.start();
+  }
+
+  function pulseAgents() {
+    return (
+      options.pulse?.agents ??
+      (agents?.capabilities.directory ? agents.agents : undefined)
+    );
+  }
+
   function updatePulseAvailability(): void {
     const session = sessions.get(activeCommunityId);
     if (
@@ -694,9 +749,7 @@ export function createCommunityController(
       pulse = {
         ...pulse,
         canDirectMessage: capabilities.directMessages,
-        ...(options.pulse?.agents === undefined
-          ? {}
-          : { agents: options.pulse.agents }),
+        ...(pulseAgents() === undefined ? {} : { agents: pulseAgents()! }),
       };
       return;
     }
@@ -706,9 +759,7 @@ export function createCommunityController(
       notes: [],
       agentActivities: [],
       members: [],
-      ...(options.pulse?.agents === undefined
-        ? {}
-        : { agents: options.pulse.agents }),
+      ...(pulseAgents() === undefined ? {} : { agents: pulseAgents()! }),
       canDirectMessage: capabilities.directMessages,
     };
   }
@@ -743,8 +794,7 @@ export function createCommunityController(
           tab: selected,
           ...(selected === "agents"
             ? {
-                agentPubkeys:
-                  options.pulse?.agents?.map((agent) => agent.pubkey) ?? [],
+                agentPubkeys: pulseAgents()?.map((agent) => agent.pubkey) ?? [],
               }
             : {}),
           ...(kind === "reactions" && currentPulse.notes.length > 0
@@ -766,9 +816,7 @@ export function createCommunityController(
         tab: selected,
         primaryEventIds: pulsePrimaryEventIds,
         ...(identityPubkey === "" ? {} : { identityPubkey }),
-        ...(options.pulse?.agents === undefined
-          ? {}
-          : { agents: options.pulse.agents }),
+        ...(pulseAgents() === undefined ? {} : { agents: pulseAgents()! }),
         asOf: now(),
         canDirectMessage: capabilities.directMessages,
       });
@@ -841,6 +889,7 @@ export function createCommunityController(
   }
 
   function closeConnections(reason: string): void {
+    stopAgents();
     generation += 1;
     progressiveRun += 1;
     progressiveAbort?.abort(new DOMException(reason, "AbortError"));
@@ -931,9 +980,7 @@ export function createCommunityController(
         tab: selected,
         primaryEventIds: pulsePrimaryEventIds,
         ...(identityPubkey === "" ? {} : { identityPubkey }),
-        ...(options.pulse?.agents === undefined
-          ? {}
-          : { agents: options.pulse.agents }),
+        ...(pulseAgents() === undefined ? {} : { agents: pulseAgents()! }),
         asOf: now(),
         canDirectMessage: capabilities.directMessages,
       }),
@@ -943,7 +990,7 @@ export function createCommunityController(
   }
 
   async function selectPulseTab(tab: CommunityPulseTab): Promise<void> {
-    if (tab === "agents" && options.pulse?.agents === undefined) return;
+    if (tab === "agents" && pulseAgents() === undefined) return;
     if (tab === "following" || tab === "liked" || tab === "mine") {
       await ensureIdentity(`pulse:tab:${tab}`);
     }
@@ -1113,6 +1160,31 @@ export function createCommunityController(
   }
 
   const actions: CommunityControllerActions = {
+    agents: {
+      refresh: async () => {
+        await agentController?.actions.refresh();
+      },
+      setFollow: async (pubkey, following) => {
+        if (!agentController)
+          throw new Error("Agent actions require a signed-in community");
+        await runOperation(`agent:follow:${pubkey}`, () =>
+          agentController!.actions.setFollow(pubkey, following),
+        );
+      },
+      openActivity: async (pubkey, channel) => {
+        if (!agentController)
+          throw new Error("Agent activity requires a signed-in community");
+        await agentController.actions.openActivity(pubkey, channel);
+      },
+      loadOlderActivity: async () => {
+        await agentController?.actions.loadOlderActivity();
+      },
+      clearHistory: async (pubkey) => {
+        if (!agentController)
+          throw new Error("Agent history requires a signed-in community");
+        await agentController.actions.clearHistory(pubkey);
+      },
+    },
     pulse: {
       setActive(active) {
         pulseActive = active;
@@ -1135,6 +1207,7 @@ export function createCommunityController(
       const scope = scopes.find((candidate) => candidate.id === communityId);
       if (scope === undefined) return;
       activeCommunityId = communityId;
+      startAgents();
       const rooms = communityRooms(
         scope,
         eventsByScope[scope.id] ?? [],

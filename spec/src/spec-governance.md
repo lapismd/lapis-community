@@ -70,3 +70,8 @@ deterministic and do not require that stack.
 The `src/registry` public entry point follows the component specification
 chapter because it supplies the typed models and projection-loading boundary
 consumed directly by the registry presentation components.
+
+The agent owner-proof verifier uses the direct `@noble/curves` dependency for
+BIP-340 signatures. The committed lockfile resolves Design Core from the npm
+registry. An ignored local package hook may substitute a sibling artifact for
+source validation without rewriting the committed dependency metadata.

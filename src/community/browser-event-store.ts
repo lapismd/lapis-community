@@ -17,6 +17,7 @@ import {
   canUseTursoCommunityEventStore,
   createTursoCommunityEventStore,
 } from "./turso-event-store.js";
+import { agentActivityProxy } from "./agent-archive.js";
 
 const DEFAULT_TURSO_DATABASE_NAME = "lapismd-community-event-cache-v1.db";
 const SHARED_TURSO_STORES = Symbol.for(
@@ -50,6 +51,13 @@ export function createBrowserCommunityEventStore(
 }
 
 class BrowserCommunityEventStore implements CommunityEventStore {
+  readonly agentActivity = agentActivityProxy(async () => {
+    await this.open();
+    const archive = this.#requireStore().agentActivity;
+    if (!archive)
+      throw new Error("Agent history is unavailable in this storage backend");
+    return archive;
+  });
   readonly #options: BrowserCommunityEventStoreOptions;
   #store: CommunityEventStore | undefined;
   #degradedReason: string | undefined;
@@ -170,6 +178,13 @@ function createSharedTursoCommunityEventStore(
  * without exposing a second OPFS opener to the driver's worker pool.
  */
 class SharedTursoCommunityEventStore implements CommunityEventStore {
+  readonly agentActivity = agentActivityProxy(async () => {
+    await this.open();
+    const archive = this.#store().agentActivity;
+    if (!archive)
+      throw new Error("Agent history is unavailable in this storage backend");
+    return archive;
+  });
   readonly mode = "turso-opfs" as const;
   readonly #databaseName: string;
   readonly #maxBytes: number | undefined;

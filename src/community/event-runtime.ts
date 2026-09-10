@@ -20,6 +20,7 @@ import {
 } from "./materialize.js";
 import { materializeCommunitySettings } from "./materialize-settings.js";
 import { verifiedNostrEvent } from "./verified-events.js";
+import { agentActivityProxy } from "./agent-archive.js";
 
 export interface InlineCommunityEventRuntimeOptions {
   store?: CommunityEventStore;
@@ -34,6 +35,13 @@ export function createInlineCommunityEventRuntime(
 }
 
 export class InlineCommunityEventRuntime implements CommunityEventRuntime {
+  readonly agentActivity = agentActivityProxy(async () => {
+    await this.#open();
+    const archive = this.#store.agentActivity;
+    if (!archive)
+      throw new Error("This custom event store does not support agent history");
+    return archive;
+  });
   readonly #store: CommunityEventStore;
   readonly #events = new Map<string, Map<string, NostrEvent>>();
   readonly #relayUrls = new Map<string, Map<string, string>>();
@@ -107,6 +115,9 @@ export class InlineCommunityEventRuntime implements CommunityEventRuntime {
     const relayUrls = this.#relayUrls.get(batch.scope.id) ?? new Map();
     const accepted: NostrEvent[] = [];
     for (const incoming of batch.events) {
+      // Transient telemetry belongs to the dedicated encrypted archive, never
+      // to message restoration, search, or durable event synchronization.
+      if (incoming.kind >= 20_000 && incoming.kind < 30_000) continue;
       if (events.has(incoming.id)) continue;
       const event = verifiedNostrEvent(incoming);
       if (event === undefined) continue;

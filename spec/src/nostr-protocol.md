@@ -1,5 +1,9 @@
 # Nostr Protocol and Trust
 
+The verified owned-agent directory and Buzz-compatible bridge are specified
+in [Agents and saved activity](agents.md). Ordinary profile metadata and bot
+roles do not establish the owner relationship.
+
 Protocol-backed presentation follows the package's portable, published Design
 Core semver boundary; dependency refreshes do not alter event interpretation or
 trust decisions.

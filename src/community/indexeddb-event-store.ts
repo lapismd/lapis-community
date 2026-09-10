@@ -15,6 +15,15 @@ import {
   type CommunityEventStoreOptions,
 } from "./event-store.js";
 import { isVerifiedNostrEvent, verifiedNostrEvent } from "./verified-events.js";
+import type { CommunityAgentActivityStore } from "./agent-contracts.js";
+import {
+  agentArchiveLimit,
+  agentArchiveRow,
+  agentArchiveScopeKey,
+  archivePage,
+  archiveIdentity,
+  type AgentArchiveRow,
+} from "./agent-archive.js";
 
 interface IndexedEventRow {
   key: string;
@@ -35,6 +44,20 @@ interface IndexedCheckpointRow extends CommunitySyncCheckpoint {
 }
 
 interface CommunityCacheDb extends DBSchema {
+  agentActivity: {
+    key: string;
+    value: AgentArchiveRow;
+    indexes: { scope: string; chronological: [string, string, number, string] };
+  };
+  agentIdentities: {
+    key: string;
+    value: {
+      key: string;
+      scopeKey: string;
+      profile: AgentArchiveRow["record"]["profile"];
+    };
+    indexes: { scope: string };
+  };
   events: {
     key: string;
     value: IndexedEventRow;
@@ -65,6 +88,122 @@ export function createIndexedDbCommunityEventStore(
 }
 
 class IndexedDbCommunityEventStore extends BaseCommunityEventStore {
+  readonly agentActivity: CommunityAgentActivityStore = {
+    append: async (scope, records) => {
+      const rows = records.map((record) => agentArchiveRow(scope, record));
+      const tx = this.#requireDatabase().transaction(
+        ["agentActivity", "agentIdentities"],
+        "readwrite",
+      );
+      for (const row of rows) {
+        const activities = tx.objectStore("agentActivity");
+        if ((await activities.getKey(row.key)) === undefined)
+          await activities.put(row);
+        const identities = tx.objectStore("agentIdentities");
+        const key = JSON.stringify([row.scopeKey, row.agentPubkey]);
+        const old = await identities.get(key);
+        const profile = row.record.profile;
+        if (
+          !old ||
+          profile.created_at > old.profile.created_at ||
+          (profile.created_at === old.profile.created_at &&
+            profile.id < old.profile.id)
+        )
+          await identities.put({ key, scopeKey: row.scopeKey, profile });
+      }
+      await tx.done;
+    },
+    page: async (query) => {
+      const scopeKey = agentArchiveScopeKey(query.scope);
+      const tx = this.#requireDatabase().transaction(
+        "agentActivity",
+        "readonly",
+      );
+      const rows: AgentArchiveRow[] = [];
+      // Agent history is indexed, so paging never restores the full journal.
+      const agent = query.agentPubkey;
+      if (agent) {
+        const upper: [string, string, number, string] = [
+          scopeKey,
+          agent,
+          query.before?.createdAt ?? Number.MAX_SAFE_INTEGER,
+          query.before?.eventId ?? "~",
+        ];
+        const range = IDBKeyRange.bound(
+          [scopeKey, agent, 0, ""],
+          upper,
+          false,
+          query.before !== undefined,
+        );
+        let cursor = await tx.store
+          .index("chronological")
+          .openCursor(range, "prev");
+        while (cursor && rows.length <= agentArchiveLimit(query)) {
+          if (!query.channelId || cursor.value.channelId === query.channelId)
+            rows.push(cursor.value);
+          cursor = await cursor.continue();
+        }
+      } else {
+        // The UI pages one selected agent; all-agent reads are bounded too.
+        let cursor = await tx.store.index("scope").openCursor(scopeKey);
+        while (cursor) {
+          const row = cursor.value;
+          if (
+            (!query.channelId || row.channelId === query.channelId) &&
+            (!query.before ||
+              row.createdAt < query.before.createdAt ||
+              (row.createdAt === query.before.createdAt &&
+                row.eventId < query.before.eventId))
+          )
+            rows.push(row);
+          rows.sort(
+            (a, b) =>
+              b.createdAt - a.createdAt || b.eventId.localeCompare(a.eventId),
+          );
+          if (rows.length > agentArchiveLimit(query) + 1) rows.pop();
+          cursor = await cursor.continue();
+        }
+      }
+      await tx.done;
+      return archivePage(rows, query);
+    },
+    agents: async (scope) => {
+      const rows = await this.#requireDatabase().getAllFromIndex(
+        "agentIdentities",
+        "scope",
+        agentArchiveScopeKey(scope),
+      );
+      return rows.flatMap((row) => {
+        const identity = archiveIdentity(row.profile, scope.ownerPubkey);
+        return identity ? [identity] : [];
+      });
+    },
+    clear: async (scope, agent) => {
+      const key = agentArchiveScopeKey(scope);
+      const tx = this.#requireDatabase().transaction(
+        ["agentActivity", "agentIdentities"],
+        "readwrite",
+      );
+      let cursor = await tx
+        .objectStore("agentActivity")
+        .index("scope")
+        .openCursor(key);
+      while (cursor) {
+        if (!agent || cursor.value.agentPubkey === agent) await cursor.delete();
+        cursor = await cursor.continue();
+      }
+      if (agent)
+        await tx
+          .objectStore("agentIdentities")
+          .delete(JSON.stringify([key, agent]));
+      else {
+        const identities = tx.objectStore("agentIdentities");
+        for (const id of await identities.index("scope").getAllKeys(key))
+          await identities.delete(id);
+      }
+      await tx.done;
+    },
+  };
   readonly mode = "indexeddb" as const;
   readonly #databaseName: string;
   readonly #maxBytes: number;
@@ -79,16 +218,40 @@ class IndexedDbCommunityEventStore extends BaseCommunityEventStore {
 
   async open(): Promise<void> {
     if (this.#database !== undefined) return;
-    this.#database = await openDB<CommunityCacheDb>(this.#databaseName, 1, {
-      upgrade(database) {
-        const events = database.createObjectStore("events", { keyPath: "key" });
-        events.createIndex("scope", "scopeKey");
-        events.createIndex("partition", "partitionKey");
-        events.createIndex("access", "lastAccessedAt");
-        const checkpoints = database.createObjectStore("checkpoints", {
-          keyPath: "key",
-        });
-        checkpoints.createIndex("scope", "scopeKey");
+    this.#database = await openDB<CommunityCacheDb>(this.#databaseName, 2, {
+      upgrade(database, oldVersion) {
+        if (oldVersion < 1) {
+          const events = database.createObjectStore("events", {
+            keyPath: "key",
+          });
+          events.createIndex("scope", "scopeKey");
+          events.createIndex("partition", "partitionKey");
+          events.createIndex("access", "lastAccessedAt");
+          const checkpoints = database.createObjectStore("checkpoints", {
+            keyPath: "key",
+          });
+          checkpoints.createIndex("scope", "scopeKey");
+        }
+        if (oldVersion < 2) {
+          const activity = database.createObjectStore("agentActivity", {
+            keyPath: "key",
+          });
+          activity.createIndex("scope", "scopeKey");
+          activity.createIndex("chronological", [
+            "scopeKey",
+            "agentPubkey",
+            "createdAt",
+            "eventId",
+          ]);
+          const identities = database.createObjectStore("agentIdentities", {
+            keyPath: "key",
+          });
+          identities.createIndex("scope", "scopeKey");
+        }
+      },
+      blocking: () => {
+        this.#database?.close();
+        this.#database = undefined;
       },
     });
   }

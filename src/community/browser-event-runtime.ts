@@ -10,6 +10,11 @@ import type {
 import { createBrowserCommunityEventStore } from "./browser-event-store.js";
 import { createInlineCommunityEventRuntime } from "./event-runtime.js";
 import { canUseTursoCommunityEventStore } from "./turso-event-store.js";
+import type {
+  CommunityAgentActivityStore,
+  CommunityAgentArchiveRequest,
+} from "./agent-contracts.js";
+import { dispatchAgentArchive } from "./agent-archive.js";
 
 interface WorkerLike {
   postMessage(value: unknown): void;
@@ -60,6 +65,28 @@ function createInlineBrowserCommunityEventRuntime(
 }
 
 class BrowserCommunityEventRuntime implements CommunityEventRuntime {
+  readonly agentActivity: CommunityAgentActivityStore = {
+    append: (scope, records) =>
+      this.#archive({ operation: "append", scope, records }),
+    page: (query) => this.#archive({ operation: "page", query }),
+    agents: (scope) => this.#archive({ operation: "agents", scope }),
+    clear: (scope, agentPubkey) =>
+      this.#archive({
+        operation: "clear",
+        scope,
+        ...(agentPubkey ? { agentPubkey } : {}),
+      }),
+  };
+
+  async #archive<T>(request: CommunityAgentArchiveRequest): Promise<T> {
+    await this.#restoreAfterCrash();
+    if (this.#fallback)
+      return (await dispatchAgentArchive(
+        this.#fallback.agentActivity,
+        request,
+      )) as T;
+    return this.#request({ method: "archive", request });
+  }
   readonly #options: BrowserCommunityEventRuntimeOptions;
   readonly #pending = new Map<
     number,

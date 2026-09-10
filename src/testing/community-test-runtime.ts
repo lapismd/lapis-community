@@ -443,7 +443,7 @@ export async function createCommunityTestRuntime(
   });
   const relay = relayFactory.relay(scenario.scope.relayUrl);
   await scenario.seed(relay);
-  const source = createNip29CommunitySource({ relayFactory });
+  const source = createNip29CommunitySource({ relayFactory, agents: false });
   const participantPubkey = await scenario.participant.getPublicKey();
   const controller = createCommunityController({
     scopes: [scenario.scope],

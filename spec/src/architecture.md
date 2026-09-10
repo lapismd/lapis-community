@@ -1,5 +1,11 @@
 # Architecture
 
+The additive agent session boundary owns authenticated discovery, transient
+subscriptions, and contact-list mutations. Its protocol rules are defined in
+[Agents and saved activity](agents.md). Custom Community sources may omit this
+boundary without changing existing behavior. The direct `@noble/curves`
+runtime dependency supplies BIP-340 verification for NIP-OA owner attestations.
+
 For LC-SPEC-002, Community dialog close controls retain the shared Design Core
 button identity while the owning component supplies the compact Lucide X size,
 rounded target, and hover/focus-visible feedback required by its visual
@@ -209,3 +215,10 @@ relay's authenticated forge API and relay-administrator policy. The Community
 source MAY create, completely replace, and revalidate a connection, but it MUST
 consume only the relay's safe public connection record and MUST NOT expect the
 relay to return App IDs, credential references, or secret values.
+
+The agent activity archive uses the existing store owner and runtime worker
+bridge. Additive store/runtime properties preserve custom adapters. Transient
+Nostr kinds are excluded from ordinary runtime ingestion; observer telemetry
+uses the owner-partitioned archive described in [Agents](agents.md). The
+controller starts capture for only the selected signed-in community and
+invalidates its private decoded state during identity or community changes.

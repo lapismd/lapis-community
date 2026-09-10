@@ -36,10 +36,16 @@ import {
   pulseReplyParentId,
 } from "./materialize-pulse.js";
 import { verifiedNostrEvent } from "./verified-events.js";
+import { createCommunityAgentSession } from "./agent-session.js";
+import type { CommunityAgentSession } from "./agent-contracts.js";
 
 export interface Nip29CommunitySourceOptions {
   relayFactory: CommunityRelayFactory;
   searchLimit?: number;
+  /** Hosts may omit the optional agent surface for sources without a bridge. */
+  agents?: boolean;
+  /** Inject the Buzz-compatible HTTP bridge transport. */
+  fetch?: typeof globalThis.fetch;
 }
 
 const COMMUNITY_CONTENT_KINDS = [5, 7, 9, 11, 1_111, 9_005, 40_003] as const;
@@ -65,6 +71,7 @@ export function createNip29CommunitySource(
 }
 
 class Nip29CommunitySession implements CommunitySession {
+  readonly agents: CommunityAgentSession | undefined;
   readonly #scope: CommunityScope;
   readonly #context: CommunityDataSourceContext;
   readonly #options: Nip29CommunitySourceOptions;
@@ -95,6 +102,17 @@ class Nip29CommunitySession implements CommunitySession {
     this.#authority =
       this.#relays.find((relay) => relay.url === authorityUrl) ??
       options.relayFactory.create(authorityUrl);
+    this.agents =
+      context.identity === undefined || options.agents === false
+        ? undefined
+        : createCommunityAgentSession({
+            scope,
+            identity: context.identity,
+            relay: this.#authority,
+            authenticate: (signal) =>
+              this.#authenticate(this.#authority, signal),
+            ...(options.fetch === undefined ? {} : { fetch: options.fetch }),
+          });
     for (const room of communityRooms(scope)) {
       this.#knownGroupIds.add(room.groupId);
     }

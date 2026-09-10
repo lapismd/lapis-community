@@ -39,7 +39,7 @@ export default defineConfig(tableRequirements(), {
     specFirst: {
       mode: "mapped",
       canonicalPattern:
-        "^spec/src/(?:architecture|nostr-protocol|components|registry-pipeline|spec-governance)\\.md$",
+        "^spec/src/(?:architecture|nostr-protocol|components|registry-pipeline|spec-governance|agents)\\.md$",
       ignore: [
         "(^|/)node_modules/",
         "(^|/)(?:dist|storybook-static)/",

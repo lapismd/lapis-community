@@ -6,8 +6,11 @@ import type {
 } from "./contracts.js";
 import { createBrowserCommunityEventStore } from "./browser-event-store.js";
 import { createInlineCommunityEventRuntime } from "./event-runtime.js";
+import type { CommunityAgentArchiveRequest } from "./agent-contracts.js";
+import { dispatchAgentArchive } from "./agent-archive.js";
 
 type WorkerRequest =
+  | { id: number; method: "archive"; request: CommunityAgentArchiveRequest }
   | {
       id: number;
       method: "restore";
@@ -42,6 +45,12 @@ async function respond(request: WorkerRequest): Promise<void> {
   try {
     let value: unknown;
     switch (request.method) {
+      case "archive":
+        value = await dispatchAgentArchive(
+          runtime.agentActivity,
+          request.request,
+        );
+        break;
       case "restore":
         value = await runtime.restore(request.scopes, request.generation);
         break;

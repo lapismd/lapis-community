@@ -1,4 +1,7 @@
 export * from "./contracts.js";
+export * from "./agent-contracts.js";
+export * from "./agent-protocol.js";
+export * from "./agent-session.js";
 export * from "./community-controller.svelte.js";
 export * from "./event-store.js";
 export * from "./event-runtime.js";
