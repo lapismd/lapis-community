@@ -52,6 +52,8 @@ Recursive file discovery MUST bound concurrency while loading independent
 directories in parallel.
 When projects use the active Community relay, their presentation MUST wait
 until relay and identity restoration settle and MUST resume after reconnect.
+An authoritative empty project catalog MUST settle as a responsive empty state
+without repeatedly reopening its project session.
 
 For LC-UI-036, aggregate repository and task collections MUST split into
 collapsible Mine and Other groups. Mine repositories are authored by the

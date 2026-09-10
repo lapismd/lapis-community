@@ -525,6 +525,42 @@
 </Story>
 
 <Story
+  name="Empty project catalog remains responsive"
+  play={async ({ canvas }) => {
+    const application = await canvas.findByTestId(
+      "full-community-application",
+      {},
+      { timeout: 15_000 },
+    );
+    await waitFor(
+      () =>
+        expect(application).toHaveAttribute(
+          "data-community-status",
+          "connected",
+        ),
+      { timeout: 15_000 },
+    );
+    await expect(
+      await canvas.findByRole("heading", { name: "Projects Activity" }),
+    ).toBeVisible();
+    await new Promise((resolve) => window.setTimeout(resolve, 100));
+    await userEvent.click(canvas.getByRole("tab", { name: "Repositories" }));
+    await expect(
+      await canvas.findByText("No repositories are attached."),
+    ).toBeVisible();
+  }}
+>
+  {#snippet template()}
+    <CommunityApplicationStoryHarness
+      namespace="empty-projects"
+      projects
+      emptyProjects
+      initialDestination="projects"
+    />
+  {/snippet}
+</Story>
+
+<Story
   name="Cold cache offline"
   play={async ({ canvas }) => {
     await userEvent.click(

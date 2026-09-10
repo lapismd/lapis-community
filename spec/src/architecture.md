@@ -17,7 +17,10 @@ in-memory cache that survives presentation-session replacement, remains
 bounded, bypasses progress streams, and is cleared after forge mutations.
 When the active Community relay supplies project transport, project loading
 MUST wait for relay and identity restoration to settle, close while the relay
-is unavailable, and resume once after reconnection.
+is unavailable, and resume once after reconnection. Catalog restoration and
+live refresh MUST NOT make the loaded catalog a reactive trigger for reopening
+the project session; an empty authoritative catalog MUST settle without a
+request loop.
 That application runs under a checkout-owned supervisor: source updates remain
 Vite HMR events, while generated fixture-environment updates restart Vite so
 its compile-time public trust configuration cannot become stale. Ownership is

@@ -530,10 +530,12 @@ export function createProjectStoryFixture(channelId = "general-projects") {
 export function createProjectStoryDataSource(
   channelId = "general-projects",
   repositoryBackend: "github" | "walgit" = "walgit",
+  empty = false,
 ): ProjectForgeDataSource {
   const fixture = createProjectStoryFixture(channelId);
-  const catalog =
-    repositoryBackend === "github"
+  const catalog: ProjectForgeCatalog = empty
+    ? { projects: [], repositories: [], events: [] }
+    : repositoryBackend === "github"
       ? {
           ...fixture.catalog,
           repositories: fixture.catalog.repositories.map((repository) => ({

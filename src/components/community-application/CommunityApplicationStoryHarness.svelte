@@ -56,6 +56,7 @@
     progressiveDelayMs = 0,
     progressiveFailure = false,
     projects = false,
+    emptyProjects = false,
     projectBackend = "walgit",
   }: {
     signedIn?: boolean;
@@ -72,6 +73,7 @@
     progressiveDelayMs?: number;
     progressiveFailure?: boolean;
     projects?: boolean;
+    emptyProjects?: boolean;
     projectBackend?: "github" | "walgit";
   } = $props();
 
@@ -136,6 +138,7 @@
       projectSource = createProjectStoryDataSource(
         namespace ? `general-${namespace}` : "general",
         projectBackend,
+        emptyProjects,
       );
       const selectedBackend =
         document.documentElement.dataset.communityBackend ?? "memory";

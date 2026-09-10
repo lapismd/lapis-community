@@ -1803,7 +1803,7 @@
 
     void (async () => {
       const catalogStore = options.catalogStore ?? defaultProjectCatalogStore;
-      if (projectCatalog.events.length === 0) {
+      if (untrack(() => projectCatalog.events.length) === 0) {
         const cached = await catalogStore.load(catalogScope);
         if (controller.signal.aborted) return;
         if (cached !== undefined) {
