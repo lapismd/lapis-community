@@ -1,6 +1,13 @@
 <script module lang="ts">
   import { defineMeta } from "@storybook/addon-svelte-csf";
-  import { expect, fn, userEvent, waitFor, within } from "storybook/test";
+  import {
+    expect,
+    fireEvent,
+    fn,
+    userEvent,
+    waitFor,
+    within,
+  } from "storybook/test";
 
   import CommunityProjectsStoryHarness from "./CommunityProjectsStoryHarness.svelte";
   import {
@@ -447,7 +454,7 @@ index 3333333..4444444 100644
     pullRequests: fixture.workItems.pullRequests,
     activity: repositoryActivity,
   }}
-  play={async ({ canvas }) => {
+  play={async ({ canvas, canvasElement }) => {
     const link = canvas.getByRole("link", {
       name: "Open community-client on GitHub",
     });
@@ -463,9 +470,32 @@ index 3333333..4444444 100644
     await expect(
       canvas.getByRole("button", { name: "Other repositories" }),
     ).toHaveAttribute("aria-expanded", "true");
-    await expect(canvas.getByRole("img", { name: "2 commits" })).toBeVisible();
+    const commitActivity = canvas.getByRole("img", { name: "2 commits" });
+    await expect(commitActivity).toBeVisible();
     await expect(canvas.getByRole("img", { name: "1 review" })).toBeVisible();
     await expect(canvas.getByRole("img", { name: "2 tasks" })).toBeVisible();
+    await fireEvent.pointerEnter(commitActivity, { pointerType: "mouse" });
+    await expect(commitActivity).toHaveAttribute("data-state", "instant-open");
+    const activityTooltipProbe =
+      canvasElement.ownerDocument.createElement("span");
+    activityTooltipProbe.className =
+      "community-projects__repository-activity-tooltip";
+    activityTooltipProbe.style.color = "var(--background)";
+    activityTooltipProbe.style.backgroundColor = "var(--foreground)";
+    const activityDotProbe = canvasElement.ownerDocument.createElement("span");
+    activityDotProbe.className =
+      "community-projects__repository-activity-tooltip-dot community-projects__repository-activity-segment--commits";
+    activityTooltipProbe.append(activityDotProbe);
+    canvasElement.append(activityTooltipProbe);
+    await expect(getComputedStyle(activityDotProbe).outlineWidth).toBe("1px");
+    await expect(getComputedStyle(activityDotProbe).outlineColor).toBe(
+      getComputedStyle(activityTooltipProbe).color,
+    );
+    await expect(getComputedStyle(activityDotProbe).backgroundColor).not.toBe(
+      getComputedStyle(activityTooltipProbe).backgroundColor,
+    );
+    activityTooltipProbe.remove();
+    await fireEvent.pointerLeave(commitActivity, { pointerType: "mouse" });
     await userEvent.click(
       canvas.getByRole("button", { name: "Other repositories" }),
     );

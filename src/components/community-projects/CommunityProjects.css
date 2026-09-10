@@ -1140,10 +1140,27 @@
   gap: 0.4rem;
 }
 
-.community-projects__repository-activity-tooltip > span {
-  width: 0.45rem;
-  height: 0.45rem;
+.community-projects__repository-activity-tooltip-dot {
+  width: 0.5rem;
+  height: 0.5rem;
   border-radius: 999px;
+  outline: 1px solid currentColor;
+  outline-offset: 1px;
+}
+
+.community-projects__repository-activity-tooltip
+  > .community-projects__repository-activity-segment--commits {
+  background: color-mix(in srgb, var(--primary) 60%, currentColor 40%);
+}
+
+.community-projects__repository-activity-tooltip
+  > .community-projects__repository-activity-segment--reviews {
+  background: color-mix(in srgb, var(--primary) 72%, currentColor 28%);
+}
+
+.community-projects__repository-activity-tooltip
+  > .community-projects__repository-activity-segment--tasks {
+  background: color-mix(in srgb, var(--warning) 72%, currentColor 28%);
 }
 
 .community-projects__channel-row-shell {

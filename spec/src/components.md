@@ -61,7 +61,9 @@ connected member; Mine tasks are authored by or assigned to that member.
 Collapsed groups MUST retain their item count. Repository rows MUST expose a
 Buzz-aligned proportional activity bar with independently labelled commit,
 review, and task segments, and their relative time MUST reflect the newest
-activity represented by the row.
+activity represented by the row. Each segment MUST be keyboard-focusable and
+its tooltip MUST retain a contrast-safe status-colour indicator against the
+inverse tooltip surface in light and dark themes.
 
 Every member identity rendered by Projects directory cards, repository, task,
 review, and commit rows, task and review details, activity, or contributors

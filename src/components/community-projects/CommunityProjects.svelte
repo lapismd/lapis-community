@@ -1755,7 +1755,9 @@
       </Tooltip.Trigger>
       <Tooltip.Content side="top" sideOffset={6}>
         <span class="community-projects__repository-activity-tooltip">
-          <span class={className}></span>
+          <span
+            class={`community-projects__repository-activity-tooltip-dot ${className}`}
+          ></span>
           {label}
         </span>
       </Tooltip.Content>
