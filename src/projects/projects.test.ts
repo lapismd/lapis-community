@@ -170,6 +170,38 @@ describe("project forge builders", () => {
     });
   });
 
+  it("replaces direct channel attachments without changing project extensions", () => {
+    const project = event("8", PROJECT_FORGE_KINDS.project, owner, 1, [
+      ["d", "notes"],
+      ["name", "Notes"],
+      ["buzz-channel", "notes-dev"],
+      ["buzz-related-channel", "notes-support"],
+      ["buzz-related-channel", "notes-design"],
+      ["x-extension", "preserve-me"],
+    ]);
+
+    expect(
+      updateProjectTemplate(
+        project,
+        {
+          name: "Notes",
+          description: "",
+          channelId: "notes-dev",
+          visibility: "private",
+          relatedChannelIds: ["notes-design"],
+        },
+        12,
+      ).tags,
+    ).toEqual([
+      ["d", "notes"],
+      ["x-extension", "preserve-me"],
+      ["name", "Notes"],
+      ["buzz-channel", "notes-dev"],
+      ["buzz-visibility", "private"],
+      ["buzz-related-channel", "notes-design"],
+    ]);
+  });
+
   it("preserves project extension tags when a repository is added", () => {
     const project = event("8", PROJECT_FORGE_KINDS.project, owner, 1, [
       ["d", "notes"],

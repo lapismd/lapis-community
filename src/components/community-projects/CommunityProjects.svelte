@@ -51,8 +51,10 @@
   import LinkIcon from "@lucide/svelte/icons/link";
   import MessageSquareIcon from "@lucide/svelte/icons/message-square";
   import MessageSquarePlusIcon from "@lucide/svelte/icons/message-square-plus";
+  import EllipsisVerticalIcon from "@lucide/svelte/icons/ellipsis-vertical";
   import PlusIcon from "@lucide/svelte/icons/plus";
   import RotateCcwIcon from "@lucide/svelte/icons/rotate-ccw";
+  import UnlinkIcon from "@lucide/svelte/icons/unlink";
   import UserIcon from "@lucide/svelte/icons/user";
   import UserRoundPlusIcon from "@lucide/svelte/icons/user-round-plus";
 
@@ -1160,6 +1162,76 @@
     );
   }
 
+  function channelProject(
+    binding: (typeof projectChannels)[number],
+  ): ProjectForgeProject | undefined {
+    return (
+      selectedProject ??
+      projects.find(
+        (project) => project.address.coordinate === binding.projectCoordinate,
+      )
+    );
+  }
+
+  function channelAttachedThroughRepository(
+    project: ProjectForgeProject,
+    channelId: string,
+  ): boolean {
+    return project.repositories.some((reference) =>
+      repositories.some(
+        (repository) =>
+          repository.address.coordinate === reference.coordinate &&
+          repository.channelId === channelId,
+      ),
+    );
+  }
+
+  function canRemoveProjectChannel(
+    project: ProjectForgeProject,
+    binding: (typeof projectChannels)[number],
+  ): boolean {
+    return (
+      binding.role === "related" &&
+      project.relatedChannelIds.includes(binding.channelId) &&
+      !channelAttachedThroughRepository(project, binding.channelId)
+    );
+  }
+
+  function channelRemovalLabel(
+    project: ProjectForgeProject,
+    binding: (typeof projectChannels)[number],
+  ): string {
+    if (binding.role === "home") return "Project home channel";
+    if (channelAttachedThroughRepository(project, binding.channelId)) {
+      return "Attached through repository";
+    }
+    return "Remove from project";
+  }
+
+  async function removeProjectChannel(
+    project: ProjectForgeProject,
+    binding: (typeof projectChannels)[number],
+  ): Promise<void> {
+    if (!canRemoveProjectChannel(project, binding) || !onUpdateProject) return;
+    resetError();
+    try {
+      await onUpdateProject(project, {
+        name: project.name,
+        description: project.description,
+        channelId: project.channelId,
+        visibility: project.visibility === "private" ? "private" : "public",
+        relatedChannelIds: project.relatedChannelIds.filter(
+          (channelId) => channelId !== binding.channelId,
+        ),
+      });
+    } catch (cause) {
+      localError =
+        cause instanceof Error
+          ? cause.message
+          : "The channel could not be removed from this project";
+    }
+  }
+
   function sortedChannels(
     bindings: readonly (typeof projectChannels)[number][],
   ) {
@@ -1447,40 +1519,76 @@
 {/snippet}
 
 {#snippet channelListRow(binding: (typeof projectChannels)[number])}
+  {@const project = channelProject(binding)}
   {@const room = rooms.find(
     (candidate) =>
       candidate.groupId === binding.channelId ||
       candidate.id === binding.channelId,
   )}
   {@const lastActivityTimestamp = roomActivityTimestamp(room)}
-  <button
-    type="button"
-    class="community-projects__row community-projects__row--button community-projects__channel-row"
-    onclick={() => onSelectChannel?.(room?.id ?? binding.channelId)}
-  >
-    <span class="community-projects__row-icon"
-      ><HashIcon aria-hidden="true" /></span
+  <div class="community-projects__channel-row-shell">
+    <button
+      type="button"
+      class="community-projects__row community-projects__row--button community-projects__channel-row"
+      onclick={() => onSelectChannel?.(room?.id ?? binding.channelId)}
     >
-    <div class="community-projects__row-main">
-      <strong>#{room?.name ?? binding.channelId}</strong>
-    </div>
-    <span class="community-projects__channel-description">
-      {room?.description || "No channel description"}
+      <span class="community-projects__row-icon"
+        ><HashIcon aria-hidden="true" /></span
+      >
+      <div class="community-projects__row-main">
+        <strong>#{room?.name ?? binding.channelId}</strong>
+      </div>
+      <span class="community-projects__channel-description">
+        {room?.description || "No channel description"}
+      </span>
+      <span
+        class="community-projects__row-count"
+        aria-label={`${room?.messageCount ?? 0} messages`}
+        ><MessageSquareIcon aria-hidden="true" />{room?.messageCount ?? 0}</span
+      >
+      {#if lastActivityTimestamp !== undefined}
+        <CommunityRelativeTime
+          timestamp={lastActivityTimestamp}
+          class="community-projects__channel-activity"
+        />
+      {:else}
+        <span class="community-projects__channel-activity">No messages yet</span
+        >
+      {/if}
+    </button>
+    <span class="community-projects__channel-row-actions">
+      {#if project && currentMemberId === project.event.pubkey && onUpdateProject}
+        <DropdownMenu.Root>
+          <DropdownMenu.Trigger>
+            {#snippet child({ props })}
+              <Button
+                {...props}
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                class="community-projects__channel-row-menu-trigger"
+                aria-label={`Open #${room?.name ?? binding.channelId} project menu`}
+                title={`Open #${room?.name ?? binding.channelId} project menu`}
+                disabled={busy}
+              >
+                <EllipsisVerticalIcon aria-hidden="true" />
+              </Button>
+            {/snippet}
+          </DropdownMenu.Trigger>
+          <DropdownMenu.Content align="end" sideOffset={4}>
+            <DropdownMenu.Item
+              variant="destructive"
+              disabled={!canRemoveProjectChannel(project, binding)}
+              onSelect={() => void removeProjectChannel(project, binding)}
+            >
+              <UnlinkIcon data-icon="inline-start" aria-hidden="true" />
+              {channelRemovalLabel(project, binding)}
+            </DropdownMenu.Item>
+          </DropdownMenu.Content>
+        </DropdownMenu.Root>
+      {/if}
     </span>
-    <span
-      class="community-projects__row-count"
-      aria-label={`${room?.messageCount ?? 0} messages`}
-      ><MessageSquareIcon aria-hidden="true" />{room?.messageCount ?? 0}</span
-    >
-    {#if lastActivityTimestamp !== undefined}
-      <CommunityRelativeTime
-        timestamp={lastActivityTimestamp}
-        class="community-projects__channel-activity"
-      />
-    {:else}
-      <span class="community-projects__channel-activity">No messages yet</span>
-    {/if}
-  </button>
+  </div>
 {/snippet}
 
 {#snippet projectDirectoryCard(project: (typeof projects)[number])}
@@ -2115,6 +2223,11 @@
             ? "The project home and attached Community channels."
             : "Community channels attached to your projects.",
         )}
+        {#if localError}
+          <p class="community-projects__command-error" role="alert">
+            {localError}
+          </p>
+        {/if}
         <div class="community-projects__list" data-layout={listLayout}>
           {#if selectedProject}
             <div

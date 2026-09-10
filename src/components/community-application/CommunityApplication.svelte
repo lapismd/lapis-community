@@ -2889,7 +2889,11 @@
         await session.publish(updateProjectTemplate(project.event, input));
       },
     );
-    toast.success("Project settings saved");
+    toast.success(
+      input.relatedChannelIds === undefined
+        ? "Project settings saved"
+        : "Channel removed from project",
+    );
   }
 
   async function createRepository(

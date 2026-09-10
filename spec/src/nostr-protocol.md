@@ -57,6 +57,10 @@ NIP-98 verification covers the exact URL received by the relay.
 Successful JSON GET responses MAY be retained briefly in a bounded in-memory
 cache scoped by relay URL and signer public key. Progress-stream responses MUST
 not be cached, and a successful forge mutation MUST invalidate that cache.
+When a project owner removes a direct channel attachment, the kind `30621`
+replacement MUST replace the complete bounded `buzz-related-channel` set while
+preserving every other non-editable tag. Omitting that set from an ordinary
+settings update MUST preserve the existing related-channel tags.
 
 Task assignee edits under LC-NOSTR-021 MUST compare the projected assignee set
 with the command selection and publish explicit assignment and removal events

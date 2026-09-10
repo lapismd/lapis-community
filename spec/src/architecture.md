@@ -125,7 +125,10 @@ regions, repository browsing uses its resizable body sidebar, and the contextual
 project rail remains an independently controlled outer-right sidebar. Task
 assignee selection reuses the application member command and publishes only
 through the injected project session; it does not introduce component-local
-membership authority.
+membership authority. Removing a directly attached project channel MUST remain
+an owner-authorized project replacement through that same mutation boundary;
+it MUST NOT delete the NIP-29 channel or silently detach a repository-owned
+channel association.
 
 The static registry remains a deterministic projection. It can be rebuilt from
 the event graph, configured trusted publisher and curator keys, and immutable

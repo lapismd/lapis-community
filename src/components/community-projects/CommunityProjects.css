@@ -1017,24 +1017,74 @@
   background: var(--warning, #f97316);
 }
 
+.community-projects__channel-row-shell {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 1.75rem;
+  align-items: center;
+  border-radius: 0.5rem;
+}
+
+.community-projects__channel-row-shell:hover {
+  background: color-mix(in srgb, var(--muted) 32%, transparent);
+}
+
 .community-projects__channel-row {
   display: grid;
   grid-template-columns:
-    1rem minmax(9rem, 0.65fr) minmax(12rem, 1fr) minmax(3rem, auto)
-    minmax(5.5rem, auto);
+    1rem minmax(9rem, 0.65fr) minmax(12rem, 1fr) 4rem
+    7.25rem;
+  padding-inline-end: 0.25rem;
+}
+
+.community-projects__channel-row:hover {
+  background: transparent;
+}
+
+.community-projects__channel-row-actions {
+  display: flex;
+  width: 1.75rem;
+  height: 1.75rem;
+  align-items: center;
+  justify-content: center;
+}
+
+.community-projects__channel-row-menu-trigger[data-ui-component="button"] {
+  width: 1.65rem;
+  min-width: 1.65rem;
+  height: 1.65rem;
+  min-height: 1.65rem;
+  padding: 0;
+}
+
+.community-projects__channel-row-menu-trigger svg {
+  width: 0.85rem;
+  height: 0.85rem;
+}
+
+.community-projects__list[data-layout="grid"]
+  .community-projects__channel-row-shell {
+  min-height: 6.25rem;
+  grid-template-columns: minmax(0, 1fr) 1.75rem;
+  align-content: start;
+  align-items: start;
+  border: 1px solid var(--border);
+  border-radius: 0.7rem;
+  background: color-mix(in srgb, var(--muted) 12%, transparent);
 }
 
 .community-projects__list[data-layout="grid"] .community-projects__channel-row {
-  min-height: 6.25rem;
+  min-height: 6.15rem;
   grid-template-columns: 1rem minmax(0, 1fr) auto;
   grid-template-rows: auto 1fr auto;
   align-content: start;
   align-items: start;
   row-gap: 0.55rem;
-  border: 1px solid var(--border);
-  border-radius: 0.7rem;
   padding: 0.8rem;
-  background: color-mix(in srgb, var(--muted) 12%, transparent);
+}
+
+.community-projects__list[data-layout="grid"]
+  .community-projects__channel-row-actions {
+  margin-block-start: 0.5rem;
 }
 
 .community-projects__list[data-layout="grid"]

@@ -7,6 +7,7 @@
   import {
     createProjectStoryFixture,
     projectStoryAuthor,
+    projectStoryOwner,
     projectStoryRepositoryCoordinate,
   } from "./story-fixtures.js";
 
@@ -390,10 +391,22 @@ index 3333333..4444444 100644
         messageCount: 3,
         lastActivityAt: "2026-09-08T12:00:00.000Z",
       },
+      {
+        id: "support",
+        groupId: fixture.project.relatedChannelIds[0],
+        name: "support",
+        kind: "channel",
+        description: "Help Community contributors unblock their work.",
+        messageCount: 12,
+        lastActivityAt: "2026-09-09T14:30:00.000Z",
+      },
     ],
+    currentMemberId: projectStoryOwner,
     onSelectChannel,
+    onUpdateProject,
   }}
-  play={async ({ canvas }) => {
+  play={async ({ canvas, canvasElement }) => {
+    onUpdateProject.mockClear();
     const channel = canvas.getByRole("button", {
       name: /#general Plan and coordinate the Community client/u,
     });
@@ -403,6 +416,36 @@ index 3333333..4444444 100644
     ).not.toBeNull();
     await userEvent.click(channel);
     await expect(onSelectChannel).toHaveBeenCalledWith("general");
+
+    const rows = canvasElement.querySelectorAll(
+      ".community-projects__channel-row",
+    );
+    await expect(rows).toHaveLength(2);
+    for (const selector of [
+      ".community-projects__channel-description",
+      ".community-projects__row-count",
+      ".community-projects__channel-activity",
+    ]) {
+      const first = rows[0]?.querySelector(selector)?.getBoundingClientRect();
+      const second = rows[1]?.querySelector(selector)?.getBoundingClientRect();
+      await expect(first?.left).toBeCloseTo(second?.left ?? -1, 0);
+    }
+
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Open #support project menu" }),
+    );
+    await userEvent.click(
+      await within(document.body).findByRole("menuitem", {
+        name: "Remove from project",
+      }),
+    );
+    await expect(onUpdateProject).toHaveBeenLastCalledWith(fixture.project, {
+      name: "Community Client",
+      description: "The shared Lapis community experience.",
+      channelId: "general-projects",
+      visibility: "public",
+      relatedChannelIds: [],
+    });
   }}
 />
 

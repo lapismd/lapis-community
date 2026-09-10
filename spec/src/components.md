@@ -96,6 +96,11 @@ change with GitHub.
 
 For LC-UI-036, project Channel rows MUST expose the resolved channel
 description, visible projected message count, and relative last-message time.
+Rows in the same grouped list MUST retain shared name, description, message,
+time, and action tracks. Every project-owner channel row MUST expose an action
+menu; directly related channels MUST allow removal through a signed project
+replacement, while the required home channel and repository-derived channels
+MUST identify why removal is unavailable without deleting the channel itself.
 Repository rows MUST withhold provider actions until relay capabilities have
 resolved so that unsupported actions do not appear transiently during loading.
 Project Activity author affordances MUST use the shared

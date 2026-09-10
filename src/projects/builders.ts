@@ -23,6 +23,8 @@ export interface UpdateProjectInput {
   description?: string;
   channelId: string;
   visibility?: string;
+  /** Replaces direct project-channel attachments when provided. */
+  relatedChannelIds?: readonly string[];
 }
 
 export interface CreateRepositoryInput {
@@ -97,12 +99,24 @@ export function updateProjectTemplate(
   requiredText(input.channelId, "Project channel", 256);
   optionalText(input.description, "Project description", 2_048);
   optionalText(input.visibility, "Project visibility", 256);
+  const relatedChannelIds =
+    input.relatedChannelIds === undefined
+      ? undefined
+      : distinctNonempty(input.relatedChannelIds)
+          .filter((channelId) => channelId !== input.channelId)
+          .slice(0, 64);
+  for (const channelId of relatedChannelIds ?? []) {
+    requiredText(channelId, "Related project channel", 256);
+  }
   const editableTags = new Set([
     "name",
     "description",
     "buzz-channel",
     "buzz-visibility",
   ]);
+  if (relatedChannelIds !== undefined) {
+    editableTags.add("buzz-related-channel");
+  }
   return {
     kind: project.kind,
     created_at: createdAt,
@@ -115,6 +129,10 @@ export function updateProjectTemplate(
       ...(input.description ? [["description", input.description]] : []),
       ["buzz-channel", input.channelId],
       ...(input.visibility ? [["buzz-visibility", input.visibility]] : []),
+      ...(relatedChannelIds?.map((channelId) => [
+        "buzz-related-channel",
+        channelId,
+      ]) ?? []),
     ],
   };
 }

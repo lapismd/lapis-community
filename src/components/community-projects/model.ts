@@ -53,6 +53,8 @@ export interface CommunityProjectsUpdateProject {
   description: string;
   channelId: string;
   visibility: "public" | "private";
+  /** Replaces direct project-channel attachments when provided. */
+  relatedChannelIds?: readonly string[];
 }
 
 export interface CommunityProjectsCreateRepository {
