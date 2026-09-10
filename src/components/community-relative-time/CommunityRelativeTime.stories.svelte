@@ -30,6 +30,8 @@
   play={async ({ canvas }) => {
     const time = canvas.getByText("1 hour ago");
     await expect(time).toBeVisible();
+    await expect(getComputedStyle(time).display).toBe("inline-flex");
+    await expect(time.getBoundingClientRect().width).toBeLessThan(100);
     await userEvent.hover(time);
     await expect(time).toHaveAttribute("data-state", "instant-open");
     await expect(time).toHaveAttribute("aria-describedby");

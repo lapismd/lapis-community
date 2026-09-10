@@ -53,7 +53,9 @@
           <a
             {...props}
             {href}
-            class={className}
+            class={["community-relative-time", className]
+              .filter(Boolean)
+              .join(" ")}
             aria-label={ariaLabel}
             title={fullDate}
           >
@@ -64,7 +66,9 @@
           <time
             {...props}
             datetime={dateTime}
-            class={className}
+            class={["community-relative-time", className]
+              .filter(Boolean)
+              .join(" ")}
             aria-label={ariaLabel}
             title={fullDate}>{relativeDate}</time
           >
@@ -74,3 +78,14 @@
     <Tooltip.Content side="top" sideOffset={6}>{fullDate}</Tooltip.Content>
   </Tooltip.Root>
 </Tooltip.Provider>
+
+<style>
+  .community-relative-time {
+    display: inline-flex;
+    width: fit-content;
+    max-width: 100%;
+    align-items: baseline;
+    justify-self: start;
+    vertical-align: baseline;
+  }
+</style>

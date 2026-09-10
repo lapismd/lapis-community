@@ -656,8 +656,14 @@
     transform: translateY(calc(-100% + 0.3rem));
   }
 
-  .community-message__actions :global([data-ui-component="button"]:hover) {
-    background: color-mix(in srgb, var(--foreground) 12%, transparent);
+  .community-message__actions :global([data-ui-component="button"]) {
+    border-radius: inherit;
+  }
+
+  .community-message__actions :global([data-ui-component="button"]:hover),
+  .community-message__actions
+    :global([data-ui-component="button"]:focus-visible) {
+    background: var(--muted);
     box-shadow: inset 0 0 0 1px
       color-mix(in srgb, var(--foreground) 10%, transparent);
   }

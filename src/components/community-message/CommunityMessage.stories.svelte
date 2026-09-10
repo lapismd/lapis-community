@@ -97,6 +97,9 @@
     const reply = messageCanvas.getByRole("button", {
       name: "Reply in thread",
     });
+    await expect(getComputedStyle(reply).borderRadius).toBe(
+      getComputedStyle(actions).borderRadius,
+    );
     await expect(actions.getBoundingClientRect().bottom).toBeGreaterThanOrEqual(
       message.getBoundingClientRect().top,
     );
