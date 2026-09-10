@@ -18,6 +18,7 @@
     COMMUNITY_APPLICATION_RELEASE_OVERVIEW_PANEL_ID,
     COMMUNITY_APPLICATION_SHELL_LAYOUT_STORAGE_KEY,
     projectDestinationFromCoordinate,
+    projectRouteToHash,
   } from "./navigation.js";
   import { projectStoryProjectCoordinate } from "../community-projects/story-fixtures.js";
 
@@ -237,6 +238,15 @@
       )[0],
     ).toBeVisible();
     await userEvent.click(canvas.getByRole("tab", { name: "Review" }));
+    await waitFor(() =>
+      expect(canvasElement.ownerDocument.defaultView?.location.hash).toBe(
+        projectRouteToHash({
+          kind: "project",
+          coordinate: projectStoryProjectCoordinate,
+          surface: "reviews",
+        }),
+      ),
+    );
     await expect(
       await canvas.findByRole("heading", { name: "Reviews", level: 2 }),
     ).toBeVisible();
@@ -2909,7 +2919,7 @@
           storage?.getItem(COMMUNITY_APPLICATION_DESTINATION_STORAGE_KEY) ??
             "null",
         ),
-      ).toEqual({ version: 1, destination: "general" });
+      ).toEqual({ version: 2, destination: "general" });
       expect(
         JSON.parse(
           storage?.getItem(COMMUNITY_APPLICATION_SHELL_LAYOUT_STORAGE_KEY) ??
@@ -2962,7 +2972,7 @@
           storage?.getItem(COMMUNITY_APPLICATION_DESTINATION_STORAGE_KEY) ??
             "null",
         ),
-      ).toEqual({ version: 1, destination: "registry" });
+      ).toEqual({ version: 2, destination: "registry" });
       expect(
         JSON.parse(
           storage?.getItem(COMMUNITY_APPLICATION_SHELL_LAYOUT_STORAGE_KEY) ??

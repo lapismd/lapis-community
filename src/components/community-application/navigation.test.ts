@@ -7,13 +7,17 @@ import {
   createCommunityApplicationHistory,
   currentCommunityApplicationLocation,
   loadCommunityApplicationDestination,
+  loadCommunityApplicationLocation,
   loadCommunityApplicationInitialShellLayout,
   moveCommunityApplicationHistory,
   noCommunityApplicationPanel,
   normalizeCommunityApplicationLocation,
   pushCommunityApplicationLocation,
+  projectRouteFromHash,
+  projectRouteToHash,
   replaceCommunityApplicationLocation,
   saveCommunityApplicationDestination,
+  saveCommunityApplicationLocation,
   type CommunityApplicationHistory,
   type CommunityApplicationLocation,
 } from "./navigation.js";
@@ -105,7 +109,7 @@ describe("Community application location history", () => {
     ).toEqual({});
   });
 
-  it("persists only the current destination for refresh restoration", () => {
+  it("persists the current destination for refresh restoration", () => {
     const values = new Map<string, string>();
     const storage = {
       getItem: (key: string) => values.get(key) ?? null,
@@ -116,7 +120,7 @@ describe("Community application location history", () => {
 
     expect(values.get(COMMUNITY_APPLICATION_DESTINATION_STORAGE_KEY)).toBe(
       JSON.stringify({
-        version: 1,
+        version: 2,
         destination: "registry:plugin:ai",
       }),
     );
@@ -125,9 +129,60 @@ describe("Community application location history", () => {
     );
   });
 
+  it("persists project and repository surfaces with a v1 fallback", () => {
+    const values = new Map<string, string>();
+    const storage = {
+      getItem: (key: string) => values.get(key) ?? null,
+      setItem: (key: string, value: string) => values.set(key, value),
+    };
+    const saved = location(
+      "projects/30621%3Aowner%3Aroadmap",
+      noCommunityApplicationPanel(),
+      "project-files",
+    );
+    saved.projectRoute = {
+      kind: "project",
+      coordinate: "30621:owner:roadmap",
+      surface: "files",
+    };
+    saveCommunityApplicationLocation(storage, saved);
+    expect(loadCommunityApplicationLocation(storage)).toEqual(saved);
+
+    values.set(
+      COMMUNITY_APPLICATION_DESTINATION_STORAGE_KEY,
+      JSON.stringify({ version: 1, destination: "registry" }),
+    );
+    expect(loadCommunityApplicationLocation(storage)).toEqual(
+      location("registry"),
+    );
+  });
+
+  it("round trips durable project and repository hashes", () => {
+    for (const route of [
+      {
+        kind: "project" as const,
+        coordinate: "30621:owner:road map",
+        surface: "overview" as const,
+      },
+      {
+        kind: "repository" as const,
+        coordinate: "30617:owner:community",
+        surface: "commits" as const,
+      },
+    ]) {
+      expect(projectRouteFromHash(projectRouteToHash(route))).toEqual(route);
+    }
+    expect(
+      projectRouteFromHash("#/projects/project/bad/files/extra"),
+    ).toBeNull();
+    expect(
+      projectRouteFromHash("#/projects/project/value/not-a-surface"),
+    ).toBeNull();
+  });
+
   it.each([
     "not json",
-    JSON.stringify({ version: 2, destination: "registry" }),
+    JSON.stringify({ version: 3, destination: "registry" }),
     JSON.stringify({ version: 1, destination: "" }),
     JSON.stringify({ version: 1, destination: " registry" }),
     JSON.stringify({ version: 1, destination: "registry\n" }),
@@ -337,6 +392,31 @@ describe("Community application location history", () => {
         releaseRoomIds: ["plugin-releases"],
       }),
     ).toBe(candidate);
+  });
+
+  it("preserves a project route while its catalog target is unresolved", () => {
+    const candidate: CommunityApplicationLocation = {
+      destination: "projects/30621%3Aowner%3Aroadmap",
+      panel: noCommunityApplicationPanel(),
+      mainSurface: "project-files",
+      projectRoute: {
+        kind: "project",
+        coordinate: "30621:owner:roadmap",
+        surface: "files",
+      },
+    };
+
+    expect(
+      normalizeCommunityApplicationLocation(candidate, {
+        roomIds: [],
+        memberIds: [],
+        projectDestinationIds: [],
+      }),
+    ).toEqual({
+      destination: candidate.destination,
+      panel: noCommunityApplicationPanel(),
+      projectRoute: candidate.projectRoute,
+    });
   });
 
   it("keeps a destination and its details panel in one composite entry", () => {

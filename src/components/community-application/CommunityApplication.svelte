@@ -184,22 +184,25 @@
     communityApplicationPanelKey,
     createCommunityApplicationHistory,
     currentCommunityApplicationLocation,
-    loadCommunityApplicationDestination,
+    loadCommunityApplicationLocation,
     loadCommunityApplicationInitialShellLayout,
     moveCommunityApplicationHistory,
     noCommunityApplicationPanel,
     normalizeCommunityApplicationLocation,
     pushCommunityApplicationLocation,
     replaceCommunityApplicationLocation,
-    saveCommunityApplicationDestination,
+    saveCommunityApplicationLocation,
     isProjectDestination,
     projectCoordinateFromDestination,
     projectDestinationFromCoordinate,
+    projectRouteFromHash,
+    projectRouteToHash,
     type CommunityApplicationDestination,
     type CommunityApplicationHistory,
     type CommunityApplicationLocation,
     type CommunityApplicationMainSurface,
     type CommunityApplicationPanel,
+    type CommunityApplicationProjectRoute,
   } from "./navigation.js";
   import { provideCommunityApplicationComposer } from "./composer-context.js";
   import { useCommunityApplicationAuthentication } from "./authentication-context.js";
@@ -346,29 +349,57 @@
     registryEnabled ??
       (registry !== undefined || registryOptions !== undefined),
   );
-  const initialApplicationDestination = untrack(() => {
-    const fallback =
-      !hasRegistry && registryRouteFromDestination(initialDestination) !== null
-        ? "inbox"
-        : initialDestination;
-    const persisted = loadCommunityApplicationDestination(browserStorage);
-    const hashRoute =
-      typeof window === "undefined"
-        ? null
-        : registryRouteFromHash(window.location.hash);
-    if (hasRegistry && hashRoute !== null) {
-      return registryRouteToDestination(hashRoute);
-    }
-    return persisted !== null &&
-      (hasRegistry || registryRouteFromDestination(persisted) === null)
-      ? persisted
-      : fallback;
-  });
+  const initialApplicationLocation = untrack<CommunityApplicationLocation>(
+    () => {
+      const fallback =
+        !hasRegistry &&
+        registryRouteFromDestination(initialDestination) !== null
+          ? "inbox"
+          : initialDestination;
+      const persisted = loadCommunityApplicationLocation(browserStorage);
+      const projectHashRoute =
+        typeof window === "undefined"
+          ? null
+          : projectRouteFromHash(window.location.hash);
+      if (
+        hasProjects &&
+        typeof window !== "undefined" &&
+        window.location.hash === "#/projects"
+      ) {
+        return {
+          destination: "projects",
+          panel: noCommunityApplicationPanel(),
+        };
+      }
+      if (hasProjects && projectHashRoute !== null) {
+        return locationForProjectRoute(projectHashRoute);
+      }
+      const registryHashRoute =
+        typeof window === "undefined"
+          ? null
+          : registryRouteFromHash(window.location.hash);
+      if (hasRegistry && registryHashRoute !== null) {
+        return {
+          destination: registryRouteToDestination(registryHashRoute),
+          panel: noCommunityApplicationPanel(),
+        };
+      }
+      if (
+        persisted !== null &&
+        (hasRegistry ||
+          registryRouteFromDestination(persisted.destination) === null) &&
+        (hasProjects || persisted.projectRoute === undefined)
+      ) {
+        return persisted;
+      }
+      return { destination: fallback, panel: noCommunityApplicationPanel() };
+    },
+  );
   let navigationHistory = $state<CommunityApplicationHistory>(
-    createCommunityApplicationHistory(initialApplicationDestination),
+    createCommunityApplicationHistory(initialApplicationLocation),
   );
   let registryRoute = $state<RegistryRoute>(
-    registryRouteFromDestination(initialApplicationDestination) ?? {
+    registryRouteFromDestination(initialApplicationLocation.destination) ?? {
       page: "landing",
     },
   );
@@ -424,13 +455,22 @@
   });
   let projectSession = $state.raw<ProjectForgeSession>();
   let projectLoading = $state(false);
+  let projectCatalogSettled = $state(false);
   let projectError = $state("");
   let projectOperation = $state("");
   let projectReloadRevision = $state(0);
   let projectOverviewInitialized = $state(false);
   const initializedChannelProjectOverviews = new Set<string>();
-  let selectedRepositoryCoordinate = $state("");
-  let activeRepositorySurface = $state<ProjectForgeSurface>("overview");
+  let selectedRepositoryCoordinate = $state(
+    initialApplicationLocation.projectRoute?.kind === "repository"
+      ? initialApplicationLocation.projectRoute.coordinate
+      : "",
+  );
+  let activeRepositorySurface = $state<ProjectForgeSurface>(
+    initialApplicationLocation.projectRoute?.kind === "repository"
+      ? initialApplicationLocation.projectRoute.surface
+      : "overview",
+  );
   let selectedPullRequestId = $state("");
   let selectedTaskId = $state("");
   let projectDialogRequest = $state<CommunityProjectsDialogRequest>();
@@ -465,7 +505,9 @@
   const activePanel = $derived(applicationLocation.panel);
   const activeMainSurface = $derived(applicationLocation.mainSurface);
   const selectedProjectCoordinate = $derived(
-    projectCoordinateFromDestination(activeDestination),
+    applicationLocation.projectRoute?.kind === "project"
+      ? applicationLocation.projectRoute.coordinate
+      : projectCoordinateFromDestination(activeDestination),
   );
   const isProjectsDestination = $derived(
     hasProjects && isProjectDestination(activeDestination),
@@ -517,6 +559,19 @@
           ),
         ),
   );
+  const unavailableProjectRoute = $derived.by(() => {
+    const route = applicationLocation.projectRoute;
+    if (!projectCatalogSettled || route === undefined) return undefined;
+    const exists =
+      route.kind === "project"
+        ? projectCatalog.projects.some(
+            (project) => project.address.coordinate === route.coordinate,
+          )
+        : projectCatalog.repositories.some(
+            (repository) => repository.address.coordinate === route.coordinate,
+          );
+    return exists ? undefined : route;
+  });
   const selectedRepositoryTasks = $derived(
     selectedRepository === undefined
       ? []
@@ -536,9 +591,11 @@
         ),
   );
   const selectedProjectSurface = $derived<ProjectForgeSurface | undefined>(
-    activeMainSurface?.startsWith("project-")
-      ? (activeMainSurface.slice("project-".length) as ProjectForgeSurface)
-      : undefined,
+    applicationLocation.projectRoute?.kind === "project"
+      ? applicationLocation.projectRoute.surface
+      : activeMainSurface?.startsWith("project-")
+        ? (activeMainSurface.slice("project-".length) as ProjectForgeSurface)
+        : undefined,
   );
   const projectsOverviewSurface = $derived<ProjectForgeOverviewSurface>(
     activeMainSurface?.startsWith("projects-")
@@ -1560,7 +1617,7 @@
   });
 
   $effect(() => {
-    saveCommunityApplicationDestination(browserStorage, activeDestination);
+    saveCommunityApplicationLocation(browserStorage, applicationLocation);
   });
 
   $effect(() => {
@@ -1647,6 +1704,7 @@
 
   $effect(() => {
     if (!selectedRepository || !selectedRepositoryProject) return;
+    if (applicationLocation.projectRoute?.kind === "repository") return;
     if (
       selectedProjectCoordinate === selectedRepositoryProject.address.coordinate
     )
@@ -1657,6 +1715,16 @@
     projectCommitDetail = undefined;
     selectedProjectPath = "";
     projectBlob = undefined;
+  });
+
+  $effect(() => {
+    const route = applicationLocation.projectRoute;
+    if (route?.kind !== "repository" || !selectedRepositoryProject) return;
+    const destination = projectDestinationFromCoordinate(
+      selectedRepositoryProject.address.coordinate,
+    );
+    if (activeDestination === destination) return;
+    replaceLocation({ ...applicationLocation, destination });
   });
 
   $effect(() => {
@@ -1694,6 +1762,7 @@
     let unsubscribeCatalog: (() => void) | undefined;
     let unsubscribeWorkItems: (() => void) | undefined;
     projectLoading = true;
+    projectCatalogSettled = false;
     projectError = "";
     projectSourceError = "";
     projectRepositoryCapabilities = {};
@@ -1721,6 +1790,7 @@
       );
       if (controller.signal.aborted) return;
       projectCatalog = catalog;
+      projectCatalogSettled = true;
 
       let catalogReady = false;
       unsubscribeCatalog = await openedSession.subscribe(
@@ -2187,6 +2257,14 @@
     const nextRegistryRoute = registryRouteFromDestination(next.destination);
     if (nextRegistryRoute !== null) registryRoute = nextRegistryRoute;
 
+    if (next.projectRoute?.kind === "repository") {
+      selectedRepositoryCoordinate = next.projectRoute.coordinate;
+      activeRepositorySurface = next.projectRoute.surface;
+    } else if (previous.projectRoute?.kind === "repository") {
+      selectedRepositoryCoordinate = "";
+      activeRepositorySurface = "overview";
+    }
+
     const roomId =
       next.destination === "inbox"
         ? inbox.room.id
@@ -2242,7 +2320,7 @@
     if (updated === navigationHistory) return;
     navigationHistory = updated;
     applyLocation(next, previous);
-    pushBrowserRegistryLocation(next.destination);
+    pushBrowserLocation(next);
   }
 
   function replaceLocation(next: CommunityApplicationLocation): void {
@@ -2254,25 +2332,49 @@
     if (updated === navigationHistory) return;
     navigationHistory = updated;
     applyLocation(next, previous);
-    replaceBrowserRegistryLocation(next.destination);
+    replaceBrowserLocation(next);
   }
 
-  function pushBrowserRegistryLocation(destination: string): void {
+  function pushBrowserLocation(location: CommunityApplicationLocation): void {
     if (typeof window === "undefined") return;
-    const route = registryRouteFromDestination(destination);
+    if (location.projectRoute !== undefined) {
+      const hash = projectRouteToHash(location.projectRoute);
+      if (window.location.hash !== hash)
+        window.history.pushState(null, "", hash);
+      return;
+    }
+    if (location.destination === "projects") {
+      if (window.location.hash !== "#/projects")
+        window.history.pushState(null, "", "#/projects");
+      return;
+    }
+    const route = registryRouteFromDestination(location.destination);
     if (route === null) {
-      clearBrowserRegistryLocation("push");
+      clearBrowserApplicationLocation("push");
       return;
     }
     const hash = registryRouteToHash(route);
     if (window.location.hash !== hash) window.history.pushState(null, "", hash);
   }
 
-  function replaceBrowserRegistryLocation(destination: string): void {
+  function replaceBrowserLocation(
+    location: CommunityApplicationLocation,
+  ): void {
     if (typeof window === "undefined") return;
-    const route = registryRouteFromDestination(destination);
+    if (location.projectRoute !== undefined) {
+      const hash = projectRouteToHash(location.projectRoute);
+      if (window.location.hash !== hash)
+        window.history.replaceState(null, "", hash);
+      return;
+    }
+    if (location.destination === "projects") {
+      if (window.location.hash !== "#/projects")
+        window.history.replaceState(null, "", "#/projects");
+      return;
+    }
+    const route = registryRouteFromDestination(location.destination);
     if (route === null) {
-      clearBrowserRegistryLocation("replace");
+      clearBrowserApplicationLocation("replace");
       return;
     }
     const hash = registryRouteToHash(route);
@@ -2280,9 +2382,11 @@
       window.history.replaceState(null, "", hash);
   }
 
-  function clearBrowserRegistryLocation(mode: "push" | "replace"): void {
+  function clearBrowserApplicationLocation(mode: "push" | "replace"): void {
     if (
       registryRouteFromHash(window.location.hash) === null &&
+      projectRouteFromHash(window.location.hash) === null &&
+      window.location.hash !== "#/projects" &&
       !window.location.hash.startsWith("#post-")
     ) {
       return;
@@ -2294,6 +2398,28 @@
 
   onMount(() => {
     const applyBrowserLocation = () => {
+      if (window.location.hash === "#/projects" && hasProjects) {
+        const location = {
+          destination: "projects",
+          panel: noCommunityApplicationPanel(),
+        } satisfies CommunityApplicationLocation;
+        if (
+          !communityApplicationLocationsEqual(location, applicationLocation)
+        ) {
+          replaceLocation(location);
+        }
+        return;
+      }
+      const projectRoute = projectRouteFromHash(window.location.hash);
+      if (projectRoute !== null && hasProjects) {
+        const location = locationForProjectRoute(projectRoute);
+        if (
+          !communityApplicationLocationsEqual(location, applicationLocation)
+        ) {
+          replaceLocation(location);
+        }
+        return;
+      }
       let route = registryRouteFromHash(window.location.hash);
       if (route === null && window.location.hash.startsWith("#post-")) {
         const postId = window.location.hash.slice("#post-".length);
@@ -2342,6 +2468,9 @@
       ...(activeMainSurface === undefined
         ? {}
         : { mainSurface: activeMainSurface }),
+      ...(applicationLocation.projectRoute === undefined
+        ? {}
+        : { projectRoute: applicationLocation.projectRoute }),
     });
   }
 
@@ -2369,6 +2498,22 @@
     lastAction = "closed-release-surface";
   }
 
+  function locationForProjectRoute(
+    route: CommunityApplicationProjectRoute,
+  ): CommunityApplicationLocation {
+    return {
+      destination:
+        route.kind === "project"
+          ? projectDestinationFromCoordinate(route.coordinate)
+          : "projects",
+      panel: noCommunityApplicationPanel(),
+      ...(route.kind === "project" && route.surface !== "overview"
+        ? { mainSurface: `project-${route.surface}` as const }
+        : {}),
+      projectRoute: route,
+    };
+  }
+
   function selectProject(
     project: ProjectForgeCatalog["projects"][number],
   ): void {
@@ -2382,8 +2527,11 @@
     projectSourceError = "";
     selectedProjectPath = "";
     pushLocation({
-      destination: projectDestinationFromCoordinate(project.address.coordinate),
-      panel: noCommunityApplicationPanel(),
+      ...locationForProjectRoute({
+        kind: "project",
+        coordinate: project.address.coordinate,
+        surface: "overview",
+      }),
     });
     lastAction = `selected-project:${project.address.coordinate}`;
   }
@@ -2410,11 +2558,17 @@
           ? "projects"
           : projectDestinationFromCoordinate(project.address.coordinate),
       panel: noCommunityApplicationPanel(),
+      projectRoute: {
+        kind: "repository",
+        coordinate: repository.address.coordinate,
+        surface: "overview",
+      },
     });
     lastAction = `selected-repository:${repository.address.coordinate}`;
   }
 
   function closeRepository(): void {
+    const project = selectedRepositoryProject;
     selectedRepositoryCoordinate = "";
     activeRepositorySurface = "overview";
     selectedPullRequestId = "";
@@ -2424,6 +2578,15 @@
     projectSourceError = "";
     selectedProjectPath = "";
     projectBlob = undefined;
+    pushLocation(
+      project === undefined
+        ? { destination: "projects", panel: noCommunityApplicationPanel() }
+        : locationForProjectRoute({
+            kind: "project",
+            coordinate: project.address.coordinate,
+            surface: "overview",
+          }),
+    );
     lastAction = "closed-repository";
   }
 
@@ -2445,6 +2608,19 @@
     projectSourceError = "";
     activeRepositorySurface = surface;
     projectOverviewInitialized = true;
+    pushLocation({
+      destination: selectedRepositoryProject
+        ? projectDestinationFromCoordinate(
+            selectedRepositoryProject.address.coordinate,
+          )
+        : "projects",
+      panel: activePanel,
+      projectRoute: {
+        kind: "repository",
+        coordinate: selectedRepository.address.coordinate,
+        surface,
+      },
+    });
     lastAction = `opened-repository-${surface}`;
   }
 
@@ -2472,6 +2648,11 @@
       destination: activeDestination,
       panel: activePanel,
       mainSurface: `project-${surface}`,
+      projectRoute: {
+        kind: "project",
+        coordinate: selectedProject.address.coordinate,
+        surface,
+      },
     });
     lastAction = `opened-project-${surface}`;
   }
@@ -2548,6 +2729,11 @@
                 owningProject.address.coordinate,
               ),
         panel: noCommunityApplicationPanel(),
+        projectRoute: {
+          kind: "repository",
+          coordinate: pullRequestRepository.address.coordinate,
+          surface: "commits",
+        },
       });
       lastAction = `selected-review-commit:${commit.sha}`;
     }
@@ -2573,7 +2759,7 @@
   function selectProjectTask(task: ProjectTaskState): void {
     if (selectedRepository?.address.coordinate === task.repository.coordinate) {
       selectedTaskId = task.root.id;
-      activeRepositorySurface = "tasks";
+      activateRepositorySurface("tasks");
       lastAction = `selected-repository-task:${task.root.id}`;
       return;
     }
@@ -2589,6 +2775,11 @@
       destination: projectDestinationFromCoordinate(project.address.coordinate),
       panel: noCommunityApplicationPanel(),
       mainSurface: "project-tasks",
+      projectRoute: {
+        kind: "project",
+        coordinate: project.address.coordinate,
+        surface: "tasks",
+      },
     });
     lastAction = `selected-project-task:${task.root.id}`;
   }
@@ -2746,6 +2937,11 @@
       destination: projectDestinationFromCoordinate(project.address.coordinate),
       panel: noCommunityApplicationPanel(),
       mainSurface: `project-${surface}`,
+      projectRoute: {
+        kind: "project",
+        coordinate: project.address.coordinate,
+        surface,
+      },
     });
     lastAction = `opened-channel-project-${surface}`;
   }
@@ -2778,7 +2974,17 @@
     selectedPullRequestId = "";
     selectedTaskId = "";
     projectPullRequestDiff = undefined;
-    pushLocation({ destination: activeDestination, panel: activePanel });
+    if (selectedProject) {
+      pushLocation(
+        locationForProjectRoute({
+          kind: "project",
+          coordinate: selectedProject.address.coordinate,
+          surface: "overview",
+        }),
+      );
+    } else {
+      pushLocation({ destination: activeDestination, panel: activePanel });
+    }
     lastAction = "closed-project-surface";
   }
 
@@ -3364,7 +3570,7 @@
     const next = currentCommunityApplicationLocation(updated);
     navigationHistory = updated;
     applyLocation(next, previous);
-    replaceBrowserRegistryLocation(next.destination);
+    replaceBrowserLocation(next);
     lastAction = offset === -1 ? "navigated-back" : "navigated-forward";
   }
 
@@ -4361,7 +4567,7 @@
             </Breadcrumb.Page>
           {:else}
             <Breadcrumb.Link
-              href="#projects"
+              href="#/projects"
               onclick={(event) => {
                 event.preventDefault();
                 setDestination("projects", true);
@@ -4381,7 +4587,11 @@
               >
             {:else}
               <Breadcrumb.Link
-                href={`#project:${selectedProject.address.coordinate}`}
+                href={projectRouteToHash({
+                  kind: "project",
+                  coordinate: selectedProject.address.coordinate,
+                  surface: "overview",
+                })}
                 onclick={(event) => {
                   event.preventDefault();
                   if (selectedRepository) closeRepository();
@@ -4399,7 +4609,11 @@
                 >
               {:else}
                 <Breadcrumb.Link
-                  href={`#repository:${selectedRepository.address.coordinate}`}
+                  href={projectRouteToHash({
+                    kind: "repository",
+                    coordinate: selectedRepository.address.coordinate,
+                    surface: "overview",
+                  })}
                   onclick={(event) => {
                     event.preventDefault();
                     activateRepositorySurface("overview");
@@ -4412,7 +4626,11 @@
               <Breadcrumb.Item>
                 {#if selectedTask || selectedPullRequest || selectedProjectCommit || selectedProjectPath}
                   <Breadcrumb.Link
-                    href={`#repository:${selectedRepository.address.coordinate}:${activeRepositorySurface}`}
+                    href={projectRouteToHash({
+                      kind: "repository",
+                      coordinate: selectedRepository.address.coordinate,
+                      surface: activeRepositorySurface,
+                    })}
                     onclick={(event) => {
                       event.preventDefault();
                       activateRepositorySurface(activeRepositorySurface);
@@ -4439,7 +4657,11 @@
             <Breadcrumb.Item>
               {#if selectedTask || selectedPullRequest || selectedProjectCommit || selectedProjectPath}
                 <Breadcrumb.Link
-                  href={`#project:${selectedProject.address.coordinate}:${activeProjectSurface}`}
+                  href={projectRouteToHash({
+                    kind: "project",
+                    coordinate: selectedProject.address.coordinate,
+                    surface: activeProjectSurface,
+                  })}
                   onclick={(event) => {
                     event.preventDefault();
                     openProjectBreadcrumbSurface(activeProjectSurface);
@@ -4508,7 +4730,7 @@
         <Breadcrumb.List>
           <Breadcrumb.Item>
             <Breadcrumb.Link
-              href="#projects"
+              href="#/projects"
               onclick={(event) => {
                 event.preventDefault();
                 setDestination("projects", true);
@@ -4521,7 +4743,11 @@
           <Breadcrumb.Separator />
           <Breadcrumb.Item>
             <Breadcrumb.Link
-              href={`#project:${activeChannelProject.address.coordinate}`}
+              href={projectRouteToHash({
+                kind: "project",
+                coordinate: activeChannelProject.address.coordinate,
+                surface: "overview",
+              })}
               onclick={(event) => {
                 event.preventDefault();
                 openChannelProjectSurface("overview");
@@ -5729,7 +5955,36 @@
       </AppShell.Toolbar>
     {/if}
 
-    {#if isProjectsDestination}
+    {#if isProjectsDestination && unavailableProjectRoute}
+      <section class="community-application__project-route-unavailable">
+        <Empty.Root role="status">
+          <Empty.Header>
+            <Empty.Media variant="icon">
+              <FolderKanbanIcon aria-hidden="true" />
+            </Empty.Media>
+            <Empty.Title>
+              {unavailableProjectRoute.kind === "project"
+                ? "Project is unavailable"
+                : "Repository is unavailable"}
+            </Empty.Title>
+            <Empty.Description>
+              The requested {unavailableProjectRoute.kind} was not found after the
+              project catalog finished loading. Its address remains in the URL so
+              the link can be retried.
+            </Empty.Description>
+          </Empty.Header>
+          <Empty.Content>
+            <Button
+              type="button"
+              variant="outline"
+              onclick={() => setDestination("projects", true)}
+            >
+              Browse projects
+            </Button>
+          </Empty.Content>
+        </Empty.Root>
+      </section>
+    {:else if isProjectsDestination}
       <CommunityProjects
         view={selectedRepository
           ? activeRepositorySurface
@@ -7085,6 +7340,13 @@
 
   :global(.community-application__main[data-ui-part="main"]) {
     position: relative;
+  }
+
+  .community-application__project-route-unavailable {
+    display: grid;
+    min-height: 100%;
+    place-items: center;
+    padding: 2rem;
   }
 
   :global(

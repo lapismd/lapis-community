@@ -2,6 +2,7 @@ import {
   APP_SHELL_LAYOUT_VERSION,
   type AppShellSidebarLayout,
 } from "@lapismd/design-core/shell";
+import type { ProjectForgeSurface } from "../../projects/index.js";
 
 export type CommunityApplicationDestination =
   | "inbox"
@@ -44,7 +45,21 @@ export interface CommunityApplicationLocation {
   panel: CommunityApplicationPanel;
   /** Omission preserves the destination's normal workspace surface. */
   mainSurface?: CommunityApplicationMainSurface;
+  /** Durable top-level project or repository route. Nested selections remain local. */
+  projectRoute?: CommunityApplicationProjectRoute;
 }
+
+export type CommunityApplicationProjectRoute =
+  | {
+      kind: "project";
+      coordinate: string;
+      surface: ProjectForgeSurface;
+    }
+  | {
+      kind: "repository";
+      coordinate: string;
+      surface: ProjectForgeSurface;
+    };
 
 export interface CommunityApplicationHistory {
   entries: CommunityApplicationLocation[];
@@ -68,7 +83,7 @@ export const COMMUNITY_APPLICATION_RELEASE_OVERVIEW_PANEL_ID =
 export const COMMUNITY_APPLICATION_PROJECT_OVERVIEW_PANEL_ID =
   "project-overview";
 
-const COMMUNITY_APPLICATION_DESTINATION_VERSION = 1 as const;
+const COMMUNITY_APPLICATION_DESTINATION_VERSION = 2 as const;
 
 type CommunityApplicationDestinationStorage = Pick<
   Storage,
@@ -171,7 +186,8 @@ export function loadCommunityApplicationDestination(
       typeof value !== "object" ||
       value === null ||
       !("version" in value) ||
-      value.version !== COMMUNITY_APPLICATION_DESTINATION_VERSION ||
+      (value.version !== 1 &&
+        value.version !== COMMUNITY_APPLICATION_DESTINATION_VERSION) ||
       !("destination" in value) ||
       typeof value.destination !== "string"
     ) {
@@ -184,6 +200,32 @@ export function loadCommunityApplicationDestination(
       !/[\u0000-\u001f\u007f]/u.test(destination)
       ? destination
       : null;
+  } catch {
+    return null;
+  }
+}
+
+export function loadCommunityApplicationLocation(
+  storage: CommunityApplicationDestinationStorage | undefined,
+  key = COMMUNITY_APPLICATION_DESTINATION_STORAGE_KEY,
+): CommunityApplicationLocation | null {
+  const destination = loadCommunityApplicationDestination(storage, key);
+  if (destination === null || !storage) return null;
+  try {
+    const serialized = storage.getItem(key);
+    if (!serialized) return null;
+    const value = JSON.parse(serialized) as Record<string, unknown>;
+    if (value.version !== COMMUNITY_APPLICATION_DESTINATION_VERSION) {
+      return { destination, panel: noCommunityApplicationPanel() };
+    }
+    const projectRoute = parseStoredProjectRoute(value.projectRoute);
+    const mainSurface = parseMainSurface(value.mainSurface);
+    return {
+      destination,
+      panel: noCommunityApplicationPanel(),
+      ...(mainSurface === undefined ? {} : { mainSurface }),
+      ...(projectRoute === undefined ? {} : { projectRoute }),
+    };
   } catch {
     return null;
   }
@@ -208,15 +250,44 @@ export function saveCommunityApplicationDestination(
   }
 }
 
+export function saveCommunityApplicationLocation(
+  storage: CommunityApplicationDestinationStorage | undefined,
+  location: CommunityApplicationLocation,
+  key = COMMUNITY_APPLICATION_DESTINATION_STORAGE_KEY,
+): void {
+  if (!storage) return;
+  try {
+    storage.setItem(
+      key,
+      JSON.stringify({
+        version: COMMUNITY_APPLICATION_DESTINATION_VERSION,
+        destination: location.destination,
+        ...(location.mainSurface === undefined
+          ? {}
+          : { mainSurface: location.mainSurface }),
+        ...(location.projectRoute === undefined
+          ? {}
+          : { projectRoute: location.projectRoute }),
+      }),
+    );
+  } catch {
+    // Browser storage may be unavailable or full. Navigation remains usable.
+  }
+}
+
 export const noCommunityApplicationPanel = (): CommunityApplicationPanel => ({
   kind: "none",
 });
 
 export function createCommunityApplicationHistory(
-  destination: CommunityApplicationDestination,
+  destination: CommunityApplicationDestination | CommunityApplicationLocation,
 ): CommunityApplicationHistory {
   return {
-    entries: [{ destination, panel: noCommunityApplicationPanel() }],
+    entries: [
+      typeof destination === "string"
+        ? { destination, panel: noCommunityApplicationPanel() }
+        : destination,
+    ],
     index: 0,
   };
 }
@@ -298,6 +369,8 @@ export function communityApplicationLocationsEqual(
   return (
     left.destination === right.destination &&
     left.mainSurface === right.mainSurface &&
+    projectRouteKey(left.projectRoute) ===
+      projectRouteKey(right.projectRoute) &&
     communityApplicationPanelKey(left.panel) ===
       communityApplicationPanelKey(right.panel)
   );
@@ -339,6 +412,9 @@ export function normalizeCommunityApplicationLocation(
         ? {}
         : { mainSurface: location.mainSurface }
       : {}),
+    ...(location.projectRoute === undefined
+      ? {}
+      : { projectRoute: location.projectRoute }),
   };
 }
 
@@ -365,4 +441,92 @@ export function isProjectDestination(destination: string): boolean {
     destination === "projects" ||
     projectCoordinateFromDestination(destination) !== undefined
   );
+}
+
+const PROJECT_FORGE_SURFACES = new Set<ProjectForgeSurface>([
+  "overview",
+  "tasks",
+  "reviews",
+  "commits",
+  "files",
+  "channels",
+  "contributors",
+  "people",
+]);
+
+function isProjectForgeSurface(value: unknown): value is ProjectForgeSurface {
+  return (
+    typeof value === "string" &&
+    PROJECT_FORGE_SURFACES.has(value as ProjectForgeSurface)
+  );
+}
+
+function parseMainSurface(
+  value: unknown,
+): CommunityApplicationMainSurface | undefined {
+  return typeof value === "string" &&
+    (value.startsWith("project-") ||
+      value.startsWith("projects-") ||
+      value.startsWith("release-"))
+    ? (value as CommunityApplicationMainSurface)
+    : undefined;
+}
+
+function parseStoredProjectRoute(
+  value: unknown,
+): CommunityApplicationProjectRoute | undefined {
+  if (typeof value !== "object" || value === null) return undefined;
+  const route = value as Record<string, unknown>;
+  return (route.kind === "project" || route.kind === "repository") &&
+    validRouteCoordinate(route.coordinate) &&
+    isProjectForgeSurface(route.surface)
+    ? {
+        kind: route.kind,
+        coordinate: route.coordinate,
+        surface: route.surface,
+      }
+    : undefined;
+}
+
+function validRouteCoordinate(value: unknown): value is string {
+  return (
+    typeof value === "string" &&
+    value.length > 0 &&
+    value.length <= 1024 &&
+    value.trim() === value &&
+    !/[\u0000-\u001f\u007f]/u.test(value)
+  );
+}
+
+function projectRouteKey(
+  route: CommunityApplicationProjectRoute | undefined,
+): string {
+  return route === undefined
+    ? ""
+    : `${route.kind}:${route.coordinate}:${route.surface}`;
+}
+
+export function projectRouteToHash(
+  route: CommunityApplicationProjectRoute,
+): string {
+  const surface = route.surface === "overview" ? "" : `/${route.surface}`;
+  return `#/projects/${route.kind}/${encodeURIComponent(route.coordinate)}${surface}`;
+}
+
+export function projectRouteFromHash(
+  hash: string,
+): CommunityApplicationProjectRoute | null {
+  const match =
+    /^#\/projects\/(project|repository)\/([^/]+)(?:\/([^/]+))?$/u.exec(hash);
+  if (!match) return null;
+  try {
+    const coordinate = decodeURIComponent(match[2]!);
+    const surface = match[3] ?? "overview";
+    if (!validRouteCoordinate(coordinate) || !isProjectForgeSurface(surface)) {
+      return null;
+    }
+    return { kind: match[1] as "project" | "repository", coordinate, surface };
+  } catch {
+    return null;
+  }
 }

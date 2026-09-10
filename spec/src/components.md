@@ -122,6 +122,14 @@ selected home channel. Project listing MUST be a separate Listed/Unlisted
 setting persisted through `buzz-visibility`; aggregate Projects surfaces and
 the left navigation MUST omit unlisted projects while an exact project route
 or bound-channel context remains able to open them.
+Project and repository workspaces MUST expose canonical, refresh-stable hashes
+that include the encoded NIP-34 coordinate and active top-level surface. Tabs,
+rows, breadcrumbs, Community history, and browser back/forward navigation MUST
+keep that route synchronized without persisting transient nested selections.
+The application MUST retain an unresolved deep link while the catalog loads,
+then present an accessible unavailable state without rewriting the requested
+URL when the completed catalog does not contain its target. Version-one stored
+destinations MUST continue to restore without a project route.
 Project Activity author affordances MUST use the shared
 `CommunityMemberHoverCard`, open the author's profile when selected, and retain
 the available message and wave actions. Repository-creation activity MUST use

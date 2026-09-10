@@ -134,6 +134,12 @@ access. Reducers normalize only the Buzz `unlisted` value, builders omit the
 tag for the default listed state, and presentation filters aggregate discovery
 without removing unlisted projects from the underlying catalog needed by exact
 routes and bound-channel context.
+Canonical project browser routes persist only the addressable project or
+repository coordinate and top-level surface. They remain part of the composite
+application location so browser history, Community history, and restored local
+state resolve through one codec. Catalog normalization MUST preserve an
+unresolved route until loading completes; it MUST NOT infer absence from an
+empty or still-loading projection.
 
 The static registry remains a deterministic projection. It can be rebuilt from
 the event graph, configured trusted publisher and curator keys, and immutable
