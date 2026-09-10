@@ -4,6 +4,7 @@ import type { RegistrySigner } from "../../auth/index.js";
 import type { RegistryCommunityDataSource } from "../../community/index.js";
 import type { CommunityMemberModel } from "../community-workspace/model.js";
 import type {
+  RegistryCatalogEntry,
   RegistryCatalogDataSource,
   RegistryInstallAction,
   RegistryInstallRequest,
@@ -24,5 +25,7 @@ export interface RegistryBrowserOptions {
 
 export interface RegistryBrowserProps extends RegistryBrowserOptions {
   route?: RegistryRoute;
+  showBreadcrumb?: boolean;
   onRouteChange?: (route: RegistryRoute) => void;
+  onActiveEntryChange?: (entry: RegistryCatalogEntry | undefined) => void;
 }

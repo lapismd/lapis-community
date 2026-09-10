@@ -239,6 +239,11 @@ trigger inside the row's topic-opening control.
 For LC-UI-021, the registry discussion reaction picker MUST accept any single
 native emoji grapheme, visibly distinguish hovered emoji, and round the active
 post highlight while insetting it on every side from the discussion separators.
+Integrated Registry routes MUST place their icon-led breadcrumb in the shared
+application header position used by Projects and suppress the inline browser
+breadcrumb. Standalone `RegistryBrowser` consumers MUST retain the inline
+breadcrumb. Project-channel breadcrumb and overview controls MUST appear only
+while the linked channel surface is active, never over Registry routes.
 The plugin gallery MUST keep two slides fully visible and opaque when available,
 with only a third or next slide shown as a small translucent preview.
 Detail actions MUST remain readable without clipping, plugin health MUST use

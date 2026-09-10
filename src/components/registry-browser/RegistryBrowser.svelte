@@ -47,7 +47,9 @@
   let {
     source,
     route = $bindable({ page: "landing" }),
+    showBreadcrumb = true,
     onRouteChange,
+    onActiveEntryChange,
     discussionDataSource,
     discussionIdentity,
     discussion,
@@ -368,6 +370,11 @@
 
   $effect(() => {
     const entry = selectedEntry;
+    untrack(() => onActiveEntryChange?.(entry));
+  });
+
+  $effect(() => {
+    const entry = selectedEntry;
     const version = route.page === "plugin" ? route.version : undefined;
     if (route.page !== "plugin") {
       untrack(() => {
@@ -620,7 +627,7 @@
   {/if}
 {/snippet}
 
-{#if route.page !== "landing"}
+{#if route.page !== "landing" && (showBreadcrumb || showSourceNotice || (route.page === "plugin" && supportsDiscussion))}
   <AppShell.Toolbar
     class={[
       "registry-browser__toolbar",
@@ -634,80 +641,87 @@
     label="Registry navigation"
   >
     {@render registrySourceNotice()}
-    <div class="registry-browser__navigation-row">
-      <Breadcrumb.Root aria-label="Registry breadcrumb">
-        <Breadcrumb.List>
-          <Breadcrumb.Item>
-            <Breadcrumb.Link
-              href="#registry"
-              onclick={(event) => {
-                event.preventDefault();
-                navigate({ page: "landing" });
-              }}>Registry</Breadcrumb.Link
-            >
-          </Breadcrumb.Item>
-          <Breadcrumb.Separator />
-          <Breadcrumb.Item>
-            {#if route.page === "directory"}
-              <Breadcrumb.Page>Plugins</Breadcrumb.Page>
-            {:else}
-              <Breadcrumb.Link
-                href="#registry:plugins"
-                onclick={(event) => {
-                  event.preventDefault();
-                  openDirectory();
-                }}>Plugins</Breadcrumb.Link
-              >
-            {/if}
-          </Breadcrumb.Item>
-          {#if route.page === "plugin"}
-            <Breadcrumb.Separator />
-            <Breadcrumb.Item>
-              {#if pluginView === "reviews" || route.version !== undefined}
+    {#if showBreadcrumb || (route.page === "plugin" && supportsDiscussion)}
+      <div class="registry-browser__navigation-row">
+        {#if showBreadcrumb}
+          <Breadcrumb.Root aria-label="Registry breadcrumb">
+            <Breadcrumb.List>
+              <Breadcrumb.Item>
                 <Breadcrumb.Link
-                  href={`#registry:plugin:${route.pluginId}`}
+                  href="#registry"
                   onclick={(event) => {
                     event.preventDefault();
-                    setPluginView("details");
+                    navigate({ page: "landing" });
                   }}
+                  ><PackageSearchIcon
+                    aria-hidden="true"
+                  />Registry</Breadcrumb.Link
                 >
-                  {selectedEntry?.name ?? route.pluginId}
-                </Breadcrumb.Link>
-              {:else}
-                <Breadcrumb.Page>
-                  {selectedEntry?.name ?? route.pluginId}
-                </Breadcrumb.Page>
-              {/if}
-            </Breadcrumb.Item>
-            {#if route.version !== undefined}
+              </Breadcrumb.Item>
               <Breadcrumb.Separator />
               <Breadcrumb.Item>
-                {#if pluginView === "reviews"}
+                {#if route.page === "directory"}
+                  <Breadcrumb.Page>Plugins</Breadcrumb.Page>
+                {:else}
                   <Breadcrumb.Link
-                    href={`#registry:plugin:${route.pluginId}:version:${encodeURIComponent(route.version)}`}
+                    href="#registry:plugins"
                     onclick={(event) => {
                       event.preventDefault();
-                      setPluginView("details");
-                    }}>{route.version}</Breadcrumb.Link
+                      openDirectory();
+                    }}>Plugins</Breadcrumb.Link
                   >
-                {:else}
-                  <Breadcrumb.Page>{route.version}</Breadcrumb.Page>
                 {/if}
               </Breadcrumb.Item>
-            {/if}
-            {#if pluginView === "reviews"}
-              <Breadcrumb.Separator />
-              <Breadcrumb.Item>
-                <Breadcrumb.Page>Reactions &amp; reviews</Breadcrumb.Page>
-              </Breadcrumb.Item>
-            {/if}
-          {/if}
-        </Breadcrumb.List>
-      </Breadcrumb.Root>
-      {#if route.page === "plugin" && supportsDiscussion}
-        {@render registryCommunityActions()}
-      {/if}
-    </div>
+              {#if route.page === "plugin"}
+                <Breadcrumb.Separator />
+                <Breadcrumb.Item>
+                  {#if pluginView === "reviews" || route.version !== undefined}
+                    <Breadcrumb.Link
+                      href={`#registry:plugin:${route.pluginId}`}
+                      onclick={(event) => {
+                        event.preventDefault();
+                        setPluginView("details");
+                      }}
+                    >
+                      {selectedEntry?.name ?? route.pluginId}
+                    </Breadcrumb.Link>
+                  {:else}
+                    <Breadcrumb.Page>
+                      {selectedEntry?.name ?? route.pluginId}
+                    </Breadcrumb.Page>
+                  {/if}
+                </Breadcrumb.Item>
+                {#if route.version !== undefined}
+                  <Breadcrumb.Separator />
+                  <Breadcrumb.Item>
+                    {#if pluginView === "reviews"}
+                      <Breadcrumb.Link
+                        href={`#registry:plugin:${route.pluginId}:version:${encodeURIComponent(route.version)}`}
+                        onclick={(event) => {
+                          event.preventDefault();
+                          setPluginView("details");
+                        }}>{route.version}</Breadcrumb.Link
+                      >
+                    {:else}
+                      <Breadcrumb.Page>{route.version}</Breadcrumb.Page>
+                    {/if}
+                  </Breadcrumb.Item>
+                {/if}
+                {#if pluginView === "reviews"}
+                  <Breadcrumb.Separator />
+                  <Breadcrumb.Item>
+                    <Breadcrumb.Page>Reactions &amp; reviews</Breadcrumb.Page>
+                  </Breadcrumb.Item>
+                {/if}
+              {/if}
+            </Breadcrumb.List>
+          </Breadcrumb.Root>
+        {/if}
+        {#if route.page === "plugin" && supportsDiscussion}
+          {@render registryCommunityActions()}
+        {/if}
+      </div>
+    {/if}
     {#if route.page === "plugin" && pluginView === "reviews" && communityController}
       <div class="registry-browser__reviews-summary">
         <CommunitySummary

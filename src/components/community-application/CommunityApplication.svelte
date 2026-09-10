@@ -115,6 +115,7 @@
     registryRouteFromHash,
     registryRouteToDestination,
     registryRouteToHash,
+    type RegistryCatalogEntry,
     type RegistryReleaseReviewEntry,
     type RegistryRoute,
   } from "../../registry/index.js";
@@ -412,6 +413,7 @@
       page: "landing",
     },
   );
+  let registryBreadcrumbEntry = $state<RegistryCatalogEntry>();
   let settingsSection = $state<"profile" | "custom-emoji">("profile");
   let lastAction = $state("ready");
   let relayNoticeDismissed = $state(false);
@@ -1256,6 +1258,12 @@
   );
   const isRegistryDestination = $derived(
     hasRegistry && registryRouteFromDestination(activeDestination) !== null,
+  );
+  const registryBreadcrumbPluginName = $derived(
+    registryRoute.page === "plugin" &&
+      registryBreadcrumbEntry?.id === registryRoute.pluginId
+      ? registryBreadcrumbEntry.name
+      : undefined,
   );
   const usesRoomToolbar = $derived(
     !isRegistryDestination &&
@@ -4814,6 +4822,119 @@
   </div>
 {/snippet}
 
+{#snippet registryBreadcrumb()}
+  <div class="community-application__project-breadcrumb">
+    <Breadcrumb.Root aria-label="Registry breadcrumb">
+      <Breadcrumb.List>
+        <Breadcrumb.Item>
+          {#if registryRoute.page === "landing"}
+            <Breadcrumb.Page>
+              <PackageSearchIcon aria-hidden="true" />
+              <span>Registry</span>
+            </Breadcrumb.Page>
+          {:else}
+            <Breadcrumb.Link
+              href={registryRouteToHash({ page: "landing" })}
+              onclick={(event) => {
+                event.preventDefault();
+                navigateRegistry({ page: "landing" });
+              }}
+            >
+              <PackageSearchIcon aria-hidden="true" />
+              <span>Registry</span>
+            </Breadcrumb.Link>
+          {/if}
+        </Breadcrumb.Item>
+        {#if registryRoute.page !== "landing"}
+          <Breadcrumb.Separator />
+          <Breadcrumb.Item>
+            {#if registryRoute.page === "directory"}
+              <Breadcrumb.Page><span>Plugins</span></Breadcrumb.Page>
+            {:else}
+              <Breadcrumb.Link
+                href={registryRouteToHash({ page: "directory" })}
+                onclick={(event) => {
+                  event.preventDefault();
+                  navigateRegistry({ page: "directory" });
+                }}><span>Plugins</span></Breadcrumb.Link
+              >
+            {/if}
+          </Breadcrumb.Item>
+        {/if}
+        {#if registryRoute.page === "plugin"}
+          {@const pluginRoute = registryRoute}
+          <Breadcrumb.Separator />
+          <Breadcrumb.Item>
+            {#if pluginRoute.view === "reviews" || pluginRoute.version !== undefined}
+              <Breadcrumb.Link
+                href={registryRouteToHash({
+                  page: "plugin",
+                  pluginId: pluginRoute.pluginId,
+                  ...(pluginRoute.version === undefined
+                    ? {}
+                    : { version: pluginRoute.version }),
+                })}
+                onclick={(event) => {
+                  event.preventDefault();
+                  navigateRegistry({
+                    page: "plugin",
+                    pluginId: pluginRoute.pluginId,
+                    ...(pluginRoute.version === undefined
+                      ? {}
+                      : { version: pluginRoute.version }),
+                  });
+                }}
+                ><span
+                  >{registryBreadcrumbPluginName ?? pluginRoute.pluginId}</span
+                ></Breadcrumb.Link
+              >
+            {:else}
+              <Breadcrumb.Page
+                ><span
+                  >{registryBreadcrumbPluginName ?? pluginRoute.pluginId}</span
+                ></Breadcrumb.Page
+              >
+            {/if}
+          </Breadcrumb.Item>
+          {#if pluginRoute.version !== undefined}
+            {@const pluginVersion = pluginRoute.version}
+            <Breadcrumb.Separator />
+            <Breadcrumb.Item>
+              {#if pluginRoute.view === "reviews"}
+                <Breadcrumb.Link
+                  href={registryRouteToHash({
+                    page: "plugin",
+                    pluginId: pluginRoute.pluginId,
+                    version: pluginVersion,
+                  })}
+                  onclick={(event) => {
+                    event.preventDefault();
+                    navigateRegistry({
+                      page: "plugin",
+                      pluginId: pluginRoute.pluginId,
+                      version: pluginVersion,
+                    });
+                  }}><span>{pluginVersion}</span></Breadcrumb.Link
+                >
+              {:else}
+                <Breadcrumb.Page><span>{pluginVersion}</span></Breadcrumb.Page>
+              {/if}
+            </Breadcrumb.Item>
+          {/if}
+          {#if pluginRoute.view === "reviews"}
+            <Breadcrumb.Separator />
+            <Breadcrumb.Item>
+              <Breadcrumb.Page
+                ><span>Reactions &amp; reviews</span></Breadcrumb.Page
+              >
+            </Breadcrumb.Item>
+          {/if}
+        {/if}
+      </Breadcrumb.List>
+    </Breadcrumb.Root>
+  </div>
+{/snippet}
+
 {#snippet projectChannelBreadcrumb()}
   {#if activeChannelProject}
     <div class="community-application__project-breadcrumb">
@@ -5785,19 +5906,21 @@
   {canNavigateForward}
   onNavigateBack={() => navigateHistory(-1)}
   onNavigateForward={() => navigateHistory(1)}
-  {...isProjectsDestination
-    ? {
-        headerCenter: projectBreadcrumb,
-        headerEnd: projectOverviewToggle,
-      }
-    : activeChannelProject
+  {...isRegistryDestination
+    ? { headerCenter: registryBreadcrumb }
+    : isProjectsDestination
       ? {
-          headerCenter: projectChannelBreadcrumb,
+          headerCenter: projectBreadcrumb,
           headerEnd: projectOverviewToggle,
         }
-      : isPluginReleaseRoom
-        ? { headerEnd: releaseOverviewToggle }
-        : {}}
+      : activeChannelProject && usesRoomToolbar
+        ? {
+            headerCenter: projectChannelBreadcrumb,
+            headerEnd: projectOverviewToggle,
+          }
+        : isPluginReleaseRoom
+          ? { headerEnd: releaseOverviewToggle }
+          : {}}
   data-last-action={lastAction}
   data-community-status={community.state.status}
   data-community-cache-freshness={community.state.cache.freshness}
@@ -6221,7 +6344,9 @@
         <RegistryBrowser
           {...registryOptions}
           bind:route={registryRoute}
+          showBreadcrumb={false}
           onRouteChange={navigateRegistry}
+          onActiveEntryChange={(entry) => (registryBreadcrumbEntry = entry)}
           onOpenMemberProfile={openProfile}
           onMessageMember={messageMember}
           onWaveMember={waveMember}
@@ -6929,12 +7054,12 @@
     {@render releaseOverviewRail()}
     {@render releaseSheet()}
   {/if}
-  {#if isProjectsDestination || activeChannelProject}
+  {#if isProjectsDestination || (activeChannelProject && usesRoomToolbar)}
     {@render projectOverviewRail()}
   {/if}
 </CommunityAppShell>
 
-{#if !isProjectsDestination && activeChannelProject}
+{#if !isProjectsDestination && activeChannelProject && usesRoomToolbar}
   <CommunityProjects
     view="overview"
     projects={[activeChannelProject]}

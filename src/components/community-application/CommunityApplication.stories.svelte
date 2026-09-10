@@ -395,6 +395,80 @@
 </Story>
 
 <Story
+  name="Registry breadcrumb replaces project chrome"
+  play={async ({ canvas }) => {
+    const application = await canvas.findByTestId(
+      "full-community-application",
+      {},
+      { timeout: 15_000 },
+    );
+    await waitFor(
+      () =>
+        expect(application).toHaveAttribute(
+          "data-community-status",
+          "connected",
+        ),
+      { timeout: 15_000 },
+    );
+
+    await userEvent.click(
+      await canvas.findByRole("button", { name: "general", exact: true }),
+    );
+    const headerCenter = application.querySelector<HTMLElement>(
+      ".community-app-shell__header-center",
+    );
+    if (!headerCenter)
+      throw new Error("Expected the app header breadcrumb slot");
+    await waitFor(() => expect(headerCenter).toHaveTextContent("Projects"));
+    await expect(headerCenter).toHaveTextContent("#general");
+    await userEvent.click(canvas.getByRole("button", { name: "Registry" }));
+    await userEvent.click(
+      (await canvas.findAllByRole("link", { name: /Plugins/u }))[0]!,
+    );
+    await userEvent.click(
+      await canvas.findByRole("link", { name: "Open AI Assistant" }),
+    );
+    await expect(
+      await canvas.findByRole("heading", { name: "AI Assistant", level: 1 }),
+    ).toBeVisible();
+
+    const breadcrumb = within(headerCenter).getByRole("navigation", {
+      name: "breadcrumb",
+    });
+    const registryTrail = within(breadcrumb);
+    await expect(
+      registryTrail.getByRole("link", { name: "Registry" }),
+    ).toBeVisible();
+    await expect(
+      registryTrail.getByRole("link", { name: "Plugins" }),
+    ).toBeVisible();
+    await expect(registryTrail.getByText("AI Assistant")).toBeVisible();
+    await expect(
+      breadcrumb.querySelector(".lucide-package-search"),
+    ).not.toBeNull();
+    await expect(
+      breadcrumb.closest(".community-app-shell__header-center"),
+    ).not.toBeNull();
+    await expect(breadcrumb.closest(".registry-browser__toolbar")).toBeNull();
+    await expect(headerCenter).not.toHaveTextContent("Projects");
+    await expect(headerCenter).not.toHaveTextContent("#general");
+    await expect(
+      canvas.queryByRole("complementary", {
+        name: "Project overview sidebar",
+      }),
+    ).not.toBeInTheDocument();
+  }}
+>
+  {#snippet template()}
+    <CommunityApplicationStoryHarness
+      namespace="registry-breadcrumb"
+      initialDestination="registry"
+      projects
+    />
+  {/snippet}
+</Story>
+
+<Story
   name="Projects activity workspace"
   play={async ({ canvas }) => {
     const application = await canvas.findByTestId(
