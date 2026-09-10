@@ -180,3 +180,9 @@ signature-verified events rather than derived project objects. It MUST scope
 records by normalized relay URL, Community ID, and optional project channel,
 restore only an exact scope, and remain a best-effort disposable optimization
 over the relay-authoritative live projection.
+
+GitHub App connection administration for LC-ARCH-021 MUST remain behind the
+relay's authenticated forge API and relay-administrator policy. The Community
+source MAY create, completely replace, and revalidate a connection, but it MUST
+consume only the relay's safe public connection record and MUST NOT expect the
+relay to return App IDs, credential references, or secret values.

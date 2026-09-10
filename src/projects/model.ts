@@ -268,10 +268,21 @@ export interface ProjectForgeGitHubConnection {
   account_login: string;
   bridge_pubkey: string;
   status: string;
+  detail?: string;
+  updated_at?: string;
 }
 
 export interface ProjectForgeGitHubConnectionsResponse {
   connections: readonly ProjectForgeGitHubConnection[];
+}
+
+export interface ProjectForgeGitHubConnectionInput {
+  appId: string;
+  installationId: number;
+  credentialRef: string;
+  webhookSecretRef: string;
+  bridgeCredentialRef: string;
+  bridgePubkey: string;
 }
 
 export interface ProjectForgeGitHubRepository {

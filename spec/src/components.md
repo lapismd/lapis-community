@@ -9,6 +9,14 @@ content available during live refresh, show a non-destructive cached status
 with the last verified time, and distinguish a live-refresh failure from an
 initial catalog failure instead of replacing restored content.
 
+For LC-UI-036, a connected external repository's contextual GitHub action MUST
+open an administrator-facing connection dialog that shows active and error
+states, sanitized failure detail, last-check time, and revalidation. The dialog
+MUST allow a complete connection to be added or replaced using mounted
+credential references, keep those reference inputs masked, and never prefill
+them from a public connection response. Repository attachment MUST continue to
+offer only active installations.
+
 For LC-NOSTR-020, normalized room and member models expose additive posting
 policy, role-definition, multi-role, and administrator state while retaining
 the legacy singular member role. Presentation treats relay administrators as

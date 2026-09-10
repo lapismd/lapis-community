@@ -69,6 +69,7 @@
     type ProjectForgeRepository,
     type ProjectTaskState,
     type ProjectForgeGitHubConnection,
+    type ProjectForgeGitHubConnectionInput,
     type ProjectForgeGitHubRepository,
     type ProjectForgeRefsResponse,
     type PullRequestComment,
@@ -145,6 +146,9 @@
     onCreateRepository,
     onAttachRepository,
     onLoadGitHubConnections,
+    onCreateGitHubConnection,
+    onUpdateGitHubConnection,
+    onRevalidateGitHubConnection,
     onLoadGitHubRepositories,
     onAttachGitHubRepository,
     onCreateTask,
@@ -196,6 +200,20 @@
   let githubConnection = $state.raw<ProjectForgeGitHubConnection>();
   let githubCommandLoading = $state(false);
   let githubCommandError = $state("");
+  let githubManagerOpen = $state(false);
+  let githubManagerFormOpen = $state(false);
+  let githubManagerConnection = $state.raw<ProjectForgeGitHubConnection>();
+  let githubManagerLoading = $state(false);
+  let githubManagerError = $state("");
+  let githubManagerOperation = $state("");
+  let githubDraft = $state({
+    appId: "",
+    installationId: "",
+    credentialRef: "",
+    webhookSecretRef: "",
+    bridgeCredentialRef: "",
+    bridgePubkey: "",
+  });
   let taskDialogOpen = $state(false);
   let pullRequestDialogOpen = $state(false);
   let pullRequestRefs = $state.raw<ProjectForgeRefsResponse>();
@@ -418,6 +436,9 @@
           repositoryMatchesGitHubAnnouncement(selectedRepository, repository),
         ),
   );
+  const activeGitHubConnections = $derived(
+    githubConnections.filter((connection) => connection.status === "active"),
+  );
   const projectDiffFiles = $derived(
     pullRequestDiff?.files.map((file) => ({
       ...file,
@@ -632,6 +653,7 @@
     if (request.kind === "repository") openRepositoryDialog();
     if (request.kind === "select-repository") openRepositoryCommand();
     if (request.kind === "connect-github") void openGitHubCommand();
+    if (request.kind === "manage-github") void openGitHubManager();
     if (request.kind === "task") openTaskDialog();
     if (request.kind === "review") openPullRequestDialog();
   });
@@ -927,9 +949,7 @@
     githubCommandLoading = true;
     try {
       const response = await onLoadGitHubConnections();
-      githubConnections = response.connections.filter(
-        (connection) => connection.status === "active",
-      );
+      githubConnections = response.connections;
     } catch (cause) {
       githubCommandError =
         cause instanceof Error
@@ -937,6 +957,135 @@
           : "GitHub App connections could not be loaded";
     } finally {
       githubCommandLoading = false;
+    }
+  }
+
+  async function refreshGitHubConnections(): Promise<void> {
+    if (!onLoadGitHubConnections) {
+      githubManagerError = "GitHub App connection management is unavailable.";
+      return;
+    }
+    githubManagerLoading = true;
+    githubManagerError = "";
+    try {
+      githubConnections = (await onLoadGitHubConnections()).connections;
+    } catch (cause) {
+      githubManagerError =
+        cause instanceof Error
+          ? cause.message
+          : "GitHub App connections could not be loaded";
+    } finally {
+      githubManagerLoading = false;
+    }
+  }
+
+  async function openGitHubManager(): Promise<void> {
+    githubCommandOpen = false;
+    githubManagerFormOpen = false;
+    githubManagerConnection = undefined;
+    githubManagerError = "";
+    githubManagerOpen = true;
+    if (!canManageForge) {
+      githubManagerError =
+        "Relay administrator access is required to manage GitHub App connections.";
+      return;
+    }
+    await refreshGitHubConnections();
+  }
+
+  function openGitHubConnectionForm(
+    connection?: ProjectForgeGitHubConnection,
+  ): void {
+    githubManagerConnection = connection;
+    githubDraft = {
+      appId: "",
+      installationId: connection ? String(connection.installation_id) : "",
+      credentialRef: "",
+      webhookSecretRef: "",
+      bridgeCredentialRef: "",
+      bridgePubkey: connection?.bridge_pubkey ?? "",
+    };
+    githubManagerError = "";
+    githubManagerFormOpen = true;
+  }
+
+  function githubConnectionInput(): ProjectForgeGitHubConnectionInput {
+    return {
+      appId: githubDraft.appId.trim(),
+      installationId: Number(githubDraft.installationId),
+      credentialRef: githubDraft.credentialRef.trim(),
+      webhookSecretRef: githubDraft.webhookSecretRef.trim(),
+      bridgeCredentialRef: githubDraft.bridgeCredentialRef.trim(),
+      bridgePubkey: githubDraft.bridgePubkey.trim(),
+    };
+  }
+
+  async function submitGitHubConnection(event: SubmitEvent): Promise<void> {
+    event.preventDefault();
+    const input = githubConnectionInput();
+    if (
+      !Number.isSafeInteger(input.installationId) ||
+      input.installationId <= 0
+    ) {
+      githubManagerError = "Enter a valid GitHub installation ID.";
+      return;
+    }
+    const update = githubManagerConnection;
+    const action = update ? onUpdateGitHubConnection : onCreateGitHubConnection;
+    if (!action) {
+      githubManagerError = "GitHub App connection changes are unavailable.";
+      return;
+    }
+    githubManagerOperation = update
+      ? "Replacing configuration…"
+      : "Adding connection…";
+    githubManagerError = "";
+    try {
+      const connection = update
+        ? await onUpdateGitHubConnection?.(update.id, input)
+        : await onCreateGitHubConnection?.(input);
+      if (!connection)
+        throw new Error("The relay did not return the GitHub App connection");
+      githubConnections = update
+        ? githubConnections.map((candidate) =>
+            candidate.id === connection.id ? connection : candidate,
+          )
+        : [...githubConnections, connection];
+      githubManagerFormOpen = false;
+      githubManagerConnection = undefined;
+    } catch (cause) {
+      githubManagerError =
+        cause instanceof Error
+          ? cause.message
+          : "The GitHub App connection could not be saved";
+    } finally {
+      githubManagerOperation = "";
+    }
+  }
+
+  async function revalidateGitHubConnection(
+    connection: ProjectForgeGitHubConnection,
+  ): Promise<void> {
+    if (!onRevalidateGitHubConnection) {
+      githubManagerError = "GitHub App revalidation is unavailable.";
+      return;
+    }
+    githubManagerOperation = `Revalidating @${connection.account_login || "GitHub"}…`;
+    githubManagerError = "";
+    try {
+      const refreshed = await onRevalidateGitHubConnection(connection.id);
+      githubConnections = githubConnections.map((candidate) =>
+        candidate.id === refreshed.id ? refreshed : candidate,
+      );
+    } catch (cause) {
+      const message =
+        cause instanceof Error
+          ? cause.message
+          : "The GitHub App connection could not be revalidated";
+      await refreshGitHubConnections();
+      githubManagerError = message;
+    } finally {
+      githubManagerOperation = "";
     }
   }
 
@@ -4312,7 +4461,7 @@
     {:else if githubCommandStep === "connection"}
       <Command.Empty>No active GitHub App connections found.</Command.Empty>
       <Command.Group heading="GitHub App connections">
-        {#each githubConnections as connection (connection.id)}
+        {#each activeGitHubConnections as connection (connection.id)}
           <Command.Item
             value={`${connection.account_login} ${connection.host} ${connection.installation_id}`}
             onSelect={() => void selectGitHubConnection(connection)}
@@ -4373,7 +4522,253 @@
       {githubCommandError}
     </p>
   {/if}
+  {#if githubCommandStep === "connection" && canManageForge}
+    <div class="community-projects__github-command-footer">
+      <Button type="button" variant="outline" onclick={openGitHubManager}>
+        <GitForkIcon data-icon="inline-start" aria-hidden="true" />
+        Manage GitHub App connections
+      </Button>
+    </div>
+  {/if}
 </Command.Dialog>
+
+<Dialog.Root bind:open={githubManagerOpen}>
+  <Dialog.Content
+    class="community-projects__project-dialog community-projects__github-manager"
+  >
+    <Dialog.Header class="community-projects__project-dialog-header">
+      <Dialog.Title>GitHub App connections</Dialog.Title>
+      <Dialog.Description>
+        Relay administrators can add installations, check their health, or
+        replace the complete mounted-credential configuration.
+      </Dialog.Description>
+    </Dialog.Header>
+
+    {#if githubManagerError}
+      <Alert.Root variant="destructive" class="community-projects__alert">
+        <Alert.Title>GitHub App action failed</Alert.Title>
+        <Alert.Description>{githubManagerError}</Alert.Description>
+      </Alert.Root>
+    {/if}
+    {#if githubManagerOperation}
+      <p class="community-projects__github-manager-updated" role="status">
+        {githubManagerOperation}
+      </p>
+    {/if}
+
+    {#if githubManagerLoading}
+      <div class="community-projects__github-manager-loading" role="status">
+        <Skeleton />
+        <Skeleton />
+      </div>
+    {:else if githubManagerFormOpen}
+      <form
+        class="community-projects__project-form"
+        onsubmit={submitGitHubConnection}
+      >
+        <p class="community-projects__github-manager-note">
+          {githubManagerConnection
+            ? "For security, the relay never returns App IDs or credential references. Enter the complete replacement configuration."
+            : "Enter references to credentials already mounted on the relay. Secret values never pass through this form."}
+        </p>
+        <Field.Group class="community-projects__project-fields">
+          <div class="community-projects__github-manager-field-grid">
+            <Field.Field>
+              <Field.Label for="github-app-id">GitHub App ID</Field.Label>
+              <Input
+                id="github-app-id"
+                bind:value={githubDraft.appId}
+                autocomplete="off"
+                placeholder="12345"
+                required
+              />
+            </Field.Field>
+            <Field.Field>
+              <Field.Label for="github-installation-id"
+                >Installation ID</Field.Label
+              >
+              <Input
+                id="github-installation-id"
+                type="number"
+                min="1"
+                step="1"
+                bind:value={githubDraft.installationId}
+                placeholder="67890"
+                required
+              />
+            </Field.Field>
+          </div>
+          <Field.Field>
+            <Field.Label for="github-app-credential"
+              >App private-key reference</Field.Label
+            >
+            <Input
+              id="github-app-credential"
+              type="password"
+              bind:value={githubDraft.credentialRef}
+              autocomplete="new-password"
+              placeholder="file:github-app.pem"
+              required
+            />
+          </Field.Field>
+          <Field.Field>
+            <Field.Label for="github-webhook-credential"
+              >Webhook-secret reference</Field.Label
+            >
+            <Input
+              id="github-webhook-credential"
+              type="password"
+              bind:value={githubDraft.webhookSecretRef}
+              autocomplete="new-password"
+              placeholder="file:github-webhook"
+              required
+            />
+          </Field.Field>
+          <Field.Field>
+            <Field.Label for="github-bridge-credential"
+              >Bridge-key reference</Field.Label
+            >
+            <Input
+              id="github-bridge-credential"
+              type="password"
+              bind:value={githubDraft.bridgeCredentialRef}
+              autocomplete="new-password"
+              placeholder="file:github-bridge-secret"
+              required
+            />
+          </Field.Field>
+          <Field.Field>
+            <Field.Label for="github-bridge-pubkey"
+              >Bridge public key</Field.Label
+            >
+            <Input
+              id="github-bridge-pubkey"
+              bind:value={githubDraft.bridgePubkey}
+              autocomplete="off"
+              minlength={64}
+              maxlength={64}
+              placeholder="64-character hexadecimal public key"
+              required
+            />
+          </Field.Field>
+        </Field.Group>
+        <Dialog.Footer class="community-projects__project-footer">
+          <Button
+            type="button"
+            variant="ghost"
+            disabled={githubManagerOperation !== ""}
+            onclick={() => {
+              githubManagerFormOpen = false;
+              githubManagerConnection = undefined;
+              githubManagerError = "";
+            }}
+          >
+            Back
+          </Button>
+          <Button type="submit" disabled={githubManagerOperation !== ""}>
+            {githubManagerOperation ||
+              (githubManagerConnection
+                ? "Replace configuration"
+                : "Add connection")}
+          </Button>
+        </Dialog.Footer>
+      </form>
+    {:else}
+      <div class="community-projects__github-manager-list">
+        {#each githubConnections as connection (connection.id)}
+          <article class="community-projects__github-manager-row">
+            <div class="community-projects__github-manager-copy">
+              <GitForkIcon aria-hidden="true" />
+              <div>
+                <strong>
+                  {connection.account_login
+                    ? `@${connection.account_login}`
+                    : `Installation ${connection.installation_id}`}
+                </strong>
+                <span>
+                  {connection.host} · installation {connection.installation_id}
+                </span>
+              </div>
+              <CommunityChip
+                size="compact"
+                tone={connection.status === "active" ? "success" : "danger"}
+              >
+                {connection.status}
+              </CommunityChip>
+            </div>
+            {#if connection.detail}
+              <p class="community-projects__github-manager-detail">
+                {connection.detail}
+              </p>
+            {/if}
+            {#if connection.updated_at}
+              <p class="community-projects__github-manager-updated">
+                Checked <CommunityRelativeTime
+                  timestamp={Math.floor(
+                    new Date(connection.updated_at).getTime() / 1_000,
+                  )}
+                />
+              </p>
+            {/if}
+            <div class="community-projects__github-manager-actions">
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                disabled={githubManagerOperation !== ""}
+                onclick={() => void revalidateGitHubConnection(connection)}
+              >
+                <RotateCcwIcon data-icon="inline-start" aria-hidden="true" />
+                Revalidate
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                disabled={githubManagerOperation !== ""}
+                onclick={() => openGitHubConnectionForm(connection)}
+              >
+                Replace configuration
+              </Button>
+            </div>
+          </article>
+        {:else}
+          <Empty.Root class="community-projects__empty">
+            <Empty.Header>
+              <Empty.Media variant="icon"
+                ><GitForkIcon aria-hidden="true" /></Empty.Media
+              >
+              <Empty.Title>No GitHub App connections</Empty.Title>
+              <Empty.Description>
+                Add an installation after its credentials are mounted on the
+                relay.
+              </Empty.Description>
+            </Empty.Header>
+          </Empty.Root>
+        {/each}
+      </div>
+      <Dialog.Footer class="community-projects__project-footer">
+        <Button
+          type="button"
+          variant="outline"
+          disabled={githubManagerOperation !== ""}
+          onclick={() => void refreshGitHubConnections()}
+        >
+          <RotateCcwIcon data-icon="inline-start" aria-hidden="true" />
+          Refresh
+        </Button>
+        <Button
+          type="button"
+          disabled={githubManagerOperation !== ""}
+          onclick={() => openGitHubConnectionForm()}
+        >
+          <PlusIcon data-icon="inline-start" aria-hidden="true" />
+          Add connection
+        </Button>
+      </Dialog.Footer>
+    {/if}
+  </Dialog.Content>
+</Dialog.Root>
 
 <Dialog.Root bind:open={taskDialogOpen} onOpenChange={resetError}>
   <Dialog.Content class="community-projects__project-dialog">

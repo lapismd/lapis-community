@@ -62,6 +62,12 @@ NIP-98 verification covers the exact URL received by the relay.
 Successful JSON GET responses MAY be retained briefly in a bounded in-memory
 cache scoped by relay URL and signer public key. Progress-stream responses MUST
 not be cached, and a successful forge mutation MUST invalidate that cache.
+GitHub connection creation, complete replacement, and revalidation MUST sign
+the exact relay forge endpoint and HTTP method with NIP-98. Requests containing
+connection configuration MUST bind the complete JSON payload, while a
+body-less revalidation MUST omit the payload tag. Connection responses MUST be
+treated as public status records and MUST NOT contain mounted credential
+references or secret values.
 When a project owner removes a direct channel attachment, the kind `30621`
 replacement MUST replace the complete bounded `buzz-related-channel` set while
 preserving every other non-editable tag. Omitting that set from an ordinary

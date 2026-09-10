@@ -9,6 +9,7 @@ import type {
   ProjectForgeCatalogStore,
   ProjectForgeDiffFile,
   ProjectForgeGitHubConnection,
+  ProjectForgeGitHubConnectionInput,
   ProjectForgeGitHubConnectionsResponse,
   ProjectForgeGitHubRepositoriesResponse,
   ProjectForgeGitHubRepository,
@@ -93,6 +94,7 @@ export interface CommunityProjectsDialogRequest {
     | "repository"
     | "select-repository"
     | "connect-github"
+    | "manage-github"
     | "task"
     | "review";
   projectCoordinate?: string;
@@ -169,6 +171,16 @@ export interface CommunityProjectsProps {
     repositoryCoordinate: string,
   ) => Promise<void>;
   onLoadGitHubConnections?: () => Promise<ProjectForgeGitHubConnectionsResponse>;
+  onCreateGitHubConnection?: (
+    input: ProjectForgeGitHubConnectionInput,
+  ) => Promise<ProjectForgeGitHubConnection>;
+  onUpdateGitHubConnection?: (
+    connectionId: string,
+    input: ProjectForgeGitHubConnectionInput,
+  ) => Promise<ProjectForgeGitHubConnection>;
+  onRevalidateGitHubConnection?: (
+    connectionId: string,
+  ) => Promise<ProjectForgeGitHubConnection>;
   onLoadGitHubRepositories?: (
     connectionId: string,
   ) => Promise<ProjectForgeGitHubRepositoriesResponse>;

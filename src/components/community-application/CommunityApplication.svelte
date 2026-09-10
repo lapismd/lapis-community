@@ -91,6 +91,7 @@
     type ProjectForgeCommitActivity,
     type ProjectForgeDataSource,
     type ProjectForgeGitHubConnection,
+    type ProjectForgeGitHubConnectionInput,
     type ProjectForgeGitHubConnectionsResponse,
     type ProjectForgeGitHubRepositoriesResponse,
     type ProjectForgeGitHubRepository,
@@ -3090,6 +3091,34 @@
     );
   }
 
+  async function createGitHubConnection(
+    input: ProjectForgeGitHubConnectionInput,
+  ): Promise<ProjectForgeGitHubConnection> {
+    return await withProjectRequest(
+      "Adding GitHub App connection…",
+      (session) => session.createGitHubConnection(input),
+    );
+  }
+
+  async function updateGitHubConnection(
+    connectionId: string,
+    input: ProjectForgeGitHubConnectionInput,
+  ): Promise<ProjectForgeGitHubConnection> {
+    return await withProjectRequest(
+      "Replacing GitHub App connection…",
+      (session) => session.updateGitHubConnection(connectionId, input),
+    );
+  }
+
+  async function revalidateGitHubConnection(
+    connectionId: string,
+  ): Promise<ProjectForgeGitHubConnection> {
+    return await withProjectRequest(
+      "Revalidating GitHub App connection…",
+      (session) => session.revalidateGitHubConnection(connectionId),
+    );
+  }
+
   async function loadGitHubRepositories(
     connectionId: string,
   ): Promise<ProjectForgeGitHubRepositoriesResponse> {
@@ -5110,7 +5139,12 @@
                   ? "Manage this repository's GitHub App connection"
                   : "Connect this repository to a GitHub App installation"}
                 disabled={projectOperation !== ""}
-                onclick={() => requestProjectDialog("connect-github")}
+                onclick={() =>
+                  requestProjectDialog(
+                    selectedRepositoryGitHubConnected
+                      ? "manage-github"
+                      : "connect-github",
+                  )}
               >
                 <svg
                   data-icon="inline-start"
@@ -6141,6 +6175,9 @@
         onCreateRepository={createRepository}
         onAttachRepository={attachRepository}
         onLoadGitHubConnections={loadGitHubConnections}
+        onCreateGitHubConnection={createGitHubConnection}
+        onUpdateGitHubConnection={updateGitHubConnection}
+        onRevalidateGitHubConnection={revalidateGitHubConnection}
         onLoadGitHubRepositories={loadGitHubRepositories}
         onAttachGitHubRepository={attachGitHubRepository}
         onCreateTask={createTask}

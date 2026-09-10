@@ -22,6 +22,8 @@ import {
   type ProjectForgeCommitResponse,
   type ProjectForgeCommitsResponse,
   type ProjectForgeGitHubConnectionsResponse,
+  type ProjectForgeGitHubConnection,
+  type ProjectForgeGitHubConnectionInput,
   type ProjectForgeGitHubRepositoriesResponse,
   type ProjectForgeProgress,
   type ProjectForgePullRequestDiff,
@@ -45,6 +47,17 @@ const PROJECT_FORGE_READ_CACHE_MAX_ENTRIES = 256;
 interface ProjectForgeReadCacheEntry {
   expiresAt: number;
   value: unknown;
+}
+
+function githubConnectionRequest(input: ProjectForgeGitHubConnectionInput) {
+  return {
+    app_id: input.appId,
+    installation_id: input.installationId,
+    credential_ref: input.credentialRef,
+    webhook_secret_ref: input.webhookSecretRef,
+    bridge_credential_ref: input.bridgeCredentialRef,
+    bridge_pubkey: input.bridgePubkey,
+  };
 }
 
 export interface ProjectForgeDataSourceContext {
@@ -104,6 +117,19 @@ export interface ProjectForgeSession {
   loadGitHubConnections(
     signal?: AbortSignal,
   ): Promise<ProjectForgeGitHubConnectionsResponse>;
+  createGitHubConnection(
+    input: ProjectForgeGitHubConnectionInput,
+    signal?: AbortSignal,
+  ): Promise<ProjectForgeGitHubConnection>;
+  updateGitHubConnection(
+    connectionId: string,
+    input: ProjectForgeGitHubConnectionInput,
+    signal?: AbortSignal,
+  ): Promise<ProjectForgeGitHubConnection>;
+  revalidateGitHubConnection(
+    connectionId: string,
+    signal?: AbortSignal,
+  ): Promise<ProjectForgeGitHubConnection>;
   loadGitHubRepositories(
     connectionId: string,
     signal?: AbortSignal,
@@ -390,6 +416,43 @@ class Nip34ProjectForgeSession implements ProjectForgeSession {
     return await this.#forgeJsonRequest(
       "GET",
       "/api/forge/connections/github",
+      undefined,
+      signal,
+    );
+  }
+
+  async createGitHubConnection(
+    input: ProjectForgeGitHubConnectionInput,
+    signal?: AbortSignal,
+  ): Promise<ProjectForgeGitHubConnection> {
+    return await this.#forgeJsonRequest(
+      "POST",
+      "/api/forge/connections/github",
+      githubConnectionRequest(input),
+      signal,
+    );
+  }
+
+  async updateGitHubConnection(
+    connectionId: string,
+    input: ProjectForgeGitHubConnectionInput,
+    signal?: AbortSignal,
+  ): Promise<ProjectForgeGitHubConnection> {
+    return await this.#forgeJsonRequest(
+      "PUT",
+      `/api/forge/connections/github/${encodeURIComponent(connectionId)}`,
+      githubConnectionRequest(input),
+      signal,
+    );
+  }
+
+  async revalidateGitHubConnection(
+    connectionId: string,
+    signal?: AbortSignal,
+  ): Promise<ProjectForgeGitHubConnection> {
+    return await this.#forgeJsonRequest(
+      "POST",
+      `/api/forge/connections/github/${encodeURIComponent(connectionId)}/revalidate`,
       undefined,
       signal,
     );
@@ -684,7 +747,7 @@ class Nip34ProjectForgeSession implements ProjectForgeSession {
   }
 
   async #forgeJsonRequest<T>(
-    method: "GET" | "PUT",
+    method: "GET" | "POST" | "PUT",
     path: string,
     value?: unknown,
     signal?: AbortSignal,

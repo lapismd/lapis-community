@@ -601,6 +601,42 @@ export function createProjectStoryDataSource(
         async loadGitHubConnections() {
           return { connections: [] };
         },
+        async createGitHubConnection(input) {
+          return {
+            id: "ghc-story",
+            provider: "github",
+            host: "github.com",
+            installation_id: input.installationId,
+            account_id: "7",
+            account_login: "lapismd",
+            bridge_pubkey: input.bridgePubkey,
+            status: "active",
+          };
+        },
+        async updateGitHubConnection(connectionId, input) {
+          return {
+            id: connectionId,
+            provider: "github",
+            host: "github.com",
+            installation_id: input.installationId,
+            account_id: "7",
+            account_login: "lapismd",
+            bridge_pubkey: input.bridgePubkey,
+            status: "active",
+          };
+        },
+        async revalidateGitHubConnection(connectionId) {
+          return {
+            id: connectionId,
+            provider: "github",
+            host: "github.com",
+            installation_id: 99,
+            account_id: "7",
+            account_login: "lapismd",
+            bridge_pubkey: "2".repeat(64),
+            status: "active",
+          };
+        },
         async loadGitHubRepositories() {
           return { repositories: [] };
         },

@@ -2895,12 +2895,107 @@ button.community-projects__project-option:focus-visible {
   font-weight: 400;
 }
 
+.community-projects__github-command-footer {
+  display: flex;
+  justify-content: flex-end;
+  border-top: 1px solid var(--border);
+  padding: 0.7rem 0.8rem;
+}
+
+.community-projects__github-manager[data-ui-part="dialog-content"] {
+  width: min(calc(100vw - 2rem), 40rem);
+  max-width: min(calc(100vw - 2rem), 40rem) !important;
+}
+
+.community-projects__github-manager-loading,
+.community-projects__github-manager-list {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.community-projects__github-manager-loading [data-ui-part="skeleton"] {
+  height: 7rem;
+  border-radius: 0.9rem;
+}
+
+.community-projects__github-manager-row {
+  display: grid;
+  gap: 0.65rem;
+  border: 1px solid var(--border);
+  border-radius: 0.9rem;
+  padding: 0.85rem;
+}
+
+.community-projects__github-manager-copy {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  gap: 0.65rem;
+}
+
+.community-projects__github-manager-copy > svg {
+  width: 1rem;
+  height: 1rem;
+  flex: 0 0 auto;
+}
+
+.community-projects__github-manager-copy > div {
+  display: grid;
+  min-width: 0;
+  flex: 1;
+  gap: 0.1rem;
+}
+
+.community-projects__github-manager-copy strong,
+.community-projects__github-manager-copy span,
+.community-projects__github-manager-detail,
+.community-projects__github-manager-updated,
+.community-projects__github-manager-note {
+  margin: 0;
+}
+
+.community-projects__github-manager-copy strong {
+  font-size: 0.86rem;
+}
+
+.community-projects__github-manager-copy span,
+.community-projects__github-manager-detail,
+.community-projects__github-manager-updated,
+.community-projects__github-manager-note {
+  color: var(--muted-foreground);
+  font-size: 0.76rem;
+  line-height: 1.45;
+}
+
+.community-projects__github-manager-detail {
+  border-radius: 0.6rem;
+  padding: 0.55rem 0.65rem;
+  background: var(--muted);
+}
+
+.community-projects__github-manager-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.45rem;
+}
+
+.community-projects__github-manager-field-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
 @media (max-width: 760px) {
   .community-projects__directory-header,
   .community-projects__surface-header,
   .community-projects__review-header {
     display: flex;
     flex-direction: column;
+  }
+
+  .community-projects__github-manager-field-grid {
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .community-projects__diff-layout,

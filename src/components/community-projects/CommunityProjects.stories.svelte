@@ -3,7 +3,10 @@
   import { expect, fn, userEvent, waitFor, within } from "storybook/test";
 
   import CommunityProjectsStoryHarness from "./CommunityProjectsStoryHarness.svelte";
-  import { buildProjectForgeActivity } from "../../projects/index.js";
+  import {
+    buildProjectForgeActivity,
+    type ProjectForgeGitHubConnectionInput,
+  } from "../../projects/index.js";
   import {
     createProjectStoryFixture,
     projectStoryAuthor,
@@ -142,6 +145,15 @@
     bridge_pubkey: "2".repeat(64),
     status: "active",
   };
+  const githubErroredConnection = {
+    ...githubConnection,
+    id: "ghc-lapis-error",
+    installation_id: 100,
+    account_login: "lapismd-broken",
+    status: "error",
+    detail: "github_installation_unavailable",
+    updated_at: "2026-09-09T12:00:00Z",
+  };
   const githubProviderRepository = {
     id: 42,
     full_name: "lapismd/community-client",
@@ -156,6 +168,31 @@
   };
   const onLoadGitHubConnections = fn(async () => ({
     connections: [githubConnection],
+  }));
+  const onLoadManagedGitHubConnections = fn(async () => ({
+    connections: [githubConnection, githubErroredConnection],
+  }));
+  const onCreateGitHubConnection = fn(
+    async (input: ProjectForgeGitHubConnectionInput) => ({
+      ...githubConnection,
+      id: "ghc-created",
+      installation_id: input.installationId,
+      bridge_pubkey: input.bridgePubkey,
+    }),
+  );
+  const onUpdateGitHubConnection = fn(
+    async (connectionId: string, input: ProjectForgeGitHubConnectionInput) => ({
+      ...githubConnection,
+      id: connectionId,
+      installation_id: input.installationId,
+      bridge_pubkey: input.bridgePubkey,
+    }),
+  );
+  const onRevalidateGitHubConnection = fn(async (connectionId: string) => ({
+    ...githubConnection,
+    id: connectionId,
+    installation_id: 100,
+    account_login: "lapismd-broken",
   }));
   const onLoadGitHubRepositories = fn(async () => ({
     repositories: [githubProviderRepository],
@@ -473,6 +510,61 @@ index 3333333..4444444 100644
       githubRepository,
       githubConnection,
       githubProviderRepository,
+    );
+  }}
+/>
+
+<Story
+  name="Manage GitHub App connections"
+  args={{
+    view: "overview",
+    selectedProject: undefined,
+    selectedRepository: githubRepository,
+    repositories: [githubRepository],
+    repositoryCapabilities: githubRepositoryCapabilities,
+    canManageForge: true,
+    dialogRequest: { id: 2, kind: "manage-github" },
+    onLoadGitHubConnections: onLoadManagedGitHubConnections,
+    onCreateGitHubConnection,
+    onUpdateGitHubConnection,
+    onRevalidateGitHubConnection,
+  }}
+  play={async () => {
+    const overlay = within(document.body);
+    const dialog = await overlay.findByRole("dialog", {
+      name: "GitHub App connections",
+    });
+    await expect(
+      within(dialog).getByText("github_installation_unavailable"),
+    ).toBeVisible();
+    await expect(within(dialog).getByText("error")).toBeVisible();
+    await expect(dialog).not.toHaveTextContent("credential_ref");
+    await expect(
+      within(dialog).getByRole("button", { name: "Add connection" }),
+    ).toBeVisible();
+    const revalidate = within(dialog).getAllByRole("button", {
+      name: "Revalidate",
+    });
+    await userEvent.click(revalidate[1]!);
+    await expect(onRevalidateGitHubConnection).toHaveBeenCalledWith(
+      "ghc-lapis-error",
+    );
+    await userEvent.click(
+      within(dialog).getAllByRole("button", {
+        name: "Replace configuration",
+      })[1]!,
+    );
+    await expect(
+      within(dialog).getByText(/relay never returns App IDs/u),
+    ).toBeVisible();
+    await expect(within(dialog).getByLabelText("GitHub App ID")).toHaveValue(
+      "",
+    );
+    await expect(within(dialog).getByLabelText("Installation ID")).toHaveValue(
+      100,
+    );
+    await userEvent.click(
+      within(dialog).getByRole("button", { name: "Close" }),
     );
   }}
 />

@@ -286,4 +286,99 @@ describe("NIP-34 project forge data source", () => {
     ]);
     session.close();
   });
+
+  it("creates, replaces, and revalidates GitHub App connections with NIP-98", async () => {
+    const requests: Array<{
+      url: string;
+      method: string;
+      authorization: string;
+      body: string;
+    }> = [];
+    const fetch = vi.fn(
+      async (input: RequestInfo | URL, init?: RequestInit) => {
+        const request = {
+          url: input.toString(),
+          method: init?.method ?? "GET",
+          authorization: new Headers(init?.headers).get("Authorization") ?? "",
+          body: typeof init?.body === "string" ? init.body : "",
+        };
+        requests.push(request);
+        return json({
+          id: "ghc-lapis",
+          provider: "github",
+          host: "github.com",
+          installation_id: 99,
+          account_id: "7",
+          account_login: "lapismd",
+          bridge_pubkey: "2".repeat(64),
+          status: "active",
+          updated_at: "2026-09-09T12:00:00Z",
+        });
+      },
+    );
+    const source = createNip34ProjectForgeDataSource({
+      relayFactory: createInMemoryRelayFactory(),
+      fetch,
+      now: () => new Date("2026-09-09T12:00:00.000Z"),
+    });
+    const session = await source.open({
+      relayUrl: "wss://relay.example",
+      identity: new SecretKeyRegistrySigner(generateSecretKey()),
+    });
+    const input = {
+      appId: "12345",
+      installationId: 99,
+      credentialRef: "file:github-app.pem",
+      webhookSecretRef: "file:github-webhook",
+      bridgeCredentialRef: "file:github-bridge-secret",
+      bridgePubkey: "2".repeat(64),
+    };
+
+    await expect(session.createGitHubConnection(input)).resolves.toMatchObject({
+      id: "ghc-lapis",
+      status: "active",
+    });
+    await expect(
+      session.updateGitHubConnection("ghc-lapis", input),
+    ).resolves.toMatchObject({ id: "ghc-lapis", status: "active" });
+    await expect(
+      session.revalidateGitHubConnection("ghc-lapis"),
+    ).resolves.toMatchObject({ id: "ghc-lapis", status: "active" });
+
+    expect(requests.map(({ url, method }) => ({ url, method }))).toEqual([
+      {
+        url: "https://relay.example/api/forge/connections/github",
+        method: "POST",
+      },
+      {
+        url: "https://relay.example/api/forge/connections/github/ghc-lapis",
+        method: "PUT",
+      },
+      {
+        url: "https://relay.example/api/forge/connections/github/ghc-lapis/revalidate",
+        method: "POST",
+      },
+    ]);
+    expect(JSON.parse(requests[0]!.body)).toEqual({
+      app_id: "12345",
+      installation_id: 99,
+      credential_ref: "file:github-app.pem",
+      webhook_secret_ref: "file:github-webhook",
+      bridge_credential_ref: "file:github-bridge-secret",
+      bridge_pubkey: "2".repeat(64),
+    });
+    for (const request of requests) {
+      const auth = authorizationEvent(request.authorization);
+      expect(auth.tags).toContainEqual(["method", request.method]);
+      if (request.body) {
+        expect(auth.tags).toContainEqual([
+          "payload",
+          bytesToHex(sha256(new TextEncoder().encode(request.body))),
+        ]);
+      } else {
+        expect(auth.tags.some(([name]) => name === "payload")).toBe(false);
+      }
+    }
+    session.close();
+  });
 });
