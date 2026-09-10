@@ -7,6 +7,8 @@
   } from "@lapismd/design-core/shell";
   import ChevronLeftIcon from "@lucide/svelte/icons/chevron-left";
   import ChevronRightIcon from "@lucide/svelte/icons/chevron-right";
+
+  import CommunitySidebarToggleIcon from "./CommunitySidebarToggleIcon.svelte";
   import { untrack, type Snippet } from "svelte";
   import type { HTMLAttributes } from "svelte/elements";
 
@@ -125,29 +127,7 @@
             : "Collapse left sidebar"}
           onclick={() => controller.left.toggle()}
         >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            width="24"
-            height="24"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            aria-hidden="true"
-          >
-            <rect x="1" y="2" width="22" height="20" rx="4"></rect>
-            <rect
-              x="4"
-              y="5"
-              width={controller.left.collapsed ? 2 : 6}
-              height="14"
-              rx="2"
-              fill="currentColor"
-              data-ui-part="sidebar-toggle-indicator"
-            ></rect>
-          </svg>
+          <CommunitySidebarToggleIcon expanded={!controller.left.collapsed} />
         </Button>
 
         <div
@@ -274,18 +254,6 @@
     min-width: 0;
     min-height: 0;
     overflow: hidden;
-  }
-
-  :global([data-ui-part="sidebar-toggle-indicator"]) {
-    width: 2px;
-    transition: width 140ms ease;
-  }
-
-  :global(
-      [data-ui-part="sidebar-toggle"][data-state="expanded"]
-        [data-ui-part="sidebar-toggle-indicator"]
-    ) {
-    width: 6px;
   }
 
   :global(.community-app-shell__surface) {

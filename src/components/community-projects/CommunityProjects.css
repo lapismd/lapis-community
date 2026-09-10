@@ -18,7 +18,8 @@
   overflow: auto;
 }
 
-.community-projects[data-detail="review"] {
+.community-projects[data-detail="review"],
+.community-projects[data-navigation="hidden"] {
   --community-project-tabs-height: 0rem;
 }
 
@@ -1872,6 +1873,23 @@
   );
 }
 
+.community-projects__diff-sidebar-toggle[data-ui-component="button"][data-variant="ghost"] {
+  flex: none;
+  border-radius: 0.5rem;
+  color: var(--muted-foreground);
+  transition:
+    color 120ms ease,
+    background-color 120ms ease;
+}
+
+.community-projects__diff-sidebar-toggle[data-ui-component="button"][data-variant="ghost"]:is(
+    :hover,
+    :focus-visible
+  ) {
+  color: var(--foreground);
+  background: color-mix(in srgb, var(--muted) 42%, transparent);
+}
+
 .community-projects__line-comment[data-ui-component="button"][data-variant="ghost"] {
   flex: none;
   border: 1px solid var(--border);
@@ -2273,75 +2291,7 @@
 }
 
 .community-projects__commit-files-content {
-  overflow: hidden;
-  padding-top: 0.35rem;
-}
-
-.community-projects__commit-diff-layout {
-  display: grid;
-  min-height: 32rem;
-  grid-template-columns: minmax(13rem, 16rem) minmax(0, 1fr);
-  border-top: 1px solid var(--border);
-}
-
-.community-projects__commit-diff-layout > aside {
-  min-width: 0;
-  border-right: 1px solid var(--border);
-  padding: 0.45rem 0.35rem;
-}
-
-.community-projects__commit-file-summary {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 0.45rem;
-  padding: 0.1rem 0.25rem 0.6rem;
-}
-
-.community-projects__commit-file-summary > span {
-  font-size: 0.76rem;
-  font-weight: 500;
-}
-
-.community-projects__commit-file-summary > [data-ui-component="input"] {
-  grid-column: 1 / -1;
-  height: 2rem;
-  font-size: 0.76rem;
-}
-
-.community-projects__commit-diff {
-  min-width: 0;
-  overflow: auto;
-}
-
-.community-projects__commit-diff > header {
-  display: flex;
-  min-height: 2.75rem;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  padding: 0.55rem 0.8rem;
-  border-bottom: 1px solid var(--border);
-  font-size: 0.75rem;
-}
-
-.community-projects__commit-diff > header > span:first-child {
-  overflow: hidden;
-  font-weight: 500;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.community-projects__commit-diff > header > span:last-child {
-  display: flex;
-  flex: none;
-  align-items: center;
-  gap: 0.55rem;
-  color: var(--muted-foreground);
-}
-
-.community-projects__commit-diff > [data-ui-component="file-diff-composer"] {
-  padding: 0.5rem;
+  overflow: visible;
 }
 
 .community-projects__changed-files-toolbar {
@@ -2847,6 +2797,13 @@
 .community-projects__review-timeline-summary > span {
   min-width: 0;
   flex: 1;
+}
+
+.community-projects__review-timeline-sentence {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  flex-wrap: wrap;
 }
 
 .community-projects__review-timeline-summary time {
@@ -3385,13 +3342,11 @@ button.community-projects__project-option:focus-visible {
   }
 
   .community-projects__diff-layout,
-  .community-projects__commit-diff-layout,
   .community-projects__commit-layout {
     grid-template-columns: 1fr;
   }
 
-  .community-projects__diff-layout > aside,
-  .community-projects__commit-diff-layout > aside {
+  .community-projects__diff-layout > aside {
     position: static;
     min-height: 0;
     max-height: 13rem;
@@ -3416,11 +3371,6 @@ button.community-projects__project-option:focus-visible {
 
   .community-projects__commit-detail {
     padding-inline: 0.8rem;
-  }
-
-  .community-projects__commit-diff > header {
-    align-items: flex-start;
-    flex-direction: column;
   }
 
   .community-projects__form-columns {

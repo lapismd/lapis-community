@@ -936,9 +936,21 @@ index 3333333..4444444 100644
       throw new Error("Expected the changed-files toolbar");
     await expect(getComputedStyle(changedFilesToolbar).top).toBe("40px");
     const diffLayout = changedFilesToolbar.nextElementSibling as HTMLElement;
-    await userEvent.click(
-      canvas.getAllByRole("button", { name: "Hide changed files" })[0]!,
+    const reviewSidebarToggle = canvas.getAllByRole("button", {
+      name: "Hide changed files",
+    })[0]!;
+    await expect(
+      reviewSidebarToggle.querySelector('[data-ui-part="sidebar-toggle-icon"]'),
+    ).not.toBeNull();
+    await userEvent.unhover(reviewSidebarToggle);
+    await userEvent.hover(reviewSidebarToggle);
+    await expect(
+      getComputedStyle(reviewSidebarToggle).backgroundColor,
+    ).not.toBe("rgba(0, 0, 0, 0)");
+    await expect(getComputedStyle(reviewSidebarToggle).borderRadius).toBe(
+      "8px",
     );
+    await userEvent.click(reviewSidebarToggle);
     await expect(diffLayout).toHaveAttribute("data-file-list-open", "false");
     await expect(canvas.queryByLabelText("Changed files")).toBeNull();
     await userEvent.click(
@@ -1111,12 +1123,28 @@ index 3333333..4444444 100644
     onSubmitPullRequestReview,
     onUpdatePullRequestLifecycle,
   }}
-  play={async ({ canvas }) => {
+  play={async ({ canvas, canvasElement }) => {
     await expect(canvas.getByText("Merged", { selector: "dd" })).toBeVisible();
-    await expect(canvas.getByText(/opened this review/u)).toBeVisible();
-    await expect(
-      canvas.getByText(/requested a review from/u),
-    ).toHaveTextContent("@maintainer requested a review from @reviewer");
+    const openedText = canvas.getByText("opened this review");
+    const openedSummary = openedText.closest<HTMLElement>(
+      ".community-projects__review-timeline-summary",
+    );
+    if (!openedSummary) throw new Error("Expected the review opening summary");
+    const actorMention = within(openedSummary).getByRole("button");
+    await userEvent.hover(actorMention);
+    const body = within(canvasElement.ownerDocument.body);
+    await waitFor(() =>
+      expect(
+        body.getByRole("group", { name: /contact preview/u }),
+      ).toBeVisible(),
+    );
+    const requestText = canvas.getByText("requested a review from");
+    const requestSummary = requestText.closest<HTMLElement>(
+      ".community-projects__review-timeline-summary",
+    );
+    if (!requestSummary) throw new Error("Expected the review request summary");
+    await expect(requestSummary).toHaveTextContent("@maintainer");
+    await expect(requestSummary).toHaveTextContent("@reviewer");
     await expect(canvas.getByText(/merged this review/u)).toBeVisible();
     await expect(canvas.getByText("eeeeeeee")).toBeVisible();
     await expect(
@@ -1402,9 +1430,10 @@ index 3333333..4444444 100644
     commits: [hostedCommit],
     selectedCommit: hostedCommit,
     selectedCommitDetail: hostedCommitDetail,
+    showNavigation: false,
     onCloseCommit,
   }}
-  play={async ({ canvas }) => {
+  play={async ({ canvas, canvasElement }) => {
     await expect(
       canvas.getByRole("heading", {
         name: "Add project file and diff views",
@@ -1415,6 +1444,80 @@ index 3333333..4444444 100644
     await expect(
       canvas.getByRole("group", { name: "File listing view mode" }),
     ).toBeVisible();
+    await expect(canvas.getByText("2 changed files")).toBeVisible();
+    const filesChanged = canvas.getByRole("button", {
+      name: "Files changed 2",
+    });
+    await expect(getComputedStyle(filesChanged).top).toBe("0px");
+    const changedFilesToolbar = canvas
+      .getByText("2 changed files")
+      .closest<HTMLElement>(".community-projects__diff-summary");
+    if (!changedFilesToolbar)
+      throw new Error("Expected the commit changed-files toolbar");
+    await expect(getComputedStyle(changedFilesToolbar).top).toBe("40px");
+
+    const commitDiffLayout = canvas
+      .getByLabelText("Changed files")
+      .closest<HTMLElement>(".community-projects__diff-layout");
+    if (!commitDiffLayout) throw new Error("Expected the commit diff layout");
+    const sidebarToggle = canvas.getAllByRole("button", {
+      name: "Hide changed files",
+    })[0]!;
+    await expect(
+      sidebarToggle.querySelector('[data-ui-part="sidebar-toggle-icon"]'),
+    ).not.toBeNull();
+    await userEvent.unhover(sidebarToggle);
+    await userEvent.hover(sidebarToggle);
+    await expect(getComputedStyle(sidebarToggle).backgroundColor).not.toBe(
+      "rgba(0, 0, 0, 0)",
+    );
+    await expect(getComputedStyle(sidebarToggle).borderRadius).toBe("8px");
+    await userEvent.click(sidebarToggle);
+    await expect(commitDiffLayout).toHaveAttribute(
+      "data-file-list-open",
+      "false",
+    );
+    await userEvent.click(
+      canvas.getAllByRole("button", { name: "Show changed files" })[0]!,
+    );
+    await expect(commitDiffLayout).toHaveAttribute(
+      "data-file-list-open",
+      "true",
+    );
+
+    const filter = canvas.getByRole("searchbox", {
+      name: "Filter changed files",
+    });
+    await userEvent.type(filter, "readme");
+    await expect(
+      canvas.getByRole("button", { name: "README.md" }),
+    ).toBeVisible();
+    await expect(
+      canvasElement.querySelector('[data-diff-file-path="src/projects.ts"]'),
+    ).toBeNull();
+    await userEvent.clear(filter);
+    await userEvent.click(
+      canvas.getByRole("button", { name: "src/projects.ts" }),
+    );
+    const selectedFile = canvasElement.querySelector(
+      '[data-diff-file-path="src/projects.ts"]',
+    );
+    await expect(selectedFile).toHaveAttribute("data-selected", "true");
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Collapse src/projects.ts" }),
+    );
+    await expect(selectedFile).toHaveAttribute("data-collapsed", "true");
+
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Diff settings" }),
+    );
+    const body = within(canvasElement.ownerDocument.body);
+    await userEvent.click(
+      body.getByRole("menuitemradio", { name: "Split diff" }),
+    );
+    await expect(
+      canvasElement.querySelector('[data-view-mode="split"]'),
+    ).not.toBeNull();
   }}
 />
 

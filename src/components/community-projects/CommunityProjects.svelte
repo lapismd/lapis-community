@@ -62,8 +62,6 @@
   import MessageSquareIcon from "@lucide/svelte/icons/message-square";
   import MessageSquarePlusIcon from "@lucide/svelte/icons/message-square-plus";
   import EllipsisVerticalIcon from "@lucide/svelte/icons/ellipsis-vertical";
-  import PanelLeftCloseIcon from "@lucide/svelte/icons/panel-left-close";
-  import PanelLeftOpenIcon from "@lucide/svelte/icons/panel-left-open";
   import PlusIcon from "@lucide/svelte/icons/plus";
   import RotateCcwIcon from "@lucide/svelte/icons/rotate-ccw";
   import Settings2Icon from "@lucide/svelte/icons/settings-2";
@@ -90,6 +88,7 @@
     type PullRequestLifecycleEvent,
     type PullRequestReviewKind,
   } from "../../projects/index.js";
+  import CommunitySidebarToggleIcon from "../community-app-shell/CommunitySidebarToggleIcon.svelte";
   import CommunityChatComposer from "../community-chat-composer/CommunityChatComposer.svelte";
   import CommunityChip from "../community-chip/CommunityChip.svelte";
   import CommunityMemberHoverCard from "../community-member-hover-card/CommunityMemberHoverCard.svelte";
@@ -299,7 +298,12 @@
   let anonymousReviewDiffViewMode: FileDiffViewMode = "unified";
   let commitFilesOpen = $state(true);
   let commitFileFilter = $state("");
+  let commitFileListOpen = $state(true);
   let selectedCommitFilePath = $state("");
+  let collapsedCommitFilePaths = $state<string[]>([]);
+  let commitDiffViewMode = $state<FileDiffViewMode>("unified");
+  let commitFileScrollTarget = $state<FileDiffFileScrollTarget | null>(null);
+  let selectedCommitStateKey = "";
   let diffFileListMode = $state<FileListingViewMode>("tree");
   let repositoryCurrentPath = $state("");
   let repositoryMarkdownView = $state<"preview" | "source">("preview");
@@ -799,6 +803,25 @@
         : (anonymousViewedReviewFiles.get(anonymousReviewKey()) ?? [])
     ).filter((path) => projectDiffFiles.some((file) => file.path === path));
     reviewDiffViewMode =
+      (reviewPreferenceScope && reviewPreferenceStore
+        ? reviewPreferenceStore.loadDiffViewMode(reviewPreferenceScope)
+        : anonymousReviewDiffViewMode) ?? "unified";
+  });
+
+  $effect(() => {
+    const commit = selectedCommitValue;
+    if (!commit) return;
+    const fileSignature = commitDiffFiles.map((file) => file.path).join("\0");
+    const stateKey = `${commit.sha}:${fileSignature}`;
+    if (stateKey === selectedCommitStateKey) return;
+    selectedCommitStateKey = stateKey;
+    commitFilesOpen = true;
+    commitFileFilter = "";
+    commitFileListOpen = true;
+    selectedCommitFilePath = commitDiffFiles[0]?.path ?? "";
+    collapsedCommitFilePaths = [];
+    commitFileScrollTarget = null;
+    commitDiffViewMode =
       (reviewPreferenceScope && reviewPreferenceStore
         ? reviewPreferenceStore.loadDiffViewMode(reviewPreferenceScope)
         : anonymousReviewDiffViewMode) ?? "unified";
@@ -1721,6 +1744,33 @@
     }
   }
 
+  function selectCommitFile(path: string): void {
+    selectedCommitFilePath = path;
+    collapsedCommitFilePaths = collapsedCommitFilePaths.filter(
+      (candidate) => candidate !== path,
+    );
+    commitFileScrollTarget = {
+      path,
+      requestId: Number(commitFileScrollTarget?.requestId ?? 0) + 1,
+    };
+  }
+
+  function toggleCommitFile(path: string, collapsed: boolean): void {
+    collapsedCommitFilePaths = collapsed
+      ? [...new Set([...collapsedCommitFilePaths, path])]
+      : collapsedCommitFilePaths.filter((candidate) => candidate !== path);
+  }
+
+  function setCommitDiffViewMode(value: string | undefined): void {
+    if (value !== "unified" && value !== "split") return;
+    commitDiffViewMode = value;
+    if (reviewPreferenceScope && reviewPreferenceStore) {
+      reviewPreferenceStore.saveDiffViewMode(reviewPreferenceScope, value);
+    } else {
+      anonymousReviewDiffViewMode = value;
+    }
+  }
+
   function openReviewSubmission(): void {
     reviewSubmissionDecision = "comment";
     reviewSubmissionBody = "";
@@ -1825,11 +1875,30 @@
     return memberForPubkey(event.pubkey).name;
   }
 
+  function reviewTimelineActorMember(
+    event: PullRequestState["root"],
+  ): CommunityMemberModel | undefined {
+    if (
+      eventTagValue(event, "external-author") ||
+      eventTagValue(event, "external-provider")
+    )
+      return undefined;
+    return memberForPubkey(event.pubkey);
+  }
+
   function reviewRequestTarget(comment: PullRequestComment): string {
     const external = eventTagValue(comment.event, "external-reviewer");
     if (external) return `@${external}`;
     const reviewer = comment.reviewerPubkeys[0];
     return reviewer ? memberForPubkey(reviewer).name : "a reviewer";
+  }
+
+  function reviewRequestTargetMember(
+    comment: PullRequestComment,
+  ): CommunityMemberModel | undefined {
+    if (eventTagValue(comment.event, "external-reviewer")) return undefined;
+    const reviewer = comment.reviewerPubkeys[0];
+    return reviewer ? memberForPubkey(reviewer) : undefined;
   }
 
   function reviewLifecycleAction(
@@ -2130,6 +2199,17 @@
   <CommunityMemberHoverCard
     {member}
     {avatarSize}
+    {...onOpenProfile === undefined ? {} : { onOpenProfile }}
+    {...onMessageMember === undefined ? {} : { onMessage: onMessageMember }}
+    {...onWaveMember === undefined ? {} : { onWave: onWaveMember }}
+  />
+{/snippet}
+
+{#snippet memberHoverMention(member: CommunityMemberModel, label: string)}
+  <CommunityMemberHoverCard
+    {member}
+    trigger="mention"
+    triggerLabel={label}
     {...onOpenProfile === undefined ? {} : { onOpenProfile }}
     {...onMessageMember === undefined ? {} : { onMessage: onMessageMember }}
     {...onWaveMember === undefined ? {} : { onWave: onWaveMember }}
@@ -2519,6 +2599,7 @@
       data-ui-component="community-projects"
       data-view={view}
       data-detail={selectedPullRequest ? "review" : undefined}
+      data-navigation={showNavigation ? "visible" : "hidden"}
       aria-busy={loading}
       aria-label={selectedProject
         ? `${selectedProject.name} project workspace`
@@ -3566,21 +3647,26 @@
                         <Button
                           type="button"
                           variant="ghost"
-                          size="icon-xs"
+                          size="icon-sm"
+                          class="community-projects__diff-sidebar-toggle"
                           aria-label={reviewFileListOpen
                             ? "Hide changed files"
                             : "Show changed files"}
+                          aria-expanded={reviewFileListOpen}
+                          data-ui-part="sidebar-toggle"
+                          data-side="left"
+                          data-state={reviewFileListOpen
+                            ? "expanded"
+                            : "collapsed"}
                           title={reviewFileListOpen
                             ? "Hide changed files"
                             : "Show changed files"}
                           onclick={() =>
                             (reviewFileListOpen = !reviewFileListOpen)}
                         >
-                          {#if reviewFileListOpen}
-                            <PanelLeftCloseIcon aria-hidden="true" />
-                          {:else}
-                            <PanelLeftOpenIcon aria-hidden="true" />
-                          {/if}
+                          <CommunitySidebarToggleIcon
+                            expanded={reviewFileListOpen}
+                          />
                         </Button>
                       {/snippet}
                       {#snippet reviewFileHeader(
@@ -3883,45 +3969,94 @@
                           class="community-projects__review-timeline-content"
                         >
                           {#if entry.kind === "opened"}
+                            {@const actorMember = reviewTimelineActorMember(
+                              entry.event,
+                            )}
                             <div
                               class="community-projects__review-timeline-summary"
                             >
                               <span
-                                ><strong
-                                  >{reviewTimelineActor(entry.event)}</strong
-                                > opened this review</span
+                                class="community-projects__review-timeline-sentence"
                               >
+                                {#if actorMember}
+                                  {@render memberHoverMention(
+                                    actorMember,
+                                    reviewTimelineActor(entry.event),
+                                  )}
+                                {:else}
+                                  <strong
+                                    >{reviewTimelineActor(entry.event)}</strong
+                                  >
+                                {/if}
+                                <span>opened this review</span>
+                              </span>
                               <CommunityRelativeTime
                                 timestamp={entry.event.created_at}
                               />
                             </div>
                           {:else if entry.kind === "review-request"}
+                            {@const actorMember = reviewTimelineActorMember(
+                              entry.event,
+                            )}
+                            {@const targetMember = reviewRequestTargetMember(
+                              entry.comment,
+                            )}
                             <div
                               class="community-projects__review-timeline-summary"
                             >
                               <span
-                                ><strong
-                                  >{reviewTimelineActor(entry.event)}</strong
-                                >
-                                requested a review from
-                                <strong
-                                  >{reviewRequestTarget(entry.comment)}</strong
-                                ></span
+                                class="community-projects__review-timeline-sentence"
                               >
+                                {#if actorMember}
+                                  {@render memberHoverMention(
+                                    actorMember,
+                                    reviewTimelineActor(entry.event),
+                                  )}
+                                {:else}
+                                  <strong
+                                    >{reviewTimelineActor(entry.event)}</strong
+                                  >
+                                {/if}
+                                <span>requested a review from</span>
+                                {#if targetMember}
+                                  {@render memberHoverMention(
+                                    targetMember,
+                                    reviewRequestTarget(entry.comment),
+                                  )}
+                                {:else}
+                                  <strong
+                                    >{reviewRequestTarget(
+                                      entry.comment,
+                                    )}</strong
+                                  >
+                                {/if}
+                              </span>
                               <CommunityRelativeTime
                                 timestamp={entry.event.created_at}
                               />
                             </div>
                           {:else if entry.kind === "lifecycle"}
+                            {@const actorMember = reviewTimelineActorMember(
+                              entry.event,
+                            )}
                             <div
                               class="community-projects__review-timeline-summary"
                             >
                               <span
-                                ><strong
-                                  >{reviewTimelineActor(entry.event)}</strong
-                                >
-                                {reviewLifecycleAction(entry)}</span
+                                class="community-projects__review-timeline-sentence"
                               >
+                                {#if actorMember}
+                                  {@render memberHoverMention(
+                                    actorMember,
+                                    reviewTimelineActor(entry.event),
+                                  )}
+                                {:else}
+                                  <strong
+                                    >{reviewTimelineActor(entry.event)}</strong
+                                  >
+                                {/if}
+                                <span>{reviewLifecycleAction(entry)}</span>
+                              </span>
                               <CommunityRelativeTime
                                 timestamp={entry.event.created_at}
                               />
@@ -4263,65 +4398,143 @@
               bind:open={commitFilesOpen}
             >
               <Collapsible.Trigger
-                class="community-projects__review-section-trigger community-projects__commit-files-trigger"
+                class="community-projects__review-section-trigger community-projects__review-section-trigger--files community-projects__commit-files-trigger"
               >
                 <span>Files changed</span>
                 {#if commitFilesOpen}
                   <ChevronDownIcon aria-hidden="true" />
+                  {#if selectedCommitDetail}<span
+                      class="community-projects__review-section-count"
+                      >{commitDiffFiles.length}</span
+                    >{/if}
                 {:else}
                   <ChevronRightIcon aria-hidden="true" />
                 {/if}
               </Collapsible.Trigger>
               <Collapsible.Content
-                class="community-projects__commit-files-content"
+                class="community-projects__review-files-content community-projects__commit-files-content"
               >
                 {#if loading && !selectedCommitDetail}
                   <p class="community-projects__status" role="status">
                     Loading commit diff…
                   </p>
                 {:else if selectedCommitDetail && commitDiffFiles.length > 0}
-                  <div class="community-projects__commit-diff-layout">
-                    <aside aria-label="Changed files">
-                      <div class="community-projects__commit-file-summary">
-                        <span>{commitDiffFiles.length} changed files</span>
-                        <FileListingViewModeToggle
-                          bind:mode={diffFileListMode}
-                        />
-                        <Input
-                          bind:value={commitFileFilter}
-                          aria-label="Filter changed files"
-                          placeholder="Filter files…"
-                        />
-                      </div>
-                      <FileListing
-                        files={visibleCommitDiffFiles}
-                        mode={diffFileListMode}
-                        selectedPath={selectedCommitFilePath || null}
-                        onSelectPath={(path) => {
-                          selectedCommitFilePath = path;
-                        }}
+                  <div class="community-projects__diff-summary">
+                    <span class="community-projects__diff-summary-copy">
+                      <strong>{commitDiffFiles.length} changed files</strong>
+                      <span
+                        >{selectedCommitValue.subject} · {selectedCommitValue.sha.slice(
+                          0,
+                          7,
+                        )}</span
+                      >
+                    </span>
+                    <span class="community-projects__diff-summary-actions">
+                      <FileChangeStats
+                        additions={commitAdditions}
+                        deletions={commitDeletions}
                       />
-                    </aside>
+                      <DropdownMenu.Root>
+                        <DropdownMenu.Trigger>
+                          {#snippet child({ props })}
+                            <Button
+                              {...props}
+                              type="button"
+                              variant="outline"
+                              size="icon-sm"
+                              aria-label="Diff settings"
+                              title="Diff settings"
+                            >
+                              <Settings2Icon aria-hidden="true" />
+                            </Button>
+                          {/snippet}
+                        </DropdownMenu.Trigger>
+                        <DropdownMenu.Content align="end" sideOffset={4}>
+                          <DropdownMenu.Label>Diff layout</DropdownMenu.Label>
+                          <DropdownMenu.RadioGroup
+                            value={commitDiffViewMode}
+                            onValueChange={setCommitDiffViewMode}
+                          >
+                            <DropdownMenu.RadioItem value="unified">
+                              Unified diff
+                            </DropdownMenu.RadioItem>
+                            <DropdownMenu.RadioItem value="split">
+                              Split diff
+                            </DropdownMenu.RadioItem>
+                          </DropdownMenu.RadioGroup>
+                        </DropdownMenu.Content>
+                      </DropdownMenu.Root>
+                    </span>
+                  </div>
+                  <div
+                    class="community-projects__diff-layout"
+                    data-file-list-open={commitFileListOpen}
+                  >
+                    {#if commitFileListOpen}
+                      <aside aria-label="Changed files">
+                        <Input
+                          type="search"
+                          bind:value={commitFileFilter}
+                          class="community-projects__changed-files-filter"
+                          aria-label="Filter changed files"
+                          placeholder="Filter changed files"
+                        />
+                        <div class="community-projects__changed-files-toolbar">
+                          <span>Files</span>
+                          <FileListingViewModeToggle
+                            bind:mode={diffFileListMode}
+                          />
+                        </div>
+                        <FileListing
+                          files={visibleCommitDiffFiles}
+                          mode={diffFileListMode}
+                          selectedPath={selectedCommitFilePath || null}
+                          onSelectPath={selectCommitFile}
+                        />
+                      </aside>
+                    {/if}
                     <section
-                      class="community-projects__commit-diff"
+                      class="community-projects__diff-content"
                       aria-label="Commit diff"
                     >
-                      <header>
-                        <span
-                          >{selectedCommitValue.subject} · {selectedCommitValue.sha.slice(
-                            0,
-                            7,
-                          )}</span
+                      {#snippet commitFileHeaderLeading(
+                        _context: FileDiffComposerFileContext,
+                      )}
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon-sm"
+                          class="community-projects__diff-sidebar-toggle"
+                          aria-label={commitFileListOpen
+                            ? "Hide changed files"
+                            : "Show changed files"}
+                          aria-expanded={commitFileListOpen}
+                          data-ui-part="sidebar-toggle"
+                          data-side="left"
+                          data-state={commitFileListOpen
+                            ? "expanded"
+                            : "collapsed"}
+                          title={commitFileListOpen
+                            ? "Hide changed files"
+                            : "Show changed files"}
+                          onclick={() =>
+                            (commitFileListOpen = !commitFileListOpen)}
                         >
-                        <span>
-                          {commitDiffFiles.length} files changed
-                          <FileChangeStats
-                            additions={commitAdditions}
-                            deletions={commitDeletions}
+                          <CommunitySidebarToggleIcon
+                            expanded={commitFileListOpen}
                           />
-                        </span>
-                      </header>
-                      <FileDiffComposer files={commitDiffFiles} />
+                        </Button>
+                      {/snippet}
+                      <FileDiffComposer
+                        files={visibleCommitDiffFiles}
+                        viewMode={commitDiffViewMode}
+                        selectedPath={selectedCommitFilePath}
+                        collapsedFilePaths={collapsedCommitFilePaths}
+                        scrollToFile={commitFileScrollTarget}
+                        stickyHeaders
+                        onFileToggle={toggleCommitFile}
+                        fileHeaderLeading={commitFileHeaderLeading}
+                      />
                     </section>
                   </div>
                 {:else if !canCollaborate}
