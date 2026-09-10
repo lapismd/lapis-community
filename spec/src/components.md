@@ -38,15 +38,21 @@ cards' shared fixed footprint and compact title typography, and MUST wrap only
 when the available width cannot contain the next card. Private-room title icons
 MUST share the compact size and alignment of the other room-kind icons.
 
-For LC-UI-036, the repository Files surface MUST select its first file when no
-path is active, retain the active selection when that row is selected again,
-and replace the right-hand preview with an accessible skeleton while the active
-file contents are loading.
+For LC-UI-036, the repository Files surface MUST open on a full-width
+GitHub-style directory browser with a path breadcrumb and directory-first rows.
+Directory chains that contain neither a file nor a branch MUST collapse into a
+single flat path so that users do not have to traverse empty intermediate
+directories. Opening a directory MUST use the already loaded bounded tree and
+MUST NOT request a blob. Opening a file MUST replace the directory listing with
+a bordered file surface whose breadcrumb can return to any parent directory.
+Markdown files MUST open in rendered Preview mode and expose a joined
+Preview/Source control in the file header; other text files MUST open as source.
 Initial repository Files loading MUST use an accessible skeleton that preserves
-the file-list sidebar, divider, preview header, and code-line geometry. Project
-tabs MUST remain in the fixed toolbar above that two-pane geometry during both
-initial repository and selected-file loading, and the selected-file skeleton
-MUST preserve the loaded preview's bordered, opaque header and code surface.
+the full-width breadcrumb, commit-summary, and file-row geometry. Project tabs
+MUST remain in the fixed toolbar above that geometry during both initial
+repository and selected-file loading, and the selected-file skeleton MUST
+preserve the loaded file surface's bordered, opaque header and Markdown- or
+source-shaped body.
 Project Overview loading MUST use an accessible Markdown-shaped skeleton with
 heading, paragraph, section, and code-block geometry.
 Selecting a file MUST fetch only that blob without reopening the project

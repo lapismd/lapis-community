@@ -10,7 +10,9 @@
   } from "@lapismd/design-core/diff";
   import { AppShell } from "@lapismd/design-core/shell";
   import * as Alert from "@lapismd/design-core/shadcn/alert";
+  import * as Breadcrumb from "@lapismd/design-core/shadcn/breadcrumb";
   import { Button } from "@lapismd/design-core/shadcn/button";
+  import * as ButtonGroup from "@lapismd/design-core/shadcn/button-group";
   import { CodeBlock } from "@lapismd/design-core/shadcn/code-block";
   import * as Collapsible from "@lapismd/design-core/shadcn/collapsible";
   import * as Command from "@lapismd/design-core/shadcn/command";
@@ -35,7 +37,9 @@
   import CodeXmlIcon from "@lucide/svelte/icons/code-xml";
   import CopyIcon from "@lucide/svelte/icons/copy";
   import ExternalLinkIcon from "@lucide/svelte/icons/external-link";
+  import EyeIcon from "@lucide/svelte/icons/eye";
   import FileIcon from "@lucide/svelte/icons/file";
+  import FolderIcon from "@lucide/svelte/icons/folder";
   import FolderGit2Icon from "@lucide/svelte/icons/folder-git-2";
   import FolderKanbanIcon from "@lucide/svelte/icons/folder-kanban";
   import FolderPlusIcon from "@lucide/svelte/icons/folder-plus";
@@ -93,6 +97,12 @@
     CommunityProjectsProps,
     CommunityProjectsUpdateProject,
   } from "./model.js";
+  import {
+    isMarkdownRepositoryPath,
+    repositoryBreadcrumbSegments,
+    repositoryBrowserEntries,
+    repositoryParentPath,
+  } from "./repository-browser.js";
   import "./CommunityProjects.css";
 
   let {
@@ -239,13 +249,10 @@
   let commitFileFilter = $state("");
   let selectedCommitFilePath = $state("");
   let diffFileListMode = $state<FileListingViewMode>("tree");
-  let repositoryFileListMode = $state<FileListingViewMode>("tree");
-  let filesBodyElement = $state<HTMLElement | null>(null);
-  let filesSidebarElement = $state<HTMLElement | null>(null);
-  let filesSidebarWidth = $state<number>();
-  let filesResizePointerId = $state<number | null>(null);
-  let filesResizeStartX = 0;
-  let filesResizeStartWidth = 0;
+  let repositoryCurrentPath = $state("");
+  let repositoryMarkdownView = $state<"preview" | "source">("preview");
+  let repositoryTreeKey = $state("");
+  let repositoryPreviewPath = $state("");
   let reviewGroupOpen = $state<Record<string, boolean>>({
     open: true,
     draft: true,
@@ -261,58 +268,6 @@
     if (next === "grid" || next === "list") listLayout = next;
   }
 
-  function filesResizeBounds(): { min: number; max: number } {
-    const min = 224;
-    const available = (filesBodyElement?.clientWidth ?? 880) - 400;
-    return { min, max: Math.max(min, Math.min(480, available)) };
-  }
-
-  function clampFilesSidebarWidth(width: number): number {
-    const { min, max } = filesResizeBounds();
-    return Math.min(max, Math.max(min, width));
-  }
-
-  function currentFilesSidebarWidth(): number {
-    return (
-      filesSidebarWidth ??
-      filesSidebarElement?.getBoundingClientRect().width ??
-      272
-    );
-  }
-
-  function beginFilesResize(event: PointerEvent): void {
-    if (event.button !== 0) return;
-    filesResizePointerId = event.pointerId;
-    filesResizeStartX = event.clientX;
-    filesResizeStartWidth = currentFilesSidebarWidth();
-    (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
-    event.preventDefault();
-  }
-
-  function moveFilesResize(event: PointerEvent): void {
-    if (event.pointerId !== filesResizePointerId) return;
-    filesSidebarWidth = clampFilesSidebarWidth(
-      filesResizeStartWidth + event.clientX - filesResizeStartX,
-    );
-  }
-
-  function finishFilesResize(event: PointerEvent): void {
-    if (event.pointerId !== filesResizePointerId) return;
-    filesResizePointerId = null;
-    (event.currentTarget as HTMLElement).releasePointerCapture(event.pointerId);
-  }
-
-  function resizeFilesWithKeyboard(event: KeyboardEvent): void {
-    const { min, max } = filesResizeBounds();
-    let nextWidth = currentFilesSidebarWidth();
-    if (event.key === "ArrowLeft") nextWidth -= 16;
-    else if (event.key === "ArrowRight") nextWidth += 16;
-    else if (event.key === "Home") nextWidth = min;
-    else if (event.key === "End") nextWidth = max;
-    else return;
-    event.preventDefault();
-    filesSidebarWidth = clampFilesSidebarWidth(nextWidth);
-  }
   let projectDraft = $state<
     CommunityProjectsCreateProject & { visibility: "public" | "private" }
   >({
@@ -490,23 +445,62 @@
   const commitDeletions = $derived(
     commitDiffFiles.reduce((total, file) => total + file.deletions, 0),
   );
-  const fileRows = $derived(
-    tree?.entries
-      .filter((entry) => entry.type === "blob")
-      .map((entry) => ({
-        path: entry.path ?? [tree.path, entry.name].filter(Boolean).join("/"),
-      })) ?? [],
+  const repositoryEntries = $derived(
+    repositoryBrowserEntries(tree?.entries ?? [], repositoryCurrentPath),
+  );
+  const repositoryDirectoryBreadcrumbs = $derived(
+    repositoryBreadcrumbSegments(repositoryCurrentPath),
+  );
+  const repositorySelectedPath = $derived(selectedPath || blob?.path || "");
+  const repositorySelectedBlob = $derived(
+    blob?.path === repositorySelectedPath ? blob : undefined,
+  );
+  const repositorySelectedParentPath = $derived(
+    repositoryParentPath(repositorySelectedPath),
+  );
+  const repositorySelectedBreadcrumbs = $derived(
+    repositoryBreadcrumbSegments(repositorySelectedParentPath),
+  );
+  const repositorySelectedIsMarkdown = $derived(
+    isMarkdownRepositoryPath(repositorySelectedPath),
   );
 
-  function selectRepositoryPath(path: string): void {
+  function openRepositoryDirectory(path: string): void {
+    repositoryCurrentPath = path;
+    if (selectedPath) onSelectPath?.("");
+  }
+
+  function openRepositoryFile(path: string): void {
     if (!path || path === selectedPath) return;
     onSelectPath?.(path);
   }
 
+  function formatRepositoryFileSize(size: number | undefined): string {
+    if (size === undefined) return "";
+    if (size < 1_000) return `${size} B`;
+    if (size < 1_000_000) return `${(size / 1_000).toFixed(1)} KB`;
+    return `${(size / 1_000_000).toFixed(1)} MB`;
+  }
+
   $effect(() => {
-    const firstPath = fileRows[0]?.path;
-    if (view !== "files" || selectedPath || !firstPath || !onSelectPath) return;
-    onSelectPath(firstPath);
+    const nextTreeKey = tree ? `${tree.ref}:${tree.sha}` : "";
+    if (repositoryTreeKey === nextTreeKey) return;
+    repositoryTreeKey = nextTreeKey;
+    repositoryCurrentPath = "";
+    repositoryPreviewPath = "";
+    repositoryMarkdownView = "preview";
+  });
+
+  $effect(() => {
+    if (view !== "files") return;
+    if (!selectedPath) {
+      repositoryPreviewPath = "";
+      return;
+    }
+    repositoryCurrentPath = repositoryParentPath(selectedPath);
+    if (repositoryPreviewPath === selectedPath) return;
+    repositoryPreviewPath = selectedPath;
+    repositoryMarkdownView = "preview";
   });
   const busy = $derived(operation !== "");
   const listedProjects = $derived(
@@ -2182,13 +2176,8 @@
 
 {#if showContent}
   <AppShell.Body
-    bind:ref={filesBodyElement}
     layout="regions"
     label={selectedProject ? `${selectedProject.name} projects` : "Projects"}
-    class={view === "files" ? "community-projects__files-layout" : undefined}
-    style={filesSidebarWidth === undefined
-      ? undefined
-      : `--ui-shell-body-sidebar-width: ${filesSidebarWidth}px`}
   >
     <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
     <section
@@ -3875,177 +3864,319 @@
           </div>
         {/if}
       {:else if view === "files"}
-        {#if loading && !tree}
-          <div
-            class="community-projects__files-loading"
-            role="status"
-            aria-label="Loading repository files"
-          >
-            <aside
-              class="community-projects__files-loading-sidebar"
-              aria-hidden="true"
+        {@render surfaceHeader(
+          "Files",
+          "Repository files loaded through the relay gateway.",
+        )}
+        <div class="community-projects__files-surface">
+          {#if loading && !tree}
+            <div
+              class="community-projects__files-loading"
+              role="status"
+              aria-label="Loading repository files"
             >
-              <div class="community-projects__files-loading-toolbar">
+              <div
+                class="community-projects__files-loading-breadcrumb"
+                aria-hidden="true"
+              >
                 <Skeleton />
-                <span>
-                  <Skeleton />
-                  <Skeleton />
-                  <Skeleton />
-                </span>
+                <Skeleton />
+                <Skeleton />
               </div>
-              <div class="community-projects__files-loading-list">
+              <div
+                class="community-projects__files-loading-commit"
+                aria-hidden="true"
+              >
+                <Skeleton />
+                <Skeleton />
+                <Skeleton />
+              </div>
+              <div
+                class="community-projects__files-loading-list"
+                aria-hidden="true"
+              >
                 {#each [0, 1, 2, 3, 4] as row (row)}
                   <div>
                     <Skeleton />
                     <Skeleton />
-                  </div>
-                {/each}
-              </div>
-            </aside>
-            <span
-              class="community-projects__files-loading-divider"
-              aria-hidden="true"
-            ></span>
-            <section
-              class="community-projects__files-loading-preview"
-              aria-hidden="true"
-            >
-              <div class="community-projects__files-loading-preview-header">
-                <Skeleton />
-                <Skeleton />
-              </div>
-              <div class="community-projects__files-loading-code">
-                {#each [0, 1, 2, 3, 4, 5, 6] as row (row)}
-                  <div>
-                    <Skeleton />
                     <Skeleton />
                   </div>
                 {/each}
               </div>
-            </section>
-          </div>
-        {:else if !canCollaborate && repositorySources.length > 0}
-          <Empty.Root class="community-projects__empty">
-            <Empty.Header>
-              <Empty.Media variant="icon"
-                ><FileIcon aria-hidden="true" /></Empty.Media
-              >
-              <Empty.Title>Sign in to view repository files</Empty.Title>
-              <Empty.Description>
-                Repository source reads use your Nostr identity to enforce the
-                project's channel access at the relay gateway.
-              </Empty.Description>
-            </Empty.Header>
-          </Empty.Root>
-        {:else if effectiveSourceError}
-          {@render projectSourceError(effectiveSourceError)}
-        {:else if tree}
-          <AppShell.Body.Sidebar
-            bind:ref={filesSidebarElement}
-            panelId="project-repository-files"
-            side="left"
-            label="Repository files"
-            mobileLabel="Repository files"
-            scrollbarVisibility="hover"
-            class="community-projects__files-sidebar"
-          >
-            <div class="community-projects__files-list">
-              <div class="community-projects__files-toolbar">
-                <span>{fileRows.length} files</span>
-                <FileListingViewModeToggle bind:mode={repositoryFileListMode} />
-              </div>
-              <FileListing
-                files={fileRows}
-                mode={repositoryFileListMode}
-                selectedPath={selectedPath || null}
-                {...onSelectPath === undefined
-                  ? {}
-                  : { onSelectPath: selectRepositoryPath }}
-              />
             </div>
-          </AppShell.Body.Sidebar>
-          <button
-            type="button"
-            class="community-projects__files-resize-handle"
-            data-resizing={filesResizePointerId === null ? undefined : ""}
-            aria-label="Resize repository file list"
-            title="Drag to resize. Double-click to reset width."
-            onpointerdown={beginFilesResize}
-            onpointermove={moveFilesResize}
-            onpointerup={finishFilesResize}
-            onpointercancel={finishFilesResize}
-            ondblclick={() => (filesSidebarWidth = undefined)}
-            onkeydown={resizeFilesWithKeyboard}
-          >
-            <span aria-hidden="true"></span>
-          </button>
-          <AppShell.Body.Content
-            label="File contents"
-            scrollbarVisibility="hover"
-            class="community-projects__files-content"
-          >
-            <section class="community-projects__blob">
-              {#if loading && selectedPath && !blob}
-                <div
-                  class="community-projects__blob-skeleton"
-                  role="status"
-                  aria-label={`Loading ${selectedPath}`}
+          {:else if !canCollaborate && repositorySources.length > 0}
+            <Empty.Root class="community-projects__empty">
+              <Empty.Header>
+                <Empty.Media variant="icon"
+                  ><FileIcon aria-hidden="true" /></Empty.Media
                 >
-                  <div class="community-projects__files-loading-preview-header">
-                    <Skeleton />
-                    <Skeleton />
-                  </div>
-                  <div class="community-projects__files-loading-code">
-                    {#each [0, 1, 2, 3, 4, 5, 6] as row (row)}
-                      <div>
-                        <Skeleton />
-                        <Skeleton />
-                      </div>
+                <Empty.Title>Sign in to view repository files</Empty.Title>
+                <Empty.Description>
+                  Repository source reads use your Nostr identity to enforce the
+                  project's channel access at the relay gateway.
+                </Empty.Description>
+              </Empty.Header>
+            </Empty.Root>
+          {:else if effectiveSourceError}
+            {@render projectSourceError(effectiveSourceError)}
+          {:else if tree && selectedPath}
+            <section class="community-projects__file-panel">
+              <header class="community-projects__file-header">
+                <Breadcrumb.Root aria-label="Repository file path">
+                  <Breadcrumb.List>
+                    <Breadcrumb.Item>
+                      <Breadcrumb.Link
+                        href="#"
+                        onclick={(event) => {
+                          event.preventDefault();
+                          openRepositoryDirectory("");
+                        }}>Files</Breadcrumb.Link
+                      >
+                    </Breadcrumb.Item>
+                    {#each repositorySelectedBreadcrumbs as segment (segment.path)}
+                      <Breadcrumb.Separator />
+                      <Breadcrumb.Item>
+                        <Breadcrumb.Link
+                          href="#"
+                          onclick={(event) => {
+                            event.preventDefault();
+                            openRepositoryDirectory(segment.path);
+                          }}>{segment.name}</Breadcrumb.Link
+                        >
+                      </Breadcrumb.Item>
                     {/each}
+                    <Breadcrumb.Separator />
+                    <Breadcrumb.Item>
+                      <Breadcrumb.Page
+                        >{repositorySelectedPath.split("/").at(-1) ??
+                          repositorySelectedPath}</Breadcrumb.Page
+                      >
+                    </Breadcrumb.Item>
+                  </Breadcrumb.List>
+                </Breadcrumb.Root>
+                {#if repositorySelectedIsMarkdown}
+                  <ButtonGroup.Root
+                    class="community-projects__file-view-toggle"
+                    aria-label="Markdown display"
+                  >
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      data-selected={repositoryMarkdownView === "preview"}
+                      aria-pressed={repositoryMarkdownView === "preview"}
+                      onclick={() => (repositoryMarkdownView = "preview")}
+                    >
+                      <EyeIcon data-icon="inline-start" aria-hidden="true" />
+                      Preview
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      data-selected={repositoryMarkdownView === "source"}
+                      aria-pressed={repositoryMarkdownView === "source"}
+                      onclick={() => (repositoryMarkdownView = "source")}
+                    >
+                      <CodeXmlIcon
+                        data-icon="inline-start"
+                        aria-hidden="true"
+                      />
+                      Source
+                    </Button>
+                  </ButtonGroup.Root>
+                {/if}
+              </header>
+              <div class="community-projects__file-body">
+                {#if loading && !repositorySelectedBlob}
+                  <div
+                    class="community-projects__blob-skeleton"
+                    role="status"
+                    aria-label={`Loading ${selectedPath}`}
+                  >
+                    {#if repositorySelectedIsMarkdown}
+                      <Skeleton
+                        class="community-projects__markdown-skeleton-title"
+                      />
+                      <Skeleton
+                        class="community-projects__markdown-skeleton-copy"
+                      />
+                      <Skeleton
+                        class="community-projects__markdown-skeleton-copy"
+                      />
+                      <Skeleton
+                        class="community-projects__markdown-skeleton-heading"
+                      />
+                      <Skeleton
+                        class="community-projects__markdown-skeleton-copy"
+                      />
+                      <Skeleton
+                        class="community-projects__markdown-skeleton-code"
+                      />
+                    {:else}
+                      <div class="community-projects__files-loading-code">
+                        {#each [0, 1, 2, 3, 4, 5, 6] as row (row)}
+                          <div>
+                            <Skeleton />
+                            <Skeleton />
+                          </div>
+                        {/each}
+                      </div>
+                    {/if}
                   </div>
-                </div>
-              {:else if blob?.binary}<Empty.Root
-                  ><Empty.Header
-                    ><Empty.Media variant="icon"
-                      ><FileIcon aria-hidden="true" /></Empty.Media
-                    ><Empty.Title>Binary file</Empty.Title><Empty.Description
-                      >{blob.path} cannot be previewed as text.</Empty.Description
-                    ></Empty.Header
-                  ></Empty.Root
-                >
-              {:else if blob?.too_large}<p class="community-projects__status">
-                  {blob.path} is too large to preview.
-                </p>
-              {:else if blob}<CodeBlock
-                  code={blob.contents ?? ""}
-                  language={resolveDiffLanguage(blob.path) ?? "plaintext"}
-                  title={blob.path}
-                  hasLineNumbers
-                />
-              {:else}<p class="community-projects__status">
-                  Select a file to preview it.
-                </p>{/if}
+                {:else if repositorySelectedBlob?.binary}
+                  <Empty.Root>
+                    <Empty.Header>
+                      <Empty.Media variant="icon"
+                        ><FileIcon aria-hidden="true" /></Empty.Media
+                      >
+                      <Empty.Title>Binary file</Empty.Title>
+                      <Empty.Description
+                        >{repositorySelectedBlob.path} cannot be previewed as text.</Empty.Description
+                      >
+                    </Empty.Header>
+                  </Empty.Root>
+                {:else if repositorySelectedBlob?.too_large}
+                  <p class="community-projects__status">
+                    {repositorySelectedBlob.path} is too large to preview.
+                  </p>
+                {:else if repositorySelectedBlob && repositorySelectedIsMarkdown && repositoryMarkdownView === "preview"}
+                  <CommunityMarkdownContent
+                    class="community-projects__markdown-file"
+                    content={repositorySelectedBlob.contents ?? ""}
+                    {members}
+                    {rooms}
+                    {communityEmojis}
+                  />
+                {:else if repositorySelectedBlob}
+                  <CodeBlock
+                    code={repositorySelectedBlob.contents ?? ""}
+                    language={resolveDiffLanguage(
+                      repositorySelectedBlob.path,
+                    ) ?? "plaintext"}
+                    hasLanguageLabel={false}
+                    hasCopyButton={false}
+                    hasLineNumbers
+                    width="100%"
+                    container="section"
+                  />
+                {:else}
+                  <p class="community-projects__status">
+                    Select a file to preview it.
+                  </p>
+                {/if}
+              </div>
             </section>
-          </AppShell.Body.Content>
-        {:else}
-          <Empty.Root class="community-projects__empty">
-            <Empty.Header>
-              <Empty.Media variant="icon"
-                ><FileIcon aria-hidden="true" /></Empty.Media
+          {:else if tree}
+            <section class="community-projects__file-browser">
+              <header class="community-projects__file-browser-breadcrumb">
+                <Breadcrumb.Root aria-label="Repository directory path">
+                  <Breadcrumb.List>
+                    <Breadcrumb.Item>
+                      {#if repositoryDirectoryBreadcrumbs.length === 0}
+                        <Breadcrumb.Page>Files</Breadcrumb.Page>
+                      {:else}
+                        <Breadcrumb.Link
+                          href="#"
+                          onclick={(event) => {
+                            event.preventDefault();
+                            openRepositoryDirectory("");
+                          }}>Files</Breadcrumb.Link
+                        >
+                      {/if}
+                    </Breadcrumb.Item>
+                    {#each repositoryDirectoryBreadcrumbs as segment, index (segment.path)}
+                      <Breadcrumb.Separator />
+                      <Breadcrumb.Item>
+                        {#if index === repositoryDirectoryBreadcrumbs.length - 1}
+                          <Breadcrumb.Page>{segment.name}</Breadcrumb.Page>
+                        {:else}
+                          <Breadcrumb.Link
+                            href="#"
+                            onclick={(event) => {
+                              event.preventDefault();
+                              openRepositoryDirectory(segment.path);
+                            }}>{segment.name}</Breadcrumb.Link
+                          >
+                        {/if}
+                      </Breadcrumb.Item>
+                    {/each}
+                  </Breadcrumb.List>
+                </Breadcrumb.Root>
+              </header>
+              {#if tree.commit}
+                <div class="community-projects__file-browser-commit">
+                  <GitCommitHorizontalIcon aria-hidden="true" />
+                  <span>
+                    {#if tree.commit.author_name}<strong
+                        >{tree.commit.author_name}</strong
+                      >{" committed "}
+                    {/if}<span>{tree.commit.subject}</span>
+                  </span>
+                  <code>{tree.commit.sha.slice(0, 7)}</code>
+                  {#if tree.commit.author_date}
+                    <CommunityRelativeTime
+                      timestamp={Math.floor(
+                        new Date(tree.commit.author_date).getTime() / 1_000,
+                      )}
+                    />
+                  {/if}
+                </div>
+              {/if}
+              <div
+                class="community-projects__file-browser-list"
+                aria-label={repositoryCurrentPath
+                  ? `Files in ${repositoryCurrentPath}`
+                  : "Repository files"}
               >
-              <Empty.Title
-                >{browsableRepositories.length === 0
-                  ? "No browsable repository files"
-                  : "No repository files"}</Empty.Title
-              >
-              <Empty.Description>
-                {browsableRepositories.length === 0
-                  ? "Attach a repository whose relay capabilities include browsing."
-                  : "The repository does not contain any files yet."}
-              </Empty.Description>
-            </Empty.Header>
-          </Empty.Root>
-        {/if}
+                {#each repositoryEntries as entry (entry.path)}
+                  <button
+                    type="button"
+                    class="community-projects__file-browser-row"
+                    aria-label={`${entry.type === "tree" ? "Open directory" : "Open file"} ${entry.name}`}
+                    onclick={() =>
+                      entry.type === "tree"
+                        ? openRepositoryDirectory(entry.path)
+                        : openRepositoryFile(entry.path)}
+                  >
+                    {#if entry.type === "tree"}
+                      <FolderIcon aria-hidden="true" />
+                    {:else}
+                      <FileIcon aria-hidden="true" />
+                    {/if}
+                    <strong>{entry.name}</strong>
+                    {#if entry.type === "blob" && entry.size !== undefined}
+                      <span>{formatRepositoryFileSize(entry.size)}</span>
+                    {/if}
+                    <ChevronRightIcon aria-hidden="true" />
+                  </button>
+                {:else}
+                  <p class="community-projects__status">
+                    This directory does not contain any files.
+                  </p>
+                {/each}
+              </div>
+            </section>
+          {:else}
+            <Empty.Root class="community-projects__empty">
+              <Empty.Header>
+                <Empty.Media variant="icon"
+                  ><FileIcon aria-hidden="true" /></Empty.Media
+                >
+                <Empty.Title
+                  >{browsableRepositories.length === 0
+                    ? "No browsable repository files"
+                    : "No repository files"}</Empty.Title
+                >
+                <Empty.Description>
+                  {browsableRepositories.length === 0
+                    ? "Attach a repository whose relay capabilities include browsing."
+                    : "The repository does not contain any files yet."}
+                </Empty.Description>
+              </Empty.Header>
+            </Empty.Root>
+          {/if}
+        </div>
       {:else if view === "people" || view === "contributors"}
         {@render surfaceHeader(
           "Contributors",
