@@ -62,6 +62,12 @@
       },
     },
   };
+  const githubMergeCapabilities = {
+    [projectStoryRepositoryCoordinate]: {
+      ...githubRepositoryCapabilities[projectStoryRepositoryCoordinate],
+      merge: true,
+    },
+  };
   const mineRepositoryCoordinate = `30617:${projectStoryAuthor}:community-tools`;
   const mineRepository = {
     ...fixture.repository,
@@ -141,6 +147,7 @@
   const onAddPullRequestComment = fn(async () => undefined);
   const onAddInlineComment = fn(async () => undefined);
   const onTogglePullRequestCommentReaction = fn(async () => undefined);
+  const onMergePullRequest = fn(async () => undefined);
   const githubConnection = {
     id: "ghc-lapis",
     provider: "github" as const,
@@ -796,6 +803,9 @@ index 3333333..4444444 100644
     view: "reviews",
     selectedPullRequest: fixture.pullRequest,
     pullRequestDiff: fixture.diff,
+    repositoryCapabilities: githubMergeCapabilities,
+    canCollaborate: true,
+    onMergePullRequest,
     onAddPullRequestComment,
     onAddInlineComment,
     onTogglePullRequestCommentReaction,
@@ -806,9 +816,12 @@ index 3333333..4444444 100644
         name: /Add project file and diff views/,
       }),
     ).toBeVisible();
-    await expect(
-      canvas.getByRole("button", { name: "Merge unavailable" }),
-    ).toBeDisabled();
+    const mergeButton = canvas.getByRole("button", {
+      name: "Merge pull request",
+    });
+    await expect(mergeButton).toBeEnabled();
+    await userEvent.click(mergeButton);
+    await expect(onMergePullRequest).toHaveBeenCalledWith(fixture.pullRequest);
     await userEvent.click(
       canvas.getByRole("button", { name: "Files changed" }),
     );

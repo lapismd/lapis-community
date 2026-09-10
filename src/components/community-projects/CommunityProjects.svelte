@@ -76,6 +76,7 @@
     type ProjectForgeGitHubConnectionInput,
     type ProjectForgeGitHubRepository,
     type ProjectForgeRefsResponse,
+    type PullRequestState,
     type PullRequestComment,
   } from "../../projects/index.js";
   import CommunityChatComposer from "../community-chat-composer/CommunityChatComposer.svelte";
@@ -173,6 +174,7 @@
     onClosePullRequest,
     onApprovePullRequest,
     onRequestChanges,
+    onMergePullRequest,
     onUpdatePullRequestLifecycle,
     onAddPullRequestComment,
     onAddInlineComment,
@@ -260,6 +262,8 @@
     closed: true,
   });
   let selectedReviewStateId = $state("");
+  let pullRequestMergeError = $state("");
+  let pullRequestMergeStatus = $state("");
   let localError = $state("");
   let listLayout = $state<"grid" | "list">("list");
   const effectiveSourceError = $derived(sourceError || selectedCommitError);
@@ -661,6 +665,8 @@
     reviewCommitsOpen = false;
     reviewChecksOpen = false;
     reviewActivityOpen = true;
+    pullRequestMergeError = "";
+    pullRequestMergeStatus = "";
   });
 
   function projectName(coordinate: string): string {
@@ -1565,6 +1571,31 @@
         (tag) => tag[0] === "external-provider" && tag[1] === "github",
       )
     );
+  }
+
+  function canMergePullRequest(pullRequest: PullRequestState): boolean {
+    return (
+      pullRequest.lifecycle === "open" &&
+      repositoryCapabilities[pullRequest.repository.coordinate]?.merge ===
+        true &&
+      onMergePullRequest !== undefined
+    );
+  }
+
+  async function mergeSelectedPullRequest(
+    pullRequest: PullRequestState,
+  ): Promise<void> {
+    pullRequestMergeError = "";
+    pullRequestMergeStatus = "";
+    try {
+      await onMergePullRequest?.(pullRequest);
+      pullRequestMergeStatus = "Merge completed; updating the review state…";
+    } catch (cause) {
+      pullRequestMergeError =
+        cause instanceof Error
+          ? cause.message
+          : "Pull request could not be merged";
+    }
   }
 
   function pullRequestReactionOptions(
@@ -3469,10 +3500,16 @@
                     <Button
                       type="button"
                       size="sm"
-                      disabled
+                      disabled={!canCollaborate ||
+                        busy ||
+                        !canMergePullRequest(selectedPullRequest)}
                       title={selectedPullRequest.lifecycle === "merged"
                         ? "This pull request is already merged"
-                        : "Merge execution requires relay-side merge coordination"}
+                        : canMergePullRequest(selectedPullRequest)
+                          ? "Merge this pull request through the repository provider"
+                          : "The repository does not advertise merge capability"}
+                      onclick={() =>
+                        void mergeSelectedPullRequest(selectedPullRequest)}
                     >
                       <GitMergeIcon
                         data-icon="inline-start"
@@ -3480,7 +3517,9 @@
                       />
                       {selectedPullRequest.lifecycle === "merged"
                         ? `Merged${selectedPullRequest.mergeCommit ? ` as ${selectedPullRequest.mergeCommit.slice(0, 8)}` : ""}`
-                        : "Merge unavailable"}
+                        : canMergePullRequest(selectedPullRequest)
+                          ? "Merge pull request"
+                          : "Merge unavailable"}
                     </Button>
                     <span class="community-projects__review-action-spacer"
                     ></span>
@@ -3523,6 +3562,21 @@
                       >
                     {/if}
                   </div>
+                  {#if pullRequestMergeError}
+                    <p
+                      class="community-projects__review-merge-error"
+                      role="alert"
+                    >
+                      {pullRequestMergeError}
+                    </p>
+                  {:else if pullRequestMergeStatus}
+                    <p
+                      class="community-projects__review-merge-status"
+                      role="status"
+                    >
+                      {pullRequestMergeStatus}
+                    </p>
+                  {/if}
                   {#if onAddPullRequestComment}
                     <CommunityChatComposer
                       class="community-projects__conversation-composer"

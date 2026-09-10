@@ -701,6 +701,15 @@ export function createProjectStoryDataSource(
         async loadPullRequestDiff() {
           return fixture.diff;
         },
+        async mergePullRequest(_eventId, _expectedHead) {
+          return {
+            operation_id: "fop-story-merge",
+            state: "complete",
+            command: "merge",
+            repository: fixture.repository.address.coordinate,
+            result: { state: "merged", merged_commit: "e".repeat(40) },
+          };
+        },
         close() {},
       };
     },

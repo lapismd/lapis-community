@@ -25,6 +25,7 @@ import {
   type ProjectForgeGitHubConnection,
   type ProjectForgeGitHubConnectionInput,
   type ProjectForgeGitHubRepositoriesResponse,
+  type ProjectForgeOperation,
   type ProjectForgeProgress,
   type ProjectForgePullRequestDiff,
   type ProjectForgeRepositoryCapabilitiesResponse,
@@ -43,6 +44,8 @@ const WORK_ITEM_LIMIT = 2_000;
 const TOMBSTONE_CHUNK_SIZE = 100;
 const PROJECT_FORGE_READ_CACHE_TTL_MS = 15_000;
 const PROJECT_FORGE_READ_CACHE_MAX_ENTRIES = 256;
+const PROJECT_FORGE_OPERATION_POLL_MS = 250;
+const PROJECT_FORGE_OPERATION_MAX_POLLS = 120;
 
 interface ProjectForgeReadCacheEntry {
   expiresAt: number;
@@ -172,6 +175,11 @@ export interface ProjectForgeSession {
       onProgress?: (progress: ProjectForgeProgress) => void;
     },
   ): Promise<ProjectForgePullRequestDiff>;
+  mergePullRequest(
+    eventId: string,
+    expectedHead: string,
+    signal?: AbortSignal,
+  ): Promise<ProjectForgeOperation>;
   close(): void;
 }
 
@@ -562,6 +570,36 @@ class Nip34ProjectForgeSession implements ProjectForgeSession {
     return await this.#strictGet(`/api/pull-requests/${eventId}/diff`, options);
   }
 
+  async mergePullRequest(
+    eventId: string,
+    expectedHead: string,
+    signal?: AbortSignal,
+  ): Promise<ProjectForgeOperation> {
+    if (!/^[0-9a-f]{64}$/u.test(eventId))
+      throw new Error("Invalid pull request event ID");
+    if (!/^[0-9a-f]{40,64}$/u.test(expectedHead))
+      throw new Error("Invalid pull request head");
+    let operation = await this.#forgeJsonRequest<ProjectForgeOperation>(
+      "POST",
+      `/api/forge/pull-requests/${eventId}/merge`,
+      { expected_head: expectedHead, method: "merge" },
+      signal,
+    );
+    for (let poll = 0; poll <= PROJECT_FORGE_OPERATION_MAX_POLLS; poll += 1) {
+      if (operation.state === "complete") return operation;
+      if (operation.state === "failed")
+        throw new Error(operation.failure || "Pull request merge failed");
+      if (poll === PROJECT_FORGE_OPERATION_MAX_POLLS)
+        throw new Error("Pull request merge is still pending");
+      await abortableDelay(PROJECT_FORGE_OPERATION_POLL_MS, signal);
+      operation = await this.#strictGet<ProjectForgeOperation>(
+        `/api/forge/operations/${encodeURIComponent(operation.operation_id)}`,
+        { ...(signal === undefined ? {} : { signal }), cache: false },
+      );
+    }
+    return operation;
+  }
+
   close(): void {
     if (this.#closed) return;
     this.#closed = true;
@@ -666,13 +704,16 @@ class Nip34ProjectForgeSession implements ProjectForgeSession {
     options: {
       signal?: AbortSignal;
       onProgress?: (progress: ProjectForgeProgress) => void;
+      cache?: boolean;
     },
   ): Promise<T> {
     this.#assertOpen(options.signal);
     const identity = this.#requiredIdentity();
     const url = new URL(path, this.#httpBaseUrl());
     const cacheKey = `${this.#cacheIdentity}:${url.toString()}`;
-    if (options.onProgress === undefined) {
+    const cacheable =
+      options.onProgress === undefined && options.cache !== false;
+    if (cacheable) {
       const cached = this.#readCache.get(cacheKey);
       if (cached && cached.expiresAt > this.#now().getTime()) {
         this.#readCache.delete(cacheKey);
@@ -701,7 +742,7 @@ class Nip34ProjectForgeSession implements ProjectForgeSession {
       return parseSseResult<T>(await response.text(), options.onProgress);
     }
     const value = (await response.json()) as T;
-    if (options.onProgress === undefined) {
+    if (cacheable) {
       this.#readCache.set(cacheKey, {
         expiresAt: this.#now().getTime() + PROJECT_FORGE_READ_CACHE_TTL_MS,
         value,
@@ -812,6 +853,24 @@ class Nip34ProjectForgeSession implements ProjectForgeSession {
     signal?.throwIfAborted();
     if (this.#closed) throw new Error("Project forge session is closed");
   }
+}
+
+function abortableDelay(
+  milliseconds: number,
+  signal?: AbortSignal,
+): Promise<void> {
+  signal?.throwIfAborted();
+  return new Promise((resolve, reject) => {
+    const timeout = setTimeout(() => {
+      signal?.removeEventListener("abort", onAbort);
+      resolve();
+    }, milliseconds);
+    function onAbort() {
+      clearTimeout(timeout);
+      reject(signal?.reason ?? new DOMException("Aborted", "AbortError"));
+    }
+    signal?.addEventListener("abort", onAbort, { once: true });
+  });
 }
 
 export function buzzWorkItemFilters(

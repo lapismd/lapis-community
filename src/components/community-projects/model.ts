@@ -213,6 +213,7 @@ export interface CommunityProjectsProps {
   onClosePullRequest?: () => void;
   onApprovePullRequest?: (pullRequest: PullRequestState) => Promise<void>;
   onRequestChanges?: (pullRequest: PullRequestState) => Promise<void>;
+  onMergePullRequest?: (pullRequest: PullRequestState) => Promise<void>;
   onUpdatePullRequestLifecycle?: (
     pullRequest: PullRequestState,
     lifecycle: "open" | "closed" | "draft",

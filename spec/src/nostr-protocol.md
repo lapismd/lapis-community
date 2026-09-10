@@ -62,6 +62,9 @@ NIP-98 verification covers the exact URL received by the relay.
 Successful JSON GET responses MAY be retained briefly in a bounded in-memory
 cache scoped by relay URL and signer public key. Progress-stream responses MUST
 not be cached, and a successful forge mutation MUST invalidate that cache.
+Provider merge commands MUST bind the full expected pull-request head in their
+NIP-98-authenticated JSON payload and poll the relay operation outside the read
+cache until it explicitly completes or fails.
 GitHub connection creation, complete replacement, and revalidation MUST sign
 the exact relay forge endpoint and HTTP method with NIP-98. Requests containing
 connection configuration MUST bind the complete JSON payload, while a

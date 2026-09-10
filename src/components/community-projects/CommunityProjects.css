@@ -2684,6 +2684,18 @@
   flex: 1;
 }
 
+.community-projects__review-merge-error {
+  margin: -0.4rem 0 0.8rem;
+  color: var(--destructive);
+  font-size: var(--text-sm, 0.875rem);
+}
+
+.community-projects__review-merge-status {
+  margin: -0.4rem 0 0.8rem;
+  color: var(--muted-foreground);
+  font-size: var(--text-sm, 0.875rem);
+}
+
 .community-projects__form-columns {
   display: grid;
   grid-template-columns: 1fr 1fr;

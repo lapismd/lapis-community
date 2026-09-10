@@ -259,6 +259,20 @@ export interface ProjectForgeRepositoryCapabilitiesResponse {
   capabilities: ProjectForgeRepositoryCapabilities;
 }
 
+export interface ProjectForgeOperationResult {
+  state?: string;
+  merged_commit?: string;
+}
+
+export interface ProjectForgeOperation {
+  operation_id: string;
+  state: "pending" | "running" | "projecting" | "retry" | "complete" | "failed";
+  command: string;
+  repository: string;
+  result?: ProjectForgeOperationResult;
+  failure?: string;
+}
+
 export interface ProjectForgeGitHubConnection {
   id: string;
   provider: "github";

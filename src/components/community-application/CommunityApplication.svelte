@@ -3450,6 +3450,18 @@
     );
   }
 
+  async function mergePullRequest(
+    pullRequest: PullRequestState,
+  ): Promise<void> {
+    await withProjectMutation("Merging pull request…", async (session) => {
+      await session.mergePullRequest(
+        pullRequest.root.id,
+        pullRequest.currentCommit,
+      );
+    });
+    toast.success("Pull request merged");
+  }
+
   async function updateTaskLifecycle(
     task: ProjectForgeWorkItems["tasks"][number],
     lifecycle: "open" | "closed",
@@ -5869,6 +5881,7 @@
             publishReviewDecision(pullRequest, "approved")}
           onRequestChanges={(pullRequest) =>
             publishReviewDecision(pullRequest, "changes-requested")}
+          onMergePullRequest={mergePullRequest}
           onUpdatePullRequestLifecycle={updatePullRequestLifecycle}
           onAddPullRequestComment={publishPullRequestComment}
           onAddInlineComment={publishInlineComment}
@@ -6321,6 +6334,7 @@
           publishReviewDecision(pullRequest, "approved")}
         onRequestChanges={(pullRequest) =>
           publishReviewDecision(pullRequest, "changes-requested")}
+        onMergePullRequest={mergePullRequest}
         onUpdatePullRequestLifecycle={updatePullRequestLifecycle}
         onAddPullRequestComment={publishPullRequestComment}
         onAddInlineComment={publishInlineComment}

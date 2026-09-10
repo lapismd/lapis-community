@@ -160,6 +160,81 @@ describe("NIP-34 project forge data source", () => {
     session.close();
   });
 
+  it("merges a pull request through a head-pinned forge operation", async () => {
+    const eventId = "4".repeat(64);
+    const expectedHead = "a".repeat(40);
+    const requests: Array<{
+      url: string;
+      method: string;
+      authorization: string;
+      body: string;
+    }> = [];
+    const fetch = vi.fn(
+      async (input: RequestInfo | URL, init?: RequestInit) => {
+        const request = {
+          url: input.toString(),
+          method: init?.method ?? "GET",
+          authorization: new Headers(init?.headers).get("Authorization") ?? "",
+          body: typeof init?.body === "string" ? init.body : "",
+        };
+        requests.push(request);
+        if (request.url.endsWith(`/pull-requests/${eventId}/merge`)) {
+          return json({
+            operation_id: "fop-sample",
+            state: "pending",
+            command: "merge",
+            repository,
+          });
+        }
+        if (request.url.endsWith("/api/forge/operations/fop-sample")) {
+          return json({
+            operation_id: "fop-sample",
+            state: "complete",
+            command: "merge",
+            repository,
+            result: { state: "merged", merged_commit: "b".repeat(40) },
+          });
+        }
+        return new Response("missing", { status: 404 });
+      },
+    );
+    const source = createNip34ProjectForgeDataSource({
+      relayFactory: createInMemoryRelayFactory(),
+      fetch,
+      now: () => new Date("2026-09-10T12:00:00.000Z"),
+    });
+    const session = await source.open({
+      relayUrl: "wss://relay.example",
+      identity: new SecretKeyRegistrySigner(generateSecretKey()),
+    });
+
+    await expect(
+      session.mergePullRequest(eventId, expectedHead),
+    ).resolves.toMatchObject({
+      state: "complete",
+      result: { state: "merged", merged_commit: "b".repeat(40) },
+    });
+    expect(requests.map(({ method, url }) => ({ method, url }))).toEqual([
+      {
+        method: "POST",
+        url: `https://relay.example/api/forge/pull-requests/${eventId}/merge`,
+      },
+      {
+        method: "GET",
+        url: "https://relay.example/api/forge/operations/fop-sample",
+      },
+    ]);
+    expect(JSON.parse(requests[0]!.body)).toEqual({
+      expected_head: expectedHead,
+      method: "merge",
+    });
+    for (const request of requests) {
+      const auth = authorizationEvent(request.authorization);
+      expect(auth.tags).toContainEqual(["method", request.method]);
+    }
+    session.close();
+  });
+
   it("discovers GitHub App connections and attaches a matching provider repository", async () => {
     const requests: Array<{
       url: string;
