@@ -2278,75 +2278,123 @@
             </p>
           </header>
           <div class="community-projects__section-divider">
-            <span>{weekActivityCount > 0 ? "This week" : "Earlier"}</span>
+            <span
+              >{loading || weekActivityCount > 0
+                ? "This week"
+                : "Earlier"}</span
+            >
           </div>
           <div class="community-projects__activity">
-            {#each visibleActivity as item (item.id)}
-              {@const actor = activityMember(item.actorPubkey)}
-              <article class="community-projects__activity-item">
-                {@render memberHoverAvatar(actor, "medium")}
-                <span
-                  class="community-projects__activity-line"
-                  aria-hidden="true"
-                ></span>
-                <div class="community-projects__activity-copy">
-                  <div>
-                    <strong>{actor.name}</strong>
-                    <span
-                      >{item.action} {projectName(item.projectCoordinate)}</span
-                    >
-                  </div>
-                  <CommunityRelativeTime timestamp={item.createdAt} />
-                  <button
-                    type="button"
-                    class="community-projects__activity-card"
-                    onclick={() => openActivityItem(item)}
+            {#if loading && visibleActivity.length === 0}
+              <div
+                class="community-projects__activity-loading"
+                role="status"
+                aria-label="Loading project activity"
+              >
+                {#each [0, 1, 2, 3] as row (row)}
+                  <div
+                    class="community-projects__activity-item community-projects__activity-item--skeleton"
+                    aria-hidden="true"
                   >
-                    <span class="community-projects__activity-title">
-                      {#if item.kind === "review" || item.kind === "approval" || item.kind === "changes-requested"}
-                        <GitPullRequestIcon aria-hidden="true" />
-                      {:else if item.kind === "commit"}
-                        <GitCommitHorizontalIcon aria-hidden="true" />
-                      {:else if item.kind === "repository"}
-                        <FolderGit2Icon aria-hidden="true" />
-                      {:else if item.kind === "project"}
-                        <FolderKanbanIcon aria-hidden="true" />
-                      {:else if item.kind === "task"}
-                        <CircleIcon aria-hidden="true" />
-                      {:else if item.kind === "comment" || item.kind === "assignment"}
-                        <MessageSquareIcon aria-hidden="true" />
-                      {:else}
-                        <CodeXmlIcon aria-hidden="true" />
-                      {/if}
-                      <strong>{item.title}</strong>
-                    </span>
-                    {#if item.body}
-                      <CommunityMarkdownContent
-                        class="community-projects__activity-body"
-                        content={item.body}
-                        {members}
-                        {rooms}
-                        {communityEmojis}
+                    <Skeleton
+                      class="community-projects__activity-skeleton-avatar"
+                    />
+                    <span class="community-projects__activity-line"></span>
+                    <div class="community-projects__activity-copy">
+                      <div>
+                        <Skeleton
+                          class="community-projects__activity-skeleton-actor"
+                        />
+                        <Skeleton
+                          class="community-projects__activity-skeleton-action"
+                        />
+                      </div>
+                      <Skeleton
+                        class="community-projects__activity-skeleton-time"
                       />
-                    {/if}
-                    {#if item.detail && (item.kind === "task" || item.kind === "review")}
-                      <span class="community-projects__activity-status">
-                        <CommunityChip
-                          size="compact"
-                          tone={item.detail === "closed" ||
-                          item.detail === "applied"
-                            ? "success"
-                            : "warning"}
-                          >{activityStatusLabel(item.detail)}</CommunityChip
-                        >
-                      </span>
-                    {/if}
-                  </button>
-                </div>
-              </article>
+                      <div class="community-projects__activity-skeleton-card">
+                        <Skeleton
+                          class="community-projects__activity-skeleton-title"
+                        />
+                        <Skeleton
+                          class="community-projects__activity-skeleton-body"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                {/each}
+              </div>
             {:else}
-              <p class="community-projects__status">No project activity yet.</p>
-            {/each}
+              {#each visibleActivity as item (item.id)}
+                {@const actor = activityMember(item.actorPubkey)}
+                <article class="community-projects__activity-item">
+                  {@render memberHoverAvatar(actor, "medium")}
+                  <span
+                    class="community-projects__activity-line"
+                    aria-hidden="true"
+                  ></span>
+                  <div class="community-projects__activity-copy">
+                    <div>
+                      <strong>{actor.name}</strong>
+                      <span
+                        >{item.action}
+                        {projectName(item.projectCoordinate)}</span
+                      >
+                    </div>
+                    <CommunityRelativeTime timestamp={item.createdAt} />
+                    <button
+                      type="button"
+                      class="community-projects__activity-card"
+                      onclick={() => openActivityItem(item)}
+                    >
+                      <span class="community-projects__activity-title">
+                        {#if item.kind === "review" || item.kind === "approval" || item.kind === "changes-requested"}
+                          <GitPullRequestIcon aria-hidden="true" />
+                        {:else if item.kind === "commit"}
+                          <GitCommitHorizontalIcon aria-hidden="true" />
+                        {:else if item.kind === "repository"}
+                          <FolderGit2Icon aria-hidden="true" />
+                        {:else if item.kind === "project"}
+                          <FolderKanbanIcon aria-hidden="true" />
+                        {:else if item.kind === "task"}
+                          <CircleIcon aria-hidden="true" />
+                        {:else if item.kind === "comment" || item.kind === "assignment"}
+                          <MessageSquareIcon aria-hidden="true" />
+                        {:else}
+                          <CodeXmlIcon aria-hidden="true" />
+                        {/if}
+                        <strong>{item.title}</strong>
+                      </span>
+                      {#if item.body}
+                        <CommunityMarkdownContent
+                          class="community-projects__activity-body"
+                          content={item.body}
+                          {members}
+                          {rooms}
+                          {communityEmojis}
+                        />
+                      {/if}
+                      {#if item.detail && (item.kind === "task" || item.kind === "review")}
+                        <span class="community-projects__activity-status">
+                          <CommunityChip
+                            size="compact"
+                            tone={item.detail === "closed" ||
+                            item.detail === "applied"
+                              ? "success"
+                              : "warning"}
+                            >{activityStatusLabel(item.detail)}</CommunityChip
+                          >
+                        </span>
+                      {/if}
+                    </button>
+                  </div>
+                </article>
+              {:else}
+                <p class="community-projects__status">
+                  No project activity yet.
+                </p>
+              {/each}
+            {/if}
           </div>
         </div>
       {:else if view === "directory" || view === "projects"}
@@ -3943,13 +3991,17 @@
                   role="status"
                   aria-label={`Loading ${selectedPath}`}
                 >
-                  <Skeleton class="community-projects__blob-skeleton-header" />
-                  <div class="community-projects__blob-skeleton-lines">
+                  <div class="community-projects__files-loading-preview-header">
                     <Skeleton />
                     <Skeleton />
-                    <Skeleton />
-                    <Skeleton />
-                    <Skeleton />
+                  </div>
+                  <div class="community-projects__files-loading-code">
+                    {#each [0, 1, 2, 3, 4, 5, 6] as row (row)}
+                      <div>
+                        <Skeleton />
+                        <Skeleton />
+                      </div>
+                    {/each}
                   </div>
                 </div>
               {:else if blob?.binary}<Empty.Root

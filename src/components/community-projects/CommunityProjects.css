@@ -12,12 +12,21 @@
 }
 
 .community-projects[data-view="files"] {
+  position: relative;
   height: auto;
   min-height: 0;
   align-self: stretch;
   flex: 1;
   flex-direction: row;
+  padding-block-start: 3.25rem;
   overflow: hidden;
+}
+
+.community-projects[data-view="files"] > .community-projects__tabs {
+  position: absolute;
+  inset-block-start: 0;
+  inset-inline: 0;
+  height: 3.25rem;
 }
 
 .community-projects__tabs {
@@ -159,6 +168,49 @@
   display: grid;
   max-width: 74rem;
   margin-inline: auto;
+}
+
+.community-projects__activity-loading {
+  display: grid;
+}
+
+.community-projects__activity-skeleton-avatar {
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 999px;
+}
+
+.community-projects__activity-skeleton-actor {
+  width: min(8rem, 32%);
+  height: 0.75rem;
+}
+
+.community-projects__activity-skeleton-action {
+  width: min(17rem, 55%);
+  height: 0.75rem;
+}
+
+.community-projects__activity-skeleton-time {
+  width: 5.5rem;
+  height: 0.68rem;
+}
+
+.community-projects__activity-skeleton-card {
+  display: grid;
+  min-height: 3.5rem;
+  align-content: center;
+  gap: 0.55rem;
+  padding: 0.55rem 0.65rem;
+}
+
+.community-projects__activity-skeleton-title {
+  width: min(19rem, 48%);
+  height: 0.78rem;
+}
+
+.community-projects__activity-skeleton-body {
+  width: min(34rem, 78%);
+  height: 0.72rem;
 }
 
 .community-projects__activity-item {
@@ -1683,27 +1735,6 @@
   display: grid;
   width: 100%;
   align-content: start;
-  gap: 1rem;
-}
-
-.community-projects__blob-skeleton-header {
-  width: 100%;
-  height: 2.5rem;
-}
-
-.community-projects__blob-skeleton-lines {
-  display: grid;
-  gap: 0.65rem;
-  padding-inline: 0.75rem;
-}
-
-.community-projects__blob-skeleton-lines > * {
-  width: min(42rem, 92%);
-  height: 0.8rem;
-}
-
-.community-projects__blob-skeleton-lines > *:nth-child(2n) {
-  width: min(32rem, 72%);
 }
 
 .community-projects__diff-content {

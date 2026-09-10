@@ -44,8 +44,11 @@ and replace the right-hand preview with an accessible skeleton while the active
 file contents are loading.
 Initial repository Files loading MUST use an accessible skeleton that preserves
 the file-list sidebar, divider, preview header, and code-line geometry. Project
-Overview loading MUST use an accessible Markdown-shaped skeleton with heading,
-paragraph, section, and code-block geometry.
+tabs MUST remain in the fixed toolbar above that two-pane geometry during both
+initial repository and selected-file loading, and the selected-file skeleton
+MUST preserve the loaded preview's bordered, opaque header and code surface.
+Project Overview loading MUST use an accessible Markdown-shaped skeleton with
+heading, paragraph, section, and code-block geometry.
 Selecting a file MUST fetch only that blob without reopening the project
 catalog, work-item subscriptions, repository capabilities, refs, or tree.
 Recursive file discovery MUST bound concurrency while loading independent
@@ -131,6 +134,10 @@ action bar radius and retain a visible hover and keyboard-focus treatment.
 For LC-UI-035, the tooltip trigger MUST shrink-wrap the visible timestamp text
 instead of stretching across a parent grid track, so its floating content stays
 anchored to the label on every consumer page.
+
+For LC-UI-036, an initially loading aggregate Activity view without retained
+events MUST render a layout-matched activity skeleton instead of the empty-state
+notice. Existing activity MAY remain visible during a refresh.
 
 For LC-UI-013, Edit Community MUST show the active relay URL together with
 whether it came from the app default or a saved local override. When an

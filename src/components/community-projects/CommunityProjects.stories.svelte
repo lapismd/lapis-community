@@ -335,6 +335,32 @@ index 3333333..4444444 100644
 />
 
 <Story
+  name="Activity loading"
+  args={{
+    view: "activity",
+    selectedProject: undefined,
+    projects: [],
+    repositories: [],
+    tasks: [],
+    pullRequests: [],
+    activity: [],
+    loading: true,
+  }}
+  play={async ({ canvas }) => {
+    const loader = canvas.getByRole("status", {
+      name: "Loading project activity",
+    });
+    await expect(loader).toBeVisible();
+    await expect(
+      loader.querySelectorAll(".community-projects__activity-item--skeleton"),
+    ).toHaveLength(4);
+    await expect(
+      canvas.queryByText("No project activity yet."),
+    ).not.toBeInTheDocument();
+  }}
+/>
+
+<Story
   name="Project overview"
   args={{
     view: "overview",
@@ -883,6 +909,14 @@ index 3333333..4444444 100644
   }}
   play={async ({ canvas }) => {
     onSelectPath.mockClear();
+    const codeBlock = canvas
+      .getByText("README.md — markdown")
+      .closest<HTMLElement>('[data-ui-component="code-block"]');
+    await expect(codeBlock).not.toBeNull();
+    await expect(getComputedStyle(codeBlock!).borderTopWidth).toBe("1px");
+    await expect(getComputedStyle(codeBlock!).backgroundColor).not.toBe(
+      "rgba(0, 0, 0, 0)",
+    );
     await userEvent.click(
       canvas.getByRole("button", { name: "README.md", exact: true }),
     );
@@ -913,9 +947,39 @@ index 3333333..4444444 100644
     await waitFor(() =>
       expect(onAutoSelectPath).toHaveBeenCalledWith("README.md"),
     );
-    await expect(
-      canvas.getByRole("status", { name: "Loading README.md" }),
-    ).toBeVisible();
+    const loader = canvas.getByRole("status", { name: "Loading README.md" });
+    await expect(loader).toBeVisible();
+    const project = loader.closest<HTMLElement>(".community-projects");
+    const tabs = project?.querySelector<HTMLElement>(
+      ":scope > .community-projects__tabs",
+    );
+    const sidebar = project?.querySelector<HTMLElement>(
+      ".community-projects__files-sidebar",
+    );
+    const content = project?.querySelector<HTMLElement>(
+      ".community-projects__files-content",
+    );
+    await expect(project).not.toBeNull();
+    await expect(tabs).not.toBeNull();
+    await expect(sidebar).not.toBeNull();
+    await expect(content).not.toBeNull();
+    const projectBounds = project!.getBoundingClientRect();
+    const tabsBounds = tabs!.getBoundingClientRect();
+    const sidebarBounds = sidebar!.getBoundingClientRect();
+    const contentBounds = content!.getBoundingClientRect();
+    await expect(tabsBounds.top).toBeCloseTo(projectBounds.top, 0);
+    await expect(tabsBounds.width).toBeCloseTo(projectBounds.width, 0);
+    await expect(sidebarBounds.top).toBeCloseTo(tabsBounds.bottom, 0);
+    await expect(contentBounds.top).toBeCloseTo(tabsBounds.bottom, 0);
+    await expect(sidebarBounds.right).toBeCloseTo(contentBounds.left, 0);
+    const previewHeader = loader.querySelector<HTMLElement>(
+      ".community-projects__files-loading-preview-header",
+    );
+    await expect(previewHeader).not.toBeNull();
+    await expect(getComputedStyle(previewHeader!).borderTopWidth).toBe("1px");
+    await expect(getComputedStyle(previewHeader!).backgroundColor).not.toBe(
+      "rgba(0, 0, 0, 0)",
+    );
   }}
 />
 
@@ -940,6 +1004,20 @@ index 3333333..4444444 100644
     await expect(
       loader.querySelector(".community-projects__files-loading-preview"),
     ).not.toBeNull();
+    const project = loader.closest<HTMLElement>(".community-projects");
+    const tabs = project?.querySelector<HTMLElement>(
+      ":scope > .community-projects__tabs",
+    );
+    await expect(project).not.toBeNull();
+    await expect(tabs).not.toBeNull();
+    const projectBounds = project!.getBoundingClientRect();
+    const tabsBounds = tabs!.getBoundingClientRect();
+    const loaderBounds = loader.getBoundingClientRect();
+    await expect(tabsBounds.top).toBeCloseTo(projectBounds.top, 0);
+    await expect(tabsBounds.width).toBeCloseTo(projectBounds.width, 0);
+    await expect(loaderBounds.top).toBeCloseTo(tabsBounds.bottom, 0);
+    await expect(loaderBounds.left).toBeCloseTo(projectBounds.left, 0);
+    await expect(loaderBounds.right).toBeCloseTo(projectBounds.right, 0);
     await expect(
       canvas.queryByText("Loading repository files…"),
     ).not.toBeInTheDocument();
