@@ -137,3 +137,10 @@ two-second debouncing, and message/thread marker pruning before room cursors.
 Host activity-log navigation is presentation-only: exposing it through the
 optional application extension MUST NOT create, query, or reinterpret a Nostr
 event.
+
+For LC-NOSTR-011, the browser project catalog cache MUST persist only verified
+project event envelopes and MUST partition them by normalized relay URL,
+Community ID, and optional project channel. An exact cached catalog MAY restore
+immediately, but MUST remain visibly stale until a live query succeeds. A
+scope change MUST clear the active project projection before another partition
+is restored, and invalid cached events MUST invalidate the snapshot.

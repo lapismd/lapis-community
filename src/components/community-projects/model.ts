@@ -6,6 +6,7 @@ import type {
   ProjectForgeCommit,
   ProjectForgeCommitResponse,
   ProjectForgeDataSource,
+  ProjectForgeCatalogStore,
   ProjectForgeDiffFile,
   ProjectForgeGitHubConnection,
   ProjectForgeGitHubConnectionsResponse,
@@ -30,6 +31,8 @@ import type {
 
 export interface CommunityProjectsOptions {
   source: ProjectForgeDataSource;
+  /** Defaults to a relay- and community-scoped browser catalog cache. */
+  catalogStore?: ProjectForgeCatalogStore;
   /** Defaults to the active Community relay. */
   relayUrl?: string;
   httpBaseUrl?: string | URL;
@@ -130,6 +133,8 @@ export interface CommunityProjectsProps {
   communityEmojis?: readonly CommunityCustomEmoji[];
   currentMemberId?: string;
   loading?: boolean;
+  /** Epoch milliseconds for a verified catalog restored before live refresh. */
+  cachedCatalogAt?: number;
   error?: string;
   operation?: string;
   canCollaborate?: boolean;

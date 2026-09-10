@@ -321,6 +321,26 @@ index 3333333..4444444 100644
 />
 
 <Story
+  name="Cached catalog fallback"
+  args={{
+    view: "projects",
+    selectedProject: undefined,
+    cachedCatalogAt: 1_700_000_000_000,
+    error: "The live project query timed out.",
+    onRetry: fn(),
+  }}
+  play={async ({ canvas }) => {
+    await expect(
+      canvas.getByText("Showing cached project catalog"),
+    ).toBeVisible();
+    await expect(canvas.getByText("Live project refresh failed")).toBeVisible();
+    await expect(
+      canvas.getByRole("button", { name: /Community Client/u }),
+    ).toBeVisible();
+  }}
+/>
+
+<Story
   name="Repository overview loading"
   args={{
     view: "overview",

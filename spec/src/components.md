@@ -4,6 +4,11 @@ For LC-UI-036, the Docker application story MUST seed the same NIP-34 project,
 repository, task, pull-request, and review graph through the production
 WebSocket and NIP-98 source before exercising the Buzz-aligned workspace.
 
+For LC-UI-036, a restored project catalog MUST keep project navigation and
+content available during live refresh, show a non-destructive cached status
+with the last verified time, and distinguish a live-refresh failure from an
+initial catalog failure instead of replacing restored content.
+
 For LC-NOSTR-020, normalized room and member models expose additive posting
 policy, role-definition, multi-role, and administrator state while retaining
 the legacy singular member role. Presentation treats relay administrators as

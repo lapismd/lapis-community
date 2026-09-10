@@ -174,3 +174,9 @@ message `p` and `P` tags as optional mention metadata. Presentation components
 MUST combine that metadata with controller-owned member, room, and community
 emoji models when rendering safe Markdown; they MUST NOT reinterpret relay
 events or make unknown visible tokens interactive.
+
+For LC-ARCH-021, the default browser project catalog store MUST persist raw
+signature-verified events rather than derived project objects. It MUST scope
+records by normalized relay URL, Community ID, and optional project channel,
+restore only an exact scope, and remain a best-effort disposable optimization
+over the relay-authoritative live projection.

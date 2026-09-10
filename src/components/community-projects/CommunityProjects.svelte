@@ -123,6 +123,7 @@
     communityEmojis = [],
     currentMemberId,
     loading = false,
+    cachedCatalogAt,
     error = "",
     operation = "",
     canCollaborate = false,
@@ -2084,9 +2085,28 @@
         </div>
       {/if}
 
+      {#if cachedCatalogAt !== undefined}
+        <Alert.Root class="community-projects__alert">
+          <Alert.Title>Showing cached project catalog</Alert.Title>
+          <Alert.Description>
+            Last verified <CommunityRelativeTime
+              timestamp={Math.floor(cachedCatalogAt / 1_000)}
+            />. Live project data is being refreshed from this community's
+            relay.
+          </Alert.Description>
+        </Alert.Root>
+      {/if}
+
       {#if error}
-        <Alert.Root variant="destructive" class="community-projects__alert">
-          <Alert.Title>Projects could not be loaded</Alert.Title>
+        <Alert.Root
+          variant={cachedCatalogAt === undefined ? "destructive" : "default"}
+          class="community-projects__alert"
+        >
+          <Alert.Title>
+            {cachedCatalogAt === undefined
+              ? "Projects could not be loaded"
+              : "Live project refresh failed"}
+          </Alert.Title>
           <Alert.Description>{error}</Alert.Description>
           {#if onRetry}
             <Button type="button" variant="outline" size="sm" onclick={onRetry}>

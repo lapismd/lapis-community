@@ -64,6 +64,7 @@
     buildProjectForgeActivity,
     buzzWorkItemFilters,
     createAssignmentTemplate,
+    createBrowserProjectForgeCatalogStore,
     createBuzzCommentTemplate,
     createDeletionTemplate,
     createProjectTaskAnchorTemplate,
@@ -77,12 +78,14 @@
     projectForgeBranchRefs,
     projectForgeBoundChannels,
     projectForgeChildChannels,
+    projectForgeCatalogCacheKey,
     loadProjectRepositoryFileTree,
     updateProjectTemplate,
     GITHUB_REVIEW_COMMENT_REACTIONS,
     PROJECT_FORGE_KINDS,
     type ProjectForgeBlobResponse,
     type ProjectForgeCatalog,
+    type ProjectForgeCatalogCacheScope,
     type ProjectForgeCommit,
     type ProjectForgeCommitResponse,
     type ProjectForgeCommitActivity,
@@ -290,6 +293,11 @@
       return undefined;
     }
   });
+  const defaultProjectCatalogStore = untrack(() =>
+    createBrowserProjectForgeCatalogStore(
+      browserStorage === undefined ? {} : { storage: browserStorage },
+    ),
+  );
   const initialShellLayout = untrack(() =>
     loadCommunityApplicationInitialShellLayout(browserStorage),
   );
@@ -456,6 +464,9 @@
   let projectSession = $state.raw<ProjectForgeSession>();
   let projectLoading = $state(false);
   let projectCatalogSettled = $state(false);
+  let projectCatalogScopeKey = "";
+  let projectCatalogVerifiedAt = $state<number>();
+  let cachedProjectCatalogAt = $state<number>();
   let projectError = $state("");
   let projectOperation = $state("");
   let projectReloadRevision = $state(0);
@@ -1732,6 +1743,8 @@
     const options = projectsOptions;
     const usesActiveCommunityRelay = options?.relayUrl === undefined;
     const relayUrl = options?.relayUrl ?? activeConnection?.relayUrl;
+    const communityId =
+      activeConnection?.communityId ?? options?.channelId ?? "projects";
     const identity = options?.identity ?? applicationAuthentication?.identity();
     const communityStatus = community.state.status;
     const authenticationStatus = community.state.authentication.status;
@@ -1757,6 +1770,22 @@
     )
       return;
 
+    const catalogScope = {
+      relayUrl,
+      communityId,
+      ...(options.channelId === undefined
+        ? {}
+        : { channelId: options.channelId }),
+    } satisfies ProjectForgeCatalogCacheScope;
+    const catalogScopeKey = projectForgeCatalogCacheKey(catalogScope);
+    if (catalogScopeKey !== projectCatalogScopeKey) {
+      projectCatalogScopeKey = catalogScopeKey;
+      projectCatalog = { projects: [], repositories: [], events: [] };
+      projectWorkItems = { tasks: [], pullRequests: [], events: [] };
+      projectCatalogVerifiedAt = undefined;
+      cachedProjectCatalogAt = undefined;
+    }
+
     const controller = new AbortController();
     let openedSession: ProjectForgeSession | undefined;
     let unsubscribeCatalog: (() => void) | undefined;
@@ -1772,6 +1801,16 @@
     projectPullRequestDiffError = "";
 
     void (async () => {
+      const catalogStore = options.catalogStore ?? defaultProjectCatalogStore;
+      if (projectCatalog.events.length === 0) {
+        const cached = await catalogStore.load(catalogScope);
+        if (controller.signal.aborted) return;
+        if (cached !== undefined) {
+          projectCatalog = cached.catalog;
+          projectCatalogVerifiedAt = cached.cachedAt;
+          cachedProjectCatalogAt = cached.cachedAt;
+        }
+      }
       openedSession = await options.source.open(
         {
           relayUrl,
@@ -1790,7 +1829,10 @@
       );
       if (controller.signal.aborted) return;
       projectCatalog = catalog;
+      projectCatalogVerifiedAt = Date.now();
+      cachedProjectCatalogAt = undefined;
       projectCatalogSettled = true;
+      await catalogStore.save(catalogScope, catalog);
 
       let catalogReady = false;
       unsubscribeCatalog = await openedSession.subscribe(
@@ -2098,6 +2140,12 @@
     })()
       .catch((cause) => {
         if (controller.signal.aborted) return;
+        if (
+          projectCatalog.events.length > 0 &&
+          projectCatalogVerifiedAt !== undefined
+        ) {
+          cachedProjectCatalogAt = projectCatalogVerifiedAt;
+        }
         projectError =
           cause instanceof Error
             ? cause.message
@@ -4260,6 +4308,20 @@
     }
   }
 
+  async function clearCommunityCaches(communityId: string): Promise<void> {
+    await community.actions.clearCache(communityId);
+    const options = projectsOptions;
+    const relayUrl = options?.relayUrl ?? activeConnection?.relayUrl;
+    if (!options || !relayUrl) return;
+    await (options.catalogStore ?? defaultProjectCatalogStore).clear({
+      relayUrl,
+      communityId,
+      ...(options.channelId === undefined
+        ? {}
+        : { channelId: options.channelId }),
+    });
+  }
+
   async function connectToRelay(event: SubmitEvent): Promise<void> {
     event.preventDefault();
     inlineRelayError = "";
@@ -5626,6 +5688,9 @@
             ? {}
             : { currentMemberId: workspace.currentMemberId }}
           loading={projectLoading}
+          {...cachedProjectCatalogAt === undefined
+            ? {}
+            : { cachedCatalogAt: cachedProjectCatalogAt }}
           error={projectError}
           operation={projectOperation}
           canCollaborate={authenticated}
@@ -6041,6 +6106,9 @@
           ? {}
           : { currentMemberId: workspace.currentMemberId }}
         loading={projectLoading}
+        {...cachedProjectCatalogAt === undefined
+          ? {}
+          : { cachedCatalogAt: cachedProjectCatalogAt }}
         error={projectError}
         operation={projectOperation}
         canCollaborate={authenticated}
@@ -6866,8 +6934,7 @@
       community.actions.updateRelayUrl(activeConnection.communityId, relayUrl)}
     onReset={() =>
       community.actions.resetRelayUrl(activeConnection.communityId)}
-    onClearCache={() =>
-      community.actions.clearCache(activeConnection.communityId)}
+    onClearCache={() => clearCommunityCaches(activeConnection.communityId)}
   />
 {/if}
 
