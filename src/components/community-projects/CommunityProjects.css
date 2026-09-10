@@ -278,6 +278,12 @@
   white-space: nowrap;
 }
 
+.community-projects__activity-body .cm-sizer {
+  width: 100%;
+  max-width: none;
+  margin-inline: 0;
+}
+
 .community-projects__list-heading {
   display: flex;
   min-height: 3rem;

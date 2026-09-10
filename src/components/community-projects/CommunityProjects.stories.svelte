@@ -213,6 +213,16 @@ index 3333333..4444444 100644
     await expect(reviewCommentActivity).not.toHaveTextContent(
       "lapis:story-review-comment",
     );
+    const reviewCommentTitle = reviewCommentActivity.querySelector(
+      ".community-projects__activity-title",
+    );
+    const reviewCommentBody = within(reviewCommentActivity).getByText(
+      "The responsive file layout looks good.",
+    );
+    await expect(reviewCommentBody.getBoundingClientRect().left).toBeCloseTo(
+      reviewCommentTitle?.getBoundingClientRect().left ?? -1,
+      0,
+    );
   }}
 />
 
