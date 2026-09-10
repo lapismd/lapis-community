@@ -186,6 +186,11 @@ signature-verified events rather than derived project objects. It MUST scope
 records by normalized relay URL, Community ID, and optional project channel,
 restore only an exact scope, and remain a best-effort disposable optimization
 over the relay-authoritative live projection.
+The browser review-preference store MAY persist only presentation state. Diff
+layout is scoped by normalized relay, Community, and signed-in member; viewed
+files add repository, pull-request, base, and head identity so a revision
+change cannot inherit stale progress. Anonymous review preferences remain
+memory-only for the component session.
 
 GitHub App connection administration for LC-ARCH-021 MUST remain behind the
 relay's authenticated forge API and relay-administrator policy. The Community

@@ -8,6 +8,7 @@ import {
   createProjectTaskAnchorTemplate,
   createProjectTemplate,
   createPullRequestTemplate,
+  createPullRequestReviewTemplate,
   createReviewDecisionTemplate,
   createTaskTemplate,
   updateProjectTemplate,
@@ -55,6 +56,35 @@ const repository = event("9", PROJECT_FORGE_KINDS.repository, owner, 1, [
 ]);
 
 describe("project forge builders", () => {
+  it("labels submitted pull request reviews for provider projection", () => {
+    const root = event("1", PROJECT_FORGE_KINDS.pullRequest, author, 2, [
+      ["a", repositoryCoordinate],
+      ["subject", "Review me"],
+      ["c", commitA],
+    ]);
+
+    expect(
+      createPullRequestReviewTemplate(
+        root,
+        repositoryCoordinate,
+        "comment",
+        commitA,
+        "Looks good overall.",
+        3,
+      ),
+    ).toMatchObject({
+      kind: PROJECT_FORGE_KINDS.note,
+      created_at: 3,
+      content: "Looks good overall.",
+      tags: expect.arrayContaining([
+        ["e", root.id, "", "root"],
+        ["a", repositoryCoordinate],
+        ["c", commitA],
+        ["t", "review-comment"],
+      ]),
+    });
+  });
+
   it("creates a NIP-25 reaction with an exact project comment target", () => {
     const comment = event("6", PROJECT_FORGE_KINDS.note, reviewer, 3, [
       ["e", "1".repeat(64), "", "root"],

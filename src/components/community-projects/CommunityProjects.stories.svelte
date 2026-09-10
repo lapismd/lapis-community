@@ -12,6 +12,7 @@
   import CommunityProjectsStoryHarness from "./CommunityProjectsStoryHarness.svelte";
   import {
     buildProjectForgeActivity,
+    createBrowserProjectReviewPreferenceStore,
     type ProjectForgeGitHubConnectionInput,
   } from "../../projects/index.js";
   import {
@@ -135,7 +136,8 @@
   const onOpenProfile = fn();
   const onMessageMember = fn();
   const onWaveMember = fn();
-  const onUpdateProject = fn(async () => undefined);
+  const onUpdateProjectSettings = fn(async () => undefined);
+  const onRemoveProjectChannel = fn(async () => undefined);
   const onUpdateTaskLifecycle = fn(async () => undefined);
   const onUpdateTaskAssignment = fn(async () => undefined);
   const onManageTaskAssignments = fn();
@@ -146,8 +148,23 @@
   const onSelectPath = fn();
   const onAddPullRequestComment = fn(async () => undefined);
   const onAddInlineComment = fn(async () => undefined);
+  const onSubmitPullRequestReview = fn(async () => undefined);
   const onTogglePullRequestCommentReaction = fn(async () => undefined);
   const onMergePullRequest = fn(async () => undefined);
+  const onUpdatePullRequestLifecycle = fn(async () => undefined);
+  const reviewPreferenceValues = new Map<string, string>();
+  const reviewPreferenceStore = createBrowserProjectReviewPreferenceStore({
+    storage: {
+      getItem: (key) => reviewPreferenceValues.get(key) ?? null,
+      setItem: (key, value) => reviewPreferenceValues.set(key, value),
+      removeItem: (key) => reviewPreferenceValues.delete(key),
+    },
+  });
+  const reviewPreferenceScope = {
+    relayUrl: "wss://relay.example.com",
+    communityId: "community",
+    memberId: projectStoryAuthor,
+  };
   const githubConnection = {
     id: "ghc-lapis",
     provider: "github" as const,
@@ -444,7 +461,7 @@ index 3333333..4444444 100644
       kind: "edit-project",
       projectCoordinate: fixture.project.address.coordinate,
     },
-    onUpdateProject,
+    onUpdateProject: onUpdateProjectSettings,
   }}
   play={async () => {
     const overlay = within(document.body);
@@ -467,12 +484,15 @@ index 3333333..4444444 100644
     await userEvent.click(
       within(dialog).getByRole("button", { name: "Save changes" }),
     );
-    await expect(onUpdateProject).toHaveBeenCalledWith(fixture.project, {
-      name: "Community Workspace",
-      description: "The shared Lapis community experience.",
-      channelId: "general-projects",
-      listing: "unlisted",
-    });
+    await expect(onUpdateProjectSettings).toHaveBeenCalledWith(
+      fixture.project,
+      {
+        name: "Community Workspace",
+        description: "The shared Lapis community experience.",
+        channelId: "general-projects",
+        listing: "unlisted",
+      },
+    );
   }}
 />
 
@@ -704,10 +724,10 @@ index 3333333..4444444 100644
     ],
     currentMemberId: projectStoryOwner,
     onSelectChannel,
-    onUpdateProject,
+    onUpdateProject: onRemoveProjectChannel,
   }}
   play={async ({ canvas, canvasElement }) => {
-    onUpdateProject.mockClear();
+    onRemoveProjectChannel.mockClear();
     const channel = canvas.getByRole("button", {
       name: /#general Plan and coordinate the Community client/u,
     });
@@ -740,13 +760,16 @@ index 3333333..4444444 100644
         name: "Remove from project",
       }),
     );
-    await expect(onUpdateProject).toHaveBeenLastCalledWith(fixture.project, {
-      name: "Community Client",
-      description: "The shared Lapis community experience.",
-      channelId: "general-projects",
-      listing: "listed",
-      relatedChannelIds: [],
-    });
+    await expect(onRemoveProjectChannel).toHaveBeenLastCalledWith(
+      fixture.project,
+      {
+        name: "Community Client",
+        description: "The shared Lapis community experience.",
+        channelId: "general-projects",
+        listing: "listed",
+        relatedChannelIds: [],
+      },
+    );
   }}
 />
 
@@ -808,9 +831,13 @@ index 3333333..4444444 100644
     onMergePullRequest,
     onAddPullRequestComment,
     onAddInlineComment,
+    onSubmitPullRequestReview,
+    onUpdatePullRequestLifecycle,
     onTogglePullRequestCommentReaction,
+    reviewPreferenceStore,
+    reviewPreferenceScope,
   }}
-  play={async ({ canvas }) => {
+  play={async ({ canvas, canvasElement }) => {
     await expect(
       canvas.getByRole("heading", {
         name: /Add project file and diff views/,
@@ -822,9 +849,30 @@ index 3333333..4444444 100644
     await expect(mergeButton).toBeEnabled();
     await userEvent.click(mergeButton);
     await expect(onMergePullRequest).toHaveBeenCalledWith(fixture.pullRequest);
+    const filesChanged = canvas.getByRole("button", {
+      name: "Files changed",
+    });
+    await userEvent.click(filesChanged);
+    await expect(getComputedStyle(filesChanged).position).toBe("sticky");
+    await expect(getComputedStyle(filesChanged).top).toBe("0px");
+    await expect(getComputedStyle(filesChanged).borderBottomWidth).toBe("0px");
+    const changedFilesToolbar = canvas
+      .getByText("2 changed files")
+      .closest<HTMLElement>(".community-projects__diff-summary");
+    if (!changedFilesToolbar)
+      throw new Error("Expected the changed-files toolbar");
+    await expect(getComputedStyle(changedFilesToolbar).top).toBe("40px");
+    const diffLayout = changedFilesToolbar.nextElementSibling as HTMLElement;
     await userEvent.click(
-      canvas.getByRole("button", { name: "Files changed" }),
+      canvas.getAllByRole("button", { name: "Hide changed files" })[0]!,
     );
+    await expect(diffLayout).toHaveAttribute("data-file-list-open", "false");
+    await expect(canvas.queryByLabelText("Changed files")).toBeNull();
+    await userEvent.click(
+      canvas.getAllByRole("button", { name: "Show changed files" })[0]!,
+    );
+    await expect(diffLayout).toHaveAttribute("data-file-list-open", "true");
+    await expect(canvas.getByLabelText("Changed files")).toBeVisible();
     await expect(canvas.getByLabelText("Message from You")).toHaveTextContent(
       "Can we retain a note explaining why projects were disabled?",
     );
@@ -874,6 +922,106 @@ index 3333333..4444444 100644
       line: 2,
       content: "Please keep this flag documented.",
     });
+
+    const filter = canvas.getByRole("searchbox", {
+      name: "Filter changed files",
+    });
+    await userEvent.type(filter, "readme");
+    const readmeFile = canvas.getByRole("button", { name: "README.md" });
+    await userEvent.click(readmeFile);
+    await userEvent.click(readmeFile);
+    const readmeSection = canvas
+      .getByTitle("README.md")
+      .closest("[data-ui-part='file-section']");
+    await expect(readmeSection).toHaveAttribute("data-selected", "true");
+    await userEvent.click(
+      canvas.getByRole("checkbox", { name: "Mark README.md as viewed" }),
+    );
+    await expect(canvas.getByText("1 of 2 viewed")).toBeVisible();
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Collapse README.md" }),
+    );
+    await expect(canvas.queryByText("Project collaboration")).toBeNull();
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Expand README.md" }),
+    );
+
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Diff settings" }),
+    );
+    const body = within(canvasElement.ownerDocument.body);
+    await userEvent.click(
+      body.getByRole("menuitemradio", { name: "Split diff" }),
+    );
+    await expect(
+      canvas
+        .getByTitle("README.md")
+        .closest("[data-ui-component='file-diff-composer']"),
+    ).toBeVisible();
+
+    const submitReview = canvas.getByRole("button", {
+      name: "Submit review",
+    });
+    submitReview.scrollIntoView({ block: "center" });
+    await expect(submitReview).toBeEnabled();
+    submitReview.focus();
+    await expect(submitReview).toHaveFocus();
+    await userEvent.keyboard("{Enter}");
+    const dialog = body.getByRole("dialog", { name: "Submit review" });
+    const reviewEditor = within(dialog).getByRole("textbox", {
+      name: "Markdown editor",
+    });
+    const reviewDecision = within(dialog).getByRole("group", {
+      name: "Review decision",
+    });
+    await expect(reviewEditor.getBoundingClientRect().top).toBeLessThan(
+      reviewDecision.getBoundingClientRect().top,
+    );
+    const dialogClose = within(dialog).getByRole("button", { name: "Close" });
+    const dialogCloseIcon = dialogClose.querySelector("svg");
+    await expect(dialogCloseIcon).not.toBeNull();
+    await expect(getComputedStyle(dialogCloseIcon!).width).toBe("12px");
+    await expect(dialogClose).toHaveAttribute("data-variant", "ghost");
+    const closeBackground = getComputedStyle(dialogClose).backgroundColor;
+    dialogClose.focus();
+    await waitFor(() =>
+      expect(getComputedStyle(dialogClose).backgroundColor).not.toBe(
+        closeBackground,
+      ),
+    );
+    await userEvent.click(
+      within(dialog).getByRole("radio", { name: "Request changes" }),
+    );
+    await userEvent.type(reviewEditor, "Please cover the filtered file path.");
+    await userEvent.click(
+      within(dialog).getByRole("button", { name: "Request changes" }),
+    );
+    await expect(onSubmitPullRequestReview).toHaveBeenCalledWith(
+      fixture.pullRequest,
+      {
+        decision: "changes-requested",
+        content: "Please cover the filtered file path.",
+      },
+    );
+    await waitFor(() =>
+      expect(
+        body.queryByRole("dialog", { name: "Submit review" }),
+      ).not.toBeInTheDocument(),
+    );
+    const closePullRequest = canvas.getByRole("button", { name: "Close" });
+    closePullRequest.focus();
+    await userEvent.keyboard("{Enter}");
+    const closeDialog = body.getByRole("alertdialog", {
+      name: "Close pull request?",
+    });
+    await expect(closeDialog).toBeVisible();
+    await userEvent.click(
+      within(closeDialog).getByRole("button", { name: "Close pull request" }),
+    );
+    await expect(onUpdatePullRequestLifecycle).toHaveBeenCalledWith(
+      fixture.pullRequest,
+      "closed",
+    );
   }}
 />
 
@@ -885,9 +1033,11 @@ index 3333333..4444444 100644
     pullRequestDiffError: "The relay could not load this comparison",
   }}
   play={async ({ canvas }) => {
-    await userEvent.click(
-      canvas.getByRole("button", { name: "Files changed" }),
-    );
+    const filesChanged = canvas.getByRole("button", {
+      name: "Files changed",
+    });
+    filesChanged.focus();
+    await userEvent.keyboard("{Enter}");
     await expect(canvas.getByRole("alert")).toHaveTextContent(
       "The relay could not load this comparison",
     );

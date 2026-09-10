@@ -65,6 +65,12 @@ not be cached, and a successful forge mutation MUST invalidate that cache.
 Provider merge commands MUST bind the full expected pull-request head in their
 NIP-98-authenticated JSON payload and poll the relay operation outside the read
 cache until it explicitly completes or fails.
+Submitted pull-request reviews MUST remain signed kind `1` collaboration
+events rooted at the pull request and repository, bind the reviewed commit with
+`c`, and use exactly one `t` value: `review-comment`, `approval`, or
+`changes-requested`. Line comments MUST retain the existing
+`inline-comment`, `file`, `side`, and `line` tags so the relay can map
+them to provider-native review comments without changing Nostr authorship.
 GitHub connection creation, complete replacement, and revalidation MUST sign
 the exact relay forge endpoint and HTTP method with NIP-98. Requests containing
 connection configuration MUST bind the complete JSON payload, while a

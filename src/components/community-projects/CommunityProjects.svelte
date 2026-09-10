@@ -5,14 +5,19 @@
     FileListing,
     FileListingViewModeToggle,
     resolveDiffLanguage,
+    type FileDiffComposerFileContext,
+    type FileDiffFileScrollTarget,
     type FileDiffLineContext,
+    type FileDiffViewMode,
     type FileListingViewMode,
   } from "@lapismd/design-core/diff";
   import { AppShell } from "@lapismd/design-core/shell";
   import * as Alert from "@lapismd/design-core/shadcn/alert";
+  import * as AlertDialog from "@lapismd/design-core/shadcn/alert-dialog";
   import * as Breadcrumb from "@lapismd/design-core/shadcn/breadcrumb";
   import { Button } from "@lapismd/design-core/shadcn/button";
   import * as ButtonGroup from "@lapismd/design-core/shadcn/button-group";
+  import { Checkbox } from "@lapismd/design-core/shadcn/checkbox";
   import { CodeBlock } from "@lapismd/design-core/shadcn/code-block";
   import * as Collapsible from "@lapismd/design-core/shadcn/collapsible";
   import * as Command from "@lapismd/design-core/shadcn/command";
@@ -57,8 +62,11 @@
   import MessageSquareIcon from "@lucide/svelte/icons/message-square";
   import MessageSquarePlusIcon from "@lucide/svelte/icons/message-square-plus";
   import EllipsisVerticalIcon from "@lucide/svelte/icons/ellipsis-vertical";
+  import PanelLeftCloseIcon from "@lucide/svelte/icons/panel-left-close";
+  import PanelLeftOpenIcon from "@lucide/svelte/icons/panel-left-open";
   import PlusIcon from "@lucide/svelte/icons/plus";
   import RotateCcwIcon from "@lucide/svelte/icons/rotate-ccw";
+  import Settings2Icon from "@lucide/svelte/icons/settings-2";
   import UnlinkIcon from "@lucide/svelte/icons/unlink";
   import UserIcon from "@lucide/svelte/icons/user";
   import UserRoundPlusIcon from "@lucide/svelte/icons/user-round-plus";
@@ -76,8 +84,10 @@
     type ProjectForgeGitHubConnectionInput,
     type ProjectForgeGitHubRepository,
     type ProjectForgeRefsResponse,
+    type ProjectReviewViewedFilesScope,
     type PullRequestState,
     type PullRequestComment,
+    type PullRequestReviewKind,
   } from "../../projects/index.js";
   import CommunityChatComposer from "../community-chat-composer/CommunityChatComposer.svelte";
   import CommunityChip from "../community-chip/CommunityChip.svelte";
@@ -104,6 +114,7 @@
     repositoryBrowserEntries,
     repositoryParentPath,
   } from "./repository-browser.js";
+  import "../community-confirm-dialog.css";
   import "./CommunityProjects.css";
 
   let {
@@ -134,6 +145,8 @@
     rooms = [],
     communityEmojis = [],
     currentMemberId,
+    reviewPreferenceStore,
+    reviewPreferenceScope,
     loading = false,
     cachedCatalogAt,
     error = "",
@@ -174,6 +187,7 @@
     onClosePullRequest,
     onApprovePullRequest,
     onRequestChanges,
+    onSubmitPullRequestReview,
     onMergePullRequest,
     onUpdatePullRequestLifecycle,
     onAddPullRequestComment,
@@ -247,6 +261,22 @@
   let reviewCommitsOpen = $state(false);
   let reviewChecksOpen = $state(false);
   let reviewActivityOpen = $state(true);
+  let reviewFileFilter = $state("");
+  let reviewFileListOpen = $state(true);
+  let selectedReviewFilePath = $state("");
+  let collapsedReviewFilePaths = $state<string[]>([]);
+  let viewedReviewFilePaths = $state<string[]>([]);
+  let reviewDiffViewMode = $state<FileDiffViewMode>("unified");
+  let reviewFileScrollTarget = $state<FileDiffFileScrollTarget | null>(null);
+  let reviewSubmissionOpen = $state(false);
+  let reviewSubmissionDecision = $state<PullRequestReviewKind>("comment");
+  let reviewSubmissionBody = $state("");
+  let reviewSubmissionError = $state("");
+  let reviewCloseConfirmationOpen = $state(false);
+  let reviewCloseError = $state("");
+  let selectedReviewPreferenceKey = "";
+  const anonymousViewedReviewFiles = new Map<string, string[]>();
+  let anonymousReviewDiffViewMode: FileDiffViewMode = "unified";
   let commitFilesOpen = $state(true);
   let commitFileFilter = $state("");
   let selectedCommitFilePath = $state("");
@@ -408,6 +438,19 @@
         )?.patch ??
         "",
     })) ?? [],
+  );
+  const visibleProjectDiffFiles = $derived(
+    reviewFileFilter.trim()
+      ? projectDiffFiles.filter((file) =>
+          file.path
+            .toLocaleLowerCase()
+            .includes(reviewFileFilter.trim().toLocaleLowerCase()),
+        )
+      : projectDiffFiles,
+  );
+  const viewedReviewFileCount = $derived(
+    projectDiffFiles.filter((file) => viewedReviewFilePaths.includes(file.path))
+      .length,
   );
   const selectedCommitValue = $derived(
     selectedCommitDetail?.commit ?? selectedCommit,
@@ -665,8 +708,54 @@
     reviewCommitsOpen = false;
     reviewChecksOpen = false;
     reviewActivityOpen = true;
+    reviewFileFilter = "";
+    selectedReviewFilePath = "";
+    collapsedReviewFilePaths = [];
+    viewedReviewFilePaths = [];
+    reviewFileScrollTarget = null;
+    reviewSubmissionOpen = false;
+    reviewSubmissionDecision = "comment";
+    reviewSubmissionBody = "";
+    reviewSubmissionError = "";
+    reviewCloseConfirmationOpen = false;
+    reviewCloseError = "";
+    selectedReviewPreferenceKey = "";
     pullRequestMergeError = "";
     pullRequestMergeStatus = "";
+  });
+
+  $effect(() => {
+    const pullRequest = selectedPullRequest;
+    if (!pullRequest) return;
+    const base = pullRequestDiff?.base || pullRequest.mergeBase;
+    const head = pullRequestDiff?.head || pullRequest.currentCommit;
+    const fileSignature = projectDiffFiles.map((file) => file.path).join("\0");
+    const scopeKey = reviewPreferenceScope
+      ? `${reviewPreferenceScope.relayUrl}:${reviewPreferenceScope.communityId}:${reviewPreferenceScope.memberId}`
+      : "anonymous";
+    const preferenceKey = [
+      scopeKey,
+      pullRequest.repository.coordinate,
+      pullRequest.root.id,
+      base,
+      head,
+      fileSignature,
+    ].join(":");
+    if (preferenceKey === selectedReviewPreferenceKey) return;
+    selectedReviewPreferenceKey = preferenceKey;
+
+    selectedReviewFilePath = projectDiffFiles[0]?.path ?? "";
+    collapsedReviewFilePaths = [];
+    const viewedScope = currentReviewViewedFilesScope();
+    viewedReviewFilePaths = (
+      viewedScope && reviewPreferenceStore
+        ? reviewPreferenceStore.loadViewedFiles(viewedScope)
+        : (anonymousViewedReviewFiles.get(anonymousReviewKey()) ?? [])
+    ).filter((path) => projectDiffFiles.some((file) => file.path === path));
+    reviewDiffViewMode =
+      (reviewPreferenceScope && reviewPreferenceStore
+        ? reviewPreferenceStore.loadDiffViewMode(reviewPreferenceScope)
+        : anonymousReviewDiffViewMode) ?? "unified";
   });
 
   function projectName(coordinate: string): string {
@@ -1524,6 +1613,131 @@
     return context.variant === "removed" ? "old" : "new";
   }
 
+  function currentReviewViewedFilesScope():
+    | ProjectReviewViewedFilesScope
+    | undefined {
+    if (!reviewPreferenceScope || !selectedPullRequest) return undefined;
+    return {
+      ...reviewPreferenceScope,
+      repository: selectedPullRequest.repository.coordinate,
+      pullRequestId: selectedPullRequest.root.id,
+      base: pullRequestDiff?.base || selectedPullRequest.mergeBase,
+      head: pullRequestDiff?.head || selectedPullRequest.currentCommit,
+    };
+  }
+
+  function anonymousReviewKey(): string {
+    if (!selectedPullRequest) return "";
+    return [
+      selectedPullRequest.repository.coordinate,
+      selectedPullRequest.root.id,
+      pullRequestDiff?.base || selectedPullRequest.mergeBase,
+      pullRequestDiff?.head || selectedPullRequest.currentCommit,
+    ].join(":");
+  }
+
+  function selectReviewFile(path: string): void {
+    selectedReviewFilePath = path;
+    collapsedReviewFilePaths = collapsedReviewFilePaths.filter(
+      (candidate) => candidate !== path,
+    );
+    reviewFileScrollTarget = {
+      path,
+      requestId: Number(reviewFileScrollTarget?.requestId ?? 0) + 1,
+    };
+  }
+
+  function toggleReviewFile(path: string, collapsed: boolean): void {
+    collapsedReviewFilePaths = collapsed
+      ? [...new Set([...collapsedReviewFilePaths, path])]
+      : collapsedReviewFilePaths.filter((candidate) => candidate !== path);
+  }
+
+  function setReviewFileViewed(path: string, viewed: boolean): void {
+    viewedReviewFilePaths = viewed
+      ? [...new Set([...viewedReviewFilePaths, path])]
+      : viewedReviewFilePaths.filter((candidate) => candidate !== path);
+    const scope = currentReviewViewedFilesScope();
+    if (scope && reviewPreferenceStore) {
+      reviewPreferenceStore.saveViewedFiles(scope, viewedReviewFilePaths);
+      return;
+    }
+    anonymousViewedReviewFiles.set(anonymousReviewKey(), viewedReviewFilePaths);
+  }
+
+  function setReviewDiffViewMode(value: string | undefined): void {
+    if (value !== "unified" && value !== "split") return;
+    reviewDiffViewMode = value;
+    if (reviewPreferenceScope && reviewPreferenceStore) {
+      reviewPreferenceStore.saveDiffViewMode(reviewPreferenceScope, value);
+    } else {
+      anonymousReviewDiffViewMode = value;
+    }
+  }
+
+  function openReviewSubmission(): void {
+    reviewSubmissionDecision = "comment";
+    reviewSubmissionBody = "";
+    reviewSubmissionError = "";
+    reviewSubmissionOpen = true;
+  }
+
+  async function submitPullRequestReview(): Promise<void> {
+    if (!selectedPullRequest) return;
+    const content = reviewSubmissionBody.trim();
+    if (reviewSubmissionDecision !== "approved" && content === "") {
+      reviewSubmissionError =
+        reviewSubmissionDecision === "comment"
+          ? "Add a comment before submitting the review."
+          : "Explain the changes you are requesting.";
+      return;
+    }
+    reviewSubmissionError = "";
+    try {
+      if (onSubmitPullRequestReview) {
+        await onSubmitPullRequestReview(selectedPullRequest, {
+          decision: reviewSubmissionDecision,
+          content,
+        });
+      } else if (reviewSubmissionDecision === "approved") {
+        await onApprovePullRequest?.(selectedPullRequest);
+      } else if (reviewSubmissionDecision === "changes-requested") {
+        await onRequestChanges?.(selectedPullRequest);
+      } else {
+        await onAddPullRequestComment?.(selectedPullRequest, content);
+      }
+      reviewSubmissionOpen = false;
+      reviewSubmissionBody = "";
+    } catch (cause) {
+      reviewSubmissionError =
+        cause instanceof Error ? cause.message : "The review could not be sent";
+    }
+  }
+
+  function updateSelectedPullRequestLifecycle(): void {
+    if (!selectedPullRequest || !onUpdatePullRequestLifecycle) return;
+    if (selectedPullRequest.lifecycle === "closed") {
+      void onUpdatePullRequestLifecycle(selectedPullRequest, "open");
+      return;
+    }
+    reviewCloseError = "";
+    reviewCloseConfirmationOpen = true;
+  }
+
+  async function confirmClosePullRequest(): Promise<void> {
+    if (!selectedPullRequest || !onUpdatePullRequestLifecycle) return;
+    reviewCloseError = "";
+    try {
+      await onUpdatePullRequestLifecycle(selectedPullRequest, "closed");
+      reviewCloseConfirmationOpen = false;
+    } catch (cause) {
+      reviewCloseError =
+        cause instanceof Error
+          ? cause.message
+          : "The pull request could not be closed";
+    }
+  }
+
   function inlineCommentMatches(
     comment: PullRequestComment,
     context: FileDiffLineContext,
@@ -2215,6 +2429,7 @@
       class="community-projects"
       data-ui-component="community-projects"
       data-view={view}
+      data-detail={selectedPullRequest ? "review" : undefined}
       aria-busy={loading}
       aria-label={selectedProject
         ? `${selectedProject.name} project workspace`
@@ -3147,11 +3362,11 @@
               </Collapsible.Root>
             {/if}
             <Collapsible.Root
-              class="community-projects__review-section"
+              class="community-projects__review-section community-projects__review-section--files"
               bind:open={reviewFilesOpen}
             >
               <Collapsible.Trigger
-                class="community-projects__review-section-trigger"
+                class="community-projects__review-section-trigger community-projects__review-section-trigger--files"
               >
                 <span>Files changed</span>
                 {#if reviewFilesOpen}
@@ -3175,33 +3390,128 @@
                   {@render projectSourceError(pullRequestDiffError)}
                 {:else if pullRequestDiff}
                   <div class="community-projects__diff-summary">
-                    <strong>{pullRequestDiff.files.length} changed files</strong
-                    >
-                    <FileChangeStats
-                      additions={pullRequestDiff.files.reduce(
-                        (total, file) => total + file.additions,
-                        0,
-                      )}
-                      deletions={pullRequestDiff.files.reduce(
-                        (total, file) => total + file.deletions,
-                        0,
-                      )}
-                    />
-                  </div>
-                  <div class="community-projects__diff-layout">
-                    <aside aria-label="Changed files">
-                      <div class="community-projects__changed-files-toolbar">
-                        <span>Files</span>
-                        <FileListingViewModeToggle
-                          bind:mode={diffFileListMode}
-                        />
-                      </div>
-                      <FileListing
-                        files={projectDiffFiles}
-                        mode={diffFileListMode}
+                    <span class="community-projects__diff-summary-copy">
+                      <strong
+                        >{pullRequestDiff.files.length} changed files</strong
+                      >
+                      <span
+                        >{viewedReviewFileCount} of {pullRequestDiff.files
+                          .length}
+                        viewed</span
+                      >
+                    </span>
+                    <span class="community-projects__diff-summary-actions">
+                      <FileChangeStats
+                        additions={pullRequestDiff.files.reduce(
+                          (total, file) => total + file.additions,
+                          0,
+                        )}
+                        deletions={pullRequestDiff.files.reduce(
+                          (total, file) => total + file.deletions,
+                          0,
+                        )}
                       />
-                    </aside>
+                      <DropdownMenu.Root>
+                        <DropdownMenu.Trigger>
+                          {#snippet child({ props })}
+                            <Button
+                              {...props}
+                              type="button"
+                              variant="outline"
+                              size="icon-sm"
+                              aria-label="Diff settings"
+                              title="Diff settings"
+                            >
+                              <Settings2Icon aria-hidden="true" />
+                            </Button>
+                          {/snippet}
+                        </DropdownMenu.Trigger>
+                        <DropdownMenu.Content align="end" sideOffset={4}>
+                          <DropdownMenu.Label>Diff layout</DropdownMenu.Label>
+                          <DropdownMenu.RadioGroup
+                            value={reviewDiffViewMode}
+                            onValueChange={setReviewDiffViewMode}
+                          >
+                            <DropdownMenu.RadioItem value="unified">
+                              Unified diff
+                            </DropdownMenu.RadioItem>
+                            <DropdownMenu.RadioItem value="split">
+                              Split diff
+                            </DropdownMenu.RadioItem>
+                          </DropdownMenu.RadioGroup>
+                        </DropdownMenu.Content>
+                      </DropdownMenu.Root>
+                    </span>
+                  </div>
+                  <div
+                    class="community-projects__diff-layout"
+                    data-file-list-open={reviewFileListOpen}
+                  >
+                    {#if reviewFileListOpen}
+                      <aside aria-label="Changed files">
+                        <Input
+                          type="search"
+                          bind:value={reviewFileFilter}
+                          class="community-projects__changed-files-filter"
+                          aria-label="Filter changed files"
+                          placeholder="Filter changed files"
+                        />
+                        <div class="community-projects__changed-files-toolbar">
+                          <span>Files</span>
+                          <FileListingViewModeToggle
+                            bind:mode={diffFileListMode}
+                          />
+                        </div>
+                        <FileListing
+                          files={visibleProjectDiffFiles}
+                          mode={diffFileListMode}
+                          selectedPath={selectedReviewFilePath}
+                          onSelectPath={selectReviewFile}
+                        />
+                      </aside>
+                    {/if}
                     <div class="community-projects__diff-content">
+                      {#snippet reviewFileHeaderLeading(
+                        _context: FileDiffComposerFileContext,
+                      )}
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon-xs"
+                          aria-label={reviewFileListOpen
+                            ? "Hide changed files"
+                            : "Show changed files"}
+                          title={reviewFileListOpen
+                            ? "Hide changed files"
+                            : "Show changed files"}
+                          onclick={() =>
+                            (reviewFileListOpen = !reviewFileListOpen)}
+                        >
+                          {#if reviewFileListOpen}
+                            <PanelLeftCloseIcon aria-hidden="true" />
+                          {:else}
+                            <PanelLeftOpenIcon aria-hidden="true" />
+                          {/if}
+                        </Button>
+                      {/snippet}
+                      {#snippet reviewFileHeader(
+                        context: FileDiffComposerFileContext,
+                      )}
+                        <label class="community-projects__viewed-file">
+                          <Checkbox
+                            checked={viewedReviewFilePaths.includes(
+                              context.path,
+                            )}
+                            onCheckedChange={(checked) =>
+                              setReviewFileViewed(
+                                context.path,
+                                checked === true,
+                              )}
+                            aria-label={"Mark " + context.path + " as viewed"}
+                          />
+                          <span>Viewed</span>
+                        </label>
+                      {/snippet}
                       {#snippet lineComment(context: FileDiffLineContext)}
                         {#if context.lineNumber !== null}
                           <Button
@@ -3318,7 +3628,15 @@
                         {/if}
                       {/snippet}
                       <FileDiffComposer
-                        files={projectDiffFiles}
+                        files={visibleProjectDiffFiles}
+                        viewMode={reviewDiffViewMode}
+                        selectedPath={selectedReviewFilePath}
+                        collapsedFilePaths={collapsedReviewFilePaths}
+                        scrollToFile={reviewFileScrollTarget}
+                        stickyHeaders
+                        onFileToggle={toggleReviewFile}
+                        fileHeaderLeading={reviewFileHeaderLeading}
+                        fileHeaderTrailing={reviewFileHeader}
                         lineAccessory={lineComment}
                         lineAnnotation={inlineDiscussion}
                       />
@@ -3525,37 +3843,30 @@
                     ></span>
                     <Button
                       type="button"
-                      variant="ghost"
+                      variant="outline"
                       size="sm"
-                      disabled={!canCollaborate || busy}
-                      onclick={() => onRequestChanges?.(selectedPullRequest)}
-                      >Request changes</Button
+                      disabled={!canCollaborate ||
+                        busy ||
+                        (!onSubmitPullRequestReview &&
+                          !onAddPullRequestComment &&
+                          !onApprovePullRequest &&
+                          !onRequestChanges)}
+                      onclick={openReviewSubmission}
                     >
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      disabled={!canCollaborate || busy}
-                      onclick={() =>
-                        onApprovePullRequest?.(selectedPullRequest)}
-                      ><CheckIcon data-icon="inline-start" aria-hidden="true" />
-                      Approve</Button
-                    >
+                      <CheckIcon data-icon="inline-start" aria-hidden="true" />
+                      Submit review
+                    </Button>
                     {#if onUpdatePullRequestLifecycle}
                       <Button
                         type="button"
-                        variant="ghost"
+                        variant={selectedPullRequest.lifecycle === "closed"
+                          ? "outline"
+                          : "destructive"}
                         size="sm"
                         disabled={!canCollaborate ||
                           busy ||
                           selectedPullRequest.lifecycle === "merged"}
-                        onclick={() =>
-                          onUpdatePullRequestLifecycle?.(
-                            selectedPullRequest,
-                            selectedPullRequest.lifecycle === "closed"
-                              ? "open"
-                              : "closed",
-                          )}
+                        onclick={updateSelectedPullRequestLifecycle}
                         >{selectedPullRequest.lifecycle === "closed"
                           ? "Reopen"
                           : "Close"}</Button
@@ -4273,6 +4584,154 @@
     </section>
   </AppShell.Body>
 {/if}
+
+<Dialog.Root bind:open={reviewSubmissionOpen}>
+  <Dialog.Content class="community-projects__review-submission-dialog">
+    <div class="community-projects__review-submission-form">
+      <Dialog.Header>
+        <Dialog.Title>Submit review</Dialog.Title>
+        <Dialog.Description>
+          Publish one signed review decision to the relay. Connected providers
+          can mirror it as a native review.
+        </Dialog.Description>
+      </Dialog.Header>
+      <Field.Group class="community-projects__review-submission-fields">
+        <Field.Field data-invalid={reviewSubmissionError ? "" : undefined}>
+          <Field.Label>
+            Review
+            {#if reviewSubmissionDecision === "approved"}
+              <span>Optional</span>
+            {/if}
+          </Field.Label>
+          <CommunityChatComposer
+            class="community-projects__review-submission-composer"
+            bind:value={reviewSubmissionBody}
+            ariaLabel="Review"
+            placeholder={reviewSubmissionDecision === "approved"
+              ? "Leave an optional approval note…"
+              : reviewSubmissionDecision === "changes-requested"
+                ? "Explain what needs to change…"
+                : "Leave a review comment…"}
+            {members}
+            {rooms}
+            {communityEmojis}
+            {...currentMemberId === undefined ? {} : { currentMemberId }}
+            {busy}
+            disabled={!canCollaborate}
+            disabledReason="Sign in to submit a review"
+            showSubmitButton={false}
+          />
+          <Field.Description>
+            {reviewSubmissionDecision === "approved"
+              ? "An approval can be submitted without a message."
+              : "A message is required for this review decision."}
+          </Field.Description>
+          {#if reviewSubmissionError}
+            <Field.Error>{reviewSubmissionError}</Field.Error>
+          {/if}
+        </Field.Field>
+        <fieldset class="community-projects__review-decision">
+          <legend>Review decision</legend>
+          <label class="community-projects__review-decision-option">
+            <input
+              type="radio"
+              name="project-review-decision"
+              value="comment"
+              aria-label="Comment"
+              bind:group={reviewSubmissionDecision}
+              onchange={() => (reviewSubmissionError = "")}
+            />
+            <span>
+              <strong>Comment</strong>
+              <small>Submit general feedback without explicit approval.</small>
+            </span>
+          </label>
+          <label class="community-projects__review-decision-option">
+            <input
+              type="radio"
+              name="project-review-decision"
+              value="approved"
+              aria-label="Approve"
+              bind:group={reviewSubmissionDecision}
+              onchange={() => (reviewSubmissionError = "")}
+            />
+            <span>
+              <strong>Approve</strong>
+              <small>Submit feedback and approve these changes.</small>
+            </span>
+          </label>
+          <label class="community-projects__review-decision-option">
+            <input
+              type="radio"
+              name="project-review-decision"
+              value="changes-requested"
+              aria-label="Request changes"
+              bind:group={reviewSubmissionDecision}
+              onchange={() => (reviewSubmissionError = "")}
+            />
+            <span>
+              <strong>Request changes</strong>
+              <small>
+                Submit feedback that must be addressed before merging.
+              </small>
+            </span>
+          </label>
+        </fieldset>
+      </Field.Group>
+      <Dialog.Footer>
+        <Button
+          type="button"
+          variant="outline"
+          disabled={busy}
+          onclick={() => (reviewSubmissionOpen = false)}>Cancel</Button
+        >
+        <Button
+          type="button"
+          disabled={busy ||
+            (reviewSubmissionDecision !== "approved" &&
+              reviewSubmissionBody.trim() === "")}
+          onclick={submitPullRequestReview}
+        >
+          {busy
+            ? operation
+            : reviewSubmissionDecision === "approved"
+              ? "Submit approval"
+              : reviewSubmissionDecision === "changes-requested"
+                ? "Request changes"
+                : "Submit comment"}
+        </Button>
+      </Dialog.Footer>
+    </div>
+  </Dialog.Content>
+</Dialog.Root>
+
+<AlertDialog.Root bind:open={reviewCloseConfirmationOpen}>
+  <AlertDialog.Content class="community-confirm-dialog">
+    <AlertDialog.Header>
+      <AlertDialog.Title>Close pull request?</AlertDialog.Title>
+      <AlertDialog.Description>
+        This closes {selectedPullRequest?.title ?? "the pull request"} without merging
+        it. It can be reopened later.
+      </AlertDialog.Description>
+    </AlertDialog.Header>
+    {#if reviewCloseError}
+      <p class="community-projects__review-merge-error" role="alert">
+        {reviewCloseError}
+      </p>
+    {/if}
+    <AlertDialog.Footer>
+      <AlertDialog.Cancel disabled={busy}>Cancel</AlertDialog.Cancel>
+      <Button
+        type="button"
+        variant="destructive"
+        disabled={busy}
+        onclick={confirmClosePullRequest}
+      >
+        {busy ? "Closing…" : "Close pull request"}
+      </Button>
+    </AlertDialog.Footer>
+  </AlertDialog.Content>
+</AlertDialog.Root>
 
 <Dialog.Root bind:open={projectDialogOpen} onOpenChange={resetError}>
   <Dialog.Content class="community-projects__project-dialog">

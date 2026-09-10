@@ -17,12 +17,15 @@ import type {
   ProjectForgePullRequestDiff,
   ProjectForgeRepository,
   ProjectForgeRepositoryCapabilitiesByCoordinate,
+  ProjectReviewPreferenceScope,
+  ProjectReviewPreferenceStore,
   ProjectForgeRefsResponse,
   ProjectForgeOverviewSurface,
   ProjectForgeSurface,
   ProjectForgeTreeResponse,
   ProjectTaskState,
   PullRequestComment,
+  PullRequestReviewKind,
   PullRequestState,
 } from "../../projects/index.js";
 import type {
@@ -134,6 +137,10 @@ export interface CommunityProjectsProps {
   rooms?: readonly CommunityRoomModel[];
   communityEmojis?: readonly CommunityCustomEmoji[];
   currentMemberId?: string;
+  /** Browser persistence for signed-in review preferences. */
+  reviewPreferenceStore?: ProjectReviewPreferenceStore;
+  /** Relay, community, and signed-in member scope for persisted review state. */
+  reviewPreferenceScope?: ProjectReviewPreferenceScope;
   loading?: boolean;
   /** Epoch milliseconds for a verified catalog restored before live refresh. */
   cachedCatalogAt?: number;
@@ -211,8 +218,14 @@ export interface CommunityProjectsProps {
   ) => Promise<ProjectForgeRefsResponse>;
   onSelectPullRequest?: (pullRequest: PullRequestState) => void;
   onClosePullRequest?: () => void;
+  /** @deprecated Use `onSubmitPullRequestReview`. */
   onApprovePullRequest?: (pullRequest: PullRequestState) => Promise<void>;
+  /** @deprecated Use `onSubmitPullRequestReview`. */
   onRequestChanges?: (pullRequest: PullRequestState) => Promise<void>;
+  onSubmitPullRequestReview?: (
+    pullRequest: PullRequestState,
+    review: { decision: PullRequestReviewKind; content: string },
+  ) => Promise<void>;
   onMergePullRequest?: (pullRequest: PullRequestState) => Promise<void>;
   onUpdatePullRequestLifecycle?: (
     pullRequest: PullRequestState,

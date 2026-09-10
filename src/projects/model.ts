@@ -115,6 +115,7 @@ export interface ProjectTaskState {
 
 export type PullRequestLifecycle = "open" | "merged" | "closed" | "draft";
 export type PullRequestDecisionKind = "approved" | "changes-requested";
+export type PullRequestReviewKind = "comment" | PullRequestDecisionKind;
 export type PullRequestDecisionStatus = "current" | "historical";
 export type PullRequestInlineStatus = "current" | "outdated";
 

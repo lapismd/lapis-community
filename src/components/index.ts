@@ -74,6 +74,7 @@ export type {
   CommunityProjectsCreateTask,
   CommunityProjectsOptions,
   CommunityProjectsProps,
+  CommunityProjectsUpdateProject,
 } from "./community-projects/model.js";
 export type {
   CommunityPulseHandlers,

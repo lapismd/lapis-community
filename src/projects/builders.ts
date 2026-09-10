@@ -8,6 +8,7 @@ import {
   type ProjectForgeRepository,
   type PullRequestDecisionKind,
   type PullRequestInlineAnchor,
+  type PullRequestReviewKind,
 } from "./model.js";
 
 export interface CreateProjectInput {
@@ -424,9 +425,33 @@ export function createReviewDecisionTemplate(
   content = "",
   createdAt = unixNow(),
 ): NostrEventTemplate {
+  return createPullRequestReviewTemplate(
+    root,
+    repository,
+    decision,
+    commit,
+    content,
+    createdAt,
+  );
+}
+
+export function createPullRequestReviewTemplate(
+  root: NostrEvent,
+  repository: string,
+  review: PullRequestReviewKind,
+  commit: string | undefined,
+  content: string,
+  createdAt = unixNow(),
+): NostrEventTemplate {
   return createBuzzCommentTemplate(root, repository, content, {
     ...(commit ? { commit } : {}),
-    labels: [decision === "approved" ? "approval" : "changes-requested"],
+    labels: [
+      review === "approved"
+        ? "approval"
+        : review === "changes-requested"
+          ? "changes-requested"
+          : "review-comment",
+    ],
     createdAt,
   });
 }

@@ -65,14 +65,15 @@
     buzzWorkItemFilters,
     createAssignmentTemplate,
     createBrowserProjectForgeCatalogStore,
+    createBrowserProjectReviewPreferenceStore,
     createBuzzCommentTemplate,
     createDeletionTemplate,
     createProjectTaskAnchorTemplate,
     createProjectTemplate,
     createProjectReactionTemplate,
     createPullRequestTemplate,
+    createPullRequestReviewTemplate,
     createRepositoryTemplate,
-    createReviewDecisionTemplate,
     createTaskTemplate,
     createWorkItemStatusTemplate,
     projectForgeBranchRefs,
@@ -108,6 +109,7 @@
     type ProjectForgeWorkItems,
     type ProjectTaskState,
     type PullRequestComment,
+    type PullRequestReviewKind,
     type PullRequestState,
   } from "../../projects/index.js";
   import {
@@ -297,6 +299,11 @@
   });
   const defaultProjectCatalogStore = untrack(() =>
     createBrowserProjectForgeCatalogStore(
+      browserStorage === undefined ? {} : { storage: browserStorage },
+    ),
+  );
+  const defaultProjectReviewPreferenceStore = untrack(() =>
+    createBrowserProjectReviewPreferenceStore(
       browserStorage === undefined ? {} : { storage: browserStorage },
     ),
   );
@@ -863,6 +870,15 @@
       (connection) => connection.communityId === workspace.activeCommunityId,
     ) ?? community.state.connections[0],
   );
+  const projectReviewPreferenceScope = $derived.by(() => {
+    const relayUrl = projectsOptions?.relayUrl ?? activeConnection?.relayUrl;
+    const communityId =
+      activeConnection?.communityId ?? projectsOptions?.channelId ?? "projects";
+    const memberId = workspace.currentMemberId;
+    return relayUrl && memberId
+      ? { relayUrl, communityId, memberId }
+      : undefined;
+  });
   const hasCommunityConnection = $derived(
     community.state.status === "connected",
   );
@@ -3428,25 +3444,34 @@
     return await session.loadRefs(repositoryCoordinate);
   }
 
-  async function publishReviewDecision(
+  async function publishPullRequestReview(
     pullRequest: PullRequestState,
-    decision: "approved" | "changes-requested",
+    review: { decision: PullRequestReviewKind; content: string },
   ): Promise<void> {
     await withProjectMutation(
-      decision === "approved" ? "Publishing approval…" : "Requesting changes…",
+      review.decision === "approved"
+        ? "Publishing approval…"
+        : review.decision === "changes-requested"
+          ? "Requesting changes…"
+          : "Publishing review…",
       async (session) => {
         await session.publish(
-          createReviewDecisionTemplate(
+          createPullRequestReviewTemplate(
             pullRequest.root,
             pullRequest.repository.coordinate,
-            decision,
+            review.decision,
             pullRequest.currentCommit,
+            review.content,
           ),
         );
       },
     );
     toast.success(
-      decision === "approved" ? "Review approved" : "Changes requested",
+      review.decision === "approved"
+        ? "Review approved"
+        : review.decision === "changes-requested"
+          ? "Changes requested"
+          : "Review submitted",
     );
   }
 
@@ -5854,6 +5879,10 @@
           {...workspace.currentMemberId === undefined
             ? {}
             : { currentMemberId: workspace.currentMemberId }}
+          reviewPreferenceStore={defaultProjectReviewPreferenceStore}
+          {...projectReviewPreferenceScope === undefined
+            ? {}
+            : { reviewPreferenceScope: projectReviewPreferenceScope }}
           loading={projectLoading}
           {...cachedProjectCatalogAt === undefined
             ? {}
@@ -5877,10 +5906,7 @@
             projectPullRequestDiff = undefined;
           }}
           onClosePullRequest={closeProjectPullRequest}
-          onApprovePullRequest={(pullRequest) =>
-            publishReviewDecision(pullRequest, "approved")}
-          onRequestChanges={(pullRequest) =>
-            publishReviewDecision(pullRequest, "changes-requested")}
+          onSubmitPullRequestReview={publishPullRequestReview}
           onMergePullRequest={mergePullRequest}
           onUpdatePullRequestLifecycle={updatePullRequestLifecycle}
           onAddPullRequestComment={publishPullRequestComment}
@@ -6275,6 +6301,10 @@
         {...workspace.currentMemberId === undefined
           ? {}
           : { currentMemberId: workspace.currentMemberId }}
+        reviewPreferenceStore={defaultProjectReviewPreferenceStore}
+        {...projectReviewPreferenceScope === undefined
+          ? {}
+          : { reviewPreferenceScope: projectReviewPreferenceScope }}
         loading={projectLoading}
         {...cachedProjectCatalogAt === undefined
           ? {}
@@ -6330,10 +6360,7 @@
           projectPullRequestDiff = undefined;
         }}
         onClosePullRequest={closeProjectPullRequest}
-        onApprovePullRequest={(pullRequest) =>
-          publishReviewDecision(pullRequest, "approved")}
-        onRequestChanges={(pullRequest) =>
-          publishReviewDecision(pullRequest, "changes-requested")}
+        onSubmitPullRequestReview={publishPullRequestReview}
         onMergePullRequest={mergePullRequest}
         onUpdatePullRequestLifecycle={updatePullRequestLifecycle}
         onAddPullRequestComment={publishPullRequestComment}
