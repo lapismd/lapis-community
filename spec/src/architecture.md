@@ -198,9 +198,10 @@ application location so browser history, Community history, and restored local
 state resolve through one codec. Catalog normalization MUST preserve an
 unresolved route until loading completes; it MUST NOT infer absence from an
 empty or still-loading projection.
-Project activity projection MUST retain the event category, review outcome, and
-project coordinate needed for one deterministic feed. Presentation MAY derive
-semantic icons, status labels, and weekly totals from that projection, while
+Project activity projection MUST retain the event category, review outcome,
+assignment direction, and project coordinate needed for one deterministic
+feed. Presentation MAY derive semantic icons, status labels, and weekly totals
+from that projection, while
 project navigation MUST resolve through the existing project-selection action
 rather than introducing a second route or lookup boundary.
 

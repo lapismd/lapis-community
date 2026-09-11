@@ -101,9 +101,25 @@ describe("project workspace projection", () => {
               encoding: "buzz-kind-1",
               assignees: [],
             },
+            {
+              event: event("5", PROJECT_FORGE_KINDS.note, 14, [
+                ["e", "3".repeat(64)],
+              ]),
+              encoding: "buzz-kind-1",
+              assignment: "assign",
+              assignees: ["a".repeat(64)],
+            },
+            {
+              event: event("6", PROJECT_FORGE_KINDS.note, 15, [
+                ["e", "3".repeat(64)],
+              ]),
+              encoding: "buzz-kind-1",
+              assignment: "unassign",
+              assignees: ["a".repeat(64)],
+            },
           ],
           createdAt: 12,
-          updatedAt: 13,
+          updatedAt: 15,
         },
       ],
       pullRequests: [],
@@ -115,12 +131,24 @@ describe("project workspace projection", () => {
       workItems,
     );
     expect(activity.map((item) => item.kind)).toEqual([
+      "assignment",
+      "assignment",
       "comment",
       "task",
       "repository",
       "project",
     ]);
     expect(activity[0]).toMatchObject({
+      action: "unassigned a task in",
+      detail: "unassign",
+      title: "Prepare beta",
+    });
+    expect(activity[1]).toMatchObject({
+      action: "assigned a task in",
+      detail: "assign",
+      title: "Prepare beta",
+    });
+    expect(activity[2]).toMatchObject({
       action: "commented on a task in",
       title: "Prepare beta",
       projectCoordinate: catalog.projects[0]!.address.coordinate,

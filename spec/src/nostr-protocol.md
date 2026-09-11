@@ -123,7 +123,9 @@ Task assignee edits under LC-NOSTR-021 MUST compare the projected assignee set
 with the command selection and publish explicit assignment and removal events
 for only the changed public keys. An empty selection is a valid request to
 remove all projected assignees; UI selection state never replaces signed relay
-events as authority.
+events as authority. Project activity MUST preserve each accepted event's
+`assign` or `unassign` direction so presentation can distinguish the two
+operations without parsing a generated label.
 
 For LC-UI-030, production-component stories project signed kind `0`, `1`, `3`,
 `5`, and `7` test events through the same Pulse controller boundary used by

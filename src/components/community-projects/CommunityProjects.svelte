@@ -72,6 +72,7 @@
   import TriangleAlertIcon from "@lucide/svelte/icons/triangle-alert";
   import UnlinkIcon from "@lucide/svelte/icons/unlink";
   import UserIcon from "@lucide/svelte/icons/user";
+  import UserMinusIcon from "@lucide/svelte/icons/user-minus";
   import UserPlusIcon from "@lucide/svelte/icons/user-plus";
   import UserRoundPlusIcon from "@lucide/svelte/icons/user-round-plus";
 
@@ -2835,6 +2836,8 @@
                           <FolderKanbanIcon aria-hidden="true" />
                         {:else if item.kind === "task"}
                           <CircleDotIcon aria-hidden="true" />
+                        {:else if item.kind === "assignment" && item.detail === "unassign"}
+                          <UserMinusIcon aria-hidden="true" />
                         {:else if item.kind === "assignment"}
                           <UserPlusIcon aria-hidden="true" />
                         {:else if item.kind === "comment"}

@@ -118,6 +118,7 @@ export function buildProjectForgeActivity(
           : "commented on a task in",
         title: task.title,
         body: activity.event.content,
+        ...(activity.assignment ? { detail: activity.assignment } : {}),
         projectCoordinate: project.address.coordinate,
         repositoryCoordinate: task.repository.coordinate,
       });

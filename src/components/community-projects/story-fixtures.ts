@@ -329,6 +329,32 @@ export function createProjectStoryFixture(channelId = "general-projects") {
     "The sidebar should stay contextual and quiet as the task changes.",
     1_700_000_022,
   );
+  const taskAssignment = storyEvent(
+    "a",
+    1,
+    projectStoryOwner,
+    [
+      ["e", taskRoot.id, "", "root"],
+      ["a", projectStoryRepositoryCoordinate],
+      ["p", projectStoryAuthor],
+      ["t", "assignment"],
+    ],
+    "",
+    1_700_000_023,
+  );
+  const taskUnassignment = storyEvent(
+    "b",
+    1,
+    projectStoryOwner,
+    [
+      ["e", taskRoot.id, "", "root"],
+      ["a", projectStoryRepositoryCoordinate],
+      ["p", projectStoryAuthor],
+      ["t", "unassignment"],
+    ],
+    "",
+    1_700_000_024,
+  );
   const pullRequestRoot = storyEvent(
     "4",
     1_618,
@@ -452,15 +478,29 @@ export function createProjectStoryFixture(channelId = "general-projects") {
             encoding: "buzz-kind-1",
             assignees: [],
           },
+          {
+            event: taskAssignment,
+            encoding: "buzz-kind-1",
+            assignment: "assign",
+            assignees: [projectStoryAuthor],
+          },
+          {
+            event: taskUnassignment,
+            encoding: "buzz-kind-1",
+            assignment: "unassign",
+            assignees: [projectStoryAuthor],
+          },
         ],
         createdAt: taskRoot.created_at,
-        updatedAt: taskRoot.created_at,
+        updatedAt: taskUnassignment.created_at,
       },
     ],
     pullRequests: [pullRequest],
     events: [
       taskRoot,
       taskComment,
+      taskAssignment,
+      taskUnassignment,
       pullRequestRoot,
       reviewCommentEvent,
       inlineCommentEvent,

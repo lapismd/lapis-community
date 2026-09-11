@@ -461,6 +461,22 @@ index 3333333..4444444 100644
         '[data-activity-kind="review-request"] .lucide-user-plus',
       ),
     ).not.toBeNull();
+    const assignmentRow = canvas
+      .getByText(/^assigned a task in$/u)
+      .closest(".community-projects__activity-item");
+    await expect(
+      assignmentRow?.querySelector(
+        '[data-activity-kind="assignment"] .lucide-user-plus',
+      ),
+    ).not.toBeNull();
+    const unassignmentRow = canvas
+      .getByText(/^unassigned a task in$/u)
+      .closest(".community-projects__activity-item");
+    await expect(
+      unassignmentRow?.querySelector(
+        '[data-activity-kind="assignment"] .lucide-user-minus',
+      ),
+    ).not.toBeNull();
     const projectLink = within(reviewRequestRow as HTMLElement).getByRole(
       "button",
       { name: "Community Client" },
