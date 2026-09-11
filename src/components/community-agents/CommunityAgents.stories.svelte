@@ -15,7 +15,7 @@
           code: `<script>
   import { CommunityAgents } from "@lapismd/lapis-community/components";
 <\/script>
-<CommunityAgents model={controller.state.agents} onProfile={openProfile} onActivity={openActivity} onRefresh={controller.actions.agents.refresh} onClearHistory={() => controller.actions.agents.clearHistory()} />`,
+<CommunityAgents model={controller.state.agents} onProfile={openProfile} onActivity={openActivity} onAddAgent={controller.actions.agents.registerAgent} onRefresh={controller.actions.agents.refresh} onClearHistory={() => controller.actions.agents.clearHistory()} />`,
         },
       },
     },
@@ -35,6 +35,9 @@
     await expect(
       canvas.queryByText("Online", { exact: true }),
     ).not.toBeInTheDocument();
+    await expect(
+      canvas.getByRole("button", { name: "Add agent" }),
+    ).toBeVisible();
     const card = canvas.getByRole("button", { name: "View Research" });
     card.focus();
     await userEvent.keyboard("{Enter}");
@@ -49,6 +52,13 @@
     await expect(
       canvas.getAllByRole("button", { name: /^View / }),
     ).toHaveLength(3);
+    const addCard = canvas.getByRole("button", { name: "Add agent" });
+    await expect(addCard).toBeVisible();
+    expect(
+      addCard.compareDocumentPosition(
+        canvas.getByRole("button", { name: "View Research" }),
+      ) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
     for (const card of canvas.getAllByRole("button", { name: /^View / })) {
       const bounds = card.getBoundingClientRect();
       await expect(bounds.width / bounds.height).toBeCloseTo(0.8, 1);
@@ -57,6 +67,84 @@
         "rounded",
       );
     }
+  }}>{#snippet template()}<Harness variant="gallery" />{/snippet}</Story
+>
+<Story
+  name="Add agent"
+  play={async ({ canvas, canvasElement }) => {
+    await userEvent.click(canvas.getByRole("button", { name: "Add agent" }));
+    const body = within(canvasElement.ownerDocument.body);
+    let dialog = body.getByRole("dialog", { name: "Add agent" });
+    await expect(
+      within(dialog).getByRole("group", { name: "Agent instructions" }),
+    ).toBeVisible();
+    const imageButton = within(dialog).getByRole("button", {
+      name: "Choose agent image",
+    });
+    await userEvent.click(imageButton);
+    const imagePicker = within(dialog).getByRole("dialog", {
+      name: "Agent image picker",
+    });
+    await expect(imagePicker).toBeVisible();
+    expect(
+      imagePicker.getBoundingClientRect().top -
+        imageButton.getBoundingClientRect().bottom,
+    ).toBeCloseTo(12, 0);
+    await userEvent.click(
+      within(imagePicker).getByRole("tab", { name: "Emoji" }),
+    );
+    await expect(
+      within(imagePicker).getByRole("button", {
+        name: "Choose another agent emoji",
+      }),
+    ).toBeVisible();
+    await userEvent.click(imageButton);
+    const scrollArea = dialog.querySelector<HTMLElement>(
+      '[data-ui-component="scroll-area"][data-ui-part="scroll-area"]',
+    );
+    const scrollbar = dialog.querySelector<HTMLElement>(
+      '[data-ui-part="scroll-area-scrollbar"]',
+    );
+    const footer = dialog.querySelector<HTMLElement>(
+      '[data-slot="dialog-footer"]',
+    );
+    expect(scrollArea).not.toBeNull();
+    expect(scrollbar).not.toBeNull();
+    expect(footer).not.toBeNull();
+    expect(scrollbar!.getBoundingClientRect().right).toBeCloseTo(
+      scrollArea!.getBoundingClientRect().right,
+      0,
+    );
+    const footerTop = footer!.getBoundingClientRect().top;
+    const viewport = scrollArea!.querySelector<HTMLElement>(
+      '[data-ui-part="scroll-area-viewport"]',
+    );
+    expect(viewport).not.toBeNull();
+    viewport!.scrollTop = viewport!.scrollHeight;
+    expect(footer!.getBoundingClientRect().top).toBeCloseTo(footerTop, 0);
+    await expect(
+      within(dialog).getByLabelText("Agent public key"),
+    ).toBeVisible();
+    await userEvent.click(
+      within(dialog).getByRole("button", { name: "Add agent" }),
+    );
+    await expect(
+      within(dialog).getByText("Enter a valid hex or npub public key."),
+    ).toBeVisible();
+    await userEvent.type(
+      within(dialog).getByLabelText("Agent public key"),
+      "f".repeat(64),
+    );
+    await userEvent.click(
+      within(dialog).getByRole("button", { name: "Add agent" }),
+    );
+    await expect(canvas.getByText("Agent registration saved")).toBeVisible();
+    await waitFor(() =>
+      expect(body.queryByRole("dialog")).not.toBeInTheDocument(),
+    );
+    await expect(
+      canvas.getByRole("button", { name: "Add agent" }),
+    ).toHaveFocus();
   }}>{#snippet template()}<Harness variant="gallery" />{/snippet}</Story
 >
 <Story

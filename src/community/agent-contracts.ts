@@ -67,6 +67,7 @@ export interface CommunityAgentSession {
     following: boolean,
     signal?: AbortSignal,
   ): Promise<NostrEvent>;
+  registerAgent?(pubkey: string, signal?: AbortSignal): Promise<NostrEvent>;
 }
 
 export interface CommunityAgentArchiveScope {
@@ -156,6 +157,7 @@ export interface CommunityAgentsState {
 
 export interface CommunityAgentsActions {
   refresh(): Promise<void>;
+  registerAgent(pubkey: string): Promise<void>;
   setFollow(pubkey: string, following: boolean): Promise<void>;
   openActivity(pubkey: string, channelId?: string): Promise<void>;
   loadOlderActivity(): Promise<void>;

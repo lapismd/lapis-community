@@ -105,6 +105,7 @@ agents, and decoded windows remain bounded while older pages remain available.
 | Presence and working                        | Independent expiring signals; `turn_finished` completes a live turn          |
 | Channels                                    | Accessible relay-signed memberships and existing permission-gated add/remove |
 | Private observer activity                   | Continuous signed-in capture and encrypted device history                    |
+| Add agent                                   | Owner-signed discovery registration for an existing verified agent           |
 | Teams, personas, memories, metrics          | Protocol families supported; UI deferred                                     |
 | Start / Stop, models, defaults, runtime     | External manager required; omitted                                           |
 | Private managed-agent kind 30179            | Rejected by relay; omitted                                                   |
@@ -119,9 +120,20 @@ The main Agents navigation appears beside Projects for signed-in compatible
 sessions, with loading, empty, offline, partial-result, and retry states. Agent
 cards use a responsive 4:5 gallery with large rounded avatars, presence dots,
 bottom-aligned names and descriptions, and an Activity log menu. Working stays
-separate from presence. The gallery has no search field or creation and Start
-controls. Agent and community history clearing use destructive red buttons and
-confirmation dialogs; cancellation preserves history and failures remain retryable.
+separate from presence. The first gallery card opens Add agent in a two-tone
+Buzz-style dialog with a fixed header and footer, thin sidebar, and a shadcn
+Scroll Area whose scrollbar sits at the right edge of the form body. Its image
+picker is anchored below the square trigger, includes the shared global emoji
+picker after local presets, and sits beside a form that uses the shared
+Community chat composer for agent instructions.
+It registers an existing agent public key through the owner-authored kind
+`30177` discovery record. The image, name, description and instruction controls
+are local dialog state until Community has an agent-profile signer; the verified
+directory still requires the agent's own signed profile and ownership proof
+before showing the agent. The gallery has no search field, managed-agent
+creation, runtime configuration or Start controls. Agent and community history
+clearing use destructive red buttons and confirmation dialogs; cancellation
+preserves history and failures remain retryable.
 Profile entry points recognize verified agents and use the shared exclusive right
 sidebar. Info provides identity, owner, key copy and an activity link. Channels
 uses the viewer's room permissions; agent ownership grants no administrative

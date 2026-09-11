@@ -6519,6 +6519,8 @@
               model={community.state.agents}
               onProfile={openAgentProfile}
               onActivity={openAgentActivity}
+              onAddAgent={(pubkey) =>
+                community.actions.agents!.registerAgent(pubkey)}
               onRefresh={() => community.actions.agents!.refresh()}
               onClearHistory={() => community.actions.agents!.clearHistory()}
             />

@@ -1164,6 +1164,13 @@ export function createCommunityController(
       refresh: async () => {
         await agentController?.actions.refresh();
       },
+      registerAgent: async (pubkey) => {
+        if (!agentController)
+          throw new Error("Agent actions require a signed-in community");
+        await runOperation(`agent:register:${pubkey}`, () =>
+          agentController!.actions.registerAgent(pubkey),
+        );
+      },
       setFollow: async (pubkey, following) => {
         if (!agentController)
           throw new Error("Agent actions require a signed-in community");

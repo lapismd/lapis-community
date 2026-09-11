@@ -110,6 +110,7 @@ async function setup() {
       return { close() {} };
     },
     setFollow: async () => profile,
+    registerAgent: vi.fn(async () => profile),
   };
   const decrypt = vi.fn(async (_key: string, ciphertext: string) =>
     nip44.v2.decrypt(ciphertext, conversation),
@@ -134,6 +135,25 @@ async function setup() {
 }
 
 describe("agent activity controller", () => {
+  it("registers an existing agent and refreshes the verified directory", async () => {
+    const { controller, session } = await setup();
+    vi.mocked(session.loadDirectory).mockResolvedValueOnce({
+      agents: materializeAgentDirectory([profile], owner, relay),
+      events: [profile],
+      relayPubkey: relay,
+      capabilities: { directory: true, presence: true, activity: true },
+      partial: false,
+    });
+    await controller.actions.registerAgent(agent);
+    expect(session.registerAgent).toHaveBeenCalledWith(
+      agent,
+      expect.any(AbortSignal),
+    );
+    expect(session.loadDirectory).toHaveBeenCalledTimes(2);
+    expect(controller.state.agents.map((entry) => entry.pubkey)).toEqual([
+      agent,
+    ]);
+  });
   it("captures encrypted activity while the panel is closed and restores it on demand", async () => {
     const { controller, archive, receive } = await setup();
     const event = frame();

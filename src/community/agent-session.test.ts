@@ -165,6 +165,23 @@ describe("agent relay session", () => {
       limit: 1,
     });
   });
+  it("publishes owner-authored discovery records for registered agents", async () => {
+    const fixture = setup();
+    await expect(fixture.session.registerAgent!(agent)).resolves.toMatchObject({
+      kind: 30177,
+      pubkey: owner,
+      tags: [["d", agent]],
+      content: "{}",
+    });
+    await expect(fixture.session.registerAgent!(owner)).rejects.toThrow(
+      "own identity",
+    );
+    const writes = vi
+      .mocked(fixture.relay.publish)
+      .mock.calls.map(([event]) => event);
+    expect(writes).toHaveLength(1);
+    expect(writes[0]?.created_at).toBe(now);
+  });
   it("disables unsupported relays without making agent queries", async () => {
     const fixture = setup([1]);
     expect((await fixture.session.loadDirectory()).capabilities.directory).toBe(

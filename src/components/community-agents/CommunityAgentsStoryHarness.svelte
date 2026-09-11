@@ -100,6 +100,12 @@
     model = { ...model, archivedAgents: [], activity: [], hasOlder: false };
     notice = "Saved history cleared";
   }
+  async function addAgent(pubkey: string) {
+    attempt();
+    notice = "Agent registration saved";
+    const { error, ...rest } = model;
+    model = { ...rest, partial: false };
+  }
 </script>
 
 <div
@@ -123,6 +129,7 @@
         model = { ...model, activityAgent: pubkey };
         view = "activity";
       }}
+      onAddAgent={addAgent}
       onRefresh={() => {
         model = storyAgentState();
         notice = "Agent directory refreshed";

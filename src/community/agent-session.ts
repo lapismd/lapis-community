@@ -48,7 +48,9 @@ class AgentSession implements CommunityAgentSession {
   readonly #fetch: typeof globalThis.fetch;
   #info: RelayInfo | undefined;
   #followQueue: Promise<unknown> = Promise.resolve();
+  #registerQueue: Promise<unknown> = Promise.resolve();
   #lastFollowAt = 0;
+  #lastRegisterAt = 0;
 
   constructor(options: AgentSessionOptions) {
     this.#options = options;
@@ -444,6 +446,43 @@ class AgentSession implements CommunityAgentSession {
         return event;
       });
     this.#followQueue = result;
+    return result;
+  }
+
+  registerAgent(pubkey: string, signal?: AbortSignal): Promise<NostrEvent> {
+    const result = this.#registerQueue
+      .catch(() => undefined)
+      .then(async () => {
+        if (!AGENT_PUBKEY.test(pubkey))
+          throw new Error("Invalid agent public key");
+        const info = await this.#relayInfo(signal);
+        if (!info.capabilities.directory)
+          throw new Error("Agent registration is unavailable on this relay");
+        const owner = await this.#options.identity.getPublicKey();
+        if (pubkey === owner)
+          throw new Error("Cannot register your own identity as an agent");
+        const created_at = Math.max(this.#now(), this.#lastRegisterAt + 1);
+        if (created_at > this.#now() + 60)
+          throw new Error(
+            "Agent registration timestamp is ahead of this device; retry after checking its clock",
+          );
+        const event = await this.#sign(
+          {
+            kind: 30177,
+            created_at,
+            tags: [["d", pubkey]],
+            content: "{}",
+          },
+          signal,
+        );
+        await this.#options.authenticate(signal);
+        const publish = await this.#options.relay.publish(event, signal);
+        if (!publish.accepted)
+          throw new Error("The relay rejected the agent registration");
+        this.#lastRegisterAt = created_at;
+        return event;
+      });
+    this.#registerQueue = result;
     return result;
   }
 }

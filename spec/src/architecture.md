@@ -1,7 +1,10 @@
 # Architecture
 
 The additive agent session boundary owns authenticated discovery, transient
-subscriptions, and contact-list mutations. Its protocol rules are defined in
+subscriptions, contact-list mutations, and a serialized optional registration
+operation for owner-authored agent discovery. The controller forwards that
+operation through its existing authenticated action boundary and refreshes the
+verified directory only after relay acceptance. Its protocol rules are defined in
 [Agents and saved activity](agents.md). Custom Community sources may omit this
 boundary without changing existing behavior. The direct `@noble/curves`
 runtime dependency supplies BIP-340 verification for NIP-OA owner attestations.

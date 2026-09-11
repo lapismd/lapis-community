@@ -83,6 +83,17 @@ export class CommunityAgentsController {
           this.#state.activityChannel,
         );
     },
+    registerAgent: async (pubkey) => {
+      if (!this.#options.session.registerAgent)
+        throw new Error("Agent registration is unavailable in this runtime");
+      const event = await this.#options.session.registerAgent(
+        pubkey,
+        this.#abort.signal,
+      );
+      if (this.#closed) return;
+      this.#options.onDirectory?.([event]);
+      await this.refresh();
+    },
     setFollow: async (pubkey, following) => {
       const event = await this.#options.session.setFollow(
         pubkey,
