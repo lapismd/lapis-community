@@ -39,6 +39,7 @@ describe("projectCommunitySearchResults", () => {
         id: message.id,
         content: "Welcome to Lapis Community",
         roomId: "general",
+        createdAt: "2023-11-14T22:13:21.000Z",
       }),
     ]);
     expect(projection.members).toEqual([

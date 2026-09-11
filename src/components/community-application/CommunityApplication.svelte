@@ -178,6 +178,7 @@
   import {
     projectCommunitySearchResults,
     type CommunitySearchMessageModel,
+    type CommunitySearchScope,
   } from "../community-search-command/model.js";
   import CommunitySettingsNavigation from "../community-settings-navigation/CommunitySettingsNavigation.svelte";
   import CommunitySettings from "../community-settings/CommunitySettings.svelte";
@@ -469,7 +470,11 @@
   let statusOpen = $state(false);
   let presencePreference = $state<CommunityPresence>("online");
   let searchOpen = $state(false);
+  let appSearchInput = $state("");
   let appSearchQuery = $state("");
+  let appSearchTimer: ReturnType<typeof setTimeout> | undefined;
+  const appSearchDebounceMs = 250;
+  let agentCreatorOpen = $state(false);
   let sectionEditorOpen = $state(false);
   let sectionEditorMode = $state<"create" | "rename">("create");
   let sectionEditorId = $state("");
@@ -514,9 +519,37 @@
   let projectReloadRevision = $state(0);
 
   onDestroy(() => {
+    if (appSearchTimer !== undefined) clearTimeout(appSearchTimer);
     const lifecycle = activeProjectSessionLifecycle;
     activeProjectSessionLifecycle = undefined;
     lifecycle?.dispose();
+  });
+
+  function updateAppSearchInput(query: string): void {
+    appSearchInput = query;
+    if (appSearchTimer !== undefined) clearTimeout(appSearchTimer);
+    appSearchTimer = undefined;
+
+    if (query.trim() === "") {
+      appSearchQuery = "";
+      void community.actions.search("");
+      return;
+    }
+
+    appSearchTimer = setTimeout(() => {
+      appSearchTimer = undefined;
+      appSearchQuery = query;
+      void community.actions.search(query);
+    }, appSearchDebounceMs);
+  }
+
+  $effect(() => {
+    if (searchOpen || (appSearchInput === "" && appSearchQuery === "")) return;
+    if (appSearchTimer !== undefined) clearTimeout(appSearchTimer);
+    appSearchTimer = undefined;
+    appSearchInput = "";
+    appSearchQuery = "";
+    void community.actions.search("");
   });
   let projectOverviewInitialized = $state(false);
   const initializedChannelProjectOverviews = new Set<string>();
@@ -1261,13 +1294,7 @@
       })),
     ]),
   });
-  const searchRooms = $derived(
-    allRooms.filter((room) =>
-      `${room.name} ${room.description ?? ""}`
-        .toLocaleLowerCase()
-        .includes(appSearchQuery.toLocaleLowerCase()),
-    ),
-  );
+  const searchRooms = $derived(allRooms);
   const projectedSearchResults = $derived(
     projectCommunitySearchResults(community.state.searchResults),
   );
@@ -1301,25 +1328,101 @@
           index,
       ),
   );
-  const searchMembers = $derived(
-    [
-      ...workspace.members.filter((member) =>
-        `${member.name} ${member.handle}`
-          .toLocaleLowerCase()
-          .includes(appSearchQuery.toLocaleLowerCase()),
-      ),
-      ...projectedSearchResults.members,
-    ].filter(
+  const knownSearchMembers = $derived(
+    [...workspace.members, ...projectedSearchResults.members].filter(
       (member, index, values) =>
         values.findIndex((candidate) => candidate.id === member.id) === index,
     ),
   );
-  const searchScopeRoom = $derived(
-    activeRoom.id === activeDestination &&
-      (activeRoom.kind === "channel" || activeRoom.kind === "forum")
-      ? activeRoom
-      : undefined,
+  const searchMembers = $derived(
+    knownSearchMembers.filter((member) =>
+      `${member.name} ${member.handle}`
+        .toLocaleLowerCase()
+        .includes(appSearchQuery.toLocaleLowerCase()),
+    ),
   );
+  const searchScope = $derived.by((): CommunitySearchScope | undefined => {
+    const roomIdsFor = (channelIds: readonly string[]): string[] => {
+      const roomIds = new Set<string>();
+      for (const channelId of channelIds) {
+        roomIds.add(channelId);
+        const room = roomForProjectChannel(channelId);
+        if (room === undefined) continue;
+        roomIds.add(room.id);
+        if (room.groupId) roomIds.add(room.groupId);
+      }
+      return [...roomIds];
+    };
+
+    if (selectedRepository !== undefined) {
+      return {
+        id: `repository:${selectedRepository.address.coordinate}`,
+        kind: "repository",
+        label: selectedRepository.name,
+        roomIds: roomIdsFor([selectedRepository.channelId]),
+      };
+    }
+
+    if (selectedProject !== undefined) {
+      return {
+        id: `project:${selectedProject.address.coordinate}`,
+        kind: "project",
+        label: selectedProject.name,
+        roomIds: roomIdsFor(
+          projectForgeBoundChannels(
+            selectedProject,
+            selectedProjectRepositories,
+          ).map((binding) => binding.channelId),
+        ),
+      };
+    }
+
+    if (isProjectDirectory) {
+      return {
+        id: "projects",
+        kind: "projects",
+        label: "Projects",
+        roomIds: roomIdsFor(
+          projectCatalog.projects.flatMap((project) =>
+            projectForgeBoundChannels(
+              project,
+              project.repositories
+                .map((reference) =>
+                  projectCatalog.repositories.find(
+                    (repository) =>
+                      repository.address.coordinate === reference.coordinate,
+                  ),
+                )
+                .filter((repository) => repository !== undefined),
+            ).map((binding) => binding.channelId),
+          ),
+        ),
+      };
+    }
+
+    if (
+      hasRegistry &&
+      registryRouteFromDestination(activeDestination) !== null
+    ) {
+      return {
+        id: "registry",
+        kind: "registry",
+        label: "Registry",
+        roomIds: roomIdsFor([pluginReleaseGroupId]),
+      };
+    }
+
+    if (activeRoom.id !== activeDestination) return undefined;
+    return {
+      id: `room:${activeRoom.id}`,
+      kind: activeRoom.kind === "direct" ? "conversation" : activeRoom.kind,
+      label:
+        activeRoom.kind === "direct" ? activeRoom.name : `#${activeRoom.name}`,
+      roomIds: [activeRoom.id, activeRoom.groupId].filter(
+        (value): value is string => value !== undefined && value !== "",
+      ),
+    };
+  });
   const selectedRecipients = $derived(
     selectedRecipientIds
       .map((id) => workspace.members.find((member) => member.id === id))
@@ -6232,9 +6335,8 @@
           community.state.contentSync?.phase === "partial-error"}
         onSelect={select}
         onSearch={(query) => {
-          appSearchQuery = query;
           searchOpen = true;
-          void community.actions.search(query);
+          updateAppSearchInput(query);
         }}
         onSectionAction={handleSectionAction}
         onItemAction={handleItemAction}
@@ -6677,6 +6779,7 @@
         <AppShell.Body.Content label="Agents directory">
           {#if community.state.agents && community.actions.agents}
             <CommunityAgents
+              bind:adding={agentCreatorOpen}
               model={community.state.agents}
               onProfile={openAgentProfile}
               onActivity={openAgentActivity}
@@ -7642,17 +7745,13 @@
 
 <CommunitySearchCommand
   bind:open={searchOpen}
-  query={appSearchQuery}
+  query={appSearchInput}
   rooms={searchRooms}
   messages={searchMessages}
   members={searchMembers}
-  updating={community.state.contentSync?.phase === "background" ||
-    community.state.contentSync?.phase === "partial-error"}
-  {...searchScopeRoom === undefined ? {} : { scopeRoom: searchScopeRoom }}
-  onQueryChange={(query) => {
-    appSearchQuery = query;
-    void community.actions.search(query);
-  }}
+  authors={knownSearchMembers}
+  {...searchScope === undefined ? {} : { scope: searchScope }}
+  onQueryChange={updateAppSearchInput}
   onSelectRoom={(room) => {
     searchOpen = false;
     setDestination(room.id, true);
@@ -7684,12 +7783,18 @@
     searchOpen = false;
     openRoomBrowser("channel");
   }}
-  canCreateChannel={authenticated &&
-    hasCommunityConnection &&
-    community.state.capabilities.manageGroup}
+  canCreateChannel={hasCommunityConnection &&
+    (!authenticated || community.state.capabilities.manageGroup)}
   onCreateChannel={() => {
     searchOpen = false;
     void runAuthenticated(() => openRoomEditor("channel", "create"));
+  }}
+  onCreateAgent={() => {
+    searchOpen = false;
+    void runAuthenticated(async () => {
+      agentCreatorOpen = true;
+      setDestination("agents", true);
+    });
   }}
 />
 

@@ -40,6 +40,7 @@
     onRefresh,
     onClearHistory,
     showPageHeader = true,
+    adding = $bindable(false),
   }: {
     model: CommunityAgentsState;
     onProfile: (pubkey: string) => void;
@@ -51,10 +52,11 @@
     onClearHistory: () => Promise<void>;
     /** Keep the local title and refresh action when no application header owns them. */
     showPageHeader?: boolean;
+    /** Opens the existing add-agent flow when controlled by an application host. */
+    adding?: boolean;
   } = $props();
   const addInputId = "community-agents-add-public-key";
   let clearing = $state(false);
-  let adding = $state(false);
   let addingPending = $state(false);
   let feedback = $state("");
   let addFeedback = $state("");

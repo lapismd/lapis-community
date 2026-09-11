@@ -82,6 +82,15 @@
     });
     const command = within(dialog);
 
+    await expect(
+      dialog.querySelector(
+        '[data-ui-component="command-view"][data-ui-part="root"]',
+      ),
+    ).not.toBeNull();
+    await expect(
+      command.queryByText("Search the current member directory."),
+    ).not.toBeInTheDocument();
+
     await expect(command.getByText("You")).toBeVisible();
     await expect(command.getByText("Ada Chen")).toBeVisible();
     await expect(command.queryByText("Mara Singh")).not.toBeInTheDocument();

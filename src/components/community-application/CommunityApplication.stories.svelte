@@ -2167,6 +2167,26 @@
     let searchDialog = await overlay.findByRole("dialog", {
       name: "Search community",
     });
+    const searchScrim = canvasElement.ownerDocument.querySelector<HTMLElement>(
+      '[data-slot="dialog-overlay"]',
+    );
+    await expect(searchScrim).not.toBeNull();
+    await expect(getComputedStyle(searchScrim!).backdropFilter).toContain(
+      "blur(5px)",
+    );
+    await expect(getComputedStyle(searchScrim!).backgroundColor).toBe(
+      "rgba(0, 0, 0, 0.1)",
+    );
+    await expect(
+      searchDialog.querySelector(
+        '[data-ui-component="command-view"][data-ui-part="root"]',
+      ),
+    ).not.toBeNull();
+    await expect(
+      within(searchDialog).queryByText(
+        "Search rooms, loaded messages, and known members. The relay is queried when it supports NIP-50.",
+      ),
+    ).not.toBeInTheDocument();
     await expect(
       within(searchDialog).getByRole("option", { name: "Browse channels" }),
     ).toBeVisible();

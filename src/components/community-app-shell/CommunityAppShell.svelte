@@ -1,4 +1,6 @@
 <script lang="ts">
+  import "../community-overlays.css";
+
   import { Button } from "@lapismd/design-core/shadcn/button";
   import {
     AppShell,

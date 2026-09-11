@@ -17,6 +17,20 @@ export interface CommunitySearchMessageModel extends CommunityMessageModel {
   topicId?: string;
 }
 
+export interface CommunitySearchScope {
+  id: string;
+  kind:
+    | "channel"
+    | "forum"
+    | "conversation"
+    | "projects"
+    | "project"
+    | "repository"
+    | "registry";
+  label: string;
+  roomIds: readonly string[];
+}
+
 export function projectCommunitySearchResults(
   results: readonly CommunitySearchResult[],
 ): CommunitySearchProjection {
@@ -41,6 +55,7 @@ export function projectCommunitySearchResults(
         timestamp: new Date(event.created_at * 1_000)
           .toISOString()
           .slice(11, 16),
+        createdAt: new Date(event.created_at * 1_000).toISOString(),
         ...(destinationRoomId === undefined
           ? {}
           : { roomId: destinationRoomId }),

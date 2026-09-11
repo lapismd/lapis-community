@@ -494,9 +494,10 @@ function roomModel(
       [9, 11, 1_111].includes(event.kind) &&
       event.tags.some((tag) => tag[0] === "h" && tag[1] === room.groupId),
   );
-  const lastActivity = messageEvents.toSorted((left, right) =>
-    compareOldest(right, left),
-  )[0];
+  const lastActivity = [
+    ...messageEvents,
+    ...(metadata === undefined ? [] : [metadata]),
+  ].toSorted((left, right) => compareOldest(right, left))[0];
   const privateRoom =
     room.private === true ||
     metadata?.tags.some((tag) => tag[0] === "private") === true;

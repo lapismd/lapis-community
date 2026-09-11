@@ -1,0 +1,23 @@
+body:has([data-ui-component="community-app-shell"])
+  [data-ui-component="dialog"][data-ui-part="dialog-overlay"],
+body:has([data-ui-component="community-app-shell"])
+  [data-ui-component="alert-dialog"][data-ui-part="alert-dialog-overlay"],
+body:has([data-ui-component="community-app-shell"])
+  [data-ui-component="sheet"][data-ui-part="sheet-overlay"],
+body:has([data-ui-component="community-app-shell"])
+  [data-ui-component="drawer"][data-ui-part="drawer-overlay"] {
+  background-color: rgb(0 0 0 / 10%);
+  -webkit-backdrop-filter: blur(5px);
+  backdrop-filter: blur(5px);
+}
+
+html.dark
+  body:has([data-ui-component="community-app-shell"])
+  :is(
+    [data-ui-component="dialog"][data-ui-part="dialog-overlay"],
+    [data-ui-component="alert-dialog"][data-ui-part="alert-dialog-overlay"],
+    [data-ui-component="sheet"][data-ui-part="sheet-overlay"],
+    [data-ui-component="drawer"][data-ui-part="drawer-overlay"]
+  ) {
+  background-color: rgb(0 0 0 / 60%);
+}

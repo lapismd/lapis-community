@@ -491,6 +491,7 @@ describe("materializeCommunityWorkspace", () => {
         ...(identityPubkey === undefined ? {} : { identityPubkey }),
       }).navigationSections[0]?.rooms[0];
 
+    expect(project()?.lastActivityAt).toBe("1970-01-01T00:00:02.000Z");
     expect(project()?.permissions?.publish.state).toBe(
       "requires-authentication",
     );

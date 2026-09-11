@@ -270,6 +270,38 @@
   ],
   "exceptions": [
     {
+      "file": "src/components/community-search-command/CommunitySearchCommand.svelte",
+      "rule": "dialog",
+      "symbol": "@lapismd/design-core/shadcn/dialog:Content",
+      "reason": "The public Command View is host-agnostic, so the search component supplies a headerless Dialog host with the accessible title kept in the content.",
+      "story": "community-search-search-command--results",
+      "requirement": "LC-UI-019"
+    },
+    {
+      "file": "src/components/community-search-command/CommunitySearchCommand.svelte",
+      "rule": "dialog",
+      "symbol": "@lapismd/design-core/shadcn/dialog:Title",
+      "reason": "The headerless search dialog retains a screen-reader title without adding visible dialog header copy.",
+      "story": "community-search-search-command--results",
+      "requirement": "LC-UI-019"
+    },
+    {
+      "file": "src/components/community-search-command/CommunitySearchCommand.svelte",
+      "rule": "dialog",
+      "symbol": "@lapismd/design-core/shadcn/dialog:Close",
+      "reason": "The command palette places its compact Escape action in the search row instead of rendering DialogFrame header chrome.",
+      "story": "community-search-search-command--results",
+      "requirement": "LC-UI-019"
+    },
+    {
+      "file": "src/components/community-search-command/CommunitySearchCommand.svelte",
+      "rule": "dialog",
+      "symbol": "component internals: :global(.community-search-dialog[data-ui-part=\"dialog-content\"])",
+      "reason": "The Command View host restores the specified wide top-aligned palette geometry while its content remains owned by the public Command View family.",
+      "story": "community-search-search-command--results",
+      "requirement": "LC-UI-019"
+    },
+    {
       "file": "src/components/community-chat-composer/autocomplete.ts",
       "rule": "emoji",
       "symbol": "emoji-mart",

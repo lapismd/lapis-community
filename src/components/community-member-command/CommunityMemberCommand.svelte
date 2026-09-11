@@ -3,7 +3,7 @@
   import { DialogFrame } from "@lapismd/design-core/forms/dialog";
   import { Button } from "@lapismd/design-core/shadcn/button";
   import { Checkbox } from "@lapismd/design-core/shadcn/checkbox";
-  import * as Command from "@lapismd/design-core/shadcn/command";
+  import * as CommandView from "@lapismd/design-core/shadcn/command-view";
   import * as Dialog from "@lapismd/design-core/shadcn/dialog";
   import * as DropdownMenu from "@lapismd/design-core/shadcn/dropdown-menu";
   import EllipsisIcon from "@lucide/svelte/icons/ellipsis";
@@ -100,12 +100,12 @@
         ? "conversation"
         : "channel",
   );
-  const description = $derived(
-    completeness === "complete"
-      ? "Search the current member directory."
-      : completeness === "partial"
-        ? "This relay returned a partial member list. Search may find additional profiles."
-        : "The relay does not expose a complete member list. Enter an npub or hex public key to continue.",
+  const directoryNotice = $derived(
+    completeness === "partial"
+      ? "Some members may be missing. Search can find additional profiles."
+      : completeness === "unavailable"
+        ? "Enter an npub or hex public key to find someone."
+        : undefined,
   );
   const availableRoleDefinitions = $derived(
     distinctRoleDefinitions(roleDefinitions, roleMember?.roles ?? []),
@@ -233,8 +233,10 @@
 {/snippet}
 
 {#snippet memberIdentity(member: CommunityMemberModel)}
-  <CommunityMemberAvatar {member} showPresence decorative />
-  <span class="community-member-command__member-copy">
+  <CommandView.ItemIcon class="community-member-command__avatar">
+    <CommunityMemberAvatar {member} showPresence decorative />
+  </CommandView.ItemIcon>
+  <CommandView.ItemLabel>
     <span class="community-member-command__member-heading">
       <strong>{memberName(member)}</strong>
       {#if member.administrator}
@@ -243,35 +245,40 @@
         <CommunityChip>{member.role}</CommunityChip>
       {/if}
     </span>
-    <small>
-      {member.handle}{member.administrator ? " · Relay-managed access" : ""}
-    </small>
-  </span>
+  </CommandView.ItemLabel>
+  <CommandView.ItemDescription>
+    {member.handle}{member.administrator ? " · Relay-managed access" : ""}
+  </CommandView.ItemDescription>
 {/snippet}
 
-<Dialog.Root bind:open
-  ><DialogFrame
+<Dialog.Root bind:open>
+  <DialogFrame
     {title}
-    {description}
     size="form"
     bodyPadding="none"
     closeLabel="Close members"
+    aria-describedby={undefined}
     {...mode === "select" && onConfirm ? { footer: selectionFooter } : {}}
-    ><Command.Root
+  >
+    <CommandView.Root
       class="community-member-command"
       label="Search members"
       shouldFilter={false}
     >
-      <div class="community-member-command__input-row">
-        <Command.Input
-          class="community-member-command__input"
-          placeholder="Search members or paste an npub"
-          aria-label="Search members"
-          aria-controls="community-member-command-results"
-          bind:value={query}
-          oninput={(event) => onSearch(event.currentTarget.value)}
-        />
-      </div>
+      <CommandView.Input
+        class="community-member-command__input"
+        placeholder="Search members or paste an npub"
+        aria-label="Search members"
+        aria-controls="community-member-command-results"
+        bind:value={query}
+        oninput={(event) => onSearch(event.currentTarget.value)}
+      />
+
+      {#if directoryNotice}
+        <p class="community-member-command__directory-notice" role="status">
+          {directoryNotice}
+        </p>
+      {/if}
 
       {#if mode === "select" && selectedIds.length}
         <div
@@ -291,13 +298,13 @@
         </div>
       {/if}
 
-      <Command.List id="community-member-command-results">
-        <Command.Empty>
+      <CommandView.List id="community-member-command-results">
+        <CommandView.Empty>
           {isSearching
             ? "No members found"
             : `No members are available for this ${roomNoun}`}
-        </Command.Empty>
-        <Command.Group
+        </CommandView.Empty>
+        <CommandView.Group
           heading={mode === "select"
             ? "People"
             : isSearching
@@ -309,7 +316,7 @@
               <DropdownMenu.Root>
                 <DropdownMenu.Trigger>
                   {#snippet child({ props })}
-                    <Command.Item
+                    <CommandView.Item
                       {...props}
                       class="community-member-command__member-menu-trigger"
                       value={`${member.name} ${member.handle} ${member.id}`}
@@ -319,11 +326,13 @@
                       {@render memberIdentity(member)}
                       <span
                         class="community-member-command__member-menu-icon"
+                        data-ui-component="command-view"
+                        data-ui-part="trailing"
                         aria-hidden="true"
                       >
                         <EllipsisIcon />
                       </span>
-                    </Command.Item>
+                    </CommandView.Item>
                   {/snippet}
                 </DropdownMenu.Trigger>
                 <DropdownMenu.Content
@@ -354,15 +363,15 @@
                 </DropdownMenu.Content>
               </DropdownMenu.Root>
             {:else if mode === "manage" && member.administrator}
-              <Command.Item
+              <CommandView.Item
                 value={`${member.name} ${member.handle} ${member.id}`}
                 aria-label={`${memberName(member)}, administrator`}
                 onSelect={() => {}}
               >
                 {@render memberIdentity(member)}
-              </Command.Item>
+              </CommandView.Item>
             {:else}
-              <Command.Item
+              <CommandView.Item
                 value={`${member.name} ${member.handle} ${member.id}`}
                 data-selected-recipient={selectedIds.includes(member.id)
                   ? ""
@@ -374,16 +383,21 @@
               >
                 {@render memberIdentity(member)}
                 {#if mode === "select" && selectedIds.includes(member.id)}
-                  <UserMinusIcon data-icon="inline-end" aria-hidden="true" />
+                  <span
+                    data-ui-component="command-view"
+                    data-ui-part="trailing"
+                  >
+                    <UserMinusIcon data-icon="inline-end" aria-hidden="true" />
+                  </span>
                 {/if}
-              </Command.Item>
+              </CommandView.Item>
             {/if}
           {/each}
-        </Command.Group>
+        </CommandView.Group>
         {#if mode !== "select" && isSearching}
-          <Command.Group heading={`Not in this ${roomNoun}`}>
+          <CommandView.Group heading={`Not in this ${roomNoun}`}>
             {#each otherMembers as member (member.id)}
-              <Command.Item
+              <CommandView.Item
                 value={`${member.name} ${member.handle} ${member.id}`}
                 aria-label={mode === "manage"
                   ? `Add ${member.name} to ${roomNoun}`
@@ -392,28 +406,24 @@
               >
                 {@render memberIdentity(member)}
                 {#if mode === "manage"}
-                  <span class="community-member-command__add" aria-hidden="true"
-                    >Add</span
+                  <span
+                    class="community-member-command__add"
+                    data-ui-component="command-view"
+                    data-ui-part="trailing"
+                    aria-hidden="true">Add</span
                   >
                 {/if}
-              </Command.Item>
+              </CommandView.Item>
             {/each}
-          </Command.Group>
+          </CommandView.Group>
         {/if}
-      </Command.List>
-    </Command.Root></DialogFrame
-  ></Dialog.Root
->
+      </CommandView.List>
+    </CommandView.Root>
+  </DialogFrame>
+</Dialog.Root>
 
 <Dialog.Root bind:open={roleDialogOpen}>
-  <DialogFrame size="form">
-    {#snippet title()}Manage roles{/snippet}
-    {#snippet description()}
-      Choose the relay-defined roles for {roleMember
-        ? memberName(roleMember)
-        : "this member"}. Member access is always retained.
-    {/snippet}
-
+  <DialogFrame title="Manage roles" size="form" aria-describedby={undefined}>
     <form
       id="communitymembercommand-form-0"
       class="community-member-role-dialog__form"
@@ -472,64 +482,23 @@
 </Dialog.Root>
 
 <style>
-  :global(.community-member-command [data-ui-part="command"]) {
-    padding: 0;
-  }
+  :global(.community-member-command[data-ui-part="root"]) {
+    --ui-command-view-list-max-height: min(33rem, calc(100dvh - 12rem));
+    --ui-command-view-list-padding: 0.75rem;
+    --ui-command-view-gap: 1rem;
 
-  .community-member-command__input-row {
-    --ui-input-group-focus-ring-color: transparent;
-
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-    margin: 0 1.5rem 0.75rem;
+    width: auto;
+    margin: 0 1.5rem 1.5rem;
     border: 1px solid var(--border);
-    border-radius: 0.95rem;
-    padding: 0.45rem 0.75rem;
+    border-radius: 1rem;
   }
 
-  :global(
-      .community-member-command__input-row
-        [data-ui-part="command-input-wrapper"]
-    ) {
-    min-width: 0;
-    flex: 1;
-    padding: 0;
-    outline: 0 !important;
-    box-shadow: none !important;
-  }
-
-  :global(
-      .community-member-command__input-row
-        [data-ui-component="input-group"][data-ui-part="input-group"]
-    ),
-  :global(
-      .community-member-command__input-row
-        [data-ui-component="input-group"][data-ui-part="input-group"]:focus-within
-    ),
-  :global(.community-member-command__input[data-slot="input-group-control"]) {
-    height: 2.75rem !important;
-    border: 0 !important;
-    border-color: transparent !important;
-    outline: 0 !important;
-    background: transparent !important;
-    box-shadow: none !important;
-    --tw-ring-color: transparent !important;
-    --tw-ring-shadow: 0 0 #0000 !important;
-  }
-
-  :global(
-      .community-member-command__input-row [data-slot="input-group-control"]
-    ) {
-    font-size: var(--community-text-body);
-  }
-
-  :global(
-      .community-member-command__input-row [data-ui-part="command-search-icon"]
-    ) {
-    width: 1.1rem;
-    height: 1.1rem;
-    opacity: 1;
+  .community-member-command__directory-notice {
+    margin: 0;
+    border-block-end: 1px solid var(--border);
+    padding: 0.65rem 1rem;
+    color: var(--muted-foreground);
+    font-size: var(--community-text-secondary);
   }
 
   .community-member-command__chips {
@@ -537,43 +506,18 @@
     flex-wrap: wrap;
     gap: 0.35rem;
     border-block-end: 1px solid var(--border);
-    padding: 0.75rem 1.5rem;
-  }
-
-  :global(.community-member-command [data-ui-part="command-list"]) {
-    max-height: min(33rem, calc(100vh - 12rem));
-    margin: 0 1.5rem 1.5rem;
-    border: 1px solid var(--border);
-    border-radius: 1rem;
-    padding: 0.75rem;
-  }
-
-  :global(.community-member-command [data-ui-part="command-group-heading"]) {
-    padding: 0.75rem 0.5rem 0.5rem;
-    font-size: var(--community-text-secondary);
-    font-weight: 500;
-  }
-
-  :global(.community-member-command [data-ui-part="command-item"]) {
-    min-height: 3.75rem;
-    gap: 1rem;
-    border-radius: 0.8rem !important;
-    padding: 0.65rem 0.75rem;
-    font-size: var(--community-text-body);
+    padding: 0.75rem 1rem;
   }
 
   :global(
-      .community-member-command
-        [data-ui-part="command-item"][data-selected-recipient]
+      .community-member-command [data-ui-part="item"][data-selected-recipient]
     ) {
     background: var(--accent);
   }
 
-  .community-member-command__member-copy {
-    display: grid;
-    min-width: 0;
-    flex: 1;
-    gap: 0.15rem;
+  :global(.community-member-command__avatar[data-ui-part="item-icon"]) {
+    width: 2.5rem;
+    height: 2.5rem;
   }
 
   .community-member-command__member-heading {
@@ -583,18 +527,11 @@
     gap: 0.45rem;
   }
 
-  .community-member-command__member-copy strong,
-  .community-member-command__member-copy small {
+  .community-member-command__member-heading strong {
     min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-  }
-
-  .community-member-command__member-copy small {
-    color: var(--muted-foreground);
-    font-size: var(--community-text-secondary);
-    font-weight: 400;
   }
 
   .community-member-role-dialog__form,
@@ -632,29 +569,21 @@
     font-size: var(--community-text-body);
   }
 
-  :global(
-      .community-member-command__member-menu-trigger[data-ui-component="command"]
-    ) {
-    border-radius: 0.7rem;
-  }
-
   .community-member-command__member-menu-icon {
     display: grid;
     width: 2rem;
     height: 2rem;
-    margin-inline-start: auto;
     place-items: center;
     border-radius: 0.7rem;
     background: var(--muted);
   }
 
   :global(.community-member-command__member-menu) {
-    width: min(24rem, calc(100vw - 2rem)) !important;
+    width: min(24rem, calc(100vw - 2rem));
     min-width: 15rem;
   }
 
   .community-member-command__add {
-    margin-inline-start: auto;
     border-radius: 0.7rem;
     background: var(--primary);
     color: var(--primary-foreground);
@@ -666,19 +595,10 @@
     display: flex;
     justify-content: flex-end;
     gap: 0.5rem;
-    border-block-start: 1px solid var(--border);
-    padding: 0.85rem 1.5rem 1rem;
   }
 
   @media (max-width: 40rem) {
-    .community-member-command__input-row,
-    .community-member-command__chips,
-    .community-member-command__footer {
-      padding-inline: 1rem;
-    }
-
-    .community-member-command__input-row,
-    :global(.community-member-command [data-ui-part="command-list"]) {
+    :global(.community-member-command[data-ui-part="root"]) {
       margin-inline: 1rem;
     }
   }

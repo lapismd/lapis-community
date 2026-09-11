@@ -1,4 +1,5 @@
 import "./community-typography.css";
+import "./community-overlays.css";
 export { default as CommunityApplication } from "./community-application/CommunityApplicationRoot.svelte";
 export type { CommunityApplicationLoginOptions } from "./community-application/model.js";
 export { default as CommunityChip } from "./community-chip/CommunityChip.svelte";
@@ -48,6 +49,7 @@ export { default as CommunityRoomBrowser } from "./community-room-browser/Commun
 export { default as CommunityRoomEditor } from "./community-room-editor/CommunityRoomEditor.svelte";
 export { default as CommunitySearchCommand } from "./community-search-command/CommunitySearchCommand.svelte";
 export type {
+  CommunitySearchScope,
   CommunitySearchMessageModel,
   CommunitySearchProjection,
 } from "./community-search-command/model.js";
