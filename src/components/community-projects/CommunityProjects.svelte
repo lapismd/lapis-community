@@ -96,6 +96,7 @@
   import CommunityMemberHoverCard from "../community-member-hover-card/CommunityMemberHoverCard.svelte";
   import CommunityMarkdownContent from "../community-markdown-content/CommunityMarkdownContent.svelte";
   import CommunityMessage from "../community-message/CommunityMessage.svelte";
+  import CommunityProjectStatusToasts from "./CommunityProjectStatusToasts.svelte";
   import CommunityRelativeTime from "../community-relative-time/CommunityRelativeTime.svelte";
   import type {
     CommunityMemberModel,
@@ -2591,6 +2592,7 @@
 {/snippet}
 
 {#if showContent}
+  <CommunityProjectStatusToasts {cachedCatalogAt} {error} {onRetry} />
   <AppShell.Body
     layout="regions"
     label={selectedProject ? `${selectedProject.name} projects` : "Projects"}
@@ -2641,37 +2643,6 @@
             </Tabs.List>
           </Tabs.Root>
         </div>
-      {/if}
-
-      {#if cachedCatalogAt !== undefined}
-        <Alert.Root class="community-projects__alert">
-          <Alert.Title>Showing cached project catalog</Alert.Title>
-          <Alert.Description>
-            Last verified <CommunityRelativeTime
-              timestamp={Math.floor(cachedCatalogAt / 1_000)}
-            />. Live project data is being refreshed from this community's
-            relay.
-          </Alert.Description>
-        </Alert.Root>
-      {/if}
-
-      {#if error}
-        <Alert.Root
-          variant={cachedCatalogAt === undefined ? "destructive" : "default"}
-          class="community-projects__alert"
-        >
-          <Alert.Title>
-            {cachedCatalogAt === undefined
-              ? "Projects could not be loaded"
-              : "Live project refresh failed"}
-          </Alert.Title>
-          <Alert.Description>{error}</Alert.Description>
-          {#if onRetry}
-            <Button type="button" variant="outline" size="sm" onclick={onRetry}>
-              <RotateCcwIcon data-icon="inline-start" aria-hidden="true" /> Retry
-            </Button>
-          {/if}
-        </Alert.Root>
       {/if}
 
       {#if view === "activity"}

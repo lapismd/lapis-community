@@ -59,7 +59,10 @@ MUST wait for relay and identity restoration to settle, close while the relay
 is unavailable, and resume once after reconnection. Catalog restoration and
 live refresh MUST NOT make the loaded catalog a reactive trigger for reopening
 the project session; an empty authoritative catalog MUST settle without a
-request loop.
+request loop. The session lifecycle MUST follow the individual source, relay,
+identity, and channel values rather than the identity of a caller-created
+options wrapper. Cancellation during asynchronous setup and any setup failure
+MUST close the candidate session or relay before returning.
 That application runs under a checkout-owned supervisor: source updates remain
 Vite HMR events, while generated fixture-environment updates restart Vite so
 its compile-time public trust configuration cannot become stale. Ownership is

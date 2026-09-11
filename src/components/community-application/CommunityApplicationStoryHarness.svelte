@@ -81,8 +81,9 @@
   let community = $state.raw<CommunityController>();
   let runtimeError = $state("");
   let registrySource = $state.raw(createRegistryStoryDataSource());
+  let projectSessionOpenCount = $state(0);
   let projectSource = $state.raw<ProjectForgeDataSource>(
-    createProjectStoryDataSource(),
+    observeProjectSource(createProjectStoryDataSource()),
   );
   let applicationGeneration = $state(0);
   let storyInviteUri = $state("");
@@ -98,6 +99,17 @@
         .find((room) => room.id === workspace.activeRoomId)?.membership ?? ""
     );
   });
+
+  function observeProjectSource(
+    source: ProjectForgeDataSource,
+  ): ProjectForgeDataSource {
+    return {
+      async open(context, signal) {
+        projectSessionOpenCount += 1;
+        return await source.open(context, signal);
+      },
+    };
+  }
 
   onMount(() => {
     let active = true;
@@ -135,10 +147,13 @@
       runtimeError = "";
       storyInviteUri = "";
       installedPluginIds = [];
-      projectSource = createProjectStoryDataSource(
-        namespace ? `general-${namespace}` : "general",
-        projectBackend,
-        emptyProjects,
+      projectSessionOpenCount = 0;
+      projectSource = observeProjectSource(
+        createProjectStoryDataSource(
+          namespace ? `general-${namespace}` : "general",
+          projectBackend,
+          emptyProjects,
+        ),
       );
       const selectedBackend =
         document.documentElement.dataset.communityBackend ?? "memory";
@@ -178,7 +193,7 @@
                 author: created.scenario.member,
               });
             }
-            projectSource = source;
+            projectSource = observeProjectSource(source);
           }
           const inviteRoom = created.scenario.scope.rooms?.[0];
           if (inviteRoom && created.relayAuthorityPubkey) {
@@ -479,6 +494,7 @@
       data-story-active-membership={storyActiveMembership}
       data-story-invite-uri={storyInviteUri}
       data-application-generation={applicationGeneration}
+      data-project-session-open-count={projectSessionOpenCount}
       registryOptions={{
         source: registrySource,
         discussion: registryDiscussion,

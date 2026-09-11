@@ -198,22 +198,28 @@ export function createNip34ProjectForgeDataSource(
     async open(context, signal) {
       signal?.throwIfAborted();
       const relay = options.relayFactory.create(context.relayUrl);
-      const request = options.fetch ?? globalThis.fetch.bind(globalThis);
-      const now = options.now ?? (() => new Date());
-      if (context.identity) {
-        await authenticateRegistryRelay(relay, context.identity, signal);
+      try {
+        const request = options.fetch ?? globalThis.fetch.bind(globalThis);
+        const now = options.now ?? (() => new Date());
+        if (context.identity) {
+          await authenticateRegistryRelay(relay, context.identity, signal);
+        }
+        const cacheIdentity = context.identity
+          ? await context.identity.getPublicKey()
+          : "anonymous";
+        signal?.throwIfAborted();
+        return new Nip34ProjectForgeSession(
+          relay,
+          context,
+          request,
+          now,
+          readCache,
+          cacheIdentity,
+        );
+      } catch (cause) {
+        relay.close();
+        throw cause;
       }
-      const cacheIdentity = context.identity
-        ? await context.identity.getPublicKey()
-        : "anonymous";
-      return new Nip34ProjectForgeSession(
-        relay,
-        context,
-        request,
-        now,
-        readCache,
-        cacheIdentity,
-      );
     },
   };
 }

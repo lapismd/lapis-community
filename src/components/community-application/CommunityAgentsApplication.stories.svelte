@@ -25,6 +25,41 @@
 <Story
   name="Agent owner profile navigation"
   play={async ({ canvas, canvasElement }) => {
+    const applicationHeader = await canvas.findByRole("navigation", {
+      name: "Application navigation",
+    });
+    const pageHeader = await canvas.findByLabelText("Agents page header");
+    await expect(
+      within(pageHeader).getByRole("heading", {
+        name: "Agents",
+        level: 1,
+      }),
+    ).toBeVisible();
+    await expect(
+      await within(pageHeader).findByRole("button", {
+        name: "Refresh agents",
+      }),
+    ).toBeVisible();
+    await expect(
+      within(applicationHeader).queryByRole("heading", {
+        name: "Agents",
+        level: 1,
+      }),
+    ).not.toBeInTheDocument();
+    await expect(
+      within(applicationHeader).queryByRole("button", {
+        name: "Refresh agents",
+      }),
+    ).not.toBeInTheDocument();
+    const directory = await canvas.findByRole("region", {
+      name: "Your agents",
+    });
+    await expect(
+      within(directory).queryByRole("heading", { name: "Agents", level: 1 }),
+    ).not.toBeInTheDocument();
+    await expect(
+      within(directory).queryByRole("button", { name: "Refresh agents" }),
+    ).not.toBeInTheDocument();
     await userEvent.click(
       await canvas.findByRole("button", { name: "View Research" }),
     );

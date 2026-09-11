@@ -43,6 +43,7 @@
   import PackageSearchIcon from "@lucide/svelte/icons/package-search";
   import PlusIcon from "@lucide/svelte/icons/plus";
   import SearchIcon from "@lucide/svelte/icons/search";
+  import RefreshIcon from "@lucide/svelte/icons/refresh-cw";
   import SquareTerminalIcon from "@lucide/svelte/icons/square-terminal";
   import UsersIcon from "@lucide/svelte/icons/users";
   import UserRoundPlusIcon from "@lucide/svelte/icons/user-round-plus";
@@ -50,7 +51,14 @@
   import XIcon from "@lucide/svelte/icons/x";
   import { nip19 } from "nostr-tools";
   import { toast, Toaster } from "svelte-sonner";
-  import { onMount, tick, untrack, type Component, type Snippet } from "svelte";
+  import {
+    onDestroy,
+    onMount,
+    tick,
+    untrack,
+    type Component,
+    type Snippet,
+  } from "svelte";
   import type { HTMLAttributes } from "svelte/elements";
 
   import type {
@@ -485,6 +493,17 @@
     events: [],
   });
   let projectSession = $state.raw<ProjectForgeSession>();
+  type ProjectSessionLifecycle = {
+    key: readonly unknown[];
+    dispose: () => void;
+  };
+  let activeProjectSessionLifecycle: ProjectSessionLifecycle | undefined;
+  const projectSessionKeysMatch = (
+    current: readonly unknown[],
+    next: readonly unknown[],
+  ) =>
+    current.length === next.length &&
+    current.every((value, index) => Object.is(value, next[index]));
   let projectLoading = $state(false);
   let projectCatalogSettled = $state(false);
   let projectCatalogScopeKey = "";
@@ -493,6 +512,12 @@
   let projectError = $state("");
   let projectOperation = $state("");
   let projectReloadRevision = $state(0);
+
+  onDestroy(() => {
+    const lifecycle = activeProjectSessionLifecycle;
+    activeProjectSessionLifecycle = undefined;
+    lifecycle?.dispose();
+  });
   let projectOverviewInitialized = $state(false);
   const initializedChannelProjectOverviews = new Set<string>();
   let selectedRepositoryCoordinate = $state(
@@ -883,10 +908,18 @@
       (connection) => connection.communityId === workspace.activeCommunityId,
     ) ?? community.state.connections[0],
   );
+  const activeConnectionRelayUrl = $derived(activeConnection?.relayUrl);
+  const activeConnectionCommunityId = $derived(activeConnection?.communityId);
+  const projectDataSource = $derived(projectsOptions?.source);
+  const projectCatalogStore = $derived(projectsOptions?.catalogStore);
+  const projectConfiguredRelayUrl = $derived(projectsOptions?.relayUrl);
+  const projectHttpBaseUrl = $derived(projectsOptions?.httpBaseUrl);
+  const projectIdentity = $derived(projectsOptions?.identity);
+  const projectChannelId = $derived(projectsOptions?.channelId);
   const projectReviewPreferenceScope = $derived.by(() => {
-    const relayUrl = projectsOptions?.relayUrl ?? activeConnection?.relayUrl;
+    const relayUrl = projectConfiguredRelayUrl ?? activeConnectionRelayUrl;
     const communityId =
-      activeConnection?.communityId ?? projectsOptions?.channelId ?? "projects";
+      activeConnectionCommunityId ?? projectChannelId ?? "projects";
     const memberId = workspace.currentMemberId;
     return relayUrl && memberId
       ? { relayUrl, communityId, memberId }
@@ -1836,46 +1869,59 @@
   });
 
   $effect(() => {
-    projectReloadRevision;
-    const options = projectsOptions;
-    const usesActiveCommunityRelay = options?.relayUrl === undefined;
-    const relayUrl = options?.relayUrl ?? activeConnection?.relayUrl;
-    const communityId =
-      activeConnection?.communityId ?? options?.channelId ?? "projects";
-    const identity = options?.identity ?? applicationAuthentication?.identity();
+    const reloadRevision = projectReloadRevision;
+    const source = projectDataSource;
+    const catalogStoreOption = projectCatalogStore;
+    const configuredRelayUrl = projectConfiguredRelayUrl;
+    const httpBaseUrl = projectHttpBaseUrl;
+    const configuredIdentity = projectIdentity;
+    const channelId = projectChannelId;
+    const usesActiveCommunityRelay = configuredRelayUrl === undefined;
+    const relayUrl = configuredRelayUrl ?? activeConnectionRelayUrl;
+    const communityId = activeConnectionCommunityId ?? channelId ?? "projects";
+    const identity =
+      configuredIdentity ?? applicationAuthentication?.identity();
     const communityStatus = community.state.status;
     const authenticationStatus = community.state.authentication.status;
-    const destinationActive =
-      isProjectsDestination || activeChannelProjectCoordinate !== undefined;
-    const projectCoordinate =
-      selectedProjectCoordinate ?? activeChannelProjectCoordinate;
-    const repositoryCoordinate = selectedRepositoryCoordinate;
-    const surface = repositoryCoordinate
-      ? activeRepositorySurface
-      : selectedProjectSurface;
-    const overviewSurface = projectsOverviewSurface;
-    const pullRequestSurface = repositoryCoordinate
-      ? activeRepositorySurface
-      : (selectedProjectSurface ?? overviewSurface);
-    const pullRequestId = selectedPullRequestId;
-    const selectedCommitSha = selectedProjectCommit?.sha;
+    const lifecycleKey = [
+      reloadRevision,
+      source,
+      catalogStoreOption,
+      configuredRelayUrl,
+      httpBaseUrl,
+      configuredIdentity,
+      channelId,
+      relayUrl,
+      communityId,
+      identity,
+      communityStatus,
+      authenticationStatus,
+    ] as const;
     if (
-      !options ||
+      activeProjectSessionLifecycle &&
+      projectSessionKeysMatch(activeProjectSessionLifecycle.key, lifecycleKey)
+    )
+      return;
+
+    const previousLifecycle = activeProjectSessionLifecycle;
+    activeProjectSessionLifecycle = undefined;
+    previousLifecycle?.dispose();
+    if (
+      !source ||
       !relayUrl ||
       (usesActiveCommunityRelay && communityStatus !== "connected") ||
-      (options.identity === undefined && authenticationStatus === "connecting")
+      (configuredIdentity === undefined &&
+        authenticationStatus === "connecting")
     )
       return;
 
     const catalogScope = {
       relayUrl,
       communityId,
-      ...(options.channelId === undefined
-        ? {}
-        : { channelId: options.channelId }),
+      ...(channelId === undefined ? {} : { channelId }),
     } satisfies ProjectForgeCatalogCacheScope;
     const catalogScopeKey = projectForgeCatalogCacheKey(catalogScope);
-    if (catalogScopeKey !== projectCatalogScopeKey) {
+    if (catalogScopeKey !== untrack(() => projectCatalogScopeKey)) {
       projectCatalogScopeKey = catalogScopeKey;
       projectCatalog = { projects: [], repositories: [], events: [] };
       projectWorkItems = { tasks: [], pullRequests: [], events: [] };
@@ -1886,7 +1932,22 @@
     const controller = new AbortController();
     let openedSession: ProjectForgeSession | undefined;
     let unsubscribeCatalog: (() => void) | undefined;
-    let unsubscribeWorkItems: (() => void) | undefined;
+    let projectLoadStage = "Project catalog cache";
+    let disposed = false;
+    const lifecycle: ProjectSessionLifecycle = {
+      key: lifecycleKey,
+      dispose: () => {
+        if (disposed) return;
+        disposed = true;
+        controller.abort();
+        unsubscribeCatalog?.();
+        openedSession?.close();
+        if (untrack(() => projectSession) === openedSession) {
+          projectSession = undefined;
+        }
+      },
+    };
+    activeProjectSessionLifecycle = lifecycle;
     projectLoading = true;
     projectCatalogSettled = false;
     projectError = "";
@@ -1898,8 +1959,9 @@
     projectPullRequestDiffError = "";
 
     void (async () => {
-      const catalogStore = options.catalogStore ?? defaultProjectCatalogStore;
+      const catalogStore = catalogStoreOption ?? defaultProjectCatalogStore;
       if (untrack(() => projectCatalog.events.length) === 0) {
+        projectLoadStage = "Project catalog cache";
         const cached = await catalogStore.load(catalogScope);
         if (controller.signal.aborted) return;
         if (cached !== undefined) {
@@ -1908,20 +1970,24 @@
           cachedProjectCatalogAt = cached.cachedAt;
         }
       }
-      openedSession = await options.source.open(
+      projectLoadStage = "Project relay connection";
+      const candidateSession = await source.open(
         {
           relayUrl,
-          ...(options.httpBaseUrl === undefined
-            ? {}
-            : { httpBaseUrl: options.httpBaseUrl }),
+          ...(httpBaseUrl === undefined ? {} : { httpBaseUrl }),
           ...(identity === undefined ? {} : { identity }),
         },
         controller.signal,
       );
-      if (controller.signal.aborted) return;
+      if (controller.signal.aborted) {
+        candidateSession.close();
+        return;
+      }
+      openedSession = candidateSession;
       projectSession = openedSession;
+      projectLoadStage = "Project catalog";
       const catalog = await openedSession.loadCatalog(
-        options.channelId,
+        channelId,
         controller.signal,
       );
       if (controller.signal.aborted) return;
@@ -1929,16 +1995,16 @@
       projectCatalogVerifiedAt = Date.now();
       cachedProjectCatalogAt = undefined;
       projectCatalogSettled = true;
+      projectLoadStage = "Project catalog cache";
       await catalogStore.save(catalogScope, catalog);
 
       let catalogReady = false;
+      projectLoadStage = "Live project catalog updates";
       unsubscribeCatalog = await openedSession.subscribe(
         [
           {
             kinds: [5, 30_617, 30_621],
-            ...(options.channelId
-              ? { "#buzz-channel": [options.channelId] }
-              : {}),
+            ...(channelId ? { "#buzz-channel": [channelId] } : {}),
           } as import("../../nostr/index.js").RelayFilter,
         ],
         (event) => {
@@ -1948,7 +2014,74 @@
         },
         controller.signal,
       );
+    })()
+      .catch((cause) => {
+        if (
+          controller.signal.aborted ||
+          activeProjectSessionLifecycle !== lifecycle
+        )
+          return;
+        if (
+          projectCatalog.events.length > 0 &&
+          projectCatalogVerifiedAt !== undefined
+        ) {
+          cachedProjectCatalogAt = projectCatalogVerifiedAt;
+        }
+        projectError =
+          cause instanceof Error
+            ? cause.message
+            : `${projectLoadStage} could not be loaded`;
+      })
+      .finally(() => {
+        if (
+          !controller.signal.aborted &&
+          activeProjectSessionLifecycle === lifecycle &&
+          !untrack(() => projectCatalogSettled)
+        ) {
+          projectLoading = false;
+        }
+      });
+  });
 
+  $effect(() => {
+    const session = projectSession;
+    const catalog = projectCatalog;
+    const catalogSettled = projectCatalogSettled;
+    const identity = projectIdentity ?? applicationAuthentication?.identity();
+    const channelProjectCoordinate = isProjectsDestination
+      ? undefined
+      : activeChannelProjectCoordinate;
+    const destinationActive =
+      isProjectsDestination || channelProjectCoordinate !== undefined;
+    const projectCoordinate =
+      selectedProjectCoordinate ?? channelProjectCoordinate;
+    const repositoryCoordinate = selectedRepositoryCoordinate;
+    const surface = repositoryCoordinate
+      ? activeRepositorySurface
+      : selectedProjectSurface;
+    const overviewSurface = projectsOverviewSurface;
+    const pullRequestSurface = repositoryCoordinate
+      ? activeRepositorySurface
+      : (selectedProjectSurface ?? overviewSurface);
+    const pullRequestId = selectedPullRequestId;
+    const selectedCommitSha = selectedProjectCommit?.sha;
+    if (!session || !catalogSettled) return;
+
+    const openedSession = session;
+    const controller = new AbortController();
+    let unsubscribeWorkItems: (() => void) | undefined;
+    let projectLoadStage = "Project work items";
+    projectLoading = true;
+    projectError = "";
+    projectSourceError = "";
+    projectRepositoryCapabilities = {};
+    projectSourceRepositoryCoordinate = "";
+    projectRepositoryRevision = "";
+    projectBlob = undefined;
+    projectPullRequestDiff = undefined;
+    projectPullRequestDiffError = "";
+
+    void (async () => {
       if (!destinationActive) return;
 
       const project = catalog.projects.find(
@@ -1970,6 +2103,7 @@
               repositoryCoordinates.has(repository.address.coordinate),
             )
           : catalog.repositories;
+      projectLoadStage = "Project work items";
       const workItemBundles = await Promise.all(
         repositories.map((repository) =>
           openedSession!.loadWorkItems(repository.event, controller.signal),
@@ -1986,6 +2120,7 @@
       );
       if (filters.length > 0) {
         let eoseCount = 0;
+        projectLoadStage = "Live project work-item updates";
         unsubscribeWorkItems = await openedSession.subscribe(
           filters,
           (event) => {
@@ -2246,7 +2381,7 @@
         projectError =
           cause instanceof Error
             ? cause.message
-            : "Projects could not be loaded";
+            : `${projectLoadStage} could not be loaded`;
       })
       .finally(() => {
         if (!controller.signal.aborted) projectLoading = false;
@@ -2254,10 +2389,7 @@
 
     return () => {
       controller.abort();
-      unsubscribeCatalog?.();
       unsubscribeWorkItems?.();
-      openedSession?.close();
-      if (projectSession === openedSession) projectSession = undefined;
     };
   });
 
@@ -6216,6 +6348,30 @@
       </AppShell.Toolbar>
     {/if}
 
+    {#if activeDestination === "agents"}
+      <AppShell.Toolbar
+        label="Agents page header"
+        class="community-application__agents-toolbar"
+      >
+        <div class="community-application__agents-heading">
+          <h1>Agents</h1>
+          <p>Your registered agents in this community.</p>
+        </div>
+        {#if community.state.agents && community.actions.agents}
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={community.state.agents.status === "loading"}
+            onclick={() => void community.actions.agents!.refresh()}
+          >
+            <RefreshIcon aria-hidden="true" />
+            Refresh agents
+          </Button>
+        {/if}
+      </AppShell.Toolbar>
+    {/if}
+
     {#if isProjectsDestination && selectedPullRequest}
       <AppShell.Toolbar
         label="Review navigation"
@@ -6532,6 +6688,7 @@
                 community.actions.agents!.deletePersona(slug)}
               onRefresh={() => community.actions.agents!.refresh()}
               onClearHistory={() => community.actions.agents!.clearHistory()}
+              showPageHeader={false}
             />
           {:else}<div class="community-application__panel-status" role="status">
               Sign in to a community with agent support to view your agents.
@@ -7661,6 +7818,34 @@
   .community-application__mobile-navigation,
   .community-application__mobile-history {
     gap: 0.125rem;
+  }
+
+  :global(.community-application__agents-toolbar[data-ui-part="toolbar"]) {
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 1rem clamp(1.25rem, 3vw, 3rem);
+  }
+
+  .community-application__agents-heading {
+    display: grid;
+    min-width: 0;
+    gap: 0.25rem;
+  }
+
+  .community-application__agents-heading h1,
+  .community-application__agents-heading p {
+    margin: 0;
+  }
+
+  .community-application__agents-heading h1 {
+    font-size: var(--community-text-page);
+    font-weight: 650;
+    letter-spacing: -0.035em;
+  }
+
+  .community-application__agents-heading p {
+    color: var(--muted-foreground);
+    font-size: var(--community-text-body);
   }
 
   .community-application__disconnected {

@@ -247,7 +247,7 @@ export interface CommunityProjectsProps {
   onSelectCommit?: (commit: ProjectForgeCommit) => void;
   onCloseCommit?: () => void;
   onSelectPath?: (path: string) => void;
-  onRetry?: () => void;
+  onRetry?: () => void | Promise<void>;
 }
 
 export type CommunityProjectsDiffFile = ProjectForgeDiffFile & {

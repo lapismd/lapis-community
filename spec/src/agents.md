@@ -130,8 +130,8 @@ picker is anchored below the square trigger, includes the shared global emoji
 picker after local presets, and sits beside a form that uses the shared
 Community chat composer for agent instructions.
 The existing Agents view lists reusable owner-authored personas alongside the
-verified directory and can create or edit a definition without linking an
-agent. Add agent can create a `30175` persona or select a saved persona, then
+verified directory for editing and deletion. Add agent is the single persona
+creation path: it can create a `30175` persona or select a saved persona, then
 links the existing agent public key through owner-authored kind `30177` without
 copying persona configuration into the link. Persona deletion uses the shared
 confirmation dialog. The link carries the exact persona slug,

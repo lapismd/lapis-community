@@ -4,6 +4,7 @@ import { generateSecretKey } from "nostr-tools/pure";
 import { describe, expect, it, vi } from "vitest";
 
 import { SecretKeyRegistrySigner } from "../auth/index.js";
+import type { CommunityRelay } from "../nostr/index.js";
 import type { NostrEvent } from "../protocol/index.js";
 import { createInMemoryRelayFactory } from "../testing/index.js";
 import { createNip34ProjectForgeDataSource } from "./data-source.js";
@@ -24,6 +25,33 @@ function authorizationEvent(value: string): NostrEvent {
 }
 
 describe("NIP-34 project forge data source", () => {
+  it("closes a relay when session setup fails", async () => {
+    const close = vi.fn();
+    const source = createNip34ProjectForgeDataSource({
+      relayFactory: {
+        create: (url) =>
+          ({
+            url,
+            authenticate: vi.fn(async () => {
+              throw new Error("relay authentication failed");
+            }),
+            query: vi.fn(),
+            publish: vi.fn(),
+            subscribe: vi.fn(),
+            close,
+          }) as unknown as CommunityRelay,
+      },
+    });
+
+    await expect(
+      source.open({
+        relayUrl: "wss://relay.example",
+        identity: new SecretKeyRegistrySigner(generateSecretKey()),
+      }),
+    ).rejects.toThrow("relay authentication failed");
+    expect(close).toHaveBeenCalledOnce();
+  });
+
   it("reuses recent authenticated repository reads across sessions", async () => {
     let now = new Date("2026-09-09T12:00:00.000Z");
     const fetch = vi.fn(async () =>

@@ -509,6 +509,12 @@
     await expect(
       await canvas.findByRole("button", { name: "Community Client" }),
     ).toBeVisible();
+    await waitFor(() =>
+      expect(application).toHaveAttribute(
+        "data-project-session-open-count",
+        "1",
+      ),
+    );
     const repositoriesTab = canvas.getByRole("tab", { name: "Repositories" });
     await waitFor(
       () =>
@@ -526,6 +532,10 @@
     await expect(
       await canvas.findByRole("img", { name: "1 commit" }),
     ).toBeVisible();
+    await expect(application).toHaveAttribute(
+      "data-project-session-open-count",
+      "1",
+    );
     const reviewsTab = canvas.getByRole("tab", { name: "Reviews" });
     await waitFor(
       () => expect(getComputedStyle(reviewsTab).pointerEvents).not.toBe("none"),
@@ -552,6 +562,10 @@
     await expect(
       await canvas.findByRole("button", { name: "Back to commits" }),
     ).toBeVisible();
+    await expect(application).toHaveAttribute(
+      "data-project-session-open-count",
+      "1",
+    );
   }}
 >
   {#snippet template()}

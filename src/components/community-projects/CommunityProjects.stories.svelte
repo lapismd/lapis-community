@@ -492,17 +492,56 @@ index 3333333..4444444 100644
     view: "projects",
     selectedProject: undefined,
     cachedCatalogAt: 1_700_000_000_000,
-    error: "The live project query timed out.",
-    onRetry: fn(),
   }}
-  play={async ({ canvas }) => {
+  play={async ({ canvas, canvasElement }) => {
+    const notifications = within(canvasElement.ownerDocument.body);
+    const projects = within(
+      canvasElement.querySelector('[data-ui-component="community-projects"]')!,
+    );
+    const cachedNotice = await notifications.findByText(
+      "Showing cached project catalog",
+    );
+    await waitFor(() => expect(cachedNotice).toBeVisible());
     await expect(
-      canvas.getByText("Showing cached project catalog"),
-    ).toBeVisible();
-    await expect(canvas.getByText("Live project refresh failed")).toBeVisible();
+      projects.queryByText("Showing cached project catalog"),
+    ).not.toBeInTheDocument();
     await expect(
       canvas.getByRole("button", { name: /Community Client/u }),
     ).toBeVisible();
+  }}
+/>
+
+<Story
+  name="Cached catalog refresh failure"
+  args={{
+    view: "projects",
+    selectedProject: undefined,
+    cachedCatalogAt: 1_700_000_000_000,
+    error: "The live project query timed out.",
+    onRetry: fn(),
+  }}
+  play={async ({ args, canvas, canvasElement }) => {
+    const notifications = within(canvasElement.ownerDocument.body);
+    const projects = within(
+      canvasElement.querySelector('[data-ui-component="community-projects"]')!,
+    );
+    const refreshFailure = await notifications.findByText(
+      "Live project refresh failed",
+    );
+    await waitFor(() => expect(refreshFailure).toBeVisible());
+    await expect(
+      projects.queryByText("Live project refresh failed"),
+    ).not.toBeInTheDocument();
+    await expect(
+      canvas.getByRole("button", { name: /Community Client/u }),
+    ).toBeVisible();
+    await userEvent.click(notifications.getByRole("button", { name: "Retry" }));
+    await expect(args.onRetry).toHaveBeenCalledOnce();
+    await waitFor(() =>
+      expect(
+        notifications.getByText("Live project refresh failed"),
+      ).toBeVisible(),
+    );
   }}
 />
 

@@ -46,7 +46,9 @@
             }
           : {}),
         ...(variant === "loading" ? { status: "loading", agents: [] } : {}),
-        ...(variant === "empty" ? { agents: [], archivedAgents: [] } : {}),
+        ...(variant === "empty"
+          ? { agents: [], personas: [], archivedAgents: [] }
+          : {}),
         ...(variant === "offline"
           ? {
               status: "offline",

@@ -1,6 +1,7 @@
 <script lang="ts">
   import { untrack } from "svelte";
   import { AppShell, AppShellController } from "@lapismd/design-core/shell";
+  import { Toaster } from "svelte-sonner";
 
   import CommunityAppShell from "../community-app-shell/CommunityAppShell.svelte";
   import CommunityProjects from "./CommunityProjects.svelte";
@@ -21,3 +22,5 @@
     <CommunityProjects {...props} {selectedPath} onSelectPath={selectPath} />
   </AppShell.Main>
 </CommunityAppShell>
+
+<Toaster position="bottom-right" />

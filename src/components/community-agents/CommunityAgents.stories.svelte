@@ -128,9 +128,27 @@
     const footer = dialog.querySelector<HTMLElement>(
       '[data-slot="dialog-footer"]',
     );
+    const header = dialog.querySelector<HTMLElement>(
+      '[data-ui-part="dialog-frame-header"]',
+    );
+    const sidebar = dialog.querySelector<HTMLElement>(
+      '[data-ui-part="dialog-frame-sidebar"]',
+    );
+    const main = dialog.querySelector<HTMLElement>(
+      '[data-ui-part="dialog-frame-main"]',
+    );
     expect(scrollArea).not.toBeNull();
     expect(scrollbar).not.toBeNull();
     expect(footer).not.toBeNull();
+    expect(header).not.toBeNull();
+    expect(sidebar).not.toBeNull();
+    expect(main).not.toBeNull();
+    expect(dialog.getBoundingClientRect().width).toBeLessThanOrEqual(896);
+    expect(dialog.getBoundingClientRect().height).toBeLessThanOrEqual(672);
+    expect(getComputedStyle(header!).backgroundColor).toBe(
+      getComputedStyle(sidebar!).backgroundColor,
+    );
+    expect(getComputedStyle(main!).borderRadius).not.toBe("0px");
     expect(scrollbar!.getBoundingClientRect().right).toBeCloseTo(
       scrollArea!.getBoundingClientRect().right,
       0,
@@ -268,8 +286,19 @@
     ).not.toBeInTheDocument();
   }}>{#snippet template()}<Harness variant="loading" />{/snippet}</Story
 >
-<Story name="Empty"
-  >{#snippet template()}<Harness variant="empty" />{/snippet}</Story
+<Story
+  name="Empty"
+  play={async ({ canvas }) => {
+    await expect(
+      canvas.getByRole("button", { name: "Add agent" }),
+    ).toBeVisible();
+    await expect(
+      canvas.queryByRole("region", { name: "Saved personas" }),
+    ).not.toBeInTheDocument();
+    await expect(
+      canvas.queryByRole("button", { name: "New persona" }),
+    ).not.toBeInTheDocument();
+  }}>{#snippet template()}<Harness variant="empty" />{/snippet}</Story
 >
 <Story
   name="Offline"

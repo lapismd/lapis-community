@@ -39,6 +39,7 @@
     onDeletePersona,
     onRefresh,
     onClearHistory,
+    showPageHeader = true,
   }: {
     model: CommunityAgentsState;
     onProfile: (pubkey: string) => void;
@@ -48,6 +49,8 @@
     onDeletePersona?: (slug: string) => Promise<void>;
     onRefresh: () => void | Promise<void>;
     onClearHistory: () => Promise<void>;
+    /** Keep the local title and refresh action when no application header owns them. */
+    showPageHeader?: boolean;
   } = $props();
   const addInputId = "community-agents-add-public-key";
   let clearing = $state(false);
@@ -68,7 +71,6 @@
   let personaOpen = $state(false);
   let personaPending = $state(false);
   let personaFeedback = $state("");
-  let editorExisting = $state(false);
   let editorSlug = $state("");
   let editorName = $state("");
   let editorDescription = $state("");
@@ -188,14 +190,13 @@
     );
   }
 
-  function openPersona(persona?: CommunityAgentPersona) {
+  function openPersona(persona: CommunityAgentPersona) {
     personaFeedback = "";
-    editorExisting = Boolean(persona);
-    editorSlug = persona?.slug ?? "";
-    editorName = persona?.displayName ?? "";
-    editorDescription = persona?.description ?? "";
-    editorAvatarUrl = persona?.avatarUrl ?? "";
-    editorSystemPrompt = persona?.systemPrompt ?? "";
+    editorSlug = persona.slug;
+    editorName = persona.displayName;
+    editorDescription = persona.description;
+    editorAvatarUrl = persona.avatarUrl ?? "";
+    editorSystemPrompt = persona.systemPrompt ?? "";
     personaOpen = true;
   }
 
@@ -256,20 +257,23 @@
   bind:this={directory}
   tabindex="-1"
   class="agents"
+  class:agents--body-header={!showPageHeader}
   aria-label="Your agents"
 >
-  <header>
-    <div>
-      <h1>Agents</h1>
-      <p>Your registered agents in this community.</p>
-    </div>
-    <Button
-      variant="outline"
-      onclick={() => void onRefresh()}
-      disabled={model.status === "loading"}
-      ><RefreshIcon aria-hidden="true" />Refresh agents</Button
-    >
-  </header>
+  {#if showPageHeader}
+    <header>
+      <div>
+        <h1>Agents</h1>
+        <p>Your registered agents in this community.</p>
+      </div>
+      <Button
+        variant="outline"
+        onclick={() => void onRefresh()}
+        disabled={model.status === "loading"}
+        ><RefreshIcon aria-hidden="true" />Refresh agents</Button
+      >
+    </header>
+  {/if}
   {#if model.error}<p role="status">{model.error}</p>{/if}
   {#if model.partial && !model.error}<p role="status">
       Some agents could not be loaded. Refresh agents to retry.
@@ -382,18 +386,13 @@
         >{/each}
     </section>
   {/if}
-  {#if model.personas.length > 0 || onSavePersona}
+  {#if model.personas.length > 0}
     <section class="agents__personas" aria-label="Saved personas">
       <div class="agents__personas-heading">
         <div>
           <h2>Personas</h2>
           <p>Reusable owner-managed presentation and saved configuration.</p>
         </div>
-        {#if onSavePersona}<Button
-            variant="outline"
-            onclick={() => openPersona()}
-            ><PlusIcon aria-hidden="true" />New persona</Button
-          >{/if}
       </div>
       <ul>
         {#each model.personas as persona (persona.slug)}
@@ -454,7 +453,8 @@
     title="Add agent"
     description="Create an owner-managed persona and link an existing Nostr agent. The agent appears after its signed profile proves ownership."
     descriptionHidden
-    size="wide"
+    size="large"
+    surface="inset"
     busy={addingPending}
     closeLabel="Close add agent dialog"
     onCloseAutoFocus={(event) => {
@@ -630,8 +630,8 @@
 </Dialog.Root>
 <Dialog.Root bind:open={personaOpen}>
   <DialogFrame
-    title={editorSlug ? "Edit persona" : "New persona"}
-    description="Save reusable presentation and configuration under your owner identity."
+    title="Edit persona"
+    description="Update reusable presentation and configuration under your owner identity."
     descriptionHidden
     busy={personaPending}
     closeLabel="Close persona dialog"
@@ -663,7 +663,7 @@
           ><Input
             id="community-persona-id"
             bind:value={editorSlug}
-            disabled={editorExisting}
+            disabled
             placeholder={personaSlugFromName(editorName || "agent")}
           /><Field.Description
             >This stable ID does not change when the persona is renamed.</Field.Description
@@ -747,6 +747,9 @@
     display: grid;
     gap: 1.75rem;
     margin-inline: auto;
+  }
+  .agents--body-header {
+    padding-top: 1.25rem;
   }
   header {
     display: flex;

@@ -93,6 +93,11 @@
     --community-member-avatar-presence-size: 0.45rem;
   }
 
+  .community-member-avatar[data-size="xsmall"] .community-member-avatar__image {
+    font-size: var(--community-text-avatar-initials);
+    line-height: 1;
+  }
+
   .community-member-avatar[data-size="large"] {
     --community-member-avatar-size: 4rem;
     --community-member-avatar-presence-size: 0.85rem;
