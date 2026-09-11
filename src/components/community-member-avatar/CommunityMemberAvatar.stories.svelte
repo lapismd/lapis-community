@@ -72,3 +72,34 @@
     showPresence: false,
   }}
 />
+
+<Story
+  name="Deterministic fallback palette"
+  play={async ({ canvas }) => {
+    const avatars = canvas.getAllByRole("img");
+    const tones = avatars.map((avatar) =>
+      avatar
+        .querySelector('[data-ui-part="image"]')
+        ?.getAttribute("data-fallback-tone"),
+    );
+
+    await expect(new Set(tones).size).toBeGreaterThan(1);
+    await expect(tones).toEqual(["blue", "rose", "violet", "blue", "blue"]);
+  }}
+>
+  {#snippet template()}
+    <div class="community-member-avatar-story__palette">
+      {#each communityStoryMembers as member (member.id)}
+        <CommunityMemberAvatar {member} size="large" />
+      {/each}
+    </div>
+  {/snippet}
+</Story>
+
+<style>
+  .community-member-avatar-story__palette {
+    display: flex;
+    gap: 0.75rem;
+    padding: 1rem;
+  }
+</style>

@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { CommunityMemberModel } from "../community-workspace/model.js";
+  import { communityMemberAvatarFallbackTone } from "./model.js";
 
   let {
     member,
@@ -18,6 +19,7 @@
   } = $props();
 
   const presence = $derived(presenceOverride ?? member.presence ?? "offline");
+  const fallbackTone = $derived(communityMemberAvatarFallbackTone(member.name));
   const presenceLabel = $derived(
     presence === "online"
       ? "Online"
@@ -45,7 +47,11 @@
   aria-label={accessibleLabel}
   role={decorative ? undefined : "img"}
 >
-  <span class="community-member-avatar__image" data-ui-part="image">
+  <span
+    class="community-member-avatar__image"
+    data-ui-part="image"
+    data-fallback-tone={member.avatarUrl ? undefined : fallbackTone}
+  >
     {#if member.avatarUrl}
       <img src={member.avatarUrl} alt="" />
     {:else}
@@ -120,10 +126,43 @@
     place-items: center;
     overflow: hidden;
     border-radius: 50%;
-    color: var(--primary-foreground);
-    background: var(--primary);
     font-size: var(--community-text-body);
     font-weight: 700;
+  }
+
+  .community-member-avatar__image[data-fallback-tone="blue"] {
+    color: #ffffff;
+    background: #2563eb;
+  }
+
+  .community-member-avatar__image[data-fallback-tone="emerald"] {
+    color: #ffffff;
+    background: #047857;
+  }
+
+  .community-member-avatar__image[data-fallback-tone="amber"] {
+    color: #451a03;
+    background: #fbbf24;
+  }
+
+  .community-member-avatar__image[data-fallback-tone="rose"] {
+    color: #ffffff;
+    background: #e11d48;
+  }
+
+  .community-member-avatar__image[data-fallback-tone="cyan"] {
+    color: #083344;
+    background: #22d3ee;
+  }
+
+  .community-member-avatar__image[data-fallback-tone="violet"] {
+    color: #ffffff;
+    background: #7c3aed;
+  }
+
+  .community-member-avatar__image[data-fallback-tone="orange"] {
+    color: #ffffff;
+    background: #c2410c;
   }
 
   .community-member-avatar__image img {
