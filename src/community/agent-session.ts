@@ -52,7 +52,7 @@ class AgentSession implements CommunityAgentSession {
 
   constructor(options: AgentSessionOptions) {
     this.#options = options;
-    this.#fetch = options.fetch ?? globalThis.fetch;
+    this.#fetch = (options.fetch ?? globalThis.fetch).bind(globalThis);
   }
 
   #now(): number {
@@ -87,13 +87,15 @@ class AgentSession implements CommunityAgentSession {
     const nips = Array.isArray(info.supported_nips) ? info.supported_nips : [];
     const validSelf =
       typeof info.self === "string" && AGENT_PUBKEY.test(info.self);
-    const directory = validSelf && nips.includes("OA") && nips.includes(29);
+    // Buzz advertises numeric NIPs, without OA/AO or client-side NIP-44.
+    // Probe the bridge; only verified profiles establish owned identities.
+    const directory = validSelf && nips.includes(29);
     this.#info = {
       self: validSelf ? (info.self as string) : "",
       capabilities: {
         directory,
         presence: directory,
-        activity: directory && nips.includes("AO") && nips.includes(44),
+        activity: directory && (nips.includes("AO") || nips.includes(16)),
       },
     };
     return this.#info;
@@ -229,7 +231,8 @@ class AgentSession implements CommunityAgentSession {
         relayPubkey: info.self,
         capabilities: info.capabilities,
         partial: false,
-        reason: "This relay does not advertise agent ownership support",
+        reason:
+          "This relay does not advertise the required agent bridge capabilities",
       };
     const owner = await this.#options.identity.getPublicKey();
     const [owned, membership, contacts] = await Promise.all([

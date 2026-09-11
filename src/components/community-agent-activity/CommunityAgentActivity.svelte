@@ -77,7 +77,7 @@
       onValueChange={onSelectAgent}
       ><Select.Trigger aria-label="Activity agent"
         >{selected?.name ?? "Choose an agent"}</Select.Trigger
-      ><Select.Content
+      ><Select.Content aria-label="Activity agent"
         >{#each agents as agent (agent.pubkey)}<Select.Item
             value={agent.pubkey}
             label={agent.name}
@@ -98,7 +98,7 @@
         >{channels.find(
           (room) => (room.groupId ?? room.id) === model.activityChannel,
         )?.name ?? "All channels"}</Select.Trigger
-      ><Select.Content
+      ><Select.Content aria-label="Activity channel"
         ><Select.Item value="all">All channels</Select.Item
         >{#each channels as room (room.id)}<Select.Item
             value={room.groupId ?? room.id}

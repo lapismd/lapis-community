@@ -81,6 +81,55 @@ function setup(nips: (string | number)[] = [29, 44, "OA", "AO"]) {
 }
 
 describe("agent relay session", () => {
+  it.each(["default", "injected"])(
+    "preserves the browser receiver for %s native fetch",
+    async (mode) => {
+      const fixture = setup();
+      const browserFetch = vi.fn(function (
+        this: typeof globalThis,
+        ...args: Parameters<typeof fetch>
+      ) {
+        if (this !== globalThis) throw new TypeError("Illegal invocation");
+        return fixture.fetch(...args);
+      });
+      vi.stubGlobal("fetch", browserFetch);
+      try {
+        const session = createCommunityAgentSession({
+          scope: { id: "test", name: "Test", relayUrl: fixture.relay.url },
+          identity: {
+            getPublicKey: async () => owner,
+            signEvent: fixture.signEvent,
+          },
+          relay: fixture.relay,
+          authenticate: async () => {},
+          ...(mode === "injected" ? { fetch: globalThis.fetch } : {}),
+          now: () => now,
+        });
+        expect((await session.loadDirectory()).capabilities.directory).toBe(
+          true,
+        );
+        expect(browserFetch).toHaveBeenCalledTimes(4);
+      } finally {
+        vi.unstubAllGlobals();
+      }
+    },
+  );
+  it("probes Buzz agent support with its numeric NIP-11 advertisement", async () => {
+    const fixture = setup([
+      1, 2, 10, 11, 16, 17, 23, 25, 29, 33, 38, 42, 50, 56,
+    ]);
+    const directory = await fixture.session.loadDirectory();
+    expect(directory.capabilities).toEqual({
+      directory: true,
+      presence: true,
+      activity: true,
+    });
+    expect(fixture.requests.flat()).toContainEqual({
+      kinds: [30177],
+      authors: [owner],
+      limit: 500,
+    });
+  });
   it("loads an owned agent without channel membership and authenticates every query", async () => {
     const fixture = setup();
     const sig = bytesToHex(
@@ -117,7 +166,7 @@ describe("agent relay session", () => {
     });
   });
   it("disables unsupported relays without making agent queries", async () => {
-    const fixture = setup([29]);
+    const fixture = setup([1]);
     expect((await fixture.session.loadDirectory()).capabilities.directory).toBe(
       false,
     );

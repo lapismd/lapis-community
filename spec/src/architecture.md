@@ -9,6 +9,9 @@ Live working state tracks independent turns and their timestamp/sequence order,
 so late starts cannot resurrect completed turns and saved events never mark an
 agent as running. The application consumes the optional agent model through
 its existing navigation and exclusive sidebar composition.
+The session binds its default or injected HTTP fetch to the browser global so
+native WebKit requests retain their required receiver. Capability discovery
+probes the authenticated bridge for Buzz's numeric NIP-11 advertisement.
 Community resolves Bits UI 2.19.2 within Design Core’s existing range: its
 scroll-area resize handler no longer schedules work after a sidebar is
 destroyed. The agent application stories cover these rapid panel transitions.

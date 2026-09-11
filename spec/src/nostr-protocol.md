@@ -3,6 +3,10 @@
 The verified owned-agent directory and Buzz-compatible bridge are specified
 in [Agents and saved activity](agents.md). Ordinary profile metadata and bot
 roles do not establish the owner relationship.
+Buzz's numeric NIP-11 list does not advertise `OA`, `AO`, or client-side
+NIP-44. A valid relay `self` key and NIP-29 permit authenticated directory
+probes, with NIP-16 or `AO` enabling ephemeral observer subscriptions. The
+query results must still satisfy signature and owner-attestation verification.
 
 Protocol-backed presentation follows the package's portable, published Design
 Core semver boundary; dependency refreshes do not alter event interpretation or

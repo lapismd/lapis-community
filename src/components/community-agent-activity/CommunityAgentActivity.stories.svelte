@@ -1,6 +1,6 @@
 <script module lang="ts">
   import { defineMeta } from "@storybook/addon-svelte-csf";
-  import { expect, userEvent, within } from "storybook/test";
+  import { expect, userEvent, waitFor, within } from "storybook/test";
   import CommunityAgentActivity from "./CommunityAgentActivity.svelte";
   import Harness from "../community-agents/CommunityAgentsStoryHarness.svelte";
   const { Story } = defineMeta({
@@ -53,11 +53,29 @@
 <Story
   name="Channel filter"
   play={async ({ canvas, canvasElement }) => {
+    const body = within(canvasElement.ownerDocument.body);
     await userEvent.click(
-      canvas.getByRole("button", { name: "Activity channel" }),
+      canvas.getByRole("button", { name: "Activity agent" }),
     );
+    await expect(
+      body.getByRole("listbox", { name: "Activity agent" }),
+    ).toBeVisible();
+    await userEvent.keyboard("{Escape}");
+    await waitFor(() =>
+      expect(
+        body.queryByRole("listbox", { name: "Activity agent" }),
+      ).not.toBeInTheDocument(),
+    );
+    const channel = canvas.getByRole("button", { name: "Activity channel" });
+    await waitFor(() =>
+      expect(getComputedStyle(channel).pointerEvents).not.toBe("none"),
+    );
+    await userEvent.click(channel);
+    await expect(
+      body.getByRole("listbox", { name: "Activity channel" }),
+    ).toBeVisible();
     await userEvent.click(
-      within(canvasElement.ownerDocument.body).getByRole("option", {
+      body.getByRole("option", {
         name: "# support",
       }),
     );

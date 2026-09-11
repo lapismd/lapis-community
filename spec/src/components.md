@@ -398,6 +398,11 @@ using the public AppShell composition, CommunityChip, and Lucide controls.
 `CommunityAgents`, `CommunityAgentProfile`, and `CommunityAgentActivity` are
 public model-driven components. Their optional controller/session boundary
 preserves custom-source compatibility; see [Agents and saved activity](agents.md).
+The clear-history retry story verifies the success feedback and waits for the
+Design Core dialog's exit animation before requiring its removal from the DOM.
+Both activity selectors name their listboxes as well as their triggers, so
+assistive technology can identify the agent and channel choices while open or
+during an exit animation. The channel-filter story checks both listbox names.
 
 | ID        | Requirement                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | --------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |

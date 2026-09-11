@@ -29,6 +29,27 @@ bridge establish availability. Queries have bounded batches and stable
 method, and request body. A fresh nonce prevents identical read requests from
 reusing an authorization event. Live events use authenticated WebSockets.
 
+Buzz's numeric NIP-11 advertisement does not include the draft strings `OA`
+and `AO`, nor NIP-44 (encryption is performed by clients). A valid relay `self`
+key and NIP-29 support permit authenticated discovery probes; successful
+bridge responses and verified ownership determine the directory. NIP-16
+advertises the ephemeral transport used by observer events, alongside explicit
+`AO` advertisements from compatible relays. Advertisement alone never proves
+agent ownership. Default and injected browser fetch functions must retain their
+native global receiver through both information and authenticated requests.
+
+For browser clients, the relay's CORS policy must allow the application's
+origin on NIP-11 reads and query responses, and allow `POST`, `Content-Type`,
+and `Authorization` on query preflights. A desktop origin such as
+`tauri://localhost` does not include `http://localhost:7036`. Buzz configures
+its origin list through `BUZZ_CORS_ORIGINS`; preserve existing origins when
+adding a browser client. The `Authorization` header requires an explicit
+allowance or a reflected requested-header list: a wildcard alone does not
+cover it under the [Fetch Standard](https://fetch.spec.whatwg.org/#cors-non-wildcard-request-header-name).
+An HTTP 200 without the required CORS headers remains unreadable to the
+browser. Community must not disable browser origin checks or use `no-cors`
+to conceal this deployment error.
+
 Presence kind `20001` expires after 180 seconds. Relay-generated snapshots
 require the relay's signature and an exact subject `p` tag. Typing kind `20002`
 expires after eight seconds. Neither absence nor expired presence proves that

@@ -1,6 +1,6 @@
 <script module lang="ts">
   import { defineMeta } from "@storybook/addon-svelte-csf";
-  import { expect, userEvent, within } from "storybook/test";
+  import { expect, userEvent, waitFor, within } from "storybook/test";
   import CommunityAgents from "./CommunityAgents.svelte";
   import Harness from "./CommunityAgentsStoryHarness.svelte";
   const { Story } = defineMeta({
@@ -116,7 +116,9 @@
       }),
     );
     await expect(canvas.getByText("Saved history cleared")).toBeVisible();
-    await expect(body.queryByRole("dialog")).not.toBeInTheDocument();
+    await waitFor(() =>
+      expect(body.queryByRole("dialog")).not.toBeInTheDocument(),
+    );
   }}>{#snippet template()}<Harness failAction />{/snippet}</Story
 >
 <Story name="Narrow gallery"
