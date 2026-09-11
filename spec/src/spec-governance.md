@@ -35,6 +35,14 @@ The Docker build context must include the Turso Vite bundle helper imported by
 context, including the encrypted agent archive, instead of depending on files
 available only in the host checkout.
 
+For LC-SPEC-004, the dedicated Community development server MUST apply the
+existing Turso bundle transform before Vite scans both client and worker
+modules. Excluding the prebuilt bundle from dependency optimization alone is
+insufficient: its embedded WASM URL must not overflow Vite's asset scanner.
+Regression coverage MUST transform the installed bundle through the actual
+development configuration, and cold-browser validation must check that module
+loading and an OPFS query succeed rather than relying on the page HTML alone.
+
 ## Requirements
 
 | ID          | Requirement                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |

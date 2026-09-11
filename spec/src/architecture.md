@@ -49,6 +49,13 @@ its compile-time public trust configuration cannot become stale. Ownership is
 recorded per checkout and port, and replacement fails closed for a listener
 owned by another checkout.
 
+For LC-ARCH-011, the dedicated Vite host uses the same prebuilt Turso bundle
+transform as the package and Storybook client/worker pipelines. The transform
+preserves the embedded WASM bytes while normalizing URL and worker expressions
+before Vite scans them. A rendered shell or successful
+HTML request alone does not establish storage readiness: cold acceptance must
+load the database module and complete an OPFS open, query, and close.
+
 Registry’s built-in community composition may temporarily isolate the bounded
 discussion stream from plugin-detail presentation while earlier windows remain
 available. That private presentation context does not alter consumer-provided

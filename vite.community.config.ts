@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 import { defineConfig } from "vite";
 
 import { resolveCommunityDevRelayConfiguration } from "./dev/community/config.js";
+import { tursoBundleBuildPlugin } from "./scripts/vite-turso-bundle.js";
 
 const packageDirectory = path.dirname(fileURLToPath(import.meta.url));
 const fixtureEnvironmentPath = path.join(
@@ -28,7 +29,7 @@ const { relayUrl } = resolveCommunityDevRelayConfiguration(process.env);
 
 export default defineConfig({
   root: path.join(packageDirectory, "dev/community"),
-  plugins: [tailwindcss(), svelte()],
+  plugins: [tursoBundleBuildPlugin(), tailwindcss(), svelte()],
   define: {
     "import.meta.env.VITE_COMMUNITY_LIVE_RELAY_URL": JSON.stringify(relayUrl),
     "import.meta.env.VITE_REGISTRY_CURATOR_PUBKEYS": JSON.stringify(
@@ -55,7 +56,10 @@ export default defineConfig({
     esbuildOptions: { target: "esnext" },
   },
   build: { target: "esnext" },
-  worker: { format: "es" },
+  worker: {
+    format: "es",
+    plugins: () => [tursoBundleBuildPlugin()],
+  },
   server: {
     host: "127.0.0.1",
     port: 7036,
