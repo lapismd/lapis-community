@@ -398,12 +398,27 @@ using the public AppShell composition, CommunityChip, and Lucide controls.
 `CommunityAgents`, `CommunityAgentProfile`, and `CommunityAgentActivity` are
 public model-driven components. Their optional controller/session boundary
 preserves custom-source compatibility; see [Agents and saved activity](agents.md).
+Agent channel rows use Buzz's grouped border, leading add-member icon and
+trailing navigation arrows. An add-agent Dialog contains the existing public
+Command View channel picker, explicit selection and confirmation, key copy,
+error retention, and focus restoration. The permitted remove action remains
+available in a channel menu. Profile action hover and focus styling matches
+Community's existing member-profile treatment. The Channels, Add to channel,
+and Profile action feedback stories expose these states for human review.
+Agent profile Info rows use leading Lucide icons and a separate Activity log row
+with View and a chevron. Optional `ownerName` and `onOpenOwner` props connect
+Managed by to the verified owner through the existing application profile route.
+Agent presence uses `CommunityMemberAvatar`'s optional presence override to show
+the standard dot with an accurate online or unknown accessible label; Working
+remains separate. Agent activity follows the review timeline's connected icon
+rail and uses `CommunityRelativeTime` for relative labels and exact-date tooltips.
+The gallery uses 4:5 cards with large rounded shared avatars, presence dots, bottom-aligned names and descriptions, and Activity log menus. It omits search, creation, and Start controls. History clearing uses destructive buttons with confirmation, cancellation, error retention, and focus restoration. The application and nested agent gallery expose distinct landmark labels.
 The clear-history retry story verifies the success feedback and waits for the
 Design Core dialog's exit animation before requiring its removal from the DOM.
 Both activity selectors name their listboxes as well as their triggers, so
 assistive technology can identify the agent and channel choices while open or
 during an exit animation. The channel-filter story checks both listbox names.
 
-| ID        | Requirement                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
-| --------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| LC-UI-037 | The selected community MUST expose a searchable verified owned-agent gallery, shared profile entry points with Message and Follow, permission-aware channel management, and an exclusive activity sidebar with Back navigation. Saved history MUST include historical agents, channel filtering, pagination, visible storage/signer failures, and confirmed agent/all-history clearing. Controls MUST preserve error state, keyboard access, browser history, and mobile panels using public Design Core primitives and CommunityChip. Unsupported runtime controls MUST be omitted; changed stories MUST remain visual-pending. |
+| ID        | Requirement                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| LC-UI-037 | The selected community MUST expose a verified owned-agent card gallery without a search field, shared profile entry points with Message and Follow, permission-aware channel management, and an exclusive activity sidebar with Back navigation. Saved history MUST include historical agents, channel filtering, pagination, visible storage/signer failures, and confirmed agent/all-history clearing. Controls MUST preserve error state, keyboard access, browser history, and mobile panels using public Design Core primitives and CommunityChip. Unsupported runtime controls MUST be omitted; changed stories MUST remain visual-pending. |

@@ -6513,7 +6513,7 @@
       {/if}
     {:else if activeDestination === "agents"}
       <AppShell.Body layout="regions" label="Agents">
-        <AppShell.Body.Content label="Your agents">
+        <AppShell.Body.Content label="Agents directory">
           {#if community.state.agents && community.actions.agents}
             <CommunityAgents
               model={community.state.agents}
@@ -7006,6 +7006,12 @@
             {#if selectedAgent && community.actions.agents}
               <CommunityAgentProfile
                 agent={selectedAgent}
+                ownerName={memberById(
+                  workspace.members,
+                  selectedAgent.ownerPubkey,
+                ).name}
+                onOpenOwner={(pubkey) =>
+                  openProfile(memberById(workspace.members, pubkey))}
                 rooms={allRooms}
                 {...community.state.agents?.presence[selectedAgent.pubkey]
                   ? {

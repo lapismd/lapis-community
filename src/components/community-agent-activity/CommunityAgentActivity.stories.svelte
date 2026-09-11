@@ -23,6 +23,38 @@
 </script>
 
 <Story
+  name="Timeline"
+  play={async ({ canvas }) => {
+    const timeline = canvas.getByRole("list", { name: "Agent event timeline" });
+    const entries = within(timeline).getAllByRole("listitem");
+    await expect(entries).toHaveLength(7);
+    for (const entry of entries) {
+      await expect(
+        within(entry).getByRole("img", { name: /activity$/ }),
+      ).toBeVisible();
+      await expect(
+        entry.querySelector('[data-ui-component="community-chip"]'),
+      ).not.toBeInTheDocument();
+      await expect(
+        entry.querySelector('svg[aria-hidden="true"]'),
+      ).toBeVisible();
+      const time = entry.querySelector("time");
+      await expect(time).toHaveTextContent(/minutes? ago/);
+      await expect(time).toHaveAttribute("datetime");
+      await expect(time).toHaveAttribute("title");
+    }
+    const time = entries[0]!.querySelector("time")!;
+    await userEvent.hover(time);
+    await expect(time).toHaveAttribute("aria-describedby");
+    await userEvent.unhover(time);
+    // Browser zoom can resolve a one-pixel rail to a fractional CSS pixel.
+    await expect(
+      parseFloat(getComputedStyle(timeline, "::before").width),
+    ).toBeCloseTo(1, 1);
+  }}>{#snippet template()}<Harness screen="activity" />{/snippet}</Story
+>
+
+<Story
   name="Events and older history"
   play={async ({ canvas }) => {
     for (const text of [
@@ -123,6 +155,9 @@
 <Story
   name="Clear agent history"
   play={async ({ canvas, canvasElement }) => {
+    await expect(
+      canvas.getByRole("button", { name: "Clear this agent’s saved activity" }),
+    ).toHaveAttribute("data-variant", "destructive");
     await userEvent.click(
       canvas.getByRole("button", { name: "Clear this agent’s saved activity" }),
     );

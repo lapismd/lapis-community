@@ -9,8 +9,13 @@
     storyAgentRooms,
     storyActivity,
     storyActivityItems,
+    storyOwnerPubkey,
+    storyGalleryAgents,
   } from "./story-fixtures.js";
-  import type { CommunityAgentsState } from "../../community/agent-contracts.js";
+  import type {
+    CommunityAgentIdentity,
+    CommunityAgentsState,
+  } from "../../community/agent-contracts.js";
   let {
     screen = "gallery",
     variant = "ready",
@@ -25,10 +30,19 @@
   let view = $state(untrack(() => screen));
   let notice = $state("");
   let failure = $state(untrack(() => failAction));
-  let agent = $state(storyAgent);
+  let agent = $state<CommunityAgentIdentity>(storyAgent);
   let model = $state<CommunityAgentsState>(
     untrack(() =>
       storyAgentState({
+        ...(variant === "gallery"
+          ? {
+              agents: storyGalleryAgents,
+              presence: {
+                [storyAgent.pubkey]: { status: "online" as const },
+                [storyGalleryAgents[2]!.pubkey]: { status: "online" as const },
+              },
+            }
+          : {}),
         ...(variant === "loading" ? { status: "loading" } : {}),
         ...(variant === "empty" ? { agents: [], archivedAgents: [] } : {}),
         ...(variant === "offline"
@@ -96,8 +110,19 @@
   {#if view === "gallery"}
     <CommunityAgents
       {model}
-      onProfile={() => (view = "profile")}
-      onActivity={() => (view = "activity")}
+      onProfile={(pubkey) => {
+        agent =
+          model.agents.find((entry) => entry.pubkey === pubkey) ?? storyAgent;
+        view = "profile";
+      }}
+      onActivity={(pubkey) => {
+        agent =
+          model.agents.find((entry) => entry.pubkey === pubkey) ??
+          model.archivedAgents.find((entry) => entry.pubkey === pubkey) ??
+          agent;
+        model = { ...model, activityAgent: pubkey };
+        view = "activity";
+      }}
       onRefresh={() => {
         model = storyAgentState();
         notice = "Agent directory refreshed";
@@ -107,11 +132,18 @@
   {:else if view === "profile"}
     <CommunityAgentProfile
       {agent}
+      ownerName="steve"
+      onOpenOwner={(pubkey) => {
+        notice =
+          pubkey === storyOwnerPubkey
+            ? "Opened steve's profile"
+            : "Unknown owner";
+      }}
       rooms={variant === "denied"
         ? storyAgentRooms.map(({ permissions, ...room }) => room)
         : storyAgentRooms}
-      presence={{ status: "online" }}
-      working
+      presence={model.presence[agent.pubkey] ?? { status: "unknown" }}
+      working={Boolean(model.working[agent.pubkey])}
       canMessage={variant !== "no-encryption"}
       connected={variant !== "offline"}
       onMessage={() => {
@@ -122,7 +154,12 @@
         agent = { ...agent, followed: following };
       }}
       onActivity={() => {
-        model = { ...model, activity: storyActivityItems };
+        model = {
+          ...model,
+          activityAgent: agent.pubkey,
+          activity:
+            agent.pubkey === storyAgent.pubkey ? storyActivityItems : [],
+        };
         view = "activity";
       }}
       onCopy={() => {
@@ -145,7 +182,13 @@
     <CommunityAgentActivity
       {model}
       rooms={storyAgentRooms}
-      onBack={() => (view = "profile")}
+      onBack={() => {
+        const selected = model.agents.find(
+          (entry) => entry.pubkey === model.activityAgent,
+        );
+        if (selected && selected.pubkey !== agent.pubkey) agent = selected;
+        view = selected ? "profile" : "gallery";
+      }}
       onSelectAgent={(pubkey) => (model = { ...model, activityAgent: pubkey })}
       onSelectChannel={(channel) => {
         const { activityChannel, ...rest } = model;

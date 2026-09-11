@@ -1,10 +1,13 @@
 <script lang="ts">
   import { Button } from "@lapismd/design-core/shadcn/button";
-  import { Input } from "@lapismd/design-core/shadcn/input";
   import * as Dialog from "@lapismd/design-core/shadcn/dialog";
+  import * as DropdownMenu from "@lapismd/design-core/shadcn/dropdown-menu";
   import BotIcon from "@lucide/svelte/icons/bot";
   import RefreshIcon from "@lucide/svelte/icons/refresh-cw";
   import XIcon from "@lucide/svelte/icons/x";
+  import MoreIcon from "@lucide/svelte/icons/ellipsis-vertical";
+  import ActivityIcon from "@lucide/svelte/icons/wrench";
+  import TrashIcon from "@lucide/svelte/icons/trash-2";
   import type { CommunityAgentsState } from "../../community/agent-contracts.js";
   import CommunityChip from "../community-chip/CommunityChip.svelte";
   import CommunityMemberAvatar from "../community-member-avatar/CommunityMemberAvatar.svelte";
@@ -23,17 +26,11 @@
     onRefresh: () => void | Promise<void>;
     onClearHistory: () => Promise<void>;
   } = $props();
-  let search = $state("");
   let clearing = $state(false);
   let pending = $state(false);
   let feedback = $state("");
-  const visible = $derived(
-    model.agents.filter((agent) =>
-      `${agent.name} ${agent.pubkey} ${agent.about}`
-        .toLowerCase()
-        .includes(search.toLowerCase().trim()),
-    ),
-  );
+  let clearTrigger = $state<HTMLButtonElement | null>(null);
+  let directory = $state<HTMLElement>();
   const archived = $derived(
     model.archivedAgents.filter(
       (agent) =>
@@ -58,7 +55,12 @@
   }
 </script>
 
-<section class="agents" aria-label="Your agents">
+<section
+  bind:this={directory}
+  tabindex="-1"
+  class="agents"
+  aria-label="Your agents"
+>
   <header>
     <div>
       <h1>Agents</h1>
@@ -71,14 +73,6 @@
       ><RefreshIcon aria-hidden="true" />Refresh agents</Button
     >
   </header>
-  <div class="agents__search">
-    <Input
-      type="search"
-      aria-label="Search your agents"
-      placeholder="Search agents"
-      bind:value={search}
-    />
-  </div>
   {#if model.error}<p role="status">{model.error}</p>{/if}
   {#if model.partial && !model.error}<p role="status">
       Some agents could not be loaded. Refresh agents to retry.
@@ -101,41 +95,64 @@
         published to this community.
       </p>
     </div>
-  {:else if visible.length === 0}<p role="status">
-      No agents match “{search}”.
-    </p>
   {:else}
     <div class="agents__grid">
-      {#each visible as agent (agent.pubkey)}
-        <button
-          class="agents__card"
-          aria-label={`View ${agent.name}`}
-          onclick={() => onProfile(agent.pubkey)}
-        >
-          <div class="agents__avatar">
-            <CommunityMemberAvatar
-              member={communityAgentMember(agent)}
-              size="large"
-            />
-          </div>
-          <strong>{agent.name}</strong>
-          <span class="agents__about">{agent.about || "Registered agent"}</span>
-          <div class="agents__signals">
-            <CommunityChip
-              size="compact"
-              tone={model.presence[agent.pubkey]?.status === "online"
-                ? "success"
-                : "neutral"}
-              >{model.presence[agent.pubkey]?.status === "online"
-                ? "Online"
-                : "Presence unknown"}</CommunityChip
-            >
-            {#if model.working[agent.pubkey]}<CommunityChip
-                size="compact"
-                tone="accent">Working</CommunityChip
-              >{/if}
-          </div>
-        </button>
+      {#each model.agents as agent (agent.pubkey)}
+        <div class="agents__card">
+          <button
+            class="agents__card-open"
+            aria-label={`View ${agent.name}`}
+            onclick={() => onProfile(agent.pubkey)}
+          >
+            <div class="agents__avatar">
+              <CommunityMemberAvatar
+                member={communityAgentMember(agent)}
+                size="xlarge"
+                shape="rounded"
+                showPresence
+                presence={model.presence[agent.pubkey]?.status ?? "unknown"}
+              />
+            </div>
+            {#if model.working[agent.pubkey]}
+              <div class="agents__working">
+                <CommunityChip size="compact" tone="accent"
+                  >Working</CommunityChip
+                >
+              </div>
+            {/if}
+            <div class="agents__details">
+              <strong>{agent.name}</strong>
+              <span class="agents__about"
+                >{agent.about || "Registered agent"}</span
+              >
+            </div>
+          </button>
+          <DropdownMenu.Root>
+            <DropdownMenu.Trigger>
+              {#snippet child({ props })}
+                <Button
+                  {...props}
+                  class="agents__card-menu"
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-label={`Actions for ${agent.name}`}
+                >
+                  <MoreIcon aria-hidden="true" />
+                </Button>
+              {/snippet}
+            </DropdownMenu.Trigger>
+            <DropdownMenu.Content class="agents__card-actions" align="end">
+              <DropdownMenu.Group>
+                <DropdownMenu.Item onSelect={() => onActivity(agent.pubkey)}>
+                  <ActivityIcon
+                    data-icon="inline-start"
+                    aria-hidden="true"
+                  />Activity log
+                </DropdownMenu.Item>
+              </DropdownMenu.Group>
+            </DropdownMenu.Content>
+          </DropdownMenu.Root>
+        </div>
       {/each}
     </div>
   {/if}
@@ -159,11 +176,12 @@
           : "Encrypted activity stays on this device until you clear it."}
       </p>
       <Button
-        variant="ghost"
+        bind:ref={clearTrigger}
+        variant="destructive"
         onclick={() => {
           feedback = "";
           clearing = true;
-        }}>Clear all saved activity</Button
+        }}><TrashIcon aria-hidden="true" />Clear all saved activity</Button
       >
     </footer>
   {/if}
@@ -171,7 +189,19 @@
 </section>
 
 <Dialog.Root bind:open={clearing}>
-  <Dialog.Content showCloseButton={false}>
+  <Dialog.Content
+    showCloseButton={false}
+    onCloseAutoFocus={(event) => {
+      event.preventDefault();
+      (clearTrigger ?? directory)?.focus({ preventScroll: true });
+    }}
+    onInteractOutside={(event) => {
+      if (pending) event.preventDefault();
+    }}
+    onEscapeKeydown={(event) => {
+      if (pending) event.preventDefault();
+    }}
+  >
     <Dialog.Header
       ><Dialog.Title>Clear all saved agent activity?</Dialog.Title
       ><Dialog.Description
@@ -184,6 +214,7 @@
       variant="ghost"
       size="icon-sm"
       aria-label="Close clear history dialog"
+      disabled={pending}
       onclick={() => (clearing = false)}
       ><XIcon class="size-3.5" aria-hidden="true" /></Button
     >
@@ -236,54 +267,94 @@
   header p {
     margin-top: 0.35rem;
   }
-  .agents__search {
-    max-width: 26rem;
-  }
   .agents__grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(min(100%, 13rem), 1fr));
     gap: 1rem;
   }
   .agents__card {
+    position: relative;
+    min-width: 0;
+    aspect-ratio: 4 / 5;
+    border: 1px solid var(--border);
+    border-radius: 1rem;
+    background: color-mix(in oklab, var(--muted) 50%, var(--background));
+    box-shadow: 0 1px 3px color-mix(in oklab, var(--foreground) 7%, transparent);
+    transition:
+      background-color 150ms,
+      border-color 150ms;
+  }
+  .agents__card-open {
     display: flex;
     flex-direction: column;
     align-items: flex-start;
-    gap: 0.65rem;
-    padding: 1.25rem;
-    border: 1px solid var(--border);
-    border-radius: 1rem;
-    background: var(--card);
+    width: 100%;
+    height: 100%;
+    padding: 1rem;
+    border: 0;
+    border-radius: inherit;
+    background: transparent;
     color: var(--foreground);
+    font: inherit;
     text-align: left;
     cursor: pointer;
-    min-height: 15rem;
   }
   .agents__card:hover {
-    background: var(--muted);
+    background: color-mix(in oklab, var(--muted) 75%, var(--background));
   }
-  .agents__card:focus-visible {
+  .agents__card-open:focus-visible {
     outline: 2px solid var(--ring);
     outline-offset: 3px;
   }
   .agents__avatar {
-    align-self: center;
-    margin: 0.5rem 0 1rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    min-height: 9rem;
+    flex: 1;
+    padding-bottom: 0.75rem;
+  }
+  .agents__details {
+    display: grid;
+    gap: 0.25rem;
+    justify-items: start;
+    width: 100%;
+    min-width: 0;
+  }
+  .agents__details strong {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 1rem;
+    font-weight: 600;
   }
   .agents__about {
     color: var(--muted-foreground);
+    font-size: 0.85rem;
     line-height: 1.4;
+    min-height: 2.8em;
     display: -webkit-box;
     -webkit-line-clamp: 2;
     line-clamp: 2;
     -webkit-box-orient: vertical;
     overflow: hidden;
   }
-  .agents__signals {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.375rem;
-    margin-top: auto;
-    padding-top: 0.5rem;
+  :global(.agents__card-menu) {
+    position: absolute;
+    top: 0.5rem;
+    right: 0.5rem;
+    border-radius: 0.5rem;
+  }
+  .agents__working {
+    position: absolute;
+    top: 0.75rem;
+    left: 0.75rem;
+  }
+  :global(.agents__card-actions) {
+    width: 12rem;
+    max-width: calc(100vw - 2rem);
   }
   .agents__empty {
     min-height: 17rem;

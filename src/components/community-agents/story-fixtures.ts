@@ -14,36 +14,58 @@ export const storyAgentKey = new Uint8Array(32).fill(72);
 const ownerKey = new Uint8Array(32).fill(21);
 export const storyAgentPubkey = getPublicKey(storyAgentKey);
 export const storyOwnerPubkey = getPublicKey(ownerKey);
-export const storyAgentProfile = finalizeEvent(
-  {
-    kind: 0,
-    created_at: 1_700_000_000,
-    tags: [
-      [
-        "auth",
-        storyOwnerPubkey,
-        "",
-        bytesToHex(
-          schnorr.sign(
-            sha256(
-              new TextEncoder().encode(`nostr:agent-auth:${storyAgentPubkey}:`),
+function ownedStoryProfile(key: Uint8Array, name: string, about: string) {
+  const pubkey = getPublicKey(key);
+  return finalizeEvent(
+    {
+      kind: 0,
+      created_at: 1_700_000_000,
+      tags: [
+        [
+          "auth",
+          storyOwnerPubkey,
+          "",
+          bytesToHex(
+            schnorr.sign(
+              sha256(new TextEncoder().encode(`nostr:agent-auth:${pubkey}:`)),
+              ownerKey,
             ),
-            ownerKey,
           ),
-        ),
+        ],
       ],
-    ],
-    content: JSON.stringify({
-      name: "Research",
-      about: "Research and summarize project updates.",
-    }),
-  },
+      content: JSON.stringify({ name, about }),
+    },
+    key,
+  );
+}
+export const storyAgentProfile = ownedStoryProfile(
   storyAgentKey,
+  "Research",
+  "Research and summarize project updates.",
 );
 export const storyAgent = {
   ...materializeAgentDirectory([storyAgentProfile], storyOwnerPubkey, "")[0]!,
   channelIds: ["general"],
 };
+export const storyGalleryAgents = [
+  storyAgent,
+  ...materializeAgentDirectory(
+    [
+      ownedStoryProfile(
+        new Uint8Array(32).fill(73),
+        "Build",
+        "Build and test project changes.",
+      ),
+      ownedStoryProfile(
+        new Uint8Array(32).fill(74),
+        "Docs",
+        "Keep the project documentation up to date.",
+      ),
+    ],
+    storyOwnerPubkey,
+    "",
+  ),
+];
 export const storyAgentRooms: CommunityRoomModel[] = [
   {
     id: "general",
@@ -60,6 +82,7 @@ export const storyAgentRooms: CommunityRoomModel[] = [
     permissions: { manageMembers: { state: "enabled" } },
   },
 ] as CommunityRoomModel[];
+const activityBaseTime = Math.floor(Date.now() / 1_000) - 12 * 60;
 export function storyActivity(
   kind = "turn_started",
   payload: unknown = {},
@@ -68,10 +91,10 @@ export function storyActivity(
   return {
     id: String(index),
     agentPubkey: storyAgentPubkey,
-    createdAt: 1_700_000_000 + index,
+    createdAt: activityBaseTime + index * 60,
     frame: {
       seq: index,
-      timestamp: new Date((1_700_000_000 + index) * 1000).toISOString(),
+      timestamp: new Date((activityBaseTime + index * 60) * 1000).toISOString(),
       kind,
       channelId: "general",
       sessionId: "story",

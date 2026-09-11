@@ -23,6 +23,28 @@
 </script>
 
 <Story
+  name="Agent owner profile navigation"
+  play={async ({ canvas, canvasElement }) => {
+    await userEvent.click(
+      await canvas.findByRole("button", { name: "View Research" }),
+    );
+    await userEvent.click(
+      canvas.getByRole("button", { name: "View steve's profile" }),
+    );
+    await expect(
+      canvas.findByRole("heading", { name: "steve" }),
+    ).resolves.toBeVisible();
+    await expect(
+      canvas.queryByRole("article", { name: "Research agent profile" }),
+    ).not.toBeInTheDocument();
+    canvasElement.ownerDocument.defaultView!.history.back();
+    await expect(
+      canvas.findByRole("article", { name: "Research agent profile" }),
+    ).resolves.toBeVisible();
+  }}>{#snippet template()}<Harness />{/snippet}</Story
+>
+
+<Story
   name="Discovery capture and history"
   play={async ({ canvas, canvasElement }) => {
     await expect(
@@ -63,7 +85,7 @@
       canvas.getByRole("tab", { name: "Channels", exact: true }),
     );
     await expect(
-      canvas.getByRole("button", { name: "# general", exact: true }),
+      canvas.getByRole("button", { name: "Open #general", exact: true }),
     ).toBeVisible();
     await userEvent.click(
       canvas.getByRole("tab", { name: "Info", exact: true }),

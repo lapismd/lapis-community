@@ -6,16 +6,26 @@
     size = "medium",
     showPresence = false,
     decorative = false,
+    presence: presenceOverride,
+    shape = "circle",
   }: {
     member: CommunityMemberModel;
-    size?: "xsmall" | "small" | "medium" | "large";
+    size?: "xsmall" | "small" | "medium" | "large" | "xlarge";
+    shape?: "circle" | "rounded";
     showPresence?: boolean;
     decorative?: boolean;
+    presence?: CommunityMemberModel["presence"] | "unknown";
   } = $props();
 
-  const presence = $derived(member.presence ?? "offline");
+  const presence = $derived(presenceOverride ?? member.presence ?? "offline");
   const presenceLabel = $derived(
-    presence === "online" ? "Online" : presence === "away" ? "Away" : "Offline",
+    presence === "online"
+      ? "Online"
+      : presence === "away"
+        ? "Away"
+        : presence === "unknown"
+          ? "Presence unknown"
+          : "Offline",
   );
   const accessibleLabel = $derived(
     decorative
@@ -30,6 +40,7 @@
   class="community-member-avatar"
   data-ui-component="community-member-avatar"
   data-size={size}
+  data-shape={shape}
   aria-hidden={decorative ? "true" : undefined}
   aria-label={accessibleLabel}
   role={decorative ? undefined : "img"}
@@ -76,6 +87,16 @@
   .community-member-avatar[data-size="large"] {
     --community-member-avatar-size: 4rem;
     --community-member-avatar-presence-size: 0.85rem;
+  }
+
+  .community-member-avatar[data-size="xlarge"] {
+    --community-member-avatar-size: 6rem;
+    --community-member-avatar-presence-size: 1rem;
+  }
+
+  .community-member-avatar[data-shape="rounded"]
+    .community-member-avatar__image {
+    border-radius: 25%;
   }
 
   .community-member-avatar__image {

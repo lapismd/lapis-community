@@ -109,16 +109,51 @@ agents, and decoded windows remain bounded while older pages remain available.
 | Start / Stop, models, defaults, runtime     | External manager required; omitted                                           |
 | Private managed-agent kind 30179            | Rejected by relay; omitted                                                   |
 
+Avatar publication still requires an agent-signed kind `0` event. The existing
+personal-profile action signs as the connected user; it cannot edit another
+member's or agent's profile. Buzz's local managed-agent backend supplies the
+agent key for this operation. Community does not currently expose that signer,
+so its agent avatar remains a display surface rather than an editable control.
+
 The main Agents navigation appears beside Projects for signed-in compatible
-sessions, with loading, empty, offline, partial-result, and retry states. Profile
-entry points recognize verified agents and use the shared exclusive right
+sessions, with loading, empty, offline, partial-result, and retry states. Agent
+cards use a responsive 4:5 gallery with large rounded avatars, presence dots,
+bottom-aligned names and descriptions, and an Activity log menu. Working stays
+separate from presence. The gallery has no search field or creation and Start
+controls. Agent and community history clearing use destructive red buttons and
+confirmation dialogs; cancellation preserves history and failures remain retryable.
+Profile entry points recognize verified agents and use the shared exclusive right
 sidebar. Info provides identity, owner, key copy and an activity link. Channels
 uses the viewer's room permissions; agent ownership grants no administrative
 rights. Removal and local history clearing require confirmation and retain the
 dialog when an operation fails.
+The Info tab uses leading Lucide icons for the description, public key, owner,
+and agent type. Its Activity log row has a wrench icon and a trailing View label
+and chevron. Managed by opens the verified owner's existing member profile and
+preserves browser Back navigation. Optional `ownerName` and `onOpenOwner` profile
+props let custom hosts provide this navigation without breaking existing hosts.
+The Channels tab groups its add action and memberships inside one rounded,
+bordered surface, with a leading add-member icon and trailing chevron on the
+add row, and an open-channel arrow on each membership row. Permitted removal
+stays in each channel's 12rem-wide actions menu as Remove, with the agent and
+channel identified in the confirmation dialog. The add-agent
+modal uses the shared Command View search and keyboard picker, excludes
+existing memberships and archived or unmanageable rooms, and requires a
+selection before confirmation. It shows the full agent key with copy feedback,
+retains selection and errors on failure, and restores focus on close. Message
+and Follow use the existing member-profile hover and keyboard-focus treatment.
+Presence uses the shared avatar dot, including an explicit unknown state, while
+Working remains separate. The profile does not duplicate presence as a chip.
+The current add-member action does not take a role, so the modal does not offer
+Buzz's role selector.
 
 Activity replaces the profile with Back navigation and supports agent/channel
-selection, older saved pages and Latest. Plain escaped text presents messages,
+selection, older saved pages and Latest. Events use the review activity timeline
+layout: a connected icon rail and content aligned beside each marker. Icons
+provide category context with accessible labels, without repeating category
+chips on each event. Shared
+`CommunityRelativeTime` labels retain full timestamps in their tooltip and
+machine-readable time elements. Plain escaped text presents messages,
 tools, plans, lifecycle updates, errors and bounded unknown payloads. Browser
 agent routes contain only identity and filter selections, never private content.
 The public Pulse Agents filter uses the verified directory; private observer

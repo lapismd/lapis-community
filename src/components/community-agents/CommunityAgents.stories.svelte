@@ -23,19 +23,18 @@
 </script>
 
 <Story
-  name="Search and profile"
+  name="Profile navigation"
   play={async ({ canvas }) => {
     await expect(
       canvas.getByRole("heading", { name: "Agents", exact: true }),
     ).toBeVisible();
-    await userEvent.type(
-      canvas.getByRole("searchbox", { name: "Search your agents" }),
-      "missing",
-    );
-    await expect(canvas.getByText("No agents match “missing”.")).toBeVisible();
-    await userEvent.clear(
-      canvas.getByRole("searchbox", { name: "Search your agents" }),
-    );
+    await expect(canvas.queryByRole("searchbox")).not.toBeInTheDocument();
+    await expect(
+      canvas.getByRole("img", { name: "Research, Online" }),
+    ).toBeVisible();
+    await expect(
+      canvas.queryByText("Online", { exact: true }),
+    ).not.toBeInTheDocument();
     const card = canvas.getByRole("button", { name: "View Research" });
     card.focus();
     await userEvent.keyboard("{Enter}");
@@ -44,14 +43,62 @@
     ).toBeVisible();
   }}>{#snippet template()}<Harness />{/snippet}</Story
 >
+<Story
+  name="Gallery"
+  play={async ({ canvas }) => {
+    await expect(
+      canvas.getAllByRole("button", { name: /^View / }),
+    ).toHaveLength(3);
+    for (const card of canvas.getAllByRole("button", { name: /^View / })) {
+      const bounds = card.getBoundingClientRect();
+      await expect(bounds.width / bounds.height).toBeCloseTo(0.8, 1);
+      await expect(within(card).getByRole("img")).toHaveAttribute(
+        "data-shape",
+        "rounded",
+      );
+    }
+  }}>{#snippet template()}<Harness variant="gallery" />{/snippet}</Story
+>
+<Story
+  name="Card activity menu"
+  play={async ({ canvas, canvasElement }) => {
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Actions for Build" }),
+    );
+    const body = within(canvasElement.ownerDocument.body);
+    await userEvent.click(body.getByRole("menuitem", { name: "Activity log" }));
+    await expect(
+      canvas.getByRole("region", { name: "Agent activity history" }),
+    ).toBeVisible();
+    const back = canvas.getByRole("button", { name: "Back to profile" });
+    await waitFor(() =>
+      expect(getComputedStyle(back).pointerEvents).not.toBe("none"),
+    );
+    await userEvent.click(back);
+    await expect(
+      canvas.getByRole("article", { name: "Build agent profile" }),
+    ).toBeVisible();
+  }}>{#snippet template()}<Harness variant="gallery" />{/snippet}</Story
+>
 <Story name="Loading"
   >{#snippet template()}<Harness variant="loading" />{/snippet}</Story
 >
 <Story name="Empty"
   >{#snippet template()}<Harness variant="empty" />{/snippet}</Story
 >
-<Story name="Offline"
-  >{#snippet template()}<Harness variant="offline" />{/snippet}</Story
+<Story
+  name="Offline"
+  play={async ({ canvas }) => {
+    const avatar = canvas.getByRole("img", {
+      name: "Research, Presence unknown",
+    });
+    await expect(
+      avatar.querySelector('[data-ui-part="presence"]'),
+    ).toHaveAttribute("data-presence", "unknown");
+    await expect(
+      canvas.queryByText("Presence unknown", { exact: true }),
+    ).not.toBeInTheDocument();
+  }}>{#snippet template()}<Harness variant="offline" />{/snippet}</Story
 >
 <Story
   name="Partial results"
@@ -88,11 +135,38 @@
 <Story
   name="Confirmed clear failure and retry"
   play={async ({ canvas, canvasElement }) => {
-    await userEvent.click(
-      canvas.getByRole("button", { name: "Clear all saved activity" }),
+    const trigger = canvas.getByRole("button", {
+      name: "Clear all saved activity",
+    });
+    await expect(trigger).toHaveAttribute("data-variant", "destructive");
+    await waitFor(() =>
+      expect(getComputedStyle(trigger).pointerEvents).not.toBe("none"),
     );
+    await userEvent.click(trigger);
     const body = within(canvasElement.ownerDocument.body);
-    const dialog = body.getByRole("dialog");
+    let dialog = body.getByRole("dialog", {
+      name: "Clear all saved agent activity?",
+    });
+    await expect(
+      canvas.queryByText("Saved history cleared"),
+    ).not.toBeInTheDocument();
+    await userEvent.click(
+      within(dialog).getByRole("button", { name: "Cancel", exact: true }),
+    );
+    await waitFor(() =>
+      expect(body.queryByRole("dialog")).not.toBeInTheDocument(),
+    );
+    await expect(trigger).toHaveFocus();
+    await waitFor(() =>
+      expect(getComputedStyle(trigger).pointerEvents).not.toBe("none"),
+    );
+    await expect(
+      canvas.queryByText("Saved history cleared"),
+    ).not.toBeInTheDocument();
+    await userEvent.click(trigger);
+    dialog = body.getByRole("dialog", {
+      name: "Clear all saved agent activity?",
+    });
     await userEvent.click(
       within(dialog).getByRole("button", {
         name: "Clear history",
@@ -122,5 +196,5 @@
   }}>{#snippet template()}<Harness failAction />{/snippet}</Story
 >
 <Story name="Narrow gallery"
-  >{#snippet template()}<Harness narrow />{/snippet}</Story
+  >{#snippet template()}<Harness narrow variant="gallery" />{/snippet}</Story
 >

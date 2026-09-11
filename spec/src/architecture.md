@@ -9,6 +9,10 @@ Live working state tracks independent turns and their timestamp/sequence order,
 so late starts cannot resurrect completed turns and saved events never mark an
 agent as running. The application consumes the optional agent model through
 its existing navigation and exclusive sidebar composition.
+Agent channel presentation composes public Dialog, Command View, and menu
+primitives; channel selection stays local until the existing add-member action
+is confirmed. Membership authority and the controller's action contracts remain
+unchanged.
 The session binds its default or injected HTTP fetch to the browser global so
 native WebKit requests retain their required receiver. Capability discovery
 probes the authenticated bridge for Buzz's numeric NIP-11 advertisement.

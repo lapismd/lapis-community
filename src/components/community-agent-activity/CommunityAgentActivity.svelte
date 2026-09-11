@@ -5,6 +5,13 @@
   import ArrowLeftIcon from "@lucide/svelte/icons/arrow-left";
   import RefreshIcon from "@lucide/svelte/icons/refresh-cw";
   import XIcon from "@lucide/svelte/icons/x";
+  import MessageIcon from "@lucide/svelte/icons/message-square";
+  import WrenchIcon from "@lucide/svelte/icons/wrench";
+  import PlanIcon from "@lucide/svelte/icons/list-checks";
+  import ActivityIcon from "@lucide/svelte/icons/activity";
+  import AlertIcon from "@lucide/svelte/icons/circle-alert";
+  import EventIcon from "@lucide/svelte/icons/circle-dot";
+  import TrashIcon from "@lucide/svelte/icons/trash-2";
   import type { CommunityAgentsState } from "../../community/agent-contracts.js";
   import type { CommunityRoomModel } from "../community-workspace/model.js";
   import CommunityChip from "../community-chip/CommunityChip.svelte";
@@ -45,6 +52,14 @@
     agents.find((agent) => agent.pubkey === model.activityAgent),
   );
   const channels = $derived(rooms.filter((room) => room.kind !== "direct"));
+  const activityIcons = {
+    Message: MessageIcon,
+    Tool: WrenchIcon,
+    Plan: PlanIcon,
+    Status: ActivityIcon,
+    Error: AlertIcon,
+    Event: EventIcon,
+  };
   async function clear() {
     pending = true;
     error = "";
@@ -142,23 +157,30 @@
         cannot retrieve events it missed while disconnected.
       </p>
     </div>{/if}
-  <ol class="agent-activity__timeline">
+  <ol class="agent-activity__timeline" aria-label="Agent event timeline">
     {#each model.activity as item (item.id)}
       {@const entry = presentAgentActivity(item)}
+      {@const Marker = activityIcons[entry.category]}
       <li data-turn-id={item.frame.turnId ?? undefined}>
-        <div class="agent-activity__meta">
-          <CommunityChip
-            size="compact"
-            tone={entry.category === "Error" ? "danger" : "neutral"}
-            >{entry.category}</CommunityChip
-          ><span class="agent-activity__time"
-            ><CommunityRelativeTime
-              timestamp={Date.parse(item.frame.timestamp) / 1_000}
-            /></span
-          >
+        <span
+          class="agent-activity__marker"
+          data-category={entry.category}
+          role="img"
+          aria-label={`${entry.category} activity`}
+        >
+          <Marker aria-hidden="true" />
+        </span>
+        <div class="agent-activity__content">
+          <div class="agent-activity__meta">
+            <h3>{entry.title}</h3>
+            <span class="agent-activity__time"
+              ><CommunityRelativeTime
+                timestamp={Date.parse(item.frame.timestamp) / 1_000}
+              /></span
+            >
+          </div>
+          {#if entry.body}<pre>{entry.body}</pre>{/if}
         </div>
-        <h3>{entry.title}</h3>
-        {#if entry.body}<pre>{entry.body}</pre>{/if}
       </li>
     {/each}
   </ol>
@@ -169,17 +191,25 @@
     >{/if}
   {#if selected}<footer>
       <Button
-        variant="ghost"
+        variant="destructive"
         onclick={() => {
           error = "";
           clearing = true;
-        }}>Clear this agent’s saved activity</Button
+        }}
+        ><TrashIcon aria-hidden="true" />Clear this agent’s saved activity</Button
       >
     </footer>{/if}
 </section>
 
 <Dialog.Root bind:open={clearing}
-  ><Dialog.Content showCloseButton={false}
+  ><Dialog.Content
+    showCloseButton={false}
+    onInteractOutside={(event) => {
+      if (pending) event.preventDefault();
+    }}
+    onEscapeKeydown={(event) => {
+      if (pending) event.preventDefault();
+    }}
     ><Dialog.Header
       ><Dialog.Title>Clear {selected?.name}’s saved activity?</Dialog.Title
       ><Dialog.Description
@@ -191,6 +221,7 @@
       variant="ghost"
       size="icon-sm"
       aria-label="Close clear agent history dialog"
+      disabled={pending}
       onclick={() => (clearing = false)}
       ><XIcon class="size-3.5" aria-hidden="true" /></Button
     >{#if error}<p role="alert">{error}</p>{/if}<Dialog.Footer
@@ -249,18 +280,62 @@
     margin: 0;
   }
   .agent-activity__timeline {
+    position: relative;
     display: grid;
-    gap: 1.25rem;
-    padding: 0;
+    gap: 0.35rem;
+    padding: 0.25rem 0 0.75rem;
     margin: 0;
     list-style: none;
   }
-  li {
+  .agent-activity__timeline::before {
+    position: absolute;
+    inset-block: 1.15rem 1.25rem;
+    inset-inline-start: 0.95rem;
+    width: 1px;
+    background: var(--border);
+    content: "";
+  }
+  .agent-activity__timeline:empty::before {
+    content: none;
+  }
+  .agent-activity__timeline > li {
+    position: relative;
     display: grid;
-    gap: 0.625rem;
-    border-bottom: 1px solid var(--border);
-    padding-bottom: 1.25rem;
+    grid-template-columns: 2rem minmax(0, 1fr);
+    align-items: start;
+    gap: 0.65rem;
     min-width: 0;
+  }
+  .agent-activity__marker {
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 2rem;
+    height: 2rem;
+    box-sizing: border-box;
+    border: 1px solid var(--border);
+    border-radius: 50%;
+    background: var(--background);
+    color: var(--muted-foreground);
+  }
+  .agent-activity__marker :global(svg) {
+    width: 0.9rem;
+    height: 0.9rem;
+  }
+  .agent-activity__marker[data-category="Error"] {
+    color: var(--destructive);
+  }
+  .agent-activity__content {
+    display: grid;
+    justify-items: start;
+    gap: 0.625rem;
+    padding-block: 0.4rem 1rem;
+    min-width: 0;
+  }
+  .agent-activity__meta {
+    width: 100%;
+    align-items: baseline;
   }
   pre {
     margin: 0;
