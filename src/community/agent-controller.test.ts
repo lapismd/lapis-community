@@ -13,6 +13,7 @@ import {
 import { materializeAgentDirectory } from "./agent-protocol.js";
 import type {
   CommunityAgentDirectory,
+  CommunityAgentIdentity,
   CommunityAgentSession,
 } from "./agent-contracts.js";
 
@@ -149,6 +150,44 @@ async function setup() {
 }
 
 describe("agent activity controller", () => {
+  it("loads the relay directory without waiting for a stalled activity archive", async () => {
+    const archive = createMemoryAgentActivityStore();
+    archive.agents = vi.fn(
+      () => new Promise<readonly CommunityAgentIdentity[]>(() => {}),
+    );
+    const directory: CommunityAgentDirectory = {
+      agents: [],
+      personas: [],
+      events: [],
+      relayPubkey: relay,
+      capabilities: { directory: true, presence: true, activity: true },
+      partial: false,
+    };
+    const session: CommunityAgentSession = {
+      loadDirectory: vi.fn(async () => directory),
+      loadPresence: async () => [],
+      subscribe: async () => ({ close() {} }),
+      setFollow: async () => profile,
+    };
+    const controller = createCommunityAgentsController({
+      scope,
+      identity: {
+        getPublicKey: async () => owner,
+        signEvent: async () => profile,
+      },
+      session,
+      archive,
+      storageMode: () => "turso-opfs",
+      onState() {},
+      now: () => now,
+    });
+    controllers.push(controller);
+
+    await controller.start();
+
+    expect(session.loadDirectory).toHaveBeenCalledOnce();
+    expect(controller.state.status).toBe("ready");
+  });
   it("registers an existing agent and refreshes the verified directory", async () => {
     const { controller, session } = await setup();
     vi.mocked(session.loadDirectory).mockResolvedValueOnce({

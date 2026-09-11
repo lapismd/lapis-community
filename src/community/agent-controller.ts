@@ -220,6 +220,12 @@ export class CommunityAgentsController {
 
   async start(): Promise<void> {
     this.#options.onState(this.#state);
+    void this.#loadArchivedAgents();
+    await this.refresh();
+    if (!this.#closed) this.#timer = setInterval(() => this.#tick(), 1_000);
+  }
+
+  async #loadArchivedAgents(): Promise<void> {
     try {
       const archivedAgents =
         (await this.#options.archive?.agents(this.#options.scope)) ?? [];
@@ -233,9 +239,6 @@ export class CommunityAgentsController {
           "Saved activity is unavailable. Retry to reopen the archive.",
       });
     }
-    if (this.#closed) return;
-    await this.refresh();
-    if (!this.#closed) this.#timer = setInterval(() => this.#tick(), 1_000);
   }
 
   refresh(): Promise<void> {

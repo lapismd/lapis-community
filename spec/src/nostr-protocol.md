@@ -12,6 +12,8 @@ Persona management MUST keep the owner-signed `30175` definition, owner-signed
 `30177` instance, and agent-signed kind `0` profile as separate authorities.
 Creating or editing an unlinked reusable persona MUST publish only kind `30175`;
 it MUST NOT manufacture an instance link or mutate a public profile.
+Relay directory reads MUST begin independently of optional local activity
+archive restoration.
 The instance links the persona's exact `d` value and records name inheritance
 explicitly; matching strings never imply inheritance. Persona prompts remain
 plaintext saved configuration and do not become active runtime state.

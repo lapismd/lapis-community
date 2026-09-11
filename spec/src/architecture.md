@@ -9,8 +9,9 @@ authenticated action boundary and refreshes the verified directory only after
 relay acceptance. Persona presentation therefore updates while an agent is
 offline, while unknown persona and legacy instance configuration remains on its
 original event. Standalone persona creation and editing use the same serialized
-queue without synthesizing or rewriting an agent instance. Its protocol rules
-are defined in [Agents and saved
+queue without synthesizing or rewriting an agent instance. Local activity
+archive restoration runs independently so a slow storage backend cannot block
+the live relay directory. Its protocol rules are defined in [Agents and saved
 activity](agents.md). Custom Community sources may omit this boundary without
 changing existing behavior. The direct `@noble/curves`
 runtime dependency supplies BIP-340 verification for NIP-OA owner attestations.
