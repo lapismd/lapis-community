@@ -29,6 +29,7 @@
   import * as Field from "@lapismd/design-core/shadcn/field";
   import { Input } from "@lapismd/design-core/shadcn/input";
   import * as Select from "@lapismd/design-core/shadcn/select";
+  import { ScrollArea } from "@lapismd/design-core/shadcn/scroll-area";
   import { Skeleton } from "@lapismd/design-core/shadcn/skeleton";
   import * as Tabs from "@lapismd/design-core/shadcn/tabs";
   import * as Tooltip from "@lapismd/design-core/shadcn/tooltip";
@@ -2660,7 +2661,7 @@
 {#if showContent}
   <CommunityProjectStatusToasts {cachedCatalogAt} {error} {onRetry} />
   <AppShell.Body
-    layout="regions"
+    layout="scroll"
     label={selectedProject ? `${selectedProject.name} projects` : "Projects"}
   >
     <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
@@ -2691,23 +2692,29 @@
               <ArrowLeftIcon aria-hidden="true" />
             </Button>
           {/if}
-          <Tabs.Root value={view === "directory" ? "projects" : view}>
-            <Tabs.List
-              class="community-projects__tab-list"
-              aria-label={selectedProject
-                ? `${selectedProject.name} sections`
-                : "Project sections"}
-            >
-              {#each selectedProject ? projectTabs : overviewTabs as tab (tab.value)}
-                <Tabs.Trigger
-                  class="community-projects__tab-trigger"
-                  value={tab.value}
-                  onclick={() => onSelectView?.(tab.value)}
-                  >{tab.label}</Tabs.Trigger
-                >
-              {/each}
-            </Tabs.List>
-          </Tabs.Root>
+          <ScrollArea
+            type="hover"
+            orientation="horizontal"
+            class="community-projects__tabs-scroll-area"
+          >
+            <Tabs.Root value={view === "directory" ? "projects" : view}>
+              <Tabs.List
+                class="community-projects__tab-list"
+                aria-label={selectedProject
+                  ? `${selectedProject.name} sections`
+                  : "Project sections"}
+              >
+                {#each selectedProject ? projectTabs : overviewTabs as tab (tab.value)}
+                  <Tabs.Trigger
+                    class="community-projects__tab-trigger"
+                    value={tab.value}
+                    onclick={() => onSelectView?.(tab.value)}
+                    >{tab.label}</Tabs.Trigger
+                  >
+                {/each}
+              </Tabs.List>
+            </Tabs.Root>
+          </ScrollArea>
         </div>
       {/if}
 
@@ -3194,7 +3201,9 @@
 
             <dl class="community-projects__task-meta">
               <div>
-                <dt>{@render taskStatusIcon(selectedTask.lifecycle)} Status</dt>
+                <dt>
+                  {@render taskStatusIcon(selectedTask.lifecycle)} Status
+                </dt>
                 <dd>{taskStatusLabel(selectedTask.lifecycle)}</dd>
               </div>
               <div>
@@ -3483,7 +3492,9 @@
           >
             <dl class="community-projects__review-meta">
               <div>
-                <dt><GitBranchIcon aria-hidden="true" /><span>Branch</span></dt>
+                <dt>
+                  <GitBranchIcon aria-hidden="true" /><span>Branch</span>
+                </dt>
                 <dd class="community-projects__review-branch">
                   <span
                     >{selectedPullRequest.branchName || "unknown branch"}</span
@@ -3673,25 +3684,33 @@
                   >
                     {#if reviewFileListOpen}
                       <aside aria-label="Changed files">
-                        <Input
-                          type="search"
-                          bind:value={reviewFileFilter}
-                          class="community-projects__changed-files-filter"
-                          aria-label="Filter changed files"
-                          placeholder="Filter changed files"
-                        />
-                        <div class="community-projects__changed-files-toolbar">
-                          <span>Files</span>
-                          <FileListingViewModeToggle
-                            bind:mode={diffFileListMode}
+                        <ScrollArea
+                          type="hover"
+                          orientation="vertical"
+                          class="community-projects__changed-files-scroll-area"
+                        >
+                          <Input
+                            type="search"
+                            bind:value={reviewFileFilter}
+                            class="community-projects__changed-files-filter"
+                            aria-label="Filter changed files"
+                            placeholder="Filter changed files"
                           />
-                        </div>
-                        <FileListing
-                          files={visibleProjectDiffFiles}
-                          mode={diffFileListMode}
-                          selectedPath={selectedReviewFilePath}
-                          onSelectPath={selectReviewFile}
-                        />
+                          <div
+                            class="community-projects__changed-files-toolbar"
+                          >
+                            <span>Files</span>
+                            <FileListingViewModeToggle
+                              bind:mode={diffFileListMode}
+                            />
+                          </div>
+                          <FileListing
+                            files={visibleProjectDiffFiles}
+                            mode={diffFileListMode}
+                            selectedPath={selectedReviewFilePath}
+                            onSelectPath={selectReviewFile}
+                          />
+                        </ScrollArea>
                       </aside>
                     {/if}
                     <div class="community-projects__diff-content">
@@ -4527,25 +4546,33 @@
                   >
                     {#if commitFileListOpen}
                       <aside aria-label="Changed files">
-                        <Input
-                          type="search"
-                          bind:value={commitFileFilter}
-                          class="community-projects__changed-files-filter"
-                          aria-label="Filter changed files"
-                          placeholder="Filter changed files"
-                        />
-                        <div class="community-projects__changed-files-toolbar">
-                          <span>Files</span>
-                          <FileListingViewModeToggle
-                            bind:mode={diffFileListMode}
+                        <ScrollArea
+                          type="hover"
+                          orientation="vertical"
+                          class="community-projects__changed-files-scroll-area"
+                        >
+                          <Input
+                            type="search"
+                            bind:value={commitFileFilter}
+                            class="community-projects__changed-files-filter"
+                            aria-label="Filter changed files"
+                            placeholder="Filter changed files"
                           />
-                        </div>
-                        <FileListing
-                          files={visibleCommitDiffFiles}
-                          mode={diffFileListMode}
-                          selectedPath={selectedCommitFilePath || null}
-                          onSelectPath={selectCommitFile}
-                        />
+                          <div
+                            class="community-projects__changed-files-toolbar"
+                          >
+                            <span>Files</span>
+                            <FileListingViewModeToggle
+                              bind:mode={diffFileListMode}
+                            />
+                          </div>
+                          <FileListing
+                            files={visibleCommitDiffFiles}
+                            mode={diffFileListMode}
+                            selectedPath={selectedCommitFilePath || null}
+                            onSelectPath={selectCommitFile}
+                          />
+                        </ScrollArea>
                       </aside>
                     {/if}
                     <section
@@ -4801,7 +4828,11 @@
                   </ButtonGroup.Root>
                 {/if}
               </header>
-              <div class="community-projects__file-body">
+              <ScrollArea
+                type="hover"
+                orientation="both"
+                class="community-projects__file-body"
+              >
                 {#if loading && !repositorySelectedBlob}
                   <div
                     class="community-projects__blob-skeleton"
@@ -4879,7 +4910,7 @@
                     Select a file to preview it.
                   </p>
                 {/if}
-              </div>
+              </ScrollArea>
             </section>
           {:else if tree}
             <section class="community-projects__file-browser">

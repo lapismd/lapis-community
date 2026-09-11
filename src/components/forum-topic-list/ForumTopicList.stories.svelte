@@ -61,8 +61,19 @@
     );
 
     const author = within(topicRow!).getByRole("button", {
-      name: "Ada Lovelace",
+      name: "View Ada Lovelace's profile",
     });
+    const authorColumn = author.closest<HTMLElement>(
+      '[data-ui-part="forum-topic-author"]',
+    );
+    const topicTitle = within(topicRow!).getByText(
+      "First-token latency with a large vault",
+    );
+    await expect(authorColumn).not.toBeNull();
+    await expect(author.getBoundingClientRect().right).toBeLessThan(
+      topicTitle.getBoundingClientRect().left,
+    );
+    await expect(within(topicRow!).queryByText("Started by")).toBeNull();
     await userEvent.hover(author);
     const contactPreview = await within(
       canvasElement.ownerDocument.body,

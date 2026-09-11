@@ -157,6 +157,19 @@
     .slice(0, 3)
     .map((participantId) => memberById(members, participantId))}
   {@const replyCountAvailable = topic.replyCountAvailable ?? true}
+  <span
+    class="forum-topic-list__author-avatar"
+    data-ui-part="forum-topic-author"
+  >
+    <CommunityMemberHoverCard
+      member={author}
+      trigger="avatar"
+      avatarSize="medium"
+      {...onOpenProfile === undefined ? {} : { onOpenProfile }}
+      {...onMessageMember === undefined ? {} : { onMessage: onMessageMember }}
+      {...onWaveMember === undefined ? {} : { onWave: onWaveMember }}
+    />
+  </span>
   <span class="forum-topic-list__topic-main">
     <span class="forum-topic-list__title-row">
       {#if topic.unread}
@@ -178,24 +191,13 @@
         >{/if}
     </span>
     <span class="forum-topic-list__excerpt">{topic.excerpt}</span>
-    <span class="forum-topic-list__meta">
-      <span>Started by</span>
-      <span class="forum-topic-list__author">
-        <CommunityMemberHoverCard
-          member={author}
-          trigger="mention"
-          triggerLabel={author.name}
-          {...onOpenProfile === undefined ? {} : { onOpenProfile }}
-          {...onMessageMember === undefined
-            ? {}
-            : { onMessage: onMessageMember }}
-          {...onWaveMember === undefined ? {} : { onWave: onWaveMember }}
-        />
+    {#if (topic.tags?.length ?? 0) > 0}
+      <span class="forum-topic-list__meta">
+        {#each topic.tags ?? [] as tag (tag)}
+          <CommunityChip>{tag}</CommunityChip>
+        {/each}
       </span>
-      {#each topic.tags ?? [] as tag (tag)}
-        <CommunityChip>{tag}</CommunityChip>
-      {/each}
-    </span>
+    {/if}
   </span>
   <span
     class="forum-topic-list__participants"
@@ -328,7 +330,7 @@
   .forum-topic-list__columns,
   .forum-topic-list__topic-row {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) 5rem 4.5rem 7rem;
+    grid-template-columns: 2.25rem minmax(0, 1fr) 5rem 4.5rem 7rem;
     align-items: center;
     gap: 1rem;
   }
@@ -345,7 +347,7 @@
   }
 
   .forum-topic-list__columns span:first-child {
-    grid-column: span 2;
+    grid-column: span 3;
   }
 
   .forum-topic-list__columns span:not(:first-child) {
@@ -430,10 +432,11 @@
     position: relative;
   }
 
-  .forum-topic-list__author {
+  .forum-topic-list__author-avatar {
     position: relative;
     z-index: 2;
     display: inline-flex;
+    align-self: start;
     pointer-events: auto;
   }
 
@@ -499,7 +502,7 @@
     }
 
     .forum-topic-list__topic-row {
-      grid-template-columns: minmax(0, 1fr) auto;
+      grid-template-columns: 2.25rem minmax(0, 1fr) auto;
     }
 
     .forum-topic-list__activity {

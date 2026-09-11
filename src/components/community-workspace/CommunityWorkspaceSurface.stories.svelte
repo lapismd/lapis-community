@@ -272,29 +272,34 @@
     const membership = canvasElement.querySelector(
       '[data-ui-part="room-membership"]',
     );
-    const scrollShell = canvasElement.querySelector<HTMLElement>(
-      '[data-ui-part="forum-scroll-shell"]',
+    const scrollArea = canvasElement.querySelector<HTMLElement>(
+      '[data-community-part="forum-scroll-shell"][data-ui-component="scroll-area"]',
+    );
+    const scrollViewport = scrollArea?.querySelector<HTMLElement>(
+      '[data-ui-part="scroll-area-viewport"]',
     );
     await expect(membership).not.toBeNull();
-    await expect(scrollShell).not.toBeNull();
+    await expect(scrollArea).not.toBeNull();
+    await expect(scrollViewport).not.toBeNull();
+    await expect(scrollArea).toHaveAttribute("data-scroll-visibility", "hover");
     await expect(membership).toHaveTextContent("Viewing support-ai");
-    await expect(scrollShell?.contains(membership)).toBe(false);
-    await expect(scrollShell!.scrollHeight).toBeGreaterThan(
-      scrollShell!.clientHeight,
+    await expect(scrollArea?.contains(membership)).toBe(false);
+    await expect(scrollViewport!.scrollHeight).toBeGreaterThan(
+      scrollViewport!.clientHeight,
     );
     await expect(
       Math.abs(
-        scrollShell!.getBoundingClientRect().bottom -
+        scrollArea!.getBoundingClientRect().bottom -
           membership!.getBoundingClientRect().top,
       ),
     ).toBeLessThanOrEqual(1);
     const footerTop = membership!.getBoundingClientRect().top;
-    scrollShell!.scrollTop = scrollShell!.scrollHeight;
-    scrollShell!.dispatchEvent(new Event("scroll"));
+    scrollViewport!.scrollTop = scrollViewport!.scrollHeight;
+    scrollViewport!.dispatchEvent(new Event("scroll"));
     await new Promise<void>((resolve) => {
       requestAnimationFrame(() => resolve());
     });
-    await expect(scrollShell!.scrollTop).toBeGreaterThan(0);
+    await expect(scrollViewport!.scrollTop).toBeGreaterThan(0);
     await expect(
       Math.abs(membership!.getBoundingClientRect().top - footerTop),
     ).toBeLessThanOrEqual(1);

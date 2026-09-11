@@ -8,14 +8,9 @@
   height: 100%;
   box-sizing: border-box;
   flex-direction: column;
-  overflow: auto;
   color: var(--foreground);
   background: var(--background);
   font-size: var(--community-text-body);
-}
-
-.community-projects[data-view="files"] {
-  overflow: auto;
 }
 
 .community-projects[data-detail="review"],
@@ -38,9 +33,9 @@
   backdrop-filter: blur(12px);
 }
 
-.community-projects__tabs > [data-slot="tabs-root"] {
+.community-projects__tabs-scroll-area {
   min-width: 0;
-  overflow-x: auto;
+  flex: 1;
 }
 
 .community-projects__tabs [data-slot="tabs-list"],
@@ -1620,6 +1615,12 @@
       var(--community-project-review-section-height) +
       var(--community-project-review-toolbar-height)
   );
+  align-self: start;
+  border-right: 1px solid var(--border);
+  background: var(--background);
+}
+
+.community-projects__changed-files-scroll-area {
   max-height: calc(
     100dvh - var(--community-project-tabs-height) -
       var(--community-project-review-section-height) -
@@ -1633,11 +1634,7 @@
         var(--community-project-review-toolbar-height) - 1rem
     )
   );
-  align-self: start;
-  overflow: auto;
-  border-right: 1px solid var(--border);
   padding: 0.5rem;
-  background: var(--background);
 }
 
 .community-projects__files-surface {
@@ -1814,15 +1811,14 @@
 .community-projects__file-body {
   min-width: 0;
   min-height: 28rem;
-  overflow: auto;
 }
 
-.community-projects__file-body > [data-ui-component="code-block"] {
+.community-projects__file-body [data-ui-component="code-block"] {
   min-height: 28rem;
 }
 
 .community-projects__file-body
-  > [data-ui-component="code-block"]
+  [data-ui-component="code-block"]
   [data-ui-part="code-block-scroll"] {
   min-height: 28rem;
 }

@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { ComposerStatus } from "@lapismd/design-core/ai/chat";
   import { Button } from "@lapismd/design-core/shadcn/button";
+  import { ScrollArea } from "@lapismd/design-core/shadcn/scroll-area";
   import { Skeleton } from "@lapismd/design-core/shadcn/skeleton";
   import ArrowLeftIcon from "@lucide/svelte/icons/arrow-left";
   import HashIcon from "@lucide/svelte/icons/hash";
@@ -314,9 +315,11 @@
       {/if}
     </div>
   {:else if model.view === "forum-index"}
-    <div
+    <ScrollArea
+      type="hover"
+      orientation="vertical"
       class="community-workspace-surface__forum-scroll-shell"
-      data-ui-part="forum-scroll-shell"
+      data-community-part="forum-scroll-shell"
     >
       <ForumTopicList
         title={activeRoom.name}
@@ -366,7 +369,7 @@
           {@render roomIntro("forum")}
         {/snippet}
       </ForumTopicList>
-    </div>
+    </ScrollArea>
     {#if knownNonmember}
       {@render roomMembershipFooter()}
     {/if}
@@ -651,11 +654,18 @@
     min-height: 0;
   }
 
-  .community-workspace-surface__forum-scroll-shell {
+  :global(
+      .community-workspace-surface__forum-scroll-shell[data-ui-component="scroll-area"]
+    ) {
     min-width: 0;
     min-height: 0;
     flex: 1;
-    overflow-y: auto;
+  }
+
+  :global(
+      .community-workspace-surface__forum-scroll-shell
+        > [data-ui-part="scroll-area-viewport"]
+    ) {
     overscroll-behavior: contain;
   }
 

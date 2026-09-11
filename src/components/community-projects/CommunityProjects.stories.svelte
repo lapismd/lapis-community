@@ -398,9 +398,21 @@ index 3333333..4444444 100644
     onWaveMember,
   }}
   play={async ({ canvas, canvasElement }) => {
+    const projectsBody = canvas.getByRole("main", {
+      name: "Projects",
+    });
+    const projectsScrollArea = projectsBody.querySelector(
+      '[data-ui-component="scroll-area"][data-ui-part="scroll-area"]',
+    );
+    await expect(projectsBody).toHaveAttribute("data-layout", "scroll");
+    await expect(projectsScrollArea).not.toBeNull();
     await expect(
       canvas.getByRole("heading", { name: "Projects Activity" }),
     ).toBeVisible();
+    const projectsWorkspace = canvas.getByLabelText("Projects workspace");
+    await expect(getComputedStyle(projectsWorkspace).overflowY).not.toBe(
+      "auto",
+    );
     const actorAvatar = canvas.getAllByRole("button", {
       name: "View Maya Chen's profile",
     })[0]!;

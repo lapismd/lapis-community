@@ -131,6 +131,15 @@
     await expect(mainBody).toHaveStyle("overflow: hidden");
     await expect(mainBody).toHaveAttribute("data-layout", "regions");
     await expect(mainBody.scrollHeight).toBe(mainBody.clientHeight);
+    const inboxScrollArea = inboxList.querySelector(
+      ':scope > [data-ui-component="scroll-area"][data-ui-part="scroll-area"]',
+    );
+    const inboxItems = inboxList.querySelector<HTMLElement>(
+      ".lc-community-inbox__items",
+    );
+    await expect(inboxScrollArea).not.toBeNull();
+    await expect(inboxItems).not.toBeNull();
+    await expect(getComputedStyle(inboxItems!).overflowY).not.toBe("auto");
 
     await userEvent.click(canvas.getByRole("button", { name: "All" }));
     const overlay = within(document.body);
@@ -310,6 +319,20 @@
     if (frame.dataset.communityBackend === "live") return;
 
     await userEvent.click(canvas.getByRole("button", { name: "support" }));
+    const forumTopics = await canvas.findByRole("region", {
+      name: "support topics",
+    });
+    const forumScrollArea = forumTopics.closest<HTMLElement>(
+      '[data-ui-component="scroll-area"][data-ui-part="scroll-area"]',
+    );
+    await expect(forumScrollArea).not.toBeNull();
+    await expect(forumScrollArea).toHaveAttribute(
+      "data-scroll-visibility",
+      "hover",
+    );
+    await expect(
+      forumScrollArea?.querySelector('[data-ui-part="scroll-area-viewport"]'),
+    ).not.toBeNull();
     await userEvent.click(
       await canvas.findByRole("button", {
         name: "Open topic Portable forums",
