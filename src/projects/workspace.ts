@@ -160,7 +160,9 @@ export function buildProjectForgeActivity(
           : comment.decision === "changes-requested"
             ? "changes-requested"
             : "comment"
-        : "comment";
+        : comment.isTrustedReviewRequest
+          ? "review-request"
+          : "comment";
       items.push({
         id: `review-comment:${comment.event.id}`,
         kind,
@@ -171,9 +173,16 @@ export function buildProjectForgeActivity(
             ? "approved a review in"
             : kind === "changes-requested"
               ? "requested changes to a review in"
-              : "commented on a review in",
+              : kind === "review-request"
+                ? "requested review in"
+                : "commented on a review in",
         title: pullRequest.title,
         body: comment.event.content,
+        ...(kind === "approval"
+          ? { detail: "Approved" }
+          : kind === "changes-requested"
+            ? { detail: "Changes requested" }
+            : {}),
         projectCoordinate: project.address.coordinate,
         repositoryCoordinate: pullRequest.repository.coordinate,
       });

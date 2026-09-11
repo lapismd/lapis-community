@@ -99,6 +99,10 @@ sets effective lifecycle. Kind `1` events carrying `t=review-request` MUST
 remain visible as review activity; only a trusted root actor may extend the
 Nostr reviewer set, and an external reviewer tag is presentation provenance
 rather than a Nostr authorization grant.
+The project activity reducer MUST distinguish review requests, approvals, and
+change requests from ordinary collaboration comments. Approval and change
+request outcomes MAY supply derived presentation detail and review-aware weekly
+totals, but those labels MUST NOT replace or alter the underlying signed event.
 GitHub connection creation, complete replacement, and revalidation MUST sign
 the exact relay forge endpoint and HTTP method with NIP-98. Requests containing
 connection configuration MUST bind the complete JSON payload, while a

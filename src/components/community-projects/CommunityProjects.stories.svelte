@@ -387,14 +387,17 @@ index 3333333..4444444 100644
     view: "activity",
     selectedProject: undefined,
     repositories: fixture.catalog.repositories,
-    activity: buildProjectForgeActivity(fixture.catalog, fixture.workItems),
+    activity: buildProjectForgeActivity(fixture.catalog, {
+      ...fixture.workItems,
+      pullRequests: [mergedPullRequest],
+    }),
     onSelectProject,
     onSelectView,
     onOpenProfile,
     onMessageMember,
     onWaveMember,
   }}
-  play={async ({ canvas }) => {
+  play={async ({ canvas, canvasElement }) => {
     await expect(
       canvas.getByRole("heading", { name: "Projects Activity" }),
     ).toBeVisible();
@@ -426,6 +429,49 @@ index 3333333..4444444 100644
     await expect(reviewCommentBody.getBoundingClientRect().left).toBeCloseTo(
       reviewCommentTitle?.getBoundingClientRect().left ?? -1,
       0,
+    );
+    const approvalBadge = canvas.getByText("Approved");
+    await expect(approvalBadge).toHaveAttribute("data-chip-tone", "success");
+    const approvalRow = approvalBadge.closest(
+      ".community-projects__activity-item",
+    ) as HTMLElement;
+    await expect(
+      approvalRow.querySelector(
+        '[data-activity-kind="approval"] .lucide-check',
+      ),
+    ).not.toBeNull();
+    const reviewRequest = canvas.getByText(/requested review in/u);
+    const reviewRequestRow = reviewRequest.closest(
+      ".community-projects__activity-item",
+    );
+    await expect(
+      reviewRequestRow?.querySelector(
+        '[data-activity-kind="review-request"] .lucide-user-plus',
+      ),
+    ).not.toBeNull();
+    const projectLink = within(reviewRequestRow as HTMLElement).getByRole(
+      "button",
+      { name: "Community Client" },
+    );
+    projectLink.click();
+    await expect(onSelectProject).toHaveBeenCalledWith(fixture.project);
+    await expect(getComputedStyle(reviewCommentBody).color).not.toBe(
+      getComputedStyle(reviewCommentTitle!).color,
+    );
+    const activityWorkspace = canvasElement.querySelector(
+      ".community-projects__workspace--activity",
+    ) as HTMLElement;
+    await expect(
+      Number.parseFloat(getComputedStyle(activityWorkspace).paddingTop),
+    ).toBeLessThanOrEqual(24);
+    const restingBackground = getComputedStyle(approvalRow).backgroundColor;
+    within(approvalRow)
+      .getByRole("button", { name: /Add project file and diff views/u })
+      .focus();
+    await waitFor(() =>
+      expect(getComputedStyle(approvalRow).backgroundColor).not.toBe(
+        restingBackground,
+      ),
     );
   }}
 />

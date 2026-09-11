@@ -126,4 +126,111 @@ describe("project workspace projection", () => {
       projectCoordinate: catalog.projects[0]!.address.coordinate,
     });
   });
+
+  it("projects trusted review requests and decision labels into activity", () => {
+    const catalog = materializeProjectForgeCatalog([
+      event("1", PROJECT_FORGE_KINDS.project, 10, [
+        ["d", "notes"],
+        ["name", "Notes"],
+        ["a", repositoryCoordinate],
+      ]),
+      event("2", PROJECT_FORGE_KINDS.repository, 11, [
+        ["d", "notes"],
+        ["name", "notes-desktop"],
+      ]),
+    ]);
+    const root = event(
+      "3",
+      PROJECT_FORGE_KINDS.pullRequest,
+      20,
+      [["a", repositoryCoordinate]],
+      "Ready for review",
+    );
+    const approval = event(
+      "4",
+      PROJECT_FORGE_KINDS.note,
+      21,
+      [["e", root.id]],
+      "Looks good",
+    );
+    const request = event(
+      "5",
+      PROJECT_FORGE_KINDS.note,
+      22,
+      [["e", root.id]],
+      "Review requested",
+    );
+    const workItems: ProjectForgeWorkItems = {
+      tasks: [],
+      pullRequests: [
+        {
+          root,
+          repository: catalog.repositories[0]!.address,
+          title: "Prepare beta",
+          content: root.content,
+          labels: [],
+          recipients: [],
+          initialCommit: "a".repeat(40),
+          currentCommit: "a".repeat(40),
+          cloneUrls: [],
+          branchName: "beta",
+          targetBranch: "main",
+          mergeBase: "b".repeat(40),
+          lifecycle: "open",
+          mergeCommit: "",
+          mergeReferences: [],
+          reviewers: [owner],
+          approvals: [],
+          changeRequests: [],
+          updates: [],
+          lifecycleEvents: [],
+          comments: [
+            {
+              event: approval,
+              encoding: "buzz-kind-1",
+              commit: "a".repeat(40),
+              isInlineComment: false,
+              isReviewRequest: false,
+              isTrustedReviewRequest: false,
+              reviewerPubkeys: [],
+              decision: "approved",
+              isTrustedDecision: true,
+              decisionStatus: "current",
+              reactions: [],
+            },
+            {
+              event: request,
+              encoding: "buzz-kind-1",
+              commit: "a".repeat(40),
+              isInlineComment: false,
+              isReviewRequest: true,
+              isTrustedReviewRequest: true,
+              reviewerPubkeys: [owner],
+              isTrustedDecision: false,
+              reactions: [],
+            },
+          ],
+          createdAt: root.created_at,
+          updatedAt: request.created_at,
+        },
+      ],
+      events: [root, approval, request],
+    };
+
+    const activity = buildProjectForgeActivity(
+      catalog as ProjectForgeCatalog,
+      workItems,
+    );
+
+    expect(activity.slice(0, 3).map((item) => item.kind)).toEqual([
+      "review-request",
+      "approval",
+      "review",
+    ]);
+    expect(activity[0]).toMatchObject({ action: "requested review in" });
+    expect(activity[1]).toMatchObject({
+      action: "approved a review in",
+      detail: "Approved",
+    });
+  });
 });

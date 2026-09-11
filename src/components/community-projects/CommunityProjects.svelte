@@ -40,6 +40,7 @@
   import CircleIcon from "@lucide/svelte/icons/circle";
   import CircleCheckIcon from "@lucide/svelte/icons/circle-check";
   import CircleDashedIcon from "@lucide/svelte/icons/circle-dashed";
+  import CircleDotIcon from "@lucide/svelte/icons/circle-dot";
   import CircleXIcon from "@lucide/svelte/icons/circle-x";
   import CodeXmlIcon from "@lucide/svelte/icons/code-xml";
   import CopyIcon from "@lucide/svelte/icons/copy";
@@ -67,8 +68,10 @@
   import PlusIcon from "@lucide/svelte/icons/plus";
   import RotateCcwIcon from "@lucide/svelte/icons/rotate-ccw";
   import Settings2Icon from "@lucide/svelte/icons/settings-2";
+  import TriangleAlertIcon from "@lucide/svelte/icons/triangle-alert";
   import UnlinkIcon from "@lucide/svelte/icons/unlink";
   import UserIcon from "@lucide/svelte/icons/user";
+  import UserPlusIcon from "@lucide/svelte/icons/user-plus";
   import UserRoundPlusIcon from "@lucide/svelte/icons/user-round-plus";
 
   import {
@@ -77,6 +80,7 @@
     projectForgeBranchRefs,
     splitProjectForgePatch,
     projectForgeBoundChannels,
+    type ProjectForgeActivityItem,
     type ProjectForgeProject,
     type ProjectForgeRepository,
     type ProjectTaskState,
@@ -93,6 +97,7 @@
   import CommunitySidebarToggleIcon from "../community-app-shell/CommunitySidebarToggleIcon.svelte";
   import CommunityChatComposer from "../community-chat-composer/CommunityChatComposer.svelte";
   import CommunityChip from "../community-chip/CommunityChip.svelte";
+  import type { CommunityChipTone } from "../community-chip/model.js";
   import CommunityMemberHoverCard from "../community-member-hover-card/CommunityMemberHoverCard.svelte";
   import CommunityMarkdownContent from "../community-markdown-content/CommunityMarkdownContent.svelte";
   import CommunityMessage from "../community-message/CommunityMessage.svelte";
@@ -660,8 +665,14 @@
   const weekTaskCount = $derived(
     weekActivity.filter((item) => item.kind === "task").length,
   );
+  const weekReviewCount = $derived(
+    weekActivity.filter((item) => item.kind === "review").length,
+  );
   const weekProjectCount = $derived(
     new Set(weekActivity.map((item) => item.projectCoordinate)).size,
+  );
+  const weekActivityDigest = $derived(
+    projectActivityDigest(weekTaskCount, weekReviewCount, weekProjectCount),
   );
   const overviewTabs = [
     { value: "activity", label: "Activity" },
@@ -1563,6 +1574,54 @@
     return value[0]!.toUpperCase() + value.slice(1);
   }
 
+  function activityDetailLabel(item: ProjectForgeActivityItem): string {
+    if (item.kind === "approval") return "Approved";
+    if (item.kind === "changes-requested") return "Changes requested";
+    if (!item.detail) return "";
+    if (item.kind === "task") return activityStatusLabel(item.detail);
+    if (item.kind === "review") {
+      return item.detail[0]!.toUpperCase() + item.detail.slice(1);
+    }
+    if (item.kind === "commit" || item.kind === "review-update") {
+      return item.detail;
+    }
+    return "";
+  }
+
+  function activityDetailTone(
+    item: ProjectForgeActivityItem,
+  ): CommunityChipTone {
+    if (item.kind === "approval" || item.kind === "review") return "success";
+    if (item.kind === "changes-requested" || item.kind === "task") {
+      return "warning";
+    }
+    if (item.kind === "commit" || item.kind === "review-update") {
+      return "accent";
+    }
+    return "neutral";
+  }
+
+  function projectActivityDigest(
+    taskCount: number,
+    reviewCount: number,
+    projectCount: number,
+  ): string {
+    const highlights = [
+      taskCount > 0
+        ? `${taskCount} ${taskCount === 1 ? "task" : "tasks"} opened`
+        : "",
+      reviewCount > 0
+        ? `${reviewCount} ${reviewCount === 1 ? "review" : "reviews"} opened`
+        : "",
+      `${projectCount} active ${projectCount === 1 ? "project" : "projects"}`,
+    ].filter(Boolean);
+    const detail =
+      highlights.length === 1
+        ? highlights[0]
+        : `${highlights.slice(0, -1).join(", ")}, and ${highlights.at(-1)}`;
+    return `This week: ${detail}.`;
+  }
+
   function channelName(binding: (typeof projectChannels)[number]): string {
     return (
       rooms.find(
@@ -1677,6 +1736,13 @@
     }
     const project = projects.find(
       (candidate) => candidate.address.coordinate === item.projectCoordinate,
+    );
+    if (project) onSelectProject?.(project);
+  }
+
+  function openActivityProject(coordinate: string): void {
+    const project = projects.find(
+      (candidate) => candidate.address.coordinate === coordinate,
     );
     if (project) onSelectProject?.(project);
   }
@@ -2646,14 +2712,12 @@
       {/if}
 
       {#if view === "activity"}
-        <div class="community-projects__workspace">
+        <div
+          class="community-projects__workspace community-projects__workspace--activity"
+        >
           <header class="community-projects__page-heading">
             <h1>Projects Activity</h1>
-            <p>
-              This week: {weekTaskCount}
-              {weekTaskCount === 1 ? "task" : "tasks"} opened, and {weekProjectCount}
-              active {weekProjectCount === 1 ? "project" : "projects"}.
-            </p>
+            <p>{weekActivityDigest}</p>
           </header>
           <div class="community-projects__section-divider">
             <span
@@ -2705,6 +2769,7 @@
             {:else}
               {#each visibleActivity as item (item.id)}
                 {@const actor = activityMember(item.actorPubkey)}
+                {@const detailLabel = activityDetailLabel(item)}
                 <article class="community-projects__activity-item">
                   {@render memberHoverAvatar(actor, "medium")}
                   <span
@@ -2712,31 +2777,60 @@
                     aria-hidden="true"
                   ></span>
                   <div class="community-projects__activity-copy">
-                    <div>
-                      <strong>{actor.name}</strong>
-                      <span
-                        >{item.action}
-                        {projectName(item.projectCoordinate)}</span
-                      >
+                    <div class="community-projects__activity-meta">
+                      <div class="community-projects__activity-byline">
+                        <div>
+                          <strong>{actor.name}</strong>
+                          <span>{item.action}</span>
+                          <button
+                            type="button"
+                            class="community-projects__activity-project-link"
+                            disabled={!onSelectProject}
+                            onclick={() =>
+                              openActivityProject(item.projectCoordinate)}
+                          >
+                            {projectName(item.projectCoordinate)}
+                          </button>
+                        </div>
+                        <CommunityRelativeTime timestamp={item.createdAt} />
+                      </div>
+                      {#if detailLabel}
+                        <CommunityChip
+                          class="community-projects__activity-status"
+                          size="compact"
+                          tone={activityDetailTone(item)}
+                          >{detailLabel}</CommunityChip
+                        >
+                      {/if}
                     </div>
-                    <CommunityRelativeTime timestamp={item.createdAt} />
                     <button
                       type="button"
                       class="community-projects__activity-card"
                       onclick={() => openActivityItem(item)}
                     >
-                      <span class="community-projects__activity-title">
-                        {#if item.kind === "review" || item.kind === "approval" || item.kind === "changes-requested"}
+                      <span
+                        class="community-projects__activity-title"
+                        data-activity-kind={item.kind}
+                      >
+                        {#if item.kind === "approval"}
+                          <CheckIcon aria-hidden="true" />
+                        {:else if item.kind === "changes-requested"}
+                          <TriangleAlertIcon aria-hidden="true" />
+                        {:else if item.kind === "review-request"}
+                          <UserPlusIcon aria-hidden="true" />
+                        {:else if item.kind === "review"}
                           <GitPullRequestIcon aria-hidden="true" />
-                        {:else if item.kind === "commit"}
+                        {:else if item.kind === "commit" || item.kind === "review-update"}
                           <GitCommitHorizontalIcon aria-hidden="true" />
                         {:else if item.kind === "repository"}
                           <FolderGit2Icon aria-hidden="true" />
                         {:else if item.kind === "project"}
                           <FolderKanbanIcon aria-hidden="true" />
                         {:else if item.kind === "task"}
-                          <CircleIcon aria-hidden="true" />
-                        {:else if item.kind === "comment" || item.kind === "assignment"}
+                          <CircleDotIcon aria-hidden="true" />
+                        {:else if item.kind === "assignment"}
+                          <UserPlusIcon aria-hidden="true" />
+                        {:else if item.kind === "comment"}
                           <MessageSquareIcon aria-hidden="true" />
                         {:else}
                           <CodeXmlIcon aria-hidden="true" />
@@ -2751,18 +2845,6 @@
                           {rooms}
                           {communityEmojis}
                         />
-                      {/if}
-                      {#if item.detail && (item.kind === "task" || item.kind === "review")}
-                        <span class="community-projects__activity-status">
-                          <CommunityChip
-                            size="compact"
-                            tone={item.detail === "closed" ||
-                            item.detail === "applied"
-                              ? "success"
-                              : "warning"}
-                            >{activityStatusLabel(item.detail)}</CommunityChip
-                          >
-                        </span>
                       {/if}
                     </button>
                   </div>

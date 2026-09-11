@@ -506,8 +506,13 @@
     await expect(
       canvas.getByRole("navigation", { name: "Project overview" }),
     ).toBeVisible();
+    const projectNavigation = canvas.getByRole("navigation", {
+      name: "Community navigation",
+    });
     await expect(
-      await canvas.findByRole("button", { name: "Community Client" }),
+      await within(projectNavigation).findByRole("button", {
+        name: "Community Client",
+      }),
     ).toBeVisible();
     await waitFor(() =>
       expect(application).toHaveAttribute(

@@ -432,6 +432,7 @@ export type ProjectForgeActivityKind =
   | "review-update"
   | "approval"
   | "changes-requested"
+  | "review-request"
   | "commit";
 
 export interface ProjectForgeActivityItem {
