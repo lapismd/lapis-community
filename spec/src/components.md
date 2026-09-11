@@ -310,6 +310,9 @@ render adjacent icon-only, tooltip-labelled Reply and Follow controls.
 For LC-UI-024, the composer shell MUST use Design Core's soft elevated shadow
 without adding a composer-wide focus ring around the Mira editing surface.
 
+For LC-UI-021, Registry source notices MUST span the full inline width of their
+App Shell toolbar on both landing and routed Registry surfaces.
+
 For LC-UI-024, `||spoiler||` content MUST preserve its inline footprint while a
 theme-aware sparkle-particle surface conceals the text. Hover and focus MUST
 leave the content concealed, click and keyboard activation MUST toggle its

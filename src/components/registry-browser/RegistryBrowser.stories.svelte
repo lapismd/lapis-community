@@ -169,7 +169,8 @@
 <Story
   name="Cached registry notice"
   play={async ({ canvas }) => {
-    await expect(await canvas.findByRole("status")).toHaveTextContent(
+    const status = await canvas.findByRole("status");
+    await expect(status).toHaveTextContent(
       "Showing a verified cached registry.",
     );
     await expect(
@@ -178,6 +179,14 @@
     const refresh = canvas.getByRole("button", { name: "Refresh registry" });
     await expect(refresh).toBeVisible();
     await expect(refresh).toHaveTextContent("");
+    const toolbar = status.closest<HTMLElement>('[data-ui-part="toolbar"]');
+    await expect(toolbar).not.toBeNull();
+    await expect(status.getBoundingClientRect().left).toBe(
+      toolbar!.getBoundingClientRect().left,
+    );
+    await expect(status.getBoundingClientRect().right).toBe(
+      toolbar!.getBoundingClientRect().right,
+    );
   }}
 >
   {#snippet template()}
@@ -202,11 +211,19 @@
     ).toBeVisible();
     const status = canvas
       .getByText("Showing a verified cached registry.")
-      .closest('[role="status"]');
+      .closest<HTMLElement>('[role="status"]');
     const breadcrumb = canvas.getByRole("navigation", {
       name: "breadcrumb",
     });
     await expect(status).not.toBeNull();
+    const toolbar = status!.closest<HTMLElement>('[data-ui-part="toolbar"]');
+    await expect(toolbar).not.toBeNull();
+    await expect(status!.getBoundingClientRect().left).toBe(
+      toolbar!.getBoundingClientRect().left,
+    );
+    await expect(status!.getBoundingClientRect().right).toBe(
+      toolbar!.getBoundingClientRect().right,
+    );
     await expect(
       status!.compareDocumentPosition(breadcrumb) &
         Node.DOCUMENT_POSITION_FOLLOWING,

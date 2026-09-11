@@ -926,7 +926,7 @@
     padding-inline: 1rem;
   }
 
-  :global(.registry-browser__toolbar--with-source) {
+  :global(.registry-browser__toolbar--with-source[data-ui-part="toolbar"]) {
     flex-direction: column;
     align-items: stretch;
     min-height: auto;
@@ -1094,7 +1094,7 @@
     font-size: var(--community-text-secondary);
   }
 
-  :global(.registry-browser__source-toolbar) {
+  :global(.registry-browser__source-toolbar[data-ui-part="toolbar"]) {
     min-height: auto;
     padding: 0;
   }
