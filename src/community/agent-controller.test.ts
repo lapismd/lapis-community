@@ -121,6 +121,7 @@ async function setup() {
     },
     setFollow: async () => profile,
     registerAgent: vi.fn(async () => profile),
+    savePersona: vi.fn(async () => persona),
     saveAgent: vi.fn(async () => ({ persona })),
     unlinkAgent: vi.fn(async () => profile),
     deletePersona: vi.fn(async () => persona),
@@ -176,11 +177,19 @@ describe("agent activity controller", () => {
       displayName: "Research",
       nameMode: "inherited" as const,
     };
+    await controller.actions.savePersona({
+      personaSlug: "research",
+      displayName: "Research",
+    });
     await controller.actions.saveAgent(input);
     await controller.actions.unlinkAgent(agent, "Research");
     await controller.actions.deletePersona("research");
     expect(session.saveAgent).toHaveBeenCalledWith(
       input,
+      expect.any(AbortSignal),
+    );
+    expect(session.savePersona).toHaveBeenCalledWith(
+      { personaSlug: "research", displayName: "Research" },
       expect.any(AbortSignal),
     );
     expect(session.unlinkAgent).toHaveBeenCalledWith(

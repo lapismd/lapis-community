@@ -14,6 +14,7 @@
   } from "./story-fixtures.js";
   import type {
     CommunityAgentIdentity,
+    CommunityAgentPersonaSaveInput,
     CommunityAgentSaveInput,
     CommunityAgentsState,
   } from "../../community/agent-contracts.js";
@@ -107,6 +108,10 @@
     const { error, ...rest } = model;
     model = { ...rest, partial: false };
   }
+  async function savePersona(input: CommunityAgentPersonaSaveInput) {
+    attempt();
+    notice = `Persona ${input.personaSlug} saved`;
+  }
   async function deletePersona(slug: string) {
     attempt();
     model = {
@@ -139,6 +144,7 @@
         view = "activity";
       }}
       onSaveAgent={saveAgent}
+      onSavePersona={savePersona}
       onDeletePersona={deletePersona}
       onRefresh={() => {
         model = storyAgentState();

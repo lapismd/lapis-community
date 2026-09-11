@@ -23,13 +23,17 @@ export interface CommunityAgentInstance {
   event: NostrEvent;
 }
 
-export interface CommunityAgentSaveInput {
-  pubkey: string;
+export interface CommunityAgentPersonaSaveInput {
   personaSlug: string;
   displayName: string;
   description?: string;
   avatarUrl?: string;
   systemPrompt?: string;
+}
+
+export interface CommunityAgentSaveInput
+  extends CommunityAgentPersonaSaveInput {
+  pubkey: string;
   nameMode: CommunityAgentNameMode;
   instanceName?: string;
 }
@@ -110,6 +114,10 @@ export interface CommunityAgentSession {
     signal?: AbortSignal,
   ): Promise<NostrEvent>;
   registerAgent?(pubkey: string, signal?: AbortSignal): Promise<NostrEvent>;
+  savePersona?(
+    input: CommunityAgentPersonaSaveInput,
+    signal?: AbortSignal,
+  ): Promise<NostrEvent>;
   saveAgent?(
     input: CommunityAgentSaveInput,
     signal?: AbortSignal,
@@ -211,6 +219,7 @@ export interface CommunityAgentsState {
 export interface CommunityAgentsActions {
   refresh(): Promise<void>;
   registerAgent(pubkey: string): Promise<void>;
+  savePersona(input: CommunityAgentPersonaSaveInput): Promise<void>;
   saveAgent(input: CommunityAgentSaveInput): Promise<void>;
   unlinkAgent(pubkey: string, fallbackName: string): Promise<void>;
   deletePersona(slug: string): Promise<void>;

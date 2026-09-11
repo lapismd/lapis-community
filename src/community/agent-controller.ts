@@ -94,6 +94,17 @@ export class CommunityAgentsController {
       this.#options.onDirectory?.([event]);
       await this.refresh();
     },
+    savePersona: async (input) => {
+      if (!this.#options.session.savePersona)
+        throw new Error("Persona management is unavailable in this runtime");
+      const event = await this.#options.session.savePersona(
+        input,
+        this.#abort.signal,
+      );
+      if (this.#closed) return;
+      this.#options.onDirectory?.([event]);
+      await this.refresh();
+    },
     saveAgent: async (input) => {
       if (!this.#options.session.saveAgent)
         throw new Error("Persona management is unavailable in this runtime");

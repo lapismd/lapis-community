@@ -6524,6 +6524,8 @@
               model={community.state.agents}
               onProfile={openAgentProfile}
               onActivity={openAgentActivity}
+              onSavePersona={(input) =>
+                community.actions.agents!.savePersona(input)}
               onSaveAgent={(input) =>
                 community.actions.agents!.saveAgent(input)}
               onDeletePersona={(slug) =>

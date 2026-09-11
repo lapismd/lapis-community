@@ -1171,6 +1171,13 @@ export function createCommunityController(
           agentController!.actions.registerAgent(pubkey),
         );
       },
+      savePersona: async (input) => {
+        if (!agentController)
+          throw new Error("Agent actions require a signed-in community");
+        await runOperation(`persona:save:${input.personaSlug}`, () =>
+          agentController!.actions.savePersona(input),
+        );
+      },
       saveAgent: async (input) => {
         if (!agentController)
           throw new Error("Agent actions require a signed-in community");

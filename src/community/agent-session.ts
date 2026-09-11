@@ -9,6 +9,7 @@ import type { CommunityScope } from "./contracts.js";
 import type {
   CommunityAgentCapabilities,
   CommunityAgentDirectory,
+  CommunityAgentPersonaSaveInput,
   CommunityAgentSaveInput,
   CommunityAgentSaveResult,
   CommunityAgentSession,
@@ -541,37 +542,7 @@ class AgentSession implements CommunityAgentSession {
           ).then(newestAgentEvent),
         ]);
 
-        const personaContent = safePersonaContent(personaHead?.content);
-        personaContent.display_name = input.displayName.trim();
-        setOptionalText(personaContent, "description", input.description);
-        setOptionalText(personaContent, "avatar_url", input.avatarUrl);
-        setOptionalText(
-          personaContent,
-          "system_prompt",
-          input.systemPrompt,
-          false,
-        );
-        const personaJSON = JSON.stringify(personaContent);
-        if (new TextEncoder().encode(personaJSON).byteLength > 65_535)
-          throw new Error("Persona content is larger than 65,535 bytes");
-
-        let persona = personaHead;
-        if (!persona || persona.content !== personaJSON) {
-          const created_at = this.#nextManagementTimestamp(personaHead);
-          persona = await this.#sign(
-            {
-              kind: 30175,
-              created_at,
-              tags: personaHead?.tags.map((tag) => [...tag]) ?? [
-                ["d", input.personaSlug],
-              ],
-              content: personaJSON,
-            },
-            signal,
-          );
-          await this.#publish(persona, "persona update", signal);
-          this.#lastManagementAt = created_at;
-        }
+        const persona = await this.#writePersona(input, personaHead, signal);
 
         const instanceContent = agentJson(instanceHead?.content ?? "{}");
         instanceContent.persona_id = input.personaSlug;
@@ -606,7 +577,38 @@ class AgentSession implements CommunityAgentSession {
           await this.#publish(instance, "agent link", signal);
           this.#lastManagementAt = created_at;
         }
-        return { persona: persona!, ...(instance ? { instance } : {}) };
+        return { persona, ...(instance ? { instance } : {}) };
+      });
+    this.#managementQueue = result;
+    return result;
+  }
+
+  savePersona(
+    input: CommunityAgentPersonaSaveInput,
+    signal?: AbortSignal,
+  ): Promise<NostrEvent> {
+    const result = this.#managementQueue
+      .catch(() => undefined)
+      .then(async () => {
+        this.#validatePersonaInput(input);
+        const info = await this.#relayInfo(signal);
+        if (!info.capabilities.directory)
+          throw new Error("Persona management is unavailable on this relay");
+        const owner = await this.#options.identity.getPublicKey();
+        const head = newestAgentEvent(
+          await this.#query(
+            [
+              {
+                kinds: [30175],
+                authors: [owner],
+                "#d": [input.personaSlug],
+                limit: 1,
+              },
+            ],
+            signal,
+          ),
+        );
+        return this.#writePersona(input, head, signal);
       });
     this.#managementQueue = result;
     return result;
@@ -679,19 +681,52 @@ class AgentSession implements CommunityAgentSession {
   }
 
   #validateSaveInput(input: CommunityAgentSaveInput): void {
+    this.#validatePersonaInput(input);
     if (!AGENT_PUBKEY.test(input.pubkey))
       throw new Error("Invalid agent public key");
-    if (!AGENT_PERSONA_SLUG.test(input.personaSlug))
-      throw new Error(
-        "Persona ID must use lowercase letters, numbers, hyphens, or underscores",
-      );
-    if (!input.displayName.trim()) throw new Error("Persona name is required");
     if (input.nameMode !== "inherited" && input.nameMode !== "instance")
       throw new Error("Invalid instance name mode");
     if (input.nameMode === "instance" && !input.instanceName?.trim())
       throw new Error(
         "Instance name is required when it does not inherit the persona name",
       );
+  }
+
+  #validatePersonaInput(input: CommunityAgentPersonaSaveInput): void {
+    if (!AGENT_PERSONA_SLUG.test(input.personaSlug))
+      throw new Error(
+        "Persona ID must use lowercase letters, numbers, hyphens, or underscores",
+      );
+    if (!input.displayName.trim()) throw new Error("Persona name is required");
+  }
+
+  async #writePersona(
+    input: CommunityAgentPersonaSaveInput,
+    head: NostrEvent | undefined,
+    signal?: AbortSignal,
+  ): Promise<NostrEvent> {
+    const content = safePersonaContent(head?.content);
+    content.display_name = input.displayName.trim();
+    setOptionalText(content, "description", input.description);
+    setOptionalText(content, "avatar_url", input.avatarUrl);
+    setOptionalText(content, "system_prompt", input.systemPrompt, false);
+    const json = JSON.stringify(content);
+    if (new TextEncoder().encode(json).byteLength > 65_535)
+      throw new Error("Persona content is larger than 65,535 bytes");
+    if (head?.content === json) return head;
+    const created_at = this.#nextManagementTimestamp(head);
+    const event = await this.#sign(
+      {
+        kind: 30175,
+        created_at,
+        tags: head?.tags.map((tag) => [...tag]) ?? [["d", input.personaSlug]],
+        content: json,
+      },
+      signal,
+    );
+    await this.#publish(event, "persona update", signal);
+    this.#lastManagementAt = created_at;
+    return event;
   }
 
   #nextManagementTimestamp(head?: NostrEvent): number {

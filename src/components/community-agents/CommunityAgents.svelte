@@ -16,9 +16,12 @@
   import LinkIcon from "@lucide/svelte/icons/link-2";
   import MoreIcon from "@lucide/svelte/icons/ellipsis-vertical";
   import ActivityIcon from "@lucide/svelte/icons/wrench";
+  import PencilIcon from "@lucide/svelte/icons/pencil";
   import TrashIcon from "@lucide/svelte/icons/trash-2";
   import type {
     CommunityAgentNameMode,
+    CommunityAgentPersona,
+    CommunityAgentPersonaSaveInput,
     CommunityAgentSaveInput,
     CommunityAgentsState,
   } from "../../community/agent-contracts.js";
@@ -31,6 +34,7 @@
     model,
     onProfile,
     onActivity,
+    onSavePersona,
     onSaveAgent,
     onDeletePersona,
     onRefresh,
@@ -39,6 +43,7 @@
     model: CommunityAgentsState;
     onProfile: (pubkey: string) => void;
     onActivity: (pubkey: string) => void;
+    onSavePersona?: (input: CommunityAgentPersonaSaveInput) => Promise<void>;
     onSaveAgent?: (input: CommunityAgentSaveInput) => Promise<void>;
     onDeletePersona?: (slug: string) => Promise<void>;
     onRefresh: () => void | Promise<void>;
@@ -60,6 +65,15 @@
   let addMode = $state<"create" | "existing">("create");
   let selectedPersonaSlug = $state("");
   let personaToDelete = $state("");
+  let personaOpen = $state(false);
+  let personaPending = $state(false);
+  let personaFeedback = $state("");
+  let editorExisting = $state(false);
+  let editorSlug = $state("");
+  let editorName = $state("");
+  let editorDescription = $state("");
+  let editorAvatarUrl = $state("");
+  let editorSystemPrompt = $state("");
   let clearTrigger = $state<HTMLButtonElement | null>(null);
   let addTrigger = $state<HTMLButtonElement | null>(null);
   let directory = $state<HTMLElement>();
@@ -172,6 +186,55 @@
         .replaceAll(/^-+|-+$/g, "")
         .slice(0, 64) || "agent"
     );
+  }
+
+  function openPersona(persona?: CommunityAgentPersona) {
+    personaFeedback = "";
+    editorExisting = Boolean(persona);
+    editorSlug = persona?.slug ?? "";
+    editorName = persona?.displayName ?? "";
+    editorDescription = persona?.description ?? "";
+    editorAvatarUrl = persona?.avatarUrl ?? "";
+    editorSystemPrompt = persona?.systemPrompt ?? "";
+    personaOpen = true;
+  }
+
+  async function savePersona() {
+    personaFeedback = "";
+    const displayName = editorName.trim();
+    const slug = editorSlug.trim() || personaSlugFromName(displayName);
+    if (!displayName) {
+      personaFeedback = "Enter a persona name.";
+      return;
+    }
+    if (!/^[a-z0-9][a-z0-9_-]{0,63}$/.test(slug)) {
+      personaFeedback =
+        "Persona ID must use lowercase letters, numbers, hyphens, or underscores.";
+      return;
+    }
+    if (!onSavePersona) {
+      personaFeedback = "Persona management is unavailable in this runtime.";
+      return;
+    }
+    personaPending = true;
+    try {
+      await onSavePersona({
+        personaSlug: slug,
+        displayName,
+        description: editorDescription,
+        avatarUrl: editorAvatarUrl,
+        systemPrompt: editorSystemPrompt,
+      });
+      personaOpen = false;
+      feedback = `Persona ${slug} saved.`;
+    } catch (error) {
+      personaFeedback =
+        error instanceof Error
+          ? error.message
+          : "The persona could not be saved.";
+    } finally {
+      personaPending = false;
+    }
   }
 
   function parseAgentPublicKey(value: string): string | undefined {
@@ -319,11 +382,18 @@
         >{/each}
     </section>
   {/if}
-  {#if model.personas.length > 0}
+  {#if model.personas.length > 0 || onSavePersona}
     <section class="agents__personas" aria-label="Saved personas">
-      <div>
-        <h2>Personas</h2>
-        <p>Reusable owner-managed presentation and saved configuration.</p>
+      <div class="agents__personas-heading">
+        <div>
+          <h2>Personas</h2>
+          <p>Reusable owner-managed presentation and saved configuration.</p>
+        </div>
+        {#if onSavePersona}<Button
+            variant="outline"
+            onclick={() => openPersona()}
+            ><PlusIcon aria-hidden="true" />New persona</Button
+          >{/if}
       </div>
       <ul>
         {#each model.personas as persona (persona.slug)}
@@ -338,15 +408,22 @@
                 >{persona.slug}</small
               ></span
             >
-            {#if onDeletePersona}
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                aria-label={`Delete persona ${persona.displayName}`}
-                onclick={() => (personaToDelete = persona.slug)}
-                ><TrashIcon aria-hidden="true" /></Button
-              >
-            {/if}
+            <div class="agents__persona-actions">
+              {#if onSavePersona}<Button
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-label={`Edit persona ${persona.displayName}`}
+                  onclick={() => openPersona(persona)}
+                  ><PencilIcon aria-hidden="true" /></Button
+                >{/if}
+              {#if onDeletePersona}<Button
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-label={`Delete persona ${persona.displayName}`}
+                  onclick={() => (personaToDelete = persona.slug)}
+                  ><TrashIcon aria-hidden="true" /></Button
+                >{/if}
+            </div>
           </li>
         {/each}
       </ul>
@@ -547,6 +624,85 @@
         form="community-agent-add-form"
         disabled={addingPending}
         >{addingPending ? "Adding…" : "Add agent"}</Button
+      >
+    {/snippet}
+  </DialogFrame>
+</Dialog.Root>
+<Dialog.Root bind:open={personaOpen}>
+  <DialogFrame
+    title={editorSlug ? "Edit persona" : "New persona"}
+    description="Save reusable presentation and configuration under your owner identity."
+    descriptionHidden
+    busy={personaPending}
+    closeLabel="Close persona dialog"
+  >
+    <form
+      id="community-persona-form"
+      class="agents__persona-form"
+      onsubmit={(event) => {
+        event.preventDefault();
+        void savePersona();
+      }}
+    >
+      <CommunityAvatarPicker
+        bind:value={editorAvatarUrl}
+        label="Choose persona image"
+        disabled={personaPending}
+      />
+      <Field.Group>
+        <Field.Field
+          ><Field.Label for="community-persona-name">Persona name</Field.Label
+          ><Input
+            id="community-persona-name"
+            bind:value={editorName}
+            placeholder="Research assistant"
+          /></Field.Field
+        >
+        <Field.Field
+          ><Field.Label for="community-persona-id">Persona ID</Field.Label
+          ><Input
+            id="community-persona-id"
+            bind:value={editorSlug}
+            disabled={editorExisting}
+            placeholder={personaSlugFromName(editorName || "agent")}
+          /><Field.Description
+            >This stable ID does not change when the persona is renamed.</Field.Description
+          ></Field.Field
+        >
+        <Field.Field
+          ><Field.Label>Description <span>Optional</span></Field.Label
+          ><CommunityChatComposer
+            mode="form"
+            bind:value={editorDescription}
+            ariaLabel="Persona description"
+            placeholder="What this persona does, in a sentence"
+          /></Field.Field
+        >
+        <Field.Field
+          ><Field.Label>Saved system prompt</Field.Label><CommunityChatComposer
+            mode="form"
+            bind:value={editorSystemPrompt}
+            ariaLabel="Persona system prompt"
+            placeholder="Describe what this persona should do."
+          /><Field.Description
+            >Saved with the persona. Runtime activation is unavailable in this
+            release.</Field.Description
+          ></Field.Field
+        >
+        {#if personaFeedback}<Field.Error>{personaFeedback}</Field.Error>{/if}
+      </Field.Group>
+    </form>
+    {#snippet footer()}
+      <Button
+        type="button"
+        variant="outline"
+        disabled={personaPending}
+        onclick={() => (personaOpen = false)}>Cancel</Button
+      ><Button
+        type="submit"
+        form="community-persona-form"
+        disabled={personaPending}
+        >{personaPending ? "Saving…" : "Save persona"}</Button
       >
     {/snippet}
   </DialogFrame>
@@ -778,6 +934,13 @@
     border-top: 1px solid var(--border);
     padding-top: 1.25rem;
   }
+  .agents__personas-heading,
+  .agents__persona-actions {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+  }
   .agents__personas ul {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(min(100%, 16rem), 1fr));
@@ -835,8 +998,15 @@
     gap: 0.5rem;
     text-align: center;
   }
+  .agents__persona-form {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: start;
+    gap: 1.25rem;
+  }
   @media (max-width: 40rem) {
-    .agents__add-form {
+    .agents__add-form,
+    .agents__persona-form {
       grid-template-columns: minmax(0, 1fr);
     }
   }

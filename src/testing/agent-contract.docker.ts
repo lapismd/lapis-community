@@ -123,6 +123,36 @@ export function registerAgentDockerContract(relayUrl: string): void {
           },
           { timeout: 10000, interval: 250 },
         );
+        await session.savePersona!({
+          personaSlug: "contract-agent",
+          displayName: "Contract editor",
+          description: "Updated without rewriting the agent instance",
+          avatarUrl: "https://example.test/contract-editor.png",
+          systemPrompt: "Keep contract answers concise.",
+        });
+        await vi.waitFor(
+          async () => {
+            const directory = await session.loadDirectory();
+            expect(directory.personas).toContainEqual(
+              expect.objectContaining({
+                slug: "contract-agent",
+                displayName: "Contract editor",
+                systemPrompt: "Keep contract answers concise.",
+              }),
+            );
+            expect(
+              directory.agents.find((agent) => agent.pubkey === agentPubkey),
+            ).toMatchObject({
+              name: "Contract editor",
+              avatarUrl: "https://example.test/contract-editor.png",
+              instance: {
+                personaId: "contract-agent",
+                nameMode: "inherited",
+              },
+            });
+          },
+          { timeout: 10000, interval: 250 },
+        );
         await session.setFollow(agentPubkey, true);
         expect(
           (await session.loadDirectory()).agents.find(

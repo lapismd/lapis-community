@@ -255,6 +255,38 @@ describe("agent relay session", () => {
     expect(writes[0]!.created_at).toBeGreaterThan(now - 2);
     expect(writes[1]!.created_at).toBeGreaterThan(writes[0]!.created_at);
   });
+  it("edits an unlinked reusable persona without writing an instance", async () => {
+    const fixture = setup();
+    fixture.events.push(
+      finalizeEvent(
+        {
+          kind: 30175,
+          created_at: now - 1,
+          tags: [["d", "release-notes"]],
+          content: '{"display_name":"Old","provider":"keep","token":"remove"}',
+        },
+        ownerKey,
+      ),
+    );
+    await fixture.session.savePersona!({
+      personaSlug: "release-notes",
+      displayName: "Release notes",
+      systemPrompt: "Summarize releases",
+    });
+    const writes = vi
+      .mocked(fixture.relay.publish)
+      .mock.calls.map(([event]) => event);
+    expect(writes).toHaveLength(1);
+    expect(writes[0]).toMatchObject({
+      kind: 30175,
+      tags: [["d", "release-notes"]],
+    });
+    expect(JSON.parse(writes[0]!.content)).toEqual({
+      display_name: "Release notes",
+      provider: "keep",
+      system_prompt: "Summarize releases",
+    });
+  });
   it("does not replace unchanged instance state for a prompt-only persona edit", async () => {
     const fixture = setup();
     const persona = finalizeEvent(

@@ -217,6 +217,23 @@
   }}>{#snippet template()}<Harness variant="gallery" />{/snippet}</Story
 >
 <Story
+  name="Edit saved persona"
+  play={async ({ canvas, canvasElement }) => {
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Edit persona Release notes" }),
+    );
+    const body = within(canvasElement.ownerDocument.body);
+    const dialog = body.getByRole("dialog", { name: "Edit persona" });
+    const name = within(dialog).getByLabelText("Persona name");
+    await userEvent.clear(name);
+    await userEvent.type(name, "Release editor");
+    await userEvent.click(
+      within(dialog).getByRole("button", { name: "Save persona" }),
+    );
+    await expect(canvas.getByText("Persona release-notes saved")).toBeVisible();
+  }}>{#snippet template()}<Harness variant="gallery" />{/snippet}</Story
+>
+<Story
   name="Card activity menu"
   play={async ({ canvas, canvasElement }) => {
     await userEvent.click(
