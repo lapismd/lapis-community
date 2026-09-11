@@ -94,6 +94,43 @@ export class CommunityAgentsController {
       this.#options.onDirectory?.([event]);
       await this.refresh();
     },
+    saveAgent: async (input) => {
+      if (!this.#options.session.saveAgent)
+        throw new Error("Persona management is unavailable in this runtime");
+      const result = await this.#options.session.saveAgent(
+        input,
+        this.#abort.signal,
+      );
+      if (this.#closed) return;
+      this.#options.onDirectory?.([
+        result.persona,
+        ...(result.instance ? [result.instance] : []),
+      ]);
+      await this.refresh();
+    },
+    unlinkAgent: async (pubkey, fallbackName) => {
+      if (!this.#options.session.unlinkAgent)
+        throw new Error("Persona unlinking is unavailable in this runtime");
+      const event = await this.#options.session.unlinkAgent(
+        pubkey,
+        fallbackName,
+        this.#abort.signal,
+      );
+      if (this.#closed) return;
+      this.#options.onDirectory?.([event]);
+      await this.refresh();
+    },
+    deletePersona: async (slug) => {
+      if (!this.#options.session.deletePersona)
+        throw new Error("Persona deletion is unavailable in this runtime");
+      const event = await this.#options.session.deletePersona(
+        slug,
+        this.#abort.signal,
+      );
+      if (this.#closed) return;
+      this.#options.onDirectory?.([event]);
+      await this.refresh();
+    },
     setFollow: async (pubkey, following) => {
       const event = await this.#options.session.setFollow(
         pubkey,
@@ -138,6 +175,7 @@ export class CommunityAgentsController {
     this.#state = {
       status: "loading",
       agents: [],
+      personas: [],
       archivedAgents: [],
       capabilities: { directory: true, presence: false, activity: false },
       presence: {},
@@ -219,6 +257,7 @@ export class CommunityAgentsController {
         if (!allowed.has(key)) this.#typingUntil.delete(key);
       this.#update({
         agents: directory.agents,
+        personas: directory.personas,
         capabilities: directory.capabilities,
         partial: directory.partial,
         error: directory.reason,
@@ -700,6 +739,7 @@ export class CommunityAgentsController {
     this.#state = {
       ...this.#state,
       agents: [],
+      personas: [],
       archivedAgents: [],
       activity: [],
       working: {},

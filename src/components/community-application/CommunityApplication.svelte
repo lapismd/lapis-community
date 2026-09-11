@@ -6524,8 +6524,10 @@
               model={community.state.agents}
               onProfile={openAgentProfile}
               onActivity={openAgentActivity}
-              onAddAgent={(pubkey) =>
-                community.actions.agents!.registerAgent(pubkey)}
+              onSaveAgent={(input) =>
+                community.actions.agents!.saveAgent(input)}
+              onDeletePersona={(slug) =>
+                community.actions.agents!.deletePersona(slug)}
               onRefresh={() => community.actions.agents!.refresh()}
               onClearHistory={() => community.actions.agents!.clearHistory()}
             />
@@ -7013,6 +7015,7 @@
             {#if selectedAgent && community.actions.agents}
               <CommunityAgentProfile
                 agent={selectedAgent}
+                personas={community.state.agents?.personas ?? []}
                 ownerName={memberById(
                   workspace.members,
                   selectedAgent.ownerPubkey,
@@ -7053,6 +7056,15 @@
                   );
                   await community.actions.agents!.refresh();
                 }}
+                onSaveAgent={(input) =>
+                  community.actions.agents!.saveAgent(input)}
+                onUnlinkPersona={(fallbackName) =>
+                  community.actions.agents!.unlinkAgent(
+                    selectedAgent.pubkey,
+                    fallbackName,
+                  )}
+                onDeletePersona={(slug) =>
+                  community.actions.agents!.deletePersona(slug)}
               />
             {:else if selectedProfile}
               <CommunityMemberProfile

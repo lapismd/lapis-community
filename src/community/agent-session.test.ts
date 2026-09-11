@@ -108,7 +108,7 @@ describe("agent relay session", () => {
         expect((await session.loadDirectory()).capabilities.directory).toBe(
           true,
         );
-        expect(browserFetch).toHaveBeenCalledTimes(4);
+        expect(browserFetch).toHaveBeenCalledTimes(5);
       } finally {
         vi.unstubAllGlobals();
       }
@@ -181,6 +181,145 @@ describe("agent relay session", () => {
       .mock.calls.map(([event]) => event);
     expect(writes).toHaveLength(1);
     expect(writes[0]?.created_at).toBe(now);
+  });
+  it("keeps an existing persona link when legacy registration is retried", async () => {
+    const fixture = setup();
+    const linked = finalizeEvent(
+      {
+        kind: 30177,
+        created_at: now,
+        tags: [["d", agent]],
+        content:
+          '{"persona_id":"research","name":"Ada","name_mode":"instance","parallelism":4}',
+      },
+      ownerKey,
+    );
+    fixture.events.push(linked);
+    await expect(fixture.session.registerAgent!(agent)).resolves.toEqual(
+      linked,
+    );
+    expect(fixture.relay.publish).not.toHaveBeenCalled();
+  });
+  it("saves a persona and explicit instance link while preserving unknown fields", async () => {
+    const fixture = setup();
+    fixture.events.push(
+      finalizeEvent(
+        {
+          kind: 30175,
+          created_at: now - 2,
+          tags: [["d", "research"]],
+          content:
+            '{"display_name":"Old","model":"keep","credentials":"remove"}',
+        },
+        ownerKey,
+      ),
+      finalizeEvent(
+        {
+          kind: 30177,
+          created_at: now - 1,
+          tags: [["d", agent]],
+          content: '{"legacy":true,"parallelism":4}',
+        },
+        ownerKey,
+      ),
+    );
+    await fixture.session.saveAgent!({
+      pubkey: agent,
+      personaSlug: "research",
+      displayName: "Research assistant",
+      description: "Reviews sources",
+      avatarUrl: "https://example.test/research.png",
+      systemPrompt: "Cite evidence",
+      nameMode: "instance",
+      instanceName: "Ada",
+    });
+    const writes = vi
+      .mocked(fixture.relay.publish)
+      .mock.calls.map(([event]) => event);
+    expect(writes.map((event) => event.kind)).toEqual([30175, 30177]);
+    expect(JSON.parse(writes[0]!.content)).toEqual({
+      display_name: "Research assistant",
+      model: "keep",
+      description: "Reviews sources",
+      avatar_url: "https://example.test/research.png",
+      system_prompt: "Cite evidence",
+    });
+    expect(JSON.parse(writes[1]!.content)).toEqual({
+      legacy: true,
+      parallelism: 4,
+      persona_id: "research",
+      name_mode: "instance",
+      name: "Ada",
+      respond_to: "owner-only",
+    });
+    expect(writes[0]!.created_at).toBeGreaterThan(now - 2);
+    expect(writes[1]!.created_at).toBeGreaterThan(writes[0]!.created_at);
+  });
+  it("does not replace unchanged instance state for a prompt-only persona edit", async () => {
+    const fixture = setup();
+    const persona = finalizeEvent(
+      {
+        kind: 30175,
+        created_at: now - 1,
+        tags: [["d", "research"]],
+        content: '{"display_name":"Research","system_prompt":"Old"}',
+      },
+      ownerKey,
+    );
+    const instance = finalizeEvent(
+      {
+        kind: 30177,
+        created_at: now - 1,
+        tags: [["d", agent]],
+        content:
+          '{"persona_id":"research","name_mode":"inherited","name":"Research","respond_to":"owner-only","parallelism":10}',
+      },
+      ownerKey,
+    );
+    fixture.events.push(persona, instance);
+    await fixture.session.saveAgent!({
+      pubkey: agent,
+      personaSlug: "research",
+      displayName: "Research",
+      systemPrompt: "New",
+      nameMode: "inherited",
+      instanceName: "Research",
+    });
+    const writes = vi
+      .mocked(fixture.relay.publish)
+      .mock.calls.map(([event]) => event);
+    expect(writes).toHaveLength(1);
+    expect(writes[0]).toMatchObject({ kind: 30175 });
+  });
+  it("unlinks without copying persona prompt and publishes an address deletion", async () => {
+    const fixture = setup();
+    fixture.events.push(
+      finalizeEvent(
+        {
+          kind: 30177,
+          created_at: now - 1,
+          tags: [["d", agent]],
+          content:
+            '{"persona_id":"research","name_mode":"inherited","name":"Research","parallelism":3}',
+        },
+        ownerKey,
+      ),
+    );
+    await fixture.session.unlinkAgent!(agent, "Public fallback");
+    await fixture.session.deletePersona!("research");
+    const writes = vi
+      .mocked(fixture.relay.publish)
+      .mock.calls.map(([event]) => event);
+    expect(JSON.parse(writes[0]!.content)).toEqual({
+      name_mode: "instance",
+      name: "Public fallback",
+      parallelism: 3,
+    });
+    expect(writes[0]!.content).not.toContain("prompt");
+    expect(writes[1]).toMatchObject({
+      kind: 5,
+      tags: [["a", `30175:${owner}:research`]],
+    });
   });
   it("disables unsupported relays without making agent queries", async () => {
     const fixture = setup([1]);

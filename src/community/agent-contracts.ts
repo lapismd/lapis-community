@@ -1,6 +1,44 @@
 import type { NostrEvent } from "../protocol/index.js";
 import type { CommunityStorageMode } from "./contracts.js";
 
+export type CommunityAgentNameMode = "inherited" | "instance";
+
+export interface CommunityAgentPersona {
+  ownerPubkey: string;
+  slug: string;
+  displayName: string;
+  description: string;
+  avatarUrl?: string;
+  systemPrompt?: string;
+  /** Unknown NIP-AP fields are retained when the owner edits presentation. */
+  content: Readonly<Record<string, unknown>>;
+  event: NostrEvent;
+}
+
+export interface CommunityAgentInstance {
+  agentPubkey: string;
+  personaId?: string;
+  name: string;
+  nameMode: CommunityAgentNameMode;
+  event: NostrEvent;
+}
+
+export interface CommunityAgentSaveInput {
+  pubkey: string;
+  personaSlug: string;
+  displayName: string;
+  description?: string;
+  avatarUrl?: string;
+  systemPrompt?: string;
+  nameMode: CommunityAgentNameMode;
+  instanceName?: string;
+}
+
+export interface CommunityAgentSaveResult {
+  persona: NostrEvent;
+  instance?: NostrEvent;
+}
+
 export interface CommunityAgentIdentity {
   pubkey: string;
   ownerPubkey: string;
@@ -10,6 +48,9 @@ export interface CommunityAgentIdentity {
   agentType: string;
   channelIds: readonly string[];
   followed: boolean;
+  persona?: CommunityAgentPersona;
+  instance?: CommunityAgentInstance;
+  personaStatus: "none" | "linked" | "unresolved";
   /** Signed ownership provenance, never an unsigned directory claim. */
   profile: NostrEvent;
 }
@@ -22,6 +63,7 @@ export interface CommunityAgentCapabilities {
 
 export interface CommunityAgentDirectory {
   agents: readonly CommunityAgentIdentity[];
+  personas: readonly CommunityAgentPersona[];
   events: readonly NostrEvent[];
   relayPubkey: string;
   capabilities: CommunityAgentCapabilities;
@@ -68,6 +110,16 @@ export interface CommunityAgentSession {
     signal?: AbortSignal,
   ): Promise<NostrEvent>;
   registerAgent?(pubkey: string, signal?: AbortSignal): Promise<NostrEvent>;
+  saveAgent?(
+    input: CommunityAgentSaveInput,
+    signal?: AbortSignal,
+  ): Promise<CommunityAgentSaveResult>;
+  unlinkAgent?(
+    pubkey: string,
+    fallbackName: string,
+    signal?: AbortSignal,
+  ): Promise<NostrEvent>;
+  deletePersona?(slug: string, signal?: AbortSignal): Promise<NostrEvent>;
 }
 
 export interface CommunityAgentArchiveScope {
@@ -139,6 +191,7 @@ export interface CommunityAgentActivityItem {
 export interface CommunityAgentsState {
   status: "loading" | "ready" | "offline" | "error" | "unsupported";
   agents: readonly CommunityAgentIdentity[];
+  personas: readonly CommunityAgentPersona[];
   archivedAgents: readonly CommunityAgentIdentity[];
   capabilities: CommunityAgentCapabilities;
   presence: Readonly<Record<string, CommunityAgentPresence>>;
@@ -158,6 +211,9 @@ export interface CommunityAgentsState {
 export interface CommunityAgentsActions {
   refresh(): Promise<void>;
   registerAgent(pubkey: string): Promise<void>;
+  saveAgent(input: CommunityAgentSaveInput): Promise<void>;
+  unlinkAgent(pubkey: string, fallbackName: string): Promise<void>;
+  deletePersona(slug: string): Promise<void>;
   setFollow(pubkey: string, following: boolean): Promise<void>;
   openActivity(pubkey: string, channelId?: string): Promise<void>;
   loadOlderActivity(): Promise<void>;

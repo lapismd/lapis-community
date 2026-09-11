@@ -14,6 +14,7 @@
   } from "./story-fixtures.js";
   import type {
     CommunityAgentIdentity,
+    CommunityAgentSaveInput,
     CommunityAgentsState,
   } from "../../community/agent-contracts.js";
   let {
@@ -100,11 +101,19 @@
     model = { ...model, archivedAgents: [], activity: [], hasOlder: false };
     notice = "Saved history cleared";
   }
-  async function addAgent(pubkey: string) {
+  async function saveAgent(input: CommunityAgentSaveInput) {
     attempt();
-    notice = "Agent registration saved";
+    notice = `Persona ${input.personaSlug} saved`;
     const { error, ...rest } = model;
     model = { ...rest, partial: false };
+  }
+  async function deletePersona(slug: string) {
+    attempt();
+    model = {
+      ...model,
+      personas: model.personas.filter((persona) => persona.slug !== slug),
+    };
+    notice = `Persona ${slug} deleted`;
   }
 </script>
 
@@ -129,7 +138,8 @@
         model = { ...model, activityAgent: pubkey };
         view = "activity";
       }}
-      onAddAgent={addAgent}
+      onSaveAgent={saveAgent}
+      onDeletePersona={deletePersona}
       onRefresh={() => {
         model = storyAgentState();
         notice = "Agent directory refreshed";
@@ -139,6 +149,7 @@
   {:else if view === "profile"}
     <CommunityAgentProfile
       {agent}
+      personas={model.personas}
       ownerName="steve"
       onOpenOwner={(pubkey) => {
         notice =
@@ -183,6 +194,27 @@
           ...agent,
           channelIds: agent.channelIds.filter((channel) => channel !== id),
         };
+      }}
+      onSaveAgent={async (input) => {
+        attempt();
+        agent = {
+          ...agent,
+          name:
+            input.nameMode === "inherited"
+              ? input.displayName
+              : input.instanceName || input.displayName,
+          about: input.description ?? "",
+          ...(input.avatarUrl ? { avatarUrl: input.avatarUrl } : {}),
+        };
+        notice = `Persona ${input.personaSlug} saved`;
+      }}
+      onUnlinkPersona={async () => {
+        attempt();
+        notice = "Persona unlinked";
+      }}
+      onDeletePersona={async () => {
+        attempt();
+        notice = "Persona deleted";
       }}
     />
   {:else}

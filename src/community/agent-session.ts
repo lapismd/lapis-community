@@ -9,12 +9,17 @@ import type { CommunityScope } from "./contracts.js";
 import type {
   CommunityAgentCapabilities,
   CommunityAgentDirectory,
+  CommunityAgentSaveInput,
+  CommunityAgentSaveResult,
   CommunityAgentSession,
 } from "./agent-contracts.js";
 import {
+  AGENT_PERSONA_SLUG,
   AGENT_PUBKEY,
+  agentJson,
   agentTag,
   materializeAgentDirectory,
+  materializeAgentPersonas,
   newestAgentEvent,
   signedAgentEvent,
 } from "./agent-protocol.js";
@@ -48,9 +53,9 @@ class AgentSession implements CommunityAgentSession {
   readonly #fetch: typeof globalThis.fetch;
   #info: RelayInfo | undefined;
   #followQueue: Promise<unknown> = Promise.resolve();
-  #registerQueue: Promise<unknown> = Promise.resolve();
+  #managementQueue: Promise<unknown> = Promise.resolve();
   #lastFollowAt = 0;
-  #lastRegisterAt = 0;
+  #lastManagementAt = 0;
 
   constructor(options: AgentSessionOptions) {
     this.#options = options;
@@ -229,6 +234,7 @@ class AgentSession implements CommunityAgentSession {
     if (!info.capabilities.directory)
       return {
         agents: [],
+        personas: [],
         events: [],
         relayPubkey: info.self,
         capabilities: info.capabilities,
@@ -237,8 +243,9 @@ class AgentSession implements CommunityAgentSession {
           "This relay does not advertise the required agent bridge capabilities",
       };
     const owner = await this.#options.identity.getPublicKey();
-    const [owned, membership, contacts] = await Promise.all([
+    const [owned, personas, membership, contacts] = await Promise.all([
       this.#all({ kinds: [30177], authors: [owner] }, signal),
+      this.#all({ kinds: [30175], authors: [owner] }, signal),
       this.#all({ kinds: [39002], authors: [info.self] }, signal),
       this.#query([{ kinds: [3], authors: [owner], limit: 1 }], signal),
     ]);
@@ -261,6 +268,7 @@ class AgentSession implements CommunityAgentSession {
     );
     const events = [
       ...owned.events,
+      ...personas.events,
       ...membership.events,
       ...contacts,
       ...profiles,
@@ -268,6 +276,7 @@ class AgentSession implements CommunityAgentSession {
     const tombstones: NostrEvent[] = [];
     let partial =
       owned.partial ||
+      personas.partial ||
       membership.partial ||
       candidateKeys.size > MAX_CANDIDATES;
     // Retain author-valid tombstones even if the relay returns a deleted head.
@@ -295,13 +304,11 @@ class AgentSession implements CommunityAgentSession {
       tombstones.push(...byId.events, ...byAddress.events);
       partial ||= byId.partial || byAddress.partial;
     }
+    const projectedEvents = [...events, ...tombstones];
     return {
-      agents: materializeAgentDirectory(
-        [...events, ...tombstones],
-        owner,
-        info.self,
-      ),
-      events: [...events, ...tombstones],
+      agents: materializeAgentDirectory(projectedEvents, owner, info.self),
+      personas: materializeAgentPersonas(projectedEvents, owner),
+      events: projectedEvents,
       relayPubkey: info.self,
       capabilities: info.capabilities,
       partial,
@@ -350,7 +357,7 @@ class AgentSession implements CommunityAgentSession {
     if (!info.capabilities.directory) return { close() {} };
     await this.#options.authenticate(signal);
     const filters: RelayFilter[] = [
-      { kinds: [30177, 3, 5], authors: [owner] },
+      { kinds: [30175, 30177, 3, 5], authors: [owner] },
       { kinds: [39002], authors: [info.self] },
       ...(info.capabilities.activity
         ? [{ kinds: [24200], "#p": [owner], since: this.#now() - 300 }]
@@ -450,7 +457,7 @@ class AgentSession implements CommunityAgentSession {
   }
 
   registerAgent(pubkey: string, signal?: AbortSignal): Promise<NostrEvent> {
-    const result = this.#registerQueue
+    const result = this.#managementQueue
       .catch(() => undefined)
       .then(async () => {
         if (!AGENT_PUBKEY.test(pubkey))
@@ -461,7 +468,16 @@ class AgentSession implements CommunityAgentSession {
         const owner = await this.#options.identity.getPublicKey();
         if (pubkey === owner)
           throw new Error("Cannot register your own identity as an agent");
-        const created_at = Math.max(this.#now(), this.#lastRegisterAt + 1);
+        const current = newestAgentEvent(
+          await this.#query(
+            [{ kinds: [30177], authors: [owner], "#d": [pubkey], limit: 1 }],
+            signal,
+          ),
+        );
+        // Registration is idempotent and must never erase an existing persona
+        // link or legacy instance configuration.
+        if (current) return current;
+        const created_at = Math.max(this.#now(), this.#lastManagementAt + 1);
         if (created_at > this.#now() + 60)
           throw new Error(
             "Agent registration timestamp is ahead of this device; retry after checking its clock",
@@ -479,12 +495,262 @@ class AgentSession implements CommunityAgentSession {
         const publish = await this.#options.relay.publish(event, signal);
         if (!publish.accepted)
           throw new Error("The relay rejected the agent registration");
-        this.#lastRegisterAt = created_at;
+        this.#lastManagementAt = created_at;
         return event;
       });
-    this.#registerQueue = result;
+    this.#managementQueue = result;
     return result;
   }
+
+  saveAgent(
+    input: CommunityAgentSaveInput,
+    signal?: AbortSignal,
+  ): Promise<CommunityAgentSaveResult> {
+    const result = this.#managementQueue
+      .catch(() => undefined)
+      .then(async () => {
+        this.#validateSaveInput(input);
+        const info = await this.#relayInfo(signal);
+        if (!info.capabilities.directory)
+          throw new Error("Persona management is unavailable on this relay");
+        const owner = await this.#options.identity.getPublicKey();
+        if (input.pubkey === owner)
+          throw new Error("Cannot register your own identity as an agent");
+        const [personaHead, instanceHead] = await Promise.all([
+          this.#query(
+            [
+              {
+                kinds: [30175],
+                authors: [owner],
+                "#d": [input.personaSlug],
+                limit: 1,
+              },
+            ],
+            signal,
+          ).then(newestAgentEvent),
+          this.#query(
+            [
+              {
+                kinds: [30177],
+                authors: [owner],
+                "#d": [input.pubkey],
+                limit: 1,
+              },
+            ],
+            signal,
+          ).then(newestAgentEvent),
+        ]);
+
+        const personaContent = safePersonaContent(personaHead?.content);
+        personaContent.display_name = input.displayName.trim();
+        setOptionalText(personaContent, "description", input.description);
+        setOptionalText(personaContent, "avatar_url", input.avatarUrl);
+        setOptionalText(
+          personaContent,
+          "system_prompt",
+          input.systemPrompt,
+          false,
+        );
+        const personaJSON = JSON.stringify(personaContent);
+        if (new TextEncoder().encode(personaJSON).byteLength > 65_535)
+          throw new Error("Persona content is larger than 65,535 bytes");
+
+        let persona = personaHead;
+        if (!persona || persona.content !== personaJSON) {
+          const created_at = this.#nextManagementTimestamp(personaHead);
+          persona = await this.#sign(
+            {
+              kind: 30175,
+              created_at,
+              tags: personaHead?.tags.map((tag) => [...tag]) ?? [
+                ["d", input.personaSlug],
+              ],
+              content: personaJSON,
+            },
+            signal,
+          );
+          await this.#publish(persona, "persona update", signal);
+          this.#lastManagementAt = created_at;
+        }
+
+        const instanceContent = agentJson(instanceHead?.content ?? "{}");
+        instanceContent.persona_id = input.personaSlug;
+        instanceContent.name_mode = input.nameMode;
+        instanceContent.name =
+          input.nameMode === "instance"
+            ? input.instanceName?.trim() || input.displayName.trim()
+            : input.instanceName?.trim() || input.displayName.trim();
+        if (typeof instanceContent.respond_to !== "string")
+          instanceContent.respond_to = "owner-only";
+        if (
+          typeof instanceContent.parallelism !== "number" ||
+          !Number.isInteger(instanceContent.parallelism) ||
+          instanceContent.parallelism < 1
+        )
+          instanceContent.parallelism = 10;
+        const instanceJSON = JSON.stringify(instanceContent);
+        let instance: NostrEvent | undefined;
+        if (!instanceHead || instanceHead.content !== instanceJSON) {
+          const created_at = this.#nextManagementTimestamp(instanceHead);
+          instance = await this.#sign(
+            {
+              kind: 30177,
+              created_at,
+              tags: instanceHead?.tags.map((tag) => [...tag]) ?? [
+                ["d", input.pubkey],
+              ],
+              content: instanceJSON,
+            },
+            signal,
+          );
+          await this.#publish(instance, "agent link", signal);
+          this.#lastManagementAt = created_at;
+        }
+        return { persona: persona!, ...(instance ? { instance } : {}) };
+      });
+    this.#managementQueue = result;
+    return result;
+  }
+
+  unlinkAgent(
+    pubkey: string,
+    fallbackName: string,
+    signal?: AbortSignal,
+  ): Promise<NostrEvent> {
+    const result = this.#managementQueue
+      .catch(() => undefined)
+      .then(async () => {
+        if (!AGENT_PUBKEY.test(pubkey))
+          throw new Error("Invalid agent public key");
+        const owner = await this.#options.identity.getPublicKey();
+        const current = newestAgentEvent(
+          await this.#query(
+            [{ kinds: [30177], authors: [owner], "#d": [pubkey], limit: 1 }],
+            signal,
+          ),
+        );
+        if (!current)
+          throw new Error("The managed-agent record no longer exists");
+        const content = agentJson(current.content);
+        delete content.persona_id;
+        content.name_mode = "instance";
+        content.name = fallbackName.trim() || String(content.name ?? "");
+        const created_at = this.#nextManagementTimestamp(current);
+        const event = await this.#sign(
+          {
+            kind: 30177,
+            created_at,
+            tags: current.tags.map((tag) => [...tag]),
+            content: JSON.stringify(content),
+          },
+          signal,
+        );
+        await this.#publish(event, "agent unlink", signal);
+        this.#lastManagementAt = created_at;
+        return event;
+      });
+    this.#managementQueue = result;
+    return result;
+  }
+
+  deletePersona(slug: string, signal?: AbortSignal): Promise<NostrEvent> {
+    const result = this.#managementQueue
+      .catch(() => undefined)
+      .then(async () => {
+        if (!AGENT_PERSONA_SLUG.test(slug))
+          throw new Error("Invalid persona ID");
+        const owner = await this.#options.identity.getPublicKey();
+        const created_at = this.#nextManagementTimestamp();
+        const event = await this.#sign(
+          {
+            kind: 5,
+            created_at,
+            tags: [["a", `30175:${owner}:${slug}`]],
+            content: "Deleted agent persona",
+          },
+          signal,
+        );
+        await this.#publish(event, "persona deletion", signal);
+        this.#lastManagementAt = created_at;
+        return event;
+      });
+    this.#managementQueue = result;
+    return result;
+  }
+
+  #validateSaveInput(input: CommunityAgentSaveInput): void {
+    if (!AGENT_PUBKEY.test(input.pubkey))
+      throw new Error("Invalid agent public key");
+    if (!AGENT_PERSONA_SLUG.test(input.personaSlug))
+      throw new Error(
+        "Persona ID must use lowercase letters, numbers, hyphens, or underscores",
+      );
+    if (!input.displayName.trim()) throw new Error("Persona name is required");
+    if (input.nameMode !== "inherited" && input.nameMode !== "instance")
+      throw new Error("Invalid instance name mode");
+    if (input.nameMode === "instance" && !input.instanceName?.trim())
+      throw new Error(
+        "Instance name is required when it does not inherit the persona name",
+      );
+  }
+
+  #nextManagementTimestamp(head?: NostrEvent): number {
+    const createdAt = Math.max(
+      this.#now(),
+      (head?.created_at ?? 0) + 1,
+      this.#lastManagementAt + 1,
+    );
+    if (createdAt > this.#now() + 60)
+      throw new Error(
+        "Agent configuration timestamp is ahead of this device; retry after checking its clock",
+      );
+    return createdAt;
+  }
+
+  async #publish(
+    event: NostrEvent,
+    label: string,
+    signal?: AbortSignal,
+  ): Promise<void> {
+    await this.#options.authenticate(signal);
+    const result = await this.#options.relay.publish(event, signal);
+    if (!result.accepted) throw new Error(`The relay rejected the ${label}`);
+  }
+}
+
+const SECRET_PERSONA_FIELDS = new Set([
+  "credential",
+  "credentials",
+  "privatekey",
+  "secretkey",
+  "secrets",
+  "environmentsecrets",
+  "envsecrets",
+  "envvars",
+  "apikey",
+  "apikeys",
+  "token",
+  "tokens",
+]);
+
+function safePersonaContent(content?: string): Record<string, unknown> {
+  const fields = agentJson(content ?? "{}");
+  for (const key of Object.keys(fields)) {
+    const normalized = key.toLowerCase().replaceAll(/[_\-.]/g, "");
+    if (SECRET_PERSONA_FIELDS.has(normalized)) delete fields[key];
+  }
+  return fields;
+}
+
+function setOptionalText(
+  content: Record<string, unknown>,
+  key: string,
+  value: string | undefined,
+  trim = true,
+): void {
+  const normalized = trim ? value?.trim() : value;
+  if (normalized) content[key] = normalized;
+  else delete content[key];
 }
 
 function requestSignal(signal?: AbortSignal): AbortSignal {

@@ -7,6 +7,8 @@
   import * as CommandView from "@lapismd/design-core/shadcn/command-view";
   import * as DropdownMenu from "@lapismd/design-core/shadcn/dropdown-menu";
   import * as Field from "@lapismd/design-core/shadcn/field";
+  import { Input } from "@lapismd/design-core/shadcn/input";
+  import * as Select from "@lapismd/design-core/shadcn/select";
   import MessageIcon from "@lucide/svelte/icons/message-square";
   import FollowIcon from "@lucide/svelte/icons/user-plus";
   import ActivityIcon from "@lucide/svelte/icons/wrench";
@@ -21,18 +23,25 @@
   import LockIcon from "@lucide/svelte/icons/lock";
   import CheckIcon from "@lucide/svelte/icons/check";
   import UserMinusIcon from "@lucide/svelte/icons/user-minus";
+  import PencilIcon from "@lucide/svelte/icons/pencil";
   import XIcon from "@lucide/svelte/icons/x";
   import type {
     CommunityAgentIdentity,
+    CommunityAgentNameMode,
+    CommunityAgentPersona,
     CommunityAgentPresence,
+    CommunityAgentSaveInput,
   } from "../../community/agent-contracts.js";
   import type { CommunityRoomModel } from "../community-workspace/model.js";
   import CommunityChip from "../community-chip/CommunityChip.svelte";
+  import CommunityAvatarPicker from "../community-avatar-picker/CommunityAvatarPicker.svelte";
+  import CommunityChatComposer from "../community-chat-composer/CommunityChatComposer.svelte";
   import CommunityMemberAvatar from "../community-member-avatar/CommunityMemberAvatar.svelte";
   import { communityAgentMember } from "../community-agents/model.js";
 
   let {
     agent,
+    personas = [],
     presence,
     working = false,
     rooms = [],
@@ -47,8 +56,12 @@
     onOpenChannel,
     onAddChannel,
     onRemoveChannel,
+    onSaveAgent,
+    onUnlinkPersona,
+    onDeletePersona,
   }: {
     agent: CommunityAgentIdentity;
+    personas?: readonly CommunityAgentPersona[];
     presence?: CommunityAgentPresence | undefined;
     working?: boolean;
     rooms?: readonly CommunityRoomModel[];
@@ -63,6 +76,9 @@
     onOpenChannel: (id: string) => void;
     onAddChannel: (id: string) => Promise<void>;
     onRemoveChannel: (id: string) => Promise<void>;
+    onSaveAgent: (input: CommunityAgentSaveInput) => Promise<void>;
+    onUnlinkPersona: (fallbackName: string) => Promise<void>;
+    onDeletePersona: (slug: string) => Promise<void>;
   } = $props();
   let tab = $state("info");
   let pending = $state(false);
@@ -72,6 +88,17 @@
   let selectedRoom = $state("");
   let channelQuery = $state("");
   let copied = $state(false);
+  let personaOpen = $state(false);
+  let unlinkOpen = $state(false);
+  let deletePersonaOpen = $state(false);
+  let personaName = $state("");
+  let personaDescription = $state("");
+  let personaAvatar = $state("");
+  let personaPrompt = $state("");
+  let personaSlug = $state("");
+  let instanceName = $state("");
+  let nameMode = $state<CommunityAgentNameMode>("instance");
+  let personaSelection = $state("__new__");
   let addTrigger = $state<HTMLButtonElement | null>(null);
   let channelSearch = $state<HTMLInputElement | null>(null);
   let profile = $state<HTMLElement>();
@@ -96,6 +123,9 @@
   const selectedChannel = $derived(
     addable.find((room) => room.id === selectedRoom),
   );
+  const editorPersona = $derived(
+    personas.find((persona) => persona.slug === personaSelection),
+  );
   async function action(run: () => void | Promise<void>) {
     pending = true;
     error = "";
@@ -106,6 +136,73 @@
     } finally {
       pending = false;
     }
+  }
+
+  function openPersonaEditor(): void {
+    personaName = agent.persona?.displayName ?? agent.name;
+    personaDescription = agent.persona?.description ?? agent.about;
+    personaAvatar = agent.persona?.avatarUrl ?? agent.avatarUrl ?? "";
+    personaPrompt = agent.persona?.systemPrompt ?? "";
+    personaSlug =
+      agent.persona?.slug ??
+      agent.instance?.personaId ??
+      personaSlugFromName(agent.name);
+    instanceName = agent.instance?.name || agent.name;
+    nameMode = agent.instance?.nameMode ?? "instance";
+    personaSelection = agent.persona?.slug ?? "__new__";
+    error = "";
+    personaOpen = true;
+  }
+
+  function selectPersona(value: string): void {
+    personaSelection = value;
+    const selected = personas.find((persona) => persona.slug === value);
+    if (selected) {
+      personaName = selected.displayName;
+      personaDescription = selected.description;
+      personaAvatar = selected.avatarUrl ?? "";
+      personaPrompt = selected.systemPrompt ?? "";
+      personaSlug = selected.slug;
+      return;
+    }
+    personaName = agent.name;
+    personaDescription = agent.about;
+    personaAvatar = agent.avatarUrl ?? "";
+    personaPrompt = "";
+    personaSlug = agent.instance?.personaId ?? personaSlugFromName(agent.name);
+  }
+
+  async function savePersona(): Promise<void> {
+    pending = true;
+    error = "";
+    try {
+      await onSaveAgent({
+        pubkey: agent.pubkey,
+        personaSlug,
+        displayName: personaName,
+        description: personaDescription,
+        avatarUrl: personaAvatar,
+        systemPrompt: personaPrompt,
+        nameMode,
+        instanceName,
+      });
+      personaOpen = false;
+    } catch (cause) {
+      error = cause instanceof Error ? cause.message : "Persona update failed";
+    } finally {
+      pending = false;
+    }
+  }
+
+  function personaSlugFromName(value: string): string {
+    return (
+      value
+        .toLowerCase()
+        .normalize("NFKD")
+        .replaceAll(/[^a-z0-9_-]+/g, "-")
+        .replaceAll(/^-+|-+$/g, "")
+        .slice(0, 64) || "agent"
+    );
   }
 </script>
 
@@ -148,6 +245,15 @@
         ? "Unfollow"
         : "Follow"}</Button
     >
+    <Button
+      class="agent-profile__action"
+      variant="secondary"
+      disabled={!connected || pending}
+      onclick={openPersonaEditor}
+      ><PencilIcon aria-hidden="true" />{agent.personaStatus === "none"
+        ? "Create persona"
+        : "Edit persona"}</Button
+    >
   </div>
   {#if !canMessage}<p>
       Connect a signer with encryption support to message this agent.
@@ -155,7 +261,9 @@
   {#if !connected}<p>
       Reconnect to message agents or change their channels.
     </p>{/if}
-  {#if error && !addOpen && !removeRoom}<p role="alert">{error}</p>{/if}
+  {#if error && !addOpen && !personaOpen && !removeRoom}<p role="alert">
+      {error}
+    </p>{/if}
   <Tabs.Root bind:value={tab}>
     <Tabs.List class="agent-profile__tabs"
       ><Tabs.Trigger value="info">Info</Tabs.Trigger><Tabs.Trigger
@@ -176,6 +284,25 @@
         >
         <section aria-label="Info">
           <h3>Info</h3>
+          <div class="agent-profile__persona-status">
+            <CommunityChip
+              size="compact"
+              tone={agent.personaStatus === "linked"
+                ? "success"
+                : agent.personaStatus === "unresolved"
+                  ? "warning"
+                  : "neutral"}
+              >{agent.personaStatus === "linked"
+                ? `Persona ${agent.persona!.slug}`
+                : agent.personaStatus === "unresolved"
+                  ? `Persona ${agent.instance?.personaId ?? "link"} missing`
+                  : "Public profile only"}</CommunityChip
+            >
+            <p>
+              Presentation uses the owner-managed persona when linked. Ownership
+              still comes from the agent-signed public profile.
+            </p>
+          </div>
           <ul class="agent-profile__info-list" aria-label="Agent information">
             {#if agent.about}<li class="agent-profile__info-row">
                 <MessageIcon aria-hidden="true" />
@@ -317,6 +444,170 @@
     </Tabs.Content>
   </Tabs.Root>
 </article>
+
+<Dialog.Root bind:open={personaOpen}>
+  <DialogFrame
+    title={agent.personaStatus === "none" ? "Create persona" : "Edit persona"}
+    description="Manage the owner-signed presentation and saved prompt for this agent instance."
+    size="form"
+    busy={pending}
+    closeLabel="Close persona editor"
+    onInteractOutside={(event) => {
+      if (pending) event.preventDefault();
+    }}
+    onEscapeKeydown={(event) => {
+      if (pending) event.preventDefault();
+    }}
+  >
+    <form
+      id={`${profileId}-persona-form`}
+      class="agent-profile__persona-form"
+      onsubmit={(event) => {
+        event.preventDefault();
+        void savePersona();
+      }}
+    >
+      <CommunityAvatarPicker
+        bind:value={personaAvatar}
+        label="Choose persona image"
+        disabled={pending}
+        size="medium"
+      />
+      <Field.Group>
+        {#if personas.length > 0}
+          <Field.Field
+            ><Field.Label for={`${profileId}-persona-source`}
+              >Persona</Field.Label
+            ><Select.Root
+              type="single"
+              value={personaSelection}
+              onValueChange={selectPersona}
+              ><Select.Trigger id={`${profileId}-persona-source`}
+                >{editorPersona?.displayName ??
+                  "Create a new persona"}</Select.Trigger
+              ><Select.Content
+                ><Select.Item value="__new__">Create a new persona</Select.Item
+                >{#each personas as persona (persona.slug)}<Select.Item
+                    value={persona.slug}>{persona.displayName}</Select.Item
+                  >{/each}</Select.Content
+              ></Select.Root
+            ><Field.Description
+              >Choose an existing reusable persona or create one for this agent.</Field.Description
+            ></Field.Field
+          >
+        {/if}
+        <Field.Field
+          ><Field.Label for={`${profileId}-persona-name`}
+            >Persona name</Field.Label
+          ><Input
+            id={`${profileId}-persona-name`}
+            bind:value={personaName}
+            disabled={pending}
+          /></Field.Field
+        >
+        <Field.Field
+          ><Field.Label for={`${profileId}-persona-id`}>Persona ID</Field.Label
+          ><Input
+            id={`${profileId}-persona-id`}
+            bind:value={personaSlug}
+            disabled={pending || editorPersona !== undefined}
+          /><Field.Description
+            >The stable ID remains unchanged when the persona is renamed.</Field.Description
+          ></Field.Field
+        >
+        <Field.Field
+          ><Field.Label for={`${profileId}-persona-name-mode`}
+            >Instance name</Field.Label
+          ><Select.Root
+            type="single"
+            value={nameMode}
+            onValueChange={(value) =>
+              (nameMode = value as CommunityAgentNameMode)}
+            ><Select.Trigger id={`${profileId}-persona-name-mode`}
+              >{nameMode === "inherited"
+                ? "Use persona name"
+                : "Keep instance name"}</Select.Trigger
+            ><Select.Content
+              ><Select.Item value="instance">Keep instance name</Select.Item
+              ><Select.Item value="inherited">Use persona name</Select.Item
+              ></Select.Content
+            ></Select.Root
+          ><Field.Description
+            >Inheritance stays explicit even while the two names match.</Field.Description
+          ></Field.Field
+        >
+        {#if nameMode === "instance"}
+          <Field.Field
+            ><Field.Label for={`${profileId}-instance-name`}
+              >Independent instance name</Field.Label
+            ><Input
+              id={`${profileId}-instance-name`}
+              bind:value={instanceName}
+              disabled={pending}
+            /></Field.Field
+          >
+        {/if}
+        <Field.Field
+          ><Field.Label>Description <span>Optional</span></Field.Label
+          ><CommunityChatComposer
+            mode="form"
+            bind:value={personaDescription}
+            ariaLabel="Persona description"
+            placeholder="What this agent does"
+          /></Field.Field
+        >
+        <Field.Field
+          ><Field.Label>Saved system prompt</Field.Label><CommunityChatComposer
+            mode="form"
+            bind:value={personaPrompt}
+            ariaLabel="Saved system prompt"
+            placeholder="Describe how this agent should work."
+          /><Field.Description
+            >Saved with the persona. Runtime activation is unavailable in this
+            release.</Field.Description
+          ></Field.Field
+        >
+      </Field.Group>
+      {#if error}<p role="alert">{error}</p>{/if}
+      {#if agent.instance?.personaId}
+        <div class="agent-profile__persona-management">
+          <Button
+            type="button"
+            variant="outline"
+            disabled={pending}
+            onclick={() => {
+              personaOpen = false;
+              unlinkOpen = true;
+            }}>Unlink persona</Button
+          >
+          {#if editorPersona}
+            <Button
+              type="button"
+              variant="destructive"
+              disabled={pending}
+              onclick={() => {
+                personaOpen = false;
+                deletePersonaOpen = true;
+              }}>Delete persona</Button
+            >
+          {/if}
+        </div>
+      {/if}
+    </form>
+    {#snippet footer()}
+      <Button
+        type="button"
+        variant="outline"
+        disabled={pending}
+        onclick={() => (personaOpen = false)}>Cancel</Button
+      ><Button
+        type="submit"
+        form={`${profileId}-persona-form`}
+        disabled={pending}>{pending ? "Saving…" : "Save persona"}</Button
+      >
+    {/snippet}
+  </DialogFrame>
+</Dialog.Root>
 
 <Dialog.Root bind:open={addOpen}>
   <DialogFrame
@@ -464,6 +755,26 @@
     await onRemoveChannel(removeRoom.id);
   }}
 />
+<ConfirmDialog
+  bind:open={unlinkOpen}
+  title={`Unlink persona from ${agent.name}?`}
+  description="The agent and its public profile remain. Presentation falls back to the agent-signed profile, and the saved prompt is not copied into the public instance record."
+  confirmLabel="Unlink persona"
+  onConfirm={async () => {
+    await onUnlinkPersona(agent.name);
+  }}
+/>
+<ConfirmDialog
+  bind:open={deletePersonaOpen}
+  title={`Delete persona ${editorPersona?.displayName ?? ""}?`}
+  description="The agent remains linked to an unresolved persona and falls back to its agent-signed public profile until you recreate or relink it."
+  confirmLabel="Delete persona"
+  destructive
+  onConfirm={async () => {
+    if (!editorPersona) return;
+    await onDeletePersona(editorPersona.slug);
+  }}
+/>
 
 <style>
   .agent-profile {
@@ -533,6 +844,24 @@
     display: grid;
     gap: 1.25rem;
     padding-top: 1rem;
+  }
+  .agent-profile__persona-status,
+  .agent-profile__persona-form {
+    display: grid;
+    gap: 0.75rem;
+  }
+  .agent-profile__persona-status {
+    justify-items: start;
+    padding: 0.875rem;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--muted);
+  }
+  .agent-profile__persona-management {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.625rem;
+    padding-top: 0.5rem;
   }
   section {
     display: grid;

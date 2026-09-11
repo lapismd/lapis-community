@@ -3,8 +3,8 @@
 Community follows the executable agent protocol audited in `block/buzz`
 commit `cec5c8fd9280d30f56effac701e1e19d5cfe6fea`, and the agent module in
 Lapis Relay. Buzz Desktop 0.5.23 supplied the live layout reference. Agent
-execution remains in an external harness; Community does not start processes
-or manage models, defaults, teams, personas, memories, or turn metrics.
+execution remains in an external harness; Community does not start processes,
+activate models or prompts, manage teams, memories, or turn metrics.
 
 ## Discovery and identity
 
@@ -61,9 +61,10 @@ uses Community's existing NIP-17 direct-message flow.
 
 ## Requirements
 
-| ID           | Requirement                                                                                                                                                                                                                                                                                                                                                                                                                              |
-| ------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| LC-NOSTR-022 | The owned-agent directory MUST verify agent profile signatures and full NIP-OA owner proofs, apply deterministic replacement and authorized deletion, derive channels only from relay-signed membership, and discover through bounded authenticated bridge queries. Follow mutations MUST preserve unrelated contact data and surface signer or relay failure. Presence and typing MUST be transient and MUST NOT imply runtime control. |
+| ID           | Requirement                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| LC-NOSTR-022 | The owned-agent directory MUST verify agent profile signatures and full NIP-OA owner proofs, apply deterministic replacement and authorized deletion, derive channels only from relay-signed membership, and discover through bounded authenticated bridge queries. Follow mutations MUST preserve unrelated contact data and surface signer or relay failure. Presence and typing MUST be transient and MUST NOT imply runtime control.                                                                                                                                                                                                                                                                                                                                             |
+| LC-NOSTR-023 | Community MUST keep owner-signed persona definitions (`30175`), owner-signed agent instances (`30177`), and agent-signed public profiles (`kind:0`) distinct. Persona edits MUST preserve unknown configuration, remove known secret-bearing fields, advance timestamps beyond the current head, and keep drafts on failure. Name inheritance MUST use explicit `name_mode`; missing legacy modes mean independent instance naming. Managed presentation MUST resolve persona avatar and inherited name first, then the agent-signed public profile. Unlinking MUST preserve the agent and instance name without copying the persona prompt, while deletion MUST leave an unresolved link with public-profile fallbacks. Saved prompts MUST be labelled as inactive in this release. |
 
 ## Encrypted local activity archive
 
@@ -98,23 +99,25 @@ agents, and decoded windows remain bounded while older pages remain available.
 
 ## Compatibility and screens
 
-| Buzz feature                                | Community behavior                                                           |
-| ------------------------------------------- | ---------------------------------------------------------------------------- |
-| Owned agents, identity, profile, public key | Verified directory and Info profile                                          |
-| Message, Follow / Unfollow                  | Existing encrypted conversation and signed contact-list update               |
-| Presence and working                        | Independent expiring signals; `turn_finished` completes a live turn          |
-| Channels                                    | Accessible relay-signed memberships and existing permission-gated add/remove |
-| Private observer activity                   | Continuous signed-in capture and encrypted device history                    |
-| Add agent                                   | Owner-signed discovery registration for an existing verified agent           |
-| Teams, personas, memories, metrics          | Protocol families supported; UI deferred                                     |
-| Start / Stop, models, defaults, runtime     | External manager required; omitted                                           |
-| Private managed-agent kind 30179            | Rejected by relay; omitted                                                   |
+| Buzz feature                                | Community behavior                                                             |
+| ------------------------------------------- | ------------------------------------------------------------------------------ |
+| Owned agents, identity, profile, public key | Verified directory and Info profile                                            |
+| Message, Follow / Unfollow                  | Existing encrypted conversation and signed contact-list update                 |
+| Presence and working                        | Independent expiring signals; `turn_finished` completes a live turn            |
+| Channels                                    | Accessible relay-signed memberships and existing permission-gated add/remove   |
+| Private observer activity                   | Continuous signed-in capture and encrypted device history                      |
+| Add agent                                   | Owner-signed persona creation plus an explicit managed-agent link              |
+| Persona presentation and prompt             | Name/avatar applied in Community; prompt saved but runtime activation deferred |
+| Teams, memories, metrics                    | Protocol families supported; UI deferred                                       |
+| Start / Stop, models, defaults, runtime     | External manager required; omitted                                             |
+| Private managed-agent kind 30179            | Rejected by relay; omitted                                                     |
 
-Avatar publication still requires an agent-signed kind `0` event. The existing
-personal-profile action signs as the connected user; it cannot edit another
-member's or agent's profile. Buzz's local managed-agent backend supplies the
-agent key for this operation. Community does not currently expose that signer,
-so its agent avatar remains a display surface rather than an editable control.
+Public avatar publication still requires an agent-signed kind `0` event. An
+owner edit instead publishes plaintext persona desired state as kind `30175`.
+Community immediately resolves the managed name and avatar from that persona;
+other Nostr clients continue to see the existing agent-signed profile. The
+owner never receives the agent key, and Community does not claim that saved
+free-form prompts are secret.
 
 The main Agents navigation appears beside Projects for signed-in compatible
 sessions, with loading, empty, offline, partial-result, and retry states. Agent
@@ -126,16 +129,24 @@ Scroll Area whose scrollbar sits at the right edge of the form body. Its image
 picker is anchored below the square trigger, includes the shared global emoji
 picker after local presets, and sits beside a form that uses the shared
 Community chat composer for agent instructions.
-It registers an existing agent public key through the owner-authored kind
-`30177` discovery record. The image, name, description and instruction controls
-are local dialog state until Community has an agent-profile signer; the verified
-directory still requires the agent's own signed profile and ownership proof
-before showing the agent. The gallery has no search field, managed-agent
-creation, runtime configuration or Start controls. Agent and community history
+The existing Agents view lists reusable owner-authored personas alongside the
+verified directory. Add agent can create a `30175` persona or select a saved
+persona, then links the existing agent public key through owner-authored kind
+`30177` without copying persona configuration into the link. Persona deletion
+uses the shared confirmation dialog. The link carries the exact persona slug,
+an explicit inherited or instance name mode, an instance name, and Buzz
+defaults for newly completed records. Existing unknown and behavioral
+configuration is preserved. The verified directory still requires the agent's
+own signed profile and ownership proof before showing the agent. The gallery
+has no search field, process creation, runtime activation or Start controls.
+Agent and community history
 clearing use destructive red buttons and confirmation dialogs; cancellation
 preserves history and failures remain retryable.
-Profile entry points recognize verified agents and use the shared exclusive right
-sidebar. Info provides identity, owner, key copy and an activity link. Channels
+Profile entry points recognize verified agents and use the shared exclusive
+right sidebar. Info provides identity, owner, key copy, persona status and an
+activity link. The existing profile owns create/edit/delete, explicit name
+inheritance and non-destructive unlinking. Deleting a persona retains its link
+as visibly unresolved; presentation falls back to `kind:0`. Channels
 uses the viewer's room permissions; agent ownership grants no administrative
 rights. Removal and local history clearing require confirmation and retain the
 dialog when an operation fails.
@@ -172,4 +183,9 @@ The public Pulse Agents filter uses the verified directory; private observer
 activity stays outside public Pulse. Functional acceptance is mapped to
 LC-UI-037; visual acceptance remains pending human review.
 
-The Agents directory and profiles consume the shared dialog, confirmation, avatar-picker, composer, Markdown, and skeleton contracts in the Community UI catalog. Avatar drafts remain presentation-only where the current signer cannot publish the agent's profile. Initial agent discovery and activity loading use gallery and timeline skeletons, with retained content during refresh. Local history clearing uses the compact retryable confirmation composition.
+The Agents directory and profiles consume the shared dialog, confirmation,
+avatar-picker, composer, Markdown, and skeleton contracts in the Community UI
+catalog. Persona drafts persist in the open form after rejected writes. Initial
+agent discovery and activity loading use gallery and timeline skeletons, with
+retained content during refresh. Local history clearing uses the compact
+retryable confirmation composition.

@@ -51,6 +51,15 @@ const channel = finalizeEvent(
   },
   relayKey,
 );
+const persona = finalizeEvent(
+  {
+    kind: 30175,
+    created_at: now,
+    tags: [["d", "research"]],
+    content: '{"display_name":"Research"}',
+  },
+  ownerKey,
+);
 const scope = {
   communityId: "test",
   relayUrls: ["wss://relay.example/"],
@@ -97,6 +106,7 @@ async function setup() {
   let receive: (event: NostrEvent) => void = () => {};
   const directory: CommunityAgentDirectory = {
     agents: materializeAgentDirectory([profile, channel], owner, relay),
+    personas: [],
     events: [profile, channel],
     relayPubkey: relay,
     capabilities: { directory: true, presence: true, activity: true },
@@ -111,6 +121,9 @@ async function setup() {
     },
     setFollow: async () => profile,
     registerAgent: vi.fn(async () => profile),
+    saveAgent: vi.fn(async () => ({ persona })),
+    unlinkAgent: vi.fn(async () => profile),
+    deletePersona: vi.fn(async () => persona),
   };
   const decrypt = vi.fn(async (_key: string, ciphertext: string) =>
     nip44.v2.decrypt(ciphertext, conversation),
@@ -139,6 +152,7 @@ describe("agent activity controller", () => {
     const { controller, session } = await setup();
     vi.mocked(session.loadDirectory).mockResolvedValueOnce({
       agents: materializeAgentDirectory([profile], owner, relay),
+      personas: [],
       events: [profile],
       relayPubkey: relay,
       capabilities: { directory: true, presence: true, activity: true },
@@ -153,6 +167,31 @@ describe("agent activity controller", () => {
     expect(controller.state.agents.map((entry) => entry.pubkey)).toEqual([
       agent,
     ]);
+  });
+  it("routes persona save, unlink, and deletion through the session", async () => {
+    const { controller, session } = await setup();
+    const input = {
+      pubkey: agent,
+      personaSlug: "research",
+      displayName: "Research",
+      nameMode: "inherited" as const,
+    };
+    await controller.actions.saveAgent(input);
+    await controller.actions.unlinkAgent(agent, "Research");
+    await controller.actions.deletePersona("research");
+    expect(session.saveAgent).toHaveBeenCalledWith(
+      input,
+      expect.any(AbortSignal),
+    );
+    expect(session.unlinkAgent).toHaveBeenCalledWith(
+      agent,
+      "Research",
+      expect.any(AbortSignal),
+    );
+    expect(session.deletePersona).toHaveBeenCalledWith(
+      "research",
+      expect.any(AbortSignal),
+    );
   });
   it("captures encrypted activity while the panel is closed and restores it on demand", async () => {
     const { controller, archive, receive } = await setup();
@@ -224,6 +263,7 @@ describe("agent activity controller", () => {
         owner,
         relay,
       ),
+      personas: [],
       events: [profile, publicMembership],
       relayPubkey: relay,
       capabilities: { directory: true, presence: true, activity: true },

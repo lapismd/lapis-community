@@ -1171,6 +1171,27 @@ export function createCommunityController(
           agentController!.actions.registerAgent(pubkey),
         );
       },
+      saveAgent: async (input) => {
+        if (!agentController)
+          throw new Error("Agent actions require a signed-in community");
+        await runOperation(`agent:save:${input.pubkey}`, () =>
+          agentController!.actions.saveAgent(input),
+        );
+      },
+      unlinkAgent: async (pubkey, fallbackName) => {
+        if (!agentController)
+          throw new Error("Agent actions require a signed-in community");
+        await runOperation(`agent:unlink:${pubkey}`, () =>
+          agentController!.actions.unlinkAgent(pubkey, fallbackName),
+        );
+      },
+      deletePersona: async (slug) => {
+        if (!agentController)
+          throw new Error("Agent actions require a signed-in community");
+        await runOperation(`persona:delete:${slug}`, () =>
+          agentController!.actions.deletePersona(slug),
+        );
+      },
       setFollow: async (pubkey, following) => {
         if (!agentController)
           throw new Error("Agent actions require a signed-in community");

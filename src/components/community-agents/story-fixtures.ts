@@ -7,7 +7,10 @@ import type {
   CommunityAgentActivityItem,
 } from "../../community/agent-contracts.js";
 import type { CommunityRoomModel } from "../community-workspace/model.js";
-import { materializeAgentDirectory } from "../../community/agent-protocol.js";
+import {
+  materializeAgentDirectory,
+  materializeAgentPersonas,
+} from "../../community/agent-protocol.js";
 
 // Synthetic fixture identities, unrelated to any user or deployed relay.
 export const storyAgentKey = new Uint8Array(32).fill(72);
@@ -47,6 +50,25 @@ export const storyAgent = {
   ...materializeAgentDirectory([storyAgentProfile], storyOwnerPubkey, "")[0]!,
   channelIds: ["general"],
 };
+const storyPersonaEvent = finalizeEvent(
+  {
+    kind: 30175,
+    created_at: 1_700_000_010,
+    tags: [["d", "release-notes"]],
+    content: JSON.stringify({
+      display_name: "Release notes",
+      description: "Summarize each release for the community.",
+      avatar_url:
+        "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%236366f1'/%3E%3Ctext x='32' y='42' text-anchor='middle' font-size='30'%3E%E2%9C%8D%3C/text%3E%3C/svg%3E",
+      system_prompt: "Write concise release notes.",
+    }),
+  },
+  ownerKey,
+);
+export const storyPersonas = materializeAgentPersonas(
+  [storyPersonaEvent],
+  storyOwnerPubkey,
+);
 export const storyGalleryAgents = [
   storyAgent,
   ...materializeAgentDirectory(
@@ -109,6 +131,7 @@ export function storyAgentState(
   return {
     status: "ready",
     agents: [storyAgent],
+    personas: storyPersonas,
     archivedAgents: [storyAgent],
     capabilities: { directory: true, presence: true, activity: true },
     presence: { [storyAgentPubkey]: { status: "online" } },

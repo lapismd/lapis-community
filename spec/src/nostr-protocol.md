@@ -8,6 +8,11 @@ replaceable discovery event whose `d` tag is the normalized agent public key.
 Relay acceptance records the owner's discovery intent; the directory MUST keep
 the agent hidden until a valid agent-signed kind `0` profile independently
 attests to that owner.
+Persona management MUST keep the owner-signed `30175` definition, owner-signed
+`30177` instance, and agent-signed kind `0` profile as separate authorities.
+The instance links the persona's exact `d` value and records name inheritance
+explicitly; matching strings never imply inheritance. Persona prompts remain
+plaintext saved configuration and do not become active runtime state.
 Buzz's numeric NIP-11 list does not advertise `OA`, `AO`, or client-side
 NIP-44. A valid relay `self` key and NIP-29 permit authenticated directory
 probes, with NIP-16 or `AO` enabling ephemeral observer subscriptions. The

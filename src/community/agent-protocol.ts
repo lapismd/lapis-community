@@ -5,7 +5,9 @@ import { verifyEvent } from "nostr-tools/pure";
 import type { NostrEvent } from "../protocol/index.js";
 import type {
   CommunityAgentIdentity,
+  CommunityAgentInstance,
   CommunityAgentObserver,
+  CommunityAgentPersona,
   CommunityAgentPresence,
 } from "./agent-contracts.js";
 import { copyNostrEvent } from "./verified-events.js";
@@ -14,6 +16,7 @@ export const AGENT_PROTOCOL_PIN = "cec5c8fd9280d30f56effac701e1e19d5cfe6fea";
 export const AGENT_PRESENCE_TTL = 180;
 export const AGENT_TYPING_TTL = 8;
 export const AGENT_PUBKEY = /^[0-9a-f]{64}$/;
+export const AGENT_PERSONA_SLUG = /^[a-z0-9][a-z0-9_-]{0,63}$/;
 
 export interface AgentOwnerCredential {
   ownerPubkey: string;
@@ -139,6 +142,62 @@ function text(value: unknown, fallback = ""): string {
   return typeof value === "string" ? value.slice(0, 4_096) : fallback;
 }
 
+export function agentPersona(
+  event: NostrEvent,
+  owner: string,
+): CommunityAgentPersona | undefined {
+  const slug = agentTag(event, "d");
+  if (
+    event.kind !== 30175 ||
+    event.pubkey !== owner ||
+    !AGENT_PERSONA_SLUG.test(slug ?? "")
+  )
+    return;
+  const content = agentJson(event.content);
+  const displayName = text(content.display_name).trim();
+  if (!displayName) return;
+  const avatarUrl = text(content.avatar_url).trim();
+  const systemPrompt =
+    typeof content.system_prompt === "string"
+      ? content.system_prompt.slice(0, 65_535)
+      : "";
+  return {
+    ownerPubkey: owner,
+    slug: slug!,
+    displayName,
+    description: text(content.description),
+    ...(avatarUrl ? { avatarUrl } : {}),
+    ...(systemPrompt ? { systemPrompt } : {}),
+    content,
+    event,
+  };
+}
+
+export function agentInstance(
+  event: NostrEvent,
+  owner: string,
+): CommunityAgentInstance | undefined {
+  const agentPubkey = agentTag(event, "d");
+  if (
+    event.kind !== 30177 ||
+    event.pubkey !== owner ||
+    !AGENT_PUBKEY.test(agentPubkey ?? "")
+  )
+    return;
+  const content = agentJson(event.content);
+  const personaId = text(content.persona_id).trim();
+  const explicitMode = content.name_mode;
+  const nameMode =
+    explicitMode === "inherited" ? "inherited" : ("instance" as const);
+  return {
+    agentPubkey: agentPubkey!,
+    ...(AGENT_PERSONA_SLUG.test(personaId) ? { personaId } : {}),
+    name: text(content.name).trim(),
+    nameMode,
+    event,
+  };
+}
+
 /** Current, signed relay membership; public channels need not include the viewer. */
 export function agentChannelMemberships(
   input: readonly NostrEvent[],
@@ -187,6 +246,7 @@ export function materializeAgentDirectory(
     ).values(),
   ];
   const profiles = new Map<string, NostrEvent[]>();
+  const instanceCandidates = new Map<string, NostrEvent[]>();
   const memberships = agentChannelMemberships(events, relay);
   for (const event of events) {
     if (event.kind === 0)
@@ -194,6 +254,27 @@ export function materializeAgentDirectory(
         ...(profiles.get(event.pubkey) ?? []),
         event,
       ]);
+    else if (event.kind === 30177 && event.pubkey === owner) {
+      const agentPubkey = agentTag(event, "d");
+      if (agentPubkey)
+        instanceCandidates.set(agentPubkey, [
+          ...(instanceCandidates.get(agentPubkey) ?? []),
+          event,
+        ]);
+    }
+  }
+  const personas = new Map(
+    materializeAgentPersonas(events, owner).map((persona) => [
+      persona.slug,
+      persona,
+    ]),
+  );
+  const instances = new Map<string, CommunityAgentInstance>();
+  for (const [pubkey, candidates] of instanceCandidates) {
+    const head = newestAgentEvent(candidates)!;
+    if (deleted(head, events)) continue;
+    const instance = agentInstance(head, owner);
+    if (instance) instances.set(pubkey, instance);
   }
   const contacts = newestAgentEvent(
     events.filter((event) => event.kind === 3 && event.pubkey === owner),
@@ -208,6 +289,10 @@ export function materializeAgentDirectory(
     const profile = newestAgentEvent(candidates)!;
     if (deleted(profile, events) || agentOwner(profile) !== owner) continue;
     const metadata = agentJson(profile.content);
+    const instance = instances.get(pubkey);
+    const persona = instance?.personaId
+      ? personas.get(instance.personaId)
+      : undefined;
     const extension = newestAgentEvent(
       events.filter((event) => event.kind === 10100 && event.pubkey === pubkey),
     );
@@ -223,21 +308,64 @@ export function materializeAgentDirectory(
       pubkey,
       ownerPubkey: owner,
       name:
-        text(metadata.display_name) ||
-        text(metadata.name) ||
-        text(extra.name) ||
-        `${pubkey.slice(0, 8)}…`,
-      about: text(metadata.about),
-      ...(/^https?:\/\//.test(picture) ? { avatarUrl: picture } : {}),
+        instance?.nameMode === "instance" && instance.name
+          ? instance.name
+          : persona
+            ? persona.displayName
+            : text(metadata.display_name) ||
+              text(metadata.name) ||
+              text(extra.name) ||
+              `${pubkey.slice(0, 8)}…`,
+      about: persona?.description || text(metadata.about),
+      ...(persona?.avatarUrl
+        ? { avatarUrl: persona.avatarUrl }
+        : /^https?:\/\//.test(picture) || picture.startsWith("data:image/")
+          ? { avatarUrl: picture }
+          : {}),
       agentType: text(extra.agent_type) || text(metadata.agent_type) || "agent",
       channelIds,
       followed: followed.has(pubkey),
+      ...(persona ? { persona } : {}),
+      ...(instance ? { instance } : {}),
+      personaStatus: instance?.personaId
+        ? persona
+          ? "linked"
+          : "unresolved"
+        : "none",
       profile,
     });
   }
   return result.sort(
     (a, b) => a.name.localeCompare(b.name) || a.pubkey.localeCompare(b.pubkey),
   );
+}
+
+export function materializeAgentPersonas(
+  input: readonly NostrEvent[],
+  owner: string,
+): CommunityAgentPersona[] {
+  const events = input.flatMap((event) => {
+    const verified = signedAgentEvent(event);
+    return verified ? [verified] : [];
+  });
+  const candidates = new Map<string, NostrEvent[]>();
+  for (const event of events) {
+    const slug = agentTag(event, "d");
+    if (event.kind === 30175 && event.pubkey === owner && slug)
+      candidates.set(slug, [...(candidates.get(slug) ?? []), event]);
+  }
+  return [...candidates]
+    .flatMap(([slug, revisions]) => {
+      const head = newestAgentEvent(revisions)!;
+      if (deleted(head, events)) return [];
+      const persona = agentPersona(head, owner);
+      return persona ? [persona] : [];
+    })
+    .sort(
+      (left, right) =>
+        left.displayName.localeCompare(right.displayName) ||
+        left.slug.localeCompare(right.slug),
+    );
 }
 
 export function validateAgentTelemetry(

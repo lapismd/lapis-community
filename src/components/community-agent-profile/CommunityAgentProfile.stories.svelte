@@ -15,7 +15,7 @@
           code: `<script>
   import { CommunityAgentProfile } from "@lapismd/lapis-community/components";
 <\/script>
-<CommunityAgentProfile {agent} {rooms} {canMessage} {ownerName} onOpenOwner={openOwnerProfile} onMessage={messageAgent} onFollow={followAgent} onActivity={openActivity} onCopy={copyKey} onOpenChannel={openChannel} onAddChannel={addToChannel} onRemoveChannel={removeFromChannel} />`,
+<CommunityAgentProfile {agent} {rooms} {canMessage} {ownerName} onOpenOwner={openOwnerProfile} onMessage={messageAgent} onFollow={followAgent} onActivity={openActivity} onCopy={copyKey} onOpenChannel={openChannel} onAddChannel={addToChannel} onRemoveChannel={removeFromChannel} onSaveAgent={saveAgent} onUnlinkPersona={unlinkPersona} onDeletePersona={deletePersona} />`,
         },
       },
     },
@@ -47,6 +47,31 @@
     await expect(canvas.getByRole("status")).toHaveTextContent(
       "Opened steve's profile",
     );
+  }}>{#snippet template()}<Harness screen="profile" />{/snippet}</Story
+>
+
+<Story
+  name="Create persona"
+  play={async ({ canvas, canvasElement }) => {
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Create persona", exact: true }),
+    );
+    const body = within(canvasElement.ownerDocument.body);
+    const dialog = body.getByRole("dialog", { name: "Create persona" });
+    await expect(
+      within(dialog).getByText(
+        "Saved with the persona. Runtime activation is unavailable in this release.",
+      ),
+    ).toBeVisible();
+    await userEvent.clear(within(dialog).getByLabelText("Persona name"));
+    await userEvent.type(
+      within(dialog).getByLabelText("Persona name"),
+      "Research assistant",
+    );
+    await userEvent.click(
+      within(dialog).getByRole("button", { name: "Save persona" }),
+    );
+    await expect(canvas.getByText("Persona research saved")).toBeVisible();
   }}>{#snippet template()}<Harness screen="profile" />{/snippet}</Story
 >
 

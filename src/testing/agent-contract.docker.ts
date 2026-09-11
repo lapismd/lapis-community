@@ -61,20 +61,20 @@ export function registerAgentDockerContract(relayUrl: string): void {
       try {
         await ownerRelay.authenticate!((template) => owner.signEvent(template));
         await agentRelay.authenticate!((template) =>
-          Promise.resolve(finalizeEvent(template, agentKey)),
+          Promise.resolve(
+            finalizeEvent(
+              {
+                ...template,
+                tags: [...template.tags, ["auth", ownerPubkey, "", proof]],
+              },
+              agentKey,
+            ),
+          ),
         );
         await strangerRelay.authenticate!((template) =>
           stranger.signEvent(template),
         );
         await agentRelay.publish(profile);
-        await ownerRelay.publish(
-          await owner.signEvent({
-            kind: 30177,
-            created_at: now(),
-            content: "",
-            tags: [["d", agentPubkey]],
-          }),
-        );
         const groupId = runtime.scenario.scope.rooms![0]!.groupId!;
         await ownerRelay.publish(
           await owner.signEvent({
@@ -93,14 +93,33 @@ export function registerAgentDockerContract(relayUrl: string): void {
           relay: ownerRelay,
           authenticate: async () => undefined,
         });
+        await session.saveAgent!({
+          pubkey: agentPubkey,
+          personaSlug: "contract-agent",
+          displayName: "Contract persona",
+          description: "Docker-backed persona",
+          avatarUrl: "https://example.test/contract-agent.png",
+          systemPrompt: "Exercise the Community contract.",
+          nameMode: "inherited",
+        });
         await vi.waitFor(
           async () => {
             const directory = await session.loadDirectory();
             expect(directory.capabilities.activity).toBe(true);
-            expect(
-              directory.agents.find((agent) => agent.pubkey === agentPubkey)
-                ?.channelIds,
-            ).toContain(groupId);
+            const managed = directory.agents.find(
+              (agent) => agent.pubkey === agentPubkey,
+            );
+            expect(managed?.channelIds).toContain(groupId);
+            expect(managed).toMatchObject({
+              name: "Contract persona",
+              avatarUrl: "https://example.test/contract-agent.png",
+              personaStatus: "linked",
+              persona: {
+                slug: "contract-agent",
+                systemPrompt: "Exercise the Community contract.",
+              },
+              instance: { nameMode: "inherited" },
+            });
           },
           { timeout: 10000, interval: 250 },
         );

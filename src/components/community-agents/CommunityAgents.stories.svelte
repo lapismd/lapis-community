@@ -15,7 +15,7 @@
           code: `<script>
   import { CommunityAgents } from "@lapismd/lapis-community/components";
 <\/script>
-<CommunityAgents model={controller.state.agents} onProfile={openProfile} onActivity={openActivity} onAddAgent={controller.actions.agents.registerAgent} onRefresh={controller.actions.agents.refresh} onClearHistory={() => controller.actions.agents.clearHistory()} />`,
+<CommunityAgents model={controller.state.agents} onProfile={openProfile} onActivity={openActivity} onSaveAgent={controller.actions.agents.saveAgent} onRefresh={controller.actions.agents.refresh} onClearHistory={() => controller.actions.agents.clearHistory()} />`,
         },
       },
     },
@@ -116,7 +116,9 @@
           .getAttribute("src")!,
       ),
     ).toContain("🤣");
-    await userEvent.keyboard("{Escape}");
+    if (body.queryByLabelText("Avatar image picker")) {
+      await userEvent.keyboard("{Escape}");
+    }
     const scrollArea = dialog.querySelector<HTMLElement>(
       '[data-ui-component="scroll-area"][data-ui-part="scroll-area"]',
     );
@@ -160,16 +162,58 @@
       within(dialog).getByLabelText("Agent public key"),
       "f".repeat(64),
     );
+    await userEvent.type(within(dialog).getByLabelText("Persona name"), "Fizz");
     await userEvent.click(
       within(dialog).getByRole("button", { name: "Add agent" }),
     );
-    await expect(canvas.getByText("Agent registration saved")).toBeVisible();
+    await expect(canvas.getByText("Persona fizz saved")).toBeVisible();
     await waitFor(() =>
       expect(body.queryByRole("dialog")).not.toBeInTheDocument(),
     );
     await expect(
       canvas.getByRole("button", { name: "Add agent" }),
     ).toHaveFocus();
+  }}>{#snippet template()}<Harness variant="gallery" />{/snippet}</Story
+>
+<Story
+  name="Use saved persona"
+  play={async ({ canvas, canvasElement }) => {
+    await userEvent.click(canvas.getByRole("button", { name: "Add agent" }));
+    const body = within(canvasElement.ownerDocument.body);
+    const dialog = body.getByRole("dialog", { name: "Add agent" });
+    await userEvent.click(
+      within(dialog).getByRole("button", { name: "Use saved persona" }),
+    );
+    await expect(within(dialog).getAllByText("Release notes")[0]).toBeVisible();
+    await userEvent.type(
+      within(dialog).getByLabelText("Agent public key"),
+      "e".repeat(64),
+    );
+    await userEvent.click(
+      within(dialog).getByRole("button", { name: "Add agent" }),
+    );
+    await expect(canvas.getByText("Persona release-notes saved")).toBeVisible();
+  }}>{#snippet template()}<Harness variant="gallery" />{/snippet}</Story
+>
+<Story
+  name="Delete persona"
+  play={async ({ canvas, canvasElement }) => {
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Delete persona Release notes" }),
+    );
+    const body = within(canvasElement.ownerDocument.body);
+    const dialog = body.getByRole("alertdialog", {
+      name: "Delete this persona?",
+    });
+    await userEvent.click(
+      within(dialog).getByRole("button", { name: "Delete persona" }),
+    );
+    await expect(
+      canvas.getByText("Persona release-notes deleted"),
+    ).toBeVisible();
+    await expect(
+      canvas.queryByRole("button", { name: "Delete persona Release notes" }),
+    ).not.toBeInTheDocument();
   }}>{#snippet template()}<Harness variant="gallery" />{/snippet}</Story
 >
 <Story

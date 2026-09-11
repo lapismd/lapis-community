@@ -6,6 +6,7 @@ import { describe, expect, it } from "vitest";
 import {
   agentOwner,
   materializeAgentDirectory,
+  materializeAgentPersonas,
   parseAgentObserver,
   validateAgentTelemetry,
   verifyAgentCredential,
@@ -154,6 +155,163 @@ describe("agent ownership and protocol", () => {
       materializeAgentDirectory([profile(), publicMembership], owner, relay)[0]
         ?.channelIds,
     ).toEqual(["public"]);
+  });
+  it("keeps persona, instance, and public-profile names distinct", () => {
+    const persona = finalizeEvent(
+      {
+        kind: 30175,
+        created_at: now,
+        tags: [["d", "research"]],
+        content: JSON.stringify({
+          display_name: "Research assistant",
+          avatar_url: "https://example.test/persona.png",
+          system_prompt: "Saved only",
+        }),
+      },
+      ownerKey,
+    );
+    const explicit = finalizeEvent(
+      {
+        kind: 30177,
+        created_at: now,
+        tags: [["d", agent]],
+        content: JSON.stringify({
+          persona_id: "research",
+          name: "Ada",
+          name_mode: "instance",
+        }),
+      },
+      ownerKey,
+    );
+    const result = materializeAgentDirectory(
+      [profile(), persona, explicit],
+      owner,
+      relay,
+    )[0]!;
+    expect(result.name).toBe("Ada");
+    expect(result.avatarUrl).toBe("https://example.test/persona.png");
+    expect(result.persona?.systemPrompt).toBe("Saved only");
+    expect(result.personaStatus).toBe("linked");
+
+    const inherited = finalizeEvent(
+      {
+        ...explicit,
+        created_at: now + 1,
+        content: JSON.stringify({
+          persona_id: "research",
+          name: "Ada",
+          name_mode: "inherited",
+        }),
+      },
+      ownerKey,
+    );
+    expect(
+      materializeAgentDirectory(
+        [profile(), persona, explicit, inherited],
+        owner,
+        relay,
+      )[0]?.name,
+    ).toBe("Research assistant");
+
+    const legacyMode = finalizeEvent(
+      {
+        ...explicit,
+        created_at: now + 2,
+        content: JSON.stringify({ persona_id: "research", name: "Ada" }),
+      },
+      ownerKey,
+    );
+    expect(
+      materializeAgentDirectory(
+        [profile(), persona, inherited, legacyMode],
+        owner,
+        relay,
+      )[0]?.name,
+    ).toBe("Ada");
+  });
+  it("shows an unresolved link with public-profile fallbacks after persona deletion", () => {
+    const persona = finalizeEvent(
+      {
+        kind: 30175,
+        created_at: now,
+        tags: [["d", "research"]],
+        content: '{"display_name":"Managed"}',
+      },
+      ownerKey,
+    );
+    const instance = finalizeEvent(
+      {
+        kind: 30177,
+        created_at: now,
+        tags: [["d", agent]],
+        content:
+          '{"persona_id":"research","name":"Managed","name_mode":"inherited"}',
+      },
+      ownerKey,
+    );
+    const deletion = finalizeEvent(
+      {
+        kind: 5,
+        created_at: now + 1,
+        tags: [["a", `30175:${owner}:research`]],
+        content: "",
+      },
+      ownerKey,
+    );
+    const result = materializeAgentDirectory(
+      [profile(), persona, instance, deletion],
+      owner,
+      relay,
+    )[0]!;
+    expect(result.personaStatus).toBe("unresolved");
+    expect(result.name).toBe("Research agent");
+    expect(result.avatarUrl).toBeUndefined();
+  });
+  it("lists reusable owner personas independently of agent links", () => {
+    const releaseNotes = finalizeEvent(
+      {
+        kind: 30175,
+        created_at: now,
+        tags: [["d", "release-notes"]],
+        content:
+          '{"display_name":"Release notes","system_prompt":"Saved only"}',
+      },
+      ownerKey,
+    );
+    const research = finalizeEvent(
+      {
+        kind: 30175,
+        created_at: now,
+        tags: [["d", "research"]],
+        content: '{"display_name":"Research"}',
+      },
+      ownerKey,
+    );
+    const foreign = finalizeEvent(
+      {
+        kind: 30175,
+        created_at: now + 1,
+        tags: [["d", "foreign"]],
+        content: '{"display_name":"Foreign"}',
+      },
+      agentKey,
+    );
+    const deletion = finalizeEvent(
+      {
+        kind: 5,
+        created_at: now + 1,
+        tags: [["a", `30175:${owner}:research`]],
+        content: "",
+      },
+      ownerKey,
+    );
+
+    expect(
+      materializeAgentPersonas(
+        [releaseNotes, research, foreign, deletion],
+        owner,
+      ).map((persona) => persona.slug),
+    ).toEqual(["release-notes"]);
   });
   it("honours signed profile deletions and rejects foreign deletions", () => {
     const event = profile();

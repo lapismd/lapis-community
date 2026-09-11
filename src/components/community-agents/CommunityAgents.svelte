@@ -8,32 +8,39 @@
   import * as DropdownMenu from "@lapismd/design-core/shadcn/dropdown-menu";
   import * as Field from "@lapismd/design-core/shadcn/field";
   import { Input } from "@lapismd/design-core/shadcn/input";
+  import * as Select from "@lapismd/design-core/shadcn/select";
   import { nip19 } from "nostr-tools";
   import BotIcon from "@lucide/svelte/icons/bot";
   import PlusIcon from "@lucide/svelte/icons/plus";
   import RefreshIcon from "@lucide/svelte/icons/refresh-cw";
-  import UploadCloudIcon from "@lucide/svelte/icons/upload-cloud";
+  import LinkIcon from "@lucide/svelte/icons/link-2";
   import MoreIcon from "@lucide/svelte/icons/ellipsis-vertical";
   import ActivityIcon from "@lucide/svelte/icons/wrench";
   import TrashIcon from "@lucide/svelte/icons/trash-2";
-  import type { CommunityAgentsState } from "../../community/agent-contracts.js";
+  import type {
+    CommunityAgentNameMode,
+    CommunityAgentSaveInput,
+    CommunityAgentsState,
+  } from "../../community/agent-contracts.js";
   import CommunityChatComposer from "../community-chat-composer/CommunityChatComposer.svelte";
   import CommunityChip from "../community-chip/CommunityChip.svelte";
   import CommunityMemberAvatar from "../community-member-avatar/CommunityMemberAvatar.svelte";
-  import { communityAgentMember } from "./model.js";
+  import { communityAgentMember, communityPersonaMember } from "./model.js";
 
   let {
     model,
     onProfile,
     onActivity,
-    onAddAgent,
+    onSaveAgent,
+    onDeletePersona,
     onRefresh,
     onClearHistory,
   }: {
     model: CommunityAgentsState;
     onProfile: (pubkey: string) => void;
     onActivity: (pubkey: string) => void;
-    onAddAgent?: (pubkey: string) => Promise<void>;
+    onSaveAgent?: (input: CommunityAgentSaveInput) => Promise<void>;
+    onDeletePersona?: (slug: string) => Promise<void>;
     onRefresh: () => void | Promise<void>;
     onClearHistory: () => Promise<void>;
   } = $props();
@@ -48,11 +55,16 @@
   let agentDescription = $state("");
   let agentInstructions = $state("");
   let avatarUrl = $state("");
+  let personaSlug = $state("");
+  let nameMode = $state<CommunityAgentNameMode>("instance");
+  let addMode = $state<"create" | "existing">("create");
+  let selectedPersonaSlug = $state("");
+  let personaToDelete = $state("");
   let clearTrigger = $state<HTMLButtonElement | null>(null);
   let addTrigger = $state<HTMLButtonElement | null>(null);
   let directory = $state<HTMLElement>();
   const addable = $derived(
-    Boolean(onAddAgent) &&
+    Boolean(onSaveAgent) &&
       model.status !== "loading" &&
       model.status !== "unsupported",
   );
@@ -65,6 +77,9 @@
         !model.agents.some((current) => current.pubkey === agent.pubkey),
     ),
   );
+  const selectedPersona = $derived(
+    model.personas.find((persona) => persona.slug === selectedPersonaSlug),
+  );
   async function addAgent() {
     addFeedback = "";
     const pubkey = normalizedAgentPublicKey;
@@ -76,21 +91,68 @@
       addFeedback = "That agent is already in this directory.";
       return;
     }
-    if (!onAddAgent) {
-      addFeedback = "Agent registration is unavailable in this runtime.";
+    const displayName =
+      addMode === "existing"
+        ? (selectedPersona?.displayName ?? "")
+        : agentName.trim();
+    if (!displayName) {
+      addFeedback =
+        addMode === "existing"
+          ? "Choose a saved persona."
+          : "Enter a persona name.";
+      return;
+    }
+    const slug =
+      addMode === "existing"
+        ? (selectedPersona?.slug ?? "")
+        : personaSlug.trim() || personaSlugFromName(displayName);
+    if (!/^[a-z0-9][a-z0-9_-]{0,63}$/.test(slug)) {
+      addFeedback =
+        "Persona ID must use lowercase letters, numbers, hyphens, or underscores.";
+      return;
+    }
+    if (!onSaveAgent) {
+      addFeedback = "Persona management is unavailable in this runtime.";
       return;
     }
     addingPending = true;
     try {
-      await onAddAgent(pubkey);
+      await onSaveAgent({
+        pubkey,
+        personaSlug: slug,
+        displayName,
+        ...(addMode === "existing"
+          ? {
+              ...(selectedPersona?.description !== undefined
+                ? { description: selectedPersona.description }
+                : {}),
+              ...(selectedPersona?.avatarUrl !== undefined
+                ? { avatarUrl: selectedPersona.avatarUrl }
+                : {}),
+              ...(selectedPersona?.systemPrompt !== undefined
+                ? { systemPrompt: selectedPersona.systemPrompt }
+                : {}),
+            }
+          : {
+              description: agentDescription,
+              avatarUrl,
+              systemPrompt: agentInstructions,
+            }),
+        nameMode,
+        instanceName: displayName,
+      });
       adding = false;
       agentPublicKey = "";
       agentName = "";
       agentDescription = "";
       agentInstructions = "";
       avatarUrl = "";
+      personaSlug = "";
+      nameMode = "instance";
+      addMode = "create";
+      selectedPersonaSlug = "";
       feedback =
-        "Agent registration saved. The agent appears after its profile proves ownership.";
+        "Persona and agent link saved. The agent appears after its profile proves ownership.";
     } catch (error) {
       addFeedback =
         error instanceof Error
@@ -99,6 +161,17 @@
     } finally {
       addingPending = false;
     }
+  }
+
+  function personaSlugFromName(value: string): string {
+    return (
+      value
+        .toLowerCase()
+        .normalize("NFKD")
+        .replaceAll(/[^a-z0-9_-]+/g, "-")
+        .replaceAll(/^-+|-+$/g, "")
+        .slice(0, 64) || "agent"
+    );
   }
 
   function parseAgentPublicKey(value: string): string | undefined {
@@ -246,6 +319,39 @@
         >{/each}
     </section>
   {/if}
+  {#if model.personas.length > 0}
+    <section class="agents__personas" aria-label="Saved personas">
+      <div>
+        <h2>Personas</h2>
+        <p>Reusable owner-managed presentation and saved configuration.</p>
+      </div>
+      <ul>
+        {#each model.personas as persona (persona.slug)}
+          <li>
+            <CommunityMemberAvatar
+              member={communityPersonaMember(persona)}
+              size="small"
+              shape="rounded"
+            />
+            <span
+              ><strong>{persona.displayName}</strong><small
+                >{persona.slug}</small
+              ></span
+            >
+            {#if onDeletePersona}
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                aria-label={`Delete persona ${persona.displayName}`}
+                onclick={() => (personaToDelete = persona.slug)}
+                ><TrashIcon aria-hidden="true" /></Button
+              >
+            {/if}
+          </li>
+        {/each}
+      </ul>
+    </section>
+  {/if}
   {#if model.archivedAgents.length > 0}
     <footer>
       <p>
@@ -269,7 +375,7 @@
 <Dialog.Root bind:open={adding}>
   <DialogFrame
     title="Add agent"
-    description="Register an existing Nostr agent in this community. The agent appears after its signed profile proves ownership."
+    description="Create an owner-managed persona and link an existing Nostr agent. The agent appears after its signed profile proves ownership."
     descriptionHidden
     size="wide"
     busy={addingPending}
@@ -281,11 +387,20 @@
   >
     {#snippet sidebar()}
       <nav class="agents__add-options" aria-label="Agent add options">
-        <Button variant="default" aria-current="page"
-          ><PlusIcon aria-hidden="true" />Create agent</Button
+        <Button
+          variant={addMode === "create" ? "default" : "ghost"}
+          aria-current={addMode === "create" ? "page" : undefined}
+          onclick={() => (addMode = "create")}
+          ><PlusIcon aria-hidden="true" />Create persona</Button
         >
-        <Button variant="ghost" disabled
-          ><UploadCloudIcon aria-hidden="true" />Import</Button
+        <Button
+          variant={addMode === "existing" ? "default" : "ghost"}
+          aria-current={addMode === "existing" ? "page" : undefined}
+          disabled={model.personas.length === 0}
+          onclick={() => {
+            addMode = "existing";
+            selectedPersonaSlug ||= model.personas[0]?.slug ?? "";
+          }}><LinkIcon aria-hidden="true" />Use saved persona</Button
         >
       </nav>
     {/snippet}
@@ -297,38 +412,113 @@
         void addAgent();
       }}
     >
-      <CommunityAvatarPicker
-        bind:value={avatarUrl}
-        label="Choose agent image"
-        disabled={addingPending}
-      />
+      {#if addMode === "create"}
+        <CommunityAvatarPicker
+          bind:value={avatarUrl}
+          label="Choose agent image"
+          disabled={addingPending}
+        />
+      {:else if selectedPersona}
+        <div class="agents__selected-persona">
+          <CommunityMemberAvatar
+            member={communityPersonaMember(selectedPersona)}
+            size="xlarge"
+            shape="rounded"
+          />
+          <strong>{selectedPersona.displayName}</strong>
+          <span>{selectedPersona.slug}</span>
+        </div>
+      {/if}
       <Field.Group>
+        {#if addMode === "existing"}
+          <Field.Field
+            ><Field.Label for="community-agents-saved-persona"
+              >Saved persona</Field.Label
+            ><Select.Root
+              type="single"
+              value={selectedPersonaSlug}
+              onValueChange={(value) => (selectedPersonaSlug = value)}
+              ><Select.Trigger id="community-agents-saved-persona"
+                >{selectedPersona?.displayName ??
+                  "Choose a persona"}</Select.Trigger
+              ><Select.Content
+                >{#each model.personas as persona (persona.slug)}<Select.Item
+                    value={persona.slug}>{persona.displayName}</Select.Item
+                  >{/each}</Select.Content
+              ></Select.Root
+            ><Field.Description
+              >Links this agent to the existing persona without duplicating its
+              prompt or presentation.</Field.Description
+            ></Field.Field
+          >
+        {:else}
+          <Field.Field
+            ><Field.Label for="community-agents-add-name"
+              >Persona name</Field.Label
+            ><Input
+              id="community-agents-add-name"
+              bind:value={agentName}
+              placeholder="Fizz"
+            /></Field.Field
+          >
+          <Field.Field
+            ><Field.Label for="community-agents-add-persona-id"
+              >Persona ID <span>Optional</span></Field.Label
+            ><Input
+              id="community-agents-add-persona-id"
+              bind:value={personaSlug}
+              autocomplete="off"
+              placeholder={personaSlugFromName(agentName || "agent")}
+            /><Field.Description
+              >A stable lowercase ID is generated from the name when left empty.
+              Renaming the persona will not change it.</Field.Description
+            ></Field.Field
+          >
+          <Field.Field
+            ><Field.Label>Description <span>Optional</span></Field.Label
+            ><CommunityChatComposer
+              mode="form"
+              bind:value={agentDescription}
+              ariaLabel="Agent description"
+              placeholder="What this agent does, in a sentence"
+            /><Field.Description
+              >Shown publicly on the agent's card and profile.</Field.Description
+            ></Field.Field
+          >
+          <Field.Field
+            ><Field.Label>Saved system prompt</Field.Label
+            ><CommunityChatComposer
+              mode="form"
+              bind:value={agentInstructions}
+              placeholder="Describe what this agent should do."
+              ariaLabel="Agent instructions"
+            /><Field.Description
+              >Saved with the persona. Runtime activation is unavailable in this
+              release.</Field.Description
+            ></Field.Field
+          >
+        {/if}
         <Field.Field
-          ><Field.Label for="community-agents-add-name">Agent name</Field.Label
-          ><Input
-            id="community-agents-add-name"
-            bind:value={agentName}
-            placeholder="Fizz"
-          /></Field.Field
-        >
-        <Field.Field
-          ><Field.Label>Description <span>Optional</span></Field.Label
-          ><CommunityChatComposer
-            mode="form"
-            bind:value={agentDescription}
-            ariaLabel="Agent description"
-            placeholder="What this agent does, in a sentence"
-          /><Field.Description
-            >Shown publicly on the agent's card and profile.</Field.Description
+          ><Field.Label for="community-agents-add-name-mode"
+            >Instance name</Field.Label
+          ><Select.Root
+            type="single"
+            value={nameMode}
+            onValueChange={(value) =>
+              (nameMode = value as CommunityAgentNameMode)}
+            ><Select.Trigger id="community-agents-add-name-mode"
+              >{nameMode === "inherited"
+                ? "Use persona name"
+                : "Keep instance name"}</Select.Trigger
+            ><Select.Content
+              ><Select.Item value="instance">Keep instance name</Select.Item
+              ><Select.Item value="inherited">Use persona name</Select.Item
+              ></Select.Content
+            ></Select.Root
+          ><Field.Description
+            >This choice is stored explicitly even when both names currently
+            match.</Field.Description
           ></Field.Field
-        >
-        <Field.Field
-          ><Field.Label>Agent instructions</Field.Label><CommunityChatComposer
-            mode="form"
-            bind:value={agentInstructions}
-            placeholder="Describe what this agent should do."
-            ariaLabel="Agent instructions"
-          /></Field.Field
         >
         <Field.Field data-invalid={addFeedback ? "" : undefined}
           ><Field.Label for={addInputId}>Agent public key</Field.Label><Input
@@ -361,6 +551,23 @@
     {/snippet}
   </DialogFrame>
 </Dialog.Root>
+<ConfirmDialog
+  open={Boolean(personaToDelete)}
+  title="Delete this persona?"
+  description="The persona definition will be deleted. Linked agents remain registered and show their public-profile fallback until they are relinked."
+  confirmLabel="Delete persona"
+  destructive
+  onOpenChange={(open) => {
+    if (!open) personaToDelete = "";
+  }}
+  onConfirm={async () => {
+    if (!personaToDelete || !onDeletePersona) return;
+    const slug = personaToDelete;
+    await onDeletePersona(slug);
+    personaToDelete = "";
+    feedback = `Persona ${slug} deleted.`;
+  }}
+/>
 <ConfirmDialog
   bind:open={clearing}
   title="Clear all saved agent activity?"
@@ -565,6 +772,37 @@
     flex-wrap: wrap;
     gap: 0.75rem;
   }
+  .agents__personas {
+    display: grid;
+    gap: 0.75rem;
+    border-top: 1px solid var(--border);
+    padding-top: 1.25rem;
+  }
+  .agents__personas ul {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 16rem), 1fr));
+    gap: 0.75rem;
+    padding: 0;
+    margin: 0;
+    list-style: none;
+  }
+  .agents__personas li {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem;
+    border: 1px solid var(--border);
+    border-radius: 0.75rem;
+  }
+  .agents__personas li span {
+    display: grid;
+    min-width: 0;
+  }
+  .agents__personas small,
+  .agents__selected-persona span {
+    color: var(--muted-foreground);
+  }
   .agents__history h2,
   .agents__history p {
     flex-basis: 100%;
@@ -589,6 +827,13 @@
   .agents__add-options {
     display: grid;
     gap: 0.5rem;
+  }
+  .agents__selected-persona {
+    display: grid;
+    justify-items: center;
+    align-content: start;
+    gap: 0.5rem;
+    text-align: center;
   }
   @media (max-width: 40rem) {
     .agents__add-form {
