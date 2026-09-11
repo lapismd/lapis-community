@@ -298,7 +298,7 @@
     gap: 0.35rem;
     height: 100%;
     color: var(--muted-foreground);
-    font-size: 0.75rem;
+    font-size: var(--community-text-secondary);
   }
 
   .timeline-track-shell.fluid {
@@ -397,7 +397,7 @@
 
   .history-current strong {
     grid-column: 1;
-    font-size: 0.9rem;
+    font-size: var(--community-text-body);
     line-height: 1rem;
   }
 
@@ -422,7 +422,7 @@
     color: var(--muted-foreground);
     cursor: pointer;
     font: inherit;
-    font-size: 0.7rem;
+    font-size: var(--community-text-secondary);
     transform: translateY(-50%);
   }
 
@@ -444,7 +444,7 @@
     border-radius: var(--radius);
     background: var(--primary);
     color: var(--primary-foreground);
-    font-size: 0.7rem;
+    font-size: var(--community-text-secondary);
     font-weight: 600;
     transform: translateY(-50%);
   }

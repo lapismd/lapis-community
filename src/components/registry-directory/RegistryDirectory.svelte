@@ -574,7 +574,7 @@
   }
 
   .registry-directory__filters-header strong {
-    font-size: 0.82rem;
+    font-size: var(--community-text-secondary);
   }
 
   .registry-directory__filters-header button {
@@ -582,7 +582,7 @@
     padding: 0.25rem;
     color: var(--muted-foreground);
     background: transparent;
-    font-size: 0.75rem;
+    font-size: var(--community-text-secondary);
     cursor: pointer;
   }
 
@@ -616,7 +616,7 @@
     padding: 0.5rem;
     color: var(--muted-foreground);
     background: transparent;
-    font-size: 0.7rem;
+    font-size: var(--community-text-secondary);
     font-weight: 700;
     letter-spacing: 0.08em;
     text-align: start;
@@ -680,7 +680,7 @@
 
   .registry-directory__filter > span:last-child {
     color: var(--muted-foreground);
-    font-size: 0.78rem;
+    font-size: var(--community-text-secondary);
   }
 
   .registry-directory__filter-icon {
@@ -709,7 +709,7 @@
 
   .registry-directory__show-more {
     color: var(--muted-foreground);
-    font-size: 0.82rem;
+    font-size: var(--community-text-secondary);
   }
 
   .registry-directory__resize-handle {

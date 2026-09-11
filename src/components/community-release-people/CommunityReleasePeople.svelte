@@ -127,7 +127,7 @@
     border-radius: var(--radius-md, 0.5rem);
     background: var(--muted);
     color: var(--muted-foreground);
-    font-size: 0.8rem;
+    font-size: var(--community-text-secondary);
   }
 
   :global(.community-release-people__empty) {
@@ -191,12 +191,12 @@
   }
 
   .community-release-people__identity strong {
-    font-size: 0.875rem;
+    font-size: var(--community-text-body);
   }
 
   .community-release-people__identity small {
     color: var(--muted-foreground);
-    font-size: 0.75rem;
+    font-size: var(--community-text-secondary);
   }
 
   .community-release-people__metrics,
@@ -214,7 +214,7 @@
     justify-content: flex-start;
     gap: 0.375rem;
     color: var(--muted-foreground);
-    font-size: 0.8rem;
+    font-size: var(--community-text-secondary);
     font-variant-numeric: tabular-nums;
   }
 

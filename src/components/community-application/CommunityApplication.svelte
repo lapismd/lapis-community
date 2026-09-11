@@ -1,9 +1,11 @@
 <script lang="ts">
-  import "../community-confirm-dialog.css";
+  import CommunitySkeleton from "../community-skeleton/CommunitySkeleton.svelte";
+  import { DialogFrame } from "@lapismd/design-core/forms/dialog";
+
   import type { ComposerStatus } from "@lapismd/design-core/ai/chat";
   import { Button } from "@lapismd/design-core/shadcn/button";
   import * as Alert from "@lapismd/design-core/shadcn/alert";
-  import * as AlertDialog from "@lapismd/design-core/shadcn/alert-dialog";
+  import { ConfirmDialog } from "@lapismd/design-core/forms/dialog";
   import * as Breadcrumb from "@lapismd/design-core/shadcn/breadcrumb";
   import * as Dialog from "@lapismd/design-core/shadcn/dialog";
   import * as DropdownMenu from "@lapismd/design-core/shadcn/dropdown-menu";
@@ -4033,7 +4035,6 @@
 
   async function confirmRoomAction(): Promise<void> {
     const action = confirmation;
-    confirmation = null;
     try {
       await runAuthenticated(async () => {
         if (action === "leave") await community.actions.leave(activeRoom.id);
@@ -4041,9 +4042,10 @@
           await community.actions.deleteRoom(activeRoom.id);
       });
       if (action === "delete") toast.success("Room deleted");
+      confirmation = null;
       closeSidePanel();
     } catch (cause) {
-      toast.error(
+      throw new Error(
         cause instanceof Error
           ? cause.message
           : "The relay rejected this action",
@@ -4779,6 +4781,9 @@
         />
       {:else if registryOptions}
         <CommunityReleaseReviews
+          onOpenProfile={openReleaseProfile}
+          onMessageMember={messageMember}
+          onWaveMember={waveMember}
           entries={releaseReviewEntries}
           source={registryOptions.source}
           members={releaseRoomMembers}
@@ -7221,9 +7226,7 @@
                   : { onReportMessage: reportMessage }}
               />
             {:else}
-              <div class="community-application__panel-status" role="status">
-                Loading thread…
-              </div>
+              <CommunitySkeleton layout="messages" label="Loading thread" />
             {/if}
           </AppShell.Sidebar.Body>
         {:else if detailsRoom?.kind === "channel" || detailsRoom?.kind === "forum"}
@@ -7282,14 +7285,15 @@
           <AppShell.Sidebar.Body>
             {#if detailsRoom && workspace.details}
               <CommunityDetails
+                onOpenProfile={openProfile}
+                onMessageMember={messageMember}
+                onWaveMember={waveMember}
                 room={detailsRoom}
                 details={workspace.details}
                 members={workspace.members}
               />
             {:else}
-              <div class="community-application__panel-status" role="status">
-                Loading details…
-              </div>
+              <CommunitySkeleton layout="details" label="Loading details" />
             {/if}
           </AppShell.Sidebar.Body>
         {/if}
@@ -7518,94 +7522,67 @@
   }}
 />
 
-<AlertDialog.Root
+<ConfirmDialog
   open={pendingParticipation !== undefined}
   onOpenChange={(open) => {
     if (!open && membershipJoinState !== "pending")
       cancelPendingParticipation();
   }}
+  pending={membershipJoinState === "pending"}
+  confirmDisabled={membershipJoinState !== "idle"}
+  onConfirm={async () => {
+    await joinForPendingParticipation();
+    return false;
+  }}
 >
-  <AlertDialog.Content
-    class="community-application__alert-dialog community-confirm-dialog"
-  >
-    <AlertDialog.Header>
-      <AlertDialog.Title>
-        Join {pendingParticipation?.roomName ?? "this room"} to continue?
-      </AlertDialog.Title>
-      <AlertDialog.Description>
-        Join this {pendingParticipation?.roomKind ?? "room"} before your
-        {pendingParticipation?.actionKind ?? "action"} is sent. The original action
-        will continue automatically after membership is confirmed.
-      </AlertDialog.Description>
-    </AlertDialog.Header>
-    {#if membershipJoinError}
-      <p class="community-application__membership-error" role="alert">
-        {membershipJoinError}
-      </p>
-    {:else if membershipJoinState === "accepted"}
-      <p class="community-application__membership-status" role="status">
-        Join requested. Waiting for membership confirmation before sending the
-        original action.
-      </p>
-    {/if}
-    <AlertDialog.Footer>
-      <AlertDialog.Cancel disabled={membershipJoinState === "pending"}>
-        {#snippet child({ props })}
-          <Button {...props} variant="outline">Cancel</Button>
-        {/snippet}
-      </AlertDialog.Cancel>
-      <Button
-        type="button"
-        disabled={membershipJoinState !== "idle"}
-        onclick={joinForPendingParticipation}
-      >
-        {membershipJoinState === "pending"
-          ? "Joining…"
-          : membershipJoinState === "accepted"
-            ? "Join requested"
-            : `Join ${pendingParticipation?.roomKind === "forum" ? "Forum" : "Channel"}`}
-      </Button>
-    </AlertDialog.Footer>
-  </AlertDialog.Content>
-</AlertDialog.Root>
+  {#snippet title()}
+    Join {pendingParticipation?.roomName ?? "this room"} to continue?
+  {/snippet}
+  {#snippet description()}
+    Join this {pendingParticipation?.roomKind ?? "room"} before your
+    {pendingParticipation?.actionKind ?? "action"} is sent. The original action will
+    continue automatically after membership is confirmed.
+  {/snippet}
+  {#snippet confirmLabel()}
+    {membershipJoinState === "pending"
+      ? "Joining…"
+      : membershipJoinState === "accepted"
+        ? "Join requested"
+        : `Join ${pendingParticipation?.roomKind === "forum" ? "Forum" : "Channel"}`}
+  {/snippet}
 
-<AlertDialog.Root
+  {#if membershipJoinError}
+    <p class="community-application__membership-error" role="alert">
+      {membershipJoinError}
+    </p>
+  {:else if membershipJoinState === "accepted"}
+    <p class="community-application__membership-status" role="status">
+      Join requested. Waiting for membership confirmation before sending the
+      original action.
+    </p>
+  {/if}
+</ConfirmDialog>
+
+<ConfirmDialog
   open={confirmation !== null}
   onOpenChange={(open) => {
     if (!open) confirmation = null;
   }}
+  destructive
+  onConfirm={confirmRoomAction}
 >
-  <AlertDialog.Content
-    class="community-application__alert-dialog community-confirm-dialog"
-  >
-    <AlertDialog.Header>
-      <AlertDialog.Title
-        >{confirmation === "delete"
-          ? `Delete ${activeRoom.name}?`
-          : `Leave ${activeRoom.name}?`}</AlertDialog.Title
-      >
-      <AlertDialog.Description>
-        {confirmation === "delete"
-          ? "The relay will remove this room if your identity has permission. This cannot be undone."
-          : "You can rejoin later if the room remains public."}
-      </AlertDialog.Description>
-    </AlertDialog.Header>
-    <AlertDialog.Footer>
-      <AlertDialog.Cancel>
-        {#snippet child({ props })}
-          <Button {...props} variant="outline">Cancel</Button>
-        {/snippet}
-      </AlertDialog.Cancel>
-      <AlertDialog.Action onclick={confirmRoomAction}>
-        {#snippet child({ props })}
-          <Button {...props} variant="destructive">
-            {confirmation === "delete" ? "Delete" : "Leave"}
-          </Button>
-        {/snippet}
-      </AlertDialog.Action>
-    </AlertDialog.Footer>
-  </AlertDialog.Content>
-</AlertDialog.Root>
+  {#snippet title()}{confirmation === "delete"
+      ? `Delete ${activeRoom.name}?`
+      : `Leave ${activeRoom.name}?`}{/snippet}
+  {#snippet description()}
+    {confirmation === "delete"
+      ? "The relay will remove this room if your identity has permission. This cannot be undone."
+      : "You can rejoin later if the room remains public."}
+  {/snippet}
+  {#snippet confirmLabel()}
+    {confirmation === "delete" ? "Delete" : "Leave"}
+  {/snippet}
+</ConfirmDialog>
 
 <CommunityStatusDialog
   bind:open={statusOpen}
@@ -7627,17 +7604,13 @@
 />
 
 <Dialog.Root bind:open={sectionEditorOpen}>
-  <Dialog.Content class="community-application__section-dialog">
-    <Dialog.Header
-      ><Dialog.Title
-        >{sectionEditorMode === "create"
-          ? "New section"
-          : "Rename section"}</Dialog.Title
-      ><Dialog.Description
-        >Organize rooms in a personal section. This preference is stored locally
-        and through NIP-78 when signed in.</Dialog.Description
-      ></Dialog.Header
-    >
+  <DialogFrame size="form">
+    {#snippet title()}{sectionEditorMode === "create"
+        ? "New section"
+        : "Rename section"}{/snippet}
+    {#snippet description()}Organize rooms in a personal section. This
+      preference is stored locally and through NIP-78 when signed in.{/snippet}
+
     <Field.Field
       ><Field.Label for="community-section-name">Name</Field.Label><Input
         id="community-section-name"
@@ -7645,8 +7618,8 @@
         required
       /></Field.Field
     >
-    <Dialog.Footer
-      ><Button
+
+    {#snippet footer()}<Button
         type="button"
         variant="outline"
         onclick={() => (sectionEditorOpen = false)}>Cancel</Button
@@ -7654,9 +7627,8 @@
         type="button"
         disabled={!sectionName.trim()}
         onclick={saveSection}>Save section</Button
-      ></Dialog.Footer
-    >
-  </Dialog.Content>
+      >{/snippet}
+  </DialogFrame>
 </Dialog.Root>
 
 <Toaster position="bottom-right" />
@@ -7699,7 +7671,7 @@
   .community-application__membership-error,
   .community-application__membership-status {
     margin: 0;
-    font-size: 0.875rem;
+    font-size: var(--community-text-body);
   }
 
   .community-application__membership-error {
@@ -7708,11 +7680,6 @@
 
   .community-application__membership-status {
     color: var(--muted-foreground);
-  }
-
-  :global(.community-application__section-dialog) {
-    width: min(22rem, calc(100vw - 2rem));
-    max-width: 22rem;
   }
 
   :global(.community-application__relay-alert[data-ui-component="alert"]) {
@@ -7765,12 +7732,12 @@
     -webkit-box-orient: vertical;
     -webkit-line-clamp: 2;
     line-clamp: 2;
-    font-size: 0.72rem;
+    font-size: var(--community-text-secondary);
   }
 
   .community-application__relay-action-label {
     margin-block-start: 0.25rem;
-    font-size: 0.75rem;
+    font-size: var(--community-text-secondary);
     font-weight: 600;
   }
 
@@ -7800,7 +7767,7 @@
     overflow: hidden;
     align-items: center;
     gap: 0.25rem;
-    font-size: 0.88rem;
+    font-size: var(--community-text-body);
     text-overflow: ellipsis;
     white-space: nowrap;
   }
@@ -7861,13 +7828,13 @@
 
   :global(.community-application__release-sheet-header h1) {
     margin: 0;
-    font-size: 1rem;
+    font-size: var(--community-text-section);
     font-weight: 650;
   }
 
   :global(.community-application__project-sheet-header h1) {
     margin: 0;
-    font-size: 1rem;
+    font-size: var(--community-text-section);
     font-weight: 650;
     text-transform: capitalize;
   }
@@ -7890,7 +7857,7 @@
     margin: 0;
     padding: 1rem;
     color: var(--muted-foreground);
-    font-size: 0.875rem;
+    font-size: var(--community-text-body);
   }
 
   .community-application__release-overview {
@@ -7987,7 +7954,7 @@
     gap: 0.35rem;
     overflow: hidden;
     color: var(--muted-foreground);
-    font-size: 0.72rem;
+    font-size: var(--community-text-secondary);
     font-weight: 400;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -8072,7 +8039,7 @@
 
   .community-application__project-review-heading h1 {
     overflow: hidden;
-    font-size: 1.05rem;
+    font-size: var(--community-text-section);
     font-weight: 600;
     line-height: 1.4;
     text-overflow: ellipsis;
@@ -8090,7 +8057,7 @@
     gap: 0.25rem;
     margin-top: 0.15rem;
     color: var(--muted-foreground);
-    font-size: 0.72rem;
+    font-size: var(--community-text-secondary);
   }
 
   :global(.community-application__project-toolbar [data-slot="tabs-root"]) {
@@ -8124,7 +8091,7 @@
     color: var(--muted-foreground);
     background: color-mix(in srgb, var(--muted) 35%, transparent);
     box-shadow: none;
-    font-size: 0.75rem;
+    font-size: var(--community-text-secondary);
     font-weight: 500;
   }
 
@@ -8154,7 +8121,7 @@
     align-items: center;
     gap: 0.5rem;
     padding: 0 0.4rem 0.55rem;
-    font-size: 0.8rem;
+    font-size: var(--community-text-secondary);
     font-weight: 500;
   }
 
@@ -8189,13 +8156,13 @@
     display: grid;
     gap: 0.08rem;
     padding: 0.3rem 0.4rem;
-    font-size: 0.8rem;
+    font-size: var(--community-text-secondary);
   }
 
   .community-application__project-overview-repository span,
   .community-application__project-overview-label {
     color: var(--muted-foreground);
-    font-size: 0.75rem;
+    font-size: var(--community-text-secondary);
   }
 
   .community-application__project-overview-label {
@@ -8252,13 +8219,13 @@
   }
 
   .community-application__project-channel-action-copy strong {
-    font-size: 0.9rem;
+    font-size: var(--community-text-body);
     font-weight: 550;
   }
 
   .community-application__project-channel-action-copy small {
     color: var(--muted-foreground);
-    font-size: 0.8rem;
+    font-size: var(--community-text-secondary);
     font-weight: 400;
   }
 
@@ -8278,7 +8245,7 @@
 
   :global(.community-application__project-overview-item code) {
     color: var(--muted-foreground);
-    font-size: 0.72rem;
+    font-size: var(--community-text-secondary);
   }
 
   .community-application__project-overview-count {
@@ -8297,7 +8264,7 @@
     width: 100%;
     justify-content: flex-start;
     color: var(--foreground);
-    font-size: 0.8rem;
+    font-size: var(--community-text-secondary);
     font-weight: 450;
   }
 
@@ -8323,7 +8290,7 @@
     gap: 0.75rem;
     padding-inline: 0.5rem;
     color: var(--muted-foreground);
-    font-size: 0.875rem;
+    font-size: var(--community-text-body);
     font-weight: 400;
     line-height: 1.25rem;
     text-align: start;
@@ -8368,7 +8335,7 @@
     gap: 0.75rem;
     padding-inline: 0.5rem;
     color: var(--muted-foreground);
-    font-size: 0.875rem;
+    font-size: var(--community-text-body);
     font-weight: 400;
     line-height: 1.25rem;
     text-align: start;
@@ -8407,7 +8374,7 @@
 
   :global(.community-application__release-overview-item > small) {
     color: var(--muted-foreground);
-    font-size: 0.75rem;
+    font-size: var(--community-text-secondary);
     font-variant-numeric: tabular-nums;
   }
 
@@ -8440,7 +8407,7 @@
   .community-application__panel-status {
     padding: 1rem;
     color: var(--muted-foreground);
-    font-size: 0.875rem;
+    font-size: var(--community-text-body);
   }
 
   @media (max-width: 64rem) {

@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { DialogFrame } from "@lapismd/design-core/forms/dialog";
+  import { ConfirmDialog } from "@lapismd/design-core/forms/dialog";
   import { Button } from "@lapismd/design-core/shadcn/button";
   import * as Tabs from "@lapismd/design-core/shadcn/tabs";
   import * as Dialog from "@lapismd/design-core/shadcn/dialog";
@@ -317,9 +319,7 @@
 </article>
 
 <Dialog.Root bind:open={addOpen}>
-  <Dialog.Content
-    class="agent-profile__add-dialog"
-    showCloseButton={false}
+  <DialogFrame
     onOpenAutoFocus={(event) => {
       event.preventDefault();
       channelSearch?.focus({ preventScroll: true });
@@ -336,11 +336,12 @@
     onEscapeKeydown={(event) => {
       if (pending) event.preventDefault();
     }}
-    ><Dialog.Header
-      ><Dialog.Title>Add agent to channel</Dialog.Title><Dialog.Description
-        >Add {agent.name} to a channel so members can include it in the conversation.</Dialog.Description
-      ></Dialog.Header
-    >
+    size="form"
+  >
+    {#snippet title()}Add agent to channel{/snippet}
+    {#snippet description()}Add {agent.name} to a channel so members can include
+      it in the conversation.{/snippet}
+
     <Button
       class="agent-profile__close"
       variant="ghost"
@@ -433,8 +434,8 @@
       </Field.Group>
       {#if error}<p role="alert">{error}</p>{/if}
     </div>
-    <Dialog.Footer
-      ><Button
+
+    {#snippet footer()}<Button
         variant="outline"
         disabled={pending}
         onclick={() => (addOpen = false)}>Cancel</Button
@@ -446,50 +447,23 @@
             await onAddChannel(selectedChannel.id);
             addOpen = false;
           })}>{pending ? "Adding…" : "Add to channel"}</Button
-      ></Dialog.Footer
-    >
-  </Dialog.Content>
+      >{/snippet}
+  </DialogFrame>
 </Dialog.Root>
-<Dialog.Root
+<ConfirmDialog
   open={removeRoom !== undefined}
   onOpenChange={(open) => {
     if (!open) removeRoom = undefined;
   }}
->
-  <Dialog.Content showCloseButton={false}
-    ><Dialog.Header
-      ><Dialog.Title>Remove {agent.name} from {removeRoom?.name}?</Dialog.Title
-      ><Dialog.Description
-        >The agent will lose access to this channel. You can add it again later
-        if permitted.</Dialog.Description
-      ></Dialog.Header
-    >
-    <Button
-      class="agent-profile__close"
-      variant="ghost"
-      size="icon-sm"
-      aria-label="Close remove agent dialog"
-      onclick={() => (removeRoom = undefined)}
-      ><XIcon class="size-3.5" aria-hidden="true" /></Button
-    >
-    {#if error}<p role="alert">{error}</p>{/if}<Dialog.Footer
-      ><Button
-        variant="outline"
-        disabled={pending}
-        onclick={() => (removeRoom = undefined)}>Cancel</Button
-      ><Button
-        variant="destructive"
-        disabled={pending}
-        onclick={() =>
-          action(async () => {
-            if (!removeRoom) return;
-            await onRemoveChannel(removeRoom.id);
-            removeRoom = undefined;
-          })}>{pending ? "Removing…" : "Remove agent"}</Button
-      ></Dialog.Footer
-    >
-  </Dialog.Content>
-</Dialog.Root>
+  title={`Remove ${agent.name} from ${removeRoom?.name}?`}
+  description="The agent will lose access to this channel. You can add it again later if permitted."
+  confirmLabel="Remove agent"
+  destructive
+  onConfirm={async () => {
+    if (!removeRoom) return false;
+    await onRemoveChannel(removeRoom.id);
+  }}
+/>
 
 <style>
   .agent-profile {
@@ -509,12 +483,12 @@
     margin: 0;
   }
   h2 {
-    font-size: 1.5rem;
+    font-size: var(--community-text-page);
     font-weight: 650;
     text-align: center;
   }
   h3 {
-    font-size: 0.85rem;
+    font-size: var(--community-text-body);
     font-weight: 600;
   }
   p {
@@ -600,7 +574,7 @@
     overflow-wrap: anywhere;
   }
   .agent-profile__info-value strong {
-    font-size: 0.875rem;
+    font-size: var(--community-text-body);
     font-weight: 500;
     color: var(--foreground);
   }
@@ -623,7 +597,7 @@
   }
   .agent-profile__key {
     font-family: var(--font-mono, monospace);
-    font-size: 0.8rem;
+    font-size: var(--community-text-secondary);
   }
   .agent-profile__channel {
     display: flex;
@@ -672,24 +646,7 @@
     padding: 1rem;
     border-top: 1px solid var(--border);
   }
-  :global(.agent-profile__add-dialog) {
-    display: flex;
-    flex-direction: column;
-    gap: 0;
-    width: min(36rem, calc(100vw - 2rem));
-    max-width: calc(100vw - 2rem);
-    max-height: calc(100dvh - 2rem);
-    padding: 0;
-    overflow: hidden;
-  }
-  :global(.agent-profile__add-dialog > [data-slot="dialog-header"]) {
-    padding: 1.5rem 3rem 1.25rem 1.5rem;
-    border-bottom: 1px solid var(--border);
-  }
-  :global(.agent-profile__add-dialog > [data-slot="dialog-footer"]) {
-    padding: 1.125rem 1.5rem;
-    border-top: 1px solid var(--border);
-  }
+
   .agent-profile__add-body {
     min-height: 0;
     overflow-y: auto;
@@ -722,7 +679,7 @@
     flex: 1;
     min-width: 0;
     overflow-wrap: anywhere;
-    font-size: 0.75rem;
+    font-size: var(--community-text-secondary);
     line-height: 1.6;
   }
   @media (max-width: 480px) {
@@ -733,11 +690,5 @@
     .agent-profile__add-body {
       padding: 1rem;
     }
-  }
-  :global(.agent-profile__close) {
-    position: absolute;
-    top: 0.75rem;
-    right: 0.75rem;
-    border-radius: 0.5rem;
   }
 </style>

@@ -1,4 +1,6 @@
 <script lang="ts">
+  import CommunitySkeleton from "../community-skeleton/CommunitySkeleton.svelte";
+  import { DialogFrame } from "@lapismd/design-core/forms/dialog";
   import {
     FileChangeStats,
     FileDiffComposer,
@@ -13,7 +15,7 @@
   } from "@lapismd/design-core/diff";
   import { AppShell } from "@lapismd/design-core/shell";
   import * as Alert from "@lapismd/design-core/shadcn/alert";
-  import * as AlertDialog from "@lapismd/design-core/shadcn/alert-dialog";
+  import { ConfirmDialog } from "@lapismd/design-core/forms/dialog";
   import * as Breadcrumb from "@lapismd/design-core/shadcn/breadcrumb";
   import { Button } from "@lapismd/design-core/shadcn/button";
   import * as ButtonGroup from "@lapismd/design-core/shadcn/button-group";
@@ -114,7 +116,7 @@
     repositoryBrowserEntries,
     repositoryParentPath,
   } from "./repository-browser.js";
-  import "../community-confirm-dialog.css";
+
   import "./CommunityProjects.css";
 
   type ReviewTimelineEntry =
@@ -2812,9 +2814,7 @@
         </header>
 
         {#if loading && projects.length === 0}
-          <div class="community-projects__status" role="status">
-            Loading projects…
-          </div>
+          <CommunitySkeleton layout="gallery" label="Loading projects" />
         {:else if projects.length === 0}
           <Empty.Root class="community-projects__empty">
             <Empty.Header>
@@ -3553,9 +3553,10 @@
                 class="community-projects__review-files-content"
               >
                 {#if loading && !pullRequestDiff}
-                  <p class="community-projects__status" role="status">
-                    Loading repository diff…
-                  </p>
+                  <CommunitySkeleton
+                    layout="repository"
+                    label="Loading repository diff"
+                  />
                 {:else if pullRequestDiffError}
                   {@render projectSourceError(pullRequestDiffError)}
                 {:else if pullRequestDiff}
@@ -4415,9 +4416,10 @@
                 class="community-projects__review-files-content community-projects__commit-files-content"
               >
                 {#if loading && !selectedCommitDetail}
-                  <p class="community-projects__status" role="status">
-                    Loading commit diff…
-                  </p>
+                  <CommunitySkeleton
+                    layout="repository"
+                    label="Loading commit diff"
+                  />
                 {:else if selectedCommitDetail && commitDiffFiles.length > 0}
                   <div class="community-projects__diff-summary">
                     <span class="community-projects__diff-summary-copy">
@@ -4548,9 +4550,10 @@
                     This commit does not change any files.
                   </p>
                 {:else}
-                  <p class="community-projects__status" role="status">
-                    Loading commit diff…
-                  </p>
+                  <CommunitySkeleton
+                    layout="repository"
+                    label="Loading commit diff"
+                  />
                 {/if}
               </Collapsible.Content>
             </Collapsible.Root>
@@ -4979,15 +4982,14 @@
 {/if}
 
 <Dialog.Root bind:open={reviewSubmissionOpen}>
-  <Dialog.Content class="community-projects__review-submission-dialog">
+  <DialogFrame size="wide">
+    {#snippet title()}Submit review{/snippet}
+    {#snippet description()}
+      Publish one signed review decision to the relay. Connected providers can
+      mirror it as a native review.
+    {/snippet}
+
     <div class="community-projects__review-submission-form">
-      <Dialog.Header>
-        <Dialog.Title>Submit review</Dialog.Title>
-        <Dialog.Description>
-          Publish one signed review decision to the relay. Connected providers
-          can mirror it as a native review.
-        </Dialog.Description>
-      </Dialog.Header>
       <Field.Group class="community-projects__review-submission-fields">
         <Field.Field data-invalid={reviewSubmissionError ? "" : undefined}>
           <Field.Label>
@@ -5012,7 +5014,7 @@
             {busy}
             disabled={!canCollaborate}
             disabledReason="Sign in to submit a review"
-            showSubmitButton={false}
+            mode="form"
           />
           <Field.Description>
             {reviewSubmissionDecision === "approved"
@@ -5071,76 +5073,77 @@
           </label>
         </fieldset>
       </Field.Group>
-      <Dialog.Footer>
-        <Button
-          type="button"
-          variant="outline"
-          disabled={busy}
-          onclick={() => (reviewSubmissionOpen = false)}>Cancel</Button
-        >
-        <Button
-          type="button"
-          disabled={busy ||
-            (reviewSubmissionDecision !== "approved" &&
-              reviewSubmissionBody.trim() === "")}
-          onclick={submitPullRequestReview}
-        >
-          {busy
-            ? operation
-            : reviewSubmissionDecision === "approved"
-              ? "Submit approval"
-              : reviewSubmissionDecision === "changes-requested"
-                ? "Request changes"
-                : "Submit comment"}
-        </Button>
-      </Dialog.Footer>
     </div>
-  </Dialog.Content>
-</Dialog.Root>
 
-<AlertDialog.Root bind:open={reviewCloseConfirmationOpen}>
-  <AlertDialog.Content class="community-confirm-dialog">
-    <AlertDialog.Header>
-      <AlertDialog.Title>Close pull request?</AlertDialog.Title>
-      <AlertDialog.Description>
-        This closes {selectedPullRequest?.title ?? "the pull request"} without merging
-        it. It can be reopened later.
-      </AlertDialog.Description>
-    </AlertDialog.Header>
-    {#if reviewCloseError}
-      <p class="community-projects__review-merge-error" role="alert">
-        {reviewCloseError}
-      </p>
-    {/if}
-    <AlertDialog.Footer>
-      <AlertDialog.Cancel disabled={busy}>Cancel</AlertDialog.Cancel>
+    {#snippet footer()}
       <Button
         type="button"
-        variant="destructive"
+        variant="outline"
         disabled={busy}
-        onclick={confirmClosePullRequest}
+        onclick={() => (reviewSubmissionOpen = false)}>Cancel</Button
       >
-        {busy ? "Closing…" : "Close pull request"}
+      <Button
+        type="button"
+        disabled={busy ||
+          (reviewSubmissionDecision !== "approved" &&
+            reviewSubmissionBody.trim() === "")}
+        onclick={submitPullRequestReview}
+      >
+        {busy
+          ? operation
+          : reviewSubmissionDecision === "approved"
+            ? "Submit approval"
+            : reviewSubmissionDecision === "changes-requested"
+              ? "Request changes"
+              : "Submit comment"}
       </Button>
-    </AlertDialog.Footer>
-  </AlertDialog.Content>
-</AlertDialog.Root>
+    {/snippet}
+  </DialogFrame>
+</Dialog.Root>
+
+<ConfirmDialog
+  bind:open={reviewCloseConfirmationOpen}
+  pending={busy}
+  destructive
+  onConfirm={async () => {
+    await confirmClosePullRequest();
+    return !reviewCloseError;
+  }}
+>
+  {#snippet title()}Close pull request?{/snippet}
+  {#snippet description()}
+    This closes {selectedPullRequest?.title ?? "the pull request"} without merging
+    it. It can be reopened later.
+  {/snippet}
+  {#snippet confirmLabel()}
+    {busy ? "Closing…" : "Close pull request"}
+  {/snippet}
+
+  {#if reviewCloseError}
+    <p class="community-projects__review-merge-error" role="alert">
+      {reviewCloseError}
+    </p>
+  {/if}
+</ConfirmDialog>
 
 <Dialog.Root bind:open={projectDialogOpen} onOpenChange={resetError}>
-  <Dialog.Content class="community-projects__project-dialog">
-    <Dialog.Header class="community-projects__project-dialog-header">
-      <Dialog.Title>
-        {projectDialogMode === "edit"
-          ? "Project settings"
-          : "Create a new project"}
-      </Dialog.Title>
-      <Dialog.Description>
-        {projectDialogMode === "edit"
-          ? "Change the project details shared through its signed announcement."
-          : "Bring an existing Community channel together with repositories, tasks, and reviews."}
-      </Dialog.Description>
-    </Dialog.Header>
-    <form class="community-projects__project-form" onsubmit={submitProject}>
+  <DialogFrame size="wide">
+    {#snippet title()}
+      {projectDialogMode === "edit"
+        ? "Project settings"
+        : "Create a new project"}
+    {/snippet}
+    {#snippet description()}
+      {projectDialogMode === "edit"
+        ? "Change the project details shared through its signed announcement."
+        : "Bring an existing Community channel together with repositories, tasks, and reviews."}
+    {/snippet}
+
+    <form
+      id="communityprojects-form-1"
+      class="community-projects__project-form"
+      onsubmit={submitProject}
+    >
       <Field.Group class="community-projects__project-fields">
         <Field.Field>
           <Field.Label for="project-name">Name</Field.Label>
@@ -5164,7 +5167,7 @@
             {rooms}
             {communityEmojis}
             {...currentMemberId === undefined ? {} : { currentMemberId }}
-            showSubmitButton={false}
+            mode="form"
           />
         </Field.Field>
 
@@ -5221,64 +5224,70 @@
 
         {#if localError}<Field.Error>{localError}</Field.Error>{/if}
       </Field.Group>
-      <Dialog.Footer class="community-projects__project-footer">
-        <Button
-          type="submit"
-          disabled={busy ||
-            !projectDraft.name.trim() ||
-            !projectDraft.channelId}
-        >
-          {busy
-            ? operation
-            : projectDialogMode === "edit"
-              ? "Save changes"
-              : "Create project"}
-        </Button>
-      </Dialog.Footer>
     </form>
-  </Dialog.Content>
+
+    {#snippet footer()}
+      <Button
+        form="communityprojects-form-1"
+        type="submit"
+        disabled={busy || !projectDraft.name.trim() || !projectDraft.channelId}
+      >
+        {busy
+          ? operation
+          : projectDialogMode === "edit"
+            ? "Save changes"
+            : "Create project"}
+      </Button>
+    {/snippet}
+  </DialogFrame>
 </Dialog.Root>
 
-<Command.Dialog
-  bind:open={projectChannelCommandOpen}
-  class="community-projects__channel-command"
-  title="Choose a project channel"
-  description="Search the Community channels available to this project."
+<Dialog.Root bind:open={projectChannelCommandOpen}
+  ><DialogFrame
+    title="Choose a project channel"
+    description="Search the Community channels available to this project."
+    size="form"
+    bodyPadding="none"
+    ><Command.Root class="community-projects__channel-command">
+      <Command.Input
+        placeholder="Search channels"
+        aria-label="Search channels"
+        aria-controls="community-project-channel-command-list"
+      />
+      <Command.List id="community-project-channel-command-list">
+        <Command.Empty>No channels found.</Command.Empty>
+        <Command.Group heading="Channels">
+          {#each availableProjectChannels as channel (channel.id)}
+            <Command.Item
+              value={`${channel.name} ${channel.groupId ?? channel.id}`}
+              onSelect={() => selectProjectChannel(channel)}
+            >
+              <HashIcon aria-hidden="true" />
+              <span class="community-projects__channel-command-copy">
+                <strong>#{channel.name}</strong>
+                <small>{channel.private ? "Private" : "Public"}</small>
+              </span>
+            </Command.Item>
+          {/each}
+        </Command.Group>
+      </Command.List>
+    </Command.Root></DialogFrame
+  ></Dialog.Root
 >
-  <Command.Input
-    placeholder="Search channels"
-    aria-label="Search channels"
-    aria-controls="community-project-channel-command-list"
-  />
-  <Command.List id="community-project-channel-command-list">
-    <Command.Empty>No channels found.</Command.Empty>
-    <Command.Group heading="Channels">
-      {#each availableProjectChannels as channel (channel.id)}
-        <Command.Item
-          value={`${channel.name} ${channel.groupId ?? channel.id}`}
-          onSelect={() => selectProjectChannel(channel)}
-        >
-          <HashIcon aria-hidden="true" />
-          <span class="community-projects__channel-command-copy">
-            <strong>#{channel.name}</strong>
-            <small>{channel.private ? "Private" : "Public"}</small>
-          </span>
-        </Command.Item>
-      {/each}
-    </Command.Group>
-  </Command.List>
-</Command.Dialog>
 
 <Dialog.Root bind:open={repositoryDialogOpen} onOpenChange={resetError}>
-  <Dialog.Content class="community-projects__project-dialog">
-    <Dialog.Header class="community-projects__project-dialog-header">
-      <Dialog.Title>Create a new repository</Dialog.Title>
-      <Dialog.Description>
-        Add a relay-hosted repository or connect an existing external Git
-        repository. You can optionally add it to a project.
-      </Dialog.Description>
-    </Dialog.Header>
-    <form class="community-projects__project-form" onsubmit={submitRepository}>
+  <DialogFrame size="wide">
+    {#snippet title()}Create a new repository{/snippet}
+    {#snippet description()}
+      Add a relay-hosted repository or connect an existing external Git
+      repository. You can optionally add it to a project.
+    {/snippet}
+
+    <form
+      id="communityprojects-form-2"
+      class="community-projects__project-form"
+      onsubmit={submitRepository}
+    >
       <Field.Group class="community-projects__project-fields">
         <Field.Field>
           <Field.Label for="repository-name">Name</Field.Label>
@@ -5302,7 +5311,7 @@
             {rooms}
             {communityEmojis}
             {...currentMemberId === undefined ? {} : { currentMemberId }}
-            showSubmitButton={false}
+            mode="form"
           />
         </Field.Field>
 
@@ -5429,190 +5438,208 @@
         {/if}
         {#if localError}<Field.Error>{localError}</Field.Error>{/if}
       </Field.Group>
-      <Dialog.Footer class="community-projects__project-footer">
-        <Button
-          type="submit"
-          disabled={busy ||
-            !repositoryDraft.channelId ||
-            !repositoryDraft.name.trim()}
-        >
-          {busy ? operation : "Create repository"}
-        </Button>
-      </Dialog.Footer>
     </form>
-  </Dialog.Content>
+
+    {#snippet footer()}
+      <Button
+        form="communityprojects-form-2"
+        type="submit"
+        disabled={busy ||
+          !repositoryDraft.channelId ||
+          !repositoryDraft.name.trim()}
+      >
+        {busy ? operation : "Create repository"}
+      </Button>
+    {/snippet}
+  </DialogFrame>
 </Dialog.Root>
 
-<Command.Dialog
-  bind:open={repositoryCommandOpen}
-  class="community-projects__repository-command"
-  title={repositoryCommandStep === "repository"
-    ? "Select an existing repository"
-    : "Choose a project"}
-  description={repositoryCommandStep === "repository"
-    ? "Search repository announcements that can be attached to a project."
-    : "Choose the project that should include this repository."}
->
-  <Command.Input
-    placeholder={repositoryCommandStep === "repository"
-      ? "Search repositories"
-      : "Search projects"}
-    aria-label={repositoryCommandStep === "repository"
-      ? "Search repositories"
-      : "Search projects"}
-    aria-controls="community-project-repository-command-list"
-  />
-  <Command.List id="community-project-repository-command-list">
-    <Command.Empty>
-      {repositoryCommandStep === "repository"
-        ? "No repositories are available to attach."
-        : "No projects are available for this repository."}
-    </Command.Empty>
-    {#if repositoryCommandStep === "repository"}
-      <Command.Group heading="Repositories">
-        {#each attachableRepositories as repository (repository.address.coordinate)}
-          <Command.Item
-            value={`${repository.name} ${repository.description} ${repository.address.identifier}`}
-            onSelect={() => selectExistingRepository(repository)}
-          >
-            <GitBranchIcon aria-hidden="true" />
-            <span class="community-projects__channel-command-copy">
-              <strong>{repository.name}</strong>
-              <small>
-                {repository.description || repository.address.identifier}
-              </small>
-            </span>
-          </Command.Item>
-        {/each}
-      </Command.Group>
-    {:else}
-      <Command.Group heading="Navigation">
-        <Command.Item
-          value="Back to repositories"
-          onSelect={() => {
-            repositoryCommandStep = "repository";
-            repositoryCommandCoordinate = "";
-          }}
-        >
-          <ArrowLeftIcon aria-hidden="true" />
-          <span>Back to repositories</span>
-        </Command.Item>
-      </Command.Group>
-      <Command.Group heading="Projects">
-        {#each repositoryAttachmentProjects(repositoryCommandCoordinate) as project (project.address.coordinate)}
-          <Command.Item
-            value={`${project.name} ${project.description}`}
-            onSelect={() =>
-              void attachExistingRepository(
-                project.address.coordinate,
-                repositoryCommandCoordinate,
-              )}
-          >
-            <FolderKanbanIcon aria-hidden="true" />
-            <span class="community-projects__channel-command-copy">
-              <strong>{project.name}</strong>
-              <small>{project.description || project.address.identifier}</small>
-            </span>
-          </Command.Item>
-        {/each}
-      </Command.Group>
-    {/if}
-  </Command.List>
-  {#if localError}
-    <p class="community-projects__command-error" role="alert">{localError}</p>
-  {/if}
-</Command.Dialog>
-
-<Command.Dialog
-  bind:open={githubCommandOpen}
-  class="community-projects__repository-command"
-  title={githubCommandStep === "connection"
-    ? "Connect to a GitHub App"
-    : `Choose a repository from @${githubConnection?.account_login ?? "GitHub"}`}
-  description={githubCommandStep === "connection"
-    ? `Choose the GitHub App installation that should manage ${selectedRepository?.name ?? "this repository"}.`
-    : "Only the GitHub repository matching this signed repository announcement can be connected."}
->
-  <Command.Input
-    placeholder={githubCommandStep === "connection"
-      ? "Search GitHub App connections"
-      : "Search GitHub repositories"}
-    aria-label={githubCommandStep === "connection"
-      ? "Search GitHub App connections"
-      : "Search GitHub repositories"}
-    aria-controls="community-project-github-command-list"
-  />
-  <Command.List id="community-project-github-command-list">
-    {#if githubCommandLoading}
-      <p class="community-projects__command-status" role="status">
-        {githubCommandStep === "connection"
-          ? "Loading GitHub App connections…"
-          : "Loading GitHub repositories…"}
-      </p>
-    {:else if githubCommandStep === "connection"}
-      <Command.Empty>No active GitHub App connections found.</Command.Empty>
-      <Command.Group heading="GitHub App connections">
-        {#each activeGitHubConnections as connection (connection.id)}
-          <Command.Item
-            value={`${connection.account_login} ${connection.host} ${connection.installation_id}`}
-            onSelect={() => void selectGitHubConnection(connection)}
-          >
-            <GitForkIcon aria-hidden="true" />
-            <span class="community-projects__channel-command-copy">
-              <strong>@{connection.account_login}</strong>
-              <small
-                >{connection.host} · installation {connection.installation_id}</small
+<Dialog.Root bind:open={repositoryCommandOpen}
+  ><DialogFrame
+    title={repositoryCommandStep === "repository"
+      ? "Select an existing repository"
+      : "Choose a project"}
+    description={repositoryCommandStep === "repository"
+      ? "Search repository announcements that can be attached to a project."
+      : "Choose the project that should include this repository."}
+    size="form"
+    bodyPadding="none"
+    ><Command.Root class="community-projects__repository-command">
+      <Command.Input
+        placeholder={repositoryCommandStep === "repository"
+          ? "Search repositories"
+          : "Search projects"}
+        aria-label={repositoryCommandStep === "repository"
+          ? "Search repositories"
+          : "Search projects"}
+        aria-controls="community-project-repository-command-list"
+      />
+      <Command.List id="community-project-repository-command-list">
+        <Command.Empty>
+          {repositoryCommandStep === "repository"
+            ? "No repositories are available to attach."
+            : "No projects are available for this repository."}
+        </Command.Empty>
+        {#if repositoryCommandStep === "repository"}
+          <Command.Group heading="Repositories">
+            {#each attachableRepositories as repository (repository.address.coordinate)}
+              <Command.Item
+                value={`${repository.name} ${repository.description} ${repository.address.identifier}`}
+                onSelect={() => selectExistingRepository(repository)}
               >
-            </span>
-          </Command.Item>
-        {/each}
-      </Command.Group>
-    {:else}
-      <Command.Group heading="Navigation">
-        <Command.Item
-          value="Back to GitHub App connections"
-          onSelect={() => {
-            githubCommandStep = "connection";
-            githubConnection = undefined;
-            githubRepositories = [];
-            githubCommandError = "";
-          }}
-        >
-          <ArrowLeftIcon aria-hidden="true" />
-          <span>Back to GitHub App connections</span>
-        </Command.Item>
-      </Command.Group>
-      {#if matchingGitHubRepositories.length > 0}
-        <Command.Group heading="Matching repository">
-          {#each matchingGitHubRepositories as repository (repository.id)}
+                <GitBranchIcon aria-hidden="true" />
+                <span class="community-projects__channel-command-copy">
+                  <strong>{repository.name}</strong>
+                  <small>
+                    {repository.description || repository.address.identifier}
+                  </small>
+                </span>
+              </Command.Item>
+            {/each}
+          </Command.Group>
+        {:else}
+          <Command.Group heading="Navigation">
             <Command.Item
-              value={`${repository.full_name} ${repository.default_branch}`}
-              disabled={repository.archived || repository.disabled}
-              onSelect={() => void attachGitHubRepository(repository)}
+              value="Back to repositories"
+              onSelect={() => {
+                repositoryCommandStep = "repository";
+                repositoryCommandCoordinate = "";
+              }}
             >
-              <GitForkIcon aria-hidden="true" />
-              <span class="community-projects__channel-command-copy">
-                <strong>{repository.full_name}</strong>
-                <small
-                  >{repository.private ? "Private" : "Public"} · {repository.default_branch}</small
-                >
-              </span>
+              <ArrowLeftIcon aria-hidden="true" />
+              <span>Back to repositories</span>
             </Command.Item>
-          {/each}
-        </Command.Group>
-      {:else if !githubCommandError}
-        <p class="community-projects__command-status">
-          No repository in this installation matches both the signed clone and
-          web URLs.
+          </Command.Group>
+          <Command.Group heading="Projects">
+            {#each repositoryAttachmentProjects(repositoryCommandCoordinate) as project (project.address.coordinate)}
+              <Command.Item
+                value={`${project.name} ${project.description}`}
+                onSelect={() =>
+                  void attachExistingRepository(
+                    project.address.coordinate,
+                    repositoryCommandCoordinate,
+                  )}
+              >
+                <FolderKanbanIcon aria-hidden="true" />
+                <span class="community-projects__channel-command-copy">
+                  <strong>{project.name}</strong>
+                  <small
+                    >{project.description || project.address.identifier}</small
+                  >
+                </span>
+              </Command.Item>
+            {/each}
+          </Command.Group>
+        {/if}
+      </Command.List>
+      {#if localError}
+        <p class="community-projects__command-error" role="alert">
+          {localError}
         </p>
       {/if}
-    {/if}
-  </Command.List>
-  {#if githubCommandError}
-    <p class="community-projects__command-error" role="alert">
-      {githubCommandError}
-    </p>
-  {/if}
+    </Command.Root></DialogFrame
+  ></Dialog.Root
+>
+
+<Dialog.Root bind:open={githubCommandOpen}
+  ><DialogFrame
+    title={githubCommandStep === "connection"
+      ? "Connect to a GitHub App"
+      : `Choose a repository from @${githubConnection?.account_login ?? "GitHub"}`}
+    description={githubCommandStep === "connection"
+      ? `Choose the GitHub App installation that should manage ${selectedRepository?.name ?? "this repository"}.`
+      : "Only the GitHub repository matching this signed repository announcement can be connected."}
+    size="form"
+    bodyPadding="none"
+    {...githubCommandStep === "connection" && canManageForge
+      ? { footer: githubCommandFooter }
+      : {}}
+    ><Command.Root class="community-projects__repository-command">
+      <Command.Input
+        placeholder={githubCommandStep === "connection"
+          ? "Search GitHub App connections"
+          : "Search GitHub repositories"}
+        aria-label={githubCommandStep === "connection"
+          ? "Search GitHub App connections"
+          : "Search GitHub repositories"}
+        aria-controls="community-project-github-command-list"
+      />
+      <Command.List id="community-project-github-command-list">
+        {#if githubCommandLoading}
+          <p class="community-projects__command-status" role="status">
+            {githubCommandStep === "connection"
+              ? "Loading GitHub App connections…"
+              : "Loading GitHub repositories…"}
+          </p>
+        {:else if githubCommandStep === "connection"}
+          <Command.Empty>No active GitHub App connections found.</Command.Empty>
+          <Command.Group heading="GitHub App connections">
+            {#each activeGitHubConnections as connection (connection.id)}
+              <Command.Item
+                value={`${connection.account_login} ${connection.host} ${connection.installation_id}`}
+                onSelect={() => void selectGitHubConnection(connection)}
+              >
+                <GitForkIcon aria-hidden="true" />
+                <span class="community-projects__channel-command-copy">
+                  <strong>@{connection.account_login}</strong>
+                  <small
+                    >{connection.host} · installation {connection.installation_id}</small
+                  >
+                </span>
+              </Command.Item>
+            {/each}
+          </Command.Group>
+        {:else}
+          <Command.Group heading="Navigation">
+            <Command.Item
+              value="Back to GitHub App connections"
+              onSelect={() => {
+                githubCommandStep = "connection";
+                githubConnection = undefined;
+                githubRepositories = [];
+                githubCommandError = "";
+              }}
+            >
+              <ArrowLeftIcon aria-hidden="true" />
+              <span>Back to GitHub App connections</span>
+            </Command.Item>
+          </Command.Group>
+          {#if matchingGitHubRepositories.length > 0}
+            <Command.Group heading="Matching repository">
+              {#each matchingGitHubRepositories as repository (repository.id)}
+                <Command.Item
+                  value={`${repository.full_name} ${repository.default_branch}`}
+                  disabled={repository.archived || repository.disabled}
+                  onSelect={() => void attachGitHubRepository(repository)}
+                >
+                  <GitForkIcon aria-hidden="true" />
+                  <span class="community-projects__channel-command-copy">
+                    <strong>{repository.full_name}</strong>
+                    <small
+                      >{repository.private ? "Private" : "Public"} · {repository.default_branch}</small
+                    >
+                  </span>
+                </Command.Item>
+              {/each}
+            </Command.Group>
+          {:else if !githubCommandError}
+            <p class="community-projects__command-status">
+              No repository in this installation matches both the signed clone
+              and web URLs.
+            </p>
+          {/if}
+        {/if}
+      </Command.List>
+      {#if githubCommandError}
+        <p class="community-projects__command-error" role="alert">
+          {githubCommandError}
+        </p>
+      {/if}
+    </Command.Root></DialogFrame
+  ></Dialog.Root
+>
+
+{#snippet githubCommandFooter()}
   {#if githubCommandStep === "connection" && canManageForge}
     <div class="community-projects__github-command-footer">
       <Button type="button" variant="outline" onclick={openGitHubManager}>
@@ -5621,19 +5648,14 @@
       </Button>
     </div>
   {/if}
-</Command.Dialog>
-
+{/snippet}
 <Dialog.Root bind:open={githubManagerOpen}>
-  <Dialog.Content
-    class="community-projects__project-dialog community-projects__github-manager"
-  >
-    <Dialog.Header class="community-projects__project-dialog-header">
-      <Dialog.Title>GitHub App connections</Dialog.Title>
-      <Dialog.Description>
-        Relay administrators can add installations, check their health, or
-        replace the complete mounted-credential configuration.
-      </Dialog.Description>
-    </Dialog.Header>
+  <DialogFrame size="wide">
+    {#snippet title()}GitHub App connections{/snippet}
+    {#snippet description()}
+      Relay administrators can add installations, check their health, or replace
+      the complete mounted-credential configuration.
+    {/snippet}
 
     {#if githubManagerError}
       <Alert.Root variant="destructive" class="community-projects__alert">
@@ -5654,6 +5676,7 @@
       </div>
     {:else if githubManagerFormOpen}
       <form
+        id="communityprojects-form-3"
         class="community-projects__project-form"
         onsubmit={submitGitHubConnection}
       >
@@ -5743,26 +5766,6 @@
             />
           </Field.Field>
         </Field.Group>
-        <Dialog.Footer class="community-projects__project-footer">
-          <Button
-            type="button"
-            variant="ghost"
-            disabled={githubManagerOperation !== ""}
-            onclick={() => {
-              githubManagerFormOpen = false;
-              githubManagerConnection = undefined;
-              githubManagerError = "";
-            }}
-          >
-            Back
-          </Button>
-          <Button type="submit" disabled={githubManagerOperation !== ""}>
-            {githubManagerOperation ||
-              (githubManagerConnection
-                ? "Replace configuration"
-                : "Add connection")}
-          </Button>
-        </Dialog.Footer>
       </form>
     {:else}
       <div class="community-projects__github-manager-list">
@@ -5838,42 +5841,70 @@
           </Empty.Root>
         {/each}
       </div>
-      <Dialog.Footer class="community-projects__project-footer">
-        <Button
-          type="button"
-          variant="outline"
-          disabled={githubManagerOperation !== ""}
-          onclick={() => void refreshGitHubConnections()}
-        >
-          <RotateCcwIcon data-icon="inline-start" aria-hidden="true" />
-          Refresh
-        </Button>
-        <Button
-          type="button"
-          disabled={githubManagerOperation !== ""}
-          onclick={() => openGitHubConnectionForm()}
-        >
-          <PlusIcon data-icon="inline-start" aria-hidden="true" />
-          Add connection
-        </Button>
-      </Dialog.Footer>
     {/if}
-  </Dialog.Content>
+
+    {#snippet footer()}{#if !githubManagerLoading}{#if githubManagerFormOpen}
+          <Button
+            form="communityprojects-form-3"
+            type="button"
+            variant="ghost"
+            disabled={githubManagerOperation !== ""}
+            onclick={() => {
+              githubManagerFormOpen = false;
+              githubManagerConnection = undefined;
+              githubManagerError = "";
+            }}
+          >
+            Back
+          </Button>
+          <Button
+            form="communityprojects-form-3"
+            type="submit"
+            disabled={githubManagerOperation !== ""}
+          >
+            {githubManagerOperation ||
+              (githubManagerConnection
+                ? "Replace configuration"
+                : "Add connection")}
+          </Button>
+        {:else}
+          <Button
+            type="button"
+            variant="outline"
+            disabled={githubManagerOperation !== ""}
+            onclick={() => void refreshGitHubConnections()}
+          >
+            <RotateCcwIcon data-icon="inline-start" aria-hidden="true" />
+            Refresh
+          </Button>
+          <Button
+            type="button"
+            disabled={githubManagerOperation !== ""}
+            onclick={() => openGitHubConnectionForm()}
+          >
+            <PlusIcon data-icon="inline-start" aria-hidden="true" />
+            Add connection
+          </Button>
+        {/if}{/if}{/snippet}
+  </DialogFrame>
 </Dialog.Root>
 
 <Dialog.Root bind:open={taskDialogOpen} onOpenChange={resetError}>
-  <Dialog.Content class="community-projects__project-dialog">
-    <Dialog.Header class="community-projects__project-dialog-header">
-      <Dialog.Title>Create a task</Dialog.Title>
-      <Dialog.Description>
-        {selectedRepository
-          ? `Add this task to ${selectedRepository.name}.`
-          : selectedProject
-            ? `Add this task to ${selectedProject.name}.`
-            : "Track work against a project or a repository."}
-      </Dialog.Description>
-    </Dialog.Header>
-    <form class="community-projects__project-form" onsubmit={submitTask}>
+  <DialogFrame size="wide">
+    {#snippet title()}Create a task{/snippet}
+    {#snippet description()}
+      {selectedRepository
+        ? `Add this task to ${selectedRepository.name}.`
+        : selectedProject
+          ? `Add this task to ${selectedProject.name}.`
+          : "Track work against a project or a repository."}
+    {/snippet}
+
+    <form
+      id="communityprojects-form-4"
+      class="community-projects__project-form"
+      onsubmit={submitTask}
+    >
       <Field.Group class="community-projects__project-fields">
         <div class="community-projects__project-options">
           <div class="community-projects__project-option">
@@ -6014,34 +6045,37 @@
             {rooms}
             {communityEmojis}
             {...currentMemberId === undefined ? {} : { currentMemberId }}
-            showSubmitButton={false}
+            mode="form"
           />
         </Field.Field>
         {#if localError}<Field.Error>{localError}</Field.Error>{/if}
       </Field.Group>
-      <Dialog.Footer class="community-projects__project-footer">
-        <Button
-          type="submit"
-          disabled={busy || !taskHasScope || !taskDraft.title.trim()}
-        >
-          {busy ? operation : "Create task"}
-        </Button>
-      </Dialog.Footer>
     </form>
-  </Dialog.Content>
+
+    {#snippet footer()}
+      <Button
+        form="communityprojects-form-4"
+        type="submit"
+        disabled={busy || !taskHasScope || !taskDraft.title.trim()}
+      >
+        {busy ? operation : "Create task"}
+      </Button>
+    {/snippet}
+  </DialogFrame>
 </Dialog.Root>
 
 <Dialog.Root bind:open={pullRequestDialogOpen} onOpenChange={resetError}>
-  <Dialog.Content
-    class="community-projects__project-dialog community-projects__review-dialog"
-  >
-    <Dialog.Header class="community-projects__project-dialog-header">
-      <Dialog.Title>Open a review</Dialog.Title>
-      <Dialog.Description>
-        Compare an existing branch and publish a NIP-34 pull request.
-      </Dialog.Description>
-    </Dialog.Header>
-    <form class="community-projects__project-form" onsubmit={submitPullRequest}>
+  <DialogFrame size="wide">
+    {#snippet title()}Open a review{/snippet}
+    {#snippet description()}
+      Compare an existing branch and publish a NIP-34 pull request.
+    {/snippet}
+
+    <form
+      id="communityprojects-form-5"
+      class="community-projects__project-form"
+      onsubmit={submitPullRequest}
+    >
       <Field.Group class="community-projects__project-fields">
         <div class="community-projects__review-source-options">
           <Field.Field>
@@ -6165,26 +6199,28 @@
             {rooms}
             {communityEmojis}
             {...currentMemberId === undefined ? {} : { currentMemberId }}
-            showSubmitButton={false}
+            mode="form"
           />
         </Field.Field>
         {#if localError}<Field.Error>{localError}</Field.Error>{/if}
       </Field.Group>
-      <Dialog.Footer class="community-projects__project-footer">
-        <Button
-          type="submit"
-          disabled={busy ||
-            !pullRequestDraft.repository ||
-            !pullRequestDraft.title.trim() ||
-            !pullRequestDraft.targetBranch ||
-            !pullRequestDraft.branchName ||
-            pullRequestDraft.targetBranch === pullRequestDraft.branchName ||
-            pullRequestRefsLoading ||
-            !!pullRequestRefsError}
-        >
-          {busy ? operation : "Create review"}
-        </Button>
-      </Dialog.Footer>
     </form>
-  </Dialog.Content>
+
+    {#snippet footer()}
+      <Button
+        form="communityprojects-form-5"
+        type="submit"
+        disabled={busy ||
+          !pullRequestDraft.repository ||
+          !pullRequestDraft.title.trim() ||
+          !pullRequestDraft.targetBranch ||
+          !pullRequestDraft.branchName ||
+          pullRequestDraft.targetBranch === pullRequestDraft.branchName ||
+          pullRequestRefsLoading ||
+          !!pullRequestRefsError}
+      >
+        {busy ? operation : "Create review"}
+      </Button>
+    {/snippet}
+  </DialogFrame>
 </Dialog.Root>

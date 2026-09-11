@@ -300,7 +300,7 @@
   :global(
       .community-app-shell__surface [data-ui-part="sidebar-header"] > strong
     ) {
-    font-size: 0.88rem;
+    font-size: var(--community-text-body);
   }
 
   @media (hover: hover) {

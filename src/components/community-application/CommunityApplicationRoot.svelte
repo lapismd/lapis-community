@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { DialogFrame } from "@lapismd/design-core/forms/dialog";
   import { Button } from "@lapismd/design-core/shadcn/button";
   import * as Dialog from "@lapismd/design-core/shadcn/dialog";
   import XIcon from "@lucide/svelte/icons/x";
@@ -148,16 +149,12 @@
 />
 
 <Dialog.Root bind:open={loginOpen} onOpenChange={handleLoginOpenChange}>
-  <Dialog.Content
-    class="community-application-login-dialog"
-    showCloseButton={false}
-  >
-    <Dialog.Header class="sr-only">
-      <Dialog.Title>{loginOptions?.title ?? "Connect to Nostr"}</Dialog.Title>
-      <Dialog.Description>
-        {loginOptions?.description ?? "Choose your login method"}
-      </Dialog.Description>
-    </Dialog.Header>
+  <DialogFrame size="form">
+    {#snippet title()}{loginOptions?.title ?? "Connect to Nostr"}{/snippet}
+    {#snippet description()}
+      {loginOptions?.description ?? "Choose your login method"}
+    {/snippet}
+
     <CommunityLogin
       methods={loginMethods}
       title={loginOptions?.title ?? "Connect to Nostr"}
@@ -170,29 +167,10 @@
       presentation="dialog"
       onSelect={connectIdentity}
     />
-    <Dialog.Close>
-      {#snippet child({ props })}
-        <Button
-          {...props}
-          type="button"
-          variant="ghost"
-          size="icon-sm"
-          class="community-application-login-dialog__close"
-          aria-label="Close"
-          title="Close"
-        >
-          <XIcon aria-hidden="true" />
-        </Button>
-      {/snippet}
-    </Dialog.Close>
-  </Dialog.Content>
+  </DialogFrame>
 </Dialog.Root>
 
 <style>
-  :global(.community-application-login-dialog) {
-    width: min(calc(100vw - 2rem), 30rem);
-  }
-
   :global(.community-application-login-dialog__close) {
     position: absolute;
     top: 1rem;

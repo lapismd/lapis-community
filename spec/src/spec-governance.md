@@ -92,3 +92,5 @@ source validation without rewriting the committed dependency metadata.
 The agent UI acceptance lane resolves the upstream Bits UI 2.19.2 lifecycle
 fix and verifies it with cold application navigation. Unrelated dependency
 resolutions remain unchanged. Visual baseline approval remains manual.
+
+UI changes follow catalog discovery, API/example inspection, composition, and contract verification. `pnpm check:ui` is included in `check` and the specification check lanes, and therefore in `checks`. New variants update the owning component, its catalog entry, and interaction coverage together. Changed visual stories remain pending human review; automated checks never approve baselines.

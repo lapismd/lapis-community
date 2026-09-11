@@ -157,3 +157,9 @@ NIP-07 signer. Docker remains the writable WebSocket-backed fixture lane via
 The Docker stack builds the sibling `nostr-relay`, seeds all complete plugins,
 materializes the event graph, builds the sibling site, and serves the rendered
 registry at `http://localhost:4321/`.
+
+### UI patterns
+
+Run `pnpm ui:catalog` before adding UI. The [catalog](src/components/ui-catalog.json) points to public imports, compiled examples, production stories, and required interaction/loading states. Browse **Community / Patterns** in Storybook. Run `pnpm check:ui` and the affected contract stories after changes; extend the owning component instead of copying it. [Composition contracts](spec/src/components.md#canonical-ui-composition) define the defaults and narrow exception policy.
+
+`pnpm test:ui:consumer` builds a cold browser fixture against the installed Design Core package, then checks desktop, mobile, constrained-height, and light/dark dialog, confirmation, identity, and avatar behavior. Local screenshots are saved in `.local/ui-evidence`; they are review evidence, not approved baselines.

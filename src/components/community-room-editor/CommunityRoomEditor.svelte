@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { DialogFrame } from "@lapismd/design-core/forms/dialog";
   import { Button } from "@lapismd/design-core/shadcn/button";
   import * as Dialog from "@lapismd/design-core/shadcn/dialog";
   import * as Field from "@lapismd/design-core/shadcn/field";
@@ -88,31 +89,14 @@
 </script>
 
 <Dialog.Root bind:open>
-  <Dialog.Content class="community-room-editor" showCloseButton={false}>
-    <form class="community-room-editor__form" onsubmit={save}>
-      <Dialog.Header class="community-room-editor__header">
-        <Button
-          class="community-room-editor__header-action"
-          variant="ghost"
-          size="icon-sm"
-          aria-label="Back"
-          title="Back"
-          onclick={() => (open = false)}
-        >
-          <ArrowLeftIcon aria-hidden="true" />
-        </Button>
-        <Dialog.Title>{mode === "create" ? "New" : "Edit"} {noun}</Dialog.Title>
-        <Button
-          class="community-room-editor__header-action"
-          variant="ghost"
-          size="icon-sm"
-          aria-label="Close"
-          title="Close"
-          onclick={() => (open = false)}
-        >
-          <XIcon aria-hidden="true" />
-        </Button>
-      </Dialog.Header>
+  <DialogFrame size="form">
+    {#snippet title()}{mode === "create" ? "New" : "Edit"} {noun}{/snippet}
+
+    <form
+      id="communityroomeditor-form-0"
+      class="community-room-editor__form"
+      onsubmit={save}
+    >
       <Field.Group>
         <Field.Field data-invalid={error ? "" : undefined}>
           <Field.Label for="community-room-name">Name</Field.Label>
@@ -129,7 +113,7 @@
             bind:value={description}
             placeholder={`What this ${noun} is for`}
             ariaLabel={`${noun} description`}
-            showSubmitButton={false}
+            mode="form"
           />
         </Field.Field>
         <div class="community-room-editor__option-row">
@@ -223,43 +207,29 @@
         {/if}
         {#if error}<Field.Error>{error}</Field.Error>{/if}
       </Field.Group>
-      <Dialog.Footer>
-        <Button type="submit" disabled={pending || name.trim() === ""}
-          >{pending
-            ? mode === "create"
-              ? "Creating…"
-              : "Saving…"
-            : mode === "create"
-              ? `Create ${noun}`
-              : "Save changes"}</Button
-        >
-      </Dialog.Footer>
     </form>
-  </Dialog.Content>
+
+    {#snippet footer()}
+      <Button
+        form="communityroomeditor-form-0"
+        type="submit"
+        disabled={pending || name.trim() === ""}
+        >{pending
+          ? mode === "create"
+            ? "Creating…"
+            : "Saving…"
+          : mode === "create"
+            ? `Create ${noun}`
+            : "Save changes"}</Button
+      >
+    {/snippet}
+  </DialogFrame>
 </Dialog.Root>
 
 <style>
-  :global(.community-room-editor) {
-    width: min(calc(100vw - 2rem), 34rem);
-    font-size: 0.82rem;
-  }
   .community-room-editor__form {
     display: grid;
     gap: 1.5rem;
-  }
-
-  :global(.community-room-editor__header[data-ui-part="dialog-header"]) {
-    display: grid;
-    grid-template-columns: 2rem minmax(0, 1fr) 2rem;
-    align-items: center;
-    gap: 0.4rem;
-  }
-
-  :global(.community-room-editor__header [data-ui-part="dialog-title"]) {
-    overflow: hidden;
-    font-size: 0.9rem;
-    text-overflow: ellipsis;
-    white-space: nowrap;
   }
 
   :global(.community-room-editor__header-action[data-ui-component="button"]) {
@@ -281,13 +251,6 @@
     width: 0.75rem;
     height: 0.75rem;
     margin: 0;
-  }
-
-  :global(.community-room-editor [data-ui-component="input"]),
-  :global(.community-room-editor [data-ui-part="field-label"]),
-  :global(.community-room-editor [data-ui-part="toggle-group-item"]),
-  :global(.community-room-editor [data-ui-component="button"]) {
-    font-size: 0.82rem;
   }
 
   .community-room-editor__optional {

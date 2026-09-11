@@ -28,7 +28,9 @@
       name: "View Ben Stone's profile",
     });
     await userEvent.hover(avatar);
-    const preview = await page.findByLabelText("Ben Stone contact preview");
+    const preview = await page.findByRole("group", {
+      name: "Ben Stone contact preview",
+    });
     await expect(preview).toBeVisible();
     await userEvent.click(
       page.getByRole("button", { name: "View activity log for Ben Stone" }),
@@ -73,3 +75,20 @@
     </p>
   {/snippet}
 </Story>
+
+<Story
+  name="Unavailable default actions"
+  args={{ member: communityStoryMembers[1]! }}
+  play={async ({ canvas, canvasElement }) => {
+    await userEvent.hover(
+      canvas.getByRole("button", { name: "View Ben Stone's profile" }),
+    );
+    const body = within(canvasElement.ownerDocument.body);
+    await expect(
+      await body.findByRole("button", { name: "Message Ben Stone" }),
+    ).toBeDisabled();
+    await expect(
+      body.getByRole("button", { name: "Wave to Ben Stone" }),
+    ).toBeDisabled();
+  }}
+/>

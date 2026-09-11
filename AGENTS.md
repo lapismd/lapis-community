@@ -26,6 +26,16 @@ repository owns the relay.
 
 ## Components and Design Core
 
+Before creating or changing UI, follow **find → inspect → compose → verify**:
+
+1. Run `pnpm ui:catalog <pattern>` and read its compiled example and public API.
+2. Use that owning component. Add variants to its API and catalog entry instead of copying markup or styling internals.
+3. Run its `Community/Patterns` contract story and affected production stories, then `pnpm check:ui`.
+
+The machine-readable [UI catalog](src/components/ui-catalog.json) is the entry point for dialogs, confirmations, prose inputs, author identities, avatars, emoji/reactions, Markdown, and loading. Initial page loading MUST use a representative skeleton; refreshing MUST preserve existing content, and pagination placeholders belong at the loading edge. Use the shared Community typography tokens, inherited from Design Core's font family. Forms use `CommunityChatComposer mode="form"` for prose; names, search, URLs, and keys use structured controls. Confirmations use compact centered `ConfirmDialog`/`ConfirmButton` with awaited, retryable actions. Pages MUST NOT compose dialog bodies, close controls, or confirmation geometry directly. See [UI reuse contracts](spec/src/components.md#canonical-ui-composition).
+
+Exceptions require one exact file and symbol, a reason, specification requirement, and verification story in the catalog; directory exemptions and inline suppression comments are not permitted. Static checks enforce boundaries; browser contracts and human visual review establish behavior and visual fit.
+
 - Keep all package code beneath `src`; do not recreate nested pnpm workspace
   packages. Each independent Svelte component belongs in its own named folder
   under `src/components` with a colocated Storybook story.

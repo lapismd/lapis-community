@@ -675,7 +675,7 @@
   }
 
   .community-workspace-surface__intro h1 {
-    font-size: 1.4rem;
+    font-size: var(--community-text-dialog);
   }
 
   .community-workspace-surface__intro p {
@@ -726,7 +726,7 @@
       .community-workspace-surface__action-card[data-ui-component="button"]
         strong
     ) {
-    font-size: 0.9rem;
+    font-size: var(--community-text-body);
     font-weight: 550;
   }
   :global(

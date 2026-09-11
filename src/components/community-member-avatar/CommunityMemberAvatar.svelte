@@ -10,7 +10,7 @@
     shape = "circle",
   }: {
     member: CommunityMemberModel;
-    size?: "xsmall" | "small" | "medium" | "large" | "xlarge";
+    size?: "inline" | "xsmall" | "small" | "medium" | "large" | "xlarge";
     shape?: "circle" | "rounded";
     showPresence?: boolean;
     decorative?: boolean;
@@ -74,6 +74,15 @@
     flex: none;
   }
 
+  .community-member-avatar[data-size="inline"] {
+    --community-member-avatar-size: 1.25em;
+  }
+
+  .community-member-avatar[data-size="inline"] .community-member-avatar__image {
+    font-size: var(--community-text-avatar-initials);
+    line-height: 1;
+  }
+
   .community-member-avatar[data-size="small"] {
     --community-member-avatar-size: 2rem;
     --community-member-avatar-presence-size: 0.55rem;
@@ -108,7 +117,7 @@
     border-radius: 50%;
     color: var(--primary-foreground);
     background: var(--primary);
-    font-size: calc(var(--community-member-avatar-size) * 0.3);
+    font-size: var(--community-text-body);
     font-weight: 700;
   }
 

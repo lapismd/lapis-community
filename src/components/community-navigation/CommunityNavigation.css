@@ -28,7 +28,7 @@
   background: color-mix(in srgb, var(--foreground) 3%, transparent);
   box-shadow: inset 0 0 0 1px
     color-mix(in srgb, var(--foreground) 2%, transparent);
-  font-size: 0.875rem;
+  font-size: var(--community-text-body);
   font-weight: 400;
   transition:
     color 120ms ease,
@@ -122,7 +122,7 @@
   border-radius: 0.375rem;
   padding: 0.25rem;
   color: var(--muted-foreground);
-  font-size: 0.8125rem;
+  font-size: var(--community-text-secondary);
   font-weight: 550;
   line-height: 1.25;
   text-align: start;
@@ -215,7 +215,7 @@
   justify-content: flex-start;
   border-radius: 0.75rem;
   color: color-mix(in srgb, var(--foreground) 82%, transparent);
-  font-size: 0.875rem;
+  font-size: var(--community-text-body);
   font-weight: 450;
   text-align: start;
 }
@@ -273,7 +273,7 @@
 
   min-height: 1.75rem;
   color: color-mix(in srgb, var(--foreground) 8%, var(--muted-foreground));
-  font-size: 0.875rem;
+  font-size: var(--community-text-body);
 }
 .lc-community-navigation__item--child > svg {
   width: 0.875rem;
@@ -286,7 +286,7 @@
   --ui-button-gap: 0.6rem;
 
   border-radius: 0.55rem;
-  font-size: 0.875rem;
+  font-size: var(--community-text-body);
 }
 
 .lc-community-navigation__section[data-navigation-section-kind="projects"]
@@ -295,7 +295,7 @@
   --ui-button-padding-inline: 1.85rem 0.625rem;
 
   color: color-mix(in srgb, var(--foreground) 8%, var(--muted-foreground));
-  font-size: 0.8rem;
+  font-size: var(--community-text-secondary);
 }
 .lc-community-navigation__item-row > [data-ui-part="context-menu-trigger"] {
   min-width: 0;

@@ -43,7 +43,7 @@
               },
             }
           : {}),
-        ...(variant === "loading" ? { status: "loading" } : {}),
+        ...(variant === "loading" ? { status: "loading", agents: [] } : {}),
         ...(variant === "empty" ? { agents: [], archivedAgents: [] } : {}),
         ...(variant === "offline"
           ? {

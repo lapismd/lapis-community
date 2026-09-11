@@ -1,6 +1,7 @@
 <script lang="ts">
-  import "../community-confirm-dialog.css";
-  import * as AlertDialog from "@lapismd/design-core/shadcn/alert-dialog";
+  import CommunitySkeleton from "../community-skeleton/CommunitySkeleton.svelte";
+
+  import { ConfirmDialog } from "@lapismd/design-core/forms/dialog";
   import { Button } from "@lapismd/design-core/shadcn/button";
   import * as Collapsible from "@lapismd/design-core/shadcn/collapsible";
   import BanIcon from "@lucide/svelte/icons/ban";
@@ -249,11 +250,9 @@
       confirmingAction = undefined;
       revision = {};
     } catch (cause) {
-      toast.error(
-        cause instanceof Error
-          ? cause.message
-          : `${actionLabel(action)} failed`,
-      );
+      throw cause instanceof Error
+        ? cause
+        : new Error(`${actionLabel(action)} failed`);
     } finally {
       performingAction = false;
     }
@@ -359,9 +358,10 @@
           </p>
         {/if}
       {:else if inspection?.preview && open}
-        <p class="registry-release-disclosure__notice" role="status">
-          Loading verified plugin preview…
-        </p>
+        <CommunitySkeleton
+          layout="details"
+          label="Loading verified plugin preview"
+        />
       {/if}
       {#if capabilities && capabilities.actions.length > 0}
         <section
@@ -406,47 +406,32 @@
   </Collapsible.Root>
 {/if}
 
-<AlertDialog.Root
+<ConfirmDialog
   open={confirmingAction !== undefined}
   onOpenChange={(next) => {
     if (!next && !performingAction) confirmingAction = undefined;
   }}
+  pending={performingAction}
+  destructive={confirmingAction !== undefined &&
+    destructiveActions.has(confirmingAction)}
+  onConfirm={async () => {
+    await performAction();
+    return confirmingAction === undefined;
+  }}
 >
-  <AlertDialog.Content class="community-confirm-dialog">
-    <AlertDialog.Header>
-      <AlertDialog.Title>
-        {confirmingAction === undefined
-          ? "Manage release"
-          : `${actionLabel(confirmingAction)}?`}
-      </AlertDialog.Title>
-      <AlertDialog.Description>
-        The release identity, manifest hash, curator role, pinned authority, and
-        current Registry head will be checked again before signing.
-      </AlertDialog.Description>
-    </AlertDialog.Header>
-    <AlertDialog.Footer>
-      <AlertDialog.Cancel disabled={performingAction}>
-        {#snippet child({ props })}
-          <Button {...props} variant="outline">Cancel</Button>
-        {/snippet}
-      </AlertDialog.Cancel>
-      <AlertDialog.Action
-        disabled={performingAction}
-        onclick={() => void performAction()}
-      >
-        {#snippet child({ props })}
-          <Button
-            {...props}
-            variant={confirmingAction !== undefined &&
-            destructiveActions.has(confirmingAction)
-              ? "destructive"
-              : "default"}>{performingAction ? "Signing…" : "Continue"}</Button
-          >
-        {/snippet}
-      </AlertDialog.Action>
-    </AlertDialog.Footer>
-  </AlertDialog.Content>
-</AlertDialog.Root>
+  {#snippet title()}
+    {confirmingAction === undefined
+      ? "Manage release"
+      : `${actionLabel(confirmingAction)}?`}
+  {/snippet}
+  {#snippet description()}
+    The release identity, manifest hash, curator role, pinned authority, and
+    current Registry head will be checked again before signing.
+  {/snippet}
+  {#snippet confirmLabel()}{performingAction
+      ? "Signing…"
+      : "Continue"}{/snippet}
+</ConfirmDialog>
 
 {#snippet summaryIconFallback()}
   <SummaryIcon aria-hidden="true" />
@@ -575,7 +560,7 @@
     display: -webkit-box;
     overflow: hidden;
     color: var(--muted-foreground);
-    font-size: 0.9rem;
+    font-size: var(--community-text-body);
     line-height: 1.35;
     -webkit-box-orient: vertical;
     -webkit-line-clamp: 2;
@@ -588,7 +573,7 @@
     align-items: center;
     gap: 0.4rem 0.65rem;
     color: var(--muted-foreground);
-    font-size: 0.75rem;
+    font-size: var(--community-text-secondary);
   }
   .registry-release-disclosure__metadata {
     min-width: 0;
@@ -640,7 +625,7 @@
     margin: 0;
   }
   .registry-release-disclosure__diagnostics h4 {
-    font-size: 0.875rem;
+    font-size: var(--community-text-body);
   }
   .registry-release-disclosure__diagnostics ul {
     display: grid;
@@ -656,13 +641,13 @@
   .registry-release-disclosure__diagnostics code {
     width: fit-content;
     color: var(--foreground);
-    font-size: 0.78rem;
+    font-size: var(--community-text-secondary);
     font-weight: 600;
   }
   .registry-release-disclosure__diagnostics span,
   .registry-release-disclosure__notice {
     color: var(--muted-foreground);
-    font-size: 0.85rem;
+    font-size: var(--community-text-body);
   }
   .registry-release-disclosure__management {
     display: grid;
@@ -672,7 +657,7 @@
   }
   .registry-release-disclosure__management > p {
     margin: 0;
-    font-size: 0.875rem;
+    font-size: var(--community-text-body);
   }
   .registry-release-disclosure__management > div {
     display: flex;

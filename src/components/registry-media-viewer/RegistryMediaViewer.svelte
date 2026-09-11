@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { DialogFrame } from "@lapismd/design-core/forms/dialog";
   import { tick } from "svelte";
 
   import { Button } from "@lapismd/design-core/shadcn/button";
@@ -7,7 +8,6 @@
 
   import ChevronLeftIcon from "@lucide/svelte/icons/chevron-left";
   import ChevronRightIcon from "@lucide/svelte/icons/chevron-right";
-  import XIcon from "@lucide/svelte/icons/x";
 
   import type { RegistryMediaItem } from "../../registry/index.js";
   import RegistryVerifiedImage from "../registry-verified-image/RegistryVerifiedImage.svelte";
@@ -125,46 +125,36 @@
 
 <Dialog.Root bind:open>
   {#if open}
-    <Dialog.Content
+    <DialogFrame
       bind:ref={dialog}
-      class="registry-media-viewer"
-      showCloseButton={false}
       data-media-mode={mode}
       onkeydown={handleKeydown}
+      closeLabel="Close media viewer"
+      size="wide"
+      bodyPadding="none"
     >
-      <Dialog.Title class="sr-only">
+      {#snippet title()}
         {pluginName} media viewer
-      </Dialog.Title>
-      <ToggleGroup.Root
-        type="single"
-        value={mode}
-        onValueChange={(value) => value && setMode(value as MediaMode)}
-        size="sm"
-        spacing={1}
-        variant="outline"
-        class="registry-media-viewer__modes"
-        aria-label="Image theme"
-      >
-        {#each mediaModes as [value, label]}
-          <ToggleGroup.Item {value} data-media-mode={value}
-            >{label}</ToggleGroup.Item
-          >
-        {/each}
-      </ToggleGroup.Root>
-      <Dialog.Close>
-        {#snippet child({ props })}
-          <Button
-            {...props}
-            class="registry-media-viewer__close"
-            type="button"
-            variant="ghost"
-            size="icon"
-            aria-label="Close media viewer"
-          >
-            <XIcon aria-hidden="true" />
-          </Button>
-        {/snippet}
-      </Dialog.Close>
+      {/snippet}
+
+      {#snippet headerActions()}
+        <ToggleGroup.Root
+          type="single"
+          value={mode}
+          onValueChange={(value) => value && setMode(value as MediaMode)}
+          size="sm"
+          spacing={1}
+          variant="outline"
+          class="registry-media-viewer__modes"
+          aria-label="Image theme"
+        >
+          {#each mediaModes as [value, label]}
+            <ToggleGroup.Item {value} data-media-mode={value}
+              >{label}</ToggleGroup.Item
+            >
+          {/each}
+        </ToggleGroup.Root>
+      {/snippet}
 
       <div
         bind:this={track}
@@ -196,192 +186,71 @@
         {/each}
       </div>
 
-      {#if items.length > 1}
-        <Button
-          class="registry-media-viewer__previous"
-          type="button"
-          variant="ghost"
-          size="icon"
-          aria-label="Previous image"
-          disabled={selectedIndex === 0}
-          onclick={() => moveTo(selectedIndex - 1)}
-        >
-          <ChevronLeftIcon aria-hidden="true" />
-        </Button>
-        <Button
-          class="registry-media-viewer__next"
-          type="button"
-          variant="ghost"
-          size="icon"
-          aria-label="Next image"
-          disabled={selectedIndex === lastIndex}
-          onclick={() => moveTo(selectedIndex + 1)}
-        >
-          <ChevronRightIcon aria-hidden="true" />
-        </Button>
-      {/if}
+      {#snippet footer()}
+        {#if items.length > 1}
+          <Button
+            class="registry-media-viewer__previous"
+            type="button"
+            variant="outline"
+            size="icon-sm"
+            aria-label="Previous image"
+            disabled={selectedIndex === 0}
+            onclick={() => moveTo(selectedIndex - 1)}
+          >
+            <ChevronLeftIcon aria-hidden="true" />
+          </Button>
+          <Button
+            class="registry-media-viewer__next"
+            type="button"
+            variant="outline"
+            size="icon-sm"
+            aria-label="Next image"
+            disabled={selectedIndex === lastIndex}
+            onclick={() => moveTo(selectedIndex + 1)}
+          >
+            <ChevronRightIcon aria-hidden="true" />
+          </Button>
+        {/if}
 
-      <p class="registry-media-viewer__status" aria-live="polite">
-        {selectedIndex + 1} of {items.length}: {items[selectedIndex]?.alt}
-      </p>
-    </Dialog.Content>
+        <p class="registry-media-viewer__status" aria-live="polite">
+          {selectedIndex + 1} of {items.length}: {items[selectedIndex]?.alt}
+        </p>
+      {/snippet}
+    </DialogFrame>
   {/if}
 </Dialog.Root>
 
 <style>
-  :global(.registry-media-viewer) {
-    position: fixed;
-    inset: 0;
-    top: 0;
-    left: 0;
-    box-sizing: border-box;
-    width: 100vw;
-    max-width: none;
-    height: 100dvh;
-    max-height: none;
-    margin: 0;
-    border: 0;
-    padding: 0;
-    color: white;
-    background: #000;
-    box-shadow: none;
-    overflow: hidden;
-    translate: none;
-  }
   .registry-media-viewer__track {
     display: flex;
     width: 100%;
-    height: 100%;
+    height: min(60dvh, 40rem);
     overflow-x: auto;
     overflow-y: hidden;
-    scrollbar-width: none;
     scroll-behavior: smooth;
     scroll-snap-type: x mandatory;
     overscroll-behavior-x: contain;
   }
-  .registry-media-viewer__track::-webkit-scrollbar {
-    display: none;
-  }
   .registry-media-viewer__slide {
     display: grid;
-    min-width: 100%;
+    flex: 0 0 100%;
+    min-width: 0;
     height: 100%;
-    margin: 0;
-    padding: clamp(4.5rem, 8vw, 6rem) clamp(1rem, 6vw, 5rem) 3rem;
+    padding: 1rem;
     place-items: center;
     box-sizing: border-box;
     scroll-snap-align: start;
   }
   .registry-media-viewer__slide :global(img) {
     display: block;
-    max-width: min(93vw, 75rem);
-    max-height: 86dvh;
+    max-width: 100%;
+    max-height: min(55dvh, 36rem);
     object-fit: contain;
   }
-  :global(.registry-media-viewer__modes) {
-    position: fixed;
-    z-index: 2;
-    top: 1rem;
-    left: 50%;
-    display: flex;
-    gap: 0.2rem;
-    transform: translateX(-50%);
-    border: 1px solid rgb(255 255 255 / 18%);
-    border-radius: 999px;
-    padding: 0.2rem;
-    background: rgb(24 24 27 / 88%);
-    backdrop-filter: blur(12px);
-  }
-  :global(.registry-media-viewer__modes [data-ui-part="toggle-group-item"]) {
-    min-height: 2rem;
-    border: 0;
-    border-radius: 999px;
-    padding: 0.25rem 0.75rem;
-    color: rgb(255 255 255 / 68%);
-    background: transparent;
-    font: inherit;
-    font-size: 0.78rem;
-    cursor: pointer;
-  }
-  :global(
-      .registry-media-viewer__modes
-        [data-ui-part="toggle-group-item"][data-state="on"]
-    ) {
-    color: white;
-    background: rgb(255 255 255 / 14%);
-  }
-  :global(
-      .registry-media-viewer__modes
-        [data-ui-part="toggle-group-item"]:focus-visible
-    ),
-  :global(.registry-media-viewer__close:focus-visible),
-  :global(.registry-media-viewer__previous:focus-visible),
-  :global(.registry-media-viewer__next:focus-visible) {
-    outline: 2px solid white;
-    outline-offset: 2px;
-  }
-  :global(.registry-media-viewer__close),
-  :global(.registry-media-viewer__previous),
-  :global(.registry-media-viewer__next) {
-    position: fixed;
-    z-index: 2;
-    display: grid;
-    width: 2.5rem;
-    height: 2.5rem;
-    place-items: center;
-    border: 1px solid rgb(255 255 255 / 18%);
-    border-radius: 999px;
-    padding: 0;
-    color: white;
-    background: rgb(24 24 27 / 78%);
-    cursor: pointer;
-    backdrop-filter: blur(12px);
-  }
-  :global(.registry-media-viewer__close svg),
-  :global(.registry-media-viewer__previous svg),
-  :global(.registry-media-viewer__next svg) {
-    width: 1.15rem;
-    height: 1.15rem;
-  }
-  :global(.registry-media-viewer__previous:disabled),
-  :global(.registry-media-viewer__next:disabled) {
-    opacity: 0.25;
-    cursor: default;
-  }
-  :global(.registry-media-viewer__close) {
-    top: 1rem;
-    right: 1rem;
-  }
-  :global(.registry-media-viewer__previous),
-  :global(.registry-media-viewer__next) {
-    top: 50%;
-    transform: translateY(-50%);
-  }
-  :global(.registry-media-viewer__previous) {
-    left: 1rem;
-  }
-  :global(.registry-media-viewer__next) {
-    right: 1rem;
-  }
   .registry-media-viewer__status {
-    position: fixed;
-    z-index: 2;
-    bottom: 0.75rem;
-    left: 50%;
-    max-width: calc(100vw - 2rem);
-    transform: translateX(-50%);
-    color: rgb(255 255 255 / 68%);
-    font-size: 0.78rem;
-    text-align: center;
-  }
-  @media (max-width: 45rem) {
-    :global(.registry-media-viewer__previous),
-    :global(.registry-media-viewer__next) {
-      display: none !important;
-    }
-    .registry-media-viewer__slide {
-      padding-inline: 0.5rem;
-    }
+    margin: auto 0 auto auto;
+    font-size: var(--community-text-secondary);
+    color: var(--muted-foreground);
   }
   @media (prefers-reduced-motion: reduce) {
     .registry-media-viewer__track {

@@ -1,7 +1,6 @@
 <script lang="ts">
-  import "../community-confirm-dialog.css";
   import { Button } from "@lapismd/design-core/shadcn/button";
-  import * as AlertDialog from "@lapismd/design-core/shadcn/alert-dialog";
+  import { ConfirmDialog } from "@lapismd/design-core/forms/dialog";
   import * as ButtonGroup from "@lapismd/design-core/shadcn/button-group";
   import * as Breadcrumb from "@lapismd/design-core/shadcn/breadcrumb";
   import * as Empty from "@lapismd/design-core/shadcn/empty";
@@ -746,38 +745,25 @@
   </AppShell.Toolbar>
 {/if}
 
-<AlertDialog.Root bind:open={trustResetOpen}>
-  <AlertDialog.Content class="community-confirm-dialog">
-    <AlertDialog.Header>
-      <AlertDialog.Title>Reset Registry trust history?</AlertDialog.Title>
-      <AlertDialog.Description>
-        This removes the local anti-rollback checkpoint
-        {route.page === "plugin"
-          ? ` for ${selectedEntry?.name ?? route.pluginId}`
-          : " for every plugin"}. Only continue when you have independently
-        confirmed that the configured curator authority and Registry quorum are
-        trustworthy.
-      </AlertDialog.Description>
-    </AlertDialog.Header>
-    <AlertDialog.Footer>
-      <AlertDialog.Cancel disabled={trustResetting}>
-        {#snippet child({ props })}
-          <Button {...props} variant="outline">Cancel</Button>
-        {/snippet}
-      </AlertDialog.Cancel>
-      <AlertDialog.Action
-        disabled={trustResetting}
-        onclick={() => void resetRegistryTrustHistory()}
-      >
-        {#snippet child({ props })}
-          <Button {...props} variant="destructive">
-            {trustResetting ? "Resetting…" : "Reset trust history"}
-          </Button>
-        {/snippet}
-      </AlertDialog.Action>
-    </AlertDialog.Footer>
-  </AlertDialog.Content>
-</AlertDialog.Root>
+<ConfirmDialog
+  bind:open={trustResetOpen}
+  pending={trustResetting}
+  destructive
+  onConfirm={resetRegistryTrustHistory}
+>
+  {#snippet title()}Reset Registry trust history?{/snippet}
+  {#snippet description()}
+    This removes the local anti-rollback checkpoint
+    {route.page === "plugin"
+      ? ` for ${selectedEntry?.name ?? route.pluginId}`
+      : " for every plugin"}. Only continue when you have independently
+    confirmed that the configured curator authority and Registry quorum are
+    trustworthy.
+  {/snippet}
+  {#snippet confirmLabel()}
+    {trustResetting ? "Resetting…" : "Reset trust history"}
+  {/snippet}
+</ConfirmDialog>
 
 {#if !catalogLoading && !catalogError && index && route.page === "directory"}
   <RegistryDirectory
@@ -1105,7 +1091,7 @@
     padding: 0.65rem 0.75rem;
     color: var(--muted-foreground);
     background: var(--muted);
-    font-size: 0.8rem;
+    font-size: var(--community-text-secondary);
   }
 
   :global(.registry-browser__source-toolbar) {

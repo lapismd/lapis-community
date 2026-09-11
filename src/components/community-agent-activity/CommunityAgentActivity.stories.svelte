@@ -161,7 +161,9 @@
     await userEvent.click(
       canvas.getByRole("button", { name: "Clear this agent’s saved activity" }),
     );
-    const dialog = within(canvasElement.ownerDocument.body).getByRole("dialog");
+    const dialog = within(canvasElement.ownerDocument.body).getByRole(
+      "alertdialog",
+    );
     await userEvent.click(
       within(dialog).getByRole("button", {
         name: "Clear history",

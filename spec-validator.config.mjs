@@ -79,6 +79,7 @@ export default defineConfig(tableRequirements(), {
   },
   check: {
     lanes: [
+      { name: "UI reuse", command: "node", args: ["scripts/check-ui.mjs"] },
       {
         name: "community chips",
         command: "node",

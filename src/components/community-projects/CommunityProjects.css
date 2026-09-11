@@ -11,7 +11,7 @@
   overflow: auto;
   color: var(--foreground);
   background: var(--background);
-  font-size: 0.875rem;
+  font-size: var(--community-text-body);
 }
 
 .community-projects[data-view="files"] {
@@ -64,7 +64,7 @@
   color: var(--muted-foreground);
   background: color-mix(in srgb, var(--muted) 38%, transparent);
   box-shadow: none;
-  font-size: 0.78rem;
+  font-size: var(--community-text-secondary);
   font-weight: 500;
 }
 
@@ -107,7 +107,7 @@
   color: var(--muted-foreground);
   background: color-mix(in srgb, var(--muted) 38%, transparent);
   box-shadow: none;
-  font-size: 0.78rem;
+  font-size: var(--community-text-secondary);
   font-weight: 500;
 }
 
@@ -132,7 +132,7 @@
 
 .community-projects__page-heading h1 {
   margin: 0;
-  font-size: 1.2rem;
+  font-size: var(--community-text-dialog);
   font-weight: 600;
 }
 
@@ -148,7 +148,7 @@
   gap: 0.75rem;
   margin: 2rem auto 0;
   color: var(--muted-foreground);
-  font-size: 0.8rem;
+  font-size: var(--community-text-secondary);
 }
 
 .community-projects__section-divider::after {
@@ -248,7 +248,7 @@
   align-items: baseline;
   gap: 0.3rem;
   color: var(--muted-foreground);
-  font-size: 0.8rem;
+  font-size: var(--community-text-secondary);
 }
 
 .community-projects__activity-copy > div:first-child strong {
@@ -297,7 +297,7 @@
 }
 
 .community-projects__activity-title strong {
-  font-size: 0.84rem;
+  font-size: var(--community-text-secondary);
   font-weight: 550;
 }
 
@@ -306,7 +306,7 @@
   min-width: 0;
   overflow: hidden;
   color: var(--muted-foreground);
-  font-size: 0.83rem;
+  font-size: var(--community-text-secondary);
   line-height: inherit;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -345,7 +345,7 @@
   display: flex;
   align-items: center;
   gap: 0.65rem;
-  font-size: 0.85rem;
+  font-size: var(--community-text-body);
 }
 
 .community-projects__list-heading svg {
@@ -405,7 +405,7 @@
 .community-projects__task-row strong {
   min-width: 0;
   overflow: hidden;
-  font-size: 0.85rem;
+  font-size: var(--community-text-body);
   font-weight: 500;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -415,7 +415,7 @@
 .community-projects__task-comments,
 .community-projects__task-row > time {
   color: var(--muted-foreground);
-  font-size: 0.75rem;
+  font-size: var(--community-text-secondary);
 }
 
 .community-projects__task-row > time {
@@ -498,7 +498,7 @@
 
 .community-projects__task-detail-header h2 {
   margin: 0;
-  font-size: 1.05rem;
+  font-size: var(--community-text-section);
   font-weight: 600;
   line-height: 1.45;
 }
@@ -513,7 +513,7 @@
   gap: 0.3rem;
   margin: 0.2rem 0 0;
   color: var(--muted-foreground);
-  font-size: 0.75rem;
+  font-size: var(--community-text-secondary);
 }
 
 .community-projects__task-meta {
@@ -523,7 +523,7 @@
   border-radius: 0.65rem;
   padding: 0.8rem 1rem;
   background: color-mix(in srgb, var(--muted) 30%, transparent);
-  font-size: 0.8rem;
+  font-size: var(--community-text-secondary);
 }
 
 .community-projects__task-meta > div {
@@ -576,7 +576,7 @@
   color: var(--foreground);
   background: transparent;
   font: inherit;
-  font-size: 0.85rem;
+  font-size: var(--community-text-body);
   font-weight: 600;
   text-align: left;
   cursor: pointer;
@@ -617,7 +617,7 @@
   margin: 0;
   padding: 1rem 0;
   color: var(--muted-foreground);
-  font-size: 0.8rem;
+  font-size: var(--community-text-secondary);
 }
 
 .community-projects__readme {
@@ -725,7 +725,7 @@
 
 .community-projects__directory-header h1,
 .community-projects__surface-header h2 {
-  font-size: 0.85rem;
+  font-size: var(--community-text-body);
 }
 
 .community-projects__directory-header .community-projects__eyebrow,
@@ -739,18 +739,18 @@
 .community-projects__surface-header h2,
 .community-projects__review-header h2 {
   margin: 0;
-  font-size: 1.35rem;
+  font-size: var(--community-text-dialog);
   line-height: 1.25;
 }
 
 .community-projects__directory-header h1,
 .community-projects__surface-header h2 {
-  font-size: 0.85rem;
+  font-size: var(--community-text-body);
   font-weight: 550;
 }
 
 .community-projects__review-header h2 {
-  font-size: 1.05rem;
+  font-size: var(--community-text-section);
   font-weight: 600;
 }
 
@@ -760,13 +760,13 @@
 .community-projects__row p {
   margin: 0.3rem 0 0;
   color: var(--muted-foreground);
-  font-size: 0.875rem;
+  font-size: var(--community-text-body);
 }
 
 .community-projects__eyebrow {
   margin: 0 0 0.35rem !important;
   color: var(--muted-foreground);
-  font-size: 0.7rem !important;
+  font-size: var(--community-text-secondary);
   font-weight: 650;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -848,7 +848,7 @@
   border-radius: 0.45rem;
   padding: 0.4rem 0.65rem;
   background: color-mix(in srgb, var(--muted) 28%, transparent);
-  font-size: 0.78rem;
+  font-size: var(--community-text-secondary);
 }
 
 .community-projects__list-group-heading--inset {
@@ -897,7 +897,7 @@
 .community-projects__list-group-count {
   margin-inline-start: 0.1rem;
   color: color-mix(in srgb, var(--muted-foreground) 70%, transparent);
-  font-size: 0.72rem;
+  font-size: var(--community-text-secondary);
   font-variant-numeric: tabular-nums;
 }
 
@@ -1063,7 +1063,7 @@
 .community-projects__row-main > span > strong {
   flex: none;
   color: var(--foreground);
-  font-size: 0.82rem;
+  font-size: var(--community-text-secondary);
   font-weight: 500;
 }
 
@@ -1072,7 +1072,7 @@
 .community-projects__person-copy > span {
   overflow: hidden;
   color: var(--muted-foreground);
-  font-size: 0.78rem;
+  font-size: var(--community-text-secondary);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -1129,7 +1129,7 @@
 .community-projects__card-meta > time,
 .community-projects__row-meta > time {
   color: var(--muted-foreground);
-  font-size: 0.75rem;
+  font-size: var(--community-text-secondary);
   white-space: nowrap;
 }
 
@@ -1138,7 +1138,7 @@
   align-items: center;
   gap: 0.25rem;
   color: var(--muted-foreground);
-  font-size: 0.75rem;
+  font-size: var(--community-text-secondary);
   white-space: nowrap;
 }
 
@@ -1420,7 +1420,7 @@
 .community-projects__channel-activity {
   overflow: hidden;
   color: var(--muted-foreground);
-  font-size: 0.75rem;
+  font-size: var(--community-text-secondary);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -1488,7 +1488,7 @@
 
 .community-projects__diff-summary-copy > span {
   color: var(--muted-foreground);
-  font-size: 0.72rem;
+  font-size: var(--community-text-secondary);
   font-weight: 400;
 }
 
@@ -1578,7 +1578,7 @@
   max-width: 18rem;
   overflow: hidden;
   color: var(--foreground);
-  font-size: 0.8rem;
+  font-size: var(--community-text-secondary);
   font-weight: 550;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1601,7 +1601,7 @@
   padding: 0.55rem 0.8rem;
   border-bottom: 1px solid var(--border);
   color: var(--muted-foreground);
-  font-size: 0.78rem;
+  font-size: var(--community-text-secondary);
 }
 
 .community-projects__file-browser-commit > svg {
@@ -1624,7 +1624,7 @@
 
 .community-projects__file-browser-commit code {
   color: var(--muted-foreground);
-  font-size: 0.72rem;
+  font-size: var(--community-text-secondary);
 }
 
 .community-projects__file-browser-list {
@@ -1667,7 +1667,7 @@
 .community-projects__file-browser-row > strong {
   min-width: 0;
   overflow: hidden;
-  font-size: 0.82rem;
+  font-size: var(--community-text-secondary);
   font-weight: 550;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1675,7 +1675,7 @@
 
 .community-projects__file-browser-row > span {
   color: var(--muted-foreground);
-  font-size: 0.75rem;
+  font-size: var(--community-text-secondary);
 }
 
 .community-projects__file-browser-row > svg:last-child {
@@ -1697,7 +1697,7 @@
 .community-projects__file-view-toggle [data-ui-component="button"] {
   min-height: 1.8rem;
   padding-inline: 0.65rem;
-  font-size: 0.75rem;
+  font-size: var(--community-text-secondary);
 }
 
 .community-projects__file-view-toggle
@@ -1926,7 +1926,7 @@
 .community-projects__commit-detail code {
   overflow-wrap: anywhere;
   color: var(--muted-foreground);
-  font-size: 0.75rem;
+  font-size: var(--community-text-secondary);
 }
 
 .community-projects__people article {
@@ -2028,7 +2028,7 @@
 
 .community-projects__review-conversation h3 {
   margin: 0;
-  font-size: 1rem;
+  font-size: var(--community-text-section);
 }
 
 .community-projects__inline-thread {
@@ -2056,7 +2056,7 @@
   align-items: center;
   gap: 0.4rem;
   color: var(--muted-foreground);
-  font-size: 0.75rem;
+  font-size: var(--community-text-secondary);
 }
 
 .community-projects__inline-context > svg {
@@ -2134,7 +2134,7 @@
 }
 
 .community-projects__commit-row-title {
-  font-size: 0.82rem;
+  font-size: var(--community-text-secondary);
   font-weight: 500;
 }
 
@@ -2153,7 +2153,7 @@
 .community-projects__commit-row-hash {
   color: color-mix(in srgb, var(--muted-foreground) 70%, transparent);
   font-family: var(--font-mono, monospace);
-  font-size: 0.72rem;
+  font-size: var(--community-text-secondary);
   font-variant-numeric: tabular-nums;
 }
 
@@ -2166,7 +2166,7 @@
   gap: 0.25rem;
   overflow: hidden;
   color: color-mix(in srgb, var(--foreground) 18%, var(--muted-foreground));
-  font-size: 0.72rem;
+  font-size: var(--community-text-secondary);
   white-space: nowrap;
 }
 
@@ -2184,7 +2184,7 @@
 .community-projects__commit-row > time,
 .community-projects__review-row > time {
   color: color-mix(in srgb, var(--foreground) 18%, var(--muted-foreground));
-  font-size: 0.72rem;
+  font-size: var(--community-text-secondary);
   text-align: right;
   white-space: nowrap;
 }
@@ -2212,7 +2212,7 @@
 }
 
 .community-projects__commit-detail-header h1 {
-  font-size: 1.05rem;
+  font-size: var(--community-text-section);
   font-weight: 600;
   line-height: 1.35;
 }
@@ -2220,7 +2220,7 @@
 .community-projects__commit-detail-header p {
   margin-top: 0.15rem;
   color: var(--muted-foreground);
-  font-size: 0.74rem;
+  font-size: var(--community-text-secondary);
 }
 
 .community-projects__commit-back[data-ui-component="button"] {
@@ -2249,7 +2249,7 @@
 .community-projects__commit-meta dt,
 .community-projects__commit-meta dd {
   margin: 0;
-  font-size: 0.76rem;
+  font-size: var(--community-text-secondary);
 }
 
 .community-projects__commit-meta dt {
@@ -2274,12 +2274,12 @@
 .community-projects__commit-meta code {
   color: inherit;
   font-family: var(--font-mono, monospace);
-  font-size: 0.72rem;
+  font-size: var(--community-text-secondary);
 }
 
 .community-projects__commit-detail > .community-markdown-content {
   margin: 1rem 0 0 2.65rem;
-  font-size: 0.82rem;
+  font-size: var(--community-text-secondary);
 }
 
 .community-projects__commit-files {
@@ -2302,7 +2302,7 @@
   gap: 0.5rem;
   padding: 0.1rem 0.25rem 0.45rem;
   color: var(--muted-foreground);
-  font-size: 0.74rem;
+  font-size: var(--community-text-secondary);
   font-weight: 500;
 }
 
@@ -2317,7 +2317,7 @@
   gap: 0.4rem;
   color: var(--muted-foreground);
   font-family: var(--font-sans);
-  font-size: 0.72rem;
+  font-size: var(--community-text-secondary);
   font-weight: 500;
   cursor: pointer;
 }
@@ -2355,7 +2355,7 @@
   color: var(--muted-foreground);
   background: color-mix(in srgb, var(--muted) 30%, transparent);
   font: inherit;
-  font-size: 0.75rem;
+  font-size: var(--community-text-secondary);
   font-weight: 500;
   text-align: left;
   cursor: pointer;
@@ -2406,14 +2406,14 @@
 }
 
 .community-projects__review-row-title {
-  font-size: 0.82rem;
+  font-size: var(--community-text-secondary);
   font-weight: 500;
 }
 
 .community-projects__review-row-id {
   color: color-mix(in srgb, var(--foreground) 18%, var(--muted-foreground));
   font-family: var(--font-mono, monospace);
-  font-size: 0.7rem;
+  font-size: var(--community-text-secondary);
   font-variant-numeric: tabular-nums;
 }
 
@@ -2497,7 +2497,7 @@
 }
 
 .community-projects__review-header h2 {
-  font-size: 1.05rem;
+  font-size: var(--community-text-section);
   font-weight: 600;
   line-height: 1.4;
 }
@@ -2512,7 +2512,7 @@
   align-items: center;
   gap: 0.25rem;
   margin-top: 0.15rem;
-  font-size: 0.72rem;
+  font-size: var(--community-text-secondary);
 }
 
 .community-projects__review-meta {
@@ -2522,7 +2522,7 @@
   border-radius: 0.65rem;
   padding: 0.45rem 0.75rem;
   background: color-mix(in srgb, var(--muted) 30%, transparent);
-  font-size: 0.75rem;
+  font-size: var(--community-text-secondary);
 }
 
 .community-projects__review-meta > div {
@@ -2569,7 +2569,7 @@
   display: flex;
   margin-inline-start: auto;
   gap: 0.35rem;
-  font-size: 0.7rem;
+  font-size: var(--community-text-secondary);
   font-variant-numeric: tabular-nums;
 }
 
@@ -2584,7 +2584,7 @@
 .community-projects__review-branch code {
   color: var(--muted-foreground);
   font-family: var(--font-mono, monospace);
-  font-size: 0.7rem;
+  font-size: var(--community-text-secondary);
   font-weight: 400;
 }
 
@@ -2598,7 +2598,7 @@
 .community-projects__muted {
   margin: 0;
   color: var(--muted-foreground);
-  font-size: 0.78rem;
+  font-size: var(--community-text-secondary);
   font-weight: 400;
 }
 
@@ -2621,7 +2621,7 @@
   color: var(--foreground);
   background: transparent;
   font: inherit;
-  font-size: 0.82rem;
+  font-size: var(--community-text-secondary);
   font-weight: 500;
   text-align: left;
   cursor: pointer;
@@ -2654,7 +2654,7 @@
 
 .community-projects__review-section-count {
   color: var(--muted-foreground);
-  font-size: 0.75rem;
+  font-size: var(--community-text-secondary);
   font-weight: 500;
   font-variant-numeric: tabular-nums;
 }
@@ -2702,7 +2702,7 @@
 
 .community-projects__review-commit-row strong {
   overflow: hidden;
-  font-size: 0.78rem;
+  font-size: var(--community-text-secondary);
   font-weight: 500;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -2711,7 +2711,7 @@
 .community-projects__review-commit-row code {
   color: var(--muted-foreground);
   font-family: var(--font-mono, monospace);
-  font-size: 0.7rem;
+  font-size: var(--community-text-secondary);
   text-align: right;
 }
 
@@ -2791,7 +2791,7 @@
   min-width: 0;
   align-items: baseline;
   gap: 1rem;
-  font-size: 0.82rem;
+  font-size: var(--community-text-secondary);
 }
 
 .community-projects__review-timeline-summary > span {
@@ -2809,7 +2809,7 @@
 .community-projects__review-timeline-summary time {
   flex: none;
   color: var(--muted-foreground);
-  font-size: 0.75rem;
+  font-size: var(--community-text-secondary);
 }
 
 .community-projects__review-timeline-commit {
@@ -2819,7 +2819,7 @@
   padding: 0.15rem 0.45rem;
   color: var(--muted-foreground);
   background: var(--muted);
-  font-size: 0.7rem;
+  font-size: var(--community-text-secondary);
 }
 
 .community-projects__review-timeline-content > .community-message {
@@ -2839,38 +2839,6 @@
 
 .community-projects__review-action-spacer {
   flex: 1;
-}
-
-.community-projects__review-submission-dialog[data-ui-part="dialog-content"] {
-  width: min(calc(100vw - 2rem), 36rem);
-  max-width: min(calc(100vw - 2rem), 36rem) !important;
-}
-
-.community-projects__review-submission-dialog
-  [data-ui-part="dialog-content-anon-0"] {
-  top: 0.8rem;
-  right: 0.8rem;
-  width: 2rem;
-  min-width: 2rem;
-  height: 2rem;
-  min-height: 2rem;
-  border-radius: 0.7rem;
-  padding: 0;
-}
-
-.community-projects__review-submission-dialog
-  [data-ui-part="dialog-content-anon-0"]
-  svg {
-  width: 0.75rem;
-  height: 0.75rem;
-}
-
-.community-projects__review-submission-dialog
-  [data-ui-part="dialog-content-anon-0"]:hover:not(:disabled),
-.community-projects__review-submission-dialog
-  [data-ui-part="dialog-content-anon-0"]:focus-visible {
-  color: var(--foreground);
-  background: var(--muted);
 }
 
 .community-projects__review-submission-form {
@@ -2893,7 +2861,7 @@
 .community-projects__review-decision > legend {
   margin-block-end: 0.35rem;
   color: var(--foreground);
-  font-size: var(--text-sm, 0.875rem);
+  font-size: var(--community-text-body);
   font-weight: 600;
 }
 
@@ -2931,13 +2899,13 @@
 
 .community-projects__review-decision-option strong {
   color: var(--foreground);
-  font-size: var(--text-sm, 0.875rem);
+  font-size: var(--community-text-body);
   line-height: 1.25rem;
 }
 
 .community-projects__review-decision-option small {
   color: var(--muted-foreground);
-  font-size: var(--text-xs, 0.75rem);
+  font-size: var(--community-text-secondary);
   line-height: 1.15rem;
 }
 
@@ -2948,79 +2916,19 @@
 .community-projects__review-merge-error {
   margin: -0.4rem 0 0.8rem;
   color: var(--destructive);
-  font-size: var(--text-sm, 0.875rem);
+  font-size: var(--community-text-body);
 }
 
 .community-projects__review-merge-status {
   margin: -0.4rem 0 0.8rem;
   color: var(--muted-foreground);
-  font-size: var(--text-sm, 0.875rem);
+  font-size: var(--community-text-body);
 }
 
 .community-projects__form-columns {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 0.75rem;
-}
-
-[data-ui-part="dialog-overlay"]:has(+ .community-projects__project-dialog) {
-  background: color-mix(in srgb, var(--background) 68%, transparent);
-  -webkit-backdrop-filter: blur(0.75rem);
-  backdrop-filter: blur(0.75rem);
-}
-
-.community-projects__project-dialog[data-ui-part="dialog-content"] {
-  width: min(calc(100vw - 2rem), 34rem);
-  max-width: min(calc(100vw - 2rem), 34rem) !important;
-  max-height: calc(100vh - 3rem);
-  gap: 1.15rem;
-  overflow-y: auto;
-  border-radius: 1.25rem;
-  padding: 1.5rem;
-  box-shadow:
-    0 2rem 5rem -1.25rem rgb(0 0 0 / 32%),
-    0 0.75rem 2rem -1rem rgb(0 0 0 / 24%);
-}
-
-.community-projects__project-dialog [data-ui-part="dialog-content-anon-0"] {
-  top: 0.8rem;
-  right: 0.8rem;
-  width: 2.25rem;
-  min-width: 2.25rem;
-  height: 2.25rem;
-  min-height: 2.25rem;
-  border-radius: 0.7rem;
-  padding: 0.7rem;
-}
-
-.community-projects__project-dialog [data-ui-part="dialog-content-anon-0"] svg {
-  width: 0.82rem;
-  height: 0.82rem;
-}
-
-.community-projects__project-dialog
-  [data-ui-part="dialog-content-anon-0"]:hover:not(:disabled),
-.community-projects__project-dialog
-  [data-ui-part="dialog-content-anon-0"]:focus-visible {
-  color: var(--foreground);
-  background: var(--muted);
-}
-
-.community-projects__project-dialog-header[data-ui-part="dialog-header"] {
-  gap: 0.65rem;
-  padding-inline-end: 1.5rem;
-}
-
-.community-projects__project-dialog-header [data-ui-part="dialog-title"] {
-  font-size: 1.35rem;
-  font-weight: 600;
-  line-height: 1.2;
-}
-
-.community-projects__project-dialog-header [data-ui-part="dialog-description"] {
-  color: var(--foreground);
-  font-size: 0.95rem;
-  line-height: 1.45;
 }
 
 .community-projects__project-form,
@@ -3101,7 +3009,7 @@
   border-radius: 0.9rem;
   padding: 0.65rem 0.8rem 0.65rem 1rem;
   background: var(--background);
-  font-size: 0.9rem;
+  font-size: var(--community-text-body);
   font-weight: 500;
 }
 
@@ -3156,10 +3064,6 @@ button.community-projects__project-option:focus-visible {
   height: 0.9rem;
 }
 
-.community-projects__project-footer[data-ui-part="dialog-footer"] {
-  margin-top: 0.15rem;
-}
-
 .community-projects__repository-add-menu[data-ui-part="dropdown-menu-content"] {
   width: max-content;
   min-width: 15.5rem;
@@ -3175,7 +3079,7 @@ button.community-projects__project-option:focus-visible {
   gap: 0.65rem;
   padding-inline: 0.7rem;
   border-radius: 0.6rem;
-  font-size: 0.86rem;
+  font-size: var(--community-text-body);
 }
 
 .community-projects__repository-add-menu
@@ -3208,14 +3112,14 @@ button.community-projects__project-option:focus-visible {
   margin: 0;
   padding: 0.6rem 0.8rem;
   color: var(--destructive);
-  font-size: 0.78rem;
+  font-size: var(--community-text-secondary);
 }
 
 .community-projects__command-status {
   margin: 0;
   padding: 1.25rem 0.8rem;
   color: var(--muted-foreground);
-  font-size: 0.8rem;
+  font-size: var(--community-text-secondary);
   text-align: center;
 }
 
@@ -3234,7 +3138,7 @@ button.community-projects__project-option:focus-visible {
 
 .community-projects__channel-command-copy small {
   color: var(--muted-foreground);
-  font-size: 0.72rem;
+  font-size: var(--community-text-secondary);
   font-weight: 400;
 }
 
@@ -3243,11 +3147,6 @@ button.community-projects__project-option:focus-visible {
   justify-content: flex-end;
   border-top: 1px solid var(--border);
   padding: 0.7rem 0.8rem;
-}
-
-.community-projects__github-manager[data-ui-part="dialog-content"] {
-  width: min(calc(100vw - 2rem), 40rem);
-  max-width: min(calc(100vw - 2rem), 40rem) !important;
 }
 
 .community-projects__github-manager-loading,
@@ -3298,7 +3197,7 @@ button.community-projects__project-option:focus-visible {
 }
 
 .community-projects__github-manager-copy strong {
-  font-size: 0.86rem;
+  font-size: var(--community-text-body);
 }
 
 .community-projects__github-manager-copy span,
@@ -3306,7 +3205,7 @@ button.community-projects__project-option:focus-visible {
 .community-projects__github-manager-updated,
 .community-projects__github-manager-note {
   color: var(--muted-foreground);
-  font-size: 0.76rem;
+  font-size: var(--community-text-secondary);
   line-height: 1.45;
 }
 

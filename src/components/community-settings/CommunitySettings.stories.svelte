@@ -1,6 +1,6 @@
 <script module lang="ts">
   import { defineMeta } from "@storybook/addon-svelte-csf";
-  import { expect, userEvent, waitFor } from "storybook/test";
+  import { expect, userEvent, waitFor, within } from "storybook/test";
 
   import CommunitySettings from "./CommunitySettings.svelte";
   import CommunityNavigationShellFixture from "../community-navigation/CommunityNavigationShellFixture.svelte";
@@ -61,15 +61,18 @@
     await userEvent.click(
       canvas.getByRole("button", { name: "Edit profile photo" }),
     );
-    await userEvent.click(await canvas.findByRole("tab", { name: "Emoji" }));
     await userEvent.click(
-      canvas.getByRole("button", { name: "Use 🐝 as profile photo" }),
+      await within(document.body).findByRole("tab", { name: "Emoji" }),
     );
+    await userEvent.click(
+      within(document.body).getByRole("button", { name: "Use 🐝 as avatar" }),
+    );
+    await userEvent.keyboard("{Escape}");
     await userEvent.click(canvas.getByRole("button", { name: "Done" }));
     await waitFor(() => {
-      const image = canvas
-        .getByRole("img", { name: "Profile photo" })
-        .querySelector("img");
+      const image = canvas.getByRole("img", {
+        name: "Selected avatar",
+      }) as HTMLImageElement;
       expect(image?.src).toContain("data:image/svg+xml");
     });
 

@@ -351,13 +351,13 @@
   .community-login__credential-copy > span,
   .community-login__credential-form > p {
     color: var(--muted-foreground);
-    font-size: 0.75rem;
+    font-size: var(--community-text-secondary);
     line-height: 1.4;
   }
 
   .community-login__credential-form > label {
     margin-bottom: -0.375rem;
-    font-size: 0.875rem;
+    font-size: var(--community-text-body);
     font-weight: 500;
   }
 
@@ -430,13 +430,13 @@
   }
 
   .community-login__method-copy > span {
-    font-size: 0.75rem;
+    font-size: var(--community-text-secondary);
     line-height: 1.35;
   }
 
   .community-login__footnote {
     margin: 0;
-    font-size: 0.75rem;
+    font-size: var(--community-text-secondary);
     line-height: 1.45;
   }
 

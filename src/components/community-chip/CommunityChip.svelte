@@ -131,7 +131,7 @@
     gap: 0.3rem;
     border-radius: calc(var(--radius) * 2.6);
     padding-inline: 0.55rem;
-    font-size: var(--text-xs, 0.75rem);
+    font-size: var(--community-text-secondary);
     font-weight: 550;
     line-height: 1;
   }
@@ -149,34 +149,26 @@
     min-width: 1rem;
     min-height: 1rem;
     padding-inline: 0.2rem;
-    font-size: 0.625rem;
+    font-size: var(--community-text-secondary);
     font-variant-numeric: tabular-nums;
   }
 
   :global(.community-chip[data-ui-component][data-chip-size="inline"]) {
-    width: auto;
-    height: auto;
+    width: fit-content;
+    max-width: 100%;
+    height: 1lh;
     min-height: 0;
     gap: 0.22em;
     border: 0;
     border-radius: calc(var(--radius) - 0.2rem);
-    padding: 0.08em 0.3em;
+    padding: 0 0.25em;
     box-decoration-break: clone;
     font: inherit;
     font-weight: 600;
     line-height: inherit;
     text-align: start;
-    vertical-align: middle;
+    vertical-align: baseline;
     -webkit-box-decoration-break: clone;
-  }
-
-  :global(
-      .community-chip[data-ui-component][data-chip-size="inline"]
-        [data-ui-component="community-member-avatar"]
-    ) {
-    --community-member-avatar-size: 1.15em;
-
-    display: block;
   }
 
   :global(.community-chip[data-chip-tone="accent"]) {

@@ -27,10 +27,11 @@
     const dialog = await page.findByRole("dialog", { name: "Report message" });
     const view = within(dialog);
     await userEvent.click(view.getByRole("radio", { name: "Spam" }));
-    await userEvent.type(
-      view.getByLabelText("Additional context (optional)"),
-      "Repeated links across several channels.",
-    );
+    const editor = view
+      .getByRole("group", { name: "Additional context" })
+      .querySelector<HTMLElement>('.cm-content[contenteditable="true"]')!;
+    await userEvent.click(editor);
+    await userEvent.keyboard("Repeated links across several channels.");
     await userEvent.click(view.getByRole("button", { name: "Submit report" }));
     await expect(args.onSubmit).toHaveBeenCalledWith({
       category: "spam",

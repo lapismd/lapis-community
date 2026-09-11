@@ -284,9 +284,19 @@
       }),
     ).toBeVisible();
     await userEvent.click(
-      within(assignmentDialog).getByRole("button", { name: "Cancel" }),
+      within(
+        overlay.getByRole("dialog", {
+          name: "Assign Polish the project overview rail",
+        }),
+      ).getByRole("button", { name: "Cancel" }),
     );
-    await waitFor(() => expect(assignmentDialog).not.toBeInTheDocument());
+    await waitFor(() =>
+      expect(
+        overlay.queryByRole("dialog", {
+          name: "Assign Polish the project overview rail",
+        }),
+      ).not.toBeInTheDocument(),
+    );
     await waitFor(() =>
       expect(canvasElement.ownerDocument.body.style.pointerEvents).not.toBe(
         "none",
@@ -1065,6 +1075,12 @@
           "connected",
         ),
       { timeout: 15_000 },
+    );
+
+    await waitFor(() =>
+      expect(canvasElement.ownerDocument.body.style.pointerEvents).not.toBe(
+        "none",
+      ),
     );
 
     const overlay = within(canvasElement.ownerDocument.body);

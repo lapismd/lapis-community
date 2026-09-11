@@ -60,3 +60,5 @@ accepted shared component boundary and rejected look-alikes or local restyles.
 The media smoke operates the public image-theme radio group and verifies each
 selected variant still uses a verified Blob URL. The smoke selectors follow
 the control’s accessibility semantics.
+
+The UI policy tooling validates the Community catalog and parsed production compositions before delivery. Its positive and negative fixtures verify aliases, alternate component syntax, forbidden overrides, exact exceptions, missing exports, and invalid example/state metadata. This local validation does not publish registry artifacts or signed events.

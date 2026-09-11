@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { tick } from "svelte";
+  import { DialogFrame } from "@lapismd/design-core/forms/dialog";
   import { Button } from "@lapismd/design-core/shadcn/button";
   import { Checkbox } from "@lapismd/design-core/shadcn/checkbox";
   import * as Command from "@lapismd/design-core/shadcn/command";
@@ -110,11 +112,18 @@
   );
 
   $effect(() => {
-    if (open && !wasOpen) {
-      query = "";
-      onSearch("");
-    }
+    const opening = open && !wasOpen;
     wasOpen = open;
+    if (!opening) return;
+    query = "";
+    let cancelled = false;
+    // Let the dialog mount before a synchronous source refresh updates its content.
+    void tick().then(() => {
+      if (!cancelled) onSearch("");
+    });
+    return () => {
+      cancelled = true;
+    };
   });
 
   function distinctMembers(
@@ -208,6 +217,21 @@
   }
 </script>
 
+{#snippet selectionFooter()}
+  {#if mode === "select" && onConfirm}
+    <div class="community-member-command__footer">
+      <Button type="button" variant="outline" onclick={() => (open = false)}
+        >Cancel</Button
+      >
+      <Button
+        type="button"
+        disabled={!allowEmptySelection && selectedIds.length === 0}
+        onclick={onConfirm}>{confirmLabel}</Button
+      >
+    </div>
+  {/if}
+{/snippet}
+
 {#snippet memberIdentity(member: CommunityMemberModel)}
   <CommunityMemberAvatar {member} showPresence decorative />
   <span class="community-member-command__member-copy">
@@ -225,194 +249,176 @@
   </span>
 {/snippet}
 
-<Command.Dialog
-  bind:open
-  class="community-member-command"
-  {title}
-  {description}
-  label="Search members"
-  shouldFilter={false}
->
-  <div class="community-member-command__header">
-    <h2>{title}</h2>
-    <Dialog.Close>
-      {#snippet child({ props })}
-        <Button
-          {...props}
-          type="button"
-          variant="ghost"
-          size="icon-sm"
-          aria-label="Close members"
-          title="Close members"
-        >
-          <XIcon aria-hidden="true" />
-        </Button>
-      {/snippet}
-    </Dialog.Close>
-  </div>
-  <div class="community-member-command__input-row">
-    <Command.Input
-      class="community-member-command__input"
-      placeholder="Search members or paste an npub"
-      aria-label="Search members"
-      aria-controls="community-member-command-results"
-      bind:value={query}
-      oninput={(event) => onSearch(event.currentTarget.value)}
-    />
-  </div>
-
-  {#if mode === "select" && selectedIds.length}
-    <div class="community-member-command__chips" aria-label={selectionLabel}>
-      {#each selectedIds as id (id)}
-        {@const member = members.find((candidate) => candidate.id === id)}
-        <CommunityChip
-          variant="muted"
-          onclick={() => member && onRemove(member)}
-        >
-          {member?.name ?? id.slice(0, 12)}
-          <XIcon data-icon="inline-end" aria-hidden="true" />
-        </CommunityChip>
-      {/each}
-    </div>
-  {/if}
-
-  <Command.List id="community-member-command-results">
-    <Command.Empty>
-      {isSearching
-        ? "No members found"
-        : `No members are available for this ${roomNoun}`}
-    </Command.Empty>
-    <Command.Group
-      heading={mode === "select"
-        ? "People"
-        : isSearching
-          ? `In this ${roomNoun}`
-          : "Members"}
+<Dialog.Root bind:open
+  ><DialogFrame
+    {title}
+    {description}
+    size="form"
+    bodyPadding="none"
+    closeLabel="Close members"
+    {...mode === "select" && onConfirm ? { footer: selectionFooter } : {}}
+    ><Command.Root
+      class="community-member-command"
+      label="Search members"
+      shouldFilter={false}
     >
-      {#each currentMembers as member (member.id)}
-        {#if mode === "manage" && !member.administrator}
-          <DropdownMenu.Root>
-            <DropdownMenu.Trigger>
-              {#snippet child({ props })}
-                <Command.Item
-                  {...props}
-                  class="community-member-command__member-menu-trigger"
-                  value={`${member.name} ${member.handle} ${member.id}`}
-                  aria-label={`Manage ${memberName(member)}`}
-                  aria-expanded={undefined}
-                >
-                  {@render memberIdentity(member)}
-                  <span
-                    class="community-member-command__member-menu-icon"
-                    aria-hidden="true"
-                  >
-                    <EllipsisIcon />
-                  </span>
-                </Command.Item>
-              {/snippet}
-            </DropdownMenu.Trigger>
-            <DropdownMenu.Content
-              class="community-member-command__member-menu"
-              align="end"
-              sideOffset={4}
-            >
-              <DropdownMenu.Group>
-                {#if onSetRoles}
-                  <DropdownMenu.Item onSelect={() => openRoleDialog(member)}>
-                    <ShieldCheckIcon
-                      data-icon="inline-start"
-                      aria-hidden="true"
-                    />
-                    Manage roles
-                  </DropdownMenu.Item>
-                {/if}
-                <DropdownMenu.Item
-                  variant="destructive"
-                  onSelect={() => onRemove(member)}
-                >
-                  <Trash2Icon data-icon="inline-start" aria-hidden="true" />
-                  Remove from {roomNoun}
-                </DropdownMenu.Item>
-              </DropdownMenu.Group>
-            </DropdownMenu.Content>
-          </DropdownMenu.Root>
-        {:else if mode === "manage" && member.administrator}
-          <Command.Item
-            value={`${member.name} ${member.handle} ${member.id}`}
-            aria-label={`${memberName(member)}, administrator`}
-            onSelect={() => {}}
-          >
-            {@render memberIdentity(member)}
-          </Command.Item>
-        {:else}
-          <Command.Item
-            value={`${member.name} ${member.handle} ${member.id}`}
-            data-selected-recipient={selectedIds.includes(member.id)
-              ? ""
-              : undefined}
-            onSelect={() => onSelect(member)}
-            disabled={mode === "select" &&
-              selectedIds.length >= maxSelected &&
-              !selectedIds.includes(member.id)}
-          >
-            {@render memberIdentity(member)}
-            {#if mode === "select" && selectedIds.includes(member.id)}
-              <UserMinusIcon data-icon="inline-end" aria-hidden="true" />
-            {/if}
-          </Command.Item>
-        {/if}
-      {/each}
-    </Command.Group>
-    {#if mode !== "select" && isSearching}
-      <Command.Group heading={`Not in this ${roomNoun}`}>
-        {#each otherMembers as member (member.id)}
-          <Command.Item
-            value={`${member.name} ${member.handle} ${member.id}`}
-            aria-label={mode === "manage"
-              ? `Add ${member.name} to ${roomNoun}`
-              : undefined}
-            onSelect={() => onSelect(member)}
-          >
-            {@render memberIdentity(member)}
-            {#if mode === "manage"}
-              <span class="community-member-command__add" aria-hidden="true"
-                >Add</span
-              >
-            {/if}
-          </Command.Item>
-        {/each}
-      </Command.Group>
-    {/if}
-  </Command.List>
+      <div class="community-member-command__input-row">
+        <Command.Input
+          class="community-member-command__input"
+          placeholder="Search members or paste an npub"
+          aria-label="Search members"
+          aria-controls="community-member-command-results"
+          bind:value={query}
+          oninput={(event) => onSearch(event.currentTarget.value)}
+        />
+      </div>
 
-  {#if mode === "select" && onConfirm}
-    <div class="community-member-command__footer">
-      <Dialog.Close>
-        {#snippet child({ props })}
-          <Button {...props} type="button" variant="ghost">Cancel</Button>
-        {/snippet}
-      </Dialog.Close>
-      <Button
-        type="button"
-        disabled={!allowEmptySelection && selectedIds.length === 0}
-        onclick={onConfirm}>{confirmLabel}</Button
-      >
-    </div>
-  {/if}
-</Command.Dialog>
+      {#if mode === "select" && selectedIds.length}
+        <div
+          class="community-member-command__chips"
+          aria-label={selectionLabel}
+        >
+          {#each selectedIds as id (id)}
+            {@const member = members.find((candidate) => candidate.id === id)}
+            <CommunityChip
+              variant="muted"
+              onclick={() => member && onRemove(member)}
+            >
+              {member?.name ?? id.slice(0, 12)}
+              <XIcon data-icon="inline-end" aria-hidden="true" />
+            </CommunityChip>
+          {/each}
+        </div>
+      {/if}
+
+      <Command.List id="community-member-command-results">
+        <Command.Empty>
+          {isSearching
+            ? "No members found"
+            : `No members are available for this ${roomNoun}`}
+        </Command.Empty>
+        <Command.Group
+          heading={mode === "select"
+            ? "People"
+            : isSearching
+              ? `In this ${roomNoun}`
+              : "Members"}
+        >
+          {#each currentMembers as member (member.id)}
+            {#if mode === "manage" && !member.administrator}
+              <DropdownMenu.Root>
+                <DropdownMenu.Trigger>
+                  {#snippet child({ props })}
+                    <Command.Item
+                      {...props}
+                      class="community-member-command__member-menu-trigger"
+                      value={`${member.name} ${member.handle} ${member.id}`}
+                      aria-label={`Manage ${memberName(member)}`}
+                      aria-expanded={undefined}
+                    >
+                      {@render memberIdentity(member)}
+                      <span
+                        class="community-member-command__member-menu-icon"
+                        aria-hidden="true"
+                      >
+                        <EllipsisIcon />
+                      </span>
+                    </Command.Item>
+                  {/snippet}
+                </DropdownMenu.Trigger>
+                <DropdownMenu.Content
+                  class="community-member-command__member-menu"
+                  align="end"
+                  sideOffset={4}
+                >
+                  <DropdownMenu.Group>
+                    {#if onSetRoles}
+                      <DropdownMenu.Item
+                        onSelect={() => openRoleDialog(member)}
+                      >
+                        <ShieldCheckIcon
+                          data-icon="inline-start"
+                          aria-hidden="true"
+                        />
+                        Manage roles
+                      </DropdownMenu.Item>
+                    {/if}
+                    <DropdownMenu.Item
+                      variant="destructive"
+                      onSelect={() => onRemove(member)}
+                    >
+                      <Trash2Icon data-icon="inline-start" aria-hidden="true" />
+                      Remove from {roomNoun}
+                    </DropdownMenu.Item>
+                  </DropdownMenu.Group>
+                </DropdownMenu.Content>
+              </DropdownMenu.Root>
+            {:else if mode === "manage" && member.administrator}
+              <Command.Item
+                value={`${member.name} ${member.handle} ${member.id}`}
+                aria-label={`${memberName(member)}, administrator`}
+                onSelect={() => {}}
+              >
+                {@render memberIdentity(member)}
+              </Command.Item>
+            {:else}
+              <Command.Item
+                value={`${member.name} ${member.handle} ${member.id}`}
+                data-selected-recipient={selectedIds.includes(member.id)
+                  ? ""
+                  : undefined}
+                onSelect={() => onSelect(member)}
+                disabled={mode === "select" &&
+                  selectedIds.length >= maxSelected &&
+                  !selectedIds.includes(member.id)}
+              >
+                {@render memberIdentity(member)}
+                {#if mode === "select" && selectedIds.includes(member.id)}
+                  <UserMinusIcon data-icon="inline-end" aria-hidden="true" />
+                {/if}
+              </Command.Item>
+            {/if}
+          {/each}
+        </Command.Group>
+        {#if mode !== "select" && isSearching}
+          <Command.Group heading={`Not in this ${roomNoun}`}>
+            {#each otherMembers as member (member.id)}
+              <Command.Item
+                value={`${member.name} ${member.handle} ${member.id}`}
+                aria-label={mode === "manage"
+                  ? `Add ${member.name} to ${roomNoun}`
+                  : undefined}
+                onSelect={() => onSelect(member)}
+              >
+                {@render memberIdentity(member)}
+                {#if mode === "manage"}
+                  <span class="community-member-command__add" aria-hidden="true"
+                    >Add</span
+                  >
+                {/if}
+              </Command.Item>
+            {/each}
+          </Command.Group>
+        {/if}
+      </Command.List>
+    </Command.Root></DialogFrame
+  ></Dialog.Root
+>
 
 <Dialog.Root bind:open={roleDialogOpen}>
-  <Dialog.Content class="community-member-role-dialog">
-    <form class="community-member-role-dialog__form" onsubmit={saveRoles}>
-      <Dialog.Header>
-        <Dialog.Title>Manage roles</Dialog.Title>
-        <Dialog.Description>
-          Choose the relay-defined roles for {roleMember
-            ? memberName(roleMember)
-            : "this member"}. Member access is always retained.
-        </Dialog.Description>
-      </Dialog.Header>
+  <DialogFrame size="form">
+    {#snippet title()}Manage roles{/snippet}
+    {#snippet description()}
+      Choose the relay-defined roles for {roleMember
+        ? memberName(roleMember)
+        : "this member"}. Member access is always retained.
+    {/snippet}
 
+    <form
+      id="communitymembercommand-form-0"
+      class="community-member-role-dialog__form"
+      onsubmit={saveRoles}
+    >
       <div class="community-member-role-dialog__roles">
         <div class="community-member-role-dialog__baseline">
           <span>
@@ -444,59 +450,30 @@
           {roleError}
         </p>
       {/if}
-
-      <Dialog.Footer>
-        <Button
-          type="button"
-          variant="outline"
-          disabled={rolePending}
-          onclick={() => (roleDialogOpen = false)}>Cancel</Button
-        >
-        <Button type="submit" disabled={rolePending}>
-          {rolePending ? "Saving…" : "Save roles"}
-        </Button>
-      </Dialog.Footer>
     </form>
-  </Dialog.Content>
+
+    {#snippet footer()}
+      <Button
+        form="communitymembercommand-form-0"
+        type="button"
+        variant="outline"
+        disabled={rolePending}
+        onclick={() => (roleDialogOpen = false)}>Cancel</Button
+      >
+      <Button
+        form="communitymembercommand-form-0"
+        type="submit"
+        disabled={rolePending}
+      >
+        {rolePending ? "Saving…" : "Save roles"}
+      </Button>
+    {/snippet}
+  </DialogFrame>
 </Dialog.Root>
 
 <style>
-  :global(.community-member-command) {
-    top: clamp(2rem, 10vh, 8rem);
-    width: min(calc(100vw - 2rem), 52rem);
-    max-width: min(calc(100vw - 2rem), 52rem) !important;
-    max-height: min(44rem, calc(100vh - 4rem));
-    translate: -50% 0;
-    border-radius: 1.25rem !important;
-    box-shadow:
-      0 2rem 5rem -1.25rem rgb(0 0 0 / 34%),
-      0 0.75rem 2rem -1rem rgb(0 0 0 / 26%) !important;
-    font-size: 0.875rem;
-  }
-
-  :global([data-ui-part="dialog-overlay"]:has(+ .community-member-command)) {
-    background: color-mix(in srgb, var(--background) 48%, transparent);
-    -webkit-backdrop-filter: blur(1.1rem) saturate(0.8);
-    backdrop-filter: blur(1.1rem) saturate(0.8);
-  }
-
   :global(.community-member-command [data-ui-part="command"]) {
     padding: 0;
-  }
-
-  .community-member-command__header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 1rem;
-    padding: 1.35rem 1.5rem 1rem;
-  }
-
-  .community-member-command__header h2 {
-    margin: 0;
-    font-size: 1.125rem;
-    font-weight: 650;
-    letter-spacing: -0.02em;
   }
 
   .community-member-command__input-row {
@@ -544,7 +521,7 @@
   :global(
       .community-member-command__input-row [data-slot="input-group-control"]
     ) {
-    font-size: 0.875rem;
+    font-size: var(--community-text-body);
   }
 
   :global(
@@ -573,7 +550,7 @@
 
   :global(.community-member-command [data-ui-part="command-group-heading"]) {
     padding: 0.75rem 0.5rem 0.5rem;
-    font-size: 0.8rem;
+    font-size: var(--community-text-secondary);
     font-weight: 500;
   }
 
@@ -582,7 +559,7 @@
     gap: 1rem;
     border-radius: 0.8rem !important;
     padding: 0.65rem 0.75rem;
-    font-size: 0.875rem;
+    font-size: var(--community-text-body);
   }
 
   :global(
@@ -616,12 +593,8 @@
 
   .community-member-command__member-copy small {
     color: var(--muted-foreground);
-    font-size: 0.78rem;
+    font-size: var(--community-text-secondary);
     font-weight: 400;
-  }
-
-  :global(.community-member-role-dialog) {
-    width: min(calc(100vw - 2rem), 30rem);
   }
 
   .community-member-role-dialog__form,
@@ -653,16 +626,10 @@
     gap: 0.2rem;
   }
 
-  :global(.community-member-role-dialog small) {
-    color: var(--muted-foreground);
-    font-size: 0.82rem;
-    font-weight: 400;
-  }
-
   .community-member-role-dialog__error {
     margin: 0;
     color: var(--destructive);
-    font-size: 0.875rem;
+    font-size: var(--community-text-body);
   }
 
   :global(
@@ -704,20 +671,9 @@
   }
 
   @media (max-width: 40rem) {
-    :global(.community-member-command) {
-      top: 0.5rem;
-      width: calc(100vw - 1rem);
-      max-width: calc(100vw - 1rem) !important;
-      max-height: calc(100vh - 1rem);
-    }
-
     .community-member-command__input-row,
     .community-member-command__chips,
     .community-member-command__footer {
-      padding-inline: 1rem;
-    }
-
-    .community-member-command__header {
       padding-inline: 1rem;
     }
 

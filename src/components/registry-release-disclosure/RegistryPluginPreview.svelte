@@ -431,7 +431,7 @@
     margin: 0;
   }
   .registry-plugin-preview__identity h3 {
-    font-size: 1.125rem;
+    font-size: var(--community-text-dialog);
     font-weight: 650;
     line-height: 1.2;
   }
@@ -460,7 +460,7 @@
     gap: 0.4rem;
     margin-top: 0.3rem;
     color: var(--muted-foreground);
-    font-size: 0.82rem;
+    font-size: var(--community-text-secondary);
     text-decoration: none;
   }
   a.registry-plugin-preview__author-link:hover {
@@ -475,7 +475,7 @@
   }
   .registry-plugin-preview__description {
     max-width: 48rem;
-    font-size: 0.95rem;
+    font-size: var(--community-text-body);
     line-height: 1.5;
   }
   .registry-plugin-preview__badges {
@@ -530,7 +530,7 @@
     display: flex;
     align-items: center;
     gap: 0.35rem;
-    font-size: 0.75rem;
+    font-size: var(--community-text-secondary);
   }
   .registry-plugin-preview__facts dt :global(svg) {
     width: 0.85rem;
@@ -539,7 +539,7 @@
   .registry-plugin-preview__facts dd {
     margin-top: 0.25rem;
     overflow-wrap: anywhere;
-    font-size: 0.875rem;
+    font-size: var(--community-text-body);
     font-weight: 600;
   }
   .registry-plugin-preview__content {
@@ -567,7 +567,7 @@
     gap: 1rem;
     padding-block: 1rem 0.25rem;
     color: var(--foreground);
-    font-size: 0.9rem;
+    font-size: var(--community-text-body);
     line-height: 1.65;
   }
   .registry-plugin-preview__prose :global(:first-child) {
@@ -578,17 +578,17 @@
   }
   .registry-plugin-preview__prose :global(h1) {
     margin-block: 1.25rem 0.65rem;
-    font-size: 1.15rem;
+    font-size: var(--community-text-dialog);
     line-height: 1.25;
   }
   .registry-plugin-preview__prose :global(h2) {
     margin-block: 1.1rem 0.55rem;
-    font-size: 1rem;
+    font-size: var(--community-text-section);
     line-height: 1.3;
   }
   .registry-plugin-preview__prose :global(h3) {
     margin-block: 1rem 0.5rem;
-    font-size: 0.95rem;
+    font-size: var(--community-text-body);
   }
   .registry-plugin-preview__prose :global(p),
   .registry-plugin-preview__prose :global(ul),
@@ -615,12 +615,12 @@
   }
   .registry-plugin-preview__releases h3,
   .registry-plugin-preview__details h3 {
-    font-size: 0.9rem;
+    font-size: var(--community-text-body);
   }
   .registry-plugin-preview__releases p,
   .registry-plugin-preview__details p {
     color: var(--muted-foreground);
-    font-size: 0.82rem;
+    font-size: var(--community-text-secondary);
     line-height: 1.5;
   }
   .registry-plugin-preview__details {
@@ -646,11 +646,11 @@
   }
   .registry-plugin-preview__detail-list dt {
     color: var(--muted-foreground);
-    font-size: 0.8rem;
+    font-size: var(--community-text-secondary);
   }
   .registry-plugin-preview__detail-list dd {
     text-align: right;
-    font-size: 0.82rem;
+    font-size: var(--community-text-secondary);
     font-weight: 600;
   }
   @media (max-width: 36rem) {

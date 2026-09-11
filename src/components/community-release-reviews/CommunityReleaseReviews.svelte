@@ -12,7 +12,7 @@
   } from "../../registry/index.js";
   import CommunityChip from "../community-chip/CommunityChip.svelte";
   import { communityChipToneForState } from "../community-chip/model.js";
-  import CommunityMemberAvatar from "../community-member-avatar/CommunityMemberAvatar.svelte";
+  import CommunityMemberHoverCard from "../community-member-hover-card/CommunityMemberHoverCard.svelte";
   import CommunityRelativeTime from "../community-relative-time/CommunityRelativeTime.svelte";
   import type { CommunityMemberModel } from "../community-workspace/model.js";
   import RegistryReleaseDisclosure from "../registry-release-disclosure/RegistryReleaseDisclosure.svelte";
@@ -24,6 +24,9 @@
     loading = false,
     error = "",
     members = [],
+    onOpenProfile,
+    onMessageMember,
+    onWaveMember,
     onOpenPlugin,
   }: {
     entries?: readonly RegistryReleaseReviewEntry[];
@@ -31,6 +34,9 @@
     loading?: boolean;
     error?: string;
     members?: readonly CommunityMemberModel[];
+    onOpenProfile?: (member: CommunityMemberModel) => void;
+    onMessageMember?: (member: CommunityMemberModel) => void;
+    onWaveMember?: (member: CommunityMemberModel) => void;
     onOpenPlugin?: (pluginId: string) => void;
   } = $props();
 
@@ -186,10 +192,12 @@
             >
               <div class="community-release-reviews__meta">
                 <div class="community-release-reviews__title">
-                  <CommunityMemberAvatar
+                  <CommunityMemberHoverCard
                     member={author}
-                    size="xsmall"
-                    decorative
+                    avatarSize="xsmall"
+                    {...onOpenProfile ? { onOpenProfile } : {}}
+                    {...onMessageMember ? { onMessage: onMessageMember } : {}}
+                    {...onWaveMember ? { onWave: onWaveMember } : {}}
                   />
                   <div class="community-release-reviews__title-copy">
                     <strong>{releaseLabel(entry)}</strong>
@@ -241,7 +249,7 @@
     border-radius: var(--radius-md, 0.5rem);
     background: color-mix(in oklab, var(--destructive) 8%, transparent);
     color: var(--destructive);
-    font-size: 0.875rem;
+    font-size: var(--community-text-body);
   }
 
   .community-release-reviews__loading,
@@ -343,7 +351,7 @@
   .community-release-reviews__version,
   .community-release-reviews__byline {
     color: var(--muted-foreground);
-    font-size: 0.78rem;
+    font-size: var(--community-text-secondary);
   }
 
   .community-release-reviews__byline {

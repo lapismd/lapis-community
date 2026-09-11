@@ -168,7 +168,7 @@
     align-items: center;
     gap: 0.4rem;
     color: var(--primary);
-    font-size: 0.82rem;
+    font-size: var(--community-text-secondary);
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.08em;
@@ -186,14 +186,14 @@
 
   h1 {
     max-width: 15ch;
-    font-size: clamp(2.5rem, 7vw, 5.25rem);
+    font-size: var(--community-text-page);
     line-height: 0.96;
     letter-spacing: -0.05em;
   }
 
   .registry-landing__hero p {
     color: var(--muted-foreground);
-    font-size: clamp(1rem, 2vw, 1.15rem);
+    font-size: var(--community-text-section);
   }
 
   .registry-landing__section {

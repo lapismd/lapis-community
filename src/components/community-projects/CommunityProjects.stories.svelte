@@ -656,8 +656,11 @@ index 3333333..4444444 100644
       within(dialog).getByRole("option", { name: /@lapismd/ }),
     );
     await expect(onLoadGitHubRepositories).toHaveBeenCalledWith("ghc-lapis");
+    const repositoryDialog = await overlay.findByRole("dialog", {
+      name: "Choose a repository from @lapismd",
+    });
     await userEvent.click(
-      await within(dialog).findByRole("option", {
+      await within(repositoryDialog).findByRole("option", {
         name: /lapismd\/community-client/,
       }),
     );
@@ -1065,7 +1068,7 @@ index 3333333..4444444 100644
     const dialogClose = within(dialog).getByRole("button", { name: "Close" });
     const dialogCloseIcon = dialogClose.querySelector("svg");
     await expect(dialogCloseIcon).not.toBeNull();
-    await expect(getComputedStyle(dialogCloseIcon!).width).toBe("12px");
+    await expect(getComputedStyle(dialogCloseIcon!).width).toBe("16px");
     await expect(dialogClose).toHaveAttribute("data-variant", "ghost");
     const closeBackground = getComputedStyle(dialogClose).backgroundColor;
     dialogClose.focus();

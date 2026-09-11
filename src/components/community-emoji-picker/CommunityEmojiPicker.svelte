@@ -230,7 +230,7 @@
   }
 
   .community-emoji-picker__host {
-    min-height: 24rem;
+    min-height: min(24rem, calc(100dvh - 2rem));
   }
 
   .community-emoji-picker__host :global(em-emoji-picker) {
@@ -241,6 +241,10 @@
     );
     --border-radius: 0;
     --shadow: none;
+    --font-family: var(--font-sans);
+    --font-size: var(--community-text-body);
+
+    height: min(27rem, calc(100dvh - 2rem));
 
     width: 100%;
     min-width: 0;

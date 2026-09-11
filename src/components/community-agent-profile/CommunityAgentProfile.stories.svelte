@@ -223,7 +223,7 @@
     await userEvent.click(
       body.getByRole("menuitem", { name: "Remove", exact: true }),
     );
-    dialog = body.getByRole("dialog");
+    dialog = body.getByRole("alertdialog");
     await expect(
       within(dialog).getByRole("heading", {
         name: "Remove Research from support?",
@@ -248,7 +248,7 @@
       body.getByRole("menuitem", { name: "Remove", exact: true }),
     );
     await userEvent.click(
-      within(body.getByRole("dialog")).getByRole("button", {
+      within(body.getByRole("alertdialog")).getByRole("button", {
         name: "Remove agent",
         exact: true,
       }),

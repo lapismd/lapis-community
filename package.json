@@ -79,7 +79,7 @@
   "scripts": {
     "build": "pnpm prepack",
     "prepack": "svelte-package --input src --tsconfig ./tsconfig.pack.json && vite build && publint",
-    "check": "pnpm spec:validate && pnpm check:svelte && pnpm check:types",
+    "check": "pnpm check:ui && pnpm spec:validate && pnpm check:svelte && pnpm check:types",
     "check:svelte": "svelte-check --tsconfig ./tsconfig.app.json --fail-on-warnings --output human",
     "check:types": "tsc -p tsconfig.node.json --noEmit",
     "test": "vitest run --project unit",
@@ -118,7 +118,10 @@
     "relay:reset": "scripts/community-relay.sh reset",
     "check:format": "prettier . --check --log-level warn",
     "fmt": "prettier . --write --log-level warn",
-    "checks": "pnpm check:format && pnpm spec:check && pnpm check && pnpm test && pnpm test:storybook && pnpm test:storybook:docker && pnpm test:storybook:projects-docker && pnpm build-storybook && pnpm build"
+    "checks": "pnpm check:format && pnpm spec:check && pnpm check && pnpm test && pnpm test:storybook && pnpm test:storybook:docker && pnpm test:storybook:projects-docker && pnpm test:ui:consumer && pnpm build-storybook && pnpm build",
+    "ui:catalog": "node scripts/ui-catalog.mjs",
+    "check:ui": "node scripts/check-ui.mjs",
+    "test:ui:consumer": "node scripts/check-ui-consumer.mjs"
   },
   "dependencies": {
     "@codemirror/autocomplete": "^6.20.3",

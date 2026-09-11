@@ -558,7 +558,7 @@
     justify-content: center;
     gap: 0.75rem;
     color: var(--muted-foreground);
-    font-size: 0.8rem;
+    font-size: var(--community-text-secondary);
     text-align: center;
   }
 

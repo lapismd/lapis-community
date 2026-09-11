@@ -549,7 +549,7 @@
 
   .community-conversation__direct-intro h1 {
     margin-block-start: 0.75rem;
-    font-size: 1.4rem;
+    font-size: var(--community-text-dialog);
   }
 
   .community-conversation__direct-intro p {

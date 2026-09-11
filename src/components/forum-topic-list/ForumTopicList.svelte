@@ -338,7 +338,7 @@
     border-block-end: 1px solid var(--border);
     padding: 0.55rem 0.75rem;
     color: var(--muted-foreground);
-    font-size: 0.68rem;
+    font-size: var(--community-text-secondary);
     font-weight: 700;
     letter-spacing: 0.06em;
     text-transform: uppercase;
@@ -460,7 +460,7 @@
   .forum-topic-list__meta,
   .forum-topic-list__activity {
     color: var(--muted-foreground);
-    font-size: 0.78rem;
+    font-size: var(--community-text-secondary);
   }
 
   .forum-topic-list__excerpt {

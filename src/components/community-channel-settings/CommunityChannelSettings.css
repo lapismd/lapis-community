@@ -21,7 +21,7 @@
 .lc-channel-settings__row small,
 .lc-channel-settings p {
   color: var(--muted-foreground);
-  font-size: 0.72rem;
+  font-size: var(--community-text-secondary);
   font-weight: 400;
 }
 
@@ -50,7 +50,7 @@
 }
 
 .lc-channel-settings__identity > strong {
-  font-size: 1.15rem;
+  font-size: var(--community-text-dialog);
 }
 
 .lc-channel-settings__image {
@@ -71,7 +71,7 @@
 
 .lc-channel-settings h2 {
   padding: 0.25rem 0.5rem;
-  font-size: 0.78rem;
+  font-size: var(--community-text-secondary);
   font-weight: 700;
 }
 

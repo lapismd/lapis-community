@@ -126,12 +126,12 @@
   }
 
   strong {
-    font-size: 1.25rem;
+    font-size: var(--community-text-dialog);
   }
 
   span {
     color: var(--muted-foreground);
-    font-size: 0.78rem;
+    font-size: var(--community-text-secondary);
   }
 
   .topic-summary__icon,

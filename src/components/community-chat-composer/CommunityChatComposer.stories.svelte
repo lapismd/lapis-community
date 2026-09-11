@@ -274,6 +274,15 @@
             mentionAvatar.getBoundingClientRect().height / 2),
       ),
     ).toBeLessThan(1);
+    const initials = mentionAvatar.querySelector<HTMLElement>(
+      '[data-ui-part="image"] > span',
+    )!;
+    expect(initials.getBoundingClientRect().width).toBeLessThan(
+      mentionAvatar.getBoundingClientRect().width,
+    );
+    expect(initials.getBoundingClientRect().height).toBeLessThan(
+      mentionAvatar.getBoundingClientRect().height,
+    );
     await userEvent.hover(mention);
     await expect(
       await page.findByRole("group", { name: "Ben Stone contact preview" }),

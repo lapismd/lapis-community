@@ -75,7 +75,7 @@
     border-radius: 50%;
     background: color-mix(in srgb, var(--primary) 14%, var(--muted));
     color: var(--primary);
-    font-size: 0.68rem;
+    font-size: var(--community-text-secondary);
     font-weight: 700;
   }
 
@@ -86,11 +86,11 @@
   }
 
   header strong {
-    font-size: 0.82rem;
+    font-size: var(--community-text-secondary);
   }
 
   header small {
     color: var(--muted-foreground);
-    font-size: 0.68rem;
+    font-size: var(--community-text-secondary);
   }
 </style>

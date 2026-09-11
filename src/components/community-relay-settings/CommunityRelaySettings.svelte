@@ -1,7 +1,8 @@
 <script lang="ts">
-  import "../community-confirm-dialog.css";
+  import { DialogFrame } from "@lapismd/design-core/forms/dialog";
+
   import { Button } from "@lapismd/design-core/shadcn/button";
-  import * as AlertDialog from "@lapismd/design-core/shadcn/alert-dialog";
+  import { ConfirmDialog } from "@lapismd/design-core/forms/dialog";
   import * as Dialog from "@lapismd/design-core/shadcn/dialog";
   import * as Field from "@lapismd/design-core/shadcn/field";
   import { Input } from "@lapismd/design-core/shadcn/input";
@@ -77,18 +78,17 @@
 </script>
 
 <Dialog.Root bind:open>
-  <Dialog.Content
-    class="community-relay-settings"
-    aria-label="Community settings"
-  >
-    <form class="community-relay-settings__form" onsubmit={save}>
-      <Dialog.Header>
-        <Dialog.Title>Edit Community</Dialog.Title>
-        <Dialog.Description>
-          Update this community's relay URL.
-        </Dialog.Description>
-      </Dialog.Header>
+  <DialogFrame aria-label="Community settings" size="form">
+    {#snippet title()}Edit Community{/snippet}
+    {#snippet description()}
+      Update this community's relay URL.
+    {/snippet}
 
+    <form
+      id="communityrelaysettings-form-0"
+      class="community-relay-settings__form"
+      onsubmit={save}
+    >
       <Field.Group class="community-relay-settings__fields">
         <Field.Field data-disabled>
           <Field.Label for="community-settings-name">Name</Field.Label>
@@ -166,60 +166,45 @@
           {/if}
         </section>
       {/if}
-
-      <Dialog.Footer>
-        <Button
-          type="button"
-          variant="outline"
-          disabled={pending}
-          onclick={() => (open = false)}
-        >
-          Cancel
-        </Button>
-        <Button type="submit" disabled={pending || relayUrl.trim() === ""}>
-          {pending ? "Connecting…" : "Save Changes"}
-        </Button>
-      </Dialog.Footer>
     </form>
-  </Dialog.Content>
+
+    {#snippet footer()}
+      <Button
+        form="communityrelaysettings-form-0"
+        type="button"
+        variant="outline"
+        disabled={pending}
+        onclick={() => (open = false)}
+      >
+        Cancel
+      </Button>
+      <Button
+        form="communityrelaysettings-form-0"
+        type="submit"
+        disabled={pending || relayUrl.trim() === ""}
+      >
+        {pending ? "Connecting…" : "Save Changes"}
+      </Button>
+    {/snippet}
+  </DialogFrame>
 </Dialog.Root>
 
-<AlertDialog.Root bind:open={clearConfirmationOpen}>
-  <AlertDialog.Content
-    class="community-relay-settings__alert-dialog community-confirm-dialog"
-  >
-    <AlertDialog.Header>
-      <AlertDialog.Title>Clear local community data?</AlertDialog.Title>
-      <AlertDialog.Description>
-        Cached public events will be removed and rebuilt from the relay on the
-        next connection. Nostr events on the relay are not affected.
-      </AlertDialog.Description>
-    </AlertDialog.Header>
-    <AlertDialog.Footer>
-      <AlertDialog.Cancel>
-        {#snippet child({ props })}
-          <Button {...props} variant="outline">Cancel</Button>
-        {/snippet}
-      </AlertDialog.Cancel>
-      <AlertDialog.Action
-        onclick={() => {
-          clearConfirmationOpen = false;
-          void onClearCache?.();
-        }}
-      >
-        {#snippet child({ props })}
-          <Button {...props} variant="destructive">Clear cache</Button>
-        {/snippet}
-      </AlertDialog.Action>
-    </AlertDialog.Footer>
-  </AlertDialog.Content>
-</AlertDialog.Root>
+<ConfirmDialog
+  bind:open={clearConfirmationOpen}
+  destructive
+  onConfirm={async () => {
+    await onClearCache?.();
+  }}
+>
+  {#snippet title()}Clear local community data?{/snippet}
+  {#snippet description()}
+    Cached public events will be removed and rebuilt from the relay on the next
+    connection. Nostr events on the relay are not affected.
+  {/snippet}
+  {#snippet confirmLabel()}Clear cache{/snippet}
+</ConfirmDialog>
 
 <style>
-  :global(.community-relay-settings) {
-    width: min(calc(100vw - 2rem), 31rem);
-  }
-
   .community-relay-settings__form {
     display: grid;
     gap: 1.5rem;
@@ -257,7 +242,7 @@
 
   .community-relay-settings__local-data p {
     color: var(--muted-foreground);
-    font-size: 0.8125rem;
+    font-size: var(--community-text-secondary);
   }
 
   .community-relay-settings__degraded {

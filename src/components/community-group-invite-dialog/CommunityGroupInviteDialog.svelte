@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { DialogFrame } from "@lapismd/design-core/forms/dialog";
   import { Button } from "@lapismd/design-core/shadcn/button";
   import * as Dialog from "@lapismd/design-core/shadcn/dialog";
   import * as Field from "@lapismd/design-core/shadcn/field";
@@ -89,19 +90,21 @@
 </script>
 
 <Dialog.Root bind:open>
-  <Dialog.Content class="community-group-invite-dialog">
-    <form class="community-group-invite-dialog__form" onsubmit={submit}>
-      <Dialog.Header>
-        <Dialog.Title>
-          {mode === "create" ? "Create invite link" : "Join with invite"}
-        </Dialog.Title>
-        <Dialog.Description>
-          {mode === "create"
-            ? `Create a reusable invite for ${noun}. Anyone with the link can request access.`
-            : "Paste a Community NIP-29 invite link. Community will only connect to a configured relay."}
-        </Dialog.Description>
-      </Dialog.Header>
+  <DialogFrame size="form">
+    {#snippet title()}
+      {mode === "create" ? "Create invite link" : "Join with invite"}
+    {/snippet}
+    {#snippet description()}
+      {mode === "create"
+        ? `Create a reusable invite for ${noun}. Anyone with the link can request access.`
+        : "Paste a Community NIP-29 invite link. Community will only connect to a configured relay."}
+    {/snippet}
 
+    <form
+      id="communitygroupinvitedialog-form-0"
+      class="community-group-invite-dialog__form"
+      onsubmit={submit}
+    >
       {#if mode === "join" || createdInvite}
         <Field.Field data-invalid={error ? "" : undefined}>
           <Field.Label for="community-group-invite-value">
@@ -151,35 +154,40 @@
             {error}
           </p>{/if}
       {/if}
-
-      <Dialog.Footer>
-        <Button
-          type="button"
-          variant="outline"
-          disabled={pending}
-          onclick={() => (open = false)}
-        >
-          {createdInvite ? "Done" : "Cancel"}
-        </Button>
-        {#if mode === "join"}
-          <Button type="submit" disabled={pending || inviteValue.trim() === ""}>
-            {pending ? "Joining…" : "Join group"}
-          </Button>
-        {:else if !createdInvite}
-          <Button type="submit" disabled={pending}>
-            {pending ? "Creating…" : "Create invite"}
-          </Button>
-        {/if}
-      </Dialog.Footer>
     </form>
-  </Dialog.Content>
+
+    {#snippet footer()}
+      <Button
+        form="communitygroupinvitedialog-form-0"
+        type="button"
+        variant="outline"
+        disabled={pending}
+        onclick={() => (open = false)}
+      >
+        {createdInvite ? "Done" : "Cancel"}
+      </Button>
+      {#if mode === "join"}
+        <Button
+          form="communitygroupinvitedialog-form-0"
+          type="submit"
+          disabled={pending || inviteValue.trim() === ""}
+        >
+          {pending ? "Joining…" : "Join group"}
+        </Button>
+      {:else if !createdInvite}
+        <Button
+          form="communitygroupinvitedialog-form-0"
+          type="submit"
+          disabled={pending}
+        >
+          {pending ? "Creating…" : "Create invite"}
+        </Button>
+      {/if}
+    {/snippet}
+  </DialogFrame>
 </Dialog.Root>
 
 <style>
-  :global(.community-group-invite-dialog) {
-    width: min(calc(100vw - 2rem), 32rem);
-  }
-
   .community-group-invite-dialog__form {
     display: grid;
     gap: 1.25rem;
@@ -214,7 +222,7 @@
   .community-group-invite-dialog__error {
     margin: 0;
     color: var(--destructive);
-    font-size: 0.875rem;
+    font-size: var(--community-text-body);
   }
 
   @media (max-width: 32rem) {

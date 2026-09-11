@@ -1,4 +1,6 @@
 <script lang="ts">
+  import * as Dialog from "@lapismd/design-core/shadcn/dialog";
+  import { DialogFrame } from "@lapismd/design-core/forms/dialog";
   import type { Snippet } from "svelte";
 
   import DiscussionTimelineTrack from "./DiscussionTimelineTrack.svelte";
@@ -32,12 +34,6 @@
   } = $props();
 
   let mobileOpen = $state(false);
-  let mobileCloseButton = $state<HTMLButtonElement | undefined>();
-
-  $effect(() => {
-    if (!mobileOpen) return;
-    requestAnimationFrame(() => mobileCloseButton?.focus());
-  });
 </script>
 
 <aside class="history" aria-label="Discussion history">
@@ -76,35 +72,15 @@
   <strong>Timeline</strong>
 </button>
 
-{#if mobileOpen}
-  <div
+<Dialog.Root bind:open={mobileOpen}>
+  <DialogFrame
+    title="Discussion timeline"
+    size="compact"
     id="discussion-mobile-timeline"
-    class="mobile-timeline-overlay"
-    role="dialog"
-    tabindex="-1"
-    aria-modal="true"
-    aria-label="Discussion timeline"
-    onkeydown={(event) => {
-      if (event.key === "Escape") mobileOpen = false;
-    }}
+    description={approximate
+      ? `Approximately ${total} posts. Exact timeline navigation is unavailable.`
+      : `Jump through ${total} posts without loading the whole topic.`}
   >
-    <header>
-      <div>
-        <strong>Discussion timeline</strong>
-        <span>
-          {approximate
-            ? `Approximately ${total} posts. Exact timeline navigation is unavailable.`
-            : `Jump through ${total} posts without loading the whole topic.`}
-        </span>
-      </div>
-      <button
-        type="button"
-        bind:this={mobileCloseButton}
-        onclick={() => (mobileOpen = false)}
-      >
-        Close
-      </button>
-    </header>
     <div class="mobile-timeline-rail">
       <DiscussionTimelineTrack
         {total}
@@ -127,8 +103,8 @@
         </div>
       {/if}
     </div>
-  </div>
-{/if}
+  </DialogFrame>
+</Dialog.Root>
 
 <style>
   .history-sticky {
@@ -148,8 +124,7 @@
     margin-top: 1rem;
   }
 
-  .mobile-timeline-trigger,
-  .mobile-timeline-overlay {
+  .mobile-timeline-trigger {
     display: none;
   }
 
@@ -181,46 +156,8 @@
       color: var(--muted-foreground);
     }
 
-    .mobile-timeline-overlay {
-      position: fixed;
-      z-index: 100;
-      inset: 0;
-      display: grid;
-      grid-template-rows: auto minmax(0, 1fr);
-      gap: 1.5rem;
-      padding: max(1rem, env(safe-area-inset-top)) 1.25rem
-        max(1rem, env(safe-area-inset-bottom));
-      background: color-mix(in oklch, var(--background) 96%, black);
-      color: var(--foreground);
-    }
-
-    .mobile-timeline-overlay header {
-      display: flex;
-      align-items: flex-start;
-      justify-content: space-between;
-      gap: 1rem;
-    }
-
-    .mobile-timeline-overlay header > div {
-      display: grid;
-      gap: 0.2rem;
-    }
-
-    .mobile-timeline-overlay header span {
-      color: var(--muted-foreground);
-      font-size: 0.8rem;
-    }
-
-    .mobile-timeline-overlay header button {
-      padding: 0.5rem 0.75rem;
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      background: var(--secondary);
-      color: var(--foreground);
-      cursor: pointer;
-    }
-
     .mobile-timeline-rail {
+      height: min(28rem, 50dvh);
       width: min(100%, 18rem);
       min-height: 0;
       margin: 0 auto;

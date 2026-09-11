@@ -1,6 +1,6 @@
 <script lang="ts">
-  import * as AlertDialog from "@lapismd/design-core/shadcn/alert-dialog";
-  import { ReactionBar } from "@lapismd/design-core/ai/experimental";
+  import { ConfirmDialog } from "@lapismd/design-core/forms/dialog";
+  import CommunityReactions from "../community-reactions/CommunityReactions.svelte";
   import { Button } from "@lapismd/design-core/shadcn/button";
   import * as DropdownMenu from "@lapismd/design-core/shadcn/dropdown-menu";
   import EllipsisIcon from "@lucide/svelte/icons/ellipsis";
@@ -9,7 +9,7 @@
   import Trash2Icon from "@lucide/svelte/icons/trash-2";
 
   import type { CommunityMessageReport } from "../../community/index.js";
-  import CommunityEmojiPicker from "../community-emoji-picker/CommunityEmojiPicker.svelte";
+  import CommunityMarkdownContent from "../community-markdown-content/CommunityMarkdownContent.svelte";
   import CommunityMemberHoverCard from "../community-member-hover-card/CommunityMemberHoverCard.svelte";
   import CommunityRelativeTime from "../community-relative-time/CommunityRelativeTime.svelte";
   import CommunityReportDialog from "../community-report-dialog/CommunityReportDialog.svelte";
@@ -146,12 +146,15 @@
       </CommunityRelativeTime>
     </header>
     <div class="post-body">
-      {#each post.content.split("\n") as paragraph}
-        {#if paragraph.trim() !== ""}<p>{paragraph}</p>{/if}
-      {/each}
+      <CommunityMarkdownContent
+        content={post.content}
+        members={[authorMember]}
+        {...onOpenProfile ? { onOpenMember: onOpenProfile } : {}}
+      />
     </div>
     <footer class="post-footer">
-      <ReactionBar
+      <CommunityReactions
+        mode="bar"
         class="discussion-post__reactions"
         reactions={groups.map((group) => ({
           emoji: group.symbol,
@@ -165,8 +168,9 @@
         }}
       />
       <div class="post-actions">
-        <CommunityEmojiPicker
-          label={`React to post ${number}`}
+        <CommunityReactions
+          mode="picker"
+          pickerLabel={`React to post ${number}`}
           disabled={publishing}
           presets={reactionPresets}
           onSelect={(emoji) => void onReact(post, emoji)}
@@ -245,31 +249,28 @@
 {/if}
 
 {#if canManage && onDelete}
-  <AlertDialog.Root bind:open={deleteOpen}>
-    <AlertDialog.Content class="discussion-post__delete-dialog">
-      <AlertDialog.Header>
-        <AlertDialog.Title>Delete message?</AlertDialog.Title>
-        <AlertDialog.Description>
-          This removes your message from the discussion. This action cannot be
-          undone.
-        </AlertDialog.Description>
-      </AlertDialog.Header>
-      {#if deleteError}<p class="delete-error" role="alert">
-          {deleteError}
-        </p>{/if}
-      <AlertDialog.Footer>
-        <AlertDialog.Cancel disabled={deletePending}>Cancel</AlertDialog.Cancel>
-        <Button
-          type="button"
-          variant="destructive"
-          disabled={deletePending}
-          onclick={confirmDelete}
-        >
-          {deletePending ? "Deleting…" : "Delete message"}
-        </Button>
-      </AlertDialog.Footer>
-    </AlertDialog.Content>
-  </AlertDialog.Root>
+  <ConfirmDialog
+    bind:open={deleteOpen}
+    pending={deletePending}
+    destructive
+    onConfirm={async () => {
+      await confirmDelete();
+      return !deleteError;
+    }}
+  >
+    {#snippet title()}Delete message?{/snippet}
+    {#snippet description()}
+      This removes your message from the discussion. This action cannot be
+      undone.
+    {/snippet}
+    {#snippet confirmLabel()}
+      {deletePending ? "Deleting…" : "Delete message"}
+    {/snippet}
+
+    {#if deleteError}<p class="delete-error" role="alert">
+        {deleteError}
+      </p>{/if}
+  </ConfirmDialog>
 {/if}
 
 <style>
@@ -319,7 +320,7 @@
     gap: 0.35rem;
     flex-shrink: 0;
     color: var(--muted-foreground);
-    font-size: 0.73rem;
+    font-size: var(--community-text-secondary);
     text-decoration: none;
   }
 
@@ -347,7 +348,7 @@
     color: var(--muted-foreground);
     cursor: pointer;
     font: inherit;
-    font-size: 0.72rem;
+    font-size: var(--community-text-secondary);
     text-align: left;
   }
 
@@ -359,7 +360,7 @@
 
   .reply-context__excerpt {
     color: var(--foreground);
-    font-size: 0.76rem;
+    font-size: var(--community-text-secondary);
   }
 
   .reply-context:hover {
@@ -369,16 +370,8 @@
   .post-body {
     padding: 0.65rem 0 0.8rem;
     color: color-mix(in oklch, var(--foreground) 94%, var(--muted-foreground));
-    font-size: 0.94rem;
+    font-size: var(--community-text-body);
     line-height: 1.65;
-  }
-
-  .post-body p {
-    margin: 0;
-  }
-
-  .post-body p + p {
-    margin-top: 0.8rem;
   }
 
   .post-footer {
@@ -405,14 +398,10 @@
     min-width: 13.5rem;
   }
 
-  :global(.discussion-post__delete-dialog) {
-    width: min(calc(100vw - 2rem), 28rem);
-  }
-
   .delete-error {
     margin: 0;
     color: var(--destructive);
-    font-size: 0.875rem;
+    font-size: var(--community-text-body);
   }
 
   :global(.post-reply-action[data-ui-component="button"]) {

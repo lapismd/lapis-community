@@ -1,7 +1,9 @@
 <script lang="ts">
+  import CommunitySkeleton from "../community-skeleton/CommunitySkeleton.svelte";
+  import CommunityMarkdownContent from "../community-markdown-content/CommunityMarkdownContent.svelte";
   import { Button } from "@lapismd/design-core/shadcn/button";
   import * as Select from "@lapismd/design-core/shadcn/select";
-  import * as Dialog from "@lapismd/design-core/shadcn/dialog";
+  import { ConfirmDialog } from "@lapismd/design-core/forms/dialog";
   import ArrowLeftIcon from "@lucide/svelte/icons/arrow-left";
   import RefreshIcon from "@lucide/svelte/icons/refresh-cw";
   import XIcon from "@lucide/svelte/icons/x";
@@ -38,7 +40,6 @@
     onClearHistory: () => Promise<void>;
   } = $props();
   let clearing = $state(false);
-  let pending = $state(false);
   let error = $state("");
   const agents = $derived([
     ...new Map(
@@ -60,21 +61,6 @@
     Error: AlertIcon,
     Event: EventIcon,
   };
-  async function clear() {
-    pending = true;
-    error = "";
-    try {
-      await onClearHistory();
-      clearing = false;
-    } catch (cause) {
-      error =
-        cause instanceof Error
-          ? cause.message
-          : "History could not be cleared.";
-    } finally {
-      pending = false;
-    }
-  }
 </script>
 
 <section class="agent-activity" aria-label="Agent activity history">
@@ -147,7 +133,10 @@
   </p>
   {#if model.archiveError}<p role="alert">{model.archiveError}</p>{/if}
   {#if model.activityError}<p role="alert">{model.activityError}</p>{/if}
-  {#if model.activityLoading}<p role="status">Loading activity…</p>{/if}
+  {#if model.activityLoading && model.activity.length === 0}<CommunitySkeleton
+      layout="timeline"
+      label="Loading activity"
+    />{/if}
   {#if model.activity.length === 0 && !model.activityLoading}<div
       class="agent-activity__empty"
     >
@@ -179,11 +168,18 @@
               /></span
             >
           </div>
-          {#if entry.body}<pre>{entry.body}</pre>{/if}
+          {#if entry.body}{#if entry.category === "Tool" || entry.category === "Event"}<pre>{entry.body}</pre>{:else}<CommunityMarkdownContent
+                content={entry.body}
+              />{/if}{/if}
         </div>
       </li>
     {/each}
   </ol>
+  {#if model.activityLoading && model.activity.length > 0}<CommunitySkeleton
+      layout="timeline"
+      count={2}
+      label="Loading older activity"
+    />{/if}
   {#if model.hasOlder}<Button
       variant="outline"
       disabled={model.activityLoading}
@@ -201,40 +197,14 @@
     </footer>{/if}
 </section>
 
-<Dialog.Root bind:open={clearing}
-  ><Dialog.Content
-    showCloseButton={false}
-    onInteractOutside={(event) => {
-      if (pending) event.preventDefault();
-    }}
-    onEscapeKeydown={(event) => {
-      if (pending) event.preventDefault();
-    }}
-    ><Dialog.Header
-      ><Dialog.Title>Clear {selected?.name}’s saved activity?</Dialog.Title
-      ><Dialog.Description
-        >This removes this agent’s local history for this community. The relay
-        cannot restore it.</Dialog.Description
-      ></Dialog.Header
-    ><Button
-      class="agent-activity__close"
-      variant="ghost"
-      size="icon-sm"
-      aria-label="Close clear agent history dialog"
-      disabled={pending}
-      onclick={() => (clearing = false)}
-      ><XIcon class="size-3.5" aria-hidden="true" /></Button
-    >{#if error}<p role="alert">{error}</p>{/if}<Dialog.Footer
-      ><Button
-        variant="outline"
-        disabled={pending}
-        onclick={() => (clearing = false)}>Cancel</Button
-      ><Button variant="destructive" disabled={pending} onclick={clear}
-        >{pending ? "Clearing…" : "Clear history"}</Button
-      ></Dialog.Footer
-    ></Dialog.Content
-  ></Dialog.Root
->
+<ConfirmDialog
+  bind:open={clearing}
+  title={`Clear ${selected?.name}’s saved activity?`}
+  description="This removes this agent’s local history for this community. The relay cannot restore it."
+  confirmLabel="Clear history"
+  destructive
+  onConfirm={onClearHistory}
+/>
 
 <style>
   .agent-activity {
@@ -265,7 +235,7 @@
   }
   .agent-activity__notice,
   .agent-activity__time {
-    font-size: 0.8rem;
+    font-size: var(--community-text-secondary);
     color: var(--muted-foreground);
   }
   .agent-activity__empty {
@@ -275,7 +245,7 @@
     gap: 0.75rem;
   }
   h3 {
-    font-size: 0.9rem;
+    font-size: var(--community-text-body);
     font-weight: 600;
     margin: 0;
   }
@@ -342,7 +312,7 @@
     white-space: pre-wrap;
     overflow-wrap: anywhere;
     font: inherit;
-    font-size: 0.85rem;
+    font-size: var(--community-text-body);
     line-height: 1.6;
     max-height: 24rem;
     overflow: auto;
@@ -350,11 +320,5 @@
   footer {
     border-top: 1px solid var(--border);
     padding-top: 1rem;
-  }
-  :global(.agent-activity__close) {
-    position: absolute;
-    top: 0.75rem;
-    right: 0.75rem;
-    border-radius: 0.5rem;
   }
 </style>

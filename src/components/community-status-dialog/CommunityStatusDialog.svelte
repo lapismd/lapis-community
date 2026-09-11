@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { DialogFrame } from "@lapismd/design-core/forms/dialog";
   import { Button } from "@lapismd/design-core/shadcn/button";
   import * as Dialog from "@lapismd/design-core/shadcn/dialog";
   import * as InputGroup from "@lapismd/design-core/shadcn/input-group";
@@ -100,15 +101,15 @@
 </script>
 
 <Dialog.Root bind:open>
-  <Dialog.Content class="community-status-dialog">
-    <form class="community-status-dialog__form" onsubmit={save}>
-      <Dialog.Header>
-        <Dialog.Title>Set a status</Dialog.Title>
-        <Dialog.Description
-          >Let others know what you're up to.</Dialog.Description
-        >
-      </Dialog.Header>
+  <DialogFrame size="form">
+    {#snippet title()}Set a status{/snippet}
+    {#snippet description()}Let others know what you're up to.{/snippet}
 
+    <form
+      id="communitystatusdialog-form-0"
+      class="community-status-dialog__form"
+      onsubmit={save}
+    >
       <label class="community-status-dialog__sr-only" for="community-status">
         What's your status?
       </label>
@@ -202,49 +203,42 @@
           {operationMessage}
         </p>
       {/if}
-
-      <Dialog.Footer class="community-status-dialog__footer">
-        <Button
-          type="button"
-          variant="ghost"
-          class="community-status-dialog__clear-status"
-          disabled={busy || value.trim() === ""}
-          onclick={clearStatus}
-        >
-          Clear status
-        </Button>
-        <span class="community-status-dialog__footer-spacer"></span>
-        <Button
-          type="button"
-          variant="ghost"
-          disabled={busy}
-          onclick={() => (open = false)}
-        >
-          Cancel
-        </Button>
-        <Button type="submit" disabled={busy || statusValue() === value.trim()}>
-          {#if busy}<Spinner aria-hidden="true" />{/if}
-          Save
-        </Button>
-      </Dialog.Footer>
     </form>
-  </Dialog.Content>
+
+    {#snippet footer()}
+      <Button
+        form="communitystatusdialog-form-0"
+        type="button"
+        variant="ghost"
+        class="community-status-dialog__clear-status"
+        disabled={busy || value.trim() === ""}
+        onclick={clearStatus}
+      >
+        Clear status
+      </Button>
+      <span class="community-status-dialog__footer-spacer"></span>
+      <Button
+        form="communitystatusdialog-form-0"
+        type="button"
+        variant="ghost"
+        disabled={busy}
+        onclick={() => (open = false)}
+      >
+        Cancel
+      </Button>
+      <Button
+        form="communitystatusdialog-form-0"
+        type="submit"
+        disabled={busy || statusValue() === value.trim()}
+      >
+        {#if busy}<Spinner aria-hidden="true" />{/if}
+        Save
+      </Button>
+    {/snippet}
+  </DialogFrame>
 </Dialog.Root>
 
 <style>
-  :global(.community-status-dialog) {
-    width: min(calc(100vw - 2rem), 31rem);
-    max-width: 31rem !important;
-    border-radius: 1rem !important;
-    padding: 1.5rem;
-  }
-
-  :global([data-ui-part="dialog-overlay"]:has(+ .community-status-dialog)) {
-    background: color-mix(in srgb, var(--background) 42%, transparent);
-    -webkit-backdrop-filter: blur(0.8rem) saturate(0.85);
-    backdrop-filter: blur(0.8rem) saturate(0.85);
-  }
-
   .community-status-dialog__form {
     display: grid;
     gap: 1.25rem;
@@ -277,7 +271,7 @@
     width: 2.1rem;
     height: 2.1rem;
     border-radius: 0.6rem;
-    font-size: 1.05rem;
+    font-size: var(--community-text-section);
   }
 
   :global(.community-status-dialog__clear-emoji[data-ui-component="button"]) {
@@ -318,7 +312,7 @@
     min-width: 0;
     flex: 1;
     margin: 0;
-    font-size: 0.8125rem;
+    font-size: var(--community-text-secondary);
   }
 
   .community-status-dialog__operation {
@@ -332,13 +326,6 @@
     gap: 0.25rem;
   }
 
-  :global(.community-status-dialog__footer) {
-    display: flex;
-    align-items: center;
-    gap: 0.25rem;
-    padding-top: 0.25rem;
-  }
-
   :global(.community-status-dialog__clear-status[data-ui-component="button"]) {
     color: var(--muted-foreground);
   }
@@ -348,8 +335,5 @@
   }
 
   @media (max-width: 40rem) {
-    :global(.community-status-dialog__footer) {
-      flex-direction: row;
-    }
   }
 </style>

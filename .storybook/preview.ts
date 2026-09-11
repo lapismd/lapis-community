@@ -119,6 +119,7 @@ const preview: Preview = {
         order: [
           "Community",
           [
+            "Patterns",
             "Navigation",
             ["Sidebar", "Community Switcher"],
             "Inbox",

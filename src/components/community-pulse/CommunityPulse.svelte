@@ -652,7 +652,7 @@
   .community-pulse__tab-scroll :global([data-ui-part="tabs-trigger"]) {
     min-width: fit-content;
     border-radius: 999px;
-    font-size: 0.75rem;
+    font-size: var(--community-text-secondary);
     transition:
       background-color 140ms ease,
       color 140ms ease;
@@ -696,7 +696,7 @@
 
   .community-pulse__composer-heading > strong {
     flex: none;
-    font-size: 0.82rem;
+    font-size: var(--community-text-secondary);
   }
 
   .community-pulse__composer-prompt {
@@ -782,12 +782,12 @@
   :global(.community-pulse__note-time) {
     flex: none;
     color: var(--muted-foreground);
-    font-size: 0.75rem;
+    font-size: var(--community-text-secondary);
   }
 
   :global(.community-pulse__agent-note-time) {
     color: var(--muted-foreground);
-    font-size: 0.75rem;
+    font-size: var(--community-text-secondary);
   }
 
   .community-pulse__parent {
@@ -801,7 +801,7 @@
     border-radius: 999px;
     background: var(--secondary);
     color: var(--muted-foreground);
-    font-size: 0.78rem;
+    font-size: var(--community-text-secondary);
   }
 
   .community-pulse__parent strong {
@@ -856,7 +856,7 @@
   .community-pulse__agent-header small {
     overflow: hidden;
     color: var(--muted-foreground);
-    font-size: 0.75rem;
+    font-size: var(--community-text-secondary);
     text-overflow: ellipsis;
     white-space: nowrap;
   }
@@ -880,7 +880,7 @@
 
   .community-pulse__search h1 {
     margin: 0;
-    font-size: clamp(1.5rem, 3vw, 2.1rem);
+    font-size: var(--community-text-page);
     letter-spacing: -0.035em;
   }
 

@@ -140,7 +140,7 @@
     padding-inline: 1rem;
     color: var(--muted-foreground);
     background: transparent;
-    font-size: 0.95rem;
+    font-size: var(--community-text-body);
     font-weight: 400;
   }
 

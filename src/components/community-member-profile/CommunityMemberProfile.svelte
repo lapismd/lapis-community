@@ -115,7 +115,7 @@
   }
 
   h2 {
-    font-size: 1.1rem;
+    font-size: var(--community-text-section);
   }
 
   :global(
@@ -130,14 +130,14 @@
   }
 
   h3 {
-    font-size: 0.8rem;
+    font-size: var(--community-text-secondary);
     text-transform: uppercase;
     letter-spacing: 0.04em;
   }
 
   p {
     color: var(--muted-foreground);
-    font-size: 0.85rem;
+    font-size: var(--community-text-body);
   }
 
   .community-member-profile__actions {

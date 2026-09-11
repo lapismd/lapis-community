@@ -1,9 +1,8 @@
 <script lang="ts">
-  import "../community-confirm-dialog.css";
   import { tick, type Snippet } from "svelte";
 
   import * as Alert from "@lapismd/design-core/shadcn/alert";
-  import * as AlertDialog from "@lapismd/design-core/shadcn/alert-dialog";
+  import { ConfirmDialog } from "@lapismd/design-core/forms/dialog";
   import { Button } from "@lapismd/design-core/shadcn/button";
   import * as DropdownMenu from "@lapismd/design-core/shadcn/dropdown-menu";
   import * as Tabs from "@lapismd/design-core/shadcn/tabs";
@@ -784,40 +783,28 @@
     </section>
   {/if}
 
-  <AlertDialog.Root bind:open={historicalConfirmationOpen}>
-    <AlertDialog.Content class="community-confirm-dialog">
-      <AlertDialog.Header>
-        <AlertDialog.Title>Install historical release?</AlertDialog.Title>
-        <AlertDialog.Description>
-          {#if effectiveInstallAction.installedVersion}
-            This replaces installed version {effectiveInstallAction.installedVersion}
-            with historical version {displayedVersion}. The current trusted
-            release is {trustedCurrentVersion}.
-          {:else}
-            You are installing historical version {displayedVersion}. The
-            current trusted release is {trustedCurrentVersion}.
-          {/if}
-        </AlertDialog.Description>
-      </AlertDialog.Header>
-      <AlertDialog.Footer>
-        <AlertDialog.Cancel>
-          {#snippet child({ props })}
-            <Button {...props} variant="outline">Cancel</Button>
-          {/snippet}
-        </AlertDialog.Cancel>
-        <AlertDialog.Action
-          onclick={() => {
-            historicalConfirmationOpen = false;
-            void performInstall();
-          }}
-        >
-          {#snippet child({ props })}
-            <Button {...props}>Install {displayedVersion}</Button>
-          {/snippet}
-        </AlertDialog.Action>
-      </AlertDialog.Footer>
-    </AlertDialog.Content>
-  </AlertDialog.Root>
+  <ConfirmDialog
+    bind:open={historicalConfirmationOpen}
+    pending={submitting}
+    error={installError}
+    onConfirm={async () => {
+      await performInstall();
+      return !installError;
+    }}
+  >
+    {#snippet title()}Install historical release?{/snippet}
+    {#snippet description()}
+      {#if effectiveInstallAction.installedVersion}
+        This replaces installed version {effectiveInstallAction.installedVersion}
+        with historical version {displayedVersion}. The current trusted release
+        is {trustedCurrentVersion}.
+      {:else}
+        You are installing historical version {displayedVersion}. The current
+        trusted release is {trustedCurrentVersion}.
+      {/if}
+    {/snippet}
+    {#snippet confirmLabel()}Install {displayedVersion}{/snippet}
+  </ConfirmDialog>
 
   <RegistryMediaViewer
     items={detailViewerItems}
@@ -862,7 +849,7 @@
   }
   .registry-plugin-detail__identity h1 {
     margin: 0;
-    font-size: clamp(2rem, 4vw, 2.25rem);
+    font-size: var(--community-text-page);
     font-weight: 600;
     line-height: 1.1;
     letter-spacing: -0.035em;
@@ -947,7 +934,7 @@
   .registry-plugin-detail__description {
     max-width: 48rem;
     margin: 0;
-    font-size: clamp(1.1rem, 2vw, 1.25rem);
+    font-size: var(--community-text-section);
     line-height: 1.4;
   }
   :global(.registry-plugin-detail__install-error[data-ui-component="alert"]) {
@@ -1080,7 +1067,7 @@
   .registry-plugin-detail__related h2,
   .registry-plugin-detail__sidebar h2 {
     margin: 0 0 0.65rem;
-    font-size: 1rem;
+    font-size: var(--community-text-section);
   }
   .registry-plugin-detail__markdown :global(:first-child) {
     margin-top: 0;
@@ -1126,11 +1113,11 @@
   }
   :global(.registry-plugin-detail__version-trigger > span) {
     color: var(--muted-foreground);
-    font-size: 0.7rem;
+    font-size: var(--community-text-secondary);
   }
   .registry-plugin-detail__releases p {
     color: var(--muted-foreground);
-    font-size: 0.85rem;
+    font-size: var(--community-text-body);
   }
   .registry-plugin-detail__sidebar {
     display: grid;
@@ -1143,7 +1130,7 @@
   .registry-plugin-detail__sidebar p {
     margin: 0;
     color: var(--muted-foreground);
-    font-size: 0.9rem;
+    font-size: var(--community-text-body);
     line-height: 1.45;
   }
   .registry-plugin-detail__health {
@@ -1158,7 +1145,7 @@
     display: flex;
     justify-content: space-between;
     gap: 1rem;
-    font-size: 0.8rem;
+    font-size: var(--community-text-secondary);
   }
   .registry-plugin-detail__health
     > div[data-complete="true"]
@@ -1195,7 +1182,7 @@
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
     gap: 0.75rem;
-    font-size: 0.82rem;
+    font-size: var(--community-text-secondary);
   }
   dt {
     color: var(--muted-foreground);

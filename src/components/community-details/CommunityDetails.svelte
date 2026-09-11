@@ -1,6 +1,6 @@
 <script lang="ts">
   import CommunityChip from "../community-chip/CommunityChip.svelte";
-  import CommunityMemberAvatar from "../community-member-avatar/CommunityMemberAvatar.svelte";
+  import CommunityMemberHoverCard from "../community-member-hover-card/CommunityMemberHoverCard.svelte";
 
   import {
     memberById,
@@ -13,10 +13,16 @@
     room,
     details,
     members,
+    onOpenProfile,
+    onMessageMember,
+    onWaveMember,
   }: {
     room: CommunityRoomModel;
     details: CommunityDetailsModel;
     members: CommunityMemberModel[];
+    onOpenProfile?: (member: CommunityMemberModel) => void;
+    onMessageMember?: (member: CommunityMemberModel) => void;
+    onWaveMember?: (member: CommunityMemberModel) => void;
   } = $props();
 
   const visibleMembers = $derived(
@@ -52,11 +58,12 @@
     <div class="community-details__members">
       {#each visibleMembers as member (member.id)}
         <div class="community-details__member">
-          <CommunityMemberAvatar
+          <CommunityMemberHoverCard
             {member}
-            size="small"
-            showPresence
-            decorative
+            avatarSize="small"
+            {...onOpenProfile ? { onOpenProfile } : {}}
+            {...onMessageMember ? { onMessage: onMessageMember } : {}}
+            {...onWaveMember ? { onWave: onWaveMember } : {}}
           />
           <span>
             <strong>{member.name}</strong>
@@ -87,7 +94,7 @@
   }
 
   h2 {
-    font-size: 0.82rem;
+    font-size: var(--community-text-secondary);
     letter-spacing: 0.04em;
     text-transform: uppercase;
   }
@@ -95,7 +102,7 @@
   p,
   li {
     color: var(--muted-foreground);
-    font-size: 0.82rem;
+    font-size: var(--community-text-secondary);
     line-height: 1.5;
   }
 
@@ -111,7 +118,7 @@
     align-items: center;
     gap: 0.45rem;
     color: var(--muted-foreground);
-    font-size: 0.76rem;
+    font-size: var(--community-text-secondary);
   }
 
   .community-details__members {
@@ -141,11 +148,11 @@
   }
 
   .community-details__member strong {
-    font-size: 0.8rem;
+    font-size: var(--community-text-secondary);
   }
 
   .community-details__member small {
     color: var(--muted-foreground);
-    font-size: 0.68rem;
+    font-size: var(--community-text-secondary);
   }
 </style>

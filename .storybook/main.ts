@@ -1,3 +1,4 @@
+import { fileURLToPath } from "node:url";
 import type { StorybookConfig } from "@storybook/svelte-vite";
 import { mergeConfig, type Plugin } from "vite";
 
@@ -41,7 +42,14 @@ const config: StorybookConfig = {
   },
   viteFinal: async (viteConfig) =>
     mergeConfig(viteConfig, {
-      resolve: { dedupe: ["svelte"] },
+      resolve: {
+        dedupe: ["svelte"],
+        alias: {
+          "@lapismd/lapis-community/components": fileURLToPath(
+            new URL("../src/components/index.ts", import.meta.url),
+          ),
+        },
+      },
       plugins: [tursoBundleBuildPlugin(), crossOriginIsolationPlugin()],
       optimizeDeps: {
         force: true,

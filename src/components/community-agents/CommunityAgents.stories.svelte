@@ -82,9 +82,7 @@
       name: "Choose agent image",
     });
     await userEvent.click(imageButton);
-    const imagePicker = within(dialog).getByRole("dialog", {
-      name: "Agent image picker",
-    });
+    const imagePicker = body.getByLabelText("Avatar image picker");
     await expect(imagePicker).toBeVisible();
     expect(
       imagePicker.getBoundingClientRect().top -
@@ -95,10 +93,30 @@
     );
     await expect(
       within(imagePicker).getByRole("button", {
-        name: "Choose another agent emoji",
+        name: "Browse all emoji",
       }),
     ).toBeVisible();
-    await userEvent.click(imageButton);
+    await userEvent.click(
+      body.getByRole("button", { name: "Browse all emoji" }),
+    );
+    const emoji = await waitFor(() => {
+      const button = canvasElement.ownerDocument
+        .querySelector("em-emoji-picker")
+        ?.shadowRoot?.querySelector<HTMLButtonElement>(
+          'button[aria-label="🤣"]',
+        );
+      expect(button).not.toBeNull();
+      return button!;
+    });
+    await userEvent.click(emoji);
+    expect(
+      decodeURIComponent(
+        within(dialog)
+          .getByRole("img", { name: "Selected avatar" })
+          .getAttribute("src")!,
+      ),
+    ).toContain("🤣");
+    await userEvent.keyboard("{Escape}");
     const scrollArea = dialog.querySelector<HTMLElement>(
       '[data-ui-component="scroll-area"][data-ui-part="scroll-area"]',
     );
@@ -115,12 +133,19 @@
       scrollArea!.getBoundingClientRect().right,
       0,
     );
+    // Exercise overflow even when the test runner has a tall viewport.
+    dialog.style.maxHeight = "32rem";
+    await waitFor(() =>
+      expect(dialog.getBoundingClientRect().height).toBeLessThanOrEqual(512),
+    );
     const footerTop = footer!.getBoundingClientRect().top;
     const viewport = scrollArea!.querySelector<HTMLElement>(
       '[data-ui-part="scroll-area-viewport"]',
     );
     expect(viewport).not.toBeNull();
+    expect(viewport!.scrollHeight).toBeGreaterThan(viewport!.clientHeight);
     viewport!.scrollTop = viewport!.scrollHeight;
+    await waitFor(() => expect(viewport!.scrollTop).toBeGreaterThan(0));
     expect(footer!.getBoundingClientRect().top).toBeCloseTo(footerTop, 0);
     await expect(
       within(dialog).getByLabelText("Agent public key"),
@@ -168,8 +193,19 @@
     ).toBeVisible();
   }}>{#snippet template()}<Harness variant="gallery" />{/snippet}</Story
 >
-<Story name="Loading"
-  >{#snippet template()}<Harness variant="loading" />{/snippet}</Story
+<Story
+  name="Loading"
+  play={async ({ canvasElement, canvas }) => {
+    expect(
+      canvas.getByRole("status", { name: "Loading your agents" }),
+    ).toHaveAttribute("data-layout", "gallery");
+    expect(
+      canvasElement.querySelectorAll('[data-slot="skeleton"]').length,
+    ).toBeGreaterThan(4);
+    expect(
+      canvas.queryByRole("button", { name: "View Research" }),
+    ).not.toBeInTheDocument();
+  }}>{#snippet template()}<Harness variant="loading" />{/snippet}</Story
 >
 <Story name="Empty"
   >{#snippet template()}<Harness variant="empty" />{/snippet}</Story
@@ -232,7 +268,7 @@
     );
     await userEvent.click(trigger);
     const body = within(canvasElement.ownerDocument.body);
-    let dialog = body.getByRole("dialog", {
+    let dialog = body.getByRole("alertdialog", {
       name: "Clear all saved agent activity?",
     });
     await expect(
@@ -242,7 +278,7 @@
       within(dialog).getByRole("button", { name: "Cancel", exact: true }),
     );
     await waitFor(() =>
-      expect(body.queryByRole("dialog")).not.toBeInTheDocument(),
+      expect(body.queryByRole("alertdialog")).not.toBeInTheDocument(),
     );
     await expect(trigger).toHaveFocus();
     await waitFor(() =>
@@ -252,7 +288,7 @@
       canvas.queryByText("Saved history cleared"),
     ).not.toBeInTheDocument();
     await userEvent.click(trigger);
-    dialog = body.getByRole("dialog", {
+    dialog = body.getByRole("alertdialog", {
       name: "Clear all saved agent activity?",
     });
     await userEvent.click(
@@ -264,13 +300,6 @@
     await expect(within(dialog).getByRole("alert")).toHaveTextContent(
       "Relay denied",
     );
-    const close = within(dialog).getByRole("button", {
-      name: "Close clear history dialog",
-    });
-    await expect(close.querySelector("svg")).toHaveClass("size-3.5");
-    await userEvent.hover(close);
-    close.focus();
-    await expect(close).toHaveFocus();
     await userEvent.click(
       within(dialog).getByRole("button", {
         name: "Clear history",
@@ -279,7 +308,7 @@
     );
     await expect(canvas.getByText("Saved history cleared")).toBeVisible();
     await waitFor(() =>
-      expect(body.queryByRole("dialog")).not.toBeInTheDocument(),
+      expect(body.queryByRole("alertdialog")).not.toBeInTheDocument(),
     );
   }}>{#snippet template()}<Harness failAction />{/snippet}</Story
 >

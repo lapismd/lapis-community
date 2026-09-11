@@ -203,7 +203,7 @@
     display: -webkit-box;
     overflow: hidden;
     color: var(--muted-foreground);
-    font-size: 0.9rem;
+    font-size: var(--community-text-body);
     line-height: 1.35;
     -webkit-box-orient: vertical;
     -webkit-line-clamp: 2;
@@ -223,6 +223,6 @@
     align-items: center;
     gap: 0.4rem 0.65rem;
     color: var(--muted-foreground);
-    font-size: 0.75rem;
+    font-size: var(--community-text-secondary);
   }
 </style>

@@ -804,7 +804,7 @@
     padding-inline: 1rem;
     color: var(--muted-foreground);
     background: transparent;
-    font-size: 0.95rem;
+    font-size: var(--community-text-body);
     font-weight: 400;
   }
 
@@ -838,12 +838,12 @@
 
   .discussion-composer__profile-heading h3 {
     margin: 0;
-    font-size: 0.95rem;
+    font-size: var(--community-text-body);
   }
 
   p {
     margin: 0;
     color: var(--muted-foreground);
-    font-size: 0.78rem;
+    font-size: var(--community-text-secondary);
   }
 </style>

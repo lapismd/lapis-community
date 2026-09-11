@@ -1,0 +1,289 @@
+{
+  "version": 1,
+  "patterns": [
+    {
+      "id": "dialog",
+      "name": "Dialog",
+      "component": "DialogFrame",
+      "import": "@lapismd/design-core/forms/dialog",
+      "example": "src/components/community-patterns/examples/DialogExample.svelte",
+      "story": "community-patterns-dialog--contract",
+      "storyFile": "src/components/community-patterns/Dialog.stories.svelte",
+      "requirement": "LC-UI-038",
+      "variants": ["compact", "form", "wide", "sidebar"],
+      "requiredStates": ["open", "scroll", "close", "focus-restored"],
+      "loading": {
+        "applicable": false,
+        "states": [],
+        "reason": "Page loading is demonstrated by the Loading pattern; this composition does not fetch data."
+      },
+      "when": "Editing forms and content dialogs; pages provide snippets, never overlay geometry.",
+      "productionStories": ["community-agents-directory--add-agent"],
+      "verification": {
+        "open": "community-patterns-dialog--contract",
+        "focus-restored": "community-patterns-dialog--contract",
+        "close": "community-patterns-dialog--contract",
+        "scroll": "community-patterns-dialog--contract"
+      }
+    },
+    {
+      "id": "confirmation",
+      "name": "Confirmation",
+      "component": "ConfirmButton",
+      "import": "@lapismd/design-core/forms/dialog",
+      "example": "src/components/community-patterns/examples/ConfirmationExample.svelte",
+      "story": "community-patterns-confirmation--contract",
+      "storyFile": "src/components/community-patterns/Confirmation.stories.svelte",
+      "requirement": "LC-UI-038",
+      "variants": ["normal", "destructive", "pending", "error"],
+      "requiredStates": ["cancel", "rejection", "retry"],
+      "loading": {
+        "applicable": false,
+        "states": [],
+        "reason": "Page loading is demonstrated by the Loading pattern; this composition does not fetch data."
+      },
+      "when": "Confirm an irreversible or disruptive action in a compact centered dialog.",
+      "productionStories": [
+        "community-agents-directory--confirmed-clear-failure-and-retry"
+      ],
+      "verification": {
+        "retry": "community-patterns-confirmation--contract",
+        "cancel": "community-patterns-confirmation--contract",
+        "rejection": "community-patterns-confirmation--contract"
+      }
+    },
+    {
+      "id": "composer",
+      "name": "Composer",
+      "component": "CommunityChatComposer",
+      "import": "@lapismd/lapis-community/components",
+      "example": "src/components/community-patterns/examples/ComposerExample.svelte",
+      "story": "community-patterns-composer--contract",
+      "storyFile": "src/components/community-patterns/Composer.stories.svelte",
+      "requirement": "LC-UI-038",
+      "variants": ["chat", "form"],
+      "requiredStates": ["newline", "save"],
+      "loading": {
+        "applicable": false,
+        "states": [],
+        "reason": "Page loading is demonstrated by the Loading pattern; this composition does not fetch data."
+      },
+      "when": "All prose entry; use mode=form inside forms. Keep Input for names, search, URLs and keys.",
+      "productionStories": ["community-channels-chat-composer--empty"],
+      "verification": {
+        "newline": "community-patterns-composer--contract",
+        "save": "community-patterns-composer--contract"
+      }
+    },
+    {
+      "id": "avatar",
+      "name": "Avatar",
+      "component": "CommunityAvatarPicker",
+      "import": "@lapismd/lapis-community/components",
+      "example": "src/components/community-patterns/examples/AvatarExample.svelte",
+      "story": "community-patterns-avatar--contract",
+      "storyFile": "src/components/community-patterns/Avatar.stories.svelte",
+      "requirement": "LC-UI-038",
+      "variants": ["rounded", "circle", "medium", "large"],
+      "requiredStates": ["full-picker", "selection", "dismissal"],
+      "loading": {
+        "applicable": false,
+        "states": [],
+        "reason": "Page loading is demonstrated by the Loading pattern; this composition does not fetch data."
+      },
+      "when": "Choosing or editing an image or emoji avatar; the parent owns persistence.",
+      "productionStories": ["community-navigation-settings--personal-settings"],
+      "verification": {
+        "full-picker": "community-patterns-avatar--contract",
+        "selection": "community-patterns-avatar--contract",
+        "dismissal": "community-patterns-avatar--contract"
+      }
+    },
+    {
+      "id": "identity",
+      "name": "Identity",
+      "component": "CommunityMemberHoverCard",
+      "import": "@lapismd/lapis-community/components",
+      "example": "src/components/community-patterns/examples/IdentityExample.svelte",
+      "story": "community-patterns-identity--contract",
+      "storyFile": "src/components/community-patterns/Identity.stories.svelte",
+      "requirement": "LC-UI-038",
+      "variants": [
+        "avatar",
+        "avatar-group",
+        "inline-mention",
+        "markdown-mention",
+        "composer-mention"
+      ],
+      "requiredStates": [
+        "profile-navigation",
+        "message",
+        "wave",
+        "unavailable-actions"
+      ],
+      "loading": {
+        "applicable": false,
+        "states": [],
+        "reason": "Page loading is demonstrated by the Loading pattern; this composition does not fetch data."
+      },
+      "when": "All author identities: avatar, interactive avatar group, inline mention, Markdown mention, and composer mention share profile navigation and the default Message/Wave actions. Additional contextual actions are optional; unavailable actions are disabled.",
+      "productionStories": ["community-members-hover-card--contact-actions"],
+      "relatedComponents": [
+        "CommunityMemberAvatarGroup",
+        "CommunityMemberAvatar",
+        "CommunityMarkdownContent",
+        "CommunityChatComposer"
+      ],
+      "verification": {
+        "message": "community-patterns-identity--contract",
+        "wave": "community-patterns-identity--contract",
+        "profile-navigation": "community-patterns-identity--contract",
+        "unavailable-actions": "community-members-hover-card--unavailable-default-actions"
+      }
+    },
+    {
+      "id": "reactions",
+      "name": "Reactions",
+      "component": "CommunityReactions",
+      "import": "@lapismd/lapis-community/components",
+      "example": "src/components/community-patterns/examples/ReactionsExample.svelte",
+      "story": "community-patterns-reactions--contract",
+      "storyFile": "src/components/community-patterns/Reactions.stories.svelte",
+      "requirement": "LC-UI-038",
+      "variants": ["all", "bar", "picker"],
+      "requiredStates": ["toggle", "full-picker"],
+      "loading": {
+        "applicable": false,
+        "states": [],
+        "reason": "Page loading is demonstrated by the Loading pattern; this composition does not fetch data."
+      },
+      "when": "Message reaction groups and add-reaction controls.",
+      "productionStories": [
+        "community-channels-message--message-with-thread-and-reactions"
+      ],
+      "verification": {
+        "toggle": "community-patterns-reactions--contract",
+        "full-picker": "community-patterns-reactions--contract"
+      }
+    },
+    {
+      "id": "markdown",
+      "name": "Markdown",
+      "component": "CommunityMarkdownContent",
+      "import": "@lapismd/lapis-community/components",
+      "example": "src/components/community-patterns/examples/MarkdownExample.svelte",
+      "story": "community-patterns-markdown--contract",
+      "storyFile": "src/components/community-patterns/Markdown.stories.svelte",
+      "requirement": "LC-UI-038",
+      "variants": ["prose", "mentions", "links"],
+      "requiredStates": ["formatted-text", "links"],
+      "loading": {
+        "applicable": false,
+        "states": [],
+        "reason": "Page loading is demonstrated by the Loading pattern; this composition does not fetch data."
+      },
+      "when": "Prose outside a conversation; conversation posts use CommunityMessage or CommunityConversation.",
+      "productionStories": [
+        "community-channels-markdown-content--chat-markdown-matrix"
+      ],
+      "verification": {
+        "formatted-text": "community-patterns-markdown--contract",
+        "links": "community-patterns-markdown--contract"
+      }
+    },
+    {
+      "id": "loading",
+      "name": "Loading",
+      "component": "CommunitySkeleton",
+      "import": "@lapismd/lapis-community/components",
+      "example": "src/components/community-patterns/examples/LoadingExample.svelte",
+      "story": "community-patterns-loading--contract",
+      "storyFile": "src/components/community-patterns/Loading.stories.svelte",
+      "requirement": "LC-UI-040",
+      "variants": ["gallery", "timeline", "messages", "details", "repository"],
+      "requiredStates": ["initial", "content", "refresh"],
+      "loading": {
+        "applicable": true,
+        "states": ["initial", "refresh", "pagination", "empty", "error"],
+        "reason": "Use the matching layout; preserve existing content on refresh."
+      },
+      "when": "Initial destination loading or pagination; choose the layout of the eventual content.",
+      "productionStories": ["community-agents-directory--loading"],
+      "verification": {
+        "refresh": "community-patterns-loading--contract",
+        "empty": "community-patterns-loading--empty",
+        "content": "community-patterns-loading--contract",
+        "initial": "community-patterns-loading--contract",
+        "error": "community-patterns-loading--error-and-retry",
+        "pagination": "community-patterns-loading--contract"
+      }
+    },
+    {
+      "id": "emoji",
+      "name": "Emoji",
+      "component": "CommunityEmojiPicker",
+      "import": "@lapismd/lapis-community/components",
+      "example": "src/components/community-patterns/examples/EmojiExample.svelte",
+      "story": "community-patterns-emoji--contract",
+      "storyFile": "src/components/community-patterns/Emoji.stories.svelte",
+      "requirement": "LC-UI-038",
+      "variants": ["standard", "custom"],
+      "requiredStates": ["selection", "dismissal"],
+      "loading": {
+        "applicable": false,
+        "states": [],
+        "reason": "Page loading is demonstrated by the Loading pattern; this composition does not fetch data."
+      },
+      "when": "All emoji selection, including avatar and reaction compositions.",
+      "productionStories": [],
+      "verification": {
+        "selection": "community-patterns-emoji--contract",
+        "dismissal": "community-patterns-emoji--contract"
+      }
+    },
+    {
+      "id": "message",
+      "name": "Message",
+      "component": "CommunityMessage",
+      "import": "@lapismd/lapis-community/components",
+      "example": "src/components/community-patterns/examples/MessageExample.svelte",
+      "story": "community-patterns-message--contract",
+      "storyFile": "src/components/community-patterns/Message.stories.svelte",
+      "requirement": "LC-UI-038",
+      "variants": ["message", "conversation"],
+      "requiredStates": ["formatted-text", "links", "reactions"],
+      "loading": {
+        "applicable": false,
+        "states": [],
+        "reason": "Page loading is demonstrated by the Loading pattern; this composition does not fetch data."
+      },
+      "when": "Chat messages and conversation posts; reuse Markdown, author identity and reactions through this owner.",
+      "productionStories": [
+        "community-channels-message--message-with-thread-and-reactions"
+      ],
+      "verification": {
+        "formatted-text": "community-patterns-message--contract",
+        "reactions": "community-patterns-message--contract",
+        "links": "community-patterns-message--contract"
+      }
+    }
+  ],
+  "exceptions": [
+    {
+      "file": "src/components/community-chat-composer/autocomplete.ts",
+      "rule": "emoji",
+      "symbol": "emoji-mart",
+      "reason": "Headless shortcode completion uses SearchIndex, not a picker UI. CommunityEmojiPicker owns interactive emoji selection.",
+      "story": "community-channels-chat-composer--command-autocomplete",
+      "requirement": "LC-UI-038"
+    },
+    {
+      "file": "src/components/community-chat-composer/autocomplete.ts",
+      "rule": "emoji",
+      "symbol": "@emoji-mart/data",
+      "reason": "Headless shortcode completion uses SearchIndex, not a picker UI. CommunityEmojiPicker owns interactive emoji selection.",
+      "story": "community-channels-chat-composer--command-autocomplete",
+      "requirement": "LC-UI-038"
+    }
+  ]
+}

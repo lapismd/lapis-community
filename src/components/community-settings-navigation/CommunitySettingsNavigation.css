@@ -28,7 +28,7 @@
   margin: 0 0 0.35rem;
   padding-inline: 0.75rem;
   color: var(--muted-foreground);
-  font-size: 0.75rem;
+  font-size: var(--community-text-secondary);
   font-weight: 500;
 }
 

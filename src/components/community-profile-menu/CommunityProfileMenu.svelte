@@ -351,13 +351,13 @@
   }
 
   .community-profile-menu__identity strong {
-    font-size: 0.9375rem;
+    font-size: var(--community-text-body);
     line-height: 1.1;
   }
 
   .community-profile-menu__identity small {
     color: var(--muted-foreground);
-    font-size: 0.75rem;
+    font-size: var(--community-text-secondary);
   }
 
   :global(.community-profile-menu__content) {
@@ -392,7 +392,7 @@
 
   :global(.community-profile-menu__menu-identity strong) {
     color: var(--foreground);
-    font-size: 0.9375rem;
+    font-size: var(--community-text-body);
   }
 
   :global(.community-profile-menu__status-action) {
@@ -413,7 +413,7 @@
     padding: 0.0625rem 0.45rem;
     color: var(--muted-foreground);
     background: color-mix(in srgb, var(--muted-foreground) 10%, transparent);
-    font-size: 0.6875rem;
+    font-size: var(--community-text-secondary);
     line-height: 1;
   }
 
@@ -470,7 +470,7 @@
     border: 1px solid var(--border);
     border-radius: 0.375rem;
     background: color-mix(in srgb, var(--muted) 72%, transparent);
-    font-size: 0.75rem;
+    font-size: var(--community-text-secondary);
     text-align: center;
   }
 
@@ -498,7 +498,7 @@
   :global(.community-profile-menu__community-label small) {
     overflow: hidden;
     color: var(--muted-foreground);
-    font-size: 0.68rem;
+    font-size: var(--community-text-secondary);
     font-weight: 400;
     text-overflow: ellipsis;
     white-space: nowrap;

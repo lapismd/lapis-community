@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { DialogFrame } from "@lapismd/design-core/forms/dialog";
   import { Button } from "@lapismd/design-core/shadcn/button";
   import * as Command from "@lapismd/design-core/shadcn/command";
   import * as Dialog from "@lapismd/design-core/shadcn/dialog";
@@ -94,182 +95,163 @@
   }
 </script>
 
-<Command.Dialog
-  bind:open
-  class="community-search-command"
-  title={searchTitle}
-  description={scoped && scopeRoom
-    ? `Search messages in #${scopeRoom.name}. The relay is queried when it supports NIP-50.`
-    : "Search rooms, loaded messages, and known members. The relay is queried when it supports NIP-50."}
->
-  <div
-    class="community-search-command__input-row"
-    data-scoped={scoped ? "" : undefined}
-    style:--community-search-scope-padding={scopeInputPadding}
-  >
-    <Command.Input
-      class="community-search-command__input"
-      value={query}
-      placeholder={scoped
-        ? "Search messages"
-        : "Search for a channel, message, or person"}
-      aria-label={searchTitle}
-      aria-controls="community-search-command-results"
-      oninput={(event) => onQueryChange(event.currentTarget.value)}
-    />
-    {#if scoped && scopeRoom}
-      <CommunityChip
-        variant="muted"
-        class="community-search-command__scope"
-        ariaLabel={`Remove #${scopeRoom.name} search scope`}
-        onclick={clearScope}
+<Dialog.Root bind:open
+  ><DialogFrame
+    title={searchTitle}
+    description={scoped && scopeRoom
+      ? `Search messages in #${scopeRoom.name}. The relay is queried when it supports NIP-50.`
+      : "Search rooms, loaded messages, and known members. The relay is queried when it supports NIP-50."}
+    size="form"
+    bodyPadding="none"
+    closeLabel="Close search"
+    ><Command.Root class="community-search-command">
+      <div
+        class="community-search-command__input-row"
+        data-scoped={scoped ? "" : undefined}
+        style:--community-search-scope-padding={scopeInputPadding}
       >
-        #{scopeRoom.name}
-        <span aria-hidden="true">×</span>
-      </CommunityChip>
-    {/if}
-    <Dialog.Close>
-      {#snippet child({ props })}
-        <Button
-          {...props}
-          variant="outline"
-          size="sm"
-          class="community-search-command__escape"
-          aria-label="Close search"
-          title="Close search">Esc</Button
-        >
-      {/snippet}
-    </Dialog.Close>
-  </div>
-  {#if updating}
-    <p class="community-search-command__sync-status" role="status">
-      Updating older community results…
-    </p>
-  {/if}
-  <Command.List id="community-search-command-results">
-    {#if !scoped && scopeRoom}
-      <Command.Group>
-        <Command.Item
-          value={`Search in #${scopeRoom.name}`}
-          onSelect={selectScope}
-        >
-          <SearchIcon aria-hidden="true" />
-          <span class="community-search-command__result-copy">
-            <strong>Search in #{scopeRoom.name}</strong>
-            <small>Search messages in this channel</small>
-          </span>
-        </Command.Item>
-      </Command.Group>
-    {/if}
-    {#if scoped}
-      {#if query.trim()}
-        <Command.Empty>No matching messages in #{scopeRoom?.name}</Command.Empty
-        >
-        {#if scopedMessages.length}
-          <Command.Group heading="Search results">
-            {#each scopedMessages as message (message.id)}
-              <Command.Item
-                value={`${message.content} ${message.timestamp}`}
-                onSelect={() => onSelectMessage(message)}
-              >
-                <MessageSquareIcon aria-hidden="true" />
-                <span class="community-search-command__result-copy">
-                  <strong>{message.content.slice(0, 100)}</strong>
-                  <small>{message.timestamp}</small>
-                </span>
-              </Command.Item>
-            {/each}
+        <Command.Input
+          class="community-search-command__input"
+          value={query}
+          placeholder={scoped
+            ? "Search messages"
+            : "Search for a channel, message, or person"}
+          aria-label={searchTitle}
+          aria-controls="community-search-command-results"
+          oninput={(event) => onQueryChange(event.currentTarget.value)}
+        />
+        {#if scoped && scopeRoom}
+          <CommunityChip
+            variant="muted"
+            class="community-search-command__scope"
+            ariaLabel={`Remove #${scopeRoom.name} search scope`}
+            onclick={clearScope}
+          >
+            #{scopeRoom.name}
+            <span aria-hidden="true">×</span>
+          </CommunityChip>
+        {/if}
+      </div>
+      {#if updating}
+        <p class="community-search-command__sync-status" role="status">
+          Updating older community results…
+        </p>
+      {/if}
+      <Command.List id="community-search-command-results">
+        {#if !scoped && scopeRoom}
+          <Command.Group>
+            <Command.Item
+              value={`Search in #${scopeRoom.name}`}
+              onSelect={selectScope}
+            >
+              <SearchIcon aria-hidden="true" />
+              <span class="community-search-command__result-copy">
+                <strong>Search in #{scopeRoom.name}</strong>
+                <small>Search messages in this channel</small>
+              </span>
+            </Command.Item>
           </Command.Group>
         {/if}
-      {/if}
-    {:else}
-      <Command.Empty>No matching channels, messages, or people</Command.Empty>
-      {#if rooms.length || messages.length || members.length}
-        <Command.Group
-          heading={query.trim() ? "Search results" : "Recent activity"}
-        >
-          {#each rooms as room (room.id)}
-            <Command.Item
-              value={`${room.name} ${room.description ?? ""}`}
-              onSelect={() => onSelectRoom(room)}
+        {#if scoped}
+          {#if query.trim()}
+            <Command.Empty
+              >No matching messages in #{scopeRoom?.name}</Command.Empty
             >
-              {#if room.kind === "forum"}
-                <MessagesSquareIcon aria-hidden="true" />
-              {:else if room.kind === "direct"}
-                <CircleUserRoundIcon aria-hidden="true" />
-              {:else}
-                <HashIcon aria-hidden="true" />
-              {/if}
+            {#if scopedMessages.length}
+              <Command.Group heading="Search results">
+                {#each scopedMessages as message (message.id)}
+                  <Command.Item
+                    value={`${message.content} ${message.timestamp}`}
+                    onSelect={() => onSelectMessage(message)}
+                  >
+                    <MessageSquareIcon aria-hidden="true" />
+                    <span class="community-search-command__result-copy">
+                      <strong>{message.content.slice(0, 100)}</strong>
+                      <small>{message.timestamp}</small>
+                    </span>
+                  </Command.Item>
+                {/each}
+              </Command.Group>
+            {/if}
+          {/if}
+        {:else}
+          <Command.Empty
+            >No matching channels, messages, or people</Command.Empty
+          >
+          {#if rooms.length || messages.length || members.length}
+            <Command.Group
+              heading={query.trim() ? "Search results" : "Recent activity"}
+            >
+              {#each rooms as room (room.id)}
+                <Command.Item
+                  value={`${room.name} ${room.description ?? ""}`}
+                  onSelect={() => onSelectRoom(room)}
+                >
+                  {#if room.kind === "forum"}
+                    <MessagesSquareIcon aria-hidden="true" />
+                  {:else if room.kind === "direct"}
+                    <CircleUserRoundIcon aria-hidden="true" />
+                  {:else}
+                    <HashIcon aria-hidden="true" />
+                  {/if}
+                  <span class="community-search-command__result-copy">
+                    <strong>{room.name}</strong>
+                    <small>{roomDescription(room)}</small>
+                  </span>
+                </Command.Item>
+              {/each}
+              {#each messages as message (message.id)}
+                <Command.Item
+                  value={`${message.content} ${messageDescription(message)}`}
+                  onSelect={() => onSelectMessage(message)}
+                >
+                  <MessageSquareIcon aria-hidden="true" />
+                  <span class="community-search-command__result-copy">
+                    <strong>{message.content.slice(0, 100)}</strong>
+                    <small>{messageDescription(message)}</small>
+                  </span>
+                </Command.Item>
+              {/each}
+              {#each members as member (member.id)}
+                <Command.Item
+                  value={`${member.name} ${member.handle}`}
+                  onSelect={() => onSelectMember(member)}
+                >
+                  <UserIcon aria-hidden="true" />
+                  <span class="community-search-command__result-copy">
+                    <strong>{member.name}</strong>
+                    <small>@{member.handle}</small>
+                  </span>
+                </Command.Item>
+              {/each}
+            </Command.Group>
+          {/if}
+          <Command.Group heading="Actions">
+            <Command.Item value="Browse channels" onSelect={onBrowseChannels}>
+              <ListFilterIcon aria-hidden="true" />
               <span class="community-search-command__result-copy">
-                <strong>{room.name}</strong>
-                <small>{roomDescription(room)}</small>
+                <strong>Browse channels</strong>
               </span>
             </Command.Item>
-          {/each}
-          {#each messages as message (message.id)}
-            <Command.Item
-              value={`${message.content} ${messageDescription(message)}`}
-              onSelect={() => onSelectMessage(message)}
-            >
-              <MessageSquareIcon aria-hidden="true" />
-              <span class="community-search-command__result-copy">
-                <strong>{message.content.slice(0, 100)}</strong>
-                <small>{messageDescription(message)}</small>
-              </span>
-            </Command.Item>
-          {/each}
-          {#each members as member (member.id)}
-            <Command.Item
-              value={`${member.name} ${member.handle}`}
-              onSelect={() => onSelectMember(member)}
-            >
-              <UserIcon aria-hidden="true" />
-              <span class="community-search-command__result-copy">
-                <strong>{member.name}</strong>
-                <small>@{member.handle}</small>
-              </span>
-            </Command.Item>
-          {/each}
-        </Command.Group>
-      {/if}
-      <Command.Group heading="Actions">
-        <Command.Item value="Browse channels" onSelect={onBrowseChannels}>
-          <ListFilterIcon aria-hidden="true" />
-          <span class="community-search-command__result-copy">
-            <strong>Browse channels</strong>
-          </span>
-        </Command.Item>
-        {#if canCreateChannel}
-          <Command.Item value="Create a new channel" onSelect={onCreateChannel}>
-            <PlusIcon aria-hidden="true" />
-            <span class="community-search-command__result-copy">
-              <strong>Create a new channel</strong>
-            </span>
-          </Command.Item>
+            {#if canCreateChannel}
+              <Command.Item
+                value="Create a new channel"
+                onSelect={onCreateChannel}
+              >
+                <PlusIcon aria-hidden="true" />
+                <span class="community-search-command__result-copy">
+                  <strong>Create a new channel</strong>
+                </span>
+              </Command.Item>
+            {/if}
+          </Command.Group>
         {/if}
-      </Command.Group>
-    {/if}
-  </Command.List>
-</Command.Dialog>
+      </Command.List>
+    </Command.Root></DialogFrame
+  ></Dialog.Root
+>
 
 <style>
-  :global(.community-search-command) {
-    top: clamp(2rem, 10vh, 8rem);
-    width: min(calc(100vw - 2rem), 64rem);
-    max-width: min(calc(100vw - 2rem), 64rem) !important;
-    max-height: min(48rem, calc(100vh - 4rem));
-    translate: -50% 0;
-    border-radius: 1.25rem !important;
-    box-shadow:
-      0 2rem 5rem -1.25rem rgb(0 0 0 / 32%),
-      0 0.75rem 2rem -1rem rgb(0 0 0 / 24%) !important;
-    font-size: 1rem;
-  }
-  :global([data-ui-part="dialog-overlay"]:has(+ .community-search-command)) {
-    background: color-mix(in srgb, var(--background) 68%, transparent);
-    -webkit-backdrop-filter: blur(0.75rem);
-    backdrop-filter: blur(0.75rem);
-  }
   :global(.community-search-command [data-ui-part="command"]) {
     padding: 0;
   }
@@ -342,7 +324,7 @@
   :global(
       .community-search-command__input-row [data-slot="input-group-control"]
     ) {
-    font-size: 1.2rem;
+    font-size: var(--community-text-dialog);
   }
   :global(
       .community-search-command__input-row [data-ui-part="command-search-icon"]
@@ -351,15 +333,6 @@
     height: 1.4rem;
     opacity: 1;
   }
-  :global(.community-search-command__escape[data-ui-component="button"]) {
-    height: 2rem;
-    border-radius: 0.45rem;
-    padding-inline: 0.65rem;
-    color: var(--muted-foreground);
-    font-size: 0.75rem;
-    font-weight: 500;
-    text-transform: uppercase;
-  }
   :global(.community-search-command [data-ui-part="command-list"]) {
     max-height: min(39rem, calc(100vh - 9.5rem));
     padding: 0.75rem;
@@ -367,14 +340,14 @@
   .community-search-command__sync-status {
     margin: 0 0.5rem 0.35rem;
     color: var(--muted-foreground);
-    font-size: 0.8rem;
+    font-size: var(--community-text-secondary);
   }
   :global(.community-search-command [data-ui-part="command-group"]) {
     padding: 0.25rem 0;
   }
   :global(.community-search-command [data-ui-part="command-group-heading"]) {
     padding: 0.75rem 0.5rem 0.5rem;
-    font-size: 0.95rem;
+    font-size: var(--community-text-body);
     font-weight: 500;
   }
   :global(.community-search-command [data-ui-part="command-item"]) {
@@ -382,7 +355,7 @@
     gap: 1rem;
     border-radius: 0.8rem !important;
     padding: 0.65rem 0.75rem;
-    font-size: 1rem;
+    font-size: var(--community-text-section);
   }
   :global(.community-search-command [data-ui-part="command-item"] > svg) {
     width: 1.4rem;
@@ -406,24 +379,18 @@
   }
   .community-search-command__result-copy small {
     color: var(--muted-foreground);
-    font-size: 0.9rem;
+    font-size: var(--community-text-body);
     font-weight: 400;
   }
 
   @media (max-width: 40rem) {
-    :global(.community-search-command) {
-      top: 0.5rem;
-      width: calc(100vw - 1rem);
-      max-width: calc(100vw - 1rem) !important;
-      max-height: calc(100vh - 1rem);
-    }
     .community-search-command__input-row {
       padding-inline: 1rem;
     }
     :global(
         .community-search-command__input-row [data-slot="input-group-control"]
       ) {
-      font-size: 1rem;
+      font-size: var(--community-text-section);
     }
     :global(.community-search-command [data-ui-part="command-list"]) {
       max-height: calc(100vh - 6rem);

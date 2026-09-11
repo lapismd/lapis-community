@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { DialogFrame } from "@lapismd/design-core/forms/dialog";
   import { Button } from "@lapismd/design-core/shadcn/button";
   import * as Dialog from "@lapismd/design-core/shadcn/dialog";
   import * as Empty from "@lapismd/design-core/shadcn/empty";
@@ -109,13 +110,12 @@
 </script>
 
 <Dialog.Root bind:open>
-  <Dialog.Content class="community-room-browser">
-    <Dialog.Header>
-      <Dialog.Title>Browse {roomNounPlural}</Dialog.Title>
-      <Dialog.Description class="sr-only">
-        Find public {roomNounPlural}, join them, or open them read-only.
-      </Dialog.Description>
-    </Dialog.Header>
+  <DialogFrame size="form">
+    {#snippet title()}Browse {roomNounPlural}{/snippet}
+    {#snippet description()}
+      Find public {roomNounPlural}, join them, or open them read-only.
+    {/snippet}
+
     <div class="community-room-browser__controls">
       <InputGroup.Root class="community-room-browser__search">
         <InputGroup.Input
@@ -231,58 +231,10 @@
         </Empty.Root>
       {/each}
     </div>
-  </Dialog.Content>
+  </DialogFrame>
 </Dialog.Root>
 
 <style>
-  :global(.community-room-browser) {
-    width: min(calc(100vw - 2rem), 64rem);
-    max-height: min(46rem, calc(100vh - 2rem));
-    gap: 1rem;
-    border-radius: 1.25rem;
-    padding: clamp(1.25rem, 3vw, 2.25rem);
-    box-shadow:
-      0 2rem 5rem -1.25rem rgb(0 0 0 / 28%),
-      0 0.75rem 2rem -1rem rgb(0 0 0 / 20%) !important;
-    font-size: 0.875rem;
-  }
-  :global(.community-room-browser [data-ui-part="dialog-title"]) {
-    font-size: 1.125rem;
-    font-weight: 650;
-  }
-  :global(.community-room-browser [data-ui-part="dialog-content-anon-0"]) {
-    display: grid;
-    width: 2rem;
-    min-width: 2rem;
-    height: 2rem;
-    min-height: 2rem;
-    place-items: center;
-    border-radius: 999px;
-    padding: 0;
-    line-height: 0;
-  }
-  :global(.community-room-browser [data-ui-part="dialog-content-anon-0"] svg) {
-    display: block;
-    width: 0.75rem;
-    height: 0.75rem;
-    margin: 0;
-  }
-  :global(
-      .community-room-browser
-        [data-ui-part="dialog-content-anon-0"]:hover:not(:disabled)
-    ),
-  :global(
-      .community-room-browser
-        [data-ui-part="dialog-content-anon-0"]:focus-visible
-    ) {
-    color: var(--foreground);
-    background: var(--muted);
-  }
-  :global([data-ui-part="dialog-overlay"]:has(+ .community-room-browser)) {
-    background: color-mix(in srgb, var(--background) 68%, transparent);
-    -webkit-backdrop-filter: blur(0.75rem);
-    backdrop-filter: blur(0.75rem);
-  }
   .community-room-browser__controls {
     display: grid;
     gap: 1rem;
@@ -293,7 +245,7 @@
     background: color-mix(in srgb, var(--muted) 45%, transparent);
   }
   :global(.community-room-browser__search input) {
-    font-size: 0.875rem;
+    font-size: var(--community-text-body);
   }
   :global(.community-room-browser__search svg) {
     width: 1.2rem;
@@ -311,7 +263,7 @@
     flex: none;
     border-radius: 0;
     padding-inline: 0;
-    font-size: 0.8125rem;
+    font-size: var(--community-text-secondary);
   }
   :global(
       .community-room-browser__tabs
@@ -399,11 +351,6 @@
   }
 
   @media (max-width: 40rem) {
-    :global(.community-room-browser) {
-      max-width: calc(100% - 1rem);
-      max-height: calc(100vh - 1rem);
-      padding: 1.125rem;
-    }
     :global(.community-room-browser__tabs[data-ui-part="tabs-list"]) {
       gap: 1rem;
     }

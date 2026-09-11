@@ -513,7 +513,7 @@
   .notice {
     margin: 0;
     color: var(--muted-foreground);
-    font-size: 0.9rem;
+    font-size: var(--community-text-body);
   }
 
   .notice {
@@ -562,7 +562,7 @@
 
   :global(.discussion-suggestions__title) {
     margin: 0;
-    font-size: 1rem;
+    font-size: var(--community-text-section);
   }
 
   .discussion-suggestions__skeleton {
@@ -630,17 +630,6 @@
 
   :global(.discussion-seek-skeleton__line.short) {
     width: min(68%, 22rem);
-  }
-
-  .sr-only {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    padding: 0;
-    overflow: hidden;
-    clip: rect(0, 0, 0, 0);
-    white-space: nowrap;
-    border: 0;
   }
 
   @container registry-discussion (max-width: 30rem) {

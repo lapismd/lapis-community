@@ -4,8 +4,8 @@
     MessageBubble,
     MessageMetadata,
   } from "@lapismd/design-core/ai/chat";
-  import { ReactionBar } from "@lapismd/design-core/ai/experimental";
-  import * as AlertDialog from "@lapismd/design-core/shadcn/alert-dialog";
+  import CommunityReactions from "../community-reactions/CommunityReactions.svelte";
+  import { ConfirmDialog } from "@lapismd/design-core/forms/dialog";
   import { Button } from "@lapismd/design-core/shadcn/button";
   import * as DropdownMenu from "@lapismd/design-core/shadcn/dropdown-menu";
   import ClipboardCopyIcon from "@lucide/svelte/icons/clipboard-copy";
@@ -24,7 +24,6 @@
     CommunityMessageReport,
   } from "../../community/index.js";
   import CommunityChip from "../community-chip/CommunityChip.svelte";
-  import CommunityEmojiPicker from "../community-emoji-picker/CommunityEmojiPicker.svelte";
   import CommunityMarkdownContent from "../community-markdown-content/CommunityMarkdownContent.svelte";
   import CommunityMemberAvatar from "../community-member-avatar/CommunityMemberAvatar.svelte";
   import CommunityMemberHoverCard from "../community-member-hover-card/CommunityMemberHoverCard.svelte";
@@ -359,8 +358,9 @@
       onpointerleave={scheduleActionsHide}
     >
       {#if onAddReaction}
-        <CommunityEmojiPicker
-          label="Add reaction"
+        <CommunityReactions
+          mode="picker"
+          pickerLabel="Add reaction"
           communityEmojis={reactionOptions === undefined ? communityEmojis : []}
           presets={reactionOptions ?? []}
           presetsOnly={reactionOptions !== undefined}
@@ -487,7 +487,8 @@
   {/if}
 
   {#if message.reactions?.length}
-    <ReactionBar
+    <CommunityReactions
+      mode="bar"
       reactions={message.reactions}
       label={`Reactions to ${authorName}'s message`}
       onToggle={(emoji) => {
@@ -545,31 +546,28 @@
 {/if}
 
 {#if onDelete}
-  <AlertDialog.Root bind:open={deleteOpen}>
-    <AlertDialog.Content class="community-message__delete-dialog">
-      <AlertDialog.Header>
-        <AlertDialog.Title>Delete message?</AlertDialog.Title>
-        <AlertDialog.Description>
-          This removes your message from the conversation. This action cannot be
-          undone.
-        </AlertDialog.Description>
-      </AlertDialog.Header>
-      {#if deleteError}<p class="community-message__delete-error" role="alert">
-          {deleteError}
-        </p>{/if}
-      <AlertDialog.Footer>
-        <AlertDialog.Cancel disabled={deletePending}>Cancel</AlertDialog.Cancel>
-        <Button
-          type="button"
-          variant="destructive"
-          disabled={deletePending}
-          onclick={confirmDelete}
-        >
-          {deletePending ? "Deleting…" : "Delete message"}
-        </Button>
-      </AlertDialog.Footer>
-    </AlertDialog.Content>
-  </AlertDialog.Root>
+  <ConfirmDialog
+    bind:open={deleteOpen}
+    pending={deletePending}
+    destructive
+    onConfirm={async () => {
+      await confirmDelete();
+      return !deleteError;
+    }}
+  >
+    {#snippet title()}Delete message?{/snippet}
+    {#snippet description()}
+      This removes your message from the conversation. This action cannot be
+      undone.
+    {/snippet}
+    {#snippet confirmLabel()}
+      {deletePending ? "Deleting…" : "Delete message"}
+    {/snippet}
+
+    {#if deleteError}<p class="community-message__delete-error" role="alert">
+        {deleteError}
+      </p>{/if}
+  </ConfirmDialog>
 {/if}
 
 <style>
@@ -605,7 +603,7 @@
     width: 2.25rem;
     min-height: 1.375rem;
     color: var(--muted-foreground);
-    font-size: 0.56rem;
+    font-size: var(--community-text-secondary);
     line-height: 1.375rem;
     text-align: right;
     opacity: 0;
@@ -672,14 +670,10 @@
     min-width: 13.5rem;
   }
 
-  :global(.community-message__delete-dialog) {
-    width: min(calc(100vw - 2rem), 28rem);
-  }
-
   .community-message__delete-error {
     margin: 0;
     color: var(--destructive);
-    font-size: 0.875rem;
+    font-size: var(--community-text-body);
   }
 
   .community-message__author {
@@ -689,7 +683,7 @@
   .community-message__role {
     margin-inline-start: 0.35rem;
     color: var(--muted-foreground);
-    font-size: 0.68rem;
+    font-size: var(--community-text-secondary);
     font-weight: 500;
     text-transform: uppercase;
   }
@@ -706,7 +700,7 @@
     align-items: center;
     gap: 0.4rem;
     color: var(--muted-foreground);
-    font-size: 0.72rem;
+    font-size: var(--community-text-secondary);
     line-height: 1;
   }
 

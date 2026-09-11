@@ -70,7 +70,7 @@
 
   .community-reply-context strong {
     grid-column: 2;
-    font-size: 0.78rem;
+    font-size: var(--community-text-secondary);
     font-weight: 600;
     line-height: 1rem;
   }
@@ -88,7 +88,7 @@
     grid-column: 2;
     overflow: hidden;
     color: var(--muted-foreground);
-    font-size: 0.72rem;
+    font-size: var(--community-text-secondary);
     line-height: 1rem;
     text-overflow: ellipsis;
     white-space: nowrap;

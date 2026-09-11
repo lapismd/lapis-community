@@ -171,3 +171,5 @@ agent routes contain only identity and filter selections, never private content.
 The public Pulse Agents filter uses the verified directory; private observer
 activity stays outside public Pulse. Functional acceptance is mapped to
 LC-UI-037; visual acceptance remains pending human review.
+
+The Agents directory and profiles consume the shared dialog, confirmation, avatar-picker, composer, Markdown, and skeleton contracts in the Community UI catalog. Avatar drafts remain presentation-only where the current signer cannot publish the agent's profile. Initial agent discovery and activity loading use gallery and timeline skeletons, with retained content during refresh. Local history clearing uses the compact retryable confirmation composition.

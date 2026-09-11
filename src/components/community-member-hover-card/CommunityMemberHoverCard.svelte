@@ -30,9 +30,11 @@
     triggerLabel?: string;
     avatarSize?: "xsmall" | "small" | "medium";
   } = $props();
+
+  let open = $state(false);
 </script>
 
-<HoverCard.Root {openDelay} closeDelay={120}>
+<HoverCard.Root bind:open {openDelay} closeDelay={120}>
   <HoverCard.Trigger>
     {#snippet child({ props })}
       {#if trigger === "mention"}
@@ -43,7 +45,7 @@
           ariaLabel={triggerLabel}
           onclick={() => onOpenProfile?.(member)}
         >
-          <CommunityMemberAvatar {member} size="small" decorative />
+          <CommunityMemberAvatar {member} size="inline" decorative />
           <span>{triggerLabel}</span>
         </CommunityChip>
       {:else}
@@ -61,7 +63,11 @@
     {/snippet}
   </HoverCard.Trigger>
 
+  <!-- Keep the content ref available before opening: LinkPreview installs its
+       document selection listener only after that ref exists. -->
   <HoverCard.Content
+    forceMount
+    hidden={!open}
     side="right"
     align="start"
     sideOffset={8}
@@ -99,35 +105,36 @@
           Activity log
         </Button>
       {/if}
-      {#if onMessage}
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          aria-label={`Message ${member.name}`}
-          onclick={() => onMessage?.(member)}
-        >
-          <MessageCircleIcon data-icon="inline-start" aria-hidden="true" />
-          Message
-        </Button>
-      {/if}
-      {#if onWave}
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          aria-label={`Wave to ${member.name}`}
-          onclick={() => onWave?.(member)}
-        >
-          <HandIcon data-icon="inline-start" aria-hidden="true" />
-          Wave
-        </Button>
-      {/if}
+      <Button
+        type="button"
+        variant="ghost"
+        size="sm"
+        disabled={!onMessage}
+        aria-label={`Message ${member.name}`}
+        onclick={() => onMessage?.(member)}
+      >
+        <MessageCircleIcon data-icon="inline-start" aria-hidden="true" />
+        Message
+      </Button>
+      <Button
+        type="button"
+        variant="ghost"
+        size="sm"
+        disabled={!onWave}
+        aria-label={`Wave to ${member.name}`}
+        onclick={() => onWave?.(member)}
+      >
+        <HandIcon data-icon="inline-start" aria-hidden="true" />
+        Wave
+      </Button>
     </div>
   </HoverCard.Content>
 </HoverCard.Root>
 
 <style>
+  :global(.community-member-hover-card__content[hidden]) {
+    display: none;
+  }
   .community-member-hover-card__trigger {
     display: block;
     width: 2.25rem;
@@ -195,13 +202,13 @@
   }
 
   .community-member-hover-card__identity strong {
-    font-size: 0.9rem;
+    font-size: var(--community-text-body);
   }
 
   .community-member-hover-card__identity small,
   .community-member-hover-card__role {
     color: var(--muted-foreground);
-    font-size: 0.75rem;
+    font-size: var(--community-text-secondary);
   }
 
   .community-member-hover-card__role {
@@ -221,6 +228,6 @@
   .community-member-hover-card__actions :global([data-ui-component="button"]) {
     justify-content: flex-start;
     padding-inline: 0.5rem;
-    font-size: 0.75rem;
+    font-size: var(--community-text-secondary);
   }
 </style>

@@ -141,7 +141,7 @@
       expect.objectContaining({ id: "message", roomId: "general" }),
     );
     const closeButton = overlay.getByRole("button", { name: "Close search" });
-    await expect(closeButton).toHaveAttribute("data-variant", "outline");
+    await expect(closeButton).toHaveAttribute("data-variant", "ghost");
     await userEvent.hover(closeButton);
     await expect(closeButton).toBeVisible();
   }}

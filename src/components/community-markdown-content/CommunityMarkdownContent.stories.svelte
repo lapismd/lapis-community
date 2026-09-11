@@ -69,7 +69,7 @@
     );
     await expect(
       mentionAvatar.getBoundingClientRect().height,
-    ).toBeLessThanOrEqual(mentionFontSize * 1.2);
+    ).toBeLessThanOrEqual(mentionLineHeight);
     await expect(
       Math.abs(
         mention.getBoundingClientRect().top +

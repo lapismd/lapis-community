@@ -1,8 +1,9 @@
 <script lang="ts">
+  import { DialogFrame } from "@lapismd/design-core/forms/dialog";
   import { Button } from "@lapismd/design-core/shadcn/button";
   import * as Dialog from "@lapismd/design-core/shadcn/dialog";
   import * as Field from "@lapismd/design-core/shadcn/field";
-  import { Textarea } from "@lapismd/design-core/shadcn/textarea";
+  import CommunityChatComposer from "../community-chat-composer/CommunityChatComposer.svelte";
   import * as ToggleGroup from "@lapismd/design-core/shadcn/toggle-group";
   import FlagIcon from "@lucide/svelte/icons/flag";
 
@@ -66,19 +67,21 @@
 </script>
 
 <Dialog.Root bind:open>
-  <Dialog.Content class="community-report-dialog">
-    <form class="community-report-dialog__form" onsubmit={submit}>
-      <Dialog.Header>
-        <Dialog.Title>
-          <FlagIcon data-icon="inline-start" aria-hidden="true" />
-          Report message
-        </Dialog.Title>
-        <Dialog.Description>
-          Reports are sent privately to this community's curators for review.
-          The message author is not told who reported them.
-        </Dialog.Description>
-      </Dialog.Header>
+  <DialogFrame size="form">
+    {#snippet title()}
+      <FlagIcon data-icon="inline-start" aria-hidden="true" />
+      Report message
+    {/snippet}
+    {#snippet description()}
+      Reports are sent privately to this community's curators for review. The
+      message author is not told who reported them.
+    {/snippet}
 
+    <form
+      id="communityreportdialog-form-0"
+      class="community-report-dialog__form"
+      onsubmit={submit}
+    >
       <Field.Group>
         <Field.Set>
           <Field.Legend>Reason</Field.Legend>
@@ -103,39 +106,40 @@
           </ToggleGroup.Root>
         </Field.Set>
         <Field.Field data-invalid={error ? "" : undefined}>
-          <Field.Label for="community-report-context">
+          <Field.Label>
             Additional context <span>(optional)</span>
           </Field.Label>
-          <Textarea
-            id="community-report-context"
+          <CommunityChatComposer
+            mode="form"
+            ariaLabel="Additional context"
             bind:value={context}
-            rows={3}
             placeholder="Add anything that helps curators…"
           />
           {#if error}<Field.Error>{error}</Field.Error>{/if}
         </Field.Field>
       </Field.Group>
-
-      <Dialog.Footer>
-        <Button
-          type="button"
-          variant="outline"
-          disabled={pending}
-          onclick={() => (open = false)}>Cancel</Button
-        >
-        <Button type="submit" disabled={category === "" || pending}>
-          {pending ? "Sending…" : "Submit report"}
-        </Button>
-      </Dialog.Footer>
     </form>
-  </Dialog.Content>
+
+    {#snippet footer()}
+      <Button
+        form="communityreportdialog-form-0"
+        type="button"
+        variant="outline"
+        disabled={pending}
+        onclick={() => (open = false)}>Cancel</Button
+      >
+      <Button
+        form="communityreportdialog-form-0"
+        type="submit"
+        disabled={category === "" || pending}
+      >
+        {pending ? "Sending…" : "Submit report"}
+      </Button>
+    {/snippet}
+  </DialogFrame>
 </Dialog.Root>
 
 <style>
-  :global(.community-report-dialog) {
-    width: min(calc(100vw - 2rem), 30rem);
-  }
-
   .community-report-dialog__form {
     display: grid;
     gap: 1.25rem;

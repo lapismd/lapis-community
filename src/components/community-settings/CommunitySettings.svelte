@@ -1,17 +1,15 @@
 <script lang="ts">
+  import CommunityAvatarPicker from "../community-avatar-picker/CommunityAvatarPicker.svelte";
+  import CommunityChatComposer from "../community-chat-composer/CommunityChatComposer.svelte";
   import { Button } from "@lapismd/design-core/shadcn/button";
   import * as Field from "@lapismd/design-core/shadcn/field";
   import { Input } from "@lapismd/design-core/shadcn/input";
-  import * as Tabs from "@lapismd/design-core/shadcn/tabs";
-  import { Textarea } from "@lapismd/design-core/shadcn/textarea";
+  import ImageIcon from "@lucide/svelte/icons/image";
   import CheckIcon from "@lucide/svelte/icons/check";
   import ChevronRightIcon from "@lucide/svelte/icons/chevron-right";
-  import ImageIcon from "@lucide/svelte/icons/image";
-  import LinkIcon from "@lucide/svelte/icons/link-2";
   import PencilIcon from "@lucide/svelte/icons/pencil";
   import Trash2Icon from "@lucide/svelte/icons/trash-2";
   import UploadCloudIcon from "@lucide/svelte/icons/upload-cloud";
-  import UserRoundIcon from "@lucide/svelte/icons/user-round";
 
   import type {
     CommunityOperationState,
@@ -19,37 +17,7 @@
     CommunitySettingsState,
   } from "../../community/index.js";
   import type { CommunitySettingsSection } from "./model.js";
-  import CommunityEmojiPicker from "../community-emoji-picker/CommunityEmojiPicker.svelte";
   import "./CommunitySettings.css";
-
-  const avatarEmojis = [
-    "😀",
-    "😎",
-    "🤓",
-    "🥳",
-    "🤖",
-    "👻",
-    "🐝",
-    "🦊",
-    "🐙",
-    "🌈",
-    "🔥",
-    "✨",
-    "🚀",
-    "💎",
-    "🎨",
-    "💡",
-  ] as const;
-  const avatarColors = [
-    "#f5d90a",
-    "#ff8a4c",
-    "#e5484d",
-    "#ab4aba",
-    "#6e56cf",
-    "#0091ff",
-    "#30a46c",
-    "#687076",
-  ] as const;
 
   let {
     model,
@@ -79,9 +47,6 @@
   let localMessage = $state("");
   let editingProfile = $state(false);
   let avatarEditorOpen = $state(false);
-  let avatarMode = $state("image");
-  let avatarColor = $state<(typeof avatarColors)[number]>(avatarColors[4]);
-  let avatarFileName = $state("");
   let emojiFileName = $state("");
   let rootElement = $state<HTMLElement>();
 
@@ -106,7 +71,6 @@
     const element = rootElement;
     avatarEditorOpen = false;
     editingProfile = false;
-    avatarFileName = "";
     localError = "";
     localMessage = "";
     if (!element) return;
@@ -146,7 +110,6 @@
   async function saveAvatar(): Promise<void> {
     if (await persistProfile("Profile photo saved to the relay.")) {
       avatarEditorOpen = false;
-      avatarFileName = "";
     }
   }
 
@@ -204,11 +167,6 @@
     });
     reader.readAsDataURL(file);
   }
-
-  function emojiAvatar(emoji: string): void {
-    const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256"><rect width="256" height="256" rx="128" fill="${avatarColor}"/><text x="128" y="166" font-size="128" text-anchor="middle">${emoji}</text></svg>`;
-    picture = `data:image/svg+xml,${encodeURIComponent(svg)}`;
-  }
 </script>
 
 <section
@@ -225,114 +183,20 @@
 
     <form class="community-settings__profile" onsubmit={saveProfile}>
       <div class="community-settings__avatar-editor">
-        {#if avatarEditorOpen}
-          <Tabs.Root
-            bind:value={avatarMode}
-            class="community-settings__avatar-tabs"
-          >
-            <Tabs.List aria-label="Avatar type">
-              <Tabs.Trigger value="image">Image</Tabs.Trigger>
-              <Tabs.Trigger value="emoji">Emoji</Tabs.Trigger>
-            </Tabs.List>
-            <Tabs.Content value="image">
-              <label class="community-settings__image-drop">
-                <UploadCloudIcon aria-hidden="true" />
-                <span>{avatarFileName || "Drop or browse for an image"}</span>
-                <input
-                  type="file"
-                  accept="image/png,image/jpeg,image/gif,image/webp"
-                  aria-label="Upload profile image"
-                  onchange={(event) =>
-                    readImage(event, (value, fileName) => {
-                      picture = value;
-                      avatarFileName = fileName;
-                    })}
-                />
-              </label>
-              <div class="community-settings__url-input">
-                <LinkIcon aria-hidden="true" />
-                <Input
-                  type="url"
-                  bind:value={picture}
-                  aria-label="Profile image URL"
-                  placeholder="Paste an image URL"
-                />
-              </div>
-            </Tabs.Content>
-            <Tabs.Content value="emoji">
-              <div
-                class="community-settings__avatar-colors"
-                aria-label="Avatar background"
-              >
-                {#each avatarColors as color (color)}
-                  <button
-                    type="button"
-                    aria-label={`Use ${color} background`}
-                    aria-pressed={avatarColor === color}
-                    style={`--avatar-color: ${color}`}
-                    onclick={() => (avatarColor = color)}
-                  ></button>
-                {/each}
-              </div>
-              <div
-                class="community-settings__avatar-emojis"
-                aria-label="Choose an emoji"
-              >
-                {#each avatarEmojis as emoji (emoji)}
-                  <button
-                    type="button"
-                    aria-label={`Use ${emoji} as profile photo`}
-                    onclick={() => emojiAvatar(emoji)}>{emoji}</button
-                  >
-                {/each}
-              </div>
-              <div class="community-settings__avatar-picker">
-                <CommunityEmojiPicker
-                  label="Browse all emoji"
-                  communityEmojis={model.customEmojis}
-                  onSelect={(emoji, custom) => {
-                    if (custom) picture = custom.url;
-                    else emojiAvatar(emoji);
-                  }}
-                />
-                <span>Browse all emoji</span>
-              </div>
-            </Tabs.Content>
-          </Tabs.Root>
-        {/if}
-
-        <div class="community-settings__avatar-frame">
-          <span
-            class="community-settings__avatar"
-            aria-label="Profile photo"
-            role="img"
-          >
-            {#if picture}
-              <img src={picture} alt="" />
-            {:else}
-              <UserRoundIcon aria-hidden="true" />
-            {/if}
-          </span>
-          {#if !avatarEditorOpen}
-            <Button
-              type="button"
-              size="icon"
-              class="community-settings__avatar-edit"
-              aria-label="Edit profile photo"
-              title="Edit profile photo"
-              disabled={!model.identityConnected}
-              onclick={() => (avatarEditorOpen = true)}
-            >
-              <PencilIcon aria-hidden="true" />
-            </Button>
-          {/if}
-        </div>
-
-        {#if avatarEditorOpen}
+        <CommunityAvatarPicker
+          bind:value={picture}
+          bind:open={avatarEditorOpen}
+          label="Edit profile photo"
+          size="medium"
+          shape="circle"
+          disabled={!model.identityConnected}
+          communityEmojis={model.customEmojis}
+        />
+        {#if picture !== model.profile.picture}
           <div class="community-settings__avatar-actions">
             <Button
               type="button"
-              variant="ghost"
+              variant="outline"
               onclick={() => {
                 picture = model.profile.picture;
                 avatarEditorOpen = false;
@@ -342,9 +206,10 @@
               type="button"
               disabled={profileOperation?.status === "pending"}
               onclick={() => void saveAvatar()}
+              >{profileOperation?.status === "pending"
+                ? "Saving…"
+                : "Done"}</Button
             >
-              {profileOperation?.status === "pending" ? "Saving…" : "Done"}
-            </Button>
           </div>
         {/if}
       </div>
@@ -398,14 +263,12 @@
               {/if}
             </Field.Field>
             <Field.Field class="community-settings__option-row">
-              <Field.Label for="community-profile-about"
-                >Profile description</Field.Label
-              >
+              <Field.Label>Profile description</Field.Label>
               {#if editingProfile}
-                <Textarea
-                  id="community-profile-about"
+                <CommunityChatComposer
+                  mode="form"
                   bind:value={about}
-                  rows={3}
+                  ariaLabel="Profile description"
                 />
               {:else}
                 <p>{about || "Not set"}</p>

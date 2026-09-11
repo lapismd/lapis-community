@@ -1,4 +1,5 @@
 <script lang="ts">
+  import CommunitySkeleton from "../community-skeleton/CommunitySkeleton.svelte";
   import { AppShell, AppShellController } from "@lapismd/design-core/shell";
   import { Button } from "@lapismd/design-core/shadcn/button";
   import EllipsisIcon from "@lucide/svelte/icons/ellipsis";
@@ -515,9 +516,7 @@
               }}
             />
           {:else}
-            <div class="community-workspace-story__panel-status" role="status">
-              Loading thread…
-            </div>
+            <CommunitySkeleton layout="messages" label="Loading thread" />
           {/if}
         </AppShell.Sidebar.Body>
       {:else if activeRoom.kind === "channel" || activeRoom.kind === "forum"}
@@ -572,7 +571,7 @@
 
   .community-workspace__room-title span {
     color: var(--muted-foreground);
-    font-size: 0.68rem;
+    font-size: var(--community-text-secondary);
     font-weight: 400;
   }
 
@@ -584,16 +583,10 @@
     display: flex;
     align-items: center;
     gap: 0.25rem;
-    font-size: 0.88rem;
+    font-size: var(--community-text-body);
   }
 
   .community-workspace__toolbar-actions {
     margin-inline-start: auto;
-  }
-
-  .community-workspace-story__panel-status {
-    padding: 1rem;
-    color: var(--muted-foreground);
-    font-size: 0.875rem;
   }
 </style>
