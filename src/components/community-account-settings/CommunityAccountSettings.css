@@ -15,7 +15,9 @@
 .community-account-settings__empty p,
 .community-account-settings__actions h2,
 .community-account-settings__actions p,
-.community-account-settings__message {
+.community-account-settings__message,
+.community-account-settings__dialog-form p,
+.community-account-settings__transfer-intro p {
   margin: 0;
 }
 
@@ -31,7 +33,9 @@
 .community-account-settings__rows small,
 .community-account-settings__empty p,
 .community-account-settings__actions p,
-.community-account-settings__message {
+.community-account-settings__message,
+.community-account-settings__dialog-form p,
+.community-account-settings__transfer-intro p {
   color: var(--muted-foreground);
 }
 
@@ -89,7 +93,7 @@
   display: grid;
   min-width: 0;
   justify-items: start;
-  gap: 0.4rem;
+  gap: 0.55rem;
   margin: 0;
   font-size: var(--community-text-secondary);
 }
@@ -114,7 +118,8 @@
   font-size: var(--community-text-secondary);
 }
 
-.community-account-settings__value-line {
+.community-account-settings__value-line,
+.community-account-settings__inline-actions {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -138,9 +143,43 @@
   gap: 1rem;
 }
 
-.community-account-settings__actions > div {
+.community-account-settings__actions > div,
+.community-account-settings__dialog-form,
+.community-account-settings__transfer-intro {
   display: grid;
+  gap: 0.75rem;
+}
+
+.community-account-settings__actions > div {
   gap: 0.25rem;
+}
+
+.community-account-settings__notice {
+  min-width: 0;
+}
+
+.community-account-settings__dialog-form
+  > label:not(.community-account-settings__check) {
+  font-size: var(--community-text-secondary);
+  font-weight: 600;
+}
+
+.community-account-settings__secret-field {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 0.5rem;
+}
+
+.community-account-settings__secret-field input {
+  font-family: var(--font-mono, monospace);
+}
+
+.community-account-settings__check {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.65rem;
+  cursor: pointer;
+  font-size: var(--community-text-secondary);
 }
 
 @media (max-width: 40rem) {

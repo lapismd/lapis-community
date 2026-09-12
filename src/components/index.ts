@@ -11,8 +11,12 @@ export { default as CommunityAccountSettings } from "./community-account-setting
 export {
   communityAccountSignerDetails,
   communityGitHubActionLabel,
+  communityAccountCapability,
   formatCommunityAccountExpiry,
+  type CommunityAccountAuthenticationState,
+  type CommunityAccountManagementActions,
   type CommunityAccountModel,
+  type CommunityAccountResumeAction,
   type CommunityAccountSignerDetails,
 } from "./community-account-settings/model.js";
 export { default as CommunityChip } from "./community-chip/CommunityChip.svelte";

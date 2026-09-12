@@ -11,13 +11,21 @@
   import Trash2Icon from "@lucide/svelte/icons/trash-2";
   import UploadCloudIcon from "@lucide/svelte/icons/upload-cloud";
 
-  import type { CommunityAccountSession } from "../../auth/index.js";
+  import type {
+    CommunityAccountSession,
+    CommunityRelayAuthConfig,
+  } from "../../auth/index.js";
   import type {
     CommunityOperationState,
     CommunityProfileUpdate,
     CommunitySettingsState,
   } from "../../community/index.js";
   import CommunityAccountSettings from "../community-account-settings/CommunityAccountSettings.svelte";
+  import type {
+    CommunityAccountAuthenticationState,
+    CommunityAccountManagementActions,
+    CommunityAccountResumeAction,
+  } from "../community-account-settings/model.js";
   import type { CommunitySettingsSection } from "./model.js";
   import "./CommunitySettings.css";
 
@@ -32,6 +40,10 @@
     account,
     accountBusy = false,
     accountMessage = "",
+    accountConfig,
+    accountActions,
+    accountResumeAction,
+    accountAuthenticationState,
     onCopyPublicKey,
     onConnectGitHub,
     onSignOut,
@@ -46,6 +58,12 @@
     account?: CommunityAccountSession | undefined;
     accountBusy?: boolean;
     accountMessage?: string;
+    accountConfig?: CommunityRelayAuthConfig | undefined;
+    accountActions?: CommunityAccountManagementActions | undefined;
+    accountResumeAction?: CommunityAccountResumeAction | undefined;
+    accountAuthenticationState?:
+      | CommunityAccountAuthenticationState
+      | undefined;
     onCopyPublicKey?: ((pubkey: string) => void | Promise<void>) | undefined;
     onConnectGitHub?: (() => void | Promise<void>) | undefined;
     onSignOut?: (() => void | Promise<void>) | undefined;
@@ -196,6 +214,10 @@
       {account}
       busy={accountBusy}
       message={accountMessage}
+      config={accountConfig}
+      actions={accountActions}
+      resumeAction={accountResumeAction}
+      authenticationState={accountAuthenticationState}
       {onCopyPublicKey}
       {onConnectGitHub}
       {onSignOut}

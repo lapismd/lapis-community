@@ -12,10 +12,15 @@
     type CommunityRelayAuthConfig,
     type RelayAuthConnectResult,
     type RelayAuthRestoreResult,
+    type RelayCustodyTransferHandoff,
   } from "../../auth/index.js";
   import { readCommunityControllerIdentity } from "../../community/controller-identity-context.js";
   import type { CommunityIdentity } from "../../community/index.js";
   import CommunityLogin from "../community-login/CommunityLogin.svelte";
+  import type {
+    CommunityAccountManagementActions,
+    CommunityAccountResumeAction,
+  } from "../community-account-settings/model.js";
   import {
     resolveCommunityLoginMethods,
     type CommunityLoginCredentials,
@@ -37,6 +42,7 @@
     resolve: () => void;
     reject: (cause: unknown) => void;
   };
+  const pendingAccountActionKey = "lapis-community:account-action:v1";
 
   let {
     controller,
@@ -53,6 +59,7 @@
   let connectedIdentity = $state<CommunityIdentity>();
   let accountSession = $state<CommunityAccountSession>();
   let authConfig = $state<CommunityRelayAuthConfig>();
+  let accountResumeAction = $state<CommunityAccountResumeAction>();
   let relayAuthStatus = $state<CommunityApplicationAuthenticationStatus>(
     untrack(() => (loginOptions?.auth ? "restoring" : "idle")),
   );
@@ -84,6 +91,9 @@
       );
     },
     account: () => accountSession,
+    config: () => authConfig,
+    accountActions,
+    resumeAccountAction: () => accountResumeAction,
     status: () => relayAuthStatus,
     connectGitHub,
     signOut,
@@ -109,6 +119,7 @@
     relayAuthStatus = "restoring";
     try {
       await applyAuthResult(await auth.restore());
+      restorePendingAccountAction();
     } catch (cause) {
       accountSession = undefined;
       relayAuthStatus = "anonymous";
@@ -160,6 +171,174 @@
     loginOpen = true;
     if (controller.state.authentication.status === "connected") {
       void controller.actions.disconnectIdentity();
+    }
+  }
+
+  function accountActions(): CommunityAccountManagementActions | undefined {
+    if (loginOptions?.auth === undefined) return undefined;
+    return {
+      connectGitHub,
+      disconnectGitHub,
+      registerPasskey,
+      connectRemoteSigner,
+      switchRemoteSignerRelays,
+      disconnectRemoteSigner,
+      reconnectSigner,
+      beginCustodyTransfer,
+      completeCustodyTransfer,
+      signOut,
+      clearResumeAction,
+    };
+  }
+
+  async function applyAccountResult(
+    result: RelayAuthRestoreResult,
+  ): Promise<void> {
+    await applyAuthResult(result);
+  }
+
+  async function registerPasskey(): Promise<void> {
+    const auth = loginOptions?.auth;
+    if (auth?.registerPasskey === undefined) {
+      throw new Error("Passkey registration is not configured");
+    }
+    try {
+      await applyAccountResult(await auth.registerPasskey());
+      clearResumeAction();
+    } catch (cause) {
+      if (
+        cause instanceof RelayAuthError &&
+        cause.code === "recent_authentication_required"
+      ) {
+        await reauthenticateForAccountAction("register-passkey");
+        return;
+      }
+      throw cause;
+    }
+  }
+
+  async function disconnectGitHub(): Promise<void> {
+    const action = loginOptions?.auth?.disconnectGitHub;
+    if (action === undefined) {
+      throw new Error("GitHub disconnection is not configured");
+    }
+    await applyAccountResult(await action());
+  }
+
+  async function connectRemoteSigner(bunkerUrl: string): Promise<void> {
+    const action = loginOptions?.auth?.connectRemoteSigner;
+    if (action === undefined) {
+      throw new Error("Remote signer management is not configured");
+    }
+    await applyAccountResult(await action(bunkerUrl));
+  }
+
+  async function switchRemoteSignerRelays(): Promise<readonly string[]> {
+    const action = loginOptions?.auth?.switchRemoteSignerRelays;
+    if (action === undefined) {
+      throw new Error("Remote signer management is not configured");
+    }
+    return await action();
+  }
+
+  async function disconnectRemoteSigner(): Promise<void> {
+    const action = loginOptions?.auth?.disconnectRemoteSigner;
+    if (action === undefined) {
+      throw new Error("Remote signer management is not configured");
+    }
+    await applyAccountResult(await action());
+  }
+
+  async function reconnectSigner(): Promise<void> {
+    await queueAuthentication(async () => {});
+  }
+
+  async function beginCustodyTransfer(): Promise<RelayCustodyTransferHandoff> {
+    const auth = loginOptions?.auth;
+    if (auth?.beginCustodyTransfer === undefined) {
+      throw new Error("Signing-key transfer is not configured");
+    }
+    const handoff = await auth.beginCustodyTransfer();
+    await applyAuthResult(await auth.restore());
+    return handoff;
+  }
+
+  async function completeCustodyTransfer(
+    handoff: RelayCustodyTransferHandoff,
+    bunkerUrl: string,
+  ): Promise<void> {
+    const action = loginOptions?.auth?.completeCustodyTransfer;
+    if (action === undefined) {
+      throw new Error("Signing-key transfer is not configured");
+    }
+    await applyAccountResult(await action(handoff, bunkerUrl));
+  }
+
+  async function reauthenticateForAccountAction(
+    action: CommunityAccountResumeAction,
+  ): Promise<void> {
+    const auth = loginOptions?.auth;
+    const provider = accountSession?.auth_provider;
+    if (auth === undefined) return;
+    if (provider === "github" || provider === "google") {
+      rememberPendingAccountAction(action);
+      relayAuthStatus = "redirecting";
+      await auth.connect(provider);
+      return;
+    }
+    await queueAuthentication(async () => {
+      await registerPasskey();
+    });
+  }
+
+  function rememberPendingAccountAction(
+    action: CommunityAccountResumeAction,
+  ): void {
+    if (accountSession === undefined) return;
+    try {
+      sessionStorage.setItem(
+        pendingAccountActionKey,
+        JSON.stringify({
+          accountId: accountSession.account.id,
+          action,
+          expiresAt: Date.now() + 15 * 60 * 1_000,
+        }),
+      );
+    } catch {
+      // Account action resumption remains best-effort when storage is disabled.
+    }
+  }
+
+  function restorePendingAccountAction(): void {
+    if (accountSession === undefined) return;
+    try {
+      const raw = sessionStorage.getItem(pendingAccountActionKey);
+      if (raw === null) return;
+      sessionStorage.removeItem(pendingAccountActionKey);
+      const value = JSON.parse(raw) as {
+        accountId?: unknown;
+        action?: unknown;
+        expiresAt?: unknown;
+      };
+      if (
+        value.accountId === accountSession.account.id &&
+        value.action === "register-passkey" &&
+        typeof value.expiresAt === "number" &&
+        value.expiresAt > Date.now()
+      ) {
+        accountResumeAction = value.action;
+      }
+    } catch {
+      // Ignore invalid or unavailable session storage.
+    }
+  }
+
+  function clearResumeAction(): void {
+    accountResumeAction = undefined;
+    try {
+      sessionStorage.removeItem(pendingAccountActionKey);
+    } catch {
+      // Ignore unavailable session storage.
     }
   }
 
@@ -273,6 +452,7 @@
   }
 
   async function signOut(): Promise<void> {
+    clearResumeAction();
     if (loginOptions?.auth) await loginOptions.auth.signOut();
     await controller.actions.disconnectIdentity();
     connectedIdentity = undefined;

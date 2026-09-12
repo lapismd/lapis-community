@@ -6945,6 +6945,10 @@
             model={community.state.settings}
             section={settingsSection}
             account={applicationAuthentication?.account?.()}
+            accountConfig={applicationAuthentication?.config?.()}
+            accountActions={applicationAuthentication?.accountActions?.()}
+            accountResumeAction={applicationAuthentication?.resumeAccountAction?.()}
+            accountAuthenticationState={applicationAuthentication?.status?.()}
             accountBusy={applicationAuthentication?.status?.() ===
               "restoring" ||
               applicationAuthentication?.status?.() === "redirecting"}

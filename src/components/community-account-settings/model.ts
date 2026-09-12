@@ -1,9 +1,46 @@
 import type {
   CommunityAccountSession,
   CommunityGitHubStatus,
+  CommunityRelayAuthConfig,
+  RelayCustodyTransferHandoff,
 } from "../../auth/index.js";
 
 export type CommunityAccountModel = CommunityAccountSession;
+
+export type CommunityAccountResumeAction = "register-passkey";
+
+export type CommunityAccountAuthenticationState =
+  | "idle"
+  | "restoring"
+  | "anonymous"
+  | "connected"
+  | "reconnect-required"
+  | "redirecting";
+
+export interface CommunityAccountManagementActions {
+  copyPublicKey?(pubkey: string): void | Promise<void>;
+  connectGitHub?(): void | Promise<void>;
+  disconnectGitHub?(): void | Promise<void>;
+  registerPasskey?(): void | Promise<void>;
+  connectRemoteSigner?(bunkerUrl: string): void | Promise<void>;
+  switchRemoteSignerRelays?(): Promise<readonly string[]>;
+  disconnectRemoteSigner?(): void | Promise<void>;
+  reconnectSigner?(): void | Promise<void>;
+  beginCustodyTransfer?(): Promise<RelayCustodyTransferHandoff>;
+  completeCustodyTransfer?(
+    handoff: RelayCustodyTransferHandoff,
+    bunkerUrl: string,
+  ): void | Promise<void>;
+  signOut?(): void | Promise<void>;
+  clearResumeAction?(): void;
+}
+
+export function communityAccountCapability(
+  config: CommunityRelayAuthConfig | undefined,
+  capability: keyof CommunityRelayAuthConfig["capabilities"],
+): boolean {
+  return config === undefined || config.capabilities[capability] === true;
+}
 
 export interface CommunityAccountSignerDetails {
   label:
@@ -18,6 +55,7 @@ export interface CommunityAccountSignerDetails {
 
 export function communityAccountSignerDetails(
   account: CommunityAccountSession,
+  authenticationState?: CommunityAccountAuthenticationState,
 ): CommunityAccountSignerDetails {
   if (account.signer_status === "migration_pending") {
     return {
@@ -46,6 +84,14 @@ export function communityAccountSignerDetails(
       state: "active",
       description:
         "The relay delegates signing to the connected NIP-46 signer.",
+    };
+  }
+  if (authenticationState === "reconnect-required") {
+    return {
+      label: "Browser/device signer",
+      state: "pending",
+      description:
+        "Reconnect this signer on this device before Community can sign events.",
     };
   }
   return {

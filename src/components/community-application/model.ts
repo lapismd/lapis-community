@@ -2,7 +2,9 @@ import type { CommunityIdentity } from "../../community/index.js";
 import type {
   CommunityAccountSession,
   CommunityRelayAuthConfig,
+  RelayAuthAccountResult,
   RelayAuthConnectResult,
+  RelayCustodyTransferHandoff,
   RelayAuthRestoreResult,
 } from "../../auth/index.js";
 import type {
@@ -31,6 +33,16 @@ export interface CommunityApplicationAuthAdapter {
   ): Promise<RelayAuthConnectResult>;
   signOut(): Promise<void>;
   connectGitHub(): Promise<void>;
+  registerPasskey?(): Promise<RelayAuthAccountResult>;
+  disconnectGitHub?(): Promise<RelayAuthAccountResult>;
+  connectRemoteSigner?(bunkerUrl: string): Promise<RelayAuthAccountResult>;
+  switchRemoteSignerRelays?(): Promise<readonly string[]>;
+  disconnectRemoteSigner?(): Promise<RelayAuthAccountResult>;
+  beginCustodyTransfer?(): Promise<RelayCustodyTransferHandoff>;
+  completeCustodyTransfer?(
+    handoff: RelayCustodyTransferHandoff,
+    bunkerUrl: string,
+  ): Promise<RelayAuthAccountResult>;
   onSessionExpired?(listener: () => void): () => void;
 }
 
