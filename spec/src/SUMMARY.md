@@ -6,5 +6,6 @@
 - [Agents and saved activity](agents.md)
 - [Community components](components.md)
 - [Local registry pipeline](registry-pipeline.md)
+- [Deferred work](deferred-work.md)
 - [Specification governance](spec-governance.md)
 - [Verification](verification.md)

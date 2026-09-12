@@ -5,6 +5,10 @@ commit `cec5c8fd9280d30f56effac701e1e19d5cfe6fea`, and the agent module in
 Lapis Relay. Buzz Desktop 0.5.23 supplied the live layout reference. Agent
 execution remains in an external harness; Community does not start processes,
 activate models or prompts, manage teams, memories, or turn metrics.
+Those boundaries remain tracked as runtime reconciliation
+[deferred: DEFER-AGENT-001], operational controls
+[deferred: DEFER-AGENT-002], and private agent data UI
+[deferred: DEFER-AGENT-003].
 
 ## Discovery and identity
 
@@ -139,7 +143,10 @@ an explicit inherited or instance name mode, an instance name, and Buzz
 defaults for newly completed records. Existing unknown and behavioral
 configuration is preserved. The verified directory still requires the agent's
 own signed profile and ownership proof before showing the agent. The gallery
-has no search field, process creation, runtime activation or Start controls.
+has no search field [deferred: DEFER-AGENT-004], process creation, runtime
+activation or Start controls. Private aggregate kind `30179` remains rejected
+until its privacy and lifecycle contract is complete
+[deferred: DEFER-AGENT-005].
 Agent and community history
 clearing use destructive red buttons and confirmation dialogs; cancellation
 preserves history and failures remain retryable.

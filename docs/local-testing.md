@@ -52,7 +52,8 @@ they stop.
 
 Community owns this browser/client contract. The sibling relay owns Git
 gateway authorization, object-store recovery, and the tagged end-to-end Git
-test described in `../nostr-relay/WALGIT_INTEGRATION.md`. Deferred protected
-refs, ref-driven revisions, merge execution, and provider-neutral CI remain in
-`../nostr-relay/FORGE_DEFERRED_WORK.md`; the UI deliberately exposes merge as
-unavailable until relay-side coordination lands.
+test described in `../nostr-relay/WALGIT_INTEGRATION.md`. GitHub merge,
+provider-neutral CI, and repository import are implemented relay foundations.
+Remaining native WalGit coordination and provider coverage are documented in
+`../nostr-relay/spec/src/roadmap/deferred-forge-work.md`; Community-facing
+scope is tracked in `spec/src/deferred-work.md`.

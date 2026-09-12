@@ -39,7 +39,7 @@ export default defineConfig(tableRequirements(), {
     specFirst: {
       mode: "mapped",
       canonicalPattern:
-        "^spec/src/(?:architecture|nostr-protocol|components|registry-pipeline|spec-governance|agents)\\.md$",
+        "^spec/src/(?:architecture|nostr-protocol|components|registry-pipeline|spec-governance|agents|deferred-work)\\.md$",
       ignore: [
         "(^|/)node_modules/",
         "(^|/)(?:dist|storybook-static)/",
@@ -84,6 +84,11 @@ export default defineConfig(tableRequirements(), {
         name: "community chips",
         command: "node",
         args: ["scripts/check-community-chips.mjs"],
+      },
+      {
+        name: "deferred work",
+        command: "node",
+        args: ["scripts/check-deferred-work.mjs"],
       },
     ],
   },

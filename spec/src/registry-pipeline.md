@@ -1,5 +1,9 @@
 # Local Registry Pipeline
 
+Repository scripts that enforce specification policy include the deferred-work
+ledger validator required by LC-SPEC-006. It reads specification metadata only
+and does not change the relay-derived registry pipeline.
+
 For LC-OPS-001 and LC-OPS-004, hosted-project acceptance layers the sibling
 relay's digest-pinned WalGit and RustFS composition onto both the persistent
 local development stack and disposable controller stack. Runtime credentials
