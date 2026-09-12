@@ -1753,7 +1753,8 @@
   text-decoration: underline;
 }
 
-.community-projects__file-browser-toolbar [data-slot="breadcrumb"] {
+.community-projects__file-browser-toolbar [data-slot="breadcrumb"],
+.community-projects__file-header [data-slot="breadcrumb"] {
   min-width: 0;
   flex: 1;
 }
@@ -1817,8 +1818,30 @@
   font-weight: 550;
 }
 
-.community-projects__file-browser-commit code {
+.community-projects__file-browser-commit-link {
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+  border: 0;
+  border-radius: var(--radius-sm);
+  padding: 0.15rem 0.3rem;
   color: var(--muted-foreground);
+  background: transparent;
+  cursor: pointer;
+}
+
+.community-projects__file-browser-commit-link:hover {
+  color: var(--foreground);
+  background: var(--muted);
+}
+
+.community-projects__file-browser-commit-link:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+.community-projects__file-browser-commit code {
+  color: inherit;
   font-size: var(--community-text-secondary);
 }
 

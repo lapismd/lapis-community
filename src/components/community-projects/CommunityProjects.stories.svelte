@@ -313,6 +313,7 @@
     ...hostedCommit,
     subject: `Update ${path}`,
   }));
+  const onSelectCommit = fn();
   const hostedCommitDetail = {
     commit: hostedCommit,
     stats: [
@@ -1366,12 +1367,14 @@ index 3333333..4444444 100644
     onSelectPath,
     onSelectRepositoryBranch,
     onLoadRepositoryPathCommit,
+    onSelectCommit,
   }}
   play={async ({ canvas, canvasElement }) => {
     const page = within(canvasElement.ownerDocument.body);
     onSelectPath.mockClear();
     onSelectRepositoryBranch.mockClear();
     onLoadRepositoryPathCommit.mockClear();
+    onSelectCommit.mockClear();
     const browser = canvas.getByLabelText("Repository files");
     await expect(
       within(browser).getByRole("columnheader", { name: "Name" }),
@@ -1393,6 +1396,10 @@ index 3333333..4444444 100644
       await within(browser).findByText("Update README.md"),
     ).toBeVisible();
     await expect(browser.querySelector("time")).not.toBeNull();
+    await userEvent.click(
+      canvas.getByRole("button", { name: "View commit ddddddd" }),
+    );
+    await expect(onSelectCommit).toHaveBeenCalledWith(hostedCommit);
     await userEvent.click(
       canvas.getByRole("button", { name: "Show repository file tree" }),
     );
@@ -1429,6 +1436,18 @@ index 3333333..4444444 100644
         name: "Open directory docs/guides/setup",
       }),
     ).toBeVisible();
+    const fileTree = canvas.getByLabelText("Repository file tree");
+    await userEvent.click(
+      within(fileTree).getByRole("button", { name: "README.md" }),
+    );
+    await expect(onSelectPath).toHaveBeenCalledWith("README.md");
+    await expect(canvas.getByLabelText("Repository file tree")).toBeVisible();
+    await userEvent.click(
+      within(canvas.getByRole("navigation", { name: "breadcrumb" })).getByRole(
+        "link",
+        { name: "Files" },
+      ),
+    );
     await userEvent.click(
       canvas.getByRole("combobox", { name: "Repository branch" }),
     );
@@ -1479,6 +1498,13 @@ index 3333333..4444444 100644
     await expect(getComputedStyle(filePanel!).backgroundColor).not.toBe(
       "rgba(0, 0, 0, 0)",
     );
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Show repository file tree" }),
+    );
+    await expect(canvas.getByLabelText("Repository file tree")).toBeVisible();
+    await expect(
+      canvas.getByRole("heading", { name: "Community Client" }),
+    ).toBeVisible();
     await userEvent.click(source);
     await expect(source).toHaveAttribute("aria-pressed", "true");
     await expect(
