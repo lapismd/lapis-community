@@ -411,9 +411,14 @@ export interface ProjectForgeCommit {
   subject: string;
   body?: string;
   parents?: readonly string[];
+  /** Provider-neutral author name returned by the relay forge gateway. */
+  author?: string;
   author_date?: string;
+  /** Legacy client fixture alias retained for compatibility. */
   author_name?: string;
   author_email?: string;
+  committer?: string;
+  commit_date?: string;
 }
 
 export interface ProjectForgeCommitActivity {
@@ -453,6 +458,13 @@ export interface ProjectForgeCommitsResponse {
   sha: string;
   commits: readonly ProjectForgeCommit[];
   more: boolean;
+}
+
+export interface ProjectForgeCommitsOptions {
+  /** Limit history to entries that changed this repository-relative path. */
+  path?: string;
+  /** Maximum number of commits requested from the relay gateway. */
+  limit?: number;
 }
 
 export interface ProjectForgeCommitResponse {

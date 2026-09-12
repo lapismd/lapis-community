@@ -219,6 +219,7 @@
   const onCloseTask = fn();
   const onCloseCommit = fn();
   const onSelectPath = fn();
+  const onSelectRepositoryBranch = fn();
   const onAddPullRequestComment = fn(async () => undefined);
   const onAddInlineComment = fn(async () => undefined);
   const onSubmitPullRequestReview = fn(async () => undefined);
@@ -305,9 +306,13 @@
     sha: "d".repeat(40),
     subject: "Add project file and diff views",
     body: "Use the public Design Core diff primitives.",
-    author_name: "Noor Patel",
-    author_date: "2026-09-08T09:30:00Z",
+    author: "Noor Patel",
+    commit_date: "2026-09-08T09:30:00Z",
   };
+  const onLoadRepositoryPathCommit = fn(async (path: string) => ({
+    ...hostedCommit,
+    subject: `Update ${path}`,
+  }));
   const hostedCommitDetail = {
     commit: hostedCommit,
     stats: [
@@ -1329,6 +1334,11 @@ index 3333333..4444444 100644
     view: "files",
     repositories: [githubRepository],
     repositoryCapabilities: githubRepositoryCapabilities,
+    repositoryBranches: [
+      { name: "main", sha: "d".repeat(40) },
+      { name: "feature/files", sha: "e".repeat(40) },
+    ],
+    selectedRepositoryBranch: "main",
     tree: {
       ref: "main",
       sha: "d".repeat(40),
@@ -1354,10 +1364,39 @@ index 3333333..4444444 100644
     },
     selectedPath: "",
     onSelectPath,
+    onSelectRepositoryBranch,
+    onLoadRepositoryPathCommit,
   }}
-  play={async ({ canvas }) => {
+  play={async ({ canvas, canvasElement }) => {
+    const page = within(canvasElement.ownerDocument.body);
     onSelectPath.mockClear();
+    onSelectRepositoryBranch.mockClear();
+    onLoadRepositoryPathCommit.mockClear();
     const browser = canvas.getByLabelText("Repository files");
+    await expect(
+      within(browser).getByRole("columnheader", { name: "Name" }),
+    ).toBeVisible();
+    await expect(
+      within(browser).getByRole("columnheader", { name: "Commit message" }),
+    ).toBeVisible();
+    await expect(
+      within(browser).getByRole("columnheader", { name: "Commit Date" }),
+    ).toBeVisible();
+    await expect(canvas.getByText("Noor Patel")).toBeVisible();
+    await expect(
+      canvas.getByText("Add project file and diff views"),
+    ).toBeVisible();
+    await expect(
+      canvas.queryByLabelText("Repository file tree"),
+    ).not.toBeInTheDocument();
+    await expect(
+      await within(browser).findByText("Update README.md"),
+    ).toBeVisible();
+    await expect(browser.querySelector("time")).not.toBeNull();
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Show repository file tree" }),
+    );
+    await expect(canvas.getByLabelText("Repository file tree")).toBeVisible();
     await expect(
       within(browser).getByRole("button", {
         name: "Open directory docs/guides/setup",
@@ -1378,15 +1417,25 @@ index 3333333..4444444 100644
     await expect(
       canvas.getByRole("button", { name: "Open file install.md" }),
     ).toBeVisible();
+    await expect(
+      canvas.getByRole("button", { name: "Go to parent directory" }),
+    ).toBeVisible();
     await expect(onSelectPath).not.toHaveBeenCalled();
     await userEvent.click(
-      within(breadcrumb).getByRole("link", { name: "Files" }),
+      within(breadcrumb).getByRole("link", { name: "community-client" }),
     );
     await expect(
       canvas.getByRole("button", {
         name: "Open directory docs/guides/setup",
       }),
     ).toBeVisible();
+    await userEvent.click(
+      canvas.getByRole("combobox", { name: "Repository branch" }),
+    );
+    await userEvent.click(page.getByRole("option", { name: "feature/files" }));
+    await expect(onSelectRepositoryBranch).toHaveBeenCalledWith(
+      "feature/files",
+    );
   }}
 />
 

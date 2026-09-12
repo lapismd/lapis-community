@@ -31,6 +31,7 @@
   import * as Select from "@lapismd/design-core/shadcn/select";
   import { ScrollArea } from "@lapismd/design-core/shadcn/scroll-area";
   import { Skeleton } from "@lapismd/design-core/shadcn/skeleton";
+  import * as Table from "@lapismd/design-core/shadcn/table";
   import * as Tabs from "@lapismd/design-core/shadcn/tabs";
   import * as Tooltip from "@lapismd/design-core/shadcn/tooltip";
   import * as ToggleGroup from "@lapismd/design-core/shadcn/toggle-group";
@@ -83,6 +84,7 @@
     splitProjectForgePatch,
     projectForgeBoundChannels,
     type ProjectForgeActivityItem,
+    type ProjectForgeCommit,
     type ProjectForgeProject,
     type ProjectForgeRepository,
     type ProjectTaskState,
@@ -161,6 +163,8 @@
     selectedPullRequest,
     commits = [],
     commitBranch = "",
+    repositoryBranches = [],
+    selectedRepositoryBranch = "",
     selectedCommit,
     selectedCommitDetail,
     sourceError = "",
@@ -223,6 +227,8 @@
     onAddInlineComment,
     onTogglePullRequestCommentReaction,
     onLoadRepositoryRefs,
+    onSelectRepositoryBranch,
+    onLoadRepositoryPathCommit,
     onSelectCommit,
     onCloseCommit,
     onSelectPath,
@@ -316,6 +322,11 @@
   let selectedCommitStateKey = "";
   let diffFileListMode = $state<FileListingViewMode>("tree");
   let repositoryCurrentPath = $state("");
+  let repositoryFileTreeOpen = $state(false);
+  let repositoryPathCommits = $state.raw<
+    Readonly<Record<string, ProjectForgeCommit | undefined>>
+  >({});
+  let repositoryCommitBatchKey = "";
   let repositoryMarkdownView = $state<"preview" | "source">("preview");
   let repositoryTreeKey = $state("");
   let repositoryPreviewPath = $state("");
@@ -529,6 +540,17 @@
   const repositoryEntries = $derived(
     repositoryBrowserEntries(tree?.entries ?? [], repositoryCurrentPath),
   );
+  const repositoryFileTreeEntries = $derived(
+    (tree?.entries ?? [])
+      .filter((entry) => entry.type === "blob")
+      .map((entry) => ({ path: entry.path ?? entry.name })),
+  );
+  const repositoryName = $derived(
+    selectedRepository?.name ?? browsableRepositories[0]?.name ?? "Repository",
+  );
+  const activeRepositoryBranch = $derived(
+    selectedRepositoryBranch || tree?.ref || commitBranch,
+  );
   const repositoryDirectoryBreadcrumbs = $derived(
     repositoryBreadcrumbSegments(repositoryCurrentPath),
   );
@@ -551,16 +573,18 @@
     if (selectedPath) onSelectPath?.("");
   }
 
+  function selectRepositoryBranch(value: string | undefined): void {
+    if (!value || value === activeRepositoryBranch) return;
+    repositoryCurrentPath = "";
+    repositoryPreviewPath = "";
+    repositoryPathCommits = {};
+    repositoryCommitBatchKey = "";
+    onSelectRepositoryBranch?.(value);
+  }
+
   function openRepositoryFile(path: string): void {
     if (!path || path === selectedPath) return;
     onSelectPath?.(path);
-  }
-
-  function formatRepositoryFileSize(size: number | undefined): string {
-    if (size === undefined) return "";
-    if (size < 1_000) return `${size} B`;
-    if (size < 1_000_000) return `${(size / 1_000).toFixed(1)} KB`;
-    return `${(size / 1_000_000).toFixed(1)} MB`;
   }
 
   $effect(() => {
@@ -569,7 +593,39 @@
     repositoryTreeKey = nextTreeKey;
     repositoryCurrentPath = "";
     repositoryPreviewPath = "";
+    repositoryPathCommits = {};
+    repositoryCommitBatchKey = "";
     repositoryMarkdownView = "preview";
+  });
+
+  $effect(() => {
+    const loadCommit = onLoadRepositoryPathCommit;
+    const entries = repositoryEntries;
+    const treeKey = tree ? `${tree.ref}:${tree.sha}` : "";
+    const batchKey = `${treeKey}:${repositoryCurrentPath}:${entries
+      .map((entry) => entry.path)
+      .join("|")}`;
+    if (!loadCommit || !treeKey || batchKey === repositoryCommitBatchKey)
+      return;
+    repositoryCommitBatchKey = batchKey;
+    const controller = new AbortController();
+    void Promise.all(
+      entries.map(async (entry) => {
+        try {
+          const commit = await loadCommit(entry.path, controller.signal);
+          return [entry.path, commit] as const;
+        } catch {
+          return [entry.path, undefined] as const;
+        }
+      }),
+    ).then((results) => {
+      if (controller.signal.aborted) return;
+      repositoryPathCommits = {
+        ...repositoryPathCommits,
+        ...Object.fromEntries(results),
+      };
+    });
+    return () => controller.abort();
   });
 
   $effect(() => {
@@ -2069,6 +2125,7 @@
     commit: (typeof commits)[number],
   ): CommunityMemberModel {
     const name =
+      commit.author?.trim() ||
       commit.author_name?.trim() ||
       commit.author_email?.trim() ||
       "Unknown author";
@@ -2630,6 +2687,41 @@
       </div>
     {/if}
   </header>
+{/snippet}
+
+{#snippet repositoryBranchSelector()}
+  <Select.Root
+    type="single"
+    value={activeRepositoryBranch}
+    onValueChange={selectRepositoryBranch}
+  >
+    <Select.Trigger
+      class="community-projects__file-branch-trigger"
+      aria-label="Repository branch"
+      role="combobox"
+    >
+      <GitBranchIcon aria-hidden="true" />
+      <span>{activeRepositoryBranch || "Select branch"}</span>
+    </Select.Trigger>
+    <Select.Content>
+      <Select.Group>
+        {#each repositoryBranches as branch (branch.name)}
+          <Select.Item value={branch.name} label={branch.name}>
+            {branch.name}
+          </Select.Item>
+        {:else}
+          {#if activeRepositoryBranch}
+            <Select.Item
+              value={activeRepositoryBranch}
+              label={activeRepositoryBranch}
+            >
+              {activeRepositoryBranch}
+            </Select.Item>
+          {/if}
+        {/each}
+      </Select.Group>
+    </Select.Content>
+  </Select.Root>
 {/snippet}
 
 {#snippet projectSourceError(message: string)}
@@ -4419,7 +4511,12 @@
               {/if}
               <div>
                 <h1>{selectedCommitValue.subject}</h1>
-                <p>Committed {commitDate(selectedCommitValue.author_date)}</p>
+                <p>
+                  Committed {commitDate(
+                    selectedCommitValue.commit_date ??
+                      selectedCommitValue.author_date,
+                  )}
+                </p>
               </div>
             </header>
 
@@ -4447,7 +4544,12 @@
               </div>
               <div>
                 <dt><HistoryIcon aria-hidden="true" />Date</dt>
-                <dd>{commitDate(selectedCommitValue.author_date)}</dd>
+                <dd>
+                  {commitDate(
+                    selectedCommitValue.commit_date ??
+                      selectedCommitValue.author_date,
+                  )}
+                </dd>
               </div>
               <div>
                 <dt><CodeXmlIcon aria-hidden="true" />Changes</dt>
@@ -4694,9 +4796,11 @@
                       onclick={() => void copyCommitHash(commit.sha)}
                       ><CopyIcon aria-hidden="true" /></Button
                     >
-                    {#if commit.author_date}<CommunityRelativeTime
+                    {#if commit.commit_date ?? commit.author_date}<CommunityRelativeTime
                         timestamp={Math.floor(
-                          new Date(commit.author_date).getTime() / 1_000,
+                          new Date(
+                            commit.commit_date ?? commit.author_date!,
+                          ).getTime() / 1_000,
                         )}
                       />{/if}
                   </article>
@@ -4708,10 +4812,6 @@
           </div>
         {/if}
       {:else if view === "files"}
-        {@render surfaceHeader(
-          "Files",
-          "Repository files loaded through the relay gateway.",
-        )}
         <div class="community-projects__files-surface">
           {#if loading && !tree}
             <div
@@ -4916,95 +5016,253 @@
               </ScrollArea>
             </section>
           {:else if tree}
-            <section class="community-projects__file-browser">
-              <header class="community-projects__file-browser-breadcrumb">
-                <Breadcrumb.Root aria-label="Repository directory path">
-                  <Breadcrumb.List>
-                    <Breadcrumb.Item>
-                      {#if repositoryDirectoryBreadcrumbs.length === 0}
-                        <Breadcrumb.Page>Files</Breadcrumb.Page>
-                      {:else}
-                        <Breadcrumb.Link
-                          href="#"
-                          onclick={(event) => {
-                            event.preventDefault();
-                            openRepositoryDirectory("");
-                          }}>Files</Breadcrumb.Link
+            <div
+              class="community-projects__file-browser-layout"
+              data-file-tree-open={repositoryFileTreeOpen}
+            >
+              {#if repositoryFileTreeOpen}
+                <aside
+                  class="community-projects__file-tree"
+                  aria-label="Repository file tree"
+                >
+                  <header class="community-projects__file-tree-header">
+                    <strong>Files</strong>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon-sm"
+                      aria-label="Hide repository file tree"
+                      title="Hide repository file tree"
+                      onclick={() => (repositoryFileTreeOpen = false)}
+                    >
+                      <CommunitySidebarToggleIcon
+                        side="left"
+                        expanded={repositoryFileTreeOpen}
+                      />
+                    </Button>
+                  </header>
+                  <div class="community-projects__file-tree-branch">
+                    {@render repositoryBranchSelector()}
+                  </div>
+                  <ScrollArea
+                    type="hover"
+                    class="community-projects__file-tree-scroll"
+                  >
+                    <FileListing
+                      files={repositoryFileTreeEntries}
+                      mode="tree"
+                      selectedPath={selectedPath || null}
+                      onSelectPath={openRepositoryFile}
+                    >
+                      {#snippet fileMeta()}
+                        <span class="sr-only">Repository file</span>
+                      {/snippet}
+                    </FileListing>
+                  </ScrollArea>
+                </aside>
+              {/if}
+
+              <section class="community-projects__file-browser">
+                <header class="community-projects__file-browser-toolbar">
+                  {#if !repositoryFileTreeOpen}
+                    <Tooltip.Provider delayDuration={0}>
+                      <Tooltip.Root>
+                        <Tooltip.Trigger>
+                          {#snippet child({ props })}
+                            <Button
+                              {...props}
+                              type="button"
+                              variant="ghost"
+                              size="icon-sm"
+                              aria-label="Show repository file tree"
+                              onclick={() => (repositoryFileTreeOpen = true)}
+                            >
+                              <CommunitySidebarToggleIcon
+                                side="left"
+                                expanded={repositoryFileTreeOpen}
+                              />
+                            </Button>
+                          {/snippet}
+                        </Tooltip.Trigger>
+                        <Tooltip.Content side="bottom" sideOffset={6}
+                          >Show file tree</Tooltip.Content
                         >
-                      {/if}
-                    </Breadcrumb.Item>
-                    {#each repositoryDirectoryBreadcrumbs as segment, index (segment.path)}
-                      <Breadcrumb.Separator />
+                      </Tooltip.Root>
+                    </Tooltip.Provider>
+                    {@render repositoryBranchSelector()}
+                  {/if}
+
+                  <Breadcrumb.Root aria-label="Repository directory path">
+                    <Breadcrumb.List>
                       <Breadcrumb.Item>
-                        {#if index === repositoryDirectoryBreadcrumbs.length - 1}
-                          <Breadcrumb.Page>{segment.name}</Breadcrumb.Page>
+                        {#if repositoryDirectoryBreadcrumbs.length === 0}
+                          <Breadcrumb.Page>{repositoryName}</Breadcrumb.Page>
                         {:else}
                           <Breadcrumb.Link
                             href="#"
                             onclick={(event) => {
                               event.preventDefault();
-                              openRepositoryDirectory(segment.path);
-                            }}>{segment.name}</Breadcrumb.Link
+                              openRepositoryDirectory("");
+                            }}>{repositoryName}</Breadcrumb.Link
                           >
                         {/if}
                       </Breadcrumb.Item>
-                    {/each}
-                  </Breadcrumb.List>
-                </Breadcrumb.Root>
-              </header>
-              {#if tree.commit}
-                <div class="community-projects__file-browser-commit">
-                  <GitCommitHorizontalIcon aria-hidden="true" />
-                  <span>
-                    {#if tree.commit.author_name}<strong
-                        >{tree.commit.author_name}</strong
-                      >{" committed "}
-                    {/if}<span>{tree.commit.subject}</span>
-                  </span>
-                  <code>{tree.commit.sha.slice(0, 7)}</code>
-                  {#if tree.commit.author_date}
-                    <CommunityRelativeTime
-                      timestamp={Math.floor(
-                        new Date(tree.commit.author_date).getTime() / 1_000,
-                      )}
-                    />
-                  {/if}
-                </div>
-              {/if}
-              <div
-                class="community-projects__file-browser-list"
-                aria-label={repositoryCurrentPath
-                  ? `Files in ${repositoryCurrentPath}`
-                  : "Repository files"}
-              >
-                {#each repositoryEntries as entry (entry.path)}
-                  <button
-                    type="button"
-                    class="community-projects__file-browser-row"
-                    aria-label={`${entry.type === "tree" ? "Open directory" : "Open file"} ${entry.name}`}
-                    onclick={() =>
-                      entry.type === "tree"
-                        ? openRepositoryDirectory(entry.path)
-                        : openRepositoryFile(entry.path)}
-                  >
-                    {#if entry.type === "tree"}
-                      <FolderIcon aria-hidden="true" />
+                      {#each repositoryDirectoryBreadcrumbs as segment, index (segment.path)}
+                        <Breadcrumb.Separator />
+                        <Breadcrumb.Item>
+                          {#if index === repositoryDirectoryBreadcrumbs.length - 1}
+                            <Breadcrumb.Page>{segment.name}</Breadcrumb.Page>
+                          {:else}
+                            <Breadcrumb.Link
+                              href="#"
+                              onclick={(event) => {
+                                event.preventDefault();
+                                openRepositoryDirectory(segment.path);
+                              }}>{segment.name}</Breadcrumb.Link
+                            >
+                          {/if}
+                        </Breadcrumb.Item>
+                      {/each}
+                    </Breadcrumb.List>
+                  </Breadcrumb.Root>
+                </header>
+
+                {#if tree.commit}
+                  {@const latestCommitAuthor = commitAuthorMember(tree.commit)}
+                  {@const latestCommitDate =
+                    tree.commit.commit_date ?? tree.commit.author_date}
+                  <div class="community-projects__file-browser-commit">
+                    <GitCommitHorizontalIcon aria-hidden="true" />
+                    <span>
+                      <strong>{latestCommitAuthor.name}</strong
+                      >{" committed "}<span>{tree.commit.subject}</span>
+                    </span>
+                    <code>{tree.commit.sha.slice(0, 7)}</code>
+                    {#if latestCommitDate}
+                      <CommunityRelativeTime
+                        timestamp={Math.floor(
+                          new Date(latestCommitDate).getTime() / 1_000,
+                        )}
+                      />
+                    {/if}
+                  </div>
+                {/if}
+
+                <Table.Root
+                  class="community-projects__file-browser-table"
+                  aria-label={repositoryCurrentPath
+                    ? `Files in ${repositoryCurrentPath}`
+                    : "Repository files"}
+                >
+                  <Table.Header>
+                    <Table.Row>
+                      <Table.Head>Name</Table.Head>
+                      <Table.Head>Commit message</Table.Head>
+                      <Table.Head>Commit Date</Table.Head>
+                    </Table.Row>
+                  </Table.Header>
+                  <Table.Body>
+                    {#if repositoryCurrentPath}
+                      <Table.Row>
+                        <Table.Cell>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            class="community-projects__file-entry"
+                            aria-label="Go to parent directory"
+                            onclick={() =>
+                              openRepositoryDirectory(
+                                repositoryParentPath(repositoryCurrentPath),
+                              )}
+                          >
+                            <FolderIcon
+                              data-icon="inline-start"
+                              aria-hidden="true"
+                            />
+                            <strong>..</strong>
+                          </Button>
+                        </Table.Cell>
+                        <Table.Cell
+                          ><span aria-hidden="true">—</span></Table.Cell
+                        >
+                        <Table.Cell
+                          ><span aria-hidden="true">—</span></Table.Cell
+                        >
+                      </Table.Row>
+                    {/if}
+                    {#each repositoryEntries as entry (entry.path)}
+                      {@const entryCommit = repositoryPathCommits[entry.path]}
+                      {@const entryCommitDate =
+                        entryCommit?.commit_date ?? entryCommit?.author_date}
+                      {@const commitLoaded =
+                        Object.prototype.hasOwnProperty.call(
+                          repositoryPathCommits,
+                          entry.path,
+                        )}
+                      <Table.Row>
+                        <Table.Cell>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            class="community-projects__file-entry"
+                            aria-label={`${entry.type === "tree" ? "Open directory" : "Open file"} ${entry.name}`}
+                            onclick={() =>
+                              entry.type === "tree"
+                                ? openRepositoryDirectory(entry.path)
+                                : openRepositoryFile(entry.path)}
+                          >
+                            {#if entry.type === "tree"}
+                              <FolderIcon
+                                data-icon="inline-start"
+                                aria-hidden="true"
+                              />
+                            {:else}
+                              <FileIcon
+                                data-icon="inline-start"
+                                aria-hidden="true"
+                              />
+                            {/if}
+                            <strong>{entry.name}</strong>
+                          </Button>
+                        </Table.Cell>
+                        <Table.Cell>
+                          <span
+                            class="community-projects__file-commit-message"
+                            title={entryCommit?.subject}
+                          >
+                            {entryCommit?.subject ??
+                              (onLoadRepositoryPathCommit && !commitLoaded
+                                ? "Loading…"
+                                : "—")}
+                          </span>
+                        </Table.Cell>
+                        <Table.Cell>
+                          {#if entryCommitDate}
+                            <CommunityRelativeTime
+                              timestamp={Math.floor(
+                                new Date(entryCommitDate).getTime() / 1_000,
+                              )}
+                            />
+                          {:else}
+                            <span aria-hidden="true">—</span>
+                          {/if}
+                        </Table.Cell>
+                      </Table.Row>
                     {:else}
-                      <FileIcon aria-hidden="true" />
-                    {/if}
-                    <strong>{entry.name}</strong>
-                    {#if entry.type === "blob" && entry.size !== undefined}
-                      <span>{formatRepositoryFileSize(entry.size)}</span>
-                    {/if}
-                    <ChevronRightIcon aria-hidden="true" />
-                  </button>
-                {:else}
-                  <p class="community-projects__status">
-                    This directory does not contain any files.
-                  </p>
-                {/each}
-              </div>
-            </section>
+                      <Table.Row>
+                        <Table.Cell colspan={3}>
+                          <p class="community-projects__status">
+                            This directory does not contain any files.
+                          </p>
+                        </Table.Cell>
+                      </Table.Row>
+                    {/each}
+                  </Table.Body>
+                </Table.Root>
+              </section>
+            </div>
           {:else}
             <Empty.Root class="community-projects__empty">
               <Empty.Header>

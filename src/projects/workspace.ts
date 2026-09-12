@@ -195,7 +195,9 @@ export function buildProjectForgeActivity(
       id: `commit:${entry.repositoryCoordinate}:${entry.commit.sha}`,
       kind: "commit",
       createdAt: Math.floor(
-        new Date(entry.commit.author_date ?? 0).getTime() / 1_000,
+        new Date(
+          entry.commit.commit_date ?? entry.commit.author_date ?? 0,
+        ).getTime() / 1_000,
       ),
       actorPubkey: "",
       action: "pushed a commit to",

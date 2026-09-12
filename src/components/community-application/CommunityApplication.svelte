@@ -111,6 +111,7 @@
     type ProjectForgeRepository,
     type ProjectForgeRepositoryCapabilities,
     type ProjectForgeRepositoryCapabilitiesByCoordinate,
+    type ProjectForgeRef,
     type ProjectForgeRefsResponse,
     type ProjectForgeSession,
     type ProjectForgeSurface,
@@ -569,6 +570,9 @@
   let projectDialogSequence = 0;
   let projectCommits = $state.raw<readonly ProjectForgeCommit[]>([]);
   let projectCommitBranch = $state("");
+  let projectRepositoryBranches = $state.raw<readonly ProjectForgeRef[]>([]);
+  let projectSelectedRepositoryBranch = $state("");
+  let projectSelectedRepositoryBranchOwner = $state("");
   let projectCommitActivity = $state.raw<readonly ProjectForgeCommitActivity[]>(
     [],
   );
@@ -2168,6 +2172,8 @@
       : (selectedProjectSurface ?? overviewSurface);
     const pullRequestId = selectedPullRequestId;
     const selectedCommitSha = selectedProjectCommit?.sha;
+    const requestedRepositoryBranch = projectSelectedRepositoryBranch;
+    const requestedRepositoryBranchOwner = projectSelectedRepositoryBranchOwner;
     if (!session || !catalogSettled) return;
 
     const openedSession = session;
@@ -2317,6 +2323,7 @@
       if (!sourceRepository) {
         projectCommits = [];
         projectCommitBranch = "";
+        projectRepositoryBranches = [];
         projectCommitDetail = undefined;
         const capabilityFailure = capabilityFailures[0];
         projectSourceError =
@@ -2391,8 +2398,28 @@
               repository,
               controller.signal,
             );
-            projectCommitBranch = refs.head?.name ?? "";
-            const revision = refs.head?.name ?? refs.head?.sha;
+            const branches = projectForgeBranchRefs(refs);
+            const requestedBranch =
+              requestedRepositoryBranchOwner === repository
+                ? branches.find(
+                    (branch) => branch.name === requestedRepositoryBranch,
+                  )
+                : undefined;
+            const selectedBranch = requestedBranch ?? branches[0];
+            projectRepositoryBranches = branches;
+            projectCommitBranch = selectedBranch?.name ?? refs.head?.name ?? "";
+            if (
+              projectSelectedRepositoryBranchOwner !== repository ||
+              projectSelectedRepositoryBranch !== projectCommitBranch
+            ) {
+              projectSelectedRepositoryBranchOwner = repository;
+              projectSelectedRepositoryBranch = projectCommitBranch;
+            }
+            const revision =
+              selectedBranch?.name ??
+              selectedBranch?.sha ??
+              refs.head?.name ??
+              refs.head?.sha;
             projectRepositoryRevision = revision ?? "";
             if (
               revision &&
@@ -2414,6 +2441,18 @@
                       "",
                       controller.signal,
                     );
+              if (surface === "files") {
+                const commits = await openedSession.loadCommits(
+                  repository,
+                  revision,
+                  controller.signal,
+                  { limit: 1 },
+                );
+                projectCommits = commits.commits;
+                if (commits.commits[0]) {
+                  tree = { ...tree, commit: commits.commits[0] };
+                }
+              }
               if (
                 (surface === undefined || surface === "overview") &&
                 !tree.readme?.trim()
@@ -2446,6 +2485,7 @@
           } catch (cause) {
             if (controller.signal.aborted) throw cause;
             projectCommitBranch = "";
+            projectRepositoryBranches = [];
             projectRepositoryRevision = "";
             projectTree = undefined;
             projectBlob = undefined;
@@ -3780,6 +3820,21 @@
     const session = projectSession;
     if (!session) throw new Error("Repository source is not ready");
     return await session.loadRefs(repositoryCoordinate);
+  }
+
+  async function loadRepositoryPathCommit(
+    path: string,
+    signal?: AbortSignal,
+  ): Promise<ProjectForgeCommit | undefined> {
+    const session = projectSession;
+    const repository = projectSourceRepositoryCoordinate;
+    const revision = projectRepositoryRevision;
+    if (!session || !repository || !revision) return undefined;
+    const response = await session.loadCommits(repository, revision, signal, {
+      path,
+      limit: 1,
+    });
+    return response.commits[0];
   }
 
   async function publishPullRequestReview(
@@ -6200,6 +6255,8 @@
           {...selectedPullRequest === undefined ? {} : { selectedPullRequest }}
           commits={projectCommits}
           commitBranch={projectCommitBranch}
+          repositoryBranches={projectRepositoryBranches}
+          selectedRepositoryBranch={projectCommitBranch}
           {...selectedProjectCommit === undefined
             ? {}
             : { selectedCommit: selectedProjectCommit }}
@@ -6246,6 +6303,16 @@
           onUpdateTaskLifecycle={updateTaskLifecycle}
           onCreatePullRequest={createPullRequest}
           onLoadRepositoryRefs={loadReviewRepositoryRefs}
+          onSelectRepositoryBranch={(branch) => {
+            if (branch === projectSelectedRepositoryBranch) return;
+            projectSelectedRepositoryBranchOwner =
+              projectSourceRepositoryCoordinate;
+            projectSelectedRepositoryBranch = branch;
+            selectedProjectPath = "";
+            projectBlob = undefined;
+            projectTree = undefined;
+          }}
+          onLoadRepositoryPathCommit={loadRepositoryPathCommit}
           onSelectPullRequest={(pullRequest) => {
             selectedPullRequestId = pullRequest.root.id;
             projectPullRequestDiff = undefined;
@@ -6645,6 +6712,8 @@
         {...selectedPullRequest === undefined ? {} : { selectedPullRequest }}
         commits={projectCommits}
         commitBranch={projectCommitBranch}
+        repositoryBranches={projectRepositoryBranches}
+        selectedRepositoryBranch={projectCommitBranch}
         {...selectedProjectCommit === undefined
           ? {}
           : { selectedCommit: selectedProjectCommit }}
@@ -6723,6 +6792,16 @@
         onUpdateTaskLifecycle={updateTaskLifecycle}
         onCreatePullRequest={createPullRequest}
         onLoadRepositoryRefs={loadReviewRepositoryRefs}
+        onSelectRepositoryBranch={(branch) => {
+          if (branch === projectSelectedRepositoryBranch) return;
+          projectSelectedRepositoryBranchOwner =
+            projectSourceRepositoryCoordinate;
+          projectSelectedRepositoryBranch = branch;
+          selectedProjectPath = "";
+          projectBlob = undefined;
+          projectTree = undefined;
+        }}
+        onLoadRepositoryPathCommit={loadRepositoryPathCommit}
         onSelectPullRequest={(pullRequest) => {
           selectedPullRequestId = pullRequest.root.id;
           projectPullRequestDiff = undefined;

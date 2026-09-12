@@ -17,6 +17,7 @@ import type {
   ProjectForgePullRequestDiff,
   ProjectForgeRepository,
   ProjectForgeRepositoryCapabilitiesByCoordinate,
+  ProjectForgeRef,
   ProjectReviewPreferenceScope,
   ProjectReviewPreferenceStore,
   ProjectForgeRefsResponse,
@@ -121,6 +122,10 @@ export interface CommunityProjectsProps {
   commits?: readonly ProjectForgeCommit[];
   /** Active repository head shown beside commit rows, when available. */
   commitBranch?: string;
+  /** Selectable provider-neutral branch refs for the repository browser. */
+  repositoryBranches?: readonly ProjectForgeRef[];
+  /** Branch whose tree is currently loaded in the repository browser. */
+  selectedRepositoryBranch?: string;
   selectedCommit?: ProjectForgeCommit;
   selectedCommitDetail?: ProjectForgeCommitResponse;
   /** Source-read failure shared by overview, file, and commit surfaces. */
@@ -246,6 +251,11 @@ export interface CommunityProjectsProps {
   ) => Promise<void>;
   onSelectCommit?: (commit: ProjectForgeCommit) => void;
   onCloseCommit?: () => void;
+  onSelectRepositoryBranch?: (branch: string) => void;
+  onLoadRepositoryPathCommit?: (
+    path: string,
+    signal?: AbortSignal,
+  ) => Promise<ProjectForgeCommit | undefined>;
   onSelectPath?: (path: string) => void;
   onRetry?: () => void | Promise<void>;
 }

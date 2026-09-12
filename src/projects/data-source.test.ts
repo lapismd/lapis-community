@@ -188,6 +188,59 @@ describe("NIP-34 project forge data source", () => {
     session.close();
   });
 
+  it("loads path-filtered commit metadata for repository file rows", async () => {
+    const requests: Array<{ url: string; authorization: string }> = [];
+    const fetch = vi.fn(
+      async (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = input.toString();
+        requests.push({
+          url,
+          authorization: new Headers(init?.headers).get("Authorization") ?? "",
+        });
+        return json({
+          ref: "main",
+          sha: "a".repeat(40),
+          commits: [
+            {
+              sha: "b".repeat(40),
+              subject: "Document the project source browser",
+              author: "Noor Patel",
+              commit_date: "2026-09-08T09:30:00Z",
+            },
+          ],
+          more: false,
+        });
+      },
+    );
+    const source = createNip34ProjectForgeDataSource({
+      relayFactory: createInMemoryRelayFactory(),
+      fetch,
+      now: () => new Date("2026-09-09T12:00:00.000Z"),
+    });
+    const session = await source.open({
+      relayUrl: "wss://relay.example",
+      identity: new SecretKeyRegistrySigner(generateSecretKey()),
+    });
+
+    await expect(
+      session.loadCommits(repository, "main", undefined, {
+        path: "src/app.ts",
+        limit: 1,
+      }),
+    ).resolves.toMatchObject({
+      commits: [{ subject: "Document the project source browser" }],
+    });
+
+    expect(requests).toHaveLength(1);
+    expect(requests[0]?.url).toBe(
+      `https://relay.example/api/git/${owner}/notes/commits?ref=main&path=src%2Fapp.ts&n=1`,
+    );
+    const auth = authorizationEvent(requests[0]!.authorization);
+    expect(auth.tags).toContainEqual(["u", requests[0]!.url]);
+    expect(auth.tags).toContainEqual(["method", "GET"]);
+    session.close();
+  });
+
   it("merges a pull request through a head-pinned forge operation", async () => {
     const eventId = "4".repeat(64);
     const expectedHead = "a".repeat(40);

@@ -20,6 +20,7 @@ import {
   type ProjectForgeAttachGitHubRepositoryInput,
   type ProjectForgeCatalog,
   type ProjectForgeCommitResponse,
+  type ProjectForgeCommitsOptions,
   type ProjectForgeCommitsResponse,
   type ProjectForgeGitHubConnectionsResponse,
   type ProjectForgeGitHubConnection,
@@ -162,6 +163,7 @@ export interface ProjectForgeSession {
     repository: string,
     ref?: string,
     signal?: AbortSignal,
+    options?: ProjectForgeCommitsOptions,
   ): Promise<ProjectForgeCommitsResponse>;
   loadCommit(
     repository: string,
@@ -547,8 +549,13 @@ class Nip34ProjectForgeSession implements ProjectForgeSession {
     repository: string,
     ref?: string,
     signal?: AbortSignal,
+    options: ProjectForgeCommitsOptions = {},
   ): Promise<ProjectForgeCommitsResponse> {
-    const suffix = ref ? `commits?ref=${encodeURIComponent(ref)}` : "commits";
+    const query = new URLSearchParams();
+    if (ref) query.set("ref", ref);
+    if (options.path) query.set("path", options.path);
+    if (options.limit !== undefined) query.set("n", String(options.limit));
+    const suffix = query.size > 0 ? `commits?${query.toString()}` : "commits";
     return await this.#forgeGet(repository, suffix, signal);
   }
 
