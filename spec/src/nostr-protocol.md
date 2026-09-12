@@ -203,3 +203,10 @@ Live turn ordering is tracked separately from stored event pagination so a
 late start cannot revive a completed turn. Profile and channel UI permissions
 consume signed ownership and relay membership without granting owners room
 administration rights.
+
+For LC-ARCH-023, Nostr account login signs kind `27235` over the relay's exact
+login URL, `POST` method, and SHA-256 digest of the challenge body. A restored
+relay signer accepts only a signed event whose kind, timestamp, content, tags,
+canonical account public key, identifier, and signature match the requested
+template. Relay-backed NIP-44 operations remain bound to that same account
+session and validated peer public key.
