@@ -3,8 +3,10 @@
   import { Button } from "@lapismd/design-core/shadcn/button";
   import * as Card from "@lapismd/design-core/shadcn/card";
   import { Input } from "@lapismd/design-core/shadcn/input";
+  import * as Select from "@lapismd/design-core/shadcn/select";
   import { Spinner } from "@lapismd/design-core/shadcn/spinner";
   import CircleAlertIcon from "@lucide/svelte/icons/circle-alert";
+  import FingerprintIcon from "@lucide/svelte/icons/fingerprint";
   import KeyRoundIcon from "@lucide/svelte/icons/key-round";
   import LockKeyholeIcon from "@lucide/svelte/icons/lock-keyhole";
   import ShieldCheckIcon from "@lucide/svelte/icons/shield-check";
@@ -26,7 +28,7 @@
     methods = DEFAULT_COMMUNITY_LOGIN_METHODS,
     title = "Connect to Nostr",
     description = "Choose your login method",
-    footnote = "Your identity stays under your control. Lapis only requests signatures for actions you approve.",
+    footnote,
     busy = false,
     pendingMethodId = "",
     error = "",
@@ -53,13 +55,32 @@
   let privateKey = $state("");
   let remoteSignerMethod = $state<CommunityLoginMethodModel>();
   let remoteSignerUrl = $state("");
+  let keytrMethod = $state<CommunityLoginMethodModel>();
+  let keytrAction = $state<"choose" | "create" | "import">("choose");
+  let keytrGatewayId = $state("");
+  let keytrPasskeyLabel = $state("");
+  let keytrPrivateKey = $state("");
   let validationError = $state("");
   const displayedError = $derived(validationError || error);
+  const displayedFootnote = $derived(
+    footnote ??
+      (methods.some((method) => method.kind === "keytr")
+        ? "Keytr decrypts your signing key only in this browser tab and clears it when you disconnect. Other Nostr methods keep their existing signer custody."
+        : "Your identity stays under your control. Lapis only requests signatures for actions you approve."),
+  );
 
   function selectMethod(method: CommunityLoginMethodModel): void {
     validationError = "";
     if (method.kind === "remote-signer") {
       remoteSignerMethod = method;
+      return;
+    }
+    if (method.kind === "keytr" && method.keytr !== undefined) {
+      keytrMethod = method;
+      keytrAction = "choose";
+      keytrGatewayId = method.keytr.gateways[0]?.id ?? "";
+      keytrPasskeyLabel = method.keytr.defaultPasskeyLabel ?? "Lapis Community";
+      keytrPrivateKey = "";
       return;
     }
     if (method.kind === "private-key") {
@@ -79,6 +100,58 @@
     remoteSignerUrl = "";
     validationError = "";
     remoteSignerMethod = undefined;
+  }
+
+  function closeKeytrForm(): void {
+    keytrAction = "choose";
+    keytrGatewayId = "";
+    keytrPasskeyLabel = "";
+    keytrPrivateKey = "";
+    validationError = "";
+    keytrMethod = undefined;
+  }
+
+  function resetKeytrAction(): void {
+    keytrAction = "choose";
+    keytrPrivateKey = "";
+    validationError = "";
+  }
+
+  async function submitKeytr(action: "login" | "create" | "import") {
+    if (keytrMethod === undefined || keytrGatewayId === "") return;
+    const label = keytrPasskeyLabel.trim();
+    if (action !== "login" && label === "") {
+      validationError = "Enter a passkey label before continuing";
+      return;
+    }
+    const imported = keytrPrivateKey.trim();
+    if (action === "import" && imported === "") {
+      validationError = "Paste an nsec before protecting this key";
+      return;
+    }
+    validationError = "";
+    try {
+      await onSelect(keytrMethod.id, {
+        keytr: {
+          action,
+          gatewayId: keytrGatewayId,
+          ...(action === "login" ? {} : { passkeyLabel: label }),
+          ...(action === "import" ? { privateKey: imported } : {}),
+        },
+      });
+      closeKeytrForm();
+    } catch {
+      // Keep setup values in this dialog for a safe retry. Closing the surface
+      // clears every credential value held by the component.
+    }
+  }
+
+  function selectedKeytrGatewayLabel(): string {
+    return (
+      keytrMethod?.keytr?.gateways.find(
+        (gateway) => gateway.id === keytrGatewayId,
+      )?.label ?? "Choose a gateway"
+    );
   }
 
   async function submitRemoteSigner(): Promise<void> {
@@ -116,6 +189,7 @@
   }
 
   function methodIcon(kind: CommunityLoginMethodKind): Component {
+    if (kind === "keytr") return FingerprintIcon;
     if (kind === "browser-extension") return LockKeyholeIcon;
     if (kind === "remote-signer") return ShieldCheckIcon;
     if (kind === "create-account") return SparklesIcon;
@@ -164,7 +238,125 @@
         </Alert.Root>
       {/if}
 
-      {#if remoteSignerMethod !== undefined}
+      {#if keytrMethod !== undefined && keytrMethod.keytr !== undefined}
+        <form
+          class="community-login__credential-form"
+          aria-label="Keytr sign in"
+          onsubmit={(event) => {
+            event.preventDefault();
+            if (keytrAction !== "choose") void submitKeytr(keytrAction);
+          }}
+        >
+          <div class="community-login__credential-copy">
+            <strong>{keytrMethod.label}</strong>
+            <span>{keytrMethod.description}</span>
+          </div>
+
+          {#if keytrMethod.keytr.gateways.length > 1}
+            <label for="community-login-keytr-gateway">Passkey gateway</label>
+            <Select.Root
+              type="single"
+              value={keytrGatewayId}
+              onValueChange={(value) => (keytrGatewayId = value)}
+            >
+              <Select.Trigger
+                id="community-login-keytr-gateway"
+                aria-label="Passkey gateway"
+                >{selectedKeytrGatewayLabel()}</Select.Trigger
+              >
+              <Select.Content aria-label="Passkey gateway">
+                {#each keytrMethod.keytr.gateways as gateway (gateway.id)}
+                  <Select.Item value={gateway.id} label={gateway.label}
+                    >{gateway.label}</Select.Item
+                  >
+                {/each}
+              </Select.Content>
+            </Select.Root>
+          {/if}
+
+          {#if keytrAction === "choose"}
+            <div class="community-login__keytr-actions">
+              <Button
+                type="button"
+                disabled={busy || keytrGatewayId === ""}
+                onclick={() => void submitKeytr("login")}
+              >
+                {busy ? "Waiting for passkey…" : "Sign in with Keytr"}
+              </Button>
+              {#if keytrMethod.keytr.allowSetup !== false}
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={busy}
+                  onclick={() => (keytrAction = "create")}
+                  >Create a Keytr identity</Button
+                >
+              {/if}
+              {#if keytrMethod.keytr.allowImport}
+                <Button
+                  type="button"
+                  variant="ghost"
+                  disabled={busy}
+                  onclick={() => (keytrAction = "import")}
+                  >Protect an existing private key</Button
+                >
+              {/if}
+            </div>
+            <div class="community-login__credential-actions">
+              <Button
+                type="button"
+                variant="ghost"
+                disabled={busy}
+                onclick={closeKeytrForm}>Back</Button
+              >
+            </div>
+          {:else}
+            <label for="community-login-keytr-label">Passkey label</label>
+            <Input
+              id="community-login-keytr-label"
+              name="keytr-passkey-label"
+              autocomplete="off"
+              disabled={busy}
+              bind:value={keytrPasskeyLabel}
+            />
+            {#if keytrAction === "import"}
+              <label for="community-login-keytr-private-key"
+                >Nostr private key</label
+              >
+              <Input
+                id="community-login-keytr-private-key"
+                name="keytr-private-key"
+                type="password"
+                autocomplete="off"
+                autocapitalize="none"
+                spellcheck={false}
+                placeholder="nsec1…"
+                disabled={busy}
+                bind:value={keytrPrivateKey}
+              />
+            {/if}
+            <div class="community-login__credential-actions">
+              <Button
+                type="button"
+                variant="ghost"
+                disabled={busy}
+                onclick={resetKeytrAction}>Back</Button
+              >
+              <Button type="submit" disabled={busy || keytrGatewayId === ""}>
+                {busy
+                  ? "Waiting for passkey…"
+                  : keytrAction === "create"
+                    ? "Create identity"
+                    : "Protect key"}
+              </Button>
+            </div>
+          {/if}
+          <p>
+            Keytr decrypts the signing key only in this browser tab and clears
+            it when this identity disconnects.
+          </p>
+        </form>
+      {:else if remoteSignerMethod !== undefined}
         <form
           class="community-login__credential-form"
           onsubmit={(event) => {
@@ -301,9 +493,9 @@
       {/if}
     </Card.Content>
 
-    {#if footnote}
+    {#if displayedFootnote}
       <Card.Footer>
-        <p class="community-login__footnote">{footnote}</p>
+        <p class="community-login__footnote">{displayedFootnote}</p>
       </Card.Footer>
     {/if}
   </Card.Root>
@@ -410,6 +602,15 @@
     display: flex;
     justify-content: flex-end;
     gap: 0.5rem;
+  }
+
+  .community-login__keytr-actions {
+    display: grid;
+    gap: 0.5rem;
+  }
+
+  :global(.community-login__keytr-actions [data-ui-component="button"]) {
+    width: 100%;
   }
 
   :global(.community-login__error[data-ui-component="alert"]) {

@@ -46,6 +46,7 @@ export interface CommunityAccountSignerDetails {
   label:
     | "Managed by Lapis"
     | "Remote signer"
+    | "Keytr passkey"
     | "Browser/device signer"
     | "Migration pending"
     | "Unavailable";
@@ -56,6 +57,7 @@ export interface CommunityAccountSignerDetails {
 export function communityAccountSignerDetails(
   account: CommunityAccountSession,
   authenticationState?: CommunityAccountAuthenticationState,
+  activeExternalSigner?: "keytr",
 ): CommunityAccountSignerDetails {
   if (account.signer_status === "migration_pending") {
     return {
@@ -84,6 +86,14 @@ export function communityAccountSignerDetails(
       state: "active",
       description:
         "The relay delegates signing to the connected NIP-46 signer.",
+    };
+  }
+  if (activeExternalSigner === "keytr" && authenticationState === "connected") {
+    return {
+      label: "Keytr passkey",
+      state: "active",
+      description:
+        "This browser tab holds the passkey-decrypted key until you disconnect.",
     };
   }
   if (authenticationState === "reconnect-required") {

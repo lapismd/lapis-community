@@ -35,6 +35,13 @@ describe("community account settings model", () => {
         .label,
     ).toBe("Browser/device signer");
     expect(
+      communityAccountSignerDetails(
+        { ...account, signer_type: "external" },
+        "connected",
+        "keytr",
+      ).label,
+    ).toBe("Keytr passkey");
+    expect(
       communityAccountSignerDetails({
         ...account,
         signer_status: "migration_pending",

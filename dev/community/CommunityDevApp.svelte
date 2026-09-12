@@ -1,8 +1,11 @@
 <script lang="ts">
   import {
+    createCommunityKeytrLoginIntegration,
     RelayAuthClient,
     SecretKeyRegistrySigner,
     Nip07RegistrySigner,
+    type CommunityKeytrGateway,
+    type RelayIdentityConnectContext,
   } from "../../src/auth/index.js";
   import {
     createBrowserCommunityConfigurationStore,
@@ -30,6 +33,7 @@
   import { nip19 } from "nostr-tools";
   import { generateSecretKey } from "nostr-tools/pure";
   import { onMount } from "svelte";
+  import { communityKeytrLibrary } from "./keytr-adapter.js";
 
   const { relayUrl, registryRelays, authUrl } =
     resolveCommunityDevRelayConfiguration(import.meta.env);
@@ -46,6 +50,32 @@
   );
   const registryAuthorityEpoch =
     import.meta.env.VITE_REGISTRY_AUTHORITY_EPOCH?.trim() || undefined;
+  const keytrRelayUrls = values(import.meta.env.VITE_COMMUNITY_KEYTR_RELAYS);
+  const keytrGatewayValues = values(
+    import.meta.env.VITE_COMMUNITY_KEYTR_GATEWAYS,
+  );
+  const keytrGateways: readonly CommunityKeytrGateway[] | undefined =
+    keytrGatewayValues.length === 0
+      ? undefined
+      : keytrGatewayValues.map((entry) => {
+          const separator = entry.indexOf("=");
+          const rpId = (
+            separator < 0 ? entry : entry.slice(0, separator)
+          ).trim();
+          const label =
+            (separator < 0 ? entry : entry.slice(separator + 1)).trim() || rpId;
+          return { id: rpId, label, rpId };
+        });
+  const keytrIntegration =
+    keytrRelayUrls.length === 0
+      ? undefined
+      : createCommunityKeytrLoginIntegration({
+          library: communityKeytrLibrary,
+          relayUrls: keytrRelayUrls,
+          ...(keytrGateways === undefined ? {} : { gateways: keytrGateways }),
+          allowLocalKeyMethods: true,
+          clientName: "Lapis Community",
+        });
   const relayFactory = createWebSocketCommunityRelayFactory();
   const registryConfigurationError =
     registryCurators.size === 0 || registryPublishers.size === 0
@@ -68,6 +98,7 @@
       : undefined;
   const projectSource = createNip34ProjectForgeDataSource({ relayFactory });
   const loginMethods: readonly CommunityLoginMethodModel[] = [
+    ...(keytrIntegration === undefined ? [] : [keytrIntegration.method]),
     COMMUNITY_LOGIN_METHODS.browserExtension,
     COMMUNITY_LOGIN_METHODS.remoteSigner,
     {
@@ -195,9 +226,12 @@
   async function connectIdentity(
     methodId: string,
     credentials?: CommunityLoginCredentials,
+    context?: RelayIdentityConnectContext,
   ): Promise<CommunityIdentity> {
     let identity: CommunityIdentity;
-    if (methodId === COMMUNITY_LOGIN_METHODS.browserExtension.id) {
+    if (methodId === keytrIntegration?.method.id) {
+      identity = await keytrIntegration.connect(methodId, credentials, context);
+    } else if (methodId === COMMUNITY_LOGIN_METHODS.browserExtension.id) {
       const identity = new Nip07RegistrySigner();
       await identity.getPublicKey();
       activeIdentity = identity;

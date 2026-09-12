@@ -10,6 +10,12 @@ const { privateKey, publicKey } = generateKeyPairSync("rsa", {
 });
 const publicJwk = publicKey.export({ format: "jwk" });
 const codes = new Map();
+let githubIdentity = {
+  id: 1002,
+  login: "community-tester",
+  name: "Community Tester",
+  email: "community@example.test",
+};
 
 function requiredOrigin(name) {
   const value = process.env[name];
@@ -171,12 +177,20 @@ const server = http.createServer(async (request, response) => {
     if (request.headers.authorization !== "Bearer github-access-token") {
       return sendJson(response, 401, { error: "unauthorized" });
     }
-    return sendJson(response, 200, {
-      id: 1002,
-      login: "community-tester",
-      name: "Community Tester",
-      email: "community@example.test",
-    });
+    return sendJson(response, 200, githubIdentity);
+  }
+  if (
+    request.method === "POST" &&
+    url.pathname === "/test/github-identity" &&
+    url.searchParams.get("variant") === "keytr"
+  ) {
+    githubIdentity = {
+      id: 2002,
+      login: "keytr-tester",
+      name: "Keytr Tester",
+      email: "keytr@example.test",
+    };
+    return sendJson(response, 200, githubIdentity);
   }
   if (
     request.method === "GET" &&

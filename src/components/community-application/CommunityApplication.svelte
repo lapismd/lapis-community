@@ -6949,6 +6949,7 @@
             accountActions={applicationAuthentication?.accountActions?.()}
             accountResumeAction={applicationAuthentication?.resumeAccountAction?.()}
             accountAuthenticationState={applicationAuthentication?.status?.()}
+            accountActiveExternalSigner={applicationAuthentication?.activeExternalSigner?.()}
             accountBusy={applicationAuthentication?.status?.() ===
               "restoring" ||
               applicationAuthentication?.status?.() === "redirecting"}

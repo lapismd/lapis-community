@@ -17,6 +17,7 @@ export interface CommunityApplicationAuthenticationContext {
   accountActions?(): CommunityAccountManagementActions | undefined;
   resumeAccountAction?(): CommunityAccountResumeAction | undefined;
   status?(): CommunityApplicationAuthenticationStatus;
+  activeExternalSigner?(): "keytr" | undefined;
   connectGitHub?(): Promise<void>;
   signOut?(): Promise<void>;
 }

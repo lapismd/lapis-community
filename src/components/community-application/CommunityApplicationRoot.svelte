@@ -63,6 +63,7 @@
   let relayAuthStatus = $state<CommunityApplicationAuthenticationStatus>(
     untrack(() => (loginOptions?.auth ? "restoring" : "idle")),
   );
+  let activeExternalSigner = $state<"keytr">();
   const loginMethods = $derived<readonly CommunityLoginMethodModel[]>(
     resolveCommunityLoginMethods(
       loginOptions?.methods,
@@ -75,6 +76,14 @@
       relayAuthStatus === "restoring" ||
       relayAuthStatus === "redirecting" ||
       controller.state.authentication.status === "connecting",
+  );
+  const loginFootnote = $derived(
+    loginOptions?.footnote ??
+      (loginOptions?.auth
+        ? loginMethods.some((method) => method.kind === "keytr")
+          ? "Google and GitHub use an encrypted Nostr identity managed by Lapis. Keytr decrypts its signing key only in this browser tab and clears it when you disconnect. Browser extensions and remote signers keep their existing custody."
+          : "Google and GitHub use an encrypted Nostr identity managed by Lapis. Browser extensions and remote signers keep their existing custody."
+        : undefined),
   );
   const loginMessage = $derived(
     loginError || controller.state.authentication.error || "",
@@ -95,6 +104,7 @@
     accountActions,
     resumeAccountAction: () => accountResumeAction,
     status: () => relayAuthStatus,
+    activeExternalSigner: () => activeExternalSigner,
     connectGitHub,
     signOut,
   });
@@ -145,12 +155,14 @@
       accountSession = undefined;
       connectedIdentity = undefined;
       relayAuthStatus = "anonymous";
+      activeExternalSigner = undefined;
       return;
     }
     accountSession = result.session;
     if (result.status === "reconnect-required") {
       connectedIdentity = undefined;
       relayAuthStatus = "reconnect-required";
+      activeExternalSigner = undefined;
       if (controller.state.authentication.status === "connected") {
         await controller.actions.disconnectIdentity();
       }
@@ -167,6 +179,7 @@
     accountSession = undefined;
     connectedIdentity = undefined;
     relayAuthStatus = "anonymous";
+    activeExternalSigner = undefined;
     loginError = "Your session has expired. Sign in again.";
     loginOpen = true;
     if (controller.state.authentication.status === "connected") {
@@ -398,6 +411,7 @@
         if (relayAuthStatus === "reconnect-required") {
           throw new Error("Reconnect the Nostr signer for this account");
         }
+        activeExternalSigner = methodId === "keytr" ? "keytr" : undefined;
       } else if (loginOptions?.connect) {
         const identity = await loginOptions.connect(methodId, credentials);
         await controller.actions.connectIdentity({
@@ -457,6 +471,7 @@
     await controller.actions.disconnectIdentity();
     connectedIdentity = undefined;
     accountSession = undefined;
+    activeExternalSigner = undefined;
     relayAuthStatus = loginOptions?.auth ? "anonymous" : "idle";
   }
 </script>
@@ -476,10 +491,7 @@
 
     <CommunityLogin
       methods={loginMethods}
-      footnote={loginOptions?.footnote ??
-        (loginOptions?.auth
-          ? "Google and GitHub use an encrypted Nostr identity managed by Lapis. Browser and remote signers keep signing with your existing Nostr key."
-          : "Your identity stays under your control. Lapis only requests signatures for actions you approve.")}
+      {...loginFootnote === undefined ? {} : { footnote: loginFootnote }}
       busy={loginBusy}
       pendingMethodId={pendingLoginMethodId}
       error={loginMessage}

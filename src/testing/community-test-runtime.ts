@@ -473,6 +473,8 @@ export async function createCommunityTestRuntime(
     scenario,
     dispose() {
       controller.dispose();
+      scenario.member.dispose();
+      scenario.participant.dispose();
       relayFactory.reset();
     },
   };
@@ -490,10 +492,16 @@ export async function createCommunityStoryRuntime(
   const backend = options.backend ?? configured.backend;
   if (backend === "memory") {
     const runtime = await createCommunityTestRuntime(options);
+    const scenario = createCommunityTestScenario(options);
     return {
       ...runtime,
       backend,
+      scenario,
       relayAuthorityPubkey: publicKey(relayKey),
+      dispose() {
+        runtime.dispose();
+        disposeScenarioIdentities(scenario);
+      },
     };
   }
 
@@ -575,7 +583,7 @@ export async function createCommunityStoryRuntime(
     source: createNip29CommunitySource({ relayFactory }),
     ...(backend === "live"
       ? { identityConnector: createNip07CommunityIdentityConnector() }
-      : { identity: scenario.operator }),
+      : { identity: new SecretKeyRegistrySigner(operatorKey) }),
     pulse: {
       agents: [
         {
@@ -605,8 +613,15 @@ export async function createCommunityStoryRuntime(
     scenario,
     dispose() {
       controller.dispose();
+      disposeScenarioIdentities(scenario);
     },
   };
+}
+
+function disposeScenarioIdentities(scenario: CommunityTestScenario): void {
+  scenario.operator.dispose();
+  scenario.member.dispose();
+  scenario.participant.dispose();
 }
 
 function storybookConfiguration(): {

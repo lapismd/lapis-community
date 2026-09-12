@@ -193,6 +193,34 @@
 />
 
 <Story
+  name="Active Keytr passkey"
+  globals={{
+    colorMode: "dark",
+    viewport: { value: "mobile1", isRotated: false },
+  }}
+  args={{
+    account: {
+      ...external,
+      github_status: "active",
+    },
+    config,
+    authenticationState: "connected",
+    activeExternalSigner: "keytr",
+    actions: {
+      reconnectSigner: fn(),
+      signOut: fn(),
+    },
+  }}
+  play={async ({ canvas }) => {
+    await expect(canvas.getByText("Keytr passkey")).toBeVisible();
+    await expect(
+      canvas.getByText(/browser tab holds the passkey-decrypted key/u),
+    ).toBeVisible();
+    await expect(canvas.getAllByText("active")).toHaveLength(2);
+  }}
+/>
+
+<Story
   name="Passkey resumption"
   args={{
     account: { ...external, github_status: "unlinked" },

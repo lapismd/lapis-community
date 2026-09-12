@@ -44,6 +44,7 @@
     accountActions,
     accountResumeAction,
     accountAuthenticationState,
+    accountActiveExternalSigner,
     onCopyPublicKey,
     onConnectGitHub,
     onSignOut,
@@ -64,6 +65,7 @@
     accountAuthenticationState?:
       | CommunityAccountAuthenticationState
       | undefined;
+    accountActiveExternalSigner?: "keytr" | undefined;
     onCopyPublicKey?: ((pubkey: string) => void | Promise<void>) | undefined;
     onConnectGitHub?: (() => void | Promise<void>) | undefined;
     onSignOut?: (() => void | Promise<void>) | undefined;
@@ -218,6 +220,7 @@
       actions={accountActions}
       resumeAction={accountResumeAction}
       authenticationState={accountAuthenticationState}
+      activeExternalSigner={accountActiveExternalSigner}
       {onCopyPublicKey}
       {onConnectGitHub}
       {onSignOut}

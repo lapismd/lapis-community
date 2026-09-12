@@ -121,6 +121,25 @@ memory. Set `VITE_COMMUNITY_RELAY_AUTH_URL` to an explicit relay HTTP origin to
 enable Google and GitHub application sessions; relay auth remains disabled when
 the value is absent. Override the event relay with
 `VITE_COMMUNITY_LIVE_RELAY_URL`.
+The reference Vite host enables Keytr with a checkout-local storage endpoint at
+`ws://community.localhost:7036/keytr-relay`. Records are stored under the
+ignored `.local/keytr` directory so a development identity survives a Vite
+restart. Set `VITE_COMMUNITY_KEYTR_RELAYS` to a comma-separated, non-empty list
+of other storage relay URLs, or set it to `disabled` to hide Keytr. Set
+`VITE_COMMUNITY_KEYTR_GATEWAYS` to an ordered comma-separated list of RP IDs,
+optionally followed by a display label such as
+`community.localhost=Community development`; the reference host defaults to its
+same-origin development gateway. Other hosts that enable Keytr and omit the
+gateway list use `keytr.org`. The development host pins `@sovit.xyz/keytr` 0.8.0 under its
+AGPL-3.0-or-later license, while published Community source consumes only the
+injected structural adapter and does not import that package.
+
+Production Keytr activation remains a manual operations gate. The operator
+must add the exact HTTPS Community origin to each gateway's
+`/.well-known/webauthn` related-origins document, review the final CSP and the
+pinned dependency license, and explicitly enable the configured relays and
+gateways. Plain `ws:` storage relays are accepted only on `localhost` hostnames
+for development and tests.
 The Vite development application uses that one endpoint for Community,
 Registry, and Projects so navigation cannot silently cross between relay
 datasets. `VITE_REGISTRY_RELAYS` remains available only to the standalone live

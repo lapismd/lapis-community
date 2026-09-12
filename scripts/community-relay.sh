@@ -124,7 +124,8 @@ case "${command}" in
       echo "Fake OAuth port is invalid" >&2
       exit 1
     }
-    COMMUNITY_AUTH_BROWSER_ORIGIN=${COMMUNITY_AUTH_BROWSER_ORIGIN:-http://community.localhost:$(allocate_port)}
+    COMMUNITY_AUTH_BROWSER_ORIGIN=${COMMUNITY_AUTH_BROWSER_ORIGIN:-http://community.community-relay.localhost:$(allocate_port)}
+    LAPIS_AUTH_WEBAUTHN_RP_ID=${LAPIS_AUTH_WEBAUTHN_RP_ID:-$(node -e 'process.stdout.write(new URL(process.argv[1]).hostname)' "${COMMUNITY_AUTH_BROWSER_ORIGIN}")}
     for secret_name in auth-master-key github-oauth-secret google-oauth-secret; do
       generated_secret=${runtime_dir}/${secret_name}
       if [[ ! -f ${generated_secret} ]]; then
@@ -134,7 +135,7 @@ case "${command}" in
       chmod 600 "${generated_secret}"
       auth_secret_files+=("${generated_secret}")
     done
-    export COMMUNITY_FAKE_OAUTH_PORT COMMUNITY_AUTH_BROWSER_ORIGIN
+    export COMMUNITY_FAKE_OAUTH_PORT COMMUNITY_AUTH_BROWSER_ORIGIN LAPIS_AUTH_WEBAUTHN_RP_ID
     export COMMUNITY_AUTH_MASTER_KEY_FILE=${runtime_dir}/auth-master-key
     export COMMUNITY_GITHUB_OAUTH_SECRET_FILE=${runtime_dir}/github-oauth-secret
     export COMMUNITY_GOOGLE_OAUTH_SECRET_FILE=${runtime_dir}/google-oauth-secret

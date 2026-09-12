@@ -7,8 +7,11 @@ import { defineConfig } from "vite";
 
 import { resolveCommunityDevRelayConfiguration } from "./dev/community/config.js";
 import { tursoBundleBuildPlugin } from "./scripts/vite-turso-bundle.js";
+import { keytrDevelopmentRelay } from "./scripts/vite-keytr-relay.js";
 
 const packageDirectory = path.dirname(fileURLToPath(import.meta.url));
+const communityHost = "community.localhost";
+const communityPort = 7036;
 const fixtureEnvironmentPath = path.join(
   packageDirectory,
   ".local/registry-fixture/fixture.env",
@@ -28,15 +31,39 @@ function fixtureValue(name: string): string {
 const { relayUrl, authUrl } = resolveCommunityDevRelayConfiguration(
   process.env,
 );
+const configuredKeytrRelays = process.env.VITE_COMMUNITY_KEYTR_RELAYS?.trim();
+const keytrRelays =
+  configuredKeytrRelays === "disabled"
+    ? ""
+    : configuredKeytrRelays ||
+      `ws://${communityHost}:${communityPort}/keytr-relay`;
+const keytrGateways =
+  process.env.VITE_COMMUNITY_KEYTR_GATEWAYS?.trim() ||
+  `${communityHost}=Community development`;
 
 export default defineConfig({
   root: path.join(packageDirectory, "dev/community"),
-  plugins: [tursoBundleBuildPlugin(), tailwindcss(), svelte()],
+  plugins: [
+    keytrDevelopmentRelay({
+      storagePath: path.join(
+        packageDirectory,
+        ".local",
+        "keytr",
+        "events.json",
+      ),
+    }),
+    tursoBundleBuildPlugin(),
+    tailwindcss(),
+    svelte(),
+  ],
   define: {
     "import.meta.env.VITE_COMMUNITY_LIVE_RELAY_URL": JSON.stringify(relayUrl),
     "import.meta.env.VITE_COMMUNITY_RELAY_AUTH_URL": JSON.stringify(
       authUrl ?? "",
     ),
+    "import.meta.env.VITE_COMMUNITY_KEYTR_RELAYS": JSON.stringify(keytrRelays),
+    "import.meta.env.VITE_COMMUNITY_KEYTR_GATEWAYS":
+      JSON.stringify(keytrGateways),
     "import.meta.env.VITE_REGISTRY_CURATOR_PUBKEYS": JSON.stringify(
       fixtureValue("REGISTRY_CURATOR_PUBKEYS"),
     ),
@@ -66,8 +93,8 @@ export default defineConfig({
     plugins: () => [tursoBundleBuildPlugin()],
   },
   server: {
-    host: "community.localhost",
-    port: 7036,
+    host: communityHost,
+    port: communityPort,
     strictPort: true,
     fs: { allow: [packageDirectory] },
     headers: {

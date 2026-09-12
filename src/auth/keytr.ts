@@ -292,7 +292,11 @@ export function validateCommunityKeytrEvent(
     }
   }
   const dTag = event.tags.find((tag) => tag[0] === "d")?.[1] ?? "";
-  if (dTag.length > 1_024 || !/^[A-Za-z0-9_-]+$/u.test(dTag)) {
+  if (
+    dTag.length > 1_024 ||
+    !/^[A-Za-z0-9_-]+={0,2}$/u.test(dTag) ||
+    dTag.length % 4 === 1
+  ) {
     throw new CommunityKeytrError("invalid_event");
   }
 }
@@ -336,7 +340,12 @@ async function recoverIdentity(
       const dTag = encodeBase64Url(discovered.credentialId);
       const event = events.find(
         (candidate) =>
-          candidate.tags.some((tag) => tag[0] === "d" && tag[1] === dTag) &&
+          candidate.tags.some(
+            (tag) =>
+              tag[0] === "d" &&
+              tag[1] !== undefined &&
+              normalizeBase64Url(tag[1]) === dTag,
+          ) &&
           candidate.tags.some(
             (tag) => tag[0] === "rp" && tag[1] === gateway.rpId,
           ),
@@ -428,7 +437,10 @@ async function decryptIdentity(
   expectedPubkey: string,
 ): Promise<CommunitySigner> {
   const parsed = parseValidatedEvent(library, event, expectedPubkey, rpId);
-  if (encodeBase64Url(credentialId) !== parsed.credentialIdBase64url) {
+  if (
+    encodeBase64Url(credentialId) !==
+    normalizeBase64Url(parsed.credentialIdBase64url)
+  ) {
     throw new CommunityKeytrError("invalid_event");
   }
   const secret = library.decryptNsec({
@@ -524,7 +536,8 @@ function parseValidatedEvent(
     parsed.version !== KEYTR_VERSION ||
     parsed.algorithm !== "aes-256-gcm" ||
     parsed.kdf !== "hkdf-sha256" ||
-    encodeBase64Url(parsed.credentialId) !== parsed.credentialIdBase64url
+    encodeBase64Url(parsed.credentialId) !==
+      normalizeBase64Url(parsed.credentialIdBase64url)
   ) {
     throw new CommunityKeytrError("invalid_event");
   }
@@ -544,6 +557,10 @@ function decodeImportedNsec(value: string | undefined): Uint8Array {
   } catch {
     throw new CommunityKeytrError("invalid_action");
   }
+}
+
+function normalizeBase64Url(value: string): string {
+  return value.replace(/=+$/u, "");
 }
 
 function copyTemplate(template: NostrEventTemplate): NostrEventTemplate {

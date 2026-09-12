@@ -1,11 +1,29 @@
 <script module lang="ts">
   import { defineMeta } from "@storybook/addon-svelte-csf";
-  import { expect, fn, userEvent } from "storybook/test";
+  import { expect, fn, userEvent, waitFor, within } from "storybook/test";
 
   import CommunityLogin from "./CommunityLogin.svelte";
   import { COMMUNITY_LOGIN_METHODS } from "./model.js";
 
   const methods = Object.values(COMMUNITY_LOGIN_METHODS);
+  const keytrWithGateways = {
+    ...COMMUNITY_LOGIN_METHODS.keytr,
+    keytr: {
+      ...COMMUNITY_LOGIN_METHODS.keytr.keytr,
+      gateways: [
+        { id: "keytr.org", label: "Keytr", rpId: "keytr.org" },
+        {
+          id: "community.localhost",
+          label: "Community development",
+          rpId: "community.localhost",
+        },
+      ],
+    },
+  };
+  const keytrWithImport = {
+    ...COMMUNITY_LOGIN_METHODS.keytr,
+    keytr: { ...COMMUNITY_LOGIN_METHODS.keytr.keytr, allowImport: true },
+  };
   const consumerSource = `<script lang="ts">
   import {
     CommunityLogin,
@@ -49,6 +67,7 @@
     await expect(methodButtons[1]).toHaveAccessibleName(
       /Continue with Google/u,
     );
+    await expect(methodButtons[2]).toHaveAccessibleName(/Continue with Keytr/u);
     await expect(
       methodButtons[0]?.querySelector(
         '[data-community-provider-logo="github"]',
@@ -70,6 +89,122 @@
     );
     await expect(args.onSelect).toHaveBeenCalledTimes(1);
     await expect(args.onSelect).toHaveBeenCalledWith("create-account");
+  }}
+/>
+
+<Story
+  name="Keytr gateway login"
+  args={{
+    methods: [
+      COMMUNITY_LOGIN_METHODS.github,
+      COMMUNITY_LOGIN_METHODS.google,
+      keytrWithGateways,
+      COMMUNITY_LOGIN_METHODS.browserExtension,
+    ],
+    onSelect: fn(),
+  }}
+  play={async ({ canvas, canvasElement, args }) => {
+    await userEvent.click(
+      canvas.getByRole("button", { name: /Continue with Keytr/u }),
+    );
+    await expect(
+      canvas.getByText(/decrypts the signing key only in this browser tab/u),
+    ).toBeVisible();
+    const gateway = canvas.getByRole("button", { name: "Passkey gateway" });
+    await waitFor(() =>
+      expect(getComputedStyle(gateway).pointerEvents).not.toBe("none"),
+    );
+    await userEvent.click(gateway);
+    const page = within(canvasElement.ownerDocument.body);
+    await userEvent.click(
+      page.getByRole("option", { name: "Community development" }),
+    );
+    const signIn = canvas.getByRole("button", { name: "Sign in with Keytr" });
+    await waitFor(() =>
+      expect(getComputedStyle(signIn).pointerEvents).not.toBe("none"),
+    );
+    await userEvent.click(signIn);
+    await expect(args.onSelect).toHaveBeenCalledWith("keytr", {
+      keytr: {
+        action: "login",
+        gatewayId: "community.localhost",
+      },
+    });
+  }}
+/>
+
+<Story
+  name="Create Keytr identity"
+  args={{ methods: [COMMUNITY_LOGIN_METHODS.keytr], onSelect: fn() }}
+  play={async ({ canvas, args }) => {
+    await userEvent.click(
+      canvas.getByRole("button", { name: /Continue with Keytr/u }),
+    );
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Create a Keytr identity" }),
+    );
+    const label = canvas.getByLabelText("Passkey label");
+    await expect(label).toHaveValue("Lapis Community");
+    await userEvent.clear(label);
+    await userEvent.type(label, "Steve's Community key");
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Create identity" }),
+    );
+    await expect(args.onSelect).toHaveBeenCalledWith("keytr", {
+      keytr: {
+        action: "create",
+        gatewayId: "keytr.org",
+        passkeyLabel: "Steve's Community key",
+      },
+    });
+  }}
+/>
+
+<Story
+  name="Protect existing key"
+  args={{ methods: [keytrWithImport], onSelect: fn() }}
+  play={async ({ canvas, args }) => {
+    await userEvent.click(
+      canvas.getByRole("button", { name: /Continue with Keytr/u }),
+    );
+    await userEvent.click(
+      canvas.getByRole("button", {
+        name: "Protect an existing private key",
+      }),
+    );
+    const privateKey = canvas.getByLabelText("Nostr private key");
+    await expect(privateKey).toHaveAttribute("type", "password");
+    await userEvent.type(privateKey, "nsec1storybookexample");
+    await userEvent.click(canvas.getByRole("button", { name: "Protect key" }));
+    await expect(args.onSelect).toHaveBeenCalledWith("keytr", {
+      keytr: {
+        action: "import",
+        gatewayId: "keytr.org",
+        passkeyLabel: "Lapis Community",
+        privateKey: "nsec1storybookexample",
+      },
+    });
+  }}
+/>
+
+<Story
+  name="Keytr unavailable"
+  globals={{
+    colorMode: "dark",
+    viewport: { value: "mobile1", isRotated: false },
+  }}
+  args={{
+    methods: [{ ...COMMUNITY_LOGIN_METHODS.keytr, disabled: true }],
+    error: "This browser or authenticator cannot use Keytr passkeys.",
+    onSelect: fn(),
+  }}
+  play={async ({ canvas }) => {
+    await expect(
+      canvas.getByRole("button", { name: /Continue with Keytr/u }),
+    ).toBeDisabled();
+    await expect(canvas.getByRole("alert")).toHaveTextContent(
+      "This browser or authenticator cannot use Keytr passkeys.",
+    );
   }}
 />
 

@@ -1,9 +1,12 @@
-import { createServer } from "node:http";
+import { createServer as createHttpServer } from "node:http";
+import { fileURLToPath } from "node:url";
 
 import { nip19 } from "nostr-tools";
-import { getPublicKey } from "nostr-tools/pure";
+import { getPublicKey, verifyEvent } from "nostr-tools/pure";
 import { chromium, type Browser, type Page } from "playwright";
 import { describe, expect, it } from "vitest";
+import { createServer as createViteServer } from "vite";
+import { WebSocketServer } from "ws";
 
 import {
   type CommunityCredentialsContainer,
@@ -16,6 +19,7 @@ import {
   unwrapNip17GiftWrap,
 } from "../community/index.js";
 import { createWebSocketCommunityRelayFactory } from "../nostr/index.js";
+import type { NostrEvent } from "../protocol/index.js";
 import {
   createNip34ProjectForgeDataSource,
   createRepositoryTemplate,
@@ -25,6 +29,36 @@ const relayUrl = process.env.COMMUNITY_RELAY_URL;
 const relayHttpUrl = process.env.COMMUNITY_RELAY_HTTP_URL;
 const browserOrigin = process.env.COMMUNITY_AUTH_BROWSER_ORIGIN;
 const fakeOAuthUrl = process.env.COMMUNITY_FAKE_OAUTH_URL;
+
+interface BrowserKeytrResult {
+  pubkey: string;
+  accountId: string;
+  githubStatus: string;
+  status: string;
+}
+
+declare global {
+  interface Window {
+    keytrContract: {
+      configure(configuration: {
+        relayUrl: string;
+        relayHttpUrl: string;
+        keytrRelayUrl: string;
+        keytrRpId: string;
+      }): void;
+      createIdentity(): Promise<BrowserKeytrResult>;
+      restore(): Promise<BrowserKeytrResult>;
+      reconnectIdentity(): Promise<BrowserKeytrResult>;
+      githubLinkUrl(): Promise<string>;
+      exerciseSigning(): Promise<{
+        eventAccepted: boolean;
+        nip44RoundTrip: boolean;
+        nip17RoundTrip: boolean;
+      }>;
+      signOut(): Promise<{ status: string; keyUsable: boolean }>;
+    };
+  }
+}
 
 if (!relayUrl || !relayHttpUrl || !browserOrigin || !fakeOAuthUrl) {
   describe.skip("Community relay auth Docker contract", () => {
@@ -316,6 +350,122 @@ if (!relayUrl || !relayHttpUrl || !browserOrigin || !fakeOAuthUrl) {
       await client.signOut();
       await expect(client.getSession()).rejects.toMatchObject({ status: 401 });
     }, 90_000);
+
+    it("creates, clears, and recovers a Keytr identity with a PRF authenticator", async () => {
+      const target = new URL(browserOrigin);
+      const vite = await createViteServer({
+        root: fileURLToPath(new URL("../../", import.meta.url)),
+        configFile: false,
+        logLevel: "error",
+        server: {
+          host: target.hostname,
+          port: Number(target.port),
+          strictPort: true,
+        },
+        optimizeDeps: { noDiscovery: true, include: ["semver"] },
+        esbuild: { target: "esnext" },
+      });
+      const keytrRelay = await createKeytrStorageRelay();
+      let browser: Browser | undefined;
+      try {
+        await vite.listen();
+        browser = await chromium.launch({ headless: true });
+        const page = await browser.newPage();
+        const cdp = await page.context().newCDPSession(page);
+        await cdp.send("WebAuthn.enable");
+        await cdp.send("WebAuthn.addVirtualAuthenticator", {
+          options: {
+            protocol: "ctap2",
+            transport: "internal",
+            hasResidentKey: true,
+            hasUserVerification: true,
+            isUserVerified: true,
+            automaticPresenceSimulation: true,
+            hasPrf: true,
+          },
+        });
+        const contractUrl = `${browserOrigin}/dev/community/keytr-contract.html`;
+        await page.goto(contractUrl);
+        await waitForKeytrContract(page);
+        const configuration = {
+          relayUrl,
+          relayHttpUrl,
+          keytrRelayUrl: keytrRelay.url,
+          keytrRpId: target.hostname,
+        };
+        await page.evaluate((value) => {
+          window.keytrContract.configure(value);
+        }, configuration);
+
+        const created = await page.evaluate(() =>
+          window.keytrContract.createIdentity(),
+        );
+        expect(created).toMatchObject({
+          status: "connected",
+          githubStatus: "unlinked",
+        });
+        expect(created.pubkey).toMatch(/^[0-9a-f]{64}$/u);
+
+        const selectedIdentity = await fetch(
+          `${fakeOAuthUrl}/test/github-identity?variant=keytr`,
+          { method: "POST" },
+        );
+        expect(selectedIdentity.ok).toBe(true);
+        const githubUrl = await page.evaluate(() =>
+          window.keytrContract.githubLinkUrl(),
+        );
+        expect(new URL(githubUrl).searchParams.get("intent")).toBe("link");
+        await page.goto(githubUrl, { waitUntil: "networkidle" });
+        expect(new URL(page.url()).origin).toBe(browserOrigin);
+        await waitForKeytrContract(page);
+        await page.evaluate((value) => {
+          window.keytrContract.configure(value);
+        }, configuration);
+        const restored = await page.evaluate(() =>
+          window.keytrContract.restore(),
+        );
+        expect(restored).toMatchObject({
+          status: "reconnect-required",
+          pubkey: created.pubkey,
+          accountId: created.accountId,
+          githubStatus: "active",
+        });
+
+        const reconnected = await page.evaluate(() =>
+          window.keytrContract.reconnectIdentity(),
+        );
+        expect(reconnected).toMatchObject({
+          status: "connected",
+          pubkey: created.pubkey,
+          accountId: created.accountId,
+          githubStatus: "active",
+        });
+        await expect(
+          page.evaluate(() => window.keytrContract.exerciseSigning()),
+        ).resolves.toEqual({
+          eventAccepted: true,
+          nip44RoundTrip: true,
+          nip17RoundTrip: true,
+        });
+
+        await expect(
+          page.evaluate(() => window.keytrContract.signOut()),
+        ).resolves.toEqual({ status: "anonymous", keyUsable: false });
+        const coldReconnect = await page.evaluate(() =>
+          window.keytrContract.reconnectIdentity(),
+        );
+        expect(coldReconnect).toMatchObject({
+          status: "connected",
+          pubkey: created.pubkey,
+          accountId: created.accountId,
+        });
+        await page.evaluate(() => window.keytrContract.signOut());
+      } finally {
+        await browser?.close();
+        await vite.close();
+        await keytrRelay.close();
+      }
+    }, 90_000);
   });
 }
 
@@ -351,7 +501,7 @@ async function createVirtualPasskeyContainer(
 ): Promise<VirtualPasskeyContainer> {
   const target = new URL(origin);
   const port = Number(target.port || "80");
-  const server = createServer((_request, response) => {
+  const server = createHttpServer((_request, response) => {
     response.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
     response.end("<!doctype html><title>Community passkey contract</title>");
   });
@@ -374,6 +524,7 @@ async function createVirtualPasskeyContainer(
         hasUserVerification: true,
         isUserVerified: true,
         automaticPresenceSimulation: true,
+        hasPrf: true,
       },
     });
     await page.goto(origin);
@@ -398,6 +549,89 @@ async function createVirtualPasskeyContainer(
     await new Promise<void>((resolve) => server.close(() => resolve()));
     throw cause;
   }
+}
+
+async function waitForKeytrContract(page: Page): Promise<void> {
+  await page.waitForFunction(() => window.keytrContract !== undefined);
+}
+
+async function createKeytrStorageRelay(): Promise<{
+  url: string;
+  close(): Promise<void>;
+}> {
+  const server = createHttpServer();
+  const relay = new WebSocketServer({ server });
+  const events = new Map<string, NostrEvent>();
+  relay.on("connection", (socket) => {
+    socket.on("message", (data) => {
+      let message: unknown;
+      try {
+        message = JSON.parse(data.toString());
+      } catch {
+        return;
+      }
+      if (!Array.isArray(message)) return;
+      if (message[0] === "EVENT") {
+        const event = message[1] as NostrEvent | undefined;
+        if (event !== undefined && verifyEvent(event)) {
+          events.set(event.id, event);
+          socket.send(JSON.stringify(["OK", event.id, true, ""]));
+        }
+        return;
+      }
+      if (message[0] !== "REQ" || typeof message[1] !== "string") return;
+      const subscriptionId = message[1];
+      const filters = message
+        .slice(2)
+        .filter(
+          (value): value is Record<string, unknown> =>
+            typeof value === "object" && value !== null,
+        );
+      for (const event of events.values()) {
+        if (filters.some((filter) => matchesNostrFilter(event, filter))) {
+          socket.send(JSON.stringify(["EVENT", subscriptionId, event]));
+        }
+      }
+      socket.send(JSON.stringify(["EOSE", subscriptionId]));
+    });
+  });
+  await new Promise<void>((resolve, reject) => {
+    server.once("error", reject);
+    server.listen(0, "0.0.0.0", resolve);
+  });
+  const address = server.address();
+  if (address === null || typeof address === "string") {
+    throw new Error("Keytr storage relay did not allocate a port");
+  }
+  return {
+    url: `ws://keytr-storage.localhost:${address.port}`,
+    close: async () => {
+      for (const client of relay.clients) client.terminate();
+      await new Promise<void>((resolve, reject) =>
+        relay.close((error) => (error ? reject(error) : resolve())),
+      );
+      await new Promise<void>((resolve, reject) =>
+        server.close((error) => (error ? reject(error) : resolve())),
+      );
+    },
+  };
+}
+
+function matchesNostrFilter(
+  event: NostrEvent,
+  filter: Record<string, unknown>,
+): boolean {
+  if (Array.isArray(filter.authors) && !filter.authors.includes(event.pubkey)) {
+    return false;
+  }
+  if (Array.isArray(filter.kinds) && !filter.kinds.includes(event.kind)) {
+    return false;
+  }
+  const dValues = filter["#d"];
+  if (Array.isArray(dValues)) {
+    return event.tags.some((tag) => tag[0] === "d" && dValues.includes(tag[1]));
+  }
+  return true;
 }
 
 async function createBrowserCredential(

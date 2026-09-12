@@ -41,6 +41,7 @@
     config,
     actions,
     authenticationState,
+    activeExternalSigner,
     resumeAction,
     busy = false,
     message = "",
@@ -52,6 +53,7 @@
     config?: CommunityRelayAuthConfig | undefined;
     actions?: CommunityAccountManagementActions | undefined;
     authenticationState?: CommunityAccountAuthenticationState | undefined;
+    activeExternalSigner?: "keytr" | undefined;
     resumeAction?: CommunityAccountResumeAction | undefined;
     busy?: boolean;
     message?: string;
@@ -77,7 +79,11 @@
   const signer = $derived(
     account === undefined
       ? undefined
-      : communityAccountSignerDetails(account, authenticationState),
+      : communityAccountSignerDetails(
+          account,
+          authenticationState,
+          activeExternalSigner,
+        ),
   );
   const githubIdentity = $derived(
     account?.identities.find((identity) => identity.provider === "github"),

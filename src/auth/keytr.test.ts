@@ -367,6 +367,22 @@ describe("Community Keytr integration", () => {
 });
 
 describe("Keytr event validation", () => {
+  it("accepts the padded base64url credential IDs emitted by Keytr", () => {
+    const secret = generateSecretKey();
+    const padded = signedEvent(secret, {
+      tags: template().tags.map((tag) =>
+        tag[0] === "d" ? ["d", `${dTag}==`] : tag,
+      ),
+    });
+
+    expect(() =>
+      validateCommunityKeytrEvent(padded, {
+        expectedPubkey: getPublicKey(secret),
+        rpId: gateway.rpId,
+      }),
+    ).not.toThrow();
+  });
+
   it("accepts a valid signed PRF record", () => {
     const secret = generateSecretKey();
     expect(() =>

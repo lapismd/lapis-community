@@ -33,8 +33,34 @@ describe("resolveCommunityLoginMethods", () => {
     const methods = Object.values(COMMUNITY_LOGIN_METHODS);
     expect(
       resolveCommunityLoginMethods(methods).map((method) => method.kind),
-    ).toEqual(["github", "google", "browser-extension", "remote-signer"]);
+    ).toEqual([
+      "github",
+      "google",
+      "keytr",
+      "browser-extension",
+      "remote-signer",
+    ]);
     expect(resolveCommunityLoginMethods(methods, true)).toEqual(methods);
+  });
+
+  it("places Keytr first inside the configured Nostr signer group", () => {
+    expect(
+      resolveCommunityLoginMethods(
+        [
+          COMMUNITY_LOGIN_METHODS.remoteSigner,
+          COMMUNITY_LOGIN_METHODS.keytr,
+          COMMUNITY_LOGIN_METHODS.browserExtension,
+        ],
+        false,
+        ["github", "google"],
+      ).map((method) => method.kind),
+    ).toEqual([
+      "github",
+      "google",
+      "keytr",
+      "remote-signer",
+      "browser-extension",
+    ]);
   });
 
   it("orders relay providers before the default Nostr signer methods", () => {

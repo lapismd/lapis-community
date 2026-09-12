@@ -50,6 +50,18 @@ export const COMMUNITY_LOGIN_METHODS = {
     label: "Continue with Google",
     description: "Create or restore a managed Nostr identity",
   },
+  keytr: {
+    id: "keytr",
+    kind: "keytr",
+    label: "Continue with Keytr",
+    description: "Use a passkey-protected Nostr key",
+    keytr: {
+      gateways: [{ id: "keytr.org", label: "Keytr", rpId: "keytr.org" }],
+      allowSetup: true,
+      allowImport: false,
+      defaultPasskeyLabel: "Lapis Community",
+    },
+  },
   browserExtension: {
     id: "browser-extension",
     kind: "browser-extension",
@@ -100,9 +112,29 @@ export function resolveCommunityLoginMethods(
           COMMUNITY_LOGIN_METHODS.createAccount,
           COMMUNITY_LOGIN_METHODS.privateKey,
         ];
-  return [
+  const providerMethods = [
     ...(providers.includes("github") ? [COMMUNITY_LOGIN_METHODS.github] : []),
     ...(providers.includes("google") ? [COMMUNITY_LOGIN_METHODS.google] : []),
-    ...nostrMethods,
+  ];
+  const providerIds = new Set<string>(
+    providerMethods.map((method) => method.id),
+  );
+  const configuredProviderMethods = nostrMethods.filter(
+    (method) =>
+      (method.kind === "github" || method.kind === "google") &&
+      !providerIds.has(method.id),
+  );
+  const keytrMethods = nostrMethods.filter((method) => method.kind === "keytr");
+  const otherNostrMethods = nostrMethods.filter(
+    (method) =>
+      method.kind !== "keytr" &&
+      method.kind !== "github" &&
+      method.kind !== "google",
+  );
+  return [
+    ...providerMethods,
+    ...configuredProviderMethods,
+    ...keytrMethods,
+    ...otherNostrMethods,
   ];
 }
