@@ -123,12 +123,12 @@
     onCopyMessage: fn(),
   }}
   play={async ({ canvas }) => {
-    await expect(canvas.getAllByText("You")).toHaveLength(2);
+    await expect(canvas.getAllByText("You")).toHaveLength(3);
     await expect(canvas.getByText("created this channel")).toBeVisible();
     await expect(
-      canvas.getByRole("button", { name: "@Ben Stone" }),
+      canvas.getByRole("button", { name: "Ben Stone" }),
     ).toBeVisible();
-    await expect(canvas.getByRole("button", { name: "@You" })).toBeVisible();
+    await expect(canvas.getByRole("button", { name: "You" })).toBeVisible();
     await expect(
       canvas.queryByRole("button", { name: "Reply in thread" }),
     ).not.toBeInTheDocument();

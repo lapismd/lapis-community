@@ -1,9 +1,17 @@
 <script module lang="ts">
   import { defineMeta } from "@storybook/addon-svelte-csf";
-  import { expect, fn, userEvent, within } from "storybook/test";
+  import { expect, fn, userEvent, waitFor, within } from "storybook/test";
 
   import { communityStoryMembers } from "../community-workspace/story-fixtures.js";
   import CommunityMemberHoverCard from "./CommunityMemberHoverCard.svelte";
+  import CommunityMemberHoverCardPresenceStoryHarness from "./CommunityMemberHoverCardPresenceStoryHarness.svelte";
+
+  const imageBackedMember = {
+    ...communityStoryMembers[1]!,
+    presence: "offline" as const,
+    avatarUrl:
+      "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' fill='%232563eb'/%3E%3Ccircle cx='32' cy='25' r='12' fill='white'/%3E%3Cpath d='M12 62c2-15 10-23 20-23s18 8 20 23' fill='white'/%3E%3C/svg%3E",
+  };
 
   const { Story } = defineMeta({
     title: "Community/Members/Hover Card",
@@ -62,17 +70,91 @@
 <Story
   name="Mention trigger"
   args={{
-    member: communityStoryMembers[1]!,
+    member: imageBackedMember,
     trigger: "mention",
     triggerLabel: "@Ben Stone",
     onOpenProfile: fn(),
     openDelay: 120,
   }}
+  play={async ({ canvas, canvasElement }) => {
+    const mention = canvas.getByRole("button", { name: "Ben Stone" });
+    const avatar = mention.querySelector<HTMLElement>(
+      '[data-ui-component="community-member-avatar"]',
+    )!;
+    const image = avatar.querySelector("img")!;
+    const label = within(mention).getByText("Ben Stone");
+    const prefix = canvas.getByTestId("mention-prefix");
+    await waitFor(() => expect(image.complete).toBe(true));
+    const labelRange = label.ownerDocument.createRange();
+    labelRange.selectNodeContents(label);
+    const prefixRange = prefix.ownerDocument.createRange();
+    prefixRange.selectNodeContents(prefix);
+    await expect(mention).not.toHaveTextContent("@Ben Stone");
+    await expect(
+      Math.abs(
+        prefixRange.getBoundingClientRect().bottom -
+          labelRange.getBoundingClientRect().bottom,
+      ),
+    ).toBeLessThan(1);
+    await expect(
+      Math.abs(
+        mention.getBoundingClientRect().top +
+          mention.getBoundingClientRect().height / 2 -
+          (avatar.getBoundingClientRect().top +
+            avatar.getBoundingClientRect().height / 2),
+      ),
+    ).toBeLessThan(1);
+    await expect(image.getBoundingClientRect().width).toBe(
+      avatar.getBoundingClientRect().width,
+    );
+    await expect(image.getBoundingClientRect().height).toBe(
+      avatar.getBoundingClientRect().height,
+    );
+    await userEvent.hover(mention);
+    const preview = await within(canvasElement.ownerDocument.body).findByRole(
+      "group",
+      { name: "Ben Stone contact preview" },
+    );
+    await expect(
+      preview.querySelector('[data-ui-part="presence"]'),
+    ).toHaveAttribute("data-presence", "online");
+  }}
 >
   {#snippet template(args)}
     <p style="min-height: 18rem; padding: 4rem;">
-      Ask <CommunityMemberHoverCard {...args} /> to review this message.
+      <span data-testid="mention-prefix">Ask</span>
+      <CommunityMemberHoverCardPresenceStoryHarness
+        member={args.member}
+        trigger={args.trigger}
+        triggerLabel={args.triggerLabel}
+      /> to review this message.
     </p>
+  {/snippet}
+</Story>
+
+<Story
+  name="Current member presence"
+  args={{
+    member: { ...communityStoryMembers[1]!, presence: "offline" },
+  }}
+  play={async ({ canvas, canvasElement }) => {
+    const page = within(canvasElement.ownerDocument.body);
+    const avatar = canvas.getByRole("button", {
+      name: "View Ben Stone's profile",
+    });
+    await userEvent.hover(avatar);
+    const avatarPreview = await page.findByRole("group", {
+      name: "Ben Stone contact preview",
+    });
+    await expect(
+      avatarPreview.querySelector('[data-ui-part="presence"]'),
+    ).toHaveAttribute("data-presence", "online");
+  }}
+>
+  {#snippet template(args)}
+    <div style="min-height: 18rem; padding: 4rem;">
+      <CommunityMemberHoverCardPresenceStoryHarness member={args.member} />
+    </div>
   {/snippet}
 </Story>
 

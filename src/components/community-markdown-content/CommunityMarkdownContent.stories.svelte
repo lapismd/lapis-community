@@ -53,7 +53,7 @@
   }}
   play={async ({ canvas, canvasElement, args }) => {
     const page = within(canvasElement.ownerDocument.body);
-    const mention = canvas.getByRole("button", { name: "@Ben Stone" });
+    const mention = canvas.getByRole("button", { name: "Ben Stone" });
     await expect(
       mention.querySelector('[data-ui-component="community-member-avatar"]'),
     ).not.toBeNull();

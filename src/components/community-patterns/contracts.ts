@@ -104,9 +104,9 @@ export const contracts = {
       ["Avatar group identity", "View Avery's profile", "Avery"],
       ["Avatar group identity", "View Blake's profile", "Blake"],
       ["Avatar group identity", "View Casey's profile", "Casey"],
-      ["Inline identity", "@Avery", "Avery"],
-      ["Markdown identity", "@Avery", "Avery"],
-      ["Composer identity", "@Avery", "Avery"],
+      ["Inline identity", "Avery", "Avery"],
+      ["Markdown identity", "Avery", "Avery"],
+      ["Composer identity", "Avery", "Avery"],
     ] as const) {
       const section = body.getByRole("region", { name: sectionName });
       const trigger = within(section).getByRole("button", {

@@ -259,7 +259,7 @@
     ).toBeVisible();
     await expect(canvas.getByText("Release notes")).toBeVisible();
     await expect(canvas.getByRole("img", { name: ":shipit:" })).toBeVisible();
-    const mention = canvas.getByRole("button", { name: "@Ben Stone" });
+    const mention = canvas.getByRole("button", { name: "Ben Stone" });
     await expect(
       mention.querySelector('[data-ui-component="community-member-avatar"]'),
     ).not.toBeNull();
@@ -339,7 +339,7 @@
       canvas.getByRole("option", { name: /@Ben Stone/ }),
     ).toBeVisible();
     await userEvent.keyboard("{Enter}");
-    await expect(editor).toHaveTextContent("@Ben Stone");
+    await expect(editor).toHaveTextContent("Ben Stone");
     await userEvent.keyboard("{End} in #plugin-d");
     const channel = await canvas.findByRole("option", {
       name: /#plugin-development/,
@@ -579,7 +579,7 @@
       expect(editor).toHaveTextContent("Draft restored locally for"),
     );
     await expect(
-      canvas.getByRole("button", { name: "@Mara Chen" }),
+      canvas.getByRole("button", { name: "Mara Chen" }),
     ).toBeVisible();
     await expect(editor).toHaveTextContent("in #plugin-development.");
   }}

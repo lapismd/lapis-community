@@ -8,6 +8,7 @@
   import CommunityChip from "../community-chip/CommunityChip.svelte";
   import CommunityMemberAvatar from "../community-member-avatar/CommunityMemberAvatar.svelte";
   import type { CommunityMemberModel } from "../community-workspace/model.js";
+  import { useCommunityMemberPresence } from "./presence-context.js";
 
   let {
     member,
@@ -17,7 +18,7 @@
     onWave,
     openDelay = 280,
     trigger = "avatar",
-    triggerLabel = `@${member.name}`,
+    triggerLabel = member.name,
     avatarSize = "medium",
   }: {
     member: CommunityMemberModel;
@@ -32,6 +33,11 @@
   } = $props();
 
   let open = $state(false);
+  const resolvePresence = useCommunityMemberPresence();
+  const inlineLabel = $derived(
+    trigger === "mention" ? triggerLabel.replace(/^@/u, "") : triggerLabel,
+  );
+  const presence = $derived(resolvePresence?.(member));
 </script>
 
 <HoverCard.Root bind:open {openDelay} closeDelay={120}>
@@ -40,13 +46,14 @@
       {#if trigger === "mention"}
         <CommunityChip
           buttonProps={props}
+          class="community-member-hover-card__mention"
           variant="muted"
           size="inline"
-          ariaLabel={triggerLabel}
+          ariaLabel={inlineLabel}
           onclick={() => onOpenProfile?.(member)}
         >
           <CommunityMemberAvatar {member} size="inline" decorative />
-          <span>{triggerLabel}</span>
+          <span>{inlineLabel}</span>
         </CommunityChip>
       {:else}
         <button
@@ -81,7 +88,13 @@
       aria-label={`Open ${member.name}'s profile`}
       onclick={() => onOpenProfile?.(member)}
     >
-      <CommunityMemberAvatar {member} size="large" showPresence decorative />
+      <CommunityMemberAvatar
+        {member}
+        size="large"
+        showPresence
+        decorative
+        {presence}
+      />
       <span>
         <strong>{member.name}</strong>
         <small>@{member.handle}</small>
@@ -135,6 +148,18 @@
   :global(.community-member-hover-card__content[hidden]) {
     display: none;
   }
+
+  :global(.community-member-hover-card__mention[data-chip-size="inline"]) {
+    align-items: baseline;
+  }
+
+  :global(
+      .community-member-hover-card__mention
+        [data-ui-component="community-member-avatar"][data-size="inline"]
+    ) {
+    align-self: center;
+  }
+
   .community-member-hover-card__trigger {
     display: block;
     width: 2.25rem;

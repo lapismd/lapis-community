@@ -2689,10 +2689,28 @@
         "none",
       ),
     );
+
+    const currentMemberAvatar = (
+      await canvas.findAllByRole(
+        "button",
+        { name: "View steve's profile" },
+        { timeout: 15_000 },
+      )
+    )[0]!;
+    await userEvent.hover(currentMemberAvatar);
+    const currentMemberPreview = await overlay.findByRole("group", {
+      name: "steve contact preview",
+    });
+    await expect(
+      currentMemberPreview.querySelector('[data-ui-part="presence"]'),
+    ).toHaveAttribute("data-presence", "away");
   }}
 >
   {#snippet template()}
-    <CommunityApplicationStoryHarness namespace="profile-status" />
+    <CommunityApplicationStoryHarness
+      namespace="profile-status"
+      initialDestination="general"
+    />
   {/snippet}
 </Story>
 

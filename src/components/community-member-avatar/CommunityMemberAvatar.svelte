@@ -82,6 +82,10 @@
 
   .community-member-avatar[data-size="inline"] {
     --community-member-avatar-size: 1.25em;
+
+    display: inline-grid;
+    align-self: center;
+    vertical-align: middle;
   }
 
   .community-member-avatar[data-size="inline"] .community-member-avatar__image {

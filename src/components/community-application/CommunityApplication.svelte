@@ -144,6 +144,7 @@
   import CommunityNavigation from "../community-navigation/CommunityNavigation.svelte";
   import CommunityMemberCommand from "../community-member-command/CommunityMemberCommand.svelte";
   import CommunityMemberAvatar from "../community-member-avatar/CommunityMemberAvatar.svelte";
+  import { provideCommunityMemberPresence } from "../community-member-hover-card/presence-context.js";
   import CommunityAgents from "../community-agents/CommunityAgents.svelte";
   import CommunityAgentProfile from "../community-agent-profile/CommunityAgentProfile.svelte";
   import CommunityAgentActivity from "../community-agent-activity/CommunityAgentActivity.svelte";
@@ -595,6 +596,13 @@
   }>();
 
   const workspace = $derived(community.state.workspace);
+  provideCommunityMemberPresence((member) =>
+    member.id === workspace.currentMemberId
+      ? community.state.status === "connected"
+        ? presencePreference
+        : "offline"
+      : undefined,
+  );
   const applicationLocation = $derived(
     currentCommunityApplicationLocation(navigationHistory),
   );
