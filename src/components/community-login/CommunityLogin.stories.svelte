@@ -50,6 +50,16 @@
       /Continue with Google/u,
     );
     await expect(
+      methodButtons[0]?.querySelector(
+        '[data-community-provider-logo="github"]',
+      ),
+    ).toBeVisible();
+    await expect(
+      methodButtons[1]?.querySelector(
+        '[data-community-provider-logo="google"]',
+      ),
+    ).toBeVisible();
+    await expect(
       canvas.getByRole("button", { name: /Browser extension/u }),
     ).toBeVisible();
     await expect(

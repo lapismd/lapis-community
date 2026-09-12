@@ -5,7 +5,6 @@
   import { Input } from "@lapismd/design-core/shadcn/input";
   import { Spinner } from "@lapismd/design-core/shadcn/spinner";
   import CircleAlertIcon from "@lucide/svelte/icons/circle-alert";
-  import GitBranchIcon from "@lucide/svelte/icons/git-branch";
   import KeyRoundIcon from "@lucide/svelte/icons/key-round";
   import LockKeyholeIcon from "@lucide/svelte/icons/lock-keyhole";
   import ShieldCheckIcon from "@lucide/svelte/icons/shield-check";
@@ -13,6 +12,8 @@
   import UserRoundIcon from "@lucide/svelte/icons/user-round";
   import type { Component } from "svelte";
   import type { HTMLAttributes } from "svelte/elements";
+
+  import CommunityProviderLogo from "./CommunityProviderLogo.svelte";
 
   import {
     DEFAULT_COMMUNITY_LOGIN_METHODS,
@@ -115,7 +116,6 @@
   }
 
   function methodIcon(kind: CommunityLoginMethodKind): Component {
-    if (kind === "github") return GitBranchIcon;
     if (kind === "browser-extension") return LockKeyholeIcon;
     if (kind === "remote-signer") return ShieldCheckIcon;
     if (kind === "create-account") return SparklesIcon;
@@ -254,6 +254,9 @@
                 <span>Or use a Nostr signer</span>
               </div>
             {/if}
+            {@const provider = isProviderMethod(method)
+              ? method.kind
+              : undefined}
             {@const MethodIcon = methodIcon(method.kind)}
             {@const pending = busy && pendingMethodId === method.id}
             <Button
@@ -273,7 +276,11 @@
                 </span>
               {:else}
                 <span class="community-login__method-icon" aria-hidden="true">
-                  <MethodIcon />
+                  {#if provider === "github" || provider === "google"}
+                    <CommunityProviderLogo {provider} />
+                  {:else}
+                    <MethodIcon />
+                  {/if}
                 </span>
               {/if}
               <span class="community-login__method-copy">
