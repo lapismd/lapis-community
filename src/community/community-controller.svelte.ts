@@ -1202,6 +1202,47 @@ export function createCommunityController(
           agentController!.actions.deletePersona(slug),
         );
       },
+      createManagedAgent: async (input) => {
+        if (!agentController)
+          throw new Error("Agent actions require a signed-in community");
+        let bootstrap;
+        await runOperation(
+          `agent:create-managed:${input.personaSlug}`,
+          async () => {
+            bootstrap =
+              await agentController!.actions.createManagedAgent(input);
+          },
+        );
+        return bootstrap!;
+      },
+      clearManagedAgentDraft: () =>
+        agentController?.actions.clearManagedAgentDraft(),
+      createManagedAgentReplacement: async (pubkey) => {
+        if (!agentController)
+          throw new Error("Agent actions require a signed-in community");
+        let bootstrap;
+        await runOperation(`agent:replace-controller:${pubkey}`, async () => {
+          bootstrap =
+            await agentController!.actions.createManagedAgentReplacement(
+              pubkey,
+            );
+        });
+        return bootstrap!;
+      },
+      revokeManagedAgent: async (pubkey) => {
+        if (!agentController)
+          throw new Error("Agent actions require a signed-in community");
+        await runOperation(`agent:revoke-controller:${pubkey}`, () =>
+          agentController!.actions.revokeManagedAgent(pubkey),
+        );
+      },
+      deleteManagedAgent: async (pubkey) => {
+        if (!agentController)
+          throw new Error("Agent actions require a signed-in community");
+        await runOperation(`agent:delete-managed:${pubkey}`, () =>
+          agentController!.actions.deleteManagedAgent(pubkey),
+        );
+      },
       setFollow: async (pubkey, following) => {
         if (!agentController)
           throw new Error("Agent actions require a signed-in community");

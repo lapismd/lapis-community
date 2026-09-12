@@ -15,8 +15,10 @@ import {
 // Synthetic fixture identities, unrelated to any user or deployed relay.
 export const storyAgentKey = new Uint8Array(32).fill(72);
 const ownerKey = new Uint8Array(32).fill(21);
+const relayKey = new Uint8Array(32).fill(22);
 export const storyAgentPubkey = getPublicKey(storyAgentKey);
 export const storyOwnerPubkey = getPublicKey(ownerKey);
+export const storyRelayPubkey = getPublicKey(relayKey);
 function ownedStoryProfile(key: Uint8Array, name: string, about: string) {
   const pubkey = getPublicKey(key);
   return finalizeEvent(
@@ -49,6 +51,12 @@ export const storyAgentProfile = ownedStoryProfile(
 export const storyAgent = {
   ...materializeAgentDirectory([storyAgentProfile], storyOwnerPubkey, "")[0]!,
   channelIds: ["general"],
+  custody: {
+    kind: "relay-managed" as const,
+    state: "active" as const,
+    connectionState: "active" as const,
+    expiresAt: new Date(1_700_086_400_000).toISOString(),
+  },
 };
 const storyPersonaEvent = finalizeEvent(
   {
@@ -133,7 +141,18 @@ export function storyAgentState(
     agents: [storyAgent],
     personas: storyPersonas,
     archivedAgents: [storyAgent],
-    capabilities: { directory: true, presence: true, activity: true },
+    capabilities: {
+      directory: true,
+      presence: true,
+      activity: true,
+      managedAgents: {
+        version: 1,
+        provisioningUrl: "https://local-relay.lapis.md/api/agents/managed",
+        bunkerUrl: "wss://local-relay.lapis.md/nip46",
+        relayPubkey: storyRelayPubkey,
+        authorizationType: "lapis-managed-v1",
+      },
+    },
     presence: { [storyAgentPubkey]: { status: "online" } },
     working: { [storyAgentPubkey]: true },
     controllerScopes: {},

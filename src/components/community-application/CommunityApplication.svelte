@@ -6876,6 +6876,26 @@
                 community.actions.agents!.saveAgent(input)}
               onDeletePersona={(slug) =>
                 community.actions.agents!.deletePersona(slug)}
+              onCreateManagedAgent={(input) =>
+                community.actions.agents!.createManagedAgent(input)}
+              onClearManagedAgentDraft={() =>
+                community.actions.agents!.clearManagedAgentDraft()}
+              onCreateReplacement={(pubkey) =>
+                community.actions.agents!.createManagedAgentReplacement(pubkey)}
+              onRevokeManagedAgent={(pubkey) =>
+                community.actions.agents!.revokeManagedAgent(pubkey)}
+              onDeleteManagedAgent={(pubkey) =>
+                community.actions.agents!.deleteManagedAgent(pubkey)}
+              rooms={allRooms.map((room) => ({
+                id: room.id,
+                name: room.name,
+                canManage: room.permissions?.manageMembers.state === "enabled",
+              }))}
+              onAddAgentToRoom={async (roomId, pubkey) => {
+                await community.actions.addMember(roomId, pubkey);
+                await community.actions.agents!.refresh();
+              }}
+              ownerPubkey={community.state.authentication.pubkey ?? ""}
               onRefresh={() => community.actions.agents!.refresh()}
               onClearHistory={() => community.actions.agents!.clearHistory()}
               showPageHeader={false}

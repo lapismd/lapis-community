@@ -96,6 +96,140 @@ function setup(
 }
 
 describe("agent relay session", () => {
+  it("creates and activates a relay-managed agent with a one-time controller bundle", async () => {
+    const events: NostrEvent[] = [];
+    const managedRequests: Array<{ url: string; body: unknown }> = [];
+    const profileTemplate: NostrEventTemplate = {
+      kind: 0,
+      created_at: now,
+      tags: [["lapis-managed", owner, relayPubkey]],
+      content: '{"name":"Research","about":"Checks evidence"}',
+    };
+    const fetch = vi.fn<typeof globalThis.fetch>(async (input, init) => {
+      const url = String(input);
+      if (!init?.method)
+        return Response.json({
+          self: relayPubkey,
+          supported_nips: [29, 46],
+          lapis_managed_agents: {
+            version: 1,
+            provisioning_url: "https://relay.example/api/agents/managed",
+            bunker_url: "wss://relay.example/nip46",
+            relay_pubkey: relayPubkey,
+            authorization_type: "lapis-managed-v1",
+          },
+        });
+      const auth = JSON.parse(
+        atob(new Headers(init.headers).get("Authorization")!.slice(6)),
+      ) as NostrEvent;
+      expect(verifyEvent(auth)).toBe(true);
+      expect(auth.pubkey).toBe(owner);
+      expect(auth.tags).toContainEqual(["u", url]);
+      expect(auth.tags).toContainEqual(["method", init.method]);
+      if (init.method !== "GET")
+        expect(auth.tags).toContainEqual([
+          "payload",
+          bytesToHex(
+            sha256(new TextEncoder().encode((init.body as string) ?? "")),
+          ),
+        ]);
+      if (url.endsWith("/query")) return Response.json([]);
+      const body = init.body ? JSON.parse(init.body as string) : undefined;
+      managedRequests.push({ url, body });
+      if (url.endsWith("/api/agents/managed"))
+        return Response.json(
+          {
+            agent: {
+              pubkey: agent,
+              owner_pubkey: owner,
+              status: "pending",
+              connection_state: "pending",
+              created_at: new Date(now * 1000).toISOString(),
+              expires_at: new Date((now + 86_400) * 1000).toISOString(),
+            },
+            bunker_url: `bunker://${agent}?relay=wss%3A%2F%2Frelay.example%2Fnip46&secret=invite`,
+            profile_template: profileTemplate,
+          },
+          { status: 201 },
+        );
+      if (url.endsWith(`/${agent}/activate`))
+        return Response.json({ status: "active" });
+      throw new Error(`Unexpected request: ${url}`);
+    });
+    const relay: CommunityRelay = {
+      url: "wss://relay.example/",
+      query: async () => [],
+      close() {},
+      publish: vi.fn(async (event) => {
+        events.push(event);
+        return { accepted: true, message: "" };
+      }),
+      subscribe: vi.fn(async () => ({ close() {} })),
+    };
+    const bunker = {
+      connect: vi.fn(async () => {}),
+      getPublicKey: vi.fn(async () => agent),
+      signEvent: vi.fn(async (template: NostrEventTemplate) =>
+        finalizeEvent(template, agentKey),
+      ),
+      close: vi.fn(async () => {}),
+    };
+    const connectBunker = vi.fn(async () => bunker);
+    const session = createCommunityAgentSession({
+      scope: { id: "test", name: "Test", relayUrl: relay.url },
+      identity: {
+        getPublicKey: async () => owner,
+        signEvent: async (template) => finalizeEvent(template, ownerKey),
+      },
+      relay,
+      authenticate: async () => {},
+      fetch,
+      connectBunker,
+      now: () => now,
+    });
+    const bundle = await session.createManagedAgent!({
+      personaSlug: "research",
+      displayName: "Research",
+      description: "Checks evidence",
+      systemPrompt: "Cite sources",
+      nameMode: "instance",
+      instanceName: "Research",
+      groupIds: ["general"],
+    });
+    expect(bundle).toMatchObject({
+      schema: "lapis.agent-controller-bootstrap/1",
+      relay: { url: "wss://relay.example/", pubkey: relayPubkey },
+      agent: { pubkey: agent, ownerPubkey: owner, persona: "research" },
+      ownerAuthorization: {
+        kind: "lapis-managed-v1",
+        relayPubkey,
+      },
+      requiredLocalChoices: { remainingGroups: ["general"] },
+    });
+    expect(Object.keys(bundle.environment)).toEqual([
+      `LAPIS_AGENT_${agent.slice(0, 12).toUpperCase()}_BUNKER_URL`,
+      `LAPIS_AGENT_${agent.slice(0, 12).toUpperCase()}_NIP46_CLIENT_SECRET`,
+    ]);
+    expect(connectBunker).toHaveBeenCalledTimes(1);
+    expect(bunker.close).toHaveBeenCalledTimes(1);
+    expect(events.map((event) => event.kind)).toEqual([30175]);
+    const activation = managedRequests.find(({ url }) =>
+      url.endsWith(`/${agent}/activate`),
+    )?.body as { owner_event: NostrEvent; profile_event: NostrEvent };
+    expect(activation.owner_event).toMatchObject({
+      kind: 30177,
+      pubkey: owner,
+      tags: [["d", agent]],
+    });
+    expect(activation.profile_event).toMatchObject({
+      kind: 0,
+      pubkey: agent,
+      tags: [["lapis-managed", owner, relayPubkey]],
+    });
+    expect(verifyEvent(activation.owner_event)).toBe(true);
+    expect(verifyEvent(activation.profile_event)).toBe(true);
+  });
+
   it("publishes exact owner-encrypted controller controls", async () => {
     const fixture = setup();
     const event = await fixture.session.sendControl!(agent, {

@@ -74,151 +74,194 @@
   play={async ({ canvas, canvasElement }) => {
     await userEvent.click(canvas.getByRole("button", { name: "Add agent" }));
     const body = within(canvasElement.ownerDocument.body);
-    let dialog = body.getByRole("dialog", { name: "Add agent" });
+    let dialog = body.getByRole("dialog", { name: "Create managed agent" });
     await expect(
-      within(dialog).getByRole("group", { name: "Agent instructions" }),
-    ).toBeVisible();
-    const imageButton = within(dialog).getByRole("button", {
-      name: "Choose agent image",
-    });
-    await userEvent.click(imageButton);
-    const imagePicker = body.getByLabelText("Avatar image picker");
-    await expect(imagePicker).toBeVisible();
-    expect(
-      imagePicker.getBoundingClientRect().top -
-        imageButton.getBoundingClientRect().bottom,
-    ).toBeCloseTo(12, 0);
-    await userEvent.click(
-      within(imagePicker).getByRole("tab", { name: "Emoji" }),
-    );
+      within(dialog).queryByLabelText("Agent public key"),
+    ).not.toBeInTheDocument();
     await expect(
-      within(imagePicker).getByRole("button", {
-        name: "Browse all emoji",
-      }),
+      within(dialog).getByText(/agent secret stays encrypted/i),
     ).toBeVisible();
-    await userEvent.click(
-      body.getByRole("button", { name: "Browse all emoji" }),
-    );
-    const emoji = await waitFor(() => {
-      const button = canvasElement.ownerDocument
-        .querySelector("em-emoji-picker")
-        ?.shadowRoot?.querySelector<HTMLButtonElement>(
-          'button[aria-label="🤣"]',
-        );
-      expect(button).not.toBeNull();
-      return button!;
+    await userEvent.type(within(dialog).getByLabelText("Persona name"), "Fizz");
+    await userEvent.click(within(dialog).getByLabelText("general"));
+    const createButtons = within(dialog).getAllByRole("button", {
+      name: "Create managed agent",
     });
-    await userEvent.click(emoji);
-    expect(
-      decodeURIComponent(
-        within(dialog)
-          .getByRole("img", { name: "Selected avatar" })
-          .getAttribute("src")!,
-      ),
-    ).toContain("🤣");
-    if (body.queryByLabelText("Avatar image picker")) {
-      await userEvent.keyboard("{Escape}");
-    }
-    const scrollArea = dialog.querySelector<HTMLElement>(
-      '[data-ui-component="scroll-area"][data-ui-part="scroll-area"]',
-    );
-    const scrollbar = dialog.querySelector<HTMLElement>(
-      '[data-ui-part="scroll-area-scrollbar"]',
-    );
-    const footer = dialog.querySelector<HTMLElement>(
-      '[data-slot="dialog-footer"]',
-    );
-    const header = dialog.querySelector<HTMLElement>(
-      '[data-ui-part="dialog-frame-header"]',
-    );
-    const sidebar = dialog.querySelector<HTMLElement>(
-      '[data-ui-part="dialog-frame-sidebar"]',
-    );
-    const main = dialog.querySelector<HTMLElement>(
-      '[data-ui-part="dialog-frame-main"]',
-    );
-    expect(scrollArea).not.toBeNull();
-    expect(scrollbar).not.toBeNull();
-    expect(footer).not.toBeNull();
-    expect(header).not.toBeNull();
-    expect(sidebar).not.toBeNull();
-    expect(main).not.toBeNull();
-    expect(dialog.getBoundingClientRect().width).toBeLessThanOrEqual(896);
-    expect(dialog.getBoundingClientRect().height).toBeLessThanOrEqual(672);
-    expect(getComputedStyle(header!).backgroundColor).toBe(
-      getComputedStyle(sidebar!).backgroundColor,
-    );
-    expect(getComputedStyle(main!).borderRadius).not.toBe("0px");
-    expect(scrollbar!.getBoundingClientRect().right).toBeCloseTo(
-      scrollArea!.getBoundingClientRect().right,
-      0,
-    );
-    // Exercise overflow even when the test runner has a tall viewport.
-    dialog.style.maxHeight = "32rem";
+    await userEvent.click(createButtons.at(-1)!);
+    dialog = await body.findByRole("dialog", { name: "Controller setup" });
+    await expect(within(dialog).getByText(/held by this relay/i)).toBeVisible();
+    await expect(
+      within(dialog).getByRole("button", { name: "Copy" }),
+    ).toBeVisible();
+    await expect(
+      within(dialog).getByRole("button", { name: "Download" }),
+    ).toBeVisible();
+    await expect(
+      within(dialog).getByText(/"lapis.agent-controller-bootstrap\/1"/),
+    ).toBeVisible();
+    await userEvent.click(within(dialog).getByRole("button", { name: "Done" }));
+  }}>{#snippet template()}<Harness variant="gallery" />{/snippet}</Story
+>
+<Story
+  name="Link existing agent"
+  play={async ({ canvas, canvasElement }) => {
+    const addAgent = canvas.getByRole("button", { name: "Add agent" });
     await waitFor(() =>
-      expect(dialog.getBoundingClientRect().height).toBeLessThanOrEqual(512),
+      expect(getComputedStyle(addAgent).pointerEvents).not.toBe("none"),
     );
-    const footerTop = footer!.getBoundingClientRect().top;
-    const viewport = scrollArea!.querySelector<HTMLElement>(
-      '[data-ui-part="scroll-area-viewport"]',
-    );
-    expect(viewport).not.toBeNull();
-    expect(viewport!.scrollHeight).toBeGreaterThan(viewport!.clientHeight);
-    viewport!.scrollTop = viewport!.scrollHeight;
-    await waitFor(() => expect(viewport!.scrollTop).toBeGreaterThan(0));
-    expect(footer!.getBoundingClientRect().top).toBeCloseTo(footerTop, 0);
-    await expect(
-      within(dialog).getByLabelText("Agent public key"),
-    ).toBeVisible();
+    await userEvent.click(addAgent);
+    const body = within(canvasElement.ownerDocument.body);
+    let dialog = body.getByRole("dialog", { name: "Create managed agent" });
     await userEvent.click(
-      within(dialog).getByRole("button", { name: "Add agent" }),
+      within(dialog).getByRole("button", { name: "Link existing agent" }),
     );
-    await expect(
-      within(dialog).getByText("Enter a valid hex or npub public key."),
-    ).toBeVisible();
+    dialog = body.getByRole("dialog", { name: "Link existing agent" });
     await userEvent.type(
       within(dialog).getByLabelText("Agent public key"),
       "f".repeat(64),
     );
     await userEvent.type(within(dialog).getByLabelText("Persona name"), "Fizz");
     await userEvent.click(
-      within(dialog).getByRole("button", { name: "Add agent" }),
+      within(dialog).getByRole("button", { name: "Link agent" }),
     );
     await expect(canvas.getByText("Persona fizz saved")).toBeVisible();
-    await waitFor(() =>
-      expect(body.queryByRole("dialog")).not.toBeInTheDocument(),
-    );
-    await expect(
-      canvas.getByRole("button", { name: "Add agent" }),
-    ).toHaveFocus();
   }}>{#snippet template()}<Harness variant="gallery" />{/snippet}</Story
 >
 <Story
-  name="Use saved persona"
+  name="Managed agents unavailable"
   play={async ({ canvas, canvasElement }) => {
     await userEvent.click(canvas.getByRole("button", { name: "Add agent" }));
     const body = within(canvasElement.ownerDocument.body);
-    const dialog = body.getByRole("dialog", { name: "Add agent" });
+    const dialog = body.getByRole("dialog", { name: "Link existing agent" });
+    await expect(
+      within(dialog).getByRole("button", { name: "Create managed agent" }),
+    ).toBeDisabled();
     await userEvent.click(
-      within(dialog).getByRole("button", { name: "Use saved persona" }),
+      within(dialog).getByRole("button", { name: "Close add agent dialog" }),
     );
-    await expect(within(dialog).getAllByText("Release notes")[0]).toBeVisible();
-    await userEvent.type(
-      within(dialog).getByLabelText("Agent public key"),
-      "e".repeat(64),
+  }}
+  >{#snippet template()}<Harness
+      variant="unsupported-managed"
+    />{/snippet}</Story
+>
+<Story
+  name="Managed creation retry"
+  play={async ({ canvas, canvasElement }) => {
+    await userEvent.click(canvas.getByRole("button", { name: "Add agent" }));
+    const body = within(canvasElement.ownerDocument.body);
+    let dialog = body.getByRole("dialog", { name: "Create managed agent" });
+    await userEvent.type(within(dialog).getByLabelText("Persona name"), "Fizz");
+    let buttons = within(dialog).getAllByRole("button", {
+      name: "Create managed agent",
+    });
+    await userEvent.click(buttons.at(-1)!);
+    await expect(
+      within(dialog).getByText(/Relay denied the request/i),
+    ).toBeVisible();
+    buttons = within(dialog).getAllByRole("button", {
+      name: "Create managed agent",
+    });
+    await userEvent.click(buttons.at(-1)!);
+    dialog = await body.findByRole("dialog", { name: "Controller setup" });
+    await expect(within(dialog).getByText(/held by this relay/i)).toBeVisible();
+    await userEvent.click(within(dialog).getByRole("button", { name: "Done" }));
+  }}
+  >{#snippet template()}<Harness
+      variant="gallery"
+      failAction
+    />{/snippet}</Story
+>
+<Story
+  name="Partial room access"
+  play={async ({ canvas, canvasElement }) => {
+    await userEvent.click(canvas.getByRole("button", { name: "Add agent" }));
+    const body = within(canvasElement.ownerDocument.body);
+    let dialog = body.getByRole("dialog", { name: "Create managed agent" });
+    await userEvent.type(within(dialog).getByLabelText("Persona name"), "Fizz");
+    await userEvent.click(within(dialog).getByLabelText("general"));
+    await userEvent.click(within(dialog).getByLabelText("support"));
+    const buttons = within(dialog).getAllByRole("button", {
+      name: "Create managed agent",
+    });
+    await userEvent.click(buttons.at(-1)!);
+    dialog = await body.findByRole("dialog", { name: "Controller setup" });
+    await expect(within(dialog).getByRole("alert")).toHaveTextContent(
+      "support",
     );
+    await expect(within(dialog).getByText(/"general"/)).toBeVisible();
+    await userEvent.click(within(dialog).getByRole("button", { name: "Done" }));
+  }}>{#snippet template()}<Harness variant="room-failure" />{/snippet}</Story
+>
+<Story
+  name="Replacement controller setup"
+  play={async ({ canvas, canvasElement }) => {
     await userEvent.click(
-      within(dialog).getByRole("button", { name: "Add agent" }),
+      canvas.getByRole("button", { name: "Actions for Research" }),
     );
-    await expect(canvas.getByText("Persona release-notes saved")).toBeVisible();
+    const body = within(canvasElement.ownerDocument.body);
+    await userEvent.click(
+      body.getByRole("menuitem", { name: "Create replacement setup" }),
+    );
+    const dialog = await body.findByRole("dialog", {
+      name: "Controller setup",
+    });
+    await expect(within(dialog).getByText(/held by this relay/i)).toBeVisible();
+    await userEvent.click(within(dialog).getByRole("button", { name: "Done" }));
   }}>{#snippet template()}<Harness variant="gallery" />{/snippet}</Story
+>
+<Story
+  name="Revoke controller access"
+  play={async ({ canvas, canvasElement }) => {
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Actions for Research" }),
+    );
+    const body = within(canvasElement.ownerDocument.body);
+    await userEvent.click(
+      body.getByRole("menuitem", { name: "Revoke controller access" }),
+    );
+    const dialog = body.getByRole("alertdialog", {
+      name: "Revoke controller access?",
+    });
+    await userEvent.click(
+      within(dialog).getByRole("button", { name: "Revoke access" }),
+    );
+    await expect(canvas.getByText("Controller access revoked.")).toBeVisible();
+  }}>{#snippet template()}<Harness variant="gallery" />{/snippet}</Story
+>
+<Story
+  name="Delete managed agent"
+  play={async ({ canvas, canvasElement }) => {
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Actions for Research" }),
+    );
+    const body = within(canvasElement.ownerDocument.body);
+    await userEvent.click(
+      body.getByRole("menuitem", { name: "Delete managed agent" }),
+    );
+    const dialog = body.getByRole("alertdialog", {
+      name: "Delete this managed agent?",
+    });
+    await userEvent.click(
+      within(dialog).getByRole("button", { name: "Delete managed agent" }),
+    );
+    await expect(canvas.getByText("Managed agent deleted.")).toBeVisible();
+  }}>{#snippet template()}<Harness variant="gallery" />{/snippet}</Story
+>
+<Story name="Managed agents narrow"
+  >{#snippet template()}<Harness narrow variant="gallery" />{/snippet}</Story
+>
+<Story name="Managed agents dark" globals={{ colorMode: "dark" }}
+  >{#snippet template()}<Harness variant="no-archive" />{/snippet}</Story
 >
 <Story
   name="Delete persona"
   play={async ({ canvas, canvasElement }) => {
-    await userEvent.click(
-      canvas.getByRole("button", { name: "Delete persona Release notes" }),
+    const deletePersona = canvas.getByRole("button", {
+      name: "Delete persona Release notes",
+    });
+    await waitFor(() =>
+      expect(getComputedStyle(deletePersona).pointerEvents).not.toBe("none"),
     );
+    await userEvent.click(deletePersona);
     const body = within(canvasElement.ownerDocument.body);
     const dialog = body.getByRole("alertdialog", {
       name: "Delete this persona?",

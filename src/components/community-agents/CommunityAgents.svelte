@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { onMount } from "svelte";
   import CommunitySkeleton from "../community-skeleton/CommunitySkeleton.svelte";
   import { Button } from "@lapismd/design-core/shadcn/button";
   import { DialogFrame } from "@lapismd/design-core/forms/dialog";
@@ -18,8 +19,13 @@
   import ActivityIcon from "@lucide/svelte/icons/wrench";
   import PencilIcon from "@lucide/svelte/icons/pencil";
   import TrashIcon from "@lucide/svelte/icons/trash-2";
+  import DownloadIcon from "@lucide/svelte/icons/download";
+  import CopyIcon from "@lucide/svelte/icons/copy";
+  import ShieldCheckIcon from "@lucide/svelte/icons/shield-check";
   import type {
     CommunityAgentNameMode,
+    CommunityAgentControllerBootstrap,
+    CommunityManagedAgentCreateInput,
     CommunityAgentPersona,
     CommunityAgentPersonaSaveInput,
     CommunityAgentSaveInput,
@@ -37,6 +43,14 @@
     onSavePersona,
     onSaveAgent,
     onDeletePersona,
+    onCreateManagedAgent,
+    onClearManagedAgentDraft,
+    onCreateReplacement,
+    onRevokeManagedAgent,
+    onDeleteManagedAgent,
+    rooms = [],
+    onAddAgentToRoom,
+    ownerPubkey = "",
     onRefresh,
     onClearHistory,
     showPageHeader = true,
@@ -48,6 +62,18 @@
     onSavePersona?: (input: CommunityAgentPersonaSaveInput) => Promise<void>;
     onSaveAgent?: (input: CommunityAgentSaveInput) => Promise<void>;
     onDeletePersona?: (slug: string) => Promise<void>;
+    onCreateManagedAgent?: (
+      input: CommunityManagedAgentCreateInput,
+    ) => Promise<CommunityAgentControllerBootstrap>;
+    onClearManagedAgentDraft?: () => void;
+    onCreateReplacement?: (
+      pubkey: string,
+    ) => Promise<CommunityAgentControllerBootstrap>;
+    onRevokeManagedAgent?: (pubkey: string) => Promise<void>;
+    onDeleteManagedAgent?: (pubkey: string) => Promise<void>;
+    rooms?: readonly { id: string; name: string; canManage: boolean }[];
+    onAddAgentToRoom?: (roomId: string, pubkey: string) => Promise<void>;
+    ownerPubkey?: string;
     onRefresh: () => void | Promise<void>;
     onClearHistory: () => Promise<void>;
     /** Keep the local title and refresh action when no application header owns them. */
@@ -68,7 +94,14 @@
   let personaSlug = $state("");
   let nameMode = $state<CommunityAgentNameMode>("instance");
   let addMode = $state<"create" | "existing">("create");
+  let provisioningMode = $state<"managed" | "existing">("managed");
   let selectedPersonaSlug = $state("");
+  let selectedGroupIds = $state<string[]>([]);
+  let managedBundle = $state<CommunityAgentControllerBootstrap>();
+  let managedRoomFailures = $state<string[]>([]);
+  let managedActionPending = $state("");
+  let agentToRevoke = $state("");
+  let agentToDelete = $state("");
   let personaToDelete = $state("");
   let personaOpen = $state(false);
   let personaPending = $state(false);
@@ -82,9 +115,12 @@
   let addTrigger = $state<HTMLButtonElement | null>(null);
   let directory = $state<HTMLElement>();
   const addable = $derived(
-    Boolean(onSaveAgent) &&
+    Boolean(onSaveAgent || onCreateManagedAgent) &&
       model.status !== "loading" &&
       model.status !== "unsupported",
+  );
+  const managedAvailable = $derived(
+    Boolean(model.capabilities.managedAgents && onCreateManagedAgent),
   );
   const normalizedAgentPublicKey = $derived(
     parseAgentPublicKey(agentPublicKey),
@@ -100,6 +136,10 @@
   );
   async function addAgent() {
     addFeedback = "";
+    if (provisioningMode === "managed") {
+      await createManagedAgent();
+      return;
+    }
     const pubkey = normalizedAgentPublicKey;
     if (!pubkey) {
       addFeedback = "Enter a valid hex or npub public key.";
@@ -180,6 +220,149 @@
       addingPending = false;
     }
   }
+
+  async function createManagedAgent() {
+    if (!managedAvailable || !onCreateManagedAgent) {
+      addFeedback = "This relay does not offer managed agent custody.";
+      return;
+    }
+    const displayName =
+      addMode === "existing"
+        ? (selectedPersona?.displayName ?? "")
+        : agentName.trim();
+    if (!displayName) {
+      addFeedback =
+        addMode === "existing"
+          ? "Choose a saved persona."
+          : "Enter a persona name.";
+      return;
+    }
+    const slug =
+      addMode === "existing"
+        ? (selectedPersona?.slug ?? "")
+        : personaSlug.trim() || personaSlugFromName(displayName);
+    if (!/^[a-z0-9][a-z0-9_-]{0,63}$/.test(slug)) {
+      addFeedback =
+        "Persona ID must use lowercase letters, numbers, hyphens, or underscores.";
+      return;
+    }
+    addingPending = true;
+    try {
+      const bundle = await onCreateManagedAgent({
+        personaSlug: slug,
+        displayName,
+        ...(addMode === "existing"
+          ? {
+              ...(selectedPersona?.description !== undefined
+                ? { description: selectedPersona.description }
+                : {}),
+              ...(selectedPersona?.avatarUrl !== undefined
+                ? { avatarUrl: selectedPersona.avatarUrl }
+                : {}),
+              ...(selectedPersona?.systemPrompt !== undefined
+                ? { systemPrompt: selectedPersona.systemPrompt }
+                : {}),
+            }
+          : {
+              description: agentDescription,
+              avatarUrl,
+              systemPrompt: agentInstructions,
+            }),
+        nameMode,
+        instanceName: displayName,
+        groupIds: selectedGroupIds,
+      });
+      const confirmed: string[] = [];
+      const failed: string[] = [];
+      for (const groupId of selectedGroupIds) {
+        try {
+          if (!onAddAgentToRoom)
+            throw new Error("Room membership is unavailable");
+          await onAddAgentToRoom(groupId, bundle.agent.pubkey);
+          confirmed.push(groupId);
+        } catch {
+          failed.push(groupId);
+        }
+      }
+      managedBundle = {
+        ...bundle,
+        confirmedGroups: confirmed,
+        requiredLocalChoices: {
+          ...bundle.requiredLocalChoices,
+          remainingGroups: failed,
+        },
+      };
+      managedRoomFailures = failed;
+    } catch (error) {
+      addFeedback =
+        error instanceof Error
+          ? error.message
+          : "The managed agent could not be created.";
+    } finally {
+      addingPending = false;
+    }
+  }
+
+  function clearManagedSetup() {
+    managedBundle = undefined;
+    managedRoomFailures = [];
+    onClearManagedAgentDraft?.();
+  }
+
+  async function copyBundle() {
+    if (!managedBundle) return;
+    await navigator.clipboard.writeText(JSON.stringify(managedBundle, null, 2));
+    feedback = "Controller setup copied.";
+  }
+
+  function downloadBundle() {
+    if (!managedBundle) return;
+    const url = URL.createObjectURL(
+      new Blob([JSON.stringify(managedBundle, null, 2) + "\n"], {
+        type: "application/json",
+      }),
+    );
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `lapis-agent-${managedBundle.agent.pubkey.slice(0, 12)}.json`;
+    link.click();
+    URL.revokeObjectURL(url);
+  }
+
+  async function replacementSetup(pubkey: string) {
+    if (!onCreateReplacement) return;
+    managedActionPending = pubkey;
+    try {
+      managedBundle = await onCreateReplacement(pubkey);
+      managedRoomFailures = [];
+      adding = true;
+    } catch (error) {
+      feedback =
+        error instanceof Error
+          ? error.message
+          : "Replacement setup could not be created.";
+    } finally {
+      managedActionPending = "";
+    }
+  }
+
+  let previousOwner = $state("");
+  $effect(() => {
+    if (previousOwner && ownerPubkey !== previousOwner) clearManagedSetup();
+    previousOwner = ownerPubkey;
+  });
+  $effect(() => {
+    if (adding && !managedAvailable && provisioningMode === "managed")
+      provisioningMode = "existing";
+  });
+  onMount(() => {
+    const clear = () => clearManagedSetup();
+    window.addEventListener("beforeunload", clear);
+    return () => {
+      window.removeEventListener("beforeunload", clear);
+      clearManagedSetup();
+    };
+  });
 
   function personaSlugFromName(value: string): string {
     return (
@@ -345,6 +528,16 @@
               <span class="agents__about"
                 >{agent.about || "Registered agent"}</span
               >
+              {#if agent.custody}
+                <span class="agents__custody">
+                  <CommunityChip size="compact" tone="accent"
+                    >Relay managed</CommunityChip
+                  >
+                  <small
+                    >{agent.custody.connectionState.replaceAll("_", " ")}</small
+                  >
+                </span>
+              {/if}
             </div>
           </button>
           <DropdownMenu.Root>
@@ -369,6 +562,33 @@
                     aria-hidden="true"
                   />Activity log
                 </DropdownMenu.Item>
+                {#if agent.custody && onCreateReplacement}
+                  <DropdownMenu.Item
+                    disabled={managedActionPending === agent.pubkey}
+                    onSelect={() => void replacementSetup(agent.pubkey)}
+                  >
+                    <DownloadIcon
+                      data-icon="inline-start"
+                      aria-hidden="true"
+                    />Create replacement setup
+                  </DropdownMenu.Item>
+                {/if}
+                {#if agent.custody && onRevokeManagedAgent}
+                  <DropdownMenu.Item
+                    onSelect={() => (agentToRevoke = agent.pubkey)}
+                    >Revoke controller access</DropdownMenu.Item
+                  >
+                {/if}
+                {#if agent.custody && onDeleteManagedAgent}
+                  <DropdownMenu.Item
+                    variant="destructive"
+                    onSelect={() => (agentToDelete = agent.pubkey)}
+                    ><TrashIcon
+                      data-icon="inline-start"
+                      aria-hidden="true"
+                    />Delete managed agent</DropdownMenu.Item
+                  >
+                {/if}
               </DropdownMenu.Group>
             </DropdownMenu.Content>
           </DropdownMenu.Root>
@@ -450,10 +670,23 @@
   {#if feedback && !clearing}<p role="status">{feedback}</p>{/if}
 </section>
 
-<Dialog.Root bind:open={adding}>
+<Dialog.Root
+  bind:open={adding}
+  onOpenChange={(open) => {
+    if (!open) clearManagedSetup();
+  }}
+>
   <DialogFrame
-    title="Add agent"
-    description="Create an owner-managed persona and link an existing Nostr agent. The agent appears after its signed profile proves ownership."
+    title={managedBundle
+      ? "Controller setup"
+      : provisioningMode === "managed"
+        ? "Create managed agent"
+        : "Link existing agent"}
+    description={managedBundle
+      ? "Save this setup once. Community will clear it when the dialog closes."
+      : provisioningMode === "managed"
+        ? "The relay creates and safeguards the agent identity while you control its persona and room access."
+        : "Create an owner-managed persona and link an existing Nostr agent."}
     descriptionHidden
     size="large"
     surface="inset"
@@ -467,166 +700,309 @@
     {#snippet sidebar()}
       <nav class="agents__add-options" aria-label="Agent add options">
         <Button
-          variant={addMode === "create" ? "default" : "ghost"}
-          aria-current={addMode === "create" ? "page" : undefined}
-          onclick={() => (addMode = "create")}
-          ><PlusIcon aria-hidden="true" />Create persona</Button
+          variant={provisioningMode === "managed" ? "default" : "ghost"}
+          aria-current={provisioningMode === "managed" ? "page" : undefined}
+          disabled={!managedAvailable}
+          onclick={() => (provisioningMode = "managed")}
+          ><ShieldCheckIcon aria-hidden="true" />Create managed agent</Button
         >
         <Button
-          variant={addMode === "existing" ? "default" : "ghost"}
-          aria-current={addMode === "existing" ? "page" : undefined}
-          disabled={model.personas.length === 0}
-          onclick={() => {
-            addMode = "existing";
-            selectedPersonaSlug ||= model.personas[0]?.slug ?? "";
-          }}><LinkIcon aria-hidden="true" />Use saved persona</Button
+          variant={provisioningMode === "existing" ? "default" : "ghost"}
+          aria-current={provisioningMode === "existing" ? "page" : undefined}
+          onclick={() => (provisioningMode = "existing")}
+          ><LinkIcon aria-hidden="true" />Link existing agent</Button
         >
       </nav>
     {/snippet}
-    <form
-      id="community-agent-add-form"
-      class="agents__add-form"
-      onsubmit={(event) => {
-        event.preventDefault();
-        void addAgent();
-      }}
-    >
-      {#if addMode === "create"}
-        <CommunityAvatarPicker
-          bind:value={avatarUrl}
-          label="Choose agent image"
-          disabled={addingPending}
-        />
-      {:else if selectedPersona}
-        <div class="agents__selected-persona">
-          <CommunityMemberAvatar
-            member={communityPersonaMember(selectedPersona)}
-            size="xlarge"
-            shape="rounded"
-          />
-          <strong>{selectedPersona.displayName}</strong>
-          <span>{selectedPersona.slug}</span>
+    {#if managedBundle}
+      <section class="agents__setup" aria-label="One-time controller setup">
+        <div class="agents__setup-state">
+          <ShieldCheckIcon aria-hidden="true" />
+          <div>
+            <strong>Agent active and held by this relay</strong>
+            <p>{managedBundle.agent.pubkey}</p>
+          </div>
         </div>
-      {/if}
-      <Field.Group>
-        {#if addMode === "existing"}
-          <Field.Field
-            ><Field.Label for="community-agents-saved-persona"
-              >Saved persona</Field.Label
-            ><Select.Root
-              type="single"
-              value={selectedPersonaSlug}
-              onValueChange={(value) => (selectedPersonaSlug = value)}
-              ><Select.Trigger id="community-agents-saved-persona"
-                >{selectedPersona?.displayName ??
-                  "Choose a persona"}</Select.Trigger
-              ><Select.Content
-                >{#each model.personas as persona (persona.slug)}<Select.Item
-                    value={persona.slug}>{persona.displayName}</Select.Item
-                  >{/each}</Select.Content
-              ></Select.Root
-            ><Field.Description
-              >Links this agent to the existing persona without duplicating its
-              prompt or presentation.</Field.Description
-            ></Field.Field
-          >
-        {:else}
-          <Field.Field
-            ><Field.Label for="community-agents-add-name"
-              >Persona name</Field.Label
-            ><Input
-              id="community-agents-add-name"
-              bind:value={agentName}
-              placeholder="Fizz"
-            /></Field.Field
-          >
-          <Field.Field
-            ><Field.Label for="community-agents-add-persona-id"
-              >Persona ID <span>Optional</span></Field.Label
-            ><Input
-              id="community-agents-add-persona-id"
-              bind:value={personaSlug}
-              autocomplete="off"
-              placeholder={personaSlugFromName(agentName || "agent")}
-            /><Field.Description
-              >A stable lowercase ID is generated from the name when left empty.
-              Renaming the persona will not change it.</Field.Description
-            ></Field.Field
-          >
-          <Field.Field
-            ><Field.Label>Description <span>Optional</span></Field.Label
-            ><CommunityChatComposer
-              mode="form"
-              bind:value={agentDescription}
-              ariaLabel="Agent description"
-              placeholder="What this agent does, in a sentence"
-            /><Field.Description
-              >Shown publicly on the agent's card and profile.</Field.Description
-            ></Field.Field
-          >
-          <Field.Field
-            ><Field.Label>Saved system prompt</Field.Label
-            ><CommunityChatComposer
-              mode="form"
-              bind:value={agentInstructions}
-              placeholder="Describe what this agent should do."
-              ariaLabel="Agent instructions"
-            /><Field.Description
-              >Saved with the persona. A configured controller applies changes
-              before the agent’s next idle turn.</Field.Description
-            ></Field.Field
-          >
+        <dl>
+          <div>
+            <dt>Owner</dt>
+            <dd>{managedBundle.agent.ownerPubkey}</dd>
+          </div>
+          <div>
+            <dt>Persona</dt>
+            <dd>{managedBundle.agent.persona}</dd>
+          </div>
+          <div>
+            <dt>Invitation expires</dt>
+            <dd>
+              {new Date(
+                managedBundle.custody.invitationExpiresAt,
+              ).toLocaleString()}
+            </dd>
+          </div>
+          <div>
+            <dt>Room access</dt>
+            <dd>
+              {managedBundle.confirmedGroups.length === 0
+                ? "No rooms confirmed"
+                : managedBundle.confirmedGroups.join(", ")}
+            </dd>
+          </div>
+        </dl>
+        {#if managedRoomFailures.length > 0}
+          <p role="alert">
+            The identity was created, but room access failed for:
+            {managedRoomFailures.join(", ")}. Add it from the room member list
+            later.
+          </p>
         {/if}
-        <Field.Field
-          ><Field.Label for="community-agents-add-name-mode"
-            >Instance name</Field.Label
-          ><Select.Root
-            type="single"
-            value={nameMode}
-            onValueChange={(value) =>
-              (nameMode = value as CommunityAgentNameMode)}
-            ><Select.Trigger id="community-agents-add-name-mode"
-              >{nameMode === "inherited"
-                ? "Use persona name"
-                : "Keep instance name"}</Select.Trigger
-            ><Select.Content
-              ><Select.Item value="instance">Keep instance name</Select.Item
-              ><Select.Item value="inherited">Use persona name</Select.Item
-              ></Select.Content
-            ></Select.Root
-          ><Field.Description
-            >This choice is stored explicitly even when both names currently
-            match.</Field.Description
-          ></Field.Field
-        >
-        <Field.Field data-invalid={addFeedback ? "" : undefined}
-          ><Field.Label for={addInputId}>Agent public key</Field.Label><Input
-            id={addInputId}
-            bind:value={agentPublicKey}
-            aria-invalid={addFeedback ? "true" : undefined}
-            autocomplete="off"
-            placeholder="npub1… or 64-character hex"
-          /><Field.Description
-            >Discovery is saved with your signer, then verified against the
-            agent's own profile.</Field.Description
-          >{#if addFeedback}<Field.Error>{addFeedback}</Field.Error
-            >{/if}</Field.Field
-        >
-      </Field.Group>
-    </form>
+        <!-- svelte-ignore a11y_no_noninteractive_tabindex: the overflowing JSON region must be keyboard-scrollable -->
+        <pre tabindex="0" aria-label="Controller setup JSON">{JSON.stringify(
+            managedBundle,
+            null,
+            2,
+          )}</pre>
+        <p>
+          Choose <code>hostId</code>, <code>runtimeAgent</code>, and any
+          remaining groups locally before adding this entry to the controller.
+          Community does not choose a workspace, runtime, model, or thinking
+          level.
+        </p>
+      </section>
+    {:else}<form
+        id="community-agent-add-form"
+        class="agents__add-form"
+        onsubmit={(event) => {
+          event.preventDefault();
+          void addAgent();
+        }}
+      >
+        <div class="agents__add-visual">
+          {#if addMode === "create"}
+            <CommunityAvatarPicker
+              bind:value={avatarUrl}
+              label="Choose agent image"
+              disabled={addingPending}
+            />
+          {:else if selectedPersona}
+            <div class="agents__selected-persona">
+              <CommunityMemberAvatar
+                member={communityPersonaMember(selectedPersona)}
+                size="xlarge"
+                shape="rounded"
+              />
+              <strong>{selectedPersona.displayName}</strong>
+              <span>{selectedPersona.slug}</span>
+            </div>
+          {/if}
+        </div>
+        <div class="agents__add-fields">
+          <Field.Field>
+            <Field.Label for="community-agents-persona-mode"
+              >Persona</Field.Label
+            >
+            <Select.Root
+              type="single"
+              value={addMode}
+              onValueChange={(value) => {
+                addMode = value as "create" | "existing";
+                if (addMode === "existing")
+                  selectedPersonaSlug ||= model.personas[0]?.slug ?? "";
+              }}
+            >
+              <Select.Trigger id="community-agents-persona-mode"
+                >{addMode === "create"
+                  ? "Create a new persona"
+                  : "Use a saved persona"}</Select.Trigger
+              >
+              <Select.Content>
+                <Select.Item value="create">Create a new persona</Select.Item>
+                <Select.Item
+                  value="existing"
+                  disabled={model.personas.length === 0}
+                  >Use a saved persona</Select.Item
+                >
+              </Select.Content>
+            </Select.Root>
+          </Field.Field>
+          {#if provisioningMode === "managed"}
+            <div class="agents__custody-note">
+              <ShieldCheckIcon aria-hidden="true" />
+              <p>
+                The agent secret stays encrypted at the relay. The downloaded
+                NIP-46 client secret lets one controller request only the
+                allowed agent actions.
+              </p>
+            </div>
+          {/if}
+          <Field.Group>
+            {#if addMode === "existing"}
+              <Field.Field
+                ><Field.Label for="community-agents-saved-persona"
+                  >Saved persona</Field.Label
+                ><Select.Root
+                  type="single"
+                  value={selectedPersonaSlug}
+                  onValueChange={(value) => (selectedPersonaSlug = value)}
+                  ><Select.Trigger id="community-agents-saved-persona"
+                    >{selectedPersona?.displayName ??
+                      "Choose a persona"}</Select.Trigger
+                  ><Select.Content
+                    >{#each model.personas as persona (persona.slug)}<Select.Item
+                        value={persona.slug}>{persona.displayName}</Select.Item
+                      >{/each}</Select.Content
+                  ></Select.Root
+                ><Field.Description
+                  >Links this agent to the existing persona without duplicating
+                  its prompt or presentation.</Field.Description
+                ></Field.Field
+              >
+            {:else}
+              <Field.Field
+                ><Field.Label for="community-agents-add-name"
+                  >Persona name</Field.Label
+                ><Input
+                  id="community-agents-add-name"
+                  bind:value={agentName}
+                  placeholder="Fizz"
+                /></Field.Field
+              >
+              <Field.Field
+                ><Field.Label for="community-agents-add-persona-id"
+                  >Persona ID <span>Optional</span></Field.Label
+                ><Input
+                  id="community-agents-add-persona-id"
+                  bind:value={personaSlug}
+                  autocomplete="off"
+                  placeholder={personaSlugFromName(agentName || "agent")}
+                /><Field.Description
+                  >A stable lowercase ID is generated from the name when left
+                  empty. Renaming the persona will not change it.</Field.Description
+                ></Field.Field
+              >
+              <Field.Field
+                ><Field.Label>Description <span>Optional</span></Field.Label
+                ><CommunityChatComposer
+                  mode="form"
+                  bind:value={agentDescription}
+                  ariaLabel="Agent description"
+                  placeholder="What this agent does, in a sentence"
+                /><Field.Description
+                  >Shown publicly on the agent's card and profile.</Field.Description
+                ></Field.Field
+              >
+              <Field.Field
+                ><Field.Label>Saved system prompt</Field.Label
+                ><CommunityChatComposer
+                  mode="form"
+                  bind:value={agentInstructions}
+                  placeholder="Describe what this agent should do."
+                  ariaLabel="Agent instructions"
+                /><Field.Description
+                  >Saved with the persona. A configured controller applies
+                  changes before the agent’s next idle turn.</Field.Description
+                ></Field.Field
+              >
+            {/if}
+            <Field.Field
+              ><Field.Label for="community-agents-add-name-mode"
+                >Instance name</Field.Label
+              ><Select.Root
+                type="single"
+                value={nameMode}
+                onValueChange={(value) =>
+                  (nameMode = value as CommunityAgentNameMode)}
+                ><Select.Trigger id="community-agents-add-name-mode"
+                  >{nameMode === "inherited"
+                    ? "Use persona name"
+                    : "Keep instance name"}</Select.Trigger
+                ><Select.Content
+                  ><Select.Item value="instance">Keep instance name</Select.Item
+                  ><Select.Item value="inherited">Use persona name</Select.Item
+                  ></Select.Content
+                ></Select.Root
+              ><Field.Description
+                >This choice is stored explicitly even when both names currently
+                match.</Field.Description
+              ></Field.Field
+            >
+            {#if provisioningMode === "existing"}<Field.Field
+                data-invalid={addFeedback ? "" : undefined}
+                ><Field.Label for={addInputId}>Agent public key</Field.Label
+                ><Input
+                  id={addInputId}
+                  bind:value={agentPublicKey}
+                  aria-invalid={addFeedback ? "true" : undefined}
+                  autocomplete="off"
+                  placeholder="npub1… or 64-character hex"
+                /><Field.Description
+                  >Discovery is saved with your signer, then verified against
+                  the agent's own profile.</Field.Description
+                >{#if addFeedback}<Field.Error>{addFeedback}</Field.Error
+                  >{/if}</Field.Field
+              >{/if}
+            {#if provisioningMode === "managed" && rooms.length > 0}
+              <Field.Field>
+                <Field.Label>Room access <span>Optional</span></Field.Label>
+                <div class="agents__room-options">
+                  {#each rooms as room (room.id)}
+                    <label class:disabled={!room.canManage}>
+                      <input
+                        type="checkbox"
+                        value={room.id}
+                        disabled={!room.canManage || addingPending}
+                        checked={selectedGroupIds.includes(room.id)}
+                        onchange={(event) => {
+                          const checked = event.currentTarget.checked;
+                          selectedGroupIds = checked
+                            ? [...selectedGroupIds, room.id]
+                            : selectedGroupIds.filter((id) => id !== room.id);
+                        }}
+                      />
+                      <span>{room.name}</span>
+                    </label>
+                  {/each}
+                </div>
+                <Field.Description>
+                  Room access uses the normal member action. Creating an agent
+                  does not grant roles or implicit membership.
+                </Field.Description>
+              </Field.Field>
+            {/if}
+            {#if addFeedback}<Field.Error>{addFeedback}</Field.Error>{/if}
+          </Field.Group>
+        </div>
+      </form>{/if}
     {#snippet footer()}
-      <Button
-        type="button"
-        variant="outline"
-        disabled={addingPending}
-        onclick={() => (adding = false)}>Cancel</Button
-      >
-      <Button
-        type="submit"
-        form="community-agent-add-form"
-        disabled={addingPending}
-        >{addingPending ? "Adding…" : "Add agent"}</Button
-      >
+      {#if managedBundle}
+        <Button
+          type="button"
+          variant="outline"
+          onclick={() => void copyBundle()}
+          ><CopyIcon aria-hidden="true" />Copy</Button
+        >
+        <Button type="button" variant="outline" onclick={downloadBundle}
+          ><DownloadIcon aria-hidden="true" />Download</Button
+        >
+        <Button type="button" onclick={() => (adding = false)}>Done</Button>
+      {:else}<Button
+          type="button"
+          variant="outline"
+          disabled={addingPending}
+          onclick={() => (adding = false)}>Cancel</Button
+        >
+        <Button
+          type="submit"
+          form="community-agent-add-form"
+          disabled={addingPending}
+          >{addingPending
+            ? provisioningMode === "managed"
+              ? "Creating…"
+              : "Adding…"
+            : provisioningMode === "managed"
+              ? "Create managed agent"
+              : "Link agent"}</Button
+        >{/if}
     {/snippet}
   </DialogFrame>
 </Dialog.Root>
@@ -724,6 +1100,40 @@
     await onDeletePersona(slug);
     personaToDelete = "";
     feedback = `Persona ${slug} deleted.`;
+  }}
+/>
+<ConfirmDialog
+  open={Boolean(agentToRevoke)}
+  title="Revoke controller access?"
+  description="The current controller can no longer sign for this agent. The agent identity and room memberships remain available."
+  confirmLabel="Revoke access"
+  destructive
+  onOpenChange={(open) => {
+    if (!open) agentToRevoke = "";
+  }}
+  onConfirm={async () => {
+    if (!agentToRevoke || !onRevokeManagedAgent) return;
+    const pubkey = agentToRevoke;
+    await onRevokeManagedAgent(pubkey);
+    agentToRevoke = "";
+    feedback = "Controller access revoked.";
+  }}
+/>
+<ConfirmDialog
+  open={Boolean(agentToDelete)}
+  title="Delete this managed agent?"
+  description="This destroys the relay-held agent key and revokes every controller connection. Existing events remain signed history, but the identity cannot be used again."
+  confirmLabel="Delete managed agent"
+  destructive
+  onOpenChange={(open) => {
+    if (!open) agentToDelete = "";
+  }}
+  onConfirm={async () => {
+    if (!agentToDelete || !onDeleteManagedAgent) return;
+    const pubkey = agentToDelete;
+    await onDeleteManagedAgent(pubkey);
+    agentToDelete = "";
+    feedback = "Managed agent deleted.";
   }}
 />
 <ConfirmDialog
@@ -893,6 +1303,16 @@
     -webkit-box-orient: vertical;
     overflow: hidden;
   }
+  .agents__custody {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    flex-wrap: wrap;
+  }
+  .agents__custody small {
+    color: var(--muted-foreground);
+    text-transform: capitalize;
+  }
   :global(.agents__card-menu) {
     position: absolute;
     top: 0.5rem;
@@ -988,13 +1408,85 @@
 
   .agents__add-form {
     display: grid;
-    grid-template-columns: 12rem minmax(0, 1fr);
+    grid-template-columns: 12rem minmax(24rem, 1fr);
     gap: 2rem;
     align-items: start;
+  }
+  .agents__add-visual {
+    min-width: 0;
+  }
+  .agents__add-fields {
+    display: grid;
+    gap: 1rem;
+    min-width: 0;
   }
   .agents__add-options {
     display: grid;
     gap: 0.5rem;
+  }
+  .agents__custody-note,
+  .agents__setup-state {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+    padding: 0.85rem;
+    border: 1px solid var(--border);
+    border-radius: 0.75rem;
+    background: color-mix(in oklab, var(--muted) 65%, transparent);
+  }
+  .agents__custody-note :global(svg),
+  .agents__setup-state :global(svg) {
+    width: 1.25rem;
+    height: 1.25rem;
+    flex: none;
+    color: var(--primary);
+  }
+  .agents__room-options {
+    display: grid;
+    gap: 0.5rem;
+  }
+  .agents__room-options label {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+  }
+  .agents__room-options label.disabled {
+    color: var(--muted-foreground);
+  }
+  .agents__setup {
+    display: grid;
+    gap: 1rem;
+    min-width: 0;
+  }
+  .agents__setup-state p,
+  .agents__setup dd,
+  .agents__setup pre {
+    overflow-wrap: anywhere;
+  }
+  .agents__setup dl {
+    display: grid;
+    gap: 0.65rem;
+    margin: 0;
+  }
+  .agents__setup dl div {
+    display: grid;
+    grid-template-columns: minmax(8rem, 0.35fr) minmax(0, 1fr);
+    gap: 0.75rem;
+  }
+  .agents__setup dt {
+    color: var(--muted-foreground);
+  }
+  .agents__setup dd {
+    margin: 0;
+  }
+  .agents__setup pre {
+    max-height: 18rem;
+    overflow: auto;
+    margin: 0;
+    padding: 0.85rem;
+    border-radius: 0.75rem;
+    background: var(--muted);
+    font-size: var(--community-text-secondary);
   }
   .agents__selected-persona {
     display: grid;

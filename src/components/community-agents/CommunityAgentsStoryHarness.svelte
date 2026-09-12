@@ -14,6 +14,8 @@
   } from "./story-fixtures.js";
   import type {
     CommunityAgentIdentity,
+    CommunityAgentControllerBootstrap,
+    CommunityManagedAgentCreateInput,
     CommunityAgentPersonaSaveInput,
     CommunityAgentSaveInput,
     CommunityAgentsState,
@@ -71,11 +73,21 @@
             }
           : {}),
         ...(variant === "historical" ? { agents: [] } : {}),
+        ...(variant === "no-archive" ? { archivedAgents: [] } : {}),
         ...(variant === "memory" ? { storageMode: "memory" } : {}),
         ...(variant === "storage-error"
           ? {
               archiveError:
                 "Activity could not be saved. Free storage and retry.",
+            }
+          : {}),
+        ...(variant === "unsupported-managed"
+          ? {
+              capabilities: {
+                directory: true,
+                presence: true,
+                activity: true,
+              },
             }
           : {}),
         ...(variant === "signer-error"
@@ -152,6 +164,54 @@
     };
     notice = `Persona ${slug} deleted`;
   }
+  function managedBundle(
+    input: CommunityManagedAgentCreateInput,
+    pubkey = storyGalleryAgents[1]!.pubkey,
+  ): CommunityAgentControllerBootstrap {
+    const prefix = pubkey.slice(0, 12).toUpperCase();
+    const bunkerUrlEnv = `LAPIS_AGENT_${prefix}_BUNKER_URL`;
+    const clientSecretEnv = `LAPIS_AGENT_${prefix}_NIP46_CLIENT_SECRET`;
+    return {
+      schema: "lapis.agent-controller-bootstrap/1",
+      relay: {
+        id: "main",
+        url: "wss://local-relay.lapis.md",
+        pubkey: model.capabilities.managedAgents!.relayPubkey,
+      },
+      agent: {
+        id: `agent-${pubkey.slice(0, 12)}`,
+        pubkey,
+        ownerPubkey: storyOwnerPubkey,
+        persona: input.personaSlug,
+        prompt: input.systemPrompt ?? "",
+      },
+      ownerAuthorization: {
+        kind: "lapis-managed-v1",
+        relayPubkey: model.capabilities.managedAgents!.relayPubkey,
+      },
+      signer: {
+        id: `agent-${pubkey.slice(0, 12)}`,
+        kind: "nip46",
+        bunkerUrlEnv,
+        clientSecretEnv,
+      },
+      environment: {
+        [bunkerUrlEnv]: `bunker://${pubkey}?relay=wss%3A%2F%2Flocal-relay.lapis.md%2Fnip46&secret=one-time`,
+        [clientSecretEnv]: "1".repeat(64),
+      },
+      confirmedGroups: [],
+      controllerDefaults: { respondTo: "members", enabled: true },
+      requiredLocalChoices: {
+        hostId: null,
+        runtimeAgent: null,
+        remainingGroups: [...(input.groupIds ?? [])],
+      },
+      custody: {
+        state: "active",
+        invitationExpiresAt: new Date(Date.now() + 86_400_000).toISOString(),
+      },
+    };
+  }
 </script>
 
 <div
@@ -178,6 +238,42 @@
       onSaveAgent={saveAgent}
       onSavePersona={savePersona}
       onDeletePersona={deletePersona}
+      onCreateManagedAgent={async (input) => {
+        attempt();
+        return managedBundle(input);
+      }}
+      onClearManagedAgentDraft={() => {}}
+      onCreateReplacement={async (pubkey) =>
+        managedBundle(
+          {
+            personaSlug: agent.persona?.slug ?? "agent",
+            displayName: agent.name,
+            ...(agent.persona?.systemPrompt
+              ? { systemPrompt: agent.persona.systemPrompt }
+              : {}),
+            nameMode: "instance",
+          },
+          pubkey,
+        )}
+      onRevokeManagedAgent={async () => {
+        attempt();
+        notice = "Controller access revoked";
+      }}
+      onDeleteManagedAgent={async () => {
+        attempt();
+        notice = "Managed agent deleted";
+      }}
+      rooms={storyAgentRooms.map((room) => ({
+        id: room.id,
+        name: room.name,
+        canManage: true,
+      }))}
+      onAddAgentToRoom={async (groupId) => {
+        if (variant === "room-failure" && groupId === "support")
+          throw new Error("Room membership denied");
+        attempt();
+      }}
+      ownerPubkey={storyOwnerPubkey}
       onRefresh={() => {
         model = storyAgentState();
         notice = "Agent directory refreshed";

@@ -469,7 +469,10 @@ Composer member widgets mount the same `CommunityMemberHoverCard` used by Markdo
 The Add Agent dialog begins with **Create managed agent** and **Link existing
 agent**. The existing persona and public-key workflow remains under Link
 existing. Managed creation removes the public-key input, explains relay custody,
-and shows eligible rooms as optional ordinary membership changes.
+and shows eligible rooms as optional ordinary membership changes. Both paths
+retain the existing large dialog and two-column form geometry, with the image or
+saved-persona preview on the left and full-width fields on the right. Only Link
+existing asks for the external agent public key.
 
 After activation, a one-time setup view shows the agent public key, custody and
 connection state, confirmed rooms, expiry, Copy, and Download actions. Owned
@@ -478,4 +481,3 @@ setup, revocation, and deletion actions. All states have responsive, dark, retry
 unsupported-relay, and partial-room-failure `visual-pending` stories.
 
 | LC-UI-043 | Add Agent MUST make managed creation explicit, preserve existing linking, and present secret material only in a one-time setup view with clear custody and recovery consequences. |
-

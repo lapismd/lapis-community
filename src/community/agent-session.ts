@@ -1,6 +1,8 @@
 import { sha256 } from "@noble/hashes/sha2.js";
 import { bytesToHex } from "@noble/hashes/utils.js";
 import { matchFilter } from "nostr-tools/filter";
+import { BunkerSigner, parseBunkerInput } from "nostr-tools/nip46";
+import { generateSecretKey, getPublicKey } from "nostr-tools/pure";
 import type { CommunitySigner } from "../auth/index.js";
 import { encodeNostrHttpAuthorization } from "../nostr/http-authorization.js";
 import type { CommunityRelay, RelayFilter } from "../nostr/index.js";
@@ -9,7 +11,11 @@ import type { CommunityScope } from "./contracts.js";
 import type {
   CommunityAgentCapabilities,
   CommunityAgentControl,
+  CommunityAgentControllerBootstrap,
   CommunityAgentDirectory,
+  CommunityAgentIdentity,
+  CommunityManagedAgentCapability,
+  CommunityManagedAgentCreateInput,
   CommunityAgentPersonaSaveInput,
   CommunityAgentSaveInput,
   CommunityAgentSaveResult,
@@ -33,12 +39,44 @@ interface AgentSessionOptions {
   authenticate(signal?: AbortSignal): Promise<void>;
   fetch?: typeof globalThis.fetch;
   now?: () => number;
+  connectBunker?: (
+    bunkerUrl: string,
+    clientSecret: Uint8Array,
+  ) => Promise<ManagedBunkerSigner>;
+}
+
+interface ManagedBunkerSigner {
+  connect(metadata?: { name?: string; url?: string }): Promise<void>;
+  getPublicKey(): Promise<string>;
+  signEvent(template: NostrEventTemplate): Promise<NostrEvent>;
+  close(): Promise<void>;
 }
 
 type QueryFilter = RelayFilter & { before_id?: string };
 interface RelayInfo {
   self: string;
   capabilities: CommunityAgentCapabilities;
+}
+interface ManagedAgentDraft {
+  fingerprint: string;
+  clientSecret: Uint8Array;
+  clientPubkey: string;
+  idempotencyKey: string;
+  profileCreatedAt: number;
+}
+interface ManagedAgentRecord {
+  pubkey: string;
+  owner_pubkey: string;
+  status: "pending" | "active" | "revoked";
+  connection_state: "none" | "pending" | "active" | "replacement_pending";
+  created_at: string;
+  expires_at: string;
+  activated_at?: string;
+}
+interface ManagedCreateResponse {
+  agent: ManagedAgentRecord;
+  bunker_url: string;
+  profile_template: NostrEventTemplate;
 }
 const PAGE_SIZE = 500;
 const MAX_DIRECTORY_RECORDS = 10_000;
@@ -58,6 +96,7 @@ class AgentSession implements CommunityAgentSession {
   #managementQueue: Promise<unknown> = Promise.resolve();
   #lastFollowAt = 0;
   #lastManagementAt = 0;
+  #managedDraft: ManagedAgentDraft | undefined;
 
   constructor(options: AgentSessionOptions) {
     this.#options = options;
@@ -91,6 +130,7 @@ class AgentSession implements CommunityAgentSession {
     const info = (await response.json()) as {
       self?: unknown;
       supported_nips?: unknown;
+      lapis_managed_agents?: unknown;
     };
     signal?.throwIfAborted();
     const nips = Array.isArray(info.supported_nips) ? info.supported_nips : [];
@@ -99,12 +139,19 @@ class AgentSession implements CommunityAgentSession {
     // Buzz advertises numeric NIPs, without OA/AO or client-side NIP-44.
     // Probe the bridge; only verified profiles establish owned identities.
     const directory = validSelf && nips.includes(29);
+    const managedAgents = managedAgentCapability(
+      info.lapis_managed_agents,
+      this.#url(),
+      validSelf ? (info.self as string) : "",
+      nips,
+    );
     this.#info = {
       self: validSelf ? (info.self as string) : "",
       capabilities: {
         directory,
         presence: directory,
         activity: directory && (nips.includes("AO") || nips.includes(16)),
+        ...(managedAgents ? { managedAgents } : {}),
       },
     };
     return this.#info;
@@ -245,11 +292,17 @@ class AgentSession implements CommunityAgentSession {
           "This relay does not advertise the required agent bridge capabilities",
       };
     const owner = await this.#options.identity.getPublicKey();
-    const [owned, personas, membership, contacts] = await Promise.all([
+    const [owned, personas, membership, contacts, managed] = await Promise.all([
       this.#all({ kinds: [30177], authors: [owner] }, signal),
       this.#all({ kinds: [30175], authors: [owner] }, signal),
       this.#all({ kinds: [39002], authors: [info.self] }, signal),
       this.#query([{ kinds: [3], authors: [owner], limit: 1 }], signal),
+      info.capabilities.managedAgents
+        ? this.#listManagedAgents(
+            info.capabilities.managedAgents,
+            signal,
+          ).catch(() => [] as ManagedAgentRecord[])
+        : Promise.resolve([] as ManagedAgentRecord[]),
     ]);
     const candidateKeys = new Set<string>();
     for (const event of owned.events) {
@@ -307,8 +360,32 @@ class AgentSession implements CommunityAgentSession {
       partial ||= byId.partial || byAddress.partial;
     }
     const projectedEvents = [...events, ...tombstones];
+    const managedByPubkey = new Map(
+      managed.map((record) => [record.pubkey, record]),
+    );
+    const agents = materializeAgentDirectory(
+      projectedEvents,
+      owner,
+      info.self,
+    ).map((agent): CommunityAgentIdentity => {
+      const record = managedByPubkey.get(agent.pubkey);
+      return record
+        ? {
+            ...agent,
+            custody: {
+              kind: "relay-managed",
+              state: record.status,
+              connectionState: record.connection_state,
+              expiresAt: record.expires_at,
+              ...(record.activated_at
+                ? { activatedAt: record.activated_at }
+                : {}),
+            },
+          }
+        : agent;
+    });
     return {
-      agents: materializeAgentDirectory(projectedEvents, owner, info.self),
+      agents,
       personas: materializeAgentPersonas(projectedEvents, owner),
       events: projectedEvents,
       relayPubkey: info.self,
@@ -502,6 +579,255 @@ class AgentSession implements CommunityAgentSession {
       });
     this.#managementQueue = result;
     return result;
+  }
+
+  createManagedAgent(
+    input: CommunityManagedAgentCreateInput,
+    signal?: AbortSignal,
+  ): Promise<CommunityAgentControllerBootstrap> {
+    const result = this.#managementQueue
+      .catch(() => undefined)
+      .then(async () => {
+        this.#validatePersonaInput(input);
+        if (input.nameMode !== "inherited" && input.nameMode !== "instance")
+          throw new Error("Invalid instance name mode");
+        const info = await this.#relayInfo(signal);
+        const capability = info.capabilities.managedAgents;
+        if (!capability)
+          throw new Error(
+            "Managed agent creation is unavailable on this relay",
+          );
+        const owner = await this.#options.identity.getPublicKey();
+        const fingerprint = JSON.stringify({
+          personaSlug: input.personaSlug,
+          displayName: input.displayName,
+          description: input.description ?? "",
+          avatarUrl: input.avatarUrl ?? "",
+          systemPrompt: input.systemPrompt ?? "",
+          nameMode: input.nameMode,
+          instanceName: input.instanceName ?? "",
+        });
+        if (this.#managedDraft?.fingerprint !== fingerprint) {
+          this.clearManagedAgentDraft();
+          const clientSecret = generateSecretKey();
+          this.#managedDraft = {
+            fingerprint,
+            clientSecret,
+            clientPubkey: getPublicKey(clientSecret),
+            idempotencyKey: crypto.randomUUID(),
+            profileCreatedAt: this.#now(),
+          };
+        }
+        const draft = this.#managedDraft;
+        const profileContent = JSON.stringify({
+          name: input.displayName.trim(),
+          ...(input.description?.trim()
+            ? { about: input.description.trim() }
+            : {}),
+          ...(input.avatarUrl?.trim()
+            ? { picture: input.avatarUrl.trim() }
+            : {}),
+        });
+        const created = await this.#managedRequest<ManagedCreateResponse>(
+          capability.provisioningUrl,
+          "POST",
+          {
+            client_pubkey: draft.clientPubkey,
+            profile_content: profileContent,
+            profile_created_at: draft.profileCreatedAt,
+            idempotency_key: draft.idempotencyKey,
+          },
+          signal,
+        );
+        if (
+          !managedAgentRecord(created.agent) ||
+          !AGENT_PUBKEY.test(created.agent.pubkey) ||
+          typeof created.bunker_url !== "string" ||
+          !eventTemplate(created.profile_template)
+        )
+          throw new Error("The relay returned an invalid managed-agent draft");
+        let bunker: ManagedBunkerSigner | undefined;
+        try {
+          bunker = await this.#bunker(created.bunker_url, draft.clientSecret);
+          await bunker.connect({ name: "Lapis Community" });
+          if ((await bunker.getPublicKey()) !== created.agent.pubkey)
+            throw new Error(
+              "The managed signer returned a different agent key",
+            );
+          const profile = signedAgentEvent(
+            await bunker.signEvent(created.profile_template),
+          );
+          if (
+            !profile ||
+            profile.pubkey !== created.agent.pubkey ||
+            profile.kind !== 0 ||
+            JSON.stringify(profile.tags) !==
+              JSON.stringify(created.profile_template.tags) ||
+            profile.content !== created.profile_template.content ||
+            profile.created_at !== created.profile_template.created_at
+          )
+            throw new Error("The managed signer returned an invalid profile");
+          const personaHead = newestAgentEvent(
+            await this.#query(
+              [
+                {
+                  kinds: [30175],
+                  authors: [owner],
+                  "#d": [input.personaSlug],
+                  limit: 1,
+                },
+              ],
+              signal,
+            ),
+          );
+          await this.#writePersona(input, personaHead, signal);
+          const createdAt = this.#nextManagementTimestamp();
+          const instance = await this.#sign(
+            {
+              kind: 30177,
+              created_at: createdAt,
+              tags: [["d", created.agent.pubkey]],
+              content: JSON.stringify({
+                persona_id: input.personaSlug,
+                name_mode: input.nameMode,
+                name: input.instanceName?.trim() || input.displayName.trim(),
+                respond_to: "members",
+                parallelism: 1,
+              }),
+            },
+            signal,
+          );
+          await this.#managedRequest(
+            `${capability.provisioningUrl}/${created.agent.pubkey}/activate`,
+            "POST",
+            { owner_event: instance, profile_event: profile },
+            signal,
+          );
+          this.#lastManagementAt = createdAt;
+          const bootstrap = this.#bootstrap(
+            capability,
+            created.agent.pubkey,
+            owner,
+            input.personaSlug,
+            input.systemPrompt ?? "",
+            created.bunker_url,
+            bytesToHex(draft.clientSecret),
+            created.agent.expires_at,
+            [],
+            [...(input.groupIds ?? [])],
+          );
+          this.clearManagedAgentDraft();
+          return bootstrap;
+        } finally {
+          try {
+            await bunker?.close();
+          } catch {
+            // The activation result remains authoritative if transport cleanup fails.
+          }
+        }
+      });
+    this.#managementQueue = result;
+    return result;
+  }
+
+  clearManagedAgentDraft(): void {
+    this.#managedDraft?.clientSecret.fill(0);
+    this.#managedDraft = undefined;
+  }
+
+  async createManagedAgentReplacement(
+    pubkey: string,
+    signal?: AbortSignal,
+  ): Promise<CommunityAgentControllerBootstrap> {
+    if (!AGENT_PUBKEY.test(pubkey)) throw new Error("Invalid agent public key");
+    const info = await this.#relayInfo(signal);
+    const capability = info.capabilities.managedAgents;
+    if (!capability)
+      throw new Error("Managed controller setup is unavailable on this relay");
+    const directory = await this.loadDirectory(signal);
+    const agent = directory.agents.find(
+      (candidate) => candidate.pubkey === pubkey && candidate.custody,
+    );
+    if (!agent) throw new Error("The managed agent is no longer available");
+    const owner = await this.#options.identity.getPublicKey();
+    const clientSecret = generateSecretKey();
+    try {
+      const response = await this.#managedRequest<{
+        bunker_url: string;
+        expires_at: string;
+      }>(
+        `${capability.provisioningUrl}/${pubkey}/connections`,
+        "POST",
+        {
+          client_pubkey: getPublicKey(clientSecret),
+          idempotency_key: crypto.randomUUID(),
+        },
+        signal,
+      );
+      if (
+        typeof response.bunker_url !== "string" ||
+        typeof response.expires_at !== "string"
+      )
+        throw new Error("The relay returned an invalid replacement setup");
+      return this.#bootstrap(
+        capability,
+        pubkey,
+        owner,
+        agent.persona?.slug ?? agent.instance?.personaId ?? "agent",
+        agent.persona?.systemPrompt ?? "",
+        response.bunker_url,
+        bytesToHex(clientSecret),
+        response.expires_at,
+        [...agent.channelIds],
+        [],
+      );
+    } finally {
+      clientSecret.fill(0);
+    }
+  }
+
+  async revokeManagedAgent(
+    pubkey: string,
+    signal?: AbortSignal,
+  ): Promise<void> {
+    const capability = (await this.#relayInfo(signal)).capabilities
+      .managedAgents;
+    if (!capability)
+      throw new Error("Managed controller access is unavailable on this relay");
+    await this.#managedRequest(
+      `${capability.provisioningUrl}/${pubkey}/connections/current`,
+      "DELETE",
+      undefined,
+      signal,
+    );
+  }
+
+  async deleteManagedAgent(
+    pubkey: string,
+    signal?: AbortSignal,
+  ): Promise<void> {
+    if (!AGENT_PUBKEY.test(pubkey)) throw new Error("Invalid agent public key");
+    const info = await this.#relayInfo(signal);
+    const capability = info.capabilities.managedAgents;
+    if (!capability)
+      throw new Error("Managed agent deletion is unavailable on this relay");
+    const owner = await this.#options.identity.getPublicKey();
+    const unlink = await this.#sign(
+      {
+        kind: 5,
+        created_at: this.#nextManagementTimestamp(),
+        tags: [["a", `30177:${owner}:${pubkey}`]],
+        content: "Deleted relay-managed agent",
+      },
+      signal,
+    );
+    await this.#managedRequest(
+      `${capability.provisioningUrl}/${pubkey}`,
+      "DELETE",
+      { unlink_event: unlink },
+      signal,
+    );
+    this.#lastManagementAt = unlink.created_at;
   }
 
   saveAgent(
@@ -753,6 +1079,120 @@ class AgentSession implements CommunityAgentSession {
     if (!result.accepted) throw new Error(`The relay rejected the ${label}`);
   }
 
+  async #listManagedAgents(
+    capability: CommunityManagedAgentCapability,
+    signal?: AbortSignal,
+  ): Promise<ManagedAgentRecord[]> {
+    const result = await this.#managedRequest<{ agents?: unknown }>(
+      capability.provisioningUrl,
+      "GET",
+      undefined,
+      signal,
+    );
+    if (!Array.isArray(result.agents))
+      throw new Error("The relay returned an invalid managed-agent list");
+    return result.agents.filter(managedAgentRecord);
+  }
+
+  async #managedRequest<T = unknown>(
+    url: string,
+    method: "GET" | "POST" | "DELETE",
+    input?: unknown,
+    signal?: AbortSignal,
+  ): Promise<T> {
+    const body = input === undefined ? "" : JSON.stringify(input);
+    const tags = [
+      ["u", url],
+      ["method", method],
+      ["nonce", crypto.randomUUID()],
+    ];
+    if (method !== "GET")
+      tags.push([
+        "payload",
+        bytesToHex(sha256(new TextEncoder().encode(body))),
+      ]);
+    const auth = await this.#sign(
+      { kind: 27235, created_at: this.#now(), tags, content: "" },
+      signal,
+    );
+    const response = await this.#fetch(url, {
+      method,
+      headers: {
+        Authorization: encodeNostrHttpAuthorization(auth),
+        ...(input === undefined ? {} : { "Content-Type": "application/json" }),
+      },
+      ...(method === "GET" ? {} : { body }),
+      signal: requestSignal(signal),
+    });
+    if (!response.ok) {
+      let reason = `Managed agent request failed (${response.status})`;
+      try {
+        const value = (await response.json()) as { error?: unknown };
+        if (typeof value.error === "string") reason = value.error;
+      } catch {
+        // The status remains sufficient when a proxy returns a non-JSON error.
+      }
+      throw new Error(reason.replaceAll("_", " "));
+    }
+    if (response.status === 204) return undefined as T;
+    return (await response.json()) as T;
+  }
+
+  async #bunker(
+    bunkerUrl: string,
+    clientSecret: Uint8Array,
+  ): Promise<ManagedBunkerSigner> {
+    if (this.#options.connectBunker)
+      return await this.#options.connectBunker(bunkerUrl, clientSecret);
+    const pointer = await parseBunkerInput(bunkerUrl);
+    if (!pointer) throw new Error("The relay returned an invalid bunker URL");
+    return BunkerSigner.fromBunker(clientSecret, pointer);
+  }
+
+  #bootstrap(
+    capability: CommunityManagedAgentCapability,
+    pubkey: string,
+    ownerPubkey: string,
+    persona: string,
+    prompt: string,
+    bunkerUrl: string,
+    clientSecret: string,
+    invitationExpiresAt: string,
+    confirmedGroups: string[],
+    remainingGroups: string[],
+  ): CommunityAgentControllerBootstrap {
+    const prefix = pubkey.slice(0, 12).toUpperCase();
+    const id = `agent-${pubkey.slice(0, 12)}`;
+    const bunkerUrlEnv = `LAPIS_AGENT_${prefix}_BUNKER_URL`;
+    const clientSecretEnv = `LAPIS_AGENT_${prefix}_NIP46_CLIENT_SECRET`;
+    return {
+      schema: "lapis.agent-controller-bootstrap/1",
+      relay: {
+        id: "main",
+        url: this.#options.scope.relayUrl,
+        pubkey: capability.relayPubkey,
+      },
+      agent: { id, pubkey, ownerPubkey, persona, prompt },
+      ownerAuthorization: {
+        kind: "lapis-managed-v1",
+        relayPubkey: capability.relayPubkey,
+      },
+      signer: { id, kind: "nip46", bunkerUrlEnv, clientSecretEnv },
+      environment: {
+        [bunkerUrlEnv]: bunkerUrl,
+        [clientSecretEnv]: clientSecret,
+      },
+      confirmedGroups,
+      controllerDefaults: { respondTo: "members", enabled: true },
+      requiredLocalChoices: {
+        hostId: null,
+        runtimeAgent: null,
+        remainingGroups,
+      },
+      custody: { state: "active", invitationExpiresAt },
+    };
+  }
+
   async sendControl(
     agentPubkey: string,
     control: CommunityAgentControl,
@@ -817,6 +1257,82 @@ function validateAgentControl(control: CommunityAgentControl): void {
     throw new Error("Agent permission request is invalid");
   if (!AGENT_PERMISSION_DECISIONS.has(control.decision))
     throw new Error("Agent permission decision is invalid");
+}
+
+function managedAgentCapability(
+  input: unknown,
+  relayHttpUrl: URL,
+  relayPubkey: string,
+  supportedNips: unknown[],
+): CommunityManagedAgentCapability | undefined {
+  if (!input || typeof input !== "object" || Array.isArray(input)) return;
+  const value = input as Record<string, unknown>;
+  if (
+    value.version !== 1 ||
+    value.authorization_type !== "lapis-managed-v1" ||
+    value.relay_pubkey !== relayPubkey ||
+    !supportedNips.some((nip) => String(nip) === "46") ||
+    typeof value.provisioning_url !== "string" ||
+    typeof value.bunker_url !== "string"
+  )
+    return;
+  try {
+    const provisioning = new URL(value.provisioning_url);
+    const bunker = new URL(value.bunker_url);
+    if (
+      provisioning.origin !== relayHttpUrl.origin ||
+      provisioning.pathname.replace(/\/$/u, "") !== "/api/agents/managed" ||
+      (bunker.protocol !== "wss:" && bunker.protocol !== "ws:") ||
+      bunker.host !== relayHttpUrl.host ||
+      bunker.pathname.replace(/\/$/u, "") !== "/nip46"
+    )
+      return;
+    return {
+      version: 1,
+      provisioningUrl: provisioning.toString().replace(/\/$/u, ""),
+      bunkerUrl: bunker.toString().replace(/\/$/u, ""),
+      relayPubkey,
+      authorizationType: "lapis-managed-v1",
+    };
+  } catch {
+    return;
+  }
+}
+
+function managedAgentRecord(input: unknown): input is ManagedAgentRecord {
+  if (!input || typeof input !== "object" || Array.isArray(input)) return false;
+  const value = input as Record<string, unknown>;
+  return (
+    typeof value.pubkey === "string" &&
+    AGENT_PUBKEY.test(value.pubkey) &&
+    typeof value.owner_pubkey === "string" &&
+    AGENT_PUBKEY.test(value.owner_pubkey) &&
+    (value.status === "pending" ||
+      value.status === "active" ||
+      value.status === "revoked") &&
+    (value.connection_state === "none" ||
+      value.connection_state === "pending" ||
+      value.connection_state === "active" ||
+      value.connection_state === "replacement_pending") &&
+    typeof value.created_at === "string" &&
+    typeof value.expires_at === "string" &&
+    (value.activated_at === undefined || typeof value.activated_at === "string")
+  );
+}
+
+function eventTemplate(input: unknown): input is NostrEventTemplate {
+  if (!input || typeof input !== "object" || Array.isArray(input)) return false;
+  const value = input as Record<string, unknown>;
+  return (
+    value.kind === 0 &&
+    typeof value.created_at === "number" &&
+    typeof value.content === "string" &&
+    Array.isArray(value.tags) &&
+    value.tags.every(
+      (tag) =>
+        Array.isArray(tag) && tag.every((item) => typeof item === "string"),
+    )
+  );
 }
 
 const SECRET_PERSONA_FIELDS = new Set([

@@ -57,12 +57,68 @@ export interface CommunityAgentIdentity {
   personaStatus: "none" | "linked" | "unresolved";
   /** Signed ownership provenance, never an unsigned directory claim. */
   profile: NostrEvent;
+  custody?: CommunityManagedAgentCustody;
+}
+
+export interface CommunityManagedAgentCapability {
+  version: 1;
+  provisioningUrl: string;
+  bunkerUrl: string;
+  relayPubkey: string;
+  authorizationType: "lapis-managed-v1";
+}
+
+export interface CommunityManagedAgentCustody {
+  kind: "relay-managed";
+  state: "pending" | "active" | "revoked";
+  connectionState: "none" | "pending" | "active" | "replacement_pending";
+  expiresAt: string;
+  activatedAt?: string;
+}
+
+export interface CommunityManagedAgentCreateInput
+  extends CommunityAgentPersonaSaveInput {
+  nameMode: CommunityAgentNameMode;
+  instanceName?: string;
+  groupIds?: readonly string[];
+}
+
+export interface CommunityAgentControllerBootstrap {
+  schema: "lapis.agent-controller-bootstrap/1";
+  relay: { url: string; pubkey: string; id: string };
+  agent: {
+    id: string;
+    pubkey: string;
+    ownerPubkey: string;
+    persona: string;
+    prompt: string;
+  };
+  ownerAuthorization: {
+    kind: "lapis-managed-v1";
+    relayPubkey: string;
+  };
+  signer: {
+    id: string;
+    kind: "nip46";
+    bunkerUrlEnv: string;
+    clientSecretEnv: string;
+  };
+  environment: Record<string, string>;
+  confirmedGroups: string[];
+  controllerDefaults: { respondTo: "members"; enabled: true };
+  requiredLocalChoices: {
+    hostId: null;
+    runtimeAgent: null;
+    remainingGroups: string[];
+  };
+  custody: { state: "active"; invitationExpiresAt: string };
 }
 
 export interface CommunityAgentCapabilities {
   directory: boolean;
   presence: boolean;
   activity: boolean;
+  managedAgents?: CommunityManagedAgentCapability;
 }
 
 export interface CommunityAgentDirectory {
@@ -128,6 +184,17 @@ export interface CommunityAgentSession {
     signal?: AbortSignal,
   ): Promise<NostrEvent>;
   deletePersona?(slug: string, signal?: AbortSignal): Promise<NostrEvent>;
+  createManagedAgent?(
+    input: CommunityManagedAgentCreateInput,
+    signal?: AbortSignal,
+  ): Promise<CommunityAgentControllerBootstrap>;
+  clearManagedAgentDraft?(): void;
+  createManagedAgentReplacement?(
+    pubkey: string,
+    signal?: AbortSignal,
+  ): Promise<CommunityAgentControllerBootstrap>;
+  revokeManagedAgent?(pubkey: string, signal?: AbortSignal): Promise<void>;
+  deleteManagedAgent?(pubkey: string, signal?: AbortSignal): Promise<void>;
   sendControl?(
     agentPubkey: string,
     control: CommunityAgentControl,
@@ -277,6 +344,15 @@ export interface CommunityAgentsActions {
   saveAgent(input: CommunityAgentSaveInput): Promise<void>;
   unlinkAgent(pubkey: string, fallbackName: string): Promise<void>;
   deletePersona(slug: string): Promise<void>;
+  createManagedAgent(
+    input: CommunityManagedAgentCreateInput,
+  ): Promise<CommunityAgentControllerBootstrap>;
+  clearManagedAgentDraft(): void;
+  createManagedAgentReplacement(
+    pubkey: string,
+  ): Promise<CommunityAgentControllerBootstrap>;
+  revokeManagedAgent(pubkey: string): Promise<void>;
+  deleteManagedAgent(pubkey: string): Promise<void>;
   setFollow(pubkey: string, following: boolean): Promise<void>;
   openActivity(pubkey: string, channelId?: string): Promise<void>;
   loadOlderActivity(): Promise<void>;

@@ -24,6 +24,12 @@ controller. Community derives pending approvals and active conversation scopes
 from verified encrypted telemetry, while its session boundary only signs and
 publishes encrypted controls. Model choice, workspace paths, process lifecycle,
 and NIP-46 credentials remain operator-owned controller configuration.
+When the selected relay advertises `lapis_managed_agents`, this same boundary
+keeps only a disposable NIP-46 client key and resumable draft in memory, signs
+the owner records, delegates the one allowed profile signature to the relay
+bunker, and returns the resulting one-time controller bundle directly to the
+active view. It does not route the bundle through controller state, activity
+storage, analytics, or a browser persistence adapter.
 Agent channel presentation composes public Dialog, Command View, and menu
 primitives; channel selection stays local until the existing add-member action
 is confirmed. Membership authority and the controller's action contracts remain

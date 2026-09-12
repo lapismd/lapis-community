@@ -145,6 +145,55 @@ export class CommunityAgentsController {
       this.#options.onDirectory?.([event]);
       await this.refresh();
     },
+    createManagedAgent: async (input) => {
+      if (!this.#options.session.createManagedAgent)
+        throw new Error(
+          "Managed agent creation is unavailable in this runtime",
+        );
+      const bootstrap = await this.#options.session.createManagedAgent(
+        input,
+        this.#abort.signal,
+      );
+      if (!this.#closed) await this.refresh();
+      return bootstrap;
+    },
+    clearManagedAgentDraft: () =>
+      this.#options.session.clearManagedAgentDraft?.(),
+    createManagedAgentReplacement: async (pubkey) => {
+      if (!this.#options.session.createManagedAgentReplacement)
+        throw new Error(
+          "Managed controller setup is unavailable in this runtime",
+        );
+      const bootstrap =
+        await this.#options.session.createManagedAgentReplacement(
+          pubkey,
+          this.#abort.signal,
+        );
+      if (!this.#closed) await this.refresh();
+      return bootstrap;
+    },
+    revokeManagedAgent: async (pubkey) => {
+      if (!this.#options.session.revokeManagedAgent)
+        throw new Error(
+          "Managed controller access is unavailable in this runtime",
+        );
+      await this.#options.session.revokeManagedAgent(
+        pubkey,
+        this.#abort.signal,
+      );
+      if (!this.#closed) await this.refresh();
+    },
+    deleteManagedAgent: async (pubkey) => {
+      if (!this.#options.session.deleteManagedAgent)
+        throw new Error(
+          "Managed agent deletion is unavailable in this runtime",
+        );
+      await this.#options.session.deleteManagedAgent(
+        pubkey,
+        this.#abort.signal,
+      );
+      if (!this.#closed) await this.refresh();
+    },
     setFollow: async (pubkey, following) => {
       const event = await this.#options.session.setFollow(
         pubkey,
