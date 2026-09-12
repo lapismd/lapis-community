@@ -50,6 +50,28 @@
 />
 
 <Story
+  name="Dialog content"
+  args={{
+    methods,
+    presentation: "dialog",
+    title: "Sign in to the live community",
+    description: "Choose a development identity provider",
+    onSelect: fn(),
+  }}
+  play={async ({ canvas }) => {
+    await expect(
+      canvas.queryByText("Sign in to the live community"),
+    ).not.toBeInTheDocument();
+    await expect(
+      canvas.queryByText("Choose a development identity provider"),
+    ).not.toBeInTheDocument();
+    await expect(
+      canvas.getByRole("button", { name: /Browser extension/u }),
+    ).toBeVisible();
+  }}
+/>
+
+<Story
   name="Remote signer input"
   args={{ methods, onSelect: fn() }}
   play={async ({ canvas, args }) => {
@@ -102,6 +124,7 @@
     );
     const input = canvas.getByLabelText("Private key");
     await expect(input).toHaveAttribute("type", "password");
+    await expect(canvas.queryByText("Private key")).not.toBeInTheDocument();
     await userEvent.click(
       canvas.getByRole("button", { name: "Sign in with private key" }),
     );

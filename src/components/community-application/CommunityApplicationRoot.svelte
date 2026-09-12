@@ -151,14 +151,9 @@
 <Dialog.Root bind:open={loginOpen} onOpenChange={handleLoginOpenChange}>
   <DialogFrame size="form">
     {#snippet title()}{loginOptions?.title ?? "Connect to Nostr"}{/snippet}
-    {#snippet description()}
-      {loginOptions?.description ?? "Choose your login method"}
-    {/snippet}
 
     <CommunityLogin
       methods={loginMethods}
-      title={loginOptions?.title ?? "Connect to Nostr"}
-      description={loginOptions?.description ?? "Choose your login method"}
       footnote={loginOptions?.footnote ??
         "Your identity stays under your control. Lapis only requests signatures for actions you approve."}
       busy={loginBusy}

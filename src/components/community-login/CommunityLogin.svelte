@@ -132,16 +132,14 @@
   {...restProps}
 >
   <Card.Root class="community-login__card">
-    <Card.Header>
-      <Card.Title>
-        {#if presentation === "dialog"}
-          <span class="community-login__title">{title}</span>
-        {:else}
+    {#if presentation === "page"}
+      <Card.Header>
+        <Card.Title>
           <h1 class="community-login__title">{title}</h1>
-        {/if}
-      </Card.Title>
-      <Card.Description>{description}</Card.Description>
-    </Card.Header>
+        </Card.Title>
+        <Card.Description>{description}</Card.Description>
+      </Card.Header>
+    {/if}
 
     <Card.Content>
       {#if displayedError}
@@ -205,11 +203,11 @@
             <strong>{privateKeyMethod.label}</strong>
             <span>{privateKeyMethod.description}</span>
           </div>
-          <label for="community-login-private-key">Private key</label>
           <Input
             id="community-login-private-key"
             name="nostr-private-key"
             type="password"
+            aria-label="Private key"
             autocomplete="off"
             autocapitalize="none"
             spellcheck={false}

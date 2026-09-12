@@ -1656,6 +1656,10 @@
     });
     await expect(dialog).toBeVisible();
     const login = within(dialog);
+    await expect(login.getAllByText("Connect to Nostr")).toHaveLength(1);
+    await expect(
+      login.queryByText("Choose your login method"),
+    ).not.toBeInTheDocument();
     await expect(
       login.getByRole("button", { name: /Browser extension/u }),
     ).toBeVisible();
@@ -1675,6 +1679,7 @@
       "type",
       "password",
     );
+    await expect(login.queryByText("Private key")).not.toBeInTheDocument();
     await userEvent.click(login.getByRole("button", { name: "Back" }));
     await userEvent.click(login.getByRole("button", { name: "Close" }));
     await waitFor(() => expect(dialog).not.toBeInTheDocument());
