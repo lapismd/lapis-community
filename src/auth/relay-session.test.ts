@@ -1,3 +1,6 @@
+import { x25519 } from "@noble/curves/ed25519.js";
+import { hkdf } from "@noble/hashes/hkdf.js";
+import { sha256 } from "@noble/hashes/sha2.js";
 import {
   finalizeEvent,
   generateSecretKey,
@@ -9,11 +12,14 @@ import { describe, expect, it, vi } from "vitest";
 import type { CommunityAccountSession } from "./relay-session.js";
 import {
   RelayAuthClient,
+  RelayCustodyTransferHandoff,
   RelayAuthSessionExpiredError,
   RelaySessionSigner,
+  decryptCustodyTransferEnvelope,
 } from "./relay-session.js";
 import { SecretKeyRegistrySigner } from "./signer.js";
 import type { NostrEventTemplate } from "./types.js";
+import { encodeBase64Url } from "./webauthn.js";
 
 const managedSecret = new Uint8Array(32).fill(31);
 const managedPubkey = getPublicKey(managedSecret);
@@ -25,6 +31,10 @@ const relayConfig = {
     nip44: true,
     nip46: true,
     nostr_login: true,
+    passkey_registration: true,
+    github_disconnect: true,
+    nip46_management: true,
+    custody_transfer: true,
   },
 };
 
@@ -267,5 +277,190 @@ describe("relay auth session client", () => {
       ),
     ).rejects.toBeInstanceOf(RelayAuthSessionExpiredError);
     expect(expired).toHaveBeenCalledOnce();
+  });
+
+  it("disconnects GitHub access without losing the linked identity", async () => {
+    const active = session({
+      identities: [
+        ...session().identities,
+        { provider: "github", login: "stevejuma", display_name: "Steve" },
+      ],
+      github_status: "active",
+    });
+    const disconnected = session({
+      identities: active.identities,
+      github_status: "disconnected",
+    });
+    const fetcher = vi.fn(async (request: RequestInfo | URL) => {
+      const path = new URL(request.toString()).pathname;
+      if (path.endsWith("/github")) return new Response(null, { status: 204 });
+      if (path.endsWith("/config")) return json(relayConfig);
+      if (path.endsWith("/session")) return json(disconnected);
+      throw new Error(`Unexpected request: ${path}`);
+    });
+    const client = new RelayAuthClient({
+      relayUrl: "https://relay.example",
+      fetch: fetcher as typeof fetch,
+    });
+
+    await expect(client.disconnectGitHub()).resolves.toMatchObject({
+      status: "connected",
+      session: {
+        github_status: "disconnected",
+        identities: expect.arrayContaining([
+          expect.objectContaining({ provider: "github", login: "stevejuma" }),
+        ]),
+      },
+    });
+  });
+
+  it("connects, refreshes, and disconnects an account remote signer", async () => {
+    const remote = session({ signer_type: "nip46" });
+    const external = session({ signer_type: "external" });
+    let signerConnected = false;
+    const fetcher = vi.fn(
+      async (request: RequestInfo | URL, init?: RequestInit) => {
+        const path = new URL(request.toString()).pathname;
+        if (path.endsWith("/nip46/connect")) {
+          expect(JSON.parse(String(init?.body))).toEqual({
+            bunker_url: "bunker://remote",
+          });
+          signerConnected = true;
+          return json({ nostr_pubkey: managedPubkey, signer_type: "nip46" });
+        }
+        if (path.endsWith("/nip46/switch-relays")) {
+          return json({ relays: ["wss://relay.example"] });
+        }
+        if (path.endsWith("/nip46/logout")) {
+          signerConnected = false;
+          return new Response(null, { status: 204 });
+        }
+        if (path.endsWith("/config")) return json(relayConfig);
+        if (path.endsWith("/session")) {
+          return json(signerConnected ? remote : external);
+        }
+        throw new Error(`Unexpected request: ${path}`);
+      },
+    );
+    const client = new RelayAuthClient({
+      relayUrl: "https://relay.example",
+      fetch: fetcher as typeof fetch,
+    });
+
+    await expect(
+      client.connectRemoteSigner("bunker://remote"),
+    ).resolves.toMatchObject({ status: "connected", session: remote });
+    await expect(client.switchRemoteSignerRelays()).resolves.toEqual([
+      "wss://relay.example",
+    ]);
+    await expect(client.disconnectRemoteSigner()).resolves.toMatchObject({
+      status: "reconnect-required",
+      session: external,
+    });
+  });
+
+  it("completes custody transfer with a same-key remote proof", async () => {
+    const managed = session();
+    const remote = session({ signer_type: "nip46" });
+    const completedBodies: unknown[] = [];
+    let completed = false;
+    const fetcher = vi.fn(
+      async (request: RequestInfo | URL, init?: RequestInit) => {
+        const path = new URL(request.toString()).pathname;
+        if (path.endsWith("/custody/transfer/complete")) {
+          completedBodies.push(JSON.parse(String(init?.body)));
+          completed = true;
+          return json({
+            nostr_pubkey: managedPubkey,
+            signer_type: "nip46",
+            managed_key_deleted: true,
+          });
+        }
+        if (path.endsWith("/config")) return json(relayConfig);
+        if (path.endsWith("/session"))
+          return json(completed ? remote : managed);
+        throw new Error(`Unexpected request: ${path}`);
+      },
+    );
+    const client = new RelayAuthClient({
+      relayUrl: "https://relay.example",
+      fetch: fetcher as typeof fetch,
+      connectIdentity: async () => new SecretKeyRegistrySigner(managedSecret),
+    });
+    await client.restore();
+    const handoff = RelayCustodyTransferHandoff.create(
+      "2099-09-12T10:15:00Z",
+      "transfer-a",
+      "possession-challenge-value",
+      managedSecret.slice(),
+    );
+
+    await expect(
+      client.completeCustodyTransfer(handoff, "bunker://remote"),
+    ).resolves.toMatchObject({ status: "connected", session: remote });
+    const body = completedBodies[0] as {
+      transfer_id: string;
+      proof_event: { kind: number; pubkey: string; tags: string[][] };
+    };
+    expect(body.transfer_id).toBe("transfer-a");
+    expect(body.proof_event.kind).toBe(22_242);
+    expect(body.proof_event.pubkey).toBe(managedPubkey);
+    expect(body.proof_event.tags).toContainEqual([
+      "relay",
+      "wss://relay.example",
+    ]);
+    expect(body.proof_event.tags).toContainEqual([
+      "purpose",
+      "custody-transfer",
+    ]);
+    expect(() => handoff.revealNsec()).toThrow(/no longer available/u);
+  });
+
+  it("decrypts the relay X25519, HKDF, and AES-GCM custody envelope", async () => {
+    const account = session();
+    const deviceSecret = new Uint8Array(32).fill(7);
+    const serverSecret = new Uint8Array(32).fill(8);
+    const serverPublic = x25519.getPublicKey(serverSecret);
+    const shared = x25519.getSharedSecret(
+      serverSecret,
+      x25519.getPublicKey(deviceSecret),
+    );
+    const transferId = "transfer-crypto";
+    const info = new TextEncoder().encode(
+      `lapis-custody-transfer-v1\0${account.account.id}\0${transferId}\0${account.account.nostr_pubkey}`,
+    );
+    const keyBytes = hkdf(sha256, shared, undefined, info, 32);
+    const key = await crypto.subtle.importKey(
+      "raw",
+      keyBytes,
+      "AES-GCM",
+      false,
+      ["encrypt"],
+    );
+    const nonce = new Uint8Array(12).fill(9);
+    const ciphertext = new Uint8Array(
+      await crypto.subtle.encrypt(
+        { name: "AES-GCM", iv: nonce, additionalData: info },
+        key,
+        managedSecret,
+      ),
+    );
+    const sealed = new Uint8Array(nonce.length + ciphertext.length);
+    sealed.set(nonce);
+    sealed.set(ciphertext, nonce.length);
+
+    await expect(
+      decryptCustodyTransferEnvelope(
+        account,
+        {
+          transfer_id: transferId,
+          server_public_key: encodeBase64Url(serverPublic),
+          encrypted_private_key: encodeBase64Url(sealed),
+          possession_challenge: "possession-challenge-value",
+          expires_at: "2099-09-12T10:15:00Z",
+        },
+        deviceSecret,
+      ),
+    ).resolves.toEqual(managedSecret);
   });
 });

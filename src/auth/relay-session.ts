@@ -1,4 +1,9 @@
-import { verifyEvent } from "nostr-tools/pure";
+import { x25519 } from "@noble/curves/ed25519.js";
+import { hkdf } from "@noble/hashes/hkdf.js";
+import { sha256 } from "@noble/hashes/sha2.js";
+import { nip19 } from "nostr-tools";
+import { makeAuthEvent } from "nostr-tools/nip42";
+import { getPublicKey, verifyEvent } from "nostr-tools/pure";
 import { z } from "zod";
 
 import { canonicalJson } from "../protocol/index.js";
@@ -10,6 +15,15 @@ import type {
   Nip44Provider,
   NostrEventTemplate,
 } from "./types.js";
+import {
+  browserCredentials,
+  decodeBase64Url,
+  decodePasskeyCreationOptions,
+  decodePasskeyRequestOptions,
+  encodeBase64Url,
+  serializePasskeyCredential,
+  type CommunityCredentialsContainer,
+} from "./webauthn.js";
 
 const nostrPubkeySchema = z.string().regex(/^[0-9a-f]{64}$/u);
 const accountIdentitySchema = z.object({
@@ -39,6 +53,10 @@ const relayConfigSchema = z.object({
     nip44: z.boolean(),
     nip46: z.boolean(),
     nostr_login: z.boolean(),
+    passkey_registration: z.boolean().optional().default(false),
+    github_disconnect: z.boolean().optional().default(false),
+    nip46_management: z.boolean().optional().default(false),
+    custody_transfer: z.boolean().optional().default(false),
   }),
 });
 const challengeSchema = z.object({
@@ -46,6 +64,18 @@ const challengeSchema = z.object({
   expires_at: z.string().datetime({ offset: true }),
 });
 const signedEventSchema = z.object({ event: z.custom<NostrEvent>() });
+const passkeyFlowSchema = z.object({
+  flow_id: z.string().min(16),
+  options: z.unknown(),
+});
+const custodyEnvelopeSchema = z.object({
+  transfer_id: z.string().min(1),
+  server_public_key: z.string().min(1),
+  encrypted_private_key: z.string().min(1),
+  possession_challenge: z.string().min(16),
+  expires_at: z.string().datetime({ offset: true }),
+});
+const nip46RelaysSchema = z.object({ relays: z.array(z.string().url()) });
 
 export interface CommunityRelayAuthConfig {
   providers: readonly ("github" | "google")[];
@@ -55,6 +85,10 @@ export interface CommunityRelayAuthConfig {
     nip44: boolean;
     nip46: boolean;
     nostr_login: boolean;
+    passkey_registration?: boolean;
+    github_disconnect?: boolean;
+    nip46_management?: boolean;
+    custody_transfer?: boolean;
   };
 }
 
@@ -110,6 +144,11 @@ export type RelayAuthConnectResult =
   | Exclude<RelayAuthRestoreResult, { status: "anonymous" }>
   | { status: "redirecting"; config: CommunityRelayAuthConfig };
 
+export type RelayAuthAccountResult = Exclude<
+  RelayAuthRestoreResult,
+  { status: "anonymous" }
+>;
+
 export interface RelayAuthClientOptions {
   relayUrl: string;
   fetch?: typeof globalThis.fetch;
@@ -120,6 +159,7 @@ export interface RelayAuthClientOptions {
     methodId: string,
     credentials?: RelayAuthLoginCredentials,
   ) => Promise<CommunitySigner>;
+  credentials?: CommunityCredentialsContainer;
 }
 
 export interface RelayAuthLoginCredentials {
@@ -143,6 +183,23 @@ const relayErrorMessages: Record<string, string> = {
   invalid_origin: "This Community origin is not allowed by the relay.",
   nip44_operation_denied: "The signer could not complete encryption.",
   provider_authentication_failed: "The provider did not complete sign in.",
+  passkey_required: "Add a passkey before moving this signing key.",
+  passkey_already_registered: "This account already has a passkey.",
+  passkey_registration_failed: "The passkey could not be registered.",
+  passkey_store_unavailable: "Passkey services are temporarily unavailable.",
+  invalid_passkey_attestation: "The relay could not verify this passkey.",
+  invalid_passkey_assertion: "The relay could not verify this passkey.",
+  invalid_passkey_flow: "The passkey request expired. Start again.",
+  recent_authentication_required: "Sign in again before adding a passkey.",
+  custody_transfer_failed: "The signing-key transfer could not be completed.",
+  invalid_custody_transfer: "The signing-key transfer expired. Start again.",
+  invalid_possession_proof:
+    "The remote signer did not prove possession of this account key.",
+  managed_custody_required:
+    "This account does not have a managed key available for transfer.",
+  nip46_connection_failed: "The relay could not reach the remote signer.",
+  nip46_pubkey_mismatch: "The remote signer uses a different Nostr public key.",
+  nip46_signer_unavailable: "The remote signer is unavailable.",
   signer_unavailable: "Reconnect the Nostr signer for this account.",
   signing_denied: "The signer denied this Community action.",
 };
@@ -166,6 +223,61 @@ export class RelayAuthSessionExpiredError extends RelayAuthError {
   constructor() {
     super("authentication_required", 401);
     this.name = "RelayAuthSessionExpiredError";
+  }
+}
+
+interface CustodyTransferPrivateState {
+  transferId: string;
+  challenge: string;
+  secret: Uint8Array | undefined;
+}
+
+const custodyTransferState = new WeakMap<
+  RelayCustodyTransferHandoff,
+  CustodyTransferPrivateState
+>();
+
+export class RelayCustodyTransferHandoff {
+  readonly expiresAt: string;
+
+  private constructor(
+    expiresAt: string,
+    transferId: string,
+    challenge: string,
+    secret: Uint8Array,
+  ) {
+    this.expiresAt = expiresAt;
+    custodyTransferState.set(this, { transferId, challenge, secret });
+  }
+
+  static create(
+    expiresAt: string,
+    transferId: string,
+    challenge: string,
+    secret: Uint8Array,
+  ): RelayCustodyTransferHandoff {
+    return new RelayCustodyTransferHandoff(
+      expiresAt,
+      transferId,
+      challenge,
+      secret,
+    );
+  }
+
+  revealNsec(): string {
+    const secret = custodyTransferState.get(this)?.secret;
+    if (secret === undefined) {
+      throw new Error("The transferred private key is no longer available");
+    }
+    return nip19.nsecEncode(secret);
+  }
+
+  discardPrivateKey(): void {
+    const state = custodyTransferState.get(this);
+    if (state?.secret !== undefined) {
+      state.secret.fill(0);
+      state.secret = undefined;
+    }
   }
 }
 
@@ -215,6 +327,7 @@ export class RelayAuthClient {
   readonly #currentUrl: () => string;
   readonly #replaceUrl: (url: string) => void;
   readonly #connectIdentity?: RelayAuthClientOptions["connectIdentity"];
+  readonly #credentials: CommunityCredentialsContainer | undefined;
   readonly #sessionExpiredListeners = new Set<() => void>();
   #config?: CommunityRelayAuthConfig;
   #session: CommunityAccountSession | undefined;
@@ -240,6 +353,7 @@ export class RelayAuthClient {
       options.replaceUrl ??
       ((url) => globalThis.window.history.replaceState(null, "", url));
     this.#connectIdentity = options.connectIdentity;
+    this.#credentials = options.credentials;
   }
 
   get session(): CommunityAccountSession | undefined {
@@ -341,6 +455,130 @@ export class RelayAuthClient {
     this.#navigate(this.providerLoginUrl("github", { intent: "link" }));
   }
 
+  async registerPasskey(): Promise<RelayAuthAccountResult> {
+    const credentials = this.#credentials ?? browserCredentials();
+    const begin = passkeyFlowSchema.parse(
+      await this.#request("passkeys/register/begin", { method: "POST" }),
+    );
+    const credential = await credentials.create(
+      decodePasskeyCreationOptions(begin.options),
+    );
+    await this.#request(
+      `passkeys/register/finish?flow_id=${encodeURIComponent(begin.flow_id)}`,
+      {
+        method: "POST",
+        body: JSON.stringify(serializePasskeyCredential(credential)),
+      },
+    );
+    return await this.#restoreAccount();
+  }
+
+  async disconnectGitHub(): Promise<RelayAuthAccountResult> {
+    await this.#request("github", { method: "DELETE" });
+    return await this.#restoreAccount();
+  }
+
+  async connectRemoteSigner(
+    bunkerUrl: string,
+  ): Promise<RelayAuthAccountResult> {
+    await this.#request("nip46/connect", {
+      method: "POST",
+      body: JSON.stringify({ bunker_url: bunkerUrl }),
+    });
+    return await this.#restoreAccount();
+  }
+
+  async switchRemoteSignerRelays(): Promise<readonly string[]> {
+    const payload = nip46RelaysSchema.parse(
+      await this.#request("nip46/switch-relays", { method: "POST" }),
+    );
+    return payload.relays;
+  }
+
+  async disconnectRemoteSigner(): Promise<RelayAuthAccountResult> {
+    await this.#request("nip46/logout", { method: "POST" });
+    return await this.#restoreAccount();
+  }
+
+  async beginCustodyTransfer(): Promise<RelayCustodyTransferHandoff> {
+    const session = this.#session ?? (await this.getSession());
+    const credentials = this.#credentials ?? browserCredentials();
+    const deviceSecret = x25519.utils.randomSecretKey();
+    try {
+      const devicePublicKey = x25519.getPublicKey(deviceSecret);
+      const begin = passkeyFlowSchema.parse(
+        await this.#request("custody/transfer/begin", {
+          method: "POST",
+          body: JSON.stringify({
+            device_public_key: encodeBase64Url(devicePublicKey),
+          }),
+        }),
+      );
+      const credential = await credentials.get(
+        decodePasskeyRequestOptions(begin.options),
+      );
+      const envelope = custodyEnvelopeSchema.parse(
+        await this.#request(
+          `custody/transfer/authorize?flow_id=${encodeURIComponent(begin.flow_id)}`,
+          {
+            method: "POST",
+            body: JSON.stringify(serializePasskeyCredential(credential)),
+          },
+        ),
+      );
+      const secret = await decryptCustodyTransferEnvelope(
+        session,
+        envelope,
+        deviceSecret,
+      );
+      return RelayCustodyTransferHandoff.create(
+        envelope.expires_at,
+        envelope.transfer_id,
+        envelope.possession_challenge,
+        secret,
+      );
+    } finally {
+      deviceSecret.fill(0);
+    }
+  }
+
+  async completeCustodyTransfer(
+    handoff: RelayCustodyTransferHandoff,
+    bunkerUrl: string,
+  ): Promise<RelayAuthAccountResult> {
+    const state = custodyTransferState.get(handoff);
+    const expectedPubkey = this.#session?.account.nostr_pubkey;
+    if (state === undefined || expectedPubkey === undefined) {
+      throw new RelayAuthError("invalid_custody_transfer", 400);
+    }
+    if (new Date(handoff.expiresAt).getTime() <= Date.now()) {
+      throw new RelayAuthError("invalid_custody_transfer", 400);
+    }
+    const signer = await this.#resolveIdentity("remote-signer", {
+      remoteSignerUrl: bunkerUrl,
+    });
+    if ((await signer.getPublicKey()) !== expectedPubkey) {
+      throw new RelayAuthError("nip46_pubkey_mismatch", 409);
+    }
+    const template = makeAuthEvent(this.#relayURL(), state.challenge);
+    template.tags.push(["purpose", "custody-transfer"]);
+    const proofEvent = await signer.signEvent(template);
+    if (proofEvent.pubkey !== expectedPubkey || !verifyEvent(proofEvent)) {
+      throw new RelayAuthError("invalid_possession_proof", 401);
+    }
+    await this.#request("custody/transfer/complete", {
+      method: "POST",
+      body: JSON.stringify({
+        transfer_id: state.transferId,
+        proof_event: proofEvent,
+        bunker_url: bunkerUrl,
+      }),
+    });
+    handoff.discardPrivateKey();
+    custodyTransferState.delete(handoff);
+    return await this.#restoreAccount();
+  }
+
   async loginWithNostr(
     identity: CommunitySigner,
   ): Promise<CommunityAccountSession> {
@@ -435,6 +673,20 @@ export class RelayAuthClient {
     this.#session = undefined;
   }
 
+  async #restoreAccount(): Promise<RelayAuthAccountResult> {
+    const restored = await this.restore();
+    if (restored.status === "anonymous") {
+      throw new RelayAuthSessionExpiredError();
+    }
+    return restored;
+  }
+
+  #relayURL(): string {
+    const relay = new URL(this.#origin);
+    relay.protocol = relay.protocol === "https:" ? "wss:" : "ws:";
+    return relay.toString().replace(/\/$/u, "");
+  }
+
   onSessionExpired(listener: () => void): () => void {
     this.#sessionExpiredListeners.add(listener);
     return () => this.#sessionExpiredListeners.delete(listener);
@@ -501,6 +753,53 @@ export class RelayAuthClient {
     } catch {
       throw new RelayAuthError("invalid_relay_response", 502);
     }
+  }
+}
+
+export async function decryptCustodyTransferEnvelope(
+  session: CommunityAccountSession,
+  envelope: z.infer<typeof custodyEnvelopeSchema>,
+  deviceSecret: Uint8Array,
+): Promise<Uint8Array> {
+  const serverPublicKey = decodeBase64Url(envelope.server_public_key);
+  const sealed = decodeBase64Url(envelope.encrypted_private_key);
+  if (serverPublicKey.length !== 32 || sealed.length < 12 + 16) {
+    throw new RelayAuthError("custody_transfer_failed", 502);
+  }
+  const shared = x25519.getSharedSecret(deviceSecret, serverPublicKey);
+  const info = new TextEncoder().encode(
+    `lapis-custody-transfer-v1\0${session.account.id}\0${envelope.transfer_id}\0${session.account.nostr_pubkey}`,
+  );
+  const keyBytes = hkdf(sha256, shared, undefined, info, 32);
+  try {
+    const key = await globalThis.crypto.subtle.importKey(
+      "raw",
+      keyBytes,
+      "AES-GCM",
+      false,
+      ["decrypt"],
+    );
+    const plaintext = new Uint8Array(
+      await globalThis.crypto.subtle.decrypt(
+        { name: "AES-GCM", iv: sealed.subarray(0, 12), additionalData: info },
+        key,
+        sealed.subarray(12),
+      ),
+    );
+    if (
+      plaintext.length !== 32 ||
+      getPublicKey(plaintext) !== session.account.nostr_pubkey
+    ) {
+      plaintext.fill(0);
+      throw new RelayAuthError("nip46_pubkey_mismatch", 409);
+    }
+    return plaintext;
+  } catch (cause) {
+    if (cause instanceof RelayAuthError) throw cause;
+    throw new RelayAuthError("custody_transfer_failed", 502);
+  } finally {
+    shared.fill(0);
+    keyBytes.fill(0);
   }
 }
 
