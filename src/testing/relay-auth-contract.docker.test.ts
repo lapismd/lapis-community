@@ -46,6 +46,7 @@ declare global {
         keytrRpId: string;
       }): void;
       createIdentity(): Promise<BrowserKeytrResult>;
+      importIdentity(): Promise<BrowserKeytrResult>;
       restore(): Promise<BrowserKeytrResult>;
       reconnectIdentity(): Promise<BrowserKeytrResult>;
       githubLinkUrl(): Promise<string>;
@@ -350,7 +351,7 @@ if (!relayUrl || !relayHttpUrl || !browserOrigin || !fakeOAuthUrl) {
       await expect(client.getSession()).rejects.toMatchObject({ status: 401 });
     }, 90_000);
 
-    it("creates, clears, and recovers a Keytr identity with a PRF authenticator", async () => {
+    it("creates, imports, clears, and recovers Keytr identities with a PRF authenticator", async () => {
       const target = new URL(browserOrigin);
       const vite = await createViteServer({
         root: fileURLToPath(new URL("../../", import.meta.url)),
@@ -458,6 +459,22 @@ if (!relayUrl || !relayHttpUrl || !browserOrigin || !fakeOAuthUrl) {
           accountId: created.accountId,
         });
         await page.evaluate(() => window.keytrContract.signOut());
+
+        await page.evaluate((value) => {
+          window.keytrContract.configure(value);
+        }, configuration);
+        const imported = await page.evaluate(() =>
+          window.keytrContract.importIdentity(),
+        );
+        expect(imported).toMatchObject({
+          status: "connected",
+          githubStatus: "unlinked",
+        });
+        expect(imported.pubkey).toMatch(/^[0-9a-f]{64}$/u);
+        expect(imported.pubkey).not.toBe(created.pubkey);
+        await expect(
+          page.evaluate(() => window.keytrContract.signOut()),
+        ).resolves.toEqual({ status: "anonymous", keyUsable: false });
       } finally {
         await browser?.close();
         await vite.close();

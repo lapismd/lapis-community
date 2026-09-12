@@ -174,6 +174,10 @@
     );
     const privateKey = canvas.getByLabelText("Nostr private key");
     await expect(privateKey).toHaveAttribute("type", "password");
+    await expect(privateKey).toHaveAttribute(
+      "placeholder",
+      "nsec1… or 64-character hex",
+    );
     await userEvent.type(privateKey, "nsec1storybookexample");
     await userEvent.click(canvas.getByRole("button", { name: "Protect key" }));
     await expect(args.onSelect).toHaveBeenCalledWith("keytr", {

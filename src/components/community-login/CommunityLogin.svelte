@@ -126,7 +126,8 @@
     }
     const imported = keytrPrivateKey.trim();
     if (action === "import" && imported === "") {
-      validationError = "Paste an nsec before protecting this key";
+      validationError =
+        "Paste an nsec or hexadecimal private key before protecting it";
       return;
     }
     validationError = "";
@@ -330,7 +331,7 @@
                 autocomplete="off"
                 autocapitalize="none"
                 spellcheck={false}
-                placeholder="nsec1…"
+                placeholder="nsec1… or 64-character hex"
                 disabled={busy}
                 bind:value={keytrPrivateKey}
               />

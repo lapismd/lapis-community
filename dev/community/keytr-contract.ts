@@ -1,4 +1,5 @@
-import { generateSecretKey } from "nostr-tools/pure";
+import { bytesToHex } from "@noble/hashes/utils.js";
+import { generateSecretKey, getPublicKey } from "nostr-tools/pure";
 
 import {
   createCommunityKeytrLoginIntegration,
@@ -46,6 +47,7 @@ function configure(next: KeytrContractConfiguration): void {
         rpId: next.keytrRpId,
       },
     ],
+    allowLocalKeyMethods: true,
     clientName: "Lapis Community auth contract",
   });
   client = new RelayAuthClient({
@@ -70,6 +72,38 @@ async function createIdentity(): Promise<KeytrContractResult> {
     },
   });
   if (result.status !== "connected") throw new Error("Keytr did not connect");
+  signer = result.identity;
+  return {
+    pubkey: result.session.account.nostr_pubkey,
+    accountId: result.session.account.id,
+    githubStatus: result.session.github_status,
+    status: result.status,
+  };
+}
+
+async function importIdentity(): Promise<KeytrContractResult> {
+  const currentClient = requireClient();
+  const privateKey = generateSecretKey();
+  const expectedPubkey = getPublicKey(privateKey);
+  const result = await (async () => {
+    try {
+      return await currentClient.connect("keytr", {
+        keytr: {
+          action: "import",
+          gatewayId: requireConfiguration().keytrRpId,
+          passkeyLabel: "Community browser contract",
+          privateKey: bytesToHex(privateKey),
+        },
+      });
+    } finally {
+      privateKey.fill(0);
+    }
+  })();
+  if (result.status !== "connected") throw new Error("Keytr did not connect");
+  if (result.session.account.nostr_pubkey !== expectedPubkey) {
+    result.identity.dispose?.();
+    throw new Error("Keytr imported a different identity");
+  }
   signer = result.identity;
   return {
     pubkey: result.session.account.nostr_pubkey,
@@ -231,6 +265,7 @@ function requireSigner(): CommunitySigner {
 const contract = {
   configure,
   createIdentity,
+  importIdentity,
   restore,
   reconnectIdentity,
   githubLinkUrl,

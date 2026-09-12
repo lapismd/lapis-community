@@ -1,5 +1,6 @@
+import { hexToBytes } from "@noble/hashes/utils.js";
 import { nip19 } from "nostr-tools";
-import { verifyEvent } from "nostr-tools/pure";
+import { getPublicKey, verifyEvent } from "nostr-tools/pure";
 
 import type { CommunityLoginMethodModel } from "../components/community-login/model.js";
 import type { NostrEvent, NostrEventTemplate } from "../protocol/index.js";
@@ -140,8 +141,10 @@ export interface CommunityKeytrLoginIntegration {
 export type CommunityKeytrErrorCode =
   | "invalid_configuration"
   | "invalid_action"
+  | "invalid_private_key"
   | "unsupported"
   | "cancelled"
+  | "authenticator_failed"
   | "credential_not_found"
   | "invalid_event"
   | "pubkey_mismatch"
@@ -151,8 +154,11 @@ export type CommunityKeytrErrorCode =
 const keytrErrorMessages: Record<CommunityKeytrErrorCode, string> = {
   invalid_configuration: "Keytr is not configured for this Community host.",
   invalid_action: "Choose a valid Keytr sign-in action.",
+  invalid_private_key: "Use an nsec or a 64-character hexadecimal private key.",
   unsupported: "This browser or authenticator cannot use Keytr passkeys.",
   cancelled: "The Keytr passkey request was cancelled.",
+  authenticator_failed:
+    "The authenticator could not create or use this Keytr passkey.",
   credential_not_found: "No matching Keytr identity was found.",
   invalid_event: "The stored Keytr identity record is invalid.",
   pubkey_mismatch: "That Keytr passkey belongs to a different Nostr account.",
@@ -489,7 +495,7 @@ async function createIdentity(
       credential = result.credential;
       template = result.eventTemplate;
     } else {
-      secret = decodeImportedNsec(privateKey);
+      secret = decodeImportedPrivateKey(privateKey);
       const result = await library.addBackupGateway(secret, setupOptions);
       credential = result.credential;
       template = result.eventTemplate;
@@ -512,7 +518,7 @@ async function createIdentity(
     return signer;
   } catch (cause) {
     signer?.dispose();
-    throw mapKeytrError(cause, "invalid_action");
+    throw mapKeytrError(cause, "authenticator_failed");
   } finally {
     secret?.fill(0);
   }
@@ -544,18 +550,27 @@ function parseValidatedEvent(
   return parsed;
 }
 
-function decodeImportedNsec(value: string | undefined): Uint8Array {
+function decodeImportedPrivateKey(value: string | undefined): Uint8Array {
   if (value === undefined || value.trim() === "") {
-    throw new CommunityKeytrError("invalid_action");
+    throw new CommunityKeytrError("invalid_private_key");
   }
+  let secret: Uint8Array | undefined;
   try {
-    const decoded = nip19.decode(value.trim());
-    if (decoded.type !== "nsec" || !(decoded.data instanceof Uint8Array)) {
-      throw new Error("not nsec");
+    const normalized = value.trim();
+    if (/^[0-9a-f]{64}$/iu.test(normalized)) {
+      secret = hexToBytes(normalized);
+    } else {
+      const decoded = nip19.decode(normalized);
+      if (decoded.type !== "nsec" || !(decoded.data instanceof Uint8Array)) {
+        throw new Error("not a private key");
+      }
+      secret = decoded.data;
     }
-    return decoded.data.slice();
+    getPublicKey(secret);
+    return secret;
   } catch {
-    throw new CommunityKeytrError("invalid_action");
+    secret?.fill(0);
+    throw new CommunityKeytrError("invalid_private_key");
   }
 }
 
@@ -671,6 +686,7 @@ function mapKeytrError(
   }
   if (
     name === "PrfNotSupportedError" ||
+    name === "KihRegistrationDisabledError" ||
     name === "NotSupportedError" ||
     name === "SecurityError"
   ) {
@@ -678,6 +694,9 @@ function mapKeytrError(
   }
   if (name === "RelayError") {
     return new CommunityKeytrError("relay_unavailable");
+  }
+  if (name === "WebAuthnError") {
+    return new CommunityKeytrError("authenticator_failed");
   }
   return new CommunityKeytrError(fallback);
 }

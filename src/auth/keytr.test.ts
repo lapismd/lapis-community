@@ -1,3 +1,4 @@
+import { bytesToHex } from "@noble/hashes/utils.js";
 import { nip19 } from "nostr-tools";
 import {
   finalizeEvent,
@@ -267,6 +268,60 @@ describe("Community Keytr integration", () => {
 
     expect(library.addBackupGateway).toHaveBeenCalledOnce();
     await expect(signer.getPublicKey()).resolves.toBe(getPublicKey(secret));
+  });
+
+  it("accepts hexadecimal imports and reports malformed keys before WebAuthn", async () => {
+    const secret = generateSecretKey();
+    const library = keytrLibrary(secret);
+    const enabled = integration(library, { allowLocalKeyMethods: true });
+
+    const signer = await enabled.connect("keytr", {
+      keytr: {
+        action: "import",
+        gatewayId: gateway.id,
+        passkeyLabel: "Imported hex key",
+        privateKey: bytesToHex(secret),
+      },
+    });
+    await expect(signer.getPublicKey()).resolves.toBe(getPublicKey(secret));
+
+    await expect(
+      enabled.connect("keytr", {
+        keytr: {
+          action: "import",
+          gatewayId: gateway.id,
+          privateKey: "not-a-private-key",
+        },
+      }),
+    ).rejects.toMatchObject({
+      code: "invalid_private_key",
+      message: "Use an nsec or a 64-character hexadecimal private key.",
+    });
+    expect(library.addBackupGateway).toHaveBeenCalledOnce();
+  });
+
+  it("reports sanitized authenticator failures separately from invalid actions", async () => {
+    const secret = generateSecretKey();
+    const library = keytrLibrary(secret, {
+      addBackupGateway: vi.fn(async () => {
+        const error = new Error("credential id 123");
+        error.name = "WebAuthnError";
+        throw error;
+      }),
+    });
+
+    await expect(
+      integration(library, { allowLocalKeyMethods: true }).connect("keytr", {
+        keytr: {
+          action: "import",
+          gatewayId: gateway.id,
+          privateKey: nip19.nsecEncode(secret),
+        },
+      }),
+    ).rejects.toMatchObject({
+      code: "authenticator_failed",
+      message: "The authenticator could not create or use this Keytr passkey.",
+    });
   });
 
   it("clears the key and requests best-effort cleanup when every relay rejects setup", async () => {
