@@ -1,6 +1,7 @@
 export type CommunityLoginMethodKind =
   | "github"
   | "google"
+  | "keytr"
   | "browser-extension"
   | "remote-signer"
   | "create-account"
@@ -13,11 +14,27 @@ export interface CommunityLoginMethodModel {
   label: string;
   description: string;
   disabled?: boolean;
+  keytr?: {
+    gateways: readonly {
+      id: string;
+      label: string;
+      rpId: string;
+    }[];
+    allowSetup?: boolean;
+    allowImport?: boolean;
+    defaultPasskeyLabel?: string;
+  };
 }
 
 export interface CommunityLoginCredentials {
   privateKey?: string;
   remoteSignerUrl?: string;
+  keytr?: {
+    action: "login" | "create" | "import";
+    gatewayId: string;
+    passkeyLabel?: string;
+    privateKey?: string;
+  };
 }
 
 export const COMMUNITY_LOGIN_METHODS = {

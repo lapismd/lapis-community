@@ -5,15 +5,17 @@ import { canonicalJson } from "../protocol/index.js";
 import type { JsonValue, NostrEvent } from "../protocol/index.js";
 
 import type {
+  CommunitySigner,
   Nip07Provider,
   Nip44Provider,
   NostrEventTemplate,
   RegistrySigner,
 } from "./types.js";
 
-export class SecretKeyRegistrySigner implements RegistrySigner {
+export class SecretKeyRegistrySigner implements CommunitySigner {
   readonly #secretKey: Uint8Array;
   readonly nip44: Nip44Provider;
+  #disposed = false;
 
   constructor(secretKey: Uint8Array) {
     if (secretKey.byteLength !== 32) {
@@ -21,25 +23,43 @@ export class SecretKeyRegistrySigner implements RegistrySigner {
     }
     this.#secretKey = secretKey.slice();
     this.nip44 = {
-      encrypt: async (pubkey, plaintext) =>
-        nip44.encrypt(
+      encrypt: async (pubkey, plaintext) => {
+        this.#assertActive();
+        return nip44.encrypt(
           plaintext,
           nip44.utils.getConversationKey(this.#secretKey, pubkey),
-        ),
-      decrypt: async (pubkey, ciphertext) =>
-        nip44.decrypt(
+        );
+      },
+      decrypt: async (pubkey, ciphertext) => {
+        this.#assertActive();
+        return nip44.decrypt(
           ciphertext,
           nip44.utils.getConversationKey(this.#secretKey, pubkey),
-        ),
+        );
+      },
     };
   }
 
   async getPublicKey(): Promise<string> {
+    this.#assertActive();
     return getPublicKey(this.#secretKey);
   }
 
   async signEvent(template: NostrEventTemplate): Promise<NostrEvent> {
+    this.#assertActive();
     return finalizeEvent(template, this.#secretKey);
+  }
+
+  dispose(): void {
+    if (this.#disposed) return;
+    this.#secretKey.fill(0);
+    this.#disposed = true;
+  }
+
+  #assertActive(): void {
+    if (this.#disposed) {
+      throw new Error("The local signing key is no longer available");
+    }
   }
 }
 

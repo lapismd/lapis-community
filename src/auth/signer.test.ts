@@ -78,4 +78,21 @@ describe("headless registry signer", () => {
       recipient.nip44.decrypt(await sender.getPublicKey(), ciphertext),
     ).resolves.toBe("private payload");
   });
+
+  it("zeros and disables the local key when disposed", async () => {
+    const signer = new SecretKeyRegistrySigner(new Uint8Array(32).fill(93));
+    const recipient = new SecretKeyRegistrySigner(new Uint8Array(32).fill(94));
+    const recipientPubkey = await recipient.getPublicKey();
+
+    signer.dispose();
+    signer.dispose();
+
+    await expect(signer.getPublicKey()).rejects.toThrow("no longer available");
+    await expect(
+      signer.signEvent({ kind: 1, created_at: 1, content: "", tags: [] }),
+    ).rejects.toThrow("no longer available");
+    await expect(
+      signer.nip44.encrypt(recipientPubkey, "secret"),
+    ).rejects.toThrow("no longer available");
+  });
 });

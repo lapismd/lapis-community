@@ -14,6 +14,7 @@ export interface Nip44Provider {
 
 export interface CommunitySigner extends RegistrySigner {
   nip44?: Nip44Provider;
+  dispose?(): void;
 }
 
 export interface Nip07Provider {

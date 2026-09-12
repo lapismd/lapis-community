@@ -250,6 +250,84 @@ describe("relay auth session client", () => {
     ).resolves.toEqual(external);
   });
 
+  it("binds an external reconnect to the restored account pubkey", async () => {
+    const secret = generateSecretKey();
+    const pubkey = getPublicKey(secret);
+    const external = session({
+      account: {
+        id: "account-keytr",
+        nostr_pubkey: pubkey,
+        created_at: "2026-09-12T10:00:00Z",
+      },
+      auth_provider: "nostr",
+      identities: [],
+      signer_type: "external",
+    });
+    const signer = new SecretKeyRegistrySigner(secret);
+    const connectIdentity = vi.fn(async () => signer);
+    const fetcher = vi.fn(async (request: RequestInfo | URL) => {
+      const path = new URL(request.toString()).pathname;
+      if (path.endsWith("/config")) return json(relayConfig);
+      if (path.endsWith("/session")) return json(external);
+      if (path.endsWith("/nostr/challenge")) {
+        return json({
+          challenge: "challenge-value-at-least-sixteen",
+          expires_at: "2026-09-12T10:10:00Z",
+        });
+      }
+      if (path.endsWith("/nostr/login")) {
+        return json({ account: external.account });
+      }
+      throw new Error(`Unexpected request: ${path}`);
+    });
+    const client = new RelayAuthClient({
+      relayUrl: "https://relay.example",
+      fetch: fetcher as typeof fetch,
+      connectIdentity,
+    });
+
+    await client.getSession();
+    await expect(
+      client.connect("keytr", {
+        keytr: { action: "login", gatewayId: "keytr.org" },
+      }),
+    ).resolves.toMatchObject({ status: "connected", identity: signer });
+    expect(connectIdentity).toHaveBeenCalledWith(
+      "keytr",
+      { keytr: { action: "login", gatewayId: "keytr.org" } },
+      { expectedPubkey: pubkey },
+    );
+  });
+
+  it("disposes an external identity when relay login fails", async () => {
+    const secret = generateSecretKey();
+    const signer = new SecretKeyRegistrySigner(secret);
+    const dispose = vi.spyOn(signer, "dispose");
+    const client = new RelayAuthClient({
+      relayUrl: "https://relay.example",
+      connectIdentity: vi.fn(async () => signer),
+      fetch: vi.fn(async (request: RequestInfo | URL) => {
+        const path = new URL(request.toString()).pathname;
+        if (path.endsWith("/config")) return json(relayConfig);
+        if (path.endsWith("/nostr/challenge")) {
+          return json({
+            challenge: "challenge-value-at-least-sixteen",
+            expires_at: "2026-09-12T10:10:00Z",
+          });
+        }
+        return json({ error: "invalid_nostr_auth" }, 401);
+      }) as typeof fetch,
+    });
+
+    await expect(
+      client.connect("keytr", {
+        keytr: { action: "login", gatewayId: "keytr.org" },
+      }),
+    ).rejects.toMatchObject({ code: "invalid_nostr_auth" });
+    expect(dispose).toHaveBeenCalledOnce();
+    await expect(signer.getPublicKey()).rejects.toThrow("no longer available");
+  });
+
   it("exposes NIP-44 operations and reports an expired signing session", async () => {
     const fetcher = vi.fn(async (request: RequestInfo | URL) => {
       const path = new URL(request.toString()).pathname;

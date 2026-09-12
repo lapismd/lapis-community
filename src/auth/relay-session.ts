@@ -158,6 +158,7 @@ export interface RelayAuthClientOptions {
   connectIdentity?: (
     methodId: string,
     credentials?: RelayAuthLoginCredentials,
+    context?: RelayIdentityConnectContext,
   ) => Promise<CommunitySigner>;
   credentials?: CommunityCredentialsContainer;
 }
@@ -165,6 +166,16 @@ export interface RelayAuthClientOptions {
 export interface RelayAuthLoginCredentials {
   privateKey?: string;
   remoteSignerUrl?: string;
+  keytr?: {
+    action: "login" | "create" | "import";
+    gatewayId: string;
+    passkeyLabel?: string;
+    privateKey?: string;
+  };
+}
+
+export interface RelayIdentityConnectContext {
+  expectedPubkey?: string;
 }
 
 const relayErrorMessages: Record<string, string> = {
@@ -417,21 +428,27 @@ export class RelayAuthClient {
       return { status: "redirecting", config };
     }
     const identity = await this.#resolveIdentity(methodId, credentials);
-    let session = await this.loginWithNostr(identity);
-    if (methodId === "remote-signer" && credentials?.remoteSignerUrl) {
-      await this.#request("nip46/connect", {
-        method: "POST",
-        body: JSON.stringify({ bunker_url: credentials.remoteSignerUrl }),
-      });
-      session = await this.getSession();
-      return {
-        status: "connected",
-        config,
-        session,
-        identity: new RelaySessionSigner(this, session),
-      };
+    try {
+      let session = await this.loginWithNostr(identity);
+      if (methodId === "remote-signer" && credentials?.remoteSignerUrl) {
+        await this.#request("nip46/connect", {
+          method: "POST",
+          body: JSON.stringify({ bunker_url: credentials.remoteSignerUrl }),
+        });
+        session = await this.getSession();
+        identity.dispose?.();
+        return {
+          status: "connected",
+          config,
+          session,
+          identity: new RelaySessionSigner(this, session),
+        };
+      }
+      return { status: "connected", config, session, identity };
+    } catch (cause) {
+      identity.dispose?.();
+      throw cause;
     }
-    return { status: "connected", config, session, identity };
   }
 
   providerLoginUrl(
@@ -697,7 +714,12 @@ export class RelayAuthClient {
     credentials?: RelayAuthLoginCredentials,
   ): Promise<CommunitySigner> {
     if (this.#connectIdentity !== undefined) {
-      return await this.#connectIdentity(methodId, credentials);
+      const expectedPubkey = this.#session?.account.nostr_pubkey;
+      return await this.#connectIdentity(
+        methodId,
+        credentials,
+        expectedPubkey === undefined ? {} : { expectedPubkey },
+      );
     }
     if (methodId === "browser-extension") return new Nip07RegistrySigner();
     throw new Error("This Nostr login method is not configured");

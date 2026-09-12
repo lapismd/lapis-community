@@ -1156,6 +1156,7 @@ describe("createCommunityController", () => {
   it("disconnects the identity while retaining anonymous public browsing", async () => {
     runtime = await createCommunityTestRuntime();
     await connected(runtime);
+    const dispose = vi.spyOn(runtime.scenario.operator, "dispose");
     const memberPubkey = await runtime.scenario.member.getPublicKey();
     runtime.controller.actions.openDirectMessage([memberPubkey]);
 
@@ -1167,11 +1168,25 @@ describe("createCommunityController", () => {
     expect(runtime.controller.state.settings.identityConnected).toBe(false);
     expect(runtime.controller.state.workspace.currentMemberId).toBeUndefined();
     expect(runtime.controller.state.workspace.activeRoomId).toBe("general");
+    expect(dispose).toHaveBeenCalledOnce();
     expect(
       runtime.controller.state.workspace.navigationSections
         .flatMap((section) => section.rooms)
         .find((room) => room.id === "general")?.permissions?.publish.state,
     ).toBe("requires-authentication");
+  });
+
+  it("disposes its active identity with the controller", async () => {
+    runtime = await createCommunityTestRuntime();
+    await connected(runtime);
+    const dispose = vi.spyOn(runtime.scenario.operator, "dispose");
+
+    runtime.controller.dispose();
+
+    expect(dispose).toHaveBeenCalledOnce();
+    await expect(runtime.scenario.operator.getPublicKey()).rejects.toThrow(
+      "no longer available",
+    );
   });
 
   it("publishes and projects profile metadata and the profile image", async () => {

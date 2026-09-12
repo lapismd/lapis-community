@@ -30,6 +30,7 @@ import type {
   CommunityControllerOptions,
   CommunityControllerState,
   CommunityGroupInvite,
+  CommunityIdentity,
   CommunityOperationFailure,
   CommunityOperationState,
   CommunityPrivateEvent,
@@ -874,6 +875,8 @@ export function createCommunityController(
     pulseActive = false;
     stopPulseRefreshTimers("Controller disposed");
     closeConnections("Controller disposed");
+    identity?.dispose?.();
+    identity = undefined;
     eventRuntime.dispose();
     status = "idle";
   }
@@ -2371,14 +2374,20 @@ export function createCommunityController(
         throw new Error(message);
       }
       authentication = { status: "connecting" };
+      let pendingIdentity: CommunityIdentity | undefined;
       try {
-        identity = await connector.connect();
-        const pubkey = await identity.getPublicKey();
+        pendingIdentity = await connector.connect();
+        const pubkey = await pendingIdentity.getPublicKey();
+        identity?.dispose?.();
+        identity = pendingIdentity;
+        pendingIdentity = undefined;
         authentication = { status: "connected", pubkey };
         await reconnect(false);
       } catch (cause) {
         const message =
           cause instanceof Error ? cause.message : "Sign in failed";
+        pendingIdentity?.dispose?.();
+        identity?.dispose?.();
         identity = undefined;
         identityPubkey = "";
         authentication = { status: "error", error: message };
@@ -2386,6 +2395,7 @@ export function createCommunityController(
       }
     },
     async disconnectIdentity() {
+      identity?.dispose?.();
       identity = undefined;
       identityPubkey = "";
       authentication = { status: "anonymous" };
