@@ -32,6 +32,12 @@ by SHA-256. Project fixtures likewise use normal signed NIP-34 events; hosted
 repository provisioning and browser reads stay behind the relay's existing
 NIP-98/NIP-29 gateway.
 
+The disposable application-authentication lane layers a fake OAuth service and
+the sibling relay's localhost-only provider overrides onto the same Compose
+boundary. Its Google, GitHub, relay-session, and Nostr events are deterministic;
+master keys and provider secrets are generated into the ignored runtime
+directory and removed with containers and volumes when the lane exits.
+
 The dedicated Community Vite lane is checkout-owned. Its supervisor watches
 the local stack's generated public fixture environment, restarts Vite when
 those compile-time values change, and refuses to replace a listener whose

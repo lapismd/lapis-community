@@ -89,6 +89,7 @@ pnpm install --frozen-lockfile
 pnpm checks
 pnpm local:validate
 pnpm smoke:local
+pnpm test:auth:docker
 ```
 
 For live application debugging without Storybook, start the local relay stack
@@ -124,6 +125,12 @@ The Vite development application uses that one endpoint for Community,
 Registry, and Projects so navigation cannot silently cross between relay
 datasets. `VITE_REGISTRY_RELAYS` remains available only to the standalone live
 Registry Storybook story.
+
+`pnpm test:auth:docker` builds the sibling relay and an ephemeral fake
+Google/GitHub provider. It proves credentialed CORS, both provider flows,
+managed-session restoration, NIP-42, channel/profile/Pulse publication,
+NIP-98 project reads, NIP-44 and NIP-17, GitHub linking and login reuse, and
+relay-first sign-out without live provider credentials.
 
 Run `pnpm storybook` to browse the production community components in isolated
 normal, reply, reaction, error, and long-discussion states. The package

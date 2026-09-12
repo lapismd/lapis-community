@@ -6,7 +6,7 @@ command=${1:-up}
 [[ $# -eq 0 ]] || shift
 
 case "${command}" in
-  test | storybook | storybook-test | project-storybook | project-storybook-test)
+  test | auth-test | storybook | storybook-test | project-storybook | project-storybook-test)
     export COMPOSE_PROJECT_NAME=${COMPOSE_PROJECT_NAME:-lapis-community-relay-${PPID}-${RANDOM}}
     ;;
   *)
@@ -52,6 +52,7 @@ allocate_port() {
 runtime_dir=${COMMUNITY_RELAY_RUNTIME_DIR:-${repo_root}/.local/community-relay/${COMPOSE_PROJECT_NAME}}
 port_file=${runtime_dir}/port
 secret_file=${runtime_dir}/relay-secret
+fake_oauth_port_file=${runtime_dir}/fake-oauth-port
 mkdir -p "${runtime_dir}"
 chmod 700 "${runtime_dir}"
 
@@ -87,6 +88,7 @@ compose=(
 
 forge_enabled=false
 forge_secret_files=()
+auth_secret_files=()
 case "${command}" in
   project-storybook | project-storybook-test)
     forge_enabled=true
@@ -111,6 +113,35 @@ case "${command}" in
       -f "${repo_root}/deploy/community-project-forge.compose.yml"
     )
     ;;
+  auth-test)
+    if [[ -f ${fake_oauth_port_file} ]]; then
+      COMMUNITY_FAKE_OAUTH_PORT=$(<"${fake_oauth_port_file}")
+    else
+      COMMUNITY_FAKE_OAUTH_PORT=$(allocate_port)
+      printf '%s\n' "${COMMUNITY_FAKE_OAUTH_PORT}" >"${fake_oauth_port_file}"
+    fi
+    [[ ${COMMUNITY_FAKE_OAUTH_PORT} =~ ^[0-9]+$ ]] || {
+      echo "Fake OAuth port is invalid" >&2
+      exit 1
+    }
+    COMMUNITY_AUTH_BROWSER_ORIGIN=${COMMUNITY_AUTH_BROWSER_ORIGIN:-http://community.localhost:7036}
+    for secret_name in auth-master-key github-oauth-secret google-oauth-secret; do
+      generated_secret=${runtime_dir}/${secret_name}
+      if [[ ! -f ${generated_secret} ]]; then
+        umask 077
+        openssl rand -hex 32 >"${generated_secret}"
+      fi
+      chmod 600 "${generated_secret}"
+      auth_secret_files+=("${generated_secret}")
+    done
+    export COMMUNITY_FAKE_OAUTH_PORT COMMUNITY_AUTH_BROWSER_ORIGIN
+    export COMMUNITY_AUTH_MASTER_KEY_FILE=${runtime_dir}/auth-master-key
+    export COMMUNITY_GITHUB_OAUTH_SECRET_FILE=${runtime_dir}/github-oauth-secret
+    export COMMUNITY_GOOGLE_OAUTH_SECRET_FILE=${runtime_dir}/google-oauth-secret
+    compose+=(
+      -f "${repo_root}/deploy/community-relay-auth.compose.yml"
+    )
+    ;;
 esac
 
 start_relay() {
@@ -132,9 +163,18 @@ stop_relay() {
 }
 
 cleanup_ephemeral() {
+  local exit_code=$?
+  if [[ ${exit_code} -ne 0 ]]; then
+    "${compose[@]}" logs --no-color --tail=200 >&2 || true
+  fi
   "${compose[@]}" down --volumes --remove-orphans >/dev/null 2>&1 || true
+  if [[ ${command} == auth-test ]]; then
+    docker image rm "${COMPOSE_PROJECT_NAME}-fake-oauth:test" >/dev/null 2>&1 || true
+  fi
   rm -f "${port_file}" "${secret_file}" "${forge_secret_files[@]}"
+  rm -f "${fake_oauth_port_file}" "${auth_secret_files[@]}"
   rmdir "${runtime_dir}" 2>/dev/null || true
+  return "${exit_code}"
 }
 
 case "${command}" in
@@ -157,6 +197,18 @@ case "${command}" in
       --project unit \
       src/testing/relay-contract.test.ts \
       src/testing/relay-contract.docker.test.ts
+    ;;
+  auth-test)
+    trap cleanup_ephemeral EXIT INT TERM
+    start_relay
+    COMMUNITY_SCENARIO_NAMESPACE=auth-contract seed_relay
+    COMMUNITY_RELAY_URL=${COMMUNITY_RELAY_URL} \
+      COMMUNITY_RELAY_HTTP_URL=${COMMUNITY_RELAY_HTTP_URL} \
+      COMMUNITY_AUTH_BROWSER_ORIGIN=${COMMUNITY_AUTH_BROWSER_ORIGIN} \
+      COMMUNITY_FAKE_OAUTH_URL=http://fake-oauth.localhost:${COMMUNITY_FAKE_OAUTH_PORT} \
+      pnpm --dir "${repo_root}" exec vitest run \
+      --project unit \
+      src/testing/relay-auth-contract.docker.test.ts
     ;;
   storybook)
     trap cleanup_ephemeral EXIT INT TERM
@@ -206,7 +258,7 @@ case "${command}" in
     ;;
   reset)
     stop_relay
-    rm -f "${port_file}" "${secret_file}" "${forge_secret_files[@]}"
+    rm -f "${port_file}" "${secret_file}" "${fake_oauth_port_file}" "${forge_secret_files[@]}" "${auth_secret_files[@]}"
     rmdir "${runtime_dir}" 2>/dev/null || true
     echo "Removed the disposable relay volumes and generated runtime credentials."
     ;;
@@ -214,7 +266,7 @@ case "${command}" in
     "${compose[@]}" "${command}" "$@"
     ;;
   *)
-    echo "usage: community-relay.sh {up|seed|url|test|storybook|storybook-test|project-storybook|project-storybook-test|down|reset|config|logs|ps|restart|stop}" >&2
+    echo "usage: community-relay.sh {up|seed|url|test|auth-test|storybook|storybook-test|project-storybook|project-storybook-test|down|reset|config|logs|ps|restart|stop}" >&2
     exit 2
     ;;
 esac

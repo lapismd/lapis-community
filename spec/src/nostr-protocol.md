@@ -215,3 +215,9 @@ Provider callbacks surface only the relay's stable `auth_error` code. Community
 removes that marker from the browser URL before presenting its mapped message;
 OAuth authorization codes, state values, and provider response text never
 enter the application model.
+
+The Docker authentication contract MUST prove managed-session restoration,
+author-bound NIP-42, relay event signing, NIP-44 encryption, NIP-17 gift-wrap
+delivery, and NIP-98 repository reads through the real relay boundary. NIP-17
+acceptance MUST allow the ephemeral gift-wrap author while retaining the
+authenticated account as the session and signing authority.

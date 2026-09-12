@@ -85,6 +85,7 @@
     "test": "vitest run --project unit",
     "test:relay": "vitest run --project unit src/testing/relay-contract.test.ts",
     "test:relay:docker": "scripts/community-relay.sh test",
+    "test:auth:docker": "scripts/community-relay.sh auth-test",
     "test:storybook": "vitest run --project storybook",
     "test:storybook:docker": "scripts/community-relay.sh storybook-test",
     "test:storybook:projects-docker": "scripts/community-relay.sh project-storybook-test",

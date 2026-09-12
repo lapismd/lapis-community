@@ -100,3 +100,8 @@ authentication only when `VITE_COMMUNITY_RELAY_AUTH_URL` supplies an explicit
 HTTP origin. The WebSocket relay remains the single Community, Registry, and
 Projects event endpoint; the optional HTTP origin is used only for the relay's
 application-session API.
+
+`pnpm test:auth:docker` is the deterministic cross-repository evidence lane for
+that contract. It builds the current sibling relay, uses generated ephemeral
+secrets and local fake providers, and MUST NOT require, persist, or log live
+OAuth credentials.

@@ -1,0 +1,49 @@
+services:
+  community-relay:
+    environment:
+      AUTH_ENABLED: "true"
+      AUTH_PUBLIC_URL: http://community-relay.localhost:${COMMUNITY_RELAY_PORT:?set by scripts/community-relay.sh}
+      AUTH_ALLOWED_BROWSER_ORIGINS: '["${COMMUNITY_AUTH_BROWSER_ORIGIN:?set by scripts/community-relay.sh}"]'
+      AUTH_MASTER_KEY_REF: file:community-auth-master-key
+      AUTH_GITHUB_CLIENT_ID: community-github
+      AUTH_GITHUB_CLIENT_SECRET_REF: file:community-github-oauth-secret
+      AUTH_GOOGLE_CLIENT_ID: community-google
+      AUTH_GOOGLE_CLIENT_SECRET_REF: file:community-google-oauth-secret
+      AUTH_TEST_GITHUB_AUTHORIZATION_URL: http://fake-oauth.localhost:${COMMUNITY_FAKE_OAUTH_PORT:?set by scripts/community-relay.sh}/github/authorize
+      AUTH_TEST_GITHUB_TOKEN_URL: http://fake-oauth.localhost:${COMMUNITY_FAKE_OAUTH_PORT:?set by scripts/community-relay.sh}/github/token
+      AUTH_TEST_GITHUB_USER_URL: http://fake-oauth.localhost:${COMMUNITY_FAKE_OAUTH_PORT:?set by scripts/community-relay.sh}/github/user
+      AUTH_TEST_GOOGLE_ISSUER_URL: http://fake-oauth.localhost:${COMMUNITY_FAKE_OAUTH_PORT:?set by scripts/community-relay.sh}/google
+      GIT_ENABLED: "true"
+      GIT_PUBLIC_URL: http://community-relay.localhost:${COMMUNITY_RELAY_PORT:?set by scripts/community-relay.sh}
+      GITHUB_ENABLED: "true"
+    extra_hosts: [fake-oauth.localhost:host-gateway]
+    secrets:
+      - community-relay-secret
+      - community-auth-master-key
+      - community-github-oauth-secret
+      - community-google-oauth-secret
+    depends_on:
+      fake-oauth: { condition: service_healthy }
+
+  fake-oauth:
+    image: ${COMPOSE_PROJECT_NAME:?set by scripts/community-relay.sh}-fake-oauth:test
+    build:
+      context: ..
+      dockerfile: deploy/fake-oauth.Dockerfile
+    read_only: true
+    tmpfs: [/tmp]
+    environment:
+      PORT: "8091"
+      PUBLIC_ORIGIN: http://fake-oauth.localhost:${COMMUNITY_FAKE_OAUTH_PORT:?set by scripts/community-relay.sh}
+      RELAY_PUBLIC_ORIGIN: http://community-relay.localhost:${COMMUNITY_RELAY_PORT:?set by scripts/community-relay.sh}
+    ports:
+      - "127.0.0.1:${COMMUNITY_FAKE_OAUTH_PORT:?set by scripts/community-relay.sh}:8091"
+    restart: "no"
+
+secrets:
+  community-auth-master-key:
+    file: ${COMMUNITY_AUTH_MASTER_KEY_FILE:?set by scripts/community-relay.sh}
+  community-github-oauth-secret:
+    file: ${COMMUNITY_GITHUB_OAUTH_SECRET_FILE:?set by scripts/community-relay.sh}
+  community-google-oauth-secret:
+    file: ${COMMUNITY_GOOGLE_OAUTH_SECRET_FILE:?set by scripts/community-relay.sh}
