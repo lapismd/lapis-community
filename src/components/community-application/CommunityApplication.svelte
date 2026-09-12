@@ -68,6 +68,7 @@
     CommunityMessageReport,
     CommunityReplyTarget,
   } from "../../community/index.js";
+  import type { CommunityAccountSession } from "../../auth/index.js";
   import { LAPIS_GROUPS, lapisGroupId } from "../../protocol/index.js";
   import {
     addRepositoryToProjectTemplate,
@@ -935,6 +936,7 @@
       ? memberById(workspace.members, workspace.currentMemberId)
       : undefined,
   );
+  const applicationAccount = $derived(applicationAuthentication?.account?.());
   const activeRoomMemberIds = $derived(
     activeRoom.kind === "direct"
       ? (activeRoom.participantIds ?? [])
@@ -998,13 +1000,17 @@
     hasCommunityConnection || hasRestoredCommunityData,
   );
   const displayMember = $derived<CommunityMemberModel>(
-    currentMember ?? fallbackMember(community.state.settings),
+    currentMember ??
+      (applicationAccount === undefined
+        ? fallbackMember(community.state.settings)
+        : accountSessionMember(applicationAccount, community.state.settings)),
   );
   const authenticated = $derived(
     community.state.authentication.status === "connected",
   );
-  const signedIn = $derived(
-    authenticated || applicationAuthentication?.account?.() !== undefined,
+  const signedIn = $derived(authenticated || applicationAccount !== undefined);
+  const signingOut = $derived(
+    applicationAuthentication?.signingOut?.() ?? false,
   );
   const canManageForge = $derived(authenticated);
   const statusOperation = $derived(
@@ -4921,6 +4927,40 @@
       presence: "offline",
     };
   }
+
+  function accountSessionMember(
+    account: CommunityAccountSession,
+    settings: CommunityController["state"]["settings"],
+  ): CommunityMemberModel {
+    const pubkey = account.account.nostr_pubkey;
+    const storedProfile =
+      settings.profile.pubkey === pubkey ? settings.profile : undefined;
+    const identity =
+      account.identities.find(
+        (candidate) => candidate.provider === account.auth_provider,
+      ) ?? account.identities[0];
+    const shortKey = `${pubkey.slice(0, 8)}…${pubkey.slice(-5)}`;
+    const name =
+      storedProfile?.displayName.trim() ||
+      identity?.display_name.trim() ||
+      identity?.login.trim() ||
+      shortKey;
+    const initials =
+      name
+        .split(/\s+/u)
+        .filter(Boolean)
+        .slice(0, 2)
+        .map((part) => part[0]?.toLocaleUpperCase() ?? "")
+        .join("") || "?";
+    return {
+      id: pubkey,
+      name,
+      handle: storedProfile?.username || identity?.login || shortKey,
+      initials,
+      ...(storedProfile?.picture ? { avatarUrl: storedProfile.picture } : {}),
+      presence: "offline",
+    };
+  }
 </script>
 
 {#snippet mobileNavigationControls()}
@@ -6497,6 +6537,7 @@
               ? {}
               : { communityUrl: activeConnection.relayUrl }}
             authenticated={signedIn}
+            {signingOut}
             compact={navigationCompact}
             connectionStatus={community.state.status}
             canManageCommunity={activeRoom.permissions?.manageMembers.state ===

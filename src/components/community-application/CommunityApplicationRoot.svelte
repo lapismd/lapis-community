@@ -63,7 +63,11 @@
   let relayAuthStatus = $state<CommunityApplicationAuthenticationStatus>(
     untrack(() => (loginOptions?.auth ? "restoring" : "idle")),
   );
+  let signOutPending = $state(false);
   let activeExternalSigner = $state<"keytr">();
+  let authenticationGeneration = 0;
+  let activeIdentityConnection: Promise<void> | undefined;
+  let signOutOperation: Promise<void> | undefined;
   const loginMethods = $derived<readonly CommunityLoginMethodModel[]>(
     resolveCommunityLoginMethods(
       loginOptions?.methods,
@@ -73,6 +77,7 @@
   );
   const loginBusy = $derived(
     pendingLoginMethodId !== "" ||
+      signOutPending ||
       relayAuthStatus === "restoring" ||
       relayAuthStatus === "redirecting" ||
       controller.state.authentication.status === "connecting",
@@ -104,6 +109,7 @@
     accountActions,
     resumeAccountAction: () => accountResumeAction,
     status: () => relayAuthStatus,
+    signingOut: () => signOutPending,
     activeExternalSigner: () => activeExternalSigner,
     connectGitHub,
     signOut,
@@ -126,11 +132,16 @@
   async function restoreAuthentication(): Promise<void> {
     const auth = loginOptions?.auth;
     if (auth === undefined) return;
+    const generation = ++authenticationGeneration;
     relayAuthStatus = "restoring";
     try {
-      await applyAuthResult(await auth.restore());
+      const result = await auth.restore();
+      if (generation !== authenticationGeneration) return;
+      await applyAuthResult(result, generation);
+      if (generation !== authenticationGeneration) return;
       restorePendingAccountAction();
     } catch (cause) {
+      if (generation !== authenticationGeneration) return;
       accountSession = undefined;
       relayAuthStatus = "anonymous";
       loginError =
@@ -145,7 +156,9 @@
 
   async function applyAuthResult(
     result: RelayAuthRestoreResult | RelayAuthConnectResult,
+    generation = authenticationGeneration,
   ): Promise<void> {
+    if (generation !== authenticationGeneration) return;
     authConfig = result.config;
     if (result.status === "redirecting") {
       relayAuthStatus = "redirecting";
@@ -168,14 +181,24 @@
       }
       return;
     }
-    await controller.actions.connectIdentity({
+    const connection = controller.actions.connectIdentity({
       connect: async () => result.identity,
     });
+    activeIdentityConnection = connection;
+    try {
+      await connection;
+    } finally {
+      if (activeIdentityConnection === connection) {
+        activeIdentityConnection = undefined;
+      }
+    }
+    if (generation !== authenticationGeneration) return;
     connectedIdentity = result.identity;
     relayAuthStatus = "connected";
   }
 
   function handleSessionExpired(): void {
+    authenticationGeneration += 1;
     accountSession = undefined;
     connectedIdentity = undefined;
     relayAuthStatus = "anonymous";
@@ -400,6 +423,7 @@
     methodId: string,
     credentials?: CommunityLoginCredentials,
   ): Promise<void> {
+    const generation = ++authenticationGeneration;
     pendingLoginMethodId = methodId;
     loginError = "";
     let acceptedAccount = false;
@@ -412,7 +436,8 @@
           loginOpen = false;
           await tick();
         }
-        await applyAuthResult(result);
+        await applyAuthResult(result, generation);
+        if (generation !== authenticationGeneration) return;
         if (relayAuthStatus === "redirecting") return;
         if (relayAuthStatus === "reconnect-required") {
           throw new Error("Reconnect the Nostr signer for this account");
@@ -473,13 +498,33 @@
   }
 
   async function signOut(): Promise<void> {
+    if (signOutOperation !== undefined) return await signOutOperation;
+    const operation = completeSignOut();
+    signOutOperation = operation;
+    signOutPending = true;
+    try {
+      await operation;
+    } finally {
+      if (signOutOperation === operation) {
+        signOutOperation = undefined;
+        signOutPending = false;
+      }
+    }
+  }
+
+  async function completeSignOut(): Promise<void> {
     clearResumeAction();
     if (loginOptions?.auth) await loginOptions.auth.signOut();
-    await controller.actions.disconnectIdentity();
-    connectedIdentity = undefined;
-    accountSession = undefined;
-    activeExternalSigner = undefined;
-    relayAuthStatus = loginOptions?.auth ? "anonymous" : "idle";
+    authenticationGeneration += 1;
+    await activeIdentityConnection?.catch(() => {});
+    try {
+      await controller.actions.disconnectIdentity();
+    } finally {
+      connectedIdentity = undefined;
+      accountSession = undefined;
+      activeExternalSigner = undefined;
+      relayAuthStatus = loginOptions?.auth ? "anonymous" : "idle";
+    }
   }
 </script>
 

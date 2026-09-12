@@ -23,6 +23,7 @@
     communityUrl,
     compact = false,
     authenticated = true,
+    signingOut = false,
     canManageCommunity = false,
     canSendFeedback = false,
     connectionStatus = "connected",
@@ -34,6 +35,7 @@
     communityUrl?: string;
     compact?: boolean;
     authenticated?: boolean;
+    signingOut?: boolean;
     canManageCommunity?: boolean;
     canSendFeedback?: boolean;
     connectionStatus?: CommunityConnectionStatus;
@@ -260,9 +262,12 @@
                 Settings
                 <DropdownMenu.Shortcut>⌘,</DropdownMenu.Shortcut>
               </DropdownMenu.Item>
-              <DropdownMenu.Item onSelect={() => onAction("sign-out")}>
+              <DropdownMenu.Item
+                disabled={signingOut}
+                onSelect={() => onAction("sign-out")}
+              >
                 <LogOutIcon data-icon="inline-start" aria-hidden="true" />
-                Sign out
+                {signingOut ? "Signing out…" : "Sign out"}
               </DropdownMenu.Item>
             {/if}
           </DropdownMenu.Group>

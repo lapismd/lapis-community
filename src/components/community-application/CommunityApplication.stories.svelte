@@ -1153,6 +1153,114 @@
 </Story>
 
 <Story
+  name="Relay account identity while restoring"
+  play={async ({ canvas }) => {
+    const application = await canvas.findByTestId(
+      "full-community-application",
+      {},
+      { timeout: 15_000 },
+    );
+    await expect(
+      await canvas.findByRole(
+        "button",
+        { name: "Open profile menu for Steve Storybook" },
+        { timeout: 15_000 },
+      ),
+    ).toBeVisible();
+    await expect(application).not.toHaveAttribute(
+      "data-story-controller-auth-status",
+      "connected",
+    );
+    await expect(
+      canvas.queryByRole("button", { name: "Open profile menu for Guest" }),
+    ).not.toBeInTheDocument();
+  }}
+>
+  {#snippet template()}
+    <CommunityApplicationStoryHarness
+      namespace="managed-relay-auth-restoring"
+      signedIn={false}
+      relayAuthMode="managed"
+      relayAuthIdentityDelayMs={5_000}
+    />
+  {/snippet}
+</Story>
+
+<Story
+  name="Relay profile sign out is single flight"
+  play={async ({ canvas, canvasElement }) => {
+    const application = await canvas.findByTestId(
+      "full-community-application",
+      {},
+      { timeout: 15_000 },
+    );
+    const profile = await canvas.findByRole(
+      "button",
+      { name: "Open profile menu for Steve Storybook" },
+      { timeout: 15_000 },
+    );
+    await expect(application).not.toHaveAttribute(
+      "data-story-controller-auth-status",
+      "connected",
+    );
+    await userEvent.click(profile);
+    const overlay = within(canvasElement.ownerDocument.body);
+    await userEvent.click(overlay.getByRole("menuitem", { name: "Sign out" }));
+    await waitFor(() =>
+      expect(application).toHaveAttribute(
+        "data-story-relay-auth-sign-out-count",
+        "1",
+      ),
+    );
+    await waitFor(() =>
+      expect(canvasElement.ownerDocument.body.style.pointerEvents).not.toBe(
+        "none",
+      ),
+    );
+    await userEvent.click(profile);
+    const signingOut = overlay.getByRole("menuitem", {
+      name: "Signing out…",
+    });
+    await expect(signingOut).toHaveAttribute("aria-disabled", "true");
+    await expect(application).toHaveAttribute(
+      "data-story-relay-auth-sign-out-count",
+      "1",
+    );
+    await userEvent.keyboard("{Escape}");
+    await waitFor(() =>
+      expect(canvasElement.ownerDocument.body.style.pointerEvents).not.toBe(
+        "none",
+      ),
+    );
+    await expect(
+      await canvas.findByRole(
+        "button",
+        { name: "Open profile menu for Guest" },
+        { timeout: 15_000 },
+      ),
+    ).toBeVisible();
+    await expect(application).toHaveAttribute(
+      "data-story-controller-auth-status",
+      "anonymous",
+    );
+    await expect(application).toHaveAttribute(
+      "data-story-relay-auth-sign-out-count",
+      "1",
+    );
+  }}
+>
+  {#snippet template()}
+    <CommunityApplicationStoryHarness
+      namespace="managed-relay-auth-single-sign-out"
+      signedIn={false}
+      relayAuthMode="managed"
+      relayAuthIdentityDelayMs={3_000}
+      relayAuthSignOutDelayMs={500}
+    />
+  {/snippet}
+</Story>
+
+<Story
   name="Relay managed account restoration and sign out"
   play={async ({ canvas }) => {
     const application = await canvas.findByTestId(

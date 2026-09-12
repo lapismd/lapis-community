@@ -61,6 +61,8 @@
     emptyProjects = false,
     projectBackend = "walgit",
     relayAuthMode,
+    relayAuthIdentityDelayMs = 0,
+    relayAuthSignOutDelayMs = 0,
   }: {
     signedIn?: boolean;
     responsive?: boolean;
@@ -79,6 +81,8 @@
     emptyProjects?: boolean;
     projectBackend?: "github" | "walgit";
     relayAuthMode?: "managed" | "external" | "expiring";
+    relayAuthIdentityDelayMs?: number;
+    relayAuthSignOutDelayMs?: number;
   } = $props();
 
   let runtime = $state.raw<CommunityStoryRuntime>();
@@ -144,6 +148,34 @@
         nostr_login: true,
       },
     };
+    const baseIdentity: CommunityIdentity =
+      relayAuthMode === "expiring"
+        ? {
+            getPublicKey: () => runtime!.scenario.operator.getPublicKey(),
+            signEvent: async (template) => {
+              if (template.kind === 7) {
+                const { RelayAuthSessionExpiredError } = await import(
+                  "../../auth/index.js"
+                );
+                throw new RelayAuthSessionExpiredError();
+              }
+              return await runtime!.scenario.operator.signEvent(template);
+            },
+          }
+        : runtime.scenario.operator;
+    const restoredIdentity: CommunityIdentity =
+      relayAuthIdentityDelayMs <= 0
+        ? baseIdentity
+        : {
+            getPublicKey: async () => {
+              await delay(relayAuthIdentityDelayMs);
+              return await baseIdentity.getPublicKey();
+            },
+            signEvent: (template) => baseIdentity.signEvent(template),
+            ...(baseIdentity.nip44 === undefined
+              ? {}
+              : { nip44: baseIdentity.nip44 }),
+          };
     return {
       restore: async () =>
         relayAuthMode !== "external"
@@ -151,24 +183,7 @@
               status: "connected" as const,
               config,
               session,
-              identity:
-                relayAuthMode === "expiring"
-                  ? {
-                      getPublicKey: () =>
-                        runtime!.scenario.operator.getPublicKey(),
-                      signEvent: async (template) => {
-                        if (template.kind === 7) {
-                          const { RelayAuthSessionExpiredError } = await import(
-                            "../../auth/index.js"
-                          );
-                          throw new RelayAuthSessionExpiredError();
-                        }
-                        return await runtime!.scenario.operator.signEvent(
-                          template,
-                        );
-                      },
-                    }
-                  : runtime!.scenario.operator,
+              identity: restoredIdentity,
             }
           : { status: "reconnect-required" as const, config, session },
       connect: async (methodId, credentials) => ({
@@ -184,9 +199,14 @@
         relayAuthSignOutControllerStatus =
           community?.state.authentication.status ?? "missing";
         relayAuthSignOutCount += 1;
+        await delay(relayAuthSignOutDelayMs);
       },
     };
   });
+
+  function delay(milliseconds: number): Promise<void> {
+    return new Promise((resolve) => window.setTimeout(resolve, milliseconds));
+  }
 
   function observeProjectSource(
     source: ProjectForgeDataSource,
@@ -586,6 +606,7 @@
       data-project-session-open-count={projectSessionOpenCount}
       data-story-relay-auth-sign-out-count={relayAuthSignOutCount}
       data-story-relay-auth-sign-out-controller-status={relayAuthSignOutControllerStatus}
+      data-story-controller-auth-status={community.state.authentication.status}
       data-story-relay-auth-github-connect-count={relayAuthGitHubConnectCount}
       registryOptions={{
         source: registrySource,
