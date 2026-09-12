@@ -8,6 +8,7 @@
   import * as Dialog from "@lapismd/design-core/shadcn/dialog";
   import * as DropdownMenu from "@lapismd/design-core/shadcn/dropdown-menu";
   import * as Field from "@lapismd/design-core/shadcn/field";
+  import * as CommandView from "@lapismd/design-core/shadcn/command-view";
   import { Input } from "@lapismd/design-core/shadcn/input";
   import * as Select from "@lapismd/design-core/shadcn/select";
   import { nip19 } from "nostr-tools";
@@ -22,6 +23,8 @@
   import DownloadIcon from "@lucide/svelte/icons/download";
   import CopyIcon from "@lucide/svelte/icons/copy";
   import ShieldCheckIcon from "@lucide/svelte/icons/shield-check";
+  import HashIcon from "@lucide/svelte/icons/hash";
+  import CheckIcon from "@lucide/svelte/icons/check";
   import type {
     CommunityAgentNameMode,
     CommunityAgentControllerBootstrap,
@@ -82,6 +85,7 @@
     adding?: boolean;
   } = $props();
   const addInputId = "community-agents-add-public-key";
+  const roomSearchId = "community-agents-room-search";
   let clearing = $state(false);
   let addingPending = $state(false);
   let feedback = $state("");
@@ -97,6 +101,7 @@
   let provisioningMode = $state<"managed" | "existing">("managed");
   let selectedPersonaSlug = $state("");
   let selectedGroupIds = $state<string[]>([]);
+  let roomQuery = $state("");
   let managedBundle = $state<CommunityAgentControllerBootstrap>();
   let managedRoomFailures = $state<string[]>([]);
   let managedActionPending = $state("");
@@ -133,6 +138,10 @@
   );
   const selectedPersona = $derived(
     model.personas.find((persona) => persona.slug === selectedPersonaSlug),
+  );
+  const manageableRooms = $derived(rooms.filter((room) => room.canManage));
+  const selectedRooms = $derived(
+    manageableRooms.filter((room) => selectedGroupIds.includes(room.id)),
   );
   async function addAgent() {
     addFeedback = "";
@@ -248,6 +257,7 @@
     }
     addingPending = true;
     try {
+      const groupIds = selectedRooms.map((room) => room.id);
       const bundle = await onCreateManagedAgent({
         personaSlug: slug,
         displayName,
@@ -270,11 +280,11 @@
             }),
         nameMode,
         instanceName: displayName,
-        groupIds: selectedGroupIds,
+        groupIds,
       });
       const confirmed: string[] = [];
       const failed: string[] = [];
-      for (const groupId of selectedGroupIds) {
+      for (const groupId of groupIds) {
         try {
           if (!onAddAgentToRoom)
             throw new Error("Room membership is unavailable");
@@ -941,31 +951,73 @@
                 >{#if addFeedback}<Field.Error>{addFeedback}</Field.Error
                   >{/if}</Field.Field
               >{/if}
-            {#if provisioningMode === "managed" && rooms.length > 0}
+            {#if provisioningMode === "managed" && manageableRooms.length > 0}
               <Field.Field>
-                <Field.Label>Room access <span>Optional</span></Field.Label>
-                <div class="agents__room-options">
-                  {#each rooms as room (room.id)}
-                    <label class:disabled={!room.canManage}>
-                      <input
-                        type="checkbox"
-                        value={room.id}
-                        disabled={!room.canManage || addingPending}
-                        checked={selectedGroupIds.includes(room.id)}
-                        onchange={(event) => {
-                          const checked = event.currentTarget.checked;
-                          selectedGroupIds = checked
-                            ? [...selectedGroupIds, room.id]
-                            : selectedGroupIds.filter((id) => id !== room.id);
-                        }}
-                      />
-                      <span>{room.name}</span>
-                    </label>
-                  {/each}
+                <Field.Label for={roomSearchId}
+                  >Room access <span>Optional</span></Field.Label
+                >
+                <div
+                  class="agents__room-picker"
+                  onfocusin={(event) =>
+                    event.currentTarget.scrollIntoView({ block: "end" })}
+                >
+                  <CommandView.Root label="Search channels" loop>
+                    <CommandView.Input
+                      id={roomSearchId}
+                      bind:value={roomQuery}
+                      aria-label="Search channels"
+                      placeholder="Search channels…"
+                      disabled={addingPending}
+                    />
+                    <CommandView.List>
+                      <CommandView.Empty
+                        >No matching channels.</CommandView.Empty
+                      >
+                      <CommandView.Group heading="Channels you manage">
+                        {#each manageableRooms as room (room.id)}
+                          <CommandView.Item
+                            value={room.id}
+                            keywords={[room.name]}
+                            disabled={addingPending}
+                            data-active={selectedGroupIds.includes(room.id)
+                              ? ""
+                              : undefined}
+                            onSelect={() => {
+                              selectedGroupIds = selectedGroupIds.includes(
+                                room.id,
+                              )
+                                ? selectedGroupIds.filter(
+                                    (id) => id !== room.id,
+                                  )
+                                : [...selectedGroupIds, room.id];
+                              roomQuery = "";
+                            }}
+                          >
+                            <CommandView.ItemIcon
+                              ><HashIcon
+                                aria-hidden="true"
+                              /></CommandView.ItemIcon
+                            >
+                            <CommandView.ItemLabel
+                              >{room.name}</CommandView.ItemLabel
+                            >
+                            {#if selectedGroupIds.includes(room.id)}
+                              <CheckIcon
+                                class="agents__room-selected-icon"
+                                aria-label={`${room.name} selected`}
+                              />
+                            {/if}
+                          </CommandView.Item>
+                        {/each}
+                      </CommandView.Group>
+                    </CommandView.List>
+                  </CommandView.Root>
                 </div>
                 <Field.Description>
-                  Room access uses the normal member action. Creating an agent
-                  does not grant roles or implicit membership.
+                  {selectedRooms.length > 0
+                    ? `${selectedRooms.length} ${selectedRooms.length === 1 ? "channel" : "channels"} selected: ${selectedRooms.map((room) => `#${room.name}`).join(", ")}`
+                    : "Choose channels where you can manage members."}
+                  Creating an agent does not grant roles or implicit membership.
                 </Field.Description>
               </Field.Field>
             {/if}
@@ -1441,17 +1493,17 @@
     flex: none;
     color: var(--primary);
   }
-  .agents__room-options {
-    display: grid;
-    gap: 0.5rem;
+  .agents__room-picker {
+    --ui-command-view-list-max-height: 12rem;
+    border: 1px solid var(--border);
+    border-radius: 0.75rem;
+    overflow: hidden;
+    scroll-margin-block-end: 5rem;
   }
-  .agents__room-options label {
-    display: flex;
-    align-items: center;
-    gap: 0.55rem;
-  }
-  .agents__room-options label.disabled {
-    color: var(--muted-foreground);
+  :global(.agents__room-selected-icon) {
+    width: 1rem;
+    height: 1rem;
+    flex-shrink: 0;
   }
   .agents__setup {
     display: grid;

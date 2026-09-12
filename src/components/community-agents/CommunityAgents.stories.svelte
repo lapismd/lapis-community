@@ -82,7 +82,19 @@
       within(dialog).getByText(/agent secret stays encrypted/i),
     ).toBeVisible();
     await userEvent.type(within(dialog).getByLabelText("Persona name"), "Fizz");
-    await userEvent.click(within(dialog).getByLabelText("general"));
+    const channelPicker = within(dialog).getByRole("combobox", {
+      name: "Search channels",
+    });
+    await expect(
+      dialog.querySelector(
+        '[data-ui-component="command-view"][data-ui-part="root"]',
+      ),
+    ).toBeVisible();
+    await userEvent.type(channelPicker, "general");
+    await userEvent.keyboard("{ArrowDown}{Enter}");
+    await expect(
+      within(dialog).getByText(/1 channel selected: #general/i),
+    ).toBeVisible();
     const createButtons = within(dialog).getAllByRole("button", {
       name: "Create managed agent",
     });
@@ -177,8 +189,17 @@
     const body = within(canvasElement.ownerDocument.body);
     let dialog = body.getByRole("dialog", { name: "Create managed agent" });
     await userEvent.type(within(dialog).getByLabelText("Persona name"), "Fizz");
-    await userEvent.click(within(dialog).getByLabelText("general"));
-    await userEvent.click(within(dialog).getByLabelText("support"));
+    const channelPicker = within(dialog).getByRole("combobox", {
+      name: "Search channels",
+    });
+    await userEvent.type(channelPicker, "general");
+    await userEvent.keyboard("{ArrowDown}{Enter}");
+    await userEvent.clear(channelPicker);
+    await userEvent.type(channelPicker, "support");
+    await userEvent.keyboard("{ArrowDown}{Enter}");
+    await expect(
+      within(dialog).getByText(/2 channels selected: #general, #support/i),
+    ).toBeVisible();
     const buttons = within(dialog).getAllByRole("button", {
       name: "Create managed agent",
     });
