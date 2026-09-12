@@ -520,10 +520,6 @@
         "1",
       ),
     );
-    await expect(application).toHaveAttribute(
-      "data-story-relay-auth-sign-out-controller-status",
-      "connected",
-    );
     const repositoriesTab = canvas.getByRole("tab", { name: "Repositories" });
     await waitFor(
       () =>
@@ -1098,12 +1094,18 @@
     await expect(
       canvas.getByRole("button", { name: "Connect GitHub" }),
     ).toBeVisible();
-    await userEvent.click(canvas.getByRole("button", { name: "Sign out" }));
+    const signOut = canvas.getByRole("button", { name: "Sign out" });
+    await waitFor(() => expect(signOut).toBeEnabled(), { timeout: 15_000 });
+    await userEvent.click(signOut);
     await waitFor(() =>
       expect(application).toHaveAttribute(
         "data-story-relay-auth-sign-out-count",
         "1",
       ),
+    );
+    await expect(application).toHaveAttribute(
+      "data-story-relay-auth-sign-out-controller-status",
+      "connected",
     );
   }}
 >
