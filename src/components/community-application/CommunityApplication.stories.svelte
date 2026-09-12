@@ -1175,12 +1175,13 @@
       login.getByRole("button", { name: /Browser extension/u }),
     );
     await waitFor(() => expect(dialog).not.toBeInTheDocument(), {
-      timeout: 8_000,
+      timeout: 750,
     });
-    await expect(canvas.getByRole("tab", { name: "Liked" })).toHaveAttribute(
-      "data-state",
-      "active",
-    );
+    const liked = canvas.getByRole("tab", { name: "Liked" });
+    await expect(liked).toHaveAttribute("data-state", "inactive");
+    await waitFor(() => expect(liked).toHaveAttribute("data-state", "active"), {
+      timeout: 15_000,
+    });
   }}
 >
   {#snippet template()}
@@ -1190,6 +1191,7 @@
       pulseFixtures
       signedIn={false}
       relayAuthMode="external"
+      bootstrapDelayMs={2_000}
     />
   {/snippet}
 </Story>

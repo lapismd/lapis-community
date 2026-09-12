@@ -60,8 +60,10 @@
   let keytrGatewayId = $state("");
   let keytrPasskeyLabel = $state("");
   let keytrPrivateKey = $state("");
+  let keytrSubmitting = $state(false);
   let validationError = $state("");
   const displayedError = $derived(validationError || error);
+  const keytrBusy = $derived(busy || keytrSubmitting);
   const displayedFootnote = $derived(
     footnote ??
       (methods.some((method) => method.kind === "keytr")
@@ -118,7 +120,14 @@
   }
 
   async function submitKeytr(action: "login" | "create" | "import") {
-    if (keytrMethod === undefined || keytrGatewayId === "") return;
+    if (
+      keytrSubmitting ||
+      busy ||
+      keytrMethod === undefined ||
+      keytrGatewayId === ""
+    ) {
+      return;
+    }
     const label = keytrPasskeyLabel.trim();
     if (action !== "login" && label === "") {
       validationError = "Enter a passkey label before continuing";
@@ -131,6 +140,7 @@
       return;
     }
     validationError = "";
+    keytrSubmitting = true;
     try {
       await onSelect(keytrMethod.id, {
         keytr: {
@@ -144,6 +154,8 @@
     } catch {
       // Keep setup values in this dialog for a safe retry. Closing the surface
       // clears every credential value held by the component.
+    } finally {
+      keytrSubmitting = false;
     }
   }
 
@@ -279,16 +291,16 @@
             <div class="community-login__keytr-actions">
               <Button
                 type="button"
-                disabled={busy || keytrGatewayId === ""}
+                disabled={keytrBusy || keytrGatewayId === ""}
                 onclick={() => void submitKeytr("login")}
               >
-                {busy ? "Waiting for passkey…" : "Sign in with Keytr"}
+                {keytrBusy ? "Complete passkey prompts…" : "Sign in with Keytr"}
               </Button>
               {#if keytrMethod.keytr.allowSetup !== false}
                 <Button
                   type="button"
                   variant="outline"
-                  disabled={busy}
+                  disabled={keytrBusy}
                   onclick={() => (keytrAction = "create")}
                   >Create a Keytr identity</Button
                 >
@@ -297,7 +309,7 @@
                 <Button
                   type="button"
                   variant="ghost"
-                  disabled={busy}
+                  disabled={keytrBusy}
                   onclick={() => (keytrAction = "import")}
                   >Protect an existing private key</Button
                 >
@@ -307,7 +319,7 @@
               <Button
                 type="button"
                 variant="ghost"
-                disabled={busy}
+                disabled={keytrBusy}
                 onclick={closeKeytrForm}>Back</Button
               >
             </div>
@@ -317,7 +329,7 @@
               id="community-login-keytr-label"
               name="keytr-passkey-label"
               autocomplete="off"
-              disabled={busy}
+              disabled={keytrBusy}
               bind:value={keytrPasskeyLabel}
             />
             {#if keytrAction === "import"}
@@ -332,7 +344,7 @@
                 autocapitalize="none"
                 spellcheck={false}
                 placeholder="nsec1… or 64-character hex"
-                disabled={busy}
+                disabled={keytrBusy}
                 bind:value={keytrPrivateKey}
               />
             {/if}
@@ -340,12 +352,15 @@
               <Button
                 type="button"
                 variant="ghost"
-                disabled={busy}
+                disabled={keytrBusy}
                 onclick={resetKeytrAction}>Back</Button
               >
-              <Button type="submit" disabled={busy || keytrGatewayId === ""}>
-                {busy
-                  ? "Waiting for passkey…"
+              <Button
+                type="submit"
+                disabled={keytrBusy || keytrGatewayId === ""}
+              >
+                {keytrBusy
+                  ? "Complete passkey prompts…"
                   : keytrAction === "create"
                     ? "Create identity"
                     : "Protect key"}
@@ -354,7 +369,9 @@
           {/if}
           <p>
             Keytr decrypts the signing key only in this browser tab and clears
-            it when this identity disconnects.
+            it when this identity disconnects. Keytr may ask you to confirm
+            twice: first to choose the passkey, then to unlock its encrypted
+            key.
           </p>
         </form>
       {:else if remoteSignerMethod !== undefined}

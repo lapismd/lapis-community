@@ -104,11 +104,16 @@
     onSelect: fn(),
   }}
   play={async ({ canvas, canvasElement, args }) => {
+    const connection = Promise.withResolvers<void>();
+    args.onSelect.mockImplementation(() => connection.promise);
     await userEvent.click(
       canvas.getByRole("button", { name: /Continue with Keytr/u }),
     );
     await expect(
       canvas.getByText(/decrypts the signing key only in this browser tab/u),
+    ).toBeVisible();
+    await expect(
+      canvas.getByText(/may ask you to confirm twice/u),
     ).toBeVisible();
     const gateway = canvas.getByRole("button", { name: "Passkey gateway" });
     await waitFor(() =>
@@ -124,12 +129,23 @@
       expect(getComputedStyle(signIn).pointerEvents).not.toBe("none"),
     );
     await userEvent.click(signIn);
+    signIn.click();
+    await expect(
+      canvas.getByRole("button", { name: "Complete passkey prompts…" }),
+    ).toBeDisabled();
+    await expect(args.onSelect).toHaveBeenCalledTimes(1);
     await expect(args.onSelect).toHaveBeenCalledWith("keytr", {
       keytr: {
         action: "login",
         gatewayId: "community.localhost",
       },
     });
+    connection.resolve();
+    await waitFor(() =>
+      expect(
+        canvas.queryByRole("button", { name: "Complete passkey prompts…" }),
+      ).not.toBeInTheDocument(),
+    );
   }}
 />
 

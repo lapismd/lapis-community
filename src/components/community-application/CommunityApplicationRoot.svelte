@@ -402,11 +402,17 @@
   ): Promise<void> {
     pendingLoginMethodId = methodId;
     loginError = "";
+    let acceptedAccount = false;
     try {
       if (loginOptions?.auth) {
-        await applyAuthResult(
-          await loginOptions.auth.connect(methodId, credentials),
-        );
+        const result = await loginOptions.auth.connect(methodId, credentials);
+        if (result.status === "connected") {
+          acceptedAccount = true;
+          pendingLoginMethodId = "";
+          loginOpen = false;
+          await tick();
+        }
+        await applyAuthResult(result);
         if (relayAuthStatus === "redirecting") return;
         if (relayAuthStatus === "reconnect-required") {
           throw new Error("Reconnect the Nostr signer for this account");
@@ -445,6 +451,7 @@
       }
     } catch (cause) {
       loginError = cause instanceof Error ? cause.message : "Sign in failed";
+      if (acceptedAccount) loginOpen = true;
       throw cause;
     } finally {
       pendingLoginMethodId = "";
