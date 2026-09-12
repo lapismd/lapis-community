@@ -11,11 +11,13 @@
   import Trash2Icon from "@lucide/svelte/icons/trash-2";
   import UploadCloudIcon from "@lucide/svelte/icons/upload-cloud";
 
+  import type { CommunityAccountSession } from "../../auth/index.js";
   import type {
     CommunityOperationState,
     CommunityProfileUpdate,
     CommunitySettingsState,
   } from "../../community/index.js";
+  import CommunityAccountSettings from "../community-account-settings/CommunityAccountSettings.svelte";
   import type { CommunitySettingsSection } from "./model.js";
   import "./CommunitySettings.css";
 
@@ -27,6 +29,12 @@
     onUpdateProfile,
     onAddCustomEmoji,
     onRemoveCustomEmoji,
+    account,
+    accountBusy = false,
+    accountMessage = "",
+    onCopyPublicKey,
+    onConnectGitHub,
+    onSignOut,
   }: {
     model: CommunitySettingsState;
     profileOperation?: CommunityOperationState;
@@ -35,6 +43,12 @@
     onUpdateProfile: (profile: CommunityProfileUpdate) => Promise<void>;
     onAddCustomEmoji: (shortcode: string, url: string) => Promise<void>;
     onRemoveCustomEmoji: (shortcode: string) => Promise<void>;
+    account?: CommunityAccountSession | undefined;
+    accountBusy?: boolean;
+    accountMessage?: string;
+    onCopyPublicKey?: ((pubkey: string) => void | Promise<void>) | undefined;
+    onConnectGitHub?: (() => void | Promise<void>) | undefined;
+    onSignOut?: (() => void | Promise<void>) | undefined;
   } = $props();
 
   let displayName = $state("");
@@ -173,9 +187,20 @@
   bind:this={rootElement}
   class="community-settings"
   data-ui-component="community-settings"
-  aria-labelledby="settings-title"
+  aria-labelledby={section === "account"
+    ? "community-account-title"
+    : "settings-title"}
 >
-  {#if section === "profile"}
+  {#if section === "account"}
+    <CommunityAccountSettings
+      {account}
+      busy={accountBusy}
+      message={accountMessage}
+      {onCopyPublicKey}
+      {onConnectGitHub}
+      {onSignOut}
+    />
+  {:else if section === "profile"}
     <header class="community-settings__heading">
       <h1 id="settings-title">Profile</h1>
       <p>Update how your name, avatar, and bio appear across Lapis.</p>

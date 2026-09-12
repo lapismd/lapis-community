@@ -164,6 +164,25 @@ describe("relay auth session client", () => {
     expect(target.searchParams.get("intent")).toBe("link");
   });
 
+  it("consumes a sanitized provider failure from the Community return URL", async () => {
+    const replacements: string[] = [];
+    const client = new RelayAuthClient({
+      relayUrl: "https://relay.example",
+      currentUrl: () =>
+        "https://community.example/projects?auth_error=provider_authentication_failed#/pull/42",
+      replaceUrl: (value) => replacements.push(value),
+      fetch: vi.fn(async () => json(relayConfig)) as typeof fetch,
+    });
+
+    await expect(client.restore()).rejects.toMatchObject({
+      code: "provider_authentication_failed",
+      status: 400,
+    });
+    expect(replacements).toEqual([
+      "https://community.example/projects#/pull/42",
+    ]);
+  });
+
   it("establishes a body-bound NIP-98 session for a Nostr identity", async () => {
     const secret = generateSecretKey();
     const pubkey = getPublicKey(secret);

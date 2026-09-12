@@ -183,6 +183,7 @@
   } from "../community-search-command/model.js";
   import CommunitySettingsNavigation from "../community-settings-navigation/CommunitySettingsNavigation.svelte";
   import CommunitySettings from "../community-settings/CommunitySettings.svelte";
+  import type { CommunitySettingsSection } from "../community-settings/model.js";
   import CommunityStatusDialog from "../community-status-dialog/CommunityStatusDialog.svelte";
   import CommunityThreadPanel from "../community-thread-panel/CommunityThreadPanel.svelte";
   import CommunityWorkspaceSurface from "../community-workspace/CommunityWorkspaceSurface.svelte";
@@ -444,7 +445,7 @@
     },
   );
   let registryBreadcrumbEntry = $state<RegistryCatalogEntry>();
-  let settingsSection = $state<"profile" | "custom-emoji">("profile");
+  let settingsSection = $state<CommunitySettingsSection>("profile");
   let lastAction = $state("ready");
   let relayNoticeDismissed = $state(false);
   let relaySettingsOpen = $state(false);
@@ -978,6 +979,9 @@
   );
   const authenticated = $derived(
     community.state.authentication.status === "connected",
+  );
+  const signedIn = $derived(
+    authenticated || applicationAuthentication?.account?.() !== undefined,
   );
   const canManageForge = $derived(authenticated);
   const statusOperation = $derived(
@@ -1724,6 +1728,8 @@
       community.state.authentication.status === "error";
     if (
       authenticationSettledWithoutIdentity &&
+      applicationAuthentication?.status?.() !== "restoring" &&
+      !signedIn &&
       (activeDestination === "settings" || activeDestination === "inbox")
     ) {
       setDestination("registry", false);
@@ -1733,11 +1739,15 @@
   async function runAuthenticated(
     action: CommunityAuthenticatedAction,
   ): Promise<void> {
-    if (community.state.authentication.status === "connected") {
-      await action();
+    await onAuthenticationRequired(action);
+  }
+
+  async function signOutCurrentIdentity(): Promise<void> {
+    if (applicationAuthentication?.signOut) {
+      await applicationAuthentication.signOut();
       return;
     }
-    await onAuthenticationRequired(action);
+    await community.actions.disconnectIdentity();
   }
 
   function roomByWorkspaceId(roomId: string): CommunityRoomModel | undefined {
@@ -6463,7 +6473,7 @@
             {...activeConnection?.relayUrl === undefined
               ? {}
               : { communityUrl: activeConnection.relayUrl }}
-            {authenticated}
+            authenticated={signedIn}
             compact={navigationCompact}
             connectionStatus={community.state.status}
             canManageCommunity={activeRoom.permissions?.manageMembers.state ===
@@ -6476,15 +6486,13 @@
             onAction={(action) => {
               if (action === "sign-in") void runAuthenticated(() => {});
               if (action === "sign-out")
-                void community.actions
-                  .disconnectIdentity()
-                  .catch((cause) =>
-                    toast.error(
-                      cause instanceof Error
-                        ? cause.message
-                        : "Could not finish signing out",
-                    ),
-                  );
+                void signOutCurrentIdentity().catch((cause) =>
+                  toast.error(
+                    cause instanceof Error
+                      ? cause.message
+                      : "Could not finish signing out",
+                  ),
+                );
               if (action === "settings") openSettings();
               if (action === "copy-community-url" && activeConnection)
                 void copyText(
@@ -6936,6 +6944,20 @@
           <CommunitySettings
             model={community.state.settings}
             section={settingsSection}
+            account={applicationAuthentication?.account?.()}
+            accountBusy={applicationAuthentication?.status?.() ===
+              "restoring" ||
+              applicationAuthentication?.status?.() === "redirecting"}
+            accountMessage={applicationAuthentication?.status?.() ===
+            "reconnect-required"
+              ? "Reconnect the Nostr signer before an action needs a signature."
+              : ""}
+            onCopyPublicKey={(pubkey) => copyText(pubkey, "Public key copied")}
+            onConnectGitHub={applicationAuthentication?.connectGitHub ===
+            undefined
+              ? undefined
+              : () => applicationAuthentication.connectGitHub?.()}
+            onSignOut={signOutCurrentIdentity}
             {...community.state.operations["settings:profile"] === undefined
               ? {}
               : {

@@ -1,0 +1,164 @@
+.community-account-settings {
+  display: grid;
+  width: min(100%, 52rem);
+  min-width: 0;
+  gap: 2.5rem;
+  margin-inline: auto;
+  padding: clamp(1.5rem, 4vw, 3rem);
+  color: var(--foreground);
+}
+
+.community-account-settings__heading h1,
+.community-account-settings__heading p,
+.community-account-settings__section h2,
+.community-account-settings__empty h2,
+.community-account-settings__empty p,
+.community-account-settings__actions h2,
+.community-account-settings__actions p,
+.community-account-settings__message {
+  margin: 0;
+}
+
+.community-account-settings__heading h1 {
+  font-size: var(--community-text-page);
+  line-height: 1.25;
+}
+
+.community-account-settings__heading p,
+.community-account-settings__rows
+  dd
+  > span:not(.community-account-settings__value-line),
+.community-account-settings__rows small,
+.community-account-settings__empty p,
+.community-account-settings__actions p,
+.community-account-settings__message {
+  color: var(--muted-foreground);
+}
+
+.community-account-settings__heading p {
+  margin-block-start: 0.35rem;
+}
+
+.community-account-settings__section {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.community-account-settings__section > header {
+  padding-inline: 0.75rem;
+}
+
+.community-account-settings__section h2,
+.community-account-settings__empty h2,
+.community-account-settings__actions h2 {
+  font-size: var(--community-text-body);
+  font-weight: 600;
+}
+
+.community-account-settings__rows,
+.community-account-settings__empty,
+.community-account-settings__actions {
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: calc(var(--radius) + 0.25rem);
+  background: var(--background);
+}
+
+.community-account-settings__rows {
+  margin: 0;
+}
+
+.community-account-settings__rows > div {
+  display: grid;
+  grid-template-columns: minmax(8rem, 0.35fr) minmax(0, 0.65fr);
+  gap: 1rem;
+  padding: 1rem;
+}
+
+.community-account-settings__rows > div + div {
+  border-block-start: 1px solid var(--border);
+}
+
+.community-account-settings__rows dt {
+  color: var(--muted-foreground);
+  font-size: var(--community-text-secondary);
+  font-weight: 500;
+}
+
+.community-account-settings__rows dd {
+  display: grid;
+  min-width: 0;
+  justify-items: start;
+  gap: 0.4rem;
+  margin: 0;
+  font-size: var(--community-text-secondary);
+}
+
+.community-account-settings__identities > span {
+  display: grid;
+  gap: 0.1rem;
+}
+
+.community-account-settings__identities small {
+  overflow-wrap: anywhere;
+}
+
+.community-account-settings__pubkey {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+}
+
+.community-account-settings__pubkey code {
+  overflow-wrap: anywhere;
+  color: var(--muted-foreground);
+  font-size: var(--community-text-secondary);
+}
+
+.community-account-settings__value-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.community-account-settings__empty,
+.community-account-settings__actions {
+  padding: 1rem;
+}
+
+.community-account-settings__empty {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.community-account-settings__actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.community-account-settings__actions > div {
+  display: grid;
+  gap: 0.25rem;
+}
+
+@media (max-width: 40rem) {
+  .community-account-settings {
+    padding: 1rem;
+  }
+
+  .community-account-settings__rows > div {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.4rem;
+  }
+
+  .community-account-settings__pubkey {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .community-account-settings__actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+}

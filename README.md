@@ -99,7 +99,7 @@ pnpm local:up
 pnpm dev:community
 ```
 
-The app opens at `http://127.0.0.1:7036`, connects to
+The app opens at `http://community.localhost:7036`, connects to
 `ws://registry.localhost:8281`, discovers public rooms, and uses Vite HMR. Its
 Registry and Projects views read the live signed catalog, discussions, and
 NIP-34 project graph from that stack. `local:up` keeps WalGit and RustFS private
@@ -116,7 +116,10 @@ owned by another checkout is never replaced.
 Guest profile menu exposes browser-extension, NIP-46 remote-signer, ephemeral
 account, and private-key login flows. The Remote signer login collects its
 bunker URL within the host-provided login flow and keeps it only in browser
-memory. Override the relay with `VITE_COMMUNITY_LIVE_RELAY_URL`.
+memory. Set `VITE_COMMUNITY_RELAY_AUTH_URL` to an explicit relay HTTP origin to
+enable Google and GitHub application sessions; relay auth remains disabled when
+the value is absent. Override the event relay with
+`VITE_COMMUNITY_LIVE_RELAY_URL`.
 The Vite development application uses that one endpoint for Community,
 Registry, and Projects so navigation cannot silently cross between relay
 datasets. `VITE_REGISTRY_RELAYS` remains available only to the standalone live

@@ -210,3 +210,8 @@ relay signer accepts only a signed event whose kind, timestamp, content, tags,
 canonical account public key, identifier, and signature match the requested
 template. Relay-backed NIP-44 operations remain bound to that same account
 session and validated peer public key.
+
+Provider callbacks surface only the relay's stable `auth_error` code. Community
+removes that marker from the browser URL before presenting its mapped message;
+OAuth authorization codes, state values, and provider response text never
+enter the application model.

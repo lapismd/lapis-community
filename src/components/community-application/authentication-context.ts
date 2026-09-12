@@ -1,10 +1,16 @@
 import { getContext, setContext } from "svelte";
 
 import type { RegistrySigner } from "../../auth/index.js";
+import type { CommunityAccountSession } from "../../auth/index.js";
+import type { CommunityApplicationAuthenticationStatus } from "./model.js";
 
 export interface CommunityApplicationAuthenticationContext {
   requestAuthentication(action: () => void | Promise<void>): Promise<void>;
   identity(): RegistrySigner | undefined;
+  account?(): CommunityAccountSession | undefined;
+  status?(): CommunityApplicationAuthenticationStatus;
+  connectGitHub?(): Promise<void>;
+  signOut?(): Promise<void>;
 }
 
 const authenticationContextKey = Symbol("community-application-authentication");

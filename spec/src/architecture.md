@@ -265,3 +265,9 @@ controller starts capture for only the selected signed-in community and
 invalidates its private decoded state during identity or community changes.
 
 UI composition ownership is additive: Design Core owns shared dialog and confirmation recipes; Community exports its avatar picker, reactions, and skeleton compositions and an optional composer form mode. The public catalog uses compiled examples with source imports during Storybook acceptance, while packaged consumer validation checks the actual dependency artifact. These changes do not grant agent-management capabilities or alter relay protocols.
+
+For LC-ARCH-023, `CommunityApplication` consumes relay authentication only
+through its optional public adapter and application authentication context.
+The adapter's restored identity enters the existing controller connector;
+account metadata stays presentation-only. Hosts that omit the adapter retain
+the existing NIP-07, NIP-46, local identity, and public browsing behavior.

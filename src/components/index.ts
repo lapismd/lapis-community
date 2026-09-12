@@ -1,7 +1,20 @@
 import "./community-typography.css";
 import "./community-overlays.css";
 export { default as CommunityApplication } from "./community-application/CommunityApplicationRoot.svelte";
-export type { CommunityApplicationLoginOptions } from "./community-application/model.js";
+export type {
+  CommunityApplicationAccountState,
+  CommunityApplicationAuthenticationStatus,
+  CommunityApplicationAuthAdapter,
+  CommunityApplicationLoginOptions,
+} from "./community-application/model.js";
+export { default as CommunityAccountSettings } from "./community-account-settings/CommunityAccountSettings.svelte";
+export {
+  communityAccountSignerDetails,
+  communityGitHubActionLabel,
+  formatCommunityAccountExpiry,
+  type CommunityAccountModel,
+  type CommunityAccountSignerDetails,
+} from "./community-account-settings/model.js";
 export { default as CommunityChip } from "./community-chip/CommunityChip.svelte";
 export {
   COMMUNITY_CHIP_SIZES,

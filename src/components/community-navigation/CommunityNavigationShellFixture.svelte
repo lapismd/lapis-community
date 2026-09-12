@@ -13,6 +13,7 @@
   import CommunityProfileMenu from "../community-profile-menu/CommunityProfileMenu.svelte";
   import CommunitySettingsNavigation from "../community-settings-navigation/CommunitySettingsNavigation.svelte";
   import CommunitySettings from "../community-settings/CommunitySettings.svelte";
+  import type { CommunitySettingsSection } from "../community-settings/model.js";
   import CommunityNavigation from "./CommunityNavigation.svelte";
   import { communityNavigationFixture } from "./story-fixtures.js";
   import type {
@@ -51,7 +52,7 @@
   let community = $state<CommunityController>();
   let runtimeError = $state("");
   let activeDestination = $state(untrack(() => initialActiveItemId));
-  let settingsSection = $state<"profile" | "custom-emoji">("profile");
+  let settingsSection = $state<CommunitySettingsSection>("profile");
   let presencePreference = $state<"online" | "away" | "offline">("online");
   let selectedInboxItemId = $state("");
   let channelSettingsAction = $state("");

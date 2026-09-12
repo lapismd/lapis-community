@@ -6,6 +6,11 @@
   color: var(--foreground);
 }
 
+.community-settings:has(> .community-account-settings) {
+  width: 100%;
+  padding: 0;
+}
+
 .community-settings__heading {
   margin-block-end: 2.25rem;
 }

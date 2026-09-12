@@ -24,4 +24,16 @@ describe("community dev relay configuration", () => {
       registryRelays: [DEFAULT_COMMUNITY_DEV_RELAY_URL],
     });
   });
+
+  it("enables relay application auth only with an explicit HTTP origin", () => {
+    expect(
+      resolveCommunityDevRelayConfiguration({
+        VITE_COMMUNITY_RELAY_AUTH_URL: " http://registry.localhost:8281/path ",
+      }),
+    ).toEqual({
+      relayUrl: DEFAULT_COMMUNITY_DEV_RELAY_URL,
+      registryRelays: [DEFAULT_COMMUNITY_DEV_RELAY_URL],
+      authUrl: "http://registry.localhost:8281",
+    });
+  });
 });

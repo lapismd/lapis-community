@@ -1,6 +1,7 @@
 <script lang="ts">
   import { Button } from "@lapismd/design-core/shadcn/button";
   import ArrowLeftIcon from "@lucide/svelte/icons/arrow-left";
+  import KeyRoundIcon from "@lucide/svelte/icons/key-round";
   import SmileIcon from "@lucide/svelte/icons/smile";
   import UserRoundIcon from "@lucide/svelte/icons/user-round";
 
@@ -29,6 +30,16 @@
   </Button>
   <section>
     <h2>Personal</h2>
+    <Button
+      variant="ghost"
+      class="community-settings-navigation__item"
+      data-active={section === "account" ? "" : undefined}
+      aria-pressed={section === "account"}
+      onclick={() => onSelect("account")}
+    >
+      <KeyRoundIcon data-icon="inline-start" aria-hidden="true" />
+      Account
+    </Button>
     <Button
       variant="ghost"
       class="community-settings-navigation__item"

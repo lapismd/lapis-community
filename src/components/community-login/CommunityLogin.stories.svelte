@@ -36,6 +36,20 @@
       canvas.getByRole("heading", { name: "Connect to Nostr" }),
     ).toBeVisible();
     await expect(
+      canvas.getByRole("button", { name: /Continue with GitHub/u }),
+    ).toBeVisible();
+    await expect(
+      canvas.getByRole("button", { name: /Continue with Google/u }),
+    ).toBeVisible();
+    await expect(canvas.getByText("Or use a Nostr signer")).toBeVisible();
+    const methodButtons = canvas.getAllByRole("button");
+    await expect(methodButtons[0]).toHaveAccessibleName(
+      /Continue with GitHub/u,
+    );
+    await expect(methodButtons[1]).toHaveAccessibleName(
+      /Continue with Google/u,
+    );
+    await expect(
       canvas.getByRole("button", { name: /Browser extension/u }),
     ).toBeVisible();
     await expect(

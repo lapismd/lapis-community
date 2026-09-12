@@ -1,1 +1,1 @@
-export type CommunitySettingsSection = "profile" | "custom-emoji";
+export type CommunitySettingsSection = "account" | "profile" | "custom-emoji";

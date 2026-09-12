@@ -1,5 +1,6 @@
 <script lang="ts">
   import {
+    RelayAuthClient,
     SecretKeyRegistrySigner,
     Nip07RegistrySigner,
   } from "../../src/auth/index.js";
@@ -30,9 +31,8 @@
   import { generateSecretKey } from "nostr-tools/pure";
   import { onMount } from "svelte";
 
-  const { relayUrl, registryRelays } = resolveCommunityDevRelayConfiguration(
-    import.meta.env,
-  );
+  const { relayUrl, registryRelays, authUrl } =
+    resolveCommunityDevRelayConfiguration(import.meta.env);
   const values = (value: string | undefined): string[] =>
     (value ?? "")
       .split(",")
@@ -82,6 +82,13 @@
   let runtimeError = $state("");
   let activeBunker = $state.raw<BunkerSigner>();
   let activeIdentity = $state.raw<CommunityIdentity>();
+  const relayAuth =
+    authUrl === undefined
+      ? undefined
+      : new RelayAuthClient({
+          relayUrl: authUrl,
+          connectIdentity,
+        });
 
   $effect(() => {
     if (controller?.state.authentication.status === "anonymous") {
@@ -230,6 +237,7 @@
             methods: loginMethods,
             allowLocalKeyMethods: true,
             connect: connectIdentity,
+            ...(relayAuth === undefined ? {} : { auth: relayAuth }),
             title: "Sign in to the live community",
             description: "Choose a development identity provider",
           }}

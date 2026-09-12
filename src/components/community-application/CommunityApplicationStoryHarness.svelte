@@ -28,6 +28,7 @@
     type CommunityStoryRuntime,
   } from "../../testing/index.js";
   import type { CommunityLoginCredentials } from "../community-login/model.js";
+  import type { CommunityAccountSession } from "../../auth/index.js";
   import RegistryCommunityStoryHarness from "../registry-community/RegistryCommunityStoryHarness.svelte";
   import { createRegistryStoryDataSource } from "../registry-browser/story-fixtures.js";
   import {
@@ -35,6 +36,7 @@
     seedProjectStoryRelay,
   } from "../community-projects/story-fixtures.js";
   import CommunityApplication from "./CommunityApplicationRoot.svelte";
+  import type { CommunityApplicationAuthAdapter } from "./model.js";
   import {
     COMMUNITY_APPLICATION_DESTINATION_STORAGE_KEY,
     COMMUNITY_APPLICATION_SHELL_LAYOUT_STORAGE_KEY,
@@ -58,6 +60,7 @@
     projects = false,
     emptyProjects = false,
     projectBackend = "walgit",
+    relayAuthMode,
   }: {
     signedIn?: boolean;
     responsive?: boolean;
@@ -75,6 +78,7 @@
     projects?: boolean;
     emptyProjects?: boolean;
     projectBackend?: "github" | "walgit";
+    relayAuthMode?: "managed" | "external" | "expiring";
   } = $props();
 
   let runtime = $state.raw<CommunityStoryRuntime>();
@@ -87,6 +91,10 @@
   );
   let applicationGeneration = $state(0);
   let storyInviteUri = $state("");
+  let relayAuthPubkey = $state("");
+  let relayAuthSignOutCount = $state(0);
+  let relayAuthSignOutControllerStatus = $state("");
+  let relayAuthGitHubConnectCount = $state(0);
   let installedPluginIds = $state<string[]>([]);
   let progressiveRetryTimer: number | undefined;
   const storyShellController = new AppShellController({ rightClosed: true });
@@ -98,6 +106,86 @@
         .flatMap((section) => section.rooms)
         .find((room) => room.id === workspace.activeRoomId)?.membership ?? ""
     );
+  });
+  const relayAuthAdapter = $derived.by<
+    CommunityApplicationAuthAdapter | undefined
+  >(() => {
+    if (!runtime || !relayAuthMode || !relayAuthPubkey) return undefined;
+    const session: CommunityAccountSession = {
+      account: {
+        id: `storybook-${relayAuthMode}`,
+        nostr_pubkey: relayAuthPubkey,
+        created_at: "2026-09-12T10:00:00Z",
+      },
+      auth_provider: relayAuthMode === "external" ? "nostr" : "google",
+      expires_at: "2026-09-19T10:00:00Z",
+      identities:
+        relayAuthMode !== "external"
+          ? [
+              {
+                provider: "google",
+                login: "steve@example.com",
+                display_name: "Steve Storybook",
+              },
+            ]
+          : [],
+      github_status: relayAuthMode === "external" ? "revoked" : "unlinked",
+      signer_type: relayAuthMode === "external" ? "external" : "managed",
+      signer_status: "active",
+      passkey_count: relayAuthMode === "external" ? 0 : 1,
+    };
+    const config = {
+      providers: ["github", "google"] as const,
+      capabilities: {
+        github_linking: true,
+        managed_signing: true,
+        nip44: true,
+        nip46: true,
+        nostr_login: true,
+      },
+    };
+    return {
+      restore: async () =>
+        relayAuthMode !== "external"
+          ? {
+              status: "connected" as const,
+              config,
+              session,
+              identity:
+                relayAuthMode === "expiring"
+                  ? {
+                      getPublicKey: () =>
+                        runtime!.scenario.operator.getPublicKey(),
+                      signEvent: async (template) => {
+                        if (template.kind === 7) {
+                          const { RelayAuthSessionExpiredError } = await import(
+                            "../../auth/index.js"
+                          );
+                          throw new RelayAuthSessionExpiredError();
+                        }
+                        return await runtime!.scenario.operator.signEvent(
+                          template,
+                        );
+                      },
+                    }
+                  : runtime!.scenario.operator,
+            }
+          : { status: "reconnect-required" as const, config, session },
+      connect: async (methodId, credentials) => ({
+        status: "connected" as const,
+        config,
+        session,
+        identity: await connectStoryIdentity(methodId, credentials),
+      }),
+      connectGitHub: async () => {
+        relayAuthGitHubConnectCount += 1;
+      },
+      signOut: async () => {
+        relayAuthSignOutControllerStatus =
+          community?.state.authentication.status ?? "missing";
+        relayAuthSignOutCount += 1;
+      },
+    };
   });
 
   function observeProjectSource(
@@ -174,6 +262,7 @@
             return;
           }
           runtime = created;
+          relayAuthPubkey = await created.scenario.operator.getPublicKey();
           if (
             projects &&
             created.backend !== "memory" &&
@@ -495,6 +584,9 @@
       data-story-invite-uri={storyInviteUri}
       data-application-generation={applicationGeneration}
       data-project-session-open-count={projectSessionOpenCount}
+      data-story-relay-auth-sign-out-count={relayAuthSignOutCount}
+      data-story-relay-auth-sign-out-controller-status={relayAuthSignOutControllerStatus}
+      data-story-relay-auth-github-connect-count={relayAuthGitHubConnectCount}
       registryOptions={{
         source: registrySource,
         discussion: registryDiscussion,
@@ -512,12 +604,15 @@
         },
       }}
       {...projects ? { projectsOptions: { source: projectSource } } : {}}
-      {...signedIn
+      {...signedIn && relayAuthAdapter === undefined
         ? {}
         : {
             loginOptions: {
               allowLocalKeyMethods: true,
               connect: connectStoryIdentity,
+              ...(relayAuthAdapter === undefined
+                ? {}
+                : { auth: relayAuthAdapter }),
             },
           }}
     />

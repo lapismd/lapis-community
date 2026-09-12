@@ -520,6 +520,10 @@
         "1",
       ),
     );
+    await expect(application).toHaveAttribute(
+      "data-story-relay-auth-sign-out-controller-status",
+      "connected",
+    );
     const repositoriesTab = canvas.getByRole("tab", { name: "Repositories" });
     await waitFor(
       () =>
@@ -1072,6 +1076,162 @@
       initialDestination="pulse"
       pulseFixtures
       signedIn={false}
+    />
+  {/snippet}
+</Story>
+
+<Story
+  name="Relay managed account restoration and sign out"
+  play={async ({ canvas }) => {
+    const application = await canvas.findByTestId(
+      "full-community-application",
+      {},
+      { timeout: 15_000 },
+    );
+    await userEvent.click(
+      await canvas.findByRole("button", { name: "Account" }),
+    );
+    await expect(
+      await canvas.findByRole("heading", { name: "Account" }),
+    ).toBeVisible();
+    await expect(canvas.getByText("Managed by Lapis")).toBeVisible();
+    await expect(
+      canvas.getByRole("button", { name: "Connect GitHub" }),
+    ).toBeVisible();
+    await userEvent.click(canvas.getByRole("button", { name: "Sign out" }));
+    await waitFor(() =>
+      expect(application).toHaveAttribute(
+        "data-story-relay-auth-sign-out-count",
+        "1",
+      ),
+    );
+  }}
+>
+  {#snippet template()}
+    <CommunityApplicationStoryHarness
+      namespace="managed-relay-auth"
+      initialDestination="settings"
+      signedIn={false}
+      relayAuthMode="managed"
+    />
+  {/snippet}
+</Story>
+
+<Story
+  name="Relay external signer account details"
+  globals={{ colorMode: "dark", viewport: { value: "mobile1" } }}
+  play={async ({ canvas }) => {
+    await userEvent.click(
+      await canvas.findByRole("button", { name: "Open navigation sidebar" }),
+    );
+    await userEvent.click(
+      await canvas.findByRole("button", { name: "Account" }),
+    );
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Close left sidebar" }),
+    );
+    await expect(canvas.getByText("Browser/device signer")).toBeVisible();
+    await expect(
+      canvas.getByText(
+        "Reconnect the Nostr signer before an action needs a signature.",
+      ),
+    ).toBeVisible();
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Reconnect GitHub" }),
+    );
+    await expect(
+      await canvas.findByTestId("full-community-application"),
+    ).toHaveAttribute("data-story-relay-auth-github-connect-count", "1");
+  }}
+>
+  {#snippet template()}
+    <CommunityApplicationStoryHarness
+      namespace="external-relay-auth-account"
+      initialDestination="settings"
+      signedIn={false}
+      relayAuthMode="external"
+      responsive
+    />
+  {/snippet}
+</Story>
+
+<Story
+  name="Relay signer reconnection resumes protected action"
+  play={async ({ canvas, canvasElement }) => {
+    await userEvent.click(
+      await canvas.findByRole("tab", { name: "Liked" }, { timeout: 15_000 }),
+    );
+    const overlay = within(canvasElement.ownerDocument.body);
+    const dialog = await overlay.findByRole("dialog", {
+      name: "Sign in to Community",
+    });
+    const login = within(dialog);
+    const methods = login.getAllByRole("button");
+    await expect(methods[1]).toHaveAccessibleName(/Continue with GitHub/u);
+    await expect(methods[2]).toHaveAccessibleName(/Continue with Google/u);
+    await userEvent.click(
+      login.getByRole("button", { name: /Browser extension/u }),
+    );
+    await waitFor(() => expect(dialog).not.toBeInTheDocument(), {
+      timeout: 8_000,
+    });
+    await expect(canvas.getByRole("tab", { name: "Liked" })).toHaveAttribute(
+      "data-state",
+      "active",
+    );
+  }}
+>
+  {#snippet template()}
+    <CommunityApplicationStoryHarness
+      namespace="external-relay-auth-resume"
+      initialDestination="pulse"
+      pulseFixtures
+      signedIn={false}
+      relayAuthMode="external"
+    />
+  {/snippet}
+</Story>
+
+<Story
+  name="Expired relay signer resumes protected action"
+  play={async ({ canvas, canvasElement }) => {
+    const reaction = (
+      await canvas.findAllByRole(
+        "button",
+        { name: /^(?:Like|Unlike) .+'s note$/u },
+        { timeout: 15_000 },
+      )
+    )[0]!;
+    const reactionName = reaction.getAttribute("aria-label")!;
+    await userEvent.click(reaction);
+    const dialog = await within(canvasElement.ownerDocument.body).findByRole(
+      "dialog",
+      { name: "Sign in to Community" },
+    );
+    await expect(within(dialog).getByRole("alert")).toHaveTextContent(
+      "Your session has expired. Sign in again.",
+    );
+    await userEvent.click(
+      within(dialog).getByRole("button", { name: /Browser extension/u }),
+    );
+    await waitFor(() => expect(dialog).not.toBeInTheDocument(), {
+      timeout: 8_000,
+    });
+    const resumedName = reactionName.startsWith("Like ")
+      ? reactionName.replace(/^Like /u, "Unlike ")
+      : reactionName.replace(/^Unlike /u, "Like ");
+    await expect(
+      canvas.getByRole("button", { name: resumedName }),
+    ).toBeVisible();
+  }}
+>
+  {#snippet template()}
+    <CommunityApplicationStoryHarness
+      namespace="expired-relay-auth-resume"
+      initialDestination="pulse"
+      pulseFixtures
+      signedIn={false}
+      relayAuthMode="expiring"
     />
   {/snippet}
 </Story>

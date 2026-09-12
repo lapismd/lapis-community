@@ -94,3 +94,9 @@ fix and verifies it with cold application navigation. Unrelated dependency
 resolutions remain unchanged. Visual baseline approval remains manual.
 
 UI changes follow catalog discovery, API/example inspection, composition, and contract verification. `pnpm check:ui` is included in `check` and the specification check lanes, and therefore in `checks`. New variants update the owning component, its catalog entry, and interaction coverage together. Changed visual stories remain pending human review; automated checks never approve baselines.
+
+The dedicated Community Vite application enables relay application
+authentication only when `VITE_COMMUNITY_RELAY_AUTH_URL` supplies an explicit
+HTTP origin. The WebSocket relay remains the single Community, Registry, and
+Projects event endpoint; the optional HTTP origin is used only for the relay's
+application-session API.

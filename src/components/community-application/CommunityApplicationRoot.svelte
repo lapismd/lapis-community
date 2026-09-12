@@ -3,8 +3,16 @@
   import { Button } from "@lapismd/design-core/shadcn/button";
   import * as Dialog from "@lapismd/design-core/shadcn/dialog";
   import XIcon from "@lucide/svelte/icons/x";
-  import { tick, type ComponentProps } from "svelte";
+  import { onMount, tick, untrack, type ComponentProps } from "svelte";
 
+  import {
+    isRelayAuthSessionExpiredError,
+    RelayAuthError,
+    type CommunityAccountSession,
+    type CommunityRelayAuthConfig,
+    type RelayAuthConnectResult,
+    type RelayAuthRestoreResult,
+  } from "../../auth/index.js";
   import { readCommunityControllerIdentity } from "../../community/controller-identity-context.js";
   import type { CommunityIdentity } from "../../community/index.js";
   import CommunityLogin from "../community-login/CommunityLogin.svelte";
@@ -15,7 +23,10 @@
   } from "../community-login/model.js";
   import CommunityAuthenticatedApplication from "./CommunityApplication.svelte";
   import { provideCommunityApplicationAuthentication } from "./authentication-context.js";
-  import type { CommunityApplicationLoginOptions } from "./model.js";
+  import type {
+    CommunityApplicationAuthenticationStatus,
+    CommunityApplicationLoginOptions,
+  } from "./model.js";
 
   type AuthenticatedApplicationProps = ComponentProps<
     typeof CommunityAuthenticatedApplication
@@ -40,14 +51,22 @@
   let loginError = $state("");
   let pendingAction = $state<PendingAction>();
   let connectedIdentity = $state<CommunityIdentity>();
+  let accountSession = $state<CommunityAccountSession>();
+  let authConfig = $state<CommunityRelayAuthConfig>();
+  let relayAuthStatus = $state<CommunityApplicationAuthenticationStatus>(
+    untrack(() => (loginOptions?.auth ? "restoring" : "idle")),
+  );
   const loginMethods = $derived<readonly CommunityLoginMethodModel[]>(
     resolveCommunityLoginMethods(
       loginOptions?.methods,
       loginOptions?.allowLocalKeyMethods ?? false,
+      authConfig?.providers ?? [],
     ),
   );
   const loginBusy = $derived(
     pendingLoginMethodId !== "" ||
+      relayAuthStatus === "restoring" ||
+      relayAuthStatus === "redirecting" ||
       controller.state.authentication.status === "connecting",
   );
   const loginMessage = $derived(
@@ -64,6 +83,18 @@
         authenticatedProps.registryOptions?.discussionIdentity
       );
     },
+    account: () => accountSession,
+    status: () => relayAuthStatus,
+    connectGitHub,
+    signOut,
+  });
+
+  onMount(() => {
+    const auth = loginOptions?.auth;
+    if (auth === undefined) return;
+    const unsubscribe = auth.onSessionExpired?.(handleSessionExpired);
+    void restoreAuthentication();
+    return unsubscribe;
   });
 
   $effect(() => {
@@ -72,10 +103,71 @@
     }
   });
 
-  function requestAuthentication(action: AuthenticatedAction): Promise<void> {
-    if (controller.state.authentication.status === "connected")
-      return Promise.resolve(action()).then(() => undefined);
-    loginError = "";
+  async function restoreAuthentication(): Promise<void> {
+    const auth = loginOptions?.auth;
+    if (auth === undefined) return;
+    relayAuthStatus = "restoring";
+    try {
+      await applyAuthResult(await auth.restore());
+    } catch (cause) {
+      accountSession = undefined;
+      relayAuthStatus = "anonymous";
+      loginError =
+        cause instanceof Error
+          ? cause.message
+          : "Account restoration could not be completed";
+      if (cause instanceof RelayAuthError && cause.status === 400) {
+        loginOpen = true;
+      }
+    }
+  }
+
+  async function applyAuthResult(
+    result: RelayAuthRestoreResult | RelayAuthConnectResult,
+  ): Promise<void> {
+    authConfig = result.config;
+    if (result.status === "redirecting") {
+      relayAuthStatus = "redirecting";
+      return;
+    }
+    if (result.status === "anonymous") {
+      accountSession = undefined;
+      connectedIdentity = undefined;
+      relayAuthStatus = "anonymous";
+      return;
+    }
+    accountSession = result.session;
+    if (result.status === "reconnect-required") {
+      connectedIdentity = undefined;
+      relayAuthStatus = "reconnect-required";
+      if (controller.state.authentication.status === "connected") {
+        await controller.actions.disconnectIdentity();
+      }
+      return;
+    }
+    await controller.actions.connectIdentity({
+      connect: async () => result.identity,
+    });
+    connectedIdentity = result.identity;
+    relayAuthStatus = "connected";
+  }
+
+  function handleSessionExpired(): void {
+    accountSession = undefined;
+    connectedIdentity = undefined;
+    relayAuthStatus = "anonymous";
+    loginError = "Your session has expired. Sign in again.";
+    loginOpen = true;
+    if (controller.state.authentication.status === "connected") {
+      void controller.actions.disconnectIdentity();
+    }
+  }
+
+  function queueAuthentication(
+    action: AuthenticatedAction,
+    clearError = true,
+  ): Promise<void> {
+    if (clearError) loginError = "";
     loginOpen = true;
     return new Promise((resolve, reject) => {
       pendingAction?.resolve();
@@ -85,6 +177,23 @@
         reject,
       };
     });
+  }
+
+  async function requestAuthentication(
+    action: AuthenticatedAction,
+  ): Promise<void> {
+    if (controller.state.authentication.status !== "connected") {
+      return await queueAuthentication(action);
+    }
+    try {
+      await action();
+    } catch (cause) {
+      if (isRelayAuthSessionExpiredError(cause)) {
+        handleSessionExpired();
+        return await queueAuthentication(action, false);
+      }
+      throw cause;
+    }
   }
 
   function handleLoginOpenChange(next: boolean): void {
@@ -102,7 +211,15 @@
     pendingLoginMethodId = methodId;
     loginError = "";
     try {
-      if (loginOptions?.connect) {
+      if (loginOptions?.auth) {
+        await applyAuthResult(
+          await loginOptions.auth.connect(methodId, credentials),
+        );
+        if (relayAuthStatus === "redirecting") return;
+        if (relayAuthStatus === "reconnect-required") {
+          throw new Error("Reconnect the Nostr signer for this account");
+        }
+      } else if (loginOptions?.connect) {
         const identity = await loginOptions.connect(methodId, credentials);
         await controller.actions.connectIdentity({
           connect: async () => identity,
@@ -140,6 +257,28 @@
       pendingLoginMethodId = "";
     }
   }
+
+  async function connectGitHub(): Promise<void> {
+    const auth = loginOptions?.auth;
+    if (auth === undefined) {
+      throw new Error("GitHub account linking is not configured");
+    }
+    relayAuthStatus = "redirecting";
+    try {
+      await auth.connectGitHub();
+    } catch (cause) {
+      relayAuthStatus = accountSession ? "connected" : "anonymous";
+      throw cause;
+    }
+  }
+
+  async function signOut(): Promise<void> {
+    if (loginOptions?.auth) await loginOptions.auth.signOut();
+    await controller.actions.disconnectIdentity();
+    connectedIdentity = undefined;
+    accountSession = undefined;
+    relayAuthStatus = loginOptions?.auth ? "anonymous" : "idle";
+  }
 </script>
 
 <CommunityAuthenticatedApplication
@@ -150,12 +289,17 @@
 
 <Dialog.Root bind:open={loginOpen} onOpenChange={handleLoginOpenChange}>
   <DialogFrame size="form">
-    {#snippet title()}{loginOptions?.title ?? "Connect to Nostr"}{/snippet}
+    {#snippet title()}
+      {loginOptions?.title ??
+        (loginOptions?.auth ? "Sign in to Community" : "Connect to Nostr")}
+    {/snippet}
 
     <CommunityLogin
       methods={loginMethods}
       footnote={loginOptions?.footnote ??
-        "Your identity stays under your control. Lapis only requests signatures for actions you approve."}
+        (loginOptions?.auth
+          ? "Google and GitHub use an encrypted Nostr identity managed by Lapis. Browser and remote signers keep signing with your existing Nostr key."
+          : "Your identity stays under your control. Lapis only requests signatures for actions you approve.")}
       busy={loginBusy}
       pendingMethodId={pendingLoginMethodId}
       error={loginMessage}

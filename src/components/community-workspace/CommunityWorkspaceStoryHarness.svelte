@@ -24,6 +24,7 @@
   import CommunityProfileMenu from "../community-profile-menu/CommunityProfileMenu.svelte";
   import CommunitySettingsNavigation from "../community-settings-navigation/CommunitySettingsNavigation.svelte";
   import CommunitySettings from "../community-settings/CommunitySettings.svelte";
+  import type { CommunitySettingsSection } from "../community-settings/model.js";
   import CommunityThreadPanel from "../community-thread-panel/CommunityThreadPanel.svelte";
   import CommunityWorkspaceSurface from "./CommunityWorkspaceSurface.svelte";
   import {
@@ -48,7 +49,7 @@
   let runtimeError = $state("");
   let lastAction = $state("ready");
   let showSettings = $state(false);
-  let settingsSection = $state<"profile" | "custom-emoji">("profile");
+  let settingsSection = $state<CommunitySettingsSection>("profile");
   let requestedSidePanel = $state<CommunitySidePanel>(
     untrack(() => initialModel.sidePanel ?? "none"),
   );

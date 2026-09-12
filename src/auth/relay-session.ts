@@ -115,6 +115,7 @@ export interface RelayAuthClientOptions {
   fetch?: typeof globalThis.fetch;
   navigate?: (url: string) => void;
   currentUrl?: () => string;
+  replaceUrl?: (url: string) => void;
   connectIdentity?: (
     methodId: string,
     credentials?: RelayAuthLoginCredentials,
@@ -212,6 +213,7 @@ export class RelayAuthClient {
   readonly #fetch: typeof globalThis.fetch;
   readonly #navigate: (url: string) => void;
   readonly #currentUrl: () => string;
+  readonly #replaceUrl: (url: string) => void;
   readonly #connectIdentity?: RelayAuthClientOptions["connectIdentity"];
   readonly #sessionExpiredListeners = new Set<() => void>();
   #config?: CommunityRelayAuthConfig;
@@ -234,6 +236,9 @@ export class RelayAuthClient {
       options.navigate ?? ((url) => globalThis.window.location.assign(url));
     this.#currentUrl =
       options.currentUrl ?? (() => globalThis.window.location.href);
+    this.#replaceUrl =
+      options.replaceUrl ??
+      ((url) => globalThis.window.history.replaceState(null, "", url));
     this.#connectIdentity = options.connectIdentity;
   }
 
@@ -257,6 +262,10 @@ export class RelayAuthClient {
 
   async restore(): Promise<RelayAuthRestoreResult> {
     const config = await this.getConfig();
+    const providerError = this.#consumeProviderReturnError();
+    if (providerError !== undefined) {
+      throw new RelayAuthError(providerError, 400);
+    }
     let session: CommunityAccountSession;
     try {
       session = await this.getSession();
@@ -440,6 +449,21 @@ export class RelayAuthClient {
     }
     if (methodId === "browser-extension") return new Nip07RegistrySigner();
     throw new Error("This Nostr login method is not configured");
+  }
+
+  #consumeProviderReturnError(): string | undefined {
+    try {
+      const current = new URL(this.#currentUrl());
+      const error = current.searchParams.get("auth_error");
+      if (error === null) return undefined;
+      current.searchParams.delete("auth_error");
+      this.#replaceUrl(current.toString());
+      return /^[a-z0-9_]{1,64}$/u.test(error)
+        ? error
+        : "provider_authentication_failed";
+    } catch {
+      return undefined;
+    }
   }
 
   async #request(

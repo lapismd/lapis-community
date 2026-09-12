@@ -5,6 +5,7 @@
   import { Input } from "@lapismd/design-core/shadcn/input";
   import { Spinner } from "@lapismd/design-core/shadcn/spinner";
   import CircleAlertIcon from "@lucide/svelte/icons/circle-alert";
+  import GitBranchIcon from "@lucide/svelte/icons/git-branch";
   import KeyRoundIcon from "@lucide/svelte/icons/key-round";
   import LockKeyholeIcon from "@lucide/svelte/icons/lock-keyhole";
   import ShieldCheckIcon from "@lucide/svelte/icons/shield-check";
@@ -114,11 +115,24 @@
   }
 
   function methodIcon(kind: CommunityLoginMethodKind): Component {
+    if (kind === "github") return GitBranchIcon;
     if (kind === "browser-extension") return LockKeyholeIcon;
     if (kind === "remote-signer") return ShieldCheckIcon;
     if (kind === "create-account") return SparklesIcon;
     if (kind === "private-key") return KeyRoundIcon;
     return UserRoundIcon;
+  }
+
+  function isProviderMethod(method: CommunityLoginMethodModel): boolean {
+    return method.kind === "github" || method.kind === "google";
+  }
+
+  function startsNostrMethods(index: number): boolean {
+    return (
+      index > 0 &&
+      isProviderMethod(methods[index - 1]!) &&
+      !isProviderMethod(methods[index]!)
+    );
   }
 </script>
 
@@ -234,7 +248,12 @@
         </form>
       {:else if methods.length > 0}
         <div class="community-login__methods">
-          {#each methods as method (method.id)}
+          {#each methods as method, index (method.id)}
+            {#if startsNostrMethods(index)}
+              <div class="community-login__divider" aria-hidden="true">
+                <span>Or use a Nostr signer</span>
+              </div>
+            {/if}
             {@const MethodIcon = methodIcon(method.kind)}
             {@const pending = busy && pendingMethodId === method.id}
             <Button
@@ -336,6 +355,23 @@
 
   .community-login__methods {
     gap: 0.625rem;
+  }
+
+  .community-login__divider {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-block: 0.25rem;
+    color: var(--muted-foreground);
+    font-size: var(--community-text-secondary);
+  }
+
+  .community-login__divider::before,
+  .community-login__divider::after {
+    height: 1px;
+    flex: 1;
+    background: var(--border);
+    content: "";
   }
 
   .community-login__credential-form {

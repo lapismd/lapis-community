@@ -1,4 +1,6 @@
 export type CommunityLoginMethodKind =
+  | "github"
+  | "google"
   | "browser-extension"
   | "remote-signer"
   | "create-account"
@@ -19,6 +21,18 @@ export interface CommunityLoginCredentials {
 }
 
 export const COMMUNITY_LOGIN_METHODS = {
+  github: {
+    id: "github",
+    kind: "github",
+    label: "Continue with GitHub",
+    description: "Sign in and use your GitHub identity for Forge actions",
+  },
+  google: {
+    id: "google",
+    kind: "google",
+    label: "Continue with Google",
+    description: "Create or restore a managed Nostr identity",
+  },
   browserExtension: {
     id: "browser-extension",
     kind: "browser-extension",
@@ -54,17 +68,24 @@ export const DEFAULT_COMMUNITY_LOGIN_METHODS: readonly CommunityLoginMethodModel
 export function resolveCommunityLoginMethods(
   methods: readonly CommunityLoginMethodModel[] = DEFAULT_COMMUNITY_LOGIN_METHODS,
   allowLocalKeyMethods = false,
+  providers: readonly ("github" | "google")[] = [],
 ): readonly CommunityLoginMethodModel[] {
   const visible = methods.filter(
     (method) =>
       allowLocalKeyMethods ||
       (method.kind !== "create-account" && method.kind !== "private-key"),
   );
-  if (!allowLocalKeyMethods || methods !== DEFAULT_COMMUNITY_LOGIN_METHODS)
-    return visible;
+  const nostrMethods =
+    !allowLocalKeyMethods || methods !== DEFAULT_COMMUNITY_LOGIN_METHODS
+      ? visible
+      : [
+          ...visible,
+          COMMUNITY_LOGIN_METHODS.createAccount,
+          COMMUNITY_LOGIN_METHODS.privateKey,
+        ];
   return [
-    ...visible,
-    COMMUNITY_LOGIN_METHODS.createAccount,
-    COMMUNITY_LOGIN_METHODS.privateKey,
+    ...(providers.includes("github") ? [COMMUNITY_LOGIN_METHODS.github] : []),
+    ...(providers.includes("google") ? [COMMUNITY_LOGIN_METHODS.google] : []),
+    ...nostrMethods,
   ];
 }

@@ -33,7 +33,15 @@ describe("resolveCommunityLoginMethods", () => {
     const methods = Object.values(COMMUNITY_LOGIN_METHODS);
     expect(
       resolveCommunityLoginMethods(methods).map((method) => method.kind),
-    ).toEqual(["browser-extension", "remote-signer"]);
+    ).toEqual(["github", "google", "browser-extension", "remote-signer"]);
     expect(resolveCommunityLoginMethods(methods, true)).toEqual(methods);
+  });
+
+  it("orders relay providers before the default Nostr signer methods", () => {
+    expect(
+      resolveCommunityLoginMethods(undefined, false, ["google", "github"]).map(
+        (method) => method.kind,
+      ),
+    ).toEqual(["github", "google", "browser-extension", "remote-signer"]);
   });
 });

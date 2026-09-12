@@ -25,13 +25,18 @@ function fixtureValue(name: string): string {
   return line?.slice(name.length + 1).trim() ?? "";
 }
 
-const { relayUrl } = resolveCommunityDevRelayConfiguration(process.env);
+const { relayUrl, authUrl } = resolveCommunityDevRelayConfiguration(
+  process.env,
+);
 
 export default defineConfig({
   root: path.join(packageDirectory, "dev/community"),
   plugins: [tursoBundleBuildPlugin(), tailwindcss(), svelte()],
   define: {
     "import.meta.env.VITE_COMMUNITY_LIVE_RELAY_URL": JSON.stringify(relayUrl),
+    "import.meta.env.VITE_COMMUNITY_RELAY_AUTH_URL": JSON.stringify(
+      authUrl ?? "",
+    ),
     "import.meta.env.VITE_REGISTRY_CURATOR_PUBKEYS": JSON.stringify(
       fixtureValue("REGISTRY_CURATOR_PUBKEYS"),
     ),
@@ -61,7 +66,7 @@ export default defineConfig({
     plugins: () => [tursoBundleBuildPlugin()],
   },
   server: {
-    host: "127.0.0.1",
+    host: "community.localhost",
     port: 7036,
     strictPort: true,
     fs: { allow: [packageDirectory] },
