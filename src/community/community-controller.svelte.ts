@@ -1219,6 +1219,36 @@ export function createCommunityController(
           throw new Error("Agent history requires a signed-in community");
         await agentController.actions.clearHistory(pubkey);
       },
+      cancelTurn: async (pubkey, scopeKey, channelId) => {
+        if (!agentController)
+          throw new Error("Agent controls require a signed-in community");
+        await runOperation(`agent:cancel:${pubkey}`, () =>
+          agentController!.actions.cancelTurn(pubkey, scopeKey, channelId),
+        );
+      },
+      resetConversation: async (pubkey, scopeKey, channelId) => {
+        if (!agentController)
+          throw new Error("Agent controls require a signed-in community");
+        await runOperation(`agent:reset:${pubkey}`, () =>
+          agentController!.actions.resetConversation(
+            pubkey,
+            scopeKey,
+            channelId,
+          ),
+        );
+      },
+      respondPermission: async (pubkey, requestId, decision, channelId) => {
+        if (!agentController)
+          throw new Error("Agent controls require a signed-in community");
+        await runOperation(`agent:permission:${requestId}`, () =>
+          agentController!.actions.respondPermission(
+            pubkey,
+            requestId,
+            decision,
+            channelId,
+          ),
+        );
+      },
     },
     pulse: {
       setActive(active) {

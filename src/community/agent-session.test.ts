@@ -16,7 +16,10 @@ const agent = getPublicKey(agentKey);
 const relayPubkey = getPublicKey(relayKey);
 const now = 1_800_000_000;
 
-function setup(nips: (string | number)[] = [29, 44, "OA", "AO"]) {
+function setup(
+  nips: (string | number)[] = [29, 44, "OA", "AO"],
+  signerNip44 = true,
+) {
   const events: NostrEvent[] = [];
   const authorizations = new Set<string>();
   const requests: (RelayFilter & { before_id?: string })[][] = [];
@@ -69,18 +72,73 @@ function setup(nips: (string | number)[] = [29, 44, "OA", "AO"]) {
   const signEvent = vi.fn(async (template: NostrEventTemplate) =>
     finalizeEvent(template, ownerKey),
   );
+  const nip44 = {
+    encrypt: vi.fn(async (_pubkey: string, plaintext: string) =>
+      btoa(plaintext),
+    ),
+    decrypt: vi.fn(async (_pubkey: string, ciphertext: string) =>
+      atob(ciphertext),
+    ),
+  };
   const session = createCommunityAgentSession({
     scope: { id: "test", name: "Test", relayUrl: relay.url },
-    identity: { getPublicKey: async () => owner, signEvent },
+    identity: {
+      getPublicKey: async () => owner,
+      signEvent,
+      ...(signerNip44 ? { nip44 } : {}),
+    },
     relay,
     authenticate: async () => {},
     fetch,
     now: () => now,
   });
-  return { session, relay, events, requests, fetch, signEvent };
+  return { session, relay, events, requests, fetch, signEvent, nip44 };
 }
 
 describe("agent relay session", () => {
+  it("publishes exact owner-encrypted controller controls", async () => {
+    const fixture = setup();
+    const event = await fixture.session.sendControl!(agent, {
+      version: 1,
+      command: "permission_response",
+      requestId: "permission-1",
+      decision: "allow_once",
+      channelId: "project-x",
+    });
+    expect(verifyEvent(event)).toBe(true);
+    expect(event).toMatchObject({ kind: 24_200, pubkey: owner });
+    expect(event.tags).toEqual([
+      ["p", agent],
+      ["agent", agent],
+      ["frame", "control"],
+      ["h", "project-x"],
+    ]);
+    expect(event.content).not.toContain("permission-1");
+    expect(fixture.nip44.encrypt).toHaveBeenCalledWith(
+      agent,
+      JSON.stringify({
+        version: 1,
+        command: "permission_response",
+        requestId: "permission-1",
+        decision: "allow_once",
+        channelId: "project-x",
+      }),
+    );
+    expect(fixture.events).toContainEqual(event);
+  });
+
+  it("fails closed when controller encryption is unavailable", async () => {
+    const fixture = setup(undefined, false);
+    await expect(
+      fixture.session.sendControl!(agent, {
+        version: 1,
+        command: "cancel_turn",
+        scopeKey: "scope",
+      }),
+    ).rejects.toThrow(/NIP-44/i);
+    expect(fixture.relay.publish).not.toHaveBeenCalled();
+  });
+
   it.each(["default", "injected"])(
     "preserves the browser receiver for %s native fetch",
     async (mode) => {

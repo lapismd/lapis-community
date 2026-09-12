@@ -128,7 +128,35 @@ export interface CommunityAgentSession {
     signal?: AbortSignal,
   ): Promise<NostrEvent>;
   deletePersona?(slug: string, signal?: AbortSignal): Promise<NostrEvent>;
+  sendControl?(
+    agentPubkey: string,
+    control: CommunityAgentControl,
+    signal?: AbortSignal,
+  ): Promise<NostrEvent>;
 }
+
+export type CommunityAgentPermissionDecision =
+  | "allow_once"
+  | "allow_always"
+  | "reject_once"
+  | "reject_always"
+  | "cancel";
+
+export type CommunityAgentControl =
+  | { version: 1; command: "cancel_turn"; scopeKey: string; channelId?: string }
+  | {
+      version: 1;
+      command: "reset_conversation";
+      scopeKey: string;
+      channelId?: string;
+    }
+  | {
+      version: 1;
+      command: "permission_response";
+      requestId: string;
+      decision: CommunityAgentPermissionDecision;
+      channelId?: string;
+    };
 
 export interface CommunityAgentArchiveScope {
   communityId: string;
@@ -196,6 +224,28 @@ export interface CommunityAgentActivityItem {
   frame: CommunityAgentObserver;
 }
 
+export interface CommunityAgentPermissionRequest {
+  agentPubkey: string;
+  requestId: string;
+  scopeKey: string;
+  tool: string;
+  input?: unknown;
+  options: readonly CommunityAgentPermissionDecision[];
+  expiresAt?: number;
+  channelId?: string;
+  sessionId?: string;
+  turnId?: string;
+}
+
+export interface CommunityAgentControllerScope {
+  agentPubkey: string;
+  scopeKey: string;
+  active: boolean;
+  channelId?: string;
+  sessionId?: string;
+  turnId?: string;
+}
+
 export interface CommunityAgentsState {
   status: "loading" | "ready" | "offline" | "error" | "unsupported";
   agents: readonly CommunityAgentIdentity[];
@@ -204,6 +254,10 @@ export interface CommunityAgentsState {
   capabilities: CommunityAgentCapabilities;
   presence: Readonly<Record<string, CommunityAgentPresence>>;
   working: Readonly<Record<string, boolean>>;
+  controllerScopes: Readonly<Record<string, CommunityAgentControllerScope>>;
+  pendingPermissions: Readonly<
+    Record<string, readonly CommunityAgentPermissionRequest[]>
+  >;
   partial: boolean;
   error?: string;
   storageMode: CommunityStorageMode;
@@ -227,4 +281,20 @@ export interface CommunityAgentsActions {
   openActivity(pubkey: string, channelId?: string): Promise<void>;
   loadOlderActivity(): Promise<void>;
   clearHistory(pubkey?: string): Promise<void>;
+  cancelTurn(
+    pubkey: string,
+    scopeKey: string,
+    channelId?: string,
+  ): Promise<void>;
+  resetConversation(
+    pubkey: string,
+    scopeKey: string,
+    channelId?: string,
+  ): Promise<void>;
+  respondPermission(
+    pubkey: string,
+    requestId: string,
+    decision: CommunityAgentPermissionDecision,
+    channelId?: string,
+  ): Promise<void>;
 }

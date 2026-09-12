@@ -60,7 +60,7 @@
     const dialog = body.getByRole("dialog", { name: "Create persona" });
     await expect(
       within(dialog).getByText(
-        "Saved with the persona. Runtime activation is unavailable in this release.",
+        "Saved with the persona. A configured controller applies changes before the agent’s next idle turn.",
       ),
     ).toBeVisible();
     await userEvent.clear(within(dialog).getByLabelText("Persona name"));

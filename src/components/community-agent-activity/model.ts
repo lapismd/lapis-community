@@ -51,6 +51,20 @@ export function presentAgentActivity(item: CommunityAgentActivityItem): {
             : "Agent message",
       body: text(update.content),
     };
+  if (frame.kind === "permission_requested")
+    return {
+      category: "Status",
+      title: "Permission required",
+      body: [label(payload.tool), text(payload.input)]
+        .filter(Boolean)
+        .join("\n"),
+    };
+  if (frame.kind === "permission_resolved")
+    return {
+      category: "Status",
+      title: "Permission resolved",
+      body: label(payload.decision),
+    };
   if (updateKind === "tool_call" || updateKind === "tool_call_update")
     return {
       category: "Tool",

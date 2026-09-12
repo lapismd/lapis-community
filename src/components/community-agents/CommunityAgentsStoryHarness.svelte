@@ -84,6 +84,36 @@
                 "Activity decryption was declined. Retry with your signer.",
             }
           : {}),
+        ...(variant === "permission"
+          ? {
+              controllerScopes: {
+                [storyAgent.pubkey]: {
+                  agentPubkey: storyAgent.pubkey,
+                  scopeKey: "relay/general/agent/thread/root",
+                  active: true,
+                  channelId: "general",
+                  sessionId: "story",
+                  turnId: "turn",
+                },
+              },
+              pendingPermissions: {
+                [storyAgent.pubkey]: [
+                  {
+                    agentPubkey: storyAgent.pubkey,
+                    requestId: "permission-1",
+                    scopeKey: "relay/general/agent/thread/root",
+                    tool: "Run test suite",
+                    input: { command: "pnpm test" },
+                    options: ["allow_once", "reject_once"],
+                    expiresAt: Date.now() + 15 * 60_000,
+                    channelId: "general",
+                    sessionId: "story",
+                    turnId: "turn",
+                  },
+                ],
+              },
+            }
+          : {}),
         activityAgent: storyAgent.pubkey,
         activity:
           screen === "activity" && variant !== "empty"
@@ -261,6 +291,37 @@
         };
       }}
       onClearHistory={clear}
+      onCancelTurn={async () => {
+        attempt();
+        model = {
+          ...model,
+          controllerScopes: {
+            ...model.controllerScopes,
+            [storyAgent.pubkey]: {
+              ...model.controllerScopes[storyAgent.pubkey]!,
+              active: false,
+            },
+          },
+        };
+        notice = "Turn cancellation requested";
+      }}
+      onResetConversation={async () => {
+        attempt();
+        notice = "Conversation reset requested";
+      }}
+      onRespondPermission={async (_pubkey, requestId, decision) => {
+        attempt();
+        model = {
+          ...model,
+          pendingPermissions: {
+            ...model.pendingPermissions,
+            [storyAgent.pubkey]: (
+              model.pendingPermissions[storyAgent.pubkey] ?? []
+            ).filter((request) => request.requestId !== requestId),
+          },
+        };
+        notice = `${decision} sent`;
+      }}
     />
   {/if}
 </div>

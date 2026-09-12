@@ -19,6 +19,11 @@ Live working state tracks independent turns and their timestamp/sequence order,
 so late starts cannot resurrect completed turns and saved events never mark an
 agent as running. The application consumes the optional agent model through
 its existing navigation and exclusive sidebar composition.
+The managed-agent runtime stays outside Community as an independently deployed
+controller. Community derives pending approvals and active conversation scopes
+from verified encrypted telemetry, while its session boundary only signs and
+publishes encrypted controls. Model choice, workspace paths, process lifecycle,
+and NIP-46 credentials remain operator-owned controller configuration.
 Agent channel presentation composes public Dialog, Command View, and menu
 primitives; channel selection stays local until the existing add-member action
 is confirmed. Membership authority and the controller's action contracts remain

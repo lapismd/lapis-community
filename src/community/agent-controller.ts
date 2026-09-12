@@ -8,6 +8,8 @@ import type {
   CommunityAgentArchiveRecord,
   CommunityAgentArchiveScope,
   CommunityAgentDirectory,
+  CommunityAgentPermissionDecision,
+  CommunityAgentPermissionRequest,
   CommunityAgentsActions,
   CommunityAgentsState,
   CommunityAgentSession,
@@ -53,6 +55,7 @@ export class CommunityAgentsController {
     string,
     Map<string, { until: number; timestamp: number; seq: number }>
   >();
+  #controllerSequence = new Map<string, number>();
   #typingUntil = new Map<string, number>();
   #refreshRun: Promise<void> | undefined;
   #refreshTimer: ReturnType<typeof setTimeout> | undefined;
@@ -179,6 +182,54 @@ export class CommunityAgentsController {
       });
       void this.#flushArchive();
     },
+    cancelTurn: async (pubkey, scopeKey, channelId) => {
+      const scope = this.#state.controllerScopes[pubkey];
+      if (!scope || !scope.active || scope.scopeKey !== scopeKey)
+        throw new Error("No active controller turn is available to cancel");
+      await this.#sendControl(pubkey, {
+        version: 1,
+        command: "cancel_turn",
+        scopeKey,
+        ...(channelId ? { channelId } : {}),
+      });
+    },
+    resetConversation: async (pubkey, scopeKey, channelId) => {
+      const scope = this.#state.controllerScopes[pubkey];
+      if (!scope || scope.scopeKey !== scopeKey)
+        throw new Error("No controller conversation is available to reset");
+      await this.#sendControl(pubkey, {
+        version: 1,
+        command: "reset_conversation",
+        scopeKey,
+        ...(channelId ? { channelId } : {}),
+      });
+    },
+    respondPermission: async (pubkey, requestId, decision, channelId) => {
+      const request = (this.#state.pendingPermissions[pubkey] ?? []).find(
+        (candidate) => candidate.requestId === requestId,
+      );
+      if (!request || !request.options.includes(decision))
+        throw new Error(
+          "The controller permission choice is no longer available",
+        );
+      if (request.expiresAt && request.expiresAt <= this.#now() * 1_000)
+        throw new Error("The controller permission request has expired");
+      await this.#sendControl(pubkey, {
+        version: 1,
+        command: "permission_response",
+        requestId,
+        decision,
+        ...(channelId ? { channelId } : {}),
+      });
+      this.#update({
+        pendingPermissions: {
+          ...this.#state.pendingPermissions,
+          [pubkey]: (this.#state.pendingPermissions[pubkey] ?? []).filter(
+            (candidate) => candidate.requestId !== requestId,
+          ),
+        },
+      });
+    },
   };
 
   constructor(options: AgentControllerOptions) {
@@ -191,6 +242,8 @@ export class CommunityAgentsController {
       capabilities: { directory: true, presence: false, activity: false },
       presence: {},
       working: {},
+      controllerScopes: {},
+      pendingPermissions: {},
       partial: false,
       storageMode: options.storageMode(),
       activity: [],
@@ -515,6 +568,7 @@ export class CommunityAgentsController {
           if (!frame) return;
           const channel = agentTag(event, "h");
           if (channel && frame.channelId && channel !== frame.channelId) return;
+          this.#applyControllerFrame(event.pubkey, frame);
           const turns =
             this.#workingUntil.get(event.pubkey) ??
             new Map<
@@ -740,6 +794,91 @@ export class CommunityAgentsController {
     });
   }
 
+  async #sendControl(
+    pubkey: string,
+    control: Parameters<NonNullable<CommunityAgentSession["sendControl"]>>[1],
+  ): Promise<void> {
+    if (!this.#state.agents.some((agent) => agent.pubkey === pubkey))
+      throw new Error("Agent control requires a current verified agent");
+    if (!this.#options.session.sendControl)
+      throw new Error("Agent runtime control is unavailable in this session");
+    await this.#options.session.sendControl(
+      pubkey,
+      control,
+      this.#abort.signal,
+    );
+  }
+
+  #applyControllerFrame(
+    agentPubkey: string,
+    frame: CommunityAgentActivityItem["frame"],
+  ): void {
+    const previousSequence = this.#controllerSequence.get(agentPubkey);
+    if (previousSequence !== undefined && frame.seq <= previousSequence) return;
+    this.#controllerSequence.set(agentPubkey, frame.seq);
+    const payload = observerRecord(frame.payload);
+    const scopeKey = observerText(payload.scopeKey, 4_096);
+    const terminal = [
+      "turn_completed",
+      "turn_finished",
+      "turn_failed",
+      "turn_cancelled",
+    ].includes(frame.kind);
+    if (scopeKey) {
+      this.#update({
+        controllerScopes: {
+          ...this.#state.controllerScopes,
+          [agentPubkey]: {
+            agentPubkey,
+            scopeKey,
+            active: frame.kind === "turn_started" ? true : !terminal,
+            ...(frame.channelId ? { channelId: frame.channelId } : {}),
+            ...(frame.sessionId ? { sessionId: frame.sessionId } : {}),
+            ...(frame.turnId ? { turnId: frame.turnId } : {}),
+          },
+        },
+      });
+    }
+    if (frame.kind === "permission_requested") {
+      const request = controllerPermission(agentPubkey, frame, payload);
+      if (!request) return;
+      const current = this.#state.pendingPermissions[agentPubkey] ?? [];
+      this.#update({
+        pendingPermissions: {
+          ...this.#state.pendingPermissions,
+          [agentPubkey]: [
+            ...current.filter(
+              (candidate) => candidate.requestId !== request.requestId,
+            ),
+            request,
+          ].slice(-32),
+        },
+      });
+      return;
+    }
+    if (frame.kind === "permission_resolved") {
+      const requestId = observerText(payload.requestId, 512);
+      if (requestId)
+        this.#update({
+          pendingPermissions: {
+            ...this.#state.pendingPermissions,
+            [agentPubkey]: (
+              this.#state.pendingPermissions[agentPubkey] ?? []
+            ).filter((request) => request.requestId !== requestId),
+          },
+        });
+    } else if (terminal && frame.turnId) {
+      this.#update({
+        pendingPermissions: {
+          ...this.#state.pendingPermissions,
+          [agentPubkey]: (
+            this.#state.pendingPermissions[agentPubkey] ?? []
+          ).filter((request) => request.turnId !== frame.turnId),
+        },
+      });
+    }
+  }
+
   dispose(): void {
     this.#closed = true;
     this.#activityGeneration++;
@@ -749,6 +888,7 @@ export class CommunityAgentsController {
     if (this.#refreshTimer) clearTimeout(this.#refreshTimer);
     this.#unknownFrames = [];
     this.#workingUntil.clear();
+    this.#controllerSequence.clear();
     this.#typingUntil.clear();
     this.#state = {
       ...this.#state,
@@ -758,7 +898,65 @@ export class CommunityAgentsController {
       activity: [],
       working: {},
       presence: {},
+      controllerScopes: {},
+      pendingPermissions: {},
     };
     void this.#flushArchive();
   }
+}
+
+const CONTROLLER_PERMISSION_DECISIONS =
+  new Set<CommunityAgentPermissionDecision>([
+    "allow_once",
+    "allow_always",
+    "reject_once",
+    "reject_always",
+    "cancel",
+  ]);
+
+function controllerPermission(
+  agentPubkey: string,
+  frame: CommunityAgentActivityItem["frame"],
+  payload: Record<string, unknown>,
+): CommunityAgentPermissionRequest | undefined {
+  const requestId = observerText(payload.requestId, 512);
+  const scopeKey = observerText(payload.scopeKey, 4_096);
+  const tool = observerText(payload.tool, 512);
+  const options = Array.isArray(payload.options)
+    ? [
+        ...new Set(
+          payload.options.filter(
+            (value): value is CommunityAgentPermissionDecision =>
+              typeof value === "string" &&
+              CONTROLLER_PERMISSION_DECISIONS.has(
+                value as CommunityAgentPermissionDecision,
+              ),
+          ),
+        ),
+      ]
+    : [];
+  if (!requestId || !scopeKey || !tool || options.length === 0) return;
+  const expiresAt = Number(payload.expiresAt);
+  return {
+    agentPubkey,
+    requestId,
+    scopeKey,
+    tool,
+    ...(payload.input === undefined ? {} : { input: payload.input }),
+    options,
+    ...(Number.isSafeInteger(expiresAt) && expiresAt > 0 ? { expiresAt } : {}),
+    ...(frame.channelId ? { channelId: frame.channelId } : {}),
+    ...(frame.sessionId ? { sessionId: frame.sessionId } : {}),
+    ...(frame.turnId ? { turnId: frame.turnId } : {}),
+  };
+}
+
+function observerRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : {};
+}
+
+function observerText(value: unknown, limit: number): string {
+  return typeof value === "string" ? value.trim().slice(0, limit) : "";
 }

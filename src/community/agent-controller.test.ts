@@ -73,7 +73,12 @@ afterEach(() => {
   controllers = [];
 });
 
-function frame(seq = 1, kind = "turn_started", h = "general") {
+function frame(
+  seq = 1,
+  kind = "turn_started",
+  h = "general",
+  payload: unknown = { text: "private result" },
+) {
   return finalizeEvent(
     {
       kind: 24200,
@@ -92,7 +97,7 @@ function frame(seq = 1, kind = "turn_started", h = "general") {
           channelId: h,
           sessionId: "s",
           turnId: "t",
-          payload: { text: "private result" },
+          payload,
         }),
         conversation,
       ),
@@ -126,6 +131,7 @@ async function setup() {
     saveAgent: vi.fn(async () => ({ persona })),
     unlinkAgent: vi.fn(async () => profile),
     deletePersona: vi.fn(async () => persona),
+    sendControl: vi.fn(async () => profile),
   };
   const decrypt = vi.fn(async (_key: string, ciphertext: string) =>
     nip44.v2.decrypt(ciphertext, conversation),
@@ -256,6 +262,144 @@ describe("agent activity controller", () => {
       text: "private result",
     });
     expect(controller.state.activity).toHaveLength(1);
+  });
+  it("derives controller scope and exact permission choices before publishing owner controls", async () => {
+    const { controller, receive, session } = await setup();
+    receive(
+      frame(1, "turn_started", "general", {
+        scopeKey: "relay/general/agent/thread/root",
+        state: "running",
+      }),
+    );
+    receive(
+      frame(2, "permission_requested", "general", {
+        scopeKey: "relay/general/agent/thread/root",
+        requestId: "permission-1",
+        tool: "shell",
+        input: { command: "pnpm test" },
+        options: ["allow_once", "reject_once", "invented"],
+        expiresAt: now * 1_000 + 60_000,
+      }),
+    );
+    await vi.waitFor(() =>
+      expect(controller.state.pendingPermissions[agent]).toHaveLength(1),
+    );
+    expect(controller.state.controllerScopes[agent]).toMatchObject({
+      scopeKey: "relay/general/agent/thread/root",
+      active: true,
+    });
+    expect(controller.state.pendingPermissions[agent]?.[0]).toMatchObject({
+      requestId: "permission-1",
+      tool: "shell",
+      options: ["allow_once", "reject_once"],
+    });
+    await expect(
+      controller.actions.respondPermission(
+        agent,
+        "permission-1",
+        "allow_always",
+      ),
+    ).rejects.toThrow(/no longer available/i);
+    await controller.actions.respondPermission(
+      agent,
+      "permission-1",
+      "allow_once",
+      "general",
+    );
+    expect(session.sendControl).toHaveBeenCalledWith(
+      agent,
+      {
+        version: 1,
+        command: "permission_response",
+        requestId: "permission-1",
+        decision: "allow_once",
+        channelId: "general",
+      },
+      expect.any(AbortSignal),
+    );
+    expect(controller.state.pendingPermissions[agent]).toEqual([]);
+
+    receive(
+      frame(3, "permission_requested", "general", {
+        scopeKey: "relay/general/agent/thread/root",
+        requestId: "permission-expired",
+        tool: "shell",
+        options: ["allow_once"],
+        expiresAt: now * 1_000 - 1,
+      }),
+    );
+    await vi.waitFor(() =>
+      expect(controller.state.pendingPermissions[agent]).toHaveLength(1),
+    );
+    await expect(
+      controller.actions.respondPermission(
+        agent,
+        "permission-expired",
+        "allow_once",
+      ),
+    ).rejects.toThrow(/expired/i);
+    expect(session.sendControl).toHaveBeenCalledTimes(1);
+    receive(
+      frame(4, "permission_resolved", "general", {
+        scopeKey: "relay/general/agent/thread/root",
+        requestId: "permission-expired",
+      }),
+    );
+    await vi.waitFor(() =>
+      expect(controller.state.pendingPermissions[agent]).toEqual([]),
+    );
+
+    await controller.actions.cancelTurn(
+      agent,
+      "relay/general/agent/thread/root",
+      "general",
+    );
+    await controller.actions.resetConversation(
+      agent,
+      "relay/general/agent/thread/root",
+      "general",
+    );
+    expect(session.sendControl).toHaveBeenNthCalledWith(
+      2,
+      agent,
+      {
+        version: 1,
+        command: "cancel_turn",
+        scopeKey: "relay/general/agent/thread/root",
+        channelId: "general",
+      },
+      expect.any(AbortSignal),
+    );
+    expect(session.sendControl).toHaveBeenNthCalledWith(
+      3,
+      agent,
+      {
+        version: 1,
+        command: "reset_conversation",
+        scopeKey: "relay/general/agent/thread/root",
+        channelId: "general",
+      },
+      expect.any(AbortSignal),
+    );
+
+    receive(
+      frame(5, "turn_completed", "general", {
+        scopeKey: "relay/general/agent/thread/root",
+      }),
+    );
+    await vi.waitFor(() =>
+      expect(controller.state.controllerScopes[agent]?.active).toBe(false),
+    );
+    receive(
+      frame(4, "turn_started", "general", {
+        scopeKey: "relay/general/agent/thread/root",
+      }),
+    );
+    await new Promise<void>((resolve) => queueMicrotask(resolve));
+    expect(controller.state.controllerScopes[agent]?.active).toBe(false);
+    await expect(
+      controller.actions.cancelTurn(agent, "relay/general/agent/thread/root"),
+    ).rejects.toThrow(/active controller turn/i);
   });
   it("clears working on Buzz turn_finished and ignores an out-of-order start", async () => {
     const { controller, receive } = await setup();

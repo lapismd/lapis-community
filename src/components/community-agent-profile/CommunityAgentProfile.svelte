@@ -563,8 +563,8 @@
             ariaLabel="Saved system prompt"
             placeholder="Describe how this agent should work."
           /><Field.Description
-            >Saved with the persona. Runtime activation is unavailable in this
-            release.</Field.Description
+            >Saved with the persona. A configured controller applies changes
+            before the agent’s next idle turn.</Field.Description
           ></Field.Field
         >
       </Field.Group>

@@ -8,6 +8,7 @@ import type { NostrEvent, NostrEventTemplate } from "../protocol/index.js";
 import type { CommunityScope } from "./contracts.js";
 import type {
   CommunityAgentCapabilities,
+  CommunityAgentControl,
   CommunityAgentDirectory,
   CommunityAgentPersonaSaveInput,
   CommunityAgentSaveInput,
@@ -751,6 +752,71 @@ class AgentSession implements CommunityAgentSession {
     const result = await this.#options.relay.publish(event, signal);
     if (!result.accepted) throw new Error(`The relay rejected the ${label}`);
   }
+
+  async sendControl(
+    agentPubkey: string,
+    control: CommunityAgentControl,
+    signal?: AbortSignal,
+  ): Promise<NostrEvent> {
+    signal?.throwIfAborted();
+    if (!AGENT_PUBKEY.test(agentPubkey))
+      throw new Error("Agent control requires a valid public key");
+    const owner = await this.#options.identity.getPublicKey();
+    if (owner === agentPubkey)
+      throw new Error("Agent control requires a distinct managed identity");
+    const nip44 = this.#options.identity.nip44;
+    if (!nip44)
+      throw new Error("Agent control requires a signer with NIP-44 support");
+    validateAgentControl(control);
+    const content = await nip44.encrypt(agentPubkey, JSON.stringify(control));
+    signal?.throwIfAborted();
+    const event = await this.#sign(
+      {
+        kind: 24_200,
+        created_at: this.#now(),
+        tags: [
+          ["p", agentPubkey],
+          ["agent", agentPubkey],
+          ["frame", "control"],
+          ...(control.channelId ? [["h", control.channelId]] : []),
+        ],
+        content,
+      },
+      signal,
+    );
+    await this.#publish(event, "agent control", signal);
+    return event;
+  }
+}
+
+const AGENT_PERMISSION_DECISIONS = new Set([
+  "allow_once",
+  "allow_always",
+  "reject_once",
+  "reject_always",
+  "cancel",
+]);
+
+function validateAgentControl(control: CommunityAgentControl): void {
+  if (control.version !== 1)
+    throw new Error("Unsupported agent control version");
+  if (
+    control.channelId !== undefined &&
+    (!control.channelId.trim() || control.channelId.length > 512)
+  )
+    throw new Error("Agent control channel is invalid");
+  if (
+    control.command === "cancel_turn" ||
+    control.command === "reset_conversation"
+  ) {
+    if (!control.scopeKey.trim() || control.scopeKey.length > 4_096)
+      throw new Error("Agent control scope is invalid");
+    return;
+  }
+  if (!control.requestId.trim() || control.requestId.length > 512)
+    throw new Error("Agent permission request is invalid");
+  if (!AGENT_PERMISSION_DECISIONS.has(control.decision))
+    throw new Error("Agent permission decision is invalid");
 }
 
 const SECRET_PERSONA_FIELDS = new Set([

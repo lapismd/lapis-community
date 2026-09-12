@@ -136,6 +136,8 @@ export function storyAgentState(
     capabilities: { directory: true, presence: true, activity: true },
     presence: { [storyAgentPubkey]: { status: "online" } },
     working: { [storyAgentPubkey]: true },
+    controllerScopes: {},
+    pendingPermissions: {},
     partial: false,
     storageMode: "indexeddb",
     activity: [],

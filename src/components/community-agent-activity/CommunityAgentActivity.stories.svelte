@@ -131,6 +131,64 @@
       variant="signer-error"
     />{/snippet}</Story
 >
+<Story name="Controller permission request"
+  >{#snippet template()}<Harness
+      screen="activity"
+      variant="permission"
+    />{/snippet}</Story
+>
+<Story
+  name="Controller permissions"
+  play={async ({ canvas, canvasElement }) => {
+    const controls = canvas.getByRole("region", {
+      name: "Agent runtime controls",
+    });
+    await expect(
+      within(controls).getByText("Waiting for approval"),
+    ).toBeVisible();
+    await expect(within(controls).getByText("Run test suite")).toBeVisible();
+    await expect(within(controls).getByText(/pnpm test/)).toBeVisible();
+    await expect(
+      within(controls).queryByRole("button", { name: "Always allow" }),
+    ).not.toBeInTheDocument();
+    await userEvent.click(
+      within(controls).getByRole("button", { name: "Allow once" }),
+    );
+    await expect(canvas.getByRole("status")).toHaveTextContent(
+      "allow_once sent",
+    );
+    await expect(
+      within(controls).queryByRole("article", {
+        name: "Permission requested by Research",
+      }),
+    ).not.toBeInTheDocument();
+    await userEvent.click(
+      within(controls).getByRole("button", { name: "Cancel turn" }),
+    );
+    await expect(canvas.getByRole("status")).toHaveTextContent(
+      "Turn cancellation requested",
+    );
+    await userEvent.click(
+      within(controls).getByRole("button", { name: "Reset conversation" }),
+    );
+    const dialog = within(canvasElement.ownerDocument.body).getByRole(
+      "alertdialog",
+    );
+    await userEvent.click(
+      within(dialog).getByRole("button", {
+        name: "Reset conversation",
+        exact: true,
+      }),
+    );
+    await expect(canvas.getByRole("status")).toHaveTextContent(
+      "Conversation reset requested",
+    );
+  }}
+  >{#snippet template()}<Harness
+      screen="activity"
+      variant="permission"
+    />{/snippet}</Story
+>
 <Story name="Storage failure"
   >{#snippet template()}<Harness
       screen="activity"

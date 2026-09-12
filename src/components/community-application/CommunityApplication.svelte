@@ -7488,6 +7488,25 @@
                       activePanel.agentPubkey,
                     );
                 }}
+                onCancelTurn={(pubkey, scopeKey, channelId) =>
+                  community.actions.agents!.cancelTurn(
+                    pubkey,
+                    scopeKey,
+                    channelId,
+                  )}
+                onResetConversation={(pubkey, scopeKey, channelId) =>
+                  community.actions.agents!.resetConversation(
+                    pubkey,
+                    scopeKey,
+                    channelId,
+                  )}
+                onRespondPermission={(pubkey, requestId, decision, channelId) =>
+                  community.actions.agents!.respondPermission(
+                    pubkey,
+                    requestId,
+                    decision,
+                    channelId,
+                  )}
               />
             {/if}
           </AppShell.Sidebar.Body>

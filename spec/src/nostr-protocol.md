@@ -22,6 +22,14 @@ NIP-44. A valid relay `self` key and NIP-29 permit authenticated directory
 probes, with NIP-16 or `AO` enabling ephemeral observer subscriptions. The
 query results must still satisfy signature and owner-attestation verification.
 
+For LC-NOSTR-025, controller telemetry and controls use kind `24200`. A control
+is a fresh owner-authored event with exact `p`, `agent`, and `frame=control`
+tags, an optional group tag, and NIP-44 ciphertext addressed to the verified
+agent. Community preserves controller-issued scope keys unchanged for cancel
+and reset, and sends a permission response only for an unexpired request and an
+outcome present in that request's decrypted offered set. Late telemetry
+sequences cannot reactivate a completed live scope.
+
 Protocol-backed presentation follows the package's portable, published Design
 Core semver boundary; dependency refreshes do not alter event interpretation or
 trust decisions.

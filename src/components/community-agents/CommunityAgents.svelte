@@ -572,8 +572,8 @@
               placeholder="Describe what this agent should do."
               ariaLabel="Agent instructions"
             /><Field.Description
-              >Saved with the persona. Runtime activation is unavailable in this
-              release.</Field.Description
+              >Saved with the persona. A configured controller applies changes
+              before the agent’s next idle turn.</Field.Description
             ></Field.Field
           >
         {/if}
@@ -687,8 +687,8 @@
             ariaLabel="Persona system prompt"
             placeholder="Describe what this persona should do."
           /><Field.Description
-            >Saved with the persona. Runtime activation is unavailable in this
-            release.</Field.Description
+            >Saved with the persona. A configured controller applies changes
+            before the agent’s next idle turn.</Field.Description
           ></Field.Field
         >
         {#if personaFeedback}<Field.Error>{personaFeedback}</Field.Error>{/if}

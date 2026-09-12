@@ -3,7 +3,10 @@
   import CommunityMarkdownContent from "../community-markdown-content/CommunityMarkdownContent.svelte";
   import { Button } from "@lapismd/design-core/shadcn/button";
   import * as Select from "@lapismd/design-core/shadcn/select";
-  import { ConfirmDialog } from "@lapismd/design-core/forms/dialog";
+  import {
+    ConfirmButton,
+    ConfirmDialog,
+  } from "@lapismd/design-core/forms/dialog";
   import ArrowLeftIcon from "@lucide/svelte/icons/arrow-left";
   import RefreshIcon from "@lucide/svelte/icons/refresh-cw";
   import XIcon from "@lucide/svelte/icons/x";
@@ -14,7 +17,13 @@
   import AlertIcon from "@lucide/svelte/icons/circle-alert";
   import EventIcon from "@lucide/svelte/icons/circle-dot";
   import TrashIcon from "@lucide/svelte/icons/trash-2";
-  import type { CommunityAgentsState } from "../../community/agent-contracts.js";
+  import CircleStopIcon from "@lucide/svelte/icons/circle-stop";
+  import RotateIcon from "@lucide/svelte/icons/rotate-ccw";
+  import ShieldIcon from "@lucide/svelte/icons/shield-check";
+  import type {
+    CommunityAgentPermissionDecision,
+    CommunityAgentsState,
+  } from "../../community/agent-contracts.js";
   import type { CommunityRoomModel } from "../community-workspace/model.js";
   import CommunityChip from "../community-chip/CommunityChip.svelte";
   import CommunityRelativeTime from "../community-relative-time/CommunityRelativeTime.svelte";
@@ -29,6 +38,9 @@
     onLatest,
     onLoadOlder,
     onClearHistory,
+    onCancelTurn,
+    onResetConversation,
+    onRespondPermission,
   }: {
     model: CommunityAgentsState;
     rooms?: readonly CommunityRoomModel[];
@@ -38,9 +50,27 @@
     onLatest: () => void | Promise<void>;
     onLoadOlder: () => void | Promise<void>;
     onClearHistory: () => Promise<void>;
+    onCancelTurn?: (
+      pubkey: string,
+      scopeKey: string,
+      channelId?: string,
+    ) => Promise<void>;
+    onResetConversation?: (
+      pubkey: string,
+      scopeKey: string,
+      channelId?: string,
+    ) => Promise<void>;
+    onRespondPermission?: (
+      pubkey: string,
+      requestId: string,
+      decision: CommunityAgentPermissionDecision,
+      channelId?: string,
+    ) => Promise<void>;
   } = $props();
   let clearing = $state(false);
   let error = $state("");
+  let controlError = $state("");
+  let controlPending = $state("");
   const agents = $derived([
     ...new Map(
       [...model.archivedAgents, ...model.agents].map((agent) => [
@@ -53,6 +83,12 @@
     agents.find((agent) => agent.pubkey === model.activityAgent),
   );
   const channels = $derived(rooms.filter((room) => room.kind !== "direct"));
+  const controllerScope = $derived(
+    selected ? model.controllerScopes[selected.pubkey] : undefined,
+  );
+  const permissions = $derived(
+    selected ? (model.pendingPermissions[selected.pubkey] ?? []) : [],
+  );
   const activityIcons = {
     Message: MessageIcon,
     Tool: WrenchIcon,
@@ -61,6 +97,44 @@
     Error: AlertIcon,
     Event: EventIcon,
   };
+  const decisionLabels: Record<CommunityAgentPermissionDecision, string> = {
+    allow_once: "Allow once",
+    allow_always: "Always allow",
+    reject_once: "Deny once",
+    reject_always: "Always deny",
+    cancel: "Cancel request",
+  };
+
+  async function runControl(key: string, operation: () => Promise<void>) {
+    if (controlPending) return;
+    controlError = "";
+    controlPending = key;
+    try {
+      await operation();
+    } catch (cause) {
+      controlError =
+        cause instanceof Error ? cause.message : "Agent control failed";
+      throw cause;
+    } finally {
+      controlPending = "";
+    }
+  }
+
+  function permissionInput(value: unknown): string {
+    if (value === undefined) return "";
+    try {
+      return (JSON.stringify(value, null, 2) ?? "").slice(0, 4_000);
+    } catch {
+      return "Input unavailable";
+    }
+  }
+
+  function permissionExpiry(value: number): string {
+    return new Intl.DateTimeFormat(undefined, {
+      dateStyle: "medium",
+      timeStyle: "short",
+    }).format(value);
+  }
 </script>
 
 <section class="agent-activity" aria-label="Agent activity history">
@@ -131,6 +205,97 @@
       : "Encrypted history is saved on this device."} Only activity received while
     signed in is available.
   </p>
+  {#if selected && (controllerScope || permissions.length > 0)}
+    <section
+      class="agent-activity__controls"
+      aria-label="Agent runtime controls"
+    >
+      <div class="agent-activity__controls-heading">
+        <div>
+          <h3>Runtime controls</h3>
+          <p>Owner-only commands are encrypted to this agent.</p>
+        </div>
+        {#if permissions.length > 0}<CommunityChip size="compact" tone="warning"
+            ><ShieldIcon aria-hidden="true" />Waiting for approval</CommunityChip
+          >{/if}
+      </div>
+      {#if controllerScope && (onCancelTurn || onResetConversation)}
+        <div class="agent-activity__run-actions">
+          {#if controllerScope.active && onCancelTurn}<Button
+              variant="outline"
+              size="sm"
+              disabled={Boolean(controlPending)}
+              onclick={() =>
+                runControl("cancel", () =>
+                  onCancelTurn(
+                    selected.pubkey,
+                    controllerScope.scopeKey,
+                    controllerScope.channelId,
+                  ),
+                )}><CircleStopIcon aria-hidden="true" />Cancel turn</Button
+            >{/if}
+          {#if onResetConversation}<ConfirmButton
+              title={`Reset ${selected.name}’s conversation?`}
+              description="The next message starts a fresh agent session for this channel or thread. Nostr history remains available."
+              confirmLabel="Reset conversation"
+              disabled={Boolean(controlPending)}
+              onConfirm={() =>
+                runControl("reset", () =>
+                  onResetConversation(
+                    selected.pubkey,
+                    controllerScope.scopeKey,
+                    controllerScope.channelId,
+                  ),
+                )}
+              ><RotateIcon aria-hidden="true" />Reset conversation</ConfirmButton
+            >{/if}
+        </div>
+      {/if}
+      {#each permissions as permission (permission.requestId)}
+        <article
+          class="agent-activity__permission"
+          aria-label={`Permission requested by ${selected.name}`}
+        >
+          <div>
+            <h3>{permission.tool}</h3>
+            <p>The agent requested an explicit action.</p>
+          </div>
+          {#if permissionInput(permission.input)}<pre>{permissionInput(
+                permission.input,
+              )}</pre>{/if}
+          {#if permission.expiresAt}<p
+              class="agent-activity__permission-expiry"
+            >
+              Expires <time
+                datetime={new Date(permission.expiresAt).toISOString()}
+                title={permissionExpiry(permission.expiresAt)}
+                >{permissionExpiry(permission.expiresAt)}</time
+              >
+            </p>{/if}
+          <div class="agent-activity__permission-actions">
+            {#each permission.options as decision}
+              <Button
+                variant={decision.startsWith("allow") ? "default" : "outline"}
+                size="sm"
+                disabled={Boolean(controlPending) || !onRespondPermission}
+                onclick={() =>
+                  onRespondPermission &&
+                  runControl(permission.requestId, () =>
+                    onRespondPermission(
+                      selected.pubkey,
+                      permission.requestId,
+                      decision,
+                      permission.channelId,
+                    ),
+                  )}>{decisionLabels[decision]}</Button
+              >
+            {/each}
+          </div>
+        </article>
+      {/each}
+      {#if controlError}<p role="alert">{controlError}</p>{/if}
+    </section>
+  {/if}
   {#if model.archiveError}<p role="alert">{model.archiveError}</p>{/if}
   {#if model.activityError}<p role="alert">{model.activityError}</p>{/if}
   {#if model.activityLoading && model.activity.length === 0}<CommunitySkeleton
@@ -243,6 +408,32 @@
     text-align: center;
     display: grid;
     gap: 0.75rem;
+  }
+  .agent-activity__controls,
+  .agent-activity__permission {
+    display: grid;
+    gap: 0.875rem;
+    padding: 1rem;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    background: var(--card);
+  }
+  .agent-activity__controls-heading,
+  .agent-activity__run-actions,
+  .agent-activity__permission-actions {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.625rem;
+    flex-wrap: wrap;
+  }
+  .agent-activity__controls-heading > div,
+  .agent-activity__permission > div:first-child {
+    display: grid;
+    gap: 0.25rem;
+  }
+  .agent-activity__permission {
+    background: var(--background);
   }
   h3 {
     font-size: var(--community-text-body);
