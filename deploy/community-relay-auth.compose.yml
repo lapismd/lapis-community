@@ -4,6 +4,8 @@ services:
       AUTH_ENABLED: "true"
       AUTH_PUBLIC_URL: http://community-relay.localhost:${COMMUNITY_RELAY_PORT:?set by scripts/community-relay.sh}
       AUTH_ALLOWED_BROWSER_ORIGINS: '["${COMMUNITY_AUTH_BROWSER_ORIGIN:?set by scripts/community-relay.sh}"]'
+      AUTH_WEBAUTHN_RP_ID: community.localhost
+      AUTH_WEBAUTHN_ORIGINS: '["${COMMUNITY_AUTH_BROWSER_ORIGIN:?set by scripts/community-relay.sh}"]'
       AUTH_MASTER_KEY_REF: file:community-auth-master-key
       AUTH_GITHUB_CLIENT_ID: community-github
       AUTH_GITHUB_CLIENT_SECRET_REF: file:community-github-oauth-secret

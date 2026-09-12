@@ -41,6 +41,10 @@ the sibling relay's localhost-only provider overrides onto the same Compose
 boundary. Its Google, GitHub, relay-session, and Nostr events are deterministic;
 master keys and provider secrets are generated into the ignored runtime
 directory and removed with containers and volumes when the lane exits.
+It allocates an exact `community.localhost` browser origin and drives a Chromium
+virtual authenticator through passkey registration and managed-key release, so
+WebAuthn origin and RP-ID behavior are verified without live credentials or a
+desktop host.
 
 The dedicated Community Vite lane is checkout-owned. Its supervisor watches
 the local stack's generated public fixture environment, restarts Vite when

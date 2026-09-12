@@ -124,7 +124,7 @@ case "${command}" in
       echo "Fake OAuth port is invalid" >&2
       exit 1
     }
-    COMMUNITY_AUTH_BROWSER_ORIGIN=${COMMUNITY_AUTH_BROWSER_ORIGIN:-http://community.localhost:7036}
+    COMMUNITY_AUTH_BROWSER_ORIGIN=${COMMUNITY_AUTH_BROWSER_ORIGIN:-http://community.localhost:$(allocate_port)}
     for secret_name in auth-master-key github-oauth-secret google-oauth-secret; do
       generated_secret=${runtime_dir}/${secret_name}
       if [[ ! -f ${generated_secret} ]]; then

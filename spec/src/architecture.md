@@ -291,4 +291,6 @@ the existing NIP-07, NIP-46, local identity, and public browsing behavior.
 The deterministic application-authentication lane composes the current sibling
 relay with local fake Google and GitHub providers. It exercises the same public
 client, restored signer, controller connector, and account model as the browser
-without adding a test branch to the production adapter.
+without adding a test branch to the production adapter. Its exact localhost
+Community origin and Chromium virtual authenticator exercise the production
+WebAuthn client conversion and relay RP-ID enforcement.

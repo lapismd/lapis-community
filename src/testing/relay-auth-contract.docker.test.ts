@@ -1,7 +1,12 @@
+import { createServer } from "node:http";
+
+import { nip19 } from "nostr-tools";
 import { getPublicKey } from "nostr-tools/pure";
+import { chromium, type Browser, type Page } from "playwright";
 import { describe, expect, it } from "vitest";
 
 import {
+  type CommunityCredentialsContainer,
   RelayAuthClient,
   RelayAuthError,
   SecretKeyRegistrySigner,
@@ -276,10 +281,385 @@ if (!relayUrl || !relayHttpUrl || !browserOrigin || !fakeOAuthUrl) {
         nostr_pubkey: pubkey,
       });
       expect(githubLogin.session.github_status).toBe("active");
+
+      const passkeys = await createVirtualPasskeyContainer(browserOrigin);
+      try {
+        const passkeyClient = new RelayAuthClient({
+          relayUrl: relayHttpUrl,
+          fetch: sessionFetch.fetch,
+          currentUrl: () => currentUrl,
+          credentials: passkeys.credentials,
+        });
+        const passkeyRestore = await passkeyClient.restore();
+        expect(passkeyRestore.config.capabilities).toMatchObject({
+          passkey_registration: true,
+          custody_transfer: true,
+        });
+        const registered = await passkeyClient.registerPasskey();
+        expect(registered.session.passkey_count).toBe(1);
+
+        const handoff = await passkeyClient.beginCustodyTransfer();
+        const decoded = nip19.decode(handoff.revealNsec());
+        expect(decoded.type).toBe("nsec");
+        if (decoded.type !== "nsec") throw new Error("transferred key missing");
+        expect(getPublicKey(decoded.data)).toBe(pubkey);
+        handoff.discardPrivateKey();
+        await expect(passkeyClient.getSession()).resolves.toMatchObject({
+          signer_type: "managed",
+          signer_status: "migration_pending",
+          passkey_count: 1,
+        });
+      } finally {
+        await passkeys.close();
+      }
+
       await client.signOut();
       await expect(client.getSession()).rejects.toMatchObject({ status: 401 });
     }, 90_000);
   });
+}
+
+interface VirtualPasskeyContainer {
+  credentials: CommunityCredentialsContainer;
+  close(): Promise<void>;
+}
+
+interface SerializedBrowserCredential {
+  id: string;
+  rawId: number[];
+  type: "public-key";
+  authenticatorAttachment: string | null;
+  clientExtensionResults: AuthenticationExtensionsClientOutputs;
+  response:
+    | {
+        kind: "attestation";
+        attestationObject: number[];
+        clientDataJSON: number[];
+        transports: AuthenticatorTransport[];
+      }
+    | {
+        kind: "assertion";
+        authenticatorData: number[];
+        clientDataJSON: number[];
+        signature: number[];
+        userHandle: number[] | null;
+      };
+}
+
+async function createVirtualPasskeyContainer(
+  origin: string,
+): Promise<VirtualPasskeyContainer> {
+  const target = new URL(origin);
+  const port = Number(target.port || "80");
+  const server = createServer((_request, response) => {
+    response.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+    response.end("<!doctype html><title>Community passkey contract</title>");
+  });
+  await new Promise<void>((resolve, reject) => {
+    server.once("error", reject);
+    server.listen(port, resolve);
+  });
+
+  let browser: Browser | undefined;
+  try {
+    browser = await chromium.launch({ headless: true });
+    const page = await browser.newPage();
+    const cdp = await page.context().newCDPSession(page);
+    await cdp.send("WebAuthn.enable");
+    await cdp.send("WebAuthn.addVirtualAuthenticator", {
+      options: {
+        protocol: "ctap2",
+        transport: "internal",
+        hasResidentKey: true,
+        hasUserVerification: true,
+        isUserVerified: true,
+        automaticPresenceSimulation: true,
+      },
+    });
+    await page.goto(origin);
+    const restoreGlobals = installCredentialConstructors();
+    return {
+      credentials: {
+        create: async (options) =>
+          reconstructCredential(await createBrowserCredential(page, options)),
+        get: async (options) =>
+          reconstructCredential(await getBrowserCredential(page, options)),
+      },
+      close: async () => {
+        restoreGlobals();
+        await browser?.close();
+        await new Promise<void>((resolve, reject) =>
+          server.close((error) => (error ? reject(error) : resolve())),
+        );
+      },
+    };
+  } catch (cause) {
+    await browser?.close();
+    await new Promise<void>((resolve) => server.close(() => resolve()));
+    throw cause;
+  }
+}
+
+async function createBrowserCredential(
+  page: Page,
+  options?: CredentialCreationOptions,
+): Promise<SerializedBrowserCredential> {
+  if (options?.publicKey === undefined)
+    throw new Error("creation options missing");
+  const publicKey = options.publicKey;
+  return (await page.evaluate(
+    async (raw) => {
+      const serialized = raw as unknown as Record<string, unknown> & {
+        challenge: number[];
+        user: Record<string, unknown> & { id: number[] };
+        excludeCredentials?: (Record<string, unknown> & { id: number[] })[];
+      };
+      const credential = (await navigator.credentials.create({
+        publicKey: {
+          ...serialized,
+          challenge: new Uint8Array(serialized.challenge),
+          user: {
+            ...serialized.user,
+            id: new Uint8Array(serialized.user.id),
+          },
+          excludeCredentials: serialized.excludeCredentials?.map(
+            (descriptor) => ({
+              ...descriptor,
+              id: new Uint8Array(descriptor.id),
+            }),
+          ),
+        } as unknown as PublicKeyCredentialCreationOptions,
+      })) as PublicKeyCredential;
+      const response = credential.response as AuthenticatorAttestationResponse;
+      return {
+        id: credential.id,
+        rawId: Array.from(new Uint8Array(credential.rawId)),
+        type: "public-key" as const,
+        authenticatorAttachment: credential.authenticatorAttachment,
+        clientExtensionResults: credential.getClientExtensionResults(),
+        response: {
+          kind: "attestation" as const,
+          attestationObject: Array.from(
+            new Uint8Array(response.attestationObject),
+          ),
+          clientDataJSON: Array.from(new Uint8Array(response.clientDataJSON)),
+          transports: response.getTransports(),
+        },
+      };
+    },
+    {
+      ...publicKey,
+      challenge: bytes(publicKey.challenge),
+      user: { ...publicKey.user, id: bytes(publicKey.user.id) },
+      ...(publicKey.excludeCredentials === undefined
+        ? {}
+        : {
+            excludeCredentials: publicKey.excludeCredentials.map(
+              (descriptor) => ({
+                ...descriptor,
+                id: bytes(descriptor.id),
+              }),
+            ),
+          }),
+    },
+  )) as SerializedBrowserCredential;
+}
+
+async function getBrowserCredential(
+  page: Page,
+  options?: CredentialRequestOptions,
+): Promise<SerializedBrowserCredential> {
+  if (options?.publicKey === undefined)
+    throw new Error("request options missing");
+  const publicKey = options.publicKey;
+  return (await page.evaluate(
+    async (raw) => {
+      const serialized = raw as unknown as Record<string, unknown> & {
+        challenge: number[];
+        allowCredentials?: (Record<string, unknown> & { id: number[] })[];
+      };
+      const credential = (await navigator.credentials.get({
+        publicKey: {
+          ...serialized,
+          challenge: new Uint8Array(serialized.challenge),
+          allowCredentials: serialized.allowCredentials?.map((descriptor) => ({
+            ...descriptor,
+            id: new Uint8Array(descriptor.id),
+          })),
+        } as unknown as PublicKeyCredentialRequestOptions,
+      })) as PublicKeyCredential;
+      const response = credential.response as AuthenticatorAssertionResponse;
+      return {
+        id: credential.id,
+        rawId: Array.from(new Uint8Array(credential.rawId)),
+        type: "public-key" as const,
+        authenticatorAttachment: credential.authenticatorAttachment,
+        clientExtensionResults: credential.getClientExtensionResults(),
+        response: {
+          kind: "assertion" as const,
+          authenticatorData: Array.from(
+            new Uint8Array(response.authenticatorData),
+          ),
+          clientDataJSON: Array.from(new Uint8Array(response.clientDataJSON)),
+          signature: Array.from(new Uint8Array(response.signature)),
+          userHandle:
+            response.userHandle === null
+              ? null
+              : Array.from(new Uint8Array(response.userHandle)),
+        },
+      };
+    },
+    {
+      ...publicKey,
+      challenge: bytes(publicKey.challenge),
+      ...(publicKey.allowCredentials === undefined
+        ? {}
+        : {
+            allowCredentials: publicKey.allowCredentials.map((descriptor) => ({
+              ...descriptor,
+              id: bytes(descriptor.id),
+            })),
+          }),
+    },
+  )) as SerializedBrowserCredential;
+}
+
+function bytes(value: BufferSource): number[] {
+  return Array.from(
+    value instanceof ArrayBuffer
+      ? new Uint8Array(value)
+      : new Uint8Array(value.buffer, value.byteOffset, value.byteLength),
+  );
+}
+
+function reconstructCredential(value: SerializedBrowserCredential): Credential {
+  const Attestation =
+    globalThis.AuthenticatorAttestationResponse as unknown as new (
+      value: Extract<
+        SerializedBrowserCredential["response"],
+        { kind: "attestation" }
+      >,
+    ) => AuthenticatorAttestationResponse;
+  const Assertion =
+    globalThis.AuthenticatorAssertionResponse as unknown as new (
+      value: Extract<
+        SerializedBrowserCredential["response"],
+        { kind: "assertion" }
+      >,
+    ) => AuthenticatorAssertionResponse;
+  const CredentialConstructor =
+    globalThis.PublicKeyCredential as unknown as new (
+      value: SerializedBrowserCredential,
+      response: AuthenticatorResponse,
+    ) => PublicKeyCredential;
+  const response =
+    value.response.kind === "attestation"
+      ? new Attestation(value.response)
+      : new Assertion(value.response);
+  return new CredentialConstructor(value, response);
+}
+
+function installCredentialConstructors(): () => void {
+  const names = [
+    "PublicKeyCredential",
+    "AuthenticatorAttestationResponse",
+    "AuthenticatorAssertionResponse",
+  ] as const;
+  const previous = new Map(
+    names.map((name) => [
+      name,
+      Object.getOwnPropertyDescriptor(globalThis, name),
+    ]),
+  );
+
+  class TestAttestationResponse {
+    readonly attestationObject: ArrayBuffer;
+    readonly clientDataJSON: ArrayBuffer;
+    readonly #transports: AuthenticatorTransport[];
+
+    constructor(
+      value: Extract<
+        SerializedBrowserCredential["response"],
+        { kind: "attestation" }
+      >,
+    ) {
+      this.attestationObject = Uint8Array.from(value.attestationObject).buffer;
+      this.clientDataJSON = Uint8Array.from(value.clientDataJSON).buffer;
+      this.#transports = value.transports;
+    }
+
+    getTransports(): AuthenticatorTransport[] {
+      return this.#transports;
+    }
+  }
+
+  class TestAssertionResponse {
+    readonly authenticatorData: ArrayBuffer;
+    readonly clientDataJSON: ArrayBuffer;
+    readonly signature: ArrayBuffer;
+    readonly userHandle: ArrayBuffer | null;
+
+    constructor(
+      value: Extract<
+        SerializedBrowserCredential["response"],
+        { kind: "assertion" }
+      >,
+    ) {
+      this.authenticatorData = Uint8Array.from(value.authenticatorData).buffer;
+      this.clientDataJSON = Uint8Array.from(value.clientDataJSON).buffer;
+      this.signature = Uint8Array.from(value.signature).buffer;
+      this.userHandle =
+        value.userHandle === null
+          ? null
+          : Uint8Array.from(value.userHandle).buffer;
+    }
+  }
+
+  class TestPublicKeyCredential {
+    readonly id: string;
+    readonly rawId: ArrayBuffer;
+    readonly type = "public-key";
+    readonly authenticatorAttachment: string | null;
+    readonly response: AuthenticatorResponse;
+    readonly #extensions: AuthenticationExtensionsClientOutputs;
+
+    constructor(
+      value: SerializedBrowserCredential,
+      response: AuthenticatorResponse,
+    ) {
+      this.id = value.id;
+      this.rawId = Uint8Array.from(value.rawId).buffer;
+      this.authenticatorAttachment = value.authenticatorAttachment;
+      this.response = response;
+      this.#extensions = value.clientExtensionResults;
+    }
+
+    getClientExtensionResults(): AuthenticationExtensionsClientOutputs {
+      return this.#extensions;
+    }
+  }
+
+  Object.defineProperties(globalThis, {
+    PublicKeyCredential: {
+      configurable: true,
+      value: TestPublicKeyCredential,
+    },
+    AuthenticatorAttestationResponse: {
+      configurable: true,
+      value: TestAttestationResponse,
+    },
+    AuthenticatorAssertionResponse: {
+      configurable: true,
+      value: TestAssertionResponse,
+    },
+  });
+  return () => {
+    for (const name of names) {
+      const descriptor = previous.get(name);
+      if (descriptor === undefined) delete globalThis[name];
+      else Object.defineProperty(globalThis, name, descriptor);
+    }
+  };
 }
 
 interface SessionFetch {

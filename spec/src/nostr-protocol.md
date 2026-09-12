@@ -222,3 +222,7 @@ author-bound NIP-42, relay event signing, NIP-44 encryption, NIP-17 gift-wrap
 delivery, and NIP-98 repository reads through the real relay boundary. NIP-17
 acceptance MUST allow the ephemeral gift-wrap author while retaining the
 authenticated account as the session and signing authority.
+It MUST also prove that an exact allowed Community origin can register a
+passkey, authorize managed-key release, derive the same canonical Nostr pubkey
+from the released secret, and observe migration-pending state without live
+provider or authenticator credentials.
