@@ -806,6 +806,82 @@
 </Story>
 
 <Story
+  name="Cached channel during refresh"
+  play={async ({ canvas, canvasElement }) => {
+    let application: Element | null = null;
+    await waitFor(() => {
+      application = canvasElement.querySelector(
+        '[data-cache-scenario="cached-refresh"]',
+      );
+      expect(application).not.toBeNull();
+    });
+    await waitFor(() =>
+      expect(application).toHaveAttribute(
+        "data-community-status",
+        "synchronizing",
+      ),
+    );
+    await expect(application).toHaveAttribute("data-cache-message-count", "3");
+    await expect(
+      await canvas.findByLabelText("general conversation"),
+    ).toBeVisible();
+    await expect(
+      canvas.queryByRole("status", { name: "Loading channel messages" }),
+    ).not.toBeInTheDocument();
+    await waitFor(
+      () =>
+        expect(application).toHaveAttribute(
+          "data-community-status",
+          "connected",
+        ),
+      { timeout: 15_000 },
+    );
+  }}
+>
+  {#snippet template()}
+    <CommunityApplicationCacheStoryHarness
+      scenario="cached-refresh"
+      initialDestination="general"
+    />
+  {/snippet}
+</Story>
+
+<Story
+  name="Cached forum during refresh"
+  play={async ({ canvas, canvasElement }) => {
+    let application: Element | null = null;
+    await waitFor(() => {
+      application = canvasElement.querySelector(
+        '[data-cache-scenario="cached-refresh"]',
+      );
+      expect(application).not.toBeNull();
+    });
+    await waitFor(() =>
+      expect(application).toHaveAttribute(
+        "data-community-status",
+        "synchronizing",
+      ),
+    );
+    await waitFor(() =>
+      expect(application).toHaveAttribute("data-cache-topic-count", "1"),
+    );
+    await expect(
+      await canvas.findByRole("region", { name: "support topics" }),
+    ).toBeVisible();
+    await expect(
+      canvas.queryByRole("status", { name: "Loading forum topics" }),
+    ).not.toBeInTheDocument();
+  }}
+>
+  {#snippet template()}
+    <CommunityApplicationCacheStoryHarness
+      scenario="cached-refresh"
+      initialDestination="support"
+    />
+  {/snippet}
+</Story>
+
+<Story
   name="Progressive history bootstrap"
   play={async ({ canvas }) => {
     const application = await canvas.findByTestId(

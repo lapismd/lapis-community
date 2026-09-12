@@ -795,6 +795,17 @@
       findCommunityRoom(workspace) ??
       fallbackRoom(workspace.activeRoomId || activeDestination),
   );
+  const activeRoomHasProjectedHistory = $derived(
+    workspace.activeRoomId === activeRoom.id &&
+      (workspace.view === "forum-index"
+        ? workspace.topics.length > 0
+        : workspace.messages.length > 0),
+  );
+  const activeRoomHistoryLoading = $derived(
+    !activeRoomHasProjectedHistory &&
+      (communityStartupPending ||
+        community.state.contentSync?.rooms[activeRoom.id] === "unloaded"),
+  );
   const activeChannelProjectContext = $derived.by(() => {
     if (isProjectsDestination || activeRoom.kind !== "channel")
       return undefined;
@@ -974,13 +985,17 @@
   const hasCommunityConnection = $derived(
     community.state.status === "connected",
   );
+  const hasRestoredCommunityData = $derived(
+    community.state.cache.freshness !== "empty" &&
+      workspace.navigationSections.some((section) => section.rooms.length > 0),
+  );
   const hasCachedCommunityData = $derived(
     community.state.status === "offline" &&
       community.state.cache.freshness === "offline" &&
-      workspace.navigationSections.some((section) => section.rooms.length > 0),
+      hasRestoredCommunityData,
   );
   const hasCommunitySurface = $derived(
-    hasCommunityConnection || hasCachedCommunityData,
+    hasCommunityConnection || hasRestoredCommunityData,
   );
   const displayMember = $derived<CommunityMemberModel>(
     currentMember ?? fallbackMember(community.state.settings),
@@ -7261,9 +7276,7 @@
             <div class="community-application__workspace-layer">
               <CommunityWorkspaceSurface
                 model={workspaceSurfaceModel}
-                historyLoading={communityStartupPending ||
-                  community.state.contentSync?.rooms[activeRoom.id] ===
-                    "unloaded"}
+                historyLoading={activeRoomHistoryLoading}
                 historyUpdating={community.state.contentSync?.phase ===
                   "background" ||
                   community.state.contentSync?.phase === "partial-error"}

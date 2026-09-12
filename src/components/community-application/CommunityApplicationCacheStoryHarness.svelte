@@ -31,7 +31,8 @@
       | "cold-offline"
       | "degraded"
       | "mid-session-disconnect"
-      | "reconnect";
+      | "reconnect"
+      | "cached-refresh";
     registryConfigured?: boolean;
     initialDestination?: string;
   } = $props();
@@ -107,14 +108,19 @@
         async open() {
           attempts += 1;
           const online =
-            scenario === "mid-session-disconnect"
-              ? attempts === 1
-              : scenario === "reconnect"
-                ? attempts > 1
-                : false;
+            scenario === "cached-refresh"
+              ? true
+              : scenario === "mid-session-disconnect"
+                ? attempts === 1
+                : scenario === "reconnect"
+                  ? attempts > 1
+                  : false;
           if (!online) throw new Error("The community relay is unavailable");
           return {
             async snapshot() {
+              if (scenario === "cached-refresh") {
+                await new Promise((resolve) => setTimeout(resolve, 2_500));
+              }
               return { events: fixture.events, capabilities };
             },
             async subscribe() {
@@ -198,6 +204,9 @@
       ? { registryOptions: { source: registrySource } }
       : {}}
     data-cache-scenario={scenario}
+    data-cache-active-room={community.state.workspace.activeRoomId}
+    data-cache-message-count={community.state.workspace.messages.length}
+    data-cache-topic-count={community.state.workspace.topics.length}
   />
 {:else}
   <p class="community-cache-story__loading" role="status">
