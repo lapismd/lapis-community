@@ -463,3 +463,19 @@ Initial loading MUST show a skeleton representing the destination: gallery, time
 Identity defaults include Message and Wave in every contact popover, disabled when the consumer cannot perform the action. The avatar group composes a complete CommunityMemberHoverCard for each member rather than making the group one profile target. Explicit inline mentions and mentions rendered by CommunityMarkdownContent share the same callbacks, profile navigation, and popover actions; optional contextual actions remain supported.
 
 Composer member widgets mount the same `CommunityMemberHoverCard` used by Markdown. Inline identities fit within the surrounding line height, with centered, unclipped initials; they must not enlarge prose line spacing. The UI policy inspects TypeScript editor adapters as well as Svelte and CSS, rejecting imperative recreation of governed controls and lazy emoji-picker initialization.
+
+### Managed agent creation
+
+The Add Agent dialog begins with **Create managed agent** and **Link existing
+agent**. The existing persona and public-key workflow remains under Link
+existing. Managed creation removes the public-key input, explains relay custody,
+and shows eligible rooms as optional ordinary membership changes.
+
+After activation, a one-time setup view shows the agent public key, custody and
+connection state, confirmed rooms, expiry, Copy, and Download actions. Owned
+agent cards show managed custody and controller connection state with replacement
+setup, revocation, and deletion actions. All states have responsive, dark, retry,
+unsupported-relay, and partial-room-failure `visual-pending` stories.
+
+| LC-UI-043 | Add Agent MUST make managed creation explicit, preserve existing linking, and present secret material only in a one-time setup view with clear custody and recovery consequences. |
+

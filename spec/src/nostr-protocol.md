@@ -239,3 +239,28 @@ provider or authenticator credentials.
 The Keytr browser Docker contract uses signed encrypted kind 31777 records
 on the same relay as application authentication, exercising pre-login recovery
 and subsequent NIP-42 and NIP-98 signing through the normal adapters.
+### Relay-managed agent bootstrap
+
+When NIP-11 advertises `lapis_managed_agents` version `1`, Add Agent offers an
+explicit managed creation path. Community creates a disposable NIP-46 client
+key in memory, asks the relay for a pending custodied identity, publishes the
+owner persona and kind `30177`, requests the one allowed agent kind `0`, and
+activates the reciprocal records. It never receives the agent secret key.
+
+The one-time `lapis.agent-controller-bootstrap/1` bundle contains relay, agent,
+owner, persona, prompt, managed authorization, signer environment references,
+confirmed groups, defaults, and explicit placeholders for host, runtime, and
+remaining groups. The NIP-46 client secret and complete bundle are never stored
+in IndexedDB, Turso, local storage, logs, analytics, errors, or activity
+archives, and are cleared when the dialog closes, identity changes, or the page
+unloads.
+
+Room selection performs ordinary NIP-29 add-member operations after identity
+creation. A room failure is reported separately and does not roll back the
+created identity. Replacement, revocation, and deletion use the relay's signed
+managed-agent API. Community does not start a controller or choose a workspace,
+runtime, model, or thinking level.
+
+| LC-NOSTR-027 | Community MUST discover managed-agent support through NIP-11 and complete resumable create, reciprocal activation, replacement, revocation, and deletion through body-bound NIP-98 requests. |
+| LC-NOSTR-028 | Community MUST expose the controller secret only in a one-time in-memory bootstrap bundle and MUST clear it at every dialog, identity, and page-lifetime boundary. |
+
