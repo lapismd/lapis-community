@@ -235,3 +235,7 @@ It MUST also prove that an exact allowed Community origin can register a
 passkey, authorize managed-key release, derive the same canonical Nostr pubkey
 from the released secret, and observe migration-pending state without live
 provider or authenticator credentials.
+
+The Keytr browser Docker contract uses signed encrypted kind 31777 records
+on the same relay as application authentication, exercising pre-login recovery
+and subsequent NIP-42 and NIP-98 signing through the normal adapters.

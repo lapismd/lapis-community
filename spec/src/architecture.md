@@ -300,3 +300,17 @@ client, restored signer, controller connector, and account model as the browser
 without adding a test branch to the production adapter. Its exact localhost
 Community origin and Chromium virtual authenticator exercise the production
 WebAuthn client conversion and relay RP-ID enforcement.
+
+For LC-ARCH-025 and LC-OPS-005, the unified development host uses the pinned
+Keytr adapter with `local-community.lapis.md` as its default RP ID and the
+shared public relay as storage. It disables Vite's embedded Keytr relay.
+Existing passkeys bound to `community.localhost` require new enrollment or
+explicit import; domains are never silently rewritten. External gateways
+still require related-origin authorization.
+
+Vite binds port 7036 strictly, permits only its configured public host, emits
+assets at that HTTPS origin, and connects HMR with WSS on port 443. Browser
+relay requests remain direct so credentialed CORS is exercised. Existing
+worker/WASM transforms and isolation headers remain enabled. The supervisor
+watches the separate allowlisted public environment and restarts only its
+checkout-owned child. The credentials directory is never a file-serving root.

@@ -3,6 +3,7 @@ import { spawn } from "node:child_process";
 import { watchFile, unwatchFile } from "node:fs";
 import { createRequire } from "node:module";
 import path from "node:path";
+import { publicConfigurationPath } from "./community-public-config.mjs";
 
 import {
   resolveCommunityDevLane,
@@ -26,6 +27,7 @@ const fixtureEnvironmentPath = path.join(
   "registry-fixture",
   "fixture.env",
 );
+const configurationPaths = [fixtureEnvironmentPath, publicConfigurationPath()];
 
 if (process.env.COMMUNITY_DEV_REPLACE === "1") {
   await stopCommunityDevLane(lane);
@@ -93,7 +95,8 @@ function startChild() {
   child.once("exit", (code, signal) => {
     if (stopping || restarting) return;
     stopping = true;
-    unwatchFile(fixtureEnvironmentPath, scheduleFixtureRestart);
+    for (const filename of configurationPaths)
+      unwatchFile(filename, scheduleFixtureRestart);
     releaseStorybookOwner(lane, process.pid);
     process.exitCode = code ?? (signal ? 1 : 0);
   });
@@ -124,7 +127,8 @@ async function stop(signal = "SIGTERM") {
   if (stopping) return;
   stopping = true;
   if (restartTimer) clearTimeout(restartTimer);
-  unwatchFile(fixtureEnvironmentPath, scheduleFixtureRestart);
+  for (const filename of configurationPaths)
+    unwatchFile(filename, scheduleFixtureRestart);
   if (child) await terminateProcessTrees([child.pid]);
   releaseStorybookOwner(lane, process.pid);
   if (signal === "SIGINT") process.exitCode = 130;
@@ -134,7 +138,8 @@ for (const signal of ["SIGINT", "SIGTERM"]) {
   process.once(signal, () => void stop(signal));
 }
 
-watchFile(fixtureEnvironmentPath, { interval: 500 }, scheduleFixtureRestart);
+for (const filename of configurationPaths)
+  watchFile(filename, { interval: 500 }, scheduleFixtureRestart);
 startChild();
 console.log(
   `[community-dev] supervisor ${process.pid} owns ${lane.root} :${lane.port}`,

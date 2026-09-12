@@ -2,11 +2,10 @@ import { createServer as createHttpServer } from "node:http";
 import { fileURLToPath } from "node:url";
 
 import { nip19 } from "nostr-tools";
-import { getPublicKey, verifyEvent } from "nostr-tools/pure";
+import { getPublicKey } from "nostr-tools/pure";
 import { chromium, type Browser, type Page } from "playwright";
 import { describe, expect, it } from "vitest";
 import { createServer as createViteServer } from "vite";
-import { WebSocketServer } from "ws";
 
 import {
   type CommunityCredentialsContainer,
@@ -365,7 +364,6 @@ if (!relayUrl || !relayHttpUrl || !browserOrigin || !fakeOAuthUrl) {
         optimizeDeps: { noDiscovery: true, include: ["semver"] },
         esbuild: { target: "esnext" },
       });
-      const keytrRelay = await createKeytrStorageRelay();
       let browser: Browser | undefined;
       try {
         await vite.listen();
@@ -390,7 +388,7 @@ if (!relayUrl || !relayHttpUrl || !browserOrigin || !fakeOAuthUrl) {
         const configuration = {
           relayUrl,
           relayHttpUrl,
-          keytrRelayUrl: keytrRelay.url,
+          keytrRelayUrl: relayUrl,
           keytrRpId: target.hostname,
         };
         await page.evaluate((value) => {
@@ -463,7 +461,6 @@ if (!relayUrl || !relayHttpUrl || !browserOrigin || !fakeOAuthUrl) {
       } finally {
         await browser?.close();
         await vite.close();
-        await keytrRelay.close();
       }
     }, 90_000);
   });
@@ -553,85 +550,6 @@ async function createVirtualPasskeyContainer(
 
 async function waitForKeytrContract(page: Page): Promise<void> {
   await page.waitForFunction(() => window.keytrContract !== undefined);
-}
-
-async function createKeytrStorageRelay(): Promise<{
-  url: string;
-  close(): Promise<void>;
-}> {
-  const server = createHttpServer();
-  const relay = new WebSocketServer({ server });
-  const events = new Map<string, NostrEvent>();
-  relay.on("connection", (socket) => {
-    socket.on("message", (data) => {
-      let message: unknown;
-      try {
-        message = JSON.parse(data.toString());
-      } catch {
-        return;
-      }
-      if (!Array.isArray(message)) return;
-      if (message[0] === "EVENT") {
-        const event = message[1] as NostrEvent | undefined;
-        if (event !== undefined && verifyEvent(event)) {
-          events.set(event.id, event);
-          socket.send(JSON.stringify(["OK", event.id, true, ""]));
-        }
-        return;
-      }
-      if (message[0] !== "REQ" || typeof message[1] !== "string") return;
-      const subscriptionId = message[1];
-      const filters = message
-        .slice(2)
-        .filter(
-          (value): value is Record<string, unknown> =>
-            typeof value === "object" && value !== null,
-        );
-      for (const event of events.values()) {
-        if (filters.some((filter) => matchesNostrFilter(event, filter))) {
-          socket.send(JSON.stringify(["EVENT", subscriptionId, event]));
-        }
-      }
-      socket.send(JSON.stringify(["EOSE", subscriptionId]));
-    });
-  });
-  await new Promise<void>((resolve, reject) => {
-    server.once("error", reject);
-    server.listen(0, "0.0.0.0", resolve);
-  });
-  const address = server.address();
-  if (address === null || typeof address === "string") {
-    throw new Error("Keytr storage relay did not allocate a port");
-  }
-  return {
-    url: `ws://keytr-storage.localhost:${address.port}`,
-    close: async () => {
-      for (const client of relay.clients) client.terminate();
-      await new Promise<void>((resolve, reject) =>
-        relay.close((error) => (error ? reject(error) : resolve())),
-      );
-      await new Promise<void>((resolve, reject) =>
-        server.close((error) => (error ? reject(error) : resolve())),
-      );
-    },
-  };
-}
-
-function matchesNostrFilter(
-  event: NostrEvent,
-  filter: Record<string, unknown>,
-): boolean {
-  if (Array.isArray(filter.authors) && !filter.authors.includes(event.pubkey)) {
-    return false;
-  }
-  if (Array.isArray(filter.kinds) && !filter.kinds.includes(event.kind)) {
-    return false;
-  }
-  const dValues = filter["#d"];
-  if (Array.isArray(dValues)) {
-    return event.tags.some((tag) => tag[0] === "d" && dValues.includes(tag[1]));
-  }
-  return true;
 }
 
 async function createBrowserCredential(

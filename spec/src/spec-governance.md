@@ -109,3 +109,6 @@ application-session API.
 that contract. It builds the current sibling relay, uses generated ephemeral
 secrets and local fake providers, and MUST NOT require, persist, or log live
 OAuth credentials.
+
+The unified local lifecycle aliases and Vite public configuration implement
+LC-OPS-005; relay infrastructure remains owned by the sibling relay repository.

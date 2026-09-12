@@ -3,10 +3,12 @@ FROM node:24-alpine@sha256:e67514e5d0f6c46656005e1b693b2ec9d52e80b641307de684d4a
 
 RUN corepack enable && corepack prepare pnpm@10.32.1 --activate
 WORKDIR /app
-COPY --chown=node:node . .
+COPY --chown=node:node --from=design-core-packages / /design-core/.local/packages/
+COPY --chown=node:node package.json pnpm-lock.yaml pnpm-workspace.yaml .pnpmfile.cjs ./
 RUN chown node:node /app
 USER node
-RUN pnpm install --frozen-lockfile --ignore-pnpmfile
+RUN pnpm install --frozen-lockfile
+COPY --chown=node:node . .
 RUN pnpm build
 
 FROM node:24-alpine@sha256:e67514e5d0f6c46656005e1b693b2ec9d52e80b641307de684d4a015ba7a4eaf AS runtime

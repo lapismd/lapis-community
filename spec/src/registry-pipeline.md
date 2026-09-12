@@ -76,3 +76,25 @@ selected variant still uses a verified Blob URL. The smoke selectors follow
 the control’s accessibility semantics.
 
 The UI policy tooling validates the Community catalog and parsed production compositions before delivery. Its positive and negative fixtures verify aliases, alternate component syntax, forbidden overrides, exact exceptions, missing exports, and invalid example/state metadata. This local validation does not publish registry artifacts or signed events.
+
+## Unified local Community environment
+
+| ID         | Requirement                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| LC-OPS-005 | The normal local commands MUST delegate lifecycle ownership to the sibling relay tooling and use one persistent relay for registry, Projects, GitHub, application auth and opt-in encrypted Keytr storage. Normal hydration MUST consume the versioned, secret-free 13-plugin bundle without reading a plugins checkout, resolve public resource URLs before signing, preserve centrally stored identities and timestamps, and add missing group roles without removing existing roles or memberships. Initialization MUST independently copy missing credentials to `~/.lapis/community` without modifying the source. The Vite host MUST read only an explicit public configuration allowlist, never the credential environment, and MUST preserve explicit isolated-test overrides. |
+
+`fixture:freeze` is the explicit maintainer operation that refreshes
+`deploy/fixture-v1.json.gz` from the plugins checkout. The bundle includes
+manifests and hashed media; deterministic discussions and the project graph
+remain versioned in the fixture executable. These are development fixtures,
+not installable plugin releases. Rehydration restores the signed baseline;
+ordinary restarts retain additional accounts and activity. The relay-owned
+reset command preserves verified, signed encrypted Keytr recovery records.
+
+The disposable `community-relay.sh` and `local-stack.sh` test harnesses remain
+isolated from the persistent environment. Keytr's PRF browser contract uses
+the actual disposable Docker relay's opt-in kind 31777 policy.
+
+The central head clock and revision MAY advance after 27 days to retain the
+protocol's 30-day freshness bound. The complete compare-and-swap history MUST be retained for reset replay. This only appends renewed curator heads;
+release, discussion and project IDs and timestamps MUST remain unchanged.

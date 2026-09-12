@@ -8,17 +8,22 @@ import { defineConfig } from "vite";
 import { resolveCommunityDevRelayConfiguration } from "./dev/community/config.js";
 import { tursoBundleBuildPlugin } from "./scripts/vite-turso-bundle.js";
 import { keytrDevelopmentRelay } from "./scripts/vite-keytr-relay.js";
+import { readCommunityPublicConfiguration } from "./scripts/community-public-config.mjs";
 
 const packageDirectory = path.dirname(fileURLToPath(import.meta.url));
 const communityHost = "community.localhost";
 const communityPort = 7036;
+const publicEnvironment = readCommunityPublicConfiguration();
+const publicUrl = publicEnvironment.VITE_COMMUNITY_PUBLIC_URL
+  ? new URL(publicEnvironment.VITE_COMMUNITY_PUBLIC_URL)
+  : undefined;
 const fixtureEnvironmentPath = path.join(
   packageDirectory,
   ".local/registry-fixture/fixture.env",
 );
 
 function fixtureValue(name: string): string {
-  const configured = process.env[`VITE_${name}`]?.trim();
+  const configured = publicEnvironment[`VITE_${name}`]?.trim();
   if (configured) return configured;
   if (!fs.existsSync(fixtureEnvironmentPath)) return "";
   const line = fs
@@ -28,30 +33,36 @@ function fixtureValue(name: string): string {
   return line?.slice(name.length + 1).trim() ?? "";
 }
 
-const { relayUrl, authUrl } = resolveCommunityDevRelayConfiguration(
-  process.env,
-);
-const configuredKeytrRelays = process.env.VITE_COMMUNITY_KEYTR_RELAYS?.trim();
+const { relayUrl, authUrl } =
+  resolveCommunityDevRelayConfiguration(publicEnvironment);
+const configuredKeytrRelays =
+  publicEnvironment.VITE_COMMUNITY_KEYTR_RELAYS?.trim();
 const keytrRelays =
   configuredKeytrRelays === "disabled"
     ? ""
     : configuredKeytrRelays ||
-      `ws://${communityHost}:${communityPort}/keytr-relay`;
+      (publicUrl
+        ? relayUrl
+        : `ws://${communityHost}:${communityPort}/keytr-relay`);
 const keytrGateways =
-  process.env.VITE_COMMUNITY_KEYTR_GATEWAYS?.trim() ||
-  `${communityHost}=Community development`;
+  publicEnvironment.VITE_COMMUNITY_KEYTR_GATEWAYS?.trim() ||
+  `${publicUrl?.hostname ?? communityHost}=Community development`;
 
 export default defineConfig({
   root: path.join(packageDirectory, "dev/community"),
   plugins: [
-    keytrDevelopmentRelay({
-      storagePath: path.join(
-        packageDirectory,
-        ".local",
-        "keytr",
-        "events.json",
-      ),
-    }),
+    ...(publicUrl || configuredKeytrRelays
+      ? []
+      : [
+          keytrDevelopmentRelay({
+            storagePath: path.join(
+              packageDirectory,
+              ".local",
+              "keytr",
+              "events.json",
+            ),
+          }),
+        ]),
     tursoBundleBuildPlugin(),
     tailwindcss(),
     svelte(),
@@ -93,9 +104,17 @@ export default defineConfig({
     plugins: () => [tursoBundleBuildPlugin()],
   },
   server: {
-    host: communityHost,
+    host: publicUrl ? "0.0.0.0" : communityHost,
     port: communityPort,
     strictPort: true,
+    ...(publicUrl
+      ? {
+          allowedHosts: [publicUrl.hostname],
+          origin: publicUrl.origin,
+          hmr: { protocol: "wss", host: publicUrl.hostname, clientPort: 443 },
+          open: publicUrl.href,
+        }
+      : {}),
     fs: { allow: [packageDirectory] },
     headers: {
       "Cross-Origin-Opener-Policy": "same-origin",

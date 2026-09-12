@@ -192,3 +192,21 @@ registry at `http://localhost:4321/`.
 Run `pnpm ui:catalog` before adding UI. The [catalog](src/components/ui-catalog.json) points to public imports, compiled examples, production stories, and required interaction/loading states. Browse **Community / Patterns** in Storybook. Run `pnpm check:ui` and the affected contract stories after changes; extend the owning component instead of copying it. [Composition contracts](spec/src/components.md#canonical-ui-composition) define the defaults and narrow exception policy.
 
 `pnpm test:ui:consumer` builds a cold browser fixture against the installed Design Core package, then checks desktop, mobile, constrained-height, and light/dark dialog, confirmation, identity, and avatar behavior. Local screenshots are saved in `.local/ui-evidence`; they are review evidence, not approved baselines.
+
+### Unified local Community
+
+Use `pnpm local:init`, `pnpm local:capture-github`, `pnpm local:tunnel:setup`,
+`pnpm local:build`, then `pnpm local:up`. Infrastructure and lifecycle are owned
+by the sibling relay repository. The normal environment uses one persistent
+Docker relay and centralized credentials under `~/.lapis/community`; originals
+under `~/.lapis/relay` remain unchanged. Vite reads only `public.env`'s approved
+browser fields, binds port 7036, and uses the public HTTPS Community origin with
+WSS HMR and direct relay requests.
+
+See [the relay setup and provider runbook](../nostr-relay/spec/src/operations/local-community.md)
+for callbacks, tunnel routing, provider files, safe reset/recovery, and pending
+live acceptance. The frozen 13-plugin fixture is included in the repository;
+`pnpm fixture:freeze` is the explicit maintainer operation that refreshes it.
+Fixture image builds supply the pinned local Design Core tarball through the
+`design-core-packages` Docker build context. Mock-provider and disposable relay
+tests remain separate from the persistent stack.

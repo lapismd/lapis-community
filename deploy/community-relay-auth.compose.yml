@@ -1,6 +1,7 @@
 services:
   community-relay:
     environment:
+      KEYTR_STORAGE_ENABLED: "true"
       AUTH_ENABLED: "true"
       AUTH_PUBLIC_URL: http://community-relay.localhost:${COMMUNITY_RELAY_PORT:?set by scripts/community-relay.sh}
       AUTH_ALLOWED_BROWSER_ORIGINS: '["${COMMUNITY_AUTH_BROWSER_ORIGIN:?set by scripts/community-relay.sh}"]'

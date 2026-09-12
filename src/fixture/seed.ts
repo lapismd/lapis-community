@@ -28,6 +28,7 @@ import { parseFixtureSecrets } from "./keys.js";
 import type { FixtureSecretName, FixtureSecrets } from "./keys.js";
 import { createLocalProjectForgeFixture } from "./projects.js";
 import { loadLocalPluginFixtures } from "./source.js";
+import { loadFixtureBundle } from "./bundle.js";
 import { encodeNostrHttpAuthorization } from "../nostr/http-authorization.js";
 
 interface FixtureStatus {
@@ -67,6 +68,8 @@ function publisherAuthorizationTemplate(
     ],
   };
 }
+
+const verifyOnly = process.argv.includes("--verify");
 
 function required(name: string, fallback?: string): string {
   const value = process.env[name] ?? fallback;
@@ -141,15 +144,17 @@ async function seed(): Promise<{
     "REGISTRY_FIXTURE_LONG_THREAD_POSTS",
     240,
   );
-  const fixtures = await loadLocalPluginFixtures(
-    required("LAPIS_PLUGINS_ROOT", "/workspace/lapis-plugins"),
-    {
-      ...(pluginLimitRaw === "all" || pluginLimitRaw === ""
-        ? {}
-        : { limit: positiveInteger("REGISTRY_FIXTURE_PLUGIN_LIMIT", 12) }),
-      publicBaseUrl: artifactBase,
-    },
-  );
+  const fixtures = process.env.REGISTRY_FIXTURE_BUNDLE
+    ? await loadFixtureBundle(process.env.REGISTRY_FIXTURE_BUNDLE, artifactBase)
+    : await loadLocalPluginFixtures(
+        required("LAPIS_PLUGINS_ROOT", "/workspace/lapis-plugins"),
+        {
+          ...(pluginLimitRaw === "all" || pluginLimitRaw === ""
+            ? {}
+            : { limit: positiveInteger("REGISTRY_FIXTURE_PLUGIN_LIMIT", 12) }),
+          publicBaseUrl: artifactBase,
+        },
+      );
   if (fixtures.length === 0)
     throw new Error("No complete plugin fixtures were found");
 
@@ -226,6 +231,11 @@ async function seed(): Promise<{
     event: NostrEvent,
     secretKey: Uint8Array,
   ): Promise<void> => {
+    if (verifyOnly) {
+      // The final bounded ID queries verify all records without a per-event query burst.
+      events.push(event);
+      return;
+    }
     const relay = await relayFor(secretKey);
     await retry(async () => {
       try {
@@ -252,17 +262,63 @@ async function seed(): Promise<{
       );
     }
   };
+  const grantRoles = async (
+    groupId: string,
+    pubkey: string,
+    requiredRoles: string[],
+  ): Promise<void> => {
+    const relay = await relayFor(operatorSecret);
+    const members = await relay.query({ kinds: [39_002], "#d": [groupId] });
+    const roles = members.flatMap((member) =>
+      member.tags
+        .filter((tag) => tag[0] === "p" && tag[1] === pubkey)
+        .flatMap((tag) => tag.slice(2)),
+    );
+    if (requiredRoles.every((role) => roles.includes(role))) return;
+    if (verifyOnly)
+      throw new Error(`Required fixture roles are missing from ${groupId}`);
+    const merged = [...new Set([...roles, ...requiredRoles])];
+    await relay.publish(
+      sign(operatorSecret, {
+        kind: 9_000,
+        created_at: Math.floor(Date.now() / 1_000),
+        content: "",
+        tags: [
+          ["h", groupId],
+          ["p", pubkey, ...merged],
+        ],
+      }),
+    );
+    await retry(async () => {
+      const state = await relay.query({ kinds: [39_002], "#d": [groupId] });
+      if (
+        !state.some((member) =>
+          member.tags.some(
+            (tag) =>
+              tag[0] === "p" &&
+              tag[1] === pubkey &&
+              merged.every((role) => tag.slice(2).includes(role)),
+          ),
+        )
+      ) {
+        throw new Error(`Required roles are missing from ${groupId}`);
+      }
+    }, `grant roles for ${groupId}`);
+  };
   const createGroup = async (
     event: NostrEvent,
     groupId: string,
     writerPubkeys: readonly string[] = [],
   ): Promise<void> => {
     const relay = await relayFor(operatorSecret);
-    try {
-      await relay.publish(event);
-    } catch {
-      // The relay consumes NIP-29 management events into relay-signed group state;
-      // some versions do not acknowledge or re-serve the original kind 9007.
+    const existing = await relay.query({ kinds: [39_000], "#d": [groupId] });
+    if (existing.length === 0) {
+      if (verifyOnly) throw new Error(`Baseline group ${groupId} is missing`);
+      try {
+        await relay.publish(event);
+      } catch {
+        // Verify relay-signed state even when a consumed management event is not acknowledged.
+      }
     }
     await retry(async () => {
       const state = await relay.query({
@@ -272,35 +328,8 @@ async function seed(): Promise<{
       if (state.length < 2)
         throw new Error(`NIP-29 group ${groupId} is incomplete`);
     }, `create group ${groupId}`);
-    for (const writerPubkey of writerPubkeys) {
-      await relay.publish(
-        sign(operatorSecret, {
-          kind: 9_000,
-          created_at: Math.floor(Date.now() / 1_000),
-          content: "",
-          tags: [
-            ["h", groupId],
-            ["p", writerPubkey, "writer"],
-          ],
-        }),
-      );
-      await retry(async () => {
-        const members = await relay.query({
-          kinds: [39_002],
-          "#d": [groupId],
-        });
-        const writerPresent = members.some((member) =>
-          member.tags.some(
-            (tag) =>
-              tag[0] === "p" &&
-              tag[1] === writerPubkey &&
-              tag.slice(2).includes("writer"),
-          ),
-        );
-        if (!writerPresent)
-          throw new Error(`Writer ${writerPubkey} is missing from ${groupId}`);
-      }, `grant writer for ${groupId}`);
-    }
+    for (const pubkey of writerPubkeys)
+      await grantRoles(groupId, pubkey, ["writer"]);
   };
 
   let createdAt = positiveInteger(
@@ -360,36 +389,8 @@ async function seed(): Promise<{
         : [],
     );
     if (group.id === lapisGroupId(LAPIS_GROUPS.pluginReleases)) {
-      const relay = await relayFor(operatorSecret);
-      await relay.publish(
-        sign(operatorSecret, {
-          kind: 9_000,
-          created_at: createdAt++,
-          content: "",
-          tags: [
-            ["h", group.id],
-            ["p", curator, "writer", "registry-curator"],
-          ],
-        }),
-      );
-      await retry(async () => {
-        const members = await relay.query({
-          kinds: [39_002],
-          "#d": [group.id],
-        });
-        if (
-          !members.some((member) =>
-            member.tags.some(
-              (tag) =>
-                tag[0] === "p" &&
-                tag[1] === curator &&
-                tag.slice(2).includes("registry-curator"),
-            ),
-          )
-        ) {
-          throw new Error("Fixture curator role was not projected");
-        }
-      }, "grant Registry curator role");
+      createdAt++; // Preserve the fixture event clock across repeat hydration.
+      await grantRoles(group.id, curator, ["writer", "registry-curator"]);
     }
   }
 
@@ -473,40 +474,70 @@ async function seed(): Promise<{
         createdAt++,
       ),
     );
-    const headCreatedAt = createdAt++;
-    const headIssuedAt = new Date(headCreatedAt * 1_000);
-    const head = sign(
-      curatorSecret,
-      createNip29RegistryHeadTemplate(
-        {
-          schema: "lapis.registry.plugin-head/1",
-          pluginId: fixture.plugin.pluginId,
-          authorityEpoch: REGISTRY_AUTHORITY_EPOCH,
-          headRevision: "1",
-          activeReleaseEventId: submission.id,
-          releases: [
-            {
-              releaseEventId: submission.id,
-              manifestSha256: descriptor.sha256,
-              version: release.version,
-              releaseSequence: "0",
-              state: "approved",
-              decisionEventId: approval.id,
-            },
-          ],
-          issuedAt: headIssuedAt.toISOString(),
-          validUntil: new Date(
-            headIssuedAt.getTime() + 30 * 24 * 60 * 60 * 1_000,
-          ).toISOString(),
-        },
-        headCreatedAt,
-      ),
+    const baselineHeadCreatedAt = createdAt++;
+    const baseline = positiveInteger(
+      "REGISTRY_FIXTURE_CREATED_AT",
+      baselineHeadCreatedAt,
     );
+    const history = JSON.parse(
+      process.env.REGISTRY_FIXTURE_HEAD_HISTORY || "[]",
+    ) as { created_at: number; revision: number }[];
+    if (history.length === 0)
+      history.push({ created_at: baseline, revision: 1 });
+    if (
+      history[0]?.created_at !== baseline ||
+      history.some(
+        (point, index) =>
+          !Number.isSafeInteger(point.created_at) ||
+          point.created_at <= 0 ||
+          point.revision !== index + 1,
+      )
+    ) {
+      throw new Error("Invalid persisted fixture head history");
+    }
+    const heads: NostrEvent[] = [];
+    for (const point of history) {
+      const headCreatedAt = point.created_at + baselineHeadCreatedAt - baseline;
+      const headIssuedAt = new Date(headCreatedAt * 1_000);
+      const previous = heads.at(-1);
+      heads.push(
+        sign(
+          curatorSecret,
+          createNip29RegistryHeadTemplate(
+            {
+              schema: "lapis.registry.plugin-head/1",
+              pluginId: fixture.plugin.pluginId,
+              authorityEpoch: REGISTRY_AUTHORITY_EPOCH,
+              headRevision: String(point.revision),
+              ...(previous === undefined
+                ? {}
+                : { previousHeadEventId: previous.id }),
+              activeReleaseEventId: submission.id,
+              releases: [
+                {
+                  releaseEventId: submission.id,
+                  manifestSha256: descriptor.sha256,
+                  version: release.version,
+                  releaseSequence: "0",
+                  state: "approved",
+                  decisionEventId: approval.id,
+                },
+              ],
+              issuedAt: headIssuedAt.toISOString(),
+              validUntil: new Date(
+                headIssuedAt.getTime() + 30 * 24 * 60 * 60 * 1_000,
+              ).toISOString(),
+            },
+            headCreatedAt,
+          ),
+        ),
+      );
+    }
     await publish(authorization, curatorSecret);
     await publish(submission, publisherSecret);
     await publish(approval, curatorSecret);
-    await publish(head, curatorSecret);
-    registryEvents.push(authorization, submission, approval, head);
+    for (const head of heads) await publish(head, curatorSecret);
+    registryEvents.push(authorization, submission, approval, ...heads);
     releaseByPlugin.set(fixture.plugin.pluginId, submission);
   }
 
@@ -736,6 +767,16 @@ async function uploadBlob(
       await globalThis.crypto.subtle.digest("SHA-256", body.buffer),
     ),
   );
+  const url = new URL(`/${sha256}`, httpBase).href;
+  const retained = await fetch(url, { method: "HEAD" });
+  if (
+    retained.ok &&
+    Number(retained.headers.get("content-length")) === body.byteLength
+  ) {
+    return { url, sha256, size: body.byteLength, type: mediaType };
+  }
+  if (verifyOnly)
+    throw new Error("Baseline blob is missing or has an incorrect size");
   const now = Math.floor(Date.now() / 1_000);
   const auth = sign(secretKey, {
     kind: 24_242,
@@ -769,7 +810,8 @@ async function uploadBlob(
   if (descriptor.sha256 !== sha256 || descriptor.size !== body.byteLength) {
     throw new Error("Uploaded registry blob descriptor failed verification");
   }
-  return descriptor;
+  // Use the same extension-free content address after upload and after HEAD.
+  return { ...descriptor, url };
 }
 
 function discussionSentence(index: number): string {
@@ -833,4 +875,8 @@ function startServer(
 }
 
 const seeded = await seed();
-startServer(seeded.artifacts, seeded.catalog, seeded.status);
+if (process.argv.includes("--once") || verifyOnly) {
+  console.log(JSON.stringify(seeded.status));
+} else {
+  startServer(seeded.artifacts, seeded.catalog, seeded.status);
+}

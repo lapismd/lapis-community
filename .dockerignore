@@ -5,7 +5,8 @@
 **/dist
 artifacts
 coverage
-/deploy
+/deploy/*
+!/deploy/fixture-v1.json.gz
 /docs
 /scripts/*
 !/scripts/fake-oauth-provider.mjs

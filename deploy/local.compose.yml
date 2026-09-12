@@ -125,6 +125,8 @@ services:
     build:
       context: ..
       dockerfile: deploy/fixture.Dockerfile
+      additional_contexts:
+        design-core-packages: ../../design-core/.local/packages
     read_only: true
     tmpfs: [/tmp]
     environment:

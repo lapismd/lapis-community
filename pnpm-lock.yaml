@@ -7,7 +7,7 @@ settings:
 overrides:
   aria-query: 5.3.2
 
-pnpmfileChecksum: sha256-OPZMJfeAJZdNEjafCkcEW6pmedJbm5HZ4vBDtxuP6Cc=
+pnpmfileChecksum: sha256-uKpiUUM1psWgF6sPbtpF3BspebCa7co1/zQbp3eMtxc=
 
 importers:
 
@@ -26,7 +26,7 @@ importers:
         specifier: ^1.2.1
         version: 1.2.1
       '@lapismd/design-core':
-        specifier: file:/Users/stevejuma/code/lapismd/design-core/.local/packages/lapismd-design-core-0.1.2-96db2dc96ada.tgz
+        specifier: file:../design-core/.local/packages/lapismd-design-core-0.1.2-96db2dc96ada.tgz
         version: file:../design-core/.local/packages/lapismd-design-core-0.1.2-96db2dc96ada.tgz(@codemirror/lang-markdown@6.5.2)(@codemirror/language-data@6.5.2)(@codemirror/search@6.7.2)(@lezer/markdown@1.7.2)(svelte@5.56.9)(tailwindcss@4.3.3)
       '@lapismd/mira':
         specifier: ^0.0.2
