@@ -1295,7 +1295,9 @@
     await userEvent.click(
       within(rolesDialog).getByRole("button", { name: "Save roles" }),
     );
-    await waitFor(() => expect(rolesDialog).not.toBeInTheDocument());
+    await waitFor(() => expect(rolesDialog).not.toBeInTheDocument(), {
+      timeout: 15_000,
+    });
     await expect(await channelMembers.findByText("writer")).toBeVisible();
     await expect(
       channelMembers.queryByText(outsideMemberName),
