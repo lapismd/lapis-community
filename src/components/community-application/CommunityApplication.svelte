@@ -472,7 +472,6 @@
   let membershipJoinState = $state<"idle" | "pending" | "accepted">("idle");
   let membershipJoinError = $state("");
   let statusOpen = $state(false);
-  let presencePreference = $state<CommunityPresence>("online");
   let searchOpen = $state(false);
   let appSearchInput = $state("");
   let appSearchQuery = $state("");
@@ -597,12 +596,9 @@
   }>();
 
   const workspace = $derived(community.state.workspace);
-  provideCommunityMemberPresence((member) =>
-    member.id === workspace.currentMemberId
-      ? community.state.status === "connected"
-        ? presencePreference
-        : "offline"
-      : undefined,
+  provideCommunityMemberPresence(
+    (member) =>
+      community.state.presence?.members[member.id]?.status ?? "unknown",
   );
   const applicationLocation = $derived(
     currentCommunityApplicationLocation(navigationHistory),
@@ -6525,13 +6521,15 @@
             </Alert.Root>
           {/if}
           <CommunityProfileMenu
-            member={{
-              ...displayMember,
-              presence:
-                community.state.status === "connected"
-                  ? presencePreference
-                  : "offline",
-            }}
+            member={displayMember}
+            presence={community.state.presence?.members[displayMember.id]
+              ?.status ?? "unknown"}
+            presencePreference={community.state.presence?.preference ?? "auto"}
+            presenceDisabled={!community.actions.setPresencePreference ||
+              !community.state.presence ||
+              community.state.presence.status === "unavailable" ||
+              community.state.presence.status === "loading" ||
+              community.state.presence.pending}
             communityName={currentCommunity?.name ?? "Community"}
             {...activeConnection?.relayUrl === undefined
               ? {}
@@ -6543,8 +6541,10 @@
             canManageCommunity={activeRoom.permissions?.manageMembers.state ===
               "enabled"}
             canSendFeedback={extensions.feedback !== undefined}
-            onPresenceChange={(presence) => {
-              presencePreference = presence;
+            onPresenceChange={async (presence) => {
+              await community.actions.setPresencePreference?.(
+                presence === "online" ? "auto" : presence,
+              );
               lastAction = `presence:${presence}`;
             }}
             onAction={(action) => {

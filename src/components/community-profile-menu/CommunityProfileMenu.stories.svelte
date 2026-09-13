@@ -41,6 +41,78 @@
 </script>
 
 <Story
+  name="Unavailable presence"
+  args={{
+    member,
+    communityName: "Community",
+    presence: "unknown",
+    presenceDisabled: true,
+    onAction: fn(),
+    onPresenceChange: fn(),
+  }}
+  play={async ({ canvas, canvasElement }) => {
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Open profile menu for steve" }),
+    );
+    const overlay = within(canvasElement.ownerDocument.body);
+    await expect(
+      overlay.getByRole("menuitem", { name: "Presence: Presence unavailable" }),
+    ).toHaveAttribute("aria-disabled", "true");
+    await userEvent.keyboard("{Escape}");
+    await waitFor(() =>
+      expect(canvasElement.ownerDocument.body.style.pointerEvents).not.toBe(
+        "none",
+      ),
+    );
+  }}
+/>
+
+<Story
+  name="Rejected presence change"
+  args={{
+    member,
+    communityName: "Community",
+    onAction: fn(),
+    onPresenceChange: fn(async () => {
+      throw new Error("Presence update rejected");
+    }),
+  }}
+  play={async ({ canvas, canvasElement }) => {
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Open profile menu for steve" }),
+    );
+    const overlay = within(canvasElement.ownerDocument.body);
+    await userEvent.click(
+      overlay.getByRole("menuitem", { name: "Presence: Online" }),
+    );
+    await userEvent.click(
+      await overlay.findByRole("menuitemradio", { name: "Away" }),
+    );
+    await userEvent.keyboard("{Escape}");
+    await waitFor(() =>
+      expect(canvasElement.ownerDocument.body.style.pointerEvents).not.toBe(
+        "none",
+      ),
+    );
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Open profile menu for steve" }),
+    );
+    await expect(await overlay.findByRole("alert")).toHaveTextContent(
+      "Presence update rejected",
+    );
+    await expect(
+      overlay.getByRole("menuitem", { name: "Presence: Online" }),
+    ).toBeVisible();
+    await userEvent.keyboard("{Escape}");
+    await waitFor(() =>
+      expect(canvasElement.ownerDocument.body.style.pointerEvents).not.toBe(
+        "none",
+      ),
+    );
+  }}
+/>
+
+<Story
   name="Signed-in member"
   args={{
     member,

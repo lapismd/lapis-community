@@ -31,10 +31,12 @@
     onSelect,
     onSearch,
     onSectionAction,
+    onControllerReady,
   }: {
     initialActiveItemId?: string;
     initialCollapsed?: boolean;
     includeStarred?: boolean;
+    onControllerReady?: (controller: CommunityController | undefined) => void;
     onSelect?: (item: CommunityNavigationItemModel) => void;
     onSearch?: (query: string) => void;
     onSectionAction?: (
@@ -169,6 +171,7 @@
           runtime = created;
           community = created.controller;
           community.initialize();
+          onControllerReady?.(community);
           if (created.backend !== "live") {
             void created.scenario.member.getPublicKey().then((pubkey) => {
               if (active && currentGeneration === runtimeGeneration) {
@@ -197,6 +200,7 @@
       );
       unsubscribeLayout();
       runtime?.dispose();
+      onControllerReady?.(undefined);
     };
   });
 
@@ -332,7 +336,9 @@
               onAction={(action) => {
                 if (action === "settings") openSettings();
               }}
-              onPresenceChange={(presence) => (presencePreference = presence)}
+              onPresenceChange={(presence) => {
+                presencePreference = presence;
+              }}
             />
           {/if}
         {/snippet}

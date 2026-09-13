@@ -27,6 +27,9 @@
     canManageCommunity = false,
     canSendFeedback = false,
     connectionStatus = "connected",
+    presence: presenceOverride,
+    presencePreference,
+    presenceDisabled = false,
     onAction,
     onPresenceChange,
   }: {
@@ -39,8 +42,11 @@
     canManageCommunity?: boolean;
     canSendFeedback?: boolean;
     connectionStatus?: CommunityConnectionStatus;
+    presence?: import("../../community/presence-contracts.js").CommunityPresenceStatus;
+    presencePreference?: import("../../community/presence-contracts.js").CommunityPresencePreference;
+    presenceDisabled?: boolean;
     onAction: (action: CommunityProfileMenuAction) => void;
-    onPresenceChange: (presence: CommunityPresence) => void;
+    onPresenceChange: (presence: CommunityPresence) => void | Promise<void>;
   } = $props();
 
   const presenceOptions: readonly {
@@ -53,9 +59,27 @@
   ];
 
   let selectedPresence = $state<CommunityPresence>();
-  const presence = $derived(selectedPresence ?? member.presence ?? "offline");
+  let presencePending = $state(false);
+  let presenceError = $state("");
+  const presence = $derived(
+    presenceOverride ?? selectedPresence ?? member.presence ?? "offline",
+  );
+  const selectedValue = $derived(
+    presencePreference === "auto"
+      ? "online"
+      : (presencePreference ??
+          selectedPresence ??
+          member.presence ??
+          "offline"),
+  );
   const presenceLabel = $derived(
-    presence === "online" ? "Online" : presence === "away" ? "Away" : "Offline",
+    presence === "online"
+      ? "Online"
+      : presence === "away"
+        ? "Away"
+        : presence === "unknown"
+          ? "Presence unavailable"
+          : "Offline",
   );
   const connectionLabel = $derived(
     connectionStatus === "connecting"
@@ -67,11 +91,26 @@
   let menuOpen = $state(false);
   let tooltipOpen = $state(false);
 
-  function requestPresenceChange(value: CommunityPresence): void {
-    if (value === presence) return;
-
-    selectedPresence = value;
-    onPresenceChange(value);
+  async function requestPresenceChange(
+    value: CommunityPresence,
+  ): Promise<void> {
+    if (
+      (value === selectedValue && presence !== "unknown" && !presenceError) ||
+      presencePending ||
+      presenceDisabled
+    )
+      return;
+    presencePending = true;
+    presenceError = "";
+    try {
+      await onPresenceChange(value);
+      selectedPresence = value;
+    } catch (error) {
+      presenceError =
+        error instanceof Error ? error.message : "Could not update presence";
+    } finally {
+      presencePending = false;
+    }
   }
 
   $effect(() => {
@@ -138,7 +177,7 @@
         aria-label="Profile menu"
       >
         <DropdownMenu.Group class="community-profile-menu__menu-header">
-          <CommunityMemberAvatar {member} showPresence decorative />
+          <CommunityMemberAvatar {member} {presence} showPresence decorative />
           <DropdownMenu.Label class="community-profile-menu__menu-identity">
             <strong>{member.name}</strong>
           </DropdownMenu.Label>
@@ -148,6 +187,7 @@
                 class="community-profile-menu__presence-trigger"
                 data-presence={presence}
                 aria-label={`Presence: ${presenceLabel}`}
+                disabled={presenceDisabled || presencePending}
               >
                 <span
                   class="community-profile-menu__presence-dot"
@@ -160,13 +200,14 @@
                 aria-label="Presence status"
               >
                 <DropdownMenu.RadioGroup
-                  value={presence}
+                  value={selectedValue}
                   onValueChange={(value) =>
                     requestPresenceChange(value as CommunityPresence)}
                 >
                   {#each presenceOptions as option (option.value)}
                     <DropdownMenu.RadioItem
                       value={option.value}
+                      disabled={presencePending || presenceDisabled}
                       onSelect={() => requestPresenceChange(option.value)}
                     >
                       <span
@@ -182,6 +223,10 @@
             </DropdownMenu.Sub>
           {/if}
         </DropdownMenu.Group>
+
+        {#if presenceError}<DropdownMenu.Item disabled
+            ><span role="alert">{presenceError}</span></DropdownMenu.Item
+          >{/if}
 
         <DropdownMenu.Group>
           {#if authenticated}

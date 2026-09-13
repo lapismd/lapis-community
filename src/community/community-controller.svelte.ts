@@ -5,6 +5,11 @@ import type {
   CommunityWorkspaceModel,
 } from "../components/index.js";
 import { nip19 } from "nostr-tools";
+import { normalizeURL } from "nostr-tools/utils";
+import type {
+  CommunityPresenceState,
+  CommunityPresenceSession,
+} from "./presence-contracts.js";
 import {
   createNip29ForumCommentTemplate,
   createNip29ForumThreadTemplate,
@@ -115,6 +120,8 @@ export function createCommunityController(
   const eventRuntime = options.runtime ?? createInlineCommunityEventRuntime();
   const clientId = options.clientId ?? createClientId();
   const sessions = new Map<string, CommunitySession>();
+  const presenceSessions = new Map<string, CommunityPresenceSession>();
+  let presenceByScope = $state<Record<string, CommunityPresenceState>>({});
   const subscriptions = new Map<string, CommunitySessionSubscription>();
   const retries = new Map<string, () => Promise<void>>();
   const acceptedEventIdsByOperation = new Map<string, readonly string[]>();
@@ -226,6 +233,17 @@ export function createCommunityController(
   });
   const state = $derived.by(
     (): CommunityControllerState => ({
+      // Keep heartbeat updates from invalidating the shell's composed state.
+      get presence() {
+        return (
+          presenceByScope[activeCommunityId] ?? {
+            status: "unavailable",
+            members: {},
+            preference: "auto",
+            pending: false,
+          }
+        );
+      },
       status,
       cache,
       connections: scopes.map((scope) => ({
@@ -324,6 +342,25 @@ export function createCommunityController(
           return;
         }
         sessions.set(scope.id, session);
+        const presenceRelay = normalizeURL(scope.relayUrl);
+        if (session.presence && !presenceSessions.has(presenceRelay)) {
+          presenceSessions.set(presenceRelay, session.presence);
+          session.presence.start((presence) => {
+            if (generation !== currentGeneration) return;
+            presenceByScope = {
+              ...presenceByScope,
+              ...Object.fromEntries(
+                scopes
+                  .filter(
+                    (candidate) =>
+                      normalizeURL(candidate.relayUrl) === presenceRelay,
+                  )
+                  .map((candidate) => [candidate.id, presence]),
+              ),
+            };
+          }, options.idleSeconds);
+          session.presence.watch(workspace.members.map((member) => member.id));
+        }
         if (scope.id === activeCommunityId) startAgents();
         let snapshotReady = false;
         const pendingEvents: NostrEvent[] = [];
@@ -907,6 +944,8 @@ export function createCommunityController(
     scheduledEventScopes.clear();
     for (const session of sessions.values()) session.close();
     sessions.clear();
+    presenceSessions.clear();
+    presenceByScope = {};
   }
 
   async function refresh(): Promise<void> {
@@ -1163,6 +1202,15 @@ export function createCommunityController(
   }
 
   const actions: CommunityControllerActions = {
+    async setPresencePreference(preference) {
+      const scope = scopes.find(
+        (candidate) => candidate.id === activeCommunityId,
+      );
+      const presence =
+        scope && presenceSessions.get(normalizeURL(scope.relayUrl));
+      if (!presence) throw new Error("Presence is unavailable on this relay");
+      await presence.setPreference(preference);
+    },
     agents: {
       refresh: async () => {
         await agentController?.actions.refresh();
@@ -2735,6 +2783,13 @@ export function createCommunityController(
     runtimeRevision = revision.revision;
     if (revision.workspace !== undefined) {
       workspace = revision.workspace;
+      const scope = scopes.find(
+        (candidate) => candidate.id === activeCommunityId,
+      );
+      if (scope)
+        presenceSessions
+          .get(normalizeURL(scope.relayUrl))
+          ?.watch(workspace.members.map((member) => member.id));
       reconcileAcceptedMembershipOperations();
     }
     inbox = revision.inbox;

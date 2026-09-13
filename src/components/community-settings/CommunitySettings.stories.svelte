@@ -1,9 +1,11 @@
 <script module lang="ts">
   import { defineMeta } from "@storybook/addon-svelte-csf";
   import { expect, userEvent, waitFor, within } from "storybook/test";
+  import type { CommunityController } from "../../community/index.js";
 
   import CommunitySettings from "./CommunitySettings.svelte";
   import CommunityNavigationShellFixture from "../community-navigation/CommunityNavigationShellFixture.svelte";
+  let personalController: CommunityController | undefined;
 
   const { Story } = defineMeta({
     title: "Community/Navigation/Settings",
@@ -43,13 +45,23 @@
   name="Personal settings"
   play={async ({ canvas }) => {
     await canvas.findByRole("heading", { name: "Profile" });
-    await userEvent.click(canvas.getByRole("button", { name: "Edit" }));
+    const edit = canvas.getByRole("button", { name: "Edit" });
+    await waitFor(() => expect(edit).toBeEnabled());
+    await userEvent.click(edit);
 
     const displayName = canvas.getByRole("textbox", {
       name: "Display name",
     });
     await userEvent.clear(displayName);
     await userEvent.type(displayName, "Steve Updated");
+    await waitFor(() =>
+      expect(personalController?.state.presence?.status).toBe("ready"),
+    );
+    const beforePresence = personalController!.state;
+    await personalController!.actions.setPresencePreference!("away");
+    expect(personalController!.state).toBe(beforePresence);
+    await expect(displayName).toBeInTheDocument();
+    await expect(displayName).toHaveValue("Steve Updated");
     await userEvent.click(canvas.getByRole("button", { name: "Done" }));
     await waitFor(() => {
       expect(
@@ -93,7 +105,12 @@
   }}
 >
   {#snippet template()}
-    <CommunityNavigationShellFixture initialActiveItemId="settings" />
+    <CommunityNavigationShellFixture
+      initialActiveItemId="settings"
+      onControllerReady={(controller) => {
+        personalController = controller;
+      }}
+    />
   {/snippet}
 </Story>
 

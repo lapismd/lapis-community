@@ -30,6 +30,7 @@ import {
   type InMemoryCommunityRelayFactory,
   type InMemoryRelayFaults,
 } from "./in-memory-community-relay.js";
+import { createPresenceFixture } from "./presence-fixture.js";
 
 export interface CommunityTestScenarioOptions {
   relayUrl?: string;
@@ -60,6 +61,7 @@ export interface CommunityStoryRuntimeOptions
 }
 
 export interface CommunityStoryRuntime {
+  presenceFetch?: typeof globalThis.fetch;
   backend: CommunityStoryBackend;
   controller: CommunityController;
   relayFactory: CommunityRelayFactory;
@@ -70,12 +72,14 @@ export interface CommunityStoryRuntime {
 
 export interface CommunityTestRuntimeOptions
   extends CommunityTestScenarioOptions {
+  presence?: boolean;
   faults?: InMemoryRelayFaults;
   inviteCodeFactory?: () => string;
   configurationStore?: CommunityConfigurationStore;
 }
 
 export interface CommunityTestRuntime {
+  presenceFetch?: typeof globalThis.fetch;
   controller: CommunityController;
   relayFactory: InMemoryCommunityRelayFactory;
   relay: InMemoryCommunityRelay;
@@ -437,13 +441,23 @@ export async function createCommunityTestRuntime(
     relaySecretKey: relayKey,
     now: () => options.createdAt ?? 1_700_000_000,
   });
+  const presence = createPresenceFixture(relayKey);
   const relayFactory = createInMemoryRelayFactory({
-    policy,
+    policy: {
+      process: (event) =>
+        presence.policy.process(event) ?? policy.process(event),
+      reset: () => policy.reset?.(),
+    },
     ...(options.faults === undefined ? {} : { faults: options.faults }),
   });
   const relay = relayFactory.relay(scenario.scope.relayUrl);
   await scenario.seed(relay);
-  const source = createNip29CommunitySource({ relayFactory, agents: false });
+  const source = createNip29CommunitySource({
+    relayFactory,
+    agents: false,
+    presence: options.presence ?? false,
+    fetch: presence.fetch,
+  });
   const participantPubkey = await scenario.participant.getPublicKey();
   const controller = createCommunityController({
     scopes: [scenario.scope],
@@ -468,6 +482,7 @@ export async function createCommunityTestRuntime(
   });
   return {
     controller,
+    presenceFetch: presence.fetch,
     relayFactory,
     relay,
     scenario,
@@ -491,7 +506,10 @@ export async function createCommunityStoryRuntime(
   const configured = storybookConfiguration();
   const backend = options.backend ?? configured.backend;
   if (backend === "memory") {
-    const runtime = await createCommunityTestRuntime(options);
+    const runtime = await createCommunityTestRuntime({
+      ...options,
+      presence: true,
+    });
     const scenario = createCommunityTestScenario(options);
     return {
       ...runtime,

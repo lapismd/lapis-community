@@ -18,3 +18,5 @@ export * from "./nip17.js";
 export * from "./nip29-community-source.js";
 export * from "./registry-community-source.js";
 export * from "./state-store.js";
+export * from "./presence-contracts.js";
+export * from "./presence-session.js";

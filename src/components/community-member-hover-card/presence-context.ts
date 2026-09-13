@@ -1,13 +1,12 @@
 import { getContext, setContext } from "svelte";
 
-import type {
-  CommunityMemberModel,
-  CommunityPresence,
-} from "../community-workspace/model.js";
+import type { CommunityMemberModel } from "../community-workspace/model.js";
 
 export type CommunityMemberPresenceResolver = (
   member: CommunityMemberModel,
-) => CommunityPresence | undefined;
+) =>
+  | import("../../community/presence-contracts.js").CommunityPresenceStatus
+  | undefined;
 
 const communityMemberPresenceContextKey = Symbol("community-member-presence");
 

@@ -374,6 +374,9 @@
               ],
               source: createNip29CommunitySource({
                 relayFactory: created.relayFactory,
+                ...(created.presenceFetch
+                  ? { fetch: created.presenceFetch }
+                  : {}),
               }),
               identity: created.scenario.operator,
               pulse,
@@ -409,6 +412,9 @@
             created.controller.dispose();
             const baseSource = createNip29CommunitySource({
               relayFactory: created.relayFactory,
+              ...(created.presenceFetch
+                ? { fetch: created.presenceFetch }
+                : {}),
             });
             let failNextWindow = progressiveFailure;
             const source: CommunityDataSource = {
@@ -424,6 +430,14 @@
                   nextSignal?.throwIfAborted();
                 };
                 return {
+                  presence: session.presence,
+                  agents: session.agents,
+                  ...(session.loadPulseWindow === undefined
+                    ? {}
+                    : {
+                        loadPulseWindow: (request, nextSignal) =>
+                          session.loadPulseWindow!(request, nextSignal),
+                      }),
                   snapshot: async (nextSignal) => {
                     await delayBootstrap(nextSignal);
                     if (bootstrapFailure) {
@@ -474,7 +488,7 @@
             community = createCommunityController({
               scopes: [created.scenario.scope],
               source,
-              identity: created.scenario.operator,
+              ...(signedIn ? { identity: created.scenario.operator } : {}),
               pulse,
               now: () => 1_700_000_100,
             });
@@ -507,6 +521,9 @@
                 scopes: [created.scenario.scope],
                 source: createNip29CommunitySource({
                   relayFactory: created.relayFactory,
+                  ...(created.presenceFetch
+                    ? { fetch: created.presenceFetch }
+                    : {}),
                 }),
                 runtime:
                   created.backend === "live"

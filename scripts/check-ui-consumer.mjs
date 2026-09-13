@@ -182,7 +182,7 @@ try {
         activeScenario = `${width}-${height}-${theme}: ${label}`;
         const mention = page
           .getByRole("region", { name: label })
-          .getByRole("button", { name: "@Avery" });
+          .getByRole("button", { name: "Avery", exact: true });
         const avatar = mention.locator(
           '[data-ui-component="community-member-avatar"]',
         );
@@ -231,7 +231,9 @@ try {
       await page
         .getByRole("button", { name: "Add agent", exact: true })
         .click();
-      const agentDialog = page.getByRole("dialog", { name: "Add agent" });
+      const agentDialog = page.getByRole("dialog", {
+        name: "Create managed agent",
+      });
       const agentFooter = agentDialog.locator(
         '[data-ui-part="dialog-frame-footer"]',
       );

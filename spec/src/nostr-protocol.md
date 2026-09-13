@@ -1,5 +1,21 @@
 # Nostr Protocol and Trust
 
+## Relay Presence Extension
+
+Relays advertising `lapis_presence.version = 1` support authenticated kind-20001
+connection heartbeats every 60 seconds and a 180-second server-time lease.
+An explicit `presence-mode` tag changes the account preference (`auto`, `away`,
+or `offline`); ordinary heartbeats never change preferences. Clients include a
+monotonic millisecond `presence-sequence` to order same-second updates.
+
+The client subscribes to relay-authored kind-20001 events with requested `p`
+subjects before making signed NIP-98 `/query` requests for kind 40902 and those
+authors. Each requested subject receives a verified relay-signed result with
+`presence-mode`, `presence-revision`, and `expiration` tags. Only the advertised
+relay signing key may assert a different subject. Newer revisions win; expiry,
+missing results, invalid signatures, and transport failures cannot imply Offline.
+Unsupported relays disable presence choices. NIP-38 text status is independent.
+
 The verified owned-agent directory and Buzz-compatible bridge are specified
 in [Agents and saved activity](agents.md). Ordinary profile metadata and bot
 roles do not establish the owner relationship.

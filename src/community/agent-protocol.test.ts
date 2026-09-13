@@ -5,6 +5,7 @@ import { finalizeEvent, getPublicKey } from "nostr-tools/pure";
 import { describe, expect, it } from "vitest";
 import {
   agentOwner,
+  agentPresence,
   materializeAgentDirectory,
   materializeAgentPersonas,
   parseAgentObserver,
@@ -44,6 +45,24 @@ function profile(conditions = "", created_at = now) {
 }
 
 describe("agent ownership and protocol", () => {
+  it("honors a relay lease expiry without extending it from the observation time", () => {
+    const event = finalizeEvent(
+      {
+        kind: 20001,
+        created_at: now,
+        content: "online",
+        tags: [
+          ["p", agent],
+          ["expiration", String(now + 10)],
+        ],
+      },
+      relayKey,
+    );
+    expect(agentPresence(event, agent, relay, now)?.status).toBe("online");
+    expect(agentPresence(event, agent, relay, now + 10)?.status).toBe(
+      "unknown",
+    );
+  });
   it("matches the published Buzz and Go relay owner-attestation vector", () => {
     const credential = verifyAgentCredential(
       [

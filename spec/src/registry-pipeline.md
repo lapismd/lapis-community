@@ -77,6 +77,11 @@ the control’s accessibility semantics.
 
 The UI policy tooling validates the Community catalog and parsed production compositions before delivery. Its positive and negative fixtures verify aliases, alternate component syntax, forbidden overrides, exact exceptions, missing exports, and invalid example/state metadata. This local validation does not publish registry artifacts or signed events.
 
+Packaged-consumer checks use the same current accessible control names as the
+canonical component stories, including inline member names and the managed-agent
+dialog title. Presence badge changes retain the identity geometry and avatar
+contracts across the existing viewport and theme matrix.
+
 ## Unified local Community environment
 
 | ID         | Requirement                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |

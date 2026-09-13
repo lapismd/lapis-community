@@ -2821,10 +2821,12 @@
     await userEvent.click(
       await overlay.findByRole("menuitemradio", { name: "Away" }),
     );
-    await expect(application).toHaveAttribute(
-      "data-last-action",
-      "presence:away",
+    await waitFor(() =>
+      expect(application).toHaveAttribute("data-last-action", "presence:away"),
     );
+    await expect(
+      profileTrigger.querySelector('[data-ui-part="presence"]'),
+    ).toHaveAttribute("data-presence", "away");
     await userEvent.keyboard("{Escape}");
     await waitFor(() =>
       expect(canvasElement.ownerDocument.body.style.pointerEvents).not.toBe(

@@ -145,7 +145,11 @@ export class InMemoryCommunityRelay implements CommunityRelay {
     if (options.verify !== false && !verifyEvent(copyEvent(event))) {
       throw new Error("In-memory relay rejected an invalid Nostr event");
     }
-    if (this.#retain(copyEvent(event)) && options.notify !== false) {
+    if (
+      ((event.kind >= 20000 && event.kind < 30000) ||
+        this.#retain(copyEvent(event))) &&
+      options.notify !== false
+    ) {
       this.#notify(event);
     }
   }
@@ -291,13 +295,19 @@ export class InMemoryCommunityRelay implements CommunityRelay {
         if (policyResult.removeEvents(stored)) this.#events.delete(id);
       }
     }
-    const retained = this.#retain(copyEvent(event));
+    const retained =
+      (event.kind >= 20000 && event.kind < 30000) ||
+      this.#retain(copyEvent(event));
     if (retained) this.#notify(event);
     for (const generated of policyResult?.generatedEvents ?? []) {
       if (!verifyEvent(copyEvent(generated))) {
         throw new Error("In-memory relay policy generated an invalid event");
       }
-      if (this.#retain(copyEvent(generated))) this.#notify(generated);
+      if (
+        (generated.kind >= 20000 && generated.kind < 30000) ||
+        this.#retain(copyEvent(generated))
+      )
+        this.#notify(generated);
     }
     return {
       accepted: true,

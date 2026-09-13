@@ -459,7 +459,11 @@ export function agentPresence(
   const status = event.content.startsWith("{")
     ? agentJson(event.content).status
     : event.content;
-  const expiresAt = event.created_at + AGENT_PRESENCE_TTL;
+  const expiration = agentTag(event, "expiration");
+  const expiresAt =
+    expiration && /^\d+$/.test(expiration)
+      ? Math.min(Number(expiration), event.created_at + AGENT_PRESENCE_TTL)
+      : event.created_at + AGENT_PRESENCE_TTL;
   return {
     status:
       expiresAt > now &&

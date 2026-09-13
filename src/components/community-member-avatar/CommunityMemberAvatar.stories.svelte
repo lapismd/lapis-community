@@ -41,6 +41,7 @@
     await expect(
       avatar.querySelector('[data-ui-part="presence"]'),
     ).toHaveAttribute("data-presence", "unknown");
+    await expect(avatar).toHaveAccessibleName("Ada Lovelace, Presence unknown");
   }}
 />
 

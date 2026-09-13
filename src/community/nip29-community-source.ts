@@ -37,9 +37,12 @@ import {
 } from "./materialize-pulse.js";
 import { verifiedNostrEvent } from "./verified-events.js";
 import { createCommunityAgentSession } from "./agent-session.js";
+import { createCommunityPresenceSession } from "./presence-session.js";
+import type { CommunityPresenceSession } from "./presence-contracts.js";
 import type { CommunityAgentSession } from "./agent-contracts.js";
 
 export interface Nip29CommunitySourceOptions {
+  presence?: boolean;
   relayFactory: CommunityRelayFactory;
   searchLimit?: number;
   /** Hosts may omit the optional agent surface for sources without a bridge. */
@@ -71,6 +74,7 @@ export function createNip29CommunitySource(
 }
 
 class Nip29CommunitySession implements CommunitySession {
+  readonly presence: CommunityPresenceSession | undefined;
   readonly agents: CommunityAgentSession | undefined;
   readonly #scope: CommunityScope;
   readonly #context: CommunityDataSourceContext;
@@ -107,6 +111,16 @@ class Nip29CommunitySession implements CommunitySession {
         ? undefined
         : createCommunityAgentSession({
             scope,
+            identity: context.identity,
+            relay: this.#authority,
+            authenticate: (signal) =>
+              this.#authenticate(this.#authority, signal),
+            ...(options.fetch === undefined ? {} : { fetch: options.fetch }),
+          });
+    this.presence =
+      context.identity === undefined || options.presence === false
+        ? undefined
+        : createCommunityPresenceSession({
             identity: context.identity,
             relay: this.#authority,
             authenticate: (signal) =>
@@ -1023,6 +1037,7 @@ class Nip29CommunitySession implements CommunitySession {
   close(): void {
     if (this.#closed) return;
     this.#closed = true;
+    this.presence?.close();
     for (const subscription of this.#subscriptions) subscription.close();
     this.#subscriptions.clear();
     this.#roomSubscriptionIds.clear();

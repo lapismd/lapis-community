@@ -218,6 +218,7 @@ export interface CommunityOperationState {
 }
 
 export interface CommunityControllerState {
+  presence?: import("./presence-contracts.js").CommunityPresenceState;
   agents?: CommunityAgentsState;
   status: CommunityConnectionStatus;
   cache: CommunityCacheState;
@@ -570,6 +571,9 @@ export interface CommunitySessionSubscription {
 }
 
 export interface CommunitySession {
+  readonly presence?:
+    | import("./presence-contracts.js").CommunityPresenceSession
+    | undefined;
   /** Optional relay-backed agents; custom sources remain compatible. */
   readonly agents?: CommunityAgentSession | undefined;
   snapshot(signal?: AbortSignal): Promise<CommunitySnapshot>;
@@ -629,6 +633,9 @@ export interface CommunityController {
 }
 
 export interface CommunityControllerActions {
+  setPresencePreference?(
+    preference: import("./presence-contracts.js").CommunityPresencePreference,
+  ): Promise<void>;
   agents?: CommunityAgentsActions;
   selectCommunity(communityId: string): void;
   selectRoom(roomId: string): void;
@@ -702,6 +709,7 @@ export interface CommunityControllerActions {
 }
 
 export interface CommunityControllerOptions {
+  idleSeconds?: () => Promise<number | null>;
   scopes: readonly CommunityScope[];
   source: CommunityDataSource;
   identity?: CommunityIdentity;

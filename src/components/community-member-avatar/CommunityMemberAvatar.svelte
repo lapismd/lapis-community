@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { CommunityMemberModel } from "../community-workspace/model.js";
   import { communityMemberAvatarFallbackTone } from "./model.js";
+  import { useCommunityMemberPresence } from "../community-member-hover-card/presence-context.js";
 
   let {
     member,
@@ -18,7 +19,13 @@
     presence?: CommunityMemberModel["presence"] | "unknown";
   } = $props();
 
-  const presence = $derived(presenceOverride ?? member.presence ?? "offline");
+  const resolvePresence = useCommunityMemberPresence();
+  const presence = $derived(
+    presenceOverride ??
+      resolvePresence?.(member) ??
+      member.presence ??
+      "offline",
+  );
   const fallbackTone = $derived(communityMemberAvatarFallbackTone(member.name));
   const presenceLabel = $derived(
     presence === "online"
@@ -195,5 +202,10 @@
 
   .community-member-avatar__presence[data-presence="away"] {
     background: var(--warning, #d99a00);
+  }
+
+  .community-member-avatar__presence[data-presence="unknown"] {
+    background: var(--background);
+    box-shadow: inset 0 0 0 1px var(--muted-foreground);
   }
 </style>
