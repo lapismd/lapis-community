@@ -265,6 +265,7 @@
       }}
       rooms={storyAgentRooms.map((room) => ({
         id: room.id,
+        groupId: `group-${room.id}`,
         name: room.name,
         canManage: true,
       }))}

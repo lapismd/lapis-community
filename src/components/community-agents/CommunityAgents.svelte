@@ -74,7 +74,12 @@
     ) => Promise<CommunityAgentControllerBootstrap>;
     onRevokeManagedAgent?: (pubkey: string) => Promise<void>;
     onDeleteManagedAgent?: (pubkey: string) => Promise<void>;
-    rooms?: readonly { id: string; name: string; canManage: boolean }[];
+    rooms?: readonly {
+      id: string;
+      groupId?: string;
+      name: string;
+      canManage: boolean;
+    }[];
     onAddAgentToRoom?: (roomId: string, pubkey: string) => Promise<void>;
     ownerPubkey?: string;
     onRefresh: () => void | Promise<void>;
@@ -257,7 +262,11 @@
     }
     addingPending = true;
     try {
-      const groupIds = selectedRooms.map((room) => room.id);
+      const selectedGroups = selectedRooms.map((room) => ({
+        roomId: room.id,
+        groupId: room.groupId ?? room.id,
+      }));
+      const groupIds = selectedGroups.map((room) => room.groupId);
       const bundle = await onCreateManagedAgent({
         personaSlug: slug,
         displayName,
@@ -284,11 +293,11 @@
       });
       const confirmed: string[] = [];
       const failed: string[] = [];
-      for (const groupId of groupIds) {
+      for (const { roomId, groupId } of selectedGroups) {
         try {
           if (!onAddAgentToRoom)
             throw new Error("Room membership is unavailable");
-          await onAddAgentToRoom(groupId, bundle.agent.pubkey);
+          await onAddAgentToRoom(roomId, bundle.agent.pubkey);
           confirmed.push(groupId);
         } catch {
           failed.push(groupId);

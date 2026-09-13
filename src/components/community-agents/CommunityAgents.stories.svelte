@@ -110,6 +110,7 @@
     await expect(
       within(dialog).getByText(/"lapis.agent-controller-bootstrap\/1"/),
     ).toBeVisible();
+    await expect(within(dialog).getByText(/"group-general"/)).toBeVisible();
     await userEvent.click(within(dialog).getByRole("button", { name: "Done" }));
   }}>{#snippet template()}<Harness variant="gallery" />{/snippet}</Story
 >
@@ -208,7 +209,7 @@
     await expect(within(dialog).getByRole("alert")).toHaveTextContent(
       "support",
     );
-    await expect(within(dialog).getByText(/"general"/)).toBeVisible();
+    await expect(within(dialog).getByText(/"group-general"/)).toBeVisible();
     await userEvent.click(within(dialog).getByRole("button", { name: "Done" }));
   }}>{#snippet template()}<Harness variant="room-failure" />{/snippet}</Story
 >

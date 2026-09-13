@@ -6952,6 +6952,7 @@
                 community.actions.agents!.deleteManagedAgent(pubkey)}
               rooms={allRooms.map((room) => ({
                 id: room.id,
+                ...(room.groupId ? { groupId: room.groupId } : {}),
                 name: room.name,
                 canManage: room.permissions?.manageMembers.state === "enabled",
               }))}
