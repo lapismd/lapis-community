@@ -70,6 +70,7 @@ import {
   normalizeShortcode,
 } from "./materialize-settings.js";
 import { createInlineCommunityEventRuntime } from "./event-runtime.js";
+import { unwrapNip17GiftWrap } from "./nip17.js";
 import { registerCommunityControllerIdentityReader } from "./controller-identity-context.js";
 import {
   createCommunityAgentsController,
@@ -394,6 +395,14 @@ export function createCommunityController(
         if (generation !== currentGeneration) return;
         await cacheSnapshot(scope, snapshot, pendingEvents, currentGeneration);
         mergePrivateEvents(scope.id, snapshot.privateEvents ?? []);
+        mergePrivateEvents(
+          scope.id,
+          await decryptPrivateEvents(
+            scope.id,
+            pendingEvents,
+            currentGeneration,
+          ),
+        );
         capabilitiesByScope = {
           ...capabilitiesByScope,
           [scope.id]: snapshot.capabilities,
@@ -2920,6 +2929,14 @@ export function createCommunityController(
         [],
         currentGeneration,
       );
+      const privateEvents = await decryptPrivateEvents(
+        scopeId,
+        events,
+        currentGeneration,
+      );
+      if (privateEvents.length === 0) return;
+      mergePrivateEvents(scopeId, privateEvents);
+      await refreshProjection(currentGeneration);
     } catch (cause) {
       cache = {
         ...cache,
@@ -2927,6 +2944,38 @@ export function createCommunityController(
           cause instanceof Error ? cause.message : "Local cache write failed",
       };
     }
+  }
+
+  async function decryptPrivateEvents(
+    scopeId: string,
+    events: readonly NostrEvent[],
+    currentGeneration: number,
+  ): Promise<CommunityPrivateEvent[]> {
+    const currentIdentity = identity;
+    const recipientPubkey = identityPubkey;
+    if (
+      generation !== currentGeneration ||
+      currentIdentity?.nip44 === undefined ||
+      recipientPubkey === ""
+    ) {
+      return [];
+    }
+    const knownWrapIds = new Set(
+      (privateEventsByScope[scopeId] ?? []).map((event) => event.wrapId),
+    );
+    const liveWraps = events.filter(
+      (event) =>
+        event.kind === 1_059 &&
+        !knownWrapIds.has(event.id) &&
+        event.tags.some((tag) => tag[0] === "p" && tag[1] === recipientPubkey),
+    );
+    const settled = await Promise.allSettled(
+      liveWraps.map((wrap) => unwrapNip17GiftWrap(currentIdentity, wrap)),
+    );
+    if (generation !== currentGeneration) return [];
+    return settled.flatMap((result) =>
+      result.status === "fulfilled" ? [result.value] : [],
+    );
   }
 
   function queueLiveEvents(

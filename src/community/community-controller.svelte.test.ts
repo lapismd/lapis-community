@@ -20,6 +20,7 @@ import {
   type CommunityTestRuntime,
 } from "../testing/index.js";
 import { createNip29CommunitySource } from "./nip29-community-source.js";
+import { createNip17GiftWraps } from "./nip17.js";
 import { createBrowserCommunityConfigurationStore } from "./state-store.js";
 
 let runtime: CommunityTestRuntime | undefined;
@@ -951,6 +952,40 @@ describe("createCommunityController", () => {
       { content: "Encrypted hello" },
     ]);
     expect(await runtime.relay.count({ kinds: [1_059] })).toBe(2);
+  });
+
+  it("materializes a live NIP-17 inbox delivery without refreshing", async () => {
+    runtime = await createCommunityTestRuntime();
+    await connected(runtime);
+    const operatorPubkey = await runtime.scenario.operator.getPublicKey();
+    const memberPubkey = await runtime.scenario.member.getPublicKey();
+    await runtime.controller.actions.sendDirectMessage(
+      [memberPubkey],
+      "Initial encrypted message",
+    );
+    const initialMessageId = runtime.controller.state.workspace.messages[0]!.id;
+    const wraps = await createNip17GiftWraps({
+      identity: runtime.scenario.member,
+      recipients: [operatorPubkey],
+      content: "Live encrypted reply",
+      createdAt: 1_700_000_101,
+      replyToEventId: initialMessageId,
+    });
+    const recipientWrap = wraps.find((wrap) =>
+      wrap.tags.some((tag) => tag[0] === "p" && tag[1] === operatorPubkey),
+    );
+    expect(recipientWrap).toBeDefined();
+
+    runtime.relay.inject(recipientWrap!);
+
+    await vi.waitFor(() => {
+      expect(runtime?.controller.state.workspace.messages).toContainEqual(
+        expect.objectContaining({
+          authorId: memberPubkey,
+          content: "Live encrypted reply",
+        }),
+      );
+    });
   });
 
   it("encrypts direct-message reactions and deletion toggles", async () => {
