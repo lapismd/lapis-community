@@ -25,6 +25,7 @@ import {
   AGENT_PERSONA_SLUG,
   AGENT_PUBKEY,
   agentJson,
+  agentOwner,
   agentTag,
   materializeAgentDirectory,
   materializeAgentPersonas,
@@ -321,7 +322,29 @@ class AgentSession implements CommunityAgentSession {
       ),
       signal,
     );
+    const otherOwners = new Set<string>();
+    const links = profiles
+      .filter((profile) => profile.kind === 0)
+      .flatMap((profile) => {
+        const managed = profile.tags.find(
+          (tag) => tag[0] === "lapis-managed" && tag[2] === info.self,
+        );
+        const candidate = agentOwner(profile) ?? managed?.[1];
+        if (!candidate || candidate === owner || !AGENT_PUBKEY.test(candidate))
+          return [];
+        otherOwners.add(candidate);
+        return [
+          {
+            kinds: [30177],
+            authors: [candidate],
+            "#d": [profile.pubkey],
+            limit: 1,
+          },
+        ];
+      });
+    const publicLinks = await this.#batches(links, signal);
     const events = [
+      ...publicLinks,
       ...owned.events,
       ...personas.events,
       ...membership.events,
@@ -386,6 +409,9 @@ class AgentSession implements CommunityAgentSession {
     });
     return {
       agents,
+      publicAgents: [...otherOwners].flatMap((other) =>
+        materializeAgentDirectory(projectedEvents, other, info.self),
+      ),
       personas: materializeAgentPersonas(projectedEvents, owner),
       events: projectedEvents,
       relayPubkey: info.self,

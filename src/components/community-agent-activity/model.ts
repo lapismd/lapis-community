@@ -34,6 +34,18 @@ export function presentAgentActivity(item: CommunityAgentActivityItem): {
 } {
   const { frame } = item;
   const payload = record(frame.payload);
+  if (frame.kind === "request_status")
+    return {
+      category: payload.severity === "error" ? "Error" : "Status",
+      title: label(payload.preview) || label(payload.state) || "Working",
+      body: "",
+    };
+  if (frame.kind === "tool_call_update" && payload.label)
+    return {
+      category: "Tool",
+      title: label(payload.label),
+      body: label(payload.status),
+    };
   const update = record(record(payload.params).update);
   const updateKind = label(update.sessionUpdate);
   if (

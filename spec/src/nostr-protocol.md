@@ -292,3 +292,12 @@ DEFER-AGENT-013, DEFER-AGENT-009, DEFER-AGENT-002, and DEFER-AGENT-011.
 
 | LC-NOSTR-027 | Community MUST discover managed-agent support through NIP-11 and complete resumable create, reciprocal activation, replacement, revocation, and deletion through body-bound NIP-98 requests. |
 | LC-NOSTR-028 | Community MUST expose the controller secret only in a one-time in-memory bootstrap bundle and MUST clear it at every dialog, identity, and page-lifetime boundary. |
+
+## Public agent work signals
+
+Discover non-owned agent profiles and their reciprocal owner instances from the
+current relay membership graph for public status only. Subscribe to fresh kind
+20002 signals from those verified identities. This never makes an agent owned,
+exposes private previews, enables activity links, or permits control commands.
+Owner-encrypted records remain bound to the signed-in owner and current channel
+membership, including when decrypting archived records.

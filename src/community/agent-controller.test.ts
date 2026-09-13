@@ -156,6 +156,83 @@ async function setup() {
 }
 
 describe("agent activity controller", () => {
+  it("finishes empty history without waiting for incoming activity", async () => {
+    const { controller } = await setup();
+    await controller.actions.openActivity(agent);
+    expect(controller.state.activityLoading).toBe(false);
+    expect(controller.state.activity).toEqual([]);
+    expect(controller.state.activityError).toBeUndefined();
+  });
+  it("turns a stalled archive into a retryable state and ignores its late result", async () => {
+    const { controller, archive } = await setup();
+    vi.useFakeTimers();
+    try {
+      let finish!: (value: any) => void;
+      const page = archive.page;
+      archive.page = () =>
+        new Promise((resolve) => {
+          finish = resolve;
+        });
+      const opening = controller.actions.openActivity(agent);
+      await vi.advanceTimersByTimeAsync(15_001);
+      await opening;
+      expect(controller.state.activityLoading).toBe(false);
+      expect(controller.state.activityError).toContain("Latest to retry");
+      finish({ records: [], hasOlder: false });
+      archive.page = page;
+      await controller.actions.openActivity(agent);
+      expect(controller.state.activityError).toBeUndefined();
+      expect(controller.state.activityLoading).toBe(false);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+  it("keeps independent conversations and filters encrypted history by exact thread", async () => {
+    const { controller, receive } = await setup();
+    receive(
+      frame(1, "request_status", "general", {
+        scopeKey: "relay/general/agent/thread/a",
+        lifecycleRequestId: "a",
+        state: "running",
+        preview: "Reading",
+      }),
+    );
+    receive(
+      frame(2, "request_status", "general", {
+        scopeKey: "relay/general/agent/thread/b",
+        lifecycleRequestId: "b",
+        state: "running",
+        preview: "Testing",
+      }),
+    );
+    await vi.waitFor(() =>
+      expect(
+        Object.keys(controller.state.conversationScopes ?? {}),
+      ).toHaveLength(2),
+    );
+    receive(
+      frame(3, "turn_completed", "general", {
+        scopeKey: "relay/general/agent/thread/a",
+        lifecycleRequestId: "a",
+      }),
+    );
+    await vi.waitFor(() =>
+      expect(
+        Object.values(controller.state.conversationScopes ?? {}).filter(
+          (scope) => scope.active,
+        ),
+      ).toHaveLength(1),
+    );
+    await controller.actions.openActivity(agent, {
+      kind: "thread",
+      channelId: "general",
+      threadRootId: "b",
+    });
+    expect(controller.state.activity).toHaveLength(1);
+    expect(controller.state.activity[0]?.frame.payload).toMatchObject({
+      preview: "Testing",
+    });
+  });
   it("loads the relay directory without waiting for a stalled activity archive", async () => {
     const archive = createMemoryAgentActivityStore();
     archive.agents = vi.fn(
@@ -365,6 +442,8 @@ describe("agent activity controller", () => {
       {
         version: 1,
         command: "cancel_turn",
+        expectedSessionId: "s",
+        expectedTurnId: "t",
         scopeKey: "relay/general/agent/thread/root",
         channelId: "general",
       },
@@ -376,6 +455,8 @@ describe("agent activity controller", () => {
       {
         version: 1,
         command: "reset_conversation",
+        expectedSessionId: "s",
+        expectedTurnId: "t",
         scopeKey: "relay/general/agent/thread/root",
         channelId: "general",
       },

@@ -207,3 +207,30 @@ catalog. Persona drafts persist in the open form after rejected writes. Initial
 agent discovery and activity loading use gallery and timeline skeletons, with
 retained content during refresh. Local history clearing uses the compact
 retryable confirmation composition.
+
+## Contextual activity and composer previews
+
+The activity panel fixes the agent and origin context: overview, channel, exact
+thread/topic, or DM. It has no agent/channel selectors. Profiles preserve their
+origin and browser navigation restores it. Directory entry opens the agent
+overview; contextual entry opens only that context. Live and decrypted archived
+activity, permissions and controls use the same scope. Session/turn targets
+prevent stale cancellation. Agent-wide history clearing belongs in the overview.
+
+A shared row below conversation and reply composers displays the latest useful
+current-request preview, never a carousel. It reserves footer space, truncates
+one line, and opens matching activity. Multiple entries use a contextual
+popover. Owners see encrypted output, tool summaries and warnings; other members
+see only fresh public working status. Permission waits take priority. Completed
+and cancelled turns disappear; errors remain ten seconds, or until a new request.
+Saved activity never drives a live row. No plaintext persistence is added.
+
+Preview and panel normalization agree; hidden reasoning, raw protocol payloads
+and secrets are excluded. Keyboard access, restrained announcements, reduced
+motion and unchanged composer error banners are required. Changed stories stay
+visual-pending.
+
+History loading is bounded to 15 seconds and streams matching records as they are
+decrypted. A stalled archive or signer becomes a retryable error, not an endless
+skeleton. Decoded frames may be reused in an owner-session memory cache, cleared
+on disposal; archived frames never update live busy state.

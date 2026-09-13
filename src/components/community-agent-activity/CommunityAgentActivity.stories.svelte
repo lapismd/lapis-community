@@ -15,7 +15,7 @@
           code: `<script>
   import { CommunityAgentActivity } from "@lapismd/lapis-community/components";
 <\/script>
-<CommunityAgentActivity model={controller.state.agents} {rooms} onBack={openProfile} onSelectAgent={selectAgent} onSelectChannel={filterChannel} onLatest={refreshActivity} onLoadOlder={controller.actions.agents.loadOlderActivity} onClearHistory={clearSelectedHistory} />`,
+<CommunityAgentActivity model={controller.state.agents} {rooms} onLatest={refreshActivity} onLoadOlder={controller.actions.agents.loadOlderActivity} onClearHistory={clearSelectedHistory} />`,
         },
       },
     },
@@ -74,44 +74,32 @@
       canvas.getByRole("button", { name: "Latest", exact: true }),
     );
     await expect(canvas.getByText("Showing latest activity")).toBeVisible();
-    await userEvent.click(
-      canvas.getByRole("button", { name: "Back to profile" }),
-    );
+    const back = canvas.getByRole("button", { name: "Back to profile" });
+    await expect(back.closest("header")).not.toBeNull();
+    await expect(
+      canvas.getByRole("region", { name: "Agent activity history" }),
+    ).not.toContainElement(back);
+    await userEvent.click(back);
     await expect(
       canvas.getByRole("article", { name: "Research agent profile" }),
     ).toBeVisible();
   }}>{#snippet template()}<Harness screen="activity" />{/snippet}</Story
 >
 <Story
-  name="Channel filter"
-  play={async ({ canvas, canvasElement }) => {
-    const body = within(canvasElement.ownerDocument.body);
-    await userEvent.click(
-      canvas.getByRole("button", { name: "Activity agent" }),
-    );
+  name="Fixed agent and context"
+  play={async ({ canvas }) => {
     await expect(
-      body.getByRole("listbox", { name: "Activity agent" }),
-    ).toBeVisible();
-    await userEvent.keyboard("{Escape}");
-    await waitFor(() =>
-      expect(
-        body.queryByRole("listbox", { name: "Activity agent" }),
-      ).not.toBeInTheDocument(),
-    );
-    const channel = canvas.getByRole("button", { name: "Activity channel" });
-    await waitFor(() =>
-      expect(getComputedStyle(channel).pointerEvents).not.toBe("none"),
-    );
-    await userEvent.click(channel);
+      canvas.queryByRole("button", { name: "Activity agent" }),
+    ).not.toBeInTheDocument();
     await expect(
-      body.getByRole("listbox", { name: "Activity channel" }),
+      canvas.queryByRole("button", { name: "Activity channel" }),
+    ).not.toBeInTheDocument();
+    await expect(
+      canvas.getByRole("heading", { name: "Research", exact: true }),
     ).toBeVisible();
-    await userEvent.click(
-      body.getByRole("option", {
-        name: "# support",
-      }),
-    );
-    await expect(canvas.getByText("No saved activity here yet")).toBeVisible();
+    await expect(
+      canvas.getAllByText("All conversations", { exact: true })[0],
+    ).toBeVisible();
   }}>{#snippet template()}<Harness screen="activity" />{/snippet}</Story
 >
 <Story
@@ -201,7 +189,17 @@
       variant="memory"
     />{/snippet}</Story
 >
-<Story name="Empty"
+<Story
+  name="Empty"
+  play={async ({ canvas }) => {
+    await expect(canvas.getByText("No saved activity here yet")).toBeVisible();
+    await expect(
+      canvas.queryByText("Loading activity", { exact: true }),
+    ).not.toBeInTheDocument();
+    await expect(
+      canvas.getByRole("button", { name: "Latest", exact: true }),
+    ).toBeEnabled();
+  }}
   >{#snippet template()}<Harness
       screen="activity"
       variant="empty"

@@ -41,6 +41,22 @@ const push = (
   pushCommunityApplicationLocation(history, next);
 
 describe("Community application location history", () => {
+  it("restores exact agent topic and turn from a shareable route", () => {
+    const expected = location("agents", {
+      kind: "agent-activity",
+      agentPubkey: "ab".repeat(32),
+      channelId: "general",
+      activityContext: {
+        kind: "forum-topic",
+        channelId: "general",
+        threadRootId: "cd".repeat(32),
+        focusTurnId: "turn-1",
+      },
+    });
+    expect(agentLocationFromHash(agentLocationToHash(expected)!)).toEqual(
+      expected,
+    );
+  });
   it("prehydrates the shell from a valid persisted layout", () => {
     const storage = {
       getItem: (key: string) =>

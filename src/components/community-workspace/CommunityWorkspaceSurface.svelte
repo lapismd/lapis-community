@@ -375,6 +375,18 @@
     {/if}
   {:else}
     <CommunityConversation
+      {...model.view === "forum-thread" && model.messages[0]
+        ? {
+            activityContext: {
+              kind: "forum-topic" as const,
+              channelId: activeRoom.groupId ?? activeRoom.id,
+              threadRootId:
+                model.messages.find(
+                  (message) => message.sourceEvent?.kind === 11,
+                )?.id ?? model.messages[0].id,
+            },
+          }
+        : {}}
       room={activeRoom}
       messages={model.messages}
       members={model.members}

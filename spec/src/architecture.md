@@ -326,3 +326,12 @@ relay requests remain direct so credentialed CORS is exercised. Existing
 worker/WASM transforms and isolation headers remain enabled. The supervisor
 watches the separate allowlisted public environment and restarts only its
 checkout-owned child. The credentials directory is never a file-serving root.
+
+The agent controller retains live state per agent and conversation. A private Svelte context supplies the optional shared composer activity row with the existing controller model, without introducing an application singleton or plaintext persistence.
+
+Browser cache writes retain atomic statement batches. The pinned Turso browser
+driver must distinguish execution yields from pending OPFS I/O, so a yielded
+write cannot block the connection indefinitely. The published 0.8.0-pre.11
+driver includes the upstream yield fix; 0.7.2 does not. Cold browser acceptance
+covers bulk replay, concurrent encrypted archive capture, pagination, and
+reopening existing data without a cache or archive reset.

@@ -103,3 +103,8 @@ the actual disposable Docker relay's opt-in kind 31777 policy.
 The central head clock and revision MAY advance after 27 days to retain the
 protocol's 30-day freshness bound. The complete compare-and-swap history MUST be retained for reset replay. This only appends renewed curator heads;
 release, discussion and project IDs and timestamps MUST remain unchanged.
+
+The shared browser cache uses atomic statement batches when replaying registry
+and community records. Its pinned browser driver must resume yielded writes
+without requiring unrelated I/O, so registry synchronization releases the
+database connection for encrypted agent history reads.

@@ -185,3 +185,5 @@ export { default as CommunityReactions } from "./community-reactions/CommunityRe
 export { default as CommunitySkeleton } from "./community-skeleton/CommunitySkeleton.svelte";
 
 export { default as CommunityMemberAvatarGroup } from "./community-member-avatar-group/CommunityMemberAvatarGroup.svelte";
+
+export { default as CommunityAgentComposerActivity } from "./community-agent-composer-activity/CommunityAgentComposerActivity.svelte";

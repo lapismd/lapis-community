@@ -1,5 +1,7 @@
 <script lang="ts">
   import { untrack } from "svelte";
+  import { Button } from "@lapismd/design-core/shadcn/button";
+  import ArrowLeftIcon from "@lucide/svelte/icons/arrow-left";
   import CommunityAgents from "./CommunityAgents.svelte";
   import CommunityAgentProfile from "../community-agent-profile/CommunityAgentProfile.svelte";
   import CommunityAgentActivity from "../community-agent-activity/CommunityAgentActivity.svelte";
@@ -353,16 +355,21 @@
       }}
     />
   {:else}
+    <header aria-label="Agent activity navigation">
+      <Button
+        variant="ghost"
+        onclick={() => {
+          const selected = model.agents.find(
+            (entry) => entry.pubkey === model.activityAgent,
+          );
+          if (selected && selected.pubkey !== agent.pubkey) agent = selected;
+          view = selected ? "profile" : "gallery";
+        }}><ArrowLeftIcon aria-hidden="true" />Back to profile</Button
+      >
+    </header>
     <CommunityAgentActivity
       {model}
       rooms={storyAgentRooms}
-      onBack={() => {
-        const selected = model.agents.find(
-          (entry) => entry.pubkey === model.activityAgent,
-        );
-        if (selected && selected.pubkey !== agent.pubkey) agent = selected;
-        view = selected ? "profile" : "gallery";
-      }}
       onSelectAgent={(pubkey) => (model = { ...model, activityAgent: pubkey })}
       onSelectChannel={(channel) => {
         const { activityChannel, ...rest } = model;

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import CommunityAgentComposerActivity from "../community-agent-composer-activity/CommunityAgentComposerActivity.svelte";
   import {
     Layout,
     LayoutScrollButton,
@@ -25,7 +26,9 @@
     type CommunityRoomModel,
   } from "../community-workspace/model.js";
 
+  import type { CommunityAgentActivityContext } from "../../community/agent-contracts.js";
   let {
+    activityContext,
     room,
     rooms = [],
     messages,
@@ -65,6 +68,7 @@
     footer,
     messageSupplement,
   }: {
+    activityContext?: CommunityAgentActivityContext;
     room: CommunityRoomModel;
     rooms?: readonly CommunityRoomModel[];
     messages: CommunityMessageModel[];
@@ -305,6 +309,17 @@
           onSubmit={(submission) => submitComposer(submission.content)}
         />
       {/if}
+      <CommunityAgentComposerActivity
+        context={activityContext ??
+          (room.kind === "direct"
+            ? {
+                kind: "dm",
+                ...(displayedDirectMember
+                  ? { agentPubkey: displayedDirectMember.id }
+                  : {}),
+              }
+            : { kind: "channel", channelId: room.groupId ?? room.id })}
+      />
     {/snippet}
 
     <MessageList

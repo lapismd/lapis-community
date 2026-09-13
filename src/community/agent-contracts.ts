@@ -122,6 +122,7 @@ export interface CommunityAgentCapabilities {
 }
 
 export interface CommunityAgentDirectory {
+  publicAgents?: readonly CommunityAgentIdentity[];
   agents: readonly CommunityAgentIdentity[];
   personas: readonly CommunityAgentPersona[];
   events: readonly NostrEvent[];
@@ -210,10 +211,19 @@ export type CommunityAgentPermissionDecision =
   | "cancel";
 
 export type CommunityAgentControl =
-  | { version: 1; command: "cancel_turn"; scopeKey: string; channelId?: string }
+  | {
+      version: 1;
+      command: "cancel_turn";
+      scopeKey: string;
+      expectedSessionId?: string;
+      expectedTurnId?: string;
+      channelId?: string;
+    }
   | {
       version: 1;
       command: "reset_conversation";
+      expectedSessionId?: string;
+      expectedTurnId?: string;
       scopeKey: string;
       channelId?: string;
     }
@@ -304,7 +314,21 @@ export interface CommunityAgentPermissionRequest {
   turnId?: string;
 }
 
+export type CommunityAgentActivityContext = { focusTurnId?: string } & (
+  | { kind: "overview" }
+  | { kind: "channel"; channelId: string }
+  | { kind: "thread" | "forum-topic"; channelId: string; threadRootId: string }
+  | { kind: "dm"; agentPubkey?: string }
+);
+
 export interface CommunityAgentControllerScope {
+  requestId?: string;
+  threadRootId?: string;
+  conversationKind?: "channel" | "thread" | "forum-topic" | "dm";
+  state?: string;
+  preview?: string;
+  severity?: string;
+  updatedAt?: number;
   agentPubkey: string;
   scopeKey: string;
   active: boolean;
@@ -314,6 +338,7 @@ export interface CommunityAgentControllerScope {
 }
 
 export interface CommunityAgentsState {
+  publicAgents?: readonly CommunityAgentIdentity[];
   status: "loading" | "ready" | "offline" | "error" | "unsupported";
   agents: readonly CommunityAgentIdentity[];
   personas: readonly CommunityAgentPersona[];
@@ -321,7 +346,16 @@ export interface CommunityAgentsState {
   capabilities: CommunityAgentCapabilities;
   presence: Readonly<Record<string, CommunityAgentPresence>>;
   working: Readonly<Record<string, boolean>>;
+  /** Compatibility projection; use conversationScopes for runtime controls. */
   controllerScopes: Readonly<Record<string, CommunityAgentControllerScope>>;
+  conversationScopes?: Readonly<Record<string, CommunityAgentControllerScope>>;
+  publicWorking?: readonly {
+    agentPubkey: string;
+    channelId: string;
+    threadRootId?: string;
+    expiresAt: number;
+  }[];
+  activityContext?: CommunityAgentActivityContext;
   pendingPermissions: Readonly<
     Record<string, readonly CommunityAgentPermissionRequest[]>
   >;
@@ -354,18 +388,23 @@ export interface CommunityAgentsActions {
   revokeManagedAgent(pubkey: string): Promise<void>;
   deleteManagedAgent(pubkey: string): Promise<void>;
   setFollow(pubkey: string, following: boolean): Promise<void>;
-  openActivity(pubkey: string, channelId?: string): Promise<void>;
+  openActivity(
+    pubkey: string,
+    context?: string | CommunityAgentActivityContext,
+  ): Promise<void>;
   loadOlderActivity(): Promise<void>;
   clearHistory(pubkey?: string): Promise<void>;
   cancelTurn(
     pubkey: string,
     scopeKey: string,
     channelId?: string,
+    expected?: { sessionId: string; turnId: string },
   ): Promise<void>;
   resetConversation(
     pubkey: string,
     scopeKey: string,
     channelId?: string,
+    expected?: { sessionId: string; turnId: string },
   ): Promise<void>;
   respondPermission(
     pubkey: string,

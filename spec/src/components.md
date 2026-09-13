@@ -495,3 +495,5 @@ setup, revocation, and deletion actions. All states have responsive, dark, retry
 unsupported-relay, and partial-room-failure `visual-pending` stories.
 
 | LC-UI-043 | Add Agent MUST make managed creation explicit, preserve existing linking, and present secret material only in a one-time setup view with clear custody and recovery consequences. |
+
+The application sidebar header owns the left-aligned Back to profile control and the right-aligned Close control. The activity body does not duplicate navigation. Agent activity fixes identity and conversation in its header. Empty idle activity displays a stable empty state; skeletons represent only an outstanding history read, never a wait for incoming telemetry. The shared CommunityAgentComposerActivity component reserves a row below conversation and thread composers and opens contextual activity through the application-owned callback. Unicode request reactions reuse existing message rendering.

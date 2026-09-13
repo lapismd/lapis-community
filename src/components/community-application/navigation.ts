@@ -1,3 +1,4 @@
+import type { CommunityAgentActivityContext } from "../../community/agent-contracts.js";
 import {
   APP_SHELL_LAYOUT_VERSION,
   type AppShellSidebarLayout,
@@ -21,8 +22,17 @@ export type CommunityApplicationPanel =
       rootMessageId: string;
       replyTargetId?: string;
     }
-  | { kind: "profile"; memberId: string }
-  | { kind: "agent-activity"; agentPubkey: string; channelId?: string };
+  | {
+      kind: "profile";
+      memberId: string;
+      activityContext?: CommunityAgentActivityContext;
+    }
+  | {
+      kind: "agent-activity";
+      agentPubkey: string;
+      channelId?: string;
+      activityContext?: CommunityAgentActivityContext;
+    };
 
 export type CommunityApplicationMainSurface =
   | "release-reviews"
@@ -359,9 +369,9 @@ export function communityApplicationPanelKey(
     case "details":
       return `details:${panel.roomId}`;
     case "profile":
-      return `profile:${panel.memberId}`;
+      return `profile:${panel.memberId}:${JSON.stringify(panel.activityContext ?? null)}`;
     case "agent-activity":
-      return `agent-activity:${panel.agentPubkey}:${panel.channelId ?? ""}`;
+      return `agent-activity:${panel.agentPubkey}:${panel.channelId ?? ""}:${JSON.stringify(panel.activityContext ?? null)}`;
     case "thread":
       return `thread:${panel.roomId}:${panel.rootMessageId}:${panel.replyTargetId ?? ""}`;
   }
@@ -552,6 +562,13 @@ export function agentLocationToHash(
     params.set("agent", panel.agentPubkey);
     params.set("activity", "1");
     if (panel.channelId) params.set("channel", panel.channelId);
+    const context = panel.activityContext;
+    if (context?.focusTurnId) params.set("turn", context.focusTurnId);
+    if (context && context.kind !== "overview") {
+      params.set("context", context.kind);
+      if ("channelId" in context) params.set("channel", context.channelId);
+      if ("threadRootId" in context) params.set("thread", context.threadRootId);
+    }
   }
   return `#/agents${params.size ? `?${params}` : ""}`;
 }
@@ -563,6 +580,15 @@ export function agentLocationFromHash(
   const params = new URLSearchParams(hash.split("?")[1]);
   const agent = params.get("agent");
   const channel = params.get("channel");
+  const thread = params.get("thread");
+  const kind = params.get("context");
+  const turn = params.get("turn");
+  if (turn && !validRouteCoordinate(turn)) return null;
+  if (thread && !validRouteCoordinate(thread)) return null;
+  if (kind && !["channel", "thread", "forum-topic", "dm"].includes(kind))
+    return null;
+  if ((kind === "thread" || kind === "forum-topic") && (!channel || !thread))
+    return null;
   if (agent !== null && !/^[0-9a-f]{64}$/u.test(agent)) return null;
   if (channel !== null && !validRouteCoordinate(channel)) return null;
   return {
@@ -575,6 +601,39 @@ export function agentLocationFromHash(
               kind: "agent-activity",
               agentPubkey: agent,
               ...(channel ? { channelId: channel } : {}),
+              ...(kind === "dm"
+                ? {
+                    activityContext: {
+                      kind: "dm" as const,
+                      agentPubkey: agent,
+                      ...(turn ? { focusTurnId: turn } : {}),
+                    },
+                  }
+                : (kind === "thread" || kind === "forum-topic") &&
+                    channel &&
+                    thread
+                  ? {
+                      activityContext: {
+                        ...(turn ? { focusTurnId: turn } : {}),
+                        kind,
+                        channelId: channel,
+                        threadRootId: thread,
+                      },
+                    }
+                  : kind || turn
+                    ? {
+                        activityContext: channel
+                          ? {
+                              kind: "channel",
+                              channelId: channel,
+                              ...(turn ? { focusTurnId: turn } : {}),
+                            }
+                          : {
+                              kind: "overview",
+                              ...(turn ? { focusTurnId: turn } : {}),
+                            },
+                      }
+                    : {}),
             }
           : { kind: "profile", memberId: agent },
   };

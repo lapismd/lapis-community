@@ -2,12 +2,14 @@
   import CommunitySkeleton from "../community-skeleton/CommunitySkeleton.svelte";
   import CommunityMarkdownContent from "../community-markdown-content/CommunityMarkdownContent.svelte";
   import { Button } from "@lapismd/design-core/shadcn/button";
-  import * as Select from "@lapismd/design-core/shadcn/select";
   import {
-    ConfirmButton,
-    ConfirmDialog,
-  } from "@lapismd/design-core/forms/dialog";
-  import ArrowLeftIcon from "@lucide/svelte/icons/arrow-left";
+    activityMatches,
+    observerScope,
+    activityContextLabel,
+    contextForScope,
+  } from "../../community/agent-activity-context.js";
+  import CommunityMemberAvatar from "../community-member-avatar/CommunityMemberAvatar.svelte";
+  import { ConfirmDialog } from "@lapismd/design-core/forms/dialog";
   import RefreshIcon from "@lucide/svelte/icons/refresh-cw";
   import XIcon from "@lucide/svelte/icons/x";
   import MessageIcon from "@lucide/svelte/icons/message-square";
@@ -22,6 +24,8 @@
   import ShieldIcon from "@lucide/svelte/icons/shield-check";
   import type {
     CommunityAgentPermissionDecision,
+    CommunityAgentActivityItem,
+    CommunityAgentControllerScope,
     CommunityAgentsState,
   } from "../../community/agent-contracts.js";
   import type { CommunityRoomModel } from "../community-workspace/model.js";
@@ -32,10 +36,9 @@
   let {
     model,
     rooms = [],
-    onBack,
-    onSelectAgent,
-    onSelectChannel,
+
     onLatest,
+    onOpenRequest,
     onLoadOlder,
     onClearHistory,
     onCancelTurn,
@@ -44,21 +47,24 @@
   }: {
     model: CommunityAgentsState;
     rooms?: readonly CommunityRoomModel[];
-    onBack: () => void;
-    onSelectAgent: (pubkey: string) => void;
-    onSelectChannel: (channel?: string) => void;
+    onBack?: () => void;
+    onSelectAgent?: (pubkey: string) => void;
+    onSelectChannel?: (channel?: string) => void;
     onLatest: () => void | Promise<void>;
+    onOpenRequest?: (item: CommunityAgentActivityItem) => void;
     onLoadOlder: () => void | Promise<void>;
     onClearHistory: () => Promise<void>;
     onCancelTurn?: (
       pubkey: string,
       scopeKey: string,
       channelId?: string,
+      expected?: { sessionId: string; turnId: string },
     ) => Promise<void>;
     onResetConversation?: (
       pubkey: string,
       scopeKey: string,
       channelId?: string,
+      expected?: { sessionId: string; turnId: string },
     ) => Promise<void>;
     onRespondPermission?: (
       pubkey: string,
@@ -68,6 +74,8 @@
     ) => Promise<void>;
   } = $props();
   let clearing = $state(false);
+  let resetting = $state(false);
+  let resetTarget = $state<CommunityAgentControllerScope>();
   let error = $state("");
   let controlError = $state("");
   let controlPending = $state("");
@@ -82,13 +90,51 @@
   const selected = $derived(
     agents.find((agent) => agent.pubkey === model.activityAgent),
   );
-  const channels = $derived(rooms.filter((room) => room.kind !== "direct"));
-  const controllerScope = $derived(
-    selected ? model.controllerScopes[selected.pubkey] : undefined,
+  const context = $derived(
+    model.activityContext ??
+      (model.activityChannel
+        ? { kind: "channel" as const, channelId: model.activityChannel }
+        : { kind: "overview" as const }),
+  );
+  const scopes = $derived(
+    Object.values(model.conversationScopes ?? model.controllerScopes).filter(
+      (scope) =>
+        scope.agentPubkey === selected?.pubkey &&
+        activityMatches(context, scope),
+    ),
   );
   const permissions = $derived(
-    selected ? (model.pendingPermissions[selected.pubkey] ?? []) : [],
+    (selected ? (model.pendingPermissions[selected.pubkey] ?? []) : []).filter(
+      (permission) =>
+        activityMatches(context, {
+          ...permission,
+          ...observerScope({
+            kind: "",
+            seq: 0,
+            timestamp: "",
+            payload: { scopeKey: permission.scopeKey },
+            ...(permission.channelId
+              ? { channelId: permission.channelId }
+              : {}),
+          }),
+        }),
+    ),
   );
+  const lastActivity = $derived(model.activity[0]);
+  let timeline = $state<HTMLOListElement>();
+  let focusedTurn = $state("");
+  $effect(() => {
+    const turn = context.focusTurnId;
+    if (!turn || focusedTurn === turn || !timeline || model.activityLoading)
+      return;
+    const entry = [
+      ...timeline.querySelectorAll<HTMLElement>("[data-turn-id]"),
+    ].find((entry) => entry.dataset.turnId === turn);
+    if (entry) {
+      entry.scrollIntoView({ block: "nearest" });
+      focusedTurn = turn;
+    }
+  });
   const activityIcons = {
     Message: MessageIcon,
     Tool: WrenchIcon,
@@ -138,49 +184,27 @@
 </script>
 
 <section class="agent-activity" aria-label="Agent activity history">
-  <Button variant="ghost" class="agent-activity__back" onclick={onBack}
-    ><ArrowLeftIcon aria-hidden="true" />{model.agents.some(
-      (agent) => agent.pubkey === model.activityAgent,
-    )
-      ? "Back to profile"
-      : "Back to agents"}</Button
-  >
-  <div class="agent-activity__filters">
-    <Select.Root
-      type="single"
-      value={model.activityAgent ?? ""}
-      onValueChange={onSelectAgent}
-      ><Select.Trigger aria-label="Activity agent"
-        >{selected?.name ?? "Choose an agent"}</Select.Trigger
-      ><Select.Content aria-label="Activity agent"
-        >{#each agents as agent (agent.pubkey)}<Select.Item
-            value={agent.pubkey}
-            label={agent.name}
-            >{agent.name}{model.agents.some(
-              (entry) => entry.pubkey === agent.pubkey,
-            )
-              ? ""
-              : " (saved history)"}</Select.Item
-          >{/each}</Select.Content
-      ></Select.Root
-    >
-    <Select.Root
-      type="single"
-      value={model.activityChannel ?? "all"}
-      onValueChange={(value) =>
-        onSelectChannel(value === "all" ? undefined : value)}
-      ><Select.Trigger aria-label="Activity channel"
-        >{channels.find(
-          (room) => (room.groupId ?? room.id) === model.activityChannel,
-        )?.name ?? "All channels"}</Select.Trigger
-      ><Select.Content aria-label="Activity channel"
-        ><Select.Item value="all">All channels</Select.Item
-        >{#each channels as room (room.id)}<Select.Item
-            value={room.groupId ?? room.id}
-            label={room.name}># {room.name}</Select.Item
-          >{/each}</Select.Content
-      ></Select.Root
-    >
+  <div class="agent-activity__identity">
+    {#if selected}<CommunityMemberAvatar
+        member={{
+          id: selected.pubkey,
+          name: selected.name,
+          handle: selected.pubkey,
+          initials: selected.name.slice(0, 2),
+          ...(selected.avatarUrl ? { avatarUrl: selected.avatarUrl } : {}),
+        }}
+        size="small"
+        decorative
+      />{/if}
+    <div>
+      <h2>{selected?.name ?? "Agent activity"}</h2>
+      <p>{activityContextLabel(context, rooms)}</p>
+      {#if lastActivity}<small
+          >Last updated <CommunityRelativeTime
+            timestamp={Date.parse(lastActivity.frame.timestamp) / 1000}
+          /></small
+        >{/if}
+    </div>
   </div>
   <div class="agent-activity__toolbar">
     <CommunityChip
@@ -205,7 +229,7 @@
       : "Encrypted history is saved on this device."} Only activity received while
     signed in is available.
   </p>
-  {#if selected && (controllerScope || permissions.length > 0)}
+  {#if selected && (scopes.length > 0 || permissions.length > 0)}
     <section
       class="agent-activity__controls"
       aria-label="Agent runtime controls"
@@ -219,38 +243,38 @@
             ><ShieldIcon aria-hidden="true" />Waiting for approval</CommunityChip
           >{/if}
       </div>
-      {#if controllerScope && (onCancelTurn || onResetConversation)}
-        <div class="agent-activity__run-actions">
-          {#if controllerScope.active && onCancelTurn}<Button
-              variant="outline"
-              size="sm"
-              disabled={Boolean(controlPending)}
-              onclick={() =>
-                runControl("cancel", () =>
-                  onCancelTurn(
-                    selected.pubkey,
-                    controllerScope.scopeKey,
-                    controllerScope.channelId,
-                  ),
-                )}><CircleStopIcon aria-hidden="true" />Cancel turn</Button
-            >{/if}
-          {#if onResetConversation}<ConfirmButton
-              title={`Reset ${selected.name}’s conversation?`}
-              description="The next message starts a fresh agent session for this channel or thread. Nostr history remains available."
-              confirmLabel="Reset conversation"
-              disabled={Boolean(controlPending)}
-              onConfirm={() =>
-                runControl("reset", () =>
-                  onResetConversation(
-                    selected.pubkey,
-                    controllerScope.scopeKey,
-                    controllerScope.channelId,
-                  ),
-                )}
-              ><RotateIcon aria-hidden="true" />Reset conversation</ConfirmButton
-            >{/if}
-        </div>
-      {/if}
+      {#each scopes as controllerScope (controllerScope.scopeKey)}
+        {#if onCancelTurn || onResetConversation}
+          <p>{activityContextLabel(contextForScope(controllerScope), rooms)}</p>
+          <div class="agent-activity__run-actions">
+            {#if controllerScope.active && controllerScope.sessionId && onCancelTurn}<Button
+                variant="outline"
+                size="sm"
+                disabled={Boolean(controlPending)}
+                onclick={() =>
+                  runControl("cancel", () =>
+                    onCancelTurn(
+                      selected.pubkey,
+                      controllerScope.scopeKey,
+                      controllerScope.channelId,
+                      {
+                        sessionId: controllerScope.sessionId ?? "",
+                        turnId: controllerScope.turnId ?? "",
+                      },
+                    ),
+                  )}><CircleStopIcon aria-hidden="true" />Cancel turn</Button
+              >{/if}
+            {#if onResetConversation && controllerScope.sessionId}<Button
+                variant="outline"
+                disabled={Boolean(controlPending)}
+                onclick={() => {
+                  resetTarget = { ...controllerScope };
+                  resetting = true;
+                }}><RotateIcon aria-hidden="true" />Reset conversation</Button
+              >{/if}
+          </div>
+        {/if}
+      {/each}
       {#each permissions as permission (permission.requestId)}
         <article
           class="agent-activity__permission"
@@ -302,7 +326,7 @@
       layout="timeline"
       label="Loading activity"
     />{/if}
-  {#if model.activity.length === 0 && !model.activityLoading}<div
+  {#if model.activity.length === 0 && !model.activityLoading && !model.activityError}<div
       class="agent-activity__empty"
     >
       <h3>No saved activity here yet</h3>
@@ -311,10 +335,21 @@
         cannot retrieve events it missed while disconnected.
       </p>
     </div>{/if}
-  <ol class="agent-activity__timeline" aria-label="Agent event timeline">
-    {#each model.activity as item (item.id)}
+  <ol
+    bind:this={timeline}
+    class="agent-activity__timeline"
+    aria-label="Agent event timeline"
+  >
+    {#each model.activity.filter((item) => item.agentPubkey === model.activityAgent && activityMatches( context, { agentPubkey: item.agentPubkey, ...observerScope(item.frame) }, )) as item (item.id)}
       {@const entry = presentAgentActivity(item)}
       {@const Marker = activityIcons[entry.category]}
+      {@const payload =
+        item.frame.payload && typeof item.frame.payload === "object"
+          ? (item.frame.payload as Record<string, unknown>)
+          : {}}
+      {@const hasTrigger =
+        typeof payload.triggerEventId === "string" &&
+        /^[0-9a-f]{64}$/u.test(payload.triggerEventId)}
       <li data-turn-id={item.frame.turnId ?? undefined}>
         <span
           class="agent-activity__marker"
@@ -327,12 +362,28 @@
         <div class="agent-activity__content">
           <div class="agent-activity__meta">
             <h3>{entry.title}</h3>
+            {#if context.kind === "overview" || context.kind === "channel"}<small
+                >{activityContextLabel(
+                  contextForScope({
+                    agentPubkey: item.agentPubkey,
+                    scopeKey: "",
+                    active: false,
+                    ...observerScope(item.frame),
+                  }),
+                  rooms,
+                )}</small
+              >{/if}
             <span class="agent-activity__time"
               ><CommunityRelativeTime
                 timestamp={Date.parse(item.frame.timestamp) / 1_000}
               /></span
             >
           </div>
+          {#if onOpenRequest && hasTrigger}<Button
+              variant="link"
+              size="sm"
+              onclick={() => onOpenRequest(item)}>View request</Button
+            >{/if}
           {#if entry.body}{#if entry.category === "Tool" || entry.category === "Event"}<pre>{entry.body}</pre>{:else}<CommunityMarkdownContent
                 content={entry.body}
               />{/if}{/if}
@@ -350,7 +401,7 @@
       disabled={model.activityLoading}
       onclick={() => void onLoadOlder()}>Load older activity</Button
     >{/if}
-  {#if selected}<footer>
+  {#if selected && context.kind === "overview"}<footer>
       <Button
         variant="destructive"
         onclick={() => {
@@ -371,20 +422,45 @@
   onConfirm={onClearHistory}
 />
 
+<ConfirmDialog
+  bind:open={resetting}
+  title="Reset this conversation?"
+  description="The next message starts a fresh agent session. Nostr history remains available."
+  confirmLabel="Reset conversation"
+  onConfirm={async () => {
+    const target = resetTarget;
+    if (!target || !onResetConversation) return;
+    await runControl("reset", () =>
+      onResetConversation!(
+        target.agentPubkey,
+        target.scopeKey,
+        target.channelId,
+        {
+          sessionId: target.sessionId ?? "",
+          turnId: target.active ? (target.turnId ?? "") : "",
+        },
+      ),
+    );
+  }}
+/>
+
 <style>
+  .agent-activity__identity {
+    display: flex;
+    gap: 0.75rem;
+    align-items: center;
+  }
+  .agent-activity__identity h2,
+  .agent-activity__identity p {
+    margin: 0;
+  }
   .agent-activity {
     display: grid;
     gap: 1rem;
     padding: 1.25rem;
     min-width: 0;
   }
-  :global(.agent-activity__back) {
-    justify-self: start;
-  }
-  .agent-activity__filters {
-    display: grid;
-    gap: 0.625rem;
-  }
+
   .agent-activity__toolbar,
   .agent-activity__meta {
     display: flex;

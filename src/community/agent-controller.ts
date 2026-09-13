@@ -1,3 +1,9 @@
+import {
+  activityMatches,
+  observerScope,
+  controllerScopeId,
+} from "./agent-activity-context.js";
+import type { CommunityAgentActivityContext } from "./agent-contracts.js";
 import type { CommunitySigner } from "../auth/index.js";
 import type { NostrEvent } from "../protocol/index.js";
 import type { CommunityStorageMode } from "./contracts.js";
@@ -57,6 +63,7 @@ export class CommunityAgentsController {
   >();
   #controllerSequence = new Map<string, number>();
   #typingUntil = new Map<string, number>();
+  #decodedFrames = new Map<string, CommunityAgentActivityItem["frame"]>();
   #refreshRun: Promise<void> | undefined;
   #refreshTimer: ReturnType<typeof setTimeout> | undefined;
   #timer: ReturnType<typeof setInterval> | undefined;
@@ -83,7 +90,7 @@ export class CommunityAgentsController {
       if (this.#state.activityAgent)
         await this.openActivity(
           this.#state.activityAgent,
-          this.#state.activityChannel,
+          this.#state.activityContext ?? this.#state.activityChannel,
         );
     },
     registerAgent: async (pubkey) => {
@@ -231,25 +238,47 @@ export class CommunityAgentsController {
       });
       void this.#flushArchive();
     },
-    cancelTurn: async (pubkey, scopeKey, channelId) => {
-      const scope = this.#state.controllerScopes[pubkey];
+    cancelTurn: async (pubkey, scopeKey, channelId, expected) => {
+      const scope =
+        this.#state.conversationScopes?.[controllerScopeId(pubkey, scopeKey)] ??
+        this.#state.controllerScopes[pubkey];
       if (!scope || !scope.active || scope.scopeKey !== scopeKey)
         throw new Error("No active controller turn is available to cancel");
+      if (
+        expected &&
+        (scope.sessionId !== expected.sessionId ||
+          (scope.active ? (scope.turnId ?? "") : "") !== expected.turnId)
+      )
+        throw new Error("The displayed turn is no longer current");
       await this.#sendControl(pubkey, {
         version: 1,
         command: "cancel_turn",
         scopeKey,
+        ...(scope.sessionId ? { expectedSessionId: scope.sessionId } : {}),
+        expectedTurnId:
+          expected?.turnId ?? (scope.active ? (scope.turnId ?? "") : ""),
         ...(channelId ? { channelId } : {}),
       });
     },
-    resetConversation: async (pubkey, scopeKey, channelId) => {
-      const scope = this.#state.controllerScopes[pubkey];
+    resetConversation: async (pubkey, scopeKey, channelId, expected) => {
+      const scope =
+        this.#state.conversationScopes?.[controllerScopeId(pubkey, scopeKey)] ??
+        this.#state.controllerScopes[pubkey];
       if (!scope || scope.scopeKey !== scopeKey)
         throw new Error("No controller conversation is available to reset");
+      if (
+        expected &&
+        (scope.sessionId !== expected.sessionId ||
+          (scope.active ? (scope.turnId ?? "") : "") !== expected.turnId)
+      )
+        throw new Error("The displayed conversation has changed");
       await this.#sendControl(pubkey, {
         version: 1,
         command: "reset_conversation",
         scopeKey,
+        ...(scope.sessionId ? { expectedSessionId: scope.sessionId } : {}),
+        expectedTurnId:
+          expected?.turnId ?? (scope.active ? (scope.turnId ?? "") : ""),
         ...(channelId ? { channelId } : {}),
       });
     },
@@ -292,6 +321,9 @@ export class CommunityAgentsController {
       presence: {},
       working: {},
       controllerScopes: {},
+      conversationScopes: {},
+      publicWorking: [],
+      publicAgents: [],
       pendingPermissions: {},
       partial: false,
       storageMode: options.storageMode(),
@@ -366,13 +398,32 @@ export class CommunityAgentsController {
       );
       this.#metadataIds = new Set(directory.events.map((event) => event.id));
       this.#options.onDirectory?.(directory.events);
-      const allowed = new Set(directory.agents.map((agent) => agent.pubkey));
+      const allowed = new Set(
+        [...directory.agents, ...(directory.publicAgents ?? [])].map(
+          (agent) => agent.pubkey,
+        ),
+      );
       for (const key of this.#workingUntil.keys())
         if (!allowed.has(key)) this.#workingUntil.delete(key);
       for (const key of this.#typingUntil.keys())
         if (!allowed.has(key)) this.#typingUntil.delete(key);
       this.#update({
         agents: directory.agents,
+        publicAgents: directory.publicAgents ?? [],
+        conversationScopes: Object.fromEntries(
+          Object.entries(this.#state.conversationScopes ?? {}).filter(
+            ([, scope]) =>
+              directory.agents.some(
+                (agent) => agent.pubkey === scope.agentPubkey,
+              ) &&
+              (!scope.channelId || this.#ownerChannels.has(scope.channelId)),
+          ),
+        ),
+        activity: this.#state.activity.filter(
+          (item) =>
+            !item.frame.channelId ||
+            this.#ownerChannels.has(item.frame.channelId),
+        ),
         personas: directory.personas,
         capabilities: directory.capabilities,
         partial: directory.partial,
@@ -473,7 +524,10 @@ export class CommunityAgentsController {
       }
       return;
     }
-    const agent = this.#state.agents.find(
+    const agent = [
+      ...this.#state.agents,
+      ...(this.#state.publicAgents ?? []),
+    ].find(
       (candidate) =>
         candidate.pubkey === event.pubkey ||
         (event.kind === 20001 &&
@@ -511,6 +565,36 @@ export class CommunityAgentsController {
         event.created_at <= now + 30 &&
         event.created_at + AGENT_TYPING_TTL > now
       ) {
+        const threadRootId = agentTag(event, "e");
+        if (
+          Object.values(this.#state.conversationScopes ?? {}).some(
+            (scope) =>
+              scope.agentPubkey === agent.pubkey &&
+              scope.channelId === channel &&
+              scope.threadRootId === threadRootId &&
+              !scope.active &&
+              (scope.updatedAt ?? 0) >= event.created_at * 1000,
+          )
+        )
+          return;
+        this.#update({
+          publicWorking: [
+            ...(this.#state.publicWorking ?? []).filter(
+              (item) =>
+                !(
+                  item.agentPubkey === agent.pubkey &&
+                  item.channelId === channel &&
+                  item.threadRootId === threadRootId
+                ),
+            ),
+            {
+              agentPubkey: agent.pubkey,
+              channelId: channel,
+              ...(threadRootId ? { threadRootId } : {}),
+              expiresAt: event.created_at + AGENT_TYPING_TTL,
+            },
+          ],
+        });
         this.#typingUntil.set(
           agent.pubkey,
           Math.min(now + AGENT_TYPING_TTL, event.created_at + AGENT_TYPING_TTL),
@@ -617,6 +701,7 @@ export class CommunityAgentsController {
           if (!frame) return;
           const channel = agentTag(event, "h");
           if (channel && frame.channelId && channel !== frame.channelId) return;
+          this.#cacheFrame(event.id, frame);
           this.#applyControllerFrame(event.pubkey, frame);
           const turns =
             this.#workingUntil.get(event.pubkey) ??
@@ -625,10 +710,8 @@ export class CommunityAgentsController {
               { until: number; timestamp: number; seq: number }
             >();
           const turnKey = JSON.stringify([
-            frame.startedAt,
-            frame.agentIndex,
-            frame.sessionId,
-            frame.turnId,
+            observerRecord(frame.payload).lifecycleRequestId ?? frame.turnId,
+            observerRecord(frame.payload).scopeKey ?? frame.channelId,
           ]);
           const timestamp = Date.parse(frame.timestamp);
           const previous = turns.get(turnKey);
@@ -648,6 +731,7 @@ export class CommunityAgentsController {
             const until = terminal
               ? 0
               : frame.kind === "turn_started" ||
+                  frame.kind === "request_status" ||
                   (previous?.until ?? 0) > this.#now()
                 ? Math.min(this.#now() + 180, event.created_at + 180)
                 : 0;
@@ -661,8 +745,15 @@ export class CommunityAgentsController {
           if (
             !this.#browsingHistory &&
             this.#state.activityAgent === event.pubkey &&
-            (!this.#state.activityChannel ||
-              (frame.channelId ?? channel) === this.#state.activityChannel)
+            activityMatches(this.#state.activityContext, {
+              agentPubkey: event.pubkey,
+              ...observerScope({
+                ...frame,
+                ...((frame.channelId ?? channel)
+                  ? { channelId: (frame.channelId ?? channel)! }
+                  : {}),
+              }),
+            })
           )
             this.#mergeActivity([
               {
@@ -716,7 +807,16 @@ export class CommunityAgentsController {
     if (refresh && now - this.#lastRefresh >= 60) void this.refresh();
   }
 
-  async openActivity(pubkey: string, channelId?: string): Promise<void> {
+  async openActivity(
+    pubkey: string,
+    context?: string | CommunityAgentActivityContext,
+  ): Promise<void> {
+    const activityContext: CommunityAgentActivityContext =
+      typeof context === "string"
+        ? { kind: "channel", channelId: context }
+        : (context ?? { kind: "overview" });
+    const channelId =
+      "channelId" in activityContext ? activityContext.channelId : undefined;
     if (
       !this.#state.agents.some((agent) => agent.pubkey === pubkey) &&
       !this.#state.archivedAgents.some((agent) => agent.pubkey === pubkey)
@@ -731,12 +831,14 @@ export class CommunityAgentsController {
     this.#update({
       activityAgent: pubkey,
       activityChannel: channelId,
+      activityContext,
       activity: [],
       hasOlder: false,
       activityError: undefined,
       activityLoading: false,
     });
-    await this.#flushArchive();
+    // Live decoded frames are already available; a stalled write must not block reading.
+    void this.#flushArchive();
     await this.#loadActivity(true);
   }
 
@@ -752,6 +854,8 @@ export class CommunityAgentsController {
     if (!reset) this.#browsingHistory = true;
     const agent = this.#state.activityAgent;
     const channel = this.#state.activityChannel;
+    const context = this.#state.activityContext;
+    const deadline = Date.now() + 15_000;
     const nip44 = this.#options.identity.nip44;
     if (!nip44) {
       this.#update({
@@ -768,59 +872,98 @@ export class CommunityAgentsController {
     }
     this.#update({ activityLoading: true, activityError: undefined });
     try {
-      const page = await this.#options.archive.page({
-        scope: this.#options.scope,
-        agentPubkey: agent,
-        limit: 50,
-        ...(this.#cursor ? { before: this.#cursor } : {}),
-      });
       const items: CommunityAgentActivityItem[] = [];
-      for (const record of page.records) {
-        if (this.#closed || generation !== this.#activityGeneration) return;
-        if (
-          !validateAgentTelemetry(
-            record.event,
-            record.profile,
-            this.#options.scope.ownerPubkey,
-          )
-        )
-          continue;
-        const plaintext = await nip44.decrypt(
-          record.event.pubkey,
-          record.event.content,
+      let pages = 0;
+      let hasOlder = false;
+      do {
+        const page = await historyDeadline(
+          this.#options.archive.page({
+            scope: this.#options.scope,
+            agentPubkey: agent,
+            limit: 50,
+            ...(this.#cursor ? { before: this.#cursor } : {}),
+          }),
+          deadline,
         );
+        for (const record of page.records) {
+          if (this.#closed || generation !== this.#activityGeneration) return;
+          if (
+            !validateAgentTelemetry(
+              record.event,
+              record.profile,
+              this.#options.scope.ownerPubkey,
+            )
+          )
+            continue;
+          const cached = this.#decodedFrames.get(record.event.id);
+          const frame =
+            cached ??
+            parseAgentObserver(
+              await historyDeadline(
+                nip44.decrypt(record.event.pubkey, record.event.content),
+                deadline,
+              ),
+            );
+          if (this.#closed || generation !== this.#activityGeneration) return;
+          const outerChannel = agentTag(record.event, "h");
+          if (
+            !frame ||
+            (outerChannel &&
+              frame.channelId &&
+              outerChannel !== frame.channelId) ||
+            ((frame.channelId ?? outerChannel) &&
+              !this.#ownerChannels.has((frame.channelId ?? outerChannel)!)) ||
+            (channel && (frame.channelId ?? outerChannel) !== channel) ||
+            !activityMatches(context, {
+              agentPubkey: agent,
+              ...observerScope({
+                ...frame,
+                ...((frame.channelId ?? outerChannel)
+                  ? { channelId: (frame.channelId ?? outerChannel)! }
+                  : {}),
+              }),
+            })
+          )
+            continue;
+          this.#cacheFrame(record.event.id, frame);
+          items.push({
+            id: record.event.id,
+            agentPubkey: agent,
+            createdAt: record.event.created_at,
+            frame: {
+              ...frame,
+              ...((frame.channelId ?? outerChannel)
+                ? { channelId: (frame.channelId ?? outerChannel)! }
+                : {}),
+            },
+          });
+          if (items.length === 1) this.#mergeActivity(items, !reset);
+        }
         if (this.#closed || generation !== this.#activityGeneration) return;
-        const frame = parseAgentObserver(plaintext);
-        const outerChannel = agentTag(record.event, "h");
-        if (
-          !frame ||
-          (outerChannel &&
-            frame.channelId &&
-            outerChannel !== frame.channelId) ||
-          (channel && (frame.channelId ?? outerChannel) !== channel)
-        )
-          continue;
-        items.push({
-          id: record.event.id,
-          agentPubkey: agent,
-          createdAt: record.event.created_at,
-          frame,
-        });
-      }
-      if (this.#closed || generation !== this.#activityGeneration) return;
-      this.#cursor = page.cursor;
+        this.#mergeActivity(items, !reset);
+        this.#cursor = page.cursor;
+        hasOlder = page.hasOlder;
+      } while (hasOlder && this.#cursor && items.length < 50 && ++pages < 10);
       this.#mergeActivity(items, !reset);
-      this.#update({ hasOlder: page.hasOlder });
-    } catch {
+      this.#update({ hasOlder });
+    } catch (cause) {
       if (!this.#closed && generation === this.#activityGeneration)
         this.#update({
           activityError:
-            "Saved activity could not be read or decrypted. Your history is retained; retry with the owner’s signer.",
+            cause instanceof Error && cause.message === "history_timeout"
+              ? "Saved activity is taking too long to load. Select Latest to retry."
+              : "Saved activity could not be read or decrypted. Your history is retained; retry with the owner’s signer.",
         });
     } finally {
       if (generation === this.#activityGeneration)
         this.#update({ activityLoading: false });
     }
+  }
+
+  #cacheFrame(id: string, frame: CommunityAgentActivityItem["frame"]): void {
+    this.#decodedFrames.set(id, frame);
+    if (this.#decodedFrames.size > 500)
+      this.#decodedFrames.delete(this.#decodedFrames.keys().next().value!);
   }
 
   #mergeActivity(
@@ -862,32 +1005,98 @@ export class CommunityAgentsController {
     agentPubkey: string,
     frame: CommunityAgentActivityItem["frame"],
   ): void {
-    const previousSequence = this.#controllerSequence.get(agentPubkey);
-    if (previousSequence !== undefined && frame.seq <= previousSequence) return;
-    this.#controllerSequence.set(agentPubkey, frame.seq);
     const payload = observerRecord(frame.payload);
     const scopeKey = observerText(payload.scopeKey, 4_096);
+    const key = controllerScopeId(agentPubkey, scopeKey);
+    const previousSequence = this.#controllerSequence.get(key);
+    if (previousSequence !== undefined && frame.seq <= previousSequence) return;
+    this.#controllerSequence.set(key, frame.seq);
     const terminal = [
       "turn_completed",
       "turn_finished",
       "turn_failed",
       "turn_cancelled",
     ].includes(frame.kind);
+    const previous = this.#state.conversationScopes?.[key];
+    const requestId =
+      observerText(payload.lifecycleRequestId, 512) ||
+      (frame.kind.startsWith("permission_")
+        ? previous?.requestId || frame.turnId
+        : observerText(payload.requestId, 512) || frame.turnId);
+    if (
+      terminal &&
+      previous?.active &&
+      previous.requestId &&
+      requestId &&
+      previous.requestId !== requestId
+    )
+      return;
     if (scopeKey) {
+      const state = terminal
+        ? frame.kind === "turn_failed"
+          ? "failed"
+          : frame.kind === "turn_cancelled"
+            ? "cancelled"
+            : "completed"
+        : frame.kind === "permission_requested"
+          ? "waiting_permission"
+          : frame.kind === "permission_resolved"
+            ? "running"
+            : observerText(payload.state, 40) || "running";
+      const sameRequest = previous?.requestId === requestId;
+      const waiting =
+        state === "waiting_permission" ||
+        (sameRequest &&
+          previous?.state === "waiting_permission" &&
+          frame.kind !== "permission_resolved" &&
+          !terminal);
+      const scope = {
+        agentPubkey,
+        scopeKey,
+        ...observerScope(frame),
+        active:
+          !terminal && !["completed", "failed", "cancelled"].includes(state),
+        state: waiting ? "waiting_permission" : state,
+        preview: waiting
+          ? "Waiting for your permission"
+          : observerText(payload.preview, 240) ||
+            observerText(payload.message, 240) ||
+            (sameRequest && frame.kind !== "permission_resolved"
+              ? previous?.preview
+              : undefined) ||
+            (state === "queued"
+              ? "Queued"
+              : state === "starting"
+                ? "Starting"
+                : "Working"),
+        severity:
+          observerText(payload.severity, 20) ||
+          (frame.kind === "turn_failed" ? "error" : "info"),
+        updatedAt: Date.parse(frame.timestamp),
+        ...(requestId ? { requestId } : {}),
+        ...(frame.channelId ? { channelId: frame.channelId } : {}),
+        ...(frame.sessionId ? { sessionId: frame.sessionId } : {}),
+        ...(frame.turnId ? { turnId: frame.turnId } : {}),
+      };
       this.#update({
         controllerScopes: {
           ...this.#state.controllerScopes,
-          [agentPubkey]: {
-            agentPubkey,
-            scopeKey,
-            active: frame.kind === "turn_started" ? true : !terminal,
-            ...(frame.channelId ? { channelId: frame.channelId } : {}),
-            ...(frame.sessionId ? { sessionId: frame.sessionId } : {}),
-            ...(frame.turnId ? { turnId: frame.turnId } : {}),
-          },
+          [agentPubkey]: scope,
         },
+        conversationScopes: { ...this.#state.conversationScopes, [key]: scope },
       });
     }
+    if (terminal)
+      this.#update({
+        publicWorking: (this.#state.publicWorking ?? []).filter(
+          (signal) =>
+            !(
+              signal.agentPubkey === agentPubkey &&
+              signal.channelId === frame.channelId &&
+              signal.threadRootId === observerScope(frame).threadRootId
+            ),
+        ),
+      });
     if (frame.kind === "permission_requested") {
       const request = controllerPermission(agentPubkey, frame, payload);
       if (!request) return;
@@ -939,6 +1148,7 @@ export class CommunityAgentsController {
     this.#workingUntil.clear();
     this.#controllerSequence.clear();
     this.#typingUntil.clear();
+    this.#decodedFrames.clear();
     this.#state = {
       ...this.#state,
       agents: [],
@@ -948,6 +1158,9 @@ export class CommunityAgentsController {
       working: {},
       presence: {},
       controllerScopes: {},
+      conversationScopes: {},
+      publicWorking: [],
+      publicAgents: [],
       pendingPermissions: {},
     };
     void this.#flushArchive();
@@ -1008,4 +1221,24 @@ function observerRecord(value: unknown): Record<string, unknown> {
 
 function observerText(value: unknown, limit: number): string {
   return typeof value === "string" ? value.trim().slice(0, limit) : "";
+}
+
+async function historyDeadline<T>(
+  operation: Promise<T>,
+  deadline: number,
+): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      operation,
+      new Promise<never>((_, reject) => {
+        timer = setTimeout(
+          () => reject(new Error("history_timeout")),
+          Math.max(0, deadline - Date.now()),
+        );
+      }),
+    ]);
+  } finally {
+    clearTimeout(timer);
+  }
 }

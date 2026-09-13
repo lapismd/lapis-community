@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { provideAgentComposerActivity } from "../community-agent-composer-activity/context.js";
+  import type { CommunityAgentActivityContext } from "../../community/agent-contracts.js";
   import CommunitySkeleton from "../community-skeleton/CommunitySkeleton.svelte";
   import { DialogFrame } from "@lapismd/design-core/forms/dialog";
 
@@ -148,6 +150,7 @@
   import { provideCommunityMemberPresence } from "../community-member-hover-card/presence-context.js";
   import CommunityAgents from "../community-agents/CommunityAgents.svelte";
   import CommunityAgentProfile from "../community-agent-profile/CommunityAgentProfile.svelte";
+  import { observerScope } from "../../community/agent-activity-context.js";
   import CommunityAgentActivity from "../community-agent-activity/CommunityAgentActivity.svelte";
   import { communityAgentMember } from "../community-agents/model.js";
   import CommunityMemberProfile from "../community-member-profile/CommunityMemberProfile.svelte";
@@ -1536,7 +1539,7 @@
       if (activePanel.kind === "agent-activity")
         void community.actions.agents?.openActivity(
           activePanel.agentPubkey,
-          activePanel.channelId,
+          activePanel.activityContext ?? activePanel.channelId,
         );
     });
   });
@@ -1605,24 +1608,75 @@
 
   function openProfile(member: CommunityMemberModel): void {
     profileOverride = member;
-    openPanel({ kind: "profile", memberId: member.id });
+    openPanel({
+      kind: "profile",
+      memberId: member.id,
+      activityContext: activityOrigin(),
+    });
     lastAction = `opened-profile:${member.id}`;
   }
 
-  function openAgentProfile(pubkey: string): void {
+  function openAgentProfile(
+    pubkey: string,
+    context?: CommunityAgentActivityContext,
+  ): void {
     const agent = community.state.agents?.agents.find(
       (entry) => entry.pubkey === pubkey,
     );
-    if (agent) openProfile(communityAgentMember(agent));
-    else closeSidePanel();
+    if (agent) {
+      profileOverride = communityAgentMember(agent);
+      openPanel({
+        kind: "profile",
+        memberId: pubkey,
+        activityContext: context ?? activityOrigin(),
+      });
+    } else closeSidePanel();
   }
-  function openAgentActivity(pubkey: string, channelId?: string): void {
+  function activityOrigin(): CommunityAgentActivityContext {
+    if (activePanel.kind === "profile" || activePanel.kind === "agent-activity")
+      return activePanel.activityContext ?? { kind: "overview" };
+    if (activePanel.kind === "thread") {
+      const room = allRooms.find((room) => room.id === activePanel.roomId);
+      return {
+        kind: room?.kind === "forum" ? "forum-topic" : "thread",
+        channelId: room?.groupId ?? activePanel.roomId,
+        threadRootId: activePanel.rootMessageId,
+      };
+    }
+    if (activeDestination !== activeRoom.id) return { kind: "overview" };
+    if (activeRoom.kind === "direct") return { kind: "dm" };
+    if (workspace.view === "forum-thread" && workspace.messages[0])
+      return {
+        kind: "forum-topic",
+        channelId: activeRoom.groupId ?? activeRoom.id,
+        threadRootId:
+          workspace.messages.find((message) => message.sourceEvent?.kind === 11)
+            ?.id ?? workspace.messages[0].id,
+      };
+    return { kind: "channel", channelId: activeRoom.groupId ?? activeRoom.id };
+  }
+  function openAgentActivity(
+    pubkey: string,
+    context?: string | CommunityAgentActivityContext,
+  ): void {
+    const activityContext =
+      typeof context === "string"
+        ? { kind: "channel" as const, channelId: context }
+        : (context ?? activityOrigin());
     openPanel({
       kind: "agent-activity",
       agentPubkey: pubkey,
-      ...(channelId ? { channelId } : {}),
+      activityContext,
+      ...("channelId" in activityContext
+        ? { channelId: activityContext.channelId }
+        : {}),
     });
   }
+  provideAgentComposerActivity({
+    model: () => community.state.agents,
+    rooms: () => allRooms,
+    open: openAgentActivity,
+  });
 
   function openReleaseProfile(member: CommunityMemberModel): void {
     profileOverride = member;
@@ -6932,8 +6986,10 @@
             <CommunityAgents
               bind:adding={agentCreatorOpen}
               model={community.state.agents}
-              onProfile={openAgentProfile}
-              onActivity={openAgentActivity}
+              onProfile={(pubkey) =>
+                openAgentProfile(pubkey, { kind: "overview" })}
+              onActivity={(pubkey) =>
+                openAgentActivity(pubkey, { kind: "overview" })}
               onSavePersona={(input) =>
                 community.actions.agents!.savePersona(input)}
               onSaveAgent={(input) =>
@@ -7538,30 +7594,51 @@
             {/if}
           </AppShell.Sidebar.Body>
         {:else if activePanel.kind === "agent-activity"}
-          <AppShell.Sidebar.Header
-            ><strong>Agent activity</strong><AppShell.Sidebar.Close
-              onclick={closeSidePanel}
-            /></AppShell.Sidebar.Header
-          >
+          <AppShell.Sidebar.Header>
+            <Button
+              variant="ghost"
+              size="sm"
+              onclick={() => {
+                if (canNavigateBack) navigateHistory(-1);
+                else if (activePanel.kind === "agent-activity")
+                  openAgentProfile(activePanel.agentPubkey);
+              }}><ArrowLeftIcon aria-hidden="true" />Back to profile</Button
+            >
+            <AppShell.Sidebar.Close onclick={closeSidePanel} />
+          </AppShell.Sidebar.Header>
           <AppShell.Sidebar.Body>
             {#if community.state.agents && community.actions.agents}
               <CommunityAgentActivity
                 model={community.state.agents}
                 rooms={allRooms}
-                onBack={() => {
-                  if (activePanel.kind === "agent-activity")
-                    openAgentProfile(activePanel.agentPubkey);
-                }}
-                onSelectAgent={(pubkey) => openAgentActivity(pubkey)}
-                onSelectChannel={(channelId) => {
-                  if (activePanel.kind === "agent-activity")
-                    openAgentActivity(activePanel.agentPubkey, channelId);
+                onOpenRequest={(item) => {
+                  const scope = observerScope(item.frame);
+                  const payload = item.frame.payload as Record<string, unknown>;
+                  const trigger = String(payload.triggerEventId);
+                  if (scope.conversationKind === "dm") {
+                    community.actions.openDirectMessage([item.agentPubkey]);
+                    closeSidePanel();
+                    return;
+                  }
+                  const room = allRooms.find(
+                    (room) => (room.groupId ?? room.id) === scope.channelId,
+                  );
+                  if (!room) return;
+                  if (scope.conversationKind === "forum-topic") {
+                    setDestination(room.id, true);
+                    community.actions.openTopic(scope.threadRootId ?? trigger);
+                  } else
+                    openPanelForDestination(room.id, {
+                      kind: "thread",
+                      roomId: room.id,
+                      rootMessageId: scope.threadRootId ?? trigger,
+                    });
                 }}
                 onLatest={() => {
                   if (activePanel.kind === "agent-activity")
                     return community.actions.agents!.openActivity(
                       activePanel.agentPubkey,
-                      activePanel.channelId,
+                      activePanel.activityContext ?? activePanel.channelId,
                     );
                 }}
                 onLoadOlder={() =>
@@ -7572,17 +7649,19 @@
                       activePanel.agentPubkey,
                     );
                 }}
-                onCancelTurn={(pubkey, scopeKey, channelId) =>
+                onCancelTurn={(pubkey, scopeKey, channelId, expected) =>
                   community.actions.agents!.cancelTurn(
                     pubkey,
                     scopeKey,
                     channelId,
+                    expected,
                   )}
-                onResetConversation={(pubkey, scopeKey, channelId) =>
+                onResetConversation={(pubkey, scopeKey, channelId, expected) =>
                   community.actions.agents!.resetConversation(
                     pubkey,
                     scopeKey,
                     channelId,
+                    expected,
                   )}
                 onRespondPermission={(pubkey, requestId, decision, channelId) =>
                   community.actions.agents!.respondPermission(
@@ -7641,6 +7720,7 @@
             {#if visibleThread}
               <CommunityThreadPanel
                 thread={visibleThread}
+                activityContext={activityOrigin()}
                 members={workspace.members}
                 rooms={workspace.navigationSections.flatMap(
                   (section) => section.rooms,
