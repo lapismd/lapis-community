@@ -1234,6 +1234,7 @@ class AgentSession implements CommunityAgentSession {
     if (!nip44)
       throw new Error("Agent control requires a signer with NIP-44 support");
     validateAgentControl(control);
+    const channelId = "channelId" in control ? control.channelId : undefined;
     const content = await nip44.encrypt(agentPubkey, JSON.stringify(control));
     signal?.throwIfAborted();
     const event = await this.#sign(
@@ -1244,7 +1245,7 @@ class AgentSession implements CommunityAgentSession {
           ["p", agentPubkey],
           ["agent", agentPubkey],
           ["frame", "control"],
-          ...(control.channelId ? [["h", control.channelId]] : []),
+          ...(channelId ? [["h", channelId]] : []),
         ],
         content,
       },
@@ -1264,15 +1265,20 @@ const AGENT_PERMISSION_DECISIONS = new Set([
 ]);
 
 function validateAgentControl(control: CommunityAgentControl): void {
+  const versionTwo = new Set([
+    "sync_activity",
+    "runtime_get",
+    "runtime_set",
+    "memory_list",
+    "memory_action",
+  ]).has(control.command);
   if (
-    (control.command === "sync_activity" && control.version !== 2) ||
-    (control.command !== "sync_activity" && control.version !== 1)
+    (versionTwo && control.version !== 2) ||
+    (!versionTwo && control.version !== 1)
   )
     throw new Error("Unsupported agent control version");
-  if (
-    control.channelId !== undefined &&
-    (!control.channelId.trim() || control.channelId.length > 512)
-  )
+  const channelId = "channelId" in control ? control.channelId : undefined;
+  if (channelId !== undefined && (!channelId.trim() || channelId.length > 512))
     throw new Error("Agent control channel is invalid");
   if (
     control.command === "cancel_turn" ||
@@ -1326,6 +1332,79 @@ function validateAgentControl(control: CommunityAgentControl): void {
         (!Number.isSafeInteger(control.notBefore) || control.notBefore < 0))
     )
       throw new Error("Agent activity context or cursor is invalid");
+    return;
+  }
+  if (
+    versionTwo &&
+    (!control.requestId.trim() || control.requestId.length > 128)
+  )
+    throw new Error("Agent administration request is invalid");
+  if (control.command === "runtime_get") {
+    if (!hasOnlyObjectKeys(control, ["version", "command", "requestId"]))
+      throw new Error("Agent runtime request contains unknown fields");
+    return;
+  }
+  if (control.command === "runtime_set") {
+    if (
+      !hasOnlyObjectKeys(control, [
+        "version",
+        "command",
+        "requestId",
+        "runtimeAgent",
+        "model",
+        "thinking",
+      ]) ||
+      ![control.runtimeAgent, control.model, control.thinking].some(
+        (value) => value !== undefined,
+      ) ||
+      [control.runtimeAgent, control.model].some(
+        (value) => value !== undefined && (!value.trim() || value.length > 256),
+      ) ||
+      (control.thinking !== undefined &&
+        !["off", "low", "medium", "high"].includes(control.thinking))
+    )
+      throw new Error("Agent runtime defaults are invalid");
+    return;
+  }
+  if (control.command === "memory_list") {
+    if (
+      !hasOnlyObjectKeys(control, [
+        "version",
+        "command",
+        "requestId",
+        "channelId",
+        "status",
+        "query",
+      ]) ||
+      (control.status !== undefined &&
+        !["approved", "review", "rejected", "retracted"].includes(
+          control.status,
+        )) ||
+      (control.query !== undefined && control.query.length > 256)
+    )
+      throw new Error("Agent memory query is invalid");
+    return;
+  }
+  if (control.command === "memory_action") {
+    const candidateAction =
+      control.action === "approve" || control.action === "reject";
+    if (
+      !hasOnlyObjectKeys(control, [
+        "version",
+        "command",
+        "requestId",
+        "channelId",
+        "action",
+        "candidateId",
+        "memoryId",
+      ]) ||
+      !["approve", "reject", "retract"].includes(control.action) ||
+      (candidateAction &&
+        (!control.candidateId || control.memoryId !== undefined)) ||
+      (!candidateAction &&
+        (!control.memoryId || control.candidateId !== undefined))
+    )
+      throw new Error("Agent memory action is invalid");
     return;
   }
   if (!control.requestId.trim() || control.requestId.length > 512)

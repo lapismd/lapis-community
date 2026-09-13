@@ -5,6 +5,8 @@ import { finalizeEvent, getPublicKey } from "nostr-tools/pure";
 import type {
   CommunityAgentsState,
   CommunityAgentActivityItem,
+  CommunityAgentMemoryState,
+  CommunityAgentRuntimeState,
 } from "../../community/agent-contracts.js";
 import type { CommunityRoomModel } from "../community-workspace/model.js";
 import {
@@ -112,6 +114,78 @@ export const storyAgentRooms: CommunityRoomModel[] = [
     permissions: { manageMembers: { state: "enabled" } },
   },
 ] as CommunityRoomModel[];
+export const storyAgentRuntime: CommunityAgentRuntimeState = {
+  agentId: "agent-research",
+  host: {
+    id: "local-workspace",
+    kind: "managed",
+    workspace: "/workspace/research",
+  },
+  runtimeAgents: [
+    { id: "codex", label: "Codex", mcpTransport: "stdio" },
+    { id: "claude", label: "Claude Code", mcpTransport: "stdio" },
+  ],
+  configured: { runtimeAgent: "codex", model: "gpt-6", thinking: "medium" },
+  saved: null,
+  effective: { runtimeAgent: "codex", model: "gpt-6", thinking: "medium" },
+  catalog: {
+    agent: "codex",
+    currentModel: "gpt-6",
+    models: ["gpt-6", "gpt-5.6"],
+    configOptions: [
+      {
+        id: "model",
+        name: "Model",
+        category: "model",
+        currentValue: "gpt-6",
+        options: [
+          { value: "gpt-6", name: "GPT-6" },
+          { value: "gpt-5.6", name: "GPT-5.6" },
+        ],
+      },
+      {
+        id: "reasoning_effort",
+        name: "Thinking",
+        category: "thought",
+        currentValue: "medium",
+        options: [
+          { value: "low", name: "Low" },
+          { value: "medium", name: "Medium" },
+          { value: "high", name: "High" },
+        ],
+      },
+    ],
+  },
+  tools: [
+    { name: "relay.messages.list", effect: "read" },
+    { name: "relay.issues.create", effect: "write" },
+    { name: "memory.search", effect: "read" },
+  ],
+  bootstrapRevision: "persona:release-notes:7",
+  memory: { enabled: true, candidates: 1 },
+};
+export const storyAgentMemories: CommunityAgentMemoryState = {
+  channelId: "general",
+  records: [
+    {
+      type: "candidate",
+      candidateId: "candidate-1",
+      kind: "preference",
+      claim: "Summaries should lead with release blockers.",
+      origin: "agent",
+      status: "review",
+      createdAt: 1_700_000_100,
+      evidence: [
+        {
+          eventId: "a".repeat(64),
+          evidenceHash: "b".repeat(64),
+          conversationKey: "general",
+          observedAt: 1_700_000_000,
+        },
+      ],
+    },
+  ],
+};
 const activityBaseTime = Math.floor(Date.now() / 1_000) - 12 * 60;
 export function storyActivity(
   kind = "turn_started",

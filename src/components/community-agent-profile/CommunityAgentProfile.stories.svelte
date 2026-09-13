@@ -92,6 +92,49 @@
 >
 
 <Story
+  name="Runtime defaults"
+  play={async ({ canvas, canvasElement }) => {
+    await userEvent.click(canvas.getByRole("tab", { name: "Runtime" }));
+    await expect(canvas.getByText("local-workspace")).toBeVisible();
+    await expect(canvas.getByText("persona:release-notes:7")).toBeVisible();
+    const body = within(canvasElement.ownerDocument.body);
+    await userEvent.click(canvas.getByRole("button", { name: "Model" }));
+    await userEvent.click(body.getByRole("option", { name: "GPT-5.6" }));
+    await waitFor(() =>
+      expect(
+        getComputedStyle(canvasElement.ownerDocument.body).pointerEvents,
+      ).not.toBe("none"),
+    );
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Save defaults" }),
+    );
+    await expect(canvas.getByRole("status")).toHaveTextContent(
+      "Runtime defaults saved",
+    );
+    await expect(canvas.getByText("relay.issues.create")).toBeVisible();
+  }}>{#snippet template()}<Harness screen="profile" />{/snippet}</Story
+>
+
+<Story
+  name="Memory review"
+  play={async ({ canvas }) => {
+    await userEvent.click(canvas.getByRole("tab", { name: "Memories" }));
+    await expect(
+      canvas.getByText("Summaries should lead with release blockers."),
+    ).toBeVisible();
+    await userEvent.click(canvas.getByText("Evidence (1)"));
+    await expect(canvas.getByText(/^aaaaaaaaaaaa/u)).toBeVisible();
+    await userEvent.click(canvas.getByRole("button", { name: "Approve" }));
+    await expect(canvas.getByRole("status")).toHaveTextContent(
+      "Memory approved",
+    );
+    await expect(
+      canvas.queryByText("Summaries should lead with release blockers."),
+    ).not.toBeInTheDocument();
+  }}>{#snippet template()}<Harness screen="profile" />{/snippet}</Story
+>
+
+<Story
   name="Add to channel"
   play={async ({ canvas, canvasElement }) => {
     const body = within(canvasElement.ownerDocument.body);

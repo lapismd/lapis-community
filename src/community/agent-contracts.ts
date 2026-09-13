@@ -245,7 +245,109 @@ export type CommunityAgentControl =
       highWaterMark?: number;
       notBefore?: number;
       channelId?: string;
+    }
+  | {
+      version: 2;
+      command: "runtime_get";
+      requestId: string;
+    }
+  | {
+      version: 2;
+      command: "runtime_set";
+      requestId: string;
+      runtimeAgent?: string;
+      model?: string;
+      thinking?: "off" | "low" | "medium" | "high";
+    }
+  | {
+      version: 2;
+      command: "memory_list";
+      requestId: string;
+      channelId: string;
+      status?: "approved" | "review" | "rejected" | "retracted";
+      query?: string;
+    }
+  | {
+      version: 2;
+      command: "memory_action";
+      requestId: string;
+      channelId: string;
+      action: "approve" | "reject" | "retract";
+      candidateId?: string;
+      memoryId?: string;
     };
+
+export interface CommunityAgentRuntimeOption {
+  value: string;
+  name: string;
+  description?: string;
+}
+
+export interface CommunityAgentRuntimeState {
+  agentId: string;
+  host: { id: string; kind: string; workspace?: string };
+  runtimeAgents: readonly {
+    id: string;
+    label: string;
+    mcpTransport?: string;
+  }[];
+  configured: { runtimeAgent: string; model?: string; thinking?: string };
+  saved?: {
+    runtimeAgent?: string;
+    model?: string;
+    thinking?: string;
+    updatedAt?: number;
+  } | null;
+  effective: { runtimeAgent: string; model?: string; thinking?: string };
+  catalog: {
+    agent: string;
+    currentModel?: string;
+    models: readonly string[];
+    configOptions: readonly {
+      id: string;
+      name: string;
+      category?: string;
+      currentValue?: string | boolean;
+      options?: readonly CommunityAgentRuntimeOption[];
+    }[];
+    error?: string;
+  };
+  tools: readonly { name: string; effect: "read" | "write" }[];
+  bootstrapRevision?: string | null;
+  memory: { enabled: boolean; candidates: number };
+}
+
+export type CommunityAgentMemoryRecord =
+  | {
+      type: "candidate";
+      candidateId: string;
+      kind: string;
+      claim: string;
+      origin: string;
+      status: "review" | "approved" | "rejected";
+      createdAt: number;
+      evidence: readonly {
+        eventId: string;
+        evidenceHash: string;
+        conversationKey: string;
+        observedAt: number;
+      }[];
+    }
+  | {
+      type: "memory";
+      memoryId: string;
+      kind: string;
+      content: string;
+      status: "active" | "retracted";
+      revision: number;
+      evidenceHashes: readonly string[];
+      createdAt: number;
+    };
+
+export interface CommunityAgentMemoryState {
+  channelId: string;
+  records: readonly CommunityAgentMemoryRecord[];
+}
 
 export type CommunityAgentActivitySyncContext =
   | { kind: "dm" }
@@ -486,6 +588,8 @@ export interface CommunityAgentsState {
   pendingPermissions: Readonly<
     Record<string, readonly CommunityAgentPermissionRequest[]>
   >;
+  runtime?: Readonly<Record<string, CommunityAgentRuntimeState>>;
+  memories?: Readonly<Record<string, CommunityAgentMemoryState>>;
   partial: boolean;
   error?: string;
   storageMode: CommunityStorageMode;
@@ -546,4 +650,30 @@ export interface CommunityAgentsActions {
     decision: CommunityAgentPermissionDecision,
     channelId?: string,
   ): Promise<void>;
+  loadRuntime(pubkey: string): Promise<CommunityAgentRuntimeState>;
+  saveRuntime(
+    pubkey: string,
+    defaults: {
+      runtimeAgent?: string;
+      model?: string;
+      thinking?: "off" | "low" | "medium" | "high";
+    },
+  ): Promise<CommunityAgentRuntimeState>;
+  loadMemories(
+    pubkey: string,
+    channelId: string,
+    filter?: {
+      status?: "approved" | "review" | "rejected" | "retracted";
+      query?: string;
+    },
+  ): Promise<CommunityAgentMemoryState>;
+  actOnMemory(
+    pubkey: string,
+    input: {
+      channelId: string;
+      action: "approve" | "reject" | "retract";
+      candidateId?: string;
+      memoryId?: string;
+    },
+  ): Promise<CommunityAgentMemoryState>;
 }

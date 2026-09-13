@@ -13,6 +13,8 @@
     storyActivityItems,
     storyOwnerPubkey,
     storyGalleryAgents,
+    storyAgentRuntime,
+    storyAgentMemories,
   } from "./story-fixtures.js";
   import type {
     CommunityAgentIdentity,
@@ -175,6 +177,8 @@
             ? storyActivityItems
             : [],
         hasOlder: screen === "activity" && variant !== "empty",
+        runtime: { [storyAgent.pubkey]: storyAgentRuntime },
+        memories: { [storyAgent.pubkey]: storyAgentMemories },
       }),
     ),
   );
@@ -393,6 +397,56 @@
       onDeletePersona={async () => {
         attempt();
         notice = "Persona deleted";
+      }}
+      runtime={model.runtime?.[agent.pubkey]}
+      memories={model.memories?.[agent.pubkey]}
+      onLoadRuntime={async () =>
+        model.runtime?.[agent.pubkey] ?? storyAgentRuntime}
+      onSaveRuntime={async (defaults) => {
+        attempt();
+        const next = {
+          ...(model.runtime?.[agent.pubkey] ?? storyAgentRuntime),
+          saved: { ...defaults, updatedAt: Date.now() },
+          effective: {
+            runtimeAgent:
+              defaults.runtimeAgent ?? storyAgentRuntime.effective.runtimeAgent,
+            ...(defaults.model ? { model: defaults.model } : {}),
+            ...(defaults.thinking ? { thinking: defaults.thinking } : {}),
+          },
+        };
+        model = {
+          ...model,
+          runtime: { ...(model.runtime ?? {}), [agent.pubkey]: next },
+        };
+        notice = "Runtime defaults saved";
+        return next;
+      }}
+      onLoadMemories={async () =>
+        model.memories?.[agent.pubkey] ?? storyAgentMemories}
+      onActOnMemory={async (input) => {
+        attempt();
+        const current = model.memories?.[agent.pubkey] ?? storyAgentMemories;
+        const next = {
+          ...current,
+          records: current.records.map((record) =>
+            record.type === "candidate" &&
+            record.candidateId === input.candidateId
+              ? {
+                  ...record,
+                  status:
+                    input.action === "approve"
+                      ? ("approved" as const)
+                      : ("rejected" as const),
+                }
+              : record,
+          ),
+        };
+        model = {
+          ...model,
+          memories: { ...(model.memories ?? {}), [agent.pubkey]: next },
+        };
+        notice = `Memory ${input.action}d`;
+        return next;
       }}
     />
   {:else}

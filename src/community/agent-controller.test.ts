@@ -125,6 +125,37 @@ function frame(
   );
 }
 
+function administrationFrame(
+  kind: "runtime_state" | "memory_state",
+  payload: Record<string, unknown>,
+  channelId?: string,
+) {
+  return finalizeEvent(
+    {
+      kind: 24200,
+      created_at: now,
+      tags: [
+        ["p", owner],
+        ["agent", agent],
+        ["frame", "telemetry"],
+        ...(channelId ? [["h", channelId]] : []),
+      ],
+      content: nip44.v2.encrypt(
+        JSON.stringify({
+          version: 2,
+          seq: 0,
+          timestamp: new Date(now * 1000).toISOString(),
+          kind,
+          ...(channelId ? { channelId } : {}),
+          payload,
+        }),
+        conversation,
+      ),
+    },
+    agentKey,
+  );
+}
+
 function streamFrame(
   seq: number,
   kind: string,
@@ -278,6 +309,122 @@ async function setup(
 }
 
 describe("agent activity controller", () => {
+  it("correlates owner runtime and memory administration without archiving it", async () => {
+    const { controller, receive, session, archive } = await setup();
+    const runtimePromise = controller.actions.loadRuntime(agent);
+    await vi.waitFor(() =>
+      expect(session.sendControl).toHaveBeenCalledWith(
+        agent,
+        expect.objectContaining({ command: "runtime_get" }),
+        expect.any(AbortSignal),
+      ),
+    );
+    const runtimeControl = vi
+      .mocked(session.sendControl!)
+      .mock.calls.at(-1)![1];
+    const runtimeRequestId =
+      "requestId" in runtimeControl ? runtimeControl.requestId : "";
+    receive(
+      administrationFrame("runtime_state", {
+        requestId: runtimeRequestId,
+        agentId: "agent-research",
+        host: { id: "workspace", kind: "managed", workspace: "/workspace" },
+        runtimeAgents: [{ id: "codex", label: "Codex", mcpTransport: "stdio" }],
+        configured: { runtimeAgent: "codex", model: "gpt-6" },
+        saved: null,
+        effective: {
+          runtimeAgent: "codex",
+          model: "gpt-6",
+          thinking: "high",
+        },
+        catalog: {
+          agent: "codex",
+          currentModel: "gpt-6",
+          models: ["gpt-6"],
+          configOptions: [],
+        },
+        tools: [{ name: "memory.search", effect: "read" }],
+        bootstrapRevision: "persona:1",
+        memory: { enabled: true, candidates: 1 },
+      }),
+    );
+    await expect(runtimePromise).resolves.toMatchObject({
+      effective: { model: "gpt-6", thinking: "high" },
+    });
+    expect(controller.state.runtime?.[agent]?.tools).toEqual([
+      { name: "memory.search", effect: "read" },
+    ]);
+
+    const memoriesPromise = controller.actions.loadMemories(agent, "general", {
+      status: "review",
+    });
+    await vi.waitFor(() =>
+      expect(session.sendControl).toHaveBeenCalledWith(
+        agent,
+        expect.objectContaining({ command: "memory_list" }),
+        expect.any(AbortSignal),
+      ),
+    );
+    const memoryControl = vi.mocked(session.sendControl!).mock.calls.at(-1)![1];
+    const memoryRequestId =
+      "requestId" in memoryControl ? memoryControl.requestId : "";
+    receive(
+      administrationFrame(
+        "memory_state",
+        {
+          requestId: memoryRequestId,
+          channelId: "general",
+          records: [
+            {
+              type: "candidate",
+              candidateId: "candidate-1",
+              kind: "fact",
+              claim: "Release blockers come first.",
+              origin: "agent",
+              status: "review",
+              createdAt: now,
+              evidence: [
+                {
+                  eventId: "a".repeat(64),
+                  evidenceHash: "b".repeat(64),
+                  conversationKey: "general",
+                  observedAt: now,
+                },
+              ],
+            },
+          ],
+        },
+        "general",
+      ),
+    );
+    await expect(memoriesPromise).resolves.toMatchObject({
+      channelId: "general",
+      records: [{ candidateId: "candidate-1" }],
+    });
+    expect(controller.state.memories?.[agent]?.records).toHaveLength(1);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    await expect(
+      archive.page({
+        scope: { ...scope, relayPubkey: relay },
+        agentPubkey: agent,
+      }),
+    ).resolves.toMatchObject({ records: [] });
+  });
+
+  it("times out an unanswered administration request", async () => {
+    vi.useFakeTimers();
+    try {
+      const { controller } = await setup();
+      const pending = expect(
+        controller.actions.loadRuntime(agent),
+      ).rejects.toThrow(/within ten seconds/iu);
+      await vi.advanceTimersByTimeAsync(10_001);
+      await pending;
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("finishes empty history without waiting for incoming activity", async () => {
     const { controller } = await setup();
     await controller.actions.openActivity(agent);

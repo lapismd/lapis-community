@@ -259,6 +259,38 @@ describe("agent relay session", () => {
       }),
     );
     expect(fixture.events).toContainEqual(event);
+
+    const runtime = {
+      version: 2 as const,
+      command: "runtime_set" as const,
+      requestId: "runtime-1",
+      runtimeAgent: "codex",
+      model: "gpt-6",
+      thinking: "high" as const,
+    };
+    const runtimeEvent = await fixture.session.sendControl!(agent, runtime);
+    expect(runtimeEvent.tags).not.toContainEqual(["h", expect.anything()]);
+    expect(fixture.nip44.encrypt).toHaveBeenCalledWith(
+      agent,
+      JSON.stringify(runtime),
+    );
+
+    const memory = {
+      version: 2 as const,
+      command: "memory_list" as const,
+      requestId: "memory-1",
+      channelId: "project-x",
+      status: "review" as const,
+    };
+    const memoryEvent = await fixture.session.sendControl!(agent, memory);
+    expect(memoryEvent.tags).toContainEqual(["h", "project-x"]);
+    await expect(
+      fixture.session.sendControl!(agent, {
+        version: 2,
+        command: "runtime_set",
+        requestId: "empty-runtime",
+      }),
+    ).rejects.toThrow(/defaults are invalid/iu);
   });
 
   it("publishes bounded activity catch-up controls with exact context routing", async () => {

@@ -6,6 +6,7 @@ import {
 import type {
   CommunityAgentActivityContext,
   CommunityAgentActivitySyncContext,
+  CommunityAgentControl,
   CommunityAgentObserver,
 } from "./agent-contracts.js";
 import type { CommunitySigner } from "../auth/index.js";
@@ -20,6 +21,9 @@ import type {
   CommunityAgentDirectory,
   CommunityAgentPermissionDecision,
   CommunityAgentPermissionRequest,
+  CommunityAgentMemoryState,
+  CommunityAgentMemoryRecord,
+  CommunityAgentRuntimeState,
   CommunityAgentsActions,
   CommunityAgentsState,
   CommunityAgentSession,
@@ -56,6 +60,32 @@ interface ActivitySyncRequest {
   notBefore?: number;
   timer?: ReturnType<typeof setTimeout>;
 }
+
+interface AgentAdministrationRequest {
+  agentPubkey: string;
+  responseKind: "runtime_state" | "memory_state";
+  resolve(value: CommunityAgentRuntimeState | CommunityAgentMemoryState): void;
+  reject(error: Error): void;
+  timer: ReturnType<typeof setTimeout>;
+}
+
+type AgentAdministrationControl =
+  | Omit<
+      Extract<CommunityAgentControl, { command: "runtime_get" }>,
+      "requestId"
+    >
+  | Omit<
+      Extract<CommunityAgentControl, { command: "runtime_set" }>,
+      "requestId"
+    >
+  | Omit<
+      Extract<CommunityAgentControl, { command: "memory_list" }>,
+      "requestId"
+    >
+  | Omit<
+      Extract<CommunityAgentControl, { command: "memory_action" }>,
+      "requestId"
+    >;
 
 export function createCommunityAgentsController(
   options: AgentControllerOptions,
@@ -108,6 +138,8 @@ export class CommunityAgentsController {
     | undefined;
   #syncGeneration = 0;
   #syncSerial = 0;
+  #administrationSerial = 0;
+  #administrationRequests = new Map<string, AgentAdministrationRequest>();
   #state: CommunityAgentsState;
 
   readonly actions: CommunityAgentsActions = {
@@ -370,6 +402,35 @@ export class CommunityAgentsController {
         },
       });
     },
+    loadRuntime: (pubkey) =>
+      this.#requestAdministration<CommunityAgentRuntimeState>(
+        pubkey,
+        { version: 2, command: "runtime_get" },
+        "runtime_state",
+      ),
+    saveRuntime: (pubkey, defaults) =>
+      this.#requestAdministration<CommunityAgentRuntimeState>(
+        pubkey,
+        { version: 2, command: "runtime_set", ...defaults },
+        "runtime_state",
+      ),
+    loadMemories: (pubkey, channelId, filter = {}) =>
+      this.#requestAdministration<CommunityAgentMemoryState>(
+        pubkey,
+        {
+          version: 2,
+          command: "memory_list",
+          channelId,
+          ...filter,
+        },
+        "memory_state",
+      ),
+    actOnMemory: (pubkey, input) =>
+      this.#requestAdministration<CommunityAgentMemoryState>(
+        pubkey,
+        { version: 2, command: "memory_action", ...input },
+        "memory_state",
+      ),
   };
 
   constructor(options: AgentControllerOptions) {
@@ -387,6 +448,8 @@ export class CommunityAgentsController {
       publicWorking: [],
       publicAgents: [],
       pendingPermissions: {},
+      runtime: {},
+      memories: {},
       partial: false,
       storageMode: options.storageMode(),
       activity: [],
@@ -818,6 +881,7 @@ export class CommunityAgentsController {
             await this.#applyActivitySyncPage(event, record, frame);
             return;
           }
+          if (this.#applyAdministrationFrame(event.pubkey, frame)) return;
           this.#queueArchiveRecord(record);
           this.#cacheFrame(event.id, frame);
           this.#applyControllerFrame(event.pubkey, frame);
@@ -1481,6 +1545,95 @@ export class CommunityAgentsController {
       this.#decodedFrames.delete(this.#decodedFrames.keys().next().value!);
   }
 
+  async #requestAdministration<
+    T extends CommunityAgentRuntimeState | CommunityAgentMemoryState,
+  >(
+    agentPubkey: string,
+    control: AgentAdministrationControl,
+    responseKind: AgentAdministrationRequest["responseKind"],
+  ): Promise<T> {
+    const requestId = `community-admin-${++this.#administrationSerial}-${Date.now().toString(36)}`;
+    const result = new Promise<T>((resolve, reject) => {
+      const timer = setTimeout(() => {
+        this.#administrationRequests.delete(requestId);
+        reject(
+          new Error("The agent controller did not respond within ten seconds"),
+        );
+      }, 10_000);
+      this.#administrationRequests.set(requestId, {
+        agentPubkey,
+        responseKind,
+        resolve: (value) => resolve(value as T),
+        reject,
+        timer,
+      });
+    });
+    try {
+      await this.#sendControl(agentPubkey, {
+        ...control,
+        requestId,
+      } as CommunityAgentControl);
+    } catch (cause) {
+      const request = this.#administrationRequests.get(requestId);
+      if (request) {
+        clearTimeout(request.timer);
+        this.#administrationRequests.delete(requestId);
+        request.reject(
+          cause instanceof Error ? cause : new Error(String(cause)),
+        );
+      }
+    }
+    return result;
+  }
+
+  #applyAdministrationFrame(
+    agentPubkey: string,
+    frame: CommunityAgentObserver,
+  ): boolean {
+    if (frame.kind !== "runtime_state" && frame.kind !== "memory_state")
+      return false;
+    const payload = observerRecord(frame.payload);
+    const requestId = observerText(payload?.requestId, 128);
+    const request = requestId
+      ? this.#administrationRequests.get(requestId)
+      : undefined;
+    if (
+      !request ||
+      request.agentPubkey !== agentPubkey ||
+      request.responseKind !== frame.kind
+    )
+      return true;
+    clearTimeout(request.timer);
+    this.#administrationRequests.delete(requestId);
+    const value =
+      frame.kind === "runtime_state"
+        ? parseRuntimeState(payload)
+        : parseMemoryState(payload);
+    if (!value) {
+      request.reject(
+        new Error("The agent controller returned invalid administration data"),
+      );
+      return true;
+    }
+    if (frame.kind === "runtime_state") {
+      this.#update({
+        runtime: {
+          ...(this.#state.runtime ?? {}),
+          [agentPubkey]: value as CommunityAgentRuntimeState,
+        },
+      });
+    } else {
+      this.#update({
+        memories: {
+          ...(this.#state.memories ?? {}),
+          [agentPubkey]: value as CommunityAgentMemoryState,
+        },
+      });
+    }
+    request.resolve(value);
+    return true;
+  }
+
   #mergeActivity(
     items: readonly CommunityAgentActivityItem[],
     older = false,
@@ -1665,6 +1818,11 @@ export class CommunityAgentsController {
     this.#subscribedPubkeys.clear();
     if (this.#timer) clearInterval(this.#timer);
     if (this.#refreshTimer) clearTimeout(this.#refreshTimer);
+    for (const request of this.#administrationRequests.values()) {
+      clearTimeout(request.timer);
+      request.reject(new Error("Agent administration was cancelled"));
+    }
+    this.#administrationRequests.clear();
     this.#unknownFrames = [];
     this.#workingUntil.clear();
     this.#controllerSequence.clear();
@@ -1683,6 +1841,8 @@ export class CommunityAgentsController {
       publicWorking: [],
       publicAgents: [],
       pendingPermissions: {},
+      runtime: {},
+      memories: {},
     };
     void this.#flushArchive();
   }
@@ -1742,6 +1902,254 @@ function observerRecord(value: unknown): Record<string, unknown> {
 
 function observerText(value: unknown, limit: number): string {
   return typeof value === "string" ? value.trim().slice(0, limit) : "";
+}
+
+function parseRuntimeState(
+  value: Record<string, unknown> | undefined,
+): CommunityAgentRuntimeState | undefined {
+  if (!value) return;
+  const agentId = observerText(value.agentId, 256);
+  const host = observerRecord(value.host);
+  const configured = observerRecord(value.configured);
+  const effective = observerRecord(value.effective);
+  const catalog = observerRecord(value.catalog);
+  const memory = observerRecord(value.memory);
+  const hostId = observerText(host.id, 256);
+  const hostKind = observerText(host.kind, 64);
+  const effectiveRuntime = observerText(effective.runtimeAgent, 256);
+  const catalogAgent = observerText(catalog.agent, 256);
+  if (!agentId || !hostId || !hostKind || !effectiveRuntime || !catalogAgent)
+    return;
+  const runtimeAgents = Array.isArray(value.runtimeAgents)
+    ? value.runtimeAgents.flatMap((entry) => {
+        const item = observerRecord(entry);
+        const id = observerText(item.id, 256);
+        const label = observerText(item.label, 256);
+        return id && label
+          ? [
+              {
+                id,
+                label,
+                ...(observerText(item.mcpTransport, 32)
+                  ? { mcpTransport: observerText(item.mcpTransport, 32) }
+                  : {}),
+              },
+            ]
+          : [];
+      })
+    : [];
+  const configOptions = Array.isArray(catalog.configOptions)
+    ? catalog.configOptions.flatMap((entry) => {
+        const item = observerRecord(entry);
+        const id = observerText(item.id, 256);
+        const name = observerText(item.name, 256);
+        if (!id || !name) return [];
+        const options = Array.isArray(item.options)
+          ? item.options.flatMap((option) => {
+              const candidate = observerRecord(option);
+              const optionValue = observerText(candidate.value, 256);
+              const optionName = observerText(candidate.name, 256);
+              return optionValue && optionName
+                ? [
+                    {
+                      value: optionValue,
+                      name: optionName,
+                      ...(observerText(candidate.description, 1_024)
+                        ? {
+                            description: observerText(
+                              candidate.description,
+                              1_024,
+                            ),
+                          }
+                        : {}),
+                    },
+                  ]
+                : [];
+            })
+          : undefined;
+        return [
+          {
+            id,
+            name,
+            ...(observerText(item.category, 64)
+              ? { category: observerText(item.category, 64) }
+              : {}),
+            ...(typeof item.currentValue === "string" ||
+            typeof item.currentValue === "boolean"
+              ? { currentValue: item.currentValue }
+              : {}),
+            ...(options ? { options } : {}),
+          },
+        ];
+      })
+    : [];
+  const saved =
+    value.saved === null
+      ? null
+      : optionalRuntimeDefaults(observerRecord(value.saved));
+  return {
+    agentId,
+    host: {
+      id: hostId,
+      kind: hostKind,
+      ...(observerText(host.workspace, 4_096)
+        ? { workspace: observerText(host.workspace, 4_096) }
+        : {}),
+    },
+    runtimeAgents,
+    configured: {
+      runtimeAgent:
+        observerText(configured.runtimeAgent, 256) || effectiveRuntime,
+      ...optionalRuntimeDefaults(configured),
+    },
+    ...(saved === undefined ? {} : { saved }),
+    effective: {
+      runtimeAgent: effectiveRuntime,
+      ...optionalRuntimeDefaults(effective),
+    },
+    catalog: {
+      agent: catalogAgent,
+      ...(observerText(catalog.currentModel, 256)
+        ? { currentModel: observerText(catalog.currentModel, 256) }
+        : {}),
+      models: Array.isArray(catalog.models)
+        ? catalog.models
+            .map((model) => observerText(model, 256))
+            .filter(Boolean)
+        : [],
+      configOptions,
+      ...(observerText(catalog.error, 1_024)
+        ? { error: observerText(catalog.error, 1_024) }
+        : {}),
+    },
+    tools: Array.isArray(value.tools)
+      ? value.tools.flatMap((entry) => {
+          const tool = observerRecord(entry);
+          const name = observerText(tool.name, 256);
+          return name && (tool.effect === "read" || tool.effect === "write")
+            ? [{ name, effect: tool.effect }]
+            : [];
+        })
+      : [],
+    ...(value.bootstrapRevision === null
+      ? { bootstrapRevision: null }
+      : observerText(value.bootstrapRevision, 256)
+        ? { bootstrapRevision: observerText(value.bootstrapRevision, 256) }
+        : {}),
+    memory: {
+      enabled: memory.enabled === true,
+      candidates: Number.isSafeInteger(memory.candidates)
+        ? Math.max(0, Number(memory.candidates))
+        : 0,
+    },
+  };
+}
+
+function optionalRuntimeDefaults(value: Record<string, unknown>):
+  | {
+      runtimeAgent?: string;
+      model?: string;
+      thinking?: string;
+      updatedAt?: number;
+    }
+  | undefined {
+  const runtimeAgent = observerText(value.runtimeAgent, 256);
+  const model = observerText(value.model, 256);
+  const thinking = observerText(value.thinking, 64);
+  const updatedAt = Number(value.updatedAt);
+  return runtimeAgent || model || thinking || Number.isSafeInteger(updatedAt)
+    ? {
+        ...(runtimeAgent ? { runtimeAgent } : {}),
+        ...(model ? { model } : {}),
+        ...(thinking ? { thinking } : {}),
+        ...(Number.isSafeInteger(updatedAt) ? { updatedAt } : {}),
+      }
+    : undefined;
+}
+
+function parseMemoryState(
+  value: Record<string, unknown> | undefined,
+): CommunityAgentMemoryState | undefined {
+  if (!value) return;
+  const channelId = observerText(value.channelId, 512);
+  if (!channelId || !Array.isArray(value.records)) return;
+  const records = value.records.flatMap<CommunityAgentMemoryRecord>((entry) => {
+    const item = observerRecord(entry);
+    const kind = observerText(item.kind, 64);
+    const createdAt = Number(item.createdAt);
+    if (!kind || !Number.isSafeInteger(createdAt)) return [];
+    if (item.type === "candidate") {
+      const candidateId = observerText(item.candidateId, 256);
+      const claim = observerText(item.claim, 4_096);
+      const origin = observerText(item.origin, 64);
+      if (
+        !candidateId ||
+        !claim ||
+        !origin ||
+        !["review", "approved", "rejected"].includes(String(item.status))
+      )
+        return [];
+      return [
+        {
+          type: "candidate" as const,
+          candidateId,
+          kind,
+          claim,
+          origin,
+          status: item.status as "review" | "approved" | "rejected",
+          createdAt,
+          evidence: Array.isArray(item.evidence)
+            ? item.evidence.flatMap((entry) => {
+                const evidence = observerRecord(entry);
+                const eventId = observerText(evidence.eventId, 128);
+                const evidenceHash = observerText(evidence.evidenceHash, 128);
+                const conversationKey = observerText(
+                  evidence.conversationKey,
+                  512,
+                );
+                const observedAt = Number(evidence.observedAt);
+                return eventId &&
+                  evidenceHash &&
+                  conversationKey &&
+                  Number.isSafeInteger(observedAt)
+                  ? [{ eventId, evidenceHash, conversationKey, observedAt }]
+                  : [];
+              })
+            : [],
+        },
+      ];
+    }
+    if (item.type === "memory") {
+      const memoryId = observerText(item.memoryId, 256);
+      const content = observerText(item.content, 4_096);
+      const revision = Number(item.revision);
+      if (
+        !memoryId ||
+        !content ||
+        !["active", "retracted"].includes(String(item.status)) ||
+        !Number.isSafeInteger(revision)
+      )
+        return [];
+      return [
+        {
+          type: "memory" as const,
+          memoryId,
+          kind,
+          content,
+          status: item.status as "active" | "retracted",
+          revision,
+          evidenceHashes: Array.isArray(item.evidenceHashes)
+            ? item.evidenceHashes
+                .map((hash) => observerText(hash, 128))
+                .filter(Boolean)
+            : [],
+          createdAt,
+        },
+      ];
+    }
+    return [];
+  });
+  return { channelId, records };
 }
 
 function activitySyncContext(

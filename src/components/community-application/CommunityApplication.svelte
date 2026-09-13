@@ -7627,6 +7627,30 @@
                   )}
                 onDeletePersona={(slug) =>
                   community.actions.agents!.deletePersona(slug)}
+                runtime={community.state.agents?.runtime?.[
+                  selectedAgent.pubkey
+                ]}
+                memories={community.state.agents?.memories?.[
+                  selectedAgent.pubkey
+                ]}
+                onLoadRuntime={() =>
+                  community.actions.agents!.loadRuntime(selectedAgent.pubkey)}
+                onSaveRuntime={(defaults) =>
+                  community.actions.agents!.saveRuntime(
+                    selectedAgent.pubkey,
+                    defaults,
+                  )}
+                onLoadMemories={(filter) =>
+                  community.actions.agents!.loadMemories(
+                    selectedAgent.pubkey,
+                    filter.channelId,
+                    filter,
+                  )}
+                onActOnMemory={(input) =>
+                  community.actions.agents!.actOnMemory(
+                    selectedAgent.pubkey,
+                    input,
+                  )}
               />
             {:else if selectedProfile}
               <CommunityMemberProfile

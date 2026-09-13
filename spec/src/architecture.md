@@ -22,8 +22,12 @@ its existing navigation and exclusive sidebar composition.
 The managed-agent runtime stays outside Community as an independently deployed
 controller. Community derives pending approvals and active conversation scopes
 from verified encrypted telemetry, while its session boundary only signs and
-publishes encrypted controls. Model choice, workspace paths, process lifecycle,
-and NIP-46 credentials remain operator-owned controller configuration.
+publishes encrypted controls. The controller remains authoritative for its ACP
+harness and option catalog; Community may display that catalog and save owner
+defaults for future sessions. Workspace paths, process lifecycle, and NIP-46
+credentials remain operator-owned controller configuration. Channel memory
+review uses the same ephemeral request boundary and never enters Community's
+activity archive.
 When the selected relay advertises `lapis_managed_agents`, this same boundary
 keeps only a disposable NIP-46 client key and resumable draft in memory, signs
 the owner records, delegates the one allowed profile signature to the relay

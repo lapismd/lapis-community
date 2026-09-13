@@ -1357,6 +1357,26 @@ export function createCommunityController(
           ),
         );
       },
+      loadRuntime: async (pubkey) => {
+        if (!agentController)
+          throw new Error("Agent controls require a signed-in community");
+        return agentController.actions.loadRuntime(pubkey);
+      },
+      saveRuntime: async (pubkey, defaults) => {
+        if (!agentController)
+          throw new Error("Agent controls require a signed-in community");
+        return agentController.actions.saveRuntime(pubkey, defaults);
+      },
+      loadMemories: async (pubkey, channelId, filter) => {
+        if (!agentController)
+          throw new Error("Agent controls require a signed-in community");
+        return agentController.actions.loadMemories(pubkey, channelId, filter);
+      },
+      actOnMemory: async (pubkey, input) => {
+        if (!agentController)
+          throw new Error("Agent controls require a signed-in community");
+        return agentController.actions.actOnMemory(pubkey, input);
+      },
     },
     pulse: {
       setActive(active) {

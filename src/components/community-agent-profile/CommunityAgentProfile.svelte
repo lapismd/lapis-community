@@ -25,11 +25,15 @@
   import UserMinusIcon from "@lucide/svelte/icons/user-minus";
   import PencilIcon from "@lucide/svelte/icons/pencil";
   import XIcon from "@lucide/svelte/icons/x";
+  import BrainIcon from "@lucide/svelte/icons/brain";
+  import RotateCwIcon from "@lucide/svelte/icons/rotate-cw";
   import type {
     CommunityAgentIdentity,
+    CommunityAgentMemoryState,
     CommunityAgentNameMode,
     CommunityAgentPersona,
     CommunityAgentPresence,
+    CommunityAgentRuntimeState,
     CommunityAgentSaveInput,
   } from "../../community/agent-contracts.js";
   import type { CommunityRoomModel } from "../community-workspace/model.js";
@@ -59,6 +63,12 @@
     onSaveAgent,
     onUnlinkPersona,
     onDeletePersona,
+    runtime,
+    memories,
+    onLoadRuntime,
+    onSaveRuntime,
+    onLoadMemories,
+    onActOnMemory,
   }: {
     agent: CommunityAgentIdentity;
     personas?: readonly CommunityAgentPersona[];
@@ -79,6 +89,25 @@
     onSaveAgent: (input: CommunityAgentSaveInput) => Promise<void>;
     onUnlinkPersona: (fallbackName: string) => Promise<void>;
     onDeletePersona: (slug: string) => Promise<void>;
+    runtime?: CommunityAgentRuntimeState | undefined;
+    memories?: CommunityAgentMemoryState | undefined;
+    onLoadRuntime?: () => Promise<CommunityAgentRuntimeState>;
+    onSaveRuntime?: (input: {
+      runtimeAgent?: string;
+      model?: string;
+      thinking?: "off" | "low" | "medium" | "high";
+    }) => Promise<CommunityAgentRuntimeState>;
+    onLoadMemories?: (input: {
+      channelId: string;
+      status?: "approved" | "review" | "rejected" | "retracted";
+      query?: string;
+    }) => Promise<CommunityAgentMemoryState>;
+    onActOnMemory?: (input: {
+      channelId: string;
+      action: "approve" | "reject" | "retract";
+      candidateId?: string;
+      memoryId?: string;
+    }) => Promise<CommunityAgentMemoryState>;
   } = $props();
   let tab = $state("info");
   let pending = $state(false);
@@ -102,6 +131,17 @@
   let addTrigger = $state<HTMLButtonElement | null>(null);
   let channelSearch = $state<HTMLInputElement | null>(null);
   let profile = $state<HTMLElement>();
+  let runtimeAgent = $state("");
+  let runtimeModel = $state("");
+  let runtimeThinking = $state<"off" | "low" | "medium" | "high">("medium");
+  let runtimeLoaded = $state("");
+  let runtimeRequested = $state("");
+  let memoryChannel = $state("");
+  let memoryStatus = $state<"approved" | "review" | "rejected" | "retracted">(
+    "review",
+  );
+  let memoryQuery = $state("");
+  let memoryLoaded = $state("");
   const profileId = $props.id();
   const channelSearchId = `${profileId}-channel-search`;
   const channels = $derived(
@@ -126,6 +166,109 @@
   const editorPersona = $derived(
     personas.find((persona) => persona.slug === personaSelection),
   );
+  const runtimeAgents = $derived(
+    runtime?.runtimeAgents.length
+      ? runtime.runtimeAgents
+      : runtime
+        ? [
+            {
+              id: runtime.effective.runtimeAgent,
+              label: runtime.effective.runtimeAgent,
+            },
+          ]
+        : [],
+  );
+  const modelOptions = $derived.by(() => {
+    const option = runtime?.catalog.configOptions.find(
+      ({ id, category }) => id === "model" || category === "model",
+    );
+    return (
+      option?.options ??
+      runtime?.catalog.models.map((value) => ({ value, name: value })) ??
+      []
+    );
+  });
+  const thinkingOptions = $derived.by(() => {
+    const option = runtime?.catalog.configOptions.find(
+      ({ id, category }) =>
+        category === "thought" ||
+        ["thought_level", "thinking", "effort", "reasoning_effort"].includes(
+          id,
+        ),
+    );
+    return (
+      option?.options?.filter(
+        ({ value }) =>
+          value === "off" ||
+          value === "low" ||
+          value === "medium" ||
+          value === "high",
+      ) ?? []
+    );
+  });
+  const memoryRecords = $derived(
+    memories?.channelId === memoryChannel
+      ? memories.records.filter((record) => {
+          const statusMatches =
+            (memoryStatus === "approved" &&
+              ((record.type === "candidate" && record.status === "approved") ||
+                (record.type === "memory" && record.status === "active"))) ||
+            (memoryStatus === "review" &&
+              record.type === "candidate" &&
+              record.status === "review") ||
+            (memoryStatus === "rejected" &&
+              record.type === "candidate" &&
+              record.status === "rejected") ||
+            (memoryStatus === "retracted" &&
+              record.type === "memory" &&
+              record.status === "retracted");
+          const query = memoryQuery.trim().toLowerCase();
+          return (
+            statusMatches &&
+            (!query ||
+              (record.type === "candidate" ? record.claim : record.content)
+                .toLowerCase()
+                .includes(query))
+          );
+        })
+      : [],
+  );
+
+  $effect(() => {
+    if (runtime && runtimeLoaded !== `${agent.pubkey}:${runtime.agentId}`) {
+      runtimeAgent = runtime.effective.runtimeAgent;
+      runtimeModel =
+        runtime.effective.model ?? runtime.catalog.currentModel ?? "";
+      runtimeThinking = (runtime.effective.thinking ??
+        "medium") as typeof runtimeThinking;
+      runtimeLoaded = `${agent.pubkey}:${runtime.agentId}`;
+    }
+  });
+
+  $effect(() => {
+    if (!memoryChannel && channels.length > 0)
+      memoryChannel = channels[0]!.groupId ?? channels[0]!.id;
+  });
+
+  $effect(() => {
+    if (
+      tab === "runtime" &&
+      onLoadRuntime &&
+      runtimeRequested !== agent.pubkey
+    ) {
+      runtimeRequested = agent.pubkey;
+      void loadRuntime();
+    }
+    if (
+      tab === "memories" &&
+      onLoadMemories &&
+      memoryChannel &&
+      memoryLoaded !== `${agent.pubkey}:${memoryChannel}:${memoryStatus}`
+    ) {
+      memoryLoaded = `${agent.pubkey}:${memoryChannel}:${memoryStatus}`;
+      void loadMemories();
+    }
+  });
   async function action(run: () => void | Promise<void>) {
     pending = true;
     error = "";
@@ -136,6 +279,62 @@
     } finally {
       pending = false;
     }
+  }
+
+  async function loadRuntime(): Promise<void> {
+    if (!onLoadRuntime) return;
+    await action(async () => {
+      const next = await onLoadRuntime();
+      runtimeAgent = next.effective.runtimeAgent;
+      runtimeModel = next.effective.model ?? next.catalog.currentModel ?? "";
+      runtimeThinking = (next.effective.thinking ??
+        "medium") as typeof runtimeThinking;
+      runtimeLoaded = `${agent.pubkey}:${next.agentId}`;
+    });
+  }
+
+  async function saveRuntime(): Promise<void> {
+    if (!onSaveRuntime) return;
+    await action(async () => {
+      const next = await onSaveRuntime(
+        runtime && runtimeAgent !== runtime.effective.runtimeAgent
+          ? { runtimeAgent }
+          : {
+              runtimeAgent,
+              ...(runtimeModel ? { model: runtimeModel } : {}),
+              thinking: runtimeThinking,
+            },
+      );
+      runtimeLoaded = `${agent.pubkey}:${next.agentId}`;
+    });
+  }
+
+  async function loadMemories(): Promise<void> {
+    if (!onLoadMemories || !memoryChannel) return;
+    await action(async () => {
+      await onLoadMemories({
+        channelId: memoryChannel,
+        status: memoryStatus,
+        ...(memoryQuery.trim() ? { query: memoryQuery.trim() } : {}),
+      });
+      memoryLoaded = `${agent.pubkey}:${memoryChannel}:${memoryStatus}`;
+    });
+  }
+
+  async function actOnMemory(input: {
+    action: "approve" | "reject" | "retract";
+    candidateId?: string;
+    memoryId?: string;
+  }): Promise<void> {
+    if (!onActOnMemory || !memoryChannel) return;
+    await action(async () => {
+      await onActOnMemory({ channelId: memoryChannel, ...input });
+      await onLoadMemories?.({
+        channelId: memoryChannel,
+        status: memoryStatus,
+        ...(memoryQuery.trim() ? { query: memoryQuery.trim() } : {}),
+      });
+    });
   }
 
   function openPersonaEditor(): void {
@@ -268,7 +467,10 @@
     <Tabs.List class="agent-profile__tabs"
       ><Tabs.Trigger value="info">Info</Tabs.Trigger><Tabs.Trigger
         value="channels">Channels</Tabs.Trigger
-      ></Tabs.List
+      >{#if onLoadRuntime}<Tabs.Trigger value="runtime">Runtime</Tabs.Trigger
+        >{/if}{#if onLoadMemories}<Tabs.Trigger value="memories"
+          >Memories</Tabs.Trigger
+        >{/if}</Tabs.List
     >
     <Tabs.Content value="info">
       <div class="agent-profile__info">
@@ -442,6 +644,297 @@
           </p>{/if}
       </div>
     </Tabs.Content>
+    {#if onLoadRuntime}<Tabs.Content value="runtime">
+        <div class="agent-profile__runtime">
+          <div class="agent-profile__section-heading">
+            <div>
+              <h3>Runtime</h3>
+              <p>Defaults apply to the next agent session.</p>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={!connected || pending}
+              onclick={loadRuntime}
+              ><RotateCwIcon aria-hidden="true" />Refresh</Button
+            >
+          </div>
+          {#if runtime}
+            <dl class="agent-profile__runtime-summary">
+              <div>
+                <dt>Host</dt>
+                <dd>{runtime.host.id}</dd>
+              </div>
+              <div>
+                <dt>Type</dt>
+                <dd>{runtime.host.kind}</dd>
+              </div>
+              {#if runtime.host.workspace}<div>
+                  <dt>Workspace</dt>
+                  <dd class="agent-profile__key">{runtime.host.workspace}</dd>
+                </div>{/if}
+              <div>
+                <dt>Bootstrap</dt>
+                <dd>{runtime.bootstrapRevision ?? "Current persona"}</dd>
+              </div>
+              <div>
+                <dt>Memory</dt>
+                <dd>
+                  {runtime.memory.enabled
+                    ? `${runtime.memory.candidates} candidate${runtime.memory.candidates === 1 ? "" : "s"}`
+                    : "Disabled"}
+                </dd>
+              </div>
+            </dl>
+            <Field.Group class="agent-profile__runtime-fields">
+              <Field.Field>
+                <Field.Label for={`${profileId}-runtime-agent`}
+                  >Harness</Field.Label
+                >
+                <Select.Root
+                  type="single"
+                  value={runtimeAgent}
+                  onValueChange={(value) => (runtimeAgent = value)}
+                >
+                  <Select.Trigger id={`${profileId}-runtime-agent`}
+                    >{runtimeAgents.find(({ id }) => id === runtimeAgent)
+                      ?.label ?? runtimeAgent}</Select.Trigger
+                  >
+                  <Select.Content>
+                    {#each runtimeAgents as entry (entry.id)}<Select.Item
+                        value={entry.id}>{entry.label}</Select.Item
+                      >{/each}
+                  </Select.Content>
+                </Select.Root>
+              </Field.Field>
+              <Field.Field>
+                <Field.Label for={`${profileId}-runtime-model`}
+                  >Model</Field.Label
+                >
+                <Select.Root
+                  type="single"
+                  value={runtimeModel}
+                  onValueChange={(value) => (runtimeModel = value)}
+                >
+                  <Select.Trigger id={`${profileId}-runtime-model`}
+                    >{modelOptions.find(({ value }) => value === runtimeModel)
+                      ?.name ?? runtimeModel}</Select.Trigger
+                  >
+                  <Select.Content>
+                    {#each modelOptions as option (option.value)}<Select.Item
+                        value={option.value}>{option.name}</Select.Item
+                      >{/each}
+                  </Select.Content>
+                </Select.Root>
+              </Field.Field>
+              <Field.Field>
+                <Field.Label for={`${profileId}-runtime-thinking`}
+                  >Thinking</Field.Label
+                >
+                <Select.Root
+                  type="single"
+                  value={runtimeThinking}
+                  onValueChange={(value) =>
+                    (runtimeThinking = value as typeof runtimeThinking)}
+                >
+                  <Select.Trigger id={`${profileId}-runtime-thinking`}
+                    >{thinkingOptions.find(
+                      ({ value }) => value === runtimeThinking,
+                    )?.name ?? runtimeThinking}</Select.Trigger
+                  >
+                  <Select.Content>
+                    {#each thinkingOptions as option (option.value)}<Select.Item
+                        value={option.value}>{option.name}</Select.Item
+                      >{/each}
+                  </Select.Content>
+                </Select.Root>
+              </Field.Field>
+            </Field.Group>
+            {#if runtime.catalog.error}<p role="alert">
+                {runtime.catalog.error}
+              </p>{/if}
+            <Button
+              disabled={!connected || pending || !onSaveRuntime}
+              onclick={saveRuntime}>Save defaults</Button
+            >
+            <section aria-label="Agent tools">
+              <h3>Tools</h3>
+              <div class="agent-profile__tool-list">
+                {#each runtime.tools as tool (tool.name)}<CommunityChip
+                    size="compact"
+                    tone={tool.effect === "write" ? "warning" : "neutral"}
+                    >{tool.name}</CommunityChip
+                  >{/each}
+              </div>
+            </section>
+          {:else}<p>
+              {pending
+                ? "Loading runtime…"
+                : "Runtime details are unavailable."}
+            </p>{/if}
+        </div>
+      </Tabs.Content>{/if}
+    {#if onLoadMemories}<Tabs.Content value="memories">
+        <div class="agent-profile__memories">
+          <div class="agent-profile__section-heading">
+            <div>
+              <h3>Memories</h3>
+              <p>Review memory saved for one channel.</p>
+            </div>
+            <BrainIcon aria-hidden="true" />
+          </div>
+          {#if channels.length > 0}
+            <div class="agent-profile__memory-filters">
+              <Field.Field>
+                <Field.Label for={`${profileId}-memory-channel`}
+                  >Channel</Field.Label
+                >
+                <Select.Root
+                  type="single"
+                  value={memoryChannel}
+                  onValueChange={(value) => {
+                    memoryChannel = value;
+                    memoryLoaded = "";
+                  }}
+                >
+                  <Select.Trigger id={`${profileId}-memory-channel`}
+                    >#{channels.find(
+                      (room) => (room.groupId ?? room.id) === memoryChannel,
+                    )?.name ?? "Select channel"}</Select.Trigger
+                  >
+                  <Select.Content>
+                    {#each channels as room (room.id)}<Select.Item
+                        value={room.groupId ?? room.id}
+                        >#{room.name}</Select.Item
+                      >{/each}
+                  </Select.Content>
+                </Select.Root>
+              </Field.Field>
+              <Field.Field>
+                <Field.Label for={`${profileId}-memory-status`}
+                  >Status</Field.Label
+                >
+                <Select.Root
+                  type="single"
+                  value={memoryStatus}
+                  onValueChange={(value) => {
+                    memoryStatus = value as typeof memoryStatus;
+                    memoryLoaded = "";
+                  }}
+                >
+                  <Select.Trigger id={`${profileId}-memory-status`}
+                    >{memoryStatus === "review"
+                      ? "Needs review"
+                      : memoryStatus[0]!.toUpperCase() +
+                        memoryStatus.slice(1)}</Select.Trigger
+                  >
+                  <Select.Content>
+                    <Select.Item value="review">Needs review</Select.Item>
+                    <Select.Item value="approved">Approved</Select.Item>
+                    <Select.Item value="rejected">Rejected</Select.Item>
+                    <Select.Item value="retracted">Retracted</Select.Item>
+                  </Select.Content>
+                </Select.Root>
+              </Field.Field>
+            </div>
+            <form
+              class="agent-profile__memory-search"
+              onsubmit={(event) => {
+                event.preventDefault();
+                void loadMemories();
+              }}
+            >
+              <Input
+                aria-label="Search memories"
+                placeholder="Search memories"
+                bind:value={memoryQuery}
+                maxlength={256}
+              />
+              <Button type="submit" variant="outline" disabled={pending}
+                >Search</Button
+              >
+            </form>
+            {#if memoryRecords.length > 0}
+              <div class="agent-profile__memory-list">
+                {#each memoryRecords as record (record.type === "candidate" ? record.candidateId : record.memoryId)}
+                  <article class="agent-profile__memory-card">
+                    <div class="agent-profile__memory-meta">
+                      <CommunityChip size="compact" tone="neutral"
+                        >{record.kind}</CommunityChip
+                      >
+                      <CommunityChip
+                        size="compact"
+                        tone={record.status === "review"
+                          ? "warning"
+                          : record.status === "active" ||
+                              record.status === "approved"
+                            ? "success"
+                            : "neutral"}>{record.status}</CommunityChip
+                      >
+                    </div>
+                    <p>
+                      {record.type === "candidate"
+                        ? record.claim
+                        : record.content}
+                    </p>
+                    {#if record.type === "candidate" && record.evidence.length > 0}
+                      <details>
+                        <summary>Evidence ({record.evidence.length})</summary>
+                        <ul>
+                          {#each record.evidence as evidence (evidence.eventId)}<li
+                            >
+                              <span class="agent-profile__key"
+                                >{evidence.eventId.slice(0, 12)}…</span
+                              >
+                            </li>{/each}
+                        </ul>
+                      </details>
+                    {/if}
+                    {#if record.type === "candidate" && record.status === "review"}
+                      <div class="agent-profile__memory-actions">
+                        <Button
+                          size="sm"
+                          disabled={pending || !onActOnMemory}
+                          onclick={() =>
+                            actOnMemory({
+                              action: "approve",
+                              candidateId: record.candidateId,
+                            })}>Approve</Button
+                        >
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled={pending || !onActOnMemory}
+                          onclick={() =>
+                            actOnMemory({
+                              action: "reject",
+                              candidateId: record.candidateId,
+                            })}>Reject</Button
+                        >
+                      </div>
+                    {:else if record.type === "memory" && record.status === "active"}
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={pending || !onActOnMemory}
+                        onclick={() =>
+                          actOnMemory({
+                            action: "retract",
+                            memoryId: record.memoryId,
+                          })}>Retract</Button
+                      >
+                    {/if}
+                  </article>
+                {/each}
+              </div>
+            {:else}<p>
+                {pending ? "Loading memories…" : "No memories match this view."}
+              </p>{/if}
+          {:else}<p>
+              Add the agent to a channel before managing memories.
+            </p>{/if}
+        </div>
+      </Tabs.Content>{/if}
   </Tabs.Root>
 </article>
 
@@ -840,10 +1333,89 @@
     flex: 1;
   }
   .agent-profile__info,
-  .agent-profile__channels {
+  .agent-profile__channels,
+  .agent-profile__runtime,
+  .agent-profile__memories {
     display: grid;
     gap: 1.25rem;
     padding-top: 1rem;
+  }
+  .agent-profile__section-heading,
+  .agent-profile__memory-meta,
+  .agent-profile__memory-actions,
+  .agent-profile__tool-list {
+    display: flex;
+    align-items: center;
+    gap: 0.625rem;
+  }
+  .agent-profile__section-heading {
+    justify-content: space-between;
+  }
+  .agent-profile__section-heading h3,
+  .agent-profile__section-heading p,
+  .agent-profile__memory-card p {
+    margin: 0;
+  }
+  .agent-profile__section-heading p {
+    color: var(--muted-foreground);
+    font-size: var(--community-text-secondary);
+  }
+  .agent-profile__runtime-summary {
+    display: grid;
+    gap: 0;
+    margin: 0;
+    border: 1px solid var(--border);
+    border-radius: 1rem;
+    overflow: hidden;
+  }
+  .agent-profile__runtime-summary > div {
+    display: grid;
+    grid-template-columns: minmax(5rem, 0.7fr) minmax(0, 1.3fr);
+    gap: 1rem;
+    padding: 0.75rem 1rem;
+  }
+  .agent-profile__runtime-summary > div + div {
+    border-top: 1px solid var(--border);
+  }
+  .agent-profile__runtime-summary dt {
+    color: var(--muted-foreground);
+  }
+  .agent-profile__runtime-summary dd {
+    margin: 0;
+    text-align: right;
+  }
+  :global(.agent-profile__runtime-fields),
+  .agent-profile__memory-filters {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.875rem;
+  }
+  :global(.agent-profile__runtime-fields > :first-child) {
+    grid-column: 1 / -1;
+  }
+  .agent-profile__tool-list {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+  .agent-profile__memory-search {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 0.625rem;
+  }
+  .agent-profile__memory-list {
+    display: grid;
+    gap: 0.75rem;
+  }
+  .agent-profile__memory-card {
+    display: grid;
+    gap: 0.75rem;
+    padding: 1rem;
+    border: 1px solid var(--border);
+    border-radius: 1rem;
+    background: var(--card);
+  }
+  .agent-profile__memory-card details ul {
+    margin-bottom: 0;
   }
   .agent-profile__persona-status,
   .agent-profile__persona-form {
@@ -1012,6 +1584,13 @@
     line-height: 1.6;
   }
   @media (max-width: 480px) {
+    .agent-profile__memory-filters,
+    :global(.agent-profile__runtime-fields) {
+      grid-template-columns: minmax(0, 1fr);
+    }
+    :global(.agent-profile__runtime-fields > :first-child) {
+      grid-column: auto;
+    }
     .agent-profile__key-copy {
       flex-direction: column;
       align-items: flex-start;

@@ -52,6 +52,15 @@ and reset, and sends a permission response only for an unexpired request and an
 outcome present in that request's decrypted offered set. Late telemetry
 sequences cannot reactivate a completed live scope.
 
+Runtime and memory administration extend this same envelope at control version
+`2`. `runtime_get` and `runtime_set` omit `h`; runtime changes contain at least
+one controller-catalog value. `memory_list` and `memory_action` carry the exact
+configured channel in both content and `h`, and a memory action identifies
+either one candidate for approve or reject, or one accepted memory for
+retraction. Fresh `runtime_state` and `memory_state` telemetry is correlated by
+request ID, updates owner-only profile state, and is excluded from the durable
+activity archive and catch-up cursor.
+
 Protocol-backed presentation follows the package's portable, published Design
 Core semver boundary; dependency refreshes do not alter event interpretation or
 trust decisions.
