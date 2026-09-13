@@ -45,6 +45,69 @@ afterEach(() => {
 });
 
 describe("community presence lifecycle", () => {
+  it("queues a manual preference behind an in-flight background refresh", async () => {
+    const env = setup();
+    let release: (() => void) | undefined;
+    let result: Promise<unknown> | undefined;
+    try {
+      await vi.advanceTimersByTimeAsync(10);
+      env.signEvent.mockImplementationOnce(
+        (template) =>
+          new Promise((resolve) => {
+            release = () => resolve(finalizeEvent(template, userKey));
+          }),
+      );
+      await vi.advanceTimersByTimeAsync(60_000);
+      expect(release).toBeDefined();
+      result = env.session.setPreference("away").then(
+        () => null,
+        (error: unknown) => error,
+      );
+      expect(env.state()?.pending).toBe(true);
+      await expect(env.session.setPreference("offline")).rejects.toThrow(
+        "Presence is updating; try again",
+      );
+      release!();
+      expect(await result).toBeNull();
+      expect(env.state()?.pending).toBe(false);
+      expect(env.state()?.members[getPublicKey(userKey)]?.status).toBe("away");
+    } finally {
+      env.session.close();
+      release?.();
+      await result;
+    }
+  });
+
+  it("does not publish a queued preference after disposal", async () => {
+    const env = setup();
+    let release: (() => void) | undefined;
+    let result: Promise<unknown> | undefined;
+    try {
+      await vi.advanceTimersByTimeAsync(10);
+      env.signEvent.mockImplementationOnce(
+        (template) =>
+          new Promise((resolve) => {
+            release = () => resolve(finalizeEvent(template, userKey));
+          }),
+      );
+      await vi.advanceTimersByTimeAsync(60_000);
+      result = env.session.setPreference("away").then(
+        () => null,
+        (error: unknown) => error,
+      );
+      expect(env.state()?.pending).toBe(true);
+      const calls = env.publish.mock.calls.length;
+      env.session.close();
+      release!();
+      expect(await result).toMatchObject({ name: "AbortError" });
+      expect(env.publish).toHaveBeenCalledTimes(calls);
+    } finally {
+      env.session.close();
+      release?.();
+      await result;
+    }
+  });
+
   it("expires confidence while a signer prompt is still unanswered", async () => {
     const env = setup();
     let release: (() => void) | undefined;

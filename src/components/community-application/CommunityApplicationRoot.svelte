@@ -517,14 +517,12 @@
     if (loginOptions?.auth) await loginOptions.auth.signOut();
     authenticationGeneration += 1;
     await activeIdentityConnection?.catch(() => {});
-    try {
-      await controller.actions.disconnectIdentity();
-    } finally {
-      connectedIdentity = undefined;
-      accountSession = undefined;
-      activeExternalSigner = undefined;
-      relayAuthStatus = loginOptions?.auth ? "anonymous" : "idle";
-    }
+    // Anonymous relay synchronization must not retain the signed-out account.
+    connectedIdentity = undefined;
+    accountSession = undefined;
+    activeExternalSigner = undefined;
+    relayAuthStatus = loginOptions?.auth ? "anonymous" : "idle";
+    await controller.actions.disconnectIdentity();
   }
 </script>
 

@@ -50,7 +50,7 @@ class PresenceSession implements CommunityPresenceSession {
   #lastSnapshot = 0;
   #lastStatus = "";
   #sequence = 0;
-  #busy = false;
+  #busy: Promise<void> | undefined;
   #signingDenied = false;
   #dirty = true;
   #generation = 0;
@@ -385,7 +385,15 @@ class PresenceSession implements CommunityPresenceSession {
       this.#now() - this.#lastSnapshot < 10_000
     )
       return;
-    this.#busy = true;
+    this.#busy = this.#refresh();
+    try {
+      await this.#busy;
+    } finally {
+      this.#busy = undefined;
+    }
+  }
+
+  async #refresh() {
     try {
       if (!this.#relayKey && !(await this.#discover())) return;
       const expired = Object.values(this.#state.members).some(
@@ -403,21 +411,20 @@ class PresenceSession implements CommunityPresenceSession {
           error instanceof Error ? error.message : "Presence unavailable",
         );
       }
-    } finally {
-      this.#busy = false;
     }
   }
 
   async setPreference(preference: CommunityPresencePreference) {
     if (this.#state.status === "unavailable" || !this.#relayKey)
       throw new Error("Presence is unavailable on this relay");
-    if (this.#state.pending || this.#busy)
-      throw new Error("Presence is updating; try again");
+    if (this.#state.pending) throw new Error("Presence is updating; try again");
     this.#emit({ pending: true, error: undefined });
-    this.#signingDenied = false;
-    if (preference === "auto") this.#lastActivity = this.#now();
     let published = false;
     try {
+      await this.#busy;
+      this.#abort.signal.throwIfAborted();
+      this.#signingDenied = false;
+      if (preference === "auto") this.#lastActivity = this.#now();
       await this.#publish(preference);
       published = true;
       await this.#snapshot();

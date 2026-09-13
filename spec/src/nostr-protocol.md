@@ -16,6 +16,12 @@ relay signing key may assert a different subject. Newer revisions win; expiry,
 missing results, invalid signatures, and transport failures cannot imply Offline.
 Unsupported relays disable presence choices. NIP-38 text status is independent.
 
+Clients serialize explicit preference publication after in-flight background
+presence work, then fetch the relay-signed confirmation before resolving the
+action. Only one manual preference operation may be pending. Closing the
+session prevents a queued preference from publishing after the background
+work settles.
+
 The verified owned-agent directory and Buzz-compatible bridge are specified
 in [Agents and saved activity](agents.md). Ordinary profile metadata and bot
 roles do not establish the owner relationship.

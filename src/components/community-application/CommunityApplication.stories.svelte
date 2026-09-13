@@ -1409,7 +1409,11 @@
       ? reactionName.replace(/^Like /u, "Unlike ")
       : reactionName.replace(/^Unlike /u, "Like ");
     await expect(
-      canvas.getByRole("button", { name: resumedName }),
+      await canvas.findByRole(
+        "button",
+        { name: resumedName },
+        { timeout: 8_000 },
+      ),
     ).toBeVisible();
   }}
 >
@@ -2821,8 +2825,13 @@
     await userEvent.click(
       await overlay.findByRole("menuitemradio", { name: "Away" }),
     );
-    await waitFor(() =>
-      expect(application).toHaveAttribute("data-last-action", "presence:away"),
+    await waitFor(
+      () =>
+        expect(application).toHaveAttribute(
+          "data-last-action",
+          "presence:away",
+        ),
+      { timeout: 15_000 },
     );
     await expect(
       profileTrigger.querySelector('[data-ui-part="presence"]'),

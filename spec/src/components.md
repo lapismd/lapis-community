@@ -438,6 +438,20 @@ during an exit animation. The channel-filter story checks both listbox names.
 
 ## UI reuse contracts
 
+After relay sign-out succeeds and an in-flight identity restoration settles,
+the application MUST clear account presentation before awaiting anonymous
+relay synchronization. A delayed anonymous connection MUST NOT retain the
+signed-out account in the profile menu. Authentication-resumption stories
+MUST await the resulting protected action, not only dismissal of the login
+dialog. Presence stories MUST await relay-confirmed preference changes within
+the relay-action budget before checking the resulting avatar badges.
+Manual preference changes MUST wait for an in-flight background presence
+refresh instead of rejecting a valid menu selection. A queued change MUST
+remain single-flight and MUST NOT publish after session disposal.
+Cold-start failure fixtures MUST fail all room-data read paths so
+background history or agent-directory startup cannot turn a no-data startup
+case into cached browsing.
+
 | ID        | Requirement                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
 | --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | LC-UI-038 | First-party UI MUST compose the registered dialog, confirmation, prose entry, identity, avatar, reaction, message, and loading patterns; explicit exceptions MUST identify a reason and a verification story.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |

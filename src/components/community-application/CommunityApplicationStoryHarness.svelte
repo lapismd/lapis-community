@@ -420,6 +420,11 @@
             const source: CommunityDataSource = {
               async open(scope, context, signal) {
                 const session = await baseSource.open(scope, context, signal);
+                const assertBootstrapAvailable = (): void => {
+                  if (bootstrapFailure) {
+                    throw new Error("Story community bootstrap failed");
+                  }
+                };
                 const delayBootstrap = async (
                   nextSignal?: AbortSignal,
                 ): Promise<void> => {
@@ -431,30 +436,29 @@
                 };
                 return {
                   presence: session.presence,
-                  agents: session.agents,
+                  agents: bootstrapFailure ? undefined : session.agents,
                   ...(session.loadPulseWindow === undefined
                     ? {}
                     : {
-                        loadPulseWindow: (request, nextSignal) =>
-                          session.loadPulseWindow!(request, nextSignal),
+                        loadPulseWindow: (request, nextSignal) => {
+                          assertBootstrapAvailable();
+                          return session.loadPulseWindow!(request, nextSignal);
+                        },
                       }),
                   snapshot: async (nextSignal) => {
                     await delayBootstrap(nextSignal);
-                    if (bootstrapFailure) {
-                      throw new Error("Story community bootstrap failed");
-                    }
+                    assertBootstrapAvailable();
                     return session.snapshot(nextSignal);
                   },
                   synchronize: async (request, nextSignal) => {
                     await delayBootstrap(nextSignal);
-                    if (bootstrapFailure) {
-                      throw new Error("Story community bootstrap failed");
-                    }
+                    assertBootstrapAvailable();
                     return session.synchronize === undefined
                       ? session.snapshot(nextSignal)
                       : session.synchronize(request, nextSignal);
                   },
                   loadContentWindow: async (request, nextSignal) => {
+                    assertBootstrapAvailable();
                     if (progressiveDelayMs > 0) {
                       await new Promise((resolve) =>
                         window.setTimeout(resolve, progressiveDelayMs),
@@ -472,8 +476,10 @@
                   ...(session.loadGroup === undefined
                     ? {}
                     : {
-                        loadGroup: (request, nextSignal) =>
-                          session.loadGroup!(request, nextSignal),
+                        loadGroup: (request, nextSignal) => {
+                          assertBootstrapAvailable();
+                          return session.loadGroup!(request, nextSignal);
+                        },
                       }),
                   subscribe: (listener, nextSignal) =>
                     session.subscribe(listener, nextSignal),
