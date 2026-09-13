@@ -66,11 +66,10 @@ describe("composer activity", () => {
     ).toHaveLength(2);
     expect(composerActivity(model, { kind: "dm" }, now)).toHaveLength(0);
   });
-  it("expires failures in ten seconds, ignores terminal and stale activity", () => {
+  it("retains failures and ignores completed or stale active work", () => {
     for (const current of [
       { ...scope, active: false, state: "completed" },
       { ...scope, updatedAt: now - 180_001 },
-      { ...scope, active: false, state: "failed", updatedAt: now - 10_001 },
     ])
       expect(
         composerActivity(
@@ -83,7 +82,12 @@ describe("composer activity", () => {
       composerActivity(
         storyAgentState({
           conversationScopes: {
-            a: { ...scope, active: false, state: "failed" },
+            a: {
+              ...scope,
+              active: false,
+              state: "failed",
+              updatedAt: now - 10_001,
+            },
           },
         }),
         { kind: "overview" },

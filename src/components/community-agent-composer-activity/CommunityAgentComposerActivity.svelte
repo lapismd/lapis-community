@@ -49,8 +49,11 @@
   <div
     class="agent-composer-activity"
     data-ui-component="community-agent-composer-activity"
-    role="group"
-    aria-label="Agent activity"
+    data-state={first?.state}
+    role={first?.state === "failed" ? "alert" : "group"}
+    aria-label={first?.state === "failed"
+      ? `${first.name} request failed: ${first.preview}`
+      : "Agent activity"}
   >
     {#if first}
       {#snippet summary()}
@@ -121,16 +124,14 @@
           </Popover.Content>
         </Popover.Root>
       {/if}
-      <span
-        class="agent-composer-activity__announcement"
-        role="status"
-        aria-live="polite"
-        >{first.name}: {first.state === "waiting_permission"
-          ? "Waiting for your permission"
-          : first.state === "failed"
-            ? "Request failed"
+      {#if first.state !== "failed"}<span
+          class="agent-composer-activity__announcement"
+          role="status"
+          aria-live="polite"
+          >{first.name}: {first.state === "waiting_permission"
+            ? "Waiting for your permission"
             : "Working"}</span
-      >
+        >{/if}
     {/if}
   </div>
 {/if}
@@ -152,6 +153,14 @@
     min-width: 0;
     max-width: 100%;
     padding-inline: 0.25rem;
+  }
+  .agent-composer-activity[data-state="failed"] {
+    min-height: 2.25rem;
+    margin-block: 0.25rem;
+    border: 1px solid color-mix(in srgb, var(--destructive) 30%, transparent);
+    border-radius: var(--radius-md);
+    background: color-mix(in srgb, var(--destructive) 8%, var(--background));
+    color: color-mix(in srgb, var(--destructive) 78%, var(--foreground));
   }
   .agent-composer-activity__line {
     white-space: nowrap;

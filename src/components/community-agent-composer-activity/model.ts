@@ -19,7 +19,7 @@ export function composerActivity(
         scope.updatedAt !== undefined &&
         scope.updatedAt <= now + 30_000 &&
         ((scope.active && scope.updatedAt + 180_000 > now) ||
-          (scope.state === "failed" && scope.updatedAt + 10_000 > now)),
+          scope.state === "failed"),
     )
     .flatMap((scope) => {
       const agent = [...model.agents, ...(model.publicAgents ?? [])].find(

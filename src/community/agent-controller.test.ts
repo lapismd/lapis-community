@@ -126,7 +126,7 @@ function frame(
 }
 
 function administrationFrame(
-  kind: "runtime_state" | "memory_state",
+  kind: "runtime_state" | "memory_state" | "administration_error",
   payload: Record<string, unknown>,
   channelId?: string,
 ) {
@@ -423,6 +423,29 @@ describe("agent activity controller", () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  it("shows a correlated administration error without waiting for timeout", async () => {
+    const { controller, receive, session } = await setup();
+    const runtime = controller.actions.loadRuntime(agent);
+    await vi.waitFor(() =>
+      expect(session.sendControl).toHaveBeenCalledWith(
+        agent,
+        expect.objectContaining({ command: "runtime_get" }),
+        expect.any(AbortSignal),
+      ),
+    );
+    const control = vi.mocked(session.sendControl!).mock.calls.at(-1)![1];
+    receive(
+      administrationFrame("administration_error", {
+        requestId: "requestId" in control ? control.requestId : "",
+        responseKind: "runtime_state",
+        code: "administration_failed",
+        message: "Runtime catalog unavailable",
+      }),
+    );
+    await expect(runtime).rejects.toThrow("Runtime catalog unavailable");
+    expect(controller.state.activity).toEqual([]);
   });
 
   it("finishes empty history without waiting for incoming activity", async () => {

@@ -101,6 +101,14 @@
       },
     }),
   }}
+  play={async ({ canvas }) => {
+    await expect(
+      canvas.getByRole("alert", {
+        name: "Research request failed: Model unavailable",
+      }),
+    ).toBeVisible();
+    await expect(canvas.getByText("Research: Model unavailable")).toBeVisible();
+  }}
 />
 <Story
   name="Long output"

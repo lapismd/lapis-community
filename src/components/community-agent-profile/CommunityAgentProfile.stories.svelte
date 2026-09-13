@@ -26,6 +26,10 @@
   name="Info and owner profile"
   play={async ({ canvas }) => {
     const info = canvas.getByRole("list", { name: "Agent information" });
+    await expect(
+      canvas.queryByRole("heading", { name: "Info" }),
+    ).not.toBeInTheDocument();
+    await expect(canvas.queryByText("Persona nyra")).not.toBeInTheDocument();
     for (const label of ["About", "Public key", "Managed by", "Agent type"]) {
       const row = within(info).getByText(label, { exact: true }).closest("li");
       await expect(row?.querySelector('svg[aria-hidden="true"]')).toBeVisible();
@@ -97,6 +101,21 @@
     await userEvent.click(canvas.getByRole("tab", { name: "Runtime" }));
     await expect(canvas.getByText("local-workspace")).toBeVisible();
     await expect(canvas.getByText("persona:release-notes:7")).toBeVisible();
+    await expect(
+      canvas.getByRole("button", { name: "Refresh runtime details" }),
+    ).toBeVisible();
+    await expect(
+      getComputedStyle(
+        canvas.getByText(
+          "/Users/operator/.lapis/community/agents/0123456789abcdef/workspace",
+        ),
+      ).overflowWrap,
+    ).toBe("anywhere");
+    for (const part of ["runtime-defaults", "runtime-tools"]) {
+      const section = canvasElement.querySelector(`[data-ui-part="${part}"]`);
+      await expect(section).toBeVisible();
+      await expect(getComputedStyle(section!).borderTopWidth).toBe("1px");
+    }
     const body = within(canvasElement.ownerDocument.body);
     await userEvent.click(canvas.getByRole("button", { name: "Model" }));
     await userEvent.click(body.getByRole("option", { name: "GPT-5.6" }));
@@ -111,6 +130,7 @@
     await expect(canvas.getByRole("status")).toHaveTextContent(
       "Runtime defaults saved",
     );
+    await userEvent.click(canvas.getByRole("button", { name: "Tools" }));
     await expect(canvas.getByText("relay.issues.create")).toBeVisible();
   }}>{#snippet template()}<Harness screen="profile" />{/snippet}</Story
 >

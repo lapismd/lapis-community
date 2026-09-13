@@ -5,6 +5,7 @@
   import * as Tabs from "@lapismd/design-core/shadcn/tabs";
   import * as Dialog from "@lapismd/design-core/shadcn/dialog";
   import * as CommandView from "@lapismd/design-core/shadcn/command-view";
+  import * as Collapsible from "@lapismd/design-core/shadcn/collapsible";
   import * as DropdownMenu from "@lapismd/design-core/shadcn/dropdown-menu";
   import * as Field from "@lapismd/design-core/shadcn/field";
   import { Input } from "@lapismd/design-core/shadcn/input";
@@ -17,6 +18,7 @@
   import CpuIcon from "@lucide/svelte/icons/cpu";
   import CopyIcon from "@lucide/svelte/icons/copy";
   import ChevronRightIcon from "@lucide/svelte/icons/chevron-right";
+  import ChevronDownIcon from "@lucide/svelte/icons/chevron-down";
   import ArrowUpRightIcon from "@lucide/svelte/icons/arrow-up-right";
   import EllipsisIcon from "@lucide/svelte/icons/ellipsis";
   import HashIcon from "@lucide/svelte/icons/hash";
@@ -134,6 +136,7 @@
   let runtimeAgent = $state("");
   let runtimeModel = $state("");
   let runtimeThinking = $state<"off" | "low" | "medium" | "high">("medium");
+  let runtimeToolsOpen = $state(false);
   let runtimeLoaded = $state("");
   let runtimeRequested = $state("");
   let memoryChannel = $state("");
@@ -484,82 +487,60 @@
             aria-hidden="true"
           /></Button
         >
-        <section aria-label="Info">
-          <h3>Info</h3>
-          <div class="agent-profile__persona-status">
-            <CommunityChip
-              size="compact"
-              tone={agent.personaStatus === "linked"
-                ? "success"
-                : agent.personaStatus === "unresolved"
-                  ? "warning"
-                  : "neutral"}
-              >{agent.personaStatus === "linked"
-                ? `Persona ${agent.persona!.slug}`
-                : agent.personaStatus === "unresolved"
-                  ? `Persona ${agent.instance?.personaId ?? "link"} missing`
-                  : "Public profile only"}</CommunityChip
+        <ul class="agent-profile__info-list" aria-label="Agent information">
+          {#if agent.about}<li class="agent-profile__info-row">
+              <MessageIcon aria-hidden="true" />
+              <div class="agent-profile__info-value">
+                <strong>About</strong>
+                <p>{agent.about}</p>
+              </div>
+            </li>{/if}
+          <li>
+            <Button
+              class="agent-profile__info-row agent-profile__info-link"
+              variant="ghost"
+              aria-label={`Copy ${agent.name}'s public key`}
+              onclick={() => action(onCopy)}
+              ><FingerprintIcon aria-hidden="true" />
+              <span class="agent-profile__info-value"
+                ><strong>Public key</strong><span class="agent-profile__key"
+                  >{agent.pubkey.slice(0, 12)}…{agent.pubkey.slice(-8)}</span
+                ></span
+              ><CopyIcon aria-hidden="true" /></Button
             >
-            <p>
-              Presentation uses the owner-managed persona when linked. Ownership
-              still comes from the agent-signed public profile.
-            </p>
-          </div>
-          <ul class="agent-profile__info-list" aria-label="Agent information">
-            {#if agent.about}<li class="agent-profile__info-row">
-                <MessageIcon aria-hidden="true" />
-                <div class="agent-profile__info-value">
-                  <strong>About</strong>
-                  <p>{agent.about}</p>
-                </div>
-              </li>{/if}
-            <li>
+          </li>
+          <li>
+            {#snippet ownerInfo()}
+              <UserIcon aria-hidden="true" />
+              <span class="agent-profile__info-value"
+                ><strong>Managed by</strong><span
+                  >{ownerName ? `${ownerName} (you)` : "You"}</span
+                ></span
+              >
+            {/snippet}
+            {#if onOpenOwner}
               <Button
                 class="agent-profile__info-row agent-profile__info-link"
                 variant="ghost"
-                aria-label={`Copy ${agent.name}'s public key`}
-                onclick={() => action(onCopy)}
-                ><FingerprintIcon aria-hidden="true" />
-                <span class="agent-profile__info-value"
-                  ><strong>Public key</strong><span class="agent-profile__key"
-                    >{agent.pubkey.slice(0, 12)}…{agent.pubkey.slice(-8)}</span
-                  ></span
-                ><CopyIcon aria-hidden="true" /></Button
+                aria-label={ownerName
+                  ? `View ${ownerName}'s profile`
+                  : "View your profile"}
+                onclick={() => onOpenOwner?.(agent.ownerPubkey)}
+                >{@render ownerInfo()}<ChevronRightIcon
+                  aria-hidden="true"
+                /></Button
               >
-            </li>
-            <li>
-              {#snippet ownerInfo()}
-                <UserIcon aria-hidden="true" />
-                <span class="agent-profile__info-value"
-                  ><strong>Managed by</strong><span
-                    >{ownerName ? `${ownerName} (you)` : "You"}</span
-                  ></span
-                >
-              {/snippet}
-              {#if onOpenOwner}
-                <Button
-                  class="agent-profile__info-row agent-profile__info-link"
-                  variant="ghost"
-                  aria-label={ownerName
-                    ? `View ${ownerName}'s profile`
-                    : "View your profile"}
-                  onclick={() => onOpenOwner?.(agent.ownerPubkey)}
-                  >{@render ownerInfo()}<ChevronRightIcon
-                    aria-hidden="true"
-                  /></Button
-                >
-              {:else}<div class="agent-profile__info-row">
-                  {@render ownerInfo()}
-                </div>{/if}
-            </li>
-            <li class="agent-profile__info-row">
-              <CpuIcon aria-hidden="true" />
-              <div class="agent-profile__info-value">
-                <strong>Agent type</strong><span>{agent.agentType}</span>
-              </div>
-            </li>
-          </ul>
-        </section>
+            {:else}<div class="agent-profile__info-row">
+                {@render ownerInfo()}
+              </div>{/if}
+          </li>
+          <li class="agent-profile__info-row">
+            <CpuIcon aria-hidden="true" />
+            <div class="agent-profile__info-value">
+              <strong>Agent type</strong><span>{agent.agentType}</span>
+            </div>
+          </li>
+        </ul>
       </div>
     </Tabs.Content>
     <Tabs.Content value="channels">
@@ -653,10 +634,10 @@
             </div>
             <Button
               variant="outline"
-              size="sm"
+              size="icon-sm"
+              aria-label="Refresh runtime details"
               disabled={!connected || pending}
-              onclick={loadRuntime}
-              ><RotateCwIcon aria-hidden="true" />Refresh</Button
+              onclick={loadRuntime}><RotateCwIcon aria-hidden="true" /></Button
             >
           </div>
           {#if runtime}
@@ -686,7 +667,10 @@
                 </dd>
               </div>
             </dl>
-            <Field.Group class="agent-profile__runtime-fields">
+            <Field.Group
+              class="agent-profile__runtime-fields"
+              data-ui-part="runtime-defaults"
+            >
               <Field.Field>
                 <Field.Label for={`${profileId}-runtime-agent`}
                   >Harness</Field.Label
@@ -757,16 +741,26 @@
               disabled={!connected || pending || !onSaveRuntime}
               onclick={saveRuntime}>Save defaults</Button
             >
-            <section aria-label="Agent tools">
-              <h3>Tools</h3>
-              <div class="agent-profile__tool-list">
-                {#each runtime.tools as tool (tool.name)}<CommunityChip
-                    size="compact"
-                    tone={tool.effect === "write" ? "warning" : "neutral"}
-                    >{tool.name}</CommunityChip
-                  >{/each}
-              </div>
-            </section>
+            <Collapsible.Root
+              class="agent-profile__tools"
+              data-ui-part="runtime-tools"
+              bind:open={runtimeToolsOpen}
+            >
+              <Collapsible.Trigger class="agent-profile__tools-trigger">
+                <span>Tools</span>
+                {#if runtimeToolsOpen}<ChevronDownIcon aria-hidden="true" />
+                {:else}<ChevronRightIcon aria-hidden="true" />{/if}
+              </Collapsible.Trigger>
+              <Collapsible.Content class="agent-profile__tools-content">
+                <div class="agent-profile__tool-list">
+                  {#each runtime.tools as tool (tool.name)}<CommunityChip
+                      size="compact"
+                      tone={tool.effect === "write" ? "warning" : "neutral"}
+                      >{tool.name}</CommunityChip
+                    >{/each}
+                </div>
+              </Collapsible.Content>
+            </Collapsible.Root>
           {:else}<p>
               {pending
                 ? "Loading runtime…"
@@ -1381,8 +1375,10 @@
     color: var(--muted-foreground);
   }
   .agent-profile__runtime-summary dd {
+    min-width: 0;
     margin: 0;
     text-align: right;
+    overflow-wrap: anywhere;
   }
   :global(.agent-profile__runtime-fields),
   .agent-profile__memory-filters {
@@ -1390,8 +1386,51 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 0.875rem;
   }
-  :global(.agent-profile__runtime-fields > :first-child) {
-    grid-column: 1 / -1;
+  :global(.agent-profile__runtime-fields) {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0;
+    border: 1px solid var(--border);
+    border-radius: 1rem;
+    overflow: hidden;
+  }
+  :global(.agent-profile__runtime-fields > *) {
+    min-width: 0;
+    padding: 0.75rem 1rem;
+  }
+  :global(.agent-profile__runtime-fields > * + *) {
+    border-top: 1px solid var(--border);
+  }
+  :global(.agent-profile__tools) {
+    display: grid;
+    border: 1px solid var(--border);
+    border-radius: 1rem;
+    overflow: hidden;
+  }
+  :global(.agent-profile__tools-trigger) {
+    display: flex;
+    width: 100%;
+    align-items: center;
+    justify-content: space-between;
+    border: 0;
+    padding: 0.75rem 1rem;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  :global(.agent-profile__tools-trigger:focus-visible) {
+    outline: 2px solid var(--ring);
+    outline-offset: 0.25rem;
+  }
+  :global(.agent-profile__tools-trigger svg) {
+    width: 1rem;
+    height: 1rem;
+    color: var(--muted-foreground);
+  }
+  :global(.agent-profile__tools-content) {
+    border-top: 1px solid var(--border);
+    padding: 0.75rem 1rem 1rem;
   }
   .agent-profile__tool-list {
     align-items: flex-start;
@@ -1417,27 +1456,15 @@
   .agent-profile__memory-card details ul {
     margin-bottom: 0;
   }
-  .agent-profile__persona-status,
   .agent-profile__persona-form {
     display: grid;
     gap: 0.75rem;
-  }
-  .agent-profile__persona-status {
-    justify-items: start;
-    padding: 0.875rem;
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    background: var(--muted);
   }
   .agent-profile__persona-management {
     display: flex;
     flex-wrap: wrap;
     gap: 0.625rem;
     padding-top: 0.5rem;
-  }
-  section {
-    display: grid;
-    gap: 0.875rem;
   }
   .agent-profile__info-list {
     list-style: none;
@@ -1587,9 +1614,6 @@
     .agent-profile__memory-filters,
     :global(.agent-profile__runtime-fields) {
       grid-template-columns: minmax(0, 1fr);
-    }
-    :global(.agent-profile__runtime-fields > :first-child) {
-      grid-column: auto;
     }
     .agent-profile__key-copy {
       flex-direction: column;

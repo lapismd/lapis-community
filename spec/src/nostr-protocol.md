@@ -59,7 +59,9 @@ configured channel in both content and `h`, and a memory action identifies
 either one candidate for approve or reject, or one accepted memory for
 retraction. Fresh `runtime_state` and `memory_state` telemetry is correlated by
 request ID, updates owner-only profile state, and is excluded from the durable
-activity archive and catch-up cursor.
+activity archive and catch-up cursor. A fresh `administration_error` response
+MUST reject the matching pending request with its bounded message and MUST NOT
+enter activity history.
 
 Protocol-backed presentation follows the package's portable, published Design
 Core semver boundary; dependency refreshes do not alter event interpretation or

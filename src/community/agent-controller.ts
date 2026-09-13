@@ -1590,21 +1590,38 @@ export class CommunityAgentsController {
     agentPubkey: string,
     frame: CommunityAgentObserver,
   ): boolean {
-    if (frame.kind !== "runtime_state" && frame.kind !== "memory_state")
+    if (
+      frame.kind !== "runtime_state" &&
+      frame.kind !== "memory_state" &&
+      frame.kind !== "administration_error"
+    )
       return false;
     const payload = observerRecord(frame.payload);
     const requestId = observerText(payload?.requestId, 128);
+    const responseKind =
+      frame.kind === "administration_error"
+        ? observerText(payload?.responseKind, 32)
+        : frame.kind;
     const request = requestId
       ? this.#administrationRequests.get(requestId)
       : undefined;
     if (
       !request ||
       request.agentPubkey !== agentPubkey ||
-      request.responseKind !== frame.kind
+      request.responseKind !== responseKind
     )
       return true;
     clearTimeout(request.timer);
     this.#administrationRequests.delete(requestId);
+    if (frame.kind === "administration_error") {
+      request.reject(
+        new Error(
+          observerText(payload?.message, 512) ??
+            "The agent controller could not complete this request",
+        ),
+      );
+      return true;
+    }
     const value =
       frame.kind === "runtime_state"
         ? parseRuntimeState(payload)

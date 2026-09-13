@@ -119,7 +119,8 @@ export const storyAgentRuntime: CommunityAgentRuntimeState = {
   host: {
     id: "local-workspace",
     kind: "managed",
-    workspace: "/workspace/research",
+    workspace:
+      "/Users/operator/.lapis/community/agents/0123456789abcdef/workspace",
   },
   runtimeAgents: [
     { id: "codex", label: "Codex", mcpTransport: "stdio" },
