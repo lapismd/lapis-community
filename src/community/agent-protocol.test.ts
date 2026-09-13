@@ -44,6 +44,25 @@ function profile(conditions = "", created_at = now) {
   );
 }
 
+function managedProfile(
+  managedOwner = owner,
+  managedRelay = relay,
+  created_at = now,
+) {
+  return finalizeEvent(
+    {
+      kind: 0,
+      created_at,
+      content: JSON.stringify({
+        name: "Managed research agent",
+        about: "Reads source",
+      }),
+      tags: [["lapis-managed", managedOwner, managedRelay]],
+    },
+    agentKey,
+  );
+}
+
 describe("agent ownership and protocol", () => {
   it("honors a relay lease expiry without extending it from the observation time", () => {
     const event = finalizeEvent(
@@ -116,6 +135,53 @@ describe("agent ownership and protocol", () => {
     expect(materializeAgentDirectory([before, after], owner, relay)).toEqual(
       [],
     );
+  });
+  it("requires reciprocal owner state for a relay-managed profile", () => {
+    const instance = finalizeEvent(
+      {
+        kind: 30177,
+        created_at: now,
+        tags: [["d", agent]],
+        content: JSON.stringify({ name: "Nyra" }),
+      },
+      ownerKey,
+    );
+    expect(materializeAgentDirectory([managedProfile()], owner, relay)).toEqual(
+      [],
+    );
+    expect(
+      materializeAgentDirectory([managedProfile(), instance], owner, relay)[0]
+        ?.name,
+    ).toBe("Nyra");
+    expect(
+      materializeAgentDirectory(
+        [
+          managedProfile(owner, getPublicKey(new Uint8Array(32).fill(60))),
+          instance,
+        ],
+        owner,
+        relay,
+      ),
+    ).toEqual([]);
+    expect(
+      materializeAgentDirectory(
+        [
+          finalizeEvent(
+            {
+              ...managedProfile(),
+              tags: [
+                ["lapis-managed", owner, relay],
+                ["lapis-managed", owner, relay],
+              ],
+            },
+            agentKey,
+          ),
+          instance,
+        ],
+        owner,
+        relay,
+      ),
+    ).toEqual([]);
   });
   it("requires ownership and relay-authoritative membership, never metadata claims", () => {
     const discovery = finalizeEvent(

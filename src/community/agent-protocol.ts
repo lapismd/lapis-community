@@ -99,6 +99,28 @@ export function agentOwner(profile: NostrEvent): string | undefined {
   return credential.ownerPubkey;
 }
 
+function managedAgentOwner(
+  profile: NostrEvent,
+  owner: string,
+  relay: string,
+): boolean {
+  if (
+    profile.kind !== 0 ||
+    !signedAgentEvent(profile) ||
+    !AGENT_PUBKEY.test(owner) ||
+    !AGENT_PUBKEY.test(relay) ||
+    profile.pubkey === owner
+  )
+    return false;
+  const tags = profile.tags.filter(([name]) => name === "lapis-managed");
+  return (
+    tags.length === 1 &&
+    tags[0]!.length === 3 &&
+    tags[0]![1] === owner &&
+    tags[0]![2] === relay
+  );
+}
+
 export function agentTag(event: NostrEvent, name: string): string | undefined {
   const tags = event.tags.filter((tag) => tag[0] === name);
   return tags.length === 1 && tags[0]!.length >= 2 ? tags[0]![1] : undefined;
@@ -287,9 +309,16 @@ export function materializeAgentDirectory(
   const result: CommunityAgentIdentity[] = [];
   for (const [pubkey, candidates] of profiles) {
     const profile = newestAgentEvent(candidates)!;
-    if (deleted(profile, events) || agentOwner(profile) !== owner) continue;
-    const metadata = agentJson(profile.content);
     const instance = instances.get(pubkey);
+    const ownedByExternalCredential = agentOwner(profile) === owner;
+    const ownedByManagedCustody =
+      instance !== undefined && managedAgentOwner(profile, owner, relay);
+    if (
+      deleted(profile, events) ||
+      (!ownedByExternalCredential && !ownedByManagedCustody)
+    )
+      continue;
+    const metadata = agentJson(profile.content);
     const persona = instance?.personaId
       ? personas.get(instance.personaId)
       : undefined;
