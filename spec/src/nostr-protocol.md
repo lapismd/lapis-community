@@ -279,6 +279,12 @@ in IndexedDB, Turso, local storage, logs, analytics, errors, or activity
 archives, and are cleared when the dialog closes, identity changes, or the page
 unloads.
 
+The operator downloads that bundle as an owner-only file and passes its path to
+`nostr-acp init`. The CLI selects the local host identifier, workspace, ACP
+runtime, and any additional groups, while retaining only the file reference in
+controller configuration. Community neither copies signer values into a
+process environment nor invokes the controller or its managed AI Host.
+
 Room selection performs ordinary NIP-29 add-member operations after identity
 creation. A room failure is reported separately and does not roll back the
 created identity. Replacement, revocation, and deletion use the relay's signed
