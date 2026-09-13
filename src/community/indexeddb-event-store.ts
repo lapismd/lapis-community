@@ -329,8 +329,8 @@ class IndexedDbCommunityEventStore extends BaseCommunityEventStore {
 
   async open(): Promise<void> {
     if (this.#database !== undefined) return;
-    this.#database = await openDB<CommunityCacheDb>(this.#databaseName, 3, {
-      upgrade(database, oldVersion) {
+    this.#database = await openDB<CommunityCacheDb>(this.#databaseName, 4, {
+      upgrade(database, oldVersion, _newVersion, transaction) {
         if (oldVersion < 1) {
           const events = database.createObjectStore("events", {
             keyPath: "key",
@@ -364,6 +364,10 @@ class IndexedDbCommunityEventStore extends BaseCommunityEventStore {
             keyPath: "key",
           });
           sync.createIndex("scope", "scopeKey");
+        }
+        if (oldVersion > 0 && oldVersion < 4) {
+          transaction.objectStore("agentActivity").clear();
+          transaction.objectStore("agentActivitySync").clear();
         }
       },
       blocking: () => {

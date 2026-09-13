@@ -120,3 +120,7 @@ LC-OPS-005; relay infrastructure remains owned by the sibling relay repository.
 `pnpm test:agents:archive:browser` is the local acceptance lane for OPFS cache
 replay and encrypted agent-history pagination. It runs against the canonical
 local Community server in an isolated browser profile and publishes no events.
+
+Guarded local package substitution may point at an ignored Design Core tarball
+for cross-repository consumer verification; the hook retains the published
+semver dependency whenever that local artifact is absent.

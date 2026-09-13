@@ -7666,6 +7666,7 @@
               <CommunityAgentActivity
                 model={community.state.agents}
                 rooms={allRooms}
+                members={workspace.members}
                 onOpenRequest={(item) => {
                   const scope = observerScope(item.frame);
                   const payload = item.frame.payload as Record<string, unknown>;

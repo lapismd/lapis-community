@@ -117,12 +117,23 @@
           ],
           content: nip44.v2.encrypt(
             JSON.stringify({
+              version: 2,
               seq: 1,
               timestamp: new Date().toISOString(),
               kind: "turn_started",
               channelId: "general",
               turnId: "story",
-              payload: { text: "Captured while the activity panel was closed" },
+              payload: {
+                scopeKey: "relay/general/agent/channel",
+                entry: {
+                  id: "story-request",
+                  type: "message",
+                  role: "user",
+                  text: "Captured while the activity panel was closed",
+                  authorPubkey: storyOwnerPubkey,
+                  createdAt: new Date().toISOString(),
+                },
+              },
             }),
             nip44.v2.utils.getConversationKey(storyAgentKey, storyOwnerPubkey),
           ),

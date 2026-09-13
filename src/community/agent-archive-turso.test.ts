@@ -155,6 +155,19 @@ it("executes the Turso archive schema, atomic inserts, scoped paging, and clears
     expect((await store.agents({ ...scope, relayPubkey }))[0]?.name).toBe(
       "Managed research",
     );
+    sqlite
+      .prepare(
+        "UPDATE community_agent_activity_meta SET value='1' WHERE key='contract-version'",
+      )
+      .run();
+    await initializeAgentArchiveDatabase(database);
+    expect(
+      (await store.page({ scope: { ...scope, relayPubkey } })).records,
+    ).toEqual([]);
+    expect(await store.checkpoint(scope, agentPubkey, context)).toBeUndefined();
+    expect((await store.agents({ ...scope, relayPubkey }))[0]?.name).toBe(
+      "Managed research",
+    );
   } finally {
     sqlite.close();
   }

@@ -81,7 +81,8 @@ profile, and the owner-signed `30177` instance needed to verify managed custody.
 The owner signer decrypts on the client; decoded payloads never enter
 message search, event synchronization, or persistent storage.
 
-The archive uses additive Turso tables and an IndexedDB version-2 migration,
+The version-2 transcript archive uses additive Turso tables and an IndexedDB
+version-4 migration,
 through the existing shared database owner. It is partitioned by community,
 normalized relay set, owner, and agent, deduplicates event IDs, and uses indexed
 cursor pagination. Sequence numbers may reset across agent processes. Archive
@@ -121,6 +122,8 @@ agents, and decoded windows remain bounded while older pages remain available.
 | LC-ARCH-022  | Agent telemetry MUST have a separate encrypted archive in the shared Turso, IndexedDB, and memory backends. The active signed-in community MUST capture valid owned telemetry independently of panel visibility, isolate owner and relay scopes, retain history until explicit clearing, page bounded decoded windows, cancel stale decryption, and expose storage and signer failures. Ordinary cache pruning and search MUST NOT consume this archive. |
 | LC-ARCH-026  | Activity stores MUST keep per-context device-local stream checkpoints and commit each validated replay page and checkpoint atomically. Clear history MUST delete local archived and decoded activity while retaining the checkpoint, or record a local suppression timestamp when no checkpoint exists.                                                                                                                                                  |
 | LC-NOSTR-029 | Community MUST request owner-only activity catch-up only for the visible verified-agent context after opening the live subscription, validate every nested original event inside a fresh response, deduplicate by original event ID, restore current snapshots explicitly, time out nonblocking requests after ten seconds, and retry on reconnect, presence recovery, or Latest.                                                                        |
+| LC-ARCH-027  | Activity contract version 2 MUST discard earlier device archives and checkpoints once, preserve agent identities and ordinary Nostr messages, accept only typed transcript entries from new controller runs, and reduce live and replayed entries through the same stable-id transcript projection.                                                                                                                                                      |
+| LC-NOSTR-030 | Version-2 transcript telemetry MUST attribute the accepted owner-authored Nostr message by its original event ID and public key, and MUST render agent messages, disclosed thinking, sanitized tool details, permission outcomes, and terminal failures without parsing provider session files or ACP envelopes.                                                                                                                                         |
 
 ## Compatibility and screens
 
@@ -202,17 +205,16 @@ The current add-member action does not take a role, so the modal does not offer
 Buzz's role selector.
 
 Activity replaces the profile with Back navigation and supports agent/channel
-selection, older saved pages and Latest. Events use the review activity timeline
-layout: a connected icon rail and content aligned beside each marker. Icons
-provide category context with accessible labels, without repeating category
-chips on each event. Shared
+selection, older saved pages and Latest. Its activity body composes the shared
+Design Core AI chat message, reasoning, and tool-call components without a
+composer. Owner prompts and agent replies retain Community avatars and names;
+tool input and output use the same shared detail renderer as the AI plugin.
 `CommunityRelativeTime` labels retain full timestamps in their tooltip and
-machine-readable time elements. Plain escaped text presents messages,
-tools, plans, lifecycle updates, errors and bounded unknown payloads. Browser
+machine-readable time elements. Browser
 agent routes contain only identity and filter selections, never private content.
 The public Pulse Agents filter uses the verified directory; private observer
 activity stays outside public Pulse. Functional acceptance is mapped to
-LC-UI-037; visual acceptance remains pending human review.
+LC-UI-037 and LC-UI-044; visual acceptance remains pending human review.
 
 For a live verified agent, Activity presents the latest controller scope with
 Cancel and confirmed Reset conversation actions. Decrypted

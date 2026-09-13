@@ -109,6 +109,7 @@ function frame(
       ],
       content: nip44.v2.encrypt(
         JSON.stringify({
+          version: 2,
           seq,
           timestamp: new Date(now * 1000).toISOString(),
           kind,
@@ -143,6 +144,7 @@ function streamFrame(
       ],
       content: nip44.v2.encrypt(
         JSON.stringify({
+          version: 2,
           seq,
           streamId,
           timestamp: new Date(createdAt * 1_000).toISOString(),
@@ -187,6 +189,7 @@ function syncPage(
       ],
       content: nip44.v2.encrypt(
         JSON.stringify({
+          version: 2,
           seq: highWaterMark,
           streamId,
           timestamp: new Date(now * 1_000).toISOString(),
@@ -1070,6 +1073,7 @@ describe("agent activity controller", () => {
     const count = onState.mock.calls.length;
     resolve(
       JSON.stringify({
+        version: 2,
         seq: 1,
         timestamp: new Date(now * 1000).toISOString(),
         kind: "turn_started",

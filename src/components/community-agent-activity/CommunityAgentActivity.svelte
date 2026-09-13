@@ -1,6 +1,5 @@
 <script lang="ts">
   import CommunitySkeleton from "../community-skeleton/CommunitySkeleton.svelte";
-  import CommunityMarkdownContent from "../community-markdown-content/CommunityMarkdownContent.svelte";
   import { Button } from "@lapismd/design-core/shadcn/button";
   import {
     activityMatches,
@@ -12,12 +11,6 @@
   import { ConfirmDialog } from "@lapismd/design-core/forms/dialog";
   import RefreshIcon from "@lucide/svelte/icons/refresh-cw";
   import XIcon from "@lucide/svelte/icons/x";
-  import MessageIcon from "@lucide/svelte/icons/message-square";
-  import WrenchIcon from "@lucide/svelte/icons/wrench";
-  import PlanIcon from "@lucide/svelte/icons/list-checks";
-  import ActivityIcon from "@lucide/svelte/icons/activity";
-  import AlertIcon from "@lucide/svelte/icons/circle-alert";
-  import EventIcon from "@lucide/svelte/icons/circle-dot";
   import TrashIcon from "@lucide/svelte/icons/trash-2";
   import CircleStopIcon from "@lucide/svelte/icons/circle-stop";
   import RotateIcon from "@lucide/svelte/icons/rotate-ccw";
@@ -31,11 +24,13 @@
   import type { CommunityRoomModel } from "../community-workspace/model.js";
   import CommunityChip from "../community-chip/CommunityChip.svelte";
   import CommunityRelativeTime from "../community-relative-time/CommunityRelativeTime.svelte";
-  import { presentAgentActivity } from "./model.js";
+  import CommunityAgentTranscript from "./CommunityAgentTranscript.svelte";
+  import type { CommunityMemberModel } from "../community-workspace/model.js";
 
   let {
     model,
     rooms = [],
+    members = [],
 
     onLatest,
     onOpenRequest,
@@ -47,6 +42,7 @@
   }: {
     model: CommunityAgentsState;
     rooms?: readonly CommunityRoomModel[];
+    members?: readonly CommunityMemberModel[];
     onBack?: () => void;
     onSelectAgent?: (pubkey: string) => void;
     onSelectChannel?: (channel?: string) => void;
@@ -109,6 +105,7 @@
         activityMatches(context, {
           ...permission,
           ...observerScope({
+            version: 2,
             kind: "",
             seq: 0,
             timestamp: "",
@@ -121,28 +118,6 @@
     ),
   );
   const lastActivity = $derived(model.activity[0]);
-  let timeline = $state<HTMLOListElement>();
-  let focusedTurn = $state("");
-  $effect(() => {
-    const turn = context.focusTurnId;
-    if (!turn || focusedTurn === turn || !timeline || model.activityLoading)
-      return;
-    const entry = [
-      ...timeline.querySelectorAll<HTMLElement>("[data-turn-id]"),
-    ].find((entry) => entry.dataset.turnId === turn);
-    if (entry) {
-      entry.scrollIntoView({ block: "nearest" });
-      focusedTurn = turn;
-    }
-  });
-  const activityIcons = {
-    Message: MessageIcon,
-    Tool: WrenchIcon,
-    Plan: PlanIcon,
-    Status: ActivityIcon,
-    Error: AlertIcon,
-    Event: EventIcon,
-  };
   const decisionLabels: Record<CommunityAgentPermissionDecision, string> = {
     allow_once: "Allow once",
     allow_always: "Always allow",
@@ -344,62 +319,15 @@
         checks the controller for anything missed while disconnected.
       </p>
     </div>{/if}
-  <ol
-    bind:this={timeline}
-    class="agent-activity__timeline"
-    aria-label="Agent event timeline"
-  >
-    {#each model.activity.filter((item) => item.agentPubkey === model.activityAgent && activityMatches( context, { agentPubkey: item.agentPubkey, ...observerScope(item.frame) }, )) as item (item.id)}
-      {@const entry = presentAgentActivity(item)}
-      {@const Marker = activityIcons[entry.category]}
-      {@const payload =
-        item.frame.payload && typeof item.frame.payload === "object"
-          ? (item.frame.payload as Record<string, unknown>)
-          : {}}
-      {@const hasTrigger =
-        typeof payload.triggerEventId === "string" &&
-        /^[0-9a-f]{64}$/u.test(payload.triggerEventId)}
-      <li data-turn-id={item.frame.turnId ?? undefined}>
-        <span
-          class="agent-activity__marker"
-          data-category={entry.category}
-          role="img"
-          aria-label={`${entry.category} activity`}
-        >
-          <Marker aria-hidden="true" />
-        </span>
-        <div class="agent-activity__content">
-          <div class="agent-activity__meta">
-            <h3>{entry.title}</h3>
-            {#if context.kind === "overview" || context.kind === "channel"}<small
-                >{activityContextLabel(
-                  contextForScope({
-                    agentPubkey: item.agentPubkey,
-                    scopeKey: "",
-                    active: false,
-                    ...observerScope(item.frame),
-                  }),
-                  rooms,
-                )}</small
-              >{/if}
-            <span class="agent-activity__time"
-              ><CommunityRelativeTime
-                timestamp={Date.parse(item.frame.timestamp) / 1_000}
-              /></span
-            >
-          </div>
-          {#if onOpenRequest && hasTrigger}<Button
-              variant="link"
-              size="sm"
-              onclick={() => onOpenRequest(item)}>View request</Button
-            >{/if}
-          {#if entry.body}{#if entry.category === "Tool" || entry.category === "Event"}<pre>{entry.body}</pre>{:else}<CommunityMarkdownContent
-                content={entry.body}
-              />{/if}{/if}
-        </div>
-      </li>
-    {/each}
-  </ol>
+  {#if selected && model.activity.length > 0}
+    <CommunityAgentTranscript
+      activity={model.activity}
+      agent={selected}
+      {context}
+      {members}
+      {...onOpenRequest ? { onOpenRequest } : {}}
+    />
+  {/if}
   {#if model.activityLoading && model.activity.length > 0}<CommunitySkeleton
       layout="timeline"
       count={2}
@@ -470,8 +398,7 @@
     min-width: 0;
   }
 
-  .agent-activity__toolbar,
-  .agent-activity__meta {
+  .agent-activity__toolbar {
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -483,8 +410,7 @@
     color: var(--muted-foreground);
     line-height: 1.5;
   }
-  .agent-activity__notice,
-  .agent-activity__time {
+  .agent-activity__notice {
     font-size: var(--community-text-secondary);
     color: var(--muted-foreground);
   }
@@ -524,64 +450,6 @@
     font-size: var(--community-text-body);
     font-weight: 600;
     margin: 0;
-  }
-  .agent-activity__timeline {
-    position: relative;
-    display: grid;
-    gap: 0.35rem;
-    padding: 0.25rem 0 0.75rem;
-    margin: 0;
-    list-style: none;
-  }
-  .agent-activity__timeline::before {
-    position: absolute;
-    inset-block: 1.15rem 1.25rem;
-    inset-inline-start: 0.95rem;
-    width: 1px;
-    background: var(--border);
-    content: "";
-  }
-  .agent-activity__timeline:empty::before {
-    content: none;
-  }
-  .agent-activity__timeline > li {
-    position: relative;
-    display: grid;
-    grid-template-columns: 2rem minmax(0, 1fr);
-    align-items: start;
-    gap: 0.65rem;
-    min-width: 0;
-  }
-  .agent-activity__marker {
-    z-index: 1;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 2rem;
-    height: 2rem;
-    box-sizing: border-box;
-    border: 1px solid var(--border);
-    border-radius: 50%;
-    background: var(--background);
-    color: var(--muted-foreground);
-  }
-  .agent-activity__marker :global(svg) {
-    width: 0.9rem;
-    height: 0.9rem;
-  }
-  .agent-activity__marker[data-category="Error"] {
-    color: var(--destructive);
-  }
-  .agent-activity__content {
-    display: grid;
-    justify-items: start;
-    gap: 0.625rem;
-    padding-block: 0.4rem 1rem;
-    min-width: 0;
-  }
-  .agent-activity__meta {
-    width: 100%;
-    align-items: baseline;
   }
   pre {
     margin: 0;

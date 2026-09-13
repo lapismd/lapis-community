@@ -25,32 +25,34 @@
 <Story
   name="Timeline"
   play={async ({ canvas }) => {
-    const timeline = canvas.getByRole("list", { name: "Agent event timeline" });
-    const entries = within(timeline).getAllByRole("listitem");
-    await expect(entries).toHaveLength(7);
-    for (const entry of entries) {
-      await expect(
-        within(entry).getByRole("img", { name: /activity$/ }),
-      ).toBeVisible();
-      await expect(
-        entry.querySelector('[data-ui-component="community-chip"]'),
-      ).not.toBeInTheDocument();
-      await expect(
-        entry.querySelector('svg[aria-hidden="true"]'),
-      ).toBeVisible();
-      const time = entry.querySelector("time");
+    const transcript = canvas.getByRole("log", {
+      name: "Agent conversation activity",
+    });
+    await expect(
+      within(transcript).getByLabelText("Message from Alex Morgan"),
+    ).toBeVisible();
+    await expect(
+      within(transcript).getByLabelText("Message from Research"),
+    ).toBeVisible();
+    await expect(
+      within(transcript).getAllByText(
+        "I’ll review the source before answering.",
+      )[0],
+    ).toBeVisible();
+    await expect(
+      within(transcript).getByText("Read source", { exact: true }),
+    ).toBeVisible();
+    const times = transcript.querySelectorAll("time");
+    await expect(times).toHaveLength(2);
+    for (const time of times) {
       await expect(time).toHaveTextContent(/minutes? ago/);
       await expect(time).toHaveAttribute("datetime");
       await expect(time).toHaveAttribute("title");
     }
-    const time = entries[0]!.querySelector("time")!;
+    const time = times[0]!;
     await userEvent.hover(time);
     await expect(time).toHaveAttribute("aria-describedby");
     await userEvent.unhover(time);
-    // Browser zoom can resolve a one-pixel rail to a fractional CSS pixel.
-    await expect(
-      parseFloat(getComputedStyle(timeline, "::before").width),
-    ).toBeCloseTo(1, 1);
   }}>{#snippet template()}<Harness screen="activity" />{/snippet}</Story
 >
 
@@ -58,18 +60,16 @@
   name="Events and older history"
   play={async ({ canvas }) => {
     for (const text of [
+      "Summarize the project updates.",
       "Here are the project updates.",
       "Read source",
-      "Agent plan",
-      "Agent error",
-      "Turn finished",
-      "custom status",
+      "Permission allow_once for Publish report",
     ])
       await expect(canvas.getByText(text, { exact: true })).toBeVisible();
     await userEvent.click(
       canvas.getByRole("button", { name: "Load older activity" }),
     );
-    await expect(canvas.getByText("Earlier session")).toBeVisible();
+    await expect(canvas.getByText("Earlier transcript message")).toBeVisible();
     await userEvent.click(
       canvas.getByRole("button", { name: "Latest", exact: true }),
     );
@@ -180,9 +180,7 @@
     await userEvent.click(
       within(controls).getByRole("button", { name: "Allow once" }),
     );
-    await expect(canvas.getByRole("status")).toHaveTextContent(
-      "allow_once sent",
-    );
+    await expect(canvas.getByText("allow_once sent")).toBeVisible();
     await expect(
       within(controls).queryByRole("article", {
         name: "Permission requested by Research",
@@ -191,9 +189,7 @@
     await userEvent.click(
       within(controls).getByRole("button", { name: "Cancel turn" }),
     );
-    await expect(canvas.getByRole("status")).toHaveTextContent(
-      "Turn cancellation requested",
-    );
+    await expect(canvas.getByText("Turn cancellation requested")).toBeVisible();
     await userEvent.click(
       within(controls).getByRole("button", { name: "Reset conversation" }),
     );
@@ -206,9 +202,9 @@
         exact: true,
       }),
     );
-    await expect(canvas.getByRole("status")).toHaveTextContent(
-      "Conversation reset requested",
-    );
+    await expect(
+      canvas.getByText("Conversation reset requested"),
+    ).toBeVisible();
   }}
   >{#snippet template()}<Harness
       screen="activity"

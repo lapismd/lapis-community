@@ -444,6 +444,7 @@ export function parseAgentObserver(
   if (new TextEncoder().encode(plaintext).byteLength > 65_535) return;
   const frame = agentJson(plaintext);
   if (
+    frame.version !== 2 ||
     !Number.isSafeInteger(frame.seq) ||
     (frame.seq as number) < 0 ||
     typeof frame.timestamp !== "string" ||

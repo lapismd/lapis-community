@@ -62,6 +62,18 @@ export async function initializeAgentArchiveDatabase(
       updated_at INTEGER NOT NULL,
       PRIMARY KEY (scope_key, agent_pubkey, context_key)
     );
+    CREATE TABLE IF NOT EXISTS community_agent_activity_meta (
+      key TEXT PRIMARY KEY,
+      value TEXT NOT NULL
+    );
+    INSERT OR IGNORE INTO community_agent_activity_meta(key,value)
+      VALUES ('contract-version','1');
+    DELETE FROM community_agent_activity
+      WHERE (SELECT value FROM community_agent_activity_meta WHERE key='contract-version') <> '2';
+    DELETE FROM community_agent_activity_sync
+      WHERE (SELECT value FROM community_agent_activity_meta WHERE key='contract-version') <> '2';
+    UPDATE community_agent_activity_meta SET value='2'
+      WHERE key='contract-version';
   `);
 }
 

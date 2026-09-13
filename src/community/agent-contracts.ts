@@ -140,6 +140,7 @@ export interface CommunityAgentPresence {
 
 /** Buzz ObserverEvent payload. ACP data remains untrusted display content. */
 export interface CommunityAgentObserver {
+  version: 2;
   seq: number;
   streamId?: string;
   timestamp: string;
@@ -236,7 +237,7 @@ export type CommunityAgentControl =
       channelId?: string;
     }
   | {
-      version: 1;
+      version: 2;
       command: "sync_activity";
       requestId: string;
       context: CommunityAgentActivitySyncContext;
@@ -368,6 +369,64 @@ export interface CommunityAgentActivityItem {
   createdAt: number;
   frame: CommunityAgentObserver;
 }
+
+export type CommunityAgentTranscriptEntry =
+  | {
+      id: string;
+      type: "message";
+      role: "user" | "assistant";
+      text: string;
+      authorPubkey: string;
+      createdAt: string;
+      sourceEventId?: string;
+      sequence?: number;
+      truncated?: boolean;
+      redacted?: boolean;
+    }
+  | {
+      id: string;
+      type: "thinking";
+      text: string;
+      state: "streaming" | "done";
+      createdAt: string;
+      sequence?: number;
+      truncated?: boolean;
+      redacted?: boolean;
+    }
+  | {
+      id: string;
+      type: "tool";
+      toolId: string;
+      name: string;
+      state: "running" | "completed" | "error";
+      input?: string;
+      output?: string;
+      error?: string;
+      createdAt: string;
+      sequence?: number;
+      truncated?: boolean;
+      redacted?: boolean;
+    }
+  | {
+      id: string;
+      type: "permission";
+      requestId: string;
+      tool: string;
+      input?: string;
+      options: string[];
+      state: "pending" | "resolved";
+      decision?: string;
+      createdAt: string;
+      sequence?: number;
+    }
+  | {
+      id: string;
+      type: "turn";
+      state: "started" | "completed" | "failed" | "cancelled";
+      message?: string;
+      createdAt: string;
+      sequence?: number;
+    };
 
 export interface CommunityAgentPermissionRequest {
   agentPubkey: string;

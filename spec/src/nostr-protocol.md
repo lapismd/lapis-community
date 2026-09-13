@@ -308,6 +308,10 @@ cursor; they never contain an opaque controller scope. Fresh agent telemetry
 returns bounded pages of the original signed encrypted activity events plus a
 fresh current-state snapshot. Community validates the outer event first and
 accepts historical timestamps only for fully verified nested events.
+Version `2` telemetry carries typed transcript entries derived from the
+accepted owner-authored Nostr request and normalized controller runtime events.
+Community rejects the previous ACP-envelope display format and does not read
+provider session files.
 Managed-agent telemetry authorization requires the relay-scoped managed tag and
 the owner's signed current `30177` instance linking that exact agent; the tag
 alone never establishes ownership for live capture, replay, or archive reads.

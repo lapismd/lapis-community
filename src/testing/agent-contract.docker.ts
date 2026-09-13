@@ -162,7 +162,7 @@ export function registerAgentDockerContract(relayUrl: string): void {
         await session.setFollow(agentPubkey, false);
         await agentRelay.publish(
           finalizeEvent(
-            { kind: 20001, created_at: now(), content: "", tags: [] },
+            { kind: 20001, created_at: now(), content: "online", tags: [] },
             agentKey,
           ),
         );
@@ -190,11 +190,22 @@ export function registerAgentDockerContract(relayUrl: string): void {
             ],
             content: nip44.v2.encrypt(
               JSON.stringify({
+                version: 2,
                 seq: 1,
                 timestamp: new Date().toISOString(),
                 kind: "turn_started",
                 channelId: groupId,
-                payload: { text: "private contract activity" },
+                payload: {
+                  scopeKey: `relay/${groupId}/agent/channel`,
+                  entry: {
+                    id: "contract-request",
+                    type: "message",
+                    role: "user",
+                    text: "private contract activity",
+                    authorPubkey: ownerPubkey,
+                    createdAt: new Date().toISOString(),
+                  },
+                },
               }),
               nip44.v2.utils.getConversationKey(agentKey, ownerPubkey),
             ),
@@ -215,7 +226,13 @@ export function registerAgentDockerContract(relayUrl: string): void {
         expect(controller.state.activity).toEqual([]);
         await controller.actions.openActivity(agentPubkey);
         expect(controller.state.activity[0]?.frame.payload).toEqual({
-          text: "private contract activity",
+          scopeKey: `relay/${groupId}/agent/channel`,
+          entry: expect.objectContaining({
+            type: "message",
+            role: "user",
+            text: "private contract activity",
+            authorPubkey: ownerPubkey,
+          }),
         });
         expect(leaked).toEqual([]);
         expect(

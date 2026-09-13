@@ -1264,7 +1264,10 @@ const AGENT_PERMISSION_DECISIONS = new Set([
 ]);
 
 function validateAgentControl(control: CommunityAgentControl): void {
-  if (control.version !== 1)
+  if (
+    (control.command === "sync_activity" && control.version !== 2) ||
+    (control.command !== "sync_activity" && control.version !== 1)
+  )
     throw new Error("Unsupported agent control version");
   if (
     control.channelId !== undefined &&

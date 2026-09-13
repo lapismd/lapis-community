@@ -8,6 +8,7 @@ import { describe, expect, it } from "vitest";
 import type { CommunityAgentArchiveRecord } from "./agent-contracts.js";
 import { createMemoryCommunityEventStore } from "./event-store.js";
 import { createIndexedDbCommunityEventStore } from "./indexeddb-event-store.js";
+import { agentArchiveRow } from "./agent-archive.js";
 
 const ownerKey = new Uint8Array(32).fill(61);
 const agentKey = new Uint8Array(32).fill(62);
@@ -235,4 +236,81 @@ it("migrates the v1 IndexedDB cache additively and keeps history after reopen", 
   await store.open();
   expect((await store.agentActivity!.page({ scope })).records).toHaveLength(1);
   await store.close();
+});
+
+it("clears pre-v2 IndexedDB activity while preserving identities and ordinary events", async () => {
+  const databaseName = `agents-contract-migrate-${crypto.randomUUID()}`;
+  const row = agentArchiveRow(scope, record());
+  const old = await openDB(databaseName, 3, {
+    upgrade(db) {
+      const events = db.createObjectStore("events", { keyPath: "key" });
+      events.createIndex("partition", "partitionKey");
+      events.createIndex("scope", "scopeKey");
+      events.createIndex("access", "lastAccessedAt");
+      const checkpoints = db.createObjectStore("checkpoints", {
+        keyPath: "key",
+      });
+      checkpoints.createIndex("scope", "scopeKey");
+      const activity = db.createObjectStore("agentActivity", {
+        keyPath: "key",
+      });
+      activity.createIndex("scope", "scopeKey");
+      activity.createIndex("chronological", [
+        "scopeKey",
+        "agentPubkey",
+        "createdAt",
+        "eventId",
+      ]);
+      const identities = db.createObjectStore("agentIdentities", {
+        keyPath: "key",
+      });
+      identities.createIndex("scope", "scopeKey");
+      const sync = db.createObjectStore("agentActivitySync", {
+        keyPath: "key",
+      });
+      sync.createIndex("scope", "scopeKey");
+    },
+  });
+  const tx = old.transaction(
+    ["events", "agentActivity", "agentIdentities", "agentActivitySync"],
+    "readwrite",
+  );
+  await tx.objectStore("events").put({
+    key: "ordinary-event",
+    scopeKey: "scope",
+    partitionKey: "partition",
+    eventId: "event",
+    event: profile,
+    relayUrl: "wss://relay.example/",
+    createdAt: 100,
+    lastAccessedAt: 100,
+    bytes: 1,
+  });
+  await tx.objectStore("agentActivity").put(row);
+  await tx.objectStore("agentIdentities").put({
+    key: JSON.stringify([row.scopeKey, row.agentPubkey]),
+    scopeKey: row.scopeKey,
+    profile,
+  });
+  await tx.objectStore("agentActivitySync").put({
+    key: "checkpoint",
+    scopeKey: row.scopeKey,
+    agentPubkey,
+    contextKey: JSON.stringify({ kind: "dm" }),
+    checkpoint: { streamId: "old", offset: 4, updatedAt: 100 },
+  });
+  await tx.done;
+  old.close();
+
+  const store = createIndexedDbCommunityEventStore({ databaseName });
+  await store.open();
+  expect((await store.agentActivity!.page({ scope })).records).toEqual([]);
+  expect(
+    await store.agentActivity!.checkpoint(scope, agentPubkey, { kind: "dm" }),
+  ).toBeUndefined();
+  expect((await store.agentActivity!.agents(scope))[0]?.name).toBe("Research");
+  await store.close();
+  const migrated = await openDB(databaseName, 4);
+  expect(await migrated.count("events")).toBe(1);
+  migrated.close();
 });

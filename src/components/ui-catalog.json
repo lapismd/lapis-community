@@ -270,6 +270,22 @@
   ],
   "exceptions": [
     {
+      "file": "src/components/community-agent-activity/CommunityAgentTranscript.svelte",
+      "rule": "message",
+      "symbol": "@lapismd/design-core/ai/chat:Message",
+      "reason": "Agent Activity intentionally presents the controller transcript with the same provider-neutral AI chat layout as the Lapis AI plugin while Community still owns author identity and Markdown rendering.",
+      "story": "community-agents-activity--timeline",
+      "requirement": "LC-UI-044"
+    },
+    {
+      "file": "src/components/community-agent-activity/CommunityAgentTranscript.svelte",
+      "rule": "message",
+      "symbol": "@lapismd/design-core/ai/chat:MessageBubble",
+      "reason": "Agent Activity intentionally presents the controller transcript with the same provider-neutral AI chat layout as the Lapis AI plugin while Community still owns author identity and Markdown rendering.",
+      "story": "community-agents-activity--timeline",
+      "requirement": "LC-UI-044"
+    },
+    {
       "file": "src/components/community-search-command/CommunitySearchCommand.svelte",
       "rule": "dialog",
       "symbol": "@lapismd/design-core/shadcn/dialog:Content",

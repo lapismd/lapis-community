@@ -84,11 +84,20 @@ describe("production Community agent integration", () => {
             ],
             content: nip44.v2.encrypt(
               JSON.stringify({
+                version: 2,
                 seq: 1,
                 timestamp: new Date().toISOString(),
                 kind: "turn_started",
                 channelId: "general",
-                payload: { text: "Private activity" },
+                payload: {
+                  scopeKey: "relay/general/agent/channel",
+                  entry: {
+                    id: "turn:status",
+                    type: "turn",
+                    state: "started",
+                    createdAt: new Date().toISOString(),
+                  },
+                },
               }),
               nip44.v2.utils.getConversationKey(
                 storyAgentKey,
@@ -104,9 +113,16 @@ describe("production Community agent integration", () => {
       );
       expect(controller.state.agents?.activity).toEqual([]);
       await controller.actions.agents!.openActivity(storyAgentPubkey);
-      expect(controller.state.agents?.activity[0]?.frame.payload).toEqual({
-        text: "Private activity",
-      });
+      expect(controller.state.agents?.activity[0]?.frame.payload).toMatchObject(
+        {
+          scopeKey: "relay/general/agent/channel",
+          entry: {
+            id: "turn:status",
+            type: "turn",
+            state: "started",
+          },
+        },
+      );
     } finally {
       controller.dispose();
       runtime.dispose();

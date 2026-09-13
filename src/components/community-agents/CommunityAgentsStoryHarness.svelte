@@ -411,6 +411,14 @@
     <CommunityAgentActivity
       {model}
       rooms={storyAgentRooms}
+      members={[
+        {
+          id: storyOwnerPubkey,
+          name: "Alex Morgan",
+          handle: "alex",
+          initials: "AM",
+        },
+      ]}
       onSelectAgent={(pubkey) => (model = { ...model, activityAgent: pubkey })}
       onSelectChannel={(channel) => {
         const { activityChannel, ...rest } = model;
@@ -436,7 +444,20 @@
           ...model,
           activity: [
             ...model.activity,
-            storyActivity("session_resolved", { text: "Earlier session" }, 0),
+            storyActivity(
+              "user_message",
+              {
+                entry: {
+                  id: "earlier-request",
+                  type: "message",
+                  role: "user",
+                  text: "Earlier transcript message",
+                  authorPubkey: storyOwnerPubkey,
+                  createdAt: new Date(Date.now() - 20 * 60_000).toISOString(),
+                },
+              },
+              0,
+            ),
           ],
           hasOlder: false,
         };

@@ -33,6 +33,9 @@ storage, analytics, or a browser persistence adapter.
 Activity catch-up keeps its per-context cursor behind the same memory, Turso,
 IndexedDB, and worker storage seam. A replacement live subscription includes
 the target agent before Community publishes a synchronization control.
+The version-2 activity contract clears older encrypted activity rows and
+checkpoints once, while preserving the identity projection and ordinary event
+cache. Live and replayed transcript records then enter one stable-id reducer.
 Agent channel presentation composes public Dialog, Command View, and menu
 primitives; channel selection stays local until the existing add-member action
 is confirmed. Membership authority and the controller's action contracts remain

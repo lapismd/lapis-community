@@ -264,7 +264,7 @@ describe("agent relay session", () => {
   it("publishes bounded activity catch-up controls with exact context routing", async () => {
     const fixture = setup();
     const control = {
-      version: 1 as const,
+      version: 2 as const,
       command: "sync_activity" as const,
       requestId: "sync-1",
       context: {

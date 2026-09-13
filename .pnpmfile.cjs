@@ -4,7 +4,7 @@ const fs = require("node:fs");
 const localPackages = new Map([
   [
     "@lapismd/design-core",
-    "file:../design-core/.local/packages/lapismd-design-core-0.1.2-96db2dc96ada.tgz",
+    "file:../design-core/.local/packages/lapismd-design-core-0.1.2.tgz",
   ],
 ]);
 

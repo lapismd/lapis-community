@@ -123,6 +123,7 @@ export function storyActivity(
     agentPubkey: storyAgentPubkey,
     createdAt: activityBaseTime + index * 60,
     frame: {
+      version: 2,
       seq: index,
       timestamp: new Date((activityBaseTime + index * 60) * 1000).toISOString(),
       kind,
@@ -166,49 +167,105 @@ export function storyAgentState(
   };
 }
 export const storyActivityItems = [
-  storyActivity("turn_finished", { text: "Research complete" }, 7),
-  storyActivity("custom_status", { detail: "Awaiting review" }, 6),
-  storyActivity("error", { message: "A source was unavailable" }, 5),
   storyActivity(
-    "acp_read",
+    "turn_completed",
     {
-      method: "session/update",
-      params: {
-        update: {
-          sessionUpdate: "plan",
-          entries: [{ status: "completed", content: "Review the sources" }],
-        },
+      entry: {
+        id: "turn:turn",
+        type: "turn",
+        state: "completed",
+        createdAt: new Date((activityBaseTime + 7 * 60) * 1000).toISOString(),
+      },
+    },
+    7,
+  ),
+  storyActivity(
+    "permission_resolved",
+    {
+      entry: {
+        id: "turn:permission:review",
+        type: "permission",
+        requestId: "review",
+        tool: "Publish report",
+        options: ["allow_once", "reject_once"],
+        state: "resolved",
+        decision: "allow_once",
+        createdAt: new Date((activityBaseTime + 6 * 60) * 1000).toISOString(),
+      },
+    },
+    6,
+  ),
+  storyActivity(
+    "assistant_message_chunk",
+    {
+      entry: {
+        id: "turn:assistant",
+        type: "message",
+        role: "assistant",
+        text: "Here are the project updates.",
+        authorPubkey: storyAgentPubkey,
+        createdAt: new Date((activityBaseTime + 5 * 60) * 1000).toISOString(),
+      },
+    },
+    5,
+  ),
+  storyActivity(
+    "tool_call_update",
+    {
+      entry: {
+        id: "turn:tool:read",
+        type: "tool",
+        toolId: "read",
+        name: "Read source",
+        state: "completed",
+        input: '{"path":"project.md"}',
+        output: "Found three references",
+        createdAt: new Date((activityBaseTime + 4 * 60) * 1000).toISOString(),
       },
     },
     4,
   ),
   storyActivity(
-    "acp_read",
+    "tool_call_update",
     {
-      method: "session/update",
-      params: {
-        update: {
-          sessionUpdate: "tool_call",
-          title: "Read source",
-          status: "completed",
-          content: [{ text: "Found three references" }],
-        },
+      entry: {
+        id: "turn:tool:read",
+        type: "tool",
+        toolId: "read",
+        name: "Read source",
+        state: "running",
+        input: '{"path":"project.md"}',
+        createdAt: new Date((activityBaseTime + 3 * 60) * 1000).toISOString(),
       },
     },
     3,
   ),
   storyActivity(
-    "acp_read",
+    "thinking_chunk",
     {
-      method: "session/update",
-      params: {
-        update: {
-          sessionUpdate: "agent_message_chunk",
-          content: { type: "text", text: "Here are the project updates." },
-        },
+      entry: {
+        id: "turn:thinking",
+        type: "thinking",
+        text: "I’ll review the source before answering.",
+        state: "streaming",
+        createdAt: new Date((activityBaseTime + 2 * 60) * 1000).toISOString(),
       },
     },
     2,
   ),
-  storyActivity(),
+  storyActivity(
+    "user_message",
+    {
+      entry: {
+        id: "request-event",
+        type: "message",
+        role: "user",
+        text: "Summarize the project updates.",
+        authorPubkey: storyOwnerPubkey,
+        sourceEventId: "a".repeat(64),
+        createdAt: new Date((activityBaseTime + 60) * 1000).toISOString(),
+      },
+    },
+    1,
+  ),
 ];

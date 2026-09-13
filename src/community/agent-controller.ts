@@ -1069,7 +1069,7 @@ export class CommunityAgentsController {
   async #sendActivitySyncRequest(request: ActivitySyncRequest): Promise<void> {
     clearTimeout(request.timer);
     await this.#sendControl(request.agentPubkey, {
-      version: 1,
+      version: 2,
       command: "sync_activity",
       requestId: request.id,
       context: request.context,

@@ -112,6 +112,7 @@ describe("composer activity", () => {
   });
   it("uses legacy encrypted scope metadata without guessing unknown thread context", () => {
     const frame = {
+      version: 2 as const,
       seq: 1,
       kind: "turn_started",
       timestamp: "",

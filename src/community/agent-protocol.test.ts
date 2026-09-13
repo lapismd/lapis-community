@@ -503,6 +503,7 @@ describe("agent ownership and protocol", () => {
     expect(
       parseAgentObserver(
         JSON.stringify({
+          version: 2,
           seq: 1,
           timestamp: "2026-09-11T00:00:00Z",
           kind: "turn_started",
@@ -517,6 +518,7 @@ describe("agent ownership and protocol", () => {
     expect(
       parseAgentObserver(
         JSON.stringify({
+          version: 2,
           seq: 2,
           streamId: "stream-1",
           timestamp: "2026-09-11T00:00:00Z",
@@ -528,6 +530,7 @@ describe("agent ownership and protocol", () => {
     expect(
       parseAgentObserver(
         JSON.stringify({
+          version: 2,
           seq: 2,
           streamId: "",
           timestamp: "2026-09-11T00:00:00Z",
@@ -539,6 +542,7 @@ describe("agent ownership and protocol", () => {
     expect(
       parseAgentObserver(
         JSON.stringify({
+          version: 2,
           seq: Number.MAX_SAFE_INTEGER + 1,
           timestamp: "now",
           kind: "turn_started",

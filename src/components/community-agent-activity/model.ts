@@ -1,144 +1,219 @@
-import type { CommunityAgentActivityItem } from "../../community/agent-contracts.js";
+import type {
+  CommunityAgentActivityContext,
+  CommunityAgentActivityItem,
+  CommunityAgentTranscriptEntry,
+} from "../../community/agent-contracts.js";
+import {
+  activityMatches,
+  observerScope,
+} from "../../community/agent-activity-context.js";
+
+export type CommunityAgentTranscriptTimeline =
+  | {
+      kind: "message";
+      item: Extract<CommunityAgentTranscriptEntry, { type: "message" }>;
+    }
+  | {
+      kind: "thinking";
+      item: Extract<CommunityAgentTranscriptEntry, { type: "thinking" }>;
+    }
+  | {
+      kind: "tools";
+      id: string;
+      items: Extract<CommunityAgentTranscriptEntry, { type: "tool" }>[];
+    }
+  | {
+      kind: "permission";
+      item: Extract<CommunityAgentTranscriptEntry, { type: "permission" }>;
+    }
+  | {
+      kind: "turn";
+      item: Extract<CommunityAgentTranscriptEntry, { type: "turn" }>;
+    };
+
+export function agentTranscriptTimeline(
+  activity: readonly CommunityAgentActivityItem[],
+  agentPubkey: string | undefined,
+  context: CommunityAgentActivityContext | undefined,
+): CommunityAgentTranscriptTimeline[] {
+  if (!agentPubkey) return [];
+  const entries = activity
+    .filter(
+      (item) =>
+        item.agentPubkey === agentPubkey &&
+        item.frame.version === 2 &&
+        activityMatches(context, {
+          agentPubkey: item.agentPubkey,
+          ...observerScope(item.frame),
+        }),
+    )
+    .toSorted(
+      (left, right) =>
+        left.createdAt - right.createdAt ||
+        left.frame.seq - right.frame.seq ||
+        left.id.localeCompare(right.id),
+    )
+    .flatMap(({ frame }) => {
+      const payload = record(frame.payload);
+      const entry = transcriptEntry(payload.entry);
+      return entry ? [{ entry, frame }] : [];
+    });
+
+  const timeline: CommunityAgentTranscriptTimeline[] = [];
+  const locations = new Map<string, { group: number; item?: number }>();
+  for (const { entry, frame } of entries) {
+    const location = locations.get(entry.id);
+    if (location) {
+      const current = timeline[location.group];
+      if (current?.kind === "message" && entry.type === "message") {
+        current.item = {
+          ...current.item,
+          ...entry,
+          text: `${current.item.text}${entry.text}`,
+        };
+      } else if (current?.kind === "thinking" && entry.type === "thinking") {
+        current.item = {
+          ...current.item,
+          ...entry,
+          text: `${current.item.text}${entry.text}`,
+        };
+      } else if (
+        current?.kind === "tools" &&
+        entry.type === "tool" &&
+        location.item !== undefined
+      ) {
+        current.items[location.item] = {
+          ...current.items[location.item],
+          ...entry,
+        };
+      } else if (
+        current?.kind === "permission" &&
+        entry.type === "permission"
+      ) {
+        current.item = { ...current.item, ...entry };
+      } else if (current?.kind === "turn" && entry.type === "turn") {
+        current.item = { ...current.item, ...entry };
+      }
+      continue;
+    }
+
+    if (entry.type === "tool") {
+      const previous = timeline.at(-1);
+      if (previous?.kind === "tools") {
+        previous.items.push(entry);
+        locations.set(entry.id, {
+          group: timeline.length - 1,
+          item: previous.items.length - 1,
+        });
+      } else {
+        timeline.push({
+          kind: "tools",
+          id: `tools:${entry.id}`,
+          items: [entry],
+        });
+        locations.set(entry.id, { group: timeline.length - 1, item: 0 });
+      }
+      continue;
+    }
+    timeline.push({
+      kind: entry.type,
+      item: entry,
+    } as CommunityAgentTranscriptTimeline);
+    locations.set(entry.id, { group: timeline.length - 1 });
+
+    if (entry.type === "turn" && entry.state !== "started") {
+      const prefix = entry.id.endsWith(":turn") ? entry.id.slice(0, -5) : "";
+      const thinking = prefix ? locations.get(`${prefix}:thinking`) : undefined;
+      const thought = thinking ? timeline[thinking.group] : undefined;
+      if (thought?.kind === "thinking") thought.item.state = "done";
+    }
+
+    // The signed event sequence remains the ordering authority when a producer
+    // omits the optional entry sequence.
+    if (entry.sequence === undefined) entry.sequence = frame.seq;
+  }
+  return timeline;
+}
+
+export function toolCallStatus(
+  state: Extract<CommunityAgentTranscriptEntry, { type: "tool" }>["state"],
+): "complete" | "error" | "running" {
+  return state === "completed"
+    ? "complete"
+    : state === "error"
+      ? "error"
+      : "running";
+}
+
+function transcriptEntry(
+  value: unknown,
+): CommunityAgentTranscriptEntry | undefined {
+  const entry = record(value);
+  if (
+    typeof entry.id !== "string" ||
+    !entry.id ||
+    typeof entry.type !== "string" ||
+    typeof entry.createdAt !== "string" ||
+    !Number.isFinite(Date.parse(entry.createdAt))
+  )
+    return;
+  if (entry.type === "message") {
+    if (
+      (entry.role !== "user" && entry.role !== "assistant") ||
+      typeof entry.text !== "string" ||
+      typeof entry.authorPubkey !== "string"
+    )
+      return;
+  } else if (entry.type === "thinking") {
+    if (
+      typeof entry.text !== "string" ||
+      (entry.state !== "streaming" && entry.state !== "done")
+    )
+      return;
+  } else if (entry.type === "tool") {
+    if (
+      typeof entry.toolId !== "string" ||
+      typeof entry.name !== "string" ||
+      !["running", "completed", "error"].includes(String(entry.state)) ||
+      !optionalStrings(entry, ["input", "output", "error"])
+    )
+      return;
+  } else if (entry.type === "permission") {
+    if (
+      typeof entry.requestId !== "string" ||
+      typeof entry.tool !== "string" ||
+      !Array.isArray(entry.options) ||
+      !entry.options.every((option) => typeof option === "string") ||
+      (entry.state !== "pending" && entry.state !== "resolved") ||
+      !optionalStrings(entry, ["input", "decision"])
+    )
+      return;
+  } else if (entry.type === "turn") {
+    if (
+      !["started", "completed", "failed", "cancelled"].includes(
+        String(entry.state),
+      ) ||
+      !optionalStrings(entry, ["message"])
+    )
+      return;
+  } else return;
+  return {
+    ...entry,
+    ...(Array.isArray(entry.options) ? { options: [...entry.options] } : {}),
+  } as unknown as CommunityAgentTranscriptEntry;
+}
+
+function optionalStrings(
+  value: Record<string, unknown>,
+  keys: string[],
+): boolean {
+  return keys.every(
+    (key) => value[key] === undefined || typeof value[key] === "string",
+  );
+}
 
 function record(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" && !Array.isArray(value)
     ? (value as Record<string, unknown>)
     : {};
-}
-function label(value: unknown): string {
-  return typeof value === "string" ? value.slice(0, 500) : "";
-}
-function text(value: unknown, depth = 0): string {
-  if (depth > 5) return "";
-  if (typeof value === "string") return value.slice(0, 12_000);
-  if (Array.isArray(value))
-    return value
-      .slice(0, 30)
-      .map((item) => text(item, depth + 1))
-      .filter(Boolean)
-      .join("\n");
-  const object = record(value);
-  return ["text", "message", "content", "output", "error"]
-    .map((key) =>
-      object[key] === undefined ? "" : text(object[key], depth + 1),
-    )
-    .filter(Boolean)
-    .join("\n")
-    .slice(0, 12_000);
-}
-
-export function presentAgentActivity(item: CommunityAgentActivityItem): {
-  category: "Message" | "Tool" | "Plan" | "Status" | "Error" | "Event";
-  title: string;
-  body: string;
-} {
-  const { frame } = item;
-  const payload = record(frame.payload);
-  if (frame.kind === "request_status")
-    return {
-      category: payload.severity === "error" ? "Error" : "Status",
-      title: label(payload.preview) || label(payload.state) || "Working",
-      body: "",
-    };
-  if (frame.kind === "tool_call_update" && payload.label)
-    return {
-      category: "Tool",
-      title: label(payload.label),
-      body: label(payload.status),
-    };
-  const update = record(record(payload.params).update);
-  const updateKind = label(update.sessionUpdate);
-  if (
-    updateKind === "agent_message_chunk" ||
-    updateKind === "user_message_chunk" ||
-    updateKind === "agent_thought_chunk"
-  )
-    return {
-      category: "Message",
-      title:
-        updateKind === "user_message_chunk"
-          ? "Prompt"
-          : updateKind === "agent_thought_chunk"
-            ? "Agent thought"
-            : "Agent message",
-      body: text(update.content),
-    };
-  if (frame.kind === "permission_requested")
-    return {
-      category: "Status",
-      title: "Permission required",
-      body: [label(payload.tool), text(payload.input)]
-        .filter(Boolean)
-        .join("\n"),
-    };
-  if (frame.kind === "permission_resolved")
-    return {
-      category: "Status",
-      title: "Permission resolved",
-      body: label(payload.decision),
-    };
-  if (updateKind === "tool_call" || updateKind === "tool_call_update")
-    return {
-      category: "Tool",
-      title: label(update.title) || label(update.kind) || "Tool activity",
-      body: [
-        label(update.status),
-        text(update.content),
-        text(update.rawOutput),
-        label(record(update.rawInput).command),
-      ]
-        .filter(Boolean)
-        .join("\n"),
-    };
-  if (updateKind === "plan")
-    return {
-      category: "Plan",
-      title: "Agent plan",
-      body: Array.isArray(update.entries)
-        ? update.entries
-            .slice(0, 50)
-            .map((entry) => {
-              const row = record(entry);
-              return `${label(row.status)}: ${label(row.content)}`;
-            })
-            .join("\n")
-        : text(update),
-    };
-  if (
-    frame.kind.includes("error") ||
-    frame.kind === "turn_failed" ||
-    payload.error
-  )
-    return {
-      category: "Error",
-      title: "Agent error",
-      body: text(payload) || "The agent reported an error.",
-    };
-  const lifecycle: Record<string, string> = {
-    turn_started: "Turn started",
-    turn_completed: "Turn completed",
-    turn_finished: "Turn finished",
-    turn_cancelled: "Turn cancelled",
-    session_resolved: "Session ready",
-    agent_stopped: "Agent stopped",
-  };
-  if (lifecycle[frame.kind])
-    return {
-      category: "Status",
-      title: lifecycle[frame.kind]!,
-      body: text(payload),
-    };
-  return {
-    category: "Event",
-    title: label(payload.title) || frame.kind.replaceAll("_", " "),
-    body: text(payload) || safeJson(frame.payload),
-  };
-}
-
-function safeJson(value: unknown): string {
-  try {
-    return (JSON.stringify(value, null, 2) ?? "").slice(0, 12_000);
-  } catch {
-    return "Unrecognized activity payload";
-  }
 }
