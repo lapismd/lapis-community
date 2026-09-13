@@ -15,14 +15,22 @@ import {
   type CommunityEventStoreOptions,
 } from "./event-store.js";
 import { isVerifiedNostrEvent, verifiedNostrEvent } from "./verified-events.js";
-import type { CommunityAgentActivityStore } from "./agent-contracts.js";
+import type {
+  CommunityAgentActivityCheckpoint,
+  CommunityAgentActivityStore,
+} from "./agent-contracts.js";
 import {
+  agentActivityCheckpointKey,
+  agentActivityContextKey,
+  agentArchiveIdentityRecord,
+  agentArchiveIdentityVersion,
   agentArchiveLimit,
   agentArchiveRow,
   agentArchiveScopeKey,
   archivePage,
   archiveIdentity,
   type AgentArchiveRow,
+  validateActivityCheckpoint,
 } from "./agent-archive.js";
 
 interface IndexedEventRow {
@@ -44,6 +52,17 @@ interface IndexedCheckpointRow extends CommunitySyncCheckpoint {
 }
 
 interface CommunityCacheDb extends DBSchema {
+  agentActivitySync: {
+    key: string;
+    value: {
+      key: string;
+      scopeKey: string;
+      agentPubkey: string;
+      contextKey: string;
+      checkpoint: CommunityAgentActivityCheckpoint;
+    };
+    indexes: { scope: string };
+  };
   agentActivity: {
     key: string;
     value: AgentArchiveRow;
@@ -55,6 +74,7 @@ interface CommunityCacheDb extends DBSchema {
       key: string;
       scopeKey: string;
       profile: AgentArchiveRow["record"]["profile"];
+      instance?: NonNullable<AgentArchiveRow["record"]["instance"]>;
     };
     indexes: { scope: string };
   };
@@ -102,14 +122,16 @@ class IndexedDbCommunityEventStore extends BaseCommunityEventStore {
         const identities = tx.objectStore("agentIdentities");
         const key = JSON.stringify([row.scopeKey, row.agentPubkey]);
         const old = await identities.get(key);
-        const profile = row.record.profile;
+        const identity = agentArchiveIdentityRecord(row.record);
+        const next = agentArchiveIdentityVersion(identity);
+        const previous = old ? agentArchiveIdentityVersion(old) : undefined;
         if (
           !old ||
-          profile.created_at > old.profile.created_at ||
-          (profile.created_at === old.profile.created_at &&
-            profile.id < old.profile.id)
+          next.createdAt > previous!.createdAt ||
+          (next.createdAt === previous!.createdAt &&
+            next.eventId < previous!.eventId)
         )
-          await identities.put({ key, scopeKey: row.scopeKey, profile });
+          await identities.put({ key, scopeKey: row.scopeKey, ...identity });
       }
       await tx.done;
     },
@@ -174,7 +196,12 @@ class IndexedDbCommunityEventStore extends BaseCommunityEventStore {
         agentArchiveScopeKey(scope),
       );
       return rows.flatMap((row) => {
-        const identity = archiveIdentity(row.profile, scope.ownerPubkey);
+        const identity = archiveIdentity(
+          row.profile,
+          scope.ownerPubkey,
+          scope.relayPubkey,
+          row.instance,
+        );
         return identity ? [identity] : [];
       });
     },
@@ -203,6 +230,90 @@ class IndexedDbCommunityEventStore extends BaseCommunityEventStore {
       }
       await tx.done;
     },
+    checkpoint: async (scope, agent, context) => {
+      const database = this.#requireDatabase();
+      const [exact, suppression] = await Promise.all([
+        database.get(
+          "agentActivitySync",
+          agentActivityCheckpointKey(scope, agent, context),
+        ),
+        database.get(
+          "agentActivitySync",
+          agentActivityCheckpointKey(scope, agent, "*"),
+        ),
+      ]);
+      if (!exact && !suppression) return;
+      const checkpoint = { ...(exact ?? suppression!).checkpoint };
+      if (suppression?.checkpoint.notBefore !== undefined)
+        checkpoint.notBefore = Math.max(
+          checkpoint.notBefore ?? 0,
+          suppression.checkpoint.notBefore,
+        );
+      checkpoint.updatedAt = Math.max(
+        checkpoint.updatedAt,
+        suppression?.checkpoint.updatedAt ?? 0,
+      );
+      return checkpoint;
+    },
+    commitSyncPage: async (scope, agent, context, records, checkpoint) => {
+      const rows = records.map((record) => agentArchiveRow(scope, record));
+      if (rows.some((row) => row.agentPubkey !== agent))
+        throw new Error("Activity page contains a different agent");
+      const next = validateActivityCheckpoint(checkpoint);
+      const tx = this.#requireDatabase().transaction(
+        ["agentActivity", "agentIdentities", "agentActivitySync"],
+        "readwrite",
+      );
+      for (const row of rows) {
+        const activities = tx.objectStore("agentActivity");
+        if ((await activities.getKey(row.key)) === undefined)
+          await activities.put(row);
+        const identities = tx.objectStore("agentIdentities");
+        const identityKey = JSON.stringify([row.scopeKey, row.agentPubkey]);
+        const old = await identities.get(identityKey);
+        const identity = agentArchiveIdentityRecord(row.record);
+        const next = agentArchiveIdentityVersion(identity);
+        const previous = old ? agentArchiveIdentityVersion(old) : undefined;
+        if (
+          !old ||
+          next.createdAt > previous!.createdAt ||
+          (next.createdAt === previous!.createdAt &&
+            next.eventId < previous!.eventId)
+        )
+          await identities.put({
+            key: identityKey,
+            scopeKey: row.scopeKey,
+            ...identity,
+          });
+      }
+      await tx.objectStore("agentActivitySync").put({
+        key: agentActivityCheckpointKey(scope, agent, context),
+        scopeKey: agentArchiveScopeKey(scope),
+        agentPubkey: agent,
+        contextKey: agentActivityContextKey(context),
+        checkpoint: next,
+      });
+      await tx.done;
+    },
+    suppressBefore: async (scope, agent, timestamp) => {
+      const database = this.#requireDatabase();
+      const key = agentActivityCheckpointKey(scope, agent, "*");
+      const existing = await database.get("agentActivitySync", key);
+      await database.put("agentActivitySync", {
+        key,
+        scopeKey: agentArchiveScopeKey(scope),
+        agentPubkey: agent,
+        contextKey: "*",
+        checkpoint: {
+          ...(existing?.checkpoint.streamId
+            ? { streamId: existing.checkpoint.streamId }
+            : {}),
+          offset: existing?.checkpoint.offset ?? 0,
+          notBefore: Math.max(existing?.checkpoint.notBefore ?? 0, timestamp),
+          updatedAt: timestamp,
+        },
+      });
+    },
   };
   readonly mode = "indexeddb" as const;
   readonly #databaseName: string;
@@ -218,7 +329,7 @@ class IndexedDbCommunityEventStore extends BaseCommunityEventStore {
 
   async open(): Promise<void> {
     if (this.#database !== undefined) return;
-    this.#database = await openDB<CommunityCacheDb>(this.#databaseName, 2, {
+    this.#database = await openDB<CommunityCacheDb>(this.#databaseName, 3, {
       upgrade(database, oldVersion) {
         if (oldVersion < 1) {
           const events = database.createObjectStore("events", {
@@ -247,6 +358,12 @@ class IndexedDbCommunityEventStore extends BaseCommunityEventStore {
             keyPath: "key",
           });
           identities.createIndex("scope", "scopeKey");
+        }
+        if (oldVersion < 3) {
+          const sync = database.createObjectStore("agentActivitySync", {
+            keyPath: "key",
+          });
+          sync.createIndex("scope", "scopeKey");
         }
       },
       blocking: () => {

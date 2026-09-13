@@ -141,6 +141,7 @@ export interface CommunityAgentPresence {
 /** Buzz ObserverEvent payload. ACP data remains untrusted display content. */
 export interface CommunityAgentObserver {
   seq: number;
+  streamId?: string;
   timestamp: string;
   kind: string;
   agentIndex?: number | null;
@@ -233,18 +234,48 @@ export type CommunityAgentControl =
       requestId: string;
       decision: CommunityAgentPermissionDecision;
       channelId?: string;
+    }
+  | {
+      version: 1;
+      command: "sync_activity";
+      requestId: string;
+      context: CommunityAgentActivitySyncContext;
+      cursor?: { streamId: string; offset: number };
+      highWaterMark?: number;
+      notBefore?: number;
+      channelId?: string;
     };
+
+export type CommunityAgentActivitySyncContext =
+  | { kind: "dm" }
+  | { kind: "channel"; channelId: string }
+  | {
+      kind: "thread" | "forum-topic";
+      channelId: string;
+      threadRootId: string;
+    };
+
+export interface CommunityAgentActivityCheckpoint {
+  streamId?: string;
+  offset: number;
+  notBefore?: number;
+  updatedAt: number;
+}
 
 export interface CommunityAgentArchiveScope {
   communityId: string;
   /** Normalized primary and read relay URLs, not merely a display name. */
   relayUrls: readonly string[];
   ownerPubkey: string;
+  /** Current verified relay identity used to validate managed ownership. */
+  relayPubkey?: string;
 }
 
 export interface CommunityAgentArchiveRecord {
   event: NostrEvent;
   profile: NostrEvent;
+  /** Current owner-signed instance; required to prove relay-managed ownership. */
+  instance?: NostrEvent;
   receivedAt: number;
 }
 
@@ -278,6 +309,23 @@ export interface CommunityAgentActivityStore {
     scope: CommunityAgentArchiveScope,
   ): Promise<readonly CommunityAgentIdentity[]>;
   clear(scope: CommunityAgentArchiveScope, agentPubkey?: string): Promise<void>;
+  checkpoint(
+    scope: CommunityAgentArchiveScope,
+    agentPubkey: string,
+    context: CommunityAgentActivitySyncContext,
+  ): Promise<CommunityAgentActivityCheckpoint | undefined>;
+  commitSyncPage(
+    scope: CommunityAgentArchiveScope,
+    agentPubkey: string,
+    context: CommunityAgentActivitySyncContext,
+    records: readonly CommunityAgentArchiveRecord[],
+    checkpoint: CommunityAgentActivityCheckpoint,
+  ): Promise<void>;
+  suppressBefore(
+    scope: CommunityAgentArchiveScope,
+    agentPubkey: string,
+    timestamp: number,
+  ): Promise<void>;
 }
 
 export type CommunityAgentArchiveRequest =
@@ -292,6 +340,26 @@ export type CommunityAgentArchiveRequest =
       operation: "clear";
       scope: CommunityAgentArchiveScope;
       agentPubkey?: string;
+    }
+  | {
+      operation: "checkpoint";
+      scope: CommunityAgentArchiveScope;
+      agentPubkey: string;
+      context: CommunityAgentActivitySyncContext;
+    }
+  | {
+      operation: "commitSyncPage";
+      scope: CommunityAgentArchiveScope;
+      agentPubkey: string;
+      context: CommunityAgentActivitySyncContext;
+      records: readonly CommunityAgentArchiveRecord[];
+      checkpoint: CommunityAgentActivityCheckpoint;
+    }
+  | {
+      operation: "suppressBefore";
+      scope: CommunityAgentArchiveScope;
+      agentPubkey: string;
+      timestamp: number;
     };
 
 export interface CommunityAgentActivityItem {
@@ -368,6 +436,8 @@ export interface CommunityAgentsState {
   activityAgent?: string;
   activityChannel?: string;
   activityLoading: boolean;
+  activitySyncStatus?: "checking" | "caught-up" | "unavailable";
+  activitySyncGap?: boolean;
   hasOlder: boolean;
 }
 
@@ -392,6 +462,11 @@ export interface CommunityAgentsActions {
     pubkey: string,
     context?: string | CommunityAgentActivityContext,
   ): Promise<void>;
+  syncActivity(
+    context: CommunityAgentActivitySyncContext,
+    agentPubkeys?: readonly string[],
+  ): Promise<void>;
+  cancelActivitySync(): void;
   loadOlderActivity(): Promise<void>;
   clearHistory(pubkey?: string): Promise<void>;
   cancelTurn(

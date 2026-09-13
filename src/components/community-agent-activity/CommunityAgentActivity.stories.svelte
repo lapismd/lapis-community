@@ -125,6 +125,44 @@
       variant="permission"
     />{/snippet}</Story
 >
+<Story name="Checking for missed activity"
+  >{#snippet template()}<Harness
+      screen="activity"
+      variant="sync-checking"
+    />{/snippet}</Story
+>
+<Story name="Caught up with active work"
+  >{#snippet template()}<Harness
+      screen="activity"
+      variant="sync-active"
+    />{/snippet}</Story
+>
+<Story name="Completed while offline"
+  >{#snippet template()}<Harness
+      screen="activity"
+      variant="sync-completed"
+    />{/snippet}</Story
+>
+<Story name="Activity catch-up unavailable"
+  >{#snippet template()}<Harness
+      screen="activity"
+      variant="sync-unavailable"
+    />{/snippet}</Story
+>
+<Story
+  name="Retry activity catch-up"
+  play={async ({ canvas }) => {
+    await expect(canvas.getByText("Catch-up unavailable")).toBeVisible();
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Latest", exact: true }),
+    );
+    await expect(canvas.getByText("Checking activity")).toBeVisible();
+  }}
+  >{#snippet template()}<Harness
+      screen="activity"
+      variant="sync-retry"
+    />{/snippet}</Story
+>
 <Story
   name="Controller permissions"
   play={async ({ canvas, canvasElement }) => {

@@ -1279,10 +1279,61 @@ function validateAgentControl(control: CommunityAgentControl): void {
       throw new Error("Agent control scope is invalid");
     return;
   }
+  if (control.command === "sync_activity") {
+    if (
+      !hasOnlyObjectKeys(control as unknown as Record<string, unknown>, [
+        "version",
+        "command",
+        "requestId",
+        "context",
+        "cursor",
+        "highWaterMark",
+        "notBefore",
+        "channelId",
+      ])
+    )
+      throw new Error("Agent activity control contains unknown fields");
+    if (!control.requestId.trim() || control.requestId.length > 128)
+      throw new Error("Agent activity request is invalid");
+    const context = control.context;
+    if (
+      !context ||
+      !["dm", "channel", "thread", "forum-topic"].includes(context.kind) ||
+      (context.kind === "dm" && !hasOnlyObjectKeys(context, ["kind"])) ||
+      (context.kind !== "dm" &&
+        (!context.channelId.trim() || context.channelId.length > 256)) ||
+      (context.kind === "channel" &&
+        !hasOnlyObjectKeys(context, ["kind", "channelId"])) ||
+      ((context.kind === "thread" || context.kind === "forum-topic") &&
+        (!hasOnlyObjectKeys(context, ["kind", "channelId", "threadRootId"]) ||
+          !context.threadRootId.trim() ||
+          context.threadRootId.length > 256)) ||
+      (context.kind === "dm" && control.channelId !== undefined) ||
+      (context.kind !== "dm" && control.channelId !== context.channelId) ||
+      (control.cursor !== undefined &&
+        (!hasOnlyObjectKeys(control.cursor, ["streamId", "offset"]) ||
+          !control.cursor.streamId ||
+          control.cursor.streamId.length > 128 ||
+          !Number.isSafeInteger(control.cursor.offset) ||
+          control.cursor.offset < 0)) ||
+      (control.highWaterMark !== undefined &&
+        (!Number.isSafeInteger(control.highWaterMark) ||
+          control.highWaterMark < 0)) ||
+      (control.notBefore !== undefined &&
+        (!Number.isSafeInteger(control.notBefore) || control.notBefore < 0))
+    )
+      throw new Error("Agent activity context or cursor is invalid");
+    return;
+  }
   if (!control.requestId.trim() || control.requestId.length > 512)
     throw new Error("Agent permission request is invalid");
   if (!AGENT_PERMISSION_DECISIONS.has(control.decision))
     throw new Error("Agent permission decision is invalid");
+}
+
+function hasOnlyObjectKeys(value: object, allowed: readonly string[]): boolean {
+  const allowedKeys = new Set(allowed);
+  return Object.keys(value).every((key) => allowedKeys.has(key));
 }
 
 function managedAgentCapability(

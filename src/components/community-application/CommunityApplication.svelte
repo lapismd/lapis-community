@@ -1,6 +1,9 @@
 <script lang="ts">
   import { provideAgentComposerActivity } from "../community-agent-composer-activity/context.js";
-  import type { CommunityAgentActivityContext } from "../../community/agent-contracts.js";
+  import type {
+    CommunityAgentActivityContext,
+    CommunityAgentActivitySyncContext,
+  } from "../../community/agent-contracts.js";
   import CommunitySkeleton from "../community-skeleton/CommunitySkeleton.svelte";
   import { DialogFrame } from "@lapismd/design-core/forms/dialog";
 
@@ -1655,6 +1658,58 @@
       };
     return { kind: "channel", channelId: activeRoom.groupId ?? activeRoom.id };
   }
+  const visibleAgentSyncKey = $derived.by(() => {
+    if (!community.actions.agents || activeDestination !== activeRoom.id)
+      return "";
+    const origin = activityOrigin();
+    if (origin.kind === "overview") return "";
+    const context: CommunityAgentActivitySyncContext =
+      origin.kind === "dm"
+        ? { kind: "dm" }
+        : origin.kind === "channel"
+          ? { kind: "channel", channelId: origin.channelId }
+          : {
+              kind: origin.kind,
+              channelId: origin.channelId,
+              threadRootId: origin.threadRootId,
+            };
+    const owned = community.state.agents?.agents ?? [];
+    const agentPubkeys = owned
+      .filter((agent) =>
+        context.kind === "dm"
+          ? (activeRoom.participantIds ?? []).includes(agent.pubkey)
+          : agent.channelIds.includes(context.channelId),
+      )
+      .map((agent) => agent.pubkey)
+      .sort();
+    return agentPubkeys.length
+      ? JSON.stringify([
+          workspace.activeCommunityId,
+          community.state.authentication.pubkey ?? "",
+          context,
+          agentPubkeys,
+        ])
+      : "";
+  });
+  $effect(() => {
+    const key = visibleAgentSyncKey;
+    if (!key) {
+      untrack(() => community.actions.agents?.cancelActivitySync());
+      return;
+    }
+    untrack(() => {
+      const [, , context, agentPubkeys] = JSON.parse(key) as [
+        string,
+        string,
+        CommunityAgentActivitySyncContext,
+        string[],
+      ];
+      void community.actions.agents?.syncActivity(context, agentPubkeys);
+    });
+    return () => {
+      untrack(() => community.actions.agents?.cancelActivitySync());
+    };
+  });
   function openAgentActivity(
     pubkey: string,
     context?: string | CommunityAgentActivityContext,

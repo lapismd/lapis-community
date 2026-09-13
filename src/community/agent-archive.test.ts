@@ -11,8 +11,10 @@ import { createIndexedDbCommunityEventStore } from "./indexeddb-event-store.js";
 
 const ownerKey = new Uint8Array(32).fill(61);
 const agentKey = new Uint8Array(32).fill(62);
+const relayKey = new Uint8Array(32).fill(63);
 const ownerPubkey = getPublicKey(ownerKey);
 const agentPubkey = getPublicKey(agentKey);
+const relayPubkey = getPublicKey(relayKey);
 const scope = {
   communityId: "test",
   relayUrls: ["wss://relay.example/"],
@@ -33,6 +35,24 @@ const profile = finalizeEvent(
   },
   agentKey,
 );
+const managedProfile = finalizeEvent(
+  {
+    kind: 0,
+    created_at: 100,
+    content: '{"name":"Managed research"}',
+    tags: [["lapis-managed", ownerPubkey, relayPubkey]],
+  },
+  agentKey,
+);
+const managedInstance = finalizeEvent(
+  {
+    kind: 30177,
+    created_at: 100,
+    content: '{"name":"Managed research"}',
+    tags: [["d", agentPubkey]],
+  },
+  ownerKey,
+);
 function record(time = 100): CommunityAgentArchiveRecord {
   return {
     profile,
@@ -51,6 +71,14 @@ function record(time = 100): CommunityAgentArchiveRecord {
       },
       agentKey,
     ),
+  };
+}
+
+function managedRecord(time = 100): CommunityAgentArchiveRecord {
+  return {
+    ...record(time),
+    profile: managedProfile,
+    instance: managedInstance,
   };
 }
 
@@ -121,6 +149,66 @@ for (const backend of ["memory", "indexeddb"])
         "Invalid encrypted",
       );
       expect((await archive.page({ scope })).records).toHaveLength(1);
+      await store.close();
+    });
+    it("requires the current relay identity before archiving managed-agent telemetry", async () => {
+      const store = create();
+      await store.open();
+      const archive = store.agentActivity!;
+      await expect(archive.append(scope, [managedRecord()])).rejects.toThrow(
+        "Invalid encrypted",
+      );
+      await archive.append({ ...scope, relayPubkey }, [managedRecord()]);
+      expect(
+        (await archive.page({ scope: { ...scope, relayPubkey } })).records,
+      ).toHaveLength(1);
+      expect((await archive.agents({ ...scope, relayPubkey }))[0]?.name).toBe(
+        "Managed research",
+      );
+      const { instance: _instance, ...unlinked } = managedRecord(101);
+      await expect(
+        archive.append({ ...scope, relayPubkey }, [unlinked]),
+      ).rejects.toThrow("Invalid encrypted");
+      await expect(
+        archive.append(
+          {
+            ...scope,
+            relayPubkey: getPublicKey(new Uint8Array(32).fill(64)),
+          },
+          [managedRecord(101)],
+        ),
+      ).rejects.toThrow("Invalid encrypted");
+      await store.close();
+    });
+    it("commits replay pages with per-context checkpoints and retains them when history is cleared", async () => {
+      const store = create();
+      await store.open();
+      const archive = store.agentActivity!;
+      const context = { kind: "channel" as const, channelId: "general" };
+      await archive.commitSyncPage(scope, agentPubkey, context, [record(101)], {
+        streamId: "stream-1",
+        offset: 7,
+        updatedAt: 101,
+      });
+      expect(await archive.checkpoint(scope, agentPubkey, context)).toEqual({
+        streamId: "stream-1",
+        offset: 7,
+        updatedAt: 101,
+      });
+      await archive.clear(scope, agentPubkey);
+      expect((await archive.page({ scope })).records).toEqual([]);
+      expect(await archive.checkpoint(scope, agentPubkey, context)).toEqual({
+        streamId: "stream-1",
+        offset: 7,
+        updatedAt: 101,
+      });
+      await archive.suppressBefore(scope, agentPubkey, 200);
+      expect(await archive.checkpoint(scope, agentPubkey, context)).toEqual({
+        streamId: "stream-1",
+        offset: 7,
+        notBefore: 200,
+        updatedAt: 200,
+      });
       await store.close();
     });
   });

@@ -63,6 +63,18 @@ function managedProfile(
   );
 }
 
+function managedInstance(managedAgent = agent, managedOwnerKey = ownerKey) {
+  return finalizeEvent(
+    {
+      kind: 30177,
+      created_at: now,
+      content: '{"name":"Managed research agent"}',
+      tags: [["d", managedAgent]],
+    },
+    managedOwnerKey,
+  );
+}
+
 describe("agent ownership and protocol", () => {
   it("honors a relay lease expiry without extending it from the observation time", () => {
     const event = finalizeEvent(
@@ -435,6 +447,42 @@ describe("agent ownership and protocol", () => {
       agentKey,
     );
     expect(validateAgentTelemetry(event, profile(), owner, now)).toBe(true);
+    expect(
+      validateAgentTelemetry(
+        event,
+        managedProfile(),
+        owner,
+        now,
+        relay,
+        managedInstance(),
+      ),
+    ).toBe(true);
+    expect(
+      validateAgentTelemetry(
+        event,
+        managedProfile(owner, getPublicKey(new Uint8Array(32).fill(64))),
+        owner,
+        now,
+        relay,
+        managedInstance(),
+      ),
+    ).toBe(false);
+    expect(validateAgentTelemetry(event, managedProfile(), owner, now)).toBe(
+      false,
+    );
+    expect(
+      validateAgentTelemetry(event, managedProfile(), owner, now, relay),
+    ).toBe(false);
+    expect(
+      validateAgentTelemetry(
+        event,
+        managedProfile(),
+        owner,
+        now,
+        relay,
+        managedInstance(getPublicKey(new Uint8Array(32).fill(64))),
+      ),
+    ).toBe(false);
     expect(validateAgentTelemetry(event, profile(), relay, now)).toBe(false);
     expect(validateAgentTelemetry(event, profile(), owner, now + 301)).toBe(
       false,
@@ -466,6 +514,28 @@ describe("agent ownership and protocol", () => {
       )?.kind,
     ).toBe("turn_started");
     expect(parseAgentObserver('{"seq":1}')).toBeUndefined();
+    expect(
+      parseAgentObserver(
+        JSON.stringify({
+          seq: 2,
+          streamId: "stream-1",
+          timestamp: "2026-09-11T00:00:00Z",
+          kind: "turn_completed",
+          payload: {},
+        }),
+      )?.streamId,
+    ).toBe("stream-1");
+    expect(
+      parseAgentObserver(
+        JSON.stringify({
+          seq: 2,
+          streamId: "",
+          timestamp: "2026-09-11T00:00:00Z",
+          kind: "turn_completed",
+          payload: {},
+        }),
+      ),
+    ).toBeUndefined();
     expect(
       parseAgentObserver(
         JSON.stringify({

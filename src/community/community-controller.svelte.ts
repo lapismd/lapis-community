@@ -1303,6 +1303,13 @@ export function createCommunityController(
           throw new Error("Agent activity requires a signed-in community");
         await agentController.actions.openActivity(pubkey, channel);
       },
+      syncActivity: async (context, agentPubkeys) => {
+        if (!agentController) return;
+        await agentController.actions.syncActivity(context, agentPubkeys);
+      },
+      cancelActivitySync: () => {
+        agentController?.actions.cancelActivitySync();
+      },
       loadOlderActivity: async () => {
         await agentController?.actions.loadOlderActivity();
       },

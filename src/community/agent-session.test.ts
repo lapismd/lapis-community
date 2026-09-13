@@ -261,6 +261,51 @@ describe("agent relay session", () => {
     expect(fixture.events).toContainEqual(event);
   });
 
+  it("publishes bounded activity catch-up controls with exact context routing", async () => {
+    const fixture = setup();
+    const control = {
+      version: 1 as const,
+      command: "sync_activity" as const,
+      requestId: "sync-1",
+      context: {
+        kind: "thread" as const,
+        channelId: "project-x",
+        threadRootId: "root-1",
+      },
+      cursor: { streamId: "stream-1", offset: 4 },
+      highWaterMark: 9,
+      channelId: "project-x",
+    };
+    const event = await fixture.session.sendControl!(agent, control);
+    expect(event.tags).toContainEqual(["h", "project-x"]);
+    expect(fixture.nip44.encrypt).toHaveBeenCalledWith(
+      agent,
+      JSON.stringify(control),
+    );
+    await expect(
+      fixture.session.sendControl!(agent, {
+        ...control,
+        context: {
+          kind: "channel",
+          channelId: "project-x",
+          threadRootId: "unexpected",
+        } as never,
+      }),
+    ).rejects.toThrow(/context or cursor/i);
+    await expect(
+      fixture.session.sendControl!(agent, {
+        ...control,
+        context: { kind: "dm", channelId: "project-x" } as never,
+      }),
+    ).rejects.toThrow(/context or cursor/i);
+    await expect(
+      fixture.session.sendControl!(agent, {
+        ...control,
+        scopeKey: "arbitrary-controller-scope",
+      } as never),
+    ).rejects.toThrow(/unknown fields/i);
+  });
+
   it("fails closed when controller encryption is unavailable", async () => {
     const fixture = setup(undefined, false);
     await expect(

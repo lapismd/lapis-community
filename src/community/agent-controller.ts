@@ -3,7 +3,11 @@ import {
   observerScope,
   controllerScopeId,
 } from "./agent-activity-context.js";
-import type { CommunityAgentActivityContext } from "./agent-contracts.js";
+import type {
+  CommunityAgentActivityContext,
+  CommunityAgentActivitySyncContext,
+  CommunityAgentObserver,
+} from "./agent-contracts.js";
 import type { CommunitySigner } from "../auth/index.js";
 import type { NostrEvent } from "../protocol/index.js";
 import type { CommunityStorageMode } from "./contracts.js";
@@ -41,6 +45,18 @@ interface AgentControllerOptions {
   now?: () => number;
 }
 
+interface ActivitySyncRequest {
+  id: string;
+  generation: number;
+  agentPubkey: string;
+  context: CommunityAgentActivitySyncContext;
+  offset: number;
+  streamId?: string;
+  highWaterMark?: number;
+  notBefore?: number;
+  timer?: ReturnType<typeof setTimeout>;
+}
+
 export function createCommunityAgentsController(
   options: AgentControllerOptions,
 ): CommunityAgentsController {
@@ -52,6 +68,7 @@ export class CommunityAgentsController {
   readonly #abort = new AbortController();
   #subscription: { close(): void } | undefined;
   #subscriptionKey = "";
+  #subscribedPubkeys = new Set<string>();
   #directory: CommunityAgentDirectory | undefined;
   #ownerChannels = new Set<string>();
   #metadataIds = new Set<string>();
@@ -78,6 +95,19 @@ export class CommunityAgentsController {
   #decodePaused = false;
   #decodeCount = 0;
   #decodeQueue = Promise.resolve();
+  #syncRequest: ActivitySyncRequest | undefined;
+  #syncQueue: Array<{
+    agentPubkey: string;
+    context: CommunityAgentActivitySyncContext;
+  }> = [];
+  #syncSelection:
+    | {
+        context: CommunityAgentActivitySyncContext;
+        agentPubkeys: readonly string[];
+      }
+    | undefined;
+  #syncGeneration = 0;
+  #syncSerial = 0;
   #state: CommunityAgentsState;
 
   readonly actions: CommunityAgentsActions = {
@@ -216,6 +246,16 @@ export class CommunityAgentsController {
       });
     },
     openActivity: (pubkey, channel) => this.openActivity(pubkey, channel),
+    syncActivity: (context, agentPubkeys) =>
+      this.syncActivity(context, agentPubkeys),
+    cancelActivitySync: () => {
+      this.#syncSelection = undefined;
+      this.#cancelActivitySync(true);
+      this.#update({
+        activitySyncStatus: undefined,
+        activitySyncGap: undefined,
+      });
+    },
     loadOlderActivity: () => this.#loadActivity(false),
     clearHistory: async (pubkey) => {
       const archive = this.#options.archive;
@@ -226,14 +266,36 @@ export class CommunityAgentsController {
       this.#pendingRecords = this.#pendingRecords.filter(
         (record) => pubkey !== undefined && record.event.pubkey !== pubkey,
       );
-      await archive.clear(this.#options.scope, pubkey);
+      const suppressedAgents = pubkey
+        ? [pubkey]
+        : [
+            ...new Set(
+              [...this.#state.agents, ...this.#state.archivedAgents].map(
+                (agent) => agent.pubkey,
+              ),
+            ),
+          ];
+      await Promise.all(
+        suppressedAgents.map((agent) =>
+          archive.suppressBefore(this.#archiveScope(), agent, this.#now()),
+        ),
+      );
+      await archive.clear(this.#archiveScope(), pubkey);
       if (this.#closed) return;
+      this.#decodedFrames.clear();
+      this.#controllerSequence.clear();
       this.#archivePaused = false;
       this.#update({
         archiveError: undefined,
-        archivedAgents: await archive.agents(this.#options.scope),
+        archivedAgents: await archive.agents(this.#archiveScope()),
         ...(!pubkey || this.#state.activityAgent === pubkey
-          ? { activity: [], hasOlder: false, activityLoading: false }
+          ? {
+              activity: [],
+              hasOlder: false,
+              activityLoading: false,
+              activitySyncStatus: undefined,
+              activitySyncGap: undefined,
+            }
           : {}),
       });
       void this.#flushArchive();
@@ -340,6 +402,13 @@ export class CommunityAgentsController {
     return Math.floor(this.#options.now?.() ?? Date.now() / 1_000);
   }
 
+  #archiveScope() {
+    const relayPubkey = this.#directory?.relayPubkey;
+    return relayPubkey
+      ? { ...this.#options.scope, relayPubkey }
+      : this.#options.scope;
+  }
+
   #update(patch: {
     [K in keyof CommunityAgentsState]?: CommunityAgentsState[K] | undefined;
   }): void {
@@ -360,14 +429,21 @@ export class CommunityAgentsController {
   }
 
   async #loadArchivedAgents(): Promise<void> {
+    const relayPubkey = this.#directory?.relayPubkey;
     try {
       const archivedAgents =
-        (await this.#options.archive?.agents(this.#options.scope)) ?? [];
+        (await this.#options.archive?.agents(
+          relayPubkey
+            ? { ...this.#options.scope, relayPubkey }
+            : this.#options.scope,
+        )) ?? [];
+      if (relayPubkey !== this.#directory?.relayPubkey) return;
       this.#update({
         archivedAgents,
         storageMode: this.#options.storageMode(),
       });
     } catch {
+      if (relayPubkey !== this.#directory?.relayPubkey) return;
       this.#update({
         archiveError:
           "Saved activity is unavailable. Retry to reopen the archive.",
@@ -391,6 +467,7 @@ export class CommunityAgentsController {
       );
       if (this.#closed) return;
       this.#directory = directory;
+      void this.#loadArchivedAgents();
       this.#ownerChannels = new Set(
         [...agentChannelMemberships(directory.events, directory.relayPubkey)]
           .filter(([, members]) => members.has(this.#options.scope.ownerPubkey))
@@ -447,12 +524,16 @@ export class CommunityAgentsController {
       ]);
       if (key !== this.#subscriptionKey) {
         // Open the replacement first; event IDs deduplicate the overlap.
-        const subscription = await this.#options.session.subscribe(
+        let replacement: { close(): void } | undefined;
+        replacement = await this.#options.session.subscribe(
           pubkeys,
           {
             onevent: (event) => this.#receive(event),
             onclose: () => {
+              if (this.#subscription !== replacement) return;
+              this.#cancelActivitySync(true);
               this.#subscriptionKey = "";
+              this.#subscribedPubkeys.clear();
               this.#workingUntil.clear();
               this.#typingUntil.clear();
               this.#update({
@@ -460,6 +541,9 @@ export class CommunityAgentsController {
                 working: {},
                 presence: {},
                 error: "Agent connection interrupted. Reconnecting…",
+                ...(this.#state.activityAgent || this.#syncSelection
+                  ? { activitySyncStatus: "unavailable" as const }
+                  : {}),
               });
               this.#scheduleRefresh();
             },
@@ -467,12 +551,14 @@ export class CommunityAgentsController {
           this.#abort.signal,
         );
         if (this.#closed) {
-          subscription.close();
+          replacement.close();
           return;
         }
-        this.#subscription?.close();
-        this.#subscription = subscription;
+        const previous = this.#subscription;
+        this.#subscription = replacement;
         this.#subscriptionKey = key;
+        this.#subscribedPubkeys = new Set(pubkeys);
+        previous?.close();
       }
       if (directory.capabilities.directory) this.#update({ status: "ready" });
       const pending = this.#unknownFrames;
@@ -492,6 +578,8 @@ export class CommunityAgentsController {
         });
       }
       this.#tick(false);
+      if (this.#syncSelection || this.#state.activityAgent)
+        void this.#retryActivitySync();
     } catch (error) {
       if (this.#closed) return;
       this.#update({
@@ -543,6 +631,7 @@ export class CommunityAgentsController {
     }
     const now = this.#now();
     if (event.kind === 20001) {
+      const wasOnline = this.#state.presence[agent.pubkey]?.status === "online";
       const presence = agentPresence(
         event,
         agent.pubkey,
@@ -557,6 +646,13 @@ export class CommunityAgentsController {
         this.#update({
           presence: { ...this.#state.presence, [agent.pubkey]: presence },
         });
+      if (
+        presence?.status === "online" &&
+        !wasOnline &&
+        (this.#state.activityAgent === agent.pubkey ||
+          this.#syncSelection?.agentPubkeys.includes(agent.pubkey))
+      )
+        void this.#retryActivitySync();
     } else if (event.kind === 20002) {
       const channel = agentTag(event, "h");
       if (
@@ -609,6 +705,8 @@ export class CommunityAgentsController {
           agent.profile,
           this.#options.scope.ownerPubkey,
           now,
+          this.#directory?.relayPubkey,
+          agent.instance?.event,
         )
       )
         return;
@@ -622,20 +720,27 @@ export class CommunityAgentsController {
       this.#seen.add(event.id);
       if (this.#seen.size > 4_096)
         this.#seen.delete(this.#seen.values().next().value!);
-      if (this.#pendingRecords.length < 256) {
-        this.#pendingRecords.push({
-          event,
-          profile: agent.profile,
-          receivedAt: now,
-        });
-        queueMicrotask(() => void this.#flushArchive());
-      } else
-        this.#update({
-          archiveError:
-            "Activity arrived faster than it could be saved. Some new events were not archived.",
-        });
-      this.#decodeLive(event);
+      const record = {
+        event,
+        profile: agent.profile,
+        ...(agent.instance ? { instance: agent.instance.event } : {}),
+        receivedAt: now,
+      };
+      if (!this.#options.identity.nip44 || this.#decodePaused)
+        this.#queueArchiveRecord(record);
+      this.#decodeLive(event, record);
     }
+  }
+
+  #queueArchiveRecord(record: CommunityAgentArchiveRecord): void {
+    if (this.#pendingRecords.length < 256) {
+      this.#pendingRecords.push(record);
+      queueMicrotask(() => void this.#flushArchive());
+    } else
+      this.#update({
+        archiveError:
+          "Activity arrived faster than it could be saved. Some new events were not archived.",
+      });
   }
 
   async #flushArchive(): Promise<void> {
@@ -654,10 +759,10 @@ export class CommunityAgentsController {
       while (this.#pendingRecords.length && !this.#archivePaused) {
         const records = this.#pendingRecords.splice(0, 100);
         try {
-          await archive.append(this.#options.scope, records);
+          await archive.append(this.#archiveScope(), records);
           this.#update({
             storageMode: this.#options.storageMode(),
-            archivedAgents: await archive.agents(this.#options.scope),
+            archivedAgents: await archive.agents(this.#archiveScope()),
           });
         } catch {
           this.#pendingRecords.unshift(...records);
@@ -680,7 +785,7 @@ export class CommunityAgentsController {
     }
   }
 
-  #decodeLive(event: NostrEvent): void {
+  #decodeLive(event: NostrEvent, record: CommunityAgentArchiveRecord): void {
     if (
       !this.#options.identity.nip44 ||
       this.#decodePaused ||
@@ -698,49 +803,25 @@ export class CommunityAgentsController {
           );
           if (this.#closed) return;
           const frame = parseAgentObserver(plaintext);
-          if (!frame) return;
+          if (!frame) {
+            this.#queueArchiveRecord(record);
+            return;
+          }
           const channel = agentTag(event, "h");
-          if (channel && frame.channelId && channel !== frame.channelId) return;
+          if (channel && frame.channelId && channel !== frame.channelId) {
+            this.#queueArchiveRecord(record);
+            return;
+          }
+          if (frame.kind === "activity_sync_page") {
+            if (new TextEncoder().encode(plaintext).byteLength > 48 * 1_024)
+              return;
+            await this.#applyActivitySyncPage(event, record, frame);
+            return;
+          }
+          this.#queueArchiveRecord(record);
           this.#cacheFrame(event.id, frame);
           this.#applyControllerFrame(event.pubkey, frame);
-          const turns =
-            this.#workingUntil.get(event.pubkey) ??
-            new Map<
-              string,
-              { until: number; timestamp: number; seq: number }
-            >();
-          const turnKey = JSON.stringify([
-            observerRecord(frame.payload).lifecycleRequestId ?? frame.turnId,
-            observerRecord(frame.payload).scopeKey ?? frame.channelId,
-          ]);
-          const timestamp = Date.parse(frame.timestamp);
-          const previous = turns.get(turnKey);
-          if (
-            !previous ||
-            timestamp > previous.timestamp ||
-            (timestamp === previous.timestamp && frame.seq > previous.seq)
-          ) {
-            const terminal = [
-              "turn_completed",
-              "turn_finished",
-              "turn_failed",
-              "turn_cancelled",
-              "agent_stopped",
-            ].includes(frame.kind);
-            if (frame.kind === "agent_stopped") turns.clear();
-            const until = terminal
-              ? 0
-              : frame.kind === "turn_started" ||
-                  frame.kind === "request_status" ||
-                  (previous?.until ?? 0) > this.#now()
-                ? Math.min(this.#now() + 180, event.created_at + 180)
-                : 0;
-            turns.set(turnKey, { until, timestamp, seq: frame.seq });
-            // Retain terminal ordering briefly without growing with archived history.
-            if (turns.size > 512) turns.delete(turns.keys().next().value!);
-            this.#workingUntil.set(event.pubkey, turns);
-            if (terminal) this.#typingUntil.delete(event.pubkey);
-          }
+          this.#applyWorkingFrame(event.pubkey, frame, event.created_at);
           this.#tick(false);
           if (
             !this.#browsingHistory &&
@@ -765,6 +846,7 @@ export class CommunityAgentsController {
             ]);
         } catch {
           if (!this.#closed) {
+            this.#queueArchiveRecord(record);
             this.#decodePaused = true;
             this.#update({
               activityError:
@@ -776,6 +858,47 @@ export class CommunityAgentsController {
       .finally(() => {
         this.#decodeCount--;
       });
+  }
+
+  #applyWorkingFrame(
+    agentPubkey: string,
+    frame: CommunityAgentObserver,
+    freshnessTimestamp: number,
+  ): void {
+    const turns =
+      this.#workingUntil.get(agentPubkey) ??
+      new Map<string, { until: number; timestamp: number; seq: number }>();
+    const turnKey = JSON.stringify([
+      observerRecord(frame.payload).lifecycleRequestId ?? frame.turnId,
+      observerRecord(frame.payload).scopeKey ?? frame.channelId,
+    ]);
+    const timestamp = Date.parse(frame.timestamp);
+    const previous = turns.get(turnKey);
+    if (
+      previous &&
+      (timestamp < previous.timestamp ||
+        (timestamp === previous.timestamp && frame.seq <= previous.seq))
+    )
+      return;
+    const terminal = [
+      "turn_completed",
+      "turn_finished",
+      "turn_failed",
+      "turn_cancelled",
+      "agent_stopped",
+    ].includes(frame.kind);
+    if (frame.kind === "agent_stopped") turns.clear();
+    const until = terminal
+      ? 0
+      : frame.kind === "turn_started" ||
+          frame.kind === "request_status" ||
+          (previous?.until ?? 0) > this.#now()
+        ? Math.min(this.#now() + 180, freshnessTimestamp + 180)
+        : 0;
+    turns.set(turnKey, { until, timestamp, seq: frame.seq });
+    if (turns.size > 512) turns.delete(turns.keys().next().value!);
+    this.#workingUntil.set(agentPubkey, turns);
+    if (terminal) this.#typingUntil.delete(agentPubkey);
   }
 
   #tick(refresh = true): void {
@@ -811,6 +934,7 @@ export class CommunityAgentsController {
     pubkey: string,
     context?: string | CommunityAgentActivityContext,
   ): Promise<void> {
+    this.#cancelActivitySync(true);
     const activityContext: CommunityAgentActivityContext =
       typeof context === "string"
         ? { kind: "channel", channelId: context }
@@ -836,10 +960,398 @@ export class CommunityAgentsController {
       hasOlder: false,
       activityError: undefined,
       activityLoading: false,
+      activitySyncStatus: undefined,
+      activitySyncGap: undefined,
     });
     // Live decoded frames are already available; a stalled write must not block reading.
     void this.#flushArchive();
+    void this.#requestActivitySync();
     await this.#loadActivity(true);
+  }
+
+  async syncActivity(
+    context: CommunityAgentActivitySyncContext,
+    agentPubkeys?: readonly string[],
+  ): Promise<void> {
+    const eligible = this.#state.agents
+      .filter(
+        (agent) =>
+          (!agentPubkeys || agentPubkeys.includes(agent.pubkey)) &&
+          (context.kind === "dm" ||
+            (this.#ownerChannels.has(context.channelId) &&
+              agent.channelIds.includes(context.channelId))),
+      )
+      .map((agent) => agent.pubkey)
+      .sort();
+    this.#cancelActivitySync(true);
+    this.#syncSelection = { context, agentPubkeys: eligible };
+    this.#syncQueue = eligible.map((agentPubkey) => ({
+      agentPubkey,
+      context,
+    }));
+    if (this.#syncQueue.length === 0) {
+      this.#update({
+        activitySyncStatus: undefined,
+        activitySyncGap: undefined,
+      });
+      return;
+    }
+    this.#update({
+      activitySyncStatus: "checking",
+      activitySyncGap: undefined,
+    });
+    if (!eligible.every((agent) => this.#subscribedPubkeys.has(agent))) return;
+    await this.#startNextActivitySync();
+  }
+
+  async #requestActivitySync(): Promise<void> {
+    const agentPubkey = this.#state.activityAgent;
+    const context = activitySyncContext(
+      this.#state.activityContext,
+      agentPubkey,
+    );
+    if (!agentPubkey || !context) return;
+    await this.syncActivity(context, [agentPubkey]);
+  }
+
+  async #retryActivitySync(): Promise<void> {
+    const selection = this.#syncSelection;
+    if (selection)
+      await this.syncActivity(selection.context, selection.agentPubkeys);
+    else await this.#requestActivitySync();
+  }
+
+  async #startNextActivitySync(): Promise<void> {
+    if (this.#syncRequest || this.#syncQueue.length === 0) return;
+    const target = this.#syncQueue.shift()!;
+    const archive = this.#options.archive;
+    if (
+      !archive ||
+      !this.#options.identity.nip44 ||
+      !this.#options.session.sendControl ||
+      !this.#state.agents.some((agent) => agent.pubkey === target.agentPubkey)
+    ) {
+      this.#syncQueue = [];
+      this.#update({ activitySyncStatus: "unavailable" });
+      return;
+    }
+    const generation = this.#syncGeneration;
+    try {
+      const checkpoint = await archive.checkpoint(
+        this.#archiveScope(),
+        target.agentPubkey,
+        target.context,
+      );
+      if (this.#closed || generation !== this.#syncGeneration) return;
+      const request = {
+        id: activitySyncRequestId(++this.#syncSerial),
+        generation,
+        agentPubkey: target.agentPubkey,
+        context: target.context,
+        offset: checkpoint?.offset ?? 0,
+        ...(checkpoint?.streamId ? { streamId: checkpoint.streamId } : {}),
+        ...(checkpoint?.notBefore !== undefined
+          ? { notBefore: checkpoint.notBefore }
+          : {}),
+      };
+      this.#syncRequest = request;
+      await this.#sendActivitySyncRequest(request);
+    } catch {
+      if (!this.#closed && generation === this.#syncGeneration) {
+        clearTimeout(this.#syncRequest?.timer);
+        this.#syncRequest = undefined;
+        this.#syncQueue = [];
+        this.#update({ activitySyncStatus: "unavailable" });
+      }
+    }
+  }
+
+  async #sendActivitySyncRequest(request: ActivitySyncRequest): Promise<void> {
+    clearTimeout(request.timer);
+    await this.#sendControl(request.agentPubkey, {
+      version: 1,
+      command: "sync_activity",
+      requestId: request.id,
+      context: request.context,
+      ...(request.streamId
+        ? { cursor: { streamId: request.streamId, offset: request.offset } }
+        : {}),
+      ...(request.highWaterMark !== undefined
+        ? { highWaterMark: request.highWaterMark }
+        : {}),
+      ...(request.notBefore !== undefined
+        ? { notBefore: request.notBefore }
+        : {}),
+      ...(request.context.kind === "dm"
+        ? {}
+        : { channelId: request.context.channelId }),
+    });
+    if (this.#syncRequest !== request) return;
+    request.timer = setTimeout(() => {
+      if (this.#syncRequest !== request) return;
+      this.#syncRequest = undefined;
+      this.#syncQueue = [];
+      this.#update({ activitySyncStatus: "unavailable" });
+    }, 10_000);
+  }
+
+  #cancelActivitySync(incrementGeneration = false): void {
+    clearTimeout(this.#syncRequest?.timer);
+    this.#syncRequest = undefined;
+    this.#syncQueue = [];
+    if (incrementGeneration) this.#syncGeneration++;
+  }
+
+  async #applyActivitySyncPage(
+    outer: NostrEvent,
+    authorization: CommunityAgentArchiveRecord,
+    frame: CommunityAgentObserver,
+  ): Promise<void> {
+    const request = this.#syncRequest;
+    const payload = observerRecord(frame.payload);
+    if (!request || observerText(payload.requestId, 128) !== request.id) return;
+    try {
+      if (
+        this.#closed ||
+        request.generation !== this.#syncGeneration ||
+        request.agentPubkey !== outer.pubkey ||
+        frame.streamId !== payload.streamId
+      )
+        throw new Error("stale activity sync response");
+      const context = parseActivitySyncContext(payload.context);
+      if (!context || !sameActivitySyncContext(context, request.context))
+        throw new Error("activity sync context mismatch");
+      const afterOffset = syncInteger(payload.afterOffset);
+      const nextOffset = syncInteger(payload.nextOffset);
+      const highWaterMark = syncInteger(payload.highWaterMark);
+      const streamId = observerText(payload.streamId, 128);
+      const complete = payload.complete;
+      const streamChanged = payload.streamChanged === true;
+      if (
+        !streamId ||
+        highWaterMark === undefined ||
+        afterOffset === undefined ||
+        nextOffset === undefined ||
+        typeof complete !== "boolean" ||
+        nextOffset < afterOffset ||
+        nextOffset > highWaterMark ||
+        (complete && nextOffset !== highWaterMark) ||
+        (!complete && nextOffset === afterOffset) ||
+        (request.highWaterMark !== undefined &&
+          request.highWaterMark !== highWaterMark) ||
+        (request.streamId === streamId && afterOffset !== request.offset) ||
+        (request.streamId &&
+          request.streamId !== streamId &&
+          (!streamChanged || afterOffset !== 0)) ||
+        (!request.streamId && afterOffset !== 0) ||
+        !Array.isArray(payload.events) ||
+        payload.events.length > 50 ||
+        !Array.isArray(payload.snapshotEvents) ||
+        payload.snapshotEvents.length > 64
+      )
+        throw new Error("invalid activity sync page");
+      const events = await this.#decodeActivitySyncEvents(
+        payload.events,
+        authorization,
+        request,
+        streamId,
+        afterOffset,
+        highWaterMark,
+        true,
+      );
+      const snapshots = await this.#decodeActivitySyncEvents(
+        payload.snapshotEvents,
+        authorization,
+        request,
+        streamId,
+        0,
+        undefined,
+        false,
+      );
+      if (
+        this.#syncRequest !== request ||
+        request.generation !== this.#syncGeneration
+      )
+        return;
+      const snapshotScopeKeys = snapshots.map(({ frame: snapshot }) =>
+        observerText(observerRecord(snapshot.payload).scopeKey, 4_096),
+      );
+      if (
+        snapshotScopeKeys.some((scopeKey) => !scopeKey) ||
+        new Set(snapshotScopeKeys).size > 1
+      )
+        throw new Error("activity snapshots do not identify one scope");
+      if (events.some(({ frame }) => frame.seq > nextOffset))
+        throw new Error("activity page cursor precedes an event");
+      const archive = this.#options.archive;
+      if (!archive) throw new Error("activity archive unavailable");
+      await archive.commitSyncPage(
+        this.#archiveScope(),
+        request.agentPubkey,
+        request.context,
+        events.map(({ event }) => ({
+          event,
+          profile: authorization.profile,
+          ...(authorization.instance
+            ? { instance: authorization.instance }
+            : {}),
+          receivedAt: this.#now(),
+        })),
+        {
+          streamId,
+          offset: nextOffset,
+          ...(request.notBefore !== undefined
+            ? { notBefore: request.notBefore }
+            : {}),
+          updatedAt: this.#now(),
+        },
+      );
+      if (this.#syncRequest !== request) return;
+      const snapshotScopeKey = snapshotScopeKeys[0];
+      const snapshotSequence = Math.max(
+        0,
+        ...snapshots.map(({ frame: snapshot }) => snapshot.seq),
+      );
+      const currentSequence = snapshotScopeKey
+        ? this.#controllerSequence.get(
+            JSON.stringify([
+              controllerScopeId(request.agentPubkey, snapshotScopeKey),
+              streamId,
+            ]),
+          )
+        : undefined;
+      if (
+        snapshotScopeKey &&
+        (currentSequence === undefined || currentSequence <= snapshotSequence)
+      )
+        this.#update({
+          pendingPermissions: {
+            ...this.#state.pendingPermissions,
+            [request.agentPubkey]: (
+              this.#state.pendingPermissions[request.agentPubkey] ?? []
+            ).filter((permission) => permission.scopeKey !== snapshotScopeKey),
+          },
+        });
+      for (const item of events) {
+        this.#seen.add(item.event.id);
+        this.#cacheFrame(item.event.id, item.frame);
+      }
+      if (
+        this.#state.activityAgent === request.agentPubkey &&
+        activitySyncContext(this.#state.activityContext, request.agentPubkey) &&
+        sameActivitySyncContext(
+          activitySyncContext(
+            this.#state.activityContext,
+            request.agentPubkey,
+          )!,
+          request.context,
+        )
+      )
+        this.#mergeActivity(
+          events.map(({ event, frame }) => ({
+            id: event.id,
+            agentPubkey: request.agentPubkey,
+            createdAt: event.created_at,
+            frame,
+          })),
+        );
+      for (const snapshot of snapshots.toSorted(
+        (left, right) => left.frame.seq - right.frame.seq,
+      )) {
+        this.#applyControllerFrame(
+          request.agentPubkey,
+          snapshot.frame,
+          outer.created_at * 1_000,
+          true,
+        );
+        this.#applyWorkingFrame(
+          request.agentPubkey,
+          snapshot.frame,
+          outer.created_at,
+        );
+      }
+      this.#tick(false);
+      const gap = Boolean(payload.migrationGap || payload.replayGap);
+      if (complete) {
+        clearTimeout(request.timer);
+        this.#syncRequest = undefined;
+        if (this.#syncQueue.length > 0) {
+          this.#update({
+            activitySyncStatus: "checking",
+            activitySyncGap: gap || this.#state.activitySyncGap,
+          });
+          await this.#startNextActivitySync();
+        } else
+          this.#update({
+            activitySyncStatus: "caught-up",
+            activitySyncGap: gap || this.#state.activitySyncGap,
+          });
+        return;
+      }
+      request.offset = nextOffset;
+      request.streamId = streamId;
+      request.highWaterMark = highWaterMark;
+      this.#update({
+        activitySyncStatus: "checking",
+        activitySyncGap: gap || this.#state.activitySyncGap,
+      });
+      await this.#sendActivitySyncRequest(request);
+    } catch {
+      if (this.#syncRequest === request) {
+        clearTimeout(request.timer);
+        this.#syncRequest = undefined;
+        this.#syncQueue = [];
+        this.#update({ activitySyncStatus: "unavailable" });
+      }
+    }
+  }
+
+  async #decodeActivitySyncEvents(
+    values: readonly unknown[],
+    authorization: CommunityAgentArchiveRecord,
+    request: ActivitySyncRequest,
+    streamId: string,
+    afterOffset: number,
+    maximumOffset: number | undefined,
+    requireIncreasing: boolean,
+  ): Promise<Array<{ event: NostrEvent; frame: CommunityAgentObserver }>> {
+    const nip44 = this.#options.identity.nip44;
+    if (!nip44) throw new Error("activity decryption unavailable");
+    const decoded: Array<{ event: NostrEvent; frame: CommunityAgentObserver }> =
+      [];
+    let previousOffset = afterOffset;
+    for (const value of values) {
+      const event = signedAgentEvent(value as NostrEvent);
+      if (
+        !event ||
+        event.pubkey !== request.agentPubkey ||
+        !validateAgentTelemetry(
+          event,
+          authorization.profile,
+          this.#options.scope.ownerPubkey,
+          undefined,
+          this.#directory?.relayPubkey,
+          authorization.instance,
+        )
+      )
+        throw new Error("invalid nested activity event");
+      const nested = parseAgentObserver(
+        await nip44.decrypt(event.pubkey, event.content),
+      );
+      if (
+        !nested ||
+        nested.kind === "activity_sync_page" ||
+        nested.streamId !== streamId ||
+        (maximumOffset !== undefined && nested.seq > maximumOffset) ||
+        (requireIncreasing && nested.seq <= previousOffset) ||
+        !frameMatchesActivitySyncContext(nested, request.context) ||
+        !eventMatchesActivitySyncContext(event, request.context)
+      )
+        throw new Error("nested activity does not match its page");
+      previousOffset = nested.seq;
+      decoded.push({ event, frame: nested });
+    }
+    return decoded;
   }
 
   async #loadActivity(reset: boolean): Promise<void> {
@@ -878,7 +1390,7 @@ export class CommunityAgentsController {
       do {
         const page = await historyDeadline(
           this.#options.archive.page({
-            scope: this.#options.scope,
+            scope: this.#archiveScope(),
             agentPubkey: agent,
             limit: 50,
             ...(this.#cursor ? { before: this.#cursor } : {}),
@@ -892,6 +1404,9 @@ export class CommunityAgentsController {
               record.event,
               record.profile,
               this.#options.scope.ownerPubkey,
+              undefined,
+              this.#directory?.relayPubkey,
+              record.instance,
             )
           )
             continue;
@@ -1004,13 +1519,16 @@ export class CommunityAgentsController {
   #applyControllerFrame(
     agentPubkey: string,
     frame: CommunityAgentActivityItem["frame"],
+    observedAt?: number,
+    authoritativeSnapshot = false,
   ): void {
     const payload = observerRecord(frame.payload);
     const scopeKey = observerText(payload.scopeKey, 4_096);
     const key = controllerScopeId(agentPubkey, scopeKey);
-    const previousSequence = this.#controllerSequence.get(key);
+    const sequenceKey = JSON.stringify([key, frame.streamId ?? "legacy"]);
+    const previousSequence = this.#controllerSequence.get(sequenceKey);
     if (previousSequence !== undefined && frame.seq <= previousSequence) return;
-    this.#controllerSequence.set(key, frame.seq);
+    this.#controllerSequence.set(sequenceKey, frame.seq);
     const terminal = [
       "turn_completed",
       "turn_finished",
@@ -1048,6 +1566,7 @@ export class CommunityAgentsController {
         state === "waiting_permission" ||
         (sameRequest &&
           previous?.state === "waiting_permission" &&
+          !authoritativeSnapshot &&
           frame.kind !== "permission_resolved" &&
           !terminal);
       const scope = {
@@ -1072,7 +1591,7 @@ export class CommunityAgentsController {
         severity:
           observerText(payload.severity, 20) ||
           (frame.kind === "turn_failed" ? "error" : "info"),
-        updatedAt: Date.parse(frame.timestamp),
+        updatedAt: observedAt ?? Date.parse(frame.timestamp),
         ...(requestId ? { requestId } : {}),
         ...(frame.channelId ? { channelId: frame.channelId } : {}),
         ...(frame.sessionId ? { sessionId: frame.sessionId } : {}),
@@ -1139,9 +1658,11 @@ export class CommunityAgentsController {
 
   dispose(): void {
     this.#closed = true;
+    this.#cancelActivitySync(true);
     this.#activityGeneration++;
     this.#abort.abort();
     this.#subscription?.close();
+    this.#subscribedPubkeys.clear();
     if (this.#timer) clearInterval(this.#timer);
     if (this.#refreshTimer) clearTimeout(this.#refreshTimer);
     this.#unknownFrames = [];
@@ -1221,6 +1742,97 @@ function observerRecord(value: unknown): Record<string, unknown> {
 
 function observerText(value: unknown, limit: number): string {
   return typeof value === "string" ? value.trim().slice(0, limit) : "";
+}
+
+function activitySyncContext(
+  context: CommunityAgentActivityContext | undefined,
+  agentPubkey: string | undefined,
+): CommunityAgentActivitySyncContext | undefined {
+  if (!context || context.kind === "overview") return;
+  if (context.kind === "dm")
+    return !context.agentPubkey || context.agentPubkey === agentPubkey
+      ? { kind: "dm" }
+      : undefined;
+  return context.kind === "channel"
+    ? { kind: "channel", channelId: context.channelId }
+    : {
+        kind: context.kind,
+        channelId: context.channelId,
+        threadRootId: context.threadRootId,
+      };
+}
+
+function parseActivitySyncContext(
+  value: unknown,
+): CommunityAgentActivitySyncContext | undefined {
+  const context = observerRecord(value);
+  if (context.kind === "dm" && observerHasOnlyKeys(context, ["kind"]))
+    return { kind: "dm" };
+  const channelId = observerText(context.channelId, 256);
+  if (!channelId) return;
+  if (
+    context.kind === "channel" &&
+    observerHasOnlyKeys(context, ["kind", "channelId"])
+  )
+    return { kind: "channel", channelId };
+  const threadRootId = observerText(context.threadRootId, 256);
+  if (
+    (context.kind === "thread" || context.kind === "forum-topic") &&
+    threadRootId &&
+    observerHasOnlyKeys(context, ["kind", "channelId", "threadRootId"])
+  )
+    return { kind: context.kind, channelId, threadRootId };
+}
+
+function observerHasOnlyKeys(
+  value: Record<string, unknown>,
+  allowed: readonly string[],
+): boolean {
+  const allowedKeys = new Set(allowed);
+  return Object.keys(value).every((key) => allowedKeys.has(key));
+}
+
+function sameActivitySyncContext(
+  left: CommunityAgentActivitySyncContext,
+  right: CommunityAgentActivitySyncContext,
+): boolean {
+  return JSON.stringify(left) === JSON.stringify(right);
+}
+
+function frameMatchesActivitySyncContext(
+  frame: CommunityAgentObserver,
+  context: CommunityAgentActivitySyncContext,
+): boolean {
+  const scope = observerScope(frame);
+  if (context.kind === "dm") return scope.conversationKind === "dm";
+  if (
+    scope.channelId !== context.channelId ||
+    scope.conversationKind !== context.kind
+  )
+    return false;
+  return (
+    context.kind === "channel" || scope.threadRootId === context.threadRootId
+  );
+}
+
+function eventMatchesActivitySyncContext(
+  event: NostrEvent,
+  context: CommunityAgentActivitySyncContext,
+): boolean {
+  const groups = event.tags.filter(([name]) => name === "h");
+  return context.kind === "dm"
+    ? groups.length === 0
+    : groups.length === 1 && groups[0]?.[1] === context.channelId;
+}
+
+function syncInteger(value: unknown): number | undefined {
+  return Number.isSafeInteger(value) && Number(value) >= 0
+    ? Number(value)
+    : undefined;
+}
+
+function activitySyncRequestId(serial: number): string {
+  return globalThis.crypto?.randomUUID?.() ?? `sync-${Date.now()}-${serial}`;
 }
 
 async function historyDeadline<T>(

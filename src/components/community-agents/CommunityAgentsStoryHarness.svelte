@@ -100,6 +100,7 @@
           : {}),
         ...(variant === "permission"
           ? {
+              activitySyncStatus: "caught-up" as const,
               controllerScopes: {
                 [storyAgent.pubkey]: {
                   agentPubkey: storyAgent.pubkey,
@@ -127,6 +128,46 @@
                 ],
               },
             }
+          : {}),
+        ...(variant === "sync-checking"
+          ? { activitySyncStatus: "checking" as const }
+          : {}),
+        ...(variant === "sync-active"
+          ? {
+              activitySyncStatus: "caught-up" as const,
+              controllerScopes: {
+                [storyAgent.pubkey]: {
+                  agentPubkey: storyAgent.pubkey,
+                  scopeKey: "relay/general/agent/channel",
+                  active: true,
+                  state: "running",
+                  preview: "Running the requested checks",
+                  channelId: "general",
+                  sessionId: "story",
+                  turnId: "turn",
+                },
+              },
+            }
+          : {}),
+        ...(variant === "sync-completed"
+          ? {
+              activitySyncStatus: "caught-up" as const,
+              controllerScopes: {
+                [storyAgent.pubkey]: {
+                  agentPubkey: storyAgent.pubkey,
+                  scopeKey: "relay/general/agent/channel",
+                  active: false,
+                  state: "completed",
+                  preview: "Completed while you were away",
+                  channelId: "general",
+                  sessionId: "story",
+                  turnId: "turn",
+                },
+              },
+            }
+          : {}),
+        ...(variant === "sync-unavailable" || variant === "sync-retry"
+          ? { activitySyncStatus: "unavailable" as const }
           : {}),
         activityAgent: storyAgent.pubkey,
         activity:
@@ -381,7 +422,13 @@
       }}
       onLatest={() => {
         const { archiveError, activityError, ...rest } = model;
-        model = { ...rest, activity: storyActivityItems };
+        model = {
+          ...rest,
+          activity: storyActivityItems,
+          ...(variant === "sync-retry"
+            ? { activitySyncStatus: "checking" as const }
+            : {}),
+        };
         notice = "Showing latest activity";
       }}
       onLoadOlder={() => {

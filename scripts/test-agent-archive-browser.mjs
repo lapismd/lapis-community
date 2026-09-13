@@ -111,8 +111,26 @@ try {
         phase = "cache replay and archive append";
         await Promise.all([
           store.commit(batch),
-          store.agentActivity.append(archiveScope, records),
+          store.agentActivity.append(archiveScope, records.slice(0, 2)),
         ]);
+        const context = { kind: "dm" };
+        phase = "atomic activity checkpoint";
+        await store.agentActivity.commitSyncPage(
+          archiveScope,
+          agent,
+          context,
+          [records[2]],
+          {
+            streamId: "browser-stream",
+            offset: 3,
+            updatedAt: 500,
+          },
+        );
+        const checkpoint = await store.agentActivity.checkpoint(
+          archiveScope,
+          agent,
+          context,
+        );
         phase = "archive page";
         const history = await store.agentActivity.page({
           scope: archiveScope,
@@ -131,6 +149,7 @@ try {
           first: history.records.length,
           older: older.records.length,
           hasOlder: history.hasOlder,
+          checkpoint: checkpoint?.offset,
         };
       };
       let timer;
@@ -152,7 +171,12 @@ try {
     { source, events, records, owner, agent },
   );
   const { databaseName, ...counts } = result;
-  assert.deepEqual(counts, { first: 2, older: 1, hasOlder: true });
+  assert.deepEqual(counts, {
+    first: 2,
+    older: 1,
+    hasOlder: true,
+    checkpoint: 3,
+  });
   await page.reload({ waitUntil: "domcontentloaded" });
   const reopened = await page.evaluate(
     async ({ source, databaseName, owner, agent }) => {
@@ -180,10 +204,30 @@ try {
               agentPubkey: agent,
               limit: 10,
             });
+            const archiveScope = {
+              communityId: "archive-acceptance",
+              ownerPubkey: owner,
+              relayUrls: ["wss://relay.example"],
+            };
+            await store.agentActivity.suppressBefore(archiveScope, agent, 600);
+            await store.agentActivity.clear(archiveScope, agent);
+            const checkpoint = await store.agentActivity.checkpoint(
+              archiveScope,
+              agent,
+              { kind: "dm" },
+            );
+            const cleared = await store.agentActivity.page({
+              scope: archiveScope,
+              agentPubkey: agent,
+              limit: 10,
+            });
             await store.close();
             return {
               cached: cached.events.length,
               saved: history.records.length,
+              cleared: cleared.records.length,
+              offset: checkpoint?.offset,
+              notBefore: checkpoint?.notBefore,
             };
           })(),
           new Promise((_, reject) => {
@@ -199,9 +243,15 @@ try {
     },
     { source, databaseName, owner, agent },
   );
-  assert.deepEqual(reopened, { cached: 240, saved: 3 });
+  assert.deepEqual(reopened, {
+    cached: 240,
+    saved: 3,
+    cleared: 0,
+    offset: 3,
+    notBefore: 600,
+  });
   console.log(
-    "Browser cache replay, encrypted agent archive pagination and reload passed.",
+    "Browser cache replay, atomic agent checkpoint, suppression, pagination and reload passed.",
   );
 } finally {
   await browser.close();

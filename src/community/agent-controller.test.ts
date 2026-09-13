@@ -39,6 +39,24 @@ const profile = finalizeEvent(
   },
   agentKey,
 );
+const managedProfile = finalizeEvent(
+  {
+    kind: 0,
+    created_at: now,
+    tags: [["lapis-managed", owner, relay]],
+    content: '{"name":"Managed research"}',
+  },
+  agentKey,
+);
+const managedInstance = finalizeEvent(
+  {
+    kind: 30177,
+    created_at: now,
+    tags: [["d", agent]],
+    content: '{"name":"Managed research"}',
+  },
+  ownerKey,
+);
 const channel = finalizeEvent(
   {
     kind: 39002,
@@ -106,14 +124,106 @@ function frame(
   );
 }
 
-async function setup() {
+function streamFrame(
+  seq: number,
+  kind: string,
+  payload: Record<string, unknown>,
+  createdAt = now - 3_600,
+) {
+  const streamId = "stream-activity-1";
+  return finalizeEvent(
+    {
+      kind: 24200,
+      created_at: createdAt,
+      tags: [
+        ["p", owner],
+        ["agent", agent],
+        ["frame", "telemetry"],
+        ["h", "general"],
+      ],
+      content: nip44.v2.encrypt(
+        JSON.stringify({
+          seq,
+          streamId,
+          timestamp: new Date(createdAt * 1_000).toISOString(),
+          kind,
+          channelId: "general",
+          sessionId: "session-sync",
+          turnId: "turn-sync",
+          payload,
+        }),
+        conversation,
+      ),
+    },
+    agentKey,
+  );
+}
+
+function syncPage(
+  requestId: string,
+  events: readonly NostrEvent[],
+  snapshotEvents: readonly NostrEvent[],
+  input: {
+    streamId?: string;
+    afterOffset?: number;
+    nextOffset?: number;
+    highWaterMark?: number;
+    complete?: boolean;
+    streamChanged?: boolean;
+    migrationGap?: { fromOffset: number; toOffset: number };
+  } = {},
+) {
+  const streamId = input.streamId ?? "stream-activity-1";
+  const highWaterMark = input.highWaterMark ?? 2;
+  return finalizeEvent(
+    {
+      kind: 24200,
+      created_at: now,
+      tags: [
+        ["p", owner],
+        ["agent", agent],
+        ["frame", "telemetry"],
+        ["h", "general"],
+      ],
+      content: nip44.v2.encrypt(
+        JSON.stringify({
+          seq: highWaterMark,
+          streamId,
+          timestamp: new Date(now * 1_000).toISOString(),
+          kind: "activity_sync_page",
+          channelId: "general",
+          payload: {
+            requestId,
+            context: { kind: "channel", channelId: "general" },
+            streamId,
+            afterOffset: input.afterOffset ?? 0,
+            nextOffset: input.nextOffset ?? highWaterMark,
+            highWaterMark,
+            complete: input.complete ?? true,
+            ...(input.streamChanged ? { streamChanged: true } : {}),
+            ...(input.migrationGap ? { migrationGap: input.migrationGap } : {}),
+            events,
+            snapshotEvents,
+          },
+        }),
+        conversation,
+      ),
+    },
+    agentKey,
+  );
+}
+
+async function setup(
+  directoryEvents: readonly NostrEvent[] = [profile, channel],
+) {
   const archive = createMemoryAgentActivityStore();
   const onState = vi.fn();
   let receive: (event: NostrEvent) => void = () => {};
+  let disconnect: () => void = () => {};
   const directory: CommunityAgentDirectory = {
-    agents: materializeAgentDirectory([profile, channel], owner, relay),
+    agents: materializeAgentDirectory(directoryEvents, owner, relay),
     personas: [],
-    events: [profile, channel],
+    events: directoryEvents,
     relayPubkey: relay,
     capabilities: { directory: true, presence: true, activity: true },
     partial: false,
@@ -123,6 +233,7 @@ async function setup() {
     loadPresence: async () => [],
     subscribe: async (_keys, handlers) => {
       receive = handlers.onevent;
+      disconnect = () => handlers.onclose("test disconnect");
       return { close() {} };
     },
     setFollow: async () => profile,
@@ -152,7 +263,15 @@ async function setup() {
   });
   controllers.push(controller);
   await controller.start();
-  return { controller, archive, receive, decrypt, onState, session };
+  return {
+    controller,
+    archive,
+    receive,
+    disconnect: () => disconnect(),
+    decrypt,
+    onState,
+    session,
+  };
 }
 
 describe("agent activity controller", () => {
@@ -339,6 +458,394 @@ describe("agent activity controller", () => {
       text: "private result",
     });
     expect(controller.state.activity).toHaveLength(1);
+  });
+  it("accepts activity from a relay-managed agent only through the current relay authorization", async () => {
+    const { controller, archive, receive } = await setup([
+      managedProfile,
+      managedInstance,
+      channel,
+    ]);
+    receive(frame());
+    await vi.waitFor(async () =>
+      expect(
+        (
+          await archive.page({
+            scope: { ...scope, relayPubkey: relay },
+            agentPubkey: agent,
+            limit: 10,
+          })
+        ).records,
+      ).toHaveLength(1),
+    );
+    await controller.actions.openActivity(agent, {
+      kind: "channel",
+      channelId: "general",
+    });
+    expect(controller.state.activity).toHaveLength(1);
+  });
+  it("waits for the target live subscription before requesting catch-up", async () => {
+    let resolveSubscription!: (value: { close(): void }) => void;
+    const subscribed = new Promise<{ close(): void }>((resolve) => {
+      resolveSubscription = resolve;
+    });
+    const sendControl = vi.fn(async () => profile);
+    const session: CommunityAgentSession = {
+      loadDirectory: async () => ({
+        agents: materializeAgentDirectory([profile, channel], owner, relay),
+        personas: [],
+        events: [profile, channel],
+        relayPubkey: relay,
+        capabilities: { directory: true, presence: true, activity: true },
+        partial: false,
+      }),
+      loadPresence: async () => [],
+      subscribe: async () => subscribed,
+      setFollow: async () => profile,
+      sendControl,
+    };
+    const controller = createCommunityAgentsController({
+      scope,
+      identity: {
+        getPublicKey: async () => owner,
+        signEvent: async () => profile,
+        nip44: { decrypt: async () => "", encrypt: async () => "" },
+      },
+      session,
+      archive: createMemoryAgentActivityStore(),
+      storageMode: () => "indexeddb",
+      onState() {},
+      now: () => now,
+    });
+    controllers.push(controller);
+    const starting = controller.start();
+    await vi.waitFor(() => expect(controller.state.agents).toHaveLength(1));
+    await controller.actions.syncActivity(
+      { kind: "channel", channelId: "general" },
+      [agent],
+    );
+    expect(sendControl).not.toHaveBeenCalled();
+    resolveSubscription({ close() {} });
+    await starting;
+    await vi.waitFor(() => expect(sendControl).toHaveBeenCalledOnce());
+  });
+  it("catches up historical activity atomically and restores the fresh current snapshot", async () => {
+    const { controller, archive, receive, session } = await setup();
+    const sendControl = vi.mocked(session.sendControl!);
+    const context = { kind: "channel" as const, channelId: "general" };
+    await controller.actions.openActivity(agent, context);
+    await vi.waitFor(() => expect(sendControl).toHaveBeenCalled());
+    const control = sendControl.mock.calls.at(-1)?.[1];
+    expect(control).toMatchObject({
+      command: "sync_activity",
+      context,
+    });
+    const started = streamFrame(1, "turn_started", {
+      scopeKey: "relay/general/agent/channel",
+      conversationKind: "channel",
+      lifecycleRequestId: "request-sync",
+      state: "running",
+    });
+    const completed = streamFrame(2, "turn_completed", {
+      scopeKey: "relay/general/agent/channel",
+      conversationKind: "channel",
+      lifecycleRequestId: "request-sync",
+      state: "completed",
+    });
+    receive(
+      syncPage(
+        (control as { requestId: string }).requestId,
+        [started, completed],
+        [completed],
+      ),
+    );
+    await vi.waitFor(() =>
+      expect(controller.state.activitySyncStatus).toBe("caught-up"),
+    );
+    expect(new Set(controller.state.activity.map((item) => item.id))).toEqual(
+      new Set([completed.id, started.id]),
+    );
+    expect(controller.state.controllerScopes[agent]).toMatchObject({
+      active: false,
+      state: "completed",
+    });
+    expect(await archive.checkpoint(scope, agent, context)).toMatchObject({
+      streamId: "stream-activity-1",
+      offset: 2,
+    });
+    expect(
+      (await archive.page({ scope, agentPubkey: agent })).records,
+    ).toHaveLength(2);
+
+    await controller.actions.syncActivity(context, [agent]);
+    await vi.waitFor(() => expect(sendControl).toHaveBeenCalledTimes(2));
+    const retry = sendControl.mock.calls.at(-1)?.[1] as {
+      requestId: string;
+      cursor: { streamId: string; offset: number };
+    };
+    expect(retry.cursor).toEqual({
+      streamId: "stream-activity-1",
+      offset: 2,
+    });
+    receive(
+      syncPage(retry.requestId, [], [completed], {
+        afterOffset: 2,
+        nextOffset: 2,
+      }),
+    );
+    await vi.waitFor(() =>
+      expect(controller.state.activitySyncStatus).toBe("caught-up"),
+    );
+    expect(controller.state.activity).toHaveLength(2);
+  });
+  it("continues a fixed activity page and commits only after each valid page", async () => {
+    const { controller, archive, receive, session } = await setup();
+    const sendControl = vi.mocked(session.sendControl!);
+    const context = { kind: "channel" as const, channelId: "general" };
+    await controller.actions.openActivity(agent, context);
+    await vi.waitFor(() => expect(sendControl).toHaveBeenCalledOnce());
+    const firstControl = sendControl.mock.calls[0]![1] as {
+      requestId: string;
+    };
+    const started = streamFrame(1, "turn_started", {
+      scopeKey: "relay/general/agent/channel",
+      conversationKind: "channel",
+      lifecycleRequestId: "request-page",
+      state: "running",
+    });
+    receive(
+      syncPage(firstControl.requestId, [started], [], {
+        nextOffset: 1,
+        highWaterMark: 2,
+        complete: false,
+      }),
+    );
+    await vi.waitFor(() => expect(sendControl).toHaveBeenCalledTimes(2));
+    expect(await archive.checkpoint(scope, agent, context)).toMatchObject({
+      streamId: "stream-activity-1",
+      offset: 1,
+    });
+    const continuation = sendControl.mock.calls[1]![1] as {
+      requestId: string;
+      cursor: { streamId: string; offset: number };
+      highWaterMark: number;
+    };
+    expect(continuation).toMatchObject({
+      requestId: firstControl.requestId,
+      cursor: { streamId: "stream-activity-1", offset: 1 },
+      highWaterMark: 2,
+    });
+    const completed = streamFrame(2, "turn_completed", {
+      scopeKey: "relay/general/agent/channel",
+      conversationKind: "channel",
+      lifecycleRequestId: "request-page",
+      state: "completed",
+    });
+    receive(
+      syncPage(firstControl.requestId, [completed], [completed], {
+        afterOffset: 1,
+        nextOffset: 2,
+        highWaterMark: 2,
+      }),
+    );
+    await vi.waitFor(() =>
+      expect(controller.state.activitySyncStatus).toBe("caught-up"),
+    );
+    expect(await archive.checkpoint(scope, agent, context)).toMatchObject({
+      offset: 2,
+    });
+  });
+  it("replaces a controller stream with an explicit migration gap", async () => {
+    const { controller, archive, receive, session } = await setup();
+    const sendControl = vi.mocked(session.sendControl!);
+    const context = { kind: "channel" as const, channelId: "general" };
+    await controller.actions.syncActivity(context, [agent]);
+    const first = sendControl.mock.calls[0]![1] as { requestId: string };
+    receive(syncPage(first.requestId, [], [], { highWaterMark: 2 }));
+    await vi.waitFor(() =>
+      expect(controller.state.activitySyncStatus).toBe("caught-up"),
+    );
+
+    await controller.actions.syncActivity(context, [agent]);
+    const replacement = sendControl.mock.calls.at(-1)![1] as {
+      requestId: string;
+    };
+    receive(
+      syncPage(replacement.requestId, [], [], {
+        streamId: "stream-activity-2",
+        afterOffset: 0,
+        nextOffset: 7,
+        highWaterMark: 7,
+        streamChanged: true,
+        migrationGap: { fromOffset: 1, toOffset: 5 },
+      }),
+    );
+    await vi.waitFor(() =>
+      expect(controller.state.activitySyncStatus).toBe("caught-up"),
+    );
+    expect(controller.state.activitySyncGap).toBe(true);
+    expect(await archive.checkpoint(scope, agent, context)).toMatchObject({
+      streamId: "stream-activity-2",
+      offset: 7,
+    });
+  });
+  it("retries the last exact selection after the live subscription reconnects", async () => {
+    const { controller, disconnect, session } = await setup();
+    const sendControl = vi.mocked(session.sendControl!);
+    const context = { kind: "channel" as const, channelId: "general" };
+    await controller.actions.syncActivity(context, [agent]);
+    expect(sendControl).toHaveBeenCalledOnce();
+    disconnect();
+    expect(controller.state.activitySyncStatus).toBe("unavailable");
+    await controller.actions.refresh();
+    await vi.waitFor(() => expect(sendControl).toHaveBeenCalledTimes(2));
+    expect(sendControl.mock.calls[1]![1]).toMatchObject({ context });
+  });
+  it("retries unavailable catch-up when the selected agent returns online", async () => {
+    const { controller, receive, session } = await setup();
+    const sendControl = vi.mocked(session.sendControl!);
+    sendControl.mockRejectedValueOnce(new Error("temporarily unavailable"));
+    const context = { kind: "channel" as const, channelId: "general" };
+    await controller.actions.syncActivity(context, [agent]);
+    expect(controller.state.activitySyncStatus).toBe("unavailable");
+    receive(
+      finalizeEvent(
+        {
+          kind: 20001,
+          created_at: now,
+          tags: [["agent", agent]],
+          content: JSON.stringify({ status: "online" }),
+        },
+        agentKey,
+      ),
+    );
+    await vi.waitFor(() => expect(sendControl).toHaveBeenCalledTimes(2));
+    expect(sendControl.mock.calls[1]![1]).toMatchObject({ context });
+  });
+  it("rejects an invalid replay atomically and ignores a response after cancellation", async () => {
+    const { controller, archive, receive, session } = await setup();
+    const sendControl = vi.mocked(session.sendControl!);
+    const context = { kind: "channel" as const, channelId: "general" };
+    await controller.actions.syncActivity(context, [agent]);
+    const request = sendControl.mock.calls[0]![1] as {
+      requestId: string;
+    };
+    const forged = finalizeEvent(
+      {
+        ...streamFrame(1, "turn_started", {
+          scopeKey: "relay/general/agent/channel",
+          conversationKind: "channel",
+        }),
+      },
+      relayKey,
+    );
+    receive(syncPage(request.requestId, [forged], [], { highWaterMark: 1 }));
+    await vi.waitFor(() =>
+      expect(controller.state.activitySyncStatus).toBe("unavailable"),
+    );
+    expect(await archive.checkpoint(scope, agent, context)).toBeUndefined();
+    expect((await archive.page({ scope })).records).toEqual([]);
+
+    await controller.actions.syncActivity(context, [agent]);
+    const cancelled = sendControl.mock.calls.at(-1)![1] as {
+      requestId: string;
+    };
+    controller.actions.cancelActivitySync();
+    receive(
+      syncPage(
+        cancelled.requestId,
+        [
+          streamFrame(1, "turn_started", {
+            scopeKey: "relay/general/agent/channel",
+            conversationKind: "channel",
+          }),
+        ],
+        [],
+        { highWaterMark: 1 },
+      ),
+    );
+    await Promise.resolve();
+    expect(controller.state.activitySyncStatus).toBeUndefined();
+    expect(await archive.checkpoint(scope, agent, context)).toBeUndefined();
+  });
+  it("restores a pending permission only from a fresh snapshot envelope", async () => {
+    const { controller, receive, session } = await setup();
+    const sendControl = vi.mocked(session.sendControl!);
+    const context = { kind: "channel" as const, channelId: "general" };
+    await controller.actions.syncActivity(context, [agent]);
+    const request = sendControl.mock.calls[0]![1] as {
+      requestId: string;
+    };
+    const pending = streamFrame(5, "permission_requested", {
+      scopeKey: "relay/general/agent/channel",
+      conversationKind: "channel",
+      lifecycleRequestId: "request-permission",
+      requestId: "permission-1",
+      tool: "Run tests",
+      input: { command: "pnpm test" },
+      options: ["allow_once", "reject_once"],
+      expiresAt: now * 1_000 + 60_000,
+    });
+    receive(
+      syncPage(request.requestId, [], [pending], {
+        nextOffset: 5,
+        highWaterMark: 5,
+      }),
+    );
+    await vi.waitFor(() =>
+      expect(controller.state.activitySyncStatus).toBe("caught-up"),
+    );
+    expect(controller.state.pendingPermissions[agent]).toEqual([
+      expect.objectContaining({
+        requestId: "permission-1",
+        tool: "Run tests",
+      }),
+    ]);
+    expect(controller.state.controllerScopes[agent]).toMatchObject({
+      active: true,
+      state: "waiting_permission",
+      updatedAt: now * 1_000,
+    });
+
+    await controller.actions.syncActivity(context, [agent]);
+    const continuation = sendControl.mock.calls.at(-1)![1] as {
+      requestId: string;
+    };
+    const current = streamFrame(6, "request_status", {
+      scopeKey: "relay/general/agent/channel",
+      conversationKind: "channel",
+      lifecycleRequestId: "request-permission",
+      state: "running",
+    });
+    receive(
+      syncPage(continuation.requestId, [], [current], {
+        afterOffset: 5,
+        nextOffset: 5,
+        highWaterMark: 5,
+      }),
+    );
+    await vi.waitFor(() =>
+      expect(controller.state.activitySyncStatus).toBe("caught-up"),
+    );
+    expect(controller.state.pendingPermissions[agent]).toEqual([]);
+    expect(controller.state.controllerScopes[agent]).toMatchObject({
+      active: true,
+      state: "running",
+    });
+  });
+  it("marks unanswered catch-up unavailable after ten seconds", async () => {
+    vi.useFakeTimers();
+    try {
+      const { controller } = await setup();
+      await controller.actions.syncActivity(
+        { kind: "channel", channelId: "general" },
+        [agent],
+      );
+      expect(controller.state.activitySyncStatus).toBe("checking");
+      await vi.advanceTimersByTimeAsync(10_001);
+      expect(controller.state.activitySyncStatus).toBe("unavailable");
+    } finally {
+      vi.useRealTimers();
+    }
   });
   it("derives controller scope and exact permission choices before publishing owner controls", async () => {
     const { controller, receive, session } = await setup();

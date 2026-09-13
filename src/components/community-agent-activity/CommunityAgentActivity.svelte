@@ -209,12 +209,19 @@
   <div class="agent-activity__toolbar">
     <CommunityChip
       size="compact"
-      tone={model.status === "ready" && model.capabilities.activity
+      tone={model.activitySyncStatus === "caught-up" ||
+      (model.status === "ready" && model.capabilities.activity)
         ? "success"
         : "warning"}
-      >{model.status === "ready" && model.capabilities.activity
-        ? "Live capture"
-        : "Saved history"}</CommunityChip
+      >{model.activitySyncStatus === "checking"
+        ? "Checking activity"
+        : model.activitySyncStatus === "caught-up"
+          ? "Caught up"
+          : model.activitySyncStatus === "unavailable"
+            ? "Catch-up unavailable"
+            : model.status === "ready" && model.capabilities.activity
+              ? "Live capture"
+              : "Saved history"}</CommunityChip
     ><Button
       variant="ghost"
       size="sm"
@@ -226,8 +233,10 @@
   <p class="agent-activity__notice">
     {model.storageMode === "memory"
       ? "Session-only history: persistent storage is unavailable."
-      : "Encrypted history is saved on this device."} Only activity received while
-    signed in is available.
+      : "Encrypted history is saved on this device."} Missed controller activity
+    is requested when this conversation is visible.
+    {#if model.activitySyncGap}
+      Some activity predates the controller journal and cannot be recovered.{/if}
   </p>
   {#if selected && (scopes.length > 0 || permissions.length > 0)}
     <section
@@ -332,7 +341,7 @@
       <h3>No saved activity here yet</h3>
       <p>
         Updates appear when this agent sends activity to your account. Community
-        cannot retrieve events it missed while disconnected.
+        checks the controller for anything missed while disconnected.
       </p>
     </div>{/if}
   <ol

@@ -76,6 +76,29 @@ class BrowserCommunityEventRuntime implements CommunityEventRuntime {
         scope,
         ...(agentPubkey ? { agentPubkey } : {}),
       }),
+    checkpoint: (scope, agentPubkey, context) =>
+      this.#archive({
+        operation: "checkpoint",
+        scope,
+        agentPubkey,
+        context,
+      }),
+    commitSyncPage: (scope, agentPubkey, context, records, checkpoint) =>
+      this.#archive({
+        operation: "commitSyncPage",
+        scope,
+        agentPubkey,
+        context,
+        records,
+        checkpoint,
+      }),
+    suppressBefore: (scope, agentPubkey, timestamp) =>
+      this.#archive({
+        operation: "suppressBefore",
+        scope,
+        agentPubkey,
+        timestamp,
+      }),
   };
 
   async #archive<T>(request: CommunityAgentArchiveRequest): Promise<T> {

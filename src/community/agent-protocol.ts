@@ -402,11 +402,20 @@ export function validateAgentTelemetry(
   profile: NostrEvent,
   owner: string,
   now?: number,
+  relay?: string,
+  instance?: NostrEvent,
 ): boolean {
+  const verifiedInstance = instance ? signedAgentEvent(instance) : undefined;
+  const ownedByCurrentAuthorization =
+    agentOwner(profile) === owner ||
+    (relay !== undefined &&
+      verifiedInstance !== undefined &&
+      agentInstance(verifiedInstance, owner)?.agentPubkey === profile.pubkey &&
+      managedAgentOwner(profile, owner, relay));
   if (
     event.kind !== 24200 ||
     !signedAgentEvent(event) ||
-    agentOwner(profile) !== owner ||
+    !ownedByCurrentAuthorization ||
     event.pubkey !== profile.pubkey ||
     (now !== undefined && Math.abs(now - event.created_at) > 300)
   )
@@ -452,6 +461,13 @@ export function parseAgentObserver(
       typeof frame[key] !== "string"
     )
       return;
+  if (
+    frame.streamId !== undefined &&
+    (typeof frame.streamId !== "string" ||
+      frame.streamId.length === 0 ||
+      frame.streamId.length > 128)
+  )
+    return;
   if (
     frame.agentIndex !== undefined &&
     frame.agentIndex !== null &&

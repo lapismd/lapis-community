@@ -40,9 +40,11 @@ it("executes the Turso archive schema, atomic inserts, scoped paging, and clears
     await initializeAgentArchiveDatabase(database);
     const store = createTursoAgentActivityStore(() => database);
     const ownerKey = new Uint8Array(32).fill(71),
-      agentKey = new Uint8Array(32).fill(72);
+      agentKey = new Uint8Array(32).fill(72),
+      relayKey = new Uint8Array(32).fill(73);
     const ownerPubkey = getPublicKey(ownerKey),
-      agentPubkey = getPublicKey(agentKey);
+      agentPubkey = getPublicKey(agentKey),
+      relayPubkey = getPublicKey(relayKey);
     const scope = {
       communityId: "test",
       relayUrls: ["wss://relay.example/"],
@@ -91,9 +93,68 @@ it("executes the Turso archive schema, atomic inserts, scoped paging, and clears
     ).toHaveLength(1);
     expect(await store.agents({ ...scope, communityId: "other" })).toEqual([]);
     expect((await store.agents(scope))[0]?.name).toBe("Research");
+    const context = { kind: "dm" as const };
+    await store.commitSyncPage(scope, agentPubkey, context, [records[0]!], {
+      streamId: "stream-1",
+      offset: 4,
+      updatedAt: 103,
+    });
     await store.clear(scope, agentPubkey);
     expect((await store.page({ scope })).records).toEqual([]);
     expect(await store.agents(scope)).toEqual([]);
+    expect(await store.checkpoint(scope, agentPubkey, context)).toEqual({
+      streamId: "stream-1",
+      offset: 4,
+      updatedAt: 103,
+    });
+    await store.suppressBefore(scope, agentPubkey, 200);
+    expect(await store.checkpoint(scope, agentPubkey, context)).toEqual({
+      streamId: "stream-1",
+      offset: 4,
+      notBefore: 200,
+      updatedAt: 200,
+    });
+    const managedProfile = finalizeEvent(
+      {
+        kind: 0,
+        created_at: 201,
+        tags: [["lapis-managed", ownerPubkey, relayPubkey]],
+        content: '{"name":"Managed research"}',
+      },
+      agentKey,
+    );
+    const instance = finalizeEvent(
+      {
+        kind: 30177,
+        created_at: 201,
+        tags: [["d", agentPubkey]],
+        content: '{"name":"Managed research"}',
+      },
+      ownerKey,
+    );
+    await store.append({ ...scope, relayPubkey }, [
+      {
+        event: finalizeEvent(
+          {
+            kind: 24200,
+            created_at: 201,
+            tags: [
+              ["p", ownerPubkey],
+              ["agent", agentPubkey],
+              ["frame", "telemetry"],
+            ],
+            content: "B".repeat(132),
+          },
+          agentKey,
+        ),
+        profile: managedProfile,
+        instance,
+        receivedAt: 201,
+      },
+    ]);
+    expect((await store.agents({ ...scope, relayPubkey }))[0]?.name).toBe(
+      "Managed research",
+    );
   } finally {
     sqlite.close();
   }
