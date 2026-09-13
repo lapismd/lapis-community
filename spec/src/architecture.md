@@ -30,6 +30,9 @@ the owner records, delegates the one allowed profile signature to the relay
 bunker, and returns the resulting one-time controller bundle directly to the
 active view. It does not route the bundle through controller state, activity
 storage, analytics, or a browser persistence adapter.
+Activity catch-up keeps its per-context cursor behind the same memory, Turso,
+IndexedDB, and worker storage seam. A replacement live subscription includes
+the target agent before Community publishes a synchronization control.
 Agent channel presentation composes public Dialog, Command View, and menu
 primitives; channel selection stays local until the existing add-member action
 is confirmed. Membership authority and the controller's action contracts remain
@@ -298,6 +301,10 @@ Nostr kinds are excluded from ordinary runtime ingestion; observer telemetry
 uses the owner-partitioned archive described in [Agents](agents.md). The
 controller starts capture for only the selected signed-in community and
 invalidates its private decoded state during identity or community changes.
+Encrypted archive rows retain the signed agent profile and, for managed agents,
+the owner-signed instance required to revalidate reciprocal custody. The JSON
+identity payload evolves additively so existing external-agent rows need no
+database migration and no decrypted telemetry enters identity storage.
 
 UI composition ownership is additive: Design Core owns shared dialog and confirmation recipes; Community exports its avatar picker, reactions, and skeleton compositions and an optional composer form mode. The public catalog uses compiled examples with source imports during Storybook acceptance, while packaged consumer validation checks the actual dependency artifact. These changes do not grant agent-management capabilities or alter relay protocols.
 

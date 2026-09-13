@@ -76,8 +76,9 @@ uses Community's existing NIP-17 direct-message flow.
 Kind `24200` telemetry is captured while the active community is signed in,
 including while the activity panel is closed. Owner routing, signatures,
 current ownership, freshness, and channel membership are checked before
-capture. The archive stores the original encrypted event and its signed owner
-profile. The owner signer decrypts on the client; decoded payloads never enter
+capture. The archive stores the original encrypted event, its signed agent
+profile, and the owner-signed `30177` instance needed to verify managed custody.
+The owner signer decrypts on the client; decoded payloads never enter
 message search, event synchronization, or persistent storage.
 
 The archive uses additive Turso tables and an IndexedDB version-2 migration,
@@ -88,19 +89,38 @@ records are kept until explicit clearing, independently of message cache
 pruning and sign-out. Browser storage removal still removes this device's
 history. Memory fallback is identified as session-only storage.
 
-Only received events can be saved; reconnecting cannot replay this ephemeral
-relay stream. The subscription accepts the relay’s five-minute freshness
+Community opens the live subscription before requesting catch-up for the
+visible DM, channel, thread, or forum-topic context. A fresh encrypted
+`sync_activity` control resumes after the device-local `{streamId, offset}`
+checkpoint, and the controller returns missing original signed encrypted events
+inside fresh `activity_sync_page` telemetry. Community validates the fresh
+outer event, then verifies every nested signature, owner, agent, and context
+before atomically archiving the page and advancing the checkpoint. A failed or
+partially invalid page advances nothing. Original event IDs deduplicate live and
+replayed delivery.
+
+Catch-up is nonblocking and repeats after WebSocket reconnect and when the user
+selects Latest. A ten-second nonresponse preserves local data and reports
+synchronization as unavailable until reconnect, presence recovery, or another
+Latest request. A fresh snapshot restores current work and pending permissions;
+historical start frames never imply current work. Identity, community, agent,
+or visible-context changes cancel stale requests.
+
+The subscription accepts the relay’s five-minute freshness
 window so modest clock skew cannot drop newly delivered frames; live working
 expiry remains bounded by the event timestamp. Expired presence and archived turn-start events never indicate
 current execution. Identity or community changes dispose subscriptions and
 invalidate pending decryption. Storage failures pause saving with retryable
 feedback and preserve earlier history. Users can clear history even when
-storage is full. History selection includes previously verified archived
+storage is full. A suppression boundary omits frames created at or before the
+clear action when no committed cursor can cover them. History selection includes previously verified archived
 agents, and decoded windows remain bounded while older pages remain available.
 
-| ID          | Requirement                                                                                                                                                                                                                                                                                                                                                                                                                                              |
-| ----------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| LC-ARCH-022 | Agent telemetry MUST have a separate encrypted archive in the shared Turso, IndexedDB, and memory backends. The active signed-in community MUST capture valid owned telemetry independently of panel visibility, isolate owner and relay scopes, retain history until explicit clearing, page bounded decoded windows, cancel stale decryption, and expose storage and signer failures. Ordinary cache pruning and search MUST NOT consume this archive. |
+| ID           | Requirement                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| ------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| LC-ARCH-022  | Agent telemetry MUST have a separate encrypted archive in the shared Turso, IndexedDB, and memory backends. The active signed-in community MUST capture valid owned telemetry independently of panel visibility, isolate owner and relay scopes, retain history until explicit clearing, page bounded decoded windows, cancel stale decryption, and expose storage and signer failures. Ordinary cache pruning and search MUST NOT consume this archive. |
+| LC-ARCH-026  | Activity stores MUST keep per-context device-local stream checkpoints and commit each validated replay page and checkpoint atomically. Clear history MUST delete local archived and decoded activity while retaining the checkpoint, or record a local suppression timestamp when no checkpoint exists.                                                                                                                                                  |
+| LC-NOSTR-029 | Community MUST request owner-only activity catch-up only for the visible verified-agent context after opening the live subscription, validate every nested original event inside a fresh response, deduplicate by original event ID, restore current snapshots explicitly, time out nonblocking requests after ten seconds, and retry on reconnect, presence recovery, or Latest.                                                                        |
 
 ## Compatibility and screens
 
@@ -111,6 +131,7 @@ agents, and decoded windows remain bounded while older pages remain available.
 | Presence and working                        | Independent expiring signals; `turn_finished` completes a live turn               |
 | Channels                                    | Accessible relay-signed memberships and existing permission-gated add/remove      |
 | Private observer activity                   | Continuous signed-in capture and encrypted device history                         |
+| Missed private observer activity            | Owner-only controller catch-up for the visible conversation                       |
 | Add agent                                   | Owner-signed persona creation plus an explicit managed-agent link                 |
 | Persona presentation and prompt             | Name/avatar applied in Community; configured controller refreshes an idle session |
 | Teams, memories, metrics                    | Protocol families supported; UI deferred                                          |

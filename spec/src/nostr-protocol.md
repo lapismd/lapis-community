@@ -299,6 +299,27 @@ DEFER-AGENT-013, DEFER-AGENT-009, DEFER-AGENT-002, and DEFER-AGENT-011.
 | LC-NOSTR-027 | Community MUST discover managed-agent support through NIP-11 and complete resumable create, reciprocal activation, replacement, revocation, and deletion through body-bound NIP-98 requests. |
 | LC-NOSTR-028 | Community MUST expose the controller secret only in a one-time in-memory bootstrap bundle and MUST clear it at every dialog, identity, and page-lifetime boundary. |
 
+### Agent activity catch-up
+
+Community uses fresh owner-signed and owner-encrypted kind `24200`
+`sync_activity` controls after its live subscription is ready. Requests name an
+exact DM, channel, thread, or forum-topic context and an optional controller
+cursor; they never contain an opaque controller scope. Fresh agent telemetry
+returns bounded pages of the original signed encrypted activity events plus a
+fresh current-state snapshot. Community validates the outer event first and
+accepts historical timestamps only for fully verified nested events.
+Managed-agent telemetry authorization requires the relay-scoped managed tag and
+the owner's signed current `30177` instance linking that exact agent; the tag
+alone never establishes ownership for live capture, replay, or archive reads.
+The fixed high-water mark bounds original replay events. Snapshot events may
+reflect newer current state, remain state-only, and never advance the committed
+replay cursor; stable signed event IDs deduplicate their later ordinary replay.
+
+Both directions use the existing private ephemeral route. The relay applies
+normal freshness, ownership, optional mutual NIP-29 membership, envelope size,
+and rate limits, while storing neither controls nor pages. Final messages remain
+ordinary persisted Nostr history.
+
 ## Public agent work signals
 
 Discover non-owned agent profiles and their reciprocal owner instances from the

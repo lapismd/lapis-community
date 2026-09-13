@@ -108,3 +108,6 @@ The shared browser cache uses atomic statement batches when replaying registry
 and community records. Its pinned browser driver must resume yielded writes
 without requiring unrelated I/O, so registry synchronization releases the
 database connection for encrypted agent history reads.
+The local agent-archive browser lane commits an activity page and cursor in one
+transaction, reopens the database, and verifies that clear-history suppression
+keeps the cursor while removing encrypted activity rows.
