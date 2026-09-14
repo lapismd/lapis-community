@@ -7,6 +7,7 @@
   import UploadCloudIcon from "@lucide/svelte/icons/upload-cloud";
   import LinkIcon from "@lucide/svelte/icons/link-2";
   import CommunityEmojiPicker from "../community-emoji-picker/CommunityEmojiPicker.svelte";
+  import { communityMemberAvatarFallbackTone } from "../community-member-avatar/model.js";
   import type { CommunityCustomEmoji } from "../../community/index.js";
 
   let {
@@ -17,6 +18,7 @@
     communityEmojis = [],
     shape = "rounded",
     size = "large",
+    fallbackName = "",
   }: {
     value?: string;
     open?: boolean;
@@ -25,6 +27,7 @@
     communityEmojis?: readonly CommunityCustomEmoji[];
     shape?: "circle" | "rounded";
     size?: "medium" | "large";
+    fallbackName?: string;
   } = $props();
   const emojis = [
     "😀",
@@ -60,7 +63,24 @@
   let filename = $state("");
   let error = $state("");
   let reader: FileReader | undefined;
+  const fallbackInitials = $derived(initials(fallbackName));
+  const fallbackTone = $derived(
+    communityMemberAvatarFallbackTone(fallbackName),
+  );
   onDestroy(() => reader?.abort());
+
+  function initials(value: string): string {
+    const parts = value
+      .trim()
+      .split(/[\s_-]+/u)
+      .filter(Boolean);
+    return (
+      parts.length > 1
+        ? `${parts[0]?.[0] ?? ""}${parts.at(-1)?.[0] ?? ""}`
+        : (parts[0]?.slice(0, 2) ?? "")
+    ).toUpperCase();
+  }
+
   function emojiAvatar(emoji: string) {
     selectedEmoji = emoji;
     const safe = emoji
@@ -115,9 +135,14 @@
         aria-label={label}
         {disabled}
       >
-        {#if value}<img src={value} alt="Selected avatar" />{:else}<PlusIcon
-            aria-hidden="true"
-          />{/if}
+        {#if value}<img
+            src={value}
+            alt="Selected avatar"
+          />{:else if fallbackInitials}<span
+            class="community-avatar-picker__fallback"
+            data-fallback-tone={fallbackTone}
+            aria-hidden="true">{fallbackInitials}</span
+          >{:else}<PlusIcon aria-hidden="true" />{/if}
       </button>
     {/snippet}
   </Popover.Trigger>
@@ -248,6 +273,43 @@
     width: 100%;
     height: 100%;
     object-fit: cover;
+  }
+  .community-avatar-picker__fallback {
+    display: grid;
+    width: 100%;
+    height: 100%;
+    place-items: center;
+    border-radius: inherit;
+    font-size: var(--community-text-section);
+    font-weight: 700;
+  }
+  .community-avatar-picker__fallback[data-fallback-tone="blue"] {
+    color: #ffffff;
+    background: #2563eb;
+  }
+  .community-avatar-picker__fallback[data-fallback-tone="emerald"] {
+    color: #ffffff;
+    background: #047857;
+  }
+  .community-avatar-picker__fallback[data-fallback-tone="amber"] {
+    color: #451a03;
+    background: #fbbf24;
+  }
+  .community-avatar-picker__fallback[data-fallback-tone="rose"] {
+    color: #ffffff;
+    background: #e11d48;
+  }
+  .community-avatar-picker__fallback[data-fallback-tone="cyan"] {
+    color: #083344;
+    background: #22d3ee;
+  }
+  .community-avatar-picker__fallback[data-fallback-tone="violet"] {
+    color: #ffffff;
+    background: #7c3aed;
+  }
+  .community-avatar-picker__fallback[data-fallback-tone="orange"] {
+    color: #ffffff;
+    background: #c2410c;
   }
   :global(.community-avatar-picker__content) {
     width: min(23rem, calc(100vw - 2rem));

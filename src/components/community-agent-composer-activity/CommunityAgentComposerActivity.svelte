@@ -66,6 +66,7 @@
             ...(first.avatarUrl ? { avatarUrl: first.avatarUrl } : {}),
           }}
           size="xsmall"
+          shape="rounded"
           decorative
         />
         {#if first.severity === "error" || first.severity === "warning"}<AlertIcon

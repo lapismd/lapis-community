@@ -169,6 +169,7 @@
           ...(selected.avatarUrl ? { avatarUrl: selected.avatarUrl } : {}),
         }}
         size="small"
+        shape="rounded"
         decorative
       />{/if}
     <div>

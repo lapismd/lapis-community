@@ -283,6 +283,30 @@
         view = "activity";
       }}
       onSaveAgent={saveAgent}
+      onSaveRuntime={async (pubkey, defaults) => {
+        attempt();
+        const current = model.runtime?.[pubkey] ?? storyAgentRuntime;
+        const next = {
+          ...current,
+          saved: { ...defaults, updatedAt: Date.now() },
+          effective: {
+            runtimeAgent:
+              defaults.runtimeAgent ?? current.effective.runtimeAgent,
+            ...(defaults.model ? { model: defaults.model } : {}),
+            ...(defaults.thinking ? { thinking: defaults.thinking } : {}),
+          },
+        };
+        model = {
+          ...model,
+          runtime: { ...(model.runtime ?? {}), [pubkey]: next },
+        };
+        notice = "Runtime defaults saved";
+        return next;
+      }}
+      onUnlinkPersona={async () => {
+        attempt();
+        notice = "Persona unlinked";
+      }}
       onSavePersona={savePersona}
       onDeletePersona={deletePersona}
       onCreateManagedAgent={async (input) => {

@@ -214,6 +214,42 @@
   }}>{#snippet template()}<Harness variant="room-failure" />{/snippet}</Story
 >
 <Story
+  name="Edit agent"
+  play={async ({ canvas, canvasElement }) => {
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Actions for Research" }),
+    );
+    const body = within(canvasElement.ownerDocument.body);
+    const edit = body.getByRole("menuitem", { name: "Edit agent" });
+    await expect(edit.querySelector("svg")).toBeVisible();
+    await userEvent.click(edit);
+    const dialog = body.getByRole("dialog", { name: "Edit agent" });
+    await expect(
+      within(dialog).getByText("Agent instructions", { exact: true }),
+    ).toBeVisible();
+    await expect(
+      within(dialog).getByText("AI configuration", { exact: true }),
+    ).toBeVisible();
+    await expect(
+      within(dialog).getByRole("tab", { name: "Use harness defaults" }),
+    ).toBeVisible();
+    await expect(within(dialog).getByText("Harness")).toBeVisible();
+    await expect(within(dialog).getByText("Codex")).toBeVisible();
+    await userEvent.click(
+      within(dialog).getByRole("tab", { name: "Customize for this agent" }),
+    );
+    await expect(
+      within(dialog).getByRole("button", { name: "Agent harness" }),
+    ).toBeVisible();
+    await userEvent.clear(within(dialog).getByLabelText("Agent name"));
+    await userEvent.type(within(dialog).getByLabelText("Agent name"), "Scout");
+    await userEvent.click(
+      within(dialog).getByRole("button", { name: "Save changes" }),
+    );
+    await expect(canvas.getByText("Runtime defaults saved")).toBeVisible();
+  }}>{#snippet template()}<Harness variant="gallery" />{/snippet}</Story
+>
+<Story
   name="Replacement controller setup"
   play={async ({ canvas, canvasElement }) => {
     await userEvent.click(
@@ -237,9 +273,11 @@
       canvas.getByRole("button", { name: "Actions for Research" }),
     );
     const body = within(canvasElement.ownerDocument.body);
-    await userEvent.click(
-      body.getByRole("menuitem", { name: "Revoke controller access" }),
-    );
+    const revoke = body.getByRole("menuitem", {
+      name: "Revoke controller access",
+    });
+    await expect(revoke.querySelector("svg")).toBeVisible();
+    await userEvent.click(revoke);
     const dialog = body.getByRole("alertdialog", {
       name: "Revoke controller access?",
     });
@@ -256,9 +294,7 @@
       canvas.getByRole("button", { name: "Actions for Research" }),
     );
     const body = within(canvasElement.ownerDocument.body);
-    await userEvent.click(
-      body.getByRole("menuitem", { name: "Delete managed agent" }),
-    );
+    await userEvent.click(body.getByRole("menuitem", { name: "Delete" }));
     const dialog = body.getByRole("alertdialog", {
       name: "Delete this managed agent?",
     });

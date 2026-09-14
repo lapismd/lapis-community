@@ -7056,6 +7056,10 @@
                 community.actions.agents!.savePersona(input)}
               onSaveAgent={(input) =>
                 community.actions.agents!.saveAgent(input)}
+              onSaveRuntime={(pubkey, defaults) =>
+                community.actions.agents!.saveRuntime(pubkey, defaults)}
+              onUnlinkPersona={(pubkey, fallbackName) =>
+                community.actions.agents!.unlinkAgent(pubkey, fallbackName)}
               onDeletePersona={(slug) =>
                 community.actions.agents!.deletePersona(slug)}
               onCreateManagedAgent={(input) =>
@@ -7323,6 +7327,11 @@
                 <CommunityMemberAvatar
                   member={activeDirectMember}
                   showPresence
+                  shape={community.state.agents?.agents.some(
+                    (agent) => agent.pubkey === activeDirectMember.id,
+                  )
+                    ? "rounded"
+                    : "circle"}
                   decorative
                 />
               {:else if activeRoom.private}

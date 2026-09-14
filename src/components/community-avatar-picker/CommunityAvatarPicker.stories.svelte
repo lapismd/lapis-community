@@ -12,6 +12,18 @@
   });
 </script>
 
+<script lang="ts">
+  let fallbackAvatar = $state("");
+</script>
+
 <Story name="Selection" play={contracts.avatar}
   >{#snippet template()}<Example />{/snippet}</Story
+>
+
+<Story name="Name fallback"
+  >{#snippet template()}<CommunityAvatarPicker
+      bind:value={fallbackAvatar}
+      label="Choose agent image"
+      fallbackName="Nyra"
+    />{/snippet}</Story
 >

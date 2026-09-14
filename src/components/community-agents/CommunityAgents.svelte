@@ -23,17 +23,21 @@
   import DownloadIcon from "@lucide/svelte/icons/download";
   import CopyIcon from "@lucide/svelte/icons/copy";
   import ShieldCheckIcon from "@lucide/svelte/icons/shield-check";
+  import ShieldOffIcon from "@lucide/svelte/icons/shield-off";
   import HashIcon from "@lucide/svelte/icons/hash";
   import CheckIcon from "@lucide/svelte/icons/check";
   import type {
+    CommunityAgentIdentity,
     CommunityAgentNameMode,
     CommunityAgentControllerBootstrap,
     CommunityManagedAgentCreateInput,
     CommunityAgentPersona,
     CommunityAgentPersonaSaveInput,
     CommunityAgentSaveInput,
+    CommunityAgentRuntimeState,
     CommunityAgentsState,
   } from "../../community/agent-contracts.js";
+  import CommunityAgentEditorDialog from "../community-agent-editor/CommunityAgentEditorDialog.svelte";
   import CommunityChatComposer from "../community-chat-composer/CommunityChatComposer.svelte";
   import CommunityChip from "../community-chip/CommunityChip.svelte";
   import CommunityMemberAvatar from "../community-member-avatar/CommunityMemberAvatar.svelte";
@@ -45,6 +49,8 @@
     onActivity,
     onSavePersona,
     onSaveAgent,
+    onSaveRuntime,
+    onUnlinkPersona,
     onDeletePersona,
     onCreateManagedAgent,
     onClearManagedAgentDraft,
@@ -65,6 +71,15 @@
     onActivity: (pubkey: string) => void;
     onSavePersona?: (input: CommunityAgentPersonaSaveInput) => Promise<void>;
     onSaveAgent?: (input: CommunityAgentSaveInput) => Promise<void>;
+    onSaveRuntime?: (
+      pubkey: string,
+      defaults: {
+        runtimeAgent?: string;
+        model?: string;
+        thinking?: "off" | "low" | "medium" | "high";
+      },
+    ) => Promise<CommunityAgentRuntimeState>;
+    onUnlinkPersona?: (pubkey: string, fallbackName: string) => Promise<void>;
     onDeletePersona?: (slug: string) => Promise<void>;
     onCreateManagedAgent?: (
       input: CommunityManagedAgentCreateInput,
@@ -124,6 +139,8 @@
   let editorDescription = $state("");
   let editorAvatarUrl = $state("");
   let editorSystemPrompt = $state("");
+  let agentEditorOpen = $state(false);
+  let agentToEdit = $state<CommunityAgentIdentity>();
   let clearTrigger = $state<HTMLButtonElement | null>(null);
   let addTrigger = $state<HTMLButtonElement | null>(null);
   let directory = $state<HTMLElement>();
@@ -377,6 +394,9 @@
     if (adding && !managedAvailable && provisioningMode === "managed")
       provisioningMode = "existing";
   });
+  $effect(() => {
+    if (!agentEditorOpen) agentToEdit = undefined;
+  });
   onMount(() => {
     const clear = () => clearManagedSetup();
     window.addEventListener("beforeunload", clear);
@@ -405,6 +425,13 @@
     editorAvatarUrl = persona.avatarUrl ?? "";
     editorSystemPrompt = persona.systemPrompt ?? "";
     personaOpen = true;
+  }
+
+  function openAgentEditor(agent: CommunityAgentIdentity) {
+    feedback = "";
+    addFeedback = "";
+    agentToEdit = agent;
+    agentEditorOpen = true;
   }
 
   async function savePersona() {
@@ -581,6 +608,14 @@
             </DropdownMenu.Trigger>
             <DropdownMenu.Content class="agents__card-actions" align="end">
               <DropdownMenu.Group>
+                {#if onSaveAgent}
+                  <DropdownMenu.Item onSelect={() => openAgentEditor(agent)}>
+                    <PencilIcon
+                      data-icon="inline-start"
+                      aria-hidden="true"
+                    />Edit agent
+                  </DropdownMenu.Item>
+                {/if}
                 <DropdownMenu.Item onSelect={() => onActivity(agent.pubkey)}>
                   <ActivityIcon
                     data-icon="inline-start"
@@ -601,7 +636,10 @@
                 {#if agent.custody && onRevokeManagedAgent}
                   <DropdownMenu.Item
                     onSelect={() => (agentToRevoke = agent.pubkey)}
-                    >Revoke controller access</DropdownMenu.Item
+                    ><ShieldOffIcon
+                      data-icon="inline-start"
+                      aria-hidden="true"
+                    />Revoke controller access</DropdownMenu.Item
                   >
                 {/if}
                 {#if agent.custody && onDeleteManagedAgent}
@@ -611,7 +649,7 @@
                     ><TrashIcon
                       data-icon="inline-start"
                       aria-hidden="true"
-                    />Delete managed agent</DropdownMenu.Item
+                    />Delete</DropdownMenu.Item
                   >
                 {/if}
               </DropdownMenu.Group>
@@ -694,6 +732,42 @@
   {/if}
   {#if feedback && !clearing}<p role="status">{feedback}</p>{/if}
 </section>
+
+<CommunityAgentEditorDialog
+  bind:open={agentEditorOpen}
+  agent={agentToEdit}
+  personas={model.personas}
+  runtime={agentToEdit ? model.runtime?.[agentToEdit.pubkey] : undefined}
+  connected={model.status !== "offline" && model.status !== "unsupported"}
+  onSaveAgent={async (input) => {
+    if (!onSaveAgent) throw new Error("Persona management is unavailable.");
+    await onSaveAgent(input);
+    feedback = "Agent changes saved.";
+  }}
+  onSaveRuntime={agentToEdit && onSaveRuntime
+    ? async (defaults) => {
+        const agent = agentToEdit;
+        if (!agent) throw new Error("Choose an agent to edit.");
+        const next = await onSaveRuntime(agent.pubkey, defaults);
+        feedback = "Runtime defaults saved.";
+        return next;
+      }
+    : undefined}
+  onUnlinkPersona={agentToEdit && onUnlinkPersona
+    ? async (fallbackName) => {
+        const agent = agentToEdit;
+        if (!agent) throw new Error("Choose an agent to edit.");
+        await onUnlinkPersona(agent.pubkey, fallbackName);
+        feedback = "Persona unlinked.";
+      }
+    : undefined}
+  onDeletePersona={onDeletePersona
+    ? async (slug) => {
+        await onDeletePersona(slug);
+        feedback = `Persona ${slug} deleted.`;
+      }
+    : undefined}
+/>
 
 <Dialog.Root
   bind:open={adding}

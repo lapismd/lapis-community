@@ -55,27 +55,60 @@
 >
 
 <Story
-  name="Create persona"
+  name="Edit agent"
   play={async ({ canvas, canvasElement }) => {
-    await userEvent.click(
-      canvas.getByRole("button", { name: "Create persona", exact: true }),
-    );
+    const editAgent = canvas.getByRole("button", {
+      name: "Edit Research",
+      exact: true,
+    });
+    await expect(
+      canvas.queryByText("Edit agent", { exact: true }),
+    ).not.toBeInTheDocument();
+    await expect(
+      canvas.getByRole("img", { name: "Research, Online" }),
+    ).toHaveAttribute("data-shape", "rounded");
+    await userEvent.click(editAgent);
     const body = within(canvasElement.ownerDocument.body);
-    const dialog = body.getByRole("dialog", { name: "Create persona" });
+    const dialog = body.getByRole("dialog", { name: "Edit agent" });
     await expect(
       within(dialog).getByText(
-        "Saved with the persona. A configured controller applies changes before the agent’s next idle turn.",
+        "Saved with the persona. A configured controller applies changes before the agent's next idle turn.",
       ),
     ).toBeVisible();
-    await userEvent.clear(within(dialog).getByLabelText("Persona name"));
+    await userEvent.clear(within(dialog).getByLabelText("Agent name"));
     await userEvent.type(
-      within(dialog).getByLabelText("Persona name"),
+      within(dialog).getByLabelText("Agent name"),
       "Research assistant",
     );
     await userEvent.click(
-      within(dialog).getByRole("button", { name: "Save persona" }),
+      within(dialog).getByRole("button", { name: "Save changes" }),
     );
     await expect(canvas.getByText("Persona research saved")).toBeVisible();
+  }}>{#snippet template()}<Harness screen="profile" />{/snippet}</Story
+>
+
+<Story
+  name="Avatar edit affordance"
+  play={async ({ canvas, canvasElement }) => {
+    const editAgent = canvas.getByRole("button", {
+      name: "Edit Research",
+      exact: true,
+    });
+    await expect(
+      canvas.queryByText("Edit agent", { exact: true }),
+    ).not.toBeInTheDocument();
+    await expect(
+      canvas.getByRole("img", { name: "Research, Online" }),
+    ).toHaveAttribute("data-shape", "rounded");
+    const overlay = editAgent.querySelector(".agent-profile__name-edit-icon");
+    await expect(overlay).toBeInTheDocument();
+    await userEvent.click(editAgent);
+    const body = within(canvasElement.ownerDocument.body);
+    const dialog = body.getByRole("dialog", { name: "Edit agent" });
+    await expect(dialog).toBeVisible();
+    await userEvent.click(
+      within(dialog).getByRole("button", { name: "Cancel" }),
+    );
   }}>{#snippet template()}<Harness screen="profile" />{/snippet}</Story
 >
 
@@ -111,40 +144,120 @@
         ),
       ).overflowWrap,
     ).toBe("anywhere");
-    for (const part of ["runtime-defaults", "runtime-tools"]) {
-      const section = canvasElement.querySelector(`[data-ui-part="${part}"]`);
-      await expect(section).toBeVisible();
-      await expect(getComputedStyle(section!).borderTopWidth).toBe("1px");
-    }
-    const body = within(canvasElement.ownerDocument.body);
-    await userEvent.click(canvas.getByRole("button", { name: "Model" }));
-    await userEvent.click(body.getByRole("option", { name: "GPT-5.6" }));
-    await waitFor(() =>
-      expect(
-        getComputedStyle(canvasElement.ownerDocument.body).pointerEvents,
-      ).not.toBe("none"),
+    const runtimeDefaults = canvasElement.querySelector(
+      `[data-ui-part="runtime-defaults"]`,
     );
+    await expect(runtimeDefaults).toBeVisible();
+    await expect(canvas.getByText("Agent configuration")).toBeVisible();
+    await expect(canvas.getByText("Agent harness")).toBeVisible();
+    await expect(canvas.getByText("Model")).toBeVisible();
+    await expect(canvas.getByText("Thinking")).toBeVisible();
+    const tools = canvasElement.querySelector(`[data-ui-part="runtime-tools"]`);
+    await expect(tools).toBeVisible();
+    await expect(getComputedStyle(tools!).borderTopWidth).toBe("1px");
+    await expect(
+      canvas.queryByText("Edit agent", { exact: true }),
+    ).not.toBeInTheDocument();
+    const body = within(canvasElement.ownerDocument.body);
+    await userEvent.click(canvas.getByRole("button", { name: "Edit model" }));
+    const dialog = body.getByRole("dialog", { name: "Edit agent" });
+    await expect(
+      within(dialog).getByText("AI configuration", { exact: true }),
+    ).toBeVisible();
+    await expect(
+      within(dialog).getByRole("tab", { name: "Use harness defaults" }),
+    ).toBeVisible();
+    await expect(within(dialog).getByText("Harness")).toBeVisible();
+    await expect(within(dialog).getByText("Codex")).toBeVisible();
+    await expect(within(dialog).getByText("GPT-6")).toBeVisible();
     await userEvent.click(
-      canvas.getByRole("button", { name: "Save defaults" }),
+      within(dialog).getByRole("tab", { name: "Customize for this agent" }),
+    );
+    await expect(
+      within(dialog).getByRole("button", { name: "Model" }),
+    ).toBeVisible();
+    await userEvent.click(
+      within(dialog).getByRole("button", { name: "Save changes" }),
     );
     await expect(canvas.getByRole("status")).toHaveTextContent(
       "Runtime defaults saved",
     );
-    await userEvent.click(canvas.getByRole("button", { name: "Tools" }));
+    const toolsTrigger = canvas.getByRole("button", { name: "Tools" });
+    await waitFor(() =>
+      expect(getComputedStyle(toolsTrigger).pointerEvents).not.toBe("none"),
+    );
+    await userEvent.click(toolsTrigger);
     await expect(canvas.getByText("relay.issues.create")).toBeVisible();
   }}>{#snippet template()}<Harness screen="profile" />{/snippet}</Story
 >
 
 <Story
   name="Memory review"
-  play={async ({ canvas }) => {
+  play={async ({ canvas, canvasElement }) => {
     await userEvent.click(canvas.getByRole("tab", { name: "Memories" }));
     await expect(
-      canvas.getByText("Summaries should lead with release blockers."),
+      canvas.getByRole("button", { name: "Filter memories" }),
     ).toBeVisible();
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Filter memories" }),
+    );
+    await expect(
+      canvas.queryByRole("button", { name: "Search" }),
+    ).not.toBeInTheDocument();
+    await expect(
+      canvas.getByRole("button", { name: "Choose memory channel" }),
+    ).toBeVisible();
+    await expect(
+      canvas.getByRole("button", { name: "Choose memory status" }),
+    ).toBeVisible();
+    const body = within(canvasElement.ownerDocument.body);
+    await expect(
+      canvas.queryByRole("combobox", { name: "Choose memory channel" }),
+    ).not.toBeInTheDocument();
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Choose memory channel" }),
+    );
+    await expect(body.getByPlaceholderText("Search channels...")).toBeVisible();
+    await expect(
+      body
+        .getAllByText("#general")
+        .find((node) =>
+          node.classList.contains("ui-filter-command-picker__item-label"),
+        ),
+    ).toBeVisible();
+    await userEvent.keyboard("{Escape}");
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Choose memory status" }),
+    );
+    await expect(body.getByPlaceholderText("Search statuses...")).toBeVisible();
+    await expect(
+      body
+        .getAllByText("Needs review")
+        .find((node) =>
+          node.classList.contains("ui-filter-command-picker__item-label"),
+        ),
+    ).toBeVisible();
+    await userEvent.keyboard("{Escape}");
+    await userEvent.type(
+      canvas.getByRole("searchbox", { name: "Search memories" }),
+      "release",
+    );
+    await waitFor(() => {
+      expect(
+        canvas.getByText("Summaries should lead with release blockers."),
+      ).toBeVisible();
+    });
+    const evidence = canvas.getByText("Evidence (1)").closest("summary");
+    await expect(evidence?.querySelector("svg")).toBeVisible();
     await userEvent.click(canvas.getByText("Evidence (1)"));
     await expect(canvas.getByText(/^aaaaaaaaaaaa/u)).toBeVisible();
-    await userEvent.click(canvas.getByRole("button", { name: "Approve" }));
+    const reviewActions = canvas.getByRole("group", {
+      name: "Review preference memory",
+    });
+    await expect(reviewActions.querySelectorAll("svg")).toHaveLength(2);
+    await userEvent.click(
+      within(reviewActions).getByRole("button", { name: "Approve" }),
+    );
     await expect(canvas.getByRole("status")).toHaveTextContent(
       "Memory approved",
     );

@@ -1,6 +1,12 @@
 <script lang="ts">
-  import { DialogFrame } from "@lapismd/design-core/forms/dialog";
-  import { ConfirmDialog } from "@lapismd/design-core/forms/dialog";
+  import {
+    ConfirmDialog,
+    DialogFrame,
+  } from "@lapismd/design-core/forms/dialog";
+  import {
+    FilterCommandPicker,
+    type FilterCommandOption,
+  } from "@lapismd/design-core/forms/filter-command-picker";
   import { Button } from "@lapismd/design-core/shadcn/button";
   import * as Tabs from "@lapismd/design-core/shadcn/tabs";
   import * as Dialog from "@lapismd/design-core/shadcn/dialog";
@@ -8,8 +14,7 @@
   import * as Collapsible from "@lapismd/design-core/shadcn/collapsible";
   import * as DropdownMenu from "@lapismd/design-core/shadcn/dropdown-menu";
   import * as Field from "@lapismd/design-core/shadcn/field";
-  import { Input } from "@lapismd/design-core/shadcn/input";
-  import * as Select from "@lapismd/design-core/shadcn/select";
+  import { SearchFilterBar } from "@lapismd/design-core/filter";
   import MessageIcon from "@lucide/svelte/icons/message-square";
   import FollowIcon from "@lucide/svelte/icons/user-plus";
   import ActivityIcon from "@lucide/svelte/icons/wrench";
@@ -24,15 +29,17 @@
   import HashIcon from "@lucide/svelte/icons/hash";
   import LockIcon from "@lucide/svelte/icons/lock";
   import CheckIcon from "@lucide/svelte/icons/check";
+  import CircleCheckIcon from "@lucide/svelte/icons/circle-check";
+  import CircleXIcon from "@lucide/svelte/icons/circle-x";
   import UserMinusIcon from "@lucide/svelte/icons/user-minus";
   import PencilIcon from "@lucide/svelte/icons/pencil";
   import XIcon from "@lucide/svelte/icons/x";
   import BrainIcon from "@lucide/svelte/icons/brain";
   import RotateCwIcon from "@lucide/svelte/icons/rotate-cw";
+  import RotateCcwIcon from "@lucide/svelte/icons/rotate-ccw";
   import type {
     CommunityAgentIdentity,
     CommunityAgentMemoryState,
-    CommunityAgentNameMode,
     CommunityAgentPersona,
     CommunityAgentPresence,
     CommunityAgentRuntimeState,
@@ -40,8 +47,7 @@
   } from "../../community/agent-contracts.js";
   import type { CommunityRoomModel } from "../community-workspace/model.js";
   import CommunityChip from "../community-chip/CommunityChip.svelte";
-  import CommunityAvatarPicker from "../community-avatar-picker/CommunityAvatarPicker.svelte";
-  import CommunityChatComposer from "../community-chat-composer/CommunityChatComposer.svelte";
+  import CommunityAgentEditorDialog from "../community-agent-editor/CommunityAgentEditorDialog.svelte";
   import CommunityMemberAvatar from "../community-member-avatar/CommunityMemberAvatar.svelte";
   import { communityAgentMember } from "../community-agents/model.js";
 
@@ -120,16 +126,6 @@
   let channelQuery = $state("");
   let copied = $state(false);
   let personaOpen = $state(false);
-  let unlinkOpen = $state(false);
-  let deletePersonaOpen = $state(false);
-  let personaName = $state("");
-  let personaDescription = $state("");
-  let personaAvatar = $state("");
-  let personaPrompt = $state("");
-  let personaSlug = $state("");
-  let instanceName = $state("");
-  let nameMode = $state<CommunityAgentNameMode>("instance");
-  let personaSelection = $state("__new__");
   let addTrigger = $state<HTMLButtonElement | null>(null);
   let channelSearch = $state<HTMLInputElement | null>(null);
   let profile = $state<HTMLElement>();
@@ -144,6 +140,7 @@
     "review",
   );
   let memoryQuery = $state("");
+  let memoryFiltersExpanded = $state(false);
   let memoryLoaded = $state("");
   const profileId = $props.id();
   const channelSearchId = `${profileId}-channel-search`;
@@ -165,9 +162,6 @@
   );
   const selectedChannel = $derived(
     addable.find((room) => room.id === selectedRoom),
-  );
-  const editorPersona = $derived(
-    personas.find((persona) => persona.slug === personaSelection),
   );
   const runtimeAgents = $derived(
     runtime?.runtimeAgents.length
@@ -209,6 +203,18 @@
       ) ?? []
     );
   });
+  const runtimeAgentLabel = $derived(
+    runtimeAgents.find(({ id }) => id === runtimeAgent)?.label ?? runtimeAgent,
+  );
+  const runtimeModelLabel = $derived(
+    (modelOptions.find(({ value }) => value === runtimeModel)?.name ??
+      runtimeModel) ||
+      "Harness default",
+  );
+  const runtimeThinkingLabel = $derived(
+    thinkingOptions.find(({ value }) => value === runtimeThinking)?.name ??
+      runtimeThinking,
+  );
   const memoryRecords = $derived(
     memories?.channelId === memoryChannel
       ? memories.records.filter((record) => {
@@ -236,6 +242,45 @@
         })
       : [],
   );
+  const memoryStatusOptions = [
+    { value: "review", label: "Needs review" },
+    { value: "approved", label: "Approved" },
+    { value: "rejected", label: "Rejected" },
+    { value: "retracted", label: "Retracted" },
+  ] as const;
+  const selectedMemoryChannelLabel = $derived(
+    channels.find((room) => (room.groupId ?? room.id) === memoryChannel)
+      ?.name ?? "Select channel",
+  );
+  const selectedMemoryStatusLabel = $derived(
+    memoryStatusOptions.find((option) => option.value === memoryStatus)
+      ?.label ?? "Needs review",
+  );
+  const memoryChannelOptions = $derived<FilterCommandOption[]>(
+    channels.map((room) => ({
+      value: room.groupId ?? room.id,
+      label: `#${room.name}`,
+      description: room.private ? "Private channel" : "Public channel",
+      keywords: [room.id, room.groupId ?? "", room.name],
+    })),
+  );
+  const memoryStatusPickerOptions = $derived<FilterCommandOption[]>(
+    memoryStatusOptions.map((option) => ({
+      value: option.value,
+      label: option.label,
+      description:
+        option.value === "review"
+          ? "Awaiting owner decision"
+          : option.value === "approved"
+            ? "Accepted memory"
+            : option.value === "rejected"
+              ? "Dismissed suggestion"
+              : "Removed memory",
+    })),
+  );
+  const memoryRequestKey = $derived(
+    `${agent.pubkey}:${memoryChannel}:${memoryStatus}:${memoryQuery.trim()}`,
+  );
 
   $effect(() => {
     if (runtime && runtimeLoaded !== `${agent.pubkey}:${runtime.agentId}`) {
@@ -262,16 +307,26 @@
       runtimeRequested = agent.pubkey;
       void loadRuntime();
     }
-    if (
-      tab === "memories" &&
-      onLoadMemories &&
-      memoryChannel &&
-      memoryLoaded !== `${agent.pubkey}:${memoryChannel}:${memoryStatus}`
-    ) {
-      memoryLoaded = `${agent.pubkey}:${memoryChannel}:${memoryStatus}`;
-      void loadMemories();
-    }
   });
+
+  $effect(() => {
+    if (
+      tab !== "memories" ||
+      !onLoadMemories ||
+      !memoryChannel ||
+      memoryLoaded === memoryRequestKey
+    )
+      return;
+    const timeout = window.setTimeout(
+      () => {
+        memoryLoaded = memoryRequestKey;
+        void loadMemories();
+      },
+      memoryQuery.trim() ? 300 : 0,
+    );
+    return () => window.clearTimeout(timeout);
+  });
+
   async function action(run: () => void | Promise<void>) {
     pending = true;
     error = "";
@@ -296,22 +351,6 @@
     });
   }
 
-  async function saveRuntime(): Promise<void> {
-    if (!onSaveRuntime) return;
-    await action(async () => {
-      const next = await onSaveRuntime(
-        runtime && runtimeAgent !== runtime.effective.runtimeAgent
-          ? { runtimeAgent }
-          : {
-              runtimeAgent,
-              ...(runtimeModel ? { model: runtimeModel } : {}),
-              thinking: runtimeThinking,
-            },
-      );
-      runtimeLoaded = `${agent.pubkey}:${next.agentId}`;
-    });
-  }
-
   async function loadMemories(): Promise<void> {
     if (!onLoadMemories || !memoryChannel) return;
     await action(async () => {
@@ -320,7 +359,7 @@
         status: memoryStatus,
         ...(memoryQuery.trim() ? { query: memoryQuery.trim() } : {}),
       });
-      memoryLoaded = `${agent.pubkey}:${memoryChannel}:${memoryStatus}`;
+      memoryLoaded = memoryRequestKey;
     });
   }
 
@@ -337,74 +376,13 @@
         status: memoryStatus,
         ...(memoryQuery.trim() ? { query: memoryQuery.trim() } : {}),
       });
+      memoryLoaded = memoryRequestKey;
     });
   }
 
   function openPersonaEditor(): void {
-    personaName = agent.persona?.displayName ?? agent.name;
-    personaDescription = agent.persona?.description ?? agent.about;
-    personaAvatar = agent.persona?.avatarUrl ?? agent.avatarUrl ?? "";
-    personaPrompt = agent.persona?.systemPrompt ?? "";
-    personaSlug =
-      agent.persona?.slug ??
-      agent.instance?.personaId ??
-      personaSlugFromName(agent.name);
-    instanceName = agent.instance?.name || agent.name;
-    nameMode = agent.instance?.nameMode ?? "instance";
-    personaSelection = agent.persona?.slug ?? "__new__";
     error = "";
     personaOpen = true;
-  }
-
-  function selectPersona(value: string): void {
-    personaSelection = value;
-    const selected = personas.find((persona) => persona.slug === value);
-    if (selected) {
-      personaName = selected.displayName;
-      personaDescription = selected.description;
-      personaAvatar = selected.avatarUrl ?? "";
-      personaPrompt = selected.systemPrompt ?? "";
-      personaSlug = selected.slug;
-      return;
-    }
-    personaName = agent.name;
-    personaDescription = agent.about;
-    personaAvatar = agent.avatarUrl ?? "";
-    personaPrompt = "";
-    personaSlug = agent.instance?.personaId ?? personaSlugFromName(agent.name);
-  }
-
-  async function savePersona(): Promise<void> {
-    pending = true;
-    error = "";
-    try {
-      await onSaveAgent({
-        pubkey: agent.pubkey,
-        personaSlug,
-        displayName: personaName,
-        description: personaDescription,
-        avatarUrl: personaAvatar,
-        systemPrompt: personaPrompt,
-        nameMode,
-        instanceName,
-      });
-      personaOpen = false;
-    } catch (cause) {
-      error = cause instanceof Error ? cause.message : "Persona update failed";
-    } finally {
-      pending = false;
-    }
-  }
-
-  function personaSlugFromName(value: string): string {
-    return (
-      value
-        .toLowerCase()
-        .normalize("NFKD")
-        .replaceAll(/[^a-z0-9_-]+/g, "-")
-        .replaceAll(/^-+|-+$/g, "")
-        .slice(0, 64) || "agent"
-    );
   }
 </script>
 
@@ -418,10 +396,25 @@
     <CommunityMemberAvatar
       member={communityAgentMember(agent)}
       size="large"
+      shape="rounded"
       showPresence
       presence={presence?.status ?? "unknown"}
     />
-    <h2>{agent.name}</h2>
+    <h2>
+      <Button
+        type="button"
+        variant="ghost"
+        class="agent-profile__name-edit"
+        aria-label={`Edit ${agent.name}`}
+        disabled={!connected || pending}
+        onclick={openPersonaEditor}
+      >
+        <span>{agent.name}</span>
+        <span class="agent-profile__name-edit-icon" aria-hidden="true"
+          ><PencilIcon /></span
+        >
+      </Button>
+    </h2>
     {#if working}<div class="agent-profile__signals">
         <CommunityChip size="compact" tone="accent">Working</CommunityChip>
       </div>{/if}
@@ -446,15 +439,6 @@
       ><FollowIcon aria-hidden="true" />{agent.followed
         ? "Unfollow"
         : "Follow"}</Button
-    >
-    <Button
-      class="agent-profile__action"
-      variant="secondary"
-      disabled={!connected || pending}
-      onclick={openPersonaEditor}
-      ><PencilIcon aria-hidden="true" />{agent.personaStatus === "none"
-        ? "Create persona"
-        : "Edit persona"}</Button
     >
   </div>
   {#if !canMessage}<p>
@@ -630,15 +614,18 @@
           <div class="agent-profile__section-heading">
             <div>
               <h3>Runtime</h3>
-              <p>Defaults apply to the next agent session.</p>
+              <p>Harness settings apply to the next agent session.</p>
             </div>
-            <Button
-              variant="outline"
-              size="icon-sm"
-              aria-label="Refresh runtime details"
-              disabled={!connected || pending}
-              onclick={loadRuntime}><RotateCwIcon aria-hidden="true" /></Button
-            >
+            <div class="agent-profile__section-actions">
+              <Button
+                variant="outline"
+                size="icon-sm"
+                aria-label="Refresh runtime details"
+                disabled={!connected || pending}
+                onclick={loadRuntime}
+                ><RotateCwIcon aria-hidden="true" /></Button
+              >
+            </div>
           </div>
           {#if runtime}
             <dl class="agent-profile__runtime-summary">
@@ -667,80 +654,62 @@
                 </dd>
               </div>
             </dl>
-            <Field.Group
+            <h3 class="agent-profile__runtime-config-title">
+              Agent configuration
+            </h3>
+            <div
               class="agent-profile__runtime-fields"
               data-ui-part="runtime-defaults"
+              aria-label="Runtime defaults"
             >
-              <Field.Field>
-                <Field.Label for={`${profileId}-runtime-agent`}
-                  >Harness</Field.Label
+              <Button
+                type="button"
+                variant="ghost"
+                class="agent-profile__runtime-field"
+                disabled={!connected || pending || !onSaveRuntime}
+                aria-label="Edit agent harness"
+                onclick={openPersonaEditor}
+              >
+                <span>
+                  <span>Agent harness</span>
+                  <strong>{runtimeAgentLabel}</strong>
+                </span>
+                <PencilIcon aria-hidden="true" />
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                class="agent-profile__runtime-field"
+                disabled={!connected || pending || !onSaveRuntime}
+                aria-label="Edit model"
+                onclick={openPersonaEditor}
+              >
+                <span>
+                  <span>Model</span>
+                  <strong>{runtimeModelLabel}</strong>
+                </span>
+                <PencilIcon aria-hidden="true" />
+              </Button>
+              {#if thinkingOptions.length > 0}
+                <Button
+                  type="button"
+                  variant="ghost"
+                  class="agent-profile__runtime-field"
+                  disabled={!connected || pending || !onSaveRuntime}
+                  aria-label="Edit thinking"
+                  onclick={openPersonaEditor}
                 >
-                <Select.Root
-                  type="single"
-                  value={runtimeAgent}
-                  onValueChange={(value) => (runtimeAgent = value)}
-                >
-                  <Select.Trigger id={`${profileId}-runtime-agent`}
-                    >{runtimeAgents.find(({ id }) => id === runtimeAgent)
-                      ?.label ?? runtimeAgent}</Select.Trigger
-                  >
-                  <Select.Content>
-                    {#each runtimeAgents as entry (entry.id)}<Select.Item
-                        value={entry.id}>{entry.label}</Select.Item
-                      >{/each}
-                  </Select.Content>
-                </Select.Root>
-              </Field.Field>
-              <Field.Field>
-                <Field.Label for={`${profileId}-runtime-model`}
-                  >Model</Field.Label
-                >
-                <Select.Root
-                  type="single"
-                  value={runtimeModel}
-                  onValueChange={(value) => (runtimeModel = value)}
-                >
-                  <Select.Trigger id={`${profileId}-runtime-model`}
-                    >{modelOptions.find(({ value }) => value === runtimeModel)
-                      ?.name ?? runtimeModel}</Select.Trigger
-                  >
-                  <Select.Content>
-                    {#each modelOptions as option (option.value)}<Select.Item
-                        value={option.value}>{option.name}</Select.Item
-                      >{/each}
-                  </Select.Content>
-                </Select.Root>
-              </Field.Field>
-              <Field.Field>
-                <Field.Label for={`${profileId}-runtime-thinking`}
-                  >Thinking</Field.Label
-                >
-                <Select.Root
-                  type="single"
-                  value={runtimeThinking}
-                  onValueChange={(value) =>
-                    (runtimeThinking = value as typeof runtimeThinking)}
-                >
-                  <Select.Trigger id={`${profileId}-runtime-thinking`}
-                    >{thinkingOptions.find(
-                      ({ value }) => value === runtimeThinking,
-                    )?.name ?? runtimeThinking}</Select.Trigger
-                  >
-                  <Select.Content>
-                    {#each thinkingOptions as option (option.value)}<Select.Item
-                        value={option.value}>{option.name}</Select.Item
-                      >{/each}
-                  </Select.Content>
-                </Select.Root>
-              </Field.Field>
-            </Field.Group>
+                  <span>
+                    <span>Thinking</span>
+                    <strong>{runtimeThinkingLabel}</strong>
+                  </span>
+                  <PencilIcon aria-hidden="true" />
+                </Button>
+              {/if}
+            </div>
             {#if runtime.catalog.error}<p role="alert">
                 {runtime.catalog.error}
               </p>{/if}
-            <Button
-              disabled={!connected || pending || !onSaveRuntime}
-              onclick={saveRuntime}>Save defaults</Button
-            >
             <Collapsible.Root
               class="agent-profile__tools"
               data-ui-part="runtime-tools"
@@ -778,76 +747,57 @@
             <BrainIcon aria-hidden="true" />
           </div>
           {#if channels.length > 0}
-            <div class="agent-profile__memory-filters">
-              <Field.Field>
-                <Field.Label for={`${profileId}-memory-channel`}
-                  >Channel</Field.Label
-                >
-                <Select.Root
-                  type="single"
-                  value={memoryChannel}
-                  onValueChange={(value) => {
-                    memoryChannel = value;
-                    memoryLoaded = "";
-                  }}
-                >
-                  <Select.Trigger id={`${profileId}-memory-channel`}
-                    >#{channels.find(
-                      (room) => (room.groupId ?? room.id) === memoryChannel,
-                    )?.name ?? "Select channel"}</Select.Trigger
-                  >
-                  <Select.Content>
-                    {#each channels as room (room.id)}<Select.Item
-                        value={room.groupId ?? room.id}
-                        >#{room.name}</Select.Item
-                      >{/each}
-                  </Select.Content>
-                </Select.Root>
-              </Field.Field>
-              <Field.Field>
-                <Field.Label for={`${profileId}-memory-status`}
-                  >Status</Field.Label
-                >
-                <Select.Root
-                  type="single"
-                  value={memoryStatus}
-                  onValueChange={(value) => {
-                    memoryStatus = value as typeof memoryStatus;
-                    memoryLoaded = "";
-                  }}
-                >
-                  <Select.Trigger id={`${profileId}-memory-status`}
-                    >{memoryStatus === "review"
-                      ? "Needs review"
-                      : memoryStatus[0]!.toUpperCase() +
-                        memoryStatus.slice(1)}</Select.Trigger
-                  >
-                  <Select.Content>
-                    <Select.Item value="review">Needs review</Select.Item>
-                    <Select.Item value="approved">Approved</Select.Item>
-                    <Select.Item value="rejected">Rejected</Select.Item>
-                    <Select.Item value="retracted">Retracted</Select.Item>
-                  </Select.Content>
-                </Select.Root>
-              </Field.Field>
-            </div>
-            <form
-              class="agent-profile__memory-search"
-              onsubmit={(event) => {
-                event.preventDefault();
-                void loadMemories();
-              }}
-            >
-              <Input
-                aria-label="Search memories"
+            <div class="agent-profile__memory-search">
+              <SearchFilterBar
+                value={memoryQuery}
                 placeholder="Search memories"
-                bind:value={memoryQuery}
-                maxlength={256}
-              />
-              <Button type="submit" variant="outline" disabled={pending}
-                >Search</Button
+                ariaLabel="Search memories"
+                showFilterToggle
+                bind:filtersExpanded={memoryFiltersExpanded}
+                expandFiltersLabel="Filter memories"
+                collapseFiltersLabel="Hide memory filters"
+                clearSearchLabel="Clear memory search"
+                onValueChange={(value) => (memoryQuery = value.slice(0, 256))}
+                onClearSearch={() => {
+                  memoryQuery = "";
+                }}
               >
-            </form>
+                {#snippet collapsedFilters()}
+                  <span class="agent-profile__memory-filter-summary">
+                    #{selectedMemoryChannelLabel}
+                    <span>{selectedMemoryStatusLabel}</span>
+                  </span>
+                {/snippet}
+                {#snippet filters()}
+                  <div class="agent-profile__memory-filter-buttons">
+                    <FilterCommandPicker
+                      value={memoryChannel}
+                      label="Channel"
+                      ariaLabel="Choose memory channel"
+                      placeholder="Search channels..."
+                      emptyLabel="No matching channels."
+                      options={memoryChannelOptions}
+                      onChange={(value) => {
+                        memoryChannel = value;
+                        memoryLoaded = "";
+                      }}
+                    />
+                    <FilterCommandPicker
+                      value={memoryStatus}
+                      label="Status"
+                      ariaLabel="Choose memory status"
+                      placeholder="Search statuses..."
+                      emptyLabel="No matching statuses."
+                      options={memoryStatusPickerOptions}
+                      onChange={(value) => {
+                        memoryStatus = value as typeof memoryStatus;
+                        memoryLoaded = "";
+                      }}
+                    />
+                  </div>
+                {/snippet}
+              </SearchFilterBar>
+            </div>
             {#if memoryRecords.length > 0}
               <div class="agent-profile__memory-list">
                 {#each memoryRecords as record (record.type === "candidate" ? record.candidateId : record.memoryId)}
@@ -873,7 +823,15 @@
                     </p>
                     {#if record.type === "candidate" && record.evidence.length > 0}
                       <details>
-                        <summary>Evidence ({record.evidence.length})</summary>
+                        <summary
+                          ><ChevronRightIcon
+                            class="agent-profile__evidence-closed"
+                            aria-hidden="true"
+                          /><ChevronDownIcon
+                            class="agent-profile__evidence-open"
+                            aria-hidden="true"
+                          />Evidence ({record.evidence.length})</summary
+                        >
                         <ul>
                           {#each record.evidence as evidence (evidence.eventId)}<li
                             >
@@ -885,25 +843,32 @@
                       </details>
                     {/if}
                     {#if record.type === "candidate" && record.status === "review"}
-                      <div class="agent-profile__memory-actions">
+                      <div
+                        class="agent-profile__memory-actions"
+                        role="group"
+                        aria-label={`Review ${record.kind} memory`}
+                      >
                         <Button
                           size="sm"
+                          class="agent-profile__memory-action agent-profile__memory-action--approve"
                           disabled={pending || !onActOnMemory}
                           onclick={() =>
                             actOnMemory({
                               action: "approve",
                               candidateId: record.candidateId,
-                            })}>Approve</Button
+                            })}
+                          ><CircleCheckIcon aria-hidden="true" />Approve</Button
                         >
                         <Button
                           size="sm"
                           variant="outline"
+                          class="agent-profile__memory-action agent-profile__memory-action--reject"
                           disabled={pending || !onActOnMemory}
                           onclick={() =>
                             actOnMemory({
                               action: "reject",
                               candidateId: record.candidateId,
-                            })}>Reject</Button
+                            })}><CircleXIcon aria-hidden="true" />Reject</Button
                         >
                       </div>
                     {:else if record.type === "memory" && record.status === "active"}
@@ -915,7 +880,8 @@
                           actOnMemory({
                             action: "retract",
                             memoryId: record.memoryId,
-                          })}>Retract</Button
+                          })}
+                        ><RotateCcwIcon aria-hidden="true" />Retract</Button
                       >
                     {/if}
                   </article>
@@ -932,169 +898,17 @@
   </Tabs.Root>
 </article>
 
-<Dialog.Root bind:open={personaOpen}>
-  <DialogFrame
-    title={agent.personaStatus === "none" ? "Create persona" : "Edit persona"}
-    description="Manage the owner-signed presentation and saved prompt for this agent instance."
-    size="form"
-    busy={pending}
-    closeLabel="Close persona editor"
-    onInteractOutside={(event) => {
-      if (pending) event.preventDefault();
-    }}
-    onEscapeKeydown={(event) => {
-      if (pending) event.preventDefault();
-    }}
-  >
-    <form
-      id={`${profileId}-persona-form`}
-      class="agent-profile__persona-form"
-      onsubmit={(event) => {
-        event.preventDefault();
-        void savePersona();
-      }}
-    >
-      <CommunityAvatarPicker
-        bind:value={personaAvatar}
-        label="Choose persona image"
-        disabled={pending}
-        size="medium"
-      />
-      <Field.Group>
-        {#if personas.length > 0}
-          <Field.Field
-            ><Field.Label for={`${profileId}-persona-source`}
-              >Persona</Field.Label
-            ><Select.Root
-              type="single"
-              value={personaSelection}
-              onValueChange={selectPersona}
-              ><Select.Trigger id={`${profileId}-persona-source`}
-                >{editorPersona?.displayName ??
-                  "Create a new persona"}</Select.Trigger
-              ><Select.Content
-                ><Select.Item value="__new__">Create a new persona</Select.Item
-                >{#each personas as persona (persona.slug)}<Select.Item
-                    value={persona.slug}>{persona.displayName}</Select.Item
-                  >{/each}</Select.Content
-              ></Select.Root
-            ><Field.Description
-              >Choose an existing reusable persona or create one for this agent.</Field.Description
-            ></Field.Field
-          >
-        {/if}
-        <Field.Field
-          ><Field.Label for={`${profileId}-persona-name`}
-            >Persona name</Field.Label
-          ><Input
-            id={`${profileId}-persona-name`}
-            bind:value={personaName}
-            disabled={pending}
-          /></Field.Field
-        >
-        <Field.Field
-          ><Field.Label for={`${profileId}-persona-id`}>Persona ID</Field.Label
-          ><Input
-            id={`${profileId}-persona-id`}
-            bind:value={personaSlug}
-            disabled={pending || editorPersona !== undefined}
-          /><Field.Description
-            >The stable ID remains unchanged when the persona is renamed.</Field.Description
-          ></Field.Field
-        >
-        <Field.Field
-          ><Field.Label for={`${profileId}-persona-name-mode`}
-            >Instance name</Field.Label
-          ><Select.Root
-            type="single"
-            value={nameMode}
-            onValueChange={(value) =>
-              (nameMode = value as CommunityAgentNameMode)}
-            ><Select.Trigger id={`${profileId}-persona-name-mode`}
-              >{nameMode === "inherited"
-                ? "Use persona name"
-                : "Keep instance name"}</Select.Trigger
-            ><Select.Content
-              ><Select.Item value="instance">Keep instance name</Select.Item
-              ><Select.Item value="inherited">Use persona name</Select.Item
-              ></Select.Content
-            ></Select.Root
-          ><Field.Description
-            >Inheritance stays explicit even while the two names match.</Field.Description
-          ></Field.Field
-        >
-        {#if nameMode === "instance"}
-          <Field.Field
-            ><Field.Label for={`${profileId}-instance-name`}
-              >Independent instance name</Field.Label
-            ><Input
-              id={`${profileId}-instance-name`}
-              bind:value={instanceName}
-              disabled={pending}
-            /></Field.Field
-          >
-        {/if}
-        <Field.Field
-          ><Field.Label>Description <span>Optional</span></Field.Label
-          ><CommunityChatComposer
-            mode="form"
-            bind:value={personaDescription}
-            ariaLabel="Persona description"
-            placeholder="What this agent does"
-          /></Field.Field
-        >
-        <Field.Field
-          ><Field.Label>Saved system prompt</Field.Label><CommunityChatComposer
-            mode="form"
-            bind:value={personaPrompt}
-            ariaLabel="Saved system prompt"
-            placeholder="Describe how this agent should work."
-          /><Field.Description
-            >Saved with the persona. A configured controller applies changes
-            before the agent’s next idle turn.</Field.Description
-          ></Field.Field
-        >
-      </Field.Group>
-      {#if error}<p role="alert">{error}</p>{/if}
-      {#if agent.instance?.personaId}
-        <div class="agent-profile__persona-management">
-          <Button
-            type="button"
-            variant="outline"
-            disabled={pending}
-            onclick={() => {
-              personaOpen = false;
-              unlinkOpen = true;
-            }}>Unlink persona</Button
-          >
-          {#if editorPersona}
-            <Button
-              type="button"
-              variant="destructive"
-              disabled={pending}
-              onclick={() => {
-                personaOpen = false;
-                deletePersonaOpen = true;
-              }}>Delete persona</Button
-            >
-          {/if}
-        </div>
-      {/if}
-    </form>
-    {#snippet footer()}
-      <Button
-        type="button"
-        variant="outline"
-        disabled={pending}
-        onclick={() => (personaOpen = false)}>Cancel</Button
-      ><Button
-        type="submit"
-        form={`${profileId}-persona-form`}
-        disabled={pending}>{pending ? "Saving…" : "Save persona"}</Button
-      >
-    {/snippet}
-  </DialogFrame>
-</Dialog.Root>
+<CommunityAgentEditorDialog
+  bind:open={personaOpen}
+  {agent}
+  {personas}
+  {runtime}
+  {connected}
+  {onSaveAgent}
+  {onSaveRuntime}
+  {onUnlinkPersona}
+  {onDeletePersona}
+/>
 
 <Dialog.Root bind:open={addOpen}>
   <DialogFrame
@@ -1242,26 +1056,6 @@
     await onRemoveChannel(removeRoom.id);
   }}
 />
-<ConfirmDialog
-  bind:open={unlinkOpen}
-  title={`Unlink persona from ${agent.name}?`}
-  description="The agent and its public profile remain. Presentation falls back to the agent-signed profile, and the saved prompt is not copied into the public instance record."
-  confirmLabel="Unlink persona"
-  onConfirm={async () => {
-    await onUnlinkPersona(agent.name);
-  }}
-/>
-<ConfirmDialog
-  bind:open={deletePersonaOpen}
-  title={`Delete persona ${editorPersona?.displayName ?? ""}?`}
-  description="The agent remains linked to an unresolved persona and falls back to its agent-signed public profile until you recreate or relink it."
-  confirmLabel="Delete persona"
-  destructive
-  onConfirm={async () => {
-    if (!editorPersona) return;
-    await onDeletePersona(editorPersona.slug);
-  }}
-/>
 
 <style>
   .agent-profile {
@@ -1274,6 +1068,43 @@
     justify-items: center;
     gap: 0.875rem;
     padding: 1.5rem 0 0.5rem;
+  }
+  header h2 {
+    margin: 0;
+  }
+  :global(.agent-profile__name-edit.agent-profile__name-edit) {
+    display: inline-flex;
+    width: auto;
+    height: auto;
+    align-items: center;
+    gap: 0.375rem;
+    padding: 0.125rem 0.375rem;
+    color: inherit;
+    font: inherit;
+    letter-spacing: inherit;
+  }
+  :global(.agent-profile__name-edit-icon) {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--muted-foreground);
+    opacity: 0;
+    transform: translateX(-0.125rem);
+    transition:
+      opacity 0.16s ease,
+      transform 0.16s ease;
+  }
+  header:hover :global(.agent-profile__name-edit-icon),
+  :global(.agent-profile__name-edit:hover .agent-profile__name-edit-icon),
+  :global(
+      .agent-profile__name-edit:focus-visible .agent-profile__name-edit-icon
+    ) {
+    opacity: 1;
+    transform: translateX(0);
+  }
+  :global(.agent-profile__name-edit-icon svg) {
+    width: 0.875rem;
+    height: 0.875rem;
   }
   h2,
   h3,
@@ -1335,6 +1166,7 @@
     padding-top: 1rem;
   }
   .agent-profile__section-heading,
+  .agent-profile__section-actions,
   .agent-profile__memory-meta,
   .agent-profile__memory-actions,
   .agent-profile__tool-list {
@@ -1344,6 +1176,9 @@
   }
   .agent-profile__section-heading {
     justify-content: space-between;
+  }
+  .agent-profile__section-actions {
+    justify-content: flex-end;
   }
   .agent-profile__section-heading h3,
   .agent-profile__section-heading p,
@@ -1380,13 +1215,11 @@
     text-align: right;
     overflow-wrap: anywhere;
   }
-  :global(.agent-profile__runtime-fields),
-  .agent-profile__memory-filters {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 0.875rem;
+  .agent-profile__runtime-config-title {
+    font-size: var(--community-text-body);
   }
   :global(.agent-profile__runtime-fields) {
+    display: grid;
     grid-template-columns: minmax(0, 1fr);
     gap: 0;
     border: 1px solid var(--border);
@@ -1399,6 +1232,35 @@
   }
   :global(.agent-profile__runtime-fields > * + *) {
     border-top: 1px solid var(--border);
+  }
+  :global(.agent-profile__runtime-field.agent-profile__runtime-field) {
+    justify-content: space-between;
+    width: 100%;
+    height: auto;
+    min-height: 3.25rem;
+    border-radius: 0;
+    color: inherit;
+    text-align: left;
+  }
+  :global(.agent-profile__runtime-field > span) {
+    display: grid;
+    min-width: 0;
+    gap: 0.125rem;
+  }
+  :global(.agent-profile__runtime-field > span > span) {
+    color: var(--muted-foreground);
+    font-size: var(--community-text-secondary);
+    font-weight: 500;
+  }
+  :global(.agent-profile__runtime-field strong) {
+    min-width: 0;
+    overflow-wrap: anywhere;
+    font-weight: 600;
+  }
+  :global(.agent-profile__runtime-field svg) {
+    width: 1rem;
+    height: 1rem;
+    color: var(--muted-foreground);
   }
   :global(.agent-profile__tools) {
     display: grid;
@@ -1436,10 +1298,26 @@
     align-items: flex-start;
     flex-wrap: wrap;
   }
-  .agent-profile__memory-search {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
-    gap: 0.625rem;
+  .agent-profile__memory-search,
+  .agent-profile__memory-filter-buttons {
+    min-width: 0;
+  }
+  .agent-profile__memory-filter-summary {
+    display: inline-flex;
+    min-width: 0;
+    align-items: center;
+    gap: 0.375rem;
+    color: var(--muted-foreground);
+    font-size: var(--community-text-secondary);
+  }
+  .agent-profile__memory-filter-summary span {
+    padding-left: 0.375rem;
+    border-left: 1px solid var(--border);
+  }
+  .agent-profile__memory-filter-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
   }
   .agent-profile__memory-list {
     display: grid;
@@ -1453,18 +1331,56 @@
     border-radius: 1rem;
     background: var(--card);
   }
+  .agent-profile__memory-card summary {
+    display: inline-flex;
+    width: max-content;
+    max-width: 100%;
+    align-items: center;
+    gap: 0.375rem;
+    color: var(--muted-foreground);
+    cursor: pointer;
+  }
+  :global(.agent-profile__memory-card summary svg) {
+    width: 1rem;
+    height: 1rem;
+  }
+  :global(
+      .agent-profile__memory-card details[open] .agent-profile__evidence-closed
+    ),
+  :global(
+      .agent-profile__memory-card
+        details:not([open])
+        .agent-profile__evidence-open
+    ) {
+    display: none;
+  }
   .agent-profile__memory-card details ul {
     margin-bottom: 0;
   }
-  .agent-profile__persona-form {
-    display: grid;
-    gap: 0.75rem;
+  .agent-profile__memory-actions {
+    width: max-content;
+    max-width: 100%;
+    gap: 0;
   }
-  .agent-profile__persona-management {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.625rem;
-    padding-top: 0.5rem;
+  :global(.agent-profile__memory-action.agent-profile__memory-action) {
+    border-radius: 0;
+  }
+  :global(
+      .agent-profile__memory-action--approve.agent-profile__memory-action--approve
+    ) {
+    border-top-left-radius: var(--radius-md);
+    border-bottom-left-radius: var(--radius-md);
+  }
+  :global(
+      .agent-profile__memory-action--reject.agent-profile__memory-action--reject
+    ) {
+    margin-left: -1px;
+    border-top-right-radius: var(--radius-md);
+    border-bottom-right-radius: var(--radius-md);
+  }
+  :global(.agent-profile__memory-action svg) {
+    width: 1rem;
+    height: 1rem;
   }
   .agent-profile__info-list {
     list-style: none;
@@ -1611,7 +1527,9 @@
     line-height: 1.6;
   }
   @media (max-width: 480px) {
-    .agent-profile__memory-filters,
+    .agent-profile__memory-filter-buttons {
+      flex-direction: column;
+    }
     :global(.agent-profile__runtime-fields) {
       grid-template-columns: minmax(0, 1fr);
     }

@@ -135,7 +135,12 @@
           aria-label={`Message from ${author.name}`}
         >
           {#snippet avatar()}
-            <CommunityMemberAvatar member={author} size="small" decorative />
+            <CommunityMemberAvatar
+              member={author}
+              size="small"
+              shape={author.id === agent.pubkey ? "rounded" : "circle"}
+              decorative
+            />
           {/snippet}
           {#snippet name()}<span>{author.name}</span>{/snippet}
           <Chat.MessageBubble>
@@ -183,6 +188,7 @@
             <CommunityMemberAvatar
               member={identity(agent.pubkey)}
               size="small"
+              shape="rounded"
               decorative
             />
           {/snippet}
