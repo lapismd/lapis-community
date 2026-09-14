@@ -73,6 +73,8 @@ export type {
 export { default as CommunityTopicComposer } from "./community-topic-composer/CommunityTopicComposer.svelte";
 export { default as CommunityAppShell } from "./community-app-shell/CommunityAppShell.svelte";
 export { default as CommunityChannelSettings } from "./community-channel-settings/CommunityChannelSettings.svelte";
+export { default as CommunityChannelCanvas } from "./community-channel-canvas/CommunityChannelCanvas.svelte";
+export type { CommunityChannelCanvasModel } from "../community/channel-canvas.js";
 export { default as CommunityInbox } from "./community-inbox/CommunityInbox.svelte";
 export type {
   CommunityInboxItemModel,

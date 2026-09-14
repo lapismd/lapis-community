@@ -22,6 +22,7 @@ import {
 import { createNip29CommunitySource } from "./nip29-community-source.js";
 import { createNip17GiftWraps } from "./nip17.js";
 import { createBrowserCommunityConfigurationStore } from "./state-store.js";
+import { channelCanvasKey } from "./channel-canvas.js";
 
 let runtime: CommunityTestRuntime | undefined;
 
@@ -47,6 +48,49 @@ async function connected(current: CommunityTestRuntime): Promise<void> {
 }
 
 describe("createCommunityController", () => {
+  it("loads and refreshes canvas state without projecting it as conversation content and clears it on signout", async () => {
+    runtime = await createCommunityTestRuntime();
+    const original = await runtime.scenario.operator.signEvent({
+      kind: 40_100,
+      tags: [["h", "general"]],
+      content: "# Project canvas",
+      created_at: 1_700_000_101,
+    });
+    runtime.relay.inject(original);
+    await connected(runtime);
+    const controller = runtime.controller;
+    const key = channelCanvasKey(runtime.scenario.scope.id, "general");
+    await controller.actions.loadCanvas!("general");
+    expect(controller.state.canvases?.[key]).toMatchObject({
+      content: original.content,
+      eventId: original.id,
+      canEdit: true,
+      loading: false,
+    });
+    await controller.actions.saveCanvas!(
+      "general",
+      "# Updated canvas",
+      original.id,
+    );
+    expect(controller.state.canvases?.[key]?.content).toBe("# Updated canvas");
+    expect(
+      controller.state.workspace.messages.some((message) =>
+        message.content.includes("Updated canvas"),
+      ),
+    ).toBe(false);
+    expect(
+      controller.state.inbox?.items.some((item) =>
+        item.excerpt.includes("Updated canvas"),
+      ) ?? false,
+    ).toBe(false);
+    await expect(
+      controller.actions.saveCanvas!("general", "Stale draft", original.id),
+    ).rejects.toThrow("canvas changed");
+    await controller.reconnect();
+    expect(controller.state.canvases?.[key]?.content).toBe("# Updated canvas");
+    await controller.actions.disconnectIdentity();
+    expect(controller.state.canvases).toEqual({});
+  });
   it("identifies a saved relay override and restores the app default", async () => {
     const values = new Map<string, string>();
     const configurationStore = createBrowserCommunityConfigurationStore({

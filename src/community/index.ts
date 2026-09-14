@@ -1,4 +1,5 @@
 export * from "./contracts.js";
+export * from "./channel-canvas.js";
 export * from "./agent-contracts.js";
 export * from "./agent-protocol.js";
 export * from "./agent-session.js";

@@ -74,6 +74,10 @@
     CommunityReplyTarget,
   } from "../../community/index.js";
   import type { CommunityAccountSession } from "../../auth/index.js";
+  import {
+    channelCanvasKey,
+    type CommunityChannelCanvasModel,
+  } from "../../community/channel-canvas.js";
   import { LAPIS_GROUPS, lapisGroupId } from "../../protocol/index.js";
   import {
     addRepositoryToProjectTemplate,
@@ -1573,6 +1577,51 @@
   const detailsRoom = $derived(
     activePanel.kind === "details" ? panelRoom : undefined,
   );
+  const detailsHasProject = $derived(
+    detailsRoom !== undefined &&
+      projectCatalog.projects.some((project) =>
+        projectForgeBoundChannels(project, projectCatalog.repositories).some(
+          (binding) =>
+            binding.channelId === (detailsRoom.groupId ?? detailsRoom.id),
+        ),
+      ),
+  );
+  const detailsCanvas = $derived<CommunityChannelCanvasModel | undefined>(
+    detailsRoom &&
+      detailsHasProject &&
+      community.actions.loadCanvas &&
+      community.actions.saveCanvas
+      ? (community.state.canvases?.[
+          channelCanvasKey(workspace.activeCommunityId, detailsRoom.id)
+        ] ?? {
+          roomId: detailsRoom.id,
+          groupId: detailsRoom.groupId ?? detailsRoom.id,
+          content: "",
+          eventId: null,
+          author: null,
+          updatedAt: null,
+          loading: true,
+          canEdit: false,
+        })
+      : undefined,
+  );
+  const detailsCanvasLoadKey = $derived(
+    detailsRoom && detailsHasProject
+      ? JSON.stringify([
+          workspace.activeCommunityId,
+          workspace.currentMemberId,
+          detailsRoom.id,
+        ])
+      : "",
+  );
+  $effect(() => {
+    if (detailsCanvasLoadKey)
+      untrack(() => {
+        void community.actions
+          .loadCanvas?.(detailsRoom!.id)
+          .catch(() => undefined);
+      });
+  });
   const visibleThread = $derived(
     activePanel.kind === "thread" &&
       workspace.activeRoomId === activePanel.roomId &&
@@ -7905,53 +7954,72 @@
             {/if}
           </AppShell.Sidebar.Body>
         {:else if detailsRoom?.kind === "channel" || detailsRoom?.kind === "forum"}
-          <CommunityChannelSettings
-            room={detailsRoom}
-            members={workspace.members}
-            description={activeDestination === "inbox"
-              ? (inbox.room.description ?? "Community channel")
-              : (workspace.details?.description ??
-                detailsRoom.description ??
-                "Community channel")}
-            canArchive={extensions.archive !== undefined}
-            writerPolicySupported={community.state.capabilities
-              .writeRestrictedRooms === true}
-            groupInvitesSupported={community.state.capabilities.groupInvites ===
-              true && community.actions.createGroupInvite !== undefined}
-            onClose={closeSidePanel}
-            onAction={(action) => {
-              lastAction = `channel-settings:${action}`;
-              if (
-                action === "edit-type" ||
-                action === "edit-visibility" ||
-                action === "edit-posting"
-              )
-                openRoomEditor(
-                  detailsRoom.kind === "forum" ? "forum" : "channel",
-                  "edit",
-                );
-              if (action === "members") {
-                memberCommandMode =
-                  detailsRoom.permissions?.manageMembers.state === "enabled"
-                    ? "manage"
-                    : "view";
-                memberCommandOpen = true;
-              }
-              if (action === "copy-channel-id")
-                void copyText(
-                  detailsRoom.id,
-                  `${detailsRoom.kind === "forum" ? "Forum" : "Channel"} ID copied`,
-                );
-              if (action === "create-invite") {
-                groupInviteMode = "create";
-                groupInviteOpen = true;
-              }
-              if (action === "leave-channel") confirmation = "leave";
-              if (action === "delete-channel") confirmation = "delete";
-              if (action === "archive-channel")
-                void extensions.archive?.(detailsRoom.id);
-            }}
-          />
+          {#key `${workspace.activeCommunityId}:${workspace.currentMemberId}:${detailsRoom.id}`}
+            <CommunityChannelSettings
+              room={detailsRoom}
+              members={workspace.members}
+              {...detailsCanvas && detailsRoom
+                ? {
+                    canvas: detailsCanvas,
+                    onLoadCanvas: () =>
+                      community.actions.loadCanvas!(detailsRoom.id),
+                    onSaveCanvas: (
+                      content: string,
+                      expectedEventId: string | null,
+                    ) =>
+                      community.actions.saveCanvas!(
+                        detailsRoom.id,
+                        content,
+                        expectedEventId,
+                      ),
+                  }
+                : {}}
+              description={activeDestination === "inbox"
+                ? (inbox.room.description ?? "Community channel")
+                : (workspace.details?.description ??
+                  detailsRoom.description ??
+                  "Community channel")}
+              canArchive={extensions.archive !== undefined}
+              writerPolicySupported={community.state.capabilities
+                .writeRestrictedRooms === true}
+              groupInvitesSupported={community.state.capabilities
+                .groupInvites === true &&
+                community.actions.createGroupInvite !== undefined}
+              onClose={closeSidePanel}
+              onAction={(action) => {
+                lastAction = `channel-settings:${action}`;
+                if (
+                  action === "edit-type" ||
+                  action === "edit-visibility" ||
+                  action === "edit-posting"
+                )
+                  openRoomEditor(
+                    detailsRoom.kind === "forum" ? "forum" : "channel",
+                    "edit",
+                  );
+                if (action === "members") {
+                  memberCommandMode =
+                    detailsRoom.permissions?.manageMembers.state === "enabled"
+                      ? "manage"
+                      : "view";
+                  memberCommandOpen = true;
+                }
+                if (action === "copy-channel-id")
+                  void copyText(
+                    detailsRoom.id,
+                    `${detailsRoom.kind === "forum" ? "Forum" : "Channel"} ID copied`,
+                  );
+                if (action === "create-invite") {
+                  groupInviteMode = "create";
+                  groupInviteOpen = true;
+                }
+                if (action === "leave-channel") confirmation = "leave";
+                if (action === "delete-channel") confirmation = "delete";
+                if (action === "archive-channel")
+                  void extensions.archive?.(detailsRoom.id);
+              }}
+            />
+          {/key}
         {:else}
           <AppShell.Sidebar.Header>
             <strong>{sidePanelTitle}</strong>

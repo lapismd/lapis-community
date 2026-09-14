@@ -9,6 +9,14 @@ import type { NostrEvent, NostrEventTemplate } from "../protocol/index.js";
 import { isRegistryControlEvent } from "../protocol/registry-control.js";
 
 import { communityRooms } from "./materialize.js";
+import {
+  COMMUNITY_CANVAS_KIND,
+  CommunityCanvasConflictError,
+  canvasEditingAllowed,
+  canvasReadingAllowed,
+  latestChannelCanvas,
+  validateCanvasContent,
+} from "./channel-canvas.js";
 import { createNip17GiftWraps, unwrapNip17GiftWrap } from "./nip17.js";
 import type {
   CommunityCapabilities,
@@ -841,6 +849,41 @@ class Nip29CommunitySession implements CommunitySession {
     if (identity === undefined)
       throw new Error("A community identity is required");
     await this.#authenticate(this.#authority, signal);
+    if (command.type === "save-canvas") {
+      validateCanvasContent(command.content);
+      const group = await this.loadGroup({ groupId: command.groupId }, signal);
+      if (
+        !canvasEditingAllowed(
+          group.events,
+          command.groupId,
+          await identity.getPublicKey(),
+        )
+      )
+        throw new Error(
+          "Canvas editing requires current channel membership and management permission.",
+        );
+      const head = await this.loadCanvas(command.groupId, signal);
+      if ((head?.id ?? null) !== command.expectedEventId)
+        throw new CommunityCanvasConflictError(head);
+      const event = await identity.signEvent({
+        kind: COMMUNITY_CANVAS_KIND,
+        created_at: Math.max(
+          Math.floor(Date.now() / 1_000),
+          head ? head.created_at + 1 : 0,
+        ),
+        tags: [["h", command.groupId]],
+        content: command.content,
+      });
+      const result = await publishWithDuplicateRecovery(
+        this.#authority,
+        event,
+        signal,
+      );
+      if (!result.accepted)
+        throw new Error(result.message || "Relay rejected the canvas");
+      this.#emit([event]);
+      return [event];
+    }
     if (command.type === "direct-message") {
       const sender = await identity.getPublicKey();
       const deliveries = [...new Set([...command.recipients, sender])];
@@ -992,6 +1035,31 @@ class Nip29CommunitySession implements CommunitySession {
     await this.#subscribeToRooms([request.groupId], signal);
     this.#emit(events);
     return { room, metadata, events };
+  }
+
+  async loadCanvas(
+    groupId: string,
+    signal?: AbortSignal,
+  ): Promise<NostrEvent | null> {
+    this.#assertOpen(signal);
+    await this.#authenticate(this.#authority, signal);
+    const group = await this.loadGroup({ groupId }, signal);
+    if (
+      !canvasReadingAllowed(
+        group.events,
+        groupId,
+        await this.#context.identity?.getPublicKey(),
+      )
+    )
+      throw new Error("Canvas is unavailable without current channel access");
+    return latestChannelCanvas(
+      await this.#queryUnion(
+        [this.#authority],
+        { kinds: [COMMUNITY_CANVAS_KIND], "#h": [groupId] },
+        signal,
+      ),
+      groupId,
+    );
   }
 
   async search(
@@ -1148,7 +1216,7 @@ class Nip29CommunitySession implements CommunitySession {
         ),
         this.#authority.subscribe(
           {
-            kinds: [...COMMUNITY_CHANNEL_ACTIVITY_KINDS],
+            kinds: [...COMMUNITY_CHANNEL_ACTIVITY_KINDS, COMMUNITY_CANVAS_KIND],
             "#h": [groupId],
           },
           { onevent: (event) => this.#emit([event]) },
@@ -1341,7 +1409,8 @@ function commandTemplates(
   createdAt: number,
   currentMetadata?: NostrEvent,
 ): readonly NostrEventTemplate[] {
-  if (command.type === "direct-message") return [];
+  if (command.type === "direct-message" || command.type === "save-canvas")
+    return [];
   if (command.type === "publish") return [command.template];
   if (command.type === "create-room" || command.type === "update-room") {
     const metadataContent = parseMetadataContent(currentMetadata?.content);

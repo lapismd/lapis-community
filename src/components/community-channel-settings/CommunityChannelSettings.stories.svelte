@@ -49,8 +49,30 @@
     groupInvitesSupported: true,
     onClose: fn(),
     onAction: fn(),
+    canvas: {
+      roomId: "general",
+      groupId: "general",
+      content: "# Shared project notes",
+      eventId: "head",
+      author: "author",
+      updatedAt: 100,
+      loading: false,
+      canEdit: true,
+    },
+    onLoadCanvas: fn(),
+    onSaveCanvas: fn(),
   }}
   play={async ({ canvas, canvasElement, args }) => {
+    await userEvent.click(
+      canvas.getByRole("button", { name: /Canvas Shared project notes/ }),
+    );
+    await expect(
+      canvas.getByRole("heading", { name: "Shared project notes" }),
+    ).toBeVisible();
+    await expect(args.onLoadCanvas).toHaveBeenCalled();
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Back to channel" }),
+    );
     await expect(canvas.getByText("Channel settings")).toBeVisible();
     const channelType = canvas.getByRole("button", { name: /Channel type/ });
     await expect(channelType).toBeVisible();

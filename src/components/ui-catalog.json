@@ -266,6 +266,35 @@
         "reactions": "community-patterns-message--contract",
         "links": "community-patterns-message--contract"
       }
+    },
+    {
+      "id": "canvas",
+      "name": "Channel canvas",
+      "component": "CommunityChannelCanvas",
+      "import": "@lapismd/lapis-community/components",
+      "example": "src/components/community-patterns/examples/CanvasExample.svelte",
+      "story": "community-channels-canvas--stale-edit-review",
+      "storyFile": "src/components/community-channel-canvas/CommunityChannelCanvas.stories.svelte",
+      "requirement": "LC-UI-046",
+      "variants": ["empty", "document", "editing", "read-only"],
+      "requiredStates": ["display", "edit", "stale-review", "rejection"],
+      "loading": {
+        "applicable": true,
+        "states": ["initial", "refresh"],
+        "reason": "The controller loads the channel document and retains existing content during refresh."
+      },
+      "when": "Displaying and editing the shared Markdown document from project channel settings.",
+      "productionStories": [
+        "community-channels-channel-settings--welcome-channel"
+      ],
+      "verification": {
+        "display": "community-channels-canvas--existing-buzz-canvas",
+        "edit": "community-channels-canvas--empty",
+        "stale-review": "community-channels-canvas--stale-edit-review",
+        "rejection": "community-channels-canvas--rejected-save-retains-draft",
+        "initial": "community-channels-canvas--initial-loading",
+        "refresh": "community-channels-canvas--refresh-preserves-content"
+      }
     }
   ],
   "exceptions": [

@@ -349,3 +349,9 @@ write cannot block the connection indefinitely. The published 0.8.0-pre.11
 driver includes the upstream yield fix; 0.7.2 does not. Cold browser acceptance
 covers bulk replay, concurrent encrypted archive capture, pagination, and
 reopening existing data without a cache or archive reset.
+
+Channel canvas state and load/save actions belong to the existing Community
+controller and source, keyed by community and room. Settings and canvas
+components consume normalized models. Loaded private canvas state is cleared
+on identity changes and access revocation; reconnect refreshes an open canvas
+without replacing the surrounding application shell.

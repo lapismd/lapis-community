@@ -12,6 +12,61 @@ import { createNip29CommunitySource } from "./nip29-community-source.js";
 const relayKey = new Uint8Array(32).fill(41);
 
 describe("createNip29CommunitySource", () => {
+  it("reads existing Buzz canvases and refuses stale or unauthorized replacement", async () => {
+    const scenario = createCommunityTestScenario();
+    const relayFactory = createInMemoryRelayFactory({
+      policy: new Nip29MemoryPolicy({
+        relaySecretKey: relayKey,
+        now: () => 1_700_000_100,
+      }),
+    });
+    const relay = relayFactory.relay(scenario.scope.relayUrl);
+    await scenario.seed(relay);
+    const original = await scenario.operator.signEvent({
+      kind: 40_100,
+      created_at: 1_700_000_101,
+      tags: [["h", "general"]],
+      content: "# Existing Buzz canvas",
+    });
+    expect((await relay.publish(original)).accepted).toBe(true);
+    const session = await createNip29CommunitySource({ relayFactory }).open(
+      scenario.scope,
+      { identity: scenario.operator },
+    );
+    expect(await session.loadCanvas!("general")).toMatchObject({
+      id: original.id,
+      content: original.content,
+    });
+    await expect(
+      session.execute({
+        type: "save-canvas",
+        groupId: "general",
+        content: "stale draft",
+        expectedEventId: null,
+      }),
+    ).rejects.toThrow("canvas changed");
+    const accepted = await session.execute({
+      type: "save-canvas",
+      groupId: "general",
+      content: "# Updated",
+      expectedEventId: original.id,
+    });
+    expect(accepted[0]?.tags).toEqual([["h", "general"]]);
+    expect((await session.loadCanvas!("general"))?.content).toBe("# Updated");
+    const otherSession = await createNip29CommunitySource({
+      relayFactory,
+    }).open(scenario.scope, { identity: scenario.member });
+    await expect(
+      otherSession.execute({
+        type: "save-canvas",
+        groupId: "general",
+        content: "no permission",
+        expectedEventId: accepted[0]!.id,
+      }),
+    ).rejects.toThrow("management permission");
+    otherSession.close();
+    session.close();
+  });
   it("loads verified Buzz-compatible Pulse feed variants", async () => {
     const scenario = createCommunityTestScenario();
     const relayFactory = createInMemoryRelayFactory({

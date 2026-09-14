@@ -17,6 +17,13 @@ import {
   type NostrEventTemplate,
 } from "../protocol/index.js";
 import { isRegistryControlEvent } from "../protocol/registry-control.js";
+import {
+  canvasEditingAllowed,
+  canvasReadingAllowed,
+  channelCanvasKey,
+  latestChannelCanvas,
+  type CommunityChannelCanvasModel,
+} from "./channel-canvas.js";
 
 import {
   communityRooms,
@@ -157,6 +164,7 @@ export function createCommunityController(
   });
   let eventsByScope: Record<string, NostrEvent[]> = {};
   let privateEventsByScope: Record<string, CommunityPrivateEvent[]> = {};
+  let canvases = $state<Record<string, CommunityChannelCanvasModel>>({});
   let directParticipantsByRoom = $state<Record<string, readonly string[]>>({});
   let capabilitiesByScope = $state<Record<string, CommunityCapabilities>>({});
   let operations = $state<Record<string, CommunityOperationState>>({});
@@ -257,6 +265,7 @@ export function createCommunityController(
           : "default",
       })),
       workspace,
+      canvases,
       ...(inbox === undefined ? {} : { inbox }),
       settings,
       capabilities,
@@ -924,6 +933,7 @@ export function createCommunityController(
     identity?.dispose?.();
     identity = undefined;
     eventRuntime.dispose();
+    canvases = {};
     status = "idle";
   }
 
@@ -935,6 +945,14 @@ export function createCommunityController(
     if (status === "error") {
       throw new Error(error || "Community connection failed");
     }
+    await Promise.allSettled(
+      Object.entries(canvases)
+        .filter(
+          ([key, canvas]) =>
+            key === channelCanvasKey(activeCommunityId, canvas.roomId),
+        )
+        .map(([, canvas]) => actions.loadCanvas?.(canvas.roomId)),
+    );
   }
 
   function closeConnections(reason: string): void {
@@ -1211,6 +1229,92 @@ export function createCommunityController(
   }
 
   const actions: CommunityControllerActions = {
+    async loadCanvas(roomId) {
+      const scope = activeScope();
+      const room = roomById(roomId);
+      const session = sessions.get(scope.id);
+      if (!room || !session?.loadCanvas)
+        throw new Error("Channel canvas is unavailable");
+      const key = channelCanvasKey(scope.id, room.id);
+      const currentGeneration = generation;
+      const previous = canvases[key];
+      canvases = {
+        ...canvases,
+        [key]: {
+          roomId: room.id,
+          groupId: room.groupId,
+          content: previous?.content ?? "",
+          eventId: previous?.eventId ?? null,
+          author: previous?.author ?? null,
+          updatedAt: previous?.updatedAt ?? null,
+          canEdit: false,
+          loading: true,
+        },
+      };
+      try {
+        const group = await session.loadGroup?.(
+          { groupId: room.groupId },
+          controllerAbort?.signal,
+        );
+        const head = await session.loadCanvas(
+          room.groupId,
+          controllerAbort?.signal,
+        );
+        if (generation !== currentGeneration) return;
+        canvases = {
+          ...canvases,
+          [key]: {
+            roomId: room.id,
+            groupId: room.groupId,
+            content: head?.content ?? "",
+            eventId: head?.id ?? null,
+            author: head?.pubkey ?? null,
+            updatedAt: head?.created_at ?? null,
+            loading: false,
+            canEdit: canvasEditingAllowed(
+              group?.events ?? [],
+              room.groupId,
+              identityPubkey,
+            ),
+          },
+        };
+      } catch (cause) {
+        if (generation !== currentGeneration) return;
+        canvases = {
+          ...canvases,
+          [key]: {
+            ...canvases[key]!,
+            content: room.private ? "" : canvases[key]!.content,
+            loading: false,
+            canEdit: false,
+            error:
+              cause instanceof Error
+                ? cause.message
+                : "Canvas could not be loaded",
+          },
+        };
+        throw cause;
+      }
+    },
+    async saveCanvas(roomId, content, expectedEventId) {
+      const scope = activeScope();
+      const room = roomById(roomId);
+      if (!room) throw new Error("Channel is unavailable");
+      try {
+        await execute(
+          `canvas:save:${scope.id}:${room.id}`,
+          {
+            type: "save-canvas",
+            groupId: room.groupId,
+            content,
+            expectedEventId,
+          },
+          scope.id,
+        );
+      } finally {
+        if (activeCommunityId === scope.id) await actions.loadCanvas?.(room.id);
+      }
+    },
     async setPresencePreference(preference) {
       const scope = scopes.find(
         (candidate) => candidate.id === activeCommunityId,
@@ -2484,6 +2588,7 @@ export function createCommunityController(
         if (status !== "offline") return;
         if (scope === undefined) {
           eventsByScope = {};
+          canvases = {};
           return;
         }
         const next = { ...eventsByScope };
@@ -2525,6 +2630,7 @@ export function createCommunityController(
       identityPubkey = "";
       authentication = { status: "anonymous" };
       privateEventsByScope = {};
+      canvases = {};
       directParticipantsByRoom = {};
       retries.clear();
       acceptedEventIdsByOperation.clear();
@@ -2762,6 +2868,30 @@ export function createCommunityController(
           left.created_at - right.created_at || left.id.localeCompare(right.id),
       ),
     };
+    for (const [key, canvas] of Object.entries(canvases)) {
+      if (key !== channelCanvasKey(scopeId, canvas.roomId)) continue;
+      const head = latestChannelCanvas(
+        eventsByScope[scopeId] ?? [],
+        canvas.groupId,
+      );
+      if (
+        head &&
+        (!canvas.updatedAt ||
+          head.created_at > canvas.updatedAt ||
+          (head.created_at === canvas.updatedAt &&
+            head.id < (canvas.eventId ?? "")))
+      )
+        canvases = {
+          ...canvases,
+          [key]: {
+            ...canvas,
+            content: head.content,
+            eventId: head.id,
+            updatedAt: head.created_at,
+            author: head.pubkey,
+          },
+        };
+    }
   }
 
   function applyRuntimeRevision(revision: CommunityRuntimeRevision): void {
@@ -2829,6 +2959,38 @@ export function createCommunityController(
       reconcileAcceptedMembershipOperations();
     }
     inbox = revision.inbox;
+    for (const [key, canvas] of Object.entries(canvases)) {
+      if (key !== channelCanvasKey(activeCommunityId, canvas.roomId)) continue;
+      if (
+        !canvasReadingAllowed(activeEvents(), canvas.groupId, identityPubkey)
+      ) {
+        canvases = {
+          ...canvases,
+          [key]: {
+            ...canvas,
+            content: "",
+            eventId: null,
+            author: null,
+            updatedAt: null,
+            canEdit: false,
+            loading: false,
+            error: "Canvas access is unavailable",
+          },
+        };
+      } else {
+        canvases = {
+          ...canvases,
+          [key]: {
+            ...canvas,
+            canEdit: canvasEditingAllowed(
+              activeEvents(),
+              canvas.groupId,
+              identityPubkey,
+            ),
+          },
+        };
+      }
+    }
     if (revision.settings !== undefined) settings = revision.settings;
   }
 

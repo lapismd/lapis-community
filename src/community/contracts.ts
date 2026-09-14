@@ -218,6 +218,9 @@ export interface CommunityOperationState {
 }
 
 export interface CommunityControllerState {
+  canvases?: Readonly<
+    Record<string, import("./channel-canvas.js").CommunityChannelCanvasModel>
+  >;
   presence?: import("./presence-contracts.js").CommunityPresenceState;
   agents?: CommunityAgentsState;
   status: CommunityConnectionStatus;
@@ -348,6 +351,12 @@ export type CommunityCommand =
       update: CommunityRoomUpdate;
     }
   | { type: "update-room"; groupId: string; update: CommunityRoomUpdate }
+  | {
+      type: "save-canvas";
+      groupId: string;
+      content: string;
+      expectedEventId: string | null;
+    }
   | { type: "delete-room"; groupId: string }
   | { type: "join"; groupId: string; code?: string }
   | { type: "leave"; groupId: string }
@@ -571,6 +580,10 @@ export interface CommunitySessionSubscription {
 }
 
 export interface CommunitySession {
+  loadCanvas?(
+    groupId: string,
+    signal?: AbortSignal,
+  ): Promise<NostrEvent | null>;
   readonly presence?:
     | import("./presence-contracts.js").CommunityPresenceSession
     | undefined;
@@ -633,6 +646,12 @@ export interface CommunityController {
 }
 
 export interface CommunityControllerActions {
+  loadCanvas?(roomId: string): Promise<void>;
+  saveCanvas?(
+    roomId: string,
+    content: string,
+    expectedEventId: string | null,
+  ): Promise<void>;
   setPresencePreference?(
     preference: import("./presence-contracts.js").CommunityPresencePreference,
   ): Promise<void>;

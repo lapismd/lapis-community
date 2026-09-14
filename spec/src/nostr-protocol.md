@@ -343,3 +343,21 @@ current relay membership graph for public status only. Subscribe to fresh kind
 exposes private previews, enables activity links, or permits control commands.
 Owner-encrypted records remain bound to the signed-in owner and current channel
 membership, including when decrypting archived records.
+
+## Channel canvas snapshots
+
+Project home and related channels expose one shared Markdown canvas, compatible
+with Buzz Desktop kind `40100`. The owning relay admits authorized snapshots;
+clients MUST verify signatures and the exact single `h` tag. Full documents are
+limited to 65,536 UTF-8 bytes. The newest timestamp wins, with the lowest event
+ID breaking ties. An empty snapshot clears the document without deleting history.
+
+Before signing, clients MUST refresh channel membership, management permission,
+archive state, and the canvas head. A changed head preserves the draft and
+requires review; this check does not make concurrent publication atomic.
+Canvas events MUST use channel read ACLs and MUST NOT become chat messages,
+Inbox notifications, invocation triggers, or persistent private plaintext caches.
+
+| ID           | Requirement                                                                                                                                                                                                                                |
+| ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| LC-NOSTR-031 | Channel canvases MUST use verified, relay-authorized kind 40100 snapshots with one h tag, a 64 KiB UTF-8 limit, deterministic head selection, membership and management checks, read-only archives, and a fresh head check before writing. |

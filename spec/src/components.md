@@ -513,3 +513,20 @@ The application sidebar header owns the left-aligned Back to profile control and
 The activity toolbar reports checking, caught-up, migration-gap, and unavailable
 states without replacing saved history. Selecting Latest retries the same exact
 visible conversation context.
+
+## Project channel canvas
+
+The project graph determines which channel settings show a Canvas row. Opening
+the row keeps the conversation and project navigation mounted and replaces only
+the settings contents. Back to channel returns to settings. Documents start
+empty; the application MUST NOT seed or overwrite existing Buzz content.
+
+`CommunityChannelCanvas` composes `CommunityMarkdownContent`,
+`CommunityChatComposer mode="form"`, and the shared confirmation control for
+clearing. The controller owns loading and saving; pending, rejected, stale, and
+retry states retain drafts. Refreshes preserve content and initial reads use a
+representative skeleton. Editing requires resolved management and membership.
+
+| ID        | Requirement                                                                                                                                                                                                                                                                                    |
+| --------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| LC-UI-046 | Project-linked channel settings MUST expose a shared canvas with Back to channel, Markdown display, permitted create/edit/clear actions, retained drafts, retryable failures, and stale-head review without remounting project navigation or conversation. Stories MUST remain visual-pending. |

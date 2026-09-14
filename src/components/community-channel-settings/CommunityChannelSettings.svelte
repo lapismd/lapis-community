@@ -10,6 +10,11 @@
   import ShieldCheckIcon from "@lucide/svelte/icons/shield-check";
   import Trash2Icon from "@lucide/svelte/icons/trash-2";
   import UserPlusIcon from "@lucide/svelte/icons/user-plus";
+  import BookOpenTextIcon from "@lucide/svelte/icons/book-open-text";
+  import ChevronRightIcon from "@lucide/svelte/icons/chevron-right";
+  import ArrowLeftIcon from "@lucide/svelte/icons/arrow-left";
+  import CommunityChannelCanvas from "../community-channel-canvas/CommunityChannelCanvas.svelte";
+  import type { CommunityChannelCanvasModel } from "../../community/channel-canvas.js";
 
   import type {
     CommunityMemberModel,
@@ -27,6 +32,9 @@
     groupInvitesSupported = false,
     onClose,
     onAction,
+    canvas,
+    onLoadCanvas,
+    onSaveCanvas,
   }: {
     room: CommunityRoomModel;
     members: CommunityMemberModel[];
@@ -36,9 +44,24 @@
     groupInvitesSupported?: boolean;
     onClose: () => void;
     onAction: (action: string) => void;
+    canvas?: CommunityChannelCanvasModel;
+    onLoadCanvas?: () => Promise<void>;
+    onSaveCanvas?: (
+      content: string,
+      expectedEventId: string | null,
+    ) => Promise<void>;
   } = $props();
 
   const roomType = $derived(room.kind === "forum" ? "Forum" : "Channel");
+  let canvasOpen = $state(false);
+  const roomId = $derived(room.id);
+  $effect(() => {
+    roomId;
+    canvasOpen = false;
+  });
+  $effect(() => {
+    if (!canvas) canvasOpen = false;
+  });
   const canUpdate = $derived(
     room.permissions?.update.state === undefined ||
       room.permissions.update.state === "enabled",
@@ -61,7 +84,14 @@
 </script>
 
 <AppShell.Sidebar.Header class="lc-channel-settings__header">
-  <strong>{roomType} settings</strong>
+  {#if canvasOpen}
+    <Button
+      variant="ghost"
+      onclick={() => {
+        canvasOpen = false;
+      }}><ArrowLeftIcon aria-hidden="true" />Back to channel</Button
+    >
+  {:else}<strong>{roomType} settings</strong>{/if}
   <AppShell.Sidebar.Close
     label={`Close ${roomType.toLowerCase()} settings`}
     onclick={onClose}
@@ -70,159 +100,190 @@
 
 <AppShell.Sidebar.Body>
   <div class="lc-channel-settings">
-    <div class="lc-channel-settings__identity">
-      <span class="lc-channel-settings__image" aria-hidden="true">
-        {#if room.kind === "forum"}
-          <MessagesSquareIcon />
-        {:else}
-          <HashIcon />
-        {/if}
-      </span>
-      <strong>{room.name}</strong>
-      <p>{description}</p>
-    </div>
+    {#if canvasOpen && canvas && onLoadCanvas && onSaveCanvas}
+      <CommunityChannelCanvas
+        {canvas}
+        onReload={onLoadCanvas}
+        onSave={onSaveCanvas}
+      />
+    {:else}
+      <div class="lc-channel-settings__identity">
+        <span class="lc-channel-settings__image" aria-hidden="true">
+          {#if room.kind === "forum"}
+            <MessagesSquareIcon />
+          {:else}
+            <HashIcon />
+          {/if}
+        </span>
+        <strong>{room.name}</strong>
+        <p>{description}</p>
+      </div>
 
-    <section class="lc-channel-settings__details">
-      <h2>Details</h2>
-      <div class="lc-channel-settings__details-card">
-        {#if canUpdate}
-          <Button
-            variant="ghost"
-            class="lc-channel-settings__row"
-            onclick={() => onAction("edit-type")}
-          >
-            <span>
-              <strong>{roomType} type</strong>
-              <small
-                >{room.kind === "channel"
-                  ? "Ongoing"
-                  : "Posts and replies"}</small
-              >
-            </span>
-            <PencilIcon
-              class="lc-channel-settings__edit-icon"
-              data-icon="inline-end"
-              aria-hidden="true"
-            />
-          </Button>
-          <Button
-            variant="ghost"
-            class="lc-channel-settings__row"
-            onclick={() => onAction("edit-visibility")}
-          >
-            <span>
-              <strong>Visibility</strong>
-              <small>{room.private ? "Private" : "Public"}</small>
-            </span>
-            <PencilIcon
-              class="lc-channel-settings__edit-icon"
-              data-icon="inline-end"
-              aria-hidden="true"
-            />
-          </Button>
-          {#if writerPolicySupported}
+      <section class="lc-channel-settings__details">
+        <h2>Details</h2>
+        <div class="lc-channel-settings__details-card">
+          {#if canvas && onLoadCanvas && onSaveCanvas}
             <Button
               variant="ghost"
               class="lc-channel-settings__row"
-              onclick={() => onAction("edit-posting")}
+              onclick={() => {
+                canvasOpen = true;
+                void Promise.resolve(onLoadCanvas?.()).catch(() => undefined);
+              }}
+            >
+              <BookOpenTextIcon aria-hidden="true" />
+              <span
+                ><strong>Canvas</strong><small
+                  >{canvas.content
+                    ? canvas.content
+                        .replace(/[#*_`>\[\]]/g, "")
+                        .replace(/\s+/g, " ")
+                        .slice(0, 100)
+                    : "Shared channel notes and context"}</small
+                ></span
+              >
+              <ChevronRightIcon data-icon="inline-end" aria-hidden="true" />
+            </Button>
+          {/if}
+          {#if canUpdate}
+            <Button
+              variant="ghost"
+              class="lc-channel-settings__row"
+              onclick={() => onAction("edit-type")}
             >
               <span>
-                <strong>Posting permissions</strong>
-                <small>
-                  {room.postingPolicy === "writers"
-                    ? "Writers and administrators"
-                    : "Everyone with access"}
-                </small>
+                <strong>{roomType} type</strong>
+                <small
+                  >{room.kind === "channel"
+                    ? "Ongoing"
+                    : "Posts and replies"}</small
+                >
               </span>
-              <ShieldCheckIcon
+              <PencilIcon
                 class="lc-channel-settings__edit-icon"
                 data-icon="inline-end"
                 aria-hidden="true"
               />
             </Button>
+            <Button
+              variant="ghost"
+              class="lc-channel-settings__row"
+              onclick={() => onAction("edit-visibility")}
+            >
+              <span>
+                <strong>Visibility</strong>
+                <small>{room.private ? "Private" : "Public"}</small>
+              </span>
+              <PencilIcon
+                class="lc-channel-settings__edit-icon"
+                data-icon="inline-end"
+                aria-hidden="true"
+              />
+            </Button>
+            {#if writerPolicySupported}
+              <Button
+                variant="ghost"
+                class="lc-channel-settings__row"
+                onclick={() => onAction("edit-posting")}
+              >
+                <span>
+                  <strong>Posting permissions</strong>
+                  <small>
+                    {room.postingPolicy === "writers"
+                      ? "Writers and administrators"
+                      : "Everyone with access"}
+                  </small>
+                </span>
+                <ShieldCheckIcon
+                  class="lc-channel-settings__edit-icon"
+                  data-icon="inline-end"
+                  aria-hidden="true"
+                />
+              </Button>
+            {/if}
           {/if}
-        {/if}
-        <Button
-          variant="ghost"
-          class="lc-channel-settings__row"
-          onclick={() => onAction("members")}
-        >
-          <span>
-            <strong>Members</strong>
-            <small>{room.memberCount ?? members.length} members</small>
-          </span>
-          <span class="lc-channel-settings__avatars" aria-hidden="true">
-            {#each members.slice(0, 3) as member (member.id)}
-              <CommunityMemberAvatar {member} size="xsmall" decorative />
-            {/each}
-          </span>
-        </Button>
-        {#if room.private && canManageMembers && groupInvitesSupported}
           <Button
             variant="ghost"
             class="lc-channel-settings__row"
-            onclick={() => onAction("create-invite")}
+            onclick={() => onAction("members")}
           >
             <span>
-              <strong>Create invite link</strong>
-              <small
-                >Invite someone to this private {roomType.toLowerCase()}.</small
-              >
+              <strong>Members</strong>
+              <small>{room.memberCount ?? members.length} members</small>
             </span>
-            <UserPlusIcon data-icon="inline-end" aria-hidden="true" />
+            <span class="lc-channel-settings__avatars" aria-hidden="true">
+              {#each members.slice(0, 3) as member (member.id)}
+                <CommunityMemberAvatar {member} size="xsmall" decorative />
+              {/each}
+            </span>
           </Button>
-        {/if}
-        <Button
-          variant="ghost"
-          class="lc-channel-settings__row"
-          onclick={() => onAction("copy-channel-id")}
-        >
-          <span>
-            <strong>{roomType} ID</strong>
-            <small>{room.id}</small>
-          </span>
-          <CopyIcon
-            class="lc-channel-settings__copy-icon"
-            data-icon="inline-end"
-            aria-hidden="true"
-          />
-        </Button>
-      </div>
-    </section>
-
-    {#if hasDangerActions}
-      <section class="lc-channel-settings__danger-zone">
-        {#if canArchive && canUpdate}
+          {#if room.private && canManageMembers && groupInvitesSupported}
+            <Button
+              variant="ghost"
+              class="lc-channel-settings__row"
+              onclick={() => onAction("create-invite")}
+            >
+              <span>
+                <strong>Create invite link</strong>
+                <small
+                  >Invite someone to this private {roomType.toLowerCase()}.</small
+                >
+              </span>
+              <UserPlusIcon data-icon="inline-end" aria-hidden="true" />
+            </Button>
+          {/if}
           <Button
             variant="ghost"
             class="lc-channel-settings__row"
-            onclick={() => onAction("archive-channel")}
+            onclick={() => onAction("copy-channel-id")}
           >
-            <ArchiveIcon data-icon="inline-start" aria-hidden="true" />
-            <span>Archive {roomType.toLowerCase()}</span>
+            <span>
+              <strong>{roomType} ID</strong>
+              <small>{room.id}</small>
+            </span>
+            <CopyIcon
+              class="lc-channel-settings__copy-icon"
+              data-icon="inline-end"
+              aria-hidden="true"
+            />
           </Button>
-        {/if}
-        {#if canLeave}
-          <Button
-            variant="ghost"
-            class="lc-channel-settings__row lc-channel-settings__destructive"
-            onclick={() => onAction("leave-channel")}
-          >
-            <LogOutIcon data-icon="inline-start" aria-hidden="true" />
-            <span>Leave {roomType.toLowerCase()}</span>
-          </Button>
-        {/if}
-        {#if canDelete}
-          <Button
-            variant="ghost"
-            class="lc-channel-settings__row lc-channel-settings__destructive"
-            onclick={() => onAction("delete-channel")}
-          >
-            <Trash2Icon data-icon="inline-start" aria-hidden="true" />
-            <span>Delete {roomType.toLowerCase()}</span>
-          </Button>
-        {/if}
+        </div>
       </section>
+
+      {#if hasDangerActions}
+        <section class="lc-channel-settings__danger-zone">
+          {#if canArchive && canUpdate}
+            <Button
+              variant="ghost"
+              class="lc-channel-settings__row"
+              onclick={() => onAction("archive-channel")}
+            >
+              <ArchiveIcon data-icon="inline-start" aria-hidden="true" />
+              <span>Archive {roomType.toLowerCase()}</span>
+            </Button>
+          {/if}
+          {#if canLeave}
+            <Button
+              variant="ghost"
+              class="lc-channel-settings__row lc-channel-settings__destructive"
+              onclick={() => onAction("leave-channel")}
+            >
+              <LogOutIcon data-icon="inline-start" aria-hidden="true" />
+              <span>Leave {roomType.toLowerCase()}</span>
+            </Button>
+          {/if}
+          {#if canDelete}
+            <Button
+              variant="ghost"
+              class="lc-channel-settings__row lc-channel-settings__destructive"
+              onclick={() => onAction("delete-channel")}
+            >
+              <Trash2Icon data-icon="inline-start" aria-hidden="true" />
+              <span>Delete {roomType.toLowerCase()}</span>
+            </Button>
+          {/if}
+        </section>
+      {/if}
     {/if}
   </div>
 </AppShell.Sidebar.Body>
