@@ -473,3 +473,5 @@ A newly private channel or a cached reference to a newly private event MUST remo
 A failed privacy purge MUST prevent cached reads and search from exposing the affected scope until retry succeeds. Identity changes MUST clear decoded private state without discarding the failure guard. Additive database migrations MUST populate reference indexes without removing existing message or agent history.
 
 Browser cache wrappers MUST share repeated opens, await pending initialization before close, and retain the last shared Turso owner until shutdown finishes. A failed close MUST remain retryable without allowing a competing opener to bypass ownership. Reopening a healthy persistent store MUST clear obsolete degraded-state messages.
+
+Configured private-room access MUST seed runtime privacy before restoration, ingestion, or a direct indexed page read, even when no room metadata is cached. An empty batch carrying changed access MUST still invalidate old public plaintext and reference descendants. Repeated reads with unchanged access MUST NOT repeat full-cache invalidation.

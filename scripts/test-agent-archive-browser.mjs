@@ -31,12 +31,21 @@ const events = Array.from({ length: 240 }, (_, index) =>
     ownerKey,
   ),
 );
+const privateRoot = finalizeEvent(
+  {
+    kind: 9,
+    created_at: 590,
+    content: "Configured private fixture",
+    tags: [["h", "secret"]],
+  },
+  ownerKey,
+);
 const privateReply = finalizeEvent(
   {
     kind: 1111,
     created_at: 600,
     content: "Private orphan fixture",
-    tags: [["E", events[0].id]],
+    tags: [["E", privateRoot.id]],
   },
   ownerKey,
 );
@@ -311,7 +320,7 @@ try {
     notBefore: 600,
   });
   const privacy = await page.evaluate(
-    async ({ source, privateReply, parentId, retained }) => {
+    async ({ source, privateReply, privateRoot, parentId, retained }) => {
       const { createBrowserCommunityEventStore } = await import(
         `/@fs${source}browser-event-store.ts`
       );
@@ -370,10 +379,42 @@ try {
           [parentId],
         );
         await store.removePublicEvents(scope, [privateReply.id]);
+        const removed = !(await store.hasPublicEventReferences(scope, [
+          parentId,
+        ]));
+        await store.commit({
+          scope,
+          records: [record(privateRoot), record(privateReply)],
+        });
+        const { createInlineCommunityEventRuntime } = await import(
+          `/@fs${source}event-runtime.ts`
+        );
+        const runtime = createInlineCommunityEventRuntime({ store });
+        const configured = {
+          ...scope,
+          rooms: [
+            {
+              id: "secret",
+              groupId: "secret",
+              name: "Secret",
+              kind: "channel",
+              private: true,
+            },
+          ],
+        };
+        await runtime.restore([configured], 0, { metadataOnly: true });
+        const configuredSearch = await runtime.search({
+          generation: 0,
+          query: "private",
+        });
         return {
+          configuredSearch: configuredSearch.length,
+          configuredRootRemoved: !(await store.hasPublicEventReferences(scope, [
+            privateRoot.id,
+          ])),
           orphanKnown,
           unrelatedScope,
-          removed: !(await store.hasPublicEventReferences(scope, [parentId])),
+          removed,
           unsafe: (await store.readHistoryPage(scope, "unsafe")) === undefined,
           retained:
             (await store.readHistoryPage(scope, "retained"))?.events[0]?.id ===
@@ -397,9 +438,17 @@ try {
         await nextOwner.close();
       }
     },
-    { source, privateReply, parentId: events[0].id, retained: events.at(-1) },
+    {
+      source,
+      privateReply,
+      privateRoot,
+      parentId: privateRoot.id,
+      retained: events.at(-1),
+    },
   );
   assert.deepEqual(privacy, {
+    configuredSearch: 0,
+    configuredRootRemoved: true,
     orphanKnown: true,
     unrelatedScope: false,
     removed: true,

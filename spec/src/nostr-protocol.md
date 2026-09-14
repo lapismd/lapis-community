@@ -432,3 +432,5 @@ Private-cache invalidation MUST verify Nostr events before propagating visibilit
 The native cache fixture MUST retain the actual server's cross-origin isolation headers and use a minimal document, so unrelated application or Storybook bootstrap does not compete with the bounded storage operation. Full application startup remains a separate browser contract.
 
 Native storage acceptance MUST exercise repeated opens through the browser wrapper, close it, and acquire a new direct Turso owner for that same disposable database to verify ownership release.
+
+Native cache acceptance MUST cover configured private access without a cached kind-39000 event, including a formerly public root and its orphan reply, while retaining unrelated public history and encrypted inbox records.

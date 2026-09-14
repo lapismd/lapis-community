@@ -88,12 +88,11 @@ export class InlineCommunityEventRuntime implements CommunityEventRuntime {
       let cached = await (options.metadataOnly && this.#store.restoreMetadata
         ? this.#store.restoreMetadata(scope)
         : this.#store.restore(scope));
-      const privacy = this.#privacyFor(scope);
       const verified = cached.events.flatMap((incoming) => {
         const event = verifiedNostrEvent(incoming);
         return event ? [event] : [];
       });
-      const transition = privacy.add(verified);
+      const transition = this.#classify(scope, verified);
       for (const id of transition.privateIds) this.#privateIds.add(id);
       // Legacy caches can contain private plaintext, including unmounted replies.
       // Only a newly discovered private group or a failed purge requires a scan.
@@ -164,7 +163,11 @@ export class InlineCommunityEventRuntime implements CommunityEventRuntime {
       accepted.push(event);
     }
     const privacy = this.#privacyFor(batch.scope);
-    const transition = privacy.add(validated, batch.persist === false);
+    const transition = this.#classify(
+      batch.scope,
+      validated,
+      batch.persist === false,
+    );
     // Encrypted recipient wraps are persisted in their private audience; they
     // are never public search content and do not trigger plaintext cache scans.
     for (const event of validated) {
@@ -292,6 +295,25 @@ export class InlineCommunityEventRuntime implements CommunityEventRuntime {
     };
   }
 
+  #classify(
+    scope: CommunityScope,
+    events: readonly NostrEvent[],
+    explicit = false,
+  ) {
+    const privacy = this.#privacyFor(scope);
+    // Configured authorization is available even offline, before metadata arrives.
+    const configured = privacy.addPrivateGroups(
+      (scope.rooms ?? [])
+        .filter((room) => room.private)
+        .map((room) => room.groupId),
+    );
+    const incoming = privacy.add(events, explicit);
+    return {
+      groupIds: [...configured.groupIds, ...incoming.groupIds],
+      privateIds: [...configured.privateIds, ...incoming.privateIds],
+    };
+  }
+
   #privacyFor(scope: CommunityScope): PrivateEventIndex {
     let privacy = this.#privacy.get(scope.id);
     if (!privacy) {
@@ -299,6 +321,22 @@ export class InlineCommunityEventRuntime implements CommunityEventRuntime {
       this.#privacy.set(scope.id, privacy);
     }
     return privacy;
+  }
+
+  async #prepareCacheRead(scope: CommunityScope): Promise<void> {
+    await this.#open();
+    this.#scopes.set(scope.id, scope);
+    const transition = this.#classify(scope, []);
+    for (const id of transition.privateIds) this.#privateIds.add(id);
+    if (transition.groupIds.length) {
+      // A direct page read can be the first operation after access changes.
+      // Purge failures are recorded by #purgePrivateCache and rethrown below.
+      this.#writeQueue = this.#writeQueue
+        .then(() => this.#purgePrivateCache(scope))
+        .catch(() => undefined);
+    }
+    await this.#writeQueue;
+    this.#assertCacheReadable(scope);
   }
 
   #assertCacheReadable(scope: CommunityScope): void {
@@ -369,9 +407,7 @@ export class InlineCommunityEventRuntime implements CommunityEventRuntime {
     scope: CommunityScope,
     query: CommunityCachedEventQuery,
   ) {
-    await this.#writeQueue;
-    await this.#open();
-    this.#assertCacheReadable(scope);
+    await this.#prepareCacheRead(scope);
     return (
       this.#store.readCachedEvents?.(scope, query) ?? {
         events: [],
@@ -381,9 +417,7 @@ export class InlineCommunityEventRuntime implements CommunityEventRuntime {
   }
 
   async readHistoryPage(scope: CommunityScope, key: string) {
-    await this.#writeQueue;
-    await this.#open();
-    this.#assertCacheReadable(scope);
+    await this.#prepareCacheRead(scope);
     return this.#store.readHistoryPage?.(scope, key);
   }
 

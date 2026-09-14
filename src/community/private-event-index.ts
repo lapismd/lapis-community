@@ -53,6 +53,18 @@ export class PrivateEventIndex {
     return { privateIds, groupIds };
   }
 
+  addPrivateGroups(groups: Iterable<string>) {
+    const groupIds: string[] = [],
+      seeds: string[] = [];
+    for (const group of groups) {
+      if (this.groups.has(group)) continue;
+      this.groups.add(group);
+      groupIds.push(group);
+      for (const id of this.#byGroup.get(group) ?? []) seeds.push(id);
+    }
+    return { groupIds, privateIds: this.markPrivate(seeds) };
+  }
+
   markPrivate(seeds: Iterable<string>): string[] {
     const pending = [...seeds],
       privateIds: string[] = [];

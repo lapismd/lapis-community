@@ -128,3 +128,5 @@ verify that budget eviction preserves a separate page and its byte accounting.
 Local privacy reclassification MUST invalidate only affected cache records and their coverage. An indexed cache failure MUST leave that scope unavailable to cached reads and search until removal succeeds, without publishing any replacement event.
 
 Shared browser cache ownership MUST remain serialized through initialization and shutdown; concurrent view transitions MUST NOT leak an owner reference or open a competing database while its predecessor is closing.
+
+Configured private-room authorization MUST restrict offline cached search and indexed history even before signed room metadata is available locally. Changing that configuration MUST remove formerly public plaintext and its reference descendants while preserving unrelated public coverage.
