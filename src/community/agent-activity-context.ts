@@ -20,16 +20,21 @@ export function observerScope(
       : scopeKey.split("/thread/")[1];
   return {
     scopeKey,
+    ...(typeof payload.conversationId === "string"
+      ? { conversationId: payload.conversationId }
+      : {}),
     ...(frame.channelId ? { channelId: frame.channelId } : {}),
     ...(threadRootId ? { threadRootId } : {}),
     conversationKind:
-      payload.conversationKind === "forum-topic"
-        ? "forum-topic"
-        : threadRootId
-          ? "thread"
-          : scopeKey.includes("/dm/")
-            ? "dm"
-            : "channel",
+      payload.conversationKind === "dm" || scopeKey.includes("/buzz-dm/")
+        ? "dm"
+        : payload.conversationKind === "forum-topic"
+          ? "forum-topic"
+          : threadRootId
+            ? "thread"
+            : scopeKey.includes("/dm/")
+              ? "dm"
+              : "channel",
   };
 }
 export function activityMatches(
@@ -40,6 +45,8 @@ export function activityMatches(
   if (context.kind === "dm")
     return (
       scope.conversationKind === "dm" &&
+      (!context.conversationId ||
+        scope.conversationId === context.conversationId) &&
       (!context.agentPubkey || scope.agentPubkey === context.agentPubkey)
     );
   if (scope.channelId !== context.channelId) return false;
@@ -51,7 +58,11 @@ export function contextForScope(
   scope: CommunityAgentControllerScope,
 ): CommunityAgentActivityContext {
   if (scope.conversationKind === "dm")
-    return { kind: "dm", agentPubkey: scope.agentPubkey };
+    return {
+      kind: "dm",
+      agentPubkey: scope.agentPubkey,
+      ...(scope.conversationId ? { conversationId: scope.conversationId } : {}),
+    };
   if (!scope.channelId) return { kind: "overview" };
   return scope.threadRootId
     ? {

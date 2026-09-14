@@ -126,7 +126,11 @@ function frame(
 }
 
 function administrationFrame(
-  kind: "runtime_state" | "memory_state" | "administration_error",
+  kind:
+    | "runtime_state"
+    | "memory_state"
+    | "processing_state"
+    | "administration_error",
   payload: Record<string, unknown>,
   channelId?: string,
 ) {
@@ -1285,4 +1289,73 @@ describe("agent activity controller", () => {
     expect((await archive.page({ scope })).records).toEqual([]);
     expect(controller.state.archiveError).toBeUndefined();
   });
+});
+
+it("waits for a correlated processing acknowledgement and retains cancellation errors", async () => {
+  const { controller, session, receive } = await setup();
+  let settled = false;
+  const waiting = controller.actions.setProcessing!(agent, false, 0).then(
+    (value) => {
+      settled = true;
+      return value;
+    },
+  );
+  await vi.waitFor(() =>
+    expect(session.sendControl).toHaveBeenCalledWith(
+      agent,
+      expect.objectContaining({ command: "processing_set" }),
+      expect.any(AbortSignal),
+    ),
+  );
+  const control = vi.mocked(session.sendControl!).mock.calls.at(-1)![1];
+  const id = "requestId" in control ? control.requestId : "";
+  expect(settled).toBe(false);
+  receive(
+    administrationFrame("processing_state", {
+      requestId: "wrong-request",
+      enabled: false,
+      revision: 1,
+      status: "applied",
+      updatedAt: now,
+      applied: true,
+    }),
+  );
+  await new Promise((resolve) => setTimeout(resolve, 10));
+  expect(settled).toBe(false);
+  receive(
+    administrationFrame("processing_state", {
+      requestId: id,
+      enabled: false,
+      revision: 1,
+      status: "applied",
+      updatedAt: now,
+      applied: true,
+    }),
+  );
+  await expect(waiting).resolves.toMatchObject({ enabled: false, revision: 1 });
+  expect(controller.state.processing?.[agent]).toMatchObject({
+    enabled: false,
+    status: "applied",
+  });
+  const retry = controller.actions.setProcessing!(agent, false, 1);
+  const failed = expect(retry).rejects.toThrow("Cancellation failed");
+  await vi.waitFor(() =>
+    expect(vi.mocked(session.sendControl!).mock.calls.at(-1)![1]).toMatchObject(
+      { expectedRevision: 1 },
+    ),
+  );
+  const request = vi.mocked(session.sendControl!).mock.calls.at(-1)![1];
+  receive(
+    administrationFrame("processing_state", {
+      requestId: "requestId" in request ? request.requestId : "",
+      enabled: false,
+      revision: 2,
+      status: "error",
+      updatedAt: now,
+      applied: false,
+      error: "Cancellation failed",
+    }),
+  );
+  await failed;
+  expect(controller.state.processing?.[agent]?.status).toBe("error");
 });

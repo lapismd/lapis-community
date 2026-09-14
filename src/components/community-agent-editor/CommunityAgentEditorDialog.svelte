@@ -1,17 +1,13 @@
 <script lang="ts">
   import { untrack } from "svelte";
-  import {
-    ConfirmDialog,
-    DialogFrame,
-  } from "@lapismd/design-core/forms/dialog";
+  import { decode } from "nostr-tools/nip19";
+  import { DialogFrame } from "@lapismd/design-core/forms/dialog";
   import { Button } from "@lapismd/design-core/shadcn/button";
   import * as Dialog from "@lapismd/design-core/shadcn/dialog";
   import * as Field from "@lapismd/design-core/shadcn/field";
   import { Input } from "@lapismd/design-core/shadcn/input";
   import * as Select from "@lapismd/design-core/shadcn/select";
   import * as Tabs from "@lapismd/design-core/shadcn/tabs";
-  import UnlinkIcon from "@lucide/svelte/icons/unlink";
-  import TrashIcon from "@lucide/svelte/icons/trash-2";
   import CommunityAvatarPicker from "../community-avatar-picker/CommunityAvatarPicker.svelte";
   import CommunityChatComposer from "../community-chat-composer/CommunityChatComposer.svelte";
   import type {
@@ -58,6 +54,7 @@
   let loadedAgent = $state("");
   let loadedRuntime = $state("");
   let personaName = $state("");
+  let approvedParticipants = $state("");
   let personaDescription = $state("");
   let personaAvatar = $state("");
   let personaPrompt = $state("");
@@ -166,14 +163,15 @@
     ].join(":");
     if (loadedAgent === key) return;
     untrack(() => {
-      personaName = agent.persona?.displayName ?? agent.name;
+      personaName = agent.name;
+      approvedParticipants = agent.instance?.dmAllowlist?.join(", ") ?? "";
       personaDescription = agent.persona?.description ?? agent.about;
       personaAvatar = agent.persona?.avatarUrl ?? agent.avatarUrl ?? "";
       personaPrompt = agent.persona?.systemPrompt ?? "";
       personaSlug =
         agent.persona?.slug ??
         agent.instance?.personaId ??
-        personaSlugFromName(agent.name);
+        `agent-${agent.pubkey.slice(0, 16)}`;
       instanceName = agent.instance?.name || agent.name;
       nameMode = agent.instance?.nameMode ?? "instance";
       personaSelection = agent.persona?.slug ?? "__new__";
@@ -236,12 +234,28 @@
     }
     if (!/^[a-z0-9][a-z0-9_-]{0,63}$/.test(slug)) {
       error =
-        "Persona ID must use lowercase letters, numbers, hyphens, or underscores.";
+        "The saved agent configuration ID is invalid. Reopen the editor and try again.";
       return;
     }
     pending = true;
     error = "";
     try {
+      const dmAllowlist = [
+        ...new Set(
+          approvedParticipants
+            .split(/[\s,;]+/)
+            .filter(Boolean)
+            .map((value) => {
+              if (/^[0-9a-f]{64}$/.test(value)) return value;
+              const key = decode(value);
+              if (key.type !== "npub")
+                throw new Error(
+                  "Use a hexadecimal or npub public key for each approved person",
+                );
+              return key.data;
+            }),
+        ),
+      ];
       await onSaveAgent({
         pubkey: agent.pubkey,
         personaSlug: slug,
@@ -250,7 +264,8 @@
         avatarUrl: personaAvatar,
         systemPrompt: personaPrompt,
         nameMode,
-        instanceName,
+        instanceName: displayName,
+        dmAllowlist,
       });
       if (runtime && onSaveRuntime && runtimeConfigMode === "custom") {
         await onSaveRuntime({
@@ -305,28 +320,6 @@
           size="medium"
           fallbackName={personaName || agent?.name || "Agent"}
         />
-        {#if agent?.instance?.personaId && (onUnlinkPersona || onDeletePersona)}
-          <div class="agent-editor__persona-management">
-            {#if onUnlinkPersona}
-              <Button
-                type="button"
-                variant="outline"
-                disabled={pending}
-                onclick={() => (unlinkConfirmOpen = true)}
-                ><UnlinkIcon aria-hidden="true" />Unlink persona</Button
-              >
-            {/if}
-            {#if onDeletePersona && editorPersona}
-              <Button
-                type="button"
-                variant="destructive"
-                disabled={pending}
-                onclick={() => (deleteConfirmOpen = true)}
-                ><TrashIcon aria-hidden="true" />Delete persona</Button
-              >
-            {/if}
-          </div>
-        {/if}
       </div>
     {/snippet}
     <form
@@ -338,34 +331,6 @@
       }}
     >
       <Field.Group>
-        {#if personas.length > 0}
-          <Field.Field>
-            <Field.Label for={`${editorId}-persona-source`}>Persona</Field.Label
-            >
-            <Select.Root
-              type="single"
-              value={personaSelection}
-              onValueChange={selectPersona}
-              disabled={pending || !connected}
-            >
-              <Select.Trigger id={`${editorId}-persona-source`}
-                >{editorPersona?.displayName ??
-                  "Create a new persona"}</Select.Trigger
-              >
-              <Select.Content>
-                <Select.Item value="__new__">Create a new persona</Select.Item>
-                {#each personas as persona (persona.slug)}
-                  <Select.Item value={persona.slug}
-                    >{persona.displayName}</Select.Item
-                  >
-                {/each}
-              </Select.Content>
-            </Select.Root>
-            <Field.Description>
-              Choose an existing reusable persona or create one for this agent.
-            </Field.Description>
-          </Field.Field>
-        {/if}
         <Field.Field>
           <Field.Label for={`${editorId}-persona-name`}>Agent name</Field.Label>
           <Input
@@ -375,54 +340,6 @@
             required
           />
         </Field.Field>
-        <Field.Field>
-          <Field.Label for={`${editorId}-persona-id`}>Persona ID</Field.Label>
-          <Input
-            id={`${editorId}-persona-id`}
-            bind:value={personaSlug}
-            disabled={pending || editorPersona !== undefined}
-          />
-          <Field.Description>
-            The stable ID remains unchanged when the persona is renamed.
-          </Field.Description>
-        </Field.Field>
-        <Field.Field>
-          <Field.Label for={`${editorId}-persona-name-mode`}
-            >Instance name</Field.Label
-          >
-          <Select.Root
-            type="single"
-            value={nameMode}
-            onValueChange={(value) =>
-              (nameMode = value as CommunityAgentNameMode)}
-            disabled={pending || !agent}
-          >
-            <Select.Trigger id={`${editorId}-persona-name-mode`}
-              >{nameMode === "inherited"
-                ? "Use persona name"
-                : "Keep instance name"}</Select.Trigger
-            >
-            <Select.Content>
-              <Select.Item value="instance">Keep instance name</Select.Item>
-              <Select.Item value="inherited">Use persona name</Select.Item>
-            </Select.Content>
-          </Select.Root>
-          <Field.Description>
-            Inheritance stays explicit even while the two names match.
-          </Field.Description>
-        </Field.Field>
-        {#if nameMode === "instance"}
-          <Field.Field>
-            <Field.Label for={`${editorId}-instance-name`}
-              >Independent instance name</Field.Label
-            >
-            <Input
-              id={`${editorId}-instance-name`}
-              bind:value={instanceName}
-              disabled={pending || !agent}
-            />
-          </Field.Field>
-        {/if}
         <Field.Field>
           <Field.Label>Description <span>Optional</span></Field.Label>
           <CommunityChatComposer
@@ -441,10 +358,30 @@
             placeholder="Describe how this agent should work."
           />
           <Field.Description>
-            Saved with the persona. A configured controller applies changes
-            before the agent's next idle turn.
+            A configured controller applies changes before the agent's next idle
+            turn.
           </Field.Description>
         </Field.Field>
+        <Field.Field>
+          <Field.Label for={`${editorId}-dm-allowlist`}
+            >Who can message this agent</Field.Label
+          >
+          <Input
+            id={`${editorId}-dm-allowlist`}
+            bind:value={approvedParticipants}
+            placeholder="Approved public keys, separated by commas"
+            disabled={pending}
+          />
+          <Field.Description
+            >You can always message this agent. Add each other person’s hex or
+            npub key. Every participant in a group must be approved; group
+            replies require a mention or a reply to the agent.</Field.Description
+          >
+        </Field.Field>
+        {#if agent?.personaStatus === "unresolved"}<p role="status">
+            This agent’s saved configuration is missing. Save these details to
+            restore it.
+          </p>{/if}
         {#if runtime && onSaveRuntime}
           <div class="agent-editor__runtime-editor">
             <h3>AI configuration</h3>
@@ -565,29 +502,6 @@
     {/snippet}
   </DialogFrame>
 </Dialog.Root>
-<ConfirmDialog
-  bind:open={unlinkConfirmOpen}
-  title={`Unlink persona from ${agent?.name ?? "this agent"}?`}
-  description="The agent and its public profile remain. Presentation falls back to the agent-signed profile, and the saved prompt is not copied into the public instance record."
-  confirmLabel="Unlink persona"
-  onConfirm={async () => {
-    if (!agent || !onUnlinkPersona) return;
-    await onUnlinkPersona(agent.name);
-    open = false;
-  }}
-/>
-<ConfirmDialog
-  bind:open={deleteConfirmOpen}
-  title={`Delete persona ${editorPersona?.displayName ?? ""}?`}
-  description="The agent remains linked to an unresolved persona and falls back to its agent-signed public profile until you recreate or relink it."
-  confirmLabel="Delete persona"
-  destructive
-  onConfirm={async () => {
-    if (!editorPersona || !onDeletePersona) return;
-    await onDeletePersona(editorPersona.slug);
-    open = false;
-  }}
-/>
 
 <style>
   .agent-editor__form {
@@ -603,19 +517,7 @@
   :global(.agent-editor [data-ui-part="dialog-frame-body"]) {
     overflow-y: auto;
   }
-  .agent-editor__persona-management {
-    display: grid;
-    width: 100%;
-    gap: 0.625rem;
-  }
-  .agent-editor__persona-management :global(button) {
-    justify-content: flex-start;
-    width: 100%;
-  }
-  .agent-editor__persona-management :global(svg) {
-    width: 1rem;
-    height: 1rem;
-  }
+
   .agent-editor__runtime-editor {
     display: grid;
     gap: 1rem;

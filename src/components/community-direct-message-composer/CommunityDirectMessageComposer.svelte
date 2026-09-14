@@ -1,5 +1,7 @@
 <script lang="ts">
   import { Button } from "@lapismd/design-core/shadcn/button";
+  import { Label } from "@lapismd/design-core/shadcn/label";
+  import { Switch } from "@lapismd/design-core/shadcn/switch";
   import PlusIcon from "@lucide/svelte/icons/plus";
   import XIcon from "@lucide/svelte/icons/x";
   import type { CommunityCustomEmoji } from "../../community/index.js";
@@ -7,18 +9,24 @@
   import type { CommunityMemberModel } from "../community-workspace/model.js";
   let {
     recipients = [],
+    buzzSupported = false,
     communityEmojis = [],
     onChooseRecipients,
     onRemoveRecipient,
     onSend,
   }: {
     recipients?: readonly CommunityMemberModel[];
+    buzzSupported?: boolean;
     communityEmojis?: readonly CommunityCustomEmoji[];
     onChooseRecipients: () => void;
     onRemoveRecipient: (member: CommunityMemberModel) => void;
-    onSend: (content: string) => void | Promise<void>;
+    onSend: (
+      content: string,
+      transport?: "nip17" | "buzz-dm",
+    ) => void | Promise<void>;
   } = $props();
   let draft = $state("");
+  let relayReadable = $state(false);
 </script>
 
 <section
@@ -27,7 +35,17 @@
 >
   <header>
     <h1 id="new-message-title">New message</h1>
-    <p>Send an encrypted NIP-17 message to up to eight people.</p>
+    <p>
+      {relayReadable && buzzSupported
+        ? "Send a relay-readable Buzz message to up to eight people."
+        : "Send an encrypted NIP-17 message to up to eight people."}
+    </p>
+    {#if buzzSupported}<Label
+        ><Switch
+          aria-label="Relay-readable Buzz messaging"
+          bind:checked={relayReadable}
+        />Relay-readable Buzz messaging</Label
+      >{/if}
   </header>
   <div class="community-direct-message-composer__to">
     <strong>To:</strong>{#each recipients as member (member.id)}<Button
@@ -57,7 +75,11 @@
       ? "Write a message"
       : "Choose at least one recipient"}
     {communityEmojis}
-    onSubmit={(submission) => onSend(submission.content)}
+    onSubmit={(submission) =>
+      onSend(
+        submission.content,
+        relayReadable && buzzSupported ? "buzz-dm" : "nip17",
+      )}
   />
   {#if !recipients.length}<p class="community-direct-message-composer__hint">
       Choose a recipient before sending. People without an advertised NIP-17

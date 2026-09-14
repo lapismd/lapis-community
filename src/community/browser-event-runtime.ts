@@ -167,6 +167,12 @@ class BrowserCommunityEventRuntime implements CommunityEventRuntime {
     return this.#request({ method: "search", query });
   }
 
+  async clearPrivate(): Promise<void> {
+    if (this.#fallback) return this.#fallback.clearPrivate?.();
+    await this.#restoreAfterCrash();
+    await this.#request({ method: "clearPrivate" });
+  }
+
   async clear(scope?: CommunityScope): Promise<void> {
     if (this.#fallback !== undefined) return this.#fallback.clear(scope);
     await this.#restoreAfterCrash();

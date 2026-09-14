@@ -1,4 +1,7 @@
 <script lang="ts">
+  import { Button } from "@lapismd/design-core/shadcn/button";
+  import CommunitySkeleton from "../community-skeleton/CommunitySkeleton.svelte";
+  import { untrack } from "svelte";
   import CommunityAgentComposerActivity from "../community-agent-composer-activity/CommunityAgentComposerActivity.svelte";
   import {
     Layout,
@@ -30,6 +33,9 @@
   let {
     activityContext,
     room,
+    draftKey = room.id,
+    history,
+    onLoadOlder,
     rooms = [],
     messages,
     members,
@@ -71,6 +77,9 @@
   }: {
     activityContext?: CommunityAgentActivityContext;
     room: CommunityRoomModel;
+    draftKey?: string;
+    history?: { hasOlder: boolean; loading: boolean; error?: string };
+    onLoadOlder?: () => Promise<void>;
     rooms?: readonly CommunityRoomModel[];
     messages: CommunityMessageModel[];
     members: CommunityMemberModel[];
@@ -128,6 +137,32 @@
   } = $props();
 
   let draft = $state("");
+  const conversationDrafts = new Map<string, string>();
+  let previousDraftKey: string | undefined;
+  let previousDraftIdentity: string | undefined;
+  let draftIdentityLoaded = false;
+  $effect(() => {
+    const identity = currentMemberId;
+    untrack(() => {
+      if (draftIdentityLoaded && previousDraftIdentity === identity) return;
+      draftIdentityLoaded = true;
+      previousDraftIdentity = identity;
+      conversationDrafts.clear();
+      previousDraftKey = undefined;
+      draft = "";
+      editingMessageId = undefined;
+    });
+  });
+  $effect(() => {
+    const key = draftKey;
+    untrack(() => {
+      if (previousDraftKey === key) return;
+      if (previousDraftKey !== undefined)
+        conversationDrafts.set(previousDraftKey, draft);
+      draft = conversationDrafts.get(key) ?? "";
+      previousDraftKey = key;
+    });
+  });
   let editingMessageId = $state<string | undefined>();
   const density = $derived(room.kind === "forum" ? "spacious" : "compact");
   const composerRooms = $derived(rooms.length > 0 ? rooms : [room]);
@@ -224,6 +259,20 @@
   data-composer-placement={composerPlacement}
   data-footer={footer ? "custom" : "composer"}
 >
+  {#if history?.hasOlder && onLoadOlder}
+    <Button
+      variant="ghost"
+      disabled={history.loading}
+      onclick={() => onLoadOlder?.().catch(() => {})}
+      >Load earlier messages</Button
+    >
+    {#if history.loading}<CommunitySkeleton
+        layout="messages"
+        count={1}
+        label="Loading earlier messages"
+      />{/if}
+    {#if history.error}<p role="alert">{history.error}</p>{/if}
+  {/if}
   <Layout
     {density}
     aria-label={`${room.name} conversation`}

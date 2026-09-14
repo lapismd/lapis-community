@@ -36,6 +36,10 @@
   });
 </script>
 
+<script lang="ts">
+  let refreshVersion = $state(0);
+</script>
+
 <Story
   name="Compact channel feed"
   args={{
@@ -379,3 +383,38 @@
     </div>
   {/snippet}
 </Story>
+
+<Story
+  name="Draft survives conversation refresh"
+  args={{
+    room: generalRoom,
+    messages: communityStoryMessages,
+    members: communityStoryMembers,
+    onSend: fn(),
+  }}
+  play={async ({ canvas, args }) => {
+    const editor = canvas.getByRole("textbox", { name: "Markdown editor" });
+    await userEvent.type(editor, "Draft before refresh");
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Receive message update" }),
+    );
+    await expect(editor).toHaveTextContent("Draft before refresh");
+    await userEvent.click(editor);
+    await userEvent.keyboard("{End} and after{Enter}");
+    await waitFor(() =>
+      expect(args.onSend).toHaveBeenCalledWith(
+        "Draft before refresh and after",
+      ),
+    );
+  }}
+  >{#snippet template(args)}
+    <button onclick={() => refreshVersion++}>Receive message update</button>
+    <div style="height:38rem">
+      <CommunityConversation
+        {...args}
+        room={{ ...args.room, unreadCount: refreshVersion }}
+        currentMemberId={communityStoryMembers[0]!.id}
+      />
+    </div>
+  {/snippet}</Story
+>

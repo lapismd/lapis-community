@@ -1,3 +1,19 @@
+import {
+  isBuzzDirectMetadata,
+  buzzHiddenChannels,
+} from "./buzz-direct-messages.js";
+import {
+  afterReadCursor,
+  contentMentionPubkeys,
+  conversationKey,
+  privateConversation,
+} from "./conversations.js";
+import type { CommunityConversationReference } from "./conversations.js";
+import type { CommunityReadCursor } from "./contracts.js";
+import type {
+  CommunityInboxFilter,
+  CommunityInboxItemModel,
+} from "../components/community-inbox/model.js";
 import type {
   CommunityDetailsModel,
   CommunityInboxModel,
@@ -21,6 +37,7 @@ import { COMMUNITY_MESSAGE_EDIT_KIND } from "./message-moderation.js";
 import { isVerifiedNostrEvent } from "./verified-events.js";
 
 export interface CommunityProjectionOptions {
+  readMarkers?: Readonly<Record<string, CommunityReadCursor>>;
   asOf?: number;
   activeRoomId?: string;
   activeTopicId?: string;
@@ -73,7 +90,13 @@ export function communityRooms(
               kind: "channel" as const,
             },
           ];
-  if (!scope.discoverPublicRooms) return configured;
+  // Calls without identity or events also inventory configured groups for relay queries.
+  if (
+    !scope.discoverPublicRooms &&
+    events.length === 0 &&
+    identityPubkey === undefined
+  )
+    return configured;
 
   const configuredGroupIds = new Set(configured.map((room) => room.groupId));
   const membershipsByGroup = new Map<string, NostrEvent>();
@@ -95,6 +118,7 @@ export function communityRooms(
     );
     const joined =
       identityPubkey !== undefined &&
+      membershipsByGroup.get(groupId ?? "")?.pubkey === event.pubkey &&
       membershipsByGroup
         .get(groupId ?? "")
         ?.tags.some((tag) => tag[0] === "p" && tag[1] === identityPubkey) ===
@@ -120,8 +144,10 @@ export function communityRooms(
           .flatMap((tag) => tag.slice(1))
           .map(Number),
       );
-      const kind =
-        supportedKinds.has(11) || supportedKinds.has(1_111)
+      const buzzDirect = isBuzzDirectMetadata(metadata);
+      const kind = buzzDirect
+        ? "channel"
+        : supportedKinds.has(11) || supportedKinds.has(1_111)
           ? "forum"
           : supportedKinds.has(9)
             ? "channel"
@@ -146,6 +172,7 @@ export function communityRooms(
         groupId,
         name,
         kind,
+        ...(buzzDirect ? { transport: "buzz-dm" as const } : {}),
         ...(description ? { description } : {}),
         ...(privateRoom ? { private: true } : {}),
       };
@@ -156,7 +183,34 @@ export function communityRooms(
         left.kind.localeCompare(right.kind) ||
         left.name.localeCompare(right.name),
     );
-  return [...configured, ...discovered];
+  const visibleConfigured = configured.filter((room) => {
+    const metadata = events
+      .filter(
+        (event) =>
+          event.kind === 39000 &&
+          isVerifiedNostrEvent(event) &&
+          event.tags.some((tag) => tag[0] === "d" && tag[1] === room.groupId),
+      )
+      .toSorted(
+        (a, b) => b.created_at - a.created_at || a.id.localeCompare(b.id),
+      )[0];
+    const privateRoom =
+      room.private ||
+      room.transport === "buzz-dm" ||
+      metadata?.tags.some((tag) => tag[0] === "private" || tag[0] === "hidden");
+    if (!privateRoom) return true;
+    const membership = membershipsByGroup.get(room.groupId);
+    return (
+      !!identityPubkey &&
+      !!metadata &&
+      membership?.pubkey === metadata.pubkey &&
+      membership.tags.some((tag) => tag[0] === "p" && tag[1] === identityPubkey)
+    );
+  });
+  return [
+    ...visibleConfigured,
+    ...(scope.discoverPublicRooms ? discovered : []),
+  ];
 }
 
 export function materializeCommunityWorkspace(
@@ -189,9 +243,82 @@ export function materializeCommunityWorkspace(
   const roomModels = rooms.map((room) =>
     roomModel(room, visible, options.identityPubkey),
   );
+  for (const model of roomModels) {
+    const roomScope = rooms.find((room) => room.id === model.id);
+    if (roomScope?.transport !== "buzz-dm") continue;
+    const metadata = latestGroupState(events, 39000, roomScope.groupId);
+    const membership = latestGroupState(events, 39002, roomScope.groupId);
+    if (metadata && membership?.pubkey === metadata.pubkey) {
+      model.kind = "direct";
+      model.conversation = {
+        transport: "buzz-dm",
+        relayUrl: scope.relayUrl,
+        groupId: roomScope.groupId,
+      };
+      model.participantIds = membership.tags
+        .filter((tag) => tag[0] === "p" && tag[1])
+        .map((tag) => tag[1]!);
+      model.name = model.participantIds
+        .filter((key) => key !== options.identityPubkey)
+        .map((key) => profiles.get(key)?.name ?? shortKey(key))
+        .join(", ");
+    }
+  }
   const directRooms = directConversations.map((conversation) =>
     directRoomModel(conversation, profiles, options.identityPubkey),
   );
+  for (const model of [...roomModels, ...directRooms]) {
+    const direct = directConversations.find(
+      (conversation) => conversation.id === model.id,
+    );
+    const reference =
+      model.conversation ??
+      (direct
+        ? { transport: "nip17" as const, participants: direct.participants }
+        : {
+            transport: "nip29" as const,
+            relayUrl: scope.relayUrl,
+            groupId: model.groupId ?? model.id,
+          });
+    model.conversation ??= reference;
+    const candidates = direct
+      ? direct.events.filter(
+          (event) =>
+            event.kind === 14 &&
+            directMessageModels(direct, options.identityPubkey).some(
+              (message) => message.id === event.id,
+            ),
+        )
+      : visible.filter(
+          (event) =>
+            [9, 11, 1111].includes(event.kind) &&
+            event.tags.some(
+              (tag) => tag[0] === "h" && tag[1] === model.groupId,
+            ),
+        );
+    model.unreadCount = candidates.filter((event) => {
+      const rootId =
+        event.tags.find(
+          (tag) => tag[0] === "E" || (tag[0] === "e" && tag[3] === "root"),
+        )?.[1] ?? event.tags.find((tag) => tag[0] === "e")?.[1];
+      const threadReference =
+        reference.transport === "nip29" && rootId
+          ? { ...reference, threadId: rootId }
+          : reference;
+      return (
+        event.pubkey !== options.identityPubkey &&
+        afterReadCursor(
+          event,
+          options.readMarkers?.[conversationKey(reference)],
+        ) &&
+        afterReadCursor(
+          event,
+          options.readMarkers?.[conversationKey(threadReference)],
+        ) &&
+        afterReadCursor(event, options.readMarkers?.[model.id])
+      );
+    }).length;
+  }
   const members =
     activeDirect === undefined
       ? memberModels(activeRoom, visible, profiles, statuses)
@@ -210,7 +337,7 @@ export function materializeCommunityWorkspace(
             options.identityPubkey,
           );
   const messages =
-    activeRoom?.kind === "channel"
+    activeRoom?.kind === "channel" && activeRoom.transport !== "buzz-dm"
       ? conversationMessages.filter(
           (message) => message.parentMessageId === undefined,
         )
@@ -262,7 +389,19 @@ export function materializeCommunityWorkspace(
       {
         id: "direct-messages",
         label: "Direct messages",
-        rooms: directRooms,
+        rooms: [
+          ...directRooms,
+          ...roomModels.filter(
+            (room) =>
+              room.kind === "direct" &&
+              !buzzHiddenChannels(
+                events,
+                options.identityPubkey ?? "",
+                latestGroupState(events, 39000, room.groupId ?? room.id)
+                  ?.pubkey ?? "",
+              ).has(room.groupId ?? room.id),
+          ),
+        ],
       },
     ],
     activeRoomId: activeDirect?.id ?? activeRoom?.id ?? "",
@@ -290,89 +429,257 @@ export function directConversationId(participants: readonly string[]): string {
   return `dm:${[...new Set(participants)].toSorted().join(",")}`;
 }
 
+export interface CommunityInboxProjectionOptions {
+  privateEventsByScope?: Readonly<
+    Record<string, readonly CommunityPrivateEvent[]>
+  >;
+  readMarkersByScope?: Readonly<
+    Record<string, Readonly<Record<string, CommunityReadCursor>>>
+  >;
+  activeItemId?: string;
+  filter?: CommunityInboxFilter;
+  unreadOnly?: boolean;
+}
 export function materializeCommunityInbox(
   scopes: readonly CommunityScope[],
   eventsByScope: Readonly<Record<string, readonly NostrEvent[]>>,
   identityPubkey: string | undefined,
   asOf?: number,
+  options: CommunityInboxProjectionOptions = {},
 ): CommunityInboxModel | undefined {
   if (identityPubkey === undefined) return undefined;
-  const candidates = scopes.flatMap((scope) => {
+  const rows: {
+    item: CommunityInboxItemModel;
+    room: CommunityRoomModel;
+    messages: CommunityMessageModel[];
+    members: CommunityMemberModel[];
+  }[] = [];
+  const allPrivateEvents = [
+    ...new Map(
+      Object.values(options.privateEventsByScope ?? {})
+        .flat()
+        .map((event) => [event.id, event]),
+    ).values(),
+  ];
+  const directScopeId = scopes.find(
+    (scope) => (options.privateEventsByScope?.[scope.id]?.length ?? 0) > 0,
+  )?.id;
+  const directCursors: Record<string, CommunityReadCursor> = {};
+  for (const markers of Object.values(options.readMarkersByScope ?? {}))
+    for (const [key, cursor] of Object.entries(markers)) {
+      const prior = directCursors[key];
+      if (
+        !prior ||
+        cursor.createdAt > prior.createdAt ||
+        (cursor.createdAt === prior.createdAt && cursor.eventId > prior.eventId)
+      )
+        directCursors[key] = cursor;
+    }
+  for (const scope of scopes) {
     const events = acceptedEvents(eventsByScope[scope.id] ?? []);
-    const rooms = communityRooms(scope, events, identityPubkey);
+    const deleted = deletedEventIds(events);
     const profiles = profilesFrom(events);
     const statuses = statusesFrom(events);
-    return events
-      .filter(
+    const cursors = options.readMarkersByScope?.[scope.id] ?? {};
+    for (const direct of directConversationModels(
+      scope.id === directScopeId ? allPrivateEvents : [],
+      identityPubkey,
+      {},
+    )) {
+      const reference: CommunityConversationReference = {
+        transport: "nip17",
+        participants: direct.participants,
+      };
+      const messages = directMessageModels(direct, identityPubkey);
+      const visibleIds = new Set(messages.map((message) => message.id));
+      const incoming = direct.events.filter(
         (event) =>
-          (event.kind === 9 || event.kind === 1_111) &&
+          event.kind === 14 &&
           event.pubkey !== identityPubkey &&
-          event.tags.some(
-            (tag) =>
-              (tag[0] === "p" || tag[0] === "P") && tag[1] === identityPubkey,
+          visibleIds.has(event.id),
+      );
+      const latest = incoming.at(-1);
+      if (!latest) continue;
+      const room = directRoomModel(direct, profiles, identityPubkey);
+      const id = conversationKey(reference);
+      rows.push({
+        item: {
+          id,
+          conversation: reference,
+          scopeId: scope.id,
+          roomId: direct.id,
+          categories: [
+            "Direct messages",
+            ...(incoming.some((event) =>
+              contentMentionPubkeys(event.content).includes(identityPubkey),
+            )
+              ? ["Mentions" as const]
+              : []),
+          ],
+          authorId: latest.pubkey,
+          context: room.name,
+          excerpt: latest.content,
+          timestamp: timestamp(latest.created_at),
+          latestEventId: latest.id,
+          latestCreatedAt: latest.created_at,
+          unread: incoming.some((event) =>
+            afterReadCursor(
+              event,
+              directCursors[id] ?? directCursors[direct.id],
+            ),
           ),
-      )
-      .map((event) => ({ scope, rooms, profiles, statuses, event }));
-  });
-  const ordered = candidates.toSorted((left, right) =>
-    compareOldest(right.event, left.event),
+        },
+        room,
+        messages,
+        members: directMemberModels(direct, profiles, statuses),
+      });
+    }
+    for (const roomScope of communityRooms(scope, events, identityPubkey)) {
+      const roomEvents: NostrEvent[] = events.filter(
+        (event) =>
+          [9, 11, 1111].includes(event.kind) &&
+          !deleted.has(event.id) &&
+          event.tags.some(
+            (tag) => tag[0] === "h" && tag[1] === roomScope.groupId,
+          ),
+      );
+      const root = (event: NostrEvent): string | undefined =>
+        event.tags.find(
+          (tag) => tag[0] === "E" || (tag[0] === "e" && tag[3] === "root"),
+        )?.[1] ?? event.tags.find((tag) => tag[0] === "e")?.[1];
+      const participated = new Set(
+        roomEvents
+          .filter((event) => event.pubkey === identityPubkey)
+          .map((event) => root(event) ?? event.id),
+      );
+      const groups = new Map<
+        string,
+        {
+          reference: CommunityConversationReference;
+          incoming: NostrEvent[];
+          categories: Set<"Direct messages" | "Mentions" | "Threads">;
+          rootId?: string;
+        }
+      >();
+      for (const event of roomEvents) {
+        if (event.pubkey === identityPubkey) continue;
+        const rootId = root(event);
+        const mention =
+          event.tags.some(
+            (tag) => ["p", "P"].includes(tag[0]!) && tag[1] === identityPubkey,
+          ) || contentMentionPubkeys(event.content).includes(identityPubkey);
+        const thread = rootId !== undefined && participated.has(rootId);
+        const buzzDirect = roomScope.transport === "buzz-dm";
+        const authority =
+          latestGroupState(events, 39000, roomScope.groupId)?.pubkey ?? "";
+        if (
+          buzzDirect &&
+          buzzHiddenChannels(events, identityPubkey, authority).has(
+            roomScope.groupId,
+          )
+        )
+          continue;
+        if (!mention && !thread && !buzzDirect) continue;
+        const reference: CommunityConversationReference = {
+          transport: buzzDirect ? "buzz-dm" : "nip29",
+          relayUrl: scope.relayUrl,
+          groupId: roomScope.groupId,
+          ...(!buzzDirect && rootId ? { threadId: rootId } : {}),
+        };
+        const id = conversationKey(reference);
+        const group = groups.get(id) ?? {
+          reference,
+          incoming: [],
+          categories: new Set<"Direct messages" | "Mentions" | "Threads">(),
+          ...(!buzzDirect && rootId ? { rootId } : {}),
+        };
+        group.incoming.push(event);
+        if (buzzDirect) group.categories.add("Direct messages");
+        if (mention) group.categories.add("Mentions");
+        if (thread) group.categories.add("Threads");
+        groups.set(id, group);
+      }
+      for (const [id, group] of groups) {
+        const latest = group.incoming.at(-1)!;
+        const room = {
+          ...roomModel(roomScope, events, identityPubkey),
+          conversation: group.reference,
+          ...(roomScope.transport === "buzz-dm"
+            ? { kind: "direct" as const }
+            : {}),
+        };
+        const selectedEvents = group.rootId
+          ? roomEvents.filter(
+              (event) =>
+                event.id === group.rootId || root(event) === group.rootId,
+            )
+          : roomEvents.filter(
+              (event) => roomScope.transport === "buzz-dm" || !root(event),
+            );
+        rows.push({
+          item: {
+            id,
+            conversation: group.reference,
+            scopeId: scope.id,
+            roomId: room.id,
+            ...(group.rootId ? { rootEventId: group.rootId } : {}),
+            categories: [...group.categories],
+            authorId: latest.pubkey,
+            context: room.name,
+            timestamp: timestamp(latest.created_at),
+            excerpt: latest.content,
+            latestEventId: latest.id,
+            latestCreatedAt: latest.created_at,
+            unread: group.incoming.some(
+              (event) =>
+                afterReadCursor(event, cursors[id]) &&
+                afterReadCursor(event, cursors[room.id]),
+            ),
+          },
+          room,
+          messages: selectedEvents.map((event) =>
+            eventMessage(event, events, profiles, asOf, identityPubkey),
+          ),
+          members: memberModels(roomScope, selectedEvents, profiles, statuses),
+        });
+      }
+    }
+  }
+  rows.sort(
+    (a, b) =>
+      (b.item.latestCreatedAt ?? 0) - (a.item.latestCreatedAt ?? 0) ||
+      a.item.id.localeCompare(b.item.id),
   );
-  const active = ordered[0];
-  if (active === undefined) return undefined;
-  const groupId = active.event.tags.find((tag) => tag[0] === "h")?.[1] ?? "";
-  const roomScope =
-    active.rooms.find((room) => room.groupId === groupId) ?? active.rooms[0];
-  if (roomScope === undefined) return undefined;
-  const room = roomModel(
-    roomScope,
-    acceptedEvents(eventsByScope[active.scope.id] ?? []),
-    identityPubkey,
+  // A NIP-17 rumor received through multiple community relay connections is one item.
+  const unique = [...new Map(rows.map((row) => [row.item.id, row])).values()];
+  const filter = options.filter ?? "All";
+  const visible = unique.filter(
+    (row) =>
+      (filter === "All" || row.item.categories?.includes(filter)) &&
+      (!options.unreadOnly || row.item.unread),
   );
-  const rootId =
-    active.event.tags.find((tag) => tag[0] === "E")?.[1] ??
-    active.event.tags.find((tag) => tag[0] === "e")?.[1] ??
-    active.event.id;
-  const threadEvents = acceptedEvents(
-    eventsByScope[active.scope.id] ?? [],
-  ).filter(
-    (event) =>
-      event.id === rootId ||
-      event.id === active.event.id ||
-      event.tags.some(
-        (tag) => (tag[0] === "e" || tag[0] === "E") && tag[1] === rootId,
-      ),
-  );
-  const members = memberModels(
-    roomScope,
-    threadEvents,
-    active.profiles,
-    active.statuses,
-  );
+  const active =
+    unique.find((row) => row.item.id === options.activeItemId) ??
+    visible[0] ??
+    unique[0];
+  if (!active) return undefined;
   return {
-    items: ordered.map(({ event, profiles }) => ({
-      id: event.id,
-      authorId: event.pubkey,
-      context: profiles.get(event.pubkey)?.name ?? shortKey(event.pubkey),
-      timestamp: timestamp(event.created_at),
-      excerpt: event.content,
-      unread: true,
-    })),
-    activeItemId: active.event.id,
-    threadTitle: room.name,
-    room,
-    messages: threadEvents
-      .toSorted(compareOldest)
-      .map((event) =>
-        eventMessage(
-          event,
-          threadEvents,
-          active.profiles,
-          asOf,
-          identityPubkey,
-        ),
-      ),
-    members,
-    participantCount: new Set(threadEvents.map((event) => event.pubkey)).size,
+    items: unique.map((row) => row.item),
+    activeItemId: active.item.id,
+    filter,
+    unreadOnly: options.unreadOnly ?? false,
+    unreadCount: unique.filter((row) => row.item.unread).length,
+    threadTitle: active.room.name,
+    room: active.room,
+    messages: active.messages,
+    members: [
+      ...new Map(
+        unique
+          .flatMap((row) => row.members)
+          .map((member) => [member.id, member]),
+      ).values(),
+    ],
+    participantCount: active.members.length,
   };
 }
 
@@ -1106,6 +1413,10 @@ function directRoomModel(
       .map((pubkey) => profiles.get(pubkey)?.name ?? shortKey(pubkey))
       .join(", "),
     kind: "direct",
+    conversation: {
+      transport: "nip17",
+      participants: conversation.participants,
+    },
     participantIds: conversation.participants,
     memberCount: conversation.participants.length,
     private: true,
@@ -1142,12 +1453,20 @@ function directMessageModels(
   conversation: DirectConversation,
   identityPubkey: string | undefined,
 ): CommunityMessageModel[] {
+  const authors = new Map(
+    conversation.events.map((event) => [event.id, event.pubkey]),
+  );
   const deleted = new Set(
     conversation.events
       .filter((event) => event.kind === 5)
       .flatMap((event) =>
         event.tags
-          .filter((tag) => tag[0] === "e" && tag[1] !== undefined)
+          .filter(
+            (tag) =>
+              tag[0] === "e" &&
+              tag[1] !== undefined &&
+              authors.get(tag[1]) === event.pubkey,
+          )
           .map((tag) => tag[1]!),
       ),
   );
@@ -1180,16 +1499,7 @@ function directMessageModels(
             : {}),
         });
       }
-      const mentionPubkeys = [
-        ...new Set(
-          event.tags
-            .filter(
-              (tag) =>
-                (tag[0] === "p" || tag[0] === "P") && tag[1] !== undefined,
-            )
-            .map((tag) => tag[1]!),
-        ),
-      ];
+      const mentionPubkeys = contentMentionPubkeys(event.content);
       return {
         id: event.id,
         authorId: event.pubkey,

@@ -210,3 +210,18 @@ live acceptance. The frozen 13-plugin fixture is included in the repository;
 Fixture image builds supply the pinned local Design Core tarball through the
 `design-core-packages` Docker build context. Mock-provider and disposable relay
 tests remain separate from the persistent stack.
+
+### Conversations, Inbox, Agents and channel canvases
+
+New direct conversations use encrypted NIP-17 and support up to eight recipients.
+On Buzz relays, the composer also offers explicitly labelled relay-readable messaging;
+existing conversations keep their original transport. Inbox groups direct messages,
+mentions and participated threads, with shared read state and working filters.
+
+Agents use one editor for their profile, instructions and approved messaging participants.
+Enable and Disable remain pending until the controller acknowledges the processing change.
+Project home and related channels expose a shared Markdown Canvas in channel settings,
+with membership and management permissions, retained drafts and stale-edit review.
+
+See the [messaging actions](spec/src/nostr-protocol.md#messaging-and-inbox-controller-actions)
+and [UI catalog](src/components/ui-catalog.json) for public controller and component examples.

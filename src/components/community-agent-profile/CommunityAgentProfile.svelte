@@ -1,4 +1,5 @@
 <script lang="ts">
+  import CommunityAgentProcessingControl from "../community-agent-processing-control/CommunityAgentProcessingControl.svelte";
   import {
     ConfirmDialog,
     DialogFrame,
@@ -43,6 +44,7 @@
     CommunityAgentPersona,
     CommunityAgentPresence,
     CommunityAgentRuntimeState,
+    CommunityAgentProcessingState,
     CommunityAgentSaveInput,
   } from "../../community/agent-contracts.js";
   import type { CommunityRoomModel } from "../community-workspace/model.js";
@@ -72,6 +74,9 @@
     onUnlinkPersona,
     onDeletePersona,
     runtime,
+    processing,
+    onLoadProcessing,
+    onSetProcessing,
     memories,
     onLoadRuntime,
     onSaveRuntime,
@@ -97,6 +102,16 @@
     onSaveAgent: (input: CommunityAgentSaveInput) => Promise<void>;
     onUnlinkPersona: (fallbackName: string) => Promise<void>;
     onDeletePersona: (slug: string) => Promise<void>;
+    processing?: CommunityAgentProcessingState | undefined;
+    onLoadProcessing?:
+      | (() => Promise<CommunityAgentProcessingState>)
+      | undefined;
+    onSetProcessing?:
+      | ((
+          enabled: boolean,
+          revision: number,
+        ) => Promise<CommunityAgentProcessingState>)
+      | undefined;
     runtime?: CommunityAgentRuntimeState | undefined;
     memories?: CommunityAgentMemoryState | undefined;
     onLoadRuntime?: () => Promise<CommunityAgentRuntimeState>;
@@ -419,6 +434,13 @@
         <CommunityChip size="compact" tone="accent">Working</CommunityChip>
       </div>{/if}
   </header>
+  {#if onLoadProcessing && onSetProcessing}<CommunityAgentProcessingControl
+      agentPubkey={agent.pubkey}
+      state={processing}
+      {connected}
+      onLoad={onLoadProcessing}
+      onSet={onSetProcessing}
+    />{/if}
   <div class="agent-profile__actions">
     <Button
       class="agent-profile__action"
@@ -643,7 +665,7 @@
                 </div>{/if}
               <div>
                 <dt>Bootstrap</dt>
-                <dd>{runtime.bootstrapRevision ?? "Current persona"}</dd>
+                <dd>{runtime.bootstrapRevision ?? "Current configuration"}</dd>
               </div>
               <div>
                 <dt>Memory</dt>

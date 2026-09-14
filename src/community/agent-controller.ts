@@ -24,6 +24,7 @@ import type {
   CommunityAgentMemoryState,
   CommunityAgentMemoryRecord,
   CommunityAgentRuntimeState,
+  CommunityAgentProcessingState,
   CommunityAgentsActions,
   CommunityAgentsState,
   CommunityAgentSession,
@@ -63,13 +64,26 @@ interface ActivitySyncRequest {
 
 interface AgentAdministrationRequest {
   agentPubkey: string;
-  responseKind: "runtime_state" | "memory_state";
-  resolve(value: CommunityAgentRuntimeState | CommunityAgentMemoryState): void;
+  responseKind: "runtime_state" | "memory_state" | "processing_state";
+  resolve(
+    value:
+      | CommunityAgentRuntimeState
+      | CommunityAgentMemoryState
+      | CommunityAgentProcessingState,
+  ): void;
   reject(error: Error): void;
   timer: ReturnType<typeof setTimeout>;
 }
 
 type AgentAdministrationControl =
+  | Omit<
+      Extract<CommunityAgentControl, { command: "processing_get" }>,
+      "requestId"
+    >
+  | Omit<
+      Extract<CommunityAgentControl, { command: "processing_set" }>,
+      "requestId"
+    >
   | Omit<
       Extract<CommunityAgentControl, { command: "runtime_get" }>,
       "requestId"
@@ -402,6 +416,18 @@ export class CommunityAgentsController {
         },
       });
     },
+    loadProcessing: (pubkey) =>
+      this.#requestAdministration<CommunityAgentProcessingState>(
+        pubkey,
+        { version: 2, command: "processing_get" },
+        "processing_state",
+      ),
+    setProcessing: (pubkey, enabled, expectedRevision) =>
+      this.#requestAdministration<CommunityAgentProcessingState>(
+        pubkey,
+        { version: 2, command: "processing_set", enabled, expectedRevision },
+        "processing_state",
+      ),
     loadRuntime: (pubkey) =>
       this.#requestAdministration<CommunityAgentRuntimeState>(
         pubkey,
@@ -448,6 +474,7 @@ export class CommunityAgentsController {
       publicWorking: [],
       publicAgents: [],
       pendingPermissions: {},
+      processing: {},
       runtime: {},
       memories: {},
       partial: false,
@@ -1546,7 +1573,10 @@ export class CommunityAgentsController {
   }
 
   async #requestAdministration<
-    T extends CommunityAgentRuntimeState | CommunityAgentMemoryState,
+    T extends
+      | CommunityAgentRuntimeState
+      | CommunityAgentMemoryState
+      | CommunityAgentProcessingState,
   >(
     agentPubkey: string,
     control: AgentAdministrationControl,
@@ -1554,12 +1584,19 @@ export class CommunityAgentsController {
   ): Promise<T> {
     const requestId = `community-admin-${++this.#administrationSerial}-${Date.now().toString(36)}`;
     const result = new Promise<T>((resolve, reject) => {
-      const timer = setTimeout(() => {
-        this.#administrationRequests.delete(requestId);
-        reject(
-          new Error("The agent controller did not respond within ten seconds"),
-        );
-      }, 10_000);
+      const timer = setTimeout(
+        () => {
+          this.#administrationRequests.delete(requestId);
+          reject(
+            new Error(
+              responseKind === "processing_state"
+                ? "The agent controller did not acknowledge this request within thirty seconds"
+                : "The agent controller did not respond within ten seconds",
+            ),
+          );
+        },
+        responseKind === "processing_state" ? 30_000 : 10_000,
+      );
       this.#administrationRequests.set(requestId, {
         agentPubkey,
         responseKind,
@@ -1591,6 +1628,7 @@ export class CommunityAgentsController {
     frame: CommunityAgentObserver,
   ): boolean {
     if (
+      frame.kind !== "processing_state" &&
       frame.kind !== "runtime_state" &&
       frame.kind !== "memory_state" &&
       frame.kind !== "administration_error"
@@ -1625,14 +1663,35 @@ export class CommunityAgentsController {
     const value =
       frame.kind === "runtime_state"
         ? parseRuntimeState(payload)
-        : parseMemoryState(payload);
+        : frame.kind === "processing_state"
+          ? parseProcessingState(payload)
+          : parseMemoryState(payload);
     if (!value) {
       request.reject(
         new Error("The agent controller returned invalid administration data"),
       );
       return true;
     }
-    if (frame.kind === "runtime_state") {
+    if (frame.kind === "processing_state") {
+      const processing = value as CommunityAgentProcessingState;
+      const previous = this.#state.processing?.[agentPubkey];
+      if (previous && processing.revision < previous.revision) {
+        request.reject(new Error("The processing acknowledgement is stale"));
+        return true;
+      }
+      this.#update({
+        processing: { ...this.#state.processing, [agentPubkey]: processing },
+      });
+      if (processing.applied === false || processing.status === "error") {
+        request.reject(
+          new Error(
+            processing.error ??
+              "The controller did not apply the processing change",
+          ),
+        );
+        return true;
+      }
+    } else if (frame.kind === "runtime_state") {
       this.#update({
         runtime: {
           ...(this.#state.runtime ?? {}),
@@ -1858,6 +1917,7 @@ export class CommunityAgentsController {
       publicWorking: [],
       publicAgents: [],
       pendingPermissions: {},
+      processing: {},
       runtime: {},
       memories: {},
     };
@@ -2176,7 +2236,12 @@ function activitySyncContext(
   if (!context || context.kind === "overview") return;
   if (context.kind === "dm")
     return !context.agentPubkey || context.agentPubkey === agentPubkey
-      ? { kind: "dm" }
+      ? {
+          kind: "dm",
+          ...(context.conversationId
+            ? { conversationId: context.conversationId }
+            : {}),
+        }
       : undefined;
   return context.kind === "channel"
     ? { kind: "channel", channelId: context.channelId }
@@ -2191,8 +2256,19 @@ function parseActivitySyncContext(
   value: unknown,
 ): CommunityAgentActivitySyncContext | undefined {
   const context = observerRecord(value);
-  if (context.kind === "dm" && observerHasOnlyKeys(context, ["kind"]))
-    return { kind: "dm" };
+  if (
+    context.kind === "dm" &&
+    observerHasOnlyKeys(context, ["kind", "conversationId"]) &&
+    (context.conversationId === undefined ||
+      (typeof context.conversationId === "string" &&
+        /^[0-9a-f]{64}$/u.test(context.conversationId)))
+  )
+    return {
+      kind: "dm",
+      ...(typeof context.conversationId === "string"
+        ? { conversationId: context.conversationId }
+        : {}),
+    };
   const channelId = observerText(context.channelId, 256);
   if (!channelId) return;
   if (
@@ -2229,7 +2305,12 @@ function frameMatchesActivitySyncContext(
   context: CommunityAgentActivitySyncContext,
 ): boolean {
   const scope = observerScope(frame);
-  if (context.kind === "dm") return scope.conversationKind === "dm";
+  if (context.kind === "dm")
+    return (
+      scope.conversationKind === "dm" &&
+      (!context.conversationId ||
+        scope.conversationId === context.conversationId)
+    );
   if (
     scope.channelId !== context.channelId ||
     scope.conversationKind !== context.kind
@@ -2278,4 +2359,32 @@ async function historyDeadline<T>(
   } finally {
     clearTimeout(timer);
   }
+}
+
+function parseProcessingState(
+  payload: Record<string, unknown> | undefined,
+): CommunityAgentProcessingState | undefined {
+  if (
+    !payload ||
+    typeof payload.enabled !== "boolean" ||
+    !Number.isSafeInteger(payload.revision) ||
+    Number(payload.revision) < 0 ||
+    !["applied", "cancelling", "error"].includes(String(payload.status)) ||
+    typeof payload.updatedAt !== "number" ||
+    !Number.isFinite(payload.updatedAt) ||
+    (payload.status !== "applied" && payload.enabled)
+  )
+    return;
+  return {
+    enabled: payload.enabled,
+    revision: Number(payload.revision),
+    status: payload.status as CommunityAgentProcessingState["status"],
+    updatedAt: payload.updatedAt,
+    ...(typeof payload.applied === "boolean"
+      ? { applied: payload.applied }
+      : {}),
+    ...(typeof payload.error === "string"
+      ? { error: payload.error.slice(0, 512) }
+      : {}),
+  };
 }

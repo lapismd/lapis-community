@@ -295,6 +295,34 @@
         "initial": "community-channels-canvas--initial-loading",
         "refresh": "community-channels-canvas--refresh-preserves-content"
       }
+    },
+    {
+      "id": "agent-processing",
+      "name": "Agent processing",
+      "component": "CommunityAgentProcessingControl",
+      "import": "@lapismd/lapis-community/components",
+      "example": "src/components/community-patterns/examples/AgentProcessingExample.svelte",
+      "story": "community-agents-processing--acknowledged-transitions",
+      "storyFile": "src/components/community-agent-processing-control/CommunityAgentProcessingControl.stories.svelte",
+      "requirement": "LC-UI-048",
+      "variants": ["enabled", "disabled", "unknown", "cancellation-error"],
+      "requiredStates": ["pending", "acknowledged", "retry"],
+      "loading": {
+        "applicable": true,
+        "states": ["initial", "refresh"],
+        "reason": "The control queries current processing state and retains the last acknowledged state while a transition is pending."
+      },
+      "when": "Owner controls for acknowledged agent processing, separate from presence and process lifecycle.",
+      "productionStories": [
+        "community-agents-processing--acknowledged-transitions"
+      ],
+      "verification": {
+        "pending": "community-agents-processing--acknowledged-transitions",
+        "acknowledged": "community-agents-processing--acknowledged-transitions",
+        "retry": "community-agents-processing--cancellation-failure-and-retry",
+        "initial": "community-agents-processing--unknown-availability",
+        "refresh": "community-agents-processing--acknowledged-transitions"
+      }
     }
   ],
   "exceptions": [

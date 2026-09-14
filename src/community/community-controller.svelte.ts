@@ -1,3 +1,5 @@
+import { conversationKey, privateConversation } from "./conversations.js";
+import type { CommunityInboxFilter } from "../components/community-inbox/model.js";
 import type {
   CommunityMemberModel,
   CommunityRoomModel,
@@ -170,6 +172,7 @@ export function createCommunityController(
   let operations = $state<Record<string, CommunityOperationState>>({});
   let error = $state("");
   let identityPubkey = $state("");
+  let identityEstablished = false;
   let authentication = $state<CommunityControllerState["authentication"]>(
     options.identity === undefined
       ? { status: "anonymous" }
@@ -219,6 +222,19 @@ export function createCommunityController(
       sidePanel: "none",
     }),
   );
+  const pendingDirectCommands = new Map<
+    string,
+    {
+      fingerprint: string;
+      command: Extract<CommunityCommand, { type: "direct-message" }>;
+    }
+  >();
+  let directHistoryByScope = $state<
+    Record<string, { hasOlder: boolean; loading: boolean; error?: string }>
+  >({});
+  let activeInboxItemId = "";
+  let inboxFilter: CommunityInboxFilter = "All";
+  let inboxUnreadOnly = false;
   let inbox = $state(
     materializeCommunityInbox(initialScopes, {}, undefined, now()),
   );
@@ -265,6 +281,10 @@ export function createCommunityController(
           : "default",
       })),
       workspace,
+      directHistory: directHistoryByScope[activeCommunityId] ?? {
+        hasOlder: false,
+        loading: false,
+      },
       canvases,
       ...(inbox === undefined ? {} : { inbox }),
       settings,
@@ -317,7 +337,28 @@ export function createCommunityController(
         relayUrlOverrideIds = overrideIds;
         configurationLoaded = true;
       }
-      identityPubkey = identity ? await identity.getPublicKey() : "";
+      const nextIdentityPubkey = identity ? await identity.getPublicKey() : "";
+      if (identityEstablished && nextIdentityPubkey !== identityPubkey) {
+        await eventRuntime.clearPrivate?.();
+        eventsByScope = Object.fromEntries(
+          scopes.map((scope) => [
+            scope.id,
+            persistentPublicEvents(scope, eventsByScope[scope.id] ?? []),
+          ]),
+        );
+        privateEventsByScope = {};
+        canvases = {};
+        storedStates.clear();
+        directParticipantsByRoom = {};
+        directHistoryByScope = {};
+        pendingDirectCommands.clear();
+        activeInboxItemId = "";
+        inbox = undefined;
+        replyTarget = undefined;
+        searchResults = [];
+      }
+      identityPubkey = nextIdentityPubkey;
+      identityEstablished = true;
       authentication =
         identityPubkey === ""
           ? { status: "anonymous" }
@@ -404,6 +445,13 @@ export function createCommunityController(
         if (generation !== currentGeneration) return;
         await cacheSnapshot(scope, snapshot, pendingEvents, currentGeneration);
         mergePrivateEvents(scope.id, snapshot.privateEvents ?? []);
+        directHistoryByScope = {
+          ...directHistoryByScope,
+          [scope.id]: {
+            hasOlder: snapshot.hasOlderDirectMessages ?? false,
+            loading: false,
+          },
+        };
         mergePrivateEvents(
           scope.id,
           await decryptPrivateEvents(
@@ -1001,7 +1049,7 @@ export function createCommunityController(
     if (scope !== undefined) {
       await cacheSnapshot(scope, snapshot, [], generation);
     }
-    mergePrivateEvents(scopeId, snapshot.privateEvents ?? [], true);
+    mergePrivateEvents(scopeId, snapshot.privateEvents ?? []);
     capabilitiesByScope = {
       ...capabilitiesByScope,
       [scopeId]: snapshot.capabilities,
@@ -1229,6 +1277,144 @@ export function createCommunityController(
   }
 
   const actions: CommunityControllerActions = {
+    async loadDirectHistory() {
+      const scopeId = activeCommunityId;
+      const currentGeneration = generation;
+      const session = sessions.get(scopeId);
+      if (!session?.loadDirectHistory || directHistoryByScope[scopeId]?.loading)
+        return;
+      directHistoryByScope = {
+        ...directHistoryByScope,
+        [scopeId]: { hasOlder: true, loading: true },
+      };
+      try {
+        const snapshot = await session.loadDirectHistory(
+          controllerAbort?.signal,
+        );
+        if (generation !== currentGeneration) return;
+        mergePrivateEvents(scopeId, snapshot.privateEvents ?? []);
+        await cacheLiveEvents(
+          scopeId,
+          snapshot.encryptedEvents ?? [],
+          currentGeneration,
+        );
+        directHistoryByScope = {
+          ...directHistoryByScope,
+          [scopeId]: {
+            hasOlder: snapshot.hasOlderDirectMessages ?? false,
+            loading: false,
+          },
+        };
+        await refreshProjection(currentGeneration);
+      } catch (cause) {
+        if (generation === currentGeneration)
+          directHistoryByScope = {
+            ...directHistoryByScope,
+            [scopeId]: {
+              hasOlder: true,
+              loading: false,
+              error:
+                cause instanceof Error
+                  ? cause.message
+                  : "Earlier messages could not be loaded",
+            },
+          };
+        throw cause;
+      }
+    },
+    async openBuzzDirectMessage(participants) {
+      const scopeId = activeCommunityId;
+      const currentGeneration = generation;
+      await ensureIdentity("buzz-direct:open");
+      const session = sessions.get(scopeId);
+      if (!session?.openBuzzDirectMessage)
+        throw new Error("Buzz messaging is unavailable on this relay");
+      const group = await session.openBuzzDirectMessage(
+        participants,
+        controllerAbort?.signal,
+      );
+      if (generation !== currentGeneration || activeCommunityId !== scopeId)
+        throw new Error("The active community changed");
+      scopes = scopes.map((scope) =>
+        scope.id === scopeId
+          ? {
+              ...scope,
+              rooms: [
+                ...communityRooms(
+                  scope,
+                  eventsByScope[scopeId] ?? [],
+                  identityPubkey,
+                ).filter((room) => room.id !== group.room.id),
+                group.room,
+              ],
+            }
+          : scope,
+      );
+      await cacheLiveEvents(scopeId, group.events, generation);
+      activeRoomId = group.room.id;
+      await refreshScope(scopeId, controllerAbort?.signal);
+      await refreshProjection(generation);
+      return group.room.id;
+    },
+    async selectInboxItem(itemId) {
+      const item = inbox?.items.find((candidate) => candidate.id === itemId);
+      if (!item?.roomId || !item.scopeId) return;
+      activeInboxItemId = itemId;
+      navigation = {
+        ...navigation,
+        forcedUnreadRoomIds: navigation.forcedUnreadRoomIds.filter(
+          (id) => id !== item.roomId,
+        ),
+      };
+      activeCommunityId = item.scopeId;
+      activeRoomId = item.roomId;
+      activeThreadId = item.rootEventId;
+      activeTopicId =
+        inbox?.room.kind === "forum" ? item.rootEventId : undefined;
+      sidePanel = "none";
+      replyTarget = undefined;
+      if (item.conversation?.transport === "nip17")
+        directParticipantsByRoom = {
+          ...directParticipantsByRoom,
+          [item.roomId]: item.conversation.participants.filter(
+            (key) => key !== identityPubkey,
+          ),
+        };
+      if (item.latestEventId && item.latestCreatedAt !== undefined)
+        await updateStoredState(item.scopeId, (stored) => {
+          stored.preferences.forcedUnreadRoomIds = preferenceValue(
+            navigation.forcedUnreadRoomIds,
+          );
+          stored.readMarkers[item.id] = {
+            eventId: item.latestEventId!,
+            createdAt: item.latestCreatedAt!,
+            granularity: item.rootEventId ? "thread" : "room",
+          };
+        });
+      await refreshProjection(generation);
+    },
+    setInboxFilter(filter, unreadOnly) {
+      inboxFilter = filter;
+      inboxUnreadOnly = unreadOnly;
+      requestProjection();
+    },
+    async sendInboxMessage(content) {
+      const item = inbox?.items.find(
+        (candidate) => candidate.id === inbox?.activeItemId,
+      );
+      if (!item?.roomId) throw new Error("Select an Inbox conversation");
+      const replyId = replyTarget?.eventId;
+      await actions.selectInboxItem?.(item.id);
+      if (item.conversation?.transport === "nip17")
+        await actions.sendDirectMessage(
+          item.conversation.participants,
+          content,
+          replyId,
+        );
+      else if (replyId || item.rootEventId)
+        await actions.sendReply(replyId ?? item.rootEventId!, content);
+      else await actions.sendMessage(item.roomId, content);
+    },
     async loadCanvas(roomId) {
       const scope = activeScope();
       const room = roomById(roomId);
@@ -1609,7 +1795,10 @@ export function createCommunityController(
     },
     async sendReply(rootMessageId, content) {
       const operation = `reply:${rootMessageId}`;
-      if (activeRoomModel()?.kind === "direct") {
+      if (
+        activeRoomModel()?.kind === "direct" &&
+        activeRoomModel()?.conversation?.transport !== "buzz-dm"
+      ) {
         if (content.trim() === "")
           throwOperationFailure(
             operation,
@@ -1719,6 +1908,8 @@ export function createCommunityController(
       const peers = [...new Set(recipients)]
         .filter((pubkey) => pubkey !== identityPubkey)
         .toSorted();
+      if (peers.length > 8 || peers.some((key) => !/^[0-9a-f]{64}$/u.test(key)))
+        throw new Error("Choose at most eight valid direct-message recipients");
       const operation = `direct:${peers.length === 0 ? "new" : directConversationId(peers)}`;
       if (peers.length === 0)
         throwOperationFailure(
@@ -1738,18 +1929,38 @@ export function createCommunityController(
         [roomId]: peers,
       };
       activeRoomId = roomId;
-      await execute(operation, {
-        type: "direct-message",
-        recipients: peers,
-        content: content.trim(),
-        ...(replyToEventId === undefined ? {} : { replyToEventId }),
-      });
+      const key = JSON.stringify([
+        activeCommunityId,
+        identityPubkey,
+        operation,
+      ]);
+      const fingerprint = JSON.stringify([
+        peers,
+        content.trim(),
+        replyToEventId,
+      ]);
+      const pending = pendingDirectCommands.get(key);
+      const command =
+        pending?.fingerprint === fingerprint
+          ? pending.command
+          : {
+              type: "direct-message" as const,
+              recipients: peers,
+              content: content.trim(),
+              ...(replyToEventId ? { replyToEventId } : {}),
+            };
+      pendingDirectCommands.set(key, { fingerprint, command });
+      await execute(operation, command);
+      pendingDirectCommands.delete(key);
       replyTarget = undefined;
     },
     async toggleReaction(eventId, emoji, customEmoji) {
       const operation = `reaction:${eventId}:${emoji.trim() || "unknown"}`;
       validateCustomEmojiReaction(operation, customEmoji);
-      if (activeRoomModel()?.kind === "direct") {
+      if (
+        activeRoomModel()?.kind === "direct" &&
+        activeRoomModel()?.conversation?.transport !== "buzz-dm"
+      ) {
         const target = activePrivateEvents().find(
           (event) => event.id === eventId && event.kind === 14,
         );
@@ -1838,7 +2049,10 @@ export function createCommunityController(
     },
     async editEvent(eventId, content) {
       const operation = `edit:${eventId}`;
-      if (activeRoomModel()?.kind === "direct") {
+      if (
+        activeRoomModel()?.kind === "direct" &&
+        activeRoomModel()?.conversation?.transport !== "buzz-dm"
+      ) {
         throwOperationFailure(
           operation,
           "restricted",
@@ -1895,7 +2109,10 @@ export function createCommunityController(
     },
     async deleteEvent(eventId) {
       const operation = `delete:${eventId}`;
-      if (activeRoomModel()?.kind === "direct") {
+      if (
+        activeRoomModel()?.kind === "direct" &&
+        activeRoomModel()?.conversation?.transport !== "buzz-dm"
+      ) {
         const target = activePrivateEvents().find(
           (event) => event.id === eventId && event.kind === 14,
         );
@@ -1951,7 +2168,10 @@ export function createCommunityController(
     },
     async reportEvent(eventId, report) {
       const operation = `report:${eventId}`;
-      if (activeRoomModel()?.kind === "direct") {
+      if (
+        activeRoomModel()?.kind === "direct" &&
+        activeRoomModel()?.conversation?.transport !== "buzz-dm"
+      ) {
         throwOperationFailure(
           operation,
           "restricted",
@@ -2170,16 +2390,32 @@ export function createCommunityController(
       replyTarget = undefined;
     },
     async markRead(roomId) {
+      const model = workspace.navigationSections
+        .flatMap((section) => section.rooms)
+        .find((room) => room.id === roomId);
       const room = communityRooms(
         activeScope(),
         activeEvents(),
         identityPubkey || undefined,
       ).find((candidate) => candidate.id === roomId);
-      if (room === undefined) return;
-      const latest = activeEvents()
-        .filter((event) =>
-          event.tags.some((tag) => tag[0] === "h" && tag[1] === room.groupId),
-        )
+      const reference = model?.conversation;
+      const candidates =
+        reference?.transport === "nip17"
+          ? activePrivateEvents().filter(
+              (event) =>
+                event.kind === 14 &&
+                conversationKey(privateConversation(event)) ===
+                  conversationKey(reference),
+            )
+          : activeEvents().filter(
+              (event) =>
+                [9, 11, 1111].includes(event.kind) &&
+                event.tags.some(
+                  (tag) => tag[0] === "h" && tag[1] === room?.groupId,
+                ),
+            );
+      const latest = candidates
+        .filter((event) => event.pubkey !== identityPubkey)
         .toSorted(
           (left, right) =>
             right.created_at - left.created_at ||
@@ -2187,7 +2423,7 @@ export function createCommunityController(
         )[0];
       if (latest === undefined) return;
       await updateStoredState(activeCommunityId, (stored) => {
-        stored.readMarkers[roomId] = {
+        stored.readMarkers[reference ? conversationKey(reference) : roomId] = {
           createdAt: latest.created_at,
           eventId: latest.id,
           granularity: "room",
@@ -2204,16 +2440,43 @@ export function createCommunityController(
       };
     },
     async markUnread(roomId) {
+      const room = workspace.navigationSections
+        .flatMap((section) => section.rooms)
+        .find((room) => room.id === roomId);
+      for (const scopeId of room?.conversation?.transport === "nip17"
+        ? scopes.map((scope) => scope.id)
+        : [activeCommunityId])
+        await updateStoredState(scopeId, (stored) => {
+          delete stored.readMarkers[roomId];
+          if (room?.conversation)
+            delete stored.readMarkers[conversationKey(room.conversation)];
+          for (const item of inbox?.items ?? [])
+            if (item.scopeId === activeCommunityId && item.roomId === roomId)
+              delete stored.readMarkers[item.id];
+        });
       await setNavigationList("forcedUnreadRoomIds", roomId, true);
     },
     async markAllRead() {
-      for (const room of communityRooms(
-        activeScope(),
-        activeEvents(),
-        identityPubkey || undefined,
-      )) {
+      for (const room of workspace.navigationSections.flatMap(
+        (section) => section.rooms,
+      ))
         await actions.markRead(room.id);
+      for (const item of inbox?.items ?? []) {
+        if (
+          !item.scopeId ||
+          !item.latestEventId ||
+          item.latestCreatedAt === undefined
+        )
+          continue;
+        await updateStoredState(item.scopeId, (stored) => {
+          stored.readMarkers[item.id] = {
+            createdAt: item.latestCreatedAt!,
+            eventId: item.latestEventId!,
+            granularity: item.rootEventId ? "thread" : "room",
+          };
+        });
       }
+      await refreshProjection(generation);
     },
     async setRoomStarred(roomId, starred) {
       await setNavigationList("starredRoomIds", roomId, starred);
@@ -2222,6 +2485,21 @@ export function createCommunityController(
       await setNavigationList("mutedRoomIds", roomId, muted);
     },
     async setRoomHidden(roomId, hidden) {
+      const room = workspace.navigationSections
+        .flatMap((section) => section.rooms)
+        .find((room) => room.id === roomId);
+      if (room?.conversation?.transport === "buzz-dm") {
+        const session = sessions.get(activeCommunityId);
+        if (hidden)
+          await session?.hideBuzzDirectMessage?.(
+            room.conversation.groupId,
+            controllerAbort?.signal,
+          );
+        else if (room.participantIds)
+          await actions.openBuzzDirectMessage?.(room.participantIds);
+        await refreshScope(activeCommunityId, controllerAbort?.signal);
+        return;
+      }
       await setNavigationList("hiddenRoomIds", roomId, hidden);
     },
     async assignRoomToSection(roomId, sectionId) {
@@ -2625,11 +2903,25 @@ export function createCommunityController(
       }
     },
     async disconnectIdentity() {
+      closeConnections("Identity disconnected");
+      await eventRuntime.clearPrivate?.();
+      eventsByScope = Object.fromEntries(
+        scopes.map((scope) => [
+          scope.id,
+          persistentPublicEvents(scope, eventsByScope[scope.id] ?? []),
+        ]),
+      );
+      searchResults = [];
       identity?.dispose?.();
       identity = undefined;
       identityPubkey = "";
       authentication = { status: "anonymous" };
       privateEventsByScope = {};
+      activeInboxItemId = "";
+      pendingDirectCommands.clear();
+      directHistoryByScope = {};
+      inbox = undefined;
+      storedStates.clear();
       canvases = {};
       directParticipantsByRoom = {};
       retries.clear();
@@ -2925,6 +3217,17 @@ export function createCommunityController(
       ...(activeTopicId === undefined ? {} : { activeTopicId }),
       ...(activeThreadId === undefined ? {} : { activeThreadId }),
       ...(identityPubkey === "" ? {} : { identityPubkey }),
+      inboxSelection: {
+        activeItemId: activeInboxItemId,
+        filter: inboxFilter,
+        unreadOnly: inboxUnreadOnly,
+        readMarkersByScope: Object.fromEntries(
+          [...storedStates].map(([scopeId, stored]) => [
+            scopeId,
+            structuredClone(stored.readMarkers),
+          ]),
+        ),
+      },
       privateEventsByScope: Object.fromEntries(
         Object.entries(privateEventsByScope).map(([scopeId, events]) => [
           scopeId,
@@ -2959,6 +3262,7 @@ export function createCommunityController(
       reconcileAcceptedMembershipOperations();
     }
     inbox = revision.inbox;
+    if (inbox) activeInboxItemId = inbox.activeItemId;
     for (const [key, canvas] of Object.entries(canvases)) {
       if (key !== channelCanvasKey(activeCommunityId, canvas.roomId)) continue;
       if (
@@ -3039,10 +3343,14 @@ export function createCommunityController(
     pendingEvents: readonly NostrEvent[],
     currentGeneration: number,
   ): Promise<void> {
+    const requestedIds = new Set(
+      [...snapshot.events, ...pendingEvents].map((event) => event.id),
+    );
     const publicEvents = persistentPublicEvents(scope, [
+      ...(eventsByScope[scope.id] ?? []),
       ...snapshot.events,
       ...pendingEvents,
-    ]);
+    ]).filter((event) => requestedIds.has(event.id));
     const revision = await eventRuntime.ingest({
       generation: currentGeneration,
       scope: runtimeScope(scope),
@@ -3284,7 +3592,13 @@ export function createCommunityController(
   }
 
   function activePrivateEvents(): readonly CommunityPrivateEvent[] {
-    return privateEventsByScope[activeCommunityId] ?? [];
+    return [
+      ...new Map(
+        Object.values(privateEventsByScope)
+          .flat()
+          .map((event) => [event.id, event]),
+      ).values(),
+    ];
   }
 
   function currentDirectRecipients(): string[] {
@@ -3423,7 +3737,7 @@ export function createCommunityController(
     scopeId: string,
     update: (state: CommunityStoredState) => void,
   ): Promise<void> {
-    if (options.stateStore === undefined || identityPubkey === "") return;
+    if (identityPubkey === "") return;
     const scope = scopes.find((candidate) => candidate.id === scopeId);
     if (scope === undefined) return;
     const stored =
@@ -3431,7 +3745,8 @@ export function createCommunityController(
     update(stored);
     stored.updatedAt = now();
     storedStates.set(scopeId, stored);
-    await options.stateStore.save(stateScope(scope), stored);
+    await options.stateStore?.save(stateScope(scope), stored);
+    requestProjection();
   }
 
   function applyStoredState(
@@ -3692,7 +4007,7 @@ function persistentPublicEvents(
   const allEvents = events;
   const privateGroups = new Set(
     (scope.rooms ?? [])
-      .filter((room) => room.private)
+      .filter((room) => room.private || room.transport === "buzz-dm")
       .map((room) => room.groupId),
   );
   for (const event of allEvents) {
@@ -3733,7 +4048,8 @@ function persistentPublicEvents(
     }
   }
   return allEvents.filter(
-    (event) => event.kind !== 1_059 && !privateEventIds.has(event.id),
+    (event) =>
+      ![1059, 30622].includes(event.kind) && !privateEventIds.has(event.id),
   );
 }
 
@@ -3761,6 +4077,9 @@ function runtimeScope(scope: CommunityScope): CommunityScope {
               ? {}
               : { description: room.description }),
             ...(room.private === undefined ? {} : { private: room.private }),
+            ...(room.transport === undefined
+              ? {}
+              : { transport: room.transport }),
           })),
         }),
   };

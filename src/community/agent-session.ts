@@ -895,10 +895,40 @@ class AgentSession implements CommunityAgentSession {
           ).then(newestAgentEvent),
         ]);
 
-        const persona = await this.#writePersona(input, personaHead, signal);
+        const definitions = await this.#query(
+          [{ kinds: [30177], authors: [owner], limit: 1000 }],
+          signal,
+        );
+        const latest = new Map<string, NostrEvent>();
+        for (const event of definitions.toSorted(
+          (a, b) => b.created_at - a.created_at || a.id.localeCompare(b.id),
+        )) {
+          const id = agentTag(event, "d");
+          if (id && !latest.has(id)) latest.set(id, event);
+        }
+        const shared =
+          definitions.length >= 1000 ||
+          [...latest.entries()].some(
+            ([pubkey, event]) =>
+              pubkey !== input.pubkey &&
+              agentJson(event.content).persona_id === input.personaSlug,
+          );
+        const slug = shared
+          ? `agent-${input.pubkey.slice(0, 16)}-${crypto.randomUUID().slice(0, 8)}`
+          : input.personaSlug;
+        const persona = await this.#writePersona(
+          { ...input, personaSlug: slug },
+          personaHead,
+          signal,
+          shared,
+        );
 
         const instanceContent = agentJson(instanceHead?.content ?? "{}");
-        instanceContent.persona_id = input.personaSlug;
+        instanceContent.persona_id = slug;
+        if (input.dmAllowlist !== undefined)
+          instanceContent.dm_allowlist = [...new Set(input.dmAllowlist)]
+            .filter((key) => key !== owner && key !== input.pubkey)
+            .sort();
         instanceContent.name_mode = input.nameMode;
         instanceContent.name =
           input.nameMode === "instance"
@@ -1035,6 +1065,14 @@ class AgentSession implements CommunityAgentSession {
 
   #validateSaveInput(input: CommunityAgentSaveInput): void {
     this.#validatePersonaInput(input);
+    if (
+      input.dmAllowlist !== undefined &&
+      (input.dmAllowlist.length > 128 ||
+        input.dmAllowlist.some((key) => !AGENT_PUBKEY.test(key)))
+    )
+      throw new Error(
+        "Approved messaging participants must be at most 128 hexadecimal public keys",
+      );
     if (!AGENT_PUBKEY.test(input.pubkey))
       throw new Error("Invalid agent public key");
     if (input.nameMode !== "inherited" && input.nameMode !== "instance")
@@ -1057,6 +1095,7 @@ class AgentSession implements CommunityAgentSession {
     input: CommunityAgentPersonaSaveInput,
     head: NostrEvent | undefined,
     signal?: AbortSignal,
+    copy = false,
   ): Promise<NostrEvent> {
     const content = safePersonaContent(head?.content);
     content.display_name = input.displayName.trim();
@@ -1066,13 +1105,20 @@ class AgentSession implements CommunityAgentSession {
     const json = JSON.stringify(content);
     if (new TextEncoder().encode(json).byteLength > 65_535)
       throw new Error("Persona content is larger than 65,535 bytes");
-    if (head?.content === json) return head;
+    if (!copy && head?.content === json) return head;
     const created_at = this.#nextManagementTimestamp(head);
     const event = await this.#sign(
       {
         kind: 30175,
         created_at,
-        tags: head?.tags.map((tag) => [...tag]) ?? [["d", input.personaSlug]],
+        tags: copy
+          ? [
+              ["d", input.personaSlug],
+              ...(head?.tags
+                .filter(([name]) => name !== "d")
+                .map((tag) => [...tag]) ?? []),
+            ]
+          : (head?.tags.map((tag) => [...tag]) ?? [["d", input.personaSlug]]),
         content: json,
       },
       signal,
@@ -1269,6 +1315,8 @@ function validateAgentControl(control: CommunityAgentControl): void {
     "sync_activity",
     "runtime_get",
     "runtime_set",
+    "processing_get",
+    "processing_set",
     "memory_list",
     "memory_action",
   ]).has(control.command);
@@ -1308,7 +1356,10 @@ function validateAgentControl(control: CommunityAgentControl): void {
     if (
       !context ||
       !["dm", "channel", "thread", "forum-topic"].includes(context.kind) ||
-      (context.kind === "dm" && !hasOnlyObjectKeys(context, ["kind"])) ||
+      (context.kind === "dm" &&
+        (!hasOnlyObjectKeys(context, ["kind", "conversationId"]) ||
+          (context.conversationId !== undefined &&
+            !/^[0-9a-f]{64}$/.test(context.conversationId)))) ||
       (context.kind !== "dm" &&
         (!context.channelId.trim() || context.channelId.length > 256)) ||
       (context.kind === "channel" &&
@@ -1339,6 +1390,25 @@ function validateAgentControl(control: CommunityAgentControl): void {
     (!control.requestId.trim() || control.requestId.length > 128)
   )
     throw new Error("Agent administration request is invalid");
+  if (
+    control.command === "processing_get" ||
+    control.command === "processing_set"
+  ) {
+    if (
+      !hasOnlyObjectKeys(
+        control,
+        control.command === "processing_get"
+          ? ["version", "command", "requestId"]
+          : ["version", "command", "requestId", "enabled", "expectedRevision"],
+      ) ||
+      (control.command === "processing_set" &&
+        (typeof control.enabled !== "boolean" ||
+          !Number.isSafeInteger(control.expectedRevision) ||
+          control.expectedRevision < 0))
+    )
+      throw new Error("Agent processing request is invalid");
+    return;
+  }
   if (control.command === "runtime_get") {
     if (!hasOnlyObjectKeys(control, ["version", "command", "requestId"]))
       throw new Error("Agent runtime request contains unknown fields");

@@ -5,6 +5,13 @@ import type {
 } from "../community-workspace/model.js";
 
 export interface CommunityInboxItemModel {
+  conversation?: import("../../community/conversations.js").CommunityConversationReference;
+  scopeId?: string;
+  roomId?: string;
+  rootEventId?: string;
+  categories?: readonly Exclude<CommunityInboxFilter, "All">[];
+  latestEventId?: string;
+  latestCreatedAt?: number;
   id: string;
   authorId: string;
   context: string;
@@ -14,6 +21,9 @@ export interface CommunityInboxItemModel {
 }
 
 export interface CommunityInboxModel {
+  filter?: CommunityInboxFilter;
+  unreadOnly?: boolean;
+  unreadCount?: number;
   items: readonly CommunityInboxItemModel[];
   activeItemId: string;
   threadTitle: string;
@@ -22,3 +32,9 @@ export interface CommunityInboxModel {
   members: CommunityMemberModel[];
   participantCount?: number;
 }
+
+export type CommunityInboxFilter =
+  | "All"
+  | "Direct messages"
+  | "Mentions"
+  | "Threads";

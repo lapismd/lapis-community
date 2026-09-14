@@ -189,3 +189,7 @@ export { default as CommunitySkeleton } from "./community-skeleton/CommunitySkel
 export { default as CommunityMemberAvatarGroup } from "./community-member-avatar-group/CommunityMemberAvatarGroup.svelte";
 
 export { default as CommunityAgentComposerActivity } from "./community-agent-composer-activity/CommunityAgentComposerActivity.svelte";
+
+export { default as CommunityAgentProcessingControl } from "./community-agent-processing-control/CommunityAgentProcessingControl.svelte";
+
+export type { CommunityAgentProcessingState } from "../community/agent-contracts.js";

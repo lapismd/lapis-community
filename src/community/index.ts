@@ -21,3 +21,5 @@ export * from "./registry-community-source.js";
 export * from "./state-store.js";
 export * from "./presence-contracts.js";
 export * from "./presence-session.js";
+
+export * from "./conversations.js";

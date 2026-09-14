@@ -16,6 +16,7 @@ export interface CommunityAgentPersona {
 }
 
 export interface CommunityAgentInstance {
+  dmAllowlist?: readonly string[];
   agentPubkey: string;
   personaId?: string;
   name: string;
@@ -36,6 +37,7 @@ export interface CommunityAgentSaveInput
   pubkey: string;
   nameMode: CommunityAgentNameMode;
   instanceName?: string;
+  dmAllowlist?: readonly string[];
 }
 
 export interface CommunityAgentSaveResult {
@@ -213,6 +215,14 @@ export type CommunityAgentPermissionDecision =
   | "cancel";
 
 export type CommunityAgentControl =
+  | { version: 2; command: "processing_get"; requestId: string }
+  | {
+      version: 2;
+      command: "processing_set";
+      requestId: string;
+      enabled: boolean;
+      expectedRevision: number;
+    }
   | {
       version: 1;
       command: "cancel_turn";
@@ -276,6 +286,15 @@ export type CommunityAgentControl =
       candidateId?: string;
       memoryId?: string;
     };
+
+export interface CommunityAgentProcessingState {
+  enabled: boolean;
+  revision: number;
+  status: "applied" | "cancelling" | "error";
+  updatedAt: number;
+  error?: string;
+  applied?: boolean;
+}
 
 export interface CommunityAgentRuntimeOption {
   value: string;
@@ -350,7 +369,7 @@ export interface CommunityAgentMemoryState {
 }
 
 export type CommunityAgentActivitySyncContext =
-  | { kind: "dm" }
+  | { kind: "dm"; conversationId?: string }
   | { kind: "channel"; channelId: string }
   | {
       kind: "thread" | "forum-topic";
@@ -547,10 +566,11 @@ export type CommunityAgentActivityContext = { focusTurnId?: string } & (
   | { kind: "overview" }
   | { kind: "channel"; channelId: string }
   | { kind: "thread" | "forum-topic"; channelId: string; threadRootId: string }
-  | { kind: "dm"; agentPubkey?: string }
+  | { kind: "dm"; agentPubkey?: string; conversationId?: string }
 );
 
 export interface CommunityAgentControllerScope {
+  conversationId?: string;
   requestId?: string;
   threadRootId?: string;
   conversationKind?: "channel" | "thread" | "forum-topic" | "dm";
@@ -589,6 +609,7 @@ export interface CommunityAgentsState {
     Record<string, readonly CommunityAgentPermissionRequest[]>
   >;
   runtime?: Readonly<Record<string, CommunityAgentRuntimeState>>;
+  processing?: Readonly<Record<string, CommunityAgentProcessingState>>;
   memories?: Readonly<Record<string, CommunityAgentMemoryState>>;
   partial: boolean;
   error?: string;
@@ -650,6 +671,12 @@ export interface CommunityAgentsActions {
     decision: CommunityAgentPermissionDecision,
     channelId?: string,
   ): Promise<void>;
+  loadProcessing?(pubkey: string): Promise<CommunityAgentProcessingState>;
+  setProcessing?(
+    pubkey: string,
+    enabled: boolean,
+    expectedRevision: number,
+  ): Promise<CommunityAgentProcessingState>;
   loadRuntime(pubkey: string): Promise<CommunityAgentRuntimeState>;
   saveRuntime(
     pubkey: string,

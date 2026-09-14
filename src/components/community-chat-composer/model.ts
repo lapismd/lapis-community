@@ -1,3 +1,4 @@
+import { npubEncode } from "nostr-tools/nip19";
 import type {
   CommunityCustomEmoji,
   CommunityReplyTarget,
@@ -206,4 +207,27 @@ function uniqueByToken<T extends { id: string }>(
 
 function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
+}
+
+export function serializeCommunityMentions(
+  value: string,
+  members: readonly CommunityMemberModel[],
+  pubkeys: readonly string[],
+): string {
+  for (const member of members
+    .filter(
+      (member) =>
+        pubkeys.includes(member.id) && /^[0-9a-f]{64}$/u.test(member.id),
+    )
+    .toSorted((a, b) => b.name.length - a.name.length)) {
+    const token = new RegExp(
+      `(^|[^\\p{L}\\p{N}_])@${escapeRegExp(member.name.trim())}(?![\\p{L}\\p{N}_-])`,
+      "giu",
+    );
+    value = value.replace(
+      token,
+      (_, prefix: string) => `${prefix}nostr:${npubEncode(member.id)}`,
+    );
+  }
+  return value;
 }

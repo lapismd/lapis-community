@@ -86,11 +86,37 @@ describe("CommunityEventRuntime", () => {
       events: [privateEvent],
       persist: false,
     });
+    expect(
+      await runtime.search({ generation: 1, query: "Private plaintext" }),
+    ).toEqual([]);
+    const publicEvent = finalizeEvent(
+      {
+        kind: 9,
+        created_at: 1700000002,
+        tags: [["h", "general"]],
+        content: "Public retained",
+      },
+      new Uint8Array(32).fill(45),
+    );
+    await runtime.ingest({
+      generation: 1,
+      scope,
+      relayUrl: scope.relayUrl,
+      events: [publicEvent],
+    });
+    await runtime.clearPrivate!();
+    expect(
+      (await runtime.restore([scope], 2)).acceptedEventsByScope?.[
+        scope.id
+      ]?.map((event) => event.id),
+    ).toEqual([publicEvent.id]);
     runtime.dispose();
 
     const restored = createInlineCommunityEventRuntime({ store });
     const revision = await restored.restore([scope], 2);
-    expect(revision.acceptedEventsByScope?.[scope.id]).toEqual([]);
+    expect(
+      revision.acceptedEventsByScope?.[scope.id]?.map((event) => event.id),
+    ).toEqual([publicEvent.id]);
     restored.dispose();
   });
 
@@ -268,4 +294,99 @@ describe("CommunityEventRuntime", () => {
     expect(projection.acceptedEventsByScope).toBeUndefined();
     runtime.dispose();
   });
+});
+
+it("evicts legacy private content from a public cache before restoration or search", async () => {
+  const store = createMemoryCommunityEventStore();
+  await store.open();
+  const key = new Uint8Array(32).fill(44);
+  const metadata = finalizeEvent(
+    {
+      kind: 39000,
+      created_at: 1,
+      tags: [["d", "private-room"], ["private"]],
+      content: "",
+    },
+    key,
+  );
+  const message = finalizeEvent(
+    {
+      kind: 9,
+      created_at: 2,
+      tags: [["h", "private-room"]],
+      content: "Legacy private plaintext",
+    },
+    key,
+  );
+  await store.commit({
+    scope,
+    records: [metadata, message].map((event) => ({
+      event,
+      relayUrl: scope.relayUrl,
+      audience: { type: "public" as const },
+    })),
+  });
+  const runtime = createInlineCommunityEventRuntime({ store });
+  const restored = await runtime.restore([scope]);
+  expect(restored.acceptedEventsByScope?.[scope.id] ?? []).toHaveLength(0);
+  expect(
+    await runtime.search({ generation: 0, query: "Legacy private" }),
+  ).toEqual([]);
+  expect((await store.restore(scope)).events).toHaveLength(0);
+  runtime.dispose();
+});
+
+it("removes formerly public channel data from persistence and search after a private metadata update", async () => {
+  const store = createMemoryCommunityEventStore();
+  const runtime = createInlineCommunityEventRuntime({ store });
+  const key = new Uint8Array(32).fill(44);
+  await runtime.restore([scope]);
+  const publicMessage = finalizeEvent(
+    {
+      kind: 9,
+      created_at: 1,
+      tags: [["h", "changing"]],
+      content: "Changing visibility",
+    },
+    key,
+  );
+  const retained = finalizeEvent(
+    {
+      kind: 9,
+      created_at: 1,
+      tags: [["h", "general"]],
+      content: "Public retained",
+    },
+    key,
+  );
+  await runtime.ingest({
+    generation: 0,
+    scope,
+    relayUrl: scope.relayUrl,
+    events: [publicMessage, retained],
+  });
+  const metadata = finalizeEvent(
+    {
+      kind: 39000,
+      created_at: 2,
+      tags: [["d", "changing"], ["private"]],
+      content: "",
+    },
+    key,
+  );
+  await runtime.ingest({
+    generation: 0,
+    scope,
+    relayUrl: scope.relayUrl,
+    events: [metadata],
+    persist: false,
+  });
+  expect(
+    await runtime.search({ generation: 0, query: "Changing visibility" }),
+  ).toEqual([]);
+  await runtime.clearPrivate!();
+  expect((await store.restore(scope)).events.map((event) => event.id)).toEqual([
+    retained.id,
+  ]);
+  runtime.dispose();
 });

@@ -646,7 +646,10 @@ describe("createCommunityController", () => {
         .map((message) => message.activity?.type)
         .filter((activity) => activity !== undefined),
     ).toEqual(["channel-created", "member-added"]);
-    expect(controller.state.inbox?.items).toHaveLength(3);
+    expect(controller.state.inbox?.items).toHaveLength(2);
+    expect(
+      new Set(controller.state.inbox?.items.map((item) => item.id)).size,
+    ).toBe(2);
     expect(controller.state.capabilities.manageMembers).toBe(true);
 
     controller.actions.selectRoom("support");
@@ -973,6 +976,57 @@ describe("createCommunityController", () => {
         new Error("Recipient has not advertised a NIP-17 inbox relay"),
       ),
     ).toMatchObject({ category: "validation", retryable: false });
+  });
+
+  it("opens incoming DMs from Inbox and keeps read state and selection stable without a persistence adapter", async () => {
+    runtime = await createCommunityTestRuntime();
+    await connected(runtime);
+    const owner = await runtime.scenario.operator.getPublicKey();
+    const peer = await runtime.scenario.member.getPublicKey();
+    const wraps = await createNip17GiftWraps({
+      identity: runtime.scenario.member,
+      recipients: [owner],
+      content: "Incoming Inbox DM",
+      createdAt: 1700000300,
+    });
+    runtime.relay.inject(
+      wraps.find((event) =>
+        event.tags.some((tag) => tag[0] === "p" && tag[1] === owner),
+      )!,
+    );
+    await vi.waitFor(() =>
+      expect(
+        runtime?.controller.state.inbox?.items.some(
+          (item) => item.excerpt === "Incoming Inbox DM",
+        ),
+      ).toBe(true),
+    );
+    const controller = runtime.controller;
+    const item = controller.state.inbox!.items.find(
+      (item) => item.excerpt === "Incoming Inbox DM",
+    )!;
+    expect(item.unread).toBe(true);
+    await controller.actions.selectInboxItem!(item.id);
+    expect(controller.state.workspace.activeRoomId).toBe(`dm:${peer}`);
+    expect(
+      controller.state.inbox?.items.find((row) => row.id === item.id)?.unread,
+    ).toBe(false);
+    await controller.actions.sendInboxMessage!("Reply through Inbox");
+    expect(
+      controller.state.inbox?.messages.some(
+        (message) => message.content === "Reply through Inbox",
+      ),
+    ).toBe(true);
+    controller.actions.setInboxFilter!("Direct messages", true);
+    await vi.waitFor(() =>
+      expect(controller.state.inbox).toMatchObject({
+        filter: "Direct messages",
+        unreadOnly: true,
+        activeItemId: item.id,
+      }),
+    );
+    await controller.actions.disconnectIdentity();
+    expect(controller.state.inbox).toBeUndefined();
   });
 
   it("sends and materializes NIP-17 direct messages through the same source", async () => {

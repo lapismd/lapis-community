@@ -54,6 +54,7 @@ export interface CommunityScope {
 }
 
 export interface CommunityRoomScope {
+  transport?: "buzz-dm";
   id: string;
   groupId: string;
   name: string;
@@ -66,6 +67,7 @@ export interface CommunityCapabilities {
   channels: boolean;
   forums: boolean;
   directMessages: boolean;
+  buzzDirectMessages?: boolean;
   search: boolean;
   manageGroup: boolean;
   manageMembers: boolean;
@@ -218,6 +220,7 @@ export interface CommunityOperationState {
 }
 
 export interface CommunityControllerState {
+  directHistory?: { hasOlder: boolean; loading: boolean; error?: string };
   canvases?: Readonly<
     Record<string, import("./channel-canvas.js").CommunityChannelCanvasModel>
   >;
@@ -374,6 +377,7 @@ export type CommunityCommand =
     };
 
 export interface CommunitySnapshot {
+  hasOlderDirectMessages?: boolean;
   events: readonly NostrEvent[];
   encryptedEvents?: readonly NostrEvent[];
   privateEvents?: readonly CommunityPrivateEvent[];
@@ -481,6 +485,7 @@ export interface CommunityEventBatch {
 }
 
 export interface CommunityRuntimeSelection {
+  inboxSelection?: import("./materialize.js").CommunityInboxProjectionOptions;
   generation: number;
   scopes: readonly CommunityScope[];
   activeCommunityId: string;
@@ -521,6 +526,7 @@ export interface CommunityRuntimeSearch {
 }
 
 export interface CommunityEventRuntime {
+  clearPrivate?(): Promise<void>;
   readonly agentActivity?: CommunityAgentActivityStore | undefined;
   restore(
     scopes: readonly CommunityScope[],
@@ -580,6 +586,12 @@ export interface CommunitySessionSubscription {
 }
 
 export interface CommunitySession {
+  loadDirectHistory?(signal?: AbortSignal): Promise<CommunitySnapshot>;
+  openBuzzDirectMessage?(
+    participants: readonly string[],
+    signal?: AbortSignal,
+  ): Promise<CommunityGroupLoadResult>;
+  hideBuzzDirectMessage?(groupId: string, signal?: AbortSignal): Promise<void>;
   loadCanvas?(
     groupId: string,
     signal?: AbortSignal,
@@ -646,6 +658,14 @@ export interface CommunityController {
 }
 
 export interface CommunityControllerActions {
+  loadDirectHistory?(): Promise<void>;
+  openBuzzDirectMessage?(participants: readonly string[]): Promise<string>;
+  selectInboxItem?(itemId: string): Promise<void>;
+  setInboxFilter?(
+    filter: import("../components/community-inbox/model.js").CommunityInboxFilter,
+    unreadOnly: boolean,
+  ): void;
+  sendInboxMessage?(content: string): Promise<void>;
   loadCanvas?(roomId: string): Promise<void>;
   saveCanvas?(
     roomId: string,

@@ -355,3 +355,18 @@ controller and source, keyed by community and room. Settings and canvas
 components consume normalized models. Loaded private canvas state is cleared
 on identity changes and access revocation; reconnect refreshes an open canvas
 without replacing the surrounding application shell.
+
+## Transport-aware conversations and Inbox
+
+The shared conversation reference distinguishes encrypted NIP-17 participant
+sets, Buzz private relay channels, and NIP-29 channel/thread contexts. Read
+cursors, Inbox projection and activity selection use that reference. The
+controller owns selection, filters, pending sends and pagination; leaf views
+render state and callbacks. Prepared encrypted events belong to the data source
+and survive reconnect for the same pending command. Decoded content is cleared
+when identity changes. Existing public room identifiers remain compatible.
+
+Buzz DM compatibility is a client transport for supporting Buzz relays. It does
+not add the Buzz DM command backend to Lapis Relay.
+
+The public Agent editor retains separate signed definition and instance records. Shared legacy definitions are copied on edit and only the chosen instance is relinked. Processing state belongs to the controller and is projected from request-correlated encrypted acknowledgements independently of presence and operator configuration.

@@ -44,6 +44,12 @@ export async function createNip17GiftWraps(
   const recipients = [...new Set(options.recipients)]
     .filter((pubkey) => pubkey !== sender)
     .toSorted();
+  if (
+    recipients.length > 8 ||
+    recipients.some((pubkey) => !/^[0-9a-f]{64}$/u.test(pubkey))
+  ) {
+    throw new Error("Choose at most eight valid direct-message recipients");
+  }
   if (recipients.length === 0) {
     throw new Error("A direct message requires at least one recipient");
   }
@@ -133,6 +139,19 @@ export async function unwrapNip17GiftWrap(
   if (rumor.pubkey !== seal.pubkey) {
     throw new Error("NIP-17 rumor author does not match its seal");
   }
+  const participants = new Set([
+    rumor.pubkey,
+    ...rumor.tags.filter((tag) => tag[0] === "p").map((tag) => tag[1]),
+  ]);
+  if (
+    !participants.has(recipient) ||
+    participants.size < 2 ||
+    participants.size > 9 ||
+    [...participants].some(
+      (key) => typeof key !== "string" || !/^[0-9a-f]{64}$/u.test(key),
+    )
+  )
+    throw new Error("Invalid NIP-17 participant set");
   return {
     id: rumor.id,
     pubkey: rumor.pubkey,

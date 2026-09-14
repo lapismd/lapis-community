@@ -13,12 +13,20 @@
   } from "@lapismd/lapis-community/components";
 
   let { inbox }: { inbox: CommunityInboxModel } = $props();
+  // controller is the connected CommunityController that owns inbox.
   const shell = new AppShellController();
 <\/script>
 
 <CommunityAppShell controller={shell}>
   <AppShell.Main>
-    <CommunityInbox model={inbox} />
+    <CommunityInbox
+      model={inbox}
+      onSelect={(id) => controller.actions.selectInboxItem?.(id)}
+      onFilterChange={(filter, unreadOnly) => controller.actions.setInboxFilter?.(filter, unreadOnly)}
+      onSend={(content) => controller.actions.sendInboxMessage?.(content)}
+      onMarkAllRead={() => controller.actions.markAllRead()}
+      onOpenChannelSettings={() => controller.actions.openDetails()}
+    />
   </AppShell.Main>
 </CommunityAppShell>`;
 
@@ -102,9 +110,10 @@
     await expect(
       canvas.getByRole("region", { name: "Selected inbox thread" }),
     ).toBeVisible();
-    await expect(
-      canvas.getByRole("heading", { name: "support" }),
-    ).toBeVisible();
+    await userEvent.click(canvas.getByRole("button", { name: /^support:/u }));
+    await waitFor(() =>
+      expect(canvas.getByRole("heading", { name: "support" })).toBeVisible(),
+    );
     await expect(
       canvas.getByRole("textbox", { name: "Markdown editor" }),
     ).toBeVisible();
@@ -154,3 +163,20 @@
     <CommunityInboxStoryHarness />
   {/snippet}
 </Story>
+
+<Story
+  name="Initial loading"
+  play={async ({ canvas }) => {
+    await expect(
+      canvas.getByRole("status", { name: "Loading Inbox conversations" }),
+    ).toBeVisible();
+    await expect(
+      canvas.getByRole("status", { name: "Loading Inbox messages" }),
+    ).toBeVisible();
+    await expect(canvas.queryByText("No activity yet")).not.toBeInTheDocument();
+  }}
+  >{#snippet template()}<CommunityInboxStoryHarness
+      empty
+      loading
+    />{/snippet}</Story
+>

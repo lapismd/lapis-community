@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { serializeCommunityMentions } from "./model.js";
   import { DialogFrame } from "@lapismd/design-core/forms/dialog";
   import "@lapismd/mira/styles.css";
 
@@ -730,7 +731,11 @@
     );
     try {
       await onSubmit({
-        content: value.trim(),
+        content: serializeCommunityMentions(
+          value.trim(),
+          members,
+          references.mentionPubkeys,
+        ),
         mentionPubkeys: references.mentionPubkeys,
         channelIds: references.channelIds,
         attachments: attachments.flatMap((attachment) =>

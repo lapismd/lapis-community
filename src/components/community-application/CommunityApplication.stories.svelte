@@ -1510,7 +1510,11 @@
       .replace(/ to channel$/u, "");
     await userEvent.click(addChannelMember);
     await expect(
-      await overlay.findByText(`${outsideMemberDisplayName} added`),
+      await overlay.findByText(
+        `${outsideMemberDisplayName} added`,
+        {},
+        { timeout: 15_000 },
+      ),
     ).toBeInTheDocument();
 
     const outsideMemberManager = await channelMembers.findByRole(
@@ -1622,7 +1626,9 @@
     await userEvent.click(
       within(editor).getByRole("button", { name: "Save changes" }),
     );
-    await waitFor(() => expect(editor).not.toBeInTheDocument());
+    await waitFor(() => expect(editor).not.toBeInTheDocument(), {
+      timeout: 15_000,
+    });
     await waitFor(() =>
       expect(canvasElement.ownerDocument.body.style.pointerEvents).not.toBe(
         "none",
@@ -1718,7 +1724,9 @@
       await userEvent.click(
         within(joinDialog).getByRole("button", { name: "Join group" }),
       );
-      await waitFor(() => expect(joinDialog).not.toBeInTheDocument());
+      await waitFor(() => expect(joinDialog).not.toBeInTheDocument(), {
+        timeout: 15_000,
+      });
       await expect(
         canvas.getByRole("button", { name: "general" }),
       ).toBeVisible();

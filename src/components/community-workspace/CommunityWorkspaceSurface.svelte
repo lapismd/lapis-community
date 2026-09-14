@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { conversationKey } from "../../community/conversations.js";
   import type { ComposerStatus } from "@lapismd/design-core/ai/chat";
   import { Button } from "@lapismd/design-core/shadcn/button";
   import { ScrollArea } from "@lapismd/design-core/shadcn/scroll-area";
@@ -39,6 +40,8 @@
     showJoinAction = false,
     historyUpdating = false,
     historyLoading = false,
+    directHistory,
+    onLoadOlderDirectMessages,
     messageSupplement,
     channelActions,
     agentMemberIds = [],
@@ -55,6 +58,8 @@
     showJoinAction?: boolean;
     historyUpdating?: boolean;
     historyLoading?: boolean;
+    directHistory?: { hasOlder: boolean; loading: boolean; error?: string };
+    onLoadOlderDirectMessages?: () => Promise<void>;
     messageSupplement?: Snippet<[import("./model.js").CommunityMessageModel]>;
     channelActions?: Snippet;
     agentMemberIds?: readonly string[];
@@ -434,6 +439,14 @@
     {/if}
   {:else}
     <CommunityConversation
+      draftKey={activeRoom.conversation
+        ? conversationKey(activeRoom.conversation)
+        : JSON.stringify([model.activeCommunityId, activeRoom.id])}
+      {...activeRoom.conversation?.transport === "nip17" &&
+      directHistory &&
+      onLoadOlderDirectMessages
+        ? { history: directHistory, onLoadOlder: onLoadOlderDirectMessages }
+        : {}}
       {...model.view === "forum-thread" && model.messages[0]
         ? {
             activityContext: {

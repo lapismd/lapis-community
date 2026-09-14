@@ -13,12 +13,16 @@
   let {
     empty = false,
     historyUpdating = false,
-  }: { empty?: boolean; historyUpdating?: boolean } = $props();
+    loading = false,
+  }: {
+    empty?: boolean;
+    historyUpdating?: boolean;
+    loading?: boolean;
+  } = $props();
 
   let runtime = $state<CommunityStoryRuntime>();
   let community = $state<CommunityController>();
   let runtimeError = $state("");
-  let selectedItemId = $state("");
   const projectedModel = $derived(
     community?.state.inbox ?? communityInboxFixture,
   );
@@ -34,7 +38,7 @@
         }
       : {
           ...projectedModel,
-          activeItemId: selectedItemId || projectedModel.activeItemId,
+          activeItemId: projectedModel.activeItemId,
         },
   );
   const controller = new AppShellController();
@@ -81,7 +85,7 @@
   });
 
   function send(content: string): void {
-    community?.handlers.onSendReply?.(model.activeItemId, content);
+    void community?.actions.sendInboxMessage?.(content);
   }
 </script>
 
@@ -104,7 +108,10 @@
     <CommunityInbox
       {model}
       {historyUpdating}
-      onSelect={(itemId) => (selectedItemId = itemId)}
+      {loading}
+      onSelect={(itemId) => void community?.actions.selectInboxItem?.(itemId)}
+      onFilterChange={(filter, unreadOnly) =>
+        community?.actions.setInboxFilter?.(filter, unreadOnly)}
       onSend={send}
       onMarkAllRead={() => void community?.actions.markAllRead()}
       onOpenChannelSettings={() => controller.right.open()}

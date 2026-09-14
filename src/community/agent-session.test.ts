@@ -722,3 +722,92 @@ describe("agent relay session", () => {
     );
   });
 });
+
+it("copies a shared legacy definition and relinks only the edited agent while retaining unknown fields", async () => {
+  const h = setup();
+  const second = getPublicKey(new Uint8Array(32).fill(64));
+  const persona = finalizeEvent(
+    {
+      kind: 30175,
+      created_at: now - 2,
+      tags: [["d", "shared"]],
+      content: JSON.stringify({
+        display_name: "Shared",
+        system_prompt: "Original",
+        custom_setting: 7,
+      }),
+    },
+    ownerKey,
+  );
+  const instances = [agent, second].map((pubkey) =>
+    finalizeEvent(
+      {
+        kind: 30177,
+        created_at: now - 1,
+        tags: [["d", pubkey]],
+        content: JSON.stringify({
+          persona_id: "shared",
+          name: "Agent",
+          name_mode: "instance",
+          custom_policy: "keep",
+        }),
+      },
+      ownerKey,
+    ),
+  );
+  h.events.push(persona, ...instances);
+  const result = await h.session.saveAgent!({
+    pubkey: agent,
+    personaSlug: "shared",
+    displayName: "Selected",
+    instanceName: "Selected",
+    nameMode: "instance",
+    systemPrompt: "Changed",
+    dmAllowlist: [second],
+  });
+  expect(result.persona.tags[0]?.[1]).not.toBe("shared");
+  expect(JSON.parse(result.persona.content)).toMatchObject({
+    system_prompt: "Changed",
+    custom_setting: 7,
+  });
+  expect(JSON.parse(result.instance!.content)).toMatchObject({
+    persona_id: result.persona.tags[0]?.[1],
+    custom_policy: "keep",
+    dm_allowlist: [second],
+  });
+  expect(
+    h.events.filter(
+      (event) =>
+        event.kind === 30175 &&
+        event.tags.some(([key, value]) => key === "d" && value === "shared"),
+    ),
+  ).toEqual([persona]);
+  expect(
+    h.events.filter(
+      (event) =>
+        event.kind === 30177 &&
+        event.tags.some(([key, value]) => key === "d" && value === second),
+    ),
+  ).toEqual([instances[1]]);
+});
+
+it("signs revisioned processing controls and transport-specific direct activity context", async () => {
+  const h = setup();
+  const control = {
+    version: 2 as const,
+    command: "processing_set" as const,
+    requestId: "disable-1",
+    enabled: false,
+    expectedRevision: 3,
+  };
+  const event = await h.session.sendControl!(agent, control);
+  expect(event.tags).toContainEqual(["frame", "control"]);
+  expect(event.tags.some(([name]) => name === "h")).toBe(false);
+  expect(h.nip44.encrypt).toHaveBeenCalledWith(agent, JSON.stringify(control));
+  await h.session.sendControl!(agent, {
+    version: 2,
+    command: "sync_activity",
+    requestId: "dm-activity",
+    context: { kind: "dm", conversationId: "a".repeat(64) },
+  });
+});

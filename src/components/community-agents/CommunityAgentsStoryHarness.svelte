@@ -201,13 +201,13 @@
   }
   async function saveAgent(input: CommunityAgentSaveInput) {
     attempt();
-    notice = `Persona ${input.personaSlug} saved`;
+    notice = `Agent ${input.displayName} saved`;
     const { error, ...rest } = model;
     model = { ...rest, partial: false };
   }
   async function savePersona(input: CommunityAgentPersonaSaveInput) {
     attempt();
-    notice = `Persona ${input.personaSlug} saved`;
+    notice = `Agent ${input.displayName} saved`;
   }
   async function deletePersona(slug: string) {
     attempt();
@@ -422,7 +422,7 @@
         about: input.description ?? "",
         ...(input.avatarUrl ? { avatarUrl: input.avatarUrl } : {}),
       };
-      notice = `Persona ${input.personaSlug} saved`;
+      notice = `Agent ${input.displayName} saved`;
     }}
     onUnlinkPersona={async () => {
       attempt();

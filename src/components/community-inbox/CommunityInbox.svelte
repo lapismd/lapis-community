@@ -11,11 +11,12 @@
   import MailIcon from "@lucide/svelte/icons/mail";
   import UsersIcon from "@lucide/svelte/icons/users";
 
+  import CommunitySkeleton from "../community-skeleton/CommunitySkeleton.svelte";
   import CommunityConversation from "../community-conversation/CommunityConversation.svelte";
   import CommunityMemberAvatar from "../community-member-avatar/CommunityMemberAvatar.svelte";
   import { memberById } from "../community-workspace/model.js";
   import type { CommunityRoomModel } from "../community-workspace/model.js";
-  import type { CommunityInboxModel } from "./model.js";
+  import type { CommunityInboxFilter, CommunityInboxModel } from "./model.js";
   import type {
     CommunityCustomEmoji,
     CommunityMessageReport,
@@ -27,6 +28,7 @@
     model,
     rooms = [],
     onSelect,
+    onFilterChange,
     onSend,
     onMarkAllRead,
     onOpenChannelSettings,
@@ -54,10 +56,17 @@
     currentMemberId,
     canDeleteAny = false,
     historyUpdating = false,
+    loading = false,
+    directHistory,
+    onLoadOlderDirectMessages,
   }: {
     model: CommunityInboxModel;
     rooms?: readonly CommunityRoomModel[];
     onSelect: (itemId: string) => void;
+    onFilterChange?: (
+      filter: CommunityInboxFilter,
+      unreadOnly: boolean,
+    ) => void;
     onSend: (content: string) => void | Promise<void>;
     onMarkAllRead: () => void;
     onOpenChannelSettings: () => void;
@@ -101,11 +110,13 @@
     currentMemberId?: string;
     canDeleteAny?: boolean;
     historyUpdating?: boolean;
+    loading?: boolean;
+    directHistory?: { hasOlder: boolean; loading: boolean; error?: string };
+    onLoadOlderDirectMessages?: () => Promise<void>;
   } = $props();
 
-  let filter = $state<"All" | "Mentions" | "Threads">("All");
-  let showUnreadOnly = $state(false);
-  let allMarkedRead = $state(false);
+  const filter = $derived(model.filter ?? "All");
+  const showUnreadOnly = $derived(model.unreadOnly ?? false);
   let bodyElement = $state<HTMLElement | null>(null);
   let listElement = $state<HTMLElement | null>(null);
   let listWidth = $state<number>();
@@ -113,9 +124,11 @@
   let resizeStartX = 0;
   let resizeStartWidth = 0;
   let visibleItems = $derived(
-    showUnreadOnly
-      ? model.items.filter((item) => item.unread && !allMarkedRead)
-      : model.items,
+    model.items.filter(
+      (item) =>
+        (filter === "All" || item.categories?.includes(filter)) &&
+        (!showUnreadOnly || item.unread),
+    ),
   );
   let hasSelectedItem = $derived(
     model.activeItemId !== "" &&
@@ -124,18 +137,19 @@
 
   const emptyStateTitles = {
     All: "No activity yet",
+    "Direct messages": "No direct messages found",
     Mentions: "No mentions found",
     Threads: "No threads found",
   } as const;
 
   const unreadEmptyStateTitles = {
     All: "No unread activity",
+    "Direct messages": "No unread direct messages",
     Mentions: "No unread mentions",
     Threads: "No unread threads",
   } as const;
 
   function markAllRead(): void {
-    allMarkedRead = true;
     onMarkAllRead();
   }
 
@@ -226,8 +240,15 @@
             class="lc-community-inbox__filter-menu"
           >
             <DropdownMenu.Group>
-              <DropdownMenu.RadioGroup bind:value={filter}>
-                {#each ["All", "Mentions", "Threads"] as option}
+              <DropdownMenu.RadioGroup
+                value={filter}
+                onValueChange={(value) =>
+                  onFilterChange?.(
+                    value as CommunityInboxFilter,
+                    showUnreadOnly,
+                  )}
+              >
+                {#each ["All", "Direct messages", "Mentions", "Threads"] as option}
                   <DropdownMenu.RadioItem value={option}>
                     {option}
                   </DropdownMenu.RadioItem>
@@ -258,7 +279,8 @@
           >
             <DropdownMenu.Group>
               <DropdownMenu.CheckboxItem
-                bind:checked={showUnreadOnly}
+                checked={showUnreadOnly}
+                onCheckedChange={(value) => onFilterChange?.(filter, value)}
                 class="lc-community-inbox__unread-toggle"
               >
                 <span>Show unread only</span>
@@ -285,8 +307,10 @@
             variant="ghost"
             class="lc-community-inbox__item"
             data-active={item.id === model.activeItemId ? "" : undefined}
-            data-unread={item.unread && !allMarkedRead ? "" : undefined}
+            data-unread={item.unread ? "" : undefined}
             aria-pressed={item.id === model.activeItemId}
+            data-ui-part="inbox-conversation"
+            aria-label={`${item.context}: ${item.excerpt}`}
             onclick={() => onSelect(item.id)}
           >
             <CommunityMemberAvatar member={author} size="small" decorative />
@@ -300,7 +324,13 @@
             </span>
           </Button>
         {/each}
-        {#if visibleItems.length === 0}
+        {#if loading && model.items.length === 0}
+          <CommunitySkeleton
+            layout="messages"
+            count={5}
+            label="Loading Inbox conversations"
+          />
+        {:else if visibleItems.length === 0}
           <Empty.Root class="lc-community-inbox__empty" role="status">
             <Empty.Header>
               <Empty.Title>
@@ -342,7 +372,13 @@
     label="Selected inbox thread"
     class="lc-community-inbox__thread-region"
   >
-    {#if hasSelectedItem}
+    {#if loading && model.items.length === 0}
+      <CommunitySkeleton
+        layout="messages"
+        count={4}
+        label="Loading Inbox messages"
+      />
+    {:else if hasSelectedItem}
       <section class="lc-community-inbox__thread">
         <header class="lc-community-inbox__thread-header">
           <h1>{model.threadTitle}</h1>
@@ -389,6 +425,15 @@
         <div class="lc-community-inbox__conversation">
           <CommunityConversation
             room={model.room}
+            draftKey={model.activeItemId}
+            {...model.room.conversation?.transport === "nip17" &&
+            directHistory &&
+            onLoadOlderDirectMessages
+              ? {
+                  history: directHistory,
+                  onLoadOlder: onLoadOlderDirectMessages,
+                }
+              : {}}
             messages={model.messages}
             members={model.members}
             {rooms}

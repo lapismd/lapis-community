@@ -1008,6 +1008,61 @@ describe("createNip29CommunitySource", () => {
     }
   });
 
+  it("reuses encrypted envelopes and retries only failed recipient relay deliveries", async () => {
+    const scenario = createCommunityTestScenario({
+      relayUrl: "memory://partial-authority",
+    });
+    const factory = createInMemoryRelayFactory();
+    const authority = factory.relay(scenario.scope.relayUrl);
+    const sender = await scenario.operator.getPublicKey();
+    const recipient = await scenario.member.getPublicKey();
+    for (const [identity, urls] of [
+      [scenario.operator, ["memory://sender"]],
+      [scenario.member, ["memory://healthy", "memory://retry"]],
+    ] as const)
+      authority.inject(
+        await identity.signEvent({
+          kind: 10050,
+          created_at: 1700000000,
+          content: "",
+          tags: urls.map((url) => ["relay", url]),
+        }),
+      );
+    const retry = factory.relay("memory://retry");
+    retry.setFaults({ rejectPublish: "temporary unavailable" });
+    const source = createNip29CommunitySource({ relayFactory: factory });
+    const session = await source.open(scenario.scope, {
+      identity: scenario.operator,
+    });
+    const command = {
+      type: "direct-message" as const,
+      recipients: [recipient],
+      content: "one logical message",
+    };
+    await expect(session.execute(command)).rejects.toMatchObject({
+      deliveries: expect.arrayContaining([
+        expect.objectContaining({
+          recipient,
+          relayUrl: "memory://retry",
+          accepted: false,
+        }),
+        expect.objectContaining({ recipient: sender, accepted: true }),
+      ]),
+    });
+    const accepted = factory.relay("memory://healthy").events[0]!;
+    retry.setFaults({});
+    session.close();
+    const reconnected = await source.open(scenario.scope, {
+      identity: scenario.operator,
+    });
+    const result = await reconnected.execute(command);
+    expect(factory.relay("memory://healthy").events).toHaveLength(1);
+    expect(factory.relay("memory://sender").events).toHaveLength(1);
+    expect(retry.events[0]!.id).toBe(accepted.id);
+    expect(result.map((event) => event.id)).toContain(accepted.id);
+    reconnected.close();
+  });
+
   it("routes NIP-17 gift wraps to each participant's advertised inbox relay", async () => {
     const scenario = createCommunityTestScenario({
       relayUrl: "memory://authority.test",

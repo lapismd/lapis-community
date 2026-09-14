@@ -1,4 +1,8 @@
 <script lang="ts">
+  import {
+    conversationHash,
+    directConversationHash,
+  } from "../../community/conversations.js";
   import { provideAgentComposerActivity } from "../community-agent-composer-activity/context.js";
   import type {
     CommunityAgentActivityContext,
@@ -944,6 +948,19 @@
   const inbox = $derived(
     community.state.inbox ?? fallbackInbox(activeRoom, workspace.members),
   );
+  const inboxFocusKey = $derived(
+    activeDestination === "inbox"
+      ? `${workspace.currentMemberId ?? ""}:${inbox.activeItemId}`
+      : "",
+  );
+  $effect(() => {
+    const key = inboxFocusKey;
+    if (key)
+      untrack(() => {
+        void community.actions.selectInboxItem?.(inbox.activeItemId);
+      });
+  });
+
   const currentMember = $derived(
     workspace.currentMemberId
       ? memberById(workspace.members, workspace.currentMemberId)
@@ -1051,7 +1068,14 @@
     searchPlaceholder: "Search everything",
     primaryItems: [
       ...(authenticated && hasCommunityConnection
-        ? [{ id: "inbox", label: "Inbox", kind: "inbox" as const }]
+        ? [
+            {
+              id: "inbox",
+              label: "Inbox",
+              kind: "inbox" as const,
+              unreadCount: inbox.unreadCount ?? 0,
+            },
+          ]
         : []),
       ...(community.state.capabilities.pulse === true &&
       community.state.pulse !== undefined &&
@@ -1703,7 +1727,19 @@
       };
     }
     if (activeDestination !== activeRoom.id) return { kind: "overview" };
-    if (activeRoom.kind === "direct") return { kind: "dm" };
+    if (activeRoom.kind === "direct")
+      return {
+        kind: "dm",
+        ...(activeRoom.conversation
+          ? { conversationId: conversationHash(activeRoom.conversation) }
+          : activeRoom.participantIds
+            ? {
+                conversationId: directConversationHash(
+                  activeRoom.participantIds,
+                ),
+              }
+            : {}),
+      };
     if (workspace.view === "forum-thread" && workspace.messages[0])
       return {
         kind: "forum-topic",
@@ -4893,8 +4929,19 @@
     }
   }
 
-  async function sendNewDirectMessage(content: string): Promise<void> {
+  async function sendNewDirectMessage(
+    content: string,
+    transport: "nip17" | "buzz-dm" = "nip17",
+  ): Promise<void> {
     try {
+      if (transport === "buzz-dm") {
+        const roomId =
+          await community.actions.openBuzzDirectMessage?.(selectedRecipientIds);
+        if (!roomId) throw new Error("Buzz direct messaging is unavailable");
+        await community.actions.sendMessage(roomId, content);
+        setDestination(roomId, true);
+        return;
+      }
       await runAuthenticated(() =>
         community.actions.sendDirectMessage(selectedRecipientIds, content),
       );
@@ -4941,11 +4988,14 @@
   ): Promise<void> {
     try {
       await runParticipationAction(roomId, "message", async () => {
-        if (activeRoom.kind === "direct") {
-          const recipients = roomId
-            .replace(/^dm:/u, "")
-            .split(",")
-            .filter(Boolean);
+        if (
+          activeRoom.kind === "direct" &&
+          activeRoom.conversation?.transport !== "buzz-dm"
+        ) {
+          const recipients =
+            activeRoom.participantIds?.filter(
+              (key) => key !== workspace.currentMemberId,
+            ) ?? roomId.replace(/^dm:/u, "").split(",").filter(Boolean);
           await community.actions.sendDirectMessage(
             recipients,
             content,
@@ -7112,6 +7162,8 @@
                 community.actions.agents!.savePersona(input)}
               onSaveAgent={(input) =>
                 community.actions.agents!.saveAgent(input)}
+              onLoadProcessing={community.actions.agents?.loadProcessing}
+              onSetProcessing={community.actions.agents?.setProcessing}
               onSaveRuntime={(pubkey, defaults) =>
                 community.actions.agents!.saveRuntime(pubkey, defaults)}
               onUnlinkPersona={(pubkey, fallbackName) =>
@@ -7295,6 +7347,13 @@
     {:else if activeDestination === "inbox"}
       <CommunityInbox
         model={inbox}
+        loading={community.state.contentSync?.phase === "initial"}
+        {...community.state.directHistory && community.actions.loadDirectHistory
+          ? {
+              directHistory: community.state.directHistory,
+              onLoadOlderDirectMessages: community.actions.loadDirectHistory,
+            }
+          : {}}
         rooms={workspace.navigationSections.flatMap((section) => section.rooms)}
         disabled={participationReadOnly}
         disabledReason={participationReadOnlyReason}
@@ -7304,8 +7363,13 @@
         canDeleteAny={inbox.room.permissions?.delete.state === "enabled"}
         historyUpdating={community.state.contentSync?.phase === "background" ||
           community.state.contentSync?.phase === "partial-error"}
-        onSelect={() => void community.actions.markRead(inbox.room.id)}
-        onSend={(content) => sendThreadReply(inbox.activeItemId, content)}
+        onSelect={(id) => void community.actions.selectInboxItem?.(id)}
+        onFilterChange={(filter, unreadOnly) =>
+          community.actions.setInboxFilter?.(filter, unreadOnly)}
+        onSend={(content) =>
+          community.actions.sendInboxMessage
+            ? community.actions.sendInboxMessage(content)
+            : sendThreadReply(inbox.activeItemId, content)}
         onMarkAllRead={() => void community.actions.markAllRead()}
         onOpenChannelSettings={() => {
           openPanel({ kind: "details", roomId: inbox.room.id });
@@ -7352,6 +7416,8 @@
         <AppShell.Body.Content>
           <CommunityDirectMessageComposer
             recipients={selectedRecipients}
+            buzzSupported={community.state.capabilities.buzzDirectMessages ??
+              false}
             communityEmojis={community.state.settings.customEmojis}
             onChooseRecipients={() => {
               memberCommandTask = undefined;
@@ -7510,6 +7576,14 @@
             <div class="community-application__workspace-layer">
               <CommunityWorkspaceSurface
                 model={workspaceSurfaceModel}
+                {...community.state.directHistory &&
+                community.actions.loadDirectHistory
+                  ? {
+                      directHistory: community.state.directHistory,
+                      onLoadOlderDirectMessages:
+                        community.actions.loadDirectHistory,
+                    }
+                  : {}}
                 {agentMemberIds}
                 historyLoading={activeRoomHistoryLoading}
                 historyUpdating={community.state.contentSync?.phase ===
@@ -7715,6 +7789,23 @@
                 memories={community.state.agents?.memories?.[
                   selectedAgent.pubkey
                 ]}
+                processing={community.state.agents?.processing?.[
+                  selectedAgent.pubkey
+                ]}
+                onLoadProcessing={community.actions.agents?.loadProcessing
+                  ? () =>
+                      community.actions.agents!.loadProcessing!(
+                        selectedAgent.pubkey,
+                      )
+                  : undefined}
+                onSetProcessing={community.actions.agents?.setProcessing
+                  ? (enabled, revision) =>
+                      community.actions.agents!.setProcessing!(
+                        selectedAgent.pubkey,
+                        enabled,
+                        revision,
+                      )
+                  : undefined}
                 onLoadRuntime={() =>
                   community.actions.agents!.loadRuntime(selectedAgent.pubkey)}
                 onSaveRuntime={(defaults) =>

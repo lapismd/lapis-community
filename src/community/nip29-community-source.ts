@@ -1,3 +1,4 @@
+import { isBuzzDirectMetadata } from "./buzz-direct-messages.js";
 import type {
   CommunityRelay,
   CommunityRelayFactory,
@@ -73,10 +74,23 @@ const PULSE_MAX_FOLLOWS = 100;
 export function createNip29CommunitySource(
   options: Nip29CommunitySourceOptions,
 ): CommunityDataSource {
+  const preparedDirect = new WeakMap<
+    object,
+    {
+      wraps: NostrEvent[];
+      deliveries: {
+        recipient: string;
+        relayUrl: string;
+        event: NostrEvent;
+        accepted: boolean;
+        error?: string;
+      }[];
+    }
+  >();
   return {
     async open(scope, context = {}, signal) {
       signal?.throwIfAborted();
-      return new Nip29CommunitySession(scope, context, options);
+      return new Nip29CommunitySession(scope, context, options, preparedDirect);
     },
   };
 }
@@ -93,6 +107,23 @@ class Nip29CommunitySession implements CommunitySession {
   readonly #listeners = new Set<(events: readonly NostrEvent[]) => void>();
   readonly #authenticated = new WeakSet<CommunityRelay>();
   readonly #deliveryRelays = new Map<string, CommunityRelay>();
+  readonly #preparedDirect: WeakMap<
+    object,
+    {
+      wraps: NostrEvent[];
+      deliveries: {
+        recipient: string;
+        relayUrl: string;
+        event: NostrEvent;
+        accepted: boolean;
+        error?: string;
+      }[];
+    }
+  >;
+  #buzzDirectSupported = false;
+  #relaySigningPubkey: string | undefined;
+  #capabilitiesLoaded = false;
+  #privateCursor: import("./contracts.js").CommunityContentCursor | undefined;
   #closed = false;
   #baseSubscriptionsStarted = false;
   #lastCommandCreatedAt = 0;
@@ -104,7 +135,21 @@ class Nip29CommunitySession implements CommunitySession {
     scope: CommunityScope,
     context: CommunityDataSourceContext,
     options: Nip29CommunitySourceOptions,
+    preparedDirect: WeakMap<
+      object,
+      {
+        wraps: NostrEvent[];
+        deliveries: {
+          recipient: string;
+          relayUrl: string;
+          event: NostrEvent;
+          accepted: boolean;
+          error?: string;
+        }[];
+      }
+    >,
   ) {
+    this.#preparedDirect = preparedDirect;
     this.#scope = scope;
     this.#context = context;
     this.#options = options;
@@ -500,10 +545,21 @@ class Nip29CommunitySession implements CommunitySession {
     signal?: AbortSignal,
   ): Promise<CommunitySnapshot> {
     this.#assertOpen(signal);
+    await this.#loadBuzzCapability(signal);
     await Promise.all(
       this.#relays.map(async (relay) => this.#authenticate(relay, signal)),
     );
     const identityPubkey = await this.#context.identity?.getPublicKey();
+    const configuredPrivateIds = (this.#scope.rooms ?? [])
+      .filter((room) => room.private || room.transport === "buzz-dm")
+      .map((room) => room.groupId);
+    const configuredPrivateState = configuredPrivateIds.length
+      ? await this.#queryUnion(
+          [this.#authority],
+          { kinds: [39000, 39002], "#d": configuredPrivateIds },
+          signal,
+        )
+      : [];
     const discoveredMetadata = this.#scope.discoverPublicRooms
       ? await this.#queryUnion(
           [this.#authority],
@@ -547,9 +603,17 @@ class Nip29CommunitySession implements CommunitySession {
             signal,
           );
     const discoveryEvents = distinctEvents([
+      ...configuredPrivateState,
       ...discoveredMetadata,
       ...discoveredMemberships,
       ...memberMetadata,
+      ...(this.#buzzDirectSupported && identityPubkey
+        ? await this.#queryUnion(
+            [this.#authority],
+            { kinds: [30622], "#p": [identityPubkey] },
+            signal,
+          )
+        : []),
     ]);
     const rooms = communityRooms(this.#scope, discoveryEvents, identityPubkey);
     const groupIds = [
@@ -559,43 +623,42 @@ class Nip29CommunitySession implements CommunitySession {
       ]),
     ];
     for (const groupId of groupIds) this.#knownGroupIds.add(groupId);
-    if (groupIds.length === 0) {
-      return {
-        events: discoveryEvents,
-        capabilities: this.#capabilities(),
-      };
-    }
     await this.#subscribeToRooms(groupIds, signal);
 
     const bootstrap = request?.strategy === "bootstrap";
     const contentSince = synchronizationSince(request);
-    const content = bootstrap
-      ? []
-      : await this.#queryUnion(
-          this.#relays,
-          {
-            kinds: [...COMMUNITY_CONTENT_KINDS],
-            "#h": groupIds,
-            ...(contentSince === undefined ? {} : { since: contentSince }),
-          },
-          signal,
-        );
-    const activity = bootstrap
-      ? []
-      : await this.#queryUnion(
-          [this.#authority],
-          {
-            kinds: [...COMMUNITY_CHANNEL_ACTIVITY_KINDS],
-            "#h": groupIds,
-            ...(contentSince === undefined ? {} : { since: contentSince }),
-          },
-          signal,
-        );
-    const state = await this.#queryUnion(
-      [this.#authority],
-      { kinds: [...COMMUNITY_STATE_KINDS], "#d": groupIds },
-      signal,
-    );
+    const content =
+      bootstrap || groupIds.length === 0
+        ? []
+        : await this.#queryUnion(
+            this.#relays,
+            {
+              kinds: [...COMMUNITY_CONTENT_KINDS],
+              "#h": groupIds,
+              ...(contentSince === undefined ? {} : { since: contentSince }),
+            },
+            signal,
+          );
+    const activity =
+      bootstrap || groupIds.length === 0
+        ? []
+        : await this.#queryUnion(
+            [this.#authority],
+            {
+              kinds: [...COMMUNITY_CHANNEL_ACTIVITY_KINDS],
+              "#h": groupIds,
+              ...(contentSince === undefined ? {} : { since: contentSince }),
+            },
+            signal,
+          );
+    const state =
+      groupIds.length === 0
+        ? []
+        : await this.#queryUnion(
+            [this.#authority],
+            { kinds: [...COMMUNITY_STATE_KINDS], "#d": groupIds },
+            signal,
+          );
     const targets = [...content, ...activity, ...state].map(
       (event) => event.id,
     );
@@ -675,6 +738,7 @@ class Nip29CommunitySession implements CommunitySession {
         ? {}
         : { privateEvents: privateResult.events }),
       capabilities: this.#capabilities(),
+      hasOlderDirectMessages: privateResult.hasOlder,
       ...(bootstrap
         ? {}
         : {
@@ -885,57 +949,99 @@ class Nip29CommunitySession implements CommunitySession {
       return [event];
     }
     if (command.type === "direct-message") {
-      const sender = await identity.getPublicKey();
-      const deliveries = [...new Set([...command.recipients, sender])];
-      const relayPreferences = await this.#relayPreferences(deliveries, signal);
-      const missing = command.recipients.filter(
-        (pubkey) => (relayPreferences.urls.get(pubkey)?.length ?? 0) === 0,
-      );
-      if (missing.length > 0) {
-        throw new Error(
-          `${missing.length === 1 ? "Recipient has" : "Recipients have"} not advertised a NIP-17 inbox relay`,
+      let prepared = this.#preparedDirect.get(command);
+      if (!prepared) {
+        const sender = await identity.getPublicKey();
+        const recipients = [...new Set(command.recipients)].filter(
+          (key) => key !== sender,
         );
+        const relayPreferences = await this.#relayPreferences(
+          [...recipients, sender],
+          signal,
+        );
+        if (recipients.some((key) => !relayPreferences.urls.get(key)?.length))
+          throw new Error("Recipient has not advertised a NIP-17 inbox relay");
+        const wraps = await createNip17GiftWraps({
+          identity,
+          recipients,
+          content: command.content,
+          createdAt: Math.floor(Date.now() / 1000),
+          ...(command.replyToEventId === undefined
+            ? {}
+            : { replyToEventId: command.replyToEventId }),
+          ...(command.eventKind === undefined
+            ? {}
+            : { eventKind: command.eventKind }),
+          ...(command.targetEventId === undefined
+            ? {}
+            : { targetEventId: command.targetEventId }),
+          ...(command.customEmoji === undefined
+            ? {}
+            : { customEmoji: command.customEmoji }),
+        });
+        prepared = {
+          wraps,
+          deliveries: wraps.flatMap((event) => {
+            const recipient = event.tags.find((tag) => tag[0] === "p")![1]!;
+            return (
+              relayPreferences.urls.get(recipient) ?? [this.#scope.relayUrl]
+            ).map((relayUrl) => ({
+              recipient,
+              relayUrl,
+              event,
+              accepted: false,
+            }));
+          }),
+        };
+        this.#preparedDirect.set(command, prepared);
       }
-      const wraps = await createNip17GiftWraps({
-        identity,
-        recipients: command.recipients,
-        content: command.content,
-        createdAt: Math.floor(Date.now() / 1_000),
-        ...(command.replyToEventId === undefined
-          ? {}
-          : { replyToEventId: command.replyToEventId }),
-        ...(command.eventKind === undefined
-          ? {}
-          : { eventKind: command.eventKind }),
-        ...(command.targetEventId === undefined
-          ? {}
-          : { targetEventId: command.targetEventId }),
-        ...(command.customEmoji === undefined
-          ? {}
-          : { customEmoji: command.customEmoji }),
-      });
-      for (const wrap of wraps) {
-        const recipient = wrap.tags.find((tag) => tag[0] === "p")?.[1];
-        if (recipient === undefined) continue;
-        const urls = relayPreferences.urls.get(recipient) ?? [
-          this.#scope.relayUrl,
-        ];
-        for (const url of urls) {
-          const result = await publishWithDuplicateRecovery(
-            this.#deliveryRelay(url),
-            wrap,
-            signal,
-          );
-          if (!result.accepted) {
-            throw new Error(
-              result.message || "Relay rejected the direct message",
-            );
-          }
-        }
-      }
-      this.#emit(wraps);
-      return wraps;
+      // Keep every prepared envelope, including the sender recovery copy, for retries.
+      await Promise.allSettled(
+        prepared.deliveries
+          .filter((delivery) => !delivery.accepted)
+          .map(async (delivery) => {
+            try {
+              const result = await publishWithDuplicateRecovery(
+                this.#deliveryRelay(delivery.relayUrl),
+                delivery.event,
+                signal,
+              );
+              if (!result.accepted)
+                throw new Error(
+                  result.message || "Relay rejected the direct message",
+                );
+              delivery.accepted = true;
+              delete delivery.error;
+            } catch (cause) {
+              delivery.error =
+                cause instanceof Error ? cause.message : "Delivery failed";
+            }
+          }),
+      );
+      this.#emit(
+        prepared.wraps.filter((wrap) =>
+          prepared.deliveries.some(
+            (delivery) => delivery.event.id === wrap.id && delivery.accepted,
+          ),
+        ),
+      );
+      const failed = prepared.deliveries.filter(
+        (delivery) => !delivery.accepted,
+      );
+      if (failed.length)
+        throw new CommunityDirectDeliveryError(
+          prepared.deliveries.map(
+            ({ recipient, relayUrl, accepted, error }) => ({
+              recipient,
+              relayUrl,
+              accepted,
+              ...(error ? { error } : {}),
+            }),
+          ),
+        );
+      return prepared.wraps;
     }
+
     const currentMetadata =
       command.type === "update-room"
         ? latestVerifiedEvent(
@@ -1035,6 +1141,140 @@ class Nip29CommunitySession implements CommunitySession {
     await this.#subscribeToRooms([request.groupId], signal);
     this.#emit(events);
     return { room, metadata, events };
+  }
+
+  async #loadBuzzCapability(signal?: AbortSignal): Promise<void> {
+    if (this.#capabilitiesLoaded) return;
+    this.#capabilitiesLoaded = true;
+    if (!/^wss?:/u.test(this.#scope.relayUrl)) return;
+    try {
+      const url = this.#scope.relayUrl.replace(/^ws/u, "http");
+      const response = await (this.#options.fetch ?? globalThis.fetch)(url, {
+        headers: { Accept: "application/nostr+json" },
+        signal: signal
+          ? AbortSignal.any([signal, AbortSignal.timeout(5000)])
+          : AbortSignal.timeout(5000),
+      });
+      if (!response.ok) return;
+      const document = (await response.json()) as Record<string, unknown>;
+      if (
+        document.software === "https://github.com/block/buzz" &&
+        typeof document.self === "string" &&
+        /^[0-9a-f]{64}$/u.test(document.self)
+      ) {
+        this.#buzzDirectSupported = true;
+        this.#relaySigningPubkey = document.self;
+      }
+    } catch {
+      /* Unsupported or unavailable capability never changes transport. */
+    }
+  }
+
+  async openBuzzDirectMessage(
+    participants: readonly string[],
+    signal?: AbortSignal,
+  ): Promise<CommunityGroupLoadResult> {
+    this.#assertOpen(signal);
+    await this.#loadBuzzCapability(signal);
+    if (!this.#buzzDirectSupported)
+      throw new Error("This relay does not advertise Buzz direct messaging");
+    const identity = this.#context.identity;
+    if (!identity) throw new Error("Sign in to open a direct message");
+    const owner = await identity.getPublicKey();
+    const peers = [...new Set(participants)]
+      .filter((key) => key !== owner)
+      .sort();
+    if (
+      !peers.length ||
+      peers.length > 8 ||
+      peers.some((key) => !/^[0-9a-f]{64}$/u.test(key))
+    )
+      throw new Error("Choose one to eight valid recipients");
+    await this.#authenticate(this.#authority, signal);
+    const command = await identity.signEvent({
+      kind: 41010,
+      created_at: Math.floor(Date.now() / 1000),
+      tags: peers.map((key) => ["p", key]),
+      content: "",
+    });
+    const result = await this.#authority.publish(command, signal);
+    if (!result.accepted)
+      throw new Error(result.message || "Relay rejected the DM request");
+    let groupId: unknown;
+    try {
+      groupId = (
+        JSON.parse(result.message.replace(/^response:/u, "")) as {
+          channel_id?: unknown;
+        }
+      ).channel_id;
+    } catch {
+      throw new Error("Relay did not acknowledge a DM channel");
+    }
+    if (typeof groupId !== "string" || !/^[0-9a-f]{64}$/u.test(groupId))
+      throw new Error("Invalid DM channel acknowledgement");
+    const group = await this.loadGroup(
+      {
+        groupId,
+        ...(this.#relaySigningPubkey
+          ? { relayPubkey: this.#relaySigningPubkey }
+          : {}),
+      },
+      signal,
+    );
+    const membership = latestVerifiedEvent(
+      group.events.filter(
+        (event) =>
+          event.kind === 39002 && event.pubkey === group.metadata.pubkey,
+      ),
+    );
+    const actual = [
+      ...new Set(
+        membership?.tags.filter((tag) => tag[0] === "p").map((tag) => tag[1]) ??
+          [],
+      ),
+    ].sort();
+    if (
+      !isBuzzDirectMetadata(group.metadata) ||
+      JSON.stringify(actual) !== JSON.stringify([...peers, owner].sort())
+    )
+      throw new Error("Relay returned a different DM participant set");
+    this.#emit(
+      await this.#queryUnion(
+        [this.#authority],
+        { kinds: [30622], "#p": [owner] },
+        signal,
+      ),
+    );
+    return group;
+  }
+
+  async hideBuzzDirectMessage(
+    groupId: string,
+    signal?: AbortSignal,
+  ): Promise<void> {
+    const identity = this.#context.identity;
+    if (!identity) throw new Error("Sign in to hide a direct message");
+    const group = await this.loadGroup({ groupId }, signal);
+    if (!isBuzzDirectMetadata(group.metadata))
+      throw new Error("This is not a Buzz direct conversation");
+    const result = await this.#authority.publish(
+      await identity.signEvent({
+        kind: 41012,
+        created_at: Math.floor(Date.now() / 1000),
+        tags: [["h", groupId]],
+        content: "",
+      }),
+      signal,
+    );
+    if (!result.accepted)
+      throw new Error(result.message || "Relay rejected hiding this DM");
+    this.#emit(
+      await this.#queryUnion(
+        [this.#authority],
+        { kinds: [30622], "#p": [await identity.getPublicKey()] },
+        signal,
+      ),
+    );
   }
 
   async loadCanvas(
@@ -1251,22 +1491,63 @@ class Nip29CommunitySession implements CommunitySession {
     );
   }
 
+  async loadDirectHistory(signal?: AbortSignal): Promise<CommunitySnapshot> {
+    this.#assertOpen(signal);
+    const identity = this.#context.identity;
+    if (!identity) throw new Error("Sign in to load direct messages");
+    const pubkey = await identity.getPublicKey();
+    const preferences = await this.#relayPreferences([pubkey], signal);
+    const page = await this.#loadPrivateEvents(
+      preferences.urls.get(pubkey) ?? [],
+      signal,
+      this.#privateCursor,
+    );
+    return {
+      events: [],
+      encryptedEvents: page.wraps,
+      privateEvents: page.events,
+      hasOlderDirectMessages: page.hasOlder,
+      capabilities: this.#capabilities(),
+    };
+  }
+
   async #loadPrivateEvents(
     relayUrls: readonly string[],
     signal?: AbortSignal,
-  ): Promise<{ wraps: NostrEvent[]; events: CommunityPrivateEvent[] }> {
+    before?: import("./contracts.js").CommunityContentCursor,
+  ): Promise<{
+    wraps: NostrEvent[];
+    events: CommunityPrivateEvent[];
+    hasOlder: boolean;
+  }> {
     const identity = this.#context.identity;
-    if (identity?.nip44 === undefined) return { wraps: [], events: [] };
+    if (identity?.nip44 === undefined)
+      return { wraps: [], events: [], hasOlder: false };
     const pubkey = await identity.getPublicKey();
     const inboxRelays = relayUrls.map((url) => this.#deliveryRelay(url));
-    const wraps = await this.#queryUnion(
-      inboxRelays.length === 0 ? this.#relays : inboxRelays,
-      { kinds: [1_059], "#p": [pubkey], limit: 500 },
+    const page = await this.#queryRawContentPage(
+      { kinds: [1059], "#p": [pubkey] },
+      before,
+      100,
       signal,
+      inboxRelays.length ? inboxRelays : this.#relays,
     );
-    const settled = await Promise.allSettled(
-      wraps.map(async (wrap) => unwrapNip17GiftWrap(identity, wrap)),
-    );
+    const wraps = page.events;
+    const oldest = wraps[0];
+    this.#privateCursor = oldest
+      ? { createdAt: oldest.created_at, eventId: oldest.id }
+      : before;
+    const settled: PromiseSettledResult<CommunityPrivateEvent>[] = [];
+    for (let offset = 0; offset < wraps.length; offset += 16) {
+      signal?.throwIfAborted();
+      settled.push(
+        ...(await Promise.allSettled(
+          wraps
+            .slice(offset, offset + 16)
+            .map((wrap) => unwrapNip17GiftWrap(identity, wrap)),
+        )),
+      );
+    }
     const events = [
       ...new Map(
         settled
@@ -1280,7 +1561,7 @@ class Nip29CommunitySession implements CommunitySession {
       (left, right) =>
         left.created_at - right.created_at || left.id.localeCompare(right.id),
     );
-    return { wraps, events };
+    return { wraps, events, hasOlder: page.hasOlder };
   }
 
   async #relayPreferences(
@@ -1299,7 +1580,7 @@ class Nip29CommunitySession implements CommunitySession {
       if (
         current === undefined ||
         event.created_at > current.created_at ||
-        (event.created_at === current.created_at && event.id > current.id)
+        (event.created_at === current.created_at && event.id < current.id)
       ) {
         latest.set(event.pubkey, event);
       }
@@ -1327,7 +1608,19 @@ class Nip29CommunitySession implements CommunitySession {
     signal?: AbortSignal,
   ): Promise<void> {
     if (pubkey === undefined || this.#listeners.size === 0) return;
-    for (const url of relayUrls) {
+    if (
+      this.#buzzDirectSupported &&
+      !this.#targetSubscriptionKeys.has("buzz-visibility")
+    ) {
+      const subscription = await this.#authority.subscribe(
+        { kinds: [30622], "#p": [pubkey] },
+        { onevent: (event) => this.#emit([event]) },
+        signal,
+      );
+      this.#subscriptions.add(subscription);
+      this.#targetSubscriptionKeys.add("buzz-visibility");
+    }
+    for (const url of relayUrls.length ? relayUrls : [this.#scope.relayUrl]) {
       const key = `inbox:${url}:${pubkey}`;
       if (this.#targetSubscriptionKeys.has(key)) continue;
       this.#targetSubscriptionKeys.add(key);
@@ -1367,6 +1660,7 @@ class Nip29CommunitySession implements CommunitySession {
       channels: true,
       forums: true,
       directMessages: this.#context.identity?.nip44 !== undefined,
+      buzzDirectMessages: this.#buzzDirectSupported,
       search: true,
       manageGroup: signedIn,
       manageMembers: signedIn,
@@ -1594,7 +1888,9 @@ function roomScopeFromMetadata(metadata: NostrEvent): CommunityRoomScope {
     supportedKinds.has(1_111) ||
     compatibilityKind === "forum"
       ? "forum"
-      : supportedKinds.has(9) || compatibilityKind === "stream"
+      : supportedKinds.has(9) ||
+          compatibilityKind === "stream" ||
+          compatibilityKind === "dm"
         ? "channel"
         : undefined;
   if (kind === undefined)
@@ -1612,6 +1908,9 @@ function roomScopeFromMetadata(metadata: NostrEvent): CommunityRoomScope {
     groupId,
     name,
     kind,
+    ...(isBuzzDirectMetadata(metadata)
+      ? { transport: "buzz-dm" as const }
+      : {}),
     ...(description === "" ? {} : { description }),
     private:
       metadata.tags.some((tag) => tag[0] === "private") ||
@@ -1724,4 +2023,20 @@ function synchronizationSince(
     0,
     Math.min(...checkpoints.map((checkpoint) => checkpoint.createdAt)) - 1,
   );
+}
+
+export class CommunityDirectDeliveryError extends Error {
+  constructor(
+    readonly deliveries: readonly {
+      recipient: string;
+      relayUrl: string;
+      accepted: boolean;
+      error?: string;
+    }[],
+  ) {
+    super(
+      `Direct message partially delivered: ${deliveries.filter((delivery) => !delivery.accepted).length} of ${deliveries.length} relay deliveries pending. Retry resumes the original message.`,
+    );
+    this.name = "CommunityDirectDeliveryError";
+  }
 }

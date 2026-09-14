@@ -15,7 +15,7 @@
           code: `<script>
   import { CommunityAgentProfile } from "@lapismd/lapis-community/components";
 <\/script>
-<CommunityAgentProfile {agent} {rooms} {canMessage} {ownerName} onOpenOwner={openOwnerProfile} onMessage={messageAgent} onFollow={followAgent} onActivity={openActivity} onCopy={copyKey} onOpenChannel={openChannel} onAddChannel={addToChannel} onRemoveChannel={removeFromChannel} onSaveAgent={saveAgent} onUnlinkPersona={unlinkPersona} onDeletePersona={deletePersona} />`,
+<CommunityAgentProfile {agent} {rooms} {canMessage} {ownerName} onOpenOwner={openOwnerProfile} onMessage={messageAgent} onFollow={followAgent} onActivity={openActivity} onCopy={copyKey} onOpenChannel={openChannel} onAddChannel={addToChannel} onRemoveChannel={removeFromChannel} onSaveAgent={saveAgent} />`,
         },
       },
     },
@@ -72,7 +72,7 @@
     const dialog = body.getByRole("dialog", { name: "Edit agent" });
     await expect(
       within(dialog).getByText(
-        "Saved with the persona. A configured controller applies changes before the agent's next idle turn.",
+        "A configured controller applies changes before the agent's next idle turn.",
       ),
     ).toBeVisible();
     await userEvent.clear(within(dialog).getByLabelText("Agent name"));
@@ -83,7 +83,9 @@
     await userEvent.click(
       within(dialog).getByRole("button", { name: "Save changes" }),
     );
-    await expect(canvas.getByText("Persona research saved")).toBeVisible();
+    await expect(
+      canvas.getByText("Agent Research assistant saved"),
+    ).toBeVisible();
   }}>{#snippet template()}<Harness screen="profile" />{/snippet}</Story
 >
 

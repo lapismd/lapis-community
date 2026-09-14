@@ -35,6 +35,7 @@ export interface CommunityModel {
 }
 
 export interface CommunityRoomModel {
+  conversation?: import("../../community/conversations.js").CommunityConversationReference;
   id: string;
   /** Canonical NIP-29 group id backing the room, when relay-backed. */
   groupId?: string;

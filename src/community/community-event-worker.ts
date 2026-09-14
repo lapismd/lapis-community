@@ -21,6 +21,7 @@ type WorkerRequest =
   | { id: number; method: "project"; selection: CommunityRuntimeSelection }
   | { id: number; method: "search"; query: CommunityRuntimeSearch }
   | { id: number; method: "clear"; scope?: CommunityScope }
+  | { id: number; method: "clearPrivate" }
   | { id: number; method: "dispose" };
 
 interface WorkerScope {
@@ -62,6 +63,9 @@ async function respond(request: WorkerRequest): Promise<void> {
         break;
       case "search":
         value = await runtime.search(request.query);
+        break;
+      case "clearPrivate":
+        value = await runtime.clearPrivate?.();
         break;
       case "clear":
         value = await runtime.clear(request.scope);

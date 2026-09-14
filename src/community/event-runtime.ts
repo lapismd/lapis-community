@@ -45,6 +45,7 @@ export class InlineCommunityEventRuntime implements CommunityEventRuntime {
   readonly #store: CommunityEventStore;
   readonly #events = new Map<string, Map<string, NostrEvent>>();
   readonly #relayUrls = new Map<string, Map<string, string>>();
+  readonly #privateIds = new Set<string>();
   #revision = 0;
   #opened = false;
   #lastSynchronizedAt: number | undefined;
@@ -68,7 +69,21 @@ export class InlineCommunityEventRuntime implements CommunityEventRuntime {
       Awaited<ReturnType<CommunityEventStore["syncPlan"]>>
     > = {};
     for (const scope of scopes) {
-      const cached = await this.#store.restore(scope);
+      let cached = await this.#store.restore(scope);
+      // Older clients could persist private channel snapshots under the public audience.
+      // Evict that scope before exposing cached data and obtain a fresh authorized snapshot.
+      if (
+        cached.events.some(
+          (event) =>
+            event.kind === 39000 &&
+            event.tags.some(
+              (tag) => tag[0] === "private" || tag[0] === "hidden",
+            ),
+        )
+      ) {
+        await this.#store.clear(scope);
+        cached = await this.#store.restore(scope);
+      }
       this.#approximateBytes += cached.approximateBytes;
       const events =
         this.#events.get(scope.id) ?? new Map<string, NostrEvent>();
@@ -111,19 +126,84 @@ export class InlineCommunityEventRuntime implements CommunityEventRuntime {
     batch: CommunityEventBatch,
   ): Promise<CommunityRuntimeRevision | undefined> {
     await this.#open();
-    const events = this.#events.get(batch.scope.id) ?? new Map();
-    const relayUrls = this.#relayUrls.get(batch.scope.id) ?? new Map();
+    const events =
+      this.#events.get(batch.scope.id) ?? new Map<string, NostrEvent>();
+    const relayUrls =
+      this.#relayUrls.get(batch.scope.id) ?? new Map<string, string>();
     const accepted: NostrEvent[] = [];
     for (const incoming of batch.events) {
       // Transient telemetry belongs to the dedicated encrypted archive, never
       // to message restoration, search, or durable event synchronization.
       if (incoming.kind >= 20_000 && incoming.kind < 30_000) continue;
+      if (
+        batch.persist === false ||
+        batch.audience?.type === "inbox" ||
+        incoming.kind === 30622
+      )
+        this.#privateIds.add(incoming.id);
       if (events.has(incoming.id)) continue;
       const event = verifiedNostrEvent(incoming);
       if (event === undefined) continue;
       events.set(event.id, event);
       relayUrls.set(event.id, batch.relayUrl);
       accepted.push(event);
+    }
+    const privateGroups = new Set(
+      [...events.values()]
+        .filter(
+          (event) =>
+            event.kind === 39000 &&
+            event.tags.some(
+              (tag) => tag[0] === "private" || tag[0] === "hidden",
+            ),
+        )
+        .flatMap((event) =>
+          event.tags.filter((tag) => tag[0] === "d").map((tag) => tag[1]),
+        ),
+    );
+    let changed = true;
+    while (changed) {
+      changed = false;
+      for (const event of events.values()) {
+        if (this.#privateIds.has(event.id)) continue;
+        if (
+          event.tags.some(
+            (tag) =>
+              ((tag[0] === "h" || tag[0] === "d") &&
+                privateGroups.has(tag[1])) ||
+              ((tag[0] === "e" || tag[0] === "E") &&
+                !!tag[1] &&
+                this.#privateIds.has(tag[1])),
+          )
+        ) {
+          this.#privateIds.add(event.id);
+          changed = true;
+        }
+      }
+    }
+    if (batch.persist === false || privateGroups.size > 0) {
+      // Visibility can change after a public snapshot was cached. Remove those
+      // records before another identity can restore them, keeping other public data.
+      const evict = this.#writeQueue.then(async () => {
+        const cached = await this.#store.restore(batch.scope);
+        const retained = cached.events.filter(
+          (event) => !this.#privateIds.has(event.id),
+        );
+        if (retained.length === cached.events.length) return;
+        await this.#store.clear(batch.scope);
+        await this.#store.commit({
+          scope: batch.scope,
+          records: retained.map((event) => ({
+            event,
+            relayUrl: batch.scope.relayUrl,
+            audience: { type: "public" as const },
+          })),
+          checkpoints: cached.checkpoints,
+        });
+      });
+      this.#writeQueue = evict.catch((cause: unknown) => {
+        this.#writeError = `Local cache privacy update failed: ${cause instanceof Error ? cause.message : String(cause)}`;
+      });
     }
     if (accepted.length === 0 && (batch.checkpoints?.length ?? 0) === 0) {
       return undefined;
@@ -135,15 +215,21 @@ export class InlineCommunityEventRuntime implements CommunityEventRuntime {
     if (batch.persist !== false) {
       const persistedBatch = {
         scope: batch.scope,
-        records: accepted.map((event) => {
-          const roomId = eventRoomId(event);
-          return {
-            event,
-            relayUrl: batch.relayUrl,
-            audience: batch.audience ?? { type: "public" },
-            ...(roomId === undefined ? {} : { roomId }),
-          };
-        }),
+        records: accepted
+          .filter(
+            (event) =>
+              batch.audience?.type === "inbox" ||
+              !this.#privateIds.has(event.id),
+          )
+          .map((event) => {
+            const roomId = eventRoomId(event);
+            return {
+              event,
+              relayUrl: batch.relayUrl,
+              audience: batch.audience ?? { type: "public" },
+              ...(roomId === undefined ? {} : { roomId }),
+            };
+          }),
         ...(batch.checkpoints === undefined
           ? {}
           : { checkpoints: batch.checkpoints }),
@@ -197,12 +283,36 @@ export class InlineCommunityEventRuntime implements CommunityEventRuntime {
     this.#revision += 1;
     const eventsByScope = this.#eventRecord();
     const events = eventsByScope[selection.activeCommunityId] ?? [];
+    const directReadMarkers: Record<
+      string,
+      import("./contracts.js").CommunityReadCursor
+    > = {};
+    for (const markers of Object.values(
+      selection.inboxSelection?.readMarkersByScope ?? {},
+    ))
+      for (const [key, cursor] of Object.entries(markers)) {
+        if (!key.startsWith('["nip17",')) continue;
+        const prior = directReadMarkers[key];
+        if (
+          !prior ||
+          cursor.createdAt > prior.createdAt ||
+          (cursor.createdAt === prior.createdAt &&
+            cursor.eventId > prior.eventId)
+        )
+          directReadMarkers[key] = cursor;
+      }
     const workspace = materializeCommunityWorkspace(
       selection.scopes,
       eventsByScope,
       selection.activeCommunityId,
       {
         activeRoomId: selection.activeRoomId,
+        readMarkers: {
+          ...selection.inboxSelection?.readMarkersByScope?.[
+            selection.activeCommunityId
+          ],
+          ...directReadMarkers,
+        },
         ...(selection.activeTopicId === undefined
           ? {}
           : { activeTopicId: selection.activeTopicId }),
@@ -212,8 +322,13 @@ export class InlineCommunityEventRuntime implements CommunityEventRuntime {
         ...(selection.identityPubkey === undefined
           ? {}
           : { identityPubkey: selection.identityPubkey }),
-        privateEvents:
-          selection.privateEventsByScope?.[selection.activeCommunityId] ?? [],
+        privateEvents: [
+          ...new Map(
+            Object.values(selection.privateEventsByScope ?? {})
+              .flat()
+              .map((event) => [event.id, event]),
+          ).values(),
+        ],
         directParticipants: selection.directParticipantsByRoom ?? {},
         sidePanel: selection.sidePanel ?? "none",
         ...(selection.asOf === undefined ? {} : { asOf: selection.asOf }),
@@ -224,6 +339,10 @@ export class InlineCommunityEventRuntime implements CommunityEventRuntime {
       eventsByScope,
       selection.identityPubkey,
       selection.asOf,
+      {
+        ...selection.inboxSelection,
+        privateEventsByScope: selection.privateEventsByScope ?? {},
+      },
     );
     return {
       ...this.#revisionValue(selection.generation, "current"),
@@ -248,6 +367,8 @@ export class InlineCommunityEventRuntime implements CommunityEventRuntime {
     return events
       .filter(
         (event) =>
+          !this.#privateIds.has(event.id) &&
+          ![1059, 30622, 40100].includes(event.kind) &&
           !isRegistryControlEvent(event) &&
           event.content.toLocaleLowerCase().includes(query),
       )
@@ -263,6 +384,39 @@ export class InlineCommunityEventRuntime implements CommunityEventRuntime {
             .map((relayUrls) => relayUrls.get(event.id))
             .find((relayUrl) => relayUrl !== undefined) ?? "",
       }));
+  }
+
+  async clearPrivate(): Promise<void> {
+    await this.#writeQueue;
+    for (const [scopeId, events] of this.#events) {
+      const privateGroups = new Set(
+        [...events.values()]
+          .filter(
+            (event) =>
+              event.kind === 39000 &&
+              event.tags.some(
+                (tag) => tag[0] === "private" || tag[0] === "hidden",
+              ),
+          )
+          .flatMap((event) =>
+            event.tags.filter((tag) => tag[0] === "d").map((tag) => tag[1]),
+          ),
+      );
+      for (const [id, event] of events)
+        if (
+          this.#privateIds.has(id) ||
+          [1059, 30622].includes(event.kind) ||
+          event.tags.some(
+            (tag) =>
+              (tag[0] === "h" || tag[0] === "d") && privateGroups.has(tag[1]),
+          )
+        ) {
+          events.delete(id);
+          this.#relayUrls.get(scopeId)?.delete(id);
+        }
+    }
+    this.#privateIds.clear();
+    this.#revision += 1;
   }
 
   async clear(scope?: CommunityScope): Promise<void> {

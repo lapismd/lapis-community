@@ -124,3 +124,10 @@ local Community server in an isolated browser profile and publishes no events.
 Guarded local package substitution may point at an ignored Design Core tarball
 for cross-repository consumer verification; the hook retains the published
 semver dependency whenever that local artifact is absent.
+
+For LC-SPEC-002, the package README describes implemented messaging transports,
+Inbox actions, unified Agents and project channel canvases, and links the owning
+protocol contracts and public UI catalog examples. Verification distinguishes a
+failed aggregate command from successful cold Storybook partitions, preserves
+existing live-only exclusions, and records functional checks separately from
+pending human visual review.

@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from "svelte";
+  import CommunityAgentProcessingControl from "../community-agent-processing-control/CommunityAgentProcessingControl.svelte";
   import CommunitySkeleton from "../community-skeleton/CommunitySkeleton.svelte";
   import { Button } from "@lapismd/design-core/shadcn/button";
   import { DialogFrame } from "@lapismd/design-core/forms/dialog";
@@ -35,6 +36,7 @@
     CommunityAgentPersonaSaveInput,
     CommunityAgentSaveInput,
     CommunityAgentRuntimeState,
+    CommunityAgentProcessingState,
     CommunityAgentsState,
   } from "../../community/agent-contracts.js";
   import CommunityAgentEditorDialog from "../community-agent-editor/CommunityAgentEditorDialog.svelte";
@@ -50,6 +52,8 @@
     onSavePersona,
     onSaveAgent,
     onSaveRuntime,
+    onLoadProcessing,
+    onSetProcessing,
     onUnlinkPersona,
     onDeletePersona,
     onCreateManagedAgent,
@@ -79,6 +83,16 @@
         thinking?: "off" | "low" | "medium" | "high";
       },
     ) => Promise<CommunityAgentRuntimeState>;
+    onLoadProcessing?:
+      | ((pubkey: string) => Promise<CommunityAgentProcessingState>)
+      | undefined;
+    onSetProcessing?:
+      | ((
+          pubkey: string,
+          enabled: boolean,
+          revision: number,
+        ) => Promise<CommunityAgentProcessingState>)
+      | undefined;
     onUnlinkPersona?: (pubkey: string, fallbackName: string) => Promise<void>;
     onDeletePersona?: (slug: string) => Promise<void>;
     onCreateManagedAgent?: (
@@ -161,6 +175,24 @@
         !model.agents.some((current) => current.pubkey === agent.pubkey),
     ),
   );
+  const setupDrafts = $derived(
+    model.personas.filter(
+      (persona) =>
+        !model.agents.some(
+          (agent) => agent.instance?.personaId === persona.slug,
+        ),
+    ),
+  );
+  function continueSetup(persona: CommunityAgentPersona) {
+    agentName = persona.displayName;
+    agentDescription = persona.description;
+    avatarUrl = persona.avatarUrl ?? "";
+    agentInstructions = persona.systemPrompt ?? "";
+    personaSlug = persona.slug;
+    addMode = "create";
+    provisioningMode = managedAvailable ? "managed" : "existing";
+    adding = true;
+  }
   const selectedPersona = $derived(
     model.personas.find((persona) => persona.slug === selectedPersonaSlug),
   );
@@ -190,21 +222,21 @@
     if (!displayName) {
       addFeedback =
         addMode === "existing"
-          ? "Choose a saved persona."
-          : "Enter a persona name.";
+          ? "Choose an agent setup draft."
+          : "Enter an agent name.";
       return;
     }
     const slug =
       addMode === "existing"
         ? (selectedPersona?.slug ?? "")
-        : personaSlug.trim() || personaSlugFromName(displayName);
+        : personaSlug.trim() ||
+          `agent-${crypto.randomUUID().replaceAll("-", "")}`;
     if (!/^[a-z0-9][a-z0-9_-]{0,63}$/.test(slug)) {
-      addFeedback =
-        "Persona ID must use lowercase letters, numbers, hyphens, or underscores.";
+      addFeedback = "The saved configuration ID is invalid.";
       return;
     }
     if (!onSaveAgent) {
-      addFeedback = "Persona management is unavailable in this runtime.";
+      addFeedback = "Agent management is unavailable in this runtime.";
       return;
     }
     addingPending = true;
@@ -243,8 +275,7 @@
       nameMode = "instance";
       addMode = "create";
       selectedPersonaSlug = "";
-      feedback =
-        "Persona and agent link saved. The agent appears after its profile proves ownership.";
+      feedback = "Agent saved. It appears after its profile proves ownership.";
     } catch (error) {
       addFeedback =
         error instanceof Error
@@ -267,17 +298,17 @@
     if (!displayName) {
       addFeedback =
         addMode === "existing"
-          ? "Choose a saved persona."
-          : "Enter a persona name.";
+          ? "Choose an agent setup draft."
+          : "Enter an agent name.";
       return;
     }
     const slug =
       addMode === "existing"
         ? (selectedPersona?.slug ?? "")
-        : personaSlug.trim() || personaSlugFromName(displayName);
+        : personaSlug.trim() ||
+          `agent-${crypto.randomUUID().replaceAll("-", "")}`;
     if (!/^[a-z0-9][a-z0-9_-]{0,63}$/.test(slug)) {
-      addFeedback =
-        "Persona ID must use lowercase letters, numbers, hyphens, or underscores.";
+      addFeedback = "The saved configuration ID is invalid.";
       return;
     }
     addingPending = true;
@@ -439,16 +470,15 @@
     const displayName = editorName.trim();
     const slug = editorSlug.trim() || personaSlugFromName(displayName);
     if (!displayName) {
-      personaFeedback = "Enter a persona name.";
+      personaFeedback = "Enter an agent name.";
       return;
     }
     if (!/^[a-z0-9][a-z0-9_-]{0,63}$/.test(slug)) {
-      personaFeedback =
-        "Persona ID must use lowercase letters, numbers, hyphens, or underscores.";
+      personaFeedback = "The saved configuration ID is invalid.";
       return;
     }
     if (!onSavePersona) {
-      personaFeedback = "Persona management is unavailable in this runtime.";
+      personaFeedback = "Agent management is unavailable in this runtime.";
       return;
     }
     personaPending = true;
@@ -655,6 +685,20 @@
               </DropdownMenu.Group>
             </DropdownMenu.Content>
           </DropdownMenu.Root>
+          {#if onLoadProcessing && onSetProcessing}
+            <CommunityAgentProcessingControl
+              agentPubkey={agent.pubkey}
+              state={model.processing?.[agent.pubkey]}
+              onLoad={() => onLoadProcessing!(agent.pubkey)}
+              onSet={(enabled, revision) =>
+                onSetProcessing!(agent.pubkey, enabled, revision)}
+            />
+          {/if}
+          {#if agent.personaStatus === "unresolved"}<Button
+              variant="ghost"
+              onclick={() => openAgentEditor(agent)}
+              >Restore configuration</Button
+            >{/if}
         </div>
       {/each}
     </div>
@@ -671,45 +715,30 @@
         >{/each}
     </section>
   {/if}
-  {#if model.personas.length > 0}
-    <section class="agents__personas" aria-label="Saved personas">
+  {#if setupDrafts.length > 0}
+    <section class="agents__personas" aria-label="Agent setup drafts">
       <div class="agents__personas-heading">
         <div>
-          <h2>Personas</h2>
-          <p>Reusable owner-managed presentation and saved configuration.</p>
+          <h2>Agent setup drafts</h2>
+          <p>Finish setting up these saved agents.</p>
         </div>
       </div>
       <ul>
-        {#each model.personas as persona (persona.slug)}
-          <li>
+        {#each setupDrafts as persona (persona.slug)}<li>
             <CommunityMemberAvatar
               member={communityPersonaMember(persona)}
               size="small"
               shape="rounded"
             />
             <span
-              ><strong>{persona.displayName}</strong><small
-                >{persona.slug}</small
+              ><strong>{persona.displayName}</strong><CommunityChip
+                size="compact">Setup required</CommunityChip
               ></span
             >
-            <div class="agents__persona-actions">
-              {#if onSavePersona}<Button
-                  variant="ghost"
-                  size="icon-sm"
-                  aria-label={`Edit persona ${persona.displayName}`}
-                  onclick={() => openPersona(persona)}
-                  ><PencilIcon aria-hidden="true" /></Button
-                >{/if}
-              {#if onDeletePersona}<Button
-                  variant="ghost"
-                  size="icon-sm"
-                  aria-label={`Delete persona ${persona.displayName}`}
-                  onclick={() => (personaToDelete = persona.slug)}
-                  ><TrashIcon aria-hidden="true" /></Button
-                >{/if}
-            </div>
-          </li>
-        {/each}
+            <Button variant="outline" onclick={() => continueSetup(persona)}
+              >Continue setup</Button
+            >
+          </li>{/each}
       </ul>
     </section>
   {/if}
@@ -827,10 +856,7 @@
             <dt>Owner</dt>
             <dd>{managedBundle.agent.ownerPubkey}</dd>
           </div>
-          <div>
-            <dt>Persona</dt>
-            <dd>{managedBundle.agent.persona}</dd>
-          </div>
+
           <div>
             <dt>Invitation expires</dt>
             <dd>
@@ -896,34 +922,6 @@
           {/if}
         </div>
         <div class="agents__add-fields">
-          <Field.Field>
-            <Field.Label for="community-agents-persona-mode"
-              >Persona</Field.Label
-            >
-            <Select.Root
-              type="single"
-              value={addMode}
-              onValueChange={(value) => {
-                addMode = value as "create" | "existing";
-                if (addMode === "existing")
-                  selectedPersonaSlug ||= model.personas[0]?.slug ?? "";
-              }}
-            >
-              <Select.Trigger id="community-agents-persona-mode"
-                >{addMode === "create"
-                  ? "Create a new persona"
-                  : "Use a saved persona"}</Select.Trigger
-              >
-              <Select.Content>
-                <Select.Item value="create">Create a new persona</Select.Item>
-                <Select.Item
-                  value="existing"
-                  disabled={model.personas.length === 0}
-                  >Use a saved persona</Select.Item
-                >
-              </Select.Content>
-            </Select.Root>
-          </Field.Field>
           {#if provisioningMode === "managed"}
             <div class="agents__custody-note">
               <ShieldCheckIcon aria-hidden="true" />
@@ -935,94 +933,36 @@
             </div>
           {/if}
           <Field.Group>
-            {#if addMode === "existing"}
-              <Field.Field
-                ><Field.Label for="community-agents-saved-persona"
-                  >Saved persona</Field.Label
-                ><Select.Root
-                  type="single"
-                  value={selectedPersonaSlug}
-                  onValueChange={(value) => (selectedPersonaSlug = value)}
-                  ><Select.Trigger id="community-agents-saved-persona"
-                    >{selectedPersona?.displayName ??
-                      "Choose a persona"}</Select.Trigger
-                  ><Select.Content
-                    >{#each model.personas as persona (persona.slug)}<Select.Item
-                        value={persona.slug}>{persona.displayName}</Select.Item
-                      >{/each}</Select.Content
-                  ></Select.Root
-                ><Field.Description
-                  >Links this agent to the existing persona without duplicating
-                  its prompt or presentation.</Field.Description
-                ></Field.Field
-              >
-            {:else}
-              <Field.Field
-                ><Field.Label for="community-agents-add-name"
-                  >Persona name</Field.Label
-                ><Input
-                  id="community-agents-add-name"
-                  bind:value={agentName}
-                  placeholder="Fizz"
-                /></Field.Field
-              >
-              <Field.Field
-                ><Field.Label for="community-agents-add-persona-id"
-                  >Persona ID <span>Optional</span></Field.Label
-                ><Input
-                  id="community-agents-add-persona-id"
-                  bind:value={personaSlug}
-                  autocomplete="off"
-                  placeholder={personaSlugFromName(agentName || "agent")}
-                /><Field.Description
-                  >A stable lowercase ID is generated from the name when left
-                  empty. Renaming the persona will not change it.</Field.Description
-                ></Field.Field
-              >
-              <Field.Field
-                ><Field.Label>Description <span>Optional</span></Field.Label
-                ><CommunityChatComposer
-                  mode="form"
-                  bind:value={agentDescription}
-                  ariaLabel="Agent description"
-                  placeholder="What this agent does, in a sentence"
-                /><Field.Description
-                  >Shown publicly on the agent's card and profile.</Field.Description
-                ></Field.Field
-              >
-              <Field.Field
-                ><Field.Label>Saved system prompt</Field.Label
-                ><CommunityChatComposer
-                  mode="form"
-                  bind:value={agentInstructions}
-                  placeholder="Describe what this agent should do."
-                  ariaLabel="Agent instructions"
-                /><Field.Description
-                  >Saved with the persona. A configured controller applies
-                  changes before the agent’s next idle turn.</Field.Description
-                ></Field.Field
-              >
-            {/if}
             <Field.Field
-              ><Field.Label for="community-agents-add-name-mode"
-                >Instance name</Field.Label
-              ><Select.Root
-                type="single"
-                value={nameMode}
-                onValueChange={(value) =>
-                  (nameMode = value as CommunityAgentNameMode)}
-                ><Select.Trigger id="community-agents-add-name-mode"
-                  >{nameMode === "inherited"
-                    ? "Use persona name"
-                    : "Keep instance name"}</Select.Trigger
-                ><Select.Content
-                  ><Select.Item value="instance">Keep instance name</Select.Item
-                  ><Select.Item value="inherited">Use persona name</Select.Item
-                  ></Select.Content
-                ></Select.Root
-              ><Field.Description
-                >This choice is stored explicitly even when both names currently
-                match.</Field.Description
+              ><Field.Label for="community-agents-add-name"
+                >Agent name</Field.Label
+              ><Input
+                id="community-agents-add-name"
+                bind:value={agentName}
+                placeholder="Fizz"
+              /></Field.Field
+            >
+            <Field.Field
+              ><Field.Label>Description <span>Optional</span></Field.Label
+              ><CommunityChatComposer
+                mode="form"
+                bind:value={agentDescription}
+                ariaLabel="Agent description"
+                placeholder="What this agent does, in a sentence"
+              /><Field.Description
+                >Shown publicly on the agent's card and profile.</Field.Description
+              ></Field.Field
+            >
+            <Field.Field
+              ><Field.Label>Saved system prompt</Field.Label
+              ><CommunityChatComposer
+                mode="form"
+                bind:value={agentInstructions}
+                placeholder="Describe what this agent should do."
+                ariaLabel="Agent instructions"
+              /><Field.Description
+                >A configured controller applies changes before the agent’s next
+                idle turn.</Field.Description
               ></Field.Field
             >
             {#if provisioningMode === "existing"}<Field.Field
@@ -1147,102 +1087,7 @@
     {/snippet}
   </DialogFrame>
 </Dialog.Root>
-<Dialog.Root bind:open={personaOpen}>
-  <DialogFrame
-    title="Edit persona"
-    description="Update reusable presentation and configuration under your owner identity."
-    descriptionHidden
-    busy={personaPending}
-    closeLabel="Close persona dialog"
-  >
-    <form
-      id="community-persona-form"
-      class="agents__persona-form"
-      onsubmit={(event) => {
-        event.preventDefault();
-        void savePersona();
-      }}
-    >
-      <CommunityAvatarPicker
-        bind:value={editorAvatarUrl}
-        label="Choose persona image"
-        disabled={personaPending}
-      />
-      <Field.Group>
-        <Field.Field
-          ><Field.Label for="community-persona-name">Persona name</Field.Label
-          ><Input
-            id="community-persona-name"
-            bind:value={editorName}
-            placeholder="Research assistant"
-          /></Field.Field
-        >
-        <Field.Field
-          ><Field.Label for="community-persona-id">Persona ID</Field.Label
-          ><Input
-            id="community-persona-id"
-            bind:value={editorSlug}
-            disabled
-            placeholder={personaSlugFromName(editorName || "agent")}
-          /><Field.Description
-            >This stable ID does not change when the persona is renamed.</Field.Description
-          ></Field.Field
-        >
-        <Field.Field
-          ><Field.Label>Description <span>Optional</span></Field.Label
-          ><CommunityChatComposer
-            mode="form"
-            bind:value={editorDescription}
-            ariaLabel="Persona description"
-            placeholder="What this persona does, in a sentence"
-          /></Field.Field
-        >
-        <Field.Field
-          ><Field.Label>Saved system prompt</Field.Label><CommunityChatComposer
-            mode="form"
-            bind:value={editorSystemPrompt}
-            ariaLabel="Persona system prompt"
-            placeholder="Describe what this persona should do."
-          /><Field.Description
-            >Saved with the persona. A configured controller applies changes
-            before the agent’s next idle turn.</Field.Description
-          ></Field.Field
-        >
-        {#if personaFeedback}<Field.Error>{personaFeedback}</Field.Error>{/if}
-      </Field.Group>
-    </form>
-    {#snippet footer()}
-      <Button
-        type="button"
-        variant="outline"
-        disabled={personaPending}
-        onclick={() => (personaOpen = false)}>Cancel</Button
-      ><Button
-        type="submit"
-        form="community-persona-form"
-        disabled={personaPending}
-        >{personaPending ? "Saving…" : "Save persona"}</Button
-      >
-    {/snippet}
-  </DialogFrame>
-</Dialog.Root>
-<ConfirmDialog
-  open={Boolean(personaToDelete)}
-  title="Delete this persona?"
-  description="The persona definition will be deleted. Linked agents remain registered and show their public-profile fallback until they are relinked."
-  confirmLabel="Delete persona"
-  destructive
-  onOpenChange={(open) => {
-    if (!open) personaToDelete = "";
-  }}
-  onConfirm={async () => {
-    if (!personaToDelete || !onDeletePersona) return;
-    const slug = personaToDelete;
-    await onDeletePersona(slug);
-    personaToDelete = "";
-    feedback = `Persona ${slug} deleted.`;
-  }}
-/>
+
 <ConfirmDialog
   open={Boolean(agentToRevoke)}
   title="Revoke controller access?"
@@ -1505,8 +1350,7 @@
     border-top: 1px solid var(--border);
     padding-top: 1.25rem;
   }
-  .agents__personas-heading,
-  .agents__persona-actions {
+  .agents__personas-heading {
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -1533,7 +1377,6 @@
     display: grid;
     min-width: 0;
   }
-  .agents__personas small,
   .agents__selected-persona span {
     color: var(--muted-foreground);
   }
@@ -1641,15 +1484,9 @@
     gap: 0.5rem;
     text-align: center;
   }
-  .agents__persona-form {
-    display: grid;
-    grid-template-columns: auto minmax(0, 1fr);
-    align-items: start;
-    gap: 1.25rem;
-  }
+
   @media (max-width: 40rem) {
-    .agents__add-form,
-    .agents__persona-form {
+    .agents__add-form {
       grid-template-columns: minmax(0, 1fr);
     }
   }

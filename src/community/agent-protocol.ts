@@ -212,6 +212,14 @@ export function agentInstance(
   const nameMode =
     explicitMode === "inherited" ? "inherited" : ("instance" as const);
   return {
+    dmAllowlist:
+      Array.isArray(content.dm_allowlist) &&
+      content.dm_allowlist.length <= 128 &&
+      content.dm_allowlist.every(
+        (key) => typeof key === "string" && AGENT_PUBKEY.test(key),
+      )
+        ? [...new Set(content.dm_allowlist as string[])].sort()
+        : [],
     agentPubkey: agentPubkey!,
     ...(AGENT_PERSONA_SLUG.test(personaId) ? { personaId } : {}),
     name: text(content.name).trim(),
