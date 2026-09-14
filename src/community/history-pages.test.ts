@@ -358,7 +358,7 @@ it("migrates version-four caches additively and indexes legacy rows without room
     ).toEqual([event]);
     expect(await store.readHistoryPage(scope, page.key)).toBeUndefined();
     const upgraded = await openDB(databaseName);
-    expect(upgraded.version).toBe(5);
+    expect(upgraded.version).toBe(6);
     expect(await upgraded.get("agentIdentities", "retained")).toEqual({
       label: "Existing agent identity",
     });

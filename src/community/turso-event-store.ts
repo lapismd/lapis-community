@@ -1,4 +1,11 @@
 import {
+  initializeCacheAccounting,
+  eventAccountingStatements,
+  cachePageStatements,
+  pruneCache,
+  clearCacheStatements,
+} from "./cache-accounting-sql.js";
+import {
   COMMUNITY_CACHE_METADATA_KINDS,
   cachedEventPage,
   cachePageLimit,
@@ -85,6 +92,7 @@ class TursoCommunityEventStore extends BaseCommunityEventStore {
   readonly #databaseName: string;
   readonly #maxBytes: number;
   #database: TursoDatabase | undefined;
+  #opening: Promise<void> | undefined;
   #releaseLock: (() => void) | undefined;
 
   constructor(options: TursoCommunityEventStoreOptions) {
@@ -94,8 +102,16 @@ class TursoCommunityEventStore extends BaseCommunityEventStore {
     this.#maxBytes = options.maxBytes ?? DEFAULT_MAX_BYTES;
   }
 
-  async open(): Promise<void> {
-    if (this.#database !== undefined) return;
+  open(): Promise<void> {
+    if (this.#opening) return this.#opening;
+    if (this.#database !== undefined) return Promise.resolve();
+    this.#opening = this.#initialize().finally(() => {
+      this.#opening = undefined;
+    });
+    return this.#opening;
+  }
+
+  async #initialize(): Promise<void> {
     if (!canUseTursoCommunityEventStore()) {
       throw new Error("Turso requires OPFS and cross-origin isolation");
     }
@@ -145,6 +161,7 @@ class TursoCommunityEventStore extends BaseCommunityEventStore {
         CREATE INDEX IF NOT EXISTS community_checkpoints_scope_idx
           ON community_checkpoints(scope_key);
       `);
+      await initializeCacheAccounting(this.#database);
       // Add the room index without discarding caches written before room_id was
       // populated. Keep decoding and writes bounded in the database owner.
       let afterKey = "";
@@ -193,6 +210,8 @@ class TursoCommunityEventStore extends BaseCommunityEventStore {
         // Existing databases may already contain the additive completion column.
       }
     } catch (cause) {
+      await this.#database?.close().catch(() => undefined);
+      this.#database = undefined;
       this.#releaseLock?.();
       this.#releaseLock = undefined;
       throw cause;
@@ -220,8 +239,8 @@ class TursoCommunityEventStore extends BaseCommunityEventStore {
         scopeKey,
       ),
       database.all<{ bytes: number }>(
-        "SELECT COALESCE(SUM(bytes), 0) AS bytes FROM community_events WHERE partition_key = ?",
-        partitionKey,
+        "SELECT bytes FROM community_cache_usage WHERE cache_key = ?",
+        `partition:${partitionKey}`,
       ),
     ]);
     const events = rows.flatMap((row) => {
@@ -330,12 +349,14 @@ class TursoCommunityEventStore extends BaseCommunityEventStore {
     const database = this.#requireDatabase();
     const scopeKey = communityCacheScopeKey(batch.scope);
     const statements: Array<{ sql: string; args?: unknown[] }> = [];
-    const eventRows: unknown[][] = [];
+    const eventRowsByKey = new Map<string, unknown[]>();
     for (const record of batch.records) {
       if (!isVerifiedNostrEvent(record.event)) continue;
       const partitionKey = `${scopeKey}:${communityCacheAudienceKey(record.audience)}`;
-      eventRows.push([
-        `${partitionKey}:${record.event.id}`,
+      const key = `${partitionKey}:${record.event.id}`;
+      const previous = eventRowsByKey.get(key);
+      eventRowsByKey.set(key, [
+        key,
         scopeKey,
         partitionKey,
         record.event.id,
@@ -344,12 +365,16 @@ class TursoCommunityEventStore extends BaseCommunityEventStore {
           record.event.tags.find((tag) => tag[0] === "h")?.[1] ??
           null,
         record.event.created_at,
-        record.lastAccessedAt ?? Date.now(),
+        Math.max(
+          record.lastAccessedAt ?? Date.now(),
+          Number(previous?.[7] ?? 0),
+        ),
         communityEventBytes(record),
         JSON.stringify(record.event),
       ]);
     }
-    for (const rows of chunks(eventRows, 60)) {
+    for (const rows of chunks([...eventRowsByKey.values()], 60)) {
+      statements.push(...eventAccountingStatements(rows));
       statements.push({
         sql: `INSERT INTO community_events(
           cache_key, scope_key, partition_key, event_id, relay_url, room_id,
@@ -362,18 +387,8 @@ class TursoCommunityEventStore extends BaseCommunityEventStore {
         args: rows.flat(),
       });
     }
-    for (const page of batch.historyPages ?? []) {
-      const json = JSON.stringify(page);
-      statements.push({
-        sql: "INSERT INTO community_history_pages(cache_key, scope_key, raw_json, bytes) VALUES (?, ?, ?, ?) ON CONFLICT(cache_key) DO UPDATE SET raw_json=excluded.raw_json, bytes=excluded.bytes",
-        args: [
-          `${scopeKey}:${page.key}`,
-          scopeKey,
-          json,
-          new TextEncoder().encode(json).byteLength,
-        ],
-      });
-    }
+    for (const page of batch.historyPages ?? [])
+      statements.push(...cachePageStatements(scopeKey, page));
     statements.push(
       ...(batch.checkpoints ?? []).map((checkpoint) =>
         checkpointStatement(scopeKey, checkpoint),
@@ -399,68 +414,18 @@ class TursoCommunityEventStore extends BaseCommunityEventStore {
   }
 
   async prune(): Promise<void> {
-    const database = this.#requireDatabase();
-    const [total] = await database.all<{ bytes: number }>(
-      "SELECT (SELECT COALESCE(SUM(bytes), 0) FROM community_events) + (SELECT COALESCE(SUM(bytes), 0) FROM community_history_pages) AS bytes",
-    );
-    let bytes = Number(total?.bytes ?? 0);
-    if (bytes <= this.#maxBytes) return;
-    const [pageBytes] = await database.all<{ bytes: number }>(
-      "SELECT COALESCE(SUM(bytes), 0) AS bytes FROM community_history_pages",
-    );
-    await database.exec("DELETE FROM community_history_pages");
-    bytes -= Number(pageBytes?.bytes ?? 0);
-    if (bytes <= this.#maxBytes) return;
-    const rows = await database.all<{ cache_key: string; bytes: number }>(
-      `SELECT cache_key, bytes FROM community_events
-       ORDER BY last_accessed_at ASC, created_at ASC`,
-    );
-    const statements: Array<{ sql: string; args: unknown[] }> = [];
-    for (const row of rows) {
-      statements.push({
-        sql: "DELETE FROM community_events WHERE cache_key = ?",
-        args: [row.cache_key],
-      });
-      bytes -= Number(row.bytes);
-      if (bytes <= this.#maxBytes) break;
-    }
-    if (statements.length > 0) await database.batch(statements, "immediate");
+    await pruneCache(this.#requireDatabase(), this.#maxBytes);
   }
 
   async clear(scope?: CommunityScope): Promise<void> {
-    const database = this.#requireDatabase();
-    if (scope === undefined) {
-      await database.batch(
-        [
-          { sql: "DELETE FROM community_events" },
-          { sql: "DELETE FROM community_checkpoints" },
-          { sql: "DELETE FROM community_history_pages" },
-        ],
-        "immediate",
-      );
-      return;
-    }
-    const key = communityCacheScopeKey(scope);
-    await database.batch(
-      [
-        {
-          sql: "DELETE FROM community_events WHERE scope_key = ?",
-          args: [key],
-        },
-        {
-          sql: "DELETE FROM community_history_pages WHERE scope_key = ?",
-          args: [key],
-        },
-        {
-          sql: "DELETE FROM community_checkpoints WHERE scope_key = ?",
-          args: [key],
-        },
-      ],
+    await this.#requireDatabase().batch(
+      clearCacheStatements(scope ? communityCacheScopeKey(scope) : undefined),
       "immediate",
     );
   }
 
   async close(): Promise<void> {
+    await this.#opening?.catch(() => undefined);
     await this.#database?.close();
     this.#database = undefined;
     this.#releaseLock?.();

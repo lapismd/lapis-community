@@ -121,3 +121,6 @@ Browser cache validation MUST preserve the registry's relay-derived source of
 truth: persisted history coverage and byte counters are disposable cache data.
 Evicting a cached event invalidates its dependent page coverage without changing
 unrelated cached pages or publishing replacement registry events.
+
+The native OPFS acceptance lane MUST reload a saved 50-message history page and
+verify that budget eviction preserves a separate page and its byte accounting.

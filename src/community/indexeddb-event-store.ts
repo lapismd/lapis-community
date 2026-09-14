@@ -60,6 +60,10 @@ interface IndexedCheckpointRow extends CommunitySyncCheckpoint {
 }
 
 interface CommunityCacheDb extends DBSchema {
+  cacheUsage: {
+    key: string;
+    value: { key: string; bytes: number };
+  };
   historyPages: {
     key: string;
     value: {
@@ -67,8 +71,10 @@ interface CommunityCacheDb extends DBSchema {
       scopeKey: string;
       page: CommunityHistoryPage;
       bytes: number;
+      lastAccessedAt: number;
+      eventKeys: string[];
     };
-    indexes: { scope: string };
+    indexes: { scope: string; access: number; eventKeys: string };
   };
   agentActivitySync: {
     key: string;
@@ -339,6 +345,7 @@ class IndexedDbCommunityEventStore extends BaseCommunityEventStore {
   readonly #databaseName: string;
   readonly #maxBytes: number;
   #database: IDBPDatabase<CommunityCacheDb> | undefined;
+  #opening: Promise<void> | undefined;
 
   constructor(options: IndexedDbCommunityEventStoreOptions) {
     super();
@@ -347,9 +354,17 @@ class IndexedDbCommunityEventStore extends BaseCommunityEventStore {
     this.#maxBytes = options.maxBytes ?? DEFAULT_MAX_BYTES;
   }
 
-  async open(): Promise<void> {
-    if (this.#database !== undefined) return;
-    this.#database = await openDB<CommunityCacheDb>(this.#databaseName, 5, {
+  open(): Promise<void> {
+    if (this.#opening) return this.#opening;
+    if (this.#database !== undefined) return Promise.resolve();
+    this.#opening = this.#initialize().finally(() => {
+      this.#opening = undefined;
+    });
+    return this.#opening;
+  }
+
+  async #initialize(): Promise<void> {
+    this.#database = await openDB<CommunityCacheDb>(this.#databaseName, 6, {
       upgrade(database, oldVersion, _newVersion, transaction) {
         if (oldVersion < 1) {
           const events = database.createObjectStore("events", {
@@ -394,6 +409,39 @@ class IndexedDbCommunityEventStore extends BaseCommunityEventStore {
             }
           })().catch(() => transaction.abort());
         }
+        if (oldVersion < 6) {
+          const usage = database.createObjectStore("cacheUsage", {
+            keyPath: "key",
+          });
+          const pages = transaction.objectStore("historyPages");
+          pages.createIndex("access", "lastAccessedAt");
+          pages.createIndex("eventKeys", "eventKeys", { multiEntry: true });
+          void (async () => {
+            const totals = new Map<string, number>();
+            let eventCursor = await transaction
+              .objectStore("events")
+              .openCursor();
+            while (eventCursor) {
+              const row = eventCursor.value;
+              addByteDelta(totals, "total", row.bytes);
+              addByteDelta(totals, `partition:${row.partitionKey}`, row.bytes);
+              eventCursor = await eventCursor.continue();
+            }
+            let pageCursor = await pages.openCursor();
+            while (pageCursor) {
+              const row = pageCursor.value;
+              const partition = `${row.scopeKey}:${communityCacheAudienceKey(row.page.audience)}`;
+              await pageCursor.update({
+                ...row,
+                lastAccessedAt: row.page.synchronizedAt * 1000,
+                eventKeys: row.page.eventIds.map((id) => `${partition}:${id}`),
+              });
+              addByteDelta(totals, "total", row.bytes);
+              pageCursor = await pageCursor.continue();
+            }
+            for (const [key, bytes] of totals) await usage.put({ key, bytes });
+          })().catch(() => transaction.abort());
+        }
         if (oldVersion < 2) {
           const activity = database.createObjectStore("agentActivity", {
             keyPath: "key",
@@ -436,7 +484,7 @@ class IndexedDbCommunityEventStore extends BaseCommunityEventStore {
     const database = this.#requireDatabase();
     const scopeKey = communityCacheScopeKey(scope);
     const partitionKey = `${scopeKey}:${communityCacheAudienceKey(audience)}`;
-    const [rows, checkpoints] = await Promise.all([
+    const [rows, checkpoints, usage] = await Promise.all([
       metadataOnly
         ? Promise.all(
             COMMUNITY_CACHE_METADATA_KINDS.map((kind) =>
@@ -452,6 +500,7 @@ class IndexedDbCommunityEventStore extends BaseCommunityEventStore {
           ).then((rows) => rows.flat())
         : database.getAllFromIndex("events", "partition", partitionKey),
       database.getAllFromIndex("checkpoints", "scope", scopeKey),
+      database.get("cacheUsage", `partition:${partitionKey}`),
     ]);
     const validRows = rows
       .flatMap((row) => {
@@ -477,7 +526,7 @@ class IndexedDbCommunityEventStore extends BaseCommunityEventStore {
           ? {}
           : { complete: checkpoint.complete }),
       })),
-      approximateBytes: validRows.reduce((total, row) => total + row.bytes, 0),
+      approximateBytes: usage?.bytes ?? 0,
     };
   }
 
@@ -558,55 +607,75 @@ class IndexedDbCommunityEventStore extends BaseCommunityEventStore {
   }
 
   async commit(batch: CommunityVerifiedEventBatch): Promise<void> {
-    const database = this.#requireDatabase();
     const scopeKey = communityCacheScopeKey(batch.scope);
-    const transaction = database.transaction(
-      ["events", "checkpoints", "historyPages"],
+    const transaction = this.#requireDatabase().transaction(
+      ["events", "checkpoints", "historyPages", "cacheUsage"],
       "readwrite",
     );
-    for (const record of batch.records) {
-      if (!isVerifiedNostrEvent(record.event)) continue;
-      const audience = communityCacheAudienceKey(record.audience);
-      const partitionKey = `${scopeKey}:${audience}`;
-      const key = `${partitionKey}:${record.event.id}`;
-      const current = await transaction.objectStore("events").get(key);
-      await transaction.objectStore("events").put({
-        key,
-        scopeKey,
-        partitionKey,
-        eventId: record.event.id,
-        event: record.event,
-        relayUrl: record.relayUrl,
-        ...((record.roomId ??
-          record.event.tags.find((tag) => tag[0] === "h")?.[1]) === undefined
-          ? {}
-          : {
-              roomId:
-                record.roomId ??
-                record.event.tags.find((tag) => tag[0] === "h")![1]!,
-            }),
-        createdAt: record.event.created_at,
-        lastAccessedAt: Math.max(
-          record.lastAccessedAt ?? Date.now(),
-          current?.lastAccessedAt ?? 0,
-        ),
-        bytes: communityEventBytes(record),
-      });
+    try {
+      const deltas = new Map<string, number>();
+      for (const record of batch.records) {
+        if (!isVerifiedNostrEvent(record.event)) continue;
+        const partitionKey = `${scopeKey}:${communityCacheAudienceKey(record.audience)}`;
+        const key = `${partitionKey}:${record.event.id}`;
+        const current = await transaction.objectStore("events").get(key);
+        const bytes = communityEventBytes(record);
+        const roomId =
+          record.roomId ?? record.event.tags.find((tag) => tag[0] === "h")?.[1];
+        await transaction.objectStore("events").put({
+          key,
+          scopeKey,
+          partitionKey,
+          eventId: record.event.id,
+          event: record.event,
+          relayUrl: record.relayUrl,
+          ...(roomId === undefined ? {} : { roomId }),
+          createdAt: record.event.created_at,
+          lastAccessedAt: Math.max(
+            record.lastAccessedAt ?? Date.now(),
+            current?.lastAccessedAt ?? 0,
+          ),
+          bytes,
+        });
+        addByteDelta(deltas, "total", bytes - (current?.bytes ?? 0));
+        addByteDelta(
+          deltas,
+          `partition:${partitionKey}`,
+          bytes - (current?.bytes ?? 0),
+        );
+      }
+      for (const page of batch.historyPages ?? []) {
+        const key = `${scopeKey}:${page.key}`;
+        const pages = transaction.objectStore("historyPages");
+        const previous = await pages.get(key);
+        const bytes = new TextEncoder().encode(JSON.stringify(page)).byteLength;
+        const partition = `${scopeKey}:${communityCacheAudienceKey(page.audience)}`;
+        await pages.put({
+          key,
+          scopeKey,
+          page,
+          bytes,
+          lastAccessedAt: Date.now(),
+          eventKeys: page.eventIds.map((id) => `${partition}:${id}`),
+        });
+        addByteDelta(deltas, "total", bytes - (previous?.bytes ?? 0));
+      }
+      for (const checkpoint of batch.checkpoints ?? [])
+        await transaction
+          .objectStore("checkpoints")
+          .put(checkpointRow(scopeKey, checkpoint));
+      await applyByteDeltas(transaction.objectStore("cacheUsage"), deltas);
+      await pruneCacheTransaction(transaction, this.#maxBytes);
+      await transaction.done;
+    } catch (cause) {
+      try {
+        transaction.abort();
+      } catch {
+        /* The failed transaction may already be closed. */
+      }
+      await transaction.done.catch(() => undefined);
+      throw cause;
     }
-    for (const page of batch.historyPages ?? [])
-      await transaction.objectStore("historyPages").put({
-        key: `${scopeKey}:${page.key}`,
-        scopeKey,
-        page,
-        bytes: new TextEncoder().encode(JSON.stringify(page)).byteLength,
-      });
-    for (const checkpoint of batch.checkpoints ?? []) {
-      await transaction
-        .objectStore("checkpoints")
-        .put(checkpointRow(scopeKey, checkpoint));
-    }
-    await transaction.done;
-    await this.prune();
   }
 
   async markSynchronized(
@@ -623,67 +692,54 @@ class IndexedDbCommunityEventStore extends BaseCommunityEventStore {
   }
 
   async prune(): Promise<void> {
-    const database = this.#requireDatabase();
-    const rows = await database.getAllFromIndex("events", "access");
-    let total = rows.reduce((sum, row) => sum + row.bytes, 0);
-    const pages = await database.getAll("historyPages");
-    if (
-      total + pages.reduce((sum, page) => sum + page.bytes, 0) <=
-      this.#maxBytes
-    )
-      return;
-    await database.clear("historyPages");
-    if (total <= this.#maxBytes) return;
-    const transaction = database.transaction("events", "readwrite");
-    for (const row of rows) {
-      await transaction.store.delete(row.key);
-      total -= row.bytes;
-      if (total <= this.#maxBytes) break;
-    }
+    const transaction = this.#requireDatabase().transaction(
+      ["events", "historyPages", "cacheUsage"],
+      "readwrite",
+    );
+    await pruneCacheTransaction(transaction, this.#maxBytes);
     await transaction.done;
   }
 
   async clear(scope?: CommunityScope): Promise<void> {
-    const database = this.#requireDatabase();
+    const transaction = this.#requireDatabase().transaction(
+      ["events", "checkpoints", "historyPages", "cacheUsage"],
+      "readwrite",
+    );
     if (scope === undefined) {
-      const transaction = database.transaction(
-        ["events", "checkpoints", "historyPages"],
-        "readwrite",
-      );
       await transaction.objectStore("events").clear();
       await transaction.objectStore("checkpoints").clear();
       await transaction.objectStore("historyPages").clear();
-      await transaction.done;
-      return;
+      await transaction.objectStore("cacheUsage").clear();
+    } else {
+      const scopeKey = communityCacheScopeKey(scope);
+      const usage = transaction.objectStore("cacheUsage");
+      const prefix = `partition:${scopeKey}:`;
+      const partitions = await usage.getAll(
+        IDBKeyRange.bound(prefix, `${prefix}\uffff`),
+      );
+      let removedBytes = 0;
+      for (const partition of partitions) {
+        removedBytes += partition.bytes;
+        await usage.delete(partition.key);
+      }
+      const pages = transaction.objectStore("historyPages");
+      for (const page of await pages.index("scope").getAll(scopeKey)) {
+        removedBytes += page.bytes;
+        await pages.delete(page.key);
+      }
+      const events = transaction.objectStore("events");
+      for (const key of await events.index("scope").getAllKeys(scopeKey))
+        await events.delete(key);
+      const checkpoints = transaction.objectStore("checkpoints");
+      for (const key of await checkpoints.index("scope").getAllKeys(scopeKey))
+        await checkpoints.delete(key);
+      await applyByteDeltas(usage, new Map([["total", -removedBytes]]));
     }
-    const scopeKey = communityCacheScopeKey(scope);
-    const transaction = database.transaction(
-      ["events", "checkpoints", "historyPages"],
-      "readwrite",
-    );
-    for (const key of await transaction
-      .objectStore("historyPages")
-      .index("scope")
-      .getAllKeys(scopeKey))
-      await transaction.objectStore("historyPages").delete(key);
-    const eventKeys = await transaction
-      .objectStore("events")
-      .index("scope")
-      .getAllKeys(scopeKey);
-    const checkpointKeys = await transaction
-      .objectStore("checkpoints")
-      .index("scope")
-      .getAllKeys(scopeKey);
-    await Promise.all([
-      ...eventKeys.map((key) => transaction.objectStore("events").delete(key)),
-      ...checkpointKeys.map((key) =>
-        transaction.objectStore("checkpoints").delete(key),
-      ),
-    ]);
     await transaction.done;
   }
 
   async close(): Promise<void> {
+    await this.#opening?.catch(() => undefined);
     this.#database?.close();
     this.#database = undefined;
   }
@@ -714,4 +770,73 @@ function normalizeRelayUrl(value: string): string {
   url.search = "";
   url.pathname = url.pathname.replace(/\/+$/u, "") || "/";
   return url.toString();
+}
+
+function addByteDelta(
+  deltas: Map<string, number>,
+  key: string,
+  amount: number,
+): void {
+  deltas.set(key, (deltas.get(key) ?? 0) + amount);
+}
+
+interface CacheUsageStore {
+  get(key: string): Promise<{ key: string; bytes: number } | undefined>;
+  put(value: { key: string; bytes: number }): Promise<unknown>;
+}
+async function applyByteDeltas(
+  store: CacheUsageStore,
+  deltas: ReadonlyMap<string, number>,
+): Promise<void> {
+  for (const [key, delta] of deltas) {
+    if (delta === 0) continue;
+    const current = await store.get(key);
+    await store.put({ key, bytes: (current?.bytes ?? 0) + delta });
+  }
+}
+
+type CachePruningTransaction = import("idb").IDBPTransaction<
+  CommunityCacheDb,
+  ("events" | "historyPages" | "cacheUsage" | "checkpoints")[],
+  "readwrite"
+>;
+async function pruneCacheTransaction(
+  transaction: CachePruningTransaction,
+  maxBytes: number,
+): Promise<void> {
+  const usage = transaction.objectStore("cacheUsage");
+  let total = (await usage.get("total"))?.bytes ?? 0;
+  if (total <= maxBytes) return;
+  const events = transaction.objectStore("events"),
+    pages = transaction.objectStore("historyPages");
+  const deltas = new Map<string, number>();
+  const removePage = async (key: string) => {
+    const page = await pages.get(key);
+    if (!page) return;
+    await pages.delete(key);
+    total -= page.bytes;
+  };
+  while (total > maxBytes) {
+    const [eventCursor, pageCursor] = await Promise.all([
+      events.index("access").openCursor(),
+      pages.index("access").openCursor(),
+    ]);
+    if (!eventCursor && !pageCursor) break;
+    if (
+      pageCursor &&
+      (!eventCursor ||
+        pageCursor.value.lastAccessedAt < eventCursor.value.lastAccessedAt)
+    ) {
+      await removePage(pageCursor.value.key);
+    } else if (eventCursor) {
+      const row = eventCursor.value;
+      for (const key of await pages.index("eventKeys").getAllKeys(row.key))
+        await removePage(key);
+      await eventCursor.delete();
+      total -= row.bytes;
+      addByteDelta(deltas, `partition:${row.partitionKey}`, -row.bytes);
+    }
+  }
+  await applyByteDeltas(usage, deltas);
+  await usage.put({ key: "total", bytes: total });
 }

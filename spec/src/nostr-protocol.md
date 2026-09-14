@@ -422,3 +422,7 @@ uppercase root tag. NIP-17 queries recipient envelopes, orders decoded messages
 by inner timestamps, and reconciles randomized wrapper timestamps with a
 two-day overlap. A saturated timestamp or incomplete relay response MUST NOT
 establish complete coverage; preserved page gaps keep count claims partial.
+
+The isolated browser archive contract also verifies public history-page replay,
+metadata-only restoration, and selective cache eviction with generated signed
+fixtures. It MUST NOT publish those fixtures or use an operator's browser profile.

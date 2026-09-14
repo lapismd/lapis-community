@@ -213,3 +213,120 @@ it("retains and indexes legacy SQL messages with no denormalized room identity",
     await store.close();
   }
 });
+
+it("accounts for duplicate writes and metadata-only reads without scanning cached byte totals", async () => {
+  const fixture = databaseFixture();
+  const store = createTursoCommunityEventStore();
+  await store.open();
+  await store.commit(batch);
+  const before = await store.restoreMetadata(scope);
+  fixture.query.mockClear();
+  await store.commit(batch);
+  expect((await store.restoreMetadata(scope)).approximateBytes).toBe(
+    before.approximateBytes,
+  );
+  expect(
+    fixture.query.mock.calls.some(([sql]) => sql.includes("SUM(bytes)")),
+  ).toBe(false);
+  const usage = fixture.sqlite
+    .prepare("SELECT bytes FROM community_cache_usage WHERE cache_key='total'")
+    .get()!;
+  const actual = fixture.sqlite
+    .prepare(
+      "SELECT (SELECT COALESCE(SUM(bytes),0) FROM community_events)+(SELECT COALESCE(SUM(bytes),0) FROM community_history_pages) AS bytes",
+    )
+    .get()!;
+  expect(usage.bytes).toBe(actual.bytes);
+  await store.close();
+});
+
+it("rolls back byte accounting when a page write fails and retains existing coverage", async () => {
+  const fixture = databaseFixture();
+  const store = createTursoCommunityEventStore();
+  await store.open();
+  await store.commit(batch);
+  const before = fixture.sqlite
+    .prepare("SELECT bytes FROM community_cache_usage WHERE cache_key='total'")
+    .get()!.bytes;
+  const added = finalizeEvent(
+    {
+      kind: 9,
+      created_at: 200,
+      content: "A failed new page",
+      tags: [["h", "room"]],
+    },
+    new Uint8Array(32).fill(72),
+  );
+  fixture.setFailure(true);
+  await expect(
+    store.commit({
+      scope,
+      records: [
+        {
+          event: added,
+          relayUrl: scope.relayUrl,
+          audience: { type: "public" },
+        },
+      ],
+      historyPages: [
+        {
+          ...page,
+          key: "failed",
+          eventIds: [added.id],
+          primaryEventIds: [added.id],
+        },
+      ],
+    }),
+  ).rejects.toThrow("Simulated disk failure");
+  fixture.setFailure(false);
+  expect(
+    fixture.sqlite
+      .prepare(
+        "SELECT bytes FROM community_cache_usage WHERE cache_key='total'",
+      )
+      .get()!.bytes,
+  ).toBe(before);
+  expect(await store.readHistoryPage(scope, page.key)).toBeDefined();
+  expect(await store.readHistoryPage(scope, "failed")).toBeUndefined();
+  expect(
+    (await store.restore(scope)).events.some((event) => event.id === added.id),
+  ).toBe(false);
+  await store.close();
+});
+
+it("coalesces concurrent Turso opens and waits for initialization before closing", async () => {
+  databaseFixture();
+  const connectDatabase = connect.getMockImplementation()!;
+  let release!: () => void;
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  connect.mockImplementation(async () => {
+    await gate;
+    return connectDatabase();
+  });
+  const store = createTursoCommunityEventStore();
+  const first = store.open(),
+    second = store.open();
+  const closed = store.close();
+  release();
+  await Promise.all([first, second, closed]);
+  expect(connect).toHaveBeenCalledTimes(1);
+  await expect(store.restoreMetadata(scope)).rejects.toThrow("not open");
+});
+
+it("closes a failed Turso candidate and permits a fresh open on retry", async () => {
+  const failed = databaseFixture();
+  const connection = await connect.getMockImplementation()!();
+  connection.exec = async () => {
+    throw new Error("Initialization failed");
+  };
+  const store = createTursoCommunityEventStore();
+  await expect(store.open()).rejects.toThrow("Initialization failed");
+  expect(() => failed.sqlite.prepare("SELECT 1")).toThrow();
+  databaseFixture();
+  await store.open();
+  await store.commit(batch);
+  expect(await store.readHistoryPage(scope, page.key)).toBeDefined();
+  await store.close();
+});

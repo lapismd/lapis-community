@@ -311,7 +311,7 @@ it("clears pre-v2 IndexedDB activity while preserving identities and ordinary ev
   expect((await store.agentActivity!.agents(scope))[0]?.name).toBe("Research");
   await store.close();
   const migrated = await openDB(databaseName);
-  expect(migrated.version).toBe(5);
+  expect(migrated.version).toBe(6);
   expect(await migrated.count("events")).toBe(1);
   migrated.close();
 });

@@ -100,6 +100,22 @@ try {
             audience: { type: "public" },
             roomId: "general",
           })),
+          historyPages: [
+            {
+              key: "general-head",
+              audience: { type: "public" },
+              relayUrls: [scope.relayUrl],
+              request: {
+                collection: "channel-roots",
+                groupId: "general",
+                limit: 50,
+              },
+              eventIds: events.slice(-50).map((event) => event.id),
+              primaryEventIds: events.slice(-50).map((event) => event.id),
+              hasOlder: true,
+              synchronizedAt: 500,
+            },
+          ],
         };
         const archiveScope = {
           communityId: scope.id,
@@ -195,6 +211,14 @@ try {
               relayUrl: "wss://relay.example",
               rooms: [],
             });
+            const scope = {
+              id: "archive-acceptance",
+              name: "Archive acceptance",
+              relayUrl: "wss://relay.example",
+              rooms: [],
+            };
+            const metadata = await store.restoreMetadata(scope);
+            const head = await store.readHistoryPage(scope, "general-head");
             const history = await store.agentActivity.page({
               scope: {
                 communityId: "archive-acceptance",
@@ -224,6 +248,11 @@ try {
             await store.close();
             return {
               cached: cached.events.length,
+              head: head?.events.length,
+              metadataEvents: metadata.events.length,
+              accounted:
+                metadata.approximateBytes === cached.approximateBytes &&
+                metadata.approximateBytes > 0,
               saved: history.records.length,
               cleared: cleared.records.length,
               offset: checkpoint?.offset,
@@ -245,13 +274,106 @@ try {
   );
   assert.deepEqual(reopened, {
     cached: 240,
+    head: 50,
+    metadataEvents: 0,
+    accounted: true,
     saved: 3,
     cleared: 0,
     offset: 3,
     notBefore: 600,
   });
+  const eviction = await page.evaluate(
+    async ({ source, events }) => {
+      const { createTursoCommunityEventStore } = await import(
+        `/@fs${source}turso-event-store.ts`
+      );
+      const { communityEventBytes } = await import(
+        `/@fs${source}event-store.ts`
+      );
+      const { verifiedNostrEvent } = await import(
+        `/@fs${source}verified-events.ts`
+      );
+      const scope = {
+        id: "eviction",
+        name: "Eviction",
+        relayUrl: "wss://relay.example",
+      };
+      const records = events.slice(0, 3).map((event, index) => ({
+        event: verifiedNostrEvent(event),
+        relayUrl: scope.relayUrl,
+        audience: { type: "public" },
+        lastAccessedAt: index + 1,
+      }));
+      const head = (key, record) => ({
+        key,
+        audience: { type: "public" },
+        relayUrls: [scope.relayUrl],
+        request: { collection: "channel-roots", groupId: "general", limit: 50 },
+        eventIds: [record.event.id],
+        primaryEventIds: [record.event.id],
+        hasOlder: false,
+        synchronizedAt: 500,
+      });
+      const first = head("first", records[0]),
+        second = head("second", records[1]);
+      const size = (page) =>
+        new TextEncoder().encode(JSON.stringify(page)).byteLength;
+      const maximum =
+        communityEventBytes(records[1]) +
+        communityEventBytes(records[2]) +
+        size(second) +
+        1;
+      const store = createTursoCommunityEventStore({
+        databaseName: `cache-eviction-${crypto.randomUUID()}.db`,
+        maxBytes: maximum,
+      });
+      let timer;
+      try {
+        return await Promise.race([
+          (async () => {
+            await store.open();
+            await store.commit({
+              scope,
+              records: records.slice(0, 2),
+              historyPages: [first, second],
+            });
+            await store.commit({ scope, records: [records[2]] });
+            const removed = await store.readHistoryPage(scope, first.key);
+            const retained = await store.readHistoryPage(scope, second.key);
+            const metadata = await store.restoreMetadata(scope);
+            const expected =
+              communityEventBytes(records[1]) + communityEventBytes(records[2]);
+            await store.clear(scope);
+            const cleared = await store.restoreMetadata(scope);
+            await store.close();
+            return {
+              removed: removed === undefined,
+              retained: retained?.events[0]?.id === records[1].event.id,
+              accounted: metadata.approximateBytes === expected,
+              cleared: cleared.approximateBytes === 0,
+            };
+          })(),
+          new Promise((_, reject) => {
+            timer = setTimeout(
+              () => reject(new Error("Native cache eviction blocked")),
+              15000,
+            );
+          }),
+        ]);
+      } finally {
+        clearTimeout(timer);
+      }
+    },
+    { source, events },
+  );
+  assert.deepEqual(eviction, {
+    removed: true,
+    retained: true,
+    accounted: true,
+    cleared: true,
+  });
   console.log(
-    "Browser cache replay, atomic agent checkpoint, suppression, pagination and reload passed.",
+    "Browser cache replay, atomic agent checkpoint, suppression, history pages, accounting, selective eviction and reload passed.",
   );
 } finally {
   await browser.close();

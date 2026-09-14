@@ -451,3 +451,17 @@ incomplete coverage remain lower bounds. The transition inventory tracks the
 remaining cross-application and scale acceptance work.
 
 Member-search results, transient operation state and saved timeline positions remain independently reactive, so they do not invalidate the composed conversation state. Sign-out invalidates pending signer lookups before anonymous synchronization; stale successes, failures and subscriptions cannot restore the previous identity. Cache schema upgrades retain existing message and agent records and populate missing room indexes additively.
+
+For LC-ARCH-011, the 64 MiB event-and-page cache budget MUST use byte accounting
+updated with its writes. Metadata-only restoration MUST report the entire
+requested audience partition without reading its message payloads. An
+under-budget commit MUST NOT scan all cached events to compute storage usage.
+Eviction MUST use access indexes, atomically remove coverage that references
+an evicted event, preserve unrelated cached pages, and bound empty-page storage.
+Memory access indexes MUST remain bounded when existing events are touched.
+IndexedDB and Turso migrations MUST retain event and agent records and initialize
+accounting from the existing cache. Failed transactions MUST NOT advance byte
+usage or coverage. Concurrent persistent-store opens MUST share initialization;
+closing or failed initialization MUST release the candidate database and its
+owner lock. Turso eviction MUST yield between bounded batches in its supported
+owner context.

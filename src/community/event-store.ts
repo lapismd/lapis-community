@@ -1,3 +1,4 @@
+import { CacheAccessOrder } from "./cache-access-order.js";
 import {
   COMMUNITY_CACHE_METADATA_KINDS,
   cachedEventPage,
@@ -96,6 +97,12 @@ class MemoryCommunityEventStore extends BaseCommunityEventStore {
   readonly #ordered = new Map<string, StoredRecord[]>();
   readonly #historyPages = new Map<string, CommunityHistoryPage>();
   readonly #maxBytes: number;
+  readonly #accessOrder = new CacheAccessOrder();
+  readonly #partitionBytes = new Map<string, number>();
+  readonly #pageBytes = new Map<string, number>();
+  readonly #pagePartitions = new Map<string, string>();
+  readonly #dependentPages = new Map<string, Set<string>>();
+  #storageBytes = 0;
   #opened = false;
 
   constructor(maxBytes: number) {
@@ -143,9 +150,7 @@ class MemoryCommunityEventStore extends BaseCommunityEventStore {
         ...(this.#checkpoints.get(communityCacheScopeKey(scope))?.values() ??
           []),
       ],
-      approximateBytes: [
-        ...(this.#records.get(partition)?.values() ?? []),
-      ].reduce((total, record) => total + record.bytes, 0),
+      approximateBytes: this.#partitionBytes.get(partition) ?? 0,
     };
   }
 
@@ -205,19 +210,38 @@ class MemoryCommunityEventStore extends BaseCommunityEventStore {
 
   async commit(batch: CommunityVerifiedEventBatch): Promise<void> {
     this.#assertOpen();
+    const preparedPages = (batch.historyPages ?? []).map((page) => {
+      const snapshot = structuredClone(page);
+      return {
+        page: snapshot,
+        bytes: new TextEncoder().encode(JSON.stringify(snapshot)).byteLength,
+      };
+    });
     for (const record of batch.records) {
       if (!isVerifiedNostrEvent(record.event)) continue;
       const key = partitionKey(batch.scope, record.audience);
       const records = this.#records.get(key) ?? new Map<string, StoredRecord>();
       const current = records.get(record.event.id);
-      records.set(record.event.id, {
-        ...record,
-        lastAccessedAt: Math.max(
-          record.lastAccessedAt ?? Date.now(),
-          current?.lastAccessedAt ?? 0,
-        ),
-        bytes: communityEventBytes(record),
-      });
+      const lastAccessedAt = Math.max(
+        record.lastAccessedAt ?? Date.now(),
+        current?.lastAccessedAt ?? 0,
+      );
+      if (current) {
+        // Ordered indexes reference the same row; preserve that reference on a touch.
+        current.lastAccessedAt = lastAccessedAt;
+      } else {
+        const bytes = communityEventBytes(record);
+        records.set(record.event.id, { ...record, lastAccessedAt, bytes });
+        this.#storageBytes += bytes;
+        this.#partitionBytes.set(
+          key,
+          (this.#partitionBytes.get(key) ?? 0) + bytes,
+        );
+      }
+      this.#accessOrder.touch(
+        JSON.stringify(["event", key, record.event.id]),
+        lastAccessedAt,
+      );
       this.#records.set(key, records);
       if (!current) {
         const group =
@@ -241,11 +265,23 @@ class MemoryCommunityEventStore extends BaseCommunityEventStore {
         }
       }
     }
-    for (const page of batch.historyPages ?? [])
-      this.#historyPages.set(
-        `${communityCacheScopeKey(batch.scope)}:${page.key}`,
-        structuredClone(page),
-      );
+    for (const { page, bytes } of preparedPages) {
+      const key = `${communityCacheScopeKey(batch.scope)}:${page.key}`;
+      this.#removePage(key);
+      const partition = partitionKey(batch.scope, page.audience);
+      this.#historyPages.set(key, structuredClone(page));
+      this.#pagePartitions.set(key, partition);
+      this.#pageBytes.set(key, bytes);
+      this.#storageBytes += bytes;
+      this.#accessOrder.touch(JSON.stringify(["page", key]), Date.now());
+      for (const id of page.eventIds) {
+        const eventKey = JSON.stringify(["event", partition, id]);
+        const dependents =
+          this.#dependentPages.get(eventKey) ?? new Set<string>();
+        dependents.add(key);
+        this.#dependentPages.set(eventKey, dependents);
+      }
+    }
     if (batch.checkpoints !== undefined) {
       await this.markSynchronized(batch.scope, batch.checkpoints);
     }
@@ -273,32 +309,65 @@ class MemoryCommunityEventStore extends BaseCommunityEventStore {
 
   async prune(): Promise<void> {
     this.#assertOpen();
-    const all = [...this.#records.entries()].flatMap(([partition, records]) =>
-      [...records.values()].map((record) => ({ partition, record })),
+    while (this.#storageBytes > this.#maxBytes) {
+      const oldest = this.#accessOrder.oldest;
+      if (oldest === undefined) break;
+      const [kind, key, id] = JSON.parse(oldest) as string[];
+      if (kind === "page") this.#removePage(key!);
+      else this.#removeEvent(key!, id!);
+    }
+  }
+
+  #removePage(key: string): void {
+    const page = this.#historyPages.get(key);
+    if (!page) return;
+    const partition = this.#pagePartitions.get(key)!;
+    for (const id of page.eventIds) {
+      const eventKey = JSON.stringify(["event", partition, id]);
+      const dependents = this.#dependentPages.get(eventKey);
+      dependents?.delete(key);
+      if (!dependents?.size) this.#dependentPages.delete(eventKey);
+    }
+    this.#storageBytes -= this.#pageBytes.get(key) ?? 0;
+    this.#pageBytes.delete(key);
+    this.#pagePartitions.delete(key);
+    this.#historyPages.delete(key);
+    this.#accessOrder.delete(JSON.stringify(["page", key]));
+  }
+
+  #removeEvent(partition: string, id: string): void {
+    const records = this.#records.get(partition);
+    const record = records?.get(id);
+    if (!record) return;
+    const eventKey = JSON.stringify(["event", partition, id]);
+    for (const pageKey of [...(this.#dependentPages.get(eventKey) ?? [])])
+      this.#removePage(pageKey);
+    this.#dependentPages.delete(eventKey);
+    records!.delete(id);
+    this.#storageBytes -= record.bytes;
+    this.#partitionBytes.set(
+      partition,
+      (this.#partitionBytes.get(partition) ?? 0) - record.bytes,
     );
-    let bytes = all.reduce((total, entry) => total + entry.record.bytes, 0);
-    const pageBytes = [...this.#historyPages.values()].reduce(
-      (sum, page) =>
-        sum + new TextEncoder().encode(JSON.stringify(page)).byteLength,
-      0,
-    );
-    if (bytes + pageBytes <= this.#maxBytes) return;
-    this.#historyPages.clear();
-    if (bytes <= this.#maxBytes) return;
-    for (const entry of all.toSorted(
-      (left, right) =>
-        (left.record.lastAccessedAt ?? 0) - (right.record.lastAccessedAt ?? 0),
-    )) {
-      this.#records.get(entry.partition)?.delete(entry.record.event.id);
-      for (const [key, ordered] of this.#ordered)
-        if (key.startsWith(`${entry.partition}:`)) {
-          const index = ordered.findIndex(
-            (record) => record.event.id === entry.record.event.id,
-          );
-          if (index >= 0) ordered.splice(index, 1);
-        }
-      bytes -= entry.record.bytes;
-      if (bytes <= this.#maxBytes) break;
+    this.#accessOrder.delete(eventKey);
+    const group =
+      record.roomId ?? record.event.tags.find((tag) => tag[0] === "h")?.[1];
+    for (const key of [
+      `${partition}:${record.event.kind}`,
+      ...(group ? [`${partition}:${record.event.kind}:${group}`] : []),
+    ]) {
+      const ordered = this.#ordered.get(key);
+      if (!ordered) continue;
+      let low = 0,
+        high = ordered.length;
+      while (low < high) {
+        const middle = (low + high) >>> 1;
+        if (compareStoredRecords(ordered[middle]!, record) < 0)
+          low = middle + 1;
+        else high = middle;
+      }
+      if (ordered[low]?.event.id === id) ordered.splice(low, 1);
+      if (!ordered.length) this.#ordered.delete(key);
     }
   }
 
@@ -309,17 +378,31 @@ class MemoryCommunityEventStore extends BaseCommunityEventStore {
       this.#ordered.clear();
       this.#checkpoints.clear();
       this.#historyPages.clear();
+      this.#accessOrder.clear();
+      this.#partitionBytes.clear();
+      this.#pageBytes.clear();
+      this.#pagePartitions.clear();
+      this.#dependentPages.clear();
+      this.#storageBytes = 0;
       return;
     }
     const prefix = `${communityCacheScopeKey(scope)}:`;
-    for (const key of this.#records.keys()) {
-      if (key.startsWith(prefix)) this.#records.delete(key);
+    for (const key of this.#historyPages.keys())
+      if (key.startsWith(prefix)) this.#removePage(key);
+    for (const [partition, records] of this.#records) {
+      if (!partition.startsWith(prefix)) continue;
+      for (const record of records.values()) {
+        const eventKey = JSON.stringify(["event", partition, record.event.id]);
+        this.#accessOrder.delete(eventKey);
+        this.#dependentPages.delete(eventKey);
+      }
+      this.#storageBytes -= this.#partitionBytes.get(partition) ?? 0;
+      this.#partitionBytes.delete(partition);
+      this.#records.delete(partition);
     }
     this.#checkpoints.delete(communityCacheScopeKey(scope));
     for (const key of this.#ordered.keys())
       if (key.startsWith(prefix)) this.#ordered.delete(key);
-    for (const key of this.#historyPages.keys())
-      if (key.startsWith(prefix)) this.#historyPages.delete(key);
   }
 
   async close(): Promise<void> {
