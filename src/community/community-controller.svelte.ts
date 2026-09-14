@@ -1132,7 +1132,16 @@ export function createCommunityController(
           throw cause;
         }
       },
-      true,
+      () =>
+        key ===
+          historyResourceKey(activeCommunityId, activeRoomId, activeTopicId) ||
+        (activeThreadId !== undefined &&
+          key ===
+            historyResourceKey(
+              activeCommunityId,
+              activeRoomId,
+              activeThreadId,
+            )),
       group,
     );
   }
@@ -1445,8 +1454,13 @@ export function createCommunityController(
     scopeId: string,
     signal?: AbortSignal,
   ): Promise<void> {
+    const currentGeneration = generation;
     const session = sessions.get(scopeId);
-    if (session === undefined) return;
+    const isCurrent = () =>
+      generation === currentGeneration &&
+      sessions.get(scopeId) === session &&
+      !signal?.aborted;
+    if (session === undefined || !isCurrent()) return;
     const plan = syncPlans[scopeId] ?? {
       checkpoints: [],
       cachedEventIds: [],
@@ -1456,24 +1470,27 @@ export function createCommunityController(
       session.synchronize !== undefined
         ? await session.synchronize({ plan, strategy: "bootstrap" }, signal)
         : await session.snapshot(signal);
+    if (!isCurrent()) return;
     const scope = scopes.find((candidate) => candidate.id === scopeId);
     if (scope !== undefined) {
-      await cacheSnapshot(scope, snapshot, [], generation);
+      await cacheSnapshot(scope, snapshot, [], currentGeneration);
     }
+    if (!isCurrent()) return;
     mergePrivateEvents(scopeId, snapshot.privateEvents ?? []);
     capabilitiesByScope = {
       ...capabilitiesByScope,
       [scopeId]: snapshot.capabilities,
     };
     if (scopeId === activeCommunityId) updatePulseAvailability();
-    await refreshProjection(generation);
+    await refreshProjection(currentGeneration);
+    if (!isCurrent()) return;
     if (
       session.loadContentWindow !== undefined &&
       controllerAbort !== undefined
     ) {
       contentSync = { ...contentSync, phase: "background" };
       cache = { ...cache, freshness: "synchronizing" };
-      const requestedGeneration = generation;
+      const requestedGeneration = currentGeneration;
       const entry = historyWindows.get(
         historyResourceKey(activeCommunityId, activeRoomId, activeTopicId),
       );
@@ -1772,6 +1789,7 @@ export function createCommunityController(
       return historyScheduler.run(
         `mailbox:${currentGeneration}:${scopeId}`,
         async () => {
+          if (generation !== currentGeneration) return;
           const previous = directHistoryByScope[scopeId];
           directHistoryByScope = {
             ...directHistoryByScope,
@@ -1880,6 +1898,7 @@ export function createCommunityController(
       return historyScheduler.run(
         `inbox:${generation}:${scope.id}`,
         async () => {
+          if (generation !== currentGeneration) return;
           inboxHistory = { ...inboxHistory, loading: true };
           try {
             const window = await session.loadInboxWindow!(

@@ -436,3 +436,5 @@ Native storage acceptance MUST exercise repeated opens through the browser wrapp
 Native cache acceptance MUST cover configured private access without a cached kind-39000 event, including a formerly public root and its orphan reply, while retaining unrelated public history and encrypted inbox records.
 
 Legacy cache rows and old synchronization checkpoints MUST NOT justify newer-only relay queries. A missing persisted history page uses bounded indexed candidates for immediate display, then an ordinary bounded head query when connected. Cache-only offline pagination MUST keep read position separate from synchronization coverage and preserve incomplete unread status.
+
+A relay snapshot refresh MUST remain bound to the session and controller generation that requested it. After sign-out or session replacement, its events, private rumors, capabilities and follow-up synchronization MUST be ignored. Queued mailbox and Inbox paging MUST NOT issue queries against a closed session; live subscription lifetime remains independent of visible-page scheduling.

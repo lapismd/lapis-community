@@ -479,3 +479,7 @@ Configured private-room access MUST seed runtime privacy before restoration, ing
 Legacy cached events without page records MUST restore a bounded 50-message window using at most three indexed batches of 100 candidates. Cached exhaustion MUST NOT establish relay coverage, an exact unread count, or a newer-only reconciliation point. A selected offline channel or thread MUST load earlier cached windows and retain content on uncached-history failure; cached-only reads MUST NOT create coverage. Legacy unpaged sources retain their existing full-snapshot contract.
 
 Metadata restoration MUST retain cached deletion controls (kinds 5 and 9005), so hydrating an older legacy message cannot revive a deleted entry. These controls remain excluded from chat messages and unread-arrival notifications.
+
+Queued history reads MUST evaluate current conversation visibility when a slot becomes available, preserving the two-load cap and one active load per conversation. A room that became hidden MUST NOT retain priority over the selected room or thread. Repeated requests continue to share a promise, and existing boolean-priority callers remain supported.
+
+Queued mailbox and Inbox reads MUST verify their captured controller generation before changing loading state or accessing the session. A refresh MUST retain its originating generation and session through snapshot, persistence, and projection; results from a replaced or signed-out session MUST NOT enter the current event graph or restore private presentation state.

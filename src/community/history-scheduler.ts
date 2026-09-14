@@ -3,9 +3,15 @@ export function createHistoryScheduler(concurrency = 2) {
   let active = 0;
   const activeGroups = new Set<string>();
   const pending = new Map<string, Promise<unknown>>();
-  const queue: { visible: boolean; group: string; start: () => void }[] = [];
+  const queue: {
+    visible: boolean | (() => boolean);
+    group: string;
+    start: () => void;
+  }[] = [];
   function drain() {
-    queue.sort((a, b) => Number(b.visible) - Number(a.visible));
+    const priority = (value: boolean | (() => boolean)) =>
+      Number(typeof value === "function" ? value() : value);
+    queue.sort((a, b) => priority(b.visible) - priority(a.visible));
     while (active < concurrency) {
       const index = queue.findIndex((entry) => !activeGroups.has(entry.group));
       if (index < 0) break;
@@ -16,7 +22,7 @@ export function createHistoryScheduler(concurrency = 2) {
     run<T>(
       key: string,
       work: () => Promise<T>,
-      visible = true,
+      visible: boolean | (() => boolean) = true,
       group = key,
     ): Promise<T> {
       const existing = pending.get(key);
