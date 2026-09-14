@@ -4,7 +4,7 @@
   import CommunityApplication from "./CommunityApplicationRoot.svelte";
   import Harness from "./CommunityAgentsApplicationStoryHarness.svelte";
   const { Story } = defineMeta({
-    title: "Community/Application/Agents",
+    title: "Community/Agents/Application",
     component: CommunityApplication,
     tags: ["visual-pending"],
     parameters: {
@@ -21,6 +21,50 @@
     },
   });
 </script>
+
+<Story
+  name="Application body shell"
+  parameters={{ layout: "fullscreen", communityAppShell: true }}
+  play={async ({ canvas }) => {
+    const pageHeader = await canvas.findByLabelText("Agents page header");
+    const directory = await canvas.findByRole("region", {
+      name: "Your agents",
+    });
+    const heading = within(pageHeader).getByRole("heading", {
+      name: "Agents",
+      level: 1,
+    });
+    const refresh = await within(pageHeader).findByRole("button", {
+      name: "Refresh agents",
+    });
+    await expect(refresh).toHaveTextContent("");
+    await expect(
+      within(directory).getByText("Your registered agents in this community."),
+    ).toBeVisible();
+    const addAgent = within(directory).getByRole("button", {
+      name: "Add agent",
+    });
+    await expect(
+      within(directory).queryByRole("heading", { name: "Agents", level: 1 }),
+    ).not.toBeInTheDocument();
+    await expect(
+      within(directory).queryByRole("button", { name: "Refresh agents" }),
+    ).not.toBeInTheDocument();
+    await waitFor(() => {
+      const headingBounds = heading.getBoundingClientRect();
+      const addBounds = addAgent.getBoundingClientRect();
+      const refreshBounds = refresh.getBoundingClientRect();
+      const directoryBounds = directory.getBoundingClientRect();
+      expect(headingBounds.left - directoryBounds.left).toBeCloseTo(16, 0);
+      expect(addBounds.left - directoryBounds.left).toBeCloseTo(16, 0);
+      expect(directoryBounds.right - refreshBounds.right).toBeCloseTo(16, 0);
+    });
+  }}
+>
+  {#snippet template()}
+    <Harness showControls={false} />
+  {/snippet}
+</Story>
 
 <Story
   name="Agent owner profile navigation"
@@ -41,6 +85,11 @@
       }),
     ).toBeVisible();
     await expect(
+      within(pageHeader).queryByText(
+        "Your registered agents in this community.",
+      ),
+    ).not.toBeInTheDocument();
+    await expect(
       within(applicationHeader).queryByRole("heading", {
         name: "Agents",
         level: 1,
@@ -60,6 +109,9 @@
     await expect(
       within(directory).queryByRole("button", { name: "Refresh agents" }),
     ).not.toBeInTheDocument();
+    await expect(
+      within(directory).getByText("Your registered agents in this community."),
+    ).toBeVisible();
     await userEvent.click(
       await canvas.findByRole("button", { name: "View Research" }),
     );

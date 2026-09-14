@@ -57,6 +57,7 @@
     onRefresh,
     onClearHistory,
     showPageHeader = true,
+    showBodyDescription = false,
     adding = $bindable(false),
   }: {
     model: CommunityAgentsState;
@@ -86,6 +87,8 @@
     onClearHistory: () => Promise<void>;
     /** Keep the local title and refresh action when no application header owns them. */
     showPageHeader?: boolean;
+    /** Show the page description inside an application-owned body surface. */
+    showBodyDescription?: boolean;
     /** Opens the existing add-agent flow when controlled by an application host. */
     adding?: boolean;
   } = $props();
@@ -477,6 +480,9 @@
         ><RefreshIcon aria-hidden="true" />Refresh agents</Button
       >
     </header>
+  {/if}
+  {#if showBodyDescription}
+    <p class="agents__description">Your registered agents in this community.</p>
   {/if}
   {#if model.error}<p role="status">{model.error}</p>{/if}
   {#if model.partial && !model.error}<p role="status">
@@ -1216,13 +1222,15 @@
 <style>
   .agents {
     max-width: 76rem;
-    padding: clamp(1.25rem, 3vw, 3rem);
+    padding: 1rem;
     display: grid;
     gap: 1.75rem;
     margin-inline: auto;
   }
   .agents--body-header {
-    padding-top: 1.25rem;
+    max-width: none;
+    padding-top: 1rem;
+    margin-inline: 0;
   }
   header {
     display: flex;
@@ -1251,6 +1259,9 @@
   }
   header p {
     margin-top: 0.35rem;
+  }
+  .agents__description {
+    max-width: 40rem;
   }
   .agents__grid {
     display: grid;

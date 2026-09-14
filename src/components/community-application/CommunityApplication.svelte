@@ -6703,22 +6703,29 @@
         label="Agents page header"
         class="community-application__agents-toolbar"
       >
-        <div class="community-application__agents-heading">
-          <h1>Agents</h1>
-          <p>Your registered agents in this community.</p>
+        <div class="community-application__toolbar-start">
+          {#if shell.mobile.resolvedMode === "mobile"}
+            {@render mobileNavigationControls()}
+          {:else if navigationCompact}
+            <AppShell.Sidebar.Toggle side="left" sidebarName="navigation" />
+          {/if}
+          <h1 class="community-application__toolbar-title">Agents</h1>
         </div>
-        {#if community.state.agents && community.actions.agents}
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            disabled={community.state.agents.status === "loading"}
-            onclick={() => void community.actions.agents!.refresh()}
-          >
-            <RefreshIcon aria-hidden="true" />
-            Refresh agents
-          </Button>
-        {/if}
+        <div class="community-application__toolbar-actions">
+          {#if community.state.agents && community.actions.agents}
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-sm"
+              aria-label="Refresh agents"
+              title="Refresh agents"
+              disabled={community.state.agents.status === "loading"}
+              onclick={() => void community.actions.agents!.refresh()}
+            >
+              <RefreshIcon aria-hidden="true" />
+            </Button>
+          {/if}
+        </div>
       </AppShell.Toolbar>
     {/if}
 
@@ -7075,6 +7082,7 @@
               onRefresh={() => community.actions.agents!.refresh()}
               onClearHistory={() => community.actions.agents!.clearHistory()}
               showPageHeader={false}
+              showBodyDescription
             />
           {:else}<div class="community-application__panel-status" role="status">
               Sign in to a community with agent support to view your agents.
@@ -8294,31 +8302,18 @@
   }
 
   :global(.community-application__agents-toolbar[data-ui-part="toolbar"]) {
-    justify-content: space-between;
-    gap: 1rem;
-    padding: 1rem clamp(1.25rem, 3vw, 3rem);
+    gap: 0.5rem;
+    min-height: 3.25rem;
+    padding: 0.55rem 1rem;
+    border-block-end: 0;
+    background: color-mix(in srgb, var(--background) 97%, transparent);
   }
 
-  .community-application__agents-heading {
-    display: grid;
-    min-width: 0;
-    gap: 0.25rem;
-  }
-
-  .community-application__agents-heading h1,
-  .community-application__agents-heading p {
+  .community-application__toolbar-title {
     margin: 0;
-  }
-
-  .community-application__agents-heading h1 {
-    font-size: var(--community-text-page);
+    font-size: var(--community-text-section);
     font-weight: 650;
-    letter-spacing: -0.035em;
-  }
-
-  .community-application__agents-heading p {
-    color: var(--muted-foreground);
-    font-size: var(--community-text-body);
+    line-height: 1.35;
   }
 
   .community-application__disconnected {

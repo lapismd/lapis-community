@@ -22,7 +22,10 @@
   } from "../community-agents/story-fixtures.js";
   import CommunityApplication from "./CommunityApplicationRoot.svelte";
   import { COMMUNITY_APPLICATION_DESTINATION_STORAGE_KEY } from "./navigation.js";
-  let { narrow = false }: { narrow?: boolean } = $props();
+  let {
+    narrow = false,
+    showControls = true,
+  }: { narrow?: boolean; showControls?: boolean } = $props();
   let controller = $state.raw<CommunityController>();
   let runtime = $state.raw<CommunityTestRuntime>();
   let error = $state("");
@@ -148,13 +151,15 @@
 <div class="agent-application-story" style:width={narrow ? "390px" : "100%"}>
   {#if error}<p role="alert">{error}</p>{/if}
   {#if controller}
-    <div class="agent-application-story__controls">
-      <Button
-        size="sm"
-        disabled={controller.state.agents?.status !== "ready"}
-        onclick={emitActivity}>Emit fixture activity</Button
-      >{#if received}<span role="status">Fixture event delivered</span>{/if}
-    </div>
+    {#if showControls}
+      <div class="agent-application-story__controls">
+        <Button
+          size="sm"
+          disabled={controller.state.agents?.status !== "ready"}
+          onclick={emitActivity}>Emit fixture activity</Button
+        >{#if received}<span role="status">Fixture event delivered</span>{/if}
+      </div>
+    {/if}
     <CommunityApplication
       {controller}
       shellController={shell}
