@@ -370,3 +370,9 @@ Buzz DM compatibility is a client transport for supporting Buzz relays. It does
 not add the Buzz DM command backend to Lapis Relay.
 
 The public Agent editor retains separate signed definition and instance records. Shared legacy definitions are copied on edit and only the chosen instance is relinked. Processing state belongs to the controller and is projected from request-correlated encrypted acknowledgements independently of presence and operator configuration.
+
+The production Community controller forwards agent processing queries and
+revision-checked state changes to its agent controller. It returns the correlated
+acknowledgement unchanged so gallery and profile actions can share the same
+authoritative state. Relay publication alone does not complete a Start or Stop
+action; presentation changes are covered by LC-UI-048.

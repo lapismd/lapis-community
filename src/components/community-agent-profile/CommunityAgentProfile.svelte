@@ -1,4 +1,5 @@
 <script lang="ts">
+  import type { CommunityMemberModel } from "../community-workspace/model.js";
   import CommunityAgentProcessingControl from "../community-agent-processing-control/CommunityAgentProcessingControl.svelte";
   import {
     ConfirmDialog,
@@ -55,6 +56,9 @@
 
   let {
     agent,
+    members = [],
+    memberResults = [],
+    onSearchMembers,
     personas = [],
     presence,
     working = false,
@@ -84,6 +88,9 @@
     onActOnMemory,
   }: {
     agent: CommunityAgentIdentity;
+    members?: readonly CommunityMemberModel[];
+    memberResults?: readonly CommunityMemberModel[];
+    onSearchMembers?: ((query: string) => void) | undefined;
     personas?: readonly CommunityAgentPersona[];
     presence?: CommunityAgentPresence | undefined;
     working?: boolean;
@@ -415,6 +422,7 @@
       showPresence
       presence={presence?.status ?? "unknown"}
     />
+
     <h2>
       <Button
         type="button"
@@ -434,13 +442,7 @@
         <CommunityChip size="compact" tone="accent">Working</CommunityChip>
       </div>{/if}
   </header>
-  {#if onLoadProcessing && onSetProcessing}<CommunityAgentProcessingControl
-      agentPubkey={agent.pubkey}
-      state={processing}
-      {connected}
-      onLoad={onLoadProcessing}
-      onSet={onSetProcessing}
-    />{/if}
+
   <div class="agent-profile__actions">
     <Button
       class="agent-profile__action"
@@ -462,6 +464,14 @@
         ? "Unfollow"
         : "Follow"}</Button
     >
+    {#if onLoadProcessing && onSetProcessing}<CommunityAgentProcessingControl
+        presentation="profile"
+        agentPubkey={agent.pubkey}
+        state={processing}
+        {connected}
+        onLoad={onLoadProcessing}
+        onSet={onSetProcessing}
+      />{/if}
   </div>
   {#if !canMessage}<p>
       Connect a signer with encryption support to message this agent.
@@ -921,6 +931,9 @@
 </article>
 
 <CommunityAgentEditorDialog
+  {members}
+  {memberResults}
+  {onSearchMembers}
   bind:open={personaOpen}
   {agent}
   {personas}
@@ -1081,6 +1094,8 @@
 
 <style>
   .agent-profile {
+    min-width: 0;
+    grid-template-columns: minmax(0, 1fr);
     padding: 1.25rem;
     display: grid;
     gap: 1.5rem;
@@ -1147,14 +1162,22 @@
     line-height: 1.6;
     overflow-wrap: anywhere;
   }
-  .agent-profile__signals,
-  .agent-profile__actions {
+  .agent-profile__signals {
     display: flex;
     gap: 0.625rem;
     justify-content: center;
     flex-wrap: wrap;
   }
+  .agent-profile__actions {
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(0, 1fr);
+    gap: 0.625rem;
+  }
   .agent-profile__actions :global(button) {
+    min-width: 0;
+    width: 100%;
+    padding-inline: 0.375rem;
     flex: 1;
     min-height: 4rem;
     flex-direction: column;
@@ -1175,9 +1198,12 @@
   }
   :global(.agent-profile__tabs) {
     width: 100%;
+    min-width: 0;
+    overflow-x: auto;
+    justify-content: flex-start;
   }
   :global(.agent-profile__tabs > button) {
-    flex: 1;
+    flex: 1 0 auto;
   }
   .agent-profile__info,
   .agent-profile__channels,

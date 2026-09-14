@@ -1,5 +1,7 @@
 <script lang="ts">
-  import { onMount } from "svelte";
+  import { toast } from "svelte-sonner";
+  import type { CommunityMemberModel } from "../community-workspace/model.js";
+  import { onMount, onDestroy } from "svelte";
   import CommunityAgentProcessingControl from "../community-agent-processing-control/CommunityAgentProcessingControl.svelte";
   import CommunitySkeleton from "../community-skeleton/CommunitySkeleton.svelte";
   import { Button } from "@lapismd/design-core/shadcn/button";
@@ -47,6 +49,9 @@
 
   let {
     model,
+    members = [],
+    memberResults = [],
+    onSearchMembers,
     onProfile,
     onActivity,
     onSavePersona,
@@ -71,6 +76,9 @@
     adding = $bindable(false),
   }: {
     model: CommunityAgentsState;
+    members?: readonly CommunityMemberModel[];
+    memberResults?: readonly CommunityMemberModel[];
+    onSearchMembers?: ((query: string) => void) | undefined;
     onProfile: (pubkey: string) => void;
     onActivity: (pubkey: string) => void;
     onSavePersona?: (input: CommunityAgentPersonaSaveInput) => Promise<void>;
@@ -183,6 +191,33 @@
         ),
     ),
   );
+  const toastScope = $props.id();
+  const previousNotices = new Map<string, string>();
+  $effect(() => {
+    for (const [kind, message] of Object.entries({
+      directory: model.error,
+      activity: model.activityError,
+      archive: model.archiveError,
+      partial:
+        model.partial && !model.error
+          ? "Some agents could not be loaded. Refresh agents to retry."
+          : "",
+    })) {
+      const id = `${toastScope}-agents-${kind}`;
+      if (!message) {
+        toast.dismiss(id);
+        previousNotices.delete(kind);
+      } else if (previousNotices.get(kind) !== message) {
+        previousNotices.set(kind, message);
+        if (kind === "partial") toast.warning(message, { id });
+        else toast.error(message, { id });
+      }
+    }
+  });
+  onDestroy(() => {
+    for (const kind of previousNotices.keys())
+      toast.dismiss(`${toastScope}-agents-${kind}`);
+  });
   function continueSetup(persona: CommunityAgentPersona) {
     agentName = persona.displayName;
     agentDescription = persona.description;
@@ -407,10 +442,11 @@
       managedRoomFailures = [];
       adding = true;
     } catch (error) {
-      feedback =
+      toast.error(
         error instanceof Error
           ? error.message
-          : "Replacement setup could not be created.";
+          : "Replacement setup could not be created.",
+      );
     } finally {
       managedActionPending = "";
     }
@@ -541,12 +577,6 @@
   {#if showBodyDescription}
     <p class="agents__description">Your registered agents in this community.</p>
   {/if}
-  {#if model.error}<p role="status">{model.error}</p>{/if}
-  {#if model.partial && !model.error}<p role="status">
-      Some agents could not be loaded. Refresh agents to retry.
-    </p>{/if}
-  {#if model.activityError}<p role="alert">{model.activityError}</p>{/if}
-  {#if model.archiveError}<p role="alert">{model.archiveError}</p>{/if}
   {#if model.status === "loading" && model.agents.length === 0}<CommunitySkeleton
       layout="gallery"
       label="Loading your agents"
@@ -588,8 +618,9 @@
             class="agents__card-open"
             aria-label={`View ${agent.name}`}
             onclick={() => onProfile(agent.pubkey)}
-          >
-            <div class="agents__avatar">
+          ></button>
+          <div class="agents__avatar">
+            <div class="agents__avatar-content">
               <CommunityMemberAvatar
                 member={communityAgentMember(agent)}
                 size="xlarge"
@@ -597,31 +628,33 @@
                 showPresence
                 presence={model.presence[agent.pubkey]?.status ?? "unknown"}
               />
-            </div>
-            {#if model.working[agent.pubkey]}
-              <div class="agents__working">
-                <CommunityChip size="compact" tone="accent"
-                  >Working</CommunityChip
-                >
-              </div>
-            {/if}
-            <div class="agents__details">
-              <strong>{agent.name}</strong>
-              <span class="agents__about"
-                >{agent.about || "Registered agent"}</span
-              >
-              {#if agent.custody}
-                <span class="agents__custody">
-                  <CommunityChip size="compact" tone="accent"
-                    >Relay managed</CommunityChip
-                  >
-                  <small
-                    >{agent.custody.connectionState.replaceAll("_", " ")}</small
-                  >
-                </span>
+              {#if onLoadProcessing && onSetProcessing}
+                <div class="agents__processing">
+                  <CommunityAgentProcessingControl
+                    presentation="card"
+                    agentPubkey={agent.pubkey}
+                    state={model.processing?.[agent.pubkey]}
+                    connected={model.status !== "offline" &&
+                      model.status !== "unsupported"}
+                    onLoad={() => onLoadProcessing!(agent.pubkey)}
+                    onSet={(enabled, revision) =>
+                      onSetProcessing!(agent.pubkey, enabled, revision)}
+                  />
+                </div>
               {/if}
             </div>
-          </button>
+          </div>
+          <div class="agents__details">
+            <strong>{agent.name}</strong>
+            <span class="agents__about"
+              >{model.runtime?.[agent.pubkey]?.effective.model ||
+                "Default model"}</span
+            >
+            {#if model.working[agent.pubkey]}
+              <CommunityChip size="compact" tone="accent">Working</CommunityChip
+              >
+            {/if}
+          </div>
           <DropdownMenu.Root>
             <DropdownMenu.Trigger>
               {#snippet child({ props })}
@@ -685,16 +718,8 @@
               </DropdownMenu.Group>
             </DropdownMenu.Content>
           </DropdownMenu.Root>
-          {#if onLoadProcessing && onSetProcessing}
-            <CommunityAgentProcessingControl
-              agentPubkey={agent.pubkey}
-              state={model.processing?.[agent.pubkey]}
-              onLoad={() => onLoadProcessing!(agent.pubkey)}
-              onSet={(enabled, revision) =>
-                onSetProcessing!(agent.pubkey, enabled, revision)}
-            />
-          {/if}
           {#if agent.personaStatus === "unresolved"}<Button
+              class="agents__restore"
               variant="ghost"
               onclick={() => openAgentEditor(agent)}
               >Restore configuration</Button
@@ -763,6 +788,9 @@
 </section>
 
 <CommunityAgentEditorDialog
+  {members}
+  {memberResults}
+  {onSearchMembers}
   bind:open={agentEditorOpen}
   agent={agentToEdit}
   personas={model.personas}
@@ -1226,6 +1254,9 @@
     height: 2rem;
   }
   .agents__card {
+    display: flex;
+    flex-direction: column;
+    padding: 1rem;
     position: relative;
     min-width: 0;
     aspect-ratio: 4 / 5;
@@ -1238,6 +1269,9 @@
       border-color 150ms;
   }
   .agents__card-open {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
     display: flex;
     flex-direction: column;
     align-items: flex-start;
@@ -1268,6 +1302,20 @@
     flex: 1;
     padding-bottom: 0.75rem;
   }
+  .agents__avatar-content {
+    position: relative;
+  }
+  .agents__processing {
+    position: absolute;
+    z-index: 2;
+    left: 50%;
+    bottom: 0;
+    transform: translate(-50%, 50%);
+  }
+  :global(.agents__restore) {
+    position: relative;
+    z-index: 2;
+  }
   .agents__details {
     display: grid;
     gap: 0.25rem;
@@ -1287,33 +1335,19 @@
     color: var(--muted-foreground);
     font-size: var(--community-text-body);
     line-height: 1.4;
-    min-height: 2.8em;
+    min-height: 1.4em;
     display: -webkit-box;
     -webkit-line-clamp: 2;
     line-clamp: 2;
     -webkit-box-orient: vertical;
     overflow: hidden;
   }
-  .agents__custody {
-    display: flex;
-    align-items: center;
-    gap: 0.45rem;
-    flex-wrap: wrap;
-  }
-  .agents__custody small {
-    color: var(--muted-foreground);
-    text-transform: capitalize;
-  }
   :global(.agents__card-menu) {
+    z-index: 2;
     position: absolute;
     top: 0.5rem;
     right: 0.5rem;
     border-radius: 0.5rem;
-  }
-  .agents__working {
-    position: absolute;
-    top: 0.75rem;
-    left: 0.75rem;
   }
   :global(.agents__card-actions) {
     width: 12rem;

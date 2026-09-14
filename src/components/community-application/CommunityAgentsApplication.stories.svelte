@@ -231,3 +231,124 @@
     });
   }}>{#snippet template()}<Harness narrow />{/snippet}</Story
 >
+
+<Story
+  name="Profile processing controls"
+  play={async ({ canvas, canvasElement }) => {
+    const body = within(canvasElement.ownerDocument.body);
+    await userEvent.click(
+      await canvas.findByRole("button", { name: "View Research" }),
+    );
+    const profile = within(
+      await canvas.findByRole("article", { name: "Research agent profile" }),
+    );
+    const stop = await profile.findByRole("button", {
+      name: "Stop",
+      exact: true,
+    });
+    const sidebar = canvas.getByRole("complementary", {
+      name: "Profile sidebar",
+    });
+    await waitFor(() =>
+      expect(stop.getBoundingClientRect().right).toBeLessThanOrEqual(
+        sidebar.getBoundingClientRect().right,
+      ),
+    );
+    const message = profile.getByRole("button", {
+      name: "Message",
+      exact: true,
+    });
+    await expect(stop).toHaveAttribute(
+      "data-variant",
+      message.getAttribute("data-variant"),
+    );
+    await waitFor(() =>
+      expect(stop.getBoundingClientRect().top).toBeCloseTo(
+        message.getBoundingClientRect().top,
+        0,
+      ),
+    );
+    await userEvent.click(stop);
+    await userEvent.click(body.getByRole("menuitem", { name: "Stop agent" }));
+    await expect(
+      profile.getByRole("button", { name: "Stopping…" }),
+    ).toBeDisabled();
+    await waitFor(() =>
+      expect(
+        getComputedStyle(canvasElement.ownerDocument.body).pointerEvents,
+      ).not.toBe("none"),
+    );
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Acknowledge processing change" }),
+    );
+    await userEvent.click(
+      await profile.findByRole("button", { name: "Start", exact: true }),
+    );
+    await expect(body.getByText("Disabled", { exact: true })).toBeVisible();
+    await userEvent.click(body.getByRole("menuitem", { name: "Start agent" }));
+    await expect(
+      profile.getByRole("button", { name: "Starting…" }),
+    ).toBeDisabled();
+    await waitFor(() =>
+      expect(
+        getComputedStyle(canvasElement.ownerDocument.body).pointerEvents,
+      ).not.toBe("none"),
+    );
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Acknowledge processing change" }),
+    );
+    await expect(
+      await profile.findByRole("button", { name: "Stop", exact: true }),
+    ).toBeVisible();
+    await userEvent.click(
+      profile.getByRole("button", { name: "Edit Research" }),
+    );
+    const editor = within(body.getByRole("dialog", { name: "Edit agent" }));
+    await userEvent.type(
+      editor.getByRole("combobox", { name: "Search community users" }),
+      "Noor",
+    );
+    await userEvent.click(await editor.findByRole("option", { name: /Noor/ }));
+    await expect(
+      editor.getByRole("button", { name: "Remove Noor" }),
+    ).toBeVisible();
+    await userEvent.click(
+      editor.getByRole("button", { name: "Cancel", exact: true }),
+    );
+  }}>{#snippet template()}<Harness manualProcessing />{/snippet}</Story
+>
+
+<Story
+  name="Gallery avatar processing"
+  play={async ({ canvas }) => {
+    const view = await canvas.findByRole("button", { name: "View Research" });
+    const cardElement = view.closest(".agents__card")!;
+    const card = within(cardElement as HTMLElement);
+    const stop = await card.findByRole("button", { name: "Stop", exact: true });
+    const avatar = card.getByRole("img", { name: /Research/ });
+    await waitFor(() => {
+      const actionBounds = stop.getBoundingClientRect();
+      const avatarBounds = avatar.getBoundingClientRect();
+      expect(actionBounds.top).toBeLessThan(avatarBounds.bottom);
+      expect(actionBounds.bottom).toBeGreaterThan(avatarBounds.bottom);
+      expect(actionBounds.left + actionBounds.width / 2).toBeCloseTo(
+        avatarBounds.left + avatarBounds.width / 2,
+        0,
+      );
+    });
+    await expect(card.getByText("Default model")).toBeVisible();
+    await userEvent.click(stop);
+    await expect(
+      card.getByRole("button", { name: "Stopping…" }),
+    ).toBeDisabled();
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Acknowledge processing change" }),
+    );
+    await expect(
+      await card.findByRole("button", { name: "Start", exact: true }),
+    ).toBeVisible();
+    await expect(
+      canvas.queryByRole("article", { name: "Research agent profile" }),
+    ).not.toBeInTheDocument();
+  }}>{#snippet template()}<Harness manualProcessing />{/snippet}</Story
+>

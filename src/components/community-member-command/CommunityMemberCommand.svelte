@@ -22,6 +22,9 @@
   let {
     open = $bindable(false),
     title = "Members",
+    presentation = "dialog",
+    searchLabel = "Search members",
+    disabled = false,
     members,
     results = [],
     groupMemberIds,
@@ -43,6 +46,9 @@
   }: {
     open?: boolean;
     title?: string;
+    presentation?: "dialog" | "inline";
+    searchLabel?: string;
+    disabled?: boolean;
     members: readonly CommunityMemberModel[];
     results?: readonly CommunityMemberModel[];
     groupMemberIds?: readonly string[];
@@ -66,6 +72,7 @@
     onConfirm?: () => void;
   } = $props();
 
+  const commandId = $props.id();
   let query = $state("");
   let wasOpen = open;
   let roleDialogOpen = $state(false);
@@ -112,8 +119,9 @@
   );
 
   $effect(() => {
-    const opening = open && !wasOpen;
-    wasOpen = open;
+    const visible = presentation === "inline" || open;
+    const opening = visible && !wasOpen;
+    wasOpen = visible;
     if (!opening) return;
     query = "";
     let cancelled = false;
@@ -251,176 +259,184 @@
   </CommandView.ItemDescription>
 {/snippet}
 
-<Dialog.Root bind:open>
-  <DialogFrame
-    {title}
-    size="form"
-    bodyPadding="none"
-    closeLabel="Close members"
-    aria-describedby={undefined}
-    {...mode === "select" && onConfirm ? { footer: selectionFooter } : {}}
+{#snippet memberCommand()}
+  <CommandView.Root
+    class={`community-member-command${presentation === "inline" ? " community-member-command--inline" : ""}`}
+    data-presentation={presentation}
+    label={searchLabel}
+    shouldFilter={false}
   >
-    <CommandView.Root
-      class="community-member-command"
-      label="Search members"
-      shouldFilter={false}
-    >
-      <CommandView.Input
-        class="community-member-command__input"
-        placeholder="Search members or paste an npub"
-        aria-label="Search members"
-        aria-controls="community-member-command-results"
-        bind:value={query}
-        oninput={(event) => onSearch(event.currentTarget.value)}
-      />
+    <CommandView.Input
+      class="community-member-command__input"
+      placeholder="Search members or paste an npub"
+      aria-label={searchLabel}
+      id={`${commandId}-search`}
+      {disabled}
+      aria-controls={`${commandId}-results`}
+      bind:value={query}
+      oninput={(event) => onSearch(event.currentTarget.value)}
+    />
 
-      {#if directoryNotice}
-        <p class="community-member-command__directory-notice" role="status">
-          {directoryNotice}
-        </p>
-      {/if}
+    {#if directoryNotice}
+      <p class="community-member-command__directory-notice" role="status">
+        {directoryNotice}
+      </p>
+    {/if}
 
-      {#if mode === "select" && selectedIds.length}
-        <div
-          class="community-member-command__chips"
-          aria-label={selectionLabel}
-        >
-          {#each selectedIds as id (id)}
-            {@const member = members.find((candidate) => candidate.id === id)}
-            <CommunityChip
-              variant="muted"
-              onclick={() => member && onRemove(member)}
-            >
-              {member?.name ?? id.slice(0, 12)}
-              <XIcon data-icon="inline-end" aria-hidden="true" />
-            </CommunityChip>
-          {/each}
-        </div>
-      {/if}
+    {#if mode === "select" && selectedIds.length}
+      <div class="community-member-command__chips" aria-label={selectionLabel}>
+        {#each selectedIds as id (id)}
+          {@const member = directory.find(
+            (candidate) => candidate.id === id,
+          ) ?? { id, name: id.slice(0, 12), handle: id, initials: "?" }}
+          <CommunityChip
+            variant="muted"
+            {disabled}
+            ariaLabel={`Remove ${member.name}`}
+            onclick={() => onRemove(member)}
+          >
+            {member?.name ?? id.slice(0, 12)}
+            <XIcon data-icon="inline-end" aria-hidden="true" />
+          </CommunityChip>
+        {/each}
+      </div>
+    {/if}
 
-      <CommandView.List id="community-member-command-results">
-        <CommandView.Empty>
-          {isSearching
-            ? "No members found"
-            : `No members are available for this ${roomNoun}`}
-        </CommandView.Empty>
-        <CommandView.Group
-          heading={mode === "select"
-            ? "People"
-            : isSearching
-              ? `In this ${roomNoun}`
-              : "Members"}
-        >
-          {#each currentMembers as member (member.id)}
-            {#if mode === "manage" && !member.administrator}
-              <DropdownMenu.Root>
-                <DropdownMenu.Trigger>
-                  {#snippet child({ props })}
-                    <CommandView.Item
-                      {...props}
-                      class="community-member-command__member-menu-trigger"
-                      value={`${member.name} ${member.handle} ${member.id}`}
-                      aria-label={`Manage ${memberName(member)}`}
-                      aria-expanded={undefined}
-                    >
-                      {@render memberIdentity(member)}
-                      <span
-                        class="community-member-command__member-menu-icon"
-                        data-ui-component="command-view"
-                        data-ui-part="trailing"
-                        aria-hidden="true"
-                      >
-                        <EllipsisIcon />
-                      </span>
-                    </CommandView.Item>
-                  {/snippet}
-                </DropdownMenu.Trigger>
-                <DropdownMenu.Content
-                  class="community-member-command__member-menu"
-                  align="end"
-                  sideOffset={4}
-                >
-                  <DropdownMenu.Group>
-                    {#if onSetRoles}
-                      <DropdownMenu.Item
-                        onSelect={() => openRoleDialog(member)}
-                      >
-                        <ShieldCheckIcon
-                          data-icon="inline-start"
-                          aria-hidden="true"
-                        />
-                        Manage roles
-                      </DropdownMenu.Item>
-                    {/if}
-                    <DropdownMenu.Item
-                      variant="destructive"
-                      onSelect={() => onRemove(member)}
-                    >
-                      <Trash2Icon data-icon="inline-start" aria-hidden="true" />
-                      Remove from {roomNoun}
-                    </DropdownMenu.Item>
-                  </DropdownMenu.Group>
-                </DropdownMenu.Content>
-              </DropdownMenu.Root>
-            {:else if mode === "manage" && member.administrator}
-              <CommandView.Item
-                value={`${member.name} ${member.handle} ${member.id}`}
-                aria-label={`${memberName(member)}, administrator`}
-                onSelect={() => {}}
-              >
-                {@render memberIdentity(member)}
-              </CommandView.Item>
-            {:else}
-              <CommandView.Item
-                value={`${member.name} ${member.handle} ${member.id}`}
-                data-selected-recipient={selectedIds.includes(member.id)
-                  ? ""
-                  : undefined}
-                onSelect={() => onSelect(member)}
-                disabled={mode === "select" &&
-                  selectedIds.length >= maxSelected &&
-                  !selectedIds.includes(member.id)}
-              >
-                {@render memberIdentity(member)}
-                {#if mode === "select" && selectedIds.includes(member.id)}
-                  <span
-                    data-ui-component="command-view"
-                    data-ui-part="trailing"
+    <CommandView.List id={`${commandId}-results`}>
+      <CommandView.Empty>
+        {isSearching
+          ? "No members found"
+          : `No members are available for this ${roomNoun}`}
+      </CommandView.Empty>
+      <CommandView.Group
+        heading={mode === "select"
+          ? "People"
+          : isSearching
+            ? `In this ${roomNoun}`
+            : "Members"}
+      >
+        {#each currentMembers as member (member.id)}
+          {#if mode === "manage" && !member.administrator}
+            <DropdownMenu.Root>
+              <DropdownMenu.Trigger>
+                {#snippet child({ props })}
+                  <CommandView.Item
+                    {...props}
+                    class="community-member-command__member-menu-trigger"
+                    value={`${member.name} ${member.handle} ${member.id}`}
+                    aria-label={`Manage ${memberName(member)}`}
+                    aria-expanded={undefined}
                   >
-                    <UserMinusIcon data-icon="inline-end" aria-hidden="true" />
-                  </span>
-                {/if}
-              </CommandView.Item>
-            {/if}
+                    {@render memberIdentity(member)}
+                    <span
+                      class="community-member-command__member-menu-icon"
+                      data-ui-component="command-view"
+                      data-ui-part="trailing"
+                      aria-hidden="true"
+                    >
+                      <EllipsisIcon />
+                    </span>
+                  </CommandView.Item>
+                {/snippet}
+              </DropdownMenu.Trigger>
+              <DropdownMenu.Content
+                class="community-member-command__member-menu"
+                align="end"
+                sideOffset={4}
+              >
+                <DropdownMenu.Group>
+                  {#if onSetRoles}
+                    <DropdownMenu.Item onSelect={() => openRoleDialog(member)}>
+                      <ShieldCheckIcon
+                        data-icon="inline-start"
+                        aria-hidden="true"
+                      />
+                      Manage roles
+                    </DropdownMenu.Item>
+                  {/if}
+                  <DropdownMenu.Item
+                    variant="destructive"
+                    onSelect={() => onRemove(member)}
+                  >
+                    <Trash2Icon data-icon="inline-start" aria-hidden="true" />
+                    Remove from {roomNoun}
+                  </DropdownMenu.Item>
+                </DropdownMenu.Group>
+              </DropdownMenu.Content>
+            </DropdownMenu.Root>
+          {:else if mode === "manage" && member.administrator}
+            <CommandView.Item
+              value={`${member.name} ${member.handle} ${member.id}`}
+              aria-label={`${memberName(member)}, administrator`}
+              onSelect={() => {}}
+            >
+              {@render memberIdentity(member)}
+            </CommandView.Item>
+          {:else}
+            <CommandView.Item
+              value={`${member.name} ${member.handle} ${member.id}`}
+              data-selected-recipient={selectedIds.includes(member.id)
+                ? ""
+                : undefined}
+              onSelect={() => onSelect(member)}
+              disabled={disabled ||
+                (mode === "select" &&
+                  selectedIds.length >= maxSelected &&
+                  !selectedIds.includes(member.id))}
+            >
+              {@render memberIdentity(member)}
+              {#if mode === "select" && selectedIds.includes(member.id)}
+                <span data-ui-component="command-view" data-ui-part="trailing">
+                  <UserMinusIcon data-icon="inline-end" aria-hidden="true" />
+                </span>
+              {/if}
+            </CommandView.Item>
+          {/if}
+        {/each}
+      </CommandView.Group>
+      {#if mode !== "select" && isSearching}
+        <CommandView.Group heading={`Not in this ${roomNoun}`}>
+          {#each otherMembers as member (member.id)}
+            <CommandView.Item
+              value={`${member.name} ${member.handle} ${member.id}`}
+              aria-label={mode === "manage"
+                ? `Add ${member.name} to ${roomNoun}`
+                : undefined}
+              onSelect={() => onSelect(member)}
+            >
+              {@render memberIdentity(member)}
+              {#if mode === "manage"}
+                <span
+                  class="community-member-command__add"
+                  data-ui-component="command-view"
+                  data-ui-part="trailing"
+                  aria-hidden="true">Add</span
+                >
+              {/if}
+            </CommandView.Item>
           {/each}
         </CommandView.Group>
-        {#if mode !== "select" && isSearching}
-          <CommandView.Group heading={`Not in this ${roomNoun}`}>
-            {#each otherMembers as member (member.id)}
-              <CommandView.Item
-                value={`${member.name} ${member.handle} ${member.id}`}
-                aria-label={mode === "manage"
-                  ? `Add ${member.name} to ${roomNoun}`
-                  : undefined}
-                onSelect={() => onSelect(member)}
-              >
-                {@render memberIdentity(member)}
-                {#if mode === "manage"}
-                  <span
-                    class="community-member-command__add"
-                    data-ui-component="command-view"
-                    data-ui-part="trailing"
-                    aria-hidden="true">Add</span
-                  >
-                {/if}
-              </CommandView.Item>
-            {/each}
-          </CommandView.Group>
-        {/if}
-      </CommandView.List>
-    </CommandView.Root>
-  </DialogFrame>
-</Dialog.Root>
+      {/if}
+    </CommandView.List>
+  </CommandView.Root>
+{/snippet}
+
+{#if presentation === "inline"}
+  {@render memberCommand()}
+{:else}
+  <Dialog.Root bind:open>
+    <DialogFrame
+      {title}
+      size="form"
+      bodyPadding="none"
+      closeLabel="Close members"
+      aria-describedby={undefined}
+      {...mode === "select" && onConfirm ? { footer: selectionFooter } : {}}
+    >
+      {@render memberCommand()}
+    </DialogFrame>
+  </Dialog.Root>
+{/if}
 
 <Dialog.Root bind:open={roleDialogOpen}>
   <DialogFrame title="Manage roles" size="form" aria-describedby={undefined}>
@@ -491,6 +507,17 @@
     margin: 0 1.5rem 1.5rem;
     border: 1px solid var(--border);
     border-radius: 1rem;
+  }
+
+  :global(
+      .community-member-command.community-member-command--inline[data-ui-part="root"]
+    ) {
+    --ui-command-view-list-max-height: 10rem;
+    --ui-command-view-list-padding: 0;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+    min-width: 0;
   }
 
   .community-member-command__directory-notice {
@@ -600,6 +627,9 @@
   @media (max-width: 40rem) {
     :global(.community-member-command[data-ui-part="root"]) {
       margin-inline: 1rem;
+    }
+    :global(.community-member-command[data-presentation="inline"]) {
+      margin-inline: 0;
     }
   }
 </style>

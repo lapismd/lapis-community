@@ -15,7 +15,7 @@
           code: `<script>
   import { CommunityAgentProfile } from "@lapismd/lapis-community/components";
 <\/script>
-<CommunityAgentProfile {agent} {rooms} {canMessage} {ownerName} onOpenOwner={openOwnerProfile} onMessage={messageAgent} onFollow={followAgent} onActivity={openActivity} onCopy={copyKey} onOpenChannel={openChannel} onAddChannel={addToChannel} onRemoveChannel={removeFromChannel} onSaveAgent={saveAgent} />`,
+<CommunityAgentProfile {agent} {rooms} {members} {memberResults} {onSearchMembers} {processing} onLoadProcessing={loadProcessing} onSetProcessing={setProcessing} {canMessage} {ownerName} onOpenOwner={openOwnerProfile} onMessage={messageAgent} onFollow={followAgent} onActivity={openActivity} onCopy={copyKey} onOpenChannel={openChannel} onAddChannel={addToChannel} onRemoveChannel={removeFromChannel} onSaveAgent={saveAgent} />`,
         },
       },
     },

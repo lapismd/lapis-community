@@ -1,5 +1,6 @@
 <script lang="ts">
-  import { untrack } from "svelte";
+  import { Toaster, toast } from "svelte-sonner";
+  import { untrack, onDestroy } from "svelte";
   import { Button } from "@lapismd/design-core/shadcn/button";
   import { AppShell, AppShellController } from "@lapismd/design-core/shell";
   import ArrowLeftIcon from "@lucide/svelte/icons/arrow-left";
@@ -26,6 +27,7 @@
     CommunityAgentPersonaSaveInput,
     CommunityAgentSaveInput,
     CommunityAgentsState,
+    CommunityAgentProcessingState,
   } from "../../community/agent-contracts.js";
   let {
     screen = "gallery",
@@ -40,6 +42,7 @@
     narrow?: boolean;
     appShell?: boolean;
   } = $props();
+  onDestroy(() => toast.dismiss());
   const shell = new AppShellController({ rightClosed: true, rightWidth: 420 });
   let view = $state(untrack(() => screen));
   let notice = $state("");
@@ -188,6 +191,40 @@
       }),
     ),
   );
+  const messagingMembers = [
+    { id: "a".repeat(64), name: "Ada Chen", handle: "ada", initials: "AC" },
+    { id: "b".repeat(64), name: "Noor Rahman", handle: "noor", initials: "NR" },
+  ];
+  async function loadProcessing(
+    pubkey: string,
+  ): Promise<CommunityAgentProcessingState> {
+    return (
+      model.processing?.[pubkey] ?? {
+        enabled: pubkey === storyAgent.pubkey,
+        revision: 0,
+        status: "applied",
+        updatedAt: 0,
+      }
+    );
+  }
+  async function setProcessing(
+    pubkey: string,
+    enabled: boolean,
+    revision: number,
+  ): Promise<CommunityAgentProcessingState> {
+    attempt();
+    const current = await loadProcessing(pubkey);
+    if (current.revision !== revision)
+      throw new Error("Processing state changed; refresh status.");
+    const next = {
+      ...current,
+      enabled,
+      revision: revision + 1,
+      updatedAt: Date.now(),
+    };
+    model = { ...model, processing: { ...model.processing, [pubkey]: next } };
+    return next;
+  }
   function attempt() {
     if (failure) {
       failure = false;
@@ -274,6 +311,9 @@
 {#snippet directory()}
   <CommunityAgents
     {model}
+    members={messagingMembers}
+    onLoadProcessing={loadProcessing}
+    onSetProcessing={setProcessing}
     onProfile={(pubkey) => {
       agent =
         model.agents.find((entry) => entry.pubkey === pubkey) ?? storyAgent;
@@ -365,6 +405,11 @@
 {#snippet profile()}
   <CommunityAgentProfile
     {agent}
+    members={messagingMembers}
+    processing={model.processing?.[agent.pubkey]}
+    onLoadProcessing={() => loadProcessing(agent.pubkey)}
+    onSetProcessing={(enabled, revision) =>
+      setProcessing(agent.pubkey, enabled, revision)}
     personas={model.personas}
     ownerName="steve"
     onOpenOwner={(pubkey) => {
@@ -700,6 +745,8 @@
     {/if}
   {/if}
 </div>
+
+<Toaster position="bottom-right" />
 
 <style>
   .agent-story {

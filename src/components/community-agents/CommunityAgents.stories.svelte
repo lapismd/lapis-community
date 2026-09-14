@@ -27,7 +27,7 @@
 </AppShell.Toolbar>
 <AppShell.Body layout="regions" label="Agents">
   <AppShell.Body.Content label="Agents directory">
-    <CommunityAgents model={controller.state.agents} onProfile={openProfile} onActivity={openActivity} onSaveAgent={controller.actions.agents.saveAgent} onRefresh={controller.actions.agents.refresh} onClearHistory={() => controller.actions.agents.clearHistory()} showPageHeader={false} showBodyDescription />
+    <CommunityAgents model={controller.state.agents} members={controller.state.workspace.members} memberResults={controller.state.memberDirectory.results} onSearchMembers={controller.actions.searchMembers} onLoadProcessing={controller.actions.agents.loadProcessing} onSetProcessing={controller.actions.agents.setProcessing} onProfile={openProfile} onActivity={openActivity} onSaveAgent={controller.actions.agents.saveAgent} onRefresh={controller.actions.agents.refresh} onClearHistory={() => controller.actions.agents.clearHistory()} showPageHeader={false} showBodyDescription />
   </AppShell.Body.Content>
 </AppShell.Body>`,
         },
@@ -88,10 +88,9 @@
     for (const card of canvas.getAllByRole("button", { name: /^View / })) {
       const bounds = card.getBoundingClientRect();
       await expect(bounds.width / bounds.height).toBeCloseTo(0.8, 1);
-      await expect(within(card).getByRole("img")).toHaveAttribute(
-        "data-shape",
-        "rounded",
-      );
+      await expect(
+        within(card.closest(".agents__card") as HTMLElement).getByRole("img"),
+      ).toHaveAttribute("data-shape", "rounded");
     }
   }}
   >{#snippet template()}<Harness appShell variant="gallery" />{/snippet}</Story
@@ -396,7 +395,7 @@
       "Research",
     );
     await expect(
-      within(dialog).getByLabelText("Who can message this agent"),
+      within(dialog).getByRole("combobox", { name: "Search community users" }),
     ).toBeVisible();
     await expect(
       within(dialog).queryByText("Unlink persona"),
@@ -415,6 +414,11 @@
 <Story
   name="Card activity menu"
   play={async ({ canvas, canvasElement }) => {
+    await waitFor(() =>
+      expect(
+        getComputedStyle(canvasElement.ownerDocument.body).pointerEvents,
+      ).not.toBe("none"),
+    );
     await userEvent.click(
       canvas.getByRole("button", { name: "Actions for Build" }),
     );
@@ -491,9 +495,11 @@
 <Story
   name="Discovery failure"
   play={async ({ canvas }) => {
-    await expect(
-      canvas.getByText("Agent discovery failed. Refresh to retry."),
-    ).toBeVisible();
+    await waitFor(() =>
+      expect(
+        canvas.getByText("Agent discovery failed. Refresh to retry."),
+      ).toBeVisible(),
+    );
     await userEvent.click(
       canvas.getByRole("button", { name: "Refresh agents" }),
     );

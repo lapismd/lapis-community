@@ -25,11 +25,74 @@
   let {
     narrow = false,
     showControls = true,
-  }: { narrow?: boolean; showControls?: boolean } = $props();
+    manualProcessing = false,
+  }: {
+    narrow?: boolean;
+    showControls?: boolean;
+    manualProcessing?: boolean;
+  } = $props();
   let controller = $state.raw<CommunityController>();
   let runtime = $state.raw<CommunityTestRuntime>();
   let error = $state("");
   let received = $state(false);
+  let processing = {
+    enabled: true,
+    revision: 0,
+    status: "applied" as const,
+    updatedAt: 0,
+  };
+  let pendingProcessing = $state<{
+    requestId: string;
+    enabled: boolean;
+    expectedRevision: number;
+  }>();
+  let controlSequence = 0;
+  async function acknowledgeProcessing(request: {
+    requestId: string;
+    enabled?: boolean;
+    expectedRevision?: number;
+  }) {
+    if (!runtime) return;
+    if (request.enabled !== undefined) {
+      if (request.expectedRevision !== processing.revision)
+        throw new Error("Processing revision changed");
+      processing = {
+        ...processing,
+        enabled: request.enabled,
+        revision: processing.revision + 1,
+        updatedAt: Date.now(),
+      };
+    }
+    await runtime.relay.publish(
+      finalizeEvent(
+        {
+          kind: 24200,
+          created_at: Math.floor(Date.now() / 1000),
+          tags: [
+            ["p", storyOwnerPubkey],
+            ["agent", storyAgentPubkey],
+            ["frame", "telemetry"],
+          ],
+          content: nip44.v2.encrypt(
+            JSON.stringify({
+              version: 2,
+              seq: ++controlSequence,
+              timestamp: new Date().toISOString(),
+              kind: "processing_state",
+              payload: {
+                ...processing,
+                requestId: request.requestId,
+                applied: true,
+              },
+            }),
+            nip44.v2.utils.getConversationKey(storyAgentKey, storyOwnerPubkey),
+          ),
+        },
+        storyAgentKey,
+      ),
+    );
+    pendingProcessing = undefined;
+  }
   const shell = new AppShellController({ rightClosed: true });
   onMount(() => {
     let active = true;
@@ -50,6 +113,43 @@
         }
         runtime = created;
         const { relay, scenario } = created;
+        await relay.subscribe(
+          {
+            kinds: [24200],
+            authors: [storyOwnerPubkey],
+            "#p": [storyAgentPubkey],
+          },
+          {
+            onevent: (event) => {
+              if (
+                !event.tags.some(
+                  ([name, value]) => name === "frame" && value === "control",
+                )
+              )
+                return;
+              const request = JSON.parse(
+                nip44.v2.decrypt(
+                  event.content,
+                  nip44.v2.utils.getConversationKey(
+                    storyAgentKey,
+                    storyOwnerPubkey,
+                  ),
+                ),
+              );
+              if (
+                request.command === "processing_get" ||
+                request.command === "processing_set"
+              ) {
+                if (manualProcessing && request.command === "processing_set")
+                  pendingProcessing = request;
+                else
+                  void acknowledgeProcessing(request).catch(
+                    (cause) => (error = String(cause)),
+                  );
+              }
+            },
+          },
+        );
         relay.inject(storyAgentProfile);
         await relay.publish(
           await scenario.operator.signEvent({
@@ -159,6 +259,11 @@
           onclick={emitActivity}>Emit fixture activity</Button
         >{#if received}<span role="status">Fixture event delivered</span>{/if}
       </div>
+    {/if}
+    {#if pendingProcessing}
+      <Button onclick={() => void acknowledgeProcessing(pendingProcessing!)}
+        >Acknowledge processing change</Button
+      >
     {/if}
     <CommunityApplication
       {controller}

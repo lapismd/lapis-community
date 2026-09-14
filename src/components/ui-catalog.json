@@ -305,16 +305,25 @@
       "story": "community-agents-processing--acknowledged-transitions",
       "storyFile": "src/components/community-agent-processing-control/CommunityAgentProcessingControl.stories.svelte",
       "requirement": "LC-UI-048",
-      "variants": ["enabled", "disabled", "unknown", "cancellation-error"],
+      "variants": [
+        "enabled",
+        "disabled",
+        "unknown",
+        "cancellation-error",
+        "profile",
+        "card"
+      ],
       "requiredStates": ["pending", "acknowledged", "retry"],
       "loading": {
         "applicable": true,
         "states": ["initial", "refresh"],
         "reason": "The control queries current processing state and retains the last acknowledged state while a transition is pending."
       },
-      "when": "Owner controls for acknowledged agent processing, separate from presence and process lifecycle.",
+      "when": "Acknowledged agent Start/Stop and Refresh status: an icon action in profiles, or a secondary button overlapping gallery avatars. Pending work shows only the shared spinner with an accessible label; status chips use state tones, and avatar buttons have a subtle border and shadow. Errors use app toasts.",
       "productionStories": [
-        "community-agents-processing--acknowledged-transitions"
+        "community-agents-processing--acknowledged-transitions",
+        "community-agents-application--profile-processing-controls",
+        "community-agents-application--gallery-avatar-processing"
       ],
       "verification": {
         "pending": "community-agents-processing--acknowledged-transitions",
@@ -322,6 +331,32 @@
         "retry": "community-agents-processing--cancellation-failure-and-retry",
         "initial": "community-agents-processing--unknown-availability",
         "refresh": "community-agents-processing--acknowledged-transitions"
+      }
+    },
+    {
+      "id": "member-selection",
+      "name": "Member selection",
+      "component": "CommunityMemberCommand",
+      "import": "@lapismd/lapis-community/components",
+      "example": "src/components/community-patterns/examples/MemberSelectionExample.svelte",
+      "story": "community-patterns-members--contract",
+      "storyFile": "src/components/community-patterns/Members.stories.svelte",
+      "requirement": "LC-UI-048",
+      "variants": ["dialog", "inline"],
+      "requiredStates": ["search", "select", "remove"],
+      "loading": {
+        "applicable": false,
+        "reason": "The owning controller supplies directory results. Selection remains local to the editor during refresh."
+      },
+      "when": "Select community users inline in an agent editor, or in the existing member dialog. Reuse its command list, identities and removable selection chips. Inline presentation has no outer padding or margins and caps the scrollable list at 10rem.",
+      "productionStories": [
+        "community-agents-editor--messaging-participant-selection",
+        "community-agents-editor--rejected-participant-save"
+      ],
+      "verification": {
+        "search": "community-patterns-members--contract",
+        "select": "community-patterns-members--contract",
+        "remove": "community-patterns-members--contract"
       }
     }
   ],

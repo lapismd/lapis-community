@@ -1647,6 +1647,20 @@ export function createCommunityController(
           ),
         );
       },
+      loadProcessing: async (pubkey) => {
+        if (!agentController?.actions.loadProcessing)
+          throw new Error("Agent controls require a signed-in community");
+        return agentController.actions.loadProcessing(pubkey);
+      },
+      setProcessing: async (pubkey, enabled, expectedRevision) => {
+        if (!agentController?.actions.setProcessing)
+          throw new Error("Agent controls require a signed-in community");
+        return agentController.actions.setProcessing(
+          pubkey,
+          enabled,
+          expectedRevision,
+        );
+      },
       loadRuntime: async (pubkey) => {
         if (!agentController)
           throw new Error("Agent controls require a signed-in community");

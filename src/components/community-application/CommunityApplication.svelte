@@ -7152,6 +7152,10 @@
         <AppShell.Body.Content label="Agents directory">
           {#if community.state.agents && community.actions.agents}
             <CommunityAgents
+              members={workspace.members}
+              memberResults={community.state.memberDirectory.results}
+              onSearchMembers={(query) =>
+                void community.actions.searchMembers(query)}
               bind:adding={agentCreatorOpen}
               model={community.state.agents}
               onProfile={(pubkey) =>
@@ -7732,6 +7736,10 @@
           <AppShell.Sidebar.Body>
             {#if selectedAgent && community.actions.agents}
               <CommunityAgentProfile
+                members={workspace.members}
+                memberResults={community.state.memberDirectory.results}
+                onSearchMembers={(query) =>
+                  void community.actions.searchMembers(query)}
                 agent={selectedAgent}
                 personas={community.state.agents?.personas ?? []}
                 ownerName={memberById(

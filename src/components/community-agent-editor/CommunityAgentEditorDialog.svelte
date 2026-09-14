@@ -1,6 +1,5 @@
 <script lang="ts">
   import { untrack } from "svelte";
-  import { decode } from "nostr-tools/nip19";
   import { DialogFrame } from "@lapismd/design-core/forms/dialog";
   import { Button } from "@lapismd/design-core/shadcn/button";
   import * as Dialog from "@lapismd/design-core/shadcn/dialog";
@@ -8,6 +7,8 @@
   import { Input } from "@lapismd/design-core/shadcn/input";
   import * as Select from "@lapismd/design-core/shadcn/select";
   import * as Tabs from "@lapismd/design-core/shadcn/tabs";
+  import CommunityMemberCommand from "../community-member-command/CommunityMemberCommand.svelte";
+  import type { CommunityMemberModel } from "../community-workspace/model.js";
   import CommunityAvatarPicker from "../community-avatar-picker/CommunityAvatarPicker.svelte";
   import CommunityChatComposer from "../community-chat-composer/CommunityChatComposer.svelte";
   import type {
@@ -21,6 +22,9 @@
   let {
     open = $bindable(false),
     agent,
+    members = [],
+    memberResults = [],
+    onSearchMembers,
     personas = [],
     runtime,
     connected = true,
@@ -32,6 +36,9 @@
   }: {
     open?: boolean;
     agent?: CommunityAgentIdentity | undefined;
+    members?: readonly CommunityMemberModel[];
+    memberResults?: readonly CommunityMemberModel[];
+    onSearchMembers?: ((query: string) => void) | undefined;
     personas?: readonly CommunityAgentPersona[];
     runtime?: CommunityAgentRuntimeState | undefined;
     connected?: boolean;
@@ -54,7 +61,33 @@
   let loadedAgent = $state("");
   let loadedRuntime = $state("");
   let personaName = $state("");
-  let approvedParticipants = $state("");
+  let approvedParticipants = $state<string[]>([]);
+  let selectedMembers = $state<CommunityMemberModel[]>([]);
+  const selectableMembers = $derived(
+    [...members, ...selectedMembers].filter(
+      (member) =>
+        member.id !== agent?.ownerPubkey && member.id !== agent?.pubkey,
+    ),
+  );
+  const selectableResults = $derived(
+    memberResults.filter(
+      (member) =>
+        member.id !== agent?.ownerPubkey && member.id !== agent?.pubkey,
+    ),
+  );
+  function toggleParticipant(member: CommunityMemberModel) {
+    if (approvedParticipants.includes(member.id)) {
+      approvedParticipants = approvedParticipants.filter(
+        (id) => id !== member.id,
+      );
+    } else {
+      approvedParticipants = [...approvedParticipants, member.id];
+      selectedMembers = [
+        ...selectedMembers.filter((candidate) => candidate.id !== member.id),
+        member,
+      ];
+    }
+  }
   let personaDescription = $state("");
   let personaAvatar = $state("");
   let personaPrompt = $state("");
@@ -164,7 +197,10 @@
     if (loadedAgent === key) return;
     untrack(() => {
       personaName = agent.name;
-      approvedParticipants = agent.instance?.dmAllowlist?.join(", ") ?? "";
+      approvedParticipants = [...(agent.instance?.dmAllowlist ?? [])];
+      selectedMembers = [...members, ...memberResults].filter((member) =>
+        approvedParticipants.includes(member.id),
+      );
       personaDescription = agent.persona?.description ?? agent.about;
       personaAvatar = agent.persona?.avatarUrl ?? agent.avatarUrl ?? "";
       personaPrompt = agent.persona?.systemPrompt ?? "";
@@ -240,22 +276,7 @@
     pending = true;
     error = "";
     try {
-      const dmAllowlist = [
-        ...new Set(
-          approvedParticipants
-            .split(/[\s,;]+/)
-            .filter(Boolean)
-            .map((value) => {
-              if (/^[0-9a-f]{64}$/.test(value)) return value;
-              const key = decode(value);
-              if (key.type !== "npub")
-                throw new Error(
-                  "Use a hexadecimal or npub public key for each approved person",
-                );
-              return key.data;
-            }),
-        ),
-      ];
+      const dmAllowlist = [...new Set(approvedParticipants)];
       await onSaveAgent({
         pubkey: agent.pubkey,
         personaSlug: slug,
@@ -362,21 +383,31 @@
             turn.
           </Field.Description>
         </Field.Field>
-        <Field.Field>
-          <Field.Label for={`${editorId}-dm-allowlist`}
-            >Who can message this agent</Field.Label
-          >
-          <Input
-            id={`${editorId}-dm-allowlist`}
-            bind:value={approvedParticipants}
-            placeholder="Approved public keys, separated by commas"
-            disabled={pending}
+        <Field.Field role="group" aria-label="Who can message this agent">
+          <Field.Title>Who can message this agent</Field.Title>
+          <CommunityMemberCommand
+            presentation="inline"
+            mode="select"
+            searchLabel="Search community users"
+            members={selectableMembers}
+            results={selectableResults}
+            selectedIds={approvedParticipants}
+            selectionLabel="Approved people"
+            maxSelected={128}
+            disabled={pending || !connected}
+            onSearch={(query) => onSearchMembers?.(query)}
+            onSelect={toggleParticipant}
+            onRemove={(member) => {
+              approvedParticipants = approvedParticipants.filter(
+                (id) => id !== member.id,
+              );
+            }}
           />
-          <Field.Description
-            >You can always message this agent. Add each other person’s hex or
-            npub key. Every participant in a group must be approved; group
-            replies require a mention or a reply to the agent.</Field.Description
-          >
+          <Field.Description>
+            You can always message this agent. Select other community users to
+            allow them too. Every participant in a group must be approved; group
+            replies require a mention or a reply to the agent.
+          </Field.Description>
         </Field.Field>
         {#if agent?.personaStatus === "unresolved"}<p role="status">
             This agent’s saved configuration is missing. Save these details to

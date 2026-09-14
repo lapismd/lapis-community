@@ -386,3 +386,9 @@ Explicit mentions are NIP-27 references in content; recipient tags alone do not
 identify mentioned agents. Identity changes clear decoded conversations, drafts,
 visibility snapshots and private runtime events. Shared search excludes private
 plaintext and canvas/control records.
+
+Start/Stop presentation in LC-UI-048 uses the existing version-2
+`processing_get` and `processing_set` commands through the production Community
+controller. Unknown state permits a refresh only; state changes carry the last
+acknowledged revision. Neither a stale presence signal nor a relay publish ACK
+may determine which processing state is shown as applied.
