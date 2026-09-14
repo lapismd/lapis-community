@@ -41,7 +41,7 @@
     await expect(
       within(directory).getByText("Your registered agents in this community."),
     ).toBeVisible();
-    const addAgent = within(directory).getByRole("button", {
+    const addAgent = await within(directory).findByRole("button", {
       name: "Add agent",
     });
     await expect(

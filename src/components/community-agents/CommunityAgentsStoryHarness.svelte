@@ -1,7 +1,10 @@
 <script lang="ts">
   import { untrack } from "svelte";
   import { Button } from "@lapismd/design-core/shadcn/button";
+  import { AppShell, AppShellController } from "@lapismd/design-core/shell";
   import ArrowLeftIcon from "@lucide/svelte/icons/arrow-left";
+  import RefreshIcon from "@lucide/svelte/icons/refresh-cw";
+  import CommunityAppShell from "../community-app-shell/CommunityAppShell.svelte";
   import CommunityAgents from "./CommunityAgents.svelte";
   import CommunityAgentProfile from "../community-agent-profile/CommunityAgentProfile.svelte";
   import CommunityAgentActivity from "../community-agent-activity/CommunityAgentActivity.svelte";
@@ -29,12 +32,15 @@
     variant = "ready",
     failAction = false,
     narrow = false,
+    appShell = false,
   }: {
     screen?: "gallery" | "profile" | "activity";
     variant?: string;
     failAction?: boolean;
     narrow?: boolean;
+    appShell?: boolean;
   } = $props();
+  const shell = new AppShellController({ rightClosed: true, rightWidth: 420 });
   let view = $state(untrack(() => screen));
   let notice = $state("");
   let failure = $state(untrack(() => failAction));
@@ -261,219 +267,226 @@
   }
 </script>
 
-<div
-  class="agent-story"
-  style:max-width={narrow ? "360px" : view === "gallery" ? "none" : "420px"}
->
-  {#if notice}<p role="status">{notice}</p>{/if}
-  {#if view === "gallery"}
-    <CommunityAgents
-      {model}
-      onProfile={(pubkey) => {
-        agent =
-          model.agents.find((entry) => entry.pubkey === pubkey) ?? storyAgent;
-        view = "profile";
-      }}
-      onActivity={(pubkey) => {
-        agent =
-          model.agents.find((entry) => entry.pubkey === pubkey) ??
-          model.archivedAgents.find((entry) => entry.pubkey === pubkey) ??
-          agent;
-        model = { ...model, activityAgent: pubkey };
-        view = "activity";
-      }}
-      onSaveAgent={saveAgent}
-      onSaveRuntime={async (pubkey, defaults) => {
-        attempt();
-        const current = model.runtime?.[pubkey] ?? storyAgentRuntime;
-        const next = {
-          ...current,
-          saved: { ...defaults, updatedAt: Date.now() },
-          effective: {
-            runtimeAgent:
-              defaults.runtimeAgent ?? current.effective.runtimeAgent,
-            ...(defaults.model ? { model: defaults.model } : {}),
-            ...(defaults.thinking ? { thinking: defaults.thinking } : {}),
-          },
-        };
-        model = {
-          ...model,
-          runtime: { ...(model.runtime ?? {}), [pubkey]: next },
-        };
-        notice = "Runtime defaults saved";
-        return next;
-      }}
-      onUnlinkPersona={async () => {
-        attempt();
-        notice = "Persona unlinked";
-      }}
-      onSavePersona={savePersona}
-      onDeletePersona={deletePersona}
-      onCreateManagedAgent={async (input) => {
-        attempt();
-        return managedBundle(input);
-      }}
-      onClearManagedAgentDraft={() => {}}
-      onCreateReplacement={async (pubkey) =>
-        managedBundle(
-          {
-            personaSlug: agent.persona?.slug ?? "agent",
-            displayName: agent.name,
-            ...(agent.persona?.systemPrompt
-              ? { systemPrompt: agent.persona.systemPrompt }
-              : {}),
-            nameMode: "instance",
-          },
-          pubkey,
-        )}
-      onRevokeManagedAgent={async () => {
-        attempt();
-        notice = "Controller access revoked";
-      }}
-      onDeleteManagedAgent={async () => {
-        attempt();
-        notice = "Managed agent deleted";
-      }}
-      rooms={storyAgentRooms.map((room) => ({
-        id: room.id,
-        groupId: `group-${room.id}`,
-        name: room.name,
-        canManage: true,
-      }))}
-      onAddAgentToRoom={async (groupId) => {
-        if (variant === "room-failure" && groupId === "support")
-          throw new Error("Room membership denied");
-        attempt();
-      }}
-      ownerPubkey={storyOwnerPubkey}
-      onRefresh={() => {
-        model = storyAgentState();
-        notice = "Agent directory refreshed";
-      }}
-      onClearHistory={clear}
-    />
-  {:else if view === "profile"}
-    <CommunityAgentProfile
-      {agent}
-      personas={model.personas}
-      ownerName="steve"
-      onOpenOwner={(pubkey) => {
-        notice =
-          pubkey === storyOwnerPubkey
-            ? "Opened steve's profile"
-            : "Unknown owner";
-      }}
-      rooms={variant === "denied"
-        ? storyAgentRooms.map(({ permissions, ...room }) => room)
-        : storyAgentRooms}
-      presence={model.presence[agent.pubkey] ?? { status: "unknown" }}
-      working={Boolean(model.working[agent.pubkey])}
-      canMessage={variant !== "no-encryption"}
-      connected={variant !== "offline"}
-      onMessage={() => {
-        notice = "Conversation with Research opened";
-      }}
-      onFollow={async (following) => {
-        attempt();
-        agent = { ...agent, followed: following };
-      }}
-      onActivity={() => {
-        model = {
-          ...model,
-          activityAgent: agent.pubkey,
-          activity:
-            agent.pubkey === storyAgent.pubkey ? storyActivityItems : [],
-        };
-        view = "activity";
-      }}
-      onCopy={() => {
-        notice = "Public key copied";
-      }}
-      onOpenChannel={(id) => (notice = `Opened ${id}`)}
-      onAddChannel={async (id) => {
-        attempt();
-        agent = { ...agent, channelIds: [...agent.channelIds, id] };
-      }}
-      onRemoveChannel={async (id) => {
-        attempt();
-        agent = {
-          ...agent,
-          channelIds: agent.channelIds.filter((channel) => channel !== id),
-        };
-      }}
-      onSaveAgent={async (input) => {
-        attempt();
-        agent = {
-          ...agent,
-          name:
-            input.nameMode === "inherited"
-              ? input.displayName
-              : input.instanceName || input.displayName,
-          about: input.description ?? "",
-          ...(input.avatarUrl ? { avatarUrl: input.avatarUrl } : {}),
-        };
-        notice = `Persona ${input.personaSlug} saved`;
-      }}
-      onUnlinkPersona={async () => {
-        attempt();
-        notice = "Persona unlinked";
-      }}
-      onDeletePersona={async () => {
-        attempt();
-        notice = "Persona deleted";
-      }}
-      runtime={model.runtime?.[agent.pubkey]}
-      memories={model.memories?.[agent.pubkey]}
-      onLoadRuntime={async () =>
-        model.runtime?.[agent.pubkey] ?? storyAgentRuntime}
-      onSaveRuntime={async (defaults) => {
-        attempt();
-        const next = {
-          ...(model.runtime?.[agent.pubkey] ?? storyAgentRuntime),
-          saved: { ...defaults, updatedAt: Date.now() },
-          effective: {
-            runtimeAgent:
-              defaults.runtimeAgent ?? storyAgentRuntime.effective.runtimeAgent,
-            ...(defaults.model ? { model: defaults.model } : {}),
-            ...(defaults.thinking ? { thinking: defaults.thinking } : {}),
-          },
-        };
-        model = {
-          ...model,
-          runtime: { ...(model.runtime ?? {}), [agent.pubkey]: next },
-        };
-        notice = "Runtime defaults saved";
-        return next;
-      }}
-      onLoadMemories={async () =>
-        model.memories?.[agent.pubkey] ?? storyAgentMemories}
-      onActOnMemory={async (input) => {
-        attempt();
-        const current = model.memories?.[agent.pubkey] ?? storyAgentMemories;
-        const next = {
-          ...current,
-          records: current.records.map((record) =>
-            record.type === "candidate" &&
-            record.candidateId === input.candidateId
-              ? {
-                  ...record,
-                  status:
-                    input.action === "approve"
-                      ? ("approved" as const)
-                      : ("rejected" as const),
-                }
-              : record,
-          ),
-        };
-        model = {
-          ...model,
-          memories: { ...(model.memories ?? {}), [agent.pubkey]: next },
-        };
-        notice = `Memory ${input.action}d`;
-        return next;
-      }}
-    />
-  {:else}
+{#snippet noticeContent()}
+  {#if notice}<p class="agent-story__notice" role="status">{notice}</p>{/if}
+{/snippet}
+
+{#snippet directory()}
+  <CommunityAgents
+    {model}
+    onProfile={(pubkey) => {
+      agent =
+        model.agents.find((entry) => entry.pubkey === pubkey) ?? storyAgent;
+      view = "profile";
+      if (appShell) shell.right.open();
+    }}
+    onActivity={(pubkey) => {
+      agent =
+        model.agents.find((entry) => entry.pubkey === pubkey) ??
+        model.archivedAgents.find((entry) => entry.pubkey === pubkey) ??
+        agent;
+      model = { ...model, activityAgent: pubkey };
+      view = "activity";
+      if (appShell) shell.right.open();
+    }}
+    onSaveAgent={saveAgent}
+    onSaveRuntime={async (pubkey, defaults) => {
+      attempt();
+      const current = model.runtime?.[pubkey] ?? storyAgentRuntime;
+      const next = {
+        ...current,
+        saved: { ...defaults, updatedAt: Date.now() },
+        effective: {
+          runtimeAgent: defaults.runtimeAgent ?? current.effective.runtimeAgent,
+          ...(defaults.model ? { model: defaults.model } : {}),
+          ...(defaults.thinking ? { thinking: defaults.thinking } : {}),
+        },
+      };
+      model = {
+        ...model,
+        runtime: { ...(model.runtime ?? {}), [pubkey]: next },
+      };
+      notice = "Runtime defaults saved";
+      return next;
+    }}
+    onUnlinkPersona={async () => {
+      attempt();
+      notice = "Persona unlinked";
+    }}
+    onSavePersona={savePersona}
+    onDeletePersona={deletePersona}
+    onCreateManagedAgent={async (input) => {
+      attempt();
+      return managedBundle(input);
+    }}
+    onClearManagedAgentDraft={() => {}}
+    onCreateReplacement={async (pubkey) =>
+      managedBundle(
+        {
+          personaSlug: agent.persona?.slug ?? "agent",
+          displayName: agent.name,
+          ...(agent.persona?.systemPrompt
+            ? { systemPrompt: agent.persona.systemPrompt }
+            : {}),
+          nameMode: "instance",
+        },
+        pubkey,
+      )}
+    onRevokeManagedAgent={async () => {
+      attempt();
+      notice = "Controller access revoked";
+    }}
+    onDeleteManagedAgent={async () => {
+      attempt();
+      notice = "Managed agent deleted";
+    }}
+    rooms={storyAgentRooms.map((room) => ({
+      id: room.id,
+      groupId: `group-${room.id}`,
+      name: room.name,
+      canManage: true,
+    }))}
+    onAddAgentToRoom={async (groupId) => {
+      if (variant === "room-failure" && groupId === "support")
+        throw new Error("Room membership denied");
+      attempt();
+    }}
+    ownerPubkey={storyOwnerPubkey}
+    onRefresh={() => {
+      model = storyAgentState();
+      notice = "Agent directory refreshed";
+    }}
+    onClearHistory={clear}
+    showPageHeader={!appShell}
+    showBodyDescription={appShell}
+  />
+{/snippet}
+
+{#snippet profile()}
+  <CommunityAgentProfile
+    {agent}
+    personas={model.personas}
+    ownerName="steve"
+    onOpenOwner={(pubkey) => {
+      notice =
+        pubkey === storyOwnerPubkey
+          ? "Opened steve's profile"
+          : "Unknown owner";
+    }}
+    rooms={variant === "denied"
+      ? storyAgentRooms.map(({ permissions, ...room }) => room)
+      : storyAgentRooms}
+    presence={model.presence[agent.pubkey] ?? { status: "unknown" }}
+    working={Boolean(model.working[agent.pubkey])}
+    canMessage={variant !== "no-encryption"}
+    connected={variant !== "offline"}
+    onMessage={() => {
+      notice = "Conversation with Research opened";
+    }}
+    onFollow={async (following) => {
+      attempt();
+      agent = { ...agent, followed: following };
+    }}
+    onActivity={() => {
+      model = {
+        ...model,
+        activityAgent: agent.pubkey,
+        activity: agent.pubkey === storyAgent.pubkey ? storyActivityItems : [],
+      };
+      view = "activity";
+      if (appShell) shell.right.open();
+    }}
+    onCopy={() => {
+      notice = "Public key copied";
+    }}
+    onOpenChannel={(id) => (notice = `Opened ${id}`)}
+    onAddChannel={async (id) => {
+      attempt();
+      agent = { ...agent, channelIds: [...agent.channelIds, id] };
+    }}
+    onRemoveChannel={async (id) => {
+      attempt();
+      agent = {
+        ...agent,
+        channelIds: agent.channelIds.filter((channel) => channel !== id),
+      };
+    }}
+    onSaveAgent={async (input) => {
+      attempt();
+      agent = {
+        ...agent,
+        name:
+          input.nameMode === "inherited"
+            ? input.displayName
+            : input.instanceName || input.displayName,
+        about: input.description ?? "",
+        ...(input.avatarUrl ? { avatarUrl: input.avatarUrl } : {}),
+      };
+      notice = `Persona ${input.personaSlug} saved`;
+    }}
+    onUnlinkPersona={async () => {
+      attempt();
+      notice = "Persona unlinked";
+    }}
+    onDeletePersona={async () => {
+      attempt();
+      notice = "Persona deleted";
+    }}
+    runtime={model.runtime?.[agent.pubkey]}
+    memories={model.memories?.[agent.pubkey]}
+    onLoadRuntime={async () =>
+      model.runtime?.[agent.pubkey] ?? storyAgentRuntime}
+    onSaveRuntime={async (defaults) => {
+      attempt();
+      const next = {
+        ...(model.runtime?.[agent.pubkey] ?? storyAgentRuntime),
+        saved: { ...defaults, updatedAt: Date.now() },
+        effective: {
+          runtimeAgent:
+            defaults.runtimeAgent ?? storyAgentRuntime.effective.runtimeAgent,
+          ...(defaults.model ? { model: defaults.model } : {}),
+          ...(defaults.thinking ? { thinking: defaults.thinking } : {}),
+        },
+      };
+      model = {
+        ...model,
+        runtime: { ...(model.runtime ?? {}), [agent.pubkey]: next },
+      };
+      notice = "Runtime defaults saved";
+      return next;
+    }}
+    onLoadMemories={async () =>
+      model.memories?.[agent.pubkey] ?? storyAgentMemories}
+    onActOnMemory={async (input) => {
+      attempt();
+      const current = model.memories?.[agent.pubkey] ?? storyAgentMemories;
+      const next = {
+        ...current,
+        records: current.records.map((record) =>
+          record.type === "candidate" &&
+          record.candidateId === input.candidateId
+            ? {
+                ...record,
+                status:
+                  input.action === "approve"
+                    ? ("approved" as const)
+                    : ("rejected" as const),
+              }
+            : record,
+        ),
+      };
+      model = {
+        ...model,
+        memories: { ...(model.memories ?? {}), [agent.pubkey]: next },
+      };
+      notice = `Memory ${input.action}d`;
+      return next;
+    }}
+  />
+{/snippet}
+
+{#snippet activity()}
+  {#if !appShell}
     <header aria-label="Agent activity navigation">
       <Button
         variant="ghost"
@@ -486,93 +499,205 @@
         }}><ArrowLeftIcon aria-hidden="true" />Back to profile</Button
       >
     </header>
-    <CommunityAgentActivity
-      {model}
-      rooms={storyAgentRooms}
-      members={[
-        {
-          id: storyOwnerPubkey,
-          name: "Alex Morgan",
-          handle: "alex",
-          initials: "AM",
-        },
-      ]}
-      onSelectAgent={(pubkey) => (model = { ...model, activityAgent: pubkey })}
-      onSelectChannel={(channel) => {
-        const { activityChannel, ...rest } = model;
-        model = {
-          ...rest,
-          ...(channel ? { activityChannel: channel } : {}),
-          activity: channel === "support" ? [] : storyActivityItems,
-        };
-      }}
-      onLatest={() => {
-        const { archiveError, activityError, ...rest } = model;
-        model = {
-          ...rest,
-          activity: storyActivityItems,
-          ...(variant === "sync-retry"
-            ? { activitySyncStatus: "checking" as const }
-            : {}),
-        };
-        notice = "Showing latest activity";
-      }}
-      onLoadOlder={() => {
-        model = {
-          ...model,
-          activity: [
-            ...model.activity,
-            storyActivity(
-              "user_message",
-              {
-                entry: {
-                  id: "earlier-request",
-                  type: "message",
-                  role: "user",
-                  text: "Earlier transcript message",
-                  authorPubkey: storyOwnerPubkey,
-                  createdAt: new Date(Date.now() - 20 * 60_000).toISOString(),
-                },
+  {/if}
+  <CommunityAgentActivity
+    {model}
+    rooms={storyAgentRooms}
+    members={[
+      {
+        id: storyOwnerPubkey,
+        name: "Alex Morgan",
+        handle: "alex",
+        initials: "AM",
+      },
+    ]}
+    onSelectAgent={(pubkey) => (model = { ...model, activityAgent: pubkey })}
+    onSelectChannel={(channel) => {
+      const { activityChannel, ...rest } = model;
+      model = {
+        ...rest,
+        ...(channel ? { activityChannel: channel } : {}),
+        activity: channel === "support" ? [] : storyActivityItems,
+      };
+    }}
+    onLatest={() => {
+      const { archiveError, activityError, ...rest } = model;
+      model = {
+        ...rest,
+        activity: storyActivityItems,
+        ...(variant === "sync-retry"
+          ? { activitySyncStatus: "checking" as const }
+          : {}),
+      };
+      notice = "Showing latest activity";
+    }}
+    onLoadOlder={() => {
+      model = {
+        ...model,
+        activity: [
+          ...model.activity,
+          storyActivity(
+            "user_message",
+            {
+              entry: {
+                id: "earlier-request",
+                type: "message",
+                role: "user",
+                text: "Earlier transcript message",
+                authorPubkey: storyOwnerPubkey,
+                createdAt: new Date(Date.now() - 20 * 60_000).toISOString(),
               },
-              0,
-            ),
-          ],
-          hasOlder: false,
-        };
-      }}
-      onClearHistory={clear}
-      onCancelTurn={async () => {
-        attempt();
-        model = {
-          ...model,
-          controllerScopes: {
-            ...model.controllerScopes,
-            [storyAgent.pubkey]: {
-              ...model.controllerScopes[storyAgent.pubkey]!,
-              active: false,
             },
+            0,
+          ),
+        ],
+        hasOlder: false,
+      };
+    }}
+    onClearHistory={clear}
+    onCancelTurn={async () => {
+      attempt();
+      model = {
+        ...model,
+        controllerScopes: {
+          ...model.controllerScopes,
+          [storyAgent.pubkey]: {
+            ...model.controllerScopes[storyAgent.pubkey]!,
+            active: false,
           },
-        };
-        notice = "Turn cancellation requested";
-      }}
-      onResetConversation={async () => {
-        attempt();
-        notice = "Conversation reset requested";
-      }}
-      onRespondPermission={async (_pubkey, requestId, decision) => {
-        attempt();
-        model = {
-          ...model,
-          pendingPermissions: {
-            ...model.pendingPermissions,
-            [storyAgent.pubkey]: (
-              model.pendingPermissions[storyAgent.pubkey] ?? []
-            ).filter((request) => request.requestId !== requestId),
-          },
-        };
-        notice = `${decision} sent`;
-      }}
-    />
+        },
+      };
+      notice = "Turn cancellation requested";
+    }}
+    onResetConversation={async () => {
+      attempt();
+      notice = "Conversation reset requested";
+    }}
+    onRespondPermission={async (_pubkey, requestId, decision) => {
+      attempt();
+      model = {
+        ...model,
+        pendingPermissions: {
+          ...model.pendingPermissions,
+          [storyAgent.pubkey]: (
+            model.pendingPermissions[storyAgent.pubkey] ?? []
+          ).filter((request) => request.requestId !== requestId),
+        },
+      };
+      notice = `${decision} sent`;
+    }}
+  />
+{/snippet}
+
+<div
+  class:agent-story={!appShell}
+  class:agent-story--app-shell={appShell}
+  style:max-width={!appShell
+    ? narrow
+      ? "360px"
+      : view === "gallery"
+        ? "none"
+        : "420px"
+    : undefined}
+  style:width={appShell && narrow ? "390px" : undefined}
+>
+  {#if appShell}
+    <CommunityAppShell
+      controller={shell}
+      displayMode={narrow ? "mobile" : "desktop"}
+      desktopMinMainWidth={0}
+    >
+      <AppShell.Main>
+        <AppShell.Toolbar
+          label="Agents page header"
+          class="agent-story__toolbar"
+        >
+          <div class="agent-story__toolbar-start">
+            <h1>Agents</h1>
+          </div>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-sm"
+            aria-label="Refresh agents"
+            title="Refresh agents"
+            disabled={model.status === "loading"}
+            onclick={() => {
+              model = storyAgentState();
+              notice = "Agent directory refreshed";
+            }}
+          >
+            <RefreshIcon aria-hidden="true" />
+          </Button>
+        </AppShell.Toolbar>
+        <AppShell.Body layout="regions" label="Agents">
+          <AppShell.Body.Content label="Agents directory">
+            {@render noticeContent()}
+            {@render directory()}
+          </AppShell.Body.Content>
+        </AppShell.Body>
+      </AppShell.Main>
+      <AppShell.Sidebar
+        side="right"
+        label={view === "activity"
+          ? "Agent activity sidebar"
+          : "Profile sidebar"}
+        mobileLabel={view === "activity" ? "Agent activity" : "Profile"}
+        resizeLabel={view === "activity"
+          ? "Resize agent activity sidebar"
+          : "Resize profile sidebar"}
+        closeable
+        hidden={view === "gallery"}
+      >
+        {#if view === "profile"}
+          <AppShell.Sidebar.Header>
+            <strong>Profile</strong>
+            <AppShell.Sidebar.Close
+              onclick={() => {
+                shell.right.close();
+                view = "gallery";
+              }}
+            />
+          </AppShell.Sidebar.Header>
+          <AppShell.Sidebar.Body>
+            {@render profile()}
+          </AppShell.Sidebar.Body>
+        {:else if view === "activity"}
+          <AppShell.Sidebar.Header>
+            <Button
+              variant="ghost"
+              size="sm"
+              onclick={() => {
+                const selected = model.agents.find(
+                  (entry) => entry.pubkey === model.activityAgent,
+                );
+                if (selected && selected.pubkey !== agent.pubkey)
+                  agent = selected;
+                view = selected ? "profile" : "gallery";
+              }}><ArrowLeftIcon aria-hidden="true" />Back to profile</Button
+            >
+            <AppShell.Sidebar.Close
+              onclick={() => {
+                shell.right.close();
+                view = "gallery";
+              }}
+            />
+          </AppShell.Sidebar.Header>
+          <AppShell.Sidebar.Body>
+            {@render activity()}
+          </AppShell.Sidebar.Body>
+        {/if}
+      </AppShell.Sidebar>
+    </CommunityAppShell>
+  {:else}
+    {@render noticeContent()}
+    {#if view === "gallery"}
+      {@render directory()}
+    {:else if view === "profile"}
+      {@render profile()}
+    {:else}
+      {@render activity()}
+    {/if}
   {/if}
 </div>
 
@@ -583,7 +708,28 @@
     background: var(--background);
     color: var(--foreground);
   }
-  .agent-story > p {
+  .agent-story--app-shell {
+    width: 100%;
+    height: 100vh;
+    max-width: 100%;
+  }
+  :global(.agent-story__toolbar) {
+    justify-content: space-between;
+  }
+  .agent-story__toolbar-start {
+    display: inline-flex;
+    min-width: 0;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  .agent-story__toolbar-start h1 {
+    margin: 0;
+    font-size: var(--community-text-page);
+    font-weight: 650;
+    letter-spacing: 0;
+  }
+  .agent-story > p,
+  .agent-story__notice {
     padding: 1rem;
   }
 </style>

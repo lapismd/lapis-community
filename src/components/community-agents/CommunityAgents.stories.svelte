@@ -9,13 +9,27 @@
     tags: ["visual-pending"],
     parameters: {
       layout: "fullscreen",
+      communityAppShell: true,
       docs: {
         source: {
           language: "svelte",
           code: `<script>
+  import { AppShell } from "@lapismd/design-core/shell";
+  import { Button } from "@lapismd/design-core/shadcn/button";
+  import RefreshIcon from "@lucide/svelte/icons/refresh-cw";
   import { CommunityAgents } from "@lapismd/lapis-community/components";
 <\/script>
-<CommunityAgents model={controller.state.agents} onProfile={openProfile} onActivity={openActivity} onSaveAgent={controller.actions.agents.saveAgent} onRefresh={controller.actions.agents.refresh} onClearHistory={() => controller.actions.agents.clearHistory()} />`,
+<AppShell.Toolbar label="Agents page header">
+  <h1>Agents</h1>
+  <Button variant="ghost" size="icon-sm" aria-label="Refresh agents" onclick={controller.actions.agents.refresh}>
+    <RefreshIcon aria-hidden="true" />
+  </Button>
+</AppShell.Toolbar>
+<AppShell.Body layout="regions" label="Agents">
+  <AppShell.Body.Content label="Agents directory">
+    <CommunityAgents model={controller.state.agents} onProfile={openProfile} onActivity={openActivity} onSaveAgent={controller.actions.agents.saveAgent} onRefresh={controller.actions.agents.refresh} onClearHistory={() => controller.actions.agents.clearHistory()} showPageHeader={false} showBodyDescription />
+  </AppShell.Body.Content>
+</AppShell.Body>`,
         },
       },
     },
@@ -25,8 +39,20 @@
 <Story
   name="Profile navigation"
   play={async ({ canvas }) => {
+    const pageHeader = canvas.getByLabelText("Agents page header");
+    const directory = canvas.getByRole("region", { name: "Your agents" });
     await expect(
-      canvas.getByRole("heading", { name: "Agents", exact: true }),
+      within(pageHeader).getByRole("heading", { name: "Agents", exact: true }),
+    ).toBeVisible();
+    const refresh = within(pageHeader).getByRole("button", {
+      name: "Refresh agents",
+    });
+    await expect(refresh).toHaveTextContent("");
+    await expect(
+      within(directory).queryByRole("heading", { name: "Agents", exact: true }),
+    ).not.toBeInTheDocument();
+    await expect(
+      within(directory).getByText("Your registered agents in this community."),
     ).toBeVisible();
     await expect(canvas.queryByRole("searchbox")).not.toBeInTheDocument();
     await expect(
@@ -44,7 +70,7 @@
     await expect(
       canvas.getByRole("article", { name: "Research agent profile" }),
     ).toBeVisible();
-  }}>{#snippet template()}<Harness />{/snippet}</Story
+  }}>{#snippet template()}<Harness appShell />{/snippet}</Story
 >
 <Story
   name="Gallery"
@@ -67,7 +93,8 @@
         "rounded",
       );
     }
-  }}>{#snippet template()}<Harness variant="gallery" />{/snippet}</Story
+  }}
+  >{#snippet template()}<Harness appShell variant="gallery" />{/snippet}</Story
 >
 <Story
   name="Add agent"
@@ -112,7 +139,8 @@
     ).toBeVisible();
     await expect(within(dialog).getByText(/"group-general"/)).toBeVisible();
     await userEvent.click(within(dialog).getByRole("button", { name: "Done" }));
-  }}>{#snippet template()}<Harness variant="gallery" />{/snippet}</Story
+  }}
+  >{#snippet template()}<Harness appShell variant="gallery" />{/snippet}</Story
 >
 <Story
   name="Link existing agent"
@@ -137,7 +165,8 @@
       within(dialog).getByRole("button", { name: "Link agent" }),
     );
     await expect(canvas.getByText("Persona fizz saved")).toBeVisible();
-  }}>{#snippet template()}<Harness variant="gallery" />{/snippet}</Story
+  }}
+  >{#snippet template()}<Harness appShell variant="gallery" />{/snippet}</Story
 >
 <Story
   name="Managed agents unavailable"
@@ -154,6 +183,7 @@
   }}
   >{#snippet template()}<Harness
       variant="unsupported-managed"
+      appShell
     />{/snippet}</Story
 >
 <Story
@@ -181,6 +211,7 @@
   >{#snippet template()}<Harness
       variant="gallery"
       failAction
+      appShell
     />{/snippet}</Story
 >
 <Story
@@ -211,7 +242,11 @@
     );
     await expect(within(dialog).getByText(/"group-general"/)).toBeVisible();
     await userEvent.click(within(dialog).getByRole("button", { name: "Done" }));
-  }}>{#snippet template()}<Harness variant="room-failure" />{/snippet}</Story
+  }}
+  >{#snippet template()}<Harness
+      appShell
+      variant="room-failure"
+    />{/snippet}</Story
 >
 <Story
   name="Edit agent"
@@ -247,7 +282,8 @@
       within(dialog).getByRole("button", { name: "Save changes" }),
     );
     await expect(canvas.getByText("Runtime defaults saved")).toBeVisible();
-  }}>{#snippet template()}<Harness variant="gallery" />{/snippet}</Story
+  }}
+  >{#snippet template()}<Harness appShell variant="gallery" />{/snippet}</Story
 >
 <Story
   name="Replacement controller setup"
@@ -264,7 +300,8 @@
     });
     await expect(within(dialog).getByText(/held by this relay/i)).toBeVisible();
     await userEvent.click(within(dialog).getByRole("button", { name: "Done" }));
-  }}>{#snippet template()}<Harness variant="gallery" />{/snippet}</Story
+  }}
+  >{#snippet template()}<Harness appShell variant="gallery" />{/snippet}</Story
 >
 <Story
   name="Revoke controller access"
@@ -285,7 +322,8 @@
       within(dialog).getByRole("button", { name: "Revoke access" }),
     );
     await expect(canvas.getByText("Controller access revoked.")).toBeVisible();
-  }}>{#snippet template()}<Harness variant="gallery" />{/snippet}</Story
+  }}
+  >{#snippet template()}<Harness appShell variant="gallery" />{/snippet}</Story
 >
 <Story
   name="Delete managed agent"
@@ -302,13 +340,21 @@
       within(dialog).getByRole("button", { name: "Delete managed agent" }),
     );
     await expect(canvas.getByText("Managed agent deleted.")).toBeVisible();
-  }}>{#snippet template()}<Harness variant="gallery" />{/snippet}</Story
+  }}
+  >{#snippet template()}<Harness appShell variant="gallery" />{/snippet}</Story
 >
 <Story name="Managed agents narrow"
-  >{#snippet template()}<Harness narrow variant="gallery" />{/snippet}</Story
+  >{#snippet template()}<Harness
+      appShell
+      narrow
+      variant="gallery"
+    />{/snippet}</Story
 >
 <Story name="Managed agents dark" globals={{ colorMode: "dark" }}
-  >{#snippet template()}<Harness variant="no-archive" />{/snippet}</Story
+  >{#snippet template()}<Harness
+      appShell
+      variant="no-archive"
+    />{/snippet}</Story
 >
 <Story
   name="Delete persona"
@@ -333,7 +379,8 @@
     await expect(
       canvas.queryByRole("button", { name: "Delete persona Release notes" }),
     ).not.toBeInTheDocument();
-  }}>{#snippet template()}<Harness variant="gallery" />{/snippet}</Story
+  }}
+  >{#snippet template()}<Harness appShell variant="gallery" />{/snippet}</Story
 >
 <Story
   name="Edit saved persona"
@@ -350,7 +397,8 @@
       within(dialog).getByRole("button", { name: "Save persona" }),
     );
     await expect(canvas.getByText("Persona release-notes saved")).toBeVisible();
-  }}>{#snippet template()}<Harness variant="gallery" />{/snippet}</Story
+  }}
+  >{#snippet template()}<Harness appShell variant="gallery" />{/snippet}</Story
 >
 <Story
   name="Card activity menu"
@@ -371,7 +419,8 @@
     await expect(
       canvas.getByRole("article", { name: "Build agent profile" }),
     ).toBeVisible();
-  }}>{#snippet template()}<Harness variant="gallery" />{/snippet}</Story
+  }}
+  >{#snippet template()}<Harness appShell variant="gallery" />{/snippet}</Story
 >
 <Story
   name="Loading"
@@ -385,7 +434,8 @@
     expect(
       canvas.queryByRole("button", { name: "View Research" }),
     ).not.toBeInTheDocument();
-  }}>{#snippet template()}<Harness variant="loading" />{/snippet}</Story
+  }}
+  >{#snippet template()}<Harness appShell variant="loading" />{/snippet}</Story
 >
 <Story
   name="Empty"
@@ -399,7 +449,7 @@
     await expect(
       canvas.queryByRole("button", { name: "New persona" }),
     ).not.toBeInTheDocument();
-  }}>{#snippet template()}<Harness variant="empty" />{/snippet}</Story
+  }}>{#snippet template()}<Harness appShell variant="empty" />{/snippet}</Story
 >
 <Story
   name="Offline"
@@ -413,7 +463,8 @@
     await expect(
       canvas.queryByText("Presence unknown", { exact: true }),
     ).not.toBeInTheDocument();
-  }}>{#snippet template()}<Harness variant="offline" />{/snippet}</Story
+  }}
+  >{#snippet template()}<Harness appShell variant="offline" />{/snippet}</Story
 >
 <Story
   name="Partial results"
@@ -422,7 +473,8 @@
       canvas.getByRole("button", { name: "Refresh agents" }),
     );
     await expect(canvas.getByText("Agent directory refreshed")).toBeVisible();
-  }}>{#snippet template()}<Harness variant="partial" />{/snippet}</Story
+  }}
+  >{#snippet template()}<Harness appShell variant="partial" />{/snippet}</Story
 >
 <Story
   name="Discovery failure"
@@ -434,7 +486,7 @@
       canvas.getByRole("button", { name: "Refresh agents" }),
     );
     await expect(canvas.getByText("Agent directory refreshed")).toBeVisible();
-  }}>{#snippet template()}<Harness variant="error" />{/snippet}</Story
+  }}>{#snippet template()}<Harness appShell variant="error" />{/snippet}</Story
 >
 <Story
   name="Historical agent"
@@ -445,7 +497,11 @@
     await expect(
       canvas.getByRole("region", { name: "Agent activity history" }),
     ).toBeVisible();
-  }}>{#snippet template()}<Harness variant="historical" />{/snippet}</Story
+  }}
+  >{#snippet template()}<Harness
+      appShell
+      variant="historical"
+    />{/snippet}</Story
 >
 <Story
   name="Confirmed clear failure and retry"
@@ -501,8 +557,12 @@
     await waitFor(() =>
       expect(body.queryByRole("alertdialog")).not.toBeInTheDocument(),
     );
-  }}>{#snippet template()}<Harness failAction />{/snippet}</Story
+  }}>{#snippet template()}<Harness appShell failAction />{/snippet}</Story
 >
 <Story name="Narrow gallery"
-  >{#snippet template()}<Harness narrow variant="gallery" />{/snippet}</Story
+  >{#snippet template()}<Harness
+      appShell
+      narrow
+      variant="gallery"
+    />{/snippet}</Story
 >
