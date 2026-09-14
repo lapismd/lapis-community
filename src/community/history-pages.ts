@@ -6,7 +6,8 @@ import type {
 import type { NostrEvent } from "../protocol/index.js";
 
 export const COMMUNITY_CACHE_METADATA_KINDS = [
-  0, 3, 10000, 10002, 10063, 30030, 30315, 30622, 39000, 39001, 39002, 39003,
+  0, 3, 5, 9005, 10000, 10002, 10063, 30030, 30315, 30622, 39000, 39001, 39002,
+  39003,
 ] as const;
 
 export function cachedEventPage(events: readonly NostrEvent[], limit: number) {

@@ -1,3 +1,4 @@
+import { readCachedContentWindow } from "./cached-content-window.js";
 import { createHistoryScheduler } from "./history-scheduler.js";
 import { historyPageKey, eventInHistoryWindow } from "./history-pages.js";
 import { createProjectionQueue, shareProjection } from "./projection-state.js";
@@ -747,17 +748,14 @@ export function createCommunityController(
       room.transport ?? "nip29",
       request,
     );
-    const cached = await eventRuntime.readHistoryPage?.(scope, key);
-    const events =
-      cached?.events ??
-      (
-        await eventRuntime.readCachedEvents?.(scope, {
-          kinds: room.kind === "forum" ? [11, 1111] : [9],
-          groupId: room.groupId,
-          limit: 50,
-        })
-      )?.events ??
-      [];
+    const cached = await readCachedContentWindow(
+      eventRuntime,
+      scope,
+      request,
+      key,
+      controllerAbort?.signal,
+    );
+    const events = cached?.window.events ?? [];
     if (generation !== currentGeneration) return;
     const revision = await eventRuntime.ingest({
       generation: currentGeneration,
@@ -770,17 +768,7 @@ export function createCommunityController(
     if (revision) applyRuntimeRevision(revision);
     if (cached) {
       const resource = historyResourceKey(scopeId, roomId, rootEventId);
-      const window = {
-        events,
-        primaryEventIds: cached.page.primaryEventIds,
-        hasOlder: cached.page.hasOlder,
-        ...(cached.page.coverageGaps
-          ? { coverageGaps: cached.page.coverageGaps }
-          : {}),
-        ...(cached.page.olderCursor
-          ? { olderCursor: cached.page.olderCursor }
-          : {}),
-      };
+      const window = cached.window;
       if (!historyWindows.has(resource))
         historyWindows.set(resource, {
           window,
@@ -788,7 +776,10 @@ export function createCommunityController(
           request,
           generation: -1,
           visibleLimit: 50,
-          visibleIds: new Set(cached.page.primaryEventIds),
+          visibleIds: new Set([
+            ...cached.window.primaryEventIds,
+            ...(rootEventId ? [rootEventId] : []),
+          ]),
         });
       historyStates = {
         ...historyStates,
@@ -857,7 +848,12 @@ export function createCommunityController(
         eventsByScope[scopeId] ?? [],
         identityPubkey || undefined,
       ).find((candidate) => candidate.id === roomId);
-    if (!scope || !session?.loadContentWindow || !room) return;
+    if (
+      !scope ||
+      !room ||
+      (!session?.loadContentWindow && !options.source.historyPaging)
+    )
+      return;
     const key = historyResourceKey(scopeId, roomId, rootEventId);
     const current = historyWindows.get(key);
     if (direction === "head" && current?.generation === generation) return;
@@ -915,39 +911,52 @@ export function createCommunityController(
         try {
           const cached = room.private
             ? undefined
-            : await eventRuntime.readHistoryPage?.(scope, pageKey);
+            : await readCachedContentWindow(
+                eventRuntime,
+                scope,
+                request,
+                pageKey,
+                signal,
+              );
           if (generation !== currentGeneration) return;
           if (cached) {
             const revision = await eventRuntime.ingest({
               generation: currentGeneration,
               scope: runtimeScope(scope),
               relayUrl: scope.relayUrl,
-              events: cached.events,
+              events: cached.window.events,
               fromCache: true,
             });
+            if (generation !== currentGeneration) return;
             if (revision) applyRuntimeRevision(revision);
+            if (!previous && direction === "head")
+              historyWindows.set(key, {
+                window: cached.window,
+                scopeId,
+                request,
+                generation: -1,
+                visibleLimit: 50,
+                visibleIds: new Set([
+                  ...cached.window.primaryEventIds,
+                  ...(rootEventId ? [rootEventId] : []),
+                ]),
+              });
             await refreshProjection(currentGeneration);
           }
-          // A connected covered revisit returns above. Reconnect reconciles a bounded overlap from the cached head.
-          const cachedWindow: CommunityContentWindow | undefined = cached
-            ? {
-                events: cached.events,
-                primaryEventIds: cached.page.primaryEventIds,
-                hasOlder: cached.page.hasOlder,
-                ...(cached.page.coverageGaps
-                  ? { coverageGaps: cached.page.coverageGaps }
-                  : {}),
-                ...(cached.page.olderCursor
-                  ? { olderCursor: cached.page.olderCursor }
-                  : {}),
-              }
+          // Legacy cached rows can render immediately but cannot prove a covered
+          // relay range or justify newer-only reconciliation.
+          const cachedWindow = cached?.window;
+          const head = cached?.covered
+            ? cachedWindow?.events
+                .filter((event) =>
+                  cachedWindow.primaryEventIds.includes(event.id),
+                )
+                .toSorted(
+                  (a, b) =>
+                    a.created_at - b.created_at || a.id.localeCompare(b.id),
+                )
+                .at(-1)
             : undefined;
-          const head = cachedWindow?.events
-            .filter((event) => cachedWindow.primaryEventIds.includes(event.id))
-            .toSorted(
-              (a, b) => a.created_at - b.created_at || a.id.localeCompare(b.id),
-            )
-            .at(-1);
           const relayRequest =
             direction === "head" && head
               ? {
@@ -955,11 +964,19 @@ export function createCommunityController(
                   after: { createdAt: head.created_at, eventId: head.id },
                 }
               : request;
-          let window =
-            cachedWindow && direction === "older"
-              ? cachedWindow
-              : await session.loadContentWindow!(relayRequest, signal);
-          if (direction === "head" && cachedWindow && head) {
+          const useCache =
+            cachedWindow &&
+            ((cached?.covered && direction === "older") ||
+              !session?.loadContentWindow);
+          const remoteLoaded = !useCache && !!session?.loadContentWindow;
+          let window = useCache
+            ? cachedWindow
+            : await session?.loadContentWindow?.(relayRequest, signal);
+          if (!window)
+            throw new Error(
+              "This history is not cached. Reconnect to load more messages.",
+            );
+          if (remoteLoaded && direction === "head" && cachedWindow) {
             const byId = new Map(
               [...cachedWindow.events, ...window.events].map((event) => [
                 event.id,
@@ -1009,7 +1026,7 @@ export function createCommunityController(
             ).values(),
           ];
           if (coverageGaps.length) window = { ...window, coverageGaps };
-          if (!(cached && direction === "older")) {
+          if (remoteLoaded) {
             const revision = await eventRuntime.ingest({
               generation: currentGeneration,
               scope: runtimeScope(scope),
@@ -1047,7 +1064,9 @@ export function createCommunityController(
           if (historyIntents.get(key) !== intent) return;
           if (direction !== "older") notificationInitialized.delete(key);
           const visibleIds = new Set([
-            ...(direction !== "newer"
+            ...(direction === "older" ||
+            (direction === "head" &&
+              timelinePresentations.get(key)?.position?.atLatest === false)
               ? (previous?.visibleIds ?? previous?.window.primaryEventIds ?? [])
               : []),
             ...window.primaryEventIds,
@@ -1070,15 +1089,20 @@ export function createCommunityController(
               key,
               loading: false,
               hasOlder: window.hasOlder,
-              hasNewer: Boolean(around),
+              hasNewer: !session?.loadContentWindow || Boolean(around),
               complete:
-                !window.hasOlder && !around && !window.coverageGaps?.length,
+                !!session?.loadContentWindow &&
+                !window.hasOlder &&
+                !around &&
+                !window.coverageGaps?.length,
             },
           };
           if (!rootEventId)
             updateRoomContentSync(
               roomId,
-              window.hasOlder || window.coverageGaps?.length
+              !session?.loadContentWindow ||
+                window.hasOlder ||
+                window.coverageGaps?.length
                 ? "partial"
                 : "complete",
             );
@@ -4009,7 +4033,8 @@ export function createCommunityController(
       ...(activeThreadId === undefined ? {} : { activeThreadId }),
       ...(identityPubkey === "" ? {} : { identityPubkey }),
       inboxSelection: {
-        ...(sessions.get(activeCommunityId)?.loadContentWindow
+        ...(options.source.historyPaging ||
+        sessions.get(activeCommunityId)?.loadContentWindow
           ? {
               itemLimit: inboxVisibleLimit,
               messageLimit:
@@ -4065,7 +4090,10 @@ export function createCommunityController(
     runtimeRevision = revision.revision;
     if (revision.workspace !== undefined) {
       const projected = revision.workspace;
-      if (sessions.get(activeCommunityId)?.loadContentWindow) {
+      if (
+        options.source.historyPaging ||
+        sessions.get(activeCommunityId)?.loadContentWindow
+      ) {
         projected.navigationSections = projected.navigationSections.map(
           (section) => ({
             ...section,
@@ -4109,7 +4137,10 @@ export function createCommunityController(
             projected.thread.rootMessageId,
           );
       }
-      if (sessions.get(activeCommunityId)?.loadContentWindow) {
+      if (
+        options.source.historyPaging ||
+        sessions.get(activeCommunityId)?.loadContentWindow
+      ) {
         const limit =
           directLimits.get(
             historyResourceKey(activeCommunityId, activeRoomId),
@@ -4170,7 +4201,10 @@ export function createCommunityController(
       reconcileAcceptedMembershipOperations();
     }
     if (revision.inbox) {
-      if (sessions.get(activeCommunityId)?.loadContentWindow)
+      if (
+        options.source.historyPaging ||
+        sessions.get(activeCommunityId)?.loadContentWindow
+      )
         revision.inbox.unreadComplete = false;
       const selected =
         revision.inbox.selectedItem ??
@@ -4184,7 +4218,11 @@ export function createCommunityController(
         selected?.rootEventId,
       );
     }
-    if (revision.inbox && sessions.get(activeCommunityId)?.loadContentWindow) {
+    if (
+      revision.inbox &&
+      (options.source.historyPaging ||
+        sessions.get(activeCommunityId)?.loadContentWindow)
+    ) {
       const selected =
         revision.inbox.selectedItem ??
         revision.inbox.items.find(

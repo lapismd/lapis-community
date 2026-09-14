@@ -475,3 +475,7 @@ A failed privacy purge MUST prevent cached reads and search from exposing the af
 Browser cache wrappers MUST share repeated opens, await pending initialization before close, and retain the last shared Turso owner until shutdown finishes. A failed close MUST remain retryable without allowing a competing opener to bypass ownership. Reopening a healthy persistent store MUST clear obsolete degraded-state messages.
 
 Configured private-room access MUST seed runtime privacy before restoration, ingestion, or a direct indexed page read, even when no room metadata is cached. An empty batch carrying changed access MUST still invalidate old public plaintext and reference descendants. Repeated reads with unchanged access MUST NOT repeat full-cache invalidation.
+
+Legacy cached events without page records MUST restore a bounded 50-message window using at most three indexed batches of 100 candidates. Cached exhaustion MUST NOT establish relay coverage, an exact unread count, or a newer-only reconciliation point. A selected offline channel or thread MUST load earlier cached windows and retain content on uncached-history failure; cached-only reads MUST NOT create coverage. Legacy unpaged sources retain their existing full-snapshot contract.
+
+Metadata restoration MUST retain cached deletion controls (kinds 5 and 9005), so hydrating an older legacy message cannot revive a deleted entry. These controls remain excluded from chat messages and unread-arrival notifications.

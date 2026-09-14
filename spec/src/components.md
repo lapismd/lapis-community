@@ -582,3 +582,5 @@ Browser acceptance MUST keep the story iframe inside the host browser viewport,
 including configured constrained and responsive scenarios. Read-boundary and
 hover assertions MUST observe the actual visible content; an oversized clipped
 test iframe is not evidence of a product scroll or read-state failure.
+
+The application cache story MUST cover a legacy offline channel with more than two message windows through the production controller and public conversation composition. Initial rendering remains bounded; reaching the older edge loads one cached window, keeps the reading anchor visible, and does not create a New messages notification. Unpaged custom source rendering remains unchanged. Opening a cached forum topic MUST retain its already available root post while the thread reply page refreshes.

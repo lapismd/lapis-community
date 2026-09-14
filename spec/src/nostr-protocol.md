@@ -434,3 +434,5 @@ The native cache fixture MUST retain the actual server's cross-origin isolation 
 Native storage acceptance MUST exercise repeated opens through the browser wrapper, close it, and acquire a new direct Turso owner for that same disposable database to verify ownership release.
 
 Native cache acceptance MUST cover configured private access without a cached kind-39000 event, including a formerly public root and its orphan reply, while retaining unrelated public history and encrypted inbox records.
+
+Legacy cache rows and old synchronization checkpoints MUST NOT justify newer-only relay queries. A missing persisted history page uses bounded indexed candidates for immediate display, then an ordinary bounded head query when connected. Cache-only offline pagination MUST keep read position separate from synchronization coverage and preserve incomplete unread status.

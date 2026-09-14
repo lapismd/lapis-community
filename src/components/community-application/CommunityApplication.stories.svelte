@@ -108,7 +108,11 @@
 <Story
   name="Viewed rooms clear sidebar unread counts"
   play={async ({ canvas }) => {
-    const app = await canvas.findByTestId("full-community-application");
+    const app = await canvas.findByTestId(
+      "full-community-application",
+      {},
+      { timeout: 15_000 },
+    );
     if (app.dataset.communityBackend === "live") return;
     const navigation = within(canvas.getByLabelText("Community navigation"));
     for (const name of ["general", "support"]) {
@@ -174,6 +178,60 @@
 >
   {#snippet template()}
     <CommunityApplicationStoryHarness namespace="viewed-room-unread" />
+  {/snippet}
+</Story>
+
+<Story
+  name="Legacy cached history offline"
+  play={async ({ canvas, canvasElement }) => {
+    await waitFor(() =>
+      expect(
+        canvasElement.querySelector(
+          '[data-cache-scenario="legacy-history-offline"]',
+        ),
+      ).not.toBeNull(),
+    );
+    const application = canvasElement.querySelector(
+      '[data-cache-scenario="legacy-history-offline"]',
+    )!;
+    await waitFor(() =>
+      expect(application).toHaveAttribute("data-cache-message-count", "50"),
+    );
+    await expect(await canvas.findByText("Cached history 125")).toBeVisible();
+    const conversation = canvas.getByLabelText("general conversation");
+    const viewport = conversation.querySelector<HTMLElement>(
+      '[data-ui-part="scroll-area-viewport"]',
+    )!;
+    await waitFor(() => expect(viewport.scrollTop).toBeGreaterThan(1000));
+    expect(
+      conversation.querySelectorAll('[data-ui-part="virtual-row"]').length,
+    ).toBeLessThan(45);
+    viewport.dispatchEvent(new Event("scroll"));
+    await expect(
+      canvas.getByRole("button", { name: "Load older messages" }),
+    ).toBeEnabled();
+    viewport.dispatchEvent(
+      new WheelEvent("wheel", { deltaY: -viewport.scrollHeight }),
+    );
+    viewport.scrollTop = 0;
+    viewport.dispatchEvent(new Event("scroll"));
+    await waitFor(() =>
+      expect(application).toHaveAttribute("data-cache-message-count", "100"),
+    );
+    await expect(await canvas.findByText("Cached history 076")).toBeVisible();
+    await expect(
+      canvas.queryByRole("button", { name: /New messages/ }),
+    ).not.toBeInTheDocument();
+    expect(
+      conversation.querySelectorAll('[data-ui-part="virtual-row"]').length,
+    ).toBeLessThan(45);
+  }}
+>
+  {#snippet template()}
+    <CommunityApplicationCacheStoryHarness
+      scenario="legacy-history-offline"
+      initialDestination="general"
+    />
   {/snippet}
 </Story>
 

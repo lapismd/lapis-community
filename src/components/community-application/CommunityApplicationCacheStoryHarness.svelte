@@ -27,6 +27,7 @@
     initialDestination = "inbox",
   }: {
     scenario?:
+      | "legacy-history-offline"
       | "cached-offline"
       | "cold-offline"
       | "degraded"
@@ -79,12 +80,34 @@
         relayUrl: "memory://cache-story.test",
         namespace: scenario,
       });
+      let cachedEvents = [...fixture.events];
+      if (scenario === "legacy-history-offline") {
+        const groupId = fixture.scope.rooms!.find(
+          (room) => room.id === "general",
+        )!.groupId;
+        cachedEvents = cachedEvents.filter(
+          (event) =>
+            !event.tags.some(
+              ([tag, value]) => tag === "h" && value === groupId,
+            ),
+        );
+        for (let index = 1; index <= 125; index++) {
+          cachedEvents.push(
+            await fixture.member.signEvent({
+              kind: 9,
+              created_at: 1_700_000_200 + index,
+              content: `Cached history ${String(index).padStart(3, "0")}`,
+              tags: [["h", groupId]],
+            }),
+          );
+        }
+      }
       const store = createMemoryCommunityEventStore();
       if (scenario !== "cold-offline") {
         await store.open();
         await store.commit({
           scope: fixture.scope,
-          records: fixture.events.map((event) => ({
+          records: cachedEvents.map((event) => ({
             event,
             relayUrl: fixture.scope.relayUrl,
             audience: { type: "public" },
@@ -105,6 +128,9 @@
 
       let attempts = 0;
       const source: CommunityDataSource = {
+        ...(scenario === "legacy-history-offline"
+          ? { historyPaging: true }
+          : {}),
         async open() {
           attempts += 1;
           const online =
