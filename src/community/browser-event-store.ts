@@ -1,5 +1,7 @@
 import type {
   CommunityCacheAudience,
+  CommunityCachedHistoryPage,
+  CommunityCachedEventQuery,
   CommunityCachedScope,
   CommunityEventStore,
   CommunityScope,
@@ -104,6 +106,32 @@ class BrowserCommunityEventStore implements CommunityEventStore {
     audience?: CommunityCacheAudience,
   ): Promise<CommunityCachedScope> {
     return this.#requireStore().restore(scope, audience);
+  }
+
+  restoreMetadata(scope: CommunityScope) {
+    const store = this.#requireStore();
+    return store.restoreMetadata?.(scope) ?? store.restore(scope);
+  }
+  async readCachedEvents(
+    scope: CommunityScope,
+    query: CommunityCachedEventQuery,
+  ) {
+    return (
+      this.#requireStore().readCachedEvents?.(scope, query) ?? {
+        events: [],
+        hasMoreCached: false,
+      }
+    );
+  }
+
+  readHistoryPage(
+    scope: CommunityScope,
+    key: string,
+  ): Promise<CommunityCachedHistoryPage | undefined> {
+    return (
+      this.#requireStore().readHistoryPage?.(scope, key) ??
+      Promise.resolve(undefined)
+    );
   }
 
   commit(batch: CommunityVerifiedEventBatch): Promise<void> {
@@ -242,6 +270,31 @@ class SharedTursoCommunityEventStore implements CommunityEventStore {
     audience?: CommunityCacheAudience,
   ): Promise<CommunityCachedScope> {
     return this.#store().restore(scope, audience);
+  }
+
+  restoreMetadata(scope: CommunityScope) {
+    const store = this.#store();
+    return store.restoreMetadata?.(scope) ?? store.restore(scope);
+  }
+  async readCachedEvents(
+    scope: CommunityScope,
+    query: CommunityCachedEventQuery,
+  ) {
+    return (
+      this.#store().readCachedEvents?.(scope, query) ?? {
+        events: [],
+        hasMoreCached: false,
+      }
+    );
+  }
+
+  readHistoryPage(
+    scope: CommunityScope,
+    key: string,
+  ): Promise<CommunityCachedHistoryPage | undefined> {
+    return (
+      this.#store().readHistoryPage?.(scope, key) ?? Promise.resolve(undefined)
+    );
   }
 
   commit(batch: CommunityVerifiedEventBatch): Promise<void> {

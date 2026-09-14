@@ -382,6 +382,35 @@
       "verification": {
         "count": "community-patterns-chip--contract"
       }
+    },
+    {
+      "id": "history-edge",
+      "name": "History paging",
+      "component": "CommunityHistoryEdge",
+      "import": "@lapismd/lapis-community/components",
+      "example": "src/components/community-patterns/examples/HistoryExample.svelte",
+      "story": "community-patterns-history-edge--guarded-paging-and-retry",
+      "storyFile": "src/components/community-history-edge/CommunityHistoryEdge.stories.svelte",
+      "requirement": "LC-UI-040",
+      "variants": ["earlier", "loading", "retry"],
+      "requiredStates": ["load", "loading", "retry"],
+      "loading": {
+        "applicable": true,
+        "states": ["initial", "content", "refresh"],
+        "reason": "Pagination feedback remains at the history edge while existing content stays mounted."
+      },
+      "when": "Bounded forum and Inbox list pagination with an accessible manual fallback and guarded 600 px edge.",
+      "productionStories": [
+        "community-examples-app-shell--viewed-rooms-clear-sidebar-unread-counts"
+      ],
+      "verification": {
+        "load": "community-patterns-history-edge--guarded-paging-and-retry",
+        "loading": "community-patterns-history-edge--guarded-paging-and-retry",
+        "retry": "community-patterns-history-edge--guarded-paging-and-retry",
+        "initial": "community-patterns-history-edge--guarded-paging-and-retry",
+        "content": "community-patterns-history-edge--guarded-paging-and-retry",
+        "refresh": "community-patterns-history-edge--guarded-paging-and-retry"
+      }
     }
   ],
   "exceptions": [

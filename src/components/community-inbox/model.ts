@@ -24,8 +24,12 @@ export interface CommunityInboxModel {
   filter?: CommunityInboxFilter;
   unreadOnly?: boolean;
   unreadCount?: number;
+  /** False means cached history only establishes a lower bound. */
+  unreadComplete?: boolean;
   items: readonly CommunityInboxItemModel[];
   activeItemId: string;
+  /** Retains the selected conversation when filters or paging hide its list row. */
+  selectedItem?: CommunityInboxItemModel;
   threadTitle: string;
   room: CommunityRoomModel;
   messages: CommunityMessageModel[];

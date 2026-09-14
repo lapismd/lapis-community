@@ -81,6 +81,9 @@
     class="community-member-hover-card__content"
     role="group"
     aria-label={`${member.name} contact preview`}
+    onEscapeKeydown={() => {
+      open = false;
+    }}
   >
     <button
       type="button"

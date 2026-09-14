@@ -1,6 +1,7 @@
 import type { Preview } from "@storybook/svelte-vite";
 import { withThemeByDataAttribute } from "@storybook/addon-themes";
 import { syncCatalogStoryLayout } from "@lapismd/design-core/storybook/catalog-layout";
+import { preparePortableApplicationCanvas } from "./portable-canvas.js";
 
 import "@lapismd/design-core/storybook.css";
 import "@lapismd/design-core/themes/lapis.css";
@@ -171,6 +172,11 @@ const preview: Preview = {
         ) {
           document.body.setAttribute("data-ui-catalog-full-viewport", "");
         }
+        preparePortableApplicationCanvas(
+          document,
+          context.canvasElement,
+          document.body.hasAttribute("data-ui-catalog-full-viewport"),
+        );
         document.documentElement.classList.toggle(
           "dark",
           context.globals.colorMode === "dark",

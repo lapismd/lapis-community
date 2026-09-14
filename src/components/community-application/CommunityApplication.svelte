@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { parseNip29ReleaseEvent } from "../../protocol/index.js";
   import {
     conversationHash,
     directConversationHash,
@@ -1074,6 +1075,9 @@
               label: "Inbox",
               kind: "inbox" as const,
               unreadCount: inbox.unreadCount ?? 0,
+              ...(inbox.unreadComplete === undefined
+                ? {}
+                : { unreadComplete: inbox.unreadComplete }),
             },
           ]
         : []),
@@ -1289,6 +1293,9 @@
                   )!,
                 }
               : {}),
+            ...(room.unreadComplete === undefined
+              ? {}
+              : { unreadComplete: room.unreadComplete }),
             ...(room.private === undefined ? {} : { restricted: room.private }),
             ...(room.mentionCount === undefined &&
             room.unreadCount === undefined
@@ -1355,6 +1362,9 @@
                   )!,
                 }
               : {}),
+            ...(room.unreadComplete === undefined
+              ? {}
+              : { unreadComplete: room.unreadComplete }),
             ...(room.private === undefined ? {} : { restricted: room.private }),
             ...(room.mentionCount === undefined &&
             room.unreadCount === undefined
@@ -6622,7 +6632,7 @@
 {/snippet}
 
 {#snippet releaseMessageSupplement(message: CommunityMessageModel)}
-  {#if hasRegistry && message.parentMessageId === undefined && registryOptions?.source.loadReleaseInspection}
+  {#if hasRegistry && message.sourceEvent && parseNip29ReleaseEvent(message.sourceEvent) && registryOptions?.source.loadReleaseInspection}
     <RegistryReleaseDisclosure
       eventId={message.id}
       source={registryOptions.source}
@@ -7351,6 +7361,81 @@
     {:else if activeDestination === "inbox"}
       <CommunityInbox
         model={inbox}
+        {...community.state.inboxHistory
+          ? { listHistory: community.state.inboxHistory }
+          : {}}
+        {...community.actions.loadOlderInbox
+          ? { onLoadOlderItems: community.actions.loadOlderInbox }
+          : {}}
+        readBoundary={{
+          key: JSON.stringify([
+            workspace.currentMemberId,
+            inbox.activeItemId,
+            inbox.messages.at(-1)?.id,
+          ]),
+          onRead: () => {
+            const eventId = inbox.messages.findLast(
+              (message) =>
+                message.authorId !== workspace.currentMemberId &&
+                !message.activity,
+            )?.id;
+            const selected =
+              inbox.selectedItem ??
+              inbox.items.find((item) => item.id === inbox.activeItemId);
+            if (eventId)
+              void community.actions.markRead(inbox.room.id, {
+                eventId,
+                ...(selected?.rootEventId
+                  ? { threadId: selected.rootEventId }
+                  : {}),
+              });
+          },
+        }}
+        virtualize
+        {...community.state.inboxConversationHistory
+          ? { history: community.state.inboxConversationHistory }
+          : {}}
+        {...community.state.inboxPresentation
+          ? { presentation: community.state.inboxPresentation }
+          : {}}
+        {...community.actions.updateTimelinePresentation
+          ? {
+              onPresentationChange:
+                community.actions.updateTimelinePresentation,
+            }
+          : {}}
+        {...community.actions.loadOlderHistory
+          ? {
+              onLoadOlder: () => {
+                const selected =
+                  inbox.selectedItem ??
+                  inbox.items.find((item) => item.id === inbox.activeItemId);
+                return community.actions.loadOlderHistory!({
+                  roomId: selected?.roomId ?? inbox.room.id,
+                  ...(selected?.scopeId ? { scopeId: selected.scopeId } : {}),
+                  ...(selected?.rootEventId
+                    ? { rootEventId: selected.rootEventId }
+                    : {}),
+                });
+              },
+            }
+          : {}}
+        {...community.actions.loadNewerHistory
+          ? {
+              onLoadLatest: () => {
+                const selected =
+                  inbox.selectedItem ??
+                  inbox.items.find((item) => item.id === inbox.activeItemId);
+                return community.actions.loadNewerHistory!({
+                  roomId: selected?.roomId ?? inbox.room.id,
+                  ...(selected?.scopeId ? { scopeId: selected.scopeId } : {}),
+                  ...(selected?.rootEventId
+                    ? { rootEventId: selected.rootEventId }
+                    : {}),
+                });
+              },
+            }
+          : {}}
         loading={community.state.contentSync?.phase === "initial"}
         {...community.state.directHistory && community.actions.loadDirectHistory
           ? {
@@ -7579,6 +7664,27 @@
           <div class="community-application__workspace-stack">
             <div class="community-application__workspace-layer">
               <CommunityWorkspaceSurface
+                virtualize
+                {...community.state.history
+                  ? { history: community.state.history }
+                  : {}}
+                {...community.state.timelinePresentation
+                  ? { presentation: community.state.timelinePresentation }
+                  : {}}
+                {...community.actions.updateTimelinePresentation
+                  ? {
+                      onPresentationChange:
+                        community.actions.updateTimelinePresentation,
+                    }
+                  : {}}
+                {...community.actions.loadOlderHistory
+                  ? { onLoadOlder: () => community.actions.loadOlderHistory!() }
+                  : {}}
+                {...community.actions.loadNewerHistory
+                  ? {
+                      onLoadLatest: () => community.actions.loadNewerHistory!(),
+                    }
+                  : {}}
                 model={workspaceSurfaceModel}
                 {...community.state.directHistory &&
                 community.actions.loadDirectHistory
@@ -7992,6 +8098,56 @@
             {#if visibleThread}
               <CommunityThreadPanel
                 thread={visibleThread}
+                virtualize
+                {...community.state.threadHistory
+                  ? { history: community.state.threadHistory }
+                  : {}}
+                {...community.state.threadPresentation
+                  ? { presentation: community.state.threadPresentation }
+                  : {}}
+                {...community.actions.updateTimelinePresentation
+                  ? {
+                      onPresentationChange:
+                        community.actions.updateTimelinePresentation,
+                    }
+                  : {}}
+                {...community.actions.loadOlderHistory
+                  ? {
+                      onLoadOlder: () =>
+                        community.actions.loadOlderHistory!({
+                          roomId: activeRoom.id,
+                          rootEventId: visibleThread!.rootMessageId,
+                        }),
+                    }
+                  : {}}
+                {...community.actions.loadNewerHistory
+                  ? {
+                      onLoadLatest: () =>
+                        community.actions.loadNewerHistory!({
+                          roomId: activeRoom.id,
+                          rootEventId: visibleThread!.rootMessageId,
+                        }),
+                    }
+                  : {}}
+                readBoundary={{
+                  key: JSON.stringify([
+                    workspace.currentMemberId,
+                    activeRoom.id,
+                    visibleThread.rootMessageId,
+                    visibleThread.messages.at(-1)?.id,
+                  ]),
+                  onRead: () => {
+                    const eventId = visibleThread?.messages.findLast(
+                      (message) =>
+                        message.authorId !== workspace.currentMemberId,
+                    )?.sourceEvent?.id;
+                    if (eventId && visibleThread)
+                      void community.actions.markRead(activeRoom.id, {
+                        eventId,
+                        threadId: visibleThread.rootMessageId,
+                      });
+                  },
+                }}
                 activityContext={activityOrigin()}
                 members={workspace.members}
                 rooms={workspace.navigationSections.flatMap(

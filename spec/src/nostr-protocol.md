@@ -412,3 +412,13 @@ For LC-ARCH-012, duplicate verified events MUST NOT invalidate projected
 conversation content. Request ordering is local presentation state and MUST NOT
 change event authority, timestamp/event-ID ordering or signature verification.
 Replacing an identity or resource invalidates pending read results and errors.
+
+### Bounded conversation history
+
+Content live subscriptions request no stored replay (`limit: 0`). Bounded
+history queries remain independent of subscriptions and read acknowledgements.
+NIP-29 and Buzz pages keep their transport identity; NIP-22 comments use their
+uppercase root tag. NIP-17 queries recipient envelopes, orders decoded messages
+by inner timestamps, and reconciles randomized wrapper timestamps with a
+two-day overlap. A saturated timestamp or incomplete relay response MUST NOT
+establish complete coverage; preserved page gaps keep count claims partial.

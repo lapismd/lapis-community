@@ -90,6 +90,11 @@
   padding-block: 0.5rem;
 }
 
+.lc-community-inbox__scroll {
+  flex: 1;
+  min-height: 0;
+}
+
 .lc-community-inbox__options-menu {
   min-width: 12rem;
 }

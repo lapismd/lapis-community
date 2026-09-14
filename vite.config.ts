@@ -81,7 +81,12 @@ export default defineConfig(({ command }) => ({
             enabled: true,
             headless: true,
             fileParallelism: false,
-            provider: playwright({}),
+            // Vitest sizes the story iframe separately from the browser window.
+            // Keep all configured story viewports inside that window so real
+            // intersections and hover transitions are not clipped offscreen.
+            provider: playwright({
+              contextOptions: { viewport: { width: 1440, height: 1200 } },
+            }),
             instances: [
               { browser: "chromium", viewport: { width: 1280, height: 800 } },
             ],

@@ -3,6 +3,7 @@
   import * as DropdownMenu from "@lapismd/design-core/shadcn/dropdown-menu";
   import * as Empty from "@lapismd/design-core/shadcn/empty";
   import { Switch } from "@lapismd/design-core/shadcn/switch";
+  import { ScrollArea } from "@lapismd/design-core/shadcn/scroll-area";
   import { AppShell } from "@lapismd/design-core/shell";
   import ChevronDownIcon from "@lucide/svelte/icons/chevron-down";
   import EllipsisIcon from "@lucide/svelte/icons/ellipsis";
@@ -12,6 +13,7 @@
   import UsersIcon from "@lucide/svelte/icons/users";
 
   import CommunitySkeleton from "../community-skeleton/CommunitySkeleton.svelte";
+  import CommunityHistoryEdge from "../community-history-edge/CommunityHistoryEdge.svelte";
   import CommunityConversation from "../community-conversation/CommunityConversation.svelte";
   import CommunityMemberAvatar from "../community-member-avatar/CommunityMemberAvatar.svelte";
   import { memberById } from "../community-workspace/model.js";
@@ -21,9 +23,13 @@
     CommunityCustomEmoji,
     CommunityMessageReport,
     CommunityReplyTarget,
+    CommunityHistoryState,
+    CommunityTimelinePresentation,
+    CommunityTimelinePosition,
   } from "../../community/index.js";
   import "./CommunityInbox.css";
 
+  let itemsViewport = $state<HTMLElement | null>(null);
   let {
     model,
     rooms = [],
@@ -58,9 +64,30 @@
     historyUpdating = false,
     loading = false,
     directHistory,
+    history,
+    listHistory,
+    onLoadOlderItems,
+    onLoadOlder,
+    onLoadLatest,
+    readBoundary,
+    presentation,
+    onPresentationChange,
+    virtualize = false,
     onLoadOlderDirectMessages,
   }: {
     model: CommunityInboxModel;
+    virtualize?: boolean;
+    readBoundary?: { key: string; onRead?: () => void };
+    history?: CommunityHistoryState;
+    listHistory?: CommunityHistoryState;
+    onLoadOlderItems?: () => Promise<void>;
+    presentation?: CommunityTimelinePresentation;
+    onPresentationChange?: (
+      key: string,
+      update: { draft?: string; position?: CommunityTimelinePosition },
+    ) => void;
+    onLoadOlder?: () => Promise<void>;
+    onLoadLatest?: () => Promise<void>;
     rooms?: readonly CommunityRoomModel[];
     onSelect: (itemId: string) => void;
     onFilterChange?: (
@@ -132,7 +159,8 @@
   );
   let hasSelectedItem = $derived(
     model.activeItemId !== "" &&
-      model.items.some((item) => item.id === model.activeItemId),
+      (model.selectedItem?.id === model.activeItemId ||
+        model.items.some((item) => item.id === model.activeItemId)),
   );
 
   const emptyStateTitles = {
@@ -300,55 +328,68 @@
         </DropdownMenu.Root>
       </header>
 
-      <div class="lc-community-inbox__items" aria-label="Inbox items">
-        {#each visibleItems as item (item.id)}
-          {@const author = memberById(model.members, item.authorId)}
-          <Button
-            variant="ghost"
-            class="lc-community-inbox__item"
-            data-active={item.id === model.activeItemId ? "" : undefined}
-            data-unread={item.unread ? "" : undefined}
-            aria-pressed={item.id === model.activeItemId}
-            data-ui-part="inbox-conversation"
-            aria-label={`${item.context}: ${item.excerpt}`}
-            onclick={() => onSelect(item.id)}
-          >
-            <CommunityMemberAvatar member={author} size="small" decorative />
-            <span class="lc-community-inbox__item-body">
-              <span class="lc-community-inbox__item-heading">
-                <strong>{author.name}</strong>
-                <span>{item.timestamp}</span>
+      <ScrollArea
+        bind:viewportRef={itemsViewport}
+        class="lc-community-inbox__scroll"
+      >
+        <div class="lc-community-inbox__items" aria-label="Inbox items">
+          {#each visibleItems as item (item.id)}
+            {@const author = memberById(model.members, item.authorId)}
+            <Button
+              variant="ghost"
+              class="lc-community-inbox__item"
+              data-active={item.id === model.activeItemId ? "" : undefined}
+              data-unread={item.unread ? "" : undefined}
+              aria-pressed={item.id === model.activeItemId}
+              data-ui-part="inbox-conversation"
+              aria-label={`${item.context}: ${item.excerpt}`}
+              onclick={() => onSelect(item.id)}
+            >
+              <CommunityMemberAvatar member={author} size="small" decorative />
+              <span class="lc-community-inbox__item-body">
+                <span class="lc-community-inbox__item-heading">
+                  <strong>{author.name}</strong>
+                  <span>{item.timestamp}</span>
+                </span>
+                <span class="lc-community-inbox__context">{item.context}</span>
+                <span class="lc-community-inbox__excerpt">{item.excerpt}</span>
               </span>
-              <span class="lc-community-inbox__context">{item.context}</span>
-              <span class="lc-community-inbox__excerpt">{item.excerpt}</span>
-            </span>
-          </Button>
-        {/each}
-        {#if loading && model.items.length === 0}
-          <CommunitySkeleton
-            layout="messages"
-            count={5}
-            label="Loading Inbox conversations"
-          />
-        {:else if visibleItems.length === 0}
-          <Empty.Root class="lc-community-inbox__empty" role="status">
-            <Empty.Header>
-              <Empty.Title>
-                {showUnreadOnly
-                  ? unreadEmptyStateTitles[filter]
-                  : emptyStateTitles[filter]}
-              </Empty.Title>
-              <Empty.Description>
-                {showUnreadOnly
-                  ? "Turn off Show unread only to see read activity."
-                  : filter === "All"
-                    ? "New activity will appear here."
-                    : "Switch back to All to see other activity."}
-              </Empty.Description>
-            </Empty.Header>
-          </Empty.Root>
-        {/if}
-      </div>
+            </Button>
+          {/each}
+          {#if loading && model.items.length === 0}
+            <CommunitySkeleton
+              layout="messages"
+              count={5}
+              label="Loading Inbox conversations"
+            />
+          {:else if visibleItems.length === 0}
+            <Empty.Root class="lc-community-inbox__empty" role="status">
+              <Empty.Header>
+                <Empty.Title>
+                  {showUnreadOnly
+                    ? unreadEmptyStateTitles[filter]
+                    : emptyStateTitles[filter]}
+                </Empty.Title>
+                <Empty.Description>
+                  {showUnreadOnly
+                    ? "Turn off Show unread only to see read activity."
+                    : filter === "All"
+                      ? "New activity will appear here."
+                      : "Switch back to All to see other activity."}
+                </Empty.Description>
+              </Empty.Header>
+            </Empty.Root>
+          {/if}
+          {#if listHistory && onLoadOlderItems}
+            <CommunityHistoryEdge
+              history={listHistory}
+              onLoad={onLoadOlderItems}
+              label="Load earlier conversations"
+              viewport={itemsViewport}
+            />
+          {/if}
+        </div>
+      </ScrollArea>
     </div>
   </AppShell.Body.Sidebar>
 
@@ -424,13 +465,20 @@
 
         <div class="lc-community-inbox__conversation">
           <CommunityConversation
+            {virtualize}
+            {...readBoundary ? { readBoundary } : {}}
+            {...history ? { history } : {}}
+            {...onLoadOlder ? { onLoadOlder } : {}}
+            {...onLoadLatest ? { onLoadLatest } : {}}
+            {...presentation ? { presentation } : {}}
+            {...onPresentationChange ? { onPresentationChange } : {}}
             room={model.room}
-            draftKey={model.activeItemId}
+            draftKey={JSON.stringify([currentMemberId, model.activeItemId])}
             {...model.room.conversation?.transport === "nip17" &&
             directHistory &&
             onLoadOlderDirectMessages
               ? {
-                  history: directHistory,
+                  history: { ...directHistory, ...history },
                   onLoadOlder: onLoadOlderDirectMessages,
                 }
               : {}}

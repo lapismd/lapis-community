@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { untrack } from "svelte";
+  import { observeReadEnd } from "../community-workspace/observe-read-end.js";
   import CommunityAgentComposerActivity from "../community-agent-composer-activity/CommunityAgentComposerActivity.svelte";
   import {
     Layout,
@@ -10,6 +12,9 @@
     CommunityCustomEmoji,
     CommunityMessageReport,
     CommunityReplyTarget,
+    CommunityHistoryState,
+    CommunityTimelinePresentation,
+    CommunityTimelinePosition,
   } from "../../community/index.js";
   import CommunityChatComposer from "../community-chat-composer/CommunityChatComposer.svelte";
   import CommunityMessage from "../community-message/CommunityMessage.svelte";
@@ -24,6 +29,13 @@
   import type { CommunityAgentActivityContext } from "../../community/agent-contracts.js";
   let {
     activityContext,
+    virtualize = false,
+    history,
+    presentation,
+    onPresentationChange,
+    onLoadOlder,
+    onLoadLatest,
+    readBoundary,
     thread,
     members,
     rooms = [],
@@ -55,6 +67,16 @@
     canDeleteAny = false,
   }: {
     activityContext?: CommunityAgentActivityContext;
+    virtualize?: boolean;
+    history?: CommunityHistoryState;
+    presentation?: CommunityTimelinePresentation;
+    onPresentationChange?: (
+      key: string,
+      update: { draft?: string; position?: CommunityTimelinePosition },
+    ) => void;
+    onLoadOlder?: () => Promise<void>;
+    onLoadLatest?: () => Promise<void>;
+    readBoundary?: { key: string; onRead?: () => void };
     thread: CommunityThreadModel;
     members: CommunityMemberModel[];
     rooms?: readonly CommunityRoomModel[];
@@ -106,6 +128,41 @@
   } = $props();
 
   let draft = $state("");
+  let draftKey: string | undefined;
+  const drafts = new Map<string, string>();
+  const conversationKey = $derived(
+    presentation?.key ??
+      JSON.stringify([currentMemberId, thread.rootMessageId]),
+  );
+  $effect(() => {
+    const key = conversationKey,
+      saved = presentation?.draft;
+    untrack(() => {
+      if (draftKey !== key) {
+        if (draftKey) drafts.set(draftKey, draft);
+        draft = saved ?? drafts.get(key) ?? "";
+        draftKey = key;
+        editingMessageId = undefined;
+      } else if (saved !== undefined) draft = saved;
+    });
+  });
+  $effect(() => {
+    const value = draft,
+      key = presentation?.key;
+    if (key && key === draftKey)
+      untrack(() => onPresentationChange?.(key, { draft: value }));
+  });
+  const latestArrivalId = $derived(
+    thread.messages.findLast(
+      (message) =>
+        message.authorId !== currentMemberId &&
+        (!message.sourceEvent ||
+          [9, 11, 1111, 14].includes(message.sourceEvent.kind)),
+    )?.id,
+  );
+  const effectiveReadBoundary = $derived(
+    history?.hasNewer || history?.loading ? undefined : readBoundary,
+  );
   let editingMessageId = $state<string | undefined>();
   const rootMessage = $derived(
     thread.messages.find((message) => message.id === thread.rootMessageId),
@@ -145,8 +202,67 @@
 </script>
 
 <div class="community-thread-panel">
+  {#snippet messageRow(
+    message: import("../community-workspace/model.js").CommunityMessageModel,
+    index: number,
+  )}
+    <CommunityMessage
+      {message}
+      isContinuation={isMessageContinuation(thread.messages, index)}
+      author={memberById(members, message.authorId)}
+      {members}
+      {rooms}
+      replyParticipants={(message.replyParticipantIds ?? []).map((id) =>
+        memberById(members, id),
+      )}
+      density="compact"
+      {communityEmojis}
+      onToggleReaction={(messageId, emoji, custom) =>
+        custom
+          ? onToggleReaction?.(messageId, emoji, custom)
+          : onToggleReaction?.(messageId, emoji)}
+      onAddReaction={(messageId, emoji, custom) =>
+        custom
+          ? onAddReaction?.(messageId, emoji, custom)
+          : onAddReaction?.(messageId, emoji)}
+      onCopyLink={(messageId) => onCopyMessageLink?.(messageId)}
+      onCopyMessage={(messageId) => onCopyMessage?.(messageId)}
+      {...onCopyEvent === undefined ? {} : { onCopyEvent }}
+      {...(onEditMessage === undefined && onSaveMessageEdit === undefined) ||
+      message.authorId !== currentMemberId
+        ? {}
+        : {
+            onEdit: onSaveMessageEdit
+              ? () => startEditing(message.id)
+              : onEditMessage,
+          }}
+      {...onDeleteMessage === undefined ||
+      (message.authorId !== currentMemberId && !canDeleteAny)
+        ? {}
+        : { onDelete: onDeleteMessage }}
+      {...onReportMessage === undefined ? {} : { onReport: onReportMessage }}
+      {...onOpenProfile === undefined ? {} : { onOpenProfile }}
+      {...onOpenRoom === undefined ? {} : { onOpenRoom }}
+      {...onMessageMember === undefined ? {} : { onMessageMember }}
+      {...onWaveMember === undefined ? {} : { onWaveMember }}
+      {...onViewMemberActivity === undefined ? {} : { onViewMemberActivity }}
+      {...message.id === thread.rootMessageId || onReply === undefined
+        ? {}
+        : {
+            onReply,
+            replyActionLabel: "Reply",
+          }}
+    />
+  {/snippet}
   <Layout
     density="compact"
+    scrollMode={virtualize ? "history" : "stream"}
+    {conversationKey}
+    {...history?.unreadEventIds
+      ? { hasNewMessages: history.unreadEventIds.length > 0 }
+      : {}}
+    hasNewer={history?.hasNewer ?? false}
+    {...onLoadLatest ? { onLoadLatest } : {}}
     aria-label="Message thread"
     isEmpty={thread.messages.length === 0}
   >
@@ -204,63 +320,38 @@
 
     <MessageList
       density="compact"
-      latestMessageId={thread.messages.at(-1)?.id ?? ""}
       aria-label="Thread replies"
+      {conversationKey}
+      latestMessageId={latestArrivalId ?? ""}
+      {...virtualize
+        ? {
+            items: thread.messages,
+            row: messageRow,
+            virtualize: true,
+            ...(presentation?.position
+              ? { initialPosition: presentation.position }
+              : {}),
+            onPositionChange: (position) => {
+              if (presentation)
+                onPresentationChange?.(presentation.key, { position });
+            },
+          }
+        : {}}
+      {...onLoadOlder ? { scrollToTopAction: onLoadOlder } : {}}
+      hasOlder={history?.hasOlder ?? false}
+      loading={history?.loading ?? false}
     >
-      {#each thread.messages as message, index (message.id)}
-        <CommunityMessage
-          {message}
-          isContinuation={isMessageContinuation(thread.messages, index)}
-          author={memberById(members, message.authorId)}
-          {members}
-          {rooms}
-          replyParticipants={(message.replyParticipantIds ?? []).map((id) =>
-            memberById(members, id),
-          )}
-          density="compact"
-          {communityEmojis}
-          onToggleReaction={(messageId, emoji, custom) =>
-            custom
-              ? onToggleReaction?.(messageId, emoji, custom)
-              : onToggleReaction?.(messageId, emoji)}
-          onAddReaction={(messageId, emoji, custom) =>
-            custom
-              ? onAddReaction?.(messageId, emoji, custom)
-              : onAddReaction?.(messageId, emoji)}
-          onCopyLink={(messageId) => onCopyMessageLink?.(messageId)}
-          onCopyMessage={(messageId) => onCopyMessage?.(messageId)}
-          {...onCopyEvent === undefined ? {} : { onCopyEvent }}
-          {...(onEditMessage === undefined &&
-            onSaveMessageEdit === undefined) ||
-          message.authorId !== currentMemberId
-            ? {}
-            : {
-                onEdit: onSaveMessageEdit
-                  ? () => startEditing(message.id)
-                  : onEditMessage,
-              }}
-          {...onDeleteMessage === undefined ||
-          (message.authorId !== currentMemberId && !canDeleteAny)
-            ? {}
-            : { onDelete: onDeleteMessage }}
-          {...onReportMessage === undefined
-            ? {}
-            : { onReport: onReportMessage }}
-          {...onOpenProfile === undefined ? {} : { onOpenProfile }}
-          {...onOpenRoom === undefined ? {} : { onOpenRoom }}
-          {...onMessageMember === undefined ? {} : { onMessageMember }}
-          {...onWaveMember === undefined ? {} : { onWaveMember }}
-          {...onViewMemberActivity === undefined
-            ? {}
-            : { onViewMemberActivity }}
-          {...message.id === thread.rootMessageId || onReply === undefined
-            ? {}
-            : {
-                onReply,
-                replyActionLabel: "Reply",
-              }}
-        />
-      {/each}
+      {#each thread.messages as message, index (message.id)}{@render messageRow(
+          message,
+          index,
+        )}{/each}
+      {#snippet footer()}
+        {#if effectiveReadBoundary}<div
+            use:observeReadEnd={effectiveReadBoundary}
+            data-ui-part="read-boundary"
+            style="height: 1px;"
+          ></div>{/if}
+      {/snippet}
     </MessageList>
   </Layout>
 </div>

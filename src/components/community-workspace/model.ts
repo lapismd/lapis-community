@@ -32,6 +32,8 @@ export interface CommunityModel {
   initials: string;
   description?: string;
   unreadCount?: number;
+  /** False means cached history only establishes a lower bound. */
+  unreadComplete?: boolean;
 }
 
 export interface CommunityRoomModel {
@@ -44,6 +46,8 @@ export interface CommunityRoomModel {
   participantIds?: readonly string[];
   description?: string;
   unreadCount?: number;
+  /** False means cached history only establishes a lower bound. */
+  unreadComplete?: boolean;
   mentionCount?: number;
   /** Latest incoming content event represented by this room projection. */
   latestUnreadEventId?: string;
@@ -179,7 +183,7 @@ export interface CommunityWorkspaceHandlers {
   onSelectRoom?: (roomId: string) => void;
   onReadRoom?: (
     roomId: string,
-    through: { eventId: string; threadId?: string },
+    through: { eventId: string; threadId?: string; timeline?: boolean },
   ) => void;
   onOpenTopic?: (topicId: string) => void;
   onReply?: (messageId: string) => void;

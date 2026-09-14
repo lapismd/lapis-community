@@ -18,6 +18,8 @@ export interface CommunityNavigationItemModel {
   member?: CommunityMemberModel;
   restricted?: boolean;
   unreadCount?: number;
+  /** False means cached history only establishes a lower bound. */
+  unreadComplete?: boolean;
   activityAt?: string;
   starred?: boolean;
   muted?: boolean;

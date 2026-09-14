@@ -1,5 +1,8 @@
 import type {
   CommunityEventBatch,
+  CommunityCachedHistoryPage,
+  CommunityCachedEventQuery,
+  CommunityCachedEventPage,
   CommunityEventRuntime,
   CommunityRuntimeRevision,
   CommunityRuntimeSearch,
@@ -121,6 +124,7 @@ class BrowserCommunityEventRuntime implements CommunityEventRuntime {
   #failures = 0;
   #scopes: readonly CommunityScope[] = [];
   #generation = 0;
+  #restoreOptions: { metadataOnly?: boolean } = {};
   #restoring: Promise<void> | undefined;
 
   constructor(options: BrowserCommunityEventRuntimeOptions) {
@@ -130,16 +134,19 @@ class BrowserCommunityEventRuntime implements CommunityEventRuntime {
   async restore(
     scopes: readonly CommunityScope[],
     generation = 0,
+    options: { metadataOnly?: boolean } = {},
   ): Promise<CommunityRuntimeRevision> {
     this.#scopes = scopes;
+    this.#restoreOptions = options;
     this.#generation = generation;
     if (this.#fallback !== undefined) {
-      return this.#fallback.restore(scopes, generation);
+      return this.#fallback.restore(scopes, generation, options);
     }
     return this.#request<CommunityRuntimeRevision>({
       method: "restore",
       scopes,
       generation,
+      options,
     });
   }
 
@@ -149,6 +156,30 @@ class BrowserCommunityEventRuntime implements CommunityEventRuntime {
     if (this.#fallback !== undefined) return this.#fallback.ingest(batch);
     await this.#restoreAfterCrash();
     return this.#request({ method: "ingest", batch });
+  }
+
+  async readCachedEvents(
+    scope: CommunityScope,
+    query: CommunityCachedEventQuery,
+  ): Promise<CommunityCachedEventPage> {
+    await this.#restoreAfterCrash();
+    if (this.#fallback)
+      return (
+        this.#fallback.readCachedEvents?.(scope, query) ?? {
+          events: [],
+          hasMoreCached: false,
+        }
+      );
+    return this.#request({ method: "readCachedEvents", scope, query });
+  }
+
+  async readHistoryPage(
+    scope: CommunityScope,
+    key: string,
+  ): Promise<CommunityCachedHistoryPage | undefined> {
+    await this.#restoreAfterCrash();
+    if (this.#fallback) return this.#fallback.readHistoryPage?.(scope, key);
+    return this.#request({ method: "readHistoryPage", scope, key });
   }
 
   async project(
@@ -249,6 +280,7 @@ class BrowserCommunityEventRuntime implements CommunityEventRuntime {
       method: "restore",
       scopes: this.#scopes,
       generation: this.#generation,
+      options: this.#restoreOptions,
     }).then(() => undefined);
     try {
       await this.#restoring;
@@ -265,7 +297,11 @@ class BrowserCommunityEventRuntime implements CommunityEventRuntime {
     const fallback = createInlineBrowserCommunityEventRuntime(this.#options);
     this.#fallback = fallback;
     if (this.#scopes.length > 0) {
-      await fallback.restore(this.#scopes, this.#generation);
+      await fallback.restore(
+        this.#scopes,
+        this.#generation,
+        this.#restoreOptions,
+      );
     }
   }
 

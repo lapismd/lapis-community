@@ -310,7 +310,7 @@ describe("createCommunityController", () => {
     pulse!.setActive(false);
   });
 
-  it("becomes connected after bootstrap while bounded history continues", async () => {
+  it("becomes connected after bootstrap and loads only the selected 50-message window", async () => {
     const event = finalizeEvent(
       {
         kind: 9,
@@ -399,12 +399,11 @@ describe("createCommunityController", () => {
     expect(controller.state.cache.freshness).toBe("current");
     expect(loadContentWindow.mock.calls.map(([request]) => request)).toEqual([
       expect.objectContaining({ collection: "channel-roots", limit: 50 }),
-      expect.objectContaining({ collection: "room-history", limit: 100 }),
     ]);
     controller.dispose();
   });
 
-  it("interrupts background history to prioritize a newly selected room", async () => {
+  it("loads a new selection alongside pending history without cancelling its subscription lifetime", async () => {
     let firstGeneralSignal: AbortSignal | undefined;
     let firstGeneralAborted = false;
     const loadContentWindow = vi.fn(
@@ -484,7 +483,7 @@ describe("createCommunityController", () => {
     await vi.waitFor(() => expect(firstGeneralSignal).toBeDefined());
     controller.actions.selectRoom("support");
 
-    await vi.waitFor(() => expect(firstGeneralAborted).toBe(true));
+    expect(firstGeneralAborted).toBe(false);
     await vi.waitFor(() =>
       expect(
         loadContentWindow.mock.calls.some(
@@ -764,16 +763,14 @@ describe("createCommunityController", () => {
     );
     const topic = controller.state.workspace.topics[0];
     expect(topic?.title).toBe("Portable forums");
-    expect(topic?.replyCount).toBe(3);
-    expect(topic?.participantIds).toEqual([
-      await runtime.scenario.operator.getPublicKey(),
-      await runtime.scenario.participant.getPublicKey(),
-      await runtime.scenario.member.getPublicKey(),
-    ]);
     controller.actions.openTopic(controller.state.workspace.topics[0]!.id);
     await vi.waitFor(() =>
       expect(controller.state.workspace.view).toBe("forum-thread"),
     );
+    await vi.waitFor(() =>
+      expect(controller.state.workspace.messages).toHaveLength(4),
+    );
+    expect(controller.state.workspace.topics[0]?.replyCount).toBe(3);
     controller.actions.setReplyTarget(
       controller.state.workspace.messages.at(-1)!.id,
     );
@@ -1114,6 +1111,12 @@ describe("createCommunityController", () => {
     expect(item.unread).toBe(true);
     await controller.actions.selectInboxItem!(item.id);
     expect(controller.state.workspace.activeRoomId).toBe(`dm:${peer}`);
+    expect(
+      controller.state.inbox?.items.find((row) => row.id === item.id)?.unread,
+    ).toBe(true);
+    await controller.actions.markRead(item.roomId!, {
+      eventId: item.latestEventId!,
+    });
     expect(
       controller.state.inbox?.items.find((row) => row.id === item.id)?.unread,
     ).toBe(false);

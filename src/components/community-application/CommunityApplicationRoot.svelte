@@ -516,7 +516,9 @@
     clearResumeAction();
     if (loginOptions?.auth) await loginOptions.auth.signOut();
     authenticationGeneration += 1;
-    await activeIdentityConnection?.catch(() => {});
+    // Invalidate the controller's pending signer lookup instead of waiting for
+    // its relay synchronization to finish before signing out.
+    activeIdentityConnection = undefined;
     // Anonymous relay synchronization must not retain the signed-out account.
     connectedIdentity = undefined;
     accountSession = undefined;

@@ -159,6 +159,29 @@
 </Story>
 
 <Story
+  name="Escape dismisses during pointer interaction"
+  args={{ member: communityStoryMembers[1]!, trigger: "mention", openDelay: 0 }}
+  play={async ({ canvas, canvasElement }) => {
+    const document = canvasElement.ownerDocument;
+    await userEvent.hover(canvas.getByRole("button", { name: "Ben Stone" }));
+    const preview = await within(document.body).findByRole("group", {
+      name: "Ben Stone contact preview",
+    });
+    await userEvent.pointer({
+      target: within(preview).getByText("Ben Stone"),
+      keys: "[MouseLeft>]",
+    });
+    try {
+      // Escape is explicit dismissal even while a pointer interaction is active.
+      await userEvent.keyboard("{Escape}");
+      await waitFor(() => expect(preview).not.toBeVisible());
+    } finally {
+      await userEvent.pointer({ keys: "[/MouseLeft]" });
+    }
+  }}
+/>
+
+<Story
   name="Unavailable default actions"
   args={{ member: communityStoryMembers[1]! }}
   play={async ({ canvas, canvasElement }) => {

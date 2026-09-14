@@ -83,3 +83,68 @@ export function conversationHash(
 ): string {
   return bytesToHex(sha256(utf8ToBytes(conversationKey(reference))));
 }
+
+/** Root-list viewing is narrower than an explicit mark-entire-room-read action. */
+export function timelineReadKey(
+  reference: CommunityConversationReference,
+): string {
+  return JSON.stringify(["timeline", conversationKey(reference)]);
+}
+
+export function isTimelineRoot(event: {
+  kind: number;
+  tags: string[][];
+}): boolean {
+  return (
+    event.kind === 11 ||
+    (event.kind === 9 &&
+      !event.tags.some((tag) => tag[0] === "e" || tag[0] === "E"))
+  );
+}
+
+export function isUnreadInConversation(
+  event: {
+    id: string;
+    created_at: number;
+    pubkey: string;
+    kind: number;
+    tags: string[][];
+  },
+  reference: CommunityConversationReference,
+  roomId: string,
+  identityPubkey: string,
+  cursors: Readonly<Record<string, CommunityReadCursor>> = {},
+): boolean {
+  if (
+    !identityPubkey ||
+    event.pubkey === identityPubkey ||
+    ![9, 11, 1111, 14].includes(event.kind)
+  )
+    return false;
+  const rootId =
+    event.tags.find(
+      (tag) => tag[0] === "E" || (tag[0] === "e" && tag[3] === "root"),
+    )?.[1] ??
+    event.tags.find((tag) => tag[0] === "e")?.[1] ??
+    event.id;
+  const roomReference =
+    reference.transport === "nip29"
+      ? {
+          transport: "nip29" as const,
+          relayUrl: reference.relayUrl,
+          groupId: reference.groupId,
+        }
+      : reference;
+  const threadReference =
+    reference.transport === "nip29"
+      ? { ...roomReference, threadId: rootId }
+      : reference;
+  return (
+    afterReadCursor(event, cursors[roomId]) &&
+    afterReadCursor(event, cursors[conversationKey(roomReference)]) &&
+    afterReadCursor(event, cursors[conversationKey(reference)]) &&
+    afterReadCursor(event, cursors[conversationKey(threadReference)]) &&
+    (!isTimelineRoot(event) ||
+      afterReadCursor(event, cursors[timelineReadKey(roomReference)]))
+  );
+}

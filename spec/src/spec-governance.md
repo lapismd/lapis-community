@@ -30,6 +30,13 @@ Vitest setup file MUST remain limited to package-specific runtime diagnostic
 guards and deterministic portal teardown so annotations are not registered a
 second time outside the plugin lifecycle.
 
+For LC-SPEC-002, portable application stories MUST use the regular Storybook
+root identifier and full-viewport body marker, so their percentage-height
+containers do not expand with message history. The Playwright host viewport
+MUST contain every configured story iframe. Functional visibility and read
+acknowledgement assertions MUST retain their thresholds; fix the host geometry
+instead of increasing waits to accommodate clipped content.
+
 The Docker build context must include the Turso Vite bundle helper imported by
 `vite.config.ts`. Local relay-to-site smoke validation builds from that clean
 context, including the encrypted agent archive, instead of depending on files

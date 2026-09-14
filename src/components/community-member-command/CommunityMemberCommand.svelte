@@ -137,11 +137,26 @@
   function distinctMembers(
     candidates: readonly CommunityMemberModel[],
   ): CommunityMemberModel[] {
-    return candidates.filter(
-      (member, index) =>
-        candidates.findIndex((candidate) => candidate.id === member.id) ===
-        index,
-    );
+    const directory = new Map<string, CommunityMemberModel>();
+    const unresolved = (member: CommunityMemberModel) =>
+      member.name === member.id ||
+      member.name === member.id.slice(0, 12) ||
+      member.name === `${member.id.slice(0, 7)}…${member.id.slice(-5)}`;
+    for (const member of candidates) {
+      const existing = directory.get(member.id);
+      if (!existing) directory.set(member.id, member);
+      // A search can resolve a cached key, and a membership refresh can resolve
+      // an earlier key search. Neither should replace a known name with a key.
+      else if (unresolved(existing) && !unresolved(member))
+        directory.set(member.id, {
+          ...existing,
+          name: member.name,
+          handle: member.handle,
+          initials: member.initials,
+          ...(member.avatarUrl ? { avatarUrl: member.avatarUrl } : {}),
+        });
+    }
+    return [...directory.values()];
   }
 
   function memberMatches(

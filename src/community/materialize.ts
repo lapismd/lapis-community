@@ -4,6 +4,7 @@ import {
 } from "./buzz-direct-messages.js";
 import {
   afterReadCursor,
+  isUnreadInConversation,
   contentMentionPubkeys,
   conversationKey,
   privateConversation,
@@ -304,30 +305,15 @@ export function materializeCommunityWorkspace(
           right.created_at - left.created_at || right.id.localeCompare(left.id),
       )[0];
     if (latestIncoming) model.latestUnreadEventId = latestIncoming.id;
-    model.unreadCount = candidates.filter((event) => {
-      const rootId =
-        event.tags.find(
-          (tag) => tag[0] === "E" || (tag[0] === "e" && tag[3] === "root"),
-        )?.[1] ??
-        event.tags.find((tag) => tag[0] === "e")?.[1] ??
-        event.id;
-      const threadReference =
-        reference.transport === "nip29" && rootId
-          ? { ...reference, threadId: rootId }
-          : reference;
-      return (
-        event.pubkey !== options.identityPubkey &&
-        afterReadCursor(
-          event,
-          options.readMarkers?.[conversationKey(reference)],
-        ) &&
-        afterReadCursor(
-          event,
-          options.readMarkers?.[conversationKey(threadReference)],
-        ) &&
-        afterReadCursor(event, options.readMarkers?.[model.id])
-      );
-    }).length;
+    model.unreadCount = candidates.filter((event) =>
+      isUnreadInConversation(
+        event,
+        reference,
+        model.id,
+        options.identityPubkey!,
+        options.readMarkers,
+      ),
+    ).length;
   }
   const members =
     activeDirect === undefined
@@ -440,6 +426,8 @@ export function directConversationId(participants: readonly string[]): string {
 }
 
 export interface CommunityInboxProjectionOptions {
+  messageLimit?: number;
+  itemLimit?: number;
   privateEventsByScope?: Readonly<
     Record<string, readonly CommunityPrivateEvent[]>
   >;
@@ -461,7 +449,7 @@ export function materializeCommunityInbox(
   const rows: {
     item: CommunityInboxItemModel;
     room: CommunityRoomModel;
-    messages: CommunityMessageModel[];
+    messages: () => CommunityMessageModel[];
     members: CommunityMemberModel[];
   }[] = [];
   const allPrivateEvents = [
@@ -500,8 +488,12 @@ export function materializeCommunityInbox(
         transport: "nip17",
         participants: direct.participants,
       };
-      const messages = directMessageModels(direct, identityPubkey);
-      const visibleIds = new Set(messages.map((message) => message.id));
+      const deletedDirect = directDeletedIds(direct);
+      const visibleIds = new Set(
+        direct.events
+          .filter((event) => event.kind === 14 && !deletedDirect.has(event.id))
+          .map((event) => event.id),
+      );
       const incoming = direct.events.filter(
         (event) =>
           event.kind === 14 &&
@@ -540,7 +532,8 @@ export function materializeCommunityInbox(
           ),
         },
         room,
-        messages,
+        messages: () =>
+          directMessageModels(direct, identityPubkey, options.messageLimit),
         members: directMemberModels(direct, profiles, statuses),
       });
     }
@@ -640,16 +633,23 @@ export function materializeCommunityInbox(
             excerpt: latest.content,
             latestEventId: latest.id,
             latestCreatedAt: latest.created_at,
-            unread: group.incoming.some(
-              (event) =>
-                afterReadCursor(event, cursors[id]) &&
-                afterReadCursor(event, cursors[room.id]),
+            unread: group.incoming.some((event) =>
+              isUnreadInConversation(
+                event,
+                group.reference,
+                room.id,
+                identityPubkey,
+                cursors,
+              ),
             ),
           },
           room,
-          messages: selectedEvents.map((event) =>
-            eventMessage(event, events, profiles, asOf, identityPubkey),
-          ),
+          messages: () =>
+            selectedEvents
+              .slice(-(options.messageLimit ?? selectedEvents.length))
+              .map((event) =>
+                eventMessage(event, events, profiles, asOf, identityPubkey),
+              ),
           members: memberModels(roomScope, selectedEvents, profiles, statuses),
         });
       }
@@ -674,14 +674,18 @@ export function materializeCommunityInbox(
     unique[0];
   if (!active) return undefined;
   return {
-    items: unique.map((row) => row.item),
+    items: (options.itemLimit === undefined
+      ? unique
+      : visible.slice(0, options.itemLimit)
+    ).map((row) => row.item),
     activeItemId: active.item.id,
+    selectedItem: active.item,
     filter,
     unreadOnly: options.unreadOnly ?? false,
     unreadCount: unique.filter((row) => row.item.unread).length,
     threadTitle: active.room.name,
     room: active.room,
-    messages: active.messages,
+    messages: active.messages(),
     members: [
       ...new Map(
         unique
@@ -1459,14 +1463,11 @@ function directMemberModels(
   });
 }
 
-function directMessageModels(
-  conversation: DirectConversation,
-  identityPubkey: string | undefined,
-): CommunityMessageModel[] {
+function directDeletedIds(conversation: DirectConversation): Set<string> {
   const authors = new Map(
     conversation.events.map((event) => [event.id, event.pubkey]),
   );
-  const deleted = new Set(
+  return new Set(
     conversation.events
       .filter((event) => event.kind === 5)
       .flatMap((event) =>
@@ -1480,11 +1481,20 @@ function directMessageModels(
           .map((tag) => tag[1]!),
       ),
   );
+}
+
+function directMessageModels(
+  conversation: DirectConversation,
+  identityPubkey: string | undefined,
+  limit?: number,
+): CommunityMessageModel[] {
+  const deleted = directDeletedIds(conversation);
   const reactions = conversation.events.filter(
     (event) => event.kind === 7 && !deleted.has(event.id),
   );
   return conversation.events
     .filter((event) => event.kind === 14 && !deleted.has(event.id))
+    .slice(-(limit ?? conversation.events.length))
     .map((event) => {
       const eventReactions = reactions.filter((reaction) =>
         reaction.tags.some((tag) => tag[0] === "e" && tag[1] === event.id),

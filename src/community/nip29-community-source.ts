@@ -66,7 +66,6 @@ const COMMUNITY_CHANNEL_ACTIVITY_KINDS = [
 ] as const;
 const COMMUNITY_STATE_KINDS = [39_000, 39_001, 39_002, 39_003] as const;
 const PUBLIC_ROOM_DISCOVERY_LIMIT = 1_000;
-const CONTENT_BOUNDARY_LIMIT = 1_000;
 const PULSE_NOTE_LIMIT = 50;
 const PULSE_FOLLOWING_LIMIT = 200;
 const PULSE_MAX_FOLLOWS = 100;
@@ -88,6 +87,7 @@ export function createNip29CommunitySource(
     }
   >();
   return {
+    historyPaging: true,
     async open(scope, context = {}, signal) {
       signal?.throwIfAborted();
       return new Nip29CommunitySession(scope, context, options, preparedDirect);
@@ -124,12 +124,18 @@ class Nip29CommunitySession implements CommunitySession {
   #relaySigningPubkey: string | undefined;
   #capabilitiesLoaded = false;
   #privateCursor: import("./contracts.js").CommunityContentCursor | undefined;
+  readonly #privateCoverageGaps = new Map<
+    number,
+    import("./contracts.js").CommunityContentCursor
+  >();
   #closed = false;
   #baseSubscriptionsStarted = false;
   #lastCommandCreatedAt = 0;
   #knownGroupIds = new Set<string>();
   #roomSubscriptionIds = new Set<string>();
   #targetSubscriptionKeys = new Set<string>();
+  readonly #subscriptionAbort = new AbortController();
+  readonly #registrationReads = new Map<string, Promise<void>>();
 
   constructor(
     scope: CommunityScope,
@@ -214,7 +220,12 @@ class Nip29CommunitySession implements CommunitySession {
     const limit = Number.isFinite(requestedLimit)
       ? Math.max(1, Math.min(100, requestedLimit))
       : 1;
-    const filter = contentWindowFilter(request);
+    const filter = {
+      ...contentWindowFilter(request),
+      ...(request.after
+        ? { since: Math.max(0, request.after.createdAt - 1) }
+        : {}),
+    };
     const contentPage = await this.#queryContentPage(
       filter,
       request.collection,
@@ -222,22 +233,8 @@ class Nip29CommunitySession implements CommunitySession {
       limit,
       signal,
     );
-    const activityPage =
-      request.collection === "channel-roots" ||
-      request.collection === "room-history"
-        ? await this.#queryContentPage(
-            {
-              kinds: [...COMMUNITY_CHANNEL_ACTIVITY_KINDS],
-              "#h": [request.groupId],
-            },
-            request.collection,
-            request.before,
-            limit,
-            signal,
-            [this.#authority],
-          )
-        : { events: [], hasOlder: false };
-    const page = mergeContentPages([contentPage, activityPage], limit);
+    const page = contentPage;
+    const scanCursor = contentPage.cursor;
     const targets = page.events.map((event) => event.id);
     const referenced =
       targets.length === 0
@@ -247,7 +244,7 @@ class Nip29CommunitySession implements CommunitySession {
             {
               kinds: [5, 7, 9_005, 40_003],
               "#e": targets,
-              limit: Math.min(500, Math.max(25, targets.length * 10)),
+              limit: 100,
             },
             signal,
           );
@@ -272,17 +269,96 @@ class Nip29CommunitySession implements CommunitySession {
     await this.#subscribeToTargets(targets, signal);
     await this.#subscribeToProfiles(authors, signal);
     return {
-      events: distinctEvents([...page.events, ...referenced, ...profiles]),
+      events: distinctEvents([
+        ...page.events,
+        ...page.supporting,
+        ...referenced,
+        ...profiles,
+      ]),
       primaryEventIds: page.events.map((event) => event.id),
-      ...(page.events[0] === undefined
-        ? {}
-        : {
-            olderCursor: {
-              createdAt: page.events[0].created_at,
-              eventId: page.events[0].id,
-            },
-          }),
+      ...(scanCursor
+        ? { olderCursor: scanCursor }
+        : page.events[0]
+          ? {
+              olderCursor: {
+                createdAt: page.events[0].created_at,
+                eventId: page.events[0].id,
+              },
+            }
+          : {}),
+      ...(page.coverageGaps.length ? { coverageGaps: page.coverageGaps } : {}),
       hasOlder: page.hasOlder,
+    };
+  }
+
+  async loadInboxWindow(
+    before?: CommunityContentWindowRequest["before"],
+    limit = 50,
+    signal?: AbortSignal,
+  ): Promise<CommunityContentWindow> {
+    const pubkey = await this.#context.identity?.getPublicKey();
+    const groupIds = [...this.#knownGroupIds];
+    if (!pubkey || groupIds.length === 0)
+      return { events: [], primaryEventIds: [], hasOlder: false };
+    const boundary = before ? { until: before.createdAt } : {};
+    const [mentioned, authored] = await Promise.all([
+      this.#queryUnion(
+        this.#relays,
+        {
+          kinds: [9, 11, 1111],
+          "#h": groupIds,
+          "#p": [pubkey],
+          ...boundary,
+          limit: 100,
+        },
+        signal,
+      ),
+      this.#queryUnion(
+        this.#relays,
+        {
+          kinds: [9, 11, 1111],
+          "#h": groupIds,
+          authors: [pubkey],
+          ...boundary,
+          limit: 100,
+        },
+        signal,
+      ),
+    ]);
+    const candidates = distinctEvents([...mentioned, ...authored]).filter(
+      (event) =>
+        !before ||
+        event.created_at < before.createdAt ||
+        (event.created_at === before.createdAt && event.id < before.eventId),
+    );
+    const selected = candidates.slice(-Math.min(50, limit));
+    const roots = [
+      ...new Set(
+        selected.flatMap((event) =>
+          event.tags
+            .filter((tag) => tag[0] === "E" || tag[0] === "e")
+            .map((tag) => tag[1]!),
+        ),
+      ),
+    ].slice(0, 100);
+    const context = roots.length
+      ? await this.#queryUnion(
+          this.#relays,
+          { kinds: [9, 11], "#h": groupIds, ids: roots, limit: 100 },
+          signal,
+        )
+      : [];
+    const oldest = selected[0];
+    return {
+      events: distinctEvents([...selected, ...context]),
+      primaryEventIds: selected.map((event) => event.id),
+      hasOlder:
+        candidates.length > selected.length ||
+        mentioned.length === 100 ||
+        authored.length === 100,
+      ...(oldest
+        ? { olderCursor: { createdAt: oldest.created_at, eventId: oldest.id } }
+        : {}),
     };
   }
 
@@ -626,6 +702,9 @@ class Nip29CommunitySession implements CommunitySession {
     await this.#subscribeToRooms(groupIds, signal);
 
     const bootstrap = request?.strategy === "bootstrap";
+    const inboxWindow = bootstrap
+      ? await this.loadInboxWindow(undefined, 50, signal)
+      : undefined;
     const contentSince = synchronizationSince(request);
     const content =
       bootstrap || groupIds.length === 0
@@ -707,7 +786,22 @@ class Nip29CommunitySession implements CommunitySession {
         ? []
         : (relayPreferences.urls.get(identityPubkey) ?? []);
     await this.#subscribeToInbox(inboxUrls, identityPubkey, signal);
-    const privateResult = await this.#loadPrivateEvents(inboxUrls, signal);
+    const inboxCheckpoint = request?.plan.checkpoints.find(
+      (checkpoint) => checkpoint.stream === `inbox:${identityPubkey}`,
+    );
+    const privateAfter =
+      inboxCheckpoint && inboxCheckpoint.createdAt > 0
+        ? {
+            createdAt: Math.max(0, inboxCheckpoint.createdAt - 172_800),
+            eventId: "",
+          }
+        : undefined;
+    const privateResult = await this.#loadPrivateEvents(
+      inboxUrls,
+      signal,
+      undefined,
+      privateAfter,
+    );
     await this.#subscribeToTargets(targets, signal);
     const synchronizedAt = Math.floor(Date.now() / 1_000);
     const previousCreatedAt = Math.max(
@@ -724,6 +818,7 @@ class Nip29CommunitySession implements CommunitySession {
     return {
       events: distinctEvents([
         ...discoveryEvents,
+        ...(inboxWindow?.events ?? []),
         ...content,
         ...activity,
         ...state,
@@ -737,6 +832,35 @@ class Nip29CommunitySession implements CommunitySession {
       ...(privateResult.events.length === 0
         ? {}
         : { privateEvents: privateResult.events }),
+      ...(identityPubkey
+        ? {
+            encryptedPage: this.#encryptedPage(
+              identityPubkey,
+              inboxUrls,
+              privateResult,
+              undefined,
+              privateAfter,
+            ),
+            encryptedCheckpoints: (inboxUrls.length
+              ? inboxUrls
+              : this.#relays.map((relay) => relay.url)
+            ).map((relayUrl) => ({
+              relayUrl,
+              stream: `inbox:${identityPubkey}`,
+              createdAt:
+                privateResult.hasOlder || privateResult.coverageGaps?.length
+                  ? (inboxCheckpoint?.createdAt ?? 0)
+                  : synchronizedAt,
+              synchronizedAt,
+              complete:
+                !privateResult.hasOlder && !privateResult.coverageGaps?.length,
+            })),
+          }
+        : {}),
+      ...(inboxWindow?.olderCursor
+        ? { inboxCursor: inboxWindow.olderCursor }
+        : {}),
+      ...(inboxWindow ? { hasOlderInbox: inboxWindow.hasOlder } : {}),
       capabilities: this.#capabilities(),
       hasOlderDirectMessages: privateResult.hasOlder,
       ...(bootstrap
@@ -761,85 +885,187 @@ class Nip29CommunitySession implements CommunitySession {
     before: CommunityContentWindowRequest["before"],
     limit: number,
     signal?: AbortSignal,
-    relays: readonly CommunityRelay[] = this.#relays,
-  ): Promise<{ events: NostrEvent[]; hasOlder: boolean }> {
+  ): Promise<{
+    events: NostrEvent[];
+    supporting: NostrEvent[];
+    hasOlder: boolean;
+    cursor?: CommunityContentWindowRequest["before"];
+    coverageGaps: NonNullable<CommunityContentWindow["coverageGaps"]>;
+  }> {
     const primary = new Map<string, NostrEvent>();
+    const candidatesById = new Map<string, NostrEvent>();
+    const supporting = (selected: readonly NostrEvent[]) => {
+      const ids = new Set(selected.map((event) => event.id));
+      return [...candidatesById.values()].filter(
+        (event) =>
+          !ids.has(event.id) &&
+          event.tags.some(
+            (tag) =>
+              (tag[0] === "e" || tag[0] === "E") && ids.has(tag[1] ?? ""),
+          ),
+      );
+    };
+    const gaps = new Map<number, { createdAt: number; eventId: string }>();
     let cursor = before;
     let hasOlder = false;
-    for (;;) {
-      const page = await this.#queryRawContentPage(
-        filter,
-        cursor,
-        Math.max(limit, 100),
-        signal,
-        relays,
-      );
-      for (const event of page.events) {
-        if (contentWindowPrimary(event, collection)) {
-          primary.set(event.id, event);
+    for (let batch = 0; batch < 3; batch++) {
+      if (batch > 0)
+        await new Promise<void>((resolve) => setTimeout(resolve, 0));
+      signal?.throwIfAborted();
+      const requests = this.#relays.flatMap((relay) => {
+        const kinds = [...(filter.kinds ?? [])];
+        if (
+          relay === this.#authority &&
+          (collection === "channel-roots" || collection === "room-history")
+        )
+          kinds.push(...COMMUNITY_CHANNEL_ACTIVITY_KINDS);
+        const base = {
+          ...filter,
+          kinds,
+          ...(cursor ? { until: cursor.createdAt } : {}),
+        };
+        const filters: RelayFilter[] =
+          collection === "thread"
+            ? [
+                { ...base, kinds: [9], limit: 50 },
+                {
+                  kinds: [1111],
+                  "#h": filter["#h"]!,
+                  "#E": filter["#e"]!,
+                  ...(base.since === undefined ? {} : { since: base.since }),
+                  ...(base.until === undefined ? {} : { until: base.until }),
+                  limit: 50,
+                },
+              ]
+            : [{ ...base, limit: 100 }];
+        return filters.map(async (candidateFilter) => {
+          const events = await relay.query(candidateFilter, signal);
+          return {
+            events: events.slice(0, candidateFilter.limit!),
+            full: events.length >= candidateFilter.limit!,
+          };
+        });
+      });
+      const responses = await Promise.all(requests);
+      signal?.throwIfAborted();
+      for (const response of responses) {
+        if (
+          response.full &&
+          response.events.length &&
+          response.events.every(
+            (event) => event.created_at === response.events[0]!.created_at,
+          )
+        ) {
+          const event = response.events[0]!;
+          gaps.set(event.created_at, {
+            createdAt: event.created_at,
+            eventId: event.id,
+          });
         }
       }
-      const selected = distinctEvents([...primary.values()]).slice(-limit);
-      hasOlder = page.hasOlder || primary.size > selected.length;
-      if (
-        selected.length >= limit ||
-        !page.hasOlder ||
-        page.events.length === 0
-      ) {
-        return { events: selected, hasOlder };
+      const candidates = distinctEvents(
+        responses.flatMap((response) => response.events),
+      ).filter(
+        (event) =>
+          verifiedNostrEvent(event) !== undefined &&
+          (!cursor ||
+            event.created_at < cursor.createdAt ||
+            (event.created_at === cursor.createdAt &&
+              event.id.localeCompare(cursor.eventId) < 0)),
+      );
+      for (const event of candidates) {
+        candidatesById.set(event.id, event);
+        if (contentWindowPrimary(event, collection))
+          primary.set(event.id, event);
       }
-      const oldest = page.events[0];
-      if (oldest === undefined) return { events: selected, hasOlder: false };
-      cursor = { createdAt: oldest.created_at, eventId: oldest.id };
+      const selected = distinctEvents([...primary.values()]).slice(-limit);
+      hasOlder =
+        responses.some((response) => response.full) ||
+        primary.size > selected.length;
+      const oldest = candidates[0];
+      if (oldest) cursor = { createdAt: oldest.created_at, eventId: oldest.id };
+      else if (cursor && hasOlder)
+        cursor = { createdAt: cursor.createdAt - 1, eventId: "~" };
+      if (selected.length >= limit || !hasOlder)
+        return {
+          events: selected,
+          supporting: supporting(selected),
+          hasOlder,
+          coverageGaps: [...gaps.values()],
+          ...(selected.length >= limit
+            ? {
+                cursor: {
+                  createdAt: selected[0]!.created_at,
+                  eventId: selected[0]!.id,
+                },
+              }
+            : cursor
+              ? { cursor }
+              : {}),
+        };
     }
+    return {
+      events: distinctEvents([...primary.values()]).slice(-limit),
+      supporting: supporting(
+        distinctEvents([...primary.values()]).slice(-limit),
+      ),
+      hasOlder,
+      coverageGaps: [...gaps.values()],
+      ...(cursor ? { cursor } : {}),
+    };
   }
 
   async #queryRawContentPage(
     filter: RelayFilter,
     before: CommunityContentWindowRequest["before"],
     limit: number,
-    signal?: AbortSignal,
-    relays: readonly CommunityRelay[] = this.#relays,
-  ): Promise<{ events: NostrEvent[]; hasOlder: boolean }> {
-    const boundaryEvents =
-      before === undefined
-        ? []
-        : await this.#queryUnion(
-            relays,
-            {
-              ...filter,
-              since: before.createdAt,
-              until: before.createdAt,
-              limit: CONTENT_BOUNDARY_LIMIT + 1,
-            },
-            signal,
-          );
-    if (boundaryEvents.length > CONTENT_BOUNDARY_LIMIT) {
-      throw new Error(
-        `More than ${CONTENT_BOUNDARY_LIMIT} community events share one relay timestamp`,
-      );
-    }
-    const older = await this.#queryUnion(
-      relays,
-      {
-        ...filter,
-        ...(before === undefined ? {} : { until: before.createdAt - 1 }),
-        limit: Math.min(100, limit),
-      },
-      signal,
+    signal: AbortSignal | undefined,
+    relays: readonly CommunityRelay[],
+  ) {
+    const responses = await Promise.all(
+      relays.map((relay) =>
+        relay.query(
+          {
+            ...filter,
+            ...(before ? { until: before.createdAt } : {}),
+            limit: Math.min(100, limit),
+          },
+          signal,
+        ),
+      ),
     );
-    const candidates = distinctEvents([...older, ...boundaryEvents]).filter(
+    signal?.throwIfAborted();
+    const candidates = distinctEvents(
+      responses.flatMap((events) => events.slice(0, limit)),
+    ).filter(
       (event) =>
-        before === undefined ||
-        event.created_at < before.createdAt ||
-        (event.created_at === before.createdAt &&
-          event.id.localeCompare(before.eventId) < 0),
+        verifiedNostrEvent(event) !== undefined &&
+        (!before ||
+          event.created_at < before.createdAt ||
+          (event.created_at === before.createdAt &&
+            event.id.localeCompare(before.eventId) < 0)),
     );
-    const selected = candidates.slice(-limit);
-    return {
-      events: selected,
-      hasOlder: candidates.length > selected.length || older.length >= limit,
-    };
+    const events = candidates.slice(-limit);
+    const hasOlder =
+      candidates.length > events.length ||
+      responses.some((events) => events.length >= limit);
+    const coverageGaps = responses
+      .filter(
+        (events) =>
+          events.length >= limit &&
+          events.every((event) => event.created_at === events[0]!.created_at),
+      )
+      .map((events) => ({
+        createdAt: events[0]!.created_at,
+        eventId: events[0]!.id,
+      }));
+    const oldest = events[0];
+    const cursor = oldest
+      ? { createdAt: oldest.created_at, eventId: oldest.id }
+      : before && hasOlder
+        ? { createdAt: before.createdAt - 1, eventId: "~" }
+        : before;
+    return { events, hasOlder, coverageGaps, ...(cursor ? { cursor } : {}) };
   }
 
   async subscribe(
@@ -883,14 +1109,13 @@ class Nip29CommunitySession implements CommunitySession {
         this.#context.identity?.nip44 !== undefined
       ) {
         await Promise.all(
-          this.#relays.map(async (relay) => {
-            const subscription = await relay.subscribe(
-              { kinds: [1_059], "#p": [identityPubkey] },
-              { onevent: (event) => this.#emit([event]) },
-              signal,
-            );
-            this.#subscriptions.add(subscription);
-          }),
+          this.#relays.map((relay) =>
+            this.#registerLive(relay, {
+              kinds: [1059],
+              "#p": [identityPubkey],
+              limit: 0,
+            }),
+          ),
         );
       }
     }
@@ -1345,6 +1570,9 @@ class Nip29CommunitySession implements CommunitySession {
   close(): void {
     if (this.#closed) return;
     this.#closed = true;
+    this.#subscriptionAbort.abort();
+    this.#registrationReads.clear();
+    this.#targetSubscriptionKeys.clear();
     this.presence?.close();
     for (const subscription of this.#subscriptions) subscription.close();
     this.#subscriptions.clear();
@@ -1360,6 +1588,7 @@ class Nip29CommunitySession implements CommunitySession {
     relays: readonly CommunityRelay[],
     filter: RelayFilter,
     signal?: AbortSignal,
+    requireAll = false,
   ): Promise<NostrEvent[]> {
     signal?.throwIfAborted();
     const settled = await Promise.allSettled(
@@ -1370,7 +1599,10 @@ class Nip29CommunitySession implements CommunitySession {
       (result): result is PromiseFulfilledResult<NostrEvent[]> =>
         result.status === "fulfilled",
     );
-    if (successful.length === 0) {
+    if (
+      successful.length === 0 ||
+      (requireAll && successful.length !== relays.length)
+    ) {
       const messages = settled
         .filter(
           (result): result is PromiseRejectedResult =>
@@ -1382,13 +1614,15 @@ class Nip29CommunitySession implements CommunitySession {
             : String(result.reason),
         );
       throw new Error(
-        `No configured community relay answered: ${messages.join("; ")}`,
+        `${successful.length ? "Incomplete community relay coverage" : "No configured community relay answered"}: ${messages.join("; ")}`,
       );
     }
     const events = distinctEvents(successful.flatMap((result) => result.value));
     return filter.limit === undefined
       ? events
-      : events.slice(-Math.max(0, filter.limit));
+      : filter.limit <= 0
+        ? []
+        : events.slice(-filter.limit);
   }
 
   async #authenticate(
@@ -1407,91 +1641,112 @@ class Nip29CommunitySession implements CommunitySession {
     this.#authenticated.add(relay);
   }
 
+  async #registerLive(
+    relay: CommunityRelay,
+    filter: RelayFilter,
+  ): Promise<void> {
+    const key = JSON.stringify([relay.url, filter]);
+    const existing = this.#registrationReads.get(key);
+    if (existing) return existing;
+    const request = Promise.resolve()
+      .then(async () => {
+        let closed = false;
+        const subscription = await relay.subscribe(
+          filter,
+          {
+            onevent: (event) => this.#emit([event]),
+            onclose: () => {
+              closed = true;
+              this.#registrationReads.delete(key);
+            },
+          },
+          this.#subscriptionAbort.signal,
+        );
+        if (closed || this.#closed) {
+          subscription.close();
+          this.#registrationReads.delete(key);
+          return;
+        }
+        this.#subscriptions.add(subscription);
+      })
+      .catch((cause: unknown) => {
+        this.#registrationReads.delete(key);
+        throw cause;
+      });
+    this.#registrationReads.set(key, request);
+    return request;
+  }
+
   async #subscribeToTargets(
     targetIds: readonly string[],
-    signal?: AbortSignal,
+    _signal?: AbortSignal,
   ): Promise<void> {
     if (this.#listeners.size === 0) return;
-    for (const ids of chunks([...new Set(targetIds)], 500)) {
-      const key = ids.toSorted().join(":");
-      if (ids.length === 0 || this.#targetSubscriptionKeys.has(key)) continue;
-      this.#targetSubscriptionKeys.add(key);
+    for (const ids of chunks([...new Set(targetIds)].sort(), 500)) {
+      if (ids.length === 0) continue;
       await Promise.all(
-        this.#relays.map(async (relay) => {
-          const subscription = await relay.subscribe(
-            { kinds: [5, 7, 9_005, 40_003], "#e": ids },
-            { onevent: (event) => this.#emit([event]) },
-            signal,
-          );
-          this.#subscriptions.add(subscription);
-        }),
+        this.#relays.map((relay) =>
+          this.#registerLive(relay, {
+            kinds: [5, 7, 9_005, 40_003],
+            "#e": ids,
+            limit: 0,
+          }),
+        ),
       );
     }
   }
 
   async #subscribeToRooms(
     groupIds: readonly string[],
-    signal?: AbortSignal,
+    _signal?: AbortSignal,
   ): Promise<void> {
     if (this.#listeners.size === 0) return;
     for (const groupId of [...new Set(groupIds)]) {
-      if (groupId === "" || this.#roomSubscriptionIds.has(groupId)) continue;
-      const subscriptions = await Promise.all([
-        ...this.#relays.map(async (relay) =>
-          relay.subscribe(
-            { kinds: [9, 11, 1_111], "#h": [groupId] },
-            { onevent: (event) => this.#emit([event]) },
-            signal,
-          ),
-        ),
-        this.#authority.subscribe(
-          {
-            kinds: this.#scope.discoverPublicRooms
-              ? [39_001, 39_002, 39_003]
-              : [...COMMUNITY_STATE_KINDS],
-            "#d": [groupId],
-          },
-          { onevent: (event) => this.#emit([event]) },
-          signal,
-        ),
-        this.#authority.subscribe(
-          {
-            kinds: [...COMMUNITY_CHANNEL_ACTIVITY_KINDS, COMMUNITY_CANVAS_KIND],
+      if (groupId === "") continue;
+      await Promise.all([
+        ...this.#relays.map((relay) =>
+          this.#registerLive(relay, {
+            kinds: [9, 11, 1_111],
             "#h": [groupId],
-          },
-          { onevent: (event) => this.#emit([event]) },
-          signal,
+            limit: 0,
+          }),
         ),
+        this.#registerLive(this.#authority, {
+          kinds: this.#scope.discoverPublicRooms
+            ? [39_001, 39_002, 39_003]
+            : [...COMMUNITY_STATE_KINDS],
+          "#d": [groupId],
+        }),
+        this.#registerLive(this.#authority, {
+          kinds: [...COMMUNITY_CHANNEL_ACTIVITY_KINDS, COMMUNITY_CANVAS_KIND],
+          "#h": [groupId],
+          limit: 0,
+        }),
       ]);
-      for (const subscription of subscriptions) {
-        this.#subscriptions.add(subscription);
-      }
-      this.#roomSubscriptionIds.add(groupId);
       this.#knownGroupIds.add(groupId);
     }
   }
 
   async #subscribeToProfiles(
     authors: readonly string[],
-    signal?: AbortSignal,
+    _signal?: AbortSignal,
   ): Promise<void> {
     if (authors.length === 0) return;
-    const key = `profiles:${[...authors].toSorted().join(",")}`;
-    if (this.#targetSubscriptionKeys.has(key)) return;
-    this.#targetSubscriptionKeys.add(key);
     await Promise.all(
-      this.#relays.map(async (relay) => {
-        const subscription = await relay.subscribe(
-          { kinds: [0, 30_030, 30_315], authors: [...authors] },
-          { onevent: (event) => this.#emit([event]) },
-          signal,
-        );
-        this.#subscriptions.add(subscription);
-      }),
+      this.#relays.map((relay) =>
+        this.#registerLive(relay, {
+          kinds: [0, 30_030, 30_315],
+          authors: [...new Set(authors)].sort(),
+          limit: 0,
+        }),
+      ),
     );
   }
 
-  async loadDirectHistory(signal?: AbortSignal): Promise<CommunitySnapshot> {
+  async loadDirectHistory(
+    signal?: AbortSignal,
+    before = this.#privateCursor,
+  ): Promise<CommunitySnapshot> {
     this.#assertOpen(signal);
     const identity = this.#context.identity;
     if (!identity) throw new Error("Sign in to load direct messages");
@@ -1500,9 +1755,15 @@ class Nip29CommunitySession implements CommunitySession {
     const page = await this.#loadPrivateEvents(
       preferences.urls.get(pubkey) ?? [],
       signal,
-      this.#privateCursor,
+      before,
     );
     return {
+      encryptedPage: this.#encryptedPage(
+        pubkey,
+        preferences.urls.get(pubkey) ?? [],
+        page,
+        before,
+      ),
       events: [],
       encryptedEvents: page.wraps,
       privateEvents: page.events,
@@ -1511,14 +1772,62 @@ class Nip29CommunitySession implements CommunitySession {
     };
   }
 
+  #encryptedPage(
+    pubkey: string,
+    relayUrls: readonly string[],
+    result: {
+      wraps: NostrEvent[];
+      hasOlder: boolean;
+      coverageGaps?: CommunityContentWindow["coverageGaps"];
+      cursor?: CommunityContentWindowRequest["before"];
+    },
+    before?: CommunityContentWindowRequest["before"],
+    after?: CommunityContentWindowRequest["after"],
+  ) {
+    const oldest = result.wraps[0];
+    return {
+      request: {
+        collection: "room-history" as const,
+        groupId: pubkey,
+        limit: 100,
+        ...(before ? { before } : {}),
+        ...(after ? { after } : {}),
+      },
+      window: {
+        events: result.wraps,
+        primaryEventIds: result.wraps.map((event) => event.id),
+        hasOlder: result.hasOlder,
+        ...(result.coverageGaps?.length
+          ? { coverageGaps: result.coverageGaps }
+          : {}),
+        ...(result.cursor
+          ? { olderCursor: result.cursor }
+          : oldest
+            ? {
+                olderCursor: {
+                  createdAt: oldest.created_at,
+                  eventId: oldest.id,
+                },
+              }
+            : {}),
+      },
+      relayUrls: relayUrls.length
+        ? relayUrls
+        : this.#relays.map((relay) => relay.url),
+    };
+  }
+
   async #loadPrivateEvents(
     relayUrls: readonly string[],
     signal?: AbortSignal,
     before?: import("./contracts.js").CommunityContentCursor,
+    after?: import("./contracts.js").CommunityContentCursor,
   ): Promise<{
     wraps: NostrEvent[];
     events: CommunityPrivateEvent[];
     hasOlder: boolean;
+    coverageGaps?: CommunityContentWindow["coverageGaps"];
+    cursor?: CommunityContentWindowRequest["before"];
   }> {
     const identity = this.#context.identity;
     if (identity?.nip44 === undefined)
@@ -1526,19 +1835,26 @@ class Nip29CommunitySession implements CommunitySession {
     const pubkey = await identity.getPublicKey();
     const inboxRelays = relayUrls.map((url) => this.#deliveryRelay(url));
     const page = await this.#queryRawContentPage(
-      { kinds: [1059], "#p": [pubkey] },
+      {
+        kinds: [1059],
+        "#p": [pubkey],
+        ...(after ? { since: after.createdAt } : {}),
+      },
       before,
       100,
       signal,
       inboxRelays.length ? inboxRelays : this.#relays,
     );
+    for (const gap of page.coverageGaps)
+      this.#privateCoverageGaps.set(gap.createdAt, gap);
     const wraps = page.events;
     const oldest = wraps[0];
-    this.#privateCursor = oldest
-      ? { createdAt: oldest.created_at, eventId: oldest.id }
-      : before;
+    this.#privateCursor =
+      page.cursor ??
+      (oldest ? { createdAt: oldest.created_at, eventId: oldest.id } : before);
     const settled: PromiseSettledResult<CommunityPrivateEvent>[] = [];
     for (let offset = 0; offset < wraps.length; offset += 16) {
+      if (offset) await new Promise<void>((resolve) => setTimeout(resolve, 0));
       signal?.throwIfAborted();
       settled.push(
         ...(await Promise.allSettled(
@@ -1561,7 +1877,13 @@ class Nip29CommunitySession implements CommunitySession {
       (left, right) =>
         left.created_at - right.created_at || left.id.localeCompare(right.id),
     );
-    return { wraps, events, hasOlder: page.hasOlder };
+    return {
+      wraps,
+      events,
+      hasOlder: page.hasOlder,
+      coverageGaps: [...this.#privateCoverageGaps.values()],
+      ...(page.cursor ? { cursor: page.cursor } : {}),
+    };
   }
 
   async #relayPreferences(
@@ -1621,15 +1943,11 @@ class Nip29CommunitySession implements CommunitySession {
       this.#targetSubscriptionKeys.add("buzz-visibility");
     }
     for (const url of relayUrls.length ? relayUrls : [this.#scope.relayUrl]) {
-      const key = `inbox:${url}:${pubkey}`;
-      if (this.#targetSubscriptionKeys.has(key)) continue;
-      this.#targetSubscriptionKeys.add(key);
-      const subscription = await this.#deliveryRelay(url).subscribe(
-        { kinds: [1_059], "#p": [pubkey] },
-        { onevent: (event) => this.#emit([event]) },
-        signal,
-      );
-      this.#subscriptions.add(subscription);
+      await this.#registerLive(this.#deliveryRelay(url), {
+        kinds: [1059],
+        "#p": [pubkey],
+        limit: 0,
+      });
     }
   }
 
@@ -1975,19 +2293,6 @@ function contentWindowPrimary(
     COMMUNITY_CONTENT_KINDS.some((kind) => kind === event.kind) ||
     COMMUNITY_CHANNEL_ACTIVITY_KINDS.some((kind) => kind === event.kind)
   );
-}
-
-function mergeContentPages(
-  pages: readonly { events: readonly NostrEvent[]; hasOlder: boolean }[],
-  limit: number,
-): { events: NostrEvent[]; hasOlder: boolean } {
-  const candidates = distinctEvents(pages.flatMap((page) => page.events));
-  const events = candidates.slice(-limit);
-  return {
-    events,
-    hasOlder:
-      candidates.length > events.length || pages.some((page) => page.hasOlder),
-  };
 }
 
 function distinctEvents(events: readonly NostrEvent[]): NostrEvent[] {

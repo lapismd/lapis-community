@@ -573,13 +573,24 @@ describe("createNip29CommunitySource", () => {
 
     expect(snapshot?.complete).toBe(false);
     expect(snapshot?.events.some((event) => event.kind === 39_000)).toBe(true);
-    expect(
-      query.mock.calls.some(
-        ([filter]) =>
-          filter["#h"] !== undefined &&
-          filter.kinds?.some((kind) => [9, 11, 1_111].includes(kind)),
-      ),
-    ).toBe(false);
+    const contentQueries = query.mock.calls.flatMap(([filter]) =>
+      filter.kinds?.some((kind) => [9, 11, 1_111].includes(kind))
+        ? [filter]
+        : [],
+    );
+    const pubkey = await scenario.operator.getPublicKey();
+    expect(contentQueries.length).toBeGreaterThan(0);
+    for (const filter of contentQueries) {
+      expect(filter.limit).toBeLessThanOrEqual(100);
+      expect(filter["#h"]).toBeDefined();
+      // Bootstrap permits bounded, identity-specific Inbox discovery and its
+      // referenced roots, never a generic historical sweep of all rooms.
+      expect(
+        filter["#p"]?.includes(pubkey) ||
+          filter.authors?.includes(pubkey) ||
+          (filter.ids !== undefined && filter.ids.length <= 100),
+      ).toBe(true);
+    }
     session.close();
   });
 

@@ -1,5 +1,6 @@
 import "./community-typography.css";
 import "./community-overlays.css";
+export { default as CommunityHistoryEdge } from "./community-history-edge/CommunityHistoryEdge.svelte";
 export { default as CommunityApplication } from "./community-application/CommunityApplicationRoot.svelte";
 export type {
   CommunityApplicationAccountState,

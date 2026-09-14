@@ -8,6 +8,7 @@
     communityStoryNavigation,
   } from "../community-workspace/story-fixtures.js";
   import CommunityConversation from "./CommunityConversation.svelte";
+  import HistoryFixture from "./CommunityConversationHistoryFixture.svelte";
 
   const generalRoom = communityStoryNavigation[0]!.rooms[1]!;
   const groupedMessages = [
@@ -427,3 +428,83 @@
     </div>
   {/snippet}</Story
 >
+
+<Story
+  name="Virtualized rich history"
+  exportName="VirtualizedRichHistory"
+  parameters={{
+    docs: {
+      source: {
+        language: "svelte",
+        code: `<script lang="ts">
+  import { CommunityConversation } from "@lapismd/lapis-community/components";
+  let { controller, room } = $props();
+<\/script>
+<CommunityConversation room={room} messages={controller.state.workspace.messages}
+  members={controller.state.workspace.members} virtualize
+  presentation={controller.state.timelinePresentation}
+  onPresentationChange={controller.actions.updateTimelinePresentation}
+  history={controller.state.history}
+  onLoadOlder={async () => { await controller.actions.loadOlderHistory?.(); }}
+  onLoadLatest={async () => { await controller.actions.loadNewerHistory?.(); }} />`,
+      },
+    },
+  }}
+  play={async ({ canvas, canvasElement }) => {
+    const viewport = canvasElement.querySelector<HTMLElement>(
+      '[data-ui-part="scroll-area-viewport"]',
+    )!;
+    await waitFor(() => expect(viewport.scrollTop).toBeGreaterThan(1000));
+    const rows = () =>
+      canvasElement.querySelectorAll('[data-ui-part="virtual-row"]');
+    expect(rows().length).toBeLessThan(40);
+    viewport.dispatchEvent(new WheelEvent("wheel", { deltaY: -1000 }));
+    viewport.scrollTop -= 1000;
+    viewport.dispatchEvent(new Event("scroll"));
+    await waitFor(() =>
+      expect(
+        canvas.getByRole("button", { name: "Scroll to latest" }),
+      ).toBeVisible(),
+    );
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Resize conversation" }),
+    );
+    await waitFor(() =>
+      expect(
+        canvas.getByRole("button", { name: "Scroll to latest" }),
+      ).toBeVisible(),
+    );
+    expect(
+      canvas.queryByRole("button", { name: "New messages" }),
+    ).not.toBeInTheDocument();
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Send own message" }),
+    );
+    await waitFor(() =>
+      expect(
+        canvas.getByRole("button", { name: "Scroll to latest" }),
+      ).toBeVisible(),
+    );
+    expect(
+      canvas.queryByRole("button", { name: "New messages" }),
+    ).not.toBeInTheDocument();
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Receive message" }),
+    );
+    await waitFor(() =>
+      expect(
+        canvas.getByRole("button", { name: "New messages" }),
+      ).toBeVisible(),
+    );
+    viewport.scrollTop = viewport.scrollHeight;
+    viewport.dispatchEvent(new Event("scroll"));
+    await waitFor(() =>
+      expect(
+        canvas.queryByRole("button", { name: "New messages" }),
+      ).not.toBeInTheDocument(),
+    );
+    expect(rows().length).toBeLessThan(40);
+  }}
+>
+  {#snippet template()}<HistoryFixture />{/snippet}
+</Story>

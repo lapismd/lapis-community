@@ -551,10 +551,13 @@
                 <CommunityChip
                   variant="subtle"
                   size="compact"
-                  ariaLabel={countsUpdating
-                    ? `${item.unreadCount} or more unread; older history is updating`
+                  ariaLabel={countsUpdating || item.unreadComplete === false
+                    ? `${item.unreadCount} or more unread; history coverage is incomplete`
                     : `${item.unreadCount} unread`}
-                  >{item.unreadCount}{countsUpdating ? "+" : ""}</CommunityChip
+                  >{item.unreadCount}{countsUpdating ||
+                  item.unreadComplete === false
+                    ? "+"
+                    : ""}</CommunityChip
                 >
               {/if}
             </Button>
@@ -681,7 +684,10 @@
                               >
                             {:else if item.unreadCount}
                               <CommandView.ItemDescription
-                                >{item.unreadCount}{countsUpdating ? "+" : ""} unread</CommandView.ItemDescription
+                                >{item.unreadCount}{countsUpdating ||
+                                item.unreadComplete === false
+                                  ? "+"
+                                  : ""} unread</CommandView.ItemDescription
                               >
                             {/if}
                           </CommandView.Item>
@@ -862,10 +868,12 @@
                             {#if item.unreadCount}<CommunityChip
                                 variant="subtle"
                                 size="compact"
-                                ariaLabel={countsUpdating
-                                  ? `${item.unreadCount} or more unread; older history is updating`
+                                ariaLabel={countsUpdating ||
+                                item.unreadComplete === false
+                                  ? `${item.unreadCount} or more unread; history coverage is incomplete`
                                   : `${item.unreadCount} unread`}
-                                >{item.unreadCount}{countsUpdating
+                                >{item.unreadCount}{countsUpdating ||
+                                item.unreadComplete === false
                                   ? "+"
                                   : ""}</CommunityChip
                               >{/if}

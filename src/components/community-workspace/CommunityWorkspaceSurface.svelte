@@ -19,8 +19,12 @@
     CommunityCustomEmoji,
     CommunityOperationState,
     CommunityReplyTarget,
+    CommunityHistoryState,
+    CommunityTimelinePresentation,
+    CommunityTimelinePosition,
   } from "../../community/index.js";
   import ForumTopicList from "../forum-topic-list/ForumTopicList.svelte";
+  import CommunityHistoryEdge from "../community-history-edge/CommunityHistoryEdge.svelte";
   import {
     findCommunityRoom,
     type CommunityRoomModel,
@@ -42,6 +46,12 @@
     historyUpdating = false,
     historyLoading = false,
     directHistory,
+    history,
+    onLoadOlder,
+    onLoadLatest,
+    presentation,
+    onPresentationChange,
+    virtualize = false,
     onLoadOlderDirectMessages,
     messageSupplement,
     channelActions,
@@ -60,6 +70,15 @@
     historyUpdating?: boolean;
     historyLoading?: boolean;
     directHistory?: { hasOlder: boolean; loading: boolean; error?: string };
+    history?: CommunityHistoryState;
+    virtualize?: boolean;
+    presentation?: CommunityTimelinePresentation;
+    onPresentationChange?: (
+      key: string,
+      update: { draft?: string; position?: CommunityTimelinePosition },
+    ) => void;
+    onLoadOlder?: () => Promise<void>;
+    onLoadLatest?: () => Promise<void>;
     onLoadOlderDirectMessages?: () => Promise<void>;
     messageSupplement?: Snippet<[import("./model.js").CommunityMessageModel]>;
     channelActions?: Snippet;
@@ -133,25 +152,24 @@
       ? onDismissOperation
       : undefined,
   );
+  let forumViewport = $state<HTMLElement | null>(null);
   const readBoundary = $derived.by(() => {
+    const windowed = history !== undefined || virtualize;
     const threadId =
       model.view === "forum-thread"
         ? model.messages.find((message) => message.sourceEvent?.kind === 11)?.id
         : undefined;
-    const eventId =
-      model.view === "forum-thread"
-        ? !threadId
-          ? undefined
-          : model.messages
-              .filter((message) => message.authorId !== model.currentMemberId)
-              .map((message) => message.sourceEvent)
-              .filter((event) => event !== undefined)
-              .toSorted(
-                (left, right) =>
-                  right.created_at - left.created_at ||
-                  right.id.localeCompare(left.id),
-              )[0]?.id
-        : activeRoom.latestUnreadEventId;
+    const eventId = windowed
+      ? model.messages
+          .filter(
+            (message) =>
+              message.authorId !== model.currentMemberId &&
+              !message.activity &&
+              (model.view !== "forum-index" ||
+                model.topics.some((topic) => topic.id === message.id)),
+          )
+          .at(-1)?.id
+      : activeRoom.latestUnreadEventId;
     const onReadRoom = handlers.onReadRoom;
     const roomId = activeRoom.id;
     return {
@@ -170,7 +188,11 @@
             onRead: () =>
               onReadRoom(roomId, {
                 eventId,
-                ...(threadId ? { threadId } : {}),
+                ...(windowed && threadId
+                  ? { threadId }
+                  : windowed && activeRoom.kind !== "direct"
+                    ? { timeline: true }
+                    : {}),
               }),
           }
         : {}),
@@ -424,6 +446,7 @@
     </div>
   {:else if model.view === "forum-index"}
     <ScrollArea
+      bind:viewportRef={forumViewport}
       type="hover"
       orientation="vertical"
       class="community-workspace-surface__forum-scroll-shell"
@@ -477,6 +500,14 @@
           {@render roomIntro("forum")}
         {/snippet}
       </ForumTopicList>
+      {#if history && onLoadOlder}
+        <CommunityHistoryEdge
+          {history}
+          onLoad={onLoadOlder}
+          label="Load earlier topics"
+          viewport={forumViewport}
+        />
+      {/if}
       <div
         use:observeReadEnd={readBoundary}
         data-ui-part="read-boundary"
@@ -488,6 +519,12 @@
     {/if}
   {:else}
     <CommunityConversation
+      {virtualize}
+      {...history ? { history } : {}}
+      {...onLoadOlder ? { onLoadOlder } : {}}
+      {...onLoadLatest ? { onLoadLatest } : {}}
+      {...presentation ? { presentation } : {}}
+      {...onPresentationChange ? { onPresentationChange } : {}}
       {readBoundary}
       draftKey={activeRoom.conversation
         ? conversationKey(activeRoom.conversation)
@@ -495,7 +532,10 @@
       {...activeRoom.conversation?.transport === "nip17" &&
       directHistory &&
       onLoadOlderDirectMessages
-        ? { history: directHistory, onLoadOlder: onLoadOlderDirectMessages }
+        ? {
+            history: { ...directHistory, ...history },
+            onLoadOlder: onLoadOlderDirectMessages,
+          }
         : {}}
       {...model.view === "forum-thread" && model.messages[0]
         ? {

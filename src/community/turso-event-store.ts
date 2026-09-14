@@ -1,5 +1,13 @@
+import {
+  COMMUNITY_CACHE_METADATA_KINDS,
+  cachedEventPage,
+  cachePageLimit,
+} from "./history-pages.js";
 import type {
   CommunityCacheAudience,
+  CommunityCachedHistoryPage,
+  CommunityHistoryPage,
+  CommunityCachedEventQuery,
   CommunityCachedScope,
   CommunityScope,
   CommunitySyncCheckpoint,
@@ -116,8 +124,14 @@ class TursoCommunityEventStore extends BaseCommunityEventStore {
         );
         CREATE INDEX IF NOT EXISTS community_events_partition_idx
           ON community_events(partition_key, created_at, event_id);
+        CREATE INDEX IF NOT EXISTS community_events_kind_idx ON community_events(partition_key, json_extract(raw_json, '$.kind'), created_at, event_id);
+        CREATE INDEX IF NOT EXISTS community_events_room_kind_idx ON community_events(partition_key, room_id, json_extract(raw_json, '$.kind'), created_at, event_id);
         CREATE INDEX IF NOT EXISTS community_events_access_idx
           ON community_events(last_accessed_at);
+        CREATE TABLE IF NOT EXISTS community_history_pages (
+          cache_key TEXT PRIMARY KEY, scope_key TEXT NOT NULL, raw_json TEXT NOT NULL, bytes INTEGER NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS community_history_pages_scope_idx ON community_history_pages(scope_key);
         CREATE TABLE IF NOT EXISTS community_checkpoints (
           cache_key TEXT PRIMARY KEY,
           scope_key TEXT NOT NULL,
@@ -131,6 +145,39 @@ class TursoCommunityEventStore extends BaseCommunityEventStore {
         CREATE INDEX IF NOT EXISTS community_checkpoints_scope_idx
           ON community_checkpoints(scope_key);
       `);
+      // Add the room index without discarding caches written before room_id was
+      // populated. Keep decoding and writes bounded in the database owner.
+      let afterKey = "";
+      for (;;) {
+        const legacy = await this.#database.all<{
+          cache_key: string;
+          raw_json: string;
+        }>(
+          "SELECT cache_key, raw_json FROM community_events WHERE room_id IS NULL AND cache_key > ? ORDER BY cache_key LIMIT 100",
+          afterKey,
+        );
+        if (!legacy.length) break;
+        const updates = legacy.flatMap((row) => {
+          try {
+            const event = JSON.parse(row.raw_json) as { tags?: string[][] };
+            const room = event.tags?.find((tag) => tag[0] === "h")?.[1];
+            return room
+              ? [
+                  {
+                    sql: "UPDATE community_events SET room_id = ? WHERE cache_key = ?",
+                    args: [room, row.cache_key],
+                  },
+                ]
+              : [];
+          } catch {
+            return [];
+          }
+        });
+        if (updates.length) await this.#database.batch(updates, "write");
+        afterKey = legacy.at(-1)!.cache_key;
+        if (legacy.length < 100) break;
+        await new Promise<void>((resolve) => setTimeout(resolve, 0));
+      }
       try {
         await this.#database.exec(
           "ALTER TABLE community_checkpoints ADD COLUMN cursor_event_id TEXT",
@@ -155,14 +202,15 @@ class TursoCommunityEventStore extends BaseCommunityEventStore {
   async restore(
     scope: CommunityScope,
     audience: CommunityCacheAudience = { type: "public" },
+    metadataOnly = false,
   ): Promise<CommunityCachedScope> {
     const database = this.#requireDatabase();
     const scopeKey = communityCacheScopeKey(scope);
     const partitionKey = `${scopeKey}:${communityCacheAudienceKey(audience)}`;
-    const [rows, checkpointRows] = await Promise.all([
+    const [rows, checkpointRows, byteRows] = await Promise.all([
       database.all<TursoEventRow>(
         `SELECT raw_json, bytes FROM community_events
-         WHERE partition_key = ? ORDER BY created_at ASC, event_id ASC`,
+         WHERE partition_key = ? ${metadataOnly ? `AND json_extract(raw_json, '$.kind') IN (${COMMUNITY_CACHE_METADATA_KINDS.join(",")})` : ""} ORDER BY created_at ASC, event_id ASC`,
         partitionKey,
       ),
       database.all<TursoCheckpointRow>(
@@ -170,6 +218,10 @@ class TursoCommunityEventStore extends BaseCommunityEventStore {
                 cursor_event_id, complete
          FROM community_checkpoints WHERE scope_key = ?`,
         scopeKey,
+      ),
+      database.all<{ bytes: number }>(
+        "SELECT COALESCE(SUM(bytes), 0) AS bytes FROM community_events WHERE partition_key = ?",
+        partitionKey,
       ),
     ]);
     const events = rows.flatMap((row) => {
@@ -197,11 +249,81 @@ class TursoCommunityEventStore extends BaseCommunityEventStore {
           ? { complete: row.complete === 1 }
           : {}),
       })),
-      approximateBytes: rows.reduce(
-        (total, row) => total + Number(row.bytes),
-        0,
-      ),
+      approximateBytes: Number(byteRows[0]?.bytes ?? 0),
     };
+  }
+
+  restoreMetadata(scope: CommunityScope) {
+    return this.restore(scope, { type: "public" }, true);
+  }
+
+  async readCachedEvents(
+    scope: CommunityScope,
+    query: CommunityCachedEventQuery,
+  ) {
+    const database = this.#requireDatabase();
+    const partition = `${communityCacheScopeKey(scope)}:${communityCacheAudienceKey(query.audience)}`;
+    const limit = cachePageLimit(query.limit);
+    if (!query.kinds.length) return cachedEventPage([], limit);
+    const args: unknown[] = [partition, ...query.kinds];
+    const where = [
+      "partition_key = ?",
+      `json_extract(raw_json, '$.kind') IN (${query.kinds.map(() => "?").join(",")})`,
+    ];
+    if (query.groupId) {
+      where.push("room_id = ?");
+      args.push(query.groupId);
+    }
+    if (query.before) {
+      where.push("(created_at < ? OR (created_at = ? AND event_id < ?))");
+      args.push(
+        query.before.createdAt,
+        query.before.createdAt,
+        query.before.eventId,
+      );
+    }
+    args.push(limit + 1);
+    const rows = await database.all<TursoEventRow>(
+      `SELECT raw_json, bytes FROM community_events WHERE ${where.join(" AND ")} ORDER BY created_at DESC, event_id DESC LIMIT ?`,
+      ...args,
+    );
+    return cachedEventPage(
+      rows.flatMap((row) => {
+        const event = verifiedNostrEvent(JSON.parse(row.raw_json));
+        return event ? [event] : [];
+      }),
+      limit,
+    );
+  }
+
+  async readHistoryPage(
+    scope: CommunityScope,
+    key: string,
+  ): Promise<CommunityCachedHistoryPage | undefined> {
+    const database = this.#requireDatabase();
+    const scopeKey = communityCacheScopeKey(scope);
+    const [stored] = await database.all<{ raw_json: string }>(
+      "SELECT raw_json FROM community_history_pages WHERE cache_key = ?",
+      `${scopeKey}:${key}`,
+    );
+    if (!stored) return undefined;
+    const page = JSON.parse(stored.raw_json) as CommunityHistoryPage;
+    const partition = `${scopeKey}:${communityCacheAudienceKey(page.audience)}`;
+    const rows = page.eventIds.length
+      ? await database.all<TursoEventRow>(
+          `SELECT raw_json, bytes FROM community_events WHERE partition_key = ? AND event_id IN (${page.eventIds.map(() => "?").join(",")})`,
+          partition,
+          ...page.eventIds,
+        )
+      : [];
+    const byId = new Map(
+      rows.flatMap((row) => {
+        const event = verifiedNostrEvent(JSON.parse(row.raw_json));
+        return event ? [[event.id, event] as const] : [];
+      }),
+    );
+    if (page.eventIds.some((id) => !byId.has(id))) return undefined;
+    return { page, events: page.eventIds.map((id) => byId.get(id)!) };
   }
 
   async commit(batch: CommunityVerifiedEventBatch): Promise<void> {
@@ -218,7 +340,9 @@ class TursoCommunityEventStore extends BaseCommunityEventStore {
         partitionKey,
         record.event.id,
         record.relayUrl,
-        record.roomId ?? null,
+        record.roomId ??
+          record.event.tags.find((tag) => tag[0] === "h")?.[1] ??
+          null,
         record.event.created_at,
         record.lastAccessedAt ?? Date.now(),
         communityEventBytes(record),
@@ -236,6 +360,18 @@ class TursoCommunityEventStore extends BaseCommunityEventStore {
           room_id=excluded.room_id,
           last_accessed_at=MAX(community_events.last_accessed_at, excluded.last_accessed_at)`,
         args: rows.flat(),
+      });
+    }
+    for (const page of batch.historyPages ?? []) {
+      const json = JSON.stringify(page);
+      statements.push({
+        sql: "INSERT INTO community_history_pages(cache_key, scope_key, raw_json, bytes) VALUES (?, ?, ?, ?) ON CONFLICT(cache_key) DO UPDATE SET raw_json=excluded.raw_json, bytes=excluded.bytes",
+        args: [
+          `${scopeKey}:${page.key}`,
+          scopeKey,
+          json,
+          new TextEncoder().encode(json).byteLength,
+        ],
       });
     }
     statements.push(
@@ -265,9 +401,15 @@ class TursoCommunityEventStore extends BaseCommunityEventStore {
   async prune(): Promise<void> {
     const database = this.#requireDatabase();
     const [total] = await database.all<{ bytes: number }>(
-      "SELECT COALESCE(SUM(bytes), 0) AS bytes FROM community_events",
+      "SELECT (SELECT COALESCE(SUM(bytes), 0) FROM community_events) + (SELECT COALESCE(SUM(bytes), 0) FROM community_history_pages) AS bytes",
     );
     let bytes = Number(total?.bytes ?? 0);
+    if (bytes <= this.#maxBytes) return;
+    const [pageBytes] = await database.all<{ bytes: number }>(
+      "SELECT COALESCE(SUM(bytes), 0) AS bytes FROM community_history_pages",
+    );
+    await database.exec("DELETE FROM community_history_pages");
+    bytes -= Number(pageBytes?.bytes ?? 0);
     if (bytes <= this.#maxBytes) return;
     const rows = await database.all<{ cache_key: string; bytes: number }>(
       `SELECT cache_key, bytes FROM community_events
@@ -292,6 +434,7 @@ class TursoCommunityEventStore extends BaseCommunityEventStore {
         [
           { sql: "DELETE FROM community_events" },
           { sql: "DELETE FROM community_checkpoints" },
+          { sql: "DELETE FROM community_history_pages" },
         ],
         "immediate",
       );
@@ -302,6 +445,10 @@ class TursoCommunityEventStore extends BaseCommunityEventStore {
       [
         {
           sql: "DELETE FROM community_events WHERE scope_key = ?",
+          args: [key],
+        },
+        {
+          sql: "DELETE FROM community_history_pages WHERE scope_key = ?",
           args: [key],
         },
         {

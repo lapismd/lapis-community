@@ -220,7 +220,19 @@ export interface CommunityOperationState {
 }
 
 export interface CommunityControllerState {
-  directHistory?: { hasOlder: boolean; loading: boolean; error?: string };
+  timelinePresentation?: CommunityTimelinePresentation | undefined;
+  threadPresentation?: CommunityTimelinePresentation | undefined;
+  inboxPresentation?: CommunityTimelinePresentation | undefined;
+  history?: CommunityHistoryState | undefined;
+  threadHistory?: CommunityHistoryState | undefined;
+  inboxHistory?: CommunityHistoryState | undefined;
+  inboxConversationHistory?: CommunityHistoryState | undefined;
+  directHistory?: {
+    hasOlder: boolean;
+    loading: boolean;
+    complete?: boolean;
+    error?: string;
+  };
   canvases?: Readonly<
     Record<string, import("./channel-canvas.js").CommunityChannelCanvasModel>
   >;
@@ -377,6 +389,14 @@ export type CommunityCommand =
     };
 
 export interface CommunitySnapshot {
+  encryptedPage?: {
+    request: CommunityContentWindowRequest;
+    window: CommunityContentWindow;
+    relayUrls: readonly string[];
+  };
+  encryptedCheckpoints?: readonly CommunitySyncCheckpoint[];
+  inboxCursor?: CommunityContentCursor;
+  hasOlderInbox?: boolean;
   hasOlderDirectMessages?: boolean;
   events: readonly NostrEvent[];
   encryptedEvents?: readonly NostrEvent[];
@@ -407,6 +427,8 @@ export interface CommunityContentWindowRequest {
   groupId: string;
   rootEventId?: string;
   before?: CommunityContentCursor;
+  /** Inclusive newer-history overlap; independent of the reader's cursor. */
+  after?: CommunityContentCursor;
   limit: number;
 }
 
@@ -415,6 +437,66 @@ export interface CommunityContentWindow {
   primaryEventIds: readonly string[];
   olderCursor?: CommunityContentCursor;
   hasOlder: boolean;
+  /** Saturated timestamp ranges remain incomplete even after reaching older history. */
+  coverageGaps?: readonly CommunityContentCursor[];
+}
+
+/** A bounded cached relay result, never a claim that the entire room is cached. */
+export interface CommunityHistoryPage {
+  key: string;
+  audience: CommunityCacheAudience;
+  relayUrls: readonly string[];
+  request: CommunityContentWindowRequest;
+  eventIds: readonly string[];
+  primaryEventIds: readonly string[];
+  olderCursor?: CommunityContentCursor;
+  hasOlder: boolean;
+  coverageGaps?: readonly CommunityContentCursor[];
+  synchronizedAt: number;
+}
+
+export interface CommunityCachedHistoryPage {
+  page: CommunityHistoryPage;
+  events: readonly NostrEvent[];
+}
+
+export interface CommunityCachedEventQuery {
+  audience?: CommunityCacheAudience;
+  kinds: readonly number[];
+  groupId?: string;
+  before?: CommunityContentCursor;
+  limit: number;
+}
+
+export interface CommunityCachedEventPage {
+  events: readonly NostrEvent[];
+  olderCursor?: CommunityContentCursor;
+  /** Cache exhaustion alone never establishes relay exhaustion. */
+  hasMoreCached: boolean;
+}
+
+export interface CommunityTimelinePosition {
+  messageId: string;
+  index?: number;
+  offset: number;
+  atLatest: boolean;
+}
+
+export interface CommunityTimelinePresentation {
+  key: string;
+  draft: string;
+  position?: CommunityTimelinePosition;
+}
+
+export interface CommunityHistoryState {
+  key: string;
+  /** Eligible unread arrivals in this exact timeline; omitted for legacy adapters. */
+  unreadEventIds?: readonly string[];
+  loading: boolean;
+  hasOlder: boolean;
+  hasNewer: boolean;
+  complete: boolean;
+  error?: string;
 }
 
 export interface CommunityPulseWindowRequest {
@@ -467,6 +549,7 @@ export interface CommunityVerifiedEventBatch {
   scope: CommunityScope;
   records: readonly CommunityVerifiedEventRecord[];
   checkpoints?: readonly CommunitySyncCheckpoint[];
+  historyPages?: readonly CommunityHistoryPage[];
 }
 
 export interface CommunitySyncPlan {
@@ -482,6 +565,9 @@ export interface CommunityEventBatch {
   audience?: CommunityCacheAudience;
   persist?: boolean;
   checkpoints?: readonly CommunitySyncCheckpoint[];
+  historyPages?: readonly CommunityHistoryPage[];
+  /** Cached events still undergo verification, but need no duplicate disk write. */
+  fromCache?: boolean;
 }
 
 export interface CommunityRuntimeSelection {
@@ -526,11 +612,20 @@ export interface CommunityRuntimeSearch {
 }
 
 export interface CommunityEventRuntime {
+  readCachedEvents?(
+    scope: CommunityScope,
+    query: CommunityCachedEventQuery,
+  ): Promise<CommunityCachedEventPage>;
+  readHistoryPage?(
+    scope: CommunityScope,
+    key: string,
+  ): Promise<CommunityCachedHistoryPage | undefined>;
   clearPrivate?(): Promise<void>;
   readonly agentActivity?: CommunityAgentActivityStore | undefined;
   restore(
     scopes: readonly CommunityScope[],
     generation?: number,
+    options?: { metadataOnly?: boolean },
   ): Promise<CommunityRuntimeRevision>;
   ingest(
     batch: CommunityEventBatch,
@@ -546,6 +641,15 @@ export interface CommunityEventRuntime {
 }
 
 export interface CommunityEventStore {
+  restoreMetadata?(scope: CommunityScope): Promise<CommunityCachedScope>;
+  readCachedEvents?(
+    scope: CommunityScope,
+    query: CommunityCachedEventQuery,
+  ): Promise<CommunityCachedEventPage>;
+  readHistoryPage?(
+    scope: CommunityScope,
+    key: string,
+  ): Promise<CommunityCachedHistoryPage | undefined>;
   readonly agentActivity?: CommunityAgentActivityStore | undefined;
   readonly mode: CommunityStorageMode;
   open(): Promise<void>;
@@ -586,7 +690,15 @@ export interface CommunitySessionSubscription {
 }
 
 export interface CommunitySession {
-  loadDirectHistory?(signal?: AbortSignal): Promise<CommunitySnapshot>;
+  loadInboxWindow?(
+    before?: CommunityContentCursor,
+    limit?: number,
+    signal?: AbortSignal,
+  ): Promise<CommunityContentWindow>;
+  loadDirectHistory?(
+    signal?: AbortSignal,
+    before?: CommunityContentCursor,
+  ): Promise<CommunitySnapshot>;
   openBuzzDirectMessage?(
     participants: readonly string[],
     signal?: AbortSignal,
@@ -638,6 +750,8 @@ export interface CommunityDataSourceContext {
 }
 
 export interface CommunityDataSource {
+  /** Opt in to metadata-only startup and explicit history windows. */
+  historyPaging?: boolean;
   open(
     scope: CommunityScope,
     context?: CommunityDataSourceContext,
@@ -657,7 +771,24 @@ export interface CommunityController {
   dismissOperation(operation: string): void;
 }
 
+export interface CommunityHistoryTarget {
+  roomId: string;
+  rootEventId?: string;
+  scopeId?: string;
+}
+
 export interface CommunityControllerActions {
+  updateTimelinePresentation?(
+    key: string,
+    update: { draft?: string; position?: CommunityTimelinePosition },
+  ): void;
+  loadOlderInbox?(): Promise<void>;
+  loadOlderHistory?(target?: CommunityHistoryTarget): Promise<void>;
+  loadNewerHistory?(target?: CommunityHistoryTarget): Promise<void>;
+  loadAroundMessage?(
+    target: CommunityHistoryTarget,
+    eventId: string,
+  ): Promise<void>;
   loadDirectHistory?(): Promise<void>;
   openBuzzDirectMessage?(participants: readonly string[]): Promise<string>;
   selectInboxItem?(itemId: string): Promise<void>;
@@ -714,7 +845,7 @@ export interface CommunityControllerActions {
   clearReplyTarget(): void;
   markRead(
     roomId: string,
-    through?: { eventId: string; threadId?: string },
+    through?: { eventId: string; threadId?: string; timeline?: boolean },
   ): Promise<void>;
   markUnread(roomId: string): Promise<void>;
   markAllRead(): Promise<void>;

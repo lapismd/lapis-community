@@ -129,11 +129,31 @@
       await waitFor(() =>
         expect(canvas.getByLabelText(`${name} content`)).toBeVisible(),
       );
+      if (name === "support") {
+        // The forum index does not acknowledge replies that have not been viewed.
+        await userEvent.click(
+          await canvas.findByRole("button", {
+            name: "Open topic Portable forums",
+          }),
+        );
+        await canvas.findByText(
+          "Portable forum URLs should retain relay and group identity.",
+        );
+      }
       const content = canvas.getByLabelText(`${name} content`);
-      const boundary = content.querySelector<HTMLElement>(
-        '[data-ui-part="read-boundary"]',
+      const boundary = await waitFor(
+        () => {
+          const boundary = content.querySelector<HTMLElement>(
+            '[data-ui-part="read-boundary"]',
+          );
+          expect(boundary).not.toBeNull();
+          return boundary!;
+        },
+        { timeout: 15_000 },
       );
-      if (!boundary) throw new Error("Expected a rendered read boundary");
+      await expect(app.getBoundingClientRect().bottom).toBeLessThanOrEqual(
+        app.ownerDocument.defaultView!.innerHeight,
+      );
       boundary.scrollIntoView({ block: "end" });
       await waitFor(() =>
         expect(within(room).queryByLabelText(/unread/u)).toBeNull(),
@@ -1571,7 +1591,8 @@
 
     const outsideMemberManager = await channelMembers.findByRole(
       "option",
-      { name: `Manage ${outsideMemberDisplayName}` },
+      // Joining fetches the selected member's profile; its resolved name replaces the cached key preview.
+      { name: "Manage Noor" },
       { timeout: 8_000 },
     );
     await userEvent.click(outsideMemberManager);
@@ -2504,6 +2525,16 @@
         candidate.textContent?.includes("How should portable forums work?"),
       );
     if (!message) throw new Error("Expected the forum root message");
+    const messages = canvas.getByLabelText("support messages");
+    await waitFor(
+      () => expect(messages).toHaveAttribute("aria-busy", "false"),
+      {
+        timeout: 15_000,
+      },
+    );
+    await new Promise<void>((resolve) =>
+      requestAnimationFrame(() => resolve()),
+    );
     await userEvent.hover(message);
     const addReaction = within(message).getByRole("button", {
       name: "Add reaction",

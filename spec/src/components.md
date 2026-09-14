@@ -539,7 +539,7 @@ darker than the light sidebar, theme-appropriate dark-mode contrast, no border,
 and a visible fill at rest in
 light and dark themes. A loaded channel or forum MUST report its read boundary
 only when the end of its content is visible in a non-hidden document. Viewing a
-forum index acknowledges its loaded activity summaries; viewing a single topic
+forum index acknowledges its loaded root messages; viewing a single topic
 acknowledges only that thread. Background destinations, initial skeletons, and
 content below the scroll viewport MUST NOT acknowledge reads. Returning to the
 visible tab or reaching the end after a new event MUST re-evaluate the boundary.
@@ -548,3 +548,34 @@ anonymous public history is not a personal unread count.
 Automatic read receipts MUST identify the projected event head so newer events
 remain unread, and manual Mark unread MUST remain until a new boundary is viewed
 or Mark read is invoked. Read persistence failures MUST surface as app toasts.
+
+### Optional cached-history presentation
+
+Under LC-UI-040, Community conversation and thread components expose optional
+history, virtualized-row and controlled presentation inputs without removing
+existing snippet, message, composer or custom-source contracts. The application
+opts into Design Core history mode. Unpaged workspace consumers retain their
+existing `latestUnreadEventId` read-boundary callbacks; the history opt-in uses
+the displayed root/thread head and the corresponding scoped read receipt.
+`CommunityHistoryEdge` composes the shared
+Button and Spinner for accessible earlier-page loading and retry in forum and
+Inbox lists, with one load per boundary crossing and no resize-driven cascade.
+
+Inbox filters and paging affect summary rows; they MUST preserve the selected
+conversation, its transport, composer and draft. Initial histories show
+representative skeletons, refresh retains content, and pagination feedback stays
+at the loading edge. Geometry does not imply unread arrivals. Viewing a forum
+index leaves unseen replies unread until their thread is viewed or explicitly
+marked read. Changed stories remain visual-pending.
+
+Member search MUST allow a current matching profile to resolve a cached
+public-key placeholder without duplicating its selectable identity. Cached
+membership results remain the default when no search is active.
+Contact previews MUST honor explicit Escape dismissal even during pointer
+interaction or text selection. Automatic pointer-exit behavior remains owned by
+the shared hover-card primitive.
+
+Browser acceptance MUST keep the story iframe inside the host browser viewport,
+including configured constrained and responsive scenarios. Read-boundary and
+hover assertions MUST observe the actual visible content; an oversized clipped
+test iframe is not evidence of a product scroll or read-state failure.

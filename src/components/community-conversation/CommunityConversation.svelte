@@ -17,6 +17,8 @@
     CommunityCustomEmoji,
     CommunityMessageReport,
     CommunityReplyTarget,
+    CommunityTimelinePresentation,
+    CommunityTimelinePosition,
   } from "../../community/index.js";
   import CommunityChip from "../community-chip/CommunityChip.svelte";
   import CommunityChatComposer from "../community-chat-composer/CommunityChatComposer.svelte";
@@ -37,6 +39,10 @@
     draftKey = room.id,
     history,
     onLoadOlder,
+    onLoadLatest,
+    virtualize = false,
+    presentation,
+    onPresentationChange,
     rooms = [],
     messages,
     members,
@@ -81,7 +87,21 @@
     activityContext?: CommunityAgentActivityContext;
     room: CommunityRoomModel;
     draftKey?: string;
-    history?: { hasOlder: boolean; loading: boolean; error?: string };
+    history?: {
+      hasOlder: boolean;
+      loading: boolean;
+      hasNewer?: boolean;
+      unreadEventIds?: readonly string[];
+      error?: string;
+    };
+    /** Opt in to paged, anchored rendering without changing existing snippet consumers. */
+    virtualize?: boolean;
+    onLoadLatest?: () => Promise<void>;
+    presentation?: CommunityTimelinePresentation;
+    onPresentationChange?: (
+      key: string,
+      update: { draft?: string; position?: CommunityTimelinePosition },
+    ) => void;
     onLoadOlder?: () => Promise<void>;
     rooms?: readonly CommunityRoomModel[];
     messages: CommunityMessageModel[];
@@ -140,6 +160,32 @@
   } = $props();
 
   let draft = $state("");
+  $effect(() => {
+    const saved = presentation;
+    if (saved)
+      untrack(() => {
+        draft = saved.draft;
+      });
+  });
+  $effect(() => {
+    const value = draft;
+    const key = presentation?.key;
+    if (key && previousDraftKey === draftKey)
+      untrack(() => onPresentationChange?.(key, { draft: value }));
+  });
+  const latestArrivalId = $derived(
+    messages.findLast(
+      (message) =>
+        message.authorId !== currentMemberId &&
+        !message.activity &&
+        (!message.sourceEvent ||
+          [9, 11, 1111, 14].includes(message.sourceEvent.kind)),
+    )?.id,
+  );
+  const effectiveReadBoundary = $derived(
+    history?.hasNewer || history?.loading ? undefined : readBoundary,
+  );
+
   const conversationDrafts = new Map<string, string>();
   let previousDraftKey: string | undefined;
   let previousDraftIdentity: string | undefined;
@@ -152,7 +198,7 @@
       previousDraftIdentity = identity;
       conversationDrafts.clear();
       previousDraftKey = undefined;
-      draft = "";
+      draft = presentation?.draft ?? "";
       editingMessageId = undefined;
     });
   });
@@ -162,7 +208,7 @@
       if (previousDraftKey === key) return;
       if (previousDraftKey !== undefined)
         conversationDrafts.set(previousDraftKey, draft);
-      draft = conversationDrafts.get(key) ?? "";
+      draft = presentation?.draft ?? conversationDrafts.get(key) ?? "";
       previousDraftKey = key;
     });
   });
@@ -262,22 +308,75 @@
   data-composer-placement={composerPlacement}
   data-footer={footer ? "custom" : "composer"}
 >
-  {#if history?.hasOlder && onLoadOlder}
-    <Button
-      variant="ghost"
-      disabled={history.loading}
-      onclick={() => onLoadOlder?.().catch(() => {})}
-      >Load earlier messages</Button
-    >
-    {#if history.loading}<CommunitySkeleton
-        layout="messages"
-        count={1}
-        label="Loading earlier messages"
-      />{/if}
-    {#if history.error}<p role="alert">{history.error}</p>{/if}
-  {/if}
+  {#snippet messageRow(message: CommunityMessageModel, index: number)}
+    {#if startsMessageDay(messages, index)}
+      <SystemMessage variant="divider">
+        {messageDayLabel(message)}
+      </SystemMessage>
+    {/if}
+    {#snippet supplement()}
+      {#if messageSupplement}
+        {@render messageSupplement(message)}
+      {/if}
+    {/snippet}
+    <CommunityMessage
+      {message}
+      isContinuation={isMessageContinuation(messages, index)}
+      author={memberById(members, message.authorId)}
+      {members}
+      rooms={composerRooms}
+      {...onOpenProfile === undefined ? {} : { onOpenProfile }}
+      {...onOpenRoom === undefined ? {} : { onOpenRoom }}
+      replyParticipants={(message.replyParticipantIds ?? []).map((id) =>
+        memberById(members, id),
+      )}
+      {density}
+      {communityEmojis}
+      {...currentMemberId === undefined ? {} : { currentMemberId }}
+      {replyActionLabel}
+      {...messageSupplement === undefined ? {} : { supplement }}
+      {...onReply === undefined ? {} : { onReply }}
+      {...onOpenThread === undefined ? {} : { onOpenThread }}
+      onToggleReaction={(messageId, emoji, custom) =>
+        custom
+          ? onToggleReaction?.(messageId, emoji, custom)
+          : onToggleReaction?.(messageId, emoji)}
+      onAddReaction={(messageId, emoji, custom) =>
+        custom
+          ? onAddReaction?.(messageId, emoji, custom)
+          : onAddReaction?.(messageId, emoji)}
+      onCopyLink={(messageId) => onCopyMessageLink?.(messageId)}
+      onCopyMessage={(messageId) => onCopyMessage?.(messageId)}
+      {...onCopyEvent === undefined ? {} : { onCopyEvent }}
+      {...(onEditMessage === undefined && onSaveMessageEdit === undefined) ||
+      (restrictMessageManagement && message.authorId !== currentMemberId)
+        ? {}
+        : {
+            onEdit: onSaveMessageEdit
+              ? () => startEditing(message)
+              : onEditMessage,
+          }}
+      {...onDeleteMessage === undefined ||
+      (restrictMessageManagement &&
+        message.authorId !== currentMemberId &&
+        !canDeleteAny)
+        ? {}
+        : { onDelete: onDeleteMessage }}
+      {...onReportMessage === undefined ? {} : { onReport: onReportMessage }}
+      {...onMessageMember === undefined ? {} : { onMessageMember }}
+      {...onWaveMember === undefined ? {} : { onWaveMember }}
+      {...onViewMemberActivity === undefined ? {} : { onViewMemberActivity }}
+    />
+  {/snippet}
   <Layout
     {density}
+    scrollMode={virtualize ? "history" : "stream"}
+    conversationKey={presentation?.key ?? draftKey}
+    {...history?.unreadEventIds
+      ? { hasNewMessages: history.unreadEventIds.length > 0 }
+      : {}}
+    hasNewer={history?.hasNewer ?? false}
+    {...onLoadLatest ? { onLoadLatest } : {}}
     aria-label={`${room.name} conversation`}
     isEmpty={messages.length === 0}
   >
@@ -289,7 +388,18 @@
       />
     {/snippet}
     {#snippet emptyState()}
-      {#if room.kind === "direct"}
+      {#if history?.loading}
+        <CommunitySkeleton
+          layout="messages"
+          count={5}
+          label="Loading messages"
+        />
+      {:else if history?.error}
+        <p role="alert">{history.error}</p>
+        <Button variant="ghost" onclick={() => onLoadLatest?.().catch(() => {})}
+          >Retry loading messages</Button
+        >
+      {:else if room.kind === "direct"}
         <div class="community-conversation__direct-empty">
           <CommunityChip
             class="community-conversation__direct-day"
@@ -397,84 +507,39 @@
 
     <MessageList
       {density}
-      latestMessageId={messages.at(-1)?.id ?? ""}
       aria-label={`${room.name} messages`}
+      conversationKey={presentation?.key ?? draftKey}
+      latestMessageId={latestArrivalId ?? ""}
+      {...virtualize
+        ? {
+            items: messages,
+            row: messageRow,
+            virtualize: true,
+            ...(presentation?.position
+              ? { initialPosition: presentation.position }
+              : {}),
+            onPositionChange: (position) => {
+              if (presentation)
+                onPresentationChange?.(presentation.key, { position });
+            },
+          }
+        : {}}
+      {...onLoadOlder ? { scrollToTopAction: onLoadOlder } : {}}
+      hasOlder={history?.hasOlder ?? false}
+      loading={history?.loading ?? false}
     >
-      {#if intro}
-        {@render intro()}
-      {/if}
-      {#each messages as message, index (message.id)}
-        {#if startsMessageDay(messages, index)}
-          <SystemMessage variant="divider">
-            {messageDayLabel(message)}
-          </SystemMessage>
-        {/if}
-        {#snippet supplement()}
-          {#if messageSupplement}
-            {@render messageSupplement(message)}
-          {/if}
-        {/snippet}
-        <CommunityMessage
-          {message}
-          isContinuation={isMessageContinuation(messages, index)}
-          author={memberById(members, message.authorId)}
-          {members}
-          rooms={composerRooms}
-          {...onOpenProfile === undefined ? {} : { onOpenProfile }}
-          {...onOpenRoom === undefined ? {} : { onOpenRoom }}
-          replyParticipants={(message.replyParticipantIds ?? []).map((id) =>
-            memberById(members, id),
-          )}
-          {density}
-          {communityEmojis}
-          {...currentMemberId === undefined ? {} : { currentMemberId }}
-          {replyActionLabel}
-          {...messageSupplement === undefined ? {} : { supplement }}
-          {...onReply === undefined ? {} : { onReply }}
-          {...onOpenThread === undefined ? {} : { onOpenThread }}
-          onToggleReaction={(messageId, emoji, custom) =>
-            custom
-              ? onToggleReaction?.(messageId, emoji, custom)
-              : onToggleReaction?.(messageId, emoji)}
-          onAddReaction={(messageId, emoji, custom) =>
-            custom
-              ? onAddReaction?.(messageId, emoji, custom)
-              : onAddReaction?.(messageId, emoji)}
-          onCopyLink={(messageId) => onCopyMessageLink?.(messageId)}
-          onCopyMessage={(messageId) => onCopyMessage?.(messageId)}
-          {...onCopyEvent === undefined ? {} : { onCopyEvent }}
-          {...(onEditMessage === undefined &&
-            onSaveMessageEdit === undefined) ||
-          (restrictMessageManagement && message.authorId !== currentMemberId)
-            ? {}
-            : {
-                onEdit: onSaveMessageEdit
-                  ? () => startEditing(message)
-                  : onEditMessage,
-              }}
-          {...onDeleteMessage === undefined ||
-          (restrictMessageManagement &&
-            message.authorId !== currentMemberId &&
-            !canDeleteAny)
-            ? {}
-            : { onDelete: onDeleteMessage }}
-          {...onReportMessage === undefined
-            ? {}
-            : { onReport: onReportMessage }}
-          {...onMessageMember === undefined ? {} : { onMessageMember }}
-          {...onWaveMember === undefined ? {} : { onWaveMember }}
-          {...onViewMemberActivity === undefined
-            ? {}
-            : { onViewMemberActivity }}
-        />
-      {/each}
-      {#if readBoundary}
-        <div
-          use:observeReadEnd={readBoundary}
-          data-ui-part="read-boundary"
-          style="height: 1px;"
-        ></div>
-      {/if}
+      {#snippet header()}{#if intro}{@render intro()}{/if}{/snippet}
+      {#snippet footer()}
+        {#if effectiveReadBoundary}<div
+            use:observeReadEnd={effectiveReadBoundary}
+            data-ui-part="read-boundary"
+            style="height: 1px;"
+          ></div>{/if}
+      {/snippet}
+      {#each messages as message, index (message.id)}{@render messageRow(
+          message,
+          index,
+        )}{/each}
     </MessageList>
   </Layout>
 </div>

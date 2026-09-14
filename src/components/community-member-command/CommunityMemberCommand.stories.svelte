@@ -44,6 +44,10 @@
     tags: ["visual-pending"],
   });
 
+  const unresolvedPubkey =
+    "29ce758bb2d21def214cea069addbd16896ec77924bf0ec9219e00dcf077605e";
+  const resolvedProfile = { ...directory[3]!, id: unresolvedPubkey };
+
   const roleDefinitions = [
     {
       id: "writer",
@@ -57,6 +61,56 @@
     },
   ];
 </script>
+
+<Story
+  name="Search resolves a cached identity"
+  args={{
+    presentation: "inline",
+    mode: "select",
+    members: [
+      { ...resolvedProfile, name: "29ce758…7605e", handle: "29ce758…7605e" },
+    ],
+    results: [resolvedProfile],
+    onSearch: fn(),
+    onSelect: fn(),
+  }}
+  play={async ({ canvas, args }) => {
+    await userEvent.type(
+      canvas.getByRole("combobox", { name: "Search members" }),
+      "Noor",
+    );
+    await userEvent.click(
+      await canvas.findByRole("option", { name: /Noor Rahman/ }),
+    );
+    await expect(args.onSelect).toHaveBeenCalledWith(
+      expect.objectContaining({ id: unresolvedPubkey, name: "Noor Rahman" }),
+    );
+  }}
+/>
+
+<Story
+  name="Resolved membership survives an earlier key search"
+  args={{
+    presentation: "inline",
+    mode: "select",
+    members: [directory[3]!],
+    results: [{ ...directory[3]!, name: "noor", handle: "noor" }],
+    onSearch: fn(),
+    onSelect: fn(),
+  }}
+  play={async ({ canvas, args }) => {
+    await userEvent.type(
+      canvas.getByRole("combobox", { name: "Search members" }),
+      "noor",
+    );
+    await userEvent.click(
+      await canvas.findByRole("option", { name: /Noor Rahman/ }),
+    );
+    await expect(args.onSelect).toHaveBeenCalledWith(
+      expect.objectContaining({ id: "noor", name: "Noor Rahman" }),
+    );
+  }}
+/>
 
 <Story
   name="Contextual channel members"

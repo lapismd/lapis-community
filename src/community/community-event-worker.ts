@@ -1,5 +1,6 @@
 import type {
   CommunityEventBatch,
+  CommunityCachedEventQuery,
   CommunityRuntimeSearch,
   CommunityRuntimeSelection,
   CommunityScope,
@@ -10,12 +11,25 @@ import type { CommunityAgentArchiveRequest } from "./agent-contracts.js";
 import { dispatchAgentArchive } from "./agent-archive.js";
 
 type WorkerRequest =
+  | {
+      id: number;
+      method: "readCachedEvents";
+      scope: CommunityScope;
+      query: CommunityCachedEventQuery;
+    }
+  | {
+      id: number;
+      method: "readHistoryPage";
+      scope: CommunityScope;
+      key: string;
+    }
   | { id: number; method: "archive"; request: CommunityAgentArchiveRequest }
   | {
       id: number;
       method: "restore";
       scopes: readonly CommunityScope[];
       generation?: number;
+      options?: { metadataOnly?: boolean };
     }
   | { id: number; method: "ingest"; batch: CommunityEventBatch }
   | { id: number; method: "project"; selection: CommunityRuntimeSelection }
@@ -53,13 +67,23 @@ async function respond(request: WorkerRequest): Promise<void> {
         );
         break;
       case "restore":
-        value = await runtime.restore(request.scopes, request.generation);
+        value = await runtime.restore(
+          request.scopes,
+          request.generation,
+          request.options,
+        );
         break;
       case "ingest":
         value = await runtime.ingest(request.batch);
         break;
       case "project":
         value = await runtime.project(request.selection);
+        break;
+      case "readCachedEvents":
+        value = await runtime.readCachedEvents?.(request.scope, request.query);
+        break;
+      case "readHistoryPage":
+        value = await runtime.readHistoryPage?.(request.scope, request.key);
         break;
       case "search":
         value = await runtime.search(request.query);

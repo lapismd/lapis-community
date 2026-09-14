@@ -1,5 +1,13 @@
+import {
+  COMMUNITY_CACHE_METADATA_KINDS,
+  cachedEventPage,
+  cachePageLimit,
+} from "./history-pages.js";
 import type {
   CommunityCacheAudience,
+  CommunityCachedHistoryPage,
+  CommunityHistoryPage,
+  CommunityCachedEventQuery,
   CommunityCachedScope,
   CommunityEventStore,
   CommunityScope,
@@ -85,6 +93,8 @@ class MemoryCommunityEventStore extends BaseCommunityEventStore {
     string,
     Map<string, CommunitySyncCheckpoint>
   >();
+  readonly #ordered = new Map<string, StoredRecord[]>();
+  readonly #historyPages = new Map<string, CommunityHistoryPage>();
   readonly #maxBytes: number;
   #opened = false;
 
@@ -119,6 +129,80 @@ class MemoryCommunityEventStore extends BaseCommunityEventStore {
     };
   }
 
+  async restoreMetadata(scope: CommunityScope): Promise<CommunityCachedScope> {
+    this.#assertOpen();
+    const partition = partitionKey(scope, { type: "public" });
+    const events = COMMUNITY_CACHE_METADATA_KINDS.flatMap((kind) =>
+      (this.#ordered.get(`${partition}:${kind}`) ?? []).map(
+        (record) => record.event,
+      ),
+    );
+    return {
+      events,
+      checkpoints: [
+        ...(this.#checkpoints.get(communityCacheScopeKey(scope))?.values() ??
+          []),
+      ],
+      approximateBytes: [
+        ...(this.#records.get(partition)?.values() ?? []),
+      ].reduce((total, record) => total + record.bytes, 0),
+    };
+  }
+
+  async readCachedEvents(
+    scope: CommunityScope,
+    query: CommunityCachedEventQuery,
+  ) {
+    this.#assertOpen();
+    const partition = partitionKey(scope, query.audience ?? { type: "public" });
+    const limit = cachePageLimit(query.limit);
+    const selected = query.kinds.flatMap((kind) => {
+      const records =
+        this.#ordered.get(
+          `${partition}:${kind}${query.groupId ? `:${query.groupId}` : ""}`,
+        ) ?? [];
+      let end = records.length;
+      if (query.before) {
+        let low = 0,
+          high = end;
+        while (low < high) {
+          const middle = (low + high) >>> 1;
+          const event = records[middle]!.event;
+          if (
+            event.created_at < query.before.createdAt ||
+            (event.created_at === query.before.createdAt &&
+              event.id < query.before.eventId)
+          )
+            low = middle + 1;
+          else high = middle;
+        }
+        end = low;
+      }
+      return records
+        .slice(Math.max(0, end - limit - 1), end)
+        .map((record) => record.event);
+    });
+    return cachedEventPage(selected, limit);
+  }
+
+  async readHistoryPage(
+    scope: CommunityScope,
+    key: string,
+  ): Promise<CommunityCachedHistoryPage | undefined> {
+    this.#assertOpen();
+    const page = this.#historyPages.get(
+      `${communityCacheScopeKey(scope)}:${key}`,
+    );
+    if (!page) return undefined;
+    const records = this.#records.get(partitionKey(scope, page.audience));
+    const events = page.eventIds.flatMap((id) => {
+      const record = records?.get(id);
+      return record ? [record.event] : [];
+    });
+    if (events.length !== page.eventIds.length) return undefined;
+    return { page: structuredClone(page), events };
+  }
+
   async commit(batch: CommunityVerifiedEventBatch): Promise<void> {
     this.#assertOpen();
     for (const record of batch.records) {
@@ -135,7 +219,33 @@ class MemoryCommunityEventStore extends BaseCommunityEventStore {
         bytes: communityEventBytes(record),
       });
       this.#records.set(key, records);
+      if (!current) {
+        const group =
+          record.roomId ?? record.event.tags.find((tag) => tag[0] === "h")?.[1];
+        for (const indexKey of [
+          `${key}:${record.event.kind}`,
+          ...(group ? [`${key}:${record.event.kind}:${group}`] : []),
+        ]) {
+          const ordered = this.#ordered.get(indexKey) ?? [];
+          const stored = records.get(record.event.id)!;
+          let low = 0,
+            high = ordered.length;
+          while (low < high) {
+            const middle = (low + high) >>> 1;
+            if (compareStoredRecords(ordered[middle]!, stored) < 0)
+              low = middle + 1;
+            else high = middle;
+          }
+          ordered.splice(low, 0, stored);
+          this.#ordered.set(indexKey, ordered);
+        }
+      }
     }
+    for (const page of batch.historyPages ?? [])
+      this.#historyPages.set(
+        `${communityCacheScopeKey(batch.scope)}:${page.key}`,
+        structuredClone(page),
+      );
     if (batch.checkpoints !== undefined) {
       await this.markSynchronized(batch.scope, batch.checkpoints);
     }
@@ -167,12 +277,26 @@ class MemoryCommunityEventStore extends BaseCommunityEventStore {
       [...records.values()].map((record) => ({ partition, record })),
     );
     let bytes = all.reduce((total, entry) => total + entry.record.bytes, 0);
+    const pageBytes = [...this.#historyPages.values()].reduce(
+      (sum, page) =>
+        sum + new TextEncoder().encode(JSON.stringify(page)).byteLength,
+      0,
+    );
+    if (bytes + pageBytes <= this.#maxBytes) return;
+    this.#historyPages.clear();
     if (bytes <= this.#maxBytes) return;
     for (const entry of all.toSorted(
       (left, right) =>
         (left.record.lastAccessedAt ?? 0) - (right.record.lastAccessedAt ?? 0),
     )) {
       this.#records.get(entry.partition)?.delete(entry.record.event.id);
+      for (const [key, ordered] of this.#ordered)
+        if (key.startsWith(`${entry.partition}:`)) {
+          const index = ordered.findIndex(
+            (record) => record.event.id === entry.record.event.id,
+          );
+          if (index >= 0) ordered.splice(index, 1);
+        }
       bytes -= entry.record.bytes;
       if (bytes <= this.#maxBytes) break;
     }
@@ -182,7 +306,9 @@ class MemoryCommunityEventStore extends BaseCommunityEventStore {
     this.#assertOpen();
     if (scope === undefined) {
       this.#records.clear();
+      this.#ordered.clear();
       this.#checkpoints.clear();
+      this.#historyPages.clear();
       return;
     }
     const prefix = `${communityCacheScopeKey(scope)}:`;
@@ -190,6 +316,10 @@ class MemoryCommunityEventStore extends BaseCommunityEventStore {
       if (key.startsWith(prefix)) this.#records.delete(key);
     }
     this.#checkpoints.delete(communityCacheScopeKey(scope));
+    for (const key of this.#ordered.keys())
+      if (key.startsWith(prefix)) this.#ordered.delete(key);
+    for (const key of this.#historyPages.keys())
+      if (key.startsWith(prefix)) this.#historyPages.delete(key);
   }
 
   async close(): Promise<void> {
