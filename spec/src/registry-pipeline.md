@@ -4,6 +4,12 @@ Repository scripts that enforce specification policy include the deferred-work
 ledger validator required by LC-SPEC-006. It reads specification metadata only
 and does not change the relay-derived registry pipeline.
 
+Planning documents under `docs/plans/` are not canonical requirements.
+The TypeScript organisation and enforcement plan is
+`docs/plans/typescript-architecture-and-enforcement.md`. Spec-first
+ownership for that directory should move to `spec/src/architecture.md`
+when the planned architecture-checker requirement is added.
+
 For LC-OPS-001 and LC-OPS-004, hosted-project acceptance layers the sibling
 relay's digest-pinned WalGit and RustFS composition onto both the persistent
 local development stack and disposable controller stack. Runtime credentials
@@ -111,3 +117,7 @@ database connection for encrypted agent history reads.
 The local agent-archive browser lane commits an activity page and cursor in one
 transaction, reopens the database, and verifies that clear-history suppression
 keeps the cursor while removing encrypted activity rows.
+Browser cache validation MUST preserve the registry's relay-derived source of
+truth: persisted history coverage and byte counters are disposable cache data.
+Evicting a cached event invalidates its dependent page coverage without changing
+unrelated cached pages or publishing replacement registry events.
