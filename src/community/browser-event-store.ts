@@ -31,6 +31,7 @@ interface SharedTursoStoreEntry {
   readonly open: Promise<void>;
   readonly maxBytes: number | undefined;
   references: number;
+  closing?: Promise<void>;
 }
 
 type SharedTursoStoreRegistry = Map<string, SharedTursoStoreEntry>;
@@ -63,6 +64,9 @@ class BrowserCommunityEventStore implements CommunityEventStore {
   readonly #options: BrowserCommunityEventStoreOptions;
   #store: CommunityEventStore | undefined;
   #degradedReason: string | undefined;
+  #opening: Promise<void> | undefined;
+  #closing: Promise<void> | undefined;
+  #closeFailed = false;
 
   constructor(options: BrowserCommunityEventStoreOptions) {
     this.#options = options;
@@ -76,17 +80,34 @@ class BrowserCommunityEventStore implements CommunityEventStore {
     return this.#degradedReason;
   }
 
-  async open(): Promise<void> {
-    if (this.#store !== undefined) return;
+  open(): Promise<void> {
+    if (this.#closing) return this.#closing.then(() => this.open());
+    if (this.#closeFailed)
+      return Promise.reject(
+        new Error(
+          "Community cache shutdown failed; retry close before reopening",
+        ),
+      );
+    if (this.#opening) return this.#opening;
+    if (this.#store !== undefined) return Promise.resolve();
+    this.#opening = this.#initialize().finally(() => {
+      this.#opening = undefined;
+    });
+    return this.#opening;
+  }
+
+  async #initialize(): Promise<void> {
     const failures: string[] = [];
     const candidates = this.#candidates();
     for (const candidate of candidates) {
       try {
         await candidate.open();
         this.#store = candidate;
+        this.#degradedReason = failures.length
+          ? failures.join("; ")
+          : undefined;
         if (failures.length > 0) {
-          this.#degradedReason = failures.join("; ");
-          this.#options.onDegraded?.(this.#degradedReason);
+          this.#options.onDegraded?.(this.#degradedReason!);
         }
         return;
       } catch (cause) {
@@ -174,9 +195,22 @@ class BrowserCommunityEventStore implements CommunityEventStore {
     return this.#requireStore().clear(scope);
   }
 
-  async close(): Promise<void> {
-    await this.#store?.close();
-    this.#store = undefined;
+  close(): Promise<void> {
+    if (this.#closing) return this.#closing;
+    this.#closing = (async () => {
+      await this.#opening?.catch(() => undefined);
+      await this.#store?.close();
+      this.#store = undefined;
+      this.#closeFailed = false;
+    })()
+      .catch((cause: unknown) => {
+        this.#closeFailed = true;
+        throw cause;
+      })
+      .finally(() => {
+        this.#closing = undefined;
+      });
+    return this.#closing;
   }
 
   #candidates(): CommunityEventStore[] {
@@ -234,6 +268,7 @@ class SharedTursoCommunityEventStore implements CommunityEventStore {
   readonly #databaseName: string;
   readonly #maxBytes: number | undefined;
   #entry: SharedTursoStoreEntry | undefined;
+  #closing: Promise<void> | undefined;
 
   constructor(
     options: Pick<
@@ -246,9 +281,17 @@ class SharedTursoCommunityEventStore implements CommunityEventStore {
   }
 
   async open(): Promise<void> {
-    if (this.#entry !== undefined) return;
+    if (this.#closing) {
+      await this.#closing;
+      return this.open();
+    }
+    if (this.#entry !== undefined) return this.#entry.open;
     const registry = sharedTursoStoreRegistry();
     let entry = registry.get(this.#databaseName);
+    if (entry?.closing) {
+      await entry.closing;
+      return this.open();
+    }
     if (entry !== undefined && entry.maxBytes !== this.#maxBytes) {
       throw new Error(
         `Community cache ${this.#databaseName} is already open with different retention options`,
@@ -355,18 +398,30 @@ class SharedTursoCommunityEventStore implements CommunityEventStore {
   }
 
   async close(): Promise<void> {
+    if (this.#closing) return this.#closing;
     const entry = this.#entry;
     if (entry === undefined) return;
-    this.#entry = undefined;
-    entry.references -= 1;
-    if (entry.references > 0) return;
-
-    const registry = sharedTursoStoreRegistry();
-    if (registry.get(this.#databaseName) === entry) {
-      registry.delete(this.#databaseName);
+    if (entry.references > 1) {
+      this.#entry = undefined;
+      entry.references -= 1;
+      return;
     }
-    await entry.open.catch(() => undefined);
-    await entry.store.close();
+    // Retain the registry owner through shutdown. A failed close keeps this
+    // handle retryable and prevents another wrapper from opening the same OPFS
+    // database before its prior owner has released the driver's resources.
+    this.#closing = (async () => {
+      await entry.open.catch(() => undefined);
+      await entry.store.close();
+      const registry = sharedTursoStoreRegistry();
+      if (registry.get(this.#databaseName) === entry)
+        registry.delete(this.#databaseName);
+      entry.references -= 1;
+      this.#entry = undefined;
+    })().finally(() => {
+      this.#closing = undefined;
+    });
+    entry.closing = this.#closing;
+    return this.#closing;
   }
 
   #store(): CommunityEventStore {

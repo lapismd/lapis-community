@@ -318,10 +318,9 @@ try {
       const { verifiedNostrEvent } = await import(
         `/@fs${source}verified-events.ts`
       );
-      const store = createBrowserCommunityEventStore({
-        databaseName: `privacy-cache-${crypto.randomUUID()}.db`,
-      });
-      await store.open();
+      const databaseName = `privacy-cache-${crypto.randomUUID()}.db`;
+      const store = createBrowserCommunityEventStore({ databaseName });
+      await Promise.all([store.open(), store.open(), store.open()]);
       if (store.mode !== "turso-opfs")
         throw new Error(
           "Native privacy acceptance requires the Turso browser wrapper",
@@ -389,6 +388,13 @@ try {
         };
       } finally {
         await store.close();
+        // A direct opener proves the wrapper released its final driver lock.
+        const { createTursoCommunityEventStore } = await import(
+          `/@fs${source}turso-event-store.ts`
+        );
+        const nextOwner = createTursoCommunityEventStore({ databaseName });
+        await nextOwner.open();
+        await nextOwner.close();
       }
     },
     { source, privateReply, parentId: events[0].id, retained: events.at(-1) },

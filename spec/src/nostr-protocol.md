@@ -430,3 +430,5 @@ fixtures. It MUST NOT publish those fixtures or use an operator's browser profil
 Private-cache invalidation MUST verify Nostr events before propagating visibility through channel and e/E reference indexes. Browser acceptance uses disposable signed fixtures to verify orphan-reference removal and preserve unrelated public pages and inbox partitions.
 
 The native cache fixture MUST retain the actual server's cross-origin isolation headers and use a minimal document, so unrelated application or Storybook bootstrap does not compete with the bounded storage operation. Full application startup remains a separate browser contract.
+
+Native storage acceptance MUST exercise repeated opens through the browser wrapper, close it, and acquire a new direct Turso owner for that same disposable database to verify ownership release.
