@@ -1,9 +1,12 @@
 import {
   initializeCacheAccounting,
+  initializeEventReferences,
+  eventReferenceStatements,
   eventAccountingStatements,
   cachePageStatements,
   pruneCache,
   clearCacheStatements,
+  removeCachedEventStatements,
 } from "./cache-accounting-sql.js";
 import {
   COMMUNITY_CACHE_METADATA_KINDS,
@@ -162,6 +165,7 @@ class TursoCommunityEventStore extends BaseCommunityEventStore {
           ON community_checkpoints(scope_key);
       `);
       await initializeCacheAccounting(this.#database);
+      await initializeEventReferences(this.#database);
       // Add the room index without discarding caches written before room_id was
       // populated. Keep decoding and writes bounded in the database owner.
       let afterKey = "";
@@ -387,6 +391,7 @@ class TursoCommunityEventStore extends BaseCommunityEventStore {
         args: rows.flat(),
       });
     }
+    statements.push(...eventReferenceStatements([...eventRowsByKey.values()]));
     for (const page of batch.historyPages ?? [])
       statements.push(...cachePageStatements(scopeKey, page));
     statements.push(
@@ -415,6 +420,38 @@ class TursoCommunityEventStore extends BaseCommunityEventStore {
 
   async prune(): Promise<void> {
     await pruneCache(this.#requireDatabase(), this.#maxBytes);
+  }
+
+  async hasPublicEventReferences(
+    scope: CommunityScope,
+    eventIds: readonly string[],
+  ): Promise<boolean> {
+    const partition = `${communityCacheScopeKey(scope)}:public`;
+    for (const ids of chunks([...eventIds], 100)) {
+      const rows = await this.#requireDatabase().all(
+        `SELECT cache_key FROM community_events WHERE cache_key IN (${ids.map(() => "?").join(",")}) UNION ALL SELECT event_key AS cache_key FROM community_event_references WHERE reference_key IN (${ids.map(() => "?").join(",")}) LIMIT 1`,
+        ...ids.map((id) => `${partition}:${id}`),
+        ...ids.map((id) => `${partition}:${id}`),
+      );
+      if (rows.length) return true;
+    }
+    return false;
+  }
+
+  async removePublicEvents(
+    scope: CommunityScope,
+    eventIds: readonly string[],
+  ): Promise<void> {
+    const partition = `${communityCacheScopeKey(scope)}:public`;
+    for (const ids of chunks([...eventIds], 100)) {
+      await this.#requireDatabase().batch(
+        ids.flatMap((id) =>
+          removeCachedEventStatements(`${partition}:${id}`, partition),
+        ),
+        "immediate",
+      );
+      await new Promise<void>((resolve) => setTimeout(resolve, 0));
+    }
   }
 
   async clear(scope?: CommunityScope): Promise<void> {

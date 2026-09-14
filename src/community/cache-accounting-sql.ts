@@ -1,5 +1,8 @@
 import type { CommunityHistoryPage } from "./contracts.js";
-import { communityCacheAudienceKey } from "./event-store.js";
+import {
+  communityCacheAudienceKey,
+  referencedEventIds,
+} from "./event-store.js";
 
 type Statement = { sql: string; args?: unknown[] };
 interface Database {
@@ -221,29 +224,8 @@ export async function pruneCache(
           },
         );
       } else {
-        const affected =
-          "SELECT page_key FROM community_history_page_events WHERE event_key=?";
         statements.push(
-          {
-            sql: `UPDATE community_cache_usage SET bytes=bytes-COALESCE((SELECT SUM(bytes) FROM community_history_pages WHERE cache_key IN (${affected})),0) WHERE cache_key='total'`,
-            args: [row.cache_key],
-          },
-          {
-            sql: `DELETE FROM community_history_pages WHERE cache_key IN (${affected})`,
-            args: [row.cache_key],
-          },
-          {
-            sql: `DELETE FROM community_history_page_events WHERE page_key IN (${affected})`,
-            args: [row.cache_key],
-          },
-          {
-            sql: "UPDATE community_cache_usage SET bytes=bytes-COALESCE((SELECT bytes FROM community_events WHERE cache_key=?),0) WHERE cache_key IN ('total',?)",
-            args: [row.cache_key, `partition:${row.partition_key}`],
-          },
-          {
-            sql: "DELETE FROM community_events WHERE cache_key=?",
-            args: [row.cache_key],
-          },
+          ...removeCachedEventStatements(row.cache_key, row.partition_key),
         );
       }
       estimate -= row.bytes;
@@ -266,6 +248,7 @@ export function clearCacheStatements(scopeKey?: string): Statement[] {
   if (scopeKey === undefined)
     return [
       "community_history_page_events",
+      "community_event_references",
       "community_events",
       "community_history_pages",
       "community_checkpoints",
@@ -285,6 +268,10 @@ export function clearCacheStatements(scopeKey?: string): Statement[] {
       sql: "DELETE FROM community_history_page_events WHERE page_key IN (SELECT cache_key FROM community_history_pages WHERE scope_key=?)",
       args: [scopeKey],
     },
+    {
+      sql: "DELETE FROM community_event_references WHERE event_key IN (SELECT cache_key FROM community_events WHERE scope_key=?)",
+      args: [scopeKey],
+    },
     ...[
       "community_events",
       "community_history_pages",
@@ -294,4 +281,109 @@ export function clearCacheStatements(scopeKey?: string): Statement[] {
       args: [scopeKey],
     })),
   ];
+}
+
+export function removeCachedEventStatements(
+  key: string,
+  partition: string,
+): Statement[] {
+  const affected =
+    "SELECT page_key FROM community_history_page_events WHERE event_key=?";
+  return [
+    {
+      sql: `UPDATE community_cache_usage SET bytes=bytes-COALESCE((SELECT SUM(bytes) FROM community_history_pages WHERE cache_key IN (${affected})),0) WHERE cache_key='total'`,
+      args: [key],
+    },
+    {
+      sql: `DELETE FROM community_history_pages WHERE cache_key IN (${affected})`,
+      args: [key],
+    },
+    {
+      sql: `DELETE FROM community_history_page_events WHERE page_key IN (${affected})`,
+      args: [key],
+    },
+    {
+      sql: "UPDATE community_cache_usage SET bytes=bytes-COALESCE((SELECT bytes FROM community_events WHERE cache_key=?),0) WHERE cache_key IN ('total',?)",
+      args: [key, `partition:${partition}`],
+    },
+    {
+      sql: "DELETE FROM community_event_references WHERE event_key=?",
+      args: [key],
+    },
+    {
+      sql: "DELETE FROM community_events WHERE cache_key=?",
+      args: [key],
+    },
+  ];
+}
+
+export function eventReferenceStatements(
+  rows: readonly unknown[][],
+): Statement[] {
+  const references = rows.flatMap((row) => {
+    const event = JSON.parse(String(row[9])) as { tags: string[][] };
+    return referencedEventIds(event).map((id) => [row[0], `${row[2]}:${id}`]);
+  });
+  const statements: Statement[] = [];
+  for (let offset = 0; offset < references.length; offset += 100) {
+    const batch = references.slice(offset, offset + 100);
+    statements.push({
+      sql: `INSERT OR IGNORE INTO community_event_references(event_key,reference_key) VALUES ${batch.map(() => "(?,?)").join(",")}`,
+      args: batch.flat(),
+    });
+  }
+  return statements;
+}
+
+export async function initializeEventReferences(
+  database: Database,
+): Promise<void> {
+  await database.exec(`CREATE TABLE IF NOT EXISTS community_event_references(event_key TEXT NOT NULL,reference_key TEXT NOT NULL,PRIMARY KEY(event_key,reference_key));
+    CREATE INDEX IF NOT EXISTS community_event_references_reference_idx ON community_event_references(reference_key);`);
+  if (
+    (
+      await database.all(
+        "SELECT bytes FROM community_cache_usage WHERE cache_key='meta:references'",
+      )
+    ).length
+  )
+    return;
+  let after = "";
+  for (;;) {
+    const rows = await database.all<{
+      cache_key: string;
+      partition_key: string;
+      raw_json: string;
+    }>(
+      "SELECT cache_key,partition_key,raw_json FROM community_events WHERE cache_key>? ORDER BY cache_key LIMIT 100",
+      after,
+    );
+    if (!rows.length) break;
+    const statements = eventReferenceStatements(
+      rows.map((row) => [
+        row.cache_key,
+        null,
+        row.partition_key,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        row.raw_json,
+      ]),
+    );
+    if (statements.length) await database.batch(statements, "immediate");
+    after = rows.at(-1)!.cache_key;
+    if (rows.length < 100) break;
+    await new Promise<void>((resolve) => setTimeout(resolve, 0));
+  }
+  await database.batch(
+    [
+      {
+        sql: "INSERT OR REPLACE INTO community_cache_usage(cache_key,bytes) VALUES ('meta:references',1)",
+      },
+    ],
+    "immediate",
+  );
 }

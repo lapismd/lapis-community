@@ -465,3 +465,9 @@ usage or coverage. Concurrent persistent-store opens MUST share initialization;
 closing or failed initialization MUST release the candidate database and its
 owner lock. Turso eviction MUST yield between bounded batches in its supported
 owner context.
+
+For LC-ARCH-011, private-event classification MUST be incremental and follow verified channel identities and event references, including children received before their parent. Ordinary private arrivals and duplicate replay MUST NOT restore or clear the entire public cache. Public reference-existence indexes MUST include both cached event IDs and their e/E parents and remain scoped to the relay/scope and audience.
+
+A newly private channel or a cached reference to a newly private event MUST remove cached plaintext descendants, including rows outside the active window. Cache migration scans and removal batches MUST yield after bounded work. Targeted deletion MUST preserve unrelated history coverage and encrypted inbox partitions while atomically updating dependent page coverage and byte accounting. The browser-selected store MUST forward these optional operations; existing custom stores retain a conservative clear-and-rebuild fallback.
+
+A failed privacy purge MUST prevent cached reads and search from exposing the affected scope until retry succeeds. Identity changes MUST clear decoded private state without discarding the failure guard. Additive database migrations MUST populate reference indexes without removing existing message or agent history.

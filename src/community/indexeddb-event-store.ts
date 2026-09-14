@@ -20,6 +20,7 @@ import {
   communityCacheAudienceKey,
   communityCacheScopeKey,
   communityEventBytes,
+  referencedEventIds,
   type CommunityEventStoreOptions,
 } from "./event-store.js";
 import { isVerifiedNostrEvent, verifiedNostrEvent } from "./verified-events.js";
@@ -42,6 +43,7 @@ import {
 } from "./agent-archive.js";
 
 interface IndexedEventRow {
+  references: string[];
   key: string;
   scopeKey: string;
   partitionKey: string;
@@ -109,6 +111,7 @@ interface CommunityCacheDb extends DBSchema {
       scope: string;
       partition: string;
       access: number;
+      references: string;
       chronological: [string, number, number, string];
       roomChronological: [string, string, number, number, string];
     };
@@ -364,7 +367,7 @@ class IndexedDbCommunityEventStore extends BaseCommunityEventStore {
   }
 
   async #initialize(): Promise<void> {
-    this.#database = await openDB<CommunityCacheDb>(this.#databaseName, 6, {
+    this.#database = await openDB<CommunityCacheDb>(this.#databaseName, 7, {
       upgrade(database, oldVersion, _newVersion, transaction) {
         if (oldVersion < 1) {
           const events = database.createObjectStore("events", {
@@ -396,15 +399,23 @@ class IndexedDbCommunityEventStore extends BaseCommunityEventStore {
             "createdAt",
             "eventId",
           ]);
-          // Older caches may predate the denormalized room field; fill it additively.
+        }
+        if (oldVersion < 7) {
+          const events = transaction.objectStore("events");
+          events.createIndex("references", "references", { multiEntry: true });
           void (async () => {
             let cursor = await events.openCursor();
             while (cursor) {
-              const roomId = cursor.value.event.tags.find(
-                (tag) => tag[0] === "h",
-              )?.[1];
-              if (!cursor.value.roomId && roomId)
-                await cursor.update({ ...cursor.value, roomId });
+              const row = cursor.value;
+              const roomId =
+                row.roomId ?? row.event.tags.find((tag) => tag[0] === "h")?.[1];
+              await cursor.update({
+                ...row,
+                ...(roomId ? { roomId } : {}),
+                references: referencedEventIds(row.event).map(
+                  (id) => `${row.partitionKey}:${id}`,
+                ),
+              });
               cursor = await cursor.continue();
             }
           })().catch(() => transaction.abort());
@@ -628,6 +639,9 @@ class IndexedDbCommunityEventStore extends BaseCommunityEventStore {
           partitionKey,
           eventId: record.event.id,
           event: record.event,
+          references: referencedEventIds(record.event).map(
+            (id) => `${partitionKey}:${id}`,
+          ),
           relayUrl: record.relayUrl,
           ...(roomId === undefined ? {} : { roomId }),
           createdAt: record.event.created_at,
@@ -698,6 +712,73 @@ class IndexedDbCommunityEventStore extends BaseCommunityEventStore {
     );
     await pruneCacheTransaction(transaction, this.#maxBytes);
     await transaction.done;
+  }
+
+  async hasPublicEventReferences(
+    scope: CommunityScope,
+    eventIds: readonly string[],
+  ): Promise<boolean> {
+    const prefix = `${communityCacheScopeKey(scope)}:public:`;
+    const database = this.#requireDatabase();
+    for (let offset = 0; offset < eventIds.length; offset += 100) {
+      const tx = database.transaction("events", "readonly");
+      const found = await Promise.all(
+        eventIds
+          .slice(offset, offset + 100)
+          .flatMap((id) => [
+            tx.store.getKey(`${prefix}${id}`),
+            tx.store.index("references").getKey(`${prefix}${id}`),
+          ]),
+      );
+      await tx.done;
+      if (found.some((key) => key !== undefined)) return true;
+    }
+    return false;
+  }
+
+  async removePublicEvents(
+    scope: CommunityScope,
+    eventIds: readonly string[],
+  ): Promise<void> {
+    const partition = `${communityCacheScopeKey(scope)}:public`;
+    for (let offset = 0; offset < eventIds.length; offset += 100) {
+      const tx = this.#requireDatabase().transaction(
+        ["events", "historyPages", "cacheUsage"],
+        "readwrite",
+      );
+      try {
+        const deltas = new Map<string, number>();
+        for (const id of eventIds.slice(offset, offset + 100)) {
+          const key = `${partition}:${id}`,
+            record = await tx.objectStore("events").get(key);
+          if (!record) continue;
+          const pages = tx.objectStore("historyPages");
+          for (const pageKey of await pages
+            .index("eventKeys")
+            .getAllKeys(key)) {
+            const page = await pages.get(pageKey);
+            if (!page) continue;
+            await pages.delete(pageKey);
+            addByteDelta(deltas, "total", -page.bytes);
+          }
+          await tx.objectStore("events").delete(key);
+          addByteDelta(deltas, "total", -record.bytes);
+          addByteDelta(deltas, `partition:${partition}`, -record.bytes);
+        }
+        await applyByteDeltas(tx.objectStore("cacheUsage"), deltas);
+        await tx.done;
+      } catch (cause) {
+        try {
+          tx.abort();
+        } catch {
+          /* The transaction may already have aborted. */
+        }
+        await tx.done.catch(() => undefined);
+        throw cause;
+      }
+      if (offset + 100 < eventIds.length)
+        await new Promise<void>((resolve) => setTimeout(resolve, 0));
+    }
   }
 
   async clear(scope?: CommunityScope): Promise<void> {

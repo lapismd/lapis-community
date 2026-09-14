@@ -134,6 +134,23 @@ class BrowserCommunityEventStore implements CommunityEventStore {
     );
   }
 
+  hasPublicEventReferences(
+    scope: CommunityScope,
+    eventIds: readonly string[],
+  ): Promise<boolean> {
+    return (
+      this.#requireStore().hasPublicEventReferences?.(scope, eventIds) ??
+      Promise.resolve(true)
+    );
+  }
+
+  removePublicEvents(
+    scope: CommunityScope,
+    eventIds: readonly string[],
+  ): Promise<void> {
+    return removePublicCacheEvents(this.#requireStore(), scope, eventIds);
+  }
+
   commit(batch: CommunityVerifiedEventBatch): Promise<void> {
     return this.#requireStore().commit(batch);
   }
@@ -297,6 +314,23 @@ class SharedTursoCommunityEventStore implements CommunityEventStore {
     );
   }
 
+  hasPublicEventReferences(
+    scope: CommunityScope,
+    eventIds: readonly string[],
+  ): Promise<boolean> {
+    return (
+      this.#store().hasPublicEventReferences?.(scope, eventIds) ??
+      Promise.resolve(true)
+    );
+  }
+
+  removePublicEvents(
+    scope: CommunityScope,
+    eventIds: readonly string[],
+  ): Promise<void> {
+    return removePublicCacheEvents(this.#store(), scope, eventIds);
+  }
+
   commit(batch: CommunityVerifiedEventBatch): Promise<void> {
     return this.#store().commit(batch);
   }
@@ -352,4 +386,29 @@ function sharedTursoStoreRegistry(): SharedTursoStoreRegistry {
   const registry: SharedTursoStoreRegistry = new Map();
   owner[SHARED_TURSO_STORES] = registry;
   return registry;
+}
+
+async function removePublicCacheEvents(
+  store: CommunityEventStore,
+  scope: CommunityScope,
+  eventIds: readonly string[],
+): Promise<void> {
+  if (store.removePublicEvents)
+    return store.removePublicEvents(scope, eventIds);
+  // A shared store opened by an older hot-reloaded package copy may lack the
+  // additive method. Preserve its existing public records with the legacy path.
+  const cached = await store.restore(scope),
+    removed = new Set(eventIds);
+  await store.clear(scope);
+  await store.commit({
+    scope,
+    records: cached.events
+      .filter((event) => !removed.has(event.id))
+      .map((event) => ({
+        event,
+        relayUrl: scope.relayUrl,
+        audience: { type: "public" as const },
+      })),
+    checkpoints: cached.checkpoints,
+  });
 }

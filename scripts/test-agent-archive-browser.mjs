@@ -31,6 +31,15 @@ const events = Array.from({ length: 240 }, (_, index) =>
     ownerKey,
   ),
 );
+const privateReply = finalizeEvent(
+  {
+    kind: 1111,
+    created_at: 600,
+    content: "Private orphan fixture",
+    tags: [["E", events[0].id]],
+  },
+  ownerKey,
+);
 const credential = bytesToHex(
   schnorr.sign(
     sha256(new TextEncoder().encode(`nostr:agent-auth:${agent}:`)),
@@ -69,6 +78,25 @@ const records = Array.from({ length: 3 }, (_, index) => ({
 const browser = await chromium.launch();
 const page = await browser.newPage();
 try {
+  // Retain the real server's storage security headers without bootstrapping the
+  // Storybook manager or application alongside this isolated database contract.
+  const document = await page.request.get(origin);
+  assert(document.ok(), "The native cache fixture origin must be available");
+  const headers = Object.fromEntries(
+    Object.entries(document.headers()).filter(([name]) =>
+      ["cross-origin-opener-policy", "cross-origin-embedder-policy"].includes(
+        name,
+      ),
+    ),
+  );
+  await page.route(new URL(origin).href, (route) =>
+    route.fulfill({
+      status: 200,
+      headers,
+      contentType: "text/html",
+      body: "<!doctype html><html><head><title>Native cache acceptance</title></head><body></body></html>",
+    }),
+  );
   await page.goto(origin, { waitUntil: "domcontentloaded" });
   const result = await page.evaluate(
     async ({ source, events, records, owner, agent }) => {
@@ -281,6 +309,98 @@ try {
     cleared: 0,
     offset: 3,
     notBefore: 600,
+  });
+  const privacy = await page.evaluate(
+    async ({ source, privateReply, parentId, retained }) => {
+      const { createBrowserCommunityEventStore } = await import(
+        `/@fs${source}browser-event-store.ts`
+      );
+      const { verifiedNostrEvent } = await import(
+        `/@fs${source}verified-events.ts`
+      );
+      const store = createBrowserCommunityEventStore({
+        databaseName: `privacy-cache-${crypto.randomUUID()}.db`,
+      });
+      await store.open();
+      if (store.mode !== "turso-opfs")
+        throw new Error(
+          "Native privacy acceptance requires the Turso browser wrapper",
+        );
+      try {
+        const scope = {
+          id: "private-cache",
+          name: "Private cache",
+          relayUrl: "wss://relay.example",
+        };
+        const record = (event, audience = { type: "public" }) => ({
+          event: verifiedNostrEvent(event),
+          relayUrl: scope.relayUrl,
+          audience,
+        });
+        const head = (key, event) => ({
+          key,
+          audience: { type: "public" },
+          relayUrls: [scope.relayUrl],
+          request: {
+            collection: "channel-roots",
+            groupId: "general",
+            limit: 50,
+          },
+          eventIds: [event.id],
+          primaryEventIds: [event.id],
+          hasOlder: false,
+          synchronizedAt: 600,
+        });
+        await store.commit({
+          scope,
+          records: [
+            record(privateReply),
+            record(retained),
+            record(privateReply, { type: "inbox", pubkey: "fixture-owner" }),
+          ],
+          historyPages: [
+            head("unsafe", privateReply),
+            head("retained", retained),
+          ],
+        });
+        const orphanKnown = await store.hasPublicEventReferences(scope, [
+          parentId,
+        ]);
+        const unrelatedScope = await store.hasPublicEventReferences(
+          { ...scope, id: "another" },
+          [parentId],
+        );
+        await store.removePublicEvents(scope, [privateReply.id]);
+        return {
+          orphanKnown,
+          unrelatedScope,
+          removed: !(await store.hasPublicEventReferences(scope, [parentId])),
+          unsafe: (await store.readHistoryPage(scope, "unsafe")) === undefined,
+          retained:
+            (await store.readHistoryPage(scope, "retained"))?.events[0]?.id ===
+            retained.id,
+          inboxPartition: (
+            await store.restore(scope, {
+              type: "inbox",
+              pubkey: "fixture-owner",
+            })
+          ).events.length,
+          publicCount: (await store.restore(scope)).events.length,
+        };
+      } finally {
+        await store.close();
+      }
+    },
+    { source, privateReply, parentId: events[0].id, retained: events.at(-1) },
+  );
+  assert.deepEqual(privacy, {
+    orphanKnown: true,
+    unrelatedScope: false,
+    removed: true,
+    unsafe: true,
+    retained: true,
+    inboxPartition: 1,
+    publicCount: 1,
   });
   const eviction = await page.evaluate(
     async ({ source, events }) => {

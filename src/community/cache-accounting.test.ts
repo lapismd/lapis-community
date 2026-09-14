@@ -299,7 +299,7 @@ it("IndexedDB v5 migration retains cached pages and agent records while initiali
   ).toEqual([first.event.id]);
   await store.close();
   const migrated = await openDB(databaseName);
-  expect(migrated.version).toBe(6);
+  expect(migrated.version).toBe(7);
   expect((await migrated.get("agentIdentities", "retained")).value).toBe(
     "agent configuration",
   );

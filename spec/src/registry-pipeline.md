@@ -124,3 +124,5 @@ unrelated cached pages or publishing replacement registry events.
 
 The native OPFS acceptance lane MUST reload a saved 50-message history page and
 verify that budget eviction preserves a separate page and its byte accounting.
+
+Local privacy reclassification MUST invalidate only affected cache records and their coverage. An indexed cache failure MUST leave that scope unavailable to cached reads and search until removal succeeds, without publishing any replacement event.

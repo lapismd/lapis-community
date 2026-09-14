@@ -426,3 +426,7 @@ establish complete coverage; preserved page gaps keep count claims partial.
 The isolated browser archive contract also verifies public history-page replay,
 metadata-only restoration, and selective cache eviction with generated signed
 fixtures. It MUST NOT publish those fixtures or use an operator's browser profile.
+
+Private-cache invalidation MUST verify Nostr events before propagating visibility through channel and e/E reference indexes. Browser acceptance uses disposable signed fixtures to verify orphan-reference removal and preserve unrelated public pages and inbox partitions.
+
+The native cache fixture MUST retain the actual server's cross-origin isolation headers and use a minimal document, so unrelated application or Storybook bootstrap does not compete with the bounded storage operation. Full application startup remains a separate browser contract.

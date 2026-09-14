@@ -641,6 +641,19 @@ export interface CommunityEventRuntime {
 }
 
 export interface CommunityEventStore {
+  /**
+   * True when a public cached event has or references one of these IDs.
+   * Optional: legacy stores retain the conservative restore/clear fallback.
+   */
+  hasPublicEventReferences?(
+    scope: CommunityScope,
+    eventIds: readonly string[],
+  ): Promise<boolean>;
+  /** Remove these public rows and invalidate only their dependent page coverage. */
+  removePublicEvents?(
+    scope: CommunityScope,
+    eventIds: readonly string[],
+  ): Promise<void>;
   restoreMetadata?(scope: CommunityScope): Promise<CommunityCachedScope>;
   readCachedEvents?(
     scope: CommunityScope,

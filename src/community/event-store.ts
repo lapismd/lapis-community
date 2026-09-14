@@ -102,6 +102,7 @@ class MemoryCommunityEventStore extends BaseCommunityEventStore {
   readonly #pageBytes = new Map<string, number>();
   readonly #pagePartitions = new Map<string, string>();
   readonly #dependentPages = new Map<string, Set<string>>();
+  readonly #references = new Map<string, Set<string>>();
   #storageBytes = 0;
   #opened = false;
 
@@ -244,6 +245,12 @@ class MemoryCommunityEventStore extends BaseCommunityEventStore {
       );
       this.#records.set(key, records);
       if (!current) {
+        for (const id of referencedEventIds(record.event)) {
+          const reference = `${key}:${id}`;
+          const children = this.#references.get(reference) ?? new Set<string>();
+          children.add(record.event.id);
+          this.#references.set(reference, children);
+        }
         const group =
           record.roomId ?? record.event.tags.find((tag) => tag[0] === "h")?.[1];
         for (const indexKey of [
@@ -344,6 +351,12 @@ class MemoryCommunityEventStore extends BaseCommunityEventStore {
       this.#removePage(pageKey);
     this.#dependentPages.delete(eventKey);
     records!.delete(id);
+    for (const parent of referencedEventIds(record.event)) {
+      const key = `${partition}:${parent}`,
+        children = this.#references.get(key);
+      children?.delete(id);
+      if (!children?.size) this.#references.delete(key);
+    }
     this.#storageBytes -= record.bytes;
     this.#partitionBytes.set(
       partition,
@@ -371,6 +384,35 @@ class MemoryCommunityEventStore extends BaseCommunityEventStore {
     }
   }
 
+  async hasPublicEventReferences(
+    scope: CommunityScope,
+    eventIds: readonly string[],
+  ): Promise<boolean> {
+    this.#assertOpen();
+    const records = this.#records.get(partitionKey(scope, { type: "public" }));
+    return eventIds.some(
+      (id) =>
+        records?.has(id) ||
+        this.#references.has(
+          `${partitionKey(scope, { type: "public" })}:${id}`,
+        ),
+    );
+  }
+
+  async removePublicEvents(
+    scope: CommunityScope,
+    eventIds: readonly string[],
+  ): Promise<void> {
+    this.#assertOpen();
+    const partition = partitionKey(scope, { type: "public" });
+    for (let offset = 0; offset < eventIds.length; offset += 100) {
+      for (const id of eventIds.slice(offset, offset + 100))
+        this.#removeEvent(partition, id);
+      if (offset + 100 < eventIds.length)
+        await new Promise<void>((resolve) => setTimeout(resolve, 0));
+    }
+  }
+
   async clear(scope?: CommunityScope): Promise<void> {
     this.#assertOpen();
     if (scope === undefined) {
@@ -383,6 +425,7 @@ class MemoryCommunityEventStore extends BaseCommunityEventStore {
       this.#pageBytes.clear();
       this.#pagePartitions.clear();
       this.#dependentPages.clear();
+      this.#references.clear();
       this.#storageBytes = 0;
       return;
     }
@@ -400,6 +443,8 @@ class MemoryCommunityEventStore extends BaseCommunityEventStore {
       this.#partitionBytes.delete(partition);
       this.#records.delete(partition);
     }
+    for (const key of this.#references.keys())
+      if (key.startsWith(prefix)) this.#references.delete(key);
     this.#checkpoints.delete(communityCacheScopeKey(scope));
     for (const key of this.#ordered.keys())
       if (key.startsWith(prefix)) this.#ordered.delete(key);
@@ -434,4 +479,17 @@ function normalizeRelayUrl(value: string): string {
   url.search = "";
   url.pathname = url.pathname.replace(/\/+$/u, "") || "/";
   return url.toString();
+}
+
+/** NIP-29 and NIP-22 references can carry privacy without a channel tag. */
+export function referencedEventIds(event: {
+  tags: readonly string[][];
+}): string[] {
+  return [
+    ...new Set(
+      event.tags
+        .filter(([tag, value]) => (tag === "e" || tag === "E") && value)
+        .map((tag) => tag[1]!),
+    ),
+  ];
 }

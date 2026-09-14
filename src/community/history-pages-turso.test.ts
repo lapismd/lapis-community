@@ -330,3 +330,115 @@ it("closes a failed Turso candidate and permits a fresh open on retry", async ()
   expect(await store.readHistoryPage(scope, page.key)).toBeDefined();
   await store.close();
 });
+
+it("indexes public reference lookups and selective removals independently of inbox copies", async () => {
+  const fixture = databaseFixture(),
+    store = createTursoCommunityEventStore();
+  await store.open();
+  const child = finalizeEvent(
+    { kind: 7, content: "+", created_at: 200, tags: [["e", events[0]!.id]] },
+    new Uint8Array(32).fill(72),
+  );
+  const childPage = {
+    ...page,
+    key: "orphan",
+    eventIds: [child.id],
+    primaryEventIds: [child.id],
+  };
+  await store.commit({
+    scope,
+    records: [
+      { event: child, relayUrl: scope.relayUrl, audience: { type: "public" } },
+      {
+        event: child,
+        relayUrl: scope.relayUrl,
+        audience: { type: "inbox", pubkey: "owner" },
+      },
+    ],
+    historyPages: [childPage],
+  });
+  fixture.query.mockClear();
+  expect(await store.hasPublicEventReferences(scope, [events[0]!.id])).toBe(
+    true,
+  );
+  expect(
+    fixture.query.mock.calls.every(
+      ([sql]) => sql.includes("LIMIT 1") && !sql.includes("raw_json"),
+    ),
+  ).toBe(true);
+  expect(
+    await store.hasPublicEventReferences({ ...scope, id: "elsewhere" }, [
+      events[0]!.id,
+    ]),
+  ).toBe(false);
+  await store.removePublicEvents(scope, [child.id]);
+  expect(await store.hasPublicEventReferences(scope, [events[0]!.id])).toBe(
+    false,
+  );
+  expect(await store.readHistoryPage(scope, "orphan")).toBeUndefined();
+  expect((await store.restoreMetadata(scope)).approximateBytes).toBe(0);
+  expect(
+    (await store.restore(scope, { type: "inbox", pubkey: "owner" })).events,
+  ).toHaveLength(1);
+  await store.clear();
+  expect(
+    fixture.sqlite
+      .prepare("SELECT COUNT(*) AS n FROM community_event_references")
+      .get()?.n,
+  ).toBe(0);
+  await store.close();
+});
+
+it("rolls back privacy deletion with coverage and accounting after a failed transaction", async () => {
+  const fixture = databaseFixture(),
+    store = createTursoCommunityEventStore();
+  await store.open();
+  await store.commit(batch);
+  const previous = (await store.restoreMetadata(scope)).approximateBytes;
+  fixture.setFailure(true);
+  await expect(
+    store.removePublicEvents(scope, [events[0]!.id]),
+  ).rejects.toThrow("Simulated disk failure");
+  expect((await store.readHistoryPage(scope, page.key))?.events).toHaveLength(
+    events.length,
+  );
+  expect((await store.restoreMetadata(scope)).approximateBytes).toBe(previous);
+  fixture.setFailure(false);
+  await store.close();
+});
+
+it("backfills orphan reference indexes in an existing SQL cache", async () => {
+  const { sqlite } = databaseFixture();
+  sqlite.exec(
+    `CREATE TABLE community_events (cache_key TEXT PRIMARY KEY, scope_key TEXT NOT NULL, partition_key TEXT NOT NULL, event_id TEXT NOT NULL, relay_url TEXT NOT NULL, room_id TEXT, created_at INTEGER NOT NULL, last_accessed_at INTEGER NOT NULL, bytes INTEGER NOT NULL, raw_json TEXT NOT NULL)`,
+  );
+  const child = finalizeEvent(
+    { kind: 7, content: "+", created_at: 200, tags: [["e", events[0]!.id]] },
+    new Uint8Array(32).fill(72),
+  );
+  const scopeKey = communityCacheScopeKey(scope),
+    partition = `${scopeKey}:public`;
+  sqlite
+    .prepare("INSERT INTO community_events VALUES (?,?,?,?,?,NULL,?,?,?,?)")
+    .run(
+      `${partition}:${child.id}`,
+      scopeKey,
+      partition,
+      child.id,
+      scope.relayUrl,
+      200,
+      200,
+      512,
+      JSON.stringify(child),
+    );
+  const store = createTursoCommunityEventStore();
+  await store.open();
+  expect(await store.hasPublicEventReferences(scope, [events[0]!.id])).toBe(
+    true,
+  );
+  await store.removePublicEvents(scope, [child.id]);
+  expect(await store.hasPublicEventReferences(scope, [events[0]!.id])).toBe(
+    false,
+  );
+  await store.close();
+});
