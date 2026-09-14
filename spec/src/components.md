@@ -430,6 +430,9 @@ The Agents loading skeleton represents live relay discovery only. Restoring the
 optional local activity archive cannot keep that skeleton active.
 The clear-history retry story verifies the success feedback and waits for the
 Design Core dialog's exit animation before requiring its removal from the DOM.
+Saved-setup cancellation/retry coverage MUST wait for the cancelled dialog node
+itself to leave the DOM before reopening; a missing accessible role can occur
+while that node is still exiting.
 Both activity selectors name their listboxes as well as their triggers, so
 assistive technology can identify the agent and channel choices while open or
 during an exit animation. The channel-filter story checks both listbox names.

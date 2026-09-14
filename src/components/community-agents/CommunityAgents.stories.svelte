@@ -405,9 +405,7 @@
     await userEvent.click(
       within(confirmation).getByRole("button", { name: "Cancel" }),
     );
-    await waitFor(() =>
-      expect(body.queryByRole("alertdialog")).not.toBeInTheDocument(),
-    );
+    await waitFor(() => expect(confirmation).not.toBeInTheDocument());
     await expect(within(saved).getByText("Release notes")).toBeVisible();
     await userEvent.click(
       within(saved).getByRole("button", { name: "Delete setup" }),
