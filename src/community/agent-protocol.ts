@@ -262,6 +262,29 @@ export function agentChannelMemberships(
   );
 }
 
+export function materializeAgentInstances(
+  input: readonly NostrEvent[],
+  owner: string,
+): CommunityAgentInstance[] {
+  const events = input.flatMap((event) => {
+    const verified = signedAgentEvent(event);
+    return verified ? [verified] : [];
+  });
+  const candidates = new Map<string, NostrEvent[]>();
+  for (const event of events) {
+    if (event.kind !== 30177 || event.pubkey !== owner) continue;
+    const key = agentTag(event, "d");
+    if (key) candidates.set(key, [...(candidates.get(key) ?? []), event]);
+  }
+  return [...candidates.values()]
+    .flatMap((revisions) => {
+      const head = newestAgentEvent(revisions)!;
+      const instance = !deleted(head, events) && agentInstance(head, owner);
+      return instance ? [instance] : [];
+    })
+    .sort((a, b) => a.agentPubkey.localeCompare(b.agentPubkey));
+}
+
 export function materializeAgentDirectory(
   input: readonly NostrEvent[],
   owner: string,
@@ -276,7 +299,6 @@ export function materializeAgentDirectory(
     ).values(),
   ];
   const profiles = new Map<string, NostrEvent[]>();
-  const instanceCandidates = new Map<string, NostrEvent[]>();
   const memberships = agentChannelMemberships(events, relay);
   for (const event of events) {
     if (event.kind === 0)
@@ -284,14 +306,6 @@ export function materializeAgentDirectory(
         ...(profiles.get(event.pubkey) ?? []),
         event,
       ]);
-    else if (event.kind === 30177 && event.pubkey === owner) {
-      const agentPubkey = agentTag(event, "d");
-      if (agentPubkey)
-        instanceCandidates.set(agentPubkey, [
-          ...(instanceCandidates.get(agentPubkey) ?? []),
-          event,
-        ]);
-    }
   }
   const personas = new Map(
     materializeAgentPersonas(events, owner).map((persona) => [
@@ -299,13 +313,12 @@ export function materializeAgentDirectory(
       persona,
     ]),
   );
-  const instances = new Map<string, CommunityAgentInstance>();
-  for (const [pubkey, candidates] of instanceCandidates) {
-    const head = newestAgentEvent(candidates)!;
-    if (deleted(head, events)) continue;
-    const instance = agentInstance(head, owner);
-    if (instance) instances.set(pubkey, instance);
-  }
+  const instances = new Map(
+    materializeAgentInstances(events, owner).map((instance) => [
+      instance.agentPubkey,
+      instance,
+    ]),
+  );
   const contacts = newestAgentEvent(
     events.filter((event) => event.kind === 3 && event.pubkey === owner),
   );

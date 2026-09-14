@@ -27,7 +27,7 @@
 </AppShell.Toolbar>
 <AppShell.Body layout="regions" label="Agents">
   <AppShell.Body.Content label="Agents directory">
-    <CommunityAgents model={controller.state.agents} members={controller.state.workspace.members} memberResults={controller.state.memberDirectory.results} onSearchMembers={controller.actions.searchMembers} onLoadProcessing={controller.actions.agents.loadProcessing} onSetProcessing={controller.actions.agents.setProcessing} onProfile={openProfile} onActivity={openActivity} onSaveAgent={controller.actions.agents.saveAgent} onRefresh={controller.actions.agents.refresh} onClearHistory={() => controller.actions.agents.clearHistory()} showPageHeader={false} showBodyDescription />
+    <CommunityAgents model={controller.state.agents} members={controller.state.workspace.members} memberResults={controller.state.memberDirectory.results} onSearchMembers={controller.actions.searchMembers} onLoadProcessing={controller.actions.agents.loadProcessing} onSetProcessing={controller.actions.agents.setProcessing} onProfile={openProfile} onActivity={openActivity} onSaveAgent={controller.actions.agents.saveAgent} onDeletePersona={controller.actions.agents.deletePersona} onRefresh={controller.actions.agents.refresh} onClearHistory={() => controller.actions.agents.clearHistory()} showPageHeader={false} showBodyDescription />
   </AppShell.Body.Content>
 </AppShell.Body>`,
         },
@@ -361,7 +361,14 @@
     await expect(
       canvas.queryByRole("heading", { name: "Personas" }),
     ).not.toBeInTheDocument();
-    const drafts = canvas.getByRole("region", { name: "Agent setup drafts" });
+    await expect(
+      canvas.queryByRole("region", { name: "Agent setup drafts" }),
+    ).not.toBeInTheDocument();
+    await userEvent.click(canvas.getByRole("button", { name: "Add agent" }));
+    const body = within(canvasElement.ownerDocument.body);
+    await userEvent.click(body.getByRole("button", { name: "Saved setups" }));
+    const drafts = body.getByRole("dialog", { name: "Saved agent setups" });
+    await expect(within(drafts).getByText("Release notes")).toBeVisible();
     await userEvent.click(
       within(drafts).getByRole("button", { name: "Continue setup" }),
     );
@@ -377,6 +384,106 @@
     ).not.toBeInTheDocument();
   }}
   >{#snippet template()}<Harness appShell variant="gallery" />{/snippet}</Story
+>
+<Story
+  name="Delete saved setup with cancellation and retry"
+  play={async ({ canvas, canvasElement }) => {
+    const body = within(canvasElement.ownerDocument.body);
+    const add = canvas.getByRole("button", { name: "Add agent" });
+    await waitFor(() =>
+      expect(getComputedStyle(add).pointerEvents).not.toBe("none"),
+    );
+    await userEvent.click(add);
+    await userEvent.click(body.getByRole("button", { name: "Saved setups" }));
+    const saved = body.getByRole("dialog", { name: "Saved agent setups" });
+    await userEvent.click(
+      within(saved).getByRole("button", { name: "Delete setup" }),
+    );
+    let confirmation = body.getByRole("alertdialog", {
+      name: "Delete Release notes setup?",
+    });
+    await userEvent.click(
+      within(confirmation).getByRole("button", { name: "Cancel" }),
+    );
+    await waitFor(() =>
+      expect(body.queryByRole("alertdialog")).not.toBeInTheDocument(),
+    );
+    await expect(within(saved).getByText("Release notes")).toBeVisible();
+    await userEvent.click(
+      within(saved).getByRole("button", { name: "Delete setup" }),
+    );
+    confirmation = body.getByRole("alertdialog", {
+      name: "Delete Release notes setup?",
+    });
+    await userEvent.click(
+      within(confirmation).getByRole("button", { name: "Delete setup" }),
+    );
+    await waitFor(() =>
+      expect(
+        body.getByText("Relay denied the request. Please retry."),
+      ).toBeVisible(),
+    );
+    await expect(confirmation).toBeVisible();
+    await expect(
+      within(confirmation).queryByRole("alert"),
+    ).not.toBeInTheDocument();
+    await userEvent.click(
+      within(confirmation).getByRole("button", { name: "Delete setup" }),
+    );
+    await waitFor(() =>
+      expect(body.queryByRole("alertdialog")).not.toBeInTheDocument(),
+    );
+    await expect(within(saved).getByText("No saved setups.")).toBeVisible();
+    await userEvent.click(
+      within(saved).getByRole("button", { name: "Close", exact: true }),
+    );
+    await expect(
+      canvas.getByRole("button", { name: "View Research" }),
+    ).toBeVisible();
+  }}>{#snippet template()}<Harness appShell failAction />{/snippet}</Story
+>
+<Story
+  name="Linked configurations are not saved setups"
+  play={async ({ canvas, canvasElement }) => {
+    await expect(
+      canvas.queryByRole("region", { name: "Agent setup drafts" }),
+    ).not.toBeInTheDocument();
+    const add = canvas.getByRole("button", { name: "Add agent" });
+    await waitFor(() =>
+      expect(getComputedStyle(add).pointerEvents).not.toBe("none"),
+    );
+    await userEvent.click(add);
+    const body = within(canvasElement.ownerDocument.body);
+    await expect(
+      body.queryByRole("button", { name: "Saved setups" }),
+    ).not.toBeInTheDocument();
+  }}
+  >{#snippet template()}<Harness
+      appShell
+      variant="linked-definitions"
+    />{/snippet}</Story
+>
+<Story
+  name="Offline saved setups"
+  play={async ({ canvas, canvasElement }) => {
+    const add = canvas.getByRole("button", { name: "Add agent" });
+    await waitFor(() =>
+      expect(getComputedStyle(add).pointerEvents).not.toBe("none"),
+    );
+    await userEvent.click(add);
+    const body = within(canvasElement.ownerDocument.body);
+    await userEvent.click(body.getByRole("button", { name: "Saved setups" }));
+    const saved = within(
+      body.getByRole("dialog", { name: "Saved agent setups" }),
+    );
+    await expect(
+      saved.getByRole("button", { name: "Continue setup" }),
+    ).toBeDisabled();
+    await expect(
+      saved.getByRole("button", { name: "Delete setup" }),
+    ).toBeDisabled();
+  }}
+  >{#snippet template()}<Harness appShell variant="offline" />{/snippet}</Story
 >
 <Story
   name="Unified agent editor"

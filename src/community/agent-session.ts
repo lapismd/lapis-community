@@ -28,6 +28,7 @@ import {
   agentOwner,
   agentTag,
   materializeAgentDirectory,
+  materializeAgentInstances,
   materializeAgentPersonas,
   newestAgentEvent,
   signedAgentEvent,
@@ -279,6 +280,37 @@ class AgentSession implements CommunityAgentSession {
     return events;
   }
 
+  async #withDeletions(events: readonly NostrEvent[], signal?: AbortSignal) {
+    const tombstones: NostrEvent[] = [];
+    let partial = false;
+    // Retain author-valid tombstones even if the relay returns a deleted head.
+    for (let start = 0; start < events.length; start += 200) {
+      const batch = events.slice(start, start + 200);
+      const authors = [...new Set(batch.map((event) => event.pubkey))];
+      const [byId, byAddress] = await Promise.all([
+        this.#all(
+          { kinds: [5], authors, "#e": batch.map((event) => event.id) },
+          signal,
+        ),
+        this.#all(
+          {
+            kinds: [5],
+            authors,
+            "#a": batch.map(
+              (event) =>
+                `${event.kind}:${event.pubkey}:${agentTag(event, "d") ?? ""}`,
+            ),
+          },
+          signal,
+        ),
+      ]);
+      // Deletions are collected separately so the query loop has a stable bound.
+      tombstones.push(...byId.events, ...byAddress.events);
+      partial ||= byId.partial || byAddress.partial;
+    }
+    return { events: [...events, ...tombstones], partial };
+  }
+
   async loadDirectory(signal?: AbortSignal): Promise<CommunityAgentDirectory> {
     const info = await this.#relayInfo(signal);
     if (!info.capabilities.directory)
@@ -351,38 +383,14 @@ class AgentSession implements CommunityAgentSession {
       ...contacts,
       ...profiles,
     ];
-    const tombstones: NostrEvent[] = [];
-    let partial =
+    const resolved = await this.#withDeletions(events, signal);
+    const projectedEvents = resolved.events;
+    const partial =
       owned.partial ||
       personas.partial ||
       membership.partial ||
-      candidateKeys.size > MAX_CANDIDATES;
-    // Retain author-valid tombstones even if the relay returns a deleted head.
-    for (let start = 0; start < events.length; start += 200) {
-      const batch = events.slice(start, start + 200);
-      const authors = [...new Set(batch.map((event) => event.pubkey))];
-      const [byId, byAddress] = await Promise.all([
-        this.#all(
-          { kinds: [5], authors, "#e": batch.map((event) => event.id) },
-          signal,
-        ),
-        this.#all(
-          {
-            kinds: [5],
-            authors,
-            "#a": batch.map(
-              (event) =>
-                `${event.kind}:${event.pubkey}:${agentTag(event, "d") ?? ""}`,
-            ),
-          },
-          signal,
-        ),
-      ]);
-      // Deletions are collected separately so the query loop has a stable bound.
-      tombstones.push(...byId.events, ...byAddress.events);
-      partial ||= byId.partial || byAddress.partial;
-    }
-    const projectedEvents = [...events, ...tombstones];
+      candidateKeys.size > MAX_CANDIDATES ||
+      resolved.partial;
     const managedByPubkey = new Map(
       managed.map((record) => [record.pubkey, record]),
     );
@@ -895,23 +903,18 @@ class AgentSession implements CommunityAgentSession {
           ).then(newestAgentEvent),
         ]);
 
-        const definitions = await this.#query(
-          [{ kinds: [30177], authors: [owner], limit: 1000 }],
+        const definitions = await this.#all(
+          { kinds: [30177], authors: [owner] },
           signal,
         );
-        const latest = new Map<string, NostrEvent>();
-        for (const event of definitions.toSorted(
-          (a, b) => b.created_at - a.created_at || a.id.localeCompare(b.id),
-        )) {
-          const id = agentTag(event, "d");
-          if (id && !latest.has(id)) latest.set(id, event);
-        }
+        const resolved = await this.#withDeletions(definitions.events, signal);
         const shared =
-          definitions.length >= 1000 ||
-          [...latest.entries()].some(
-            ([pubkey, event]) =>
-              pubkey !== input.pubkey &&
-              agentJson(event.content).persona_id === input.personaSlug,
+          definitions.partial ||
+          resolved.partial ||
+          materializeAgentInstances(resolved.events, owner).some(
+            (instance) =>
+              instance.agentPubkey !== input.pubkey &&
+              instance.personaId === input.personaSlug,
           );
         const slug = shared
           ? `agent-${input.pubkey.slice(0, 16)}-${crypto.randomUUID().slice(0, 8)}`
@@ -1045,13 +1048,30 @@ class AgentSession implements CommunityAgentSession {
         if (!AGENT_PERSONA_SLUG.test(slug))
           throw new Error("Invalid persona ID");
         const owner = await this.#options.identity.getPublicKey();
+        const definitions = await this.#all(
+          { kinds: [30177], authors: [owner] },
+          signal,
+        );
+        const resolved = await this.#withDeletions(definitions.events, signal);
+        if (definitions.partial || resolved.partial)
+          throw new Error(
+            "Could not verify all agent links. Refresh and retry deleting this setup.",
+          );
+        if (
+          materializeAgentInstances(resolved.events, owner).some(
+            (instance) => instance.personaId === slug,
+          )
+        )
+          throw new Error(
+            "This saved setup is still linked to an agent. Edit that agent instead.",
+          );
         const created_at = this.#nextManagementTimestamp();
         const event = await this.#sign(
           {
             kind: 5,
             created_at,
             tags: [["a", `30175:${owner}:${slug}`]],
-            content: "Deleted agent persona",
+            content: "Deleted saved agent setup",
           },
           signal,
         );

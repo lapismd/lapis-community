@@ -591,6 +591,8 @@ export interface CommunityAgentsState {
   status: "loading" | "ready" | "offline" | "error" | "unsupported";
   agents: readonly CommunityAgentIdentity[];
   personas: readonly CommunityAgentPersona[];
+  /** Saved definitions with no surviving owner-signed instance reference. */
+  setupDrafts?: readonly CommunityAgentPersona[];
   archivedAgents: readonly CommunityAgentIdentity[];
   capabilities: CommunityAgentCapabilities;
   presence: Readonly<Record<string, CommunityAgentPresence>>;

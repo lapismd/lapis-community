@@ -34,6 +34,7 @@ import {
   agentPresence,
   agentChannelMemberships,
   agentTag,
+  materializeAgentInstances,
   parseAgentObserver,
   signedAgentEvent,
   validateAgentTelemetry,
@@ -465,6 +466,7 @@ export class CommunityAgentsController {
       status: "loading",
       agents: [],
       personas: [],
+      setupDrafts: [],
       archivedAgents: [],
       capabilities: { directory: true, presence: false, activity: false },
       presence: {},
@@ -570,6 +572,12 @@ export class CommunityAgentsController {
           (agent) => agent.pubkey,
         ),
       );
+      const linkedPersonas = new Set(
+        materializeAgentInstances(
+          directory.events,
+          this.#options.scope.ownerPubkey,
+        ).map((instance) => instance.personaId),
+      );
       for (const key of this.#workingUntil.keys())
         if (!allowed.has(key)) this.#workingUntil.delete(key);
       for (const key of this.#typingUntil.keys())
@@ -592,6 +600,9 @@ export class CommunityAgentsController {
             this.#ownerChannels.has(item.frame.channelId),
         ),
         personas: directory.personas,
+        setupDrafts: directory.personas.filter(
+          (persona) => !linkedPersonas.has(persona.slug),
+        ),
         capabilities: directory.capabilities,
         partial: directory.partial,
         error: directory.reason,
@@ -1908,6 +1919,7 @@ export class CommunityAgentsController {
       ...this.#state,
       agents: [],
       personas: [],
+      setupDrafts: [],
       archivedAgents: [],
       activity: [],
       working: {},

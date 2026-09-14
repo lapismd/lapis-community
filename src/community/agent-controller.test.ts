@@ -620,6 +620,56 @@ describe("agent activity controller", () => {
       expect.any(AbortSignal),
     );
   });
+  it("keeps definitions linked to undiscoverable agents out of saved setups", async () => {
+    const { controller, session } = await setup();
+    const definition = {
+      slug: "research",
+      displayName: "Research",
+      ownerPubkey: owner,
+      systemPrompt: "",
+      description: "",
+      content: {},
+      event: persona,
+    };
+    const instance = finalizeEvent(
+      {
+        kind: 30177,
+        created_at: now,
+        tags: [["d", agent]],
+        content: '{"persona_id":"research","name":"Research"}',
+      },
+      ownerKey,
+    );
+    vi.mocked(session.loadDirectory).mockResolvedValue({
+      agents: [],
+      personas: [definition],
+      events: [instance],
+      relayPubkey: relay,
+      capabilities: { directory: true, presence: true, activity: true },
+      partial: false,
+    });
+    await controller.refresh();
+    expect(controller.state.setupDrafts).toEqual([]);
+    const deletion = finalizeEvent(
+      {
+        kind: 5,
+        created_at: now + 1,
+        tags: [["a", `30177:${owner}:${agent}`]],
+        content: "",
+      },
+      ownerKey,
+    );
+    vi.mocked(session.loadDirectory).mockResolvedValue({
+      agents: [],
+      personas: [definition],
+      events: [instance, deletion],
+      relayPubkey: relay,
+      capabilities: { directory: true, presence: true, activity: true },
+      partial: false,
+    });
+    await controller.refresh();
+    expect(controller.state.setupDrafts).toEqual([definition]);
+  });
   it("captures encrypted activity while the panel is closed and restores it on demand", async () => {
     const { controller, archive, receive } = await setup();
     const event = frame();

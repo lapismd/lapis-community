@@ -376,3 +376,9 @@ revision-checked state changes to its agent controller. It returns the correlate
 acknowledgement unchanged so gallery and profile actions can share the same
 authoritative state. Relay publication alone does not complete a Start or Stop
 action; presentation changes are covered by LC-UI-048.
+
+Saved agent setups are an Add agent recovery destination, not additional gallery
+identities. The controller projects them from saved definitions and all current
+owner-signed instance references, independently of profile discovery. Both that
+projection and edits use the same deletion-aware instance materialization; an old
+deleted instance cannot force a copy of the active agent's configuration.

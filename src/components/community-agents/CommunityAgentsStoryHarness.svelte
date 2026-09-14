@@ -61,6 +61,7 @@
             }
           : {}),
         ...(variant === "loading" ? { status: "loading", agents: [] } : {}),
+        ...(variant === "linked-definitions" ? { setupDrafts: [] } : {}),
         ...(variant === "empty"
           ? { agents: [], personas: [], archivedAgents: [] }
           : {}),
@@ -251,6 +252,13 @@
     model = {
       ...model,
       personas: model.personas.filter((persona) => persona.slug !== slug),
+      ...(model.setupDrafts
+        ? {
+            setupDrafts: model.setupDrafts.filter(
+              (persona) => persona.slug !== slug,
+            ),
+          }
+        : {}),
     };
     notice = `Persona ${slug} deleted`;
   }

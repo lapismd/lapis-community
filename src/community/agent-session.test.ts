@@ -622,6 +622,90 @@ describe("agent relay session", () => {
       tags: [["a", `30175:${owner}:research`]],
     });
   });
+  it.each(["a", "e"])(
+    "does not fork configuration referenced only by a deleted instance (%s)",
+    async (tag) => {
+      const fixture = setup();
+      const retiredAgent = getPublicKey(new Uint8Array(32).fill(64));
+      const definition = finalizeEvent(
+        {
+          kind: 30175,
+          created_at: now - 3,
+          tags: [["d", "research"]],
+          content: '{"display_name":"Research"}',
+        },
+        ownerKey,
+      );
+      const instances = [agent, retiredAgent].map((key) =>
+        finalizeEvent(
+          {
+            kind: 30177,
+            created_at: now - 2,
+            tags: [["d", key]],
+            content:
+              '{"persona_id":"research","name_mode":"inherited","name":"Research","respond_to":"owner-only","parallelism":10}',
+          },
+          ownerKey,
+        ),
+      );
+      const deletion = finalizeEvent(
+        {
+          kind: 5,
+          created_at: now - 1,
+          tags: [
+            [
+              tag,
+              tag === "a" ? `30177:${owner}:${retiredAgent}` : instances[1]!.id,
+            ],
+          ],
+          content: "",
+        },
+        ownerKey,
+      );
+      fixture.events.push(definition, ...instances, deletion);
+      const result = await fixture.session.saveAgent!({
+        pubkey: agent,
+        personaSlug: "research",
+        displayName: "Research",
+        systemPrompt: "Updated instructions",
+        nameMode: "inherited",
+        instanceName: "Research",
+      });
+      expect(result.persona.tags).toContainEqual(["d", "research"]);
+      expect(result.instance).toBeUndefined();
+      expect(fixture.relay.publish).toHaveBeenCalledTimes(1);
+    },
+  );
+  it("protects linked setups even when the agent profile is missing, and permits deletion after an owner tombstone", async () => {
+    const fixture = setup();
+    const instance = finalizeEvent(
+      {
+        kind: 30177,
+        created_at: now - 2,
+        tags: [["d", agent]],
+        content: '{"persona_id":"research","name":"Research"}',
+      },
+      ownerKey,
+    );
+    const deletion = {
+      kind: 5,
+      created_at: now - 1,
+      tags: [["a", `30177:${owner}:${agent}`]],
+      content: "",
+    };
+    fixture.events.push(instance, finalizeEvent(deletion, relayKey));
+    await expect(fixture.session.deletePersona!("research")).rejects.toThrow(
+      "still linked to an agent",
+    );
+    expect(fixture.relay.publish).not.toHaveBeenCalled();
+    fixture.events.push(finalizeEvent(deletion, ownerKey));
+    const result = await fixture.session.deletePersona!("research");
+    expect(result).toMatchObject({
+      kind: 5,
+      tags: [["a", `30175:${owner}:research`]],
+    });
+    expect(fixture.relay.publish).toHaveBeenCalledTimes(1);
+  });
   it("disables unsupported relays without making agent queries", async () => {
     const fixture = setup([1]);
     expect((await fixture.session.loadDirectory()).capabilities.directory).toBe(

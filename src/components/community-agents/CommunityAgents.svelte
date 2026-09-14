@@ -6,7 +6,10 @@
   import CommunitySkeleton from "../community-skeleton/CommunitySkeleton.svelte";
   import { Button } from "@lapismd/design-core/shadcn/button";
   import { DialogFrame } from "@lapismd/design-core/forms/dialog";
-  import { ConfirmDialog } from "@lapismd/design-core/forms/dialog";
+  import {
+    ConfirmDialog,
+    ConfirmButton,
+  } from "@lapismd/design-core/forms/dialog";
   import CommunityAvatarPicker from "../community-avatar-picker/CommunityAvatarPicker.svelte";
   import * as Dialog from "@lapismd/design-core/shadcn/dialog";
   import * as DropdownMenu from "@lapismd/design-core/shadcn/dropdown-menu";
@@ -15,6 +18,7 @@
   import { Input } from "@lapismd/design-core/shadcn/input";
   import * as Select from "@lapismd/design-core/shadcn/select";
   import { nip19 } from "nostr-tools";
+  import FileTextIcon from "@lucide/svelte/icons/file-text";
   import BotIcon from "@lucide/svelte/icons/bot";
   import PlusIcon from "@lucide/svelte/icons/plus";
   import RefreshIcon from "@lucide/svelte/icons/refresh-cw";
@@ -183,13 +187,15 @@
         !model.agents.some((current) => current.pubkey === agent.pubkey),
     ),
   );
+  let savedSetupsOpen = $state(false);
   const setupDrafts = $derived(
-    model.personas.filter(
-      (persona) =>
-        !model.agents.some(
-          (agent) => agent.instance?.personaId === persona.slug,
-        ),
-    ),
+    model.setupDrafts ??
+      model.personas.filter(
+        (persona) =>
+          !model.agents.some(
+            (agent) => agent.instance?.personaId === persona.slug,
+          ),
+      ),
   );
   const toastScope = $props.id();
   const previousNotices = new Map<string, string>();
@@ -219,6 +225,8 @@
       toast.dismiss(`${toastScope}-agents-${kind}`);
   });
   function continueSetup(persona: CommunityAgentPersona) {
+    savedSetupsOpen = false;
+    addFeedback = "";
     agentName = persona.displayName;
     agentDescription = persona.description;
     avatarUrl = persona.avatarUrl ?? "";
@@ -740,33 +748,6 @@
         >{/each}
     </section>
   {/if}
-  {#if setupDrafts.length > 0}
-    <section class="agents__personas" aria-label="Agent setup drafts">
-      <div class="agents__personas-heading">
-        <div>
-          <h2>Agent setup drafts</h2>
-          <p>Finish setting up these saved agents.</p>
-        </div>
-      </div>
-      <ul>
-        {#each setupDrafts as persona (persona.slug)}<li>
-            <CommunityMemberAvatar
-              member={communityPersonaMember(persona)}
-              size="small"
-              shape="rounded"
-            />
-            <span
-              ><strong>{persona.displayName}</strong><CommunityChip
-                size="compact">Setup required</CommunityChip
-              ></span
-            >
-            <Button variant="outline" onclick={() => continueSetup(persona)}
-              >Continue setup</Button
-            >
-          </li>{/each}
-      </ul>
-    </section>
-  {/if}
   {#if model.archivedAgents.length > 0}
     <footer>
       <p>
@@ -829,20 +810,27 @@
 <Dialog.Root
   bind:open={adding}
   onOpenChange={(open) => {
-    if (!open) clearManagedSetup();
+    if (!open) {
+      clearManagedSetup();
+      savedSetupsOpen = false;
+    }
   }}
 >
   <DialogFrame
     title={managedBundle
       ? "Controller setup"
-      : provisioningMode === "managed"
-        ? "Create managed agent"
-        : "Link existing agent"}
+      : savedSetupsOpen
+        ? "Saved agent setups"
+        : provisioningMode === "managed"
+          ? "Create managed agent"
+          : "Link existing agent"}
     description={managedBundle
       ? "Save this setup once. Community will clear it when the dialog closes."
-      : provisioningMode === "managed"
-        ? "The relay creates and safeguards the agent identity while you control its persona and room access."
-        : "Create an owner-managed persona and link an existing Nostr agent."}
+      : savedSetupsOpen
+        ? "Continue an unfinished agent setup or delete saved instructions you no longer need."
+        : provisioningMode === "managed"
+          ? "The relay creates and safeguards the agent identity while you control its instructions and room access."
+          : "Save agent instructions and link an existing Nostr agent."}
     descriptionHidden
     size="large"
     surface="inset"
@@ -856,18 +844,39 @@
     {#snippet sidebar()}
       <nav class="agents__add-options" aria-label="Agent add options">
         <Button
-          variant={provisioningMode === "managed" ? "default" : "ghost"}
-          aria-current={provisioningMode === "managed" ? "page" : undefined}
+          variant={!savedSetupsOpen && provisioningMode === "managed"
+            ? "default"
+            : "ghost"}
+          aria-current={!savedSetupsOpen && provisioningMode === "managed"
+            ? "page"
+            : undefined}
           disabled={!managedAvailable}
-          onclick={() => (provisioningMode = "managed")}
-          ><ShieldCheckIcon aria-hidden="true" />Create managed agent</Button
+          onclick={() => {
+            provisioningMode = "managed";
+            savedSetupsOpen = false;
+          }}><ShieldCheckIcon aria-hidden="true" />Create managed agent</Button
         >
         <Button
-          variant={provisioningMode === "existing" ? "default" : "ghost"}
-          aria-current={provisioningMode === "existing" ? "page" : undefined}
-          onclick={() => (provisioningMode = "existing")}
-          ><LinkIcon aria-hidden="true" />Link existing agent</Button
+          variant={!savedSetupsOpen && provisioningMode === "existing"
+            ? "default"
+            : "ghost"}
+          aria-current={!savedSetupsOpen && provisioningMode === "existing"
+            ? "page"
+            : undefined}
+          onclick={() => {
+            provisioningMode = "existing";
+            savedSetupsOpen = false;
+          }}><LinkIcon aria-hidden="true" />Link existing agent</Button
         >
+        {#if setupDrafts.length > 0 || savedSetupsOpen}
+          <Button
+            variant={savedSetupsOpen ? "default" : "ghost"}
+            aria-current={savedSetupsOpen ? "page" : undefined}
+            disabled={addingPending || Boolean(managedBundle)}
+            onclick={() => (savedSetupsOpen = true)}
+            ><FileTextIcon aria-hidden="true" />Saved setups</Button
+          >
+        {/if}
       </nav>
     {/snippet}
     {#if managedBundle}
@@ -921,6 +930,61 @@
           Community does not choose a workspace, runtime, model, or thinking
           level.
         </p>
+      </section>
+    {:else if savedSetupsOpen}
+      <section class="agents__saved-setups" aria-label="Saved agent setups">
+        <p>
+          Saved instructions from unfinished setup or an earlier configuration.
+          These are not running agents.
+        </p>
+        {#if setupDrafts.length === 0}
+          <p>No saved setups.</p>
+        {:else}
+          <ul>
+            {#each setupDrafts as persona (persona.slug)}
+              <li>
+                <CommunityMemberAvatar
+                  member={communityPersonaMember(persona)}
+                  size="small"
+                  shape="rounded"
+                />
+                <strong>{persona.displayName}</strong>
+                <div class="agents__saved-setup-actions">
+                  <Button
+                    variant="outline"
+                    disabled={!addable || model.status === "offline"}
+                    onclick={() => continueSetup(persona)}
+                    >Continue setup</Button
+                  >
+                  <ConfirmButton
+                    title={`Delete ${persona.displayName} setup?`}
+                    description="This deletes these saved instructions. Existing agents are kept, and linked configurations cannot be deleted here."
+                    confirmLabel="Delete setup"
+                    destructive
+                    variant="ghost"
+                    disabled={!onDeletePersona ||
+                      model.status === "offline" ||
+                      model.status === "loading" ||
+                      model.status === "unsupported"}
+                    onConfirm={async () => {
+                      try {
+                        await onDeletePersona!(persona.slug);
+                        toast.success("Saved setup deleted.");
+                      } catch (cause) {
+                        toast.error(
+                          cause instanceof Error
+                            ? cause.message
+                            : "Could not delete this saved setup. Retry to try again.",
+                        );
+                        return false;
+                      }
+                    }}>Delete setup</ConfirmButton
+                  >
+                </div>
+              </li>
+            {/each}
+          </ul>
+        {/if}
       </section>
     {:else}<form
         id="community-agent-add-form"
@@ -1094,6 +1158,11 @@
           ><DownloadIcon aria-hidden="true" />Download</Button
         >
         <Button type="button" onclick={() => (adding = false)}>Done</Button>
+      {:else if savedSetupsOpen}<Button
+          type="button"
+          variant="outline"
+          onclick={() => (adding = false)}>Close</Button
+        >
       {:else}<Button
           type="button"
           variant="outline"
@@ -1378,38 +1447,32 @@
     flex-wrap: wrap;
     gap: 0.75rem;
   }
-  .agents__personas {
+  .agents__saved-setups {
     display: grid;
-    gap: 0.75rem;
-    border-top: 1px solid var(--border);
-    padding-top: 1.25rem;
+    gap: 1rem;
   }
-  .agents__personas-heading {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 0.5rem;
-  }
-  .agents__personas ul {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(min(100%, 16rem), 1fr));
-    gap: 0.75rem;
+  .agents__saved-setups ul {
+    list-style: none;
     padding: 0;
     margin: 0;
-    list-style: none;
-  }
-  .agents__personas li {
     display: grid;
-    grid-template-columns: auto minmax(0, 1fr) auto;
+    gap: 0.75rem;
+  }
+  .agents__saved-setups li {
+    display: flex;
+    flex-wrap: wrap;
     align-items: center;
     gap: 0.75rem;
-    padding: 0.75rem;
-    border: 1px solid var(--border);
-    border-radius: 0.75rem;
   }
-  .agents__personas li span {
-    display: grid;
+  .agents__saved-setups li strong {
+    flex: 1;
     min-width: 0;
+    overflow-wrap: anywhere;
+  }
+  .agents__saved-setup-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
   }
   .agents__selected-persona span {
     color: var(--muted-foreground);

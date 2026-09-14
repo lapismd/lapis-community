@@ -392,3 +392,11 @@ Start/Stop presentation in LC-UI-048 uses the existing version-2
 controller. Unknown state permits a refresh only; state changes carry the last
 acknowledged revision. Neither a stale presence signal nor a relay publish ACK
 may determine which processing state is shown as applied.
+
+Agent configuration sharing and saved-setup deletion resolve the newest signed
+kind-30177 record per owner and agent, applying valid author-matched kind-5 event
+and address tombstones. A missing public profile does not remove a surviving
+instance reference. Before deleting a saved kind-30175 definition, Community
+refreshes references and tombstones and refuses deletion if the scan is partial
+or any surviving instance still links it. This is a fresh client check, not an
+atomic guarantee against a simultaneous link published by another client.
