@@ -930,6 +930,13 @@
       workspace.currentMemberId,
     ),
   );
+  const agentMemberIds = $derived(
+    community.state.agents?.agents.map((agent) => agent.pubkey) ?? [],
+  );
+  const activeDirectMemberIsAgent = $derived(
+    activeDirectMember !== undefined &&
+      agentMemberIds.includes(activeDirectMember.id),
+  );
   const inbox = $derived(
     community.state.inbox ?? fallbackInbox(activeRoom, workspace.members),
   );
@@ -7322,33 +7329,41 @@
             <AppShell.Sidebar.Toggle side="left" sidebarName="navigation" />
           {/if}
           <div class="community-application__room-title">
-            <strong data-ui-part="room-title">
-              {#if activeRoom.kind === "direct" && activeDirectMember}
+            {#if activeRoom.kind === "direct" && activeDirectMember}
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                class="community-application__room-title-button"
+                aria-label={`View ${activeDirectMember.name}'s profile`}
+                onclick={() => openProfile(activeDirectMember)}
+              >
                 <CommunityMemberAvatar
                   member={activeDirectMember}
                   showPresence
-                  shape={community.state.agents?.agents.some(
-                    (agent) => agent.pubkey === activeDirectMember.id,
-                  )
-                    ? "rounded"
-                    : "circle"}
+                  shape={activeDirectMemberIsAgent ? "rounded" : "circle"}
                   decorative
                 />
-              {:else if activeRoom.private}
-                <LockIcon data-icon="inline-start" aria-hidden="true" />
-              {:else if activeRoom.kind === "channel"}
-                <HashIcon data-icon="inline-start" aria-hidden="true" />
-              {:else if activeRoom.kind === "forum"}
-                <MessagesSquareIcon
-                  data-icon="inline-start"
-                  data-ui-part="room-kind-icon"
-                  aria-hidden="true"
-                />
-              {:else}
-                <span aria-hidden="true">●</span>
-              {/if}
-              {activeRoom.name}
-            </strong>
+                <strong data-ui-part="room-title">{activeRoom.name}</strong>
+              </Button>
+            {:else}
+              <strong data-ui-part="room-title">
+                {#if activeRoom.private}
+                  <LockIcon data-icon="inline-start" aria-hidden="true" />
+                {:else if activeRoom.kind === "channel"}
+                  <HashIcon data-icon="inline-start" aria-hidden="true" />
+                {:else if activeRoom.kind === "forum"}
+                  <MessagesSquareIcon
+                    data-icon="inline-start"
+                    data-ui-part="room-kind-icon"
+                    aria-hidden="true"
+                  />
+                {:else}
+                  <span aria-hidden="true">●</span>
+                {/if}
+                {activeRoom.name}
+              </strong>
+            {/if}
           </div>
         </div>
         <div class="community-application__toolbar-actions">
@@ -7446,6 +7461,7 @@
             <div class="community-application__workspace-layer">
               <CommunityWorkspaceSurface
                 model={workspaceSurfaceModel}
+                {agentMemberIds}
                 historyLoading={activeRoomHistoryLoading}
                 historyUpdating={community.state.contentSync?.phase ===
                   "background" ||
@@ -8446,6 +8462,23 @@
     font-size: var(--community-text-body);
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+
+  :global(
+      .community-application__room-title-button[data-ui-component="button"]
+    ) {
+    min-width: 0;
+    height: auto;
+    justify-content: flex-start;
+    gap: 0.35rem;
+    padding: 0.125rem 0.375rem 0.125rem 0.125rem;
+    border-radius: var(--radius-md, 0.5rem);
+    font-weight: 550;
+  }
+
+  :global(.community-application__room-title-button[data-ui-component="button"])
+    strong {
+    min-width: 0;
   }
 
   .community-application__room-title strong :global(svg) {

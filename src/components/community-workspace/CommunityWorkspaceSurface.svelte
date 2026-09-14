@@ -12,6 +12,7 @@
   import type { Snippet } from "svelte";
 
   import CommunityConversation from "../community-conversation/CommunityConversation.svelte";
+  import CommunityMemberAvatar from "../community-member-avatar/CommunityMemberAvatar.svelte";
   import type {
     CommunityCustomEmoji,
     CommunityOperationState,
@@ -40,6 +41,7 @@
     historyLoading = false,
     messageSupplement,
     channelActions,
+    agentMemberIds = [],
   }: {
     model: CommunityWorkspaceModel;
     handlers?: CommunityWorkspaceHandlers;
@@ -55,6 +57,7 @@
     historyLoading?: boolean;
     messageSupplement?: Snippet<[import("./model.js").CommunityMessageModel]>;
     channelActions?: Snippet;
+    agentMemberIds?: readonly string[];
   } = $props();
 
   const activeRoom = $derived(
@@ -77,6 +80,13 @@
           .find((member) => member !== undefined) ??
           model.members.find((member) => member.name === activeRoom.name))
       : undefined,
+  );
+  const agentMemberIdSet = $derived(new Set(agentMemberIds));
+  const activeDirectMemberShape = $derived(
+    activeDirectMember !== undefined &&
+      agentMemberIdSet.has(activeDirectMember.id)
+      ? "rounded"
+      : "circle",
   );
   const knownNonmember = $derived(
     activeRoom.kind !== "direct" && activeRoom.membership === "not-joined",
@@ -228,6 +238,55 @@
         </Button>
       {/if}
     </div>
+  </section>
+{/snippet}
+
+{#snippet directMessageIntro()}
+  <section
+    class="community-workspace-surface__intro community-workspace-surface__intro--direct"
+  >
+    {#if activeDirectMember}
+      <div class="community-workspace-surface__direct-identity">
+        {#if handlers.onOpenProfile}
+          <button
+            type="button"
+            class="community-workspace-surface__direct-avatar-button"
+            data-ui-part="direct-message-profile-action"
+            aria-label={`View ${activeDirectMember.name}'s profile`}
+            onclick={() => handlers.onOpenProfile?.(activeDirectMember)}
+          >
+            <CommunityMemberAvatar
+              member={activeDirectMember}
+              size="large"
+              showPresence
+              shape={activeDirectMemberShape}
+              decorative
+            />
+          </button>
+        {:else}
+          <span class="community-workspace-surface__direct-avatar">
+            <CommunityMemberAvatar
+              member={activeDirectMember}
+              size="large"
+              showPresence
+              shape={activeDirectMemberShape}
+              decorative
+            />
+          </span>
+        {/if}
+        <h1>{activeDirectMember.name}</h1>
+      </div>
+      <p>
+        This is the beginning of your direct message with {activeDirectMember.name}.
+      </p>
+    {:else}
+      <span class="community-workspace-surface__image" aria-hidden="true">
+        <MessagesSquareIcon />
+      </span>
+      <h1>{activeRoom.name}</h1>
+      <p>This is the beginning of this direct message.</p>
+    {/if}
+    <p>Say hi, ask a question, or share what brought you here.</p>
   </section>
 {/snippet}
 
@@ -394,6 +453,7 @@
       {...activeDirectMember === undefined
         ? {}
         : { directMember: activeDirectMember }}
+      directMemberAvatarShape={activeDirectMemberShape}
       {...replyTarget === undefined ? {} : { replyTarget }}
       {communityEmojis}
       {...messageSupplement === undefined ? {} : { messageSupplement }}
@@ -489,6 +549,8 @@
               Back to posts
             </Button>
           </div>
+        {:else if activeRoom.kind === "direct"}
+          {@render directMessageIntro()}
         {:else}
           {@render roomIntro("channel")}
         {/if}
@@ -719,6 +781,56 @@
   .community-workspace-surface__image :global(svg) {
     width: 1.4rem;
     height: 1.4rem;
+  }
+
+  .community-workspace-surface__intro--direct {
+    gap: 0.55rem;
+  }
+
+  .community-workspace-surface__direct-identity {
+    display: grid;
+    width: fit-content;
+    max-width: 100%;
+    gap: 0.75rem;
+    justify-items: start;
+  }
+
+  .community-workspace-surface__direct-avatar,
+  .community-workspace-surface__direct-avatar-button {
+    display: inline-grid;
+    width: 4rem;
+    height: 4rem;
+    place-items: center;
+  }
+
+  .community-workspace-surface__direct-avatar-button {
+    margin: 0;
+    padding: 0;
+    border: 0;
+    border-radius: 999px;
+    color: inherit;
+    background: transparent;
+    cursor: pointer;
+  }
+
+  .community-workspace-surface__direct-avatar-button:focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 3px;
+  }
+
+  .community-workspace-surface__direct-avatar-button
+    :global(.community-member-avatar) {
+    transition:
+      transform 120ms ease,
+      filter 120ms ease;
+  }
+
+  .community-workspace-surface__direct-avatar-button:hover
+    :global(.community-member-avatar),
+  .community-workspace-surface__direct-avatar-button:focus-visible
+    :global(.community-member-avatar) {
+    transform: translateY(-1px);
+    filter: drop-shadow(0 0.35rem 0.6rem rgb(15 23 42 / 0.12));
   }
 
   .community-workspace-surface__actions {

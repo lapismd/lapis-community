@@ -2763,22 +2763,52 @@
     await expect(
       directMessageNavigation.querySelector('[data-ui-part="presence"]'),
     ).not.toBeNull();
-    await expect(
-      application
-        .querySelector('[data-ui-part="room-title"]')
-        ?.querySelector('[data-ui-component="community-member-avatar"]'),
-    ).not.toBeNull();
     const directMessageToolbar = canvas.getByLabelText(
       `${directMessageName} toolbar`,
     );
+    const toolbarProfileAction = within(directMessageToolbar).getByRole(
+      "button",
+      {
+        name: `View ${directMessageName}'s profile`,
+      },
+    );
+    await expect(
+      toolbarProfileAction.querySelector(
+        '[data-ui-component="community-member-avatar"]',
+      ),
+    ).not.toBeNull();
     await expect(
       parseFloat(getComputedStyle(directMessageToolbar).paddingBlockStart),
     ).toBeGreaterThanOrEqual(10);
+    const directMessageContent = canvas.getByLabelText(
+      `${directMessageName} content`,
+    );
     await expect(
-      canvas.getByText(
+      within(directMessageContent).queryByRole("heading", {
+        name: `#${directMessageName}`,
+      }),
+    ).not.toBeInTheDocument();
+    await expect(
+      within(directMessageContent).getByText(
         `This is the beginning of your direct message with ${directMessageName}.`,
       ),
     ).toBeVisible();
+    await expect(
+      within(directMessageContent).queryByRole("button", {
+        name: "Browse channels",
+      }),
+    ).not.toBeInTheDocument();
+    const directIntroProfileAction =
+      directMessageContent.querySelector<HTMLElement>(
+        '[data-ui-part="direct-message-profile-action"]',
+      );
+    if (directIntroProfileAction === null)
+      throw new Error("Expected direct-message intro profile action");
+    await expect(directIntroProfileAction).toHaveAccessibleName(
+      `View ${directMessageName}'s profile`,
+    );
+    await userEvent.click(directIntroProfileAction);
+    await expect(await canvas.findByLabelText("Profile sidebar")).toBeVisible();
   }}
 >
   {#snippet template()}

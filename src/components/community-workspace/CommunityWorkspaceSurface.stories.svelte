@@ -9,6 +9,14 @@
   } from "./story-fixtures.js";
 
   const baseModel = createChannelStoryModel();
+  const directMessageModel = {
+    ...baseModel,
+    activeRoomId: "dm-ada",
+    view: "channel" as const,
+    messages: [],
+    topics: [],
+    currentMemberId: "noor",
+  };
   const nonmemberModel = {
     ...baseModel,
     messages: [],
@@ -256,6 +264,41 @@
     ).not.toBeInTheDocument();
     await userEvent.click(create);
     await expect(args.handlers?.onCreateRoom).toHaveBeenCalledWith("channel");
+  }}
+/>
+
+<Story
+  name="Empty direct message"
+  args={{
+    model: directMessageModel,
+    handlers: { onOpenProfile: fn(), onBrowseRooms: fn() },
+  }}
+  play={async ({ canvas, args }) => {
+    await expect(
+      canvas.queryByRole("heading", { name: "#Ada Lovelace" }),
+    ).not.toBeInTheDocument();
+    await expect(
+      canvas.getByRole("heading", { name: "Ada Lovelace" }),
+    ).toBeVisible();
+    await expect(
+      canvas.getByText(
+        "This is the beginning of your direct message with Ada Lovelace.",
+      ),
+    ).toBeVisible();
+    await expect(
+      canvas.queryByRole("button", { name: "Browse channels" }),
+    ).not.toBeInTheDocument();
+    const profile = canvas.getByRole("button", {
+      name: "View Ada Lovelace's profile",
+    });
+    await expect(
+      profile.querySelector('[data-ui-component="community-member-avatar"]'),
+    ).not.toBeNull();
+    await userEvent.click(profile);
+    await expect(args.handlers?.onOpenProfile).toHaveBeenCalledWith(
+      expect.objectContaining({ id: "ada" }),
+    );
+    await expect(args.handlers?.onBrowseRooms).not.toHaveBeenCalled();
   }}
 />
 

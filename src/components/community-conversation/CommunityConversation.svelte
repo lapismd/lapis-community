@@ -34,6 +34,7 @@
     messages,
     members,
     directMember,
+    directMemberAvatarShape = "circle",
     onSend,
     onReply,
     onOpenThread,
@@ -74,6 +75,7 @@
     messages: CommunityMessageModel[];
     members: CommunityMemberModel[];
     directMember?: CommunityMemberModel;
+    directMemberAvatarShape?: "circle" | "rounded";
     onSend?: (content: string) => void | Promise<void>;
     onReply?: (messageId: string) => void;
     onOpenThread?: (messageId: string) => void;
@@ -243,12 +245,31 @@
             ariaHidden>Today</CommunityChip
           >
           <section class="community-conversation__direct-intro">
-            <CommunityMemberAvatar
-              member={displayedDirectMember}
-              size="large"
-              showPresence
-              decorative
-            />
+            {#if onOpenProfile}
+              <button
+                type="button"
+                class="community-conversation__direct-avatar-button"
+                data-ui-part="direct-message-profile-action"
+                aria-label={`View ${displayedDirectMember.name}'s profile`}
+                onclick={() => onOpenProfile?.(displayedDirectMember)}
+              >
+                <CommunityMemberAvatar
+                  member={displayedDirectMember}
+                  size="large"
+                  showPresence
+                  shape={directMemberAvatarShape}
+                  decorative
+                />
+              </button>
+            {:else}
+              <CommunityMemberAvatar
+                member={displayedDirectMember}
+                size="large"
+                showPresence
+                shape={directMemberAvatarShape}
+                decorative
+              />
+            {/if}
             <h1>{displayedDirectMember.name}</h1>
             <p>
               This is the beginning of your direct message with {displayedDirectMember.name}.
@@ -569,5 +590,39 @@
 
   .community-conversation__direct-intro p {
     color: var(--muted-foreground);
+  }
+
+  .community-conversation__direct-avatar-button {
+    display: inline-grid;
+    width: 4rem;
+    height: 4rem;
+    place-items: center;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    border-radius: 999px;
+    color: inherit;
+    background: transparent;
+    cursor: pointer;
+  }
+
+  .community-conversation__direct-avatar-button:focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 3px;
+  }
+
+  .community-conversation__direct-avatar-button
+    :global(.community-member-avatar) {
+    transition:
+      transform 120ms ease,
+      filter 120ms ease;
+  }
+
+  .community-conversation__direct-avatar-button:hover
+    :global(.community-member-avatar),
+  .community-conversation__direct-avatar-button:focus-visible
+    :global(.community-member-avatar) {
+    transform: translateY(-1px);
+    filter: drop-shadow(0 0.35rem 0.6rem rgb(15 23 42 / 0.12));
   }
 </style>
