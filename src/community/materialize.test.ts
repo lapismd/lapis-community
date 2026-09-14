@@ -11,6 +11,25 @@ import { materializeCommunitySettings } from "./materialize-settings.js";
 import { createNip29CommunitySource } from "./nip29-community-source.js";
 
 describe("materializeCommunityWorkspace", () => {
+  it("does not label all public history unread without a connected identity", () => {
+    const scenario = createCommunityTestScenario();
+    const workspace = materializeCommunityWorkspace(
+      [scenario.scope],
+      { [scenario.scope.id]: scenario.events },
+      scenario.scope.id,
+    );
+    expect(workspace.messages.length).toBeGreaterThan(0);
+    expect(
+      workspace.navigationSections
+        .flatMap((section) => section.rooms)
+        .every(
+          (room) =>
+            room.unreadCount === undefined &&
+            room.latestUnreadEventId === undefined,
+        ),
+    ).toBe(true);
+  });
+
   it("is deterministic across event order, duplicates, and replay", async () => {
     const scenario = createCommunityTestScenario();
     const relayFactory = createInMemoryRelayFactory({

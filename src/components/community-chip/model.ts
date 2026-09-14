@@ -1,4 +1,9 @@
-export const COMMUNITY_CHIP_VARIANTS = ["outline", "muted", "solid"] as const;
+export const COMMUNITY_CHIP_VARIANTS = [
+  "outline",
+  "muted",
+  "solid",
+  "subtle",
+] as const;
 export type CommunityChipVariant = (typeof COMMUNITY_CHIP_VARIANTS)[number];
 
 export const COMMUNITY_CHIP_TONES = [

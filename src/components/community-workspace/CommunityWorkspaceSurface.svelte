@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { observeReadEnd } from "./observe-read-end.js";
   import { conversationKey } from "../../community/conversations.js";
   import type { ComposerStatus } from "@lapismd/design-core/ai/chat";
   import { Button } from "@lapismd/design-core/shadcn/button";
@@ -132,6 +133,49 @@
       ? onDismissOperation
       : undefined,
   );
+  const readBoundary = $derived.by(() => {
+    const threadId =
+      model.view === "forum-thread"
+        ? model.messages.find((message) => message.sourceEvent?.kind === 11)?.id
+        : undefined;
+    const eventId =
+      model.view === "forum-thread"
+        ? !threadId
+          ? undefined
+          : model.messages
+              .filter((message) => message.authorId !== model.currentMemberId)
+              .map((message) => message.sourceEvent)
+              .filter((event) => event !== undefined)
+              .toSorted(
+                (left, right) =>
+                  right.created_at - left.created_at ||
+                  right.id.localeCompare(left.id),
+              )[0]?.id
+        : activeRoom.latestUnreadEventId;
+    const onReadRoom = handlers.onReadRoom;
+    const roomId = activeRoom.id;
+    return {
+      key: JSON.stringify([
+        model.activeCommunityId,
+        roomId,
+        model.currentMemberId,
+        threadId,
+        eventId,
+      ]),
+      ...(eventId &&
+      model.currentMemberId &&
+      activeRoom.unreadCount &&
+      onReadRoom
+        ? {
+            onRead: () =>
+              onReadRoom(roomId, {
+                eventId,
+                ...(threadId ? { threadId } : {}),
+              }),
+          }
+        : {}),
+    };
+  });
 </script>
 
 {#snippet roomMembershipFooter()}
@@ -433,12 +477,18 @@
           {@render roomIntro("forum")}
         {/snippet}
       </ForumTopicList>
+      <div
+        use:observeReadEnd={readBoundary}
+        data-ui-part="read-boundary"
+        style="height: 1px;"
+      ></div>
     </ScrollArea>
     {#if knownNonmember}
       {@render roomMembershipFooter()}
     {/if}
   {:else}
     <CommunityConversation
+      {readBoundary}
       draftKey={activeRoom.conversation
         ? conversationKey(activeRoom.conversation)
         : JSON.stringify([model.activeCommunityId, activeRoom.id])}

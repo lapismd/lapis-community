@@ -358,6 +358,30 @@
         "select": "community-patterns-members--contract",
         "remove": "community-patterns-members--contract"
       }
+    },
+    {
+      "id": "chip",
+      "name": "Chip",
+      "component": "CommunityChip",
+      "import": "@lapismd/lapis-community/components",
+      "example": "src/components/community-patterns/examples/ChipExample.svelte",
+      "story": "community-patterns-chip--contract",
+      "storyFile": "src/components/community-patterns/Chip.stories.svelte",
+      "requirement": "LC-UI-034",
+      "variants": ["outline", "muted", "solid", "subtle"],
+      "requiredStates": ["count"],
+      "loading": {
+        "applicable": false,
+        "reason": "The controller owns counts; chip presentation does not initiate loading."
+      },
+      "when": "All counts and status tokens. Sidebar unread counts use the borderless subtle variant with a neutral fill visible at rest, sized compact.",
+      "productionStories": [
+        "community-examples-app-shell--viewed-rooms-clear-sidebar-unread-counts",
+        "community-primitives-chip--variants"
+      ],
+      "verification": {
+        "count": "community-patterns-chip--contract"
+      }
     }
   ],
   "exceptions": [

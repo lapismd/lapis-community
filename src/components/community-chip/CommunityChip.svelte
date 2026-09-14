@@ -43,7 +43,7 @@
   } = $props();
 
   const badgeVariant = $derived(
-    variant === "muted"
+    variant === "muted" || variant === "subtle"
       ? "secondary"
       : variant === "solid"
         ? "default"
@@ -169,6 +169,17 @@
     text-align: start;
     vertical-align: baseline;
     -webkit-box-decoration-break: clone;
+  }
+
+  :global(.community-chip[data-chip-variant="subtle"]) {
+    border: 0;
+  }
+
+  :global(
+      .community-chip[data-chip-variant="subtle"][data-chip-tone="neutral"]
+    ) {
+    color: var(--foreground);
+    background: color-mix(in srgb, var(--foreground) 8%, transparent);
   }
 
   :global(.community-chip[data-chip-tone="accent"]) {

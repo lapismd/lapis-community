@@ -50,6 +50,15 @@
     });
     if (runtime.dataset.communityBackend === "live") return;
 
+    const unreadChip = (
+      await within(
+        canvas.getByLabelText("Community navigation"),
+      ).findAllByLabelText(/^[0-9]+(?: or more)? unread/u)
+    )[0]!;
+    await expect(unreadChip).toHaveAttribute("data-chip-variant", "subtle");
+    await expect(getComputedStyle(unreadChip).backgroundColor).not.toBe(
+      "rgba(0, 0, 0, 0)",
+    );
     const sidebar = canvas.getByLabelText("Left sidebar");
     await fireEvent.click(
       canvas.getByRole("button", { name: "Collapse left sidebar" }),

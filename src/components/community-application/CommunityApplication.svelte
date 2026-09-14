@@ -1293,7 +1293,7 @@
             ...(room.mentionCount === undefined &&
             room.unreadCount === undefined
               ? {}
-              : { unreadCount: room.mentionCount ?? room.unreadCount }),
+              : { unreadCount: room.unreadCount ?? room.mentionCount }),
             starred: community.state.navigation.starredRoomIds.includes(
               room.id,
             ),
@@ -1359,7 +1359,7 @@
             ...(room.mentionCount === undefined &&
             room.unreadCount === undefined
               ? {}
-              : { unreadCount: room.mentionCount ?? room.unreadCount }),
+              : { unreadCount: room.unreadCount ?? room.mentionCount }),
             starred: community.state.navigation.starredRoomIds.includes(
               room.id,
             ),
@@ -7620,6 +7620,17 @@
                 communityEmojis={community.state.settings.customEmojis}
                 handlers={{
                   ...community.handlers,
+                  onReadRoom: (roomId, through) => {
+                    void community.actions
+                      .markRead(roomId, through)
+                      .catch((error) =>
+                        toast.error(
+                          error instanceof Error
+                            ? error.message
+                            : "Could not save read status",
+                        ),
+                      );
+                  },
                   onSelectRoom: (roomId) => {
                     if (
                       roomId === activeRoom.id &&

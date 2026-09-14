@@ -549,7 +549,7 @@
               <span>{item.label}</span>
               {#if item.unreadCount}
                 <CommunityChip
-                  variant="muted"
+                  variant="subtle"
                   size="compact"
                   ariaLabel={countsUpdating
                     ? `${item.unreadCount} or more unread; older history is updating`
@@ -860,8 +860,11 @@
                                 aria-label="Starred"
                               />{/if}
                             {#if item.unreadCount}<CommunityChip
-                                variant="muted"
+                                variant="subtle"
                                 size="compact"
+                                ariaLabel={countsUpdating
+                                  ? `${item.unreadCount} or more unread; older history is updating`
+                                  : `${item.unreadCount} unread`}
                                 >{item.unreadCount}{countsUpdating
                                   ? "+"
                                   : ""}</CommunityChip

@@ -400,3 +400,10 @@ instance reference. Before deleting a saved kind-30175 definition, Community
 refreshes references and tombstones and refuses deletion if the scan is partial
 or any surviving instance still links it. This is a fresh client check, not an
 atomic guarantee against a simultaneous link published by another client.
+
+Channel and forum read acknowledgements MUST use the existing local read-cursor
+store; viewing content MUST NOT publish a Nostr message or control event. A read
+receipt MAY bound the cursor to one verified incoming event and, for NIP-29, a
+thread identity. Topic roots belong to their own thread for unread projection.
+Manual room Mark unread MUST invalidate that room's thread cursors as well as
+its room cursor, without touching another relay or conversation transport.

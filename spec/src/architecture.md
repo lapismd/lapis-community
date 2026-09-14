@@ -382,3 +382,10 @@ identities. The controller projects them from saved definitions and all current
 owner-signed instance references, independently of profile discovery. Both that
 projection and edits use the same deletion-aware instance materialization; an old
 deleted instance cannot force a copy of the active agent's configuration.
+
+Room read receipts remain controller-owned. Presentation reports the latest
+incoming event represented by its rendered room or topic boundary. The controller
+validates that event against the conversation, advances its deterministic cursor
+monotonically, and projects the same state into room counts and Inbox. An absent
+receipt boundary on explicit Mark read retains the existing all-loaded-content
+behavior. Read cursors MUST NOT advance merely because a room is selected.

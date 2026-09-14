@@ -2403,7 +2403,7 @@ export function createCommunityController(
     clearReplyTarget() {
       replyTarget = undefined;
     },
-    async markRead(roomId) {
+    async markRead(roomId, through) {
       const model = workspace.navigationSections
         .flatMap((section) => section.rooms)
         .find((room) => room.id === roomId);
@@ -2429,19 +2429,36 @@ export function createCommunityController(
                 ),
             );
       const latest = candidates
-        .filter((event) => event.pubkey !== identityPubkey)
+        .filter(
+          (event) =>
+            event.pubkey !== identityPubkey &&
+            (through === undefined || event.id === through.eventId),
+        )
         .toSorted(
           (left, right) =>
             right.created_at - left.created_at ||
             right.id.localeCompare(left.id),
         )[0];
       if (latest === undefined) return;
+      const readReference =
+        reference?.transport === "nip29" && through?.threadId
+          ? { ...reference, threadId: through.threadId }
+          : reference;
+      const markerKey = readReference ? conversationKey(readReference) : roomId;
       await updateStoredState(activeCommunityId, (stored) => {
-        stored.readMarkers[reference ? conversationKey(reference) : roomId] = {
-          createdAt: latest.created_at,
-          eventId: latest.id,
-          granularity: "room",
-        };
+        const previous = stored.readMarkers[markerKey];
+        if (
+          !previous ||
+          latest.created_at > previous.createdAt ||
+          (latest.created_at === previous.createdAt &&
+            latest.id > previous.eventId)
+        ) {
+          stored.readMarkers[markerKey] = {
+            createdAt: latest.created_at,
+            eventId: latest.id,
+            granularity: through?.threadId ? "thread" : "room",
+          };
+        }
         stored.preferences.forcedUnreadRoomIds = preferenceValue(
           navigation.forcedUnreadRoomIds.filter((id) => id !== roomId),
         );
@@ -2462,8 +2479,16 @@ export function createCommunityController(
         : [activeCommunityId])
         await updateStoredState(scopeId, (stored) => {
           delete stored.readMarkers[roomId];
-          if (room?.conversation)
-            delete stored.readMarkers[conversationKey(room.conversation)];
+          if (room?.conversation) {
+            const roomKey = conversationKey(room.conversation);
+            delete stored.readMarkers[roomKey];
+            if (room.conversation.transport === "nip29") {
+              const threadPrefix = `${roomKey.slice(0, -1)},`;
+              for (const key of Object.keys(stored.readMarkers))
+                if (key.startsWith(threadPrefix))
+                  delete stored.readMarkers[key];
+            }
+          }
           for (const item of inbox?.items ?? [])
             if (item.scopeId === activeCommunityId && item.roomId === roomId)
               delete stored.readMarkers[item.id];
@@ -2961,6 +2986,9 @@ export function createCommunityController(
   const handlers: CommunityWorkspaceHandlers = {
     onSelectCommunity: actions.selectCommunity,
     onSelectRoom: actions.selectRoom,
+    onReadRoom: (roomId, through) => {
+      void actions.markRead(roomId, through).catch(() => undefined);
+    },
     onOpenTopic: actions.openTopic,
     onOpenThread: actions.openThread,
     onCloseSidePanel: actions.closeSidePanel,

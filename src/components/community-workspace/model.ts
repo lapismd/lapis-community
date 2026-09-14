@@ -45,6 +45,8 @@ export interface CommunityRoomModel {
   description?: string;
   unreadCount?: number;
   mentionCount?: number;
+  /** Latest incoming content event represented by this room projection. */
+  latestUnreadEventId?: string;
   memberCount?: number;
   /** Number of visible room messages in the current relay projection. */
   messageCount?: number;
@@ -175,6 +177,10 @@ export interface CommunityWorkspaceModel {
 export interface CommunityWorkspaceHandlers {
   onSelectCommunity?: (communityId: string) => void;
   onSelectRoom?: (roomId: string) => void;
+  onReadRoom?: (
+    roomId: string,
+    through: { eventId: string; threadId?: string },
+  ) => void;
   onOpenTopic?: (topicId: string) => void;
   onReply?: (messageId: string) => void;
   onOpenThread?: (messageId: string) => void;

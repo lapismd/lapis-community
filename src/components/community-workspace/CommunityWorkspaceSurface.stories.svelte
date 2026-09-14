@@ -1,6 +1,6 @@
 <script module lang="ts">
   import { defineMeta } from "@storybook/addon-svelte-csf";
-  import { expect, fn, userEvent } from "storybook/test";
+  import { expect, fn, userEvent, waitFor } from "storybook/test";
 
   import CommunityWorkspaceSurface from "./CommunityWorkspaceSurface.svelte";
   import {
@@ -135,6 +135,54 @@
     },
   });
 </script>
+
+<Story
+  name="Forum read boundary waits for the end"
+  args={{
+    model: {
+      ...scrollableForumNonmemberModel,
+      navigationSections: scrollableForumNonmemberModel.navigationSections.map(
+        (section) => ({
+          ...section,
+          rooms: section.rooms.map((room) => ({
+            ...room,
+            unreadCount: 3,
+            latestUnreadEventId: "forum-head",
+          })),
+        }),
+      ),
+    },
+    handlers: { onReadRoom: fn() },
+  }}
+  play={async ({ canvasElement, args }) => {
+    const boundary = canvasElement.querySelector<HTMLElement>(
+      '[data-ui-part="read-boundary"]',
+    )!;
+    const viewport = canvasElement.querySelector<HTMLElement>(
+      '[data-slot="scroll-area-viewport"], [data-ui-part="viewport"]',
+    )!;
+    await expect(boundary).not.toBeNull();
+    await expect(viewport).not.toBeNull();
+    await expect(viewport.scrollHeight).toBeGreaterThan(viewport.clientHeight);
+    await expect(args.handlers!.onReadRoom).not.toHaveBeenCalled();
+    boundary.scrollIntoView({ block: "end" });
+    await waitFor(() =>
+      expect(args.handlers!.onReadRoom).toHaveBeenCalledWith(
+        args.model.activeRoomId,
+        { eventId: "forum-head" },
+      ),
+    );
+    await expect(boundary.getBoundingClientRect().top).toBeLessThanOrEqual(
+      viewport.getBoundingClientRect().bottom,
+    );
+  }}
+>
+  {#snippet template(args)}
+    <div style="width: 48rem; height: 24rem; max-width: 100%;">
+      <CommunityWorkspaceSurface {...args} />
+    </div>
+  {/snippet}
+</Story>
 
 <Story
   name="Known nonmember"

@@ -26,7 +26,17 @@
   });
 </script>
 
-<Story name="Variants">
+<Story
+  name="Variants"
+  play={async ({ canvas }) => {
+    const count = canvas.getByText("13");
+    await expect(count).toHaveAttribute("data-chip-variant", "subtle");
+    await expect(getComputedStyle(count).borderWidth).toBe("0px");
+    await expect(getComputedStyle(count).backgroundColor).not.toBe(
+      "rgba(0, 0, 0, 0)",
+    );
+  }}
+>
   {#snippet template()}
     <div class="community-chip-story">
       <CommunityChip>Desktop</CommunityChip>
@@ -36,7 +46,7 @@
       <CommunityChip tone="warning">Pending</CommunityChip>
       <CommunityChip tone="danger">Rejected</CommunityChip>
       <CommunityChip size="indicator" tone="accent">3</CommunityChip>
-      <CommunityChip size="compact" variant="muted">13</CommunityChip>
+      <CommunityChip size="compact" variant="subtle">13</CommunityChip>
       <CommunityChip tone="success">
         {#snippet leading()}<CheckIcon aria-hidden="true" />{/snippet}
         Verified

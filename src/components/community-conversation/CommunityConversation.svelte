@@ -2,6 +2,7 @@
   import { Button } from "@lapismd/design-core/shadcn/button";
   import CommunitySkeleton from "../community-skeleton/CommunitySkeleton.svelte";
   import { untrack } from "svelte";
+  import { observeReadEnd } from "../community-workspace/observe-read-end.js";
   import CommunityAgentComposerActivity from "../community-agent-composer-activity/CommunityAgentComposerActivity.svelte";
   import {
     Layout,
@@ -74,7 +75,9 @@
     intro,
     footer,
     messageSupplement,
+    readBoundary,
   }: {
+    readBoundary?: { key: string; onRead?: () => void };
     activityContext?: CommunityAgentActivityContext;
     room: CommunityRoomModel;
     draftKey?: string;
@@ -465,6 +468,13 @@
             : { onViewMemberActivity }}
         />
       {/each}
+      {#if readBoundary}
+        <div
+          use:observeReadEnd={readBoundary}
+          data-ui-part="read-boundary"
+          style="height: 1px;"
+        ></div>
+      {/if}
     </MessageList>
   </Layout>
 </div>

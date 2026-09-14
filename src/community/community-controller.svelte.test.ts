@@ -48,6 +48,110 @@ async function connected(current: CommunityTestRuntime): Promise<void> {
 }
 
 describe("createCommunityController", () => {
+  it("advances channel and forum read cursors only through the viewed head and preserves newer activity", async () => {
+    runtime = await createCommunityTestRuntime();
+    await connected(runtime);
+    const controller = runtime.controller;
+    const room = (id: string) =>
+      controller.state.workspace.navigationSections
+        .flatMap((section) => section.rooms)
+        .find((room) => room.id === id)!;
+    for (const id of ["general", "support"]) {
+      expect(room(id).unreadCount).toBeGreaterThan(0);
+      const viewedHead = room(id).latestUnreadEventId!;
+      controller.actions.selectRoom(id);
+      await vi.waitFor(() =>
+        expect(controller.state.workspace.activeRoomId).toBe(id),
+      );
+      // Selection alone does not establish that the content was visible.
+      expect(room(id).unreadCount).toBeGreaterThan(0);
+      const incoming = await runtime.scenario.member.signEvent({
+        kind: id === "general" ? 9 : 11,
+        tags: [
+          ["h", id],
+          ["title", "New unread activity"],
+        ],
+        content: "Arrived after the rendered head",
+        created_at: 1_700_000_500,
+      });
+      runtime.relay.inject(incoming);
+      await vi.waitFor(() =>
+        expect(room(id).latestUnreadEventId).toBe(incoming.id),
+      );
+      await controller.actions.markRead(id, { eventId: viewedHead });
+      await vi.waitFor(() => expect(room(id).unreadCount).toBe(1));
+      await controller.actions.markRead(id, { eventId: incoming.id });
+      await vi.waitFor(() => expect(room(id).unreadCount).toBe(0));
+      // A late observer callback must never move an acknowledged cursor backwards.
+      await controller.actions.markRead(id, { eventId: viewedHead });
+      await vi.waitFor(() => expect(room(id).unreadCount).toBe(0));
+      await controller.actions.markUnread(id);
+      await vi.waitFor(() => expect(room(id).unreadCount).toBeGreaterThan(0));
+      await controller.actions.markRead(id);
+      await vi.waitFor(() => expect(room(id).unreadCount).toBe(0));
+      expect(controller.state.navigation.forcedUnreadRoomIds).not.toContain(id);
+    }
+    await controller.reconnect();
+    expect(room("general").unreadCount).toBe(0);
+    expect(room("support").unreadCount).toBe(0);
+  });
+
+  it("reading one forum topic leaves other topics unread", async () => {
+    runtime = await createCommunityTestRuntime();
+    await connected(runtime);
+    const controller = runtime.controller;
+    const unread = () =>
+      controller.state.workspace.navigationSections
+        .flatMap((section) => section.rooms)
+        .find((room) => room.id === "support")!.unreadCount!;
+    await controller.actions.markRead("support");
+    await vi.waitFor(() => expect(unread()).toBe(0));
+    const topic = await runtime.scenario.member.signEvent({
+      kind: 11,
+      created_at: 1_700_000_501,
+      content: "First topic",
+      tags: [
+        ["h", "support"],
+        ["title", "First topic"],
+      ],
+    });
+    const other = await runtime.scenario.member.signEvent({
+      kind: 11,
+      created_at: 1_700_000_502,
+      content: "Other topic",
+      tags: [
+        ["h", "support"],
+        ["title", "Other topic"],
+      ],
+    });
+    const reply = await runtime.scenario.member.signEvent({
+      kind: 1111,
+      created_at: 1_700_000_503,
+      content: "First topic reply",
+      tags: [
+        ["h", "support"],
+        ["E", topic.id],
+        ["e", topic.id],
+      ],
+    });
+    for (const event of [topic, other, reply]) runtime.relay.inject(event);
+    await vi.waitFor(() => expect(unread()).toBe(3));
+    await controller.actions.markRead("support", {
+      eventId: reply.id,
+      threadId: topic.id,
+    });
+    await vi.waitFor(() => expect(unread()).toBe(1));
+    await controller.actions.markRead("support", {
+      eventId: other.id,
+      threadId: other.id,
+    });
+    await vi.waitFor(() => expect(unread()).toBe(0));
+    await controller.actions.markUnread("support");
+    await vi.waitFor(() => expect(unread()).toBeGreaterThanOrEqual(3));
+    await controller.actions.markRead("support");
+    await vi.waitFor(() => expect(unread()).toBe(0));
+  });
+
   it("loads and refreshes canvas state without projecting it as conversation content and clears it on signout", async () => {
     runtime = await createCommunityTestRuntime();
     const original = await runtime.scenario.operator.signEvent({

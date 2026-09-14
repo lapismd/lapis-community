@@ -281,6 +281,7 @@ export function materializeCommunityWorkspace(
             groupId: model.groupId ?? model.id,
           });
     model.conversation ??= reference;
+    if (!options.identityPubkey) continue;
     const candidates = direct
       ? direct.events.filter(
           (event) =>
@@ -296,11 +297,20 @@ export function materializeCommunityWorkspace(
               (tag) => tag[0] === "h" && tag[1] === model.groupId,
             ),
         );
+    const latestIncoming = candidates
+      .filter((event) => event.pubkey !== options.identityPubkey)
+      .toSorted(
+        (left, right) =>
+          right.created_at - left.created_at || right.id.localeCompare(left.id),
+      )[0];
+    if (latestIncoming) model.latestUnreadEventId = latestIncoming.id;
     model.unreadCount = candidates.filter((event) => {
       const rootId =
         event.tags.find(
           (tag) => tag[0] === "E" || (tag[0] === "e" && tag[3] === "root"),
-        )?.[1] ?? event.tags.find((tag) => tag[0] === "e")?.[1];
+        )?.[1] ??
+        event.tags.find((tag) => tag[0] === "e")?.[1] ??
+        event.id;
       const threadReference =
         reference.transport === "nip29" && rootId
           ? { ...reference, threadId: rootId }

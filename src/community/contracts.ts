@@ -712,7 +712,10 @@ export interface CommunityControllerActions {
   searchMembers(query: string): Promise<void>;
   setReplyTarget(eventId: string): void;
   clearReplyTarget(): void;
-  markRead(roomId: string): Promise<void>;
+  markRead(
+    roomId: string,
+    through?: { eventId: string; threadId?: string },
+  ): Promise<void>;
   markUnread(roomId: string): Promise<void>;
   markAllRead(): Promise<void>;
   setRoomStarred(roomId: string, starred: boolean): Promise<void>;

@@ -105,6 +105,58 @@
   });
 </script>
 
+<Story
+  name="Viewed rooms clear sidebar unread counts"
+  play={async ({ canvas }) => {
+    const app = await canvas.findByTestId("full-community-application");
+    if (app.dataset.communityBackend === "live") return;
+    const navigation = within(canvas.getByLabelText("Community navigation"));
+    for (const name of ["general", "support"]) {
+      const room = await navigation.findByRole("button", { name, exact: true });
+      await waitFor(() =>
+        expect(within(room).getByLabelText(/unread/u)).toBeVisible(),
+      );
+      const chip = within(room).getByLabelText(/unread/u);
+      await expect(chip).toHaveAttribute("data-chip-variant", "subtle");
+      await expect(getComputedStyle(chip).borderWidth).toBe("0px");
+      await expect(getComputedStyle(chip).backgroundColor).not.toBe(
+        "rgba(0, 0, 0, 0)",
+      );
+      await expect(getComputedStyle(chip).backgroundColor).not.toBe(
+        getComputedStyle(room).backgroundColor,
+      );
+      await userEvent.click(room);
+      await waitFor(() =>
+        expect(canvas.getByLabelText(`${name} content`)).toBeVisible(),
+      );
+      const content = canvas.getByLabelText(`${name} content`);
+      const boundary = content.querySelector<HTMLElement>(
+        '[data-ui-part="read-boundary"]',
+      );
+      if (!boundary) throw new Error("Expected a rendered read boundary");
+      boundary.scrollIntoView({ block: "end" });
+      await waitFor(() =>
+        expect(within(room).queryByLabelText(/unread/u)).toBeNull(),
+      );
+    }
+    await userEvent.click(
+      navigation.getByRole("button", { name: "general", exact: true }),
+    );
+    await waitFor(() =>
+      expect(canvas.getByLabelText("general content")).toBeVisible(),
+    );
+    await expect(
+      within(
+        navigation.getByRole("button", { name: "general", exact: true }),
+      ).queryByLabelText(/unread/u),
+    ).toBeNull();
+  }}
+>
+  {#snippet template()}
+    <CommunityApplicationStoryHarness namespace="viewed-room-unread" />
+  {/snippet}
+</Story>
+
 <Story name="Cached startup offline">
   {#snippet template()}
     <CommunityApplicationCacheStoryHarness scenario="cached-offline" />

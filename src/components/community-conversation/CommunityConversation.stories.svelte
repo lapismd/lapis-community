@@ -53,9 +53,18 @@
     onAddReaction: fn(),
     onCopyMessageLink: fn(),
     onDeleteMessage: fn(),
+    readBoundary: { key: "compact-channel-head", onRead: fn() },
   }}
-  play={async ({ canvas }) => {
+  play={async ({ canvas, args }) => {
     const list = canvas.getByRole("log", { name: "general messages" });
+    const boundary = list.querySelector<HTMLElement>(
+      '[data-ui-part="read-boundary"]',
+    );
+    await expect(boundary).not.toBeNull();
+    boundary!.scrollIntoView({ block: "end" });
+    await waitFor(() =>
+      expect(args.readBoundary!.onRead).toHaveBeenCalledOnce(),
+    );
     const inner = list.querySelector<HTMLElement>(
       ':scope > [data-ui-part="list-inner"]',
     );
