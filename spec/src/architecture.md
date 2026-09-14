@@ -389,3 +389,22 @@ validates that event against the conversation, advances its deterministic cursor
 monotonically, and projects the same state into room counts and Inbox. An absent
 receipt boundary on explicit Mark read retains the existing all-loaded-content
 behavior. Read cursors MUST NOT advance merely because a room is selected.
+
+## Responsive resource transitions
+
+For LC-ARCH-008 and LC-ARCH-012, asynchronous presentation reads MUST be keyed by
+identity, relay, resource and relevant revision. Only the current request may
+publish results, errors or cleanup. Simultaneous projection requests MUST
+coalesce with at most one projection in flight and one trailing pass; duplicate
+event batches MUST NOT request a projection. Unchanged JSON model branches,
+including keyed messages after insertion, MUST retain their references.
+Overlapping canvas reads MUST share one request, and a save MUST invalidate a
+previous read before refreshing the accepted head. Persisting navigation alone
+MUST NOT request another projection. Empty resolved resources remain resolved
+until explicit refresh or relevant invalidation.
+
+The [transition inventory](transition-inventory.md) records the implementation
+and regression boundary for every application destination. Pending entries are
+not acceptance evidence. Initial loading uses a representative skeleton;
+refresh preserves existing content. Subscriptions belong to the session, not a
+page request, and must survive page cancellation.

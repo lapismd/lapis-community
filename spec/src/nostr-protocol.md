@@ -407,3 +407,8 @@ receipt MAY bound the cursor to one verified incoming event and, for NIP-29, a
 thread identity. Topic roots belong to their own thread for unread projection.
 Manual room Mark unread MUST invalidate that room's thread cursors as well as
 its room cursor, without touching another relay or conversation transport.
+
+For LC-ARCH-012, duplicate verified events MUST NOT invalidate projected
+conversation content. Request ordering is local presentation state and MUST NOT
+change event authority, timestamp/event-ID ordering or signature verification.
+Replacing an identity or resource invalidates pending read results and errors.

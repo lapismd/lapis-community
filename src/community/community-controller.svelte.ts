@@ -1,3 +1,4 @@
+import { createProjectionQueue, shareProjection } from "./projection-state.js";
 import { conversationKey, privateConversation } from "./conversations.js";
 import type { CommunityInboxFilter } from "../components/community-inbox/model.js";
 import type {
@@ -134,6 +135,13 @@ export function createCommunityController(
   let presenceByScope = $state<Record<string, CommunityPresenceState>>({});
   const subscriptions = new Map<string, CommunitySessionSubscription>();
   const retries = new Map<string, () => Promise<void>>();
+  const operationVersions = new Map<string, symbol>();
+  let memberSearchVersion = 0;
+  let searchVersion = 0;
+  const canvasReads = new Map<
+    string,
+    { token: symbol; promise: Promise<void> }
+  >();
   const acceptedEventIdsByOperation = new Map<string, readonly string[]>();
   const queuedEvents = new Map<string, NostrEvent[]>();
   const queuedEventGenerations = new Map<string, number>();
@@ -1422,70 +1430,89 @@ export function createCommunityController(
       if (!room || !session?.loadCanvas)
         throw new Error("Channel canvas is unavailable");
       const key = channelCanvasKey(scope.id, room.id);
+      const requestKey = `${generation}:${key}`;
+      const pending = canvasReads.get(requestKey);
+      if (pending) return pending.promise;
+      const token = Symbol(requestKey);
       const currentGeneration = generation;
-      const previous = canvases[key];
-      canvases = {
-        ...canvases,
-        [key]: {
-          roomId: room.id,
-          groupId: room.groupId,
-          content: previous?.content ?? "",
-          eventId: previous?.eventId ?? null,
-          author: previous?.author ?? null,
-          updatedAt: previous?.updatedAt ?? null,
-          canEdit: false,
-          loading: true,
-        },
-      };
-      try {
-        const group = await session.loadGroup?.(
-          { groupId: room.groupId },
-          controllerAbort?.signal,
-        );
-        const head = await session.loadCanvas(
-          room.groupId,
-          controllerAbort?.signal,
-        );
-        if (generation !== currentGeneration) return;
+      const isCurrent = () =>
+        generation === currentGeneration &&
+        canvasReads.get(requestKey)?.token === token;
+      const promise = Promise.resolve().then(async () => {
+        const previous = canvases[key];
         canvases = {
           ...canvases,
           [key]: {
             roomId: room.id,
             groupId: room.groupId,
-            content: head?.content ?? "",
-            eventId: head?.id ?? null,
-            author: head?.pubkey ?? null,
-            updatedAt: head?.created_at ?? null,
-            loading: false,
-            canEdit: canvasEditingAllowed(
-              group?.events ?? [],
-              room.groupId,
-              identityPubkey,
-            ),
-          },
-        };
-      } catch (cause) {
-        if (generation !== currentGeneration) return;
-        canvases = {
-          ...canvases,
-          [key]: {
-            ...canvases[key]!,
-            content: room.private ? "" : canvases[key]!.content,
-            loading: false,
+            content: previous?.content ?? "",
+            eventId: previous?.eventId ?? null,
+            author: previous?.author ?? null,
+            updatedAt: previous?.updatedAt ?? null,
             canEdit: false,
-            error:
-              cause instanceof Error
-                ? cause.message
-                : "Canvas could not be loaded",
+            loading: true,
           },
         };
-        throw cause;
+        try {
+          const group = await session.loadGroup?.(
+            { groupId: room.groupId },
+            controllerAbort?.signal,
+          );
+          const head = await session.loadCanvas!(
+            room.groupId,
+            controllerAbort?.signal,
+          );
+          if (!isCurrent()) return;
+          canvases = {
+            ...canvases,
+            [key]: {
+              roomId: room.id,
+              groupId: room.groupId,
+              content: head?.content ?? "",
+              eventId: head?.id ?? null,
+              author: head?.pubkey ?? null,
+              updatedAt: head?.created_at ?? null,
+              loading: false,
+              canEdit: canvasEditingAllowed(
+                group?.events ?? [],
+                room.groupId,
+                identityPubkey,
+              ),
+            },
+          };
+        } catch (cause) {
+          if (!isCurrent()) return;
+          canvases = {
+            ...canvases,
+            [key]: {
+              ...canvases[key]!,
+              content: room.private ? "" : canvases[key]!.content,
+              loading: false,
+              canEdit: false,
+              error:
+                cause instanceof Error
+                  ? cause.message
+                  : "Canvas could not be loaded",
+            },
+          };
+          throw cause;
+        }
+      });
+      canvasReads.set(requestKey, { token, promise });
+      try {
+        await promise;
+      } finally {
+        if (isCurrent()) canvasReads.delete(requestKey);
       }
     },
     async saveCanvas(roomId, content, expectedEventId) {
       const scope = activeScope();
       const room = roomById(roomId);
       if (!room) throw new Error("Channel is unavailable");
+      const currentGeneration = generation;
+      canvasReads.delete(
+        `${generation}:${channelCanvasKey(scope.id, room.id)}`,
+      );
       try {
         await execute(
           `canvas:save:${scope.id}:${room.id}`,
@@ -1498,7 +1525,8 @@ export function createCommunityController(
           scope.id,
         );
       } finally {
-        if (activeCommunityId === scope.id) await actions.loadCanvas?.(room.id);
+        if (generation === currentGeneration && activeCommunityId === scope.id)
+          await actions.loadCanvas?.(room.id);
       }
     },
     async setPresencePreference(preference) {
@@ -2302,6 +2330,8 @@ export function createCommunityController(
       await refreshProjection(generation);
     },
     async search(query) {
+      const version = ++searchVersion;
+      const scopeId = activeCommunityId;
       searchQuery = query;
       if (query.trim() === "") {
         searchResults = [];
@@ -2313,14 +2343,22 @@ export function createCommunityController(
         scopeId: activeCommunityId,
         query,
       });
-      if (searchQuery === query && generation === requestedGeneration) {
+      if (
+        searchVersion === version &&
+        activeCommunityId === scopeId &&
+        generation === requestedGeneration
+      ) {
         searchResults = resolveSearchResultRooms(local);
       }
       const session = sessions.get(activeCommunityId);
       if (session === undefined) return;
       await runOperation("search", async () => {
         const result = await session.search(query, controllerAbort?.signal);
-        if (searchQuery === query && generation === requestedGeneration) {
+        if (
+          searchVersion === version &&
+          activeCommunityId === scopeId &&
+          generation === requestedGeneration
+        ) {
           searchResults = distinctSearchResults(
             resolveSearchResultRooms([...local, ...result]),
           );
@@ -2328,6 +2366,9 @@ export function createCommunityController(
       });
     },
     async searchMembers(query) {
+      const version = ++memberSearchVersion;
+      const scopeId = activeCommunityId;
+      const requestedGeneration = generation;
       const normalized = query.trim().toLocaleLowerCase();
       const loaded = workspace.members.filter((member) =>
         `${member.name} ${member.handle} ${member.id}`
@@ -2358,6 +2399,12 @@ export function createCommunityController(
       if (session === undefined) return;
       await runOperation("members:search", async () => {
         const remote = await session.search(query, controllerAbort?.signal);
+        if (
+          version !== memberSearchVersion ||
+          generation !== requestedGeneration ||
+          activeCommunityId !== scopeId
+        )
+          return;
         const remoteMembers = remote.map(({ event }) => memberFromEvent(event));
         memberDirectory = {
           query,
@@ -3065,6 +3112,12 @@ export function createCommunityController(
     operation: string,
     action: () => Promise<void>,
   ): Promise<void> {
+    const version = Symbol(operation);
+    const requestedGeneration = generation;
+    operationVersions.set(operation, version);
+    const isCurrent = () =>
+      generation === requestedGeneration &&
+      operationVersions.get(operation) === version;
     retries.delete(operation);
     acceptedEventIdsByOperation.delete(operation);
     operations = {
@@ -3073,12 +3126,14 @@ export function createCommunityController(
     };
     try {
       await action();
+      if (!isCurrent()) return;
       operations = {
         ...operations,
         [operation]: { status: "idle" },
       };
       retries.delete(operation);
     } catch (cause) {
+      if (!isCurrent()) return;
       const failure = normalizeCommunityOperationFailure(cause);
       operations = {
         ...operations,
@@ -3250,7 +3305,8 @@ export function createCommunityController(
     };
   }
 
-  async function refreshProjection(currentGeneration: number): Promise<void> {
+  const projectLatest = createProjectionQueue(async (isCurrent) => {
+    const currentGeneration = generation;
     const revision = await eventRuntime.project({
       generation: currentGeneration,
       scopes: scopes.map(runtimeScope),
@@ -3285,6 +3341,7 @@ export function createCommunityController(
       asOf: now(),
     });
     if (
+      !isCurrent() ||
       revision.generation !== generation ||
       revision.generation !== currentGeneration ||
       revision.revision < runtimeRevision
@@ -3293,7 +3350,7 @@ export function createCommunityController(
     }
     runtimeRevision = revision.revision;
     if (revision.workspace !== undefined) {
-      workspace = revision.workspace;
+      workspace = shareProjection(workspace, revision.workspace);
       const scope = scopes.find(
         (candidate) => candidate.id === activeCommunityId,
       );
@@ -3303,16 +3360,25 @@ export function createCommunityController(
           ?.watch(workspace.members.map((member) => member.id));
       reconcileAcceptedMembershipOperations();
     }
-    inbox = revision.inbox;
+    inbox = shareProjection(inbox, revision.inbox);
     if (inbox) activeInboxItemId = inbox.activeItemId;
     for (const [key, canvas] of Object.entries(canvases)) {
       if (key !== channelCanvasKey(activeCommunityId, canvas.roomId)) continue;
-      if (
-        !canvasReadingAllowed(activeEvents(), canvas.groupId, identityPubkey)
-      ) {
-        canvases = {
-          ...canvases,
-          [key]: {
+      const allowed = canvasReadingAllowed(
+        activeEvents(),
+        canvas.groupId,
+        identityPubkey,
+      );
+      const next = allowed
+        ? {
+            ...canvas,
+            canEdit: canvasEditingAllowed(
+              activeEvents(),
+              canvas.groupId,
+              identityPubkey,
+            ),
+          }
+        : {
             ...canvas,
             content: "",
             eventId: null,
@@ -3321,23 +3387,17 @@ export function createCommunityController(
             canEdit: false,
             loading: false,
             error: "Canvas access is unavailable",
-          },
-        };
-      } else {
-        canvases = {
-          ...canvases,
-          [key]: {
-            ...canvas,
-            canEdit: canvasEditingAllowed(
-              activeEvents(),
-              canvas.groupId,
-              identityPubkey,
-            ),
-          },
-        };
-      }
+          };
+      const shared = shareProjection(canvas, next);
+      if (shared !== canvas) canvases = { ...canvases, [key]: shared };
     }
-    if (revision.settings !== undefined) settings = revision.settings;
+    if (revision.settings !== undefined)
+      settings = shareProjection(settings, revision.settings);
+  });
+
+  async function refreshProjection(currentGeneration: number): Promise<void> {
+    if (generation !== currentGeneration) return;
+    await projectLatest();
   }
 
   function requestProjection(): void {
@@ -3385,6 +3445,7 @@ export function createCommunityController(
     pendingEvents: readonly NostrEvent[],
     currentGeneration: number,
   ): Promise<void> {
+    let changed = false;
     const requestedIds = new Set(
       [...snapshot.events, ...pendingEvents].map((event) => event.id),
     );
@@ -3404,6 +3465,7 @@ export function createCommunityController(
     });
     if (revision !== undefined && generation === currentGeneration) {
       applyRuntimeRevision(revision);
+      changed = true;
     }
     const publicIds = new Set(publicEvents.map((event) => event.id));
     const memoryOnlyEvents = [...snapshot.events, ...pendingEvents].filter(
@@ -3419,10 +3481,11 @@ export function createCommunityController(
       });
       if (privateRevision !== undefined && generation === currentGeneration) {
         applyRuntimeRevision(privateRevision);
+        changed = true;
       }
     }
     if (identityPubkey === "") {
-      await refreshProjection(currentGeneration);
+      if (changed) await refreshProjection(currentGeneration);
       return;
     }
     const wraps = [
@@ -3439,9 +3502,10 @@ export function createCommunityController(
       });
       if (wrapRevision !== undefined && generation === currentGeneration) {
         applyRuntimeRevision(wrapRevision);
+        changed = true;
       }
     }
-    await refreshProjection(currentGeneration);
+    if (changed) await refreshProjection(currentGeneration);
   }
 
   async function cacheLiveEvents(
@@ -3725,13 +3789,17 @@ export function createCommunityController(
   }
 
   async function persistSelection(scopeId: string): Promise<void> {
-    await updateStoredState(scopeId, (stored) => {
-      stored.preferences.activeRoomId = {
-        value: activeRoomId,
-        updatedAt: now(),
-        clientId,
-      };
-    });
+    await updateStoredState(
+      scopeId,
+      (stored) => {
+        stored.preferences.activeRoomId = {
+          value: activeRoomId,
+          updatedAt: now(),
+          clientId,
+        };
+      },
+      false,
+    );
   }
 
   function preferenceValue(value: unknown) {
@@ -3778,6 +3846,7 @@ export function createCommunityController(
   async function updateStoredState(
     scopeId: string,
     update: (state: CommunityStoredState) => void,
+    project = true,
   ): Promise<void> {
     if (identityPubkey === "") return;
     const scope = scopes.find((candidate) => candidate.id === scopeId);
@@ -3787,8 +3856,9 @@ export function createCommunityController(
     update(stored);
     stored.updatedAt = now();
     storedStates.set(scopeId, stored);
+    const requestedGeneration = generation;
     await options.stateStore?.save(stateScope(scope), stored);
-    requestProjection();
+    if (project && generation === requestedGeneration) requestProjection();
   }
 
   function applyStoredState(

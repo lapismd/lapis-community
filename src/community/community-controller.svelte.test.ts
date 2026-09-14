@@ -494,7 +494,9 @@ describe("createCommunityController", () => {
         ),
       ).toBe(true),
     );
-    expect(controller.state.workspace.activeRoomId).toBe("support");
+    await vi.waitFor(() =>
+      expect(controller.state.workspace.activeRoomId).toBe("support"),
+    );
     controller.dispose();
   });
 

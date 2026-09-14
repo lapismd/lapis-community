@@ -2,6 +2,7 @@
 
 - [Introduction](index.md)
 - [Architecture](architecture.md)
+- [Transition inventory](transition-inventory.md)
 - [Nostr protocol and trust](nostr-protocol.md)
 - [Agents and saved activity](agents.md)
 - [Community components](components.md)
