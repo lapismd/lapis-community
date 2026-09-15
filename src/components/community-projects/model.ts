@@ -95,6 +95,7 @@ export interface CommunityProjectsDialogRequest {
   kind:
     | "project"
     | "edit-project"
+    | "channel"
     | "repository"
     | "select-repository"
     | "connect-github"

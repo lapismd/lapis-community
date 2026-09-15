@@ -17,6 +17,7 @@
 
   let {
     content,
+    fullWidth = false,
     mentionPubkeys = [],
     members = [],
     rooms = [],
@@ -28,6 +29,8 @@
     class: className = "",
   }: {
     content: string;
+    /** Fill the parent column instead of centering a readable-width document. */
+    fullWidth?: boolean;
     mentionPubkeys?: readonly string[];
     members?: readonly CommunityMemberModel[];
     rooms?: readonly CommunityRoomModel[];
@@ -71,6 +74,7 @@
 <div
   class={`community-markdown-content ${className}`.trim()}
   data-ui-component="community-markdown-content"
+  data-full-width={fullWidth}
 >
   <MarkdownPreview
     value={content}
@@ -104,6 +108,11 @@
     min-height: 0;
     gap: 0.55rem;
     background: transparent;
+  }
+
+  .community-markdown-content[data-full-width="true"]
+    :global(.markdown-preview-surface) {
+    --file-line-width: 100%;
   }
 
   :global(.community-markdown-content .markdown-view__document) {

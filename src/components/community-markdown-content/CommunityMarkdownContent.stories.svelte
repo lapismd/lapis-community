@@ -163,3 +163,22 @@
     ).toBeNull();
   }}
 />
+
+<Story
+  name="Full width document"
+  args={{ content: "Aligned with the parent column.", fullWidth: true }}
+  play={async ({ canvas, canvasElement }) => {
+    const content = canvasElement.querySelector<HTMLElement>(
+      '[data-ui-component="community-markdown-content"]',
+    )!;
+    const paragraph = canvas.getByText("Aligned with the parent column.");
+    await expect(paragraph.getBoundingClientRect().left).toBeCloseTo(
+      content.getBoundingClientRect().left,
+      0,
+    );
+    await expect(paragraph.getBoundingClientRect().width).toBeCloseTo(
+      content.getBoundingClientRect().width,
+      0,
+    );
+  }}
+/>

@@ -582,13 +582,6 @@
   gap: 0.25rem;
 }
 
-.community-projects__task-detail {
-  width: min(100%, 52rem);
-  box-sizing: border-box;
-  margin-inline: auto;
-  padding: 1.25rem 1.5rem 2.5rem;
-}
-
 .community-projects__task-detail-header {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
@@ -2411,6 +2404,7 @@
   white-space: nowrap;
 }
 
+.community-projects__task-detail,
 .community-projects__commit-detail {
   width: min(100%, 76rem);
   box-sizing: border-box;

@@ -804,7 +804,7 @@
   );
   provideCommunityApplicationComposer({
     members: () => workspace.members,
-    rooms: () => allRooms,
+    rooms: () => presentationRooms,
     emojis: () => community.state.settings.customEmojis,
     onOpenMember: () => openProfile,
     onMessageMember: () => messageMember,
@@ -915,10 +915,50 @@
       !releaseOverviewSidebar.closed &&
       !releaseOverviewSidebar.collapsed,
   );
+  const projectChannelRoomIds = $derived.by(() => {
+    const ids = new Set<string>();
+    for (const project of projectCatalog.projects) {
+      for (const binding of projectForgeBoundChannels(
+        project,
+        projectCatalog.repositories,
+      )) {
+        const room = roomForProjectChannel(binding.channelId);
+        if (room?.kind === "channel") ids.add(room.id);
+      }
+    }
+    return ids;
+  });
+  // Cache decorated rooms by their source object so presentation updates retain
+  // unchanged room references. Association removal restores the original room.
+  const projectRoomPresentationCache = new WeakMap<
+    CommunityRoomModel,
+    CommunityRoomModel
+  >();
+  function presentProjectRoom(room: CommunityRoomModel): CommunityRoomModel {
+    if (!projectChannelRoomIds.has(room.id)) return room;
+    let presentation = projectRoomPresentationCache.get(room);
+    if (!presentation) {
+      presentation = { ...room, isProjectChannel: true };
+      projectRoomPresentationCache.set(room, presentation);
+    }
+    return presentation;
+  }
+  const presentationRooms = $derived(allRooms.map(presentProjectRoom));
+  const presentationWorkspace = $derived.by(() => {
+    let changed = false;
+    const navigationSections = workspace.navigationSections.map((section) => {
+      const rooms = section.rooms.map(presentProjectRoom);
+      if (rooms.every((room, index) => room === section.rooms[index]))
+        return section;
+      changed = true;
+      return { ...section, rooms };
+    });
+    return changed ? { ...workspace, navigationSections } : workspace;
+  });
   const workspaceSurfaceModel = $derived(
     selectedProjectRoom !== undefined
       ? {
-          ...workspace,
+          ...presentationWorkspace,
           activeRoomId: selectedProjectRoom.id,
           view:
             selectedProjectRoom.kind === "forum"
@@ -934,9 +974,9 @@
               : [],
         }
       : startupDestinationRoom === undefined
-        ? workspace
+        ? presentationWorkspace
         : {
-            ...workspace,
+            ...presentationWorkspace,
             activeRoomId: startupDestinationRoom.id,
             view:
               startupDestinationRoom.kind === "forum"
@@ -1079,19 +1119,6 @@
       activeRoom.permissions?.join.state !== "denied" &&
       activeRoom.permissions?.join.state !== "unsupported",
   );
-  const projectChannelRoomIds = $derived.by(() => {
-    const ids = new Set<string>();
-    for (const project of projectCatalog.projects) {
-      for (const binding of projectForgeBoundChannels(
-        project,
-        projectCatalog.repositories,
-      )) {
-        const room = roomForProjectChannel(binding.channelId);
-        if (room?.kind === "channel") ids.add(room.id);
-      }
-    }
-    return ids;
-  });
   const navigationModel = $derived<CommunityNavigationModel>({
     searchPlaceholder: "Search everything",
     primaryItems: [
@@ -1414,7 +1441,7 @@
       })),
     ]),
   });
-  const searchRooms = $derived(allRooms);
+  const searchRooms = $derived(presentationRooms);
   const projectedSearchResults = $derived(
     projectCommunitySearchResults(community.state.searchResults),
   );
@@ -1867,7 +1894,7 @@
   }
   provideAgentComposerActivity({
     model: () => community.state.agents,
-    rooms: () => allRooms,
+    rooms: () => presentationRooms,
     open: openAgentActivity,
   });
 
@@ -2205,7 +2232,12 @@
   });
 
   $effect(() => {
-    if (!isPluginReleaseRoom || releaseOverviewInitialized) return;
+    if (
+      !isPluginReleaseRoom ||
+      activeChannelProject ||
+      releaseOverviewInitialized
+    )
+      return;
     releaseOverviewInitialized = true;
     if (activeMainSurface !== undefined) return;
     if (initialShellLayout.releaseOverview === undefined) {
@@ -3873,7 +3905,7 @@
     toast.success(
       input.relatedChannelIds === undefined
         ? "Project settings saved"
-        : "Channel removed from project",
+        : "Project channels updated",
     );
   }
 
@@ -5361,6 +5393,37 @@
   {/if}
 {/snippet}
 
+{#snippet releaseOverviewItems()}
+  <Button
+    type="button"
+    variant="ghost"
+    class="community-application__release-overview-item"
+    onclick={() => openReleaseSurface("release-reviews")}
+  >
+    <GitPullRequestIcon data-icon="inline-start" aria-hidden="true" />
+    <span>Reviews</span>
+    {#if registryOptions?.source.loadReleaseReviewEntries !== undefined}
+      <small aria-label={`${pendingReleaseReviewCount} pending reviews`}>
+        {pendingReleaseReviewCount}
+      </small>
+    {/if}
+  </Button>
+  <Button
+    type="button"
+    variant="ghost"
+    class="community-application__release-overview-item"
+    onclick={() => openReleaseSurface("release-people")}
+  >
+    <UsersIcon data-icon="inline-start" aria-hidden="true" />
+    <span>People</span>
+    <small
+      aria-label={`${activeRoom.memberCount ?? releaseRoomMembers.length} people`}
+    >
+      {activeRoom.memberCount ?? releaseRoomMembers.length}
+    </small>
+  </Button>
+{/snippet}
+
 {#snippet releaseOverviewRail()}
   <AppShell.Sidebar
     side="right"
@@ -5377,34 +5440,7 @@
         class="community-application__release-overview"
         aria-label="Plugin release overview"
       >
-        <Button
-          type="button"
-          variant="ghost"
-          class="community-application__release-overview-item"
-          onclick={() => openReleaseSurface("release-reviews")}
-        >
-          <GitPullRequestIcon data-icon="inline-start" aria-hidden="true" />
-          <span>Reviews</span>
-          {#if registryOptions?.source.loadReleaseReviewEntries !== undefined}
-            <small aria-label={`${pendingReleaseReviewCount} pending reviews`}>
-              {pendingReleaseReviewCount}
-            </small>
-          {/if}
-        </Button>
-        <Button
-          type="button"
-          variant="ghost"
-          class="community-application__release-overview-item"
-          onclick={() => openReleaseSurface("release-people")}
-        >
-          <UsersIcon data-icon="inline-start" aria-hidden="true" />
-          <span>People</span>
-          <small
-            aria-label={`${activeRoom.memberCount ?? releaseRoomMembers.length} people`}
-          >
-            {activeRoom.memberCount ?? releaseRoomMembers.length}
-          </small>
-        </Button>
+        {@render releaseOverviewItems()}
       </nav>
     </AppShell.Sidebar.Body>
   </AppShell.Sidebar>
@@ -5415,7 +5451,11 @@
     open={releaseSheetOpen}
     label={activeMainSurface === "release-people" ? "People" : "Reviews"}
     coverPanelIds={["right"]}
-    suspendPanelIds={[COMMUNITY_APPLICATION_RELEASE_OVERVIEW_PANEL_ID]}
+    suspendPanelIds={[
+      activeChannelProject
+        ? COMMUNITY_APPLICATION_PROJECT_OVERVIEW_PANEL_ID
+        : COMMUNITY_APPLICATION_RELEASE_OVERVIEW_PANEL_ID,
+    ]}
     dismissLabel={`Back to ${activeRoom.name}`}
     onDismiss={closeReleaseSurface}
     class="community-application__release-sheet-layer"
@@ -5804,11 +5844,16 @@
     side="right"
     sidebarController={projectOverviewSidebar}
     sidebarName="project overview"
-    label={projectOverviewShown
+    label={projectOverviewShown && !releaseSheetOpen
       ? "Hide project overview"
       : "Show project overview"}
     onclick={() => {
       projectOverviewInitialized = true;
+      if (releaseSheetOpen) {
+        closeReleaseSurface();
+        projectOverviewSidebar.expand();
+        return;
+      }
       if (projectOverviewSidebar.collapsed) projectOverviewSidebar.close();
       lastAction = projectOverviewSidebar.closed
         ? "closed-project-overview"
@@ -6223,6 +6268,22 @@
                 onclick={() => requestProjectDialog("review")}
                 ><PlusIcon aria-hidden="true" /></Button
               >
+            {:else if activeProjectSurface === "channels"}
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                aria-label="Add channel"
+                title="Add channel to project"
+                disabled={!authenticated ||
+                  projectOperation !== "" ||
+                  selectedProject.event.pubkey !== workspace.currentMemberId}
+                onclick={() =>
+                  requestProjectDialog(
+                    "channel",
+                    selectedProject.address.coordinate,
+                  )}><PlusIcon aria-hidden="true" /></Button
+              >
             {/if}
           </div>
           {#if activeProjectSurface === "overview"}
@@ -6339,6 +6400,14 @@
             )}
           {/if}
         {:else if activeChannelProject}
+          {#if isPluginReleaseRoom}
+            <div role="group" aria-label="Plugins">
+              <div class="community-application__project-overview-heading">
+                <strong>Plugins</strong>
+              </div>
+              {@render releaseOverviewItems()}
+            </div>
+          {/if}
           <div class="community-application__project-overview-heading">
             <strong>{activeChannelProject.name}</strong>
             {@render repositoryActionMenu()}
@@ -6461,8 +6530,15 @@
                 variant="ghost"
                 size="icon-sm"
                 aria-label="Add channel"
-                title="Select a project to add a channel"
-                disabled><PlusIcon aria-hidden="true" /></Button
+                title="Add channel to project"
+                disabled={!authenticated ||
+                  projectOperation !== "" ||
+                  !projectCatalog.projects.some(
+                    (project) =>
+                      project.event.pubkey === workspace.currentMemberId,
+                  )}
+                onclick={() => requestProjectDialog("channel")}
+                ><PlusIcon aria-hidden="true" /></Button
               >
             {/if}
           </div>
@@ -6658,7 +6734,7 @@
             : workspace.members.filter((member) =>
                 activeRoomMemberIds.includes(member.id),
               )}
-          rooms={allRooms}
+          rooms={presentationRooms}
           communityEmojis={community.state.settings.customEmojis}
           {...workspace.currentMemberId === undefined
             ? {}
@@ -7125,7 +7201,7 @@
           : workspace.members.filter((member) =>
               activeRoomMemberIds.includes(member.id),
             )}
-        rooms={allRooms}
+        rooms={presentationRooms}
         communityEmojis={community.state.settings.customEmojis}
         {...workspace.currentMemberId === undefined
           ? {}
@@ -7282,10 +7358,11 @@
                 community.actions.agents!.revokeManagedAgent(pubkey)}
               onDeleteManagedAgent={(pubkey) =>
                 community.actions.agents!.deleteManagedAgent(pubkey)}
-              rooms={allRooms.map((room) => ({
+              rooms={presentationRooms.map((room) => ({
                 id: room.id,
                 ...(room.groupId ? { groupId: room.groupId } : {}),
                 name: room.name,
+                isProjectChannel: room.isProjectChannel === true,
                 canManage: room.permissions?.manageMembers.state === "enabled",
               }))}
               onAddAgentToRoom={async (roomId, pubkey) => {
@@ -7407,7 +7484,7 @@
           <CommunityPulse
             model={community.state.pulse}
             currentMember={displayMember}
-            rooms={allRooms}
+            rooms={presentationRooms}
             communityEmojis={community.state.settings.customEmojis}
             {...pulsePublishOperation === undefined
               ? {}
@@ -7531,7 +7608,7 @@
               onLoadOlderDirectMessages: community.actions.loadDirectHistory,
             }
           : {}}
-        rooms={workspace.navigationSections.flatMap((section) => section.rooms)}
+        rooms={presentationRooms}
         disabled={participationReadOnly}
         disabledReason={participationReadOnlyReason}
         {...workspace.currentMemberId === undefined
@@ -7738,10 +7815,16 @@
           {#if isPluginReleaseRoom && shell.mobile.resolvedMode === "mobile"}
             <AppShell.Sidebar.Toggle
               side="right"
-              sidebarController={releaseOverviewSidebar}
-              sidebarName="plugin release overview"
+              sidebarController={activeChannelProject
+                ? projectOverviewSidebar
+                : releaseOverviewSidebar}
+              sidebarName={activeChannelProject
+                ? "project overview"
+                : "plugin release overview"}
               onclick={() => {
-                lastAction = "toggled-release-overview";
+                lastAction = activeChannelProject
+                  ? "toggled-project-overview"
+                  : "toggled-release-overview";
               }}
             />
           {/if}
@@ -7910,7 +7993,7 @@
                 ).name}
                 onOpenOwner={(pubkey) =>
                   openProfile(memberById(workspace.members, pubkey))}
-                rooms={allRooms}
+                rooms={presentationRooms}
                 {...community.state.agents?.presence[selectedAgent.pubkey]
                   ? {
                       presence:
@@ -8032,7 +8115,7 @@
             {#if community.state.agents && community.actions.agents}
               <CommunityAgentActivity
                 model={community.state.agents}
-                rooms={allRooms}
+                rooms={presentationRooms}
                 members={workspace.members}
                 onOpenRequest={(item) => {
                   const scope = observerScope(item.frame);
@@ -8195,9 +8278,7 @@
                 }}
                 activityContext={activityOrigin()}
                 members={workspace.members}
-                rooms={workspace.navigationSections.flatMap(
-                  (section) => section.rooms,
-                )}
+                rooms={presentationRooms}
                 disabled={participationReadOnly}
                 disabledReason={participationReadOnlyReason}
                 {...participationComposerStatus === undefined
@@ -8354,8 +8435,10 @@
       {/if}
     {/key}
   </AppShell.Sidebar>
-  {#if isPluginReleaseRoom && !activeChannelProject}
-    {@render releaseOverviewRail()}
+  {#if isPluginReleaseRoom}
+    {#if !activeChannelProject}
+      {@render releaseOverviewRail()}
+    {/if}
     {@render releaseSheet()}
   {/if}
   {#if isProjectsDestination || (activeChannelProject && usesRoomToolbar)}
@@ -8372,7 +8455,7 @@
     repositoryOptions={projectCatalog.repositories}
     repositoryCapabilities={projectRepositoryCapabilities}
     members={workspace.members}
-    rooms={allRooms}
+    rooms={presentationRooms}
     communityEmojis={community.state.settings.customEmojis}
     {...workspace.currentMemberId === undefined
       ? {}
@@ -8428,7 +8511,7 @@
 
 <CommunityRoomBrowser
   bind:open={roomBrowserOpen}
-  rooms={allRooms}
+  rooms={presentationRooms}
   initialKind={roomBrowserKind}
   canCreate={authenticated &&
     hasCommunityConnection &&

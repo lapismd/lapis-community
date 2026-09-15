@@ -1,4 +1,5 @@
 <script lang="ts">
+  import CommunityProjectChannelIcon from "../community-project-channel-icon/CommunityProjectChannelIcon.svelte";
   import { DialogFrame } from "@lapismd/design-core/forms/dialog";
   import { Button } from "@lapismd/design-core/shadcn/button";
   import * as Dialog from "@lapismd/design-core/shadcn/dialog";
@@ -190,6 +191,7 @@
         <div class="community-room-browser__room">
           {#if room.kind === "forum"}<MessagesSquareIcon
               aria-hidden="true"
+            />{:else if room.isProjectChannel}<CommunityProjectChannelIcon
             />{:else}<HashIcon aria-hidden="true" />{/if}
           <button type="button" onclick={() => onSelect(room)}
             ><strong>{room.name}</strong><small>{roomSummary(room)}</small

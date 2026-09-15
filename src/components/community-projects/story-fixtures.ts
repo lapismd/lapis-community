@@ -2,6 +2,7 @@ import type { NostrEvent, NostrEventTemplate } from "../../protocol/index.js";
 import {
   addRepositoryToProjectTemplate,
   createProjectTemplate,
+  materializeProjectForgeCatalog,
   createPullRequestTemplate,
   createRepositoryTemplate,
   createReviewDecisionTemplate,
@@ -574,7 +575,7 @@ export function createProjectStoryDataSource(
   empty = false,
 ): ProjectForgeDataSource {
   const fixture = createProjectStoryFixture(channelId);
-  const catalog: ProjectForgeCatalog = empty
+  let catalog: ProjectForgeCatalog = empty
     ? { projects: [], repositories: [], events: [] }
     : repositoryBackend === "github"
       ? {
@@ -592,7 +593,19 @@ export function createProjectStoryDataSource(
       const publish = async (template: NostrEventTemplate) => {
         if (!context.identity)
           throw new Error("The story project source is read-only");
-        return context.identity.signEvent(template);
+        const event = await context.identity.signEvent(template);
+        if (event.kind === 30621) {
+          const updated = materializeProjectForgeCatalog([
+            ...catalog.events,
+            event,
+          ]);
+          catalog = {
+            ...catalog,
+            projects: updated.projects,
+            events: updated.events,
+          };
+        }
+        return event;
       };
       return {
         relayUrl: context.relayUrl,

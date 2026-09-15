@@ -305,7 +305,14 @@
 
 <Story
   name="Command autocomplete"
-  args={{ ...commonArgs }}
+  args={{
+    ...commonArgs,
+    rooms: communityComposerStoryRooms.map((room) =>
+      room.id === "plugin-development"
+        ? { ...room, isProjectChannel: true }
+        : room,
+    ),
+  }}
   play={async ({ canvas, canvasElement }) => {
     const editor = canvas.getByRole("textbox", { name: "Markdown editor" });
     await userEvent.click(editor);
@@ -345,6 +352,9 @@
       name: /#plugin-development/,
     });
     await expect(channel).toBeVisible();
+    await expect(
+      channel.querySelector('[data-ui-part="project-channel-icon"]'),
+    ).toBeVisible();
     await userEvent.click(channel);
     await expect(editor).toHaveTextContent("#plugin-development");
     await userEvent.keyboard("{End} :ro");

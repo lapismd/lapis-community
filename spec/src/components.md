@@ -1,3 +1,28 @@
+For LC-UI-036, project channel selection MUST use the same shared project-channel
+icon as navigation: search results, room browsing, project and agent channel
+commands, and composer channel suggestions. The application MUST derive the
+optional CommunityRoomModel isProjectChannel hint from verified associations,
+reuse unchanged room objects, and remove the hint when associations disappear.
+Omitting the hint MUST preserve existing component rendering; forums and direct
+messages MUST retain their existing icons.
+
+For LC-UI-036, a plugin release channel associated with a project MUST show its
+existing Reviews and People actions in a top Plugins section of the project
+sidebar. It MUST use one overview sidebar, preserve the release detail surfaces,
+counts, dismissal and browser navigation, and route mobile overview controls to
+the project sidebar. Unassociated release channels MUST retain their standalone
+release overview.
+
+For LC-UI-036, task details MUST use the same content width and page gutters as
+commit details. Task descriptions MUST opt into CommunityMarkdownContent fullWidth
+so prose aligns with the parent column; other callers retain the default readable
+width. Project Channels add controls MUST open the shared searchable
+channel picker, allow owners to choose a project when needed, exclude already
+bound or archived channels, and publish additions through the existing signed
+project update action. Failed additions MUST keep the picker available for retry
+and report the error through an app toast; unrelated project metadata and
+existing channel associations MUST be preserved.
+
 # Community Components
 
 For LC-UI-036, the Docker application story MUST seed the same NIP-34 project,

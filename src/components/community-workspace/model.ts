@@ -43,6 +43,8 @@ export interface CommunityRoomModel {
   groupId?: string;
   name: string;
   kind: CommunityRoomKind;
+  /** Presentation hint derived from the verified project catalog; never grants access. */
+  isProjectChannel?: boolean;
   participantIds?: readonly string[];
   description?: string;
   unreadCount?: number;

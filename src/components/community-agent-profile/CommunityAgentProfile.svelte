@@ -1,4 +1,5 @@
 <script lang="ts">
+  import CommunityProjectChannelIcon from "../community-project-channel-icon/CommunityProjectChannelIcon.svelte";
   import type { CommunityMemberModel } from "../community-workspace/model.js";
   import CommunityAgentProcessingControl from "../community-agent-processing-control/CommunityAgentProcessingControl.svelte";
   import {
@@ -1009,6 +1010,7 @@
                       <CommandView.ItemIcon
                         >{#if room.private}<LockIcon
                             aria-hidden="true"
+                          />{:else if room.kind === "channel" && room.isProjectChannel}<CommunityProjectChannelIcon
                           />{:else}<HashIcon
                             aria-hidden="true"
                           />{/if}</CommandView.ItemIcon

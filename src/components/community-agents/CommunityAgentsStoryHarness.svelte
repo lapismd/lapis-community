@@ -35,13 +35,24 @@
     failAction = false,
     narrow = false,
     appShell = false,
+    projectChannels = false,
   }: {
     screen?: "gallery" | "profile" | "activity";
     variant?: string;
     failAction?: boolean;
     narrow?: boolean;
     appShell?: boolean;
+    projectChannels?: boolean;
   } = $props();
+  const presentationRooms = $derived(
+    projectChannels
+      ? storyAgentRooms.map((room) =>
+          room.id === "support"
+            ? { ...room, kind: "channel" as const, isProjectChannel: true }
+            : room,
+        )
+      : storyAgentRooms,
+  );
   onDestroy(() => toast.dismiss());
   const shell = new AppShellController({ rightClosed: true, rightWidth: 420 });
   let view = $state(untrack(() => screen));
@@ -388,10 +399,11 @@
       attempt();
       notice = "Managed agent deleted";
     }}
-    rooms={storyAgentRooms.map((room) => ({
+    rooms={presentationRooms.map((room) => ({
       id: room.id,
       groupId: `group-${room.id}`,
       name: room.name,
+      isProjectChannel: room.isProjectChannel === true,
       canManage: true,
     }))}
     onAddAgentToRoom={async (groupId) => {
@@ -427,8 +439,8 @@
           : "Unknown owner";
     }}
     rooms={variant === "denied"
-      ? storyAgentRooms.map(({ permissions, ...room }) => room)
-      : storyAgentRooms}
+      ? presentationRooms.map(({ permissions, ...room }) => room)
+      : presentationRooms}
     presence={model.presence[agent.pubkey] ?? { status: "unknown" }}
     working={Boolean(model.working[agent.pubkey])}
     canMessage={variant !== "no-encryption"}
@@ -555,7 +567,7 @@
   {/if}
   <CommunityAgentActivity
     {model}
-    rooms={storyAgentRooms}
+    rooms={presentationRooms}
     members={[
       {
         id: storyOwnerPubkey,

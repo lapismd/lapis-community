@@ -546,3 +546,35 @@
     }
   }}>{#snippet template()}<Harness screen="profile" />{/snippet}</Story
 >
+
+<Story
+  name="Project channel selection"
+  play={async ({ canvas, canvasElement }) => {
+    await userEvent.click(
+      canvas.getByRole("tab", { name: "Channels", exact: true }),
+    );
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Add to channel", exact: true }),
+    );
+    const dialog = within(canvasElement.ownerDocument.body).getByRole(
+      "dialog",
+      { name: "Add agent to channel" },
+    );
+    const room = within(dialog).getByRole("option", { name: /^support/u });
+    await expect(
+      room.querySelector('[data-ui-part="project-channel-icon"]'),
+    ).toBeVisible();
+    await userEvent.click(room);
+    await expect(
+      within(dialog).getByText("Selected channel: #support"),
+    ).toBeVisible();
+    await userEvent.click(
+      within(dialog).getByRole("button", { name: "Close add agent dialog" }),
+    );
+    await waitFor(() => expect(dialog).not.toBeInTheDocument());
+  }}
+  >{#snippet template()}<Harness
+      screen="profile"
+      projectChannels
+    />{/snippet}</Story
+>

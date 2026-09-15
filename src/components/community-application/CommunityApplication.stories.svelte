@@ -4311,3 +4311,129 @@
     <CommunityApplicationStoryHarness responsive />
   {/snippet}
 </Story>
+
+<Story
+  name="Attach channel from project overview"
+  play={async ({ canvas, canvasElement }) => {
+    const app = await canvas.findByTestId(
+      "full-community-application",
+      {},
+      { timeout: 15_000 },
+    );
+    if (app.dataset.communityBackend !== "memory") return;
+    const expand = canvas.queryByRole("button", {
+      name: "Expand left sidebar",
+    });
+    if (expand) await userEvent.click(expand);
+    await userEvent.click(await canvas.findByRole("tab", { name: "Channels" }));
+    const overview = await canvas.findByRole("navigation", {
+      name: "Project overview",
+    });
+    await userEvent.click(
+      within(overview).getByRole("button", { name: "Add channel" }),
+    );
+    const dialog = await within(canvasElement.ownerDocument.body).findByRole(
+      "dialog",
+      { name: "Add channel to Community Client" },
+    );
+    await userEvent.click(
+      within(dialog).getByRole("option", { name: /^#plugin-releases\b/u }),
+    );
+    await waitFor(() => expect(dialog).not.toBeInTheDocument());
+    const projects = canvasElement.querySelector<HTMLElement>(
+      '.community-projects[data-view="channels"]',
+    )!;
+    await expect(
+      await within(projects).findByRole("button", {
+        name: /^#plugin-releases\b/u,
+      }),
+    ).toBeVisible();
+    const channels = canvasElement.querySelector<HTMLElement>(
+      '[data-navigation-section-kind="channels"]',
+    )!;
+    await expect(
+      within(channels)
+        .getByRole("button", { name: "plugin-releases", exact: true })
+        .querySelector('[data-ui-part="project-channel-icon"]'),
+    ).toBeVisible();
+
+    await userEvent.click(
+      within(channels).getByRole("button", {
+        name: "plugin-releases",
+        exact: true,
+      }),
+    );
+    const projectOverview = await canvas.findByRole("navigation", {
+      name: "Project overview",
+    });
+    const plugins = within(projectOverview).getByRole("group", {
+      name: "Plugins",
+    });
+    await expect(plugins).toBeVisible();
+    await expect(projectOverview.firstElementChild).toBe(plugins);
+    await expect(
+      canvas.queryByLabelText("Plugin release overview sidebar"),
+    ).not.toBeInTheDocument();
+    await expect(
+      within(projectOverview).getByText("Community Client", { exact: true }),
+    ).toBeVisible();
+    await userEvent.click(
+      within(plugins).getByRole("button", { name: /^Reviews/u }),
+    );
+    await expect(
+      await canvas.findByRole("heading", { name: "Reviews", level: 1 }),
+    ).toBeVisible();
+    await expect(projectOverview).not.toBeVisible();
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Close Reviews" }),
+    );
+    await expect(plugins).toBeVisible();
+    await userEvent.click(
+      within(plugins).getByRole("button", { name: /^People/u }),
+    );
+    await expect(
+      await canvas.findByRole("heading", { name: "People", level: 1 }),
+    ).toBeVisible();
+    await userEvent.click(canvas.getByRole("button", { name: "Close People" }));
+    await expect(plugins).toBeVisible();
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Back", exact: true }),
+    );
+    await expect(
+      await canvas.findByRole("heading", { name: "People", level: 1 }),
+    ).toBeVisible();
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Forward", exact: true }),
+    );
+    await expect(plugins).toBeVisible();
+
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Search community" }),
+    );
+    const searchDialog = await within(
+      canvasElement.ownerDocument.body,
+    ).findByRole("dialog", { name: "Search community" });
+    await userEvent.type(
+      within(searchDialog).getByLabelText("Search community"),
+      "plugin-releases",
+    );
+    const releaseResult = await within(searchDialog).findByRole("option", {
+      name: /^plugin-releases\b/u,
+    });
+    await expect(
+      releaseResult.querySelector('[data-ui-part="project-channel-icon"]'),
+    ).toBeVisible();
+    await userEvent.click(releaseResult);
+    await waitFor(() => expect(searchDialog).not.toBeInTheDocument());
+    await expect(plugins).toBeVisible();
+  }}
+>
+  {#snippet template()}
+    <CommunityApplicationStoryHarness
+      namespace="attach-project-channel"
+      projects
+      releaseMessages
+      initialDestination="projects"
+    />
+  {/snippet}
+</Story>

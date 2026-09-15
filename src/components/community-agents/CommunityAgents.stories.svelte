@@ -116,6 +116,16 @@
         '[data-ui-component="command-view"][data-ui-part="root"]',
       ),
     ).toBeVisible();
+    await expect(
+      within(dialog)
+        .getByRole("option", { name: "support" })
+        .querySelector('[data-ui-part="project-channel-icon"]'),
+    ).toBeVisible();
+    await expect(
+      within(dialog)
+        .getByRole("option", { name: "general" })
+        .querySelector('[data-ui-part="project-channel-icon"]'),
+    ).toBeNull();
     await userEvent.type(channelPicker, "general");
     await userEvent.keyboard("{ArrowDown}{Enter}");
     await expect(
@@ -139,7 +149,11 @@
     await expect(within(dialog).getByText(/"group-general"/)).toBeVisible();
     await userEvent.click(within(dialog).getByRole("button", { name: "Done" }));
   }}
-  >{#snippet template()}<Harness appShell variant="gallery" />{/snippet}</Story
+  >{#snippet template()}<Harness
+      appShell
+      variant="gallery"
+      projectChannels
+    />{/snippet}</Story
 >
 <Story
   name="Link existing agent"

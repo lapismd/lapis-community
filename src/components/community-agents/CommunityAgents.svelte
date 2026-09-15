@@ -1,4 +1,5 @@
 <script lang="ts">
+  import CommunityProjectChannelIcon from "../community-project-channel-icon/CommunityProjectChannelIcon.svelte";
   import { toast } from "svelte-sonner";
   import type { CommunityMemberModel } from "../community-workspace/model.js";
   import { onMount, onDestroy } from "svelte";
@@ -121,6 +122,7 @@
       groupId?: string;
       name: string;
       canManage: boolean;
+      isProjectChannel?: boolean;
     }[];
     onAddAgentToRoom?: (roomId: string, pubkey: string) => Promise<void>;
     ownerPubkey?: string;
@@ -1114,11 +1116,13 @@
                               roomQuery = "";
                             }}
                           >
-                            <CommandView.ItemIcon
-                              ><HashIcon
-                                aria-hidden="true"
-                              /></CommandView.ItemIcon
-                            >
+                            <CommandView.ItemIcon>
+                              {#if room.isProjectChannel}
+                                <CommunityProjectChannelIcon />
+                              {:else}
+                                <HashIcon aria-hidden="true" />
+                              {/if}
+                            </CommandView.ItemIcon>
                             <CommandView.ItemLabel
                               >{room.name}</CommandView.ItemLabel
                             >

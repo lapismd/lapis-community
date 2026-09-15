@@ -1,4 +1,6 @@
 <script lang="ts">
+  import CommunityProjectChannelIcon from "../community-project-channel-icon/CommunityProjectChannelIcon.svelte";
+  import { toast } from "svelte-sonner";
   import CommunitySkeleton from "../community-skeleton/CommunitySkeleton.svelte";
   import { DialogFrame } from "@lapismd/design-core/forms/dialog";
   import {
@@ -240,6 +242,10 @@
   let projectDialogProject = $state<ProjectForgeProject>();
   let handledDialogRequestId = 0;
   let projectChannelCommandOpen = $state(false);
+  let projectChannelCommandMode = $state<"home" | "attach">("home");
+  let channelAttachmentProject = $state("");
+  let channelAttachmentPending = $state("");
+  const channelAttachmentToastId = $props.id();
   let mineProjectsOpen = $state(true);
   let otherProjectsOpen = $state(true);
   let mineRepositoriesOpen = $state(true);
@@ -448,6 +454,36 @@
   );
   const availableProjectChannels = $derived(
     rooms.filter((room) => room.kind === "channel" && !room.archived),
+  );
+  const channelAttachmentProjects = $derived(
+    projects.filter((project) => project.event.pubkey === currentMemberId),
+  );
+  const channelAttachmentTarget = $derived(
+    channelAttachmentProjects.find(
+      (project) => project.address.coordinate === channelAttachmentProject,
+    ),
+  );
+  const projectChannelIds = $derived(
+    new Set(
+      projects.flatMap((project) =>
+        projectForgeBoundChannels(project, repositories).map(
+          (binding) => binding.channelId,
+        ),
+      ),
+    ),
+  );
+  const channelCommandOptions = $derived(
+    projectChannelCommandMode === "attach" && channelAttachmentTarget
+      ? availableProjectChannels.filter(
+          (room) =>
+            !projectForgeBoundChannels(
+              channelAttachmentTarget,
+              repositories,
+            ).some(
+              (binding) => binding.channelId === (room.groupId ?? room.id),
+            ),
+        )
+      : availableProjectChannels,
   );
   const repositorySources = $derived(
     repositories.filter(
@@ -807,6 +843,8 @@
     if (!request || request.id === handledDialogRequestId) return;
     handledDialogRequestId = request.id;
     if (request.kind === "project") openProjectDialog();
+    if (request.kind === "channel")
+      openChannelAttachment(request.projectCoordinate);
     if (request.kind === "edit-project")
       openProjectDialog(
         projects.find(
@@ -1359,6 +1397,61 @@
         cause instanceof Error
           ? cause.message
           : "The repository could not be connected to GitHub";
+    }
+  }
+
+  function openChannelAttachment(
+    projectCoordinate = selectedProject?.address.coordinate,
+  ): void {
+    if (!canCollaborate || !onUpdateProject || busy || channelAttachmentPending)
+      return;
+    projectChannelCommandMode = "attach";
+    channelAttachmentProject =
+      channelAttachmentProjects.find(
+        (project) => project.address.coordinate === projectCoordinate,
+      )?.address.coordinate ??
+      (channelAttachmentProjects.length === 1
+        ? channelAttachmentProjects[0]!.address.coordinate
+        : "");
+    projectChannelCommandOpen = true;
+  }
+
+  async function attachProjectChannel(
+    channel: CommunityRoomModel,
+  ): Promise<void> {
+    const project = channelAttachmentTarget;
+    if (
+      !project ||
+      !onUpdateProject ||
+      !canCollaborate ||
+      busy ||
+      channelAttachmentPending
+    )
+      return;
+    channelAttachmentPending = channel.id;
+    toast.dismiss(channelAttachmentToastId);
+    try {
+      await onUpdateProject(project, {
+        name: project.name,
+        description: project.description,
+        channelId: project.channelId,
+        listing: project.listing,
+        relatedChannelIds: [
+          ...new Set([
+            ...project.relatedChannelIds,
+            channel.groupId ?? channel.id,
+          ]),
+        ],
+      });
+      projectChannelCommandOpen = false;
+    } catch (cause) {
+      toast.error("Channel could not be added", {
+        id: channelAttachmentToastId,
+        description:
+          cause instanceof Error ? cause.message : "Please try again.",
+      });
+    } finally {
+      channelAttachmentPending = "";
     }
   }
 
@@ -2676,10 +2769,14 @@
             size="icon-sm"
             class="community-projects__surface-create"
             aria-label="Add channel"
-            title={selectedProject
-              ? "Channel attachment is not available yet"
-              : "Select a project to add a channel"}
-            disabled
+            title="Add channel to project"
+            disabled={!canCollaborate ||
+              busy ||
+              !onUpdateProject ||
+              channelAttachmentProjects.length === 0 ||
+              (selectedProject !== undefined &&
+                selectedProject.event.pubkey !== currentMemberId)}
+            onclick={() => openChannelAttachment()}
           >
             <PlusIcon aria-hidden="true" />
           </Button>
@@ -3419,6 +3516,7 @@
                   class="community-projects__task-description-content"
                 >
                   <CommunityMarkdownContent
+                    fullWidth
                     content={selectedTask.content}
                     {members}
                     {rooms}
@@ -5577,7 +5675,10 @@
             class="community-projects__project-option community-projects__project-channel-trigger"
             aria-haspopup="dialog"
             aria-expanded={projectChannelCommandOpen}
-            onclick={() => (projectChannelCommandOpen = true)}
+            onclick={() => {
+              projectChannelCommandMode = "home";
+              projectChannelCommandOpen = true;
+            }}
           >
             <span>Project channel</span>
             <span class="community-projects__project-option-choice">
@@ -5634,34 +5735,80 @@
 
 <Dialog.Root bind:open={projectChannelCommandOpen}
   ><DialogFrame
-    title="Choose a project channel"
-    description="Search the Community channels available to this project."
+    title={projectChannelCommandMode === "home"
+      ? "Choose a project channel"
+      : channelAttachmentTarget
+        ? `Add channel to ${channelAttachmentTarget.name}`
+        : "Choose a project"}
+    description={channelAttachmentPending
+      ? "Adding channel…"
+      : projectChannelCommandMode === "attach" && !channelAttachmentTarget
+        ? "Select the project that will include this channel."
+        : "Search the Community channels available to this project."}
     size="form"
     bodyPadding="none"
-    ><Command.Root class="community-projects__channel-command">
-      <Command.Input
-        placeholder="Search channels"
-        aria-label="Search channels"
-        aria-controls="community-project-channel-command-list"
-      />
-      <Command.List id="community-project-channel-command-list">
-        <Command.Empty>No channels found.</Command.Empty>
-        <Command.Group heading="Channels">
-          {#each availableProjectChannels as channel (channel.id)}
-            <Command.Item
-              value={`${channel.name} ${channel.groupId ?? channel.id}`}
-              onSelect={() => selectProjectChannel(channel)}
-            >
-              <HashIcon aria-hidden="true" />
-              <span class="community-projects__channel-command-copy">
-                <strong>#{channel.name}</strong>
-                <small>{channel.private ? "Private" : "Public"}</small>
-              </span>
-            </Command.Item>
-          {/each}
-        </Command.Group>
-      </Command.List>
-    </Command.Root></DialogFrame
+    >{#key `${projectChannelCommandMode}:${channelAttachmentProject}`}<Command.Root
+        class="community-projects__channel-command"
+        aria-busy={channelAttachmentPending !== ""}
+      >
+        <Command.Input
+          placeholder={projectChannelCommandMode === "attach" &&
+          !channelAttachmentTarget
+            ? "Search projects"
+            : "Search channels"}
+          aria-label={projectChannelCommandMode === "attach" &&
+          !channelAttachmentTarget
+            ? "Search projects"
+            : "Search channels"}
+          aria-controls="community-project-channel-command-list"
+        />
+        <Command.List id="community-project-channel-command-list">
+          <Command.Empty
+            >{projectChannelCommandMode === "attach" && !channelAttachmentTarget
+              ? "No projects available."
+              : projectChannelCommandMode === "home"
+                ? "No channels found."
+                : "No additional channels available."}</Command.Empty
+          >
+          {#if projectChannelCommandMode === "attach" && !channelAttachmentTarget}
+            <Command.Group heading="Your projects">
+              {#each channelAttachmentProjects as project (project.address.coordinate)}
+                <Command.Item
+                  value={project.name}
+                  onSelect={() =>
+                    (channelAttachmentProject = project.address.coordinate)}
+                >
+                  <FolderKanbanIcon aria-hidden="true" />
+                  {project.name}
+                </Command.Item>
+              {/each}
+            </Command.Group>
+          {:else}
+            <Command.Group heading="Channels">
+              {#each channelCommandOptions as channel (channel.id)}
+                <Command.Item
+                  value={`${channel.name} ${channel.groupId ?? channel.id}`}
+                  disabled={busy || channelAttachmentPending !== ""}
+                  onSelect={() =>
+                    projectChannelCommandMode === "home"
+                      ? selectProjectChannel(channel)
+                      : void attachProjectChannel(channel)}
+                >
+                  {#if channel.isProjectChannel || projectChannelIds.has(channel.groupId ?? channel.id)}
+                    <CommunityProjectChannelIcon />
+                  {:else}
+                    <HashIcon aria-hidden="true" />
+                  {/if}
+                  <span class="community-projects__channel-command-copy">
+                    <strong>#{channel.name}</strong>
+                    <small>{channel.private ? "Private" : "Public"}</small>
+                  </span>
+                </Command.Item>
+              {/each}
+            </Command.Group>
+          {/if}
+        </Command.List>
+      </Command.Root>{/key}</DialogFrame
   ></Dialog.Root
 >
 

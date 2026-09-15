@@ -26,6 +26,7 @@
         id: "general",
         name: "lapis-general",
         kind: "channel",
+        isProjectChannel: true,
         lastActivityAt: "2026-09-11T12:00:00.000Z",
       },
       {
@@ -124,6 +125,14 @@
     const recentGeneral = overlay.getByRole("option", {
       name: /^lapis-general/u,
     });
+    await expect(
+      recentGeneral.querySelector('[data-ui-part="project-channel-icon"]'),
+    ).toBeVisible();
+    await expect(
+      overlay
+        .getByRole("option", { name: /^announcements/u })
+        .querySelector('[data-ui-part="project-channel-icon"]'),
+    ).toBeNull();
     const recentActivityTime = recentGeneral.querySelector<HTMLElement>(
       '[data-ui-part="trailing"]',
     );

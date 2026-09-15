@@ -175,16 +175,17 @@
       "story": "community-patterns-markdown--contract",
       "storyFile": "src/components/community-patterns/Markdown.stories.svelte",
       "requirement": "LC-UI-038",
-      "variants": ["prose", "mentions", "links"],
+      "variants": ["prose", "mentions", "links", "full-width"],
       "requiredStates": ["formatted-text", "links"],
       "loading": {
         "applicable": false,
         "states": [],
         "reason": "Page loading is demonstrated by the Loading pattern; this composition does not fetch data."
       },
-      "when": "Prose outside a conversation; conversation posts use CommunityMessage or CommunityConversation.",
+      "when": "Prose outside a conversation; set fullWidth to align with the parent column. Conversation posts use CommunityMessage or CommunityConversation.",
       "productionStories": [
-        "community-channels-markdown-content--chat-markdown-matrix"
+        "community-channels-markdown-content--chat-markdown-matrix",
+        "community-channels-markdown-content--full-width-document"
       ],
       "verification": {
         "formatted-text": "community-patterns-markdown--contract",

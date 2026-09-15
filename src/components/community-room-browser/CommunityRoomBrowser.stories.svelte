@@ -19,6 +19,7 @@
         id: "general",
         name: "general",
         kind: "channel",
+        isProjectChannel: true,
         membership: "joined",
       },
       {
@@ -56,6 +57,17 @@
     ).toHaveAttribute("data-state", "active");
     await expect(overlay.getByRole("tab", { name: "Joined" })).toBeVisible();
     await expect(overlay.getByRole("tab", { name: "Archived" })).toBeVisible();
+    const general = overlay.getByRole("button", { name: /^general\b/u });
+    await expect(
+      general.parentElement!.querySelector(
+        '[data-ui-part="project-channel-icon"]',
+      ),
+    ).toBeVisible();
+    await expect(
+      overlay
+        .getByRole("button", { name: /^help\b/u })
+        .parentElement!.querySelector('[data-ui-part="project-channel-icon"]'),
+    ).toBeNull();
     const leave = overlay.getByRole("button", { name: "Leave general" });
     await expect(leave).toHaveAttribute("data-variant", "destructive");
     await userEvent.click(leave);

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import CommunityProjectChannelIcon from "../community-project-channel-icon/CommunityProjectChannelIcon.svelte";
   import { serializeCommunityMentions } from "./model.js";
   import { DialogFrame } from "@lapismd/design-core/forms/dialog";
   import "@lapismd/mira/styles.css";
@@ -826,7 +827,11 @@
                     decorative
                   />
                 {:else if item.room}
-                  <HashIcon aria-hidden="true" />
+                  {#if item.room.kind === "channel" && item.room.isProjectChannel}
+                    <CommunityProjectChannelIcon />
+                  {:else}
+                    <HashIcon aria-hidden="true" />
+                  {/if}
                 {:else if item.customEmoji}
                   <img
                     src={item.customEmoji.url}

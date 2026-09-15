@@ -1,4 +1,5 @@
 <script lang="ts">
+  import CommunityProjectChannelIcon from "../community-project-channel-icon/CommunityProjectChannelIcon.svelte";
   import { Button } from "@lapismd/design-core/shadcn/button";
   import * as CommandView from "@lapismd/design-core/shadcn/command-view";
   import * as Dialog from "@lapismd/design-core/shadcn/dialog";
@@ -360,6 +361,8 @@
                       <MessagesSquareIcon aria-hidden="true" />
                     {:else if room.kind === "direct"}
                       <CircleUserRoundIcon aria-hidden="true" />
+                    {:else if room.isProjectChannel}
+                      <CommunityProjectChannelIcon />
                     {:else}
                       <HashIcon aria-hidden="true" />
                     {/if}

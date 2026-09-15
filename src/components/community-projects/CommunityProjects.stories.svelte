@@ -899,6 +899,12 @@ index 3333333..4444444 100644
     view: "channels",
     rooms: [
       {
+        id: "release-room",
+        groupId: "plugin-releases",
+        name: "plugin-releases",
+        kind: "channel",
+      },
+      {
         id: "general",
         groupId: fixture.project.channelId,
         name: "general",
@@ -965,6 +971,51 @@ index 3333333..4444444 100644
         relatedChannelIds: [],
       },
     );
+
+    await waitFor(() =>
+      expect(
+        getComputedStyle(canvas.getByRole("button", { name: "Add channel" }))
+          .pointerEvents,
+      ).not.toBe("none"),
+    );
+    onRemoveProjectChannel.mockRejectedValueOnce(
+      new Error("Relay rejected the project update"),
+    );
+    await userEvent.click(canvas.getByRole("button", { name: "Add channel" }));
+    const overlay = within(canvasElement.ownerDocument.body);
+    const dialog = await overlay.findByRole("dialog", {
+      name: "Add channel to Community Client",
+    });
+    await expect(
+      within(dialog).queryByRole("option", { name: /#general/u }),
+    ).toBeNull();
+    await expect(
+      within(dialog).queryByRole("option", { name: /#support/u }),
+    ).toBeNull();
+    await userEvent.click(
+      within(dialog).getByRole("option", { name: /#plugin-releases/u }),
+    );
+    await waitFor(() =>
+      expect(overlay.getByText("Channel could not be added")).toBeVisible(),
+    );
+    await expect(dialog).toBeVisible();
+    await userEvent.click(
+      within(dialog).getByRole("option", { name: /#plugin-releases/u }),
+    );
+    await waitFor(() => expect(dialog).not.toBeInTheDocument());
+    await expect(onRemoveProjectChannel).toHaveBeenLastCalledWith(
+      fixture.project,
+      {
+        name: fixture.project.name,
+        description: fixture.project.description,
+        channelId: fixture.project.channelId,
+        listing: fixture.project.listing,
+        relatedChannelIds: [
+          ...fixture.project.relatedChannelIds,
+          "plugin-releases",
+        ],
+      },
+    );
   }}
 />
 
@@ -996,7 +1047,29 @@ index 3333333..4444444 100644
     onAddTaskComment,
     onUpdateTaskLifecycle,
   }}
-  play={async ({ canvas }) => {
+  play={async ({ canvas, canvasElement }) => {
+    const detail = canvasElement.querySelector<HTMLElement>(
+      ".community-projects__task-detail",
+    )!;
+    const rootFontSize = Number.parseFloat(
+      getComputedStyle(document.documentElement).fontSize,
+    );
+    const availableWidth = detail.parentElement!.getBoundingClientRect().width;
+    await expect(detail.getBoundingClientRect().width).toBeCloseTo(
+      Math.min(availableWidth, 76 * rootFontSize),
+      0,
+    );
+    await expect(
+      Number.parseFloat(getComputedStyle(detail).paddingInlineStart),
+    ).toBeCloseTo(1.25 * rootFontSize, 1);
+    const description = detail.querySelector<HTMLElement>(
+      ".community-projects__task-description-content",
+    )!;
+    await expect(
+      canvas
+        .getByText("Keep the shell shape aligned with plugin releases.")
+        .getBoundingClientRect().left,
+    ).toBeCloseTo(description.getBoundingClientRect().left, 0);
     await expect(
       canvas.getByRole("heading", { name: /Polish the project overview rail/ }),
     ).toBeVisible();
@@ -1717,5 +1790,87 @@ index 3333333..4444444 100644
   args={{ view: "people" }}
   globals={{
     viewport: { value: "mobile2", isRotated: false },
+  }}
+/>
+
+<Story
+  name="Channel attachment requires owner"
+  args={{
+    view: "channels",
+    currentMemberId: projectStoryAuthor,
+    onUpdateProject: onRemoveProjectChannel,
+  }}
+  play={async ({ canvas }) => {
+    await expect(
+      canvas.getByRole("button", { name: "Add channel" }),
+    ).toBeDisabled();
+  }}
+/>
+
+<Story
+  name="Choose project for channel attachment"
+  args={{
+    view: "channels",
+    selectedProject: undefined,
+    projects: [
+      fixture.project,
+      {
+        ...fixture.project,
+        name: "Documentation",
+        address: {
+          ...fixture.project.address,
+          coordinate: `${fixture.project.address.coordinate}-docs`,
+        },
+      },
+    ],
+    currentMemberId: projectStoryOwner,
+    rooms: [
+      {
+        id: "spare",
+        groupId: "spare-channel",
+        name: "spare",
+        kind: "channel",
+        isProjectChannel: true,
+      },
+      { id: "archived", name: "archived", kind: "channel", archived: true },
+    ],
+    onUpdateProject: onRemoveProjectChannel,
+  }}
+  play={async ({ canvas, canvasElement }) => {
+    onRemoveProjectChannel.mockClear();
+    await userEvent.click(canvas.getByRole("button", { name: "Add channel" }));
+    const overlay = within(canvasElement.ownerDocument.body);
+    const chooser = await overlay.findByRole("dialog", {
+      name: "Choose a project",
+    });
+    await userEvent.type(
+      within(chooser).getByRole("combobox"),
+      "Documentation",
+    );
+    await userEvent.click(
+      within(chooser).getByRole("option", { name: "Documentation" }),
+    );
+    const dialog = await overlay.findByRole("dialog", {
+      name: "Add channel to Documentation",
+    });
+    await expect(within(dialog).getByRole("combobox")).toHaveValue("");
+    await expect(
+      within(dialog).queryByRole("option", { name: /archived/u }),
+    ).toBeNull();
+    const spare = within(dialog).getByRole("option", { name: /^#spare\b/u });
+    await expect(
+      spare.querySelector('[data-ui-part="project-channel-icon"]'),
+    ).toBeVisible();
+    await userEvent.click(spare);
+    await waitFor(() => expect(dialog).not.toBeInTheDocument());
+    await expect(onRemoveProjectChannel).toHaveBeenCalledWith(
+      expect.objectContaining({ name: "Documentation" }),
+      expect.objectContaining({
+        relatedChannelIds: [
+          ...fixture.project.relatedChannelIds,
+          "spare-channel",
+        ],
+      }),
+    );
   }}
 />
