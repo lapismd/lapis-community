@@ -109,6 +109,8 @@
   let runtimeError = $state("");
   let registrySource = $state.raw(createRegistryStoryDataSource());
   let projectSessionOpenCount = $state(0);
+  let projectWorkItemReadCount = $state(0);
+  let projectWorkItemSubscribeCount = $state(0);
   let projectSource = $state.raw<ProjectForgeDataSource>(
     observeProjectSource(createProjectStoryDataSource()),
   );
@@ -233,7 +235,24 @@
     return {
       async open(context, signal) {
         projectSessionOpenCount += 1;
-        return await source.open(context, signal);
+        const session = await source.open(context, signal);
+        return new Proxy(session, {
+          get(target, property) {
+            if (property === "loadWorkItems")
+              return (...args: Parameters<typeof session.loadWorkItems>) => {
+                projectWorkItemReadCount += 1;
+                return target.loadWorkItems(...args);
+              };
+            if (property === "subscribe")
+              return (...args: Parameters<typeof session.subscribe>) => {
+                if (args[0].some((filter) => filter.limit === 0))
+                  projectWorkItemSubscribeCount += 1;
+                return target.subscribe(...args);
+              };
+            const value = Reflect.get(target, property, target);
+            return typeof value === "function" ? value.bind(target) : value;
+          },
+        });
       },
     };
   }
@@ -275,6 +294,8 @@
       storyInviteUri = "";
       installedPluginIds = [];
       projectSessionOpenCount = 0;
+      projectWorkItemReadCount = 0;
+      projectWorkItemSubscribeCount = 0;
       projectSource = observeProjectSource(
         createProjectStoryDataSource(
           namespace ? `general-${namespace}` : "general",
@@ -646,6 +667,8 @@
       data-story-invite-uri={storyInviteUri}
       data-application-generation={applicationGeneration}
       data-project-session-open-count={projectSessionOpenCount}
+      data-project-work-item-read-count={projectWorkItemReadCount}
+      data-project-work-item-subscribe-count={projectWorkItemSubscribeCount}
       data-story-relay-auth-sign-out-count={relayAuthSignOutCount}
       data-story-relay-auth-sign-out-controller-status={relayAuthSignOutControllerStatus}
       data-story-controller-auth-status={community.state.authentication.status}

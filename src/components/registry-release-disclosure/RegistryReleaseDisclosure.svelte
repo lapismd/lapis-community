@@ -48,6 +48,7 @@
   let contentError = $state("");
   let acceptedPlugin = $state(false);
   let revision = $state.raw({});
+  let inspectionRevision = $state.raw({});
   let capabilities = $state<RegistryReleaseManagementCapabilities>();
   let confirmingAction = $state<RegistryReleaseManagementAction>();
   let performingAction = $state(false);
@@ -64,7 +65,7 @@
 
   $effect(() => {
     if (source.loadReleaseInspection === undefined) return;
-    revision;
+    inspectionRevision;
     const controller = new AbortController();
     let active = true;
     loading = true;
@@ -123,8 +124,9 @@
 
   $effect(() => {
     if (source.subscribe === undefined) return;
-    return source.subscribe(() => {
+    return source.subscribe((event) => {
       revision = {};
+      if (event.type === "revision") inspectionRevision = {};
     });
   });
 
@@ -249,6 +251,7 @@
       toast.success(`${actionLabel(action)} completed`);
       confirmingAction = undefined;
       revision = {};
+      inspectionRevision = {};
     } catch (cause) {
       throw cause instanceof Error
         ? cause

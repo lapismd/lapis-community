@@ -153,6 +153,33 @@ export function createNip29RegistryCatalogDataSource(
   let current: CurrentProjection | undefined;
   let currentEvents: NostrEvent[] = [];
   let candidateEvents: NostrEvent[] = [];
+  let inspectionInputs: readonly unknown[] = [];
+  let inspectionPendingRevision = 0;
+  let inspectionSnapshot: {
+    events: NostrEvent[];
+    inspections: Map<string, Promise<RegistryReleaseInspection | undefined>>;
+    reviews?: Promise<readonly RegistryReleaseReviewEntry[]> | undefined;
+  } = { events: [], inspections: new Map() };
+
+  function releaseInspectionSnapshot() {
+    const inputs = [candidateEvents, currentEvents, inspectionPendingRevision];
+    if (inputs.some((input, index) => input !== inspectionInputs[index])) {
+      inspectionInputs = inputs;
+      const events = mergeEvents(candidateEvents, currentEvents, [
+        ...pendingEvents.values(),
+      ]);
+      if (
+        events.length !== inspectionSnapshot.events.length ||
+        events.some(
+          (event, index) => event.id !== inspectionSnapshot.events[index]?.id,
+        )
+      ) {
+        inspectionSnapshot = { events, inspections: new Map() };
+      }
+    }
+    return inspectionSnapshot;
+  }
+
   let state: RegistryCatalogSourceStatus = {
     phase: "loading",
     fresh: false,
@@ -227,6 +254,7 @@ export function createNip29RegistryCatalogDataSource(
           await authenticateRegistryRelay(relay, readerSigner, signal);
           const handlers = {
             onevent(event: NostrEvent) {
+              if (!pendingEvents.has(event.id)) inspectionPendingRevision += 1;
               pendingEvents.set(event.id, event);
               scheduleLiveProjection();
             },
@@ -394,7 +422,10 @@ export function createNip29RegistryCatalogDataSource(
 
   function removePendingEvents(events: readonly NostrEvent[]): void {
     for (const event of events) {
-      if (pendingEvents.get(event.id) === event) pendingEvents.delete(event.id);
+      if (pendingEvents.get(event.id) === event) {
+        pendingEvents.delete(event.id);
+        inspectionPendingRevision += 1;
+      }
     }
   }
 
@@ -1133,9 +1164,41 @@ export function createNip29RegistryCatalogDataSource(
       if (loadOptions?.signal?.aborted || isAbortError(cause)) throw cause;
       // Candidate events captured before a failed projection remain inspectable.
     }
-    const events = mergeEvents(candidateEvents, currentEvents, [
-      ...pendingEvents.values(),
-    ]);
+    return await waitForSignal(
+      inspectRelease(releaseInspectionSnapshot(), eventId),
+      loadOptions?.signal,
+    );
+  }
+
+  function inspectRelease(
+    snapshot: typeof inspectionSnapshot,
+    eventId: string,
+  ) {
+    let pending = snapshot.inspections.get(eventId);
+    if (!pending) {
+      pending = buildReleaseInspection(eventId, snapshot.events).then(
+        (inspection) => {
+          // Transient attachment errors are retryable without a signed-event change.
+          if (inspection?.state === "unavailable")
+            snapshot.inspections.delete(eventId);
+          return inspection;
+        },
+        (error) => {
+          snapshot.inspections.delete(eventId);
+          throw error;
+        },
+      );
+      snapshot.inspections.set(eventId, pending);
+    }
+    return pending;
+  }
+
+  async function buildReleaseInspection(
+    eventId: string,
+    events: NostrEvent[],
+  ): Promise<RegistryReleaseInspection | undefined> {
+    const signal = lifecycleController.signal;
+    signal.throwIfAborted();
     const event = events.find((candidate) => candidate.id === eventId);
     if (event === undefined) return undefined;
     const candidate = recognizeRegistryReleaseCandidate(
@@ -1173,10 +1236,9 @@ export function createNip29RegistryCatalogDataSource(
           mediaAuthSigner: signEvent,
           relayUrls,
           blossomUrls,
-          ...(loadOptions?.signal === undefined
-            ? {}
-            : { signal: loadOptions.signal }),
+          signal,
         });
+        signal.throwIfAborted();
         document = fetched[0]!;
         manifestBytes.set(document.attachmentSha256, document.bytes);
       } else {
@@ -1190,7 +1252,7 @@ export function createNip29RegistryCatalogDataSource(
         authorities,
       );
     } catch (cause) {
-      if (loadOptions?.signal?.aborted || isAbortError(cause)) throw cause;
+      if (signal.aborted || isAbortError(cause)) throw cause;
       const message =
         cause instanceof Error
           ? cause.message
@@ -1215,6 +1277,48 @@ export function createNip29RegistryCatalogDataSource(
         diagnostic,
       );
     }
+  }
+
+  async function buildReleaseReviews(
+    snapshot: typeof inspectionSnapshot,
+  ): Promise<readonly RegistryReleaseReviewEntry[]> {
+    const events = snapshot.events;
+    const releaseEvents = events
+      .filter(
+        (event) =>
+          recognizeRegistryReleaseCandidate(event, authorities, events) !==
+          undefined,
+      )
+      .toSorted((left, right) =>
+        left.created_at === right.created_at
+          ? left.id.localeCompare(right.id)
+          : right.created_at - left.created_at,
+      );
+    const entries = await Promise.all(
+      releaseEvents.map(async (releaseEvent) => {
+        const inspection = await inspectRelease(snapshot, releaseEvent.id);
+        if (inspection === undefined) return [];
+        const curatorDecisionEvents = events
+          .filter(
+            (event) =>
+              authorities.curatorPubkeys.has(event.pubkey) &&
+              parseNip29CuratorDecision(event, releaseEvent.id) !== undefined,
+          )
+          .toSorted((left, right) =>
+            left.created_at === right.created_at
+              ? left.id.localeCompare(right.id)
+              : right.created_at - left.created_at,
+          );
+        return [
+          {
+            releaseEvent,
+            inspection,
+            curatorDecisionEvents,
+          } satisfies RegistryReleaseReviewEntry,
+        ];
+      }),
+    );
+    return entries.flat();
   }
 
   return {
@@ -1269,48 +1373,19 @@ export function createNip29RegistryCatalogDataSource(
         if (loadOptions?.signal?.aborted || isAbortError(cause)) throw cause;
         // Preserve the same degraded-read behavior as release inspection.
       }
-      const events = mergeEvents(candidateEvents, currentEvents, [
-        ...pendingEvents.values(),
-      ]);
-      const releaseEvents = events
-        .filter(
-          (event) =>
-            recognizeRegistryReleaseCandidate(event, authorities, events) !==
-            undefined,
-        )
-        .toSorted((left, right) =>
-          left.created_at === right.created_at
-            ? left.id.localeCompare(right.id)
-            : right.created_at - left.created_at,
-        );
-      const entries = await Promise.all(
-        releaseEvents.map(async (releaseEvent) => {
-          const inspection = await loadReleaseInspection(
-            releaseEvent.id,
-            loadOptions,
-          );
-          if (inspection === undefined) return [];
-          const curatorDecisionEvents = events
-            .filter(
-              (event) =>
-                authorities.curatorPubkeys.has(event.pubkey) &&
-                parseNip29CuratorDecision(event, releaseEvent.id) !== undefined,
-            )
-            .toSorted((left, right) =>
-              left.created_at === right.created_at
-                ? left.id.localeCompare(right.id)
-                : right.created_at - left.created_at,
-            );
-          return [
-            {
-              releaseEvent,
-              inspection,
-              curatorDecisionEvents,
-            } satisfies RegistryReleaseReviewEntry,
-          ];
-        }),
+      const snapshot = releaseInspectionSnapshot();
+      snapshot.reviews ??= buildReleaseReviews(snapshot).then(
+        (entries) => {
+          if (entries.some((entry) => entry.inspection.state === "unavailable"))
+            snapshot.reviews = undefined;
+          return entries;
+        },
+        (error) => {
+          snapshot.reviews = undefined;
+          throw error;
+        },
       );
-      return entries.flat();
+      return await waitForSignal(snapshot.reviews, loadOptions?.signal);
     },
     async loadReleaseProof(pluginId, version, loadOptions) {
       loadOptions?.signal?.throwIfAborted();
@@ -1437,6 +1512,7 @@ export function createNip29RegistryCatalogDataSource(
           createNip29PublisherWithdrawalTemplate(event.id, createdAt),
         );
         await publishToWriteQuorum(decisionEvent, signer, loadOptions?.signal);
+        inspectionPendingRevision += 1;
         pendingEvents.set(decisionEvent.id, decisionEvent);
         await synchronize(loadOptions?.signal).catch(() => undefined);
         return {
@@ -1456,6 +1532,7 @@ export function createNip29RegistryCatalogDataSource(
           createNip29CuratorDecisionTemplate(event.id, decision, createdAt),
         );
         await publishToWriteQuorum(decisionEvent, signer, loadOptions?.signal);
+        inspectionPendingRevision += 1;
         pendingEvents.set(decisionEvent.id, decisionEvent);
       }
       const headEvent = await signer.signEvent(
@@ -1466,6 +1543,7 @@ export function createNip29RegistryCatalogDataSource(
         ),
       );
       await publishToWriteQuorum(headEvent, signer, loadOptions?.signal);
+      inspectionPendingRevision += 1;
       pendingEvents.set(headEvent.id, headEvent);
       await synchronize(loadOptions?.signal);
       return {
@@ -1491,6 +1569,7 @@ export function createNip29RegistryCatalogDataSource(
       currentEvents = [];
       candidateEvents = [];
       pendingEvents.clear();
+      inspectionPendingRevision += 1;
     },
     getStatus() {
       return state;
@@ -1508,6 +1587,7 @@ export function createNip29RegistryCatalogDataSource(
     dispose() {
       if (disposed) return;
       disposed = true;
+      inspectionSnapshot = { events: [], inspections: new Map() };
       lifecycleController.abort(new DOMException("Disposed", "AbortError"));
       if (liveTimer !== undefined) clearTimeout(liveTimer);
       for (const subscription of subscriptions) subscription.close();

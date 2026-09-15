@@ -592,3 +592,25 @@ hover assertions MUST observe the actual visible content; an oversized clipped
 test iframe is not evidence of a product scroll or read-state failure.
 
 The application cache story MUST cover a legacy offline channel with more than two message windows through the production controller and public conversation composition. Initial rendering remains bounded; reaching the older edge loads one cached window, keeps the reading anchor visible, and does not create a New messages notification. Unpaged custom source rendering remains unchanged. Opening a cached forum topic MUST retain its already available root post while the thread reply page refreshes.
+
+### Project and release resources across navigation
+
+Under LC-UI-040, project work-item history and live observations belong to the
+project session, keyed by the signed repository revision. A view cancels only
+its own wait and listener. Warm revisits, including resolved empty repositories,
+MUST reuse the resource without historical queries or subscription registration.
+Live observations use `limit: 0` and start before history reconciliation; comments
+and deletions that reference event IDs receive bounded filter batches with a
+confirming read. Incoming updates refresh only their repository. Failed or closed
+observations remain retryable; removed/replaced repositories and session changes
+abort and discard their resources. Late reads and callbacks MUST NOT repopulate
+an obsolete view or identity. Existing custom project source contracts remain valid.
+
+The NIP-29 registry source MUST reuse release inspection and review results for
+an unchanged verified event set. The cache belongs to that source and its copied
+authorities, preserves deterministic ordering, and shares pending work without
+letting a cancelled view abort other readers. Signed release, authorization,
+curator-decision and withdrawal changes invalidate the input revision; duplicate
+replay and status-only notifications MUST NOT rebuild inspections. Management
+capabilities still follow status and identity changes. Unavailable
+manifest results remain retryable, and disposal aborts source-owned work.

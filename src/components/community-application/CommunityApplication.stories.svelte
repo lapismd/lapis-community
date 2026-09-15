@@ -666,6 +666,75 @@
 </Story>
 
 <Story
+  name="Warm project channel navigation reuses observations"
+  play={async ({ canvas }) => {
+    const application = await canvas.findByTestId(
+      "full-community-application",
+      {},
+      { timeout: 15_000 },
+    );
+    if (application.dataset.communityBackend !== "memory") return;
+    const expand = canvas.queryByRole("button", {
+      name: "Expand left sidebar",
+    });
+    if (expand) await userEvent.click(expand);
+    const nav = within(
+      canvas.getByRole("navigation", { name: "Community navigation" }),
+    );
+    await waitFor(
+      () =>
+        expect(application).toHaveAttribute(
+          "data-project-work-item-read-count",
+          "2",
+        ),
+      { timeout: 15_000 },
+    );
+    for (const name of [
+      "plugin-releases",
+      "general",
+      "plugin-releases",
+      "general",
+    ]) {
+      await userEvent.click(
+        await nav.findByRole("button", { name, exact: true }),
+      );
+      const conversation = within(
+        await canvas.findByLabelText(`${name} conversation`),
+      );
+      await expect(
+        await conversation.findByText(
+          name === "general"
+            ? "Welcome to Lapis Community"
+            : "AI Assistant 1.4.0 is ready for curator review.",
+          { exact: true },
+        ),
+      ).toBeVisible();
+      await expect(application).toHaveAttribute(
+        "data-project-work-item-read-count",
+        "2",
+      );
+      await expect(application).toHaveAttribute(
+        "data-project-work-item-subscribe-count",
+        "2",
+      );
+      await expect(application).toHaveAttribute(
+        "data-project-session-open-count",
+        "1",
+      );
+    }
+  }}
+>
+  {#snippet template()}
+    <CommunityApplicationStoryHarness
+      namespace="warm-project-observations"
+      projects
+      releaseMessages
+      initialDestination="general"
+    />
+  {/snippet}
+</Story>
+
+<Story
   name="Projects activity workspace"
   play={async ({ canvas }) => {
     const application = await canvas.findByTestId(

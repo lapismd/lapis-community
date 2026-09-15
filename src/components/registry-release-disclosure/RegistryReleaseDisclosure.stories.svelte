@@ -5,6 +5,7 @@
   import { SecretKeyRegistrySigner } from "../../auth/index.js";
   import type {
     RegistryCatalogDataSource,
+    RegistryCatalogSourceListener,
     RegistryReleaseInspection,
   } from "../../registry/index.js";
   import {
@@ -49,6 +50,20 @@
   }
 
   const approved = sourceFor(inspection("approved"));
+  const revisionListeners = new Set<RegistryCatalogSourceListener>();
+  const observedInspection = fn(async () => inspection("approved"));
+  const observedCapabilities = fn(async () => undefined);
+  const observedSource: RegistryCatalogDataSource = {
+    ...approved,
+    loadReleaseInspection: observedInspection,
+    loadReleaseManagementCapabilities: observedCapabilities,
+    subscribe(listener) {
+      revisionListeners.add(listener);
+      return () => {
+        revisionListeners.delete(listener);
+      };
+    },
+  };
   const performReleaseAction = fn(async (request) => ({
     action: request.action,
     eventId: request.eventId,
@@ -129,6 +144,35 @@
     await expectFullCanvasWidth(canvasElement);
     const trigger = await canvas.findByRole("button", { name: /1\.4\.0/u });
     await userEvent.hover(trigger);
+    await expect(trigger).toBeVisible();
+  }}
+/>
+
+<Story
+  name="Status updates preserve inspection"
+  args={{ source: observedSource }}
+  play={async ({ canvas }) => {
+    const trigger = await canvas.findByRole("button", { name: /1\.4\.0/u });
+    await expect(trigger).toBeVisible();
+    await expect(observedInspection).toHaveBeenCalledTimes(1);
+    const status = {
+      phase: "refreshing" as const,
+      fresh: false,
+      installReady: false,
+      relays: [],
+    };
+    for (const listener of revisionListeners)
+      listener({ type: "status", status });
+    await userEvent.click(trigger);
+    await expect(trigger).toHaveAttribute("aria-expanded", "true");
+    await waitFor(() => expect(observedCapabilities).toHaveBeenCalledTimes(1));
+    for (const listener of revisionListeners)
+      listener({ type: "status", status });
+    await waitFor(() => expect(observedCapabilities).toHaveBeenCalledTimes(2));
+    await expect(observedInspection).toHaveBeenCalledTimes(1);
+    for (const listener of revisionListeners)
+      listener({ type: "revision", status });
+    await waitFor(() => expect(observedInspection).toHaveBeenCalledTimes(2));
     await expect(trigger).toBeVisible();
   }}
 />

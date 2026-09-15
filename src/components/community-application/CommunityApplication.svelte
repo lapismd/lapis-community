@@ -78,6 +78,7 @@
     CommunityMessageReport,
     CommunityReplyTarget,
   } from "../../community/index.js";
+  import { createProjectWorkItemResources } from "../../projects/work-item-resources.js";
   import type { CommunityAccountSession } from "../../auth/index.js";
   import {
     channelCanvasKey,
@@ -87,7 +88,6 @@
   import {
     addRepositoryToProjectTemplate,
     buildProjectForgeActivity,
-    buzzWorkItemFilters,
     createAssignmentTemplate,
     createBrowserProjectForgeCatalogStore,
     createBrowserProjectReviewPreferenceStore,
@@ -516,6 +516,19 @@
     events: [],
   });
   let projectSession = $state.raw<ProjectForgeSession>();
+  const projectWorkItemResources = $derived(
+    projectSession ? createProjectWorkItemResources(projectSession) : undefined,
+  );
+  $effect(() => {
+    const resources = projectWorkItemResources;
+    projectWorkItems = { tasks: [], pullRequests: [], events: [] };
+    return () => resources?.dispose();
+  });
+  $effect(() => {
+    projectWorkItemResources?.retain(
+      projectCatalog.repositories.map((repository) => repository.event),
+    );
+  });
   type ProjectSessionLifecycle = {
     key: readonly unknown[];
     dispose: () => void;
@@ -2292,6 +2305,10 @@
       dispose: () => {
         if (disposed) return;
         disposed = true;
+        // Close owned observers before the transport so deliberate teardown is silent.
+        if (untrack(() => projectSession) === openedSession) {
+          untrack(() => projectWorkItemResources)?.dispose();
+        }
         controller.abort();
         unsubscribeCatalog?.();
         openedSession?.close();
@@ -2398,6 +2415,7 @@
 
   $effect(() => {
     const session = projectSession;
+    const resources = projectWorkItemResources;
     const catalog = projectCatalog;
     const catalogSettled = projectCatalogSettled;
     const identity = projectIdentity ?? applicationAuthentication?.identity();
@@ -2420,7 +2438,7 @@
     const selectedCommitSha = selectedProjectCommit?.sha;
     const requestedRepositoryBranch = projectSelectedRepositoryBranch;
     const requestedRepositoryBranchOwner = projectSelectedRepositoryBranchOwner;
-    if (!session || !catalogSettled) return;
+    if (!session || !resources || !catalogSettled) return;
 
     const openedSession = session;
     const controller = new AbortController();
@@ -2459,34 +2477,36 @@
             )
           : catalog.repositories;
       projectLoadStage = "Project work items";
-      const workItemBundles = await Promise.all(
+      const updateWorkItems = (error?: unknown) => {
+        if (controller.signal.aborted) return;
+        if (error) {
+          projectError =
+            error instanceof Error ? error.message : "Project updates failed";
+          return;
+        }
+        const bundles = repositories.map((repository) =>
+          resources.peek(repository.event),
+        );
+        if (bundles.some((bundle) => bundle === undefined)) return;
+        projectWorkItems = {
+          tasks: bundles.flatMap((bundle) => bundle!.tasks),
+          pullRequests: bundles.flatMap((bundle) => bundle!.pullRequests),
+          events: bundles.flatMap((bundle) => bundle!.events),
+        };
+      };
+      // Only the view listener is cancelled by navigation. The session owns I/O.
+      unsubscribeWorkItems = resources.subscribe(
+        repositories.map((repository) => repository.event.id),
+        updateWorkItems,
+      );
+      updateWorkItems();
+      await Promise.all(
         repositories.map((repository) =>
-          openedSession!.loadWorkItems(repository.event, controller.signal),
+          resources.load(repository.event, controller.signal),
         ),
       );
-      projectWorkItems = {
-        tasks: workItemBundles.flatMap((bundle) => bundle.tasks),
-        pullRequests: workItemBundles.flatMap((bundle) => bundle.pullRequests),
-        events: workItemBundles.flatMap((bundle) => bundle.events),
-      };
-
-      const filters = repositories.flatMap((repository) =>
-        buzzWorkItemFilters(repository.address.coordinate),
-      );
-      if (filters.length > 0) {
-        let eoseCount = 0;
-        projectLoadStage = "Live project work-item updates";
-        unsubscribeWorkItems = await openedSession.subscribe(
-          filters,
-          (event) => {
-            if (event.type === "eose") eoseCount += 1;
-            if (eoseCount >= filters.length && event.type === "event") {
-              projectReloadRevision += 1;
-            }
-          },
-          controller.signal,
-        );
-      }
+      if (controller.signal.aborted) return;
+      updateWorkItems();
 
       const capabilityFailures: unknown[] = [];
       const capabilities: Record<string, ProjectForgeRepositoryCapabilities> =

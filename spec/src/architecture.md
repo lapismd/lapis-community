@@ -483,3 +483,16 @@ Metadata restoration MUST retain cached deletion controls (kinds 5 and 9005), so
 Queued history reads MUST evaluate current conversation visibility when a slot becomes available, preserving the two-load cap and one active load per conversation. A room that became hidden MUST NOT retain priority over the selected room or thread. Repeated requests continue to share a promise, and existing boolean-priority callers remain supported.
 
 Queued mailbox and Inbox reads MUST verify their captured controller generation before changing loading state or accessing the session. A refresh MUST retain its originating generation and session through snapshot, persistence, and projection; results from a replaced or signed-out session MUST NOT enter the current event graph or restore private presentation state.
+
+Project work-item resources are owned by one authenticated project session, not
+by the selected page. Navigation releases view listeners while retaining resolved
+results and live observations for visited repository revisions. Repository removal
+or replacement evicts that resource; identity, relay, reconnect and explicit
+session refresh dispose all session resources. A changed repository notifies only
+views observing that repository. Event reads still use the existing source contract.
+
+Release inspections and review entries are memoized inside the NIP-29 registry
+source by its verified event union. Source authorities are copied at construction;
+source replacement/disposal separates authority contexts. Duplicate events and
+unchanged relay refreshes preserve the memoized revision. Pending callers share
+source-owned work, while individual cancellation stops only their own wait.

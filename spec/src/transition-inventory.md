@@ -57,3 +57,14 @@ are also rebuilt on re-entry. These remaining requests and the full production
 performance gate are not resolved by the component-prop correction.
 
 `controller-history-lifecycle` also verifies that a refresh snapshot from a previous session is ignored after sign-out; `history-scheduler` covers dynamic priority, eventual hidden work, duplicate requests and per-conversation exclusion. The remaining inventory entries retain their stated pending coverage.
+
+The follow-up project/release slice moves work-item observations into session-owned
+repository resources. Unit contracts cover empty/cached visits, cancellation,
+coalesced updates, event-ID deletion observation, failed/closed subscriptions,
+repository replacement and identity disposal. The warm project-channel Storybook
+contract asserts unchanged read, subscription and session counts while navigating
+away and back; the Projects activity story covers repository/review surfaces.
+Registry source contracts retain inspection/review object identities across warm
+reads and unchanged refreshes, and invalidate them on authorization, decision and
+withdrawal changes. Release disclosure ignores status-only source updates. Live
+Chrome request measurements and final package acceptance are recorded in LC-UI-040.

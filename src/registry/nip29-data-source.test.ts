@@ -13,6 +13,7 @@ import { SecretKeyRegistrySigner } from "../auth/index.js";
 import {
   createNip29CuratorDecisionTemplate,
   createNip29PublisherAuthorizationTemplate,
+  createNip29PublisherWithdrawalTemplate,
   createNip29RegistryHeadTemplate,
   createNip29ReleaseMessageTemplate,
   LAPIS_GROUPS,
@@ -345,6 +346,226 @@ describe("NIP-29 registry catalog data source", () => {
       "portable proof requires a signed publisher authorization",
     );
     source.dispose();
+  });
+
+  it("reuses inspections and review entries across navigation and unchanged refreshes", async () => {
+    const data = fixture();
+    const factory = createInMemoryRelayFactory({
+      events: [data.release, data.approval],
+    });
+    const source = createNip29RegistryCatalogDataSource({
+      relays: ["wss://relay.example"],
+      authorities: {
+        curatorPubkeys: new Set([data.curator]),
+        publisherPubkeysByPlugin: new Map([
+          ["demo", new Set([data.publisher])],
+        ]),
+      },
+      relayFactory: factory,
+      snapshotStore: createMemoryRegistrySnapshotStore(),
+      fetch: async () => new Response(data.manifestBytes),
+      liveBatchMs: 60_000,
+    });
+    try {
+      const [first, concurrent] = await Promise.all([
+        source.loadReleaseInspection!(data.release.id),
+        source.loadReleaseInspection!(data.release.id),
+      ]);
+      expect(concurrent).toBe(first);
+      const reviews = await source.loadReleaseReviewEntries!();
+      expect(reviews[0]!.inspection).toBe(first);
+      expect(await source.loadReleaseReviewEntries!()).toBe(reviews);
+      await source.refresh();
+      expect(await source.loadReleaseInspection!(data.release.id)).toBe(first);
+      expect(await source.loadReleaseReviewEntries!()).toBe(reviews);
+      factory.relay("wss://relay.example/").inject(data.approval);
+      expect(await source.loadReleaseInspection!(data.release.id)).toBe(first);
+      const rejection = sign(
+        data.curatorKey,
+        createNip29CuratorDecisionTemplate(
+          data.release.id,
+          "rejected",
+          data.approval.created_at + 1,
+        ),
+      );
+      factory.relay("wss://relay.example/").inject(rejection);
+      const rejected = await source.loadReleaseInspection!(data.release.id);
+      expect(rejected).not.toBe(first);
+      expect(rejected?.state).toBe("rejected");
+      expect(
+        (await source.loadReleaseReviewEntries!())[0]!.curatorDecisionEvents[0],
+      ).toEqual(rejection);
+      factory
+        .relay("wss://relay.example/")
+        .inject(
+          sign(
+            data.publisherKey,
+            createNip29PublisherWithdrawalTemplate(
+              data.release.id,
+              data.approval.created_at + 2,
+            ),
+          ),
+        );
+      expect(
+        (await source.loadReleaseInspection!(data.release.id))?.state,
+      ).toBe("withdrawn");
+    } finally {
+      source.dispose();
+    }
+  });
+
+  it("invalidates cached untrusted inspections when publisher authority arrives", async () => {
+    const data = fixture();
+    const factory = createInMemoryRelayFactory({ events: [data.release] });
+    const source = createNip29RegistryCatalogDataSource({
+      relays: ["wss://relay.example"],
+      authorities: {
+        curatorPubkeys: new Set([data.curator]),
+        publisherPubkeysByPlugin: new Map(),
+      },
+      relayFactory: factory,
+      snapshotStore: createMemoryRegistrySnapshotStore(),
+      fetch: async () => new Response(data.manifestBytes),
+      liveBatchMs: 60_000,
+    });
+    try {
+      const first = await source.loadReleaseInspection!(data.release.id);
+      expect(first?.state).toBe("untrusted");
+      factory
+        .relay("wss://relay.example/")
+        .inject(
+          sign(
+            data.curatorKey,
+            createNip29PublisherAuthorizationTemplate(
+              "demo",
+              data.publisher,
+              "authorized",
+              data.release.created_at + 1,
+            ),
+          ),
+        );
+      const trusted = await source.loadReleaseInspection!(data.release.id);
+      expect(trusted).not.toBe(first);
+      expect(trusted?.state).toBe("pending");
+    } finally {
+      source.dispose();
+    }
+  });
+
+  it("shares an inspection fetch across cancelled views and keeps unavailable results retryable", async () => {
+    const data = fixture();
+    // Bootstrap without authority, so inspection owns the later manifest fetch.
+    const factory = createInMemoryRelayFactory({ events: [data.release] });
+    let resolve!: (response: Response) => void;
+    const fetch = vi
+      .fn<typeof globalThis.fetch>()
+      .mockRejectedValueOnce(new Error("offline"));
+    const source = createNip29RegistryCatalogDataSource({
+      relays: ["wss://relay.example"],
+      authorities: {
+        curatorPubkeys: new Set([data.curator]),
+        publisherPubkeysByPlugin: new Map(),
+      },
+      relayFactory: factory,
+      snapshotStore: createMemoryRegistrySnapshotStore(),
+      fetch,
+      liveBatchMs: 60_000,
+    });
+    try {
+      await source.loadIndex();
+      factory
+        .relay("wss://relay.example/")
+        .inject(
+          sign(
+            data.curatorKey,
+            createNip29PublisherAuthorizationTemplate(
+              "demo",
+              data.publisher,
+              "authorized",
+              data.release.created_at + 1,
+            ),
+          ),
+        );
+      expect(
+        (await source.loadReleaseInspection!(data.release.id))?.state,
+      ).toBe("unavailable");
+      fetch.mockImplementation(
+        () =>
+          new Promise<Response>((r) => {
+            resolve = r;
+          }),
+      );
+      const cancelled = new AbortController();
+      const first = source.loadReleaseInspection!(data.release.id, {
+        signal: cancelled.signal,
+      });
+      const failure = expect(first).rejects.toMatchObject({
+        name: "AbortError",
+      });
+      const second = source.loadReleaseInspection!(data.release.id);
+      await vi.waitFor(() => expect(fetch).toHaveBeenCalledTimes(2));
+      cancelled.abort();
+      await failure;
+      resolve(new Response(data.manifestBytes));
+      const inspection = await second;
+      expect(inspection?.state).toBe("pending");
+      expect(await source.loadReleaseInspection!(data.release.id)).toBe(
+        inspection,
+      );
+      expect(fetch).toHaveBeenCalledTimes(2);
+    } finally {
+      source.dispose();
+    }
+  });
+
+  it("rejects a late inspection result after source disposal", async () => {
+    const data = fixture();
+    const factory = createInMemoryRelayFactory({ events: [data.release] });
+    let finish!: (response: Response) => void;
+    const fetch = vi.fn<typeof globalThis.fetch>(
+      () =>
+        new Promise<Response>((resolve) => {
+          finish = resolve;
+        }),
+    );
+    const source = createNip29RegistryCatalogDataSource({
+      relays: ["wss://relay.example"],
+      authorities: {
+        curatorPubkeys: new Set([data.curator]),
+        publisherPubkeysByPlugin: new Map(),
+      },
+      relayFactory: factory,
+      snapshotStore: createMemoryRegistrySnapshotStore(),
+      fetch,
+      liveBatchMs: 60_000,
+    });
+    try {
+      await source.loadIndex();
+      factory
+        .relay("wss://relay.example/")
+        .inject(
+          sign(
+            data.curatorKey,
+            createNip29PublisherAuthorizationTemplate(
+              "demo",
+              data.publisher,
+              "authorized",
+              data.release.created_at + 1,
+            ),
+          ),
+        );
+      const pending = source.loadReleaseInspection!(data.release.id);
+      const rejected = expect(pending).rejects.toMatchObject({
+        name: "AbortError",
+      });
+      await vi.waitFor(() => expect(fetch).toHaveBeenCalledOnce());
+      source.dispose();
+      // Simulate a custom fetch implementation which ignores AbortSignal.
+      finish(new Response(data.manifestBytes));
+      await rejected;
+    } finally {
+      source.dispose();
+    }
   });
 
   it("enumerates every release-shaped post deterministically for review", async () => {

@@ -438,3 +438,17 @@ Native cache acceptance MUST cover configured private access without a cached ki
 Legacy cache rows and old synchronization checkpoints MUST NOT justify newer-only relay queries. A missing persisted history page uses bounded indexed candidates for immediate display, then an ordinary bounded head query when connected. Cache-only offline pagination MUST keep read position separate from synchronization coverage and preserve incomplete unread status.
 
 A relay snapshot refresh MUST remain bound to the session and controller generation that requested it. After sign-out or session replacement, its events, private rumors, capabilities and follow-up synchronization MUST be ignored. Queued mailbox and Inbox paging MUST NOT issue queries against a closed session; live subscription lifetime remains independent of visible-page scheduling.
+
+Project work-item live subscriptions use ordinary Nostr filters with `limit: 0`
+and remain independent of navigation cancellation. Repository filters are
+registered before the bounded work-item query. NIP-22 root-reference and deletion
+target filters are registered in batches of at most 200 event IDs, then followed
+by a confirming read; changed target sets replace their old observations. A
+failed or closed registration cannot establish reusable live coverage. Reopening
+that resource subscribes before reconciling history again.
+
+Registry inspection cache identity includes the verified signed-event union,
+so release, publisher-authorization, curator-decision and publisher-withdrawal
+updates invalidate prior inspection results. This derived cache does not alter
+signature verification, deterministic ordering, authority checks, or install
+quorum. Unavailable attachment results remain retryable without new signed events.
