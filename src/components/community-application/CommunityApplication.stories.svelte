@@ -1,6 +1,7 @@
 <script module lang="ts">
   import { defineMeta } from "@storybook/addon-svelte-csf";
   import { toast } from "svelte-sonner";
+  import { tick } from "svelte";
   import {
     expect,
     fireEvent,
@@ -23,6 +24,7 @@
   import { projectStoryProjectCoordinate } from "../community-projects/story-fixtures.js";
 
   let navigationPresentationReads = 0;
+  let inboxPresentationReads = 0;
 
   const consumerSource = `<script lang="ts">
   import { onMount } from "svelte";
@@ -106,6 +108,144 @@
     },
   });
 </script>
+
+<Story
+  name="Inbox shell paints before conversation work"
+  play={async ({ canvas, canvasElement }) => {
+    const application = await canvas.findByTestId("full-community-application");
+    await waitFor(
+      () =>
+        expect(application).toHaveAttribute(
+          "data-community-status",
+          "connected",
+        ),
+      { timeout: 15_000 },
+    );
+    if (application.dataset.communityBackend === "live") return;
+    await canvas.findByRole("textbox", { name: "Markdown editor" });
+    const storyWindow = canvasElement.ownerDocument.defaultView!;
+    const actions: { name: string; shellHadFrame: boolean }[] = [];
+    let shellHadFrame = false;
+    let shellHadSkeleton = false;
+    let tracking = false;
+    let frame = 0;
+    const observeFrame = () => {
+      if (canvas.queryByRole("region", { name: "Selected inbox thread" })) {
+        shellHadFrame = true;
+        shellHadSkeleton ||=
+          canvas.queryByRole("status", { name: "Loading Inbox messages" }) !==
+          null;
+      }
+      frame = storyWindow.requestAnimationFrame(observeFrame);
+    };
+    const observeAction = (event: Event) => {
+      if (tracking)
+        actions.push({
+          name: (event as CustomEvent<string>).detail,
+          shellHadFrame,
+        });
+    };
+    storyWindow.addEventListener(
+      "community-story-navigation-action",
+      observeAction,
+    );
+    frame = storyWindow.requestAnimationFrame(observeFrame);
+    try {
+      inboxPresentationReads = 0;
+      tracking = true;
+      await userEvent.click(
+        canvas.getByRole("button", { name: "Inbox", exact: true }),
+      );
+      await waitFor(() =>
+        expect(
+          actions.some((action) => action.name === "selectInboxItem"),
+        ).toBe(true),
+      );
+      await expect(actions.every((action) => action.shellHadFrame)).toBe(true);
+      await expect(shellHadSkeleton).toBe(true);
+      await expect(
+        actions.filter((action) => action.name === "selectRoom"),
+      ).toHaveLength(0);
+      await expect(
+        actions.filter((action) => action.name === "selectInboxItem"),
+      ).toHaveLength(1);
+      const editor = await canvas.findByRole("textbox", {
+        name: "Markdown editor",
+      });
+      await expect(inboxPresentationReads).toBeGreaterThan(0);
+      await expect(inboxPresentationReads).toBeLessThan(500);
+      await userEvent.type(editor, "Keep this Inbox draft");
+      tracking = false;
+      await userEvent.click(
+        canvas.getByRole("button", { name: "Registry", exact: true }),
+      );
+      shellHadFrame = false;
+      shellHadSkeleton = false;
+      actions.length = 0;
+      inboxPresentationReads = 0;
+      tracking = true;
+      await userEvent.click(
+        canvas.getByRole("button", { name: "Inbox", exact: true }),
+      );
+      await waitFor(() =>
+        expect(
+          actions.some((action) => action.name === "selectInboxItem"),
+        ).toBe(true),
+      );
+      await expect(actions.every((action) => action.shellHadFrame)).toBe(true);
+      await waitFor(() =>
+        expect(
+          canvas.getByRole("textbox", { name: "Markdown editor" }),
+        ).toHaveTextContent("Keep this Inbox draft"),
+      );
+      await expect(inboxPresentationReads).toBeLessThan(500);
+      tracking = false;
+      await userEvent.click(
+        canvas.getByRole("button", { name: "Registry", exact: true }),
+      );
+      actions.length = 0;
+      tracking = true;
+      // Navigate away before the first frame; the abandoned activation must cancel.
+      canvas.getByRole("button", { name: "Inbox", exact: true }).click();
+      await tick();
+      canvas.getByRole("button", { name: "Registry", exact: true }).click();
+      await tick();
+      await new Promise<void>((resolve) =>
+        storyWindow.requestAnimationFrame(() =>
+          storyWindow.requestAnimationFrame(() => resolve()),
+        ),
+      );
+      await expect(
+        actions.filter((action) => action.name === "selectInboxItem"),
+      ).toHaveLength(0);
+      await expect(
+        canvas.queryByRole("region", { name: "Selected inbox thread" }),
+      ).not.toBeInTheDocument();
+    } finally {
+      storyWindow.cancelAnimationFrame(frame);
+      storyWindow.removeEventListener(
+        "community-story-navigation-action",
+        observeAction,
+      );
+    }
+  }}
+>
+  {#snippet template()}
+    <CommunityApplicationStoryHarness
+      namespace="inbox-first-paint"
+      initialDestination="general"
+      onPresentationRead={(field) => {
+        if (field === "inboxPresentation") inboxPresentationReads += 1;
+      }}
+      onNavigationAction={(action) =>
+        window.dispatchEvent(
+          new CustomEvent("community-story-navigation-action", {
+            detail: action,
+          }),
+        )}
+    />
+  {/snippet}
+</Story>
 
 <Story
   name="Sidebar sections restore and reveal destinations"

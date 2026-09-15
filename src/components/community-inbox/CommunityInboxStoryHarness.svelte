@@ -14,10 +14,12 @@
     empty = false,
     historyUpdating = false,
     loading = false,
+    conversationLoading = false,
   }: {
     empty?: boolean;
     historyUpdating?: boolean;
     loading?: boolean;
+    conversationLoading?: boolean;
   } = $props();
 
   let runtime = $state<CommunityStoryRuntime>();
@@ -109,6 +111,7 @@
       {model}
       {historyUpdating}
       {loading}
+      {conversationLoading}
       onSelect={(itemId) => void community?.actions.selectInboxItem?.(itemId)}
       onFilterChange={(filter, unreadOnly) =>
         community?.actions.setInboxFilter?.(filter, unreadOnly)}

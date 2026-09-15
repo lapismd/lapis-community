@@ -68,6 +68,7 @@
     relayAuthIdentityDelayMs = 0,
     relayAuthSignOutDelayMs = 0,
     onPresentationRead,
+    onNavigationAction,
   }: {
     signedIn?: boolean;
     responsive?: boolean;
@@ -88,7 +89,10 @@
     relayAuthMode?: "managed" | "external" | "external-github" | "expiring";
     relayAuthIdentityDelayMs?: number;
     relayAuthSignOutDelayMs?: number;
-    onPresentationRead?: () => void;
+    onPresentationRead?: (
+      field: "timelinePresentation" | "inboxPresentation",
+    ) => void;
+    onNavigationAction?: (action: string) => void;
   } = $props();
 
   let runtime = $state.raw<CommunityStoryRuntime>();
@@ -96,14 +100,34 @@
   const observedCommunity = $derived.by(() => {
     const controller = community;
     const observe = onPresentationRead;
-    if (!controller || !observe) return controller;
+    const observeAction = onNavigationAction;
+    if (!controller || (!observe && !observeAction)) return controller;
     return new Proxy(controller, {
       get(target, property, receiver) {
         const value = Reflect.get(target, property, receiver);
-        if (property !== "state") return value;
+        if (property === "actions" && observeAction)
+          return new Proxy(value, {
+            get(actions, key, actionsReceiver) {
+              const action = Reflect.get(actions, key, actionsReceiver);
+              if (
+                typeof key !== "string" ||
+                !["selectRoom", "selectInboxItem", "closeSidePanel"].includes(
+                  key,
+                ) ||
+                typeof action !== "function"
+              )
+                return action;
+              return (...args: unknown[]) => {
+                observeAction(key);
+                return Reflect.apply(action, actions, args);
+              };
+            },
+          });
+        if (property !== "state" || !observe) return value;
         return new Proxy(value, {
           get(state, key, stateReceiver) {
-            if (key === "timelinePresentation") observe();
+            if (key === "timelinePresentation" || key === "inboxPresentation")
+              observe(key);
             return Reflect.get(state, key, stateReceiver);
           },
         });

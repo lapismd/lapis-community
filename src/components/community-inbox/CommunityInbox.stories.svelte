@@ -12,7 +12,7 @@
     type CommunityInboxModel,
   } from "@lapismd/lapis-community/components";
 
-  let { inbox }: { inbox: CommunityInboxModel } = $props();
+  let { inbox, preparingConversation = false }: { inbox: CommunityInboxModel; preparingConversation?: boolean } = $props();
   // controller is the connected CommunityController that owns inbox.
   const shell = new AppShellController();
 <\/script>
@@ -21,6 +21,7 @@
   <AppShell.Main>
     <CommunityInbox
       model={inbox}
+      conversationLoading={preparingConversation}
       onSelect={(id) => controller.actions.selectInboxItem?.(id)}
       onFilterChange={(filter, unreadOnly) => controller.actions.setInboxFilter?.(filter, unreadOnly)}
       onSend={(content) => controller.actions.sendInboxMessage?.(content)}
@@ -47,6 +48,32 @@
     },
   });
 </script>
+
+<Story
+  name="Conversation loading preserves shell"
+  play={async ({ canvas }) => {
+    await expect(canvas.getByLabelText("Inbox conversations")).toBeVisible();
+    await expect(
+      canvas.getByRole("button", { name: "All", exact: true }),
+    ).toBeVisible();
+    await expect(
+      canvas.getByRole("button", { name: "Inbox options" }),
+    ).toBeEnabled();
+    await expect(
+      canvas.getByRole("status", { name: "Loading Inbox messages" }),
+    ).toBeVisible();
+    await expect(
+      canvas.queryByRole("textbox", { name: "Markdown editor" }),
+    ).not.toBeInTheDocument();
+    await expect(
+      canvas.getByRole("region", { name: "Selected inbox thread" }),
+    ).toBeVisible();
+  }}
+>
+  {#snippet template()}
+    <CommunityInboxStoryHarness conversationLoading />
+  {/snippet}
+</Story>
 
 <Story
   name="No messages"

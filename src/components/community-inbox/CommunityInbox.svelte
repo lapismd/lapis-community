@@ -63,6 +63,7 @@
     canDeleteAny = false,
     historyUpdating = false,
     loading = false,
+    conversationLoading = false,
     directHistory,
     history,
     listHistory,
@@ -138,6 +139,8 @@
     canDeleteAny?: boolean;
     historyUpdating?: boolean;
     loading?: boolean;
+    /** Keep the shell and selected header visible while deferring conversation work. */
+    conversationLoading?: boolean;
     directHistory?: { hasOlder: boolean; loading: boolean; error?: string };
     onLoadOlderDirectMessages?: () => Promise<void>;
   } = $props();
@@ -464,55 +467,65 @@
         </header>
 
         <div class="lc-community-inbox__conversation">
-          <CommunityConversation
-            {virtualize}
-            {...readBoundary ? { readBoundary } : {}}
-            {...history ? { history } : {}}
-            {...onLoadOlder ? { onLoadOlder } : {}}
-            {...onLoadLatest ? { onLoadLatest } : {}}
-            {...presentation ? { presentation } : {}}
-            {...onPresentationChange ? { onPresentationChange } : {}}
-            room={model.room}
-            draftKey={JSON.stringify([currentMemberId, model.activeItemId])}
-            {...model.room.conversation?.transport === "nip17" &&
-            directHistory &&
-            onLoadOlderDirectMessages
-              ? {
-                  history: { ...directHistory, ...history },
-                  onLoadOlder: onLoadOlderDirectMessages,
-                }
-              : {}}
-            messages={model.messages}
-            members={model.members}
-            {rooms}
-            composerPlacement="row"
-            {disabled}
-            {disabledReason}
-            restrictMessageManagement
-            {...currentMemberId === undefined ? {} : { currentMemberId }}
-            {canDeleteAny}
-            {onSend}
-            {...onReply === undefined ? {} : { onReply, onOpenThread: onReply }}
-            {...disabled || onToggleReaction === undefined
-              ? {}
-              : { onToggleReaction, onAddReaction: onToggleReaction }}
-            {...onCopyMessageLink === undefined ? {} : { onCopyMessageLink }}
-            {...onCopyMessage === undefined ? {} : { onCopyMessage }}
-            {...onCopyEvent === undefined ? {} : { onCopyEvent }}
-            {...onEditMessage === undefined ? {} : { onEditMessage }}
-            {...onSaveMessageEdit === undefined ? {} : { onSaveMessageEdit }}
-            {...onDeleteMessage === undefined ? {} : { onDeleteMessage }}
-            {...onReportMessage === undefined ? {} : { onReportMessage }}
-            {...onOpenProfile === undefined ? {} : { onOpenProfile }}
-            {...onOpenRoom === undefined ? {} : { onOpenRoom }}
-            {...onMessageMember === undefined ? {} : { onMessageMember }}
-            {...onViewMemberActivity === undefined
-              ? {}
-              : { onViewMemberActivity }}
-            {...replyTarget === undefined ? {} : { replyTarget }}
-            {communityEmojis}
-            {...onCancelReply === undefined ? {} : { onCancelReply }}
-          />
+          {#if conversationLoading}
+            <CommunitySkeleton
+              layout="messages"
+              count={4}
+              label="Loading Inbox messages"
+            />
+          {:else}
+            <CommunityConversation
+              {virtualize}
+              {...readBoundary ? { readBoundary } : {}}
+              {...history ? { history } : {}}
+              {...onLoadOlder ? { onLoadOlder } : {}}
+              {...onLoadLatest ? { onLoadLatest } : {}}
+              {...presentation ? { presentation } : {}}
+              {...onPresentationChange ? { onPresentationChange } : {}}
+              room={model.room}
+              draftKey={JSON.stringify([currentMemberId, model.activeItemId])}
+              {...model.room.conversation?.transport === "nip17" &&
+              directHistory &&
+              onLoadOlderDirectMessages
+                ? {
+                    history: { ...directHistory, ...history },
+                    onLoadOlder: onLoadOlderDirectMessages,
+                  }
+                : {}}
+              messages={model.messages}
+              members={model.members}
+              {rooms}
+              composerPlacement="row"
+              {disabled}
+              {disabledReason}
+              restrictMessageManagement
+              {...currentMemberId === undefined ? {} : { currentMemberId }}
+              {canDeleteAny}
+              {onSend}
+              {...onReply === undefined
+                ? {}
+                : { onReply, onOpenThread: onReply }}
+              {...disabled || onToggleReaction === undefined
+                ? {}
+                : { onToggleReaction, onAddReaction: onToggleReaction }}
+              {...onCopyMessageLink === undefined ? {} : { onCopyMessageLink }}
+              {...onCopyMessage === undefined ? {} : { onCopyMessage }}
+              {...onCopyEvent === undefined ? {} : { onCopyEvent }}
+              {...onEditMessage === undefined ? {} : { onEditMessage }}
+              {...onSaveMessageEdit === undefined ? {} : { onSaveMessageEdit }}
+              {...onDeleteMessage === undefined ? {} : { onDeleteMessage }}
+              {...onReportMessage === undefined ? {} : { onReportMessage }}
+              {...onOpenProfile === undefined ? {} : { onOpenProfile }}
+              {...onOpenRoom === undefined ? {} : { onOpenRoom }}
+              {...onMessageMember === undefined ? {} : { onMessageMember }}
+              {...onViewMemberActivity === undefined
+                ? {}
+                : { onViewMemberActivity }}
+              {...replyTarget === undefined ? {} : { replyTarget }}
+              {communityEmojis}
+              {...onCancelReply === undefined ? {} : { onCancelReply }}
+            />
+          {/if}
         </div>
       </section>
     {:else}

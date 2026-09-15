@@ -1013,6 +1013,7 @@
   const inbox = $derived(
     community.state.inbox ?? fallbackInbox(activeRoom, workspace.members),
   );
+  let readyInboxVisit = $state<string>();
   const inboxFocusKey = $derived(
     activeDestination === "inbox"
       ? `${workspace.currentMemberId ?? ""}:${inbox.activeItemId}`
@@ -1020,9 +1021,25 @@
   );
   $effect(() => {
     const key = inboxFocusKey;
-    if (key)
+    if (key && inboxReady)
       untrack(() => {
-        void community.actions.selectInboxItem?.(inbox.activeItemId);
+        if (community.actions.selectInboxItem) {
+          if (inbox.activeItemId)
+            void community.actions.selectInboxItem(inbox.activeItemId);
+          else community.actions.closeSidePanel();
+        } else {
+          // Preserve unpaged/custom controllers without Inbox selection actions.
+          if (workspace.activeRoomId !== inbox.room.id)
+            community.actions.selectRoom(inbox.room.id);
+          community.actions.closeSidePanel();
+        }
+        if (activePanel.kind === "thread")
+          community.actions.openThread(activePanel.rootMessageId);
+        else if (
+          activePanel.kind === "details" &&
+          activePanel.roomId !== inbox.room.id
+        )
+          community.actions.openDetails();
       });
   });
 
@@ -1094,6 +1111,32 @@
   );
   const activeConnectionRelayUrl = $derived(activeConnection?.relayUrl);
   const activeConnectionCommunityId = $derived(activeConnection?.communityId);
+  const inboxVisit = $derived(
+    activeDestination === "inbox"
+      ? JSON.stringify([
+          activeConnection?.communityId,
+          activeConnection?.relayUrl,
+          workspace.currentMemberId,
+        ])
+      : undefined,
+  );
+  const inboxReady = $derived(
+    inboxVisit !== undefined && readyInboxVisit === inboxVisit,
+  );
+  $effect(() => {
+    const visit = inboxVisit;
+    readyInboxVisit = undefined;
+    if (visit === undefined) return;
+    // Effects and promise continuations run before paint. Leave one frame for
+    // the Inbox regions before mounting the editor or starting projections.
+    let frame = requestAnimationFrame(() => {
+      frame = requestAnimationFrame(() => {
+        readyInboxVisit = visit;
+      });
+    });
+    return () => cancelAnimationFrame(frame);
+  });
+
   const projectDataSource = $derived(projectsOptions?.source);
   const projectCatalogStore = $derived(projectsOptions?.catalogStore);
   const projectConfiguredRelayUrl = $derived(projectsOptions?.relayUrl);
@@ -3118,31 +3161,37 @@
       activeRepositorySurface = "overview";
     }
 
-    const roomId =
-      next.destination === "inbox"
-        ? inbox.room.id
-        : nextRegistryRoute === null &&
-            next.destination !== "pulse" &&
-            next.destination !== "agents" &&
-            next.destination !== "settings" &&
-            next.destination !== "new-direct-message"
-          ? next.destination
-          : undefined;
-    if (roomId !== undefined && workspace.activeRoomId !== roomId) {
-      community.actions.selectRoom(roomId);
-    }
+    // Inbox activates its selected conversation after its shell has painted.
+    // Selecting the room here would start a duplicate projection/history load.
+    const enteringInbox =
+      next.destination === "inbox" && previous.destination !== "inbox";
+    if (!enteringInbox) {
+      const roomId =
+        next.destination === "inbox"
+          ? inbox.room.id
+          : nextRegistryRoute === null &&
+              next.destination !== "pulse" &&
+              next.destination !== "agents" &&
+              next.destination !== "settings" &&
+              next.destination !== "new-direct-message"
+            ? next.destination
+            : undefined;
+      if (roomId !== undefined && workspace.activeRoomId !== roomId) {
+        community.actions.selectRoom(roomId);
+      }
 
-    if (next.panel.kind === "thread") {
-      community.actions.clearReplyTarget();
-      community.actions.openThread(next.panel.rootMessageId);
-    } else if (
-      next.panel.kind === "details" &&
-      next.panel.roomId !== inbox.room.id
-    ) {
-      community.actions.clearReplyTarget();
-      community.actions.openDetails();
-    } else {
-      community.actions.closeSidePanel();
+      if (next.panel.kind === "thread") {
+        community.actions.clearReplyTarget();
+        community.actions.openThread(next.panel.rootMessageId);
+      } else if (
+        next.panel.kind === "details" &&
+        next.panel.roomId !== inbox.room.id
+      ) {
+        community.actions.clearReplyTarget();
+        community.actions.openDetails();
+      } else {
+        community.actions.closeSidePanel();
+      }
     }
 
     if (next.panel.kind === "none") shell.mobile.showMain();
@@ -5405,6 +5454,88 @@
       ? {}
       : { replyTarget: community.state.replyTarget }),
   });
+
+  // Inbox uses the same memoized prop boundary as channel surfaces.
+  const inboxSurfaceOptions = $derived({
+    ...(community.state.inboxHistory
+      ? { listHistory: community.state.inboxHistory }
+      : {}),
+    ...(community.actions.loadOlderInbox
+      ? { onLoadOlderItems: community.actions.loadOlderInbox }
+      : {}),
+    ...(community.state.inboxConversationHistory
+      ? { history: community.state.inboxConversationHistory }
+      : {}),
+    ...(community.state.inboxPresentation
+      ? { presentation: community.state.inboxPresentation }
+      : {}),
+    ...(community.actions.updateTimelinePresentation
+      ? {
+          onPresentationChange: community.actions.updateTimelinePresentation,
+        }
+      : {}),
+    ...(community.actions.loadOlderHistory
+      ? {
+          onLoadOlder: () => {
+            const selected =
+              inbox.selectedItem ??
+              inbox.items.find((item) => item.id === inbox.activeItemId);
+            return community.actions.loadOlderHistory!({
+              roomId: selected?.roomId ?? inbox.room.id,
+              ...(selected?.scopeId ? { scopeId: selected.scopeId } : {}),
+              ...(selected?.rootEventId
+                ? { rootEventId: selected.rootEventId }
+                : {}),
+            });
+          },
+        }
+      : {}),
+    ...(community.actions.loadNewerHistory
+      ? {
+          onLoadLatest: () => {
+            const selected =
+              inbox.selectedItem ??
+              inbox.items.find((item) => item.id === inbox.activeItemId);
+            return community.actions.loadNewerHistory!({
+              roomId: selected?.roomId ?? inbox.room.id,
+              ...(selected?.scopeId ? { scopeId: selected.scopeId } : {}),
+              ...(selected?.rootEventId
+                ? { rootEventId: selected.rootEventId }
+                : {}),
+            });
+          },
+        }
+      : {}),
+    ...(community.state.directHistory && community.actions.loadDirectHistory
+      ? {
+          directHistory: community.state.directHistory,
+          onLoadOlderDirectMessages: community.actions.loadDirectHistory,
+        }
+      : {}),
+    ...(workspace.currentMemberId === undefined
+      ? {}
+      : { currentMemberId: workspace.currentMemberId }),
+    ...(extensions.huddle === undefined
+      ? {}
+      : { onHuddle: () => extensions.huddle?.(inbox.room.id) }),
+    ...(extensions.activityLog === undefined
+      ? {}
+      : { onViewMemberActivity: viewMemberActivity }),
+    ...(inbox.room.kind === "direct"
+      ? {}
+      : { onCopyMessageLink: copyMessageLink }),
+    ...(extensions.editMessage === undefined
+      ? community.actions.editEvent === undefined
+        ? {}
+        : { onSaveMessageEdit: editMessage }
+      : { onEditMessage: extensions.editMessage }),
+    ...(community.actions.reportEvent === undefined
+      ? {}
+      : { onReportMessage: reportMessage }),
+    ...(community.state.replyTarget === undefined
+      ? {}
+      : { replyTarget: community.state.replyTarget }),
+  });
 </script>
 
 {#snippet mobileNavigationControls()}
@@ -7632,12 +7763,8 @@
     {:else if activeDestination === "inbox"}
       <CommunityInbox
         model={inbox}
-        {...community.state.inboxHistory
-          ? { listHistory: community.state.inboxHistory }
-          : {}}
-        {...community.actions.loadOlderInbox
-          ? { onLoadOlderItems: community.actions.loadOlderInbox }
-          : {}}
+        conversationLoading={!inboxReady}
+        {...inboxSurfaceOptions}
         readBoundary={{
           key: JSON.stringify([
             workspace.currentMemberId,
@@ -7663,63 +7790,10 @@
           },
         }}
         virtualize
-        {...community.state.inboxConversationHistory
-          ? { history: community.state.inboxConversationHistory }
-          : {}}
-        {...community.state.inboxPresentation
-          ? { presentation: community.state.inboxPresentation }
-          : {}}
-        {...community.actions.updateTimelinePresentation
-          ? {
-              onPresentationChange:
-                community.actions.updateTimelinePresentation,
-            }
-          : {}}
-        {...community.actions.loadOlderHistory
-          ? {
-              onLoadOlder: () => {
-                const selected =
-                  inbox.selectedItem ??
-                  inbox.items.find((item) => item.id === inbox.activeItemId);
-                return community.actions.loadOlderHistory!({
-                  roomId: selected?.roomId ?? inbox.room.id,
-                  ...(selected?.scopeId ? { scopeId: selected.scopeId } : {}),
-                  ...(selected?.rootEventId
-                    ? { rootEventId: selected.rootEventId }
-                    : {}),
-                });
-              },
-            }
-          : {}}
-        {...community.actions.loadNewerHistory
-          ? {
-              onLoadLatest: () => {
-                const selected =
-                  inbox.selectedItem ??
-                  inbox.items.find((item) => item.id === inbox.activeItemId);
-                return community.actions.loadNewerHistory!({
-                  roomId: selected?.roomId ?? inbox.room.id,
-                  ...(selected?.scopeId ? { scopeId: selected.scopeId } : {}),
-                  ...(selected?.rootEventId
-                    ? { rootEventId: selected.rootEventId }
-                    : {}),
-                });
-              },
-            }
-          : {}}
         loading={community.state.contentSync?.phase === "initial"}
-        {...community.state.directHistory && community.actions.loadDirectHistory
-          ? {
-              directHistory: community.state.directHistory,
-              onLoadOlderDirectMessages: community.actions.loadDirectHistory,
-            }
-          : {}}
         rooms={presentationRooms}
         disabled={participationReadOnly}
         disabledReason={participationReadOnlyReason}
-        {...workspace.currentMemberId === undefined
-          ? {}
-          : { currentMemberId: workspace.currentMemberId }}
         canDeleteAny={inbox.room.permissions?.delete.state === "enabled"}
         historyUpdating={community.state.contentSync?.phase === "background" ||
           community.state.contentSync?.phase === "partial-error"}
@@ -7740,34 +7814,14 @@
           memberCommandMode = "view";
           memberCommandOpen = true;
         }}
-        {...extensions.huddle === undefined
-          ? {}
-          : { onHuddle: () => extensions.huddle?.(inbox.room.id) }}
         onReply={(messageId) => community.actions.setReplyTarget(messageId)}
         onToggleReaction={react}
         onOpenProfile={openProfile}
         onOpenRoom={(roomId) => setDestination(roomId, true)}
         onMessageMember={messageMember}
-        {...extensions.activityLog === undefined
-          ? {}
-          : { onViewMemberActivity: viewMemberActivity }}
-        {...inbox.room.kind === "direct"
-          ? {}
-          : { onCopyMessageLink: copyMessageLink }}
         onCopyMessage={copyMessage}
         onCopyEvent={copyEvent}
-        {...extensions.editMessage === undefined
-          ? community.actions.editEvent === undefined
-            ? {}
-            : { onSaveMessageEdit: editMessage }
-          : { onEditMessage: extensions.editMessage }}
         onDeleteMessage={deleteMessage}
-        {...community.actions.reportEvent === undefined
-          ? {}
-          : { onReportMessage: reportMessage }}
-        {...community.state.replyTarget === undefined
-          ? {}
-          : { replyTarget: community.state.replyTarget }}
         communityEmojis={community.state.settings.customEmojis}
         onCancelReply={() => community.actions.clearReplyTarget()}
       />
