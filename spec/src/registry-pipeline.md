@@ -2,7 +2,9 @@
 
 Repository scripts that enforce specification policy include the deferred-work
 ledger validator required by LC-SPEC-006. It reads specification metadata only
-and does not change the relay-derived registry pipeline.
+and does not change the relay-derived registry pipeline. Storybook
+authentication regressions may share this pipeline's browser runner while
+leaving registry hydration, release proofs, and seeded catalog data unchanged.
 
 Planning documents under `docs/plans/` are not canonical requirements.
 The TypeScript organisation and enforcement plan is

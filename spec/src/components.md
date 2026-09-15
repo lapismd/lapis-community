@@ -499,7 +499,10 @@ the application MUST clear account presentation before awaiting anonymous
 relay synchronization. A delayed anonymous connection MUST NOT retain the
 signed-out account in the profile menu. Authentication-resumption stories
 MUST await the resulting protected action, not only dismissal of the login
-dialog. Presence stories MUST await relay-confirmed preference changes within
+dialog. When relay auth and a host connector are both configured, those
+stories MUST prove provider methods stay on relay auth while host-owned
+Nostr methods use the direct connector. Presence stories MUST await
+relay-confirmed preference changes within
 the relay-action budget before checking the resulting avatar badges.
 Manual preference changes MUST wait for an in-flight background presence
 refresh instead of rejecting a valid menu selection. A queued change MUST

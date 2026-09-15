@@ -148,6 +148,8 @@
   let relayAuthSignOutCount = $state(0);
   let relayAuthSignOutControllerStatus = $state("");
   let relayAuthGitHubConnectCount = $state(0);
+  let relayAuthConnectCount = $state(0);
+  let storyIdentityConnectCount = $state(0);
   let installedPluginIds = $state<string[]>([]);
   let progressiveRetryTimer: number | undefined;
   const storyShellController = new AppShellController({ rightClosed: true });
@@ -285,12 +287,15 @@
               identity: restoredIdentity,
             }
           : { status: "reconnect-required" as const, config, session },
-      connect: async (methodId, credentials) => ({
-        status: "connected" as const,
-        config,
-        session,
-        identity: await connectStoryIdentity(methodId, credentials),
-      }),
+      connect: async (methodId, credentials) => {
+        relayAuthConnectCount += 1;
+        return {
+          status: "connected" as const,
+          config,
+          session,
+          identity: await connectStoryIdentity(methodId, credentials),
+        };
+      },
       connectGitHub: async () => {
         relayAuthGitHubConnectCount += 1;
       },
@@ -728,6 +733,7 @@
     credentials?: CommunityLoginCredentials,
   ): Promise<CommunityIdentity> {
     if (!runtime) throw new Error("The community runtime is not ready");
+    storyIdentityConnectCount += 1;
     if (
       methodId === "private-key" &&
       credentials?.privateKey !== "nsec1storybookexample"
@@ -767,6 +773,8 @@
       data-story-relay-auth-sign-out-controller-status={relayAuthSignOutControllerStatus}
       data-story-controller-auth-status={community.state.authentication.status}
       data-story-relay-auth-github-connect-count={relayAuthGitHubConnectCount}
+      data-story-relay-auth-connect-count={relayAuthConnectCount}
+      data-story-identity-connect-count={storyIdentityConnectCount}
       registryOptions={{
         source: registrySource,
         discussion: registryDiscussion,

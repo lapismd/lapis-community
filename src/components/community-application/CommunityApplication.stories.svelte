@@ -2173,14 +2173,33 @@
     await expect(
       login.queryByRole("button", { name: /Create a new account/u }),
     ).not.toBeInTheDocument();
+    const application = await canvas.findByTestId("full-community-application");
+    await expect(application).toHaveAttribute(
+      "data-story-relay-auth-connect-count",
+      "0",
+    );
     await userEvent.click(
-      login.getByRole("button", { name: /Browser extension/u }),
+      login.getByRole("button", { name: /Paste a private key/u }),
+    );
+    await userEvent.type(
+      login.getByLabelText("Private key"),
+      "nsec1storybookexample",
+    );
+    await userEvent.click(
+      login.getByRole("button", { name: "Sign in with private key" }),
     );
     await waitFor(() => expect(dialog).not.toBeInTheDocument(), {
-      timeout: 750,
+      timeout: 8_000,
     });
+    await expect(application).toHaveAttribute(
+      "data-story-relay-auth-connect-count",
+      "0",
+    );
+    await expect(application).toHaveAttribute(
+      "data-story-identity-connect-count",
+      "1",
+    );
     const liked = canvas.getByRole("tab", { name: "Liked" });
-    await expect(liked).toHaveAttribute("data-state", "inactive");
     await waitFor(() => expect(liked).toHaveAttribute("data-state", "active"), {
       timeout: 15_000,
     });

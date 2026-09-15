@@ -28,6 +28,8 @@
   } from "../community-login/model.js";
   import CommunityAuthenticatedApplication from "./CommunityApplication.svelte";
   import { provideCommunityApplicationAuthentication } from "./authentication-context.js";
+  import { connectDirectApplicationIdentity } from "./connect-direct-identity.js";
+  import { shouldUseDirectApplicationLogin } from "./login-routing.js";
   import type {
     CommunityApplicationAuthenticationStatus,
     CommunityApplicationLoginOptions,
@@ -474,7 +476,14 @@
     loginError = "";
     let acceptedAccount = false;
     try {
-      if (loginOptions?.auth) {
+      if (
+        loginOptions?.auth &&
+        !shouldUseDirectApplicationLogin(
+          methodId,
+          loginMethods,
+          loginOptions.connect !== undefined,
+        )
+      ) {
         const result = await loginOptions.auth.connect(methodId, credentials);
         if (result.status === "connected") {
           acceptedAccount = true;
@@ -490,11 +499,14 @@
         }
         activeExternalSigner = methodId === "keytr" ? "keytr" : undefined;
       } else if (loginOptions?.connect) {
-        const identity = await loginOptions.connect(methodId, credentials);
-        await controller.actions.connectIdentity({
-          connect: async () => identity,
-        });
-        connectedIdentity = identity;
+        connectedIdentity = await connectDirectApplicationIdentity(
+          controller,
+          loginOptions.connect,
+          methodId,
+          credentials,
+        );
+        accountSession = undefined;
+        relayAuthStatus = loginOptions?.auth ? "anonymous" : "idle";
       } else {
         if (methodId !== "browser-extension") {
           const method = loginMethods.find(
@@ -563,7 +575,8 @@
 
   async function completeSignOut(): Promise<void> {
     clearResumeAction();
-    if (loginOptions?.auth) await loginOptions.auth.signOut();
+    if (loginOptions?.auth && accountSession !== undefined)
+      await loginOptions.auth.signOut();
     authenticationGeneration += 1;
     // Invalidate the controller's pending signer lookup instead of waiting for
     // its relay synchronization to finish before signing out.
