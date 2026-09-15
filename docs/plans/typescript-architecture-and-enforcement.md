@@ -1,7 +1,8 @@
 # TypeScript architecture and enforcement
 
 **Status:** P0–P2 implemented in workspaces `arch-p0` / `arch-p1` / `arch-p2`.
-P3–P5 remain planned.
+P3 application destination hosts are in progress in workspace `arch-p3`
+(Projects extract remaining). P4–P5 remain planned.
 
 **Kind of statements:** **Fact** is observed in this checkout. **Recommendation**
 is a chosen policy. **Assumption** is used only where evidence is missing.
@@ -935,14 +936,15 @@ Behaviour-preserving unless noted. Do not start a repository-wide move.
 
 ### P3 — Application and Projects destination shells
 
-|          |                                                                                  |
-| -------- | -------------------------------------------------------------------------------- |
-| Purpose  | stop Application/Projects absorbing every destination                            |
-| Evidence | 9118c / 6427c files; destination `{:else if}` chain                              |
-| Files    | new named hosts under existing folders; stories stay on public components        |
-| Tests    | affected Storybook interaction stories; cold Storybook if startup wiring changes |
-| Effort   | L                                                                                |
-| Visual   | keep `visual-pending`; no baseline updates without approval                      |
+|          |                                                                                                                     |
+| -------- | ------------------------------------------------------------------------------------------------------------------- |
+| Purpose  | stop Application/Projects absorbing every destination                                                               |
+| Evidence | 9118c / 6427c files; destination `{:else if}` chain                                                                 |
+| Files    | new named hosts under existing folders; stories stay on public components                                           |
+| Tests    | affected Storybook interaction stories; cold Storybook if startup wiring changes                                    |
+| Effort   | L                                                                                                                   |
+| Visual   | keep `visual-pending`; no baseline updates without approval                                                         |
+| Status   | Partial in `arch-p3`: Application settings, agents, Pulse, Inbox, and DM hosts extracted. Projects surfaces remain. |
 
 ### P4 — Agent/source/registry factory splits + optional ESLint promises
 

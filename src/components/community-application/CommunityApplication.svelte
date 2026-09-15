@@ -152,8 +152,6 @@
   import CommunityChip from "../community-chip/CommunityChip.svelte";
   import CommunityEmojiPicker from "../community-emoji-picker/CommunityEmojiPicker.svelte";
   import CommunityDetails from "../community-details/CommunityDetails.svelte";
-  import CommunityDirectMessageComposer from "../community-direct-message-composer/CommunityDirectMessageComposer.svelte";
-  import CommunityInbox from "../community-inbox/CommunityInbox.svelte";
   import type { CommunityInboxModel } from "../community-inbox/model.js";
   import CommunityGroupInviteDialog from "../community-group-invite-dialog/CommunityGroupInviteDialog.svelte";
   import CommunityProjectChannelIcon from "../community-project-channel-icon/CommunityProjectChannelIcon.svelte";
@@ -161,7 +159,6 @@
   import CommunityMemberCommand from "../community-member-command/CommunityMemberCommand.svelte";
   import CommunityMemberAvatar from "../community-member-avatar/CommunityMemberAvatar.svelte";
   import { provideCommunityMemberPresence } from "../community-member-hover-card/presence-context.js";
-  import CommunityAgents from "../community-agents/CommunityAgents.svelte";
   import CommunityAgentProfile from "../community-agent-profile/CommunityAgentProfile.svelte";
   import { observerScope } from "../../community/agent-activity-context.js";
   import CommunityAgentActivity from "../community-agent-activity/CommunityAgentActivity.svelte";
@@ -176,7 +173,6 @@
     CommunityNavigationSectionModel,
   } from "../community-navigation/model.js";
   import CommunityProfileMenu from "../community-profile-menu/CommunityProfileMenu.svelte";
-  import CommunityPulse from "../community-pulse/CommunityPulse.svelte";
   import CommunityProjects from "../community-projects/CommunityProjects.svelte";
   import type {
     CommunityProjectsCreateProject,
@@ -199,7 +195,6 @@
     type CommunitySearchScope,
   } from "../community-search-command/model.js";
   import CommunitySettingsNavigation from "../community-settings-navigation/CommunitySettingsNavigation.svelte";
-  import CommunitySettings from "../community-settings/CommunitySettings.svelte";
   import type { CommunitySettingsSection } from "../community-settings/model.js";
   import CommunityStatusDialog from "../community-status-dialog/CommunityStatusDialog.svelte";
   import CommunityThreadPanel from "../community-thread-panel/CommunityThreadPanel.svelte";
@@ -257,6 +252,11 @@
   } from "./navigation.js";
   import { provideCommunityApplicationComposer } from "./composer-context.js";
   import { useCommunityApplicationAuthentication } from "./authentication-context.js";
+  import CommunityApplicationAgentsHost from "./CommunityApplicationAgentsHost.svelte";
+  import CommunityApplicationDirectMessageHost from "./CommunityApplicationDirectMessageHost.svelte";
+  import CommunityApplicationInboxHost from "./CommunityApplicationInboxHost.svelte";
+  import CommunityApplicationPulseHost from "./CommunityApplicationPulseHost.svelte";
+  import CommunityApplicationSettings from "./CommunityApplicationSettings.svelte";
 
   type CommunityAuthenticatedAction = () => void | Promise<void>;
   type CommunityParticipationAction = "message" | "post" | "reaction" | "reply";
@@ -7559,64 +7559,54 @@
         </AppShell.Body>
       {/if}
     {:else if activeDestination === "agents"}
-      <AppShell.Body layout="regions" label="Agents">
-        <AppShell.Body.Content label="Agents directory">
-          {#if community.state.agents && community.actions.agents}
-            <CommunityAgents
-              members={workspace.members}
-              memberResults={community.state.memberDirectory.results}
-              onSearchMembers={(query) =>
-                void community.actions.searchMembers(query)}
-              bind:adding={agentCreatorOpen}
-              model={community.state.agents}
-              onProfile={(pubkey) =>
-                openAgentProfile(pubkey, { kind: "overview" })}
-              onActivity={(pubkey) =>
-                openAgentActivity(pubkey, { kind: "overview" })}
-              onSavePersona={(input) =>
-                community.actions.agents!.savePersona(input)}
-              onSaveAgent={(input) =>
-                community.actions.agents!.saveAgent(input)}
-              onLoadProcessing={community.actions.agents?.loadProcessing}
-              onSetProcessing={community.actions.agents?.setProcessing}
-              onSaveRuntime={(pubkey, defaults) =>
-                community.actions.agents!.saveRuntime(pubkey, defaults)}
-              onUnlinkPersona={(pubkey, fallbackName) =>
-                community.actions.agents!.unlinkAgent(pubkey, fallbackName)}
-              onDeletePersona={(slug) =>
-                community.actions.agents!.deletePersona(slug)}
-              onCreateManagedAgent={(input) =>
-                community.actions.agents!.createManagedAgent(input)}
-              onClearManagedAgentDraft={() =>
-                community.actions.agents!.clearManagedAgentDraft()}
-              onCreateReplacement={(pubkey) =>
-                community.actions.agents!.createManagedAgentReplacement(pubkey)}
-              onRevokeManagedAgent={(pubkey) =>
-                community.actions.agents!.revokeManagedAgent(pubkey)}
-              onDeleteManagedAgent={(pubkey) =>
-                community.actions.agents!.deleteManagedAgent(pubkey)}
-              rooms={presentationRooms.map((room) => ({
-                id: room.id,
-                ...(room.groupId ? { groupId: room.groupId } : {}),
-                name: room.name,
-                isProjectChannel: room.isProjectChannel === true,
-                canManage: room.permissions?.manageMembers.state === "enabled",
-              }))}
-              onAddAgentToRoom={async (roomId, pubkey) => {
-                await community.actions.addMember(roomId, pubkey);
-                await community.actions.agents!.refresh();
-              }}
-              ownerPubkey={community.state.authentication.pubkey ?? ""}
-              onRefresh={() => community.actions.agents!.refresh()}
-              onClearHistory={() => community.actions.agents!.clearHistory()}
-              showPageHeader={false}
-              showBodyDescription
-            />
-          {:else}<div class="community-application__panel-status" role="status">
-              Sign in to a community with agent support to view your agents.
-            </div>{/if}
-        </AppShell.Body.Content>
-      </AppShell.Body>
+      <CommunityApplicationAgentsHost
+        agentsAvailable={Boolean(
+          community.state.agents && community.actions.agents,
+        )}
+        members={workspace.members}
+        memberResults={community.state.memberDirectory.results}
+        onSearchMembers={(query) => void community.actions.searchMembers(query)}
+        bind:adding={agentCreatorOpen}
+        model={community.state.agents}
+        onProfile={(pubkey) => openAgentProfile(pubkey, { kind: "overview" })}
+        onActivity={(pubkey) => openAgentActivity(pubkey, { kind: "overview" })}
+        onSavePersona={(input) => community.actions.agents!.savePersona(input)}
+        onSaveAgent={(input) => community.actions.agents!.saveAgent(input)}
+        onLoadProcessing={community.actions.agents?.loadProcessing}
+        onSetProcessing={community.actions.agents?.setProcessing}
+        onSaveRuntime={(pubkey, defaults) =>
+          community.actions.agents!.saveRuntime(pubkey, defaults)}
+        onUnlinkPersona={(pubkey, fallbackName) =>
+          community.actions.agents!.unlinkAgent(pubkey, fallbackName)}
+        onDeletePersona={(slug) =>
+          community.actions.agents!.deletePersona(slug)}
+        onCreateManagedAgent={(input) =>
+          community.actions.agents!.createManagedAgent(input)}
+        onClearManagedAgentDraft={() =>
+          community.actions.agents!.clearManagedAgentDraft()}
+        onCreateReplacement={(pubkey) =>
+          community.actions.agents!.createManagedAgentReplacement(pubkey)}
+        onRevokeManagedAgent={(pubkey) =>
+          community.actions.agents!.revokeManagedAgent(pubkey)}
+        onDeleteManagedAgent={(pubkey) =>
+          community.actions.agents!.deleteManagedAgent(pubkey)}
+        rooms={presentationRooms.map((room) => ({
+          id: room.id,
+          ...(room.groupId ? { groupId: room.groupId } : {}),
+          name: room.name,
+          isProjectChannel: room.isProjectChannel === true,
+          canManage: room.permissions?.manageMembers.state === "enabled",
+        }))}
+        onAddAgentToRoom={async (roomId, pubkey) => {
+          await community.actions.addMember(roomId, pubkey);
+          await community.actions.agents!.refresh();
+        }}
+        ownerPubkey={community.state.authentication.pubkey ?? ""}
+        onRefresh={() => community.actions.agents!.refresh()}
+        onClearHistory={() => community.actions.agents!.clearHistory()}
+        showPageHeader={false}
+        showBodyDescription
+      />
     {:else if !hasCommunitySurface && !communityStartupPending}
       <AppShell.Body layout="regions" label="Connect to community relay">
         <AppShell.Body.Content label="Relay connection settings">
@@ -7671,97 +7661,84 @@
         </AppShell.Body.Content>
       </AppShell.Body>
     {:else if activeDestination === "settings"}
-      <AppShell.Body layout="regions" label="Personal settings">
-        <AppShell.Body.Content>
-          <CommunitySettings
-            model={community.state.settings}
-            section={settingsSection}
-            account={applicationAuthentication?.account?.()}
-            accountConfig={applicationAuthentication?.config?.()}
-            accountActions={applicationAuthentication?.accountActions?.()}
-            accountResumeAction={applicationAuthentication?.resumeAccountAction?.()}
-            accountAuthenticationState={applicationAuthentication?.status?.()}
-            accountActiveExternalSigner={applicationAuthentication?.activeExternalSigner?.()}
-            accountBusy={applicationAuthentication?.status?.() ===
-              "restoring" ||
-              applicationAuthentication?.status?.() === "redirecting"}
-            accountMessage={applicationAuthentication?.status?.() ===
-            "reconnect-required"
-              ? "Reconnect the Nostr signer before an action needs a signature."
-              : ""}
-            onCopyPublicKey={(pubkey) => copyText(pubkey, "Public key copied")}
-            onConnectGitHub={applicationAuthentication?.connectGitHub ===
-            undefined
-              ? undefined
-              : () => applicationAuthentication.connectGitHub?.()}
-            onSignOut={signOutCurrentIdentity}
-            {...community.state.operations["settings:profile"] === undefined
-              ? {}
-              : {
-                  profileOperation:
-                    community.state.operations["settings:profile"],
-                }}
-            {...emojiOperation === undefined ? {} : { emojiOperation }}
-            onUpdateProfile={(profile) =>
-              runAuthenticated(() => community.actions.updateProfile(profile))}
-            onAddCustomEmoji={(shortcode, url) =>
-              runAuthenticated(() =>
-                community.actions.setCustomEmoji(shortcode, url),
-              )}
-            onRemoveCustomEmoji={(shortcode) =>
-              runAuthenticated(() =>
-                community.actions.removeCustomEmoji(shortcode),
-              )}
-          />
-        </AppShell.Body.Content>
-      </AppShell.Body>
+      <CommunityApplicationSettings
+        model={community.state.settings}
+        section={settingsSection}
+        account={applicationAuthentication?.account?.()}
+        accountConfig={applicationAuthentication?.config?.()}
+        accountActions={applicationAuthentication?.accountActions?.()}
+        accountResumeAction={applicationAuthentication?.resumeAccountAction?.()}
+        accountAuthenticationState={applicationAuthentication?.status?.()}
+        accountActiveExternalSigner={applicationAuthentication?.activeExternalSigner?.()}
+        accountBusy={applicationAuthentication?.status?.() === "restoring" ||
+          applicationAuthentication?.status?.() === "redirecting"}
+        accountMessage={applicationAuthentication?.status?.() ===
+        "reconnect-required"
+          ? "Reconnect the Nostr signer before an action needs a signature."
+          : ""}
+        onCopyPublicKey={(pubkey) => copyText(pubkey, "Public key copied")}
+        onConnectGitHub={applicationAuthentication?.connectGitHub === undefined
+          ? undefined
+          : () => applicationAuthentication.connectGitHub?.()}
+        onSignOut={signOutCurrentIdentity}
+        {...community.state.operations["settings:profile"] === undefined
+          ? {}
+          : {
+              profileOperation: community.state.operations["settings:profile"],
+            }}
+        {...emojiOperation === undefined ? {} : { emojiOperation }}
+        onUpdateProfile={(profile) =>
+          runAuthenticated(() => community.actions.updateProfile(profile))}
+        onAddCustomEmoji={(shortcode, url) =>
+          runAuthenticated(() =>
+            community.actions.setCustomEmoji(shortcode, url),
+          )}
+        onRemoveCustomEmoji={(shortcode) =>
+          runAuthenticated(() =>
+            community.actions.removeCustomEmoji(shortcode),
+          )}
+      />
     {:else if activeDestination === "pulse" && community.state.pulse && community.actions.pulse}
-      <AppShell.Body layout="regions" label="Pulse">
-        <AppShell.Body.Content label="Pulse feed">
-          <CommunityPulse
-            model={community.state.pulse}
-            currentMember={displayMember}
-            rooms={presentationRooms}
-            communityEmojis={community.state.settings.customEmojis}
-            {...pulsePublishOperation === undefined
-              ? {}
-              : { publishOperation: pulsePublishOperation }}
-            {...pulseComposerStatus === undefined
-              ? {}
-              : { composerStatus: pulseComposerStatus }}
-            onSelectTab={(tab) => {
-              const selectTab = () => community.actions.pulse!.selectTab(tab);
-              return tab === "following" || tab === "liked" || tab === "mine"
-                ? runAuthenticated(selectTab)
-                : selectTab();
+      <CommunityApplicationPulseHost
+        model={community.state.pulse}
+        currentMember={displayMember}
+        rooms={presentationRooms}
+        communityEmojis={community.state.settings.customEmojis}
+        {...pulsePublishOperation === undefined
+          ? {}
+          : { publishOperation: pulsePublishOperation }}
+        {...pulseComposerStatus === undefined
+          ? {}
+          : { composerStatus: pulseComposerStatus }}
+        onSelectTab={(tab) => {
+          const selectTab = () => community.actions.pulse!.selectTab(tab);
+          return tab === "following" || tab === "liked" || tab === "mine"
+            ? runAuthenticated(selectTab)
+            : selectTab();
+        }}
+        onPublish={(submission, replyToEventId) =>
+          runAuthenticated(() =>
+            community.actions.pulse!.publish(submission, replyToEventId),
+          )}
+        onToggleLike={(eventId) =>
+          runAuthenticated(() => community.actions.pulse!.toggleLike(eventId))}
+        onShare={copyPulseLink}
+        onOpenProfile={openProfile}
+        onMessageMember={(member) => messageMember(member)}
+        onRetry={() => {
+          if (pulsePublishOperationEntry)
+            return community.retry(pulsePublishOperationEntry[0]);
+          return community.actions.pulse!.refresh();
+        }}
+        {...pulsePublishOperationEntry === undefined
+          ? {}
+          : {
+              onDismissError: () =>
+                community.dismissOperation(pulsePublishOperationEntry[0]),
             }}
-            onPublish={(submission, replyToEventId) =>
-              runAuthenticated(() =>
-                community.actions.pulse!.publish(submission, replyToEventId),
-              )}
-            onToggleLike={(eventId) =>
-              runAuthenticated(() =>
-                community.actions.pulse!.toggleLike(eventId),
-              )}
-            onShare={copyPulseLink}
-            onOpenProfile={openProfile}
-            onMessageMember={(member) => messageMember(member)}
-            onRetry={() => {
-              if (pulsePublishOperationEntry)
-                return community.retry(pulsePublishOperationEntry[0]);
-              return community.actions.pulse!.refresh();
-            }}
-            {...pulsePublishOperationEntry === undefined
-              ? {}
-              : {
-                  onDismissError: () =>
-                    community.dismissOperation(pulsePublishOperationEntry[0]),
-                }}
-          />
-        </AppShell.Body.Content>
-      </AppShell.Body>
+      />
     {:else if activeDestination === "inbox"}
-      <CommunityInbox
+      <CommunityApplicationInboxHost
         model={inbox}
         conversationLoading={!inboxReady}
         {...inboxSurfaceOptions}
@@ -7826,26 +7803,21 @@
         onCancelReply={() => community.actions.clearReplyTarget()}
       />
     {:else if activeDestination === "new-direct-message"}
-      <AppShell.Body layout="regions" label="New direct message">
-        <AppShell.Body.Content>
-          <CommunityDirectMessageComposer
-            recipients={selectedRecipients}
-            buzzSupported={community.state.capabilities.buzzDirectMessages ??
-              false}
-            communityEmojis={community.state.settings.customEmojis}
-            onChooseRecipients={() => {
-              memberCommandTask = undefined;
-              memberCommandMode = "select";
-              memberCommandOpen = true;
-            }}
-            onRemoveRecipient={(member) =>
-              (selectedRecipientIds = selectedRecipientIds.filter(
-                (id) => id !== member.id,
-              ))}
-            onSend={sendNewDirectMessage}
-          />
-        </AppShell.Body.Content>
-      </AppShell.Body>
+      <CommunityApplicationDirectMessageHost
+        recipients={selectedRecipients}
+        buzzSupported={community.state.capabilities.buzzDirectMessages ?? false}
+        communityEmojis={community.state.settings.customEmojis}
+        onChooseRecipients={() => {
+          memberCommandTask = undefined;
+          memberCommandMode = "select";
+          memberCommandOpen = true;
+        }}
+        onRemoveRecipient={(member) =>
+          (selectedRecipientIds = selectedRecipientIds.filter(
+            (id) => id !== member.id,
+          ))}
+        onSend={sendNewDirectMessage}
+      />
     {:else}
       <AppShell.Toolbar
         label={`${activeRoom.name} toolbar`}

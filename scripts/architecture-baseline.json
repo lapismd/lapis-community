@@ -1008,15 +1008,35 @@
       "justification": "Existing file above the new-file counted-line limit; do not grow"
     },
     "src/components/community-application/CommunityApplication.svelte": {
-      "countedLines": 9391,
-      "physicalLines": 9752,
+      "countedLines": 9363,
+      "physicalLines": 9724,
       "forbiddenImportCount": 0,
       "kind": "legacy",
       "justification": "Application composition root; extract destination hosts before adding behaviour"
     },
+    "src/components/community-application/CommunityApplicationAgentsHost.svelte": {
+      "countedLines": 34,
+      "physicalLines": 39,
+      "forbiddenImportCount": 0
+    },
     "src/components/community-application/CommunityApplicationCacheStoryHarness.svelte": {
       "countedLines": 239,
       "physicalLines": 252,
+      "forbiddenImportCount": 0
+    },
+    "src/components/community-application/CommunityApplicationDirectMessageHost.svelte": {
+      "countedLines": 11,
+      "physicalLines": 14,
+      "forbiddenImportCount": 0
+    },
+    "src/components/community-application/CommunityApplicationInboxHost.svelte": {
+      "countedLines": 6,
+      "physicalLines": 9,
+      "forbiddenImportCount": 0
+    },
+    "src/components/community-application/CommunityApplicationPulseHost.svelte": {
+      "countedLines": 11,
+      "physicalLines": 14,
       "forbiddenImportCount": 0
     },
     "src/components/community-application/CommunityApplicationRoot.svelte": {
@@ -1025,6 +1045,11 @@
       "forbiddenImportCount": 0,
       "kind": "legacy",
       "justification": "Existing file above the new-file counted-line limit; do not grow"
+    },
+    "src/components/community-application/CommunityApplicationSettings.svelte": {
+      "countedLines": 11,
+      "physicalLines": 14,
+      "forbiddenImportCount": 0
     },
     "src/components/community-application/CommunityApplicationStoryHarness.svelte": {
       "countedLines": 810,

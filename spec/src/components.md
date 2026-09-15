@@ -10,6 +10,11 @@ For LC-ARCH-028, workspace, inbox, and composer submission types are owned under
 `src/community`, and login-method types under `src/auth`. Component `model.ts`
 files re-export those types so the public `./components` entry stays compatible.
 
+`CommunityApplication` destination hosts compose Personal settings, Agents,
+Pulse, and Inbox by populating Design Core AppShell body regions; they do not
+replace AppShell or recreate header, viewport, sidebar, or structural-layer
+geometry.
+
 For LC-UI-036, a plugin release channel associated with a project MUST show its
 existing Reviews and People actions in a top Plugins section of the project
 sidebar. It MUST use one overview sidebar, preserve the release detail surfaces,
