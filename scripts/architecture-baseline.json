@@ -279,13 +279,13 @@
       "forbiddenImportCount": 0
     },
     "src/auth/keytr.test.ts": {
-      "countedLines": 447,
-      "physicalLines": 486,
+      "countedLines": 455,
+      "physicalLines": 496,
       "forbiddenImportCount": 0
     },
     "src/auth/keytr.ts": {
-      "countedLines": 662,
-      "physicalLines": 702,
+      "countedLines": 665,
+      "physicalLines": 705,
       "forbiddenImportCount": 0,
       "kind": "legacy",
       "justification": "Existing file above the new-file counted-line limit; do not grow"

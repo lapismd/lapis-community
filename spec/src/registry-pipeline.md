@@ -13,8 +13,9 @@ agent-control validation, NIP-29 command templates and content-window loaders,
 registry hydration, catalog subscriptions, and portable release proofs, and
 community room, message, and inbox projectors live beside their factories.
 The checker fails stale path budgets when counted size plus twenty is still
-below the recorded budget. The checker follows one value re-export hop except
-through feature barrels.
+below the recorded budget. Keytr local development storage-relay hosts remain
+in the recorded auth path budgets. The checker follows one value re-export hop
+except through feature barrels.
 
 Extracted Community controller modules update the architecture baseline in the
 same change as the factory they leave.
