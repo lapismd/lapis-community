@@ -50,6 +50,14 @@ export default defineConfig(tableRequirements(), {
       ],
       rules: [
         {
+          pattern: "^docs/plans/",
+          chapters: ["spec/src/architecture.md"],
+        },
+        {
+          pattern: "^scripts/(?:check-architecture|architecture)",
+          chapters: ["spec/src/architecture.md"],
+        },
+        {
           pattern:
             "^src/(?:index\\.ts$|auth/|community/|nostr/|projects/|protocol/|testing/)",
           chapters: ["spec/src/nostr-protocol.md", "spec/src/architecture.md"],
@@ -89,6 +97,11 @@ export default defineConfig(tableRequirements(), {
         name: "deferred work",
         command: "node",
         args: ["scripts/check-deferred-work.mjs"],
+      },
+      {
+        name: "architecture",
+        command: "node",
+        args: ["scripts/check-architecture.mjs"],
       },
     ],
   },

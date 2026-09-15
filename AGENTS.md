@@ -24,6 +24,33 @@ repository owns the relay.
   vendor dependency source, edit dependency `node_modules`, or add
   checkout-specific paths to publishable manifests.
 
+## Source organisation
+
+Inspect the owning `src/<feature>/` tree and
+`docs/plans/typescript-architecture-and-enforcement.md` before adding files. Do
+not grow files over 300 counted lines (see the plan’s measurement) or add
+substantial behaviour to `community-controller.svelte.ts`,
+`CommunityApplication.svelte`, `CommunityProjects.svelte`,
+`agent-controller.ts`, or `nip29-community-source.ts` without extracting the
+responsibility you are changing. Do not import `src/components` from
+`src/community`. Internal modules import siblings directly, not their own
+barrel. Run `pnpm check:architecture` with the relevant tests.
+
+### Completion checklist
+
+- [ ] New/changed modules have one primary responsibility and a
+      feature-specific name (not `utils` / `helpers` / `common`).
+- [ ] Placement matches auth / nostr / protocol / community / components /
+      projects / registry owners.
+- [ ] Imports follow the dependency matrix; no new community→components
+      types; no production→test imports.
+- [ ] Counted lines: new files ≤ 300 (tests ≤ 500); existing hotspots did
+      not grow, or the baseline budget dropped after extraction.
+- [ ] Tests follow the extracted boundary; characterisation tests added
+      before moving poorly covered behaviour.
+- [ ] `pnpm check:architecture` and the existing `pnpm check` lane
+      relevant to the surface passed.
+
 ## Components and Design Core
 
 Before creating or changing UI, follow **find → inspect → compose → verify**:

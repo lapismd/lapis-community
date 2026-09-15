@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "sourceCommit": "fixture",
+  "limits": {
+    "newProductionCountedLines": 300,
+    "newTestCountedLines": 500,
+    "newStoryCountedLines": 400,
+    "newScriptCountedLines": 300
+  },
+  "files": {
+    "src/community/wide.ts": {
+      "countedLines": 301,
+      "physicalLines": 301,
+      "forbiddenImportCount": 0,
+      "kind": "exception",
+      "justification": "Declarative fixture table"
+    }
+  }
+}

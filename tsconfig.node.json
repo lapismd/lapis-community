@@ -11,5 +11,9 @@
     "vite.config.ts",
     ".storybook/**/*.ts"
   ],
-  "exclude": ["src/**/*.svelte", "src/**/*.stories.svelte"]
+  "exclude": [
+    "src/**/*.svelte",
+    "src/**/*.stories.svelte",
+    "scripts/architecture-fixtures/**"
+  ]
 }

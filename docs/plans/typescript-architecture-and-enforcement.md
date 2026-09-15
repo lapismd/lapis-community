@@ -1,7 +1,7 @@
 # TypeScript architecture and enforcement
 
-**Status:** plan only. No checker, lint toolchain, agent-instruction, or CI change
-has been implemented. Proposed patches below are unexecuted.
+**Status:** P0 implemented in workspace `arch-p0` (`scripts/check-architecture.mjs`,
+LC-ARCH-028, `pnpm check:architecture`). P1–P5 remain planned.
 
 **Kind of statements:** **Fact** is observed in this checkout. **Recommendation**
 is a chosen policy. **Assumption** is used only where evidence is missing.
@@ -896,7 +896,7 @@ Behaviour-preserving unless noted. Do not start a repository-wide move.
 | Files                | `scripts/check-architecture.mjs`, `scripts/architecture-baseline.json`, `scripts/architecture.test.mjs`, `scripts/architecture-fixtures/**`, `package.json`, `spec-validator.config.mjs`, `spec/src/architecture.md`, `spec/src/verification.md`, `AGENTS.md` |
 | Ownership after      | scripts own the checker; spec owns LC-ARCH-028                                                                                                                                                                                                                |
 | Deps                 | none                                                                                                                                                                                                                                                          |
-| Sequence             | 1) spec-first remap + LC-ARCH-028 Planned 2) checker + fixtures 3) `--write-baseline` once 4) wire scripts 5) AGENTS.md 6) mark Implemented                                                                                                                   |
+| Sequence             | Executed: spec-first remap, LC-ARCH-028, checker + fixtures, `--write-baseline`, `pnpm check` / `spec:check` wiring, AGENTS.md                                                                                                                                |
 | Behaviour-preserving | yes                                                                                                                                                                                                                                                           |
 | Tests                | fixture table in §10                                                                                                                                                                                                                                          |
 | Validate             | `pnpm check:architecture`, `pnpm spec:check`, `pnpm check`                                                                                                                                                                                                    |

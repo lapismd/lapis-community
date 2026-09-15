@@ -79,7 +79,8 @@
   "scripts": {
     "build": "pnpm prepack",
     "prepack": "svelte-package --input src --tsconfig ./tsconfig.pack.json && vite build && publint",
-    "check": "pnpm check:ui && pnpm spec:validate && pnpm check:svelte && pnpm check:types",
+    "check": "pnpm check:ui && pnpm check:architecture && pnpm spec:validate && pnpm check:svelte && pnpm check:types",
+    "check:architecture": "node scripts/check-architecture.mjs",
     "check:svelte": "svelte-check --tsconfig ./tsconfig.app.json --fail-on-warnings --output human",
     "check:types": "tsc -p tsconfig.node.json --noEmit",
     "test": "vitest run --project unit",

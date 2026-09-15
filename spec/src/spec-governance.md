@@ -6,6 +6,9 @@ lockfile together while retaining the existing package-ownership boundary.
 For LC-SPEC-004, the aggregate package checks include the isolated project
 Storybook Docker lane so the package manifest cannot claim hosted-project
 support without exercising the real relay and its private forge sidecar.
+`pnpm check` and `pnpm spec:check` also run the architecture lane
+(`scripts/check-architecture.mjs`) so counted-line budgets and the feature
+dependency matrix cannot grow without a baseline update in the same change.
 
 The dedicated Vite development application also composes the production NIP-34
 project source against its active Community relay. The ordinary local stack
