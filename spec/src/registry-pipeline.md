@@ -8,9 +8,10 @@ Planning documents under `docs/plans/` are not canonical requirements.
 The TypeScript organisation and enforcement plan is
 `docs/plans/typescript-architecture-and-enforcement.md`. Scripts own the
 architecture checker; `docs/plans/` maps to `spec/src/architecture.md`.
-P3 Application and Projects destination hosts are extracted: Projects named
-surfaces for activity, pull-request review, the repository pane, and create
-dialogs compose from the `CommunityProjects` root.
+P4 factory parser splits are extracted: agent runtime and memory parsers,
+agent-control validation, NIP-29 command templates and content-window loaders,
+registry hydration, catalog subscriptions, and portable release proofs, and
+community room, message, and inbox projectors live beside their factories.
 The checker follows one value re-export hop except through feature barrels.
 Extracted Community controller modules update the architecture baseline in the
 same change as the factory they leave.

@@ -1,5 +1,3 @@
-import { sha256 } from "@noble/hashes/sha2.js";
-import { bytesToHex } from "@noble/hashes/utils.js";
 import { generateSecretKey, verifyEvent } from "nostr-tools/pure";
 import semver from "semver";
 
@@ -11,6 +9,7 @@ import {
 import {
   fetchNip29ReleaseManifestDocuments,
   queryRelayUnion,
+  type CommunityRelay,
   type CommunityRelayFactory,
   type CommunityRelaySubscription,
   type Nip29ReleaseManifestDocument,
@@ -45,7 +44,6 @@ import {
   type Nip29RegistryAuthorities,
   type Nip29ReleaseManifestSource,
   type NostrEvent,
-  type NostrReleaseProof,
 } from "../protocol/index.js";
 
 import {
@@ -76,6 +74,14 @@ import {
   inspectRegistryReleaseCandidate,
   recognizeRegistryReleaseCandidate,
 } from "./release-inspection.js";
+import {
+  digest,
+  hydrateRegistryManifestDocuments,
+  manifestDocument,
+  verifiedSnapshotDocuments,
+} from "./nip29-hydrate.js";
+import { subscribeRegistryCatalogRelays } from "./nip29-subscriptions.js";
+import { createNip29ReleaseProof } from "./nip29-release-proof.js";
 import {
   createBrowserRegistrySnapshotStore,
   type RegistryEventSnapshot,
@@ -140,7 +146,9 @@ export function createNip29RegistryCatalogDataSource(
   const readerSigner =
     options.readerSigner ?? new SecretKeyRegistrySigner(generateSecretKey());
   const signEvent = readerSigner.signEvent.bind(readerSigner);
-  const relays = relayUrls.map((url) => options.relayFactory.create(url));
+  const relays: CommunityRelay[] = relayUrls.map((url) =>
+    options.relayFactory.create(url),
+  );
   const releaseGroupId = lapisGroupId(LAPIS_GROUPS.pluginReleases);
   const snapshotKey = registrySnapshotKey(relayUrls, authorities);
   const listeners = new Set<RegistryCatalogSourceListener>();
@@ -248,47 +256,18 @@ export function createNip29RegistryCatalogDataSource(
 
   async function startSubscriptions(signal: AbortSignal): Promise<void> {
     if (subscriptionsPromise !== undefined) return await subscriptionsPromise;
-    subscriptionsPromise = (async () => {
-      await Promise.allSettled(
-        relays.map(async (relay) => {
-          await authenticateRegistryRelay(relay, readerSigner, signal);
-          const handlers = {
-            onevent(event: NostrEvent) {
-              if (!pendingEvents.has(event.id)) inspectionPendingRevision += 1;
-              pendingEvents.set(event.id, event);
-              scheduleLiveProjection();
-            },
-          };
-          const [releaseSubscription, decisionSubscription] = await Promise.all(
-            [
-              relay.subscribe(
-                {
-                  kinds: [NIP29_KINDS.streamMessage],
-                  "#h": [releaseGroupId],
-                  "#t": [
-                    LAPIS_RELEASE_TOPIC,
-                    LAPIS_PUBLISHER_AUTHORIZATION_TOPIC,
-                    LAPIS_REGISTRY_HEAD_TOPIC,
-                  ],
-                },
-                handlers,
-                signal,
-              ),
-              relay.subscribe(
-                {
-                  kinds: [NIP29_KINDS.reaction],
-                  "#h": [releaseGroupId],
-                },
-                handlers,
-                signal,
-              ),
-            ],
-          );
-          subscriptions.add(releaseSubscription);
-          subscriptions.add(decisionSubscription);
-        }),
-      );
-    })();
+    subscriptionsPromise = subscribeRegistryCatalogRelays({
+      relays,
+      readerSigner,
+      signal,
+      releaseGroupId,
+      subscriptions,
+      onEvent(event) {
+        if (!pendingEvents.has(event.id)) inspectionPendingRevision += 1;
+        pendingEvents.set(event.id, event);
+        scheduleLiveProjection();
+      },
+    });
     return await subscriptionsPromise;
   }
 
@@ -364,7 +343,15 @@ export function createNip29RegistryCatalogDataSource(
           bufferedEvents,
         );
         candidateEvents = events;
-        const documents = await hydrateManifestDocuments(events, signal);
+        const documents = await hydrateRegistryManifestDocuments(events, {
+          authorities,
+          manifestBytes,
+          fetch: request,
+          mediaAuthSigner: signEvent,
+          relayUrls,
+          blossomUrls,
+          signal,
+        });
         const synchronizedAt = now().toISOString();
         await setProjection(
           events,
@@ -427,49 +414,6 @@ export function createNip29RegistryCatalogDataSource(
         inspectionPendingRevision += 1;
       }
     }
-  }
-
-  async function hydrateManifestDocuments(
-    events: readonly NostrEvent[],
-    signal: AbortSignal,
-  ): Promise<Nip29ReleaseManifestDocument[]> {
-    const authorized = authorizedReleaseEvents(events, authorities);
-    const documents = new Map<string, Nip29ReleaseManifestDocument>();
-    const missing: NostrEvent[] = [];
-    for (const event of authorized) {
-      const attachment = getNip29ManifestAttachment(event);
-      if (attachment === undefined) continue;
-      const bytes = manifestBytes.get(attachment.sha256);
-      if (bytes === undefined) {
-        missing.push(event);
-        continue;
-      }
-      try {
-        documents.set(
-          attachment.sha256,
-          manifestDocument(attachment.sha256, bytes, attachment.size),
-        );
-      } catch {
-        manifestBytes.delete(attachment.sha256);
-        missing.push(event);
-      }
-    }
-    if (missing.length > 0) {
-      const fetched = await fetchNip29ReleaseManifestDocuments(missing, {
-        fetch: request,
-        mediaAuthSigner: signEvent,
-        relayUrls,
-        blossomUrls,
-        signal,
-      });
-      for (const document of fetched) {
-        manifestBytes.set(document.attachmentSha256, document.bytes);
-        documents.set(document.attachmentSha256, document);
-      }
-    }
-    return [...documents.values()].toSorted((left, right) =>
-      left.attachmentSha256.localeCompare(right.attachmentSha256),
-    );
   }
 
   async function setProjection(
@@ -1403,47 +1347,12 @@ export function createNip29RegistryCatalogDataSource(
           `${pluginId}@${version}: curated release is unavailable`,
         );
       }
-      if (release.authorizationEvent === undefined) {
-        throw new Error(
-          `${pluginId}@${version}: portable proof requires a signed publisher authorization`,
-        );
-      }
-      const bytes = manifestBytes.get(release.attachment.sha256);
-      if (bytes === undefined) {
-        throw new Error(
-          `${pluginId}@${version}: release manifest is unavailable`,
-        );
-      }
-      const proof: NostrReleaseProof =
-        release.head === undefined
-          ? {
-              schema: "lapis.plugin.release-proof/1",
-              authorizationEvent: release.authorizationEvent,
-              releaseEvent: release.event,
-              decisionEvent: release.decisionEvent,
-              manifest: {
-                sha256: release.attachment.sha256,
-                size: bytes.byteLength,
-                content: new TextDecoder("utf-8", { fatal: true }).decode(
-                  bytes,
-                ),
-              },
-            }
-          : {
-              schema: "lapis.plugin.release-proof/2",
-              authorizationEvent: release.authorizationEvent,
-              releaseEvent: release.event,
-              decisionEvent: release.decisionEvent,
-              headEvent: release.head.event,
-              manifest: {
-                sha256: release.attachment.sha256,
-                size: bytes.byteLength,
-                content: new TextDecoder("utf-8", { fatal: true }).decode(
-                  bytes,
-                ),
-              },
-            };
-      return proof;
+      return createNip29ReleaseProof(
+        pluginId,
+        version,
+        release,
+        manifestBytes.get(release.attachment.sha256),
+      );
     },
     async loadReleaseManagementCapabilities(eventId, signer, loadOptions) {
       loadOptions?.signal?.throwIfAborted();
@@ -1715,82 +1624,6 @@ function registrySnapshotKey(
   });
 }
 
-function verifiedSnapshotDocuments(
-  snapshot: RegistryEventSnapshot,
-  authorities: Nip29RegistryAuthorities,
-): Nip29ReleaseManifestDocument[] {
-  if (snapshot.events.some((event) => !verifyEvent(event))) {
-    throw new Error("Cached registry snapshot contains an invalid event");
-  }
-  const attachments = new Map(
-    authorizedReleaseEvents(snapshot.events, authorities).flatMap((event) => {
-      const attachment = getNip29ManifestAttachment(event);
-      return attachment === undefined
-        ? []
-        : [[attachment.sha256, attachment] as const];
-    }),
-  );
-  const documents = snapshot.manifests.map((manifest) => {
-    const attachment = attachments.get(manifest.attachmentSha256);
-    if (attachment === undefined) {
-      throw new Error("Cached registry manifest has no signed attachment");
-    }
-    return manifestDocument(
-      manifest.attachmentSha256,
-      manifest.bytes,
-      attachment.size,
-    );
-  });
-  if (documents.length !== attachments.size) {
-    throw new Error("Cached registry snapshot is missing a manifest");
-  }
-  return documents;
-}
-
-function manifestDocument(
-  attachmentSha256: string,
-  bytes: Uint8Array,
-  expectedSize: number,
-): Nip29ReleaseManifestDocument {
-  if (bytes.byteLength !== expectedSize || digest(bytes) !== attachmentSha256) {
-    throw new Error(`Release manifest ${attachmentSha256} failed verification`);
-  }
-  return {
-    attachmentSha256,
-    bytes,
-    manifest: JSON.parse(new TextDecoder().decode(bytes)) as unknown,
-  };
-}
-
-function authorizedReleaseEvents(
-  events: readonly NostrEvent[],
-  authorities: Nip29RegistryAuthorities | undefined,
-): NostrEvent[] {
-  const releaseGroupId = lapisGroupId(LAPIS_GROUPS.pluginReleases);
-  return events.filter((event) => {
-    if (
-      event.kind !== NIP29_KINDS.streamMessage ||
-      event.tags.find((tag) => tag[0] === "h")?.[1] !== releaseGroupId ||
-      !event.tags.some(
-        (tag) => tag[0] === "t" && tag[1] === LAPIS_RELEASE_TOPIC,
-      )
-    ) {
-      return false;
-    }
-    if (authorities === undefined) return true;
-    const pluginTopics = event.tags
-      .filter((tag) => tag[0] === "t" && tag[1]?.startsWith("plugin:") === true)
-      .map((tag) => tag[1]!.slice("plugin:".length));
-    if (pluginTopics.length !== 1) return false;
-    return isNip29PublisherAuthorized(
-      events,
-      authorities,
-      pluginTopics[0]!,
-      event.pubkey,
-    );
-  });
-}
-
 function projectionRoot(
   acceptedEventIds: readonly string[],
   index: JsonObject,
@@ -1868,10 +1701,6 @@ function verifyResource(
   if (digest(bytes) !== reference.sha256) {
     throw new Error(`${reference.sourceUrl} failed SHA-256 verification`);
   }
-}
-
-function digest(bytes: Uint8Array): string {
-  return bytesToHex(sha256(bytes));
 }
 
 function resourceSources(
