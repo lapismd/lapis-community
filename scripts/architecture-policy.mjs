@@ -43,8 +43,8 @@ const T = "T";
 const X = "X";
 
 /**
- * Rows import columns. T = type-only. Pending type edges
- * (community/auth → components) are counted until P1 inversion.
+ * Rows import columns. T = type-only. No pending type edges remain
+ * after P1 inversion; community/auth → components is forbidden.
  */
 export const MATRIX = {
   protocol: {

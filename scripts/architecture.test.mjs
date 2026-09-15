@@ -1,5 +1,4 @@
 import { spawnSync } from "node:child_process";
-import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
@@ -49,7 +48,7 @@ describe("counted-line metric", () => {
   });
 });
 
-describe("architecture checker fixtures", () => {
+describe("architecture checker fixtures", { timeout: 30_000 }, () => {
   it("fails a new production file over 300 counted lines", () => {
     const result = run("new-oversize");
     expect(result.status).toBe(1);
@@ -176,9 +175,9 @@ describe("architecture checker fixtures", () => {
     expect(output(result)).not.toContain("counted-line-growth");
   });
 
-  it("warns on stale budgets without failing", () => {
+  it("fails stale budgets when metric plus slack is under the budget", () => {
     const result = run("stale-budget");
-    expect(result.status).toBe(0);
+    expect(result.status).toBe(1);
     expect(output(result)).toContain("stale-budget");
   });
 
@@ -190,11 +189,12 @@ describe("architecture checker fixtures", () => {
 });
 
 describe("repository architecture baseline", () => {
-  it("passes the current tree", () => {
+  it("passes the current tree", { timeout: 60_000 }, () => {
     const result = spawnSync(process.execPath, [checker], {
       encoding: "utf8",
       cwd: repoRoot,
       env: process.env,
+      timeout: 55_000,
     });
     if (result.status !== 0) {
       expect(output(result)).toBe("expected pnpm check:architecture to pass");

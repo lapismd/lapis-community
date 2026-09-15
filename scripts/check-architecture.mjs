@@ -161,7 +161,7 @@ export function checkArchitecture({
         );
       else if (record.counted + 20 < budget)
         report(
-          warnings,
+          errors,
           "stale-budget",
           `${record.posix} metric ${record.counted} + 20 < budget ${budget}`,
           record.posix,

@@ -1,7 +1,7 @@
 # TypeScript architecture and enforcement
 
-**Status:** P0–P4 implemented in workspaces `arch-p0` / `arch-p1` / `arch-p2` /
-`arch-p3` / `arch-p4`. P5 remains planned.
+**Status:** P0–P5 implemented in workspaces `arch-p0` / `arch-p1` / `arch-p2` /
+`arch-p3` / `arch-p4` / `arch-p5`.
 
 **Kind of statements:** **Fact** is observed in this checkout. **Recommendation**
 is a chosen policy. **Assumption** is used only where evidence is missing.
@@ -634,6 +634,8 @@ for each input file:
     budget = files[path].countedLines
     if metric > budget:
       FAIL "counted-line growth PATH budget -> metric"
+    else if metric + 20 < budget:
+      FAIL "stale-budget PATH"
     # shrinking is OK; do not auto-lower budget in CI
 if CI and argv contains --write-baseline: FAIL
 if no input files: FAIL "architecture check found no source files"
@@ -648,9 +650,9 @@ change. Do not guess renames from Git similarity.
 **Splits:** new extract must meet new-file limit. Parent budget must
 drop to the new counted size in the same change (otherwise the parent
 could be grown later up to the old budget). **Recommendation:** checker
-**warns** (P0) and **errors** (P3) when `metric + 20 < budget` (stale
-budget slack). Slack of 20 avoids noise from comment reflow. P0 warn
-does not fail CI; print `stale-budget PATH`.
+**warns** (P0) and **errors** (P5) when `metric + 20 < budget` (stale
+budget slack). Slack of 20 avoids noise from comment reflow. P5 errors
+fail validation; print `stale-budget PATH`.
 
 **Replacement of one violation with another:** path identity avoids
 line-number fingerprints. Limitation: deleting file A and adding file B
@@ -669,14 +671,13 @@ absent. Do not skip on missing origin/main.
 | New file               | ≤ kind limit or baseline exception                                                       |
 | Existing compliant     | must stay ≤ limit (already in baseline at ≤ limit) and must not take a forbidden import  |
 | Existing non-compliant | counted lines ≤ budget; forbidden deps must not be **added** (see import baseline below) |
-| Refactor               | reduce budget to match; new files clean                                                  |
+| Refactor               | reduce budget to match; new files clean; fail if leftover budget is stale by >20         |
 | Rename/move            | update baseline keys same change                                                         |
+| Stale budget           | FAIL when metric + 20 < recorded budget                                                  |
 
 **Import ratchet:** store `forbiddenImportCount` per file (0 for clean
-files). Fail if count increases. P0 community→components type imports
-are recorded so inversion can drive them to zero. Adding a new
-community→components type import fails even during the warn window if
-the count rises.
+files). Fail if count increases. P1 closed the community→components
+type-import warn window: those imports fail as `forbidden-import`.
 
 ### 6.4 Governance
 
@@ -687,7 +688,8 @@ the count rises.
 
 ## 7. Proposed configuration changes
 
-All of this section is **unexecuted**.
+P0 landed the checker, `pnpm check:architecture`, and spec-first remaps
+below. Later slices keep those scripts; they do not add ESLint `max-lines`.
 
 ### 7.1 `package.json` scripts (merge)
 
@@ -766,7 +768,7 @@ Unexecuted pseudocode (Node ESM, no new dependencies):
 // apply matrix; count forbidden runtime + type imports
 // detect runtime cycles
 // compare counted lines to baseline
-// exit 1 on any FAIL; print stale-budget to stdout
+// exit 1 on any FAIL; print stale-budget to stderr
 ```
 
 ### 7.5 CI (proposed, host unverified)
@@ -956,9 +958,10 @@ Behaviour-preserving unless noted. Do not start a repository-wide move.
 
 ### P5 — Tighten
 
-Lower new-file limit only if P1–P3 reduced hotspot budgets. Enable
-stale-budget error. Remove community→components warn. Drop obsolete
-baseline entries. Do **not** relax type or UI-policy checks.
+|         |                                                                                                                                                                                                                    |
+| ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Purpose | fail stale budgets; keep the 300 new-file limit                                                                                                                                                                    |
+| Status  | Implemented in `arch-p5`: `metric + 20 < budget` is an error; community→components type imports remain forbidden; the 300 new-file counted-line limit is unchanged because remaining factories are still above it. |
 
 ### Out of scope
 
@@ -989,7 +992,7 @@ not merely nonzero exit.
 | Computed `import(x)`                                 | `await import(path)`                                                  | fail `non-literal-import`                                                           |
 | Runtime cycle A↔B including unchanged B             | fixture                                                               | fail `runtime-cycle`                                                                |
 | Composition root imports community+auth              | ApplicationRoot-shaped file                                           | pass                                                                                |
-| `import type` community→components during P0         |                                                                       | warn; fail if count > baseline                                                      |
+| `import type` community→components                   | type-import fixture                                                   | fail `forbidden-import`                                                             |
 | Test imports internals                               | `foo.test.ts`                                                         | pass                                                                                |
 | Production imports test                              | `community/x.ts` imports `./y.test.js`                                | fail                                                                                |
 | Cohesive exception                                   | baseline `kind=exception` over limit                                  | pass only that path                                                                 |
@@ -999,6 +1002,7 @@ not merely nonzero exit.
 | Broken config / missing baseline                     | delete JSON                                                           | fail, nonzero                                                                       |
 | No source files                                      | empty root                                                            | fail `no-inputs`                                                                    |
 | Comment-only edit                                    | add `//` lines to hotspot                                             | pass (counted unchanged)                                                            |
+| Stale path budget                                    | `stale-budget/` with budget far above counted size                    | fail `stale-budget`                                                                 |
 | `CI=true --write-baseline`                           |                                                                       | fail                                                                                |
 
 Re-export hop: follow **value** `export * from` and
@@ -1051,5 +1055,6 @@ you did not implement.
 
 ---
 
-Implementation of the checker, spec requirement, agent text, and CI has
-**not** been performed. This file is the plan.
+P0–P5 are implemented in the `arch-p0` through `arch-p5` workspaces.
+This file remains the organisation plan; canonical requirements live in
+`spec/src`.
