@@ -1729,15 +1729,180 @@
       "justification": "Existing file above the new-file counted-line limit; do not grow"
     },
     "src/components/community-projects/CommunityProjects.svelte": {
-      "countedLines": 6572,
-      "physicalLines": 6763,
+      "countedLines": 3781,
+      "physicalLines": 3924,
       "forbiddenImportCount": 0,
       "kind": "legacy",
       "justification": "Projects composition root; extract named surfaces before adding behaviour"
     },
+    "src/components/community-projects/CommunityProjectsActivityFeed.svelte": {
+      "countedLines": 223,
+      "physicalLines": 229,
+      "forbiddenImportCount": 0
+    },
+    "src/components/community-projects/CommunityProjectsChannelPickerDialog.svelte": {
+      "countedLines": 108,
+      "physicalLines": 111,
+      "forbiddenImportCount": 0
+    },
+    "src/components/community-projects/CommunityProjectsCreateDialogs.svelte": {
+      "countedLines": 219,
+      "physicalLines": 221,
+      "forbiddenImportCount": 0
+    },
+    "src/components/community-projects/CommunityProjectsGitHubConnectionForm.svelte": {
+      "countedLines": 116,
+      "physicalLines": 118,
+      "forbiddenImportCount": 0
+    },
+    "src/components/community-projects/CommunityProjectsGitHubManagerDialog.svelte": {
+      "countedLines": 204,
+      "physicalLines": 210,
+      "forbiddenImportCount": 0
+    },
+    "src/components/community-projects/CommunityProjectsGitHubPickerDialog.svelte": {
+      "countedLines": 141,
+      "physicalLines": 145,
+      "forbiddenImportCount": 0
+    },
+    "src/components/community-projects/CommunityProjectsMemberHover.svelte": {
+      "countedLines": 30,
+      "physicalLines": 32,
+      "forbiddenImportCount": 0
+    },
+    "src/components/community-projects/CommunityProjectsProjectDialog.svelte": {
+      "countedLines": 161,
+      "physicalLines": 170,
+      "forbiddenImportCount": 0
+    },
+    "src/components/community-projects/CommunityProjectsPullRequestCommits.svelte": {
+      "countedLines": 105,
+      "physicalLines": 109,
+      "forbiddenImportCount": 0
+    },
+    "src/components/community-projects/CommunityProjectsPullRequestConversation.svelte": {
+      "countedLines": 187,
+      "physicalLines": 191,
+      "forbiddenImportCount": 0
+    },
+    "src/components/community-projects/CommunityProjectsPullRequestCreateDialog.svelte": {
+      "countedLines": 214,
+      "physicalLines": 221,
+      "forbiddenImportCount": 0
+    },
+    "src/components/community-projects/CommunityProjectsPullRequestDetail.svelte": {
+      "countedLines": 257,
+      "physicalLines": 260,
+      "forbiddenImportCount": 0
+    },
+    "src/components/community-projects/CommunityProjectsPullRequestDiffWorkbench.svelte": {
+      "countedLines": 249,
+      "physicalLines": 252,
+      "forbiddenImportCount": 0
+    },
+    "src/components/community-projects/CommunityProjectsPullRequestFiles.svelte": {
+      "countedLines": 179,
+      "physicalLines": 182,
+      "forbiddenImportCount": 0
+    },
+    "src/components/community-projects/CommunityProjectsPullRequestInlineThread.svelte": {
+      "countedLines": 117,
+      "physicalLines": 120,
+      "forbiddenImportCount": 0
+    },
+    "src/components/community-projects/CommunityProjectsPullRequestList.svelte": {
+      "countedLines": 118,
+      "physicalLines": 121,
+      "forbiddenImportCount": 0
+    },
+    "src/components/community-projects/CommunityProjectsPullRequestMeta.svelte": {
+      "countedLines": 145,
+      "physicalLines": 150,
+      "forbiddenImportCount": 0
+    },
+    "src/components/community-projects/CommunityProjectsPullRequestReview.svelte": {
+      "countedLines": 121,
+      "physicalLines": 125,
+      "forbiddenImportCount": 0
+    },
+    "src/components/community-projects/CommunityProjectsPullRequestSubmitDialog.svelte": {
+      "countedLines": 183,
+      "physicalLines": 190,
+      "forbiddenImportCount": 0
+    },
+    "src/components/community-projects/CommunityProjectsPullRequestTimelineItem.svelte": {
+      "countedLines": 228,
+      "physicalLines": 232,
+      "forbiddenImportCount": 0
+    },
+    "src/components/community-projects/CommunityProjectsRepositoryBranchSelector.svelte": {
+      "countedLines": 40,
+      "physicalLines": 43,
+      "forbiddenImportCount": 0
+    },
+    "src/components/community-projects/CommunityProjectsRepositoryDialog.svelte": {
+      "countedLines": 224,
+      "physicalLines": 233,
+      "forbiddenImportCount": 0
+    },
+    "src/components/community-projects/CommunityProjectsRepositoryDirectory.svelte": {
+      "countedLines": 241,
+      "physicalLines": 248,
+      "forbiddenImportCount": 0
+    },
+    "src/components/community-projects/CommunityProjectsRepositoryFilePanel.svelte": {
+      "countedLines": 217,
+      "physicalLines": 221,
+      "forbiddenImportCount": 0
+    },
+    "src/components/community-projects/CommunityProjectsRepositoryFileTree.svelte": {
+      "countedLines": 59,
+      "physicalLines": 62,
+      "forbiddenImportCount": 0
+    },
+    "src/components/community-projects/CommunityProjectsRepositoryPane.svelte": {
+      "countedLines": 225,
+      "physicalLines": 228,
+      "forbiddenImportCount": 0
+    },
+    "src/components/community-projects/CommunityProjectsRepositoryPickerDialog.svelte": {
+      "countedLines": 111,
+      "physicalLines": 114,
+      "forbiddenImportCount": 0
+    },
+    "src/components/community-projects/CommunityProjectsReviewStatusIcon.svelte": {
+      "countedLines": 31,
+      "physicalLines": 35,
+      "forbiddenImportCount": 0
+    },
+    "src/components/community-projects/CommunityProjectsSourceError.svelte": {
+      "countedLines": 43,
+      "physicalLines": 47,
+      "forbiddenImportCount": 0
+    },
+    "src/components/community-projects/CommunityProjectsTaskDialog.svelte": {
+      "countedLines": 234,
+      "physicalLines": 242,
+      "forbiddenImportCount": 0
+    },
     "src/components/community-projects/CommunityProjectsStoryHarness.svelte": {
       "countedLines": 21,
       "physicalLines": 26,
+      "forbiddenImportCount": 0
+    },
+    "src/components/community-projects/create-dialogs.ts": {
+      "countedLines": 116,
+      "physicalLines": 117,
+      "forbiddenImportCount": 0
+    },
+    "src/components/community-projects/projects-member.ts": {
+      "countedLines": 15,
+      "physicalLines": 16,
+      "forbiddenImportCount": 0
+    },
+    "src/components/community-projects/pull-request-review.ts": {
+      "countedLines": 113,
+      "physicalLines": 124,
       "forbiddenImportCount": 0
     },
     "src/components/community-projects/model.ts": {

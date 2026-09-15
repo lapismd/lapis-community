@@ -1,8 +1,8 @@
 # TypeScript architecture and enforcement
 
 **Status:** P0–P2 implemented in workspaces `arch-p0` / `arch-p1` / `arch-p2`.
-P3 application destination hosts are in progress in workspace `arch-p3`
-(Projects extract remaining). P4–P5 remain planned.
+P3 Application and Projects destination hosts are implemented in workspace
+`arch-p3`. P4–P5 remain planned.
 
 **Kind of statements:** **Fact** is observed in this checkout. **Recommendation**
 is a chosen policy. **Assumption** is used only where evidence is missing.
@@ -944,7 +944,7 @@ Behaviour-preserving unless noted. Do not start a repository-wide move.
 | Tests    | affected Storybook interaction stories; cold Storybook if startup wiring changes                                    |
 | Effort   | L                                                                                                                   |
 | Visual   | keep `visual-pending`; no baseline updates without approval                                                         |
-| Status   | Partial in `arch-p3`: Application settings, agents, Pulse, Inbox, and DM hosts extracted. Projects surfaces remain. |
+| Status   | Implemented in `arch-p3`: Application settings, agents, Pulse, Inbox, and DM hosts extracted; Projects activity, pull-request review, repository pane, and create-dialog surfaces compose from `CommunityProjects`. |
 
 ### P4 — Agent/source/registry factory splits + optional ESLint promises
 

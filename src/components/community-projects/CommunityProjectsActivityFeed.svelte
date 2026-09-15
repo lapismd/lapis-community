@@ -1,0 +1,229 @@
+<script lang="ts">
+  import CheckIcon from "@lucide/svelte/icons/check";
+  import CircleDotIcon from "@lucide/svelte/icons/circle-dot";
+  import CodeXmlIcon from "@lucide/svelte/icons/code-xml";
+  import FolderGit2Icon from "@lucide/svelte/icons/folder-git-2";
+  import FolderKanbanIcon from "@lucide/svelte/icons/folder-kanban";
+  import GitCommitHorizontalIcon from "@lucide/svelte/icons/git-commit-horizontal";
+  import GitPullRequestIcon from "@lucide/svelte/icons/git-pull-request";
+  import MessageSquareIcon from "@lucide/svelte/icons/message-square";
+  import TriangleAlertIcon from "@lucide/svelte/icons/triangle-alert";
+  import UserMinusIcon from "@lucide/svelte/icons/user-minus";
+  import UserPlusIcon from "@lucide/svelte/icons/user-plus";
+  import { Skeleton } from "@lapismd/design-core/shadcn/skeleton";
+
+  import type { CommunityCustomEmoji } from "../../community/index.js";
+  import type { ProjectForgeActivityItem } from "../../projects/index.js";
+  import CommunityChip from "../community-chip/CommunityChip.svelte";
+  import type { CommunityChipTone } from "../community-chip/model.js";
+  import CommunityMarkdownContent from "../community-markdown-content/CommunityMarkdownContent.svelte";
+  import CommunityRelativeTime from "../community-relative-time/CommunityRelativeTime.svelte";
+  import type {
+    CommunityMemberModel,
+    CommunityRoomModel,
+  } from "../community-workspace/model.js";
+  import CommunityProjectsMemberHover from "./CommunityProjectsMemberHover.svelte";
+  import { communityProjectsMemberForPubkey } from "./projects-member.js";
+
+  let {
+    loading = false,
+    activity = [],
+    weekActivityDigest,
+    weekActivityCount,
+    members = [],
+    rooms = [],
+    communityEmojis = [],
+    onOpenProfile,
+    onMessageMember,
+    onWaveMember,
+    canSelectProject = false,
+    projectName,
+    onOpenProject,
+    onOpenItem,
+  }: {
+    loading?: boolean | undefined;
+    activity?: readonly ProjectForgeActivityItem[] | undefined;
+    weekActivityDigest: string;
+    weekActivityCount: number;
+    members?: readonly CommunityMemberModel[] | undefined;
+    rooms?: readonly CommunityRoomModel[] | undefined;
+    communityEmojis?: readonly CommunityCustomEmoji[] | undefined;
+    onOpenProfile?: ((member: CommunityMemberModel) => void) | undefined;
+    onMessageMember?: ((member: CommunityMemberModel) => void | Promise<void>) | undefined;
+    onWaveMember?: ((member: CommunityMemberModel) => void | Promise<void>) | undefined;
+    canSelectProject?: boolean | undefined;
+    projectName: (coordinate: string) => string;
+    onOpenProject: (coordinate: string) => void;
+    onOpenItem: (item: ProjectForgeActivityItem) => void;
+  } = $props();
+
+  function activityStatusLabel(value: string): string {
+    if (value === "open") return "Backlog";
+    if (value === "applied" || value === "closed") return "Completed";
+    return value[0]!.toUpperCase() + value.slice(1);
+  }
+
+  function activityDetailLabel(item: ProjectForgeActivityItem): string {
+    if (item.kind === "approval") return "Approved";
+    if (item.kind === "changes-requested") return "Changes requested";
+    if (!item.detail) return "";
+    if (item.kind === "task") return activityStatusLabel(item.detail);
+    if (item.kind === "review") {
+      return item.detail[0]!.toUpperCase() + item.detail.slice(1);
+    }
+    if (item.kind === "commit" || item.kind === "review-update") {
+      return item.detail;
+    }
+    return "";
+  }
+
+  function activityDetailTone(
+    item: ProjectForgeActivityItem,
+  ): CommunityChipTone {
+    if (item.kind === "approval" || item.kind === "review") return "success";
+    if (item.kind === "changes-requested" || item.kind === "task") {
+      return "warning";
+    }
+    if (item.kind === "commit" || item.kind === "review-update") {
+      return "accent";
+    }
+    return "neutral";
+  }
+</script>
+
+<div
+  class="community-projects__workspace community-projects__workspace--activity"
+>
+  <header class="community-projects__page-heading">
+    <h1>Projects Activity</h1>
+    <p>{weekActivityDigest}</p>
+  </header>
+  <div class="community-projects__section-divider">
+    <span>{loading || weekActivityCount > 0 ? "This week" : "Earlier"}</span>
+  </div>
+  <div class="community-projects__activity">
+    {#if loading && activity.length === 0}
+      <div
+        class="community-projects__activity-loading"
+        role="status"
+        aria-label="Loading project activity"
+      >
+        {#each [0, 1, 2, 3] as row (row)}
+          <div
+            class="community-projects__activity-item community-projects__activity-item--skeleton"
+            aria-hidden="true"
+          >
+            <Skeleton class="community-projects__activity-skeleton-avatar" />
+            <span class="community-projects__activity-line"></span>
+            <div class="community-projects__activity-copy">
+              <div>
+                <Skeleton class="community-projects__activity-skeleton-actor" />
+                <Skeleton
+                  class="community-projects__activity-skeleton-action"
+                />
+              </div>
+              <Skeleton class="community-projects__activity-skeleton-time" />
+              <div class="community-projects__activity-skeleton-card">
+                <Skeleton class="community-projects__activity-skeleton-title" />
+                <Skeleton class="community-projects__activity-skeleton-body" />
+              </div>
+            </div>
+          </div>
+        {/each}
+      </div>
+    {:else}
+      {#each activity as item (item.id)}
+        {@const actor = communityProjectsMemberForPubkey(
+          members,
+          item.actorPubkey || "relay",
+        )}
+        {@const detailLabel = activityDetailLabel(item)}
+        <article class="community-projects__activity-item">
+          <CommunityProjectsMemberHover
+            member={actor}
+            avatarSize="medium"
+            {onOpenProfile}
+            {onMessageMember}
+            {onWaveMember}
+          />
+          <span class="community-projects__activity-line" aria-hidden="true"
+          ></span>
+          <div class="community-projects__activity-copy">
+            <div class="community-projects__activity-meta">
+              <div class="community-projects__activity-byline">
+                <div>
+                  <strong>{actor.name}</strong>
+                  <span>{item.action}</span>
+                  <button
+                    type="button"
+                    class="community-projects__activity-project-link"
+                    disabled={!canSelectProject}
+                    onclick={() => onOpenProject(item.projectCoordinate)}
+                  >
+                    {projectName(item.projectCoordinate)}
+                  </button>
+                </div>
+                <CommunityRelativeTime timestamp={item.createdAt} />
+              </div>
+              {#if detailLabel}
+                <CommunityChip
+                  class="community-projects__activity-status"
+                  size="compact"
+                  tone={activityDetailTone(item)}>{detailLabel}</CommunityChip
+                >
+              {/if}
+            </div>
+            <button
+              type="button"
+              class="community-projects__activity-card"
+              onclick={() => onOpenItem(item)}
+            >
+              <span
+                class="community-projects__activity-title"
+                data-activity-kind={item.kind}
+              >
+                {#if item.kind === "approval"}
+                  <CheckIcon aria-hidden="true" />
+                {:else if item.kind === "changes-requested"}
+                  <TriangleAlertIcon aria-hidden="true" />
+                {:else if item.kind === "review-request"}
+                  <UserPlusIcon aria-hidden="true" />
+                {:else if item.kind === "review"}
+                  <GitPullRequestIcon aria-hidden="true" />
+                {:else if item.kind === "commit" || item.kind === "review-update"}
+                  <GitCommitHorizontalIcon aria-hidden="true" />
+                {:else if item.kind === "repository"}
+                  <FolderGit2Icon aria-hidden="true" />
+                {:else if item.kind === "project"}
+                  <FolderKanbanIcon aria-hidden="true" />
+                {:else if item.kind === "task"}
+                  <CircleDotIcon aria-hidden="true" />
+                {:else if item.kind === "assignment" && item.detail === "unassign"}
+                  <UserMinusIcon aria-hidden="true" />
+                {:else if item.kind === "assignment"}
+                  <UserPlusIcon aria-hidden="true" />
+                {:else if item.kind === "comment"}
+                  <MessageSquareIcon aria-hidden="true" />
+                {:else}
+                  <CodeXmlIcon aria-hidden="true" />
+                {/if}
+                <strong>{item.title}</strong>
+              </span>
+              {#if item.body}
+                <CommunityMarkdownContent
+                  class="community-projects__activity-body"
+                  content={item.body}
+                  {members}
+                  {rooms}
+                  {communityEmojis}
+                />
+              {/if}
+            </button>
+          </div>
+        </article>
+      {:else}
+        <p class="community-projects__status">No project activity yet.</p>
+      {/each}
+    {/if}
+  </div>
+</div>

@@ -13,7 +13,8 @@ files re-export those types so the public `./components` entry stays compatible.
 `CommunityApplication` destination hosts compose Personal settings, Agents,
 Pulse, and Inbox by populating Design Core AppShell body regions; they do not
 replace AppShell or recreate header, viewport, sidebar, or structural-layer
-geometry.
+geometry. Projects named surfaces (activity, pull-request review, repository
+pane, and create dialogs) compose from the `CommunityProjects` root.
 
 For LC-UI-036, a plugin release channel associated with a project MUST show its
 existing Reviews and People actions in a top Plugins section of the project

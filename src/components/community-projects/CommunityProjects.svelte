@@ -2,13 +2,11 @@
   import CommunityProjectChannelIcon from "../community-project-channel-icon/CommunityProjectChannelIcon.svelte";
   import { toast } from "svelte-sonner";
   import CommunitySkeleton from "../community-skeleton/CommunitySkeleton.svelte";
-  import { DialogFrame } from "@lapismd/design-core/forms/dialog";
   import {
     FileChangeStats,
     FileDiffComposer,
     FileListing,
     FileListingViewModeToggle,
-    resolveDiffLanguage,
     type FileDiffComposerFileContext,
     type FileDiffFileScrollTarget,
     type FileDiffLineContext,
@@ -16,49 +14,32 @@
     type FileListingViewMode,
   } from "@lapismd/design-core/diff";
   import { AppShell } from "@lapismd/design-core/shell";
-  import * as Alert from "@lapismd/design-core/shadcn/alert";
-  import { ConfirmDialog } from "@lapismd/design-core/forms/dialog";
-  import * as Breadcrumb from "@lapismd/design-core/shadcn/breadcrumb";
   import { Button } from "@lapismd/design-core/shadcn/button";
-  import * as ButtonGroup from "@lapismd/design-core/shadcn/button-group";
-  import { Checkbox } from "@lapismd/design-core/shadcn/checkbox";
-  import { CodeBlock } from "@lapismd/design-core/shadcn/code-block";
   import * as Collapsible from "@lapismd/design-core/shadcn/collapsible";
-  import * as Command from "@lapismd/design-core/shadcn/command";
-  import * as Dialog from "@lapismd/design-core/shadcn/dialog";
   import * as DropdownMenu from "@lapismd/design-core/shadcn/dropdown-menu";
   import * as Empty from "@lapismd/design-core/shadcn/empty";
-  import * as Field from "@lapismd/design-core/shadcn/field";
   import { Input } from "@lapismd/design-core/shadcn/input";
-  import * as Select from "@lapismd/design-core/shadcn/select";
   import { ScrollArea } from "@lapismd/design-core/shadcn/scroll-area";
   import { Skeleton } from "@lapismd/design-core/shadcn/skeleton";
-  import * as Table from "@lapismd/design-core/shadcn/table";
   import * as Tabs from "@lapismd/design-core/shadcn/tabs";
   import * as Tooltip from "@lapismd/design-core/shadcn/tooltip";
   import * as ToggleGroup from "@lapismd/design-core/shadcn/toggle-group";
   import ArrowLeftIcon from "@lucide/svelte/icons/arrow-left";
-  import CheckIcon from "@lucide/svelte/icons/check";
   import ChevronDownIcon from "@lucide/svelte/icons/chevron-down";
   import ChevronRightIcon from "@lucide/svelte/icons/chevron-right";
   import CircleIcon from "@lucide/svelte/icons/circle";
   import CircleCheckIcon from "@lucide/svelte/icons/circle-check";
   import CircleDashedIcon from "@lucide/svelte/icons/circle-dashed";
-  import CircleDotIcon from "@lucide/svelte/icons/circle-dot";
   import CircleXIcon from "@lucide/svelte/icons/circle-x";
   import CodeXmlIcon from "@lucide/svelte/icons/code-xml";
   import CopyIcon from "@lucide/svelte/icons/copy";
   import ExternalLinkIcon from "@lucide/svelte/icons/external-link";
-  import EyeIcon from "@lucide/svelte/icons/eye";
   import FileIcon from "@lucide/svelte/icons/file";
-  import FolderIcon from "@lucide/svelte/icons/folder";
   import FolderGit2Icon from "@lucide/svelte/icons/folder-git-2";
   import FolderKanbanIcon from "@lucide/svelte/icons/folder-kanban";
   import FolderPlusIcon from "@lucide/svelte/icons/folder-plus";
   import GitBranchIcon from "@lucide/svelte/icons/git-branch";
   import GitCommitHorizontalIcon from "@lucide/svelte/icons/git-commit-horizontal";
-  import GitForkIcon from "@lucide/svelte/icons/git-fork";
-  import GitMergeIcon from "@lucide/svelte/icons/git-merge";
   import GitPullRequestIcon from "@lucide/svelte/icons/git-pull-request";
   import HistoryIcon from "@lucide/svelte/icons/history";
   import HashIcon from "@lucide/svelte/icons/hash";
@@ -67,16 +48,11 @@
   import ListTodoIcon from "@lucide/svelte/icons/list-todo";
   import LinkIcon from "@lucide/svelte/icons/link";
   import MessageSquareIcon from "@lucide/svelte/icons/message-square";
-  import MessageSquarePlusIcon from "@lucide/svelte/icons/message-square-plus";
   import EllipsisVerticalIcon from "@lucide/svelte/icons/ellipsis-vertical";
   import PlusIcon from "@lucide/svelte/icons/plus";
-  import RotateCcwIcon from "@lucide/svelte/icons/rotate-ccw";
   import Settings2Icon from "@lucide/svelte/icons/settings-2";
-  import TriangleAlertIcon from "@lucide/svelte/icons/triangle-alert";
   import UnlinkIcon from "@lucide/svelte/icons/unlink";
   import UserIcon from "@lucide/svelte/icons/user";
-  import UserMinusIcon from "@lucide/svelte/icons/user-minus";
-  import UserPlusIcon from "@lucide/svelte/icons/user-plus";
   import UserRoundPlusIcon from "@lucide/svelte/icons/user-round-plus";
 
   import {
@@ -85,7 +61,6 @@
     projectForgeBranchRefs,
     splitProjectForgePatch,
     projectForgeBoundChannels,
-    type ProjectForgeActivityItem,
     type ProjectForgeCommit,
     type ProjectForgeProject,
     type ProjectForgeRepository,
@@ -97,17 +72,20 @@
     type ProjectReviewViewedFilesScope,
     type PullRequestState,
     type PullRequestComment,
-    type PullRequestLifecycleEvent,
     type PullRequestReviewKind,
   } from "../../projects/index.js";
   import CommunitySidebarToggleIcon from "../community-app-shell/CommunitySidebarToggleIcon.svelte";
   import CommunityChatComposer from "../community-chat-composer/CommunityChatComposer.svelte";
   import CommunityChip from "../community-chip/CommunityChip.svelte";
-  import type { CommunityChipTone } from "../community-chip/model.js";
   import CommunityMemberHoverCard from "../community-member-hover-card/CommunityMemberHoverCard.svelte";
   import CommunityMarkdownContent from "../community-markdown-content/CommunityMarkdownContent.svelte";
   import CommunityMessage from "../community-message/CommunityMessage.svelte";
   import CommunityProjectStatusToasts from "./CommunityProjectStatusToasts.svelte";
+  import CommunityProjectsActivityFeed from "./CommunityProjectsActivityFeed.svelte";
+  import CommunityProjectsCreateDialogs from "./CommunityProjectsCreateDialogs.svelte";
+  import CommunityProjectsPullRequestReview from "./CommunityProjectsPullRequestReview.svelte";
+  import CommunityProjectsPullRequestSubmitDialog from "./CommunityProjectsPullRequestSubmitDialog.svelte";
+  import CommunityProjectsRepositoryPane from "./CommunityProjectsRepositoryPane.svelte";
   import CommunityRelativeTime from "../community-relative-time/CommunityRelativeTime.svelte";
   import type {
     CommunityMemberModel,
@@ -130,25 +108,6 @@
   } from "./repository-browser.js";
 
   import "./CommunityProjects.css";
-
-  type ReviewTimelineEntry =
-    | { kind: "opened"; event: PullRequestState["root"] }
-    | {
-        kind: "lifecycle";
-        event: PullRequestLifecycleEvent["event"];
-        lifecycle: PullRequestLifecycleEvent["lifecycle"];
-        mergeCommit: string;
-      }
-    | {
-        kind: "review-request";
-        event: PullRequestComment["event"];
-        comment: PullRequestComment;
-      }
-    | {
-        kind: "comment";
-        event: PullRequestComment["event"];
-        comment: PullRequestComment;
-      };
 
   let {
     view,
@@ -785,38 +744,6 @@
     { value: "channels", label: "Channels" },
     { value: "contributors", label: "Contributors" },
   ] as const;
-  const reviewGroups = [
-    { lifecycle: "open", label: "Open" },
-    { lifecycle: "draft", label: "Draft" },
-    { lifecycle: "merged", label: "Merged" },
-    { lifecycle: "closed", label: "Closed" },
-  ] as const;
-  const reviewTimeline: readonly ReviewTimelineEntry[] = $derived.by(() => {
-    if (!selectedPullRequest) return [];
-    const entries: ReviewTimelineEntry[] = [
-      { kind: "opened", event: selectedPullRequest.root },
-      ...selectedPullRequest.lifecycleEvents.map((entry) => ({
-        kind: "lifecycle" as const,
-        event: entry.event,
-        lifecycle: entry.lifecycle,
-        mergeCommit: entry.mergeCommit,
-      })),
-      ...selectedPullRequest.comments
-        .filter(conversationComment)
-        .map((comment) => ({
-          kind: comment.isReviewRequest
-            ? ("review-request" as const)
-            : ("comment" as const),
-          event: comment.event,
-          comment,
-        })),
-    ];
-    return entries.toSorted(
-      (left, right) =>
-        left.event.created_at - right.event.created_at ||
-        left.event.id.localeCompare(right.event.id),
-    );
-  });
   const projectChannels = $derived(
     selectedProject
       ? projectForgeBoundChannels(selectedProject, repositories).map(
@@ -1719,39 +1646,6 @@
     return "Issue";
   }
 
-  function activityStatusLabel(value: string): string {
-    if (value === "open") return "Backlog";
-    if (value === "applied" || value === "closed") return "Completed";
-    return value[0]!.toUpperCase() + value.slice(1);
-  }
-
-  function activityDetailLabel(item: ProjectForgeActivityItem): string {
-    if (item.kind === "approval") return "Approved";
-    if (item.kind === "changes-requested") return "Changes requested";
-    if (!item.detail) return "";
-    if (item.kind === "task") return activityStatusLabel(item.detail);
-    if (item.kind === "review") {
-      return item.detail[0]!.toUpperCase() + item.detail.slice(1);
-    }
-    if (item.kind === "commit" || item.kind === "review-update") {
-      return item.detail;
-    }
-    return "";
-  }
-
-  function activityDetailTone(
-    item: ProjectForgeActivityItem,
-  ): CommunityChipTone {
-    if (item.kind === "approval" || item.kind === "review") return "success";
-    if (item.kind === "changes-requested" || item.kind === "task") {
-      return "warning";
-    }
-    if (item.kind === "commit" || item.kind === "review-update") {
-      return "accent";
-    }
-    return "neutral";
-  }
-
   function projectActivityDigest(
     taskCount: number,
     reviewCount: number,
@@ -2077,73 +1971,8 @@
     );
   }
 
-  function conversationComment(comment: PullRequestComment): boolean {
-    return !comment.isInlineComment || comment.inlineStatus !== "current";
-  }
-
-  function eventTagValue(
-    event: PullRequestState["root"],
-    name: string,
-  ): string {
-    return event.tags.find((tag) => tag[0] === name)?.[1]?.trim() ?? "";
-  }
-
-  function reviewTimelineActor(event: PullRequestState["root"]): string {
-    const external = eventTagValue(event, "external-author");
-    if (external) return `@${external}`;
-    if (eventTagValue(event, "external-provider") === "github") return "GitHub";
-    return memberForPubkey(event.pubkey).name;
-  }
-
-  function reviewTimelineActorMember(
-    event: PullRequestState["root"],
-  ): CommunityMemberModel | undefined {
-    if (
-      eventTagValue(event, "external-author") ||
-      eventTagValue(event, "external-provider")
-    )
-      return undefined;
-    return memberForPubkey(event.pubkey);
-  }
-
-  function reviewRequestTarget(comment: PullRequestComment): string {
-    const external = eventTagValue(comment.event, "external-reviewer");
-    if (external) return `@${external}`;
-    const reviewer = comment.reviewerPubkeys[0];
-    return reviewer ? memberForPubkey(reviewer).name : "a reviewer";
-  }
-
-  function reviewRequestTargetMember(
-    comment: PullRequestComment,
-  ): CommunityMemberModel | undefined {
-    if (eventTagValue(comment.event, "external-reviewer")) return undefined;
-    const reviewer = comment.reviewerPubkeys[0];
-    return reviewer ? memberForPubkey(reviewer) : undefined;
-  }
-
-  function reviewLifecycleAction(
-    entry: Extract<ReviewTimelineEntry, { kind: "lifecycle" }>,
-  ): string {
-    if (entry.lifecycle === "merged") return "merged this review";
-    if (entry.lifecycle === "closed") return "closed this review";
-    if (entry.lifecycle === "draft") return "converted this review to draft";
-    return "reopened this review";
-  }
-
   function isExternalReviewDecision(comment: PullRequestComment): boolean {
     return comment.event.tags.some((tag) => tag[0] === "external-decision");
-  }
-
-  function reviewCommentDecision(
-    comment: PullRequestComment,
-  ): "approved" | "changes-requested" | undefined {
-    if (comment.decision) return comment.decision;
-    const external = eventTagValue(comment.event, "external-decision")
-      .toLocaleLowerCase()
-      .replaceAll("_", "-");
-    if (external === "approved") return "approved";
-    if (external === "changes-requested") return "changes-requested";
-    return undefined;
   }
 
   function canReactToPullRequestComment(comment: PullRequestComment): boolean {
@@ -2298,39 +2127,75 @@
         .map((reaction) => ({ ...reaction })),
     };
   }
+
+  function openProjectChannelPicker(): void {
+    projectChannelCommandMode = "home";
+    projectChannelCommandOpen = true;
+  }
+
+  function selectChannelAttachmentProject(coordinate: string): void {
+    channelAttachmentProject = coordinate;
+  }
+
+  function selectProjectOrAttachChannel(channel: CommunityRoomModel): void {
+    if (projectChannelCommandMode === "home") {
+      selectProjectChannel(channel);
+      return;
+    }
+    void attachProjectChannel(channel);
+  }
+
+  function backRepositoryPicker(): void {
+    repositoryCommandStep = "repository";
+    repositoryCommandCoordinate = "";
+  }
+
+  function backGitHubPicker(): void {
+    githubCommandStep = "connection";
+    githubConnection = undefined;
+    githubRepositories = [];
+    githubCommandError = "";
+  }
+
+  function backGitHubManagerForm(): void {
+    githubManagerFormOpen = false;
+    githubManagerConnection = undefined;
+    githubManagerError = "";
+  }
+
+  function pullRequestBelongsToSelectedProject(
+    pullRequest: PullRequestState,
+  ): boolean {
+    if (!selectedProject) return true;
+    return projectPullRequestsFor(selectedProject).some(
+      (candidate) => candidate.root.id === pullRequest.root.id,
+    );
+  }
+
+  function inlineReviewComments(
+    context: FileDiffLineContext,
+  ): readonly PullRequestComment[] {
+    return (
+      selectedPullRequest?.comments.filter((comment) =>
+        inlineCommentMatches(comment, context),
+      ) ?? []
+    );
+  }
+
+  function toggleSelectedPullRequestCommentReaction(
+    comment: PullRequestComment,
+    emoji: string,
+  ): void {
+    if (!selectedPullRequest || !onTogglePullRequestCommentReaction) return;
+    onTogglePullRequestCommentReaction(selectedPullRequest, comment, emoji);
+  }
+
+  function mergeOpenPullRequest(): void {
+    if (selectedPullRequest) void mergeSelectedPullRequest(selectedPullRequest);
+  }
+
+
 </script>
-
-{#snippet statusChip(value: string)}
-  <CommunityChip
-    size="compact"
-    tone={value === "merged" || value === "closed"
-      ? "success"
-      : value === "draft"
-        ? "warning"
-        : "accent"}>{value}</CommunityChip
-  >
-{/snippet}
-
-{#snippet reviewStatusIcon(
-  lifecycle: (typeof pullRequests)[number]["lifecycle"],
-)}
-  <span
-    class="community-projects__review-status-icon"
-    data-status={lifecycle}
-    title={reviewGroups.find((group) => group.lifecycle === lifecycle)?.label ??
-      lifecycle}
-  >
-    {#if lifecycle === "closed"}
-      <CircleXIcon aria-hidden="true" />
-    {:else if lifecycle === "merged"}
-      <GitMergeIcon aria-hidden="true" />
-    {:else if lifecycle === "draft"}
-      <CircleDashedIcon aria-hidden="true" />
-    {:else}
-      <CircleIcon aria-hidden="true" />
-    {/if}
-  </span>
-{/snippet}
 
 {#snippet taskStatusIcon(lifecycle: (typeof tasks)[number]["lifecycle"])}
   <span
@@ -2420,17 +2285,6 @@
   <CommunityMemberHoverCard
     {member}
     {avatarSize}
-    {...onOpenProfile === undefined ? {} : { onOpenProfile }}
-    {...onMessageMember === undefined ? {} : { onMessage: onMessageMember }}
-    {...onWaveMember === undefined ? {} : { onWave: onWaveMember }}
-  />
-{/snippet}
-
-{#snippet memberHoverMention(member: CommunityMemberModel, label: string)}
-  <CommunityMemberHoverCard
-    {member}
-    trigger="mention"
-    triggerLabel={label}
     {...onOpenProfile === undefined ? {} : { onOpenProfile }}
     {...onMessageMember === undefined ? {} : { onMessage: onMessageMember }}
     {...onWaveMember === undefined ? {} : { onWave: onWaveMember }}
@@ -2786,80 +2640,6 @@
   </header>
 {/snippet}
 
-{#snippet repositoryBranchSelector()}
-  <Select.Root
-    type="single"
-    value={activeRepositoryBranch}
-    onValueChange={selectRepositoryBranch}
-  >
-    <Select.Trigger
-      class="community-projects__file-branch-trigger"
-      aria-label="Repository branch"
-      role="combobox"
-    >
-      <GitBranchIcon aria-hidden="true" />
-      <span>{activeRepositoryBranch || "Select branch"}</span>
-    </Select.Trigger>
-    <Select.Content>
-      <Select.Group>
-        {#each repositoryBranches as branch (branch.name)}
-          <Select.Item value={branch.name} label={branch.name}>
-            {branch.name}
-          </Select.Item>
-        {:else}
-          {#if activeRepositoryBranch}
-            <Select.Item
-              value={activeRepositoryBranch}
-              label={activeRepositoryBranch}
-            >
-              {activeRepositoryBranch}
-            </Select.Item>
-          {/if}
-        {/each}
-      </Select.Group>
-    </Select.Content>
-  </Select.Root>
-{/snippet}
-
-{#snippet repositoryFileTreeSidebar()}
-  <aside
-    class="community-projects__file-tree"
-    aria-label="Repository file tree"
-  >
-    <header class="community-projects__file-tree-header">
-      <strong>Files</strong>
-      <Button
-        type="button"
-        variant="ghost"
-        size="icon-sm"
-        aria-label="Hide repository file tree"
-        title="Hide repository file tree"
-        onclick={() => (repositoryFileTreeOpen = false)}
-      >
-        <CommunitySidebarToggleIcon
-          side="left"
-          expanded={repositoryFileTreeOpen}
-        />
-      </Button>
-    </header>
-    <div class="community-projects__file-tree-branch">
-      {@render repositoryBranchSelector()}
-    </div>
-    <ScrollArea type="hover" class="community-projects__file-tree-scroll">
-      <FileListing
-        files={repositoryFileTreeEntries}
-        mode="tree"
-        selectedPath={selectedPath || null}
-        onSelectPath={openRepositoryFile}
-      >
-        {#snippet fileMeta()}
-          <span class="sr-only">Repository file</span>
-        {/snippet}
-      </FileListing>
-    </ScrollArea>
-  </aside>
-{/snippet}
-
 {#snippet projectSourceError(message: string)}
   <div class="community-projects__source-error" role="alert">
     <p>
@@ -2948,153 +2728,22 @@
       {/if}
 
       {#if view === "activity"}
-        <div
-          class="community-projects__workspace community-projects__workspace--activity"
-        >
-          <header class="community-projects__page-heading">
-            <h1>Projects Activity</h1>
-            <p>{weekActivityDigest}</p>
-          </header>
-          <div class="community-projects__section-divider">
-            <span
-              >{loading || weekActivityCount > 0
-                ? "This week"
-                : "Earlier"}</span
-            >
-          </div>
-          <div class="community-projects__activity">
-            {#if loading && visibleActivity.length === 0}
-              <div
-                class="community-projects__activity-loading"
-                role="status"
-                aria-label="Loading project activity"
-              >
-                {#each [0, 1, 2, 3] as row (row)}
-                  <div
-                    class="community-projects__activity-item community-projects__activity-item--skeleton"
-                    aria-hidden="true"
-                  >
-                    <Skeleton
-                      class="community-projects__activity-skeleton-avatar"
-                    />
-                    <span class="community-projects__activity-line"></span>
-                    <div class="community-projects__activity-copy">
-                      <div>
-                        <Skeleton
-                          class="community-projects__activity-skeleton-actor"
-                        />
-                        <Skeleton
-                          class="community-projects__activity-skeleton-action"
-                        />
-                      </div>
-                      <Skeleton
-                        class="community-projects__activity-skeleton-time"
-                      />
-                      <div class="community-projects__activity-skeleton-card">
-                        <Skeleton
-                          class="community-projects__activity-skeleton-title"
-                        />
-                        <Skeleton
-                          class="community-projects__activity-skeleton-body"
-                        />
-                      </div>
-                    </div>
-                  </div>
-                {/each}
-              </div>
-            {:else}
-              {#each visibleActivity as item (item.id)}
-                {@const actor = activityMember(item.actorPubkey)}
-                {@const detailLabel = activityDetailLabel(item)}
-                <article class="community-projects__activity-item">
-                  {@render memberHoverAvatar(actor, "medium")}
-                  <span
-                    class="community-projects__activity-line"
-                    aria-hidden="true"
-                  ></span>
-                  <div class="community-projects__activity-copy">
-                    <div class="community-projects__activity-meta">
-                      <div class="community-projects__activity-byline">
-                        <div>
-                          <strong>{actor.name}</strong>
-                          <span>{item.action}</span>
-                          <button
-                            type="button"
-                            class="community-projects__activity-project-link"
-                            disabled={!onSelectProject}
-                            onclick={() =>
-                              openActivityProject(item.projectCoordinate)}
-                          >
-                            {projectName(item.projectCoordinate)}
-                          </button>
-                        </div>
-                        <CommunityRelativeTime timestamp={item.createdAt} />
-                      </div>
-                      {#if detailLabel}
-                        <CommunityChip
-                          class="community-projects__activity-status"
-                          size="compact"
-                          tone={activityDetailTone(item)}
-                          >{detailLabel}</CommunityChip
-                        >
-                      {/if}
-                    </div>
-                    <button
-                      type="button"
-                      class="community-projects__activity-card"
-                      onclick={() => openActivityItem(item)}
-                    >
-                      <span
-                        class="community-projects__activity-title"
-                        data-activity-kind={item.kind}
-                      >
-                        {#if item.kind === "approval"}
-                          <CheckIcon aria-hidden="true" />
-                        {:else if item.kind === "changes-requested"}
-                          <TriangleAlertIcon aria-hidden="true" />
-                        {:else if item.kind === "review-request"}
-                          <UserPlusIcon aria-hidden="true" />
-                        {:else if item.kind === "review"}
-                          <GitPullRequestIcon aria-hidden="true" />
-                        {:else if item.kind === "commit" || item.kind === "review-update"}
-                          <GitCommitHorizontalIcon aria-hidden="true" />
-                        {:else if item.kind === "repository"}
-                          <FolderGit2Icon aria-hidden="true" />
-                        {:else if item.kind === "project"}
-                          <FolderKanbanIcon aria-hidden="true" />
-                        {:else if item.kind === "task"}
-                          <CircleDotIcon aria-hidden="true" />
-                        {:else if item.kind === "assignment" && item.detail === "unassign"}
-                          <UserMinusIcon aria-hidden="true" />
-                        {:else if item.kind === "assignment"}
-                          <UserPlusIcon aria-hidden="true" />
-                        {:else if item.kind === "comment"}
-                          <MessageSquareIcon aria-hidden="true" />
-                        {:else}
-                          <CodeXmlIcon aria-hidden="true" />
-                        {/if}
-                        <strong>{item.title}</strong>
-                      </span>
-                      {#if item.body}
-                        <CommunityMarkdownContent
-                          class="community-projects__activity-body"
-                          content={item.body}
-                          {members}
-                          {rooms}
-                          {communityEmojis}
-                        />
-                      {/if}
-                    </button>
-                  </div>
-                </article>
-              {:else}
-                <p class="community-projects__status">
-                  No project activity yet.
-                </p>
-              {/each}
-            {/if}
-          </div>
-        </div>
+        <CommunityProjectsActivityFeed
+          {loading}
+          activity={visibleActivity}
+          {weekActivityDigest}
+          {weekActivityCount}
+          {members}
+          {rooms}
+          {communityEmojis}
+          {onOpenProfile}
+          {onMessageMember}
+          {onWaveMember}
+          canSelectProject={onSelectProject !== undefined}
+          {projectName}
+          onOpenProject={openActivityProject}
+          onOpenItem={openActivityItem}
+        />
       {:else if view === "directory" || view === "projects"}
         <header class="community-projects__directory-header">
           <div>
@@ -3684,950 +3333,91 @@
           {/if}
         {/if}
       {:else if view === "reviews"}
-        {#if selectedPullRequest}
-          {#if showReviewHeader}
-            <header class="community-projects__review-header">
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon-sm"
-                class="community-projects__review-back"
-                aria-label="Back to reviews"
-                title="Back to reviews"
-                onclick={onClosePullRequest}
-              >
-                <ArrowLeftIcon aria-hidden="true" />
-              </Button>
-              <div>
-                <div class="community-projects__review-title">
-                  <h2 id="community-project-review-title">
-                    {selectedPullRequest.title}
-                    <span>#{selectedPullRequest.root.id.slice(0, 8)}</span>
-                  </h2>
-                </div>
-                <p>
-                  Review opened <CommunityRelativeTime
-                    timestamp={selectedPullRequest.createdAt}
-                  />
-                </p>
-              </div>
-            </header>
-          {/if}
-          <article
-            class="community-projects__review-detail"
-            aria-label={showReviewHeader
-              ? undefined
-              : selectedPullRequest.title}
-            aria-labelledby={showReviewHeader
-              ? "community-project-review-title"
-              : undefined}
-          >
-            <dl class="community-projects__review-meta">
-              <div>
-                <dt>
-                  <GitBranchIcon aria-hidden="true" /><span>Branch</span>
-                </dt>
-                <dd class="community-projects__review-branch">
-                  <span
-                    >{selectedPullRequest.branchName || "unknown branch"}</span
-                  >
-                  <span aria-hidden="true">→</span>
-                  <span
-                    >{selectedPullRequest.targetBranch ||
-                      "default branch"}</span
-                  >
-                  {#if pullRequestDiff}
-                    <span class="community-projects__review-stats">
-                      <span
-                        >+{pullRequestDiff.files.reduce(
-                          (total, file) => total + file.additions,
-                          0,
-                        )}</span
-                      >
-                      <span
-                        >-{pullRequestDiff.files.reduce(
-                          (total, file) => total + file.deletions,
-                          0,
-                        )}</span
-                      >
-                    </span>
-                  {/if}
-                  <code title={selectedPullRequest.currentCommit}
-                    >{selectedPullRequest.currentCommit.slice(0, 7)}</code
-                  >
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon-sm"
-                    class="community-projects__copy-control"
-                    aria-label="Copy commit hash"
-                    title="Copy commit hash"
-                    onclick={() =>
-                      void copyCommitHash(selectedPullRequest.currentCommit)}
-                    ><CopyIcon aria-hidden="true" /></Button
-                  >
-                </dd>
-              </div>
-              <div>
-                <dt><UserIcon aria-hidden="true" /><span>Reviewers</span></dt>
-                <dd class="community-projects__review-reviewers">
-                  {#each selectedPullRequest.reviewers as reviewer (reviewer)}
-                    {@const reviewerMember = memberForPubkey(reviewer)}
-                    {@render memberHoverAvatar(reviewerMember)}
-                    <span>{reviewerMember.name}</span>
-                  {:else}
-                    <span class="community-projects__muted">No reviewers</span>
-                  {/each}
-                </dd>
-              </div>
-              <div>
-                <dt>
-                  {#if selectedPullRequest.lifecycle === "merged"}
-                    <GitMergeIcon aria-hidden="true" />
-                  {:else}
-                    <GitPullRequestIcon aria-hidden="true" />
-                  {/if}
-                  <span>Status</span>
-                </dt>
-                <dd
-                  class="community-projects__review-status"
-                  data-status={selectedPullRequest.lifecycle}
-                >
-                  {reviewGroups.find(
-                    (group) =>
-                      group.lifecycle === selectedPullRequest.lifecycle,
-                  )?.label ?? selectedPullRequest.lifecycle}
-                </dd>
-              </div>
-            </dl>
-            {#if selectedPullRequest.content}
-              <Collapsible.Root
-                class="community-projects__review-section"
-                bind:open={reviewDescriptionOpen}
-              >
-                <Collapsible.Trigger
-                  class="community-projects__review-section-trigger"
-                >
-                  <span>Description</span>
-                  {#if reviewDescriptionOpen}
-                    <ChevronDownIcon aria-hidden="true" />
-                  {:else}
-                    <ChevronRightIcon aria-hidden="true" />
-                  {/if}
-                </Collapsible.Trigger>
-                <Collapsible.Content
-                  class="community-projects__review-section-content"
-                >
-                  <CommunityMarkdownContent
-                    content={selectedPullRequest.content}
-                    {members}
-                    {rooms}
-                    {communityEmojis}
-                  />
-                </Collapsible.Content>
-              </Collapsible.Root>
-            {/if}
-            <Collapsible.Root
-              class="community-projects__review-section community-projects__review-section--files"
-              bind:open={reviewFilesOpen}
-            >
-              <Collapsible.Trigger
-                class="community-projects__review-section-trigger community-projects__review-section-trigger--files"
-              >
-                <span>Files changed</span>
-                {#if reviewFilesOpen}
-                  <ChevronDownIcon aria-hidden="true" />
-                  {#if pullRequestDiff}<span
-                      class="community-projects__review-section-count"
-                      >{pullRequestDiff.files.length}</span
-                    >{/if}
-                {:else}
-                  <ChevronRightIcon aria-hidden="true" />
-                {/if}
-              </Collapsible.Trigger>
-              <Collapsible.Content
-                class="community-projects__review-files-content"
-              >
-                {#if loading && !pullRequestDiff}
-                  <CommunitySkeleton
-                    layout="repository"
-                    label="Loading repository diff"
-                  />
-                {:else if pullRequestDiffError}
-                  {@render projectSourceError(pullRequestDiffError)}
-                {:else if pullRequestDiff}
-                  <div class="community-projects__diff-summary">
-                    <span class="community-projects__diff-summary-copy">
-                      <strong
-                        >{pullRequestDiff.files.length} changed files</strong
-                      >
-                      <span
-                        >{viewedReviewFileCount} of {pullRequestDiff.files
-                          .length}
-                        viewed</span
-                      >
-                    </span>
-                    <span class="community-projects__diff-summary-actions">
-                      <FileChangeStats
-                        additions={pullRequestDiff.files.reduce(
-                          (total, file) => total + file.additions,
-                          0,
-                        )}
-                        deletions={pullRequestDiff.files.reduce(
-                          (total, file) => total + file.deletions,
-                          0,
-                        )}
-                      />
-                      <DropdownMenu.Root>
-                        <DropdownMenu.Trigger>
-                          {#snippet child({ props })}
-                            <Button
-                              {...props}
-                              type="button"
-                              variant="outline"
-                              size="icon-sm"
-                              aria-label="Diff settings"
-                              title="Diff settings"
-                            >
-                              <Settings2Icon aria-hidden="true" />
-                            </Button>
-                          {/snippet}
-                        </DropdownMenu.Trigger>
-                        <DropdownMenu.Content align="end" sideOffset={4}>
-                          <DropdownMenu.Label>Diff layout</DropdownMenu.Label>
-                          <DropdownMenu.RadioGroup
-                            value={reviewDiffViewMode}
-                            onValueChange={setReviewDiffViewMode}
-                          >
-                            <DropdownMenu.RadioItem value="unified">
-                              Unified diff
-                            </DropdownMenu.RadioItem>
-                            <DropdownMenu.RadioItem value="split">
-                              Split diff
-                            </DropdownMenu.RadioItem>
-                          </DropdownMenu.RadioGroup>
-                        </DropdownMenu.Content>
-                      </DropdownMenu.Root>
-                    </span>
-                  </div>
-                  <div
-                    class="community-projects__diff-layout"
-                    data-file-list-open={reviewFileListOpen}
-                  >
-                    {#if reviewFileListOpen}
-                      <aside aria-label="Changed files">
-                        <ScrollArea
-                          type="hover"
-                          orientation="vertical"
-                          class="community-projects__changed-files-scroll-area"
-                        >
-                          <Input
-                            type="search"
-                            bind:value={reviewFileFilter}
-                            class="community-projects__changed-files-filter"
-                            aria-label="Filter changed files"
-                            placeholder="Filter changed files"
-                          />
-                          <div
-                            class="community-projects__changed-files-toolbar"
-                          >
-                            <span>Files</span>
-                            <FileListingViewModeToggle
-                              bind:mode={diffFileListMode}
-                            />
-                          </div>
-                          <FileListing
-                            files={visibleProjectDiffFiles}
-                            mode={diffFileListMode}
-                            selectedPath={selectedReviewFilePath}
-                            onSelectPath={selectReviewFile}
-                          />
-                        </ScrollArea>
-                      </aside>
-                    {/if}
-                    <div class="community-projects__diff-content">
-                      {#snippet reviewFileHeaderLeading(
-                        _context: FileDiffComposerFileContext,
-                      )}
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon-sm"
-                          class="community-projects__diff-sidebar-toggle"
-                          aria-label={reviewFileListOpen
-                            ? "Hide changed files"
-                            : "Show changed files"}
-                          aria-expanded={reviewFileListOpen}
-                          data-ui-part="sidebar-toggle"
-                          data-side="left"
-                          data-state={reviewFileListOpen
-                            ? "expanded"
-                            : "collapsed"}
-                          title={reviewFileListOpen
-                            ? "Hide changed files"
-                            : "Show changed files"}
-                          onclick={() =>
-                            (reviewFileListOpen = !reviewFileListOpen)}
-                        >
-                          <CommunitySidebarToggleIcon
-                            expanded={reviewFileListOpen}
-                          />
-                        </Button>
-                      {/snippet}
-                      {#snippet reviewFileHeader(
-                        context: FileDiffComposerFileContext,
-                      )}
-                        <label class="community-projects__viewed-file">
-                          <Checkbox
-                            checked={viewedReviewFilePaths.includes(
-                              context.path,
-                            )}
-                            onCheckedChange={(checked) =>
-                              setReviewFileViewed(
-                                context.path,
-                                checked === true,
-                              )}
-                            aria-label={"Mark " + context.path + " as viewed"}
-                          />
-                          <span>Viewed</span>
-                        </label>
-                      {/snippet}
-                      {#snippet lineComment(context: FileDiffLineContext)}
-                        {#if context.lineNumber !== null}
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon-xs"
-                            class="community-projects__line-comment"
-                            aria-label={`Comment on ${context.path} line ${context.lineNumber}`}
-                            title="Add inline comment"
-                            onclick={() => addLineComment(context)}
-                          >
-                            <MessageSquarePlusIcon aria-hidden="true" />
-                          </Button>
-                        {/if}
-                      {/snippet}
-                      {#snippet inlineDiscussion(context: FileDiffLineContext)}
-                        {@const inlineComments =
-                          selectedPullRequest.comments.filter((comment) =>
-                            inlineCommentMatches(comment, context),
-                          )}
-                        {#if inlineComments.length > 0 || inlineComposerMatches(context)}
-                          <div
-                            class="community-projects__inline-thread"
-                            aria-label={`Discussion on ${context.path} line ${context.lineNumber}`}
-                          >
-                            {#each inlineComments as comment (comment.event.id)}
-                              {@const commentReactionOptions =
-                                pullRequestReactionOptions(comment)}
-                              {#snippet inlineLabels()}
-                                <div class="community-projects__message-labels">
-                                  {#if comment.decision}<CommunityChip
-                                      size="compact"
-                                      tone={comment.decision === "approved"
-                                        ? "success"
-                                        : "warning"}
-                                      >{comment.decision}</CommunityChip
-                                    >{/if}
-                                </div>
-                              {/snippet}
-                              <CommunityMessage
-                                message={commentMessage(comment)}
-                                author={memberForPubkey(comment.event.pubkey)}
-                                {members}
-                                {rooms}
-                                {communityEmojis}
-                                {...currentMemberId === undefined
-                                  ? {}
-                                  : { currentMemberId }}
-                                supplement={inlineLabels}
-                                density="compact"
-                                {...canReactToPullRequestComment(comment)
-                                  ? {
-                                      onAddReaction: (
-                                        _messageId: string,
-                                        emoji: string,
-                                      ) =>
-                                        onTogglePullRequestCommentReaction!(
-                                          selectedPullRequest,
-                                          comment,
-                                          emoji,
-                                        ),
-                                      onToggleReaction: (
-                                        _messageId: string,
-                                        emoji: string,
-                                      ) =>
-                                        onTogglePullRequestCommentReaction!(
-                                          selectedPullRequest,
-                                          comment,
-                                          emoji,
-                                        ),
-                                    }
-                                  : {}}
-                                {...commentReactionOptions === undefined
-                                  ? {}
-                                  : {
-                                      reactionOptions: commentReactionOptions,
-                                    }}
-                              />
-                            {/each}
-                            {#if inlineComposerMatches(context)}
-                              <div class="community-projects__inline-context">
-                                <FileIcon aria-hidden="true" />
-                                <span>{context.path}</span>
-                                <CommunityChip size="compact">
-                                  {lineSide(context) === "new"
-                                    ? "+"
-                                    : "-"}{context.lineNumber}
-                                </CommunityChip>
-                              </div>
-                              <CommunityChatComposer
-                                class="community-projects__inline-composer"
-                                bind:value={inlineCommentContent}
-                                placeholder="Leave a comment on this line…"
-                                ariaLabel={`Comment on ${context.path} line ${context.lineNumber}`}
-                                submitLabel="Comment"
-                                {members}
-                                {rooms}
-                                {communityEmojis}
-                                {...currentMemberId === undefined
-                                  ? {}
-                                  : { currentMemberId }}
-                                {busy}
-                                disabled={!canCollaborate}
-                                disabledReason="Sign in to comment on this review"
-                                onCancel={() => {
-                                  inlineCommentAnchor = undefined;
-                                  inlineCommentContent = "";
-                                }}
-                                onSubmit={(submission) =>
-                                  submitInlineComment(submission.content)}
-                              />
-                            {/if}
-                          </div>
-                        {/if}
-                      {/snippet}
-                      <FileDiffComposer
-                        files={visibleProjectDiffFiles}
-                        viewMode={reviewDiffViewMode}
-                        selectedPath={selectedReviewFilePath}
-                        collapsedFilePaths={collapsedReviewFilePaths}
-                        scrollToFile={reviewFileScrollTarget}
-                        stickyHeaders
-                        onFileToggle={toggleReviewFile}
-                        fileHeaderLeading={reviewFileHeaderLeading}
-                        fileHeaderTrailing={reviewFileHeader}
-                        lineAccessory={lineComment}
-                        lineAnnotation={inlineDiscussion}
-                      />
-                    </div>
-                  </div>
-                {:else}
-                  <p class="community-projects__status">
-                    This comparison is unavailable through the relay. Community
-                    does not assume local Git access.
-                  </p>
-                {/if}
-              </Collapsible.Content>
-            </Collapsible.Root>
-
-            <Collapsible.Root
-              class="community-projects__review-section"
-              bind:open={reviewCommitsOpen}
-            >
-              <Collapsible.Trigger
-                class="community-projects__review-section-trigger"
-              >
-                <span>Commits</span>
-                {#if reviewCommitsOpen}
-                  <ChevronDownIcon aria-hidden="true" />
-                  <span class="community-projects__review-section-count"
-                    >{selectedPullRequest.updates.length + 1}</span
-                  >
-                {:else}
-                  <ChevronRightIcon aria-hidden="true" />
-                {/if}
-              </Collapsible.Trigger>
-              <Collapsible.Content
-                class="community-projects__review-commit-list"
-              >
-                <button
-                  type="button"
-                  class="community-projects__review-commit-row"
-                  onclick={() =>
-                    onSelectCommit?.(
-                      reviewCommitSummary(
-                        selectedPullRequest.initialCommit,
-                        selectedPullRequest.title,
-                        selectedPullRequest.content,
-                        selectedPullRequest.createdAt,
-                        selectedPullRequest.root.pubkey,
-                      ),
-                    )}
-                >
-                  <GitCommitHorizontalIcon aria-hidden="true" />
-                  <strong>{selectedPullRequest.title}</strong>
-                  <code>{selectedPullRequest.initialCommit.slice(0, 7)}</code>
-                </button>
-                {#each selectedPullRequest.updates as update (update.event.id)}
-                  <button
-                    type="button"
-                    class="community-projects__review-commit-row"
-                    onclick={() =>
-                      onSelectCommit?.(
-                        reviewCommitSummary(
-                          update.commit,
-                          update.event.content.trim() ||
-                            "Updated review branch",
-                          update.event.content,
-                          update.event.created_at,
-                          update.event.pubkey,
-                        ),
-                      )}
-                  >
-                    <GitCommitHorizontalIcon aria-hidden="true" />
-                    <strong
-                      >{update.event.content.trim() ||
-                        "Updated review branch"}</strong
-                    >
-                    <code>{update.commit.slice(0, 7)}</code>
-                  </button>
-                {/each}
-              </Collapsible.Content>
-            </Collapsible.Root>
-
-            <Collapsible.Root
-              class="community-projects__review-section"
-              bind:open={reviewChecksOpen}
-            >
-              <Collapsible.Trigger
-                class="community-projects__review-section-trigger"
-              >
-                <span>Checks</span>
-                {#if reviewChecksOpen}
-                  <ChevronDownIcon aria-hidden="true" />
-                {:else}
-                  <ChevronRightIcon aria-hidden="true" />
-                {/if}
-              </Collapsible.Trigger>
-              <Collapsible.Content
-                class="community-projects__review-section-content"
-              >
-                <p class="community-projects__muted">
-                  No checks have been reported for this review yet.
-                </p>
-              </Collapsible.Content>
-            </Collapsible.Root>
-
-            <Collapsible.Root
-              class="community-projects__review-section"
-              bind:open={reviewActivityOpen}
-            >
-              <Collapsible.Trigger
-                class="community-projects__review-section-trigger"
-              >
-                <span>Activity</span>
-                {#if reviewActivityOpen}
-                  <ChevronDownIcon aria-hidden="true" />
-                {:else}
-                  <ChevronRightIcon aria-hidden="true" />
-                {/if}
-              </Collapsible.Trigger>
-              <Collapsible.Content>
-                <section
-                  class="community-projects__review-conversation"
-                  aria-label="Pull request conversation"
-                >
-                  <div class="community-projects__review-timeline">
-                    {#each reviewTimeline as entry (`${entry.kind}:${entry.event.id}`)}
-                      <article
-                        class="community-projects__review-timeline-item"
-                        data-kind={entry.kind}
-                      >
-                        <span
-                          class="community-projects__review-timeline-marker"
-                          data-status={entry.kind === "lifecycle"
-                            ? entry.lifecycle
-                            : entry.kind}
-                        >
-                          {#if entry.kind === "opened"}
-                            <GitPullRequestIcon aria-hidden="true" />
-                          {:else if entry.kind === "review-request"}
-                            <UserRoundPlusIcon aria-hidden="true" />
-                          {:else if entry.kind === "lifecycle" && entry.lifecycle === "merged"}
-                            <GitMergeIcon aria-hidden="true" />
-                          {:else if entry.kind === "lifecycle" && entry.lifecycle === "closed"}
-                            <CircleXIcon aria-hidden="true" />
-                          {:else if entry.kind === "lifecycle" && entry.lifecycle === "draft"}
-                            <CircleDashedIcon aria-hidden="true" />
-                          {:else if entry.kind === "lifecycle"}
-                            <RotateCcwIcon aria-hidden="true" />
-                          {:else if reviewCommentDecision(entry.comment) === "approved"}
-                            <CheckIcon aria-hidden="true" />
-                          {:else if reviewCommentDecision(entry.comment) === "changes-requested"}
-                            <CircleXIcon aria-hidden="true" />
-                          {:else}
-                            <MessageSquareIcon aria-hidden="true" />
-                          {/if}
-                        </span>
-                        <div
-                          class="community-projects__review-timeline-content"
-                        >
-                          {#if entry.kind === "opened"}
-                            {@const actorMember = reviewTimelineActorMember(
-                              entry.event,
-                            )}
-                            <div
-                              class="community-projects__review-timeline-summary"
-                            >
-                              <span
-                                class="community-projects__review-timeline-sentence"
-                              >
-                                {#if actorMember}
-                                  {@render memberHoverMention(
-                                    actorMember,
-                                    reviewTimelineActor(entry.event),
-                                  )}
-                                {:else}
-                                  <strong
-                                    >{reviewTimelineActor(entry.event)}</strong
-                                  >
-                                {/if}
-                                <span>opened this review</span>
-                              </span>
-                              <CommunityRelativeTime
-                                timestamp={entry.event.created_at}
-                              />
-                            </div>
-                          {:else if entry.kind === "review-request"}
-                            {@const actorMember = reviewTimelineActorMember(
-                              entry.event,
-                            )}
-                            {@const targetMember = reviewRequestTargetMember(
-                              entry.comment,
-                            )}
-                            <div
-                              class="community-projects__review-timeline-summary"
-                            >
-                              <span
-                                class="community-projects__review-timeline-sentence"
-                              >
-                                {#if actorMember}
-                                  {@render memberHoverMention(
-                                    actorMember,
-                                    reviewTimelineActor(entry.event),
-                                  )}
-                                {:else}
-                                  <strong
-                                    >{reviewTimelineActor(entry.event)}</strong
-                                  >
-                                {/if}
-                                <span>requested a review from</span>
-                                {#if targetMember}
-                                  {@render memberHoverMention(
-                                    targetMember,
-                                    reviewRequestTarget(entry.comment),
-                                  )}
-                                {:else}
-                                  <strong
-                                    >{reviewRequestTarget(
-                                      entry.comment,
-                                    )}</strong
-                                  >
-                                {/if}
-                              </span>
-                              <CommunityRelativeTime
-                                timestamp={entry.event.created_at}
-                              />
-                            </div>
-                          {:else if entry.kind === "lifecycle"}
-                            {@const actorMember = reviewTimelineActorMember(
-                              entry.event,
-                            )}
-                            <div
-                              class="community-projects__review-timeline-summary"
-                            >
-                              <span
-                                class="community-projects__review-timeline-sentence"
-                              >
-                                {#if actorMember}
-                                  {@render memberHoverMention(
-                                    actorMember,
-                                    reviewTimelineActor(entry.event),
-                                  )}
-                                {:else}
-                                  <strong
-                                    >{reviewTimelineActor(entry.event)}</strong
-                                  >
-                                {/if}
-                                <span>{reviewLifecycleAction(entry)}</span>
-                              </span>
-                              <CommunityRelativeTime
-                                timestamp={entry.event.created_at}
-                              />
-                            </div>
-                            {#if entry.mergeCommit}
-                              <code
-                                class="community-projects__review-timeline-commit"
-                                >{entry.mergeCommit.slice(0, 8)}</code
-                              >
-                            {/if}
-                          {:else}
-                            {@const comment = entry.comment}
-                            {@const timelineDecision =
-                              reviewCommentDecision(comment)}
-                            {@const commentReactionOptions =
-                              pullRequestReactionOptions(comment)}
-                            {#snippet reviewLabels()}
-                              <div class="community-projects__message-labels">
-                                {#if timelineDecision}<CommunityChip
-                                    size="compact"
-                                    tone={timelineDecision === "approved"
-                                      ? "success"
-                                      : "warning"}
-                                    >{timelineDecision}</CommunityChip
-                                  >{/if}
-                                {#if comment.inlineStatus}<CommunityChip
-                                    size="compact"
-                                    >{comment.inlineStatus}</CommunityChip
-                                  >{/if}
-                              </div>
-                            {/snippet}
-                            <CommunityMessage
-                              message={commentMessage(comment)}
-                              author={memberForPubkey(comment.event.pubkey)}
-                              {members}
-                              {rooms}
-                              {communityEmojis}
-                              {...currentMemberId === undefined
-                                ? {}
-                                : { currentMemberId }}
-                              supplement={reviewLabels}
-                              density="compact"
-                              {...canReactToPullRequestComment(comment)
-                                ? {
-                                    onAddReaction: (
-                                      _messageId: string,
-                                      emoji: string,
-                                    ) =>
-                                      onTogglePullRequestCommentReaction!(
-                                        selectedPullRequest,
-                                        comment,
-                                        emoji,
-                                      ),
-                                    onToggleReaction: (
-                                      _messageId: string,
-                                      emoji: string,
-                                    ) =>
-                                      onTogglePullRequestCommentReaction!(
-                                        selectedPullRequest,
-                                        comment,
-                                        emoji,
-                                      ),
-                                  }
-                                : {}}
-                              {...commentReactionOptions === undefined
-                                ? {}
-                                : { reactionOptions: commentReactionOptions }}
-                            />
-                          {/if}
-                        </div>
-                      </article>
-                    {/each}
-                  </div>
-                  {#if selectedPullRequest.lifecycle !== "merged"}
-                    <div class="community-projects__review-actions">
-                      <Button
-                        type="button"
-                        size="sm"
-                        disabled={!canCollaborate ||
-                          busy ||
-                          !canMergePullRequest(selectedPullRequest)}
-                        title={canMergePullRequest(selectedPullRequest)
-                          ? "Merge this pull request through the repository provider"
-                          : "The repository does not advertise merge capability"}
-                        onclick={() =>
-                          void mergeSelectedPullRequest(selectedPullRequest)}
-                      >
-                        <GitMergeIcon
-                          data-icon="inline-start"
-                          aria-hidden="true"
-                        />
-                        {canMergePullRequest(selectedPullRequest)
-                          ? "Merge pull request"
-                          : "Merge unavailable"}
-                      </Button>
-                      <span class="community-projects__review-action-spacer"
-                      ></span>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        disabled={!canCollaborate ||
-                          busy ||
-                          (!onSubmitPullRequestReview &&
-                            !onAddPullRequestComment &&
-                            !onApprovePullRequest &&
-                            !onRequestChanges)}
-                        onclick={openReviewSubmission}
-                      >
-                        <CheckIcon
-                          data-icon="inline-start"
-                          aria-hidden="true"
-                        />
-                        Submit review
-                      </Button>
-                      {#if onUpdatePullRequestLifecycle}
-                        <Button
-                          type="button"
-                          variant={selectedPullRequest.lifecycle === "closed"
-                            ? "outline"
-                            : "destructive"}
-                          size="sm"
-                          disabled={!canCollaborate || busy}
-                          onclick={updateSelectedPullRequestLifecycle}
-                          >{selectedPullRequest.lifecycle === "closed"
-                            ? "Reopen"
-                            : "Close"}</Button
-                        >
-                      {/if}
-                    </div>
-                    {#if pullRequestMergeError}
-                      <p
-                        class="community-projects__review-merge-error"
-                        role="alert"
-                      >
-                        {pullRequestMergeError}
-                      </p>
-                    {:else if pullRequestMergeStatus}
-                      <p
-                        class="community-projects__review-merge-status"
-                        role="status"
-                      >
-                        {pullRequestMergeStatus}
-                      </p>
-                    {/if}
-                    {#if onAddPullRequestComment}
-                      <CommunityChatComposer
-                        class="community-projects__conversation-composer"
-                        bind:value={pullRequestComment}
-                        placeholder="Add to the review conversation"
-                        ariaLabel="Pull request comment"
-                        submitLabel="Comment"
-                        {members}
-                        {rooms}
-                        {communityEmojis}
-                        {...currentMemberId === undefined
-                          ? {}
-                          : { currentMemberId }}
-                        {busy}
-                        disabled={!canCollaborate}
-                        disabledReason="Sign in to comment on this review"
-                        onSubmit={(submission) =>
-                          submitPullRequestComment(submission.content)}
-                      />
-                    {/if}
-                  {/if}
-                </section>
-              </Collapsible.Content>
-            </Collapsible.Root>
-          </article>
-        {:else}
-          {@render surfaceHeader(
-            "Reviews",
-            "Buzz-compatible NIP-34 pull requests and trusted review decisions.",
+        <CommunityProjectsPullRequestReview
+          pullRequest={selectedPullRequest}
+          {pullRequests}
+          {listLayout}
+          bind:groupOpen={reviewGroupOpen}
+          {onSelectPullRequest}
+          projectFilter={pullRequestBelongsToSelectedProject}
+          showHeader={showReviewHeader}
+          onClose={onClosePullRequest}
+          bind:descriptionOpen={reviewDescriptionOpen}
+          bind:filesOpen={reviewFilesOpen}
+          bind:commitsOpen={reviewCommitsOpen}
+          bind:checksOpen={reviewChecksOpen}
+          bind:activityOpen={reviewActivityOpen}
+          bind:fileListOpen={reviewFileListOpen}
+          bind:fileFilter={reviewFileFilter}
+          bind:fileListMode={diffFileListMode}
+          bind:selectedPath={selectedReviewFilePath}
+          bind:collapsedPaths={collapsedReviewFilePaths}
+          bind:viewedPaths={viewedReviewFilePaths}
+          bind:viewMode={reviewDiffViewMode}
+          bind:scrollTarget={reviewFileScrollTarget}
+          bind:inlineContent={inlineCommentContent}
+          bind:comment={pullRequestComment}
+          {loading}
+          diff={pullRequestDiff}
+          diffError={pullRequestDiffError}
+          visibleFiles={visibleProjectDiffFiles}
+          viewedCount={viewedReviewFileCount}
+          {busy}
+          {canCollaborate}
+          canMerge={selectedPullRequest
+            ? canMergePullRequest(selectedPullRequest)
+            : false}
+          mergeError={pullRequestMergeError}
+          mergeStatus={pullRequestMergeStatus}
+          canSubmit={Boolean(
+            onSubmitPullRequestReview ||
+              onAddPullRequestComment ||
+              onApprovePullRequest ||
+              onRequestChanges,
           )}
-          {#if pullRequests.length === 0}
-            <Empty.Root
-              class="community-projects__empty community-projects__review-empty"
-            >
-              <Empty.Header>
-                <Empty.Media variant="icon"
-                  ><CircleDashedIcon aria-hidden="true" /></Empty.Media
-                >
-                <Empty.Title>No reviews yet</Empty.Title>
-              </Empty.Header>
-            </Empty.Root>
-          {:else}
-            <div
-              class="community-projects__review-groups"
-              data-layout={listLayout}
-            >
-              {#each reviewGroups as group (group.lifecycle)}
-                {@const groupedReviews = pullRequests.filter(
-                  (pullRequest) =>
-                    pullRequest.lifecycle === group.lifecycle &&
-                    (!selectedProject ||
-                      projectPullRequestsFor(selectedProject).some(
-                        (candidate) =>
-                          candidate.root.id === pullRequest.root.id,
-                      )),
-                )}
-                {#if groupedReviews.length > 0}
-                  <Collapsible.Root
-                    open={reviewGroupOpen[group.lifecycle] ?? false}
-                    onOpenChange={(open) =>
-                      (reviewGroupOpen[group.lifecycle] = open)}
-                  >
-                    <Collapsible.Trigger
-                      class="community-projects__review-group-heading"
-                    >
-                      {@render reviewStatusIcon(group.lifecycle)}
-                      <span>{group.label}</span>
-                      {#if !reviewGroupOpen[group.lifecycle]}
-                        <span>{groupedReviews.length}</span>
-                      {/if}
-                    </Collapsible.Trigger>
-                    <Collapsible.Content
-                      class="community-projects__review-group-list"
-                    >
-                      {#each groupedReviews as pullRequest (pullRequest.root.id)}
-                        {@const author = memberForPubkey(
-                          pullRequest.root.pubkey,
-                        )}
-                        <article class="community-projects__review-row">
-                          {@render reviewStatusIcon(pullRequest.lifecycle)}
-                          <button
-                            type="button"
-                            class="community-projects__review-row-title"
-                            onclick={() => onSelectPullRequest?.(pullRequest)}
-                            >{pullRequest.title}</button
-                          >
-                          <button
-                            type="button"
-                            class="community-projects__review-row-id"
-                            title="View review"
-                            onclick={() => onSelectPullRequest?.(pullRequest)}
-                            >#{pullRequest.root.id.slice(0, 8)}</button
-                          >
-                          <span class="community-projects__review-row-branch">
-                            <span aria-hidden="true">›</span>
-                            <GitBranchIcon aria-hidden="true" />
-                            <span
-                              >{pullRequest.branchName ||
-                                pullRequest.currentCommit.slice(0, 7)}</span
-                            >
-                          </span>
-                          <span
-                            class="community-projects__review-row-comments"
-                            title={`${pullRequest.comments.length} comments`}
-                          >
-                            <MessageSquareIcon aria-hidden="true" />
-                            {pullRequest.comments.length}
-                          </span>
-                          {@render memberHoverAvatar(author)}
-                          <CommunityRelativeTime
-                            timestamp={pullRequest.updatedAt}
-                          />
-                        </article>
-                      {/each}
-                    </Collapsible.Content>
-                  </Collapsible.Root>
-                {/if}
-              {/each}
-            </div>
-          {/if}
-        {/if}
+          canComment={onAddPullRequestComment !== undefined}
+          canUpdateLifecycle={onUpdatePullRequestLifecycle !== undefined}
+          {members}
+          {rooms}
+          {communityEmojis}
+          {currentMemberId}
+          homeChannelId={projectHomeChannel?.channelId}
+          homeChannelName={projectHomeChannel
+            ? channelName(projectHomeChannel)
+            : undefined}
+          {memberForPubkey}
+          {commentMessage}
+          canReact={canReactToPullRequestComment}
+          reactionOptions={pullRequestReactionOptions}
+          inlineComments={inlineReviewComments}
+          showComposer={inlineComposerMatches}
+          {onOpenProfile}
+          {onMessageMember}
+          {onWaveMember}
+          onCopyCommit={(hash) => void copyCommitHash(hash)}
+          {onSelectCommit}
+          commitSummary={reviewCommitSummary}
+          {onSelectChannel}
+          onSelectPath={selectReviewFile}
+          onToggleFile={toggleReviewFile}
+          onViewedChange={setReviewFileViewed}
+          onViewModeChange={setReviewDiffViewMode}
+          onAddLineComment={addLineComment}
+          onToggleReaction={toggleSelectedPullRequestCommentReaction}
+          onCancelComposer={() => (inlineCommentAnchor = undefined)}
+          onSubmitComposer={(content) => void submitInlineComment(content)}
+          onMerge={mergeOpenPullRequest}
+          onSubmitReview={openReviewSubmission}
+          onUpdateLifecycle={updateSelectedPullRequestLifecycle}
+          onSubmitComment={(content) => void submitPullRequestComment(content)}
+        >
+          {#snippet listHeader()}
+            {@render surfaceHeader(
+              "Reviews",
+              "Buzz-compatible NIP-34 pull requests and trusted review decisions.",
+            )}
+          {/snippet}
+        </CommunityProjectsPullRequestReview>
       {:else if view === "commits"}
         {#if selectedCommitValue}
           {@const commitAuthor = commitAuthorMember(selectedCommitValue)}
@@ -4949,483 +3739,44 @@
           </div>
         {/if}
       {:else if view === "files"}
-        <div class="community-projects__files-surface">
-          {#if loading && !tree}
-            <div
-              class="community-projects__files-loading"
-              role="status"
-              aria-label="Loading repository files"
-            >
-              <div
-                class="community-projects__files-loading-breadcrumb"
-                aria-hidden="true"
-              >
-                <Skeleton />
-                <Skeleton />
-                <Skeleton />
-              </div>
-              <div
-                class="community-projects__files-loading-commit"
-                aria-hidden="true"
-              >
-                <Skeleton />
-                <Skeleton />
-                <Skeleton />
-              </div>
-              <div
-                class="community-projects__files-loading-list"
-                aria-hidden="true"
-              >
-                {#each [0, 1, 2, 3, 4] as row (row)}
-                  <div>
-                    <Skeleton />
-                    <Skeleton />
-                    <Skeleton />
-                  </div>
-                {/each}
-              </div>
-            </div>
-          {:else if !canCollaborate && repositorySources.length > 0}
-            <Empty.Root class="community-projects__empty">
-              <Empty.Header>
-                <Empty.Media variant="icon"
-                  ><FileIcon aria-hidden="true" /></Empty.Media
-                >
-                <Empty.Title>Sign in to view repository files</Empty.Title>
-                <Empty.Description>
-                  Repository source reads use your Nostr identity to enforce the
-                  project's channel access at the relay gateway.
-                </Empty.Description>
-              </Empty.Header>
-            </Empty.Root>
-          {:else if effectiveSourceError}
-            {@render projectSourceError(effectiveSourceError)}
-          {:else if tree && selectedPath}
-            <div
-              class="community-projects__file-browser-layout"
-              data-file-tree-open={repositoryFileTreeOpen}
-            >
-              {#if repositoryFileTreeOpen}
-                {@render repositoryFileTreeSidebar()}
-              {/if}
-              <section class="community-projects__file-panel">
-                <header class="community-projects__file-header">
-                  {#if !repositoryFileTreeOpen}
-                    <Tooltip.Provider delayDuration={0}>
-                      <Tooltip.Root>
-                        <Tooltip.Trigger>
-                          {#snippet child({ props })}
-                            <Button
-                              {...props}
-                              type="button"
-                              variant="ghost"
-                              size="icon-sm"
-                              aria-label="Show repository file tree"
-                              onclick={() => (repositoryFileTreeOpen = true)}
-                            >
-                              <CommunitySidebarToggleIcon
-                                side="left"
-                                expanded={repositoryFileTreeOpen}
-                              />
-                            </Button>
-                          {/snippet}
-                        </Tooltip.Trigger>
-                        <Tooltip.Content side="bottom" sideOffset={6}
-                          >Show file tree</Tooltip.Content
-                        >
-                      </Tooltip.Root>
-                    </Tooltip.Provider>
-                    {@render repositoryBranchSelector()}
-                  {/if}
-                  <Breadcrumb.Root aria-label="Repository file path">
-                    <Breadcrumb.List>
-                      <Breadcrumb.Item>
-                        <Breadcrumb.Link
-                          href="#"
-                          onclick={(event) => {
-                            event.preventDefault();
-                            openRepositoryDirectory("");
-                          }}>Files</Breadcrumb.Link
-                        >
-                      </Breadcrumb.Item>
-                      {#each repositorySelectedBreadcrumbs as segment (segment.path)}
-                        <Breadcrumb.Separator />
-                        <Breadcrumb.Item>
-                          <Breadcrumb.Link
-                            href="#"
-                            onclick={(event) => {
-                              event.preventDefault();
-                              openRepositoryDirectory(segment.path);
-                            }}>{segment.name}</Breadcrumb.Link
-                          >
-                        </Breadcrumb.Item>
-                      {/each}
-                      <Breadcrumb.Separator />
-                      <Breadcrumb.Item>
-                        <Breadcrumb.Page
-                          >{repositorySelectedPath.split("/").at(-1) ??
-                            repositorySelectedPath}</Breadcrumb.Page
-                        >
-                      </Breadcrumb.Item>
-                    </Breadcrumb.List>
-                  </Breadcrumb.Root>
-                  {#if repositorySelectedIsMarkdown}
-                    <ButtonGroup.Root
-                      class="community-projects__file-view-toggle"
-                      aria-label="Markdown display"
-                    >
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        data-selected={repositoryMarkdownView === "preview"}
-                        aria-pressed={repositoryMarkdownView === "preview"}
-                        onclick={() => (repositoryMarkdownView = "preview")}
-                      >
-                        <EyeIcon data-icon="inline-start" aria-hidden="true" />
-                        Preview
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        data-selected={repositoryMarkdownView === "source"}
-                        aria-pressed={repositoryMarkdownView === "source"}
-                        onclick={() => (repositoryMarkdownView = "source")}
-                      >
-                        <CodeXmlIcon
-                          data-icon="inline-start"
-                          aria-hidden="true"
-                        />
-                        Source
-                      </Button>
-                    </ButtonGroup.Root>
-                  {/if}
-                </header>
-                <ScrollArea
-                  type="hover"
-                  orientation="both"
-                  class="community-projects__file-body"
-                >
-                  {#if loading && !repositorySelectedBlob}
-                    <div
-                      class="community-projects__blob-skeleton"
-                      role="status"
-                      aria-label={`Loading ${selectedPath}`}
-                    >
-                      {#if repositorySelectedIsMarkdown}
-                        <Skeleton
-                          class="community-projects__markdown-skeleton-title"
-                        />
-                        <Skeleton
-                          class="community-projects__markdown-skeleton-copy"
-                        />
-                        <Skeleton
-                          class="community-projects__markdown-skeleton-copy"
-                        />
-                        <Skeleton
-                          class="community-projects__markdown-skeleton-heading"
-                        />
-                        <Skeleton
-                          class="community-projects__markdown-skeleton-copy"
-                        />
-                        <Skeleton
-                          class="community-projects__markdown-skeleton-code"
-                        />
-                      {:else}
-                        <div class="community-projects__files-loading-code">
-                          {#each [0, 1, 2, 3, 4, 5, 6] as row (row)}
-                            <div>
-                              <Skeleton />
-                              <Skeleton />
-                            </div>
-                          {/each}
-                        </div>
-                      {/if}
-                    </div>
-                  {:else if repositorySelectedBlob?.binary}
-                    <Empty.Root>
-                      <Empty.Header>
-                        <Empty.Media variant="icon"
-                          ><FileIcon aria-hidden="true" /></Empty.Media
-                        >
-                        <Empty.Title>Binary file</Empty.Title>
-                        <Empty.Description
-                          >{repositorySelectedBlob.path} cannot be previewed as text.</Empty.Description
-                        >
-                      </Empty.Header>
-                    </Empty.Root>
-                  {:else if repositorySelectedBlob?.too_large}
-                    <p class="community-projects__status">
-                      {repositorySelectedBlob.path} is too large to preview.
-                    </p>
-                  {:else if repositorySelectedBlob && repositorySelectedIsMarkdown && repositoryMarkdownView === "preview"}
-                    <CommunityMarkdownContent
-                      class="community-projects__markdown-file"
-                      content={repositorySelectedBlob.contents ?? ""}
-                      {members}
-                      {rooms}
-                      {communityEmojis}
-                    />
-                  {:else if repositorySelectedBlob}
-                    <CodeBlock
-                      code={repositorySelectedBlob.contents ?? ""}
-                      language={resolveDiffLanguage(
-                        repositorySelectedBlob.path,
-                      ) ?? "plaintext"}
-                      hasLanguageLabel={false}
-                      hasCopyButton={false}
-                      hasLineNumbers
-                      width="100%"
-                      container="section"
-                    />
-                  {:else}
-                    <p class="community-projects__status">
-                      Select a file to preview it.
-                    </p>
-                  {/if}
-                </ScrollArea>
-              </section>
-            </div>
-          {:else if tree}
-            <div
-              class="community-projects__file-browser-layout"
-              data-file-tree-open={repositoryFileTreeOpen}
-            >
-              {#if repositoryFileTreeOpen}
-                {@render repositoryFileTreeSidebar()}
-              {/if}
-
-              <section class="community-projects__file-browser">
-                <header class="community-projects__file-browser-toolbar">
-                  {#if !repositoryFileTreeOpen}
-                    <Tooltip.Provider delayDuration={0}>
-                      <Tooltip.Root>
-                        <Tooltip.Trigger>
-                          {#snippet child({ props })}
-                            <Button
-                              {...props}
-                              type="button"
-                              variant="ghost"
-                              size="icon-sm"
-                              aria-label="Show repository file tree"
-                              onclick={() => (repositoryFileTreeOpen = true)}
-                            >
-                              <CommunitySidebarToggleIcon
-                                side="left"
-                                expanded={repositoryFileTreeOpen}
-                              />
-                            </Button>
-                          {/snippet}
-                        </Tooltip.Trigger>
-                        <Tooltip.Content side="bottom" sideOffset={6}
-                          >Show file tree</Tooltip.Content
-                        >
-                      </Tooltip.Root>
-                    </Tooltip.Provider>
-                    {@render repositoryBranchSelector()}
-                  {/if}
-
-                  <Breadcrumb.Root aria-label="Repository directory path">
-                    <Breadcrumb.List>
-                      <Breadcrumb.Item>
-                        {#if repositoryDirectoryBreadcrumbs.length === 0}
-                          <Breadcrumb.Page>{repositoryName}</Breadcrumb.Page>
-                        {:else}
-                          <Breadcrumb.Link
-                            href="#"
-                            onclick={(event) => {
-                              event.preventDefault();
-                              openRepositoryDirectory("");
-                            }}>{repositoryName}</Breadcrumb.Link
-                          >
-                        {/if}
-                      </Breadcrumb.Item>
-                      {#each repositoryDirectoryBreadcrumbs as segment, index (segment.path)}
-                        <Breadcrumb.Separator />
-                        <Breadcrumb.Item>
-                          {#if index === repositoryDirectoryBreadcrumbs.length - 1}
-                            <Breadcrumb.Page>{segment.name}</Breadcrumb.Page>
-                          {:else}
-                            <Breadcrumb.Link
-                              href="#"
-                              onclick={(event) => {
-                                event.preventDefault();
-                                openRepositoryDirectory(segment.path);
-                              }}>{segment.name}</Breadcrumb.Link
-                            >
-                          {/if}
-                        </Breadcrumb.Item>
-                      {/each}
-                    </Breadcrumb.List>
-                  </Breadcrumb.Root>
-                </header>
-
-                {#if tree.commit}
-                  {@const latestCommit = tree.commit}
-                  {@const latestCommitAuthor = commitAuthorMember(latestCommit)}
-                  {@const latestCommitDate =
-                    latestCommit.commit_date ?? latestCommit.author_date}
-                  <div class="community-projects__file-browser-commit">
-                    <GitCommitHorizontalIcon aria-hidden="true" />
-                    <span>
-                      <strong>{latestCommitAuthor.name}</strong
-                      >{" committed "}<span>{latestCommit.subject}</span>
-                    </span>
-                    <button
-                      type="button"
-                      class="community-projects__file-browser-commit-link"
-                      title={`View commit ${latestCommit.sha.slice(0, 7)}`}
-                      aria-label={`View commit ${latestCommit.sha.slice(0, 7)}`}
-                      onclick={() => onSelectCommit?.(latestCommit)}
-                    >
-                      <code>{latestCommit.sha.slice(0, 7)}</code>
-                    </button>
-                    {#if latestCommitDate}
-                      <CommunityRelativeTime
-                        timestamp={Math.floor(
-                          new Date(latestCommitDate).getTime() / 1_000,
-                        )}
-                      />
-                    {/if}
-                  </div>
-                {/if}
-
-                <Table.Root
-                  class="community-projects__file-browser-table"
-                  aria-label={repositoryCurrentPath
-                    ? `Files in ${repositoryCurrentPath}`
-                    : "Repository files"}
-                >
-                  <Table.Header>
-                    <Table.Row>
-                      <Table.Head>Name</Table.Head>
-                      <Table.Head>Commit message</Table.Head>
-                      <Table.Head>Commit Date</Table.Head>
-                    </Table.Row>
-                  </Table.Header>
-                  <Table.Body>
-                    {#if repositoryCurrentPath}
-                      <Table.Row>
-                        <Table.Cell>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            class="community-projects__file-entry"
-                            aria-label="Go to parent directory"
-                            onclick={() =>
-                              openRepositoryDirectory(
-                                repositoryParentPath(repositoryCurrentPath),
-                              )}
-                          >
-                            <FolderIcon
-                              data-icon="inline-start"
-                              aria-hidden="true"
-                            />
-                            <strong>..</strong>
-                          </Button>
-                        </Table.Cell>
-                        <Table.Cell
-                          ><span aria-hidden="true">—</span></Table.Cell
-                        >
-                        <Table.Cell
-                          ><span aria-hidden="true">—</span></Table.Cell
-                        >
-                      </Table.Row>
-                    {/if}
-                    {#each repositoryEntries as entry (entry.path)}
-                      {@const entryCommit = repositoryPathCommits[entry.path]}
-                      {@const entryCommitDate =
-                        entryCommit?.commit_date ?? entryCommit?.author_date}
-                      {@const commitLoaded =
-                        Object.prototype.hasOwnProperty.call(
-                          repositoryPathCommits,
-                          entry.path,
-                        )}
-                      <Table.Row>
-                        <Table.Cell>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            class="community-projects__file-entry"
-                            aria-label={`${entry.type === "tree" ? "Open directory" : "Open file"} ${entry.name}`}
-                            onclick={() =>
-                              entry.type === "tree"
-                                ? openRepositoryDirectory(entry.path)
-                                : openRepositoryFile(entry.path)}
-                          >
-                            {#if entry.type === "tree"}
-                              <FolderIcon
-                                data-icon="inline-start"
-                                aria-hidden="true"
-                              />
-                            {:else}
-                              <FileIcon
-                                data-icon="inline-start"
-                                aria-hidden="true"
-                              />
-                            {/if}
-                            <strong>{entry.name}</strong>
-                          </Button>
-                        </Table.Cell>
-                        <Table.Cell>
-                          <span
-                            class="community-projects__file-commit-message"
-                            title={entryCommit?.subject}
-                          >
-                            {entryCommit?.subject ??
-                              (onLoadRepositoryPathCommit && !commitLoaded
-                                ? "Loading…"
-                                : "—")}
-                          </span>
-                        </Table.Cell>
-                        <Table.Cell>
-                          {#if entryCommitDate}
-                            <CommunityRelativeTime
-                              timestamp={Math.floor(
-                                new Date(entryCommitDate).getTime() / 1_000,
-                              )}
-                            />
-                          {:else}
-                            <span aria-hidden="true">—</span>
-                          {/if}
-                        </Table.Cell>
-                      </Table.Row>
-                    {:else}
-                      <Table.Row>
-                        <Table.Cell colspan={3}>
-                          <p class="community-projects__status">
-                            This directory does not contain any files.
-                          </p>
-                        </Table.Cell>
-                      </Table.Row>
-                    {/each}
-                  </Table.Body>
-                </Table.Root>
-              </section>
-            </div>
-          {:else}
-            <Empty.Root class="community-projects__empty">
-              <Empty.Header>
-                <Empty.Media variant="icon"
-                  ><FileIcon aria-hidden="true" /></Empty.Media
-                >
-                <Empty.Title
-                  >{browsableRepositories.length === 0
-                    ? "No browsable repository files"
-                    : "No repository files"}</Empty.Title
-                >
-                <Empty.Description>
-                  {browsableRepositories.length === 0
-                    ? "Attach a repository whose relay capabilities include browsing."
-                    : "The repository does not contain any files yet."}
-                </Empty.Description>
-              </Empty.Header>
-            </Empty.Root>
-          {/if}
-        </div>
+        <CommunityProjectsRepositoryPane
+          {loading}
+          {canCollaborate}
+          hasRepositorySources={repositorySources.length > 0}
+          sourceError={effectiveSourceError}
+          homeChannelId={projectHomeChannel?.channelId}
+          homeChannelName={projectHomeChannel
+            ? channelName(projectHomeChannel)
+            : undefined}
+          browsableCount={browsableRepositories.length}
+          {tree}
+          selectedPath={repositorySelectedPath}
+          blob={repositorySelectedBlob}
+          bind:fileTreeOpen={repositoryFileTreeOpen}
+          bind:markdownView={repositoryMarkdownView}
+          fileTreeEntries={repositoryFileTreeEntries}
+          isMarkdown={repositorySelectedIsMarkdown}
+          fileBreadcrumbs={repositorySelectedBreadcrumbs}
+          directoryBreadcrumbs={repositoryDirectoryBreadcrumbs}
+          currentPath={repositoryCurrentPath}
+          directoryEntries={repositoryEntries}
+          pathCommits={repositoryPathCommits}
+          {repositoryName}
+          branch={activeRepositoryBranch}
+          branches={repositoryBranches}
+          latestCommitAuthor={tree?.commit
+            ? commitAuthorMember(tree.commit)
+            : undefined}
+          {members}
+          {rooms}
+          {communityEmojis}
+          {onSelectChannel}
+          onSelectBranch={selectRepositoryBranch}
+          onOpenDirectory={openRepositoryDirectory}
+          onOpenFile={openRepositoryFile}
+          {onSelectCommit}
+          onLoadPathCommit={onLoadRepositoryPathCommit}
+        />
       {:else if view === "people" || view === "contributors"}
         {@render surfaceHeader(
           "Contributors",
@@ -5469,1295 +3820,105 @@
   </AppShell.Body>
 {/if}
 
-<Dialog.Root bind:open={reviewSubmissionOpen}>
-  <DialogFrame size="wide">
-    {#snippet title()}Submit review{/snippet}
-    {#snippet description()}
-      Publish one signed review decision to the relay. Connected providers can
-      mirror it as a native review.
-    {/snippet}
-
-    <div class="community-projects__review-submission-form">
-      <Field.Group class="community-projects__review-submission-fields">
-        <Field.Field data-invalid={reviewSubmissionError ? "" : undefined}>
-          <Field.Label>
-            Review
-            {#if reviewSubmissionDecision === "approved"}
-              <span>Optional</span>
-            {/if}
-          </Field.Label>
-          <CommunityChatComposer
-            class="community-projects__review-submission-composer"
-            bind:value={reviewSubmissionBody}
-            ariaLabel="Review"
-            placeholder={reviewSubmissionDecision === "approved"
-              ? "Leave an optional approval note…"
-              : reviewSubmissionDecision === "changes-requested"
-                ? "Explain what needs to change…"
-                : "Leave a review comment…"}
-            {members}
-            {rooms}
-            {communityEmojis}
-            {...currentMemberId === undefined ? {} : { currentMemberId }}
-            {busy}
-            disabled={!canCollaborate}
-            disabledReason="Sign in to submit a review"
-            mode="form"
-          />
-          <Field.Description>
-            {reviewSubmissionDecision === "approved"
-              ? "An approval can be submitted without a message."
-              : "A message is required for this review decision."}
-          </Field.Description>
-          {#if reviewSubmissionError}
-            <Field.Error>{reviewSubmissionError}</Field.Error>
-          {/if}
-        </Field.Field>
-        <fieldset class="community-projects__review-decision">
-          <legend>Review decision</legend>
-          <label class="community-projects__review-decision-option">
-            <input
-              type="radio"
-              name="project-review-decision"
-              value="comment"
-              aria-label="Comment"
-              bind:group={reviewSubmissionDecision}
-              onchange={() => (reviewSubmissionError = "")}
-            />
-            <span>
-              <strong>Comment</strong>
-              <small>Submit general feedback without explicit approval.</small>
-            </span>
-          </label>
-          <label class="community-projects__review-decision-option">
-            <input
-              type="radio"
-              name="project-review-decision"
-              value="approved"
-              aria-label="Approve"
-              bind:group={reviewSubmissionDecision}
-              onchange={() => (reviewSubmissionError = "")}
-            />
-            <span>
-              <strong>Approve</strong>
-              <small>Submit feedback and approve these changes.</small>
-            </span>
-          </label>
-          <label class="community-projects__review-decision-option">
-            <input
-              type="radio"
-              name="project-review-decision"
-              value="changes-requested"
-              aria-label="Request changes"
-              bind:group={reviewSubmissionDecision}
-              onchange={() => (reviewSubmissionError = "")}
-            />
-            <span>
-              <strong>Request changes</strong>
-              <small>
-                Submit feedback that must be addressed before merging.
-              </small>
-            </span>
-          </label>
-        </fieldset>
-      </Field.Group>
-    </div>
-
-    {#snippet footer()}
-      <Button
-        type="button"
-        variant="outline"
-        disabled={busy}
-        onclick={() => (reviewSubmissionOpen = false)}>Cancel</Button
-      >
-      <Button
-        type="button"
-        disabled={busy ||
-          (reviewSubmissionDecision !== "approved" &&
-            reviewSubmissionBody.trim() === "")}
-        onclick={submitPullRequestReview}
-      >
-        {busy
-          ? operation
-          : reviewSubmissionDecision === "approved"
-            ? "Submit approval"
-            : reviewSubmissionDecision === "changes-requested"
-              ? "Request changes"
-              : "Submit comment"}
-      </Button>
-    {/snippet}
-  </DialogFrame>
-</Dialog.Root>
-
-<ConfirmDialog
-  bind:open={reviewCloseConfirmationOpen}
-  pending={busy}
-  destructive
-  onConfirm={async () => {
-    await confirmClosePullRequest();
-    return !reviewCloseError;
-  }}
->
-  {#snippet title()}Close pull request?{/snippet}
-  {#snippet description()}
-    This closes {selectedPullRequest?.title ?? "the pull request"} without merging
-    it. It can be reopened later.
-  {/snippet}
-  {#snippet confirmLabel()}
-    {busy ? "Closing…" : "Close pull request"}
-  {/snippet}
-
-  {#if reviewCloseError}
-    <p class="community-projects__review-merge-error" role="alert">
-      {reviewCloseError}
-    </p>
-  {/if}
-</ConfirmDialog>
-
-<Dialog.Root bind:open={projectDialogOpen} onOpenChange={resetError}>
-  <DialogFrame size="wide">
-    {#snippet title()}
-      {projectDialogMode === "edit"
-        ? "Project settings"
-        : "Create a new project"}
-    {/snippet}
-    {#snippet description()}
-      {projectDialogMode === "edit"
-        ? "Change the project details shared through its signed announcement."
-        : "Bring an existing Community channel together with repositories, tasks, and reviews."}
-    {/snippet}
-
-    <form
-      id="communityprojects-form-1"
-      class="community-projects__project-form"
-      onsubmit={submitProject}
-    >
-      <Field.Group class="community-projects__project-fields">
-        <Field.Field>
-          <Field.Label for="project-name">Name</Field.Label>
-          <Input
-            id="project-name"
-            bind:value={projectDraft.name}
-            placeholder="relay-forge-sandbox"
-            required
-          />
-        </Field.Field>
-        <Field.Field>
-          <Field.Label for="project-description">
-            Description <span>Optional</span>
-          </Field.Label>
-          <CommunityChatComposer
-            class="community-projects__project-description"
-            bind:value={projectDraft.description}
-            placeholder="What this project should become"
-            ariaLabel="Project description"
-            {members}
-            {rooms}
-            {communityEmojis}
-            {...currentMemberId === undefined ? {} : { currentMemberId }}
-            mode="form"
-          />
-        </Field.Field>
-
-        <div class="community-projects__project-options">
-          <div
-            class="community-projects__project-option"
-            aria-label="Project visibility"
-          >
-            <span>Visibility</span>
-            <span class="community-projects__project-option-choice">
-              {projectDraft.visibility === "private" ? "Private" : "Public"}
-            </span>
-          </div>
-
-          <button
-            type="button"
-            class="community-projects__project-option community-projects__project-channel-trigger"
-            aria-haspopup="dialog"
-            aria-expanded={projectChannelCommandOpen}
-            onclick={() => {
-              projectChannelCommandMode = "home";
-              projectChannelCommandOpen = true;
-            }}
-          >
-            <span>Project channel</span>
-            <span class="community-projects__project-option-choice">
-              {availableProjectChannels.find(
-                (channel) =>
-                  (channel.groupId ?? channel.id) === projectDraft.channelId,
-              )?.name ?? "Choose channel"}
-              <ChevronDownIcon aria-hidden="true" />
-            </span>
-          </button>
-
-          <div class="community-projects__project-option">
-            <span>Project list</span>
-            <Select.Root
-              type="single"
-              value={projectDraft.listing}
-              onValueChange={(value) => {
-                if (value === "listed" || value === "unlisted")
-                  projectDraft.listing = value;
-              }}
-            >
-              <Select.Trigger aria-label="Project list">
-                {projectDraft.listing === "unlisted" ? "Unlisted" : "Listed"}
-              </Select.Trigger>
-              <Select.Content>
-                <Select.Item value="listed" label="Listed">Listed</Select.Item>
-                <Select.Item value="unlisted" label="Unlisted"
-                  >Unlisted</Select.Item
-                >
-              </Select.Content>
-            </Select.Root>
-          </div>
-        </div>
-
-        {#if localError}<Field.Error>{localError}</Field.Error>{/if}
-      </Field.Group>
-    </form>
-
-    {#snippet footer()}
-      <Button
-        form="communityprojects-form-1"
-        type="submit"
-        disabled={busy || !projectDraft.name.trim() || !projectDraft.channelId}
-      >
-        {busy
-          ? operation
-          : projectDialogMode === "edit"
-            ? "Save changes"
-            : "Create project"}
-      </Button>
-    {/snippet}
-  </DialogFrame>
-</Dialog.Root>
-
-<Dialog.Root bind:open={projectChannelCommandOpen}
-  ><DialogFrame
-    title={projectChannelCommandMode === "home"
-      ? "Choose a project channel"
-      : channelAttachmentTarget
-        ? `Add channel to ${channelAttachmentTarget.name}`
-        : "Choose a project"}
-    description={channelAttachmentPending
-      ? "Adding channel…"
-      : projectChannelCommandMode === "attach" && !channelAttachmentTarget
-        ? "Select the project that will include this channel."
-        : "Search the Community channels available to this project."}
-    size="form"
-    bodyPadding="none"
-    >{#key `${projectChannelCommandMode}:${channelAttachmentProject}`}<Command.Root
-        class="community-projects__channel-command"
-        aria-busy={channelAttachmentPending !== ""}
-      >
-        <Command.Input
-          placeholder={projectChannelCommandMode === "attach" &&
-          !channelAttachmentTarget
-            ? "Search projects"
-            : "Search channels"}
-          aria-label={projectChannelCommandMode === "attach" &&
-          !channelAttachmentTarget
-            ? "Search projects"
-            : "Search channels"}
-          aria-controls="community-project-channel-command-list"
-        />
-        <Command.List id="community-project-channel-command-list">
-          <Command.Empty
-            >{projectChannelCommandMode === "attach" && !channelAttachmentTarget
-              ? "No projects available."
-              : projectChannelCommandMode === "home"
-                ? "No channels found."
-                : "No additional channels available."}</Command.Empty
-          >
-          {#if projectChannelCommandMode === "attach" && !channelAttachmentTarget}
-            <Command.Group heading="Your projects">
-              {#each channelAttachmentProjects as project (project.address.coordinate)}
-                <Command.Item
-                  value={project.name}
-                  onSelect={() =>
-                    (channelAttachmentProject = project.address.coordinate)}
-                >
-                  <FolderKanbanIcon aria-hidden="true" />
-                  {project.name}
-                </Command.Item>
-              {/each}
-            </Command.Group>
-          {:else}
-            <Command.Group heading="Channels">
-              {#each channelCommandOptions as channel (channel.id)}
-                <Command.Item
-                  value={`${channel.name} ${channel.groupId ?? channel.id}`}
-                  disabled={busy || channelAttachmentPending !== ""}
-                  onSelect={() =>
-                    projectChannelCommandMode === "home"
-                      ? selectProjectChannel(channel)
-                      : void attachProjectChannel(channel)}
-                >
-                  {#if channel.isProjectChannel || projectChannelIds.has(channel.groupId ?? channel.id)}
-                    <CommunityProjectChannelIcon />
-                  {:else}
-                    <HashIcon aria-hidden="true" />
-                  {/if}
-                  <span class="community-projects__channel-command-copy">
-                    <strong>#{channel.name}</strong>
-                    <small>{channel.private ? "Private" : "Public"}</small>
-                  </span>
-                </Command.Item>
-              {/each}
-            </Command.Group>
-          {/if}
-        </Command.List>
-      </Command.Root>{/key}</DialogFrame
-  ></Dialog.Root
->
-
-<Dialog.Root bind:open={repositoryDialogOpen} onOpenChange={resetError}>
-  <DialogFrame size="wide">
-    {#snippet title()}Create a new repository{/snippet}
-    {#snippet description()}
-      Add a relay-hosted repository or connect an existing external Git
-      repository. You can optionally add it to a project.
-    {/snippet}
-
-    <form
-      id="communityprojects-form-2"
-      class="community-projects__project-form"
-      onsubmit={submitRepository}
-    >
-      <Field.Group class="community-projects__project-fields">
-        <Field.Field>
-          <Field.Label for="repository-name">Name</Field.Label>
-          <Input
-            id="repository-name"
-            bind:value={repositoryDraft.name}
-            placeholder="repository-name"
-            required
-          />
-        </Field.Field>
-        <Field.Field>
-          <Field.Label for="repository-description">
-            Description <span>Optional</span>
-          </Field.Label>
-          <CommunityChatComposer
-            class="community-projects__project-description"
-            bind:value={repositoryDraft.description}
-            placeholder="What this repository is for"
-            ariaLabel="Repository description"
-            {members}
-            {rooms}
-            {communityEmojis}
-            {...currentMemberId === undefined ? {} : { currentMemberId }}
-            mode="form"
-          />
-        </Field.Field>
-
-        <div class="community-projects__project-options">
-          <div class="community-projects__project-option">
-            <span>Project <small>Optional</small></span>
-            {#if selectedProject}
-              <span class="community-projects__project-option-value">
-                {selectedProject.name}
-              </span>
-            {:else}
-              <Select.Root
-                type="single"
-                value={repositoryDraft.project || "none"}
-                onValueChange={(value) => {
-                  if (value) selectRepositoryProject(value);
-                }}
-              >
-                <Select.Trigger aria-label="Repository project">
-                  {projects.find(
-                    (project) =>
-                      project.address.coordinate === repositoryDraft.project,
-                  )?.name ?? "No project"}
-                </Select.Trigger>
-                <Select.Content>
-                  <Select.Group>
-                    <Select.Item value="none" label="No project">
-                      No project
-                    </Select.Item>
-                    {#each projects as project (project.address.coordinate)}
-                      <Select.Item
-                        value={project.address.coordinate}
-                        label={project.name}>{project.name}</Select.Item
-                      >
-                    {/each}
-                  </Select.Group>
-                </Select.Content>
-              </Select.Root>
-            {/if}
-          </div>
-
-          {#if !repositoryDraft.project}
-            <div class="community-projects__project-option">
-              <span>Repository channel</span>
-              <Select.Root
-                type="single"
-                value={repositoryDraft.channelId}
-                onValueChange={(value) => {
-                  if (value) repositoryDraft.channelId = value;
-                }}
-              >
-                <Select.Trigger aria-label="Repository channel">
-                  {availableProjectChannels.find(
-                    (channel) =>
-                      (channel.groupId ?? channel.id) ===
-                      repositoryDraft.channelId,
-                  )?.name ?? "Choose channel"}
-                </Select.Trigger>
-                <Select.Content>
-                  <Select.Group>
-                    {#each availableProjectChannels as channel (channel.id)}
-                      <Select.Item
-                        value={channel.groupId ?? channel.id}
-                        label={`#${channel.name}`}>#{channel.name}</Select.Item
-                      >
-                    {/each}
-                  </Select.Group>
-                </Select.Content>
-              </Select.Root>
-            </div>
-          {/if}
-
-          <div class="community-projects__project-option">
-            <span>Backing</span>
-            <Select.Root
-              type="single"
-              value={repositoryDraft.mode}
-              onValueChange={(value) => {
-                if (value === "hosted" || value === "external")
-                  repositoryDraft.mode = value;
-              }}
-            >
-              <Select.Trigger aria-label="Repository backing">
-                {repositoryDraft.mode === "hosted"
-                  ? "Hosted by relay"
-                  : "External Git"}
-              </Select.Trigger>
-              <Select.Content>
-                <Select.Group>
-                  <Select.Item value="hosted" label="Hosted by relay">
-                    Hosted by relay
-                  </Select.Item>
-                  <Select.Item value="external" label="External Git">
-                    External Git
-                  </Select.Item>
-                </Select.Group>
-              </Select.Content>
-            </Select.Root>
-          </div>
-        </div>
-
-        {#if repositoryDraft.mode === "external"}
-          <Field.Field>
-            <Field.Label for="repository-clone">Clone URL</Field.Label>
-            <Input
-              id="repository-clone"
-              type="url"
-              bind:value={repositoryDraft.cloneUrl}
-              placeholder="https://github.com/owner/repository.git"
-              required
-            />
-          </Field.Field>
-          <Field.Field>
-            <Field.Label for="repository-web">
-              Web URL <span>Optional</span>
-            </Field.Label>
-            <Input
-              id="repository-web"
-              type="url"
-              bind:value={repositoryDraft.webUrl}
-              placeholder="https://github.com/owner/repository"
-            />
-          </Field.Field>
-        {/if}
-        {#if localError}<Field.Error>{localError}</Field.Error>{/if}
-      </Field.Group>
-    </form>
-
-    {#snippet footer()}
-      <Button
-        form="communityprojects-form-2"
-        type="submit"
-        disabled={busy ||
-          !repositoryDraft.channelId ||
-          !repositoryDraft.name.trim()}
-      >
-        {busy ? operation : "Create repository"}
-      </Button>
-    {/snippet}
-  </DialogFrame>
-</Dialog.Root>
-
-<Dialog.Root bind:open={repositoryCommandOpen}
-  ><DialogFrame
-    title={repositoryCommandStep === "repository"
-      ? "Select an existing repository"
-      : "Choose a project"}
-    description={repositoryCommandStep === "repository"
-      ? "Search repository announcements that can be attached to a project."
-      : "Choose the project that should include this repository."}
-    size="form"
-    bodyPadding="none"
-    ><Command.Root class="community-projects__repository-command">
-      <Command.Input
-        placeholder={repositoryCommandStep === "repository"
-          ? "Search repositories"
-          : "Search projects"}
-        aria-label={repositoryCommandStep === "repository"
-          ? "Search repositories"
-          : "Search projects"}
-        aria-controls="community-project-repository-command-list"
-      />
-      <Command.List id="community-project-repository-command-list">
-        <Command.Empty>
-          {repositoryCommandStep === "repository"
-            ? "No repositories are available to attach."
-            : "No projects are available for this repository."}
-        </Command.Empty>
-        {#if repositoryCommandStep === "repository"}
-          <Command.Group heading="Repositories">
-            {#each attachableRepositories as repository (repository.address.coordinate)}
-              <Command.Item
-                value={`${repository.name} ${repository.description} ${repository.address.identifier}`}
-                onSelect={() => selectExistingRepository(repository)}
-              >
-                <GitBranchIcon aria-hidden="true" />
-                <span class="community-projects__channel-command-copy">
-                  <strong>{repository.name}</strong>
-                  <small>
-                    {repository.description || repository.address.identifier}
-                  </small>
-                </span>
-              </Command.Item>
-            {/each}
-          </Command.Group>
-        {:else}
-          <Command.Group heading="Navigation">
-            <Command.Item
-              value="Back to repositories"
-              onSelect={() => {
-                repositoryCommandStep = "repository";
-                repositoryCommandCoordinate = "";
-              }}
-            >
-              <ArrowLeftIcon aria-hidden="true" />
-              <span>Back to repositories</span>
-            </Command.Item>
-          </Command.Group>
-          <Command.Group heading="Projects">
-            {#each repositoryAttachmentProjects(repositoryCommandCoordinate) as project (project.address.coordinate)}
-              <Command.Item
-                value={`${project.name} ${project.description}`}
-                onSelect={() =>
-                  void attachExistingRepository(
-                    project.address.coordinate,
-                    repositoryCommandCoordinate,
-                  )}
-              >
-                <FolderKanbanIcon aria-hidden="true" />
-                <span class="community-projects__channel-command-copy">
-                  <strong>{project.name}</strong>
-                  <small
-                    >{project.description || project.address.identifier}</small
-                  >
-                </span>
-              </Command.Item>
-            {/each}
-          </Command.Group>
-        {/if}
-      </Command.List>
-      {#if localError}
-        <p class="community-projects__command-error" role="alert">
-          {localError}
-        </p>
-      {/if}
-    </Command.Root></DialogFrame
-  ></Dialog.Root
->
-
-<Dialog.Root bind:open={githubCommandOpen}
-  ><DialogFrame
-    title={githubCommandStep === "connection"
-      ? "Connect to a GitHub App"
-      : `Choose a repository from @${githubConnection?.account_login ?? "GitHub"}`}
-    description={githubCommandStep === "connection"
-      ? `Choose the GitHub App installation that should manage ${selectedRepository?.name ?? "this repository"}.`
-      : "Only the GitHub repository matching this signed repository announcement can be connected."}
-    size="form"
-    bodyPadding="none"
-    {...githubCommandStep === "connection" && canManageForge
-      ? { footer: githubCommandFooter }
-      : {}}
-    ><Command.Root class="community-projects__repository-command">
-      <Command.Input
-        placeholder={githubCommandStep === "connection"
-          ? "Search GitHub App connections"
-          : "Search GitHub repositories"}
-        aria-label={githubCommandStep === "connection"
-          ? "Search GitHub App connections"
-          : "Search GitHub repositories"}
-        aria-controls="community-project-github-command-list"
-      />
-      <Command.List id="community-project-github-command-list">
-        {#if githubCommandLoading}
-          <p class="community-projects__command-status" role="status">
-            {githubCommandStep === "connection"
-              ? "Loading GitHub App connections…"
-              : "Loading GitHub repositories…"}
-          </p>
-        {:else if githubCommandStep === "connection"}
-          <Command.Empty>No active GitHub App connections found.</Command.Empty>
-          <Command.Group heading="GitHub App connections">
-            {#each activeGitHubConnections as connection (connection.id)}
-              <Command.Item
-                value={`${connection.account_login} ${connection.host} ${connection.installation_id}`}
-                onSelect={() => void selectGitHubConnection(connection)}
-              >
-                <GitForkIcon aria-hidden="true" />
-                <span class="community-projects__channel-command-copy">
-                  <strong>@{connection.account_login}</strong>
-                  <small
-                    >{connection.host} · installation {connection.installation_id}</small
-                  >
-                </span>
-              </Command.Item>
-            {/each}
-          </Command.Group>
-        {:else}
-          <Command.Group heading="Navigation">
-            <Command.Item
-              value="Back to GitHub App connections"
-              onSelect={() => {
-                githubCommandStep = "connection";
-                githubConnection = undefined;
-                githubRepositories = [];
-                githubCommandError = "";
-              }}
-            >
-              <ArrowLeftIcon aria-hidden="true" />
-              <span>Back to GitHub App connections</span>
-            </Command.Item>
-          </Command.Group>
-          {#if matchingGitHubRepositories.length > 0}
-            <Command.Group heading="Matching repository">
-              {#each matchingGitHubRepositories as repository (repository.id)}
-                <Command.Item
-                  value={`${repository.full_name} ${repository.default_branch}`}
-                  disabled={repository.archived || repository.disabled}
-                  onSelect={() => void attachGitHubRepository(repository)}
-                >
-                  <GitForkIcon aria-hidden="true" />
-                  <span class="community-projects__channel-command-copy">
-                    <strong>{repository.full_name}</strong>
-                    <small
-                      >{repository.private ? "Private" : "Public"} · {repository.default_branch}</small
-                    >
-                  </span>
-                </Command.Item>
-              {/each}
-            </Command.Group>
-          {:else if !githubCommandError}
-            <p class="community-projects__command-status">
-              No repository in this installation matches both the signed clone
-              and web URLs.
-            </p>
-          {/if}
-        {/if}
-      </Command.List>
-      {#if githubCommandError}
-        <p class="community-projects__command-error" role="alert">
-          {githubCommandError}
-        </p>
-      {/if}
-    </Command.Root></DialogFrame
-  ></Dialog.Root
->
-
-{#snippet githubCommandFooter()}
-  {#if githubCommandStep === "connection" && canManageForge}
-    <div class="community-projects__github-command-footer">
-      <Button type="button" variant="outline" onclick={openGitHubManager}>
-        <GitForkIcon data-icon="inline-start" aria-hidden="true" />
-        Manage GitHub App connections
-      </Button>
-    </div>
-  {/if}
-{/snippet}
-<Dialog.Root bind:open={githubManagerOpen}>
-  <DialogFrame size="wide">
-    {#snippet title()}GitHub App connections{/snippet}
-    {#snippet description()}
-      Relay administrators can add installations, check their health, or replace
-      the complete mounted-credential configuration.
-    {/snippet}
-
-    {#if githubManagerError}
-      <Alert.Root variant="destructive" class="community-projects__alert">
-        <Alert.Title>GitHub App action failed</Alert.Title>
-        <Alert.Description>{githubManagerError}</Alert.Description>
-      </Alert.Root>
-    {/if}
-    {#if githubManagerOperation}
-      <p class="community-projects__github-manager-updated" role="status">
-        {githubManagerOperation}
-      </p>
-    {/if}
-
-    {#if githubManagerLoading}
-      <div class="community-projects__github-manager-loading" role="status">
-        <Skeleton />
-        <Skeleton />
-      </div>
-    {:else if githubManagerFormOpen}
-      <form
-        id="communityprojects-form-3"
-        class="community-projects__project-form"
-        onsubmit={submitGitHubConnection}
-      >
-        <p class="community-projects__github-manager-note">
-          {githubManagerConnection
-            ? "For security, the relay never returns App IDs or credential references. Enter the complete replacement configuration."
-            : "Enter references to credentials already mounted on the relay. Secret values never pass through this form."}
-        </p>
-        <Field.Group class="community-projects__project-fields">
-          <div class="community-projects__github-manager-field-grid">
-            <Field.Field>
-              <Field.Label for="github-app-id">GitHub App ID</Field.Label>
-              <Input
-                id="github-app-id"
-                bind:value={githubDraft.appId}
-                autocomplete="off"
-                placeholder="12345"
-                required
-              />
-            </Field.Field>
-            <Field.Field>
-              <Field.Label for="github-installation-id"
-                >Installation ID</Field.Label
-              >
-              <Input
-                id="github-installation-id"
-                type="number"
-                min="1"
-                step="1"
-                bind:value={githubDraft.installationId}
-                placeholder="67890"
-                required
-              />
-            </Field.Field>
-          </div>
-          <Field.Field>
-            <Field.Label for="github-app-credential"
-              >App private-key reference</Field.Label
-            >
-            <Input
-              id="github-app-credential"
-              type="password"
-              bind:value={githubDraft.credentialRef}
-              autocomplete="new-password"
-              placeholder="file:github-app.pem"
-              required
-            />
-          </Field.Field>
-          <Field.Field>
-            <Field.Label for="github-webhook-credential"
-              >Webhook-secret reference</Field.Label
-            >
-            <Input
-              id="github-webhook-credential"
-              type="password"
-              bind:value={githubDraft.webhookSecretRef}
-              autocomplete="new-password"
-              placeholder="file:github-webhook"
-              required
-            />
-          </Field.Field>
-          <Field.Field>
-            <Field.Label for="github-bridge-credential"
-              >Bridge-key reference</Field.Label
-            >
-            <Input
-              id="github-bridge-credential"
-              type="password"
-              bind:value={githubDraft.bridgeCredentialRef}
-              autocomplete="new-password"
-              placeholder="file:github-bridge-secret"
-              required
-            />
-          </Field.Field>
-          <Field.Field>
-            <Field.Label for="github-bridge-pubkey"
-              >Bridge public key</Field.Label
-            >
-            <Input
-              id="github-bridge-pubkey"
-              bind:value={githubDraft.bridgePubkey}
-              autocomplete="off"
-              minlength={64}
-              maxlength={64}
-              placeholder="64-character hexadecimal public key"
-              required
-            />
-          </Field.Field>
-        </Field.Group>
-      </form>
-    {:else}
-      <div class="community-projects__github-manager-list">
-        {#each githubConnections as connection (connection.id)}
-          <article class="community-projects__github-manager-row">
-            <div class="community-projects__github-manager-copy">
-              <GitForkIcon aria-hidden="true" />
-              <div>
-                <strong>
-                  {connection.account_login
-                    ? `@${connection.account_login}`
-                    : `Installation ${connection.installation_id}`}
-                </strong>
-                <span>
-                  {connection.host} · installation {connection.installation_id}
-                </span>
-              </div>
-              <CommunityChip
-                size="compact"
-                tone={connection.status === "active" ? "success" : "danger"}
-              >
-                {connection.status}
-              </CommunityChip>
-            </div>
-            {#if connection.detail}
-              <p class="community-projects__github-manager-detail">
-                {connection.detail}
-              </p>
-            {/if}
-            {#if connection.updated_at}
-              <p class="community-projects__github-manager-updated">
-                Checked <CommunityRelativeTime
-                  timestamp={Math.floor(
-                    new Date(connection.updated_at).getTime() / 1_000,
-                  )}
-                />
-              </p>
-            {/if}
-            <div class="community-projects__github-manager-actions">
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                disabled={githubManagerOperation !== ""}
-                onclick={() => void revalidateGitHubConnection(connection)}
-              >
-                <RotateCcwIcon data-icon="inline-start" aria-hidden="true" />
-                Revalidate
-              </Button>
-              <Button
-                type="button"
-                size="sm"
-                variant="ghost"
-                disabled={githubManagerOperation !== ""}
-                onclick={() => openGitHubConnectionForm(connection)}
-              >
-                Replace configuration
-              </Button>
-            </div>
-          </article>
-        {:else}
-          <Empty.Root class="community-projects__empty">
-            <Empty.Header>
-              <Empty.Media variant="icon"
-                ><GitForkIcon aria-hidden="true" /></Empty.Media
-              >
-              <Empty.Title>No GitHub App connections</Empty.Title>
-              <Empty.Description>
-                Add an installation after its credentials are mounted on the
-                relay.
-              </Empty.Description>
-            </Empty.Header>
-          </Empty.Root>
-        {/each}
-      </div>
-    {/if}
-
-    {#snippet footer()}{#if !githubManagerLoading}{#if githubManagerFormOpen}
-          <Button
-            form="communityprojects-form-3"
-            type="button"
-            variant="ghost"
-            disabled={githubManagerOperation !== ""}
-            onclick={() => {
-              githubManagerFormOpen = false;
-              githubManagerConnection = undefined;
-              githubManagerError = "";
-            }}
-          >
-            Back
-          </Button>
-          <Button
-            form="communityprojects-form-3"
-            type="submit"
-            disabled={githubManagerOperation !== ""}
-          >
-            {githubManagerOperation ||
-              (githubManagerConnection
-                ? "Replace configuration"
-                : "Add connection")}
-          </Button>
-        {:else}
-          <Button
-            type="button"
-            variant="outline"
-            disabled={githubManagerOperation !== ""}
-            onclick={() => void refreshGitHubConnections()}
-          >
-            <RotateCcwIcon data-icon="inline-start" aria-hidden="true" />
-            Refresh
-          </Button>
-          <Button
-            type="button"
-            disabled={githubManagerOperation !== ""}
-            onclick={() => openGitHubConnectionForm()}
-          >
-            <PlusIcon data-icon="inline-start" aria-hidden="true" />
-            Add connection
-          </Button>
-        {/if}{/if}{/snippet}
-  </DialogFrame>
-</Dialog.Root>
-
-<Dialog.Root bind:open={taskDialogOpen} onOpenChange={resetError}>
-  <DialogFrame size="wide">
-    {#snippet title()}Create a task{/snippet}
-    {#snippet description()}
-      {selectedRepository
-        ? `Add this task to ${selectedRepository.name}.`
-        : selectedProject
-          ? `Add this task to ${selectedProject.name}.`
-          : "Track work against a project or a repository."}
-    {/snippet}
-
-    <form
-      id="communityprojects-form-4"
-      class="community-projects__project-form"
-      onsubmit={submitTask}
-    >
-      <Field.Group class="community-projects__project-fields">
-        <div class="community-projects__project-options">
-          <div class="community-projects__project-option">
-            <span>Category</span>
-            <Select.Root
-              type="single"
-              value={taskDraft.category}
-              onValueChange={(value) => {
-                if (
-                  value === "issue" ||
-                  value === "change-request" ||
-                  value === "improvement"
-                )
-                  taskDraft.category = value;
-              }}
-            >
-              <Select.Trigger aria-label="Task category">
-                {taskDraft.category === "change-request"
-                  ? "Change request"
-                  : taskDraft.category === "improvement"
-                    ? "Improvement"
-                    : "Issue"}
-              </Select.Trigger>
-              <Select.Content>
-                <Select.Group>
-                  <Select.Item value="issue" label="Issue">Issue</Select.Item>
-                  <Select.Item value="change-request" label="Change request">
-                    Change request
-                  </Select.Item>
-                  <Select.Item value="improvement" label="Improvement">
-                    Improvement
-                  </Select.Item>
-                </Select.Group>
-              </Select.Content>
-            </Select.Root>
-          </div>
-
-          {#if selectedRepository}
-            <div class="community-projects__project-option">
-              <span>Repository</span>
-              <span class="community-projects__project-option-value">
-                {selectedRepository.name}
-              </span>
-            </div>
-          {:else if selectedProject}
-            <div class="community-projects__project-option">
-              <span>Project</span>
-              <span class="community-projects__project-option-value">
-                {selectedProject.name}
-              </span>
-            </div>
-          {:else}
-            <div class="community-projects__project-option">
-              <span>Project <small>Optional</small></span>
-              <Select.Root
-                type="single"
-                value={taskDraft.project || "none"}
-                onValueChange={(value) => {
-                  if (value) selectTaskProject(value);
-                }}
-              >
-                <Select.Trigger aria-label="Task project">
-                  {taskProject?.name ?? "No project"}
-                </Select.Trigger>
-                <Select.Content>
-                  <Select.Group>
-                    <Select.Item value="none" label="No project">
-                      No project
-                    </Select.Item>
-                    {#each projects as project (project.address.coordinate)}
-                      <Select.Item
-                        value={project.address.coordinate}
-                        label={project.name}>{project.name}</Select.Item
-                      >
-                    {/each}
-                  </Select.Group>
-                </Select.Content>
-              </Select.Root>
-            </div>
-
-            <div class="community-projects__project-option">
-              <span>Repository</span>
-              <Select.Root
-                type="single"
-                value={taskDraft.repository}
-                onValueChange={(value) => {
-                  if (value) selectTaskRepository(value);
-                }}
-              >
-                <Select.Trigger aria-label="Task repository scope">
-                  {taskDraft.repository === "project"
-                    ? "Project-wide"
-                    : (taskRepositoryOptions.find(
-                        (repository) =>
-                          repository.address.coordinate ===
-                          taskDraft.repository,
-                      )?.name ?? "Choose repository")}
-                </Select.Trigger>
-                <Select.Content>
-                  <Select.Group>
-                    {#if taskDraft.project}
-                      <Select.Item value="project" label="Project-wide">
-                        Project-wide
-                      </Select.Item>
-                    {/if}
-                    {#each taskRepositoryOptions as repository (repository.address.coordinate)}
-                      <Select.Item
-                        value={repository.address.coordinate}
-                        label={repository.name}>{repository.name}</Select.Item
-                      >
-                    {/each}
-                  </Select.Group>
-                </Select.Content>
-              </Select.Root>
-            </div>
-          {/if}
-        </div>
-
-        <Field.Field>
-          <Field.Label for="task-title">Title</Field.Label>
-          <Input
-            id="task-title"
-            bind:value={taskDraft.title}
-            placeholder="Describe the task"
-            required
-          />
-        </Field.Field>
-        <Field.Field>
-          <Field.Label for="task-description">
-            Description <span>Optional</span>
-          </Field.Label>
-          <CommunityChatComposer
-            class="community-projects__project-description"
-            bind:value={taskDraft.content}
-            placeholder="Add context, expected behaviour, or reproduction steps"
-            ariaLabel="Task description"
-            {members}
-            {rooms}
-            {communityEmojis}
-            {...currentMemberId === undefined ? {} : { currentMemberId }}
-            mode="form"
-          />
-        </Field.Field>
-        {#if localError}<Field.Error>{localError}</Field.Error>{/if}
-      </Field.Group>
-    </form>
-
-    {#snippet footer()}
-      <Button
-        form="communityprojects-form-4"
-        type="submit"
-        disabled={busy || !taskHasScope || !taskDraft.title.trim()}
-      >
-        {busy ? operation : "Create task"}
-      </Button>
-    {/snippet}
-  </DialogFrame>
-</Dialog.Root>
-
-<Dialog.Root bind:open={pullRequestDialogOpen} onOpenChange={resetError}>
-  <DialogFrame size="wide">
-    {#snippet title()}Open a review{/snippet}
-    {#snippet description()}
-      Compare an existing branch and publish a NIP-34 pull request.
-    {/snippet}
-
-    <form
-      id="communityprojects-form-5"
-      class="community-projects__project-form"
-      onsubmit={submitPullRequest}
-    >
-      <Field.Group class="community-projects__project-fields">
-        <div class="community-projects__review-source-options">
-          <Field.Field>
-            <Field.Label for="pr-repository">Repository</Field.Label>
-            <Select.Root
-              type="single"
-              value={pullRequestDraft.repository}
-              onValueChange={(value) => {
-                if (value) void selectPullRequestRepository(value);
-              }}
-            >
-              <Select.Trigger id="pr-repository" role="combobox">
-                {reviewableRepositories.find(
-                  (repository) =>
-                    repository.address.coordinate ===
-                    pullRequestDraft.repository,
-                )?.name ?? "Select repository"}
-              </Select.Trigger>
-              <Select.Content>
-                <Select.Group>
-                  {#each reviewableRepositories as repository (repository.address.coordinate)}
-                    <Select.Item
-                      value={repository.address.coordinate}
-                      label={repository.name}>{repository.name}</Select.Item
-                    >
-                  {/each}
-                </Select.Group>
-              </Select.Content>
-            </Select.Root>
-          </Field.Field>
-
-          <div class="community-projects__form-columns">
-            <Field.Field>
-              <Field.Label for="pr-target">Base</Field.Label>
-              <Select.Root
-                type="single"
-                value={pullRequestDraft.targetBranch}
-                onValueChange={(value) => {
-                  if (!value) return;
-                  pullRequestDraft.targetBranch = value;
-                  if (pullRequestDraft.branchName === value)
-                    pullRequestDraft.branchName = "";
-                }}
-              >
-                <Select.Trigger
-                  id="pr-target"
-                  aria-label="Base branch"
-                  disabled={pullRequestRefsLoading ||
-                    pullRequestBranches.length === 0}
-                >
-                  {pullRequestRefsLoading
-                    ? "Loading branches…"
-                    : pullRequestDraft.targetBranch || "Select base branch"}
-                </Select.Trigger>
-                <Select.Content>
-                  <Select.Group>
-                    {#each pullRequestBranches as branch (branch.name)}
-                      <Select.Item value={branch.name} label={branch.name}
-                        >{branch.name}</Select.Item
-                      >
-                    {/each}
-                  </Select.Group>
-                </Select.Content>
-              </Select.Root>
-            </Field.Field>
-            <Field.Field>
-              <Field.Label for="pr-branch">Compare</Field.Label>
-              <Select.Root
-                type="single"
-                value={pullRequestDraft.branchName}
-                onValueChange={(value) => {
-                  if (value) pullRequestDraft.branchName = value;
-                }}
-              >
-                <Select.Trigger
-                  id="pr-branch"
-                  aria-label="Compare branch"
-                  disabled={pullRequestRefsLoading ||
-                    pullRequestCompareBranches.length === 0}
-                >
-                  {pullRequestRefsLoading
-                    ? "Loading branches…"
-                    : pullRequestDraft.branchName || "Select compare branch"}
-                </Select.Trigger>
-                <Select.Content>
-                  <Select.Group>
-                    {#each pullRequestCompareBranches as branch (branch.name)}
-                      <Select.Item value={branch.name} label={branch.name}
-                        >{branch.name}</Select.Item
-                      >
-                    {/each}
-                  </Select.Group>
-                </Select.Content>
-              </Select.Root>
-            </Field.Field>
-          </div>
-          {#if pullRequestRefsError}
-            <Field.Error>{pullRequestRefsError}</Field.Error>
-          {/if}
-        </div>
-
-        <Field.Field>
-          <Field.Label for="pr-title">Title</Field.Label>
-          <Input
-            id="pr-title"
-            bind:value={pullRequestDraft.title}
-            placeholder="Describe the change"
-            required
-          />
-        </Field.Field>
-        <Field.Field>
-          <Field.Label for="pr-description">
-            Description <span>Optional</span>
-          </Field.Label>
-          <CommunityChatComposer
-            class="community-projects__project-description"
-            bind:value={pullRequestDraft.content}
-            placeholder="Add context for reviewers"
-            ariaLabel="Review description"
-            {members}
-            {rooms}
-            {communityEmojis}
-            {...currentMemberId === undefined ? {} : { currentMemberId }}
-            mode="form"
-          />
-        </Field.Field>
-        {#if localError}<Field.Error>{localError}</Field.Error>{/if}
-      </Field.Group>
-    </form>
-
-    {#snippet footer()}
-      <Button
-        form="communityprojects-form-5"
-        type="submit"
-        disabled={busy ||
-          !pullRequestDraft.repository ||
-          !pullRequestDraft.title.trim() ||
-          !pullRequestDraft.targetBranch ||
-          !pullRequestDraft.branchName ||
-          pullRequestDraft.targetBranch === pullRequestDraft.branchName ||
-          pullRequestRefsLoading ||
-          !!pullRequestRefsError}
-      >
-        {busy ? operation : "Create review"}
-      </Button>
-    {/snippet}
-  </DialogFrame>
-</Dialog.Root>
+<CommunityProjectsPullRequestSubmitDialog
+  bind:submissionOpen={reviewSubmissionOpen}
+  bind:closeOpen={reviewCloseConfirmationOpen}
+  bind:decision={reviewSubmissionDecision}
+  bind:body={reviewSubmissionBody}
+  bind:submissionError={reviewSubmissionError}
+  closeError={reviewCloseError}
+  {busy}
+  {canCollaborate}
+  {operation}
+  pullRequestTitle={selectedPullRequest?.title ?? "the pull request"}
+  {members}
+  {rooms}
+  {communityEmojis}
+  {currentMemberId}
+  onSubmit={() => void submitPullRequestReview()}
+  onConfirmClose={confirmClosePullRequest}
+/>
+<CommunityProjectsCreateDialogs
+  bind:projectOpen={projectDialogOpen}
+  projectMode={projectDialogMode}
+  bind:projectDraft
+  bind:channelOpen={projectChannelCommandOpen}
+  channelMode={projectChannelCommandMode}
+  channelPending={channelAttachmentPending}
+  channelTarget={channelAttachmentTarget}
+  channelProjects={channelAttachmentProjects}
+  channelOptions={channelCommandOptions}
+  {projectChannelIds}
+  bind:repositoryOpen={repositoryDialogOpen}
+  bind:repositoryDraft
+  bind:repositoryCommandOpen
+  bind:repositoryCommandStep
+  bind:repositoryCommandCoordinate
+  {attachableRepositories}
+  repositoryAttachmentProjects={repositoryAttachmentProjects(
+    repositoryCommandCoordinate,
+  )}
+  bind:githubOpen={githubCommandOpen}
+  bind:githubStep={githubCommandStep}
+  bind:githubConnection
+  githubConnections={activeGitHubConnections}
+  githubRepositories={matchingGitHubRepositories}
+  githubLoading={githubCommandLoading}
+  githubError={githubCommandError}
+  bind:githubManagerOpen
+  bind:githubManagerFormOpen
+  bind:githubDraft
+  githubManagerConnection={githubManagerConnection}
+  githubManagerConnections={githubConnections}
+  githubManagerLoading={githubManagerLoading}
+  githubManagerError={githubManagerError}
+  githubManagerOperation={githubManagerOperation}
+  bind:taskOpen={taskDialogOpen}
+  bind:taskDraft
+  {taskProject}
+  taskRepositories={taskRepositoryOptions}
+  {taskHasScope}
+  bind:pullRequestOpen={pullRequestDialogOpen}
+  bind:pullRequestDraft
+  {pullRequestBranches}
+  {pullRequestCompareBranches}
+  {pullRequestRefsLoading}
+  {pullRequestRefsError}
+  {selectedProject}
+  {selectedRepository}
+  {projects}
+  {reviewableRepositories}
+  availableChannels={availableProjectChannels}
+  {members}
+  {rooms}
+  {communityEmojis}
+  {currentMemberId}
+  {busy}
+  {operation}
+  {localError}
+  {canManageForge}
+  onResetError={resetError}
+  onOpenChannelPicker={openProjectChannelPicker}
+  onSelectChannelProject={selectChannelAttachmentProject}
+  onSelectProjectChannel={selectProjectOrAttachChannel}
+  onSubmitProject={submitProject}
+  onSelectRepositoryProject={selectRepositoryProject}
+  onSubmitRepository={submitRepository}
+  onSelectExistingRepository={selectExistingRepository}
+  onRepositoryPickerBack={backRepositoryPicker}
+  onAttachExistingRepository={attachExistingRepository}
+  onSelectGitHubConnection={selectGitHubConnection}
+  onGitHubPickerBack={backGitHubPicker}
+  onAttachGitHubRepository={attachGitHubRepository}
+  onOpenGitHubManager={openGitHubManager}
+  onSubmitGitHubConnection={submitGitHubConnection}
+  onRefreshGitHubConnections={refreshGitHubConnections}
+  onRevalidateGitHubConnection={revalidateGitHubConnection}
+  onOpenGitHubConnectionForm={openGitHubConnectionForm}
+  onGitHubManagerBack={backGitHubManagerForm}
+  onSelectTaskProject={selectTaskProject}
+  onSelectTaskRepository={selectTaskRepository}
+  onSubmitTask={submitTask}
+  onSelectPullRequestRepository={selectPullRequestRepository}
+  onSubmitPullRequest={submitPullRequest}
+/>
