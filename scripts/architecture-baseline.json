@@ -126,8 +126,8 @@
       "forbiddenImportCount": 0
     },
     "scripts/architecture-scan.mjs": {
-      "countedLines": 149,
-      "physicalLines": 155,
+      "countedLines": 159,
+      "physicalLines": 165,
       "forbiddenImportCount": 0
     },
     "scripts/architecture.test.mjs": {
@@ -274,8 +274,8 @@
       "justification": "Existing file above the new-file counted-line limit; do not grow"
     },
     "src/auth/index.ts": {
-      "countedLines": 7,
-      "physicalLines": 7,
+      "countedLines": 8,
+      "physicalLines": 8,
       "forbiddenImportCount": 0
     },
     "src/auth/keytr.test.ts": {
@@ -286,7 +286,7 @@
     "src/auth/keytr.ts": {
       "countedLines": 662,
       "physicalLines": 702,
-      "forbiddenImportCount": 1,
+      "forbiddenImportCount": 0,
       "kind": "legacy",
       "justification": "Existing file above the new-file counted-line limit; do not grow"
     },
@@ -494,7 +494,7 @@
     "src/community/community-controller.svelte.ts": {
       "countedLines": 5261,
       "physicalLines": 5375,
-      "forbiddenImportCount": 2,
+      "forbiddenImportCount": 0,
       "kind": "legacy",
       "justification": "Svelte 5 controller factory; extract history/pulse/operations before adding behaviour"
     },
@@ -511,7 +511,7 @@
     "src/community/contracts.ts": {
       "countedLines": 879,
       "physicalLines": 992,
-      "forbiddenImportCount": 2,
+      "forbiddenImportCount": 0,
       "kind": "legacy",
       "justification": "Existing file above the new-file counted-line limit; do not grow"
     },
@@ -615,8 +615,8 @@
       "forbiddenImportCount": 0
     },
     "src/community/index.ts": {
-      "countedLines": 24,
-      "physicalLines": 25,
+      "countedLines": 30,
+      "physicalLines": 31,
       "forbiddenImportCount": 0
     },
     "src/community/indexeddb-event-store.ts": {
@@ -634,7 +634,7 @@
     "src/community/materialize-pulse.ts": {
       "countedLines": 264,
       "physicalLines": 283,
-      "forbiddenImportCount": 1
+      "forbiddenImportCount": 0
     },
     "src/community/materialize-settings.ts": {
       "countedLines": 122,
@@ -651,7 +651,7 @@
     "src/community/materialize.ts": {
       "countedLines": 1581,
       "physicalLines": 1635,
-      "forbiddenImportCount": 2,
+      "forbiddenImportCount": 0,
       "kind": "legacy",
       "justification": "Existing file above the new-file counted-line limit; do not grow"
     },
@@ -1099,8 +1099,8 @@
       "forbiddenImportCount": 0
     },
     "src/components/community-chat-composer/model.ts": {
-      "countedLines": 211,
-      "physicalLines": 233,
+      "countedLines": 187,
+      "physicalLines": 207,
       "forbiddenImportCount": 0
     },
     "src/components/community-chat-composer/story-fixtures.ts": {
@@ -1230,8 +1230,8 @@
       "forbiddenImportCount": 0
     },
     "src/components/community-inbox/model.ts": {
-      "countedLines": 39,
-      "physicalLines": 44,
+      "countedLines": 5,
+      "physicalLines": 5,
       "forbiddenImportCount": 0
     },
     "src/components/community-inbox/story-fixtures.ts": {
@@ -1267,8 +1267,8 @@
       "forbiddenImportCount": 0
     },
     "src/components/community-login/model.ts": {
-      "countedLines": 135,
-      "physicalLines": 140,
+      "countedLines": 117,
+      "physicalLines": 122,
       "forbiddenImportCount": 0
     },
     "src/components/community-markdown-content/CommunityChannelReference.svelte": {
@@ -1980,8 +1980,8 @@
       "forbiddenImportCount": 0
     },
     "src/components/community-workspace/model.ts": {
-      "countedLines": 254,
-      "physicalLines": 282,
+      "countedLines": 1,
+      "physicalLines": 1,
       "forbiddenImportCount": 0
     },
     "src/components/community-workspace/observe-read-end.test.ts": {
@@ -2572,8 +2572,8 @@
       "forbiddenImportCount": 0
     },
     "src/protocol/index.ts": {
-      "countedLines": 6,
-      "physicalLines": 6,
+      "countedLines": 7,
+      "physicalLines": 7,
       "forbiddenImportCount": 0
     },
     "src/protocol/nip29.test.ts": {
@@ -2759,6 +2759,26 @@
     "src/testing/relay-contract.test.ts": {
       "countedLines": 113,
       "physicalLines": 120,
+      "forbiddenImportCount": 0
+    },
+    "src/community/workspace-model.ts": {
+      "countedLines": 255,
+      "physicalLines": 283,
+      "forbiddenImportCount": 0
+    },
+    "src/community/inbox-model.ts": {
+      "countedLines": 40,
+      "physicalLines": 45,
+      "forbiddenImportCount": 0
+    },
+    "src/community/composer-model.ts": {
+      "countedLines": 27,
+      "physicalLines": 29,
+      "forbiddenImportCount": 0
+    },
+    "src/auth/login-method.ts": {
+      "countedLines": 26,
+      "physicalLines": 27,
       "forbiddenImportCount": 0
     }
   }

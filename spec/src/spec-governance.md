@@ -9,6 +9,8 @@ support without exercising the real relay and its private forge sidecar.
 `pnpm check` and `pnpm spec:check` also run the architecture lane
 (`scripts/check-architecture.mjs`) so counted-line budgets and the feature
 dependency matrix cannot grow without a baseline update in the same change.
+Agent guidance forbids `src/community` from importing `src/components`, including
+type-only imports, after the workspace-model inversion.
 
 The dedicated Vite development application also composes the production NIP-34
 project source against its active Community relay. The ordinary local stack

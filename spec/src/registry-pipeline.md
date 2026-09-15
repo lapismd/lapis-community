@@ -8,6 +8,7 @@ Planning documents under `docs/plans/` are not canonical requirements.
 The TypeScript organisation and enforcement plan is
 `docs/plans/typescript-architecture-and-enforcement.md`. Scripts own the
 architecture checker; `docs/plans/` maps to `spec/src/architecture.md`.
+The checker follows one value re-export hop except through feature barrels.
 
 For LC-OPS-001 and LC-OPS-004, hosted-project acceptance layers the sibling
 relay's digest-pinned WalGit and RustFS composition onto both the persistent

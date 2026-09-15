@@ -1,3 +1,4 @@
+export * from "./login-method.js";
 export * from "./relay-auth.js";
 export * from "./relay-session.js";
 export * from "./host-signer-broker.js";

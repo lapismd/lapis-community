@@ -1,6 +1,7 @@
 export * from "./canonical.js";
 export * from "./nip29.js";
 export * from "./projection.js";
+export * from "./registry-control.js";
 export * from "./release-proof.js";
 export * from "./schemas.js";
 export * from "./types.js";

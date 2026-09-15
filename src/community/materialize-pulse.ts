@@ -1,4 +1,4 @@
-import type { CommunityMemberModel } from "../components/index.js";
+import type { CommunityMemberModel } from "./workspace-model.js";
 import type { NostrEvent } from "../protocol/index.js";
 
 import type {

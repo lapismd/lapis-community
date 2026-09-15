@@ -1,5 +1,11 @@
 # Nostr Protocol and Trust
 
+For LC-ARCH-028, Community workspace, inbox, and composer submission contracts
+are owned beside the controller rather than under presentation models. Login
+method descriptors used by Keytr live under `src/auth`. The protocol barrel
+re-exports registry-control helpers so Community internals can import them from
+`src/protocol` without a deep path.
+
 ## Relay Presence Extension
 
 Relays advertising `lapis_presence.version = 1` support authenticated kind-20001

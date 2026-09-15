@@ -78,7 +78,7 @@ export const MATRIX = {
     community: X,
     projects: X,
     registry: X,
-    components: T,
+    components: X,
     testing: X,
     scripts: X,
     support: X,
@@ -90,7 +90,7 @@ export const MATRIX = {
     community: R,
     projects: X,
     registry: X,
-    components: T,
+    components: X,
     testing: X,
     scripts: X,
     support: X,
@@ -157,7 +157,7 @@ export const MATRIX = {
   },
 };
 
-const PENDING_TYPE = new Set(["community>components", "auth>components"]);
+const PENDING_TYPE = new Set();
 
 const SOURCE_EXT = /\.(?:[cm]?[jt]sx?|svelte)$/u;
 

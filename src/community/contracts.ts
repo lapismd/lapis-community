@@ -1,14 +1,14 @@
 import type { CommunitySigner } from "../auth/index.js";
+import type { CommunityComposerSubmission } from "./composer-model.js";
+import type { CommunityInboxModel } from "./inbox-model.js";
+import type { NostrEvent, NostrEventTemplate } from "../protocol/index.js";
 import type {
   CommunityActionAvailability,
-  CommunityComposerSubmission,
-  CommunityInboxModel,
   CommunityMemberModel,
   CommunityRoomKind,
   CommunityWorkspaceHandlers,
   CommunityWorkspaceModel,
-} from "../components/index.js";
-import type { NostrEvent, NostrEventTemplate } from "../protocol/index.js";
+} from "./workspace-model.js";
 import type { JsonValue } from "../protocol/index.js";
 import type {
   CommunityAgentSession,
@@ -806,7 +806,7 @@ export interface CommunityControllerActions {
   openBuzzDirectMessage?(participants: readonly string[]): Promise<string>;
   selectInboxItem?(itemId: string): Promise<void>;
   setInboxFilter?(
-    filter: import("../components/community-inbox/model.js").CommunityInboxFilter,
+    filter: import("./inbox-model.js").CommunityInboxFilter,
     unreadOnly: boolean,
   ): void;
   sendInboxMessage?(content: string): Promise<void>;

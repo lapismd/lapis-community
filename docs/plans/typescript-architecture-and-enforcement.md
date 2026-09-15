@@ -1,7 +1,7 @@
 # TypeScript architecture and enforcement
 
-**Status:** P0 implemented in workspace `arch-p0` (`scripts/check-architecture.mjs`,
-LC-ARCH-028, `pnpm check:architecture`). P1–P5 remain planned.
+**Status:** P0 and P1 implemented in workspaces `arch-p0` / `arch-p1`. P2–P5
+remain planned.
 
 **Kind of statements:** **Fact** is observed in this checkout. **Recommendation**
 is a chosen policy. **Assumption** is used only where evidence is missing.
@@ -913,7 +913,7 @@ Behaviour-preserving unless noted. Do not start a repository-wide move.
 | Purpose              | community no longer imports components                                                                                                                  |
 | Evidence             | type imports in `contracts.ts`, `materialize.ts`, `materialize-pulse.ts`, `community-controller.svelte.ts`, `keytr.ts`                                  |
 | Files                | new `src/community/workspace-model.ts` (or split); re-export from `community-workspace/model.ts` and `components/index.ts`; login method types for auth |
-| Sequence             | move types → re-export → switch community imports → checker T→X for community→components → remove duplicate when unused                                 |
+| Sequence             | Executed: community-owned workspace/inbox/composer models, auth-owned login-method types, public re-exports, checker community→components is X          |
 | Tests                | existing materialize/controller tests; `pnpm check:svelte`                                                                                              |
 | Behaviour-preserving | yes (types only)                                                                                                                                        |
 | Risk                 | public `./components` type paths; keep re-exports                                                                                                       |

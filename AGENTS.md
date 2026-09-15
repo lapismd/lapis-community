@@ -33,8 +33,9 @@ substantial behaviour to `community-controller.svelte.ts`,
 `CommunityApplication.svelte`, `CommunityProjects.svelte`,
 `agent-controller.ts`, or `nip29-community-source.ts` without extracting the
 responsibility you are changing. Do not import `src/components` from
-`src/community`. Internal modules import siblings directly, not their own
-barrel. Run `pnpm check:architecture` with the relevant tests.
+`src/community`, including type-only imports. Internal modules import siblings
+directly, not their own barrel. Run `pnpm check:architecture` with the relevant
+tests.
 
 ### Completion checklist
 
@@ -42,8 +43,8 @@ barrel. Run `pnpm check:architecture` with the relevant tests.
       feature-specific name (not `utils` / `helpers` / `common`).
 - [ ] Placement matches auth / nostr / protocol / community / components /
       projects / registry owners.
-- [ ] Imports follow the dependency matrix; no new community→components
-      types; no production→test imports.
+- [ ] Imports follow the dependency matrix; no community→components imports,
+      including types; no production→test imports.
 - [ ] Counted lines: new files ≤ 300 (tests ≤ 500); existing hotspots did
       not grow, or the baseline budget dropped after extraction.
 - [ ] Tests follow the extracted boundary; characterisation tests added

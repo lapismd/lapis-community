@@ -9,6 +9,7 @@ import {
 } from "./architecture-imports.mjs";
 import {
   fileKind,
+  featureBarrel,
   isCompositionRoot,
   isPendingTypeEdge,
   isSelfBarrelImport,
@@ -91,6 +92,7 @@ export function collectGraph(root, files) {
     const hop = [];
     for (const item of record.resolvedImports) {
       if (item.typeOnly || !item.resolved) continue;
+      if (featureBarrel(item.resolved)) continue;
       const target = parsed.get(item.resolved);
       if (!target) continue;
       for (const reexport of target.resolvedReexports) {
@@ -119,12 +121,20 @@ export function evaluateImport(record, item) {
     return { rule: "production-test-import", pending: false };
   const cell = matrixCell(record.layer, layerOf(item.resolved));
   if (cell === "R") return null;
+  if (cell === "X") {
+    const fatal =
+      (record.layer === "community" || record.layer === "auth") &&
+      layerOf(item.resolved) === "components";
+    return { rule: "forbidden-import", pending: false, fatal };
+  }
   if (cell === "T" && item.typeOnly) {
     if (isPendingTypeEdge(record.layer, layerOf(item.resolved)))
       return { rule: "type-import", pending: true };
     return null;
   }
-  return { rule: "forbidden-import", pending: false };
+  if (cell === "T")
+    return { rule: "forbidden-import", pending: false, fatal: false };
+  return { rule: "forbidden-import", pending: false, fatal: false };
 }
 
 export function readBaseline(baselinePath) {

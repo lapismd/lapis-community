@@ -6,6 +6,10 @@ reuse unchanged room objects, and remove the hint when associations disappear.
 Omitting the hint MUST preserve existing component rendering; forums and direct
 messages MUST retain their existing icons.
 
+For LC-ARCH-028, workspace, inbox, and composer submission types are owned under
+`src/community`, and login-method types under `src/auth`. Component `model.ts`
+files re-export those types so the public `./components` entry stays compatible.
+
 For LC-UI-036, a plugin release channel associated with a project MUST show its
 existing Reviews and People actions in a top Plugins section of the project
 sidebar. It MUST use one overview sidebar, preserve the release detail surfaces,

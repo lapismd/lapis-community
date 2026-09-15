@@ -10,14 +10,14 @@ import {
   isUnreadInConversation,
   type CommunityConversationReference,
 } from "./conversations.js";
-import type { CommunityInboxFilter } from "../components/community-inbox/model.js";
+import type { CommunityInboxFilter } from "./inbox-model.js";
 import type {
   CommunityMemberModel,
   CommunityMessageModel,
   CommunityRoomModel,
   CommunityWorkspaceHandlers,
   CommunityWorkspaceModel,
-} from "../components/index.js";
+} from "./workspace-model.js";
 import { nip19 } from "nostr-tools";
 import { normalizeURL } from "nostr-tools/utils";
 import type {
@@ -1562,7 +1562,7 @@ export function createCommunityController(
   }
 
   async function publishPulse(
-    submission: import("../components/index.js").CommunityComposerSubmission,
+    submission: import("./composer-model.js").CommunityComposerSubmission,
     replyToEventId?: string,
   ): Promise<void> {
     const content = submission.content.trim();

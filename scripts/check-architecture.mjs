@@ -3,8 +3,9 @@
  * LC-ARCH-028 architecture checker: counted-line budgets, feature import
  * matrix, runtime cycles, and production isolation from tests.
  *
- * Re-export hop: follows one value `export * from` / `export { x } from`.
- * Type-only re-exports are not followed.
+ * Re-export hop: follows one value `export * from` / `export { x } from`
+ * except through feature barrels (`src/<feature>/index.*`). Type-only
+ * re-exports are not followed.
  */
 import fs from "node:fs";
 import path from "node:path";
@@ -129,7 +130,7 @@ export function checkArchitecture({
     for (const { verdict, item, message } of forbidden.values()) {
       if (verdict.pending)
         report(warnings, "type-import", message, record.posix, item.line);
-      if (grew)
+      if (verdict.fatal || grew)
         report(
           errors,
           verdict.pending ? "forbidden-import" : verdict.rule,

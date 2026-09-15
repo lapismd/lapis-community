@@ -14,10 +14,10 @@ import type { CommunityReadCursor } from "./contracts.js";
 import type {
   CommunityInboxFilter,
   CommunityInboxItemModel,
-} from "../components/community-inbox/model.js";
+  CommunityInboxModel,
+} from "./inbox-model.js";
 import type {
   CommunityDetailsModel,
-  CommunityInboxModel,
   CommunityMemberModel,
   CommunityMessageModel,
   CommunityReactionModel,
@@ -25,7 +25,7 @@ import type {
   CommunityRoomModel,
   CommunityTopicModel,
   CommunityWorkspaceModel,
-} from "../components/index.js";
+} from "./workspace-model.js";
 import type { NostrEvent } from "../protocol/index.js";
 import { isRegistryControlEvent } from "../protocol/registry-control.js";
 

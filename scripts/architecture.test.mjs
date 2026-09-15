@@ -112,10 +112,10 @@ describe("architecture checker fixtures", () => {
     expect(output(result)).not.toContain("forbidden-import");
   });
 
-  it("warns on budgeted community type imports", () => {
+  it("fails community type imports of components after inversion", () => {
     const result = run("type-import");
-    expect(result.status).toBe(0);
-    expect(output(result)).toContain("type-import");
+    expect(result.status).toBe(1);
+    expect(output(result)).toContain("forbidden-import");
   });
 
   it("fails when community type-import count rises", () => {

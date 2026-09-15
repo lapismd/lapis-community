@@ -1,30 +1,12 @@
-export type CommunityLoginMethodKind =
-  | "github"
-  | "google"
-  | "keytr"
-  | "browser-extension"
-  | "remote-signer"
-  | "create-account"
-  | "private-key"
-  | "other";
+import type {
+  CommunityLoginMethodKind,
+  CommunityLoginMethodModel,
+} from "../../auth/login-method.js";
 
-export interface CommunityLoginMethodModel {
-  id: string;
-  kind: CommunityLoginMethodKind;
-  label: string;
-  description: string;
-  disabled?: boolean;
-  keytr?: {
-    gateways: readonly {
-      id: string;
-      label: string;
-      rpId: string;
-    }[];
-    allowSetup?: boolean;
-    allowImport?: boolean;
-    defaultPasskeyLabel?: string;
-  };
-}
+export type {
+  CommunityLoginMethodKind,
+  CommunityLoginMethodModel,
+} from "../../auth/login-method.js";
 
 export interface CommunityLoginCredentials {
   privateKey?: string;

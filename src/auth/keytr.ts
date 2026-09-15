@@ -2,7 +2,7 @@ import { hexToBytes } from "@noble/hashes/utils.js";
 import { nip19 } from "nostr-tools";
 import { getPublicKey, verifyEvent } from "nostr-tools/pure";
 
-import type { CommunityLoginMethodModel } from "../components/community-login/model.js";
+import type { CommunityLoginMethodModel } from "./login-method.js";
 import type { NostrEvent, NostrEventTemplate } from "../protocol/index.js";
 
 import type {

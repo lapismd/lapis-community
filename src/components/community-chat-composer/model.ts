@@ -1,29 +1,22 @@
 import { npubEncode } from "nostr-tools/nip19";
-import type {
-  CommunityCustomEmoji,
-  CommunityReplyTarget,
-} from "../../community/index.js";
+import type { CommunityCustomEmoji } from "../../community/index.js";
 import type {
   CommunityMemberModel,
   CommunityRoomModel,
 } from "../community-workspace/model.js";
+import type { CommunityUploadedMedia } from "../../community/composer-model.js";
+
+export type {
+  CommunityComposerContext,
+  CommunityComposerSubmission,
+  CommunityUploadedMedia,
+} from "../../community/composer-model.js";
 
 export type CommunityComposerAttachmentStatus =
   | "queued"
   | "uploading"
   | "uploaded"
   | "failed";
-
-export interface CommunityUploadedMedia {
-  url: string;
-  mimeType: string;
-  size: number;
-  sha256: string;
-  name?: string;
-  alt?: string;
-  width?: number;
-  height?: number;
-}
 
 export interface CommunityComposerAttachment {
   id: string;
@@ -61,25 +54,6 @@ export interface CommunityMessageMediaAdapter {
     },
   ): Promise<CommunityUploadedMedia>;
   remove?(media: CommunityUploadedMedia): Promise<void> | void;
-}
-
-export type CommunityComposerContext =
-  | {
-      kind: "reply";
-      target: CommunityReplyTarget;
-    }
-  | {
-      kind: "edit";
-      id: string;
-      label?: string;
-    };
-
-export interface CommunityComposerSubmission {
-  content: string;
-  mentionPubkeys: readonly string[];
-  channelIds: readonly string[];
-  attachments: readonly CommunityUploadedMedia[];
-  context?: CommunityComposerContext;
 }
 
 export interface CommunityComposerReferences {
