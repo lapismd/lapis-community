@@ -155,6 +155,16 @@ describe("Community Keytr integration", () => {
     });
   });
 
+  it("allows the Lapis local development relay for Keytr storage", () => {
+    const library = keytrLibrary(generateSecretKey());
+    const configured = createCommunityKeytrLoginIntegration({
+      library,
+      relayUrls: ["ws://local-community.lapis.md/"],
+    });
+
+    expect(configured.relayUrls).toEqual(["ws://local-community.lapis.md/"]);
+  });
+
   it("recovers a discovered identity only after validating its signed record", async () => {
     const secret = generateSecretKey();
     const material = new Uint8Array(32).fill(7);

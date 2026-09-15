@@ -20,6 +20,7 @@ const MAX_CIPHERTEXT_LENGTH = 4_096;
 const PUBKEY_PATTERN = /^[0-9a-f]{64}$/u;
 const RP_ID_PATTERN =
   /^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)*[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/u;
+const INSECURE_LOCAL_RELAY_HOSTS = new Set(["local-community.lapis.md"]);
 
 export type CommunityKeytrAction = "login" | "create" | "import";
 
@@ -657,7 +658,9 @@ function normalizeRelayUrls(input: readonly string[]): readonly string[] {
       throw new CommunityKeytrError("invalid_configuration");
     }
     const local =
-      url.hostname === "localhost" || url.hostname.endsWith(".localhost");
+      url.hostname === "localhost" ||
+      url.hostname.endsWith(".localhost") ||
+      INSECURE_LOCAL_RELAY_HOSTS.has(url.hostname);
     if (
       (url.protocol !== "wss:" && !(url.protocol === "ws:" && local)) ||
       url.username !== "" ||
