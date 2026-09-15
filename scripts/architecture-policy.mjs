@@ -259,7 +259,7 @@ export function isSelfBarrelImport(importer, imported) {
 
 export const HOTSPOT_JUSTIFICATIONS = {
   "src/community/community-controller.svelte.ts":
-    "Svelte 5 controller factory; extract history/pulse/operations before adding behaviour",
+    "Svelte 5 controller factory; history, Pulse, and operations extracted",
   "src/components/community-application/CommunityApplication.svelte":
     "Application composition root; extract destination hosts before adding behaviour",
   "src/components/community-projects/CommunityProjects.svelte":

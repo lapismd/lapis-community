@@ -121,6 +121,8 @@ additive controller model/action group. Relay responses are verified and
 materialized outside the persistent community event runtime; only events
 published by the local signer may pass through the existing cache path. Custom
 sources and controllers that omit the Pulse capability remain compatible.
+`createCommunityController` composes dedicated history, Pulse, and operation
+modules that receive controller context and MUST NOT import the factory.
 
 For LC-UI-030, the public testing runtime supplies signed Pulse profile,
 contact-list, note, reaction, and deletion events so application and component

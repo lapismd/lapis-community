@@ -182,6 +182,9 @@ For LC-UI-030, production-component stories project signed kind `0`, `1`, `3`,
 `5`, and `7` test events through the same Pulse controller boundary used by
 configured relays. Fixture signatures and author relationships remain subject
 to the LC-NOSTR-019 verification and deterministic materialization rules.
+Controller Pulse timers, tab selection, and signed note or like publication
+remain those same kinds and the memory-only window; composition into dedicated
+controller modules does not add a Pulse database or submission API.
 
 For LC-UI-032, relay-contract fixtures retain the LC-NOSTR-020 authority and
 command shapes while exercising the role, writer-policy, and invite controls

@@ -1,7 +1,7 @@
 # TypeScript architecture and enforcement
 
-**Status:** P0 and P1 implemented in workspaces `arch-p0` / `arch-p1`. P2–P5
-remain planned.
+**Status:** P0–P2 implemented in workspaces `arch-p0` / `arch-p1` / `arch-p2`.
+P3–P5 remain planned.
 
 **Kind of statements:** **Fact** is observed in this checkout. **Recommendation**
 is a chosen policy. **Assumption** is used only where evidence is missing.
@@ -922,15 +922,16 @@ Behaviour-preserving unless noted. Do not start a repository-wide move.
 
 ### P2 — Controller history/pulse/operations extraction
 
-|            |                                                                                                                |
-| ---------- | -------------------------------------------------------------------------------------------------------------- |
-| Purpose    | make the rune factory extensible without 5k-line edits                                                         |
-| Evidence   | `createCommunityController` 4673c; recent history/unread commits                                               |
-| Files      | `src/community/controller/*.svelte.ts`; shrink `community-controller.svelte.ts`; lower baseline                |
-| Tests      | `community-controller.svelte.test.ts`, `controller-transitions.test.ts`, history tests **before** each extract |
-| Constraint | keep runes; no store library                                                                                   |
-| Effort     | L                                                                                                              |
-| Risk       | subscription/disposal and generation checks                                                                    |
+|            |                                                                                                                             |
+| ---------- | --------------------------------------------------------------------------------------------------------------------------- |
+| Purpose    | make the rune factory extensible without 5k-line edits                                                                      |
+| Evidence   | `createCommunityController` 4673c; recent history/unread commits                                                            |
+| Files      | `src/community/controller/` operations, history, and Pulse modules; shrink `community-controller.svelte.ts`; lower baseline |
+| Sequence   | Executed: operations factory, history paging/restore, Pulse timers and signed actions; factory remains the composition root |
+| Tests      | `community-controller.svelte.test.ts`, `controller-transitions.test.ts`, history tests **before** each extract              |
+| Constraint | keep runes; no store library                                                                                                |
+| Effort     | L                                                                                                                           |
+| Risk       | subscription/disposal and generation checks                                                                                 |
 
 ### P3 — Application and Projects destination shells
 

@@ -1,5 +1,3 @@
-import { readCachedContentWindow } from "./cached-content-window.js";
-import { createHistoryScheduler } from "./history-scheduler.js";
 import { historyPageKey, eventInHistoryWindow } from "./history-pages.js";
 import { createProjectionQueue, shareProjection } from "./projection-state.js";
 import {
@@ -45,6 +43,12 @@ import {
   materializeCommunityInbox,
   materializeCommunityWorkspace,
 } from "./materialize.js";
+import { isAbort } from "./controller/abort.js";
+import { eventDeleted } from "./controller/event-deleted.js";
+import { createControllerHistory } from "./controller/history.svelte.js";
+import { createControllerOperations } from "./controller/operations.js";
+import { createControllerPulse } from "./controller/pulse.svelte.js";
+export { normalizeCommunityOperationFailure } from "./controller/operations.js";
 import type {
   CommunityCapabilities,
   CommunityCommand,
@@ -53,7 +57,6 @@ import type {
   CommunityContentWindowRequest,
   CommunityContentCursor,
   CommunityHistoryState,
-  CommunityHistoryTarget,
   CommunityTimelinePresentation,
   CommunityController,
   CommunityControllerActions,
@@ -67,9 +70,7 @@ import type {
   CommunityMessageReport,
   CommunityReplyTarget,
   CommunityRoomUpdate,
-  CommunityPulseFeedTab,
   CommunityPulseModel,
-  CommunityPulseTab,
   CommunityRuntimeRevision,
   CommunityScope,
   CommunitySearchResult,
@@ -85,10 +86,6 @@ import {
   normalizeInviteRelayUrl,
   parseCommunityGroupInvite,
 } from "./group-invites.js";
-import {
-  materializeCommunityPulse,
-  pulseEventTargetId,
-} from "./materialize-pulse.js";
 import { createCommunityStoredState } from "./state-store.js";
 import {
   materializeCommunitySettings,
@@ -170,20 +167,6 @@ export function createCommunityController(
   let syncPlans: NonNullable<
     Awaited<ReturnType<typeof eventRuntime.restore>>["syncPlans"]
   > = {};
-  const historyScheduler = createHistoryScheduler(2);
-  const historyWindows = new Map<
-    string,
-    {
-      window: CommunityContentWindow;
-      generation: number;
-      visibleLimit: number;
-      visibleIds?: Set<string>;
-      scopeId: string;
-      request: CommunityContentWindowRequest;
-    }
-  >();
-  let historyStates = $state<Record<string, CommunityHistoryState>>({});
-  const historyIntents = new Map<string, number>();
   const notificationCandidates = new Map<string, Set<string>>();
   const notificationInitialized = new Set<string>();
   const timelinePresentations = new Map<
@@ -191,15 +174,7 @@ export function createCommunityController(
     CommunityTimelinePresentation
   >();
   let presentationRevision = $state(0);
-  let progressiveRun = 0;
   let progressiveAbort: AbortController | undefined;
-  let pulseAbort: AbortController | undefined;
-  let pulseRun = 0;
-  let pulseActive = false;
-  let pulseNoteTimer: ReturnType<typeof setInterval> | undefined;
-  let pulseReactionTimer: ReturnType<typeof setInterval> | undefined;
-  let pulseEvents: NostrEvent[] = [];
-  let pulsePrimaryEventIds: string[] = [];
   let agentController: CommunityAgentsController | undefined;
   let agents = $state<CommunityAgentsState | undefined>();
 
@@ -214,6 +189,34 @@ export function createCommunityController(
   let directParticipantsByRoom = $state<Record<string, readonly string[]>>({});
   let capabilitiesByScope = $state<Record<string, CommunityCapabilities>>({});
   let operations = $state<Record<string, CommunityOperationState>>({});
+  const operationsApi = createControllerOperations({
+    getGeneration: () => generation,
+    getStatus: () => status,
+    getActiveCommunityId: () => activeCommunityId,
+    getSession: (scopeId) => sessions.get(scopeId),
+    getControllerSignal: () => controllerAbort?.signal,
+    getScopeEvents: (scopeId) => eventsByScope[scopeId] ?? [],
+    getOperations: () => operations,
+    setOperations: (next) => {
+      operations = next;
+    },
+    operationVersions,
+    retries,
+    acceptedEventIdsByOperation,
+    ensureIdentity: (operation) => ensureIdentity(operation),
+    cacheLiveEvents: (scopeId, events, gen) =>
+      cacheLiveEvents(scopeId, events, gen),
+    refreshScope: (scopeId, signal) => refreshScope(scopeId, signal),
+  });
+  const { runOperation, execute, publishTemplate, retry, dismissOperation } =
+    operationsApi;
+  function throwOperationFailure(
+    operation: string,
+    category: CommunityOperationFailure["category"],
+    message: string,
+  ): never {
+    return operationsApi.throwOperationFailure(operation, category, message);
+  }
   let error = $state("");
   let identityPubkey = $state("");
   let identityRequest = 0;
@@ -250,6 +253,67 @@ export function createCommunityController(
   });
   let replyTarget = $state<CommunityReplyTarget | undefined>();
   let pulse = $state<CommunityPulseModel | undefined>();
+  const roomHistory = createControllerHistory({
+    getGeneration: () => generation,
+    getIdentityPubkey: () => identityPubkey,
+    getActiveCommunityId: () => activeCommunityId,
+    getActiveRoomId: () => activeRoomId,
+    getActiveTopicId: () => activeTopicId,
+    getActiveThreadId: () => activeThreadId,
+    getControllerSignal: () => controllerAbort?.signal,
+    getScope: (scopeId) => scopes.find((scope) => scope.id === scopeId),
+    getSession: (scopeId) => sessions.get(scopeId),
+    findRoom: (scopeId, roomId) => {
+      const scope = scopes.find((candidate) => candidate.id === scopeId);
+      return scope
+        ? communityRooms(
+            scope,
+            eventsByScope[scopeId] ?? [],
+            identityPubkey || undefined,
+          ).find((room) => room.id === roomId)
+        : undefined;
+    },
+    historyPaging: options.source.historyPaging === true,
+    eventRuntime,
+    runtimeScope,
+    applyRuntimeRevision,
+    refreshProjection,
+    updateRoomContentSync,
+    keepPreviousOnHead: (key) =>
+      timelinePresentations.get(key)?.position?.atLatest === false,
+    onWindowCommitted: (key, direction) => {
+      if (direction !== "older") notificationInitialized.delete(key);
+    },
+    patchContentSync: (patch) => {
+      contentSync = { ...contentSync, ...patch };
+    },
+    patchCache: (patch) => {
+      cache = { ...cache, ...patch };
+    },
+    now,
+  });
+  const pulseCtl = createControllerPulse({
+    getPulse: () => pulse,
+    setPulse: (next) => {
+      pulse = next;
+    },
+    getGeneration: () => generation,
+    getActiveCommunityId: () => activeCommunityId,
+    getSession: (scopeId) => sessions.get(scopeId),
+    getControllerSignal: () => controllerAbort?.signal,
+    getPulseCapability: () =>
+      capabilitiesByScope[activeCommunityId]?.pulse === true,
+    canDirectMessage: () => capabilities.directMessages,
+    getIdentityPubkey: () => identityPubkey,
+    getIdentity: () => identity,
+    getRelayUrl: () => activeScope().relayUrl,
+    getAgents: () => agents,
+    ...(options.pulse === undefined ? {} : { pulseOptions: options.pulse }),
+    now,
+    ensureIdentity,
+    throwOperationFailure,
+    execute,
+  });
   let navigation = $state<CommunityControllerState["navigation"]>({
     starredRoomIds: [],
     mutedRoomIds: [],
@@ -379,8 +443,8 @@ export function createCommunityController(
           inbox?.selectedItem ??
           inbox?.items.find((item) => item.id === activeInboxItemId);
         return selected
-          ? historyStates[
-              historyResourceKey(
+          ? roomHistory.historyStates[
+              roomHistory.resourceKey(
                 selected.scopeId ?? activeCommunityId,
                 selected.roomId ?? activeRoomId,
                 selected.rootEventId,
@@ -389,12 +453,20 @@ export function createCommunityController(
           : undefined;
       })(),
       history:
-        historyStates[
-          historyResourceKey(activeCommunityId, activeRoomId, activeTopicId)
+        roomHistory.historyStates[
+          roomHistory.resourceKey(
+            activeCommunityId,
+            activeRoomId,
+            activeTopicId,
+          )
         ],
       threadHistory: activeThreadId
-        ? historyStates[
-            historyResourceKey(activeCommunityId, activeRoomId, activeThreadId)
+        ? roomHistory.historyStates[
+            roomHistory.resourceKey(
+              activeCommunityId,
+              activeRoomId,
+              activeThreadId,
+            )
           ]
         : undefined,
       directHistory: directHistoryByScope[activeCommunityId] ?? {
@@ -470,13 +542,11 @@ export function createCommunityController(
           ]),
         );
         privateEventsByScope = {};
-        historyWindows.clear();
-        historyIntents.clear();
+        roomHistory.resetWindows();
         notificationCandidates.clear();
         notificationInitialized.clear();
         timelinePresentations.clear();
         presentationRevision++;
-        historyStates = {};
         canvases = {};
         storedStates.clear();
         directParticipantsByRoom = {};
@@ -514,7 +584,7 @@ export function createCommunityController(
         applyRuntimeRevision(restored);
         syncPlans = restored.syncPlans ?? {};
         if (options.source.historyPaging) {
-          await restoreCachedHead(
+          await roomHistory.restoreCachedHead(
             activeCommunityId,
             activeRoomId,
             activeTopicId,
@@ -650,10 +720,10 @@ export function createCommunityController(
       }
       status = "connected";
       await refreshProjection(currentGeneration);
-      updatePulseAvailability();
-      if (pulseActive) {
-        startPulseRefreshTimers();
-        void refreshPulse().catch(() => undefined);
+      pulseCtl.updatePulseAvailability();
+      if (pulseCtl.active) {
+        pulseCtl.startPulseRefreshTimers();
+        void pulseCtl.refreshPulse().catch(() => undefined);
       }
       cache = {
         ...cache,
@@ -672,7 +742,10 @@ export function createCommunityController(
               .map((room) => [room.id, "unloaded" as const]),
           ),
         };
-        void runProgressiveSynchronization(currentGeneration, signal);
+        void roomHistory.runProgressiveSynchronization(
+          currentGeneration,
+          signal,
+        );
       } else {
         contentSync = { phase: "complete", rooms: {} };
       }
@@ -717,500 +790,19 @@ export function createCommunityController(
     );
   }
 
-  async function restoreCachedHead(
-    scopeId: string,
-    roomId: string,
-    rootEventId: string | undefined,
-    currentGeneration: number,
-  ): Promise<void> {
-    const scope = scopes.find((scope) => scope.id === scopeId);
-    const room =
-      scope &&
-      communityRooms(
-        scope,
-        eventsByScope[scopeId] ?? [],
-        identityPubkey || undefined,
-      ).find((room) => room.id === roomId);
-    if (!scope || !room || room.private) return;
-    const request: CommunityContentWindowRequest = {
-      collection: rootEventId
-        ? "thread"
-        : room.kind === "forum"
-          ? "forum-topics"
-          : "channel-roots",
-      groupId: room.groupId,
-      ...(rootEventId ? { rootEventId } : {}),
-      limit: 50,
-    };
-    const key = historyPageKey(
-      scope,
-      { type: "public" },
-      room.transport ?? "nip29",
-      request,
-    );
-    const cached = await readCachedContentWindow(
-      eventRuntime,
-      scope,
-      request,
-      key,
-      controllerAbort?.signal,
-    );
-    const events = cached?.window.events ?? [];
-    if (generation !== currentGeneration) return;
-    const revision = await eventRuntime.ingest({
-      generation: currentGeneration,
-      scope: runtimeScope(scope),
-      relayUrl: scope.relayUrl,
-      events,
-      fromCache: true,
-    });
-    if (generation !== currentGeneration) return;
-    if (revision) applyRuntimeRevision(revision);
-    if (cached) {
-      const resource = historyResourceKey(scopeId, roomId, rootEventId);
-      const window = cached.window;
-      if (!historyWindows.has(resource))
-        historyWindows.set(resource, {
-          window,
-          scopeId,
-          request,
-          generation: -1,
-          visibleLimit: 50,
-          visibleIds: new Set([
-            ...cached.window.primaryEventIds,
-            ...(rootEventId ? [rootEventId] : []),
-          ]),
-        });
-      historyStates = {
-        ...historyStates,
-        [resource]: {
-          key: resource,
-          loading: false,
-          hasOlder: window.hasOlder,
-          hasNewer: true,
-          complete: false,
-        },
-      };
-    }
-  }
-
-  function historyResourceKey(
-    scopeId: string,
-    roomId: string,
-    rootEventId?: string,
-  ): string {
-    return JSON.stringify([
-      scopeId,
-      scopes.find((scope) => scope.id === scopeId)?.relayUrl,
-      identityPubkey,
-      roomId,
-      rootEventId ?? null,
-    ]);
-  }
-
   function timelinePresentationFor(
     scopeId: string,
     roomId: string,
     rootEventId?: string,
   ): CommunityTimelinePresentation {
     void presentationRevision;
-    const key = historyResourceKey(scopeId, roomId, rootEventId);
+    const key = roomHistory.resourceKey(scopeId, roomId, rootEventId);
     let presentation = timelinePresentations.get(key);
     if (!presentation) {
       presentation = { key, draft: "" };
       timelinePresentations.set(key, presentation);
     }
     return presentation;
-  }
-
-  function historyTarget(target?: CommunityHistoryTarget) {
-    return {
-      scopeId: target?.scopeId ?? activeCommunityId,
-      roomId: target?.roomId ?? activeRoomId,
-      rootEventId: target?.rootEventId ?? activeTopicId,
-    };
-  }
-
-  async function loadInteractiveRoom(
-    scopeId: string,
-    roomId: string,
-    rootEventId?: string,
-    _signal?: AbortSignal,
-    direction: "head" | "older" | "newer" = "head",
-    around?: { createdAt: number; eventId: string },
-  ): Promise<void> {
-    const scope = scopes.find((candidate) => candidate.id === scopeId);
-    const session = sessions.get(scopeId);
-    const room =
-      scope &&
-      communityRooms(
-        scope,
-        eventsByScope[scopeId] ?? [],
-        identityPubkey || undefined,
-      ).find((candidate) => candidate.id === roomId);
-    if (
-      !scope ||
-      !room ||
-      (!session?.loadContentWindow && !options.source.historyPaging)
-    )
-      return;
-    const key = historyResourceKey(scopeId, roomId, rootEventId);
-    const current = historyWindows.get(key);
-    if (direction === "head" && current?.generation === generation) return;
-    if (direction === "older" && current && !current.window.hasOlder) return;
-    const currentGeneration = generation;
-    const signal = controllerAbort?.signal;
-    const intent =
-      (historyIntents.get(key) ?? 0) + (direction === "newer" ? 1 : 0);
-    historyIntents.set(key, intent);
-    const group = `${generation}:${key}`;
-    const requested = JSON.stringify([group, direction, around, intent]);
-    return historyScheduler.run(
-      requested,
-      async () => {
-        signal?.throwIfAborted();
-        if (
-          generation !== currentGeneration ||
-          historyIntents.get(key) !== intent
-        )
-          return;
-        const previous = historyWindows.get(key);
-        historyStates = {
-          ...historyStates,
-          [key]: {
-            key,
-            loading: true,
-            hasOlder: previous?.window.hasOlder ?? true,
-            hasNewer: false,
-            complete: false,
-          },
-        };
-        const request: CommunityContentWindowRequest = {
-          collection: rootEventId
-            ? "thread"
-            : room.kind === "forum"
-              ? "forum-topics"
-              : "channel-roots",
-          groupId: room.groupId,
-          ...(rootEventId ? { rootEventId } : {}),
-          limit: 50,
-          ...(direction === "older" && previous?.window.olderCursor
-            ? { before: previous.window.olderCursor }
-            : {}),
-          ...(around
-            ? { before: { createdAt: around.createdAt + 1, eventId: "~" } }
-            : {}),
-        };
-        const audience = { type: "public" as const };
-        const pageKey = historyPageKey(
-          scope,
-          audience,
-          room.transport ?? "nip29",
-          request,
-        );
-        try {
-          const cached = room.private
-            ? undefined
-            : await readCachedContentWindow(
-                eventRuntime,
-                scope,
-                request,
-                pageKey,
-                signal,
-              );
-          if (generation !== currentGeneration) return;
-          if (cached) {
-            const revision = await eventRuntime.ingest({
-              generation: currentGeneration,
-              scope: runtimeScope(scope),
-              relayUrl: scope.relayUrl,
-              events: cached.window.events,
-              fromCache: true,
-            });
-            if (generation !== currentGeneration) return;
-            if (revision) applyRuntimeRevision(revision);
-            if (!previous && direction === "head")
-              historyWindows.set(key, {
-                window: cached.window,
-                scopeId,
-                request,
-                generation: -1,
-                visibleLimit: 50,
-                visibleIds: new Set([
-                  ...cached.window.primaryEventIds,
-                  ...(rootEventId ? [rootEventId] : []),
-                ]),
-              });
-            await refreshProjection(currentGeneration);
-          }
-          // Legacy cached rows can render immediately but cannot prove a covered
-          // relay range or justify newer-only reconciliation.
-          const cachedWindow = cached?.window;
-          const head = cached?.covered
-            ? cachedWindow?.events
-                .filter((event) =>
-                  cachedWindow.primaryEventIds.includes(event.id),
-                )
-                .toSorted(
-                  (a, b) =>
-                    a.created_at - b.created_at || a.id.localeCompare(b.id),
-                )
-                .at(-1)
-            : undefined;
-          const relayRequest =
-            direction === "head" && head
-              ? {
-                  ...request,
-                  after: { createdAt: head.created_at, eventId: head.id },
-                }
-              : request;
-          const useCache =
-            cachedWindow &&
-            ((cached?.covered && direction === "older") ||
-              !session?.loadContentWindow);
-          const remoteLoaded = !useCache && !!session?.loadContentWindow;
-          let window = useCache
-            ? cachedWindow
-            : await session?.loadContentWindow?.(relayRequest, signal);
-          if (!window)
-            throw new Error(
-              "This history is not cached. Reconnect to load more messages.",
-            );
-          if (remoteLoaded && direction === "head" && cachedWindow) {
-            const byId = new Map(
-              [...cachedWindow.events, ...window.events].map((event) => [
-                event.id,
-                event,
-              ]),
-            );
-            const primaryIds = new Set([
-              ...cachedWindow.primaryEventIds,
-              ...window.primaryEventIds,
-            ]);
-            const primary = [...byId.values()]
-              .filter((event) => primaryIds.has(event.id))
-              .sort(
-                (a, b) =>
-                  a.created_at - b.created_at || a.id.localeCompare(b.id),
-              )
-              .slice(-50);
-            const oldest = primary[0];
-            window = {
-              ...(window.coverageGaps
-                ? { coverageGaps: window.coverageGaps }
-                : {}),
-              events: [...byId.values()],
-              primaryEventIds: primary.map((event) => event.id),
-              hasOlder:
-                window.hasOlder ||
-                cachedWindow.hasOlder ||
-                primaryIds.size > 50,
-              ...(oldest
-                ? {
-                    olderCursor: {
-                      createdAt: oldest.created_at,
-                      eventId: oldest.id,
-                    },
-                  }
-                : {}),
-            };
-          }
-          if (generation !== currentGeneration) return;
-          const coverageGaps = [
-            ...new Map(
-              [
-                ...(previous?.window.coverageGaps ?? []),
-                ...(cachedWindow?.coverageGaps ?? []),
-                ...(window.coverageGaps ?? []),
-              ].map((gap) => [gap.createdAt, gap]),
-            ).values(),
-          ];
-          if (coverageGaps.length) window = { ...window, coverageGaps };
-          if (remoteLoaded) {
-            const revision = await eventRuntime.ingest({
-              generation: currentGeneration,
-              scope: runtimeScope(scope),
-              relayUrl: scope.relayUrl,
-              events: window.events,
-              ...(room.private
-                ? { persist: false }
-                : {
-                    historyPages: [
-                      {
-                        key: pageKey,
-                        audience,
-                        relayUrls: [
-                          scope.relayUrl,
-                          ...(scope.readRelayUrls ?? []),
-                        ],
-                        request,
-                        eventIds: window.events.map((event) => event.id),
-                        primaryEventIds: window.primaryEventIds,
-                        ...(window.olderCursor
-                          ? { olderCursor: window.olderCursor }
-                          : {}),
-                        hasOlder: window.hasOlder,
-                        ...(window.coverageGaps
-                          ? { coverageGaps: window.coverageGaps }
-                          : {}),
-                        synchronizedAt: now(),
-                      },
-                    ],
-                  }),
-            });
-            if (generation !== currentGeneration) return;
-            if (revision) applyRuntimeRevision(revision);
-          }
-          if (historyIntents.get(key) !== intent) return;
-          if (direction !== "older") notificationInitialized.delete(key);
-          const visibleIds = new Set([
-            ...(direction === "older" ||
-            (direction === "head" &&
-              timelinePresentations.get(key)?.position?.atLatest === false)
-              ? (previous?.visibleIds ?? previous?.window.primaryEventIds ?? [])
-              : []),
-            ...window.primaryEventIds,
-            ...(rootEventId ? [rootEventId] : []),
-          ]);
-          historyWindows.set(key, {
-            window,
-            scopeId,
-            request,
-            visibleIds,
-            generation: currentGeneration,
-            visibleLimit:
-              direction === "older"
-                ? (previous?.visibleLimit ?? 50) + window.primaryEventIds.length
-                : 50,
-          });
-          historyStates = {
-            ...historyStates,
-            [key]: {
-              key,
-              loading: false,
-              hasOlder: window.hasOlder,
-              hasNewer: !session?.loadContentWindow || Boolean(around),
-              complete:
-                !!session?.loadContentWindow &&
-                !window.hasOlder &&
-                !around &&
-                !window.coverageGaps?.length,
-            },
-          };
-          if (!rootEventId)
-            updateRoomContentSync(
-              roomId,
-              !session?.loadContentWindow ||
-                window.hasOlder ||
-                window.coverageGaps?.length
-                ? "partial"
-                : "complete",
-            );
-          await refreshProjection(currentGeneration);
-        } catch (cause) {
-          if (
-            generation !== currentGeneration ||
-            historyIntents.get(key) !== intent ||
-            isAbort(cause)
-          )
-            return;
-          historyStates = {
-            ...historyStates,
-            [key]: {
-              key,
-              loading: false,
-              hasOlder: true,
-              hasNewer: false,
-              complete: false,
-              error:
-                cause instanceof Error
-                  ? cause.message
-                  : "History could not be loaded",
-            },
-          };
-          await refreshProjection(currentGeneration);
-          throw cause;
-        }
-      },
-      () =>
-        key ===
-          historyResourceKey(activeCommunityId, activeRoomId, activeTopicId) ||
-        (activeThreadId !== undefined &&
-          key ===
-            historyResourceKey(
-              activeCommunityId,
-              activeRoomId,
-              activeThreadId,
-            )),
-      group,
-    );
-  }
-
-  async function runProgressiveSynchronization(
-    currentGeneration: number,
-    parentSignal: AbortSignal,
-    priority = {
-      scopeId: activeCommunityId,
-      roomId: activeRoomId,
-      rootEventId: undefined as string | undefined,
-    },
-  ): Promise<void> {
-    const run = ++progressiveRun;
-    try {
-      await loadInteractiveRoom(
-        priority.scopeId,
-        priority.roomId,
-        priority.rootEventId,
-        parentSignal,
-      );
-      if (generation !== currentGeneration || run !== progressiveRun) return;
-      contentSync = { ...contentSync, phase: "complete" };
-      cache = { ...cache, freshness: "current" };
-    } catch (cause) {
-      if (
-        generation !== currentGeneration ||
-        run !== progressiveRun ||
-        isAbort(cause)
-      )
-        return;
-      contentSync = {
-        ...contentSync,
-        phase: "partial-error",
-        message:
-          cause instanceof Error
-            ? cause.message
-            : "History could not be loaded",
-      };
-      cache = { ...cache, freshness: "synchronizing" };
-    }
-  }
-
-  function prioritizeContent(
-    scopeId: string,
-    roomId: string,
-    rootEventId?: string,
-  ): void {
-    if (controllerAbort === undefined) return;
-    const session = sessions.get(scopeId);
-    if (session?.loadContentWindow === undefined) {
-      if (options.source.historyPaging) {
-        const requestedGeneration = generation;
-        void restoreCachedHead(
-          scopeId,
-          roomId,
-          rootEventId,
-          requestedGeneration,
-        ).then(() => refreshProjection(requestedGeneration));
-      }
-      return;
-    }
-    contentSync = { ...contentSync, phase: "background" };
-    cache = { ...cache, freshness: "synchronizing" };
-    void runProgressiveSynchronization(generation, controllerAbort.signal, {
-      scopeId,
-      roomId,
-      rootEventId,
-    });
   }
 
   function stopAgents(): void {
@@ -1241,7 +833,7 @@ export function createCommunityController(
           return;
         const identitiesChanged = agents?.agents !== next.agents;
         agents = next;
-        if (identitiesChanged) updatePulseAvailability();
+        if (identitiesChanged) pulseCtl.updatePulseAvailability();
       },
       onDirectory: (events) => {
         if (agentController === controller && generation === currentGeneration)
@@ -1252,151 +844,9 @@ export function createCommunityController(
     void controller.start();
   }
 
-  function pulseAgents() {
-    return (
-      options.pulse?.agents ??
-      (agents?.capabilities.directory ? agents.agents : undefined)
-    );
-  }
-
-  function updatePulseAvailability(): void {
-    const session = sessions.get(activeCommunityId);
-    if (
-      capabilitiesByScope[activeCommunityId]?.pulse !== true ||
-      session?.loadPulseWindow === undefined
-    ) {
-      pulse = undefined;
-      return;
-    }
-    if (pulse !== undefined) {
-      pulse = {
-        ...pulse,
-        canDirectMessage: capabilities.directMessages,
-        ...(pulseAgents() === undefined ? {} : { agents: pulseAgents()! }),
-      };
-      return;
-    }
-    pulse = {
-      tab: "everyone",
-      status: "idle",
-      notes: [],
-      agentActivities: [],
-      members: [],
-      ...(pulseAgents() === undefined ? {} : { agents: pulseAgents()! }),
-      canDirectMessage: capabilities.directMessages,
-    };
-  }
-
-  async function refreshPulse(
-    kind: "notes" | "reactions" = "notes",
-  ): Promise<void> {
-    if (pulse === undefined) return;
-    const currentPulse = pulse;
-    const selected = currentPulse.tab;
-    if (selected === "search") return;
-    const session = sessions.get(activeCommunityId);
-    if (session?.loadPulseWindow === undefined) return;
-    const requestedGeneration = generation;
-    const run = ++pulseRun;
-    pulseAbort?.abort(new DOMException("Pulse request replaced", "AbortError"));
-    const requestAbort = new AbortController();
-    pulseAbort = requestAbort;
-    const parentSignal = controllerAbort?.signal;
-    const signal =
-      parentSignal === undefined
-        ? requestAbort.signal
-        : AbortSignal.any([parentSignal, requestAbort.signal]);
-    const { error: _currentError, ...pulseWithoutError } = currentPulse;
-    pulse = {
-      ...pulseWithoutError,
-      status: currentPulse.notes.length === 0 ? "loading" : "refreshing",
-    };
-    try {
-      const window = await session.loadPulseWindow(
-        {
-          tab: selected,
-          ...(selected === "agents"
-            ? {
-                agentPubkeys: pulseAgents()?.map((agent) => agent.pubkey) ?? [],
-              }
-            : {}),
-          ...(kind === "reactions" && currentPulse.notes.length > 0
-            ? { noteIds: currentPulse.notes.map((note) => note.id) }
-            : {}),
-        },
-        signal,
-      );
-      if (
-        run !== pulseRun ||
-        requestedGeneration !== generation ||
-        pulse?.tab !== selected
-      ) {
-        return;
-      }
-      pulseEvents = [...window.events];
-      pulsePrimaryEventIds = [...window.primaryEventIds];
-      pulse = materializeCommunityPulse(pulseEvents, {
-        tab: selected,
-        primaryEventIds: pulsePrimaryEventIds,
-        ...(identityPubkey === "" ? {} : { identityPubkey }),
-        ...(pulseAgents() === undefined ? {} : { agents: pulseAgents()! }),
-        asOf: now(),
-        canDirectMessage: capabilities.directMessages,
-      });
-    } catch (cause) {
-      if (
-        isAbort(cause) ||
-        run !== pulseRun ||
-        requestedGeneration !== generation
-      ) {
-        return;
-      }
-      const message =
-        cause instanceof Error ? cause.message : "Pulse could not be loaded";
-      pulse = {
-        ...(pulse ?? {
-          tab: selected,
-          notes: [],
-          agentActivities: [],
-          members: [],
-          canDirectMessage: capabilities.directMessages,
-        }),
-        status: "error",
-        error: message,
-      };
-      throw cause;
-    } finally {
-      if (pulseAbort === requestAbort) pulseAbort = undefined;
-    }
-  }
-
-  function startPulseRefreshTimers(): void {
-    stopPulseRefreshTimers("Pulse timers restarted");
-    if (!pulseActive || pulse === undefined) return;
-    pulseNoteTimer = setInterval(
-      () => void refreshPulse("notes").catch(() => undefined),
-      30_000,
-    );
-    pulseReactionTimer = setInterval(
-      () => void refreshPulse("reactions").catch(() => undefined),
-      60_000,
-    );
-  }
-
-  function stopPulseRefreshTimers(reason: string): void {
-    if (pulseNoteTimer !== undefined) clearInterval(pulseNoteTimer);
-    if (pulseReactionTimer !== undefined) clearInterval(pulseReactionTimer);
-    pulseNoteTimer = undefined;
-    pulseReactionTimer = undefined;
-    pulseAbort?.abort(new DOMException(reason, "AbortError"));
-    pulseAbort = undefined;
-    pulseRun += 1;
-  }
-
   function dispose(): void {
     identityRequest++;
-    pulseActive = false;
-    stopPulseRefreshTimers("Controller disposed");
+    pulseCtl.deactivate("Controller disposed");
     closeConnections("Controller disposed");
     identity?.dispose?.();
     identity = undefined;
@@ -1426,10 +876,10 @@ export function createCommunityController(
   function closeConnections(reason: string): void {
     stopAgents();
     generation += 1;
-    progressiveRun += 1;
+    roomHistory.bumpProgressiveRun();
     progressiveAbort?.abort(new DOMException(reason, "AbortError"));
     progressiveAbort = undefined;
-    stopPulseRefreshTimers(reason);
+    pulseCtl.stopPulseRefreshTimers(reason);
     controllerAbort?.abort(new DOMException(reason, "AbortError"));
     controllerAbort = undefined;
     for (const subscription of subscriptions.values()) subscription.close();
@@ -1481,7 +931,7 @@ export function createCommunityController(
       ...capabilitiesByScope,
       [scopeId]: snapshot.capabilities,
     };
-    if (scopeId === activeCommunityId) updatePulseAvailability();
+    if (scopeId === activeCommunityId) pulseCtl.updatePulseAvailability();
     await refreshProjection(currentGeneration);
     if (!isCurrent()) return;
     if (
@@ -1491,221 +941,12 @@ export function createCommunityController(
       contentSync = { ...contentSync, phase: "background" };
       cache = { ...cache, freshness: "synchronizing" };
       const requestedGeneration = currentGeneration;
-      const entry = historyWindows.get(
-        historyResourceKey(activeCommunityId, activeRoomId, activeTopicId),
-      );
-      if (entry) entry.generation = -1;
-      void runProgressiveSynchronization(
+      roomHistory.invalidateActiveWindow();
+      void roomHistory.runProgressiveSynchronization(
         requestedGeneration,
         controllerAbort.signal,
       );
     }
-  }
-
-  async function retry(operation: string): Promise<void> {
-    if (operations[operation]?.failure?.retryable !== true) return;
-    const action = retries.get(operation);
-    if (action !== undefined) await action();
-  }
-
-  function dismissOperation(operation: string): void {
-    retries.delete(operation);
-    acceptedEventIdsByOperation.delete(operation);
-    if (operations[operation] === undefined) return;
-    operations = {
-      ...operations,
-      [operation]: { status: "idle" },
-    };
-  }
-
-  function rematerializePulse(
-    status: CommunityPulseModel["status"] = "ready",
-    pulseError?: string,
-  ): void {
-    const selected = pulse?.tab;
-    if (selected === undefined || selected === "search") return;
-    pulse = {
-      ...materializeCommunityPulse(pulseEvents, {
-        tab: selected,
-        primaryEventIds: pulsePrimaryEventIds,
-        ...(identityPubkey === "" ? {} : { identityPubkey }),
-        ...(pulseAgents() === undefined ? {} : { agents: pulseAgents()! }),
-        asOf: now(),
-        canDirectMessage: capabilities.directMessages,
-      }),
-      status,
-      ...(pulseError === undefined ? {} : { error: pulseError }),
-    };
-  }
-
-  async function selectPulseTab(tab: CommunityPulseTab): Promise<void> {
-    if (tab === "agents" && pulseAgents() === undefined) return;
-    if (tab === "following" || tab === "liked" || tab === "mine") {
-      await ensureIdentity(`pulse:tab:${tab}`);
-    }
-    updatePulseAvailability();
-    if (pulse === undefined) return;
-    pulseAbort?.abort(new DOMException("Pulse tab changed", "AbortError"));
-    pulseRun += 1;
-    pulseEvents = [];
-    pulsePrimaryEventIds = [];
-    const { error: _previousError, ...pulseWithoutError } = pulse;
-    pulse = {
-      ...pulseWithoutError,
-      tab,
-      status: tab === "search" ? "ready" : "idle",
-      notes: [],
-      agentActivities: [],
-      members: [],
-    };
-    if (tab !== "search") await refreshPulse();
-  }
-
-  async function publishPulse(
-    submission: import("./composer-model.js").CommunityComposerSubmission,
-    replyToEventId?: string,
-  ): Promise<void> {
-    const content = submission.content.trim();
-    const operation = `pulse:publish:${replyToEventId ?? "note"}`;
-    if (content === "") {
-      throwOperationFailure(
-        operation,
-        "validation",
-        "Write a note before publishing",
-      );
-    }
-    await ensureIdentity(operation);
-    const parent =
-      replyToEventId === undefined
-        ? undefined
-        : pulseEvents.find(
-            (event) => event.kind === 1 && event.id === replyToEventId,
-          );
-    if (replyToEventId !== undefined && parent === undefined) {
-      throwOperationFailure(
-        operation,
-        "validation",
-        "The note being replied to is unavailable",
-      );
-    }
-    const mentions = [
-      ...new Set([
-        ...submission.mentionPubkeys,
-        ...(parent === undefined ? [] : [parent.pubkey]),
-      ]),
-    ];
-    const template: NostrEventTemplate = {
-      kind: 1,
-      created_at: now(),
-      content,
-      tags: [
-        ...(parent === undefined
-          ? []
-          : [["e", parent.id, activeScope().relayUrl, "reply"]]),
-        ...mentions.map((pubkey) => ["p", pubkey]),
-        ...submission.attachments.map((media) => [
-          "imeta",
-          `url ${media.url}`,
-          `m ${media.mimeType}`,
-          `x ${media.sha256}`,
-          `size ${media.size}`,
-          ...(media.width === undefined || media.height === undefined
-            ? []
-            : [`dim ${media.width}x${media.height}`]),
-          ...(media.alt === undefined ? [] : [`alt ${media.alt}`]),
-        ]),
-      ],
-    };
-    const signed = await identity!.signEvent(template);
-    const previousEvents = pulseEvents;
-    const previousIds = pulsePrimaryEventIds;
-    pulseEvents = [...pulseEvents, signed];
-    if (pulse?.tab === "everyone" || pulse?.tab === "mine") {
-      pulsePrimaryEventIds = [
-        signed.id,
-        ...pulsePrimaryEventIds.filter((id) => id !== signed.id),
-      ];
-    }
-    rematerializePulse("refreshing");
-    try {
-      await execute(operation, {
-        type: "publish",
-        template,
-        optimisticEvent: signed,
-      });
-    } catch (cause) {
-      pulseEvents = previousEvents;
-      pulsePrimaryEventIds = previousIds;
-      rematerializePulse(
-        "error",
-        cause instanceof Error
-          ? cause.message
-          : "The note could not be published",
-      );
-      throw cause;
-    }
-    await refreshPulse().catch(() => undefined);
-  }
-
-  async function togglePulseLike(eventId: string): Promise<void> {
-    const operation = `pulse:like:${eventId}`;
-    await ensureIdentity(operation);
-    const target = pulseEvents.find(
-      (event) => event.kind === 1 && event.id === eventId,
-    );
-    if (target === undefined) {
-      throwOperationFailure(operation, "validation", "The note is unavailable");
-    }
-    const previousReaction = pulseEvents.find(
-      (event) =>
-        event.kind === 7 &&
-        event.pubkey === identityPubkey &&
-        event.content === "+" &&
-        pulseEventTargetId(event) === eventId &&
-        !eventDeleted(pulseEvents, event.id),
-    );
-    const template: NostrEventTemplate =
-      previousReaction === undefined
-        ? {
-            kind: 7,
-            created_at: now(),
-            content: "+",
-            tags: [
-              ["e", target.id],
-              ["p", target.pubkey],
-              ["k", "1"],
-            ],
-          }
-        : {
-            kind: 5,
-            created_at: now(),
-            content: "",
-            tags: [
-              ["e", previousReaction.id],
-              ["k", "7"],
-            ],
-          };
-    const signed = await identity!.signEvent(template);
-    const previousEvents = pulseEvents;
-    pulseEvents = [...pulseEvents, signed];
-    rematerializePulse("refreshing");
-    try {
-      await execute(operation, {
-        type: "publish",
-        template,
-        optimisticEvent: signed,
-      });
-    } catch (cause) {
-      pulseEvents = previousEvents;
-      rematerializePulse(
-        "error",
-        cause instanceof Error
-          ? cause.message
-          : "The reaction could not be published",
-      );
-      throw cause;
-    }
-    await refreshPulse("reactions").catch(() => undefined);
   }
 
   const actions: CommunityControllerActions = {
@@ -1723,8 +964,8 @@ export function createCommunityController(
       presentationRevision++;
     },
     async loadOlderHistory(target) {
-      const selected = historyTarget(target);
-      await loadInteractiveRoom(
+      const selected = roomHistory.historyTarget(target);
+      await roomHistory.loadInteractiveRoom(
         selected.scopeId,
         selected.roomId,
         selected.rootEventId,
@@ -1733,8 +974,8 @@ export function createCommunityController(
       );
     },
     async loadNewerHistory(target) {
-      const selected = historyTarget(target);
-      await loadInteractiveRoom(
+      const selected = roomHistory.historyTarget(target);
+      await roomHistory.loadInteractiveRoom(
         selected.scopeId,
         selected.roomId,
         selected.rootEventId,
@@ -1743,7 +984,7 @@ export function createCommunityController(
       );
     },
     async loadAroundMessage(target, eventId) {
-      const selected = historyTarget(target);
+      const selected = roomHistory.historyTarget(target);
       const event =
         (eventsByScope[selected.scopeId] ?? []).find(
           (event) => event.id === eventId,
@@ -1752,7 +993,7 @@ export function createCommunityController(
         throw new Error(
           "Message context is unavailable; retry the search or open the latest messages",
         );
-      await loadInteractiveRoom(
+      await roomHistory.loadInteractiveRoom(
         selected.scopeId,
         selected.roomId,
         selected.rootEventId,
@@ -1769,7 +1010,7 @@ export function createCommunityController(
       const session = sessions.get(scopeId);
       if (!session?.loadDirectHistory || directHistoryByScope[scopeId]?.loading)
         return;
-      const key = historyResourceKey(scopeId, roomId);
+      const key = roomHistory.resourceKey(scopeId, roomId);
       const currentLimit = directLimits.get(key) ?? 50;
       const count = () =>
         (privateEventsByScope[scopeId] ?? []).filter(
@@ -1786,7 +1027,7 @@ export function createCommunityController(
         await refreshProjection(currentGeneration);
         return;
       }
-      return historyScheduler.run(
+      return roomHistory.historyScheduler.run(
         `mailbox:${currentGeneration}:${scopeId}`,
         async () => {
           if (generation !== currentGeneration) return;
@@ -1895,7 +1136,7 @@ export function createCommunityController(
         session = sessions.get(scope.id),
         currentGeneration = generation;
       if (!session?.loadInboxWindow) return;
-      return historyScheduler.run(
+      return roomHistory.historyScheduler.run(
         `inbox:${generation}:${scope.id}`,
         async () => {
           if (generation !== currentGeneration) return;
@@ -2001,7 +1242,11 @@ export function createCommunityController(
         },
         false,
       );
-      prioritizeContent(item.scopeId, item.roomId, item.rootEventId);
+      roomHistory.prioritizeContent(
+        item.scopeId,
+        item.roomId,
+        item.rootEventId,
+      );
       await refreshProjection(generation);
     },
     setInboxFilter(filter, unreadOnly) {
@@ -2314,22 +1559,12 @@ export function createCommunityController(
       },
     },
     pulse: {
-      setActive(active) {
-        pulseActive = active;
-        updatePulseAvailability();
-        if (!active) {
-          stopPulseRefreshTimers("Pulse closed");
-          return;
-        }
-        startPulseRefreshTimers();
-        if (pulse?.status === "idle") {
-          void refreshPulse().catch(() => undefined);
-        }
-      },
-      selectTab: selectPulseTab,
-      refresh: refreshPulse,
-      publish: publishPulse,
-      toggleLike: togglePulseLike,
+      setActive: (active) => pulseCtl.setActive(active),
+      selectTab: (tab) => pulseCtl.selectPulseTab(tab),
+      refresh: (kind) => pulseCtl.refreshPulse(kind),
+      publish: (submission, replyToEventId) =>
+        pulseCtl.publishPulse(submission, replyToEventId),
+      toggleLike: (eventId) => pulseCtl.togglePulseLike(eventId),
     },
     selectCommunity(communityId) {
       const scope = scopes.find((candidate) => candidate.id === communityId);
@@ -2352,9 +1587,9 @@ export function createCommunityController(
       replyTarget = undefined;
       requestProjection();
       void persistSelection(scope.id);
-      prioritizeContent(scope.id, activeRoomId);
-      updatePulseAvailability();
-      if (pulseActive) void refreshPulse().catch(() => undefined);
+      roomHistory.prioritizeContent(scope.id, activeRoomId);
+      pulseCtl.updatePulseAvailability();
+      if (pulseCtl.active) void pulseCtl.refreshPulse().catch(() => undefined);
     },
     selectRoom(roomId) {
       const roomExists = workspace.navigationSections
@@ -2368,20 +1603,20 @@ export function createCommunityController(
       replyTarget = undefined;
       requestProjection();
       void persistSelection(activeCommunityId);
-      prioritizeContent(activeCommunityId, roomId);
+      roomHistory.prioritizeContent(activeCommunityId, roomId);
     },
     openTopic(topicId) {
       activeTopicId = topicId;
       activeThreadId = undefined;
       sidePanel = "none";
       requestProjection();
-      prioritizeContent(activeCommunityId, activeRoomId, topicId);
+      roomHistory.prioritizeContent(activeCommunityId, activeRoomId, topicId);
     },
     openThread(messageId) {
       activeThreadId = messageId;
       sidePanel = "thread";
       requestProjection();
-      prioritizeContent(activeCommunityId, activeRoomId, messageId);
+      roomHistory.prioritizeContent(activeCommunityId, activeRoomId, messageId);
     },
     closeSidePanel() {
       activeThreadId = undefined;
@@ -3640,9 +2875,7 @@ export function createCommunityController(
       privateEventsByScope = {};
       activeInboxItemId = "";
       pendingDirectCommands.clear();
-      historyWindows.clear();
-      historyIntents.clear();
-      historyStates = {};
+      roomHistory.resetWindows();
       notificationCandidates.clear();
       notificationInitialized.clear();
       timelinePresentations.clear();
@@ -3663,7 +2896,7 @@ export function createCommunityController(
       activeThreadId = undefined;
       sidePanel = "none";
       replyTarget = undefined;
-      if (pulse !== undefined) pulse = { ...pulse, tab: "everyone" };
+      pulseCtl.resetTabOnSignOut();
       if (activeRoomId.startsWith("dm:")) {
         activeRoomId =
           communityRooms(
@@ -3693,126 +2926,6 @@ export function createCommunityController(
     onJoinRoom: actions.join,
     onSearch: actions.search,
   };
-
-  async function publishTemplate(
-    operation: string,
-    template: NostrEventTemplate,
-  ): Promise<void> {
-    await execute(operation, { type: "publish", template });
-  }
-
-  async function execute(
-    operation: string,
-    command: CommunityCommand,
-    scopeId = activeCommunityId,
-  ): Promise<void> {
-    let acceptedEvents: readonly NostrEvent[] = [];
-    await runOperation(operation, async () => {
-      if (status !== "connected") {
-        throw new CommunityActionFailure(
-          "network",
-          "Reconnect to perform this action",
-          true,
-        );
-      }
-      await ensureIdentity(operation);
-      const session = sessions.get(scopeId);
-      if (session === undefined) {
-        throw new CommunityActionFailure(
-          "network",
-          "Community is not connected",
-          true,
-        );
-      }
-      acceptedEvents = await session.execute(command, controllerAbort?.signal);
-      await cacheLiveEvents(scopeId, acceptedEvents, generation);
-      if (commandNeedsReconciliation(command)) {
-        await refreshScope(scopeId, controllerAbort?.signal);
-      }
-    });
-    if (
-      command.type !== "direct-message" &&
-      acceptedEvents.length > 0 &&
-      acceptedEvents.some(
-        (event) =>
-          !(eventsByScope[scopeId] ?? []).some(
-            (candidate) => candidate.id === event.id,
-          ),
-      )
-    ) {
-      acceptedEventIdsByOperation.set(
-        operation,
-        acceptedEvents.map((event) => event.id),
-      );
-      operations = {
-        ...operations,
-        [operation]: {
-          status: "accepted",
-          message: "Accepted by relay, still syncing.",
-        },
-      };
-    }
-  }
-
-  async function runOperation(
-    operation: string,
-    action: () => Promise<void>,
-  ): Promise<void> {
-    const version = Symbol(operation);
-    const requestedGeneration = generation;
-    operationVersions.set(operation, version);
-    const isCurrent = () =>
-      generation === requestedGeneration &&
-      operationVersions.get(operation) === version;
-    retries.delete(operation);
-    acceptedEventIdsByOperation.delete(operation);
-    operations = {
-      ...operations,
-      [operation]: { status: "pending" },
-    };
-    try {
-      await action();
-      if (!isCurrent()) return;
-      operations = {
-        ...operations,
-        [operation]: { status: "idle" },
-      };
-      retries.delete(operation);
-    } catch (cause) {
-      if (!isCurrent()) return;
-      const failure = normalizeCommunityOperationFailure(cause);
-      operations = {
-        ...operations,
-        [operation]: {
-          status: "failed",
-          message: failure.message,
-          failure,
-        },
-      };
-      if (failure.retryable) {
-        retries.set(operation, async () => runOperation(operation, action));
-      }
-      throw cause;
-    }
-  }
-
-  function throwOperationFailure(
-    operation: string,
-    category: CommunityOperationFailure["category"],
-    message: string,
-  ): never {
-    const failure: CommunityOperationFailure = {
-      category,
-      message,
-      retryable: false,
-    };
-    retries.delete(operation);
-    operations = {
-      ...operations,
-      [operation]: { status: "failed", message, failure },
-    };
-    throw new CommunityActionFailure(category, message);
-  }
 
   function assertCanPublish(roomId: string, operation: string): void {
     assertRoomActionAvailable(roomId, operation, "publish");
@@ -3957,7 +3070,7 @@ export function createCommunityController(
     messages: readonly CommunityMessageModel[],
     rootEventId?: string,
   ): void {
-    const key = historyResourceKey(scopeId, room.id, rootEventId);
+    const key = roomHistory.resourceKey(scopeId, room.id, rootEventId);
     const reference: CommunityConversationReference | undefined =
       room.conversation;
     if (!reference) return;
@@ -3967,8 +3080,8 @@ export function createCommunityController(
         ? { ...reference, threadId: rootEventId }
         : reference;
     const candidates = notificationCandidates.get(key) ?? new Set<string>();
-    const window = historyWindows.get(key);
-    const history = historyStates[key];
+    const window = roomHistory.historyWindows.get(key);
+    const history = roomHistory.historyStates[key];
     const sourceEvents = new Map(
       [
         ...(eventsByScope[scopeId] ?? []),
@@ -4037,7 +3150,10 @@ export function createCommunityController(
       };
       const shared = shareProjection(history, next);
       if (shared !== undefined && shared !== history)
-        historyStates = { ...historyStates, [key]: shared };
+        roomHistory.setHistoryStates({
+          ...roomHistory.historyStates,
+          [key]: shared,
+        });
     }
   }
 
@@ -4058,14 +3174,14 @@ export function createCommunityController(
               itemLimit: inboxVisibleLimit,
               messageLimit:
                 directLimits.get(
-                  historyResourceKey(
+                  roomHistory.resourceKey(
                     activeCommunityId,
                     activeRoomId,
                     activeThreadId ?? activeTopicId,
                   ),
                 ) ??
-                historyWindows.get(
-                  historyResourceKey(
+                roomHistory.historyWindows.get(
+                  roomHistory.resourceKey(
                     activeCommunityId,
                     activeRoomId,
                     activeThreadId ?? activeTopicId,
@@ -4127,8 +3243,8 @@ export function createCommunityController(
         );
         projected.topics = projected.topics.map((topic) => {
           const thread =
-            historyStates[
-              historyResourceKey(activeCommunityId, activeRoomId, topic.id)
+            roomHistory.historyStates[
+              roomHistory.resourceKey(activeCommunityId, activeRoomId, topic.id)
             ];
           return {
             ...topic,
@@ -4162,14 +3278,22 @@ export function createCommunityController(
       ) {
         const limit =
           directLimits.get(
-            historyResourceKey(activeCommunityId, activeRoomId),
+            roomHistory.resourceKey(activeCommunityId, activeRoomId),
           ) ??
-          historyWindows.get(
-            historyResourceKey(activeCommunityId, activeRoomId, activeTopicId),
+          roomHistory.historyWindows.get(
+            roomHistory.resourceKey(
+              activeCommunityId,
+              activeRoomId,
+              activeTopicId,
+            ),
           )?.visibleLimit ??
           50;
-        const selectedWindow = historyWindows.get(
-          historyResourceKey(activeCommunityId, activeRoomId, activeTopicId),
+        const selectedWindow = roomHistory.historyWindows.get(
+          roomHistory.resourceKey(
+            activeCommunityId,
+            activeRoomId,
+            activeTopicId,
+          ),
         );
         projected.messages = selectedWindow?.visibleIds
           ? projected.messages.filter((message) =>
@@ -4183,8 +3307,8 @@ export function createCommunityController(
           : projected.topics.slice(0, limit);
         if (projected.thread) {
           const threadLimit =
-            historyWindows.get(
-              historyResourceKey(
+            roomHistory.historyWindows.get(
+              roomHistory.resourceKey(
                 activeCommunityId,
                 activeRoomId,
                 projected.thread.rootMessageId,
@@ -4193,8 +3317,8 @@ export function createCommunityController(
           projected.thread = {
             ...projected.thread,
             messages: (() => {
-              const selected = historyWindows.get(
-                historyResourceKey(
+              const selected = roomHistory.historyWindows.get(
+                roomHistory.resourceKey(
                   activeCommunityId,
                   activeRoomId,
                   projected.thread!.rootMessageId,
@@ -4247,16 +3371,16 @@ export function createCommunityController(
         revision.inbox.items.find(
           (item) => item.id === revision.inbox!.activeItemId,
         );
-      const resource = historyResourceKey(
+      const resource = roomHistory.resourceKey(
         selected?.scopeId ?? activeCommunityId,
         selected?.roomId ?? activeRoomId,
         selected?.rootEventId,
       );
       const limit =
         directLimits.get(resource) ??
-        historyWindows.get(resource)?.visibleLimit ??
+        roomHistory.historyWindows.get(resource)?.visibleLimit ??
         50;
-      const selectedWindow = historyWindows.get(resource);
+      const selectedWindow = roomHistory.historyWindows.get(resource);
       revision.inbox.messages = selectedWindow?.visibleIds
         ? revision.inbox.messages.filter((message) =>
             selectedWindow.visibleIds!.has(message.id),
@@ -4469,7 +3593,7 @@ export function createCommunityController(
     const acceptedIds = new Set(
       (eventsByScope[scopeId] ?? []).map((event) => event.id),
     );
-    for (const [key, entry] of historyWindows) {
+    for (const [key, entry] of roomHistory.historyWindows) {
       if (entry.scopeId !== scopeId) continue;
       for (const event of events) {
         if (
@@ -4477,7 +3601,8 @@ export function createCommunityController(
           !eventInHistoryWindow(event, entry.request)
         )
           continue;
-        if (!historyStates[key]?.hasNewer) entry.visibleIds?.add(event.id);
+        if (!roomHistory.historyStates[key]?.hasNewer)
+          entry.visibleIds?.add(event.id);
         if (
           !knownBefore.has(event.id) &&
           event.pubkey !== identityPubkey &&
@@ -4540,7 +3665,7 @@ export function createCommunityController(
             (pubkey) => pubkey !== identityPubkey,
           ),
         );
-        const key = historyResourceKey(scopeId, roomId);
+        const key = roomHistory.resourceKey(scopeId, roomId);
         const candidates = notificationCandidates.get(key) ?? new Set<string>();
         candidates.add(event.id);
         notificationCandidates.set(key, candidates);
@@ -4932,81 +4057,6 @@ export function createCommunityController(
   return controller;
 }
 
-class CommunityActionFailure extends Error {
-  readonly failure: CommunityOperationFailure;
-
-  constructor(
-    category: CommunityOperationFailure["category"],
-    message: string,
-    retryable = false,
-  ) {
-    super(message);
-    this.name = "CommunityActionFailure";
-    this.failure = { category, message, retryable };
-  }
-}
-
-export function normalizeCommunityOperationFailure(
-  cause: unknown,
-): CommunityOperationFailure {
-  if (cause instanceof CommunityActionFailure) return cause.failure;
-  const message =
-    cause instanceof Error ? cause.message : "Community action failed";
-  if (/recipients?.+not advertised.+(?:inbox )?relay/iu.test(message)) {
-    return {
-      category: "validation",
-      message,
-      relayReason: message,
-      retryable: false,
-    };
-  }
-  const relayMatch = message.match(
-    /(?:^|\s)(invalid|restricted|blocked|rate-limited|pow|mute|error):\s*(.*)$/iu,
-  );
-  if (relayMatch !== null) {
-    const prefix = relayMatch[1]!.toLocaleLowerCase();
-    const category = prefix === "error" ? "relay" : prefix;
-    return {
-      category: category as CommunityOperationFailure["category"],
-      message,
-      relayReason: message,
-      retryable: prefix === "rate-limited" || prefix === "error",
-    };
-  }
-  if (/timed?\s*out|timeout/iu.test(message)) {
-    return {
-      category: "timeout",
-      message,
-      relayReason: message,
-      retryable: true,
-    };
-  }
-  if (
-    /disconnect|network|socket|connection|reconnect|failed to fetch/iu.test(
-      message,
-    )
-  ) {
-    return {
-      category: "network",
-      message,
-      relayReason: message,
-      retryable: true,
-    };
-  }
-  if (/identity|sign[ -]?in|authentication|nip-07|nip-42/iu.test(message)) {
-    return { category: "authentication", message, retryable: false };
-  }
-  if (/member|join|permission|writer|administrator/iu.test(message)) {
-    return {
-      category: "membership",
-      message,
-      relayReason: message,
-      retryable: false,
-    };
-  }
-  return { category: "relay", message, relayReason: message, retryable: true };
-}
-
 function createGroupId(): string {
   return (
     globalThis.crypto?.randomUUID?.() ??
@@ -5033,14 +4083,6 @@ function validateRoomUpdate(
   ) {
     throw new Error("This relay does not advertise writer-restricted rooms");
   }
-}
-
-function eventDeleted(events: readonly NostrEvent[], eventId: string): boolean {
-  return events.some(
-    (event) =>
-      (event.kind === 5 || event.kind === 9_005) &&
-      event.tags.some((tag) => tag[0] === "e" && tag[1] === eventId),
-  );
 }
 
 function privateEventDeleted(
@@ -5299,19 +4341,6 @@ function normalizeRelayUrl(value: string): string {
   return url.toString();
 }
 
-function commandNeedsReconciliation(command: CommunityCommand): boolean {
-  return [
-    "create-room",
-    "update-room",
-    "delete-room",
-    "join",
-    "leave",
-    "add-member",
-    "remove-member",
-    "direct-message",
-  ].includes(command.type);
-}
-
 function isGroupAdmin(
   events: readonly NostrEvent[],
   groupId: string,
@@ -5354,13 +4383,6 @@ function setProfileField(
   const normalized = value.trim();
   if (normalized === "") delete profile[field];
   else profile[field] = normalized;
-}
-
-function isAbort(cause: unknown): boolean {
-  return (
-    (cause instanceof DOMException && cause.name === "AbortError") ||
-    (cause instanceof Error && cause.name === "AbortError")
-  );
 }
 
 async function yieldToBrowser(): Promise<void> {

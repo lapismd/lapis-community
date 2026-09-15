@@ -290,6 +290,11 @@
       "kind": "legacy",
       "justification": "Existing file above the new-file counted-line limit; do not grow"
     },
+    "src/auth/login-method.ts": {
+      "countedLines": 26,
+      "physicalLines": 27,
+      "forbiddenImportCount": 0
+    },
     "src/auth/relay-auth.ts": {
       "countedLines": 25,
       "physicalLines": 29,
@@ -492,15 +497,20 @@
       "justification": "Existing file above the new-file counted-line limit; do not grow"
     },
     "src/community/community-controller.svelte.ts": {
-      "countedLines": 5261,
-      "physicalLines": 5375,
+      "countedLines": 4312,
+      "physicalLines": 4397,
       "forbiddenImportCount": 0,
       "kind": "legacy",
-      "justification": "Svelte 5 controller factory; extract history/pulse/operations before adding behaviour"
+      "justification": "Svelte 5 controller factory; history, Pulse, and operations extracted"
     },
     "src/community/community-event-worker.ts": {
       "countedLines": 106,
       "physicalLines": 111,
+      "forbiddenImportCount": 0
+    },
+    "src/community/composer-model.ts": {
+      "countedLines": 27,
+      "physicalLines": 29,
       "forbiddenImportCount": 0
     },
     "src/community/configured-private-cache.test.ts": {
@@ -533,6 +543,51 @@
     "src/community/controller-transitions.test.ts": {
       "countedLines": 332,
       "physicalLines": 343,
+      "forbiddenImportCount": 0
+    },
+    "src/community/controller/abort.ts": {
+      "countedLines": 6,
+      "physicalLines": 6,
+      "forbiddenImportCount": 0
+    },
+    "src/community/controller/event-deleted.ts": {
+      "countedLines": 11,
+      "physicalLines": 12,
+      "forbiddenImportCount": 0
+    },
+    "src/community/controller/history-load.ts": {
+      "countedLines": 298,
+      "physicalLines": 305,
+      "forbiddenImportCount": 0
+    },
+    "src/community/controller/history-restore.ts": {
+      "countedLines": 87,
+      "physicalLines": 88,
+      "forbiddenImportCount": 0
+    },
+    "src/community/controller/history-window.ts": {
+      "countedLines": 156,
+      "physicalLines": 166,
+      "forbiddenImportCount": 0
+    },
+    "src/community/controller/history.svelte.ts": {
+      "countedLines": 290,
+      "physicalLines": 303,
+      "forbiddenImportCount": 0
+    },
+    "src/community/controller/operations.ts": {
+      "countedLines": 278,
+      "physicalLines": 291,
+      "forbiddenImportCount": 0
+    },
+    "src/community/controller/pulse-actions.ts": {
+      "countedLines": 218,
+      "physicalLines": 222,
+      "forbiddenImportCount": 0
+    },
+    "src/community/controller/pulse.svelte.ts": {
+      "countedLines": 283,
+      "physicalLines": 293,
       "forbiddenImportCount": 0
     },
     "src/community/conversation-read-state.test.ts": {
@@ -607,6 +662,11 @@
     "src/community/identity-connector.ts": {
       "countedLines": 17,
       "physicalLines": 20,
+      "forbiddenImportCount": 0
+    },
+    "src/community/inbox-model.ts": {
+      "countedLines": 40,
+      "physicalLines": 45,
       "forbiddenImportCount": 0
     },
     "src/community/inbox.test.ts": {
@@ -758,6 +818,11 @@
     "src/community/verified-events.ts": {
       "countedLines": 23,
       "physicalLines": 33,
+      "forbiddenImportCount": 0
+    },
+    "src/community/workspace-model.ts": {
+      "countedLines": 255,
+      "physicalLines": 283,
       "forbiddenImportCount": 0
     },
     "src/components/community-account-settings/CommunityAccountSettings.stories.svelte": {
@@ -925,11 +990,6 @@
       "physicalLines": 52,
       "forbiddenImportCount": 0
     },
-    "src/components/community-application/authentication-context.ts": {
-      "countedLines": 33,
-      "physicalLines": 38,
-      "forbiddenImportCount": 0
-    },
     "src/components/community-application/CommunityAgentsApplication.stories.svelte": {
       "countedLines": 349,
       "physicalLines": 354,
@@ -972,6 +1032,11 @@
       "forbiddenImportCount": 0,
       "kind": "legacy",
       "justification": "Existing file above the new-file counted-line limit; do not grow"
+    },
+    "src/components/community-application/authentication-context.ts": {
+      "countedLines": 33,
+      "physicalLines": 38,
+      "forbiddenImportCount": 0
     },
     "src/components/community-application/composer-context.ts": {
       "countedLines": 29,
@@ -1017,11 +1082,6 @@
       "kind": "legacy",
       "justification": "Existing file above the new-file counted-line limit; do not grow"
     },
-    "src/components/community-channel-canvas/canvas-story-contracts.ts": {
-      "countedLines": 34,
-      "physicalLines": 34,
-      "forbiddenImportCount": 0
-    },
     "src/components/community-channel-canvas/CommunityChannelCanvas.stories.svelte": {
       "countedLines": 114,
       "physicalLines": 116,
@@ -1032,6 +1092,11 @@
       "physicalLines": 160,
       "forbiddenImportCount": 0
     },
+    "src/components/community-channel-canvas/canvas-story-contracts.ts": {
+      "countedLines": 34,
+      "physicalLines": 34,
+      "forbiddenImportCount": 0
+    },
     "src/components/community-channel-settings/CommunityChannelSettings.stories.svelte": {
       "countedLines": 285,
       "physicalLines": 296,
@@ -1040,26 +1105,6 @@
     "src/components/community-channel-settings/CommunityChannelSettings.svelte": {
       "countedLines": 282,
       "physicalLines": 289,
-      "forbiddenImportCount": 0
-    },
-    "src/components/community-chat-composer/autocomplete.test.ts": {
-      "countedLines": 113,
-      "physicalLines": 123,
-      "forbiddenImportCount": 0
-    },
-    "src/components/community-chat-composer/autocomplete.ts": {
-      "countedLines": 218,
-      "physicalLines": 240,
-      "forbiddenImportCount": 0
-    },
-    "src/components/community-chat-composer/browser-draft-store.test.ts": {
-      "countedLines": 47,
-      "physicalLines": 51,
-      "forbiddenImportCount": 0
-    },
-    "src/components/community-chat-composer/browser-draft-store.ts": {
-      "countedLines": 59,
-      "physicalLines": 65,
       "forbiddenImportCount": 0
     },
     "src/components/community-chat-composer/CommunityChatComposer.stories.svelte": {
@@ -1084,6 +1129,26 @@
     "src/components/community-chat-composer/CommunityComposerMemberReference.svelte": {
       "countedLines": 24,
       "physicalLines": 25,
+      "forbiddenImportCount": 0
+    },
+    "src/components/community-chat-composer/autocomplete.test.ts": {
+      "countedLines": 113,
+      "physicalLines": 123,
+      "forbiddenImportCount": 0
+    },
+    "src/components/community-chat-composer/autocomplete.ts": {
+      "countedLines": 218,
+      "physicalLines": 240,
+      "forbiddenImportCount": 0
+    },
+    "src/components/community-chat-composer/browser-draft-store.test.ts": {
+      "countedLines": 47,
+      "physicalLines": 51,
+      "forbiddenImportCount": 0
+    },
+    "src/components/community-chat-composer/browser-draft-store.ts": {
+      "countedLines": 59,
+      "physicalLines": 65,
       "forbiddenImportCount": 0
     },
     "src/components/community-chat-composer/composer-extension.ts": {
@@ -1479,11 +1544,6 @@
       "physicalLines": 17,
       "forbiddenImportCount": 0
     },
-    "src/components/community-patterns/contracts.ts": {
-      "countedLines": 270,
-      "physicalLines": 270,
-      "forbiddenImportCount": 0
-    },
     "src/components/community-patterns/Dialog.stories.svelte": {
       "countedLines": 16,
       "physicalLines": 17,
@@ -1492,6 +1552,41 @@
     "src/components/community-patterns/Emoji.stories.svelte": {
       "countedLines": 16,
       "physicalLines": 17,
+      "forbiddenImportCount": 0
+    },
+    "src/components/community-patterns/Identity.stories.svelte": {
+      "countedLines": 16,
+      "physicalLines": 17,
+      "forbiddenImportCount": 0
+    },
+    "src/components/community-patterns/Loading.stories.svelte": {
+      "countedLines": 22,
+      "physicalLines": 23,
+      "forbiddenImportCount": 0
+    },
+    "src/components/community-patterns/Markdown.stories.svelte": {
+      "countedLines": 16,
+      "physicalLines": 17,
+      "forbiddenImportCount": 0
+    },
+    "src/components/community-patterns/Members.stories.svelte": {
+      "countedLines": 41,
+      "physicalLines": 42,
+      "forbiddenImportCount": 0
+    },
+    "src/components/community-patterns/Message.stories.svelte": {
+      "countedLines": 16,
+      "physicalLines": 17,
+      "forbiddenImportCount": 0
+    },
+    "src/components/community-patterns/Reactions.stories.svelte": {
+      "countedLines": 16,
+      "physicalLines": 17,
+      "forbiddenImportCount": 0
+    },
+    "src/components/community-patterns/contracts.ts": {
+      "countedLines": 270,
+      "physicalLines": 270,
       "forbiddenImportCount": 0
     },
     "src/components/community-patterns/examples/AgentProcessingExample.svelte": {
@@ -1569,36 +1664,6 @@
       "physicalLines": 12,
       "forbiddenImportCount": 0
     },
-    "src/components/community-patterns/Identity.stories.svelte": {
-      "countedLines": 16,
-      "physicalLines": 17,
-      "forbiddenImportCount": 0
-    },
-    "src/components/community-patterns/Loading.stories.svelte": {
-      "countedLines": 22,
-      "physicalLines": 23,
-      "forbiddenImportCount": 0
-    },
-    "src/components/community-patterns/Markdown.stories.svelte": {
-      "countedLines": 16,
-      "physicalLines": 17,
-      "forbiddenImportCount": 0
-    },
-    "src/components/community-patterns/Members.stories.svelte": {
-      "countedLines": 41,
-      "physicalLines": 42,
-      "forbiddenImportCount": 0
-    },
-    "src/components/community-patterns/Message.stories.svelte": {
-      "countedLines": 16,
-      "physicalLines": 17,
-      "forbiddenImportCount": 0
-    },
-    "src/components/community-patterns/Reactions.stories.svelte": {
-      "countedLines": 16,
-      "physicalLines": 17,
-      "forbiddenImportCount": 0
-    },
     "src/components/community-profile-menu/CommunityProfileMenu.stories.svelte": {
       "countedLines": 286,
       "physicalLines": 296,
@@ -1626,6 +1691,11 @@
       "physicalLines": 40,
       "forbiddenImportCount": 0
     },
+    "src/components/community-projects/CommunityProjectStatusToasts.svelte": {
+      "countedLines": 89,
+      "physicalLines": 98,
+      "forbiddenImportCount": 0
+    },
     "src/components/community-projects/CommunityProjects.stories.svelte": {
       "countedLines": 1834,
       "physicalLines": 1876,
@@ -1643,11 +1713,6 @@
     "src/components/community-projects/CommunityProjectsStoryHarness.svelte": {
       "countedLines": 21,
       "physicalLines": 26,
-      "forbiddenImportCount": 0
-    },
-    "src/components/community-projects/CommunityProjectStatusToasts.svelte": {
-      "countedLines": 89,
-      "physicalLines": 98,
       "forbiddenImportCount": 0
     },
     "src/components/community-projects/model.ts": {
@@ -2018,16 +2083,6 @@
       "physicalLines": 6,
       "forbiddenImportCount": 0
     },
-    "src/components/discussion-post-stream/discussion-stream.test.ts": {
-      "countedLines": 128,
-      "physicalLines": 137,
-      "forbiddenImportCount": 0
-    },
-    "src/components/discussion-post-stream/discussion-stream.ts": {
-      "countedLines": 162,
-      "physicalLines": 173,
-      "forbiddenImportCount": 0
-    },
     "src/components/discussion-post-stream/DiscussionPostStream.stories.svelte": {
       "countedLines": 110,
       "physicalLines": 115,
@@ -2039,6 +2094,16 @@
       "forbiddenImportCount": 0,
       "kind": "legacy",
       "justification": "Existing file above the new-file counted-line limit; do not grow"
+    },
+    "src/components/discussion-post-stream/discussion-stream.test.ts": {
+      "countedLines": 128,
+      "physicalLines": 137,
+      "forbiddenImportCount": 0
+    },
+    "src/components/discussion-post-stream/discussion-stream.ts": {
+      "countedLines": 162,
+      "physicalLines": 173,
+      "forbiddenImportCount": 0
     },
     "src/components/discussion-post/DiscussionPost.stories.svelte": {
       "countedLines": 106,
@@ -2096,11 +2161,6 @@
       "physicalLines": 11,
       "forbiddenImportCount": 0
     },
-    "src/components/registry-browser/model.ts": {
-      "countedLines": 28,
-      "physicalLines": 31,
-      "forbiddenImportCount": 0
-    },
     "src/components/registry-browser/RegistryBrowser.live.stories.svelte": {
       "countedLines": 24,
       "physicalLines": 27,
@@ -2135,9 +2195,41 @@
       "physicalLines": 166,
       "forbiddenImportCount": 0
     },
+    "src/components/registry-browser/model.ts": {
+      "countedLines": 28,
+      "physicalLines": 31,
+      "forbiddenImportCount": 0
+    },
     "src/components/registry-browser/story-fixtures.ts": {
       "countedLines": 407,
       "physicalLines": 419,
+      "forbiddenImportCount": 0,
+      "kind": "legacy",
+      "justification": "Existing file above the new-file counted-line limit; do not grow"
+    },
+    "src/components/registry-community/RegistryCommunity.stories.svelte": {
+      "countedLines": 396,
+      "physicalLines": 408,
+      "forbiddenImportCount": 0
+    },
+    "src/components/registry-community/RegistryCommunity.svelte": {
+      "countedLines": 42,
+      "physicalLines": 49,
+      "forbiddenImportCount": 0
+    },
+    "src/components/registry-community/RegistryCommunityLongTimelineStoryHarness.svelte": {
+      "countedLines": 80,
+      "physicalLines": 86,
+      "forbiddenImportCount": 0
+    },
+    "src/components/registry-community/RegistryCommunityStoryHarness.svelte": {
+      "countedLines": 89,
+      "physicalLines": 96,
+      "forbiddenImportCount": 0
+    },
+    "src/components/registry-community/RegistryCommunityView.svelte": {
+      "countedLines": 591,
+      "physicalLines": 640,
       "forbiddenImportCount": 0,
       "kind": "legacy",
       "justification": "Existing file above the new-file counted-line limit; do not grow"
@@ -2185,33 +2277,6 @@
       "countedLines": 88,
       "physicalLines": 94,
       "forbiddenImportCount": 0
-    },
-    "src/components/registry-community/RegistryCommunity.stories.svelte": {
-      "countedLines": 396,
-      "physicalLines": 408,
-      "forbiddenImportCount": 0
-    },
-    "src/components/registry-community/RegistryCommunity.svelte": {
-      "countedLines": 42,
-      "physicalLines": 49,
-      "forbiddenImportCount": 0
-    },
-    "src/components/registry-community/RegistryCommunityLongTimelineStoryHarness.svelte": {
-      "countedLines": 80,
-      "physicalLines": 86,
-      "forbiddenImportCount": 0
-    },
-    "src/components/registry-community/RegistryCommunityStoryHarness.svelte": {
-      "countedLines": 89,
-      "physicalLines": 96,
-      "forbiddenImportCount": 0
-    },
-    "src/components/registry-community/RegistryCommunityView.svelte": {
-      "countedLines": 591,
-      "physicalLines": 640,
-      "forbiddenImportCount": 0,
-      "kind": "legacy",
-      "justification": "Existing file above the new-file counted-line limit; do not grow"
     },
     "src/components/registry-directory/RegistryDirectory.stories.svelte": {
       "countedLines": 144,
@@ -2275,11 +2340,6 @@
       "physicalLines": 228,
       "forbiddenImportCount": 0
     },
-    "src/components/registry-plugin-detail/discussion-isolation-context.ts": {
-      "countedLines": 19,
-      "physicalLines": 23,
-      "forbiddenImportCount": 0
-    },
     "src/components/registry-plugin-detail/RegistryPluginDetail.stories.svelte": {
       "countedLines": 291,
       "physicalLines": 299,
@@ -2295,6 +2355,11 @@
     "src/components/registry-plugin-detail/RegistryPluginDetailLongDiscussionStoryHarness.svelte": {
       "countedLines": 23,
       "physicalLines": 26,
+      "forbiddenImportCount": 0
+    },
+    "src/components/registry-plugin-detail/discussion-isolation-context.ts": {
+      "countedLines": 19,
+      "physicalLines": 23,
       "forbiddenImportCount": 0
     },
     "src/components/registry-plugin-icons.ts": {
@@ -2326,11 +2391,6 @@
       "physicalLines": 23,
       "forbiddenImportCount": 0
     },
-    "src/components/registry-verified-image/context.ts": {
-      "countedLines": 18,
-      "physicalLines": 23,
-      "forbiddenImportCount": 0
-    },
     "src/components/registry-verified-image/RegistryVerifiedImage.stories.svelte": {
       "countedLines": 69,
       "physicalLines": 75,
@@ -2344,6 +2404,11 @@
     "src/components/registry-verified-image/RegistryVerifiedImageStoryHarness.svelte": {
       "countedLines": 64,
       "physicalLines": 72,
+      "forbiddenImportCount": 0
+    },
+    "src/components/registry-verified-image/context.ts": {
+      "countedLines": 18,
+      "physicalLines": 23,
       "forbiddenImportCount": 0
     },
     "src/components/story-fixtures.ts": {
@@ -2759,26 +2824,6 @@
     "src/testing/relay-contract.test.ts": {
       "countedLines": 113,
       "physicalLines": 120,
-      "forbiddenImportCount": 0
-    },
-    "src/community/workspace-model.ts": {
-      "countedLines": 255,
-      "physicalLines": 283,
-      "forbiddenImportCount": 0
-    },
-    "src/community/inbox-model.ts": {
-      "countedLines": 40,
-      "physicalLines": 45,
-      "forbiddenImportCount": 0
-    },
-    "src/community/composer-model.ts": {
-      "countedLines": 27,
-      "physicalLines": 29,
-      "forbiddenImportCount": 0
-    },
-    "src/auth/login-method.ts": {
-      "countedLines": 26,
-      "physicalLines": 27,
       "forbiddenImportCount": 0
     }
   }
