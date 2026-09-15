@@ -22,7 +22,7 @@
     CommunityNavigationSectionActionModel,
     CommunityNavigationSectionModel,
   } from "./model.js";
-  import { withStarredCommunityNavigationSection } from "./model.js";
+  import { orderNavigationSections } from "../community-application/navigation-sections.js";
 
   let {
     initialActiveItemId = "inbox",
@@ -81,7 +81,7 @@
   const inbox = $derived(community?.state.inbox ?? communityInboxFixture);
   const navigationModel = $derived.by<CommunityNavigationModel>(() => ({
     ...communityNavigationFixture,
-    sections: withStarredCommunityNavigationSection(
+    sections: orderNavigationSections(
       workspace?.navigationSections.map((section) => {
         const fixture = communityNavigationFixture.sections.find(
           (candidate) => candidate.id === section.id,

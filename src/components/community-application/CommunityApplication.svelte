@@ -175,7 +175,6 @@
     CommunityNavigationSectionActionModel,
     CommunityNavigationSectionModel,
   } from "../community-navigation/model.js";
-  import { withStarredCommunityNavigationSection } from "../community-navigation/model.js";
   import CommunityProfileMenu from "../community-profile-menu/CommunityProfileMenu.svelte";
   import CommunityPulse from "../community-pulse/CommunityPulse.svelte";
   import CommunityProjects from "../community-projects/CommunityProjects.svelte";
@@ -218,6 +217,14 @@
     type CommunityMessageModel,
   } from "../community-workspace/model.js";
   import { formatCommunityEventCopy } from "../community-message/copy-event.js";
+  import {
+    loadNavigationSections,
+    navigationSectionStorageKey,
+    orderNavigationSections,
+    saveNavigationSections,
+    sectionsForDestination,
+    type NavigationSectionState,
+  } from "./navigation-sections.js";
   import {
     COMMUNITY_APPLICATION_SHELL_LAYOUT_STORAGE_KEY,
     COMMUNITY_APPLICATION_RELEASE_OVERVIEW_PANEL_ID,
@@ -334,6 +341,9 @@
       return undefined;
     }
   });
+  let navigationSectionOpen = $state<NavigationSectionState>({});
+  let loadedNavigationSectionKey = $state("");
+  let pendingNavigationReveal = $state<string>();
   const defaultProjectCatalogStore = untrack(() =>
     createBrowserProjectForgeCatalogStore(
       browserStorage === undefined ? {} : { storage: browserStorage },
@@ -1191,7 +1201,7 @@
         ? [{ id: "agents", label: "Agents", kind: "agents" as const }]
         : []),
     ],
-    sections: withStarredCommunityNavigationSection([
+    sections: orderNavigationSections([
       ...(hasProjects && listedProjects.length > 0
         ? [
             {
@@ -1645,6 +1655,56 @@
         ? undefined
         : workspace.activeRoomId,
   );
+  const navigationSectionKey = $derived(
+    activeConnection
+      ? navigationSectionStorageKey(
+          activeConnection.communityId,
+          activeConnection.relayUrl,
+          applicationAccount?.account.nostr_pubkey ??
+            workspace.currentMemberId ??
+            "anonymous",
+        )
+      : undefined,
+  );
+  $effect(() => {
+    const key = navigationSectionKey;
+    if (key === undefined) return;
+    untrack(() => {
+      navigationSectionOpen = loadNavigationSections(browserStorage, key);
+      loadedNavigationSectionKey = key;
+      pendingNavigationReveal = undefined;
+    });
+  });
+  $effect(() => {
+    const key = navigationSectionKey;
+    if (key === undefined || loadedNavigationSectionKey !== key) return;
+    saveNavigationSections(browserStorage, key, navigationSectionOpen);
+  });
+  $effect(() => {
+    const destination = pendingNavigationReveal;
+    if (
+      destination === undefined ||
+      loadedNavigationSectionKey !== navigationSectionKey
+    )
+      return;
+    const sections = sectionsForDestination(
+      navigationModel.sections,
+      destination,
+    );
+    if (sections.length === 0) return;
+    untrack(() => {
+      const closed = sections.filter(
+        (id) => navigationSectionOpen[id] !== true,
+      );
+      if (closed.length > 0) {
+        navigationSectionOpen = {
+          ...navigationSectionOpen,
+          ...Object.fromEntries(closed.map((id) => [id, true])),
+        };
+      }
+      pendingNavigationReveal = undefined;
+    });
+  });
   const navigationCompact = $derived(
     shell.mobile.resolvedMode === "desktop" &&
       shell.left.collapsed &&
@@ -3031,10 +3091,22 @@
     }
   });
 
+  function revealNavigationDestination(destination: string): void {
+    pendingNavigationReveal =
+      ["inbox", "pulse", "agents", "settings", "new-direct-message"].includes(
+        destination,
+      ) || registryRouteFromDestination(destination) !== null
+        ? undefined
+        : destination;
+  }
+
   function applyLocation(
     next: CommunityApplicationLocation,
     previous: CommunityApplicationLocation,
   ): void {
+    if (next.destination !== previous.destination) {
+      revealNavigationDestination(next.destination);
+    }
     const nextRegistryRoute = registryRouteFromDestination(next.destination);
     if (nextRegistryRoute !== null) registryRoute = nextRegistryRoute;
 
@@ -3247,6 +3319,7 @@
     destinationId: CommunityApplicationDestination,
     recordHistory: boolean,
   ): void {
+    revealNavigationDestination(destinationId);
     projectDialogRequest = undefined;
     selectedRepositoryCoordinate = "";
     activeRepositorySurface = "overview";
@@ -6884,6 +6957,7 @@
     {:else}
       <CommunityNavigation
         model={navigationModel}
+        bind:sectionOpen={navigationSectionOpen}
         {...activeItemId === undefined ? {} : { activeItemId }}
         compact={navigationCompact}
         countsUpdating={community.state.contentSync?.phase === "background" ||

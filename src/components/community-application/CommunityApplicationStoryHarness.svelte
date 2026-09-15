@@ -39,6 +39,7 @@
     seedProjectStoryRelay,
   } from "../community-projects/story-fixtures.js";
   import CommunityApplication from "./CommunityApplicationRoot.svelte";
+  import { navigationSectionStorageKey } from "./navigation-sections.js";
   import type { CommunityApplicationAuthAdapter } from "./model.js";
   import {
     COMMUNITY_APPLICATION_DESTINATION_STORAGE_KEY,
@@ -376,6 +377,22 @@
           }
           runtime = created;
           relayAuthPubkey = await created.scenario.operator.getPublicKey();
+          if (!active || currentGeneration !== runtimeGeneration) return;
+          if (created.backend !== "live") {
+            try {
+              for (const pubkey of [relayAuthPubkey, "anonymous"]) {
+                window.localStorage.removeItem(
+                  navigationSectionStorageKey(
+                    created.scenario.scope.id,
+                    created.scenario.scope.relayUrl,
+                    pubkey,
+                  ),
+                );
+              }
+            } catch {
+              // Tests also support browsers with unavailable preference storage.
+            }
+          }
           if (
             projects &&
             created.backend !== "memory" &&

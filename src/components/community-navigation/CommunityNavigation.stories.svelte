@@ -14,13 +14,17 @@
   import { CommunityNavigation, type CommunityNavigationModel } from "@lapismd/lapis-community/components";
 
   let { model, activeItemId }: { model: CommunityNavigationModel; activeItemId: string } = $props();
+  let sectionOpen = $state<Record<string, boolean>>({});
 <\/script>
 
 <CommunityNavigation
   {model}
   {activeItemId}
+  bind:sectionOpen
   onSelect={(item) => console.log(item.id)}
   onSearch={(query) => console.log(query)}
+  onSectionAction={(section, action) => console.log(section.id, action.id)}
+  onItemAction={(item, action) => console.log(item.id, action)}
 />`;
 
   const { Story } = defineMeta({
@@ -84,6 +88,14 @@
     ).toBeTruthy();
     await expect(
       starred.compareDocumentPosition(channels) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    await expect(
+      starred.compareDocumentPosition(directMessages) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    await expect(
+      directMessages.compareDocumentPosition(channels) &
         Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
     await expect(starred).toHaveAttribute(

@@ -108,6 +108,175 @@
 </script>
 
 <Story
+  name="Sidebar sections restore and reveal destinations"
+  play={async ({ canvas, canvasElement }) => {
+    const application = await canvas.findByTestId(
+      "full-community-application",
+      {},
+      { timeout: 15_000 },
+    );
+    await waitFor(
+      () =>
+        expect(application).toHaveAttribute(
+          "data-community-status",
+          "connected",
+        ),
+      { timeout: 15_000 },
+    );
+    if (application.dataset.communityBackend === "live") return;
+    const section = (label: string) =>
+      within(
+        canvas.getByRole("navigation", { name: "Community navigation" }),
+      ).getByRole("button", { name: label, expanded: true });
+    await canvas.findByRole(
+      "heading",
+      { name: "Projects", level: 2 },
+      { timeout: 15_000 },
+    );
+    const labels = ["Direct messages", "Projects", "Channels", "Forums"];
+    await expect(
+      section("Direct messages").compareDocumentPosition(section("Projects")) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    for (const label of labels) await userEvent.click(section(label));
+    const sectionTrigger = (label: string) =>
+      within(canvas.getByRole("heading", { name: label, level: 2 })).getByRole(
+        "button",
+        { name: label },
+      );
+    for (const label of labels)
+      await expect(sectionTrigger(label)).toHaveAttribute(
+        "aria-expanded",
+        "false",
+      );
+    const storyWindow = canvasElement.ownerDocument.defaultView!;
+    storyWindow.dispatchEvent(
+      new storyWindow.Event("community-story-remount-application"),
+    );
+    await waitFor(() =>
+      expect(canvas.getByTestId("full-community-application")).toHaveAttribute(
+        "data-application-generation",
+        "1",
+      ),
+    );
+    for (const label of labels)
+      await waitFor(() =>
+        expect(sectionTrigger(label)).toHaveAttribute("aria-expanded", "false"),
+      );
+
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Registry", exact: true }),
+    );
+    const openSearch = async (query: string) => {
+      await userEvent.click(
+        canvas.getByRole("button", { name: "Search community" }),
+      );
+      const dialog = await within(canvasElement.ownerDocument.body).findByRole(
+        "dialog",
+        { name: "Search community" },
+      );
+      await userEvent.type(
+        within(dialog).getByLabelText("Search community"),
+        query,
+      );
+      await userEvent.click(
+        await within(dialog).findByRole("option", {
+          name: new RegExp(`^${query}\\b`, "u"),
+        }),
+      );
+      await waitFor(() => expect(dialog).not.toBeInTheDocument());
+      await waitFor(() =>
+        expect(canvasElement.ownerDocument.body.style.pointerEvents).not.toBe(
+          "none",
+        ),
+      );
+    };
+    await openSearch("general");
+    await waitFor(() =>
+      expect(sectionTrigger("Channels")).toHaveAttribute(
+        "aria-expanded",
+        "true",
+      ),
+    );
+    await expect(sectionTrigger("Forums")).toHaveAttribute(
+      "aria-expanded",
+      "false",
+    );
+    await expect(sectionTrigger("Direct messages")).toHaveAttribute(
+      "aria-expanded",
+      "false",
+    );
+    // Collapsing an active destination remains possible; unrelated UI updates
+    // must not force it open again. History navigation intentionally does.
+    await userEvent.click(sectionTrigger("Channels"));
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Search community" }),
+    );
+    await userEvent.keyboard("{Escape}");
+    await waitFor(() =>
+      expect(canvasElement.ownerDocument.body.style.pointerEvents).not.toBe(
+        "none",
+      ),
+    );
+    await expect(sectionTrigger("Channels")).toHaveAttribute(
+      "aria-expanded",
+      "false",
+    );
+    await openSearch("general");
+    await waitFor(() =>
+      expect(sectionTrigger("Channels")).toHaveAttribute(
+        "aria-expanded",
+        "true",
+      ),
+    );
+    await userEvent.click(sectionTrigger("Channels"));
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Back", exact: true }),
+    );
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Forward", exact: true }),
+    );
+    await waitFor(() =>
+      expect(sectionTrigger("Channels")).toHaveAttribute(
+        "aria-expanded",
+        "true",
+      ),
+    );
+    await openSearch("support");
+    await waitFor(() =>
+      expect(sectionTrigger("Forums")).toHaveAttribute("aria-expanded", "true"),
+    );
+
+    const projectTrigger = sectionTrigger("Projects");
+    if (projectTrigger.getAttribute("aria-expanded") === "true")
+      await userEvent.click(projectTrigger);
+    const projectsPage = canvas
+      .getAllByRole("button", { name: "Projects", exact: true })
+      .find((button) => !button.hasAttribute("aria-expanded"))!;
+    await userEvent.click(projectsPage);
+    await waitFor(() =>
+      expect(sectionTrigger("Projects")).toHaveAttribute(
+        "aria-expanded",
+        "true",
+      ),
+    );
+    // Leave the shared fixture browser with the ordinary expanded defaults.
+    for (const label of labels)
+      if (sectionTrigger(label).getAttribute("aria-expanded") === "false")
+        await userEvent.click(sectionTrigger(label));
+  }}
+>
+  {#snippet template()}
+    <CommunityApplicationStoryHarness
+      namespace="sidebar-sections"
+      initialDestination="general"
+      projects
+      persistenceScenario
+    />
+  {/snippet}
+</Story>
+
+<Story
   name="Warm channel navigation bounds state reads"
   play={async ({ canvas }) => {
     const application = await canvas.findByTestId(

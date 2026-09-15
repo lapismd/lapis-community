@@ -60,6 +60,7 @@
     activeItemId,
     compact = false,
     countsUpdating = false,
+    sectionOpen = $bindable<Record<string, boolean>>({}),
     onSelect,
     onSearch,
     onSectionAction,
@@ -73,6 +74,8 @@
     activeItemId?: string;
     compact?: boolean;
     countsUpdating?: boolean;
+    /** Optional host-owned expansion state; omitted consumers remain local. */
+    sectionOpen?: Record<string, boolean>;
     onSelect: (item: CommunityNavigationItemModel) => void;
     onSearch: (query: string) => void;
     onSectionAction: (
@@ -89,7 +92,6 @@
     footer?: Snippet;
   } = $props();
 
-  let sectionOpen = $state<Record<string, boolean>>({});
   let sectionSort = $state<Record<string, CommunityNavigationSortOrder>>({});
   let itemOpen = $state<Record<string, boolean>>({});
   let compactSectionId = $state("");
