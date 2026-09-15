@@ -33,7 +33,7 @@
         source: { language: "svelte", code: consumerSource },
         description: {
           component:
-            "Buzz-inspired navigation for the Inbox, registry, NIP-29 channels, forums, and direct messages currently supported by Lapis Community. Search, collapsible groups, and action menus use Design Core primitives.",
+            "Buzz-inspired navigation for the Inbox, registry, NIP-29 channels, forums, and direct messages currently supported by Lapis Community. Project-associated channel rows use overlapping folders with a lower-right hash; ordinary channels retain the hash icon. Search, collapsible groups, and action menus use Design Core primitives.",
         },
       },
     },
@@ -106,6 +106,13 @@
 
     await userEvent.click(channels);
     await expect(channels).toHaveAttribute("aria-expanded", "true");
+    const channelOption = within(channels.ownerDocument.body).getByRole(
+      "option",
+      { name: /general/u },
+    );
+    await expect(
+      channelOption.querySelector('[data-ui-part="project-channel-icon"]'),
+    ).toBeVisible();
     await userEvent.keyboard("{Escape}");
     await expect(channels).toHaveFocus();
     await expect(channels).toHaveAttribute("aria-expanded", "false");
@@ -115,7 +122,10 @@
   }}
 >
   {#snippet template()}
-    <CommunityNavigationShellFixture includeStarred />
+    <CommunityNavigationShellFixture
+      includeStarred
+      projectChannelIds={["general"]}
+    />
   {/snippet}
 </Story>
 
@@ -131,6 +141,31 @@
     });
     if (runtime.dataset.communityBackend === "live") return;
 
+    const channel = canvas.getByRole("button", {
+      name: "general",
+      exact: true,
+    });
+    const channelIcon = channel.querySelector(
+      '[data-ui-part="project-channel-icon"]',
+    );
+    await expect(channelIcon).toBeVisible();
+    await expect(channelIcon).toHaveAttribute("aria-hidden", "true");
+    const iconBounds = channelIcon!.getBoundingClientRect();
+    // Nested SVG client rects measure the drawn outline; its viewport must
+    // retain 24 units even when the surrounding button resizes the outer icon.
+    await expect(
+      getComputedStyle(channelIcon!.querySelector(".lucide-folders")!).width,
+    ).toBe("24px");
+    const hashBounds = channelIcon!
+      .querySelector('[data-ui-part="channel-hash"]')!
+      .getBoundingClientRect();
+    await expect(hashBounds.x + hashBounds.width / 2).toBeGreaterThan(
+      iconBounds.x + iconBounds.width / 2,
+    );
+    await expect(hashBounds.y + hashBounds.height / 2).toBeGreaterThan(
+      iconBounds.y + iconBounds.height / 2,
+    );
+
     await expect(search).toHaveTextContent("Search everything");
     await expect(search).toHaveTextContent("⌘K");
     await expect(parseFloat(getComputedStyle(search).marginInlineStart)).toBe(
@@ -141,6 +176,10 @@
       "aria-current",
       "page",
     );
+    await userEvent.click(channel);
+    await expect(channel).toHaveAttribute("aria-current", "page");
+    await expect(channelIcon).toBeVisible();
+
     await expect(
       canvas.getByRole("button", { name: "Registry" }),
     ).toBeVisible();
@@ -262,6 +301,6 @@
   }}
 >
   {#snippet template()}
-    <CommunityNavigationShellFixture />
+    <CommunityNavigationShellFixture projectChannelIds={["general"]} />
   {/snippet}
 </Story>

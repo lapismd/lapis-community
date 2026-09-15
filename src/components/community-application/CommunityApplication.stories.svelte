@@ -679,7 +679,11 @@
     });
     if (expand) await userEvent.click(expand);
     const nav = within(
-      canvas.getByRole("navigation", { name: "Community navigation" }),
+      canvas
+        .getByRole("navigation", { name: "Community navigation" })
+        .querySelector<HTMLElement>(
+          '[data-navigation-section-kind="channels"]',
+        )!,
     );
     await waitFor(
       () =>
@@ -709,6 +713,24 @@
           { exact: true },
         ),
       ).toBeVisible();
+      const headerIcon = canvas
+        .getByLabelText(`${name} toolbar`)
+        .querySelector('[data-ui-part="project-channel-icon"]');
+      const navigationIcon = nav
+        .getByRole("button", { name, exact: true })
+        .querySelector('[data-ui-part="project-channel-icon"]');
+      if (name === "general") {
+        await expect(headerIcon).toBeVisible();
+        await expect(navigationIcon).toBeVisible();
+      } else {
+        await expect(headerIcon).toBeNull();
+        await expect(navigationIcon).toBeNull();
+        await expect(
+          canvas
+            .getByLabelText(`${name} toolbar`)
+            .querySelector(".lucide-hash"),
+        ).toBeVisible();
+      }
       await expect(application).toHaveAttribute(
         "data-project-work-item-read-count",
         "2",

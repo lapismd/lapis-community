@@ -28,6 +28,7 @@
     initialActiveItemId = "inbox",
     initialCollapsed = false,
     includeStarred = false,
+    projectChannelIds = [],
     onSelect,
     onSearch,
     onSectionAction,
@@ -36,6 +37,7 @@
     initialActiveItemId?: string;
     initialCollapsed?: boolean;
     includeStarred?: boolean;
+    projectChannelIds?: readonly string[];
     onControllerReady?: (controller: CommunityController | undefined) => void;
     onSelect?: (item: CommunityNavigationItemModel) => void;
     onSearch?: (query: string) => void;
@@ -103,6 +105,9 @@
             );
             return {
               id: room.id,
+              ...(projectChannelIds.includes(room.id)
+                ? { icon: "project-channel" }
+                : {}),
               label: room.name,
               kind: room.kind === "direct" ? "direct-message" : room.kind,
               ...(room.kind === "direct"

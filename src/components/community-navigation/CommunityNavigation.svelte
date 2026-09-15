@@ -18,6 +18,7 @@
   import CompassIcon from "@lucide/svelte/icons/compass";
   import EllipsisIcon from "@lucide/svelte/icons/ellipsis";
   import HashIcon from "@lucide/svelte/icons/hash";
+  import CommunityProjectChannelIcon from "../community-project-channel-icon/CommunityProjectChannelIcon.svelte";
   import InboxIcon from "@lucide/svelte/icons/inbox";
   import LayoutGridIcon from "@lucide/svelte/icons/layout-grid";
   import LockKeyholeIcon from "@lucide/svelte/icons/lock-keyhole";
@@ -111,7 +112,10 @@
     if (item.kind === "pulse") return ActivityIcon;
     if (item.kind === "projects") return FolderGit2Icon;
     if (item.icon === "package-search") return PackageSearchIcon;
-    if (item.kind === "channel") return HashIcon;
+    if (item.kind === "channel")
+      return item.icon === "project-channel"
+        ? CommunityProjectChannelIcon
+        : HashIcon;
     if (item.kind === "forum") return MessagesSquareIcon;
     if (item.kind === "direct-message") return CircleUserRoundIcon;
     return LayoutGridIcon;
@@ -273,6 +277,11 @@
     );
   }
 </script>
+
+{#snippet itemIcon(item: CommunityNavigationItemModel)}
+  {@const Icon = iconFor(item)}
+  <Icon aria-hidden="true" />
+{/snippet}
 
 {#snippet menuIcon(Icon?: Component)}
   <span class="lc-community-navigation__menu-icon-slot" aria-hidden="true">
@@ -511,7 +520,6 @@
     <nav aria-label="Community navigation" data-compact={compact || undefined}>
       <div class="lc-community-navigation__primary">
         {#each model.primaryItems as item (item.id)}
-          {@const ItemIcon = iconFor(item)}
           {#if compact}
             <Tooltip.Root>
               <Tooltip.Trigger>
@@ -526,7 +534,7 @@
                     aria-label={item.label}
                     onclick={() => onSelect(item)}
                   >
-                    <ItemIcon aria-hidden="true" />
+                    {@render itemIcon(item)}
                   </Button>
                 {/snippet}
               </Tooltip.Trigger>
@@ -545,7 +553,7 @@
               title={item.label}
               onclick={() => onSelect(item)}
             >
-              <ItemIcon aria-hidden="true" />
+              {@render itemIcon(item)}
               <span>{item.label}</span>
               {#if item.unreadCount}
                 <CommunityChip
@@ -650,7 +658,6 @@
                     {#if section.items.length}
                       <CommandView.Group heading={section.label}>
                         {#each compactItems(section) as item (item.id)}
-                          {@const ItemIcon = iconFor(item)}
                           <CommandView.Item
                             value={`${item.label} ${item.id}`}
                             data-active={activeItemId === item.id
@@ -667,7 +674,7 @@
                                   decorative
                                 />
                               {:else}
-                                <ItemIcon aria-hidden="true" />
+                                {@render itemIcon(item)}
                               {/if}
                             </CommandView.ItemIcon>
                             <CommandView.ItemLabel
@@ -826,7 +833,6 @@
             <Collapsible.Content>
               <div class="lc-community-navigation__items">
                 {#each sortedItems(section) as item (item.id)}
-                  {@const ItemIcon = iconFor(item)}
                   <Collapsible.Root
                     class="lc-community-navigation__item-tree"
                     open={item.children?.length ? isItemOpen(item) : false}
@@ -858,7 +864,7 @@
                                 decorative
                               />
                             {:else}
-                              <ItemIcon aria-hidden="true" />
+                              {@render itemIcon(item)}
                             {/if}
                             <span>{item.label}</span>
                             {#if item.starred}<StarIcon
@@ -919,7 +925,6 @@
                       <Collapsible.Content>
                         <div class="lc-community-navigation__item-children">
                           {#each item.children as child (child.id)}
-                            {@const ChildIcon = iconFor(child)}
                             <Button
                               variant="ghost"
                               size="default"
@@ -934,7 +939,7 @@
                               title={child.label}
                               onclick={() => onSelect(child)}
                             >
-                              <ChildIcon aria-hidden="true" />
+                              {@render itemIcon(child)}
                               <span>{child.label}</span>
                             </Button>
                           {/each}

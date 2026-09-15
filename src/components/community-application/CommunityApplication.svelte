@@ -156,6 +156,7 @@
   import CommunityInbox from "../community-inbox/CommunityInbox.svelte";
   import type { CommunityInboxModel } from "../community-inbox/model.js";
   import CommunityGroupInviteDialog from "../community-group-invite-dialog/CommunityGroupInviteDialog.svelte";
+  import CommunityProjectChannelIcon from "../community-project-channel-icon/CommunityProjectChannelIcon.svelte";
   import CommunityNavigation from "../community-navigation/CommunityNavigation.svelte";
   import CommunityMemberCommand from "../community-member-command/CommunityMemberCommand.svelte";
   import CommunityMemberAvatar from "../community-member-avatar/CommunityMemberAvatar.svelte";
@@ -1078,6 +1079,19 @@
       activeRoom.permissions?.join.state !== "denied" &&
       activeRoom.permissions?.join.state !== "unsupported",
   );
+  const projectChannelRoomIds = $derived.by(() => {
+    const ids = new Set<string>();
+    for (const project of projectCatalog.projects) {
+      for (const binding of projectForgeBoundChannels(
+        project,
+        projectCatalog.repositories,
+      )) {
+        const room = roomForProjectChannel(binding.channelId);
+        if (room?.kind === "channel") ids.add(room.id);
+      }
+    }
+    return ids;
+  });
   const navigationModel = $derived<CommunityNavigationModel>({
     searchPlaceholder: "Search everything",
     primaryItems: [
@@ -1161,6 +1175,9 @@
                   return [
                     {
                       id: room.id,
+                      ...(projectChannelRoomIds.has(room.id)
+                        ? { icon: "project-channel" }
+                        : {}),
                       label: room.name,
                       kind:
                         room.kind === "direct"
@@ -1294,6 +1311,9 @@
           )
           .map((room) => ({
             id: room.id,
+            ...(projectChannelRoomIds.has(room.id)
+              ? { icon: "project-channel" }
+              : {}),
             label: room.name,
             kind:
               room.kind === "direct" ? ("direct-message" as const) : room.kind,
@@ -1363,6 +1383,9 @@
           .filter((room) => section.roomIds.includes(room.id))
           .map((room) => ({
             id: room.id,
+            ...(projectChannelRoomIds.has(room.id)
+              ? { icon: "project-channel" }
+              : {}),
             label: room.name,
             kind:
               room.kind === "direct" ? ("direct-message" as const) : room.kind,
@@ -7620,7 +7643,11 @@
                 {#if activeRoom.private}
                   <LockIcon data-icon="inline-start" aria-hidden="true" />
                 {:else if activeRoom.kind === "channel"}
-                  <HashIcon data-icon="inline-start" aria-hidden="true" />
+                  {#if projectChannelRoomIds.has(activeRoom.id)}
+                    <CommunityProjectChannelIcon data-icon="inline-start" />
+                  {:else}
+                    <HashIcon data-icon="inline-start" aria-hidden="true" />
+                  {/if}
                 {:else if activeRoom.kind === "forum"}
                   <MessagesSquareIcon
                     data-icon="inline-start"

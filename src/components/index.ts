@@ -85,6 +85,7 @@ export { default as CommunityConversation } from "./community-conversation/Commu
 export { default as CommunityDetails } from "./community-details/CommunityDetails.svelte";
 export { default as CommunityDirectMessageComposer } from "./community-direct-message-composer/CommunityDirectMessageComposer.svelte";
 export { default as CommunityMessage } from "./community-message/CommunityMessage.svelte";
+export { default as CommunityProjectChannelIcon } from "./community-project-channel-icon/CommunityProjectChannelIcon.svelte";
 export { default as CommunityNavigation } from "./community-navigation/CommunityNavigation.svelte";
 export { default as CommunityMemberProfile } from "./community-member-profile/CommunityMemberProfile.svelte";
 export { default as CommunityProfileMenu } from "./community-profile-menu/CommunityProfileMenu.svelte";
