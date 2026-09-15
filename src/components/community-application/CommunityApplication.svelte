@@ -5182,6 +5182,51 @@
       presence: "offline",
     };
   }
+
+  // Resolve optional props once per dependency change, rather than on every child prop read.
+  const workspaceSurfaceOptions = $derived({
+    ...(community.state.history ? { history: community.state.history } : {}),
+    ...(community.state.timelinePresentation
+      ? { presentation: community.state.timelinePresentation }
+      : {}),
+    ...(community.actions.updateTimelinePresentation
+      ? {
+          onPresentationChange: community.actions.updateTimelinePresentation,
+        }
+      : {}),
+    ...(community.actions.loadOlderHistory
+      ? { onLoadOlder: () => community.actions.loadOlderHistory!() }
+      : {}),
+    ...(community.actions.loadNewerHistory
+      ? {
+          onLoadLatest: () => community.actions.loadNewerHistory!(),
+        }
+      : {}),
+    ...(community.state.directHistory && community.actions.loadDirectHistory
+      ? {
+          directHistory: community.state.directHistory,
+          onLoadOlderDirectMessages: community.actions.loadDirectHistory,
+        }
+      : {}),
+    ...(activeChannelProject === undefined
+      ? {}
+      : { channelActions: projectChannelRepositoryAction }),
+    ...(activeParticipationOperation === undefined
+      ? {}
+      : { operation: activeParticipationOperation }),
+    ...(activeParticipationOperationEntry === undefined
+      ? {}
+      : {
+          onRetryOperation: () =>
+            community.retry(activeParticipationOperationEntry[0]),
+          onDismissOperation: () =>
+            community.dismissOperation(activeParticipationOperationEntry[0]),
+        }),
+    ...(community.state.replyTarget === undefined ||
+    activePanel.kind === "thread"
+      ? {}
+      : { replyTarget: community.state.replyTarget }),
+  });
 </script>
 
 {#snippet mobileNavigationControls()}
@@ -7665,64 +7710,17 @@
             <div class="community-application__workspace-layer">
               <CommunityWorkspaceSurface
                 virtualize
-                {...community.state.history
-                  ? { history: community.state.history }
-                  : {}}
-                {...community.state.timelinePresentation
-                  ? { presentation: community.state.timelinePresentation }
-                  : {}}
-                {...community.actions.updateTimelinePresentation
-                  ? {
-                      onPresentationChange:
-                        community.actions.updateTimelinePresentation,
-                    }
-                  : {}}
-                {...community.actions.loadOlderHistory
-                  ? { onLoadOlder: () => community.actions.loadOlderHistory!() }
-                  : {}}
-                {...community.actions.loadNewerHistory
-                  ? {
-                      onLoadLatest: () => community.actions.loadNewerHistory!(),
-                    }
-                  : {}}
+                {...workspaceSurfaceOptions}
                 model={workspaceSurfaceModel}
-                {...community.state.directHistory &&
-                community.actions.loadDirectHistory
-                  ? {
-                      directHistory: community.state.directHistory,
-                      onLoadOlderDirectMessages:
-                        community.actions.loadDirectHistory,
-                    }
-                  : {}}
                 {agentMemberIds}
                 historyLoading={activeRoomHistoryLoading}
                 historyUpdating={community.state.contentSync?.phase ===
                   "background" ||
                   community.state.contentSync?.phase === "partial-error"}
                 messageSupplement={releaseMessageSupplement}
-                {...activeChannelProject === undefined
-                  ? {}
-                  : { channelActions: projectChannelRepositoryAction }}
                 readOnly={participationReadOnly}
                 readOnlyReason={participationReadOnlyReason}
                 showJoinAction={activeRoomJoinVisible}
-                {...activeParticipationOperation === undefined
-                  ? {}
-                  : { operation: activeParticipationOperation }}
-                {...activeParticipationOperationEntry === undefined
-                  ? {}
-                  : {
-                      onRetryOperation: () =>
-                        community.retry(activeParticipationOperationEntry[0]),
-                      onDismissOperation: () =>
-                        community.dismissOperation(
-                          activeParticipationOperationEntry[0],
-                        ),
-                    }}
-                {...community.state.replyTarget === undefined ||
-                activePanel.kind === "thread"
-                  ? {}
-                  : { replyTarget: community.state.replyTarget }}
                 communityEmojis={community.state.settings.customEmojis}
                 handlers={{
                   ...community.handlers,

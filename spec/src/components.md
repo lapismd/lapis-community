@@ -564,6 +564,14 @@ the displayed root/thread head and the corresponding scoped read receipt.
 Button and Spinner for accessible earlier-page loading and retry in forum and
 Inbox lists, with one load per boundary crossing and no resize-driven cascade.
 
+Application-to-workspace and workspace-to-conversation optional props MUST be
+memoized by their reactive dependencies. A child reading an unrelated callback
+must not rebuild every optional prop object or repeatedly resolve controller
+reading state. Warm navigation browser coverage bounds reading-state getter
+calls while asserting that the actual destination messages remain visible.
+This composition optimization preserves omitted props, permission gates,
+callbacks, and all existing virtualized and nonvirtualized public contracts.
+
 Inbox filters and paging affect summary rows; they MUST preserve the selected
 conversation, its transport, composer and draft. Initial histories show
 representative skeletons, refresh retains content, and pagination feedback stays

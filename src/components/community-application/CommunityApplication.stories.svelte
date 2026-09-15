@@ -22,6 +22,8 @@
   } from "./navigation.js";
   import { projectStoryProjectCoordinate } from "../community-projects/story-fixtures.js";
 
+  let navigationPresentationReads = 0;
+
   const consumerSource = `<script lang="ts">
   import { onMount } from "svelte";
   import {
@@ -104,6 +106,59 @@
     },
   });
 </script>
+
+<Story
+  name="Warm channel navigation bounds state reads"
+  play={async ({ canvas }) => {
+    const application = await canvas.findByTestId(
+      "full-community-application",
+      {},
+      { timeout: 15_000 },
+    );
+    if (application.dataset.communityBackend !== "memory") return;
+    const expand = canvas.queryByRole("button", {
+      name: "Expand left sidebar",
+    });
+    if (expand) await userEvent.click(expand);
+    const nav = within(canvas.getByLabelText("Community navigation"));
+    for (const name of [
+      "plugin-releases",
+      "general",
+      "plugin-releases",
+      "general",
+    ]) {
+      navigationPresentationReads = 0;
+      await userEvent.click(
+        await nav.findByRole("button", { name, exact: true }),
+      );
+      const conversation = within(
+        await canvas.findByLabelText(`${name} conversation`),
+      );
+      await expect(
+        await conversation.findByText(
+          name === "general"
+            ? "Welcome to Lapis Community"
+            : "AI Assistant 1.4.0 is ready for curator review.",
+          { exact: true },
+        ),
+      ).toBeVisible();
+      // Data already resolved by the parent must not be recomputed per child prop lookup.
+      await expect(navigationPresentationReads).toBeGreaterThan(0);
+      await expect(navigationPresentationReads).toBeLessThan(500);
+    }
+  }}
+>
+  {#snippet template()}
+    <CommunityApplicationStoryHarness
+      namespace="warm-navigation-state-reads"
+      releaseMessages
+      initialDestination="general"
+      onPresentationRead={() => {
+        navigationPresentationReads += 1;
+      }}
+    />
+  {/snippet}
+</Story>
 
 <Story
   name="Viewed rooms clear sidebar unread counts"
@@ -3907,6 +3962,9 @@
       const copyPublicKey = within(openedProfileSidebar).getByRole("button", {
         name: /^Copy .+'s public key$/u,
       });
+      await waitFor(() =>
+        expect(getComputedStyle(copyPublicKey).pointerEvents).toBe("auto"),
+      );
       await userEvent.click(copyPublicKey);
       await expect(writeText).toHaveBeenCalledOnce();
       await expect(writeText).toHaveBeenCalledWith(

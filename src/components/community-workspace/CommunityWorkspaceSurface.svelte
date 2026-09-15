@@ -198,6 +198,109 @@
         : {}),
     };
   });
+
+  // Resolve optional props once per dependency change, rather than on every child prop read.
+  const conversationOptions = $derived({
+    ...(history ? { history } : {}),
+    ...(onLoadOlder ? { onLoadOlder } : {}),
+    ...(onLoadLatest ? { onLoadLatest } : {}),
+    ...(presentation ? { presentation } : {}),
+    ...(onPresentationChange ? { onPresentationChange } : {}),
+    ...(activeRoom.conversation?.transport === "nip17" &&
+    directHistory &&
+    onLoadOlderDirectMessages
+      ? {
+          history: { ...directHistory, ...history },
+          onLoadOlder: onLoadOlderDirectMessages,
+        }
+      : {}),
+    ...(model.view === "forum-thread" && model.messages[0]
+      ? {
+          activityContext: {
+            kind: "forum-topic" as const,
+            channelId: activeRoom.groupId ?? activeRoom.id,
+            threadRootId:
+              model.messages.find((message) => message.sourceEvent?.kind === 11)
+                ?.id ?? model.messages[0].id,
+          },
+        }
+      : {}),
+    ...(activeDirectMember === undefined
+      ? {}
+      : { directMember: activeDirectMember }),
+    ...(replyTarget === undefined ? {} : { replyTarget }),
+    ...(messageSupplement === undefined ? {} : { messageSupplement }),
+    ...(composerStatus === undefined ? {} : { composerStatus }),
+    ...(retryComposerOperation === undefined
+      ? {}
+      : { onRetryComposerStatus: retryComposerOperation }),
+    ...(dismissComposerOperation === undefined
+      ? {}
+      : { onDismissComposerStatus: dismissComposerOperation }),
+    ...(model.currentMemberId === undefined
+      ? {}
+      : { currentMemberId: model.currentMemberId }),
+    ...(handlers.onClearReplyTarget === undefined
+      ? {}
+      : { onCancelReply: handlers.onClearReplyTarget }),
+    ...(knownNonmember ? { footer: roomMembershipFooter } : {}),
+    ...(knownNonmember
+      ? {}
+      : {
+          onSend: (content: string) =>
+            handlers.onSendMessage?.(activeRoom.id, content),
+        }),
+    ...(knownNonmember || handlers.onReply === undefined
+      ? {}
+      : { onReply: handlers.onReply }),
+    ...(knownNonmember ||
+    handlers.onOpenThread === undefined ||
+    activeRoom.kind === "forum"
+      ? {}
+      : { onOpenThread: handlers.onOpenThread }),
+    ...(surfaceReadOnly || handlers.onToggleReaction === undefined
+      ? {}
+      : { onToggleReaction: handlers.onToggleReaction }),
+    ...(surfaceReadOnly || handlers.onAddReaction === undefined
+      ? {}
+      : { onAddReaction: handlers.onAddReaction }),
+    ...(handlers.onCopyMessageLink === undefined
+      ? {}
+      : { onCopyMessageLink: handlers.onCopyMessageLink }),
+    ...(handlers.onCopyMessage === undefined
+      ? {}
+      : { onCopyMessage: handlers.onCopyMessage }),
+    ...(handlers.onCopyEvent === undefined
+      ? {}
+      : { onCopyEvent: handlers.onCopyEvent }),
+    ...(knownNonmember || handlers.onEditMessage === undefined
+      ? {}
+      : { onEditMessage: handlers.onEditMessage }),
+    ...(knownNonmember || handlers.onSaveMessageEdit === undefined
+      ? {}
+      : { onSaveMessageEdit: handlers.onSaveMessageEdit }),
+    ...(knownNonmember || handlers.onDeleteMessage === undefined
+      ? {}
+      : { onDeleteMessage: handlers.onDeleteMessage }),
+    ...(handlers.onReportMessage === undefined
+      ? {}
+      : { onReportMessage: handlers.onReportMessage }),
+    ...(handlers.onOpenProfile === undefined
+      ? {}
+      : { onOpenProfile: handlers.onOpenProfile }),
+    ...(handlers.onSelectRoom === undefined
+      ? {}
+      : { onOpenRoom: handlers.onSelectRoom }),
+    ...(handlers.onMessageMember === undefined
+      ? {}
+      : { onMessageMember: handlers.onMessageMember }),
+    ...(handlers.onWaveMember === undefined
+      ? {}
+      : { onWaveMember: handlers.onWaveMember }),
+    ...(handlers.onViewMemberActivity === undefined
+      ? {}
+      : { onViewMemberActivity: handlers.onViewMemberActivity }),
+  });
 </script>
 
 {#snippet roomMembershipFooter()}
@@ -520,124 +623,25 @@
   {:else}
     <CommunityConversation
       {virtualize}
-      {...history ? { history } : {}}
-      {...onLoadOlder ? { onLoadOlder } : {}}
-      {...onLoadLatest ? { onLoadLatest } : {}}
-      {...presentation ? { presentation } : {}}
-      {...onPresentationChange ? { onPresentationChange } : {}}
+      {...conversationOptions}
       {readBoundary}
       draftKey={activeRoom.conversation
         ? conversationKey(activeRoom.conversation)
         : JSON.stringify([model.activeCommunityId, activeRoom.id])}
-      {...activeRoom.conversation?.transport === "nip17" &&
-      directHistory &&
-      onLoadOlderDirectMessages
-        ? {
-            history: { ...directHistory, ...history },
-            onLoadOlder: onLoadOlderDirectMessages,
-          }
-        : {}}
-      {...model.view === "forum-thread" && model.messages[0]
-        ? {
-            activityContext: {
-              kind: "forum-topic" as const,
-              channelId: activeRoom.groupId ?? activeRoom.id,
-              threadRootId:
-                model.messages.find(
-                  (message) => message.sourceEvent?.kind === 11,
-                )?.id ?? model.messages[0].id,
-            },
-          }
-        : {}}
       room={activeRoom}
       messages={model.messages}
       members={model.members}
       {rooms}
-      {...activeDirectMember === undefined
-        ? {}
-        : { directMember: activeDirectMember }}
       directMemberAvatarShape={activeDirectMemberShape}
-      {...replyTarget === undefined ? {} : { replyTarget }}
       {communityEmojis}
-      {...messageSupplement === undefined ? {} : { messageSupplement }}
       disabled={surfaceReadOnly}
       disabledReason={readOnlyReason}
-      {...composerStatus === undefined ? {} : { composerStatus }}
-      {...retryComposerOperation === undefined
-        ? {}
-        : { onRetryComposerStatus: retryComposerOperation }}
-      {...dismissComposerOperation === undefined
-        ? {}
-        : { onDismissComposerStatus: dismissComposerOperation }}
       restrictMessageManagement
-      {...model.currentMemberId === undefined
-        ? {}
-        : { currentMemberId: model.currentMemberId }}
       canDeleteAny={activeRoom.permissions?.delete.state === "enabled"}
-      {...handlers.onClearReplyTarget === undefined
-        ? {}
-        : { onCancelReply: handlers.onClearReplyTarget }}
       composerPlacement="row"
-      {...knownNonmember ? { footer: roomMembershipFooter } : {}}
-      {...knownNonmember
-        ? {}
-        : {
-            onSend: (content: string) =>
-              handlers.onSendMessage?.(activeRoom.id, content),
-          }}
-      {...knownNonmember || handlers.onReply === undefined
-        ? {}
-        : { onReply: handlers.onReply }}
-      {...knownNonmember ||
-      handlers.onOpenThread === undefined ||
-      activeRoom.kind === "forum"
-        ? {}
-        : { onOpenThread: handlers.onOpenThread }}
       replyActionLabel={activeRoom.kind === "forum"
         ? "Reply"
         : "Reply in thread"}
-      {...surfaceReadOnly || handlers.onToggleReaction === undefined
-        ? {}
-        : { onToggleReaction: handlers.onToggleReaction }}
-      {...surfaceReadOnly || handlers.onAddReaction === undefined
-        ? {}
-        : { onAddReaction: handlers.onAddReaction }}
-      {...handlers.onCopyMessageLink === undefined
-        ? {}
-        : { onCopyMessageLink: handlers.onCopyMessageLink }}
-      {...handlers.onCopyMessage === undefined
-        ? {}
-        : { onCopyMessage: handlers.onCopyMessage }}
-      {...handlers.onCopyEvent === undefined
-        ? {}
-        : { onCopyEvent: handlers.onCopyEvent }}
-      {...knownNonmember || handlers.onEditMessage === undefined
-        ? {}
-        : { onEditMessage: handlers.onEditMessage }}
-      {...knownNonmember || handlers.onSaveMessageEdit === undefined
-        ? {}
-        : { onSaveMessageEdit: handlers.onSaveMessageEdit }}
-      {...knownNonmember || handlers.onDeleteMessage === undefined
-        ? {}
-        : { onDeleteMessage: handlers.onDeleteMessage }}
-      {...handlers.onReportMessage === undefined
-        ? {}
-        : { onReportMessage: handlers.onReportMessage }}
-      {...handlers.onOpenProfile === undefined
-        ? {}
-        : { onOpenProfile: handlers.onOpenProfile }}
-      {...handlers.onSelectRoom === undefined
-        ? {}
-        : { onOpenRoom: handlers.onSelectRoom }}
-      {...handlers.onMessageMember === undefined
-        ? {}
-        : { onMessageMember: handlers.onMessageMember }}
-      {...handlers.onWaveMember === undefined
-        ? {}
-        : { onWaveMember: handlers.onWaveMember }}
-      {...handlers.onViewMemberActivity === undefined
-        ? {}
-        : { onViewMemberActivity: handlers.onViewMemberActivity }}
     >
       {#snippet intro()}
         {#if model.view === "forum-thread"}

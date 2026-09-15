@@ -37,4 +37,23 @@ most 150 ms; development-server or automation duration is not that metric.
 
 A 50,000-signed-event memory-cache probe restored metadata without hydrating message history and read a 50-message selected window. This is diagnostic evidence only: the complete CI fixture and production paint gate remain pending. Earlier production Storybook samples measured p95 227 ms and 245 ms, but later inspection found that story autoplay could interfere with those measurements. Rerun the dedicated benchmark with autoplay disabled; those samples do not establish production paint acceptance. Per-relay durable gap recovery, archive-pruning scale bounds, cached Inbox summaries and the complete private notification race matrix still require acceptance. Bounded legacy fallback windows without page coverage now have controller and cold-browser acceptance.
 
+The September 15 real-app Chrome investigation reproduced warm
+`plugin-development`/`plugin-releases` switches at p95 2714 ms in the development
+build, without channel-history queries. Nested conditional component-prop
+factories repeatedly evaluated reading-state getters during row mounting and
+teardown. Memoized application/workspace conversation props now have a
+cold-browser getter-bound regression; public component contracts are unchanged.
+After the correction, isolated 20-switch guest Chrome runs measured p95 344 ms
+in the development build and 230 ms in the production build. Longest observed
+tasks fell from 2822 ms to 205 ms and 137 ms respectively. These diagnostic
+runs time the destination mount plus two animation frames with CPU profiling
+enabled; they do not replace the full performance acceptance fixture or meet
+the 150 ms target. Neither run issued channel-history queries.
+Separate project work-item reads and replaying subscriptions issued 440 relay
+requests over 20 warm switches. The project work-item lifecycle still needs
+session-scoped resource reuse, independent live observation and selective
+invalidation. Manifest bytes are cached, but release-review/inspection models
+are also rebuilt on re-entry. These remaining requests and the full production
+performance gate are not resolved by the component-prop correction.
+
 `controller-history-lifecycle` also verifies that a refresh snapshot from a previous session is ignored after sign-out; `history-scheduler` covers dynamic priority, eventual hidden work, duplicate requests and per-conversation exclusion. The remaining inventory entries retain their stated pending coverage.

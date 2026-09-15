@@ -63,6 +63,7 @@
     relayAuthMode,
     relayAuthIdentityDelayMs = 0,
     relayAuthSignOutDelayMs = 0,
+    onPresentationRead,
   }: {
     signedIn?: boolean;
     responsive?: boolean;
@@ -83,10 +84,28 @@
     relayAuthMode?: "managed" | "external" | "expiring";
     relayAuthIdentityDelayMs?: number;
     relayAuthSignOutDelayMs?: number;
+    onPresentationRead?: () => void;
   } = $props();
 
   let runtime = $state.raw<CommunityStoryRuntime>();
   let community = $state.raw<CommunityController>();
+  const observedCommunity = $derived.by(() => {
+    const controller = community;
+    const observe = onPresentationRead;
+    if (!controller || !observe) return controller;
+    return new Proxy(controller, {
+      get(target, property, receiver) {
+        const value = Reflect.get(target, property, receiver);
+        if (property !== "state") return value;
+        return new Proxy(value, {
+          get(state, key, stateReceiver) {
+            if (key === "timelinePresentation") observe();
+            return Reflect.get(state, key, stateReceiver);
+          },
+        });
+      },
+    });
+  });
   let runtimeError = $state("");
   let registrySource = $state.raw(createRegistryStoryDataSource());
   let projectSessionOpenCount = $state(0);
@@ -616,7 +635,7 @@
   {/snippet}
   {#key applicationGeneration}
     <CommunityApplication
-      controller={community}
+      controller={observedCommunity ?? community}
       {initialDestination}
       {...useDefaultShell ? {} : { shellController: storyShellController }}
       displayMode={responsive ? "auto" : "desktop"}

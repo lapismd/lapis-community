@@ -119,6 +119,10 @@
     tags: ["visual-pending"],
     parameters: {
       docs: {
+        description: {
+          component:
+            "The workspace preserves optional actions and reading state through memoized conversation props. The App Shell warm-navigation contract bounds controller state reads across this production composition.",
+        },
         source: {
           language: "svelte",
           code: `<CommunityWorkspaceSurface
