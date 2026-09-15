@@ -116,6 +116,45 @@
 />
 
 <Story
+  name="GitHub disconnect failure and retry"
+  args={{
+    account: managed,
+    config,
+    authenticationState: "connected",
+    actions: { disconnectGitHub: fn() },
+  }}
+  play={async ({ canvas, canvasElement, args }) => {
+    args.actions!.disconnectGitHub.mockRejectedValueOnce(
+      new Error("GitHub is temporarily unavailable."),
+    );
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Disconnect GitHub access" }),
+    );
+    const dialog = await within(canvasElement.ownerDocument.body).findByRole(
+      "alertdialog",
+      { name: "Disconnect GitHub access?" },
+    );
+    await userEvent.click(
+      within(dialog).getByRole("button", { name: "Disconnect access" }),
+    );
+    await expect(await within(dialog).findByRole("alert")).toHaveTextContent(
+      "GitHub is temporarily unavailable.",
+    );
+    await expect(within(dialog).getByRole("alert")).toBeVisible();
+    await userEvent.click(
+      within(dialog).getByRole("button", { name: "Disconnect access" }),
+    );
+    await waitFor(() => expect(dialog).not.toBeInTheDocument());
+    await expect(
+      canvas.getByText(
+        "GitHub access disconnected. Your linked account identity is retained.",
+      ),
+    ).toBeVisible();
+    await expect(args.actions!.disconnectGitHub).toHaveBeenCalledTimes(2);
+  }}
+/>
+
+<Story
   name="External signer reconnect"
   globals={{
     colorMode: "dark",

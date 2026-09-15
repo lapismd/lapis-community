@@ -28,7 +28,10 @@
     type CommunityStoryRuntime,
   } from "../../testing/index.js";
   import type { CommunityLoginCredentials } from "../community-login/model.js";
-  import type { CommunityAccountSession } from "../../auth/index.js";
+  import {
+    RelayAuthClient,
+    type CommunityAccountSession,
+  } from "../../auth/index.js";
   import RegistryCommunityStoryHarness from "../registry-community/RegistryCommunityStoryHarness.svelte";
   import { createRegistryStoryDataSource } from "../registry-browser/story-fixtures.js";
   import {
@@ -81,7 +84,7 @@
     projects?: boolean;
     emptyProjects?: boolean;
     projectBackend?: "github" | "walgit";
-    relayAuthMode?: "managed" | "external" | "expiring";
+    relayAuthMode?: "managed" | "external" | "external-github" | "expiring";
     relayAuthIdentityDelayMs?: number;
     relayAuthSignOutDelayMs?: number;
     onPresentationRead?: () => void;
@@ -136,33 +139,35 @@
     CommunityApplicationAuthAdapter | undefined
   >(() => {
     if (!runtime || !relayAuthMode || !relayAuthPubkey) return undefined;
+    const external =
+      relayAuthMode === "external" || relayAuthMode === "external-github";
     const session: CommunityAccountSession = {
       account: {
         id: `storybook-${relayAuthMode}`,
         nostr_pubkey: relayAuthPubkey,
         created_at: "2026-09-12T10:00:00Z",
       },
-      auth_provider: relayAuthMode === "external" ? "nostr" : "google",
+      auth_provider: external ? "nostr" : "google",
       expires_at: "2026-09-19T10:00:00Z",
-      identities:
-        relayAuthMode !== "external"
-          ? [
-              {
-                provider: "google",
-                login: "steve@example.com",
-                display_name: "Steve Storybook",
-              },
-            ]
-          : [],
-      github_status: relayAuthMode === "external" ? "revoked" : "unlinked",
-      signer_type: relayAuthMode === "external" ? "external" : "managed",
+      identities: !external
+        ? [
+            {
+              provider: "google",
+              login: "steve@example.com",
+              display_name: "Steve Storybook",
+            },
+          ]
+        : [],
+      github_status: external ? "revoked" : "unlinked",
+      signer_type: external ? "external" : "managed",
       signer_status: "active",
-      passkey_count: relayAuthMode === "external" ? 0 : 1,
+      passkey_count: external ? 0 : 1,
     };
     const config = {
       providers: ["github", "google"] as const,
       capabilities: {
         github_linking: true,
+        github_disconnect: true,
         managed_signing: true,
         nip44: true,
         nip46: true,
@@ -174,7 +179,7 @@
         ? {
             getPublicKey: () => runtime!.scenario.operator.getPublicKey(),
             signEvent: async (template) => {
-              if (template.kind === 7) {
+              if (template.kind === 7 || template.kind === 5) {
                 const { RelayAuthSessionExpiredError } = await import(
                   "../../auth/index.js"
                 );
@@ -197,9 +202,57 @@
               ? {}
               : { nip44: baseIdentity.nip44 }),
           };
+    if (relayAuthMode === "external-github") {
+      let currentSession: CommunityAccountSession = {
+        ...session,
+        auth_provider: "github",
+        identities: [
+          {
+            provider: "github",
+            login: "github-member",
+            display_name: "GitHub Member",
+          },
+        ],
+        github_status: "active",
+      };
+      let disconnectAttempts = 0;
+      return new RelayAuthClient({
+        relayUrl: "https://relay.story.invalid",
+        currentUrl: () => "https://community.story.invalid",
+        connectIdentity: () => connectStoryIdentity("browser-extension"),
+        fetch: async (request, init) => {
+          const path = new URL(request.toString()).pathname;
+          if (path.endsWith("/config")) return Response.json(config);
+          if (path.endsWith("/session")) return Response.json(currentSession);
+          if (path.endsWith("/nostr/challenge"))
+            return Response.json({
+              challenge: "storybook-nostr-auth-challenge",
+              expires_at: "2026-09-19T10:00:00Z",
+            });
+          if (path.endsWith("/nostr/login"))
+            return new Response(null, { status: 204 });
+          if (path.endsWith("/github") && init?.method === "DELETE") {
+            disconnectAttempts += 1;
+            if (disconnectAttempts === 1)
+              return Response.json(
+                { error: "github_unavailable" },
+                { status: 503 },
+              );
+            currentSession = {
+              ...currentSession,
+              github_status: "disconnected",
+            };
+            return new Response(null, { status: 204 });
+          }
+          if (path.endsWith("/logout"))
+            return new Response(null, { status: 204 });
+          throw new Error(`Unexpected auth fixture request: ${path}`);
+        },
+      });
+    }
     return {
       restore: async () =>
-        relayAuthMode !== "external"
+        !external
           ? {
               status: "connected" as const,
               config,

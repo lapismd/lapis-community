@@ -211,6 +211,8 @@ const relayErrorMessages: Record<string, string> = {
   nip46_connection_failed: "The relay could not reach the remote signer.",
   nip46_pubkey_mismatch: "The remote signer uses a different Nostr public key.",
   nip46_signer_unavailable: "The remote signer is unavailable.",
+  nostr_pubkey_mismatch:
+    "This signer uses a different Nostr key. Reconnect the key for this account, or sign out to use another account.",
   signer_unavailable: "Reconnect the Nostr signer for this account.",
   signing_denied: "The signer denied this Community action.",
 };
@@ -427,8 +429,15 @@ export class RelayAuthClient {
       this.#navigate(this.providerLoginUrl(methodId));
       return { status: "redirecting", config };
     }
+    const expectedPubkey = this.#session?.account.nostr_pubkey;
     const identity = await this.#resolveIdentity(methodId, credentials);
     try {
+      if (
+        expectedPubkey !== undefined &&
+        (await identity.getPublicKey()) !== expectedPubkey
+      ) {
+        throw new RelayAuthError("nostr_pubkey_mismatch", 400);
+      }
       let session = await this.loginWithNostr(identity);
       if (methodId === "remote-signer" && credentials?.remoteSignerUrl) {
         await this.#request("nip46/connect", {

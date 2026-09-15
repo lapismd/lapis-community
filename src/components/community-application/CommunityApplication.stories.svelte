@@ -1618,6 +1618,233 @@
 </Story>
 
 <Story
+  name="Linked GitHub account awaiting signer"
+  globals={{ colorMode: "dark", viewport: { value: "mobile1" } }}
+  play={async ({ canvas }) => {
+    await waitFor(() =>
+      expect(canvas.getByText("Reconnect your Nostr signer")).toBeVisible(),
+    );
+    const application = canvas.getByTestId("full-community-application");
+    await expect(
+      canvas.getByRole(
+        application.dataset.displayMode === "mobile" ? "group" : "navigation",
+        { name: "Application navigation" },
+      ),
+    ).toBeVisible();
+    await expect(canvas.queryAllByRole("banner").length).toBeLessThanOrEqual(1);
+    await expect(
+      canvas.getByRole("button", { name: "Reconnect signer" }),
+    ).toBeEnabled();
+  }}
+>
+  {#snippet template()}
+    <CommunityApplicationStoryHarness
+      namespace="github-external-awaiting"
+      initialDestination="pulse"
+      pulseFixtures
+      signedIn={false}
+      relayAuthMode="external-github"
+      responsive
+    />
+  {/snippet}
+</Story>
+
+<Story
+  name="Dismissed signer toast stays dismissed during navigation"
+  play={async ({ canvas, canvasElement }) => {
+    await waitFor(() =>
+      expect(canvas.getByText("Reconnect your Nostr signer")).toBeVisible(),
+    );
+    await userEvent.click(canvas.getByRole("button", { name: "Close toast" }));
+    await waitFor(() =>
+      expect(
+        canvas.queryByText("Reconnect your Nostr signer"),
+      ).not.toBeInTheDocument(),
+    );
+    await userEvent.click(canvas.getByRole("tab", { name: /^Agents/u }));
+    await userEvent.click(canvas.getByRole("tab", { name: "Everyone" }));
+    await expect(
+      canvas.queryByText("Reconnect your Nostr signer"),
+    ).not.toBeInTheDocument();
+    const profile = canvas.getByRole("button", {
+      name: "Open profile menu for GitHub Member",
+    });
+    await expect(profile).toHaveTextContent("Sign in");
+    await userEvent.click(profile);
+    const overlay = within(canvasElement.ownerDocument.body);
+    await userEvent.click(
+      overlay.getByRole("menuitem", { name: "Sign in", exact: true }),
+    );
+    const dialog = await overlay.findByRole("dialog", {
+      name: "Sign in to Community",
+    });
+    await expect(
+      within(dialog).getByRole("button", { name: /Browser extension/u }),
+    ).toBeVisible();
+  }}
+>
+  {#snippet template()}
+    <CommunityApplicationStoryHarness
+      namespace="github-external-dismissed"
+      initialDestination="pulse"
+      pulseFixtures
+      signedIn={false}
+      relayAuthMode="external-github"
+    />
+  {/snippet}
+</Story>
+
+<Story
+  name="Linked GitHub external signer reconnect and disconnect"
+  play={async ({ canvas, canvasElement }) => {
+    const application = await canvas.findByTestId("full-community-application");
+    await waitFor(() =>
+      expect(canvas.getByText("Reconnect your Nostr signer")).toBeVisible(),
+    );
+    await expect(
+      await canvas.findByRole("button", {
+        name: "Open profile menu for GitHub Member",
+      }),
+    ).toBeVisible();
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Reconnect signer" }),
+    );
+    const overlay = within(canvasElement.ownerDocument.body);
+    const login = await overlay.findByRole("dialog", {
+      name: "Sign in to Community",
+    });
+    await expect(
+      within(login).queryByRole("button", { name: /Continue with GitHub/u }),
+    ).not.toBeInTheDocument();
+    await expect(
+      within(login).getByText(/GitHub access does not unlock it/u),
+    ).toBeVisible();
+    await userEvent.click(
+      within(login).getByRole("button", { name: /Browser extension/u }),
+    );
+    await waitFor(
+      () =>
+        expect(application).toHaveAttribute(
+          "data-story-controller-auth-status",
+          "connected",
+        ),
+      { timeout: 15_000 },
+    );
+    await waitFor(() =>
+      expect(
+        canvas.queryByText("Reconnect your Nostr signer"),
+      ).not.toBeInTheDocument(),
+    );
+    await waitFor(() =>
+      expect(canvasElement.ownerDocument.body.style.pointerEvents).not.toBe(
+        "none",
+      ),
+    );
+    await userEvent.click(
+      canvas.getByRole("button", { name: /Open profile menu/u }),
+    );
+    await userEvent.click(
+      overlay.getByRole("menuitem", { name: /^Settings/u }),
+    );
+    await waitFor(() =>
+      expect(canvasElement.ownerDocument.body.style.pointerEvents).not.toBe(
+        "none",
+      ),
+    );
+    await userEvent.click(
+      await canvas.findByRole("button", { name: "Account" }),
+    );
+    await userEvent.click(
+      await canvas.findByRole("button", { name: "Disconnect GitHub access" }),
+    );
+    const confirmation = await overlay.findByRole("alertdialog", {
+      name: "Disconnect GitHub access?",
+    });
+    await userEvent.click(
+      within(confirmation).getByRole("button", { name: "Disconnect access" }),
+    );
+    await expect(
+      await within(confirmation).findByRole("alert"),
+    ).not.toHaveTextContent("RelayAuthClient");
+    await expect(confirmation).toBeVisible();
+    await userEvent.click(
+      within(confirmation).getByRole("button", { name: "Disconnect access" }),
+    );
+    await waitFor(() => expect(confirmation).not.toBeInTheDocument());
+    await expect(
+      canvas.getByText(
+        "GitHub access disconnected. Your linked account identity is retained.",
+      ),
+    ).toBeVisible();
+    await expect(canvas.getAllByText("@github-member")[0]!).toBeVisible();
+    await expect(application).toHaveAttribute(
+      "data-story-controller-auth-status",
+      "connected",
+    );
+    await waitFor(() =>
+      expect(
+        canvas.queryByText("Reconnect your Nostr signer"),
+      ).not.toBeInTheDocument(),
+    );
+    await waitFor(() =>
+      expect(canvasElement.ownerDocument.body.style.pointerEvents).not.toBe(
+        "none",
+      ),
+    );
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Back to Lapis" }),
+    );
+    await userEvent.click(canvas.getByRole("button", { name: "Pulse" }));
+    await userEvent.click(await canvas.findByRole("tab", { name: "Everyone" }));
+    const reaction = (
+      await canvas.findAllByRole(
+        "button",
+        { name: /^(?:Like|Unlike) .+'s note$/u },
+        { timeout: 15_000 },
+      )
+    )[0]!;
+    const note = within(reaction.closest("article")!);
+    const reactionName = reaction.getAttribute("aria-label")!;
+    const toggledName = reactionName.startsWith("Like ")
+      ? reactionName.replace(/^Like /u, "Unlike ")
+      : reactionName.replace(/^Unlike /u, "Like ");
+    await userEvent.click(reaction);
+    await expect(
+      await note.findByRole(
+        "button",
+        { name: toggledName },
+        { timeout: 8_000 },
+      ),
+    ).toBeVisible();
+    await waitFor(() =>
+      expect(canvasElement.ownerDocument.body.style.pointerEvents).not.toBe(
+        "none",
+      ),
+    );
+    await userEvent.click(
+      canvas.getByRole("button", { name: /Open profile menu/u }),
+    );
+    await userEvent.click(overlay.getByRole("menuitem", { name: "Sign out" }));
+    await waitFor(() =>
+      expect(application).toHaveAttribute(
+        "data-story-controller-auth-status",
+        "anonymous",
+      ),
+    );
+  }}
+>
+  {#snippet template()}
+    <CommunityApplicationStoryHarness
+      namespace="github-external-auth"
+      initialDestination="pulse"
+      pulseFixtures
+      signedIn={false}
+      relayAuthMode="external-github"
+    />
+  {/snippet}
+</Story>
+
+<Story
   name="Relay signer reconnection resumes protected action"
   play={async ({ canvas, canvasElement }) => {
     await userEvent.click(
@@ -1628,9 +1855,15 @@
       name: "Sign in to Community",
     });
     const login = within(dialog);
-    const methods = login.getAllByRole("button");
-    await expect(methods[1]).toHaveAccessibleName(/Continue with GitHub/u);
-    await expect(methods[2]).toHaveAccessibleName(/Continue with Google/u);
+    await expect(
+      login.queryByRole("button", { name: /Continue with GitHub/u }),
+    ).not.toBeInTheDocument();
+    await expect(
+      login.queryByRole("button", { name: /Continue with Google/u }),
+    ).not.toBeInTheDocument();
+    await expect(
+      login.queryByRole("button", { name: /Create a new account/u }),
+    ).not.toBeInTheDocument();
     await userEvent.click(
       login.getByRole("button", { name: /Browser extension/u }),
     );

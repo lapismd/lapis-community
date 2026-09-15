@@ -23,6 +23,7 @@
     communityUrl,
     compact = false,
     authenticated = true,
+    accountRemembered = false,
     signingOut = false,
     canManageCommunity = false,
     canSendFeedback = false,
@@ -38,6 +39,8 @@
     communityUrl?: string;
     compact?: boolean;
     authenticated?: boolean;
+    /** Retain account settings and sign-out while its signer needs reconnection. */
+    accountRemembered?: boolean;
     signingOut?: boolean;
     canManageCommunity?: boolean;
     canSendFeedback?: boolean;
@@ -152,6 +155,8 @@
                         <small>
                           {#if authenticated && member.status}
                             {member.status}
+                          {:else if accountRemembered && !authenticated}
+                            Sign in
                           {:else}
                             <span aria-hidden="true">🐝</span> {communityName}
                           {/if}
@@ -294,7 +299,7 @@
           </DropdownMenu.Sub>
         </DropdownMenu.Group>
 
-        {#if canSendFeedback || authenticated}
+        {#if canSendFeedback || authenticated || accountRemembered}
           <DropdownMenu.Separator />
           <DropdownMenu.Group>
             {#if canSendFeedback}
@@ -302,7 +307,7 @@
                 >Send feedback</DropdownMenu.Item
               >
             {/if}
-            {#if authenticated}
+            {#if authenticated || accountRemembered}
               <DropdownMenu.Item onSelect={() => onAction("settings")}>
                 Settings
                 <DropdownMenu.Shortcut>⌘,</DropdownMenu.Shortcut>

@@ -274,6 +274,10 @@ provider or authenticator credentials.
 The Keytr browser Docker contract uses signed encrypted kind 31777 records
 on the same relay as application authentication, exercising pre-login recovery
 and subsequent NIP-42 and NIP-98 signing through the normal adapters.
+An external account restored through its relay cookie still requires its own
+Nostr signing key. Reconnection must verify that key against the canonical
+account pubkey before issuing a NIP-98 login challenge; linked GitHub credentials
+provide forge access and cannot stand in for Nostr signing authority.
 
 ### Relay-managed agent bootstrap
 

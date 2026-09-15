@@ -1022,6 +1022,36 @@
       : undefined,
   );
   const applicationAccount = $derived(applicationAuthentication?.account?.());
+  const authToastScope = $props.id();
+  const reconnectAccountId = $derived(
+    applicationAuthentication?.status?.() === "reconnect-required"
+      ? applicationAccount?.account.id
+      : undefined,
+  );
+  $effect(() => {
+    const accountId = reconnectAccountId;
+    if (accountId === undefined) return;
+    const id = `${authToastScope}-reconnect-${accountId}`;
+    untrack(() =>
+      toast.info("Reconnect your Nostr signer", {
+        id,
+        description:
+          "Your account is remembered. Reconnect its signing key to send messages and perform actions.",
+        duration: Infinity,
+        dismissible: true,
+        closeButton: true,
+        action: {
+          label: "Reconnect signer",
+          onClick: () => {
+            void runAuthenticated(() => {});
+          },
+        },
+      }),
+    );
+    return () => {
+      toast.dismiss(id);
+    };
+  });
   const activeRoomMemberIds = $derived(
     activeRoom.kind === "direct"
       ? (activeRoom.participantIds ?? [])
@@ -6914,7 +6944,8 @@
             presence={community.state.presence?.members[displayMember.id]
               ?.status ?? "unknown"}
             presencePreference={community.state.presence?.preference ?? "auto"}
-            presenceDisabled={!community.actions.setPresencePreference ||
+            presenceDisabled={!authenticated ||
+              !community.actions.setPresencePreference ||
               !community.state.presence ||
               community.state.presence.status === "unavailable" ||
               community.state.presence.status === "loading" ||
@@ -6923,7 +6954,8 @@
             {...activeConnection?.relayUrl === undefined
               ? {}
               : { communityUrl: activeConnection.relayUrl }}
-            authenticated={signedIn}
+            {authenticated}
+            accountRemembered={applicationAccount !== undefined}
             {signingOut}
             compact={navigationCompact}
             connectionStatus={community.state.status}
@@ -6973,7 +7005,7 @@
 
   <AppShell.Main class="community-application__main">
     {#if shell.mobile.resolvedMode === "mobile" && !usesRoomToolbar}
-      <AppShell.Toolbar label="Application navigation">
+      <AppShell.Toolbar role="group" label="Application navigation">
         {@render mobileNavigationControls()}
       </AppShell.Toolbar>
     {/if}

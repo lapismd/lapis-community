@@ -28,7 +28,11 @@
       docs: {
         source: {
           language: "svelte",
-          code: `<CommunityProfileMenu
+          code: `<script>
+  import { CommunityProfileMenu } from "@lapismd/lapis-community/components";
+<\/script>
+
+<CommunityProfileMenu
   {member}
   communityName="buzz"
   communityUrl="wss://relay.example.com"
@@ -39,6 +43,42 @@
     },
   });
 </script>
+
+<Story
+  name="Remembered account can sign in"
+  args={{
+    member,
+    communityName: "Community",
+    authenticated: false,
+    accountRemembered: true,
+    onAction: fn(),
+    onPresenceChange: fn(),
+  }}
+  play={async ({ canvas, canvasElement, args }) => {
+    const profile = canvas.getByRole("button", {
+      name: "Open profile menu for steve",
+    });
+    await expect(profile).toHaveTextContent("Sign in");
+    await userEvent.click(profile);
+    const overlay = within(canvasElement.ownerDocument.body);
+    await expect(
+      overlay.getByRole("menuitem", { name: /^Settings/u }),
+    ).toBeVisible();
+    await expect(
+      overlay.getByRole("menuitem", { name: "Sign out" }),
+    ).toBeVisible();
+    await expect(
+      overlay.queryByRole("menuitem", { name: /^Presence:/u }),
+    ).not.toBeInTheDocument();
+    await userEvent.click(
+      overlay.getByRole("menuitem", { name: "Sign in", exact: true }),
+    );
+    await expect(args.onAction).toHaveBeenCalledWith("sign-in");
+    await waitFor(() =>
+      expect(overlay.queryByRole("menu")).not.toBeInTheDocument(),
+    );
+  }}
+/>
 
 <Story
   name="Unavailable presence"

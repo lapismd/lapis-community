@@ -566,7 +566,10 @@
                   size="sm"
                   variant="ghost"
                   disabled={working}
-                  onclick={() => (disconnectGitHubOpen = true)}
+                  onclick={() => {
+                    localError = "";
+                    disconnectGitHubOpen = true;
+                  }}
                 >
                   <UnlinkIcon
                     data-icon="inline-start"
@@ -648,6 +651,7 @@
   confirmLabel="Disconnect access"
   destructive
   pending={working}
+  error={localError}
   onConfirm={disconnectGitHub}
 />
 

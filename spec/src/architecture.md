@@ -320,6 +320,14 @@ through its optional public adapter and application authentication context.
 The adapter's restored identity enters the existing controller connector;
 account metadata stays presentation-only. Hosts that omit the adapter retain
 the existing NIP-07, NIP-46, local identity, and public browsing behavior.
+Account actions call their adapter methods with the original receiver intact.
+A metadata-only account refresh preserves an already connected external signer
+only while its active custody, account ID and verified public key still match.
+Stale account responses cannot restore an identity after sign-out. Reloading an
+external account restores its cookie and linked provider details, but requires
+the same Nostr key to reconnect; GitHub access does not restore key custody.
+The client rejects a mismatched reconnect key before sending a login challenge.
+
 The deterministic application-authentication lane composes the current sibling
 relay with local fake Google and GitHub providers. It exercises the same public
 client, restored signer, controller connector, and account model as the browser

@@ -151,6 +151,43 @@ describe("relay auth session client", () => {
     });
   });
 
+  it("rejects a different key when reconnecting a GitHub-linked external account before login", async () => {
+    const external = session({
+      signer_type: "external",
+      auth_provider: "github",
+      github_status: "active",
+      identities: [
+        {
+          provider: "github",
+          login: "linked-user",
+          display_name: "Linked User",
+        },
+      ],
+    });
+    const signer = new SecretKeyRegistrySigner(new Uint8Array(32).fill(32));
+    const dispose = vi.spyOn(signer, "dispose");
+    const fetcher = vi.fn(async (request: RequestInfo | URL) => {
+      const path = new URL(request.toString()).pathname;
+      if (path.endsWith("/config")) return json(relayConfig);
+      if (path.endsWith("/session")) return json(external);
+      throw new Error(`Unexpected request: ${path}`);
+    });
+    const client = new RelayAuthClient({
+      relayUrl: "https://relay.example",
+      connectIdentity: async () => signer,
+      fetch: fetcher as typeof fetch,
+    });
+    await expect(client.restore()).resolves.toMatchObject({
+      status: "reconnect-required",
+    });
+    await expect(client.connect("browser-extension")).rejects.toMatchObject({
+      code: "nostr_pubkey_mismatch",
+    });
+    expect(fetcher).toHaveBeenCalledTimes(2);
+    expect(dispose).toHaveBeenCalledOnce();
+    expect(client.session).toEqual(external);
+  });
+
   it("builds full return URLs for provider login and GitHub linking", async () => {
     const navigations: string[] = [];
     const client = new RelayAuthClient({

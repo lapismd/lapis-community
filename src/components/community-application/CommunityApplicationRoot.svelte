@@ -68,12 +68,27 @@
   let authenticationGeneration = 0;
   let activeIdentityConnection: Promise<void> | undefined;
   let signOutOperation: Promise<void> | undefined;
-  const loginMethods = $derived<readonly CommunityLoginMethodModel[]>(
+  const reconnectRequired = $derived(relayAuthStatus === "reconnect-required");
+  const configuredLoginMethods = $derived<readonly CommunityLoginMethodModel[]>(
     resolveCommunityLoginMethods(
       loginOptions?.methods,
       loginOptions?.allowLocalKeyMethods ?? false,
       authConfig?.providers ?? [],
     ),
+  );
+  const loginMethods = $derived(
+    reconnectRequired
+      ? configuredLoginMethods
+          .filter(
+            (method) =>
+              !["github", "google", "create-account"].includes(method.kind),
+          )
+          .map((method) =>
+            method.kind === "keytr" && method.keytr
+              ? { ...method, keytr: { ...method.keytr, allowSetup: false } }
+              : method,
+          )
+      : configuredLoginMethods,
   );
   const loginBusy = $derived(
     pendingLoginMethodId !== "" ||
@@ -83,12 +98,14 @@
       controller.state.authentication.status === "connecting",
   );
   const loginFootnote = $derived(
-    loginOptions?.footnote ??
-      (loginOptions?.auth
-        ? loginMethods.some((method) => method.kind === "keytr")
-          ? "Google and GitHub use an encrypted Nostr identity managed by Lapis. Keytr decrypts its signing key only in this browser tab and clears it when you disconnect. Browser extensions and remote signers keep their existing custody."
-          : "Google and GitHub use an encrypted Nostr identity managed by Lapis. Browser extensions and remote signers keep their existing custody."
-        : undefined),
+    reconnectRequired
+      ? "Your account is remembered, but its Nostr key is held by your device or signer. Reconnect the same key to send messages and perform actions. GitHub access does not unlock it."
+      : (loginOptions?.footnote ??
+          (loginOptions?.auth
+            ? loginMethods.some((method) => method.kind === "keytr")
+              ? "Google and GitHub use an encrypted Nostr identity managed by Lapis. Keytr decrypts its signing key only in this browser tab and clears it when you disconnect. Browser extensions and remote signers keep their existing custody."
+              : "Google and GitHub use an encrypted Nostr identity managed by Lapis. Browser extensions and remote signers keep their existing custody."
+            : undefined)),
   );
   const loginMessage = $derived(
     loginError || controller.state.authentication.error || "",
@@ -227,10 +244,36 @@
     };
   }
 
-  async function applyAccountResult(
-    result: RelayAuthRestoreResult,
+  async function applyAccountAction(
+    action: () => Promise<RelayAuthRestoreResult>,
   ): Promise<void> {
-    await applyAuthResult(result);
+    const generation = authenticationGeneration;
+    const result = await action();
+    if (generation !== authenticationGeneration) return;
+    // An account-cookie refresh cannot recover an external signer. Keep the
+    // already unlocked signer only while custody, account and key still match.
+    const identity = connectedIdentity;
+    if (
+      result.status === "reconnect-required" &&
+      result.session.signer_type === "external" &&
+      result.session.signer_status === "active" &&
+      result.session.account.id === accountSession?.account.id &&
+      accountSession.signer_type === "external" &&
+      relayAuthStatus === "connected" &&
+      controller.state.authentication.status === "connected" &&
+      identity !== undefined &&
+      (await identity.getPublicKey()) === result.session.account.nostr_pubkey
+    ) {
+      if (
+        generation !== authenticationGeneration ||
+        identity !== connectedIdentity
+      )
+        return;
+      accountSession = result.session;
+      authConfig = result.config;
+      return;
+    }
+    await applyAuthResult(result, generation);
   }
 
   async function registerPasskey(): Promise<void> {
@@ -239,7 +282,7 @@
       throw new Error("Passkey registration is not configured");
     }
     try {
-      await applyAccountResult(await auth.registerPasskey());
+      await applyAccountAction(() => auth.registerPasskey!());
       clearResumeAction();
     } catch (cause) {
       if (
@@ -254,35 +297,35 @@
   }
 
   async function disconnectGitHub(): Promise<void> {
-    const action = loginOptions?.auth?.disconnectGitHub;
-    if (action === undefined) {
+    const auth = loginOptions?.auth;
+    if (auth?.disconnectGitHub === undefined) {
       throw new Error("GitHub disconnection is not configured");
     }
-    await applyAccountResult(await action());
+    await applyAccountAction(() => auth.disconnectGitHub!());
   }
 
   async function connectRemoteSigner(bunkerUrl: string): Promise<void> {
-    const action = loginOptions?.auth?.connectRemoteSigner;
-    if (action === undefined) {
+    const auth = loginOptions?.auth;
+    if (auth?.connectRemoteSigner === undefined) {
       throw new Error("Remote signer management is not configured");
     }
-    await applyAccountResult(await action(bunkerUrl));
+    await applyAccountAction(() => auth.connectRemoteSigner!(bunkerUrl));
   }
 
   async function switchRemoteSignerRelays(): Promise<readonly string[]> {
-    const action = loginOptions?.auth?.switchRemoteSignerRelays;
-    if (action === undefined) {
+    const auth = loginOptions?.auth;
+    if (auth?.switchRemoteSignerRelays === undefined) {
       throw new Error("Remote signer management is not configured");
     }
-    return await action();
+    return await auth.switchRemoteSignerRelays();
   }
 
   async function disconnectRemoteSigner(): Promise<void> {
-    const action = loginOptions?.auth?.disconnectRemoteSigner;
-    if (action === undefined) {
+    const auth = loginOptions?.auth;
+    if (auth?.disconnectRemoteSigner === undefined) {
       throw new Error("Remote signer management is not configured");
     }
-    await applyAccountResult(await action());
+    await applyAccountAction(() => auth.disconnectRemoteSigner!());
   }
 
   async function reconnectSigner(): Promise<void> {
@@ -294,8 +337,9 @@
     if (auth?.beginCustodyTransfer === undefined) {
       throw new Error("Signing-key transfer is not configured");
     }
+    const generation = authenticationGeneration;
     const handoff = await auth.beginCustodyTransfer();
-    await applyAuthResult(await auth.restore());
+    await applyAuthResult(await auth.restore(), generation);
     return handoff;
   }
 
@@ -303,11 +347,13 @@
     handoff: RelayCustodyTransferHandoff,
     bunkerUrl: string,
   ): Promise<void> {
-    const action = loginOptions?.auth?.completeCustodyTransfer;
-    if (action === undefined) {
+    const auth = loginOptions?.auth;
+    if (auth?.completeCustodyTransfer === undefined) {
       throw new Error("Signing-key transfer is not configured");
     }
-    await applyAccountResult(await action(handoff, bunkerUrl));
+    await applyAccountAction(() =>
+      auth.completeCustodyTransfer!(handoff, bunkerUrl),
+    );
   }
 
   async function reauthenticateForAccountAction(
@@ -488,11 +534,14 @@
     if (auth === undefined) {
       throw new Error("GitHub account linking is not configured");
     }
+    const previousStatus = relayAuthStatus;
+    const generation = authenticationGeneration;
     relayAuthStatus = "redirecting";
     try {
       await auth.connectGitHub();
     } catch (cause) {
-      relayAuthStatus = accountSession ? "connected" : "anonymous";
+      if (generation === authenticationGeneration)
+        relayAuthStatus = previousStatus;
       throw cause;
     }
   }
