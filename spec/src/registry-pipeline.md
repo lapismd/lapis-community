@@ -142,3 +142,7 @@ Local privacy reclassification MUST invalidate only affected cache records and t
 Shared browser cache ownership MUST remain serialized through initialization and shutdown; concurrent view transitions MUST NOT leak an owner reference or open a competing database while its predecessor is closing.
 
 Configured private-room authorization MUST restrict offline cached search and indexed history even before signed room metadata is available locally. Changing that configuration MUST remove formerly public plaintext and its reference descendants while preserving unrelated public coverage.
+
+Published npm build helpers keep declaration types independent of their build
+Vite peer graph. Consumer validation compiles the public helper in each host's
+own Vite configuration before packaging that host.

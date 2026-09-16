@@ -147,3 +147,7 @@ pending human visual review.
 Packaging compiles the public `./build/vite` helper to JavaScript and declarations.
 The source helper remains shared by this repository and its consumers; ordinary
 package validation must verify the built export exists.
+
+Build-helper tests compile the public declaration and verify that it does not
+export a Vite peer dependency through its return type. The implementation remains
+checked against the owning Vite Plugin contract at build time.

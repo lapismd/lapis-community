@@ -32,13 +32,13 @@ export function unwrapTursoBundleDataUrl(code: string, id: string): string {
   ).replaceAll("new Worker(", "new globalThis.Worker(");
 }
 
-export function tursoBundleBuildPlugin(): Plugin {
+export function tursoBundleBuildPlugin() {
   return {
     name: "lapis-community-turso-bundle-data-url",
     enforce: "pre",
-    transform(code, id) {
+    transform(code: string, id: string): { code: string; map: null } | null {
       const transformed = unwrapTursoBundleDataUrl(code, id);
       return transformed === code ? null : { code: transformed, map: null };
     },
-  };
+  } satisfies Plugin;
 }

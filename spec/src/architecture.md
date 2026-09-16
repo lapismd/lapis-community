@@ -527,3 +527,7 @@ The public `./build/vite` package entry exports the existing Turso bundle
 transform for consuming Vite and Storybook hosts. It contains no Community
 runtime imports and applies to both client and worker graphs. Consumers reuse
 this integration through the installed package rather than copying the helper.
+
+The public Turso Vite helper declares only its actual name, pre-transform order
+and transform function. Its emitted types must not import the complete Vite
+Plugin interface or couple consumers to the helper build peer graph.
