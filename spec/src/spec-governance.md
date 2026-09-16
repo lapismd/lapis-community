@@ -143,3 +143,7 @@ protocol contracts and public UI catalog examples. Verification distinguishes a
 failed aggregate command from successful cold Storybook partitions, preserves
 existing live-only exclusions, and records functional checks separately from
 pending human visual review.
+
+Packaging compiles the public `./build/vite` helper to JavaScript and declarations.
+The source helper remains shared by this repository and its consumers; ordinary
+package validation must verify the built export exists.

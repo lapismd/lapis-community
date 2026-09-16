@@ -74,11 +74,15 @@
       "import": "./dist/testing/index.js",
       "default": "./dist/testing/index.js"
     },
-    "./client/registry-community.js": "./dist/client/registry-community.js"
+    "./client/registry-community.js": "./dist/client/registry-community.js",
+    "./build/vite": {
+      "types": "./dist/build/vite-turso-bundle.d.ts",
+      "import": "./dist/build/vite-turso-bundle.js"
+    }
   },
   "scripts": {
     "build": "pnpm prepack",
-    "prepack": "svelte-package --input src --tsconfig ./tsconfig.pack.json && vite build && publint",
+    "prepack": "svelte-package --input src --tsconfig ./tsconfig.pack.json && vite build && pnpm build:tools && publint",
     "check": "pnpm check:ui && pnpm check:architecture && pnpm spec:validate && pnpm check:svelte && pnpm check:types",
     "check:architecture": "node scripts/check-architecture.mjs",
     "check:svelte": "svelte-check --tsconfig ./tsconfig.app.json --fail-on-warnings --output human",
@@ -132,7 +136,8 @@
     "local:rehydrate": "scripts/local-community.sh rehydrate",
     "local:doctor": "scripts/local-community.sh doctor",
     "local:site": "scripts/local-community.sh site",
-    "test:agents:archive:browser": "node scripts/test-agent-archive-browser.mjs"
+    "test:agents:archive:browser": "node scripts/test-agent-archive-browser.mjs",
+    "build:tools": "tsc --declaration --target es2022 --module esnext --moduleResolution bundler --skipLibCheck --outDir dist/build scripts/vite-turso-bundle.ts"
   },
   "dependencies": {
     "@codemirror/autocomplete": "^6.20.3",

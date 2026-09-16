@@ -281,3 +281,7 @@ Downstream validation also passed: 58 isolated relay browser tests, the isolated
 project integration case (47 intentionally filtered stories), six packaged
 consumer viewport/theme contracts, the static Storybook build, and the package
 build with publint.
+
+Public build integration: `scripts/vite-turso-bundle.test.mjs` verifies the
+unchanged transform, `pnpm build:tools` emits its public export, and consumer
+Vite/Storybook builds verify the installed `./build/vite` entry.

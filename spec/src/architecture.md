@@ -522,3 +522,8 @@ source by its verified event union. Source authorities are copied at constructio
 source replacement/disposal separates authority contexts. Duplicate events and
 unchanged relay refreshes preserve the memoized revision. Pending callers share
 source-owned work, while individual cancellation stops only their own wait.
+
+The public `./build/vite` package entry exports the existing Turso bundle
+transform for consuming Vite and Storybook hosts. It contains no Community
+runtime imports and applies to both client and worker graphs. Consumers reuse
+this integration through the installed package rather than copying the helper.
