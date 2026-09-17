@@ -4,7 +4,10 @@ import type { RepositoryLogRevision } from "./repository-log.js";
 import {
   REPOSITORY_LOG_ROW_HEIGHT,
   buildRepositoryLogGraph,
+  encodeJjChangeId,
   repositoryLogLaneStem,
+  repositoryLogRowLabel,
+  shortestRepositoryLogPrefix,
   tipRevisionIds,
 } from "./repository-log-graph.js";
 
@@ -20,6 +23,7 @@ function revision(
     reason: parents.length > 1 ? "merge" : "checkpoint",
     createdAt: 1_700_000_000,
     root: eventId,
+    changeId: "",
     author: "Maya Chen",
     ...extras,
   };
@@ -93,5 +97,27 @@ describe("repository log graph", () => {
     const merge = rows.find((row) => row.revision.eventId === "rev-merge");
     expect(merge?.mergeFromLanes.length).toBeGreaterThan(0);
     expect(Math.max(...rows.map((row) => row.lanes.length))).toBeGreaterThan(1);
+  });
+
+  it("encodes change IDs with jj reverse-hex and lengthens prefixes on collision", () => {
+    expect(encodeJjChangeId("0123456789abcdef0123456789abcdef")).toBe(
+      "zyxwvutsrqponmlkzyxwvutsrqponmlk",
+    );
+    expect(
+      shortestRepositoryLogPrefix([
+        "zyxwvutskkkkkkkk",
+        "zyxwvutsrrrrrrrr",
+      ]).get("zyxwvutskkkkkkkk"),
+    ).toBe("zyxwvutsk");
+    const rows = buildRepositoryLogGraph([
+      revision("dddddddddddddddddddddddddddddddddddddddd", [], {
+        changeId: "0123456789abcdef0123456789abcdef",
+        message: "record merged lanes",
+      }),
+    ]);
+    expect(rows[0]?.changeIdShort).toBe("zyxwvuts");
+    expect(rows[0]?.commitIdShort).toBe("dddddddd");
+    expect(repositoryLogRowLabel(rows[0]!)).toContain("zyxwvuts");
+    expect(repositoryLogRowLabel(rows[0]!)).toContain("dddddddd");
   });
 });

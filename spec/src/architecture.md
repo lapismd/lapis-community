@@ -325,7 +325,8 @@ activity feed for dest-Git commits, NIP-34 work items, and kind `3901`
 jj-sync operations scoped to the selected repository. A Log tab after
 Activity maps kinds `3902`/`3903` from that same work-item stream onto
 Community's `CommunityProjectsRevisionGraph`; dest-Git commit loading MUST
-NOT open for Log.
+NOT open for Log. Log rows MUST label reverse-hex change IDs beside commit
+IDs from kind `3902` `change_id_hex`.
 
 The agent activity archive uses the existing store owner and runtime worker
 bridge. Additive store/runtime properties preserve custom adapters. Transient

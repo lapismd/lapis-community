@@ -42,6 +42,7 @@
     return event(id, KIND_JJ_REVISION, createdAt, {
       schema: "jj-sync/revision",
       commit_id: commitId,
+      change_id_hex: `${id}${"a".repeat(31)}`.slice(0, 32),
       parent_commit_ids: parents,
       description,
       author: { name: "Maya Chen", timestamp_ms: createdAt * 1_000 },
@@ -100,6 +101,8 @@
     await expect(canvas.getByText("record merged lanes")).toBeVisible();
     await expect(canvas.getByText("main")).toBeVisible();
     await expect(canvas.getByText("@")).toBeVisible();
+    await expect(canvas.getByText("vppppppp")).toBeVisible();
+    await expect(canvas.getByText(merge.slice(0, 8))).toBeVisible();
     await expect(canvas.queryByText("maya@example.test")).toBeNull();
   }}
 />

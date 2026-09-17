@@ -36,14 +36,54 @@ export type RepositoryLogGraphRow = {
   isFirst: boolean;
   isTip: boolean;
   deviceAliases: string[];
+  changeIdShort: string;
+  changeIdEncoded: string;
+  commitIdShort: string;
 };
+
+const JJ_REVERSE_HEX = "zyxwvutsrqponmlk";
+export const REPOSITORY_LOG_ID_PREFIX = 8;
+
+export function encodeJjChangeId(hex: string): string {
+  if (!/^[0-9a-fA-F]+$/u.test(hex) || hex.length % 2 !== 0) return "";
+  return [...hex.toLowerCase()]
+    .map((digit) => JJ_REVERSE_HEX[Number.parseInt(digit, 16)] ?? "")
+    .join("");
+}
+
+export function shortestRepositoryLogPrefix(
+  values: readonly string[],
+  min = REPOSITORY_LOG_ID_PREFIX,
+): Map<string, string> {
+  const prefixes = new Map<string, string>();
+  for (const value of values) {
+    if (!value) continue;
+    let length = Math.min(Math.max(min, 1), value.length);
+    while (
+      length < value.length &&
+      values.some(
+        (other) => other !== value && other.startsWith(value.slice(0, length)),
+      )
+    ) {
+      length += 1;
+    }
+    prefixes.set(value, value.slice(0, length));
+  }
+  return prefixes;
+}
 
 export function repositoryLogReasonLabel(reason: RepositoryLogReason): string {
   return reason === "merge" ? "Merge" : "Snapshot";
 }
 
-export function repositoryLogRowLabel(revision: RepositoryLogRevision): string {
-  return `${revision.message} ${revision.eventId.slice(0, 8)} ${repositoryLogReasonLabel(revision.reason)}`;
+export function repositoryLogRowLabel(row: {
+  revision: RepositoryLogRevision;
+  changeIdShort: string;
+  commitIdShort: string;
+}): string {
+  return `${row.revision.message} ${row.changeIdShort} ${row.commitIdShort} ${repositoryLogReasonLabel(row.revision.reason)}`
+    .replace(/\s+/gu, " ")
+    .trim();
 }
 
 export function formatRepositoryLogTimestamp(createdAt: number): string {
@@ -131,6 +171,13 @@ export function buildRepositoryLogGraph(
     aliases.push(device.alias);
     aliasesByHead.set(device.revisionEventId, aliases);
   }
+  const changeIds = revisions.map((revision) =>
+    encodeJjChangeId(revision.changeId),
+  );
+  const changeShorts = shortestRepositoryLogPrefix(changeIds);
+  const commitShorts = shortestRepositoryLogPrefix(
+    revisions.map((revision) => revision.eventId),
+  );
 
   for (let commitIndex = 0; commitIndex < revisions.length; commitIndex += 1) {
     const revision = revisions[commitIndex];
@@ -211,6 +258,11 @@ export function buildRepositoryLogGraph(
       isFirst: commitIndex === 0,
       isTip: tips.has(revision.eventId),
       deviceAliases: aliasesByHead.get(revision.eventId) ?? [],
+      changeIdShort: changeShorts.get(changeIds[commitIndex] ?? "") ?? "",
+      changeIdEncoded: changeIds[commitIndex] ?? "",
+      commitIdShort:
+        commitShorts.get(revision.eventId) ??
+        revision.eventId.slice(0, REPOSITORY_LOG_ID_PREFIX),
     });
   }
 

@@ -145,7 +145,8 @@ Work-item observation MUST keep kind `3901` events that carry the
 repository `#a` coordinate so repository Activity can project jj-sync
 operations beside dest-Git commits and NIP-34 collaboration, and MUST keep
 kinds `3902`–`3905` on that same `#a` stream so repository Log can project
-the Jujutsu DAG.
+the Jujutsu DAG. Kind `3902` `change_id_hex` (or the `i` tag) MUST become
+the reverse-hex change ID shown beside the commit ID.
 Successful JSON GET responses MAY be retained briefly in a bounded in-memory
 cache scoped by relay URL and signer public key. Progress-stream responses MUST
 not be cached, and a successful forge mutation MUST invalidate that cache.

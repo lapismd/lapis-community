@@ -23,6 +23,7 @@ Extracted Community controller modules update the architecture baseline in the
 same change as the factory they leave. Extracted project work-item filters,
 repository activity, repository Log adapter, and
 `CommunityProjectsRevisionGraph` modules update that baseline in the same
+change. Repository Log change-ID labels update that baseline in the same
 change.
 
 For LC-OPS-001 and LC-OPS-004, hosted-project acceptance layers the sibling

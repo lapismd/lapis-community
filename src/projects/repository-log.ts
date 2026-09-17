@@ -11,6 +11,7 @@ export type RepositoryLogReason = "checkpoint" | "merge";
 
 export type RepositoryLogRevision = {
   eventId: string;
+  changeId: string;
   parents: string[];
   message: string;
   reason: RepositoryLogReason;
@@ -116,6 +117,7 @@ function parseRevision(
     event.created_at;
   return {
     eventId: commitId,
+    changeId: changeIdHex(event, body),
     parents,
     message: typeof body.description === "string" ? body.description : "",
     reason: parents.length > 1 ? "merge" : "checkpoint",
@@ -123,6 +125,16 @@ function parseRevision(
     root: commitId,
     author: personName(body.author) || personName(body.committer),
   };
+}
+
+function changeIdHex(
+  event: NostrEvent,
+  body: Record<string, unknown>,
+): string {
+  const raw =
+    asString(body.change_id_hex) ??
+    asString(event.tags.find((tag) => tag[0] === "i")?.[1]);
+  return raw && /^[0-9a-fA-F]{32}$/u.test(raw) ? raw.toLowerCase() : "";
 }
 
 function parseContextViewId(kind: number, body: unknown): string | undefined {

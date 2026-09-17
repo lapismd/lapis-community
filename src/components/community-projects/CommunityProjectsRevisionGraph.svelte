@@ -63,7 +63,7 @@
         style:padding-left="{repositoryLogContentLeft(row)}px"
         style:height="{rowHeight}px"
         aria-current={selectedId === row.revision.eventId ? "true" : undefined}
-        aria-label={repositoryLogRowLabel(row.revision)}
+        aria-label={repositoryLogRowLabel(row)}
         data-revision-id={row.revision.eventId}
         onclick={() => onSelect?.(row.revision)}
       >
@@ -142,7 +142,17 @@
             >
               {formatRepositoryLogTimestamp(row.revision.createdAt)}
             </time>
-            <span>{row.revision.eventId.slice(0, 8)}</span>
+            {#if row.changeIdShort}
+              <span
+                class="community-revision-graph__change-id"
+                title={row.changeIdEncoded || undefined}
+                >{row.changeIdShort}</span
+              >
+            {/if}
+            <span
+              class="community-revision-graph__commit-id"
+              title={row.revision.eventId}>{row.commitIdShort}</span
+            >
           </span>
           <span class="community-revision-graph__chips">
             <CommunityChip size="compact" variant="muted" ariaHidden
@@ -253,6 +263,15 @@
     gap: 0.35rem;
     color: var(--muted-foreground);
     font-size: var(--community-text-secondary);
+  }
+
+  .community-revision-graph__change-id {
+    color: var(--primary);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .community-revision-graph__commit-id {
+    font-variant-numeric: tabular-nums;
   }
 
   .community-revision-graph__chips {

@@ -97,6 +97,7 @@ describe("repository log", () => {
       reason: "merge",
       author: "Maya Chen",
       message: "record merged lanes",
+      changeId: "",
     });
     expect(graph.revisions.some((item) => item.eventId === hidden)).toBe(false);
     expect(JSON.stringify(graph)).not.toContain("maya@example.test");
@@ -107,6 +108,27 @@ describe("repository log", () => {
     expect(
       graph.devices.every((device) => device.revisionEventId === merge),
     ).toBe(true);
+  });
+
+  it("reads change_id_hex from the revision body or i tag", () => {
+    const hex = "0123456789abcdef0123456789abcdef";
+    const tagged = revision("2", 11, left, [parent], "lane a");
+    tagged.tags = [
+      ["a", "30617:owner:probe"],
+      ["i", "fedcba9876543210fedcba9876543210"],
+    ];
+    const graph = buildRepositoryLog([
+      revision("1", 10, parent, [], "root", { change_id_hex: hex }),
+      tagged,
+      revision("4", 13, merge, [left], "head"),
+      view("6", 14, [merge]),
+    ]);
+    expect(graph.revisions.find((item) => item.eventId === parent)?.changeId).toBe(
+      hex,
+    );
+    expect(graph.revisions.find((item) => item.eventId === left)?.changeId).toBe(
+      "fedcba9876543210fedcba9876543210",
+    );
   });
 
   it("pins the view attached to the latest 3904/3905 context", () => {
