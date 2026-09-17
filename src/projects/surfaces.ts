@@ -1,5 +1,6 @@
 export type ProjectForgeSurface =
   | "activity"
+  | "log"
   | "overview"
   | "tasks"
   | "reviews"
@@ -11,6 +12,7 @@ export type ProjectForgeSurface =
 
 export const PROJECT_FORGE_SURFACES = [
   "activity",
+  "log",
   "overview",
   "tasks",
   "reviews",
@@ -23,6 +25,7 @@ export const PROJECT_FORGE_SURFACES = [
 
 export const PROJECT_REPOSITORY_TABS = [
   { value: "activity", label: "Activity" },
+  { value: "log", label: "Log" },
   { value: "overview", label: "Overview" },
   { value: "files", label: "Files" },
   { value: "commits", label: "Commits" },

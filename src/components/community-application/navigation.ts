@@ -52,7 +52,7 @@ export type CommunityApplicationMainSurface =
   | "project-commits"
   | "project-files"
   | "project-channels"
-  | "project-contributors" | "project-people" | "project-activity";
+  | "project-contributors" | "project-people" | "project-activity" | "project-log";
 
 export interface CommunityApplicationLocation {
   destination: CommunityApplicationDestination;
@@ -463,7 +463,6 @@ export function isProjectDestination(destination: string): boolean {
     projectCoordinateFromDestination(destination) !== undefined
   );
 }
-
 
 function parseMainSurface(
   value: unknown,

@@ -670,7 +670,7 @@ describe("Buzz transport compatibility", () => {
       filters.every(
         (filter) =>
           filter.limit === 2_000 && filter["#a"]?.[0] === repositoryCoordinate,
-      ) && filters.at(-1)?.kinds?.[0] === 3901,
+      ) && [3901, 3902, 3905].every((kind) => filters.at(-1)?.kinds?.includes(kind)),
     ).toBe(true);
   });
 

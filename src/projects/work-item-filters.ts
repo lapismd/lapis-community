@@ -3,6 +3,10 @@ import type { RelayFilter } from "../nostr/index.js";
 import { PROJECT_FORGE_KINDS } from "./model.js";
 
 export const KIND_JJ_OPERATION = 3901;
+export const KIND_JJ_REVISION = 3902;
+export const KIND_JJ_VIEW = 3903;
+export const KIND_JJ_OPERATION_GRAPH = 3904;
+export const KIND_JJ_GRAPH_MANIFEST = 3905;
 
 const WORK_ITEM_LIMIT = 2_000;
 
@@ -41,7 +45,13 @@ export function buzzWorkItemFilters(
       limit: WORK_ITEM_LIMIT,
     },
     {
-      kinds: [KIND_JJ_OPERATION],
+      kinds: [
+        KIND_JJ_OPERATION,
+        KIND_JJ_REVISION,
+        KIND_JJ_VIEW,
+        KIND_JJ_OPERATION_GRAPH,
+        KIND_JJ_GRAPH_MANIFEST,
+      ],
       "#a": [repositoryCoordinate],
       limit: WORK_ITEM_LIMIT,
     },

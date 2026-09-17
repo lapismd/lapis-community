@@ -1,0 +1,296 @@
+import type { NostrEvent } from "../protocol/index.js";
+
+import {
+  KIND_JJ_GRAPH_MANIFEST,
+  KIND_JJ_OPERATION_GRAPH,
+  KIND_JJ_REVISION,
+  KIND_JJ_VIEW,
+} from "./work-item-filters.js";
+
+export type RepositoryLogReason = "checkpoint" | "merge";
+
+export type RepositoryLogRevision = {
+  eventId: string;
+  parents: string[];
+  message: string;
+  reason: RepositoryLogReason;
+  createdAt: number;
+  root: string;
+  author: string;
+};
+
+export type RepositoryLogDevice = {
+  publicKey: string;
+  alias: string;
+  revisionEventId: string;
+  lastSeen: number;
+};
+
+export type RepositoryLogGraph = {
+  revisions: RepositoryLogRevision[];
+  devices: RepositoryLogDevice[];
+};
+
+type ViewBody = {
+  schema?: unknown;
+  view_id?: unknown;
+  head_commit_ids?: unknown;
+  local_bookmarks?: unknown;
+  workspaces?: unknown;
+};
+
+const EMPTY_GRAPH: RepositoryLogGraph = { revisions: [], devices: [] };
+
+export function buildRepositoryLog(
+  events: readonly NostrEvent[],
+): RepositoryLogGraph {
+  const revisions = new Map<string, RepositoryLogRevision>();
+  const views: { event: NostrEvent; body: ViewBody }[] = [];
+  let contextViewId: string | undefined;
+  let contextCreatedAt = -1;
+  for (const event of events) {
+    const body = parseJson(event.content);
+    if (event.kind === KIND_JJ_REVISION) {
+      const revision = parseRevision(event, body);
+      if (revision) revisions.set(revision.eventId, revision);
+      continue;
+    }
+    if (
+      event.kind === KIND_JJ_VIEW &&
+      isRecord(body) &&
+      body.schema === "jj-sync/view"
+    ) {
+      views.push({ event, body });
+      continue;
+    }
+    const viewId = parseContextViewId(event.kind, body);
+    if (viewId && event.created_at >= contextCreatedAt) {
+      contextViewId = viewId;
+      contextCreatedAt = event.created_at;
+    }
+  }
+  const view = pinView(views, contextViewId);
+  if (!view) return EMPTY_GRAPH;
+  const heads = stringList(view.body.head_commit_ids);
+  const visible = ancestorsOf(revisions, heads);
+  if (visible.length === 0) return EMPTY_GRAPH;
+  return {
+    revisions: orderNewestFirst(visible),
+    devices: devicesFromView(
+      view.event,
+      view.body,
+      new Set(visible.map((item) => item.eventId)),
+    ),
+  };
+}
+
+function pinView(
+  views: { event: NostrEvent; body: ViewBody }[],
+  contextViewId: string | undefined,
+): { event: NostrEvent; body: ViewBody } | undefined {
+  if (contextViewId) {
+    const matched = views.find((view) => view.body.view_id === contextViewId);
+    if (matched) return matched;
+  }
+  return views.reduce<{ event: NostrEvent; body: ViewBody } | undefined>(
+    (newest, view) => {
+      if (!newest || view.event.created_at >= newest.event.created_at)
+        return view;
+      return newest;
+    },
+    undefined,
+  );
+}
+
+function parseRevision(
+  event: NostrEvent,
+  body: unknown,
+): RepositoryLogRevision | undefined {
+  if (!isRecord(body) || body.schema !== "jj-sync/revision") return undefined;
+  const commitId = asString(body.commit_id);
+  if (!commitId) return undefined;
+  const parents = stringList(body.parent_commit_ids);
+  const createdAt =
+    personSeconds(body.author) ??
+    personSeconds(body.committer) ??
+    event.created_at;
+  return {
+    eventId: commitId,
+    parents,
+    message: typeof body.description === "string" ? body.description : "",
+    reason: parents.length > 1 ? "merge" : "checkpoint",
+    createdAt,
+    root: commitId,
+    author: personName(body.author) || personName(body.committer),
+  };
+}
+
+function parseContextViewId(kind: number, body: unknown): string | undefined {
+  if (!isRecord(body)) return undefined;
+  if (
+    kind === KIND_JJ_OPERATION_GRAPH &&
+    body.schema === "jj-sync/operation-graph"
+  ) {
+    return asString(body.view_id);
+  }
+  if (
+    kind === KIND_JJ_GRAPH_MANIFEST &&
+    body.schema === "jj-sync/graph-publication"
+  ) {
+    return isRecord(body.context) ? asString(body.context.view_id) : undefined;
+  }
+  return undefined;
+}
+
+function devicesFromView(
+  event: NostrEvent,
+  body: ViewBody,
+  visible: Set<string>,
+): RepositoryLogDevice[] {
+  const devices: RepositoryLogDevice[] = [];
+  for (const bookmark of arrayOf(body.local_bookmarks)) {
+    const name = asString(bookmark.name);
+    const commitId = resolvedCommitId(bookmark.target);
+    if (name && commitId && visible.has(commitId)) {
+      devices.push(device(event, name, commitId));
+    }
+  }
+  for (const workspace of arrayOf(body.workspaces)) {
+    const name = asString(workspace.native_workspace_name);
+    const commitId = asString(workspace.working_copy_commit_id);
+    if (name && commitId && visible.has(commitId)) {
+      devices.push(device(event, name === "default" ? "@" : name, commitId));
+    }
+  }
+  return devices;
+}
+
+function device(
+  event: NostrEvent,
+  alias: string,
+  revisionEventId: string,
+): RepositoryLogDevice {
+  return {
+    publicKey: event.pubkey,
+    alias,
+    revisionEventId,
+    lastSeen: event.created_at,
+  };
+}
+
+function ancestorsOf(
+  revisions: Map<string, RepositoryLogRevision>,
+  heads: readonly string[],
+): RepositoryLogRevision[] {
+  const visible = new Set<string>();
+  const stack = [...heads];
+  while (stack.length > 0) {
+    const id = stack.pop();
+    if (!id || visible.has(id)) continue;
+    const revision = revisions.get(id);
+    if (!revision) continue;
+    visible.add(id);
+    stack.push(...revision.parents);
+  }
+  return [...visible].flatMap((id) => {
+    const revision = revisions.get(id);
+    return revision ? [revision] : [];
+  });
+}
+
+function orderNewestFirst(
+  revisions: RepositoryLogRevision[],
+): RepositoryLogRevision[] {
+  const byId = new Map(
+    revisions.map((revision) => [revision.eventId, revision]),
+  );
+  const remaining = new Set(byId.keys());
+  const childCount = new Map<string, number>();
+  for (const revision of revisions) {
+    for (const parent of revision.parents) {
+      if (byId.has(parent)) {
+        childCount.set(parent, (childCount.get(parent) ?? 0) + 1);
+      }
+    }
+  }
+  const tips = revisions.filter((revision) =>
+    revisions.every((other) => !other.parents.includes(revision.eventId)),
+  );
+  const queue = sortRevisions(tips);
+  const ordered: RepositoryLogRevision[] = [];
+  while (queue.length > 0) {
+    const next = queue.shift()!;
+    if (!remaining.delete(next.eventId)) continue;
+    ordered.push(next);
+    for (const parentId of next.parents) {
+      const parent = byId.get(parentId);
+      if (!parent || !remaining.has(parentId)) continue;
+      const left = (childCount.get(parentId) ?? 1) - 1;
+      childCount.set(parentId, left);
+      if (left <= 0) queue.push(parent);
+    }
+    queue.sort(compareRevisions);
+  }
+  for (const revision of sortRevisions(revisions)) {
+    if (remaining.delete(revision.eventId)) ordered.push(revision);
+  }
+  return ordered;
+}
+
+function sortRevisions(
+  revisions: RepositoryLogRevision[],
+): RepositoryLogRevision[] {
+  return revisions.slice().sort(compareRevisions);
+}
+
+function compareRevisions(
+  left: RepositoryLogRevision,
+  right: RepositoryLogRevision,
+): number {
+  return (
+    right.createdAt - left.createdAt ||
+    left.eventId.localeCompare(right.eventId)
+  );
+}
+
+function resolvedCommitId(target: unknown): string | undefined {
+  if (!isRecord(target) || target.state !== "resolved") return undefined;
+  return asString(target.commit_id);
+}
+
+function personSeconds(person: unknown): number | undefined {
+  if (!isRecord(person) || typeof person.timestamp_ms !== "number") {
+    return undefined;
+  }
+  return Math.floor(person.timestamp_ms / 1_000);
+}
+
+function personName(person: unknown): string {
+  return isRecord(person) && typeof person.name === "string" ? person.name : "";
+}
+
+function stringList(value: unknown): string[] {
+  return Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === "string")
+    : [];
+}
+
+function arrayOf(value: unknown): Record<string, unknown>[] {
+  return Array.isArray(value) ? value.filter(isRecord) : [];
+}
+
+function parseJson(content: string): unknown {
+  try {
+    return JSON.parse(content) as unknown;
+  } catch {
+    return undefined;
+  }
+}
+
+function asString(value: unknown): string | undefined {
+  return typeof value === "string" && value.length > 0 ? value : undefined;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
+}

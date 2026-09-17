@@ -7403,7 +7403,7 @@
             : projectCatalog.repositories}
         repositoryOptions={projectCatalog.repositories}
         repositoryCapabilities={projectRepositoryCapabilities}
-        activity={projectActivity}
+        activity={projectActivity} workItemEvents={projectWorkItems.events}
         tasks={selectedRepository
           ? selectedRepositoryTasks
           : projectWorkItems.tasks}

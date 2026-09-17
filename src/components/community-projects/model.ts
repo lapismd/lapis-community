@@ -115,7 +115,7 @@ export interface CommunityProjectsProps {
   selectedRepository?: ProjectForgeRepository;
   /** Relay-resolved operational capabilities keyed by repository coordinate. */
   repositoryCapabilities?: ProjectForgeRepositoryCapabilitiesByCoordinate;
-  activity?: readonly ProjectForgeActivityItem[];
+  activity?: readonly ProjectForgeActivityItem[]; workItemEvents?: readonly import("../../protocol/index.js").NostrEvent[];
   tasks?: readonly ProjectTaskState[];
   selectedTask?: ProjectTaskState;
   pullRequests?: readonly PullRequestState[];

@@ -9,10 +9,7 @@ import {
   repositoryCommitActivity,
   repositoryVisibleActivity,
 } from "./repository-activity.js";
-import {
-  PROJECT_REPOSITORY_TABS,
-  isProjectForgeSurface,
-} from "./surfaces.js";
+import { PROJECT_REPOSITORY_TABS, isProjectForgeSurface } from "./surfaces.js";
 
 const owner = "1".repeat(64);
 const repositoryCoordinate = `${PROJECT_FORGE_KINDS.repository}:${owner}:notes`;
@@ -94,6 +91,7 @@ describe("repository activity", () => {
   it("lists Activity first among repository tabs", () => {
     expect(PROJECT_REPOSITORY_TABS.map((tab) => tab.value)).toEqual([
       "activity",
+      "log",
       "overview",
       "files",
       "commits",

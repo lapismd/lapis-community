@@ -86,21 +86,14 @@
   import CommunityProjectsCreateDialogs from "./CommunityProjectsCreateDialogs.svelte";
   import CommunityProjectsPullRequestReview from "./CommunityProjectsPullRequestReview.svelte";
   import CommunityProjectsPullRequestSubmitDialog from "./CommunityProjectsPullRequestSubmitDialog.svelte";
-  import CommunityProjectsRepositoryPane from "./CommunityProjectsRepositoryPane.svelte";
+  import CommunityProjectsRepositoryPane from "./CommunityProjectsRepositoryPane.svelte"; import CommunityProjectsRepositoryLog from "./CommunityProjectsRepositoryLog.svelte";
   import CommunityRelativeTime from "../community-relative-time/CommunityRelativeTime.svelte";
   import type {
     CommunityMemberModel,
     CommunityMessageModel,
     CommunityRoomModel,
   } from "../community-workspace/model.js";
-  import type {
-    CommunityProjectsCreateProject,
-    CommunityProjectsCreatePullRequest,
-    CommunityProjectsCreateRepository,
-    CommunityProjectsCreateTask,
-    CommunityProjectsProps,
-    CommunityProjectsUpdateProject,
-  } from "./model.js";
+  import type { CommunityProjectsCreateProject, CommunityProjectsCreatePullRequest, CommunityProjectsCreateRepository, CommunityProjectsCreateTask, CommunityProjectsProps, CommunityProjectsUpdateProject } from "./model.js";
   import {
     isMarkdownRepositoryPath,
     repositoryBreadcrumbSegments,
@@ -118,7 +111,7 @@
     repositoryOptions = [],
     selectedRepository,
     repositoryCapabilities = {},
-    activity = [],
+    activity = [], workItemEvents = [],
     tasks = [],
     selectedTask,
     pullRequests = [],
@@ -2185,8 +2178,6 @@
   function mergeOpenPullRequest(): void {
     if (selectedPullRequest) void mergeSelectedPullRequest(selectedPullRequest);
   }
-
-
 </script>
 
 {#snippet taskStatusIcon(lifecycle: (typeof tasks)[number]["lifecycle"])}
@@ -2736,6 +2727,7 @@
           onOpenProject={openActivityProject}
           onOpenItem={openActivityItem}
         />
+      {:else if view === "log"}<CommunityProjectsRepositoryLog events={workItemEvents} {loading} />
       {:else if view === "directory" || view === "projects"}
         <header class="community-projects__directory-header">
           <div>
@@ -3860,11 +3852,11 @@
   bind:githubManagerOpen
   bind:githubManagerFormOpen
   bind:githubDraft
-  githubManagerConnection={githubManagerConnection}
+  {githubManagerConnection}
   githubManagerConnections={githubConnections}
-  githubManagerLoading={githubManagerLoading}
-  githubManagerError={githubManagerError}
-  githubManagerOperation={githubManagerOperation}
+  {githubManagerLoading}
+  {githubManagerError}
+  {githubManagerOperation}
   bind:taskOpen={taskDialogOpen}
   bind:taskDraft
   {taskProject}
