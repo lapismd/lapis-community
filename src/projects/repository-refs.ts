@@ -1,4 +1,39 @@
-import type { ProjectForgeRef, ProjectForgeRefsResponse } from "./model.js";
+import {
+  projectForgeBranchName,
+  type ProjectForgeRef,
+  type ProjectForgeRefsResponse,
+} from "./model.js";
+
+export type ProjectForgeBranchKind = "branch" | "sync";
+
+export function projectForgeBranchKind(name: string): ProjectForgeBranchKind {
+  return (projectForgeBranchName(name) ?? name).startsWith("jj-sync/")
+    ? "sync"
+    : "branch";
+}
+
+export function partitionProjectForgeBranchRefs(
+  branches: readonly ProjectForgeRef[],
+): {
+  branches: readonly ProjectForgeRef[];
+  sync: readonly ProjectForgeRef[];
+} {
+  const workspace: ProjectForgeRef[] = [];
+  const sync: ProjectForgeRef[] = [];
+  for (const ref of branches) {
+    (projectForgeBranchKind(ref.name) === "sync" ? sync : workspace).push(ref);
+  }
+  return { branches: workspace, sync };
+}
+
+export function projectForgeDefaultBranchName(
+  branches: readonly ProjectForgeRef[],
+): string | undefined {
+  return (
+    branches.find((ref) => projectForgeBranchKind(ref.name) === "branch")
+      ?.name ?? branches[0]?.name
+  );
+}
 
 const BRANCH_REFS_PATH = "refs/branches";
 const MAX_BRANCH_REF_PAGES = 32;

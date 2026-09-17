@@ -318,7 +318,8 @@ boundaries [deferred: DEFER-FORGE-005] [deferred: DEFER-FORGE-006]
 [deferred: DEFER-FORGE-011].
 Authenticated repository `loadRefs` MUST combine HEAD with every
 `refs/branches` page, including nested sync heads, rather than treating the
-HEAD-only `/refs` response as the complete picker list.
+HEAD-only `/refs` response as the complete picker list. The Files switcher
+MUST partition `jj-sync/` carriers onto a Sync tab.
 
 The agent activity archive uses the existing store owner and runtime worker
 bridge. Additive store/runtime properties preserve custom adapters. Transient

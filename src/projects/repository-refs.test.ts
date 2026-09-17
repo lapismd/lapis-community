@@ -5,7 +5,10 @@ import {
   loadProjectForgeRefs,
   mergeProjectForgeRefPages,
   nextProjectForgeBranchRefsPath,
+  partitionProjectForgeBranchRefs,
+  projectForgeBranchKind,
   projectForgeBranchRefsPath,
+  projectForgeDefaultBranchName,
 } from "./repository-refs.js";
 
 const main = { name: "refs/heads/main", sha: "a".repeat(40) };
@@ -26,6 +29,15 @@ describe("project forge repository refs", () => {
       "jj-sync/scope/replica",
       "community-visible",
     ]);
+    expect(projectForgeBranchKind("jj-sync/scope/replica")).toBe("sync");
+    expect(partitionProjectForgeBranchRefs(branches)).toEqual({
+      branches: [
+        { name: "main", sha: main.sha },
+        { name: "community-visible", sha: visible.sha },
+      ],
+      sync: [{ name: "jj-sync/scope/replica", sha: sync.sha }],
+    });
+    expect(projectForgeDefaultBranchName(branches)).toBe("main");
   });
 
   it("collects every refs/branches page after the HEAD-only /refs response", async () => {
