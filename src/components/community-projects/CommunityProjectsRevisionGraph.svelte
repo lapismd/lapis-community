@@ -10,13 +10,17 @@
   import {
     REPOSITORY_LOG_NODE_RADIUS,
     REPOSITORY_LOG_ROW_HEIGHT,
+    REPOSITORY_LOG_STROKE_WIDTH,
     buildRepositoryLogGraph,
     formatRepositoryLogTimestamp,
     repositoryLogContentLeft,
+    repositoryLogConvergePath,
     repositoryLogLaneStem,
     repositoryLogLaneX,
+    repositoryLogMergePath,
     repositoryLogReasonLabel,
     repositoryLogRowLabel,
+    repositoryLogSplitPath,
     repositoryLogSvgWidth,
     type RepositoryLogGraphRow,
   } from "../../projects/repository-log-graph.js";
@@ -76,40 +80,51 @@
           {#each row.lanes as lane, index (index)}
             {@const x = repositoryLogLaneX(index)}
             {@const stem = repositoryLogLaneStem(row, index, rowHeight)}
-            <line
-              x1={x}
-              y1={stem.y1}
-              x2={x}
-              y2={stem.y2}
-              stroke={lane.color}
-              stroke-width="2"
-            />
+            {#if stem.y1 !== stem.y2}
+              <line
+                x1={x}
+                y1={stem.y1}
+                x2={x}
+                y2={stem.y2}
+                stroke={lane.color}
+                stroke-width={REPOSITORY_LOG_STROKE_WIDTH}
+              />
+            {/if}
           {/each}
           {#if row.splitFromLane != null}
-            {@const parentX = repositoryLogLaneX(row.splitFromLane)}
             <path
               class="community-revision-graph__edge"
-              d={`M ${parentX} ${rowHeight} C ${parentX} ${rowHeight - 10}, ${commitX} ${centerY + 10}, ${commitX} ${centerY}`}
+              d={repositoryLogSplitPath(
+                repositoryLogLaneX(row.splitFromLane),
+                commitX,
+                rowHeight,
+              )}
               stroke={laneColor(row, row.splitFromLane)}
-              stroke-width="2"
+              stroke-width={REPOSITORY_LOG_STROKE_WIDTH}
             />
           {/if}
           {#each row.mergeFromLanes as mergeLane (mergeLane)}
-            {@const parentX = repositoryLogLaneX(mergeLane)}
             <path
               class="community-revision-graph__edge"
-              d={`M ${commitX} ${centerY} C ${commitX} ${centerY + 22}, ${parentX} ${centerY + 10}, ${parentX} ${rowHeight}`}
+              d={repositoryLogMergePath(
+                commitX,
+                repositoryLogLaneX(mergeLane),
+                rowHeight,
+              )}
               stroke={laneColor(row, mergeLane)}
-              stroke-width="2"
+              stroke-width={REPOSITORY_LOG_STROKE_WIDTH}
             />
           {/each}
           {#each row.convergingLanes as convergeLane (convergeLane)}
-            {@const fromX = repositoryLogLaneX(convergeLane)}
             <path
               class="community-revision-graph__edge"
-              d={`M ${fromX} ${centerY} C ${fromX} ${centerY + 14}, ${commitX} ${centerY + 14}, ${commitX} ${centerY}`}
+              d={repositoryLogConvergePath(
+                repositoryLogLaneX(convergeLane),
+                commitX,
+                rowHeight,
+              )}
               stroke={laneColor(row, convergeLane)}
-              stroke-width="2"
+              stroke-width={REPOSITORY_LOG_STROKE_WIDTH}
             />
           {/each}
           <circle

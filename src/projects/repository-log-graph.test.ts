@@ -5,8 +5,12 @@ import {
   REPOSITORY_LOG_ROW_HEIGHT,
   buildRepositoryLogGraph,
   encodeJjChangeId,
+  repositoryLogConvergePath,
   repositoryLogLaneStem,
+  repositoryLogLaneX,
+  repositoryLogMergePath,
   repositoryLogRowLabel,
+  repositoryLogSplitPath,
   shortestRepositoryLogPrefix,
   tipRevisionIds,
 } from "./repository-log-graph.js";
@@ -71,6 +75,37 @@ describe("repository log graph", () => {
     ).toEqual(["main"]);
   });
 
+  it("reconnects a forked lane at the shared parent", () => {
+    const rows = buildRepositoryLogGraph([
+      revision("rev-wc", ["rev-b"]),
+      revision("rev-a", ["rev-shared"]),
+      revision("rev-b", ["rev-shared"]),
+      revision("rev-shared", []),
+    ]);
+    const side = rows.find((row) => row.revision.eventId === "rev-a");
+    const sibling = rows.find((row) => row.revision.eventId === "rev-b");
+    const parent = rows.find((row) => row.revision.eventId === "rev-shared");
+    expect(side?.commitLane).toBe(1);
+    expect(sibling?.lanes).toHaveLength(2);
+    expect(parent?.lanes).toHaveLength(2);
+    expect(parent?.commitLane).toBe(0);
+    expect(parent?.convergingLanes).toEqual([1]);
+    expect(repositoryLogLaneStem(parent!, parent!.convergingLanes[0]!).y2).toBe(
+      0,
+    );
+    expect(
+      repositoryLogConvergePath(repositoryLogLaneX(1), repositoryLogLaneX(0)),
+    ).toBe(
+      `M ${repositoryLogLaneX(1)} 0 C ${repositoryLogLaneX(1)} 10, ${repositoryLogLaneX(0)} ${REPOSITORY_LOG_ROW_HEIGHT / 2 - 10}, ${repositoryLogLaneX(0)} ${REPOSITORY_LOG_ROW_HEIGHT / 2}`,
+    );
+    expect(
+      repositoryLogSplitPath(repositoryLogLaneX(0), repositoryLogLaneX(1)),
+    ).toContain(`${REPOSITORY_LOG_ROW_HEIGHT - 10}`);
+    expect(
+      repositoryLogMergePath(repositoryLogLaneX(0), repositoryLogLaneX(1)),
+    ).toContain(`${REPOSITORY_LOG_ROW_HEIGHT / 2 + 6}`);
+  });
+
   it("keeps both fork tips visible on separate lanes", () => {
     const rows = buildRepositoryLogGraph([
       revision("rev-laptop", ["rev-shared"]),
@@ -104,10 +139,9 @@ describe("repository log graph", () => {
       "zyxwvutsrqponmlkzyxwvutsrqponmlk",
     );
     expect(
-      shortestRepositoryLogPrefix([
+      shortestRepositoryLogPrefix(["zyxwvutskkkkkkkk", "zyxwvutsrrrrrrrr"]).get(
         "zyxwvutskkkkkkkk",
-        "zyxwvutsrrrrrrrr",
-      ]).get("zyxwvutskkkkkkkk"),
+      ),
     ).toBe("zyxwvutsk");
     const rows = buildRepositoryLogGraph([
       revision("dddddddddddddddddddddddddddddddddddddddd", [], {

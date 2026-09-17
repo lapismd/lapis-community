@@ -5,9 +5,10 @@ import type {
 } from "./repository-log.js";
 
 export const REPOSITORY_LOG_ROW_HEIGHT = 76;
-export const REPOSITORY_LOG_LANE_WIDTH = 16;
-export const REPOSITORY_LOG_NODE_RADIUS = 5;
-export const REPOSITORY_LOG_LEFT_PAD = 12;
+export const REPOSITORY_LOG_LANE_WIDTH = 12;
+export const REPOSITORY_LOG_NODE_RADIUS = 4;
+export const REPOSITORY_LOG_LEFT_PAD = 8;
+export const REPOSITORY_LOG_STROKE_WIDTH = 2.5;
 
 export const REPOSITORY_LOG_LANE_COLORS = [
   "var(--ui-log-lane-1, #2563eb)",
@@ -123,8 +124,35 @@ export function repositoryLogLaneStem(
   const converge = row.convergingLanes.includes(lane);
   return {
     y1: row.isFirst || starts ? center : 0,
-    y2: converge || isSplitCommitLane ? center : rowHeight,
+    y2: isSplitCommitLane ? center : converge ? 0 : rowHeight,
   };
+}
+
+export function repositoryLogSplitPath(
+  parentX: number,
+  commitX: number,
+  rowHeight = REPOSITORY_LOG_ROW_HEIGHT,
+): string {
+  const centerY = rowHeight / 2;
+  return `M ${parentX} ${rowHeight} C ${parentX} ${rowHeight - 10}, ${commitX} ${centerY + 10}, ${commitX} ${centerY}`;
+}
+
+export function repositoryLogMergePath(
+  commitX: number,
+  parentX: number,
+  rowHeight = REPOSITORY_LOG_ROW_HEIGHT,
+): string {
+  const centerY = rowHeight / 2;
+  return `M ${commitX} ${centerY} C ${commitX} ${centerY + 14}, ${parentX} ${centerY + 6}, ${parentX} ${rowHeight}`;
+}
+
+export function repositoryLogConvergePath(
+  fromX: number,
+  commitX: number,
+  rowHeight = REPOSITORY_LOG_ROW_HEIGHT,
+): string {
+  const centerY = rowHeight / 2;
+  return `M ${fromX} 0 C ${fromX} 10, ${commitX} ${centerY - 10}, ${commitX} ${centerY}`;
 }
 
 export function repositoryLogContentLeft(row: RepositoryLogGraphRow): number {
@@ -213,10 +241,17 @@ export function buildRepositoryLogGraph(
         : null;
     const currentColor =
       lanes[commitLane]?.color ?? REPOSITORY_LOG_LANE_COLORS[0];
+    let continueLane = commitLane;
+    for (let index = lanes.length - 1; index >= 0; index -= 1) {
+      if (index !== continueLane && lanes[index]?.hash === revision.eventId) {
+        lanes.splice(index, 1);
+        if (index < continueLane) continueLane -= 1;
+      }
+    }
     if (firstParent) {
-      lanes[commitLane] = { hash: firstParent, color: currentColor };
+      lanes[continueLane] = { hash: firstParent, color: currentColor };
     } else {
-      lanes.splice(commitLane, 1);
+      lanes.splice(continueLane, 1);
     }
 
     const mergeFromLanes: number[] = [];
@@ -234,17 +269,6 @@ export function buildRepositoryLogGraph(
             colorIndex++ % REPOSITORY_LOG_LANE_COLORS.length
           ] ?? REPOSITORY_LOG_LANE_COLORS[0],
       });
-    }
-
-    const seen = new Set<string>();
-    for (let index = 0; index < lanes.length; ) {
-      const hash = lanes[index]?.hash;
-      if (!hash || seen.has(hash)) {
-        lanes.splice(index, 1);
-        continue;
-      }
-      seen.add(hash);
-      index += 1;
     }
 
     rows.push({

@@ -41,6 +41,16 @@ type ViewBody = {
 };
 
 const EMPTY_GRAPH: RepositoryLogGraph = { revisions: [], devices: [] };
+export const REPOSITORY_LOG_EMPTY_DESCRIPTION = "(empty) (no description set)";
+
+export function formatRepositoryLogMessage(
+  description: string,
+  isEmpty = false,
+): string {
+  const first = description.split("\n")[0]?.trim() ?? "";
+  if (!first) return REPOSITORY_LOG_EMPTY_DESCRIPTION;
+  return isEmpty ? `(empty) ${first}` : first;
+}
 
 export function buildRepositoryLog(
   events: readonly NostrEvent[],
@@ -119,7 +129,11 @@ function parseRevision(
     eventId: commitId,
     changeId: changeIdHex(event, body),
     parents,
-    message: typeof body.description === "string" ? body.description : "",
+    message: formatRepositoryLogMessage(
+      typeof body.description === "string" ? body.description : "",
+      body.is_empty === true ||
+        (isRecord(body.facts) && body.facts.is_empty === true),
+    ),
     reason: parents.length > 1 ? "merge" : "checkpoint",
     createdAt,
     root: commitId,
@@ -127,10 +141,7 @@ function parseRevision(
   };
 }
 
-function changeIdHex(
-  event: NostrEvent,
-  body: Record<string, unknown>,
-): string {
+function changeIdHex(event: NostrEvent, body: Record<string, unknown>): string {
   const raw =
     asString(body.change_id_hex) ??
     asString(event.tags.find((tag) => tag[0] === "i")?.[1]);

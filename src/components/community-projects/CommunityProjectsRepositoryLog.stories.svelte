@@ -50,7 +50,7 @@
   }
 
   const events = [
-    revision("1", 10, parent, [], "root change"),
+    revision("1", 10, parent, [], ""),
     revision("2", 11, left, [parent], "lane a"),
     revision("3", 12, right, [parent], "lane b"),
     revision("4", 13, merge, [left, right], "record merged lanes"),
@@ -101,6 +101,9 @@
     await expect(canvas.getByText("record merged lanes")).toBeVisible();
     await expect(canvas.getByText("main")).toBeVisible();
     await expect(canvas.getByText("@")).toBeVisible();
+    await expect(
+      canvas.getByText("(empty) (no description set)"),
+    ).toBeVisible();
     await expect(canvas.getByText("vppppppp")).toBeVisible();
     await expect(canvas.getByText(merge.slice(0, 8))).toBeVisible();
     await expect(canvas.queryByText("maya@example.test")).toBeNull();
