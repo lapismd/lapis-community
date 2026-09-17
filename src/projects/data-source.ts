@@ -1,6 +1,5 @@
 import { sha256 } from "@noble/hashes/sha2.js";
 import { bytesToHex } from "@noble/hashes/utils.js";
-
 import {
   authenticateRegistryRelay,
   type RegistrySigner,
@@ -35,6 +34,7 @@ import {
   type ProjectForgeTreeResponse,
   type ProjectForgeWorkItems,
 } from "./model.js";
+import { loadProjectForgeRefs } from "./repository-refs.js";
 import {
   materializeProjectForgeCatalog,
   materializeProjectForgeWorkItems,
@@ -405,7 +405,8 @@ class Nip34ProjectForgeSession implements ProjectForgeSession {
     repository: string,
     signal?: AbortSignal,
   ): Promise<ProjectForgeRefsResponse> {
-    return await this.#forgeGet(repository, "refs", signal);
+    // prettier-ignore
+    return await loadProjectForgeRefs((s) => this.#forgeGet(repository, s, signal));
   }
 
   async loadCapabilities(
@@ -706,10 +707,8 @@ class Nip34ProjectForgeSession implements ProjectForgeSession {
     signal?: AbortSignal,
   ): Promise<T> {
     const address = repositoryAddress(coordinate);
-    return await this.#strictGet(
-      `/api/git/${address.owner}/${encodeURIComponent(address.identifier)}/${suffix}`,
-      signal === undefined ? {} : { signal },
-    );
+    // prettier-ignore
+    return await this.#strictGet(`/api/git/${address.owner}/${encodeURIComponent(address.identifier)}/${suffix}`, signal === undefined ? {} : { signal });
   }
 
   async #strictGet<T>(

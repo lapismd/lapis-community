@@ -137,7 +137,9 @@ For LC-NOSTR-021, the source MUST resolve the relay's provider-neutral
 capability document for each signed `30617` coordinate before treating an
 external repository as browsable. Full ref names such as `refs/heads/main`
 MUST be signed and requested as canonical slash-preserving gateway paths so
-NIP-98 verification covers the exact URL received by the relay.
+NIP-98 verification covers the exact URL received by the relay. `loadRefs`
+MUST read `/refs` for HEAD and then drain `/refs/branches` continuation pages
+so nested heads such as `jj-sync/<scope>/<replica>` appear in the picker.
 Successful JSON GET responses MAY be retained briefly in a bounded in-memory
 cache scoped by relay URL and signer public key. Progress-stream responses MUST
 not be cached, and a successful forge mutation MUST invalidate that cache.
