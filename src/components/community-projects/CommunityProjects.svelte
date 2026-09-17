@@ -59,6 +59,7 @@
     GITHUB_REVIEW_COMMENT_REACTIONS,
     projectForgeBranchName,
     projectForgeBranchRefs,
+    repositoryVisibleActivity,
     splitProjectForgePatch,
     projectForgeBoundChannels,
     type ProjectForgeCommit,
@@ -698,16 +699,7 @@
       : scopedTasks,
   );
   const visibleActivity = $derived(
-    activity.filter((item) => {
-      if (item.kind === "project") return false;
-      if (item.kind !== "repository" || !item.repositoryCoordinate) return true;
-      return (
-        repositories.find(
-          (repository) =>
-            repository.address.coordinate === item.repositoryCoordinate,
-        )?.repositoryClass !== "task-anchor"
-      );
-    }),
+    repositoryVisibleActivity(activity, repositories, selectedRepository),
   );
   const weekActivity = $derived(
     visibleActivity.filter(

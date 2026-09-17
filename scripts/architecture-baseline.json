@@ -2797,8 +2797,8 @@
       "justification": "Existing file above the new-file counted-line limit; do not grow"
     },
     "src/projects/data-source.ts": {
-      "countedLines": 963,
-      "physicalLines": 1020,
+      "countedLines": 927,
+      "physicalLines": 985,
       "forbiddenImportCount": 0,
       "kind": "legacy",
       "justification": "Existing file above the new-file counted-line limit; do not grow"

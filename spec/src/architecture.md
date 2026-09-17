@@ -320,6 +320,9 @@ Authenticated repository `loadRefs` MUST combine HEAD with every
 `refs/branches` page, including nested sync heads, rather than treating the
 HEAD-only `/refs` response as the complete picker list. The Files switcher
 MUST partition `jj-sync/` carriers onto a Sync tab.
+The repository workspace MUST expose an Activity tab that reuses the project
+activity feed for dest-Git commits, NIP-34 work items, and kind `3901`
+jj-sync operations scoped to the selected repository.
 
 The agent activity archive uses the existing store owner and runtime worker
 bridge. Additive store/runtime properties preserve custom adapters. Transient

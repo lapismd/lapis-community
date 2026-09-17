@@ -11,7 +11,7 @@
 
   import CommunityProjectsStoryHarness from "./CommunityProjectsStoryHarness.svelte";
   import {
-    buildProjectForgeActivity,
+    buildRepositoryActivity,
     createBrowserProjectReviewPreferenceStore,
     type ProjectForgeGitHubConnectionInput,
     type PullRequestState,
@@ -393,7 +393,7 @@ index 3333333..4444444 100644
     view: "activity",
     selectedProject: undefined,
     repositories: fixture.catalog.repositories,
-    activity: buildProjectForgeActivity(fixture.catalog, {
+    activity: buildRepositoryActivity(fixture.catalog, {
       ...fixture.workItems,
       pullRequests: [mergedPullRequest],
     }),

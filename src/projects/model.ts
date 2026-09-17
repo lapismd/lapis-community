@@ -29,15 +29,7 @@ export const GITHUB_REVIEW_COMMENT_REACTIONS = [
   "👀",
 ] as const;
 
-export type ProjectForgeSurface =
-  | "overview"
-  | "tasks"
-  | "reviews"
-  | "commits"
-  | "files"
-  | "channels"
-  | "contributors"
-  | "people";
+export * from "./surfaces.js";
 
 export type ProjectForgeOverviewSurface =
   | "activity"

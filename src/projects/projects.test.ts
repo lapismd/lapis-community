@@ -663,14 +663,14 @@ describe("project forge reducers", () => {
 });
 
 describe("Buzz transport compatibility", () => {
-  it("uses the five repository-scoped 2,000-event query filters", () => {
+  it("uses the six repository-scoped 2,000-event query filters", () => {
     const filters = buzzWorkItemFilters(repositoryCoordinate);
-    expect(filters).toHaveLength(5);
+    expect(filters).toHaveLength(6);
     expect(
       filters.every(
         (filter) =>
           filter.limit === 2_000 && filter["#a"]?.[0] === repositoryCoordinate,
-      ),
+      ) && filters.at(-1)?.kinds?.[0] === 3901,
     ).toBe(true);
   });
 

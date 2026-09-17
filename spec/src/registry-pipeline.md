@@ -20,7 +20,8 @@ in the recorded auth path budgets. The checker follows one value re-export hop
 except through feature barrels.
 
 Extracted Community controller modules update the architecture baseline in the
-same change as the factory they leave.
+same change as the factory they leave. Extracted project work-item filters and
+repository activity modules update that baseline in the same change.
 
 For LC-OPS-001 and LC-OPS-004, hosted-project acceptance layers the sibling
 relay's digest-pinned WalGit and RustFS composition onto both the persistent

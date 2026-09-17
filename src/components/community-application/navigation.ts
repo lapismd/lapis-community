@@ -3,7 +3,10 @@ import {
   APP_SHELL_LAYOUT_VERSION,
   type AppShellSidebarLayout,
 } from "@lapismd/design-core/shell";
-import type { ProjectForgeSurface } from "../../projects/index.js";
+import {
+  isProjectForgeSurface,
+  type ProjectForgeSurface,
+} from "../../projects/index.js";
 
 export type CommunityApplicationDestination =
   | "inbox"
@@ -49,8 +52,7 @@ export type CommunityApplicationMainSurface =
   | "project-commits"
   | "project-files"
   | "project-channels"
-  | "project-contributors"
-  | "project-people";
+  | "project-contributors" | "project-people" | "project-activity";
 
 export interface CommunityApplicationLocation {
   destination: CommunityApplicationDestination;
@@ -462,23 +464,6 @@ export function isProjectDestination(destination: string): boolean {
   );
 }
 
-const PROJECT_FORGE_SURFACES = new Set<ProjectForgeSurface>([
-  "overview",
-  "tasks",
-  "reviews",
-  "commits",
-  "files",
-  "channels",
-  "contributors",
-  "people",
-]);
-
-function isProjectForgeSurface(value: unknown): value is ProjectForgeSurface {
-  return (
-    typeof value === "string" &&
-    PROJECT_FORGE_SURFACES.has(value as ProjectForgeSurface)
-  );
-}
 
 function parseMainSurface(
   value: unknown,

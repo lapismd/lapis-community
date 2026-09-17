@@ -87,7 +87,8 @@
   import { LAPIS_GROUPS, lapisGroupId } from "../../protocol/index.js";
   import {
     addRepositoryToProjectTemplate,
-    buildProjectForgeActivity,
+    buildRepositoryActivity,
+    repositoryCommitActivity,
     createAssignmentTemplate,
     createBrowserProjectForgeCatalogStore,
     createBrowserProjectReviewPreferenceStore,
@@ -105,6 +106,7 @@
     projectForgeBoundChannels,
     projectForgeChildChannels,
     projectForgeCatalogCacheKey,
+    PROJECT_REPOSITORY_TABS,
     loadProjectRepositoryFileTree,
     updateProjectTemplate,
     GITHUB_REVIEW_COMMENT_REACTIONS,
@@ -749,10 +751,10 @@
     selectedProjectSurface ?? "overview",
   );
   const projectActivity = $derived(
-    buildProjectForgeActivity(
+    buildRepositoryActivity(
       projectCatalog,
       projectWorkItems,
-      projectCommitActivity,
+      repositoryCommitActivity(selectedRepository, (selectedRepositoryProject ?? selectedProject)?.address.coordinate, projectCommits, projectCommitActivity),
     ),
   );
   const projectChannelCount = $derived(
@@ -789,13 +791,7 @@
     { value: "channels", label: "Channels" },
     { value: "contributors", label: "Contributors" },
   ] as const;
-  const selectedRepositoryTabs = [
-    { value: "overview", label: "Overview" },
-    { value: "files", label: "Files" },
-    { value: "commits", label: "Commits" },
-    { value: "tasks", label: "Tasks" },
-    { value: "reviews", label: "Review" },
-  ] as const;
+  const selectedRepositoryTabs = PROJECT_REPOSITORY_TABS;
   const communityStartupPending = $derived(
     community.state.status === "idle" ||
       community.state.status === "restoring" ||
@@ -2805,7 +2801,8 @@
         if (
           surface === undefined ||
           surface === "overview" ||
-          surface === "commits"
+          surface === "commits" ||
+          surface === "activity"
         ) {
           try {
             const commits = await openedSession.loadCommits(
