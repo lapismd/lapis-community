@@ -133,14 +133,14 @@
     min-height: 0;
     flex: 1 1 auto;
     flex-direction: column;
-    height: 100%;
+    width: 100%;
     overflow: hidden;
   }
 
-  .community-projects-repository-log :global([data-ui-component="column-canvas"]) {
+  .community-projects-repository-log
+    :global([data-ui-component="column-canvas"][data-ui-part="root"]) {
     min-height: 0;
     flex: 1 1 auto;
-    height: 100%;
   }
 
   .community-projects-repository-log__skeleton {

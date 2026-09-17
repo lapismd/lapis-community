@@ -26,7 +26,8 @@ repository activity, repository Log adapter, and
 change. Repository Log change-ID labels update that baseline in the same
 change. Repository Log forked-lane reconnects, cubic joins, empty-description
 placeholders, History-style copyable revision IDs, compact FileListing chrome, and
-ColumnCanvas FileDiff columns update that baseline in the same change.
+ColumnCanvas FileDiff columns, unique-change collapse, and canvas-root header
+geometry update that baseline in the same change.
 
 For LC-OPS-001 and LC-OPS-004, hosted-project acceptance layers the sibling
 relay's digest-pinned WalGit and RustFS composition onto both the persistent

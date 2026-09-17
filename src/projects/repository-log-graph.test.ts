@@ -29,6 +29,7 @@ function revision(
     root: eventId,
     changeId: "",
     author: "Maya Chen",
+    empty: false,
     ...extras,
   };
 }

@@ -38,6 +38,7 @@
     commitId: string,
     parents: string[],
     description: string,
+    extras: Record<string, unknown> = {},
   ): NostrEvent {
     return event(id, KIND_JJ_REVISION, createdAt, {
       schema: "jj-sync/revision",
@@ -46,6 +47,7 @@
       parent_commit_ids: parents,
       description,
       author: { name: "Maya Chen", timestamp_ms: createdAt * 1_000 },
+      ...extras,
     });
   }
 
@@ -53,6 +55,16 @@
     revision("1", 10, parent, [], ""),
     revision("2", 11, left, [parent], "lane a"),
     revision("3", 12, right, [parent], "lane b"),
+    revision(
+      "7",
+      12,
+      "9".repeat(40),
+      [left, right],
+      "merge lane A and lane B",
+      {
+        change_id_hex: "4".padEnd(32, "a"),
+      },
+    ),
     revision("4", 13, merge, [left, right], "record merged lanes"),
     event("5", KIND_JJ_VIEW, 14, {
       schema: "jj-sync/view",
@@ -113,6 +125,17 @@
       canvas.getByRole("list", { name: "Revision graph" }),
     ).toBeVisible();
     await expect(canvas.getByText("record merged lanes")).toBeVisible();
+    await expect(canvas.queryByText("merge lane A and lane B")).toBeNull();
+    const log = canvas.getByRole("region", { name: "Repository log" });
+    const graph = canvas.getByRole("list", { name: "Revision graph" });
+    await expect(
+      log.querySelector("[data-ui-part='column-body']")?.contains(graph),
+    ).toBe(true);
+    await expect(
+      (log
+        .querySelector("[data-ui-part='column-header']")
+        ?.getBoundingClientRect().height ?? 0) < 56,
+    ).toBe(true);
     await expect(canvas.getByText("lane a")).toBeVisible();
     await expect(canvas.getByText("lane b")).toBeVisible();
     await expect(canvas.getByText("main")).toBeVisible();

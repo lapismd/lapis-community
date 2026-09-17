@@ -1929,8 +1929,8 @@
       "forbiddenImportCount": 0
     },
     "src/components/community-projects/CommunityProjectsRepositoryLog.stories.svelte": {
-      "countedLines": 139,
-      "physicalLines": 146,
+      "countedLines": 168,
+      "physicalLines": 175,
       "forbiddenImportCount": 0
     },
     "src/components/community-projects/CommunityProjectsRepositoryLog.svelte": {
@@ -2915,8 +2915,8 @@
       "forbiddenImportCount": 0
     },
     "src/projects/repository-log-graph.test.ts": {
-      "countedLines": 148,
-      "physicalLines": 157,
+      "countedLines": 149,
+      "physicalLines": 158,
       "forbiddenImportCount": 0
     },
     "src/projects/repository-log-graph.ts": {
@@ -2930,8 +2930,8 @@
       "forbiddenImportCount": 0
     },
     "src/projects/repository-log.ts": {
-      "countedLines": 291,
-      "physicalLines": 318,
+      "countedLines": 293,
+      "physicalLines": 320,
       "forbiddenImportCount": 0
     },
     "src/projects/repository-refs.test.ts": {
@@ -3212,6 +3212,16 @@
     "src/testing/relay-contract.test.ts": {
       "countedLines": 113,
       "physicalLines": 120,
+      "forbiddenImportCount": 0
+    },
+    "src/projects/repository-log-collapse.ts": {
+      "countedLines": 287,
+      "physicalLines": 307,
+      "forbiddenImportCount": 0
+    },
+    "src/projects/repository-log-collapse.test.ts": {
+      "countedLines": 161,
+      "physicalLines": 170,
       "forbiddenImportCount": 0
     }
   }

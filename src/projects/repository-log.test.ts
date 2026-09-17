@@ -93,7 +93,6 @@ describe("repository log", () => {
       merge,
       right,
       left,
-      hidden,
       parent,
     ]);
     expect(graph.revisions[0]).toMatchObject({
@@ -103,7 +102,7 @@ describe("repository log", () => {
       message: "record merged lanes",
       changeId: "",
     });
-    expect(graph.revisions.some((item) => item.eventId === hidden)).toBe(true);
+    expect(graph.revisions.some((item) => item.eventId === hidden)).toBe(false);
     expect(JSON.stringify(graph)).not.toContain("maya@example.test");
     expect(graph.devices.map((device) => device.alias).sort()).toEqual([
       "@",
@@ -141,6 +140,7 @@ describe("repository log", () => {
       revision("2", 11, left, [parent], "lane a"),
       revision("3", 12, right, [parent], "lane b"),
       revision("4", 13, merge, [left, right], "record merged lanes"),
+      view("5", 13, [merge], { local_bookmarks: [] }),
       view("6", 14, [left], {
         local_bookmarks: [],
         workspaces: [

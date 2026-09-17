@@ -145,8 +145,10 @@ Work-item observation MUST keep kind `3901` events that carry the
 repository `#a` coordinate so repository Activity can project jj-sync
 operations beside dest-Git commits and NIP-34 collaboration, and MUST keep
 kinds `3902`–`3905` on that same `#a` stream so repository Log can project
-every published kind `3902` revision once a kind `3903` view exists,
-including sibling lanes and earlier history. Kind `3902` `change_id_hex` (or the `i` tag) MUST become
+the current Jujutsu DAG from published kind `3902` revisions once a kind
+`3903` view exists: ancestors of the pinned view heads, workspaces, and
+bookmarks, one row per `change_id`, and no abandoned empty working copies.
+Kind `3902` `change_id_hex` (or the `i` tag) MUST become
 the reverse-hex change ID shown with Design Core copy buttons beside the
 commit ID copy control. A blank `description`
 MUST render as `(empty) (no description set)`. The mapped DAG MUST

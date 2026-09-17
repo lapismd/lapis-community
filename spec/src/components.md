@@ -94,8 +94,14 @@ operations.
 The repository workspace MUST expose a Log tab immediately after Activity
 that renders the Jujutsu repository DAG from kinds `3902` and `3903` on the
 same `#a` work-item stream. Once any kind `3903` view is present, Log MUST
-render every projected kind `3902` revision on that stream, including sibling
-lanes and earlier published history that sit outside the newest view's heads.
+render the current Jujutsu DAG: ancestors of the pinned view's heads,
+workspaces, and bookmarks, plus non-empty heads from earlier views so sibling
+lanes stay visible. It MUST keep the newest commit for a repeated `change_id`
+and MUST omit abandoned empty working copies that `jj log` would hide, while
+still showing the pinned empty `@`. The `ColumnCanvas` host MUST fill the
+remaining Projects body under the tab toolbar and size only the canvas root,
+so sticky and in-column headers stay on the column chrome instead of stretching
+into an empty page card.
 It MUST pin the newest view, or the view attached to the latest kind
 `3904`/`3905` context, only for primary workspace and bookmark chips, and MUST
 also label heads from other projected views. It MUST NOT substitute dest-Git `main`

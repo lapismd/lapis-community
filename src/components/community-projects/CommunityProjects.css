@@ -13,6 +13,16 @@
   font-size: var(--community-text-body);
 }
 
+.community-projects[data-view="log"] {
+  min-height: 0;
+  overflow: hidden;
+}
+
+.community-projects[data-view="log"] > .community-projects-repository-log {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
 .community-projects[data-detail="review"],
 .community-projects[data-navigation="hidden"] {
   --community-project-tabs-height: 0rem;

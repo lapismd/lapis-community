@@ -1,5 +1,6 @@
 import type { NostrEvent } from "../protocol/index.js";
 
+import { projectRepositoryLog } from "./repository-log-collapse.js";
 import {
   KIND_JJ_GRAPH_MANIFEST,
   KIND_JJ_OPERATION_GRAPH,
@@ -18,6 +19,7 @@ export type RepositoryLogRevision = {
   createdAt: number;
   root: string;
   author: string;
+  empty: boolean;
 };
 
 export type RepositoryLogDevice = {
@@ -81,16 +83,13 @@ export function buildRepositoryLog(
     }
   }
   if (views.length === 0) return EMPTY_GRAPH;
-  const visible = [...revisions.values()];
-  if (visible.length === 0) return EMPTY_GRAPH;
-  return {
-    revisions: orderNewestFirst(visible),
-    devices: devicesFromViews(
-      views,
-      contextViewId,
-      new Set(visible.map((item) => item.eventId)),
-    ),
-  };
+  return projectRepositoryLog(
+    [...revisions.values()],
+    views,
+    contextViewId,
+    (ids) => devicesFromViews(views, contextViewId, ids),
+    orderNewestFirst,
+  );
 }
 
 function pinView(
@@ -119,6 +118,9 @@ function parseRevision(
   const commitId = asString(body.commit_id);
   if (!commitId) return undefined;
   const parents = stringList(body.parent_commit_ids);
+  const empty =
+    body.is_empty === true ||
+    (isRecord(body.facts) && body.facts.is_empty === true);
   const createdAt =
     personSeconds(body.author) ??
     personSeconds(body.committer) ??
@@ -129,13 +131,13 @@ function parseRevision(
     parents,
     message: formatRepositoryLogMessage(
       typeof body.description === "string" ? body.description : "",
-      body.is_empty === true ||
-        (isRecord(body.facts) && body.facts.is_empty === true),
+      empty,
     ),
     reason: parents.length > 1 ? "merge" : "checkpoint",
     createdAt,
     root: commitId,
     author: personName(body.author) || personName(body.committer),
+    empty,
   };
 }
 

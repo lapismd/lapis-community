@@ -324,10 +324,12 @@ The repository workspace MUST expose an Activity tab that reuses the project
 activity feed for dest-Git commits, NIP-34 work items, and kind `3901`
 jj-sync operations scoped to the selected repository. A Log tab after
 Activity maps kinds `3902`/`3903` from that same work-item stream onto
-Community's `CommunityProjectsRevisionGraph`, including every published kind
-`3902` once a kind `3903` view exists so sibling lanes and earlier history
-stay visible; dest-Git commit history MUST
-NOT open to build Log. Selecting a row MAY load that commit's changed-file
+Community's `CommunityProjectsRevisionGraph`, matching `jj log`: ancestors of
+the pinned view's heads, workspaces, and bookmarks, plus non-empty heads from
+earlier views, with one row per `change_id` and abandoned empty working copies
+omitted. The Log `ColumnCanvas` MUST fill the remaining tab body and style
+only the canvas root so column headers stay on the column chrome. Dest-Git
+commit history MUST NOT open to build Log. Selecting a row MAY load that commit's changed-file
 stats by native commit ID through `repository-source-reads` and
 `repository-log-files`, then MUST render them with Design Core `FileListing`
 and `FileListingViewModeToggle` in the compact bordered History host chrome. Selecting a file MUST open a Design Core
