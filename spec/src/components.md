@@ -83,7 +83,9 @@ MUST share the compact size and alignment of the other room-kind icons.
 For LC-UI-036, the repository Files surface MUST open on a full-width
 GitHub-style directory browser with a path breadcrumb and directory-first rows.
 The branch control MUST compose the public Design Core Command View inside a
-Popover, search heads, mark repository HEAD as `default`, and keep `jj-sync/`
+Popover with a compact bold Switch branches header, search heads in a
+pill-shaped field that keeps a public input border at rest and a focus ring
+without a border, mark repository HEAD as `default`, and keep `jj-sync/`
 carriers on a Sync tab separate from workspace branches.
 Directory chains that contain neither a file nor a branch MUST collapse into a
 single flat path so that users do not have to traverse empty intermediate

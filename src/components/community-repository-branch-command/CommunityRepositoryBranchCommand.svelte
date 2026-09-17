@@ -84,11 +84,13 @@
   <Popover.Content
     class="community-repository-branch-command"
     align="start"
-    style="--ui-popover-width: 22rem; --ui-popover-padding: 0.75rem; --ui-popover-gap: 0.5rem"
+    style="--ui-popover-width: 22rem; --ui-popover-padding: 0.5rem 0.75rem 0.625rem; --ui-popover-gap: 0.25rem"
   >
     <Popover.Header class="community-repository-branch-command__header">
-      <Popover.Title role="heading" aria-level={2}
-        >Switch branches</Popover.Title
+      <Popover.Title
+        class="community-repository-branch-command__title"
+        role="heading"
+        aria-level={2}>Switch branches</Popover.Title
       >
       <Popover.Close>
         {#snippet child({ props })}
@@ -154,7 +156,18 @@
     flex-direction: row;
     align-items: center;
     justify-content: space-between;
-    gap: 0.5rem;
+    gap: 0.25rem;
+    min-height: 0;
+    padding: 0;
+    margin: 0;
+  }
+
+  :global(
+      .community-repository-branch-command__title[data-ui-part="popover-title"]
+    ) {
+    margin: 0;
+    font-weight: var(--font-weight-bold, 700);
+    line-height: 1.2;
   }
 
   :global(
@@ -162,7 +175,7 @@
     ) {
     --ui-command-view-list-max-height: min(18rem, 50dvh);
     --ui-command-view-list-padding: 0.25rem;
-    --ui-command-view-gap: 0.5rem;
+    --ui-command-view-gap: 0.25rem;
   }
 
   :global(.community-repository-branch-command [data-ui-part="item-icon"]),
@@ -179,5 +192,45 @@
   :global(.community-repository-branch-command__chevron) {
     margin-inline-start: auto;
     flex-shrink: 0;
+  }
+
+  :global(
+      .community-repository-branch-command[data-ui-part="popover-content"]
+        [data-ui-component="command-view"][data-ui-part="root"]
+    ) {
+    overflow: visible;
+  }
+
+  :global(
+      .community-repository-branch-command[data-ui-part="popover-content"]
+        [data-ui-component="command-view"][data-ui-part="input-wrapper"]
+    ) {
+    padding: 0.25rem 0.25rem 0.5rem;
+  }
+
+  :global(
+      .community-repository-branch-command[data-ui-part="popover-content"]
+        [data-ui-component="command-view"][data-ui-part="input-wrapper"]
+        > [data-ui-component="input-group"][data-ui-part="input-group"]
+    ) {
+    border: 1px solid
+      var(
+        --ui-input-group-border-color,
+        var(--ui-input-border-color, var(--input))
+      );
+    border-radius: 999px;
+    background: var(--background);
+    box-shadow: none;
+  }
+
+  :global(
+      .community-repository-branch-command[data-ui-part="popover-content"]
+        [data-ui-component="command-view"][data-ui-part="input-wrapper"]
+        > [data-ui-component="input-group"][data-ui-part="input-group"]:focus-within
+    ) {
+    border-color: transparent;
+    outline: 3px solid color-mix(in srgb, var(--ring) 50%, transparent);
+    outline-offset: 0;
+    box-shadow: none;
   }
 </style>

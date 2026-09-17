@@ -48,9 +48,25 @@
     await userEvent.click(
       canvas.getByRole("combobox", { name: "Repository branch" }),
     );
+    const title = page.getByRole("heading", { name: "Switch branches" });
+    await expect(title).toBeVisible();
     await expect(
-      page.getByRole("heading", { name: "Switch branches" }),
-    ).toBeVisible();
+      Number.parseFloat(getComputedStyle(title).fontWeight),
+    ).toBeGreaterThanOrEqual(700);
+    const search = page.getByPlaceholderText("Find a branch...");
+    const searchGroup = search.closest('[data-ui-part="input-group"]');
+    if (!searchGroup) throw new Error("Expected the command input group");
+    await userEvent.click(search);
+    await expect(search).toHaveFocus();
+    const searchStyle = getComputedStyle(searchGroup);
+    await expect(
+      Number.parseFloat(searchStyle.borderTopLeftRadius),
+    ).toBeGreaterThan(16);
+    await expect(searchStyle.borderTopColor).toMatch(
+      /transparent|rgba\(0,\s*0,\s*0,\s*0\)|oklab\(0 0 0 \/ 0\)/u,
+    );
+    await expect(searchStyle.outlineStyle).toBe("solid");
+    await expect(searchStyle.outlineWidth).toBe("3px");
     await expect(page.getByRole("tab", { name: "Branches" })).toHaveAttribute(
       "aria-selected",
       "true",
@@ -72,7 +88,7 @@
       page.getByRole("option", { name: "jj-sync/scope/replica" }),
     ).toBeVisible();
     await userEvent.click(page.getByRole("tab", { name: "Branches" }));
-    await userEvent.type(page.getByPlaceholderText("Find a branch..."), "feature");
+    await userEvent.type(search, "feature");
     await expect(
       page.getByRole("option", { name: "feature/files" }),
     ).toBeVisible();
