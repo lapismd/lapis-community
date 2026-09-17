@@ -80,16 +80,14 @@ export function buildRepositoryLog(
       contextCreatedAt = event.created_at;
     }
   }
-  const view = pinView(views, contextViewId);
-  if (!view) return EMPTY_GRAPH;
-  const heads = stringList(view.body.head_commit_ids);
-  const visible = ancestorsOf(revisions, heads);
+  if (views.length === 0) return EMPTY_GRAPH;
+  const visible = [...revisions.values()];
   if (visible.length === 0) return EMPTY_GRAPH;
   return {
     revisions: orderNewestFirst(visible),
-    devices: devicesFromView(
-      view.event,
-      view.body,
+    devices: devicesFromViews(
+      views,
+      contextViewId,
       new Set(visible.map((item) => item.eventId)),
     ),
   };
@@ -165,6 +163,27 @@ function parseContextViewId(kind: number, body: unknown): string | undefined {
   return undefined;
 }
 
+function devicesFromViews(
+  views: { event: NostrEvent; body: ViewBody }[],
+  contextViewId: string | undefined,
+  visible: Set<string>,
+): RepositoryLogDevice[] {
+  const devices = new Map<string, RepositoryLogDevice>();
+  const pinned = pinView(views, contextViewId);
+  for (const view of views) {
+    if (view === pinned) continue;
+    for (const device of devicesFromView(view.event, view.body, visible)) {
+      devices.set(device.alias, device);
+    }
+  }
+  if (pinned) {
+    for (const device of devicesFromView(pinned.event, pinned.body, visible)) {
+      devices.set(device.alias, device);
+    }
+  }
+  return [...devices.values()];
+}
+
 function devicesFromView(
   event: NostrEvent,
   body: ViewBody,
@@ -199,26 +218,6 @@ function device(
     revisionEventId,
     lastSeen: event.created_at,
   };
-}
-
-function ancestorsOf(
-  revisions: Map<string, RepositoryLogRevision>,
-  heads: readonly string[],
-): RepositoryLogRevision[] {
-  const visible = new Set<string>();
-  const stack = [...heads];
-  while (stack.length > 0) {
-    const id = stack.pop();
-    if (!id || visible.has(id)) continue;
-    const revision = revisions.get(id);
-    if (!revision) continue;
-    visible.add(id);
-    stack.push(...revision.parents);
-  }
-  return [...visible].flatMap((id) => {
-    const revision = revisions.get(id);
-    return revision ? [revision] : [];
-  });
 }
 
 function orderNewestFirst(

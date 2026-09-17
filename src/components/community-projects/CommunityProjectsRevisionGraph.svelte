@@ -1,8 +1,10 @@
 <script lang="ts">
   import GitMerge from "@lucide/svelte/icons/git-merge";
   import Camera from "@lucide/svelte/icons/camera";
+  import type { Snippet } from "svelte";
 
   import CommunityChip from "../community-chip/CommunityChip.svelte";
+  import CommunityProjectsRevisionGraphIds from "./CommunityProjectsRevisionGraphIds.svelte";
   import type {
     RepositoryLogDevice,
     RepositoryLogRevision,
@@ -30,11 +32,12 @@
     devices = [],
     selectedId = null,
     onSelect,
+    selectedFiles,
   }: {
     revisions: RepositoryLogRevision[];
     devices?: RepositoryLogDevice[] | undefined;
     selectedId?: string | null | undefined;
-    onSelect?: ((revision: RepositoryLogRevision) => void) | undefined;
+    onSelect?: ((revision: RepositoryLogRevision) => void) | undefined; selectedFiles?: Snippet | undefined;
   } = $props();
 
   const rows = $derived(buildRepositoryLogGraph(revisions, devices));
@@ -66,7 +69,7 @@
         class:community-revision-graph__row--tip={row.isTip}
         style:padding-left="{repositoryLogContentLeft(row)}px"
         style:height="{rowHeight}px"
-        aria-current={selectedId === row.revision.eventId ? "true" : undefined}
+        aria-current={selectedId === row.revision.eventId ? "true" : undefined} aria-expanded={selectedId === row.revision.eventId ? "true" : undefined}
         aria-label={repositoryLogRowLabel(row)}
         data-revision-id={row.revision.eventId}
         onclick={() => onSelect?.(row.revision)}
@@ -157,17 +160,6 @@
             >
               {formatRepositoryLogTimestamp(row.revision.createdAt)}
             </time>
-            {#if row.changeIdShort}
-              <span
-                class="community-revision-graph__change-id"
-                title={row.changeIdEncoded || undefined}
-                >{row.changeIdShort}</span
-              >
-            {/if}
-            <span
-              class="community-revision-graph__commit-id"
-              title={row.revision.eventId}>{row.commitIdShort}</span
-            >
           </span>
           <span class="community-revision-graph__chips">
             <CommunityChip size="compact" variant="muted" ariaHidden
@@ -181,6 +173,13 @@
           </span>
         </span>
       </button>
+      <CommunityProjectsRevisionGraphIds
+        changeId={row.changeIdEncoded}
+        commitId={row.revision.eventId}
+      />
+      {#if selectedId === row.revision.eventId && selectedFiles}
+        <div class="community-revision-graph__files">{@render selectedFiles()}</div>
+      {/if}
     </li>
   {/each}
 </ol>
@@ -219,6 +218,7 @@
     align-items: center;
     width: 100%;
     margin: 0;
+    padding-right: 7.5rem;
     border: 0;
     color: inherit;
     background: transparent;
@@ -280,13 +280,10 @@
     font-size: var(--community-text-secondary);
   }
 
-  .community-revision-graph__change-id {
-    color: var(--primary);
-    font-variant-numeric: tabular-nums;
-  }
-
-  .community-revision-graph__commit-id {
-    font-variant-numeric: tabular-nums;
+  .community-revision-graph__files {
+    position: relative;
+    z-index: 1;
+    padding: 0 0.5rem 0.5rem;
   }
 
   .community-revision-graph__chips {

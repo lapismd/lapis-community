@@ -183,7 +183,7 @@
     onTogglePullRequestCommentReaction,
     onLoadRepositoryRefs,
     onSelectRepositoryBranch,
-    onLoadRepositoryPathCommit,
+    onLoadRepositoryPathCommit, onLoadRepositoryCommit,
     onSelectCommit,
     onCloseCommit,
     onSelectPath,
@@ -2727,7 +2727,7 @@
           onOpenProject={openActivityProject}
           onOpenItem={openActivityItem}
         />
-      {:else if view === "log"}<CommunityProjectsRepositoryLog events={workItemEvents} {loading} />
+      {:else if view === "log"}<CommunityProjectsRepositoryLog events={workItemEvents} {loading} {onLoadRepositoryCommit} />
       {:else if view === "directory" || view === "projects"}
         <header class="community-projects__directory-header">
           <div>

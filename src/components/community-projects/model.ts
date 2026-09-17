@@ -115,7 +115,8 @@ export interface CommunityProjectsProps {
   selectedRepository?: ProjectForgeRepository;
   /** Relay-resolved operational capabilities keyed by repository coordinate. */
   repositoryCapabilities?: ProjectForgeRepositoryCapabilitiesByCoordinate;
-  activity?: readonly ProjectForgeActivityItem[]; workItemEvents?: readonly import("../../protocol/index.js").NostrEvent[];
+  activity?: readonly ProjectForgeActivityItem[];
+  workItemEvents?: readonly import("../../protocol/index.js").NostrEvent[];
   tasks?: readonly ProjectTaskState[];
   selectedTask?: ProjectTaskState;
   pullRequests?: readonly PullRequestState[];
@@ -257,6 +258,10 @@ export interface CommunityProjectsProps {
     path: string,
     signal?: AbortSignal,
   ) => Promise<ProjectForgeCommit | undefined>;
+  onLoadRepositoryCommit?: (
+    sha: string,
+    signal?: AbortSignal,
+  ) => Promise<ProjectForgeCommitResponse>;
   onSelectPath?: (path: string) => void;
   onRetry?: () => void | Promise<void>;
 }

@@ -886,7 +886,7 @@ function abortableDelay(
   });
 }
 
-export * from "./repository-activity.js"; export * from "./repository-log.js";
+export * from "./repository-activity.js"; export * from "./repository-log.js"; export * from "./repository-log-files.js";
 
 export function parseSseResult<T>(
   body: string,

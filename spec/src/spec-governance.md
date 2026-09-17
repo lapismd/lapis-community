@@ -105,6 +105,8 @@ The agent owner-proof verifier uses the direct `@noble/curves` dependency for
 BIP-340 signatures. The committed lockfile resolves Design Core from the npm
 registry. An ignored local package hook may substitute a sibling artifact for
 source validation without rewriting the committed dependency metadata.
+Refreshing that substitute so Column Canvas controller types stay assignable
+under `exactOptionalPropertyTypes` updates only the tarball integrity.
 
 The agent UI acceptance lane resolves the upstream Bits UI 2.19.2 lifecycle
 fix and verifies it with cold application navigation. Unrelated dependency

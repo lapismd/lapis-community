@@ -324,9 +324,16 @@ The repository workspace MUST expose an Activity tab that reuses the project
 activity feed for dest-Git commits, NIP-34 work items, and kind `3901`
 jj-sync operations scoped to the selected repository. A Log tab after
 Activity maps kinds `3902`/`3903` from that same work-item stream onto
-Community's `CommunityProjectsRevisionGraph`; dest-Git commit loading MUST
-NOT open for Log. Log rows MUST label reverse-hex change IDs beside commit
-IDs from kind `3902` `change_id_hex`. Blank descriptions MUST use jj's
+Community's `CommunityProjectsRevisionGraph`, including every published kind
+`3902` once a kind `3903` view exists so sibling lanes and earlier history
+stay visible; dest-Git commit history MUST
+NOT open to build Log. Selecting a row MAY load that commit's changed-file
+stats by native commit ID through `repository-source-reads` and
+`repository-log-files`, then MUST render them with Design Core `FileListing`
+and `FileListingViewModeToggle` in the compact bordered History host chrome. Selecting a file MUST open a Design Core
+`ColumnCanvas` column whose body is Design Core `FileDiff` for that dest-Git
+file patch. Log rows MUST label change IDs and commit IDs with
+Community copy buttons from kind `3902` `change_id_hex`. Blank descriptions MUST use jj's
 `(empty) (no description set)` placeholder. Forked lanes MUST remain until the
 shared parent so the branch edge can meet the main line. Those edges MUST
 use cubic split, merge, and top-of-row converge joins.

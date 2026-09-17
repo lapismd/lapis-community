@@ -107,7 +107,7 @@
     projectForgeChildChannels,
     projectForgeCatalogCacheKey,
     PROJECT_REPOSITORY_TABS,
-    loadProjectRepositoryFileTree,
+    loadProjectRepositoryFileTree, readRepositoryCommit, readRepositoryPathCommit,
     updateProjectTemplate,
     GITHUB_REVIEW_COMMENT_REACTIONS,
     PROJECT_FORGE_KINDS,
@@ -4292,20 +4292,8 @@
     return await session.loadRefs(repositoryCoordinate);
   }
 
-  async function loadRepositoryPathCommit(
-    path: string,
-    signal?: AbortSignal,
-  ): Promise<ProjectForgeCommit | undefined> {
-    const session = projectSession;
-    const repository = projectSourceRepositoryCoordinate;
-    const revision = projectRepositoryRevision;
-    if (!session || !repository || !revision) return undefined;
-    const response = await session.loadCommits(repository, revision, signal, {
-      path,
-      limit: 1,
-    });
-    return response.commits[0];
-  }
+  async function loadRepositoryPathCommit(path: string, signal?: AbortSignal) { return readRepositoryPathCommit(projectSession, projectSourceRepositoryCoordinate, projectRepositoryRevision, path, signal); }
+  async function loadRepositoryCommit(sha: string, signal?: AbortSignal) { return readRepositoryCommit(projectSession, projectSourceRepositoryCoordinate, sha, signal); }
 
   async function publishPullRequestReview(
     pullRequest: PullRequestState,
@@ -7001,7 +6989,7 @@
             projectBlob = undefined;
             projectTree = undefined;
           }}
-          onLoadRepositoryPathCommit={loadRepositoryPathCommit}
+          onLoadRepositoryPathCommit={loadRepositoryPathCommit} onLoadRepositoryCommit={loadRepositoryCommit}
           onSelectPullRequest={(pullRequest) => {
             selectedPullRequestId = pullRequest.root.id;
             projectPullRequestDiff = undefined;
@@ -7503,7 +7491,7 @@
           projectBlob = undefined;
           projectTree = undefined;
         }}
-        onLoadRepositoryPathCommit={loadRepositoryPathCommit}
+        onLoadRepositoryPathCommit={loadRepositoryPathCommit} onLoadRepositoryCommit={loadRepositoryCommit}
         onSelectPullRequest={(pullRequest) => {
           selectedPullRequestId = pullRequest.root.id;
           projectPullRequestDiff = undefined;

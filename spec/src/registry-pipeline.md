@@ -24,8 +24,9 @@ same change as the factory they leave. Extracted project work-item filters,
 repository activity, repository Log adapter, and
 `CommunityProjectsRevisionGraph` modules update that baseline in the same
 change. Repository Log change-ID labels update that baseline in the same
-change. Repository Log forked-lane reconnects, cubic joins, and empty-description
-placeholders update that baseline in the same change.
+change. Repository Log forked-lane reconnects, cubic joins, empty-description
+placeholders, History-style copyable revision IDs, compact FileListing chrome, and
+ColumnCanvas FileDiff columns update that baseline in the same change.
 
 For LC-OPS-001 and LC-OPS-004, hosted-project acceptance layers the sibling
 relay's digest-pinned WalGit and RustFS composition onto both the persistent

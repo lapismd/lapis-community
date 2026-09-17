@@ -1,6 +1,6 @@
 <script module lang="ts">
   import { defineMeta } from "@storybook/addon-svelte-csf";
-  import { expect } from "storybook/test";
+  import { expect, userEvent, waitFor } from "storybook/test";
 
   import type { NostrEvent } from "../../protocol/index.js";
   import {
@@ -85,7 +85,21 @@
         },
       },
     },
-    args: { events },
+    args: {
+      events,
+      onLoadRepositoryCommit: async (sha: string) => ({
+        commit: { sha, subject: "record merged lanes" },
+        stats: [{ path: "lanes.md", additions: 3, deletions: 1 }],
+        patch: [
+          "diff --git a/lanes.md b/lanes.md",
+          "--- a/lanes.md",
+          "+++ b/lanes.md",
+          "@@ -1 +1 @@",
+          "-old lane",
+          "+merged-lane-marker",
+        ].join("\n"),
+      }),
+    },
   });
 </script>
 
@@ -99,13 +113,40 @@
       canvas.getByRole("list", { name: "Revision graph" }),
     ).toBeVisible();
     await expect(canvas.getByText("record merged lanes")).toBeVisible();
+    await expect(canvas.getByText("lane a")).toBeVisible();
+    await expect(canvas.getByText("lane b")).toBeVisible();
     await expect(canvas.getByText("main")).toBeVisible();
     await expect(canvas.getByText("@")).toBeVisible();
     await expect(
       canvas.getByText("(empty) (no description set)"),
     ).toBeVisible();
-    await expect(canvas.getByText("vppppppp")).toBeVisible();
-    await expect(canvas.getByText(merge.slice(0, 8))).toBeVisible();
+    await expect(
+      canvas.getAllByRole("button", { name: /Copy full change ID/ }).length,
+    ).toBeGreaterThan(0);
+    await expect(
+      canvas.getAllByRole("button", { name: /Copy full commit ID/ }).length,
+    ).toBeGreaterThan(0);
     await expect(canvas.queryByText("maya@example.test")).toBeNull();
+    await userEvent.click(
+      canvas.getByRole("button", { name: /record merged lanes/ }),
+    );
+    await expect(
+      await canvas.findByRole("region", { name: "Changed files" }),
+    ).toBeVisible();
+    await expect(
+      canvas.getByRole("group", { name: "File listing view mode" }),
+    ).toBeVisible();
+    await expect(await canvas.findByText("lanes.md")).toBeVisible();
+    await userEvent.click(canvas.getByRole("button", { name: "lanes.md" }));
+    await expect(
+      canvas.getByRole("region", { name: "Column canvas" }),
+    ).toBeVisible();
+    await waitFor(() => {
+      expect(
+        canvas
+          .getByRole("region", { name: "Repository log" })
+          .querySelector("[data-diff-file-path='lanes.md']"),
+      ).not.toBeNull();
+    });
   }}
 />

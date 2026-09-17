@@ -93,6 +93,7 @@ describe("repository log", () => {
       merge,
       right,
       left,
+      hidden,
       parent,
     ]);
     expect(graph.revisions[0]).toMatchObject({
@@ -102,7 +103,7 @@ describe("repository log", () => {
       message: "record merged lanes",
       changeId: "",
     });
-    expect(graph.revisions.some((item) => item.eventId === hidden)).toBe(false);
+    expect(graph.revisions.some((item) => item.eventId === hidden)).toBe(true);
     expect(JSON.stringify(graph)).not.toContain("maya@example.test");
     expect(graph.devices.map((device) => device.alias).sort()).toEqual([
       "@",
@@ -134,14 +135,39 @@ describe("repository log", () => {
     ).toBe("fedcba9876543210fedcba9876543210");
   });
 
-  it("pins the view attached to the latest 3904/3905 context", () => {
+  it("keeps sibling lanes and earlier revisions when the newest view lists one head", () => {
+    const graph = buildRepositoryLog([
+      revision("1", 10, parent, [], "root"),
+      revision("2", 11, left, [parent], "lane a"),
+      revision("3", 12, right, [parent], "lane b"),
+      revision("4", 13, merge, [left, right], "record merged lanes"),
+      view("6", 14, [left], {
+        local_bookmarks: [],
+        workspaces: [
+          { native_workspace_name: "default", working_copy_commit_id: left },
+        ],
+      }),
+    ]);
+    expect(graph.revisions.map((item) => item.eventId)).toEqual([
+      merge,
+      right,
+      left,
+      parent,
+    ]);
+    expect(graph.devices.map((device) => device.alias)).toEqual(["@"]);
+    expect(graph.devices[0]?.revisionEventId).toBe(left);
+  });
+
+  it("prefers workspace chips from the view attached to the latest 3904/3905 context", () => {
     const olderView = view("6", 14, [merge]);
     const newerHeads = event("7", KIND_JJ_VIEW, 20, {
       schema: "jj-sync/view",
       view_id: "9".repeat(128),
       head_commit_ids: [parent],
       local_bookmarks: [],
-      workspaces: [],
+      workspaces: [
+        { native_workspace_name: "default", working_copy_commit_id: parent },
+      ],
     });
     const graph = buildRepositoryLog([
       revision("1", 10, parent, [], "root"),
@@ -161,6 +187,13 @@ describe("repository log", () => {
       merge,
       parent,
     ]);
+    expect(graph.devices.map((device) => device.alias).sort()).toEqual([
+      "@",
+      "main",
+    ]);
+    expect(
+      graph.devices.find((device) => device.alias === "@")?.revisionEventId,
+    ).toBe(merge);
   });
 
   it("uses jj empty-description text when the revision has no description", () => {

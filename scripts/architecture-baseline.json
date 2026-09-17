@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "sourceCommit": "8c289030956bf1c175919bde446a0a50f46b2202",
+  "sourceCommit": "c0777493da9e537c757bccab436daa005c657c26",
   "limits": {
     "newProductionCountedLines": 300,
     "newTestCountedLines": 500,
@@ -1071,8 +1071,8 @@
       "justification": "Existing file above the new-file counted-line limit; do not grow"
     },
     "src/components/community-application/CommunityApplication.svelte": {
-      "countedLines": 9360,
-      "physicalLines": 9721,
+      "countedLines": 9348,
+      "physicalLines": 9709,
       "forbiddenImportCount": 0,
       "kind": "legacy",
       "justification": "Application composition root; extract destination hosts before adding behaviour"
@@ -1929,13 +1929,18 @@
       "forbiddenImportCount": 0
     },
     "src/components/community-projects/CommunityProjectsRepositoryLog.stories.svelte": {
-      "countedLines": 104,
-      "physicalLines": 111,
+      "countedLines": 139,
+      "physicalLines": 146,
       "forbiddenImportCount": 0
     },
     "src/components/community-projects/CommunityProjectsRepositoryLog.svelte": {
-      "countedLines": 58,
-      "physicalLines": 64,
+      "countedLines": 143,
+      "physicalLines": 151,
+      "forbiddenImportCount": 0
+    },
+    "src/components/community-projects/CommunityProjectsRepositoryLogFiles.svelte": {
+      "countedLines": 135,
+      "physicalLines": 150,
       "forbiddenImportCount": 0
     },
     "src/components/community-projects/CommunityProjectsRepositoryPane.svelte": {
@@ -1954,8 +1959,13 @@
       "forbiddenImportCount": 0
     },
     "src/components/community-projects/CommunityProjectsRevisionGraph.svelte": {
-      "countedLines": 296,
-      "physicalLines": 319,
+      "countedLines": 294,
+      "physicalLines": 316,
+      "forbiddenImportCount": 0
+    },
+    "src/components/community-projects/CommunityProjectsRevisionGraphIds.svelte": {
+      "countedLines": 126,
+      "physicalLines": 140,
       "forbiddenImportCount": 0
     },
     "src/components/community-projects/CommunityProjectsSourceError.svelte": {
@@ -1984,8 +1994,8 @@
       "forbiddenImportCount": 0
     },
     "src/components/community-projects/model.ts": {
-      "countedLines": 237,
-      "physicalLines": 266,
+      "countedLines": 242,
+      "physicalLines": 271,
       "forbiddenImportCount": 0
     },
     "src/components/community-projects/projects-member.ts": {
@@ -2849,8 +2859,8 @@
       "justification": "Existing file above the new-file counted-line limit; do not grow"
     },
     "src/projects/index.ts": {
-      "countedLines": 9,
-      "physicalLines": 9,
+      "countedLines": 10,
+      "physicalLines": 10,
       "forbiddenImportCount": 0
     },
     "src/projects/model.ts": {
@@ -2889,6 +2899,21 @@
       "physicalLines": 140,
       "forbiddenImportCount": 0
     },
+    "src/projects/repository-log-canvas.ts": {
+      "countedLines": 23,
+      "physicalLines": 24,
+      "forbiddenImportCount": 0
+    },
+    "src/projects/repository-log-files.test.ts": {
+      "countedLines": 55,
+      "physicalLines": 59,
+      "forbiddenImportCount": 0
+    },
+    "src/projects/repository-log-files.ts": {
+      "countedLines": 32,
+      "physicalLines": 36,
+      "forbiddenImportCount": 0
+    },
     "src/projects/repository-log-graph.test.ts": {
       "countedLines": 148,
       "physicalLines": 157,
@@ -2900,13 +2925,13 @@
       "forbiddenImportCount": 0
     },
     "src/projects/repository-log.test.ts": {
-      "countedLines": 177,
-      "physicalLines": 187,
+      "countedLines": 209,
+      "physicalLines": 220,
       "forbiddenImportCount": 0
     },
     "src/projects/repository-log.ts": {
-      "countedLines": 292,
-      "physicalLines": 319,
+      "countedLines": 291,
+      "physicalLines": 318,
       "forbiddenImportCount": 0
     },
     "src/projects/repository-refs.test.ts": {
@@ -2917,6 +2942,16 @@
     "src/projects/repository-refs.ts": {
       "countedLines": 89,
       "physicalLines": 110,
+      "forbiddenImportCount": 0
+    },
+    "src/projects/repository-source-reads.test.ts": {
+      "countedLines": 37,
+      "physicalLines": 40,
+      "forbiddenImportCount": 0
+    },
+    "src/projects/repository-source-reads.ts": {
+      "countedLines": 30,
+      "physicalLines": 32,
       "forbiddenImportCount": 0
     },
     "src/projects/repository-tree.test.ts": {

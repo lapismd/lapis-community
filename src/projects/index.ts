@@ -5,5 +5,6 @@ export * from "./workspace.js";
 export * from "./data-source.js";
 export * from "./catalog-store.js";
 export * from "./repository-tree.js";
+export * from "./repository-source-reads.js";
 export * from "./patch.js";
 export * from "./review-preferences.js";

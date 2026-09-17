@@ -145,11 +145,19 @@ Work-item observation MUST keep kind `3901` events that carry the
 repository `#a` coordinate so repository Activity can project jj-sync
 operations beside dest-Git commits and NIP-34 collaboration, and MUST keep
 kinds `3902`–`3905` on that same `#a` stream so repository Log can project
-the Jujutsu DAG. Kind `3902` `change_id_hex` (or the `i` tag) MUST become
-the reverse-hex change ID shown beside the commit ID. A blank `description`
+every published kind `3902` revision once a kind `3903` view exists,
+including sibling lanes and earlier history. Kind `3902` `change_id_hex` (or the `i` tag) MUST become
+the reverse-hex change ID shown with Design Core copy buttons beside the
+commit ID copy control. A blank `description`
 MUST render as `(empty) (no description set)`. The mapped DAG MUST
 keep a forked lane open until its shared parent so the branch edge meets
-the main line with a cubic join from the top of the parent row.
+the main line with a cubic join from the top of the parent row. Selecting a mapped
+revision MAY load dest-Git changed-file stats for that commit ID only; the
+Log host MUST render those stats with Design Core `FileListing` and
+`FileListingViewModeToggle` in the compact bordered History host chrome,
+and MUST open a Design Core `ColumnCanvas`
+`FileDiff` column from the already loaded dest-Git patch when a file is
+selected.
 Successful JSON GET responses MAY be retained briefly in a bounded in-memory
 cache scoped by relay URL and signer public key. Progress-stream responses MUST
 not be cached, and a successful forge mutation MUST invalidate that cache.
