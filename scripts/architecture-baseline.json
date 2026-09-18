@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "sourceCommit": "6e24a80a8f79281b7befcbb133bc1af0f027c44d",
+  "sourceCommit": "78acaa43875fa811e62e1951604f4745178f5c73",
   "limits": {
     "newProductionCountedLines": 300,
     "newTestCountedLines": 500,
@@ -58,12 +58,20 @@
       "physicalLines": 24,
       "forbiddenImportCount": 0
     },
+    "dev/community/community-dev-identity.ts": {
+      "countedLines": 90,
+      "physicalLines": 94,
+      "forbiddenImportCount": 0
+    },
     "dev/community/CommunityDevApp.svelte": {
-      "countedLines": 305,
-      "physicalLines": 319,
-      "forbiddenImportCount": 0,
-      "kind": "legacy",
-      "justification": "Existing file above the new-file counted-line limit; do not grow"
+      "countedLines": 271,
+      "physicalLines": 285,
+      "forbiddenImportCount": 0
+    },
+    "dev/community/CommunityDevPrivateKeyToast.svelte": {
+      "countedLines": 37,
+      "physicalLines": 40,
+      "forbiddenImportCount": 0
     },
     "dev/community/config.test.ts": {
       "countedLines": 34,
@@ -88,6 +96,16 @@
     "dev/community/main.ts": {
       "countedLines": 8,
       "physicalLines": 12,
+      "forbiddenImportCount": 0
+    },
+    "dev/community/private-key-session.test.ts": {
+      "countedLines": 108,
+      "physicalLines": 117,
+      "forbiddenImportCount": 0
+    },
+    "dev/community/private-key-session.ts": {
+      "countedLines": 108,
+      "physicalLines": 120,
       "forbiddenImportCount": 0
     },
     "dev/community/public-vite.test.ts": {

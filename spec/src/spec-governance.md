@@ -119,7 +119,9 @@ UI changes follow catalog discovery, API/example inspection, composition, and co
 
 The dedicated Community Vite application enables relay application
 authentication only when `VITE_COMMUNITY_RELAY_AUTH_URL` supplies an explicit
-HTTP origin. The WebSocket relay remains the single Community, Registry, and
+HTTP origin. Its development-only pasted-private-key login MAY persist that
+secret in `localStorage` so refresh restores the identity, and MUST show a
+dismissible toast that can forget the stored key. The WebSocket relay remains the single Community, Registry, and
 Projects event endpoint; the optional HTTP origin is used only for the relay's
 application-session API.
 

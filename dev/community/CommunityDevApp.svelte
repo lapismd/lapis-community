@@ -2,10 +2,7 @@
   import {
     createCommunityKeytrLoginIntegration,
     RelayAuthClient,
-    SecretKeyRegistrySigner,
-    Nip07RegistrySigner,
     type CommunityKeytrGateway,
-    type RelayIdentityConnectContext,
   } from "../../src/auth/index.js";
   import {
     createBrowserCommunityConfigurationStore,
@@ -18,7 +15,6 @@
     type CommunityScope,
   } from "../../src/community/index.js";
   import { CommunityApplication } from "../../src/components/index.js";
-  import type { CommunityLoginCredentials } from "../../src/components/community-login/model.js";
   import {
     COMMUNITY_LOGIN_METHODS,
     type CommunityLoginMethodModel,
@@ -28,12 +24,14 @@
   import { resolveCommunityDevRelayConfiguration } from "./config.js";
   import { createWebSocketCommunityRelayFactory } from "../../src/nostr/index.js";
   import { LAPIS_GROUPS, lapisGroupId } from "../../src/protocol/index.js";
-  import { hexToBytes } from "@noble/hashes/utils.js";
-  import { BunkerSigner, parseBunkerInput } from "nostr-tools/nip46";
-  import { nip19 } from "nostr-tools";
-  import { generateSecretKey } from "nostr-tools/pure";
   import { onMount } from "svelte";
+  import { createCommunityDevIdentityConnector } from "./community-dev-identity.js";
+  import CommunityDevPrivateKeyToast from "./CommunityDevPrivateKeyToast.svelte";
   import { communityKeytrLibrary } from "./keytr-adapter.js";
+  import {
+    attachCommunityDevPrivateKeyAuthRestore,
+    restoreCommunityDevPrivateKeyIdentity,
+  } from "./private-key-session.js";
 
   const { relayUrl, registryRelays, authUrl } =
     resolveCommunityDevRelayConfiguration(import.meta.env);
@@ -76,6 +74,9 @@
           allowLocalKeyMethods: true,
           clientName: "Lapis Community",
         });
+  const identityHost = createCommunityDevIdentityConnector({
+    ...(keytrIntegration === undefined ? {} : { keytrIntegration }),
+  });
   const relayFactory = createWebSocketCommunityRelayFactory();
   const registryConfigurationError =
     registryCurators.size === 0 || registryPublishers.size === 0
@@ -111,20 +112,33 @@
 
   let controller = $state.raw<CommunityController>();
   let runtimeError = $state("");
-  let activeBunker = $state.raw<BunkerSigner>();
   let activeIdentity = $state.raw<CommunityIdentity>();
+  let privateKeyRestoreStarted = false;
   const relayAuth =
     authUrl === undefined
       ? undefined
       : new RelayAuthClient({
           relayUrl: authUrl,
-          connectIdentity,
+          connectIdentity: identityHost.connect,
         });
+  if (relayAuth) attachCommunityDevPrivateKeyAuthRestore(relayAuth);
 
   $effect(() => {
     if (controller?.state.authentication.status === "anonymous") {
       activeIdentity = undefined;
     }
+  });
+
+  $effect(() => {
+    const current = controller;
+    if (!current || relayAuth || privateKeyRestoreStarted) return;
+    privateKeyRestoreStarted = true;
+    void restoreCommunityDevPrivateKeyIdentity(
+      current,
+      identityHost.connect,
+    ).then((identity) => {
+      if (identity) activeIdentity = identity;
+    });
   });
 
   onMount(() => {
@@ -181,73 +195,24 @@
     return () => {
       controller?.dispose();
       registrySource?.dispose();
-      void activeBunker?.close();
+      void identityHost.dispose();
     };
   });
 
-  function secretKey(value: string): Uint8Array {
-    const normalized = value.trim();
-    if (/^[0-9a-f]{64}$/iu.test(normalized)) return hexToBytes(normalized);
-    if (normalized.startsWith("nsec1")) {
-      const decoded = nip19.decode(normalized);
-      if (decoded.type === "nsec" && decoded.data instanceof Uint8Array) {
-        return decoded.data;
-      }
-    }
-    throw new Error("Use an nsec or a 64-character hexadecimal private key");
-  }
-
-  async function remoteIdentity(
-    value: string | undefined,
-  ): Promise<CommunityIdentity> {
-    const input = value?.trim() ?? "";
-    if (input === "") {
-      throw new Error("Paste a bunker URL before using Remote signer");
-    }
-    const pointer = await parseBunkerInput(input);
-    if (pointer === null) throw new Error("The remote signer URL is invalid");
-    await activeBunker?.close();
-    const bunker = BunkerSigner.fromBunker(generateSecretKey(), pointer, {
-      onauth: (url) => void window.open(url, "_blank", "noopener,noreferrer"),
-    });
-    await bunker.connect({ name: "Lapis Community Dev", url: location.origin });
-    activeBunker = bunker;
-    return {
-      getPublicKey: () => bunker.getPublicKey(),
-      signEvent: (template) => bunker.signEvent(template),
-      nip44: {
-        encrypt: (pubkey, plaintext) => bunker.nip44Encrypt(pubkey, plaintext),
-        decrypt: (pubkey, ciphertext) =>
-          bunker.nip44Decrypt(pubkey, ciphertext),
-      },
-    };
-  }
-
   async function connectIdentity(
     methodId: string,
-    credentials?: CommunityLoginCredentials,
-    context?: RelayIdentityConnectContext,
+    credentials?: Parameters<typeof identityHost.connect>[1],
+    context?: Parameters<typeof identityHost.connect>[2],
   ): Promise<CommunityIdentity> {
-    let identity: CommunityIdentity;
-    if (methodId === keytrIntegration?.method.id) {
-      identity = await keytrIntegration.connect(methodId, credentials, context);
-    } else if (methodId === COMMUNITY_LOGIN_METHODS.browserExtension.id) {
-      const identity = new Nip07RegistrySigner();
-      await identity.getPublicKey();
-      activeIdentity = identity;
-      return identity;
-    } else if (methodId === COMMUNITY_LOGIN_METHODS.remoteSigner.id) {
-      identity = await remoteIdentity(credentials?.remoteSignerUrl);
-    } else if (methodId === COMMUNITY_LOGIN_METHODS.createAccount.id) {
-      identity = new SecretKeyRegistrySigner(generateSecretKey());
-    } else if (methodId === COMMUNITY_LOGIN_METHODS.privateKey.id) {
-      if (credentials === undefined) throw new Error("Private key is required");
-      identity = new SecretKeyRegistrySigner(secretKey(credentials.privateKey));
-    } else {
-      throw new Error(`Unknown login method: ${methodId}`);
-    }
+    const identity = await identityHost.connect(methodId, credentials, context);
     activeIdentity = identity;
     return identity;
+  }
+
+  async function forgetPersistedPrivateKey(): Promise<void> {
+    activeIdentity = undefined;
+    await controller?.actions.disconnectIdentity();
+    await relayAuth?.signOut().catch(() => undefined);
   }
 </script>
 
@@ -276,6 +241,7 @@
             description: "Choose a development identity provider",
           }}
         />
+        <CommunityDevPrivateKeyToast onForget={forgetPersistedPrivateKey} />
       {:else}
         <div class="community-dev__error" role="alert">
           {registryConfigurationError}
