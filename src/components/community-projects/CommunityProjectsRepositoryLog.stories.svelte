@@ -4,10 +4,12 @@
 
   import type { NostrEvent } from "../../protocol/index.js";
   import {
+    KIND_JJ_GRAPH_MANIFEST,
+    KIND_JJ_OPERATION_GRAPH,
     KIND_JJ_REVISION,
     KIND_JJ_VIEW,
   } from "../../projects/work-item-filters.js";
-  import CommunityProjectsRepositoryLog from "./CommunityProjectsRepositoryLog.svelte";
+  import CommunityProjectsRepositoryLogHarness from "./CommunityProjectsRepositoryLogHarness.svelte";
 
   const owner = "1".repeat(64);
   const parent = "a".repeat(40);
@@ -77,11 +79,50 @@
         { native_workspace_name: "default", working_copy_commit_id: merge },
       ],
     }),
+    event("8", KIND_JJ_OPERATION_GRAPH, 15, {
+      schema: "jj-sync/operation-graph",
+      operation_id: "1".repeat(128),
+      parent_operation_ids: [],
+      view_id: "f".repeat(128),
+      metadata: {
+        description: "snapshot working copy",
+        started_at_ms: 14_000,
+        ended_at_ms: 15_000,
+      },
+      evolution: { recording: "recorded", entries: [] },
+    }),
+    event("9", KIND_JJ_OPERATION_GRAPH, 16, {
+      schema: "jj-sync/operation-graph",
+      operation_id: "2".repeat(128),
+      parent_operation_ids: ["1".repeat(128)],
+      view_id: "f".repeat(128),
+      metadata: {
+        description: "record merged lanes",
+        started_at_ms: 15_000,
+        ended_at_ms: 16_000,
+      },
+      evolution: {
+        recording: "recorded",
+        entries: [
+          {
+            commit_id: merge,
+            predecessor_commit_ids: ["9".repeat(40)],
+          },
+        ],
+      },
+    }),
+    event("a", KIND_JJ_GRAPH_MANIFEST, 17, {
+      schema: "jj-sync/graph-publication",
+      context: {
+        operation_id: "2".repeat(128),
+        view_id: "f".repeat(128),
+      },
+    }),
   ];
 
   const { Story } = defineMeta({
     title: "Community/Projects/Repository Log",
-    component: CommunityProjectsRepositoryLog,
+    component: CommunityProjectsRepositoryLogHarness,
     tags: ["visual-pending"],
     parameters: {
       layout: "fullscreen",
@@ -93,7 +134,7 @@
         },
         description: {
           component:
-            "Repository Log maps jj-sync kinds 3902 and 3903 onto CommunityProjectsRevisionGraph.",
+            "Repository Log maps jj-sync kinds 3902–3905 onto CommunityProjectsRevisionGraph, with a selectable Log/Op Log rail and a selection-gated Evolog column.",
         },
       },
     },
@@ -126,6 +167,14 @@
     await expect(
       canvas.getByRole("region", { name: "Repository log" }),
     ).toBeVisible();
+    await expect(canvas.getByRole("button", { name: "Log" })).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
+    await expect(
+      canvas.queryByRole("button", { name: "Add repository" }),
+    ).toBeNull();
+    await expect(canvas.queryByRole("button", { name: "Evolog" })).toBeNull();
     await expect(
       canvas.getByRole("list", { name: "Revision graph" }),
     ).toBeVisible();
@@ -184,5 +233,24 @@
     await userEvent.click(canvas.getByRole("button", { name: /lane a/ }));
     await expect(await canvas.findByText("No changed files")).toBeVisible();
     await expect(canvas.queryByText("git_object_not_found")).toBeNull();
+    await userEvent.click(
+      canvas.getByRole("button", { name: /record merged lanes/ }),
+    );
+    await userEvent.click(
+      await canvas.findByRole("button", { name: "Evolog" }),
+    );
+    await expect(
+      canvas.getByRole("list", { name: "Evolution log" }),
+    ).toBeVisible();
+    await expect(canvas.getByText("merge lane A and lane B")).toBeVisible();
+    await userEvent.click(canvas.getByRole("button", { name: "Op Log" }));
+    await expect(
+      canvas.getByRole("list", { name: "Operation graph" }),
+    ).toBeVisible();
+    await expect(canvas.getByText("snapshot working copy")).toBeVisible();
+    await expect(canvas.queryByRole("button", { name: "Evolog" })).toBeNull();
+    await expect(
+      canvas.getAllByRole("button", { name: /Copy full operation ID/ }).length,
+    ).toBeGreaterThan(0);
   }}
 />

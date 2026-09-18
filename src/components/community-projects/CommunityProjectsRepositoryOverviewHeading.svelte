@@ -1,0 +1,51 @@
+<script lang="ts">
+  import type { Snippet } from "svelte";
+
+  import { repositoryOverviewTitle } from "../../projects/repository-log-pane.svelte.js";
+  import CommunityProjectsRepositoryLogRail from "./CommunityProjectsRepositoryLogRail.svelte";
+
+  let {
+    surface,
+    name,
+    plus,
+  }: {
+    surface: string;
+    name: string;
+    plus?: Snippet | undefined;
+  } = $props();
+</script>
+
+{#if surface === "log"}
+  <CommunityProjectsRepositoryLogRail />
+{:else}
+  <div class="community-application__project-overview-heading">
+    <strong>{repositoryOverviewTitle(surface, name)}</strong>
+    {@render plus?.()}
+  </div>
+{/if}
+
+<style>
+  .community-application__project-overview-heading {
+    display: grid;
+    min-height: 2rem;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0 0.4rem 0.55rem;
+    font-size: var(--community-text-secondary);
+    font-weight: 500;
+  }
+
+  .community-application__project-overview-heading > strong {
+    font-weight: 500;
+  }
+
+  .community-application__project-overview-heading
+    :global(> [data-ui-component="button"]) {
+    width: 1.75rem;
+    min-width: 1.75rem;
+    height: 1.75rem;
+    min-height: 1.75rem;
+    margin-inline-end: -0.4rem;
+  }
+</style>

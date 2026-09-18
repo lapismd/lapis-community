@@ -176,6 +176,8 @@
   } from "../community-navigation/model.js";
   import CommunityProfileMenu from "../community-profile-menu/CommunityProfileMenu.svelte";
   import CommunityProjects from "../community-projects/CommunityProjects.svelte";
+  import CommunityProjectsRepositoryOverviewHeading from "../community-projects/CommunityProjectsRepositoryOverviewHeading.svelte";
+  import { provideRepositoryLogPane } from "../../projects/repository-log-pane.svelte.js";
   import type {
     CommunityProjectsCreateProject,
     CommunityProjectsCreatePullRequest,
@@ -816,6 +818,7 @@
     onMessageMember: () => messageMember,
     onWaveMember: () => waveMember,
   });
+  provideRepositoryLogPane();
   const startupDestinationRoom = $derived(
     communityStartupPending
       ? allRooms.find((room) => room.id === activeDestination)
@@ -6318,17 +6321,12 @@
             selectedPullRequest.approvals.length,
           )}
         {:else if selectedRepository}
-          <div class="community-application__project-overview-heading">
-            <strong
-              >{activeRepositorySurface === "overview"
-                ? selectedRepository.name
-                : activeRepositorySurface === "reviews"
-                  ? "Reviews"
-                  : activeRepositorySurface[0]!.toUpperCase() +
-                    activeRepositorySurface.slice(1)}</strong
-            >
-            {@render repositoryActionMenu()}
-          </div>
+          <CommunityProjectsRepositoryOverviewHeading
+            surface={activeRepositorySurface}
+            name={selectedRepository.name}
+          >
+            {#snippet plus()}{@render repositoryActionMenu()}{/snippet}
+          </CommunityProjectsRepositoryOverviewHeading>
           {#if activeRepositorySurface === "overview"}
             <div class="community-application__project-overview-repository">
               <strong>{selectedRepository.name}</strong>

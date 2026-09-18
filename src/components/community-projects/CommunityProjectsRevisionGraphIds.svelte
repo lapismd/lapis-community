@@ -7,9 +7,11 @@
   let {
     changeId = "",
     commitId,
+    commitLabel = "commit ID",
   }: {
     changeId?: string | undefined;
     commitId: string;
+    commitLabel?: string | undefined;
   } = $props();
 
   let copied = $state("");
@@ -71,7 +73,7 @@
   {#if changeId}
     {@render idButton("change ID", changeId, "change")}
   {/if}
-  {@render idButton("commit ID", commitId, "commit")}
+  {@render idButton(commitLabel, commitId, "commit")}
 </div>
 
 <style>

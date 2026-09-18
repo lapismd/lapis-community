@@ -1,0 +1,69 @@
+<script lang="ts">
+  import { Button } from "@lapismd/design-core/shadcn/button";
+  import GitCommitHorizontalIcon from "@lucide/svelte/icons/git-commit-horizontal";
+  import GitCompareIcon from "@lucide/svelte/icons/git-compare";
+  import HistoryIcon from "@lucide/svelte/icons/history";
+  import { onDestroy } from "svelte";
+
+  import {
+    useRepositoryLogPane,
+    type RepositoryLogPane,
+  } from "../../projects/repository-log-pane.svelte.js";
+
+  const pane = useRepositoryLogPane();
+  onDestroy(() => pane?.reset());
+
+  function select(next: RepositoryLogPane): void {
+    pane?.selectPane(next);
+  }
+</script>
+
+{#if pane}
+  <nav
+    class="community-projects-repository-log-rail"
+    aria-label="Repository log views"
+  >
+    <Button
+      type="button"
+      variant="ghost"
+      class="community-application__project-overview-item"
+      data-active={pane.pane === "log" ? "" : undefined}
+      aria-current={pane.pane === "log" ? "page" : undefined}
+      onclick={() => select("log")}
+    >
+      <GitCommitHorizontalIcon data-icon="inline-start" aria-hidden="true" />
+      <span>Log</span>
+    </Button>
+    <Button
+      type="button"
+      variant="ghost"
+      class="community-application__project-overview-item"
+      data-active={pane.pane === "oplog" ? "" : undefined}
+      aria-current={pane.pane === "oplog" ? "page" : undefined}
+      onclick={() => select("oplog")}
+    >
+      <HistoryIcon data-icon="inline-start" aria-hidden="true" />
+      <span>Op Log</span>
+    </Button>
+    {#if pane.pane === "log" && pane.selectedCommitId}
+      <Button
+        type="button"
+        variant="ghost"
+        class="community-application__project-overview-item"
+        data-active={pane.evologOpen ? "" : undefined}
+        aria-pressed={pane.evologOpen}
+        onclick={() => pane.toggleEvolog()}
+      >
+        <GitCompareIcon data-icon="inline-start" aria-hidden="true" />
+        <span>Evolog</span>
+      </Button>
+    {/if}
+  </nav>
+{/if}
+
+<style>
+  .community-projects-repository-log-rail {
+    display: grid;
+    gap: 0.15rem;
+  }
+</style>

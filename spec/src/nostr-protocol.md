@@ -151,6 +151,9 @@ bookmarks. The current view is the `3903` named by the latest kind `3904`
 `metadata.ended_at_ms`, or the newest `3903` when that time is absent. One
 row per `change_id` keeps the commit that view names. Abandoned empty
 working copies and stale-view chips MUST NOT appear.
+Op Log MUST project kind `3904` operation-parent edges with a kind `3905`
+tip. Evolog MUST walk recorded `3904` predecessor maps and hydrate rows from
+kind `3902`.
 Kind `3902` `change_id_hex` (or the `i` tag) MUST become
 the reverse-hex change ID shown with Design Core copy buttons beside the
 commit ID copy control. A blank `description`
@@ -165,6 +168,10 @@ empty FileListing state rather than a forge error code. The host
 MUST open a Design Core `ColumnCanvas`
 `FileDiff` column from the already loaded dest-Git patch when a file is
 selected.
+The same `#a` stream MUST project Op Log from kinds `3904`/`3905` using
+`parent_operation_ids`, and MUST project Evolog from recorded `3904`
+`evolution.entries` predecessor lists hydrated by kind `3902`. Kind `3905`
+supplies the Op Log tip only.
 Successful JSON GET responses MAY be retained briefly in a bounded in-memory
 cache scoped by relay URL and signer public key. Progress-stream responses MUST
 not be cached, and a successful forge mutation MUST invalidate that cache.

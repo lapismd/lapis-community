@@ -11,6 +11,14 @@ export function createRepositoryLogCanvas() {
         collapsible: true,
         resizable: true,
       },
+      evolog: {
+        defaultWidth: 480,
+        pathLevel: 1,
+        minWidth: 360,
+        maxWidth: 720,
+        closeable: true,
+        resizable: true,
+      },
       diff: {
         defaultWidth: 560,
         pathLevel: 2,

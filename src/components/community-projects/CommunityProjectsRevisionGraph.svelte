@@ -31,12 +31,16 @@
     revisions,
     devices = [],
     selectedId = null,
+    graphLabel = "Revision graph",
+    commitLabel = "commit ID",
     onSelect,
     selectedFiles,
   }: {
     revisions: RepositoryLogRevision[];
     devices?: RepositoryLogDevice[] | undefined;
     selectedId?: string | null | undefined;
+    graphLabel?: string | undefined;
+    commitLabel?: string | undefined;
     onSelect?: ((revision: RepositoryLogRevision) => void) | undefined; selectedFiles?: Snippet | undefined;
   } = $props();
 
@@ -53,7 +57,7 @@
 <ol
   class="community-revision-graph"
   style:--community-revision-graph-row-height="{rowHeight}px"
-  aria-label="Revision graph"
+  aria-label={graphLabel}
 >
   {#each rows as row (row.revision.eventId)}
     {@const commitX = repositoryLogLaneX(row.commitLane)}
@@ -176,6 +180,7 @@
       <CommunityProjectsRevisionGraphIds
         changeId={row.changeIdEncoded}
         commitId={row.revision.eventId}
+        {commitLabel}
       />
       {#if selectedId === row.revision.eventId && selectedFiles}
         <div class="community-revision-graph__files">{@render selectedFiles()}</div>

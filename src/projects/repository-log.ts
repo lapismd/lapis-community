@@ -208,7 +208,7 @@ function device(
   };
 }
 
-function orderNewestFirst(
+export function orderNewestFirst(
   revisions: RepositoryLogRevision[],
 ): RepositoryLogRevision[] {
   const byId = new Map(

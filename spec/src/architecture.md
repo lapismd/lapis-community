@@ -344,6 +344,12 @@ Community copy buttons from kind `3902` `change_id_hex`. Blank descriptions MUST
 `(empty) (no description set)` placeholder. Forked lanes MUST remain until the
 shared parent so the branch edge can meet the main line. Those edges MUST
 use cubic split, merge, and top-of-row converge joins.
+The Log-tab outer rail MUST select Log or Op Log in place, without a new
+toolbar tab. Op Log MUST project kind `3904` operation-parent edges. When a
+Log row is selected, an Evolog toggle MAY add a column after Log that walks
+recorded `3904` predecessor maps for that change and hydrates rows from
+kind `3902`. Commit parents, rewrite edges, and operation parents MUST stay
+distinct.
 
 The agent activity archive uses the existing store owner and runtime worker
 bridge. Additive store/runtime properties preserve custom adapters. Transient
