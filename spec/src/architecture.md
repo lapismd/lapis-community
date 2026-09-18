@@ -201,7 +201,9 @@ than twenty counted lines MUST fail as stale. Keytr local development
 storage-relay hosts remain in the recorded auth path budgets.
 CommunityProjects Overview README fullWidth alignment updates the
 `CommunityProjects.svelte` and `CommunityProjects.stories.svelte` path
-budgets in the same change.
+budgets in the same change. Extracting local-fixture addressable-head
+retention from `src/fixture/seed.ts` lowers that hotspot budget and
+records the new `seed-retention` module.
 
 ## Requirements
 

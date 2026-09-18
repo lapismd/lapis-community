@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "sourceCommit": "5428d8cffac946a08e4b1d4dd0a952b4159cf40c",
+  "sourceCommit": "d3e4078cb8744c8c5372b893f8de7a36f056947b",
   "limits": {
     "newProductionCountedLines": 300,
     "newTestCountedLines": 500,
@@ -1835,8 +1835,8 @@
       "forbiddenImportCount": 0
     },
     "src/components/community-projects-settings/CommunityProjectsBranchProtection.svelte": {
-      "countedLines": 235,
-      "physicalLines": 248,
+      "countedLines": 243,
+      "physicalLines": 256,
       "forbiddenImportCount": 0
     },
     "src/components/community-projects-settings/CommunityProjectsRepositoryOverview.svelte": {
@@ -2139,8 +2139,8 @@
       "forbiddenImportCount": 0
     },
     "src/components/community-projects/model.ts": {
-      "countedLines": 250,
-      "physicalLines": 279,
+      "countedLines": 253,
+      "physicalLines": 282,
       "forbiddenImportCount": 0
     },
     "src/components/community-projects/projects-member.ts": {
@@ -2894,9 +2894,19 @@
       "physicalLines": 114,
       "forbiddenImportCount": 0
     },
+    "src/fixture/seed-retention.test.ts": {
+      "countedLines": 111,
+      "physicalLines": 121,
+      "forbiddenImportCount": 0
+    },
+    "src/fixture/seed-retention.ts": {
+      "countedLines": 86,
+      "physicalLines": 92,
+      "forbiddenImportCount": 0
+    },
     "src/fixture/seed.ts": {
-      "countedLines": 852,
-      "physicalLines": 882,
+      "countedLines": 842,
+      "physicalLines": 872,
       "forbiddenImportCount": 0,
       "kind": "legacy",
       "justification": "Existing file above the new-file counted-line limit; do not grow"
@@ -3000,8 +3010,8 @@
       "forbiddenImportCount": 0
     },
     "src/projects/data-source-helpers.ts": {
-      "countedLines": 34,
-      "physicalLines": 39,
+      "countedLines": 36,
+      "physicalLines": 41,
       "forbiddenImportCount": 0
     },
     "src/projects/data-source.test.ts": {
@@ -3012,8 +3022,8 @@
       "justification": "Existing file above the new-file counted-line limit; do not grow"
     },
     "src/projects/data-source.ts": {
-      "countedLines": 938,
-      "physicalLines": 991,
+      "countedLines": 929,
+      "physicalLines": 982,
       "forbiddenImportCount": 0,
       "kind": "legacy",
       "justification": "Existing file above the new-file counted-line limit; do not grow"
@@ -3078,8 +3088,8 @@
       "forbiddenImportCount": 0
     },
     "src/projects/protection-document.ts": {
-      "countedLines": 55,
-      "physicalLines": 61,
+      "countedLines": 80,
+      "physicalLines": 87,
       "forbiddenImportCount": 0
     },
     "src/projects/reducer.ts": {

@@ -27,6 +27,7 @@ import { finalizeEvent, getPublicKey } from "nostr-tools/pure";
 import { parseFixtureSecrets } from "./keys.js";
 import type { FixtureSecretName, FixtureSecrets } from "./keys.js";
 import { createLocalProjectForgeFixture } from "./projects.js";
+import { countRetainedFixtureCopies } from "./seed-retention.js";
 import { loadLocalPluginFixtures } from "./source.js";
 import { loadFixtureBundle } from "./bundle.js";
 import { encodeNostrHttpAuthorization } from "../nostr/http-authorization.js";
@@ -714,20 +715,9 @@ async function seed(): Promise<{
     );
   }
   const reader = await relayFor(publisherSecret);
-  const retained: NostrEvent[] = [];
-  for (let offset = 0; offset < events.length; offset += 250) {
-    retained.push(
-      ...(await reader.query({
-        ids: events.slice(offset, offset + 250).map((event) => event.id),
-        limit: 250,
-      })),
-    );
-  }
-  if (retained.length !== events.length) {
-    throw new Error(
-      `The relay retained ${retained.length}/${events.length} fixture events`,
-    );
-  }
+  const retained = await countRetainedFixtureCopies(events, async (filter) =>
+    reader.query(filter),
+  );
   for (const relay of relays.values()) relay.close();
 
   return {
@@ -742,7 +732,7 @@ async function seed(): Promise<{
       projectCount: 1,
       projectEventCount: projectEvents.length,
       registryRoot: registry.root,
-      relayCopies: retained.length,
+      relayCopies: retained,
       groupIds: Object.fromEntries(
         groups.map((group) => [group.name, group.id]),
       ),
