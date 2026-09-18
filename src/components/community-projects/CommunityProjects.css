@@ -758,7 +758,8 @@
   font-size: var(--community-text-secondary);
 }
 
-.community-projects__readme {
+.community-projects__readme,
+.community-projects__workspace--options {
   padding-top: 1.25rem;
 }
 

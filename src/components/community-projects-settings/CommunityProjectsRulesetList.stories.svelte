@@ -88,7 +88,6 @@
     await expect(editor.getByText("Actors")).toBeVisible();
     await expect(editor.getByText("Which branches should be matched?")).toBeVisible();
     await expect(editor.getByText("Branch targeting criteria")).toBeVisible();
-    await expect(editor.getByText("Which rules should be applied?")).toBeVisible();
     await expect(editor.getByText("Branch rules")).toBeVisible();
     await expect(
       editor.getByRole("slider", { name: "Required approvals" }),

@@ -87,8 +87,6 @@
   {#if protection.announcementPatterns.length > 0}
     <p>Also from announcement: {protection.announcementPatterns.join(", ")}</p>
   {/if}
-  <p>Pull requests required: {protection.pullRequestsRequired ? "Yes" : "No"}</p>
-  <p>Who can merge: {protection.mergeActors}</p>
   {#if saveError}
     <p role="alert">{saveError}</p>
   {/if}

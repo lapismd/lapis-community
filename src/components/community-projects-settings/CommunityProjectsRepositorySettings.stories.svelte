@@ -51,10 +51,9 @@
     ).toBeVisible();
     await expect(canvas.getByText(/docs\//u)).toBeVisible();
     await expect(
-      canvas.queryByText(/lives at the repository root/u),
-    ).not.toBeInTheDocument();
-    await expect(
-      canvas.queryByText(/additive Active rule/u),
+      canvas.queryByText(
+        /lives at the repository root|additive Active rule|Pull requests required|Who can merge/u,
+      ),
     ).not.toBeInTheDocument();
   }}
 >

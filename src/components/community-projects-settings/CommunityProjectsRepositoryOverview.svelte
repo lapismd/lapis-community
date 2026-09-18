@@ -61,7 +61,7 @@
   });
 </script>
 
-<article class="community-projects__workspace" class:community-projects__readme={surface !== "options"}>
+<article class="community-projects__workspace" class:community-projects__readme={surface !== "options"} class:community-projects__workspace--options={surface === "options"}>
   {#if surface === "options"}
     <CommunityProjectsRepositorySettings
       {capabilities}

@@ -3,8 +3,8 @@ role (“Can create repositories on this channel and review or merge its pull
 requests”) beside Writer. The create-repository dialog MUST disable channels
 the viewer cannot maintain and MUST explain why. Submit review, Merge, and the
 reviewer picker MUST use that same `CanMaintain` capability. Repository
-settings MUST show permissions, named branch rulesets, that pull requests are
-required, who can merge, and any `OWNERS.md` path reviewers without growing
+settings MUST show permissions, named branch rulesets, and any `OWNERS.md`
+path reviewers without growing
 `CommunityProjects.svelte`. Those settings MUST NOT render on the repository
 Overview README. The far-right project overview rail MUST restore the
 repository name plus muted source-label chrome and include an Options item
@@ -29,10 +29,15 @@ be toolbar cards with empty copy, include/exclude rows, and icon-only
 remove actions rather than Design Core tables. Branch rules MUST be a
 checkbox list with helper text under each rule label and a vertically
 centered checkbox.
-Required approvals MUST use a Design Core Slider. Bypass list, target
-branches, and branch rules MUST keep their section descriptions. Options
-MUST NOT render helper paragraphs under Permissions or `OWNERS.md`; those
-sections MUST keep the People action and any path-reviewer summary.
+Required approvals MUST use a Design Core Slider. Bypass list and target
+branches MUST keep their section descriptions. Branch rules MUST start at
+the Branch rules heading and MUST NOT add a Rules heading or “Which rules
+should be applied?” copy. Options MUST NOT render helper paragraphs under
+Permissions or `OWNERS.md`; those sections MUST keep the People action and
+any path-reviewer summary. Options MUST NOT render “Pull requests required”
+or “Who can merge” status lines. The Options workspace MUST use the same
+block-start inset as the Overview README instead of the default workspace
+padding.
 Announcement `protected-ref` tags remain an additive Active rule. The
 Files preview MUST say `OWNERS.md` lives at the repository root on the
 protected branch and is edited through a pull request.

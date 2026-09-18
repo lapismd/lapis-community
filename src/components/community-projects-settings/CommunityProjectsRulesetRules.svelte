@@ -13,9 +13,7 @@
 </script>
 
 <section class="community-projects-ruleset-rules" aria-labelledby={`${idPrefix}-rules`}>
-  <h4 id={`${idPrefix}-rules`}>Rules</h4>
-  <p>Which rules should be applied?</p>
-  <h5>Branch rules</h5>
+  <h4 id={`${idPrefix}-rules`}>Branch rules</h4>
   <label>
     <Checkbox
       checked={draft.restrict_creations}
@@ -61,14 +59,8 @@
   }
 
   h4,
-  h5,
-  p,
   small {
     margin: 0;
-  }
-
-  p {
-    color: var(--muted-foreground);
   }
 
   label {
