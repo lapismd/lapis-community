@@ -152,8 +152,10 @@ bookmarks. The current view is the `3903` named by the latest kind `3904`
 row per `change_id` keeps the commit that view names. Abandoned empty
 working copies and stale-view chips MUST NOT appear.
 Op Log MUST project kind `3904` operation-parent edges with a kind `3905`
-tip. Evolog MUST walk recorded `3904` predecessor maps and hydrate rows from
-kind `3902`.
+tip and MAY load dest-Git files for a commit recorded in that operation's
+`evolution.entries`. Evolog MUST walk recorded `3904` predecessor maps and
+hydrate rows from kind `3902`. Closing the Evolog column MUST clear the
+rail toggle.
 Kind `3902` `change_id_hex` (or the `i` tag) MUST become
 the reverse-hex change ID shown with Design Core copy buttons beside the
 commit ID copy control. A blank `description`

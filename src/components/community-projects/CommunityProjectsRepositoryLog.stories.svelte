@@ -239,10 +239,22 @@
     await userEvent.click(
       await canvas.findByRole("button", { name: "Evolog" }),
     );
+    await expect(canvas.getByRole("button", { name: "Evolog" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
     await expect(
       canvas.getByRole("list", { name: "Evolution log" }),
     ).toBeVisible();
     await expect(canvas.getByText("merge lane A and lane B")).toBeVisible();
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Close Evolog column" }),
+    );
+    await expect(canvas.getByRole("button", { name: "Evolog" })).toHaveAttribute(
+      "aria-pressed",
+      "false",
+    );
+    await expect(canvas.queryByRole("list", { name: "Evolution log" })).toBeNull();
     await userEvent.click(canvas.getByRole("button", { name: "Op Log" }));
     await expect(
       canvas.getByRole("list", { name: "Operation graph" }),
@@ -252,5 +264,9 @@
     await expect(
       canvas.getAllByRole("button", { name: /Copy full operation ID/ }).length,
     ).toBeGreaterThan(0);
+    await userEvent.click(
+      canvas.getByRole("button", { name: /record merged lanes/ }),
+    );
+    await expect(await canvas.findByText("lanes.md")).toBeVisible();
   }}
 />

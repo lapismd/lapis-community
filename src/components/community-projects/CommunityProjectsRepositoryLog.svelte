@@ -76,6 +76,19 @@
     });
   });
 
+  $effect(() => {
+    if (!pane.evologOpen) return;
+    if (canvas.isClosed("evolog")) {
+      untrack(() => {
+        pane.setEvologOpen(false);
+        canvas.open("evolog");
+        evoSelectedId = null;
+      });
+      return;
+    }
+    canvas.open("evolog");
+  });
+
   async function loadFiles(
     eventId: string | null,
     empty = false,
@@ -102,9 +115,14 @@
     canvas.select(0, eventId);
     const selected = canvas.pathAt(0) ?? null;
     const revision = graph.revisions.find((item) => item.eventId === selected);
-    pane.setLogSelection(selected, revision?.changeId ?? null);
-    evoSelectedId = null;
-    await loadFiles(selected, revision?.empty === true);
+    if (pane.pane === "log") {
+      pane.setLogSelection(selected, revision?.changeId ?? null);
+      evoSelectedId = null;
+    }
+    await loadFiles(
+      revision?.commitId ?? selected,
+      revision?.empty === true,
+    );
   }
 
   async function selectEvolution(eventId: string): Promise<void> {
@@ -154,13 +172,10 @@
               ? "Operation graph"
               : "Revision graph"}
             commitLabel={pane.pane === "oplog" ? "operation ID" : "commit ID"}
-            onSelect={(revision) =>
-              pane.pane === "oplog"
-                ? canvas.select(0, revision.eventId)
-                : void selectRevision(revision.eventId)}
+            onSelect={(revision) => void selectRevision(revision.eventId)}
           >
             {#snippet selectedFiles()}
-              {#if pane.pane === "log" && !evoSelectedId}
+              {#if !evoSelectedId}
                 <CommunityProjectsRepositoryLogFiles
                   compact
                   {files}
@@ -203,15 +218,13 @@
           </ColumnCanvas.Body>
         </ColumnCanvas.Column>
       {/if}
-      {#if pane.pane === "log"}
-        <ColumnCanvas.Column id="diff" title={selectedPath ?? "Diff"}>
-          <ColumnCanvas.Body>
-            {#if selectedPath && filePatch}
-              <FileDiff path={selectedPath} patch={filePatch} />
-            {/if}
-          </ColumnCanvas.Body>
-        </ColumnCanvas.Column>
-      {/if}
+      <ColumnCanvas.Column id="diff" title={selectedPath ?? "Diff"}>
+        <ColumnCanvas.Body>
+          {#if selectedPath && filePatch}
+            <FileDiff path={selectedPath} patch={filePatch} />
+          {/if}
+        </ColumnCanvas.Body>
+      </ColumnCanvas.Column>
     </ColumnCanvas.Root>
   {/if}
 </section>

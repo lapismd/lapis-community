@@ -9,6 +9,7 @@ export type RepositoryLogPaneState = {
   readonly selectedChangeId: string | null;
   selectPane(pane: RepositoryLogPane): void;
   toggleEvolog(): void;
+  setEvologOpen(open: boolean): void;
   setLogSelection(commitId: string | null, changeId: string | null): void;
   reset(): void;
 };
@@ -45,8 +46,10 @@ export function createRepositoryLogPane(): RepositoryLogPaneState {
     },
     selectPane,
     toggleEvolog(): void {
-      if (pane !== "log" || !selectedCommitId) return;
-      evologOpen = !evologOpen;
+      this.setEvologOpen(!evologOpen);
+    },
+    setEvologOpen(open: boolean): void {
+      evologOpen = pane === "log" && Boolean(selectedCommitId) && open;
     },
     setLogSelection(commitId: string | null, changeId: string | null): void {
       selectedCommitId = commitId;

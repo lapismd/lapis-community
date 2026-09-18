@@ -12,6 +12,7 @@ export type RepositoryLogReason = "checkpoint" | "merge";
 export type RepositoryLogRevision = {
   eventId: string;
   changeId: string;
+  commitId?: string;
   parents: string[];
   message: string;
   reason: RepositoryLogReason;

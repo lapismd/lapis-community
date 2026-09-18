@@ -50,7 +50,6 @@
         type="button"
         variant="ghost"
         class="community-application__project-overview-item"
-        data-active={pane.evologOpen ? "" : undefined}
         aria-pressed={pane.evologOpen}
         onclick={() => pane.toggleEvolog()}
       >
@@ -65,5 +64,13 @@
   .community-projects-repository-log-rail {
     display: grid;
     gap: 0.15rem;
+  }
+
+  .community-projects-repository-log-rail
+    :global(
+      .community-application__project-overview-item[data-ui-component="button"][aria-pressed="true"]
+    ) {
+    color: var(--foreground);
+    background: color-mix(in srgb, var(--muted) 62%, transparent);
   }
 </style>

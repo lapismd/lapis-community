@@ -49,9 +49,11 @@ export function buildRepositoryOperationLog(
     const endedAt =
       typeof metadata.ended_at_ms === "number" ? metadata.ended_at_ms : 0;
     const parents = stringList(body.parent_operation_ids);
+    const commitId = recordedCommitId(body);
     revisions.push({
       eventId: operationId,
       changeId: "",
+      ...(commitId ? { commitId } : {}),
       parents,
       message: formatRepositoryLogMessage(
         typeof metadata.description === "string" ? metadata.description : "",
@@ -60,7 +62,7 @@ export function buildRepositoryOperationLog(
       createdAt: endedAt ? Math.floor(endedAt / 1_000) : event.created_at,
       root: operationId,
       author: "",
-      empty: false,
+      empty: !commitId,
     });
     if (endedAt >= tipScore) {
       tipId = operationId;
@@ -82,6 +84,21 @@ export function buildRepositoryOperationLog(
         ]
       : [],
   };
+}
+
+function recordedCommitId(body: Record<string, unknown>): string | undefined {
+  if (!isRecord(body.evolution) || body.evolution.recording !== "recorded") {
+    return undefined;
+  }
+  for (const entry of arrayOf(body.evolution.entries)) {
+    const commitId = asString(entry.commit_id);
+    if (commitId) return commitId;
+  }
+  return undefined;
+}
+
+function arrayOf(value: unknown): Record<string, unknown>[] {
+  return Array.isArray(value) ? value.filter(isRecord) : [];
 }
 
 function parseJson(content: string): unknown {

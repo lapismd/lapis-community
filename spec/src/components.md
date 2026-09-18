@@ -134,9 +134,14 @@ MUST render the published kind `3904` operation DAG with operation-parent
 edges on the same `CommunityProjectsRevisionGraph` host and MUST label
 copyable IDs as operation IDs. When Log is selected and a Log row is
 selected, the rail MUST expose an Evolog toggle. When that toggle is
-pressed, Log MUST add a `ColumnCanvas` column immediately after Log that
+pressed, the rail item MUST use the same selected background as Log and Op Log,
+and Log MUST add a `ColumnCanvas` column immediately after Log that
 renders that change's recorded evolution from kind `3904` predecessor maps,
 hydrated by kind `3902`, without treating commit parents as rewrite edges.
+Closing that Evolog column MUST clear the toggle. Selecting an Op Log row
+MUST load dest-Git changed files for a commit recorded in that operation's
+`evolution.entries`, using the same FileListing and FileDiff host as Log, and
+MUST show the empty FileListing when the operation recorded no commit.
 Directory chains that contain neither a file nor a branch MUST collapse into a
 single flat path so that users do not have to traverse empty intermediate
 directories. Opening a directory MUST use the already loaded bounded tree and

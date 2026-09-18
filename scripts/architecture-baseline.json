@@ -1929,13 +1929,13 @@
       "forbiddenImportCount": 0
     },
     "src/components/community-projects/CommunityProjectsRepositoryLog.stories.svelte": {
-      "countedLines": 249,
-      "physicalLines": 256,
+      "countedLines": 265,
+      "physicalLines": 272,
       "forbiddenImportCount": 0
     },
     "src/components/community-projects/CommunityProjectsRepositoryLog.svelte": {
-      "countedLines": 229,
-      "physicalLines": 240,
+      "countedLines": 241,
+      "physicalLines": 253,
       "forbiddenImportCount": 0
     },
     "src/components/community-projects/CommunityProjectsRepositoryLogHarness.svelte": {
@@ -1944,8 +1944,8 @@
       "forbiddenImportCount": 0
     },
     "src/components/community-projects/CommunityProjectsRepositoryLogRail.svelte": {
-      "countedLines": 64,
-      "physicalLines": 69,
+      "countedLines": 70,
+      "physicalLines": 76,
       "forbiddenImportCount": 0
     },
     "src/components/community-projects/CommunityProjectsRepositoryOverviewHeading.svelte": {
@@ -2945,8 +2945,8 @@
       "forbiddenImportCount": 0
     },
     "src/projects/repository-log.ts": {
-      "countedLines": 279,
-      "physicalLines": 306,
+      "countedLines": 280,
+      "physicalLines": 307,
       "forbiddenImportCount": 0
     },
     "src/projects/repository-refs.test.ts": {
@@ -3240,18 +3240,18 @@
       "forbiddenImportCount": 0
     },
     "src/projects/repository-log-pane.svelte.ts": {
-      "countedLines": 71,
-      "physicalLines": 80,
+      "countedLines": 74,
+      "physicalLines": 83,
       "forbiddenImportCount": 0
     },
     "src/projects/repository-operation-log.ts": {
-      "countedLines": 100,
-      "physicalLines": 107,
+      "countedLines": 115,
+      "physicalLines": 124,
       "forbiddenImportCount": 0
     },
     "src/projects/repository-operation-log.test.ts": {
-      "countedLines": 92,
-      "physicalLines": 99,
+      "countedLines": 113,
+      "physicalLines": 121,
       "forbiddenImportCount": 0
     },
     "src/projects/repository-evolution-log.ts": {

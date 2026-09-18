@@ -86,6 +86,28 @@ describe("buildRepositoryOperationLog", () => {
     expect(graph.devices[0]?.revisionEventId).toBe(parentOp);
   });
 
+  it("exposes a dest-Git commit from recorded evolution entries", () => {
+    const commitId = "d".repeat(40);
+    const graph = buildRepositoryOperationLog([
+      event("3", KIND_JJ_OPERATION_GRAPH, 12, {
+        schema: "jj-sync/operation-graph",
+        operation_id: childOp,
+        parent_operation_ids: [parentOp],
+        metadata: {
+          description: "record merged lanes",
+          started_at_ms: 1_990,
+          ended_at_ms: 2_000,
+        },
+        evolution: {
+          recording: "recorded",
+          entries: [{ commit_id: commitId, predecessor_commit_ids: [] }],
+        },
+      }),
+    ]);
+    expect(graph.revisions[0]?.commitId).toBe(commitId);
+    expect(graph.revisions[0]?.empty).toBe(false);
+  });
+
   it("returns an empty graph when no 3904 events are published", () => {
     expect(
       buildRepositoryOperationLog([
