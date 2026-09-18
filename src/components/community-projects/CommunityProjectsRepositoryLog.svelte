@@ -13,6 +13,7 @@
     REPOSITORY_LOG_FILES_UNAVAILABLE,
     repositoryLogChangedFiles,
     repositoryLogFilePatch,
+    repositoryLogFilesError,
   } from "../../projects/repository-log-files.js";
   import CommunityProjectsRevisionGraph from "./CommunityProjectsRevisionGraph.svelte";
   import CommunityProjectsRepositoryLogFiles from "./CommunityProjectsRepositoryLogFiles.svelte";
@@ -49,6 +50,9 @@
     detail = undefined;
     filesError = "";
     if (!selected) return;
+    if (graph.revisions.find((item) => item.eventId === selected)?.empty) {
+      return;
+    }
     if (!onLoadRepositoryCommit) {
       filesError = REPOSITORY_LOG_FILES_UNAVAILABLE;
       return;
@@ -59,10 +63,7 @@
       detail = await onLoadRepositoryCommit(eventId, controller.signal);
     } catch (cause) {
       if (controller.signal.aborted) return;
-      filesError =
-        cause instanceof Error
-          ? cause.message
-          : REPOSITORY_LOG_FILES_UNAVAILABLE;
+      filesError = repositoryLogFilesError(cause);
     }
   }
 </script>

@@ -29,7 +29,8 @@ placeholders, History-style copyable revision IDs, compact FileListing chrome, a
 ColumnCanvas FileDiff columns, unique-change collapse, and canvas-root header
 geometry update that baseline in the same change. Repository Log current-view
 pinning from kind `3904` `metadata.ended_at_ms` updates that baseline in the
-same change.
+same change. Repository Log empty dest-Git objects update that baseline in
+the same change.
 
 For LC-OPS-001 and LC-OPS-004, hosted-project acceptance layers the sibling
 relay's digest-pinned WalGit and RustFS composition onto both the persistent

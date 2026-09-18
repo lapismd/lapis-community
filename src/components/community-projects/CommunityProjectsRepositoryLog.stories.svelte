@@ -99,18 +99,23 @@
     },
     args: {
       events,
-      onLoadRepositoryCommit: async (sha: string) => ({
-        commit: { sha, subject: "record merged lanes" },
-        stats: [{ path: "lanes.md", additions: 3, deletions: 1 }],
-        patch: [
-          "diff --git a/lanes.md b/lanes.md",
-          "--- a/lanes.md",
-          "+++ b/lanes.md",
-          "@@ -1 +1 @@",
-          "-old lane",
-          "+merged-lane-marker",
-        ].join("\n"),
-      }),
+      onLoadRepositoryCommit: async (sha: string) => {
+        if (sha === left || sha === parent) {
+          throw new Error("git_object_not_found");
+        }
+        return {
+          commit: { sha, subject: "record merged lanes" },
+          stats: [{ path: "lanes.md", additions: 3, deletions: 1 }],
+          patch: [
+            "diff --git a/lanes.md b/lanes.md",
+            "--- a/lanes.md",
+            "+++ b/lanes.md",
+            "@@ -1 +1 @@",
+            "-old lane",
+            "+merged-lane-marker",
+          ].join("\n"),
+        };
+      },
     },
   });
 </script>
@@ -171,5 +176,13 @@
           .querySelector("[data-diff-file-path='lanes.md']"),
       ).not.toBeNull();
     });
+    await userEvent.click(
+      canvas.getByRole("button", { name: /\(empty\) \(no description set\)/ }),
+    );
+    await expect(await canvas.findByText("No changed files")).toBeVisible();
+    await expect(canvas.queryByText("git_object_not_found")).toBeNull();
+    await userEvent.click(canvas.getByRole("button", { name: /lane a/ }));
+    await expect(await canvas.findByText("No changed files")).toBeVisible();
+    await expect(canvas.queryByText("git_object_not_found")).toBeNull();
   }}
 />

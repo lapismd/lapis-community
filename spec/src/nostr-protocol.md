@@ -159,8 +159,10 @@ keep a forked lane open until its shared parent so the branch edge meets
 the main line with a cubic join from the top of the parent row. Selecting a mapped
 revision MAY load dest-Git changed-file stats for that commit ID only; the
 Log host MUST render those stats with Design Core `FileListing` and
-`FileListingViewModeToggle` in the compact bordered History host chrome,
-and MUST open a Design Core `ColumnCanvas`
+`FileListingViewModeToggle` in the compact bordered History host chrome.
+An empty revision or dest-Git `git_object_not_found` MUST render that
+empty FileListing state rather than a forge error code. The host
+MUST open a Design Core `ColumnCanvas`
 `FileDiff` column from the already loaded dest-Git patch when a file is
 selected.
 Successful JSON GET responses MAY be retained briefly in a bounded in-memory

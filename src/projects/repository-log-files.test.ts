@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   repositoryLogChangedFiles,
   repositoryLogFilePatch,
+  repositoryLogFilesError,
 } from "./repository-log-files.js";
 
 describe("repository log changed files", () => {
@@ -55,5 +56,15 @@ describe("repository log changed files", () => {
         "missing.md",
       ),
     ).toBeUndefined();
+  });
+
+  it("hides dest-Git object-not-found as an empty changed-file list", () => {
+    expect(repositoryLogFilesError(new Error("git_object_not_found"))).toBe("");
+    expect(
+      repositoryLogFilesError(new Error('{"error":"git_object_not_found"}')),
+    ).toBe("");
+    expect(
+      repositoryLogFilesError(new Error("Hosted Git request failed")),
+    ).toBe("Hosted Git request failed");
   });
 });

@@ -335,7 +335,9 @@ only the canvas root so column headers stay on the column chrome. Dest-Git
 commit history MUST NOT open to build Log. Selecting a row MAY load that commit's changed-file
 stats by native commit ID through `repository-source-reads` and
 `repository-log-files`, then MUST render them with Design Core `FileListing`
-and `FileListingViewModeToggle` in the compact bordered History host chrome. Selecting a file MUST open a Design Core
+and `FileListingViewModeToggle` in the compact bordered History host chrome.
+An empty revision, or a dest-Git `git_object_not_found` response, MUST show
+the FileListing empty state rather than a forge error code. Selecting a file MUST open a Design Core
 `ColumnCanvas` column whose body is Design Core `FileDiff` for that dest-Git
 file patch. Log rows MUST label change IDs and commit IDs with
 Community copy buttons from kind `3902` `change_id_hex`. Blank descriptions MUST use jj's
