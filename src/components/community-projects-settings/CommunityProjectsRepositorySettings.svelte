@@ -2,6 +2,7 @@
   import { Button } from "@lapismd/design-core/shadcn/button";
 
   import type { ProjectForgeRepositoryCapabilities } from "../../projects/model.js";
+  import type { ProjectForgeProtectionDocumentInput } from "../../projects/protection-document.js";
   import type { OwnersDocument } from "../../projects/owners.js";
   import CommunityProjectsBranchProtection from "./CommunityProjectsBranchProtection.svelte";
   import {
@@ -14,12 +15,18 @@
     capabilities,
     owners,
     peopleChannelName,
+    canMaintain = false,
     onOpenPeople,
+    onSaveProtection,
   }: {
     capabilities?: ProjectForgeRepositoryCapabilities | undefined;
     owners?: OwnersDocument | undefined;
     peopleChannelName?: string | undefined;
+    canMaintain?: boolean | undefined;
     onOpenPeople?: (() => void) | undefined;
+    onSaveProtection?:
+      | ((input: ProjectForgeProtectionDocumentInput) => Promise<void>)
+      | undefined;
   } = $props();
 
   const peopleAction = $derived(peopleChannelAction(peopleChannelName));
@@ -41,7 +48,13 @@
     </Button>
   {/if}
   <h2>Branch protection</h2>
-  <CommunityProjectsBranchProtection {capabilities} />
+  {#key JSON.stringify(capabilities?.protection)}
+    <CommunityProjectsBranchProtection
+      {capabilities}
+      {canMaintain}
+      {onSaveProtection}
+    />
+  {/key}
   <h2>OWNERS.md</h2>
   <p>{ownersFileHelp()}</p>
   <p>{ownersSummary(owners)}</p>

@@ -4,6 +4,7 @@
   import FileIcon from "@lucide/svelte/icons/file";
 
   import type { CommunityCustomEmoji } from "../../community/index.js";
+  import type { ProjectForgeProtectionDocumentInput } from "../../projects/protection-document.js";
   import type {
     ProjectForgeRepositoryCapabilities,
     ProjectForgeTreeResponse,
@@ -28,7 +29,9 @@
     rooms = [],
     communityEmojis = [],
     homeChannelId,
+    canMaintain = false,
     onSelectChannel,
+    onSaveProtection,
     sourceErrorSnippet,
   }: {
     tree?: ProjectForgeTreeResponse | undefined;
@@ -42,7 +45,11 @@
     rooms?: readonly CommunityRoomModel[] | undefined;
     communityEmojis?: readonly CommunityCustomEmoji[] | undefined;
     homeChannelId?: string | undefined;
+    canMaintain?: boolean | undefined;
     onSelectChannel?: ((roomId: string) => void) | undefined;
+    onSaveProtection?:
+      | ((input: ProjectForgeProtectionDocumentInput) => Promise<void>)
+      | undefined;
     sourceErrorSnippet?: import("svelte").Snippet | undefined;
   } = $props();
 
@@ -64,9 +71,11 @@
     {capabilities}
     {owners}
     peopleChannelName={peopleChannel?.name}
+    {canMaintain}
     onOpenPeople={peopleChannel && onSelectChannel
       ? () => onSelectChannel(peopleChannel.roomId)
       : undefined}
+    {onSaveProtection}
   />
   {#if tree?.readme}
     <CommunityMarkdownContent

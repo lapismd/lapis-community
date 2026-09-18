@@ -20,6 +20,9 @@
         default_branch: "main",
         protected_ref: "refs/heads/main",
         protected_patterns: ["refs/heads/release/*"],
+        document_patterns: ["refs/heads/release/*"],
+        required_approvals: 2,
+        admin_bypass: false,
         pull_requests_required: true,
         merge_actors: "channel_maintainers",
       },
@@ -31,6 +34,8 @@
   play={async ({ canvas }) => {
     await expect(canvas.getByText("refs/heads/main")).toBeVisible();
     await expect(canvas.getByText("refs/heads/release/*")).toBeVisible();
+    await expect(canvas.getByText("2")).toBeVisible();
+    await expect(canvas.getByText("Disabled")).toBeVisible();
     await expect(canvas.getByText(/cannot disable the default/u)).toBeVisible();
     await expect(canvas.getByText(/docs\//u)).toBeVisible();
     await expect(
@@ -53,6 +58,47 @@
   }}
   play={async ({ canvas }) => {
     await expect(canvas.getByText(/stay on GitHub/u)).toBeVisible();
+  }}
+>
+  {#snippet template(args)}
+    <CommunityProjectsRepositorySettings {...args} />
+  {/snippet}
+</Story>
+
+<Story
+  name="Saves hosted branch protection"
+  args={{
+    canMaintain: true,
+    capabilities: {
+      merge: true,
+      protection: {
+        default_branch: "main",
+        protected_ref: "refs/heads/main",
+        protected_patterns: ["refs/heads/release/*"],
+        document_patterns: ["refs/heads/release/*"],
+        required_approvals: 1,
+        admin_bypass: false,
+        pull_requests_required: true,
+        merge_actors: "channel_maintainers",
+      },
+    },
+    onSaveProtection: fn(),
+  }}
+  play={async ({ args, canvas, userEvent }) => {
+    await userEvent.type(
+      canvas.getByLabelText("Extra protected refs"),
+      "hotfix/*",
+    );
+    await userEvent.click(canvas.getByRole("button", { name: "Add pattern" }));
+    await userEvent.click(canvas.getByLabelText("Allow admin bypass"));
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Save branch protection" }),
+    );
+    await expect(args.onSaveProtection).toHaveBeenCalledWith({
+      protected_patterns: ["refs/heads/release/*", "refs/heads/hotfix/*"],
+      required_approvals: 1,
+      admin_bypass: true,
+    });
   }}
 >
   {#snippet template(args)}

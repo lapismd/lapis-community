@@ -1,3 +1,4 @@
+import { normalizeRequiredApprovals } from "../../projects/protection-document.js";
 import type { ProjectForgeRepositoryCapabilities } from "../../projects/model.js";
 import type { OwnersDocument } from "../../projects/owners.js";
 import { compileProtectedRefPatterns } from "../../projects/protected-refs.js";
@@ -8,17 +9,34 @@ export function repositoryProtectionSummary(
   defaultBranch: string;
   protectedRef: string;
   protectedPatterns: string[];
+  documentPatterns: string[];
+  announcementPatterns: string[];
+  requiredApprovals: number;
+  adminBypass: boolean;
   pullRequestsRequired: boolean;
   mergeActors: string;
   githubAuthoritative: boolean;
 } {
   const protection = capabilities?.protection;
+  const protectedPatterns = compileProtectedRefPatterns(
+    protection?.protected_patterns,
+  );
+  const documentPatterns = compileProtectedRefPatterns(
+    protection?.document_patterns,
+  );
+  const documentSet = new Set(documentPatterns);
   return {
     defaultBranch: protection?.default_branch || "HEAD",
     protectedRef: protection?.protected_ref || "HEAD",
-    protectedPatterns: compileProtectedRefPatterns(
-      protection?.protected_patterns,
+    protectedPatterns,
+    documentPatterns,
+    announcementPatterns: protectedPatterns.filter(
+      (pattern) => !documentSet.has(pattern),
     ),
+    requiredApprovals: normalizeRequiredApprovals(
+      protection?.required_approvals,
+    ),
+    adminBypass: protection?.admin_bypass === true,
     pullRequestsRequired: protection?.pull_requests_required !== false,
     mergeActors:
       protection?.merge_actors ||

@@ -18,6 +18,9 @@ describe("repository settings projection", () => {
           default_branch: "main",
           protected_ref: "refs/heads/main",
           protected_patterns: ["release/*"],
+          document_patterns: ["release/*"],
+          required_approvals: 2,
+          admin_bypass: true,
           pull_requests_required: true,
           merge_actors: "channel_maintainers",
         },
@@ -25,6 +28,9 @@ describe("repository settings projection", () => {
     ).toMatchObject({
       protectedRef: "refs/heads/main",
       protectedPatterns: ["refs/heads/release/*"],
+      documentPatterns: ["refs/heads/release/*"],
+      requiredApprovals: 2,
+      adminBypass: true,
     });
     expect(protectedRefPatternsHelp()).toMatch(/cannot disable the default/u);
     expect(

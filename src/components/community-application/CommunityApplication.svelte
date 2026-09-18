@@ -86,7 +86,7 @@
   } from "../../community/channel-canvas.js";
   import { LAPIS_GROUPS, lapisGroupId } from "../../protocol/index.js";
   import {
-    addRepositoryToProjectTemplate,
+    addRepositoryToProjectTemplate, applySavedProtection, mergeHostedPullRequest,
     buildRepositoryActivity,
     repositoryCommitActivity,
     createAssignmentTemplate,
@@ -126,7 +126,7 @@
     type ProjectForgeGitHubRepositoriesResponse,
     type ProjectForgeGitHubRepository,
     type ProjectForgePullRequestDiff,
-    type ProjectForgeProject,
+    type ProjectForgeProject, type ProjectForgeProtectionDocumentInput,
     type ProjectForgeRepository,
     type ProjectForgeRepositoryCapabilities,
     type ProjectForgeRepositoryCapabilitiesByCoordinate,
@@ -4351,26 +4351,27 @@
     pullRequest: PullRequestState,
   ): Promise<void> {
     await withProjectMutation("Merging pull request…", async (session) => {
-      const operation = await session.mergePullRequest(
-        pullRequest.root.id,
-        pullRequest.currentCommit,
-      );
-      const mergeCommit = operation.result?.merged_commit;
-      const collaboration =
+      await mergeHostedPullRequest(
+        session,
+        pullRequest,
         projectRepositoryCapabilities[pullRequest.repository.coordinate]
-          ?.collaboration_backend;
-      if (mergeCommit && collaboration !== "github") {
-        await session.publish(
-          createWorkItemStatusTemplate(
-            pullRequest.root,
-            pullRequest.repository.coordinate,
-            "merged",
-            { mergeCommit },
-          ),
-        );
-      }
+          ?.collaboration_backend,
+      );
     });
     toast.success("Pull request merged");
+  }
+
+  async function saveRepositoryProtection(
+    repository: string,
+    input: ProjectForgeProtectionDocumentInput,
+  ): Promise<void> {
+    await withProjectMutation("Saving branch protection…", async (session) => {
+      projectRepositoryCapabilities = applySavedProtection(
+        projectRepositoryCapabilities, repository,
+        await session.updateRepositoryProtection(repository, input),
+      );
+    });
+    toast.success("Branch protection saved");
   }
 
   async function requestPullRequestReview(
@@ -7045,7 +7046,7 @@
           onClosePullRequest={closeProjectPullRequest}
           onSubmitPullRequestReview={publishPullRequestReview}
           onRequestPullRequestReview={requestPullRequestReview}
-          onMergePullRequest={mergePullRequest}
+          onMergePullRequest={mergePullRequest} onSaveProtection={saveRepositoryProtection}
           onUpdatePullRequestLifecycle={updatePullRequestLifecycle}
           onAddPullRequestComment={publishPullRequestComment}
           onAddInlineComment={publishInlineComment}
@@ -7550,7 +7551,7 @@
         onClosePullRequest={closeProjectPullRequest}
         onSubmitPullRequestReview={publishPullRequestReview}
         onRequestPullRequestReview={requestPullRequestReview}
-        onMergePullRequest={mergePullRequest}
+        onMergePullRequest={mergePullRequest} onSaveProtection={saveRepositoryProtection}
         onUpdatePullRequestLifecycle={updatePullRequestLifecycle}
         onAddPullRequestComment={publishPullRequestComment}
         onAddInlineComment={publishInlineComment}

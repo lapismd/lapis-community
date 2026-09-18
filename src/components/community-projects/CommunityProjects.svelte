@@ -56,6 +56,7 @@
 
   import {
     GITHUB_REVIEW_COMMENT_REACTIONS,
+    repositoryMatchesGitHubAnnouncement,
     projectForgeBranchName,
     projectForgeBranchRefs,
     repositoryVisibleActivity,
@@ -197,6 +198,7 @@
     onSubmitPullRequestReview,
     onRequestPullRequestReview,
     onMergePullRequest,
+    onSaveProtection,
     onUpdatePullRequestLifecycle,
     onAddPullRequestComment,
     onAddInlineComment,
@@ -1097,37 +1099,6 @@
     }
     repositoryCommandCoordinate = repository.address.coordinate;
     repositoryCommandStep = "project";
-  }
-
-  function normalizedGitHubRepositoryUrl(value: string): string {
-    try {
-      const url = new URL(value);
-      if (url.hostname.toLowerCase() !== "github.com") return "";
-      return `${url.hostname.toLowerCase()}${url.pathname
-        .replace(/\.git$/iu, "")
-        .replace(/\/+$/u, "")
-        .toLowerCase()}`;
-    } catch {
-      return "";
-    }
-  }
-
-  function repositoryMatchesGitHubAnnouncement(
-    repository: ProjectForgeRepository,
-    providerRepository: ProjectForgeGitHubRepository,
-  ): boolean {
-    const clone = normalizedGitHubRepositoryUrl(providerRepository.clone_url);
-    const web = normalizedGitHubRepositoryUrl(providerRepository.html_url);
-    return (
-      clone !== "" &&
-      web !== "" &&
-      repository.cloneUrls.some(
-        (value) => normalizedGitHubRepositoryUrl(value) === clone,
-      ) &&
-      repository.webUrls.some(
-        (value) => normalizedGitHubRepositoryUrl(value) === web,
-      )
-    );
   }
 
   async function openGitHubCommand(): Promise<void> {
@@ -2837,7 +2808,11 @@
           {rooms}
           {communityEmojis}
           homeChannelId={projectHomeChannel?.channelId}
+          canMaintain={canMaintainSelectedRepository}
           {onSelectChannel}
+          onSaveProtection={selectedRepository && onSaveProtection
+            ? (input) => onSaveProtection(selectedRepository.address.coordinate, input)
+            : undefined}
         >
           {#snippet sourceErrorSnippet()}
             {@render projectSourceError(effectiveSourceError)}

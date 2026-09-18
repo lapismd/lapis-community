@@ -679,6 +679,9 @@ export function createProjectStoryDataSource(
             },
           };
         },
+        async updateRepositoryProtection(_repository, input) {
+          return { document_patterns: input.protected_patterns, required_approvals: input.required_approvals, admin_bypass: input.admin_bypass };
+        },
         async loadGitHubConnections() {
           return { connections: [] };
         },

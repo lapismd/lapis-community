@@ -31,10 +31,21 @@ import {
   type ProjectForgePullRequestDiff,
   type ProjectForgeRepositoryCapabilitiesResponse,
   type ProjectForgeRepositoryIntegrationResponse,
+  type ProjectForgeBranchProtection,
   type ProjectForgeRefsResponse,
   type ProjectForgeTreeResponse,
   type ProjectForgeWorkItems,
 } from "./model.js";
+import type { ProjectForgeProtectionDocumentInput } from "./protection-document.js";
+import { putRepositoryProtection } from "./protection-document.js";
+import { repositoryAddress } from "./repository-address.js";
+import {
+  abortableDelay,
+  chunk,
+  cloneTemplate,
+  distinctEvents,
+  encodePath,
+} from "./data-source-helpers.js";
 import { loadProjectForgeRefs } from "./repository-refs.js";
 import { buzzWorkItemFilters } from "./work-item-filters.js";
 import { collaborationAuthorityFromGroupState } from "./authority.js";
@@ -121,6 +132,11 @@ export interface ProjectForgeSession {
     repository: string,
     signal?: AbortSignal,
   ): Promise<ProjectForgeRepositoryCapabilitiesResponse>;
+  updateRepositoryProtection(
+    repository: string,
+    input: ProjectForgeProtectionDocumentInput,
+    signal?: AbortSignal,
+  ): Promise<ProjectForgeBranchProtection>;
   loadGitHubConnections(
     signal?: AbortSignal,
   ): Promise<ProjectForgeGitHubConnectionsResponse>;
@@ -437,6 +453,20 @@ class Nip34ProjectForgeSession implements ProjectForgeSession {
       );
     }
     return response;
+  }
+
+  async updateRepositoryProtection(
+    repository: string,
+    input: ProjectForgeProtectionDocumentInput,
+    signal?: AbortSignal,
+  ): Promise<ProjectForgeBranchProtection> {
+    return putRepositoryProtection(
+      (method, path, value, requestSignal) =>
+        this.#forgeJsonRequest(method, path, value, requestSignal),
+      repository,
+      input,
+      signal,
+    );
   }
 
   async loadGitHubConnections(
@@ -879,24 +909,6 @@ class Nip34ProjectForgeSession implements ProjectForgeSession {
   }
 }
 
-function abortableDelay(
-  milliseconds: number,
-  signal?: AbortSignal,
-): Promise<void> {
-  signal?.throwIfAborted();
-  return new Promise((resolve, reject) => {
-    const timeout = setTimeout(() => {
-      signal?.removeEventListener("abort", onAbort);
-      resolve();
-    }, milliseconds);
-    function onAbort() {
-      clearTimeout(timeout);
-      reject(signal?.reason ?? new DOMException("Aborted", "AbortError"));
-    }
-    signal?.addEventListener("abort", onAbort, { once: true });
-  });
-}
-
 export * from "./repository-activity.js";
 export * from "./repository-log.js";
 export * from "./repository-log-files.js";
@@ -932,43 +944,6 @@ export function parseSseResult<T>(
   if (result === undefined)
     throw new Error("Hosted Git stream ended without a result");
   return result;
-}
-
-function cloneTemplate(template: NostrEventTemplate): NostrEventTemplate {
-  return { ...template, tags: template.tags.map((tag) => [...tag]) };
-}
-
-function chunk<T>(values: readonly T[], size: number): T[][] {
-  const result: T[][] = [];
-  for (let index = 0; index < values.length; index += size) {
-    result.push(values.slice(index, index + size));
-  }
-  return result;
-}
-
-function distinctEvents(events: readonly NostrEvent[]): NostrEvent[] {
-  return [...new Map(events.map((event) => [event.id, event])).values()];
-}
-
-function encodePath(path: string): string {
-  return path.split("/").filter(Boolean).map(encodeURIComponent).join("/");
-}
-
-function repositoryAddress(coordinate: string): {
-  owner: string;
-  identifier: string;
-} {
-  const address = coordinate.split(":");
-  if (
-    address.length < 3 ||
-    address[0] !== String(PROJECT_FORGE_KINDS.repository) ||
-    !/^[0-9a-f]{64}$/u.test(address[1] ?? "")
-  ) {
-    throw new Error(
-      "Repository reads require a kind 30617 repository coordinate",
-    );
-  }
-  return { owner: address[1]!, identifier: address.slice(2).join(":") };
 }
 
 function randomNonce(): string {

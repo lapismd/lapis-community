@@ -2,6 +2,9 @@ export interface ProjectForgeBranchProtection {
   default_branch?: string;
   protected_ref?: string;
   protected_patterns?: string[];
+  document_patterns?: string[];
+  required_approvals?: number;
+  admin_bypass?: boolean;
   pull_requests_required?: boolean;
   merge_actors?: string;
   github_authoritative?: boolean;
@@ -58,5 +61,5 @@ export function compileProtectedRefPatterns(
 }
 
 export function protectedRefPatternsHelp(): string {
-  return "Extra patterns come from protected-ref tags on the repository announcement. They cannot disable the default branch.";
+  return "Extra patterns come from the relay-owned protection document and additive announcement protected-ref tags. They cannot disable the default branch.";
 }

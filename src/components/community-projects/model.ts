@@ -14,6 +14,7 @@ import type {
   ProjectForgeGitHubRepositoriesResponse,
   ProjectForgeGitHubRepository,
   ProjectForgeProject,
+  ProjectForgeProtectionDocumentInput,
   ProjectForgePullRequestDiff,
   ProjectForgeRepository,
   ProjectForgeRepositoryCapabilitiesByCoordinate,
@@ -240,6 +241,10 @@ export interface CommunityProjectsProps {
     reviewer: string,
   ) => Promise<void>;
   onMergePullRequest?: (pullRequest: PullRequestState) => Promise<void>;
+  onSaveProtection?: (
+    repository: string,
+    input: ProjectForgeProtectionDocumentInput,
+  ) => Promise<void>;
   onUpdatePullRequestLifecycle?: (
     pullRequest: PullRequestState,
     lifecycle: "open" | "closed" | "draft",
