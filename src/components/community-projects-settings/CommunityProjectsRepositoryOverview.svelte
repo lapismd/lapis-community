@@ -18,7 +18,7 @@
   import CommunityProjectsRepositorySettings from "./CommunityProjectsRepositorySettings.svelte";
 
   let {
-    tree,
+    surface = "overview", tree,
     loading = false,
     canCollaborate = false,
     hasSources = false,
@@ -34,7 +34,7 @@
     onSaveProtection,
     sourceErrorSnippet,
   }: {
-    tree?: ProjectForgeTreeResponse | undefined;
+    surface?: "overview" | "options" | undefined; tree?: ProjectForgeTreeResponse | undefined;
     loading?: boolean | undefined;
     canCollaborate?: boolean | undefined;
     hasSources?: boolean | undefined;
@@ -54,30 +54,26 @@
   } = $props();
 
   const peopleChannel = $derived.by(() => {
-    if (!homeChannelId) return undefined;
-    const room = rooms.find(
-      (candidate) =>
-        candidate.groupId === homeChannelId || candidate.id === homeChannelId,
-    );
-    return {
-      name: room?.name ?? homeChannelId,
-      roomId: room?.id ?? homeChannelId,
-    };
+    const room = rooms.find((c) => c.groupId === homeChannelId || c.id === homeChannelId);
+    return homeChannelId
+      ? { name: room?.name ?? homeChannelId, roomId: room?.id ?? homeChannelId }
+      : undefined;
   });
 </script>
 
-<article class="community-projects__workspace community-projects__readme">
-  <CommunityProjectsRepositorySettings
-    {capabilities}
-    {owners}
-    peopleChannelName={peopleChannel?.name}
-    {canMaintain}
-    onOpenPeople={peopleChannel && onSelectChannel
-      ? () => onSelectChannel(peopleChannel.roomId)
-      : undefined}
-    {onSaveProtection}
-  />
-  {#if tree?.readme}
+<article class="community-projects__workspace" class:community-projects__readme={surface !== "options"}>
+  {#if surface === "options"}
+    <CommunityProjectsRepositorySettings
+      {capabilities}
+      {owners}
+      peopleChannelName={peopleChannel?.name}
+      {canMaintain}
+      onOpenPeople={peopleChannel && onSelectChannel
+        ? () => onSelectChannel(peopleChannel.roomId)
+        : undefined}
+      {onSaveProtection}
+    />
+  {:else if tree?.readme}
     <CommunityMarkdownContent
       fullWidth
       content={tree.readme}

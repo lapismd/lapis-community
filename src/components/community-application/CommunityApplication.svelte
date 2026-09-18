@@ -86,7 +86,9 @@
   } from "../../community/channel-canvas.js";
   import { LAPIS_GROUPS, lapisGroupId } from "../../protocol/index.js";
   import {
-    addRepositoryToProjectTemplate, applySavedProtection, mergeHostedPullRequest,
+    addRepositoryToProjectTemplate,
+    applySavedProtection,
+    mergeHostedPullRequest,
     buildRepositoryActivity,
     repositoryCommitActivity,
     createAssignmentTemplate,
@@ -108,7 +110,9 @@
     projectForgeChildChannels,
     projectForgeCatalogCacheKey,
     PROJECT_REPOSITORY_TABS,
-    loadProjectRepositoryFileTree, readRepositoryCommit, readRepositoryPathCommit,
+    loadProjectRepositoryFileTree,
+    readRepositoryCommit,
+    readRepositoryPathCommit,
     updateProjectTemplate,
     GITHUB_REVIEW_COMMENT_REACTIONS,
     loadOwnersFromBlob,
@@ -126,7 +130,8 @@
     type ProjectForgeGitHubRepositoriesResponse,
     type ProjectForgeGitHubRepository,
     type ProjectForgePullRequestDiff,
-    type ProjectForgeProject, type ProjectForgeProtectionDocumentInput,
+    type ProjectForgeProject,
+    type ProjectForgeProtectionDocumentInput,
     type ProjectForgeRepository,
     type ProjectForgeRepositoryCapabilities,
     type ProjectForgeRepositoryCapabilitiesByCoordinate,
@@ -179,7 +184,11 @@
   } from "../community-navigation/model.js";
   import CommunityProfileMenu from "../community-profile-menu/CommunityProfileMenu.svelte";
   import CommunityProjects from "../community-projects/CommunityProjects.svelte";
-  import CommunityProjectsRepositoryOverviewHeading from "../community-projects/CommunityProjectsRepositoryOverviewHeading.svelte";
+  import {
+    projectRailSurface,
+    projectSurfaceTitle,
+  } from "../../projects/project-rail.js";
+  import CommunityProjectsRepositoryRail from "../community-projects/CommunityProjectsRepositoryRail.svelte";
   import { provideRepositoryLogPane } from "../../projects/repository-log-pane.svelte.js";
   import type {
     CommunityProjectsCreateProject,
@@ -760,7 +769,12 @@
     buildRepositoryActivity(
       projectCatalog,
       projectWorkItems,
-      repositoryCommitActivity(selectedRepository, (selectedRepositoryProject ?? selectedProject)?.address.coordinate, projectCommits, projectCommitActivity),
+      repositoryCommitActivity(
+        selectedRepository,
+        (selectedRepositoryProject ?? selectedProject)?.address.coordinate,
+        projectCommits,
+        projectCommitActivity,
+      ),
     ),
   );
   const projectChannelCount = $derived(
@@ -3743,9 +3757,7 @@
   }
 
   function projectBreadcrumbSurfaceLabel(surface: ProjectForgeSurface): string {
-    if (surface === "reviews") return "Reviews";
-    if (surface === "people") return "Contributors";
-    return surface[0]!.toUpperCase() + surface.slice(1);
+    return projectSurfaceTitle(surface);
   }
 
   function projectsBreadcrumbSurfaceLabel(
@@ -3770,45 +3782,19 @@
   ): ProjectForgeOverviewSurface | ProjectForgeSurface {
     if (selectedTask) return "tasks";
     if (selectedPullRequest) return "reviews";
-    if (selectedRepository) {
-      if (label === "Latest" || label === "Commits") return "commits";
-      if (label === "Files") return "files";
-      if (label === "Tasks" || label === "Active" || label === "Completed")
-        return "tasks";
-      if (label === "Reviews" || label === "Open" || label === "Merged")
-        return "reviews";
-      return activeRepositorySurface;
-    }
-    if (selectedProject) {
-      if (label === "Latest" || label === "Commits") return "commits";
-      if (label === "Files") return "files";
-      if (label === "Contributors") return "contributors";
-      if (label === "Channels") return "channels";
-      if (label === "Tasks" || label === "Active" || label === "Completed")
-        return "tasks";
-      if (label === "Reviews" || label === "Open" || label === "Merged")
-        return "reviews";
-      if (label === "Repositories") return "overview";
-      return activeProjectSurface;
-    }
-    if (label === "Projects") return "projects";
-    if (label === "Repositories") return "repositories";
-    if (label === "Channels") return "channels";
-    if (
-      label === "Tasks" ||
-      label === "Active" ||
-      label === "Completed" ||
-      label === "Active tasks"
-    )
-      return "tasks";
-    if (
-      label === "Reviews" ||
-      label === "Open" ||
-      label === "Merged" ||
-      label === "Open reviews"
-    )
-      return "reviews";
-    return projectsOverviewSurface;
+    const scope = selectedRepository
+      ? "repository"
+      : selectedProject
+        ? "project"
+        : "directory";
+    return (
+      projectRailSurface(label, scope) ??
+      (selectedRepository
+        ? activeRepositorySurface
+        : selectedProject
+          ? activeProjectSurface
+          : projectsOverviewSurface)
+    );
   }
 
   function projectRailItemActive(label: string): boolean {
@@ -4313,8 +4299,23 @@
     return await session.loadRefs(repositoryCoordinate);
   }
 
-  async function loadRepositoryPathCommit(path: string, signal?: AbortSignal) { return readRepositoryPathCommit(projectSession, projectSourceRepositoryCoordinate, projectRepositoryRevision, path, signal); }
-  async function loadRepositoryCommit(sha: string, signal?: AbortSignal) { return readRepositoryCommit(projectSession, projectSourceRepositoryCoordinate, sha, signal); }
+  async function loadRepositoryPathCommit(path: string, signal?: AbortSignal) {
+    return readRepositoryPathCommit(
+      projectSession,
+      projectSourceRepositoryCoordinate,
+      projectRepositoryRevision,
+      path,
+      signal,
+    );
+  }
+  async function loadRepositoryCommit(sha: string, signal?: AbortSignal) {
+    return readRepositoryCommit(
+      projectSession,
+      projectSourceRepositoryCoordinate,
+      sha,
+      signal,
+    );
+  }
 
   async function publishPullRequestReview(
     pullRequest: PullRequestState,
@@ -4367,7 +4368,8 @@
   ): Promise<void> {
     await withProjectMutation("Saving branch protection…", async (session) => {
       projectRepositoryCapabilities = applySavedProtection(
-        projectRepositoryCapabilities, repository,
+        projectRepositoryCapabilities,
+        repository,
         await session.updateRepositoryProtection(repository, input),
       );
     });
@@ -6370,130 +6372,28 @@
             selectedPullRequest.approvals.length,
           )}
         {:else if selectedRepository}
-          <CommunityProjectsRepositoryOverviewHeading
+          <CommunityProjectsRepositoryRail
             surface={activeRepositorySurface}
             name={selectedRepository.name}
+            sourceLabel={repositorySourceLabel(selectedRepository)}
+            files={projectTree?.entries.length ?? 0}
+            commits={projectCommits}
+            tasks={selectedRepositoryTasks}
+            reviews={selectedRepositoryPullRequests}
+            showGitHub={selectedRepository.repositoryClass === "external" &&
+              canManageForge}
+            githubConnected={selectedRepositoryGitHubConnected}
+            githubDisabled={projectOperation !== ""}
+            onGitHub={() =>
+              requestProjectDialog(
+                selectedRepositoryGitHubConnected
+                  ? "manage-github"
+                  : "connect-github",
+              )}
+            onSelect={selectProjectRailItem}
           >
             {#snippet plus()}{@render repositoryActionMenu()}{/snippet}
-          </CommunityProjectsRepositoryOverviewHeading>
-          {#if activeRepositorySurface === "overview"}
-            <div class="community-application__project-overview-repository">
-              <strong>{selectedRepository.name}</strong>
-              <span>{repositorySourceLabel(selectedRepository)}</span>
-            </div>
-            {#if selectedRepository.repositoryClass === "external" && canManageForge}
-              <Button
-                type="button"
-                variant="ghost"
-                class="community-application__project-overview-action"
-                title={selectedRepositoryGitHubConnected
-                  ? "Manage this repository's GitHub App connection"
-                  : "Connect this repository to a GitHub App installation"}
-                disabled={projectOperation !== ""}
-                onclick={() =>
-                  requestProjectDialog(
-                    selectedRepositoryGitHubConnected
-                      ? "manage-github"
-                      : "connect-github",
-                  )}
-              >
-                <svg
-                  data-icon="inline-start"
-                  viewBox="0 0 24 24"
-                  fill="currentColor"
-                  aria-hidden="true"
-                >
-                  <path
-                    d="M12 .3a12 12 0 0 0-3.8 23.4c.6.1.8-.3.8-.6v-2.3c-3.3.7-4-1.4-4-1.4-.5-1.4-1.3-1.8-1.3-1.8-1.1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1.1 1.8 2.8 1.3 3.4 1 .1-.8.4-1.3.8-1.6-2.7-.3-5.5-1.3-5.5-5.9 0-1.3.5-2.4 1.2-3.2-.1-.3-.5-1.5.1-3.2 0 0 1-.3 3.3 1.2a11.4 11.4 0 0 1 6 0c2.3-1.5 3.3-1.2 3.3-1.2.6 1.7.2 2.9.1 3.2.8.8 1.2 1.9 1.2 3.2 0 4.6-2.8 5.6-5.5 5.9.4.4.8 1.1.8 2.2v3.3c0 .3.2.7.8.6A12 12 0 0 0 12 .3Z"
-                  />
-                </svg>
-                {selectedRepositoryGitHubConnected
-                  ? "Manage GitHub App"
-                  : "Connect GitHub App"}
-              </Button>
-            {/if}
-            <p class="community-application__project-overview-label">Details</p>
-            {@render projectRailStat(
-              GitCommitHorizontalIcon,
-              "Latest",
-              projectCommits[0]?.sha.slice(0, 7) ?? "—",
-            )}
-            {@render projectRailStat(
-              FilesIcon,
-              "Files",
-              projectTree?.entries.length ?? 0,
-            )}
-            {@render projectRailStat(
-              ListTodoIcon,
-              "Tasks",
-              selectedRepositoryTasks.length,
-            )}
-            {@render projectRailStat(
-              GitPullRequestIcon,
-              "Reviews",
-              selectedRepositoryPullRequests.length,
-            )}
-          {:else if activeRepositorySurface === "files"}
-            {@render projectRailStat(
-              FilesIcon,
-              "Files",
-              projectTree?.entries.length ?? 0,
-            )}
-          {:else if activeRepositorySurface === "commits"}
-            {@render projectRailStat(
-              GitCommitHorizontalIcon,
-              "Commits",
-              projectCommits.length,
-            )}
-            {@render projectRailStat(
-              GitBranchIcon,
-              "Latest",
-              projectCommits[0]?.sha.slice(0, 7) ?? "—",
-            )}
-          {:else if activeRepositorySurface === "tasks"}
-            {@render projectRailStat(
-              ListTodoIcon,
-              "Tasks",
-              selectedRepositoryTasks.length,
-            )}
-            {@render projectRailStat(
-              CircleDotIcon,
-              "Active",
-              selectedRepositoryTasks.filter(
-                (task) =>
-                  task.lifecycle !== "closed" && task.lifecycle !== "applied",
-              ).length,
-            )}
-            {@render projectRailStat(
-              CircleCheckIcon,
-              "Completed",
-              selectedRepositoryTasks.filter(
-                (task) =>
-                  task.lifecycle === "closed" || task.lifecycle === "applied",
-              ).length,
-            )}
-          {:else if activeRepositorySurface === "reviews"}
-            {@render projectRailStat(
-              GitPullRequestIcon,
-              "Reviews",
-              selectedRepositoryPullRequests.length,
-            )}
-            {@render projectRailStat(
-              CircleDotIcon,
-              "Open",
-              selectedRepositoryPullRequests.filter(
-                (review) =>
-                  review.lifecycle === "open" || review.lifecycle === "draft",
-              ).length,
-            )}
-            {@render projectRailStat(
-              CircleCheckIcon,
-              "Merged",
-              selectedRepositoryPullRequests.filter(
-                (review) => review.lifecycle === "merged",
-              ).length,
-            )}
-          {/if}
+          </CommunityProjectsRepositoryRail>
         {:else if selectedProject}
           <div class="community-application__project-overview-heading">
             <strong
@@ -7038,7 +6938,8 @@
             projectTree = undefined;
             projectOwners = undefined;
           }}
-          onLoadRepositoryPathCommit={loadRepositoryPathCommit} onLoadRepositoryCommit={loadRepositoryCommit}
+          onLoadRepositoryPathCommit={loadRepositoryPathCommit}
+          onLoadRepositoryCommit={loadRepositoryCommit}
           onSelectPullRequest={(pullRequest) => {
             selectedPullRequestId = pullRequest.root.id;
             projectPullRequestDiff = undefined;
@@ -7046,7 +6947,8 @@
           onClosePullRequest={closeProjectPullRequest}
           onSubmitPullRequestReview={publishPullRequestReview}
           onRequestPullRequestReview={requestPullRequestReview}
-          onMergePullRequest={mergePullRequest} onSaveProtection={saveRepositoryProtection}
+          onMergePullRequest={mergePullRequest}
+          onSaveProtection={saveRepositoryProtection}
           onUpdatePullRequestLifecycle={updatePullRequestLifecycle}
           onAddPullRequestComment={publishPullRequestComment}
           onAddInlineComment={publishInlineComment}
@@ -7441,7 +7343,8 @@
             : projectCatalog.repositories}
         repositoryOptions={projectCatalog.repositories}
         repositoryCapabilities={projectRepositoryCapabilities}
-        activity={projectActivity} workItemEvents={projectWorkItems.events}
+        activity={projectActivity}
+        workItemEvents={projectWorkItems.events}
         tasks={selectedRepository
           ? selectedRepositoryTasks
           : projectWorkItems.tasks}
@@ -7543,7 +7446,8 @@
           projectTree = undefined;
           projectOwners = undefined;
         }}
-        onLoadRepositoryPathCommit={loadRepositoryPathCommit} onLoadRepositoryCommit={loadRepositoryCommit}
+        onLoadRepositoryPathCommit={loadRepositoryPathCommit}
+        onLoadRepositoryCommit={loadRepositoryCommit}
         onSelectPullRequest={(pullRequest) => {
           selectedPullRequestId = pullRequest.root.id;
           projectPullRequestDiff = undefined;
@@ -7551,7 +7455,8 @@
         onClosePullRequest={closeProjectPullRequest}
         onSubmitPullRequestReview={publishPullRequestReview}
         onRequestPullRequestReview={requestPullRequestReview}
-        onMergePullRequest={mergePullRequest} onSaveProtection={saveRepositoryProtection}
+        onMergePullRequest={mergePullRequest}
+        onSaveProtection={saveRepositoryProtection}
         onUpdatePullRequestLifecycle={updatePullRequestLifecycle}
         onAddPullRequestComment={publishPullRequestComment}
         onAddInlineComment={publishInlineComment}

@@ -203,7 +203,9 @@ CommunityProjects Overview README fullWidth alignment updates the
 `CommunityProjects.svelte` and `CommunityProjects.stories.svelte` path
 budgets in the same change. Extracting local-fixture addressable-head
 retention from `src/fixture/seed.ts` lowers that hotspot budget and
-records the new `seed-retention` module.
+records the new `seed-retention` module. Extracting the repository Options
+rail and `options` surface lowers the `CommunityApplication.svelte` path
+budget and records `project-rail` plus `CommunityProjectsRepositoryRail`.
 
 ## Requirements
 

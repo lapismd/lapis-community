@@ -55,6 +55,8 @@ baseline in the same change. Channel `maintainer` / `CanMaintain` authority,
 editor, extracted repository settings and Overview hosts, create/review/merge
 gating modules, path-owner reviewer extras, the bound channel People link, and
 CanMaintain task assignment update that baseline in the same change.
+The repository Options rail extraction and lowered `CommunityApplication`
+budget update that baseline in the same change.
 
 For LC-OPS-001 and LC-OPS-004, hosted-project acceptance layers the sibling
 relay's digest-pinned WalGit and RustFS composition onto both the persistent

@@ -2793,8 +2793,8 @@
             </Collapsible.Root>
           {/if}
         {/if}
-      {:else if view === "overview"}
-        <CommunityProjectsRepositoryOverview
+      {:else if view === "overview" || view === "options"}
+        <CommunityProjectsRepositoryOverview surface={view === "options" ? "options" : "overview"}
           {tree}
           {loading}
           {canCollaborate}

@@ -1,15 +1,3 @@
-export type ProjectForgeSurface =
-  | "activity"
-  | "log"
-  | "overview"
-  | "tasks"
-  | "reviews"
-  | "commits"
-  | "files"
-  | "channels"
-  | "contributors"
-  | "people";
-
 export const PROJECT_FORGE_SURFACES = [
   "activity",
   "log",
@@ -21,7 +9,10 @@ export const PROJECT_FORGE_SURFACES = [
   "channels",
   "contributors",
   "people",
-] as const satisfies readonly ProjectForgeSurface[];
+  "options",
+] as const;
+
+export type ProjectForgeSurface = (typeof PROJECT_FORGE_SURFACES)[number];
 
 export const PROJECT_REPOSITORY_TABS = [
   { value: "activity", label: "Activity" },

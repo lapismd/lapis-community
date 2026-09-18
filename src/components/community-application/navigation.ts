@@ -5,6 +5,7 @@ import {
 } from "@lapismd/design-core/shell";
 import {
   isProjectForgeSurface,
+  type ProjectForgeOverviewSurface,
   type ProjectForgeSurface,
 } from "../../projects/index.js";
 
@@ -40,19 +41,8 @@ export type CommunityApplicationPanel =
 export type CommunityApplicationMainSurface =
   | "release-reviews"
   | "release-people"
-  | "projects-activity"
-  | "projects-projects"
-  | "projects-repositories"
-  | "projects-tasks"
-  | "projects-reviews"
-  | "projects-channels"
-  | "project-overview"
-  | "project-tasks"
-  | "project-reviews"
-  | "project-commits"
-  | "project-files"
-  | "project-channels"
-  | "project-contributors" | "project-people" | "project-activity" | "project-log";
+  | `projects-${ProjectForgeOverviewSurface}`
+  | `project-${ProjectForgeSurface}`;
 
 export interface CommunityApplicationLocation {
   destination: CommunityApplicationDestination;

@@ -1,5 +1,7 @@
 import { getContext, setContext } from "svelte";
 
+import { projectSurfaceTitle } from "./project-rail.js";
+
 export type RepositoryLogPane = "log" | "oplog";
 
 export type RepositoryLogPaneState = {
@@ -77,7 +79,5 @@ export function useRepositoryLogPane(): RepositoryLogPaneState | undefined {
 }
 
 export function repositoryOverviewTitle(surface: string, name: string): string {
-  if (surface === "overview") return name;
-  if (surface === "reviews") return "Reviews";
-  return surface[0]!.toUpperCase() + surface.slice(1);
+  return projectSurfaceTitle(surface, name);
 }

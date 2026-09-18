@@ -204,7 +204,9 @@ Provider-authoritative GitHub pull-request roots that already carry
 channel create, review, or merge defaults. The relay-owned protection document
 MAY add extra patterns, a required-approval count, and admin bypass. Additive
 `protected-ref` announcement tags MAY protect extra branch patterns. Neither
-the document nor those tags MUST disable the live default. Trusted task
+the document nor those tags MUST disable the live default. Community MUST
+show those repository permission and protection settings on the `options`
+surface opened from the project overview rail, not on Overview. Trusted task
 assignment and task status MUST use the same
 `CanMaintain` set; the issue author and `30617` owner MUST NOT assign others
 or change task status unless they `CanMaintain`. Buzz Desktop MAY still

@@ -6,7 +6,11 @@ reviewer picker MUST use that same `CanMaintain` capability. Repository
 settings MUST show the live default branch, that pull requests are required,
 the protected ref, any extra compiled `protected-ref` patterns, required
 approvals, admin bypass, who can merge, and any `OWNERS.md` path reviewers
-without growing `CommunityProjects.svelte`. Maintainers MUST be able to add,
+without growing `CommunityProjects.svelte`. Those settings MUST NOT render
+on the repository Overview README. The far-right project overview rail MUST
+include an Options item with a gears icon; selecting it MUST open the
+repository `options` surface that shows permissions and the other settings.
+Options MUST NOT appear among the repository toolbar tabs. Maintainers MUST be able to add,
 remove, and save extra patterns plus those two fields through the relay-owned
 protection document. Settings MUST say extra patterns come from that document
 and additive announcement `protected-ref` tags and cannot disable the default
