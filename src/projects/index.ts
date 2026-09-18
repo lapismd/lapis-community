@@ -1,4 +1,6 @@
 export * from "./model.js";
+export * from "./owners.js";
+export * from "./authority.js";
 export * from "./builders.js";
 export * from "./reducer.js";
 export * from "./workspace.js";

@@ -14,7 +14,7 @@ export type CommunityActionAvailabilityState =
 export interface CommunityActionAvailability {
   state: CommunityActionAvailabilityState;
   reason?: string;
-  requirement?: "authentication" | "membership" | "writer";
+  requirement?: "authentication" | "membership" | "writer" | "maintainer";
 }
 
 export interface CommunityRoomActionPermissions {
@@ -25,6 +25,7 @@ export interface CommunityRoomActionPermissions {
   update: CommunityActionAvailability;
   delete: CommunityActionAvailability;
   manageMembers: CommunityActionAvailability;
+  maintain?: CommunityActionAvailability;
 }
 
 export interface CommunityModel {

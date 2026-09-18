@@ -13,6 +13,7 @@
     CommunityMemberModel,
     CommunityRoomModel,
   } from "../community-workspace/model.js";
+  import { roomMaintainAvailability } from "../../community/channel-authority.js";
   import type { CommunityProjectsCreateRepository } from "./model.js";
 
   let {
@@ -57,6 +58,20 @@
     onSelectProject: (value: string) => void;
     onSubmit: (event: SubmitEvent) => void;
   } = $props();
+
+  function roomForChannel(channelId: string): CommunityRoomModel | undefined {
+    return (
+      rooms.find((room) => (room.groupId ?? room.id) === channelId) ??
+      channels.find((channel) => (channel.groupId ?? channel.id) === channelId)
+    );
+  }
+
+  const selectedChannelMaintain = $derived(
+    roomMaintainAvailability(roomForChannel(draft.channelId)),
+  );
+  const canCreateOnSelectedChannel = $derived(
+    selectedChannelMaintain.state === "enabled",
+  );
 </script>
 
 <Dialog.Root bind:open onOpenChange={onOpenChange}>
@@ -155,9 +170,16 @@
                 <Select.Content>
                   <Select.Group>
                     {#each channels as channel (channel.id)}
+                      {@const availability = roomMaintainAvailability(
+                        roomForChannel(channel.groupId ?? channel.id),
+                      )}
                       <Select.Item
                         value={channel.groupId ?? channel.id}
-                        label={`#${channel.name}`}>#{channel.name}</Select.Item
+                        label={`#${channel.name}`}
+                        disabled={availability.state !== "enabled"}
+                        >#{channel.name}{availability.state === "enabled"
+                          ? ""
+                          : ` — ${availability.reason ?? "Requires maintainer"}`}</Select.Item
                       >
                     {/each}
                   </Select.Group>
@@ -216,7 +238,9 @@
             />
           </Field.Field>
         {/if}
-        {#if localError}<Field.Error>{localError}</Field.Error>{/if}
+        {#if draft.channelId && !canCreateOnSelectedChannel}
+          <Field.Error>{selectedChannelMaintain.reason}</Field.Error>
+        {:else if localError}<Field.Error>{localError}</Field.Error>{/if}
       </Field.Group>
     </form>
 
@@ -224,7 +248,10 @@
       <Button
         form="communityprojects-form-2"
         type="submit"
-        disabled={busy || !draft.channelId || !draft.name.trim()}
+        disabled={busy ||
+          !draft.channelId ||
+          !draft.name.trim() ||
+          !canCreateOnSelectedChannel}
       >
         {busy ? operation : "Create repository"}
       </Button>

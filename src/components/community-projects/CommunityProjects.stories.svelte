@@ -379,6 +379,7 @@ index 3333333..4444444 100644
       pullRequests: fixture.workItems.pullRequests,
       commits: [hostedCommit],
       members: fixture.members,
+      rooms: fixture.rooms,
       currentMemberId: projectStoryAuthor,
       canCollaborate: true,
       onOpenProfile,

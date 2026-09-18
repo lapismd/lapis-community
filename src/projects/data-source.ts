@@ -15,6 +15,7 @@ import type { NostrEvent, NostrEventTemplate } from "../protocol/index.js";
 import {
   PROJECT_FORGE_KINDS,
   allTagValues,
+  firstTagValue,
   type ProjectForgeBlobResponse,
   type ProjectForgeAttachGitHubRepositoryInput,
   type ProjectForgeCatalog,
@@ -36,6 +37,9 @@ import {
 } from "./model.js";
 import { loadProjectForgeRefs } from "./repository-refs.js";
 import { buzzWorkItemFilters } from "./work-item-filters.js";
+import {
+  collaborationAuthorityFromGroupState,
+} from "./authority.js";
 import {
   materializeProjectForgeCatalog,
   materializeProjectForgeWorkItems,
@@ -308,10 +312,19 @@ class Nip34ProjectForgeSession implements ProjectForgeSession {
       ],
       signal,
     );
+    const channelId = firstTagValue(repository, "buzz-channel");
+    const groupState =
+      channelId === ""
+        ? []
+        : await this.#relay.query(
+            { kinds: [39_000, 39_001, 39_002], "#d": [channelId] },
+            signal,
+          );
     return materializeProjectForgeWorkItems(
       repository,
       [...bundles.flat(), ...nip22, ...tombstones],
       this.#cacheIdentity === "anonymous" ? undefined : this.#cacheIdentity,
+      collaborationAuthorityFromGroupState(groupState, channelId),
     );
   }
 

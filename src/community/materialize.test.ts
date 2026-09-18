@@ -525,6 +525,11 @@ describe("materializeCommunityWorkspace", () => {
       "denied",
     );
     expect(project(writer.pubkey)?.permissions?.publish.state).toBe("enabled");
+    expect(project(writer.pubkey)?.permissions?.maintain).toMatchObject({
+      state: "denied",
+      requirement: "maintainer",
+    });
+    expect(project(reader.pubkey)?.permissions?.maintain?.state).toBe("denied");
     const outsider = finalizeEvent(
       { kind: 0, created_at: 1, content: "{}", tags: [] },
       new Uint8Array(32).fill(74),
@@ -683,6 +688,12 @@ describe("materializeCommunityWorkspace", () => {
       ),
     ).toMatchObject({ administrator: true, role: "administrator", roles: [] });
     expect(workspace.navigationSections[0]?.rooms[0]?.roleDefinitions).toEqual([
+      {
+        id: "maintainer",
+        label: "Maintainer",
+        description:
+          "Can create repositories on this channel and review or merge its pull requests",
+      },
       {
         id: "moderator",
         label: "Moderator",

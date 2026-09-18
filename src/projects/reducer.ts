@@ -1,4 +1,5 @@
 import type { NostrEvent } from "../protocol/index.js";
+import type { CollaborationAuthority } from "./authority.js";
 import {
   PROJECT_FORGE_KINDS,
   allTagValues,
@@ -64,6 +65,7 @@ export function materializeProjectForgeWorkItems(
   repositoryEvent: NostrEvent,
   events: readonly NostrEvent[],
   currentPubkey?: string,
+  authority?: CollaborationAuthority,
 ): ProjectForgeWorkItems {
   const repository = eventAddress(repositoryEvent);
   if (
@@ -82,14 +84,22 @@ export function materializeProjectForgeWorkItems(
   return {
     tasks: roots
       .filter((event) => event.kind === PROJECT_FORGE_KINDS.task)
-      .map((event) => reduceProjectTask(event, repositoryEvent, visible))
+      .map((event) =>
+        reduceProjectTask(event, repositoryEvent, visible, authority),
+      )
       .toSorted((left, right) =>
         compareNewestSmallestId(left.root, right.root),
       ),
     pullRequests: roots
       .filter((event) => event.kind === PROJECT_FORGE_KINDS.pullRequest)
       .map((event) =>
-        reducePullRequest(event, repositoryEvent, visible, currentPubkey),
+        reducePullRequest(
+          event,
+          repositoryEvent,
+          visible,
+          currentPubkey,
+          authority,
+        ),
       )
       .toSorted((left, right) =>
         compareNewestSmallestId(left.root, right.root),
@@ -102,6 +112,7 @@ export function reduceProjectTask(
   root: NostrEvent,
   repositoryEvent: NostrEvent,
   related: readonly NostrEvent[],
+  authority?: CollaborationAuthority,
 ): ProjectTaskState {
   const repository = eventAddress(repositoryEvent);
   if (
@@ -117,7 +128,10 @@ export function reduceProjectTask(
   const trustedActors = new Set([root.pubkey, repository.owner]);
   let statusEvent: NostrEvent | undefined;
   for (const event of candidates) {
-    if (!STATUS_KINDS.has(event.kind) || !trustedActors.has(event.pubkey))
+    if (
+      !STATUS_KINDS.has(event.kind) ||
+      authority?.canMaintain(event.pubkey) !== true
+    )
       continue;
     if (!repositoryMatchesIfPresent(event, repository.coordinate)) continue;
     if (!statusEvent || compareNewestSmallestId(event, statusEvent) < 0) {
@@ -178,6 +192,7 @@ export function reducePullRequest(
   repositoryEvent: NostrEvent,
   related: readonly NostrEvent[],
   currentPubkey?: string,
+  authority?: CollaborationAuthority,
 ): PullRequestState {
   const repository = eventAddress(repositoryEvent);
   if (
@@ -225,7 +240,7 @@ export function reducePullRequest(
         STATUS_KINDS.has(event.kind) &&
         rootEventId(event) === root.id &&
         repositoryMatchesIfPresent(event, repository.coordinate) &&
-        trustedRootActors.has(event.pubkey),
+        trustedPullRequestStatus(event, root, authority),
     )
     .map((event) => ({
       event,
@@ -270,8 +285,6 @@ export function reducePullRequest(
   }
   reviewers.delete(root.pubkey);
   const reviewerList = [...reviewers].toSorted();
-  const trustedReviewers = new Set(reviewerList);
-  if (repository.owner !== root.pubkey) trustedReviewers.add(repository.owner);
   const latestDecision = new Map<string, PullRequestDecision>();
 
   for (const comment of comments) {
@@ -280,7 +293,7 @@ export function reducePullRequest(
     if (comment.decision) {
       comment.isTrustedDecision =
         comment.event.pubkey !== root.pubkey &&
-        trustedReviewers.has(comment.event.pubkey);
+        authority?.canMaintain(comment.event.pubkey) === true;
       const commit = comment.commit || initialCommit;
       comment.decisionStatus =
         commit === currentCommit ? "current" : "historical";
@@ -605,4 +618,22 @@ function pullRequestLifecycle(kind: number): PullRequestLifecycle {
 
 function firstLine(content: string): string {
   return content.split(/\r?\n/u)[0]?.trim() ?? "";
+}
+
+function trustedPullRequestStatus(
+  event: NostrEvent,
+  root: NostrEvent,
+  authority?: CollaborationAuthority,
+): boolean {
+  if (event.kind === PROJECT_FORGE_KINDS.statusMerged) {
+    return (
+      authority?.canMaintain(event.pubkey) === true ||
+      (event.pubkey === root.pubkey &&
+        firstTagValue(root, "external-provider") !== "")
+    );
+  }
+  return (
+    event.pubkey === root.pubkey ||
+    authority?.canMaintain(event.pubkey) === true
+  );
 }

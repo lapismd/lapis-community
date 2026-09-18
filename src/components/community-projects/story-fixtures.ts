@@ -17,7 +17,10 @@ import type {
   PullRequestState,
 } from "../../projects/index.js";
 import type { RegistrySigner } from "../../auth/index.js";
-import type { CommunityMemberModel } from "../community-workspace/model.js";
+import type {
+  CommunityMemberModel,
+  CommunityRoomModel,
+} from "../community-workspace/model.js";
 
 export const projectStoryOwner =
   "d793631af7aa0e709439dd47fc001acd0b0727670b6670ea528ac83cb0127f4a";
@@ -544,7 +547,9 @@ export function createProjectStoryFixture(channelId = "general-projects") {
       initials: "MC",
       avatarUrl:
         "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Crect width='40' height='40' rx='20' fill='%235b21b6'/%3E%3C/svg%3E",
-      role: "Project owner",
+      role: "administrator",
+      roles: ["maintainer"],
+      administrator: true,
       presence: "online",
     },
     {
@@ -552,10 +557,29 @@ export function createProjectStoryFixture(channelId = "general-projects") {
       name: "Noor Patel",
       handle: "noor",
       initials: "NP",
+      role: "administrator",
+      roles: ["maintainer"],
+      administrator: true,
       avatarUrl:
         "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Crect width='40' height='40' rx='20' fill='%230f766e'/%3E%3C/svg%3E",
-      role: "Contributor",
       presence: "online",
+    },
+  ];
+  const rooms: readonly CommunityRoomModel[] = [
+    {
+      id: channelId,
+      groupId: channelId,
+      name: "projects",
+      kind: "channel",
+      permissions: {
+        publish: { state: "enabled" },
+        join: { state: "denied" },
+        leave: { state: "enabled" },
+        update: { state: "enabled" },
+        delete: { state: "enabled" },
+        manageMembers: { state: "enabled" },
+        maintain: { state: "enabled" },
+      },
     },
   ];
   return {
@@ -566,6 +590,7 @@ export function createProjectStoryFixture(channelId = "general-projects") {
     pullRequest,
     diff,
     members,
+    rooms,
   };
 }
 

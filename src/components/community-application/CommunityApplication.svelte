@@ -99,6 +99,7 @@
     createProjectReactionTemplate,
     createPullRequestTemplate,
     createPullRequestReviewTemplate,
+    createReviewRequestTemplate,
     createRepositoryTemplate,
     createTaskTemplate,
     createWorkItemStatusTemplate,
@@ -110,6 +111,7 @@
     loadProjectRepositoryFileTree, readRepositoryCommit, readRepositoryPathCommit,
     updateProjectTemplate,
     GITHUB_REVIEW_COMMENT_REACTIONS,
+    loadOwnersFromBlob,
     PROJECT_FORGE_KINDS,
     type ProjectForgeBlobResponse,
     type ProjectForgeCatalog,
@@ -134,6 +136,7 @@
     type ProjectForgeSurface,
     type ProjectForgeOverviewSurface,
     type ProjectForgeTreeResponse,
+    type OwnersDocument,
     type ProjectForgeWorkItems,
     type ProjectTaskState,
     type PullRequestComment,
@@ -627,6 +630,7 @@
     $state.raw<ProjectForgeRepositoryCapabilitiesByCoordinate>({});
   let projectSourceError = $state("");
   let projectTree = $state.raw<ProjectForgeTreeResponse>();
+  let projectOwners = $state.raw<OwnersDocument>();
   let projectBlob = $state.raw<ProjectForgeBlobResponse>();
   let selectedProjectPath = $state("");
   let projectSourceRepositoryCoordinate = $state("");
@@ -2791,6 +2795,7 @@
               : "Repository capabilities could not be loaded"
             : "";
         projectTree = undefined;
+        projectOwners = undefined;
         projectBlob = undefined;
       } else {
         const repository = sourceRepository.address.coordinate;
@@ -2935,6 +2940,18 @@
                 }
               }
               projectTree = tree;
+              if (surface === undefined || surface === "overview") {
+                projectOwners = await loadOwnersFromBlob(
+                  () =>
+                    openedSession.loadBlob(
+                      repository,
+                      revision,
+                      "OWNERS.md",
+                      controller.signal,
+                    ),
+                  controller.signal,
+                );
+              }
             }
           } catch (cause) {
             if (controller.signal.aborted) throw cause;
@@ -2942,6 +2959,7 @@
             projectRepositoryBranches = [];
             projectRepositoryRevision = "";
             projectTree = undefined;
+            projectOwners = undefined;
             projectBlob = undefined;
             projectSourceError =
               cause instanceof Error
@@ -4333,12 +4351,42 @@
     pullRequest: PullRequestState,
   ): Promise<void> {
     await withProjectMutation("Merging pull request…", async (session) => {
-      await session.mergePullRequest(
+      const operation = await session.mergePullRequest(
         pullRequest.root.id,
         pullRequest.currentCommit,
       );
+      const mergeCommit = operation.result?.merged_commit;
+      const collaboration =
+        projectRepositoryCapabilities[pullRequest.repository.coordinate]
+          ?.collaboration_backend;
+      if (mergeCommit && collaboration !== "github") {
+        await session.publish(
+          createWorkItemStatusTemplate(
+            pullRequest.root,
+            pullRequest.repository.coordinate,
+            "merged",
+            { mergeCommit },
+          ),
+        );
+      }
     });
     toast.success("Pull request merged");
+  }
+
+  async function requestPullRequestReview(
+    pullRequest: PullRequestState,
+    reviewer: string,
+  ): Promise<void> {
+    await withProjectMutation("Requesting review…", async (session) => {
+      await session.publish(
+        createReviewRequestTemplate(
+          pullRequest.root,
+          pullRequest.repository.coordinate,
+          [reviewer],
+        ),
+      );
+    });
+    toast.success("Review requested");
   }
 
   async function updateTaskLifecycle(
@@ -6940,6 +6988,7 @@
             : { selectedCommitDetail: projectCommitDetail }}
           sourceError={projectSourceError}
           {...projectTree === undefined ? {} : { tree: projectTree }}
+          {...projectOwners === undefined ? {} : { owners: projectOwners }}
           selectedPath={selectedProjectPath}
           {...projectBlob === undefined ? {} : { blob: projectBlob }}
           {...projectPullRequestDiff === undefined
@@ -6986,6 +7035,7 @@
             selectedProjectPath = "";
             projectBlob = undefined;
             projectTree = undefined;
+            projectOwners = undefined;
           }}
           onLoadRepositoryPathCommit={loadRepositoryPathCommit} onLoadRepositoryCommit={loadRepositoryCommit}
           onSelectPullRequest={(pullRequest) => {
@@ -6994,6 +7044,7 @@
           }}
           onClosePullRequest={closeProjectPullRequest}
           onSubmitPullRequestReview={publishPullRequestReview}
+          onRequestPullRequestReview={requestPullRequestReview}
           onMergePullRequest={mergePullRequest}
           onUpdatePullRequestLifecycle={updatePullRequestLifecycle}
           onAddPullRequestComment={publishPullRequestComment}
@@ -7410,6 +7461,7 @@
           : { selectedCommitDetail: projectCommitDetail }}
         sourceError={projectSourceError}
         {...projectTree === undefined ? {} : { tree: projectTree }}
+        {...projectOwners === undefined ? {} : { owners: projectOwners }}
         selectedPath={selectedProjectPath}
         {...projectBlob === undefined ? {} : { blob: projectBlob }}
         {...projectPullRequestDiff === undefined
@@ -7488,6 +7540,7 @@
           selectedProjectPath = "";
           projectBlob = undefined;
           projectTree = undefined;
+          projectOwners = undefined;
         }}
         onLoadRepositoryPathCommit={loadRepositoryPathCommit} onLoadRepositoryCommit={loadRepositoryCommit}
         onSelectPullRequest={(pullRequest) => {
@@ -7496,6 +7549,7 @@
         }}
         onClosePullRequest={closeProjectPullRequest}
         onSubmitPullRequestReview={publishPullRequestReview}
+        onRequestPullRequestReview={requestPullRequestReview}
         onMergePullRequest={mergePullRequest}
         onUpdatePullRequestLifecycle={updatePullRequestLifecycle}
         onAddPullRequestComment={publishPullRequestComment}

@@ -85,6 +85,7 @@
     onSubmitComposer,
     onMerge,
     onSubmitReview,
+    onRequestReview,
     onUpdateLifecycle,
     onSubmitComment,
   }: {
@@ -158,6 +159,7 @@
     onSubmitComposer: (content: string) => void;
     onMerge: () => void;
     onSubmitReview: () => void;
+    onRequestReview?: ((pubkey: string) => void) | undefined;
     onUpdateLifecycle: () => void;
     onSubmitComment: (content: string) => void;
   } = $props();
@@ -254,6 +256,7 @@
     {onWaveMember}
     {onMerge}
     {onSubmitReview}
+    {onRequestReview}
     {onUpdateLifecycle}
     {onSubmitComment}
   />

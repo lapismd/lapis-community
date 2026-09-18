@@ -15,6 +15,7 @@ import {
 } from "./builders.js";
 import { buzzWorkItemFilters, parseSseResult } from "./data-source.js";
 import { PROJECT_FORGE_KINDS } from "./model.js";
+import { maintainersAuthority } from "./authority.js";
 import {
   materializeProjectForgeCatalog,
   materializeProjectForgeWorkItems,
@@ -414,7 +415,12 @@ describe("project forge reducers", () => {
       ["e", root.id, "", "root"],
       ["a", repositoryCoordinate],
     ]);
-    const state = reduceProjectTask(root, repository, [assigned, close]);
+    const state = reduceProjectTask(
+      root,
+      repository,
+      [assigned, close],
+      maintainersAuthority([owner]),
+    );
     expect(state.lifecycle).toBe("closed");
     expect(state.assignees).toEqual([reviewer]);
     expect(state.activity[0]?.encoding).toBe("buzz-kind-1");
@@ -481,12 +487,13 @@ describe("project forge reducers", () => {
         tag[0] === "t" ? ["t", "changes-requested"] : tag,
       ),
     );
-    const state = reducePullRequest(root, repository, [
-      updateLarge,
-      updateSmall,
-      decisionSmall,
-      decisionLarge,
-    ]);
+    const state = reducePullRequest(
+      root,
+      repository,
+      [updateLarge, updateSmall, decisionSmall, decisionLarge],
+      undefined,
+      maintainersAuthority([reviewer]),
+    );
     expect(state.currentCommit).toBe(commitA);
     expect(state.changeRequests).toHaveLength(0);
     expect(state.approvals).toHaveLength(0);
@@ -530,12 +537,13 @@ describe("project forge reducers", () => {
       ],
     );
 
-    const state = reducePullRequest(root, repository, [
-      merged,
-      untrusted,
-      closed,
-      reopened,
-    ]);
+    const state = reducePullRequest(
+      root,
+      repository,
+      [merged, untrusted, closed, reopened],
+      undefined,
+      maintainersAuthority([owner]),
+    );
     expect(state.lifecycle).toBe("merged");
     expect(state.lifecycleEvents.map((entry) => entry.lifecycle)).toEqual([
       "closed",
@@ -545,7 +553,28 @@ describe("project forge reducers", () => {
     expect(state.lifecycleEvents[2]?.mergeCommit).toBe(commitB);
   });
 
-  it("trusts only requested reviewers and keeps invalid inline anchors visible", () => {
+  it("trusts provider-authored merge status from the same GitHub bridge signer", () => {
+    const root = event("1", PROJECT_FORGE_KINDS.pullRequest, author, 2, [
+      ["a", repositoryCoordinate],
+      ["p", owner],
+      ["subject", "Imported"],
+      ["c", commitA],
+      ["clone", "https://github.com/lapis/notes.git"],
+      ["external-provider", "github"],
+      ["external-id", "9100"],
+    ]);
+    const merged = event("2", PROJECT_FORGE_KINDS.statusMerged, author, 3, [
+      ["e", root.id, "", "root"],
+      ["a", repositoryCoordinate],
+      ["merge-commit", commitB],
+      ["r", commitB],
+    ]);
+    const state = reducePullRequest(root, repository, [merged]);
+    expect(state.lifecycle).toBe("merged");
+    expect(state.mergeCommit).toBe(commitB);
+  });
+
+  it("trusts only channel maintainers and keeps invalid inline anchors visible", () => {
     const root = event("1", PROJECT_FORGE_KINDS.pullRequest, author, 2, [
       ["a", repositoryCoordinate],
       ["p", owner],
@@ -581,11 +610,13 @@ describe("project forge reducers", () => {
       ],
       "Please adjust this",
     );
-    const state = reducePullRequest(root, repository, [
-      approval,
-      outsiderApproval,
-      invalidInline,
-    ]);
+    const state = reducePullRequest(
+      root,
+      repository,
+      [approval, outsiderApproval, invalidInline],
+      undefined,
+      maintainersAuthority([reviewer]),
+    );
     expect(state.approvals.map((entry) => entry.reviewer)).toEqual([reviewer]);
     const projected = state.comments.find(
       (comment) => comment.event.id === invalidInline.id,

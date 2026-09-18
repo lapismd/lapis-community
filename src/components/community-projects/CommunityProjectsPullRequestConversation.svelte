@@ -1,11 +1,13 @@
 <script lang="ts">
   import { Button } from "@lapismd/design-core/shadcn/button";
   import * as Collapsible from "@lapismd/design-core/shadcn/collapsible";
+  import * as Select from "@lapismd/design-core/shadcn/select";
   import CheckIcon from "@lucide/svelte/icons/check";
   import ChevronDownIcon from "@lucide/svelte/icons/chevron-down";
   import ChevronRightIcon from "@lucide/svelte/icons/chevron-right";
   import GitMergeIcon from "@lucide/svelte/icons/git-merge";
 
+  import { reviewerCandidates } from "../../community/channel-authority.js";
   import type { CommunityCustomEmoji } from "../../community/index.js";
   import type {
     PullRequestComment,
@@ -49,6 +51,7 @@
     onWaveMember,
     onMerge,
     onSubmitReview,
+    onRequestReview,
     onUpdateLifecycle,
     onSubmitComment,
   }: {
@@ -79,12 +82,20 @@
     onWaveMember?: ((member: CommunityMemberModel) => void | Promise<void>) | undefined;
     onMerge: () => void;
     onSubmitReview: () => void;
+    onRequestReview?: ((pubkey: string) => void) | undefined;
     onUpdateLifecycle: () => void;
     onSubmitComment: (content: string) => void;
   } = $props();
 
   const timeline: readonly ReviewTimelineEntry[] = $derived(
     buildReviewTimeline(pullRequest),
+  );
+  const requestableReviewers = $derived(
+    reviewerCandidates(members).filter(
+      (member) =>
+        member.id !== pullRequest.root.pubkey &&
+        !pullRequest.reviewers.includes(member.id),
+    ),
   );
 </script>
 
@@ -123,29 +134,34 @@
       </div>
       {#if pullRequest.lifecycle !== "merged"}
         <div class="community-projects__review-actions">
-          <Button
-            type="button"
-            size="sm"
-            disabled={!canCollaborate || busy || !canMerge}
-            title={canMerge
-              ? "Merge this pull request through the repository provider"
-              : "The repository does not advertise merge capability"}
-            onclick={onMerge}
-          >
-            <GitMergeIcon data-icon="inline-start" aria-hidden="true" />
-            {canMerge ? "Merge pull request" : "Merge unavailable"}
-          </Button>
+          {#if canSubmit || canMerge}
+            <Button
+              type="button"
+              size="sm"
+              disabled={!canCollaborate || busy || !canMerge}
+              title={canMerge
+                ? "Merge this pull request through the repository provider"
+                : mergeError ||
+                  "Merge requires a trusted non-author approval and advertised merge capability"}
+              onclick={onMerge}
+            >
+              <GitMergeIcon data-icon="inline-start" aria-hidden="true" />
+              {canMerge ? "Merge pull request" : "Merge unavailable"}
+            </Button>
+          {/if}
           <span class="community-projects__review-action-spacer"></span>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            disabled={!canCollaborate || busy || !canSubmit}
-            onclick={onSubmitReview}
-          >
-            <CheckIcon data-icon="inline-start" aria-hidden="true" />
-            Submit review
-          </Button>
+          {#if canSubmit}
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={!canCollaborate || busy}
+              onclick={onSubmitReview}
+            >
+              <CheckIcon data-icon="inline-start" aria-hidden="true" />
+              Submit review
+            </Button>
+          {/if}
           {#if canUpdateLifecycle}
             <Button
               type="button"
@@ -167,6 +183,29 @@
           <p class="community-projects__review-merge-status" role="status">
             {mergeStatus}
           </p>
+        {/if}
+        {#if canSubmit && onRequestReview && requestableReviewers.length > 0}
+          <div class="community-projects__review-request">
+            <Select.Root
+              type="single"
+              onValueChange={(value) => {
+                if (value) onRequestReview(value);
+              }}
+            >
+              <Select.Trigger aria-label="Request review from a maintainer">
+                Request review
+              </Select.Trigger>
+              <Select.Content>
+                <Select.Group>
+                  {#each requestableReviewers as reviewer (reviewer.id)}
+                    <Select.Item value={reviewer.id} label={reviewer.name}
+                      >{reviewer.name}</Select.Item
+                    >
+                  {/each}
+                </Select.Group>
+              </Select.Content>
+            </Select.Root>
+          </div>
         {/if}
         {#if canComment}
           <CommunityChatComposer

@@ -50,6 +50,12 @@
 
   const roleDefinitions = [
     {
+      id: "maintainer",
+      label: "Maintainer",
+      description:
+        "Can create repositories on this channel and review or merge its pull requests",
+    },
+    {
       id: "writer",
       label: "Writer",
       description: "Can post when the room is limited to writers.",
@@ -248,6 +254,55 @@
       "Relay denied role replacement",
     );
     await expect(moderator).toBeChecked();
+  }}
+>
+  {#snippet template(args)}
+    <CommunityMemberCommand {...args} />
+  {/snippet}
+</Story>
+
+<Story
+  name="Maintainer role can be assigned"
+  args={{
+    open: true,
+    title: "Channel members",
+    roomKind: "channel",
+    mode: "manage",
+    members: [directory[1]],
+    results: [directory[1]],
+    groupMemberIds: ["ada"],
+    roleDefinitions,
+    onSearch: fn(),
+    onSelect: fn(),
+    onRemove: fn(),
+    onSetRoles: fn(async () => {}),
+  }}
+  play={async ({ canvasElement, args }) => {
+    const overlay = within(canvasElement.ownerDocument.body);
+    const membersDialog = await overlay.findByRole("dialog", {
+      name: "Channel members",
+    });
+    await userEvent.click(
+      within(membersDialog).getByRole("option", { name: "Manage Ada Chen" }),
+    );
+    await userEvent.click(
+      await overlay.findByRole("menuitem", { name: "Manage roles" }),
+    );
+    const rolesDialog = await overlay.findByRole("dialog", {
+      name: "Manage roles",
+    });
+    const maintainer = within(rolesDialog).getByRole("checkbox", {
+      name: "Maintainer",
+    });
+    await expect(maintainer).toBeVisible();
+    await userEvent.click(maintainer);
+    await userEvent.click(
+      within(rolesDialog).getByRole("button", { name: "Save roles" }),
+    );
+    await expect(args.onSetRoles).toHaveBeenCalledWith(
+      expect.objectContaining({ id: "ada" }),
+      expect.arrayContaining(["maintainer"]),
+    );
   }}
 >
   {#snippet template(args)}

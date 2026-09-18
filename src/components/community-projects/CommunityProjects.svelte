@@ -20,7 +20,6 @@
   import * as Empty from "@lapismd/design-core/shadcn/empty";
   import { Input } from "@lapismd/design-core/shadcn/input";
   import { ScrollArea } from "@lapismd/design-core/shadcn/scroll-area";
-  import { Skeleton } from "@lapismd/design-core/shadcn/skeleton";
   import * as Tabs from "@lapismd/design-core/shadcn/tabs";
   import * as Tooltip from "@lapismd/design-core/shadcn/tooltip";
   import * as ToggleGroup from "@lapismd/design-core/shadcn/toggle-group";
@@ -87,6 +86,7 @@
   import CommunityProjectsPullRequestReview from "./CommunityProjectsPullRequestReview.svelte";
   import CommunityProjectsPullRequestSubmitDialog from "./CommunityProjectsPullRequestSubmitDialog.svelte";
   import CommunityProjectsGitAuthorAvatar from "./CommunityProjectsGitAuthorAvatar.svelte";
+  import CommunityProjectsRepositoryOverview from "../community-projects-settings/CommunityProjectsRepositoryOverview.svelte";
   import CommunityProjectsRepositoryPane from "./CommunityProjectsRepositoryPane.svelte";
   import CommunityProjectsRepositoryLog from "./CommunityProjectsRepositoryLog.svelte";
   import CommunityRelativeTime from "../community-relative-time/CommunityRelativeTime.svelte";
@@ -111,6 +111,12 @@
     repositoryParentPath,
   } from "./repository-browser.js";
   import { communityProjectsMemberForPubkey } from "./projects-member.js";
+  import {
+    canMaintainRepository,
+    canMergeMaintainedPullRequest,
+    canReviewPullRequest,
+    channelIdForCoordinate,
+  } from "./community-projects-permissions.js";
 
   import "./CommunityProjects.css";
 
@@ -137,6 +143,7 @@
     sourceError = "",
     selectedCommitError = "",
     tree,
+    owners,
     selectedPath = "",
     blob,
     pullRequestDiff,
@@ -188,6 +195,7 @@
     onApprovePullRequest,
     onRequestChanges,
     onSubmitPullRequestReview,
+    onRequestPullRequestReview,
     onMergePullRequest,
     onUpdatePullRequestLifecycle,
     onAddPullRequestComment,
@@ -1992,13 +2000,26 @@
     );
   }
 
+  const canMaintainSelectedRepository = $derived(
+    canMaintainRepository(
+      rooms,
+      selectedRepository?.channelId ??
+        channelIdForCoordinate(
+          repositories,
+          selectedPullRequest?.repository.coordinate,
+        ),
+    ),
+  );
+
   function canMergePullRequest(pullRequest: PullRequestState): boolean {
-    return (
-      pullRequest.lifecycle === "open" &&
-      repositoryCapabilities[pullRequest.repository.coordinate]?.merge ===
-        true &&
-      onMergePullRequest !== undefined
-    );
+    return canMergeMaintainedPullRequest({
+      canCollaborate,
+      canMaintain: canMaintainSelectedRepository,
+      mergeAdvertised:
+        repositoryCapabilities[pullRequest.repository.coordinate]?.merge ===
+          true && onMergePullRequest !== undefined,
+      pullRequest,
+    });
   }
 
   async function mergeSelectedPullRequest(
@@ -2802,75 +2823,24 @@
           {/if}
         {/if}
       {:else if view === "overview"}
-        <article
-          class="community-projects__workspace community-projects__readme"
+        <CommunityProjectsRepositoryOverview
+          {tree}
+          {loading}
+          {canCollaborate}
+          hasSources={repositorySources.length > 0}
+          sourceError={effectiveSourceError}
+          capabilities={selectedRepository
+            ? repositoryCapabilities[selectedRepository.address.coordinate]
+            : undefined}
+          {owners}
+          {members}
+          {rooms}
+          {communityEmojis}
         >
-          {#if tree?.readme}
-            <CommunityMarkdownContent
-              fullWidth
-              content={tree.readme}
-              {members}
-              {rooms}
-              {communityEmojis}
-            />
-          {:else if loading}
-            <div
-              class="community-projects__overview-skeleton"
-              role="status"
-              aria-label="Loading repository overview"
-            >
-              <div aria-hidden="true">
-                <Skeleton class="community-projects__overview-skeleton-title" />
-                <div class="community-projects__overview-skeleton-paragraph">
-                  <Skeleton />
-                  <Skeleton />
-                  <Skeleton />
-                </div>
-                <Skeleton
-                  class="community-projects__overview-skeleton-heading"
-                />
-                <div class="community-projects__overview-skeleton-paragraph">
-                  <Skeleton />
-                  <Skeleton />
-                </div>
-                <div class="community-projects__overview-skeleton-code">
-                  <Skeleton />
-                  <Skeleton />
-                  <Skeleton />
-                  <Skeleton />
-                </div>
-              </div>
-            </div>
-          {:else if !canCollaborate && repositorySources.length > 0}
-            <Empty.Root class="community-projects__empty">
-              <Empty.Header>
-                <Empty.Media variant="icon"
-                  ><FileIcon aria-hidden="true" /></Empty.Media
-                >
-                <Empty.Title>Sign in to view repository files</Empty.Title>
-                <Empty.Description>
-                  Repository source reads use your Nostr identity to enforce the
-                  project's channel access at the relay gateway.
-                </Empty.Description>
-              </Empty.Header>
-            </Empty.Root>
-          {:else if effectiveSourceError}
+          {#snippet sourceErrorSnippet()}
             {@render projectSourceError(effectiveSourceError)}
-          {:else}
-            <Empty.Root class="community-projects__empty">
-              <Empty.Header>
-                <Empty.Media variant="icon"
-                  ><FileIcon aria-hidden="true" /></Empty.Media
-                >
-                <Empty.Title>No repository overview yet</Empty.Title>
-                <Empty.Description>
-                  Add a README to a repository with relay-advertised browsing to
-                  show it here. Community does not assume local Git access.
-                </Empty.Description>
-              </Empty.Header>
-            </Empty.Root>
-          {/if}
-        </article>
+          {/snippet}
+        </CommunityProjectsRepositoryOverview>
       {:else if view === "repositories"}
         {@render surfaceHeader(
           "Repositories",
@@ -3329,12 +3299,17 @@
             : false}
           mergeError={pullRequestMergeError}
           mergeStatus={pullRequestMergeStatus}
-          canSubmit={Boolean(
-            onSubmitPullRequestReview ||
-              onAddPullRequestComment ||
-              onApprovePullRequest ||
-              onRequestChanges,
-          )}
+          canSubmit={canReviewPullRequest({
+            canCollaborate,
+            canMaintain: canMaintainSelectedRepository,
+            lifecycle: selectedPullRequest?.lifecycle ?? "open",
+          }) &&
+            Boolean(
+              onSubmitPullRequestReview ||
+                onAddPullRequestComment ||
+                onApprovePullRequest ||
+                onRequestChanges,
+            )}
           canComment={onAddPullRequestComment !== undefined}
           canUpdateLifecycle={onUpdatePullRequestLifecycle !== undefined}
           {members}
@@ -3368,6 +3343,13 @@
           onSubmitComposer={(content) => void submitInlineComment(content)}
           onMerge={mergeOpenPullRequest}
           onSubmitReview={openReviewSubmission}
+          onRequestReview={(reviewer) => {
+            if (selectedPullRequest)
+              void onRequestPullRequestReview?.(
+                selectedPullRequest,
+                reviewer,
+              );
+          }}
           onUpdateLifecycle={updateSelectedPullRequestLifecycle}
           onSubmitComment={(content) => void submitPullRequestComment(content)}
         >

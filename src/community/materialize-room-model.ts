@@ -6,6 +6,7 @@ import type {
   CommunityRoleDefinition,
   CommunityRoomModel,
 } from "./workspace-model.js";
+import { MAINTAINER_ROLE_DEFINITION } from "./channel-authority.js";
 import {
   compareOldest,
   deletedEventIds,
@@ -100,6 +101,16 @@ export function roomModel(
     reason: "A writer or administrator role is required to publish here",
     requirement: "writer" as const,
   };
+  const creator =
+    identityPubkey !== undefined && metadata?.pubkey === identityPubkey;
+  const canMaintain =
+    administrator || creator || memberRoles.includes("maintainer");
+  const maintainDenied = {
+    state: "denied" as const,
+    reason:
+      "A maintainer or administrator role is required to create repositories and review or merge pull requests",
+    requirement: "maintainer" as const,
+  };
   const administrativeAvailability =
     identityPubkey === undefined
       ? authenticationRequired
@@ -165,6 +176,12 @@ export function roomModel(
       update: administrativeAvailability,
       delete: administrativeAvailability,
       manageMembers: administrativeAvailability,
+      maintain:
+        identityPubkey === undefined
+          ? authenticationRequired
+          : canMaintain
+            ? enabled
+            : maintainDenied,
     },
   };
 }
@@ -259,6 +276,11 @@ export function communityRoleDefinitions(
       id: "writer",
       label: "Writer",
       description: "Can publish when this room is limited to writers.",
+    });
+  }
+  if (!definitions.has(MAINTAINER_ROLE_DEFINITION.id)) {
+    definitions.set(MAINTAINER_ROLE_DEFINITION.id, {
+      ...MAINTAINER_ROLE_DEFINITION,
     });
   }
   return [...definitions.values()].toSorted((left, right) =>

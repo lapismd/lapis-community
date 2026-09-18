@@ -1,4 +1,5 @@
 export * from "./contracts.js";
+export * from "./channel-authority.js";
 export * from "./workspace-model.js";
 export * from "./inbox-model.js";
 export * from "./composer-model.js";

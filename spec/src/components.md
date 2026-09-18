@@ -1,3 +1,14 @@
+For LC-UI-036, People role management MUST include the built-in Maintainer
+role (“Can create repositories on this channel and review or merge its pull
+requests”) beside Writer. The create-repository dialog MUST disable channels
+the viewer cannot maintain and MUST explain why. Submit review, Merge, and the
+reviewer picker MUST use that same `CanMaintain` capability. Repository
+settings MUST show the live default branch, that pull requests are required,
+the protected ref, who can merge, and any `OWNERS.md` path reviewers without
+growing `CommunityProjects.svelte`. GitHub-authoritative repositories MUST
+say clone, push, and branch protection stay on GitHub. Merge errors MUST name
+missing path owners when `OWNERS.md` still blocks the merge.
+
 For LC-UI-036, project channel selection MUST use the same shared project-channel
 icon as navigation: search results, room browsing, project and agent channel
 commands, and composer channel suggestions. The application MUST derive the
@@ -234,6 +245,10 @@ buttons with a Submit review dialog whose body first reuses the shared
 `CommunityChatComposer` and whose following stacked radio choices explain
 Comment, Approve, and Request changes; Comment and Request changes MUST require
 a Markdown body while Approve leaves it optional.
+Submit review and Merge MUST be hidden or denied unless the viewer
+`CanMaintain` the repository channel. The reviewer picker MUST offer channel
+maintainers and administrators, later including OWNERS.md path owners, and MUST
+NOT offer arbitrary members as trusted reviewers.
 Closing an open pull request MUST use the destructive button treatment and MUST
 require confirmation in the shared alert-dialog pattern before publishing the
 lifecycle update; reopening a closed pull request MAY remain immediate. A merged

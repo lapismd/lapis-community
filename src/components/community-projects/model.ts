@@ -24,6 +24,7 @@ import type {
   ProjectForgeOverviewSurface,
   ProjectForgeSurface,
   ProjectForgeTreeResponse,
+  OwnersDocument,
   ProjectTaskState,
   PullRequestComment,
   PullRequestReviewKind,
@@ -135,6 +136,7 @@ export interface CommunityProjectsProps {
   /** @deprecated Use `sourceError`; retained for existing commit consumers. */
   selectedCommitError?: string;
   tree?: ProjectForgeTreeResponse;
+  owners?: OwnersDocument;
   selectedPath?: string;
   blob?: ProjectForgeBlobResponse;
   pullRequestDiff?: ProjectForgePullRequestDiff;
@@ -232,6 +234,10 @@ export interface CommunityProjectsProps {
   onSubmitPullRequestReview?: (
     pullRequest: PullRequestState,
     review: { decision: PullRequestReviewKind; content: string },
+  ) => Promise<void>;
+  onRequestPullRequestReview?: (
+    pullRequest: PullRequestState,
+    reviewer: string,
   ) => Promise<void>;
   onMergePullRequest?: (pullRequest: PullRequestState) => Promise<void>;
   onUpdatePullRequestLifecycle?: (
