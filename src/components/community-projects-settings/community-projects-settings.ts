@@ -32,3 +32,15 @@ export function ownersSummary(document: OwnersDocument | undefined): string {
     .map((rule) => `${rule.path} → ${rule.pubkeys.join(", ")}`)
     .join("\n");
 }
+
+export function ownersFileHelp(): string {
+  return "OWNERS.md lives at the repository root on the protected branch. Edit it through a pull request like any other protected file.";
+}
+
+export function peopleChannelAction(
+  name: string | undefined,
+): string | undefined {
+  const trimmed = name?.replace(/^#/u, "").trim();
+  if (!trimmed) return undefined;
+  return `Open #${trimmed} to manage People`;
+}

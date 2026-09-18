@@ -109,3 +109,7 @@ export function repositoryParentPath(path: string): string {
 export function isMarkdownRepositoryPath(path: string): boolean {
   return /\.(?:md|markdown|mdown|mkd|mdx)$/iu.test(path);
 }
+
+export function isOwnersDocumentPath(path: string): boolean {
+  return normalizeRepositoryPath(path.replace(/^\.\//u, "")) === "OWNERS.md";
+}

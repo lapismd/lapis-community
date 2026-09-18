@@ -23,7 +23,11 @@
     CommunityMemberModel,
     CommunityRoomModel,
   } from "../community-workspace/model.js";
-  import type { RepositoryBreadcrumbSegment } from "./repository-browser.js";
+  import { ownersFileHelp } from "../community-projects-settings/community-projects-settings.js";
+  import {
+    isOwnersDocumentPath,
+    type RepositoryBreadcrumbSegment,
+  } from "./repository-browser.js";
   import CommunityProjectsRepositoryBranchSelector from "./CommunityProjectsRepositoryBranchSelector.svelte";
 
   let {
@@ -158,6 +162,9 @@
     orientation="both"
     class="community-projects__file-body"
   >
+    {#if blob && !blob.binary && !blob.too_large && isOwnersDocumentPath(selectedPath)}
+      <p class="community-projects__status">{ownersFileHelp()}</p>
+    {/if}
     {#if loading && !blob}
       <div
         class="community-projects__blob-skeleton"
@@ -185,7 +192,9 @@
     {:else if blob?.binary}
       <Empty.Root>
         <Empty.Header>
-          <Empty.Media variant="icon"><FileIcon aria-hidden="true" /></Empty.Media>
+          <Empty.Media variant="icon"
+            ><FileIcon aria-hidden="true" /></Empty.Media
+          >
           <Empty.Title>Binary file</Empty.Title>
           <Empty.Description
             >{blob.path} cannot be previewed as text.</Empty.Description

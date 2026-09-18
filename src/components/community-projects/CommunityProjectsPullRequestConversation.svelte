@@ -37,6 +37,7 @@
     canSubmit = false,
     canComment = false,
     canUpdateLifecycle = false,
+    ownerPubkeys = [],
     members = [],
     rooms = [],
     communityEmojis = [],
@@ -66,6 +67,7 @@
     canSubmit?: boolean | undefined;
     canComment?: boolean | undefined;
     canUpdateLifecycle?: boolean | undefined;
+    ownerPubkeys?: readonly string[] | undefined;
     members?: readonly CommunityMemberModel[] | undefined;
     rooms?: readonly CommunityRoomModel[] | undefined;
     communityEmojis?: readonly CommunityCustomEmoji[] | undefined;
@@ -78,8 +80,12 @@
     ) => readonly string[] | undefined;
     onToggleReaction: (comment: PullRequestComment, emoji: string) => void;
     onOpenProfile?: ((member: CommunityMemberModel) => void) | undefined;
-    onMessageMember?: ((member: CommunityMemberModel) => void | Promise<void>) | undefined;
-    onWaveMember?: ((member: CommunityMemberModel) => void | Promise<void>) | undefined;
+    onMessageMember?:
+      | ((member: CommunityMemberModel) => void | Promise<void>)
+      | undefined;
+    onWaveMember?:
+      | ((member: CommunityMemberModel) => void | Promise<void>)
+      | undefined;
     onMerge: () => void;
     onSubmitReview: () => void;
     onRequestReview?: ((pubkey: string) => void) | undefined;
@@ -91,11 +97,15 @@
     buildReviewTimeline(pullRequest),
   );
   const requestableReviewers = $derived(
-    reviewerCandidates(members).filter(
+    reviewerCandidates(members, ownerPubkeys).filter(
       (member) =>
         member.id !== pullRequest.root.pubkey &&
         !pullRequest.reviewers.includes(member.id),
     ),
+  );
+  const canChangeLifecycle = $derived(
+    canUpdateLifecycle &&
+      (canSubmit || currentMemberId === pullRequest.root.pubkey),
   );
 </script>
 
@@ -162,7 +172,7 @@
               Submit review
             </Button>
           {/if}
-          {#if canUpdateLifecycle}
+          {#if canChangeLifecycle}
             <Button
               type="button"
               variant={pullRequest.lifecycle === "closed"
@@ -192,7 +202,9 @@
                 if (value) onRequestReview(value);
               }}
             >
-              <Select.Trigger aria-label="Request review from a maintainer">
+              <Select.Trigger
+                aria-label="Request review from a maintainer or path owner"
+              >
                 Request review
               </Select.Trigger>
               <Select.Content>

@@ -7,11 +7,13 @@
   } from "@lapismd/design-core/diff";
 
   import type { CommunityCustomEmoji } from "../../community/index.js";
-  import type {
-    ProjectForgeCommit,
-    ProjectForgePullRequestDiff,
-    PullRequestComment,
-    PullRequestState,
+  import {
+    ownerReviewerPubkeys,
+    type OwnersDocument,
+    type ProjectForgeCommit,
+    type ProjectForgePullRequestDiff,
+    type PullRequestComment,
+    type PullRequestState,
   } from "../../projects/index.js";
   import type {
     CommunityMemberModel,
@@ -55,6 +57,7 @@
     canSubmit = false,
     canComment = false,
     canUpdateLifecycle = false,
+    owners,
     members = [],
     rooms = [],
     communityEmojis = [],
@@ -119,6 +122,7 @@
     canSubmit?: boolean | undefined;
     canComment?: boolean | undefined;
     canUpdateLifecycle?: boolean | undefined;
+    owners?: OwnersDocument | undefined;
     members?: readonly CommunityMemberModel[] | undefined;
     rooms?: readonly CommunityRoomModel[] | undefined;
     communityEmojis?: readonly CommunityCustomEmoji[] | undefined;
@@ -136,8 +140,12 @@
     ) => readonly PullRequestComment[];
     showComposer: (context: FileDiffLineContext) => boolean;
     onOpenProfile?: ((member: CommunityMemberModel) => void) | undefined;
-    onMessageMember?: ((member: CommunityMemberModel) => void | Promise<void>) | undefined;
-    onWaveMember?: ((member: CommunityMemberModel) => void | Promise<void>) | undefined;
+    onMessageMember?:
+      | ((member: CommunityMemberModel) => void | Promise<void>)
+      | undefined;
+    onWaveMember?:
+      | ((member: CommunityMemberModel) => void | Promise<void>)
+      | undefined;
     onClose?: (() => void) | undefined;
     onCopyCommit: (hash: string) => void;
     onSelectCommit?: ((commit: ProjectForgeCommit) => void) | undefined;
@@ -242,6 +250,7 @@
     {canSubmit}
     {canComment}
     {canUpdateLifecycle}
+    ownerPubkeys={ownerReviewerPubkeys(owners)}
     {members}
     {rooms}
     {communityEmojis}

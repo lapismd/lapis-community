@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   loadOwnersFromBlob,
+  ownerReviewerPubkeys,
   ownersForPath,
   parseOwnersDocument,
 } from "./owners.js";
@@ -10,7 +11,9 @@ describe("OWNERS.md", () => {
   it("uses the longest matching path and fails closed", () => {
     const owner = "1".repeat(64);
     const docs = "2".repeat(64);
-    const document = parseOwnersDocument(`# comment\n* ${owner}\ndocs/ ${docs}\n`);
+    const document = parseOwnersDocument(
+      `# comment\n* ${owner}\ndocs/ ${docs}\n`,
+    );
     expect(ownersForPath(document, "README.md")).toEqual([owner]);
     expect(ownersForPath(document, "docs/guide.md")).toEqual([docs]);
     expect(parseOwnersDocument("* not-a-key").rules).toEqual([]);
@@ -26,5 +29,15 @@ describe("OWNERS.md", () => {
         throw new Error("not found");
       }),
     ).resolves.toBeUndefined();
+  });
+
+  it("collects unique OWNERS.md reviewer pubkeys", () => {
+    const owner = "1".repeat(64);
+    const docs = "2".repeat(64);
+    expect(
+      ownerReviewerPubkeys(
+        parseOwnersDocument(`* ${owner}\ndocs/ ${owner} ${docs}\n`),
+      ),
+    ).toEqual([owner, docs]);
   });
 });

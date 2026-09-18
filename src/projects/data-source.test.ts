@@ -316,6 +316,37 @@ describe("NIP-34 project forge data source", () => {
     session.close();
   });
 
+  it("names missing OWNERS.md reviewers from a failed merge", async () => {
+    const eventId = "5".repeat(64);
+    const expectedHead = "a".repeat(40);
+    const fetch = vi.fn(
+      async () =>
+        new Response(
+          JSON.stringify({
+            message: "path owners have not approved",
+            missing_owners: ["docs/"],
+          }),
+          {
+            status: 409,
+            headers: { "content-type": "application/json" },
+          },
+        ),
+    );
+    const source = createNip34ProjectForgeDataSource({
+      relayFactory: createInMemoryRelayFactory(),
+      fetch,
+    });
+    const session = await source.open({
+      relayUrl: "wss://relay.example",
+      identity: new SecretKeyRegistrySigner(generateSecretKey()),
+    });
+
+    await expect(
+      session.mergePullRequest(eventId, expectedHead),
+    ).rejects.toThrow(/OWNERS.md reviewers are still required: docs\//u);
+    session.close();
+  });
+
   it("discovers GitHub App connections and attaches a matching provider repository", async () => {
     const requests: Array<{
       url: string;

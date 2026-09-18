@@ -69,6 +69,15 @@ export async function loadOwnersFromBlob(
   }
 }
 
+export function ownerReviewerPubkeys(
+  document: OwnersDocument | undefined,
+): string[] {
+  if (!document) return [];
+  return [
+    ...new Set(document.rules.flatMap((rule) => rule.pubkeys)),
+  ].toSorted();
+}
+
 export function requiredOwnerGroups(
   document: OwnersDocument,
   paths: readonly string[],

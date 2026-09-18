@@ -405,7 +405,7 @@ describe("project forge reducers", () => {
       ["a", repositoryCoordinate],
       ["subject", "Ship"],
     ]);
-    const assigned = event("2", PROJECT_FORGE_KINDS.note, author, 3, [
+    const assigned = event("2", PROJECT_FORGE_KINDS.note, owner, 3, [
       ["e", root.id, "", "root"],
       ["a", repositoryCoordinate],
       ["p", reviewer],
@@ -424,6 +424,32 @@ describe("project forge reducers", () => {
     expect(state.lifecycle).toBe("closed");
     expect(state.assignees).toEqual([reviewer]);
     expect(state.activity[0]?.encoding).toBe("buzz-kind-1");
+  });
+
+  it("ignores repository-owner assignment and status without CanMaintain", () => {
+    const root = event("1", PROJECT_FORGE_KINDS.task, author, 2, [
+      ["a", repositoryCoordinate],
+      ["subject", "Ship"],
+    ]);
+    const assigned = event("2", PROJECT_FORGE_KINDS.note, owner, 3, [
+      ["e", root.id, "", "root"],
+      ["a", repositoryCoordinate],
+      ["p", reviewer],
+      ["t", "assignment"],
+    ]);
+    const close = event("f", PROJECT_FORGE_KINDS.statusClosed, owner, 4, [
+      ["e", root.id, "", "root"],
+      ["a", repositoryCoordinate],
+    ]);
+    const state = reduceProjectTask(root, repository, [assigned, close]);
+    expect(state.lifecycle).toBe("open");
+    expect(state.assignees).toEqual([]);
+  });
+
+  it("names missing OWNERS.md reviewers from forge errors", () => {
+    expect(() =>
+      parseSseResult('event: error\ndata: {"missing_owners":["docs/"]}\n\n'),
+    ).toThrow(/OWNERS.md reviewers are still required: docs\//u);
   });
 
   it("matches Buzz tie directions and keeps old decisions historical", () => {

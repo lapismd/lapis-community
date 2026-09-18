@@ -5,7 +5,10 @@ import {
   reviewerCandidates,
   roomCanMaintain,
 } from "./channel-authority.js";
-import type { CommunityMemberModel, CommunityRoomModel } from "./workspace-model.js";
+import type {
+  CommunityMemberModel,
+  CommunityRoomModel,
+} from "./workspace-model.js";
 
 function member(
   id: string,
@@ -68,5 +71,15 @@ describe("channel maintainer authority", () => {
         member("maint", { roles: ["maintainer"], name: "Maint" }),
       ]).map((candidate) => candidate.id),
     ).toEqual(["admin", "maint"]);
+  });
+
+  it("includes OWNERS.md path owners who are not channel maintainers", () => {
+    const owner = "a".repeat(64);
+    expect(
+      reviewerCandidates(
+        [member("writer", { roles: ["writer"] })],
+        [owner],
+      ).map((candidate) => candidate.id),
+    ).toEqual([owner]);
   });
 });

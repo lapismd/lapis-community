@@ -37,9 +37,7 @@ import {
 } from "./model.js";
 import { loadProjectForgeRefs } from "./repository-refs.js";
 import { buzzWorkItemFilters } from "./work-item-filters.js";
-import {
-  collaborationAuthorityFromGroupState,
-} from "./authority.js";
+import { collaborationAuthorityFromGroupState } from "./authority.js";
 import {
   materializeProjectForgeCatalog,
   materializeProjectForgeWorkItems,
@@ -899,7 +897,9 @@ function abortableDelay(
   });
 }
 
-export * from "./repository-activity.js"; export * from "./repository-log.js"; export * from "./repository-log-files.js";
+export * from "./repository-activity.js";
+export * from "./repository-log.js";
+export * from "./repository-log-files.js";
 
 export function parseSseResult<T>(
   body: string,
@@ -989,8 +989,17 @@ async function responseError(response: Response): Promise<Error> {
 function errorMessage(value: unknown, fallback: string): string {
   if (typeof value === "string") return value;
   if (value && typeof value === "object") {
+    const record = value as Record<string, unknown>;
+    const missing = record.missing_owners;
+    if (
+      Array.isArray(missing) &&
+      missing.length > 0 &&
+      missing.every((entry) => typeof entry === "string")
+    ) {
+      return `OWNERS.md reviewers are still required: ${missing.join(", ")}`;
+    }
     for (const key of ["message", "error", "detail"] as const) {
-      const candidate = (value as Record<string, unknown>)[key];
+      const candidate = record[key];
       if (typeof candidate === "string" && candidate) return candidate;
     }
   }

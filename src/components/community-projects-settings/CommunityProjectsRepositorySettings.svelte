@@ -1,20 +1,29 @@
 <script lang="ts">
+  import { Button } from "@lapismd/design-core/shadcn/button";
+
   import type { ProjectForgeRepositoryCapabilities } from "../../projects/model.js";
   import type { OwnersDocument } from "../../projects/owners.js";
   import {
+    ownersFileHelp,
     ownersSummary,
+    peopleChannelAction,
     repositoryProtectionSummary,
   } from "./community-projects-settings.js";
 
   let {
     capabilities,
     owners,
+    peopleChannelName,
+    onOpenPeople,
   }: {
     capabilities?: ProjectForgeRepositoryCapabilities | undefined;
     owners?: OwnersDocument | undefined;
+    peopleChannelName?: string | undefined;
+    onOpenPeople?: (() => void) | undefined;
   } = $props();
 
   const protection = $derived(repositoryProtectionSummary(capabilities));
+  const peopleAction = $derived(peopleChannelAction(peopleChannelName));
 </script>
 
 <section
@@ -27,6 +36,11 @@
     create repositories and review or merge pull requests. Assign those roles
     from channel People.
   </p>
+  {#if peopleAction && onOpenPeople}
+    <Button type="button" variant="outline" size="sm" onclick={onOpenPeople}>
+      {peopleAction}
+    </Button>
+  {/if}
   <h2>Branch protection</h2>
   {#if protection.githubAuthoritative}
     <p>
@@ -55,6 +69,7 @@
     </dl>
   {/if}
   <h2>OWNERS.md</h2>
+  <p>{ownersFileHelp()}</p>
   <p>{ownersSummary(owners)}</p>
 </section>
 

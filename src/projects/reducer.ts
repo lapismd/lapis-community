@@ -125,7 +125,6 @@ export function reduceProjectTask(
   const candidates = related
     .filter((event) => rootEventId(event) === root.id)
     .toSorted(compareChronological);
-  const trustedActors = new Set([root.pubkey, repository.owner]);
   let statusEvent: NostrEvent | undefined;
   for (const event of candidates) {
     if (
@@ -145,7 +144,10 @@ export function reduceProjectTask(
       repositoryMatchesIfPresent(event, repository.coordinate) &&
       assignmentKind(event) !== undefined,
   );
-  const assignees = reduceAssignments(assignmentEvents, trustedActors);
+  const assignees = reduceAssignments(
+    assignmentEvents,
+    (pubkey) => authority?.canMaintain(pubkey) === true,
+  );
   const activity = candidates
     .filter(
       (event) =>
@@ -553,14 +555,14 @@ function inlineAnchor(event: NostrEvent): PullRequestInlineAnchor | undefined {
 
 function reduceAssignments(
   events: readonly NostrEvent[],
-  trustedActors: ReadonlySet<string>,
+  canMaintain: (pubkey: string) => boolean,
 ): string[] {
   const assigned = new Set<string>();
   for (const event of events) {
     const operation = assignmentKind(event);
     if (!operation) continue;
     const pubkeys = validPubkeys(event, "p");
-    const allowed = trustedActors.has(event.pubkey)
+    const allowed = canMaintain(event.pubkey)
       ? pubkeys
       : pubkeys.length === 1 && pubkeys[0] === event.pubkey
         ? pubkeys

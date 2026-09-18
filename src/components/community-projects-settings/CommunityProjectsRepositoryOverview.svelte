@@ -27,6 +27,8 @@
     members = [],
     rooms = [],
     communityEmojis = [],
+    homeChannelId,
+    onSelectChannel,
     sourceErrorSnippet,
   }: {
     tree?: ProjectForgeTreeResponse | undefined;
@@ -39,12 +41,33 @@
     members?: readonly CommunityMemberModel[] | undefined;
     rooms?: readonly CommunityRoomModel[] | undefined;
     communityEmojis?: readonly CommunityCustomEmoji[] | undefined;
+    homeChannelId?: string | undefined;
+    onSelectChannel?: ((roomId: string) => void) | undefined;
     sourceErrorSnippet?: import("svelte").Snippet | undefined;
   } = $props();
+
+  const peopleChannel = $derived.by(() => {
+    if (!homeChannelId) return undefined;
+    const room = rooms.find(
+      (candidate) =>
+        candidate.groupId === homeChannelId || candidate.id === homeChannelId,
+    );
+    return {
+      name: room?.name ?? homeChannelId,
+      roomId: room?.id ?? homeChannelId,
+    };
+  });
 </script>
 
 <article class="community-projects__workspace community-projects__readme">
-  <CommunityProjectsRepositorySettings {capabilities} {owners} />
+  <CommunityProjectsRepositorySettings
+    {capabilities}
+    {owners}
+    peopleChannelName={peopleChannel?.name}
+    onOpenPeople={peopleChannel && onSelectChannel
+      ? () => onSelectChannel(peopleChannel.roomId)
+      : undefined}
+  />
   {#if tree?.readme}
     <CommunityMarkdownContent
       fullWidth
@@ -71,7 +94,8 @@
   {:else if !canCollaborate && hasSources}
     <Empty.Root class="community-projects__empty">
       <Empty.Header>
-        <Empty.Media variant="icon"><FileIcon aria-hidden="true" /></Empty.Media>
+        <Empty.Media variant="icon"><FileIcon aria-hidden="true" /></Empty.Media
+        >
         <Empty.Title>Sign in to view repository files</Empty.Title>
         <Empty.Description>
           Repository source reads use your Nostr identity to enforce the
@@ -84,7 +108,8 @@
   {:else}
     <Empty.Root class="community-projects__empty">
       <Empty.Header>
-        <Empty.Media variant="icon"><FileIcon aria-hidden="true" /></Empty.Media>
+        <Empty.Media variant="icon"><FileIcon aria-hidden="true" /></Empty.Media
+        >
         <Empty.Title>No repository overview yet</Empty.Title>
         <Empty.Description>
           Add a README to a repository with relay-advertised browsing to show it

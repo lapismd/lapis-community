@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import type { ProjectForgeTreeEntry } from "../../projects/index.js";
 import {
   isMarkdownRepositoryPath,
+  isOwnersDocumentPath,
   repositoryBreadcrumbSegments,
   repositoryBrowserEntries,
   repositoryParentPath,
@@ -57,5 +58,8 @@ describe("repository path helpers", () => {
     expect(repositoryParentPath("README.md")).toBe("");
     expect(isMarkdownRepositoryPath("docs/README.MD")).toBe(true);
     expect(isMarkdownRepositoryPath("src/index.ts")).toBe(false);
+    expect(isOwnersDocumentPath("OWNERS.md")).toBe(true);
+    expect(isOwnersDocumentPath("./OWNERS.md")).toBe(true);
+    expect(isOwnersDocumentPath("docs/OWNERS.md")).toBe(false);
   });
 });

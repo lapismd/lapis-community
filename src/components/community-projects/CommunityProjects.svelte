@@ -2836,6 +2836,8 @@
           {members}
           {rooms}
           {communityEmojis}
+          homeChannelId={projectHomeChannel?.channelId}
+          {onSelectChannel}
         >
           {#snippet sourceErrorSnippet()}
             {@render projectSourceError(effectiveSourceError)}
@@ -3312,6 +3314,7 @@
             )}
           canComment={onAddPullRequestComment !== undefined}
           canUpdateLifecycle={onUpdatePullRequestLifecycle !== undefined}
+          {owners}
           {members}
           {rooms}
           {communityEmojis}
@@ -3345,10 +3348,7 @@
           onSubmitReview={openReviewSubmission}
           onRequestReview={(reviewer) => {
             if (selectedPullRequest)
-              void onRequestPullRequestReview?.(
-                selectedPullRequest,
-                reviewer,
-              );
+              void onRequestPullRequestReview?.(selectedPullRequest, reviewer);
           }}
           onUpdateLifecycle={updateSelectedPullRequestLifecycle}
           onSubmitComment={(content) => void submitPullRequestComment(content)}

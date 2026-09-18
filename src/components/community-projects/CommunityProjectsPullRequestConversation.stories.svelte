@@ -7,8 +7,21 @@
   import CommunityProjectsPullRequestConversation from "./CommunityProjectsPullRequestConversation.svelte";
 
   const pullRequest = {
-    root: { id: "a".repeat(64), pubkey: "author", kind: 1618, created_at: 1, content: "", tags: [], sig: "" },
-    repository: { kind: 30617, owner: "o", identifier: "notes", coordinate: "30617:o:notes" },
+    root: {
+      id: "a".repeat(64),
+      pubkey: "author",
+      kind: 1618,
+      created_at: 1,
+      content: "",
+      tags: [],
+      sig: "",
+    },
+    repository: {
+      kind: 30617,
+      owner: "o",
+      identifier: "notes",
+      coordinate: "30617:o:notes",
+    },
     title: "Protect main",
     content: "",
     labels: [],
@@ -119,8 +132,47 @@
       canvas.getByRole("button", { name: "Submit review" }),
     ).toBeVisible();
     await expect(
-      canvas.getByRole("combobox", {
-        name: "Request review from a maintainer",
+      canvas.getByRole("button", {
+        name: "Request review from a maintainer or path owner",
+      }),
+    ).toBeVisible();
+  }}
+>
+  {#snippet template(args)}
+    <CommunityProjectsPullRequestConversation {...args} />
+  {/snippet}
+</Story>
+
+<Story
+  name="Path owner appears in reviewer picker"
+  args={{
+    pullRequest,
+    canCollaborate: true,
+    canMerge: true,
+    canSubmit: true,
+    members,
+    ownerPubkeys: ["a".repeat(64)],
+    memberForPubkey: () => members[0]!,
+    commentMessage: () => ({
+      id: "c",
+      roomId: "dev",
+      authorId: "author",
+      createdAt: "2026-01-01T00:00:00.000Z",
+      content: "",
+    }),
+    canReact: () => false,
+    reactionOptions: () => [],
+    onToggleReaction: fn(),
+    onMerge: fn(),
+    onSubmitReview: fn(),
+    onRequestReview: fn(),
+    onUpdateLifecycle: fn(),
+    onSubmitComment: fn(),
+  }}
+  play={async ({ canvas }) => {
+    await expect(
+      canvas.getByRole("button", {
+        name: "Request review from a maintainer or path owner",
       }),
     ).toBeVisible();
   }}

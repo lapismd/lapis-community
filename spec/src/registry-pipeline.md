@@ -51,8 +51,10 @@ the same change. Repository Files latest-commit
 Gravatar avatars and History-style SHA copy buttons update that baseline in
 the same change. Repository Overview README fullWidth alignment updates that
 baseline in the same change. Channel `maintainer` / `CanMaintain` authority,
-`OWNERS.md` parsers, extracted repository settings and Overview hosts, and
-create/review/merge gating modules update that baseline in the same change.
+`OWNERS.md` parsers, extracted repository settings and Overview hosts,
+create/review/merge gating modules, path-owner reviewer extras, the bound
+channel People link, and CanMaintain task assignment update that baseline in
+the same change.
 
 For LC-OPS-001 and LC-OPS-004, hosted-project acceptance layers the sibling
 relay's digest-pinned WalGit and RustFS composition onto both the persistent

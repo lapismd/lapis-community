@@ -64,13 +64,15 @@ token or assumes a local Git checkout. Channel `maintainer` is a built-in
 NIP-29 role beside `writer`. Community projects the same `CanMaintain`
 decision the relay enforces: group creator, kind `39001` administrators, or a
 current member with `maintainer`. That capability gates repository create,
-trusted review, and merge. Hosted WalGit repositories advertise merge plus
-relay-owned default-branch protection; GitHub-authoritative repositories keep
-clone/push/protection on GitHub. `OWNERS.md` on the protected tip can add
-path reviewers but cannot loosen those defaults. After a confirmed native
-merge, Community publishes the merging maintainer's signed `1631`. `writer`
-remains chat and posting policy only. The
-`30617` address owner is not a hidden superuser. Buzz Desktop may still
+trusted review, merge, task assignment, and task status. Hosted WalGit
+repositories advertise merge plus relay-owned default-branch protection;
+GitHub-authoritative repositories keep clone/push/protection on GitHub.
+`OWNERS.md` on the protected tip can add path reviewers but cannot loosen
+those defaults. Settings link the bound channel People surface and document
+that `OWNERS.md` lives at the repository root on the protected branch.
+After a confirmed native merge, Community publishes the merging
+maintainer's signed `1631`. `writer` remains chat and posting policy only.
+The `30617` address owner is not a hidden superuser. Buzz Desktop may still
 display author- or owner-trusted reviews; Lapis Community does not. The dedicated Vite application composes
 the NIP-34 project source from the same relay factory and active Community
 identity as channels and Registry, so the ordinary local stack exercises the
