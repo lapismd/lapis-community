@@ -32,11 +32,11 @@ describe("repository settings projection", () => {
       requiredApprovals: 2,
       adminBypass: true,
     });
-    expect(protectedRefPatternsHelp()).toMatch(/cannot disable the default/u);
+    expect(protectedRefPatternsHelp()).toMatch(/additive Active rule/u);
     expect(
       ownersSummary(parseOwnersDocument(`docs/ ${"a".repeat(64)}\n`)),
     ).toContain("docs/");
     expect(ownersFileHelp()).toMatch(/pull request/i);
-    expect(peopleChannelAction("dev")).toBe("Open #dev to manage People");
+    expect(peopleChannelAction("dev")).toBe("Add people to #dev");
   });
 });

@@ -65,14 +65,14 @@ NIP-29 role beside `writer`. Community projects the same `CanMaintain`
 decision the relay enforces: group creator, kind `39001` administrators, or a
 current member with `maintainer`. That capability gates repository create,
 trusted review, merge, task assignment, and task status. Hosted WalGit
-repositories advertise merge plus relay-owned default-branch protection,
-including extra patterns from the NIP-98 protection document, additive
-`protected-ref` announcement tags, required-approval counts, and admin bypass;
+repositories advertise merge plus relay-owned named rulesets,
+including per-rule targets, bypass actors, independent restrict
+create/update/delete flags, required-approval counts, and additive
+`protected-ref` announcement tags;
 GitHub-authoritative repositories keep clone/push/protection on GitHub.
 `OWNERS.md` on the protected tip can add path reviewers but cannot loosen
-those defaults, and neither the document nor extra tags can disable the live
-default.
-Settings link the bound channel People surface and document
+those defaults.
+Settings open the bound channel People member command in place and document
 that `OWNERS.md` lives at the repository root on the protected branch.
 After a confirmed native merge, Community publishes the merging
 maintainer's signed `1631`. `writer` remains chat and posting policy only.
@@ -206,6 +206,10 @@ retention from `src/fixture/seed.ts` lowers that hotspot budget and
 records the new `seed-retention` module. Extracting the repository Options
 rail and `options` surface lowers the `CommunityApplication.svelte` path
 budget and records `project-rail` plus `CommunityProjectsRepositoryRail`.
+Named rulesets extract `protection-ruleset`, `CommunityProjectsRulesetList`,
+`CommunityProjectsRulesetPanel`, `CommunityProjectsRulesetTables`,
+`CommunityProjectsRulesetRules`, and `CommunityProjectsRulesetEditor`;
+member-command room resolution stays beside Application.
 
 ## Requirements
 

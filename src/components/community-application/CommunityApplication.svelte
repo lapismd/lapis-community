@@ -166,7 +166,7 @@
   import CommunityGroupInviteDialog from "../community-group-invite-dialog/CommunityGroupInviteDialog.svelte";
   import CommunityProjectChannelIcon from "../community-project-channel-icon/CommunityProjectChannelIcon.svelte";
   import CommunityNavigation from "../community-navigation/CommunityNavigation.svelte";
-  import CommunityMemberCommand from "../community-member-command/CommunityMemberCommand.svelte";
+  import CommunityApplicationMemberCommand from "./CommunityApplicationMemberCommand.svelte";
   import CommunityMemberAvatar from "../community-member-avatar/CommunityMemberAvatar.svelte";
   import { provideCommunityMemberPresence } from "../community-member-hover-card/presence-context.js";
   import CommunityAgentProfile from "../community-agent-profile/CommunityAgentProfile.svelte";
@@ -190,6 +190,7 @@
   } from "../../projects/project-rail.js";
   import CommunityProjectsRepositoryRail from "../community-projects/CommunityProjectsRepositoryRail.svelte";
   import { provideRepositoryLogPane } from "../../projects/repository-log-pane.svelte.js";
+  import { memberCommandGroupIds, resolveMemberCommandRoom } from "./member-command-room.js";
   import type {
     CommunityProjectsCreateProject,
     CommunityProjectsCreatePullRequest,
@@ -504,6 +505,7 @@
   let roomBrowserKind = $state<"all" | "channel" | "forum">("all");
   let memberCommandOpen = $state(false);
   let memberCommandMode = $state<"view" | "manage" | "select">("view");
+  let memberCommandRoomId = $state<string | undefined>();
   let selectedRecipientIds = $state<string[]>([]);
   let memberCommandTask = $state<ProjectTaskState>();
   let groupInviteOpen = $state(false);
@@ -1096,6 +1098,9 @@
       toast.dismiss(id);
     };
   });
+  const memberCommandRoom = $derived(
+    resolveMemberCommandRoom(presentationRooms, activeRoom, memberCommandRoomId),
+  );
   const activeRoomMemberIds = $derived(
     activeRoom.kind === "direct"
       ? (activeRoom.participantIds ?? [])
@@ -1103,6 +1108,8 @@
           .filter((member) => member.role !== undefined)
           .map((member) => member.id),
   );
+  const memberCommandMemberIds = $derived(
+    memberCommandGroupIds(memberCommandRoom, workspace.members));
   const releaseRoomMembers = $derived(
     isPluginReleaseRoom
       ? activeRoomMemberIds.length === 0
@@ -4882,7 +4889,9 @@
   ): Promise<void> {
     const action = community.actions.setMemberRoles;
     if (action === undefined) throw new Error("Member roles are unavailable");
-    await runAuthenticated(() => action(activeRoom.id, member.id, roles));
+    await runAuthenticated(() =>
+      action(memberCommandRoom.id, member.id, roles),
+    );
     toast.success(`${member.name}'s roles updated`);
   }
 
@@ -4928,7 +4937,7 @@
     }
     if (memberCommandMode === "manage") {
       void runAuthenticated(() =>
-        community.actions.addMember(activeRoom.id, member.id),
+        community.actions.addMember(memberCommandRoom.id, member.id),
       ).then(
         () => toast.success(`${member.name} added`),
         (cause) =>
@@ -4945,6 +4954,11 @@
     setDestination("new-direct-message", true);
   }
 
+  function openRepositoryPeople(roomId: string): void {
+    memberCommandRoomId = roomId;
+    memberCommandMode = "manage";
+    memberCommandOpen = true;
+  }
   function startDirectMessage(): void {
     if (!selectedRecipientIds.length) return;
     memberCommandOpen = false;
@@ -6948,6 +6962,7 @@
           onSubmitPullRequestReview={publishPullRequestReview}
           onRequestPullRequestReview={requestPullRequestReview}
           onMergePullRequest={mergePullRequest}
+          onOpenPeople={openRepositoryPeople}
           onSaveProtection={saveRepositoryProtection}
           onUpdatePullRequestLifecycle={updatePullRequestLifecycle}
           onAddPullRequestComment={publishPullRequestComment}
@@ -7132,10 +7147,7 @@
                   statusOpen = true;
                 });
               if (action === "manage-members") {
-                void runAuthenticated(() => {
-                  memberCommandMode = "manage";
-                  memberCommandOpen = true;
-                });
+                void runAuthenticated(() => openRepositoryPeople(activeRoom.id));
               }
               if (action === "send-feedback") void extensions.feedback?.();
             }}
@@ -7456,6 +7468,7 @@
         onSubmitPullRequestReview={publishPullRequestReview}
         onRequestPullRequestReview={requestPullRequestReview}
         onMergePullRequest={mergePullRequest}
+        onOpenPeople={openRepositoryPeople}
         onSaveProtection={saveRepositoryProtection}
         onUpdatePullRequestLifecycle={updatePullRequestLifecycle}
         onAddPullRequestComment={publishPullRequestComment}
@@ -8617,32 +8630,18 @@
   }}
 />
 
-<CommunityMemberCommand
+<CommunityApplicationMemberCommand
   bind:open={memberCommandOpen}
-  title={memberCommandMode === "select" && memberCommandTask
-    ? `Assign ${memberCommandTask.title}`
-    : memberCommandMode === "select"
-      ? "New direct message"
-      : `${activeRoom.kind === "forum" ? "Forum" : activeRoom.kind === "direct" ? "Conversation" : "Channel"} members`}
   mode={memberCommandMode}
+  room={memberCommandRoom}
   members={workspace.members}
   results={community.state.memberDirectory.results}
-  groupMemberIds={activeRoomMemberIds}
-  {...workspace.currentMemberId === undefined
-    ? {}
-    : { currentMemberId: workspace.currentMemberId }}
-  roomKind={activeRoom.kind === "direct" ? "conversation" : activeRoom.kind}
+  groupMemberIds={memberCommandMemberIds}
+  currentMemberId={workspace.currentMemberId}
   selectedIds={selectedRecipientIds}
-  selectionLabel={memberCommandMode === "select" && memberCommandTask
-    ? "Selected assignees"
-    : "Selected recipients"}
-  confirmLabel={memberCommandMode === "select" && memberCommandTask
-    ? "Update assignees"
-    : "Start message"}
-  allowEmptySelection={memberCommandMode === "select" &&
-    memberCommandTask !== undefined}
-  completeness={activeRoom.memberListCompleteness ?? "unavailable"}
-  roleDefinitions={activeRoom.roleDefinitions ?? []}
+  task={memberCommandTask}
+  canSetRoles={community.state.capabilities.memberRoles === true &&
+    community.actions.setMemberRoles !== undefined}
   onSearch={(query) => void community.actions.searchMembers(query)}
   onSelect={selectMember}
   onRemove={(member) => {
@@ -8652,7 +8651,7 @@
       );
     else
       void runAuthenticated(() =>
-        community.actions.removeMember(activeRoom.id, member.id),
+        community.actions.removeMember(memberCommandRoom.id, member.id),
       ).then(
         () => toast.success(`${member.name} removed`),
         (cause) =>
@@ -8663,10 +8662,7 @@
           ),
       );
   }}
-  {...community.state.capabilities.memberRoles === true &&
-  community.actions.setMemberRoles !== undefined
-    ? { onSetRoles: setMemberRoles }
-    : {}}
+  onSetRoles={setMemberRoles}
   onConfirm={memberCommandMode === "select"
     ? () => void updateSelectedTaskAssignments()
     : () => (memberCommandOpen = false)}

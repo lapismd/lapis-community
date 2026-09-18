@@ -3,21 +3,39 @@ role (“Can create repositories on this channel and review or merge its pull
 requests”) beside Writer. The create-repository dialog MUST disable channels
 the viewer cannot maintain and MUST explain why. Submit review, Merge, and the
 reviewer picker MUST use that same `CanMaintain` capability. Repository
-settings MUST show the live default branch, that pull requests are required,
-the protected ref, any extra compiled `protected-ref` patterns, required
-approvals, admin bypass, who can merge, and any `OWNERS.md` path reviewers
-without growing `CommunityProjects.svelte`. Those settings MUST NOT render
-on the repository Overview README. The far-right project overview rail MUST
-include an Options item with a gears icon; selecting it MUST open the
-repository `options` surface that shows permissions and the other settings.
-Options MUST NOT appear among the repository toolbar tabs. Maintainers MUST be able to add,
-remove, and save extra patterns plus those two fields through the relay-owned
-protection document. Settings MUST say extra patterns come from that document
-and additive announcement `protected-ref` tags and cannot disable the default
-branch. Settings MUST link the bound channel so
-People can assign Maintainer there, and MUST say `OWNERS.md` lives at the
-repository root on the protected branch and is edited through a pull request.
-The Files preview MUST repeat that `OWNERS.md` note when that path is open.
+settings MUST show permissions, named branch rulesets, that pull requests are
+required, who can merge, and any `OWNERS.md` path reviewers without growing
+`CommunityProjects.svelte`. Those settings MUST NOT render on the repository
+Overview README. The far-right project overview rail MUST restore the
+repository name plus muted source-label chrome and include an Options item
+with a gears icon only on the Overview Details rail and the selected
+`options` surface. Options MUST NOT appear on Files, Commits, Tasks, or
+Review, or among the repository toolbar tabs. Selecting Options MUST open
+the repository `options` surface. Permissions MUST open
+`CommunityMemberCommand` `mode="manage"` for the bound home channel in place
+and MUST NOT change the Projects destination. Maintainers MUST be able to
+create, edit, disable, and delete named rulesets with Active/Disabled
+enforcement, include/exclude targets, bypass actors, independent restrict
+create/update/delete flags, and required approvals through the relay-owned
+protection document. Options MUST list those rulesets as bordered
+collapsible cards. Each collapsed card MUST show an enforcement glyph, the
+ruleset title, a muted `N branch rules • targeting …` summary, and an
+overflow menu. Hover MUST apply only to that summary row and MUST NOT
+extend onto the expanded editor. The expanded editor MUST use a Design
+Core Switch for Active/Disabled enforcement. Disabled cards MUST use a
+circular-x enforcement glyph. Member bypass actors MUST render
+`CommunityMemberHoverCard` avatars. Bypass actors and branch targets MUST
+be toolbar cards with empty copy, include/exclude rows, and icon-only
+remove actions rather than Design Core tables. Branch rules MUST be a
+checkbox list with helper text under each rule label and a vertically
+centered checkbox.
+Required approvals MUST use a Design Core Slider. Bypass list, target
+branches, and branch rules MUST keep their section descriptions. Options
+MUST NOT render helper paragraphs under Permissions or `OWNERS.md`; those
+sections MUST keep the People action and any path-reviewer summary.
+Announcement `protected-ref` tags remain an additive Active rule. The
+Files preview MUST say `OWNERS.md` lives at the repository root on the
+protected branch and is edited through a pull request.
 GitHub-authoritative repositories MUST say clone, push, and branch protection
 stay on GitHub. Merge errors MUST name missing path owners when `OWNERS.md`
 still blocks the merge.

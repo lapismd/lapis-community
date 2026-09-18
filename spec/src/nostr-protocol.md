@@ -202,11 +202,17 @@ Provider-authoritative GitHub pull-request roots that already carry
 `external-provider` provenance MAY keep a same-signer bridge `1631`.
 `OWNERS.md` on that protected tip MAY add path reviewers and MUST NOT loosen
 channel create, review, or merge defaults. The relay-owned protection document
-MAY add extra patterns, a required-approval count, and admin bypass. Additive
-`protected-ref` announcement tags MAY protect extra branch patterns. Neither
-the document nor those tags MUST disable the live default. Community MUST
-show those repository permission and protection settings on the `options`
-surface opened from the project overview rail, not on Overview. Trusted task
+MAY persist a versioned list of named rulesets with Active/Disabled
+enforcement, include/exclude targets including all heads, per-rule bypass
+actors, independent restrict create/update/delete flags, and required
+approvals. Additive `protected-ref` announcement tags remain an implicit
+Active rule that restricts updates and deletions without bypass. Empty new
+documents MUST NOT imply default-branch protection until a ruleset matches.
+Legacy `{protected_patterns, required_approvals, admin_bypass}` documents
+MUST migrate to one Active Default rule. Community MUST show those
+repository permission and protection settings on the `options` surface
+opened from the project overview rail, not on Overview. Permissions MUST
+open the home-channel member command in place. Trusted task
 assignment and task status MUST use the same
 `CanMaintain` set; the issue author and `30617` owner MUST NOT assign others
 or change task status unless they `CanMaintain`. Buzz Desktop MAY still

@@ -4,6 +4,10 @@ import {
   compileProtectedRefPatterns,
   normalizeProtectedPattern,
 } from "./protected-refs.js";
+import {
+  normalizeProtectionRules,
+  type ProjectForgeProtectionRule,
+} from "./protection-ruleset.js";
 import { repositoryForgePath } from "./repository-address.js";
 
 export const MAX_DOCUMENT_PATTERNS = 16;
@@ -11,9 +15,11 @@ export const MAX_REQUIRED_APPROVALS = 16;
 export const DEFAULT_REQUIRED_APPROVALS = 1;
 
 export interface ProjectForgeProtectionDocumentInput {
-  protected_patterns: string[];
-  required_approvals: number;
-  admin_bypass: boolean;
+  version?: number;
+  rules?: ProjectForgeProtectionRule[];
+  protected_patterns?: string[];
+  required_approvals?: number;
+  admin_bypass?: boolean;
 }
 
 export interface ProjectForgeProtectionDocumentResponse {
@@ -32,11 +38,14 @@ export function normalizeRequiredApprovals(value: number | undefined): number {
 export function normalizeProtectionDocumentInput(
   input: ProjectForgeProtectionDocumentInput,
 ): ProjectForgeProtectionDocumentInput {
+  if (input.rules) {
+    return { version: 1, rules: normalizeProtectionRules(input.rules) };
+  }
   const patterns = compileProtectedRefPatterns(input.protected_patterns);
   if (patterns.length > MAX_DOCUMENT_PATTERNS) {
     throw new Error("Branch protection allows at most 16 extra patterns");
   }
-  for (const raw of input.protected_patterns) {
+  for (const raw of input.protected_patterns ?? []) {
     if (raw.trim() && !normalizeProtectedPattern(raw)) {
       throw new Error(`Invalid protected-ref pattern: ${raw}`);
     }

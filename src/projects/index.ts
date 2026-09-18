@@ -11,5 +11,6 @@ export * from "./repository-source-reads.js";
 export * from "./patch.js";
 export * from "./review-preferences.js";
 export * from "./protection-document.js";
+export * from "./protection-ruleset.js";
 export * from "./hosted-merge.js";
 export * from "./github-repository-match.js";

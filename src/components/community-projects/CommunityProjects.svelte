@@ -169,7 +169,7 @@
     onBack,
     onSelectProject,
     onSelectRepository,
-    onSelectChannel,
+    onSelectChannel, onOpenPeople,
     onOpenProfile,
     onMessageMember,
     onWaveMember,
@@ -2809,7 +2809,7 @@
           {communityEmojis}
           homeChannelId={projectHomeChannel?.channelId}
           canMaintain={canMaintainSelectedRepository}
-          {onSelectChannel}
+          {onOpenPeople}
           onSaveProtection={selectedRepository && onSaveProtection
             ? (input) => onSaveProtection(selectedRepository.address.coordinate, input)
             : undefined}

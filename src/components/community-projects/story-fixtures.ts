@@ -680,7 +680,12 @@ export function createProjectStoryDataSource(
           };
         },
         async updateRepositoryProtection(_repository, input) {
-          return { document_patterns: input.protected_patterns, required_approvals: input.required_approvals, admin_bypass: input.admin_bypass };
+          return {
+            ...(input.rules ? { rules: input.rules } : {}),
+            document_patterns: input.protected_patterns ?? [],
+            required_approvals: input.required_approvals ?? 1,
+            admin_bypass: input.admin_bypass === true,
+          };
         },
         async loadGitHubConnections() {
           return { connections: [] };

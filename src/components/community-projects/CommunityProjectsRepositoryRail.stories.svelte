@@ -51,6 +51,55 @@
     const options = canvas.getByRole("button", { name: "Options" });
     await expect(options).toHaveAttribute("aria-current", "page");
     await expect(options).toBeVisible();
+    await expect(canvas.getByText("Relay hosted")).not.toBeInTheDocument();
+  }}
+>
+  {#snippet template(args)}
+    <CommunityProjectsRepositoryRail {...args} />
+  {/snippet}
+</Story>
+
+<Story
+  name="Overview shows relay hosted chrome"
+  args={{
+    surface: "overview",
+    name: "community-client",
+    sourceLabel: "Relay hosted",
+    files: 3,
+    onSelect: fn(),
+  }}
+  play={async ({ canvas }) => {
+    const hosted = canvas.getByText("Relay hosted");
+    await expect(hosted).toBeVisible();
+    await expect(hosted.closest("div")).toHaveClass(
+      "community-application__project-overview-repository",
+    );
+    await expect(canvas.getByText("Details")).toBeVisible();
+    await expect(
+      canvas.getByRole("button", { name: "Options" }),
+    ).toBeVisible();
+  }}
+>
+  {#snippet template(args)}
+    <CommunityProjectsRepositoryRail {...args} />
+  {/snippet}
+</Story>
+
+<Story
+  name="Files hides options"
+  args={{
+    surface: "files",
+    name: "community-client",
+    sourceLabel: "Relay hosted",
+    files: 3,
+    onSelect: fn(),
+  }}
+  play={async ({ canvas }) => {
+    await expect(
+      canvas.queryByRole("button", { name: "Options" }),
+    ).not.toBeInTheDocument();
+    await expect(canvas.queryByText("Relay hosted")).not.toBeInTheDocument();
+    await expect(canvas.getByRole("button", { name: "Files" })).toBeVisible();
   }}
 >
   {#snippet template(args)}

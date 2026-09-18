@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   compileProtectedRefPatterns,
   normalizeProtectedPattern,
+  normalizeRulesetPattern,
 } from "./protected-refs.js";
 
 describe("protected-ref patterns", () => {
@@ -11,5 +12,9 @@ describe("protected-ref patterns", () => {
     expect(
       compileProtectedRefPatterns(["release/*", "*", "jj-sync/*", "release/*"]),
     ).toEqual(["refs/heads/release/*"]);
+    expect(normalizeRulesetPattern("refs/heads/*")).toBe("refs/heads/*");
+    expect(normalizeRulesetPattern("releases/**")).toBe(
+      "refs/heads/releases/**",
+    );
   });
 });

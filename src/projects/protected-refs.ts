@@ -8,6 +8,7 @@ export interface ProjectForgeBranchProtection {
   pull_requests_required?: boolean;
   merge_actors?: string;
   github_authoritative?: boolean;
+  rules?: import("./protection-ruleset.js").ProjectForgeProtectionRule[];
 }
 
 const MAX_PATTERN_LENGTH = 256;
@@ -46,6 +47,29 @@ export function normalizeProtectedPattern(raw: string): string | undefined {
   return normalized;
 }
 
+export function normalizeRulesetPattern(raw: string): string | undefined {
+  const trimmed = raw.trim();
+  if (!trimmed || trimmed.length > MAX_PATTERN_LENGTH) return undefined;
+  const normalized = normalizeRefName(trimmed);
+  if (normalized === "refs/heads/*" || normalized === "refs/heads/**") {
+    return "refs/heads/*";
+  }
+  if (normalized.includes("**")) {
+    if (!normalized.endsWith("/**")) return undefined;
+    const prefix = normalized.slice(0, -3);
+    if (
+      !prefix.startsWith("refs/heads/") ||
+      prefix.includes("*") ||
+      prefix === "refs/heads/jj-sync" ||
+      prefix.startsWith(JJ_SYNC_PREFIX)
+    ) {
+      return undefined;
+    }
+    return normalized;
+  }
+  return normalizeProtectedPattern(raw);
+}
+
 export function compileProtectedRefPatterns(
   raw: readonly string[] | undefined,
 ): string[] {
@@ -61,5 +85,5 @@ export function compileProtectedRefPatterns(
 }
 
 export function protectedRefPatternsHelp(): string {
-  return "Extra patterns come from the relay-owned protection document and additive announcement protected-ref tags. They cannot disable the default branch.";
+  return "Announcement protected-ref tags remain an additive Active rule that restricts updates and deletions without bypass. Named rulesets apply only when they match.";
 }

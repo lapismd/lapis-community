@@ -53,6 +53,36 @@ describe("protection document", () => {
     });
   });
 
+  it("normalizes a named ruleset document", () => {
+    expect(
+      normalizeProtectionDocumentInput({
+        version: 1,
+        rules: [
+          {
+            id: "",
+            name: "Release",
+            enforcement: "active",
+            targets: [{ type: "all" }],
+            bypass: [{ kind: "maintainer" }],
+            restrict_creations: false,
+            restrict_updates: false,
+            restrict_deletions: true,
+            required_approvals: 2,
+          },
+        ],
+      }),
+    ).toMatchObject({
+      version: 1,
+      rules: [
+        {
+          id: "release",
+          restrict_deletions: true,
+          required_approvals: 2,
+        },
+      ],
+    });
+  });
+
   it("saves the relay-owned repository protection document", async () => {
     const requests: Array<{ url: string; method: string; body: string }> = [];
     const fetch = vi.fn(

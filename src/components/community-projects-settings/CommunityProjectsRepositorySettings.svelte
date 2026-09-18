@@ -6,7 +6,6 @@
   import type { OwnersDocument } from "../../projects/owners.js";
   import CommunityProjectsBranchProtection from "./CommunityProjectsBranchProtection.svelte";
   import {
-    ownersFileHelp,
     ownersSummary,
     peopleChannelAction,
   } from "./community-projects-settings.js";
@@ -14,6 +13,7 @@
   let {
     capabilities,
     owners,
+    members = [],
     peopleChannelName,
     canMaintain = false,
     onOpenPeople,
@@ -21,6 +21,7 @@
   }: {
     capabilities?: ProjectForgeRepositoryCapabilities | undefined;
     owners?: OwnersDocument | undefined;
+    members?: readonly import("../community-workspace/model.js").CommunityMemberModel[] | undefined;
     peopleChannelName?: string | undefined;
     canMaintain?: boolean | undefined;
     onOpenPeople?: (() => void) | undefined;
@@ -37,11 +38,6 @@
   aria-label="Repository permissions"
 >
   <h2>Permissions</h2>
-  <p>
-    Channel creator, administrators, and members with the Maintainer role can
-    create repositories and review or merge pull requests. Assign those roles
-    from channel People.
-  </p>
   {#if peopleAction && onOpenPeople}
     <Button type="button" variant="outline" size="sm" onclick={onOpenPeople}>
       {peopleAction}
@@ -51,18 +47,19 @@
   {#key JSON.stringify(capabilities?.protection)}
     <CommunityProjectsBranchProtection
       {capabilities}
+      {members}
       {canMaintain}
       {onSaveProtection}
     />
   {/key}
   <h2>OWNERS.md</h2>
-  <p>{ownersFileHelp()}</p>
   <p>{ownersSummary(owners)}</p>
 </section>
 
 <style>
   .community-projects-settings {
     display: grid;
+    justify-items: start;
     gap: 0.75rem;
     margin-block-end: 1.5rem;
     max-width: 48rem;

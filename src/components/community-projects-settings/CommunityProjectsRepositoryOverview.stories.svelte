@@ -1,6 +1,6 @@
 <script module lang="ts">
   import { defineMeta } from "@storybook/addon-svelte-csf";
-  import { expect } from "storybook/test";
+  import { expect, fn } from "storybook/test";
 
   import CommunityProjectsRepositoryOverview from "./CommunityProjectsRepositoryOverview.svelte";
 
@@ -67,6 +67,27 @@
     await expect(
       canvas.queryByRole("heading", { name: "Community Client" }),
     ).not.toBeInTheDocument();
+  }}
+>
+  {#snippet template(args)}
+    <CommunityProjectsRepositoryOverview {...args} />
+  {/snippet}
+</Story>
+
+<Story
+  name="Options people opens member command"
+  args={{
+    surface: "options",
+    capabilities: hostedProtection,
+    homeChannelId: "dev",
+    rooms: [{ id: "dev-room", name: "dev", kind: "channel", groupId: "dev" }],
+    onOpenPeople: fn(),
+  }}
+  play={async ({ args, canvas, userEvent }) => {
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Add people to #dev" }),
+    );
+    await expect(args.onOpenPeople).toHaveBeenCalledWith("dev-room");
   }}
 >
   {#snippet template(args)}

@@ -172,6 +172,7 @@ export interface CommunityProjectsProps {
   onSelectProject?: (project: ProjectForgeProject) => void;
   onSelectRepository?: (repository: ProjectForgeRepository) => void;
   onSelectChannel?: (roomId: string) => void;
+  onOpenPeople?: (roomId: string) => void;
   onOpenProfile?: (member: CommunityMemberModel) => void;
   onMessageMember?: (member: CommunityMemberModel) => void | Promise<void>;
   onWaveMember?: (member: CommunityMemberModel) => void | Promise<void>;

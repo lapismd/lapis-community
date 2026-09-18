@@ -30,7 +30,7 @@
     communityEmojis = [],
     homeChannelId,
     canMaintain = false,
-    onSelectChannel,
+    onOpenPeople,
     onSaveProtection,
     sourceErrorSnippet,
   }: {
@@ -46,7 +46,7 @@
     communityEmojis?: readonly CommunityCustomEmoji[] | undefined;
     homeChannelId?: string | undefined;
     canMaintain?: boolean | undefined;
-    onSelectChannel?: ((roomId: string) => void) | undefined;
+    onOpenPeople?: ((roomId: string) => void) | undefined;
     onSaveProtection?:
       | ((input: ProjectForgeProtectionDocumentInput) => Promise<void>)
       | undefined;
@@ -66,10 +66,11 @@
     <CommunityProjectsRepositorySettings
       {capabilities}
       {owners}
+      {members}
       peopleChannelName={peopleChannel?.name}
       {canMaintain}
-      onOpenPeople={peopleChannel && onSelectChannel
-        ? () => onSelectChannel(peopleChannel.roomId)
+      onOpenPeople={peopleChannel && onOpenPeople
+        ? () => onOpenPeople(peopleChannel.roomId)
         : undefined}
       {onSaveProtection}
     />

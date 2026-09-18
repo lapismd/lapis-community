@@ -139,15 +139,36 @@
   {@render railStat(CircleDotIcon, "Open", openReviews)}
   {@render railStat(CircleCheckIcon, "Merged", mergedReviews)}
 {/if}
-<Button
-  type="button"
-  variant="ghost"
-  class="community-application__project-overview-item"
-  data-ui-part="repository-options"
-  data-active={itemActive("Options") ? "" : undefined}
-  aria-current={itemActive("Options") ? "page" : undefined}
-  onclick={() => onSelect("Options")}
->
-  <SettingsIcon data-icon="inline-start" aria-hidden="true" />
-  <span>Options</span>
-</Button>
+{#if detailsOpen}
+  <Button
+    type="button"
+    variant="ghost"
+    class="community-application__project-overview-item"
+    data-ui-part="repository-options"
+    data-active={itemActive("Options") ? "" : undefined}
+    aria-current={itemActive("Options") ? "page" : undefined}
+    onclick={() => onSelect("Options")}
+  >
+    <SettingsIcon data-icon="inline-start" aria-hidden="true" />
+    <span>Options</span>
+  </Button>
+{/if}
+
+<style>
+  .community-application__project-overview-repository {
+    display: grid;
+    gap: 0.08rem;
+    padding: 0.3rem 0.4rem;
+    font-size: var(--community-text-secondary);
+  }
+
+  .community-application__project-overview-repository span,
+  .community-application__project-overview-label {
+    color: var(--muted-foreground);
+    font-size: var(--community-text-secondary);
+  }
+
+  .community-application__project-overview-label {
+    margin: 0.9rem 0.4rem 0.3rem;
+  }
+</style>

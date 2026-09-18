@@ -2,6 +2,10 @@ import { normalizeRequiredApprovals } from "../../projects/protection-document.j
 import type { ProjectForgeRepositoryCapabilities } from "../../projects/model.js";
 import type { OwnersDocument } from "../../projects/owners.js";
 import { compileProtectedRefPatterns } from "../../projects/protected-refs.js";
+import {
+  rulesetsFromProtection,
+  type ProjectForgeProtectionRule,
+} from "../../projects/protection-ruleset.js";
 
 export function repositoryProtectionSummary(
   capabilities: ProjectForgeRepositoryCapabilities | undefined,
@@ -16,6 +20,7 @@ export function repositoryProtectionSummary(
   pullRequestsRequired: boolean;
   mergeActors: string;
   githubAuthoritative: boolean;
+  rules: ProjectForgeProtectionRule[];
 } {
   const protection = capabilities?.protection;
   const protectedPatterns = compileProtectedRefPatterns(
@@ -44,6 +49,7 @@ export function repositoryProtectionSummary(
         ? "GitHub"
         : "channel maintainers and administrators"),
     githubAuthoritative: protection?.github_authoritative === true,
+    rules: rulesetsFromProtection(protection),
   };
 }
 
@@ -65,5 +71,5 @@ export function peopleChannelAction(
 ): string | undefined {
   const trimmed = name?.replace(/^#/u, "").trim();
   if (!trimmed) return undefined;
-  return `Open #${trimmed} to manage People`;
+  return `Add people to #${trimmed}`;
 }
