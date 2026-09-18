@@ -348,6 +348,10 @@
   cursor: pointer;
 }
 
+.community-projects__activity-card:not(button) {
+  cursor: default;
+}
+
 .community-projects__activity-card:hover {
   background: transparent;
 }
@@ -359,8 +363,30 @@
 
 .community-projects__activity-title {
   display: flex;
+  min-width: 0;
   align-items: center;
   gap: 0.45rem;
+}
+
+.community-projects__activity-title--with-ids {
+  width: 100%;
+}
+
+.community-projects__activity-copy-ids {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+  min-width: 0;
+  color: var(--foreground);
+}
+
+.community-projects__activity-copy-ids .community-revision-graph-ids {
+  flex: 0 1 auto;
+  width: max-content;
+  max-width: 100%;
 }
 
 .community-projects__activity-status,
@@ -368,9 +394,12 @@
   flex: none;
 }
 
-.community-projects__activity-title svg {
+.community-projects__activity-title > svg {
+  display: block;
   width: 0.95rem;
   height: 0.95rem;
+  flex: 0 0 auto;
+  align-self: center;
 }
 
 .community-projects__activity-title[data-activity-kind="project"],

@@ -10,6 +10,8 @@
   const owner = "1".repeat(64);
   const projectCoordinate = `30617:${owner}:notes`;
   const sha = "a".repeat(40);
+  const operationId = "4cdef".repeat(16);
+  const replicaId = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
   const member: CommunityMemberModel = {
     id: owner,
     name: "Maya Chen",
@@ -34,8 +36,8 @@
       createdAt: 1_699_000_000,
       actorPubkey: owner,
       action: "published a jj-sync operation in",
-      title: "4cdef4cd",
-      body: "replica-desktop",
+      title: operationId,
+      body: replicaId,
       detail: "jj-sync",
       projectCoordinate,
     },
@@ -59,12 +61,40 @@
 
 <Story
   name="Hash copy and jj-sync chip"
-  play={async ({ canvas, canvasElement }) => {
+  play={async ({ canvas }) => {
     const copy = canvas.getByRole("button", {
       name: `Copy full commit ID: ${sha}`,
     });
     await expect(copy).toBeVisible();
     await expect(canvas.queryByText(sha.slice(0, 10))).toBeNull();
+    const operation = canvas.getByRole("button", {
+      name: `Copy full operation ID: ${operationId}`,
+    });
+    const replica = canvas.getByRole("button", {
+      name: `Copy full replica ID: ${replicaId}`,
+    });
+    await expect(operation).toBeVisible();
+    await expect(replica).toBeVisible();
+    await expect(operation.closest("button")).toBe(operation);
+    const operationBox = operation.getBoundingClientRect();
+    const replicaBox = replica.getBoundingClientRect();
+    await expect(replicaBox.left).toBeGreaterThan(operationBox.right);
+    await expect(replicaBox.top).toBeCloseTo(operationBox.top, 0);
+    const title = operation.closest(
+      ".community-projects__activity-title",
+    ) as HTMLElement;
+    const icon = title.querySelector(":scope > svg") as SVGElement;
+    const midpoint = (box: DOMRect) => box.top + box.height / 2;
+    await expect(
+      Math.abs(midpoint(icon.getBoundingClientRect()) - midpoint(operationBox)),
+    ).toBeLessThan(2);
+    const group = operation.closest(
+      ".community-projects__activity-copy-ids",
+    ) as HTMLElement;
+    group.style.maxWidth = "7rem";
+    const wrappedOperation = operation.getBoundingClientRect();
+    const wrappedReplica = replica.getBoundingClientRect();
+    await expect(wrappedReplica.top).toBeGreaterThan(wrappedOperation.bottom);
     const sync = canvas.getByText("jj-sync");
     await expect(sync).toHaveAttribute("data-chip-shape", "square");
     await expect(sync).toHaveAttribute("data-chip-variant", "muted");

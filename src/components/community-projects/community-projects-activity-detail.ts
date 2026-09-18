@@ -25,8 +25,23 @@ function activityStatusLabel(value: string): string {
   return value[0]!.toUpperCase() + value.slice(1);
 }
 
+export type ActivityCopyableId = { value: string; copyLabel: string };
+
 export function isActivityHashDetail(value: string): boolean {
   return ACTIVITY_HASH.test(value);
+}
+
+export function activityCopyableIds(item: ProjectForgeActivityItem): {
+  title?: ActivityCopyableId;
+  body?: ActivityCopyableId;
+} {
+  if (item.kind !== "commit" || item.detail !== "jj-sync") return {};
+  return {
+    title: { value: item.title, copyLabel: "operation ID" },
+    ...(item.body
+      ? { body: { value: item.body, copyLabel: "replica ID" } }
+      : {}),
+  };
 }
 
 export function activityDetailPresentation(

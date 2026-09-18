@@ -324,7 +324,11 @@ HEAD-only `/refs` response as the complete picker list. The Files switcher
 MUST partition `jj-sync/` carriers onto a Sync tab.
 The repository workspace MUST expose an Activity tab that reuses the project
 activity feed for dest-Git commits, NIP-34 work items, and kind `3901`
-jj-sync operations scoped to the selected repository. A Log tab after
+jj-sync operations scoped to the selected repository. Kind `3901` cards MUST
+keep the full `operation_id` and `replica_id` and render them as History-style
+copy buttons labelled operation ID and replica ID on one title row that
+uses the remaining card width and wraps only when both cannot fit, with the
+leading card glyph vertically centered on that row. A Log tab after
 Activity maps kinds `3902`/`3903` from that same work-item stream onto
 Community's `CommunityProjectsRevisionGraph`, matching `jj log`: ancestors of
 the current view's heads, workspaces, and bookmarks. The current view is the

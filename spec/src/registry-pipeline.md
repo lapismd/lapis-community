@@ -42,7 +42,8 @@ avatar email tooltips, `CommunityRelativeTime`, and removal of the Snapshot chip
 and author-name text update that baseline in the same change. Dest-Git Commits
 rows reuse that git-author Gravatar avatar instead of a member hover card and
 update that baseline in the same change. Projects Activity dest-Git hash copy
-buttons, muted square `jj-sync` chips, and single-`@` member handle labels
+buttons, kind `3901` operation-ID and replica-ID copy buttons, muted square
+`jj-sync` chips, and single-`@` member handle labels
 update that baseline in the same change. `jj-sync` chips keep the History
 copy-button fill on muted activity-row hover and update that baseline in the
 same change. Literal `:` project fragment coordinates update that baseline in

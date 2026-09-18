@@ -22,7 +22,10 @@
     CommunityMemberModel,
     CommunityRoomModel,
   } from "../community-workspace/model.js";
-  import { activityDetailPresentation } from "./community-projects-activity-detail.js";
+  import {
+    activityCopyableIds,
+    activityDetailPresentation,
+  } from "./community-projects-activity-detail.js";
   import CommunityProjectsMemberHover from "./CommunityProjectsMemberHover.svelte";
   import CommunityProjectsRevisionGraphIds from "./CommunityProjectsRevisionGraphIds.svelte";
   import { communityProjectsMemberForPubkey } from "./projects-member.js";
@@ -111,6 +114,7 @@
           item.actorPubkey || "relay",
         )}
         {@const detail = activityDetailPresentation(item)}
+        {@const copyable = activityCopyableIds(item)}
         <article class="community-projects__activity-item">
           <CommunityProjectsMemberHover
             member={actor}
@@ -169,13 +173,12 @@
                 </CommunityChip>
               {/if}
             </div>
-            <button
-              type="button"
-              class="community-projects__activity-card"
-              onclick={() => onOpenItem(item)}
-            >
+            {#snippet card()}
               <span
                 class="community-projects__activity-title"
+                class:community-projects__activity-title--with-ids={Boolean(
+                  copyable.title,
+                )}
                 data-activity-kind={item.kind}
               >
                 {#if item.kind === "approval"}
@@ -203,9 +206,26 @@
                 {:else}
                   <CodeXmlIcon aria-hidden="true" />
                 {/if}
-                <strong>{item.title}</strong>
+                {#if copyable.title}
+                  <span class="community-projects__activity-copy-ids">
+                    <CommunityProjectsRevisionGraphIds
+                      commitId={copyable.title.value}
+                      commitLabel={copyable.title.copyLabel}
+                      placement="inline"
+                    />
+                    {#if copyable.body}
+                      <CommunityProjectsRevisionGraphIds
+                        commitId={copyable.body.value}
+                        commitLabel={copyable.body.copyLabel}
+                        placement="inline"
+                      />
+                    {/if}
+                  </span>
+                {:else}
+                  <strong>{item.title}</strong>
+                {/if}
               </span>
-              {#if item.body}
+              {#if !copyable.title && item.body}
                 <CommunityMarkdownContent
                   class="community-projects__activity-body"
                   content={item.body}
@@ -214,7 +234,20 @@
                   {communityEmojis}
                 />
               {/if}
-            </button>
+            {/snippet}
+            {#if copyable.title}
+              <div class="community-projects__activity-card">
+                {@render card()}
+              </div>
+            {:else}
+              <button
+                type="button"
+                class="community-projects__activity-card"
+                onclick={() => onOpenItem(item)}
+              >
+                {@render card()}
+              </button>
+            {/if}
           </div>
         </article>
       {:else}

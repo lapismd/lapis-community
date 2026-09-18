@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 
 import type { ProjectForgeActivityItem } from "../../projects/model.js";
-import { activityDetailPresentation } from "./community-projects-activity-detail.js";
+import {
+  activityCopyableIds,
+  activityDetailPresentation,
+} from "./community-projects-activity-detail.js";
 
 const coordinate = "30617:aa:notes";
 
@@ -37,6 +40,27 @@ describe("activityDetailPresentation", () => {
         item({ kind: "review-update", detail: "b".repeat(40) }),
       ),
     ).toMatchObject({ kind: "hash", value: "b".repeat(40) });
+  });
+
+  it("turns jj-sync operation and replica ids into History-style copy values", () => {
+    const operationId = "4cdef".repeat(16);
+    const replicaId = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
+    expect(
+      activityCopyableIds(
+        item({
+          kind: "commit",
+          detail: "jj-sync",
+          title: operationId,
+          body: replicaId,
+        }),
+      ),
+    ).toEqual({
+      title: { value: operationId, copyLabel: "operation ID" },
+      body: { value: replicaId, copyLabel: "replica ID" },
+    });
+    expect(
+      activityCopyableIds(item({ kind: "commit", detail: "a".repeat(40) })),
+    ).toEqual({});
   });
 
   it("styles jj-sync labels as muted square chips with a sync icon", () => {

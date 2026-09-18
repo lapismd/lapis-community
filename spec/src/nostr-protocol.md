@@ -144,8 +144,9 @@ and can be partitioned onto a Sync tab.
 Work-item observation MUST keep kind `3901` events that carry the
 repository `#a` coordinate so repository Activity can project jj-sync
 operations beside dest-Git commits and NIP-34 collaboration, retain the full
-dest-Git commit SHA for History-style copy buttons, label kind `3901` rows
-`jj-sync` for muted square chips, and MUST keep
+dest-Git commit SHA for History-style copy buttons, retain the full
+`operation_id` and `replica_id` for the same copy buttons, label kind `3901`
+rows `jj-sync` for muted square chips, and MUST keep
 kinds `3902`–`3905` on that same `#a` stream as separate bounded pages so
 repository Log can project
 the current Jujutsu DAG from published kind `3902` revisions once a kind
@@ -208,8 +209,11 @@ change requests from ordinary collaboration comments. Approval and change
 request outcomes MAY supply derived presentation detail and review-aware weekly
 totals, but those labels MUST NOT replace or alter the underlying signed event.
 Dest-Git commit and review-update activity items MUST retain the full commit
-SHA so Activity can offer a History-style copy control, and kind `3901`
-jj-sync items MUST keep a `jj-sync` label distinct from those hashes.
+SHA so Activity can offer a History-style copy control. Kind `3901` jj-sync
+items MUST retain the full `operation_id` and `replica_id` so Activity can
+offer the same copy controls labelled operation ID and replica ID on one
+title row that wraps only when both cannot fit, and MUST
+keep a `jj-sync` label distinct from dest-Git hashes.
 GitHub connection creation, complete replacement, and revalidation MUST sign
 the exact relay forge endpoint and HTTP method with NIP-98. Requests containing
 connection configuration MUST bind the complete JSON payload, while a

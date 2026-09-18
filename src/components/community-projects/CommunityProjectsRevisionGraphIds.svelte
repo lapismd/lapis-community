@@ -99,6 +99,7 @@
     right: auto;
     transform: none;
     flex-direction: row;
+    flex-wrap: wrap;
     align-items: center;
   }
 

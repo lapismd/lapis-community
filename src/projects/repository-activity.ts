@@ -92,10 +92,11 @@ export function jjSyncActivityItems(
     items.push({
       id: `jj-sync:${event.id}`,
       kind: "commit",
-      createdAt: Math.floor(announcement.occurred_at_ms / 1_000) || event.created_at,
+      createdAt:
+        Math.floor(announcement.occurred_at_ms / 1_000) || event.created_at,
       actorPubkey: event.pubkey,
       action: "published a jj-sync operation in",
-      title: announcement.operation_id.slice(0, 8),
+      title: announcement.operation_id,
       body: announcement.replica_id,
       detail: "jj-sync",
       projectCoordinate: project.address.coordinate,
@@ -105,12 +106,14 @@ export function jjSyncActivityItems(
   return items;
 }
 
-function parseJjSyncAnnouncement(content: string): {
-  scope_id: string;
-  replica_id: string;
-  operation_id: string;
-  occurred_at_ms: number;
-} | undefined {
+function parseJjSyncAnnouncement(content: string):
+  | {
+      scope_id: string;
+      replica_id: string;
+      operation_id: string;
+      occurred_at_ms: number;
+    }
+  | undefined {
   try {
     const parsed = JSON.parse(content) as {
       schema?: unknown;

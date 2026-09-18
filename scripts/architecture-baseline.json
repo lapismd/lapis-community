@@ -1818,13 +1818,13 @@
       "forbiddenImportCount": 0
     },
     "src/components/community-projects/community-projects-activity-detail.test.ts": {
-      "countedLines": 67,
-      "physicalLines": 73,
+      "countedLines": 90,
+      "physicalLines": 97,
       "forbiddenImportCount": 0
     },
     "src/components/community-projects/community-projects-activity-detail.ts": {
-      "countedLines": 71,
-      "physicalLines": 77,
+      "countedLines": 84,
+      "physicalLines": 92,
       "forbiddenImportCount": 0
     },
     "src/components/community-projects/CommunityProjects.stories.svelte": {
@@ -1842,13 +1842,13 @@
       "justification": "Projects composition root; extract named surfaces before adding behaviour"
     },
     "src/components/community-projects/CommunityProjectsActivityFeed.stories.svelte": {
-      "countedLines": 77,
-      "physicalLines": 81,
+      "countedLines": 107,
+      "physicalLines": 111,
       "forbiddenImportCount": 0
     },
     "src/components/community-projects/CommunityProjectsActivityFeed.svelte": {
-      "countedLines": 222,
-      "physicalLines": 225,
+      "countedLines": 255,
+      "physicalLines": 258,
       "forbiddenImportCount": 0
     },
     "src/components/community-projects/CommunityProjectsChannelPickerDialog.svelte": {
@@ -2042,8 +2042,8 @@
       "forbiddenImportCount": 0
     },
     "src/components/community-projects/CommunityProjectsRevisionGraphIds.svelte": {
-      "countedLines": 140,
-      "physicalLines": 155,
+      "countedLines": 141,
+      "physicalLines": 156,
       "forbiddenImportCount": 0
     },
     "src/components/community-projects/CommunityProjectsRevisionGraphMessage.svelte": {
@@ -2978,8 +2978,8 @@
       "forbiddenImportCount": 0
     },
     "src/projects/repository-activity.ts": {
-      "countedLines": 133,
-      "physicalLines": 140,
+      "countedLines": 136,
+      "physicalLines": 143,
       "forbiddenImportCount": 0
     },
     "src/projects/repository-evolution-log.test.ts": {

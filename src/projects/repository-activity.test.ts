@@ -134,7 +134,7 @@ describe("repository activity", () => {
       kind: "commit",
       action: "published a jj-sync operation in",
       detail: "jj-sync",
-      title: "4cdef4cd",
+      title: "4cdef".repeat(16),
       body: "replica-desktop",
       repositoryCoordinate,
     });
