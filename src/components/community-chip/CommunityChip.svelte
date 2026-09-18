@@ -185,8 +185,8 @@
       .community-chip[data-chip-variant="muted"][data-chip-shape="square"]
     ) {
     border-color: transparent;
-    color: var(--secondary-foreground);
-    background: var(--secondary);
+    color: inherit;
+    background: color-mix(in srgb, currentcolor 7%, transparent);
   }
 
   :global(.community-chip[data-chip-variant="subtle"]) {

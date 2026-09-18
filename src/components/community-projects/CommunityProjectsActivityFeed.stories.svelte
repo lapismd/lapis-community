@@ -1,6 +1,6 @@
 <script module lang="ts">
   import { defineMeta } from "@storybook/addon-svelte-csf";
-  import { expect, fn } from "storybook/test";
+  import { expect, fn, userEvent } from "storybook/test";
 
   import type { ProjectForgeActivityItem } from "../../projects/model.js";
   import type { CommunityMemberModel } from "../community-workspace/model.js";
@@ -69,5 +69,13 @@
     await expect(sync).toHaveAttribute("data-chip-shape", "square");
     await expect(sync).toHaveAttribute("data-chip-variant", "muted");
     await expect(sync.querySelector(".lucide-refresh-cw")).not.toBeNull();
+    const row = sync.closest(".community-projects__activity-item");
+    await userEvent.hover(row as HTMLElement);
+    await expect(getComputedStyle(sync).backgroundColor).toBe(
+      getComputedStyle(copy).backgroundColor,
+    );
+    await expect(getComputedStyle(sync).backgroundColor).not.toBe(
+      getComputedStyle(row as HTMLElement).backgroundColor,
+    );
   }}
 />

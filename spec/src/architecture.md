@@ -164,7 +164,8 @@ public import boundary.
 Repository-owned source validation keeps that public boundary visible in UI
 code: all semantic and interactive chip presentations resolve to the exported
 `CommunityChip`, whose typed size, tone, shape, icon, link, and action variants compose
-the public Design Core Badge and Button primitives. The checker is
+the public Design Core Badge and Button primitives. Muted square tokens use the
+same currentcolor-mix fill as History copy buttons. The checker is
 development-only and prevents consumer components from creating or locally
 restyling parallel chip implementations.
 

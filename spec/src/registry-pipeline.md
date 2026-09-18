@@ -43,7 +43,9 @@ and author-name text update that baseline in the same change. Dest-Git Commits
 rows reuse that git-author Gravatar avatar instead of a member hover card and
 update that baseline in the same change. Projects Activity dest-Git hash copy
 buttons, muted square `jj-sync` chips, and single-`@` member handle labels
-update that baseline in the same change. Repository Files latest-commit
+update that baseline in the same change. `jj-sync` chips keep the History
+copy-button fill on muted activity-row hover and update that baseline in the
+same change. Repository Files latest-commit
 Gravatar avatars and History-style SHA copy buttons update that baseline in
 the same change.
 

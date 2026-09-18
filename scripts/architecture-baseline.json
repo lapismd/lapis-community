@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "sourceCommit": "e94d7a5e63cb07f7a0f63d498a72f76ea96633f5",
+  "sourceCommit": "abcf3c7542635b9ced44b81102e3b67bfc21d494",
   "limits": {
     "newProductionCountedLines": 300,
     "newTestCountedLines": 500,
@@ -1842,8 +1842,8 @@
       "justification": "Projects composition root; extract named surfaces before adding behaviour"
     },
     "src/components/community-projects/CommunityProjectsActivityFeed.stories.svelte": {
-      "countedLines": 69,
-      "physicalLines": 73,
+      "countedLines": 77,
+      "physicalLines": 81,
       "forbiddenImportCount": 0
     },
     "src/components/community-projects/CommunityProjectsActivityFeed.svelte": {
