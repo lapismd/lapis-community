@@ -86,14 +86,27 @@
   import CommunityProjectsCreateDialogs from "./CommunityProjectsCreateDialogs.svelte";
   import CommunityProjectsPullRequestReview from "./CommunityProjectsPullRequestReview.svelte";
   import CommunityProjectsPullRequestSubmitDialog from "./CommunityProjectsPullRequestSubmitDialog.svelte";
-  import CommunityProjectsRepositoryPane from "./CommunityProjectsRepositoryPane.svelte"; import CommunityProjectsRepositoryLog from "./CommunityProjectsRepositoryLog.svelte";
+  import CommunityProjectsGitAuthorAvatar from "./CommunityProjectsGitAuthorAvatar.svelte";
+  import CommunityProjectsRepositoryPane from "./CommunityProjectsRepositoryPane.svelte";
+  import CommunityProjectsRepositoryLog from "./CommunityProjectsRepositoryLog.svelte";
   import CommunityRelativeTime from "../community-relative-time/CommunityRelativeTime.svelte";
   import type {
     CommunityMemberModel,
     CommunityMessageModel,
     CommunityRoomModel,
   } from "../community-workspace/model.js";
-  import type { CommunityProjectsCreateProject, CommunityProjectsCreatePullRequest, CommunityProjectsCreateRepository, CommunityProjectsCreateTask, CommunityProjectsProps, CommunityProjectsUpdateProject } from "./model.js";
+  import type {
+    CommunityProjectsCreateProject,
+    CommunityProjectsCreatePullRequest,
+    CommunityProjectsCreateRepository,
+    CommunityProjectsCreateTask,
+    CommunityProjectsProps,
+    CommunityProjectsUpdateProject,
+  } from "./model.js";
+  import {
+    commitAuthorMember,
+    commitDate,
+  } from "./commit-author.js";
   import {
     isMarkdownRepositoryPath,
     repositoryBreadcrumbSegments,
@@ -111,7 +124,8 @@
     repositoryOptions = [],
     selectedRepository,
     repositoryCapabilities = {},
-    activity = [], workItemEvents = [],
+    activity = [],
+    workItemEvents = [],
     tasks = [],
     selectedTask,
     pullRequests = [],
@@ -183,7 +197,8 @@
     onTogglePullRequestCommentReaction,
     onLoadRepositoryRefs,
     onSelectRepositoryBranch,
-    onLoadRepositoryPathCommit, onLoadRepositoryCommit,
+    onLoadRepositoryPathCommit,
+    onLoadRepositoryCommit,
     onSelectCommit,
     onCloseCommit,
     onSelectPath,
@@ -2028,40 +2043,6 @@
     };
   }
 
-  function commitAuthorMember(
-    commit: (typeof commits)[number],
-  ): CommunityMemberModel {
-    const name =
-      commit.author?.trim() ||
-      commit.author_name?.trim() ||
-      commit.author_email?.trim() ||
-      "Unknown author";
-    const words = name.split(/\s+/).filter(Boolean);
-    const initials =
-      words.length > 1
-        ? `${words[0]![0] ?? ""}${words[1]![0] ?? ""}`.toUpperCase()
-        : name.slice(0, 2).toUpperCase();
-    return {
-      id: `git:${commit.author_email ?? commit.sha}`,
-      name,
-      handle: commit.author_email ?? name,
-      initials,
-    };
-  }
-
-  function commitDate(value: string | undefined): string {
-    if (!value) return "Unknown date";
-    const date = new Date(value);
-    if (Number.isNaN(date.getTime())) return value;
-    return new Intl.DateTimeFormat("en", {
-      day: "numeric",
-      month: "short",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    }).format(date);
-  }
-
   function reviewCommitSummary(
     sha: string,
     subject: string,
@@ -2727,7 +2708,11 @@
           onOpenProject={openActivityProject}
           onOpenItem={openActivityItem}
         />
-      {:else if view === "log"}<CommunityProjectsRepositoryLog events={workItemEvents} {loading} {onLoadRepositoryCommit} />
+      {:else if view === "log"}<CommunityProjectsRepositoryLog
+          events={workItemEvents}
+          {loading}
+          {onLoadRepositoryCommit}
+        />
       {:else if view === "directory" || view === "projects"}
         <header class="community-projects__directory-header">
           <div>
@@ -3665,7 +3650,6 @@
                 {@render projectSourceError(effectiveSourceError)}
               {:else}
                 {#each commits as commit (commit.sha)}
-                  {@const author = commitAuthorMember(commit)}
                   <article class="community-projects__commit-row">
                     <GitCommitHorizontalIcon
                       class="community-projects__commit-row-icon"
@@ -3691,11 +3675,12 @@
                         <span>{commitBranch}</span>
                       </span>
                     {/if}
-                    <span
-                      class="community-projects__commit-row-author"
-                      title={`Committed by ${author.name}`}
-                    >
-                      {@render memberHoverAvatar(author)}
+                    <span class="community-projects__commit-row-author">
+                      <CommunityProjectsGitAuthorAvatar
+                        email={commit.author_email}
+                        name={commit.author ?? commit.author_name}
+                        size="xsmall"
+                      />
                     </span>
                     <Button
                       type="button"

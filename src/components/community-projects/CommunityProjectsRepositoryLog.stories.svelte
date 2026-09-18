@@ -48,7 +48,11 @@
       change_id_hex: `${id}${"a".repeat(31)}`.slice(0, 32),
       parent_commit_ids: parents,
       description,
-      author: { name: "Maya Chen", timestamp_ms: createdAt * 1_000 },
+      author: {
+        name: "Maya Chen",
+        email: "maya@example.test",
+        timestamp_ms: createdAt * 1_000,
+      },
       ...extras,
     });
   }
@@ -180,13 +184,17 @@
     ).toBeVisible();
     await expect(canvas.getByText("record merged lanes")).toBeVisible();
     await expect(canvas.queryByText("merge lane A and lane B")).toBeNull();
-    const log = canvas.getByRole("region", { name: "Repository log" });
     const graph = canvas.getByRole("list", { name: "Revision graph" });
-    await expect(
-      log.querySelector(
-        "[data-ui-part='column-body'] [data-ui-component='scroll-area']",
-      ),
-    ).not.toBeNull();
+    const log =
+      graph.closest("[aria-label='Repository log']") ??
+      canvas.getByRole("region", { name: "Repository log" });
+    await waitFor(() => {
+      expect(
+        log.querySelector(
+          "[data-ui-part='column-body'] [data-ui-component='scroll-area']",
+        ),
+      ).not.toBeNull();
+    });
     await expect(
       log.querySelector("[data-ui-part='column-body']")?.contains(graph),
     ).toBe(true);
@@ -209,6 +217,22 @@
       canvas.getAllByRole("button", { name: /Copy full commit ID/ }).length,
     ).toBeGreaterThan(0);
     await expect(canvas.queryByText("maya@example.test")).toBeNull();
+    await expect(canvas.queryByText("Maya Chen")).toBeNull();
+    await expect(canvas.queryByText("Snapshot", { exact: true })).toBeNull();
+    const author = await waitFor(() => {
+      const trigger = graph.querySelector("[data-ui-part='git-author']");
+      expect(
+        trigger?.querySelector("img[src*='gravatar.com/avatar/']"),
+      ).not.toBeNull();
+      return trigger as HTMLElement;
+    });
+    await expect(
+      graph.querySelector("[data-ui-component='community-relative-time']"),
+    ).not.toBeNull();
+    await userEvent.hover(author);
+    await expect(author).toHaveAttribute("data-state", "instant-open");
+    await expect(author).toHaveAttribute("aria-describedby");
+    await userEvent.unhover(author);
     await userEvent.click(
       canvas.getByText(/record merged lanes/).closest("[data-revision-id]")!,
     );

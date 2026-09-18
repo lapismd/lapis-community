@@ -1,6 +1,5 @@
 import type {
   RepositoryLogDevice,
-  RepositoryLogReason,
   RepositoryLogRevision,
 } from "./repository-log.js";
 
@@ -73,22 +72,19 @@ export function shortestRepositoryLogPrefix(
   return prefixes;
 }
 
-export function repositoryLogReasonLabel(reason: RepositoryLogReason): string {
-  return reason === "merge" ? "Merge" : "Snapshot";
-}
-
 export function repositoryLogRowLabel(row: {
   revision: RepositoryLogRevision;
   changeIdShort: string;
   commitIdShort: string;
 }): string {
-  return `${row.revision.message} ${row.changeIdShort} ${row.commitIdShort} ${repositoryLogReasonLabel(row.revision.reason)}`
-    .replace(/\s+/gu, " ")
-    .trim();
-}
-
-export function formatRepositoryLogTimestamp(createdAt: number): string {
-  return new Date(createdAt * 1000).toLocaleString();
+  return [
+    row.revision.message,
+    row.changeIdShort,
+    row.commitIdShort,
+    row.revision.reason === "merge" ? "Merge" : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
 }
 
 export function tipRevisionIds(

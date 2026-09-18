@@ -346,7 +346,13 @@ the FileListing empty state rather than a forge error code. Selecting a file MUS
 file patch. The Diff header MUST keep `FileChangeStats` and icon-only
 unified/split and wrap toggles on the trailing edge; FileDiff receives
 `viewMode` and `wrap` only. Log rows MUST label change IDs and commit IDs with
-Community copy buttons from kind `3902` `change_id_hex`. Blank descriptions MUST use jj's
+Community copy buttons from kind `3902` `change_id_hex`. Log and Evolog rows MUST
+lead with `CommunityMemberAvatar` using the Gravatar image for that revision's
+author email, MUST expose that email in a Design Core tooltip on the avatar,
+MUST NOT render the author name or email as visible row text, MUST render
+`createdAt` with `CommunityRelativeTime`, and MUST NOT render a Snapshot reason
+chip. Dest-Git Commits rows MUST reuse that same git-author Gravatar avatar
+and MUST NOT treat a commit author email as a relay member. Blank descriptions MUST use jj's
 `(empty) (no description set)` placeholder. Forked lanes MUST remain until the
 shared parent so the branch edge can meet the main line. Those edges MUST
 use cubic split, merge, and top-of-row converge joins.

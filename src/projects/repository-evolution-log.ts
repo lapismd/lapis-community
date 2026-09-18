@@ -1,5 +1,6 @@
 import type { NostrEvent } from "../protocol/index.js";
 
+import { repositoryLogAuthorFields } from "./repository-log-author.js";
 import {
   REPOSITORY_LOG_EMPTY_DESCRIPTION,
   formatRepositoryLogMessage,
@@ -115,13 +116,9 @@ function parseRevision(
     parents: stringList(body.parent_commit_ids),
     message: formatRepositoryLogMessage(description, empty),
     reason: "checkpoint",
-    createdAt:
-      personSeconds(body.author) ??
-      personSeconds(body.committer) ??
-      event.created_at,
     root: commitId,
-    author: personName(body.author) || personName(body.committer),
     empty,
+    ...repositoryLogAuthorFields(body, event.created_at),
   };
 }
 
@@ -130,17 +127,6 @@ function changeIdHex(event: NostrEvent, body: Record<string, unknown>): string {
     asString(body.change_id_hex) ??
     asString(event.tags.find((tag) => tag[0] === "i")?.[1]);
   return raw && /^[0-9a-fA-F]{32}$/u.test(raw) ? raw.toLowerCase() : "";
-}
-
-function personSeconds(person: unknown): number | undefined {
-  if (!isRecord(person) || typeof person.timestamp_ms !== "number") {
-    return undefined;
-  }
-  return Math.floor(person.timestamp_ms / 1_000);
-}
-
-function personName(person: unknown): string {
-  return isRecord(person) && typeof person.name === "string" ? person.name : "";
 }
 
 function parseJson(content: string): unknown {

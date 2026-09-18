@@ -1,5 +1,6 @@
 import type { NostrEvent } from "../protocol/index.js";
 
+import { repositoryLogAuthorFields } from "./repository-log-author.js";
 import { projectRepositoryLog } from "./repository-log-collapse.js";
 import {
   KIND_JJ_OPERATION_GRAPH,
@@ -19,6 +20,8 @@ export type RepositoryLogRevision = {
   createdAt: number;
   root: string;
   author: string;
+  authorEmail?: string;
+  authorAvatarUrl?: string;
   empty: boolean;
 };
 
@@ -124,20 +127,15 @@ function parseRevision(
     body.is_empty === true ||
     (isRecord(body.facts) && body.facts.is_empty === true) ||
     description.trim() === "";
-  const createdAt =
-    personSeconds(body.author) ??
-    personSeconds(body.committer) ??
-    event.created_at;
   return {
     eventId: commitId,
     changeId: changeIdHex(event, body),
     parents,
     message: formatRepositoryLogMessage(description, empty),
     reason: parents.length > 1 ? "merge" : "checkpoint",
-    createdAt,
     root: commitId,
-    author: personName(body.author) || personName(body.committer),
     empty,
+    ...repositoryLogAuthorFields(body, event.created_at),
   };
 }
 
@@ -267,17 +265,6 @@ function compareRevisions(
 function resolvedCommitId(target: unknown): string | undefined {
   if (!isRecord(target) || target.state !== "resolved") return undefined;
   return asString(target.commit_id);
-}
-
-function personSeconds(person: unknown): number | undefined {
-  if (!isRecord(person) || typeof person.timestamp_ms !== "number") {
-    return undefined;
-  }
-  return Math.floor(person.timestamp_ms / 1_000);
-}
-
-function personName(person: unknown): string {
-  return isRecord(person) && typeof person.name === "string" ? person.name : "";
 }
 
 function stringList(value: unknown): string[] {

@@ -1,11 +1,8 @@
 <script lang="ts">
-  import GitMerge from "@lucide/svelte/icons/git-merge";
-  import Camera from "@lucide/svelte/icons/camera";
   import type { Snippet } from "svelte";
 
-  import CommunityChip from "../community-chip/CommunityChip.svelte";
+  import CommunityProjectsRevisionGraphCopy from "./CommunityProjectsRevisionGraphCopy.svelte";
   import CommunityProjectsRevisionGraphIds from "./CommunityProjectsRevisionGraphIds.svelte";
-  import CommunityProjectsRevisionGraphMessage from "./CommunityProjectsRevisionGraphMessage.svelte";
   import type {
     RepositoryLogDevice,
     RepositoryLogRevision,
@@ -15,13 +12,11 @@
     REPOSITORY_LOG_ROW_HEIGHT,
     REPOSITORY_LOG_STROKE_WIDTH,
     buildRepositoryLogGraph,
-    formatRepositoryLogTimestamp,
     repositoryLogContentLeft,
     repositoryLogConvergePath,
     repositoryLogLaneStem,
     repositoryLogLaneX,
     repositoryLogMergePath,
-    repositoryLogReasonLabel,
     repositoryLogSplitPath,
     repositoryLogSvgWidth,
     type RepositoryLogGraphRow,
@@ -41,7 +36,8 @@
     selectedId?: string | null | undefined;
     graphLabel?: string | undefined;
     commitLabel?: string | undefined;
-    onSelect?: ((revision: RepositoryLogRevision) => void) | undefined; selectedFiles?: Snippet | undefined;
+    onSelect?: ((revision: RepositoryLogRevision) => void) | undefined;
+    selectedFiles?: Snippet | undefined;
   } = $props();
 
   const rows = $derived(buildRepositoryLogGraph(revisions, devices));
@@ -142,40 +138,7 @@
             fill={laneColor(row, row.commitLane)}
           />
         </svg>
-        <span class="community-revision-graph__copy">
-          <span class="community-revision-graph__title-row">
-            <span class="community-revision-graph__icon" aria-hidden="true">
-              {#if row.revision.reason === "merge"}
-                <GitMerge />
-              {:else}
-                <Camera />
-              {/if}
-            </span>
-            <CommunityProjectsRevisionGraphMessage
-              message={row.revision.message}
-            />
-          </span>
-          <span class="community-revision-graph__meta">
-            {#if row.revision.author}
-              <span>{row.revision.author}</span>
-            {/if}
-            <time
-              datetime={new Date(row.revision.createdAt * 1000).toISOString()}
-            >
-              {formatRepositoryLogTimestamp(row.revision.createdAt)}
-            </time>
-          </span>
-          <span class="community-revision-graph__chips">
-            <CommunityChip size="compact" variant="muted" ariaHidden
-              >{repositoryLogReasonLabel(row.revision.reason)}</CommunityChip
-            >
-            {#each row.deviceAliases as alias (alias)}
-              <CommunityChip size="compact" variant="outline" ariaHidden
-                >{alias}</CommunityChip
-              >
-            {/each}
-          </span>
-        </span>
+        <CommunityProjectsRevisionGraphCopy {row} />
       </div>
       <CommunityProjectsRevisionGraphIds
         changeId={row.changeIdEncoded}
@@ -253,59 +216,10 @@
     pointer-events: none;
   }
 
-  .community-revision-graph__copy {
-    display: flex;
-    min-width: 0;
-    flex: 1 1 auto;
-    flex-direction: column;
-    gap: 0.15rem;
-  }
-
-  .community-revision-graph__title-row {
-    display: flex;
-    min-width: 0;
-    align-items: center;
-    gap: 0.4rem;
-  }
-
-  .community-revision-graph__meta {
-    display: flex;
-    min-width: 0;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 0.35rem;
-    color: var(--muted-foreground);
-    font-size: var(--community-text-secondary);
-  }
-
   .community-revision-graph__files {
     position: relative;
     z-index: 1;
     padding: 0 0.5rem 0.5rem;
-  }
-
-  .community-revision-graph__chips {
-    display: flex;
-    min-width: 0;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 0.3rem;
-  }
-
-  .community-revision-graph__icon {
-    display: flex;
-    flex: 0 0 auto;
-    align-items: center;
-    justify-content: center;
-    width: 1.25rem;
-    height: 1.25rem;
-    color: var(--muted-foreground);
-  }
-
-  .community-revision-graph__icon :global(svg) {
-    display: block;
-    width: 0.7rem;
-    height: 0.7rem;
   }
 
   .community-revision-graph__edge {

@@ -37,7 +37,11 @@ evolution commits update that baseline in the same change. Repository Log
 column ScrollArea paging, Op Log message copy chips, and split graph `#a`
 page filters update that baseline in the same change. Repository Log Diff
 header file stats and icon-only unified/split/wrap toggles update that
-baseline in the same change.
+baseline in the same change. Repository Log and Evolog author Gravatar avatars,
+avatar email tooltips, `CommunityRelativeTime`, and removal of the Snapshot chip
+and author-name text update that baseline in the same change. Dest-Git Commits
+rows reuse that git-author Gravatar avatar instead of a member hover card and
+update that baseline in the same change.
 
 For LC-OPS-001 and LC-OPS-004, hosted-project acceptance layers the sibling
 relay's digest-pinned WalGit and RustFS composition onto both the persistent

@@ -162,7 +162,11 @@ hydrate rows from kind `3902`. Closing the Evolog column MUST clear the
 rail toggle.
 Kind `3902` `change_id_hex` (or the `i` tag) MUST become
 the reverse-hex change ID shown with Design Core copy buttons beside the
-commit ID copy control. A blank `description`
+commit ID copy control. Kind `3902` author email MUST drive that leading
+Gravatar avatar, MUST appear in a Design Core tooltip on that avatar, and MUST
+NOT appear as visible row text. Rows MUST NOT render the author display name
+beside the timestamp. `createdAt` MUST use
+`CommunityRelativeTime`. Rows MUST NOT render a Snapshot chip. A blank `description`
 MUST render as `(empty) (no description set)`. The mapped DAG MUST
 keep a forked lane open until its shared parent so the branch edge meets
 the main line with a cubic join from the top of the parent row. Selecting a mapped

@@ -45,7 +45,11 @@ function revision(
     change_id_hex: changeId,
     parent_commit_ids: parents,
     description,
-    author: { name: "Maya Chen", timestamp_ms: createdAt * 1_000 },
+    author: {
+      name: "Maya Chen",
+      email: "maya@example.test",
+      timestamp_ms: createdAt * 1_000,
+    },
     ...extras,
   });
 }
@@ -86,6 +90,11 @@ describe("buildRepositoryEvolutionLog", () => {
     expect(graph.revisions[0]?.parents).toEqual([predecessor]);
     expect(graph.revisions[0]?.parents).not.toContain(codeParent);
     expect(graph.revisions[1]?.message).toBe("first version");
+    expect(graph.revisions[0]?.author).toBe("Maya Chen");
+    expect(graph.revisions[0]?.authorEmail).toBe("maya@example.test");
+    expect(graph.revisions[0]?.authorAvatarUrl).toMatch(
+      /^https:\/\/www\.gravatar\.com\/avatar\/[0-9a-f]{32}\?d=identicon&s=80$/u,
+    );
   });
 
   it("returns empty when recording is unavailable and no other versions exist", () => {

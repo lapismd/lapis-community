@@ -98,11 +98,15 @@ describe("repository log", () => {
       parents: [left, right],
       reason: "merge",
       author: "Maya Chen",
+      authorEmail: "maya@example.test",
+      authorAvatarUrl: expect.stringMatching(
+        /^https:\/\/www\.gravatar\.com\/avatar\/[0-9a-f]{32}\?d=identicon&s=80$/u,
+      ),
       message: "record merged lanes",
       changeId: "",
     });
     expect(graph.revisions.some((item) => item.eventId === hidden)).toBe(false);
-    expect(JSON.stringify(graph)).not.toContain("maya@example.test");
+    expect(JSON.stringify(graph)).toContain("gravatar.com/avatar/");
     expect(graph.devices.map((device) => device.alias).sort()).toEqual([
       "@",
       "main",

@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "sourceCommit": "78acaa43875fa811e62e1951604f4745178f5c73",
+  "sourceCommit": "797a59bcd0ad6aec8043be2d0b1e904e3e53fc97",
   "limits": {
     "newProductionCountedLines": 300,
     "newTestCountedLines": 500,
@@ -1807,6 +1807,11 @@
       "physicalLines": 40,
       "forbiddenImportCount": 0
     },
+    "src/components/community-projects/commit-author.ts": {
+      "countedLines": 34,
+      "physicalLines": 37,
+      "forbiddenImportCount": 0
+    },
     "src/components/community-projects/CommunityProjects.stories.svelte": {
       "countedLines": 1851,
       "physicalLines": 1894,
@@ -1815,8 +1820,8 @@
       "justification": "Existing file above the new-file counted-line limit; do not grow"
     },
     "src/components/community-projects/CommunityProjects.svelte": {
-      "countedLines": 3767,
-      "physicalLines": 3908,
+      "countedLines": 3754,
+      "physicalLines": 3893,
       "forbiddenImportCount": 0,
       "kind": "legacy",
       "justification": "Projects composition root; extract named surfaces before adding behaviour"
@@ -1834,6 +1839,16 @@
     "src/components/community-projects/CommunityProjectsCreateDialogs.svelte": {
       "countedLines": 219,
       "physicalLines": 221,
+      "forbiddenImportCount": 0
+    },
+    "src/components/community-projects/CommunityProjectsGitAuthorAvatar.stories.svelte": {
+      "countedLines": 42,
+      "physicalLines": 45,
+      "forbiddenImportCount": 0
+    },
+    "src/components/community-projects/CommunityProjectsGitAuthorAvatar.svelte": {
+      "countedLines": 64,
+      "physicalLines": 70,
       "forbiddenImportCount": 0
     },
     "src/components/community-projects/CommunityProjectsGitHubConnectionForm.svelte": {
@@ -1947,8 +1962,8 @@
       "forbiddenImportCount": 0
     },
     "src/components/community-projects/CommunityProjectsRepositoryLog.stories.svelte": {
-      "countedLines": 306,
-      "physicalLines": 313,
+      "countedLines": 330,
+      "physicalLines": 337,
       "forbiddenImportCount": 0
     },
     "src/components/community-projects/CommunityProjectsRepositoryLog.svelte": {
@@ -1997,8 +2012,13 @@
       "forbiddenImportCount": 0
     },
     "src/components/community-projects/CommunityProjectsRevisionGraph.svelte": {
-      "countedLines": 291,
-      "physicalLines": 314,
+      "countedLines": 211,
+      "physicalLines": 228,
+      "forbiddenImportCount": 0
+    },
+    "src/components/community-projects/CommunityProjectsRevisionGraphCopy.svelte": {
+      "countedLines": 66,
+      "physicalLines": 72,
       "forbiddenImportCount": 0
     },
     "src/components/community-projects/CommunityProjectsRevisionGraphIds.svelte": {
@@ -2943,13 +2963,23 @@
       "forbiddenImportCount": 0
     },
     "src/projects/repository-evolution-log.test.ts": {
-      "countedLines": 128,
-      "physicalLines": 137,
+      "countedLines": 137,
+      "physicalLines": 146,
       "forbiddenImportCount": 0
     },
     "src/projects/repository-evolution-log.ts": {
-      "countedLines": 156,
-      "physicalLines": 170,
+      "countedLines": 144,
+      "physicalLines": 156,
+      "forbiddenImportCount": 0
+    },
+    "src/projects/repository-log-author.test.ts": {
+      "countedLines": 54,
+      "physicalLines": 58,
+      "forbiddenImportCount": 0
+    },
+    "src/projects/repository-log-author.ts": {
+      "countedLines": 48,
+      "physicalLines": 55,
       "forbiddenImportCount": 0
     },
     "src/projects/repository-log-canvas.ts": {
@@ -2983,8 +3013,8 @@
       "forbiddenImportCount": 0
     },
     "src/projects/repository-log-graph.ts": {
-      "countedLines": 270,
-      "physicalLines": 294,
+      "countedLines": 268,
+      "physicalLines": 290,
       "forbiddenImportCount": 0
     },
     "src/projects/repository-log-message.test.ts": {
@@ -3013,13 +3043,13 @@
       "forbiddenImportCount": 0
     },
     "src/projects/repository-log.test.ts": {
-      "countedLines": 232,
-      "physicalLines": 244,
+      "countedLines": 236,
+      "physicalLines": 248,
       "forbiddenImportCount": 0
     },
     "src/projects/repository-log.ts": {
-      "countedLines": 280,
-      "physicalLines": 307,
+      "countedLines": 269,
+      "physicalLines": 294,
       "forbiddenImportCount": 0
     },
     "src/projects/repository-operation-log.test.ts": {
