@@ -5,7 +5,6 @@
   import * as Tooltip from "@lapismd/design-core/shadcn/tooltip";
   import FileIcon from "@lucide/svelte/icons/file";
   import FolderIcon from "@lucide/svelte/icons/folder";
-  import GitCommitHorizontalIcon from "@lucide/svelte/icons/git-commit-horizontal";
 
   import type {
     ProjectForgeCommit,
@@ -19,7 +18,10 @@
     RepositoryBrowserEntry,
   } from "./repository-browser.js";
   import { repositoryParentPath } from "./repository-browser.js";
+  import { commitAuthorName } from "./commit-author.js";
+  import CommunityProjectsGitAuthorAvatar from "./CommunityProjectsGitAuthorAvatar.svelte";
   import CommunityProjectsRepositoryBranchSelector from "./CommunityProjectsRepositoryBranchSelector.svelte";
+  import CommunityProjectsRevisionGraphIds from "./CommunityProjectsRevisionGraphIds.svelte";
 
   let {
     fileTreeOpen = $bindable(false),
@@ -57,6 +59,10 @@
 
   const latestCommitDate = $derived(
     latestCommit?.commit_date ?? latestCommit?.author_date,
+  );
+  const latestAuthorName = $derived(
+    latestCommitAuthor?.name ??
+      (latestCommit ? commitAuthorName(latestCommit) : ""),
   );
 </script>
 
@@ -129,22 +135,29 @@
     </Breadcrumb.Root>
   </header>
 
-  {#if latestCommit && latestCommitAuthor}
+  {#if latestCommit}
     <div class="community-projects__file-browser-commit">
-      <GitCommitHorizontalIcon aria-hidden="true" />
+      <CommunityProjectsGitAuthorAvatar
+        email={latestCommit.author_email}
+        name={latestAuthorName}
+        size="xsmall"
+      />
       <span>
-        <strong>{latestCommitAuthor.name}</strong> committed
-        <span>{latestCommit.subject}</span>
+        <strong>{latestAuthorName}</strong> committed
+        <button
+          type="button"
+          class="community-projects__file-browser-commit-link"
+          title={`View commit ${latestCommit.subject}`}
+          aria-label={`View commit ${latestCommit.subject}`}
+          onclick={() => onSelectCommit?.(latestCommit)}
+        >
+          {latestCommit.subject}
+        </button>
       </span>
-      <button
-        type="button"
-        class="community-projects__file-browser-commit-link"
-        title={`View commit ${latestCommit.sha.slice(0, 7)}`}
-        aria-label={`View commit ${latestCommit.sha.slice(0, 7)}`}
-        onclick={() => onSelectCommit?.(latestCommit)}
-      >
-        <code>{latestCommit.sha.slice(0, 7)}</code>
-      </button>
+      <CommunityProjectsRevisionGraphIds
+        commitId={latestCommit.sha}
+        placement="inline"
+      />
       {#if latestCommitDate}
         <CommunityRelativeTime
           timestamp={Math.floor(new Date(latestCommitDate).getTime() / 1_000)}

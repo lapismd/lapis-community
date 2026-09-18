@@ -7,6 +7,7 @@
   import GitCommitHorizontalIcon from "@lucide/svelte/icons/git-commit-horizontal";
   import GitPullRequestIcon from "@lucide/svelte/icons/git-pull-request";
   import MessageSquareIcon from "@lucide/svelte/icons/message-square";
+  import RefreshCwIcon from "@lucide/svelte/icons/refresh-cw";
   import TriangleAlertIcon from "@lucide/svelte/icons/triangle-alert";
   import UserMinusIcon from "@lucide/svelte/icons/user-minus";
   import UserPlusIcon from "@lucide/svelte/icons/user-plus";
@@ -15,14 +16,15 @@
   import type { CommunityCustomEmoji } from "../../community/index.js";
   import type { ProjectForgeActivityItem } from "../../projects/index.js";
   import CommunityChip from "../community-chip/CommunityChip.svelte";
-  import type { CommunityChipTone } from "../community-chip/model.js";
   import CommunityMarkdownContent from "../community-markdown-content/CommunityMarkdownContent.svelte";
   import CommunityRelativeTime from "../community-relative-time/CommunityRelativeTime.svelte";
   import type {
     CommunityMemberModel,
     CommunityRoomModel,
   } from "../community-workspace/model.js";
+  import { activityDetailPresentation } from "./community-projects-activity-detail.js";
   import CommunityProjectsMemberHover from "./CommunityProjectsMemberHover.svelte";
+  import CommunityProjectsRevisionGraphIds from "./CommunityProjectsRevisionGraphIds.svelte";
   import { communityProjectsMemberForPubkey } from "./projects-member.js";
 
   let {
@@ -49,46 +51,17 @@
     rooms?: readonly CommunityRoomModel[] | undefined;
     communityEmojis?: readonly CommunityCustomEmoji[] | undefined;
     onOpenProfile?: ((member: CommunityMemberModel) => void) | undefined;
-    onMessageMember?: ((member: CommunityMemberModel) => void | Promise<void>) | undefined;
-    onWaveMember?: ((member: CommunityMemberModel) => void | Promise<void>) | undefined;
+    onMessageMember?:
+      | ((member: CommunityMemberModel) => void | Promise<void>)
+      | undefined;
+    onWaveMember?:
+      | ((member: CommunityMemberModel) => void | Promise<void>)
+      | undefined;
     canSelectProject?: boolean | undefined;
     projectName: (coordinate: string) => string;
     onOpenProject: (coordinate: string) => void;
     onOpenItem: (item: ProjectForgeActivityItem) => void;
   } = $props();
-
-  function activityStatusLabel(value: string): string {
-    if (value === "open") return "Backlog";
-    if (value === "applied" || value === "closed") return "Completed";
-    return value[0]!.toUpperCase() + value.slice(1);
-  }
-
-  function activityDetailLabel(item: ProjectForgeActivityItem): string {
-    if (item.kind === "approval") return "Approved";
-    if (item.kind === "changes-requested") return "Changes requested";
-    if (!item.detail) return "";
-    if (item.kind === "task") return activityStatusLabel(item.detail);
-    if (item.kind === "review") {
-      return item.detail[0]!.toUpperCase() + item.detail.slice(1);
-    }
-    if (item.kind === "commit" || item.kind === "review-update") {
-      return item.detail;
-    }
-    return "";
-  }
-
-  function activityDetailTone(
-    item: ProjectForgeActivityItem,
-  ): CommunityChipTone {
-    if (item.kind === "approval" || item.kind === "review") return "success";
-    if (item.kind === "changes-requested" || item.kind === "task") {
-      return "warning";
-    }
-    if (item.kind === "commit" || item.kind === "review-update") {
-      return "accent";
-    }
-    return "neutral";
-  }
 </script>
 
 <div
@@ -137,7 +110,7 @@
           members,
           item.actorPubkey || "relay",
         )}
-        {@const detailLabel = activityDetailLabel(item)}
+        {@const detail = activityDetailPresentation(item)}
         <article class="community-projects__activity-item">
           <CommunityProjectsMemberHover
             member={actor}
@@ -165,12 +138,35 @@
                 </div>
                 <CommunityRelativeTime timestamp={item.createdAt} />
               </div>
-              {#if detailLabel}
+              {#if detail.kind === "hash"}
+                <CommunityProjectsRevisionGraphIds
+                  commitId={detail.value}
+                  commitLabel={detail.copyLabel}
+                  placement="inline"
+                />
+              {:else if detail.kind === "chip" && detail.icon === "sync"}
                 <CommunityChip
                   class="community-projects__activity-status"
                   size="compact"
-                  tone={activityDetailTone(item)}>{detailLabel}</CommunityChip
+                  variant={detail.variant}
+                  tone={detail.tone}
+                  shape={detail.shape}
                 >
+                  {#snippet leading()}<RefreshCwIcon
+                      aria-hidden="true"
+                    />{/snippet}
+                  {detail.label}
+                </CommunityChip>
+              {:else if detail.kind === "chip"}
+                <CommunityChip
+                  class="community-projects__activity-status"
+                  size="compact"
+                  variant={detail.variant}
+                  tone={detail.tone}
+                  shape={detail.shape}
+                >
+                  {detail.label}
+                </CommunityChip>
               {/if}
             </div>
             <button

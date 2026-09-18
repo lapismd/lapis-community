@@ -149,7 +149,7 @@ export function buildProjectForgeActivity(
         action: "updated a review in",
         title: pullRequest.title,
         body: update.event.content,
-        detail: update.commit.slice(0, 10),
+        detail: update.commit,
         projectCoordinate: project.address.coordinate,
         repositoryCoordinate: pullRequest.repository.coordinate,
       });
@@ -203,7 +203,7 @@ export function buildProjectForgeActivity(
       action: "pushed a commit to",
       title: entry.commit.subject || entry.commit.sha.slice(0, 10),
       body: entry.commit.body ?? "",
-      detail: entry.commit.sha.slice(0, 10),
+      detail: entry.commit.sha,
       projectCoordinate: entry.projectCoordinate,
       repositoryCoordinate: entry.repositoryCoordinate,
     });

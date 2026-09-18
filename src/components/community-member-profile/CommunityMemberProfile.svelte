@@ -6,6 +6,7 @@
   import UserPlusIcon from "@lucide/svelte/icons/user-plus";
 
   import CommunityMemberAvatar from "../community-member-avatar/CommunityMemberAvatar.svelte";
+  import { communityMemberHandleLabel } from "../community-member-avatar/handle.js";
   import type { CommunityMemberModel } from "../community-workspace/model.js";
 
   let {
@@ -41,7 +42,7 @@
           {member.name}
         {/if}
       </h2>
-      <p>@{member.handle}</p>
+      <p>{communityMemberHandleLabel(member.handle)}</p>
     </div>
   </header>
 

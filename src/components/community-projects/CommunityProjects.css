@@ -363,7 +363,8 @@
   gap: 0.45rem;
 }
 
-.community-projects__activity-status {
+.community-projects__activity-status,
+.community-projects__activity-meta .community-revision-graph-ids {
   flex: none;
 }
 
@@ -1808,10 +1809,8 @@
   font-size: var(--community-text-secondary);
 }
 
-.community-projects__file-browser-commit > svg {
-  width: 1rem;
-  height: 1rem;
-  color: var(--foreground);
+.community-projects__file-browser-commit [data-ui-part="git-author"] {
+  flex: none;
 }
 
 .community-projects__file-browser-commit > span {
@@ -1827,14 +1826,14 @@
 }
 
 .community-projects__file-browser-commit-link {
-  display: inline-flex;
+  display: inline;
   min-width: 0;
-  align-items: center;
   border: 0;
   border-radius: var(--radius-sm);
-  padding: 0.15rem 0.3rem;
-  color: var(--muted-foreground);
+  padding: 0;
+  color: var(--foreground);
   background: transparent;
+  font: inherit;
   cursor: pointer;
 }
 

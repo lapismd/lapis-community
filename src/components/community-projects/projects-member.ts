@@ -10,7 +10,7 @@ export function communityProjectsMemberForPubkey(
   return {
     id: pubkey,
     name: shortened,
-    handle: `@${shortened}`,
+    handle: shortened,
     initials: shortened.slice(0, 2).toUpperCase(),
   };
 }

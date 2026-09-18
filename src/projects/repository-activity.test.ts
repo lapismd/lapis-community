@@ -138,6 +138,12 @@ describe("repository activity", () => {
       body: "replica-desktop",
       repositoryCoordinate,
     });
+    expect(activity[1]).toMatchObject({
+      kind: "commit",
+      action: "pushed a commit to",
+      detail: "a".repeat(40),
+      title: "Stay on dest main",
+    });
   });
 
   it("ignores malformed jj-sync announcements", () => {

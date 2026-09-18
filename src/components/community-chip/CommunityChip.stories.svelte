@@ -1,6 +1,7 @@
 <script module lang="ts">
   import { defineMeta } from "@storybook/addon-svelte-csf";
   import CheckIcon from "@lucide/svelte/icons/check";
+  import RefreshCwIcon from "@lucide/svelte/icons/refresh-cw";
   import XIcon from "@lucide/svelte/icons/x";
   import { expect, fn, userEvent } from "storybook/test";
 
@@ -35,6 +36,17 @@
     await expect(getComputedStyle(count).backgroundColor).not.toBe(
       "rgba(0, 0, 0, 0)",
     );
+    const sync = canvas.getByText("jj-sync");
+    await expect(sync).toHaveAttribute("data-chip-shape", "square");
+    await expect(sync).toHaveAttribute("data-chip-variant", "muted");
+    await expect(
+      Number.parseFloat(getComputedStyle(sync).borderRadius),
+    ).toBeLessThan(
+      Number.parseFloat(
+        getComputedStyle(canvas.getByText("Private")).borderRadius,
+      ),
+    );
+    await expect(sync.querySelector(".lucide-refresh-cw")).not.toBeNull();
   }}
 >
   {#snippet template()}
@@ -50,6 +62,10 @@
       <CommunityChip tone="success">
         {#snippet leading()}<CheckIcon aria-hidden="true" />{/snippet}
         Verified
+      </CommunityChip>
+      <CommunityChip variant="muted" shape="square" size="compact">
+        {#snippet leading()}<RefreshCwIcon aria-hidden="true" />{/snippet}
+        jj-sync
       </CommunityChip>
     </div>
     <p class="community-chip-story__inline">

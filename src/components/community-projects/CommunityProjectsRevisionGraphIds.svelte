@@ -8,10 +8,12 @@
     changeId = "",
     commitId,
     commitLabel = "commit ID",
+    placement = "overlay",
   }: {
     changeId?: string | undefined;
     commitId: string;
     commitLabel?: string | undefined;
+    placement?: "overlay" | "inline" | undefined;
   } = $props();
 
   let copied = $state("");
@@ -47,7 +49,8 @@
 </script>
 
 {#snippet idButton(label: string, value: string, tone: "change" | "commit")}
-  {@const state = copied === label ? "copied" : failed === label ? "failed" : ""}
+  {@const state =
+    copied === label ? "copied" : failed === label ? "failed" : ""}
   <button
     type="button"
     class="community-revision-graph-ids__button"
@@ -69,7 +72,7 @@
   </button>
 {/snippet}
 
-<div class="community-revision-graph-ids">
+<div class="community-revision-graph-ids" data-placement={placement}>
   {#if changeId}
     {@render idButton("change ID", changeId, "change")}
   {/if}
@@ -87,6 +90,16 @@
     flex-direction: column;
     align-items: flex-end;
     gap: 0.2rem;
+  }
+
+  .community-revision-graph-ids[data-placement="inline"] {
+    position: static;
+    z-index: auto;
+    top: auto;
+    right: auto;
+    transform: none;
+    flex-direction: row;
+    align-items: center;
   }
 
   .community-revision-graph-ids__button {

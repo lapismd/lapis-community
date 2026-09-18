@@ -540,7 +540,7 @@ export function createProjectStoryFixture(channelId = "general-projects") {
     {
       id: projectStoryOwner,
       name: "Maya Chen",
-      handle: "@maya",
+      handle: "maya",
       initials: "MC",
       avatarUrl:
         "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Crect width='40' height='40' rx='20' fill='%235b21b6'/%3E%3C/svg%3E",
@@ -550,7 +550,7 @@ export function createProjectStoryFixture(channelId = "general-projects") {
     {
       id: projectStoryAuthor,
       name: "Noor Patel",
-      handle: "@noor",
+      handle: "noor",
       initials: "NP",
       avatarUrl:
         "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Crect width='40' height='40' rx='20' fill='%230f766e'/%3E%3C/svg%3E",
@@ -742,6 +742,7 @@ export function createProjectStoryDataSource(
                 subject: "Add project file and diff views",
                 body: "Use the public Design Core diff primitives.",
                 author_name: "Noor Patel",
+                author_email: "noor@example.test",
                 author_date: "2026-09-08T09:30:00Z",
               },
             ],

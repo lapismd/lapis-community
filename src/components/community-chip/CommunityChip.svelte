@@ -5,6 +5,7 @@
   import type { HTMLButtonAttributes } from "svelte/elements";
 
   import type {
+    CommunityChipShape,
     CommunityChipSize,
     CommunityChipTone,
     CommunityChipVariant,
@@ -16,6 +17,7 @@
     variant = "outline",
     tone = "neutral",
     size = "default",
+    shape = "pill",
     href,
     onclick,
     buttonProps,
@@ -31,6 +33,7 @@
     variant?: CommunityChipVariant;
     tone?: CommunityChipTone;
     size?: CommunityChipSize;
+    shape?: CommunityChipShape;
     href?: string;
     onclick?: (event: MouseEvent) => void;
     buttonProps?: HTMLButtonAttributes;
@@ -67,6 +70,7 @@
     data-chip-variant={variant}
     data-chip-tone={tone}
     data-chip-size={size}
+    data-chip-shape={shape}
     data-action={action ? "" : undefined}
     aria-label={ariaLabel}
     aria-hidden={ariaHidden ? "true" : undefined}
@@ -94,6 +98,7 @@
     data-chip-variant={variant}
     data-chip-tone={tone}
     data-chip-size={size}
+    data-chip-shape={shape}
     data-action=""
     aria-label={ariaLabel}
     aria-hidden={ariaHidden ? "true" : undefined}
@@ -115,6 +120,7 @@
     data-chip-variant={variant}
     data-chip-tone={tone}
     data-chip-size={size}
+    data-chip-shape={shape}
     aria-label={ariaLabel}
     aria-hidden={ariaHidden ? "true" : undefined}
     {title}
@@ -169,6 +175,18 @@
     text-align: start;
     vertical-align: baseline;
     -webkit-box-decoration-break: clone;
+  }
+
+  :global(.community-chip[data-chip-shape="square"]) {
+    border-radius: 0.28rem;
+  }
+
+  :global(
+      .community-chip[data-chip-variant="muted"][data-chip-shape="square"]
+    ) {
+    border-color: transparent;
+    color: var(--secondary-foreground);
+    background: var(--secondary);
   }
 
   :global(.community-chip[data-chip-variant="subtle"]) {

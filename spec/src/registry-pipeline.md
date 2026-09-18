@@ -41,7 +41,11 @@ baseline in the same change. Repository Log and Evolog author Gravatar avatars,
 avatar email tooltips, `CommunityRelativeTime`, and removal of the Snapshot chip
 and author-name text update that baseline in the same change. Dest-Git Commits
 rows reuse that git-author Gravatar avatar instead of a member hover card and
-update that baseline in the same change.
+update that baseline in the same change. Projects Activity dest-Git hash copy
+buttons, muted square `jj-sync` chips, and single-`@` member handle labels
+update that baseline in the same change. Repository Files latest-commit
+Gravatar avatars and History-style SHA copy buttons update that baseline in
+the same change.
 
 For LC-OPS-001 and LC-OPS-004, hosted-project acceptance layers the sibling
 relay's digest-pinned WalGit and RustFS composition onto both the persistent

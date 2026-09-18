@@ -369,7 +369,7 @@
       "story": "community-patterns-chip--contract",
       "storyFile": "src/components/community-patterns/Chip.stories.svelte",
       "requirement": "LC-UI-034",
-      "variants": ["outline", "muted", "solid", "subtle"],
+      "variants": ["outline", "muted", "solid", "subtle", "square"],
       "requiredStates": ["count"],
       "loading": {
         "applicable": false,

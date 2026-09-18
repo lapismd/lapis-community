@@ -23,6 +23,9 @@ export const COMMUNITY_CHIP_SIZES = [
 ] as const;
 export type CommunityChipSize = (typeof COMMUNITY_CHIP_SIZES)[number];
 
+export const COMMUNITY_CHIP_SHAPES = ["pill", "square"] as const;
+export type CommunityChipShape = (typeof COMMUNITY_CHIP_SHAPES)[number];
+
 const successfulStates = new Set(["active", "approved", "available", "signed"]);
 const warningStates = new Set(["inspecting", "partial", "pending"]);
 const dangerousStates = new Set([

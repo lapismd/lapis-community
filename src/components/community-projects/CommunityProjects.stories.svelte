@@ -307,6 +307,7 @@
     subject: "Add project file and diff views",
     body: "Use the public Design Core diff primitives.",
     author: "Noor Patel",
+    author_email: "noor@example.test",
     commit_date: "2026-09-08T09:30:00Z",
   };
   const onLoadRepositoryPathCommit = fn(async (path: string) => ({
@@ -1458,9 +1459,14 @@ index 3333333..4444444 100644
     await expect(
       within(browser).getByRole("columnheader", { name: "Commit Date" }),
     ).toBeVisible();
+    await expect(
+      canvas.getByRole("img", { name: "noor@example.test" }),
+    ).toBeVisible();
     await expect(canvas.getByText("Noor Patel")).toBeVisible();
     await expect(
-      canvas.getByText("Add project file and diff views"),
+      canvas.getByRole("button", {
+        name: "View commit Add project file and diff views",
+      }),
     ).toBeVisible();
     await expect(
       canvas.queryByLabelText("Repository file tree"),
@@ -1469,8 +1475,15 @@ index 3333333..4444444 100644
       await within(browser).findByText("Update README.md"),
     ).toBeVisible();
     await expect(browser.querySelector("time")).not.toBeNull();
+    await expect(
+      canvas.getByRole("button", {
+        name: `Copy full commit ID: ${"d".repeat(40)}`,
+      }),
+    ).toBeVisible();
     await userEvent.click(
-      canvas.getByRole("button", { name: "View commit ddddddd" }),
+      canvas.getByRole("button", {
+        name: "View commit Add project file and diff views",
+      }),
     );
     await expect(onSelectCommit).toHaveBeenCalledWith(hostedCommit);
     await userEvent.click(

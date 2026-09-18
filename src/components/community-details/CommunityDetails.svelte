@@ -1,5 +1,6 @@
 <script lang="ts">
   import CommunityChip from "../community-chip/CommunityChip.svelte";
+  import { communityMemberHandleLabel } from "../community-member-avatar/handle.js";
   import CommunityMemberHoverCard from "../community-member-hover-card/CommunityMemberHoverCard.svelte";
 
   import {
@@ -67,7 +68,7 @@
           />
           <span>
             <strong>{member.name}</strong>
-            <small>@{member.handle}</small>
+            <small>{communityMemberHandleLabel(member.handle)}</small>
           </span>
         </div>
       {/each}

@@ -14,6 +14,7 @@
   import { tick } from "svelte";
   import CommunityChip from "../community-chip/CommunityChip.svelte";
   import CommunityMemberAvatar from "../community-member-avatar/CommunityMemberAvatar.svelte";
+  import { communityMemberHandleLabel } from "../community-member-avatar/handle.js";
   import { formatCommunityRelativeTime } from "../community-relative-time/model.js";
   import type {
     CommunityMemberModel,
@@ -394,7 +395,9 @@
                   >
                   <CommandView.ItemLabel>{member.name}</CommandView.ItemLabel>
                   <CommandView.ItemDescription
-                    >@{member.handle}</CommandView.ItemDescription
+                    >{communityMemberHandleLabel(
+                      member.handle,
+                    )}</CommandView.ItemDescription
                   >
                 </CommandView.Item>
               {/each}

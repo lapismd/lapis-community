@@ -103,16 +103,14 @@
     CommunityProjectsProps,
     CommunityProjectsUpdateProject,
   } from "./model.js";
-  import {
-    commitAuthorMember,
-    commitDate,
-  } from "./commit-author.js";
+  import { commitAuthorMember, commitDate } from "./commit-author.js";
   import {
     isMarkdownRepositoryPath,
     repositoryBreadcrumbSegments,
     repositoryBrowserEntries,
     repositoryParentPath,
   } from "./repository-browser.js";
+  import { communityProjectsMemberForPubkey } from "./projects-member.js";
 
   import "./CommunityProjects.css";
 
@@ -2032,15 +2030,7 @@
   }
 
   function memberForPubkey(pubkey: string): CommunityMemberModel {
-    const known = members.find((member) => member.id === pubkey);
-    if (known) return known;
-    const shortened = pubkey.slice(0, 12);
-    return {
-      id: pubkey,
-      name: shortened,
-      handle: `@${shortened}`,
-      initials: shortened.slice(0, 2).toUpperCase(),
-    };
+    return communityProjectsMemberForPubkey(members, pubkey);
   }
 
   function reviewCommitSummary(

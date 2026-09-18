@@ -7,6 +7,7 @@
 
   import CommunityChip from "../community-chip/CommunityChip.svelte";
   import CommunityMemberAvatar from "../community-member-avatar/CommunityMemberAvatar.svelte";
+  import { communityMemberHandleLabel } from "../community-member-avatar/handle.js";
   import type { CommunityMemberModel } from "../community-workspace/model.js";
   import { useCommunityMemberPresence } from "./presence-context.js";
 
@@ -35,8 +36,9 @@
   let open = $state(false);
   const resolvePresence = useCommunityMemberPresence();
   const inlineLabel = $derived(
-    trigger === "mention" ? triggerLabel.replace(/^@/u, "") : triggerLabel,
+    trigger === "mention" ? triggerLabel.replace(/^@+/u, "") : triggerLabel,
   );
+  const handleLabel = $derived(communityMemberHandleLabel(member.handle));
   const presence = $derived(resolvePresence?.(member));
 </script>
 
@@ -100,7 +102,7 @@
       />
       <span>
         <strong>{member.name}</strong>
-        <small>@{member.handle}</small>
+        <small>{handleLabel}</small>
       </span>
     </button>
 

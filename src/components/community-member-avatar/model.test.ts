@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { communityMemberHandleLabel } from "./handle.js";
 import {
   communityMemberAvatarFallbackTone,
   communityMemberAvatarFallbackTones,
@@ -24,5 +25,15 @@ describe("community member avatar fallback tone", () => {
     expect(communityMemberAvatarFallbackTones).toContain(
       communityMemberAvatarFallbackTone("🧭 Relay Guide"),
     );
+  });
+});
+
+describe("community member handle label", () => {
+  it("adds a single @ and strips stored prefixes", () => {
+    expect(communityMemberHandleLabel("maya")).toBe("@maya");
+    expect(communityMemberHandleLabel("@maya")).toBe("@maya");
+    expect(communityMemberHandleLabel("@@maya")).toBe("@maya");
+    expect(communityMemberHandleLabel("  @noor  ")).toBe("@noor");
+    expect(communityMemberHandleLabel("")).toBe("");
   });
 });

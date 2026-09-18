@@ -197,3 +197,32 @@
     ).toBeDisabled();
   }}
 />
+
+<Story
+  name="Prefixed handle"
+  args={{
+    member: { ...communityStoryMembers[1]!, handle: "@benstone" },
+    openDelay: 120,
+  }}
+  play={async ({ canvas, canvasElement }) => {
+    await userEvent.hover(
+      canvas.getByRole("button", { name: "View Ben Stone's profile" }),
+    );
+    const preview = await within(canvasElement.ownerDocument.body).findByRole(
+      "group",
+      { name: "Ben Stone contact preview" },
+    );
+    await expect(
+      within(preview).getByText("@benstone", { exact: true }),
+    ).toBeVisible();
+    await expect(
+      within(preview).queryByText("@@benstone", { exact: true }),
+    ).toBeNull();
+  }}
+>
+  {#snippet template(args)}
+    <div style="min-height: 18rem; padding: 4rem;">
+      <CommunityMemberHoverCard {...args} />
+    </div>
+  {/snippet}
+</Story>
