@@ -2807,6 +2807,7 @@
         >
           {#if tree?.readme}
             <CommunityMarkdownContent
+              fullWidth
               content={tree.readme}
               {members}
               {rooms}

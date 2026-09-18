@@ -555,15 +555,33 @@ index 3333333..4444444 100644
     },
     onSelectView,
   }}
-  play={async ({ canvas }) => {
-    await expect(
-      canvas.getAllByRole("heading", { name: "Community Client", level: 1 })[0],
-    ).toBeVisible();
+  play={async ({ canvas, canvasElement }) => {
+    const readme = canvasElement.querySelector(".community-projects__readme");
+    await expect(readme).not.toBeNull();
+    const markdown = readme!.querySelector<HTMLElement>(
+      '[data-ui-component="community-markdown-content"]',
+    );
+    await expect(markdown).not.toBeNull();
+    await expect(markdown).toHaveAttribute("data-full-width", "true");
+    await expect(getComputedStyle(readme!).maxWidth).toBe("none");
+    await expect(getComputedStyle(readme!).marginInlineStart).toBe("0px");
+    const heading = within(readme as HTMLElement).getByRole("heading", {
+      name: "Community Client",
+      level: 1,
+    });
+    await expect(heading).toBeVisible();
     await expect(
       canvas.getByText(
         "Nostr-native project collaboration for teams that work in channels and relay-hosted repositories.",
       ),
     ).toBeVisible();
+    const paddingLeft = Number.parseFloat(
+      getComputedStyle(readme!).paddingLeft,
+    );
+    await expect(heading.getBoundingClientRect().left).toBeCloseTo(
+      readme!.getBoundingClientRect().left + paddingLeft,
+      1,
+    );
   }}
 />
 

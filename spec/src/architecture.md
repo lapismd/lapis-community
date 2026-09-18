@@ -180,6 +180,9 @@ and community room, message, and inbox projectors live beside their factories as
 dedicated modules. A path budget that exceeds the current counted size by more
 than twenty counted lines MUST fail as stale. Keytr local development
 storage-relay hosts remain in the recorded auth path budgets.
+CommunityProjects Overview README fullWidth alignment updates the
+`CommunityProjects.svelte` and `CommunityProjects.stories.svelte` path
+budgets in the same change.
 
 ## Requirements
 

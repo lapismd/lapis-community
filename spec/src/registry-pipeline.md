@@ -49,7 +49,8 @@ copy-button fill on muted activity-row hover and update that baseline in the
 same change. Literal `:` project fragment coordinates update that baseline in
 the same change. Repository Files latest-commit
 Gravatar avatars and History-style SHA copy buttons update that baseline in
-the same change.
+the same change. Repository Overview README fullWidth alignment updates that
+baseline in the same change.
 
 For LC-OPS-001 and LC-OPS-004, hosted-project acceptance layers the sibling
 relay's digest-pinned WalGit and RustFS composition onto both the persistent

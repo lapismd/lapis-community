@@ -28,9 +28,11 @@ the project sidebar. Unassociated release channels MUST retain their standalone
 release overview.
 
 For LC-UI-036, task details MUST use the same content width and page gutters as
-commit details. Task descriptions MUST opt into CommunityMarkdownContent fullWidth
-so prose aligns with the parent column; other callers retain the default readable
-width. Project Channels add controls MUST open the shared searchable
+commit details. Task descriptions and the repository Overview README MUST opt
+into CommunityMarkdownContent fullWidth so prose starts at the parent page
+gutter instead of a centered readable column; other callers retain the default
+readable width. The Overview README host MUST NOT apply a centered max-width
+column. Project Channels add controls MUST open the shared searchable
 channel picker, allow owners to choose a project when needed, exclude already
 bound or archived channels, and publish additions through the existing signed
 project update action. Failed additions MUST keep the picker available for retry

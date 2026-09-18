@@ -1828,15 +1828,15 @@
       "forbiddenImportCount": 0
     },
     "src/components/community-projects/CommunityProjects.stories.svelte": {
-      "countedLines": 1864,
-      "physicalLines": 1907,
+      "countedLines": 1882,
+      "physicalLines": 1925,
       "forbiddenImportCount": 0,
       "kind": "legacy",
       "justification": "Existing file above the new-file counted-line limit; do not grow"
     },
     "src/components/community-projects/CommunityProjects.svelte": {
-      "countedLines": 3744,
-      "physicalLines": 3883,
+      "countedLines": 3745,
+      "physicalLines": 3884,
       "forbiddenImportCount": 0,
       "kind": "legacy",
       "justification": "Projects composition root; extract named surfaces before adding behaviour"
