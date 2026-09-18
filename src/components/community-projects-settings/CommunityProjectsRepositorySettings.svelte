@@ -3,11 +3,11 @@
 
   import type { ProjectForgeRepositoryCapabilities } from "../../projects/model.js";
   import type { OwnersDocument } from "../../projects/owners.js";
+  import CommunityProjectsBranchProtection from "./CommunityProjectsBranchProtection.svelte";
   import {
     ownersFileHelp,
     ownersSummary,
     peopleChannelAction,
-    repositoryProtectionSummary,
   } from "./community-projects-settings.js";
 
   let {
@@ -22,7 +22,6 @@
     onOpenPeople?: (() => void) | undefined;
   } = $props();
 
-  const protection = $derived(repositoryProtectionSummary(capabilities));
   const peopleAction = $derived(peopleChannelAction(peopleChannelName));
 </script>
 
@@ -42,32 +41,7 @@
     </Button>
   {/if}
   <h2>Branch protection</h2>
-  {#if protection.githubAuthoritative}
-    <p>
-      Clone, push, and branch protection stay on GitHub for this repository. The
-      relay still requires a channel maintainer to create, review, and merge
-      Nostr collaboration events.
-    </p>
-  {:else}
-    <dl>
-      <div>
-        <dt>Default branch</dt>
-        <dd>{protection.defaultBranch}</dd>
-      </div>
-      <div>
-        <dt>Protected ref</dt>
-        <dd>{protection.protectedRef}</dd>
-      </div>
-      <div>
-        <dt>Pull requests required</dt>
-        <dd>{protection.pullRequestsRequired ? "Yes" : "No"}</dd>
-      </div>
-      <div>
-        <dt>Who can merge</dt>
-        <dd>{protection.mergeActors}</dd>
-      </div>
-    </dl>
-  {/if}
+  <CommunityProjectsBranchProtection {capabilities} />
   <h2>OWNERS.md</h2>
   <p>{ownersFileHelp()}</p>
   <p>{ownersSummary(owners)}</p>
@@ -88,19 +62,8 @@
     font-weight: 600;
   }
 
-  p,
-  dd {
+  p {
     margin: 0;
     color: var(--muted-foreground);
-  }
-
-  dl {
-    display: grid;
-    gap: 0.5rem;
-    margin: 0;
-  }
-
-  dt {
-    font-weight: 600;
   }
 </style>

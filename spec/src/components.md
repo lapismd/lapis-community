@@ -4,8 +4,10 @@ requests”) beside Writer. The create-repository dialog MUST disable channels
 the viewer cannot maintain and MUST explain why. Submit review, Merge, and the
 reviewer picker MUST use that same `CanMaintain` capability. Repository
 settings MUST show the live default branch, that pull requests are required,
-the protected ref, who can merge, and any `OWNERS.md` path reviewers without
-growing `CommunityProjects.svelte`. Settings MUST link the bound channel so
+the protected ref, any extra compiled `protected-ref` patterns, who can merge,
+and any `OWNERS.md` path reviewers without growing `CommunityProjects.svelte`.
+Settings MUST say extra patterns come from announcement `protected-ref` tags
+and cannot disable the default branch. Settings MUST link the bound channel so
 People can assign Maintainer there, and MUST say `OWNERS.md` lives at the
 repository root on the protected branch and is edited through a pull request.
 The Files preview MUST repeat that `OWNERS.md` note when that path is open.

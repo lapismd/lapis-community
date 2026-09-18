@@ -70,8 +70,9 @@ States have precise meanings:
 <!-- deferred-work:end -->
 
 The relay's [Deferred forge work](../../../nostr-relay/spec/src/roadmap/deferred-forge-work.md)
-contains the lower-level acceptance details for extra protected-branch
-patterns, automatic revisions, merge-queue leftover, repository retirement, and
-provider coverage. Live default-branch protection and the native WalGit merge
-coordinator are implemented; DEFER-FORGE-001 is closed by removal.
+contains the lower-level acceptance details for required-approval counts,
+admin bypass, automatic revisions, merge-queue leftover, repository
+retirement, and provider coverage. Live default-branch protection, additive
+`protected-ref` patterns, and the native WalGit merge coordinator are
+implemented; DEFER-FORGE-001 is closed by removal.
 Community must update both ledgers when one of those shared boundaries changes.

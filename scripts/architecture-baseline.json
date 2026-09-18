@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "sourceCommit": "da156175af69edb92e201c7d2eb1a2c6df1bbe38",
+  "sourceCommit": "36dab1b591b815800141a892c3441a672c6a7ad3",
   "limits": {
     "newProductionCountedLines": 300,
     "newTestCountedLines": 500,
@@ -1825,13 +1825,18 @@
       "forbiddenImportCount": 0
     },
     "src/components/community-projects-settings/community-projects-settings.test.ts": {
-      "countedLines": 28,
-      "physicalLines": 30,
+      "countedLines": 34,
+      "physicalLines": 36,
       "forbiddenImportCount": 0
     },
     "src/components/community-projects-settings/community-projects-settings.ts": {
-      "countedLines": 42,
-      "physicalLines": 46,
+      "countedLines": 47,
+      "physicalLines": 51,
+      "forbiddenImportCount": 0
+    },
+    "src/components/community-projects-settings/CommunityProjectsBranchProtection.svelte": {
+      "countedLines": 63,
+      "physicalLines": 69,
       "forbiddenImportCount": 0
     },
     "src/components/community-projects-settings/CommunityProjectsRepositoryOverview.svelte": {
@@ -1840,13 +1845,13 @@
       "forbiddenImportCount": 0
     },
     "src/components/community-projects-settings/CommunityProjectsRepositorySettings.stories.svelte": {
-      "countedLines": 80,
-      "physicalLines": 85,
+      "countedLines": 83,
+      "physicalLines": 88,
       "forbiddenImportCount": 0
     },
     "src/components/community-projects-settings/CommunityProjectsRepositorySettings.svelte": {
-      "countedLines": 97,
-      "physicalLines": 106,
+      "countedLines": 62,
+      "physicalLines": 69,
       "forbiddenImportCount": 0
     },
     "src/components/community-projects/commit-author.ts": {
@@ -3014,8 +3019,8 @@
       "forbiddenImportCount": 0
     },
     "src/projects/model.ts": {
-      "countedLines": 503,
-      "physicalLines": 587,
+      "countedLines": 497,
+      "physicalLines": 581,
       "forbiddenImportCount": 0,
       "kind": "legacy",
       "justification": "Existing file above the new-file counted-line limit; do not grow"
@@ -3041,6 +3046,16 @@
       "forbiddenImportCount": 0,
       "kind": "legacy",
       "justification": "Existing file above the new-file counted-line limit; do not grow"
+    },
+    "src/projects/protected-refs.test.ts": {
+      "countedLines": 13,
+      "physicalLines": 15,
+      "forbiddenImportCount": 0
+    },
+    "src/projects/protected-refs.ts": {
+      "countedLines": 57,
+      "physicalLines": 62,
+      "forbiddenImportCount": 0
     },
     "src/projects/reducer.ts": {
       "countedLines": 617,

@@ -19,6 +19,7 @@
       protection: {
         default_branch: "main",
         protected_ref: "refs/heads/main",
+        protected_patterns: ["refs/heads/release/*"],
         pull_requests_required: true,
         merge_actors: "channel_maintainers",
       },
@@ -29,6 +30,8 @@
   }}
   play={async ({ canvas }) => {
     await expect(canvas.getByText("refs/heads/main")).toBeVisible();
+    await expect(canvas.getByText("refs/heads/release/*")).toBeVisible();
+    await expect(canvas.getByText(/cannot disable the default/u)).toBeVisible();
     await expect(canvas.getByText(/docs\//u)).toBeVisible();
     await expect(
       canvas.getByText(/lives at the repository root/u),

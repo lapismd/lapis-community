@@ -65,10 +65,12 @@ NIP-29 role beside `writer`. Community projects the same `CanMaintain`
 decision the relay enforces: group creator, kind `39001` administrators, or a
 current member with `maintainer`. That capability gates repository create,
 trusted review, merge, task assignment, and task status. Hosted WalGit
-repositories advertise merge plus relay-owned default-branch protection;
+repositories advertise merge plus relay-owned default-branch protection,
+including additive `protected-ref` announcement patterns;
 GitHub-authoritative repositories keep clone/push/protection on GitHub.
 `OWNERS.md` on the protected tip can add path reviewers but cannot loosen
-those defaults. Settings link the bound channel People surface and document
+those defaults, and extra `protected-ref` tags cannot disable the live default.
+Settings link the bound channel People surface and document
 that `OWNERS.md` lives at the repository root on the protected branch.
 After a confirmed native merge, Community publishes the merging
 maintainer's signed `1631`. `writer` remains chat and posting policy only.

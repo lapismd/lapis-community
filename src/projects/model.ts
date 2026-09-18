@@ -245,7 +245,7 @@ export interface ProjectForgeRepositoryCapabilities {
   pull_requests: boolean;
   reviews: boolean;
   merge: boolean;
-  protection?: ProjectForgeBranchProtection;
+  protection?: import("./protected-refs.js").ProjectForgeBranchProtection;
   mirror: boolean;
   git_replication_target?: boolean;
   ci: boolean;
@@ -256,13 +256,7 @@ export interface ProjectForgeRepositoryCapabilities {
   capability_limits: ProjectForgeCapabilityLimits;
 }
 
-export interface ProjectForgeBranchProtection {
-  default_branch?: string;
-  protected_ref?: string;
-  pull_requests_required?: boolean;
-  merge_actors?: string;
-  github_authoritative?: boolean;
-}
+export type { ProjectForgeBranchProtection } from "./protected-refs.js";
 
 export interface ProjectForgeRepositoryCapabilitiesResponse {
   repository: string;

@@ -201,11 +201,12 @@ signed `1631` only after the coordinator confirms the protected-ref update.
 Provider-authoritative GitHub pull-request roots that already carry
 `external-provider` provenance MAY keep a same-signer bridge `1631`.
 `OWNERS.md` on that protected tip MAY add path reviewers and MUST NOT loosen
-channel create, review, or merge defaults. Trusted task assignment and task
-status MUST use the same `CanMaintain` set; the issue author and `30617`
-owner MUST NOT assign others or change task status unless they
-`CanMaintain`. Buzz Desktop MAY still display author- or owner-trusted
-reviews; Lapis Community MUST NOT.
+channel create, review, or merge defaults. Additive `protected-ref`
+announcement tags MAY protect extra branch patterns and MUST NOT disable the
+live default. Trusted task assignment and task status MUST use the same
+`CanMaintain` set; the issue author and `30617` owner MUST NOT assign others
+or change task status unless they `CanMaintain`. Buzz Desktop MAY still
+display author- or owner-trusted reviews; Lapis Community MUST NOT.
 Submitted pull-request reviews MUST remain signed kind `1` collaboration
 events rooted at the pull request and repository, bind the reviewed commit with
 `c`, and use exactly one `t` value: `review-comment`, `approval`, or

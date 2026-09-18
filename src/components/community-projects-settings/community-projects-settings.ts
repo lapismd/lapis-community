@@ -1,11 +1,13 @@
 import type { ProjectForgeRepositoryCapabilities } from "../../projects/model.js";
 import type { OwnersDocument } from "../../projects/owners.js";
+import { compileProtectedRefPatterns } from "../../projects/protected-refs.js";
 
 export function repositoryProtectionSummary(
   capabilities: ProjectForgeRepositoryCapabilities | undefined,
 ): {
   defaultBranch: string;
   protectedRef: string;
+  protectedPatterns: string[];
   pullRequestsRequired: boolean;
   mergeActors: string;
   githubAuthoritative: boolean;
@@ -14,6 +16,9 @@ export function repositoryProtectionSummary(
   return {
     defaultBranch: protection?.default_branch || "HEAD",
     protectedRef: protection?.protected_ref || "HEAD",
+    protectedPatterns: compileProtectedRefPatterns(
+      protection?.protected_patterns,
+    ),
     pullRequestsRequired: protection?.pull_requests_required !== false,
     mergeActors:
       protection?.merge_actors ||
