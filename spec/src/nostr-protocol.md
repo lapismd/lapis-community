@@ -173,7 +173,8 @@ An empty revision or dest-Git `git_object_not_found` MUST render that
 empty FileListing state rather than a forge error code. The host
 MUST open a Design Core `ColumnCanvas`
 `FileDiff` column from the already loaded dest-Git patch when a file is
-selected.
+selected. That column header MUST show the selected file's dest-Git
+additions/deletions and icon-only unified/split and wrap toggles.
 The same `#a` stream MUST project Op Log from kinds `3904`/`3905` using
 `parent_operation_ids`, and MUST project Evolog from recorded `3904`
 `evolution.entries` predecessor lists hydrated by kind `3902`. Kind `3905`

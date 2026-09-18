@@ -35,7 +35,9 @@ update that baseline in the same change. Repository Log Evolog pressed selected
 treatment, close-column deselect, and Op Log dest-Git files from recorded
 evolution commits update that baseline in the same change. Repository Log
 column ScrollArea paging, Op Log message copy chips, and split graph `#a`
-page filters update that baseline in the same change.
+page filters update that baseline in the same change. Repository Log Diff
+header file stats and icon-only unified/split/wrap toggles update that
+baseline in the same change.
 
 For LC-OPS-001 and LC-OPS-004, hosted-project acceptance layers the sibling
 relay's digest-pinned WalGit and RustFS composition onto both the persistent

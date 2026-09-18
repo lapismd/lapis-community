@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   repositoryLogChangedFiles,
   repositoryLogFilePatch,
+  repositoryLogFileStats,
   repositoryLogFilesError,
 } from "./repository-log-files.js";
 
@@ -31,6 +32,22 @@ describe("repository log changed files", () => {
         ].join("\n"),
       }),
     ).toEqual([{ path: "notes.md", additions: 1, deletions: 0 }]);
+  });
+
+  it("reads additions and deletions for the selected path", () => {
+    expect(
+      repositoryLogFileStats(
+        [
+          { path: "src/app.ts", additions: 4, deletions: 1 },
+          { path: "README.md", additions: 2, deletions: 0 },
+        ],
+        "src/app.ts",
+      ),
+    ).toEqual({ additions: 4, deletions: 1 });
+    expect(repositoryLogFileStats([], "missing.md")).toEqual({
+      additions: 0,
+      deletions: 0,
+    });
   });
 
   it("returns the dest-Git patch for one selected path", () => {

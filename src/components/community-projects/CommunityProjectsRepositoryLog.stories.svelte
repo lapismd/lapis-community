@@ -230,6 +230,35 @@
           .querySelector("[data-diff-file-path='lanes.md']"),
       ).not.toBeNull();
     });
+    const diffHeader = log.querySelector(
+      "[data-column-id='diff'] [data-ui-part='column-header']",
+    );
+    await expect(diffHeader?.textContent).toContain("+3");
+    await expect(diffHeader?.textContent).toContain("-1");
+    const diffViewMode = canvas.getByRole("group", { name: "Diff view mode" });
+    await expect(diffHeader?.contains(diffViewMode)).toBe(true);
+    await expect(
+      diffHeader?.contains(canvas.getByRole("button", { name: "Wrap text" })),
+    ).toBe(true);
+    await userEvent.click(
+      canvas.getByRole("radio", { name: "Show split diff" }),
+    );
+    await waitFor(() => {
+      expect(
+        log.querySelector(
+          "[data-ui-component='file-diff'][data-view-mode='split']",
+        ),
+      ).not.toBeNull();
+    });
+    await userEvent.click(canvas.getByRole("button", { name: "Wrap text" }));
+    await waitFor(() => {
+      expect(
+        log.querySelector("[data-ui-component='file-diff'][data-wrap='true']"),
+      ).not.toBeNull();
+    });
+    await expect((diffHeader?.getBoundingClientRect().height ?? 0) < 56).toBe(
+      true,
+    );
     await userEvent.click(
       canvas
         .getByText("(empty) (no description set)")

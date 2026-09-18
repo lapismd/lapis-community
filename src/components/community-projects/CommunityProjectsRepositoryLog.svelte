@@ -2,7 +2,6 @@
   import * as Empty from "@lapismd/design-core/shadcn/empty";
   import GitCommitHorizontalIcon from "@lucide/svelte/icons/git-commit-horizontal";
   import { Skeleton } from "@lapismd/design-core/shadcn/skeleton";
-  import { FileDiff } from "@lapismd/design-core/diff";
   import * as ColumnCanvas from "@lapismd/design-core/shadcn/column-canvas";
   import { untrack } from "svelte";
 
@@ -28,6 +27,7 @@
     repositoryLogFilesError,
   } from "../../projects/repository-log-files.js";
   import CommunityProjectsRevisionGraph from "./CommunityProjectsRevisionGraph.svelte";
+  import CommunityProjectsRepositoryLogDiff from "./CommunityProjectsRepositoryLogDiff.svelte";
   import CommunityProjectsRepositoryLogFiles from "./CommunityProjectsRepositoryLogFiles.svelte";
 
   let {
@@ -230,13 +230,11 @@
           </ColumnCanvas.Body>
         </ColumnCanvas.Column>
       {/if}
-      <ColumnCanvas.Column id="diff" title={selectedPath ?? "Diff"}>
-        <ColumnCanvas.Body>
-          {#if selectedPath && filePatch}
-            <FileDiff path={selectedPath} patch={filePatch} />
-          {/if}
-        </ColumnCanvas.Body>
-      </ColumnCanvas.Column>
+      <CommunityProjectsRepositoryLogDiff
+        path={selectedPath}
+        patch={filePatch}
+        {files}
+      />
     </ColumnCanvas.Root>
   {/if}
 </section>

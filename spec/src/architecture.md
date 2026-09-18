@@ -343,7 +343,9 @@ and `FileListingViewModeToggle` in the compact bordered History host chrome.
 An empty revision, or a dest-Git `git_object_not_found` response, MUST show
 the FileListing empty state rather than a forge error code. Selecting a file MUST open a Design Core
 `ColumnCanvas` column whose body is Design Core `FileDiff` for that dest-Git
-file patch. Log rows MUST label change IDs and commit IDs with
+file patch. The Diff header MUST keep `FileChangeStats` and icon-only
+unified/split and wrap toggles on the trailing edge; FileDiff receives
+`viewMode` and `wrap` only. Log rows MUST label change IDs and commit IDs with
 Community copy buttons from kind `3902` `change_id_hex`. Blank descriptions MUST use jj's
 `(empty) (no description set)` placeholder. Forked lanes MUST remain until the
 shared parent so the branch edge can meet the main line. Those edges MUST
