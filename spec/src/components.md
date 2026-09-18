@@ -320,7 +320,10 @@ setting persisted through `buzz-visibility`; aggregate Projects surfaces and
 the left navigation MUST omit unlisted projects while an exact project route
 or bound-channel context remains able to open them.
 Project and repository workspaces MUST expose canonical, refresh-stable hashes
-that include the encoded NIP-34 coordinate and active top-level surface. Tabs,
+that include the NIP-34 coordinate with literal `:` separators and the active
+top-level surface. Characters that are reserved in a fragment path segment,
+including `/`, MUST remain percent-encoded. Parsers MUST still accept legacy
+`%3A` coordinates. Tabs,
 rows, breadcrumbs, Community history, and browser back/forward navigation MUST
 keep that route synchronized without persisting transient nested selections.
 The application MUST retain an unresolved deep link while the catalog loads,

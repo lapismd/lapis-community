@@ -176,6 +176,29 @@ describe("Community application location history", () => {
   });
 
   it("round trips durable project and repository hashes", () => {
+    expect(
+      projectRouteToHash({
+        kind: "repository",
+        coordinate: "30617:owner:community",
+        surface: "log",
+      }),
+    ).toBe("#/projects/repository/30617:owner:community/log");
+    expect(
+      projectRouteToHash({
+        kind: "project",
+        coordinate: "30621:owner:road map",
+        surface: "overview",
+      }),
+    ).toBe("#/projects/project/30621:owner:road%20map");
+    expect(
+      projectRouteFromHash(
+        "#/projects/repository/30617%3Aowner%3Acommunity/log",
+      ),
+    ).toEqual({
+      kind: "repository",
+      coordinate: "30617:owner:community",
+      surface: "log",
+    });
     for (const route of [
       {
         kind: "project" as const,

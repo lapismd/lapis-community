@@ -513,7 +513,7 @@ export function projectRouteToHash(
   route: CommunityApplicationProjectRoute,
 ): string {
   const surface = route.surface === "overview" ? "" : `/${route.surface}`;
-  return `#/projects/${route.kind}/${encodeURIComponent(route.coordinate)}${surface}`;
+  return `#/projects/${route.kind}/${encodeURIComponent(route.coordinate).replaceAll("%3A", ":")}${surface}`;
 }
 
 export function projectRouteFromHash(

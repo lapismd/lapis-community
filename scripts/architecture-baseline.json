@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "sourceCommit": "abcf3c7542635b9ced44b81102e3b67bfc21d494",
+  "sourceCommit": "7b204f20e7621fbe0ccdc795674f6456108e8470",
   "limits": {
     "newProductionCountedLines": 300,
     "newTestCountedLines": 500,
@@ -1175,8 +1175,8 @@
       "forbiddenImportCount": 0
     },
     "src/components/community-application/navigation.test.ts": {
-      "countedLines": 469,
-      "physicalLines": 505,
+      "countedLines": 492,
+      "physicalLines": 528,
       "forbiddenImportCount": 0
     },
     "src/components/community-application/navigation.ts": {

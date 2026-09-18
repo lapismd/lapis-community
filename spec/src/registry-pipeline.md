@@ -45,7 +45,8 @@ update that baseline in the same change. Projects Activity dest-Git hash copy
 buttons, muted square `jj-sync` chips, and single-`@` member handle labels
 update that baseline in the same change. `jj-sync` chips keep the History
 copy-button fill on muted activity-row hover and update that baseline in the
-same change. Repository Files latest-commit
+same change. Literal `:` project fragment coordinates update that baseline in
+the same change. Repository Files latest-commit
 Gravatar avatars and History-style SHA copy buttons update that baseline in
 the same change.
 

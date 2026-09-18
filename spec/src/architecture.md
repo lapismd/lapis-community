@@ -250,7 +250,8 @@ tag for the default listed state, and presentation filters aggregate discovery
 without removing unlisted projects from the underlying catalog needed by exact
 routes and bound-channel context.
 Canonical project browser routes persist only the addressable project or
-repository coordinate and top-level surface. They remain part of the composite
+repository coordinate and top-level surface. Fragment hashes MUST keep the
+NIP-34 `:` separators literal and MUST still parse percent-encoded `%3A`. They remain part of the composite
 application location so browser history, Community history, and restored local
 state resolve through one codec. Catalog normalization MUST preserve an
 unresolved route until loading completes; it MUST NOT infer absence from an
