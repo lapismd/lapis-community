@@ -20,10 +20,11 @@ create/update/delete flags, and required approvals through the relay-owned
 protection document. Options MUST list those rulesets as bordered
 collapsible cards. Each collapsed card MUST show an enforcement glyph, the
 ruleset title, a muted `N branch rules • targeting …` summary, and an
-overflow menu. Hover MUST apply only to that summary row and MUST NOT
-extend onto the expanded editor. The expanded editor MUST use a Design
-Core Switch for Active/Disabled enforcement. Disabled cards MUST use a
-circular-x enforcement glyph. Member bypass actors MUST render
+overflow menu whose Delete item MUST use the Design Core destructive
+variant on every card, including unsaved drafts. Hover MUST apply only to
+that summary row and MUST NOT extend onto the expanded editor. The
+expanded editor MUST use a Design Core Switch for Active/Disabled
+enforcement. Disabled cards MUST use a circular-x enforcement glyph. Member bypass actors MUST render
 `CommunityMemberHoverCard` avatars. Bypass actors and branch targets MUST
 be toolbar cards with empty copy, include/exclude rows, and icon-only
 remove actions rather than Design Core tables. Branch rules MUST be a

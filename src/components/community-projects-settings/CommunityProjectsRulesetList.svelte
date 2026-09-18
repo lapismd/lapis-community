@@ -32,9 +32,9 @@
 
   let drafts = $state<ProjectForgeProtectionRule[]>([]);
   let openId = $state<string>();
-  let draftEnforcement = $state<Record<string, ProjectForgeProtectionRule["enforcement"]>>(
-    {},
-  );
+  let draftEnforcement = $state<
+    Record<string, ProjectForgeProtectionRule["enforcement"]>
+  >({});
 
   const rows = $derived([
     ...rules,
@@ -141,20 +141,20 @@
                   {/snippet}
                 </DropdownMenu.Trigger>
                 <DropdownMenu.Content>
-                  <DropdownMenu.Item
-                    onSelect={() =>
-                      queueMicrotask(() => setOpen(id, openId !== id))}
-                  >
+                  <DropdownMenu.Item onSelect={() => queueMicrotask(() => setOpen(id, openId !== id))}>
                     {openId === id ? "Collapse" : "Edit"}
                   </DropdownMenu.Item>
                   {#if !id.startsWith("draft-")}
                     <DropdownMenu.Item onSelect={() => void onToggle(id)}>
                       {rule.enforcement === "active" ? "Disable" : "Enable"}
                     </DropdownMenu.Item>
-                    <DropdownMenu.Item onSelect={() => void onDelete(id)}>
-                      Delete
-                    </DropdownMenu.Item>
                   {/if}
+                  <DropdownMenu.Item
+                    variant="destructive"
+                    onSelect={() =>
+                      queueMicrotask(() =>
+                        id.startsWith("draft-") ? cancel(rule) : void onDelete(id))}
+                  >Delete</DropdownMenu.Item>
                 </DropdownMenu.Content>
               </DropdownMenu.Root>
               </div>

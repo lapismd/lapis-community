@@ -89,9 +89,9 @@
     await expect(editor.getByText("Which branches should be matched?")).toBeVisible();
     await expect(editor.getByText("Branch targeting criteria")).toBeVisible();
     await expect(editor.getByText("Branch rules")).toBeVisible();
-    await expect(
-      editor.getByRole("slider", { name: "Required approvals" }),
-    ).toBeVisible();
+    await userEvent.keyboard("{Escape}");
+    await userEvent.click(canvas.getByRole("button", { name: "New branch ruleset ruleset actions" }));
+    await expect(overlay.getByRole("menuitem", { name: "Delete" })).toHaveAttribute("data-variant", "destructive");
   }}
 >
   {#snippet template(args)}
