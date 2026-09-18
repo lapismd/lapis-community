@@ -104,7 +104,11 @@ a repeated `change_id` and MUST omit abandoned empty working copies that
 `ColumnCanvas` host MUST fill the
 remaining Projects body under the tab toolbar and size only the canvas root,
 so sticky and in-column headers stay on the column chrome instead of stretching
-into an empty page card.
+into an empty page card. On the Log tab the Projects `AppShell.Body` MUST use
+`layout="regions"` so the shell body does not scroll; only
+`ColumnCanvas.Body` ScrollAreas MAY scroll. Each graph column MUST window the
+newest published page and reveal the next window when that body scrolls near
+its end.
 It MUST place `@` and bookmark chips only from that current view. Published
 historical `3902`/`3903` events remain observable evidence and MUST NOT appear
 as extra rows or stale chips. It MUST NOT substitute dest-Git `main`
@@ -132,7 +136,9 @@ The Log-tab outer-right rail MUST expose selectable Log and Op Log items
 without the repository-add plus control. Log is selected by default. Op Log
 MUST render the published kind `3904` operation DAG with operation-parent
 edges on the same `CommunityProjectsRevisionGraph` host and MUST label
-copyable IDs as operation IDs. When Log is selected and a Log row is
+copyable IDs as operation IDs. Op Log messages MUST replace each 40-digit
+commit SHA and 32-digit change hex with a History-style copy button that
+keeps the surrounding description text. When Log is selected and a Log row is
 selected, the rail MUST expose an Evolog toggle. When that toggle is
 pressed, the rail item MUST use the same selected background as Log and Op Log,
 and Log MUST add a `ColumnCanvas` column immediately after Log that

@@ -1874,3 +1874,21 @@ index 3333333..4444444 100644
     );
   }}
 />
+
+<Story
+  name="Log workspace regions"
+  args={{
+    view: "log",
+    selectedRepository: fixture.catalog.repositories[0],
+    workItemEvents: [],
+  }}
+  play={async ({ canvas }) => {
+    const projectsBody = canvas.getByRole("main", {
+      name: `${fixture.project.name} projects`,
+    });
+    await expect(projectsBody).toHaveAttribute("data-layout", "regions");
+    await expect(
+      projectsBody.querySelector(":scope > [data-ui-component='scroll-area']"),
+    ).toBeNull();
+  }}
+/>

@@ -33,7 +33,9 @@ same change. Repository Log empty dest-Git objects update that baseline in
 the same change. Repository Log rail selection, Op Log, and Evolog adapters
 update that baseline in the same change. Repository Log Evolog pressed selected
 treatment, close-column deselect, and Op Log dest-Git files from recorded
-evolution commits update that baseline in the same change.
+evolution commits update that baseline in the same change. Repository Log
+column ScrollArea paging, Op Log message copy chips, and split graph `#a`
+page filters update that baseline in the same change.
 
 For LC-OPS-001 and LC-OPS-004, hosted-project acceptance layers the sibling
 relay's digest-pinned WalGit and RustFS composition onto both the persistent

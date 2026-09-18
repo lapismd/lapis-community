@@ -2653,7 +2653,7 @@
 {#if showContent}
   <CommunityProjectStatusToasts {cachedCatalogAt} {error} {onRetry} />
   <AppShell.Body
-    layout="scroll"
+    layout={view === "log" ? "regions" : "scroll"}
     label={selectedProject ? `${selectedProject.name} projects` : "Projects"}
   >
     <!-- svelte-ignore a11y_no_noninteractive_tabindex -->

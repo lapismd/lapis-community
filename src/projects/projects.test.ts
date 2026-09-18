@@ -663,15 +663,24 @@ describe("project forge reducers", () => {
 });
 
 describe("Buzz transport compatibility", () => {
-  it("uses the six repository-scoped 2,000-event query filters", () => {
+  it("scopes Buzz work items and pages graph kinds on the repository #a", () => {
     const filters = buzzWorkItemFilters(repositoryCoordinate);
-    expect(filters).toHaveLength(6);
+    expect(filters).toHaveLength(9);
     expect(
-      filters.every(
-        (filter) =>
-          filter.limit === 2_000 && filter["#a"]?.[0] === repositoryCoordinate,
-      ) && [3901, 3902, 3905].every((kind) => filters.at(-1)?.kinds?.includes(kind)),
+      filters.every((filter) => filter["#a"]?.[0] === repositoryCoordinate),
     ).toBe(true);
+    expect(filters.find((filter) => filter.kinds?.includes(3901))?.limit).toBe(
+      2_000,
+    );
+    expect(filters.find((filter) => filter.kinds?.includes(3902))?.limit).toBe(
+      200,
+    );
+    expect(filters.find((filter) => filter.kinds?.includes(3904))?.limit).toBe(
+      80,
+    );
+    expect(filters.find((filter) => filter.kinds?.includes(3905))?.limit).toBe(
+      64,
+    );
   });
 
   it("reads progress and the terminal result from WalGit SSE", () => {

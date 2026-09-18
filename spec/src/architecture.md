@@ -331,7 +331,11 @@ newest `3903` when no native operation time is present. Historical views stay
 in the work-item stream as published evidence and MUST NOT seed rows or
 workspace chips. One row per `change_id` keeps the commit the current view
 names. Abandoned empty working copies are omitted. The Log `ColumnCanvas` MUST fill the remaining tab body and style
-only the canvas root so column headers stay on the column chrome. Dest-Git
+only the canvas root so column headers stay on the column chrome. The Log-tab
+`AppShell.Body` MUST use `layout="regions"` so the shell body does not scroll;
+column bodies MUST scroll through their Design Core ScrollAreas and MUST
+window the newest graph page, revealing more rows when a body scrolls near
+its end. Dest-Git
 commit history MUST NOT open to build Log. Selecting a row MAY load that commit's changed-file
 stats by native commit ID through `repository-source-reads` and
 `repository-log-files`, then MUST render them with Design Core `FileListing`
@@ -345,7 +349,8 @@ Community copy buttons from kind `3902` `change_id_hex`. Blank descriptions MUST
 shared parent so the branch edge can meet the main line. Those edges MUST
 use cubic split, merge, and top-of-row converge joins.
 The Log-tab outer rail MUST select Log or Op Log in place, without a new
-toolbar tab. Op Log MUST project kind `3904` operation-parent edges and MAY
+toolbar tab. Op Log MUST project kind `3904` operation-parent edges, MUST turn commit SHAs
+and change hex in operation descriptions into copy buttons, and MAY
 load dest-Git files for a commit recorded in that operation's evolution map.
 When a Log row is selected, an Evolog toggle MAY add a column after Log that
 walks recorded `3904` predecessor maps for that change and hydrates rows from

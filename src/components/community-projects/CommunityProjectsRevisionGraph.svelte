@@ -5,6 +5,7 @@
 
   import CommunityChip from "../community-chip/CommunityChip.svelte";
   import CommunityProjectsRevisionGraphIds from "./CommunityProjectsRevisionGraphIds.svelte";
+  import CommunityProjectsRevisionGraphMessage from "./CommunityProjectsRevisionGraphMessage.svelte";
   import type {
     RepositoryLogDevice,
     RepositoryLogRevision,
@@ -21,7 +22,6 @@
     repositoryLogLaneX,
     repositoryLogMergePath,
     repositoryLogReasonLabel,
-    repositoryLogRowLabel,
     repositoryLogSplitPath,
     repositoryLogSvgWidth,
     type RepositoryLogGraphRow,
@@ -66,15 +66,15 @@
       class="community-revision-graph__item"
       class:community-revision-graph__item--selected={selectedId ===
         row.revision.eventId}
+      aria-current={selectedId === row.revision.eventId ? "true" : undefined}
     >
-      <button
-        type="button"
+      <!-- svelte-ignore a11y_click_events_have_key_events -->
+      <!-- svelte-ignore a11y_no_static_element_interactions -->
+      <div
         class="community-revision-graph__row"
         class:community-revision-graph__row--tip={row.isTip}
         style:padding-left="{repositoryLogContentLeft(row)}px"
         style:height="{rowHeight}px"
-        aria-current={selectedId === row.revision.eventId ? "true" : undefined} aria-expanded={selectedId === row.revision.eventId ? "true" : undefined}
-        aria-label={repositoryLogRowLabel(row)}
         data-revision-id={row.revision.eventId}
         onclick={() => onSelect?.(row.revision)}
       >
@@ -151,9 +151,9 @@
                 <Camera />
               {/if}
             </span>
-            <span class="community-revision-graph__title"
-              >{row.revision.message}</span
-            >
+            <CommunityProjectsRevisionGraphMessage
+              message={row.revision.message}
+            />
           </span>
           <span class="community-revision-graph__meta">
             {#if row.revision.author}
@@ -176,14 +176,16 @@
             {/each}
           </span>
         </span>
-      </button>
+      </div>
       <CommunityProjectsRevisionGraphIds
         changeId={row.changeIdEncoded}
         commitId={row.revision.eventId}
         {commitLabel}
       />
       {#if selectedId === row.revision.eventId && selectedFiles}
-        <div class="community-revision-graph__files">{@render selectedFiles()}</div>
+        <div class="community-revision-graph__files">
+          {@render selectedFiles()}
+        </div>
       {/if}
     </li>
   {/each}
@@ -238,7 +240,8 @@
     outline: none;
   }
 
-  .community-revision-graph__row--tip .community-revision-graph__title {
+  .community-revision-graph__row--tip
+    :global(.community-revision-graph-message) {
     font-weight: 600;
   }
 
@@ -263,16 +266,6 @@
     min-width: 0;
     align-items: center;
     gap: 0.4rem;
-  }
-
-  .community-revision-graph__title {
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    font-size: var(--community-text-body);
-    font-weight: 500;
-    line-height: 1.25rem;
   }
 
   .community-revision-graph__meta {

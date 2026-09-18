@@ -13,6 +13,11 @@
   import { buildRepositoryLog } from "../../projects/repository-log.js";
   import { buildRepositoryOperationLog } from "../../projects/repository-operation-log.js";
   import {
+    REPOSITORY_LOG_PAGE_SIZE,
+    nextRepositoryLogVisible,
+    takeRepositoryLogPage,
+  } from "../../projects/repository-log-page.js";
+  import {
     createRepositoryLogPane,
     useRepositoryLogPane,
   } from "../../projects/repository-log-pane.svelte.js";
@@ -44,6 +49,8 @@
   const logGraph = $derived(buildRepositoryLog(events));
   const opGraph = $derived(buildRepositoryOperationLog(events));
   const graph = $derived(pane.pane === "oplog" ? opGraph : logGraph);
+  let visibleCount = $state(REPOSITORY_LOG_PAGE_SIZE);
+  const pagedGraph = $derived(takeRepositoryLogPage(graph, visibleCount));
   const evoGraph = $derived(
     pane.pane === "log" && pane.evologOpen && pane.selectedCommitId
       ? buildRepositoryEvolutionLog(
@@ -69,6 +76,7 @@
   $effect(() => {
     pane.pane;
     untrack(() => {
+      visibleCount = REPOSITORY_LOG_PAGE_SIZE;
       canvas.clear();
       evoSelectedId = null;
       detail = undefined;
@@ -119,10 +127,7 @@
       pane.setLogSelection(selected, revision?.changeId ?? null);
       evoSelectedId = null;
     }
-    await loadFiles(
-      revision?.commitId ?? selected,
-      revision?.empty === true,
-    );
+    await loadFiles(revision?.commitId ?? selected, revision?.empty === true);
   }
 
   async function selectEvolution(eventId: string): Promise<void> {
@@ -163,10 +168,17 @@
         title={pane.pane === "oplog" ? "Op Log" : "Log"}
         count={graph.revisions.length}
       >
-        <ColumnCanvas.Body>
+        <ColumnCanvas.Body
+          onScrollNearEnd={() => {
+            visibleCount = nextRepositoryLogVisible(
+              visibleCount,
+              graph.revisions.length,
+            );
+          }}
+        >
           <CommunityProjectsRevisionGraph
-            revisions={graph.revisions}
-            devices={graph.devices}
+            revisions={pagedGraph.revisions}
+            devices={pagedGraph.devices}
             {selectedId}
             graphLabel={pane.pane === "oplog"
               ? "Operation graph"

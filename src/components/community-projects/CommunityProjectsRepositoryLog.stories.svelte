@@ -97,7 +97,7 @@
       parent_operation_ids: ["1".repeat(128)],
       view_id: "f".repeat(128),
       metadata: {
-        description: "record merged lanes",
+        description: `record merged lanes ${merge}`,
         started_at_ms: 15_000,
         ended_at_ms: 16_000,
       },
@@ -183,6 +183,11 @@
     const log = canvas.getByRole("region", { name: "Repository log" });
     const graph = canvas.getByRole("list", { name: "Revision graph" });
     await expect(
+      log.querySelector(
+        "[data-ui-part='column-body'] [data-ui-component='scroll-area']",
+      ),
+    ).not.toBeNull();
+    await expect(
       log.querySelector("[data-ui-part='column-body']")?.contains(graph),
     ).toBe(true);
     await expect(
@@ -205,7 +210,7 @@
     ).toBeGreaterThan(0);
     await expect(canvas.queryByText("maya@example.test")).toBeNull();
     await userEvent.click(
-      canvas.getByRole("button", { name: /record merged lanes/ }),
+      canvas.getByText(/record merged lanes/).closest("[data-revision-id]")!,
     );
     await expect(
       await canvas.findByRole("region", { name: "Changed files" }),
@@ -226,23 +231,26 @@
       ).not.toBeNull();
     });
     await userEvent.click(
-      canvas.getByRole("button", { name: /\(empty\) \(no description set\)/ }),
+      canvas
+        .getByText("(empty) (no description set)")
+        .closest("[data-revision-id]")!,
     );
     await expect(await canvas.findByText("No changed files")).toBeVisible();
     await expect(canvas.queryByText("git_object_not_found")).toBeNull();
-    await userEvent.click(canvas.getByRole("button", { name: /lane a/ }));
+    await userEvent.click(
+      canvas.getByText("lane a").closest("[data-revision-id]")!,
+    );
     await expect(await canvas.findByText("No changed files")).toBeVisible();
     await expect(canvas.queryByText("git_object_not_found")).toBeNull();
     await userEvent.click(
-      canvas.getByRole("button", { name: /record merged lanes/ }),
+      canvas.getByText(/record merged lanes/).closest("[data-revision-id]")!,
     );
     await userEvent.click(
       await canvas.findByRole("button", { name: "Evolog" }),
     );
-    await expect(canvas.getByRole("button", { name: "Evolog" })).toHaveAttribute(
-      "aria-pressed",
-      "true",
-    );
+    await expect(
+      canvas.getByRole("button", { name: "Evolog" }),
+    ).toHaveAttribute("aria-pressed", "true");
     await expect(
       canvas.getByRole("list", { name: "Evolution log" }),
     ).toBeVisible();
@@ -250,11 +258,12 @@
     await userEvent.click(
       canvas.getByRole("button", { name: "Close Evolog column" }),
     );
-    await expect(canvas.getByRole("button", { name: "Evolog" })).toHaveAttribute(
-      "aria-pressed",
-      "false",
-    );
-    await expect(canvas.queryByRole("list", { name: "Evolution log" })).toBeNull();
+    await expect(
+      canvas.getByRole("button", { name: "Evolog" }),
+    ).toHaveAttribute("aria-pressed", "false");
+    await expect(
+      canvas.queryByRole("list", { name: "Evolution log" }),
+    ).toBeNull();
     await userEvent.click(canvas.getByRole("button", { name: "Op Log" }));
     await expect(
       canvas.getByRole("list", { name: "Operation graph" }),
@@ -264,8 +273,11 @@
     await expect(
       canvas.getAllByRole("button", { name: /Copy full operation ID/ }).length,
     ).toBeGreaterThan(0);
+    await expect(
+      canvas.getByRole("button", { name: `Copy full commit ID: ${merge}` }),
+    ).toBeVisible();
     await userEvent.click(
-      canvas.getByRole("button", { name: /record merged lanes/ }),
+      canvas.getByText(/record merged lanes/).closest("[data-revision-id]")!,
     );
     await expect(await canvas.findByText("lanes.md")).toBeVisible();
   }}
