@@ -2,7 +2,6 @@ import type { NostrEvent } from "../protocol/index.js";
 
 import { projectRepositoryLog } from "./repository-log-collapse.js";
 import {
-  KIND_JJ_GRAPH_MANIFEST,
   KIND_JJ_OPERATION_GRAPH,
   KIND_JJ_REVISION,
   KIND_JJ_VIEW,
@@ -60,7 +59,7 @@ export function buildRepositoryLog(
   const revisions = new Map<string, RepositoryLogRevision>();
   const views: { event: NostrEvent; body: ViewBody }[] = [];
   let contextViewId: string | undefined;
-  let contextCreatedAt = -1;
+  let contextScore = -1;
   for (const event of events) {
     const body = parseJson(event.content);
     if (event.kind === KIND_JJ_REVISION) {
@@ -76,10 +75,10 @@ export function buildRepositoryLog(
       views.push({ event, body });
       continue;
     }
-    const viewId = parseContextViewId(event.kind, body);
-    if (viewId && event.created_at >= contextCreatedAt) {
-      contextViewId = viewId;
-      contextCreatedAt = event.created_at;
+    const recency = operationViewRecency(event.kind, body);
+    if (recency && recency.score > contextScore) {
+      contextViewId = recency.viewId;
+      contextScore = recency.score;
     }
   }
   if (views.length === 0) return EMPTY_GRAPH;
@@ -118,9 +117,12 @@ function parseRevision(
   const commitId = asString(body.commit_id);
   if (!commitId) return undefined;
   const parents = stringList(body.parent_commit_ids);
+  const description =
+    typeof body.description === "string" ? body.description : "";
   const empty =
     body.is_empty === true ||
-    (isRecord(body.facts) && body.facts.is_empty === true);
+    (isRecord(body.facts) && body.facts.is_empty === true) ||
+    description.trim() === "";
   const createdAt =
     personSeconds(body.author) ??
     personSeconds(body.committer) ??
@@ -129,10 +131,7 @@ function parseRevision(
     eventId: commitId,
     changeId: changeIdHex(event, body),
     parents,
-    message: formatRepositoryLogMessage(
-      typeof body.description === "string" ? body.description : "",
-      empty,
-    ),
+    message: formatRepositoryLogMessage(description, empty),
     reason: parents.length > 1 ? "merge" : "checkpoint",
     createdAt,
     root: commitId,
@@ -148,21 +147,20 @@ function changeIdHex(event: NostrEvent, body: Record<string, unknown>): string {
   return raw && /^[0-9a-fA-F]{32}$/u.test(raw) ? raw.toLowerCase() : "";
 }
 
-function parseContextViewId(kind: number, body: unknown): string | undefined {
-  if (!isRecord(body)) return undefined;
+function operationViewRecency(
+  kind: number,
+  body: unknown,
+): { viewId: string; score: number } | undefined {
   if (
-    kind === KIND_JJ_OPERATION_GRAPH &&
-    body.schema === "jj-sync/operation-graph"
+    kind !== KIND_JJ_OPERATION_GRAPH ||
+    !isRecord(body) ||
+    body.schema !== "jj-sync/operation-graph"
   ) {
-    return asString(body.view_id);
+    return undefined;
   }
-  if (
-    kind === KIND_JJ_GRAPH_MANIFEST &&
-    body.schema === "jj-sync/graph-publication"
-  ) {
-    return isRecord(body.context) ? asString(body.context.view_id) : undefined;
-  }
-  return undefined;
+  const viewId = asString(body.view_id);
+  const score = isRecord(body.metadata) ? body.metadata.ended_at_ms : undefined;
+  return viewId && typeof score === "number" ? { viewId, score } : undefined;
 }
 
 function devicesFromViews(
@@ -170,20 +168,8 @@ function devicesFromViews(
   contextViewId: string | undefined,
   visible: Set<string>,
 ): RepositoryLogDevice[] {
-  const devices = new Map<string, RepositoryLogDevice>();
   const pinned = pinView(views, contextViewId);
-  for (const view of views) {
-    if (view === pinned) continue;
-    for (const device of devicesFromView(view.event, view.body, visible)) {
-      devices.set(device.alias, device);
-    }
-  }
-  if (pinned) {
-    for (const device of devicesFromView(pinned.event, pinned.body, visible)) {
-      devices.set(device.alias, device);
-    }
-  }
-  return [...devices.values()];
+  return pinned ? devicesFromView(pinned.event, pinned.body, visible) : [];
 }
 
 function devicesFromView(

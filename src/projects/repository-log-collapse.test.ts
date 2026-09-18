@@ -2,7 +2,11 @@ import { describe, expect, it } from "vitest";
 
 import type { NostrEvent } from "../protocol/index.js";
 import { buildRepositoryLog } from "./repository-log.js";
-import { KIND_JJ_REVISION, KIND_JJ_VIEW } from "./work-item-filters.js";
+import {
+  KIND_JJ_OPERATION_GRAPH,
+  KIND_JJ_REVISION,
+  KIND_JJ_VIEW,
+} from "./work-item-filters.js";
 
 const owner = "1".repeat(64);
 const parent = "a".repeat(40);
@@ -78,12 +82,12 @@ describe("repository log change collapse", () => {
       revision("4", 13, merge, [left, right], "record merged lanes", {
         change_id_hex: change,
       }),
-      view("6", 14, [older], {
+      view("6", 14, [merge], {
         local_bookmarks: [
-          { name: "main", target: { state: "resolved", commit_id: older } },
+          { name: "main", target: { state: "resolved", commit_id: merge } },
         ],
         workspaces: [
-          { native_workspace_name: "default", working_copy_commit_id: older },
+          { native_workspace_name: "default", working_copy_commit_id: merge },
         ],
       }),
     ]);
@@ -166,5 +170,100 @@ describe("repository log change collapse", () => {
     expect(
       graph.revisions.find((item) => item.eventId === working)?.empty,
     ).toBe(true);
+  });
+
+  it("keeps the rewrite named by the current view when author times tie", () => {
+    const change = "c".repeat(32);
+    const older = "d".repeat(40);
+    const current = "8".repeat(40);
+    const graph = buildRepositoryLog([
+      revision("1", 10, parent, [], "root"),
+      revision("7", 13, older, [parent], "merge lane A and lane B", {
+        change_id_hex: change,
+      }),
+      revision("4", 13, current, [parent], "record merged lanes", {
+        change_id_hex: change,
+      }),
+      view("6", 14, [current], {
+        local_bookmarks: [
+          { name: "demo", target: { state: "resolved", commit_id: current } },
+        ],
+        workspaces: [
+          {
+            native_workspace_name: "default",
+            working_copy_commit_id: current,
+          },
+        ],
+      }),
+    ]);
+    expect(graph.revisions.map((item) => item.eventId)).toEqual([
+      current,
+      parent,
+    ]);
+    expect(graph.revisions[0]?.message).toBe("record merged lanes");
+  });
+
+  it("places @ on the empty working copy named by the latest native operation", () => {
+    const current = "4".repeat(40);
+    const abandoned = "6".repeat(40);
+    const currentView = "1".repeat(128);
+    const staleView = "2".repeat(128);
+    const graph = buildRepositoryLog([
+      revision("1", 10, parent, [], "root"),
+      revision("4", 13, merge, [parent], "record merged lanes", {
+        change_id_hex: "c".repeat(32),
+      }),
+      revision("7", 13, "9".repeat(40), [parent], "merge lane A and lane B", {
+        change_id_hex: "c".repeat(32),
+      }),
+      revision("8", 14, abandoned, [merge], ""),
+      revision("9", 15, current, [merge], ""),
+      event("a", KIND_JJ_VIEW, 1700000000, {
+        schema: "jj-sync/view",
+        view_id: staleView,
+        head_commit_ids: [abandoned],
+        workspaces: [
+          {
+            native_workspace_name: "default",
+            working_copy_commit_id: abandoned,
+          },
+        ],
+      }),
+      event("b", KIND_JJ_VIEW, 1700000000, {
+        schema: "jj-sync/view",
+        view_id: currentView,
+        head_commit_ids: [current],
+        local_bookmarks: [
+          { name: "demo", target: { state: "resolved", commit_id: merge } },
+        ],
+        workspaces: [
+          { native_workspace_name: "default", working_copy_commit_id: current },
+        ],
+      }),
+      event("c", KIND_JJ_OPERATION_GRAPH, 1700000000, {
+        schema: "jj-sync/operation-graph",
+        view_id: currentView,
+        metadata: { ended_at_ms: 200, started_at_ms: 199 },
+      }),
+      event("d", KIND_JJ_OPERATION_GRAPH, 1700000000, {
+        schema: "jj-sync/operation-graph",
+        view_id: staleView,
+        metadata: { ended_at_ms: 100, started_at_ms: 99 },
+      }),
+    ]);
+    expect(graph.revisions.map((item) => item.eventId)).toEqual([
+      current,
+      merge,
+      parent,
+    ]);
+    expect(
+      graph.devices.find((device) => device.alias === "@")?.revisionEventId,
+    ).toBe(current);
+    expect(
+      graph.devices.find((device) => device.alias === "demo")?.revisionEventId,
+    ).toBe(merge);
+    expect(
+      graph.revisions.some((item) => item.message.includes("merge lane")),
+    ).toBe(false);
   });
 });

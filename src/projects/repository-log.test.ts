@@ -6,7 +6,6 @@ import {
   buildRepositoryLog,
 } from "./repository-log.js";
 import {
-  KIND_JJ_GRAPH_MANIFEST,
   KIND_JJ_OPERATION_GRAPH,
   KIND_JJ_REVISION,
   KIND_JJ_VIEW,
@@ -134,14 +133,14 @@ describe("repository log", () => {
     ).toBe("fedcba9876543210fedcba9876543210");
   });
 
-  it("keeps sibling lanes and earlier revisions when the newest view lists one head", () => {
+  it("keeps sibling lanes when the current view lists both heads", () => {
     const graph = buildRepositoryLog([
       revision("1", 10, parent, [], "root"),
       revision("2", 11, left, [parent], "lane a"),
       revision("3", 12, right, [parent], "lane b"),
       revision("4", 13, merge, [left, right], "record merged lanes"),
       view("5", 13, [merge], { local_bookmarks: [] }),
-      view("6", 14, [left], {
+      view("6", 14, [left, right], {
         local_bookmarks: [],
         workspaces: [
           { native_workspace_name: "default", working_copy_commit_id: left },
@@ -149,17 +148,16 @@ describe("repository log", () => {
       }),
     ]);
     expect(graph.revisions.map((item) => item.eventId)).toEqual([
-      merge,
       right,
       left,
       parent,
     ]);
     expect(graph.devices.map((device) => device.alias)).toEqual(["@"]);
     expect(graph.devices[0]?.revisionEventId).toBe(left);
+    expect(graph.revisions.some((item) => item.eventId === merge)).toBe(false);
   });
 
-  it("prefers workspace chips from the view attached to the latest 3904/3905 context", () => {
-    const olderView = view("6", 14, [merge]);
+  it("pins workspace chips from the 3903 named by the latest 3904 ended_at_ms", () => {
     const newerHeads = event("7", KIND_JJ_VIEW, 20, {
       schema: "jj-sync/view",
       view_id: "9".repeat(128),
@@ -172,15 +170,17 @@ describe("repository log", () => {
     const graph = buildRepositoryLog([
       revision("1", 10, parent, [], "root"),
       revision("4", 13, merge, [parent], "later head"),
-      olderView,
+      view("6", 14, [merge]),
       newerHeads,
-      event("8", KIND_JJ_OPERATION_GRAPH, 21, {
+      event("8", KIND_JJ_OPERATION_GRAPH, 1, {
         schema: "jj-sync/operation-graph",
         view_id: viewId,
+        metadata: { ended_at_ms: 200, started_at_ms: 190 },
       }),
-      event("9", KIND_JJ_GRAPH_MANIFEST, 22, {
-        schema: "jj-sync/graph-publication",
-        context: { view_id: viewId, operation_id: "o".repeat(128) },
+      event("9", KIND_JJ_OPERATION_GRAPH, 2, {
+        schema: "jj-sync/operation-graph",
+        view_id: "9".repeat(128),
+        metadata: { ended_at_ms: 100, started_at_ms: 90 },
       }),
     ]);
     expect(graph.revisions.map((item) => item.eventId)).toEqual([
@@ -194,6 +194,30 @@ describe("repository log", () => {
     expect(
       graph.devices.find((device) => device.alias === "@")?.revisionEventId,
     ).toBe(merge);
+  });
+
+  it("falls back to the newest 3903 when 3904 events omit ended_at_ms", () => {
+    const graph = buildRepositoryLog([
+      revision("1", 10, parent, [], "root"),
+      revision("4", 13, merge, [parent], "later head"),
+      view("6", 14, [merge]),
+      event("7", KIND_JJ_VIEW, 20, {
+        schema: "jj-sync/view",
+        view_id: "9".repeat(128),
+        head_commit_ids: [parent],
+        local_bookmarks: [],
+        workspaces: [
+          { native_workspace_name: "default", working_copy_commit_id: parent },
+        ],
+      }),
+      event("8", KIND_JJ_OPERATION_GRAPH, 21, {
+        schema: "jj-sync/operation-graph",
+        view_id: viewId,
+      }),
+    ]);
+    expect(graph.revisions.map((item) => item.eventId)).toEqual([parent]);
+    expect(graph.devices.map((device) => device.alias)).toEqual(["@"]);
+    expect(graph.devices[0]?.revisionEventId).toBe(parent);
   });
 
   it("uses jj empty-description text when the revision has no description", () => {

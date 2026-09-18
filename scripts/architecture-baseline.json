@@ -2925,13 +2925,13 @@
       "forbiddenImportCount": 0
     },
     "src/projects/repository-log.test.ts": {
-      "countedLines": 209,
-      "physicalLines": 220,
+      "countedLines": 232,
+      "physicalLines": 244,
       "forbiddenImportCount": 0
     },
     "src/projects/repository-log.ts": {
-      "countedLines": 293,
-      "physicalLines": 320,
+      "countedLines": 279,
+      "physicalLines": 306,
       "forbiddenImportCount": 0
     },
     "src/projects/repository-refs.test.ts": {
@@ -3215,13 +3215,13 @@
       "forbiddenImportCount": 0
     },
     "src/projects/repository-log-collapse.ts": {
-      "countedLines": 287,
-      "physicalLines": 307,
+      "countedLines": 273,
+      "physicalLines": 292,
       "forbiddenImportCount": 0
     },
     "src/projects/repository-log-collapse.test.ts": {
-      "countedLines": 161,
-      "physicalLines": 170,
+      "countedLines": 258,
+      "physicalLines": 269,
       "forbiddenImportCount": 0
     }
   }

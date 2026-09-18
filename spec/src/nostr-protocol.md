@@ -146,8 +146,11 @@ repository `#a` coordinate so repository Activity can project jj-sync
 operations beside dest-Git commits and NIP-34 collaboration, and MUST keep
 kinds `3902`–`3905` on that same `#a` stream so repository Log can project
 the current Jujutsu DAG from published kind `3902` revisions once a kind
-`3903` view exists: ancestors of the pinned view heads, workspaces, and
-bookmarks, one row per `change_id`, and no abandoned empty working copies.
+`3903` view exists: ancestors of the current view heads, workspaces, and
+bookmarks. The current view is the `3903` named by the latest kind `3904`
+`metadata.ended_at_ms`, or the newest `3903` when that time is absent. One
+row per `change_id` keeps the commit that view names. Abandoned empty
+working copies and stale-view chips MUST NOT appear.
 Kind `3902` `change_id_hex` (or the `i` tag) MUST become
 the reverse-hex change ID shown with Design Core copy buttons beside the
 commit ID copy control. A blank `description`

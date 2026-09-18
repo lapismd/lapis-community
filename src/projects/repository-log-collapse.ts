@@ -52,13 +52,14 @@ export function projectRepositoryLog(
   const viewSeeds = views.map((view) =>
     seedsFromViewBody(view.body, view === pinned),
   );
-  const collapsed = collapseRepositoryLogRevisions(parsed);
+  const seeds = collectSeeds(viewSeeds);
+  const collapsed = collapseRepositoryLogRevisions(parsed, new Set(seeds));
   const aliases = repositoryLogCommitAliases(parsed, collapsed);
   const remap = (id: string) => aliases.get(id) ?? id;
-  const seeds = collectSeeds(viewSeeds, parsed).map(remap);
+  const remapped = seeds.map(remap);
   const visible = omitAbandonedEmpties(
-    ancestorsOf(collapsed, seeds),
-    new Set([...pinnedKeepEmpty(viewSeeds)].map(remap)),
+    ancestorsOf(collapsed, remapped),
+    new Set(remapped),
   );
   if (visible.length === 0) return { revisions: [], devices: [] };
   const kept = new Set(visible.map((item) => item.eventId));
@@ -74,6 +75,7 @@ export function projectRepositoryLog(
 
 export function collapseRepositoryLogRevisions(
   revisions: readonly RepositoryLogRevision[],
+  preferIds: ReadonlySet<string> = new Set(),
 ): RepositoryLogRevision[] {
   const byId = new Map(
     revisions.map((revision) => [revision.eventId, revision]),
@@ -82,7 +84,9 @@ export function collapseRepositoryLogRevisions(
   for (const revision of revisions) {
     const key = revision.changeId || revision.eventId;
     const current = kept.get(key);
-    if (!current || newerRevision(revision, current)) kept.set(key, revision);
+    if (!current || preferredRevision(revision, current, preferIds)) {
+      kept.set(key, revision);
+    }
   }
   const visible = [...kept.values()];
   const keptIds = new Set(visible.map((revision) => revision.eventId));
@@ -127,38 +131,15 @@ function pinView<
   }, undefined);
 }
 
-function collectSeeds(
-  views: readonly RepositoryLogViewSeeds[],
-  parsed: readonly RepositoryLogRevision[],
-): string[] {
-  const empty = new Set(
-    parsed
-      .filter((revision) => revision.empty && revision.parents.length > 0)
-      .map((revision) => revision.eventId),
-  );
+function collectSeeds(views: readonly RepositoryLogViewSeeds[]): string[] {
   const seeds = new Set<string>();
-  for (const view of views) {
-    for (const id of [...view.heads, ...view.bookmarks]) {
-      if (view.pinned || !empty.has(id)) seeds.add(id);
-    }
-    if (view.pinned) {
-      for (const id of view.workspaces) seeds.add(id);
-    }
-  }
-  return [...seeds];
-}
-
-function pinnedKeepEmpty(
-  views: readonly RepositoryLogViewSeeds[],
-): Set<string> {
-  const keep = new Set<string>();
   for (const view of views) {
     if (!view.pinned) continue;
     for (const id of [...view.heads, ...view.bookmarks, ...view.workspaces]) {
-      keep.add(id);
+      seeds.add(id);
     }
   }
-  return keep;
+  return [...seeds];
 }
 
 function ancestorsOf(
@@ -273,10 +254,14 @@ function remapParents(
   return parents;
 }
 
-function newerRevision(
+function preferredRevision(
   left: RepositoryLogRevision,
   right: RepositoryLogRevision,
+  preferIds: ReadonlySet<string>,
 ): boolean {
+  const leftPreferred = preferIds.has(left.eventId);
+  const rightPreferred = preferIds.has(right.eventId);
+  if (leftPreferred !== rightPreferred) return leftPreferred;
   return (
     left.createdAt > right.createdAt ||
     (left.createdAt === right.createdAt && left.eventId > right.eventId)

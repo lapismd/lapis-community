@@ -325,9 +325,12 @@ activity feed for dest-Git commits, NIP-34 work items, and kind `3901`
 jj-sync operations scoped to the selected repository. A Log tab after
 Activity maps kinds `3902`/`3903` from that same work-item stream onto
 Community's `CommunityProjectsRevisionGraph`, matching `jj log`: ancestors of
-the pinned view's heads, workspaces, and bookmarks, plus non-empty heads from
-earlier views, with one row per `change_id` and abandoned empty working copies
-omitted. The Log `ColumnCanvas` MUST fill the remaining tab body and style
+the current view's heads, workspaces, and bookmarks. The current view is the
+kind `3903` named by the latest kind `3904` `metadata.ended_at_ms`, or the
+newest `3903` when no native operation time is present. Historical views stay
+in the work-item stream as published evidence and MUST NOT seed rows or
+workspace chips. One row per `change_id` keeps the commit the current view
+names. Abandoned empty working copies are omitted. The Log `ColumnCanvas` MUST fill the remaining tab body and style
 only the canvas root so column headers stay on the column chrome. Dest-Git
 commit history MUST NOT open to build Log. Selecting a row MAY load that commit's changed-file
 stats by native commit ID through `repository-source-reads` and
