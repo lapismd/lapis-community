@@ -188,6 +188,7 @@
   } from "../community-navigation/model.js";
   import CommunityProfileMenu from "../community-profile-menu/CommunityProfileMenu.svelte";
   import CommunityProjects from "../community-projects/CommunityProjects.svelte";
+  import CommunityApplicationProjectToolbarNav from "./CommunityApplicationProjectToolbarNav.svelte";
   import {
     PROJECT_REVIEW_LIST_FILTER_DEFAULT,
     PROJECT_TASK_LIST_FILTER_DEFAULT,
@@ -7166,43 +7167,18 @@
         label="Project sections"
         class="community-application__project-toolbar"
       >
-        {#if selectedRepository}
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon-sm"
-            class="community-application__project-toolbar-back"
-            aria-label={`Back to ${selectedProject?.name ?? "project"}`}
-            title={`Back to ${selectedProject?.name ?? "project"}`}
-            onclick={closeRepository}
-          >
-            <ArrowLeftIcon aria-hidden="true" />
-          </Button>
-        {:else if selectedProject}
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon-sm"
-            class="community-application__project-toolbar-back"
-            aria-label="Back to projects"
-            title="Back to projects"
-            onclick={() => setDestination("projects", true)}
-          >
-            <ArrowLeftIcon aria-hidden="true" />
-          </Button>
-        {:else}
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon-sm"
-            class="community-application__project-toolbar-search"
-            aria-label="Search projects"
-            title="Search projects"
-            onclick={() => (searchOpen = true)}
-          >
-            <SearchIcon aria-hidden="true" />
-          </Button>
-        {/if}
+        <CommunityApplicationProjectToolbarNav
+          scope={selectedRepository
+            ? "repository"
+            : selectedProject
+              ? "project"
+              : "overview"}
+          {canNavigateBack}
+          onHistoryBack={() => navigateHistory(-1)}
+          onCloseRepository={closeRepository}
+          onBackToProjects={() => setDestination("projects", true)}
+          onSearch={() => (searchOpen = true)}
+        />
         <Tabs.Root
           value={selectedRepository
             ? activeRepositorySurface
@@ -7355,7 +7331,8 @@
             openProjectsOverviewSurface(surface as ProjectForgeOverviewSurface);
         }}
         onBack={() => {
-          if (selectedRepository) closeRepository();
+          if (canNavigateBack) navigateHistory(-1);
+          else if (selectedRepository) closeRepository();
           else setDestination("projects", true);
         }}
         onSelectProject={selectProject}

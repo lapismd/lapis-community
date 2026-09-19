@@ -140,8 +140,16 @@
 }
 
 .community-projects__page-heading {
+  display: flex;
   max-width: 74rem;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
   margin-inline: auto;
+}
+
+.community-projects__page-heading-copy {
+  min-width: 0;
 }
 
 .community-projects__page-heading h1 {

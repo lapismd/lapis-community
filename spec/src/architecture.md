@@ -275,7 +275,9 @@ project rail remains an independently controlled outer-right sidebar. Exclusive
 Active/Completed task and Open/Merged review filters, plus the Commits Latest
 label, live in shared project collection-filter helpers so one pressed rail
 state can apply without growing the application or projects roots. Those
-filter rows render as indented secondary children of Tasks and Reviews. Task
+filter rows render as indented secondary children of Tasks and Reviews. Named
+Activity event-type filters and history-aware project Back live in extracted
+helpers so the application and projects roots do not grow. Task
 assignee selection reuses the application member command and publishes only
 through the injected project session; it does not introduce component-local
 membership authority. Removing a directly attached project channel MUST remain

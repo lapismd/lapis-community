@@ -12,8 +12,18 @@
   import UserMinusIcon from "@lucide/svelte/icons/user-minus";
   import UserPlusIcon from "@lucide/svelte/icons/user-plus";
   import { Skeleton } from "@lapismd/design-core/shadcn/skeleton";
+  import { untrack } from "svelte";
 
   import type { CommunityCustomEmoji } from "../../community/index.js";
+  import {
+    PROJECT_ACTIVITY_FILTER_DEFAULT,
+    createBrowserProjectActivityFilterStore,
+    filterProjectActivity,
+    projectActivityDigest,
+    projectActivityWeekItems,
+    type ProjectActivityFilterId,
+    type ProjectActivityFilterStore,
+  } from "../../projects/activity-filters.js";
   import type { ProjectForgeActivityItem } from "../../projects/index.js";
   import CommunityChip from "../community-chip/CommunityChip.svelte";
   import CommunityMarkdownContent from "../community-markdown-content/CommunityMarkdownContent.svelte";
@@ -26,6 +36,7 @@
     activityCopyableIds,
     activityDetailPresentation,
   } from "./community-projects-activity-detail.js";
+  import CommunityProjectsActivityFilter from "./CommunityProjectsActivityFilter.svelte";
   import CommunityProjectsMemberHover from "./CommunityProjectsMemberHover.svelte";
   import CommunityProjectsRevisionGraphIds from "./CommunityProjectsRevisionGraphIds.svelte";
   import { communityProjectsMemberForPubkey } from "./projects-member.js";
@@ -33,8 +44,7 @@
   let {
     loading = false,
     activity = [],
-    weekActivityDigest,
-    weekActivityCount,
+    filterStore,
     members = [],
     rooms = [],
     communityEmojis = [],
@@ -48,8 +58,7 @@
   }: {
     loading?: boolean | undefined;
     activity?: readonly ProjectForgeActivityItem[] | undefined;
-    weekActivityDigest: string;
-    weekActivityCount: number;
+    filterStore?: ProjectActivityFilterStore | undefined;
     members?: readonly CommunityMemberModel[] | undefined;
     rooms?: readonly CommunityRoomModel[] | undefined;
     communityEmojis?: readonly CommunityCustomEmoji[] | undefined;
@@ -65,14 +74,37 @@
     onOpenProject: (coordinate: string) => void;
     onOpenItem: (item: ProjectForgeActivityItem) => void;
   } = $props();
+
+  const fallbackFilterStore = createBrowserProjectActivityFilterStore();
+  const activityFilterStore = $derived(filterStore ?? fallbackFilterStore);
+  let activityFilter = $state<ProjectActivityFilterId>(
+    untrack(() => (filterStore ?? fallbackFilterStore).load()),
+  );
+  const visibleActivity = $derived(
+    filterProjectActivity(activity, activityFilter),
+  );
+  const weekActivity = $derived(projectActivityWeekItems(visibleActivity));
+  const weekActivityCount = $derived(weekActivity.length);
+  const weekActivityDigest = $derived(projectActivityDigest(visibleActivity));
+
+  function selectActivityFilter(value: ProjectActivityFilterId): void {
+    activityFilter = value;
+    activityFilterStore.save(value);
+  }
 </script>
 
 <div
   class="community-projects__workspace community-projects__workspace--activity"
 >
   <header class="community-projects__page-heading">
-    <h1>Projects Activity</h1>
-    <p>{weekActivityDigest}</p>
+    <div class="community-projects__page-heading-copy">
+      <h1>Projects Activity</h1>
+      <p>{weekActivityDigest}</p>
+    </div>
+    <CommunityProjectsActivityFilter
+      value={activityFilter}
+      onSelect={selectActivityFilter}
+    />
   </header>
   <div class="community-projects__section-divider">
     <span>{loading || weekActivityCount > 0 ? "This week" : "Earlier"}</span>
@@ -108,7 +140,7 @@
         {/each}
       </div>
     {:else}
-      {#each activity as item (item.id)}
+      {#each visibleActivity as item (item.id)}
         {@const actor = communityProjectsMemberForPubkey(
           members,
           item.actorPubkey || "relay",
@@ -251,7 +283,11 @@
           </div>
         </article>
       {:else}
-        <p class="community-projects__status">No project activity yet.</p>
+        <p class="community-projects__status">
+          {activityFilter === PROJECT_ACTIVITY_FILTER_DEFAULT
+            ? "No project activity yet."
+            : "No matching activity."}
+        </p>
       {/each}
     {/if}
   </div>

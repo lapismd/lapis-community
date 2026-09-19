@@ -1,7 +1,10 @@
 <script module lang="ts">
   import { defineMeta } from "@storybook/addon-svelte-csf";
-  import { expect, fn, userEvent } from "storybook/test";
+  import { expect, fn, userEvent, within } from "storybook/test";
 
+  import {
+    createBrowserProjectActivityFilterStore,
+  } from "../../projects/activity-filters.js";
   import type { ProjectForgeActivityItem } from "../../projects/model.js";
   import type { CommunityMemberModel } from "../community-workspace/model.js";
   import CommunityProjectsActivityFeed from "./CommunityProjectsActivityFeed.svelte";
@@ -18,6 +21,7 @@
     handle: "@maya",
     initials: "MC",
   };
+  const persisted = new Map<string, string>();
   const activity: ProjectForgeActivityItem[] = [
     {
       id: `commit:${projectCoordinate}:${sha}`,
@@ -49,8 +53,13 @@
     tags: ["visual-pending"],
     args: {
       activity,
-      weekActivityDigest: "2 events this week.",
-      weekActivityCount: 2,
+      filterStore: createBrowserProjectActivityFilterStore({
+        storage: {
+          getItem: () => null,
+          setItem: () => undefined,
+          removeItem: () => undefined,
+        },
+      }),
       members: [member],
       projectName: () => "Notes",
       onOpenProject: fn(),
@@ -106,6 +115,50 @@
     );
     await expect(getComputedStyle(sync).backgroundColor).not.toBe(
       getComputedStyle(row as HTMLElement).backgroundColor,
+    );
+  }}
+/>
+
+<Story
+  name="Filters relay event types"
+  args={{
+    activity: [
+      ...activity,
+      {
+        id: "task:1",
+        kind: "task",
+        createdAt: 1_700_000_100,
+        actorPubkey: owner,
+        action: "created a task in",
+        title: "Ship the filter",
+        body: "",
+        projectCoordinate,
+      },
+    ],
+    filterStore: createBrowserProjectActivityFilterStore({
+      storage: {
+        getItem: () => null,
+        setItem: (key, value) => persisted.set(key, value),
+        removeItem: (key) => persisted.delete(key),
+      },
+    }),
+    members: [member],
+    projectName: () => "Notes",
+    onOpenProject: fn(),
+    onOpenItem: fn(),
+  }}
+  play={async ({ canvas, canvasElement }) => {
+    const page = within(canvasElement.ownerDocument.body);
+    await expect(canvas.getByText("Ship the filter")).toBeVisible();
+    await expect(canvas.getByText("Stay on dest main")).toBeVisible();
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Filter activity" }),
+    );
+    await userEvent.click(page.getByRole("option", { name: /Tasks/u }));
+    await expect(canvas.getByText("Ship the filter")).toBeVisible();
+    await expect(canvas.queryByText("Stay on dest main")).toBeNull();
+    await expect(persisted.get("lapismd.community.projects.activity-filter.v1")).toContain(
+      "task",
     );
   }}
 />

@@ -753,24 +753,6 @@
   const contributorRepositorySections = $derived(
     projectRepositoryContributorGroups(repositories, rooms, members),
   );
-  const weekActivity = $derived(
-    visibleActivity.filter(
-      (item) => item.createdAt >= Math.floor(Date.now() / 1_000) - 604_800,
-    ),
-  );
-  const weekActivityCount = $derived(weekActivity.length);
-  const weekTaskCount = $derived(
-    weekActivity.filter((item) => item.kind === "task").length,
-  );
-  const weekReviewCount = $derived(
-    weekActivity.filter((item) => item.kind === "review").length,
-  );
-  const weekProjectCount = $derived(
-    new Set(weekActivity.map((item) => item.projectCoordinate)).size,
-  );
-  const weekActivityDigest = $derived(
-    projectActivityDigest(weekTaskCount, weekReviewCount, weekProjectCount),
-  );
   const overviewTabs = PROJECT_DIRECTORY_TABS;
   const projectTabs = PROJECT_WORKSPACE_TABS;
   const projectChannels = $derived(
@@ -1629,27 +1611,6 @@
     if (task.labels.includes("change-request")) return "Change request";
     if (task.labels.includes("improvement")) return "Improvement";
     return "Issue";
-  }
-
-  function projectActivityDigest(
-    taskCount: number,
-    reviewCount: number,
-    projectCount: number,
-  ): string {
-    const highlights = [
-      taskCount > 0
-        ? `${taskCount} ${taskCount === 1 ? "task" : "tasks"} opened`
-        : "",
-      reviewCount > 0
-        ? `${reviewCount} ${reviewCount === 1 ? "review" : "reviews"} opened`
-        : "",
-      `${projectCount} active ${projectCount === 1 ? "project" : "projects"}`,
-    ].filter(Boolean);
-    const detail =
-      highlights.length === 1
-        ? highlights[0]
-        : `${highlights.slice(0, -1).join(", ")}, and ${highlights.at(-1)}`;
-    return `This week: ${detail}.`;
   }
 
   function channelName(binding: (typeof projectChannels)[number]): string {
@@ -2689,8 +2650,6 @@
         <CommunityProjectsActivityFeed
           {loading}
           activity={visibleActivity}
-          {weekActivityDigest}
-          {weekActivityCount}
           {members}
           {rooms}
           {communityEmojis}
