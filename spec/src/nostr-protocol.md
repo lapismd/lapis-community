@@ -78,7 +78,7 @@ the workspace factory.
 Protocol-backed presentation follows the package's portable, published Design
 Core semver boundary; dependency refreshes do not alter event interpretation or
 trust decisions. Exclusive task and review list filters are presentation-only
-and do not change signed work-item events.
+and do not change signed work-item events. Their child indent is chrome only.
 
 For LC-NOSTR-007, public channel and forum message projections MAY retain their
 verified source event so an explicit copy action can export the complete signed

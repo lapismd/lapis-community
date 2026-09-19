@@ -63,24 +63,43 @@
   );
 </script>
 
-{#each options as option (option.label)}
-  {@const pressed = value === option.value}
-  {@const Icon = option.Icon as Component}
-  <Button
-    type="button"
-    variant="ghost"
-    class="community-application__project-overview-item community-projects-rail-status-filter"
-    data-active={pressed ? "" : undefined}
-    aria-pressed={pressed}
-    onclick={() => onSelect(option.label)}
-  >
-    <Icon data-icon="inline-start" aria-hidden="true" />
-    <span>{option.label}</span>
-    <span class="community-application__project-overview-count">{option.count}</span>
-  </Button>
-{/each}
+<div class="community-projects-rail-status-filters">
+  {#each options as option (option.label)}
+    {@const pressed = value === option.value}
+    {@const Icon = option.Icon as Component}
+    <Button
+      type="button"
+      variant="ghost"
+      class="community-application__project-overview-item community-projects-rail-status-filter"
+      data-active={pressed ? "" : undefined}
+      aria-pressed={pressed}
+      onclick={() => onSelect(option.label)}
+    >
+      <Icon data-icon="inline-start" aria-hidden="true" />
+      <span>{option.label}</span>
+      <span class="community-application__project-overview-count">{option.count}</span>
+    </Button>
+  {/each}
+</div>
 
 <style>
+  .community-projects-rail-status-filters {
+    padding-inline-start: 1.25rem;
+  }
+
+  :global(
+      .community-application__project-overview-item.community-projects-rail-status-filter[data-ui-component="button"]
+    ) {
+    font-size: var(--community-text-secondary);
+  }
+
+  :global(
+      .community-projects-rail-status-filter[data-ui-component="button"] > svg
+    ) {
+    width: 0.8125rem;
+    height: 0.8125rem;
+  }
+
   :global(
       .community-application__project-overview-item.community-projects-rail-status-filter[data-ui-component="button"]:hover:not(
           :disabled

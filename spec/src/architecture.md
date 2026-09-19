@@ -274,7 +274,8 @@ regions, repository browsing uses its resizable body sidebar, and the contextual
 project rail remains an independently controlled outer-right sidebar. Exclusive
 Active/Completed task and Open/Merged review filters, plus the Commits Latest
 label, live in shared project collection-filter helpers so one pressed rail
-state can apply without growing the application or projects roots. Task
+state can apply without growing the application or projects roots. Those
+filter rows render as indented secondary children of Tasks and Reviews. Task
 assignee selection reuses the application member command and publishes only
 through the injected project session; it does not introduce component-local
 membership authority. Removing a directly attached project channel MUST remain

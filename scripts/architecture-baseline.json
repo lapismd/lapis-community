@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "sourceCommit": "78d5b2c0eb1522f88fb16db788b3d855d97720ed",
+  "sourceCommit": "07d7b5387f3867f7f313f861b820c176d8e44fa4",
   "limits": {
     "newProductionCountedLines": 300,
     "newTestCountedLines": 500,
@@ -2114,13 +2114,13 @@
       "forbiddenImportCount": 0
     },
     "src/components/community-projects/CommunityProjectsRailStatusFilters.stories.svelte": {
-      "countedLines": 85,
-      "physicalLines": 90,
+      "countedLines": 97,
+      "physicalLines": 102,
       "forbiddenImportCount": 0
     },
     "src/components/community-projects/CommunityProjectsRailStatusFilters.svelte": {
-      "countedLines": 86,
-      "physicalLines": 91,
+      "countedLines": 102,
+      "physicalLines": 110,
       "forbiddenImportCount": 0
     },
     "src/components/community-projects/CommunityProjectsRepositoryBranchSelector.svelte": {

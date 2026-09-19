@@ -28,6 +28,12 @@
     await expect(completed).toHaveAttribute("aria-pressed", "false");
     await expect(completed).not.toHaveAttribute("data-active");
     await expect(completed).not.toHaveAttribute("aria-current");
+    await expect(Number.parseFloat(getComputedStyle(active).fontSize)).toBeLessThan(
+      Number.parseFloat(getComputedStyle(tasks).fontSize),
+    );
+    await expect(active.getBoundingClientRect().left).toBeGreaterThan(
+      tasks.getBoundingClientRect().left + 12,
+    );
     await userEvent.click(completed);
     await expect(args.onSelect).toHaveBeenCalledWith("Completed");
   }}
@@ -54,6 +60,12 @@
     await expect(merged).toHaveAttribute("aria-pressed", "false");
     await expect(merged).not.toHaveAttribute("data-active");
     await expect(merged).not.toHaveAttribute("aria-current");
+    await expect(Number.parseFloat(getComputedStyle(open).fontSize)).toBeLessThan(
+      Number.parseFloat(getComputedStyle(reviews).fontSize),
+    );
+    await expect(open.getBoundingClientRect().left).toBeGreaterThan(
+      reviews.getBoundingClientRect().left + 12,
+    );
     await userEvent.click(merged);
     await expect(args.onSelect).toHaveBeenCalledWith("Merged");
   }}
