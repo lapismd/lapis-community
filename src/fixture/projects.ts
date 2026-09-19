@@ -4,6 +4,7 @@ import {
   createRepositoryTemplate,
   createTaskTemplate,
 } from "../projects/index.js";
+import { createLocalProjectAgentContextFixture } from "./project-agent-context.js";
 
 export interface LocalProjectForgeFixtureOptions {
   ownerPubkey: string;
@@ -15,7 +16,7 @@ export interface LocalProjectForgeFixtureOptions {
 }
 
 export interface LocalProjectForgePublication {
-  signer: "owner" | "contributor";
+  signer: "owner" | "contributor" | "agent";
   template: NostrEventTemplate;
 }
 
@@ -24,6 +25,10 @@ export interface LocalProjectForgeFixture {
   repositoryCoordinate: string;
   taskAnchorCoordinate: string;
   publications: readonly LocalProjectForgePublication[];
+  agentContext: {
+    pagePublicationIndex: number;
+    checkpointManifest(pageEventId: string): LocalProjectForgePublication;
+  };
 }
 
 export function createLocalProjectForgeFixture(
@@ -71,44 +76,65 @@ export function createLocalProjectForgeFixture(
     options.createdAt + 2,
   );
   taskAnchor.tags.push(["project-task-anchor", "true"]);
+  const publications: LocalProjectForgePublication[] = [
+    { signer: "owner", template: repository },
+    { signer: "owner", template: taskAnchor },
+    { signer: "owner", template: project },
+    {
+      signer: "contributor",
+      template: createTaskTemplate(
+        {
+          repository: repositoryCoordinate,
+          repositoryOwner: options.ownerPubkey,
+          title: "Connect Projects to the live Community app",
+          content:
+            "Keep the browser project surface on the active Community relay.",
+          labels: ["community", "projects"],
+          assignees: [options.contributorPubkey],
+        },
+        options.createdAt + 3,
+      ),
+    },
+    {
+      signer: "owner",
+      template: createTaskTemplate(
+        {
+          repository: taskAnchorCoordinate,
+          repositoryOwner: options.ownerPubkey,
+          title: "Prepare the next Community project milestone",
+          content:
+            "Coordinate project-level work that does not belong to one code repository.",
+          labels: ["planning"],
+        },
+        options.createdAt + 4,
+      ),
+    },
+  ];
+  const agentContext = createLocalProjectAgentContextFixture({
+    repositoryCoordinate,
+    channelId: options.channelId,
+    createdAt: options.createdAt + publications.length,
+  });
+  const pagePublicationIndex =
+    publications.length + agentContext.contextPageIndex;
+  publications.push(
+    ...agentContext.publications.map((template) => ({
+      signer: "agent" as const,
+      template,
+    })),
+  );
 
   return {
     projectCoordinate,
     repositoryCoordinate,
     taskAnchorCoordinate,
-    publications: [
-      { signer: "owner", template: repository },
-      { signer: "owner", template: taskAnchor },
-      { signer: "owner", template: project },
-      {
-        signer: "contributor",
-        template: createTaskTemplate(
-          {
-            repository: repositoryCoordinate,
-            repositoryOwner: options.ownerPubkey,
-            title: "Connect Projects to the live Community app",
-            content:
-              "Keep the browser project surface on the active Community relay.",
-            labels: ["community", "projects"],
-            assignees: [options.contributorPubkey],
-          },
-          options.createdAt + 3,
-        ),
-      },
-      {
-        signer: "owner",
-        template: createTaskTemplate(
-          {
-            repository: taskAnchorCoordinate,
-            repositoryOwner: options.ownerPubkey,
-            title: "Prepare the next Community project milestone",
-            content:
-              "Coordinate project-level work that does not belong to one code repository.",
-            labels: ["planning"],
-          },
-          options.createdAt + 4,
-        ),
-      },
-    ],
+    publications,
+    agentContext: {
+      pagePublicationIndex,
+      checkpointManifest: (pageEventId) => ({
+        signer: "agent",
+        template: agentContext.checkpointManifest(pageEventId),
+      }),
+    },
   };
 }

@@ -861,7 +861,7 @@ packages:
     resolution: {integrity: sha512-zzNR+SdQSDJzc8joaeP8QQoCQr8NuYx2dIIytl1QeBEZHJ9uW6hebsrYgbz8hJwUQao3TWCMtmfV8Nu1twOLAw==}
 
   '@lapismd/design-core@file:../design-core/.local/packages/lapismd-design-core-0.1.2.tgz':
-    resolution: {integrity: sha512-kQXCBiL7fHnG4F5EU8wTbzpgHN8p9d2IPER9rYb+VpsFRY/Jq+j3skfCm6m8Dkh5Oob22zcuTqCKqfSPIsWhCA==, tarball: file:../design-core/.local/packages/lapismd-design-core-0.1.2.tgz}
+    resolution: {integrity: sha512-ErKrPajOqgM3/yI179exbvLCcYbbVVbRVQaXX8bEEHIFCPYVr0WZjinlWUdBE2cFhagi5IYx0Iqfvs5814osJg==, tarball: file:../design-core/.local/packages/lapismd-design-core-0.1.2.tgz}
     version: 0.1.2
     engines: {node: '>=22'}
     peerDependencies:

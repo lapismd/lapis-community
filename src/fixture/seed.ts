@@ -40,6 +40,7 @@ interface FixtureStatus {
   communityEventCount: number;
   projectCount: number;
   projectEventCount: number;
+  agentContextCount: number;
   registryRoot: string;
   relayCopies: number;
   groupIds: Record<string, string>;
@@ -345,7 +346,8 @@ async function seed(): Promise<{
       "plugin-development",
       [
         9, 7, 1, 5, 1_111, 1_618, 1_619, 1_621, 1_630, 1_631, 1_632, 1_633,
-        30_617, 30_621,
+        3_901, 3_902, 3_903, 3_904, 3_905, 3_906, 3_907, 3_908, 30_617, 30_621,
+        33_901,
       ],
     ],
     [LAPIS_GROUPS.forums, "forums", [11, 1_111, 7]],
@@ -399,6 +401,13 @@ async function seed(): Promise<{
     secret(secrets, "communityOne"),
     secret(secrets, "communityTwo"),
   ];
+  await grantRoles(
+    lapisGroupId(LAPIS_GROUPS.pluginDevelopment),
+    getPublicKey(communitySecrets[1]!),
+    ["writer"],
+  );
+  // Preserve the established registry clock while extending project fixtures.
+  const registryCreatedAt = createdAt + 5;
   const projectFixture = createLocalProjectForgeFixture({
     ownerPubkey: getPublicKey(operatorSecret),
     contributorPubkey: getPublicKey(communitySecrets[0]!),
@@ -410,12 +419,29 @@ async function seed(): Promise<{
   const projectEvents: NostrEvent[] = [];
   for (const publication of projectFixture.publications) {
     const secretKey =
-      publication.signer === "owner" ? operatorSecret : communitySecrets[0]!;
+      publication.signer === "owner"
+        ? operatorSecret
+        : publication.signer === "contributor"
+          ? communitySecrets[0]!
+          : communitySecrets[1]!;
     const event = sign(secretKey, publication.template);
     await publish(event, secretKey);
     projectEvents.push(event);
   }
-  createdAt += projectFixture.publications.length;
+  const contextPage =
+    projectEvents[projectFixture.agentContext.pagePublicationIndex];
+  if (contextPage === undefined) {
+    throw new Error("Local project agent-context page was not published");
+  }
+  const contextManifestPublication =
+    projectFixture.agentContext.checkpointManifest(contextPage.id);
+  const contextManifest = sign(
+    communitySecrets[1]!,
+    contextManifestPublication.template,
+  );
+  await publish(contextManifest, communitySecrets[1]!);
+  projectEvents.push(contextManifest);
+  createdAt = registryCreatedAt;
 
   const registryEvents: NostrEvent[] = [];
   const manifests: Nip29ReleaseManifestSource[] = [];
@@ -731,6 +757,7 @@ async function seed(): Promise<{
       communityEventCount: communityEvents.length,
       projectCount: 1,
       projectEventCount: projectEvents.length,
+      agentContextCount: 1,
       registryRoot: registry.root,
       relayCopies: retained,
       groupIds: Object.fromEntries(

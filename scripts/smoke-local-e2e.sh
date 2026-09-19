@@ -91,7 +91,8 @@ jq -e \
   .registryEventCount == (.pluginCount * 4) and
   .communityEventCount == $expected_community_events and
   .projectCount == 1 and
-  .projectEventCount == 5 and
+  .projectEventCount == 13 and
+  .agentContextCount == 1 and
   .relayCopies == (.communityEventCount + .registryEventCount + .projectEventCount) and
   (.registryRoot | test("^[0-9a-f]{64}$")) and
   (.groupIds | length) == (.pluginCount + 4) and

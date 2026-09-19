@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "sourceCommit": "af604d9b33031f8554b688de197ef673c611c9ad",
+  "sourceCommit": "820e7ae6b0c0774f90ae6745cdb247bd882398ac",
   "limits": {
     "newProductionCountedLines": 300,
     "newTestCountedLines": 500,
@@ -3056,14 +3056,29 @@
       "physicalLines": 117,
       "forbiddenImportCount": 0
     },
+    "src/fixture/project-agent-context-bodies.ts": {
+      "countedLines": 199,
+      "physicalLines": 206,
+      "forbiddenImportCount": 0
+    },
+    "src/fixture/project-agent-context.test.ts": {
+      "countedLines": 73,
+      "physicalLines": 79,
+      "forbiddenImportCount": 0
+    },
+    "src/fixture/project-agent-context.ts": {
+      "countedLines": 195,
+      "physicalLines": 201,
+      "forbiddenImportCount": 0
+    },
     "src/fixture/projects.test.ts": {
-      "countedLines": 48,
-      "physicalLines": 52,
+      "countedLines": 82,
+      "physicalLines": 86,
       "forbiddenImportCount": 0
     },
     "src/fixture/projects.ts": {
-      "countedLines": 109,
-      "physicalLines": 114,
+      "countedLines": 135,
+      "physicalLines": 140,
       "forbiddenImportCount": 0
     },
     "src/fixture/seed-retention.test.ts": {
@@ -3077,8 +3092,8 @@
       "forbiddenImportCount": 0
     },
     "src/fixture/seed.ts": {
-      "countedLines": 842,
-      "physicalLines": 872,
+      "countedLines": 868,
+      "physicalLines": 899,
       "forbiddenImportCount": 0,
       "kind": "legacy",
       "justification": "Existing file above the new-file counted-line limit; do not grow"

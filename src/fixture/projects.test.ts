@@ -1,5 +1,14 @@
 import { describe, expect, it } from "vitest";
 
+import {
+  KIND_JJ_AGENT_CONTEXT_PAGE,
+  KIND_JJ_CHECKPOINT_MANIFEST,
+  KIND_JJ_GRAPH_MANIFEST,
+  KIND_JJ_OPERATION,
+  KIND_JJ_OPERATION_GRAPH,
+  KIND_JJ_REVISION,
+  KIND_JJ_VIEW,
+} from "../projects/work-item-filters.js";
 import { createLocalProjectForgeFixture } from "./projects.js";
 
 describe("local project forge fixture", () => {
@@ -15,7 +24,7 @@ describe("local project forge fixture", () => {
       createdAt: 1_700_000_000,
     });
 
-    expect(fixture.publications).toHaveLength(5);
+    expect(fixture.publications).toHaveLength(12);
     expect(fixture.projectCoordinate).toBe(
       `30621:${ownerPubkey}:lapis-community`,
     );
@@ -48,5 +57,30 @@ describe("local project forge fixture", () => {
       "a",
       fixture.taskAnchorCoordinate,
     ]);
+    expect(fixture.publications.slice(5).map(({ signer }) => signer)).toEqual(
+      Array(7).fill("agent"),
+    );
+    expect(
+      fixture.publications.slice(5).map(({ template }) => template.kind),
+    ).toEqual([
+      KIND_JJ_OPERATION,
+      KIND_JJ_REVISION,
+      KIND_JJ_REVISION,
+      KIND_JJ_VIEW,
+      KIND_JJ_OPERATION_GRAPH,
+      KIND_JJ_GRAPH_MANIFEST,
+      KIND_JJ_AGENT_CONTEXT_PAGE,
+    ]);
+    expect(
+      fixture.publications[fixture.agentContext.pagePublicationIndex]?.template
+        .kind,
+    ).toBe(KIND_JJ_AGENT_CONTEXT_PAGE);
+    const manifest = fixture.agentContext.checkpointManifest("f".repeat(64));
+    expect(manifest.signer).toBe("agent");
+    expect(manifest.template.kind).toBe(KIND_JJ_CHECKPOINT_MANIFEST);
+    expect(JSON.parse(manifest.template.content)).toMatchObject({
+      page_event_ids: ["f".repeat(64)],
+      record_count: 3,
+    });
   });
 });
