@@ -189,6 +189,12 @@ The same `#a` stream MUST project Op Log from kinds `3904`/`3905` using
 `parent_operation_ids`, and MUST project Evolog from recorded `3904`
 `evolution.entries` predecessor lists hydrated by kind `3902`. Kind `3905`
 supplies the Op Log tip only.
+Kinds `3907` and `3908` MUST use a separate bounded repository-scoped `#a`
+page. A kind `3907` checkpoint manifest is usable only when every referenced
+kind `3908` page is present, has the same author, scope, operation, checkpoint,
+repository coordinate and group, and supplies its exact unique page index.
+Records MUST remain in strictly increasing sequence order. Missing, extra, or
+unreferenced pages MUST NOT appear as agent context.
 Successful JSON GET responses MAY be retained briefly in a bounded in-memory
 cache scoped by relay URL and signer public key. Progress-stream responses MUST
 not be cached, and a successful forge mutation MUST invalidate that cache.

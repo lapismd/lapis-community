@@ -11,6 +11,13 @@ export function createRepositoryLogCanvas() {
         collapsible: true,
         resizable: true,
       },
+      "agent-context": {
+        defaultWidth: 440,
+        pathLevel: 1,
+        minWidth: 340,
+        maxWidth: 720,
+        resizable: true,
+      },
       evolog: {
         defaultWidth: 480,
         pathLevel: 1,

@@ -7,11 +7,14 @@ export const KIND_JJ_REVISION = 3902;
 export const KIND_JJ_VIEW = 3903;
 export const KIND_JJ_OPERATION_GRAPH = 3904;
 export const KIND_JJ_GRAPH_MANIFEST = 3905;
+export const KIND_JJ_CHECKPOINT_MANIFEST = 3907;
+export const KIND_JJ_AGENT_CONTEXT_PAGE = 3908;
 
 export const WORK_ITEM_LIMIT = 2_000;
 export const GRAPH_CONTEXT_LIMIT = 64;
 export const GRAPH_REVISION_LIMIT = 200;
 export const GRAPH_OPERATION_LIMIT = 80;
+export const AGENT_CONTEXT_LIMIT = 256;
 
 export function buzzWorkItemFilters(
   repositoryCoordinate: string,
@@ -66,6 +69,11 @@ export function buzzWorkItemFilters(
       kinds: [KIND_JJ_OPERATION_GRAPH],
       "#a": [repositoryCoordinate],
       limit: GRAPH_OPERATION_LIMIT,
+    },
+    {
+      kinds: [KIND_JJ_CHECKPOINT_MANIFEST, KIND_JJ_AGENT_CONTEXT_PAGE],
+      "#a": [repositoryCoordinate],
+      limit: AGENT_CONTEXT_LIMIT,
     },
   ];
 }

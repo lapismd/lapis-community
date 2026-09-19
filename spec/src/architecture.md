@@ -89,6 +89,11 @@ the relay's per-coordinate provider-neutral capability document to select any
 content backend that explicitly advertises browsing. This allows WalGit and
 GitHub-backed repositories to share the same relay gateway without inferring
 behavior from clone URLs or exposing provider credentials to the browser.
+Repository agent context remains a separate deterministic project projection:
+`src/projects` validates and assembles signed checkpoint manifests and pages,
+while the repository-log component only selects normalized records for its
+current revision or operation. The presentation layer never treats agent
+context as registry state or as an authority for repository history.
 Authenticated repository GET results MUST use a short-lived, identity-scoped
 in-memory cache that survives presentation-session replacement, remains
 bounded, bypasses progress streams, and is cleared after forge mutations.

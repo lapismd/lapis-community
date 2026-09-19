@@ -4,6 +4,8 @@
 
   import type { NostrEvent } from "../../protocol/index.js";
   import {
+    KIND_JJ_AGENT_CONTEXT_PAGE,
+    KIND_JJ_CHECKPOINT_MANIFEST,
     KIND_JJ_GRAPH_MANIFEST,
     KIND_JJ_OPERATION_GRAPH,
     KIND_JJ_REVISION,
@@ -16,19 +18,23 @@
   const left = "b".repeat(40);
   const right = "c".repeat(40);
   const merge = "d".repeat(40);
+  const scope = "019d0000-0000-7000-8000-000000000001";
+  const operation = "2".repeat(128);
+  const address = "30617:owner:probe";
 
   function event(
     id: string,
     kind: number,
     createdAt: number,
     content: unknown,
+    tags: string[][] = [["a", address]],
   ): NostrEvent {
     return {
       id: id.repeat(64).slice(0, 64),
       kind,
       pubkey: owner,
       created_at: createdAt,
-      tags: [["a", "30617:owner:probe"]],
+      tags,
       content: JSON.stringify(content),
       sig: "f".repeat(128),
     };
@@ -97,7 +103,7 @@
     }),
     event("9", KIND_JJ_OPERATION_GRAPH, 16, {
       schema: "jj-sync/operation-graph",
-      operation_id: "2".repeat(128),
+      operation_id: operation,
       parent_operation_ids: ["1".repeat(128)],
       view_id: "f".repeat(128),
       metadata: {
@@ -115,13 +121,97 @@
         ],
       },
     }),
-    event("a", KIND_JJ_GRAPH_MANIFEST, 17, {
-      schema: "jj-sync/graph-publication",
-      context: {
-        operation_id: "2".repeat(128),
-        view_id: "f".repeat(128),
+    event(
+      "a",
+      KIND_JJ_GRAPH_MANIFEST,
+      17,
+      {
+        schema: "jj-sync/graph-publication",
+        version: 1,
+        scope_id: scope,
+        context: {
+          operation_id: operation,
+          view_id: "f".repeat(128),
+        },
+        selection: { seed_commit_ids: [merge] },
       },
-    }),
+      [
+        ["r", scope],
+        ["o", operation],
+        ["a", address],
+        ["h", "room"],
+      ],
+    ),
+    event(
+      "b",
+      KIND_JJ_AGENT_CONTEXT_PAGE,
+      18,
+      {
+        schema: "jj-sync/agent-context-page",
+        version: 1,
+        checkpoint_id: "checkpoint-1",
+        span_id: "span-1",
+        scope_id: scope,
+        operation_id: operation,
+        page_index: 0,
+        page_count: 1,
+        records: [
+          {
+            id: "user-1",
+            sequence: 1,
+            created_at_ms: 18_000,
+            kind: "user_message",
+            text: "Please **merge the lanes** and preserve history.",
+          },
+          {
+            id: "tool-1",
+            sequence: 2,
+            created_at_ms: 18_100,
+            kind: "tool",
+            tool_name: "apply_patch",
+            tool_state: "completed",
+          },
+          {
+            id: "assistant-1",
+            sequence: 3,
+            created_at_ms: 18_200,
+            kind: "assistant_message",
+            text: "Merged both lanes and published the checkpoint.",
+          },
+        ],
+      },
+      [
+        ["r", scope],
+        ["o", operation],
+        ["d", "checkpoint-1"],
+        ["a", address],
+        ["h", "room"],
+      ],
+    ),
+    event(
+      "c",
+      KIND_JJ_CHECKPOINT_MANIFEST,
+      19,
+      {
+        schema: "jj-sync/checkpoint-manifest",
+        version: 1,
+        checkpoint_id: "checkpoint-1",
+        span_id: "span-1",
+        scope_id: scope,
+        operation_id: operation,
+        page_event_ids: ["b".repeat(64)],
+        record_count: 3,
+        complete: false,
+        outcome: "completed",
+      },
+      [
+        ["r", scope],
+        ["o", operation],
+        ["d", "checkpoint-1"],
+        ["a", address],
+        ["h", "room"],
+      ],
+    ),
   ];
 
   const { Story } = defineMeta({
@@ -193,6 +283,7 @@
         log.querySelector(
           "[data-ui-part='column-body'] [data-ui-component='scroll-area']",
         ),
+        "repository log scroll area",
       ).not.toBeNull();
     });
     await expect(
@@ -223,19 +314,43 @@
       const trigger = graph.querySelector("[data-ui-part='git-author']");
       expect(
         trigger?.querySelector("img[src*='gravatar.com/avatar/']"),
+        "git author Gravatar",
       ).not.toBeNull();
       return trigger as HTMLElement;
     });
     await expect(
-      graph.querySelector("[data-ui-component='community-relative-time']"),
+      graph.querySelector("time[datetime]"),
+      "revision relative time",
     ).not.toBeNull();
     await userEvent.hover(author);
     await expect(author).toHaveAttribute("data-state", "instant-open");
     await expect(author).toHaveAttribute("aria-describedby");
     await userEvent.unhover(author);
-    await userEvent.click(
-      canvas.getByText(/record merged lanes/).closest("[data-revision-id]")!,
+    const mergeRow = graph.querySelector<HTMLElement>(
+      `[data-revision-id="${merge}"]`,
     );
+    if (!mergeRow) {
+      throw new Error(
+        `Missing merge row; rendered revision IDs: ${[
+          ...graph.querySelectorAll("[data-revision-id]"),
+        ]
+          .map((row) => row.getAttribute("data-revision-id"))
+          .join(", ")}`,
+      );
+    }
+    await userEvent.click(mergeRow!);
+    await expect(
+      await canvas.findByRole("region", { name: "Agent context" }),
+    ).toBeVisible();
+    const promptEmphasis = canvas.getByText("merge the lanes");
+    await expect(promptEmphasis).toBeVisible();
+    await expect(promptEmphasis.tagName).toBe("STRONG");
+    await expect(canvas.getByText("apply_patch")).toBeVisible();
+    await expect(
+      canvas.getByText("Merged both lanes and published the checkpoint."),
+    ).toBeVisible();
+    await expect(canvas.getByText("Incomplete")).toBeVisible();
+    await expect(canvas.queryByText("secret tool arguments")).toBeNull();
     await expect(
       await canvas.findByRole("region", { name: "Changed files" }),
     ).toBeVisible();
@@ -295,9 +410,7 @@
     );
     await expect(await canvas.findByText("No changed files")).toBeVisible();
     await expect(canvas.queryByText("git_object_not_found")).toBeNull();
-    await userEvent.click(
-      canvas.getByText(/record merged lanes/).closest("[data-revision-id]")!,
-    );
+    await userEvent.click(mergeRow!);
     await userEvent.click(
       await canvas.findByRole("button", { name: "Evolog" }),
     );
@@ -318,9 +431,10 @@
       canvas.queryByRole("list", { name: "Evolution log" }),
     ).toBeNull();
     await userEvent.click(canvas.getByRole("button", { name: "Op Log" }));
-    await expect(
-      canvas.getByRole("list", { name: "Operation graph" }),
-    ).toBeVisible();
+    const operationGraph = canvas.getByRole("list", {
+      name: "Operation graph",
+    });
+    await expect(operationGraph).toBeVisible();
     await expect(canvas.getByText("snapshot working copy")).toBeVisible();
     await expect(canvas.queryByRole("button", { name: "Evolog" })).toBeNull();
     await expect(
@@ -329,9 +443,14 @@
     await expect(
       canvas.getByRole("button", { name: `Copy full commit ID: ${merge}` }),
     ).toBeVisible();
-    await userEvent.click(
-      canvas.getByText(/record merged lanes/).closest("[data-revision-id]")!,
+    const operationRow = operationGraph.querySelector<HTMLElement>(
+      `[data-revision-id="${operation}"]`,
     );
+    await expect(operationRow).not.toBeNull();
+    await userEvent.click(operationRow!);
+    await expect(
+      await canvas.findByRole("region", { name: "Agent context" }),
+    ).toBeVisible();
     await expect(await canvas.findByText("lanes.md")).toBeVisible();
   }}
 />

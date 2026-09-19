@@ -51,6 +51,9 @@ copy-button fill on muted activity-row hover and update that baseline in the
 same change. Literal `:` project fragment coordinates update that baseline in
 the same change. Selected-project hub extracts and the lowered Application
 and CommunityProjects budgets update that baseline in the same change.
+Repository agent-context page filters, manifest assembly, selection adapters,
+and the extracted context column update the architecture baseline in the same
+change without entering registry materialization.
 Repository Files latest-commit
 Gravatar avatars and History-style SHA copy buttons update that baseline in
 the same change. Repository Overview README fullWidth alignment updates that

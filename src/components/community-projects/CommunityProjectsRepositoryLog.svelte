@@ -12,6 +12,10 @@
   import { buildRepositoryLog } from "../../projects/repository-log.js";
   import { buildRepositoryOperationLog } from "../../projects/repository-operation-log.js";
   import {
+    buildRepositoryAgentContexts,
+    repositoryAgentContextsForSelection,
+  } from "../../projects/repository-agent-context.js";
+  import {
     REPOSITORY_LOG_PAGE_SIZE,
     nextRepositoryLogVisible,
     takeRepositoryLogPage,
@@ -29,6 +33,7 @@
   import CommunityProjectsRevisionGraph from "./CommunityProjectsRevisionGraph.svelte";
   import CommunityProjectsRepositoryLogDiff from "./CommunityProjectsRepositoryLogDiff.svelte";
   import CommunityProjectsRepositoryLogFiles from "./CommunityProjectsRepositoryLogFiles.svelte";
+  import CommunityProjectsRepositoryAgentContext from "./CommunityProjectsRepositoryAgentContext.svelte";
 
   let {
     events = [],
@@ -61,7 +66,17 @@
       : { revisions: [], devices: [] },
   );
   const canvas = createRepositoryLogCanvas();
-  const selectedId = $derived(canvas.pathAt(0) ?? null);
+  let selectedId = $state<string | null>(null);
+  const agentContexts = $derived(buildRepositoryAgentContexts(events));
+  const selectedAgentContexts = $derived(
+    repositoryAgentContextsForSelection(agentContexts, pane.pane, selectedId),
+  );
+  const selectedAgentRecordCount = $derived(
+    selectedAgentContexts.reduce(
+      (total, checkpoint) => total + checkpoint.records.length,
+      0,
+    ),
+  );
   const selectedPath = $derived(canvas.pathAt(1) ?? null);
   let evoSelectedId = $state<string | null>(null);
   let detail = $state.raw<ProjectForgeCommitResponse | undefined>();
@@ -78,6 +93,7 @@
     untrack(() => {
       visibleCount = REPOSITORY_LOG_PAGE_SIZE;
       canvas.clear();
+      selectedId = null;
       evoSelectedId = null;
       detail = undefined;
       filesError = "";
@@ -95,6 +111,10 @@
       return;
     }
     canvas.open("evolog");
+  });
+
+  $effect(() => {
+    if (selectedAgentContexts.length > 0) canvas.open("agent-context");
   });
 
   async function loadFiles(
@@ -122,6 +142,7 @@
   async function selectRevision(eventId: string): Promise<void> {
     canvas.select(0, eventId);
     const selected = canvas.pathAt(0) ?? null;
+    selectedId = selected;
     const revision = graph.revisions.find((item) => item.eventId === selected);
     if (pane.pane === "log") {
       pane.setLogSelection(selected, revision?.changeId ?? null);
@@ -202,6 +223,19 @@
           </CommunityProjectsRevisionGraph>
         </ColumnCanvas.Body>
       </ColumnCanvas.Column>
+      {#if selectedAgentContexts.length > 0}
+        <ColumnCanvas.Column
+          id="agent-context"
+          title="Agent context"
+          count={selectedAgentRecordCount}
+        >
+          <ColumnCanvas.Body>
+            <CommunityProjectsRepositoryAgentContext
+              checkpoints={selectedAgentContexts}
+            />
+          </ColumnCanvas.Body>
+        </ColumnCanvas.Column>
+      {/if}
       {#if showEvolog}
         <ColumnCanvas.Column
           id="evolog"

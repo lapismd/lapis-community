@@ -722,7 +722,7 @@ describe("project forge reducers", () => {
 describe("Buzz transport compatibility", () => {
   it("scopes Buzz work items and pages graph kinds on the repository #a", () => {
     const filters = buzzWorkItemFilters(repositoryCoordinate);
-    expect(filters).toHaveLength(9);
+    expect(filters).toHaveLength(10);
     expect(
       filters.every((filter) => filter["#a"]?.[0] === repositoryCoordinate),
     ).toBe(true);
@@ -737,6 +737,12 @@ describe("Buzz transport compatibility", () => {
     );
     expect(filters.find((filter) => filter.kinds?.includes(3905))?.limit).toBe(
       64,
+    );
+    expect(filters.find((filter) => filter.kinds?.includes(3907))?.limit).toBe(
+      256,
+    );
+    expect(filters.find((filter) => filter.kinds?.includes(3908))?.limit).toBe(
+      256,
     );
   });
 

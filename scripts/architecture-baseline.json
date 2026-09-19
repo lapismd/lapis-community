@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "sourceCommit": "07d7b5387f3867f7f313f861b820c176d8e44fa4",
+  "sourceCommit": "af604d9b33031f8554b688de197ef673c611c9ad",
   "limits": {
     "newProductionCountedLines": 300,
     "newTestCountedLines": 500,
@@ -1101,8 +1101,8 @@
       "justification": "Existing file above the new-file counted-line limit; do not grow"
     },
     "src/components/community-application/CommunityApplication.svelte": {
-      "countedLines": 9225,
-      "physicalLines": 9585,
+      "countedLines": 9202,
+      "physicalLines": 9562,
       "forbiddenImportCount": 0,
       "kind": "legacy",
       "justification": "Application composition root; extract destination hosts before adding behaviour"
@@ -1130,6 +1130,16 @@
     "src/components/community-application/CommunityApplicationMemberCommand.svelte": {
       "countedLines": 68,
       "physicalLines": 70,
+      "forbiddenImportCount": 0
+    },
+    "src/components/community-application/CommunityApplicationProjectHistory.stories.svelte": {
+      "countedLines": 69,
+      "physicalLines": 72,
+      "forbiddenImportCount": 0
+    },
+    "src/components/community-application/CommunityApplicationProjectToolbarNav.svelte": {
+      "countedLines": 53,
+      "physicalLines": 56,
       "forbiddenImportCount": 0
     },
     "src/components/community-application/CommunityApplicationPulseHost.svelte": {
@@ -1962,20 +1972,30 @@
       "justification": "Existing file above the new-file counted-line limit; do not grow"
     },
     "src/components/community-projects/CommunityProjects.svelte": {
-      "countedLines": 3695,
-      "physicalLines": 3831,
+      "countedLines": 3655,
+      "physicalLines": 3790,
       "forbiddenImportCount": 0,
       "kind": "legacy",
       "justification": "Projects composition root; extract named surfaces before adding behaviour"
     },
     "src/components/community-projects/CommunityProjectsActivityFeed.stories.svelte": {
-      "countedLines": 107,
-      "physicalLines": 111,
+      "countedLines": 169,
+      "physicalLines": 174,
       "forbiddenImportCount": 0
     },
     "src/components/community-projects/CommunityProjectsActivityFeed.svelte": {
-      "countedLines": 255,
-      "physicalLines": 258,
+      "countedLines": 295,
+      "physicalLines": 300,
+      "forbiddenImportCount": 0
+    },
+    "src/components/community-projects/CommunityProjectsActivityFilter.stories.svelte": {
+      "countedLines": 69,
+      "physicalLines": 73,
+      "forbiddenImportCount": 0
+    },
+    "src/components/community-projects/CommunityProjectsActivityFilter.svelte": {
+      "countedLines": 206,
+      "physicalLines": 222,
       "forbiddenImportCount": 0
     },
     "src/components/community-projects/CommunityProjectsChannelPickerDialog.svelte": {
@@ -2123,6 +2143,11 @@
       "physicalLines": 110,
       "forbiddenImportCount": 0
     },
+    "src/components/community-projects/CommunityProjectsRepositoryAgentContext.svelte": {
+      "countedLines": 155,
+      "physicalLines": 166,
+      "forbiddenImportCount": 0
+    },
     "src/components/community-projects/CommunityProjectsRepositoryBranchSelector.svelte": {
       "countedLines": 23,
       "physicalLines": 28,
@@ -2154,13 +2179,15 @@
       "forbiddenImportCount": 0
     },
     "src/components/community-projects/CommunityProjectsRepositoryLog.stories.svelte": {
-      "countedLines": 330,
-      "physicalLines": 337,
-      "forbiddenImportCount": 0
+      "countedLines": 449,
+      "physicalLines": 456,
+      "forbiddenImportCount": 0,
+      "kind": "legacy",
+      "justification": "Existing file above the new-file counted-line limit; do not grow"
     },
     "src/components/community-projects/CommunityProjectsRepositoryLog.svelte": {
-      "countedLines": 251,
-      "physicalLines": 263,
+      "countedLines": 284,
+      "physicalLines": 297,
       "forbiddenImportCount": 0
     },
     "src/components/community-projects/CommunityProjectsRepositoryLogDiff.svelte": {
@@ -3127,6 +3154,16 @@
       "kind": "legacy",
       "justification": "Existing file above the new-file counted-line limit; do not grow"
     },
+    "src/projects/activity-filters.test.ts": {
+      "countedLines": 173,
+      "physicalLines": 181,
+      "forbiddenImportCount": 0
+    },
+    "src/projects/activity-filters.ts": {
+      "countedLines": 285,
+      "physicalLines": 308,
+      "forbiddenImportCount": 0
+    },
     "src/projects/authority.test.ts": {
       "countedLines": 46,
       "physicalLines": 50,
@@ -3241,8 +3278,8 @@
       "forbiddenImportCount": 0
     },
     "src/projects/projects.test.ts": {
-      "countedLines": 721,
-      "physicalLines": 752,
+      "countedLines": 727,
+      "physicalLines": 758,
       "forbiddenImportCount": 0,
       "kind": "legacy",
       "justification": "Existing file above the new-file counted-line limit; do not grow"
@@ -3299,6 +3336,21 @@
       "physicalLines": 26,
       "forbiddenImportCount": 0
     },
+    "src/projects/repository-agent-context-parsing.ts": {
+      "countedLines": 105,
+      "physicalLines": 116,
+      "forbiddenImportCount": 0
+    },
+    "src/projects/repository-agent-context.test.ts": {
+      "countedLines": 193,
+      "physicalLines": 202,
+      "forbiddenImportCount": 0
+    },
+    "src/projects/repository-agent-context.ts": {
+      "countedLines": 233,
+      "physicalLines": 242,
+      "forbiddenImportCount": 0
+    },
     "src/projects/repository-evolution-log.test.ts": {
       "countedLines": 137,
       "physicalLines": 146,
@@ -3320,8 +3372,8 @@
       "forbiddenImportCount": 0
     },
     "src/projects/repository-log-canvas.ts": {
-      "countedLines": 31,
-      "physicalLines": 32,
+      "countedLines": 38,
+      "physicalLines": 39,
       "forbiddenImportCount": 0
     },
     "src/projects/repository-log-collapse.test.ts": {
@@ -3450,8 +3502,8 @@
       "forbiddenImportCount": 0
     },
     "src/projects/work-item-filters.ts": {
-      "countedLines": 67,
-      "physicalLines": 71,
+      "countedLines": 75,
+      "physicalLines": 79,
       "forbiddenImportCount": 0
     },
     "src/projects/work-item-resources.test.ts": {
