@@ -441,6 +441,8 @@ show the selected wash, and hover wash MUST appear only on that pressed filter;
 selecting one MUST deselect the other. Tasks MUST default to Active and Reviews
 MUST default to Open. Those filter rows MUST be slightly indented and use
 slightly smaller type than the Tasks or Reviews parent.
+Project Activity rows MUST inset avatars from the hover and focus background
+edges while keeping the timeline connector aligned with the avatar centers.
 Project Activity on the directory landing, selected-project workspace, and
 selected-repository workspace MUST expose one filter-icon command that lists
 named relay event types with the same event glyphs as the feed, keep the

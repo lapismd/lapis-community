@@ -235,7 +235,8 @@
   grid-template-columns: 2.25rem minmax(0, 1fr);
   gap: 0.75rem;
   border-radius: calc(var(--radius) * 1.5);
-  padding: 0.75rem 0.7rem 0.75rem 0;
+  margin-left: -0.7rem;
+  padding: 0.75rem 0.7rem;
   background: transparent;
   transition: background 120ms ease;
 }
@@ -250,7 +251,7 @@
   z-index: 0;
   top: 3rem;
   bottom: -0.95rem;
-  left: 1.1rem;
+  left: calc(0.7rem + 1.125rem - 0.5px);
   width: 1px;
   background: var(--border);
 }
