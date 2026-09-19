@@ -32,9 +32,8 @@
       canvas.getByRole("button", { name: "Copy commit bbbbbbb" }),
     );
     await expect(args.onCopy).toHaveBeenCalledWith("b".repeat(40));
-    await userEvent.click(
-      canvas.getByRole("button", { name: "Back to commits" }),
-    );
-    await expect(args.onClose).toHaveBeenCalled();
+    await expect(
+      canvas.queryByRole("button", { name: "Back to commits" }),
+    ).not.toBeInTheDocument();
   }}
 />

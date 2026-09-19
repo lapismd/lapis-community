@@ -1,6 +1,6 @@
 # Architecture
 
-For LC-UI-049, repository context parsing, transient preview retention, activity grouping and commit routing live in separate project modules. Commit metadata and expandable context compose through their owning components. Live context remains session memory, expires after five minutes and is discarded on teardown. Architecture budgets ratchet down after route and metadata extraction; bounded composition and fixture additions carry per-file justifications.
+For LC-UI-049, repository context parsing, transient preview retention, activity grouping and commit routing live in separate project modules. Commit metadata and expandable context compose through their owning components. Agent context and Files changed share the commit-section disclosure component; its extraction lowers the Projects composition budget. Live context remains session memory, expires after five minutes and is discarded on teardown. Architecture budgets ratchet down after route and metadata extraction; bounded composition and fixture additions carry per-file justifications.
 
 The additive agent session boundary owns authenticated discovery, transient
 subscriptions, contact-list mutations, and a serialized owner-management queue.

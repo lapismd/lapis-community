@@ -1,7 +1,6 @@
 <script lang="ts">
   import { Button } from "@lapismd/design-core/shadcn/button";
   import { FileChangeStats } from "@lapismd/design-core/diff";
-  import ArrowLeftIcon from "@lucide/svelte/icons/arrow-left";
   import GitCommitHorizontalIcon from "@lucide/svelte/icons/git-commit-horizontal";
   import CopyIcon from "@lucide/svelte/icons/copy";
   import UserIcon from "@lucide/svelte/icons/user";
@@ -14,7 +13,6 @@
     authorName,
     additions,
     deletions,
-    onClose,
     onCopy,
   }: {
     commit: ProjectForgeCommit;
@@ -27,19 +25,6 @@
 </script>
 
 <header class="community-projects__commit-detail-header">
-  {#if onClose}
-    <Button
-      type="button"
-      variant="ghost"
-      size="icon-sm"
-      class="community-projects__commit-back"
-      aria-label="Back to commits"
-      title="Back to commits"
-      onclick={onClose}
-    >
-      <ArrowLeftIcon aria-hidden="true" />
-    </Button>
-  {/if}
   <div>
     <h1>{commit.subject}</h1>
     <p>

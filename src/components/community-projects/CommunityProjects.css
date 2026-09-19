@@ -2183,6 +2183,7 @@
 }
 
 .community-projects__commit-detail {
+  --community-project-review-section-height: 2.75rem;
   margin: 1rem 1rem 1rem 0;
   border: 1px solid var(--border);
   border-radius: var(--radius);
@@ -2470,7 +2471,6 @@
   display: grid;
   min-height: 2.5rem;
   align-items: start;
-  padding-left: 2.65rem;
 }
 
 .community-projects__commit-detail-header h1,
@@ -2488,12 +2488,6 @@
   margin-top: 0.15rem;
   color: var(--muted-foreground);
   font-size: var(--community-text-secondary);
-}
-
-.community-projects__commit-back[data-ui-component="button"] {
-  position: absolute;
-  top: -0.25rem;
-  left: 0;
 }
 
 .community-projects__commit-meta {
@@ -2545,20 +2539,8 @@
 }
 
 .community-projects__commit-detail > .community-markdown-content {
-  margin: 1rem 0 0 2.65rem;
+  margin: 1rem 0 0;
   font-size: var(--community-text-secondary);
-}
-
-.community-projects__commit-files {
-  margin-top: 1.2rem;
-}
-
-.community-projects__commit-files-trigger {
-  padding-inline: 0;
-}
-
-.community-projects__commit-files-content {
-  overflow: visible;
 }
 
 .community-projects__changed-files-toolbar {

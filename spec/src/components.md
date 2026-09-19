@@ -730,6 +730,17 @@ The activity toolbar reports checking, caught-up, migration-gap, and unavailable
 states without replacing saved history. Selecting Latest retries the same exact
 visible conversation context.
 
+## Commit detail sections
+
+For LC-UI-049, commit details MUST use the same full-width, keyboard-operable
+collapsible header for Agent context and Files changed: a leading chevron,
+left-aligned label, muted summary, matching padding, borders, hover feedback,
+and visible keyboard focus. Files changed starts expanded and retains its file
+count when collapsed; Agent context starts collapsed. Changed-file headers and
+toolbars retain their non-overlapping sticky positions. The commit title MUST
+not include a redundant Back to commits icon; the surrounding navigation
+continues to provide access to the commit list.
+
 ## Agent context references
 
 For LC-UI-049, Agent context MUST expose a kebab reference menu beside its

@@ -217,7 +217,6 @@
   const onAddTaskComment = fn(async () => undefined);
   const onSelectTask = fn();
   const onCloseTask = fn();
-  const onCloseCommit = fn();
   const onSelectPath = fn();
   const onSelectRepositoryBranch = fn();
   const onAddPullRequestComment = fn(async () => undefined);
@@ -869,7 +868,8 @@ index 3333333..4444444 100644
 <Story
   name="Tasks"
   args={{
-    view: "tasks", selectedProject: undefined,
+    view: "tasks",
+    selectedProject: undefined,
     tasks: [groupedTask, otherTask],
     onSelectTask,
   }}
@@ -1727,7 +1727,6 @@ index 3333333..4444444 100644
     selectedCommit: hostedCommit,
     selectedCommitDetail: hostedCommitDetail,
     showNavigation: false,
-    onCloseCommit,
   }}
   play={async ({ canvas, canvasElement }) => {
     await expect(
@@ -1750,7 +1749,7 @@ index 3333333..4444444 100644
       .closest<HTMLElement>(".community-projects__diff-summary");
     if (!changedFilesToolbar)
       throw new Error("Expected the commit changed-files toolbar");
-    await expect(getComputedStyle(changedFilesToolbar).top).toBe("40px");
+    await expect(getComputedStyle(changedFilesToolbar).top).toBe("44px");
 
     const commitDiffLayout = canvas
       .getByLabelText("Changed files")

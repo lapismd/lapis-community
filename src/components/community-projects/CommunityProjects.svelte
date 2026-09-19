@@ -1,4 +1,5 @@
 <script lang="ts">
+  import CommunityCommitSection from "../community-commit-section/CommunityCommitSection.svelte";
   import CommunityCommitSummary from "../community-commit-summary/CommunityCommitSummary.svelte";
   import { withRepositoryContextActivity } from "../../projects/repository-context-activity.js";
   import CommunityProjectChannelIcon from "../community-project-channel-icon/CommunityProjectChannelIcon.svelte";
@@ -232,7 +233,6 @@
     onLoadRepositoryPathCommit,
     onLoadRepositoryCommit,
     onSelectCommit,
-    onCloseCommit,
     onSelectPath,
     onRetry,
   }: CommunityProjectsProps & CommunityProjectsFilterProps = $props();
@@ -3371,7 +3371,6 @@
               authorName={commitAuthor.name}
               additions={commitAdditions}
               deletions={commitDeletions}
-              onClose={onCloseCommit}
               onCopy={(sha) => void copyCommitHash(sha)}
             />
 
@@ -3393,177 +3392,165 @@
                 : {}}
             />
 
-            <Collapsible.Root
-              class="community-projects__commit-files"
+            <CommunityCommitSection
+              title="Files changed"
               bind:open={commitFilesOpen}
+              contentClass="community-projects__review-files-content"
             >
-              <Collapsible.Trigger
-                class="community-projects__review-section-trigger community-projects__review-section-trigger--files community-projects__commit-files-trigger"
-              >
-                <span>Files changed</span>
-                {#if commitFilesOpen}
-                  <ChevronDownIcon aria-hidden="true" />
-                  {#if selectedCommitDetail}<span
-                      class="community-projects__review-section-count"
-                      >{commitDiffFiles.length}</span
-                    >{/if}
-                {:else}
-                  <ChevronRightIcon aria-hidden="true" />
-                {/if}
-              </Collapsible.Trigger>
-              <Collapsible.Content
-                class="community-projects__review-files-content community-projects__commit-files-content"
-              >
-                {#if loading && !selectedCommitDetail}
-                  <CommunitySkeleton
-                    layout="repository"
-                    label="Loading commit diff"
-                  />
-                {:else if selectedCommitDetail && commitDiffFiles.length > 0}
-                  <div class="community-projects__diff-summary">
-                    <span class="community-projects__diff-summary-copy">
-                      <strong>{commitDiffFiles.length} changed files</strong>
-                      <span
-                        >{selectedCommitValue.subject} · {selectedCommitValue.sha.slice(
-                          0,
-                          7,
-                        )}</span
-                      >
-                    </span>
-                    <span class="community-projects__diff-summary-actions">
-                      <FileChangeStats
-                        additions={commitAdditions}
-                        deletions={commitDeletions}
-                      />
-                      <DropdownMenu.Root>
-                        <DropdownMenu.Trigger>
-                          {#snippet child({ props })}
-                            <Button
-                              {...props}
-                              type="button"
-                              variant="outline"
-                              size="icon-sm"
-                              aria-label="Diff settings"
-                              title="Diff settings"
-                            >
-                              <Settings2Icon aria-hidden="true" />
-                            </Button>
-                          {/snippet}
-                        </DropdownMenu.Trigger>
-                        <DropdownMenu.Content align="end" sideOffset={4}>
-                          <DropdownMenu.Label>Diff layout</DropdownMenu.Label>
-                          <DropdownMenu.RadioGroup
-                            value={commitDiffViewMode}
-                            onValueChange={setCommitDiffViewMode}
-                          >
-                            <DropdownMenu.RadioItem value="unified">
-                              Unified diff
-                            </DropdownMenu.RadioItem>
-                            <DropdownMenu.RadioItem value="split">
-                              Split diff
-                            </DropdownMenu.RadioItem>
-                          </DropdownMenu.RadioGroup>
-                        </DropdownMenu.Content>
-                      </DropdownMenu.Root>
-                    </span>
-                  </div>
-                  <div
-                    class="community-projects__diff-layout"
-                    data-file-list-open={commitFileListOpen}
+              {#snippet summary()}
+                {#if selectedCommitDetail}
+                  <CommunityChip size="compact" variant="muted"
+                    >{commitDiffFiles.length}</CommunityChip
                   >
-                    {#if commitFileListOpen}
-                      <aside aria-label="Changed files">
-                        <ScrollArea
-                          type="hover"
-                          orientation="vertical"
-                          class="community-projects__changed-files-scroll-area"
-                        >
-                          <Input
-                            type="search"
-                            bind:value={commitFileFilter}
-                            class="community-projects__changed-files-filter"
-                            aria-label="Filter changed files"
-                            placeholder="Filter changed files"
-                          />
-                          <div
-                            class="community-projects__changed-files-toolbar"
-                          >
-                            <span>Files</span>
-                            <FileListingViewModeToggle
-                              bind:mode={diffFileListMode}
-                            />
-                          </div>
-                          <FileListing
-                            files={visibleCommitDiffFiles}
-                            mode={diffFileListMode}
-                            selectedPath={selectedCommitFilePath || null}
-                            onSelectPath={selectCommitFile}
-                          />
-                        </ScrollArea>
-                      </aside>
-                    {/if}
-                    <section
-                      class="community-projects__diff-content"
-                      aria-label="Commit diff"
-                    >
-                      {#snippet commitFileHeaderLeading(
-                        _context: FileDiffComposerFileContext,
-                      )}
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon-sm"
-                          class="community-projects__diff-sidebar-toggle"
-                          aria-label={commitFileListOpen
-                            ? "Hide changed files"
-                            : "Show changed files"}
-                          aria-expanded={commitFileListOpen}
-                          data-ui-part="sidebar-toggle"
-                          data-side="left"
-                          data-state={commitFileListOpen
-                            ? "expanded"
-                            : "collapsed"}
-                          title={commitFileListOpen
-                            ? "Hide changed files"
-                            : "Show changed files"}
-                          onclick={() =>
-                            (commitFileListOpen = !commitFileListOpen)}
-                        >
-                          <CommunitySidebarToggleIcon
-                            expanded={commitFileListOpen}
-                          />
-                        </Button>
-                      {/snippet}
-                      <FileDiffComposer
-                        files={visibleCommitDiffFiles}
-                        viewMode={commitDiffViewMode}
-                        selectedPath={selectedCommitFilePath}
-                        collapsedFilePaths={collapsedCommitFilePaths}
-                        scrollToFile={commitFileScrollTarget}
-                        stickyHeaders
-                        onFileToggle={toggleCommitFile}
-                        fileHeaderLeading={commitFileHeaderLeading}
-                      />
-                    </section>
-                  </div>
-                {:else if !canCollaborate}
-                  <p class="community-projects__status">
-                    Sign in to view the changed files for this commit.
-                  </p>
-                {:else if effectiveSourceError}
-                  {@render projectSourceError(effectiveSourceError)}
-                {:else if selectedCommitDetail}
-                  <p class="community-projects__status">
-                    This commit does not change any files.
-                  </p>
-                {:else}
-                  <CommunitySkeleton
-                    layout="repository"
-                    label="Loading commit diff"
-                  />
                 {/if}
-              </Collapsible.Content>
-            </Collapsible.Root>
+              {/snippet}
+              {#if loading && !selectedCommitDetail}
+                <CommunitySkeleton
+                  layout="repository"
+                  label="Loading commit diff"
+                />
+              {:else if selectedCommitDetail && commitDiffFiles.length > 0}
+                <div class="community-projects__diff-summary">
+                  <span class="community-projects__diff-summary-copy">
+                    <strong>{commitDiffFiles.length} changed files</strong>
+                    <span
+                      >{selectedCommitValue.subject} · {selectedCommitValue.sha.slice(
+                        0,
+                        7,
+                      )}</span
+                    >
+                  </span>
+                  <span class="community-projects__diff-summary-actions">
+                    <FileChangeStats
+                      additions={commitAdditions}
+                      deletions={commitDeletions}
+                    />
+                    <DropdownMenu.Root>
+                      <DropdownMenu.Trigger>
+                        {#snippet child({ props })}
+                          <Button
+                            {...props}
+                            type="button"
+                            variant="outline"
+                            size="icon-sm"
+                            aria-label="Diff settings"
+                            title="Diff settings"
+                          >
+                            <Settings2Icon aria-hidden="true" />
+                          </Button>
+                        {/snippet}
+                      </DropdownMenu.Trigger>
+                      <DropdownMenu.Content align="end" sideOffset={4}>
+                        <DropdownMenu.Label>Diff layout</DropdownMenu.Label>
+                        <DropdownMenu.RadioGroup
+                          value={commitDiffViewMode}
+                          onValueChange={setCommitDiffViewMode}
+                        >
+                          <DropdownMenu.RadioItem value="unified">
+                            Unified diff
+                          </DropdownMenu.RadioItem>
+                          <DropdownMenu.RadioItem value="split">
+                            Split diff
+                          </DropdownMenu.RadioItem>
+                        </DropdownMenu.RadioGroup>
+                      </DropdownMenu.Content>
+                    </DropdownMenu.Root>
+                  </span>
+                </div>
+                <div
+                  class="community-projects__diff-layout"
+                  data-file-list-open={commitFileListOpen}
+                >
+                  {#if commitFileListOpen}
+                    <aside aria-label="Changed files">
+                      <ScrollArea
+                        type="hover"
+                        orientation="vertical"
+                        class="community-projects__changed-files-scroll-area"
+                      >
+                        <Input
+                          type="search"
+                          bind:value={commitFileFilter}
+                          class="community-projects__changed-files-filter"
+                          aria-label="Filter changed files"
+                          placeholder="Filter changed files"
+                        />
+                        <div class="community-projects__changed-files-toolbar">
+                          <span>Files</span>
+                          <FileListingViewModeToggle
+                            bind:mode={diffFileListMode}
+                          />
+                        </div>
+                        <FileListing
+                          files={visibleCommitDiffFiles}
+                          mode={diffFileListMode}
+                          selectedPath={selectedCommitFilePath || null}
+                          onSelectPath={selectCommitFile}
+                        />
+                      </ScrollArea>
+                    </aside>
+                  {/if}
+                  <section
+                    class="community-projects__diff-content"
+                    aria-label="Commit diff"
+                  >
+                    {#snippet commitFileHeaderLeading(
+                      _context: FileDiffComposerFileContext,
+                    )}
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon-sm"
+                        class="community-projects__diff-sidebar-toggle"
+                        aria-label={commitFileListOpen
+                          ? "Hide changed files"
+                          : "Show changed files"}
+                        aria-expanded={commitFileListOpen}
+                        data-ui-part="sidebar-toggle"
+                        data-side="left"
+                        data-state={commitFileListOpen
+                          ? "expanded"
+                          : "collapsed"}
+                        title={commitFileListOpen
+                          ? "Hide changed files"
+                          : "Show changed files"}
+                        onclick={() =>
+                          (commitFileListOpen = !commitFileListOpen)}
+                      >
+                        <CommunitySidebarToggleIcon
+                          expanded={commitFileListOpen}
+                        />
+                      </Button>
+                    {/snippet}
+                    <FileDiffComposer
+                      files={visibleCommitDiffFiles}
+                      viewMode={commitDiffViewMode}
+                      selectedPath={selectedCommitFilePath}
+                      collapsedFilePaths={collapsedCommitFilePaths}
+                      scrollToFile={commitFileScrollTarget}
+                      stickyHeaders
+                      onFileToggle={toggleCommitFile}
+                      fileHeaderLeading={commitFileHeaderLeading}
+                    />
+                  </section>
+                </div>
+              {:else if !canCollaborate}
+                <p class="community-projects__status">
+                  Sign in to view the changed files for this commit.
+                </p>
+              {:else if effectiveSourceError}
+                {@render projectSourceError(effectiveSourceError)}
+              {:else if selectedCommitDetail}
+                <p class="community-projects__status">
+                  This commit does not change any files.
+                </p>
+              {:else}
+                <CommunitySkeleton
+                  layout="repository"
+                  label="Loading commit diff"
+                />
+              {/if}
+            </CommunityCommitSection>
           </article>
         {:else}
           {@render surfaceHeader(

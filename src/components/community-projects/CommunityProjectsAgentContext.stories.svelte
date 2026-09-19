@@ -1,6 +1,6 @@
 <script module lang="ts">
   import { defineMeta } from "@storybook/addon-svelte-csf";
-  import { expect, userEvent } from "storybook/test";
+  import { expect, userEvent, waitFor } from "storybook/test";
   import CommunityProjectsStoryHarness from "./CommunityProjectsStoryHarness.svelte";
   import CommunityProjects from "./CommunityProjects.svelte";
   import {
@@ -54,6 +54,45 @@
     const context = canvas.getByRole("button", { name: /Agent context/ });
     const files = canvas.getByRole("button", { name: "Files changed 1" });
     await expect(context).toHaveAttribute("aria-expanded", "false");
+    await expect(files).toHaveAttribute("aria-expanded", "true");
+    await expect(
+      canvas.queryByRole("button", { name: "Back to commits" }),
+    ).not.toBeInTheDocument();
+    for (const property of [
+      "padding",
+      "font-size",
+      "font-weight",
+      "text-align",
+    ]) {
+      await expect(getComputedStyle(files).getPropertyValue(property)).toBe(
+        getComputedStyle(context).getPropertyValue(property),
+      );
+    }
+    await expect(files.getBoundingClientRect().height).toBe(
+      context.getBoundingClientRect().height,
+    );
+    const contextChevron = context
+      .querySelector("svg")!
+      .getBoundingClientRect();
+    const filesChevron = files.querySelector("svg")!.getBoundingClientRect();
+    await expect(filesChevron.x).toBe(contextChevron.x);
+    await expect(filesChevron.right).toBeLessThan(
+      canvas.getByText("Files changed", { exact: true }).getBoundingClientRect()
+        .left,
+    );
+    await userEvent.click(files);
+    await expect(files).toHaveAttribute("aria-expanded", "false");
+    await waitFor(() =>
+      expect(
+        canvas.queryByRole("region", { name: "Commit diff" }),
+      ).not.toBeInTheDocument(),
+    );
+    await expect(files).toHaveTextContent("Files changed 1");
+    await expect(context).toHaveAttribute("aria-expanded", "false");
+    await userEvent.keyboard("{Enter}");
+    await expect(
+      canvas.getByRole("region", { name: "Commit diff" }),
+    ).toBeVisible();
     await expect(
       context.compareDocumentPosition(files) & Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();

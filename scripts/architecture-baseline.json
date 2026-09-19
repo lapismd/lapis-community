@@ -1972,15 +1972,15 @@
       "forbiddenImportCount": 0
     },
     "src/components/community-projects/CommunityProjects.stories.svelte": {
-      "countedLines": 1883,
-      "physicalLines": 1926,
+      "countedLines": 1882,
+      "physicalLines": 1925,
       "forbiddenImportCount": 0,
       "kind": "legacy",
       "justification": "Existing file above the new-file counted-line limit; do not grow"
     },
     "src/components/community-projects/CommunityProjects.svelte": {
-      "countedLines": 3616,
-      "physicalLines": 3751,
+      "countedLines": 3603,
+      "physicalLines": 3738,
       "forbiddenImportCount": 0,
       "kind": "legacy",
       "justification": "Projects composition root; extract named surfaces before adding behaviour"
@@ -3892,6 +3892,36 @@
     "src/projects/repository-log-selection.svelte.ts": {
       "countedLines": 151,
       "physicalLines": 157,
+      "forbiddenImportCount": 0
+    },
+    "src/components/community-commit-agent-context/CommunityCommitAgentContext.svelte": {
+      "countedLines": 60,
+      "physicalLines": 61,
+      "forbiddenImportCount": 0
+    },
+    "src/components/community-commit-section/CommunityCommitSection.stories.svelte": {
+      "countedLines": 39,
+      "physicalLines": 41,
+      "forbiddenImportCount": 0
+    },
+    "src/components/community-commit-section/CommunityCommitSection.svelte": {
+      "countedLines": 78,
+      "physicalLines": 81,
+      "forbiddenImportCount": 0
+    },
+    "src/components/community-commit-summary/CommunityCommitSummary.stories.svelte": {
+      "countedLines": 38,
+      "physicalLines": 39,
+      "forbiddenImportCount": 0
+    },
+    "src/components/community-commit-summary/CommunityCommitSummary.svelte": {
+      "countedLines": 68,
+      "physicalLines": 70,
+      "forbiddenImportCount": 0
+    },
+    "src/components/community-projects/CommunityProjectsAgentContext.stories.svelte": {
+      "countedLines": 118,
+      "physicalLines": 119,
       "forbiddenImportCount": 0
     }
   }

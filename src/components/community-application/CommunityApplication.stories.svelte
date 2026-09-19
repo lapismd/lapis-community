@@ -1158,7 +1158,7 @@
       }),
     );
     await expect(
-      await canvas.findByRole("button", { name: "Back to commits" }),
+      await canvas.findByRole("heading", { name: /Add project file/u }),
     ).toBeVisible();
     await expect(application).toHaveAttribute(
       "data-project-session-open-count",
