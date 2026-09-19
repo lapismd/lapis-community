@@ -8,10 +8,12 @@
 
   let {
     canvas,
+    initialContent = "",
     onSave,
     onReload,
   }: {
     canvas: CommunityChannelCanvasModel;
+    initialContent?: string;
     onSave: (content: string, expectedEventId: string | null) => Promise<void>;
     onReload: () => Promise<void>;
   } = $props();
@@ -24,7 +26,7 @@
   const stale = $derived(editing && canvas.eventId !== startingRevision);
 
   function edit() {
-    draft = canvas.content;
+    draft = canvas.content || initialContent;
     startingRevision = canvas.eventId;
     editing = true;
     review = false;
@@ -55,7 +57,11 @@
   }
 </script>
 
-<div class="lc-channel-canvas" aria-busy={pending || canvas.loading}>
+<div
+  class="lc-channel-canvas"
+  class:lc-channel-canvas--editing={editing}
+  aria-busy={pending || canvas.loading}
+>
   {#if canvas.loading && canvas.eventId === null && !editing}
     <CommunitySkeleton layout="details" label="Loading canvas" />
   {:else}
@@ -87,12 +93,14 @@
         {/if}
       {/if}
       <form
+        class="lc-channel-canvas__form"
         onsubmit={(event) => {
           event.preventDefault();
           void save().catch(() => undefined);
         }}
       >
         <CommunityChatComposer
+          class="lc-channel-canvas__composer"
           mode="form"
           bind:value={draft}
           ariaLabel="Canvas Markdown"
@@ -150,6 +158,60 @@
     gap: 1rem;
     min-width: 0;
     overflow-wrap: anywhere;
+  }
+  .lc-channel-canvas--editing,
+  .lc-channel-canvas__form {
+    height: 100%;
+    min-height: 0;
+  }
+  .lc-channel-canvas__form {
+    display: grid;
+    grid-template-rows: minmax(0, 1fr) auto;
+  }
+  :global(.lc-channel-canvas__composer) {
+    --community-chat-composer-editor-max-height-override: 100%;
+    height: 100%;
+    min-height: 0;
+  }
+  :global(
+      .lc-channel-canvas__composer > [data-ui-component="ai-chat-composer"]
+    ),
+  :global(
+      .lc-channel-canvas__composer
+        > [data-ui-component="ai-chat-composer"]
+        > [data-ui-part="body"]
+    ),
+  :global(
+      .lc-channel-canvas__composer
+        [data-ui-component="ai-chat-composer"]
+        [data-ui-part="input-area"]
+    ),
+  :global(.lc-channel-canvas__composer .community-chat-composer__editor-wrap),
+  :global(
+      .lc-channel-canvas__composer
+        .community-chat-composer__editor-scroll-area[data-ui-component="scroll-area"]
+    ),
+  :global(
+      .lc-channel-canvas__composer
+        .community-chat-composer__editor-scroll-area
+        > [data-ui-part="scroll-area-viewport"]
+    ) {
+    height: 100%;
+    min-height: 0;
+  }
+  :global(
+      .lc-channel-canvas__composer
+        > [data-ui-component="ai-chat-composer"]
+        > [data-ui-part="body"]
+    ),
+  :global(
+      .lc-channel-canvas__composer
+        [data-ui-component="ai-chat-composer"]
+        [data-ui-part="input-area"]
+    ),
+  :global(.lc-channel-canvas__composer .community-chat-composer__editor-wrap) {
+    flex: 1;
+    min-height: 0;
   }
   .lc-channel-canvas__actions {
     display: flex;

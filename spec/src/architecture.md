@@ -645,3 +645,22 @@ Plugin interface or couple consumers to the helper build peer graph.
 For LC-UI-049, repository context uses the shared Column Canvas collapse state.
 Activity progress reduction and scoped runtime controls have separate owners;
 profile action geometry is composed by both agent profile and activity views.
+
+For LC-UI-050, project canvas starter text is derived from the resolved project,
+channel and repository graph at the application boundary. The channel canvas
+receives only the resulting draft string and never publishes it before an
+explicit save. Repository Activity owns its transcript disclosure state, while
+collapsed transcripts mount only when opened. The shared transcript renderer
+remains expanded for Log and commit consumers. Activity yields its initial
+content render until after a browser paint, displaying the shared timeline
+skeleton immediately and retaining loaded rows during background refresh.
+Project navigation normalizes a selected project destination to its explicit
+Activity route. Every selected-project route, including Activity, carries a
+`project-*` main surface, with the selected tab and rendered workspace derived
+from the same route. Reconstructed agent
+context deduplicates commit IDs both within each checkpoint and across the turn
+before rendering keyed checkpoint links, so repeated relay references cannot
+abort the Activity surface. Project-owned
+identity wrappers apply the shared rounded-square agent avatar treatment across
+Activity, reviews, files, commits, Log and Evolog without changing avatar
+behavior outside Projects.

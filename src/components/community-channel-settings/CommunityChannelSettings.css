@@ -31,6 +31,18 @@
   padding: 0.5rem 0.75rem 1rem;
 }
 
+.lc-channel-settings--canvas {
+  height: 100%;
+  min-height: 100%;
+}
+
+.lc-channel-settings__body--canvas
+  > [data-ui-component="scroll-area"]
+  > [data-ui-part="scroll-area-viewport"]
+  > div {
+  height: 100%;
+}
+
 .lc-channel-settings section {
   display: grid;
   gap: 0.25rem;
@@ -110,6 +122,8 @@
 }
 
 .lc-channel-settings__details-card,
+.lc-channel-settings__management-zone,
+.lc-channel-settings__canvas-entry,
 .lc-channel-settings__danger-zone {
   overflow: hidden;
   border: 1px solid var(--border);
@@ -124,12 +138,17 @@
 }
 
 .lc-channel-settings__details-card > .lc-channel-settings__row,
+.lc-channel-settings__management-zone > .lc-channel-settings__row,
+.lc-channel-settings__canvas-entry > .lc-channel-settings__row,
 .lc-channel-settings__danger-zone > .lc-channel-settings__row {
   min-height: 4rem;
   border-radius: 0;
 }
 
 .lc-channel-settings__details-card > .lc-channel-settings__row:not(:last-child),
+.lc-channel-settings__management-zone
+  > .lc-channel-settings__row:not(:last-child),
+.lc-channel-settings__canvas-entry > .lc-channel-settings__row:not(:last-child),
 .lc-channel-settings__danger-zone > .lc-channel-settings__row:not(:last-child) {
   border-block-end: 1px solid var(--border);
 }

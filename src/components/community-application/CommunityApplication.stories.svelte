@@ -1122,6 +1122,14 @@
     await expect(
       await canvas.findByRole("img", { name: "1 commit" }),
     ).toBeVisible();
+    await userEvent.click(canvas.getByRole("tab", { name: "Activity" }));
+    await expect(
+      await canvas.findByRole("heading", { name: "Projects Activity" }),
+    ).toBeVisible();
+    await expect(canvas.getByRole("tab", { name: "Activity" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
     await expect(application).toHaveAttribute(
       "data-project-session-open-count",
       "1",

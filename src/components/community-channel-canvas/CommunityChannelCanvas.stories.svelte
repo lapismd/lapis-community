@@ -56,16 +56,28 @@
       author: null,
       updatedAt: null,
     },
+    initialContent:
+      "# Project channel: Community Client\n\nAsk the configured agent to keep this canvas current.",
   }}
-  play={async ({ canvas: view }) => {
+  play={async ({ canvas: view, args }) => {
     await userEvent.click(view.getByRole("button", { name: "Create canvas" }));
+    await expect(args.onSave).not.toHaveBeenCalled();
     await expect(
       view.getByRole("button", { name: "Save canvas" }),
     ).toBeVisible();
+    await expect(
+      view.getByRole("textbox", { name: "Markdown editor" }),
+    ).toHaveTextContent("Project channel: Community Client");
     await userEvent.click(view.getByRole("button", { name: "Cancel" }));
     await expect(
       view.getByRole("button", { name: "Create canvas" }),
     ).toBeVisible();
+    await userEvent.click(view.getByRole("button", { name: "Create canvas" }));
+    await userEvent.click(view.getByRole("button", { name: "Save canvas" }));
+    await expect(args.onSave).toHaveBeenCalledWith(
+      "# Project channel: Community Client\n\nAsk the configured agent to keep this canvas current.",
+      null,
+    );
   }}
 />
 <Story

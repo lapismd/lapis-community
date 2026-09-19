@@ -33,6 +33,7 @@
     onClose,
     onAction,
     canvas,
+    initialCanvasContent = "",
     onLoadCanvas,
     onSaveCanvas,
   }: {
@@ -45,6 +46,7 @@
     onClose: () => void;
     onAction: (action: string) => void;
     canvas?: CommunityChannelCanvasModel;
+    initialCanvasContent?: string;
     onLoadCanvas?: () => Promise<void>;
     onSaveCanvas?: (
       content: string,
@@ -78,9 +80,7 @@
     room.permissions?.manageMembers.state === undefined ||
       room.permissions.manageMembers.state === "enabled",
   );
-  const hasDangerActions = $derived(
-    (canArchive && canUpdate) || canLeave || canDelete,
-  );
+  const hasDangerActions = $derived(canLeave || canDelete);
 </script>
 
 <AppShell.Sidebar.Header class="lc-channel-settings__header">
@@ -98,11 +98,17 @@
   />
 </AppShell.Sidebar.Header>
 
-<AppShell.Sidebar.Body>
-  <div class="lc-channel-settings">
+<AppShell.Sidebar.Body
+  class={canvasOpen ? "lc-channel-settings__body--canvas" : undefined}
+>
+  <div
+    class="lc-channel-settings"
+    class:lc-channel-settings--canvas={canvasOpen}
+  >
     {#if canvasOpen && canvas && onLoadCanvas && onSaveCanvas}
       <CommunityChannelCanvas
         {canvas}
+        initialContent={initialCanvasContent}
         onReload={onLoadCanvas}
         onSave={onSaveCanvas}
       />
@@ -122,29 +128,6 @@
       <section class="lc-channel-settings__details">
         <h2>Details</h2>
         <div class="lc-channel-settings__details-card">
-          {#if canvas && onLoadCanvas && onSaveCanvas}
-            <Button
-              variant="ghost"
-              class="lc-channel-settings__row"
-              onclick={() => {
-                canvasOpen = true;
-                void Promise.resolve(onLoadCanvas?.()).catch(() => undefined);
-              }}
-            >
-              <BookOpenTextIcon aria-hidden="true" />
-              <span
-                ><strong>Canvas</strong><small
-                  >{canvas.content
-                    ? canvas.content
-                        .replace(/[#*_`>\[\]]/g, "")
-                        .replace(/\s+/g, " ")
-                        .slice(0, 100)
-                    : "Shared channel notes and context"}</small
-                ></span
-              >
-              <ChevronRightIcon data-icon="inline-end" aria-hidden="true" />
-            </Button>
-          {/if}
           {#if canUpdate}
             <Button
               variant="ghost"
@@ -250,18 +233,47 @@
         </div>
       </section>
 
+      {#if canArchive && canUpdate}
+        <section class="lc-channel-settings__management-zone">
+          <Button
+            variant="ghost"
+            class="lc-channel-settings__row"
+            onclick={() => onAction("archive-channel")}
+          >
+            <ArchiveIcon data-icon="inline-start" aria-hidden="true" />
+            <span>Archive {roomType.toLowerCase()}</span>
+          </Button>
+        </section>
+      {/if}
+
+      {#if canvas && onLoadCanvas && onSaveCanvas}
+        <section class="lc-channel-settings__canvas-entry">
+          <Button
+            variant="ghost"
+            class="lc-channel-settings__row"
+            onclick={() => {
+              canvasOpen = true;
+              void Promise.resolve(onLoadCanvas?.()).catch(() => undefined);
+            }}
+          >
+            <BookOpenTextIcon aria-hidden="true" />
+            <span
+              ><strong>Canvas</strong><small
+                >{canvas.content
+                  ? canvas.content
+                      .replace(/[#*_`>\[\]]/g, "")
+                      .replace(/\s+/g, " ")
+                      .slice(0, 100)
+                  : "Shared channel notes and context"}</small
+              ></span
+            >
+            <ChevronRightIcon data-icon="inline-end" aria-hidden="true" />
+          </Button>
+        </section>
+      {/if}
+
       {#if hasDangerActions}
         <section class="lc-channel-settings__danger-zone">
-          {#if canArchive && canUpdate}
-            <Button
-              variant="ghost"
-              class="lc-channel-settings__row"
-              onclick={() => onAction("archive-channel")}
-            >
-              <ArchiveIcon data-icon="inline-start" aria-hidden="true" />
-              <span>Archive {roomType.toLowerCase()}</span>
-            </Button>
-          {/if}
           {#if canLeave}
             <Button
               variant="ghost"

@@ -7,8 +7,25 @@ import type {
 import type {
   CommunityApplicationLocation,
   CommunityApplicationPanel,
+  CommunityApplicationDestination,
 } from "./navigation.js";
-import { projectDestinationFromCoordinate } from "./navigation.js";
+import {
+  projectCoordinateFromDestination,
+  projectDestinationFromCoordinate,
+} from "./navigation.js";
+
+export function locationForProjectDestination(
+  destination: CommunityApplicationDestination,
+): CommunityApplicationLocation | undefined {
+  const coordinate = projectCoordinateFromDestination(destination);
+  return coordinate === undefined
+    ? undefined
+    : locationForProjectRoute({
+        kind: "project",
+        coordinate,
+        surface: "activity",
+      });
+}
 
 export function repositorySurfaceLocation(
   coordinate: string,
@@ -66,7 +83,7 @@ export function locationForProjectRoute(
         ? projectDestinationFromCoordinate(route.coordinate)
         : "projects",
     panel: noCommunityApplicationPanel(),
-    ...(route.kind === "project" && route.surface !== "activity"
+    ...(route.kind === "project"
       ? { mainSurface: `project-${route.surface}` as const }
       : {}),
     projectRoute: route,

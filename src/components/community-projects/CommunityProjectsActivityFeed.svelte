@@ -11,7 +11,8 @@
   import TriangleAlertIcon from "@lucide/svelte/icons/triangle-alert";
   import UserMinusIcon from "@lucide/svelte/icons/user-minus";
   import UserPlusIcon from "@lucide/svelte/icons/user-plus";
-  import { Skeleton } from "@lapismd/design-core/shadcn/skeleton";
+  import { onMount } from "svelte";
+  import CommunitySkeleton from "../community-skeleton/CommunitySkeleton.svelte";
 
   import type { CommunityCustomEmoji } from "../../community/index.js";
   import {
@@ -39,7 +40,7 @@
   import CommunityProjectsActivityFilter from "./CommunityProjectsActivityFilter.svelte";
   import CommunityProjectsMemberHover from "./CommunityProjectsMemberHover.svelte";
   import CommunityProjectsRevisionGraphIds from "./CommunityProjectsRevisionGraphIds.svelte";
-  import CommunityProjectsRepositoryAgentContext from "./CommunityProjectsRepositoryAgentContext.svelte";
+  import CommunityProjectsAgentContextDisclosure from "./CommunityProjectsAgentContextDisclosure.svelte";
   import { communityProjectsMemberForPubkey } from "./projects-member.js";
 
   let {
@@ -88,9 +89,23 @@
   const activityFilter = $derived(
     pageFilters[filterPage] ?? activityFilterStore.load(),
   );
+  let ready = $state(false);
+  const initialLoading = $derived(!ready || (loading && activity.length === 0));
   const visibleActivity = $derived(
-    filterProjectActivity(activity, activityFilter),
+    ready ? filterProjectActivity(activity, activityFilter) : [],
   );
+
+  onMount(() => {
+    let contentTask: ReturnType<typeof setTimeout> | undefined;
+    // Let the navigation and skeleton paint before constructing the feed.
+    const frame = requestAnimationFrame(() => {
+      contentTask = setTimeout(() => (ready = true), 0);
+    });
+    return () => {
+      cancelAnimationFrame(frame);
+      clearTimeout(contentTask);
+    };
+  });
 
   function selectActivityFilter(value: ProjectActivityFilterId[]): void {
     pageFilters[filterPage] = value;
@@ -100,11 +115,16 @@
 
 <div
   class="community-projects__workspace community-projects__workspace--activity"
+  aria-busy={initialLoading || loading}
 >
   <header class="community-projects__page-heading">
     <div class="community-projects__page-heading-copy">
       <h1>Projects Activity</h1>
-      <p>{projectActivityDigest(visibleActivity)}</p>
+      <p>
+        {initialLoading
+          ? "Loading project activity…"
+          : projectActivityDigest(visibleActivity)}
+      </p>
     </div>
     <CommunityProjectsActivityFilter
       value={activityFilter}
@@ -119,35 +139,8 @@
     >
   </div>
   <div class="community-projects__activity">
-    {#if loading && activity.length === 0}
-      <div
-        class="community-projects__activity-loading"
-        role="status"
-        aria-label="Loading project activity"
-      >
-        {#each [0, 1, 2, 3] as row (row)}
-          <div
-            class="community-projects__activity-item community-projects__activity-item--skeleton"
-            aria-hidden="true"
-          >
-            <Skeleton class="community-projects__activity-skeleton-avatar" />
-            <span class="community-projects__activity-line"></span>
-            <div class="community-projects__activity-copy">
-              <div>
-                <Skeleton class="community-projects__activity-skeleton-actor" />
-                <Skeleton
-                  class="community-projects__activity-skeleton-action"
-                />
-              </div>
-              <Skeleton class="community-projects__activity-skeleton-time" />
-              <div class="community-projects__activity-skeleton-card">
-                <Skeleton class="community-projects__activity-skeleton-title" />
-                <Skeleton class="community-projects__activity-skeleton-body" />
-              </div>
-            </div>
-          </div>
-        {/each}
-      </div>
+    {#if initialLoading}
+      <CommunitySkeleton layout="timeline" label="Loading project activity" />
     {:else}
       {#each visibleActivity as item (item.id)}
         {@const actor = communityProjectsMemberForPubkey(
@@ -277,7 +270,7 @@
               {/if}
             {/snippet}
             {#if item.agentContext}
-              <CommunityProjectsRepositoryAgentContext
+              <CommunityProjectsAgentContextDisclosure
                 checkpoints={item.agentContext}
                 {members}
                 {...item.repositoryCoordinate

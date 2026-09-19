@@ -57,6 +57,7 @@
     useDefaultShell = false,
     persistenceScenario = false,
     initialDestination = "registry",
+    initialHash,
     bootstrapDelayMs = 0,
     bootstrapFailure = false,
     progressiveDelayMs = 0,
@@ -79,6 +80,7 @@
     useDefaultShell?: boolean;
     persistenceScenario?: boolean;
     initialDestination?: CommunityApplicationDestination;
+    initialHash?: string;
     bootstrapDelayMs?: number;
     bootstrapFailure?: boolean;
     progressiveDelayMs?: number;
@@ -344,11 +346,12 @@
     let active = true;
     let runtimeGeneration = 0;
     try {
-      if (window.location.hash !== "") {
+      const requestedHash = initialHash ?? "";
+      if (window.location.hash !== requestedHash) {
         window.history.replaceState(
           null,
           "",
-          `${window.location.pathname}${window.location.search}`,
+          `${window.location.pathname}${window.location.search}${requestedHash}`,
         );
       }
       window.localStorage.removeItem(

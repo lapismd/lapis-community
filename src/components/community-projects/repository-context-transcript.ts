@@ -34,10 +34,11 @@ export function repositoryContextTurns(
         .filter((r) => r.sequence > cursor && r.sequence <= end)
         .sort((a, b) => a.sequence - b.sequence);
       cursor = end;
-      const commitIds = checkpoint.commitIds.filter(
-        (id) => !shownCommits.has(id),
-      );
-      commitIds.forEach((id) => shownCommits.add(id));
+      const commitIds = checkpoint.commitIds.filter((id) => {
+        if (shownCommits.has(id)) return false;
+        shownCommits.add(id);
+        return true;
+      });
       return {
         checkpoint,
         commitIds,

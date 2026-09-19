@@ -57,7 +57,7 @@
             role="img"
             aria-label={label}
           >
-            <CommunityMemberAvatar {member} {size} decorative />
+            <CommunityMemberAvatar {member} {size} shape="rounded" decorative />
           </span>
         {/snippet}
       </Tooltip.Trigger>
@@ -66,7 +66,7 @@
   </Tooltip.Provider>
 {:else}
   <span class="community-projects-git-author-avatar" data-ui-part="git-author">
-    <CommunityMemberAvatar {member} {size} decorative />
+    <CommunityMemberAvatar {member} {size} shape="rounded" decorative />
   </span>
 {/if}
 

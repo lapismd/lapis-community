@@ -2,6 +2,14 @@
 
 For LC-UI-049, local project fixtures include agent-signed v2 context with complete prose and tool input/output, all referenced pages, and explicit commit targets. These fixtures exercise repository Activity, Log, Op Log and commit context alongside the source fixture.
 
+For LC-UI-050, project-linked channel settings derive an unsaved canvas starter
+from the resolved project catalog, repository references and channel binding.
+Direct project Activity URLs retain their route through cold catalog startup,
+returning to Activity routes through the application location state, and
+repository Activity gates full agent transcripts behind a collapsed disclosure
+without changing the underlying relay projection. Project identity wrappers
+keep agent and author avatars rounded-square across project surfaces.
+
 Repository scripts that enforce specification policy include the deferred-work
 ledger validator required by LC-SPEC-006. It reads specification metadata only
 and does not change the relay-derived registry pipeline. Storybook

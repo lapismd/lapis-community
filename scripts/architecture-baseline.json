@@ -1098,15 +1098,15 @@
       "forbiddenImportCount": 0
     },
     "src/components/community-application/CommunityApplication.stories.svelte": {
-      "countedLines": 4848,
-      "physicalLines": 5000,
+      "countedLines": 4856,
+      "physicalLines": 5008,
       "forbiddenImportCount": 0,
       "kind": "legacy",
-      "justification": "Existing file above the new-file counted-line limit; do not grow"
+      "justification": "LC-UI-050 adds aggregate Activity switch-back assertions; selected-project route and loading stories have their own file."
     },
     "src/components/community-application/CommunityApplication.svelte": {
-      "countedLines": 9193,
-      "physicalLines": 9552,
+      "countedLines": 9194,
+      "physicalLines": 9553,
       "forbiddenImportCount": 0,
       "kind": "legacy",
       "justification": "Application composition root; extract destination hosts before adding behaviour"
@@ -1164,11 +1164,11 @@
       "forbiddenImportCount": 0
     },
     "src/components/community-application/CommunityApplicationStoryHarness.svelte": {
-      "countedLines": 818,
-      "physicalLines": 831,
+      "countedLines": 821,
+      "physicalLines": 834,
       "forbiddenImportCount": 0,
       "kind": "legacy",
-      "justification": "Existing file above the new-file counted-line limit; do not grow"
+      "justification": "LC-UI-050 adds an initial hash seam for cold direct-route application stories."
     },
     "src/components/community-application/composer-context.ts": {
       "countedLines": 29,
@@ -1228,8 +1228,8 @@
       "justification": "Existing file above the new-file counted-line limit; do not grow"
     },
     "src/components/community-application/project-route.test.ts": {
-      "countedLines": 56,
-      "physicalLines": 58,
+      "countedLines": 87,
+      "physicalLines": 90,
       "forbiddenImportCount": 0,
       "kind": "exception",
       "requirement": "LC-UI-049",
@@ -1261,23 +1261,26 @@
       "forbiddenImportCount": 0
     },
     "src/components/community-channel-canvas/CommunityChannelCanvas.stories.svelte": {
-      "countedLines": 114,
-      "physicalLines": 116,
+      "countedLines": 126,
+      "physicalLines": 128,
       "forbiddenImportCount": 0
     },
     "src/components/community-channel-canvas/CommunityChannelCanvas.svelte": {
-      "countedLines": 156,
-      "physicalLines": 160,
+      "countedLines": 218,
+      "physicalLines": 222,
       "forbiddenImportCount": 0
     },
     "src/components/community-channel-settings/CommunityChannelSettings.stories.svelte": {
-      "countedLines": 285,
-      "physicalLines": 296,
-      "forbiddenImportCount": 0
+      "countedLines": 316,
+      "physicalLines": 327,
+      "forbiddenImportCount": 0,
+      "kind": "exception",
+      "requirement": "LC-UI-050",
+      "justification": "Focused channel-settings coverage for standalone Canvas placement and full-height editor actions."
     },
     "src/components/community-channel-settings/CommunityChannelSettings.svelte": {
-      "countedLines": 282,
-      "physicalLines": 289,
+      "countedLines": 292,
+      "physicalLines": 301,
       "forbiddenImportCount": 0
     },
     "src/components/community-chat-composer/autocomplete.test.ts": {
@@ -1989,16 +1992,16 @@
       "justification": "Projects composition root; extract named surfaces before adding behaviour"
     },
     "src/components/community-projects/CommunityProjectsActivityFeed.stories.svelte": {
-      "countedLines": 190,
-      "physicalLines": 197,
+      "countedLines": 304,
+      "physicalLines": 313,
       "forbiddenImportCount": 0,
       "kind": "exception",
-      "requirement": "LC-UI-049",
-      "justification": "Focused regression coverage for completed agent context, live preview lifecycle and agent identity."
+      "requirement": "LC-UI-050",
+      "justification": "Focused regression coverage for rounded project actors and the default-collapsed, keyboard-expandable repository Activity transcript."
     },
     "src/components/community-projects/CommunityProjectsActivityFeed.svelte": {
-      "countedLines": 306,
-      "physicalLines": 311,
+      "countedLines": 297,
+      "physicalLines": 304,
       "forbiddenImportCount": 0,
       "kind": "exception",
       "requirement": "LC-UI-049",
@@ -2038,12 +2041,12 @@
       "forbiddenImportCount": 0
     },
     "src/components/community-projects/CommunityProjectsGitAuthorAvatar.stories.svelte": {
-      "countedLines": 60,
-      "physicalLines": 64,
+      "countedLines": 66,
+      "physicalLines": 70,
       "forbiddenImportCount": 0,
       "kind": "exception",
-      "requirement": "LC-UI-049",
-      "justification": "Focused regression coverage for completed agent context, live preview lifecycle and agent identity."
+      "requirement": "LC-UI-050",
+      "justification": "Focused regression coverage for the project-wide rounded-square Git-author and agent avatar rule."
     },
     "src/components/community-projects/CommunityProjectsGitAuthorAvatar.svelte": {
       "countedLines": 73,
@@ -2069,8 +2072,8 @@
       "forbiddenImportCount": 0
     },
     "src/components/community-projects/CommunityProjectsMemberHover.svelte": {
-      "countedLines": 30,
-      "physicalLines": 32,
+      "countedLines": 47,
+      "physicalLines": 51,
       "forbiddenImportCount": 0
     },
     "src/components/community-projects/CommunityProjectsPeopleList.svelte": {

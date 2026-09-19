@@ -16,17 +16,36 @@
     trigger?: "avatar" | "mention" | undefined;
     triggerLabel?: string | undefined;
     onOpenProfile?: ((member: CommunityMemberModel) => void) | undefined;
-    onMessageMember?: ((member: CommunityMemberModel) => void | Promise<void>) | undefined;
-    onWaveMember?: ((member: CommunityMemberModel) => void | Promise<void>) | undefined;
+    onMessageMember?:
+      | ((member: CommunityMemberModel) => void | Promise<void>)
+      | undefined;
+    onWaveMember?:
+      | ((member: CommunityMemberModel) => void | Promise<void>)
+      | undefined;
   } = $props();
 </script>
 
-<CommunityMemberHoverCard
-  {member}
-  {avatarSize}
-  {trigger}
-  {triggerLabel}
-  {...onOpenProfile === undefined ? {} : { onOpenProfile }}
-  {...onMessageMember === undefined ? {} : { onMessage: onMessageMember }}
-  {...onWaveMember === undefined ? {} : { onWave: onWaveMember }}
-/>
+<span class="community-projects-member-hover">
+  <CommunityMemberHoverCard
+    {member}
+    {avatarSize}
+    {trigger}
+    {triggerLabel}
+    {...onOpenProfile === undefined ? {} : { onOpenProfile }}
+    {...onMessageMember === undefined ? {} : { onMessage: onMessageMember }}
+    {...onWaveMember === undefined ? {} : { onWave: onWaveMember }}
+  />
+</span>
+
+<style>
+  .community-projects-member-hover {
+    display: contents;
+  }
+
+  .community-projects-member-hover
+    :global(
+      [data-ui-component="community-member-avatar"] [data-ui-part="image"]
+    ) {
+    border-radius: 25%;
+  }
+</style>

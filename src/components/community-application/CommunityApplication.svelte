@@ -3,6 +3,7 @@
     repositorySurfaceLocation,
     reviewCommitLocation,
     locationForProjectRoute,
+    locationForProjectDestination,
   } from "./project-commit-route.js";
   import { projectRouteCommit, repositoryRouteState } from "./project-route.js";
   import { parseNip29ReleaseEvent } from "../../protocol/index.js";
@@ -168,6 +169,7 @@
     type RegistryRoute,
   } from "../../registry/index.js";
   import CommunityAppShell from "../community-app-shell/CommunityAppShell.svelte";
+  import { projectCanvasStarterForChannel } from "../community-channel-canvas/project-canvas-template.js";
   import CommunityChannelSettings from "../community-channel-settings/CommunityChannelSettings.svelte";
   import CommunityChip from "../community-chip/CommunityChip.svelte";
   import CommunityEmojiPicker from "../community-emoji-picker/CommunityEmojiPicker.svelte";
@@ -1848,18 +1850,14 @@
   const detailsRoom = $derived(
     activePanel.kind === "details" ? panelRoom : undefined,
   );
-  const detailsHasProject = $derived(
-    detailsRoom !== undefined &&
-      projectCatalog.projects.some((project) =>
-        projectForgeBoundChannels(project, projectCatalog.repositories).some(
-          (binding) =>
-            binding.channelId === (detailsRoom.groupId ?? detailsRoom.id),
-        ),
-      ),
+  const detailsCanvasInitialContent = $derived(
+    detailsRoom
+      ? projectCanvasStarterForChannel(projectCatalog, detailsRoom)
+      : undefined,
   );
   const detailsCanvas = $derived<CommunityChannelCanvasModel | undefined>(
     detailsRoom &&
-      detailsHasProject &&
+      detailsCanvasInitialContent !== undefined &&
       community.actions.loadCanvas &&
       community.actions.saveCanvas
       ? (community.state.canvases?.[
@@ -1877,7 +1875,7 @@
       : undefined,
   );
   const detailsCanvasLoadKey = $derived(
-    detailsRoom && detailsHasProject
+    detailsRoom && detailsCanvasInitialContent !== undefined
       ? JSON.stringify([
           workspace.activeCommunityId,
           workspace.currentMemberId,
@@ -3416,10 +3414,12 @@
       selectedTaskId = "";
       selectedPullRequestId = "";
     }
-    const next = {
-      destination: destinationId,
-      panel: noCommunityApplicationPanel(),
-    } satisfies CommunityApplicationLocation;
+    const next =
+      locationForProjectDestination(destinationId) ??
+      ({
+        destination: destinationId,
+        panel: noCommunityApplicationPanel(),
+      } satisfies CommunityApplicationLocation);
     if (recordHistory) pushLocation(next);
     else replaceLocation(next);
     lastAction = `selected:${destinationId}`;
@@ -6849,7 +6849,7 @@
           {...projectReviewPreferenceScope === undefined
             ? {}
             : { reviewPreferenceScope: projectReviewPreferenceScope }}
-          loading={projectLoading}
+          loading={projectLoading || communityStartupPending}
           {...cachedProjectCatalogAt === undefined
             ? {}
             : { cachedCatalogAt: cachedProjectCatalogAt }}
@@ -7299,7 +7299,7 @@
         {...projectReviewPreferenceScope === undefined
           ? {}
           : { reviewPreferenceScope: projectReviewPreferenceScope }}
-        loading={projectLoading}
+        loading={projectLoading || communityStartupPending}
         {...cachedProjectCatalogAt === undefined
           ? {}
           : { cachedCatalogAt: cachedProjectCatalogAt }}
@@ -8343,6 +8343,7 @@
               {...detailsCanvas && detailsRoom
                 ? {
                     canvas: detailsCanvas,
+                    initialCanvasContent: detailsCanvasInitialContent ?? "",
                     onLoadCanvas: () =>
                       community.actions.loadCanvas!(detailsRoom.id),
                     onSaveCanvas: (

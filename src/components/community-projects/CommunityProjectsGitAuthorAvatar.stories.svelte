@@ -36,6 +36,9 @@
     ).toBeNull();
     const author = canvas.getByRole("img", { name: "noor@example.test" });
     await expect(
+      author.querySelector('[data-ui-component="community-member-avatar"]'),
+    ).toHaveAttribute("data-shape", "rounded");
+    await expect(
       author.querySelector("img[src*='gravatar.com/avatar/']"),
     ).not.toBeNull();
     await userEvent.hover(author);
@@ -57,6 +60,9 @@
   play={async ({ canvas }) => {
     const avatar = canvas.getByRole("img", { name: "Nyra" });
     await expect(avatar).toBeVisible();
+    await expect(
+      avatar.querySelector('[data-ui-component="community-member-avatar"]'),
+    ).toHaveAttribute("data-shape", "rounded");
     await expect(avatar.querySelector("img[src*='gravatar.com']")).toBeNull();
     await userEvent.hover(avatar);
     await expect(avatar).toHaveAttribute("aria-describedby");

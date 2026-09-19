@@ -70,6 +70,24 @@
       canvas.getByRole("heading", { name: "Shared project notes" }),
     ).toBeVisible();
     await expect(args.onLoadCanvas).toHaveBeenCalled();
+    await userEvent.click(canvas.getByRole("button", { name: "Edit canvas" }));
+    const settingsBody = canvasElement.querySelector<HTMLElement>(
+      '[data-ui-part="sidebar-body"]',
+    );
+    const editorForm = canvasElement.querySelector<HTMLElement>(
+      ".lc-channel-canvas__form",
+    );
+    if (!settingsBody || !editorForm)
+      throw new Error("Expected the full-height canvas editor");
+    await expect(editorForm.getBoundingClientRect().height).toBeGreaterThan(
+      300,
+    );
+    await expect(
+      canvas
+        .getByRole("button", { name: "Save canvas" })
+        .getBoundingClientRect().bottom,
+    ).toBeLessThanOrEqual(settingsBody.getBoundingClientRect().bottom);
+    await userEvent.click(canvas.getByRole("button", { name: "Cancel" }));
     await userEvent.click(
       canvas.getByRole("button", { name: "Back to channel" }),
     );
@@ -101,6 +119,19 @@
     await expect(args.onAction).toHaveBeenCalledWith("create-invite");
 
     const leave = canvas.getByRole("button", { name: "Leave channel" });
+    const canvasEntry = canvas.getByRole("button", {
+      name: /Canvas Shared project notes/,
+    });
+    await expect(
+      canvasEntry.compareDocumentPosition(leave) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    await expect(
+      canvasEntry.closest(".lc-channel-settings__canvas-entry"),
+    ).not.toBeNull();
+    await expect(
+      canvasEntry.closest(".lc-channel-settings__details-card"),
+    ).toBeNull();
     const deleteChannel = canvas.getByRole("button", {
       name: "Delete channel",
     });

@@ -75,6 +75,15 @@
 <Story
   name="Hash copy and jj-sync chip"
   play={async ({ canvas }) => {
+    const actors = await canvas.findAllByRole("button", {
+      name: "View Maya Chen's profile",
+    });
+    for (const actor of actors)
+      await expect(
+        getComputedStyle(
+          actor.querySelector('[data-ui-part="image"]') as HTMLElement,
+        ).borderRadius,
+      ).toBe("25%");
     const copy = canvas.getByRole("button", {
       name: `Copy full commit ID: ${sha}`,
     });
@@ -153,7 +162,7 @@
   }}
   play={async ({ canvas, canvasElement }) => {
     const page = within(canvasElement.ownerDocument.body);
-    await expect(canvas.getByText("Ship the filter")).toBeVisible();
+    await expect(await canvas.findByText("Ship the filter")).toBeVisible();
     await expect(canvas.getByText("Stay on dest main")).toBeVisible();
     await userEvent.click(
       canvas.getByRole("button", { name: "Filter activity" }),
@@ -181,9 +190,64 @@
 <Story
   name="Agent conversation and checkpoint"
   args={{
-    activity: withRepositoryContextActivity([], repositoryContextEvents()),
+    activity: withRepositoryContextActivity([], repositoryContextEvents()).map(
+      (item) => ({
+        ...item,
+        agentContext: item.agentContext?.map((checkpoint) => ({
+          ...checkpoint,
+          commitIds: [...checkpoint.commitIds, ...checkpoint.commitIds],
+        })),
+      }),
+    ),
   }}
   play={async ({ canvas }) => {
+    const disclosure = await canvas.findByRole("button", {
+      name: /Agent context/,
+    });
+    const row = disclosure.closest("article")!;
+    const pointer =
+      import.meta.env.MODE === "test"
+        ? (await import("vitest/browser")).userEvent
+        : undefined;
+    if (pointer)
+      await pointer.hover(
+        canvas.getByRole("heading", { name: "Projects Activity" }),
+      );
+    if (pointer)
+      await expect(
+        row.matches(":hover"),
+        "pointer leaves the activity row",
+      ).toBe(false);
+    const closedBackground = getComputedStyle(disclosure).backgroundColor;
+    let hoverBackground: string | undefined;
+    if (pointer) {
+      await pointer.hover(row);
+      hoverBackground = getComputedStyle(disclosure).backgroundColor;
+      await expect(hoverBackground, "row hover darkens the header").not.toBe(
+        closedBackground,
+      );
+      await pointer.hover(disclosure);
+      await expect(getComputedStyle(disclosure).backgroundColor).toBe(
+        hoverBackground,
+      );
+    }
+    await expect(disclosure).toHaveAttribute("aria-expanded", "false");
+    await expect(
+      canvas.queryByText("Updated the README and verified the diff."),
+    ).not.toBeInTheDocument();
+    disclosure.focus();
+    await userEvent.keyboard("{Enter}");
+    await expect(disclosure).toHaveAttribute("aria-expanded", "true");
+    await expect(getComputedStyle(disclosure).backgroundColor).not.toBe(
+      closedBackground,
+    );
+    if (hoverBackground)
+      await expect(getComputedStyle(disclosure).backgroundColor).toBe(
+        hoverBackground,
+      );
+    await expect(getComputedStyle(disclosure).backgroundColor).not.toBe(
+      getComputedStyle(row).backgroundColor,
+    );
     await expect(
       canvas.getByText("Updated the README and verified the diff."),
     ).toBeVisible();
@@ -193,5 +257,57 @@
     await expect(
       canvas.getByRole("link", { name: "bbbbbbbbbbbb" }),
     ).toBeVisible();
+    const agentAvatar = canvas
+      .getByLabelText("Message from Nyra")
+      .querySelector('[data-ui-component="community-member-avatar"]');
+    await expect(agentAvatar).toHaveAttribute("data-shape", "rounded");
+    if (pointer)
+      await pointer.hover(
+        canvas.getByRole("heading", { name: "Projects Activity" }),
+      );
+    if (hoverBackground)
+      await expect(getComputedStyle(disclosure).backgroundColor).toBe(
+        hoverBackground,
+      );
+    await userEvent.click(disclosure);
+    if (pointer)
+      await pointer.hover(
+        canvas.getByRole("heading", { name: "Projects Activity" }),
+      );
+    await expect(getComputedStyle(disclosure).backgroundColor).toBe(
+      closedBackground,
+    );
+    await expect(
+      canvas.queryByText("Updated the README and verified the diff."),
+    ).not.toBeInTheDocument();
+  }}
+/>
+
+<Story
+  name="Initial Activity loading"
+  args={{ loading: true, activity: [] }}
+  play={async ({ canvas }) => {
+    await expect(
+      canvas.getByRole("heading", { name: "Projects Activity" }),
+    ).toBeVisible();
+    const skeleton = canvas.getByRole("status", {
+      name: "Loading project activity",
+    });
+    await expect(skeleton).toBeVisible();
+    await expect(skeleton).toHaveAttribute("data-layout", "timeline");
+    await expect(
+      canvas.queryByText("No project activity yet."),
+    ).not.toBeInTheDocument();
+  }}
+/>
+
+<Story
+  name="Refresh retains Activity"
+  args={{ loading: true }}
+  play={async ({ canvas }) => {
+    await expect(await canvas.findByText("Stay on dest main")).toBeVisible();
+    await expect(
+      canvas.queryByRole("status", { name: "Loading project activity" }),
+    ).not.toBeInTheDocument();
   }}
 />
