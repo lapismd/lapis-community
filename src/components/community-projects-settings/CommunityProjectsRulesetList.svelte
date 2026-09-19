@@ -2,6 +2,7 @@
   import { Button } from "@lapismd/design-core/shadcn/button";
   import * as Collapsible from "@lapismd/design-core/shadcn/collapsible";
   import * as DropdownMenu from "@lapismd/design-core/shadcn/dropdown-menu";
+  import ChevronDownIcon from "@lucide/svelte/icons/chevron-down";
   import CircleCheckIcon from "@lucide/svelte/icons/circle-check";
   import CircleXIcon from "@lucide/svelte/icons/circle-x";
   import EllipsisIcon from "@lucide/svelte/icons/ellipsis";
@@ -32,9 +33,7 @@
 
   let drafts = $state<ProjectForgeProtectionRule[]>([]);
   let openId = $state<string>();
-  let draftEnforcement = $state<
-    Record<string, ProjectForgeProtectionRule["enforcement"]>
-  >({});
+  let draftEnforcement = $state<Record<string, ProjectForgeProtectionRule["enforcement"]>>({});
 
   const rows = $derived([
     ...rules,
@@ -83,7 +82,7 @@
       <DropdownMenu.Root>
         <DropdownMenu.Trigger>
           {#snippet child({ props })}
-            <Button {...props} type="button" size="sm">New ruleset</Button>
+            <Button {...props} type="button" size="sm">New ruleset<ChevronDownIcon data-icon="inline-end" aria-hidden="true" /></Button>
           {/snippet}
         </DropdownMenu.Trigger>
         <DropdownMenu.Content>

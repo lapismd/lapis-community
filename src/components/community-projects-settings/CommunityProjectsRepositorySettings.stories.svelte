@@ -190,9 +190,9 @@
     onOpenPeople: fn(),
   }}
   play={async ({ args, canvas, userEvent }) => {
-    await userEvent.click(
-      canvas.getByRole("button", { name: "Add people to #dev" }),
-    );
+    const people = canvas.getByRole("button", { name: "Add people to #dev" });
+    await expect(people.querySelector(".lucide-user-plus")).not.toBeNull();
+    await userEvent.click(people);
     await expect(args.onOpenPeople).toHaveBeenCalledOnce();
   }}
 >

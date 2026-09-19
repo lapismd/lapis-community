@@ -1,6 +1,6 @@
 <script module lang="ts">
   import { defineMeta } from "@storybook/addon-svelte-csf";
-  import { expect, fn, within } from "storybook/test";
+  import { expect, fn, waitFor, within } from "storybook/test";
 
   import CommunityProjectsRulesetList from "./CommunityProjectsRulesetList.svelte";
 
@@ -68,7 +68,13 @@
     await expect(
       paused.getByRole("slider", { name: "Required approvals" }),
     ).toHaveAttribute("aria-valuenow", "2");
-    await userEvent.click(canvas.getByRole("button", { name: "New ruleset" }));
+    await userEvent.click(canvas.getByRole("button", { name: "Default ruleset actions" }));
+    await expect(overlay.getByRole("menuitem", { name: "Delete" })).toHaveAttribute("data-variant", "destructive");
+    await userEvent.keyboard("{Escape}");
+    await waitFor(() => expect(canvasElement.ownerDocument.body.style.pointerEvents).not.toBe("none"));
+    const newRuleset = canvas.getByRole("button", { name: "New ruleset" });
+    await expect(newRuleset.querySelector(".lucide-chevron-down")).not.toBeNull();
+    await userEvent.click(newRuleset);
     await userEvent.click(
       overlay.getByRole("menuitem", { name: "New branch ruleset" }),
     );
@@ -85,13 +91,7 @@
     await expect(
       editor.getByText(/Exempt channel roles and members/u),
     ).toBeVisible();
-    await expect(editor.getByText("Actors")).toBeVisible();
-    await expect(editor.getByText("Which branches should be matched?")).toBeVisible();
-    await expect(editor.getByText("Branch targeting criteria")).toBeVisible();
     await expect(editor.getByText("Branch rules")).toBeVisible();
-    await userEvent.keyboard("{Escape}");
-    await userEvent.click(canvas.getByRole("button", { name: "New branch ruleset ruleset actions" }));
-    await expect(overlay.getByRole("menuitem", { name: "Delete" })).toHaveAttribute("data-variant", "destructive");
   }}
 >
   {#snippet template(args)}

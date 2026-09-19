@@ -1,5 +1,6 @@
 <script lang="ts">
   import { Button } from "@lapismd/design-core/shadcn/button";
+  import UserPlusIcon from "@lucide/svelte/icons/user-plus";
 
   import type { ProjectForgeRepositoryCapabilities } from "../../projects/model.js";
   import type { ProjectForgeProtectionDocumentInput } from "../../projects/protection-document.js";
@@ -39,9 +40,8 @@
 >
   <h2>Permissions</h2>
   {#if peopleAction && onOpenPeople}
-    <Button type="button" variant="outline" size="sm" onclick={onOpenPeople}>
-      {peopleAction}
-    </Button>
+    <Button type="button" variant="outline" size="sm" onclick={onOpenPeople}
+      ><UserPlusIcon data-icon="inline-start" aria-hidden="true" />{peopleAction}</Button>
   {/if}
   <h2>Branch protection</h2>
   {#key JSON.stringify(capabilities?.protection)}
