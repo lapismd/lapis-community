@@ -664,3 +664,7 @@ abort the Activity surface. Project-owned
 identity wrappers apply the shared rounded-square agent avatar treatment across
 Activity, reviews, files, commits, Log and Evolog without changing avatar
 behavior outside Projects.
+
+For LC-UI-040, Inbox owns the conversation-pane inset around the shared message
+skeleton. Initial and selected-thread loading reuse one padded snippet, keeping
+the shared skeleton independent of its containing surface.

@@ -20,6 +20,8 @@ Planning documents under `docs/plans/` are not canonical requirements.
 The TypeScript organisation and enforcement plan is
 `docs/plans/typescript-architecture-and-enforcement.md`. Scripts own the
 architecture checker; `docs/plans/` maps to `spec/src/architecture.md`.
+LC-UI-040 Inbox loading coverage updates the architecture baseline for its
+geometry assertions and the smaller component that shares the padded skeleton.
 P4 factory parser splits are extracted: agent runtime and memory parsers,
 agent-control validation, NIP-29 command templates and content-window loaders,
 registry hydration, catalog subscriptions, and portable release proofs, and

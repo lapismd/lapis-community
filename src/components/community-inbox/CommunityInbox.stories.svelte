@@ -4,6 +4,14 @@
   import CommunityInbox from "./CommunityInbox.svelte";
   import CommunityInboxStoryHarness from "./CommunityInboxStoryHarness.svelte";
 
+  function expectMessageSkeletonInset(skeleton: HTMLElement) {
+    const bounds = skeleton.getBoundingClientRect();
+    const pane = skeleton.parentElement!.getBoundingClientRect();
+    expect(bounds.left).toBeGreaterThan(pane.left);
+    expect(bounds.top).toBeGreaterThan(pane.top);
+    expect(bounds.right).toBeLessThan(pane.right);
+  }
+
   const consumerSource = `<script lang="ts">
   import { AppShell, AppShellController } from "@lapismd/design-core/shell";
   import {
@@ -52,6 +60,9 @@
 <Story
   name="Conversation loading preserves shell"
   play={async ({ canvas }) => {
+    expectMessageSkeletonInset(
+      canvas.getByRole("status", { name: "Loading Inbox messages" }),
+    );
     await expect(canvas.getByLabelText("Inbox conversations")).toBeVisible();
     await expect(
       canvas.getByRole("button", { name: "All", exact: true }),
@@ -194,6 +205,9 @@
 <Story
   name="Initial loading"
   play={async ({ canvas }) => {
+    expectMessageSkeletonInset(
+      canvas.getByRole("status", { name: "Loading Inbox messages" }),
+    );
     await expect(
       canvas.getByRole("status", { name: "Loading Inbox conversations" }),
     ).toBeVisible();

@@ -232,6 +232,12 @@
   }
 </script>
 
+{#snippet loadingMessages()}
+  <div class="lc-community-inbox__messages-loading">
+    <CommunitySkeleton layout="messages" label="Loading Inbox messages" />
+  </div>
+{/snippet}
+
 <AppShell.Body
   bind:ref={bodyElement}
   layout="regions"
@@ -417,11 +423,7 @@
     class="lc-community-inbox__thread-region"
   >
     {#if loading && model.items.length === 0}
-      <CommunitySkeleton
-        layout="messages"
-        count={4}
-        label="Loading Inbox messages"
-      />
+      {@render loadingMessages()}
     {:else if hasSelectedItem}
       <section class="lc-community-inbox__thread">
         <header class="lc-community-inbox__thread-header">
@@ -468,11 +470,7 @@
 
         <div class="lc-community-inbox__conversation">
           {#if conversationLoading}
-            <CommunitySkeleton
-              layout="messages"
-              count={4}
-              label="Loading Inbox messages"
-            />
+            {@render loadingMessages()}
           {:else}
             <CommunityConversation
               {virtualize}

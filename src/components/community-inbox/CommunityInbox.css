@@ -256,6 +256,13 @@
   min-height: 0;
 }
 
+.lc-community-inbox__messages-loading {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  padding: 1rem;
+}
+
 .lc-community-inbox__thread-region [data-ui-part="scroll-area-viewport"] > div {
   height: 100%;
 }
