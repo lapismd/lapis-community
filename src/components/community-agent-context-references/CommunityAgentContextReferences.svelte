@@ -7,7 +7,9 @@
   import FolderGit2Icon from "@lucide/svelte/icons/folder-git-2";
   import HashIcon from "@lucide/svelte/icons/hash";
   import MessagesSquareIcon from "@lucide/svelte/icons/messages-square";
+  import ListTreeIcon from "@lucide/svelte/icons/list-tree";
   import type { RepositoryAgentCheckpoint } from "../../projects/repository-agent-context.js";
+  import { useRepositoryLogPane } from "../../projects/repository-log-pane.svelte.js";
   import { useAgentContextNavigation } from "./context.js";
   import { agentContextReferences } from "./references.js";
   import type { AgentContextReference } from "./references.js";
@@ -19,6 +21,7 @@
     repositoryAddress?: string | undefined;
   } = $props();
   const navigation = useAgentContextNavigation();
+  const logPane = useRepositoryLogPane();
   const references = $derived(
     agentContextReferences(checkpoints, repositoryAddress, navigation),
   );
@@ -34,6 +37,7 @@
     repository: FolderGit2Icon,
     channel: HashIcon,
     thread: MessagesSquareIcon,
+    log: ListTreeIcon,
   };
 </script>
 
@@ -43,7 +47,10 @@
     disabled={reference.disabled ?? false}
     title={reference.title}
     aria-label={reference.title}
-    onSelect={() => reference.select?.()}
+    onSelect={() => {
+      if (reference.kind === "log") logPane?.selectPane("log");
+      reference.select?.();
+    }}
   >
     {#snippet child({ props })}
       {#if reference.href}

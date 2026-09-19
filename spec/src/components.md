@@ -747,6 +747,9 @@ The source-message action MUST display Request, keeping its full identifier
 in the tooltip and accessible name.
 When commit references exist, a Commits submenu MUST list their deduplicated
 identifiers and link each to its commit details; read-only contexts omit it.
+Related JJ change identifiers MUST follow Commits, linking to their checkpoint
+commit details. A Log action MUST follow the change references and open the
+repository's revision log, including when an operation-log pane was last active.
 When the original thread root is unavailable, the accessible name MUST identify
 the source message as a request rather than invent a thread ID. Unavailable
 channel actions MUST be disabled.

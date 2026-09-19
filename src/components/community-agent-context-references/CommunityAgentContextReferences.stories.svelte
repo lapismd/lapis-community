@@ -27,8 +27,15 @@
     const body = within(canvasElement.ownerDocument.body);
     const menu = await body.findByRole("menu");
     const items = within(menu).getAllByRole("menuitem");
-    await expect(items).toHaveLength(5);
+    await expect(items).toHaveLength(6);
     await expect(within(menu).queryByText("References")).toBeNull();
+    await expect(items[0]).toHaveTextContent(/^Commits$/);
+    await expect(items[1]).toHaveAccessibleName(/^Open change /);
+    await expect(items[2]).toHaveTextContent(/^Log$/);
+    await expect(items[2]).toHaveAttribute(
+      "href",
+      `#/projects/repository/${f.repository}/log`,
+    );
     await expect(
       within(menu).getByRole("menuitem", { name: "Open channel room" }),
     ).toHaveTextContent(/^room$/);
@@ -94,7 +101,7 @@
     await expect(
       menu.queryByRole("menuitem", { name: /^Open change/ }),
     ).toBeNull();
-    await expect(menu.getAllByRole("menuitem")).toHaveLength(3);
+    await expect(menu.getAllByRole("menuitem")).toHaveLength(4);
     await userEvent.keyboard("{Escape}");
   }}
 />

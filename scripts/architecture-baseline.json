@@ -3839,13 +3839,13 @@
       "justification": "LC-UI-049: distinguish the unavailable context status from the shared checkpoint divider status."
     },
     "src/components/community-agent-context-references/CommunityAgentContextReferences.stories.svelte": {
-      "countedLines": 98,
-      "physicalLines": 100,
+      "countedLines": 105,
+      "physicalLines": 107,
       "forbiddenImportCount": 0
     },
     "src/components/community-agent-context-references/CommunityAgentContextReferences.svelte": {
-      "countedLines": 121,
-      "physicalLines": 124,
+      "countedLines": 128,
+      "physicalLines": 131,
       "forbiddenImportCount": 0
     },
     "src/components/community-agent-context-references/context.ts": {
@@ -3859,13 +3859,13 @@
       "forbiddenImportCount": 0
     },
     "src/components/community-agent-context-references/references.test.ts": {
-      "countedLines": 121,
-      "physicalLines": 127,
+      "countedLines": 124,
+      "physicalLines": 130,
       "forbiddenImportCount": 0
     },
     "src/components/community-agent-context-references/references.ts": {
-      "countedLines": 105,
-      "physicalLines": 108,
+      "countedLines": 117,
+      "physicalLines": 120,
       "forbiddenImportCount": 0
     },
     "src/components/community-projects/CommunityProjectsActivityContext.stories.svelte": {

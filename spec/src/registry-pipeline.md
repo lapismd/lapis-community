@@ -212,3 +212,5 @@ components used in production, including narrow activity panels.
 
 LC-UI-049 reference-menu composition and navigation regression coverage update
 the architecture baseline with their owning modules; relay payloads are unchanged.
+The repository Log shortcut extends only these menu and reference modules,
+with its focused ordering and destination stories reflected in their budgets.

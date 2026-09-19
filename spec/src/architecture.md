@@ -672,3 +672,5 @@ the shared skeleton independent of its containing surface.
 For LC-UI-049, checkpoint projection retains repository, channel, and native
 change targets. Agent context reference menus own presentation and share an
 application-provided conversation navigation adapter with Agent Activity.
+Their repository Log links MUST use the canonical repository route and select
+the shared revision-log pane; each repository contributes only one Log shortcut.

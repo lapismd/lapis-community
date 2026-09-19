@@ -5,7 +5,7 @@ import type { AgentContextNavigation } from "./navigation.js";
 
 export interface AgentContextReference {
   key: string;
-  kind: "commit" | "change" | "repository" | "channel" | "thread";
+  kind: "commit" | "change" | "log" | "repository" | "channel" | "thread";
   label: string;
   title: string;
   href?: string;
@@ -61,7 +61,18 @@ export function agentContextReferences(
           ...(href ? { href } : { disabled: true }),
         });
     }
-    if (repository)
+    if (repository) {
+      add({
+        key: `log:${repository}`,
+        kind: "log",
+        label: "Log",
+        title: `Open repository log ${repository}`,
+        href: projectRouteToHash({
+          kind: "repository",
+          coordinate: repository,
+          surface: "log",
+        }),
+      });
       add({
         key: `repository:${repository}`,
         kind: "repository",
@@ -73,6 +84,7 @@ export function agentContextReferences(
           surface: "overview",
         }),
       });
+    }
     const channelId = checkpoint.channelId;
     if (!channelId) continue;
     const channel = navigation?.room(channelId);
@@ -101,7 +113,7 @@ export function agentContextReferences(
       });
     }
   }
-  const order = ["commit", "change", "channel", "thread", "repository"];
+  const order = ["commit", "change", "log", "channel", "thread", "repository"];
   return [...references.values()].sort(
     (a, b) => order.indexOf(a.kind) - order.indexOf(b.kind),
   );
