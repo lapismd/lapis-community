@@ -210,6 +210,10 @@ Named rulesets extract `protection-ruleset`, `CommunityProjectsRulesetList`,
 `CommunityProjectsRulesetPanel`, `CommunityProjectsRulesetTables`,
 `CommunityProjectsRulesetRules`, and `CommunityProjectsRulesetEditor`;
 member-command room resolution stays beside Application.
+Selected-project hub extracts (`projectVisibleActivity`,
+`loadProjectCommitActivity`, repository grouping, the Repositories rail, and
+commit/people lists) lower the Application and CommunityProjects budgets and
+record the new project modules in the same change.
 
 ## Requirements
 

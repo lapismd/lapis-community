@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { Component, Snippet } from "svelte";
+  import type { Component } from "svelte";
   import { Button } from "@lapismd/design-core/shadcn/button";
   import CircleCheckIcon from "@lucide/svelte/icons/circle-check";
   import CircleDotIcon from "@lucide/svelte/icons/circle-dot";
@@ -13,12 +13,11 @@
 
   import { projectRailSurface } from "../../projects/project-rail.js";
   import type { ProjectForgeSurface } from "../../projects/surfaces.js";
-  import CommunityProjectsRepositoryOverviewHeading from "./CommunityProjectsRepositoryOverviewHeading.svelte";
+  import CommunityProjectsRepositoryLogRail from "./CommunityProjectsRepositoryLogRail.svelte";
+  import CommunityProjectsRepositoryRailLatest from "./CommunityProjectsRepositoryRailLatest.svelte";
 
   let {
     surface,
-    name,
-    sourceLabel,
     channel = "",
     files = 0,
     commits = [],
@@ -27,13 +26,10 @@
     showGitHub = false,
     githubConnected = false,
     githubDisabled = false,
-    plus,
     onGitHub,
     onSelect,
   }: {
     surface: ProjectForgeSurface;
-    name: string;
-    sourceLabel: string;
     channel?: string | undefined;
     files?: number | undefined;
     commits?: readonly { sha: string }[] | undefined;
@@ -42,12 +38,11 @@
     showGitHub?: boolean | undefined;
     githubConnected?: boolean | undefined;
     githubDisabled?: boolean | undefined;
-    plus?: Snippet | undefined;
     onGitHub?: (() => void) | undefined;
     onSelect: (label: string) => void;
   } = $props();
 
-  const latest = $derived(commits[0]?.sha.slice(0, 7) ?? "—");
+  const latestSha = $derived(commits[0]?.sha ?? "");
   const activeTasks = $derived(
     tasks.filter(
       (task) => task.lifecycle !== "closed" && task.lifecycle !== "applied",
@@ -91,13 +86,11 @@
   </Button>
 {/snippet}
 
-<CommunityProjectsRepositoryOverviewHeading {surface} {name} {plus} />
+{#if surface === "log"}
+  <CommunityProjectsRepositoryLogRail />
+{/if}
 {#if detailsOpen}
   {#if surface === "overview"}
-    <div class="community-application__project-overview-repository">
-      <strong>{name}</strong>
-      <span>{sourceLabel}</span>
-    </div>
     {#if showGitHub}
       <Button
         type="button"
@@ -128,7 +121,12 @@
     {@render railStat(HashIcon, channel.replace(/^#/, ""), "")}
   {/if}
   <p class="community-application__project-overview-label">Details</p>
-  {@render railStat(GitCommitHorizontalIcon, "Latest", latest)}
+  <CommunityProjectsRepositoryRailLatest
+    icon={GitCommitHorizontalIcon}
+    sha={latestSha}
+    active={itemActive("Latest")}
+    onSelect={() => onSelect("Latest")}
+  />
   {@render railStat(FilesIcon, "Files", files)}
   {@render railStat(ListTodoIcon, "Tasks", tasks.length)}
   {@render railStat(GitPullRequestIcon, "Reviews", reviews.length)}
@@ -136,7 +134,12 @@
   {@render railStat(FilesIcon, "Files", files)}
 {:else if surface === "commits"}
   {@render railStat(GitCommitHorizontalIcon, "Commits", commits.length)}
-  {@render railStat(GitBranchIcon, "Latest", latest)}
+  <CommunityProjectsRepositoryRailLatest
+    icon={GitBranchIcon}
+    sha={latestSha}
+    active={itemActive("Latest")}
+    onSelect={() => onSelect("Latest")}
+  />
 {:else if surface === "tasks"}
   {@render railStat(ListTodoIcon, "Tasks", tasks.length)}
   {@render railStat(CircleDotIcon, "Active", activeTasks)}
@@ -151,21 +154,10 @@
 {/if}
 
 <style>
-  .community-application__project-overview-repository {
-    display: grid;
-    gap: 0.08rem;
-    padding: 0.3rem 0.4rem;
-    font-size: var(--community-text-secondary);
-  }
-
-  .community-application__project-overview-repository span,
-  .community-application__project-overview-label {
-    color: var(--muted-foreground);
-    font-size: var(--community-text-secondary);
-  }
-
   .community-application__project-overview-label {
     margin: 0.9rem 0.4rem 0.3rem;
+    color: var(--muted-foreground);
+    font-size: var(--community-text-secondary);
   }
 
   :global(.community-application__project-overview-item[data-ui-component="button"][data-active]),

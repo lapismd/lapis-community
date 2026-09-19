@@ -15,8 +15,6 @@
   name="Repository options rail"
   args={{
     surface: "overview",
-    name: "community-client",
-    sourceLabel: "Relay hosted",
     files: 3,
     commits: [{ sha: "d".repeat(40) }],
     tasks: [{ lifecycle: "open" }],
@@ -30,6 +28,12 @@
     await expect(canvas.queryByRole("heading", { name: "Permissions" })).not.toBeInTheDocument();
     await userEvent.click(options);
     await expect(args.onSelect).toHaveBeenCalledWith("Options");
+    const copy = canvas.getByRole("button", {
+      name: /Copy full commit ID/u,
+    });
+    await expect(copy).toBeVisible();
+    await userEvent.click(copy);
+    await expect(args.onSelect).not.toHaveBeenCalledWith("Latest");
   }}
 >
   {#snippet template(args)}
@@ -41,8 +45,6 @@
   name="Options item is current"
   args={{
     surface: "options",
-    name: "community-client",
-    sourceLabel: "Relay hosted",
     onSelect: fn(),
   }}
   play={async ({ canvas }) => {
@@ -64,18 +66,12 @@
   name="Overview shows relay hosted chrome"
   args={{
     surface: "overview",
-    name: "community-client",
-    sourceLabel: "Relay hosted",
     channel: "plugin-development",
     files: 3,
     onSelect: fn(),
   }}
   play={async ({ canvas }) => {
-    const hosted = canvas.getByText("Relay hosted");
-    await expect(hosted).toBeVisible();
-    await expect(hosted.closest("div")).toHaveClass(
-      "community-application__project-overview-repository",
-    );
+    await expect(canvas.queryByText("Relay hosted")).not.toBeInTheDocument();
     await expect(canvas.getByText("Channel")).toBeVisible();
     await expect(canvas.getByRole("button", { name: "plugin-development" }).querySelector(".lucide-hash")).not.toBeNull();
     await expect(canvas.getByText("Details")).toBeVisible();
@@ -91,8 +87,6 @@
   name="Files hides options"
   args={{
     surface: "files",
-    name: "community-client",
-    sourceLabel: "Relay hosted",
     files: 3,
     onSelect: fn(),
   }}

@@ -262,6 +262,10 @@ remove all projected assignees; UI selection state never replaces signed relay
 events as authority. Project activity MUST preserve each accepted event's
 `assign` or `unassign` direction so presentation can distinguish the two
 operations without parsing a generated label.
+A selected project MUST keep that landing forge feed scoped to the project's
+coordinate and member repositories, including dest-Git commits loaded per
+repository through the relay gateway, and MUST NOT mix NIP-29 channel
+messages into project Activity.
 
 For LC-UI-030, production-component stories project signed kind `0`, `1`, `3`,
 `5`, and `7` test events through the same Pulse controller boundary used by

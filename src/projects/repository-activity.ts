@@ -48,11 +48,7 @@ export function repositoryVisibleActivity(
   repositories: readonly ProjectForgeRepository[],
   selectedRepository?: ProjectForgeRepository,
 ): ProjectForgeActivityItem[] {
-  const hiddenAnchors = new Set(
-    repositories
-      .filter((repository) => repository.repositoryClass === "task-anchor")
-      .map((repository) => repository.address.coordinate),
-  );
+  const hiddenAnchors = hiddenTaskAnchors(repositories);
   return activity.filter((item) => {
     if (item.kind === "project") return false;
     if (
@@ -64,6 +60,39 @@ export function repositoryVisibleActivity(
     if (!selectedRepository) return true;
     return item.repositoryCoordinate === selectedRepository.address.coordinate;
   });
+}
+
+export function projectVisibleActivity(
+  activity: readonly ProjectForgeActivityItem[],
+  project: { address: { coordinate: string }; repositories: readonly { coordinate: string }[] },
+  repositories: readonly ProjectForgeRepository[],
+): ProjectForgeActivityItem[] {
+  const hiddenAnchors = hiddenTaskAnchors(repositories);
+  const members = new Set(
+    project.repositories.map((reference) => reference.coordinate),
+  );
+  return activity.filter((item) => {
+    if (item.projectCoordinate !== project.address.coordinate) return false;
+    if (item.kind === "project") return true;
+    if (
+      item.repositoryCoordinate &&
+      (hiddenAnchors.has(item.repositoryCoordinate) ||
+        !members.has(item.repositoryCoordinate))
+    ) {
+      return false;
+    }
+    return true;
+  });
+}
+
+function hiddenTaskAnchors(
+  repositories: readonly ProjectForgeRepository[],
+): Set<string> {
+  return new Set(
+    repositories
+      .filter((repository) => repository.repositoryClass === "task-anchor")
+      .map((repository) => repository.address.coordinate),
+  );
 }
 
 export function jjSyncActivityItems(

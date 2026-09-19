@@ -47,7 +47,9 @@ buttons, kind `3901` operation-ID and replica-ID copy buttons, muted square
 update that baseline in the same change. `jj-sync` chips keep the History
 copy-button fill on muted activity-row hover and update that baseline in the
 same change. Literal `:` project fragment coordinates update that baseline in
-the same change. Repository Files latest-commit
+the same change. Selected-project hub extracts and the lowered Application
+and CommunityProjects budgets update that baseline in the same change.
+Repository Files latest-commit
 Gravatar avatars and History-style SHA copy buttons update that baseline in
 the same change. Repository Overview README fullWidth alignment updates that
 baseline in the same change. Channel `maintainer` / `CanMaintain` authority,

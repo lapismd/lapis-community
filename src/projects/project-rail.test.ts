@@ -19,5 +19,6 @@ describe("project rail", () => {
     expect(projectRailSurface("Tasks", "repository")).toBe("tasks");
     expect(projectRailSurface("Reviews", "repository")).toBe("reviews");
     expect(projectRailSurface("Repositories", "repository")).toBeUndefined();
+    expect(projectRailSurface("Repositories", "project")).toBe("repositories");
   });
 });

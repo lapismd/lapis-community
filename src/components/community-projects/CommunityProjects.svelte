@@ -59,6 +59,10 @@
     repositoryMatchesGitHubAnnouncement,
     projectForgeBranchName,
     projectForgeBranchRefs,
+    groupItemsByProjectRepository,
+    projectVisibleActivity,
+    PROJECT_DIRECTORY_TABS,
+    PROJECT_WORKSPACE_TABS,
     repositoryVisibleActivity,
     splitProjectForgePatch,
     projectForgeBoundChannels,
@@ -83,6 +87,11 @@
   import CommunityMessage from "../community-message/CommunityMessage.svelte";
   import CommunityProjectStatusToasts from "./CommunityProjectStatusToasts.svelte";
   import CommunityProjectsActivityFeed from "./CommunityProjectsActivityFeed.svelte";
+  import CommunityProjectsCommitList from "./CommunityProjectsCommitList.svelte";
+  import CommunityProjectsPeopleList from "./CommunityProjectsPeopleList.svelte";
+  import CommunityProjectsPullRequestList from "./CommunityProjectsPullRequestList.svelte";
+  import CommunityProjectsRepositorySections from "./CommunityProjectsRepositorySections.svelte";
+  import { projectRepositoryContributorGroups } from "./project-contributor-groups.js";
   import CommunityProjectsCreateDialogs from "./CommunityProjectsCreateDialogs.svelte";
   import CommunityProjectsPullRequestReview from "./CommunityProjectsPullRequestReview.svelte";
   import CommunityProjectsPullRequestSubmitDialog from "./CommunityProjectsPullRequestSubmitDialog.svelte";
@@ -136,6 +145,7 @@
     pullRequests = [],
     selectedPullRequest,
     commits = [],
+    commitActivity = [],
     commitBranch = "",
     repositoryBranches = [],
     selectedRepositoryBranch = "",
@@ -714,8 +724,32 @@
       ? scopedTasks.filter((task) => !taskIsMine(task, currentMemberId))
       : scopedTasks,
   );
+  const groupByRepository = $derived(
+    Boolean(selectedProject && !selectedRepository),
+  );
   const visibleActivity = $derived(
-    repositoryVisibleActivity(activity, repositories, selectedRepository),
+    selectedProject && !selectedRepository
+      ? projectVisibleActivity(activity, selectedProject, repositories)
+      : repositoryVisibleActivity(activity, repositories, selectedRepository),
+  );
+  const taskRepositorySections = $derived(
+    groupItemsByProjectRepository(
+      scopedTasks,
+      repositories,
+      (task) => task.repository.coordinate,
+    ),
+  );
+  const reviewRepositorySections = $derived(
+    groupItemsByProjectRepository(
+      pullRequests.filter((pullRequest) =>
+        pullRequestBelongsToSelectedProject(pullRequest),
+      ),
+      repositories,
+      (pullRequest) => pullRequest.repository.coordinate,
+    ),
+  );
+  const contributorRepositorySections = $derived(
+    projectRepositoryContributorGroups(repositories, rooms, members),
   );
   const weekActivity = $derived(
     visibleActivity.filter(
@@ -735,23 +769,8 @@
   const weekActivityDigest = $derived(
     projectActivityDigest(weekTaskCount, weekReviewCount, weekProjectCount),
   );
-  const overviewTabs = [
-    { value: "activity", label: "Activity" },
-    { value: "projects", label: "Projects" },
-    { value: "repositories", label: "Repositories" },
-    { value: "tasks", label: "Tasks" },
-    { value: "reviews", label: "Reviews" },
-    { value: "channels", label: "Channels" },
-  ] as const;
-  const projectTabs = [
-    { value: "overview", label: "Overview" },
-    { value: "files", label: "Files" },
-    { value: "commits", label: "Commits" },
-    { value: "tasks", label: "Tasks" },
-    { value: "reviews", label: "Review" },
-    { value: "channels", label: "Channels" },
-    { value: "contributors", label: "Contributors" },
-  ] as const;
+  const overviewTabs = PROJECT_DIRECTORY_TABS;
+  const projectTabs = PROJECT_WORKSPACE_TABS;
   const projectChannels = $derived(
     selectedProject
       ? projectForgeBoundChannels(selectedProject, repositories).map(
@@ -3148,7 +3167,23 @@
           </article>
         {:else}
           {@render surfaceHeader("Tasks", "Project tasks")}
-          {#if mineTasks.length > 0 || otherTasks.length > 0}
+          {#if groupByRepository}
+            <CommunityProjectsRepositorySections
+              sections={taskRepositorySections.map((group) => ({
+                repository: group.repository,
+                count: group.items.length,
+              }))}
+              empty="No tasks in this project."
+            >
+              {#snippet children(repository)}
+                <div class="community-projects__task-list" data-layout={listLayout}>
+                  {#each scopedTasks.filter((task) => task.repository.coordinate === repository.address.coordinate) as task (task.root.id)}
+                    {@render taskListRow(task)}
+                  {/each}
+                </div>
+              {/snippet}
+            </CommunityProjectsRepositorySections>
+          {:else if mineTasks.length > 0 || otherTasks.length > 0}
             <div class="community-projects__collection-groups">
               {#if mineTasks.length > 0}
                 <Collapsible.Root
@@ -3240,6 +3275,36 @@
           {/if}
         {/if}
       {:else if view === "reviews"}
+        {#if groupByRepository && !selectedPullRequest}
+          {@render surfaceHeader(
+            "Reviews",
+            "Buzz-compatible NIP-34 pull requests and trusted review decisions.",
+          )}
+          <CommunityProjectsRepositorySections
+            sections={reviewRepositorySections.map((group) => ({
+              repository: group.repository,
+              count: group.items.length,
+            }))}
+            empty="No reviews in this project."
+          >
+            {#snippet children(repository)}
+              <CommunityProjectsPullRequestList
+                pullRequests={reviewRepositorySections.find(
+                  (group) =>
+                    group.repository.address.coordinate ===
+                    repository.address.coordinate,
+                )?.items ?? []}
+                {listLayout}
+                bind:groupOpen={reviewGroupOpen}
+                {memberForPubkey}
+                {onOpenProfile}
+                {onMessageMember}
+                {onWaveMember}
+                {onSelectPullRequest}
+              />
+            {/snippet}
+          </CommunityProjectsRepositorySections>
+        {:else}
         <CommunityProjectsPullRequestReview
           pullRequest={selectedPullRequest}
           {pullRequests}
@@ -3335,6 +3400,7 @@
             )}
           {/snippet}
         </CommunityProjectsPullRequestReview>
+        {/if}
       {:else if view === "commits"}
         {#if selectedCommitValue}
           {@const commitAuthor = commitAuthorMember(selectedCommitValue)}
@@ -3593,66 +3659,20 @@
             "Repository history loaded through the relay gateway.",
           )}
           <div class="community-projects__commit-layout">
-            <div class="community-projects__commit-list">
-              {#if effectiveSourceError}
-                {@render projectSourceError(effectiveSourceError)}
-              {:else}
-                {#each commits as commit (commit.sha)}
-                  <article class="community-projects__commit-row">
-                    <GitCommitHorizontalIcon
-                      class="community-projects__commit-row-icon"
-                      aria-hidden="true"
-                    />
-                    <button
-                      type="button"
-                      class="community-projects__commit-row-title"
-                      onclick={() => onSelectCommit?.(commit)}
-                      >{commit.subject}</button
-                    >
-                    <button
-                      type="button"
-                      class="community-projects__commit-row-hash"
-                      title={`View commit ${commit.sha.slice(0, 7)}`}
-                      onclick={() => onSelectCommit?.(commit)}
-                      >{commit.sha.slice(0, 7)}</button
-                    >
-                    {#if commitBranch}
-                      <span class="community-projects__commit-row-branch">
-                        <span aria-hidden="true">›</span>
-                        <GitBranchIcon aria-hidden="true" />
-                        <span>{commitBranch}</span>
-                      </span>
-                    {/if}
-                    <span class="community-projects__commit-row-author">
-                      <CommunityProjectsGitAuthorAvatar
-                        email={commit.author_email}
-                        name={commit.author ?? commit.author_name}
-                        size="xsmall"
-                      />
-                    </span>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon-sm"
-                      class="community-projects__copy-control"
-                      aria-label={`Copy commit ${commit.sha.slice(0, 7)}`}
-                      title="Copy commit hash"
-                      onclick={() => void copyCommitHash(commit.sha)}
-                      ><CopyIcon aria-hidden="true" /></Button
-                    >
-                    {#if commit.commit_date ?? commit.author_date}<CommunityRelativeTime
-                        timestamp={Math.floor(
-                          new Date(
-                            commit.commit_date ?? commit.author_date!,
-                          ).getTime() / 1_000,
-                        )}
-                      />{/if}
-                  </article>
-                {:else}<p class="community-projects__status">
-                    No repository commit history is available.
-                  </p>{/each}
-              {/if}
-            </div>
+            {#if effectiveSourceError}
+              {@render projectSourceError(effectiveSourceError)}
+            {:else}
+              <CommunityProjectsCommitList
+                {commits}
+                {commitActivity}
+                {commitBranch}
+                {selectedProject}
+                {selectedRepository}
+                {repositories}
+                {onSelectCommit}
+                onCopyCommit={(hash) => void copyCommitHash(hash)}
+              />
+            {/if}
           </div>
         {/if}
       {:else if view === "files"}
@@ -3697,41 +3717,18 @@
       {:else if view === "people" || view === "contributors"}
         {@render surfaceHeader(
           "Contributors",
-          "Project collaborators are inherited from the project's NIP-29 channel.",
+          groupByRepository
+            ? "Collaborators inherited from each repository channel."
+            : "Project collaborators are inherited from the project's NIP-29 channel.",
         )}
-        <div class="community-projects__people" data-layout={listLayout}>
-          {#each members as member (member.id)}
-            <article
-              data-interactive={onOpenProfile === undefined
-                ? undefined
-                : "true"}
-            >
-              {#if onOpenProfile}
-                <button
-                  type="button"
-                  class="community-projects__person-target"
-                  aria-label={`Open ${member.name}'s profile`}
-                  onclick={() => onOpenProfile?.(member)}
-                ></button>
-              {/if}
-              <span class="community-projects__person-avatar">
-                {@render memberHoverAvatar(member, "medium")}
-              </span>
-              <div class="community-projects__person-copy">
-                <strong>{member.name}</strong><span>{member.handle}</span>
-              </div>
-              {#if member.role}
-                <CommunityChip
-                  class="community-projects__person-role"
-                  size="compact"
-                  tone="accent">{member.role}</CommunityChip
-                >
-              {/if}
-            </article>
-          {:else}<p class="community-projects__status">
-              The project channel roster is unavailable.
-            </p>{/each}
-        </div>
+        <CommunityProjectsPeopleList
+          {members}
+          groups={groupByRepository ? contributorRepositorySections : []}
+          {listLayout}
+          {onOpenProfile}
+          {onMessageMember}
+          {onWaveMember}
+        />
       {/if}
     </section>
   </AppShell.Body>

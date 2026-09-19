@@ -720,7 +720,7 @@
       await canvas.findByRole("navigation", { name: "Project overview" }),
     ).toBeVisible();
     await expect(
-      await canvas.findByRole("tab", { name: "Overview" }, { timeout: 15_000 }),
+      await canvas.findByRole("tab", { name: "Activity" }, { timeout: 15_000 }),
     ).toBeVisible();
     await expect(
       await canvas.findByRole("heading", { name: "Projects" }),

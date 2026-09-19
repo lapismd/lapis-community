@@ -124,6 +124,8 @@ export interface CommunityProjectsProps {
   pullRequests?: readonly PullRequestState[];
   selectedPullRequest?: PullRequestState;
   commits?: readonly ProjectForgeCommit[];
+  /** Dest-Git commits keyed by member repository for project-scoped lists. */
+  commitActivity?: readonly import("../../projects/index.js").ProjectForgeCommitActivity[];
   /** Active repository head shown beside commit rows, when available. */
   commitBranch?: string;
   /** Selectable provider-neutral branch refs for the repository browser. */

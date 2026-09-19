@@ -6,10 +6,15 @@ import { materializeProjectForgeCatalog } from "./reducer.js";
 import {
   KIND_JJ_OPERATION,
   buildRepositoryActivity,
+  projectVisibleActivity,
   repositoryCommitActivity,
   repositoryVisibleActivity,
 } from "./repository-activity.js";
-import { PROJECT_REPOSITORY_TABS, isProjectForgeSurface } from "./surfaces.js";
+import {
+  PROJECT_REPOSITORY_TABS,
+  PROJECT_WORKSPACE_TABS,
+  isProjectForgeSurface,
+} from "./surfaces.js";
 
 const owner = "1".repeat(64);
 const repositoryCoordinate = `${PROJECT_FORGE_KINDS.repository}:${owner}:notes`;
@@ -98,7 +103,17 @@ describe("repository activity", () => {
       "tasks",
       "reviews",
     ]);
+    expect(PROJECT_WORKSPACE_TABS.map((tab) => tab.value)).toEqual([
+      "activity",
+      "repositories",
+      "commits",
+      "tasks",
+      "reviews",
+      "channels",
+      "contributors",
+    ]);
     expect(isProjectForgeSurface("activity")).toBe(true);
+    expect(isProjectForgeSurface("repositories")).toBe(true);
   });
 
   it("projects kind 3901 jj-sync operations beside dest-Git commits", () => {
@@ -207,5 +222,43 @@ describe("repository activity", () => {
       },
     ]);
     expect(repositoryCommitActivity(undefined, undefined, [], [])).toEqual([]);
+  });
+
+  it("keeps one project's forge feed and its own project row", () => {
+    const projectCatalog = catalog();
+    const notes = repositoryByIdentifier(projectCatalog, "notes");
+    const other = repositoryByIdentifier(projectCatalog, "other");
+    const activity = buildRepositoryActivity(projectCatalog, {
+      tasks: [],
+      pullRequests: [],
+      events: [
+        jjSyncEvent("4", 40),
+        jjSyncEvent("5", 41, otherRepositoryCoordinate),
+      ],
+    });
+    const visible = projectVisibleActivity(
+      [
+        ...activity,
+        {
+          id: "foreign",
+          kind: "repository",
+          createdAt: 50,
+          actorPubkey: owner,
+          action: "created a repository in",
+          title: "elsewhere",
+          body: "",
+          projectCoordinate: "30621:other:other",
+          repositoryCoordinate: otherRepositoryCoordinate,
+        },
+      ],
+      projectCatalog.projects[0]!,
+      [notes, { ...other, repositoryClass: "task-anchor" }],
+    );
+
+    expect(visible.map((item) => item.id)).toEqual([
+      "jj-sync:" + "4".repeat(64),
+      `repository:${notes.event.id}`,
+      `project:${projectCatalog.projects[0]!.event.id}`,
+    ]);
   });
 });

@@ -499,30 +499,10 @@ function projectRouteKey(
     : `${route.kind}:${route.coordinate}:${route.surface}`;
 }
 
-export function projectRouteToHash(
-  route: CommunityApplicationProjectRoute,
-): string {
-  const surface = route.surface === "overview" ? "" : `/${route.surface}`;
-  return `#/projects/${route.kind}/${encodeURIComponent(route.coordinate).replaceAll("%3A", ":")}${surface}`;
-}
-
-export function projectRouteFromHash(
-  hash: string,
-): CommunityApplicationProjectRoute | null {
-  const match =
-    /^#\/projects\/(project|repository)\/([^/]+)(?:\/([^/]+))?$/u.exec(hash);
-  if (!match) return null;
-  try {
-    const coordinate = decodeURIComponent(match[2]!);
-    const surface = match[3] ?? "overview";
-    if (!validRouteCoordinate(coordinate) || !isProjectForgeSurface(surface)) {
-      return null;
-    }
-    return { kind: match[1] as "project" | "repository", coordinate, surface };
-  } catch {
-    return null;
-  }
-}
+export {
+  projectRouteFromHash,
+  projectRouteToHash,
+} from "./project-route.js";
 
 /** Agent routes contain identities and filters, never decoded private activity. */
 export function agentLocationToHash(

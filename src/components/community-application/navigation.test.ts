@@ -187,7 +187,7 @@ describe("Community application location history", () => {
       projectRouteToHash({
         kind: "project",
         coordinate: "30621:owner:road map",
-        surface: "overview",
+        surface: "activity",
       }),
     ).toBe("#/projects/project/30621:owner:road%20map");
     expect(
@@ -203,7 +203,7 @@ describe("Community application location history", () => {
       {
         kind: "project" as const,
         coordinate: "30621:owner:road map",
-        surface: "overview" as const,
+        surface: "activity" as const,
       },
       {
         kind: "repository" as const,

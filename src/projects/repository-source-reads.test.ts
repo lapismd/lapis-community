@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import type { ProjectForgeSession } from "./data-source.js";
 import {
+  loadProjectCommitActivity,
   readRepositoryCommit,
   readRepositoryPathCommit,
 } from "./repository-source-reads.js";
@@ -36,5 +37,27 @@ describe("repository source reads", () => {
     await expect(readRepositoryCommit(session, undefined, sha)).rejects.toThrow(
       "Repository source is not ready",
     );
+    await expect(
+      loadProjectCommitActivity(
+        session,
+        [
+          {
+            address: { coordinate: "30617:owner:notes" },
+          } as never,
+        ],
+        [
+          {
+            address: { coordinate: "30621:owner:notes" },
+            repositories: [{ coordinate: "30617:owner:notes" }],
+          },
+        ],
+      ),
+    ).resolves.toEqual([
+      {
+        projectCoordinate: "30621:owner:notes",
+        repositoryCoordinate: "30617:owner:notes",
+        commit: { sha, subject: "path" },
+      },
+    ]);
   });
 });

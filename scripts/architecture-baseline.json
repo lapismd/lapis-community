@@ -1101,8 +1101,8 @@
       "justification": "Existing file above the new-file counted-line limit; do not grow"
     },
     "src/components/community-application/CommunityApplication.svelte": {
-      "countedLines": 9300,
-      "physicalLines": 9663,
+      "countedLines": 9245,
+      "physicalLines": 9606,
       "forbiddenImportCount": 0,
       "kind": "legacy",
       "justification": "Application composition root; extract destination hosts before adding behaviour"
@@ -1207,8 +1207,8 @@
       "forbiddenImportCount": 0
     },
     "src/components/community-application/navigation.ts": {
-      "countedLines": 567,
-      "physicalLines": 614,
+      "countedLines": 548,
+      "physicalLines": 594,
       "forbiddenImportCount": 0,
       "kind": "legacy",
       "justification": "Existing file above the new-file counted-line limit; do not grow"
@@ -1952,8 +1952,8 @@
       "justification": "Existing file above the new-file counted-line limit; do not grow"
     },
     "src/components/community-projects/CommunityProjects.svelte": {
-      "countedLines": 3703,
-      "physicalLines": 3841,
+      "countedLines": 3700,
+      "physicalLines": 3838,
       "forbiddenImportCount": 0,
       "kind": "legacy",
       "justification": "Projects composition root; extract named surfaces before adding behaviour"
@@ -2214,8 +2214,8 @@
       "forbiddenImportCount": 0
     },
     "src/components/community-projects/model.ts": {
-      "countedLines": 254,
-      "physicalLines": 283,
+      "countedLines": 255,
+      "physicalLines": 285,
       "forbiddenImportCount": 0
     },
     "src/components/community-projects/projects-member.ts": {
@@ -3114,8 +3114,8 @@
       "forbiddenImportCount": 0
     },
     "src/projects/index.ts": {
-      "countedLines": 16,
-      "physicalLines": 16,
+      "countedLines": 17,
+      "physicalLines": 17,
       "forbiddenImportCount": 0
     },
     "src/projects/model.ts": {
@@ -3141,8 +3141,8 @@
       "forbiddenImportCount": 0
     },
     "src/projects/project-rail.test.ts": {
-      "countedLines": 20,
-      "physicalLines": 23,
+      "countedLines": 21,
+      "physicalLines": 24,
       "forbiddenImportCount": 0
     },
     "src/projects/project-rail.ts": {
@@ -3195,13 +3195,13 @@
       "justification": "Existing file above the new-file counted-line limit; do not grow"
     },
     "src/projects/repository-activity.test.ts": {
-      "countedLines": 198,
-      "physicalLines": 211,
+      "countedLines": 249,
+      "physicalLines": 264,
       "forbiddenImportCount": 0
     },
     "src/projects/repository-activity.ts": {
-      "countedLines": 136,
-      "physicalLines": 143,
+      "countedLines": 163,
+      "physicalLines": 172,
       "forbiddenImportCount": 0
     },
     "src/projects/repository-address.ts": {
@@ -3320,13 +3320,13 @@
       "forbiddenImportCount": 0
     },
     "src/projects/repository-source-reads.test.ts": {
-      "countedLines": 37,
-      "physicalLines": 40,
+      "countedLines": 60,
+      "physicalLines": 63,
       "forbiddenImportCount": 0
     },
     "src/projects/repository-source-reads.ts": {
-      "countedLines": 30,
-      "physicalLines": 32,
+      "countedLines": 67,
+      "physicalLines": 70,
       "forbiddenImportCount": 0
     },
     "src/projects/repository-tree.test.ts": {
@@ -3350,8 +3350,8 @@
       "forbiddenImportCount": 0
     },
     "src/projects/surfaces.ts": {
-      "countedLines": 31,
-      "physicalLines": 34,
+      "countedLines": 63,
+      "physicalLines": 70,
       "forbiddenImportCount": 0
     },
     "src/projects/work-item-filters.ts": {

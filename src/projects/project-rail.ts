@@ -34,7 +34,7 @@ export function projectRailSurface(
   if (label === "Channels") return "channels";
   if (scope === "project") {
     if (label === "Contributors") return "contributors";
-    if (label === "Repositories") return "overview";
+    if (label === "Repositories") return "repositories";
     return undefined;
   }
   if (scope === "directory") {
