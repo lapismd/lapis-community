@@ -79,6 +79,13 @@
     type PullRequestComment,
     type PullRequestReviewKind,
   } from "../../projects/index.js";
+  import { scopeProjectTasks } from "../../projects/collection-filters.js";
+  import {
+    pullRequestBelongsToProjectScope,
+    projectPullRequestsFor,
+    taskIsMine,
+    type CommunityProjectsFilterProps,
+  } from "./project-list-scope.js";
   import CommunitySidebarToggleIcon from "../community-app-shell/CommunitySidebarToggleIcon.svelte";
   import CommunityChatComposer from "../community-chat-composer/CommunityChatComposer.svelte";
   import CommunityChip from "../community-chip/CommunityChip.svelte";
@@ -141,8 +148,10 @@
     activity = [],
     workItemEvents = [],
     tasks = [],
+    taskListFilter,
     selectedTask,
     pullRequests = [],
+    reviewListFilter,
     selectedPullRequest,
     commits = [],
     commitActivity = [],
@@ -221,7 +230,7 @@
     onCloseCommit,
     onSelectPath,
     onRetry,
-  }: CommunityProjectsProps = $props();
+  }: CommunityProjectsProps & CommunityProjectsFilterProps = $props();
 
   let projectDialogOpen = $state(false);
   let projectDialogMode = $state<"create" | "edit">("create");
@@ -699,20 +708,15 @@
       : visibleRepositories,
   );
   const scopedTasks = $derived(
-    selectedRepository
-      ? tasks.filter(
-          (task) =>
-            task.repository.coordinate ===
-            selectedRepository.address.coordinate,
-        )
-      : selectedProject
-        ? tasks.filter((task) =>
-            selectedProject.repositories.some(
-              (repository) =>
-                repository.coordinate === task.repository.coordinate,
-            ),
+    scopeProjectTasks(tasks, {
+      repositoryCoordinate: selectedRepository?.address.coordinate,
+      projectRepositoryCoordinates: selectedProject
+        ? selectedProject.repositories.map(
+            (repository) => repository.coordinate,
           )
-        : tasks,
+        : undefined,
+      filter: taskListFilter,
+    }),
   );
   const mineTasks = $derived(
     currentMemberId
@@ -741,9 +745,7 @@
   );
   const reviewRepositorySections = $derived(
     groupItemsByProjectRepository(
-      pullRequests.filter((pullRequest) =>
-        pullRequestBelongsToSelectedProject(pullRequest),
-      ),
+      pullRequests.filter(pullRequestBelongsToSelectedProject),
       repositories,
       (pullRequest) => pullRequest.repository.coordinate,
     ),
@@ -1616,19 +1618,6 @@
     );
   }
 
-  function taskIsMine(task: ProjectTaskState, memberId: string): boolean {
-    return task.root.pubkey === memberId || task.assignees.includes(memberId);
-  }
-
-  function projectPullRequestsFor(project: (typeof projects)[number]) {
-    const coordinates = new Set(
-      project.repositories.map((repository) => repository.coordinate),
-    );
-    return pullRequests.filter((pullRequest) =>
-      coordinates.has(pullRequest.repository.coordinate),
-    );
-  }
-
   function taskStatusLabel(
     lifecycle: (typeof tasks)[number]["lifecycle"],
   ): string {
@@ -2133,9 +2122,13 @@
   function pullRequestBelongsToSelectedProject(
     pullRequest: PullRequestState,
   ): boolean {
-    if (!selectedProject) return true;
-    return projectPullRequestsFor(selectedProject).some(
-      (candidate) => candidate.root.id === pullRequest.root.id,
+    return pullRequestBelongsToProjectScope(
+      pullRequest,
+      selectedProject,
+      selectedProject
+        ? projectPullRequestsFor(selectedProject, pullRequests)
+        : pullRequests,
+      reviewListFilter,
     );
   }
 

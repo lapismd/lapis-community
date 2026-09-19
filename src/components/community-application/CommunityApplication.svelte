@@ -189,10 +189,19 @@
   import CommunityProfileMenu from "../community-profile-menu/CommunityProfileMenu.svelte";
   import CommunityProjects from "../community-projects/CommunityProjects.svelte";
   import {
+    PROJECT_REVIEW_LIST_FILTER_DEFAULT,
+    PROJECT_TASK_LIST_FILTER_DEFAULT,
+    projectRailCollectionFilter,
+    projectRailLabelIsCurrentPage,
+    type ProjectReviewListFilter,
+    type ProjectTaskListFilter,
+  } from "../../projects/collection-filters.js";
+  import {
     projectRailSurface,
     projectSurfaceTitle,
   } from "../../projects/project-rail.js";
   import CommunityProjectsProjectRepositoriesRail from "../community-projects/CommunityProjectsProjectRepositoriesRail.svelte";
+  import CommunityProjectsRailStatusFilters from "../community-projects/CommunityProjectsRailStatusFilters.svelte";
   import CommunityProjectsRepositoryRail from "../community-projects/CommunityProjectsRepositoryRail.svelte";
   import { provideRepositoryLogPane } from "../../projects/repository-log-pane.svelte.js";
   import { memberCommandGroupIds, resolveMemberCommandRoom } from "./member-command-room.js";
@@ -621,6 +630,12 @@
   );
   let selectedPullRequestId = $state("");
   let selectedTaskId = $state("");
+  let taskListFilter = $state<ProjectTaskListFilter>(
+    PROJECT_TASK_LIST_FILTER_DEFAULT,
+  );
+  let reviewListFilter = $state<ProjectReviewListFilter>(
+    PROJECT_REVIEW_LIST_FILTER_DEFAULT,
+  );
   let projectDialogRequest = $state<CommunityProjectsDialogRequest>();
   let projectDialogSequence = 0;
   let projectCommits = $state.raw<readonly ProjectForgeCommit[]>([]);
@@ -665,6 +680,12 @@
       ? applicationLocation.projectRoute.coordinate
       : projectCoordinateFromDestination(activeDestination),
   );
+  $effect(() => {
+    void selectedProjectCoordinate;
+    void selectedRepositoryCoordinate;
+    taskListFilter = PROJECT_TASK_LIST_FILTER_DEFAULT;
+    reviewListFilter = PROJECT_REVIEW_LIST_FILTER_DEFAULT;
+  });
   const isProjectsDestination = $derived(
     hasProjects && isProjectDestination(activeDestination),
   );
@@ -3777,6 +3798,7 @@
   }
 
   function projectRailItemActive(label: string): boolean {
+    if (!projectRailLabelIsCurrentPage(label)) return false;
     const target = projectRailTarget(label);
     return selectedRepository
       ? activeRepositorySurface === target
@@ -3786,6 +3808,9 @@
   }
 
   function selectProjectRailItem(label: string): void {
+    const collection = projectRailCollectionFilter(label);
+    if (collection?.kind === "tasks") taskListFilter = collection.value;
+    if (collection?.kind === "reviews") reviewListFilter = collection.value;
     const target = projectRailTarget(label);
     if (selectedRepository) {
       if (label === (roomForProjectChannel(selectedRepository.channelId)?.name ?? selectedRepository.channelId).replace(/^#/, "")) { selectProjectChannelDestination(selectedRepository.channelId); return; }
@@ -6382,6 +6407,8 @@
             commits={projectCommits}
             tasks={selectedRepositoryTasks}
             reviews={selectedRepositoryPullRequests}
+            taskFilter={taskListFilter}
+            reviewFilter={reviewListFilter}
             showGitHub={selectedRepository.repositoryClass === "external" &&
               canManageForge}
             githubConnected={selectedRepositoryGitHubConnected}
@@ -6475,43 +6502,24 @@
               "Tasks",
               projectWorkItems.tasks.length,
             )}
-            {@render projectRailStat(
-              CircleDotIcon,
-              "Active",
-              projectWorkItems.tasks.filter(
-                (task) =>
-                  task.lifecycle !== "closed" && task.lifecycle !== "applied",
-              ).length,
-            )}
-            {@render projectRailStat(
-              CircleCheckIcon,
-              "Completed",
-              projectWorkItems.tasks.filter(
-                (task) =>
-                  task.lifecycle === "closed" || task.lifecycle === "applied",
-              ).length,
-            )}
+            <CommunityProjectsRailStatusFilters
+              kind="tasks"
+              items={projectWorkItems.tasks}
+              value={taskListFilter}
+              onSelect={selectProjectRailItem}
+            />
           {:else if activeProjectSurface === "reviews"}
             {@render projectRailStat(
               GitPullRequestIcon,
               "Reviews",
               projectWorkItems.pullRequests.length,
             )}
-            {@render projectRailStat(
-              CircleDotIcon,
-              "Open",
-              projectWorkItems.pullRequests.filter(
-                (review) =>
-                  review.lifecycle === "open" || review.lifecycle === "draft",
-              ).length,
-            )}
-            {@render projectRailStat(
-              CircleCheckIcon,
-              "Merged",
-              projectWorkItems.pullRequests.filter(
-                (review) => review.lifecycle === "merged",
-              ).length,
-            )}
+            <CommunityProjectsRailStatusFilters
+              kind="reviews"
+              items={projectWorkItems.pullRequests}
+              value={reviewListFilter}
+              onSelect={selectProjectRailItem}
+            />
           {:else if activeProjectSurface === "channels"}
             {@render projectRailStat(
               HashIcon,
@@ -6684,43 +6692,24 @@
               "Tasks",
               projectWorkItems.tasks.length,
             )}
-            {@render projectRailStat(
-              CircleDotIcon,
-              "Active",
-              projectWorkItems.tasks.filter(
-                (task) =>
-                  task.lifecycle !== "closed" && task.lifecycle !== "applied",
-              ).length,
-            )}
-            {@render projectRailStat(
-              CircleCheckIcon,
-              "Completed",
-              projectWorkItems.tasks.filter(
-                (task) =>
-                  task.lifecycle === "closed" || task.lifecycle === "applied",
-              ).length,
-            )}
+            <CommunityProjectsRailStatusFilters
+              kind="tasks"
+              items={projectWorkItems.tasks}
+              value={taskListFilter}
+              onSelect={selectProjectRailItem}
+            />
           {:else if projectsOverviewSurface === "reviews"}
             {@render projectRailStat(
               GitPullRequestIcon,
               "Reviews",
               projectWorkItems.pullRequests.length,
             )}
-            {@render projectRailStat(
-              CircleDotIcon,
-              "Open",
-              projectWorkItems.pullRequests.filter(
-                (review) =>
-                  review.lifecycle === "open" || review.lifecycle === "draft",
-              ).length,
-            )}
-            {@render projectRailStat(
-              CircleCheckIcon,
-              "Merged",
-              projectWorkItems.pullRequests.filter(
-                (review) => review.lifecycle === "merged",
-              ).length,
-            )}
+            <CommunityProjectsRailStatusFilters
+              kind="reviews"
+              items={projectWorkItems.pullRequests}
+              value={reviewListFilter}
+              onSelect={selectProjectRailItem}
+            />
           {:else if projectsOverviewSurface === "repositories"}
             {@render projectRailStat(
               GitBranchIcon,
@@ -6837,7 +6826,9 @@
           repositoryOptions={projectCatalog.repositories}
           repositoryCapabilities={projectRepositoryCapabilities}
           tasks={projectWorkItems.tasks}
+          taskListFilter={taskListFilter}
           pullRequests={projectWorkItems.pullRequests}
+          reviewListFilter={reviewListFilter}
           {...selectedPullRequest === undefined ? {} : { selectedPullRequest }}
           commits={projectCommits}
           commitActivity={projectCommitActivity}
@@ -7305,10 +7296,12 @@
         tasks={selectedRepository
           ? selectedRepositoryTasks
           : projectWorkItems.tasks}
+        taskListFilter={taskListFilter}
         {...selectedTask === undefined ? {} : { selectedTask }}
         pullRequests={selectedRepository
           ? selectedRepositoryPullRequests
           : projectWorkItems.pullRequests}
+        reviewListFilter={reviewListFilter}
         {...selectedPullRequest === undefined ? {} : { selectedPullRequest }}
         commits={projectCommits}
         commitActivity={projectCommitActivity}
@@ -9475,6 +9468,8 @@
   :global(
       .community-application__project-overview-item[data-ui-component="button"]:hover:not(
           :disabled
+        ):not(.community-projects-rail-status-filter):not(
+          .community-projects-repository-rail-latest__label
         )
     ),
   :global(

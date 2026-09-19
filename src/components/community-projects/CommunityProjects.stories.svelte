@@ -869,7 +869,7 @@ index 3333333..4444444 100644
 <Story
   name="Tasks"
   args={{
-    view: "tasks",
+    view: "tasks", selectedProject: undefined,
     tasks: [groupedTask, otherTask],
     onSelectTask,
   }}

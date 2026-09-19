@@ -1,8 +1,6 @@
 <script lang="ts">
   import type { Component } from "svelte";
   import { Button } from "@lapismd/design-core/shadcn/button";
-  import CircleCheckIcon from "@lucide/svelte/icons/circle-check";
-  import CircleDotIcon from "@lucide/svelte/icons/circle-dot";
   import FilesIcon from "@lucide/svelte/icons/files";
   import GitBranchIcon from "@lucide/svelte/icons/git-branch";
   import GitCommitHorizontalIcon from "@lucide/svelte/icons/git-commit-horizontal";
@@ -11,8 +9,16 @@
   import SettingsIcon from "@lucide/svelte/icons/settings";
 
   import CommunityProjectChannelIcon from "../community-project-channel-icon/CommunityProjectChannelIcon.svelte";
+  import {
+    PROJECT_REVIEW_LIST_FILTER_DEFAULT,
+    PROJECT_TASK_LIST_FILTER_DEFAULT,
+    projectRailLabelIsCurrentPage,
+    type ProjectReviewListFilter,
+    type ProjectTaskListFilter,
+  } from "../../projects/collection-filters.js";
   import { projectRailSurface } from "../../projects/project-rail.js";
   import type { ProjectForgeSurface } from "../../projects/surfaces.js";
+  import CommunityProjectsRailStatusFilters from "./CommunityProjectsRailStatusFilters.svelte";
   import CommunityProjectsRepositoryLogRail from "./CommunityProjectsRepositoryLogRail.svelte";
   import CommunityProjectsRepositoryRailLatest from "./CommunityProjectsRepositoryRailLatest.svelte";
 
@@ -23,6 +29,8 @@
     commits = [],
     tasks = [],
     reviews = [],
+    taskFilter = PROJECT_TASK_LIST_FILTER_DEFAULT,
+    reviewFilter = PROJECT_REVIEW_LIST_FILTER_DEFAULT,
     showGitHub = false,
     githubConnected = false,
     githubDisabled = false,
@@ -35,6 +43,8 @@
     commits?: readonly { sha: string }[] | undefined;
     tasks?: readonly { lifecycle: string }[] | undefined;
     reviews?: readonly { lifecycle: string }[] | undefined;
+    taskFilter?: ProjectTaskListFilter | undefined;
+    reviewFilter?: ProjectReviewListFilter | undefined;
     showGitHub?: boolean | undefined;
     githubConnected?: boolean | undefined;
     githubDisabled?: boolean | undefined;
@@ -43,28 +53,13 @@
   } = $props();
 
   const latestSha = $derived(commits[0]?.sha ?? "");
-  const activeTasks = $derived(
-    tasks.filter(
-      (task) => task.lifecycle !== "closed" && task.lifecycle !== "applied",
-    ).length,
-  );
-  const completedTasks = $derived(
-    tasks.filter(
-      (task) => task.lifecycle === "closed" || task.lifecycle === "applied",
-    ).length,
-  );
-  const openReviews = $derived(
-    reviews.filter(
-      (review) => review.lifecycle === "open" || review.lifecycle === "draft",
-    ).length,
-  );
-  const mergedReviews = $derived(
-    reviews.filter((review) => review.lifecycle === "merged").length,
-  );
   const detailsOpen = $derived(surface === "overview" || surface === "options");
 
   function itemActive(label: string): boolean {
-    return projectRailSurface(label, "repository") === surface;
+    return (
+      projectRailLabelIsCurrentPage(label) &&
+      projectRailSurface(label, "repository") === surface
+    );
   }
 </script>
 
@@ -124,7 +119,6 @@
   <CommunityProjectsRepositoryRailLatest
     icon={GitCommitHorizontalIcon}
     sha={latestSha}
-    active={itemActive("Latest")}
     onSelect={() => onSelect("Latest")}
   />
   {@render railStat(FilesIcon, "Files", files)}
@@ -134,20 +128,23 @@
   {@render railStat(FilesIcon, "Files", files)}
 {:else if surface === "commits"}
   {@render railStat(GitCommitHorizontalIcon, "Commits", commits.length)}
-  <CommunityProjectsRepositoryRailLatest
-    icon={GitBranchIcon}
-    sha={latestSha}
-    active={itemActive("Latest")}
-    onSelect={() => onSelect("Latest")}
-  />
+  <CommunityProjectsRepositoryRailLatest icon={GitBranchIcon} sha={latestSha} />
 {:else if surface === "tasks"}
   {@render railStat(ListTodoIcon, "Tasks", tasks.length)}
-  {@render railStat(CircleDotIcon, "Active", activeTasks)}
-  {@render railStat(CircleCheckIcon, "Completed", completedTasks)}
+  <CommunityProjectsRailStatusFilters
+    kind="tasks"
+    items={tasks}
+    value={taskFilter}
+    {onSelect}
+  />
 {:else if surface === "reviews"}
   {@render railStat(GitPullRequestIcon, "Reviews", reviews.length)}
-  {@render railStat(CircleDotIcon, "Open", openReviews)}
-  {@render railStat(CircleCheckIcon, "Merged", mergedReviews)}
+  <CommunityProjectsRailStatusFilters
+    kind="reviews"
+    items={reviews}
+    value={reviewFilter}
+    {onSelect}
+  />
 {/if}
 {#if detailsOpen}
   {@render railStat(SettingsIcon, "Options", "", "repository-options")}
@@ -161,6 +158,6 @@
   }
 
   :global(.community-application__project-overview-item[data-ui-component="button"][data-active]),
-  :global(.community-application__project-overview-item[data-ui-component="button"]:hover:not(:disabled)) { color: var(--muted-foreground); background-color: color-mix(in oklab, currentColor 10%, transparent); }
+  :global(.community-application__project-overview-item[data-ui-component="button"]:hover:not(:disabled):not(.community-projects-rail-status-filter):not(.community-projects-repository-rail-latest__label)) { color: var(--muted-foreground); background-color: color-mix(in oklab, currentColor 10%, transparent); }
   :global(.community-application__project-overview-count:empty) { display: none; }
 </style>
