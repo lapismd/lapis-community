@@ -3816,6 +3816,7 @@
   function selectProjectRailItem(label: string): void {
     const target = projectRailTarget(label);
     if (selectedRepository) {
+      if (label === "Channel") { selectProjectChannelDestination(selectedRepository.channelId); return; }
       if (activeRepositorySurface !== target)
         openRepositorySurface(target as ProjectForgeSurface);
       return;
@@ -6390,6 +6391,7 @@
             surface={activeRepositorySurface}
             name={selectedRepository.name}
             sourceLabel={repositorySourceLabel(selectedRepository)}
+            channel={roomForProjectChannel(selectedRepository.channelId)?.name ?? selectedRepository.channelId}
             files={projectTree?.entries.length ?? 0}
             commits={projectCommits}
             tasks={selectedRepositoryTasks}
@@ -9540,11 +9542,7 @@
 
   :global(
       .community-application__project-overview-item[data-ui-component="button"][data-active]
-    ) {
-    color: var(--foreground);
-    background: color-mix(in srgb, var(--muted) 62%, transparent);
-  }
-
+    ),
   :global(
       .community-application__project-overview-item[data-ui-component="button"]:hover:not(
           :disabled

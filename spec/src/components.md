@@ -11,7 +11,12 @@ repository name plus muted source-label chrome and include an Options item
 with a gears icon only on the Overview Details rail and the selected
 `options` surface. Options MUST NOT appear on Files, Commits, Tasks, or
 Review, or among the repository toolbar tabs. Selecting Options MUST open
-the repository `options` surface. Permissions MUST open
+the repository `options` surface. The Overview and selected Options
+Details rail MUST include a Channel row for the repository's bound
+channel, labelled `#name` with a leading hash icon. Selecting that row
+MUST open the bound channel. When Options is the current surface, that
+item MUST share Details-row typography and the same muted selected or
+hover background. Permissions MUST open
 `CommunityMemberCommand` `mode="manage"` for the bound home channel in place
 and MUST NOT change the Projects destination. That people action MUST lead
 with a person-plus icon. The New ruleset menu trigger MUST trail a

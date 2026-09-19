@@ -7,6 +7,7 @@
   import GitBranchIcon from "@lucide/svelte/icons/git-branch";
   import GitCommitHorizontalIcon from "@lucide/svelte/icons/git-commit-horizontal";
   import GitPullRequestIcon from "@lucide/svelte/icons/git-pull-request";
+  import HashIcon from "@lucide/svelte/icons/hash";
   import ListTodoIcon from "@lucide/svelte/icons/list-todo";
   import SettingsIcon from "@lucide/svelte/icons/settings";
 
@@ -18,6 +19,7 @@
     surface,
     name,
     sourceLabel,
+    channel = "",
     files = 0,
     commits = [],
     tasks = [],
@@ -32,6 +34,7 @@
     surface: ProjectForgeSurface;
     name: string;
     sourceLabel: string;
+    channel?: string | undefined;
     files?: number | undefined;
     commits?: readonly { sha: string }[] | undefined;
     tasks?: readonly { lifecycle: string }[] | undefined;
@@ -70,20 +73,20 @@
   }
 </script>
 
-{#snippet railStat(Icon: Component, label: string, value: string | number)}
+{#snippet railStat(Icon: Component, label: string, value: string | number, part?: string)}
   <Button
     type="button"
     variant="ghost"
     class="community-application__project-overview-item"
+    data-ui-part={part}
     data-active={itemActive(label) ? "" : undefined}
     aria-current={itemActive(label) ? "page" : undefined}
     onclick={() => onSelect(label)}
   >
     <Icon data-icon="inline-start" aria-hidden="true" />
     <span>{label}</span>
-    <span
-      class="community-application__project-overview-count"
-      title={String(value)}>{value}</span
+    <span class="community-application__project-overview-count" title={String(value)}
+      >{value}</span
     >
   </Button>
 {/snippet}
@@ -121,6 +124,9 @@
     {/if}
   {/if}
   <p class="community-application__project-overview-label">Details</p>
+  {#if channel}
+    {@render railStat(HashIcon, "Channel", `#${channel.replace(/^#/, "")}`)}
+  {/if}
   {@render railStat(GitCommitHorizontalIcon, "Latest", latest)}
   {@render railStat(FilesIcon, "Files", files)}
   {@render railStat(ListTodoIcon, "Tasks", tasks.length)}
@@ -140,18 +146,7 @@
   {@render railStat(CircleCheckIcon, "Merged", mergedReviews)}
 {/if}
 {#if detailsOpen}
-  <Button
-    type="button"
-    variant="ghost"
-    class="community-application__project-overview-item"
-    data-ui-part="repository-options"
-    data-active={itemActive("Options") ? "" : undefined}
-    aria-current={itemActive("Options") ? "page" : undefined}
-    onclick={() => onSelect("Options")}
-  >
-    <SettingsIcon data-icon="inline-start" aria-hidden="true" />
-    <span>Options</span>
-  </Button>
+  {@render railStat(SettingsIcon, "Options", "", "repository-options")}
 {/if}
 
 <style>
@@ -170,5 +165,11 @@
 
   .community-application__project-overview-label {
     margin: 0.9rem 0.4rem 0.3rem;
+  }
+
+  :global(.community-application__project-overview-item[data-ui-component="button"][data-active]),
+  :global(.community-application__project-overview-item[data-ui-component="button"]:hover:not(:disabled)) {
+    color: var(--muted-foreground);
+    background-color: color-mix(in oklab, currentColor 10%, transparent);
   }
 </style>

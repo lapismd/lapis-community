@@ -27,9 +27,7 @@
     const options = canvas.getByRole("button", { name: "Options" });
     await expect(options).toBeVisible();
     await expect(options.querySelector(".lucide-settings")).not.toBeNull();
-    await expect(
-      canvas.queryByRole("heading", { name: "Permissions" }),
-    ).not.toBeInTheDocument();
+    await expect(canvas.queryByRole("heading", { name: "Permissions" })).not.toBeInTheDocument();
     await userEvent.click(options);
     await expect(args.onSelect).toHaveBeenCalledWith("Options");
   }}
@@ -49,9 +47,12 @@
   }}
   play={async ({ canvas }) => {
     const options = canvas.getByRole("button", { name: "Options" });
+    const latest = canvas.getByRole("button", { name: /Latest/u });
     await expect(options).toHaveAttribute("aria-current", "page");
-    await expect(options).toBeVisible();
-    await expect(canvas.getByText("Relay hosted")).not.toBeInTheDocument();
+    await expect(options).toHaveAttribute("data-active", "");
+    await expect(getComputedStyle(options).fontSize).toBe(getComputedStyle(latest).fontSize);
+    await expect(getComputedStyle(options).backgroundColor).not.toBe("rgba(0, 0, 0, 0)");
+    await expect(canvas.queryByText("Relay hosted")).not.toBeInTheDocument();
   }}
 >
   {#snippet template(args)}
@@ -65,6 +66,7 @@
     surface: "overview",
     name: "community-client",
     sourceLabel: "Relay hosted",
+    channel: "plugin-development",
     files: 3,
     onSelect: fn(),
   }}
@@ -75,9 +77,8 @@
       "community-application__project-overview-repository",
     );
     await expect(canvas.getByText("Details")).toBeVisible();
-    await expect(
-      canvas.getByRole("button", { name: "Options" }),
-    ).toBeVisible();
+    await expect(canvas.getByRole("button", { name: /Channel #plugin-development/u })).toBeVisible();
+    await expect(canvas.getByRole("button", { name: "Options" })).toBeVisible();
   }}
 >
   {#snippet template(args)}
@@ -95,11 +96,9 @@
     onSelect: fn(),
   }}
   play={async ({ canvas }) => {
-    await expect(
-      canvas.queryByRole("button", { name: "Options" }),
-    ).not.toBeInTheDocument();
+    await expect(canvas.queryByRole("button", { name: "Options" })).not.toBeInTheDocument();
     await expect(canvas.queryByText("Relay hosted")).not.toBeInTheDocument();
-    await expect(canvas.getByRole("button", { name: "Files" })).toBeVisible();
+    await expect(canvas.getByRole("button", { name: /Files/u })).toBeVisible();
   }}
 >
   {#snippet template(args)}
