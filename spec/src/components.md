@@ -11,10 +11,10 @@ repository name plus muted source-label chrome and include an Options item
 with a gears icon only on the Overview Details rail and the selected
 `options` surface. Options MUST NOT appear on Files, Commits, Tasks, or
 Review, or among the repository toolbar tabs. Selecting Options MUST open
-the repository `options` surface. The Overview and selected Options
-Details rail MUST include a Channel row for the repository's bound
-channel, labelled `#name` with a leading hash icon. Selecting that row
-MUST open the bound channel. When Options is the current surface, that
+the repository `options` surface. The Overview and selected Options rail MUST show a Channel
+category, like Details, whose children are the repository's bound
+channels. Each child MUST lead with a hash icon and the channel name.
+Selecting a child MUST open that channel. When Options is the current surface, that
 item MUST share Details-row typography and the same muted selected or
 hover background. Permissions MUST open
 `CommunityMemberCommand` `mode="manage"` for the bound home channel in place

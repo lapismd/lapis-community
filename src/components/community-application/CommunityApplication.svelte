@@ -3816,7 +3816,7 @@
   function selectProjectRailItem(label: string): void {
     const target = projectRailTarget(label);
     if (selectedRepository) {
-      if (label === "Channel") { selectProjectChannelDestination(selectedRepository.channelId); return; }
+      if (label === (roomForProjectChannel(selectedRepository.channelId)?.name ?? selectedRepository.channelId).replace(/^#/, "")) { selectProjectChannelDestination(selectedRepository.channelId); return; }
       if (activeRepositorySurface !== target)
         openRepositorySurface(target as ProjectForgeSurface);
       return;

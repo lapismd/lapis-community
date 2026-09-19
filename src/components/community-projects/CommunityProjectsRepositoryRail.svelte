@@ -123,10 +123,11 @@
       </Button>
     {/if}
   {/if}
-  <p class="community-application__project-overview-label">Details</p>
   {#if channel}
-    {@render railStat(HashIcon, "Channel", `#${channel.replace(/^#/, "")}`)}
+    <p class="community-application__project-overview-label">Channel</p>
+    {@render railStat(HashIcon, channel.replace(/^#/, ""), "")}
   {/if}
+  <p class="community-application__project-overview-label">Details</p>
   {@render railStat(GitCommitHorizontalIcon, "Latest", latest)}
   {@render railStat(FilesIcon, "Files", files)}
   {@render railStat(ListTodoIcon, "Tasks", tasks.length)}
@@ -168,8 +169,6 @@
   }
 
   :global(.community-application__project-overview-item[data-ui-component="button"][data-active]),
-  :global(.community-application__project-overview-item[data-ui-component="button"]:hover:not(:disabled)) {
-    color: var(--muted-foreground);
-    background-color: color-mix(in oklab, currentColor 10%, transparent);
-  }
+  :global(.community-application__project-overview-item[data-ui-component="button"]:hover:not(:disabled)) { color: var(--muted-foreground); background-color: color-mix(in oklab, currentColor 10%, transparent); }
+  :global(.community-application__project-overview-count:empty) { display: none; }
 </style>

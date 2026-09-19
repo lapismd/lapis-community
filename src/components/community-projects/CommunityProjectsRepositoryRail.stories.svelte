@@ -76,8 +76,9 @@
     await expect(hosted.closest("div")).toHaveClass(
       "community-application__project-overview-repository",
     );
+    await expect(canvas.getByText("Channel")).toBeVisible();
+    await expect(canvas.getByRole("button", { name: "plugin-development" }).querySelector(".lucide-hash")).not.toBeNull();
     await expect(canvas.getByText("Details")).toBeVisible();
-    await expect(canvas.getByRole("button", { name: /Channel #plugin-development/u })).toBeVisible();
     await expect(canvas.getByRole("button", { name: "Options" })).toBeVisible();
   }}
 >
