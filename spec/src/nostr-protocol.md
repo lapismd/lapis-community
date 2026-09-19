@@ -568,3 +568,8 @@ quorum. Unavailable attachment results remain retryable without new signed event
 
 For LC-UI-049, the repository log canvas exposes a collapsible Agent context
 column while retaining the selected revision and its verified context records.
+
+For LC-UI-049, the repository context projection preserves verified `a` and `h`
+tags and v2 `targets` alongside the completed records. Reference menus derive
+request event IDs from user records; they do not treat capture span IDs as Nostr
+thread roots or invent change identities for legacy checkpoints.

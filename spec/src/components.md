@@ -730,6 +730,27 @@ The activity toolbar reports checking, caught-up, migration-gap, and unavailable
 states without replacing saved history. Selecting Latest retries the same exact
 visible conversation context.
 
+## Agent context references
+
+For LC-UI-049, Agent context MUST expose a kebab reference menu beside its
+disclosure header instead of the Show/Hide transcript text. Opening this menu
+MUST NOT toggle the transcript. Menu items MUST use leading icons and navigate
+to each known commit, JJ change's checkpoint commit, repository, channel, and
+request thread. The shared transcript MUST offer the same menu in Log and
+commit details. References MUST be deduplicated across checkpoints, preserve
+validated channel/repository tags and native change targets, and omit absent
+code targets for read-only runs. Full identifiers remain accessible while
+visible labels are shortened. The menu MUST omit its title and visible type
+prefixes; leading icons identify each reference. It uses a compact,
+viewport-bounded surface and single-line labels with ellipsis for long names.
+The source-message action MUST display Request, keeping its full identifier
+in the tooltip and accessible name.
+When commit references exist, a Commits submenu MUST list their deduplicated
+identifiers and link each to its commit details; read-only contexts omit it.
+When the original thread root is unavailable, the accessible name MUST identify
+the source message as a request rather than invent a thread ID. Unavailable
+channel actions MUST be disabled.
+
 ## Project channel canvas
 
 The project graph determines which channel settings show a Canvas row. Opening

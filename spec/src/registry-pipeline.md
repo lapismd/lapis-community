@@ -209,3 +209,6 @@ own Vite configuration before packaging that host.
 For LC-UI-049, architecture budgets MUST reflect the extracted activity controls
 and shared profile action layout; UI contract examples cover the same public
 components used in production, including narrow activity panels.
+
+LC-UI-049 reference-menu composition and navigation regression coverage update
+the architecture baseline with their owning modules; relay payloads are unchanged.

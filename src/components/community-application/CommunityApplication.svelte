@@ -182,7 +182,7 @@
   import CommunityMemberAvatar from "../community-member-avatar/CommunityMemberAvatar.svelte";
   import { provideCommunityMemberPresence } from "../community-member-hover-card/presence-context.js";
   import CommunityAgentProfile from "../community-agent-profile/CommunityAgentProfile.svelte";
-  import { observerScope } from "../../community/agent-activity-context.js";
+  import { provideAgentContextNavigation } from "../community-agent-context-references/context.js";
   import CommunityAgentActivity from "../community-agent-activity/CommunityAgentActivity.svelte";
   import { communityAgentMember } from "../community-agents/model.js";
   import CommunityMemberProfile from "../community-member-profile/CommunityMemberProfile.svelte";
@@ -2068,6 +2068,18 @@
     model: () => community.state.agents,
     rooms: () => presentationRooms,
     open: openAgentActivity,
+  });
+
+  const agentContextNavigation = provideAgentContextNavigation({
+    rooms: () => allRooms,
+    messages: () => searchMessages,
+    selectRoom: (roomId) => setDestination(roomId, true),
+    openPanel: openPanelForDestination,
+    openTopic: (topicId) => community.actions.openTopic(topicId),
+    openDirectMessage: (agent) => {
+      community.actions.openDirectMessage([agent]);
+      closeSidePanel();
+    },
   });
 
   function openReleaseProfile(member: CommunityMemberModel): void {
@@ -8107,29 +8119,7 @@
                 model={community.state.agents}
                 rooms={presentationRooms}
                 members={workspace.members}
-                onOpenRequest={(item) => {
-                  const scope = observerScope(item.frame);
-                  const payload = item.frame.payload as Record<string, unknown>;
-                  const trigger = String(payload.triggerEventId);
-                  if (scope.conversationKind === "dm") {
-                    community.actions.openDirectMessage([item.agentPubkey]);
-                    closeSidePanel();
-                    return;
-                  }
-                  const room = allRooms.find(
-                    (room) => (room.groupId ?? room.id) === scope.channelId,
-                  );
-                  if (!room) return;
-                  if (scope.conversationKind === "forum-topic") {
-                    setDestination(room.id, true);
-                    community.actions.openTopic(scope.threadRootId ?? trigger);
-                  } else
-                    openPanelForDestination(room.id, {
-                      kind: "thread",
-                      roomId: room.id,
-                      rootMessageId: scope.threadRootId ?? trigger,
-                    });
-                }}
+                onOpenRequest={agentContextNavigation.openActivityRequest}
                 onLatest={() => {
                   if (activePanel.kind === "agent-activity")
                     return community.actions.agents!.openActivity(

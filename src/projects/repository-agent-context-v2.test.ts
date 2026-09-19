@@ -16,6 +16,9 @@ describe("explicit checkpoint context", () => {
     const contexts = buildRepositoryAgentContexts(events);
     expect(contexts[0]).toMatchObject({
       commitIds: [f.commit],
+      targets: [{ commitId: f.commit, changeId: "d".repeat(32) }],
+      repositoryAddress: f.repository,
+      channelId: "room",
       actorName: "Nyra",
       availability: "complete",
     });

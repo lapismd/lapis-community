@@ -1,4 +1,5 @@
 <script lang="ts">
+  import CommunityAgentContextReferences from "../community-agent-context-references/CommunityAgentContextReferences.svelte";
   import * as Collapsible from "@lapismd/design-core/shadcn/collapsible";
   import ChevronRightIcon from "@lucide/svelte/icons/chevron-right";
 
@@ -23,17 +24,20 @@
   class="community-projects-agent-context-disclosure"
   data-ui-component="community-projects-agent-context-disclosure"
 >
-  <Collapsible.Trigger
-    class="community-projects-agent-context-disclosure__trigger"
-  >
-    <ChevronRightIcon aria-hidden="true" />
-    <span>Agent context</span>
-    <small>{open ? "Hide" : "Show"} transcript</small>
-  </Collapsible.Trigger>
+  <div class="community-projects-agent-context-disclosure__header">
+    <Collapsible.Trigger
+      class="community-projects-agent-context-disclosure__trigger"
+    >
+      <ChevronRightIcon aria-hidden="true" />
+      <span>Agent context</span>
+    </Collapsible.Trigger>
+    <CommunityAgentContextReferences {checkpoints} {repositoryAddress} />
+  </div>
   <Collapsible.Content>
     {#if open}
       <CommunityProjectsRepositoryAgentContext
         {checkpoints}
+        showReferenceMenu={false}
         {members}
         {...repositoryAddress ? { repositoryAddress } : {}}
       />
@@ -51,7 +55,8 @@
 
   :global(.community-projects-agent-context-disclosure__trigger) {
     display: flex;
-    width: 100%;
+    flex: 1;
+    min-width: 0;
     min-height: 2.75rem;
     align-items: center;
     gap: 0.5rem;
@@ -59,15 +64,23 @@
     text-align: start;
     font-size: var(--community-text-secondary);
     font-weight: 600;
+    background: transparent;
+  }
+
+  .community-projects-agent-context-disclosure__header {
+    display: flex;
+    align-items: center;
+    padding-inline-end: 0.4rem;
     background: var(--background);
   }
 
   :global(
       .community-projects__activity-item:hover
-        .community-projects-agent-context-disclosure__trigger
+        .community-projects-agent-context-disclosure__header
     ),
   :global(
-      .community-projects-agent-context-disclosure__trigger[data-state="open"]
+      .community-projects-agent-context-disclosure[data-state="open"]
+        .community-projects-agent-context-disclosure__header
     ) {
     background: color-mix(in srgb, var(--muted) 94%, var(--foreground));
   }
@@ -89,11 +102,5 @@
         svg
     ) {
     transform: rotate(90deg);
-  }
-
-  :global(.community-projects-agent-context-disclosure__trigger small) {
-    margin-inline-start: auto;
-    color: var(--muted-foreground);
-    font-weight: 400;
   }
 </style>

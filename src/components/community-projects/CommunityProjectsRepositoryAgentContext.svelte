@@ -1,4 +1,5 @@
 <script lang="ts">
+  import CommunityAgentContextReferences from "../community-agent-context-references/CommunityAgentContextReferences.svelte";
   import * as Chat from "@lapismd/design-core/ai/chat";
   import type { RepositoryAgentCheckpoint } from "../../projects/repository-agent-context.js";
   import type { CommunityMemberModel } from "../community-workspace/model.js";
@@ -11,10 +12,12 @@
     checkpoints,
     members = [],
     repositoryAddress,
+    showReferenceMenu = true,
   }: {
     checkpoints: readonly RepositoryAgentCheckpoint[];
     members?: readonly CommunityMemberModel[];
     repositoryAddress?: string;
+    showReferenceMenu?: boolean;
   } = $props();
   const turns = $derived(repositoryContextTurns(checkpoints));
 </script>
@@ -54,6 +57,12 @@
               size="compact"
               tone="warning">Incomplete</CommunityChip
             >{/if}
+          {#if showReferenceMenu}
+            <CommunityAgentContextReferences
+              checkpoints={turn.segments.map((segment) => segment.checkpoint)}
+              {repositoryAddress}
+            />
+          {/if}
         </span>
       </header>
       {#each turn.segments as segment (segment.checkpoint.eventId)}

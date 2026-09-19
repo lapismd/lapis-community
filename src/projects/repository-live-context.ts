@@ -125,6 +125,12 @@ export function repositoryLiveContexts(
         scopeId,
         operationId: durable[0]?.operationId ?? "",
         commitIds: [],
+        ...(exactEventTag(latest, "a")
+          ? { repositoryAddress: exactEventTag(latest, "a")! }
+          : {}),
+        ...(exactEventTag(latest, "h")
+          ? { channelId: exactEventTag(latest, "h")! }
+          : {}),
         authorPubkey: latest.pubkey,
         createdAt: latest.created_at,
         complete: false,

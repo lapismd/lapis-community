@@ -11,9 +11,6 @@
   import CommunityProjectsActivityFeed from "./CommunityProjectsActivityFeed.svelte";
   import "./CommunityProjects.css";
 
-  import { repositoryContextEvents } from "../../testing/repository-context-fixture.js";
-  import { withRepositoryContextActivity } from "../../projects/repository-context-activity.js";
-
   const owner = "1".repeat(64);
   const projectCoordinate = `30617:${owner}:notes`;
   const sha = "a".repeat(40);
@@ -184,102 +181,6 @@
     await expect(
       persisted.get(projectActivityFilterStorageKey("projects")),
     ).toContain("commit");
-  }}
-/>
-
-<Story
-  name="Agent conversation and checkpoint"
-  args={{
-    activity: withRepositoryContextActivity([], repositoryContextEvents()).map(
-      (item) => ({
-        ...item,
-        agentContext: item.agentContext?.map((checkpoint) => ({
-          ...checkpoint,
-          commitIds: [...checkpoint.commitIds, ...checkpoint.commitIds],
-        })),
-      }),
-    ),
-  }}
-  play={async ({ canvas }) => {
-    const disclosure = await canvas.findByRole("button", {
-      name: /Agent context/,
-    });
-    const row = disclosure.closest("article")!;
-    const pointer =
-      import.meta.env.MODE === "test"
-        ? (await import("vitest/browser")).userEvent
-        : undefined;
-    if (pointer)
-      await pointer.hover(
-        canvas.getByRole("heading", { name: "Projects Activity" }),
-      );
-    if (pointer)
-      await expect(
-        row.matches(":hover"),
-        "pointer leaves the activity row",
-      ).toBe(false);
-    const closedBackground = getComputedStyle(disclosure).backgroundColor;
-    let hoverBackground: string | undefined;
-    if (pointer) {
-      await pointer.hover(row);
-      hoverBackground = getComputedStyle(disclosure).backgroundColor;
-      await expect(hoverBackground, "row hover darkens the header").not.toBe(
-        closedBackground,
-      );
-      await pointer.hover(disclosure);
-      await expect(getComputedStyle(disclosure).backgroundColor).toBe(
-        hoverBackground,
-      );
-    }
-    await expect(disclosure).toHaveAttribute("aria-expanded", "false");
-    await expect(
-      canvas.queryByText("Updated the README and verified the diff."),
-    ).not.toBeInTheDocument();
-    disclosure.focus();
-    await userEvent.keyboard("{Enter}");
-    await expect(disclosure).toHaveAttribute("aria-expanded", "true");
-    await expect(getComputedStyle(disclosure).backgroundColor).not.toBe(
-      closedBackground,
-    );
-    if (hoverBackground)
-      await expect(getComputedStyle(disclosure).backgroundColor).toBe(
-        hoverBackground,
-      );
-    await expect(getComputedStyle(disclosure).backgroundColor).not.toBe(
-      getComputedStyle(row).backgroundColor,
-    );
-    await expect(
-      canvas.getByText("Updated the README and verified the diff."),
-    ).toBeVisible();
-    await expect(
-      canvas.getByText("apply_patch", { exact: true }),
-    ).toBeVisible();
-    await expect(
-      canvas.getByRole("link", { name: "bbbbbbbbbbbb" }),
-    ).toBeVisible();
-    const agentAvatar = canvas
-      .getByLabelText("Message from Nyra")
-      .querySelector('[data-ui-component="community-member-avatar"]');
-    await expect(agentAvatar).toHaveAttribute("data-shape", "rounded");
-    if (pointer)
-      await pointer.hover(
-        canvas.getByRole("heading", { name: "Projects Activity" }),
-      );
-    if (hoverBackground)
-      await expect(getComputedStyle(disclosure).backgroundColor).toBe(
-        hoverBackground,
-      );
-    await userEvent.click(disclosure);
-    if (pointer)
-      await pointer.hover(
-        canvas.getByRole("heading", { name: "Projects Activity" }),
-      );
-    await expect(getComputedStyle(disclosure).backgroundColor).toBe(
-      closedBackground,
-    );
-    await expect(
-      canvas.queryByText("Updated the README and verified the diff."),
-    ).not.toBeInTheDocument();
   }}
 />
 

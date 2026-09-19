@@ -29,6 +29,9 @@ export type RepositoryAgentCheckpoint = {
   scopeId: string;
   operationId: string;
   commitIds: string[];
+  targets?: readonly { commitId: string; changeId: string }[];
+  repositoryAddress?: string;
+  channelId?: string;
   authorPubkey: string;
   actorName?: string;
   availability?: "complete" | "missing";
@@ -157,6 +160,8 @@ function assembleCheckpoint(
       address,
       group,
     ),
+    repositoryAddress: address,
+    channelId: group,
     authorPubkey: event.pubkey,
     createdAt: event.created_at,
     complete: body.complete,

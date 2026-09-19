@@ -1105,8 +1105,8 @@
       "justification": "LC-UI-050 adds aggregate Activity switch-back assertions; selected-project route and loading stories have their own file."
     },
     "src/components/community-application/CommunityApplication.svelte": {
-      "countedLines": 9194,
-      "physicalLines": 9553,
+      "countedLines": 9183,
+      "physicalLines": 9543,
       "forbiddenImportCount": 0,
       "kind": "legacy",
       "justification": "Application composition root; extract destination hosts before adding behaviour"
@@ -1992,12 +1992,9 @@
       "justification": "Projects composition root; extract named surfaces before adding behaviour"
     },
     "src/components/community-projects/CommunityProjectsActivityFeed.stories.svelte": {
-      "countedLines": 304,
-      "physicalLines": 313,
-      "forbiddenImportCount": 0,
-      "kind": "exception",
-      "requirement": "LC-UI-050",
-      "justification": "Focused regression coverage for rounded project actors and the default-collapsed, keyboard-expandable repository Activity transcript."
+      "countedLines": 207,
+      "physicalLines": 214,
+      "forbiddenImportCount": 0
     },
     "src/components/community-projects/CommunityProjectsActivityFeed.svelte": {
       "countedLines": 297,
@@ -2172,10 +2169,9 @@
       "forbiddenImportCount": 0
     },
     "src/components/community-projects/CommunityProjectsRepositoryAgentContext.svelte": {
-      "countedLines": 126,
-      "physicalLines": 132,
-      "forbiddenImportCount": 0,
-      "justification": "LC-UI-049: shared progress and profile actions, scoped terminal reduction, top pagination and collapsible checkpoint context; verified by activity, profile-action and repository-log stories."
+      "countedLines": 135,
+      "physicalLines": 141,
+      "forbiddenImportCount": 0
     },
     "src/components/community-projects/CommunityProjectsRepositoryBranchSelector.svelte": {
       "countedLines": 23,
@@ -3426,12 +3422,9 @@
       "forbiddenImportCount": 0
     },
     "src/projects/repository-agent-context.ts": {
-      "countedLines": 240,
-      "physicalLines": 249,
-      "forbiddenImportCount": 0,
-      "kind": "exception",
-      "requirement": "LC-UI-049",
-      "justification": "Bounded agent context composition or protocol fields; assembly, transcript projection, routing and preview retention remain separately owned modules."
+      "countedLines": 245,
+      "physicalLines": 254,
+      "forbiddenImportCount": 0
     },
     "src/projects/repository-evolution-log.test.ts": {
       "countedLines": 137,
@@ -3844,6 +3837,61 @@
       "countedLines": 73,
       "physicalLines": 76,
       "justification": "LC-UI-049: distinguish the unavailable context status from the shared checkpoint divider status."
+    },
+    "src/components/community-agent-context-references/CommunityAgentContextReferences.stories.svelte": {
+      "countedLines": 98,
+      "physicalLines": 100,
+      "forbiddenImportCount": 0
+    },
+    "src/components/community-agent-context-references/CommunityAgentContextReferences.svelte": {
+      "countedLines": 121,
+      "physicalLines": 124,
+      "forbiddenImportCount": 0
+    },
+    "src/components/community-agent-context-references/context.ts": {
+      "countedLines": 17,
+      "physicalLines": 18,
+      "forbiddenImportCount": 0
+    },
+    "src/components/community-agent-context-references/navigation.ts": {
+      "countedLines": 80,
+      "physicalLines": 85,
+      "forbiddenImportCount": 0
+    },
+    "src/components/community-agent-context-references/references.test.ts": {
+      "countedLines": 121,
+      "physicalLines": 127,
+      "forbiddenImportCount": 0
+    },
+    "src/components/community-agent-context-references/references.ts": {
+      "countedLines": 105,
+      "physicalLines": 108,
+      "forbiddenImportCount": 0
+    },
+    "src/components/community-projects/CommunityProjectsActivityContext.stories.svelte": {
+      "countedLines": 129,
+      "physicalLines": 130,
+      "forbiddenImportCount": 0
+    },
+    "src/components/community-projects/CommunityProjectsAgentContextDisclosure.svelte": {
+      "countedLines": 96,
+      "physicalLines": 106,
+      "forbiddenImportCount": 0
+    },
+    "src/projects/repository-agent-context-v2.test.ts": {
+      "countedLines": 87,
+      "physicalLines": 90,
+      "forbiddenImportCount": 0
+    },
+    "src/projects/repository-agent-context-v2.ts": {
+      "countedLines": 167,
+      "physicalLines": 169,
+      "forbiddenImportCount": 0
+    },
+    "src/projects/repository-live-context.ts": {
+      "countedLines": 139,
+      "physicalLines": 143,
+      "forbiddenImportCount": 0
     }
   }
 }

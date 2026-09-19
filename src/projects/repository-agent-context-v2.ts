@@ -71,6 +71,12 @@ export function assembleRepositoryContextV2(
     scopeId,
     operationId,
     commitIds: [...new Set(targets.map((target) => String(target.commit_id)))],
+    targets: targets.map((target) => ({
+      commitId: String(target.commit_id),
+      changeId: String(target.change_id_hex),
+    })),
+    repositoryAddress: address,
+    channelId: group,
     authorPubkey: event.pubkey,
     createdAt: event.created_at,
     complete: body.complete,
