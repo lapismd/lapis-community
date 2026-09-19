@@ -35,9 +35,9 @@ export const PROJECT_WORKSPACE_TABS = [
 ] as const;
 
 export const PROJECT_REPOSITORY_TABS = [
+  { value: "overview", label: "Overview" },
   { value: "activity", label: "Activity" },
   { value: "log", label: "Log" },
-  { value: "overview", label: "Overview" },
   { value: "files", label: "Files" },
   { value: "commits", label: "Commits" },
   { value: "tasks", label: "Tasks" },

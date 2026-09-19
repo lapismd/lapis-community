@@ -4,6 +4,7 @@
 
   import {
     createBrowserProjectActivityFilterStore,
+    projectActivityFilterStorageKey,
   } from "../../projects/activity-filters.js";
   import type { ProjectForgeActivityItem } from "../../projects/model.js";
   import type { CommunityMemberModel } from "../community-workspace/model.js";
@@ -154,11 +155,20 @@
     await userEvent.click(
       canvas.getByRole("button", { name: "Filter activity" }),
     );
-    await userEvent.click(page.getByRole("option", { name: /Tasks/u }));
+    const trigger = canvas.getByRole("button", { name: "Filter activity" });
+    await expect(trigger).toHaveAttribute("data-variant", "ghost");
+    await userEvent.click(page.getByRole("option", { name: /Tasks Kind 1621/u }));
     await expect(canvas.getByText("Ship the filter")).toBeVisible();
     await expect(canvas.queryByText("Stay on dest main")).toBeNull();
-    await expect(persisted.get("lapismd.community.projects.activity-filter.v1")).toContain(
-      "task",
-    );
+    await userEvent.click(page.getByRole("option", { name: /Commits/u }));
+    await expect(canvas.getByText("Ship the filter")).toBeVisible();
+    await expect(canvas.getByText("Stay on dest main")).toBeVisible();
+    await expect(trigger).toHaveAttribute("data-variant", "default");
+    await expect(
+      persisted.get(projectActivityFilterStorageKey("projects")),
+    ).toContain("task");
+    await expect(
+      persisted.get(projectActivityFilterStorageKey("projects")),
+    ).toContain("commit");
   }}
 />

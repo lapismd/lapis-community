@@ -93,11 +93,11 @@ function jjSyncEvent(
 }
 
 describe("repository activity", () => {
-  it("lists Activity first among repository tabs", () => {
+  it("lists Overview first and Log before Commits among repository tabs", () => {
     expect(PROJECT_REPOSITORY_TABS.map((tab) => tab.value)).toEqual([
+      "overview",
       "activity",
       "log",
-      "overview",
       "files",
       "commits",
       "tasks",

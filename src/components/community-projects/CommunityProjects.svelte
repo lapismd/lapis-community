@@ -2659,7 +2659,7 @@
           canSelectProject={onSelectProject !== undefined}
           {projectName}
           onOpenProject={openActivityProject}
-          onOpenItem={openActivityItem}
+          onOpenItem={openActivityItem} filterPage={selectedRepository ? "repositories" : selectedProject ? "project" : "projects"}
         />
       {:else if view === "log"}<CommunityProjectsRepositoryLog
           events={workItemEvents}

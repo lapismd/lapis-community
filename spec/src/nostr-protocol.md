@@ -79,7 +79,7 @@ Protocol-backed presentation follows the package's portable, published Design
 Core semver boundary; dependency refreshes do not alter event interpretation or
 trust decisions. Exclusive task and review list filters are presentation-only
 and do not change signed work-item events. Their child indent is chrome only.
-Activity event-type filters likewise hide already-projected items without
+Page-scoped multi-select Activity event-type filters likewise hide already-projected items without
 changing signed events.
 
 For LC-NOSTR-007, public channel and forum message projections MAY retain their

@@ -12,16 +12,16 @@
   import UserMinusIcon from "@lucide/svelte/icons/user-minus";
   import UserPlusIcon from "@lucide/svelte/icons/user-plus";
   import { Skeleton } from "@lapismd/design-core/shadcn/skeleton";
-  import { untrack } from "svelte";
 
   import type { CommunityCustomEmoji } from "../../community/index.js";
   import {
-    PROJECT_ACTIVITY_FILTER_DEFAULT,
     createBrowserProjectActivityFilterStore,
     filterProjectActivity,
+    isProjectActivityFilterAll,
     projectActivityDigest,
     projectActivityWeekItems,
     type ProjectActivityFilterId,
+    type ProjectActivityFilterPage,
     type ProjectActivityFilterStore,
   } from "../../projects/activity-filters.js";
   import type { ProjectForgeActivityItem } from "../../projects/index.js";
@@ -44,6 +44,7 @@
   let {
     loading = false,
     activity = [],
+    filterPage = "projects",
     filterStore,
     members = [],
     rooms = [],
@@ -58,6 +59,7 @@
   }: {
     loading?: boolean | undefined;
     activity?: readonly ProjectForgeActivityItem[] | undefined;
+    filterPage?: ProjectActivityFilterPage | undefined;
     filterStore?: ProjectActivityFilterStore | undefined;
     members?: readonly CommunityMemberModel[] | undefined;
     rooms?: readonly CommunityRoomModel[] | undefined;
@@ -75,10 +77,14 @@
     onOpenItem: (item: ProjectForgeActivityItem) => void;
   } = $props();
 
-  const fallbackFilterStore = createBrowserProjectActivityFilterStore();
-  const activityFilterStore = $derived(filterStore ?? fallbackFilterStore);
-  let activityFilter = $state<ProjectActivityFilterId>(
-    untrack(() => (filterStore ?? fallbackFilterStore).load()),
+  const activityFilterStore = $derived(
+    filterStore ?? createBrowserProjectActivityFilterStore({ page: filterPage }),
+  );
+  let pageFilters = $state<
+    Partial<Record<ProjectActivityFilterPage, ProjectActivityFilterId[]>>
+  >({});
+  const activityFilter = $derived(
+    pageFilters[filterPage] ?? activityFilterStore.load(),
   );
   const visibleActivity = $derived(
     filterProjectActivity(activity, activityFilter),
@@ -87,8 +93,8 @@
   const weekActivityCount = $derived(weekActivity.length);
   const weekActivityDigest = $derived(projectActivityDigest(visibleActivity));
 
-  function selectActivityFilter(value: ProjectActivityFilterId): void {
-    activityFilter = value;
+  function selectActivityFilter(value: ProjectActivityFilterId[]): void {
+    pageFilters[filterPage] = value;
     activityFilterStore.save(value);
   }
 </script>
@@ -103,7 +109,7 @@
     </div>
     <CommunityProjectsActivityFilter
       value={activityFilter}
-      onSelect={selectActivityFilter}
+      onChange={selectActivityFilter}
     />
   </header>
   <div class="community-projects__section-divider">
@@ -284,7 +290,7 @@
         </article>
       {:else}
         <p class="community-projects__status">
-          {activityFilter === PROJECT_ACTIVITY_FILTER_DEFAULT
+          {isProjectActivityFilterAll(activityFilter)
             ? "No project activity yet."
             : "No matching activity."}
         </p>

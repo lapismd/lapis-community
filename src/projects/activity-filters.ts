@@ -8,8 +8,18 @@ import { KIND_JJ_OPERATION } from "./work-item-filters.js";
 
 export const PROJECT_ACTIVITY_FILTER_DEFAULT = "all" as const;
 export const PROJECT_ACTIVITY_WEEK_SECONDS = 604_800;
+export const PROJECT_ACTIVITY_FILTER_STORAGE_PREFIX =
+  "lapismd.community.projects.activity-filter";
 export const PROJECT_ACTIVITY_FILTER_STORAGE_KEY =
-  "lapismd.community.projects.activity-filter.v1";
+  `${PROJECT_ACTIVITY_FILTER_STORAGE_PREFIX}.v1`;
+export const PROJECT_ACTIVITY_FILTER_PAGES = [
+  "projects",
+  "project",
+  "repositories",
+] as const;
+
+export type ProjectActivityFilterPage =
+  (typeof PROJECT_ACTIVITY_FILTER_PAGES)[number];
 
 export type ProjectActivityFilterId =
   | typeof PROJECT_ACTIVITY_FILTER_DEFAULT
@@ -84,9 +94,12 @@ export const PROJECT_ACTIVITY_FILTERS = [
   },
 ] as const satisfies readonly ProjectActivityFilterOption[];
 
+export const PROJECT_ACTIVITY_FILTER_SELECTION_DEFAULT: readonly ProjectActivityFilterId[] =
+  [PROJECT_ACTIVITY_FILTER_DEFAULT];
+
 export interface ProjectActivityFilterStore {
-  load(): ProjectActivityFilterId;
-  save(value: ProjectActivityFilterId): void;
+  load(): ProjectActivityFilterId[];
+  save(value: readonly ProjectActivityFilterId[]): void;
 }
 
 export function isProjectActivityFilterId(
@@ -95,12 +108,75 @@ export function isProjectActivityFilterId(
   return PROJECT_ACTIVITY_FILTERS.some((option) => option.id === value);
 }
 
+export function normalizeProjectActivityFilters(
+  values: readonly unknown[],
+): ProjectActivityFilterId[] {
+  const ids = values.filter(isProjectActivityFilterId);
+  if (ids.length === 0 || ids.includes(PROJECT_ACTIVITY_FILTER_DEFAULT)) {
+    return [...PROJECT_ACTIVITY_FILTER_SELECTION_DEFAULT];
+  }
+  return PROJECT_ACTIVITY_FILTERS.map((option) => option.id).filter(
+    (id) => id !== PROJECT_ACTIVITY_FILTER_DEFAULT && ids.includes(id),
+  );
+}
+
+export function isProjectActivityFilterAll(
+  selection: readonly ProjectActivityFilterId[],
+): boolean {
+  return (
+    selection.length === 0 ||
+    selection.includes(PROJECT_ACTIVITY_FILTER_DEFAULT)
+  );
+}
+
+export function isProjectActivityFilterSelected(
+  selection: readonly ProjectActivityFilterId[],
+  id: ProjectActivityFilterId,
+): boolean {
+  return id === PROJECT_ACTIVITY_FILTER_DEFAULT
+    ? isProjectActivityFilterAll(selection)
+    : !isProjectActivityFilterAll(selection) && selection.includes(id);
+}
+
+export function visibleProjectActivityFilters(
+  selection: readonly ProjectActivityFilterId[],
+): ProjectActivityFilterOption[] {
+  const selected: ProjectActivityFilterOption[] = [];
+  const rest: ProjectActivityFilterOption[] = [];
+  for (const option of PROJECT_ACTIVITY_FILTERS) {
+    if (isProjectActivityFilterSelected(selection, option.id)) {
+      selected.push(option);
+    } else {
+      rest.push(option);
+    }
+  }
+  return [...selected, ...rest];
+}
+
+export function toggleProjectActivityFilter(
+  selection: readonly ProjectActivityFilterId[],
+  id: ProjectActivityFilterId,
+): ProjectActivityFilterId[] {
+  if (id === PROJECT_ACTIVITY_FILTER_DEFAULT) {
+    return [...PROJECT_ACTIVITY_FILTER_SELECTION_DEFAULT];
+  }
+  const current = new Set(
+    isProjectActivityFilterAll(selection)
+      ? []
+      : selection.filter((value) => value !== PROJECT_ACTIVITY_FILTER_DEFAULT),
+  );
+  if (current.has(id)) current.delete(id);
+  else current.add(id);
+  return normalizeProjectActivityFilters([...current]);
+}
+
 export function filterProjectActivity(
   activity: readonly ProjectForgeActivityItem[],
-  filter: ProjectActivityFilterId,
+  filters: readonly ProjectActivityFilterId[],
 ): ProjectForgeActivityItem[] {
-  if (filter === PROJECT_ACTIVITY_FILTER_DEFAULT) return [...activity];
-  return activity.filter((item) => item.kind === filter);
+  if (isProjectActivityFilterAll(filters)) return [...activity];
+  const kinds = new Set(filters);
+  return activity.filter((item) => kinds.has(item.kind));
 }
 
 export function projectActivityWeekItems(
@@ -135,34 +211,69 @@ export function projectActivityDigest(
   return `This week: ${detail}.`;
 }
 
+export function projectActivityFilterStorageKey(
+  page: ProjectActivityFilterPage,
+): string {
+  return `${PROJECT_ACTIVITY_FILTER_STORAGE_PREFIX}.${page}.v1`;
+}
+
+export function projectActivityFilterPage(selection: {
+  selectedProject?: unknown;
+  selectedRepository?: unknown;
+}): ProjectActivityFilterPage {
+  if (selection.selectedRepository) return "repositories";
+  if (selection.selectedProject) return "project";
+  return "projects";
+}
+
 export function createBrowserProjectActivityFilterStore(options: {
   storage?: ProjectForgeCatalogStorage | undefined;
+  page?: ProjectActivityFilterPage | undefined;
 } = {}): ProjectActivityFilterStore {
   const storage = options.storage ?? discoverStorage();
+  const page = options.page ?? "projects";
   return {
     load() {
-      const value = readStoredFilter(storage);
-      return value ?? PROJECT_ACTIVITY_FILTER_DEFAULT;
+      return (
+        readStoredFilter(storage, page) ?? [
+          ...PROJECT_ACTIVITY_FILTER_SELECTION_DEFAULT,
+        ]
+      );
     },
     save(value) {
-      writeStoredFilter(storage, value);
+      writeStoredFilter(storage, page, value);
     },
   };
 }
 
 function readStoredFilter(
   storage: ProjectForgeCatalogStorage | undefined,
-): ProjectActivityFilterId | undefined {
+  page: ProjectActivityFilterPage,
+): ProjectActivityFilterId[] | undefined {
   if (!storage) return undefined;
+  return (
+    parseStoredFilter(storage.getItem(projectActivityFilterStorageKey(page))) ??
+    (page === "projects"
+      ? parseStoredFilter(storage.getItem(PROJECT_ACTIVITY_FILTER_STORAGE_KEY))
+      : undefined)
+  );
+}
+
+function parseStoredFilter(
+  serialized: string | null,
+): ProjectActivityFilterId[] | undefined {
+  if (serialized === null) return undefined;
   try {
-    const serialized = storage.getItem(PROJECT_ACTIVITY_FILTER_STORAGE_KEY);
-    if (serialized === null) return undefined;
     const parsed = JSON.parse(serialized) as {
       version?: unknown;
       value?: unknown;
     };
-    return parsed.version === 1 && isProjectActivityFilterId(parsed.value)
-      ? parsed.value
+    if (parsed.version !== 1) return undefined;
+    if (isProjectActivityFilterId(parsed.value)) {
+      return normalizeProjectActivityFilters([parsed.value]);
+    }
+    return Array.isArray(parsed.value)
+      ? normalizeProjectActivityFilters(parsed.value)
       : undefined;
   } catch {
     return undefined;
@@ -171,13 +282,17 @@ function readStoredFilter(
 
 function writeStoredFilter(
   storage: ProjectForgeCatalogStorage | undefined,
-  value: ProjectActivityFilterId,
+  page: ProjectActivityFilterPage,
+  value: readonly ProjectActivityFilterId[],
 ): void {
   if (!storage) return;
   try {
     storage.setItem(
-      PROJECT_ACTIVITY_FILTER_STORAGE_KEY,
-      JSON.stringify({ version: 1, value }),
+      projectActivityFilterStorageKey(page),
+      JSON.stringify({
+        version: 1,
+        value: normalizeProjectActivityFilters(value),
+      }),
     );
   } catch {
     return;

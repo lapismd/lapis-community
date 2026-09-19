@@ -16,8 +16,11 @@
   import XIcon from "@lucide/svelte/icons/x";
 
   import {
-    PROJECT_ACTIVITY_FILTER_DEFAULT,
-    PROJECT_ACTIVITY_FILTERS,
+    PROJECT_ACTIVITY_FILTER_SELECTION_DEFAULT,
+    isProjectActivityFilterAll,
+    isProjectActivityFilterSelected,
+    toggleProjectActivityFilter,
+    visibleProjectActivityFilters,
     type ProjectActivityFilterId,
   } from "../../projects/activity-filters.js";
 
@@ -37,15 +40,17 @@
   } satisfies Record<ProjectActivityFilterId, Component>;
 
   let {
-    value = PROJECT_ACTIVITY_FILTER_DEFAULT,
-    onSelect,
+    value = PROJECT_ACTIVITY_FILTER_SELECTION_DEFAULT,
+    onChange,
   }: {
-    value?: ProjectActivityFilterId | undefined;
-    onSelect: (value: ProjectActivityFilterId) => void;
+    value?: readonly ProjectActivityFilterId[] | undefined;
+    onChange: (value: ProjectActivityFilterId[]) => void;
   } = $props();
 
   let open = $state(false);
   let query = $state("");
+  const custom = $derived(!isProjectActivityFilterAll(value));
+  const options = $derived(visibleProjectActivityFilters(value));
 
   function handleOpen(next: boolean): void {
     open = next;
@@ -53,8 +58,7 @@
   }
 
   function choose(id: ProjectActivityFilterId): void {
-    handleOpen(false);
-    onSelect(id);
+    onChange(toggleProjectActivityFilter(value, id));
   }
 </script>
 
@@ -64,13 +68,13 @@
       <Button
         {...props}
         type="button"
-        variant="ghost"
+        variant={custom ? "default" : "ghost"}
         size="icon-sm"
         class="community-projects__activity-filter"
         aria-label="Filter activity"
         title="Filter activity"
-        data-active={value === PROJECT_ACTIVITY_FILTER_DEFAULT ? undefined : ""}
-        aria-pressed={value !== PROJECT_ACTIVITY_FILTER_DEFAULT}
+        data-active={custom ? "" : undefined}
+        aria-pressed={custom}
       >
         <ListFilterIcon aria-hidden="true" />
       </Button>
@@ -110,10 +114,12 @@
       <CommandView.List>
         <CommandView.Empty>No matching event types</CommandView.Empty>
         <CommandView.Group heading="Relay event types">
-          {#each PROJECT_ACTIVITY_FILTERS as option (option.id)}
+          {#each options as option (option.id)}
             {@const Icon = filterIcons[option.id]}
+            {@const selected = isProjectActivityFilterSelected(value, option.id)}
             <CommandView.Item
               value={`${option.label} ${option.description}`}
+              data-checked={selected ? "" : undefined}
               onSelect={() => choose(option.id)}
             >
               <CommandView.ItemIcon data-activity-kind={option.id}>
@@ -123,9 +129,9 @@
               <CommandView.ItemDescription
                 >{option.description}</CommandView.ItemDescription
               >
-              {#if option.id === value}
+              {#if selected}
                 <span data-ui-component="command-view" data-ui-part="trailing">
-                  <CheckIcon aria-hidden="true" />
+                  <CheckIcon size={12} aria-hidden="true" />
                 </span>
               {/if}
             </CommandView.Item>
