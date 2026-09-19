@@ -6,6 +6,8 @@
   import CircleCheckIcon from "@lucide/svelte/icons/circle-check";
   import CircleXIcon from "@lucide/svelte/icons/circle-x";
   import EllipsisIcon from "@lucide/svelte/icons/ellipsis";
+  import GitBranchIcon from "@lucide/svelte/icons/git-branch";
+  import TagIcon from "@lucide/svelte/icons/tag";
 
   import type { CommunityMemberModel } from "../community-workspace/model.js";
   import {
@@ -57,21 +59,22 @@
     openId = rule.id;
   }
 
-  async function persist(rule: ProjectForgeProtectionRule): Promise<void> {
-    await onSave(rule);
-    drafts = drafts.filter((item) => item.id !== rule.id);
-    openId = undefined;
+  function forget(id: string): void {
+    drafts = drafts.filter((item) => item.id !== id);
     const next = { ...draftEnforcement };
-    delete next[rule.id];
+    delete next[id];
     draftEnforcement = next;
   }
 
+  async function persist(rule: ProjectForgeProtectionRule): Promise<void> {
+    await onSave(rule);
+    forget(rule.id);
+    openId = undefined;
+  }
+
   function cancel(rule: ProjectForgeProtectionRule): void {
-    drafts = drafts.filter((item) => item.id !== rule.id);
+    forget(rule.id);
     openId = openId === rule.id ? undefined : openId;
-    const next = { ...draftEnforcement };
-    delete next[rule.id];
-    draftEnforcement = next;
   }
 </script>
 
@@ -85,13 +88,9 @@
             <Button {...props} type="button" size="sm">New ruleset<ChevronDownIcon data-icon="inline-end" aria-hidden="true" /></Button>
           {/snippet}
         </DropdownMenu.Trigger>
-        <DropdownMenu.Content>
-          <DropdownMenu.Item onSelect={() => queueMicrotask(() => startNew("branch"))}>
-            New branch ruleset
-          </DropdownMenu.Item>
-          <DropdownMenu.Item onSelect={() => queueMicrotask(() => startNew("tag"))}>
-            New tag ruleset
-          </DropdownMenu.Item>
+        <DropdownMenu.Content class="community-projects-rulesets__new-menu">
+          <DropdownMenu.Item onSelect={() => queueMicrotask(() => startNew("branch"))}><GitBranchIcon data-icon="inline-start" aria-hidden="true" />New branch ruleset</DropdownMenu.Item>
+          <DropdownMenu.Item onSelect={() => queueMicrotask(() => startNew("tag"))}><TagIcon data-icon="inline-start" aria-hidden="true" />New tag ruleset</DropdownMenu.Item>
         </DropdownMenu.Content>
       </DropdownMenu.Root>
     {/if}
@@ -193,14 +192,13 @@
   .community-projects-rulesets__header,
   .community-projects-rulesets__row {
     display: flex;
-    flex-wrap: wrap;
     align-items: center;
     justify-content: space-between;
     gap: 0.5rem;
   }
 
-  .community-projects-rulesets__row {
-    flex-wrap: nowrap;
+  .community-projects-rulesets__header {
+    flex-wrap: wrap;
   }
 
   .community-projects-rulesets__row:hover {
@@ -216,6 +214,9 @@
     align-items: center;
     padding-inline-end: 0.45rem;
   }
+
+  :global(.community-projects-rulesets__new-menu[data-ui-component="dropdown-menu"][data-ui-part="dropdown-menu-content"]) { width: max-content; min-width: 15.5rem; }
+  :global(.community-projects-rulesets__new-menu [data-ui-part="dropdown-menu-item"]) { white-space: nowrap; }
 
   h3,
   p {

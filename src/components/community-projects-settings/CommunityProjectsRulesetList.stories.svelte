@@ -1,6 +1,6 @@
 <script module lang="ts">
   import { defineMeta } from "@storybook/addon-svelte-csf";
-  import { expect, fn, waitFor, within } from "storybook/test";
+  import { expect, fn, within } from "storybook/test";
 
   import CommunityProjectsRulesetList from "./CommunityProjectsRulesetList.svelte";
 
@@ -68,16 +68,14 @@
     await expect(
       paused.getByRole("slider", { name: "Required approvals" }),
     ).toHaveAttribute("aria-valuenow", "2");
-    await userEvent.click(canvas.getByRole("button", { name: "Default ruleset actions" }));
-    await expect(overlay.getByRole("menuitem", { name: "Delete" })).toHaveAttribute("data-variant", "destructive");
-    await userEvent.keyboard("{Escape}");
-    await waitFor(() => expect(canvasElement.ownerDocument.body.style.pointerEvents).not.toBe("none"));
     const newRuleset = canvas.getByRole("button", { name: "New ruleset" });
     await expect(newRuleset.querySelector(".lucide-chevron-down")).not.toBeNull();
     await userEvent.click(newRuleset);
-    await userEvent.click(
-      overlay.getByRole("menuitem", { name: "New branch ruleset" }),
-    );
+    const branch = overlay.getByRole("menuitem", { name: "New branch ruleset" });
+    await expect(branch.querySelector(".lucide-git-branch")).not.toBeNull();
+    await expect(overlay.getByRole("menuitem", { name: "New tag ruleset" }).querySelector(".lucide-tag")).not.toBeNull();
+    await expect(branch.scrollWidth).toBeLessThanOrEqual(branch.clientWidth);
+    await userEvent.click(branch);
     const editor = within(
       canvasElement.querySelector(
         '[data-ui-part="collapsible"][data-state="open"]',

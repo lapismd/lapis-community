@@ -15,7 +15,9 @@ the repository `options` surface. Permissions MUST open
 `CommunityMemberCommand` `mode="manage"` for the bound home channel in place
 and MUST NOT change the Projects destination. That people action MUST lead
 with a person-plus icon. The New ruleset menu trigger MUST trail a
-chevron-down icon. Maintainers MUST be able to
+chevron-down icon. That menu MUST stay wide enough that its branch
+and tag items do not wrap, and each item MUST lead with a branch or
+tag icon. Maintainers MUST be able to
 create, edit, disable, and delete named rulesets with Active/Disabled
 enforcement, include/exclude targets, bypass actors, independent restrict
 create/update/delete flags, and required approvals through the relay-owned
