@@ -195,3 +195,7 @@ Configured private-room authorization MUST restrict offline cached search and in
 Published npm build helpers keep declaration types independent of their build
 Vite peer graph. Consumer validation compiles the public helper in each host's
 own Vite configuration before packaging that host.
+
+For LC-UI-049, architecture budgets MUST reflect the extracted activity controls
+and shared profile action layout; UI contract examples cover the same public
+components used in production, including narrow activity panels.

@@ -1,4 +1,6 @@
 <script lang="ts">
+  import CommunityProfileActions from "../community-profile-actions/CommunityProfileActions.svelte";
+  import { Reasoning } from "@lapismd/design-core/ai/experimental";
   import CommunityProjectChannelIcon from "../community-project-channel-icon/CommunityProjectChannelIcon.svelte";
   import type { CommunityMemberModel } from "../community-workspace/model.js";
   import CommunityAgentProcessingControl from "../community-agent-processing-control/CommunityAgentProcessingControl.svelte";
@@ -440,13 +442,12 @@
       </Button>
     </h2>
     {#if working}<div class="agent-profile__signals">
-        <CommunityChip size="compact" tone="accent">Working</CommunityChip>
+        <Reasoning label="Working" streaming />
       </div>{/if}
   </header>
 
-  <div class="agent-profile__actions">
+  <CommunityProfileActions label="Agent profile actions">
     <Button
-      class="agent-profile__action"
       variant="secondary"
       disabled={!canMessage || !connected || pending}
       title={!canMessage
@@ -456,7 +457,6 @@
       ><MessageIcon aria-hidden="true" />Message</Button
     >
     <Button
-      class="agent-profile__action"
       variant="secondary"
       disabled={!connected || pending}
       aria-pressed={agent.followed}
@@ -473,7 +473,7 @@
         onLoad={onLoadProcessing}
         onSet={onSetProcessing}
       />{/if}
-  </div>
+  </CommunityProfileActions>
   {#if !canMessage}<p>
       Connect a signer with encryption support to message this agent.
     </p>{/if}
@@ -1169,34 +1169,6 @@
     gap: 0.625rem;
     justify-content: center;
     flex-wrap: wrap;
-  }
-  .agent-profile__actions {
-    display: grid;
-    grid-auto-flow: column;
-    grid-auto-columns: minmax(0, 1fr);
-    gap: 0.625rem;
-  }
-  .agent-profile__actions :global(button) {
-    min-width: 0;
-    width: 100%;
-    padding-inline: 0.375rem;
-    flex: 1;
-    min-height: 4rem;
-    flex-direction: column;
-    gap: 0.5rem;
-  }
-  :global(.agent-profile__action.agent-profile__action:hover:not(:disabled)),
-  :global(
-      .agent-profile__action.agent-profile__action:focus-visible:not(:disabled)
-    ) {
-    background: color-mix(in oklab, var(--primary) 14%, var(--secondary));
-    color: var(--foreground);
-    box-shadow: inset 0 0 0 1px
-      color-mix(in oklab, var(--primary) 32%, transparent);
-  }
-  :global(.agent-profile__action.agent-profile__action:focus-visible) {
-    outline: 2px solid var(--ring);
-    outline-offset: 2px;
   }
   :global(.agent-profile__tabs) {
     width: 100%;

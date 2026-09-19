@@ -941,23 +941,23 @@
       "forbiddenImportCount": 0
     },
     "src/components/community-agent-activity/CommunityAgentActivity.stories.svelte": {
-      "countedLines": 305,
-      "physicalLines": 308,
+      "countedLines": 338,
+      "physicalLines": 341,
       "forbiddenImportCount": 0,
-      "justification": "LC-UI-049: show owner startup progress before transcript output; Starting before transcript story and scoped lifecycle tests."
+      "justification": "LC-UI-049: shared progress and profile actions, scoped terminal reduction, top pagination and collapsible checkpoint context; verified by activity, profile-action and repository-log stories."
     },
     "src/components/community-agent-activity/CommunityAgentActivity.svelte": {
-      "countedLines": 459,
-      "physicalLines": 469,
+      "countedLines": 257,
+      "physicalLines": 264,
       "forbiddenImportCount": 0,
       "kind": "legacy",
-      "justification": "Existing file above the new-file counted-line limit; do not grow"
+      "justification": "LC-UI-049: shared progress and profile actions, scoped terminal reduction, top pagination and collapsible checkpoint context; verified by activity, profile-action and repository-log stories."
     },
     "src/components/community-agent-activity/CommunityAgentTranscript.svelte": {
-      "countedLines": 235,
-      "physicalLines": 248,
+      "countedLines": 247,
+      "physicalLines": 260,
       "forbiddenImportCount": 0,
-      "justification": "LC-UI-049: show owner startup progress before transcript output; Starting before transcript story and scoped lifecycle tests."
+      "justification": "LC-UI-049: shared progress and profile actions, scoped terminal reduction, top pagination and collapsible checkpoint context; verified by activity, profile-action and repository-log stories."
     },
     "src/components/community-agent-activity/model.test.ts": {
       "countedLines": 200,
@@ -966,10 +966,10 @@
       "justification": "LC-UI-049: show owner startup progress before transcript output; Starting before transcript story and scoped lifecycle tests."
     },
     "src/components/community-agent-activity/model.ts": {
-      "countedLines": 251,
-      "physicalLines": 265,
+      "countedLines": 253,
+      "physicalLines": 264,
       "forbiddenImportCount": 0,
-      "justification": "LC-UI-049: show owner startup progress before transcript output; Starting before transcript story and scoped lifecycle tests."
+      "justification": "LC-UI-049: extracted activity controls and log fixtures; shared working and action-row presentation with lifecycle and repository-log regression stories."
     },
     "src/components/community-agent-composer-activity/CommunityAgentComposerActivity.stories.svelte": {
       "countedLines": 136,
@@ -1019,18 +1019,18 @@
       "forbiddenImportCount": 0
     },
     "src/components/community-agent-profile/CommunityAgentProfile.stories.svelte": {
-      "countedLines": 568,
-      "physicalLines": 580,
+      "countedLines": 566,
+      "physicalLines": 578,
       "forbiddenImportCount": 0,
       "kind": "legacy",
-      "justification": "Existing file above the new-file counted-line limit; do not grow"
+      "justification": "LC-UI-049: extracted activity controls and log fixtures; shared working and action-row presentation with lifecycle and repository-log regression stories."
     },
     "src/components/community-agent-profile/CommunityAgentProfile.svelte": {
-      "countedLines": 1575,
-      "physicalLines": 1594,
+      "countedLines": 1547,
+      "physicalLines": 1566,
       "forbiddenImportCount": 0,
       "kind": "legacy",
-      "justification": "Existing file above the new-file counted-line limit; do not grow"
+      "justification": "LC-UI-049: shared progress and profile actions, scoped terminal reduction, top pagination and collapsible checkpoint context; verified by activity, profile-action and repository-log stories."
     },
     "src/components/community-agents/CommunityAgents.stories.svelte": {
       "countedLines": 704,
@@ -2169,9 +2169,10 @@
       "forbiddenImportCount": 0
     },
     "src/components/community-projects/CommunityProjectsRepositoryAgentContext.svelte": {
-      "countedLines": 128,
-      "physicalLines": 134,
-      "forbiddenImportCount": 0
+      "countedLines": 126,
+      "physicalLines": 132,
+      "forbiddenImportCount": 0,
+      "justification": "LC-UI-049: shared progress and profile actions, scoped terminal reduction, top pagination and collapsible checkpoint context; verified by activity, profile-action and repository-log stories."
     },
     "src/components/community-projects/CommunityProjectsRepositoryBranchSelector.svelte": {
       "countedLines": 23,
@@ -2204,11 +2205,11 @@
       "forbiddenImportCount": 0
     },
     "src/components/community-projects/CommunityProjectsRepositoryLog.stories.svelte": {
-      "countedLines": 449,
-      "physicalLines": 456,
+      "countedLines": 261,
+      "physicalLines": 264,
       "forbiddenImportCount": 0,
       "kind": "legacy",
-      "justification": "Existing file above the new-file counted-line limit; do not grow"
+      "justification": "LC-UI-049: extracted activity controls and log fixtures; shared working and action-row presentation with lifecycle and repository-log regression stories."
     },
     "src/components/community-projects/CommunityProjectsRepositoryLog.svelte": {
       "countedLines": 297,
@@ -2804,12 +2805,12 @@
       "justification": "Existing file above the new-file counted-line limit; do not grow"
     },
     "src/components/index.ts": {
-      "countedLines": 194,
-      "physicalLines": 201,
+      "countedLines": 195,
+      "physicalLines": 203,
       "forbiddenImportCount": 0,
       "kind": "exception",
       "requirement": "LC-UI-049",
-      "justification": "Additive context contract and public component exports; no runtime behavior added to this declaration surface."
+      "justification": "LC-UI-049: shared progress and profile actions, scoped terminal reduction, top pagination and collapsible checkpoint context; verified by activity, profile-action and repository-log stories."
     },
     "src/components/register.ts": {
       "countedLines": 9,
@@ -3453,9 +3454,10 @@
       "justification": "Bounded agent context composition or protocol fields; assembly, transcript projection, routing and preview retention remain separately owned modules."
     },
     "src/projects/repository-log-canvas.ts": {
-      "countedLines": 38,
-      "physicalLines": 39,
-      "forbiddenImportCount": 0
+      "countedLines": 39,
+      "physicalLines": 40,
+      "forbiddenImportCount": 0,
+      "justification": "LC-UI-049: shared progress and profile actions, scoped terminal reduction, top pagination and collapsible checkpoint context; verified by activity, profile-action and repository-log stories."
     },
     "src/projects/repository-log-collapse.test.ts": {
       "countedLines": 286,
@@ -3834,6 +3836,11 @@
       "countedLines": 113,
       "physicalLines": 120,
       "forbiddenImportCount": 0
+    },
+    "src/components/community-commit-agent-context/CommunityCommitAgentContext.stories.svelte": {
+      "countedLines": 73,
+      "physicalLines": 76,
+      "justification": "LC-UI-049: distinguish the unavailable context status from the shared checkpoint divider status."
     }
   }
 }

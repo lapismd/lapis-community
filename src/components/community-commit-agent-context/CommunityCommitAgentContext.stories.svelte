@@ -59,9 +59,9 @@
     await userEvent.click(
       canvas.getByRole("button", { name: /Agent context/ }),
     );
-    await expect(canvas.getByRole("status")).toHaveTextContent(
-      "Some agent context is unavailable",
-    );
+    const unavailable = canvas.getByText(/Some agent context is unavailable/);
+    await expect(unavailable).toBeVisible();
+    await expect(unavailable).toHaveAttribute("role", "status");
   }}
 />
 

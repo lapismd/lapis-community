@@ -199,3 +199,5 @@ export { default as CommunityAgentProcessingControl } from "./community-agent-pr
 export type { CommunityAgentProcessingState } from "../community/agent-contracts.js";
 export { default as CommunityCommitAgentContext } from "./community-commit-agent-context/CommunityCommitAgentContext.svelte";
 export { default as CommunityCommitSummary } from "./community-commit-summary/CommunityCommitSummary.svelte";
+
+export { default as CommunityProfileActions } from "./community-profile-actions/CommunityProfileActions.svelte";

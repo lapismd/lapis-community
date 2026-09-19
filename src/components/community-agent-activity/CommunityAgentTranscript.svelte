@@ -1,4 +1,5 @@
 <script lang="ts">
+  import type { Snippet } from "svelte";
   import * as Chat from "@lapismd/design-core/ai/chat";
   import { Reasoning } from "@lapismd/design-core/ai/experimental";
   import {
@@ -28,7 +29,11 @@
     context,
     members = [],
     onOpenRequest,
+    header,
+    working = false,
   }: {
+    header?: Snippet;
+    working?: boolean;
     activity: readonly CommunityAgentActivityItem[];
     agent: Pick<CommunityAgentIdentity, "pubkey" | "name" | "avatarUrl">;
     context?: CommunityAgentActivityContext;
@@ -124,11 +129,15 @@
 <div class="agent-transcript" data-ui-component="community-agent-transcript">
   <Chat.MessageList
     density="compact"
+    {...header ? { header } : {}}
     {...latestMessageId ? { latestMessageId } : {}}
-    isStreaming={timeline.some(
-      (entry) => entry.kind === "thinking" && entry.item.state === "streaming",
-    )}
-    isEmpty={timeline.length === 0 && pending.length === 0}
+    isStreaming={working ||
+      pending.length > 0 ||
+      timeline.some(
+        (entry) =>
+          entry.kind === "thinking" && entry.item.state === "streaming",
+      )}
+    isEmpty={timeline.length === 0 && pending.length === 0 && !working}
     {emptyState}
     aria-label="Agent conversation activity"
   >
@@ -211,9 +220,12 @@
         <Chat.SystemMessage>Agent turn cancelled</Chat.SystemMessage>
       {/if}
     {/each}
-    {#each pending as status (status.id)}
-      <Chat.SystemMessage>Agent status: {status.text}</Chat.SystemMessage>
-    {/each}
+    {#if working || pending.length > 0}
+      <Reasoning
+        label={pending.length === 1 ? pending[0]!.text : "Working"}
+        streaming
+      />
+    {/if}
   </Chat.MessageList>
 </div>
 

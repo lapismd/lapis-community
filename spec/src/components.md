@@ -751,6 +751,18 @@ after honoring the pinned view, preserving author time for display. An earlier
 unnamed snapshot with the same author timestamp MUST NOT hide its completed
 checkpoint and associated agent context.
 
+For LC-UI-049, repository checkpoint separators MUST compose the shared chat
+SystemMessage divider and the Agent context column MUST remain user-collapsible.
+Owner activity MUST place older-history pagination first inside the chat and
+show a shared reasoning-style working indicator at its end throughout an active
+request, including after text or tool output. Agent cards and profiles MUST use
+the same working presentation. Completed reasoning and tools with terminal
+results MUST stop animating; replay or later metadata MUST NOT restart completed
+tools, and one conversation ending MUST NOT finish another conversation.
+Cancel turn and Reset conversation MUST share the profile action row treatment,
+without a separate runtime-controls card, preserving scoped commands, permission
+prompts and awaited reset confirmation. Changed stories remain visual-pending.
+
 For LC-UI-013, sidebar unread counts MUST use the projected unread count and
 compact subtle CommunityChip treatment with a neutral background slightly
 darker than the light sidebar, theme-appropriate dark-mode contrast, no border,

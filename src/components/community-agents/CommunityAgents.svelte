@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { Reasoning } from "@lapismd/design-core/ai/experimental";
   import CommunityProjectChannelIcon from "../community-project-channel-icon/CommunityProjectChannelIcon.svelte";
   import { toast } from "svelte-sonner";
   import type { CommunityMemberModel } from "../community-workspace/model.js";
@@ -661,8 +662,7 @@
                 "Default model"}</span
             >
             {#if model.working[agent.pubkey]}
-              <CommunityChip size="compact" tone="accent">Working</CommunityChip
-              >
+              <Reasoning label="Working" streaming />
             {/if}
           </div>
           <DropdownMenu.Root>

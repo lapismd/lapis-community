@@ -29,7 +29,7 @@
 <Story
   name="Starting before transcript"
   play={async ({ canvas }) => {
-    await expect(canvas.getByText("Agent status: Starting")).toBeVisible();
+    await expect(canvas.getByText("Starting")).toBeVisible();
     await expect(
       canvas.queryByText("Waiting for transcript activity from this agent."),
     ).not.toBeInTheDocument();
@@ -67,7 +67,7 @@
 
 <Story
   name="Timeline"
-  play={async ({ canvas }) => {
+  play={async ({ canvas, canvasElement }) => {
     const transcript = canvas.getByRole("log", {
       name: "Agent conversation activity",
     });
@@ -85,6 +85,17 @@
     await expect(
       within(transcript).getByText("Read source", { exact: true }),
     ).toBeVisible();
+    for (const thought of canvasElement.querySelectorAll(
+      '[data-ui-component="ai-chat-reasoning"]',
+    )) {
+      expect(thought).toHaveAttribute("data-streaming", "false");
+      expect(
+        getComputedStyle(
+          thought.querySelector('[data-ui-part="reasoning-icon"]')!,
+        ).animationName,
+      ).toBe("none");
+    }
+    expect(canvasElement.querySelector('[data-status="running"]')).toBeNull();
     const times = transcript.querySelectorAll("time");
     await expect(times).toHaveLength(2);
     for (const time of times) {
@@ -109,9 +120,17 @@
       "Permission allow_once for Publish report",
     ])
       await expect(canvas.getByText(text, { exact: true })).toBeVisible();
-    await userEvent.click(
-      canvas.getByRole("button", { name: "Load older activity" }),
-    );
+    const log = canvas.getByRole("log", {
+      name: "Agent conversation activity",
+    });
+    const older = within(log).getByRole("button", {
+      name: "Load older activity",
+    });
+    const message = within(log).getByLabelText("Message from Alex Morgan");
+    expect(
+      older.compareDocumentPosition(message) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    await userEvent.click(older);
     await expect(canvas.getByText("Earlier transcript message")).toBeVisible();
     await userEvent.click(
       canvas.getByRole("button", { name: "Latest", exact: true }),
@@ -212,6 +231,20 @@
     const controls = canvas.getByRole("region", {
       name: "Agent runtime controls",
     });
+    const cancel = within(controls).getByRole("button", {
+      name: "Cancel turn",
+    });
+    const reset = within(controls).getByRole("button", {
+      name: "Reset conversation",
+    });
+    expect(
+      Math.abs(
+        cancel.getBoundingClientRect().top - reset.getBoundingClientRect().top,
+      ),
+    ).toBeLessThan(1);
+    await expect(
+      within(controls).queryByRole("heading", { name: "Runtime controls" }),
+    ).not.toBeInTheDocument();
     await expect(
       within(controls).getByText("Waiting for approval"),
     ).toBeVisible();

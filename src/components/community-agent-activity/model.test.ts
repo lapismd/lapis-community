@@ -30,7 +30,7 @@ function activity(
 }
 
 describe("agent transcript timeline", () => {
-  it("shows cold-start progress until output or termination in the same request", () => {
+  it("keeps request progress through output and stops at termination", () => {
     const status = (seq: number, state: string, preview: string) => ({
       id: `status-${seq}`,
       agentPubkey: agent,
@@ -64,7 +64,7 @@ describe("agent transcript timeline", () => {
       createdAt: new Date(1003000).toISOString(),
     });
     output.frame.payload = {
-      ...output.frame.payload,
+      ...(output.frame.payload as Record<string, unknown>),
       lifecycleRequestId: "request",
     };
     expect(
@@ -72,7 +72,7 @@ describe("agent transcript timeline", () => {
         [queued, starting, output, status(4, "running", "Working")],
         agent,
       ),
-    ).toEqual([]);
+    ).toEqual([{ id: "request", text: "Working" }]);
     expect(
       pendingTranscriptStatuses(
         [queued, starting, status(5, "failed", "Failed")],

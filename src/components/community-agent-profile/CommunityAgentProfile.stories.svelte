@@ -26,6 +26,10 @@
   name="Info and owner profile"
   play={async ({ canvas }) => {
     const info = canvas.getByRole("list", { name: "Agent information" });
+    const working = canvas.getByText("Working");
+    expect(
+      working.closest('[data-ui-component="ai-chat-reasoning"]'),
+    ).toHaveAttribute("data-streaming", "true");
     await expect(
       canvas.queryByRole("heading", { name: "Info" }),
     ).not.toBeInTheDocument();
@@ -48,9 +52,7 @@
     await userEvent.click(
       canvas.getByRole("button", { name: "View steve's profile" }),
     );
-    await expect(canvas.getByRole("status")).toHaveTextContent(
-      "Opened steve's profile",
-    );
+    await expect(canvas.getByText("Opened steve's profile")).toBeVisible();
   }}>{#snippet template()}<Harness screen="profile" />{/snippet}</Story
 >
 
@@ -181,9 +183,7 @@
     await userEvent.click(
       within(dialog).getByRole("button", { name: "Save changes" }),
     );
-    await expect(canvas.getByRole("status")).toHaveTextContent(
-      "Runtime defaults saved",
-    );
+    await expect(canvas.getByText("Runtime defaults saved")).toBeVisible();
     const toolsTrigger = canvas.getByRole("button", { name: "Tools" });
     await waitFor(() =>
       expect(getComputedStyle(toolsTrigger).pointerEvents).not.toBe("none"),
@@ -260,9 +260,7 @@
     await userEvent.click(
       within(reviewActions).getByRole("button", { name: "Approve" }),
     );
-    await expect(canvas.getByRole("status")).toHaveTextContent(
-      "Memory approved",
-    );
+    await expect(canvas.getByText("Memory approved")).toBeVisible();
     await expect(
       canvas.queryByText("Summaries should lead with release blockers."),
     ).not.toBeInTheDocument();

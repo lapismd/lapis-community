@@ -641,3 +641,7 @@ this integration through the installed package rather than copying the helper.
 The public Turso Vite helper declares only its actual name, pre-transform order
 and transform function. Its emitted types must not import the complete Vite
 Plugin interface or couple consumers to the helper build peer graph.
+
+For LC-UI-049, repository context uses the shared Column Canvas collapse state.
+Activity progress reduction and scoped runtime controls have separate owners;
+profile action geometry is composed by both agent profile and activity views.

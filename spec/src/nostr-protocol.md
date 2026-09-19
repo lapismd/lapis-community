@@ -565,3 +565,6 @@ so release, publisher-authorization, curator-decision and publisher-withdrawal
 updates invalidate prior inspection results. This derived cache does not alter
 signature verification, deterministic ordering, authority checks, or install
 quorum. Unavailable attachment results remain retryable without new signed events.
+
+For LC-UI-049, the repository log canvas exposes a collapsible Agent context
+column while retaining the selected revision and its verified context records.

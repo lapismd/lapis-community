@@ -412,6 +412,31 @@
         "content": "community-patterns-history-edge--guarded-paging-and-retry",
         "refresh": "community-patterns-history-edge--guarded-paging-and-retry"
       }
+    },
+    {
+      "id": "profile-actions",
+      "name": "Profile actions",
+      "component": "CommunityProfileActions",
+      "import": "@lapismd/lapis-community/components",
+      "example": "src/components/community-patterns/examples/ProfileActionsExample.svelte",
+      "story": "community-patterns-profile-actions--contract",
+      "storyFile": "src/components/community-profile-actions/CommunityProfileActions.stories.svelte",
+      "requirement": "LC-UI-049",
+      "variants": ["default"],
+      "requiredStates": ["same-row", "action"],
+      "loading": {
+        "applicable": false,
+        "states": [],
+        "reason": "The caller owns pending action state."
+      },
+      "when": "Profile and scoped agent runtime actions with equal-width icon-over-label buttons.",
+      "productionStories": [
+        "community-agents-activity--controller-permissions"
+      ],
+      "verification": {
+        "same-row": "community-patterns-profile-actions--contract",
+        "action": "community-patterns-profile-actions--contract"
+      }
     }
   ],
   "exceptions": [

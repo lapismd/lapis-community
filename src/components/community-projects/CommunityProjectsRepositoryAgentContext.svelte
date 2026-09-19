@@ -1,4 +1,5 @@
 <script lang="ts">
+  import * as Chat from "@lapismd/design-core/ai/chat";
   import type { RepositoryAgentCheckpoint } from "../../projects/repository-agent-context.js";
   import type { CommunityMemberModel } from "../community-workspace/model.js";
   import CommunityAgentTranscript from "../community-agent-activity/CommunityAgentTranscript.svelte";
@@ -69,10 +70,7 @@
           />
         {/if}
         {#if segment.commitIds.length}
-          <div
-            class="community-projects-agent-context__header"
-            aria-label="Code checkpoint"
-          >
+          <Chat.SystemMessage variant="divider" aria-label="Code checkpoint">
             <span>Checkpoint</span>
             {#each segment.commitIds as commitId (commitId)}
               {#if repositoryAddress}
@@ -86,7 +84,7 @@
                 >
               {:else}<code>{commitId.slice(0, 12)}</code>{/if}
             {/each}
-          </div>
+          </Chat.SystemMessage>
         {/if}
       {/each}
     </section>
