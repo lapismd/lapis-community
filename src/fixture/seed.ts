@@ -411,6 +411,7 @@ async function seed(): Promise<{
   const projectFixture = createLocalProjectForgeFixture({
     ownerPubkey: getPublicKey(operatorSecret),
     contributorPubkey: getPublicKey(communitySecrets[0]!),
+    agentPubkey: getPublicKey(communitySecrets[1]!),
     channelId: lapisGroupId(LAPIS_GROUPS.pluginDevelopment),
     relatedChannelId: lapisGroupId(LAPIS_GROUPS.general),
     relayUrl,
@@ -434,7 +435,11 @@ async function seed(): Promise<{
     throw new Error("Local project agent-context page was not published");
   }
   const contextManifestPublication =
-    projectFixture.agentContext.checkpointManifest(contextPage.id);
+    projectFixture.agentContext.checkpointManifest(
+      projectFixture.agentContext.pagePublicationIndices.map(
+        (index) => projectEvents[index]!.id,
+      ),
+    );
   const contextManifest = sign(
     communitySecrets[1]!,
     contextManifestPublication.template,

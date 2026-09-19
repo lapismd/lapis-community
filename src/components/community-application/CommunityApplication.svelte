@@ -1,4 +1,10 @@
 <script lang="ts">
+  import {
+    repositorySurfaceLocation,
+    reviewCommitLocation,
+    locationForProjectRoute,
+  } from "./project-commit-route.js";
+  import { projectRouteCommit, repositoryRouteState } from "./project-route.js";
   import { parseNip29ReleaseEvent } from "../../protocol/index.js";
   import {
     conversationHash,
@@ -205,7 +211,10 @@
   import CommunityProjectsRailStatusFilters from "../community-projects/CommunityProjectsRailStatusFilters.svelte";
   import CommunityProjectsRepositoryRail from "../community-projects/CommunityProjectsRepositoryRail.svelte";
   import { provideRepositoryLogPane } from "../../projects/repository-log-pane.svelte.js";
-  import { memberCommandGroupIds, resolveMemberCommandRoom } from "./member-command-room.js";
+  import {
+    memberCommandGroupIds,
+    resolveMemberCommandRoom,
+  } from "./member-command-room.js";
   import type {
     CommunityProjectsCreateProject,
     CommunityProjectsCreatePullRequest,
@@ -618,16 +627,13 @@
   });
   let projectOverviewInitialized = $state(false);
   const initializedChannelProjectOverviews = new Set<string>();
-  let selectedRepositoryCoordinate = $state(
-    initialApplicationLocation.projectRoute?.kind === "repository"
-      ? initialApplicationLocation.projectRoute.coordinate
-      : "",
+  const initialRepositoryRoute = repositoryRouteState(
+    initialApplicationLocation.projectRoute,
   );
+  let selectedRepositoryCoordinate = $state(initialRepositoryRoute.coordinate);
   let selectedRepositoryProjectCoordinate = $state("");
   let activeRepositorySurface = $state<ProjectForgeSurface>(
-    initialApplicationLocation.projectRoute?.kind === "repository"
-      ? initialApplicationLocation.projectRoute.surface
-      : "overview",
+    initialRepositoryRoute.surface,
   );
   let selectedPullRequestId = $state("");
   let selectedTaskId = $state("");
@@ -647,7 +653,9 @@
   let projectCommitActivity = $state.raw<readonly ProjectForgeCommitActivity[]>(
     [],
   );
-  let selectedProjectCommit = $state.raw<ProjectForgeCommit>();
+  let selectedProjectCommit = $state.raw<ProjectForgeCommit | undefined>(
+    projectRouteCommit(initialApplicationLocation.projectRoute),
+  );
   let projectCommitDetail = $state.raw<ProjectForgeCommitResponse>();
   let projectRepositoryCapabilities =
     $state.raw<ProjectForgeRepositoryCapabilitiesByCoordinate>({});
@@ -1103,7 +1111,11 @@
     };
   });
   const memberCommandRoom = $derived(
-    resolveMemberCommandRoom(presentationRooms, activeRoom, memberCommandRoomId),
+    resolveMemberCommandRoom(
+      presentationRooms,
+      activeRoom,
+      memberCommandRoomId,
+    ),
   );
   const activeRoomMemberIds = $derived(
     activeRoom.kind === "direct"
@@ -1113,7 +1125,8 @@
           .map((member) => member.id),
   );
   const memberCommandMemberIds = $derived(
-    memberCommandGroupIds(memberCommandRoom, workspace.members));
+    memberCommandGroupIds(memberCommandRoom, workspace.members),
+  );
   const releaseRoomMembers = $derived(
     isPluginReleaseRoom
       ? activeRoomMemberIds.length === 0
@@ -2764,7 +2777,8 @@
           ? surface === "activity" ||
             surface === "commits" ||
             surface === undefined
-          : overviewSurface === "activity" || overviewSurface === "repositories")
+          : overviewSurface === "activity" ||
+            overviewSurface === "repositories")
       ) {
         projectCommitActivity = await loadProjectCommitActivity(
           openedSession,
@@ -3180,6 +3194,7 @@
     if (next.projectRoute?.kind === "repository") {
       selectedRepositoryCoordinate = next.projectRoute.coordinate;
       activeRepositorySurface = next.projectRoute.surface;
+      selectedProjectCommit = projectRouteCommit(next.projectRoute);
     } else if (previous.projectRoute?.kind === "repository") {
       selectedRepositoryCoordinate = "";
       selectedRepositoryProjectCoordinate = "";
@@ -3447,22 +3462,6 @@
     lastAction = "closed-release-surface";
   }
 
-  function locationForProjectRoute(
-    route: CommunityApplicationProjectRoute,
-  ): CommunityApplicationLocation {
-    return {
-      destination:
-        route.kind === "project"
-          ? projectDestinationFromCoordinate(route.coordinate)
-          : "projects",
-      panel: noCommunityApplicationPanel(),
-      ...(route.kind === "project" && route.surface !== "activity"
-        ? { mainSurface: `project-${route.surface}` as const }
-        : {}),
-      projectRoute: route,
-    };
-  }
-
   function selectProject(
     project: ProjectForgeCatalog["projects"][number],
   ): void {
@@ -3561,19 +3560,15 @@
     projectSourceError = "";
     activeRepositorySurface = surface;
     projectOverviewInitialized = true;
-    pushLocation({
-      destination: selectedRepositoryProject
-        ? projectDestinationFromCoordinate(
-            selectedRepositoryProject.address.coordinate,
-          )
-        : "projects",
-      panel: activePanel,
-      projectRoute: {
-        kind: "repository",
-        coordinate: selectedRepository.address.coordinate,
+    pushLocation(
+      repositorySurfaceLocation(
+        selectedRepository.address.coordinate,
         surface,
-      },
-    });
+        activePanel,
+        selectedRepositoryProject?.address.coordinate,
+        selectedProjectCommit?.sha,
+      ),
+    );
     lastAction = `opened-repository-${surface}`;
   }
 
@@ -3640,18 +3635,18 @@
   }
 
   function activateProjectCommit(commit: ProjectForgeCommit): void {
-    const pullRequestRepository =
+    const reviewRoute =
       selectedRepository === undefined && selectedProject === undefined
-        ? projectCatalog.repositories.find(
-            (repository) =>
-              repository.address.coordinate ===
-              selectedPullRequest?.repository.coordinate,
+        ? reviewCommitLocation(
+            projectCatalog,
+            selectedPullRequest?.repository.coordinate,
+            commit.sha,
           )
         : undefined;
     if (
       selectedRepository === undefined &&
       selectedProject === undefined &&
-      pullRequestRepository === undefined
+      reviewRoute === undefined
     )
       return;
     selectedProjectCommit = commit;
@@ -3668,30 +3663,11 @@
       activateRepositorySurface("commits");
     } else if (selectedProject) {
       activateProjectSurface("commits");
-    } else if (pullRequestRepository) {
-      const owningProject = projectCatalog.projects.find((project) =>
-        project.repositories.some(
-          (reference) =>
-            reference.coordinate === pullRequestRepository.address.coordinate,
-        ),
-      );
-      selectedRepositoryCoordinate = pullRequestRepository.address.coordinate;
+    } else if (reviewRoute) {
+      selectedRepositoryCoordinate = reviewRoute.coordinate;
       activeRepositorySurface = "commits";
       projectOverviewInitialized = true;
-      pushLocation({
-        destination:
-          owningProject === undefined
-            ? "projects"
-            : projectDestinationFromCoordinate(
-                owningProject.address.coordinate,
-              ),
-        panel: noCommunityApplicationPanel(),
-        projectRoute: {
-          kind: "repository",
-          coordinate: pullRequestRepository.address.coordinate,
-          surface: "commits",
-        },
-      });
+      pushLocation(reviewRoute.location);
       lastAction = `selected-review-commit:${commit.sha}`;
     }
   }
@@ -3814,7 +3790,16 @@
     if (collection?.kind === "reviews") reviewListFilter = collection.value;
     const target = projectRailTarget(label);
     if (selectedRepository) {
-      if (label === (roomForProjectChannel(selectedRepository.channelId)?.name ?? selectedRepository.channelId).replace(/^#/, "")) { selectProjectChannelDestination(selectedRepository.channelId); return; }
+      if (
+        label ===
+        (
+          roomForProjectChannel(selectedRepository.channelId)?.name ??
+          selectedRepository.channelId
+        ).replace(/^#/, "")
+      ) {
+        selectProjectChannelDestination(selectedRepository.channelId);
+        return;
+      }
       if (activeRepositorySurface !== target)
         openRepositorySurface(target as ProjectForgeSurface);
       return;
@@ -6400,10 +6385,13 @@
             selectedPullRequest.approvals.length,
           )}
         {:else if selectedRepository}
-          {@render projectRepositoriesRail(selectedRepository.address.coordinate)}
+          {@render projectRepositoriesRail(
+            selectedRepository.address.coordinate,
+          )}
           <CommunityProjectsRepositoryRail
             surface={activeRepositorySurface}
-            channel={roomForProjectChannel(selectedRepository.channelId)?.name ?? selectedRepository.channelId}
+            channel={roomForProjectChannel(selectedRepository.channelId)
+              ?.name ?? selectedRepository.channelId}
             files={projectTree?.entries.length ?? 0}
             commits={projectCommits}
             tasks={selectedRepositoryTasks}
@@ -6827,9 +6815,9 @@
           repositoryOptions={projectCatalog.repositories}
           repositoryCapabilities={projectRepositoryCapabilities}
           tasks={projectWorkItems.tasks}
-          taskListFilter={taskListFilter}
+          {taskListFilter}
           pullRequests={projectWorkItems.pullRequests}
-          reviewListFilter={reviewListFilter}
+          {reviewListFilter}
           {...selectedPullRequest === undefined ? {} : { selectedPullRequest }}
           commits={projectCommits}
           commitActivity={projectCommitActivity}
@@ -7084,7 +7072,9 @@
                   statusOpen = true;
                 });
               if (action === "manage-members") {
-                void runAuthenticated(() => openRepositoryPeople(activeRoom.id));
+                void runAuthenticated(() =>
+                  openRepositoryPeople(activeRoom.id),
+                );
               }
               if (action === "send-feedback") void extensions.feedback?.();
             }}
@@ -7272,12 +7262,12 @@
         tasks={selectedRepository
           ? selectedRepositoryTasks
           : projectWorkItems.tasks}
-        taskListFilter={taskListFilter}
+        {taskListFilter}
         {...selectedTask === undefined ? {} : { selectedTask }}
         pullRequests={selectedRepository
           ? selectedRepositoryPullRequests
           : projectWorkItems.pullRequests}
-        reviewListFilter={reviewListFilter}
+        {reviewListFilter}
         {...selectedPullRequest === undefined ? {} : { selectedPullRequest }}
         commits={projectCommits}
         commitActivity={projectCommitActivity}

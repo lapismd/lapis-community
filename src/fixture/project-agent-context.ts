@@ -19,12 +19,16 @@ export interface LocalProjectAgentContextOptions {
   repositoryCoordinate: string;
   channelId: string;
   createdAt: number;
+  agentPubkey?: string;
 }
 
 export interface LocalProjectAgentContextFixture {
   publications: readonly NostrEventTemplate[];
   contextPageIndex: number;
-  checkpointManifest(pageEventId: string): NostrEventTemplate;
+  contextPageIndices: number[];
+  checkpointManifest(
+    pageEventIds: string | readonly string[],
+  ): NostrEventTemplate;
 }
 
 const carrierDigest = "6".repeat(64);
@@ -34,7 +38,10 @@ export function createLocalProjectAgentContextFixture(
   options: LocalProjectAgentContextOptions,
 ): LocalProjectAgentContextFixture {
   const ids = LOCAL_AGENT_CONTEXT_IDS;
-  const bodies = createLocalProjectAgentContextBodies(options.createdAt);
+  const bodies = createLocalProjectAgentContextBodies(
+    options.createdAt,
+    options.agentPubkey,
+  );
   const baseTags = [
     ["a", options.repositoryCoordinate],
     ["h", options.channelId],
@@ -140,24 +147,32 @@ export function createLocalProjectAgentContextFixture(
       ],
       bodies.graphManifest,
     ),
-    template(
-      KIND_JJ_AGENT_CONTEXT_PAGE,
-      options.createdAt + 6,
-      "jj-agent-context-page",
-      [
-        ["r", ids.scopeId],
-        ["o", ids.operationId],
-        ["d", ids.checkpointId],
-        ["sequence", "0"],
-        ...baseTags,
-      ],
-      bodies.page,
+    ...bodies.page.records.map((record, index) =>
+      template(
+        KIND_JJ_AGENT_CONTEXT_PAGE,
+        options.createdAt + 6,
+        "jj-agent-context-page",
+        [
+          ["r", ids.scopeId],
+          ["o", ids.operationId],
+          ["d", ids.spanId],
+          ["sequence", "0"],
+          ...baseTags,
+        ],
+        {
+          ...bodies.page,
+          version: 2,
+          checkpoint_id: ids.spanId,
+          records: [record],
+        },
+      ),
     ),
   ];
   return {
     publications,
-    contextPageIndex: publications.length - 1,
-    checkpointManifest: (pageEventId) =>
+    contextPageIndex: 6,
+    contextPageIndices: bodies.page.records.map((_, index) => 6 + index),
+    checkpointManifest: (pageEventIds) =>
       template(
         KIND_JJ_CHECKPOINT_MANIFEST,
         options.createdAt + 7,
@@ -171,12 +186,30 @@ export function createLocalProjectAgentContextFixture(
         ],
         {
           schema: "jj-sync/checkpoint-manifest",
-          version: 1,
+          version: 2,
+          begin_operation_id: ids.operationId,
+          targets: [
+            {
+              commit_id: ids.agentCommitId,
+              change_id_hex: bodies.agentRevision.change_id_hex,
+            },
+          ],
+          ...(options.agentPubkey
+            ? {
+                actor: {
+                  agent_id: "local-agent",
+                  pubkey: options.agentPubkey,
+                  name: "Owen Local",
+                  email: bodies.agentRevision.author.email,
+                },
+              }
+            : {}),
           checkpoint_id: ids.checkpointId,
           span_id: ids.spanId,
           scope_id: ids.scopeId,
           operation_id: ids.operationId,
-          page_event_ids: [pageEventId],
+          page_event_ids:
+            typeof pageEventIds === "string" ? [pageEventIds] : pageEventIds,
           record_count: bodies.page.records.length,
           complete: true,
           outcome: "completed",

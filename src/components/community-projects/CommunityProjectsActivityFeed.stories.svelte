@@ -11,6 +11,9 @@
   import CommunityProjectsActivityFeed from "./CommunityProjectsActivityFeed.svelte";
   import "./CommunityProjects.css";
 
+  import { repositoryContextEvents } from "../../testing/repository-context-fixture.js";
+  import { withRepositoryContextActivity } from "../../projects/repository-context-activity.js";
+
   const owner = "1".repeat(64);
   const projectCoordinate = `30617:${owner}:notes`;
   const sha = "a".repeat(40);
@@ -157,7 +160,9 @@
     );
     const trigger = canvas.getByRole("button", { name: "Filter activity" });
     await expect(trigger).toHaveAttribute("data-variant", "ghost");
-    await userEvent.click(page.getByRole("option", { name: /Tasks Kind 1621/u }));
+    await userEvent.click(
+      page.getByRole("option", { name: /Tasks Kind 1621/u }),
+    );
     await expect(canvas.getByText("Ship the filter")).toBeVisible();
     await expect(canvas.queryByText("Stay on dest main")).toBeNull();
     await userEvent.click(page.getByRole("option", { name: /Commits/u }));
@@ -170,5 +175,23 @@
     await expect(
       persisted.get(projectActivityFilterStorageKey("projects")),
     ).toContain("commit");
+  }}
+/>
+
+<Story
+  name="Agent conversation and checkpoint"
+  args={{
+    activity: withRepositoryContextActivity([], repositoryContextEvents()),
+  }}
+  play={async ({ canvas }) => {
+    await expect(
+      canvas.getByText("Updated the README and verified the diff."),
+    ).toBeVisible();
+    await expect(
+      canvas.getByText("apply_patch", { exact: true }),
+    ).toBeVisible();
+    await expect(
+      canvas.getByRole("link", { name: "bbbbbbbbbbbb" }),
+    ).toBeVisible();
   }}
 />

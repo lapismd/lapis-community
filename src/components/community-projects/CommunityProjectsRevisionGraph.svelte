@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { Snippet } from "svelte";
+  import type { CommunityMemberModel } from "../community-workspace/model.js";
 
   import CommunityProjectsRevisionGraphCopy from "./CommunityProjectsRevisionGraphCopy.svelte";
   import CommunityProjectsRevisionGraphIds from "./CommunityProjectsRevisionGraphIds.svelte";
@@ -24,6 +25,7 @@
 
   let {
     revisions,
+    members = [],
     devices = [],
     selectedId = null,
     graphLabel = "Revision graph",
@@ -32,6 +34,7 @@
     selectedFiles,
   }: {
     revisions: RepositoryLogRevision[];
+    members?: readonly CommunityMemberModel[];
     devices?: RepositoryLogDevice[] | undefined;
     selectedId?: string | null | undefined;
     graphLabel?: string | undefined;
@@ -138,7 +141,7 @@
             fill={laneColor(row, row.commitLane)}
           />
         </svg>
-        <CommunityProjectsRevisionGraphCopy {row} />
+        <CommunityProjectsRevisionGraphCopy {row} {members} />
       </div>
       <CommunityProjectsRevisionGraphIds
         changeId={row.changeIdEncoded}

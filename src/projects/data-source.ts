@@ -47,7 +47,7 @@ import {
   encodePath,
 } from "./data-source-helpers.js";
 import { loadProjectForgeRefs } from "./repository-refs.js";
-import { buzzWorkItemFilters } from "./work-item-filters.js";
+import { repositoryWorkItemBundles } from "./repository-context-pages.js";
 import { collaborationAuthorityFromGroupState } from "./authority.js";
 import {
   materializeProjectForgeCatalog,
@@ -299,14 +299,10 @@ class Nip34ProjectForgeSession implements ProjectForgeSession {
     signal?: AbortSignal,
   ): Promise<ProjectForgeWorkItems> {
     this.#assertOpen(signal);
-    const identifier = repository.tags.find((tag) => tag[0] === "d")?.[1];
-    if (repository.kind !== PROJECT_FORGE_KINDS.repository || !identifier) {
-      throw new Error("Work items require a kind 30617 repository event");
-    }
-    const coordinate = `${repository.kind}:${repository.pubkey}:${identifier}`;
-    const filters = buzzWorkItemFilters(coordinate);
-    const bundles = await Promise.all(
-      filters.map((filter) => this.#relay.query(filter, signal)),
+    const bundles = await repositoryWorkItemBundles(
+      this.#relay,
+      repository,
+      signal,
     );
     const roots = bundles[0] ?? [];
     const rootIds = roots.map((event) => event.id);

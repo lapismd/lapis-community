@@ -1,4 +1,6 @@
 <script lang="ts">
+  import CommunityCommitSummary from "../community-commit-summary/CommunityCommitSummary.svelte";
+  import { withRepositoryContextActivity } from "../../projects/repository-context-activity.js";
   import CommunityProjectChannelIcon from "../community-project-channel-icon/CommunityProjectChannelIcon.svelte";
   import { toast } from "svelte-sonner";
   import CommunitySkeleton from "../community-skeleton/CommunitySkeleton.svelte";
@@ -105,6 +107,8 @@
   import CommunityProjectsGitAuthorAvatar from "./CommunityProjectsGitAuthorAvatar.svelte";
   import CommunityProjectsRepositoryOverview from "../community-projects-settings/CommunityProjectsRepositoryOverview.svelte";
   import CommunityProjectsRepositoryPane from "./CommunityProjectsRepositoryPane.svelte";
+  import CommunityCommitAgentContext from "../community-commit-agent-context/CommunityCommitAgentContext.svelte";
+  import { commitDiffFiles as buildCommitDiffFiles } from "../../projects/commit-diff-files.js";
   import CommunityProjectsRepositoryLog from "./CommunityProjectsRepositoryLog.svelte";
   import CommunityRelativeTime from "../community-relative-time/CommunityRelativeTime.svelte";
   import type {
@@ -120,7 +124,7 @@
     CommunityProjectsProps,
     CommunityProjectsUpdateProject,
   } from "./model.js";
-  import { commitAuthorMember, commitDate } from "./commit-author.js";
+  import { commitAuthorMember } from "./commit-author.js";
   import {
     isMarkdownRepositoryPath,
     repositoryBreadcrumbSegments,
@@ -188,7 +192,8 @@
     onBack,
     onSelectProject,
     onSelectRepository,
-    onSelectChannel, onOpenPeople,
+    onSelectChannel,
+    onOpenPeople,
     onOpenProfile,
     onMessageMember,
     onWaveMember,
@@ -531,28 +536,7 @@
   const selectedCommitValue = $derived(
     selectedCommitDetail?.commit ?? selectedCommit,
   );
-  const commitDiffFiles = $derived.by(() => {
-    const parsed = selectedCommitDetail?.patch
-      ? splitProjectForgePatch(selectedCommitDetail.patch)
-      : [];
-    const byPath = new Map(parsed.map((file) => [file.path, file]));
-    const stats = selectedCommitDetail?.stats ?? [];
-    if (stats.length === 0) return parsed;
-    const fromStats = stats.map((stat) => {
-      const file = byPath.get(stat.path);
-      byPath.delete(stat.path);
-      return {
-        path: stat.path,
-        ...(stat.old_path ? { old_path: stat.old_path } : {}),
-        status: file?.status ?? "modified",
-        additions: stat.additions,
-        deletions: stat.deletions,
-        ...(stat.binary || file?.binary ? { binary: true } : {}),
-        patch: file?.patch ?? "",
-      };
-    });
-    return [...fromStats, ...byPath.values()];
-  });
+  const commitDiffFiles = $derived(buildCommitDiffFiles(selectedCommitDetail));
   const visibleCommitDiffFiles = $derived(
     commitFileFilter.trim()
       ? commitDiffFiles.filter((file) =>
@@ -731,10 +715,17 @@
   const groupByRepository = $derived(
     Boolean(selectedProject && !selectedRepository),
   );
+  const contextActivity = $derived(
+    withRepositoryContextActivity(activity, workItemEvents),
+  );
   const visibleActivity = $derived(
     selectedProject && !selectedRepository
-      ? projectVisibleActivity(activity, selectedProject, repositories)
-      : repositoryVisibleActivity(activity, repositories, selectedRepository),
+      ? projectVisibleActivity(contextActivity, selectedProject, repositories)
+      : repositoryVisibleActivity(
+          contextActivity,
+          repositories,
+          selectedRepository,
+        ),
   );
   const taskRepositorySections = $derived(
     groupItemsByProjectRepository(
@@ -2659,10 +2650,19 @@
           canSelectProject={onSelectProject !== undefined}
           {projectName}
           onOpenProject={openActivityProject}
-          onOpenItem={openActivityItem} filterPage={selectedRepository ? "repositories" : selectedProject ? "project" : "projects"}
+          onOpenItem={openActivityItem}
+          filterPage={selectedRepository
+            ? "repositories"
+            : selectedProject
+              ? "project"
+              : "projects"}
         />
       {:else if view === "log"}<CommunityProjectsRepositoryLog
           events={workItemEvents}
+          {members}
+          {...selectedRepository
+            ? { repositoryAddress: selectedRepository.address.coordinate }
+            : {}}
           {loading}
           {onLoadRepositoryCommit}
         />
@@ -2765,7 +2765,8 @@
           {/if}
         {/if}
       {:else if view === "overview" || view === "options"}
-        <CommunityProjectsRepositoryOverview surface={view === "options" ? "options" : "overview"}
+        <CommunityProjectsRepositoryOverview
+          surface={view === "options" ? "options" : "overview"}
           {tree}
           {loading}
           {canCollaborate}
@@ -2782,7 +2783,8 @@
           canMaintain={canMaintainSelectedRepository}
           {onOpenPeople}
           onSaveProtection={selectedRepository && onSaveProtection
-            ? (input) => onSaveProtection(selectedRepository.address.coordinate, input)
+            ? (input) =>
+                onSaveProtection(selectedRepository.address.coordinate, input)
             : undefined}
         >
           {#snippet sourceErrorSnippet()}
@@ -3128,7 +3130,10 @@
               empty="No tasks in this project."
             >
               {#snippet children(repository)}
-                <div class="community-projects__task-list" data-layout={listLayout}>
+                <div
+                  class="community-projects__task-list"
+                  data-layout={listLayout}
+                >
                   {#each scopedTasks.filter((task) => task.repository.coordinate === repository.address.coordinate) as task (task.root.id)}
                     {@render taskListRow(task)}
                   {/each}
@@ -3257,172 +3262,118 @@
             {/snippet}
           </CommunityProjectsRepositorySections>
         {:else}
-        <CommunityProjectsPullRequestReview
-          pullRequest={selectedPullRequest}
-          {pullRequests}
-          {listLayout}
-          bind:groupOpen={reviewGroupOpen}
-          {onSelectPullRequest}
-          projectFilter={pullRequestBelongsToSelectedProject}
-          showHeader={showReviewHeader}
-          onClose={onClosePullRequest}
-          bind:descriptionOpen={reviewDescriptionOpen}
-          bind:filesOpen={reviewFilesOpen}
-          bind:commitsOpen={reviewCommitsOpen}
-          bind:checksOpen={reviewChecksOpen}
-          bind:activityOpen={reviewActivityOpen}
-          bind:fileListOpen={reviewFileListOpen}
-          bind:fileFilter={reviewFileFilter}
-          bind:fileListMode={diffFileListMode}
-          bind:selectedPath={selectedReviewFilePath}
-          bind:collapsedPaths={collapsedReviewFilePaths}
-          bind:viewedPaths={viewedReviewFilePaths}
-          bind:viewMode={reviewDiffViewMode}
-          bind:scrollTarget={reviewFileScrollTarget}
-          bind:inlineContent={inlineCommentContent}
-          bind:comment={pullRequestComment}
-          {loading}
-          diff={pullRequestDiff}
-          diffError={pullRequestDiffError}
-          visibleFiles={visibleProjectDiffFiles}
-          viewedCount={viewedReviewFileCount}
-          {busy}
-          {canCollaborate}
-          canMerge={selectedPullRequest
-            ? canMergePullRequest(selectedPullRequest)
-            : false}
-          mergeError={pullRequestMergeError}
-          mergeStatus={pullRequestMergeStatus}
-          canSubmit={canReviewPullRequest({
-            canCollaborate,
-            canMaintain: canMaintainSelectedRepository,
-            lifecycle: selectedPullRequest?.lifecycle ?? "open",
-          }) &&
-            Boolean(
-              onSubmitPullRequestReview ||
-                onAddPullRequestComment ||
-                onApprovePullRequest ||
-                onRequestChanges,
-            )}
-          canComment={onAddPullRequestComment !== undefined}
-          canUpdateLifecycle={onUpdatePullRequestLifecycle !== undefined}
-          {owners}
-          {members}
-          {rooms}
-          {communityEmojis}
-          {currentMemberId}
-          homeChannelId={projectHomeChannel?.channelId}
-          homeChannelName={projectHomeChannel
-            ? channelName(projectHomeChannel)
-            : undefined}
-          {memberForPubkey}
-          {commentMessage}
-          canReact={canReactToPullRequestComment}
-          reactionOptions={pullRequestReactionOptions}
-          inlineComments={inlineReviewComments}
-          showComposer={inlineComposerMatches}
-          {onOpenProfile}
-          {onMessageMember}
-          {onWaveMember}
-          onCopyCommit={(hash) => void copyCommitHash(hash)}
-          {onSelectCommit}
-          commitSummary={reviewCommitSummary}
-          {onSelectChannel}
-          onSelectPath={selectReviewFile}
-          onToggleFile={toggleReviewFile}
-          onViewedChange={setReviewFileViewed}
-          onViewModeChange={setReviewDiffViewMode}
-          onAddLineComment={addLineComment}
-          onToggleReaction={toggleSelectedPullRequestCommentReaction}
-          onCancelComposer={() => (inlineCommentAnchor = undefined)}
-          onSubmitComposer={(content) => void submitInlineComment(content)}
-          onMerge={mergeOpenPullRequest}
-          onSubmitReview={openReviewSubmission}
-          onRequestReview={(reviewer) => {
-            if (selectedPullRequest)
-              void onRequestPullRequestReview?.(selectedPullRequest, reviewer);
-          }}
-          onUpdateLifecycle={updateSelectedPullRequestLifecycle}
-          onSubmitComment={(content) => void submitPullRequestComment(content)}
-        >
-          {#snippet listHeader()}
-            {@render surfaceHeader(
-              "Reviews",
-              "Buzz-compatible NIP-34 pull requests and trusted review decisions.",
-            )}
-          {/snippet}
-        </CommunityProjectsPullRequestReview>
+          <CommunityProjectsPullRequestReview
+            pullRequest={selectedPullRequest}
+            {pullRequests}
+            {listLayout}
+            bind:groupOpen={reviewGroupOpen}
+            {onSelectPullRequest}
+            projectFilter={pullRequestBelongsToSelectedProject}
+            showHeader={showReviewHeader}
+            onClose={onClosePullRequest}
+            bind:descriptionOpen={reviewDescriptionOpen}
+            bind:filesOpen={reviewFilesOpen}
+            bind:commitsOpen={reviewCommitsOpen}
+            bind:checksOpen={reviewChecksOpen}
+            bind:activityOpen={reviewActivityOpen}
+            bind:fileListOpen={reviewFileListOpen}
+            bind:fileFilter={reviewFileFilter}
+            bind:fileListMode={diffFileListMode}
+            bind:selectedPath={selectedReviewFilePath}
+            bind:collapsedPaths={collapsedReviewFilePaths}
+            bind:viewedPaths={viewedReviewFilePaths}
+            bind:viewMode={reviewDiffViewMode}
+            bind:scrollTarget={reviewFileScrollTarget}
+            bind:inlineContent={inlineCommentContent}
+            bind:comment={pullRequestComment}
+            {loading}
+            diff={pullRequestDiff}
+            diffError={pullRequestDiffError}
+            visibleFiles={visibleProjectDiffFiles}
+            viewedCount={viewedReviewFileCount}
+            {busy}
+            {canCollaborate}
+            canMerge={selectedPullRequest
+              ? canMergePullRequest(selectedPullRequest)
+              : false}
+            mergeError={pullRequestMergeError}
+            mergeStatus={pullRequestMergeStatus}
+            canSubmit={canReviewPullRequest({
+              canCollaborate,
+              canMaintain: canMaintainSelectedRepository,
+              lifecycle: selectedPullRequest?.lifecycle ?? "open",
+            }) &&
+              Boolean(
+                onSubmitPullRequestReview ||
+                  onAddPullRequestComment ||
+                  onApprovePullRequest ||
+                  onRequestChanges,
+              )}
+            canComment={onAddPullRequestComment !== undefined}
+            canUpdateLifecycle={onUpdatePullRequestLifecycle !== undefined}
+            {owners}
+            {members}
+            {rooms}
+            {communityEmojis}
+            {currentMemberId}
+            homeChannelId={projectHomeChannel?.channelId}
+            homeChannelName={projectHomeChannel
+              ? channelName(projectHomeChannel)
+              : undefined}
+            {memberForPubkey}
+            {commentMessage}
+            canReact={canReactToPullRequestComment}
+            reactionOptions={pullRequestReactionOptions}
+            inlineComments={inlineReviewComments}
+            showComposer={inlineComposerMatches}
+            {onOpenProfile}
+            {onMessageMember}
+            {onWaveMember}
+            onCopyCommit={(hash) => void copyCommitHash(hash)}
+            {onSelectCommit}
+            commitSummary={reviewCommitSummary}
+            {onSelectChannel}
+            onSelectPath={selectReviewFile}
+            onToggleFile={toggleReviewFile}
+            onViewedChange={setReviewFileViewed}
+            onViewModeChange={setReviewDiffViewMode}
+            onAddLineComment={addLineComment}
+            onToggleReaction={toggleSelectedPullRequestCommentReaction}
+            onCancelComposer={() => (inlineCommentAnchor = undefined)}
+            onSubmitComposer={(content) => void submitInlineComment(content)}
+            onMerge={mergeOpenPullRequest}
+            onSubmitReview={openReviewSubmission}
+            onRequestReview={(reviewer) => {
+              if (selectedPullRequest)
+                void onRequestPullRequestReview?.(
+                  selectedPullRequest,
+                  reviewer,
+                );
+            }}
+            onUpdateLifecycle={updateSelectedPullRequestLifecycle}
+            onSubmitComment={(content) =>
+              void submitPullRequestComment(content)}
+          >
+            {#snippet listHeader()}
+              {@render surfaceHeader(
+                "Reviews",
+                "Buzz-compatible NIP-34 pull requests and trusted review decisions.",
+              )}
+            {/snippet}
+          </CommunityProjectsPullRequestReview>
         {/if}
       {:else if view === "commits"}
         {#if selectedCommitValue}
           {@const commitAuthor = commitAuthorMember(selectedCommitValue)}
           <article class="community-projects__commit-detail">
-            <header class="community-projects__commit-detail-header">
-              {#if onCloseCommit}
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon-sm"
-                  class="community-projects__commit-back"
-                  aria-label="Back to commits"
-                  title="Back to commits"
-                  onclick={onCloseCommit}
-                >
-                  <ArrowLeftIcon aria-hidden="true" />
-                </Button>
-              {/if}
-              <div>
-                <h1>{selectedCommitValue.subject}</h1>
-                <p>
-                  Committed {commitDate(
-                    selectedCommitValue.commit_date ??
-                      selectedCommitValue.author_date,
-                  )}
-                </p>
-              </div>
-            </header>
-
-            <dl class="community-projects__commit-meta">
-              <div>
-                <dt><GitCommitHorizontalIcon aria-hidden="true" />Commit</dt>
-                <dd>
-                  <code>{selectedCommitValue.sha.slice(0, 7)}</code>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon-sm"
-                    class="community-projects__copy-control"
-                    aria-label={`Copy commit ${selectedCommitValue.sha.slice(0, 7)}`}
-                    title="Copy commit hash"
-                    onclick={() => void copyCommitHash(selectedCommitValue.sha)}
-                  >
-                    <CopyIcon aria-hidden="true" />
-                  </Button>
-                </dd>
-              </div>
-              <div>
-                <dt><UserIcon aria-hidden="true" />Author</dt>
-                <dd>{commitAuthor.name}</dd>
-              </div>
-              <div>
-                <dt><HistoryIcon aria-hidden="true" />Date</dt>
-                <dd>
-                  {commitDate(
-                    selectedCommitValue.commit_date ??
-                      selectedCommitValue.author_date,
-                  )}
-                </dd>
-              </div>
-              <div>
-                <dt><CodeXmlIcon aria-hidden="true" />Changes</dt>
-                <dd>
-                  <FileChangeStats
-                    additions={commitAdditions}
-                    deletions={commitDeletions}
-                  />
-                </dd>
-              </div>
-            </dl>
+            <CommunityCommitSummary
+              commit={selectedCommitValue}
+              authorName={commitAuthor.name}
+              additions={commitAdditions}
+              deletions={commitDeletions}
+              onClose={onCloseCommit}
+              onCopy={(sha) => void copyCommitHash(sha)}
+            />
 
             {#if selectedCommitValue.body}
               <CommunityMarkdownContent
@@ -3432,6 +3383,15 @@
                 {communityEmojis}
               />
             {/if}
+
+            <CommunityCommitAgentContext
+              events={workItemEvents}
+              commitId={selectedCommitValue.sha}
+              {members}
+              {...selectedRepository
+                ? { repositoryAddress: selectedRepository.address.coordinate }
+                : {}}
+            />
 
             <Collapsible.Root
               class="community-projects__commit-files"
@@ -3615,6 +3575,7 @@
               {@render projectSourceError(effectiveSourceError)}
             {:else}
               <CommunityProjectsCommitList
+                {members}
                 {commits}
                 {commitActivity}
                 {commitBranch}

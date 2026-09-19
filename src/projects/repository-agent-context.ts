@@ -1,4 +1,6 @@
 import type { NostrEvent } from "../protocol/index.js";
+import { assembleRepositoryContextV2 } from "./repository-agent-context-v2.js";
+import { repositoryLiveContexts } from "./repository-live-context.js";
 
 import {
   KIND_JJ_AGENT_CONTEXT_PAGE,
@@ -28,6 +30,9 @@ export type RepositoryAgentCheckpoint = {
   operationId: string;
   commitIds: string[];
   authorPubkey: string;
+  actorName?: string;
+  availability?: "complete" | "missing";
+  live?: boolean;
   createdAt: number;
   complete: boolean;
   outcome: "completed" | "failed" | "cancelled";
@@ -49,7 +54,7 @@ export function buildRepositoryAgentContexts(
   events: readonly NostrEvent[],
 ): RepositoryAgentCheckpoint[] {
   const byId = new Map(events.map((event) => [event.id, event]));
-  return events
+  const completed = events
     .filter((event) => event.kind === KIND_JJ_CHECKPOINT_MANIFEST)
     .flatMap((manifest) => {
       const checkpoint = assembleCheckpoint(manifest, byId, events);
@@ -60,6 +65,7 @@ export function buildRepositoryAgentContexts(
         right.createdAt - left.createdAt ||
         left.eventId.localeCompare(right.eventId),
     );
+  return [...repositoryLiveContexts(events, completed), ...completed];
 }
 
 export function repositoryAgentContextsForSelection(
@@ -81,6 +87,7 @@ function assembleCheckpoint(
   events: readonly NostrEvent[],
 ): RepositoryAgentCheckpoint | undefined {
   const body = parseJsonRecord(event.content);
+  if (body.version === 2) return assembleRepositoryContextV2(event, body, byId);
   if (
     body.schema !== "jj-sync/checkpoint-manifest" ||
     body.version !== 1 ||

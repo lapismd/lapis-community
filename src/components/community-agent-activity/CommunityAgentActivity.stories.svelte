@@ -3,6 +3,10 @@
   import { expect, userEvent, waitFor, within } from "storybook/test";
   import CommunityAgentActivity from "./CommunityAgentActivity.svelte";
   import Harness from "../community-agents/CommunityAgentsStoryHarness.svelte";
+  import {
+    storyAgentState,
+    storyAgentPubkey,
+  } from "../community-agents/story-fixtures.js";
   const { Story } = defineMeta({
     title: "Community/Agents/Activity",
     component: CommunityAgentActivity,
@@ -21,6 +25,45 @@
     },
   });
 </script>
+
+<Story
+  name="Starting before transcript"
+  play={async ({ canvas }) => {
+    await expect(canvas.getByText("Agent status: Starting")).toBeVisible();
+    await expect(
+      canvas.queryByText("Waiting for transcript activity from this agent."),
+    ).not.toBeInTheDocument();
+  }}
+>
+  {#snippet template()}
+    <CommunityAgentActivity
+      model={storyAgentState({
+        activityAgent: storyAgentPubkey,
+        activity: [
+          {
+            id: "starting",
+            agentPubkey: storyAgentPubkey,
+            createdAt: 1700000000,
+            frame: {
+              version: 2,
+              seq: 1,
+              kind: "request_status",
+              timestamp: "2023-11-14T22:13:20.000Z",
+              payload: {
+                lifecycleRequestId: "request",
+                state: "starting",
+                preview: "Starting",
+              },
+            },
+          },
+        ],
+      })}
+      onLatest={() => {}}
+      onLoadOlder={() => {}}
+      onClearHistory={async () => {}}
+    />
+  {/snippet}
+</Story>
 
 <Story
   name="Timeline"

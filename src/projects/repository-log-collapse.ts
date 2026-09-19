@@ -262,9 +262,11 @@ function preferredRevision(
   const leftPreferred = preferIds.has(left.eventId);
   const rightPreferred = preferIds.has(right.eventId);
   if (leftPreferred !== rightPreferred) return leftPreferred;
+  const leftTime = left.committedAtMs ?? left.createdAt * 1_000;
+  const rightTime = right.committedAtMs ?? right.createdAt * 1_000;
   return (
-    left.createdAt > right.createdAt ||
-    (left.createdAt === right.createdAt && left.eventId > right.eventId)
+    leftTime > rightTime ||
+    (leftTime === rightTime && left.eventId > right.eventId)
   );
 }
 

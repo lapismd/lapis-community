@@ -39,6 +39,7 @@
   import CommunityProjectsActivityFilter from "./CommunityProjectsActivityFilter.svelte";
   import CommunityProjectsMemberHover from "./CommunityProjectsMemberHover.svelte";
   import CommunityProjectsRevisionGraphIds from "./CommunityProjectsRevisionGraphIds.svelte";
+  import CommunityProjectsRepositoryAgentContext from "./CommunityProjectsRepositoryAgentContext.svelte";
   import { communityProjectsMemberForPubkey } from "./projects-member.js";
 
   let {
@@ -78,7 +79,8 @@
   } = $props();
 
   const activityFilterStore = $derived(
-    filterStore ?? createBrowserProjectActivityFilterStore({ page: filterPage }),
+    filterStore ??
+      createBrowserProjectActivityFilterStore({ page: filterPage }),
   );
   let pageFilters = $state<
     Partial<Record<ProjectActivityFilterPage, ProjectActivityFilterId[]>>
@@ -89,9 +91,6 @@
   const visibleActivity = $derived(
     filterProjectActivity(activity, activityFilter),
   );
-  const weekActivity = $derived(projectActivityWeekItems(visibleActivity));
-  const weekActivityCount = $derived(weekActivity.length);
-  const weekActivityDigest = $derived(projectActivityDigest(visibleActivity));
 
   function selectActivityFilter(value: ProjectActivityFilterId[]): void {
     pageFilters[filterPage] = value;
@@ -105,7 +104,7 @@
   <header class="community-projects__page-heading">
     <div class="community-projects__page-heading-copy">
       <h1>Projects Activity</h1>
-      <p>{weekActivityDigest}</p>
+      <p>{projectActivityDigest(visibleActivity)}</p>
     </div>
     <CommunityProjectsActivityFilter
       value={activityFilter}
@@ -113,7 +112,11 @@
     />
   </header>
   <div class="community-projects__section-divider">
-    <span>{loading || weekActivityCount > 0 ? "This week" : "Earlier"}</span>
+    <span
+      >{loading || projectActivityWeekItems(visibleActivity).length > 0
+        ? "This week"
+        : "Earlier"}</span
+    >
   </div>
   <div class="community-projects__activity">
     {#if loading && activity.length === 0}
@@ -273,7 +276,15 @@
                 />
               {/if}
             {/snippet}
-            {#if copyable.title}
+            {#if item.agentContext}
+              <CommunityProjectsRepositoryAgentContext
+                checkpoints={item.agentContext}
+                {members}
+                {...item.repositoryCoordinate
+                  ? { repositoryAddress: item.repositoryCoordinate }
+                  : {}}
+              />
+            {:else if copyable.title}
               <div class="community-projects__activity-card">
                 {@render card()}
               </div>

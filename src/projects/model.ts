@@ -436,6 +436,7 @@ export type ProjectForgeActivityKind =
   | "commit";
 
 export interface ProjectForgeActivityItem {
+  agentContext?: readonly import("./repository-agent-context.js").RepositoryAgentCheckpoint[];
   id: string;
   kind: ProjectForgeActivityKind;
   createdAt: number;

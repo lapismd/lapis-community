@@ -3,6 +3,20 @@ import { describe, expect, it } from "vitest";
 import { projectRouteFromHash, projectRouteToHash } from "./navigation.js";
 
 describe("project route hashes", () => {
+  it("restores an exact repository commit through direct navigation", () => {
+    const route = {
+      kind: "repository" as const,
+      coordinate: "30617:owner:probe",
+      surface: "commits" as const,
+      commitSha: "a".repeat(40),
+    };
+    expect(projectRouteFromHash(projectRouteToHash(route))).toEqual(route);
+    expect(
+      projectRouteFromHash(
+        projectRouteToHash(route).replace("/commits/", "/log/"),
+      ),
+    ).toBeNull();
+  });
   it("omits the project activity surface and remaps legacy hashes", () => {
     expect(
       projectRouteToHash({
@@ -12,7 +26,9 @@ describe("project route hashes", () => {
       }),
     ).toBe("#/projects/project/30621:owner:road%20map");
     expect(
-      projectRouteFromHash("#/projects/project/30621:owner:road%20map/overview"),
+      projectRouteFromHash(
+        "#/projects/project/30621:owner:road%20map/overview",
+      ),
     ).toEqual({
       kind: "project",
       coordinate: "30621:owner:road map",

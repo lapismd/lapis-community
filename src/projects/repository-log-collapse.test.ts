@@ -69,6 +69,35 @@ function view(
 }
 
 describe("repository log change collapse", () => {
+  it("keeps a completed checkpoint over its unnamed snapshot with the same author time", () => {
+    const change = "c".repeat(32);
+    const snapshot = "f".repeat(40);
+    const completed = "1".repeat(40);
+    const working = "e".repeat(40);
+    const graph = buildRepositoryLog([
+      revision("1", 10, parent, [], "root"),
+      revision("2", 11, snapshot, [parent], "", {
+        change_id_hex: change,
+        committer: { timestamp_ms: 11_000 },
+      }),
+      revision("3", 11, completed, [parent], "docs: completed README", {
+        change_id_hex: change,
+        committer: { timestamp_ms: 11_500 },
+      }),
+      revision("4", 12, working, [completed], "", {
+        facts: { is_empty: true },
+      }),
+      view("5", 13, [working]),
+    ]);
+    expect(graph.revisions.map((item) => item.eventId)).toEqual([
+      working,
+      completed,
+      parent,
+    ]);
+    expect(graph.revisions[1]?.createdAt).toBe(11);
+    expect(graph.revisions[0]?.parents).toEqual([completed]);
+  });
+
   it("keeps one row per change_id when a merge is republished", () => {
     const change = "c".repeat(32);
     const older = "9".repeat(40);

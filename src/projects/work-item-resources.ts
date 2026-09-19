@@ -5,6 +5,10 @@ import {
   type ProjectForgeSession,
 } from "./data-source.js";
 import type { ProjectForgeWorkItems } from "./model.js";
+import {
+  REPOSITORY_LIVE_CONTEXT_KIND,
+  retainLiveContext,
+} from "./repository-live-context.js";
 
 interface Resource {
   repository: NostrEvent;
@@ -15,6 +19,8 @@ interface Resource {
   dirty: boolean;
   failed: boolean;
   observed: Set<string>;
+  live: NostrEvent[];
+  expiry?: ReturnType<typeof setTimeout> | undefined;
 }
 
 interface ProjectWorkItemResources {
@@ -40,6 +46,9 @@ export function createProjectWorkItemResources(
   let disposed = false;
 
   function close(resource: Resource) {
+    clearTimeout(resource.expiry);
+    resource.live = [];
+    if (resource.value) resource.value = withoutLive(resource.value);
     resource.controller.abort();
     for (const subscription of resource.subscriptions.values())
       subscription.stop();
@@ -48,6 +57,38 @@ export function createProjectWorkItemResources(
 
   function notify(resource: Resource, error?: unknown) {
     if (!disposed) for (const listener of listeners) listener(resource, error);
+  }
+
+  function withoutLive(value: ProjectForgeWorkItems): ProjectForgeWorkItems {
+    return {
+      ...value,
+      events: value.events.filter(
+        (item) => item.kind !== REPOSITORY_LIVE_CONTEXT_KIND,
+      ),
+    };
+  }
+
+  function updateLive(resource: Resource) {
+    clearTimeout(resource.expiry);
+    resource.live = resource.live.filter(
+      (event) => event.created_at * 1000 + 300_000 > Date.now(),
+    );
+    if (resource.value)
+      resource.value = {
+        ...resource.value,
+        events: [...withoutLive(resource.value).events, ...resource.live],
+      };
+    if (resource.live.length)
+      resource.expiry = setTimeout(
+        () => updateLive(resource),
+        Math.max(
+          1,
+          Math.min(
+            ...resource.live.map((event) => event.created_at * 1000 + 300_000),
+          ) - Date.now(),
+        ),
+      );
+    notify(resource);
   }
 
   async function subscribe(
@@ -63,6 +104,14 @@ export function createProjectWorkItemResources(
       filters,
       (event) => {
         if (!active || resource.controller.signal.aborted) return;
+        if (
+          event.type === "event" &&
+          event.event?.kind === REPOSITORY_LIVE_CONTEXT_KIND
+        ) {
+          resource.live = retainLiveContext(resource.live, event.event);
+          updateLive(resource);
+          return;
+        }
         if (event.type === "close") {
           resource.failed = true;
           close(resource);
@@ -120,7 +169,10 @@ export function createProjectWorkItemResources(
         await subscribe(
           resource,
           "repository",
-          buzzWorkItemFilters(coordinate).map((filter) => ({
+          [
+            ...buzzWorkItemFilters(coordinate),
+            { kinds: [REPOSITORY_LIVE_CONTEXT_KIND], "#a": [coordinate] },
+          ].map((filter) => ({
             ...filter,
             limit: 0,
           })),
@@ -169,9 +221,14 @@ export function createProjectWorkItemResources(
           }
           for (const event of value.events) resource.observed.add(event.id);
         } while (resource.dirty);
-        resource.value = value;
+        resource.value = resource.live.length
+          ? {
+              ...value,
+              events: [...value.events, ...resource.live],
+            }
+          : value;
         notify(resource);
-        return value;
+        return resource.value;
       } catch (error) {
         resource.failed = true;
         close(resource);
@@ -196,6 +253,7 @@ export function createProjectWorkItemResources(
           dirty: true,
           failed: false,
           observed: new Set(),
+          live: [],
         };
         resources.set(repository.id, resource);
       }

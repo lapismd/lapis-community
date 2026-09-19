@@ -1,4 +1,5 @@
 import type { NostrEvent } from "../protocol/index.js";
+import { npubEncode } from "nostr-tools/nip19";
 
 import {
   formatRepositoryLogMessage,
@@ -61,7 +62,10 @@ export function buildRepositoryOperationLog(
       reason: parents.length > 1 ? "merge" : "checkpoint",
       createdAt: endedAt ? Math.floor(endedAt / 1_000) : event.created_at,
       root: operationId,
-      author: "",
+      author: event.pubkey.slice(0, 12),
+      ...(/^[a-f0-9]{64}$/u.test(event.pubkey)
+        ? { authorEmail: `${npubEncode(event.pubkey)}@nostr.invalid` }
+        : {}),
       empty: !commitId,
     });
     if (endedAt >= tipScore) {

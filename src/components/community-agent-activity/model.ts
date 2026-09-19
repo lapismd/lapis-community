@@ -31,6 +31,52 @@ export type CommunityAgentTranscriptTimeline =
       item: Extract<CommunityAgentTranscriptEntry, { type: "turn" }>;
     };
 
+/** Keep cold-start progress visible before the runtime emits transcript output. */
+export function pendingTranscriptStatuses(
+  activity: readonly CommunityAgentActivityItem[],
+  agentPubkey: string,
+  context?: CommunityAgentActivityContext,
+): { id: string; text: string }[] {
+  const pending = new Map<string, string>();
+  const hasOutput = new Set<string>();
+  for (const item of activity.toSorted(
+    (a, b) => a.createdAt - b.createdAt || a.frame.seq - b.frame.seq,
+  )) {
+    if (
+      item.agentPubkey !== agentPubkey ||
+      item.frame.version !== 2 ||
+      !activityMatches(context, { agentPubkey, ...observerScope(item.frame) })
+    )
+      continue;
+    const payload = record(item.frame.payload);
+    const id =
+      payload.lifecycleRequestId ?? payload.requestId ?? item.frame.turnId;
+    if (typeof id !== "string") continue;
+    const entry = record(payload.entry);
+    if (
+      entry.type === "tool" ||
+      entry.type === "thinking" ||
+      (entry.type === "message" && entry.role === "assistant") ||
+      ["completed", "failed", "cancelled", "interrupted"].includes(
+        String(payload.state),
+      ) ||
+      ["turn_completed", "turn_failed", "turn_cancelled"].includes(
+        item.frame.kind,
+      )
+    ) {
+      hasOutput.add(id);
+      pending.delete(id);
+    } else if (
+      item.frame.kind === "request_status" &&
+      typeof payload.preview === "string" &&
+      !hasOutput.has(id)
+    ) {
+      pending.set(id, payload.preview);
+    }
+  }
+  return [...pending].map(([id, text]) => ({ id, text }));
+}
+
 export function agentTranscriptTimeline(
   activity: readonly CommunityAgentActivityItem[],
   agentPubkey: string | undefined,

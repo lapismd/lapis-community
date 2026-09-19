@@ -63,6 +63,54 @@ function setup() {
 }
 
 describe("session-owned project work items", () => {
+  it("expires transient context without a later event and clears its timer on dispose", async () => {
+    vi.useFakeTimers();
+    const t = setup(),
+      a = repository("a");
+    try {
+      vi.setSystemTime(100_000);
+      await t.resources.load(a);
+      const event = {
+        ...a,
+        id: "live",
+        kind: 23908,
+        created_at: 100,
+        tags: [
+          ["a", `30617:${a.pubkey}:a`],
+          ["h", "room"],
+          ["r", "scope"],
+          ["d", "span"],
+        ],
+        content: JSON.stringify({
+          schema: "jj-sync/agent-context-live",
+          version: 2,
+          scope_id: "scope",
+          span_id: "span",
+          sequence: 1,
+          state: "running",
+          records: [
+            {
+              id: "text",
+              sequence: 0,
+              created_at_ms: 100_000,
+              kind: "assistant_message",
+              text: "Working",
+            },
+          ],
+        }),
+      };
+      t.listeners[0]!({ type: "event", event });
+      expect(t.resources.peek(a)?.events).toEqual([event]);
+      expect(t.loadWorkItems).toHaveBeenCalledOnce();
+      await vi.advanceTimersByTimeAsync(300_001);
+      expect(t.resources.peek(a)?.events).toEqual([]);
+      t.resources.dispose();
+      expect(vi.getTimerCount()).toBe(0);
+    } finally {
+      t.resources.dispose();
+      vi.useRealTimers();
+    }
+  });
   it("resolves empty results and reuses observations on A-B-A navigation", async () => {
     const t = setup(),
       a = repository("a"),

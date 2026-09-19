@@ -2,7 +2,10 @@
   import * as Tooltip from "@lapismd/design-core/shadcn/tooltip";
 
   import { initials } from "../../community/materialize-shared.js";
-  import { repositoryLogGravatarUrl } from "../../projects/repository-log-author.js";
+  import {
+    repositoryAuthorPubkey,
+    repositoryLogGravatarUrl,
+  } from "../../projects/repository-log-author.js";
   import CommunityMemberAvatar from "../community-member-avatar/CommunityMemberAvatar.svelte";
   import type { CommunityMemberModel } from "../community-workspace/model.js";
 
@@ -10,14 +13,21 @@
     email = "",
     name = "",
     size = "small",
+    members = [],
   }: {
     email?: string | undefined;
     name?: string | undefined;
     size?: "xsmall" | "small";
+    members?: readonly CommunityMemberModel[];
   } = $props();
 
   const trimmedEmail = $derived(email.trim());
-  const member = $derived(gitAuthorMember(name, trimmedEmail));
+  const pubkey = $derived(repositoryAuthorPubkey(trimmedEmail));
+  const member = $derived(
+    members.find((member) => member.id === pubkey) ??
+      gitAuthorMember(name, trimmedEmail),
+  );
+  const label = $derived(pubkey ? member.name : trimmedEmail);
 
   function gitAuthorMember(
     displayName: string,
@@ -26,7 +36,7 @@
     const label = displayName.trim() || authorEmail || "Author";
     const avatarUrl = repositoryLogGravatarUrl(authorEmail);
     return {
-      id: authorEmail || label,
+      id: pubkey ?? (authorEmail || label),
       name: label,
       handle: authorEmail || label,
       initials: initials(label),
@@ -45,14 +55,13 @@
             class="community-projects-git-author-avatar"
             data-ui-part="git-author"
             role="img"
-            aria-label={trimmedEmail}
+            aria-label={label}
           >
             <CommunityMemberAvatar {member} {size} decorative />
           </span>
         {/snippet}
       </Tooltip.Trigger>
-      <Tooltip.Content side="top" sideOffset={6}>{trimmedEmail}</Tooltip.Content
-      >
+      <Tooltip.Content side="top" sideOffset={6}>{label}</Tooltip.Content>
     </Tooltip.Root>
   </Tooltip.Provider>
 {:else}

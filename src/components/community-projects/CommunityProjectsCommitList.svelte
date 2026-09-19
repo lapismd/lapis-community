@@ -14,9 +14,11 @@
   import CommunityRelativeTime from "../community-relative-time/CommunityRelativeTime.svelte";
   import CommunityProjectsGitAuthorAvatar from "./CommunityProjectsGitAuthorAvatar.svelte";
   import CommunityProjectsRepositorySections from "./CommunityProjectsRepositorySections.svelte";
+  import type { CommunityMemberModel } from "../community-workspace/model.js";
 
   let {
     commits = [],
+    members = [],
     commitActivity = [],
     commitBranch = "",
     selectedProject,
@@ -26,6 +28,7 @@
     onCopyCommit,
   }: {
     commits?: readonly ProjectForgeCommit[] | undefined;
+    members?: readonly CommunityMemberModel[];
     commitActivity?: readonly ProjectForgeCommitActivity[] | undefined;
     commitBranch?: string | undefined;
     selectedProject?: ProjectForgeProject | undefined;
@@ -72,6 +75,7 @@
     {/if}
     <span class="community-projects__commit-row-author">
       <CommunityProjectsGitAuthorAvatar
+        {members}
         email={commit.author_email}
         name={commit.author ?? commit.author_name}
         size="xsmall"
@@ -84,7 +88,8 @@
       class="community-projects__copy-control"
       aria-label={`Copy commit ${commit.sha.slice(0, 7)}`}
       title="Copy commit hash"
-      onclick={() => onCopyCommit?.(commit.sha)}><CopyIcon aria-hidden="true" /></Button
+      onclick={() => onCopyCommit?.(commit.sha)}
+      ><CopyIcon aria-hidden="true" /></Button
     >
     {#if commit.commit_date ?? commit.author_date}<CommunityRelativeTime
         timestamp={Math.floor(

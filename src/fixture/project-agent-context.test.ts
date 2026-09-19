@@ -28,11 +28,18 @@ describe("local project agent context fixture", () => {
     const fixture = createLocalProjectAgentContextFixture({
       repositoryCoordinate: `30617:${"a".repeat(64)}:lapis-community`,
       channelId: "plugin-development",
+      agentPubkey,
       createdAt: 1_700_000_000,
     });
     const events = fixture.publications.map(event);
-    const page = events[fixture.contextPageIndex]!;
-    events.push(event(fixture.checkpointManifest(page.id), events.length));
+    events.push(
+      event(
+        fixture.checkpointManifest(
+          fixture.contextPageIndices.map((index) => events[index]!.id),
+        ),
+        events.length,
+      ),
+    );
 
     const log = buildRepositoryLog(events);
     const opLog = buildRepositoryOperationLog(events);

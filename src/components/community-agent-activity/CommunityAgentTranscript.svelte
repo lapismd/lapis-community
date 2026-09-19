@@ -16,7 +16,11 @@
     CommunityAgentTranscriptEntry,
   } from "../../community/agent-contracts.js";
   import type { CommunityMemberModel } from "../community-workspace/model.js";
-  import { agentTranscriptTimeline, toolCallStatus } from "./model.js";
+  import {
+    agentTranscriptTimeline,
+    pendingTranscriptStatuses,
+    toolCallStatus,
+  } from "./model.js";
 
   let {
     activity,
@@ -26,7 +30,7 @@
     onOpenRequest,
   }: {
     activity: readonly CommunityAgentActivityItem[];
-    agent: CommunityAgentIdentity;
+    agent: Pick<CommunityAgentIdentity, "pubkey" | "name" | "avatarUrl">;
     context?: CommunityAgentActivityContext;
     members?: readonly CommunityMemberModel[];
     onOpenRequest?: (item: CommunityAgentActivityItem) => void;
@@ -34,6 +38,9 @@
 
   const timeline = $derived(
     agentTranscriptTimeline(activity, agent.pubkey, context),
+  );
+  const pending = $derived(
+    pendingTranscriptStatuses(activity, agent.pubkey, context),
   );
   const latestMessageId = $derived(
     [...timeline].reverse().find((entry) => entry.kind === "message")?.item.id,
@@ -121,7 +128,7 @@
     isStreaming={timeline.some(
       (entry) => entry.kind === "thinking" && entry.item.state === "streaming",
     )}
-    isEmpty={timeline.length === 0}
+    isEmpty={timeline.length === 0 && pending.length === 0}
     {emptyState}
     aria-label="Agent conversation activity"
   >
@@ -203,6 +210,9 @@
       {:else if entry.kind === "turn" && entry.item.state === "cancelled"}
         <Chat.SystemMessage>Agent turn cancelled</Chat.SystemMessage>
       {/if}
+    {/each}
+    {#each pending as status (status.id)}
+      <Chat.SystemMessage>Agent status: {status.text}</Chat.SystemMessage>
     {/each}
   </Chat.MessageList>
 </div>

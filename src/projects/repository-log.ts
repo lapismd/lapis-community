@@ -18,6 +18,7 @@ export type RepositoryLogRevision = {
   message: string;
   reason: RepositoryLogReason;
   createdAt: number;
+  committedAtMs?: number;
   root: string;
   author: string;
   authorEmail?: string;
@@ -135,6 +136,10 @@ function parseRevision(
     reason: parents.length > 1 ? "merge" : "checkpoint",
     root: commitId,
     empty,
+    ...(isRecord(body.committer) &&
+    typeof body.committer.timestamp_ms === "number"
+      ? { committedAtMs: body.committer.timestamp_ms }
+      : {}),
     ...repositoryLogAuthorFields(body, event.created_at),
   };
 }

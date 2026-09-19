@@ -34,14 +34,19 @@
   import CommunityProjectsRepositoryLogDiff from "./CommunityProjectsRepositoryLogDiff.svelte";
   import CommunityProjectsRepositoryLogFiles from "./CommunityProjectsRepositoryLogFiles.svelte";
   import CommunityProjectsRepositoryAgentContext from "./CommunityProjectsRepositoryAgentContext.svelte";
+  import type { CommunityMemberModel } from "../community-workspace/model.js";
 
   let {
     events = [],
     loading = false,
+    members = [],
+    repositoryAddress,
     onLoadRepositoryCommit,
   }: {
     events?: readonly NostrEvent[] | undefined;
     loading?: boolean | undefined;
+    members?: readonly CommunityMemberModel[];
+    repositoryAddress?: string;
     onLoadRepositoryCommit?:
       | ((
           sha: string,
@@ -72,10 +77,14 @@
     repositoryAgentContextsForSelection(agentContexts, pane.pane, selectedId),
   );
   const selectedAgentRecordCount = $derived(
-    selectedAgentContexts.reduce(
-      (total, checkpoint) => total + checkpoint.records.length,
-      0,
-    ),
+    new Set(
+      selectedAgentContexts.flatMap((checkpoint) =>
+        checkpoint.records.map(
+          (record) =>
+            `${checkpoint.authorPubkey}:${checkpoint.spanId}:${record.id}`,
+        ),
+      ),
+    ).size,
   );
   const selectedPath = $derived(canvas.pathAt(1) ?? null);
   let evoSelectedId = $state<string | null>(null);
@@ -198,6 +207,7 @@
           }}
         >
           <CommunityProjectsRevisionGraph
+            {members}
             revisions={pagedGraph.revisions}
             devices={pagedGraph.devices}
             {selectedId}
@@ -232,6 +242,8 @@
           <ColumnCanvas.Body>
             <CommunityProjectsRepositoryAgentContext
               checkpoints={selectedAgentContexts}
+              {members}
+              {...repositoryAddress ? { repositoryAddress } : {}}
             />
           </ColumnCanvas.Body>
         </ColumnCanvas.Column>
@@ -244,6 +256,7 @@
         >
           <ColumnCanvas.Body>
             <CommunityProjectsRevisionGraph
+              {members}
               revisions={evoGraph.revisions}
               selectedId={evoSelectedId}
               graphLabel="Evolution log"

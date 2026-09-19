@@ -8,6 +8,7 @@ import { createLocalProjectAgentContextFixture } from "./project-agent-context.j
 
 export interface LocalProjectForgeFixtureOptions {
   ownerPubkey: string;
+  agentPubkey?: string;
   contributorPubkey: string;
   channelId: string;
   relatedChannelId?: string;
@@ -27,7 +28,10 @@ export interface LocalProjectForgeFixture {
   publications: readonly LocalProjectForgePublication[];
   agentContext: {
     pagePublicationIndex: number;
-    checkpointManifest(pageEventId: string): LocalProjectForgePublication;
+    pagePublicationIndices: number[];
+    checkpointManifest(
+      pageEventIds: string | readonly string[],
+    ): LocalProjectForgePublication;
   };
 }
 
@@ -114,9 +118,13 @@ export function createLocalProjectForgeFixture(
     repositoryCoordinate,
     channelId: options.channelId,
     createdAt: options.createdAt + publications.length,
+    ...(options.agentPubkey ? { agentPubkey: options.agentPubkey } : {}),
   });
   const pagePublicationIndex =
     publications.length + agentContext.contextPageIndex;
+  const pagePublicationIndices = agentContext.contextPageIndices.map(
+    (index) => publications.length + index,
+  );
   publications.push(
     ...agentContext.publications.map((template) => ({
       signer: "agent" as const,
@@ -131,6 +139,7 @@ export function createLocalProjectForgeFixture(
     publications,
     agentContext: {
       pagePublicationIndex,
+      pagePublicationIndices,
       checkpointManifest: (pageEventId) => ({
         signer: "agent",
         template: agentContext.checkpointManifest(pageEventId),

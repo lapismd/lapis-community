@@ -9,6 +9,13 @@ export type RepositoryAgentContextRecord = {
   toolName?: string;
   toolState?: string;
   sourceEventId?: string;
+  authorPubkey?: string;
+  toolId?: string;
+  input?: string;
+  output?: string;
+  error?: string;
+  redacted?: boolean;
+  truncated?: boolean;
 };
 
 export function parseAgentContextRecord(
@@ -19,6 +26,17 @@ export function parseAgentContextRecord(
   const sequence = nonNegativeInteger(value.sequence);
   const createdAt = nonNegativeInteger(value.created_at_ms);
   const sourceEventId = optionalString(value.source_event_id);
+  const authorPubkey = optionalString(value.author_pubkey);
+  if (
+    authorPubkey === null ||
+    (authorPubkey && !/^[a-f0-9]{64}$/u.test(authorPubkey))
+  )
+    return;
+  const details = {
+    ...(authorPubkey ? { authorPubkey } : {}),
+    ...(value.redacted === true ? { redacted: true } : {}),
+    ...(value.truncated === true ? { truncated: true } : {}),
+  };
   if (
     !id ||
     sequence === undefined ||
@@ -39,6 +57,7 @@ export function parseAgentContextRecord(
       sequence,
       createdAt,
       kind: value.kind,
+      ...details,
       text,
       ...(sourceEventId ? { sourceEventId } : {}),
     };
@@ -52,6 +71,11 @@ export function parseAgentContextRecord(
       sequence,
       createdAt,
       kind: "tool",
+      ...details,
+      ...(typeof value.tool_id === "string" ? { toolId: value.tool_id } : {}),
+      ...(typeof value.input === "string" ? { input: value.input } : {}),
+      ...(typeof value.output === "string" ? { output: value.output } : {}),
+      ...(typeof value.error === "string" ? { error: value.error } : {}),
       toolName,
       toolState,
       ...(sourceEventId ? { sourceEventId } : {}),

@@ -1,5 +1,10 @@
 # Agents and saved activity
 
+Owner Activity shows the latest queued or startup status until a request produces
+assistant or tool output. The status updates in place and disappears on output
+or termination, so an active cold start does not look like an empty transcript.
+This is included in the LC-UI-049 context acceptance.
+
 Community follows the executable agent protocol audited in `block/buzz`
 commit `cec5c8fd9280d30f56effac701e1e19d5cfe6fea`, and the agent module in
 Lapis Relay. Buzz Desktop 0.5.23 supplied the live layout reference. Agent

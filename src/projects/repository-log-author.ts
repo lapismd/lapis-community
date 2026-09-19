@@ -1,5 +1,17 @@
 import { md5 } from "@noble/hashes/legacy.js";
 import { bytesToHex, utf8ToBytes } from "@noble/hashes/utils.js";
+import { decode } from "nostr-tools/nip19";
+
+export function repositoryAuthorPubkey(email: string): string | undefined {
+  const match = /^(npub1[a-z0-9]+)@nostr\.invalid$/u.exec(email.trim());
+  if (!match) return;
+  try {
+    const identity = decode(match[1]!);
+    return identity.type === "npub" ? identity.data : undefined;
+  } catch {
+    return;
+  }
+}
 
 export type RepositoryLogAuthorFields = {
   author: string;
@@ -10,6 +22,7 @@ export type RepositoryLogAuthorFields = {
 
 export function repositoryLogGravatarUrl(email: string): string | undefined {
   const normalized = email.trim().toLowerCase();
+  if (repositoryAuthorPubkey(normalized)) return undefined;
   if (!normalized.includes("@") || normalized.startsWith("@")) return undefined;
   return `https://www.gravatar.com/avatar/${bytesToHex(md5(utf8ToBytes(normalized)))}?d=identicon&s=80`;
 }

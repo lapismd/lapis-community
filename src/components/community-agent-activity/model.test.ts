@@ -3,7 +3,7 @@ import type {
   CommunityAgentActivityItem,
   CommunityAgentTranscriptEntry,
 } from "../../community/agent-contracts.js";
-import { agentTranscriptTimeline } from "./model.js";
+import { agentTranscriptTimeline, pendingTranscriptStatuses } from "./model.js";
 
 const agent = "a".repeat(64);
 const owner = "b".repeat(64);
@@ -30,6 +30,56 @@ function activity(
 }
 
 describe("agent transcript timeline", () => {
+  it("shows cold-start progress until output or termination in the same request", () => {
+    const status = (seq: number, state: string, preview: string) => ({
+      id: `status-${seq}`,
+      agentPubkey: agent,
+      createdAt: 1000 + seq,
+      frame: {
+        version: 2 as const,
+        seq,
+        kind: "request_status",
+        channelId: "general",
+        timestamp: new Date((1000 + seq) * 1000).toISOString(),
+        payload: { lifecycleRequestId: "request", state, preview },
+      },
+    });
+    const queued = status(1, "queued", "Queued");
+    const starting = status(2, "starting", "Starting");
+    expect(pendingTranscriptStatuses([starting, queued], agent)).toEqual([
+      { id: "request", text: "Starting" },
+    ]);
+    expect(
+      pendingTranscriptStatuses([starting], agent, {
+        kind: "channel",
+        channelId: "other",
+      }),
+    ).toEqual([]);
+    const output = activity(3, {
+      id: "message",
+      type: "message",
+      role: "assistant",
+      authorPubkey: agent,
+      text: "Ready",
+      createdAt: new Date(1003000).toISOString(),
+    });
+    output.frame.payload = {
+      ...output.frame.payload,
+      lifecycleRequestId: "request",
+    };
+    expect(
+      pendingTranscriptStatuses(
+        [queued, starting, output, status(4, "running", "Working")],
+        agent,
+      ),
+    ).toEqual([]);
+    expect(
+      pendingTranscriptStatuses(
+        [queued, starting, status(5, "failed", "Failed")],
+        agent,
+      ),
+    ).toEqual([]);
+  });
   it("merges message chunks and tool updates in signed sequence order", () => {
     const values = [
       activity(4, {

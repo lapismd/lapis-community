@@ -941,9 +941,10 @@
       "forbiddenImportCount": 0
     },
     "src/components/community-agent-activity/CommunityAgentActivity.stories.svelte": {
-      "countedLines": 263,
-      "physicalLines": 265,
-      "forbiddenImportCount": 0
+      "countedLines": 305,
+      "physicalLines": 308,
+      "forbiddenImportCount": 0,
+      "justification": "LC-UI-049: show owner startup progress before transcript output; Starting before transcript story and scoped lifecycle tests."
     },
     "src/components/community-agent-activity/CommunityAgentActivity.svelte": {
       "countedLines": 459,
@@ -953,19 +954,22 @@
       "justification": "Existing file above the new-file counted-line limit; do not grow"
     },
     "src/components/community-agent-activity/CommunityAgentTranscript.svelte": {
-      "countedLines": 225,
-      "physicalLines": 238,
-      "forbiddenImportCount": 0
+      "countedLines": 235,
+      "physicalLines": 248,
+      "forbiddenImportCount": 0,
+      "justification": "LC-UI-049: show owner startup progress before transcript output; Starting before transcript story and scoped lifecycle tests."
     },
     "src/components/community-agent-activity/model.test.ts": {
-      "countedLines": 150,
-      "physicalLines": 156,
-      "forbiddenImportCount": 0
+      "countedLines": 200,
+      "physicalLines": 206,
+      "forbiddenImportCount": 0,
+      "justification": "LC-UI-049: show owner startup progress before transcript output; Starting before transcript story and scoped lifecycle tests."
     },
     "src/components/community-agent-activity/model.ts": {
-      "countedLines": 207,
-      "physicalLines": 219,
-      "forbiddenImportCount": 0
+      "countedLines": 251,
+      "physicalLines": 265,
+      "forbiddenImportCount": 0,
+      "justification": "LC-UI-049: show owner startup progress before transcript output; Starting before transcript story and scoped lifecycle tests."
     },
     "src/components/community-agent-composer-activity/CommunityAgentComposerActivity.stories.svelte": {
       "countedLines": 136,
@@ -1101,8 +1105,8 @@
       "justification": "Existing file above the new-file counted-line limit; do not grow"
     },
     "src/components/community-application/CommunityApplication.svelte": {
-      "countedLines": 9202,
-      "physicalLines": 9562,
+      "countedLines": 9193,
+      "physicalLines": 9552,
       "forbiddenImportCount": 0,
       "kind": "legacy",
       "justification": "Application composition root; extract destination hosts before adding behaviour"
@@ -1217,21 +1221,27 @@
       "forbiddenImportCount": 0
     },
     "src/components/community-application/navigation.ts": {
-      "countedLines": 548,
-      "physicalLines": 594,
+      "countedLines": 520,
+      "physicalLines": 563,
       "forbiddenImportCount": 0,
       "kind": "legacy",
       "justification": "Existing file above the new-file counted-line limit; do not grow"
     },
     "src/components/community-application/project-route.test.ts": {
-      "countedLines": 40,
-      "physicalLines": 42,
-      "forbiddenImportCount": 0
+      "countedLines": 56,
+      "physicalLines": 58,
+      "forbiddenImportCount": 0,
+      "kind": "exception",
+      "requirement": "LC-UI-049",
+      "justification": "Focused regression coverage for completed agent context, live preview lifecycle and agent identity."
     },
     "src/components/community-application/project-route.ts": {
-      "countedLines": 43,
-      "physicalLines": 45,
-      "forbiddenImportCount": 0
+      "countedLines": 111,
+      "physicalLines": 118,
+      "forbiddenImportCount": 0,
+      "kind": "exception",
+      "requirement": "LC-UI-049",
+      "justification": "Bounded agent context composition or protocol fields; assembly, transcript projection, routing and preview retention remain separately owned modules."
     },
     "src/components/community-avatar-picker/CommunityAvatarPicker.stories.svelte": {
       "countedLines": 26,
@@ -1972,21 +1982,27 @@
       "justification": "Existing file above the new-file counted-line limit; do not grow"
     },
     "src/components/community-projects/CommunityProjects.svelte": {
-      "countedLines": 3655,
-      "physicalLines": 3790,
+      "countedLines": 3616,
+      "physicalLines": 3751,
       "forbiddenImportCount": 0,
       "kind": "legacy",
       "justification": "Projects composition root; extract named surfaces before adding behaviour"
     },
     "src/components/community-projects/CommunityProjectsActivityFeed.stories.svelte": {
-      "countedLines": 169,
-      "physicalLines": 174,
-      "forbiddenImportCount": 0
+      "countedLines": 190,
+      "physicalLines": 197,
+      "forbiddenImportCount": 0,
+      "kind": "exception",
+      "requirement": "LC-UI-049",
+      "justification": "Focused regression coverage for completed agent context, live preview lifecycle and agent identity."
     },
     "src/components/community-projects/CommunityProjectsActivityFeed.svelte": {
-      "countedLines": 295,
-      "physicalLines": 300,
-      "forbiddenImportCount": 0
+      "countedLines": 306,
+      "physicalLines": 311,
+      "forbiddenImportCount": 0,
+      "kind": "exception",
+      "requirement": "LC-UI-049",
+      "justification": "Compose the shared repository conversation renderer in the existing activity item branch; parsing and grouping stay in project modules."
     },
     "src/components/community-projects/CommunityProjectsActivityFilter.stories.svelte": {
       "countedLines": 69,
@@ -2009,9 +2025,12 @@
       "forbiddenImportCount": 0
     },
     "src/components/community-projects/CommunityProjectsCommitList.svelte": {
-      "countedLines": 118,
-      "physicalLines": 123,
-      "forbiddenImportCount": 0
+      "countedLines": 123,
+      "physicalLines": 128,
+      "forbiddenImportCount": 0,
+      "kind": "exception",
+      "requirement": "LC-UI-049",
+      "justification": "Bounded agent context composition or protocol fields; assembly, transcript projection, routing and preview retention remain separately owned modules."
     },
     "src/components/community-projects/CommunityProjectsCreateDialogs.svelte": {
       "countedLines": 219,
@@ -2019,14 +2038,20 @@
       "forbiddenImportCount": 0
     },
     "src/components/community-projects/CommunityProjectsGitAuthorAvatar.stories.svelte": {
-      "countedLines": 42,
-      "physicalLines": 45,
-      "forbiddenImportCount": 0
+      "countedLines": 60,
+      "physicalLines": 64,
+      "forbiddenImportCount": 0,
+      "kind": "exception",
+      "requirement": "LC-UI-049",
+      "justification": "Focused regression coverage for completed agent context, live preview lifecycle and agent identity."
     },
     "src/components/community-projects/CommunityProjectsGitAuthorAvatar.svelte": {
-      "countedLines": 64,
-      "physicalLines": 70,
-      "forbiddenImportCount": 0
+      "countedLines": 73,
+      "physicalLines": 79,
+      "forbiddenImportCount": 0,
+      "kind": "exception",
+      "requirement": "LC-UI-049",
+      "justification": "Bounded agent context composition or protocol fields; assembly, transcript projection, routing and preview retention remain separately owned modules."
     },
     "src/components/community-projects/CommunityProjectsGitHubConnectionForm.svelte": {
       "countedLines": 116,
@@ -2144,8 +2169,8 @@
       "forbiddenImportCount": 0
     },
     "src/components/community-projects/CommunityProjectsRepositoryAgentContext.svelte": {
-      "countedLines": 155,
-      "physicalLines": 166,
+      "countedLines": 128,
+      "physicalLines": 134,
       "forbiddenImportCount": 0
     },
     "src/components/community-projects/CommunityProjectsRepositoryBranchSelector.svelte": {
@@ -2186,9 +2211,15 @@
       "justification": "Existing file above the new-file counted-line limit; do not grow"
     },
     "src/components/community-projects/CommunityProjectsRepositoryLog.svelte": {
-      "countedLines": 284,
-      "physicalLines": 297,
-      "forbiddenImportCount": 0
+      "countedLines": 297,
+      "physicalLines": 310,
+      "forbiddenImportCount": 0,
+      "kind": "exception",
+      "requirement": "LC-UI-049",
+      "justification": "Bounded log composition keeps checkpoint record counts consistent with deduplicated shared transcript entries; live JJ and operation log acceptance covers selection.",
+      "scriptCounted": 161,
+      "markupCounted": 116,
+      "stylePhysical": 22
     },
     "src/components/community-projects/CommunityProjectsRepositoryLogDiff.svelte": {
       "countedLines": 145,
@@ -2256,14 +2287,20 @@
       "forbiddenImportCount": 0
     },
     "src/components/community-projects/CommunityProjectsRevisionGraph.svelte": {
-      "countedLines": 211,
-      "physicalLines": 228,
-      "forbiddenImportCount": 0
+      "countedLines": 214,
+      "physicalLines": 231,
+      "forbiddenImportCount": 0,
+      "kind": "exception",
+      "requirement": "LC-UI-049",
+      "justification": "Bounded agent context composition or protocol fields; assembly, transcript projection, routing and preview retention remain separately owned modules."
     },
     "src/components/community-projects/CommunityProjectsRevisionGraphCopy.svelte": {
-      "countedLines": 66,
-      "physicalLines": 72,
-      "forbiddenImportCount": 0
+      "countedLines": 72,
+      "physicalLines": 78,
+      "forbiddenImportCount": 0,
+      "kind": "exception",
+      "requirement": "LC-UI-049",
+      "justification": "Bounded agent context composition or protocol fields; assembly, transcript projection, routing and preview retention remain separately owned modules."
     },
     "src/components/community-projects/CommunityProjectsRevisionGraphIds.svelte": {
       "countedLines": 141,
@@ -2767,9 +2804,12 @@
       "justification": "Existing file above the new-file counted-line limit; do not grow"
     },
     "src/components/index.ts": {
-      "countedLines": 192,
-      "physicalLines": 199,
-      "forbiddenImportCount": 0
+      "countedLines": 194,
+      "physicalLines": 201,
+      "forbiddenImportCount": 0,
+      "kind": "exception",
+      "requirement": "LC-UI-049",
+      "justification": "Additive context contract and public component exports; no runtime behavior added to this declaration surface."
     },
     "src/components/register.ts": {
       "countedLines": 9,
@@ -3057,29 +3097,44 @@
       "forbiddenImportCount": 0
     },
     "src/fixture/project-agent-context-bodies.ts": {
-      "countedLines": 199,
-      "physicalLines": 206,
-      "forbiddenImportCount": 0
+      "countedLines": 209,
+      "physicalLines": 216,
+      "forbiddenImportCount": 0,
+      "kind": "exception",
+      "requirement": "LC-UI-049",
+      "justification": "Agent context fixture composition now references complete record pages and the agent signing identity; capture body construction remains extracted."
     },
     "src/fixture/project-agent-context.test.ts": {
-      "countedLines": 73,
-      "physicalLines": 79,
-      "forbiddenImportCount": 0
+      "countedLines": 80,
+      "physicalLines": 86,
+      "forbiddenImportCount": 0,
+      "kind": "exception",
+      "requirement": "LC-UI-049",
+      "justification": "Agent context fixture composition now references complete record pages and the agent signing identity; capture body construction remains extracted."
     },
     "src/fixture/project-agent-context.ts": {
-      "countedLines": 195,
-      "physicalLines": 201,
-      "forbiddenImportCount": 0
+      "countedLines": 228,
+      "physicalLines": 234,
+      "forbiddenImportCount": 0,
+      "kind": "exception",
+      "requirement": "LC-UI-049",
+      "justification": "Agent context fixture composition now references complete record pages and the agent signing identity; capture body construction remains extracted."
     },
     "src/fixture/projects.test.ts": {
-      "countedLines": 82,
-      "physicalLines": 86,
-      "forbiddenImportCount": 0
+      "countedLines": 84,
+      "physicalLines": 88,
+      "forbiddenImportCount": 0,
+      "kind": "exception",
+      "requirement": "LC-UI-049",
+      "justification": "Agent context fixture composition now references complete record pages and the agent signing identity; capture body construction remains extracted."
     },
     "src/fixture/projects.ts": {
-      "countedLines": 135,
-      "physicalLines": 140,
-      "forbiddenImportCount": 0
+      "countedLines": 144,
+      "physicalLines": 149,
+      "forbiddenImportCount": 0,
+      "kind": "exception",
+      "requirement": "LC-UI-049",
+      "justification": "Agent context fixture composition now references complete record pages and the agent signing identity; capture body construction remains extracted."
     },
     "src/fixture/seed-retention.test.ts": {
       "countedLines": 111,
@@ -3092,11 +3147,12 @@
       "forbiddenImportCount": 0
     },
     "src/fixture/seed.ts": {
-      "countedLines": 868,
-      "physicalLines": 899,
+      "countedLines": 873,
+      "physicalLines": 904,
       "forbiddenImportCount": 0,
-      "kind": "legacy",
-      "justification": "Existing file above the new-file counted-line limit; do not grow"
+      "kind": "exception",
+      "justification": "Agent context fixture composition now references complete record pages and the agent signing identity; capture body construction remains extracted.",
+      "requirement": "LC-UI-049"
     },
     "src/fixture/source.test.ts": {
       "countedLines": 114,
@@ -3229,8 +3285,8 @@
       "justification": "Existing file above the new-file counted-line limit; do not grow"
     },
     "src/projects/data-source.ts": {
-      "countedLines": 929,
-      "physicalLines": 982,
+      "countedLines": 925,
+      "physicalLines": 978,
       "forbiddenImportCount": 0,
       "kind": "legacy",
       "justification": "Existing file above the new-file counted-line limit; do not grow"
@@ -3251,11 +3307,12 @@
       "forbiddenImportCount": 0
     },
     "src/projects/model.ts": {
-      "countedLines": 497,
-      "physicalLines": 581,
+      "countedLines": 498,
+      "physicalLines": 582,
       "forbiddenImportCount": 0,
-      "kind": "legacy",
-      "justification": "Existing file above the new-file counted-line limit; do not grow"
+      "kind": "exception",
+      "justification": "Additive context contract and public component exports; no runtime behavior added to this declaration surface.",
+      "requirement": "LC-UI-049"
     },
     "src/projects/owners.test.ts": {
       "countedLines": 39,
@@ -3352,9 +3409,12 @@
       "forbiddenImportCount": 0
     },
     "src/projects/repository-agent-context-parsing.ts": {
-      "countedLines": 105,
-      "physicalLines": 116,
-      "forbiddenImportCount": 0
+      "countedLines": 129,
+      "physicalLines": 140,
+      "forbiddenImportCount": 0,
+      "kind": "exception",
+      "requirement": "LC-UI-049",
+      "justification": "Bounded agent context composition or protocol fields; assembly, transcript projection, routing and preview retention remain separately owned modules."
     },
     "src/projects/repository-agent-context.test.ts": {
       "countedLines": 193,
@@ -3362,9 +3422,12 @@
       "forbiddenImportCount": 0
     },
     "src/projects/repository-agent-context.ts": {
-      "countedLines": 233,
-      "physicalLines": 242,
-      "forbiddenImportCount": 0
+      "countedLines": 240,
+      "physicalLines": 249,
+      "forbiddenImportCount": 0,
+      "kind": "exception",
+      "requirement": "LC-UI-049",
+      "justification": "Bounded agent context composition or protocol fields; assembly, transcript projection, routing and preview retention remain separately owned modules."
     },
     "src/projects/repository-evolution-log.test.ts": {
       "countedLines": 137,
@@ -3382,9 +3445,12 @@
       "forbiddenImportCount": 0
     },
     "src/projects/repository-log-author.ts": {
-      "countedLines": 48,
-      "physicalLines": 55,
-      "forbiddenImportCount": 0
+      "countedLines": 60,
+      "physicalLines": 68,
+      "forbiddenImportCount": 0,
+      "kind": "exception",
+      "requirement": "LC-UI-049",
+      "justification": "Bounded agent context composition or protocol fields; assembly, transcript projection, routing and preview retention remain separately owned modules."
     },
     "src/projects/repository-log-canvas.ts": {
       "countedLines": 38,
@@ -3392,14 +3458,20 @@
       "forbiddenImportCount": 0
     },
     "src/projects/repository-log-collapse.test.ts": {
-      "countedLines": 258,
-      "physicalLines": 269,
-      "forbiddenImportCount": 0
+      "countedLines": 286,
+      "physicalLines": 298,
+      "forbiddenImportCount": 0,
+      "kind": "exception",
+      "requirement": "LC-UI-049",
+      "justification": "Use native committer time to retain completed checkpoints when author time is unchanged; covered by live README acceptance and same-author-time rewrite regression."
     },
     "src/projects/repository-log-collapse.ts": {
-      "countedLines": 273,
-      "physicalLines": 292,
-      "forbiddenImportCount": 0
+      "countedLines": 275,
+      "physicalLines": 294,
+      "forbiddenImportCount": 0,
+      "kind": "exception",
+      "requirement": "LC-UI-049",
+      "justification": "Use native committer time to retain completed checkpoints when author time is unchanged; covered by live README acceptance and same-author-time rewrite regression."
     },
     "src/projects/repository-log-files.test.ts": {
       "countedLines": 81,
@@ -3452,9 +3524,12 @@
       "forbiddenImportCount": 0
     },
     "src/projects/repository-log.ts": {
-      "countedLines": 269,
-      "physicalLines": 294,
-      "forbiddenImportCount": 0
+      "countedLines": 274,
+      "physicalLines": 299,
+      "forbiddenImportCount": 0,
+      "kind": "exception",
+      "requirement": "LC-UI-049",
+      "justification": "Use native committer time to retain completed checkpoints when author time is unchanged; covered by live README acceptance and same-author-time rewrite regression."
     },
     "src/projects/repository-operation-log.test.ts": {
       "countedLines": 113,
@@ -3462,9 +3537,12 @@
       "forbiddenImportCount": 0
     },
     "src/projects/repository-operation-log.ts": {
-      "countedLines": 115,
-      "physicalLines": 124,
-      "forbiddenImportCount": 0
+      "countedLines": 119,
+      "physicalLines": 128,
+      "forbiddenImportCount": 0,
+      "kind": "exception",
+      "requirement": "LC-UI-049",
+      "justification": "Bounded agent context composition or protocol fields; assembly, transcript projection, routing and preview retention remain separately owned modules."
     },
     "src/projects/repository-refs.test.ts": {
       "countedLines": 82,
@@ -3522,14 +3600,20 @@
       "forbiddenImportCount": 0
     },
     "src/projects/work-item-resources.test.ts": {
-      "countedLines": 253,
-      "physicalLines": 262,
-      "forbiddenImportCount": 0
+      "countedLines": 301,
+      "physicalLines": 310,
+      "forbiddenImportCount": 0,
+      "kind": "exception",
+      "requirement": "LC-UI-049",
+      "justification": "Focused regression coverage for completed agent context, live preview lifecycle and agent identity."
     },
     "src/projects/work-item-resources.ts": {
-      "countedLines": 234,
-      "physicalLines": 246,
-      "forbiddenImportCount": 0
+      "countedLines": 290,
+      "physicalLines": 304,
+      "forbiddenImportCount": 0,
+      "kind": "exception",
+      "requirement": "LC-UI-049",
+      "justification": "Bounded agent context composition or protocol fields; assembly, transcript projection, routing and preview retention remain separately owned modules."
     },
     "src/projects/workspace.test.ts": {
       "countedLines": 254,

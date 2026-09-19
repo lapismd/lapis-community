@@ -4,12 +4,18 @@
   import type { RepositoryLogGraphRow } from "../../projects/repository-log-graph.js";
   import CommunityProjectsGitAuthorAvatar from "./CommunityProjectsGitAuthorAvatar.svelte";
   import CommunityProjectsRevisionGraphMessage from "./CommunityProjectsRevisionGraphMessage.svelte";
+  import type { CommunityMemberModel } from "../community-workspace/model.js";
 
-  let { row }: { row: RepositoryLogGraphRow } = $props();
+  let {
+    row,
+    members = [],
+  }: { row: RepositoryLogGraphRow; members?: readonly CommunityMemberModel[] } =
+    $props();
 </script>
 
 <span class="community-revision-graph-copy">
   <CommunityProjectsGitAuthorAvatar
+    {members}
     email={row.revision.authorEmail}
     name={row.revision.author}
     size="small"

@@ -1,3 +1,4 @@
+import { npubEncode } from "nostr-tools/nip19";
 import { createHash } from "node:crypto";
 
 export const LOCAL_AGENT_CONTEXT_IDS = {
@@ -15,11 +16,16 @@ const nativeProfile =
   "jj-exact-v1:7627c80c16eccd7800647e670f676d56d73c3e0f72f6d093de0316d767f9628e";
 const projectionProfile = "jj-graph-v1";
 
-export function createLocalProjectAgentContextBodies(createdAt: number) {
+export function createLocalProjectAgentContextBodies(
+  createdAt: number,
+  agentPubkey?: string,
+) {
   const ids = LOCAL_AGENT_CONTEXT_IDS;
   const person = {
     name: "Owen Local",
-    email: "owen@example.test",
+    email: agentPubkey
+      ? `${npubEncode(agentPubkey)}@nostr.invalid`
+      : "owen@example.test",
     timestamp_ms: (createdAt + 2) * 1_000,
     tz_offset_minutes: 0,
   };
@@ -157,6 +163,10 @@ export function createLocalProjectAgentContextBodies(createdAt: number) {
         created_at_ms: (createdAt + 5) * 1_000 + 100,
         kind: "tool",
         tool_name: "apply_patch",
+        tool_id: "local-readme-edit",
+        input:
+          "*** Update File: README.md\n+Agent checkpoints keep code and conversation together.",
+        output: "Success. Updated README.md",
         tool_state: "completed",
       },
       {

@@ -1,3 +1,8 @@
+import {
+  parseStoredProjectRoute,
+  projectRouteKey,
+  validRouteCoordinate,
+} from "./project-route.js";
 import type { CommunityAgentActivityContext } from "../../community/agent-contracts.js";
 import {
   APP_SHELL_LAYOUT_VERSION,
@@ -63,6 +68,7 @@ export type CommunityApplicationProjectRoute =
       kind: "repository";
       coordinate: string;
       surface: ProjectForgeSurface;
+      commitSha?: string;
     };
 
 export interface CommunityApplicationHistory {
@@ -465,44 +471,7 @@ function parseMainSurface(
     : undefined;
 }
 
-function parseStoredProjectRoute(
-  value: unknown,
-): CommunityApplicationProjectRoute | undefined {
-  if (typeof value !== "object" || value === null) return undefined;
-  const route = value as Record<string, unknown>;
-  return (route.kind === "project" || route.kind === "repository") &&
-    validRouteCoordinate(route.coordinate) &&
-    isProjectForgeSurface(route.surface)
-    ? {
-        kind: route.kind,
-        coordinate: route.coordinate,
-        surface: route.surface,
-      }
-    : undefined;
-}
-
-function validRouteCoordinate(value: unknown): value is string {
-  return (
-    typeof value === "string" &&
-    value.length > 0 &&
-    value.length <= 1024 &&
-    value.trim() === value &&
-    !/[\u0000-\u001f\u007f]/u.test(value)
-  );
-}
-
-function projectRouteKey(
-  route: CommunityApplicationProjectRoute | undefined,
-): string {
-  return route === undefined
-    ? ""
-    : `${route.kind}:${route.coordinate}:${route.surface}`;
-}
-
-export {
-  projectRouteFromHash,
-  projectRouteToHash,
-} from "./project-route.js";
+export { projectRouteFromHash, projectRouteToHash } from "./project-route.js";
 
 /** Agent routes contain identities and filters, never decoded private activity. */
 export function agentLocationToHash(

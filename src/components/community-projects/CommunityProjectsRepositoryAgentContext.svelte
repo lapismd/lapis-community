@@ -1,55 +1,21 @@
 <script lang="ts">
-  import * as Chat from "@lapismd/design-core/ai/chat";
-
-  import type {
-    RepositoryAgentCheckpoint,
-    RepositoryAgentContextRecord,
-  } from "../../projects/repository-agent-context.js";
+  import type { RepositoryAgentCheckpoint } from "../../projects/repository-agent-context.js";
+  import type { CommunityMemberModel } from "../community-workspace/model.js";
+  import CommunityAgentTranscript from "../community-agent-activity/CommunityAgentTranscript.svelte";
   import CommunityChip from "../community-chip/CommunityChip.svelte";
-  import CommunityMessage from "../community-message/CommunityMessage.svelte";
   import CommunityRelativeTime from "../community-relative-time/CommunityRelativeTime.svelte";
-  import type {
-    CommunityMemberModel,
-    CommunityMessageModel,
-  } from "../community-workspace/model.js";
-
-  let { checkpoints }: { checkpoints: readonly RepositoryAgentCheckpoint[] } =
-    $props();
-
-  function toolStatus(state: string): "complete" | "error" | "running" {
-    if (state === "completed" || state === "complete") return "complete";
-    if (state === "failed" || state === "error") return "error";
-    return "running";
-  }
-
-  function messageAuthor(
-    checkpoint: RepositoryAgentCheckpoint,
-    record: RepositoryAgentContextRecord,
-  ): CommunityMemberModel {
-    const agent = record.kind === "assistant_message";
-    return {
-      id: agent ? checkpoint.authorPubkey : (record.sourceEventId ?? record.id),
-      name: agent ? "Agent" : "User",
-      handle: agent ? "agent" : "user",
-      initials: agent ? "A" : "U",
-    };
-  }
-
-  function messageModel(
-    checkpoint: RepositoryAgentCheckpoint,
-    record: RepositoryAgentContextRecord,
-  ): CommunityMessageModel {
-    const author = messageAuthor(checkpoint, record);
-    const createdAt = new Date(record.createdAt);
-    return {
-      id: record.id,
-      authorId: author.id,
-      content: record.text ?? "",
-      timestamp: Number.isNaN(createdAt.getTime())
-        ? "Unknown time"
-        : createdAt.toISOString(),
-    };
-  }
+  import { projectRouteToHash } from "../community-application/project-route.js";
+  import { repositoryContextTurns } from "./repository-context-transcript.js";
+  let {
+    checkpoints,
+    members = [],
+    repositoryAddress,
+  }: {
+    checkpoints: readonly RepositoryAgentCheckpoint[];
+    members?: readonly CommunityMemberModel[];
+    repositoryAddress?: string;
+  } = $props();
+  const turns = $derived(repositoryContextTurns(checkpoints));
 </script>
 
 <div
@@ -58,69 +24,71 @@
   role="region"
   aria-label="Agent context"
 >
-  {#each checkpoints as checkpoint (checkpoint.eventId)}
+  {#each turns as turn (`${turn.latest.authorPubkey}:${turn.latest.scopeId}:${turn.latest.spanId}`)}
+    {@const member = members.find(
+      (member) => member.id === turn.latest.authorPubkey,
+    )}
+    {@const agent = {
+      pubkey: turn.latest.authorPubkey,
+      name: member?.name ?? turn.latest.actorName ?? "Agent",
+      ...(member?.avatarUrl ? { avatarUrl: member.avatarUrl } : {}),
+    }}
     <section
       class="community-projects-agent-context__checkpoint"
       aria-label="Agent checkpoint"
     >
       <header class="community-projects-agent-context__header">
-        <span>
-          <CommunityRelativeTime timestamp={checkpoint.createdAt} />
-        </span>
+        <span
+          >{agent.name} · <CommunityRelativeTime
+            timestamp={turn.latest.createdAt}
+          /></span
+        >
         <span class="community-projects-agent-context__status">
           <CommunityChip
             size="compact"
-            tone={checkpoint.outcome === "completed"
-              ? "success"
-              : checkpoint.outcome === "failed"
-                ? "danger"
-                : "warning"}
+            tone={turn.latest.outcome === "completed" ? "success" : "danger"}
+            >{turn.latest.live ? "Running" : turn.latest.outcome}</CommunityChip
           >
-            {checkpoint.outcome}
-          </CommunityChip>
-          {#if !checkpoint.complete}
-            <CommunityChip size="compact" tone="warning">
-              Incomplete
-            </CommunityChip>
-          {/if}
+          {#if !turn.latest.complete && !turn.latest.live}<CommunityChip
+              size="compact"
+              tone="warning">Incomplete</CommunityChip
+            >{/if}
         </span>
       </header>
-      <Chat.MessageList
-        density="compact"
-        {...checkpoint.records.filter((record) => record.kind !== "tool").at(-1)
-          ?.id
-          ? {
-              latestMessageId: checkpoint.records
-                .filter((record) => record.kind !== "tool")
-                .at(-1)!.id,
-            }
-          : {}}
-        isEmpty={checkpoint.records.length === 0}
-        aria-label="Checkpoint conversation"
-      >
-        {#each checkpoint.records as record (record.id)}
-          {#if record.kind === "user_message" || record.kind === "assistant_message"}
-            {@const author = messageAuthor(checkpoint, record)}
-            <CommunityMessage
-              message={messageModel(checkpoint, record)}
-              {author}
-              members={[author]}
-              density="compact"
-            />
-          {:else}
-            <Chat.ToolCalls
-              calls={[
-                {
-                  id: record.id,
-                  name: record.toolName ?? "tool",
-                  status: toolStatus(record.toolState ?? "running"),
-                },
-              ]}
-              defaultExpanded={false}
-            />
-          {/if}
-        {/each}
-      </Chat.MessageList>
+      {#each turn.segments as segment (segment.checkpoint.eventId)}
+        {#if segment.checkpoint.availability === "missing"}
+          <p role="status">
+            Some agent context is unavailable. Waiting for the referenced
+            messages.
+          </p>
+        {:else if segment.activity.length}
+          <CommunityAgentTranscript
+            activity={segment.activity}
+            {agent}
+            {members}
+          />
+        {/if}
+        {#if segment.commitIds.length}
+          <div
+            class="community-projects-agent-context__header"
+            aria-label="Code checkpoint"
+          >
+            <span>Checkpoint</span>
+            {#each segment.commitIds as commitId (commitId)}
+              {#if repositoryAddress}
+                <a
+                  href={projectRouteToHash({
+                    kind: "repository",
+                    coordinate: repositoryAddress,
+                    surface: "commits",
+                    commitSha: commitId,
+                  })}>{commitId.slice(0, 12)}</a
+                >
+              {:else}<code>{commitId.slice(0, 12)}</code>{/if}
+            {/each}
+          </div>
+        {/if}
+      {/each}
     </section>
   {/each}
 </div>
