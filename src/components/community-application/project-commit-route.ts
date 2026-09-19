@@ -43,7 +43,9 @@ export function repositorySurfaceLocation(
       kind: "repository",
       coordinate,
       surface,
-      ...(surface === "commits" && commitSha ? { commitSha } : {}),
+      ...(["commits", "log"].includes(surface) && commitSha
+        ? { commitSha }
+        : {}),
     },
   };
 }

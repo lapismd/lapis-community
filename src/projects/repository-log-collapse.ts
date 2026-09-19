@@ -47,13 +47,19 @@ export function projectRepositoryLog(
   contextViewId: string | undefined,
   collectDevices: (visible: Set<string>) => RepositoryLogDevice[],
   order: (revisions: RepositoryLogRevision[]) => RepositoryLogRevision[],
+  focusedCommitId?: string | null,
 ): RepositoryLogGraph {
   const pinned = pinView(views, contextViewId);
   const viewSeeds = views.map((view) =>
     seedsFromViewBody(view.body, view === pinned),
   );
   const seeds = collectSeeds(viewSeeds);
-  const collapsed = collapseRepositoryLogRevisions(parsed, new Set(seeds));
+  const focus = parsed.find((revision) => revision.eventId === focusedCommitId);
+  if (focus) seeds.unshift(focus.eventId);
+  const collapsed = collapseRepositoryLogRevisions(
+    parsed,
+    new Set(focus ? [focus.eventId] : seeds),
+  );
   const aliases = repositoryLogCommitAliases(parsed, collapsed);
   const remap = (id: string) => aliases.get(id) ?? id;
   const remapped = seeds.map(remap);

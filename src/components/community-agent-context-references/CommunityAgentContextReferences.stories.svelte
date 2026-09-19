@@ -31,10 +31,19 @@
     await expect(within(menu).queryByText("References")).toBeNull();
     await expect(items[0]).toHaveTextContent(/^Commits$/);
     await expect(items[1]).toHaveAccessibleName(/^Open change /);
-    await expect(items[2]).toHaveTextContent(/^Log$/);
-    await expect(items[2]).toHaveAttribute(
+    const commitsLabel = within(items[0]!).getByText("Commits", {
+      exact: true,
+    });
+    const changeLabel = within(items[1]!).getByText(/^mmmmmmmm/);
+    await expect(getComputedStyle(commitsLabel).textAlign).toBe("start");
+    await expect(commitsLabel.getBoundingClientRect().left).toBeCloseTo(
+      changeLabel.getBoundingClientRect().left,
+      0,
+    );
+    await expect(items.at(-1)).toHaveTextContent(/^Log$/);
+    await expect(items.at(-1)).toHaveAttribute(
       "href",
-      `#/projects/repository/${f.repository}/log`,
+      `#/projects/repository/${f.repository}/log/${f.commit}`,
     );
     await expect(
       within(menu).getByRole("menuitem", { name: "Open channel room" }),
@@ -101,7 +110,8 @@
     await expect(
       menu.queryByRole("menuitem", { name: /^Open change/ }),
     ).toBeNull();
-    await expect(menu.getAllByRole("menuitem")).toHaveLength(4);
+    await expect(menu.getAllByRole("menuitem")).toHaveLength(3);
+    await expect(menu.queryByText("Log", { exact: true })).toBeNull();
     await userEvent.keyboard("{Escape}");
   }}
 />

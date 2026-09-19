@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import type { ProjectForgeSession } from "./data-source.js";
 import {
+  createRepositoryCommitReader,
   loadProjectCommitActivity,
   readRepositoryCommit,
   readRepositoryPathCommit,
@@ -10,6 +11,29 @@ import {
 const sha = "a".repeat(40);
 
 describe("repository source reads", () => {
+  it("loads the destination commit before source preparation and after repository changes", async () => {
+    const loadCommit = vi.fn(async () => ({
+      commit: { sha, subject: "checkpoint" },
+    }));
+    const session = { loadCommit } as unknown as ProjectForgeSession;
+    let selected = "30617:owner:probe";
+    let prepared = "";
+    const read = createRepositoryCommitReader({
+      session: () => session,
+      selectedRepository: () => selected,
+      sourceRepository: () => prepared,
+    });
+    const signal = new AbortController().signal;
+    await read(sha, signal);
+    expect(loadCommit).toHaveBeenLastCalledWith(selected, sha, signal);
+    prepared = selected;
+    selected = "30617:owner:other";
+    await read(sha, signal);
+    expect(loadCommit).toHaveBeenLastCalledWith(selected, sha, signal);
+    selected = "";
+    await read(sha, signal);
+    expect(loadCommit).toHaveBeenLastCalledWith(prepared, sha, signal);
+  });
   it("loads one path commit and a selected sha", async () => {
     const session = {
       loadCommits: vi.fn(async () => ({
@@ -47,7 +71,12 @@ describe("repository source reads", () => {
         ],
         [
           {
-            address: { coordinate: "30621:owner:notes" },
+            address: {
+              kind: 30621,
+              owner: "owner",
+              identifier: "notes",
+              coordinate: "30621:owner:notes",
+            },
             repositories: [{ coordinate: "30617:owner:notes" }],
           },
         ],

@@ -573,3 +573,7 @@ For LC-UI-049, the repository context projection preserves verified `a` and `h`
 tags and v2 `targets` alongside the completed records. Reference menus derive
 request event IDs from user records; they do not treat capture span IDs as Nostr
 thread roots or invent change identities for legacy checkpoints.
+For LC-UI-049, selecting a historical JJ commit in a repository Log URL MUST
+retain that exact published revision in the projected graph even when a newer
+revision of the same change is normally displayed. This is a local projection
+choice and MUST NOT alter or publish relay events.

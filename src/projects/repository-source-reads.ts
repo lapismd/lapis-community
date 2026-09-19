@@ -7,6 +7,21 @@ import type {
   ProjectForgeRepository,
 } from "./model.js";
 
+/** Resolve the destination on each read; browsing preparation may still be pending. */
+export function createRepositoryCommitReader(options: {
+  session(): ProjectForgeSession | undefined;
+  selectedRepository(): string | undefined;
+  sourceRepository(): string | undefined;
+}) {
+  return (sha: string, signal?: AbortSignal) =>
+    readRepositoryCommit(
+      options.session(),
+      options.selectedRepository() || options.sourceRepository(),
+      sha,
+      signal,
+    );
+}
+
 export async function readRepositoryPathCommit(
   session: ProjectForgeSession | undefined,
   repository: string | undefined,
@@ -45,8 +60,7 @@ export async function loadProjectCommitActivity(
     repositories.map(async (repository) => {
       const owner = projects.find((project) =>
         project.repositories.some(
-          (reference) =>
-            reference.coordinate === repository.address.coordinate,
+          (reference) => reference.coordinate === repository.address.coordinate,
         ),
       );
       if (!owner) return [];

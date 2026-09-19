@@ -6,7 +6,15 @@
 
   import { parseRepositoryLogMessage } from "../../projects/repository-log-message.js";
 
-  let { message }: { message: string } = $props();
+  let {
+    message,
+    href,
+    onSelect,
+  }: {
+    message: string;
+    href?: string | undefined;
+    onSelect?: (() => void) | undefined;
+  } = $props();
 
   const parts = $derived(parseRepositoryLogMessage(message));
   let copied = $state("");
@@ -44,7 +52,26 @@
 <span class="community-revision-graph-message">
   {#each parts as part, index (index)}
     {#if part.type === "text"}
-      <span>{part.value}</span>
+      {#if href}
+        <a
+          {href}
+          onclick={(event) => {
+            event.stopPropagation();
+            if (
+              event.metaKey ||
+              event.ctrlKey ||
+              event.shiftKey ||
+              event.altKey ||
+              !onSelect
+            )
+              return;
+            event.preventDefault();
+            onSelect();
+          }}>{part.value}</a
+        >
+      {:else}
+        <span>{part.value}</span>
+      {/if}
     {:else}
       {@const label = part.type === "commit" ? "commit ID" : "change ID"}
       {@const state =

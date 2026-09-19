@@ -747,12 +747,26 @@ The source-message action MUST display Request, keeping its full identifier
 in the tooltip and accessible name.
 When commit references exist, a Commits submenu MUST list their deduplicated
 identifiers and link each to its commit details; read-only contexts omit it.
-Related JJ change identifiers MUST follow Commits, linking to their checkpoint
-commit details. A Log action MUST follow the change references and open the
-repository's revision log, including when an operation-log pane was last active.
+The Commits label MUST align with sibling item labels, with its leading icon at
+the start and submenu arrow at the end.
+Related JJ change identifiers MUST follow Commits, linking to their exact checkpoint
+in the repository Log. A Log action with a Git Graph icon MUST appear last and open the
+repository's revision log at the newest referenced checkpoint commit, including
+when an operation-log pane was last active. Context without a checkpoint commit MUST omit the Log action, since there is no
+exact revision to select.
 When the original thread root is unavailable, the accessible name MUST identify
 the source message as a request rather than invent a thread ID. Unavailable
 channel actions MUST be disabled.
+
+For LC-UI-049, repository Log selections MUST use shareable `/log/<commit-id>`
+routes. Clicking a revision updates application and browser history; direct
+navigation, reload, and Back/Forward restore the exact revision, changed files,
+and associated agent context after asynchronous history and repository source readiness.
+Revision links MUST preserve independent copy controls for IDs in descriptions. Selected older
+rewrites MUST remain addressable rather than silently resolving to a newer commit.
+Selections beyond the first page MUST be revealed. Missing revisions MUST show
+an unavailable message without selecting a different commit. Clearing selection
+returns to the repository Log URL without an identifier.
 
 ## Project channel canvas
 

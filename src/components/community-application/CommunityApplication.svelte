@@ -122,7 +122,6 @@
     loadProjectCommitActivity,
     preferredProjectForRepository,
     loadProjectRepositoryFileTree,
-    readRepositoryCommit,
     readRepositoryPathCommit,
     updateProjectTemplate,
     GITHUB_REVIEW_COMMENT_REACTIONS,
@@ -212,7 +211,8 @@
   import CommunityProjectsProjectRepositoriesRail from "../community-projects/CommunityProjectsProjectRepositoriesRail.svelte";
   import CommunityProjectsRailStatusFilters from "../community-projects/CommunityProjectsRailStatusFilters.svelte";
   import CommunityProjectsRepositoryRail from "../community-projects/CommunityProjectsRepositoryRail.svelte";
-  import { provideRepositoryLogPane } from "../../projects/repository-log-pane.svelte.js";
+  import { createRepositoryCommitReader } from "../../projects/repository-source-reads.js";
+  import { provideProjectLogNavigation } from "./project-log-navigation.svelte.js";
   import {
     memberCommandGroupIds,
     resolveMemberCommandRoom,
@@ -852,7 +852,7 @@
     onMessageMember: () => messageMember,
     onWaveMember: () => waveMember,
   });
-  provideRepositoryLogPane();
+  provideProjectLogNavigation(() => applicationLocation, pushLocation);
   const startupDestinationRoom = $derived(
     communityStartupPending
       ? allRooms.find((room) => room.id === activeDestination)
@@ -4308,14 +4308,11 @@
       signal,
     );
   }
-  async function loadRepositoryCommit(sha: string, signal?: AbortSignal) {
-    return readRepositoryCommit(
-      projectSession,
-      projectSourceRepositoryCoordinate,
-      sha,
-      signal,
-    );
-  }
+  const loadRepositoryCommit = createRepositoryCommitReader({
+    session: () => projectSession,
+    selectedRepository: () => selectedRepositoryCoordinate,
+    sourceRepository: () => projectSourceRepositoryCoordinate,
+  });
 
   async function publishPullRequestReview(
     pullRequest: PullRequestState,

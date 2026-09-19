@@ -21,6 +21,7 @@ export function agentContextReferences(
   navigation?: AgentContextNavigation,
 ): AgentContextReference[] {
   const references = new Map<string, AgentContextReference>();
+  const logCommits = new Map<string, string>();
   const add = (reference: AgentContextReference) =>
     references.set(reference.key, reference);
   for (const checkpoint of checkpoints.toSorted(
@@ -49,7 +50,14 @@ export function agentContextReferences(
     for (const target of checkpoint.targets ?? []) {
       const changeId = encodeJjChangeId(target.changeId);
       if (!changeId) continue;
-      const href = commitHref(target.commitId);
+      const href = repository
+        ? projectRouteToHash({
+            kind: "repository",
+            coordinate: repository,
+            surface: "log",
+            commitSha: target.commitId,
+          })
+        : undefined;
       const key = `change:${repository}:${changeId}`;
       // Keep the newest checkpoint's version of a rewritten change.
       if (!references.has(key))
@@ -57,22 +65,30 @@ export function agentContextReferences(
           key,
           kind: "change",
           label: short(changeId),
-          title: `Open change ${changeId} at checkpoint commit ${target.commitId}`,
+          title: `Open change ${changeId} in Log at checkpoint commit ${target.commitId}`,
           ...(href ? { href } : { disabled: true }),
         });
     }
     if (repository) {
-      add({
-        key: `log:${repository}`,
-        kind: "log",
-        label: "Log",
-        title: `Open repository log ${repository}`,
-        href: projectRouteToHash({
-          kind: "repository",
-          coordinate: repository,
-          surface: "log",
-        }),
-      });
+      const commitId =
+        logCommits.get(repository) ??
+        checkpoint.commitIds[0] ??
+        checkpoint.targets?.[0]?.commitId;
+      if (commitId) {
+        logCommits.set(repository, commitId);
+        add({
+          key: `log:${repository}`,
+          kind: "log",
+          label: "Log",
+          title: `Open checkpoint ${commitId} in repository log ${repository}`,
+          href: projectRouteToHash({
+            kind: "repository",
+            coordinate: repository,
+            surface: "log",
+            commitSha: commitId,
+          }),
+        });
+      }
       add({
         key: `repository:${repository}`,
         kind: "repository",
@@ -113,7 +129,7 @@ export function agentContextReferences(
       });
     }
   }
-  const order = ["commit", "change", "log", "channel", "thread", "repository"];
+  const order = ["commit", "change", "channel", "thread", "repository", "log"];
   return [...references.values()].sort(
     (a, b) => order.indexOf(a.kind) - order.indexOf(b.kind),
   );

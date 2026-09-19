@@ -79,6 +79,28 @@ function view(
 }
 
 describe("repository log", () => {
+  it("keeps an exact historical rewrite visible when requested by a Log URL", () => {
+    const change = "1".repeat(32);
+    const events = [
+      revision("1", 10, parent, [], "root"),
+      revision("2", 11, hidden, [parent], "original", {
+        change_id_hex: change,
+      }),
+      revision("3", 12, merge, [parent], "rewritten", {
+        change_id_hex: change,
+      }),
+      view("4", 13, [merge]),
+    ];
+    expect(
+      buildRepositoryLog(events).revisions.map((row) => row.eventId),
+    ).toEqual([merge, parent]);
+    expect(
+      buildRepositoryLog(events, hidden).revisions.map((row) => row.eventId),
+    ).toEqual([hidden, parent]);
+    expect(buildRepositoryLog(events, "0".repeat(40))).toEqual(
+      buildRepositoryLog(events),
+    );
+  });
   it("maps visible 3902/3903 revisions onto a newest-first DAG", () => {
     const graph = buildRepositoryLog([
       revision("1", 10, parent, [], "root"),

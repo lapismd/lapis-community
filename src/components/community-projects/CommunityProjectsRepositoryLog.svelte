@@ -4,9 +4,11 @@
   import { Skeleton } from "@lapismd/design-core/shadcn/skeleton";
   import * as ColumnCanvas from "@lapismd/design-core/shadcn/column-canvas";
   import { untrack } from "svelte";
+  import { projectRouteToHash } from "../community-application/project-route.js";
 
   import type { NostrEvent } from "../../protocol/index.js";
   import type { ProjectForgeCommitResponse } from "../../projects/index.js";
+  import { createRepositoryLogSelection } from "../../projects/repository-log-selection.svelte.js";
   import { createRepositoryLogCanvas } from "../../projects/repository-log-canvas.js";
   import { buildRepositoryEvolutionLog } from "../../projects/repository-evolution-log.js";
   import { buildRepositoryLog } from "../../projects/repository-log.js";
@@ -25,10 +27,8 @@
     useRepositoryLogPane,
   } from "../../projects/repository-log-pane.svelte.js";
   import {
-    REPOSITORY_LOG_FILES_UNAVAILABLE,
     repositoryLogChangedFiles,
     repositoryLogFilePatch,
-    repositoryLogFilesError,
   } from "../../projects/repository-log-files.js";
   import CommunityProjectsRevisionGraph from "./CommunityProjectsRevisionGraph.svelte";
   import CommunityProjectsRepositoryLogDiff from "./CommunityProjectsRepositoryLogDiff.svelte";
@@ -56,7 +56,7 @@
   } = $props();
 
   const pane = useRepositoryLogPane() ?? createRepositoryLogPane();
-  const logGraph = $derived(buildRepositoryLog(events));
+  const logGraph = $derived(buildRepositoryLog(events, pane.requestedCommitId));
   const opGraph = $derived(buildRepositoryOperationLog(events));
   const graph = $derived(pane.pane === "oplog" ? opGraph : logGraph);
   let visibleCount = $state(REPOSITORY_LOG_PAGE_SIZE);
@@ -71,10 +71,21 @@
       : { revisions: [], devices: [] },
   );
   const canvas = createRepositoryLogCanvas();
-  let selectedId = $state<string | null>(null);
+  const selection = createRepositoryLogSelection({
+    pane,
+    canvas,
+    graph: () => graph,
+    logGraph: () => logGraph,
+    scope: () => repositoryAddress,
+    loading: () => loading,
+    reveal: (count) => {
+      visibleCount = Math.max(REPOSITORY_LOG_PAGE_SIZE, count);
+    },
+    loadCommit: () => onLoadRepositoryCommit,
+  });
   const agentContexts = $derived(buildRepositoryAgentContexts(events));
   const selectedAgentContexts = $derived(
-    repositoryAgentContextsForSelection(agentContexts, pane.pane, selectedId),
+    repositoryAgentContextsForSelection(agentContexts, pane.pane, selection.id),
   );
   const selectedAgentRecordCount = $derived(
     new Set(
@@ -87,27 +98,13 @@
     ).size,
   );
   const selectedPath = $derived(canvas.pathAt(1) ?? null);
-  let evoSelectedId = $state<string | null>(null);
-  let detail = $state.raw<ProjectForgeCommitResponse | undefined>();
-  let filesError = $state("");
-  let filesRequest = $state<AbortController>();
-  const files = $derived(repositoryLogChangedFiles(detail));
-  const filePatch = $derived(repositoryLogFilePatch(detail, selectedPath));
+  const files = $derived(repositoryLogChangedFiles(selection.detail));
+  const filePatch = $derived(
+    repositoryLogFilePatch(selection.detail, selectedPath),
+  );
   const showEvolog = $derived(
     pane.pane === "log" && pane.evologOpen && Boolean(pane.selectedCommitId),
   );
-
-  $effect(() => {
-    pane.pane;
-    untrack(() => {
-      visibleCount = REPOSITORY_LOG_PAGE_SIZE;
-      canvas.clear();
-      selectedId = null;
-      evoSelectedId = null;
-      detail = undefined;
-      filesError = "";
-    });
-  });
 
   $effect(() => {
     if (!pane.evologOpen) return;
@@ -115,7 +112,7 @@
       untrack(() => {
         pane.setEvologOpen(false);
         canvas.open("evolog");
-        evoSelectedId = null;
+        selection.clearEvolution();
       });
       return;
     }
@@ -125,51 +122,12 @@
   $effect(() => {
     if (selectedAgentContexts.length > 0) canvas.open("agent-context");
   });
-
-  async function loadFiles(
-    eventId: string | null,
-    empty = false,
-  ): Promise<void> {
-    filesRequest?.abort();
-    detail = undefined;
-    filesError = "";
-    if (!eventId || empty) return;
-    if (!onLoadRepositoryCommit) {
-      filesError = REPOSITORY_LOG_FILES_UNAVAILABLE;
-      return;
-    }
-    const controller = new AbortController();
-    filesRequest = controller;
-    try {
-      detail = await onLoadRepositoryCommit(eventId, controller.signal);
-    } catch (cause) {
-      if (controller.signal.aborted) return;
-      filesError = repositoryLogFilesError(cause);
-    }
-  }
-
-  async function selectRevision(eventId: string): Promise<void> {
-    canvas.select(0, eventId);
-    const selected = canvas.pathAt(0) ?? null;
-    selectedId = selected;
-    const revision = graph.revisions.find((item) => item.eventId === selected);
-    if (pane.pane === "log") {
-      pane.setLogSelection(selected, revision?.changeId ?? null);
-      evoSelectedId = null;
-    }
-    await loadFiles(revision?.commitId ?? selected, revision?.empty === true);
-  }
-
-  async function selectEvolution(eventId: string): Promise<void> {
-    evoSelectedId = evoSelectedId === eventId ? null : eventId;
-    const revision = evoGraph.revisions.find(
-      (item) => item.eventId === evoSelectedId,
-    );
-    await loadFiles(evoSelectedId, revision?.empty === true);
-  }
 </script>
 
 <section class="community-projects-repository-log" aria-label="Repository log">
+  {#if selection.unavailable}
+    <p role="status">This commit is not available in the repository log.</p>
+  {/if}
   {#if loading && graph.revisions.length === 0}
     <div class="community-projects-repository-log__skeleton" aria-busy="true">
       <span class="sr-only">Loading repository log</span>
@@ -210,20 +168,30 @@
             {members}
             revisions={pagedGraph.revisions}
             devices={pagedGraph.devices}
-            {selectedId}
+            selectedId={selection.id}
+            revisionHref={(revision) =>
+              repositoryAddress && pane.pane === "log"
+                ? projectRouteToHash({
+                    kind: "repository",
+                    coordinate: repositoryAddress,
+                    surface: "log",
+                    commitSha: revision.eventId,
+                  })
+                : undefined}
             graphLabel={pane.pane === "oplog"
               ? "Operation graph"
               : "Revision graph"}
             commitLabel={pane.pane === "oplog" ? "operation ID" : "commit ID"}
-            onSelect={(revision) => void selectRevision(revision.eventId)}
+            onSelect={(revision) =>
+              void selection.selectRevision(revision.eventId)}
           >
             {#snippet selectedFiles()}
-              {#if !evoSelectedId}
+              {#if !selection.evolutionId}
                 <CommunityProjectsRepositoryLogFiles
                   compact
                   {files}
                   {selectedPath}
-                  error={filesError}
+                  error={selection.error}
                   onSelectPath={(path) => {
                     if (canvas.pathAt(1) !== path) canvas.select(1, path);
                   }}
@@ -258,16 +226,20 @@
             <CommunityProjectsRevisionGraph
               {members}
               revisions={evoGraph.revisions}
-              selectedId={evoSelectedId}
+              selectedId={selection.evolutionId}
               graphLabel="Evolution log"
-              onSelect={(revision) => void selectEvolution(revision.eventId)}
+              onSelect={(revision) =>
+                void selection.selectEvolution(
+                  revision.eventId,
+                  revision.empty,
+                )}
             >
               {#snippet selectedFiles()}
                 <CommunityProjectsRepositoryLogFiles
                   compact
                   {files}
                   {selectedPath}
-                  error={filesError}
+                  error={selection.error}
                   onSelectPath={(path) => {
                     if (canvas.pathAt(1) !== path) canvas.select(1, path);
                   }}

@@ -1,8 +1,11 @@
 <script module lang="ts">
   import { defineMeta } from "@storybook/addon-svelte-csf";
-  import { expect, fn, userEvent } from "storybook/test";
+  import { expect, fn, userEvent, within } from "storybook/test";
   import CommunityProjectsActivityFeed from "./CommunityProjectsActivityFeed.svelte";
-  import { repositoryContextEvents } from "../../testing/repository-context-fixture.js";
+  import {
+    repositoryContextEvents,
+    contextFixture as f,
+  } from "../../testing/repository-context-fixture.js";
   import { withRepositoryContextActivity } from "../../projects/repository-context-activity.js";
   import { createBrowserProjectActivityFilterStore } from "../../projects/activity-filters.js";
   import "./CommunityProjects.css";
@@ -126,5 +129,74 @@
     await expect(
       canvas.queryByText("Updated the README and verified the diff."),
     ).not.toBeInTheDocument();
+  }}
+/>
+
+<Story
+  name="Checkpoint Log link from projects Activity"
+  args={{
+    filterPage: "projects",
+    activity: withRepositoryContextActivity([], repositoryContextEvents()),
+  }}
+  play={async ({ canvas, canvasElement }) => {
+    await userEvent.click(
+      await canvas.findByRole("button", { name: "Agent context references" }),
+    );
+    const menu = within(
+      await within(canvasElement.ownerDocument.body).findByRole("menu"),
+    );
+    const log = menu.getAllByRole("menuitem").at(-1)!;
+    await expect(log).toHaveTextContent(/^Log$/);
+    await expect(log).toHaveAttribute(
+      "href",
+      `#/projects/repository/${f.repository}/log/${f.commit}`,
+    );
+    await userEvent.keyboard("{Escape}");
+  }}
+/>
+
+<Story
+  name="Checkpoint Log link from project Activity"
+  args={{
+    filterPage: "project",
+    activity: withRepositoryContextActivity([], repositoryContextEvents()),
+  }}
+  play={async ({ canvas, canvasElement }) => {
+    await userEvent.click(
+      await canvas.findByRole("button", { name: "Agent context references" }),
+    );
+    const menu = within(
+      await within(canvasElement.ownerDocument.body).findByRole("menu"),
+    );
+    const log = menu.getAllByRole("menuitem").at(-1)!;
+    await expect(log).toHaveTextContent(/^Log$/);
+    await expect(log).toHaveAttribute(
+      "href",
+      `#/projects/repository/${f.repository}/log/${f.commit}`,
+    );
+    await userEvent.keyboard("{Escape}");
+  }}
+/>
+
+<Story
+  name="Checkpoint Log link from repositories Activity"
+  args={{
+    filterPage: "repositories",
+    activity: withRepositoryContextActivity([], repositoryContextEvents()),
+  }}
+  play={async ({ canvas, canvasElement }) => {
+    await userEvent.click(
+      await canvas.findByRole("button", { name: "Agent context references" }),
+    );
+    const menu = within(
+      await within(canvasElement.ownerDocument.body).findByRole("menu"),
+    );
+    const log = menu.getAllByRole("menuitem").at(-1)!;
+    await expect(log).toHaveTextContent(/^Log$/);
+    await expect(log).toHaveAttribute(
+      "href",
+      `#/projects/repository/${f.repository}/log/${f.commit}`,
+    );
+    await userEvent.keyboard("{Escape}");
   }}
 />

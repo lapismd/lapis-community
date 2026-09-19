@@ -214,3 +214,6 @@ LC-UI-049 reference-menu composition and navigation regression coverage update
 the architecture baseline with their owning modules; relay payloads are unchanged.
 The repository Log shortcut extends only these menu and reference modules,
 with its focused ordering and destination stories reflected in their budgets.
+Shareable Log selection extracts file loading and restoration from the Log
+component; architecture budgets MUST track those owners without growing the
+application composition root.

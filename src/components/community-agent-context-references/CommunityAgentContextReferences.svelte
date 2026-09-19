@@ -7,7 +7,7 @@
   import FolderGit2Icon from "@lucide/svelte/icons/folder-git-2";
   import HashIcon from "@lucide/svelte/icons/hash";
   import MessagesSquareIcon from "@lucide/svelte/icons/messages-square";
-  import ListTreeIcon from "@lucide/svelte/icons/list-tree";
+  import GitGraphIcon from "@lucide/svelte/icons/git-graph";
   import type { RepositoryAgentCheckpoint } from "../../projects/repository-agent-context.js";
   import { useRepositoryLogPane } from "../../projects/repository-log-pane.svelte.js";
   import { useAgentContextNavigation } from "./context.js";
@@ -37,7 +37,7 @@
     repository: FolderGit2Icon,
     channel: HashIcon,
     thread: MessagesSquareIcon,
-    log: ListTreeIcon,
+    log: GitGraphIcon,
   };
 </script>
 
@@ -95,7 +95,7 @@
             data-icon="inline-start"
             aria-hidden="true"
           />
-          Commits
+          <span class="reference-label reference-label--submenu">Commits</span>
         </DropdownMenu.SubTrigger>
         <DropdownMenu.SubContent
           class="agent-context-reference-menu"
@@ -121,6 +121,10 @@
     width: max-content;
     min-width: min(16rem, calc(100vw - 2rem));
     max-width: min(22rem, calc(100vw - 2rem));
+  }
+  .reference-label--submenu {
+    flex: 1;
+    text-align: start;
   }
   .reference-label {
     min-width: 0;

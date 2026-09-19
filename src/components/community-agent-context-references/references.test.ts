@@ -52,19 +52,23 @@ describe("agent context references", () => {
     expect(refs.map((r) => r.kind)).toEqual([
       "commit",
       "change",
-      "log",
       "channel",
       "thread",
       "repository",
+      "log",
     ]);
     expect(refs[0]!.href).toContain(`/commits/${f.commit}`);
-    expect(refs[1]!.href).toBe(refs[0]!.href);
+    expect(refs[1]!.href).toBe(
+      `#/projects/repository/${f.repository}/log/${f.commit}`,
+    );
     expect(refs[1]!.title).toContain("mmmmmmmm");
-    expect(refs[2]!.href).toBe(`#/projects/repository/${f.repository}/log`);
-    expect(refs[4]!.title).toBe(`Open thread ${rootId}`);
-    refs[3]!.select!();
+    expect(refs.at(-1)!.href).toBe(
+      `#/projects/repository/${f.repository}/log/${f.commit}`,
+    );
+    expect(refs[3]!.title).toBe(`Open thread ${rootId}`);
+    refs[2]!.select!();
     expect(host.selectRoom).toHaveBeenCalledWith("local-room");
-    refs[4]!.select!();
+    refs[3]!.select!();
     expect(host.openPanel).toHaveBeenCalledWith("local-room", {
       kind: "thread",
       roomId: "local-room",
@@ -81,14 +85,14 @@ describe("agent context references", () => {
       { ...checkpoint!, commitIds: [], targets: [] },
     ]);
     expect(refs.map((r) => r.kind)).toEqual([
-      "log",
       "channel",
       "thread",
       "repository",
     ]);
+    expect(refs[0]!.disabled).toBe(true);
+    expect(refs[1]!.title).toBe(`Open request ${requestId}`);
     expect(refs[1]!.disabled).toBe(true);
-    expect(refs[2]!.title).toBe(`Open request ${requestId}`);
-    expect(refs[2]!.disabled).toBe(true);
+    expect(refs.some((ref) => ref.kind === "log")).toBe(false);
   });
 
   it("uses the newest checkpoint version when linking a rewritten change", () => {
@@ -101,10 +105,19 @@ describe("agent context references", () => {
       commitIds: ["c".repeat(40)],
       targets: [{ commitId: "c".repeat(40), changeId: "d".repeat(32) }],
     };
-    const refs = agentContextReferences([checkpoint!, newer]);
+    const readOnly = {
+      ...newer,
+      createdAt: newer.createdAt + 1,
+      commitIds: [],
+      targets: [],
+    };
+    const refs = agentContextReferences([checkpoint!, readOnly, newer]);
+    expect(refs.at(-1)!.href).toBe(
+      `#/projects/repository/${f.repository}/log/${"c".repeat(40)}`,
+    );
     expect(refs.filter((r) => r.kind === "change")).toHaveLength(1);
     expect(refs.find((r) => r.kind === "change")!.href).toContain(
-      `/commits/${"c".repeat(40)}`,
+      `/log/${"c".repeat(40)}`,
     );
   });
 

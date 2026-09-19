@@ -674,3 +674,13 @@ change targets. Agent context reference menus own presentation and share an
 application-provided conversation navigation adapter with Agent Activity.
 Their repository Log links MUST use the canonical repository route and select
 the shared revision-log pane; each repository contributes only one Log shortcut.
+Repository Log navigation MUST be adapted at the application boundary to the
+shared pane context. Selection, history restoration, and cancellable file reads
+belong to a dedicated Log selection controller, not the application composition
+root. Route commit identifiers participate in parsing, persistence, and history
+identity for both the Commits and Log surfaces.
+
+Checkpoint file reads MUST bind to the destination repository selected by the
+route even before its browsing state has been prepared. Navigation from the
+Projects, project, and repository Activity feeds MUST share this read path and
+MUST NOT reuse a previous repository's coordinate.

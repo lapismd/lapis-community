@@ -4,11 +4,18 @@ import { projectSurfaceTitle } from "./project-rail.js";
 
 export type RepositoryLogPane = "log" | "oplog";
 
+export type RepositoryLogNavigation = {
+  requestedCommitId?(): string | null | undefined;
+  onSelectCommit?(commitId: string | null): void;
+};
+
 export type RepositoryLogPaneState = {
   readonly pane: RepositoryLogPane;
   readonly evologOpen: boolean;
   readonly selectedCommitId: string | null;
   readonly selectedChangeId: string | null;
+  readonly requestedCommitId: string | null | undefined;
+  navigateToCommit(commitId: string | null): void;
   selectPane(pane: RepositoryLogPane): void;
   toggleEvolog(): void;
   setEvologOpen(open: boolean): void;
@@ -18,7 +25,9 @@ export type RepositoryLogPaneState = {
 
 const paneContextKey = Symbol("repository-log-pane");
 
-export function createRepositoryLogPane(): RepositoryLogPaneState {
+export function createRepositoryLogPane(
+  navigation: RepositoryLogNavigation = {},
+): RepositoryLogPaneState {
   let pane = $state<RepositoryLogPane>("log");
   let evologOpen = $state(false);
   let selectedCommitId = $state<string | null>(null);
@@ -34,6 +43,12 @@ export function createRepositoryLogPane(): RepositoryLogPaneState {
   }
 
   return {
+    get requestedCommitId() {
+      return navigation.requestedCommitId?.();
+    },
+    navigateToCommit(commitId) {
+      navigation.onSelectCommit?.(commitId);
+    },
     get pane() {
       return pane;
     },

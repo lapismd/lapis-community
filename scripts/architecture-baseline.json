@@ -1105,8 +1105,8 @@
       "justification": "LC-UI-050 adds aggregate Activity switch-back assertions; selected-project route and loading stories have their own file."
     },
     "src/components/community-application/CommunityApplication.svelte": {
-      "countedLines": 9183,
-      "physicalLines": 9543,
+      "countedLines": 9180,
+      "physicalLines": 9540,
       "forbiddenImportCount": 0,
       "kind": "legacy",
       "justification": "Application composition root; extract destination hosts before adding behaviour"
@@ -1228,20 +1228,14 @@
       "justification": "Existing file above the new-file counted-line limit; do not grow"
     },
     "src/components/community-application/project-route.test.ts": {
-      "countedLines": 87,
-      "physicalLines": 90,
-      "forbiddenImportCount": 0,
-      "kind": "exception",
-      "requirement": "LC-UI-049",
-      "justification": "Focused regression coverage for completed agent context, live preview lifecycle and agent identity."
+      "countedLines": 98,
+      "physicalLines": 101,
+      "forbiddenImportCount": 0
     },
     "src/components/community-application/project-route.ts": {
-      "countedLines": 111,
-      "physicalLines": 118,
-      "forbiddenImportCount": 0,
-      "kind": "exception",
-      "requirement": "LC-UI-049",
-      "justification": "Bounded agent context composition or protocol fields; assembly, transcript projection, routing and preview retention remain separately owned modules."
+      "countedLines": 114,
+      "physicalLines": 121,
+      "forbiddenImportCount": 0
     },
     "src/components/community-avatar-picker/CommunityAvatarPicker.stories.svelte": {
       "countedLines": 26,
@@ -2211,15 +2205,9 @@
       "justification": "LC-UI-049: extracted activity controls and log fixtures; shared working and action-row presentation with lifecycle and repository-log regression stories."
     },
     "src/components/community-projects/CommunityProjectsRepositoryLog.svelte": {
-      "countedLines": 297,
-      "physicalLines": 310,
-      "forbiddenImportCount": 0,
-      "kind": "exception",
-      "requirement": "LC-UI-049",
-      "justification": "Bounded log composition keeps checkpoint record counts consistent with deduplicated shared transcript entries; live JJ and operation log acceptance covers selection.",
-      "scriptCounted": 161,
-      "markupCounted": 116,
-      "stylePhysical": 22
+      "countedLines": 273,
+      "physicalLines": 282,
+      "forbiddenImportCount": 0
     },
     "src/components/community-projects/CommunityProjectsRepositoryLogDiff.svelte": {
       "countedLines": 145,
@@ -2287,20 +2275,14 @@
       "forbiddenImportCount": 0
     },
     "src/components/community-projects/CommunityProjectsRevisionGraph.svelte": {
-      "countedLines": 214,
-      "physicalLines": 231,
-      "forbiddenImportCount": 0,
-      "kind": "exception",
-      "requirement": "LC-UI-049",
-      "justification": "Bounded agent context composition or protocol fields; assembly, transcript projection, routing and preview retention remain separately owned modules."
+      "countedLines": 236,
+      "physicalLines": 253,
+      "forbiddenImportCount": 0
     },
     "src/components/community-projects/CommunityProjectsRevisionGraphCopy.svelte": {
-      "countedLines": 72,
-      "physicalLines": 78,
-      "forbiddenImportCount": 0,
-      "kind": "exception",
-      "requirement": "LC-UI-049",
-      "justification": "Bounded agent context composition or protocol fields; assembly, transcript projection, routing and preview retention remain separately owned modules."
+      "countedLines": 82,
+      "physicalLines": 88,
+      "forbiddenImportCount": 0
     },
     "src/components/community-projects/CommunityProjectsRevisionGraphIds.svelte": {
       "countedLines": 141,
@@ -2308,8 +2290,8 @@
       "forbiddenImportCount": 0
     },
     "src/components/community-projects/CommunityProjectsRevisionGraphMessage.svelte": {
-      "countedLines": 116,
-      "physicalLines": 128,
+      "countedLines": 143,
+      "physicalLines": 155,
       "forbiddenImportCount": 0
     },
     "src/components/community-projects/CommunityProjectsSourceError.svelte": {
@@ -3464,12 +3446,9 @@
       "justification": "Use native committer time to retain completed checkpoints when author time is unchanged; covered by live README acceptance and same-author-time rewrite regression."
     },
     "src/projects/repository-log-collapse.ts": {
-      "countedLines": 275,
-      "physicalLines": 294,
-      "forbiddenImportCount": 0,
-      "kind": "exception",
-      "requirement": "LC-UI-049",
-      "justification": "Use native committer time to retain completed checkpoints when author time is unchanged; covered by live README acceptance and same-author-time rewrite regression."
+      "countedLines": 281,
+      "physicalLines": 300,
+      "forbiddenImportCount": 0
     },
     "src/projects/repository-log-files.test.ts": {
       "countedLines": 81,
@@ -3512,22 +3491,19 @@
       "forbiddenImportCount": 0
     },
     "src/projects/repository-log-pane.svelte.ts": {
-      "countedLines": 73,
-      "physicalLines": 83,
+      "countedLines": 87,
+      "physicalLines": 98,
       "forbiddenImportCount": 0
     },
     "src/projects/repository-log.test.ts": {
-      "countedLines": 236,
-      "physicalLines": 248,
+      "countedLines": 258,
+      "physicalLines": 270,
       "forbiddenImportCount": 0
     },
     "src/projects/repository-log.ts": {
-      "countedLines": 274,
-      "physicalLines": 299,
-      "forbiddenImportCount": 0,
-      "kind": "exception",
-      "requirement": "LC-UI-049",
-      "justification": "Use native committer time to retain completed checkpoints when author time is unchanged; covered by live README acceptance and same-author-time rewrite regression."
+      "countedLines": 276,
+      "physicalLines": 301,
+      "forbiddenImportCount": 0
     },
     "src/projects/repository-operation-log.test.ts": {
       "countedLines": 113,
@@ -3553,13 +3529,13 @@
       "forbiddenImportCount": 0
     },
     "src/projects/repository-source-reads.test.ts": {
-      "countedLines": 60,
-      "physicalLines": 63,
+      "countedLines": 89,
+      "physicalLines": 92,
       "forbiddenImportCount": 0
     },
     "src/projects/repository-source-reads.ts": {
-      "countedLines": 67,
-      "physicalLines": 70,
+      "countedLines": 79,
+      "physicalLines": 84,
       "forbiddenImportCount": 0
     },
     "src/projects/repository-tree.test.ts": {
@@ -3839,13 +3815,13 @@
       "justification": "LC-UI-049: distinguish the unavailable context status from the shared checkpoint divider status."
     },
     "src/components/community-agent-context-references/CommunityAgentContextReferences.stories.svelte": {
-      "countedLines": 105,
-      "physicalLines": 107,
+      "countedLines": 115,
+      "physicalLines": 117,
       "forbiddenImportCount": 0
     },
     "src/components/community-agent-context-references/CommunityAgentContextReferences.svelte": {
-      "countedLines": 128,
-      "physicalLines": 131,
+      "countedLines": 132,
+      "physicalLines": 135,
       "forbiddenImportCount": 0
     },
     "src/components/community-agent-context-references/context.ts": {
@@ -3859,18 +3835,18 @@
       "forbiddenImportCount": 0
     },
     "src/components/community-agent-context-references/references.test.ts": {
-      "countedLines": 124,
-      "physicalLines": 130,
+      "countedLines": 137,
+      "physicalLines": 143,
       "forbiddenImportCount": 0
     },
     "src/components/community-agent-context-references/references.ts": {
-      "countedLines": 117,
-      "physicalLines": 120,
+      "countedLines": 133,
+      "physicalLines": 136,
       "forbiddenImportCount": 0
     },
     "src/components/community-projects/CommunityProjectsActivityContext.stories.svelte": {
-      "countedLines": 129,
-      "physicalLines": 130,
+      "countedLines": 198,
+      "physicalLines": 202,
       "forbiddenImportCount": 0
     },
     "src/components/community-projects/CommunityProjectsAgentContextDisclosure.svelte": {
@@ -3891,6 +3867,31 @@
     "src/projects/repository-live-context.ts": {
       "countedLines": 139,
       "physicalLines": 143,
+      "forbiddenImportCount": 0
+    },
+    "src/components/community-application/project-commit-route.ts": {
+      "countedLines": 89,
+      "physicalLines": 93,
+      "forbiddenImportCount": 0
+    },
+    "src/components/community-application/project-log-navigation.svelte.ts": {
+      "countedLines": 41,
+      "physicalLines": 43,
+      "forbiddenImportCount": 0
+    },
+    "src/components/community-projects/CommunityProjectsRepositoryLogNavigation.stories.svelte": {
+      "countedLines": 215,
+      "physicalLines": 221,
+      "forbiddenImportCount": 0
+    },
+    "src/components/community-projects/CommunityProjectsRepositoryLogNavigationHarness.svelte": {
+      "countedLines": 95,
+      "physicalLines": 98,
+      "forbiddenImportCount": 0
+    },
+    "src/projects/repository-log-selection.svelte.ts": {
+      "countedLines": 151,
+      "physicalLines": 157,
       "forbiddenImportCount": 0
     }
   }

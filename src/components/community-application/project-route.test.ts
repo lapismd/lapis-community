@@ -5,6 +5,7 @@ import {
   locationForProjectRoute,
 } from "./project-commit-route.js";
 import { projectRouteFromHash, projectRouteToHash } from "./navigation.js";
+import { parseStoredProjectRoute, projectRouteKey } from "./project-route.js";
 
 describe("project route hashes", () => {
   it("restores an exact repository commit through direct navigation", () => {
@@ -18,6 +19,16 @@ describe("project route hashes", () => {
     expect(
       projectRouteFromHash(
         projectRouteToHash(route).replace("/commits/", "/log/"),
+      ),
+    ).toEqual({ ...route, surface: "log" });
+    const logRoute = { ...route, surface: "log" as const };
+    expect(parseStoredProjectRoute(logRoute)).toEqual(logRoute);
+    expect(projectRouteKey(logRoute)).not.toBe(
+      projectRouteKey({ ...logRoute, commitSha: "b".repeat(40) }),
+    );
+    expect(
+      projectRouteFromHash(
+        projectRouteToHash(route).replace("/commits/", "/files/"),
       ),
     ).toBeNull();
   });

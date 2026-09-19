@@ -9,8 +9,14 @@
   let {
     row,
     members = [],
-  }: { row: RepositoryLogGraphRow; members?: readonly CommunityMemberModel[] } =
-    $props();
+    href,
+    onSelect,
+  }: {
+    row: RepositoryLogGraphRow;
+    members?: readonly CommunityMemberModel[];
+    href?: string | undefined;
+    onSelect?: (() => void) | undefined;
+  } = $props();
 </script>
 
 <span class="community-revision-graph-copy">
@@ -21,7 +27,11 @@
     size="small"
   />
   <span class="community-revision-graph-copy__body">
-    <CommunityProjectsRevisionGraphMessage message={row.revision.message} />
+    <CommunityProjectsRevisionGraphMessage
+      message={row.revision.message}
+      {href}
+      {onSelect}
+    />
     <span class="community-revision-graph-copy__meta">
       <CommunityRelativeTime timestamp={row.revision.createdAt} />
     </span>

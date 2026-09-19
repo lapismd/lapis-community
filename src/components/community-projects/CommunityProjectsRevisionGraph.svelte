@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { Snippet } from "svelte";
+  import { tick } from "svelte";
   import type { CommunityMemberModel } from "../community-workspace/model.js";
 
   import CommunityProjectsRevisionGraphCopy from "./CommunityProjectsRevisionGraphCopy.svelte";
@@ -32,6 +33,7 @@
     commitLabel = "commit ID",
     onSelect,
     selectedFiles,
+    revisionHref,
   }: {
     revisions: RepositoryLogRevision[];
     members?: readonly CommunityMemberModel[];
@@ -41,12 +43,26 @@
     commitLabel?: string | undefined;
     onSelect?: ((revision: RepositoryLogRevision) => void) | undefined;
     selectedFiles?: Snippet | undefined;
+    revisionHref?:
+      | ((revision: RepositoryLogRevision) => string | undefined)
+      | undefined;
   } = $props();
 
   const rows = $derived(buildRepositoryLogGraph(revisions, devices));
   const svgWidth = $derived(repositoryLogSvgWidth(rows));
   const rowHeight = REPOSITORY_LOG_ROW_HEIGHT;
   const radius = REPOSITORY_LOG_NODE_RADIUS;
+  let list: HTMLOListElement;
+  $effect(() => {
+    const selected = selectedId;
+    if (selected)
+      void tick().then(() => {
+        if (selectedId === selected)
+          list
+            ?.querySelector('[aria-current="true"]')
+            ?.scrollIntoView({ block: "nearest", inline: "nearest" });
+      });
+  });
 
   function laneColor(row: RepositoryLogGraphRow, lane: number): string {
     return row.lanes[lane]?.color ?? "var(--primary)";
@@ -54,6 +70,7 @@
 </script>
 
 <ol
+  bind:this={list}
   class="community-revision-graph"
   style:--community-revision-graph-row-height="{rowHeight}px"
   aria-label={graphLabel}
@@ -141,7 +158,12 @@
             fill={laneColor(row, row.commitLane)}
           />
         </svg>
-        <CommunityProjectsRevisionGraphCopy {row} {members} />
+        <CommunityProjectsRevisionGraphCopy
+          {row}
+          {members}
+          href={revisionHref?.(row.revision)}
+          onSelect={onSelect ? () => onSelect?.(row.revision) : undefined}
+        />
       </div>
       <CommunityProjectsRevisionGraphIds
         changeId={row.changeIdEncoded}
