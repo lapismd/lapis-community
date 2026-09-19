@@ -5,8 +5,8 @@
   import ChevronDownIcon from "@lucide/svelte/icons/chevron-down";
   import ChevronRightIcon from "@lucide/svelte/icons/chevron-right";
   import FolderGit2Icon from "@lucide/svelte/icons/folder-git-2";
-  import HashIcon from "@lucide/svelte/icons/hash";
 
+  import CommunityProjectChannelIcon from "../community-project-channel-icon/CommunityProjectChannelIcon.svelte";
   import {
     projectMemberRepositories,
     type ProjectForgeRepository,
@@ -92,10 +92,10 @@
             <Button
               type="button"
               variant="ghost"
-              class="community-application__project-overview-item"
+              class="community-application__project-overview-item community-projects-project-repositories-rail__channel"
               onclick={() => onSelectChannel(repository)}
             >
-              <HashIcon data-icon="inline-start" aria-hidden="true" />
+              <CommunityProjectChannelIcon data-icon="inline-start" />
               <span>{name}</span>
             </Button>
           </div>
@@ -147,6 +147,21 @@
 
   .community-projects-project-repositories-rail__children {
     padding-inline-start: 1.25rem;
+  }
+
+  :global(
+      .community-application__project-overview-item.community-projects-project-repositories-rail__channel[data-ui-component="button"]
+    ) {
+    color: var(--muted-foreground);
+    font-size: var(--community-text-secondary);
+  }
+
+  :global(
+      .community-projects-project-repositories-rail__channel[data-ui-component="button"]
+        > svg
+    ) {
+    width: 0.8125rem;
+    height: 0.8125rem;
   }
 
   :global(

@@ -73,7 +73,11 @@
   play={async ({ canvas }) => {
     await expect(canvas.queryByText("Relay hosted")).not.toBeInTheDocument();
     await expect(canvas.getByText("Channel")).toBeVisible();
-    await expect(canvas.getByRole("button", { name: "plugin-development" }).querySelector(".lucide-hash")).not.toBeNull();
+    await expect(
+      canvas
+        .getByRole("button", { name: "plugin-development" })
+        .querySelector('[data-ui-part="project-channel-icon"]'),
+    ).not.toBeNull();
     await expect(canvas.getByText("Details")).toBeVisible();
     await expect(canvas.getByRole("button", { name: "Options" })).toBeVisible();
   }}

@@ -426,8 +426,10 @@ button with hover, focus, and current-surface states. Aggregate rows MUST select
 their matching Projects tab, while rows for a selected project MUST select the
 matching project tab. A selected project MUST default to Activity rather than a
 single-repository Overview or Files tree. The far-right Repositories category
-MUST list member repositories with expandable, slightly indented hash-icon
-channel children on the project workspace and on a selected member repository.
+MUST list member repositories with expandable, slightly indented project-channel
+icon children on the project workspace and on a selected member repository.
+Those children MUST use slightly smaller type than the repository name. Bound channel rows on the project overview rail, including the
+repository Channel category, MUST use the same project-channel icon.
 The selected and hover wash MUST span the whole repository name row, including
 the collapse control; that control MUST keep a distinct chip hover on top of
 the row wash. The repository Details Latest hash MUST use the same History-style

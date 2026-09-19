@@ -7,10 +7,10 @@
   import GitBranchIcon from "@lucide/svelte/icons/git-branch";
   import GitCommitHorizontalIcon from "@lucide/svelte/icons/git-commit-horizontal";
   import GitPullRequestIcon from "@lucide/svelte/icons/git-pull-request";
-  import HashIcon from "@lucide/svelte/icons/hash";
   import ListTodoIcon from "@lucide/svelte/icons/list-todo";
   import SettingsIcon from "@lucide/svelte/icons/settings";
 
+  import CommunityProjectChannelIcon from "../community-project-channel-icon/CommunityProjectChannelIcon.svelte";
   import { projectRailSurface } from "../../projects/project-rail.js";
   import type { ProjectForgeSurface } from "../../projects/surfaces.js";
   import CommunityProjectsRepositoryLogRail from "./CommunityProjectsRepositoryLogRail.svelte";
@@ -118,7 +118,7 @@
   {/if}
   {#if channel}
     <p class="community-application__project-overview-label">Channel</p>
-    {@render railStat(HashIcon, channel.replace(/^#/, ""), "")}
+    {@render railStat(CommunityProjectChannelIcon, channel.replace(/^#/, ""), "")}
   {/if}
   <p class="community-application__project-overview-label">Details</p>
   <CommunityProjectsRepositoryRailLatest

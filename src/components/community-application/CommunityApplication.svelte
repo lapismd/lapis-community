@@ -6582,7 +6582,7 @@
           {#each activeChannelProjectBindings as binding (binding.channelId)}
             {@const room = roomForProjectChannel(binding.channelId)}
             {@render projectChannelRailItem(
-              HashIcon,
+              CommunityProjectChannelIcon,
               room?.name ?? binding.channelId,
               undefined,
               () => selectProjectChannelDestination(binding.channelId),
