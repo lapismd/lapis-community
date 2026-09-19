@@ -730,6 +730,12 @@ The activity toolbar reports checking, caught-up, migration-gap, and unavailable
 states without replacing saved history. Selecting Latest retries the same exact
 visible conversation context.
 
+## Agent context conversations
+
+For LC-UI-049, completed agent messages with verified source events MUST reuse ordinary message reaction and reply controls on all repository and project context surfaces. Replies open the original thread in the body-right sidebar while retaining the main page. The original thread renders one conversation with public tool activity and checkpoint details; previews and persisted messages are deduplicated. Unlinked historical records remain readable without synthetic interaction IDs.
+
+Commit details and Log diffs MUST reuse review line-comment controls, persist anchored repository comments once, and expose the same discussion in the originating agent thread. Anchors retain exact commit, comparison base, path, old/new side and line. Comments on old revisions remain attached to those revisions. Posted comments wait for the next agent turn.
+
 ## Commit detail sections
 
 For LC-UI-049, commit details MUST use the same full-width, keyboard-operable
@@ -900,3 +906,9 @@ curator-decision and withdrawal changes invalidate the input revision; duplicate
 replay and status-only notifications MUST NOT rebuild inspections. Management
 capabilities still follow status and identity changes. Unavailable
 manifest results remain retryable, and disposal aborts source-owned work.
+
+Agent code context and original threads render provider-visible `thinking` records with the shared expandable Thinking block. Only unfinished live blocks animate; completed and interrupted blocks never keep spinning.
+
+Agent transcript messages retain rounded agent avatars while composing the shared
+message actions. `CommunityMessage` and `CommunityMemberHoverCard` expose the
+shared `avatarShape` variant so identity previews preserve that shape too.

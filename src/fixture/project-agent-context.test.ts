@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type { NostrEvent, NostrEventTemplate } from "../protocol/index.js";
+import { event } from "./project-context-test-event.js";
 import {
   buildRepositoryAgentContexts,
   repositoryAgentContextsForSelection,
@@ -13,15 +13,6 @@ import {
 } from "./project-agent-context.js";
 
 const agentPubkey = "9".repeat(64);
-
-function event(template: NostrEventTemplate, index: number): NostrEvent {
-  return {
-    ...template,
-    id: index.toString(16).padStart(64, "0"),
-    pubkey: agentPubkey,
-    sig: "f".repeat(128),
-  };
-}
 
 describe("local project agent context fixture", () => {
   it("projects into selectable Log and Op Log context", () => {
@@ -76,6 +67,7 @@ describe("local project agent context fixture", () => {
         kind: "user_message",
         text: "Add agent context beside the local repository history.",
       },
+      { kind: "thinking", text: expect.stringContaining("README") },
       { kind: "tool", toolName: "apply_patch", toolState: "completed" },
       {
         kind: "assistant_message",

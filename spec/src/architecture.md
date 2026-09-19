@@ -1,5 +1,7 @@
 # Architecture
 
+LC-UI-049 public transcript interaction adapters and thread context projections stay in the component/project owners. Shared application message actions preserve existing channel permission and publishing boundaries while keeping the application composition budget from growing.
+
 For LC-UI-049, repository context parsing, transient preview retention, activity grouping and commit routing live in separate project modules. Commit metadata and expandable context compose through their owning components. Agent context and Files changed share the commit-section disclosure component; its extraction lowers the Projects composition budget. Live context remains session memory, expires after five minutes and is discarded on teardown. Architecture budgets ratchet down after route and metadata extraction; bounded composition and fixture additions carry per-file justifications.
 
 The additive agent session boundary owns authenticated discovery, transient
@@ -684,3 +686,5 @@ Checkpoint file reads MUST bind to the destination repository selected by the
 route even before its browsing state has been prepared. Navigation from the
 Projects, project, and repository Activity feeds MUST share this read path and
 MUST NOT reuse a previous repository's coordinate.
+
+Public agent conversations join verified source message events with checkpoint records. Commit feedback reuses repository note events and exact diff anchors; projections share event identity across thread, commit and activity views. No owner telemetry enters public projections.

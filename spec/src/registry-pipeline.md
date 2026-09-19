@@ -1,5 +1,7 @@
 # Local Registry Pipeline
 
+LC-UI-049 thread-context fixtures exercise existing checkpoint and channel event shapes, native replies, linked commit comments, visible thinking and shared reactions. Component extractions update the architecture baseline without changing relay protocols.
+
 For LC-UI-049, local project fixtures include agent-signed v2 context with complete prose and tool input/output, all referenced pages, and explicit commit targets. These fixtures exercise repository Activity, Log, Op Log and commit context alongside the source fixture. Commit-detail disclosure extraction updates the architecture baseline and reuses these fixtures for matching header and independent expansion checks.
 
 For LC-UI-050, project-linked channel settings derive an unsaved canvas starter
@@ -217,3 +219,9 @@ with its focused ordering and destination stories reflected in their budgets.
 Shareable Log selection extracts file loading and restoration from the Log
 component; architecture budgets MUST track those owners without growing the
 application composition root.
+
+Public agent conversations join verified source message events with checkpoint records. Commit feedback reuses repository note events and exact diff anchors; projections share event identity across thread, commit and activity views. No owner telemetry enters public projections.
+
+The local project discussion fixture also publishes an owner review comment on
+the agent checkpoint and a reaction on its canonical assistant message. Both
+use standard event encodings without invoking the configured runtime agent.

@@ -6,13 +6,7 @@
   import CommunityMemberHoverCard from "./CommunityMemberHoverCard.svelte";
   import CommunityMemberHoverCardPresenceStoryHarness from "./CommunityMemberHoverCardPresenceStoryHarness.svelte";
 
-  const imageBackedMember = {
-    ...communityStoryMembers[1]!,
-    presence: "offline" as const,
-    avatarUrl:
-      "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' fill='%232563eb'/%3E%3Ccircle cx='32' cy='25' r='12' fill='white'/%3E%3Cpath d='M12 62c2-15 10-23 20-23s18 8 20 23' fill='white'/%3E%3C/svg%3E",
-  };
-
+  const member = communityStoryMembers[1]!;
   const { Story } = defineMeta({
     title: "Community/Members/Hover Card",
     component: CommunityMemberHoverCard,
@@ -23,12 +17,12 @@
 <Story
   name="Contact actions"
   args={{
-    member: communityStoryMembers[1]!,
+    member,
+    avatarShape: "rounded",
     onOpenProfile: fn(),
     onViewActivity: fn(),
     onMessage: fn(),
     onWave: fn(),
-    openDelay: 120,
   }}
   play={async ({ canvas, canvasElement, args }) => {
     const page = within(canvasElement.ownerDocument.body);
@@ -40,24 +34,24 @@
       name: "Ben Stone contact preview",
     });
     await expect(preview).toBeVisible();
+    await expect(avatar.querySelector("[data-shape]")).toHaveAttribute(
+      "data-shape",
+      "rounded",
+    );
     await userEvent.click(
       page.getByRole("button", { name: "View activity log for Ben Stone" }),
     );
-    await expect(args.onViewActivity).toHaveBeenCalledWith(
-      communityStoryMembers[1],
-    );
+    await expect(args.onViewActivity).toHaveBeenCalledWith(member);
     await userEvent.click(
       page.getByRole("button", { name: "Message Ben Stone" }),
     );
-    await expect(args.onMessage).toHaveBeenCalledWith(communityStoryMembers[1]);
+    await expect(args.onMessage).toHaveBeenCalledWith(member);
     await userEvent.click(
       page.getByRole("button", { name: "Wave to Ben Stone" }),
     );
-    await expect(args.onWave).toHaveBeenCalledWith(communityStoryMembers[1]);
+    await expect(args.onWave).toHaveBeenCalledWith(member);
     await userEvent.click(avatar);
-    await expect(args.onOpenProfile).toHaveBeenCalledWith(
-      communityStoryMembers[1],
-    );
+    await expect(args.onOpenProfile).toHaveBeenCalledWith(member);
   }}
 >
   {#snippet template(args)}
@@ -70,7 +64,12 @@
 <Story
   name="Mention trigger"
   args={{
-    member: imageBackedMember,
+    member: {
+      ...member,
+      presence: "offline",
+      avatarUrl:
+        "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' fill='%232563eb'/%3E%3Ccircle cx='32' cy='25' r='12' fill='white'/%3E%3Cpath d='M12 62c2-15 10-23 20-23s18 8 20 23' fill='white'/%3E%3C/svg%3E",
+    },
     trigger: "mention",
     triggerLabel: "@Ben Stone",
     onOpenProfile: fn(),
@@ -135,7 +134,7 @@
 <Story
   name="Current member presence"
   args={{
-    member: { ...communityStoryMembers[1]!, presence: "offline" },
+    member: { ...member, presence: "offline" },
   }}
   play={async ({ canvas, canvasElement }) => {
     const page = within(canvasElement.ownerDocument.body);
@@ -160,7 +159,7 @@
 
 <Story
   name="Escape dismisses during pointer interaction"
-  args={{ member: communityStoryMembers[1]!, trigger: "mention", openDelay: 0 }}
+  args={{ member, trigger: "mention", openDelay: 0 }}
   play={async ({ canvas, canvasElement }) => {
     const document = canvasElement.ownerDocument;
     await userEvent.hover(canvas.getByRole("button", { name: "Ben Stone" }));
@@ -183,7 +182,7 @@
 
 <Story
   name="Unavailable default actions"
-  args={{ member: communityStoryMembers[1]! }}
+  args={{ member }}
   play={async ({ canvas, canvasElement }) => {
     await userEvent.hover(
       canvas.getByRole("button", { name: "View Ben Stone's profile" }),
@@ -201,7 +200,7 @@
 <Story
   name="Prefixed handle"
   args={{
-    member: { ...communityStoryMembers[1]!, handle: "@benstone" },
+    member: { ...member, handle: "@benstone" },
     openDelay: 120,
   }}
   play={async ({ canvas, canvasElement }) => {

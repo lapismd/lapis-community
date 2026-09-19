@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { createMessageReactionAction } from "./message-reaction-action.js";
   import {
     repositorySurfaceLocation,
     reviewCommitLocation,
@@ -181,6 +182,8 @@
   import CommunityMemberAvatar from "../community-member-avatar/CommunityMemberAvatar.svelte";
   import { provideCommunityMemberPresence } from "../community-member-hover-card/presence-context.js";
   import CommunityAgentProfile from "../community-agent-profile/CommunityAgentProfile.svelte";
+  import { agentThreadPanel } from "./agent-thread-panel.js";
+  import { provideAgentConversation } from "../community-agent-conversation/context.svelte.js";
   import { provideAgentContextNavigation } from "../community-agent-context-references/context.js";
   import CommunityAgentActivity from "../community-agent-activity/CommunityAgentActivity.svelte";
   import { communityAgentMember } from "../community-agents/model.js";
@@ -313,14 +316,10 @@
     reject: (cause: unknown) => void;
   };
 
-  function repositorySupportsBrowsing(
-    repository: ProjectForgeRepository,
-    capabilities: ProjectForgeRepositoryCapabilities | undefined,
-  ): boolean {
-    if (capabilities !== undefined) return capabilities.browse;
-    // Preserve compatibility with relays that predate capability discovery.
-    return repository.repositoryClass === "hosted";
-  }
+  import {
+    repositorySupportsBrowsing,
+    findWorkspaceRoom,
+  } from "./repository-browsing.js";
 
   const pluginReleaseGroupId = lapisGroupId(LAPIS_GROUPS.pluginReleases);
 
@@ -2070,6 +2069,14 @@
     open: openAgentActivity,
   });
 
+  provideAgentConversation({
+    session: () => projectSession,
+    memberId: () => workspace.currentMemberId,
+    members: () => workspace.members,
+    rooms: () => allRooms,
+    openThread: (roomId, rootMessageId, replyTargetId) =>
+      openPanel(agentThreadPanel(roomId, rootMessageId, replyTargetId)),
+  });
   const agentContextNavigation = provideAgentContextNavigation({
     rooms: () => allRooms,
     messages: () => searchMessages,
@@ -2233,12 +2240,8 @@
     await community.actions.disconnectIdentity();
   }
 
-  function roomByWorkspaceId(roomId: string): CommunityRoomModel | undefined {
-    return (
-      allRooms.find((room) => room.id === roomId) ??
-      (activeRoom.id === roomId ? activeRoom : undefined)
-    );
-  }
+  const roomByWorkspaceId = (roomId: string) =>
+    findWorkspaceRoom(allRooms, activeRoom, roomId);
 
   function requestRoomMembership(
     room: CommunityRoomModel,
@@ -3217,15 +3220,17 @@
       next.destination === "inbox" && previous.destination !== "inbox";
     if (!enteringInbox) {
       const roomId =
-        next.destination === "inbox"
-          ? inbox.room.id
-          : nextRegistryRoute === null &&
-              next.destination !== "pulse" &&
-              next.destination !== "agents" &&
-              next.destination !== "settings" &&
-              next.destination !== "new-direct-message"
-            ? next.destination
-            : undefined;
+        next.panel.kind === "thread"
+          ? next.panel.roomId
+          : next.destination === "inbox"
+            ? inbox.room.id
+            : nextRegistryRoute === null &&
+                next.destination !== "pulse" &&
+                next.destination !== "agents" &&
+                next.destination !== "settings" &&
+                next.destination !== "new-direct-message"
+              ? next.destination
+              : undefined;
       if (roomId !== undefined && workspace.activeRoomId !== roomId) {
         community.actions.selectRoom(roomId);
       }
@@ -4598,23 +4603,14 @@
     lastAction = offset === -1 ? "navigated-back" : "navigated-forward";
   }
 
-  async function react(
-    messageId: string,
-    emoji: string,
-    custom?: { shortcode: string; url: string },
-  ): Promise<void> {
-    try {
-      await runParticipationAction(activeRoom.id, "reaction", () =>
-        community.actions.toggleReaction(messageId, emoji, custom),
-      );
-      lastAction = `reaction:${messageId}:${emoji}`;
-    } catch (cause) {
-      toast.error(
-        cause instanceof Error ? cause.message : "Reaction could not be saved",
-      );
-      throw cause;
-    }
-  }
+  const react = createMessageReactionAction({
+    run: (id, emoji, custom) =>
+      runParticipationAction(activeRoom.id, "reaction", () =>
+        community.actions.toggleReaction(id, emoji, custom),
+      ),
+    done: (action) => (lastAction = action),
+    error: (message) => toast.error(message),
+  });
 
   async function joinRoom(room: CommunityRoomModel): Promise<void> {
     let joinRequested = false;

@@ -1,3 +1,4 @@
+import { localAgentRecords } from "./project-agent-records.js";
 import { npubEncode } from "nostr-tools/nip19";
 import { createHash } from "node:crypto";
 
@@ -19,6 +20,7 @@ const projectionProfile = "jj-graph-v1";
 export function createLocalProjectAgentContextBodies(
   createdAt: number,
   agentPubkey?: string,
+  sourceMessages?: { request: string; response: string; owner: string },
 ) {
   const ids = LOCAL_AGENT_CONTEXT_IDS;
   const person = {
@@ -149,34 +151,7 @@ export function createLocalProjectAgentContextBodies(
     operation_id: ids.operationId,
     page_index: 0,
     page_count: 1,
-    records: [
-      {
-        id: "local-user-message",
-        sequence: 0,
-        created_at_ms: (createdAt + 5) * 1_000,
-        kind: "user_message",
-        text: "Add agent context beside the local repository history.",
-      },
-      {
-        id: "local-tool-call",
-        sequence: 1,
-        created_at_ms: (createdAt + 5) * 1_000 + 100,
-        kind: "tool",
-        tool_name: "apply_patch",
-        tool_id: "local-readme-edit",
-        input:
-          "*** Update File: README.md\n+Agent checkpoints keep code and conversation together.",
-        output: "Success. Updated README.md",
-        tool_state: "completed",
-      },
-      {
-        id: "local-assistant-message",
-        sequence: 2,
-        created_at_ms: (createdAt + 5) * 1_000 + 200,
-        kind: "assistant_message",
-        text: "Published the checkpoint with collaborator-visible context.",
-      },
-    ],
+    records: localAgentRecords(createdAt, sourceMessages, agentPubkey),
   };
   return {
     initialRevision,

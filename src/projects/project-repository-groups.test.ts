@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import type { ProjectForgeProject, ProjectForgeRepository } from "./model.js";
+import { groupProject } from "../testing/project-groups-fixture.js";
+import type { ProjectForgeRepository } from "./model.js";
 import {
   groupItemsByProjectRepository,
   preferredProjectForRepository,
@@ -22,14 +23,8 @@ const anchor = {
 
 describe("project repository groups", () => {
   it("prefers the parent project that opened a repository", () => {
-    const first = {
-      address: { coordinate: "30621:owner:first" },
-      repositories: [{ coordinate: hosted.address.coordinate }],
-    } as ProjectForgeProject;
-    const second = {
-      address: { coordinate: "30621:owner:second" },
-      repositories: [{ coordinate: hosted.address.coordinate }],
-    } as ProjectForgeProject;
+    const first = groupProject("first", hosted.address.coordinate);
+    const second = groupProject("second", hosted.address.coordinate);
     expect(
       preferredProjectForRepository(
         [first, second],
@@ -44,11 +39,10 @@ describe("project repository groups", () => {
 
   it("omits task anchors and empty groups", () => {
     expect(
-      projectMemberRepositories([hosted, other, anchor], [
-        hosted.address,
-        other.address,
-        anchor.address,
-      ]),
+      projectMemberRepositories(
+        [hosted, other, anchor],
+        [hosted.address, other.address, anchor.address],
+      ),
     ).toEqual([hosted, other]);
     expect(
       groupItemsByProjectRepository(
@@ -59,9 +53,14 @@ describe("project repository groups", () => {
         [hosted, other, anchor],
         (item) => item.repository,
       ),
-    ).toEqual([{ repository: hosted, items: [
-      { id: "a", repository: hosted.address.coordinate },
-      { id: "b", repository: hosted.address.coordinate },
-    ] }]);
+    ).toEqual([
+      {
+        repository: hosted,
+        items: [
+          { id: "a", repository: hosted.address.coordinate },
+          { id: "b", repository: hosted.address.coordinate },
+        ],
+      },
+    ]);
   });
 });

@@ -9,7 +9,6 @@
   import CommunityMemberAvatar from "../community-member-avatar/CommunityMemberAvatar.svelte";
   import { communityMemberHandleLabel } from "../community-member-avatar/handle.js";
   import type { CommunityMemberModel } from "../community-workspace/model.js";
-  import { useCommunityMemberPresence } from "./presence-context.js";
 
   let {
     member,
@@ -21,6 +20,7 @@
     trigger = "avatar",
     triggerLabel = member.name,
     avatarSize = "medium",
+    avatarShape = "circle",
   }: {
     member: CommunityMemberModel;
     onOpenProfile?: (member: CommunityMemberModel) => void;
@@ -31,15 +31,13 @@
     trigger?: "avatar" | "mention";
     triggerLabel?: string;
     avatarSize?: "xsmall" | "small" | "medium";
+    avatarShape?: "circle" | "rounded";
   } = $props();
 
   let open = $state(false);
-  const resolvePresence = useCommunityMemberPresence();
-  const inlineLabel = $derived(
-    trigger === "mention" ? triggerLabel.replace(/^@+/u, "") : triggerLabel,
-  );
+  const avatarProps = $derived({ member, shape: avatarShape });
+  const inlineLabel = $derived(triggerLabel.replace(/^@+/u, ""));
   const handleLabel = $derived(communityMemberHandleLabel(member.handle));
-  const presence = $derived(resolvePresence?.(member));
 </script>
 
 <HoverCard.Root bind:open {openDelay} closeDelay={120}>
@@ -54,7 +52,7 @@
           ariaLabel={inlineLabel}
           onclick={() => onOpenProfile?.(member)}
         >
-          <CommunityMemberAvatar {member} size="inline" decorative />
+          <CommunityMemberAvatar {...avatarProps} size="inline" decorative />
           <span>{inlineLabel}</span>
         </CommunityChip>
       {:else}
@@ -66,7 +64,11 @@
           aria-label={`View ${member.name}'s profile`}
           onclick={() => onOpenProfile?.(member)}
         >
-          <CommunityMemberAvatar {member} size={avatarSize} decorative />
+          <CommunityMemberAvatar
+            {...avatarProps}
+            size={avatarSize}
+            decorative
+          />
         </button>
       {/if}
     {/snippet}
@@ -83,9 +85,7 @@
     class="community-member-hover-card__content"
     role="group"
     aria-label={`${member.name} contact preview`}
-    onEscapeKeydown={() => {
-      open = false;
-    }}
+    onEscapeKeydown={() => (open = false)}
   >
     <button
       type="button"
@@ -94,11 +94,10 @@
       onclick={() => onOpenProfile?.(member)}
     >
       <CommunityMemberAvatar
-        {member}
+        {...avatarProps}
         size="large"
         showPresence
         decorative
-        {presence}
       />
       <span>
         <strong>{member.name}</strong>

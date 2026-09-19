@@ -34,7 +34,9 @@
     CommunityMessageModel,
     CommunityRoomModel,
   } from "../community-workspace/model.js";
+
   import { memberById } from "../community-workspace/model.js";
+  import { messageActivityContent } from "./message-activity.js";
 
   let {
     message,
@@ -64,6 +66,7 @@
     currentMemberId,
     replyActionLabel = "Reply in thread",
     supplement,
+    avatarShape = "circle",
   }: {
     message: CommunityMessageModel;
     author: CommunityMemberModel;
@@ -105,6 +108,7 @@
     currentMemberId?: string;
     replyActionLabel?: string;
     supplement?: Snippet;
+    avatarShape?: "circle" | "rounded";
   } = $props();
 
   const actionOpenDelay = 180;
@@ -189,28 +193,9 @@
           member.id === currentMemberId ? { ...member, name: "You" } : member,
         ),
   );
-  const activityContent = $derived.by(() => {
-    const activity = message.activity;
-    if (activity === undefined) return "";
-    const target =
-      activity.targetMemberId === undefined
-        ? undefined
-        : memberById(activityMembers, activity.targetMemberId);
-    const targetReference =
-      target === undefined ? "a member" : `@${target.name}`;
-    switch (activity.type) {
-      case "channel-created":
-        return "created this channel";
-      case "member-added":
-        return `added ${targetReference} to this channel`;
-      case "member-removed":
-        return `removed ${targetReference} from this channel`;
-      case "member-joined":
-        return "joined this channel";
-      case "member-left":
-        return "left this channel";
-    }
-  });
+  const activityContent = $derived(
+    messageActivityContent(message.activity, activityMembers),
+  );
 
   const replyLabel = $derived.by(() => {
     const replyCount = message.replyCount ?? 0;
@@ -274,6 +259,7 @@
     {:else}
       <CommunityMemberHoverCard
         member={author}
+        {avatarShape}
         {...onOpenProfile === undefined ? {} : { onOpenProfile }}
         {...onMessageMember === undefined ? {} : { onMessage: onMessageMember }}
         {...onWaveMember === undefined ? {} : { onWave: onWaveMember }}

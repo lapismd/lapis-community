@@ -577,3 +577,11 @@ For LC-UI-049, selecting a historical JJ commit in a repository Log URL MUST
 retain that exact published revision in the projected graph even when a newer
 revision of the same change is normally displayed. This is a local projection
 choice and MUST NOT alter or publish relay events.
+
+Agent discussion projections reuse signed channel messages and reactions. A
+completed checkpoint record may link its canonical message through
+`source_event_id`; transcript rendering verifies its author, channel, and
+request thread before enabling actions. Commit comments use standard NIP-22 kind 1111 events with uppercase E/K/P
+checkpoint roots (K=3907), lowercase e/k/p immediate parents, repository, commit,
+and optional file side and line anchors. Kind-1 work-item notes cannot target
+checkpoints. They do not introduce a relay event kind or trigger an agent turn.

@@ -9,6 +9,7 @@ import { createLocalProjectAgentContextFixture } from "./project-agent-context.j
 export interface LocalProjectForgeFixtureOptions {
   ownerPubkey: string;
   agentPubkey?: string;
+  sourceMessages?: { request: string; response: string; owner: string };
   contributorPubkey: string;
   channelId: string;
   relatedChannelId?: string;
@@ -116,9 +117,8 @@ export function createLocalProjectForgeFixture(
   ];
   const agentContext = createLocalProjectAgentContextFixture({
     repositoryCoordinate,
-    channelId: options.channelId,
+    ...options,
     createdAt: options.createdAt + publications.length,
-    ...(options.agentPubkey ? { agentPubkey: options.agentPubkey } : {}),
   });
   const pagePublicationIndex =
     publications.length + agentContext.contextPageIndex;

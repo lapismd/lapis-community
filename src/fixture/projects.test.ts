@@ -24,7 +24,7 @@ describe("local project forge fixture", () => {
       createdAt: 1_700_000_000,
     });
 
-    expect(fixture.publications).toHaveLength(14);
+    expect(fixture.publications).toHaveLength(15);
     expect(fixture.projectCoordinate).toBe(
       `30621:${ownerPubkey}:lapis-community`,
     );
@@ -58,7 +58,7 @@ describe("local project forge fixture", () => {
       fixture.taskAnchorCoordinate,
     ]);
     expect(fixture.publications.slice(5).map(({ signer }) => signer)).toEqual(
-      Array(9).fill("agent"),
+      Array(10).fill("agent"),
     );
     expect(
       fixture.publications.slice(5).map(({ template }) => template.kind),
@@ -69,9 +69,7 @@ describe("local project forge fixture", () => {
       KIND_JJ_VIEW,
       KIND_JJ_OPERATION_GRAPH,
       KIND_JJ_GRAPH_MANIFEST,
-      KIND_JJ_AGENT_CONTEXT_PAGE,
-      KIND_JJ_AGENT_CONTEXT_PAGE,
-      KIND_JJ_AGENT_CONTEXT_PAGE,
+      ...Array(4).fill(KIND_JJ_AGENT_CONTEXT_PAGE),
     ]);
     expect(
       fixture.publications[fixture.agentContext.pagePublicationIndex]?.template
@@ -82,7 +80,7 @@ describe("local project forge fixture", () => {
     expect(manifest.template.kind).toBe(KIND_JJ_CHECKPOINT_MANIFEST);
     expect(JSON.parse(manifest.template.content)).toMatchObject({
       page_event_ids: ["f".repeat(64)],
-      record_count: 3,
+      record_count: 4,
     });
   });
 });

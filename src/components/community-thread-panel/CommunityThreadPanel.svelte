@@ -1,5 +1,6 @@
 <script lang="ts">
-  import { untrack } from "svelte";
+  import CommunityAgentThreadContext from "../community-agent-thread-context/CommunityAgentThreadContext.svelte";
+  import { createThreadDraft } from "./thread-draft.svelte.js";
   import { observeReadEnd } from "../community-workspace/observe-read-end.js";
   import CommunityAgentComposerActivity from "../community-agent-composer-activity/CommunityAgentComposerActivity.svelte";
   import {
@@ -127,30 +128,17 @@
     canDeleteAny?: boolean;
   } = $props();
 
-  let draft = $state("");
-  let draftKey: string | undefined;
-  const drafts = new Map<string, string>();
   const conversationKey = $derived(
     presentation?.key ??
       JSON.stringify([currentMemberId, thread.rootMessageId]),
   );
-  $effect(() => {
-    const key = conversationKey,
-      saved = presentation?.draft;
-    untrack(() => {
-      if (draftKey !== key) {
-        if (draftKey) drafts.set(draftKey, draft);
-        draft = saved ?? drafts.get(key) ?? "";
-        draftKey = key;
-        editingMessageId = undefined;
-      } else if (saved !== undefined) draft = saved;
-    });
-  });
-  $effect(() => {
-    const value = draft,
-      key = presentation?.key;
-    if (key && key === draftKey)
-      untrack(() => onPresentationChange?.(key, { draft: value }));
+  const draft = createThreadDraft({
+    key: () => conversationKey,
+    presentation: () => presentation,
+    changed: (key, value) => onPresentationChange?.(key, { draft: value }),
+    switched: () => {
+      editingMessageId = undefined;
+    },
   });
   const latestArrivalId = $derived(
     thread.messages.findLast(
@@ -179,13 +167,13 @@
     );
     if (message === undefined) return;
     editingMessageId = message.id;
-    draft = message.content;
+    draft.value = message.content;
   }
 
   function cancelComposerContext(): void {
     if (editingMessageId !== undefined) {
       editingMessageId = undefined;
-      draft = "";
+      draft.value = "";
       return;
     }
     onCancelReply?.();
@@ -253,6 +241,15 @@
             replyActionLabel: "Reply",
           }}
     />
+    <CommunityAgentThreadContext
+      messageId={message.id}
+      rootId={thread.rootMessageId}
+      roomId={rooms.find(
+        (room) =>
+          (room.groupId ?? room.id) ===
+          message.sourceEvent?.tags.find(([key]) => key === "h")?.[1],
+      )?.id}
+    />
   {/snippet}
   <Layout
     density="compact"
@@ -275,7 +272,7 @@
     {/snippet}
     {#snippet composer()}
       <CommunityChatComposer
-        bind:value={draft}
+        bind:value={draft.value}
         {members}
         {rooms}
         {communityEmojis}

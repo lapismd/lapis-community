@@ -26,7 +26,7 @@ import { finalizeEvent, getPublicKey } from "nostr-tools/pure";
 
 import { parseFixtureSecrets } from "./keys.js";
 import type { FixtureSecretName, FixtureSecrets } from "./keys.js";
-import { createLocalProjectForgeFixture } from "./projects.js";
+import { publishProjectFixture } from "./publish-project-fixture.js";
 import { countRetainedFixtureCopies } from "./seed-retention.js";
 import { loadLocalPluginFixtures } from "./source.js";
 import { loadFixtureBundle } from "./bundle.js";
@@ -408,44 +408,18 @@ async function seed(): Promise<{
   );
   // Preserve the established registry clock while extending project fixtures.
   const registryCreatedAt = createdAt + 5;
-  const projectFixture = createLocalProjectForgeFixture({
-    ownerPubkey: getPublicKey(operatorSecret),
-    contributorPubkey: getPublicKey(communitySecrets[0]!),
-    agentPubkey: getPublicKey(communitySecrets[1]!),
-    channelId: lapisGroupId(LAPIS_GROUPS.pluginDevelopment),
-    relatedChannelId: lapisGroupId(LAPIS_GROUPS.general),
-    relayUrl,
-    createdAt,
-  });
-  const projectEvents: NostrEvent[] = [];
-  for (const publication of projectFixture.publications) {
-    const secretKey =
-      publication.signer === "owner"
-        ? operatorSecret
-        : publication.signer === "contributor"
-          ? communitySecrets[0]!
-          : communitySecrets[1]!;
-    const event = sign(secretKey, publication.template);
-    await publish(event, secretKey);
-    projectEvents.push(event);
-  }
-  const contextPage =
-    projectEvents[projectFixture.agentContext.pagePublicationIndex];
-  if (contextPage === undefined) {
-    throw new Error("Local project agent-context page was not published");
-  }
-  const contextManifestPublication =
-    projectFixture.agentContext.checkpointManifest(
-      projectFixture.agentContext.pagePublicationIndices.map(
-        (index) => projectEvents[index]!.id,
-      ),
-    );
-  const contextManifest = sign(
-    communitySecrets[1]!,
-    contextManifestPublication.template,
+  const projectEvents = await publishProjectFixture(
+    {
+      operatorSecret,
+      contributorSecret: communitySecrets[0]!,
+      agentSecret: communitySecrets[1]!,
+      channelId: lapisGroupId(LAPIS_GROUPS.pluginDevelopment),
+      relatedChannelId: lapisGroupId(LAPIS_GROUPS.general),
+      relayUrl,
+      createdAt,
+    },
+    publish,
   );
-  await publish(contextManifest, communitySecrets[1]!);
-  projectEvents.push(contextManifest);
   createdAt = registryCreatedAt;
 
   const registryEvents: NostrEvent[] = [];

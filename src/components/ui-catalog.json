@@ -113,7 +113,8 @@
         "avatar-group",
         "inline-mention",
         "markdown-mention",
-        "composer-mention"
+        "composer-mention",
+        "rounded-agent-avatar"
       ],
       "requiredStates": [
         "profile-navigation",

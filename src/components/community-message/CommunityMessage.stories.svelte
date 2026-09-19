@@ -18,6 +18,7 @@
     tags: ["visual-pending"],
   });
 
+  const author = communityStoryMembers[1]!;
   const releaseContent =
     "The **release is ready** in #plugin-development :lapis:. ||Keep the relay key private.||";
   const releaseEvent = {
@@ -39,12 +40,13 @@
       content: releaseContent,
       sourceEvent: releaseEvent,
     },
-    author: communityStoryMembers[1]!,
+    author,
     members: communityStoryMembers,
     rooms: communityComposerStoryRooms,
     communityEmojis: communityComposerStoryEmojis,
     replyParticipants: communityStoryMembers.slice(0, 3),
     density: "compact",
+    avatarShape: "rounded",
     onReply: fn(),
     onOpenThread: fn(),
     onToggleReaction: fn(),
@@ -134,9 +136,7 @@
 
     avatar.focus();
     await userEvent.keyboard("{Enter}");
-    await expect(args.onOpenProfile).toHaveBeenCalledWith(
-      communityStoryMembers[1],
-    );
+    await expect(args.onOpenProfile).toHaveBeenCalledWith(author);
 
     await userEvent.hover(message);
     await userEvent.click(
@@ -231,7 +231,7 @@
       replyCount: 0,
       replyParticipantIds: [],
     },
-    author: communityStoryMembers[1]!,
+    author,
     members: communityStoryMembers,
     rooms: communityComposerStoryRooms,
     communityEmojis: communityComposerStoryEmojis,

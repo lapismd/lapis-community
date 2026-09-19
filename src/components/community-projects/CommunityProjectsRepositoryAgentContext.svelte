@@ -1,12 +1,12 @@
 <script lang="ts">
+  import CommunityAgentContextMessage from "../community-agent-context-message/CommunityAgentContextMessage.svelte";
   import CommunityAgentContextReferences from "../community-agent-context-references/CommunityAgentContextReferences.svelte";
-  import * as Chat from "@lapismd/design-core/ai/chat";
+  import CommunityAgentCheckpointDivider from "../community-agent-checkpoint-divider/CommunityAgentCheckpointDivider.svelte";
   import type { RepositoryAgentCheckpoint } from "../../projects/repository-agent-context.js";
   import type { CommunityMemberModel } from "../community-workspace/model.js";
   import CommunityAgentTranscript from "../community-agent-activity/CommunityAgentTranscript.svelte";
   import CommunityChip from "../community-chip/CommunityChip.svelte";
   import CommunityRelativeTime from "../community-relative-time/CommunityRelativeTime.svelte";
-  import { projectRouteToHash } from "../community-application/project-route.js";
   import { repositoryContextTurns } from "./repository-context-transcript.js";
   let {
     checkpoints,
@@ -76,24 +76,24 @@
             activity={segment.activity}
             {agent}
             {members}
-          />
+          >
+            {#snippet messageContent(message)}
+              <CommunityAgentContextMessage
+                {message}
+                {members}
+                channelId={turn.latest.channelId}
+                requestId={turn.segments
+                  .flatMap((s) => s.checkpoint.records)
+                  .find((r) => r.kind === "user_message")?.sourceEventId}
+              />
+            {/snippet}
+          </CommunityAgentTranscript>
         {/if}
         {#if segment.commitIds.length}
-          <Chat.SystemMessage variant="divider" aria-label="Code checkpoint">
-            <span>Checkpoint</span>
-            {#each segment.commitIds as commitId (commitId)}
-              {#if repositoryAddress}
-                <a
-                  href={projectRouteToHash({
-                    kind: "repository",
-                    coordinate: repositoryAddress,
-                    surface: "commits",
-                    commitSha: commitId,
-                  })}>{commitId.slice(0, 12)}</a
-                >
-              {:else}<code>{commitId.slice(0, 12)}</code>{/if}
-            {/each}
-          </Chat.SystemMessage>
+          <CommunityAgentCheckpointDivider
+            commitIds={segment.commitIds}
+            {repositoryAddress}
+          />
         {/if}
       {/each}
     </section>

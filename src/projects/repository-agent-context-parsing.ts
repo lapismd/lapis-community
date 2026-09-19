@@ -1,10 +1,8 @@
-import type { NostrEvent } from "../protocol/index.js";
-
 export type RepositoryAgentContextRecord = {
   id: string;
   sequence: number;
   createdAt: number;
-  kind: "user_message" | "assistant_message" | "tool";
+  kind: "user_message" | "assistant_message" | "thinking" | "tool";
   text?: string;
   toolName?: string;
   toolState?: string;
@@ -44,7 +42,11 @@ export function parseAgentContextRecord(
     sourceEventId === null
   )
     return;
-  if (value.kind === "user_message" || value.kind === "assistant_message") {
+  if (
+    value.kind === "user_message" ||
+    value.kind === "assistant_message" ||
+    value.kind === "thinking"
+  ) {
     const text = nonEmptyString(value.text);
     if (
       !text ||
@@ -84,15 +86,7 @@ export function parseAgentContextRecord(
   return;
 }
 
-export function exactEventTag(
-  event: NostrEvent,
-  name: string,
-): string | undefined {
-  const tags = event.tags.filter((tag) => tag[0] === name);
-  return tags.length === 1 && tags[0]?.length === 2 && tags[0][1]
-    ? tags[0][1]
-    : undefined;
-}
+export { exactEventTag } from "./exact-event-tag.js";
 
 export function parseJsonRecord(content: string): Record<string, unknown> {
   try {

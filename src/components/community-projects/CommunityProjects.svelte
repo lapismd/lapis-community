@@ -7,7 +7,6 @@
   import CommunitySkeleton from "../community-skeleton/CommunitySkeleton.svelte";
   import {
     FileChangeStats,
-    FileDiffComposer,
     FileListing,
     FileListingViewModeToggle,
     type FileDiffComposerFileContext,
@@ -108,6 +107,8 @@
   import CommunityProjectsGitAuthorAvatar from "./CommunityProjectsGitAuthorAvatar.svelte";
   import CommunityProjectsRepositoryOverview from "../community-projects-settings/CommunityProjectsRepositoryOverview.svelte";
   import CommunityProjectsRepositoryPane from "./CommunityProjectsRepositoryPane.svelte";
+  import CommunityCommitDiff from "../community-commit-diff/CommunityCommitDiff.svelte";
+  import { buildRepositoryAgentContexts } from "../../projects/repository-agent-context.js";
   import CommunityCommitAgentContext from "../community-commit-agent-context/CommunityCommitAgentContext.svelte";
   import { commitDiffFiles as buildCommitDiffFiles } from "../../projects/commit-diff-files.js";
   import CommunityProjectsRepositoryLog from "./CommunityProjectsRepositoryLog.svelte";
@@ -881,15 +882,7 @@
     localError = "";
   }
 
-  function projectIdentifier(name: string): string {
-    return name
-      .normalize("NFKD")
-      .replace(/[\u0300-\u036f]/g, "")
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/^-+|-+$/g, "")
-      .slice(0, 1_024);
-  }
+  import { projectIdentifier } from "../../projects/project-identifier.js";
 
   function openProjectDialog(project?: ProjectForgeProject): void {
     resetError();
@@ -3522,7 +3515,10 @@
                         />
                       </Button>
                     {/snippet}
-                    <FileDiffComposer
+                    <CommunityCommitDiff
+                      base={selectedCommitValue.parents?.[0]}
+                      checkpoints={buildRepositoryAgentContexts(workItemEvents)}
+                      commitId={selectedCommitValue.sha}
                       files={visibleCommitDiffFiles}
                       viewMode={commitDiffViewMode}
                       selectedPath={selectedCommitFilePath}

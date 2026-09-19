@@ -2,11 +2,7 @@
   import type { Snippet } from "svelte";
   import * as Chat from "@lapismd/design-core/ai/chat";
   import { Reasoning } from "@lapismd/design-core/ai/experimental";
-  import {
-    isOneLineToolAlert,
-    presentToolPayload,
-    toolCallTarget,
-  } from "@lapismd/design-core/ai/chat";
+  import { transcriptToolProps } from "./transcript-tool-props.js";
   import CommunityMarkdownContent from "../community-markdown-content/CommunityMarkdownContent.svelte";
   import CommunityMemberAvatar from "../community-member-avatar/CommunityMemberAvatar.svelte";
   import CommunityRelativeTime from "../community-relative-time/CommunityRelativeTime.svelte";
@@ -20,7 +16,6 @@
   import {
     agentTranscriptTimeline,
     pendingTranscriptStatuses,
-    toolCallStatus,
   } from "./model.js";
 
   let {
@@ -31,8 +26,12 @@
     onOpenRequest,
     header,
     working = false,
+    messageContent,
   }: {
     header?: Snippet;
+    messageContent?: Snippet<
+      [Extract<CommunityAgentTranscriptEntry, { type: "message" }>]
+    >;
     working?: boolean;
     activity: readonly CommunityAgentActivityItem[];
     agent: Pick<CommunityAgentIdentity, "pubkey" | "name" | "avatarUrl">;
@@ -77,26 +76,6 @@
       const entry = object(payload.entry);
       return entry.sourceEventId === sourceEventId;
     });
-  }
-
-  function toolProps(
-    item: Extract<CommunityAgentTranscriptEntry, { type: "tool" }>,
-  ) {
-    const error = item.error ? presentToolPayload(item.error) : undefined;
-    const target = toolCallTarget(item.input);
-    return {
-      id: item.toolId,
-      name: item.name,
-      status: toolCallStatus(item.state),
-      ...(target ? { target } : {}),
-      ...(error && isOneLineToolAlert(error)
-        ? { errorMessage: error.code }
-        : {}),
-      data: item,
-      ...(item.input || item.output || (error && !isOneLineToolAlert(error))
-        ? { detail: toolDetail }
-        : {}),
-    };
   }
 
   function object(value: unknown): Record<string, unknown> {
@@ -146,39 +125,46 @@
         {@const message = entry.item}
         {@const author = identity(message.authorPubkey)}
         {@const source = sourceActivity(message.sourceEventId)}
-        <Chat.Message
-          sender={message.role === "user" ? "user" : "assistant"}
-          aria-label={`Message from ${author.name}`}
-        >
-          {#snippet avatar()}
-            <CommunityMemberAvatar
-              member={author}
-              size="small"
-              shape={author.id === agent.pubkey ? "rounded" : "circle"}
-              decorative
-            />
-          {/snippet}
-          {#snippet name()}<span>{author.name}</span>{/snippet}
-          <Chat.MessageBubble>
-            <CommunityMarkdownContent content={message.text} />
-          </Chat.MessageBubble>
-          {#snippet metadata()}
-            <Chat.MessageMetadata>
-              {#snippet timestamp()}
-                <CommunityRelativeTime
-                  timestamp={Date.parse(message.createdAt) / 1_000}
-                />
-              {/snippet}
-              {#if source && onOpenRequest}
-                {#snippet footer()}
-                  <button type="button" onclick={() => onOpenRequest?.(source)}>
-                    View request
-                  </button>
+        {#if messageContent}
+          {@render messageContent(message)}
+        {:else}
+          <Chat.Message
+            sender={message.role === "user" ? "user" : "assistant"}
+            aria-label={`Message from ${author.name}`}
+          >
+            {#snippet avatar()}
+              <CommunityMemberAvatar
+                member={author}
+                size="small"
+                shape={author.id === agent.pubkey ? "rounded" : "circle"}
+                decorative
+              />
+            {/snippet}
+            {#snippet name()}<span>{author.name}</span>{/snippet}
+            <Chat.MessageBubble>
+              <CommunityMarkdownContent content={message.text} />
+            </Chat.MessageBubble>
+            {#snippet metadata()}
+              <Chat.MessageMetadata>
+                {#snippet timestamp()}
+                  <CommunityRelativeTime
+                    timestamp={Date.parse(message.createdAt) / 1_000}
+                  />
                 {/snippet}
-              {/if}
-            </Chat.MessageMetadata>
-          {/snippet}
-        </Chat.Message>
+                {#if source && onOpenRequest}
+                  {#snippet footer()}
+                    <button
+                      type="button"
+                      onclick={() => onOpenRequest?.(source)}
+                    >
+                      View request
+                    </button>
+                  {/snippet}
+                {/if}
+              </Chat.MessageMetadata>
+            {/snippet}
+          </Chat.Message>
+        {/if}
       {:else if entry.kind === "thinking"}
         <Reasoning
           streaming={entry.item.state === "streaming"}
@@ -189,7 +175,9 @@
         </Reasoning>
       {:else if entry.kind === "tools"}
         <Chat.ToolCalls
-          calls={entry.items.map(toolProps)}
+          calls={entry.items.map((item) =>
+            transcriptToolProps(item, toolDetail),
+          )}
           defaultExpanded={false}
         />
       {:else if entry.kind === "permission"}
@@ -232,11 +220,11 @@
 <style>
   .agent-transcript {
     min-width: 0;
-    min-height: 16rem;
+    min-height: var(--agent-transcript-min-height, 16rem);
   }
 
   .agent-transcript :global([data-ui-component="ai-chat-message-list"]) {
-    min-height: 16rem;
+    min-height: var(--agent-transcript-min-height, 16rem);
   }
 
   .agent-transcript

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { agentContextRecordCount } from "../../projects/agent-context-record-count.js";
   import * as Empty from "@lapismd/design-core/shadcn/empty";
   import GitCommitHorizontalIcon from "@lucide/svelte/icons/git-commit-horizontal";
   import { Skeleton } from "@lapismd/design-core/shadcn/skeleton";
@@ -88,14 +89,7 @@
     repositoryAgentContextsForSelection(agentContexts, pane.pane, selection.id),
   );
   const selectedAgentRecordCount = $derived(
-    new Set(
-      selectedAgentContexts.flatMap((checkpoint) =>
-        checkpoint.records.map(
-          (record) =>
-            `${checkpoint.authorPubkey}:${checkpoint.spanId}:${record.id}`,
-        ),
-      ),
-    ).size,
+    agentContextRecordCount(selectedAgentContexts),
   );
   const selectedPath = $derived(canvas.pathAt(1) ?? null);
   const files = $derived(repositoryLogChangedFiles(selection.detail));
@@ -251,6 +245,9 @@
       {/if}
       <CommunityProjectsRepositoryLogDiff
         path={selectedPath}
+        checkpoints={selectedAgentContexts}
+        commitId={selection.id ?? undefined}
+        base={selection.detail?.commit.parents?.[0]}
         patch={filePatch}
         {files}
       />

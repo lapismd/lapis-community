@@ -1,3 +1,4 @@
+import { agentContextTemplate } from "./agent-context-template.js";
 import type { NostrEventTemplate } from "../protocol/index.js";
 import {
   KIND_JJ_AGENT_CONTEXT_PAGE,
@@ -20,6 +21,7 @@ export interface LocalProjectAgentContextOptions {
   channelId: string;
   createdAt: number;
   agentPubkey?: string;
+  sourceMessages?: { request: string; response: string; owner: string };
 }
 
 export interface LocalProjectAgentContextFixture {
@@ -41,13 +43,14 @@ export function createLocalProjectAgentContextFixture(
   const bodies = createLocalProjectAgentContextBodies(
     options.createdAt,
     options.agentPubkey,
+    options.sourceMessages,
   );
   const baseTags = [
     ["a", options.repositoryCoordinate],
     ["h", options.channelId],
   ];
   const publications = [
-    template(
+    agentContextTemplate(
       KIND_JJ_OPERATION,
       options.createdAt,
       "jj-operation",
@@ -83,7 +86,7 @@ export function createLocalProjectAgentContextFixture(
         },
       },
     ),
-    template(
+    agentContextTemplate(
       KIND_JJ_REVISION,
       options.createdAt + 1,
       "jj-revision",
@@ -96,7 +99,7 @@ export function createLocalProjectAgentContextFixture(
       ],
       bodies.initialRevision,
     ),
-    template(
+    agentContextTemplate(
       KIND_JJ_REVISION,
       options.createdAt + 2,
       "jj-revision",
@@ -109,7 +112,7 @@ export function createLocalProjectAgentContextFixture(
       ],
       bodies.agentRevision,
     ),
-    template(
+    agentContextTemplate(
       KIND_JJ_VIEW,
       options.createdAt + 3,
       "jj-view",
@@ -121,7 +124,7 @@ export function createLocalProjectAgentContextFixture(
       ],
       bodies.view,
     ),
-    template(
+    agentContextTemplate(
       KIND_JJ_OPERATION_GRAPH,
       options.createdAt + 4,
       "jj-operation-graph",
@@ -134,7 +137,7 @@ export function createLocalProjectAgentContextFixture(
       ],
       bodies.operationGraph,
     ),
-    template(
+    agentContextTemplate(
       KIND_JJ_GRAPH_MANIFEST,
       options.createdAt + 5,
       "jj-graph-manifest",
@@ -148,7 +151,7 @@ export function createLocalProjectAgentContextFixture(
       bodies.graphManifest,
     ),
     ...bodies.page.records.map((record, index) =>
-      template(
+      agentContextTemplate(
         KIND_JJ_AGENT_CONTEXT_PAGE,
         options.createdAt + 6,
         "jj-agent-context-page",
@@ -173,7 +176,7 @@ export function createLocalProjectAgentContextFixture(
     contextPageIndex: 6,
     contextPageIndices: bodies.page.records.map((_, index) => 6 + index),
     checkpointManifest: (pageEventIds) =>
-      template(
+      agentContextTemplate(
         KIND_JJ_CHECKPOINT_MANIFEST,
         options.createdAt + 7,
         "jj-checkpoint-manifest",
@@ -215,20 +218,5 @@ export function createLocalProjectAgentContextFixture(
           outcome: "completed",
         },
       ),
-  };
-}
-
-function template(
-  kind: number,
-  createdAt: number,
-  label: string,
-  tags: string[][],
-  content: unknown,
-): NostrEventTemplate {
-  return {
-    kind,
-    created_at: createdAt,
-    tags: [["t", label], ...tags],
-    content: JSON.stringify(content),
   };
 }

@@ -62,39 +62,46 @@ function checkpointActivity(
       truncated: record.truncated,
     };
     const entry =
-      record.kind === "tool"
+      record.kind === "thinking"
         ? {
             ...shared,
-            type: "tool",
-            toolId: record.toolId ?? record.id,
-            name: record.toolName ?? "Tool",
-            state: ["failed", "error", "interrupted"].includes(
-              record.toolState ?? "",
-            )
-              ? "error"
-              : record.toolState === "running"
-                ? "running"
-                : "completed",
-            input: record.input,
-            output: record.output,
-            error:
-              record.error ??
-              (record.toolState === "interrupted"
-                ? "Tool interrupted"
-                : undefined),
-          }
-        : {
-            ...shared,
-            type: "message",
-            role: record.kind === "user_message" ? "user" : "assistant",
+            type: "thinking",
             text: record.text ?? "",
-            authorPubkey:
-              record.authorPubkey ??
-              (record.kind === "assistant_message"
-                ? checkpoint.authorPubkey
-                : "unknown-user"),
-            sourceEventId: record.sourceEventId,
-          };
+            state: checkpoint.live ? "streaming" : "done",
+          }
+        : record.kind === "tool"
+          ? {
+              ...shared,
+              type: "tool",
+              toolId: record.toolId ?? record.id,
+              name: record.toolName ?? "Tool",
+              state: ["failed", "error", "interrupted"].includes(
+                record.toolState ?? "",
+              )
+                ? "error"
+                : record.toolState === "running"
+                  ? "running"
+                  : "completed",
+              input: record.input,
+              output: record.output,
+              error:
+                record.error ??
+                (record.toolState === "interrupted"
+                  ? "Tool interrupted"
+                  : undefined),
+            }
+          : {
+              ...shared,
+              type: "message",
+              role: record.kind === "user_message" ? "user" : "assistant",
+              text: record.text ?? "",
+              authorPubkey:
+                record.authorPubkey ??
+                (record.kind === "assistant_message"
+                  ? checkpoint.authorPubkey
+                  : "unknown-user"),
+              sourceEventId: record.sourceEventId,
+            };
     return {
       id: record.id,
       agentPubkey: checkpoint.authorPubkey,
