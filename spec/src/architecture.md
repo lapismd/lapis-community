@@ -686,9 +686,12 @@ skeleton. Initial and selected-thread loading reuse one padded snippet, keeping
 the shared skeleton independent of its containing surface.
 
 For LC-UI-014, Inbox thread-region CSS stretches only the Body.Content
-scrollport. Nested conversation and composer scrollports keep content height
-so the virtualized message list can wheel without the pane-fill clamp. The
-Conversation scrollport story records that selector scope and updates the
+scrollport and uses the same non-scrolling flex fill as channel workspace
+content. The pane viewport overrides Design Core's inline
+`overflow: hidden scroll` so computed overflow stays hidden. Nested
+conversation and composer scrollports keep content height so the
+virtualized message list can wheel without a second pane scroller.
+The Conversation scrollport story records that selector scope and updates the
 Inbox stories path budget.
 
 For LC-UI-049, checkpoint projection retains repository, channel, and native

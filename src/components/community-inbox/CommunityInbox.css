@@ -253,6 +253,13 @@
 .lc-community-inbox__conversation {
   display: flex;
   flex: 1;
+  min-width: 0;
+  min-height: 0;
+}
+
+.lc-community-inbox__conversation > .community-conversation {
+  flex: 1;
+  min-width: 0;
   min-height: 0;
 }
 
@@ -263,14 +270,26 @@
   padding: 1rem;
 }
 
-/* Fill only the Body.Content scrollport so the thread column matches the
- * shell pane. Nested conversation and composer scrollports must grow with
- * their content; clamping those inners to 100% fights the virtualizer. */
+/* Match channel workspace-content: this pane is a non-scrolling fill so
+ * only CommunityConversation's Layout scrollport receives the wheel. */
+.lc-community-inbox__thread-region
+  > [data-ui-part="scroll-area"]
+  > [data-ui-part="scroll-area-viewport"] {
+  /* Bits writes inline `overflow: hidden scroll` on the viewport. */
+  overflow: hidden !important;
+}
+
 .lc-community-inbox__thread-region
   > [data-ui-part="scroll-area"]
   > [data-ui-part="scroll-area-viewport"]
   > div {
+  display: flex;
   height: 100%;
+  min-height: 0;
+}
+
+.lc-community-inbox__conversation [data-ui-part="scroll-area-viewport"] {
+  overscroll-behavior: contain;
 }
 
 .lc-community-inbox__conversation [data-ui-part="scroll-area-viewport"],

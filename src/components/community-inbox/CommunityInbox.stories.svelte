@@ -279,9 +279,10 @@
     const thread = canvasElement.querySelector(
       ".lc-community-inbox__thread-region",
     );
-    const paneInner = thread?.querySelector(
-      ':scope > [data-ui-part="scroll-area"] > [data-ui-part="scroll-area-viewport"] > div',
+    const paneViewport = thread?.querySelector(
+      ':scope > [data-ui-part="scroll-area"] > [data-ui-part="scroll-area-viewport"]',
     );
+    const paneInner = paneViewport?.querySelector(":scope > div");
     const conversationInner = canvasElement.querySelector(
       '[data-ui-component="ai-chat-layout"] [data-ui-part="scroll-area-viewport"] > div',
     );
@@ -292,12 +293,19 @@
       ".lc-community-inbox__conversation [data-ui-part='list-inner']",
     );
 
+    expect(paneViewport).toBeTruthy();
     expect(paneInner).toBeTruthy();
     expect(conversationInner).toBeTruthy();
     expect(composerInner).toBeTruthy();
     expect(threadRegionHeightRules(paneInner!)).not.toEqual([]);
     expect(threadRegionHeightRules(conversationInner!)).toEqual([]);
     expect(threadRegionHeightRules(composerInner!)).toEqual([]);
+    const paneStyle = getComputedStyle(paneInner!);
+    expect(paneStyle.display).toBe("flex");
+    expect(paneStyle.minHeight).toBe("0px");
+    expect(getComputedStyle(paneViewport!).overflow).toBe("hidden");
+    expect(getComputedStyle(paneViewport!).overflowY).toBe("hidden");
+    expect(paneViewport!.scrollHeight).toBe(paneViewport!.clientHeight);
     expect(getComputedStyle(listInner!).overflowAnchor).toBe("none");
   }}
 >

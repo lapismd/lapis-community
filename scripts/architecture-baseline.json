@@ -1754,8 +1754,8 @@
       "forbiddenImportCount": 0
     },
     "src/components/community-inbox/CommunityInbox.stories.svelte": {
-      "countedLines": 283,
-      "physicalLines": 305,
+      "countedLines": 291,
+      "physicalLines": 313,
       "forbiddenImportCount": 0
     },
     "src/components/community-inbox/CommunityInbox.svelte": {
