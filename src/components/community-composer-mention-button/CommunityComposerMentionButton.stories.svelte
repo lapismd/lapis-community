@@ -36,6 +36,13 @@
     const lock = canvas.getByRole("button", {
       name: "Don't automatically mention Fizz in this thread",
     });
+    const host = mention.closest(
+      "[data-ui-component='community-composer-mention-button']",
+    );
+    await expect(host).toHaveAttribute("data-addressed", "true");
+    await expect(getComputedStyle(host!).backgroundColor).not.toBe(
+      "rgba(0, 0, 0, 0)",
+    );
     await expect(
       mention.querySelector("[data-ui-part='composer-mention-at']"),
     ).not.toBeNull();

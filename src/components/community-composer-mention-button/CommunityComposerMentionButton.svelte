@@ -79,6 +79,37 @@
     gap: 0.12rem;
   }
 
+  .community-composer-mention-button[data-addressed="true"] {
+    height: 2rem;
+    padding: 0 0.35rem 0 0.55rem;
+    gap: 0.3rem;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--foreground) 10%, var(--background));
+    color: var(--foreground);
+  }
+
+  .community-composer-mention-button[data-addressed="true"]
+    :global([data-ui-component="button"]) {
+    width: auto;
+    height: auto;
+    min-width: 0;
+    padding: 0;
+    background: transparent;
+    color: inherit;
+  }
+
+  .community-composer-mention-button[data-addressed="true"]
+    :global([data-ui-component="button"]:hover),
+  .community-composer-mention-button[data-addressed="true"]
+    :global([data-ui-component="button"]:focus-visible) {
+    background: transparent;
+  }
+
+  .community-composer-mention-button[data-addressed="true"]
+    :global([data-ui-component="button"]:active) {
+    translate: none;
+  }
+
   .community-composer-mention-button [data-ui-part="composer-mention-at"],
   .community-composer-mention-button
     [data-ui-part="composer-mention-at"]
