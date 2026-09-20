@@ -1548,8 +1548,8 @@
       "forbiddenImportCount": 0
     },
     "src/components/community-chat-composer/composer-extension.ts": {
-      "countedLines": 442,
-      "physicalLines": 470,
+      "countedLines": 415,
+      "physicalLines": 442,
       "forbiddenImportCount": 0,
       "kind": "legacy",
       "justification": "Existing file above the new-file counted-line limit; do not grow"

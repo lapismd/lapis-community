@@ -1,4 +1,3 @@
-import { communityMemberFromAgent } from "../../community/member-identity.js";
 import type { CommunityMemberModel } from "../../community/workspace-model.js";
 import {
   canHydrateAgentMentions,
@@ -14,6 +13,10 @@ import {
   type CommunityComposerAudienceScope,
 } from "./composer-agent-model.js";
 import {
+  communityComposerMentionMembers,
+  mentionedComposerAgentPubkeys,
+} from "./composer-agent-mentions.js";
+import {
   addPersistentAgentAudienceMember,
   getPersistentAgentAudience,
   getPersistentAgentAudienceEnabled,
@@ -26,18 +29,11 @@ import {
   subscribePersistentAgentAudience,
 } from "./persistent-agent-audience.js";
 
-export function communityComposerMentionMembers(
-  members: readonly CommunityMemberModel[],
-  agents: readonly CommunityComposerAgentModel[],
-): CommunityMemberModel[] {
-  const known = new Set(members.map((member) => member.id));
-  return [
-    ...members,
-    ...agents
-      .filter((agent) => !known.has(agent.pubkey))
-      .map(communityMemberFromAgent),
-  ];
-}
+export {
+  communityComposerMentionMembers,
+  mentionedComposerAgentPubkeys,
+  readComposerAudienceView,
+} from "./composer-agent-mentions.js";
 
 export function createComposerAgentAudience(input: {
   agents: () => readonly CommunityComposerAgentModel[];
@@ -59,6 +55,7 @@ export function createComposerAgentAudience(input: {
   hydrate(value: string, lastKey: string): { value?: string; key: string };
   reconcile(value: string): void;
   restoreAfterSend(explicit: readonly string[]): { value: string };
+  rememberDraft(value: string, selectedMentionPubkeys: readonly string[]): void;
   subscribe(listener: () => void): () => void;
 } {
   const displayName = (pubkey: string) =>
@@ -67,19 +64,39 @@ export function createComposerAgentAudience(input: {
     const audience = input.audience();
     return audience ? getPersistentAgentAudienceScope(audience) : null;
   };
-  const membersById = () =>
-    new Map(
-      communityComposerMentionMembers(input.members(), input.agents()).map(
-        (member) => [member.id, member],
-      ),
-    );
+  const membersById = () => {
+    const known = new Map<string, CommunityMemberModel>();
+    for (const member of communityComposerMentionMembers(
+      input.members(),
+      input.agents(),
+    )) {
+      known.set(member.id, member);
+      known.set(member.id.trim().toLowerCase(), member);
+    }
+    return known;
+  };
   const audiencePubkeys = () => getPersistentAgentAudience(scope());
   const addressedMembers = () => {
     const known = membersById();
     return audiencePubkeys().flatMap((pubkey) => {
-      const member = known.get(pubkey);
+      const member = known.get(pubkey) ?? known.get(pubkey.toLowerCase());
       return member ? [member] : [];
     });
+  };
+  const rememberDraft = (
+    value: string,
+    selectedMentionPubkeys: readonly string[],
+  ) => {
+    if (!getPersistentAgentAudienceEnabled()) return;
+    promotePersistentAgentAudience(
+      scope(),
+      mentionedComposerAgentPubkeys(
+        value,
+        input.members(),
+        input.agents(),
+        selectedMentionPubkeys,
+      ),
+    );
   };
 
   return {
@@ -87,7 +104,8 @@ export function createComposerAgentAudience(input: {
     enabled: () => getPersistentAgentAudienceEnabled(),
     audiencePubkeys,
     addressedMembers,
-    mentionButtonMember: () => addressedMembers()[0],
+    mentionButtonMember: () =>
+      getPersistentAgentAudienceEnabled() ? addressedMembers()[0] : undefined,
     displayName,
     setEnabled(enabled) {
       setPersistentAgentAudienceEnabled(enabled);
@@ -172,6 +190,7 @@ export function createComposerAgentAudience(input: {
         ),
       };
     },
+    rememberDraft,
     subscribe: subscribePersistentAgentAudience,
   };
 }
@@ -200,18 +219,22 @@ export function syncComposerAgentAudienceDraft(
   selectedMentionPubkeys: readonly string[],
 ): { key: string; value?: string; mentionPubkeys: string[] } {
   const next = audience.hydrate(value, lastKey);
-  if (next.value !== undefined && next.value !== value) {
-    return {
-      key: next.key,
-      value: next.value,
-      mentionPubkeys: mergeComposerMentionPubkeys(
-        selectedMentionPubkeys,
-        audience.audiencePubkeys(),
-      ),
-    };
+  const draft =
+    next.value !== undefined && next.value !== value ? next.value : value;
+  if (next.value === undefined || next.value === value) {
+    audience.reconcile(value);
   }
-  audience.reconcile(value);
-  return { key: next.key, mentionPubkeys: [...selectedMentionPubkeys] };
+  audience.rememberDraft(draft, selectedMentionPubkeys);
+  return {
+    key: next.key,
+    ...(next.value !== undefined && next.value !== value
+      ? { value: next.value }
+      : {}),
+    mentionPubkeys: mergeComposerMentionPubkeys(
+      selectedMentionPubkeys,
+      audience.audiencePubkeys(),
+    ),
+  };
 }
 
 export function restoreComposerDraftAfterSend(

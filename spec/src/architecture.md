@@ -217,6 +217,9 @@ composer modules, lowering the `CommunityApplication.svelte`,
 Composer autocomplete and formatting-action sync extract to dedicated
 modules, lowering the `CommunityChatComposer.svelte` path budget so
 repeated mention queries cannot grow that hotspot.
+Mention-button lock badges and colliding mention-token resolution
+extract to dedicated modules, lowering the `composer-extension.ts`
+path budget so the composer hotspot does not grow.
 CommunityProjects Overview README fullWidth alignment updates the
 `CommunityProjects.svelte` and `CommunityProjects.stories.svelte` path
 budgets in the same change. Extracting local-fixture addressable-head

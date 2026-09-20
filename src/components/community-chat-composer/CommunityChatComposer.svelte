@@ -17,7 +17,6 @@
   import { Input } from "@lapismd/design-core/shadcn/input";
   import { Progress } from "@lapismd/design-core/shadcn/progress";
   import { ScrollArea } from "@lapismd/design-core/shadcn/scroll-area";
-  import AtSignIcon from "@lucide/svelte/icons/at-sign";
   import BoldIcon from "@lucide/svelte/icons/bold";
   import CodeIcon from "@lucide/svelte/icons/code";
   import EyeOffIcon from "@lucide/svelte/icons/eye-off";
@@ -46,9 +45,9 @@
     CommunityRoomModel,
   } from "../community-workspace/model.js";
   import CommunityComposerAgentAddress from "../community-composer-agent-address/CommunityComposerAgentAddress.svelte";
+  import CommunityComposerMentionButton from "../community-composer-mention-button/CommunityComposerMentionButton.svelte";
   import CommunityComposerMentionPicker from "../community-composer-mention-picker/CommunityComposerMentionPicker.svelte";
   import CommunityEmojiPicker from "../community-emoji-picker/CommunityEmojiPicker.svelte";
-  import CommunityMemberAvatar from "../community-member-avatar/CommunityMemberAvatar.svelte";
   import CommunityReplyContext from "../community-reply-context/CommunityReplyContext.svelte";
   import "../community-composer-status.css";
   import {
@@ -61,6 +60,10 @@
     createCommunityComposerExtension,
     refreshCommunityComposerTokenDecorations,
   } from "./composer-extension.js";
+  import {
+    composerPreferredMemberIds,
+    composerTokenModelSignature,
+  } from "./composer-token-references.js";
   import {
     communityEmojiToken,
     formatCommunityAttachmentSize,
@@ -83,6 +86,7 @@
     applyAgentMentionChange,
     communityComposerMentionMembers,
     createComposerAgentAudience,
+    readComposerAudienceView,
     restoreComposerDraftAfterSend,
     syncComposerAgentAudienceDraft,
   } from "./composer-agent-audience.js";
@@ -215,25 +219,22 @@
   });
   const audienceView = $derived.by(() => {
     audienceEpoch;
-    return {
-      addressedAgents: agentAudience.addressedMembers(),
-      autoMentionEnabled: agentAudience.enabled(),
-      lockedAgentPubkeys: agentAudience.audiencePubkeys(),
-    };
+    return readComposerAudienceView(agentAudience);
   });
-  const mentionButtonAgent = $derived(audienceView.addressedAgents[0]);
+  const preferredMemberIds = $derived(
+    composerPreferredMemberIds(
+      selectedMentionPubkeys,
+      audienceView.lockedAgentPubkeys,
+    ),
+  );
   const hasSelection = $derived(selectionTo > selectionFrom);
   const tokenModelSignature = $derived(
-    [
-      ...mentionMembers.map((member) => `member:${member.id}:${member.name}`),
-      ...rooms.map(
-        (room) =>
-          `room:${room.id}:${room.name}:${room.kind}:${room.archived === true}`,
-      ),
-      ...communityEmojis.map(
-        (emoji) => `emoji:${emoji.shortcode}:${emoji.url}`,
-      ),
-    ].join("\u0000"),
+    composerTokenModelSignature(
+      mentionMembers,
+      rooms,
+      communityEmojis,
+      preferredMemberIds,
+    ),
   );
   const hasPendingAttachments = $derived(
     attachments.some((attachment) =>
@@ -262,6 +263,7 @@
     members: () => mentionMembers,
     rooms: () => rooms,
     emojis: () => communityEmojis,
+    preferredMemberIds: () => preferredMemberIds,
     disabled: () => disabled || busy || (showSubmitButton && !onSubmit),
     editing: () => context?.kind === "edit",
     submitOnEnter: () => mode === "chat" && showSubmitButton,
@@ -1212,24 +1214,11 @@
             ><EyeOffIcon aria-hidden="true" /></Button
           >
         {:else}
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon-sm"
-            aria-label="Mention someone"
+          <CommunityComposerMentionButton
+            member={audienceView.mentionButtonMember}
             disabled={disabled || busy}
             onclick={insertReferencePrefix}
-          >
-            {#if mentionButtonAgent}
-              <CommunityMemberAvatar
-                member={mentionButtonAgent}
-                size="small"
-                decorative
-              />
-            {:else}
-              <AtSignIcon aria-hidden="true" />
-            {/if}
-          </Button>
+          />
           {#if mediaAdapter}
             <Button
               type="button"
@@ -1642,7 +1631,9 @@
   }
 
   :global(.community-composer-member-reference) {
-    display: inline;
+    display: inline-flex;
+    align-items: center;
+    vertical-align: text-bottom;
   }
 
   :global(.community-chat-composer__mira .community-composer-token--channel) {

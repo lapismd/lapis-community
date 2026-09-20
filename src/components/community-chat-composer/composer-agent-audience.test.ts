@@ -70,6 +70,66 @@ describe("composer agent audience", () => {
     ).toEqual({ value: "@Fizz ", mentionPubkeys: [fizz] });
   });
 
+  it("promotes a colliding agent mention into the address lock", () => {
+    const nyra = "c".repeat(64);
+    const audience = createComposerAgentAudience({
+      agents: () => [
+        {
+          pubkey: nyra,
+          name: "Nyra",
+          ownerPubkey: owner,
+          channelIds: ["general"],
+        },
+      ],
+      members: () => [
+        { id: "nyra", name: "Nyra", handle: "nyra-human", initials: "NY" },
+      ],
+      audience: () => ({
+        ownerPubkey: owner,
+        channelId: "general",
+        threadRootId: "nyra-root",
+      }),
+      initialAgentPubkeys: () => [],
+      context: () => undefined,
+      submitting: () => false,
+    });
+    audience.setEnabled(true);
+    const synced = syncComposerAgentAudienceDraft(audience, "@Nyra ", "", [
+      nyra,
+    ]);
+    expect(synced.mentionPubkeys).toContain(nyra);
+    expect(audience.mentionButtonMember()?.id).toBe(nyra);
+    expect(audience.mentionButtonMember()?.kind).toBe("agent");
+  });
+
+  it("exposes a mention lock member only while auto-mention is on", () => {
+    const audience = createComposerAgentAudience({
+      agents: () => [
+        {
+          pubkey: fizz,
+          name: "Fizz",
+          ownerPubkey: owner,
+          channelIds: ["general"],
+        },
+      ],
+      members: () => [],
+      audience: () => ({
+        ownerPubkey: owner,
+        channelId: "general",
+        threadRootId: "root",
+      }),
+      initialAgentPubkeys: () => [fizz],
+      context: () => undefined,
+      submitting: () => false,
+    });
+    expect(audience.mentionButtonMember()).toBeUndefined();
+    audience.setEnabled(true);
+    audience.hydrate("", "");
+    expect(audience.mentionButtonMember()?.id).toBe(fizz);
+    audience.setEnabled(false);
+    expect(audience.mentionButtonMember()).toBeUndefined();
+  });
+
   it("strips a dismissed mention", () => {
     expect(
       applyAgentMentionChange(

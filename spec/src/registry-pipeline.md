@@ -28,6 +28,9 @@ and thread-panel path budgets in `scripts/architecture-baseline.json`.
 Composer autocomplete and formatting-action sync extract to dedicated
 modules and lower the `CommunityChatComposer.svelte` path budget in the
 same change.
+Mention-button lock badges and colliding mention-token resolution
+extract to dedicated modules and lower the `composer-extension.ts`
+path budget in the same change.
 LC-UI-040 Inbox loading coverage updates the architecture baseline for its
 geometry assertions and the smaller component that shares the padded skeleton.
 P4 factory parser splits are extracted: agent runtime and memory parsers,

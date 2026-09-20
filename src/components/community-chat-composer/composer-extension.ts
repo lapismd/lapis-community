@@ -29,6 +29,7 @@ import {
   detectCommunityComposerAutocomplete,
   type CommunityComposerAutocompleteQuery,
 } from "./autocomplete.js";
+import { communityComposerReferenceTokens } from "./composer-token-references.js";
 
 export interface CommunityComposerEditorState {
   view: EditorView;
@@ -40,6 +41,7 @@ export interface CommunityComposerExtensionOptions {
   members(): readonly CommunityMemberModel[];
   rooms(): readonly CommunityRoomModel[];
   emojis(): readonly CommunityCustomEmoji[];
+  preferredMemberIds(): readonly string[];
   disabled(): boolean;
   editing(): boolean;
   autocompleteOpen(): boolean;
@@ -260,9 +262,12 @@ function buildTokenDecorations(
     );
   }
 
-  const references = uniqueReferenceTokens(options).sort(
-    (left, right) => right.token.length - left.token.length,
-  );
+  const references = communityComposerReferenceTokens(
+    options.members(),
+    options.rooms(),
+    options.emojis(),
+    options.preferredMemberIds(),
+  ).sort((left, right) => right.token.length - left.token.length);
   for (const reference of references) {
     const normalizedToken = reference.token.toLocaleLowerCase();
     let from = normalizedValue.indexOf(normalizedToken);
@@ -355,7 +360,12 @@ class CommunityMemberWidget extends WidgetType {
   }
 
   override eq(other: CommunityMemberWidget): boolean {
-    return other.member === this.member && other.label === this.label;
+    return (
+      other.member.id === this.member.id &&
+      other.member.name === this.member.name &&
+      other.member.kind === this.member.kind &&
+      other.label === this.label
+    );
   }
 
   override toDOM(): HTMLElement {
@@ -418,44 +428,6 @@ function selectionTouchesRange(
   return selection.empty
     ? selection.head > from && selection.head < to
     : selection.from < to && selection.to > from;
-}
-
-function uniqueReferenceTokens(
-  options: CommunityComposerExtensionOptions,
-): Array<{
-  token: string;
-  kind: "mention" | "channel" | "emoji";
-  memberId?: string;
-}> {
-  const candidates = [
-    ...options.members().map((member) => ({
-      token: `@${member.name.trim()}`,
-      kind: "mention" as const,
-      memberId: member.id,
-    })),
-    ...options
-      .rooms()
-      .filter((room) => room.kind !== "direct" && room.archived !== true)
-      .map((room) => ({
-        token: `#${room.name.trim()}`,
-        kind: "channel" as const,
-      })),
-    ...options
-      .emojis()
-      .filter((emoji) => isSafeCommunityEmojiUrl(emoji.url))
-      .map((emoji) => ({
-        token: `:${emoji.shortcode.trim()}:`,
-        kind: "emoji" as const,
-      })),
-  ].filter((candidate) => candidate.token.length > 1);
-  const counts = new Map<string, number>();
-  for (const candidate of candidates) {
-    const normalized = candidate.token.toLocaleLowerCase();
-    counts.set(normalized, (counts.get(normalized) ?? 0) + 1);
-  }
-  return candidates.filter(
-    (candidate) => counts.get(candidate.token.toLocaleLowerCase()) === 1,
-  );
 }
 
 function hasReferenceBoundary(
