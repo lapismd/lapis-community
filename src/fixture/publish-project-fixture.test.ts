@@ -24,15 +24,21 @@ it("seeds native messages and visible thinking linked to a complete agent checkp
     commitComments(events, [checkpoint.eventId], checkpoint.commitIds[0]!),
   ).toHaveLength(1);
   expect(events.filter((event) => event.kind === 7)).toHaveLength(1);
-  expect(checkpoint.records.some((record) => record.kind === "thinking")).toBe(
-    true,
-  );
-  for (const record of checkpoint.records.filter((record) =>
-    record.kind.endsWith("message"),
+  expect(
+    checkpoint.records.some(
+      (record) =>
+        record.kind === "transcript" &&
+        JSON.parse(record.text!).payload.kind === "thinking",
+    ),
+  ).toBe(true);
+  for (const record of checkpoint.records.filter(
+    (record) =>
+      record.kind === "transcript" &&
+      JSON.parse(record.text!).payload.kind === "message",
   )) {
     const source = events.find((event) => event.id === record.sourceEventId)!;
     expect(source.kind).toBe(9);
     expect(source.pubkey).toBe(record.authorPubkey);
-    expect(source.content).toBe(record.text);
+    expect(source.content).toBe(JSON.parse(record.text!).payload.text);
   }
 });

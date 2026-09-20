@@ -1,3 +1,4 @@
+import { agentContextMessageRole } from "../../projects/repository-agent-context.js";
 import type { RepositoryAgentCheckpoint } from "../../projects/repository-agent-context.js";
 import { encodeJjChangeId } from "../../projects/repository-log-graph.js";
 import { projectRouteToHash } from "../community-application/project-route.js";
@@ -114,7 +115,9 @@ export function agentContextReferences(
     });
     for (const record of checkpoint.records) {
       const requestId =
-        record.kind === "user_message" ? record.sourceEventId : undefined;
+        agentContextMessageRole(record) === "user"
+          ? record.sourceEventId
+          : undefined;
       if (!requestId || !/^[a-f0-9]{64}$/u.test(requestId)) continue;
       const root = navigation?.threadRoot(requestId);
       const id = root ?? requestId;

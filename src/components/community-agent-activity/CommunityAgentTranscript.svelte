@@ -180,6 +180,10 @@
           )}
           defaultExpanded={false}
         />
+      {:else if entry.kind === "context"}
+        <Reasoning label={entry.item.label} streaming={false} expanded={false}>
+          <CommunityMarkdownContent content={entry.item.text} fullWidth />
+        </Reasoning>
       {:else if entry.kind === "permission"}
         {#if entry.item.state === "resolved"}
           <Chat.SystemMessage>

@@ -225,3 +225,8 @@ Public agent conversations join verified source message events with checkpoint r
 The local project discussion fixture also publishes an owner review comment on
 the agent checkpoint and a reaction on its canonical assistant message. Both
 use standard event encodings without invoking the configured runtime agent.
+
+Local project fixtures publish version 3 canonical agent context, including
+visible thinking, plans, completed tool results, omissions and capture coverage.
+Their ordinary messages and review comments retain signed request/thread
+references so functional stories exercise the production association readers.

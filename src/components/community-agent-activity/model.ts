@@ -1,3 +1,4 @@
+import { canonicalActivity } from "../../community/canonical-transcript-activity.js";
 import type {
   CommunityAgentActivityContext,
   CommunityAgentActivityItem,
@@ -9,6 +10,10 @@ import {
 } from "../../community/agent-activity-context.js";
 
 export type CommunityAgentTranscriptTimeline =
+  | {
+      kind: "context";
+      item: Extract<CommunityAgentTranscriptEntry, { type: "context" }>;
+    }
   | {
       kind: "message";
       item: Extract<CommunityAgentTranscriptEntry, { type: "message" }>;
@@ -41,7 +46,7 @@ export function agentTranscriptTimeline(
 ): CommunityAgentTranscriptTimeline[] {
   if (!agentPubkey) return [];
   const events = new Set<string>();
-  const entries = activity
+  const entries = canonicalActivity(activity)
     .filter(
       (item) =>
         item.agentPubkey === agentPubkey &&
@@ -64,7 +69,17 @@ export function agentTranscriptTimeline(
     )
     .flatMap(({ frame }) => {
       const payload = record(frame.payload);
-      const entry = transcriptEntry(payload.entry);
+      const entry =
+        transcriptEntry(payload.entry) ??
+        (frame.kind === "capture_gap"
+          ? transcriptEntry({
+              id: `gap:${frame.sessionId}:${frame.seq}`,
+              type: "context",
+              label: "Capture gap",
+              text: String(payload.reason ?? "Capture unavailable"),
+              createdAt: frame.timestamp,
+            })
+          : undefined);
       return entry ? [{ entry, frame }] : [];
     });
 
@@ -112,7 +127,11 @@ export function agentTranscriptTimeline(
         location.item !== undefined
       ) {
         const previous = current.items[location.item]!;
-        const merged = { ...previous, ...entry };
+        const merged = {
+          ...previous,
+          ...entry,
+          name: entry.name === "Tool result" ? previous.name : entry.name,
+        };
         merged.state =
           previous.state !== "running" && entry.state === "running"
             ? previous.state
@@ -232,6 +251,9 @@ function transcriptEntry(
       (entry.state !== "pending" && entry.state !== "resolved") ||
       !optionalStrings(entry, ["input", "decision"])
     )
+      return;
+  } else if (entry.type === "context") {
+    if (typeof entry.label !== "string" || typeof entry.text !== "string")
       return;
   } else if (entry.type === "turn") {
     if (

@@ -3,7 +3,7 @@ import type { NostrEvent } from "../protocol/index.js";
 import { createLocalProjectForgeFixture } from "./projects.js";
 import { createCommitComment } from "../projects/commit-comments.js";
 import { buildRepositoryAgentContexts } from "../projects/repository-agent-context.js";
-import { localAgentRecords } from "./project-agent-records.js";
+import { canonicalLocalRecords } from "./canonical-agent-records.js";
 export async function publishProjectFixture(
   options: {
     operatorSecret: Uint8Array;
@@ -25,13 +25,13 @@ export async function publishProjectFixture(
   } = options;
   const owner = getPublicKey(operatorSecret),
     agent = getPublicKey(agentSecret);
-  const records = localAgentRecords(createdAt);
+  const records = canonicalLocalRecords(createdAt);
   const request = finalizeEvent(
     {
       kind: 9,
       created_at: createdAt + 10,
       tags: [["h", channelId]],
-      content: records[0]!.text!,
+      content: JSON.parse(records[0]!.text!).payload.text,
     },
     operatorSecret,
   );
@@ -44,7 +44,7 @@ export async function publishProjectFixture(
         ["e", request.id, "", "root"],
         ["e", request.id, "", "reply"],
       ],
-      content: records.at(-1)!.text!,
+      content: JSON.parse(records.at(-1)!.text!).payload.text,
     },
     agentSecret,
   );

@@ -1,3 +1,4 @@
+export { agentContextMessageRole } from "./repository-agent-context-parsing.js";
 import type { NostrEvent } from "../protocol/index.js";
 import { assembleRepositoryContextV2 } from "./repository-agent-context-v2.js";
 import { repositoryLiveContexts } from "./repository-live-context.js";
@@ -90,7 +91,8 @@ function assembleCheckpoint(
   events: readonly NostrEvent[],
 ): RepositoryAgentCheckpoint | undefined {
   const body = parseJsonRecord(event.content);
-  if (body.version === 2) return assembleRepositoryContextV2(event, body, byId);
+  if (body.version === 2 || body.version === 3)
+    return assembleRepositoryContextV2(event, body, byId);
   if (
     body.schema !== "jj-sync/checkpoint-manifest" ||
     body.version !== 1 ||

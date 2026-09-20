@@ -62,17 +62,23 @@ describe("local project agent context fixture", () => {
         LOCAL_AGENT_CONTEXT_IDS.operationId,
       ),
     ).toHaveLength(1);
-    expect(contexts[0]?.records).toMatchObject([
-      {
-        kind: "user_message",
-        text: "Add agent context beside the local repository history.",
-      },
-      { kind: "thinking", text: expect.stringContaining("README") },
-      { kind: "tool", toolName: "apply_patch", toolState: "completed" },
-      {
-        kind: "assistant_message",
-        text: "Published the checkpoint with collaborator-visible context.",
-      },
+    expect(contexts[0]?.records).toHaveLength(8);
+    expect(
+      contexts[0]?.records.every((record) => record.kind === "transcript"),
+    ).toBe(true);
+    const payloads = contexts[0]!.records.map(
+      (record) => JSON.parse(record.text!).payload,
+    );
+    expect(payloads.map((payload) => payload.kind)).toEqual([
+      "message",
+      "lifecycle",
+      "plan",
+      "thinking",
+      "tool-invocation",
+      "tool-result",
+      "omission",
+      "message",
     ]);
+    expect(payloads[4].input.path).toBe("$WORKSPACE[local]/README.md");
   });
 });

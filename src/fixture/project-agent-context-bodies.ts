@@ -1,4 +1,4 @@
-import { localAgentRecords } from "./project-agent-records.js";
+import { canonicalLocalRecords } from "./canonical-agent-records.js";
 import { npubEncode } from "nostr-tools/nip19";
 import { createHash } from "node:crypto";
 
@@ -151,7 +151,7 @@ export function createLocalProjectAgentContextBodies(
     operation_id: ids.operationId,
     page_index: 0,
     page_count: 1,
-    records: localAgentRecords(createdAt, sourceMessages, agentPubkey),
+    records: canonicalLocalRecords(createdAt, sourceMessages, agentPubkey),
   };
   return {
     initialRevision,

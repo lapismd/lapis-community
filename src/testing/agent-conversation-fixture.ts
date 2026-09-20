@@ -1,3 +1,4 @@
+import { agentContextMessageRole } from "../projects/repository-agent-context.js";
 import { finalizeEvent, getPublicKey } from "nostr-tools/pure";
 import type { NostrEventTemplate } from "../protocol/index.js";
 import {
@@ -38,7 +39,7 @@ const pages = original
     const body = JSON.parse(event.content),
       record = body.records[0];
     if (record.sequence > 0) record.sequence++;
-    if (record.kind === "user_message")
+    if (agentContextMessageRole(record) === "user")
       Object.assign(record, {
         source_event_id: request.id,
         author_pubkey: owner,

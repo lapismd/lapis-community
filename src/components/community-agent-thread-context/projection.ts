@@ -1,3 +1,4 @@
+import { agentContextMessageRole } from "../../projects/repository-agent-context.js";
 import type { NostrEvent } from "../../protocol/index.js";
 import type { RepositoryAgentCheckpoint } from "../../projects/repository-agent-context.js";
 import { eventRoot, eventTag } from "../community-agent-conversation/model.js";
@@ -16,7 +17,7 @@ export function threadContextSegments(
       .flatMap((segment) => segment.checkpoint.records)
       .sort((a, b) => a.sequence - b.sequence);
     const requestId = records.find(
-      (record) => record.kind === "user_message",
+      (record) => agentContextMessageRole(record) === "user",
     )?.sourceEventId;
     const source = byId.get(requestId ?? "") ?? byId.get(turn.latest.eventId);
     if (!source || eventRoot(source) !== rootId) return [];
@@ -41,7 +42,8 @@ export function threadContextSegments(
         return (
           record &&
           anchors.get(record.id) === messageId &&
-          (record.kind === "tool" ||
+          ((record.kind === "transcript" && !agentContextMessageRole(record)) ||
+            record.kind === "tool" ||
             record.kind === "thinking" ||
             (segment.checkpoint.live &&
               !record.sourceEventId &&
@@ -69,7 +71,7 @@ export function checkpointThreadComments(
       checkpoint.channelId === channel &&
       checkpoint.records.some(
         (record) =>
-          record.kind === "user_message" &&
+          agentContextMessageRole(record) === "user" &&
           events.some(
             (event) =>
               event.id === record.sourceEventId && eventRoot(event) === rootId,

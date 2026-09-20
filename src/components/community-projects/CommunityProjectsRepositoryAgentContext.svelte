@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { agentContextMessageRole } from "../../projects/repository-agent-context.js";
+
   import CommunityAgentContextMessage from "../community-agent-context-message/CommunityAgentContextMessage.svelte";
   import CommunityAgentContextReferences from "../community-agent-context-references/CommunityAgentContextReferences.svelte";
   import CommunityAgentCheckpointDivider from "../community-agent-checkpoint-divider/CommunityAgentCheckpointDivider.svelte";
@@ -48,6 +50,9 @@
           /></span
         >
         <span class="community-projects-agent-context__status">
+          {#if !turn.latest.records.some((record) => record.kind === "transcript")}<span
+              >Legacy coverage</span
+            >{/if}
           <CommunityChip
             size="compact"
             tone={turn.latest.outcome === "completed" ? "success" : "danger"}
@@ -84,7 +89,8 @@
                 channelId={turn.latest.channelId}
                 requestId={turn.segments
                   .flatMap((s) => s.checkpoint.records)
-                  .find((r) => r.kind === "user_message")?.sourceEventId}
+                  .find((r) => agentContextMessageRole(r) === "user")
+                  ?.sourceEventId}
               />
             {/snippet}
           </CommunityAgentTranscript>

@@ -1,3 +1,4 @@
+import { parseCanonicalTranscript } from "../protocol/agent-transcript.js";
 import type { NostrEvent } from "../protocol/index.js";
 import type { RepositoryAgentCheckpoint } from "./repository-agent-context.js";
 import {
@@ -106,7 +107,7 @@ export function assembleRepositoryContextV2(
       page.pubkey !== event.pubkey ||
       new TextEncoder().encode(page.content).byteLength > 48 * 1024 ||
       value.schema !== "jj-sync/agent-context-page" ||
-      value.version !== 2 ||
+      value.version !== body.version ||
       value.span_id !== spanId ||
       value.checkpoint_id !== spanId ||
       value.operation_id !== baseline ||
@@ -151,9 +152,25 @@ export function assembleRepositoryContextV2(
     if (index > 0) {
       if (!record.text || fragments.record.text === undefined) return;
       fragments.record.text += record.text;
+      if (
+        new TextEncoder().encode(fragments.record.text).byteLength >
+        4 * 1024 * 1024
+      )
+        return;
     }
     fragments.next++;
     if (fragments.next === count) {
+      if (fragments.record.kind === "transcript") {
+        if (body.version !== 3) return;
+        const canonical = parseCanonicalTranscript(fragments.record.text ?? "");
+        if (
+          !canonical ||
+          canonical.id !== fragments.record.id ||
+          canonical.sequence !== fragments.record.sequence ||
+          canonical.at !== fragments.record.createdAt
+        )
+          return;
+      }
       records.push(fragments.record);
       fragments = undefined;
     }

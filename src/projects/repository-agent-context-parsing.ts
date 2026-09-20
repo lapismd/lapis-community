@@ -1,8 +1,14 @@
+import { parseCanonicalTranscript } from "../protocol/agent-transcript.js";
 export type RepositoryAgentContextRecord = {
   id: string;
   sequence: number;
   createdAt: number;
-  kind: "user_message" | "assistant_message" | "thinking" | "tool";
+  kind:
+    | "user_message"
+    | "assistant_message"
+    | "thinking"
+    | "tool"
+    | "transcript";
   text?: string;
   toolName?: string;
   toolState?: string;
@@ -45,7 +51,8 @@ export function parseAgentContextRecord(
   if (
     value.kind === "user_message" ||
     value.kind === "assistant_message" ||
-    value.kind === "thinking"
+    value.kind === "thinking" ||
+    value.kind === "transcript"
   ) {
     const text = nonEmptyString(value.text);
     if (
@@ -131,4 +138,17 @@ export function isCheckpointOutcome(
 
 function optionalString(value: unknown): string | undefined | null {
   return value === undefined ? undefined : (nonEmptyString(value) ?? null);
+}
+
+/** Message identity is shared by legacy and canonical checkpoint transports. */
+export function agentContextMessageRole(
+  record: RepositoryAgentContextRecord,
+): "user" | "assistant" | undefined {
+  if (record.kind === "user_message") return "user";
+  if (record.kind === "assistant_message") return "assistant";
+  if (record.kind !== "transcript") return;
+  const payload = parseCanonicalTranscript(record.text ?? "")?.payload;
+  return payload?.kind === "message"
+    ? (payload.role as "user" | "assistant")
+    : undefined;
 }

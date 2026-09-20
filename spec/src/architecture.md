@@ -690,3 +690,5 @@ MUST NOT reuse a previous repository's coordinate.
 Public agent conversations join verified source message events with checkpoint records. Commit feedback reuses repository note events and exact diff anchors; projections share event identity across thread, commit and activity views. No owner telemetry enters public projections.
 
 Request-link navigation resolves unloaded messages through the shared agent conversation provider. The exact-event read and thread-root traversal have separate owners; application composition does not grow.
+
+LC-UI-049 canonical transport validation lives in protocol, with consumer projection in community and native-page assembly in projects. Transcript types are extracted from the large agent contracts module; changed leaf budgets remain below 300 counted lines.

@@ -1,3 +1,4 @@
+import { canonicalEntryFromText } from "../../community/canonical-transcript.js";
 import type { CommunityAgentActivityItem } from "../../community/agent-contracts.js";
 import type {
   RepositoryAgentCheckpoint,
@@ -61,8 +62,18 @@ function checkpointActivity(
       redacted: record.redacted,
       truncated: record.truncated,
     };
-    const entry =
-      record.kind === "thinking"
+    const canonical =
+      record.kind === "transcript"
+        ? canonicalEntryFromText(
+            record.text ?? "",
+            checkpoint.authorPubkey,
+            record.sourceEventId,
+            record.authorPubkey,
+          )
+        : undefined;
+    const entry = canonical
+      ? canonical
+      : record.kind === "thinking"
         ? {
             ...shared,
             type: "thinking",

@@ -1,3 +1,4 @@
+import { agentContextMessageRole } from "./repository-agent-context.js";
 import type { NostrEvent, NostrEventTemplate } from "../protocol/index.js";
 import type { RepositoryAgentCheckpoint } from "./repository-agent-context.js";
 export interface CommitCommentAnchor {
@@ -23,7 +24,7 @@ export function createCommitComment(
   )
     throw new Error("A linked agent checkpoint is required");
   const request = checkpoint.records.find(
-    (record) => record.kind === "user_message",
+    (record) => agentContextMessageRole(record) === "user",
   )?.sourceEventId;
   if (!request || !content.trim())
     throw new Error("A request and comment are required");

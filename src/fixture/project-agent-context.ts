@@ -164,7 +164,7 @@ export function createLocalProjectAgentContextFixture(
         ],
         {
           ...bodies.page,
-          version: 2,
+          version: 3,
           checkpoint_id: ids.spanId,
           records: [record],
         },
@@ -189,7 +189,7 @@ export function createLocalProjectAgentContextFixture(
         ],
         {
           schema: "jj-sync/checkpoint-manifest",
-          version: 2,
+          version: 3,
           begin_operation_id: ids.operationId,
           targets: [
             {

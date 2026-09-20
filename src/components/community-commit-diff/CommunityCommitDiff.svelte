@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { agentContextMessageRole } from "../../projects/repository-agent-context.js";
+
   import { untrack, type ComponentProps } from "svelte";
   import {
     FileDiff,
@@ -86,7 +88,7 @@
     busy = true;
     try {
       const requestId = checkpoint.records.find(
-        (record) => record.kind === "user_message",
+        (record) => agentContextMessageRole(record) === "user",
       )?.sourceEventId;
       const source = requestId
         ? conversation.message(requestId)?.sourceEvent

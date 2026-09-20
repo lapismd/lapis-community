@@ -916,3 +916,10 @@ shared `avatarShape` variant so identity previews preserve that shape too.
 Checkpoint Request navigation MUST resolve a follow-up message through the verified conversation cache or an exact-event read before opening its original thread. It MUST NOT rely on the channel history window containing that request.
 
 The original request sidebar MUST render nested native replies with their checkpoint Thinking and tool context, rather than limiting the view to direct children of the request.
+
+LC-UI-049 canonical transcript projection preserves completed visible thinking,
+plans, tools, file/command records, subagent parent references, omissions and
+coverage provenance through the existing Chat components. Completed canonical
+records supersede compatibility projections within the same turn. Unfinished
+fragment groups show a capture gap, never partial text. Private Activity retains
+encrypted local persistence; canonical plaintext is only derived in memory.
