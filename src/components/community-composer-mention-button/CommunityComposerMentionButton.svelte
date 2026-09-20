@@ -83,7 +83,7 @@
     height: 2rem;
     padding: 0 0.35rem 0 0.55rem;
     gap: 0.3rem;
-    border-radius: 999px;
+    border-radius: 0.5rem;
     background: color-mix(in srgb, var(--foreground) 10%, var(--background));
     color: var(--foreground);
   }

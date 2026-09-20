@@ -40,8 +40,11 @@
       "[data-ui-component='community-composer-mention-button']",
     );
     await expect(host).toHaveAttribute("data-addressed", "true");
-    await expect(getComputedStyle(host!).backgroundColor).not.toBe(
-      "rgba(0, 0, 0, 0)",
+    const addressed = getComputedStyle(host!);
+    await expect(addressed.backgroundColor).not.toBe("rgba(0, 0, 0, 0)");
+    await expect(parseFloat(addressed.borderRadius)).toBeGreaterThan(0);
+    await expect(parseFloat(addressed.borderRadius)).toBeLessThan(
+      host!.getBoundingClientRect().height / 2,
     );
     await expect(
       mention.querySelector("[data-ui-part='composer-mention-at']"),
