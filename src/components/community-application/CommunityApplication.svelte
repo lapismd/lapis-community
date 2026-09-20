@@ -7574,7 +7574,6 @@
               });
           },
         }}
-        virtualize
         loading={community.state.contentSync?.phase === "initial"}
         rooms={presentationRooms}
         disabled={participationReadOnly}
@@ -7778,7 +7777,6 @@
           <div class="community-application__workspace-stack">
             <div class="community-application__workspace-layer">
               <CommunityWorkspaceSurface
-                virtualize
                 {...workspaceSurfaceOptions}
                 model={workspaceSurfaceModel}
                 historyLoading={activeRoomHistoryLoading}
@@ -8142,7 +8140,6 @@
             {#if visibleThread}
               <CommunityThreadPanel
                 thread={visibleThread}
-                virtualize
                 {...community.state.threadHistory
                   ? { history: community.state.threadHistory }
                   : {}}

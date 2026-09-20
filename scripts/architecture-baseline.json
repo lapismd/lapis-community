@@ -1362,8 +1362,8 @@
       "justification": "Existing file above the new-file counted-line limit; do not grow"
     },
     "src/components/community-application/CommunityApplication.svelte": {
-      "countedLines": 9125,
-      "physicalLines": 9483,
+      "countedLines": 9122,
+      "physicalLines": 9480,
       "forbiddenImportCount": 0,
       "kind": "legacy",
       "justification": "Application composition root; extract destination hosts before adding behaviour"

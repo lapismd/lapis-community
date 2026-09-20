@@ -50,9 +50,9 @@ LC-UI-014 Inbox conversation scrollport coverage updates the architecture
 baseline for the Inbox stories that assert pane-fill selector scope, the
 same non-scrolling flex fill as channel workspace content, a pane
 viewport that computes overflow hidden over Design Core inline overflow,
-a conversation that stretches to the full Body.Content width, and
-channel-matching overflow anchoring with a community-height virtual row
-estimate.
+a conversation that stretches to the full Body.Content width,
+channel-matching overflow anchoring, and production conversations that
+render history windows in normal flow without TanStack virtualization.
 P4 factory parser splits are extracted: agent runtime and memory parsers,
 agent-control validation, NIP-29 command templates and content-window loaders,
 registry hydration, catalog subscriptions, and portable release proofs, and

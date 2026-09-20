@@ -593,9 +593,10 @@ Inbox candidate and context queries MUST be constrained to the scope's known
 channels, so newer events in another community cannot displace that scope's
 first page or leak into its history.
 
-Community opts into Design Core history mode and virtualization; existing
-Design Core consumers retain their streaming and snippet defaults. Lists start
-with 50 rows, with guarded earlier-history controls at the relevant edge.
+Community opts into Design Core history mode without production
+virtualization; existing Design Core consumers retain their streaming,
+snippet, and optional virtualize defaults. Lists start with 50 rows, with
+guarded earlier-history controls at the relevant edge.
 Controller-owned selection, reading positions and drafts survive list filters
 and refreshes. A selected Inbox conversation remains available independently of
 its currently visible summary row.
@@ -698,9 +699,9 @@ content, including `width: 100%` so the conversation is not content-sized.
 The pane viewport overrides Design Core's inline
 `overflow: hidden scroll` so computed overflow stays hidden. Nested
 conversation and composer scrollports keep content height so the
-virtualized message list can wheel without a second pane scroller.
-Inbox keeps channel overflow anchoring, and `CommunityConversation`
-passes a community-height virtual row estimate. The Conversation
+message list can wheel without a second pane scroller.
+Inbox keeps channel overflow anchoring. Production conversations render
+the current history window in normal flow. The Conversation
 scrollport story records that selector scope and updates the Inbox
 stories path budget.
 

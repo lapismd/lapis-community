@@ -191,7 +191,7 @@
   <Layout
     bind:scrollRef={viewport}
     density="compact"
-    scrollMode={virtualize ? "history" : "stream"}
+    scrollMode={history ? "history" : "stream"}
     {conversationKey}
     {...history?.unreadEventIds
       ? { hasNewMessages: history.unreadEventIds.length > 0 }
