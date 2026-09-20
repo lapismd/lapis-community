@@ -924,7 +924,10 @@ Agent transcript messages retain rounded agent avatars while composing the share
 message actions. `CommunityMemberModel.kind` marks known agents so
 `CommunityMemberAvatar`, `CommunityMessage`, and `CommunityMemberHoverCard`
 derive the rounded-square shape without a per-surface prop; an explicit
-`avatarShape` remains for git-author and story overrides.
+`avatarShape` remains for git-author and story overrides. Inbox and
+direct-message surfaces present the same identity members so list rows,
+conversation messages, and empty DM introductions stay rounded for known
+agents.
 
 Checkpoint Request navigation MUST resolve a follow-up message through the verified conversation cache or an exact-event read before opening its original thread. It MUST NOT rely on the channel history window containing that request.
 

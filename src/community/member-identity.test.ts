@@ -4,6 +4,7 @@ import {
   communityIdentityMembers,
   communityIdentityMembersFromState,
   communityMemberFromAgent,
+  presentCommunityIdentityModel,
   withCommunityMemberKinds,
 } from "./member-identity.js";
 import type { CommunityMemberModel } from "./workspace-model.js";
@@ -59,6 +60,13 @@ describe("communityIdentityMembers", () => {
     expect(communityIdentityMembers([present], [agent])).toEqual([
       { ...present, kind: "agent" },
     ]);
+  });
+});
+
+describe("presentCommunityIdentityModel", () => {
+  it("returns the same model when no agent identities change", () => {
+    const model = { members: [person] };
+    expect(presentCommunityIdentityModel(model)).toBe(model);
   });
 });
 

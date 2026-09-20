@@ -33,6 +33,15 @@ export function workspaceDirectMember(
   );
 }
 
+export function withDirectAgentKind(
+  member: CommunityMemberModel | undefined,
+  agentIds: readonly string[],
+): CommunityMemberModel | undefined {
+  if (member === undefined) return undefined;
+  if (member.kind === "agent" || !agentIds.includes(member.id)) return member;
+  return { ...member, kind: "agent" };
+}
+
 export function sendWorkspaceContent(
   send:
     | ((

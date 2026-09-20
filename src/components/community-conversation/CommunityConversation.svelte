@@ -53,7 +53,6 @@
     messages,
     members,
     directMember,
-    directMemberAvatarShape = "circle",
     agents = [],
     onSend,
     onReply,
@@ -114,7 +113,6 @@
     messages: CommunityMessageModel[];
     members: CommunityMemberModel[];
     directMember?: CommunityMemberModel;
-    directMemberAvatarShape?: "circle" | "rounded";
     agents?: readonly CommunityComposerAgentModel[];
     onSend?: (
       content: string,
@@ -386,7 +384,6 @@
                   member={displayedDirectMember}
                   size="large"
                   showPresence
-                  shape={directMemberAvatarShape}
                   decorative
                 />
               </button>
@@ -395,7 +392,6 @@
                 member={displayedDirectMember}
                 size="large"
                 showPresence
-                shape={directMemberAvatarShape}
                 decorative
               />
             {/if}

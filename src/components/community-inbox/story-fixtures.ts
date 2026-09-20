@@ -11,9 +11,15 @@ export const communityInboxFixture: CommunityInboxModel = {
     description: "Introductions and community onboarding",
   },
   members: [
-    { id: "fizz", name: "Fizz", handle: "fizz", initials: "FZ" },
-    { id: "honey", name: "Honey", handle: "honey", initials: "HY" },
-    { id: "pollen", name: "Pollen", handle: "pollen", initials: "PL" },
+    { id: "fizz", name: "Fizz", handle: "fizz", initials: "FZ", kind: "agent" },
+    { id: "honey", name: "Honey", handle: "honey", initials: "HY", kind: "agent" },
+    {
+      id: "pollen",
+      name: "Pollen",
+      handle: "pollen",
+      initials: "PL",
+      kind: "agent",
+    },
     { id: "steve", name: "Steve", handle: "steve", initials: "SJ" },
   ],
   items: [

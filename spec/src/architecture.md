@@ -675,7 +675,7 @@ before rendering keyed checkpoint links, so repeated relay references cannot
 abort the Activity surface. Known agents carry `kind: "agent"` on
 `CommunityMemberModel`. `CommunityMemberAvatar` derives the rounded-square
 shape from that kind wherever the identity is known, including Projects,
-Activity, reviews, and comments. Git-author Gravatar avatars remain rounded
+Inbox, direct messages, Activity, reviews, and comments. Git-author Gravatar avatars remain rounded
 as a project author exception. `pnpm check:ui` rejects consumer CSS that
 restyles member-avatar radius.
 

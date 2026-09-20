@@ -221,3 +221,22 @@
       loading
     />{/snippet}</Story
 >
+
+<Story
+  name="Agent inbox avatar shape"
+  play={async ({ canvas }) => {
+    const item = canvas.getByRole("button", {
+      name: /Mentioned in #Welcome/u,
+    });
+    await expect(
+      item.querySelector('[data-ui-component="community-member-avatar"]'),
+    ).toHaveAttribute("data-shape", "rounded");
+    await expect(
+      canvas
+        .getAllByLabelText("Message from Fizz")[0]
+        ?.querySelector('[data-ui-component="community-member-avatar"]'),
+    ).toHaveAttribute("data-shape", "rounded");
+  }}
+>
+  {#snippet template()}<CommunityInboxStoryHarness fixtureOnly />{/snippet}
+</Story>

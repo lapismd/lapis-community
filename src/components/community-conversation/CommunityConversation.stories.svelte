@@ -365,6 +365,7 @@
       handle: "fizz",
       initials: "F",
       presence: "online",
+      kind: "agent",
     },
     onSend: fn(),
   }}
@@ -383,6 +384,13 @@
         .getByRole("heading", { name: "Fizz" })
         .parentElement?.querySelector('[data-ui-part="presence"]'),
     ).toHaveAttribute("data-presence", "online");
+    await expect(
+      canvas
+        .getByRole("heading", { name: "Fizz" })
+        .parentElement?.querySelector(
+          '[data-ui-component="community-member-avatar"]',
+        ),
+    ).toHaveAttribute("data-shape", "rounded");
   }}
 >
   {#snippet template(args)}

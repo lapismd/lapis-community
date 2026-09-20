@@ -17,6 +17,7 @@
   import type { CommunityComposerAgentModel } from "../community-chat-composer/composer-agent-model.js";
   import {
     sendWorkspaceContent,
+    withDirectAgentKind,
     workspaceDirectMember,
     workspaceSurfaceRoom,
   } from "./workspace-direct-member.js";
@@ -96,14 +97,10 @@
     model.navigationSections.flatMap((section) => section.rooms),
   );
   const activeDirectMember = $derived(
-    workspaceDirectMember(activeRoom, model.members, model.currentMemberId),
-  );
-  const agentMemberIdSet = $derived(new Set(agentMemberIds));
-  const activeDirectMemberShape = $derived(
-    activeDirectMember !== undefined &&
-      agentMemberIdSet.has(activeDirectMember.id)
-      ? "rounded"
-      : "circle",
+    withDirectAgentKind(
+      workspaceDirectMember(activeRoom, model.members, model.currentMemberId),
+      agentMemberIds,
+    ),
   );
   const knownNonmember = $derived(
     activeRoom.kind !== "direct" && activeRoom.membership === "not-joined",
@@ -630,7 +627,6 @@
       messages={model.messages}
       members={model.members}
       {rooms}
-      directMemberAvatarShape={activeDirectMemberShape}
       {communityEmojis}
       disabled={surfaceReadOnly}
       disabledReason={readOnlyReason}

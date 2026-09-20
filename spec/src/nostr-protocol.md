@@ -359,8 +359,8 @@ late start cannot revive a completed turn. Profile and channel UI permissions
 consume signed ownership and relay membership without granting owners room
 administration rights. Workspace and inbox member projection MAY annotate
 known agent pubkeys with `kind: agent` so Community avatars derive the
-rounded-square treatment; that tag is presentation identity, not NIP-29
-membership.
+rounded-square treatment, including Inbox and NIP-17 direct-message
+members; that tag is presentation identity, not NIP-29 membership.
 
 For LC-ARCH-023, Nostr account login signs kind `27235` over the relay's exact
 login URL, `POST` method, and SHA-256 digest of the challenge body. A restored

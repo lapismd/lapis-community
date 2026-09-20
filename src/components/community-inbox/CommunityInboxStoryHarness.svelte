@@ -15,18 +15,20 @@
     historyUpdating = false,
     loading = false,
     conversationLoading = false,
+    fixtureOnly = false,
   }: {
     empty?: boolean;
     historyUpdating?: boolean;
     loading?: boolean;
     conversationLoading?: boolean;
+    fixtureOnly?: boolean;
   } = $props();
 
   let runtime = $state<CommunityStoryRuntime>();
   let community = $state<CommunityController>();
   let runtimeError = $state("");
   const projectedModel = $derived(
-    community?.state.inbox ?? communityInboxFixture,
+    fixtureOnly ? communityInboxFixture : (community?.state.inbox ?? communityInboxFixture),
   );
   const model = $derived(
     empty

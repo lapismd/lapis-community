@@ -253,13 +253,16 @@ export function materializeCommunityInbox(
     threadTitle: active.room.name,
     room: active.room,
     messages: active.messages(),
-    members: [
-      ...new Map(
-        unique
-          .flatMap((row) => row.members)
-          .map((member) => [member.id, member]),
-      ).values(),
-    ],
+    members: withCommunityMemberKinds(
+      [
+        ...new Map(
+          unique
+            .flatMap((row) => row.members)
+            .map((member) => [member.id, member]),
+        ).values(),
+      ],
+      options.agentPubkeys ?? [],
+    ),
     participantCount: active.members.length,
   };
 }

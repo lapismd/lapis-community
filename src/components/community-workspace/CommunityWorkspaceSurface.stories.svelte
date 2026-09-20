@@ -17,6 +17,12 @@
     topics: [],
     currentMemberId: "noor",
   };
+  const agentDirectMessageModel = {
+    ...directMessageModel,
+    members: directMessageModel.members.map((member) =>
+      member.id === "ada" ? { ...member, kind: "agent" as const } : member,
+    ),
+  };
   const nonmemberModel = {
     ...baseModel,
     messages: [],
@@ -351,6 +357,22 @@
       expect.objectContaining({ id: "ada" }),
     );
     await expect(args.handlers?.onBrowseRooms).not.toHaveBeenCalled();
+  }}
+/>
+
+<Story
+  name="Agent direct message shape"
+  args={{
+    model: agentDirectMessageModel,
+    handlers: { onOpenProfile: fn() },
+  }}
+  play={async ({ canvas }) => {
+    const profile = canvas.getByRole("button", {
+      name: "View Ada Lovelace's profile",
+    });
+    await expect(
+      profile.querySelector('[data-ui-component="community-member-avatar"]'),
+    ).toHaveAttribute("data-shape", "rounded");
   }}
 />
 

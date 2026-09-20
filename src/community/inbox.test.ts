@@ -109,6 +109,18 @@ describe("conversation Inbox", () => {
       })?.activeItemId,
     ).toBe(key);
   });
+  it("tags inbox direct-message members that match known agent pubkeys", () => {
+    const result = materializeCommunityInbox([scope], {}, owner, 20, {
+      privateEventsByScope: { test: [message("first")] },
+      agentPubkeys: [peer],
+    });
+    expect(result?.members.find((member) => member.id === peer)?.kind).toBe(
+      "agent",
+    );
+    expect(result?.members.find((member) => member.id === owner)?.kind).toBe(
+      undefined,
+    );
+  });
   it("includes replies to started or participated threads and content mentions, excluding unrelated replies", () => {
     const root = note(ownerKey, 1, "My thread"),
       otherRoot = note(peerKey, 2, "Another thread");

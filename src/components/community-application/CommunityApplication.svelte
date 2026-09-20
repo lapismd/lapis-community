@@ -88,7 +88,11 @@
     CommunityMessageReport,
     CommunityReplyTarget,
   } from "../../community/index.js";
-  import { communityIdentityMembersFromState } from "../../community/member-identity.js";
+  import {
+    communityIdentityMembersFromState,
+    presentCommunityIdentityModel,
+  } from "../../community/member-identity.js";
+  import { presentCommunityWorkspace } from "./workspace-identity.js";
   import { createProjectWorkItemResources } from "../../projects/work-item-resources.js";
   import type { CommunityAccountSession } from "../../auth/index.js";
   import {
@@ -847,7 +851,7 @@
         ),
   );
   provideCommunityApplicationComposer({
-    members: () => workspace.members,
+    members: () => presentationWorkspace.members,
     rooms: () => presentationRooms,
     emojis: () => community.state.settings.customEmojis,
     onOpenMember: () => openProfile,
@@ -989,17 +993,13 @@
     return presentation;
   }
   const presentationRooms = $derived(allRooms.map(presentProjectRoom));
-  const presentationWorkspace = $derived.by(() => {
-    let changed = false;
-    const navigationSections = workspace.navigationSections.map((section) => {
-      const rooms = section.rooms.map(presentProjectRoom);
-      if (rooms.every((room, index) => room === section.rooms[index]))
-        return section;
-      changed = true;
-      return { ...section, rooms };
-    });
-    return changed ? { ...workspace, navigationSections } : workspace;
-  });
+  const presentationWorkspace = $derived(
+    presentCommunityWorkspace(
+      workspace,
+      presentProjectRoom,
+      community.state.agents,
+    ),
+  );
   const workspaceSurfaceModel = $derived(
     selectedProjectRoom !== undefined
       ? {
@@ -1034,7 +1034,7 @@
   const activeDirectMember = $derived(
     directMemberForRoom(
       activeRoom,
-      workspace.members,
+      presentationWorkspace.members,
       workspace.currentMemberId,
     ),
   );
@@ -1042,12 +1042,11 @@
     communityComposerAgentsFromState(community.state.agents),
   );
   const agentMemberIds = $derived(composerAgents.map((agent) => agent.pubkey));
-  const activeDirectMemberIsAgent = $derived(
-    activeDirectMember !== undefined &&
-      agentMemberIds.includes(activeDirectMember.id),
-  );
   const inbox = $derived(
-    community.state.inbox ?? fallbackInbox(activeRoom, workspace.members),
+    presentCommunityIdentityModel(
+      community.state.inbox ?? fallbackInbox(activeRoom, workspace.members),
+      community.state.agents,
+    ),
   );
   let readyInboxVisit = $state<string>();
   const inboxFocusKey = $derived(
@@ -1477,7 +1476,7 @@
               ? {
                   member: directMemberForRoom(
                     room,
-                    workspace.members,
+                    presentationWorkspace.members,
                     workspace.currentMemberId,
                   )!,
                 }
@@ -1549,7 +1548,7 @@
               ? {
                   member: directMemberForRoom(
                     room,
-                    workspace.members,
+                    presentationWorkspace.members,
                     workspace.currentMemberId,
                   )!,
                 }
@@ -2076,7 +2075,7 @@
   provideAgentConversation({
     session: () => projectSession,
     memberId: () => workspace.currentMemberId,
-    members: () => workspace.members,
+    members: () => presentationWorkspace.members,
     rooms: () => allRooms,
     openThread: (roomId, rootMessageId, replyTargetId) =>
       openPanel(agentThreadPanel(roomId, rootMessageId, replyTargetId)),
@@ -7669,7 +7668,6 @@
                 <CommunityMemberAvatar
                   member={activeDirectMember}
                   showPresence
-                  shape={activeDirectMemberIsAgent ? "rounded" : "circle"}
                   decorative
                 />
                 <strong data-ui-part="room-title">{activeRoom.name}</strong>
