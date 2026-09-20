@@ -7,6 +7,7 @@
     communityComposerStoryAgents,
     communityComposerStoryFizz,
     communityComposerStoryOwner,
+    composerMentionLockButton,
   } from "./agent-story-fixtures.js";
   import {
     communityComposerStoryMembers,
@@ -48,11 +49,11 @@
     setPersistentAgentAudienceEnabled(true);
     const editor = canvas.getByRole("textbox", { name: "Markdown editor" });
     await waitFor(() => expect(editor).toHaveTextContent(/Fizz/));
-    await expect(canvas.getByLabelText("Addressed agent Fizz")).toBeVisible();
+    await expect(composerMentionLockButton(canvas)).toBeVisible();
     await expect(
-      canvas
-        .getByRole("button", { name: "Mention someone" })
-        .querySelector("[data-ui-part='composer-mention-lock']"),
+      composerMentionLockButton(canvas)?.querySelector(
+        "[data-ui-part='composer-mention-dismiss']",
+      ),
     ).not.toBeNull();
     await expect(
       canvas
@@ -69,7 +70,7 @@
       ),
     );
     await waitFor(() => expect(editor).toHaveTextContent(/Fizz/));
-    await expect(canvas.getByLabelText("Addressed agent Fizz")).toBeVisible();
+    await expect(composerMentionLockButton(canvas)).toBeVisible();
     await userEvent.click(
       canvas.getByRole("button", { name: "Mention someone" }),
     );
@@ -79,6 +80,11 @@
     await expect(
       canvas.getByRole("option", { name: /@BHoney/ }),
     ).toHaveTextContent("not in channel");
+    const lock = composerMentionLockButton(canvas);
+    await expect(lock).not.toBeNull();
+    await userEvent.click(lock!);
+    await waitFor(() => expect(composerMentionLockButton(canvas)).toBeNull());
+    await waitFor(() => expect(editor).not.toHaveTextContent(/Fizz/));
   }}
 />
 
@@ -124,10 +130,9 @@
         .getByRole("button", { name: "Nyra" })
         .querySelector("[data-ui-component='community-member-avatar']"),
     ).not.toBeNull();
-    await expect(
-      canvas
-        .getByRole("button", { name: "Mention someone" })
-        .querySelector("[data-ui-part='composer-mention-lock']"),
-    ).not.toBeNull();
+    await expect(composerMentionLockButton(canvas)).toBeVisible();
+    await expect(composerMentionLockButton(canvas)).toHaveAccessibleName(
+      "Don't automatically mention Nyra in this thread",
+    );
   }}
 />

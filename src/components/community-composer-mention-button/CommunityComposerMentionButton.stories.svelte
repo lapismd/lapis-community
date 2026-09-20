@@ -1,6 +1,6 @@
 <script module lang="ts">
   import { defineMeta } from "@storybook/addon-svelte-csf";
-  import { expect, fn } from "storybook/test";
+  import { expect, fn, userEvent } from "storybook/test";
 
   import CommunityComposerMentionButton from "./CommunityComposerMentionButton.svelte";
 
@@ -13,6 +13,7 @@
     },
     args: {
       onclick: fn(),
+      onDismiss: fn(),
     },
   });
 
@@ -30,21 +31,23 @@
 <Story
   name="Addressed agent lock"
   args={{ member: fizz }}
-  play={async ({ canvas }) => {
-    const button = canvas.getByRole("button", { name: "Mention someone" });
-    const at = button.querySelector("[data-ui-part='composer-mention-at']");
-    const lock = button.querySelector("[data-ui-part='composer-mention-lock']");
-    await expect(at).not.toBeNull();
-    await expect(lock).not.toBeNull();
+  play={async ({ canvas, args }) => {
+    const mention = canvas.getByRole("button", { name: "Mention someone" });
+    const lock = canvas.getByRole("button", {
+      name: "Don't automatically mention Fizz in this thread",
+    });
     await expect(
-      button.querySelector("[data-ui-component='community-member-avatar']"),
+      mention.querySelector("[data-ui-part='composer-mention-at']"),
     ).not.toBeNull();
     await expect(
-      at &&
-        lock &&
-        (at.compareDocumentPosition(lock) &
-          Node.DOCUMENT_POSITION_FOLLOWING) !==
-          0,
-    ).toBe(true);
+      lock.querySelector("[data-ui-component='community-member-avatar']"),
+    ).not.toBeNull();
+    await expect(
+      lock.querySelector("[data-ui-part='composer-mention-dismiss']"),
+    ).not.toBeNull();
+    await userEvent.hover(lock);
+    await userEvent.click(lock);
+    await expect(args.onDismiss).toHaveBeenCalledWith(fizz.id);
+    await expect(args.onclick).not.toHaveBeenCalled();
   }}
 />

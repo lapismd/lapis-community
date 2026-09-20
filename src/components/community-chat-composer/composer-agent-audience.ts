@@ -83,11 +83,15 @@ export function createComposerAgentAudience(input: {
       return member ? [member] : [];
     });
   };
+  const dismissed = new Set<string>();
   const rememberDraft = (
     value: string,
     selectedMentionPubkeys: readonly string[],
   ) => {
     if (!getPersistentAgentAudienceEnabled()) return;
+    for (const pubkey of selectedMentionPubkeys) {
+      dismissed.delete(pubkey.trim().toLowerCase());
+    }
     promotePersistentAgentAudience(
       scope(),
       mentionedComposerAgentPubkeys(
@@ -95,7 +99,7 @@ export function createComposerAgentAudience(input: {
         input.members(),
         input.agents(),
         selectedMentionPubkeys,
-      ),
+      ).filter((pubkey) => !dismissed.has(pubkey.trim().toLowerCase())),
     );
   };
 
@@ -125,13 +129,16 @@ export function createComposerAgentAudience(input: {
       }
       const locked = getPersistentAgentAudience(currentScope);
       if (locked.includes(pubkey.trim().toLowerCase())) {
+        dismissed.add(pubkey.trim().toLowerCase());
         removePersistentAgentAudienceMember(currentScope, pubkey);
         return { value: "" };
       }
+      dismissed.delete(pubkey.trim().toLowerCase());
       addPersistentAgentAudienceMember(currentScope, pubkey);
       return {};
     },
     dismiss(pubkey) {
+      dismissed.add(pubkey.trim().toLowerCase());
       removePersistentAgentAudienceMember(scope(), pubkey);
       return { value: "" };
     },

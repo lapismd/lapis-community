@@ -130,6 +130,42 @@ describe("composer agent audience", () => {
     expect(audience.mentionButtonMember()).toBeUndefined();
   });
 
+  it("does not re-address a dismissed agent from leftover draft text", () => {
+    const audience = createComposerAgentAudience({
+      agents: () => [
+        {
+          pubkey: fizz,
+          name: "Fizz",
+          ownerPubkey: owner,
+          channelIds: ["general"],
+        },
+      ],
+      members: () => [],
+      audience: () => ({
+        ownerPubkey: owner,
+        channelId: "general",
+        threadRootId: "root",
+      }),
+      initialAgentPubkeys: () => [fizz],
+      context: () => undefined,
+      submitting: () => false,
+    });
+    audience.setEnabled(true);
+    const first = syncComposerAgentAudienceDraft(audience, "@Fizz ", "", [
+      fizz,
+    ]);
+    expect(audience.mentionButtonMember()?.id).toBe(fizz);
+    audience.dismiss(fizz);
+    const next = syncComposerAgentAudienceDraft(
+      audience,
+      "@Fizz leftover",
+      first.key,
+      [],
+    );
+    expect(audience.mentionButtonMember()).toBeUndefined();
+    expect(next.mentionPubkeys).not.toContain(fizz);
+  });
+
   it("strips a dismissed mention", () => {
     expect(
       applyAgentMentionChange(

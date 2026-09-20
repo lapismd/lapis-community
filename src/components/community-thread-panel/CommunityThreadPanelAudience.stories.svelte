@@ -11,6 +11,7 @@
     communityComposerStoryAgents,
     communityComposerStoryFizz,
     communityComposerStoryOwner,
+    composerMentionLockButton,
   } from "../community-chat-composer/agent-story-fixtures.js";
   import {
     resetPersistentAgentAudienceStore,
@@ -55,7 +56,10 @@
     setPersistentAgentAudienceEnabled(true);
     const editor = canvas.getByRole("textbox", { name: "Markdown editor" });
     await waitFor(() => expect(editor).toHaveTextContent(/Fizz/));
-    await expect(canvas.getByLabelText("Addressed agent Fizz")).toBeVisible();
+    await expect(composerMentionLockButton(canvas)).toBeVisible();
+    await expect(composerMentionLockButton(canvas)).toHaveAccessibleName(
+      "Don't automatically mention Fizz in this thread",
+    );
     await userEvent.click(
       canvas.getByRole("button", { name: "Mention someone" }),
     );

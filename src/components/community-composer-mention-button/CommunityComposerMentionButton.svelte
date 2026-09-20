@@ -1,63 +1,82 @@
 <script lang="ts">
   import { Button } from "@lapismd/design-core/shadcn/button";
   import AtSignIcon from "@lucide/svelte/icons/at-sign";
+  import XIcon from "@lucide/svelte/icons/x";
 
   import CommunityMemberAvatar from "../community-member-avatar/CommunityMemberAvatar.svelte";
+  import { communityMemberAvatarShape } from "../community-member-avatar/model.js";
   import type { CommunityMemberModel } from "../community-workspace/model.js";
 
   let {
     member,
     disabled = false,
     onclick,
+    onDismiss,
   }: {
     member?: CommunityMemberModel | undefined;
     disabled?: boolean;
     onclick: () => void | Promise<void>;
+    onDismiss?: ((pubkey: string) => void) | undefined;
   } = $props();
+
+  const lockShape = $derived(
+    member ? communityMemberAvatarShape(member) : "rounded",
+  );
 </script>
 
-<Button
-  type="button"
-  variant="ghost"
-  size="icon-sm"
-  class="community-composer-mention-button-host"
+<span
+  class="community-composer-mention-button"
+  data-ui-component="community-composer-mention-button"
   data-addressed={member ? "true" : "false"}
-  aria-label="Mention someone"
-  {disabled}
-  {onclick}
 >
-  <span
-    class="community-composer-mention-button"
-    data-ui-component="community-composer-mention-button"
-    data-addressed={member ? "true" : "false"}
+  <Button
+    type="button"
+    variant="ghost"
+    size="icon-sm"
+    class="community-composer-mention-button-host"
+    aria-label="Mention someone"
+    {disabled}
+    {onclick}
   >
     <span data-ui-part="composer-mention-at" aria-hidden="true">
       <AtSignIcon />
     </span>
-    {#if member}
+  </Button>
+  {#if member}
+    <button
+      type="button"
+      class="community-composer-mention-button__lock"
+      data-ui-part="composer-mention-lock"
+      data-shape={lockShape}
+      aria-label={`Don't automatically mention ${member.name} in this thread`}
+      {disabled}
+      onmousedown={(event) => {
+        event.preventDefault();
+        event.stopPropagation();
+      }}
+      onclick={(event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        onDismiss?.(member.id);
+      }}
+    >
+      <CommunityMemberAvatar {member} size="xsmall" decorative />
       <span
-        class="community-composer-mention-button__lock"
-        data-ui-part="composer-mention-lock"
+        class="community-composer-mention-button__dismiss"
+        data-ui-part="composer-mention-dismiss"
+        aria-hidden="true"
       >
-        <CommunityMemberAvatar {member} size="xsmall" decorative />
+        <XIcon />
       </span>
-    {/if}
-  </span>
-</Button>
+    </button>
+  {/if}
+</span>
 
 <style>
-  :global(
-      [data-ui-component="button"].community-composer-mention-button-host[data-addressed="true"]
-    ) {
-    width: auto;
-    min-width: 2rem;
-    padding-inline: 0.35rem;
-  }
-
   .community-composer-mention-button {
     display: inline-flex;
     align-items: center;
-    gap: 0.28rem;
+    gap: 0.12rem;
   }
 
   .community-composer-mention-button [data-ui-part="composer-mention-at"],
@@ -67,16 +86,20 @@
     display: block;
     width: 1rem;
     height: 1rem;
-    flex: none;
   }
 
   .community-composer-mention-button__lock {
+    position: relative;
     display: grid;
     width: 1.125rem;
     height: 1.125rem;
     flex: none;
     place-items: center;
+    padding: 0;
     overflow: hidden;
+    border: 0;
+    background: transparent;
+    cursor: pointer;
   }
 
   .community-composer-mention-button__lock
@@ -85,5 +108,34 @@
 
     width: 1.125rem;
     height: 1.125rem;
+  }
+
+  .community-composer-mention-button__dismiss {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    border-radius: 50%;
+    background: var(--foreground);
+    color: var(--background);
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .community-composer-mention-button__lock[data-shape="rounded"]
+    .community-composer-mention-button__dismiss {
+    border-radius: 25%;
+  }
+
+  .community-composer-mention-button__lock:hover
+    .community-composer-mention-button__dismiss,
+  .community-composer-mention-button__lock:focus-visible
+    .community-composer-mention-button__dismiss {
+    opacity: 1;
+  }
+
+  .community-composer-mention-button__dismiss :global(svg) {
+    width: 0.7rem;
+    height: 0.7rem;
   }
 </style>

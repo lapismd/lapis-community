@@ -44,7 +44,6 @@
     CommunityMemberModel,
     CommunityRoomModel,
   } from "../community-workspace/model.js";
-  import CommunityComposerAgentAddress from "../community-composer-agent-address/CommunityComposerAgentAddress.svelte";
   import CommunityComposerMentionButton from "../community-composer-mention-button/CommunityComposerMentionButton.svelte";
   import CommunityComposerMentionPicker from "../community-composer-mention-picker/CommunityComposerMentionPicker.svelte";
   import CommunityEmojiPicker from "../community-emoji-picker/CommunityEmojiPicker.svelte";
@@ -818,7 +817,7 @@
     );
     selectedMentionPubkeys = locked.has(key)
       ? addUnique(selectedMentionPubkeys, pubkey)
-      : selectedMentionPubkeys.filter((id) => id !== pubkey);
+      : selectedMentionPubkeys.filter((id) => id.trim().toLowerCase() !== key);
   }
 
   function dismissAddressedAgent(pubkey: string): void {
@@ -830,7 +829,7 @@
       agentAudience.displayName,
     );
     selectedMentionPubkeys = selectedMentionPubkeys.filter(
-      (id) => id !== pubkey,
+      (id) => id.trim().toLowerCase() !== pubkey.trim().toLowerCase(),
     );
   }
 </script>
@@ -958,12 +957,6 @@
     {/snippet}
 
     {#snippet input()}
-      {#if audienceView.addressedAgents.length && audienceView.autoMentionEnabled}
-        <CommunityComposerAgentAddress
-          members={audienceView.addressedAgents}
-          onDismiss={dismissAddressedAgent}
-        />
-      {/if}
       {#if attachments.length}
         <div
           class="community-chat-composer__attachments"
@@ -1218,6 +1211,7 @@
             member={audienceView.mentionButtonMember}
             disabled={disabled || busy}
             onclick={insertReferencePrefix}
+            onDismiss={dismissAddressedAgent}
           />
           {#if mediaAdapter}
             <Button

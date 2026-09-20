@@ -75,7 +75,14 @@ export function communityComposerAgentDisplayName(
   members: readonly { id: string; name: string }[],
 ): (pubkey: string) => string | undefined {
   const names = new Map<string, string>();
-  for (const member of members) names.set(member.id, member.name);
-  for (const agent of agents) names.set(agent.pubkey, agent.name);
-  return (pubkey) => names.get(pubkey);
+  for (const member of members) {
+    names.set(member.id, member.name);
+    names.set(member.id.trim().toLowerCase(), member.name);
+  }
+  for (const agent of agents) {
+    names.set(agent.pubkey, agent.name);
+    names.set(agent.pubkey.trim().toLowerCase(), agent.name);
+  }
+  return (pubkey) =>
+    names.get(pubkey) ?? names.get(pubkey.trim().toLowerCase());
 }
