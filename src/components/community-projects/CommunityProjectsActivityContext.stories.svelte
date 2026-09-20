@@ -17,6 +17,14 @@
       projectName: () => "Notes",
       onOpenProject: fn(),
       onOpenItem: fn(),
+      members: [
+        {
+          id: f.agent,
+          name: "Nyra",
+          handle: "nyra",
+          initials: "NY",
+        },
+      ],
       filterStore: createBrowserProjectActivityFilterStore({
         storage: {
           getItem: () => null,

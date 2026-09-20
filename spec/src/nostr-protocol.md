@@ -1,6 +1,6 @@
 # Nostr Protocol and Trust
 
-For LC-UI-049, v2 checkpoint manifests bind exact commit targets to the signing agent and reusable context pages. Clients validate repository, group, scope, span and baseline operation bindings before assembly. Kind `23908` is a bounded, sequenced, transient snapshot; it is never queried as history or written to the archive. Completed durable records replace matching live previews.
+For LC-UI-049, v2 checkpoint manifests bind exact commit targets to the signing agent and reusable context pages. Clients validate repository, group, scope, span and baseline operation bindings before assembly. Kind `23908` is a bounded, sequenced, transient snapshot; it is never queried as history or written to the archive. Completed durable records replace matching live previews. Rendering owner-encrypted request activity in its original thread reuses already validated kind `24200` records in memory and MUST NOT publish synthetic message events.
 
 For LC-ARCH-028, Community workspace, inbox, and composer submission contracts
 are owned beside the controller rather than under presentation models. Login

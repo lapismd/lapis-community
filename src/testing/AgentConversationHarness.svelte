@@ -15,15 +15,17 @@
     onPublish,
     onOpen,
     extraEvents = [],
+    eventsOverride,
   }: {
     children: Snippet;
     extraEvents?: import("../protocol/index.js").NostrEvent[];
+    eventsOverride?: readonly import("../protocol/index.js").NostrEvent[];
     onPublish?: (template: NostrEventTemplate) => void;
     onOpen?: (room: string, root: string, reply?: string) => void;
   } = $props();
   let opened = $state("");
   const session = {
-    queryHttp: async () => [...events, ...extraEvents],
+    queryHttp: async () => [...(eventsOverride ?? events), ...extraEvents],
     subscribe: async () => () => {},
     publish: async (template: NostrEventTemplate) => {
       onPublish?.(template);

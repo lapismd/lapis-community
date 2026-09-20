@@ -1,8 +1,52 @@
 import { agentContextMessageRole } from "../../projects/repository-agent-context.js";
 import type { NostrEvent } from "../../protocol/index.js";
 import type { RepositoryAgentCheckpoint } from "../../projects/repository-agent-context.js";
+import type {
+  CommunityAgentActivityContext,
+  CommunityAgentActivityItem,
+} from "../../community/agent-contracts.js";
+import {
+  activityMatches,
+  observerScope,
+} from "../../community/agent-activity-context.js";
+import { canonicalActivity } from "../../community/canonical-transcript-activity.js";
 import { eventRoot, eventTag } from "../community-agent-conversation/model.js";
 import { repositoryContextTurns } from "../community-projects/repository-context-transcript.js";
+
+/** Project one owner's private records beside the exact signed request that started them. */
+export function ownerThreadActivity(
+  activity: readonly CommunityAgentActivityItem[],
+  context: CommunityAgentActivityContext | undefined,
+  messageId: string,
+  events: readonly NostrEvent[] = [],
+): CommunityAgentActivityItem[] {
+  return canonicalActivity(activity).filter((item) => {
+    if (
+      !activityMatches(context, {
+        agentPubkey: item.agentPubkey,
+        ...observerScope(item.frame),
+      })
+    )
+      return false;
+    const payload = record(item.frame.payload);
+    const lifecycle = payload.lifecycleRequestId ?? payload.requestId;
+    if (
+      payload.triggerEventId !== messageId &&
+      lifecycle !== messageId &&
+      (typeof lifecycle !== "string" || !lifecycle.endsWith(`:${messageId}`))
+    )
+      return false;
+    const entry = record(payload.entry);
+    return !(
+      entry.type === "message" &&
+      (typeof entry.sourceEventId === "string" ||
+        events.some(
+          (event) =>
+            [9, 1111].includes(event.kind) && eventTag(event, "d") === entry.id,
+        ))
+    );
+  });
+}
 
 /** Checkpoint data supplements real messages; it never creates duplicate channel posts. */
 export function threadContextSegments(
@@ -96,4 +140,10 @@ export function checkpointThreadComments(
           ),
       ),
   );
+}
+
+function record(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : {};
 }
