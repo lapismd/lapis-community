@@ -315,7 +315,7 @@
       paneViewport!.getBoundingClientRect().width,
       0,
     );
-    expect(getComputedStyle(listInner!).overflowAnchor).toBe("none");
+    expect(getComputedStyle(listInner!).overflowAnchor).toBe("auto");
   }}
 >
   {#snippet template()}<CommunityInboxStoryHarness fixtureOnly />{/snippet}

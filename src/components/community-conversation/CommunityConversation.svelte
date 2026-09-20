@@ -479,7 +479,7 @@
         ? {
             items: messages,
             row: messageRow,
-            virtualize: true,
+            virtualize: true, estimateSize: 240,
             ...(presentation?.position
               ? { initialPosition: presentation.position }
               : {}),

@@ -692,8 +692,10 @@ The pane viewport overrides Design Core's inline
 `overflow: hidden scroll` so computed overflow stays hidden. Nested
 conversation and composer scrollports keep content height so the
 virtualized message list can wheel without a second pane scroller.
-The Conversation scrollport story records that selector scope and updates the
-Inbox stories path budget.
+Inbox keeps channel overflow anchoring, and `CommunityConversation`
+passes a community-height virtual row estimate. The Conversation
+scrollport story records that selector scope and updates the Inbox
+stories path budget.
 
 For LC-UI-049, checkpoint projection retains repository, channel, and native
 change targets. Agent context reference menus own presentation and share an

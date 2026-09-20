@@ -294,15 +294,6 @@
   min-height: 0;
 }
 
-.lc-community-inbox__conversation [data-ui-part="scroll-area-viewport"] {
-  overscroll-behavior: contain;
-}
-
-.lc-community-inbox__conversation [data-ui-part="scroll-area-viewport"],
-.lc-community-inbox__conversation [data-ui-part="list-inner"] {
-  overflow-anchor: none;
-}
-
 .lc-community-inbox__selection-empty {
   height: 100%;
   min-height: 20rem;
