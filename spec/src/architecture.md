@@ -28,9 +28,12 @@ controller. Community derives pending approvals and active conversation scopes
 from verified encrypted telemetry, while its session boundary only signs and
 publishes encrypted controls. The controller remains authoritative for its ACP
 harness and option catalog; Community may display that catalog and save owner
-defaults for future sessions. Workspace paths, process lifecycle, and NIP-46
-credentials remain operator-owned controller configuration. Channel memory
-review uses the same ephemeral request boundary and never enters Community's
+defaults for future sessions. Per-harness catalog parsing and editor selection
+live in dedicated runtime-catalog modules so the agent contract and observer
+parser budgets can drop after extraction. Workspace paths, process lifecycle,
+and NIP-46 credentials remain operator-owned controller configuration. Channel
+memory review uses the same ephemeral request boundary and never enters
+Community's
 activity archive.
 When the selected relay advertises `lapis_managed_agents`, this same boundary
 keeps only a disposable NIP-46 client key and resumable draft in memory, signs

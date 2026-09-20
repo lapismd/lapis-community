@@ -296,45 +296,14 @@ export interface CommunityAgentProcessingState {
   applied?: boolean;
 }
 
-export interface CommunityAgentRuntimeOption {
-  value: string;
-  name: string;
-  description?: string;
-}
-
-export interface CommunityAgentRuntimeState {
-  agentId: string;
-  host: { id: string; kind: string; workspace?: string };
-  runtimeAgents: readonly {
-    id: string;
-    label: string;
-    mcpTransport?: string;
-  }[];
-  configured: { runtimeAgent: string; model?: string; thinking?: string };
-  saved?: {
-    runtimeAgent?: string;
-    model?: string;
-    thinking?: string;
-    updatedAt?: number;
-  } | null;
-  effective: { runtimeAgent: string; model?: string; thinking?: string };
-  catalog: {
-    agent: string;
-    currentModel?: string;
-    models: readonly string[];
-    configOptions: readonly {
-      id: string;
-      name: string;
-      category?: string;
-      currentValue?: string | boolean;
-      options?: readonly CommunityAgentRuntimeOption[];
-    }[];
-    error?: string;
-  };
-  tools: readonly { name: string; effect: "read" | "write" }[];
-  bootstrapRevision?: string | null;
-  memory: { enabled: boolean; candidates: number };
-}
+export type {
+  CommunityAgentRuntimeAgent,
+  CommunityAgentRuntimeCatalog,
+  CommunityAgentRuntimeOption,
+  CommunityAgentRuntimeState,
+  CommunityAgentRuntimeThinking,
+} from "./agent-runtime-contracts.js";
+import type { CommunityAgentRuntimeState } from "./agent-runtime-contracts.js";
 
 export type CommunityAgentMemoryRecord =
   | {

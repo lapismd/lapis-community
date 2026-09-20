@@ -39,6 +39,10 @@ import {
   validateAgentTelemetry,
 } from "./agent-protocol.js";
 import {
+  lateRuntimeState,
+  parseProcessingState,
+} from "./agent-administration-state.js";
+import {
   observerRecord,
   observerText,
   parseMemoryState,
@@ -1663,8 +1667,16 @@ export class CommunityAgentsController {
       !request ||
       request.agentPubkey !== agentPubkey ||
       request.responseKind !== responseKind
-    )
+    ) {
+      const runtime = lateRuntimeState(
+        this.#state.runtime,
+        agentPubkey,
+        frame.kind,
+        payload,
+      );
+      if (runtime) this.#update({ runtime });
       return true;
+    }
     clearTimeout(request.timer);
     this.#administrationRequests.delete(requestId);
     if (frame.kind === "administration_error") {
@@ -2118,32 +2130,4 @@ async function historyDeadline<T>(
   } finally {
     clearTimeout(timer);
   }
-}
-
-function parseProcessingState(
-  payload: Record<string, unknown> | undefined,
-): CommunityAgentProcessingState | undefined {
-  if (
-    !payload ||
-    typeof payload.enabled !== "boolean" ||
-    !Number.isSafeInteger(payload.revision) ||
-    Number(payload.revision) < 0 ||
-    !["applied", "cancelling", "error"].includes(String(payload.status)) ||
-    typeof payload.updatedAt !== "number" ||
-    !Number.isFinite(payload.updatedAt) ||
-    (payload.status !== "applied" && payload.enabled)
-  )
-    return;
-  return {
-    enabled: payload.enabled,
-    revision: Number(payload.revision),
-    status: payload.status as CommunityAgentProcessingState["status"],
-    updatedAt: payload.updatedAt,
-    ...(typeof payload.applied === "boolean"
-      ? { applied: payload.applied }
-      : {}),
-    ...(typeof payload.error === "string"
-      ? { error: payload.error.slice(0, 512) }
-      : {}),
-  };
 }

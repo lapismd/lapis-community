@@ -62,7 +62,10 @@ sequences cannot reactivate a completed live scope.
 
 Runtime and memory administration extend this same envelope at control version
 `2`. `runtime_get` and `runtime_set` omit `h`; runtime changes contain at least
-one controller-catalog value. `memory_list` and `memory_action` carry the exact
+one controller-catalog value. A `runtime_state` snapshot advertises a catalog
+for each listed harness so the owner client can offer that harness's models
+before saving. A later `runtime_state` still updates that owner-only profile
+after the matching request has settled. `memory_list` and `memory_action` carry the exact
 configured channel in both content and `h`, and a memory action identifies
 either one candidate for approve or reject, or one accepted memory for
 retraction. Fresh `runtime_state` and `memory_state` telemetry is correlated by

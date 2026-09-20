@@ -6,8 +6,8 @@ import type {
   CommunityAgentsState,
   CommunityAgentActivityItem,
   CommunityAgentMemoryState,
-  CommunityAgentRuntimeState,
 } from "../../community/agent-contracts.js";
+export { storyAgentRuntime } from "./runtime-story-fixtures.js";
 import type { CommunityRoomModel } from "../community-workspace/model.js";
 import {
   materializeAgentDirectory,
@@ -114,57 +114,6 @@ export const storyAgentRooms: CommunityRoomModel[] = [
     permissions: { manageMembers: { state: "enabled" } },
   },
 ] as CommunityRoomModel[];
-export const storyAgentRuntime: CommunityAgentRuntimeState = {
-  agentId: "agent-research",
-  host: {
-    id: "local-workspace",
-    kind: "managed",
-    workspace:
-      "/Users/operator/.lapis/community/agents/0123456789abcdef/workspace",
-  },
-  runtimeAgents: [
-    { id: "codex", label: "Codex", mcpTransport: "stdio" },
-    { id: "claude", label: "Claude Code", mcpTransport: "stdio" },
-  ],
-  configured: { runtimeAgent: "codex", model: "gpt-6", thinking: "medium" },
-  saved: null,
-  effective: { runtimeAgent: "codex", model: "gpt-6", thinking: "medium" },
-  catalog: {
-    agent: "codex",
-    currentModel: "gpt-6",
-    models: ["gpt-6", "gpt-5.6"],
-    configOptions: [
-      {
-        id: "model",
-        name: "Model",
-        category: "model",
-        currentValue: "gpt-6",
-        options: [
-          { value: "gpt-6", name: "GPT-6" },
-          { value: "gpt-5.6", name: "GPT-5.6" },
-        ],
-      },
-      {
-        id: "reasoning_effort",
-        name: "Thinking",
-        category: "thought",
-        currentValue: "medium",
-        options: [
-          { value: "low", name: "Low" },
-          { value: "medium", name: "Medium" },
-          { value: "high", name: "High" },
-        ],
-      },
-    ],
-  },
-  tools: [
-    { name: "relay.messages.list", effect: "read" },
-    { name: "relay.issues.create", effect: "write" },
-    { name: "memory.search", effect: "read" },
-  ],
-  bootstrapRevision: "persona:release-notes:7",
-  memory: { enabled: true, candidates: 1 },
-};
 export const storyAgentMemories: CommunityAgentMemoryState = {
   channelId: "general",
   records: [

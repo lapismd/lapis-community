@@ -3,16 +3,13 @@ import type {
   CommunityAgentMemoryState,
   CommunityAgentRuntimeState,
 } from "./agent-contracts.js";
+import {
+  parseRuntimeAgents,
+  parseRuntimeCatalog,
+} from "./agent-runtime-catalog.js";
 
-export function observerRecord(value: unknown): Record<string, unknown> {
-  return value && typeof value === "object" && !Array.isArray(value)
-    ? (value as Record<string, unknown>)
-    : {};
-}
-
-export function observerText(value: unknown, limit: number): string {
-  return typeof value === "string" ? value.trim().slice(0, limit) : "";
-}
+export { observerRecord, observerText } from "./agent-observer.js";
+import { observerRecord, observerText } from "./agent-observer.js";
 
 export function parseRuntimeState(
   value: Record<string, unknown> | undefined,
@@ -22,77 +19,14 @@ export function parseRuntimeState(
   const host = observerRecord(value.host);
   const configured = observerRecord(value.configured);
   const effective = observerRecord(value.effective);
-  const catalog = observerRecord(value.catalog);
   const memory = observerRecord(value.memory);
   const hostId = observerText(host.id, 256);
   const hostKind = observerText(host.kind, 64);
   const effectiveRuntime = observerText(effective.runtimeAgent, 256);
-  const catalogAgent = observerText(catalog.agent, 256);
-  if (!agentId || !hostId || !hostKind || !effectiveRuntime || !catalogAgent)
+  const parsedCatalog = parseRuntimeCatalog(value.catalog);
+  if (!agentId || !hostId || !hostKind || !effectiveRuntime || !parsedCatalog)
     return;
-  const runtimeAgents = Array.isArray(value.runtimeAgents)
-    ? value.runtimeAgents.flatMap((entry) => {
-        const item = observerRecord(entry);
-        const id = observerText(item.id, 256);
-        const label = observerText(item.label, 256);
-        return id && label
-          ? [
-              {
-                id,
-                label,
-                ...(observerText(item.mcpTransport, 32)
-                  ? { mcpTransport: observerText(item.mcpTransport, 32) }
-                  : {}),
-              },
-            ]
-          : [];
-      })
-    : [];
-  const configOptions = Array.isArray(catalog.configOptions)
-    ? catalog.configOptions.flatMap((entry) => {
-        const item = observerRecord(entry);
-        const id = observerText(item.id, 256);
-        const name = observerText(item.name, 256);
-        if (!id || !name) return [];
-        const options = Array.isArray(item.options)
-          ? item.options.flatMap((option) => {
-              const candidate = observerRecord(option);
-              const optionValue = observerText(candidate.value, 256);
-              const optionName = observerText(candidate.name, 256);
-              return optionValue && optionName
-                ? [
-                    {
-                      value: optionValue,
-                      name: optionName,
-                      ...(observerText(candidate.description, 1_024)
-                        ? {
-                            description: observerText(
-                              candidate.description,
-                              1_024,
-                            ),
-                          }
-                        : {}),
-                    },
-                  ]
-                : [];
-            })
-          : undefined;
-        return [
-          {
-            id,
-            name,
-            ...(observerText(item.category, 64)
-              ? { category: observerText(item.category, 64) }
-              : {}),
-            ...(typeof item.currentValue === "string" ||
-            typeof item.currentValue === "boolean"
-              ? { currentValue: item.currentValue }
-              : {}),
-            ...(options ? { options } : {}),
-          },
-        ];
-      })
-    : [];
+  const runtimeAgents = parseRuntimeAgents(value.runtimeAgents);
   const saved =
     value.saved === null
       ? null
@@ -117,21 +51,7 @@ export function parseRuntimeState(
       runtimeAgent: effectiveRuntime,
       ...optionalRuntimeDefaults(effective),
     },
-    catalog: {
-      agent: catalogAgent,
-      ...(observerText(catalog.currentModel, 256)
-        ? { currentModel: observerText(catalog.currentModel, 256) }
-        : {}),
-      models: Array.isArray(catalog.models)
-        ? catalog.models
-            .map((model) => observerText(model, 256))
-            .filter(Boolean)
-        : [],
-      configOptions,
-      ...(observerText(catalog.error, 1_024)
-        ? { error: observerText(catalog.error, 1_024) }
-        : {}),
-    },
+    catalog: parsedCatalog,
     tools: Array.isArray(value.tools)
       ? value.tools.flatMap((entry) => {
           const tool = observerRecord(entry);

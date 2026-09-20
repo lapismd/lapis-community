@@ -33,6 +33,10 @@ extract to dedicated modules and lower the `composer-extension.ts`
 path budget in the same change.
 Message reply-summary extraction lowers the `CommunityMessage.svelte`
 path budget in `scripts/architecture-baseline.json`.
+Per-harness runtime catalog extraction lowers the `agent-contracts.ts`,
+`agent-state-parsers.ts`, and Agents `story-fixtures.ts` path budgets in
+`scripts/architecture-baseline.json`.
+
 LC-UI-040 Inbox loading coverage updates the architecture baseline for its
 geometry assertions and the smaller component that shares the padded skeleton.
 LC-UI-014 Inbox conversation scrollport coverage updates the architecture

@@ -18,6 +18,15 @@
     CommunityAgentRuntimeState,
     CommunityAgentSaveInput,
   } from "../../community/agent-contracts.js";
+  import { editorRuntimeDraft } from "../../community/agent-editor-runtime.js";
+  import {
+    resolveRuntimeCatalog,
+    runtimeCatalogDefaults,
+    runtimeHarnesses,
+    runtimeModelOptions,
+    runtimeOptionLabel,
+    runtimeThinkingOptions,
+  } from "../../community/agent-runtime-catalog.js";
 
   let {
     open = $bindable(false),
@@ -102,49 +111,16 @@
   let unlinkConfirmOpen = $state(false);
   let deleteConfirmOpen = $state(false);
 
-  const editorPersona = $derived(
-    personas.find((persona) => persona.slug === personaSelection),
+  const runtimeAgents = $derived(runtimeHarnesses(runtime));
+  const configuredCatalog = $derived(
+    resolveRuntimeCatalog(runtime, runtime?.configured.runtimeAgent ?? ""),
   );
-  const runtimeAgents = $derived(
-    runtime?.runtimeAgents.length
-      ? runtime.runtimeAgents
-      : runtime
-        ? [
-            {
-              id: runtime.effective.runtimeAgent,
-              label: runtime.effective.runtimeAgent,
-            },
-          ]
-        : [],
+  const draft = $derived(
+    editorRuntimeDraft(runtime, runtimeAgent, {
+      model: runtimeModel,
+      thinking: runtimeThinking,
+    }),
   );
-  const modelOptions = $derived.by(() => {
-    const option = runtime?.catalog.configOptions.find(
-      ({ id, category }) => id === "model" || category === "model",
-    );
-    return (
-      option?.options ??
-      runtime?.catalog.models.map((value) => ({ value, name: value })) ??
-      []
-    );
-  });
-  const thinkingOptions = $derived.by(() => {
-    const option = runtime?.catalog.configOptions.find(
-      ({ id, category }) =>
-        category === "thought" ||
-        ["thought_level", "thinking", "effort", "reasoning_effort"].includes(
-          id,
-        ),
-    );
-    return (
-      option?.options?.filter(
-        ({ value }) =>
-          value === "off" ||
-          value === "low" ||
-          value === "medium" ||
-          value === "high",
-      ) ?? []
-    );
-  });
   const configuredRuntimeAgentLabel = $derived(
     runtimeAgents.find(({ id }) => id === runtime?.configured.runtimeAgent)
       ?.label ??
@@ -154,20 +130,26 @@
       "Harness default",
   );
   const configuredModelLabel = $derived(
-    (modelOptions.find(({ value }) => value === runtime?.configured.model)
-      ?.name ??
-      runtime?.configured.model ??
-      runtime?.catalog.currentModel ??
-      runtime?.effective.model) ||
+    runtimeOptionLabel(
+      runtimeModelOptions(configuredCatalog),
+      runtime?.configured.model ?? configuredCatalog?.currentModel,
       "Harness default",
+    ),
   );
   const configuredThinkingLabel = $derived(
-    thinkingOptions.find(({ value }) => value === runtime?.configured.thinking)
-      ?.name ??
-      runtime?.configured.thinking ??
-      runtime?.effective.thinking ??
+    runtimeOptionLabel(
+      runtimeThinkingOptions(configuredCatalog),
+      runtime?.configured.thinking ?? runtime?.effective.thinking,
       "Harness default",
+    ),
   );
+
+  function selectRuntimeAgent(value: string): void {
+    runtimeAgent = value;
+    const next = runtimeCatalogDefaults(resolveRuntimeCatalog(runtime, value));
+    runtimeModel = next.model;
+    runtimeThinking = next.thinking;
+  }
   const runtimeDefaults = $derived.by(() => {
     if (!runtime) return [];
     return [
@@ -291,8 +273,8 @@
       if (runtime && onSaveRuntime && runtimeConfigMode === "custom") {
         await onSaveRuntime({
           runtimeAgent,
-          ...(runtimeModel ? { model: runtimeModel } : {}),
-          thinking: runtimeThinking,
+          ...(draft.selection.model ? { model: draft.selection.model } : {}),
+          thinking: draft.selection.thinking,
         });
       }
       open = false;
@@ -447,7 +429,7 @@
                 <Select.Root
                   type="single"
                   value={runtimeAgent}
-                  onValueChange={(value) => (runtimeAgent = value)}
+                  onValueChange={selectRuntimeAgent}
                   disabled={pending}
                 >
                   <Select.Trigger id={`${editorId}-runtime-agent`}
@@ -465,44 +447,48 @@
                 <Field.Label for={`${editorId}-runtime-model`}
                   >Model</Field.Label
                 >
-                <Select.Root
-                  type="single"
-                  value={runtimeModel}
-                  onValueChange={(value) => (runtimeModel = value)}
-                  disabled={pending}
-                >
-                  <Select.Trigger id={`${editorId}-runtime-model`}
-                    >{modelOptions.find(({ value }) => value === runtimeModel)
-                      ?.name ?? runtimeModel}</Select.Trigger
+                {#key runtimeAgent}
+                  <Select.Root
+                    type="single"
+                    value={draft.selection.model}
+                    onValueChange={(value) => (runtimeModel = value)}
+                    disabled={pending || draft.modelOptions.length === 0}
                   >
-                  <Select.Content>
-                    {#each modelOptions as option (option.value)}
-                      <Select.Item value={option.value}
-                        >{option.name}</Select.Item
-                      >
-                    {/each}
-                  </Select.Content>
-                </Select.Root>
+                    <Select.Trigger id={`${editorId}-runtime-model`}
+                      >{draft.modelTriggerLabel}</Select.Trigger
+                    >
+                    <Select.Content>
+                      {#each draft.modelOptions as option (option.value)}
+                        <Select.Item value={option.value}
+                          >{option.name}</Select.Item
+                        >
+                      {/each}
+                    </Select.Content>
+                  </Select.Root>
+                {/key}
+                {#if draft.catalog?.error}
+                  <Field.Error>{draft.catalog.error}</Field.Error>
+                {/if}
               </Field.Field>
-              {#if thinkingOptions.length > 0}
+              {#if draft.thinkingOptions.length > 0}
                 <Field.Field>
                   <Field.Label for={`${editorId}-runtime-thinking`}
                     >Thinking</Field.Label
                   >
                   <Select.Root
                     type="single"
-                    value={runtimeThinking}
+                    value={draft.selection.thinking}
                     onValueChange={(value) =>
                       (runtimeThinking = value as typeof runtimeThinking)}
                     disabled={pending}
                   >
                     <Select.Trigger id={`${editorId}-runtime-thinking`}
-                      >{thinkingOptions.find(
-                        ({ value }) => value === runtimeThinking,
-                      )?.name ?? runtimeThinking}</Select.Trigger
+                      >{draft.thinkingOptions.find(
+                        ({ value }) => value === draft.selection.thinking,
+                      )?.name ?? draft.selection.thinking}</Select.Trigger
                     >
                     <Select.Content>
-                      {#each thinkingOptions as option (option.value)}
+                      {#each draft.thinkingOptions as option (option.value)}
                         <Select.Item value={option.value}
                           >{option.name}</Select.Item
                         >

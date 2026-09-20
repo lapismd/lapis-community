@@ -667,7 +667,11 @@ The Runtime panel uses an accessible icon-only refresh action, summarizes
 harness, model, thinking, host, bootstrap, and memory state in a bordered list,
 opens the shared Edit agent dialog for catalog-backed default changes, keeps its
 tool inventory collapsed in a separate bordered card until requested, and wraps
-long summary values within the available profile width.
+long summary values within the available profile width. Customizing an agent
+shows model and thinking choices from the selected harness catalog; Cursor,
+Codex, and other advertised harnesses keep distinct model lists. A listed
+harness without a catalog yet shows a loading model picker until a later
+snapshot arrives.
 The Info tab presents the actionable activity and identity rows directly and
 omits the redundant persona explanation card.
 
