@@ -47,6 +47,7 @@
     CommunityAgentProcessingState,
     CommunityAgentsState,
   } from "../../community/agent-contracts.js";
+  import { personaSlugFromName } from "../../community/agent-persona-slug.js";
   import CommunityAgentEditorDialog from "../community-agent-editor/CommunityAgentEditorDialog.svelte";
   import CommunityChatComposer from "../community-chat-composer/CommunityChatComposer.svelte";
   import CommunityChip from "../community-chip/CommunityChip.svelte";
@@ -63,6 +64,7 @@
     onSavePersona,
     onSaveAgent,
     onSaveRuntime,
+    onLoadRuntime,
     onLoadProcessing,
     onSetProcessing,
     onUnlinkPersona,
@@ -97,6 +99,9 @@
         thinking?: "off" | "low" | "medium" | "high";
       },
     ) => Promise<CommunityAgentRuntimeState>;
+    onLoadRuntime?:
+      | ((pubkey: string) => Promise<CommunityAgentRuntimeState>)
+      | undefined;
     onLoadProcessing?:
       | ((pubkey: string) => Promise<CommunityAgentProcessingState>)
       | undefined;
@@ -484,17 +489,6 @@
     };
   });
 
-  function personaSlugFromName(value: string): string {
-    return (
-      value
-        .toLowerCase()
-        .normalize("NFKD")
-        .replaceAll(/[^a-z0-9_-]+/g, "-")
-        .replaceAll(/^-+|-+$/g, "")
-        .slice(0, 64) || "agent"
-    );
-  }
-
   function openPersona(persona: CommunityAgentPersona) {
     personaFeedback = "";
     editorSlug = persona.slug;
@@ -645,8 +639,7 @@
                     presentation="card"
                     agentPubkey={agent.pubkey}
                     state={model.processing?.[agent.pubkey]}
-                    connected={model.status !== "offline" &&
-                      model.status !== "unsupported"}
+                    connected={model.status === "ready"}
                     onLoad={() => onLoadProcessing!(agent.pubkey)}
                     onSet={(enabled, revision) =>
                       onSetProcessing!(agent.pubkey, enabled, revision)}
@@ -778,7 +771,10 @@
   agent={agentToEdit}
   personas={model.personas}
   runtime={agentToEdit ? model.runtime?.[agentToEdit.pubkey] : undefined}
-  connected={model.status !== "offline" && model.status !== "unsupported"}
+  connected={model.status === "ready"}
+  onLoadRuntime={agentToEdit && onLoadRuntime
+    ? () => onLoadRuntime(agentToEdit!.pubkey)
+    : undefined}
   onSaveAgent={async (input) => {
     if (!onSaveAgent) throw new Error("Persona management is unavailable.");
     await onSaveAgent(input);

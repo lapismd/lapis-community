@@ -509,9 +509,11 @@ plaintext and canvas/control records.
 
 Start/Stop presentation in LC-UI-048 uses the existing version-2
 `processing_get` and `processing_set` commands through the production Community
-controller. Unknown state permits a refresh only; state changes carry the last
-acknowledged revision. Neither a stale presence signal nor a relay publish ACK
-may determine which processing state is shown as applied.
+controller. Last-known applied state is shown immediately; `processing_get`
+waits until the agent directory session is ready after `subscribe()`. Unknown
+state permits a refresh only; state changes carry the last acknowledged
+revision. Neither a stale presence signal nor a relay publish ACK may determine
+which processing state is shown as applied.
 
 Agent configuration sharing and saved-setup deletion resolve the newest signed
 kind-30177 record per owner and agent, applying valid author-matched kind-5 event

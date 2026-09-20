@@ -51,6 +51,12 @@
     CommunityAgentProcessingState,
     CommunityAgentSaveInput,
   } from "../../community/agent-contracts.js";
+  import {
+    runtimeHarnesses,
+    runtimeModelOptions,
+    runtimeOptionLabel,
+    runtimeThinkingOptions,
+  } from "../../community/agent-runtime-catalog.js";
   import type { CommunityRoomModel } from "../community-workspace/model.js";
   import CommunityChip from "../community-chip/CommunityChip.svelte";
   import CommunityAgentEditorDialog from "../community-agent-editor/CommunityAgentEditorDialog.svelte";
@@ -188,57 +194,17 @@
   const selectedChannel = $derived(
     addable.find((room) => room.id === selectedRoom),
   );
-  const runtimeAgents = $derived(
-    runtime?.runtimeAgents.length
-      ? runtime.runtimeAgents
-      : runtime
-        ? [
-            {
-              id: runtime.effective.runtimeAgent,
-              label: runtime.effective.runtimeAgent,
-            },
-          ]
-        : [],
-  );
-  const modelOptions = $derived.by(() => {
-    const option = runtime?.catalog.configOptions.find(
-      ({ id, category }) => id === "model" || category === "model",
-    );
-    return (
-      option?.options ??
-      runtime?.catalog.models.map((value) => ({ value, name: value })) ??
-      []
-    );
-  });
-  const thinkingOptions = $derived.by(() => {
-    const option = runtime?.catalog.configOptions.find(
-      ({ id, category }) =>
-        category === "thought" ||
-        ["thought_level", "thinking", "effort", "reasoning_effort"].includes(
-          id,
-        ),
-    );
-    return (
-      option?.options?.filter(
-        ({ value }) =>
-          value === "off" ||
-          value === "low" ||
-          value === "medium" ||
-          value === "high",
-      ) ?? []
-    );
-  });
+  const runtimeAgents = $derived(runtimeHarnesses(runtime));
+  const modelOptions = $derived(runtimeModelOptions(runtime?.catalog));
+  const thinkingOptions = $derived(runtimeThinkingOptions(runtime?.catalog));
   const runtimeAgentLabel = $derived(
     runtimeAgents.find(({ id }) => id === runtimeAgent)?.label ?? runtimeAgent,
   );
   const runtimeModelLabel = $derived(
-    (modelOptions.find(({ value }) => value === runtimeModel)?.name ??
-      runtimeModel) ||
-      "Harness default",
+    runtimeOptionLabel(modelOptions, runtimeModel, "Harness default"),
   );
   const runtimeThinkingLabel = $derived(
-    thinkingOptions.find(({ value }) => value === runtimeThinking)?.name ??
-      runtimeThinking,
+    runtimeOptionLabel(thinkingOptions, runtimeThinking, runtimeThinking),
   );
   const memoryRecords = $derived(
     memories?.channelId === memoryChannel
@@ -940,6 +906,7 @@
   {personas}
   {runtime}
   {connected}
+  {onLoadRuntime}
   {onSaveAgent}
   {onSaveRuntime}
   {onUnlinkPersona}

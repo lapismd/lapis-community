@@ -1216,8 +1216,8 @@
       "forbiddenImportCount": 0
     },
     "src/components/community-agent-editor/CommunityAgentEditorDialog.svelte": {
-      "countedLines": 553,
-      "physicalLines": 565,
+      "countedLines": 537,
+      "physicalLines": 549,
       "forbiddenImportCount": 0,
       "kind": "legacy",
       "justification": "Existing file above the new-file counted-line limit; do not grow"
@@ -1240,8 +1240,8 @@
       "justification": "Existing file above the new-file counted-line limit; do not grow"
     },
     "src/components/community-agent-profile/CommunityAgentProfile.svelte": {
-      "countedLines": 1547,
-      "physicalLines": 1566,
+      "countedLines": 1514,
+      "physicalLines": 1533,
       "forbiddenImportCount": 0,
       "kind": "legacy",
       "justification": "Existing file above the new-file counted-line limit; do not grow"
@@ -1274,8 +1274,8 @@
       "justification": "Existing file above the new-file counted-line limit; do not grow"
     },
     "src/components/community-agents/CommunityAgents.svelte": {
-      "countedLines": 1570,
-      "physicalLines": 1594,
+      "countedLines": 1567,
+      "physicalLines": 1590,
       "forbiddenImportCount": 0,
       "kind": "legacy",
       "justification": "Existing file above the new-file counted-line limit; do not grow"
@@ -1362,8 +1362,8 @@
       "justification": "Existing file above the new-file counted-line limit; do not grow"
     },
     "src/components/community-application/CommunityApplication.svelte": {
-      "countedLines": 9143,
-      "physicalLines": 9501,
+      "countedLines": 9125,
+      "physicalLines": 9483,
       "forbiddenImportCount": 0,
       "kind": "legacy",
       "justification": "Application composition root; extract destination hosts before adding behaviour"

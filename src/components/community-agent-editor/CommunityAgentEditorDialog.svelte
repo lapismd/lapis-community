@@ -19,14 +19,14 @@
     CommunityAgentRuntimeState,
     CommunityAgentSaveInput,
   } from "../../community/agent-contracts.js";
+  import { queueEditorRuntimeRefresh } from "../../community/agent-editor-catalog-refresh.js";
   import { editorRuntimeDraft } from "../../community/agent-editor-runtime.js";
+  import { editorRuntimeDefaultRows } from "../../community/agent-editor-runtime-defaults.js";
+  import { editorConfiguredRuntimeLabels } from "../../community/agent-editor-runtime-labels.js";
+  import { personaSlugFromName } from "../../community/agent-persona-slug.js";
   import {
     resolveRuntimeCatalog,
     runtimeCatalogDefaults,
-    runtimeHarnesses,
-    runtimeModelOptions,
-    runtimeOptionLabel,
-    runtimeThinkingOptions,
   } from "../../community/agent-runtime-catalog.js";
 
   let {
@@ -39,6 +39,7 @@
     runtime,
     connected = true,
     closeLabel = "Close agent editor",
+    onLoadRuntime,
     onSaveAgent,
     onSaveRuntime,
     onUnlinkPersona,
@@ -53,6 +54,7 @@
     runtime?: CommunityAgentRuntimeState | undefined;
     connected?: boolean;
     closeLabel?: string;
+    onLoadRuntime?: (() => Promise<CommunityAgentRuntimeState>) | undefined;
     onSaveAgent: (input: CommunityAgentSaveInput) => Promise<void>;
     onSaveRuntime?:
       | ((input: {
@@ -70,6 +72,7 @@
   let error = $state("");
   let loadedAgent = $state("");
   let loadedRuntime = $state("");
+  let runtimeRefreshKey = $state("");
   let personaName = $state("");
   let approvedParticipants = $state<string[]>([]);
   let selectedMembers = $state<CommunityMemberModel[]>([]);
@@ -112,37 +115,13 @@
   let unlinkConfirmOpen = $state(false);
   let deleteConfirmOpen = $state(false);
 
-  const runtimeAgents = $derived(runtimeHarnesses(runtime));
-  const configuredCatalog = $derived(
-    resolveRuntimeCatalog(runtime, runtime?.configured.runtimeAgent ?? ""),
-  );
+  const configured = $derived(editorConfiguredRuntimeLabels(runtime));
+  const runtimeAgents = $derived(configured.runtimeAgents);
   const draft = $derived(
     editorRuntimeDraft(runtime, runtimeAgent, {
       model: runtimeModel,
       thinking: runtimeThinking,
     }),
-  );
-  const configuredRuntimeAgentLabel = $derived(
-    runtimeAgents.find(({ id }) => id === runtime?.configured.runtimeAgent)
-      ?.label ??
-      runtime?.configured.runtimeAgent ??
-      runtime?.catalog.agent ??
-      runtime?.effective.runtimeAgent ??
-      "Harness default",
-  );
-  const configuredModelLabel = $derived(
-    runtimeOptionLabel(
-      runtimeModelOptions(configuredCatalog),
-      runtime?.configured.model ?? configuredCatalog?.currentModel,
-      "Harness default",
-    ),
-  );
-  const configuredThinkingLabel = $derived(
-    runtimeOptionLabel(
-      runtimeThinkingOptions(configuredCatalog),
-      runtime?.configured.thinking ?? runtime?.effective.thinking,
-      "Harness default",
-    ),
   );
 
   function selectRuntimeAgent(value: string): void {
@@ -151,25 +130,20 @@
     runtimeModel = next.model;
     runtimeThinking = next.thinking;
   }
-  const runtimeDefaults = $derived.by(() => {
-    if (!runtime) return [];
-    return [
-      { label: "Harness", value: configuredRuntimeAgentLabel },
-      { label: "Model", value: configuredModelLabel },
-      { label: "Thinking", value: configuredThinkingLabel },
-      { label: "Host", value: runtime.host.id },
-      ...(runtime.host.workspace
-        ? [{ label: "Workspace", value: runtime.host.workspace }]
-        : []),
-      ...(runtime.bootstrapRevision
-        ? [{ label: "Bootstrap", value: runtime.bootstrapRevision }]
-        : []),
-    ];
-  });
+  const runtimeDefaults = $derived(
+    runtime
+      ? editorRuntimeDefaultRows(runtime, {
+          harness: configured.harness,
+          model: configured.model,
+          thinking: configured.thinking,
+        })
+      : [],
+  );
 
   $effect(() => {
     if (!open || !agent) {
       loadedAgent = "";
+      runtimeRefreshKey = "";
       return;
     }
     const key = [
@@ -222,6 +196,27 @@
       runtimeConfigMode = runtime.saved ? "custom" : "defaults";
     });
     loadedRuntime = key;
+  });
+
+  $effect(() => {
+    const pubkey = open && agent ? agent.pubkey : "";
+    const cached = runtime;
+    const load = onLoadRuntime;
+    untrack(() => {
+      const next = queueEditorRuntimeRefresh({
+        open,
+        pubkey,
+        runtime: cached,
+        requestedKey: runtimeRefreshKey,
+        load,
+      });
+      runtimeRefreshKey = next.requestedKey;
+      void next.task?.catch((cause) => {
+        if (runtimeRefreshKey !== pubkey) return;
+        error =
+          cause instanceof Error ? cause.message : "Could not load runtime";
+      });
+    });
   });
 
   function selectPersona(value: string): void {
@@ -284,17 +279,6 @@
     } finally {
       pending = false;
     }
-  }
-
-  function personaSlugFromName(value: string): string {
-    return (
-      value
-        .toLowerCase()
-        .normalize("NFKD")
-        .replaceAll(/[^a-z0-9_-]+/g, "-")
-        .replaceAll(/^-+|-+$/g, "")
-        .slice(0, 64) || "agent"
-    );
   }
 </script>
 

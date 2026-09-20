@@ -306,6 +306,7 @@
   import { provideCommunityApplicationComposer } from "./composer-context.js";
   import { useCommunityApplicationAuthentication } from "./authentication-context.js";
   import CommunityApplicationAgentsHost from "./CommunityApplicationAgentsHost.svelte";
+  import { ownedAgentDirectoryActions } from "./owned-agent-directory-actions.js";
   import CommunityApplicationDirectMessageHost from "./CommunityApplicationDirectMessageHost.svelte";
   import CommunityApplicationInboxHost from "./CommunityApplicationInboxHost.svelte";
   import CommunityApplicationPulseHost from "./CommunityApplicationPulseHost.svelte";
@@ -7396,26 +7397,7 @@
         model={community.state.agents}
         onProfile={(pubkey) => openAgentProfile(pubkey, { kind: "overview" })}
         onActivity={(pubkey) => openAgentActivity(pubkey, { kind: "overview" })}
-        onSavePersona={(input) => community.actions.agents!.savePersona(input)}
-        onSaveAgent={(input) => community.actions.agents!.saveAgent(input)}
-        onLoadProcessing={community.actions.agents?.loadProcessing}
-        onSetProcessing={community.actions.agents?.setProcessing}
-        onSaveRuntime={(pubkey, defaults) =>
-          community.actions.agents!.saveRuntime(pubkey, defaults)}
-        onUnlinkPersona={(pubkey, fallbackName) =>
-          community.actions.agents!.unlinkAgent(pubkey, fallbackName)}
-        onDeletePersona={(slug) =>
-          community.actions.agents!.deletePersona(slug)}
-        onCreateManagedAgent={(input) =>
-          community.actions.agents!.createManagedAgent(input)}
-        onClearManagedAgentDraft={() =>
-          community.actions.agents!.clearManagedAgentDraft()}
-        onCreateReplacement={(pubkey) =>
-          community.actions.agents!.createManagedAgentReplacement(pubkey)}
-        onRevokeManagedAgent={(pubkey) =>
-          community.actions.agents!.revokeManagedAgent(pubkey)}
-        onDeleteManagedAgent={(pubkey) =>
-          community.actions.agents!.deleteManagedAgent(pubkey)}
+        {...ownedAgentDirectoryActions(community.actions.agents!)}
         rooms={presentationRooms.map((room) => ({
           id: room.id,
           ...(room.groupId ? { groupId: room.groupId } : {}),

@@ -102,7 +102,7 @@ export const storyPendingCatalogRuntime: CommunityAgentRuntimeState = {
       ? {
           id: entry.id,
           label: entry.label,
-          mcpTransport: entry.mcpTransport,
+          ...(entry.mcpTransport ? { mcpTransport: entry.mcpTransport } : {}),
         }
       : entry,
   ),

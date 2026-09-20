@@ -39,6 +39,10 @@ Per-harness runtime catalog extraction lowers the `agent-contracts.ts`,
 Extracting the editor model field
 lowers the shared Edit agent dialog budget and records the empty-catalog
 story and fixture sizes.
+Empty-catalog refresh, last-known Start/Stop labels, and editor runtime
+default rows extract to dedicated modules and lower the Edit agent dialog,
+owned-agent profile, Agents directory, and application composition budgets
+in `scripts/architecture-baseline.json`.
 
 LC-UI-040 Inbox loading coverage updates the architecture baseline for its
 geometry assertions and the smaller component that shares the padded skeleton.

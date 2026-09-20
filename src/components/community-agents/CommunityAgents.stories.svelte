@@ -27,7 +27,7 @@
 </AppShell.Toolbar>
 <AppShell.Body layout="regions" label="Agents">
   <AppShell.Body.Content label="Agents directory">
-    <CommunityAgents model={controller.state.agents} members={controller.state.workspace.members} memberResults={controller.state.memberDirectory.results} onSearchMembers={controller.actions.searchMembers} onLoadProcessing={controller.actions.agents.loadProcessing} onSetProcessing={controller.actions.agents.setProcessing} onProfile={openProfile} onActivity={openActivity} onSaveAgent={controller.actions.agents.saveAgent} onDeletePersona={controller.actions.agents.deletePersona} onRefresh={controller.actions.agents.refresh} onClearHistory={() => controller.actions.agents.clearHistory()} showPageHeader={false} showBodyDescription />
+    <CommunityAgents model={controller.state.agents} members={controller.state.workspace.members} memberResults={controller.state.memberDirectory.results} onSearchMembers={controller.actions.searchMembers} onLoadProcessing={controller.actions.agents.loadProcessing} onSetProcessing={controller.actions.agents.setProcessing} onLoadRuntime={controller.actions.agents.loadRuntime} onProfile={openProfile} onActivity={openActivity} onSaveAgent={controller.actions.agents.saveAgent} onDeletePersona={controller.actions.agents.deletePersona} onRefresh={controller.actions.agents.refresh} onClearHistory={() => controller.actions.agents.clearHistory()} showPageHeader={false} showBodyDescription />
   </AppShell.Body.Content>
 </AppShell.Body>`,
         },

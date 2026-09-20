@@ -45,7 +45,7 @@
       : received,
   );
   const label = $derived(
-    pending === "loading"
+    pending === "loading" && !current
       ? "Checking…"
       : pending === "enabling"
         ? "Starting…"
@@ -80,7 +80,7 @@
   });
   async function load() {
     const active = generation;
-    pending = "loading";
+    if (!current) pending = "loading";
     try {
       const next = await onLoad();
       if (active === generation) {
