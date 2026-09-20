@@ -214,6 +214,9 @@ Persistent agent mentions extract audience, picker, send-tag, and thread
 composer modules, lowering the `CommunityApplication.svelte`,
 `CommunityChatComposer.svelte`, `CommunityConversation.svelte`, and
 `CommunityThreadPanel.svelte` path budgets in the same change.
+Composer autocomplete and formatting-action sync extract to dedicated
+modules, lowering the `CommunityChatComposer.svelte` path budget so
+repeated mention queries cannot grow that hotspot.
 CommunityProjects Overview README fullWidth alignment updates the
 `CommunityProjects.svelte` and `CommunityProjects.stories.svelte` path
 budgets in the same change. Extracting local-fixture addressable-head

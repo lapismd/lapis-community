@@ -1531,8 +1531,8 @@
       "justification": "Existing file above the new-file counted-line limit; do not grow"
     },
     "src/components/community-chat-composer/CommunityChatComposer.svelte": {
-      "countedLines": 1695,
-      "physicalLines": 1803,
+      "countedLines": 1647,
+      "physicalLines": 1754,
       "forbiddenImportCount": 0,
       "kind": "legacy",
       "justification": "Existing file above the new-file counted-line limit; do not grow"

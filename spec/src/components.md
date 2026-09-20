@@ -544,7 +544,9 @@ document layers MUST add no padding of their own. The autocomplete layer MUST
 prefer the space above the composer and flip directly below it when a viewport or
 clipping ancestor leaves insufficient room above. Its result list MUST use the
 public Design Core Scroll Area instead of applying native overflow to the
-listbox.
+listbox. Repeated autocomplete or formatting-action probes with the same query
+and rows MUST leave composer state unchanged so the picker cannot lock the
+page.
 
 For LC-UI-014, every channel, forum, direct-message, Inbox conversation, and
 thread message list MUST start its first content at the top padding of the

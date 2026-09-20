@@ -25,6 +25,9 @@ The TypeScript organisation and enforcement plan is
 architecture checker; `docs/plans/` maps to `spec/src/architecture.md`.
 Persistent agent mentions lower the Application, chat-composer, conversation,
 and thread-panel path budgets in `scripts/architecture-baseline.json`.
+Composer autocomplete and formatting-action sync extract to dedicated
+modules and lower the `CommunityChatComposer.svelte` path budget in the
+same change.
 LC-UI-040 Inbox loading coverage updates the architecture baseline for its
 geometry assertions and the smaller component that shares the padded skeleton.
 P4 factory parser splits are extracted: agent runtime and memory parsers,

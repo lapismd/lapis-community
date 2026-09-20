@@ -53,7 +53,6 @@
   import "../community-composer-status.css";
   import {
     communityEmojiAutocompleteItems,
-    communityRoomAutocompleteItems,
     detectCommunityComposerAutocomplete,
     type CommunityComposerAutocompleteItem,
     type CommunityComposerAutocompleteQuery,
@@ -75,7 +74,11 @@
     type CommunityComposerSubmission,
     type CommunityMessageMediaAdapter,
   } from "./model.js";
-  import { communityMentionAutocompleteItems } from "./agent-mention-candidates.js";
+  import { nextComposerActiveActions } from "./composer-active-actions.js";
+  import {
+    composerAutocompleteItemsEqual,
+    planComposerAutocompleteUpdate,
+  } from "./composer-autocomplete-sync.js";
   import {
     applyAgentMentionChange,
     communityComposerMentionMembers,
@@ -270,9 +273,10 @@
       editorView = view;
     },
     onSelection(state) {
-      editorView = state.view;
-      selectionFrom = state.selectionFrom;
-      selectionTo = state.selectionTo;
+      if (editorView !== state.view) editorView = state.view;
+      if (selectionFrom !== state.selectionFrom)
+        selectionFrom = state.selectionFrom;
+      if (selectionTo !== state.selectionTo) selectionTo = state.selectionTo;
       updateActiveActions(state.view);
     },
     onAutocompleteQuery: updateAutocomplete,
@@ -353,23 +357,34 @@
   $effect(() => {
     if (!draftReady || submittingMentions) return;
     audienceEpoch;
-    const next = syncComposerAgentAudienceDraft(
-      agentAudience,
-      value,
-      audienceHydrationKey,
-      selectedMentionPubkeys,
+    mentionMembers;
+    agents;
+    const currentValue = value;
+    const lastKey = audienceHydrationKey;
+    const mentions = selectedMentionPubkeys;
+    const next = untrack(() =>
+      syncComposerAgentAudienceDraft(
+        agentAudience,
+        currentValue,
+        lastKey,
+        mentions,
+      ),
     );
-    audienceHydrationKey = next.key;
-    if (next.value !== undefined) {
-      value = next.value;
-      selectedMentionPubkeys = next.mentionPubkeys;
+    if (next.key !== lastKey) audienceHydrationKey = next.key;
+    const hydrated = next.value;
+    if (hydrated !== undefined && hydrated !== currentValue) {
+      untrack(() => {
+        value = hydrated;
+        selectedMentionPubkeys = next.mentionPubkeys;
+      });
     }
   });
 
   $effect(() => {
     tokenModelSignature;
     const view = editorView;
-    if (view) {
+    if (!view) return;
+    untrack(() => {
       refreshCommunityComposerTokenDecorations(view);
       const selection = view.state.selection.main;
       const editorValue = view.state.doc.toString();
@@ -384,7 +399,7 @@
             )
           : null,
       );
-    }
+    });
   });
 
   $effect(() => {
@@ -430,38 +445,36 @@
   function updateAutocomplete(
     query: CommunityComposerAutocompleteQuery | null,
   ): void {
+    const plan = planComposerAutocompleteUpdate({
+      currentQuery: autocompleteQuery,
+      nextQuery: query,
+      currentItems: autocompleteItems,
+      members: mentionMembers,
+      agents,
+      rooms,
+      currentMemberId,
+      channelId: audience?.channelId,
+    });
+    if (plan.kind === "skip") return;
     autocompleteGeneration += 1;
-    autocompleteQuery = query ?? undefined;
+    autocompleteQuery = plan.query;
     autocompleteSelectedIndex = 0;
-    if (!query) {
-      autocompleteItems = [];
-      return;
-    }
-    if (query.kind === "member") {
-      autocompleteItems = communityMentionAutocompleteItems(
-        mentionMembers,
-        agents,
-        query.query,
-        currentMemberId,
-        audience?.channelId,
-      );
-      scheduleAutocompletePlacement();
-      return;
-    }
-    if (query.kind === "room") {
-      autocompleteItems = communityRoomAutocompleteItems(rooms, query.query);
-      scheduleAutocompletePlacement();
+    if (plan.kind === "items") {
+      autocompleteItems = plan.items;
+      if (query) scheduleAutocompletePlacement();
       return;
     }
     autocompleteItems = [];
     const generation = autocompleteGeneration;
-    void communityEmojiAutocompleteItems(communityEmojis, query.query).then(
-      (items) => {
-        if (generation !== autocompleteGeneration) return;
-        autocompleteItems = items;
-        scheduleAutocompletePlacement();
-      },
-    );
+    void communityEmojiAutocompleteItems(
+      communityEmojis,
+      plan.query.query,
+    ).then((items) => {
+      if (generation !== autocompleteGeneration) return;
+      if (composerAutocompleteItemsEqual(autocompleteItems, items)) return;
+      autocompleteItems = items;
+      scheduleAutocompletePlacement();
+    });
   }
 
   function scheduleAutocompletePlacement(): void {
@@ -532,66 +545,8 @@
   }
 
   function updateActiveActions(view: EditorView): void {
-    const inlineActions: MiraMarkdownActionId[] = [
-      "bold",
-      "italic",
-      "strikethrough",
-      "inlineCode",
-      "link",
-    ];
-    activeActions = new Set(
-      inlineActions.filter((action) => isSelectionFormatted(view, action)),
-    );
-  }
-
-  function isSelectionFormatted(
-    view: EditorView,
-    action: MiraMarkdownActionId,
-  ): boolean {
-    const selection = view.state.selection.main;
-    if (selection.empty) return false;
-    const selected = view.state.sliceDoc(selection.from, selection.to);
-    const delimiters =
-      action === "bold"
-        ? [
-            ["**", "**"],
-            ["__", "__"],
-          ]
-        : action === "italic"
-          ? [
-              ["*", "*"],
-              ["_", "_"],
-            ]
-          : action === "strikethrough"
-            ? [["~~", "~~"]]
-            : action === "inlineCode"
-              ? [["`", "`"]]
-              : [];
-    if (action === "link") {
-      const before = view.state.sliceDoc(
-        Math.max(0, selection.from - 1),
-        selection.from,
-      );
-      const after = view.state.sliceDoc(
-        selection.to,
-        Math.min(view.state.doc.length, selection.to + 2),
-      );
-      return before === "[" && after === "](";
-    }
-    return delimiters.some(([open, close]) => {
-      if (!open || !close) return false;
-      if (selected.startsWith(open) && selected.endsWith(close)) return true;
-      return (
-        view.state.sliceDoc(
-          Math.max(0, selection.from - open.length),
-          selection.from,
-        ) === open &&
-        view.state.sliceDoc(
-          selection.to,
-          Math.min(view.state.doc.length, selection.to + close.length),
-        ) === close
-      );
-    });
+    const nextActions = nextComposerActiveActions(view, activeActions);
+    if (nextActions) activeActions = nextActions;
   }
 
   async function insertReferencePrefix(): Promise<void> {
