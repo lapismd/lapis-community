@@ -912,3 +912,7 @@ Agent code context and original threads render provider-visible `thinking` recor
 Agent transcript messages retain rounded agent avatars while composing the shared
 message actions. `CommunityMessage` and `CommunityMemberHoverCard` expose the
 shared `avatarShape` variant so identity previews preserve that shape too.
+
+Checkpoint Request navigation MUST resolve a follow-up message through the verified conversation cache or an exact-event read before opening its original thread. It MUST NOT rely on the channel history window containing that request.
+
+The original request sidebar MUST render nested native replies with their checkpoint Thinking and tool context, rather than limiting the view to direct children of the request.

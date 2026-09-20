@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { Snippet } from "svelte";
   import { provideAgentConversation } from "../components/community-agent-conversation/context.svelte.js";
+  import { provideAgentContextNavigation } from "../components/community-agent-context-references/context.js";
   import type { ProjectForgeSession } from "../projects/data-source.js";
   import type { NostrEventTemplate } from "../protocol/index.js";
   import {
@@ -64,6 +65,20 @@
       opened = `Thread ${root}`;
       onOpen?.(room, root, reply);
     },
+  });
+  provideAgentContextNavigation({
+    rooms: () => [
+      { id: "room", groupId: "room", name: "demo", kind: "channel" },
+    ],
+    messages: () => [],
+    selectRoom: () => {},
+    openPanel: (room, panel) => {
+      if (panel.kind !== "thread") return;
+      opened = `Thread ${panel.rootMessageId}`;
+      onOpen?.(room, panel.rootMessageId);
+    },
+    openTopic: () => {},
+    openDirectMessage: () => {},
   });
 </script>
 

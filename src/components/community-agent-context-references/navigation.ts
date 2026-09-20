@@ -9,33 +9,15 @@ import type {
 export interface AgentContextNavigationOwner {
   rooms(): readonly CommunityRoomModel[];
   messages(): readonly CommunityMessageModel[];
+  loadMessage?(id: string): Promise<CommunityMessageModel | undefined>;
   selectRoom(roomId: string): void;
   openPanel(roomId: string, panel: CommunityApplicationPanel): void;
   openTopic(topicId: string): void;
   openDirectMessage(agentPubkey: string): void;
 }
 
-/** A missing ancestor still has a known ID; never substitute the span ID. */
-export function contextThreadRoot(
-  messages: readonly CommunityMessageModel[],
-  requestId: string,
-): string | undefined {
-  const byId = new Map(messages.map((message) => [message.id, message]));
-  if (!byId.has(requestId)) return;
-  const visited = new Set<string>();
-  let id = requestId;
-  while (!visited.has(id)) {
-    visited.add(id);
-    const message = byId.get(id);
-    const root = message?.sourceEvent?.tags.find(
-      (tag) => tag[0] === "e" && tag[3] === "root",
-    )?.[1];
-    const parent = root ?? message?.parentMessageId;
-    if (!parent) return id;
-    id = parent;
-  }
-  return;
-}
+import { contextThreadRoot } from "./thread-root.js";
+export { contextThreadRoot } from "./thread-root.js";
 
 export function createAgentContextNavigation(
   owner: AgentContextNavigationOwner,
@@ -46,10 +28,20 @@ export function createAgentContextNavigation(
       .find((candidate) => (candidate.groupId ?? candidate.id) === channelId);
   const threadRoot = (requestId: string) =>
     contextThreadRoot(owner.messages(), requestId);
-  function openThread(channelId: string, requestId: string, rootId?: string) {
+  async function openThread(
+    channelId: string,
+    requestId: string,
+    rootId?: string,
+  ) {
     const channel = room(channelId);
     if (!channel) return;
-    const rootMessageId = rootId ?? threadRoot(requestId) ?? requestId;
+    let root = rootId ?? threadRoot(requestId);
+    if (!root && owner.loadMessage) {
+      const message = await owner.loadMessage(requestId);
+      if (message)
+        root = contextThreadRoot([message, ...owner.messages()], requestId);
+    }
+    const rootMessageId = root ?? requestId;
     if (channel.kind === "forum") {
       owner.selectRoom(channel.id);
       owner.openTopic(rootMessageId);

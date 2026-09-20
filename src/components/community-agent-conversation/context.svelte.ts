@@ -134,6 +134,13 @@ export function provideAgentConversation(owner: {
         ? conversationMessage(event, events, owner.memberId())
         : undefined;
     },
+    async loadMessage(id: string) {
+      const cached = api.message(id);
+      if (cached) return cached;
+      const matches = await owner.session()?.queryHttp([{ ids: [id] }]);
+      matches?.filter((event) => event.id === id).forEach(receive);
+      return api.message(id);
+    },
     publish,
     get replyCommentId() {
       return replyCommentId;

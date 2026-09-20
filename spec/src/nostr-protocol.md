@@ -585,3 +585,7 @@ request thread before enabling actions. Commit comments use standard NIP-22 kind
 checkpoint roots (K=3907), lowercase e/k/p immediate parents, repository, commit,
 and optional file side and line anchors. Kind-1 work-item notes cannot target
 checkpoints. They do not introduce a relay event kind or trigger an agent turn.
+
+A checkpoint request link may query its exact source event ID when channel history does not contain it. Only the verified matching event supplies the canonical root tag for thread navigation. This read never publishes or rewrites an event.
+
+Channel thread projection MUST include replies whose canonical root tag matches the open thread, including replies to an agent reply; the immediate reply target remains available separately.

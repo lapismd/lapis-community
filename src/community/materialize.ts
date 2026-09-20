@@ -1,4 +1,5 @@
 import { buzzHiddenChannels } from "./buzz-direct-messages.js";
+import { projectThread } from "./thread-projection.js";
 import { isUnreadInConversation } from "./conversations.js";
 import type { CommunityReadCursor } from "./contracts.js";
 import type { CommunityWorkspaceModel } from "./workspace-model.js";
@@ -173,17 +174,7 @@ export function materializeCommunityWorkspace(
     activeRoom?.kind === "forum"
       ? topicModels(activeRoom, visible, profiles, options.asOf)
       : [];
-  const thread =
-    options.activeThreadId === undefined
-      ? undefined
-      : {
-          rootMessageId: options.activeThreadId,
-          messages: conversationMessages.filter(
-            (message) =>
-              message.id === options.activeThreadId ||
-              message.parentMessageId === options.activeThreadId,
-          ),
-        };
+  const thread = projectThread(conversationMessages, options.activeThreadId);
   const details =
     activeDirect !== undefined
       ? {

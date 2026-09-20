@@ -1,15 +1,15 @@
 import { getContext, setContext } from "svelte";
 import {
-  createAgentContextNavigation,
+  createContextNavigation,
   type AgentContextNavigationOwner,
   type AgentContextNavigation,
-} from "./navigation.js";
+} from "./context-resolution.js";
 
 const key = Symbol("community-agent-context-navigation");
 export function provideAgentContextNavigation(
   owner: AgentContextNavigationOwner,
 ) {
-  const navigation = createAgentContextNavigation(owner);
+  const navigation = createContextNavigation(owner);
   setContext(key, navigation);
   return navigation;
 }
