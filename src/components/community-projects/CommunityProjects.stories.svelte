@@ -179,6 +179,10 @@
     ...fixture.workItems.tasks[0]!,
     assignees: [projectStoryAuthor, projectStoryOwner],
   };
+  const agentMembers = [
+    { ...fixture.members[0]!, kind: "agent" as const },
+    fixture.members[1]!,
+  ];
   const repositoryActivity = [
     {
       id: "commit:community-client:1",
@@ -1903,6 +1907,61 @@ index 3333333..4444444 100644
         ],
       }),
     );
+  }}
+/>
+
+<Story
+  name="Agent repository author shape"
+  args={{
+    view: "repositories",
+    members: agentMembers,
+  }}
+  play={async ({ canvas }) => {
+    const author = canvas.getByRole("button", {
+      name: "View Maya Chen's profile",
+    });
+    await expect(
+      author.querySelector('[data-ui-component="community-member-avatar"]'),
+    ).toHaveAttribute("data-shape", "rounded");
+  }}
+/>
+
+<Story
+  name="Agent people shape"
+  args={{
+    view: "people",
+    members: agentMembers,
+  }}
+  play={async ({ canvas }) => {
+    const agent = canvas.getByRole("button", {
+      name: "View Maya Chen's profile",
+    });
+    await expect(
+      agent.querySelector('[data-ui-component="community-member-avatar"]'),
+    ).toHaveAttribute("data-shape", "rounded");
+    await expect(
+      canvas
+        .getByRole("button", { name: "View Noor Patel's profile" })
+        .querySelector('[data-ui-component="community-member-avatar"]'),
+    ).toHaveAttribute("data-shape", "circle");
+  }}
+/>
+
+<Story
+  name="Agent task assignee shape"
+  args={{
+    view: "tasks",
+    selectedProject: undefined,
+    members: agentMembers,
+    tasks: [groupedTask],
+  }}
+  play={async ({ canvas }) => {
+    const agent = canvas.getByRole("button", {
+      name: "View Maya Chen's profile",
+    });
+    await expect(
+      agent.querySelector('[data-ui-component="community-member-avatar"]'),
+    ).toHaveAttribute("data-shape", "rounded");
   }}
 />
 

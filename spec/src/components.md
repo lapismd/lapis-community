@@ -918,8 +918,10 @@ manifest results remain retryable, and disposal aborts source-owned work.
 Agent code context and original threads render provider-visible `thinking` records with the shared expandable Thinking block. Only unfinished live blocks animate; completed and interrupted blocks never keep spinning.
 
 Agent transcript messages retain rounded agent avatars while composing the shared
-message actions. `CommunityMessage` and `CommunityMemberHoverCard` expose the
-shared `avatarShape` variant so identity previews preserve that shape too.
+message actions. `CommunityMemberModel.kind` marks known agents so
+`CommunityMemberAvatar`, `CommunityMessage`, and `CommunityMemberHoverCard`
+derive the rounded-square shape without a per-surface prop; an explicit
+`avatarShape` remains for git-author and story overrides.
 
 Checkpoint Request navigation MUST resolve a follow-up message through the verified conversation cache or an exact-event read before opening its original thread. It MUST NOT rely on the channel history window containing that request.
 

@@ -7,6 +7,7 @@
 
   import CommunityChip from "../community-chip/CommunityChip.svelte";
   import CommunityMemberAvatar from "../community-member-avatar/CommunityMemberAvatar.svelte";
+  import { communityMemberAvatarShape } from "../community-member-avatar/model.js";
   import { communityMemberHandleLabel } from "../community-member-avatar/handle.js";
   import type { CommunityMemberModel } from "../community-workspace/model.js";
 
@@ -20,7 +21,7 @@
     trigger = "avatar",
     triggerLabel = member.name,
     avatarSize = "medium",
-    avatarShape = "circle",
+    avatarShape,
   }: {
     member: CommunityMemberModel;
     onOpenProfile?: (member: CommunityMemberModel) => void;
@@ -35,7 +36,10 @@
   } = $props();
 
   let open = $state(false);
-  const avatarProps = $derived({ member, shape: avatarShape });
+  const resolvedAvatarShape = $derived(
+    avatarShape ?? communityMemberAvatarShape(member),
+  );
+  const avatarProps = $derived({ member, shape: resolvedAvatarShape });
   const inlineLabel = $derived(triggerLabel.replace(/^@+/u, ""));
   const handleLabel = $derived(communityMemberHandleLabel(member.handle));
 </script>
@@ -61,6 +65,7 @@
           type="button"
           class="community-member-hover-card__trigger"
           data-size={avatarSize}
+          data-shape={resolvedAvatarShape}
           aria-label={`View ${member.name}'s profile`}
           onclick={() => onOpenProfile?.(member)}
         >
@@ -173,6 +178,10 @@
     border-radius: 50%;
     background: transparent;
     cursor: pointer;
+  }
+
+  .community-member-hover-card__trigger[data-shape="rounded"] {
+    border-radius: 25%;
   }
 
   .community-member-hover-card__trigger[data-size="small"] {

@@ -303,6 +303,15 @@ export function inspectSource(source, filename, exceptions = []) {
         )
           report("typography", n, prop);
         if (
+          /(?:community-member-avatar(?![-_a-z])|data-ui-component=["']community-member-avatar["'])/.test(
+            selector,
+          ) &&
+          prop === "border-radius"
+        ) {
+          if (owners.avatar !== filename)
+            report("avatar", n, `avatar geometry: ${selector.trim()}`);
+        }
+        if (
           /(?:dialog-content|dialog-frame-|alert-dialog-content|dialog-close|\.community-chat-composer(?![\w-])|\.community-member-avatar(?![\w-])|data-ui-part=["']reaction)/.test(
             selector,
           ) &&

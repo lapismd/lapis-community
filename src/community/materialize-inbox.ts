@@ -29,6 +29,7 @@ import {
 import { communityRooms } from "./materialize-rooms.js";
 import { eventMessage } from "./materialize-messages.js";
 import { memberModels, roomModel } from "./materialize-room-model.js";
+import { withCommunityMemberKinds } from "./member-identity.js";
 import { directConversationModels } from "./materialize-direct.js";
 import {
   collectInboxDirectRows,
@@ -47,6 +48,7 @@ export interface CommunityInboxProjectionOptions {
   activeItemId?: string;
   filter?: CommunityInboxFilter;
   unreadOnly?: boolean;
+  agentPubkeys?: readonly string[];
 }
 export function materializeCommunityInbox(
   scopes: readonly CommunityScope[],
@@ -212,7 +214,10 @@ export function materializeCommunityInbox(
               .map((event) =>
                 eventMessage(event, events, profiles, asOf, identityPubkey),
               ),
-          members: memberModels(roomScope, selectedEvents, profiles, statuses),
+          members: withCommunityMemberKinds(
+            memberModels(roomScope, selectedEvents, profiles, statuses),
+            options.agentPubkeys ?? [],
+          ),
         });
       }
     }

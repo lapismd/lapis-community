@@ -107,11 +107,17 @@ export const contracts = {
       ["Inline identity", "Avery", "Avery"],
       ["Markdown identity", "Avery", "Avery"],
       ["Composer identity", "Avery", "Avery"],
+      ["Rounded agent identity", "View Nyra's profile", "Nyra"],
     ] as const) {
       const section = body.getByRole("region", { name: sectionName });
       const trigger = within(section).getByRole("button", {
         name: triggerName,
       });
+      if (sectionName.startsWith("Rounded")) {
+        expect(
+          trigger.querySelector('[data-ui-component="community-member-avatar"]'),
+        ).toHaveAttribute("data-shape", "rounded");
+      }
       if (
         sectionName.includes("Inline") ||
         sectionName.includes("Markdown") ||

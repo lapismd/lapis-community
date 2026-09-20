@@ -1,6 +1,9 @@
 <script lang="ts">
   import type { CommunityMemberModel } from "../community-workspace/model.js";
-  import { communityMemberAvatarFallbackTone } from "./model.js";
+  import {
+    communityMemberAvatarFallbackTone,
+    communityMemberAvatarShape,
+  } from "./model.js";
   import { useCommunityMemberPresence } from "../community-member-hover-card/presence-context.js";
 
   let {
@@ -9,7 +12,7 @@
     showPresence = false,
     decorative = false,
     presence: presenceOverride,
-    shape = "circle",
+    shape,
   }: {
     member: CommunityMemberModel;
     size?: "inline" | "xsmall" | "small" | "medium" | "large" | "xlarge";
@@ -19,6 +22,7 @@
     presence?: CommunityMemberModel["presence"] | "unknown";
   } = $props();
 
+  const resolvedShape = $derived(shape ?? communityMemberAvatarShape(member));
   const resolvePresence = useCommunityMemberPresence();
   const presence = $derived(
     presenceOverride ??
@@ -49,7 +53,7 @@
   class="community-member-avatar"
   data-ui-component="community-member-avatar"
   data-size={size}
-  data-shape={shape}
+  data-shape={resolvedShape}
   aria-hidden={decorative ? "true" : undefined}
   aria-label={accessibleLabel}
   role={decorative ? undefined : "img"}

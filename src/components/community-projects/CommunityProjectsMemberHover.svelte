@@ -41,11 +41,4 @@
   .community-projects-member-hover {
     display: contents;
   }
-
-  .community-projects-member-hover
-    :global(
-      [data-ui-component="community-member-avatar"] [data-ui-part="image"]
-    ) {
-    border-radius: 25%;
-  }
 </style>

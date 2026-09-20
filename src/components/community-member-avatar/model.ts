@@ -1,3 +1,13 @@
+import type { CommunityMemberModel } from "../../community/workspace-model.js";
+
+export type CommunityMemberAvatarShape = "circle" | "rounded";
+
+export function communityMemberAvatarShape(
+  member: Pick<CommunityMemberModel, "kind">,
+): CommunityMemberAvatarShape {
+  return member.kind === "agent" ? "rounded" : "circle";
+}
+
 export const communityMemberAvatarFallbackTones = [
   "blue",
   "emerald",

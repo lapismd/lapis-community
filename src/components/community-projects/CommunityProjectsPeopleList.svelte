@@ -1,6 +1,6 @@
 <script lang="ts">
   import CommunityChip from "../community-chip/CommunityChip.svelte";
-  import CommunityMemberHoverCard from "../community-member-hover-card/CommunityMemberHoverCard.svelte";
+  import CommunityProjectsMemberHover from "./CommunityProjectsMemberHover.svelte";
   import type { CommunityMemberModel } from "../community-workspace/model.js";
   import type { ProjectForgeRepository } from "../../projects/index.js";
   import CommunityProjectsRepositorySections from "./CommunityProjectsRepositorySections.svelte";
@@ -38,12 +38,12 @@
       ></button>
     {/if}
     <span class="community-projects__person-avatar">
-      <CommunityMemberHoverCard
+      <CommunityProjectsMemberHover
         {member}
         avatarSize="medium"
-        {...onOpenProfile === undefined ? {} : { onOpenProfile }}
-        {...onMessageMember === undefined ? {} : { onMessage: onMessageMember }}
-        {...onWaveMember === undefined ? {} : { onWave: onWaveMember }}
+        {onOpenProfile}
+        {onMessageMember}
+        {onWaveMember}
       />
     </span>
     <div class="community-projects__person-copy">

@@ -86,6 +86,7 @@
     CommunityMessageReport,
     CommunityReplyTarget,
   } from "../../community/index.js";
+  import { communityIdentityMembersFromState } from "../../community/member-identity.js";
   import { createProjectWorkItemResources } from "../../projects/work-item-resources.js";
   import type { CommunityAccountSession } from "../../auth/index.js";
   import {
@@ -6844,7 +6845,10 @@
             ? {}
             : { pullRequestDiff: projectPullRequestDiff }}
           pullRequestDiffError={projectPullRequestDiffError}
-          members={workspace.members}
+          members={communityIdentityMembersFromState(
+            workspace.members,
+            community.state.agents,
+          )}
           rooms={presentationRooms}
           communityEmojis={community.state.settings.customEmojis}
           {...workspace.currentMemberId === undefined
@@ -7294,7 +7298,10 @@
           ? {}
           : { pullRequestDiff: projectPullRequestDiff }}
         pullRequestDiffError={projectPullRequestDiffError}
-        members={workspace.members}
+        members={communityIdentityMembersFromState(
+          workspace.members,
+          community.state.agents,
+        )}
         rooms={presentationRooms}
         communityEmojis={community.state.settings.customEmojis}
         {...workspace.currentMemberId === undefined
@@ -8428,7 +8435,10 @@
     repositories={activeChannelProjectRepositories}
     repositoryOptions={projectCatalog.repositories}
     repositoryCapabilities={projectRepositoryCapabilities}
-    members={workspace.members}
+    members={communityIdentityMembersFromState(
+      workspace.members,
+      community.state.agents,
+    )}
     rooms={presentationRooms}
     communityEmojis={community.state.settings.customEmojis}
     {...workspace.currentMemberId === undefined

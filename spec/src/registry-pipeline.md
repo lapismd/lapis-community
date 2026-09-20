@@ -9,8 +9,9 @@ from the resolved project catalog, repository references and channel binding.
 Direct project Activity URLs retain their route through cold catalog startup,
 returning to Activity routes through the application location state, and
 repository Activity gates full agent transcripts behind a collapsed disclosure
-without changing the underlying relay projection. Project identity wrappers
-keep agent and author avatars rounded-square across project surfaces.
+without changing the underlying relay projection. Known-agent member models keep
+agent avatars rounded-square across project surfaces; git-author avatars
+remain the rounded author exception.
 
 Repository scripts that enforce specification policy include the deferred-work
 ledger validator required by LC-SPEC-006. It reads specification metadata only

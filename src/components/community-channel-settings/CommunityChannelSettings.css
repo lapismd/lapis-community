@@ -153,10 +153,14 @@
   border-block-end: 1px solid var(--border);
 }
 
-.lc-channel-settings__avatars [data-ui-component="community-member-avatar"] {
+.lc-channel-settings__avatar {
   margin-inline-start: -0.35rem;
   outline: 2px solid var(--background);
   border-radius: 50%;
+}
+
+.lc-channel-settings__avatar[data-shape="rounded"] {
+  border-radius: 25%;
 }
 
 .lc-channel-settings__danger-zone {

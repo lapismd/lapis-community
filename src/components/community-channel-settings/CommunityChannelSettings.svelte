@@ -21,6 +21,7 @@
     CommunityRoomModel,
   } from "../community-workspace/model.js";
   import CommunityMemberAvatar from "../community-member-avatar/CommunityMemberAvatar.svelte";
+  import { communityMemberAvatarShape } from "../community-member-avatar/model.js";
   import "./CommunityChannelSettings.css";
 
   let {
@@ -196,7 +197,12 @@
             </span>
             <span class="lc-channel-settings__avatars" aria-hidden="true">
               {#each members.slice(0, 3) as member (member.id)}
-                <CommunityMemberAvatar {member} size="xsmall" decorative />
+                <span
+                  class="lc-channel-settings__avatar"
+                  data-shape={communityMemberAvatarShape(member)}
+                >
+                  <CommunityMemberAvatar {member} size="xsmall" decorative />
+                </span>
               {/each}
             </span>
           </Button>

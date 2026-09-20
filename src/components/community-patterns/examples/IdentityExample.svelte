@@ -28,6 +28,13 @@
       initials: "CA",
       presence: "offline" as const,
     },
+    {
+      id: "9".repeat(64),
+      name: "Nyra",
+      handle: "nyra",
+      initials: "NY",
+      kind: "agent" as const,
+    },
   ];
   let result = $state("Choose an identity or action");
   const actions = {
@@ -70,6 +77,10 @@
       onMessageMember={actions.onMessage}
       onWaveMember={actions.onWave}
     />
+  </section>
+  <section aria-label="Rounded agent identity">
+    <h2>Rounded agent avatar</h2>
+    <CommunityMemberHoverCard member={members[3]!} {...actions} />
   </section>
   <section aria-label="Composer identity">
     <h2>Composer mention</h2>

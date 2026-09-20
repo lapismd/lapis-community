@@ -87,6 +87,8 @@ export interface CommunityMemberModel {
   role?: string;
   roles?: readonly string[];
   administrator?: boolean;
+  /** Present when this identity is a known agent. Absent means a person. */
+  kind?: "agent";
 }
 
 export interface CommunityRoleDefinition {

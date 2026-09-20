@@ -46,6 +46,23 @@
 />
 
 <Story
+  name="Agent kind without shape"
+  args={{
+    member: {
+      ...communityStoryMembers[0]!,
+      name: "Nyra",
+      initials: "NY",
+      kind: "agent",
+    },
+    size: "large",
+  }}
+  play={async ({ canvas }) => {
+    const avatar = canvas.getByRole("img", { name: "Nyra avatar" });
+    await expect(avatar).toHaveAttribute("data-shape", "rounded");
+  }}
+/>
+
+<Story
   name="Large rounded avatar"
   args={{
     member: communityStoryMembers[0]!,

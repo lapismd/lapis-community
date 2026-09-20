@@ -32,9 +32,22 @@ describe("UI composition policy", () => {
         '<p>Hello</p><style>:global([data-ui-part="dialog-content"]){width:100vw}</style>',
         "dialog",
       ],
+      [
+        '<div></div><style>:global([data-ui-component="community-member-avatar"] [data-ui-part="image"]){border-radius:25%}</style>',
+        "avatar",
+      ],
     ])
       expect(rules(source)).toContain(rule);
   });
+  it("allows CommunityMemberAvatar to own avatar radius", () => {
+    expect(
+      inspectSource(
+        '<span></span><style>.community-member-avatar[data-shape="rounded"] .community-member-avatar__image{border-radius:25%}</style>',
+        "src/components/community-member-avatar/CommunityMemberAvatar.svelte",
+      ),
+    ).toEqual([]);
+  });
+
   it("allows canonical components, structured inputs and accessible loading announcements", () => {
     expect(
       rules(

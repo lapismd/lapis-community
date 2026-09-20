@@ -662,10 +662,12 @@ Activity route. Every selected-project route, including Activity, carries a
 from the same route. Reconstructed agent
 context deduplicates commit IDs both within each checkpoint and across the turn
 before rendering keyed checkpoint links, so repeated relay references cannot
-abort the Activity surface. Project-owned
-identity wrappers apply the shared rounded-square agent avatar treatment across
-Activity, reviews, files, commits, Log and Evolog without changing avatar
-behavior outside Projects.
+abort the Activity surface. Known agents carry `kind: "agent"` on
+`CommunityMemberModel`. `CommunityMemberAvatar` derives the rounded-square
+shape from that kind wherever the identity is known, including Projects,
+Activity, reviews, and comments. Git-author Gravatar avatars remain rounded
+as a project author exception. `pnpm check:ui` rejects consumer CSS that
+restyles member-avatar radius.
 
 For LC-UI-040, Inbox owns the conversation-pane inset around the shared message
 skeleton. Initial and selected-thread loading reuse one padded snippet, keeping

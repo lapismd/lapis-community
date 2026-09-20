@@ -91,7 +91,7 @@
   import CommunitySidebarToggleIcon from "../community-app-shell/CommunitySidebarToggleIcon.svelte";
   import CommunityChatComposer from "../community-chat-composer/CommunityChatComposer.svelte";
   import CommunityChip from "../community-chip/CommunityChip.svelte";
-  import CommunityMemberHoverCard from "../community-member-hover-card/CommunityMemberHoverCard.svelte";
+  import CommunityProjectsMemberHover from "./CommunityProjectsMemberHover.svelte";
   import CommunityMarkdownContent from "../community-markdown-content/CommunityMarkdownContent.svelte";
   import CommunityMessage from "../community-message/CommunityMessage.svelte";
   import CommunityProjectStatusToasts from "./CommunityProjectStatusToasts.svelte";
@@ -2185,12 +2185,12 @@
   member: CommunityMemberModel,
   avatarSize: "xsmall" | "small" | "medium" = "xsmall",
 )}
-  <CommunityMemberHoverCard
+  <CommunityProjectsMemberHover
     {member}
     {avatarSize}
-    {...onOpenProfile === undefined ? {} : { onOpenProfile }}
-    {...onMessageMember === undefined ? {} : { onMessage: onMessageMember }}
-    {...onWaveMember === undefined ? {} : { onWave: onWaveMember }}
+    {onOpenProfile}
+    {onMessageMember}
+    {onWaveMember}
   />
 {/snippet}
 

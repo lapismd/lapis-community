@@ -22,6 +22,7 @@ import {
   roomModel,
 } from "./materialize-room-model.js";
 import { messageModels, topicModels } from "./materialize-messages.js";
+import { withCommunityMemberKinds } from "./member-identity.js";
 import {
   directConversationModels,
   directMemberModels,
@@ -44,6 +45,7 @@ export interface CommunityProjectionOptions {
   privateEvents?: readonly CommunityPrivateEvent[];
   directParticipants?: Readonly<Record<string, readonly string[]>>;
   sidePanel?: "thread" | "details" | "none";
+  agentPubkeys?: readonly string[];
 }
 
 export function materializeCommunityWorkspace(
@@ -147,10 +149,12 @@ export function materializeCommunityWorkspace(
       ),
     ).length;
   }
-  const members =
+  const members = withCommunityMemberKinds(
     activeDirect === undefined
       ? memberModels(activeRoom, visible, profiles, statuses)
-      : directMemberModels(activeDirect, profiles, statuses);
+      : directMemberModels(activeDirect, profiles, statuses),
+    options.agentPubkeys ?? [],
+  );
   const conversationMessages =
     activeDirect !== undefined
       ? directMessageModels(activeDirect, options.identityPubkey)

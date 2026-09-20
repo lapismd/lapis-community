@@ -4,6 +4,7 @@ import { communityMemberHandleLabel } from "./handle.js";
 import {
   communityMemberAvatarFallbackTone,
   communityMemberAvatarFallbackTones,
+  communityMemberAvatarShape,
 } from "./model.js";
 
 describe("community member avatar fallback tone", () => {
@@ -25,6 +26,13 @@ describe("community member avatar fallback tone", () => {
     expect(communityMemberAvatarFallbackTones).toContain(
       communityMemberAvatarFallbackTone("🧭 Relay Guide"),
     );
+  });
+});
+
+describe("community member avatar shape", () => {
+  it("uses the rounded-square treatment only for known agents", () => {
+    expect(communityMemberAvatarShape({})).toBe("circle");
+    expect(communityMemberAvatarShape({ kind: "agent" })).toBe("rounded");
   });
 });
 

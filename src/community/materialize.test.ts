@@ -783,6 +783,31 @@ describe("materializeCommunityWorkspace", () => {
     );
     expect(clearedWorkspace.members[0]).not.toHaveProperty("status");
   });
+
+  it("tags workspace members that match known agent pubkeys", () => {
+    const scenario = createCommunityTestScenario();
+    const workspace = materializeCommunityWorkspace(
+      [scenario.scope],
+      { [scenario.scope.id]: scenario.events },
+      scenario.scope.id,
+    );
+    const member = workspace.members[0];
+    expect(member).toBeDefined();
+    const tagged = materializeCommunityWorkspace(
+      [scenario.scope],
+      { [scenario.scope.id]: scenario.events },
+      scenario.scope.id,
+      { agentPubkeys: [member!.id] },
+    );
+    expect(tagged.members.find((item) => item.id === member!.id)).toMatchObject({
+      kind: "agent",
+    });
+    expect(
+      tagged.members
+        .filter((item) => item.id !== member!.id)
+        .every((item) => item.kind === undefined),
+    ).toBe(true);
+  });
 });
 
 describe("materializeCommunitySettings", () => {
