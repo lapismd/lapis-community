@@ -32,11 +32,19 @@
   args={{ member: fizz }}
   play={async ({ canvas }) => {
     const button = canvas.getByRole("button", { name: "Mention someone" });
-    await expect(
-      button.querySelector("[data-ui-part='composer-mention-lock']"),
-    ).not.toBeNull();
+    const at = button.querySelector("[data-ui-part='composer-mention-at']");
+    const lock = button.querySelector("[data-ui-part='composer-mention-lock']");
+    await expect(at).not.toBeNull();
+    await expect(lock).not.toBeNull();
     await expect(
       button.querySelector("[data-ui-component='community-member-avatar']"),
     ).not.toBeNull();
+    await expect(
+      at &&
+        lock &&
+        (at.compareDocumentPosition(lock) &
+          Node.DOCUMENT_POSITION_FOLLOWING) !==
+          0,
+    ).toBe(true);
   }}
 />
