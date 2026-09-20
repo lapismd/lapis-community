@@ -23,11 +23,10 @@
     CommunityCustomEmoji,
     CommunityMessageReport,
   } from "../../community/index.js";
-  import CommunityChip from "../community-chip/CommunityChip.svelte";
   import CommunityMarkdownContent from "../community-markdown-content/CommunityMarkdownContent.svelte";
-  import CommunityMemberAvatar from "../community-member-avatar/CommunityMemberAvatar.svelte";
   import { communityMemberAvatarShape } from "../community-member-avatar/model.js";
   import CommunityMemberHoverCard from "../community-member-hover-card/CommunityMemberHoverCard.svelte";
+  import CommunityMessageReplySummary from "./CommunityMessageReplySummary.svelte";
   import CommunityReportDialog from "../community-report-dialog/CommunityReportDialog.svelte";
   import type {
     CommunityEmojiReference,
@@ -465,30 +464,17 @@
       {/if}
       {#if message.edited}<span>(edited)</span>{/if}
       {#if showReplySummary}
-        <CommunityChip
-          variant="muted"
-          class="community-message__reply-summary"
-          ariaLabel={replyLabel}
-          onclick={() => onOpenThread?.(message.id)}
-        >
-          {#if replyParticipants.length}
-            <span class="community-message__reply-avatars" aria-hidden="true">
-              {#each replyParticipants.slice(0, 3) as participant (participant.id)}
-                <span
-                  title={participant.name}
-                  data-shape={communityMemberAvatarShape(participant)}
-                >
-                  <CommunityMemberAvatar
-                    member={participant}
-                    size="xsmall"
-                    decorative
-                  />
-                </span>
-              {/each}
-            </span>
-          {/if}
-          <span>{replyLabel}</span>
-        </CommunityChip>
+        <CommunityMessageReplySummary
+          label={replyLabel}
+          participants={replyParticipants}
+          onOpenThread={onOpenThread
+            ? () => onOpenThread(message.id)
+            : undefined}
+          {onOpenProfile}
+          {onMessageMember}
+          {onWaveMember}
+          {onViewMemberActivity}
+        />
       {/if}
     </div>
   {/snippet}
@@ -669,21 +655,5 @@
     min-height: 1.5rem;
     margin-top: 0;
     line-height: 1;
-  }
-
-  .community-message__reply-avatars {
-    display: flex;
-    padding-inline-start: 0.2rem;
-  }
-
-  .community-message__reply-avatars > span {
-    display: block;
-    margin-inline-start: -0.2rem;
-    border-radius: 50%;
-    outline: 2px solid var(--background);
-  }
-
-  .community-message__reply-avatars > span[data-shape="rounded"] {
-    border-radius: 25%;
   }
 </style>

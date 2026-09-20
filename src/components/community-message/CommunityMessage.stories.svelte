@@ -67,7 +67,11 @@
     const addReaction = messageCanvas.getByRole("button", {
       name: "Add reaction",
     });
-    const avatar = messageCanvas.getByRole("button", {
+    const avatarRegion = message.querySelector<HTMLElement>(
+      '[data-ui-part="avatar"]',
+    );
+    await expect(avatarRegion).not.toBeNull();
+    const avatar = within(avatarRegion!).getByRole("button", {
       name: "View Ben Stone's profile",
     });
 
@@ -113,12 +117,35 @@
     await expect(args.onReply).toHaveBeenCalledWith("message-release");
     await expect(args.onOpenThread).not.toHaveBeenCalled();
 
-    await userEvent.click(
-      messageCanvas.getByRole("button", {
-        name: "8 replies · last reply 4 minutes ago",
-      }),
+    const replyParticipants = messageCanvas.getByRole("group", {
+      name: "Reply participants",
+    });
+    const ada = within(replyParticipants).getByRole("button", {
+      name: "View Ada Lovelace's profile",
+    });
+    const adaAvatar = ada.querySelector(
+      '[data-ui-component="community-member-avatar"]',
     );
+    await expect(adaAvatar).not.toBeNull();
+    await expect(ada.getBoundingClientRect().width).toBeCloseTo(
+      adaAvatar!.getBoundingClientRect().width,
+      0,
+    );
+    await userEvent.hover(ada);
+    const adaPreview = await page.findByRole("group", {
+      name: "Ada Lovelace contact preview",
+    });
+    await expect(adaPreview).toBeVisible();
+    await userEvent.unhover(ada);
+    const replyCount = messageCanvas.getByRole("button", {
+      name: "8 replies · last reply 4 minutes ago",
+    });
+    await expect(
+      replyCount.querySelector('[data-ui-component="community-member-avatar"]'),
+    ).toBeNull();
+    await userEvent.click(replyCount);
     await expect(args.onOpenThread).toHaveBeenCalledWith("message-release");
+    await expect(args.onOpenProfile).not.toHaveBeenCalled();
 
     await userEvent.click(
       messageCanvas.getByRole("button", {

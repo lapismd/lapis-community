@@ -31,6 +31,8 @@ same change.
 Mention-button lock badges and colliding mention-token resolution
 extract to dedicated modules and lower the `composer-extension.ts`
 path budget in the same change.
+Message reply-summary extraction lowers the `CommunityMessage.svelte`
+path budget in `scripts/architecture-baseline.json`.
 LC-UI-040 Inbox loading coverage updates the architecture baseline for its
 geometry assertions and the smaller component that shares the padded skeleton.
 P4 factory parser splits are extracted: agent runtime and memory parsers,

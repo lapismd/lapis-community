@@ -19,7 +19,12 @@
   > & { members: readonly CommunityMemberModel[]; label?: string } = $props();
 </script>
 
-<div class="community-member-avatar-group" role="group" aria-label={label}>
+<div
+  class="community-member-avatar-group"
+  data-avatar-size={avatarSize}
+  role="group"
+  aria-label={label}
+>
   {#each members as member (member.id)}
     <div
       class="community-member-avatar-group__member"
@@ -32,14 +37,21 @@
 
 <style>
   .community-member-avatar-group {
+    --community-member-avatar-group-overlap: 0.5rem;
+
     display: flex;
     align-items: center;
     flex-wrap: wrap;
-    padding-inline-start: 0.5rem;
+    padding-inline-start: var(--community-member-avatar-group-overlap);
+  }
+  .community-member-avatar-group[data-avatar-size="xsmall"] {
+    --community-member-avatar-group-overlap: 0.4rem;
   }
   .community-member-avatar-group__member {
     position: relative;
-    margin-inline-start: -0.5rem;
+    margin-inline-start: calc(
+      -1 * var(--community-member-avatar-group-overlap)
+    );
     border-radius: 50%;
     box-shadow: 0 0 0 2px var(--background);
   }

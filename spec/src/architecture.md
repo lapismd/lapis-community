@@ -205,7 +205,9 @@ under `scripts/architecture-fixtures/` are harness-only and MUST remain outside
 `svelte-check`, UI policy, and `tsc` includes. Agent runtime and memory parsers,
 agent-control validation, NIP-29 command templates and content-window loaders,
 and community room, message, and inbox projectors live beside their factories as
-dedicated modules. A path budget that exceeds the current counted size by more
+dedicated modules. Message reply-summary extraction records the new
+`CommunityMessageReplySummary` leaf and lowers the `CommunityMessage.svelte`
+path budget. A path budget that exceeds the current counted size by more
 than twenty counted lines MUST fail as stale. Keytr local development
 storage-relay hosts remain in the recorded auth path budgets.
 Deterministic local project fixtures split jj-sync payload construction from
