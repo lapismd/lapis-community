@@ -301,11 +301,20 @@
     expect(threadRegionHeightRules(conversationInner!)).toEqual([]);
     expect(threadRegionHeightRules(composerInner!)).toEqual([]);
     const paneStyle = getComputedStyle(paneInner!);
+    const conversation = canvasElement.querySelector(
+      ".lc-community-inbox__conversation",
+    );
     expect(paneStyle.display).toBe("flex");
     expect(paneStyle.minHeight).toBe("0px");
+    expect(paneStyle.width).toBe(getComputedStyle(paneViewport!).width);
     expect(getComputedStyle(paneViewport!).overflow).toBe("hidden");
     expect(getComputedStyle(paneViewport!).overflowY).toBe("hidden");
     expect(paneViewport!.scrollHeight).toBe(paneViewport!.clientHeight);
+    expect(conversation).toBeTruthy();
+    expect(conversation!.getBoundingClientRect().width).toBeCloseTo(
+      paneViewport!.getBoundingClientRect().width,
+      0,
+    );
     expect(getComputedStyle(listInner!).overflowAnchor).toBe("none");
   }}
 >

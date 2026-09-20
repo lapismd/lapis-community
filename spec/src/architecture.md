@@ -687,7 +687,8 @@ the shared skeleton independent of its containing surface.
 
 For LC-UI-014, Inbox thread-region CSS stretches only the Body.Content
 scrollport and uses the same non-scrolling flex fill as channel workspace
-content. The pane viewport overrides Design Core's inline
+content, including `width: 100%` so the conversation is not content-sized.
+The pane viewport overrides Design Core's inline
 `overflow: hidden scroll` so computed overflow stays hidden. Nested
 conversation and composer scrollports keep content height so the
 virtualized message list can wheel without a second pane scroller.
