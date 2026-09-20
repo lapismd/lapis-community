@@ -35,6 +35,8 @@ Message reply-summary extraction lowers the `CommunityMessage.svelte`
 path budget in `scripts/architecture-baseline.json`.
 LC-UI-040 Inbox loading coverage updates the architecture baseline for its
 geometry assertions and the smaller component that shares the padded skeleton.
+LC-UI-014 Inbox conversation scrollport coverage updates the architecture
+baseline for the Inbox stories that assert pane-fill selector scope.
 P4 factory parser splits are extracted: agent runtime and memory parsers,
 agent-control validation, NIP-29 command templates and content-window loaders,
 registry hydration, catalog subscriptions, and portable release proofs, and

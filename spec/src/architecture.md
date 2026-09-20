@@ -685,6 +685,12 @@ For LC-UI-040, Inbox owns the conversation-pane inset around the shared message
 skeleton. Initial and selected-thread loading reuse one padded snippet, keeping
 the shared skeleton independent of its containing surface.
 
+For LC-UI-014, Inbox thread-region CSS stretches only the Body.Content
+scrollport. Nested conversation and composer scrollports keep content height
+so the virtualized message list can wheel without the pane-fill clamp. The
+Conversation scrollport story records that selector scope and updates the
+Inbox stories path budget.
+
 For LC-UI-049, checkpoint projection retains repository, channel, and native
 change targets. Agent context reference menus own presentation and share an
 application-provided conversation navigation adapter with Agent Activity.

@@ -263,8 +263,19 @@
   padding: 1rem;
 }
 
-.lc-community-inbox__thread-region [data-ui-part="scroll-area-viewport"] > div {
+/* Fill only the Body.Content scrollport so the thread column matches the
+ * shell pane. Nested conversation and composer scrollports must grow with
+ * their content; clamping those inners to 100% fights the virtualizer. */
+.lc-community-inbox__thread-region
+  > [data-ui-part="scroll-area"]
+  > [data-ui-part="scroll-area-viewport"]
+  > div {
   height: 100%;
+}
+
+.lc-community-inbox__conversation [data-ui-part="scroll-area-viewport"],
+.lc-community-inbox__conversation [data-ui-part="list-inner"] {
+  overflow-anchor: none;
 }
 
 .lc-community-inbox__selection-empty {

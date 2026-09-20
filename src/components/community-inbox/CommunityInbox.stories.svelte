@@ -4,6 +4,33 @@
   import CommunityInbox from "./CommunityInbox.svelte";
   import CommunityInboxStoryHarness from "./CommunityInboxStoryHarness.svelte";
 
+  function threadRegionHeightRules(element: Element): string[] {
+    const hits: string[] = [];
+    for (const sheet of element.ownerDocument.styleSheets) {
+      let rules: CSSRuleList;
+      try {
+        rules = sheet.cssRules;
+      } catch {
+        continue;
+      }
+      for (const rule of rules) {
+        if (
+          !(rule instanceof CSSStyleRule) ||
+          !rule.selectorText.includes("thread-region") ||
+          rule.style.getPropertyValue("height") !== "100%"
+        ) {
+          continue;
+        }
+        try {
+          if (element.matches(rule.selectorText)) hits.push(rule.selectorText);
+        } catch {
+          continue;
+        }
+      }
+    }
+    return hits;
+  }
+
   function expectMessageSkeletonInset(skeleton: HTMLElement) {
     const bounds = skeleton.getBoundingClientRect();
     const pane = skeleton.parentElement!.getBoundingClientRect();
@@ -236,6 +263,42 @@
         .getAllByLabelText("Message from Fizz")[0]
         ?.querySelector('[data-ui-component="community-member-avatar"]'),
     ).toHaveAttribute("data-shape", "rounded");
+  }}
+>
+  {#snippet template()}<CommunityInboxStoryHarness fixtureOnly />{/snippet}
+</Story>
+
+<Story
+  name="Conversation scrollport"
+  play={async ({ canvas, canvasElement }) => {
+    await expect(
+      canvas.getByRole("region", { name: "Selected inbox thread" }),
+    ).toBeVisible();
+    await expect(canvas.getAllByLabelText("Message from Fizz")[0]).toBeVisible();
+
+    const thread = canvasElement.querySelector(
+      ".lc-community-inbox__thread-region",
+    );
+    const paneInner = thread?.querySelector(
+      ':scope > [data-ui-part="scroll-area"] > [data-ui-part="scroll-area-viewport"] > div',
+    );
+    const conversationInner = canvasElement.querySelector(
+      '[data-ui-component="ai-chat-layout"] [data-ui-part="scroll-area-viewport"] > div',
+    );
+    const composerInner = canvasElement.querySelector(
+      ".community-chat-composer [data-ui-part='scroll-area-viewport'] > div",
+    );
+    const listInner = canvasElement.querySelector(
+      ".lc-community-inbox__conversation [data-ui-part='list-inner']",
+    );
+
+    expect(paneInner).toBeTruthy();
+    expect(conversationInner).toBeTruthy();
+    expect(composerInner).toBeTruthy();
+    expect(threadRegionHeightRules(paneInner!)).not.toEqual([]);
+    expect(threadRegionHeightRules(conversationInner!)).toEqual([]);
+    expect(threadRegionHeightRules(composerInner!)).toEqual([]);
+    expect(getComputedStyle(listInner!).overflowAnchor).toBe("none");
   }}
 >
   {#snippet template()}<CommunityInboxStoryHarness fixtureOnly />{/snippet}
