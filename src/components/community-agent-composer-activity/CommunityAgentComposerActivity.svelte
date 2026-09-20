@@ -140,6 +140,8 @@
 <style>
   .agent-composer-activity {
     min-height: 2rem;
+    max-width: 100%;
+    box-sizing: border-box;
     display: flex;
     align-items: center;
     min-width: 0;
@@ -149,10 +151,17 @@
   }
   .agent-composer-activity :global(.agent-composer-activity__button) {
     display: flex;
+    flex: 1 1 auto;
     gap: 0.375rem;
     align-items: center;
+    justify-content: flex-start;
+    width: 100%;
+    height: auto;
+    min-height: 2rem;
     min-width: 0;
     max-width: 100%;
+    overflow: hidden;
+    padding-block: 0.25rem;
     padding-inline: 0.25rem;
   }
   .agent-composer-activity[data-state="failed"] {
@@ -164,10 +173,20 @@
     color: color-mix(in srgb, var(--destructive) 78%, var(--foreground));
   }
   .agent-composer-activity__line {
+    flex: 1 1 auto;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
     min-width: 0;
+    text-align: left;
+  }
+  .agent-composer-activity[data-state="failed"] .agent-composer-activity__line {
+    display: -webkit-box;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    line-clamp: 2;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
   }
   .agent-composer-activity__entries {
     display: grid;

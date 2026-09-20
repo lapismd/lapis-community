@@ -38,12 +38,15 @@
   import { memberById } from "../community-workspace/model.js";
   import { messageActivityContent } from "./message-activity.js";
 
+  import type { CommunityMessageProps } from "./props.js";
+
   let {
     message,
     author,
     members = [],
     rooms = [],
     isContinuation = false,
+    highlighted = false,
     replyParticipants = [],
     communityEmojis = [],
     reactionOptions,
@@ -67,49 +70,7 @@
     replyActionLabel = "Reply in thread",
     supplement,
     avatarShape = "circle",
-  }: {
-    message: CommunityMessageModel;
-    author: CommunityMemberModel;
-    members?: readonly CommunityMemberModel[];
-    rooms?: readonly CommunityRoomModel[];
-    isContinuation?: boolean;
-    replyParticipants?: CommunityMemberModel[];
-    communityEmojis?: readonly CommunityCustomEmoji[];
-    reactionOptions?: readonly string[];
-    density?: "compact" | "balanced" | "spacious";
-    onReply?: (messageId: string) => void;
-    onOpenThread?: (messageId: string) => void;
-    onToggleReaction?: (
-      messageId: string,
-      emoji: string,
-      customEmoji?: CommunityEmojiReference,
-    ) => void | Promise<void>;
-    onAddReaction?: (
-      messageId: string,
-      emoji: string,
-      customEmoji?: CommunityEmojiReference,
-    ) => void | Promise<void>;
-    onCopyLink?: (messageId: string) => void;
-    onCopyMessage?: (messageId: string) => void;
-    onCopyEvent?: (messageId: string) => void;
-    onEdit?: (messageId: string) => void | Promise<void>;
-    onDelete?: (messageId: string) => void | Promise<void>;
-    onReport?: (
-      messageId: string,
-      report: CommunityMessageReport,
-    ) => void | Promise<void>;
-    onOpenProfile?: (member: CommunityMemberModel) => void;
-    onOpenRoom?: (roomId: string) => void;
-    onMessageMember?: (member: CommunityMemberModel) => void | Promise<void>;
-    onWaveMember?: (member: CommunityMemberModel) => void | Promise<void>;
-    onViewMemberActivity?: (
-      member: CommunityMemberModel,
-    ) => void | Promise<void>;
-    currentMemberId?: string;
-    replyActionLabel?: string;
-    supplement?: Snippet;
-    avatarShape?: "circle" | "rounded";
-  } = $props();
+  }: CommunityMessageProps = $props();
 
   const actionOpenDelay = 180;
   const actionCloseDelay = 150;
@@ -239,6 +200,8 @@
   {density}
   class="community-message"
   data-selected={isSelected ? "" : undefined}
+  data-highlighted={highlighted ? "" : undefined}
+  data-message-id={message.id}
   data-continuation={isContinuation ? "" : undefined}
   data-actions-visible={actionsVisible ? "" : undefined}
   aria-label={`Message from ${authorName}`}
@@ -578,6 +541,10 @@
 
   :global(.community-message[data-continuation]) {
     padding-block: 0.25rem 0.125rem;
+  }
+
+  :global(.community-message[data-highlighted]) {
+    background: color-mix(in srgb, var(--primary) 12%, var(--background));
   }
 
   :global(.community-message[data-continuation] [data-ui-part="name"]) {

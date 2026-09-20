@@ -8,6 +8,7 @@ import type {
 } from "../../community/workspace-model.js";
 import { buildRepositoryAgentContexts } from "../../projects/repository-agent-context.js";
 import { retainLiveContext } from "../../projects/repository-live-context.js";
+import { discussionEdit, discussionDeletion } from "./message-actions.js";
 import {
   conversationMessage,
   eventTag,
@@ -53,7 +54,11 @@ export function provideAgentConversation(owner: {
     }
     const abort = new AbortController();
     const filters = [
-      { kinds: [1, 5, 7, 9, 11, 1111, 3907, 3908], "#h": ids, limit: 2000 },
+      {
+        kinds: [1, 5, 7, 9, 11, 1111, 40003, 3907, 3908],
+        "#h": ids,
+        limit: 2000,
+      },
     ];
     loading = true;
     void session
@@ -142,6 +147,25 @@ export function provideAgentConversation(owner: {
       return api.message(id);
     },
     publish,
+    isDeleted: (event: Pick<NostrEvent, "id" | "pubkey">) =>
+      events.some(
+        (item) =>
+          item.kind === 5 &&
+          item.pubkey === event.pubkey &&
+          item.tags.some(([key, id]) => key === "e" && id === event.id),
+      ),
+    edit: (event: NostrEvent, content: string) =>
+      publish(discussionEdit(event, owner.memberId(), content)),
+    delete: (event: NostrEvent) =>
+      publish(discussionDeletion(event, owner.memberId())),
+    async commitDescription(repository: string, sha: string) {
+      const response = await owner.session()?.loadCommit(repository, sha);
+      return response
+        ? [response.commit.subject, response.commit.body]
+            .filter(Boolean)
+            .join("\n\n")
+        : undefined;
+    },
     get replyCommentId() {
       return replyCommentId;
     },
@@ -155,7 +179,7 @@ export function provideAgentConversation(owner: {
       const root = eventTag(event, "thread");
       if (room && root) {
         replyCommentId = event.id;
-        owner.openThread(room.id, root);
+        owner.openThread(room.id, root, event.id);
       }
     },
     async react(event: NostrEvent, emoji: string) {
@@ -187,6 +211,7 @@ export function provideAgentConversation(owner: {
       });
     },
     open(event: NostrEvent, reply = true) {
+      replyCommentId = undefined;
       const room = owner
         .rooms()
         .find((room) => (room.groupId ?? room.id) === eventTag(event, "h"));

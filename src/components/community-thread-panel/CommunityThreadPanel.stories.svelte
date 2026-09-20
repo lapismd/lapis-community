@@ -1,6 +1,6 @@
 <script module lang="ts">
   import { defineMeta } from "@storybook/addon-svelte-csf";
-  import { expect, fn, userEvent } from "storybook/test";
+  import { expect, fn, userEvent, waitFor } from "storybook/test";
 
   import {
     communityStoryMembers,
@@ -98,6 +98,36 @@
   {#snippet template(args)}
     <div
       style="width: min(100%, 28rem); height: 38rem; border: 1px solid var(--border);"
+    >
+      <CommunityThreadPanel {...args} />
+    </div>
+  {/snippet}
+</Story>
+
+<Story
+  name="Focused reply scrolls inside the thread"
+  args={{
+    thread: communityStoryThread,
+    members: communityStoryMembers,
+    focusMessageId: "thread-3",
+  }}
+  play={async ({ canvas, canvasElement }) => {
+    const focused = canvasElement.querySelector<HTMLElement>(
+      '[data-message-id="thread-3"]',
+    );
+    const viewport = canvasElement.querySelector<HTMLElement>(
+      '[data-ui-part="scroll-area-viewport"]',
+    );
+    await expect(focused).not.toBeNull();
+    await expect(focused).toHaveAttribute("data-highlighted");
+    await expect(viewport).not.toBeNull();
+    await waitFor(() => expect(viewport!.scrollTop).toBeGreaterThan(0));
+    await expect(canvasElement.parentElement?.scrollTop ?? 0).toBe(0);
+  }}
+>
+  {#snippet template(args)}
+    <div
+      style="width: min(100%, 28rem); height: 13rem; border: 1px solid var(--border);"
     >
       <CommunityThreadPanel {...args} />
     </div>

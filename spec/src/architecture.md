@@ -691,4 +691,4 @@ Public agent conversations join verified source message events with checkpoint r
 
 Request-link navigation resolves unloaded messages through the shared agent conversation provider. The exact-event read and thread-root traversal have separate owners; application composition does not grow.
 
-LC-UI-049 canonical transport validation lives in protocol, with consumer projection in community and native-page assembly in projects. Transcript types are extracted from the large agent contracts module; changed leaf budgets remain below 300 counted lines.
+LC-UI-049 canonical transport validation lives in protocol, with consumer projection in community and native-page assembly in projects. Transcript types, discussion-message props and thread-panel props are extracted from large component modules; changed leaf budgets remain below 300 counted lines. The architecture baseline records the smaller message and thread-panel owners plus the bounded composer-status and story growth in the same change.

@@ -8195,7 +8195,7 @@
             <strong>{sidePanelTitle}</strong>
             <AppShell.Sidebar.Close onclick={closeSidePanel} />
           </AppShell.Sidebar.Header>
-          <AppShell.Sidebar.Body>
+          <AppShell.Sidebar.Body scrollable={false}>
             {#if visibleThread}
               <CommunityThreadPanel
                 thread={visibleThread}

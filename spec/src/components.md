@@ -917,6 +917,17 @@ Checkpoint Request navigation MUST resolve a follow-up message through the verif
 
 The original request sidebar MUST render nested native replies with their checkpoint Thinking and tool context, rather than limiting the view to direct children of the request.
 
+LC-UI-049 agent replies and commit discussions MUST compose the ordinary message
+hover menu, including author-only editing and deletion and message, signed-event,
+and permalink copying. Edits use the existing channel edit events and preserve
+the original discussion anchors. Review reference chips use leading commit or
+comment icons, a truncated commit subject or filename and line, and a shared
+Tooltip with the full description. Opening a reply focuses and highlights that
+message in the independently scrolling thread, without scrolling the main body.
+Composer failure status remains within the available composer width, wraps up to
+two lines in narrow sidebars, and preserves the complete failure text as its
+accessible label and title.
+
 LC-UI-049 canonical transcript projection preserves completed visible thinking,
 plans, tools, file/command records, subagent parent references, omissions and
 coverage provenance through the existing Chat components. Completed canonical

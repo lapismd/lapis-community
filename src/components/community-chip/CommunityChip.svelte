@@ -1,15 +1,7 @@
 <script lang="ts">
   import { Badge } from "@lapismd/design-core/shadcn/badge";
   import { Button } from "@lapismd/design-core/shadcn/button";
-  import type { Snippet } from "svelte";
-  import type { HTMLButtonAttributes } from "svelte/elements";
-
-  import type {
-    CommunityChipShape,
-    CommunityChipSize,
-    CommunityChipTone,
-    CommunityChipVariant,
-  } from "./model.js";
+  import type { CommunityChipProps } from "./props.js";
 
   let {
     children,
@@ -21,29 +13,14 @@
     href,
     onclick,
     buttonProps,
+    linkProps,
     disabled = false,
     pressed,
     ariaLabel,
     ariaHidden = false,
     title,
     class: className = "",
-  }: {
-    children: Snippet;
-    leading?: Snippet;
-    variant?: CommunityChipVariant;
-    tone?: CommunityChipTone;
-    size?: CommunityChipSize;
-    shape?: CommunityChipShape;
-    href?: string;
-    onclick?: (event: MouseEvent) => void;
-    buttonProps?: HTMLButtonAttributes;
-    disabled?: boolean;
-    pressed?: boolean;
-    ariaLabel?: string;
-    ariaHidden?: boolean;
-    title?: string;
-    class?: string;
-  } = $props();
+  }: CommunityChipProps = $props();
 
   const badgeVariant = $derived(
     variant === "muted" || variant === "subtle"
@@ -63,6 +40,7 @@
 
 {#if href !== undefined}
   <Badge
+    {...linkProps}
     {href}
     variant={badgeVariant}
     class={classes}
@@ -82,7 +60,8 @@
         event.preventDefault();
         return;
       }
-      onclick?.(event);
+      linkProps?.onclick?.(event);
+      if (!event.defaultPrevented) onclick?.(event);
     }}
   >
     {@render content()}

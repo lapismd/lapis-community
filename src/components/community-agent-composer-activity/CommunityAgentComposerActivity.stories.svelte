@@ -96,20 +96,31 @@
           active: false,
           state: "failed",
           severity: "error",
-          preview: "Model unavailable",
+          preview:
+            "This request was interrupted by a controller restart and was not automatically retried.",
         },
       },
     }),
   }}
-  play={async ({ canvas }) => {
-    await expect(
-      canvas.getByRole("alert", {
-        name: "Research request failed: Model unavailable",
-      }),
-    ).toBeVisible();
-    await expect(canvas.getByText("Research: Model unavailable")).toBeVisible();
+  play={async ({ canvas, canvasElement }) => {
+    const alert = canvas.getByRole("alert", {
+      name: /This request was interrupted by a controller restart/,
+    });
+    const line = canvas.getByTitle(
+      "Research: This request was interrupted by a controller restart and was not automatically retried.",
+    );
+    await expect(alert.scrollWidth).toBeLessThanOrEqual(alert.clientWidth);
+    await expect(line.scrollWidth).toBeLessThanOrEqual(line.clientWidth);
+    await expect(line.getBoundingClientRect().height).toBeGreaterThan(16);
+    await expect(canvasElement.querySelector("[data-state='failed']")).toBe(
+      alert,
+    );
   }}
-/>
+>
+  {#snippet template(args)}<div style="width: 16rem; max-width: 100%;">
+      <CommunityAgentComposerActivity {...args} />
+    </div>{/snippet}
+</Story>
 <Story
   name="Long output"
   args={{

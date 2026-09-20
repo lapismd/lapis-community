@@ -1,5 +1,6 @@
 import type { NostrEvent } from "../../protocol/index.js";
 import type { CommunityMessageModel } from "../../community/workspace-model.js";
+import { latestMessageEdit } from "../../community/materialize-messages.js";
 export const eventTag = (event: NostrEvent, key: string) =>
   event.tags.find(([name]) => name === key)?.[1];
 export function eventRoot(event: NostrEvent): string {
@@ -28,6 +29,7 @@ export function conversationMessage(
   memberId?: string,
 ): CommunityMessageModel {
   const active = visibleEvents(events);
+  const edit = latestMessageEdit(event, active);
   const reactions = new Map<
     string,
     { emoji: string; count: number; selected: boolean }
@@ -64,7 +66,8 @@ export function conversationMessage(
     id: event.id,
     authorId: event.pubkey,
     sourceEvent: event,
-    content: event.content,
+    content: edit?.content ?? event.content,
+    ...(edit ? { edited: true } : {}),
     createdAt: new Date(event.created_at * 1000).toISOString(),
     timestamp: new Date(event.created_at * 1000).toLocaleTimeString(),
     reactions: [...reactions.values()],

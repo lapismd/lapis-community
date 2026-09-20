@@ -1,6 +1,7 @@
 <script lang="ts">
   import CommunityAgentThreadContext from "../community-agent-thread-context/CommunityAgentThreadContext.svelte";
   import { createThreadDraft } from "./thread-draft.svelte.js";
+  import { focusReply } from "./focus-reply.js";
   import { observeReadEnd } from "../community-workspace/observe-read-end.js";
   import CommunityAgentComposerActivity from "../community-agent-composer-activity/CommunityAgentComposerActivity.svelte";
   import {
@@ -27,7 +28,8 @@
     type CommunityThreadModel,
   } from "../community-workspace/model.js";
 
-  import type { CommunityAgentActivityContext } from "../../community/agent-contracts.js";
+  import type { ThreadPanelProps } from "./props.js";
+  import { useAgentConversation } from "../community-agent-conversation/context.svelte.js";
   let {
     activityContext,
     virtualize = false,
@@ -57,6 +59,7 @@
     onWaveMember,
     onViewMemberActivity,
     replyTarget,
+    focusMessageId,
     communityEmojis = [],
     onCancelReply,
     disabled = false,
@@ -66,67 +69,7 @@
     onDismissComposerStatus,
     currentMemberId,
     canDeleteAny = false,
-  }: {
-    activityContext?: CommunityAgentActivityContext;
-    virtualize?: boolean;
-    history?: CommunityHistoryState;
-    presentation?: CommunityTimelinePresentation;
-    onPresentationChange?: (
-      key: string,
-      update: { draft?: string; position?: CommunityTimelinePosition },
-    ) => void;
-    onLoadOlder?: () => Promise<void>;
-    onLoadLatest?: () => Promise<void>;
-    readBoundary?: { key: string; onRead?: () => void };
-    thread: CommunityThreadModel;
-    members: CommunityMemberModel[];
-    rooms?: readonly CommunityRoomModel[];
-    onSendReply?: (
-      rootMessageId: string,
-      content: string,
-    ) => void | Promise<void>;
-    onToggleReaction?: (
-      messageId: string,
-      emoji: string,
-      custom?: { shortcode: string; url: string },
-    ) => void | Promise<void>;
-    onAddReaction?: (
-      messageId: string,
-      emoji: string,
-      custom?: { shortcode: string; url: string },
-    ) => void | Promise<void>;
-    onCopyMessageLink?: (messageId: string) => void;
-    onCopyMessage?: (messageId: string) => void;
-    onCopyEvent?: (messageId: string) => void;
-    onEditMessage?: (messageId: string) => void | Promise<void>;
-    onSaveMessageEdit?: (
-      messageId: string,
-      content: string,
-    ) => void | Promise<void>;
-    onDeleteMessage?: (messageId: string) => void | Promise<void>;
-    onReportMessage?: (
-      messageId: string,
-      report: CommunityMessageReport,
-    ) => void | Promise<void>;
-    onReply?: (messageId: string) => void;
-    onOpenProfile?: (member: CommunityMemberModel) => void;
-    onOpenRoom?: (roomId: string) => void;
-    onMessageMember?: (member: CommunityMemberModel) => void | Promise<void>;
-    onWaveMember?: (member: CommunityMemberModel) => void | Promise<void>;
-    onViewMemberActivity?: (
-      member: CommunityMemberModel,
-    ) => void | Promise<void>;
-    replyTarget?: CommunityReplyTarget;
-    communityEmojis?: readonly CommunityCustomEmoji[];
-    onCancelReply?: () => void;
-    disabled?: boolean;
-    disabledReason?: string;
-    composerStatus?: ComposerStatus;
-    onRetryComposerStatus?: () => void | Promise<void>;
-    onDismissComposerStatus?: () => void;
-    currentMemberId?: string;
-    canDeleteAny?: boolean;
-  } = $props();
+  }: ThreadPanelProps = $props();
 
   const conversationKey = $derived(
     presentation?.key ??
@@ -150,6 +93,16 @@
   );
   const effectiveReadBoundary = $derived(
     history?.hasNewer || history?.loading ? undefined : readBoundary,
+  );
+  let viewport = $state<HTMLElement | null>(null);
+  const conversation = useAgentConversation();
+  const focused = $derived(
+    focusMessageId ?? replyTarget?.eventId ?? conversation?.replyCommentId,
+  );
+  const focusAnchor = $derived(
+    focused && thread.messages.some((message) => message.id === focused)
+      ? focused
+      : thread.rootMessageId,
   );
   let editingMessageId = $state<string | undefined>();
   const rootMessage = $derived(
@@ -189,13 +142,14 @@
   }
 </script>
 
-<div class="community-thread-panel">
+<div class="community-thread-panel" use:focusReply={{ id: focused, viewport }}>
   {#snippet messageRow(
     message: import("../community-workspace/model.js").CommunityMessageModel,
     index: number,
   )}
     <CommunityMessage
       {message}
+      highlighted={message.id === focused}
       isContinuation={isMessageContinuation(thread.messages, index)}
       author={memberById(members, message.authorId)}
       {members}
@@ -252,6 +206,7 @@
     />
   {/snippet}
   <Layout
+    bind:scrollRef={viewport}
     density="compact"
     scrollMode={virtualize ? "history" : "stream"}
     {conversationKey}
@@ -318,16 +273,28 @@
     <MessageList
       density="compact"
       aria-label="Thread replies"
-      {conversationKey}
+      conversationKey={`${conversationKey}:${focused ?? ""}`}
       latestMessageId={latestArrivalId ?? ""}
       {...virtualize
         ? {
             items: thread.messages,
             row: messageRow,
             virtualize: true,
-            ...(presentation?.position
-              ? { initialPosition: presentation.position }
-              : {}),
+            ...(focused
+              ? {
+                  initialPosition: {
+                    messageId: focusAnchor,
+                    index: thread.messages.findIndex(
+                      (message) => message.id === focusAnchor,
+                    ),
+                    offset: 0,
+                    atLatest: false,
+                  },
+                  retainRowIds: [focusAnchor],
+                }
+              : presentation?.position
+                ? { initialPosition: presentation.position }
+                : {}),
             onPositionChange: (position) => {
               if (presentation)
                 onPresentationChange?.(presentation.key, { position });

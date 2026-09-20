@@ -1,7 +1,7 @@
 <script lang="ts">
   import { untrack } from "svelte";
   import type { CommunityAgentTranscriptEntry } from "../../community/agent-contracts.js";
-  import CommunityMessage from "../community-message/CommunityMessage.svelte";
+  import CommunityDiscussionMessage from "../community-discussion-message/CommunityDiscussionMessage.svelte";
   import type { CommunityMemberModel } from "../../community/workspace-model.js";
   import { memberById } from "../../community/workspace-model.js";
   import { useAgentConversation } from "../community-agent-conversation/context.svelte.js";
@@ -62,23 +62,25 @@
   }
 </script>
 
-<CommunityMessage
-  message={model}
-  avatarShape={message.role === "assistant" ? "rounded" : "circle"}
-  author={memberById(
-    [...members, ...(conversation?.members ?? [])],
-    message.authorPubkey,
-  )}
-  members={conversation?.members ?? members}
-  rooms={conversation?.rooms ?? []}
-  {...usable && conversation?.memberId
-    ? {
-        currentMemberId: conversation.memberId,
-        onReply: () => conversation.open(usable.sourceEvent!),
-        onOpenThread: () => conversation.open(usable.sourceEvent!, false),
-        onToggleReaction: react,
-        onAddReaction: react,
-      }
-    : {}}
-/>
+{#if !conversation?.isDeleted( { id: message.sourceEventId ?? "", pubkey: message.authorPubkey }, )}
+  <CommunityDiscussionMessage
+    message={model}
+    avatarShape={message.role === "assistant" ? "rounded" : "circle"}
+    author={memberById(
+      [...members, ...(conversation?.members ?? [])],
+      message.authorPubkey,
+    )}
+    members={conversation?.members ?? members}
+    rooms={conversation?.rooms ?? []}
+    {...usable && conversation?.memberId
+      ? {
+          currentMemberId: conversation.memberId,
+          onReply: () => conversation.open(usable.sourceEvent!),
+          onOpenThread: () => conversation.open(usable.sourceEvent!, false),
+          onToggleReaction: react,
+          onAddReaction: react,
+        }
+      : {}}
+  />
+{/if}
 {#if error}<p role="alert">{error}</p>{/if}

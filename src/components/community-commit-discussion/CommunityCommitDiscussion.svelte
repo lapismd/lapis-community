@@ -1,19 +1,23 @@
 <script lang="ts">
   import type { NostrEvent } from "../../protocol/index.js";
-  import CommunityMessage from "../community-message/CommunityMessage.svelte";
+  import CommunityDiscussionMessage from "../community-discussion-message/CommunityDiscussionMessage.svelte";
   import CommunityChatComposer from "../community-chat-composer/CommunityChatComposer.svelte";
-  import CommunityChip from "../community-chip/CommunityChip.svelte";
+  import CommunityReviewReference from "../community-review-reference/CommunityReviewReference.svelte";
   import { memberById } from "../../community/workspace-model.js";
   import { useAgentConversation } from "../community-agent-conversation/context.svelte.js";
   import {
     conversationMessage,
     eventTag,
   } from "../community-agent-conversation/model.js";
-  import { projectRouteToHash } from "../community-application/project-route.js";
   let {
     comments,
     inThread = false,
-  }: { comments: readonly NostrEvent[]; inThread?: boolean } = $props();
+    commitDescription,
+  }: {
+    comments: readonly NostrEvent[];
+    inThread?: boolean;
+    commitDescription?: string | undefined;
+  } = $props();
   const conversation = useAgentConversation();
   const target = $derived(
     inThread
@@ -50,7 +54,8 @@
 </script>
 
 {#each comments as comment (comment.id)}
-  <CommunityMessage
+  <CommunityDiscussionMessage
+    highlighted={inThread && comment.id === conversation?.replyCommentId}
     message={conversationMessage(
       comment,
       conversation?.events ?? [],
@@ -70,21 +75,9 @@
       : {}}
   >
     {#snippet supplement()}
-      <CommunityChip
-        size="compact"
-        href={projectRouteToHash({
-          kind: "repository",
-          coordinate: eventTag(comment, "a")!,
-          surface: "commits",
-          commitSha: eventTag(comment, "c")!,
-        })}
-      >
-        {eventTag(comment, "file")
-          ? `${eventTag(comment, "file")}:${eventTag(comment, "line")}`
-          : "Commit review"} · {eventTag(comment, "c")?.slice(0, 12)}
-      </CommunityChip>
+      <CommunityReviewReference {comment} description={commitDescription} />
     {/snippet}
-  </CommunityMessage>
+  </CommunityDiscussionMessage>
 {/each}
 {#if target}<CommunityChatComposer
     disabled={busy}
