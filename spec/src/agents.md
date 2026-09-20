@@ -7,7 +7,9 @@ This is included in the LC-UI-049 context acceptance.
 
 Community follows the executable agent protocol audited in `block/buzz`
 commit `cec5c8fd9280d30f56effac701e1e19d5cfe6fea`, and the agent module in
-Lapis Relay. Buzz Desktop 0.5.23 supplied the live layout reference. Agent
+Lapis Relay. Buzz Desktop 0.5.23 supplied the live layout reference. Thread
+composer auto-mention behaviour is audited against Desktop
+`ef2aa1ae38fadcc0bc22b8bf6ed96b35933146be`. Agent
 execution remains in the independently deployed Nostr Agent Controller;
 Community does not start processes, activate models, or own runtime secrets.
 Teams, memories, and turn metrics remain outside this release. Those boundaries
@@ -132,20 +134,21 @@ agents, and decoded windows remain bounded while older pages remain available.
 
 ## Compatibility and screens
 
-| Buzz feature                                | Community behavior                                                                |
-| ------------------------------------------- | --------------------------------------------------------------------------------- |
-| Owned agents, identity, profile, public key | Verified directory and Info profile                                               |
-| Message, Follow / Unfollow                  | Existing encrypted conversation and signed contact-list update                    |
-| Presence and working                        | Independent expiring signals; `turn_finished` completes a live turn               |
-| Channels                                    | Accessible relay-signed memberships and existing permission-gated add/remove      |
-| Private observer activity                   | Continuous signed-in capture and encrypted device history                         |
-| Missed private observer activity            | Owner-only controller catch-up for the visible conversation                       |
-| Add agent                                   | Owner-signed persona creation plus an explicit managed-agent link                 |
-| Persona presentation and prompt             | Name/avatar applied in Community; configured controller refreshes an idle session |
-| Teams, memories, metrics                    | Protocol families supported; UI deferred                                          |
-| Cancel, reset, and runtime permissions      | Owner-only encrypted controller controls                                          |
-| Start, models, and runtime configuration    | Operator-owned; omitted                                                           |
-| Private managed-agent kind 30179            | Rejected by relay; omitted                                                        |
+| Buzz feature                                   | Community behavior                                                                |
+| ---------------------------------------------- | --------------------------------------------------------------------------------- |
+| Owned agents, identity, profile, public key    | Verified directory and Info profile                                               |
+| Message, Follow / Unfollow                     | Existing encrypted conversation and signed contact-list update                    |
+| Presence and working                           | Independent expiring signals; `turn_finished` completes a live turn               |
+| Channels                                       | Accessible relay-signed memberships and existing permission-gated add/remove      |
+| Private observer activity                      | Continuous signed-in capture and encrypted device history                         |
+| Missed private observer activity               | Owner-only controller catch-up for the visible conversation                       |
+| Add agent                                      | Owner-signed persona creation plus an explicit managed-agent link                 |
+| Persona presentation and prompt                | Name/avatar applied in Community; configured controller refreshes an idle session |
+| Teams, memories, metrics                       | Protocol families supported; UI deferred                                          |
+| Automatically mention agents in thread replies | Device-local switch, per-thread pins, `@Agent ` restore, and mention `p` tags     |
+| Cancel, reset, and runtime permissions         | Owner-only encrypted controller controls                                          |
+| Start, models, and runtime configuration       | Operator-owned; omitted                                                           |
+| Private managed-agent kind 30179               | Rejected by relay; omitted                                                        |
 
 Public avatar publication still requires an agent-signed kind `0` event. An
 owner edit instead publishes plaintext persona desired state as kind `30175`.

@@ -22,6 +22,12 @@
   } from "../../community/index.js";
   import CommunityChip from "../community-chip/CommunityChip.svelte";
   import CommunityChatComposer from "../community-chat-composer/CommunityChatComposer.svelte";
+  import type { CommunityComposerAgentModel } from "../community-chat-composer/composer-agent-model.js";
+  import {
+    communityMessageDayLabel,
+    communityMessageStartsDay,
+  } from "./conversation-day.js";
+  import { sendConversationContent } from "./conversation-send.js";
   import CommunityMemberAvatar from "../community-member-avatar/CommunityMemberAvatar.svelte";
   import CommunityMessage from "../community-message/CommunityMessage.svelte";
   import { isMessageContinuation } from "../community-message/grouping.js";
@@ -48,6 +54,7 @@
     members,
     directMember,
     directMemberAvatarShape = "circle",
+    agents = [],
     onSend,
     onReply,
     onOpenThread,
@@ -108,7 +115,11 @@
     members: CommunityMemberModel[];
     directMember?: CommunityMemberModel;
     directMemberAvatarShape?: "circle" | "rounded";
-    onSend?: (content: string) => void | Promise<void>;
+    agents?: readonly CommunityComposerAgentModel[];
+    onSend?: (
+      content: string,
+      mentionPubkeys?: readonly string[],
+    ) => void | Promise<void>;
     onReply?: (messageId: string) => void;
     onOpenThread?: (messageId: string) => void;
     onToggleReaction?: (
@@ -231,53 +242,6 @@
     },
   );
 
-  function messageDay(message: CommunityMessageModel): string {
-    if (message.createdAt === undefined) return "unknown";
-    const date = new Date(message.createdAt);
-    if (!Number.isFinite(date.getTime())) return "unknown";
-    return `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
-  }
-
-  function startsMessageDay(
-    entries: readonly CommunityMessageModel[],
-    index: number,
-  ): boolean {
-    return (
-      index === 0 ||
-      messageDay(entries[index - 1]!) !== messageDay(entries[index]!)
-    );
-  }
-
-  function messageDayLabel(message: CommunityMessageModel): string {
-    if (message.createdAt === undefined) return "Today";
-    const date = new Date(message.createdAt);
-    if (!Number.isFinite(date.getTime())) return "Today";
-    const today = new Date();
-    const dateStart = new Date(
-      date.getFullYear(),
-      date.getMonth(),
-      date.getDate(),
-    );
-    const todayStart = new Date(
-      today.getFullYear(),
-      today.getMonth(),
-      today.getDate(),
-    );
-    const elapsedDays = Math.round(
-      (todayStart.getTime() - dateStart.getTime()) / 86_400_000,
-    );
-    if (elapsedDays === 0) return "Today";
-    if (elapsedDays === 1) return "Yesterday";
-    return new Intl.DateTimeFormat("en", {
-      weekday: "long",
-      month: "long",
-      day: "numeric",
-      ...(date.getFullYear() === today.getFullYear()
-        ? {}
-        : { year: "numeric" }),
-    }).format(date);
-  }
-
   function startEditing(message: CommunityMessageModel): void {
     editingMessageId = message.id;
     draft = message.content;
@@ -292,13 +256,16 @@
     onCancelReply?.();
   }
 
-  async function submitComposer(content: string): Promise<void> {
+  async function submitComposer(
+    content: string,
+    mentionPubkeys: readonly string[] = [],
+  ): Promise<void> {
     if (editingMessageId !== undefined && onSaveMessageEdit !== undefined) {
       await onSaveMessageEdit(editingMessageId, content);
       editingMessageId = undefined;
       return;
     }
-    await onSend?.(content);
+    await sendConversationContent(onSend, content, mentionPubkeys);
   }
 </script>
 
@@ -309,9 +276,9 @@
   data-footer={footer ? "custom" : "composer"}
 >
   {#snippet messageRow(message: CommunityMessageModel, index: number)}
-    {#if startsMessageDay(messages, index)}
+    {#if communityMessageStartsDay(messages, index)}
       <SystemMessage variant="divider">
-        {messageDayLabel(message)}
+        {communityMessageDayLabel(message)}
       </SystemMessage>
     {/if}
     {#snippet supplement()}
@@ -457,6 +424,7 @@
         <CommunityChatComposer
           bind:value={draft}
           {members}
+          {agents}
           rooms={composerRooms}
           {communityEmojis}
           {...currentMemberId === undefined ? {} : { currentMemberId }}
@@ -489,7 +457,8 @@
           {...editingMessageId === undefined && onCancelReply === undefined
             ? {}
             : { onCancelContext: cancelComposerContext }}
-          onSubmit={(submission) => submitComposer(submission.content)}
+          onSubmit={(submission) =>
+            submitComposer(submission.content, submission.mentionPubkeys)}
         />
       {/if}
       <CommunityAgentComposerActivity

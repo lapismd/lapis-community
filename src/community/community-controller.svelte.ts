@@ -23,11 +23,14 @@ import type {
   CommunityPresenceSession,
 } from "./presence-contracts.js";
 import {
-  createNip29ForumCommentTemplate,
   createNip29ForumThreadTemplate,
   type NostrEvent,
   type NostrEventTemplate,
 } from "../protocol/index.js";
+import {
+  createCommunityChannelMessageTemplate,
+  createCommunityReplyTemplate,
+} from "./room-publish-template.js";
 import { isRegistryControlEvent } from "../protocol/registry-control.js";
 import {
   canvasEditingAllowed,
@@ -1254,7 +1257,7 @@ export function createCommunityController(
       inboxUnreadOnly = unreadOnly;
       requestProjection();
     },
-    async sendInboxMessage(content) {
+    async sendInboxMessage(content, mentionPubkeys) {
       const item =
         inbox?.selectedItem ??
         inbox?.items.find((candidate) => candidate.id === inbox?.activeItemId);
@@ -1268,8 +1271,12 @@ export function createCommunityController(
           replyId,
         );
       else if (replyId || item.rootEventId)
-        await actions.sendReply(replyId ?? item.rootEventId!, content);
-      else await actions.sendMessage(item.roomId, content);
+        await actions.sendReply(
+          replyId ?? item.rootEventId!,
+          content,
+          mentionPubkeys,
+        );
+      else await actions.sendMessage(item.roomId, content, mentionPubkeys);
     },
     async loadCanvas(roomId) {
       const scope = activeScope();
@@ -1646,7 +1653,7 @@ export function createCommunityController(
       replyTarget = undefined;
       requestProjection();
     },
-    async sendMessage(roomId, content) {
+    async sendMessage(roomId, content, mentionPubkeys) {
       const operation = `send:${roomId}`;
       const room = roomById(roomId);
       if (room === undefined)
@@ -1656,7 +1663,7 @@ export function createCommunityController(
         room.id === activeRoomId &&
         activeTopicId !== undefined
       ) {
-        await actions.sendReply(activeTopicId, content);
+        await actions.sendReply(activeTopicId, content, mentionPubkeys);
         return;
       }
       if (content.trim() === "")
@@ -1666,14 +1673,17 @@ export function createCommunityController(
           "Write a message before sending",
         );
       assertCanPublish(room.id, operation);
-      await publishTemplate(operation, {
-        kind: 9,
-        created_at: now(),
-        content: content.trim(),
-        tags: [["h", room.groupId]],
-      });
+      await publishTemplate(
+        operation,
+        createCommunityChannelMessageTemplate(
+          room.groupId,
+          content.trim(),
+          now(),
+          mentionPubkeys,
+        ),
+      );
     },
-    async sendReply(rootMessageId, content) {
+    async sendReply(rootMessageId, content, mentionPubkeys) {
       const operation = `reply:${rootMessageId}`;
       if (
         activeRoomModel()?.kind === "direct" &&
@@ -1709,39 +1719,23 @@ export function createCommunityController(
           "Write a reply before sending",
         );
       assertCanPublish(room.id, operation);
-      let template: NostrEventTemplate;
-      if (room.kind === "forum") {
-        const rootId =
-          parent.kind === 11
-            ? parent.id
-            : parent.tags.find((tag) => tag[0] === "E")?.[1];
-        const root =
-          activeEvents().find((event) => event.id === rootId) ?? parent;
-        template = createNip29ForumCommentTemplate(
-          room.groupId,
-          root,
+      const rootId =
+        parent.kind === 11
+          ? parent.id
+          : parent.tags.find((tag) => tag[0] === "E")?.[1];
+      await publishTemplate(
+        operation,
+        createCommunityReplyTemplate({
+          roomKind: room.kind,
+          groupId: room.groupId,
           parent,
-          content.trim(),
-          now(),
-          activeScope().relayUrl,
-        );
-      } else {
-        const rootId =
-          parent.tags.find((tag) => tag[0] === "e" && tag[3] === "root")?.[1] ??
-          parent.id;
-        template = {
-          kind: 9,
-          created_at: now(),
+          root: activeEvents().find((event) => event.id === rootId) ?? parent,
           content: content.trim(),
-          tags: [
-            ["h", room.groupId],
-            ["e", rootId, activeScope().relayUrl, "root"],
-            ["e", parent.id, activeScope().relayUrl, "reply"],
-            ["p", parent.pubkey],
-          ],
-        };
-      }
-      await publishTemplate(operation, template);
+          createdAt: now(),
+          relayUrl: activeScope().relayUrl,
+          mentionPubkeys,
+        }),
+      );
     },
     async createTopic(roomId, draft) {
       const operation = `topic:${roomId}`;

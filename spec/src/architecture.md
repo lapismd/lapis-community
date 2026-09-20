@@ -210,6 +210,10 @@ than twenty counted lines MUST fail as stale. Keytr local development
 storage-relay hosts remain in the recorded auth path budgets.
 Deterministic local project fixtures split jj-sync payload construction from
 relay publication so both modules remain within the same production-file budget.
+Persistent agent mentions extract audience, picker, send-tag, and thread
+composer modules, lowering the `CommunityApplication.svelte`,
+`CommunityChatComposer.svelte`, `CommunityConversation.svelte`, and
+`CommunityThreadPanel.svelte` path budgets in the same change.
 CommunityProjects Overview README fullWidth alignment updates the
 `CommunityProjects.svelte` and `CommunityProjects.stories.svelte` path
 budgets in the same change. Extracting local-fixture addressable-head

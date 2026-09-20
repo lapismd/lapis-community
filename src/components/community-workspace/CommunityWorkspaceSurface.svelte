@@ -14,6 +14,12 @@
   import type { Snippet } from "svelte";
 
   import CommunityConversation from "../community-conversation/CommunityConversation.svelte";
+  import type { CommunityComposerAgentModel } from "../community-chat-composer/composer-agent-model.js";
+  import {
+    sendWorkspaceContent,
+    workspaceDirectMember,
+    workspaceSurfaceRoom,
+  } from "./workspace-direct-member.js";
   import CommunityMemberAvatar from "../community-member-avatar/CommunityMemberAvatar.svelte";
   import type {
     CommunityCustomEmoji,
@@ -25,11 +31,9 @@
   } from "../../community/index.js";
   import ForumTopicList from "../forum-topic-list/ForumTopicList.svelte";
   import CommunityHistoryEdge from "../community-history-edge/CommunityHistoryEdge.svelte";
-  import {
-    findCommunityRoom,
-    type CommunityRoomModel,
-    type CommunityWorkspaceHandlers,
-    type CommunityWorkspaceModel,
+  import type {
+    CommunityWorkspaceHandlers,
+    CommunityWorkspaceModel,
   } from "./model.js";
 
   let {
@@ -56,6 +60,7 @@
     messageSupplement,
     channelActions,
     agentMemberIds = [],
+    agents = [],
   }: {
     model: CommunityWorkspaceModel;
     handlers?: CommunityWorkspaceHandlers;
@@ -83,28 +88,15 @@
     messageSupplement?: Snippet<[import("./model.js").CommunityMessageModel]>;
     channelActions?: Snippet;
     agentMemberIds?: readonly string[];
+    agents?: readonly CommunityComposerAgentModel[];
   } = $props();
 
-  const activeRoom = $derived(
-    findCommunityRoom(model) ??
-      ({
-        id: model.activeRoomId,
-        name: "Community",
-        kind: "channel",
-        description: "Community conversation",
-      } satisfies CommunityRoomModel),
-  );
+  const activeRoom = $derived(workspaceSurfaceRoom(model));
   const rooms = $derived(
     model.navigationSections.flatMap((section) => section.rooms),
   );
   const activeDirectMember = $derived(
-    activeRoom.kind === "direct"
-      ? (activeRoom.participantIds
-          ?.filter((id) => id !== model.currentMemberId)
-          .map((id) => model.members.find((member) => member.id === id))
-          .find((member) => member !== undefined) ??
-          model.members.find((member) => member.name === activeRoom.name))
-      : undefined,
+    workspaceDirectMember(activeRoom, model.members, model.currentMemberId),
   );
   const agentMemberIdSet = $derived(new Set(agentMemberIds));
   const activeDirectMemberShape = $derived(
@@ -247,8 +239,14 @@
     ...(knownNonmember
       ? {}
       : {
-          onSend: (content: string) =>
-            handlers.onSendMessage?.(activeRoom.id, content),
+          agents,
+          onSend: (content: string, mentionPubkeys?: readonly string[]) =>
+            sendWorkspaceContent(
+              handlers.onSendMessage,
+              activeRoom.id,
+              content,
+              mentionPubkeys,
+            ),
         }),
     ...(knownNonmember || handlers.onReply === undefined
       ? {}

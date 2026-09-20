@@ -1299,8 +1299,8 @@
       "justification": "Existing file above the new-file counted-line limit; do not grow"
     },
     "src/components/community-application/CommunityApplication.svelte": {
-      "countedLines": 9187,
-      "physicalLines": 9546,
+      "countedLines": 9147,
+      "physicalLines": 9505,
       "forbiddenImportCount": 0,
       "kind": "legacy",
       "justification": "Application composition root; extract destination hosts before adding behaviour"
@@ -1531,8 +1531,8 @@
       "justification": "Existing file above the new-file counted-line limit; do not grow"
     },
     "src/components/community-chat-composer/CommunityChatComposer.svelte": {
-      "countedLines": 1727,
-      "physicalLines": 1846,
+      "countedLines": 1695,
+      "physicalLines": 1803,
       "forbiddenImportCount": 0,
       "kind": "legacy",
       "justification": "Existing file above the new-file counted-line limit; do not grow"
@@ -1652,8 +1652,8 @@
       "justification": "Existing file above the new-file counted-line limit; do not grow"
     },
     "src/components/community-conversation/CommunityConversation.svelte": {
-      "countedLines": 707,
-      "physicalLines": 752,
+      "countedLines": 679,
+      "physicalLines": 721,
       "forbiddenImportCount": 0,
       "kind": "legacy",
       "justification": "Existing file above the new-file counted-line limit; do not grow"
@@ -2993,8 +2993,8 @@
       "forbiddenImportCount": 0
     },
     "src/components/community-thread-panel/CommunityThreadPanel.svelte": {
-      "countedLines": 386,
-      "physicalLines": 406,
+      "countedLines": 355,
+      "physicalLines": 373,
       "forbiddenImportCount": 0,
       "kind": "legacy",
       "justification": "Existing file above the new-file counted-line limit; do not grow"

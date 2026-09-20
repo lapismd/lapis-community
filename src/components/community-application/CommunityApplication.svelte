@@ -1,5 +1,7 @@
 <script lang="ts">
   import { createMessageReactionAction } from "./message-reaction-action.js";
+  import { createCommunityApplicationSend } from "./application-send.js";
+  import { communityComposerAgentsFromState } from "../community-chat-composer/composer-agent-model.js";
   import {
     repositorySurfaceLocation,
     reviewCommitLocation,
@@ -1036,9 +1038,10 @@
       workspace.currentMemberId,
     ),
   );
-  const agentMemberIds = $derived(
-    community.state.agents?.agents.map((agent) => agent.pubkey) ?? [],
+  const composerAgents = $derived(
+    communityComposerAgentsFromState(community.state.agents),
   );
+  const agentMemberIds = $derived(composerAgents.map((agent) => agent.pubkey));
   const activeDirectMemberIsAgent = $derived(
     activeDirectMember !== undefined &&
       agentMemberIds.includes(activeDirectMember.id),
@@ -5174,37 +5177,27 @@
     }
   }
 
-  async function sendThreadReply(
-    rootMessageId: string,
-    content: string,
-  ): Promise<void> {
-    try {
-      const replyTargetId =
-        activePanel.kind === "thread"
-          ? (activePanel.replyTargetId ?? rootMessageId)
-          : rootMessageId;
-      await runParticipationAction(
-        activePanel.kind === "thread" ? activePanel.roomId : activeRoom.id,
-        "reply",
-        () => community.actions.sendReply(replyTargetId, content),
-      );
-      if (activePanel.kind === "thread") {
-        openPanel({
-          kind: "thread",
-          roomId: activePanel.roomId,
-          rootMessageId: activePanel.rootMessageId,
-        });
-      } else {
-        community.actions.clearReplyTarget();
-      }
-      lastAction = "sent-reply";
-    } catch (cause) {
-      toast.error(
-        cause instanceof Error ? cause.message : "Reply could not be sent",
-      );
-      throw cause;
-    }
-  }
+  const participationSend = createCommunityApplicationSend({
+    sendReply: (rootMessageId, content, mentionPubkeys) =>
+      community.actions.sendReply(rootMessageId, content, mentionPubkeys),
+    sendMessage: (roomId, content, mentionPubkeys) =>
+      community.actions.sendMessage(roomId, content, mentionPubkeys),
+    sendDirectMessage: (recipients, content, replyToEventId) =>
+      community.actions.sendDirectMessage(recipients, content, replyToEventId),
+    clearReplyTarget: () => community.actions.clearReplyTarget(),
+    replyTarget: () => community.state.replyTarget,
+    activePanel: () => activePanel,
+    activeRoom: () => activeRoom,
+    workspace: () => workspace,
+    runParticipationAction,
+    openPanel,
+    setLastAction: (action) => {
+      lastAction = action;
+    },
+    error: (message) => toast.error(message),
+  });
+  const sendThreadReply = participationSend.sendThreadReply;
+  const sendWorkspaceMessage = participationSend.sendWorkspaceMessage;
 
   async function sendNewDirectMessage(
     content: string,
@@ -5257,44 +5250,6 @@
     shell.right.close();
     openPanel(noCommunityApplicationPanel());
     lastAction = "closed-side-panel";
-  }
-
-  async function sendWorkspaceMessage(
-    roomId: string,
-    content: string,
-  ): Promise<void> {
-    try {
-      await runParticipationAction(roomId, "message", async () => {
-        if (
-          activeRoom.kind === "direct" &&
-          activeRoom.conversation?.transport !== "buzz-dm"
-        ) {
-          const recipients =
-            activeRoom.participantIds?.filter(
-              (key) => key !== workspace.currentMemberId,
-            ) ?? roomId.replace(/^dm:/u, "").split(",").filter(Boolean);
-          await community.actions.sendDirectMessage(
-            recipients,
-            content,
-            community.state.replyTarget?.eventId,
-          );
-        } else if (community.state.replyTarget) {
-          await community.actions.sendReply(
-            community.state.replyTarget.eventId,
-            content,
-          );
-        } else {
-          await community.actions.sendMessage(roomId, content);
-        }
-      });
-      community.actions.clearReplyTarget();
-      lastAction = "sent-message";
-    } catch (cause) {
-      toast.error(
-        cause instanceof Error ? cause.message : "Message could not be sent",
-      );
-      throw cause;
-    }
   }
 
   async function reconnect(): Promise<void> {
@@ -5493,6 +5448,8 @@
     activePanel.kind === "thread"
       ? {}
       : { replyTarget: community.state.replyTarget }),
+    agents: composerAgents,
+    agentMemberIds,
   });
 
   // Inbox uses the same memoized prop boundary as channel surfaces.
@@ -7844,7 +7801,6 @@
                 virtualize
                 {...workspaceSurfaceOptions}
                 model={workspaceSurfaceModel}
-                {agentMemberIds}
                 historyLoading={activeRoomHistoryLoading}
                 historyUpdating={community.state.contentSync?.phase ===
                   "background" ||
@@ -8258,6 +8214,7 @@
                 }}
                 activityContext={activityOrigin()}
                 members={workspace.members}
+                agents={composerAgents}
                 rooms={presentationRooms}
                 disabled={participationReadOnly}
                 disabledReason={participationReadOnlyReason}

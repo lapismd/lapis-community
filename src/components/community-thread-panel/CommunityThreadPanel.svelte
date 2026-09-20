@@ -3,12 +3,10 @@
   import { createThreadDraft } from "./thread-draft.svelte.js";
   import { focusReply } from "./focus-reply.js";
   import { observeReadEnd } from "../community-workspace/observe-read-end.js";
-  import CommunityAgentComposerActivity from "../community-agent-composer-activity/CommunityAgentComposerActivity.svelte";
   import {
     Layout,
     LayoutScrollButton,
     MessageList,
-    type ComposerStatus,
   } from "@lapismd/design-core/ai/chat";
   import type {
     CommunityCustomEmoji,
@@ -18,7 +16,7 @@
     CommunityTimelinePresentation,
     CommunityTimelinePosition,
   } from "../../community/index.js";
-  import CommunityChatComposer from "../community-chat-composer/CommunityChatComposer.svelte";
+  import CommunityThreadPanelComposer from "./CommunityThreadPanelComposer.svelte";
   import CommunityMessage from "../community-message/CommunityMessage.svelte";
   import { isMessageContinuation } from "../community-message/grouping.js";
   import {
@@ -29,6 +27,7 @@
   } from "../community-workspace/model.js";
 
   import type { ThreadPanelProps } from "./props.js";
+  import type { CommunityComposerAgentModel } from "../community-chat-composer/composer-agent-model.js";
   import { useAgentConversation } from "../community-agent-conversation/context.svelte.js";
   let {
     activityContext,
@@ -42,6 +41,7 @@
     thread,
     members,
     rooms = [],
+    agents = [],
     onSendReply,
     onToggleReaction,
     onAddReaction,
@@ -69,7 +69,9 @@
     onDismissComposerStatus,
     currentMemberId,
     canDeleteAny = false,
-  }: ThreadPanelProps = $props();
+  }: ThreadPanelProps & {
+    agents?: readonly CommunityComposerAgentModel[];
+  } = $props();
 
   const conversationKey = $derived(
     presentation?.key ??
@@ -113,7 +115,6 @@
       ? undefined
       : memberById(members, rootMessage.authorId),
   );
-
   function startEditing(messageId: string): void {
     const message = thread.messages.find(
       (candidate) => candidate.id === messageId,
@@ -121,24 +122,6 @@
     if (message === undefined) return;
     editingMessageId = message.id;
     draft.value = message.content;
-  }
-
-  function cancelComposerContext(): void {
-    if (editingMessageId !== undefined) {
-      editingMessageId = undefined;
-      draft.value = "";
-      return;
-    }
-    onCancelReply?.();
-  }
-
-  async function submitComposer(content: string): Promise<void> {
-    if (editingMessageId !== undefined && onSaveMessageEdit !== undefined) {
-      await onSaveMessageEdit(editingMessageId, content);
-      editingMessageId = undefined;
-      return;
-    }
-    await onSendReply?.(thread.rootMessageId, content);
   }
 </script>
 
@@ -226,48 +209,31 @@
       />
     {/snippet}
     {#snippet composer()}
-      <CommunityChatComposer
+      <CommunityThreadPanelComposer
         bind:value={draft.value}
+        bind:editingMessageId
         {members}
         {rooms}
+        {agents}
+        {currentMemberId}
+        rootMessageId={thread.rootMessageId}
+        {rootMessage}
+        rootAuthorName={rootAuthor?.name}
+        {replyTarget}
         {communityEmojis}
-        {...currentMemberId === undefined ? {} : { currentMemberId }}
-        {...onOpenProfile === undefined ? {} : { onOpenMember: onOpenProfile }}
-        {...onMessageMember === undefined ? {} : { onMessageMember }}
-        {...onWaveMember === undefined ? {} : { onWaveMember }}
-        {...editingMessageId !== undefined
-          ? {
-              context: {
-                kind: "edit" as const,
-                id: editingMessageId,
-                label: "Editing message",
-              },
-            }
-          : replyTarget === undefined
-            ? {}
-            : { context: { kind: "reply" as const, target: replyTarget } }}
+        {activityContext}
         {disabled}
         {disabledReason}
-        ariaLabel="Thread reply composer"
-        submitLabel="Send reply"
-        placeholder={rootAuthor === undefined
-          ? "Reply to thread"
-          : `Reply in thread to ${rootAuthor.name}`}
-        {...composerStatus === undefined ? {} : { composerStatus }}
-        {...onRetryComposerStatus === undefined
-          ? {}
-          : { onRetryComposerStatus }}
-        {...onDismissComposerStatus === undefined
-          ? {}
-          : { onDismissComposerStatus }}
-        {...editingMessageId === undefined && onCancelReply === undefined
-          ? {}
-          : { onCancelContext: cancelComposerContext }}
-        onSubmit={(submission) => submitComposer(submission.content)}
+        {composerStatus}
+        {onSendReply}
+        {onSaveMessageEdit}
+        {onCancelReply}
+        {onOpenProfile}
+        {onMessageMember}
+        {onWaveMember}
+        {onRetryComposerStatus}
+        {onDismissComposerStatus}
       />
-      {#if activityContext}<CommunityAgentComposerActivity
-          context={activityContext}
-        />{/if}
     {/snippet}
 
     <MessageList

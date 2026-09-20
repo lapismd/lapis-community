@@ -16,6 +16,7 @@ import type {
   CommunityAgentsState,
   CommunityAgentsActions,
 } from "./agent-contracts.js";
+import type { CommunitySendActions } from "./send-contracts.js";
 
 export type CommunityConnectionStatus =
   | "idle"
@@ -790,7 +791,7 @@ export interface CommunityHistoryTarget {
   scopeId?: string;
 }
 
-export interface CommunityControllerActions {
+export interface CommunityControllerActions extends CommunitySendActions {
   updateTimelinePresentation?(
     key: string,
     update: { draft?: string; position?: CommunityTimelinePosition },
@@ -809,7 +810,6 @@ export interface CommunityControllerActions {
     filter: import("./inbox-model.js").CommunityInboxFilter,
     unreadOnly: boolean,
   ): void;
-  sendInboxMessage?(content: string): Promise<void>;
   loadCanvas?(roomId: string): Promise<void>;
   saveCanvas?(
     roomId: string,
@@ -827,8 +827,6 @@ export interface CommunityControllerActions {
   closeSidePanel(): void;
   openDetails(): void;
   openDirectMessage(participants: readonly string[]): void;
-  sendMessage(roomId: string, content: string): Promise<void>;
-  sendReply(rootMessageId: string, content: string): Promise<void>;
   createTopic(
     roomId: string,
     draft: string | CommunityTopicDraft,

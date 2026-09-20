@@ -1,5 +1,6 @@
 import type { NostrEvent } from "../protocol/index.js";
 import type { CommunityConversationReference } from "./conversations.js";
+import type { CommunityWorkspaceSendHandlers } from "./send-contracts.js";
 
 export type CommunityRoomKind = "channel" | "forum" | "direct";
 export type CommunityPresence = "online" | "away" | "offline";
@@ -184,7 +185,8 @@ export interface CommunityWorkspaceModel {
   sidePanel?: CommunitySidePanel;
 }
 
-export interface CommunityWorkspaceHandlers {
+export interface CommunityWorkspaceHandlers
+  extends CommunityWorkspaceSendHandlers {
   onSelectCommunity?: (communityId: string) => void;
   onSelectRoom?: (roomId: string) => void;
   onReadRoom?: (
@@ -196,11 +198,6 @@ export interface CommunityWorkspaceHandlers {
   onOpenThread?: (messageId: string) => void;
   onCloseSidePanel?: () => void;
   onOpenDetails?: () => void;
-  onSendMessage?: (roomId: string, content: string) => void | Promise<void>;
-  onSendReply?: (
-    rootMessageId: string,
-    content: string,
-  ) => void | Promise<void>;
   onToggleReaction?: (
     messageId: string,
     emoji: string,

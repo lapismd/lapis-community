@@ -1,5 +1,4 @@
 <script lang="ts">
-  import CommunityProjectChannelIcon from "../community-project-channel-icon/CommunityProjectChannelIcon.svelte";
   import { serializeCommunityMentions } from "./model.js";
   import { DialogFrame } from "@lapismd/design-core/forms/dialog";
   import "@lapismd/mira/styles.css";
@@ -23,7 +22,6 @@
   import CodeIcon from "@lucide/svelte/icons/code";
   import EyeOffIcon from "@lucide/svelte/icons/eye-off";
   import FileTextIcon from "@lucide/svelte/icons/file-text";
-  import HashIcon from "@lucide/svelte/icons/hash";
   import ItalicIcon from "@lucide/svelte/icons/italic";
   import LinkIcon from "@lucide/svelte/icons/link";
   import ListIcon from "@lucide/svelte/icons/list";
@@ -34,7 +32,6 @@
   import QuoteIcon from "@lucide/svelte/icons/quote";
   import RotateCcwIcon from "@lucide/svelte/icons/rotate-ccw";
   import SendIcon from "@lucide/svelte/icons/send";
-  import SmileIcon from "@lucide/svelte/icons/smile";
   import SquareCodeIcon from "@lucide/svelte/icons/square-code";
   import StrikethroughIcon from "@lucide/svelte/icons/strikethrough";
   import Trash2Icon from "@lucide/svelte/icons/trash-2";
@@ -48,13 +45,14 @@
     CommunityMemberModel,
     CommunityRoomModel,
   } from "../community-workspace/model.js";
+  import CommunityComposerAgentAddress from "../community-composer-agent-address/CommunityComposerAgentAddress.svelte";
+  import CommunityComposerMentionPicker from "../community-composer-mention-picker/CommunityComposerMentionPicker.svelte";
   import CommunityEmojiPicker from "../community-emoji-picker/CommunityEmojiPicker.svelte";
   import CommunityMemberAvatar from "../community-member-avatar/CommunityMemberAvatar.svelte";
   import CommunityReplyContext from "../community-reply-context/CommunityReplyContext.svelte";
   import "../community-composer-status.css";
   import {
     communityEmojiAutocompleteItems,
-    communityMemberAutocompleteItems,
     communityRoomAutocompleteItems,
     detectCommunityComposerAutocomplete,
     type CommunityComposerAutocompleteItem,
@@ -77,6 +75,18 @@
     type CommunityComposerSubmission,
     type CommunityMessageMediaAdapter,
   } from "./model.js";
+  import { communityMentionAutocompleteItems } from "./agent-mention-candidates.js";
+  import {
+    applyAgentMentionChange,
+    communityComposerMentionMembers,
+    createComposerAgentAudience,
+    restoreComposerDraftAfterSend,
+    syncComposerAgentAudienceDraft,
+  } from "./composer-agent-audience.js";
+  import type {
+    CommunityComposerAgentModel,
+    CommunityComposerAudienceScope,
+  } from "./composer-agent-model.js";
 
   let {
     value = $bindable(""),
@@ -84,6 +94,9 @@
     placeholder = "Message the community",
     members = [],
     rooms = [],
+    agents = [],
+    audience,
+    initialAgentPubkeys = [],
     communityEmojis = [],
     currentMemberId,
     context,
@@ -118,6 +131,9 @@
     placeholder?: string;
     members?: readonly CommunityMemberModel[];
     rooms?: readonly CommunityRoomModel[];
+    agents?: readonly CommunityComposerAgentModel[];
+    audience?: CommunityComposerAudienceScope | undefined;
+    initialAgentPubkeys?: readonly string[];
     communityEmojis?: readonly CommunityCustomEmoji[];
     currentMemberId?: string;
     context?: CommunityComposerContext;
@@ -172,6 +188,9 @@
   let autocompleteSelectedIndex = $state(0);
   let autocompletePlacement = $state<"above" | "below">("above");
   let autocompleteGeneration = 0;
+  let submittingMentions = $state(false);
+  let audienceHydrationKey = $state("");
+  let audienceEpoch = $state(0);
   let retryStatusPending = $state(false);
   let draftReady = $state(
     untrack(() => draftStore === undefined || draftKey === undefined),
@@ -180,10 +199,30 @@
   const attachmentFiles = new Map<string, File>();
   const attachmentControllers = new Map<string, AbortController>();
 
+  const mentionMembers = $derived(
+    communityComposerMentionMembers(members, agents),
+  );
+  const agentAudience = createComposerAgentAudience({
+    agents: () => agents,
+    members: () => mentionMembers,
+    audience: () => audience,
+    initialAgentPubkeys: () => initialAgentPubkeys,
+    context: () => context,
+    submitting: () => submittingMentions,
+  });
+  const audienceView = $derived.by(() => {
+    audienceEpoch;
+    return {
+      addressedAgents: agentAudience.addressedMembers(),
+      autoMentionEnabled: agentAudience.enabled(),
+      lockedAgentPubkeys: agentAudience.audiencePubkeys(),
+    };
+  });
+  const mentionButtonAgent = $derived(audienceView.addressedAgents[0]);
   const hasSelection = $derived(selectionTo > selectionFrom);
   const tokenModelSignature = $derived(
     [
-      ...members.map((member) => `member:${member.id}:${member.name}`),
+      ...mentionMembers.map((member) => `member:${member.id}:${member.name}`),
       ...rooms.map(
         (room) =>
           `room:${room.id}:${room.name}:${room.kind}:${room.archived === true}`,
@@ -217,7 +256,7 @@
   );
 
   const composerExtension = createCommunityComposerExtension({
-    members: () => members,
+    members: () => mentionMembers,
     rooms: () => rooms,
     emojis: () => communityEmojis,
     disabled: () => disabled || busy || (showSubmitButton && !onSubmit),
@@ -301,10 +340,30 @@
     const reposition = () => scheduleAutocompletePlacement();
     window.addEventListener("resize", reposition);
     window.addEventListener("scroll", reposition, true);
+    const unsubscribe = agentAudience.subscribe(() => {
+      audienceEpoch += 1;
+    });
     return () => {
+      unsubscribe();
       window.removeEventListener("resize", reposition);
       window.removeEventListener("scroll", reposition, true);
     };
+  });
+
+  $effect(() => {
+    if (!draftReady || submittingMentions) return;
+    audienceEpoch;
+    const next = syncComposerAgentAudienceDraft(
+      agentAudience,
+      value,
+      audienceHydrationKey,
+      selectedMentionPubkeys,
+    );
+    audienceHydrationKey = next.key;
+    if (next.value !== undefined) {
+      value = next.value;
+      selectedMentionPubkeys = next.mentionPubkeys;
+    }
   });
 
   $effect(() => {
@@ -321,7 +380,7 @@
           ? detectCommunityComposerAutocomplete(
               editorValue,
               selection.head,
-              members,
+              mentionMembers,
             )
           : null,
       );
@@ -379,9 +438,12 @@
       return;
     }
     if (query.kind === "member") {
-      autocompleteItems = communityMemberAutocompleteItems(
-        members,
+      autocompleteItems = communityMentionAutocompleteItems(
+        mentionMembers,
+        agents,
         query.query,
+        currentMemberId,
+        audience?.channelId,
       );
       scheduleAutocompletePlacement();
       return;
@@ -724,17 +786,18 @@
     submitError = "";
     const references = resolveCommunityComposerReferences(
       value,
-      members,
+      mentionMembers,
       rooms,
       selectedMentionPubkeys,
       selectedChannelIds,
       currentMemberId,
     );
+    submittingMentions = true;
     try {
       await onSubmit({
         content: serializeCommunityMentions(
           value.trim(),
-          members,
+          mentionMembers,
           references.mentionPubkeys,
         ),
         mentionPubkeys: references.mentionPubkeys,
@@ -745,16 +808,24 @@
         ...(context === undefined ? {} : { context }),
       });
       for (const attachment of attachments) revokePreview(attachment);
-      value = "";
       attachments = [];
       attachmentFiles.clear();
       attachmentControllers.clear();
-      selectedMentionPubkeys = [];
       selectedChannelIds = [];
+      const restored = restoreComposerDraftAfterSend(
+        audience !== undefined,
+        agentAudience,
+        references.mentionPubkeys,
+        agents,
+      );
+      value = restored.value;
+      selectedMentionPubkeys = restored.mentionPubkeys;
       if (draftStore && draftKey) await draftStore.remove(draftKey);
     } catch (cause) {
       submitError =
         cause instanceof Error ? cause.message : "Message could not be sent";
+    } finally {
+      submittingMentions = false;
     }
   }
 
@@ -776,6 +847,35 @@
     if (submitError) submitError = "";
     onDismissComposerStatus?.();
   }
+
+  function toggleAlwaysAddress(pubkey: string): void {
+    const before = new Set(agentAudience.audiencePubkeys());
+    agentAudience.toggleAlwaysAddress(pubkey);
+    const key = pubkey.trim().toLowerCase();
+    const locked = new Set(agentAudience.audiencePubkeys());
+    value = applyAgentMentionChange(
+      value,
+      pubkey,
+      locked.has(key) && !before.has(key),
+      agentAudience.displayName,
+    );
+    selectedMentionPubkeys = locked.has(key)
+      ? addUnique(selectedMentionPubkeys, pubkey)
+      : selectedMentionPubkeys.filter((id) => id !== pubkey);
+  }
+
+  function dismissAddressedAgent(pubkey: string): void {
+    agentAudience.dismiss(pubkey);
+    value = applyAgentMentionChange(
+      value,
+      pubkey,
+      false,
+      agentAudience.displayName,
+    );
+    selectedMentionPubkeys = selectedMentionPubkeys.filter(
+      (id) => id !== pubkey,
+    );
+  }
 </script>
 
 <div
@@ -790,76 +890,20 @@
   ondrop={handleDrop}
 >
   {#if autocompleteQuery && autocompleteItems.length}
-    <div
-      class="community-chat-composer__autocomplete-layer"
-      data-ui-part="composer-autocomplete-layer"
-      data-kind={autocompleteQuery.kind}
-      data-placement={autocompletePlacement}
-    >
-      <ScrollArea
-        bind:ref={autocompleteList}
-        class="community-chat-composer__autocomplete"
-        orientation="vertical"
-        onpointerdown={(event) => event.preventDefault()}
-      >
-        <div
-          class="community-chat-composer__autocomplete-options"
-          role="listbox"
-          tabindex="-1"
-          aria-label={`${autocompleteQuery.kind === "member" ? "People" : autocompleteQuery.kind === "room" ? "Channels" : "Emoji"} suggestions`}
-        >
-          {#each autocompleteItems as item, index (item.id)}
-            <button
-              type="button"
-              role="option"
-              aria-selected={index === autocompleteSelectedIndex}
-              tabindex="-1"
-              class:community-chat-composer__autocomplete-option--selected={index ===
-                autocompleteSelectedIndex}
-              class="community-chat-composer__autocomplete-option"
-              onclick={() => selectAutocomplete(index)}
-            >
-              <span class="community-chat-composer__autocomplete-icon">
-                {#if item.member}
-                  <CommunityMemberAvatar
-                    member={item.member}
-                    size="small"
-                    decorative
-                  />
-                {:else if item.room}
-                  {#if item.room.kind === "channel" && item.room.isProjectChannel}
-                    <CommunityProjectChannelIcon />
-                  {:else}
-                    <HashIcon aria-hidden="true" />
-                  {/if}
-                {:else if item.customEmoji}
-                  <img
-                    src={item.customEmoji.url}
-                    alt={`:${item.customEmoji.shortcode}:`}
-                  />
-                {:else if item.native}
-                  <span aria-hidden="true">{item.native}</span>
-                {:else}
-                  <SmileIcon aria-hidden="true" />
-                {/if}
-              </span>
-              <span class="community-chat-composer__autocomplete-copy">
-                <strong
-                  >{item.kind === "member"
-                    ? `@${item.label}`
-                    : item.kind === "room"
-                      ? `#${item.label}`
-                      : `:${item.label}:`}</strong
-                >
-                {#if item.detail}
-                  <small>{item.detail}</small>
-                {/if}
-              </span>
-            </button>
-          {/each}
-        </div>
-      </ScrollArea>
-    </div>
+    <CommunityComposerMentionPicker
+      query={autocompleteQuery}
+      items={autocompleteItems}
+      selectedIndex={autocompleteSelectedIndex}
+      placement={autocompletePlacement}
+      showAutoMention={autocompleteQuery.kind === "member" &&
+        audience !== undefined}
+      autoMentionEnabled={audienceView.autoMentionEnabled}
+      lockedAgentPubkeys={audienceView.lockedAgentPubkeys}
+      bind:listRef={autocompleteList}
+      onSelect={selectAutocomplete}
+      onAutoMentionChange={(enabled) => agentAudience.setEnabled(enabled)}
+      onToggleAlwaysAddress={toggleAlwaysAddress}
+    />
   {/if}
 
   <Composer
@@ -957,6 +1001,12 @@
     {/snippet}
 
     {#snippet input()}
+      {#if audienceView.addressedAgents.length && audienceView.autoMentionEnabled}
+        <CommunityComposerAgentAddress
+          members={audienceView.addressedAgents}
+          onDismiss={dismissAddressedAgent}
+        />
+      {/if}
       {#if attachments.length}
         <div
           class="community-chat-composer__attachments"
@@ -1214,8 +1264,17 @@
             aria-label="Mention someone"
             disabled={disabled || busy}
             onclick={insertReferencePrefix}
-            ><AtSignIcon aria-hidden="true" /></Button
           >
+            {#if mentionButtonAgent}
+              <CommunityMemberAvatar
+                member={mentionButtonAgent}
+                size="small"
+                decorative
+              />
+            {:else}
+              <AtSignIcon aria-hidden="true" />
+            {/if}
+          </Button>
           {#if mediaAdapter}
             <Button
               type="button"
@@ -1334,112 +1393,6 @@
     --ui-ai-chat-composer-radius: 0.75rem;
     --ui-ai-chat-composer-padding: 0.65rem;
     width: 100%;
-  }
-
-  .community-chat-composer__autocomplete-layer {
-    position: absolute;
-    z-index: 50;
-    right: 0;
-    bottom: calc(100% + 0.4rem);
-    left: 0;
-    padding-inline: 0.2rem;
-  }
-
-  .community-chat-composer__autocomplete-layer[data-placement="below"] {
-    top: calc(100% + 0.4rem);
-    bottom: auto;
-  }
-
-  :global(
-      .community-chat-composer__autocomplete[data-ui-component="scroll-area"]
-    ) {
-    max-height: 12rem;
-    border: 1px solid color-mix(in srgb, var(--border) 72%, transparent);
-    border-radius: 0.75rem;
-    background: var(--popover);
-    box-shadow:
-      0 14px 36px color-mix(in srgb, var(--foreground) 16%, transparent),
-      0 1px 2px color-mix(in srgb, var(--foreground) 8%, transparent);
-  }
-
-  :global(
-      .community-chat-composer__autocomplete
-        > [data-ui-part="scroll-area-viewport"]
-    ) {
-    max-height: 12rem;
-  }
-
-  .community-chat-composer__autocomplete-options {
-    display: grid;
-    gap: 0.125rem;
-    padding: 0.25rem;
-  }
-
-  .community-chat-composer__autocomplete-option {
-    display: flex;
-    width: 100%;
-    min-height: 2.65rem;
-    align-items: center;
-    gap: 0.65rem;
-    padding: 0.35rem 0.65rem;
-    border: 0;
-    border-radius: 0.55rem;
-    background: transparent;
-    color: var(--popover-foreground);
-    font: inherit;
-    text-align: start;
-    cursor: pointer;
-  }
-
-  .community-chat-composer__autocomplete-option:hover,
-  .community-chat-composer__autocomplete-option--selected {
-    background: var(--accent);
-    color: var(--accent-foreground);
-  }
-
-  .community-chat-composer__autocomplete-icon {
-    display: grid;
-    width: 2rem;
-    height: 2rem;
-    flex: 0 0 auto;
-    place-items: center;
-    border-radius: 50%;
-    background: color-mix(in srgb, var(--muted) 72%, transparent);
-    font-size: var(--community-text-dialog);
-  }
-
-  .community-chat-composer__autocomplete-icon :global(svg) {
-    width: 1rem;
-    height: 1rem;
-  }
-
-  .community-chat-composer__autocomplete-icon > img {
-    width: 1.35rem;
-    height: 1.35rem;
-    object-fit: contain;
-  }
-
-  .community-chat-composer__autocomplete-copy {
-    display: grid;
-    min-width: 0;
-    gap: 0.08rem;
-  }
-
-  .community-chat-composer__autocomplete-copy strong,
-  .community-chat-composer__autocomplete-copy small {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .community-chat-composer__autocomplete-copy strong {
-    font-size: var(--community-text-secondary);
-    font-weight: 620;
-  }
-
-  .community-chat-composer__autocomplete-copy small {
-    color: var(--muted-foreground);
-    font-size: var(--community-text-secondary);
   }
 
   .community-chat-composer__context {
