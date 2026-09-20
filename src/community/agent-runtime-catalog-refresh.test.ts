@@ -41,4 +41,20 @@ describe("runtimeCatalogNeedsRefresh", () => {
       }),
     ).toBe(true);
   });
+
+  it("refreshes the selected harness when that catalog is still empty", () => {
+    expect(runtimeCatalogNeedsRefresh(runtime, "codex")).toBe(false);
+    expect(
+      runtimeCatalogNeedsRefresh(
+        {
+          ...runtime,
+          runtimeAgents: [
+            ...runtime.runtimeAgents,
+            { id: "cursor", label: "Cursor" },
+          ],
+        },
+        "cursor",
+      ),
+    ).toBe(true);
+  });
 });

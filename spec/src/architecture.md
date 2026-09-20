@@ -32,7 +32,7 @@ defaults for future sessions. Per-harness catalog parsing and editor selection
 live in dedicated runtime-catalog modules so the agent contract and observer
 parser budgets can drop after extraction. The editor model field owns the
 empty and loading catalog menu so the shared dialog budget can drop after
-that extraction. Empty-catalog refresh, last-known Start/Stop labels, and
+that extraction. Empty-catalog refresh, selected-harness catalog refresh, last-known Start/Stop labels, and
 editor runtime default rows live in dedicated modules so the shared dialog,
 directory, and application budgets do not grow. Workspace paths, process lifecycle,
 and NIP-46 credentials remain operator-owned controller configuration. Channel

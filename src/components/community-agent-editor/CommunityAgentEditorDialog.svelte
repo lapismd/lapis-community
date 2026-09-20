@@ -23,6 +23,7 @@
   import { editorRuntimeDraft } from "../../community/agent-editor-runtime.js";
   import { editorRuntimeDefaultRows } from "../../community/agent-editor-runtime-defaults.js";
   import { editorConfiguredRuntimeLabels } from "../../community/agent-editor-runtime-labels.js";
+  import { editorPersonaSelection } from "../../community/agent-editor-persona-selection.js";
   import { personaSlugFromName } from "../../community/agent-persona-slug.js";
   import {
     resolveRuntimeCatalog,
@@ -200,6 +201,7 @@
 
   $effect(() => {
     const pubkey = open && agent ? agent.pubkey : "";
+    const selected = runtimeAgent;
     const cached = runtime;
     const load = onLoadRuntime;
     untrack(() => {
@@ -207,12 +209,13 @@
         open,
         pubkey,
         runtime: cached,
+        runtimeAgent: selected,
         requestedKey: runtimeRefreshKey,
         load,
       });
       runtimeRefreshKey = next.requestedKey;
       void next.task?.catch((cause) => {
-        if (runtimeRefreshKey !== pubkey) return;
+        if (pubkey && !runtimeRefreshKey.startsWith(pubkey)) return;
         error =
           cause instanceof Error ? cause.message : "Could not load runtime";
       });
@@ -221,21 +224,13 @@
 
   function selectPersona(value: string): void {
     personaSelection = value;
-    const selected = personas.find((persona) => persona.slug === value);
-    if (selected) {
-      personaName = selected.displayName;
-      personaDescription = selected.description;
-      personaAvatar = selected.avatarUrl ?? "";
-      personaPrompt = selected.systemPrompt ?? "";
-      personaSlug = selected.slug;
-      return;
-    }
-    if (!agent) return;
-    personaName = agent.name;
-    personaDescription = agent.about;
-    personaAvatar = agent.avatarUrl ?? "";
-    personaPrompt = "";
-    personaSlug = agent.instance?.personaId ?? personaSlugFromName(agent.name);
+    ({
+      personaName,
+      personaDescription,
+      personaAvatar,
+      personaPrompt,
+      personaSlug,
+    } = editorPersonaSelection(value, personas, agent, personaSlug));
   }
 
   async function save(): Promise<void> {
