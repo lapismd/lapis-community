@@ -428,7 +428,6 @@
               member={activeDirectMember}
               size="large"
               showPresence
-              shape={activeDirectMemberShape}
               decorative
             />
           </button>
@@ -438,7 +437,6 @@
               member={activeDirectMember}
               size="large"
               showPresence
-              shape={activeDirectMemberShape}
               decorative
             />
           </span>
