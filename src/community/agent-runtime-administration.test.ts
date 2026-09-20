@@ -117,6 +117,26 @@ describe("late runtime administration", () => {
       configOptions: [],
     });
     expect(draft.modelTriggerLabel).toBe("Loading models…");
+    expect(draft.modelOptions).toEqual([]);
+  });
+
+  it("labels an unavailable harness catalog as empty", () => {
+    const draft = editorRuntimeDraft(
+      {
+        agentId: "agent-research",
+        host: { id: "workspace", kind: "managed" },
+        runtimeAgents: [{ id: "codex", label: "Codex", catalog }],
+        configured: { runtimeAgent: "codex", model: "gpt-6" },
+        effective: { runtimeAgent: "codex", model: "gpt-6" },
+        catalog,
+        tools: [],
+        memory: { enabled: false, candidates: 0 },
+      },
+      "cursor",
+      {},
+    );
+    expect(draft.modelTriggerLabel).toBe("No models for this harness");
+    expect(draft.modelOptions).toEqual([]);
   });
 
   it("merges a later runtime_state onto the current profile", () => {

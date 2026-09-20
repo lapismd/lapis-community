@@ -1206,8 +1206,8 @@
       "forbiddenImportCount": 0
     },
     "src/components/community-agent-editor/CommunityAgentEditorDialog.catalog.stories.svelte": {
-      "countedLines": 72,
-      "physicalLines": 75,
+      "countedLines": 105,
+      "physicalLines": 109,
       "forbiddenImportCount": 0
     },
     "src/components/community-agent-editor/CommunityAgentEditorDialog.stories.svelte": {
@@ -1216,8 +1216,8 @@
       "forbiddenImportCount": 0
     },
     "src/components/community-agent-editor/CommunityAgentEditorDialog.svelte": {
-      "countedLines": 574,
-      "physicalLines": 586,
+      "countedLines": 553,
+      "physicalLines": 565,
       "forbiddenImportCount": 0,
       "kind": "legacy",
       "justification": "Existing file above the new-file counted-line limit; do not grow"
@@ -1298,13 +1298,13 @@
       "forbiddenImportCount": 0
     },
     "src/components/community-agents/runtime-story-fixtures.ts": {
-      "countedLines": 93,
-      "physicalLines": 96,
+      "countedLines": 105,
+      "physicalLines": 109,
       "forbiddenImportCount": 0
     },
     "src/components/community-agents/story-fixtures.ts": {
-      "countedLines": 293,
-      "physicalLines": 295,
+      "countedLines": 296,
+      "physicalLines": 298,
       "forbiddenImportCount": 0
     },
     "src/components/community-app-shell/CommunityAppShell.stories.svelte": {

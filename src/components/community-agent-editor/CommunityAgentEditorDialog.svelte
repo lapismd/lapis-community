@@ -11,6 +11,7 @@
   import type { CommunityMemberModel } from "../community-workspace/model.js";
   import CommunityAvatarPicker from "../community-avatar-picker/CommunityAvatarPicker.svelte";
   import CommunityChatComposer from "../community-chat-composer/CommunityChatComposer.svelte";
+  import CommunityAgentEditorModelField from "./CommunityAgentEditorModelField.svelte";
   import type {
     CommunityAgentIdentity,
     CommunityAgentNameMode,
@@ -436,40 +437,20 @@
                     >{runtimeAgents.find(({ id }) => id === runtimeAgent)
                       ?.label ?? runtimeAgent}</Select.Trigger
                   >
-                  <Select.Content>
+                  <Select.Content side="top">
                     {#each runtimeAgents as entry (entry.id)}
                       <Select.Item value={entry.id}>{entry.label}</Select.Item>
                     {/each}
                   </Select.Content>
                 </Select.Root>
               </Field.Field>
-              <Field.Field>
-                <Field.Label for={`${editorId}-runtime-model`}
-                  >Model</Field.Label
-                >
-                {#key runtimeAgent}
-                  <Select.Root
-                    type="single"
-                    value={draft.selection.model}
-                    onValueChange={(value) => (runtimeModel = value)}
-                    disabled={pending || draft.modelOptions.length === 0}
-                  >
-                    <Select.Trigger id={`${editorId}-runtime-model`}
-                      >{draft.modelTriggerLabel}</Select.Trigger
-                    >
-                    <Select.Content>
-                      {#each draft.modelOptions as option (option.value)}
-                        <Select.Item value={option.value}
-                          >{option.name}</Select.Item
-                        >
-                      {/each}
-                    </Select.Content>
-                  </Select.Root>
-                {/key}
-                {#if draft.catalog?.error}
-                  <Field.Error>{draft.catalog.error}</Field.Error>
-                {/if}
-              </Field.Field>
+              <CommunityAgentEditorModelField
+                id={`${editorId}-runtime-model`}
+                {pending}
+                {runtimeAgent}
+                {draft}
+                onValueChange={(value) => (runtimeModel = value)}
+              />
               {#if draft.thinkingOptions.length > 0}
                 <Field.Field>
                   <Field.Label for={`${editorId}-runtime-thinking`}
@@ -487,7 +468,7 @@
                         ({ value }) => value === draft.selection.thinking,
                       )?.name ?? draft.selection.thinking}</Select.Trigger
                     >
-                    <Select.Content>
+                    <Select.Content side="top">
                       {#each draft.thinkingOptions as option (option.value)}
                         <Select.Item value={option.value}
                           >{option.name}</Select.Item

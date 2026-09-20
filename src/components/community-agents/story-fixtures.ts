@@ -7,7 +7,10 @@ import type {
   CommunityAgentActivityItem,
   CommunityAgentMemoryState,
 } from "../../community/agent-contracts.js";
-export { storyAgentRuntime } from "./runtime-story-fixtures.js";
+export {
+  storyAgentRuntime,
+  storyPendingCatalogRuntime,
+} from "./runtime-story-fixtures.js";
 import type { CommunityRoomModel } from "../community-workspace/model.js";
 import {
   materializeAgentDirectory,

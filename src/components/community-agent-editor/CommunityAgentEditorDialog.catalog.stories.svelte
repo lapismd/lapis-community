@@ -5,6 +5,7 @@
   import {
     storyAgent,
     storyAgentRuntime,
+    storyPendingCatalogRuntime,
     storyPersonas,
   } from "../community-agents/story-fixtures.js";
   import type {
@@ -69,6 +70,39 @@
       agent={storyAgent}
       personas={storyPersonas}
       runtime={storyAgentRuntime}
+      onSaveAgent={saveAgent}
+      onSaveRuntime={saveRuntime}
+    />{/snippet}</Story
+>
+
+<Story
+  name="Empty model catalog"
+  play={async ({ canvasElement }) => {
+    const body = within(canvasElement.ownerDocument.body);
+    const dialog = body.getByRole("dialog", { name: "Edit agent" });
+    await userEvent.click(
+      within(dialog).getByRole("tab", { name: "Customize for this agent" }),
+    );
+    await userEvent.click(
+      within(dialog).getByRole("button", { name: "Agent harness" }),
+    );
+    await userEvent.click(body.getByRole("option", { name: "Cursor" }));
+    await userEvent.click(
+      within(dialog).getByRole("button", { name: "Model" }),
+    );
+    await expect(
+      body.getByRole("option", { name: "Loading models…" }),
+    ).toBeVisible();
+    await expect(
+      body.queryByRole("option", { name: "Composer 2.5" }),
+    ).not.toBeInTheDocument();
+    await userEvent.keyboard("{Escape}");
+  }}
+  >{#snippet template()}<CommunityAgentEditorDialog
+      bind:open
+      agent={storyAgent}
+      personas={storyPersonas}
+      runtime={storyPendingCatalogRuntime}
       onSaveAgent={saveAgent}
       onSaveRuntime={saveRuntime}
     />{/snippet}</Story

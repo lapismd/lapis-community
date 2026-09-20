@@ -670,8 +670,9 @@ tool inventory collapsed in a separate bordered card until requested, and wraps
 long summary values within the available profile width. Customizing an agent
 shows model and thinking choices from the selected harness catalog; Cursor,
 Codex, and other advertised harnesses keep distinct model lists. A listed
-harness without a catalog yet shows a loading model picker until a later
-snapshot arrives.
+harness without a catalog yet keeps the model menu openable and shows a visible
+Loading models… choice instead of an empty popup until a later snapshot
+arrives. An unavailable catalog shows No models for this harness.
 The Info tab presents the actionable activity and identity rows directly and
 omits the redundant persona explanation card.
 

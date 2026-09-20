@@ -94,3 +94,16 @@ export const storyAgentRuntime: CommunityAgentRuntimeState = {
   bootstrapRevision: "persona:release-notes:7",
   memory: { enabled: true, candidates: 1 },
 };
+
+export const storyPendingCatalogRuntime: CommunityAgentRuntimeState = {
+  ...storyAgentRuntime,
+  runtimeAgents: storyAgentRuntime.runtimeAgents.map((entry) =>
+    entry.id === "cursor"
+      ? {
+          id: entry.id,
+          label: entry.label,
+          mcpTransport: entry.mcpTransport,
+        }
+      : entry,
+  ),
+};

@@ -30,7 +30,9 @@ publishes encrypted controls. The controller remains authoritative for its ACP
 harness and option catalog; Community may display that catalog and save owner
 defaults for future sessions. Per-harness catalog parsing and editor selection
 live in dedicated runtime-catalog modules so the agent contract and observer
-parser budgets can drop after extraction. Workspace paths, process lifecycle,
+parser budgets can drop after extraction. The editor model field owns the
+empty and loading catalog menu so the shared dialog budget can drop after
+that extraction. Workspace paths, process lifecycle,
 and NIP-46 credentials remain operator-owned controller configuration. Channel
 memory review uses the same ephemeral request boundary and never enters
 Community's
