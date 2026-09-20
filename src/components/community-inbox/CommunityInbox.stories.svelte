@@ -3,41 +3,11 @@
   import { expect, userEvent, waitFor, within } from "storybook/test";
   import CommunityInbox from "./CommunityInbox.svelte";
   import CommunityInboxStoryHarness from "./CommunityInboxStoryHarness.svelte";
-
-  function threadRegionHeightRules(element: Element): string[] {
-    const hits: string[] = [];
-    for (const sheet of element.ownerDocument.styleSheets) {
-      let rules: CSSRuleList;
-      try {
-        rules = sheet.cssRules;
-      } catch {
-        continue;
-      }
-      for (const rule of rules) {
-        if (
-          !(rule instanceof CSSStyleRule) ||
-          !rule.selectorText.includes("thread-region") ||
-          rule.style.getPropertyValue("height") !== "100%"
-        ) {
-          continue;
-        }
-        try {
-          if (element.matches(rule.selectorText)) hits.push(rule.selectorText);
-        } catch {
-          continue;
-        }
-      }
-    }
-    return hits;
-  }
-
-  function expectMessageSkeletonInset(skeleton: HTMLElement) {
-    const bounds = skeleton.getBoundingClientRect();
-    const pane = skeleton.parentElement!.getBoundingClientRect();
-    expect(bounds.left).toBeGreaterThan(pane.left);
-    expect(bounds.top).toBeGreaterThan(pane.top);
-    expect(bounds.right).toBeLessThan(pane.right);
-  }
+  import CommunityInboxSelectionHarness from "./CommunityInboxSelectionHarness.svelte";
+  import {
+    expectMessageSkeletonInset,
+    threadRegionHeightRules,
+  } from "./inbox-story-contracts.js";
 
   const consumerSource = `<script lang="ts">
   import { AppShell, AppShellController } from "@lapismd/design-core/shell";
@@ -177,11 +147,11 @@
     ).toBeVisible();
     await userEvent.click(canvas.getByRole("button", { name: /^support:/u }));
     await waitFor(() =>
-      expect(canvas.getByRole("heading", { name: "support" })).toBeVisible(),
+      expect(
+        canvas.getByRole("textbox", { name: "Markdown editor" }),
+      ).toBeVisible(),
     );
-    await expect(
-      canvas.getByRole("textbox", { name: "Markdown editor" }),
-    ).toBeVisible();
+    await expect(canvas.getByRole("heading", { name: "support" })).toBeVisible();
 
     await userEvent.click(canvas.getByRole("button", { name: "All" }));
     await userEvent.click(
@@ -233,7 +203,7 @@
   name="Initial loading"
   play={async ({ canvas }) => {
     expectMessageSkeletonInset(
-      canvas.getByRole("status", { name: "Loading Inbox messages" }),
+      canvas.getByRole("status", { name: "Loading Inbox conversations" }),
     );
     await expect(
       canvas.getByRole("status", { name: "Loading Inbox conversations" }),
@@ -248,6 +218,22 @@
       loading
     />{/snippet}</Story
 >
+
+<Story
+  name="Selecting a conversation shows a skeleton"
+  play={async ({ canvas }) => {
+    await userEvent.click(
+      canvas.getByRole("button", { name: /^Thread in #support:/u }),
+    );
+    expectMessageSkeletonInset(
+      canvas.getByRole("status", { name: "Loading Inbox messages" }),
+    );
+  }}
+>
+  {#snippet template()}
+    <CommunityInboxSelectionHarness />
+  {/snippet}
+</Story>
 
 <Story
   name="Agent inbox avatar shape"

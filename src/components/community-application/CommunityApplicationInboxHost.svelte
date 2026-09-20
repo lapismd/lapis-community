@@ -1,9 +1,7 @@
 <script lang="ts">
   import type { ComponentProps } from "svelte";
-
-  import CommunityInbox from "../community-inbox/CommunityInbox.svelte";
-
-  let props: ComponentProps<typeof CommunityInbox> = $props();
+  import InboxSelection from "./inbox-selection.svelte";
+  let props: ComponentProps<typeof InboxSelection> = $props();
 </script>
 
-<CommunityInbox {...props} />
+<InboxSelection {...props} />

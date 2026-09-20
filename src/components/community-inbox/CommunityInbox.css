@@ -90,6 +90,10 @@
   padding-block: 0.5rem;
 }
 
+.lc-community-inbox__items:has(> .community-skeleton) {
+  padding: 1rem;
+}
+
 .lc-community-inbox__scroll {
   flex: 1;
   min-height: 0;
