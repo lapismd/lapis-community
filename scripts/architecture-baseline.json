@@ -1918,13 +1918,13 @@
       "justification": "Existing file above the new-file counted-line limit; do not grow"
     },
     "src/components/community-chat-composer/composer-token-references.test.ts": {
-      "countedLines": 59,
-      "physicalLines": 65,
+      "countedLines": 73,
+      "physicalLines": 80,
       "forbiddenImportCount": 0
     },
     "src/components/community-chat-composer/composer-token-references.ts": {
-      "countedLines": 106,
-      "physicalLines": 115,
+      "countedLines": 123,
+      "physicalLines": 134,
       "forbiddenImportCount": 0
     },
     "src/components/community-chat-composer/model.test.ts": {

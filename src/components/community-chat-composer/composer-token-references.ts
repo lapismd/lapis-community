@@ -1,3 +1,5 @@
+import { npubEncode } from "nostr-tools/nip19";
+
 import type { CommunityCustomEmoji } from "../../community/index.js";
 import type {
   CommunityMemberModel,
@@ -64,10 +66,27 @@ export function communityComposerReferenceTokens(
 
   return [
     ...mentionTokens,
+    ...communityComposerPublishedMentionTokens(members),
     ...otherTokens.filter(
       (candidate) => counts.get(candidate.token.toLocaleLowerCase()) === 1,
     ),
   ];
+}
+
+function communityComposerPublishedMentionTokens(
+  members: readonly CommunityMemberModel[],
+): CommunityComposerReferenceToken[] {
+  return members.flatMap((member) => {
+    const id = member.id.trim().toLowerCase();
+    if (!/^[0-9a-f]{64}$/u.test(id)) return [];
+    return [
+      {
+        token: `nostr:${npubEncode(id)}`,
+        kind: "mention" as const,
+        memberId: member.id,
+      },
+    ];
+  });
 }
 
 export function composerPreferredMemberIds(

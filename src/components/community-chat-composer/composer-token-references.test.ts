@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { npubEncode } from "nostr-tools/nip19";
 
 import {
   communityComposerReferenceTokens,
@@ -52,6 +53,20 @@ describe("composer token references", () => {
         [],
       ),
     ).toEqual([]);
+  });
+
+  it("treats published NIP-27 npub tokens as the same mention", () => {
+    const ada = "a".repeat(64);
+    expect(
+      communityComposerReferenceTokens(
+        [{ id: ada, name: "Ada Lovelace", handle: "ada", initials: "AL" }],
+        [],
+        [],
+      ),
+    ).toEqual([
+      { token: "@Ada Lovelace", kind: "mention", memberId: ada },
+      { token: `nostr:${npubEncode(ada)}`, kind: "mention", memberId: ada },
+    ]);
   });
 
   it("deduplicates selected and locked mention ids", () => {
