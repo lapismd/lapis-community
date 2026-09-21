@@ -123,6 +123,8 @@ export function agentTranscriptTimeline(
         entry.type === "permission"
       ) {
         current.item = { ...current.item, ...entry };
+      } else if (current?.kind === "usage" && entry.type === "usage") {
+        current.item = { ...current.item, ...entry };
       } else if (current?.kind === "turn" && entry.type === "turn") {
         if (current.item.state === "started" || entry.state !== "started")
           current.item = { ...current.item, ...entry };

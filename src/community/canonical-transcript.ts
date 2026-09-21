@@ -9,18 +9,32 @@ import {
 const display = (value: unknown) =>
   typeof value === "string" ? value : (JSON.stringify(value, null, 2) ?? "");
 
+const leftover = new Set([
+  "lifecycle",
+  "extension",
+  "file",
+  "patch",
+  "command",
+  "subagent",
+  "compaction",
+  "checkpoint",
+  "omission",
+  "input",
+]);
+
 export function canonicalEntry(
   record: CanonicalTranscript,
   agentPubkey: string,
   sourceEventId?: string,
   userPubkey = "unknown-user",
-): CommunityAgentTranscriptEntry {
+): CommunityAgentTranscriptEntry | undefined {
   const common = {
     id: record.id,
     sequence: record.sequence,
     createdAt: new Date(record.at).toISOString(),
   };
   const p = record.payload;
+  if (leftover.has(p.kind)) return;
   if (p.kind === "message")
     return {
       ...common,
@@ -63,43 +77,41 @@ export function canonicalEntry(
         : {}),
     };
   if (p.kind === "plan") return canonicalPlanEntry(common, p);
-  if (p.kind === "omission")
+  if (p.kind === "permission")
     return {
       ...common,
-      type: "context",
-      label: "Capture gap",
-      text: String(p.reason ?? "Content unavailable"),
+      type: "permission",
+      requestId: String(p.interactionId ?? p.requestId ?? record.id),
+      tool: String(p.tool ?? p.name ?? "tool"),
+      ...(p.input !== undefined ? { input: display(p.input) } : {}),
+      options: Array.isArray(p.options)
+        ? p.options.filter(
+            (option): option is string => typeof option === "string",
+          )
+        : [],
+      state: p.state === "resolved" ? "resolved" : "pending",
+      ...(typeof p.decision === "string" ? { decision: p.decision } : {}),
     };
-  if (p.kind === "subagent")
+  if (p.kind === "usage") {
+    const used = Number(p.used);
+    if (!Number.isFinite(used) || used < 0) return;
+    const limit = Number(p.limit);
     return {
       ...common,
-      type: "context",
-      label: "Subagent",
-      text: `Session: ${String(p.childSessionId)}\n\nInitiating tool: ${String(p.initiatingToolId)}\n\n${String(p.state)}`,
+      type: "usage",
+      used,
+      ...(Number.isFinite(limit) && limit > 0 ? { limit } : {}),
     };
-  if (p.kind === "lifecycle")
+  }
+  if (p.kind === "error" || p.kind === "cancellation")
     return {
       ...common,
-      type: "context",
-      label: "Capture coverage",
-      text: `${record.coverage.mode} · ${record.coverage.observations}\n\n${record.coverage.gaps.map((gap) => `- Unobserved: ${gap}`).join("\n")}\n\nPolicy: ${record.sanitization.policy}\n\nState: ${String(p.state)}`,
+      type: "turn",
+      state: p.kind === "cancellation" ? "cancelled" : "failed",
+      message: String(
+        p.message ?? p.reason ?? p.code ?? "The agent turn failed.",
+      ),
     };
-  if (p.kind === "compaction")
-    return {
-      ...common,
-      type: "context",
-      label: "Context compaction",
-      text: `${String(p.summary)}\n\nCovered records: ${display(p.coveredEventIds)}`,
-    };
-  return {
-    ...common,
-    type: "context",
-    label:
-      p.kind === "extension"
-        ? `Observed ${String(p.sourceType)} event`
-        : p.kind.charAt(0).toUpperCase() + p.kind.slice(1),
-    text: "```json\n" + display(p) + "\n```",
-  };
 }
 
 export function canonicalEntryFromText(

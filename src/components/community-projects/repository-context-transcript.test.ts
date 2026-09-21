@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { canonicalFixtureRecord } from "../../fixture/canonical-agent-records.js";
 import type { RepositoryAgentCheckpoint } from "../../projects/repository-agent-context.js";
 import { repositoryContextTurns } from "./repository-context-transcript.js";
 
@@ -51,6 +52,70 @@ describe("repository context checkpoint links", () => {
     expect(turns.map((turn) => turn.segments[0]?.commitIds)).toEqual([
       [commit],
       [commit],
+    ]);
+  });
+
+  it("projects first-class plan, permission, and usage and hides leftovers", () => {
+    const leftover = canonicalFixtureRecord(
+      { kind: "lifecycle", state: "capture_coverage" },
+      4,
+    );
+    const turns = repositoryContextTurns([
+      {
+        ...checkpoint("ctx", ["2".repeat(40)]),
+        records: [
+          {
+            id: "plan-1",
+            sequence: 1,
+            createdAt: 1,
+            kind: "plan",
+            entries: [{ content: "Inspect README", status: "completed" }],
+          },
+          {
+            id: "perm-1",
+            sequence: 2,
+            createdAt: 2,
+            kind: "permission",
+            toolName: "apply_patch",
+            toolState: "resolved",
+            decision: "allow_once",
+            options: ["allow_once", "deny"],
+          },
+          {
+            id: "usage-1",
+            sequence: 3,
+            createdAt: 3,
+            kind: "usage",
+            used: 8,
+            limit: 10,
+          },
+          {
+            id: "leftover-1",
+            sequence: 4,
+            createdAt: 4,
+            kind: "transcript",
+            text: JSON.stringify(leftover),
+          },
+        ],
+      },
+    ]);
+    const entries = turns[0]?.segments[0]?.activity.map((item) => {
+      const payload = item.frame.payload;
+      return payload && typeof payload === "object" && "entry" in payload
+        ? payload.entry
+        : undefined;
+    });
+    expect(entries).toEqual([
+      expect.objectContaining({
+        type: "plan",
+        entries: [{ content: "Inspect README", status: "completed" }],
+      }),
+      expect.objectContaining({
+        type: "permission",
+        tool: "apply_patch",
+        decision: "allow_once",
+      }),
+      expect.objectContaining({ type: "usage", used: 8, limit: 10 }),
     ]);
   });
 });

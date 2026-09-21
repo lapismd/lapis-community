@@ -51,6 +51,14 @@ export type CommunityAgentTranscriptEntry =
     }
   | {
       id: string;
+      type: "usage";
+      used: number;
+      limit?: number;
+      createdAt: string;
+      sequence?: number;
+    }
+  | {
+      id: string;
       type: "turn";
       state: "started" | "completed" | "failed" | "cancelled";
       message?: string;

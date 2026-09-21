@@ -188,6 +188,12 @@
             Permission {entry.item.decision ?? "resolved"} for {entry.item.tool}
           </Chat.SystemMessage>
         {/if}
+      {:else if entry.kind === "usage"}
+        <Chat.SystemMessage>
+          Usage {entry.item.used}{entry.item.limit !== undefined
+            ? ` / ${entry.item.limit}`
+            : ""}
+        </Chat.SystemMessage>
       {:else if entry.kind === "turn" && entry.item.state === "failed"}
         <Chat.Message sender="assistant">
           {#snippet avatar()}

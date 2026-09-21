@@ -23,6 +23,10 @@ export type CommunityAgentTranscriptTimeline =
       item: Extract<CommunityAgentTranscriptEntry, { type: "permission" }>;
     }
   | {
+      kind: "usage";
+      item: Extract<CommunityAgentTranscriptEntry, { type: "usage" }>;
+    }
+  | {
       kind: "turn";
       item: Extract<CommunityAgentTranscriptEntry, { type: "turn" }>;
     }

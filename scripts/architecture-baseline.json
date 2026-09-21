@@ -559,8 +559,8 @@
       "forbiddenImportCount": 0
     },
     "src/community/agent-transcript-kinds.ts": {
-      "countedLines": 67,
-      "physicalLines": 68,
+      "countedLines": 75,
+      "physicalLines": 76,
       "forbiddenImportCount": 0
     },
     "src/community/agent-transcript-plan.ts": {
@@ -628,8 +628,8 @@
       "forbiddenImportCount": 0
     },
     "src/community/canonical-transcript-activity.ts": {
-      "countedLines": 108,
-      "physicalLines": 110,
+      "countedLines": 117,
+      "physicalLines": 119,
       "forbiddenImportCount": 0
     },
     "src/community/canonical-transcript-plan.test.ts": {
@@ -643,13 +643,13 @@
       "forbiddenImportCount": 0
     },
     "src/community/canonical-transcript.test.ts": {
-      "countedLines": 67,
-      "physicalLines": 68,
+      "countedLines": 106,
+      "physicalLines": 108,
       "forbiddenImportCount": 0
     },
     "src/community/canonical-transcript.ts": {
-      "countedLines": 111,
-      "physicalLines": 115,
+      "countedLines": 122,
+      "physicalLines": 127,
       "forbiddenImportCount": 0
     },
     "src/community/channel-authority.test.ts": {
@@ -1191,13 +1191,13 @@
       "forbiddenImportCount": 0
     },
     "src/components/community-agent-activity/CommunityAgentCanonicalActivity.stories.svelte": {
-      "countedLines": 78,
-      "physicalLines": 79,
+      "countedLines": 76,
+      "physicalLines": 77,
       "forbiddenImportCount": 0
     },
     "src/components/community-agent-activity/CommunityAgentTranscript.svelte": {
-      "countedLines": 236,
-      "physicalLines": 247,
+      "countedLines": 242,
+      "physicalLines": 253,
       "forbiddenImportCount": 0
     },
     "src/components/community-agent-activity/CommunityAgentTranscriptPlan.svelte": {
@@ -1216,8 +1216,8 @@
       "forbiddenImportCount": 0
     },
     "src/components/community-agent-activity/model.ts": {
-      "countedLines": 187,
-      "physicalLines": 195,
+      "countedLines": 189,
+      "physicalLines": 197,
       "forbiddenImportCount": 0
     },
     "src/components/community-agent-activity/runtime-actions.ts": {
@@ -1226,8 +1226,8 @@
       "forbiddenImportCount": 0
     },
     "src/components/community-agent-activity/transcript-entry.ts": {
-      "countedLines": 88,
-      "physicalLines": 91,
+      "countedLines": 99,
+      "physicalLines": 102,
       "forbiddenImportCount": 0
     },
     "src/components/community-agent-activity/transcript-plan.test.ts": {
@@ -1246,8 +1246,8 @@
       "forbiddenImportCount": 0
     },
     "src/components/community-agent-activity/transcript-timeline.ts": {
-      "countedLines": 31,
-      "physicalLines": 32,
+      "countedLines": 35,
+      "physicalLines": 36,
       "forbiddenImportCount": 0
     },
     "src/components/community-agent-activity/transcript-tool-props.ts": {
@@ -3104,14 +3104,19 @@
       "physicalLines": 115,
       "forbiddenImportCount": 0
     },
+    "src/components/community-projects/repository-context-entry.ts": {
+      "countedLines": 93,
+      "physicalLines": 94,
+      "forbiddenImportCount": 0
+    },
     "src/components/community-projects/repository-context-transcript.test.ts": {
-      "countedLines": 50,
-      "physicalLines": 56,
+      "countedLines": 114,
+      "physicalLines": 121,
       "forbiddenImportCount": 0
     },
     "src/components/community-projects/repository-context-transcript.ts": {
-      "countedLines": 128,
-      "physicalLines": 130,
+      "countedLines": 74,
+      "physicalLines": 76,
       "forbiddenImportCount": 0
     },
     "src/components/community-projects/repository-log-story-fixtures.ts": {
@@ -3886,8 +3891,8 @@
       "forbiddenImportCount": 0
     },
     "src/fixture/canonical-agent-records.ts": {
-      "countedLines": 108,
-      "physicalLines": 110,
+      "countedLines": 112,
+      "physicalLines": 114,
       "forbiddenImportCount": 0
     },
     "src/fixture/freeze.ts": {
@@ -4250,9 +4255,14 @@
       "physicalLines": 26,
       "forbiddenImportCount": 0
     },
+    "src/projects/repository-agent-context-kinds.ts": {
+      "countedLines": 45,
+      "physicalLines": 48,
+      "forbiddenImportCount": 0
+    },
     "src/projects/repository-agent-context-parsing.ts": {
-      "countedLines": 142,
-      "physicalLines": 154,
+      "countedLines": 174,
+      "physicalLines": 186,
       "forbiddenImportCount": 0
     },
     "src/projects/repository-agent-context-v2.test.ts": {
@@ -4476,8 +4486,8 @@
       "forbiddenImportCount": 0
     },
     "src/protocol/agent-transcript.ts": {
-      "countedLines": 107,
-      "physicalLines": 108,
+      "countedLines": 108,
+      "physicalLines": 109,
       "forbiddenImportCount": 0
     },
     "src/protocol/canonical.ts": {

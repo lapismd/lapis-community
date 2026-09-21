@@ -66,3 +66,43 @@ it("reassembles once across reorder and replay and never renders incomplete text
     ),
   ).toBeUndefined();
 });
+
+it("keeps the public allowlist and hides leftover coverage rows", () => {
+  const usage = canonicalFixtureRecord(
+    { kind: "usage", used: 8, limit: 10 },
+    2,
+  );
+  const leftover = canonicalFixtureRecord(
+    { kind: "lifecycle", state: "capture_coverage" },
+    3,
+  );
+  const events: CommunityAgentActivityItem[] = [usage, leftover].map(
+    (record) => ({
+      id: record.id,
+      agentPubkey: "agent",
+      createdAt: record.sequence,
+      frame: {
+        version: 2,
+        seq: record.sequence,
+        sessionId: record.threadId,
+        turnId: record.turnId,
+        timestamp: new Date(record.at).toISOString(),
+        kind: "transcript_record",
+        payload: {
+          capture: {
+            schema: "lapis.transcript-fragment/1",
+            recordId: record.id,
+            index: 0,
+            count: 1,
+            data: JSON.stringify(record),
+          },
+        },
+      },
+    }),
+  );
+  const projected = canonicalActivity(events);
+  expect(projected).toHaveLength(1);
+  expect(projected[0]?.frame.payload).toMatchObject({
+    entry: { type: "usage", used: 8, limit: 10 },
+  });
+});

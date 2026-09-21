@@ -605,10 +605,13 @@ A checkpoint request link may query its exact source event ID when channel histo
 
 Channel thread projection MUST include replies whose canonical root tag matches the open thread, including replies to an agent reply; the immediate reply target remains available separately.
 
-For LC-UI-049, context version 3 carries complete sanitized `lapis.transcript/1`
-records. Readers validate the version, identity, coverage and policy after
+For LC-UI-049, context version 3 carries the curated sanitized
+`lapis.transcript/1` work-context allowlist: messages, thinking, plan,
+tool-invocation, tool-result, permission, usage, error, and cancellation.
+Readers validate the version, identity, coverage and policy after
 bounded 4 MiB reassembly; pages remain limited to 48 KiB. Older versions remain
 labelled legacy. Existing source message IDs, commit/change targets, and review
 associations are preserved. Owner Activity reassembles encrypted local journal
-fragments independently of relay project reconstruction; opaque or missing
-records render explicit omissions without inventing provider coverage.
+fragments independently of relay project reconstruction. Leftover lifecycle,
+extension, file, patch, and command rows stay hidden; unfinished fragment
+groups still show a capture gap without inventing provider coverage.

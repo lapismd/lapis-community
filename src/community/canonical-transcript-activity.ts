@@ -81,11 +81,12 @@ export function canonicalActivity(
         )
       : {
           id: `gap:${item.id}`,
-          type: "context",
+          type: "context" as const,
           label: "Capture gap",
           text: "A completed transcript record is missing fragments.",
           createdAt: item.frame.timestamp,
         };
+    if (!entry) continue;
     derived.push({
       ...item,
       id: record?.id ?? `gap:${item.id}`,
@@ -102,7 +103,15 @@ export function canonicalActivity(
       const entry = object(object(item.frame.payload).entry);
       return !(
         canonicalTurns.has(`${item.agentPubkey}:${item.frame.turnId}`) &&
-        ["message", "thinking", "tool", "plan"].includes(String(entry.type))
+        [
+          "message",
+          "thinking",
+          "tool",
+          "plan",
+          "permission",
+          "usage",
+          "turn",
+        ].includes(String(entry.type))
       );
     }),
     ...derived,

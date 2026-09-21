@@ -1,4 +1,8 @@
 import { parseCanonicalTranscript } from "../protocol/agent-transcript.js";
+import {
+  parsePlanContextRecord,
+  parseUsageContextRecord,
+} from "./repository-agent-context-kinds.js";
 export type RepositoryAgentContextRecord = {
   id: string;
   sequence: number;
@@ -8,7 +12,10 @@ export type RepositoryAgentContextRecord = {
     | "assistant_message"
     | "thinking"
     | "tool"
-    | "transcript";
+    | "transcript"
+    | "plan"
+    | "permission"
+    | "usage";
   text?: string;
   toolName?: string;
   toolState?: string;
@@ -18,6 +25,11 @@ export type RepositoryAgentContextRecord = {
   input?: string;
   output?: string;
   error?: string;
+  entries?: unknown;
+  used?: number;
+  limit?: number;
+  options?: string[];
+  decision?: string;
   redacted?: boolean;
   truncated?: boolean;
 };
@@ -31,6 +43,7 @@ export function parseAgentContextRecord(
   const createdAt = nonNegativeInteger(value.created_at_ms);
   const sourceEventId = optionalString(value.source_event_id);
   const authorPubkey = optionalString(value.author_pubkey);
+  const kind = nonEmptyString(value.kind) ?? nonEmptyString(value.type);
   if (
     authorPubkey === null ||
     (authorPubkey && !/^[a-f0-9]{64}$/u.test(authorPubkey))
@@ -49,10 +62,10 @@ export function parseAgentContextRecord(
   )
     return;
   if (
-    value.kind === "user_message" ||
-    value.kind === "assistant_message" ||
-    value.kind === "thinking" ||
-    value.kind === "transcript"
+    kind === "user_message" ||
+    kind === "assistant_message" ||
+    kind === "thinking" ||
+    kind === "transcript"
   ) {
     const text = nonEmptyString(value.text);
     if (
@@ -65,13 +78,13 @@ export function parseAgentContextRecord(
       id,
       sequence,
       createdAt,
-      kind: value.kind,
+      kind,
       ...details,
       text,
       ...(sourceEventId ? { sourceEventId } : {}),
     };
   }
-  if (value.kind === "tool") {
+  if (kind === "tool" || kind === "permission") {
     const toolName = nonEmptyString(value.tool_name);
     const toolState = nonEmptyString(value.tool_state);
     if (!toolName || !toolState || value.text !== undefined) return;
@@ -79,8 +92,18 @@ export function parseAgentContextRecord(
       id,
       sequence,
       createdAt,
-      kind: "tool",
+      kind,
       ...details,
+      ...(Array.isArray(value.options)
+        ? {
+            options: value.options.filter(
+              (option): option is string => typeof option === "string",
+            ),
+          }
+        : {}),
+      ...(typeof value.decision === "string"
+        ? { decision: value.decision }
+        : {}),
       ...(typeof value.tool_id === "string" ? { toolId: value.tool_id } : {}),
       ...(typeof value.input === "string" ? { input: value.input } : {}),
       ...(typeof value.output === "string" ? { output: value.output } : {}),
@@ -90,6 +113,15 @@ export function parseAgentContextRecord(
       ...(sourceEventId ? { sourceEventId } : {}),
     };
   }
+  const base = {
+    id,
+    sequence,
+    createdAt,
+    ...details,
+    ...(sourceEventId ? { sourceEventId } : {}),
+  };
+  if (kind === "plan") return parsePlanContextRecord(value, base);
+  if (kind === "usage") return parseUsageContextRecord(value, base);
   return;
 }
 

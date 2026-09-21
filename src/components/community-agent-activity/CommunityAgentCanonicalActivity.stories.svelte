@@ -1,6 +1,6 @@
 <script module lang="ts">
   import { defineMeta } from "@storybook/addon-svelte-csf";
-  import { expect, userEvent } from "storybook/test";
+  import { expect } from "storybook/test";
   import CommunityAgentActivity from "./CommunityAgentActivity.svelte";
   import {
     storyAgentState,
@@ -54,16 +54,14 @@
     await expect(
       canvas.getByText(/Inspect README and update the checkpoint guide/),
     ).toBeVisible();
-    await userEvent.click(canvas.getByRole("button", { name: /Capture gap/ }));
     await expect(
-      canvas.getByText("An external provider did not expose this event."),
+      canvas.getByText(/Permission allow_once for apply_patch/),
     ).toBeVisible();
-    await userEvent.click(
-      canvas.getByRole("button", { name: /Capture coverage/ }),
-    );
-    await expect(
-      canvas.getByText(/Unobserved: native-provider-traffic/),
-    ).toBeVisible();
+    await expect(canvas.getByText(/Usage 8 \/ 10/)).toBeVisible();
+    expect(
+      canvas.queryByRole("button", { name: /Capture coverage/ }),
+    ).toBeNull();
+    expect(canvas.queryByRole("button", { name: /Capture gap/ })).toBeNull();
     expect(canvasElement.querySelector('[data-streaming="true"]')).toBeNull();
     expect(canvasElement.querySelector('[data-status="running"]')).toBeNull();
   }}

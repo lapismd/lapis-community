@@ -1,9 +1,9 @@
-import { canonicalEntryFromText } from "../../community/canonical-transcript.js";
 import type { CommunityAgentActivityItem } from "../../community/agent-contracts.js";
 import type {
   RepositoryAgentCheckpoint,
   RepositoryAgentContextRecord,
 } from "../../projects/repository-agent-context.js";
+import { checkpointRecordEntry } from "./repository-context-entry.js";
 
 export function repositoryContextTurns(
   checkpoints: readonly RepositoryAgentCheckpoint[],
@@ -54,77 +54,23 @@ function checkpointActivity(
   checkpoint: RepositoryAgentCheckpoint,
   records: readonly RepositoryAgentContextRecord[],
 ): CommunityAgentActivityItem[] {
-  return records.map((record) => {
-    const shared = {
-      id: record.id,
-      createdAt: new Date(record.createdAt).toISOString(),
-      sequence: record.sequence,
-      redacted: record.redacted,
-      truncated: record.truncated,
-    };
-    const canonical =
-      record.kind === "transcript"
-        ? canonicalEntryFromText(
-            record.text ?? "",
-            checkpoint.authorPubkey,
-            record.sourceEventId,
-            record.authorPubkey,
-          )
-        : undefined;
-    const entry = canonical
-      ? canonical
-      : record.kind === "thinking"
-        ? {
-            ...shared,
-            type: "thinking",
-            text: record.text ?? "",
-            state: checkpoint.live ? "streaming" : "done",
-          }
-        : record.kind === "tool"
-          ? {
-              ...shared,
-              type: "tool",
-              toolId: record.toolId ?? record.id,
-              name: record.toolName ?? "Tool",
-              state: ["failed", "error", "interrupted"].includes(
-                record.toolState ?? "",
-              )
-                ? "error"
-                : record.toolState === "running"
-                  ? "running"
-                  : "completed",
-              input: record.input,
-              output: record.output,
-              error:
-                record.error ??
-                (record.toolState === "interrupted"
-                  ? "Tool interrupted"
-                  : undefined),
-            }
-          : {
-              ...shared,
-              type: "message",
-              role: record.kind === "user_message" ? "user" : "assistant",
-              text: record.text ?? "",
-              authorPubkey:
-                record.authorPubkey ??
-                (record.kind === "assistant_message"
-                  ? checkpoint.authorPubkey
-                  : "unknown-user"),
-              sourceEventId: record.sourceEventId,
-            };
-    return {
-      id: record.id,
-      agentPubkey: checkpoint.authorPubkey,
-      createdAt: record.sequence,
-      frame: {
-        version: 2,
-        seq: record.sequence,
-        timestamp: shared.createdAt,
-        turnId: checkpoint.spanId,
-        kind: record.kind,
-        payload: { entry },
+  return records.flatMap((record) => {
+    const entry = checkpointRecordEntry(checkpoint, record);
+    if (!entry) return [];
+    return [
+      {
+        id: record.id,
+        agentPubkey: checkpoint.authorPubkey,
+        createdAt: record.sequence,
+        frame: {
+          version: 2,
+          seq: record.sequence,
+          timestamp: new Date(record.createdAt).toISOString(),
+          turnId: checkpoint.spanId,
+          kind: record.kind,
+          payload: { entry },
+        },
       },
-    };
+    ];
   });
 }

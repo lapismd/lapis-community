@@ -71,14 +71,14 @@ describe("local project agent context fixture", () => {
     );
     expect(payloads.map((payload) => payload.kind)).toEqual([
       "message",
-      "lifecycle",
       "plan",
       "thinking",
       "tool-invocation",
       "tool-result",
-      "omission",
+      "permission",
+      "usage",
       "message",
     ]);
-    expect(payloads[4].input.path).toBe("$WORKSPACE[local]/README.md");
+    expect(payloads[3].input.path).toBe("$WORKSPACE[local]/README.md");
   });
 });

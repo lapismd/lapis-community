@@ -978,9 +978,10 @@ accessible label and title.
 
 LC-UI-049 canonical transcript projection preserves completed visible thinking,
 first-class `type: "plan"` entries with content, status, and priority, tools,
-file/command records, subagent parent references, omissions and coverage
-provenance through the existing Chat components. Plan records MUST NOT flatten
-to context text. Completed canonical records supersede compatibility
-projections within the same turn. Unfinished
+permissions, one usage snapshot, and a failed or cancelled turn through the
+existing Chat components. Plan records MUST NOT flatten to context text.
+Lifecycle, extension, file, patch, command, subagent, compaction, and omission
+leftovers MUST NOT render as context rows. Completed canonical records
+supersede compatibility projections within the same turn. Unfinished
 fragment groups show a capture gap, never partial text. Private Activity retains
 encrypted local persistence; canonical plaintext is only derived in memory.

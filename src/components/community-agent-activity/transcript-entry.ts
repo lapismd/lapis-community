@@ -43,6 +43,17 @@ export function transcriptEntry(
       !optionalStrings(entry, ["input", "output", "error"])
     )
       return;
+  } else if (entry.type === "usage") {
+    if (
+      typeof entry.used !== "number" ||
+      !Number.isFinite(entry.used) ||
+      entry.used < 0 ||
+      (entry.limit !== undefined &&
+        (typeof entry.limit !== "number" ||
+          !Number.isFinite(entry.limit) ||
+          entry.limit <= 0))
+    )
+      return;
   } else if (entry.type === "permission") {
     if (
       typeof entry.requestId !== "string" ||

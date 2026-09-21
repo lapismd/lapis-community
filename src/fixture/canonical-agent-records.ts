@@ -46,7 +46,6 @@ export function canonicalLocalRecords(
       messageId: "request",
       text: "Add agent context beside the local repository history.",
     },
-    { kind: "lifecycle", state: "capture_coverage" },
     {
       kind: "plan",
       entries: [
@@ -76,9 +75,14 @@ export function canonicalLocalRecords(
       output: "Success. Updated README.md",
     },
     {
-      kind: "omission",
-      reason: "An external provider did not expose this event.",
+      kind: "permission",
+      interactionId: "perm-1",
+      name: "apply_patch",
+      state: "resolved",
+      decision: "allow_once",
+      options: ["allow_once", "deny"],
     },
+    { kind: "usage", used: 8, limit: 10 },
     {
       kind: "message",
       role: "assistant",

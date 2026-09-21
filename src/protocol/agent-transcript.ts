@@ -23,6 +23,7 @@ const kinds = new Set([
   "patch",
   "command",
   "permission",
+  "usage",
   "input",
   "lifecycle",
   "error",
