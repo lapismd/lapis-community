@@ -1,4 +1,16 @@
+import { contentMentionPubkeys } from "./content-mentions.js";
+
 const PUBKEY = /^[0-9a-f]{64}$/u;
+
+export function mentionPubkeysForPublish(
+  content: string,
+  mentionPubkeys: readonly string[] = [],
+): string[] {
+  return normalizeMentionPubkeys([
+    ...mentionPubkeys,
+    ...contentMentionPubkeys(content),
+  ]);
+}
 
 export function normalizeMentionPubkeys(
   pubkeys: readonly string[] = [],
@@ -31,10 +43,13 @@ export function publishMentionTags(
 }
 
 export function withPublishMentionTags<
-  T extends { tags: readonly (readonly string[])[] },
+  T extends { tags: readonly (readonly string[])[]; content?: string },
 >(template: T, mentionPubkeys: readonly string[] = []): T {
   return {
     ...template,
-    tags: publishMentionTags(template.tags, mentionPubkeys),
+    tags: publishMentionTags(
+      template.tags,
+      mentionPubkeysForPublish(template.content ?? "", mentionPubkeys),
+    ),
   };
 }

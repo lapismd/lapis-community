@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { npubEncode } from "nostr-tools/nip19";
 
 import {
   createCommunityTestRuntime,
@@ -65,5 +66,18 @@ describe("community controller mention tags", () => {
     expect(
       published?.tags.some((tag) => tag[0] === "p" && tag[1] !== mention),
     ).toBe(true);
+  });
+
+  it("publishes a p tag from a NIP-27 content mention without a composer list", async () => {
+    const current = await connected();
+    const mention = await current.scenario.participant.getPublicKey();
+    const content = `nostr:${npubEncode(mention)} Live owner-thread acceptance`;
+    await current.controller.actions.sendMessage("general", content);
+    const [published] = await current.relay.query({
+      kinds: [9],
+      "#p": [mention],
+    });
+    expect(published?.content).toBe(content);
+    expect(published?.tags).toContainEqual(["p", mention]);
   });
 });

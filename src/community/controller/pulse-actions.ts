@@ -7,6 +7,7 @@ import type {
   CommunityPulseFeedTab,
   CommunityPulseModel,
 } from "../contracts.js";
+import { contentMentionPubkeys } from "../content-mentions.js";
 import {
   materializeCommunityPulse,
   pulseEventTargetId,
@@ -92,6 +93,7 @@ export async function publishPulse(
   const mentions = [
     ...new Set([
       ...submission.mentionPubkeys,
+      ...contentMentionPubkeys(content),
       ...(parent === undefined ? [] : [parent.pubkey]),
     ]),
   ];

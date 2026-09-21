@@ -673,8 +673,8 @@
       "forbiddenImportCount": 0
     },
     "src/community/community-controller-mention-tags.test.ts": {
-      "countedLines": 63,
-      "physicalLines": 69,
+      "countedLines": 76,
+      "physicalLines": 83,
       "forbiddenImportCount": 0
     },
     "src/community/community-controller.svelte.test.ts": {
@@ -704,6 +704,16 @@
     "src/community/configured-private-cache.test.ts": {
       "countedLines": 206,
       "physicalLines": 206,
+      "forbiddenImportCount": 0
+    },
+    "src/community/content-mentions.test.ts": {
+      "countedLines": 48,
+      "physicalLines": 54,
+      "forbiddenImportCount": 0
+    },
+    "src/community/content-mentions.ts": {
+      "countedLines": 60,
+      "physicalLines": 67,
       "forbiddenImportCount": 0
     },
     "src/community/contracts.ts": {
@@ -769,8 +779,8 @@
       "forbiddenImportCount": 0
     },
     "src/community/controller/pulse-actions.ts": {
-      "countedLines": 218,
-      "physicalLines": 222,
+      "countedLines": 220,
+      "physicalLines": 224,
       "forbiddenImportCount": 0
     },
     "src/community/controller/pulse.svelte.ts": {
@@ -784,8 +794,8 @@
       "forbiddenImportCount": 0
     },
     "src/community/conversations.ts": {
-      "countedLines": 140,
-      "physicalLines": 150,
+      "countedLines": 126,
+      "physicalLines": 134,
       "forbiddenImportCount": 0
     },
     "src/community/event-runtime.test.ts": {
@@ -1030,13 +1040,13 @@
       "forbiddenImportCount": 0
     },
     "src/community/publish-mention-tags.test.ts": {
-      "countedLines": 29,
-      "physicalLines": 33,
+      "countedLines": 41,
+      "physicalLines": 46,
       "forbiddenImportCount": 0
     },
     "src/community/publish-mention-tags.ts": {
-      "countedLines": 37,
-      "physicalLines": 40,
+      "countedLines": 50,
+      "physicalLines": 55,
       "forbiddenImportCount": 0
     },
     "src/community/registry-community-source.test.ts": {
@@ -1050,8 +1060,8 @@
       "forbiddenImportCount": 0
     },
     "src/community/room-publish-template.ts": {
-      "countedLines": 84,
-      "physicalLines": 87,
+      "countedLines": 88,
+      "physicalLines": 91,
       "forbiddenImportCount": 0
     },
     "src/community/send-contracts.ts": {
@@ -1125,6 +1135,21 @@
       "physicalLines": 129,
       "forbiddenImportCount": 0
     },
+    "src/components/community-agent-activity/activity-conversation-key.test.ts": {
+      "countedLines": 22,
+      "physicalLines": 23,
+      "forbiddenImportCount": 0
+    },
+    "src/components/community-agent-activity/activity-conversation-key.ts": {
+      "countedLines": 12,
+      "physicalLines": 13,
+      "forbiddenImportCount": 0
+    },
+    "src/components/community-agent-activity/activity-scroll-story.ts": {
+      "countedLines": 53,
+      "physicalLines": 55,
+      "forbiddenImportCount": 0
+    },
     "src/components/community-agent-activity/ActivityLifecycle.stories.svelte": {
       "countedLines": 51,
       "physicalLines": 53,
@@ -1143,6 +1168,11 @@
     "src/components/community-agent-activity/CommunityAgentActivity.plan.stories.svelte": {
       "countedLines": 63,
       "physicalLines": 66,
+      "forbiddenImportCount": 0
+    },
+    "src/components/community-agent-activity/CommunityAgentActivity.scroll.stories.svelte": {
+      "countedLines": 25,
+      "physicalLines": 26,
       "forbiddenImportCount": 0
     },
     "src/components/community-agent-activity/CommunityAgentActivity.stories.svelte": {
@@ -1170,29 +1200,14 @@
       "physicalLines": 101,
       "forbiddenImportCount": 0
     },
-    "src/components/community-agent-activity/CommunityAgentActivity.scroll.stories.svelte": {
-      "countedLines": 25,
-      "physicalLines": 26,
-      "forbiddenImportCount": 0
-    },
-    "src/components/community-agent-activity/activity-conversation-key.ts": {
-      "countedLines": 12,
-      "physicalLines": 13,
-      "forbiddenImportCount": 0
-    },
-    "src/components/community-agent-activity/activity-conversation-key.test.ts": {
-      "countedLines": 22,
-      "physicalLines": 23,
-      "forbiddenImportCount": 0
-    },
-    "src/components/community-agent-activity/activity-scroll-story.ts": {
-      "countedLines": 53,
-      "physicalLines": 55,
-      "forbiddenImportCount": 0
-    },
     "src/components/community-agent-activity/CommunityAgentCanonicalActivity.stories.svelte": {
       "countedLines": 76,
       "physicalLines": 77,
+      "forbiddenImportCount": 0
+    },
+    "src/components/community-agent-activity/CommunityAgentTranscript.stories.svelte": {
+      "countedLines": 44,
+      "physicalLines": 45,
       "forbiddenImportCount": 0
     },
     "src/components/community-agent-activity/CommunityAgentTranscript.svelte": {
@@ -1280,6 +1295,11 @@
       "physicalLines": 204,
       "forbiddenImportCount": 0
     },
+    "src/components/community-agent-composer-activity/composer-activity-story.ts": {
+      "countedLines": 75,
+      "physicalLines": 80,
+      "forbiddenImportCount": 0
+    },
     "src/components/community-agent-composer-activity/context.ts": {
       "countedLines": 17,
       "physicalLines": 17,
@@ -1293,16 +1313,6 @@
     "src/components/community-agent-composer-activity/model.ts": {
       "countedLines": 86,
       "physicalLines": 86,
-      "forbiddenImportCount": 0
-    },
-    "src/components/community-agent-composer-activity/composer-activity-story.ts": {
-      "countedLines": 75,
-      "physicalLines": 80,
-      "forbiddenImportCount": 0
-    },
-    "src/components/community-agent-activity/CommunityAgentTranscript.stories.svelte": {
-      "countedLines": 44,
-      "physicalLines": 45,
       "forbiddenImportCount": 0
     },
     "src/components/community-agent-context-message/CommunityAgentContextMessage.stories.svelte": {
@@ -1918,13 +1928,13 @@
       "forbiddenImportCount": 0
     },
     "src/components/community-chat-composer/model.test.ts": {
-      "countedLines": 84,
-      "physicalLines": 92,
+      "countedLines": 95,
+      "physicalLines": 104,
       "forbiddenImportCount": 0
     },
     "src/components/community-chat-composer/model.ts": {
-      "countedLines": 187,
-      "physicalLines": 207,
+      "countedLines": 190,
+      "physicalLines": 210,
       "forbiddenImportCount": 0
     },
     "src/components/community-chat-composer/persistent-agent-audience.test.ts": {
@@ -2250,14 +2260,24 @@
       "physicalLines": 17,
       "forbiddenImportCount": 0
     },
+    "src/components/community-markdown-content/syntax-hast.test.ts": {
+      "countedLines": 71,
+      "physicalLines": 75,
+      "forbiddenImportCount": 0
+    },
+    "src/components/community-markdown-content/syntax-hast.ts": {
+      "countedLines": 125,
+      "physicalLines": 132,
+      "forbiddenImportCount": 0
+    },
     "src/components/community-markdown-content/syntax.test.ts": {
       "countedLines": 76,
       "physicalLines": 81,
       "forbiddenImportCount": 0
     },
     "src/components/community-markdown-content/syntax.ts": {
-      "countedLines": 270,
-      "physicalLines": 288,
+      "countedLines": 218,
+      "physicalLines": 232,
       "forbiddenImportCount": 0
     },
     "src/components/community-member-avatar-group/CommunityMemberAvatarGroup.stories.svelte": {

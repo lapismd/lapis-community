@@ -4,6 +4,10 @@ import {
 } from "@lapismd/mira/extensions";
 
 import type { CommunityCustomEmoji } from "../../community/index.js";
+import {
+  contentMentionLabel,
+  contentMentionMatches,
+} from "../../community/content-mentions.js";
 import type {
   CommunityMemberModel,
   CommunityRoomModel,
@@ -13,6 +17,10 @@ import CommunityEmojiReference from "./CommunityEmojiReference.svelte";
 import CommunityMemberReference from "./CommunityMemberReference.svelte";
 import CommunitySpoiler from "./CommunitySpoiler.svelte";
 import { isSafeCommunityEmojiUrl } from "../community-chat-composer/model.js";
+import {
+  applyCommunityMarkdownSyntax,
+  type CommunityMarkdownHastNode,
+} from "./syntax-hast.js";
 
 export type CommunityMarkdownSegment =
   | { kind: "text"; value: string }
@@ -28,19 +36,11 @@ export interface CommunityMarkdownSyntaxOptions {
   mentionPubkeys(): readonly string[];
 }
 
-type HastNode = {
-  type: string;
-  value?: string;
-  tagName?: string;
-  properties?: Record<string, unknown>;
-  children?: HastNode[];
-};
-
 export function createCommunityMarkdownExtension(
   options: CommunityMarkdownSyntaxOptions,
 ): MiraExtension {
-  const rehypeCommunitySyntax = () => (tree: HastNode) => {
-    transformChildren(tree, options, []);
+  const rehypeCommunitySyntax = () => (tree: CommunityMarkdownHastNode) => {
+    applyCommunityMarkdownSyntax(tree, options, tokenizeCommunityMarkdownText);
   };
 
   return defineMiraExtension({
@@ -88,9 +88,17 @@ export function tokenizeCommunityMarkdownText(
     id: emoji.shortcode,
     url: emoji.url,
   }));
-  const references = [...memberTokens, ...roomTokens, ...emojiTokens].sort(
-    (left, right) => right.token.length - left.token.length,
-  );
+  const publishedMentions = contentMentionMatches(value).map((mention) => ({
+    kind: "member" as const,
+    token: mention.value,
+    id: mention.pubkey,
+  }));
+  const references = [
+    ...memberTokens,
+    ...publishedMentions,
+    ...roomTokens,
+    ...emojiTokens,
+  ].sort((left, right) => right.token.length - left.token.length);
   const segments: CommunityMarkdownSegment[] = [];
   let cursor = 0;
 
@@ -116,11 +124,16 @@ export function tokenizeCommunityMarkdownText(
     if (nextReference !== undefined) {
       pushText(segments, value.slice(cursor, nextReference.index));
       if (nextReference.reference.kind === "member") {
+        const source = value.slice(
+          nextReference.index,
+          nextReference.index + nextReference.reference.token.length,
+        );
         segments.push({
           kind: "member",
-          value: value.slice(
-            nextReference.index,
-            nextReference.index + nextReference.reference.token.length,
+          value: contentMentionLabel(
+            nextReference.reference.id,
+            source,
+            members,
           ),
           memberId: nextReference.reference.id,
         });
@@ -149,75 +162,6 @@ export function tokenizeCommunityMarkdownText(
   }
 
   return segments;
-}
-
-function transformChildren(
-  node: HastNode,
-  options: CommunityMarkdownSyntaxOptions,
-  ancestors: string[],
-): void {
-  if (!Array.isArray(node.children)) return;
-  const currentAncestors =
-    node.tagName === undefined ? ancestors : [...ancestors, node.tagName];
-  const skipText = currentAncestors.some((tag) =>
-    ["a", "code", "pre", "script", "style"].includes(tag),
-  );
-
-  const nextChildren: HastNode[] = [];
-  for (const child of node.children) {
-    if (child.type === "text" && typeof child.value === "string" && !skipText) {
-      nextChildren.push(
-        ...tokenizeCommunityMarkdownText(
-          child.value,
-          options.members(),
-          options.rooms(),
-          options.emojis(),
-          options.mentionPubkeys(),
-        ).map(segmentToHast),
-      );
-      continue;
-    }
-    transformChildren(child, options, currentAncestors);
-    nextChildren.push(child);
-  }
-  node.children = nextChildren;
-}
-
-function segmentToHast(segment: CommunityMarkdownSegment): HastNode {
-  if (segment.kind === "text") return { type: "text", value: segment.value };
-  if (segment.kind === "member") {
-    return {
-      type: "element",
-      tagName: "communitymember",
-      properties: { memberId: segment.memberId, label: segment.value },
-      children: [],
-    };
-  }
-  if (segment.kind === "room") {
-    return {
-      type: "element",
-      tagName: "communitychannel",
-      properties: { roomId: segment.roomId, label: segment.value },
-      children: [],
-    };
-  }
-  if (segment.kind === "emoji") {
-    return {
-      type: "element",
-      tagName: "communityemoji",
-      properties: {
-        shortcode: segment.shortcode,
-        src: segment.url,
-      },
-      children: [],
-    };
-  }
-  return {
-    type: "element",
-    tagName: "communityspoiler",
-    properties: { label: segment.value },
-    children: [{ type: "text", value: segment.value }],
-  };
 }
 
 function uniqueTokenEntries<T>(

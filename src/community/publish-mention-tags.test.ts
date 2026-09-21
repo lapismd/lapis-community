@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
+import { npubEncode } from "nostr-tools/nip19";
 
 import {
+  mentionPubkeysForPublish,
   normalizeMentionPubkeys,
   publishMentionTags,
 } from "./publish-mention-tags.js";
@@ -29,5 +31,16 @@ describe("publishMentionTags", () => {
     expect(
       normalizeMentionPubkeys([` ${agent.toUpperCase()} `, agent]),
     ).toEqual([agent]);
+  });
+
+  it("adds p tags from NIP-27 content when the composer list is empty", () => {
+    const content = `nostr:${npubEncode(agent)} please inspect README`;
+    expect(mentionPubkeysForPublish(content, [])).toEqual([agent]);
+    expect(
+      publishMentionTags([["h", "general"]], mentionPubkeysForPublish(content)),
+    ).toEqual([
+      ["h", "general"],
+      ["p", agent],
+    ]);
   });
 });

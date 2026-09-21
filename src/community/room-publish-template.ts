@@ -4,6 +4,7 @@ import {
   type NostrEventTemplate,
 } from "../protocol/index.js";
 import {
+  mentionPubkeysForPublish,
   publishMentionTags,
   withPublishMentionTags,
 } from "./publish-mention-tags.js";
@@ -18,7 +19,10 @@ export function createCommunityChannelMessageTemplate(
     kind: 9,
     created_at: createdAt,
     content,
-    tags: publishMentionTags([["h", groupId]], mentionPubkeys),
+    tags: publishMentionTags(
+      [["h", groupId]],
+      mentionPubkeysForPublish(content, mentionPubkeys),
+    ),
   };
 }
 
@@ -81,7 +85,7 @@ export function createCommunityChannelReplyTemplate(
         ["e", parentId, relayUrl, "reply"],
         ["p", parentPubkey],
       ],
-      mentionPubkeys,
+      mentionPubkeysForPublish(content, mentionPubkeys),
     ),
   };
 }

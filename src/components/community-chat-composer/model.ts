@@ -1,4 +1,5 @@
 import { npubEncode } from "nostr-tools/nip19";
+import { contentMentionPubkeys } from "../../community/content-mentions.js";
 import type { CommunityCustomEmoji } from "../../community/index.js";
 import type {
   CommunityMemberModel,
@@ -96,7 +97,9 @@ export function resolveCommunityComposerReferences(
     .map((room) => room.id);
 
   return {
-    mentionPubkeys: [...new Set(mentionPubkeys)],
+    mentionPubkeys: [
+      ...new Set([...mentionPubkeys, ...contentMentionPubkeys(value)]),
+    ],
     channelIds: [...new Set(channelIds)],
   };
 }

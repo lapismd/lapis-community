@@ -1,10 +1,10 @@
 import { sha256 } from "@noble/hashes/sha2.js";
 import { bytesToHex, utf8ToBytes } from "@noble/hashes/utils.js";
-import { decode } from "nostr-tools/nip19";
 import type {
   CommunityPrivateEvent,
   CommunityReadCursor,
 } from "./contracts.js";
+export { contentMentionPubkeys } from "./content-mentions.js";
 
 /** Transport is part of identity: a Buzz DM never aliases an encrypted history. */
 export type CommunityConversationReference =
@@ -56,22 +56,6 @@ export function afterReadCursor(
     (event.created_at === cursor.createdAt && event.id > cursor.eventId)
   );
 }
-export function contentMentionPubkeys(content: string): string[] {
-  const keys = new Set<string>();
-  for (const match of content.matchAll(
-    /nostr:((?:npub|nprofile)1[023456789acdefghjklmnpqrstuvwxyz]+)/gu,
-  )) {
-    try {
-      const entity = decode(match[1]!);
-      if (entity.type === "npub") keys.add(entity.data);
-      else if (entity.type === "nprofile") keys.add(entity.data.pubkey);
-    } catch {
-      /* Ordinary malformed text is not a mention. */
-    }
-  }
-  return [...keys];
-}
-
 export function directConversationHash(
   participants: readonly string[],
 ): string {

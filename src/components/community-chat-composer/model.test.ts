@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { npubEncode } from "nostr-tools/nip19";
 
 import type {
   CommunityMemberModel,
@@ -53,6 +54,17 @@ describe("community composer references", () => {
         "ada",
       ),
     ).toEqual({ mentionPubkeys: [], channelIds: [] });
+  });
+
+  it("keeps NIP-27 content mentions as publish pubkeys", () => {
+    const ada = "a".repeat(64);
+    expect(
+      resolveCommunityComposerReferences(
+        `nostr:${npubEncode(ada)} please inspect README`,
+        [{ id: ada, name: "Ada Lovelace", handle: "ada", initials: "AL" }],
+        rooms,
+      ),
+    ).toEqual({ mentionPubkeys: [ada], channelIds: [] });
   });
 
   it("matches labels with spaces on token boundaries", () => {

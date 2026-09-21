@@ -534,7 +534,9 @@ registry-discussion authoring inputs with `CommunityChatComposer`. Reply targets
 and actionable warning, failure, retry, and dismiss behavior MUST use its unified
 public API. Every `CommunityMessage` body MUST render through
 `CommunityMarkdownContent` with the known member, room, mention-pubkey, and emoji
-context. The embedded Mira editor MUST span the composer's available inner width
+context. Published bodies MUST chip NIP-27 `nostr:npub` and `nostr:nprofile`
+tokens as the same member mentions as composer `@Name` prefixes, including when
+Mira autolinks those tokens. The embedded Mira editor MUST span the composer's available inner width
 without its document reading-column margins, internal scroller padding, or a
 reserved scrollbar gutter, and its empty state MUST retain a compact two-line
 minimum height. It MUST use a high-contrast two-pixel caret with start spacing
