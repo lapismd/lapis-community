@@ -2,6 +2,8 @@
 
 For LC-UI-037, agent `runtime_set` thinking is taken only from advertised catalog options, including `xhigh` when a harness lists it, and is omitted when the selected model advertises none.
 
+For LC-UI-044 and LC-UI-049, live and canonical transcript records keep `type: "plan"` with `{content,status,priority}` entries. The latest snapshot replaces the turn list in place, and an empty snapshot clears it.
+
 For LC-UI-049, v2 checkpoint manifests bind exact commit targets to the signing agent and reusable context pages. Clients validate repository, group, scope, span and baseline operation bindings before assembly. Kind `23908` is a bounded, sequenced, transient snapshot; it is never queried as history or written to the archive. Completed durable records replace matching live previews. Rendering owner-encrypted request activity in its original thread reuses already validated kind `24200` records in memory and MUST NOT publish synthetic message events.
 
 For LC-ARCH-028, Community workspace, inbox, and composer submission contracts

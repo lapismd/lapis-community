@@ -13,6 +13,8 @@
     CommunityAgentTranscriptEntry,
   } from "../../community/agent-contracts.js";
   import type { CommunityMemberModel } from "../community-workspace/model.js";
+  import CommunityAgentTranscriptPlan from "./CommunityAgentTranscriptPlan.svelte";
+  import { transcriptRecord } from "./transcript-entry.js";
   import {
     agentTranscriptTimeline,
     pendingTranscriptStatuses,
@@ -72,16 +74,10 @@
   function sourceActivity(sourceEventId?: string) {
     if (!sourceEventId) return;
     return activity.find((item) => {
-      const payload = object(item.frame.payload);
-      const entry = object(payload.entry);
+      const payload = transcriptRecord(item.frame.payload);
+      const entry = transcriptRecord(payload.entry);
       return entry.sourceEventId === sourceEventId;
     });
-  }
-
-  function object(value: unknown): Record<string, unknown> {
-    return value && typeof value === "object" && !Array.isArray(value)
-      ? (value as Record<string, unknown>)
-      : {};
   }
 </script>
 
@@ -180,6 +176,8 @@
           )}
           defaultExpanded={false}
         />
+      {:else if entry.kind === "plan"}
+        <CommunityAgentTranscriptPlan item={entry.item} />
       {:else if entry.kind === "context"}
         <Reasoning label={entry.item.label} streaming={false} expanded={false}>
           <CommunityMarkdownContent content={entry.item.text} fullWidth />

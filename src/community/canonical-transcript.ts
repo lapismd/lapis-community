@@ -1,8 +1,8 @@
 import type { CommunityAgentTranscriptEntry } from "./agent-transcript-contracts.js";
+import { canonicalPlanEntry } from "./canonical-transcript-plan.js";
 
 import {
   type CanonicalTranscript,
-  object,
   parseCanonicalTranscript,
 } from "../protocol/agent-transcript.js";
 
@@ -62,20 +62,7 @@ export function canonicalEntry(
         ? { error: "Tool outcome unavailable; the action was not repeated." }
         : {}),
     };
-  if (p.kind === "plan")
-    return {
-      ...common,
-      type: "context",
-      label: "Plan",
-      text: Array.isArray(p.entries)
-        ? p.entries
-            .map((v) => {
-              const entry = object(v);
-              return `- ${String(entry.content)} (${String(entry.status)})`;
-            })
-            .join("\n")
-        : "Plan details unavailable.",
-    };
+  if (p.kind === "plan") return canonicalPlanEntry(common, p);
   if (p.kind === "omission")
     return {
       ...common,

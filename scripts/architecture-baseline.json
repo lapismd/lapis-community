@@ -544,8 +544,18 @@
       "forbiddenImportCount": 0
     },
     "src/community/agent-transcript-contracts.ts": {
-      "countedLines": 65,
-      "physicalLines": 65,
+      "countedLines": 6,
+      "physicalLines": 6,
+      "forbiddenImportCount": 0
+    },
+    "src/community/agent-transcript-kinds.ts": {
+      "countedLines": 67,
+      "physicalLines": 68,
+      "forbiddenImportCount": 0
+    },
+    "src/community/agent-transcript-plan.ts": {
+      "countedLines": 55,
+      "physicalLines": 61,
       "forbiddenImportCount": 0
     },
     "src/community/browser-event-runtime.test.ts": {
@@ -612,14 +622,24 @@
       "physicalLines": 110,
       "forbiddenImportCount": 0
     },
+    "src/community/canonical-transcript-plan.test.ts": {
+      "countedLines": 53,
+      "physicalLines": 54,
+      "forbiddenImportCount": 0
+    },
+    "src/community/canonical-transcript-plan.ts": {
+      "countedLines": 12,
+      "physicalLines": 13,
+      "forbiddenImportCount": 0
+    },
     "src/community/canonical-transcript.test.ts": {
       "countedLines": 67,
       "physicalLines": 68,
       "forbiddenImportCount": 0
     },
     "src/community/canonical-transcript.ts": {
-      "countedLines": 124,
-      "physicalLines": 128,
+      "countedLines": 111,
+      "physicalLines": 115,
       "forbiddenImportCount": 0
     },
     "src/community/channel-authority.test.ts": {
@@ -1110,6 +1130,11 @@
       "physicalLines": 230,
       "forbiddenImportCount": 0
     },
+    "src/components/community-agent-activity/CommunityAgentActivity.plan.stories.svelte": {
+      "countedLines": 63,
+      "physicalLines": 66,
+      "forbiddenImportCount": 0
+    },
     "src/components/community-agent-activity/CommunityAgentActivity.stories.svelte": {
       "countedLines": 338,
       "physicalLines": 341,
@@ -1126,8 +1151,13 @@
       "forbiddenImportCount": 0
     },
     "src/components/community-agent-activity/CommunityAgentTranscript.svelte": {
-      "countedLines": 240,
-      "physicalLines": 252,
+      "countedLines": 239,
+      "physicalLines": 250,
+      "forbiddenImportCount": 0
+    },
+    "src/components/community-agent-activity/CommunityAgentTranscriptPlan.svelte": {
+      "countedLines": 57,
+      "physicalLines": 61,
       "forbiddenImportCount": 0
     },
     "src/components/community-agent-activity/completion.test.ts": {
@@ -1141,8 +1171,8 @@
       "forbiddenImportCount": 0
     },
     "src/components/community-agent-activity/model.ts": {
-      "countedLines": 275,
-      "physicalLines": 286,
+      "countedLines": 187,
+      "physicalLines": 195,
       "forbiddenImportCount": 0
     },
     "src/components/community-agent-activity/runtime-actions.ts": {
@@ -1150,9 +1180,29 @@
       "physicalLines": 21,
       "forbiddenImportCount": 0
     },
+    "src/components/community-agent-activity/transcript-entry.ts": {
+      "countedLines": 88,
+      "physicalLines": 91,
+      "forbiddenImportCount": 0
+    },
+    "src/components/community-agent-activity/transcript-plan.test.ts": {
+      "countedLines": 98,
+      "physicalLines": 102,
+      "forbiddenImportCount": 0
+    },
+    "src/components/community-agent-activity/transcript-plan.ts": {
+      "countedLines": 33,
+      "physicalLines": 36,
+      "forbiddenImportCount": 0
+    },
     "src/components/community-agent-activity/transcript-progress.ts": {
       "countedLines": 78,
       "physicalLines": 85,
+      "forbiddenImportCount": 0
+    },
+    "src/components/community-agent-activity/transcript-timeline.ts": {
+      "countedLines": 31,
+      "physicalLines": 32,
       "forbiddenImportCount": 0
     },
     "src/components/community-agent-activity/transcript-tool-props.ts": {

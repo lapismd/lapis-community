@@ -102,7 +102,7 @@ export function canonicalActivity(
       const entry = object(object(item.frame.payload).entry);
       return !(
         canonicalTurns.has(`${item.agentPubkey}:${item.frame.turnId}`) &&
-        ["message", "thinking", "tool"].includes(String(entry.type))
+        ["message", "thinking", "tool", "plan"].includes(String(entry.type))
       );
     }),
     ...derived,

@@ -50,7 +50,7 @@
 <Story
   name="Completed sanitized records"
   play={async ({ canvas, canvasElement }) => {
-    await userEvent.click(canvas.getByRole("button", { name: /Plan/ }));
+    await expect(canvas.getByRole("heading", { name: "Plan" })).toBeVisible();
     await expect(
       canvas.getByText(/Inspect README and update the checkpoint guide/),
     ).toBeVisible();

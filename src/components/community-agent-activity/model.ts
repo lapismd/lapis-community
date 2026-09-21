@@ -8,33 +8,14 @@ import {
   activityMatches,
   observerScope,
 } from "../../community/agent-activity-context.js";
+import { transcriptEntry, transcriptRecord } from "./transcript-entry.js";
+import {
+  applyTranscriptPlan,
+  visibleTranscriptTimeline,
+} from "./transcript-plan.js";
+import type { CommunityAgentTranscriptTimeline } from "./transcript-timeline.js";
 
-export type CommunityAgentTranscriptTimeline =
-  | {
-      kind: "context";
-      item: Extract<CommunityAgentTranscriptEntry, { type: "context" }>;
-    }
-  | {
-      kind: "message";
-      item: Extract<CommunityAgentTranscriptEntry, { type: "message" }>;
-    }
-  | {
-      kind: "thinking";
-      item: Extract<CommunityAgentTranscriptEntry, { type: "thinking" }>;
-    }
-  | {
-      kind: "tools";
-      id: string;
-      items: Extract<CommunityAgentTranscriptEntry, { type: "tool" }>[];
-    }
-  | {
-      kind: "permission";
-      item: Extract<CommunityAgentTranscriptEntry, { type: "permission" }>;
-    }
-  | {
-      kind: "turn";
-      item: Extract<CommunityAgentTranscriptEntry, { type: "turn" }>;
-    };
+export type { CommunityAgentTranscriptTimeline };
 
 export { pendingTranscriptStatuses } from "./transcript-progress.js";
 import { transcriptRequestKey } from "./transcript-progress.js";
@@ -68,7 +49,7 @@ export function agentTranscriptTimeline(
         left.id.localeCompare(right.id),
     )
     .flatMap(({ frame }) => {
-      const payload = record(frame.payload);
+      const payload = transcriptRecord(frame.payload);
       const entry =
         transcriptEntry(payload.entry) ??
         (frame.kind === "capture_gap"
@@ -149,6 +130,10 @@ export function agentTranscriptTimeline(
       continue;
     }
 
+    if (entry.type === "plan") {
+      applyTranscriptPlan(timeline, locations, entry, turn);
+      continue;
+    }
     if (entry.type === "tool") {
       const previous = timeline.at(-1);
       if (previous?.kind === "tools") {
@@ -187,7 +172,7 @@ export function agentTranscriptTimeline(
         }
       }
   }
-  return timeline;
+  return visibleTranscriptTimeline(timeline);
 }
 
 type TranscriptTool = Extract<CommunityAgentTranscriptEntry, { type: "tool" }>;
@@ -207,80 +192,4 @@ export function toolCallStatus(
     : state === "error"
       ? "error"
       : "running";
-}
-
-function transcriptEntry(
-  value: unknown,
-): CommunityAgentTranscriptEntry | undefined {
-  const entry = record(value);
-  if (
-    typeof entry.id !== "string" ||
-    !entry.id ||
-    typeof entry.type !== "string" ||
-    typeof entry.createdAt !== "string" ||
-    !Number.isFinite(Date.parse(entry.createdAt))
-  )
-    return;
-  if (entry.type === "message") {
-    if (
-      (entry.role !== "user" && entry.role !== "assistant") ||
-      typeof entry.text !== "string" ||
-      typeof entry.authorPubkey !== "string"
-    )
-      return;
-  } else if (entry.type === "thinking") {
-    if (
-      typeof entry.text !== "string" ||
-      (entry.state !== "streaming" && entry.state !== "done")
-    )
-      return;
-  } else if (entry.type === "tool") {
-    if (
-      typeof entry.toolId !== "string" ||
-      typeof entry.name !== "string" ||
-      !["running", "completed", "error"].includes(String(entry.state)) ||
-      !optionalStrings(entry, ["input", "output", "error"])
-    )
-      return;
-  } else if (entry.type === "permission") {
-    if (
-      typeof entry.requestId !== "string" ||
-      typeof entry.tool !== "string" ||
-      !Array.isArray(entry.options) ||
-      !entry.options.every((option) => typeof option === "string") ||
-      (entry.state !== "pending" && entry.state !== "resolved") ||
-      !optionalStrings(entry, ["input", "decision"])
-    )
-      return;
-  } else if (entry.type === "context") {
-    if (typeof entry.label !== "string" || typeof entry.text !== "string")
-      return;
-  } else if (entry.type === "turn") {
-    if (
-      !["started", "completed", "failed", "cancelled"].includes(
-        String(entry.state),
-      ) ||
-      !optionalStrings(entry, ["message"])
-    )
-      return;
-  } else return;
-  return {
-    ...entry,
-    ...(Array.isArray(entry.options) ? { options: [...entry.options] } : {}),
-  } as unknown as CommunityAgentTranscriptEntry;
-}
-
-function optionalStrings(
-  value: Record<string, unknown>,
-  keys: string[],
-): boolean {
-  return keys.every(
-    (key) => value[key] === undefined || typeof value[key] === "string",
-  );
-}
-
-function record(value: unknown): Record<string, unknown> {
-  return value && typeof value === "object" && !Array.isArray(value)
-    ? (value as Record<string, unknown>)
-    : {};
 }
