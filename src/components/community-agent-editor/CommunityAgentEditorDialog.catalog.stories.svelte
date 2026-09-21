@@ -1,7 +1,9 @@
 <script module lang="ts">
   import { defineMeta } from "@storybook/addon-svelte-csf";
-  import { expect, within, userEvent } from "storybook/test";
+  import { expect, userEvent, within } from "storybook/test";
   import CommunityAgentEditorDialog from "./CommunityAgentEditorDialog.svelte";
+  import { playEmptyModelCatalog } from "./editor-catalog-story.js";
+  import { storyLongCursorRuntime } from "../community-agents/long-cursor-runtime-story-fixtures.js";
   import {
     storyAgent,
     storyAgentRuntime,
@@ -33,71 +35,67 @@
   play={async ({ canvasElement }) => {
     const body = within(canvasElement.ownerDocument.body);
     const dialog = body.getByRole("dialog", { name: "Edit agent" });
+    const scoped = within(dialog);
     await userEvent.click(
-      within(dialog).getByRole("tab", { name: "Customize for this agent" }),
+      scoped.getByRole("tab", { name: "Customize for this agent" }),
     );
     await userEvent.click(
-      within(dialog).getByRole("button", { name: "Agent harness" }),
+      scoped.getByRole("button", { name: "Agent harness" }),
     );
     await userEvent.click(body.getByRole("option", { name: "Cursor" }));
-    await userEvent.click(
-      within(dialog).getByRole("button", { name: "Model" }),
+    const search = scoped.getByRole("combobox", { name: "Search models" });
+    const picker = dialog.querySelector<HTMLElement>(
+      '[data-ui-part="agent-editor-model-picker"]',
+    )!;
+    const viewport = within(picker)
+      .getByRole("listbox")
+      .closest<HTMLElement>('[data-ui-part="scroll-area-viewport"]')!;
+    await expect(search).toBeVisible();
+    await expect(viewport.getBoundingClientRect().height).toBeLessThanOrEqual(
+      256,
     );
+    await expect(viewport.scrollHeight).toBeGreaterThan(viewport.clientHeight);
     await expect(
-      body.getByRole("option", { name: "Composer 2.5" }),
+      scoped.getByRole("option", { name: /^Composer 2.5$/ }),
     ).toBeVisible();
     await expect(
-      body.queryByRole("option", { name: "GPT-6" }),
+      scoped.queryByRole("option", { name: /^GPT-6$/ }),
     ).not.toBeInTheDocument();
-    await userEvent.keyboard("{Escape}");
+    await userEvent.type(search, "Fast");
+    await expect(
+      scoped.getByRole("option", { name: /^Composer 2.5 Fast$/ }),
+    ).toBeVisible();
+    await expect(
+      scoped.queryByRole("option", { name: /^Composer 2.5$/ }),
+    ).not.toBeInTheDocument();
     await userEvent.click(
-      within(dialog).getByRole("button", { name: "Agent harness" }),
+      scoped.getByRole("option", { name: /^Composer 2.5 Fast$/ }),
+    );
+    await expect(
+      scoped.getByText("Selected model: Composer 2.5 Fast"),
+    ).toBeVisible();
+    await userEvent.click(
+      scoped.getByRole("button", { name: "Agent harness" }),
     );
     await userEvent.click(body.getByRole("option", { name: "Claude Code" }));
-    await userEvent.click(
-      within(dialog).getByRole("button", { name: "Model" }),
-    );
     await expect(
-      body.getByRole("option", { name: "Claude Sonnet" }),
+      scoped.getByRole("option", { name: /^Claude Sonnet$/ }),
     ).toBeVisible();
     await expect(
-      body.queryByRole("option", { name: "Composer 2.5" }),
+      scoped.queryByRole("option", { name: /^Composer 2.5 Fast$/ }),
     ).not.toBeInTheDocument();
-    await userEvent.keyboard("{Escape}");
   }}
   >{#snippet template()}<CommunityAgentEditorDialog
       bind:open
       agent={storyAgent}
       personas={storyPersonas}
-      runtime={storyAgentRuntime}
+      runtime={storyLongCursorRuntime}
       onSaveAgent={saveAgent}
       onSaveRuntime={saveRuntime}
     />{/snippet}</Story
 >
 
-<Story
-  name="Empty model catalog"
-  play={async ({ canvasElement }) => {
-    const body = within(canvasElement.ownerDocument.body);
-    const dialog = body.getByRole("dialog", { name: "Edit agent" });
-    await userEvent.click(
-      within(dialog).getByRole("tab", { name: "Customize for this agent" }),
-    );
-    await userEvent.click(
-      within(dialog).getByRole("button", { name: "Agent harness" }),
-    );
-    await userEvent.click(body.getByRole("option", { name: "Cursor" }));
-    await userEvent.click(
-      within(dialog).getByRole("button", { name: "Model" }),
-    );
-    await expect(
-      body.getByRole("option", { name: "Loading models…" }),
-    ).toBeVisible();
-    await expect(
-      body.queryByRole("option", { name: "Composer 2.5" }),
-    ).not.toBeInTheDocument();
-    await userEvent.keyboard("{Escape}");
-  }}
+<Story name="Empty model catalog" play={playEmptyModelCatalog}
   >{#snippet template()}<CommunityAgentEditorDialog
       bind:open
       agent={storyAgent}

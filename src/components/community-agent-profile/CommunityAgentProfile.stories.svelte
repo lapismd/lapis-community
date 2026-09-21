@@ -178,7 +178,7 @@
       within(dialog).getByRole("tab", { name: "Customize for this agent" }),
     );
     await expect(
-      within(dialog).getByRole("button", { name: "Model" }),
+      within(dialog).getByRole("combobox", { name: "Search models" }),
     ).toBeVisible();
     await userEvent.click(
       within(dialog).getByRole("button", { name: "Save changes" }),

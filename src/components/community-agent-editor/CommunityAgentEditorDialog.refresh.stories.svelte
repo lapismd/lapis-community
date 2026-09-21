@@ -42,13 +42,12 @@
     await userEvent.click(
       within(dialog).getByRole("tab", { name: "Customize for this agent" }),
     );
-    await userEvent.click(
-      within(dialog).getByRole("button", { name: "Model" }),
-    );
     await expect(
-      body.getByRole("option", { name: "Loading models…" }),
+      within(dialog).getByRole("combobox", { name: "Search models" }),
     ).toBeVisible();
-    await userEvent.keyboard("{Escape}");
+    await expect(
+      within(dialog).getByRole("option", { name: "Loading models…" }),
+    ).toBeVisible();
   }}
   >{#snippet template(args)}<CommunityAgentEditorDialog
       bind:open
@@ -77,13 +76,12 @@
     );
     await userEvent.click(body.getByRole("option", { name: "Cursor" }));
     await waitFor(() => expect(args.onLoadRuntime).toHaveBeenCalledTimes(1));
-    await userEvent.click(
-      within(dialog).getByRole("button", { name: "Model" }),
-    );
     await expect(
-      body.getByRole("option", { name: "Loading models…" }),
+      within(dialog).getByRole("combobox", { name: "Search models" }),
     ).toBeVisible();
-    await userEvent.keyboard("{Escape}");
+    await expect(
+      within(dialog).getByRole("option", { name: "Loading models…" }),
+    ).toBeVisible();
   }}
   >{#snippet template(args)}<CommunityAgentEditorDialog
       bind:open
