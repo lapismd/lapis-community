@@ -19,6 +19,7 @@
     agentTranscriptTimeline,
     pendingTranscriptStatuses,
   } from "./model.js";
+  import { transcriptMarkdownMembers } from "./transcript-markdown-members.js";
 
   let {
     activity,
@@ -48,6 +49,7 @@
   const pending = $derived(
     pendingTranscriptStatuses(activity, agent.pubkey, context),
   );
+  const markdownMembers = $derived(transcriptMarkdownMembers(members, [agent]));
   const latestMessageId = $derived(
     [...timeline].reverse().find((entry) => entry.kind === "message")?.item.id,
   );
@@ -138,7 +140,10 @@
             {/snippet}
             {#snippet name()}<span>{author.name}</span>{/snippet}
             <Chat.MessageBubble>
-              <CommunityMarkdownContent content={message.text} />
+              <CommunityMarkdownContent
+                content={message.text}
+                members={markdownMembers}
+              />
             </Chat.MessageBubble>
             {#snippet metadata()}
               <Chat.MessageMetadata>
@@ -180,7 +185,11 @@
         <CommunityAgentTranscriptPlan item={entry.item} />
       {:else if entry.kind === "context"}
         <Reasoning label={entry.item.label} streaming={false} expanded={false}>
-          <CommunityMarkdownContent content={entry.item.text} fullWidth />
+          <CommunityMarkdownContent
+            content={entry.item.text}
+            fullWidth
+            members={markdownMembers}
+          />
         </Reasoning>
       {:else if entry.kind === "permission"}
         {#if entry.item.state === "resolved"}

@@ -520,7 +520,9 @@ without replacing the surrounding application shell.
 NIP-27 content-mention decoding lives in `content-mentions.ts` so Inbox
 projection and `CommunityMarkdownContent` share the same `nostr:npub` and
 `nostr:nprofile` identity. Preview rewrites those tokens to `@Name` before
-Mira safe sanitize so they cannot collapse to leftover `nostr` text. Composer
+Mira safe sanitize so they cannot collapse to leftover `nostr` text. Agent
+activity transcripts pass known members and the selected agent into that shared
+preview. Composer
 CodeMirror mention decorations scan the draft for those tokens and reuse the
 `@Name` avatar widgets, with a truncated npub when no display name is known.
 Autocomplete and thread hydration insert those tokens so colliding display

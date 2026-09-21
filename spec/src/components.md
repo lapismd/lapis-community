@@ -534,8 +534,11 @@ registry-discussion authoring inputs with `CommunityChatComposer`. Reply targets
 and actionable warning, failure, retry, and dismiss behavior MUST use its unified
 public API. Every `CommunityMessage` body MUST render through
 `CommunityMarkdownContent` with the known member, room, mention-pubkey, and emoji
-context. Published bodies MUST chip NIP-27 `nostr:npub` and `nostr:nprofile`
-tokens as the same member mentions as composer `@Name` prefixes. The composer
+context. Every `CommunityAgentTranscript` body MUST render through that same
+preview with known members and the selected agent identity so NIP-27 mentions
+chip there as they do in channel messages. Published bodies MUST chip NIP-27
+`nostr:npub` and `nostr:nprofile` tokens as the same member mentions as composer
+`@Name` prefixes. The composer
 CodeMirror mention decorations MUST treat raw `nostr:npub` and `nostr:nprofile`
 text as those same avatar widgets, using the member name or a truncated npub
 when none is known. Member selection MUST insert `nostr:npub` tokens rather

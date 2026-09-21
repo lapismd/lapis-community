@@ -20,6 +20,7 @@
   import { activityConversationKey } from "./activity-conversation-key.js";
   import CommunityAgentActivityFeed from "./CommunityAgentActivityFeed.svelte";
   import CommunityAgentActivityHeader from "./CommunityAgentActivityHeader.svelte";
+  import { transcriptMarkdownMembers } from "./transcript-markdown-members.js";
 
   let {
     model,
@@ -57,6 +58,7 @@
   const selected = $derived(
     agents.find((agent) => agent.pubkey === model.activityAgent),
   );
+  const identityMembers = $derived(transcriptMarkdownMembers(members, agents));
   const context = $derived(
     model.activityContext ??
       (model.activityChannel
@@ -154,7 +156,7 @@
       activity={model.activity}
       agent={selected}
       {context}
-      {members}
+      members={identityMembers}
       conversationKey={activityConversationKey(selected.pubkey, context)}
       onLoadLatest={async () => {
         await onLatest();

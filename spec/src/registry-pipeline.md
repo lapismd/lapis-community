@@ -32,6 +32,8 @@ NIP-27 content-mention decoding and markdown chip extraction add
 baseline without changing relay ingestion. Composer token-reference budgets
 scan draft `nostr:npub` text through the same mention-widget path.
 Composer mention-insert budgets record NIP-27 selection tokens.
+Agent activity transcripts add `transcript-markdown-members.ts` so the shared
+preview receives known members and the selected agent.
 Composer autocomplete and formatting-action sync extract to dedicated
 modules and lower the `CommunityChatComposer.svelte` path budget in the
 same change.

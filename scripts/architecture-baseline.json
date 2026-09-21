@@ -1181,8 +1181,8 @@
       "forbiddenImportCount": 0
     },
     "src/components/community-agent-activity/CommunityAgentActivity.svelte": {
-      "countedLines": 211,
-      "physicalLines": 217,
+      "countedLines": 213,
+      "physicalLines": 219,
       "forbiddenImportCount": 0
     },
     "src/components/community-agent-activity/CommunityAgentActivityFeed.svelte": {
@@ -1206,13 +1206,13 @@
       "forbiddenImportCount": 0
     },
     "src/components/community-agent-activity/CommunityAgentTranscript.stories.svelte": {
-      "countedLines": 44,
-      "physicalLines": 45,
+      "countedLines": 76,
+      "physicalLines": 78,
       "forbiddenImportCount": 0
     },
     "src/components/community-agent-activity/CommunityAgentTranscript.svelte": {
-      "countedLines": 242,
-      "physicalLines": 253,
+      "countedLines": 251,
+      "physicalLines": 262,
       "forbiddenImportCount": 0
     },
     "src/components/community-agent-activity/CommunityAgentTranscriptPlan.svelte": {
@@ -1243,6 +1243,16 @@
     "src/components/community-agent-activity/transcript-entry.ts": {
       "countedLines": 99,
       "physicalLines": 102,
+      "forbiddenImportCount": 0
+    },
+    "src/components/community-agent-activity/transcript-markdown-members.test.ts": {
+      "countedLines": 27,
+      "physicalLines": 30,
+      "forbiddenImportCount": 0
+    },
+    "src/components/community-agent-activity/transcript-markdown-members.ts": {
+      "countedLines": 11,
+      "physicalLines": 12,
       "forbiddenImportCount": 0
     },
     "src/components/community-agent-activity/transcript-plan.test.ts": {
