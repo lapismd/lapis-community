@@ -643,13 +643,13 @@
       "forbiddenImportCount": 0
     },
     "src/community/canonical-transcript.test.ts": {
-      "countedLines": 106,
-      "physicalLines": 108,
+      "countedLines": 182,
+      "physicalLines": 185,
       "forbiddenImportCount": 0
     },
     "src/community/canonical-transcript.ts": {
-      "countedLines": 122,
-      "physicalLines": 127,
+      "countedLines": 131,
+      "physicalLines": 137,
       "forbiddenImportCount": 0
     },
     "src/community/channel-authority.test.ts": {
@@ -1211,13 +1211,13 @@
       "forbiddenImportCount": 0
     },
     "src/components/community-agent-activity/model.test.ts": {
-      "countedLines": 200,
-      "physicalLines": 206,
+      "countedLines": 232,
+      "physicalLines": 239,
       "forbiddenImportCount": 0
     },
     "src/components/community-agent-activity/model.ts": {
-      "countedLines": 189,
-      "physicalLines": 197,
+      "countedLines": 191,
+      "physicalLines": 199,
       "forbiddenImportCount": 0
     },
     "src/components/community-agent-activity/runtime-actions.ts": {
@@ -1248,6 +1248,11 @@
     "src/components/community-agent-activity/transcript-timeline.ts": {
       "countedLines": 35,
       "physicalLines": 36,
+      "forbiddenImportCount": 0
+    },
+    "src/components/community-agent-activity/transcript-tool-props.test.ts": {
+      "countedLines": 27,
+      "physicalLines": 29,
       "forbiddenImportCount": 0
     },
     "src/components/community-agent-activity/transcript-tool-props.ts": {
@@ -3110,8 +3115,8 @@
       "forbiddenImportCount": 0
     },
     "src/components/community-projects/repository-context-transcript.test.ts": {
-      "countedLines": 114,
-      "physicalLines": 121,
+      "countedLines": 151,
+      "physicalLines": 158,
       "forbiddenImportCount": 0
     },
     "src/components/community-projects/repository-context-transcript.ts": {
@@ -3891,8 +3896,8 @@
       "forbiddenImportCount": 0
     },
     "src/fixture/canonical-agent-records.ts": {
-      "countedLines": 112,
-      "physicalLines": 114,
+      "countedLines": 113,
+      "physicalLines": 115,
       "forbiddenImportCount": 0
     },
     "src/fixture/freeze.ts": {

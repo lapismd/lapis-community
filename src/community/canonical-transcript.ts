@@ -6,8 +6,12 @@ import {
   parseCanonicalTranscript,
 } from "../protocol/agent-transcript.js";
 
-const display = (value: unknown) =>
-  typeof value === "string" ? value : (JSON.stringify(value, null, 2) ?? "");
+const display = (value: unknown) => {
+  if (value == null) return "";
+  return typeof value === "string"
+    ? value
+    : (JSON.stringify(value, null, 2) ?? "");
+};
 
 const leftover = new Set([
   "lifecycle",
@@ -53,23 +57,25 @@ export function canonicalEntry(
       state: "done",
       redacted: record.sanitization.redacted,
     };
-  if (p.kind === "tool-invocation")
+  if (p.kind === "tool-invocation") {
+    const input = display(p.input);
     return {
       ...common,
       id: `${record.turnId}:tool:${String(p.invocationId)}`,
       type: "tool",
       toolId: String(p.invocationId),
-      name: String(p.name),
-      input: display(p.input),
+      name: toolName(p.name),
+      ...(input ? { input } : {}),
       state: "running",
     };
+  }
   if (p.kind === "tool-result")
     return {
       ...common,
       id: `${record.turnId}:tool:${String(p.invocationId)}`,
       type: "tool",
       toolId: String(p.invocationId),
-      name: "Tool result",
+      name: toolName(p.name),
       output: display(p.output),
       state: p.outcome === "succeeded" ? "completed" : "error",
       ...(p.outcome === "unknown"
@@ -112,6 +118,10 @@ export function canonicalEntry(
         p.message ?? p.reason ?? p.code ?? "The agent turn failed.",
       ),
     };
+}
+
+function toolName(value: unknown): string {
+  return typeof value === "string" && value.trim() ? value.trim() : "Tool";
 }
 
 export function canonicalEntryFromText(

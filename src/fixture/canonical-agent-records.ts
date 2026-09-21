@@ -71,6 +71,7 @@ export function canonicalLocalRecords(
     {
       kind: "tool-result",
       invocationId: "edit",
+      name: "apply_patch",
       outcome: "succeeded",
       output: "Success. Updated README.md",
     },

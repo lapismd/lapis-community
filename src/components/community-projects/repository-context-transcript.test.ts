@@ -60,6 +60,14 @@ describe("repository context checkpoint links", () => {
       { kind: "lifecycle", state: "capture_coverage" },
       4,
     );
+    const leftoverFile = canonicalFixtureRecord(
+      { kind: "file", path: "README.md" },
+      5,
+    );
+    const leftoverCommand = canonicalFixtureRecord(
+      { kind: "command", command: "git status" },
+      6,
+    );
     const turns = repositoryContextTurns([
       {
         ...checkpoint("ctx", ["2".repeat(40)]),
@@ -90,11 +98,35 @@ describe("repository context checkpoint links", () => {
             limit: 10,
           },
           {
-            id: "leftover-1",
+            id: "tool-1",
             sequence: 4,
             createdAt: 4,
+            kind: "tool",
+            toolId: "exec",
+            toolName: "bash",
+            toolState: "completed",
+            input: '{"command":"git status","kind":"execute"}',
+          },
+          {
+            id: "leftover-1",
+            sequence: 5,
+            createdAt: 5,
             kind: "transcript",
             text: JSON.stringify(leftover),
+          },
+          {
+            id: "leftover-file",
+            sequence: 6,
+            createdAt: 6,
+            kind: "transcript",
+            text: JSON.stringify(leftoverFile),
+          },
+          {
+            id: "leftover-command",
+            sequence: 7,
+            createdAt: 7,
+            kind: "transcript",
+            text: JSON.stringify(leftoverCommand),
           },
         ],
       },
@@ -116,6 +148,11 @@ describe("repository context checkpoint links", () => {
         decision: "allow_once",
       }),
       expect.objectContaining({ type: "usage", used: 8, limit: 10 }),
+      expect.objectContaining({
+        type: "tool",
+        name: "bash",
+        input: '{"command":"git status","kind":"execute"}',
+      }),
     ]);
   });
 });

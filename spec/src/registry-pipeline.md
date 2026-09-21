@@ -4,7 +4,7 @@ For LC-ARCH-028, editor catalog, thinking, combined-picker, harness-tab, and cat
 
 LC-UI-049 thread-context fixtures exercise existing checkpoint and channel event shapes, native replies, linked commit comments, visible thinking and shared reactions. Discussion edit/delete, reference-token and independently scrolling thread fixtures reuse those signed event shapes. Their component extractions and bounded status story update the architecture baseline without changing relay ingestion or publication protocols.
 
-For LC-UI-049, local project fixtures include agent-signed v2 context with complete prose and tool input/output, all referenced pages, and explicit commit targets. These fixtures exercise repository Activity, Log, Op Log and commit context alongside the source fixture. Commit-detail disclosure extraction updates the architecture baseline and reuses these fixtures for matching header and independent expansion checks.
+For LC-UI-049, local project fixtures include agent-signed v2 context with complete prose and tool input/output that keep the invocation name on results, all referenced pages, and explicit commit targets. These fixtures exercise repository Activity, Log, Op Log and commit context alongside the source fixture. Commit-detail disclosure extraction updates the architecture baseline and reuses these fixtures for matching header and independent expansion checks.
 
 For LC-UI-050, project-linked channel settings derive an unsaved canvas starter
 from the resolved project catalog, repository references and channel binding.

@@ -981,7 +981,9 @@ first-class `type: "plan"` entries with content, status, and priority, tools,
 permissions, one usage snapshot, and a failed or cancelled turn through the
 existing Chat components. Plan records MUST NOT flatten to context text.
 Lifecycle, extension, file, patch, command, subagent, compaction, and omission
-leftovers MUST NOT render as context rows. Completed canonical records
+leftovers MUST NOT render as context rows. Public tool rows MUST keep the
+invocation name on results and MUST show command or kind when the envelope
+includes them. Completed canonical records
 supersede compatibility projections within the same turn. Unfinished
 fragment groups show a capture gap, never partial text. Private Activity retains
 encrypted local persistence; canonical plaintext is only derived in memory.

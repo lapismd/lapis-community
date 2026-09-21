@@ -111,7 +111,9 @@ export function agentTranscriptTimeline(
         const merged = {
           ...previous,
           ...entry,
-          name: entry.name === "Tool result" ? previous.name : entry.name,
+          name: /^(?:tool|tool result|acp_tool|tool call)$/iu.test(entry.name)
+            ? previous.name
+            : entry.name,
         };
         merged.state =
           previous.state !== "running" && entry.state === "running"

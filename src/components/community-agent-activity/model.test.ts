@@ -132,6 +132,39 @@ describe("agent transcript timeline", () => {
     });
   });
 
+  it("keeps the invocation name when a later result uses a generic label", () => {
+    const timeline = agentTranscriptTimeline(
+      [
+        activity(1, {
+          id: "run:tool:exec",
+          type: "tool",
+          toolId: "exec",
+          name: "bash",
+          state: "running",
+          input: '{"command":"git status","kind":"execute"}',
+          createdAt: new Date(1_001_000).toISOString(),
+        }),
+        activity(2, {
+          id: "run:tool:exec",
+          type: "tool",
+          toolId: "exec",
+          name: "Tool result",
+          state: "completed",
+          output: "On branch main",
+          createdAt: new Date(1_002_000).toISOString(),
+        }),
+      ],
+      agent,
+      { kind: "channel", channelId: "general" },
+    );
+    expect(timeline[0]).toMatchObject({
+      kind: "tools",
+      items: [
+        { name: "bash", input: '{"command":"git status","kind":"execute"}' },
+      ],
+    });
+  });
+
   it("keeps original user attribution and completes thinking at turn end", () => {
     const timeline = agentTranscriptTimeline(
       [

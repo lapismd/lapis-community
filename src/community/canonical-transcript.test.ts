@@ -72,11 +72,12 @@ it("keeps the public allowlist and hides leftover coverage rows", () => {
     { kind: "usage", used: 8, limit: 10 },
     2,
   );
-  const leftover = canonicalFixtureRecord(
-    { kind: "lifecycle", state: "capture_coverage" },
-    3,
-  );
-  const events: CommunityAgentActivityItem[] = [usage, leftover].map(
+  const leftovers = [
+    canonicalFixtureRecord({ kind: "lifecycle", state: "capture_coverage" }, 3),
+    canonicalFixtureRecord({ kind: "file", path: "README.md" }, 4),
+    canonicalFixtureRecord({ kind: "command", command: "git status" }, 5),
+  ];
+  const events: CommunityAgentActivityItem[] = [usage, ...leftovers].map(
     (record) => ({
       id: record.id,
       agentPubkey: "agent",
@@ -105,4 +106,80 @@ it("keeps the public allowlist and hides leftover coverage rows", () => {
   expect(projected[0]?.frame.payload).toMatchObject({
     entry: { type: "usage", used: 8, limit: 10 },
   });
+});
+
+it("keeps invocation names and command envelopes instead of Tool result or null", () => {
+  const invocation = canonicalFixtureRecord(
+    {
+      kind: "tool-invocation",
+      invocationId: "exec",
+      name: "bash",
+      input: {
+        command: "git status",
+        kind: "execute",
+        locations: [{ path: "README.md" }],
+      },
+    },
+    1,
+  );
+  const result = canonicalFixtureRecord(
+    {
+      kind: "tool-result",
+      invocationId: "exec",
+      name: "bash",
+      outcome: "succeeded",
+      output: "On branch main",
+    },
+    2,
+  );
+  const empty = canonicalFixtureRecord(
+    {
+      kind: "tool-invocation",
+      invocationId: "empty",
+      name: "bash",
+      input: null,
+    },
+    3,
+  );
+  const events: CommunityAgentActivityItem[] = [invocation, result, empty].map(
+    (record) => ({
+      id: record.id,
+      agentPubkey: "agent",
+      createdAt: record.sequence,
+      frame: {
+        version: 2,
+        seq: record.sequence,
+        sessionId: record.threadId,
+        turnId: record.turnId,
+        timestamp: new Date(record.at).toISOString(),
+        kind: "transcript_record",
+        payload: {
+          capture: {
+            schema: "lapis.transcript-fragment/1",
+            recordId: record.id,
+            index: 0,
+            count: 1,
+            data: JSON.stringify(record),
+          },
+        },
+      },
+    }),
+  );
+  const projected = canonicalActivity(events).map(
+    (item) => item.frame.payload as { entry?: Record<string, unknown> },
+  );
+  expect(projected[0]?.entry).toMatchObject({
+    type: "tool",
+    name: "bash",
+    input: expect.stringContaining('"command": "git status"'),
+  });
+  expect(projected[0]?.entry?.input).toContain('"kind": "execute"');
+  expect(projected[1]?.entry).toMatchObject({
+    type: "tool",
+    name: "bash",
+    output: "On branch main",
+  });
+  expect(projected[1]?.entry?.name).not.toBe("Tool result");
+  expect(projected[2]?.entry).toMatchObject({ type: "tool", name: "bash" });
+  expect(JSON.stringify(projected[2]?.entry)).not.toContain("null");
 });
