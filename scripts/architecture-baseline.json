@@ -1802,23 +1802,23 @@
       "forbiddenImportCount": 0
     },
     "src/components/community-chat-composer/agent-mention-candidates.test.ts": {
-      "countedLines": 59,
-      "physicalLines": 63,
+      "countedLines": 76,
+      "physicalLines": 81,
       "forbiddenImportCount": 0
     },
     "src/components/community-chat-composer/agent-mention-candidates.ts": {
-      "countedLines": 95,
-      "physicalLines": 101,
+      "countedLines": 99,
+      "physicalLines": 104,
       "forbiddenImportCount": 0
     },
     "src/components/community-chat-composer/agent-mention-hydration.test.ts": {
-      "countedLines": 59,
-      "physicalLines": 66,
+      "countedLines": 79,
+      "physicalLines": 87,
       "forbiddenImportCount": 0
     },
     "src/components/community-chat-composer/agent-mention-hydration.ts": {
-      "countedLines": 94,
-      "physicalLines": 103,
+      "countedLines": 113,
+      "physicalLines": 122,
       "forbiddenImportCount": 0
     },
     "src/components/community-chat-composer/agent-story-fixtures.ts": {
@@ -1854,8 +1854,8 @@
       "justification": "Existing file above the new-file counted-line limit; do not grow"
     },
     "src/components/community-chat-composer/CommunityChatComposer.svelte": {
-      "countedLines": 1632,
-      "physicalLines": 1739,
+      "countedLines": 1626,
+      "physicalLines": 1733,
       "forbiddenImportCount": 0,
       "kind": "legacy",
       "justification": "Existing file above the new-file counted-line limit; do not grow"
@@ -1881,8 +1881,8 @@
       "forbiddenImportCount": 0
     },
     "src/components/community-chat-composer/composer-agent-audience.test.ts": {
-      "countedLines": 170,
-      "physicalLines": 179,
+      "countedLines": 176,
+      "physicalLines": 185,
       "forbiddenImportCount": 0
     },
     "src/components/community-chat-composer/composer-agent-audience.ts": {
@@ -1891,8 +1891,8 @@
       "forbiddenImportCount": 0
     },
     "src/components/community-chat-composer/composer-agent-mentions.ts": {
-      "countedLines": 68,
-      "physicalLines": 71,
+      "countedLines": 73,
+      "physicalLines": 76,
       "forbiddenImportCount": 0
     },
     "src/components/community-chat-composer/composer-agent-model.ts": {
@@ -1928,8 +1928,8 @@
       "forbiddenImportCount": 0
     },
     "src/components/community-chat-composer/model.test.ts": {
-      "countedLines": 95,
-      "physicalLines": 104,
+      "countedLines": 111,
+      "physicalLines": 121,
       "forbiddenImportCount": 0
     },
     "src/components/community-chat-composer/model.ts": {
@@ -4751,6 +4751,16 @@
       "forbiddenImportCount": 0
     },
     "src/components/community-markdown-content/preview-mentions.test.ts": {
+      "countedLines": 39,
+      "physicalLines": 44,
+      "forbiddenImportCount": 0
+    },
+    "src/components/community-chat-composer/composer-mention-insert.ts": {
+      "countedLines": 32,
+      "physicalLines": 37,
+      "forbiddenImportCount": 0
+    },
+    "src/components/community-chat-composer/composer-mention-insert.test.ts": {
       "countedLines": 39,
       "physicalLines": 44,
       "forbiddenImportCount": 0

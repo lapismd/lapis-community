@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
+import { npubEncode } from "nostr-tools/nip19";
 
 import {
   applyAgentMentionChange,
@@ -55,8 +56,10 @@ describe("composer agent audience", () => {
     });
     audience.setEnabled(true);
     const hydrated = audience.hydrate("", "");
-    expect(hydrated.value).toBe("@Fizz ");
-    expect(audience.restoreAfterSend([fizz]).value).toBe("@Fizz ");
+    expect(hydrated.value).toBe(`nostr:${npubEncode(fizz)} `);
+    expect(audience.restoreAfterSend([fizz]).value).toBe(
+      `nostr:${npubEncode(fizz)} `,
+    );
     expect(
       syncComposerAgentAudienceDraft(
         audience,
@@ -67,7 +70,10 @@ describe("composer agent audience", () => {
     ).toBeUndefined();
     expect(
       restoreComposerDraftAfterSend(true, audience, [fizz], [{ pubkey: fizz }]),
-    ).toEqual({ value: "@Fizz ", mentionPubkeys: [fizz] });
+    ).toEqual({
+      value: `nostr:${npubEncode(fizz)} `,
+      mentionPubkeys: [fizz],
+    });
   });
 
   it("promotes a colliding agent mention into the address lock", () => {

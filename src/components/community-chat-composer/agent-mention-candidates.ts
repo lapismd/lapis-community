@@ -1,7 +1,6 @@
-import { npubEncode } from "nostr-tools/nip19";
-
-import type { CommunityMemberModel } from "../community-workspace/model.js";
+import { truncatedContentMention } from "../../community/content-mentions.js";
 import { communityMemberFromAgent } from "../../community/member-identity.js";
+import type { CommunityMemberModel } from "../community-workspace/model.js";
 import type { CommunityComposerAutocompleteItem } from "./autocomplete.js";
 import type { CommunityComposerAgentModel } from "./composer-agent-model.js";
 
@@ -21,7 +20,7 @@ export function communityAgentMentionDetail(
     parts.push("not in channel");
   }
   if (collision && /^[0-9a-f]{64}$/u.test(agent.pubkey)) {
-    parts.push(truncateNpub(npubEncode(agent.pubkey)));
+    parts.push(truncatedContentMention("", agent.pubkey));
   }
   return parts.join(" · ");
 }
@@ -81,7 +80,7 @@ export function communityMentionAutocompleteItems(
               channelId,
               collision,
             )
-          : `@${member.handle}`,
+          : peopleMentionDetail(member, collision),
         member,
       };
     });
@@ -94,8 +93,12 @@ function compareMatch(left: string, right: string, query: string): number {
   return leftIndex - rightIndex || left.localeCompare(right);
 }
 
-function truncateNpub(value: string): string {
-  return value.length <= 16
-    ? value
-    : `${value.slice(0, 12)}…${value.slice(-4)}`;
+function peopleMentionDetail(
+  member: CommunityMemberModel,
+  collision: boolean,
+): string {
+  const handle = `@${member.handle}`;
+  const id = member.id.trim().toLowerCase();
+  if (!collision || !/^[0-9a-f]{64}$/u.test(id)) return handle;
+  return `${handle} · ${truncatedContentMention("", id)}`;
 }

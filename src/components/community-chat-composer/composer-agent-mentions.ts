@@ -1,3 +1,4 @@
+import { contentMentionPubkeys } from "../../community/content-mentions.js";
 import { communityMemberFromAgent } from "../../community/member-identity.js";
 import type { CommunityMemberModel } from "../../community/workspace-model.js";
 import type { CommunityComposerAgentModel } from "./composer-agent-model.js";
@@ -54,11 +55,15 @@ export function mentionedComposerAgentPubkeys(
   const knownAgents = new Set(
     agents.map((agent) => agent.pubkey.trim().toLowerCase()),
   );
+  const mentioned = new Set(
+    contentMentionPubkeys(value).map((pubkey) => pubkey.toLowerCase()),
+  );
   const fromText = communityComposerMentionMembers(members, agents)
     .filter(
       (member) =>
         knownAgents.has(member.id.trim().toLowerCase()) &&
-        tokenAppears(value, "@", member.name),
+        (mentioned.has(member.id.trim().toLowerCase()) ||
+          tokenAppears(value, "@", member.name)),
     )
     .map((member) => member.id);
   return [

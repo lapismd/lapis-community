@@ -522,7 +522,9 @@ projection and `CommunityMarkdownContent` share the same `nostr:npub` and
 `nostr:nprofile` identity. Preview rewrites those tokens to `@Name` before
 Mira safe sanitize so they cannot collapse to leftover `nostr` text. Composer
 CodeMirror mention decorations scan the draft for those tokens and reuse the
-`@Name` avatar widgets, with a truncated npub when no display name is known. The shared conversation reference distinguishes encrypted NIP-17 participant
+`@Name` avatar widgets, with a truncated npub when no display name is known.
+Autocomplete and thread hydration insert those tokens so colliding display
+names cannot retarget another pubkey. The shared conversation reference distinguishes encrypted NIP-17 participant
 sets, Buzz private relay channels, and NIP-29 channel/thread contexts. Read
 cursors, Inbox projection and activity selection use that reference. The
 controller owns selection, filters, pending sends and pagination; leaf views

@@ -11,6 +11,7 @@ import {
   isSafeCommunityEmojiUrl,
   isSafeCommunityLink,
   resolveCommunityComposerReferences,
+  serializeCommunityMentions,
   tokenAppears,
 } from "./model.js";
 
@@ -54,6 +55,22 @@ describe("community composer references", () => {
         "ada",
       ),
     ).toEqual({ mentionPubkeys: [], channelIds: [] });
+  });
+
+  it("rewrites leftover @Name without retargeting an encoded npub", () => {
+    const ada = "a".repeat(64);
+    const guest = "c".repeat(64);
+    const encoded = `nostr:${npubEncode(ada)}`;
+    expect(
+      serializeCommunityMentions(
+        `@Ada Lovelace ${encoded}`,
+        [
+          { id: ada, name: "Ada Lovelace", handle: "ada", initials: "AL" },
+          { id: guest, name: "Ada Lovelace", handle: "guest", initials: "G" },
+        ],
+        [ada],
+      ),
+    ).toBe(`${encoded} ${encoded}`);
   });
 
   it("keeps NIP-27 content mentions as publish pubkeys", () => {

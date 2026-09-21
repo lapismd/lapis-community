@@ -63,6 +63,7 @@
     composerPreferredMemberIds,
     composerTokenModelSignature,
   } from "./composer-token-references.js";
+  import { communityComposerAutocompleteInsert } from "./composer-mention-insert.js";
   import {
     communityEmojiToken,
     formatCommunityAttachmentSize,
@@ -518,14 +519,7 @@
     const query = autocompleteQuery;
     const view = editorView;
     if (!item || !query || !view) return false;
-    const insert =
-      item.member !== undefined
-        ? `@${item.member.name} `
-        : item.room !== undefined
-          ? `#${item.room.name} `
-          : item.customEmoji !== undefined
-            ? `:${item.customEmoji.shortcode}: `
-            : `${item.native ?? ""} `;
+    const insert = communityComposerAutocompleteInsert(item);
     if (insert.trim() === "") return false;
     view.dispatch({
       changes: { from: query.from, to: query.to, insert },

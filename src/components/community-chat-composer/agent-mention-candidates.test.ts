@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { truncatedContentMention } from "../../community/content-mentions.js";
 import { communityMentionAutocompleteItems } from "./agent-mention-candidates.js";
 
 const owner = "1".repeat(64);
@@ -59,5 +60,22 @@ describe("community mention autocomplete items", () => {
       "general",
     );
     expect(items.map((item) => item.label)).toEqual(["Ben Stone", "Fizz"]);
+  });
+
+  it("shows a truncated npub when people share a display name", () => {
+    const ada = "c".repeat(64);
+    const guest = "d".repeat(64);
+    const items = communityMentionAutocompleteItems(
+      [
+        { id: ada, name: "Nyra", handle: "nyra-human", initials: "NY" },
+        { id: guest, name: "Nyra", handle: "nyra-guest", initials: "NG" },
+      ],
+      [],
+      "Nyra",
+    );
+    expect(items.map((item) => item.detail)).toEqual([
+      `@nyra-guest · ${truncatedContentMention("", guest)}`,
+      `@nyra-human · ${truncatedContentMention("", ada)}`,
+    ]);
   });
 });

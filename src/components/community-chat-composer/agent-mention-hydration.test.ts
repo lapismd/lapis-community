@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
+import { npubEncode } from "nostr-tools/nip19";
 
 import {
   canHydrateAgentMentions,
   hydrateAgentMentionDraft,
+  presentAgentMentionPubkeys,
   removedAgentMentionPubkeys,
   restoreAgentMentionDraft,
   stripAgentMention,
@@ -23,7 +25,19 @@ describe("agent mention hydration", () => {
         [agentA, agentB],
         (pubkey) => names[pubkey],
       ),
-    ).toBe("@Fizz @BHoney please continue");
+    ).toBe(
+      `nostr:${npubEncode(agentA)} nostr:${npubEncode(agentB)} please continue`,
+    );
+  });
+
+  it("treats an existing NIP-27 token as already present", () => {
+    expect(
+      presentAgentMentionPubkeys(
+        `nostr:${npubEncode(agentA)} keep going`,
+        [agentA, agentB],
+        (pubkey) => names[pubkey],
+      ),
+    ).toEqual([agentA]);
   });
 
   it("restores authored order with a trailing space", () => {
@@ -33,7 +47,7 @@ describe("agent mention hydration", () => {
         [agentA, agentB],
         (pubkey) => names[pubkey],
       ),
-    ).toBe("@BHoney @Fizz ");
+    ).toBe(`nostr:${npubEncode(agentB)} nostr:${npubEncode(agentA)} `);
   });
 
   it("reconciles deleted mentions", () => {
@@ -58,6 +72,13 @@ describe("agent mention hydration", () => {
     expect(
       stripAgentMention(
         "@Fizz please continue",
+        agentA,
+        (pubkey) => names[pubkey],
+      ),
+    ).toBe("please continue");
+    expect(
+      stripAgentMention(
+        `nostr:${npubEncode(agentA)} please continue`,
         agentA,
         (pubkey) => names[pubkey],
       ),

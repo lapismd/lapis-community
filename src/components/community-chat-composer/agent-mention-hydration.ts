@@ -1,15 +1,19 @@
+import { contentMentionPubkeys } from "../../community/content-mentions.js";
+import { communityComposerMentionInsert } from "./composer-mention-insert.js";
 import type { CommunityComposerContext } from "./model.js";
 
 export function agentMentionPrefix(
   pubkeys: readonly string[],
   displayName: (pubkey: string) => string | undefined,
 ): string {
-  const names = pubkeys
-    .map((pubkey) => displayName(pubkey)?.trim())
-    .filter((name): name is string => Boolean(name));
-  return names.length === 0
-    ? ""
-    : `${names.map((name) => `@${name}`).join(" ")} `;
+  const tokens = pubkeys.flatMap((pubkey) => {
+    const insert = communityComposerMentionInsert({
+      id: pubkey,
+      name: displayName(pubkey) ?? "",
+    }).trim();
+    return insert === "" ? [] : [insert];
+  });
+  return tokens.length === 0 ? "" : `${tokens.join(" ")} `;
 }
 
 export function presentAgentMentionPubkeys(
@@ -17,7 +21,11 @@ export function presentAgentMentionPubkeys(
   pubkeys: readonly string[],
   displayName: (pubkey: string) => string | undefined,
 ): string[] {
+  const mentioned = new Set(
+    contentMentionPubkeys(value).map((pubkey) => pubkey.toLowerCase()),
+  );
   return pubkeys.filter((pubkey) => {
+    if (mentioned.has(pubkey.trim().toLowerCase())) return true;
     const name = displayName(pubkey)?.trim();
     if (!name) return false;
     return new RegExp(
@@ -85,17 +93,28 @@ export function stripAgentMention(
   pubkey: string,
   displayName: (pubkey: string) => string | undefined,
 ): string {
+  const insert = communityComposerMentionInsert({
+    id: pubkey,
+    name: displayName(pubkey) ?? "",
+  }).trim();
+  let next = value;
+  if (insert !== "") {
+    next = next.replace(
+      new RegExp(`(^|[^\\p{L}\\p{N}_])${escapeRegExp(insert)}\\s?`, "giu"),
+      "$1",
+    );
+  }
   const name = displayName(pubkey)?.trim();
-  if (!name) return value;
-  return value
-    .replace(
+  if (name) {
+    next = next.replace(
       new RegExp(
         `(^|[^\\p{L}\\p{N}_])@${escapeRegExp(name)}(?![\\p{L}\\p{N}_-])\\s?`,
         "iu",
       ),
       "$1",
-    )
-    .replace(/ {2,}/gu, " ");
+    );
+  }
+  return next.replace(/ {2,}/gu, " ");
 }
 
 function escapeRegExp(value: string): string {
