@@ -4,23 +4,22 @@
   import {
     activityMatches,
     observerScope,
-    activityContextLabel,
   } from "../../community/agent-activity-context.js";
-  import CommunityMemberAvatar from "../community-member-avatar/CommunityMemberAvatar.svelte";
   import { ConfirmDialog } from "@lapismd/design-core/forms/dialog";
-  import RefreshIcon from "@lucide/svelte/icons/refresh-cw";
   import TrashIcon from "@lucide/svelte/icons/trash-2";
   import type {
     CommunityAgentActivityItem,
     CommunityAgentsState,
   } from "../../community/agent-contracts.js";
-  import type { CommunityRoomModel } from "../community-workspace/model.js";
-  import CommunityChip from "../community-chip/CommunityChip.svelte";
-  import CommunityRelativeTime from "../community-relative-time/CommunityRelativeTime.svelte";
+  import type {
+    CommunityMemberModel,
+    CommunityRoomModel,
+  } from "../community-workspace/model.js";
   import AgentRuntimeControls from "./AgentRuntimeControls.svelte";
   import type { AgentRuntimeActions } from "./runtime-actions.js";
-  import CommunityAgentTranscript from "./CommunityAgentTranscript.svelte";
-  import type { CommunityMemberModel } from "../community-workspace/model.js";
+  import { activityConversationKey } from "./activity-conversation-key.js";
+  import CommunityAgentActivityFeed from "./CommunityAgentActivityFeed.svelte";
+  import CommunityAgentActivityHeader from "./CommunityAgentActivityHeader.svelte";
 
   let {
     model,
@@ -106,53 +105,14 @@
 {/snippet}
 
 <section class="agent-activity" aria-label="Agent activity history">
-  <div class="agent-activity__identity">
-    {#if selected}<CommunityMemberAvatar
-        member={{
-          id: selected.pubkey,
-          name: selected.name,
-          handle: selected.pubkey,
-          initials: selected.name.slice(0, 2),
-          ...(selected.avatarUrl ? { avatarUrl: selected.avatarUrl } : {}),
-        }}
-        size="small"
-        shape="rounded"
-        decorative
-      />{/if}
-    <div>
-      <h2>{selected?.name ?? "Agent activity"}</h2>
-      <p>{activityContextLabel(context, rooms)}</p>
-      {#if lastActivity}<small
-          >Last updated <CommunityRelativeTime
-            timestamp={Date.parse(lastActivity.frame.timestamp) / 1000}
-          /></small
-        >{/if}
-    </div>
-  </div>
-  <div class="agent-activity__toolbar">
-    <CommunityChip
-      size="compact"
-      tone={model.activitySyncStatus === "caught-up" ||
-      (model.status === "ready" && model.capabilities.activity)
-        ? "success"
-        : "warning"}
-      >{model.activitySyncStatus === "checking"
-        ? "Checking activity"
-        : model.activitySyncStatus === "caught-up"
-          ? "Caught up"
-          : model.activitySyncStatus === "unavailable"
-            ? "Catch-up unavailable"
-            : model.status === "ready" && model.capabilities.activity
-              ? "Live capture"
-              : "Saved history"}</CommunityChip
-    ><Button
-      variant="ghost"
-      size="sm"
-      onclick={() => void onLatest()}
-      disabled={model.activityLoading}
-      ><RefreshIcon aria-hidden="true" />Latest</Button
-    >
-  </div>
+  <CommunityAgentActivityHeader
+    {selected}
+    {context}
+    {rooms}
+    {lastActivity}
+    {model}
+    {onLatest}
+  />
   <p class="agent-activity__notice">
     {model.storageMode === "memory"
       ? "Session-only history: persistent storage is unavailable."
@@ -188,13 +148,17 @@
       </p>
     </div>{/if}
   {#if selected && (model.activity.length > 0 || scopes.some((scope) => scope.active) || model.hasOlder)}
-    <CommunityAgentTranscript
+    <CommunityAgentActivityFeed
       header={historyHeader}
       working={scopes.some((scope) => scope.active)}
       activity={model.activity}
       agent={selected}
       {context}
       {members}
+      conversationKey={activityConversationKey(selected.pubkey, context)}
+      onLoadLatest={async () => {
+        await onLatest();
+      }}
       {...onOpenRequest ? { onOpenRequest } : {}}
     />
   {/if}
@@ -219,28 +183,17 @@
 />
 
 <style>
-  .agent-activity__identity {
-    display: flex;
-    gap: 0.75rem;
-    align-items: center;
-  }
-  .agent-activity__identity h2,
-  .agent-activity__identity p {
-    margin: 0;
-  }
   .agent-activity {
-    display: grid;
+    display: flex;
+    flex: 1;
+    flex-direction: column;
     gap: 1rem;
     padding: 1.25rem;
+    box-sizing: border-box;
+    width: 100%;
+    height: 100%;
     min-width: 0;
-  }
-
-  .agent-activity__toolbar {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 0.75rem;
-    flex-wrap: wrap;
+    min-height: 0;
   }
   p {
     margin: 0;

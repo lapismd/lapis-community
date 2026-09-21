@@ -1,0 +1,45 @@
+.agent-activity-feed {
+  --agent-transcript-min-height: 0;
+
+  display: flex;
+  flex: 1 1 16rem;
+  min-width: 0;
+  min-height: 16rem;
+}
+
+.agent-activity-feed [data-ui-component="ai-chat-layout"] {
+  --ui-ai-chat-max-content-width: 100%;
+
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+}
+
+.agent-activity-feed [data-ui-component="ai-chat-message-list"],
+.agent-activity-feed [data-ui-part="list-inner"] {
+  --ui-ai-chat-max-content-width: 100%;
+
+  width: 100%;
+  max-width: none;
+  flex: 0 0 auto;
+  min-height: auto;
+  height: auto;
+}
+
+.agent-activity-feed [data-ui-part="list-spacer"] {
+  display: none;
+}
+
+.agent-activity-feed
+  [data-ui-component="ai-chat-layout"]
+  [data-ui-part="message-area"] {
+  width: 100%;
+  max-width: none;
+  padding-block-end: 0.75rem;
+}
+
+.agent-activity-feed
+  [data-ui-component="ai-chat-layout"]
+  > [data-ui-part="composer-dock"] {
+  display: none;
+}

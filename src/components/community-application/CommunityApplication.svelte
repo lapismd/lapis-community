@@ -8047,7 +8047,7 @@
             >
             <AppShell.Sidebar.Close onclick={closeSidePanel} />
           </AppShell.Sidebar.Header>
-          <AppShell.Sidebar.Body>
+          <AppShell.Sidebar.Body scrollable={false}>
             {#if community.state.agents && community.actions.agents}
               <CommunityAgentActivity
                 model={community.state.agents}

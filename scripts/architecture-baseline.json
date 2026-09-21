@@ -1151,8 +1151,43 @@
       "forbiddenImportCount": 0
     },
     "src/components/community-agent-activity/CommunityAgentActivity.svelte": {
-      "countedLines": 257,
-      "physicalLines": 264,
+      "countedLines": 211,
+      "physicalLines": 217,
+      "forbiddenImportCount": 0
+    },
+    "src/components/community-agent-activity/CommunityAgentActivityFeed.svelte": {
+      "countedLines": 66,
+      "physicalLines": 68,
+      "forbiddenImportCount": 0
+    },
+    "src/components/community-agent-activity/CommunityAgentActivityHeader.svelte": {
+      "countedLines": 103,
+      "physicalLines": 106,
+      "forbiddenImportCount": 0
+    },
+    "src/components/community-agent-activity/CommunityAgentActivityScrollHarness.svelte": {
+      "countedLines": 97,
+      "physicalLines": 101,
+      "forbiddenImportCount": 0
+    },
+    "src/components/community-agent-activity/CommunityAgentActivity.scroll.stories.svelte": {
+      "countedLines": 25,
+      "physicalLines": 26,
+      "forbiddenImportCount": 0
+    },
+    "src/components/community-agent-activity/activity-conversation-key.ts": {
+      "countedLines": 12,
+      "physicalLines": 13,
+      "forbiddenImportCount": 0
+    },
+    "src/components/community-agent-activity/activity-conversation-key.test.ts": {
+      "countedLines": 22,
+      "physicalLines": 23,
+      "forbiddenImportCount": 0
+    },
+    "src/components/community-agent-activity/activity-scroll-story.ts": {
+      "countedLines": 53,
+      "physicalLines": 55,
       "forbiddenImportCount": 0
     },
     "src/components/community-agent-activity/CommunityAgentCanonicalActivity.stories.svelte": {

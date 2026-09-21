@@ -748,7 +748,7 @@
               }}
             />
           </AppShell.Sidebar.Header>
-          <AppShell.Sidebar.Body>
+          <AppShell.Sidebar.Body scrollable={false}>
             {@render activity()}
           </AppShell.Sidebar.Body>
         {/if}
