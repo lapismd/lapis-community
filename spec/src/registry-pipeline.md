@@ -28,8 +28,8 @@ architecture checker; `docs/plans/` maps to `spec/src/architecture.md`.
 Persistent agent mentions lower the Application, chat-composer, conversation,
 and thread-panel path budgets in `scripts/architecture-baseline.json`.
 NIP-27 content-mention decoding and markdown chip extraction add
-`content-mentions.ts` and `syntax-hast.ts` to that baseline without changing
-relay ingestion.
+`content-mentions.ts`, `syntax-hast.ts`, and `preview-mentions.ts` to that
+baseline without changing relay ingestion.
 Composer autocomplete and formatting-action sync extract to dedicated
 modules and lower the `CommunityChatComposer.svelte` path budget in the
 same change.

@@ -33,6 +33,46 @@ describe("published NIP-27 mention syntax", () => {
     ]);
   });
 
+  it("replaces Mira pathlink nostr mentions with the same member chip", () => {
+    const tree = {
+      type: "root",
+      children: [
+        {
+          type: "element",
+          tagName: "p",
+          children: [
+            {
+              type: "element",
+              tagName: "pathlink",
+              properties: { href: `nostr:${adaNpub}` },
+              children: [{ type: "text", value: "nostr" }],
+            },
+            { type: "text", value: " Live owner-thread acceptance" },
+          ],
+        },
+      ],
+    };
+    applyCommunityMarkdownSyntax(
+      tree,
+      {
+        members: () => members,
+        rooms: () => rooms,
+        emojis: () => emojis,
+        mentionPubkeys: () => [],
+      },
+      tokenizeCommunityMarkdownText,
+    );
+    expect(tree.children[0]?.children).toEqual([
+      {
+        type: "element",
+        tagName: "communitymember",
+        properties: { memberId: adaKey, label: "@Ada Lovelace" },
+        children: [],
+      },
+      { type: "text", value: " Live owner-thread acceptance" },
+    ]);
+  });
+
   it("replaces Mira nostr autolinks with the same member chip", () => {
     const tree = {
       type: "root",

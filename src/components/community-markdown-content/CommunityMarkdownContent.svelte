@@ -13,6 +13,7 @@
     communityMarkdownInteractionContext,
     type CommunityMarkdownInteractionContext,
   } from "./context.js";
+  import { previewCommunityMarkdown } from "./preview-mentions.js";
   import { createCommunityMarkdownExtension } from "./syntax.js";
 
   let {
@@ -42,11 +43,15 @@
     class?: string;
   } = $props();
 
+  const preview = $derived(
+    previewCommunityMarkdown(content, members, mentionPubkeys),
+  );
+
   setContext<CommunityMarkdownInteractionContext>(
     communityMarkdownInteractionContext,
     {
       member(id) {
-        return members.find((member) => member.id === id);
+        return preview.members.find((member) => member.id === id);
       },
       get onOpenMember() {
         return onOpenMember;
@@ -64,10 +69,10 @@
   );
 
   const communityMarkdownExtension = createCommunityMarkdownExtension({
-    members: () => members,
+    members: () => preview.members,
     rooms: () => rooms,
     emojis: () => communityEmojis,
-    mentionPubkeys: () => mentionPubkeys,
+    mentionPubkeys: () => preview.mentionPubkeys,
   });
 </script>
 
@@ -77,7 +82,7 @@
   data-full-width={fullWidth}
 >
   <MarkdownPreview
-    value={content}
+    value={preview.content}
     extensions={[communityMarkdownExtension]}
     htmlPolicy="safe"
     highlight

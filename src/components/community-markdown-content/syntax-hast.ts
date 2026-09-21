@@ -78,7 +78,7 @@ function memberSegmentFromNostrHref(
   node: CommunityMarkdownHastNode,
   members: readonly CommunityMemberModel[],
 ): CommunityMarkdownSegment | undefined {
-  if (node.tagName !== "a") return undefined;
+  if (node.tagName !== "a" && node.tagName !== "pathlink") return undefined;
   const mention = contentMentionFromHref(
     typeof node.properties?.href === "string"
       ? node.properties.href

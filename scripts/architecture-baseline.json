@@ -2241,8 +2241,8 @@
       "forbiddenImportCount": 0
     },
     "src/components/community-markdown-content/CommunityMarkdownContent.svelte": {
-      "countedLines": 146,
-      "physicalLines": 166,
+      "countedLines": 150,
+      "physicalLines": 171,
       "forbiddenImportCount": 0
     },
     "src/components/community-markdown-content/CommunityMemberReference.svelte": {
@@ -2261,8 +2261,8 @@
       "forbiddenImportCount": 0
     },
     "src/components/community-markdown-content/syntax-hast.test.ts": {
-      "countedLines": 71,
-      "physicalLines": 75,
+      "countedLines": 110,
+      "physicalLines": 115,
       "forbiddenImportCount": 0
     },
     "src/components/community-markdown-content/syntax-hast.ts": {
@@ -4743,6 +4743,16 @@
     "src/testing/repository-context-fixture.ts": {
       "countedLines": 115,
       "physicalLines": 117,
+      "forbiddenImportCount": 0
+    },
+    "src/components/community-markdown-content/preview-mentions.ts": {
+      "countedLines": 55,
+      "physicalLines": 56,
+      "forbiddenImportCount": 0
+    },
+    "src/components/community-markdown-content/preview-mentions.test.ts": {
+      "countedLines": 32,
+      "physicalLines": 36,
       "forbiddenImportCount": 0
     }
   }
