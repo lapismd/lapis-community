@@ -202,9 +202,6 @@
           <Chat.MessageBubble>
             {entry.item.message ?? "The agent turn failed."}
           </Chat.MessageBubble>
-          {#snippet metadata()}
-            <Chat.MessageMetadata status="error" />
-          {/snippet}
         </Chat.Message>
       {:else if entry.kind === "turn" && entry.item.state === "cancelled"}
         <Chat.SystemMessage>Agent turn cancelled</Chat.SystemMessage>

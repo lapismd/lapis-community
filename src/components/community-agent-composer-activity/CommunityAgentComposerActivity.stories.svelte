@@ -1,12 +1,19 @@
 <script module lang="ts">
   import { defineMeta } from "@storybook/addon-svelte-csf";
-  import { expect, fn, userEvent, within } from "storybook/test";
+  import { fn } from "storybook/test";
   import CommunityAgentComposerActivity from "./CommunityAgentComposerActivity.svelte";
   import {
     storyAgent,
     storyAgentState,
     storyAgentRooms,
   } from "../community-agents/story-fixtures.js";
+  import {
+    playFailureComposerActivity,
+    playLatestComposerActivity,
+    playMultipleComposerActivity,
+    playPermissionComposerActivity,
+    playThreadScopedComposerActivity,
+  } from "./composer-activity-story.js";
   const scope = {
     agentPubkey: storyAgent.pubkey,
     scopeKey: "general/thread/a",
@@ -38,20 +45,7 @@
   });
 </script>
 
-<Story
-  name="Latest update"
-  play={async ({ canvas, args }) => {
-    await expect(canvas.getByText("Research: Running tests")).toBeVisible();
-    await userEvent.click(
-      canvas.getByRole("button", { name: "View Research activity" }),
-    );
-    await expect(args.onOpen).toHaveBeenCalledWith(storyAgent.pubkey, {
-      kind: "thread",
-      channelId: "general",
-      threadRootId: "a",
-    });
-  }}
-/>
+<Story name="Latest update" play={playLatestComposerActivity} />
 <Story
   name="Multiple conversations"
   args={{
@@ -67,16 +61,7 @@
       },
     }),
   }}
-  play={async ({ canvas, canvasElement }) => {
-    await userEvent.click(
-      canvas.getByRole("button", { name: "View working agents" }),
-    );
-    await expect(
-      within(canvasElement.ownerDocument.body).getByText("Reviewing changes", {
-        exact: true,
-      }),
-    ).toBeVisible();
-  }}
+  play={playMultipleComposerActivity}
 />
 <Story
   name="Permission"
@@ -85,6 +70,7 @@
       conversationScopes: { a: { ...scope, state: "waiting_permission" } },
     }),
   }}
+  play={playPermissionComposerActivity}
 />
 <Story
   name="Failure"
@@ -102,20 +88,7 @@
       },
     }),
   }}
-  play={async ({ canvas, canvasElement }) => {
-    const alert = canvas.getByRole("alert", {
-      name: /This request was interrupted by a controller restart/,
-    });
-    const line = canvas.getByTitle(
-      "Research: This request was interrupted by a controller restart and was not automatically retried.",
-    );
-    await expect(alert.scrollWidth).toBeLessThanOrEqual(alert.clientWidth);
-    await expect(line.scrollWidth).toBeLessThanOrEqual(line.clientWidth);
-    await expect(line.getBoundingClientRect().height).toBeGreaterThan(16);
-    await expect(canvasElement.querySelector("[data-state='failed']")).toBe(
-      alert,
-    );
-  }}
+  play={playFailureComposerActivity}
 >
   {#snippet template(args)}<div style="width: 16rem; max-width: 100%;">
       <CommunityAgentComposerActivity {...args} />
@@ -141,8 +114,6 @@
   args={{
     context: { kind: "thread", channelId: "general", threadRootId: "b" },
   }}
-  play={async ({ canvas }) => {
-    await expect(canvas.queryByRole("button")).not.toBeInTheDocument();
-  }}
+  play={playThreadScopedComposerActivity}
 />
 <Story name="Dark" parameters={{ backgrounds: { default: "dark" } }} />

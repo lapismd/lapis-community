@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import ActivityIcon from "@lucide/svelte/icons/activity";
   import AlertIcon from "@lucide/svelte/icons/circle-alert";
+  import { Reasoning } from "@lapismd/design-core/ai/experimental";
   import { Button } from "@lapismd/design-core/shadcn/button";
   import * as Popover from "@lapismd/design-core/shadcn/popover";
   import CommunityMemberAvatar from "../community-member-avatar/CommunityMemberAvatar.svelte";
@@ -69,15 +69,21 @@
           shape="rounded"
           decorative
         />
-        {#if first.severity === "error" || first.severity === "warning"}<AlertIcon
-            size={12}
-            aria-hidden="true"
-          />{:else}<ActivityIcon size={12} aria-hidden="true" />{/if}
-        <span
-          class="agent-composer-activity__line"
-          title={`${first.name}: ${first.preview}`}
-          >{first.name}: {first.preview}</span
-        >
+        {#if first.state === "failed"}
+          <AlertIcon size={12} aria-hidden="true" />
+          <span
+            class="agent-composer-activity__line"
+            title={`${first.name}: ${first.preview}`}
+            >{first.name}: {first.preview}</span
+          >
+        {:else}
+          <Reasoning
+            label={first.state === "waiting_permission"
+              ? "Waiting for your permission"
+              : "Working"}
+            streaming
+          />
+        {/if}
         {#if entries.length > 1}<CommunityChip size="compact"
             >+{entries.length - 1}</CommunityChip
           >{/if}
@@ -125,14 +131,6 @@
           </Popover.Content>
         </Popover.Root>
       {/if}
-      {#if first.state !== "failed"}<span
-          class="agent-composer-activity__announcement"
-          role="status"
-          aria-live="polite"
-          >{first.name}: {first.state === "waiting_permission"
-            ? "Waiting for your permission"
-            : "Working"}</span
-        >{/if}
     {/if}
   </div>
 {/if}
@@ -172,6 +170,10 @@
     background: color-mix(in srgb, var(--destructive) 8%, var(--background));
     color: color-mix(in srgb, var(--destructive) 78%, var(--foreground));
   }
+  .agent-composer-activity :global([data-ui-component="ai-chat-reasoning"]) {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
   .agent-composer-activity__line {
     flex: 1 1 auto;
     white-space: nowrap;
@@ -198,12 +200,5 @@
     text-align: left;
     height: auto;
     min-width: 0;
-  }
-  .agent-composer-activity__announcement {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-    clip-path: inset(50%);
   }
 </style>
