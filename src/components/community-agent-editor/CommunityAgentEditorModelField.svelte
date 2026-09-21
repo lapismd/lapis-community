@@ -1,93 +1,99 @@
 <script lang="ts">
-  import CheckIcon from "@lucide/svelte/icons/check";
+  import BotIcon from "@lucide/svelte/icons/bot";
+  import MousePointer2Icon from "@lucide/svelte/icons/mouse-pointer-2";
+  import SparklesIcon from "@lucide/svelte/icons/sparkles";
+  import TerminalIcon from "@lucide/svelte/icons/terminal";
   import * as CommandView from "@lapismd/design-core/shadcn/command-view";
   import * as Field from "@lapismd/design-core/shadcn/field";
-  import { editorRuntimeDraft } from "../../community/agent-editor-runtime.js";
+  import type { EditorModelRow } from "../../community/agent-editor-model-rows.js";
 
   let {
     id,
     pending = false,
+    rows,
     runtimeAgent,
-    draft,
-    onValueChange,
+    model,
+    onSelect,
   }: {
     id: string;
     pending?: boolean;
+    rows: readonly EditorModelRow[];
     runtimeAgent: string;
-    draft: ReturnType<typeof editorRuntimeDraft>;
-    onValueChange: (value: string) => void;
+    model: string;
+    onSelect: (row: EditorModelRow) => void;
   } = $props();
 
   const emptyLabel = $derived(
-    draft.modelOptions.length === 0
-      ? draft.modelTriggerLabel
-      : "No matching models.",
+    rows.length === 0 ? "Loading models…" : "No matching models.",
   );
-  const selectedName = $derived(
-    draft.modelOptions.find((option) => option.value === draft.selection.model)
-      ?.name,
+  const selected = $derived(
+    rows.find(
+      (row) =>
+        !row.disabled &&
+        row.runtimeAgent === runtimeAgent &&
+        row.model === model,
+    ),
   );
+
+  function harnessIcon(runtimeAgent: string) {
+    if (runtimeAgent === "codex") return SparklesIcon;
+    if (runtimeAgent === "cursor") return MousePointer2Icon;
+    if (runtimeAgent === "opencode") return TerminalIcon;
+    return BotIcon;
+  }
 </script>
 
 <Field.Field>
   <Field.Label for={id}>Model</Field.Label>
-  {#key runtimeAgent}
-    <div
-      class="agent-editor__model-picker"
-      data-ui-part="agent-editor-model-picker"
-    >
-      <CommandView.Root label="Search models" loop>
-        <CommandView.Input
-          {id}
-          aria-label="Search models"
-          placeholder="Search models…"
-          disabled={pending}
-        />
-        <CommandView.List>
-          <CommandView.Empty>{emptyLabel}</CommandView.Empty>
-          {#if draft.modelOptions.length > 0}
-            <CommandView.Group heading="Available models">
-              {#each draft.modelOptions as option (option.value)}
-                <CommandView.Item
-                  value={`${option.name} ${option.value} ${option.description ?? ""}`.trim()}
-                  keywords={[
-                    option.name,
-                    option.value,
-                    option.description ?? "",
-                  ]}
-                  disabled={pending}
-                  data-active={draft.selection.model === option.value
-                    ? ""
-                    : undefined}
-                  onSelect={() => onValueChange(option.value)}
+  <div
+    class="agent-editor__model-picker"
+    data-ui-part="agent-editor-model-picker"
+  >
+    <CommandView.Root label="Search models" loop>
+      <CommandView.Input
+        {id}
+        aria-label="Search models"
+        placeholder="Search models…"
+        disabled={pending}
+      />
+      <CommandView.List>
+        <CommandView.Empty>{emptyLabel}</CommandView.Empty>
+        {#if rows.length > 0}
+          <CommandView.Group heading="Models">
+            {#each rows as row (`${row.runtimeAgent}:${row.model}:${row.name}`)}
+              {@const Icon = harnessIcon(row.runtimeAgent)}
+              <CommandView.Item
+                value={`${row.name} ${row.model} ${row.harnessLabel}`}
+                keywords={row.keywords}
+                disabled={pending || row.disabled}
+                data-active={!row.disabled &&
+                row.runtimeAgent === runtimeAgent &&
+                row.model === model
+                  ? ""
+                  : undefined}
+                onSelect={() => {
+                  if (!row.disabled) onSelect(row);
+                }}
+              >
+                <CommandView.ItemIcon>
+                  <Icon
+                    class="agent-editor__model-harness-icon"
+                    aria-hidden="true"
+                  />
+                </CommandView.ItemIcon>
+                <CommandView.ItemLabel>{row.name}</CommandView.ItemLabel>
+                <CommandView.ItemDescription
+                  >{row.harnessLabel}</CommandView.ItemDescription
                 >
-                  <CommandView.ItemIcon>
-                    {#if draft.selection.model === option.value}
-                      <CheckIcon
-                        class="agent-editor__model-selected-icon"
-                        aria-hidden="true"
-                      />
-                    {/if}
-                  </CommandView.ItemIcon>
-                  <CommandView.ItemLabel>{option.name}</CommandView.ItemLabel>
-                  {#if option.description}
-                    <CommandView.ItemDescription
-                      >{option.description}</CommandView.ItemDescription
-                    >
-                  {/if}
-                </CommandView.Item>
-              {/each}
-            </CommandView.Group>
-          {/if}
-        </CommandView.List>
-      </CommandView.Root>
-    </div>
-  {/key}
-  {#if draft.catalog?.error}
-    <Field.Error>{draft.catalog.error}</Field.Error>
-  {/if}
-  {#if selectedName}
-    <Field.Description>Selected model: {selectedName}</Field.Description>
+              </CommandView.Item>
+            {/each}
+          </CommandView.Group>
+        {/if}
+      </CommandView.List>
+    </CommandView.Root>
+  </div>
+  {#if selected}
+    <Field.Description>Selected model: {selected.name}</Field.Description>
   {/if}
 </Field.Field>
 
@@ -98,7 +104,7 @@
     border-radius: 0.75rem;
     overflow: hidden;
   }
-  :global(.agent-editor__model-selected-icon) {
+  :global(.agent-editor__model-harness-icon) {
     width: 1rem;
     height: 1rem;
     flex-shrink: 0;

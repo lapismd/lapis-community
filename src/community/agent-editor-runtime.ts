@@ -24,7 +24,7 @@ export function editorRuntimeDraft(
     catalog,
     selection,
     modelOptions,
-    thinkingOptions: runtimeThinkingOptions(catalog),
+    thinkingOptions: runtimeThinkingOptions(catalog, selection.model),
     modelTriggerLabel:
       modelOptions.find((option) => option.value === selection.model)?.name ??
       (selection.model ||

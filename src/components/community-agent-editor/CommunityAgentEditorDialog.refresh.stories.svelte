@@ -46,8 +46,8 @@
       within(dialog).getByRole("combobox", { name: "Search models" }),
     ).toBeVisible();
     await expect(
-      within(dialog).getByRole("option", { name: "Loading models…" }),
-    ).toBeVisible();
+      within(dialog).getAllByRole("option", { name: /Loading models/ }).length,
+    ).toBeGreaterThan(0);
   }}
   >{#snippet template(args)}<CommunityAgentEditorDialog
       bind:open
@@ -71,17 +71,13 @@
     await userEvent.click(
       within(dialog).getByRole("tab", { name: "Customize for this agent" }),
     );
-    await userEvent.click(
-      within(dialog).getByRole("button", { name: "Agent harness" }),
-    );
-    await userEvent.click(body.getByRole("option", { name: "Cursor" }));
     await waitFor(() => expect(args.onLoadRuntime).toHaveBeenCalledTimes(1));
     await expect(
       within(dialog).getByRole("combobox", { name: "Search models" }),
     ).toBeVisible();
     await expect(
-      within(dialog).getByRole("option", { name: "Loading models…" }),
-    ).toBeVisible();
+      within(dialog).getAllByRole("option", { name: /Loading models/ }).length,
+    ).toBeGreaterThan(0);
   }}
   >{#snippet template(args)}<CommunityAgentEditorDialog
       bind:open

@@ -12,11 +12,9 @@ export function queueEditorRuntimeRefresh(input: {
   if (!input.open || !input.pubkey || !input.load) {
     return { requestedKey: input.open ? input.requestedKey : "" };
   }
-  const requestKey = input.runtimeAgent
-    ? `${input.pubkey}:${input.runtimeAgent}`
-    : input.pubkey;
+  const requestKey = input.pubkey;
   if (
-    !runtimeCatalogNeedsRefresh(input.runtime, input.runtimeAgent) ||
+    !runtimeCatalogNeedsRefresh(input.runtime) ||
     input.requestedKey === requestKey
   ) {
     return { requestedKey: input.requestedKey };

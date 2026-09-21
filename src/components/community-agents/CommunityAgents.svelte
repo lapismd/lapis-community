@@ -96,7 +96,7 @@
       defaults: {
         runtimeAgent?: string;
         model?: string;
-        thinking?: "off" | "low" | "medium" | "high";
+        thinking?: "off" | "low" | "medium" | "high" | "xhigh";
       },
     ) => Promise<CommunityAgentRuntimeState>;
     onLoadRuntime?:

@@ -76,7 +76,7 @@ describe("runtime catalog selection", () => {
         model: "gpt-6",
         thinking: "medium",
       }),
-    ).toEqual({ model: "composer-2.5", thinking: "medium" });
+    ).toEqual({ model: "composer-2.5" });
   });
 
   it("falls back to the top-level catalog for the matching harness", () => {

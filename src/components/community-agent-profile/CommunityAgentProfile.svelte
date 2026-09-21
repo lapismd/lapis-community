@@ -134,7 +134,7 @@
     onSaveRuntime?: (input: {
       runtimeAgent?: string;
       model?: string;
-      thinking?: "off" | "low" | "medium" | "high";
+      thinking?: "off" | "low" | "medium" | "high" | "xhigh";
     }) => Promise<CommunityAgentRuntimeState>;
     onLoadMemories?: (input: {
       channelId: string;
@@ -162,7 +162,7 @@
   let profile = $state<HTMLElement>();
   let runtimeAgent = $state("");
   let runtimeModel = $state("");
-  let runtimeThinking = $state<"off" | "low" | "medium" | "high">("medium");
+  let runtimeThinking = $state("");
   let runtimeToolsOpen = $state(false);
   let runtimeLoaded = $state("");
   let runtimeRequested = $state("");
@@ -279,7 +279,7 @@
       runtimeModel =
         runtime.effective.model ?? runtime.catalog.currentModel ?? "";
       runtimeThinking = (runtime.effective.thinking ??
-        "medium") as typeof runtimeThinking;
+        "") as typeof runtimeThinking;
       runtimeLoaded = `${agent.pubkey}:${runtime.agentId}`;
     }
   });
@@ -337,7 +337,7 @@
       runtimeAgent = next.effective.runtimeAgent;
       runtimeModel = next.effective.model ?? next.catalog.currentModel ?? "";
       runtimeThinking = (next.effective.thinking ??
-        "medium") as typeof runtimeThinking;
+        "") as typeof runtimeThinking;
       runtimeLoaded = `${agent.pubkey}:${next.agentId}`;
     });
   }

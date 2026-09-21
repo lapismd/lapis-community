@@ -31,11 +31,17 @@ Inspect the owning `src/<feature>/` tree and
 not grow files over 300 counted lines (see the plan’s measurement) or add
 substantial behaviour to `community-controller.svelte.ts`,
 `CommunityApplication.svelte`, `CommunityProjects.svelte`,
-`agent-controller.ts`, or `nip29-community-source.ts` without extracting the
-responsibility you are changing. Do not import `src/components` from
-`src/community`, including type-only imports. Internal modules import siblings
-directly, not their own barrel. Run `pnpm check:architecture` with the relevant
-tests.
+`agent-controller.ts`, `nip29-community-source.ts`,
+`CommunityAgentEditorDialog.svelte`, or `agent-runtime-catalog.ts` without
+extracting the responsibility you are changing. Do not import `src/components`
+from `src/community`, including type-only imports. Internal modules import
+siblings directly, not their own barrel. Run `pnpm check:architecture` with the
+relevant tests.
+
+When creating, editing, or reviewing `.svelte` / `.svelte.ts` modules, use
+svelte-file-editor or the Svelte MCP `svelte-autofixer` until it reports no
+remaining issues. Prefer a new named owner over growing an editor, catalog, or
+transcript hotspot.
 
 ### Completion checklist
 

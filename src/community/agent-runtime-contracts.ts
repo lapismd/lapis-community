@@ -1,24 +1,10 @@
-export interface CommunityAgentRuntimeOption {
-  value: string;
-  name: string;
-  description?: string;
-}
-
-export interface CommunityAgentRuntimeCatalogOption {
-  id: string;
-  name: string;
-  category?: string;
-  currentValue?: string | boolean;
-  options?: readonly CommunityAgentRuntimeOption[];
-}
-
-export interface CommunityAgentRuntimeCatalog {
-  agent: string;
-  currentModel?: string;
-  models: readonly string[];
-  configOptions: readonly CommunityAgentRuntimeCatalogOption[];
-  error?: string;
-}
+export type {
+  CommunityAgentRuntimeCatalog,
+  CommunityAgentRuntimeCatalogEntry,
+  CommunityAgentRuntimeCatalogOption,
+  CommunityAgentRuntimeOption,
+  CommunityAgentRuntimeThinking,
+} from "./agent-runtime-catalog-entry.js";
 
 export interface CommunityAgentRuntimeAgent {
   id: string;
@@ -44,5 +30,3 @@ export interface CommunityAgentRuntimeState {
   bootstrapRevision?: string | null;
   memory: { enabled: boolean; candidates: number };
 }
-
-export type CommunityAgentRuntimeThinking = "off" | "low" | "medium" | "high";

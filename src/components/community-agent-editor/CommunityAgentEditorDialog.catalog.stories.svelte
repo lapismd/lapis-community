@@ -1,6 +1,6 @@
 <script module lang="ts">
   import { defineMeta } from "@storybook/addon-svelte-csf";
-  import { expect, userEvent, within } from "storybook/test";
+  import { expect, fn, userEvent, within } from "storybook/test";
   import CommunityAgentEditorDialog from "./CommunityAgentEditorDialog.svelte";
   import { playEmptyModelCatalog } from "./editor-catalog-story.js";
   import { storyLongCursorRuntime } from "../community-agents/long-cursor-runtime-story-fixtures.js";
@@ -32,17 +32,14 @@
 
 <Story
   name="Harness model catalog"
-  play={async ({ canvasElement }) => {
+  args={{ onSaveRuntime: fn(saveRuntime) }}
+  play={async ({ canvasElement, args }) => {
     const body = within(canvasElement.ownerDocument.body);
     const dialog = body.getByRole("dialog", { name: "Edit agent" });
     const scoped = within(dialog);
     await userEvent.click(
       scoped.getByRole("tab", { name: "Customize for this agent" }),
     );
-    await userEvent.click(
-      scoped.getByRole("button", { name: "Agent harness" }),
-    );
-    await userEvent.click(body.getByRole("option", { name: "Cursor" }));
     const search = scoped.getByRole("combobox", { name: "Search models" });
     const picker = dialog.querySelector<HTMLElement>(
       '[data-ui-part="agent-editor-model-picker"]',
@@ -55,43 +52,37 @@
       256,
     );
     await expect(viewport.scrollHeight).toBeGreaterThan(viewport.clientHeight);
+    await expect(scoped.getByRole("option", { name: /GPT-6/ })).toBeVisible();
+    await expect(scoped.getAllByText("Codex").length).toBeGreaterThan(0);
+    await expect(scoped.getAllByText("Cursor").length).toBeGreaterThan(0);
+    await expect(scoped.getAllByText("OpenCode").length).toBeGreaterThan(0);
+    await userEvent.type(search, "Composer");
     await expect(
-      scoped.getByRole("option", { name: /^Composer 2.5$/ }),
+      scoped.getByRole("option", { name: /Composer 2.5 Fast/ }),
     ).toBeVisible();
     await expect(
-      scoped.queryByRole("option", { name: /^GPT-6$/ }),
-    ).not.toBeInTheDocument();
-    await userEvent.type(search, "Fast");
-    await expect(
-      scoped.getByRole("option", { name: /^Composer 2.5 Fast$/ }),
-    ).toBeVisible();
-    await expect(
-      scoped.queryByRole("option", { name: /^Composer 2.5$/ }),
+      scoped.queryByRole("option", { name: /^GPT-6/ }),
     ).not.toBeInTheDocument();
     await userEvent.click(
-      scoped.getByRole("option", { name: /^Composer 2.5 Fast$/ }),
+      scoped.getByRole("option", { name: /Composer 2.5 Fast/ }),
     );
     await expect(
       scoped.getByText("Selected model: Composer 2.5 Fast"),
     ).toBeVisible();
-    await userEvent.click(
-      scoped.getByRole("button", { name: "Agent harness" }),
-    );
-    await userEvent.click(body.getByRole("option", { name: "Claude Code" }));
-    await expect(
-      scoped.getByRole("option", { name: /^Claude Sonnet$/ }),
-    ).toBeVisible();
-    await expect(
-      scoped.queryByRole("option", { name: /^Composer 2.5 Fast$/ }),
-    ).not.toBeInTheDocument();
+    await expect(scoped.queryByLabelText("Thinking")).not.toBeInTheDocument();
+    await userEvent.click(scoped.getByRole("button", { name: "Save changes" }));
+    await expect(args.onSaveRuntime).toHaveBeenCalledWith({
+      runtimeAgent: "cursor",
+      model: "composer-2.5-fast",
+    });
   }}
-  >{#snippet template()}<CommunityAgentEditorDialog
+  >{#snippet template(args)}<CommunityAgentEditorDialog
       bind:open
       agent={storyAgent}
       personas={storyPersonas}
       runtime={storyLongCursorRuntime}
       onSaveAgent={saveAgent}
-      onSaveRuntime={saveRuntime}
+      onSaveRuntime={args.onSaveRuntime}
     />{/snippet}</Story
 >
 

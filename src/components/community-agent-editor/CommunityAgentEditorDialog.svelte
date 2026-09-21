@@ -5,13 +5,13 @@
   import * as Dialog from "@lapismd/design-core/shadcn/dialog";
   import * as Field from "@lapismd/design-core/shadcn/field";
   import { Input } from "@lapismd/design-core/shadcn/input";
-  import * as Select from "@lapismd/design-core/shadcn/select";
   import * as Tabs from "@lapismd/design-core/shadcn/tabs";
   import CommunityMemberCommand from "../community-member-command/CommunityMemberCommand.svelte";
   import type { CommunityMemberModel } from "../community-workspace/model.js";
   import CommunityAvatarPicker from "../community-avatar-picker/CommunityAvatarPicker.svelte";
   import CommunityChatComposer from "../community-chat-composer/CommunityChatComposer.svelte";
   import CommunityAgentEditorModelField from "./CommunityAgentEditorModelField.svelte";
+  import CommunityAgentEditorThinkingField from "./CommunityAgentEditorThinkingField.svelte";
   import type {
     CommunityAgentIdentity,
     CommunityAgentNameMode,
@@ -20,15 +20,14 @@
     CommunityAgentSaveInput,
   } from "../../community/agent-contracts.js";
   import { queueEditorRuntimeRefresh } from "../../community/agent-editor-catalog-refresh.js";
+  import { editorCombinedModelRows } from "../../community/agent-editor-model-rows.js";
   import { editorRuntimeDraft } from "../../community/agent-editor-runtime.js";
   import { editorRuntimeDefaultRows } from "../../community/agent-editor-runtime-defaults.js";
   import { editorConfiguredRuntimeLabels } from "../../community/agent-editor-runtime-labels.js";
+  import { editorRuntimeSaveInput } from "../../community/agent-editor-runtime-save.js";
   import { editorPersonaSelection } from "../../community/agent-editor-persona-selection.js";
   import { personaSlugFromName } from "../../community/agent-persona-slug.js";
-  import {
-    resolveRuntimeCatalog,
-    runtimeCatalogDefaults,
-  } from "../../community/agent-runtime-catalog.js";
+  import type { CommunityAgentRuntimeThinking } from "../../community/agent-runtime-contracts.js";
 
   let {
     open = $bindable(false),
@@ -61,7 +60,7 @@
       | ((input: {
           runtimeAgent?: string;
           model?: string;
-          thinking?: "off" | "low" | "medium" | "high";
+          thinking?: CommunityAgentRuntimeThinking;
         }) => Promise<CommunityAgentRuntimeState>)
       | undefined;
     onUnlinkPersona?: ((fallbackName: string) => Promise<void>) | undefined;
@@ -111,32 +110,25 @@
   let personaSelection = $state("__new__");
   let runtimeAgent = $state("");
   let runtimeModel = $state("");
-  let runtimeThinking = $state<"off" | "low" | "medium" | "high">("medium");
+  let runtimeThinking = $state<CommunityAgentRuntimeThinking | "">("");
   let runtimeConfigMode = $state<"defaults" | "custom">("defaults");
   let unlinkConfirmOpen = $state(false);
   let deleteConfirmOpen = $state(false);
 
   const configured = $derived(editorConfiguredRuntimeLabels(runtime));
-  const runtimeAgents = $derived(configured.runtimeAgents);
   const draft = $derived(
     editorRuntimeDraft(runtime, runtimeAgent, {
       model: runtimeModel,
       thinking: runtimeThinking,
     }),
   );
-
-  function selectRuntimeAgent(value: string): void {
-    runtimeAgent = value;
-    const next = runtimeCatalogDefaults(resolveRuntimeCatalog(runtime, value));
-    runtimeModel = next.model;
-    runtimeThinking = next.thinking;
-  }
+  const modelRows = $derived(editorCombinedModelRows(runtime));
   const runtimeDefaults = $derived(
     runtime
       ? editorRuntimeDefaultRows(runtime, {
           harness: configured.harness,
           model: configured.model,
-          thinking: configured.thinking,
+          ...(configured.thinking ? { thinking: configured.thinking } : {}),
         })
       : [],
   );
@@ -193,7 +185,7 @@
       runtimeModel =
         runtime.effective.model ?? runtime.catalog.currentModel ?? "";
       runtimeThinking = (runtime.effective.thinking ??
-        "medium") as typeof runtimeThinking;
+        "") as typeof runtimeThinking;
       runtimeConfigMode = runtime.saved ? "custom" : "defaults";
     });
     loadedRuntime = key;
@@ -201,7 +193,6 @@
 
   $effect(() => {
     const pubkey = open && agent ? agent.pubkey : "";
-    const selected = runtimeAgent;
     const cached = runtime;
     const load = onLoadRuntime;
     untrack(() => {
@@ -209,7 +200,7 @@
         open,
         pubkey,
         runtime: cached,
-        runtimeAgent: selected,
+        runtimeAgent,
         requestedKey: runtimeRefreshKey,
         load,
       });
@@ -262,11 +253,13 @@
         dmAllowlist,
       });
       if (runtime && onSaveRuntime && runtimeConfigMode === "custom") {
-        await onSaveRuntime({
-          runtimeAgent,
-          ...(draft.selection.model ? { model: draft.selection.model } : {}),
-          thinking: draft.selection.thinking,
-        });
+        await onSaveRuntime(
+          editorRuntimeSaveInput(
+            runtimeAgent,
+            draft.selection,
+            draft.thinkingOptions,
+          ),
+        );
       }
       open = false;
     } catch (cause) {
@@ -402,60 +395,26 @@
                 {/each}
               </dl>
             {:else}
-              <Field.Field>
-                <Field.Label for={`${editorId}-runtime-agent`}
-                  >Agent harness</Field.Label
-                >
-                <Select.Root
-                  type="single"
-                  value={runtimeAgent}
-                  onValueChange={selectRuntimeAgent}
-                  disabled={pending}
-                >
-                  <Select.Trigger id={`${editorId}-runtime-agent`}
-                    >{runtimeAgents.find(({ id }) => id === runtimeAgent)
-                      ?.label ?? runtimeAgent}</Select.Trigger
-                  >
-                  <Select.Content side="top">
-                    {#each runtimeAgents as entry (entry.id)}
-                      <Select.Item value={entry.id}>{entry.label}</Select.Item>
-                    {/each}
-                  </Select.Content>
-                </Select.Root>
-              </Field.Field>
               <CommunityAgentEditorModelField
                 id={`${editorId}-runtime-model`}
                 {pending}
+                rows={modelRows}
                 {runtimeAgent}
-                {draft}
-                onValueChange={(value) => (runtimeModel = value)}
+                model={runtimeModel}
+                onSelect={(row) => {
+                  runtimeAgent = row.runtimeAgent;
+                  runtimeModel = row.model;
+                  runtimeThinking = "";
+                }}
               />
               {#if draft.thinkingOptions.length > 0}
-                <Field.Field>
-                  <Field.Label for={`${editorId}-runtime-thinking`}
-                    >Thinking</Field.Label
-                  >
-                  <Select.Root
-                    type="single"
-                    value={draft.selection.thinking}
-                    onValueChange={(value) =>
-                      (runtimeThinking = value as typeof runtimeThinking)}
-                    disabled={pending}
-                  >
-                    <Select.Trigger id={`${editorId}-runtime-thinking`}
-                      >{draft.thinkingOptions.find(
-                        ({ value }) => value === draft.selection.thinking,
-                      )?.name ?? draft.selection.thinking}</Select.Trigger
-                    >
-                    <Select.Content side="top">
-                      {#each draft.thinkingOptions as option (option.value)}
-                        <Select.Item value={option.value}
-                          >{option.name}</Select.Item
-                        >
-                      {/each}
-                    </Select.Content>
-                  </Select.Root>
-                </Field.Field>
+                <CommunityAgentEditorThinkingField
+                  id={`${editorId}-runtime-thinking`}
+                  {pending}
+                  thinking={draft.selection.thinking}
+                  options={draft.thinkingOptions}
+                  onValueChange={(value) => (runtimeThinking = value)}
+                />
               {/if}
             {/if}
           </div>

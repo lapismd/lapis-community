@@ -11,15 +11,13 @@ export async function playEmptyModelCatalog({
   await userEvent.click(
     scoped.getByRole("tab", { name: "Customize for this agent" }),
   );
-  await userEvent.click(scoped.getByRole("button", { name: "Agent harness" }));
-  await userEvent.click(body.getByRole("option", { name: "Cursor" }));
   await expect(
     scoped.getByRole("combobox", { name: "Search models" }),
   ).toBeVisible();
   await expect(
-    scoped.getByRole("option", { name: "Loading models…" }),
-  ).toBeVisible();
+    scoped.getAllByRole("option", { name: /Loading models/ }).length,
+  ).toBeGreaterThan(0);
   await expect(
-    scoped.queryByRole("option", { name: /^Composer 2.5$/ }),
+    scoped.queryByRole("option", { name: /Composer 2.5$/ }),
   ).not.toBeInTheDocument();
 }

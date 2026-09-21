@@ -1,5 +1,7 @@
 # Architecture
 
+For LC-ARCH-028, the combined agent-editor model picker extracts catalog thinking, parse, and row helpers so `CommunityAgentEditorDialog.svelte` and `agent-runtime-catalog.ts` shrink instead of growing.
+
 LC-UI-049 public transcript interaction adapters and thread context projections stay in the component/project owners. The thread projection reads the existing application-owned agent model through its shared context, keeping request-scoped owner Activity out of the thread panel and application composition hotspots. Shared application message actions preserve existing channel permission and publishing boundaries while keeping the application composition budget from growing.
 
 For LC-UI-049, repository context parsing, transient preview retention, activity grouping and commit routing live in separate project modules. Commit metadata and expandable context compose through their owning components. Agent context and Files changed share the commit-section disclosure component; its extraction lowers the Projects composition budget. Live context remains session memory, expires after five minutes and is discarded on teardown. Architecture budgets ratchet down after route and metadata extraction; bounded composition and fixture additions carry per-file justifications.

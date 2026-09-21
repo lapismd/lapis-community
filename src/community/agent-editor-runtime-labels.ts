@@ -15,6 +15,10 @@ export function editorConfiguredRuntimeLabels(
     runtime,
     runtime?.configured.runtimeAgent ?? "",
   );
+  const thinkingOptions = runtimeThinkingOptions(
+    configuredCatalog,
+    runtime?.configured.model ?? configuredCatalog?.currentModel,
+  );
   return {
     runtimeAgents,
     configuredCatalog,
@@ -30,10 +34,12 @@ export function editorConfiguredRuntimeLabels(
       runtime?.configured.model ?? configuredCatalog?.currentModel,
       "Harness default",
     ),
-    thinking: runtimeOptionLabel(
-      runtimeThinkingOptions(configuredCatalog),
-      runtime?.configured.thinking ?? runtime?.effective.thinking,
-      "Harness default",
-    ),
+    thinking: thinkingOptions.length
+      ? runtimeOptionLabel(
+          thinkingOptions,
+          runtime?.configured.thinking ?? runtime?.effective.thinking,
+          "Harness default",
+        )
+      : undefined,
   };
 }

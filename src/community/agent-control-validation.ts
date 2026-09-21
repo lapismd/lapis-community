@@ -129,7 +129,7 @@ export function validateAgentControl(control: CommunityAgentControl): void {
         (value) => value !== undefined && (!value.trim() || value.length > 256),
       ) ||
       (control.thinking !== undefined &&
-        !["off", "low", "medium", "high"].includes(control.thinking))
+        !["off", "low", "medium", "high", "xhigh"].includes(control.thinking))
     )
       throw new Error("Agent runtime defaults are invalid");
     return;

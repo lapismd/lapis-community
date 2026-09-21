@@ -36,7 +36,7 @@ describe("queueEditorRuntimeRefresh", () => {
     expect(load).toHaveBeenCalledTimes(1);
   });
 
-  it("loads runtime again when the selected harness catalog is empty", () => {
+  it("loads runtime when any advertised harness catalog is empty", () => {
     const pendingCursor = {
       ...emptyRuntime,
       runtimeAgents: [
@@ -64,20 +64,19 @@ describe("queueEditorRuntimeRefresh", () => {
       open: true,
       pubkey: "agent",
       runtime: pendingCursor,
-      runtimeAgent: "codex",
       requestedKey: "",
       load,
     });
-    expect(first.task).toBeUndefined();
-    const selected = queueEditorRuntimeRefresh({
+    expect(first.requestedKey).toBe("agent");
+    expect(load).toHaveBeenCalledTimes(1);
+    const second = queueEditorRuntimeRefresh({
       open: true,
       pubkey: "agent",
       runtime: pendingCursor,
-      runtimeAgent: "cursor",
       requestedKey: first.requestedKey,
       load,
     });
-    expect(selected.requestedKey).toBe("agent:cursor");
+    expect(second.task).toBeUndefined();
     expect(load).toHaveBeenCalledTimes(1);
   });
 });

@@ -267,7 +267,7 @@ export type CommunityAgentControl =
       requestId: string;
       runtimeAgent?: string;
       model?: string;
-      thinking?: "off" | "low" | "medium" | "high";
+      thinking?: "off" | "low" | "medium" | "high" | "xhigh";
     }
   | {
       version: 2;
@@ -598,7 +598,7 @@ export interface CommunityAgentsActions {
     defaults: {
       runtimeAgent?: string;
       model?: string;
-      thinking?: "off" | "low" | "medium" | "high";
+      thinking?: "off" | "low" | "medium" | "high" | "xhigh";
     },
   ): Promise<CommunityAgentRuntimeState>;
   loadMemories(

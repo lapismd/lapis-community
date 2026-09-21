@@ -415,6 +415,46 @@
       "kind": "legacy",
       "justification": "Agent controller factory; runtime and memory parsers extracted"
     },
+    "src/community/agent-editor-catalog-refresh.test.ts": {
+      "countedLines": 79,
+      "physicalLines": 82,
+      "forbiddenImportCount": 0
+    },
+    "src/community/agent-editor-catalog-refresh.ts": {
+      "countedLines": 25,
+      "physicalLines": 26,
+      "forbiddenImportCount": 0
+    },
+    "src/community/agent-editor-model-rows.test.ts": {
+      "countedLines": 95,
+      "physicalLines": 98,
+      "forbiddenImportCount": 0
+    },
+    "src/community/agent-editor-model-rows.ts": {
+      "countedLines": 50,
+      "physicalLines": 52,
+      "forbiddenImportCount": 0
+    },
+    "src/community/agent-editor-runtime-defaults.ts": {
+      "countedLines": 18,
+      "physicalLines": 19,
+      "forbiddenImportCount": 0
+    },
+    "src/community/agent-editor-runtime-labels.ts": {
+      "countedLines": 44,
+      "physicalLines": 45,
+      "forbiddenImportCount": 0
+    },
+    "src/community/agent-editor-runtime-save.ts": {
+      "countedLines": 27,
+      "physicalLines": 28,
+      "forbiddenImportCount": 0
+    },
+    "src/community/agent-editor-runtime.ts": {
+      "countedLines": 32,
+      "physicalLines": 33,
+      "forbiddenImportCount": 0
+    },
     "src/community/agent-integration.test.ts": {
       "countedLines": 130,
       "physicalLines": 131,
@@ -439,19 +479,49 @@
       "kind": "legacy",
       "justification": "Existing file above the new-file counted-line limit; do not grow"
     },
+    "src/community/agent-runtime-catalog-entry.ts": {
+      "countedLines": 32,
+      "physicalLines": 36,
+      "forbiddenImportCount": 0
+    },
+    "src/community/agent-runtime-catalog-parse.ts": {
+      "countedLines": 128,
+      "physicalLines": 133,
+      "forbiddenImportCount": 0
+    },
+    "src/community/agent-runtime-catalog-refresh.test.ts": {
+      "countedLines": 54,
+      "physicalLines": 57,
+      "forbiddenImportCount": 0
+    },
+    "src/community/agent-runtime-catalog-refresh.ts": {
+      "countedLines": 17,
+      "physicalLines": 18,
+      "forbiddenImportCount": 0
+    },
     "src/community/agent-runtime-catalog.test.ts": {
       "countedLines": 110,
       "physicalLines": 115,
       "forbiddenImportCount": 0
     },
     "src/community/agent-runtime-catalog.ts": {
-      "countedLines": 217,
-      "physicalLines": 227,
+      "countedLines": 129,
+      "physicalLines": 136,
       "forbiddenImportCount": 0
     },
     "src/community/agent-runtime-contracts.ts": {
-      "countedLines": 43,
-      "physicalLines": 48,
+      "countedLines": 30,
+      "physicalLines": 32,
+      "forbiddenImportCount": 0
+    },
+    "src/community/agent-runtime-thinking.test.ts": {
+      "countedLines": 86,
+      "physicalLines": 89,
+      "forbiddenImportCount": 0
+    },
+    "src/community/agent-runtime-thinking.ts": {
+      "countedLines": 94,
+      "physicalLines": 104,
       "forbiddenImportCount": 0
     },
     "src/community/agent-session.test.ts": {
@@ -1206,8 +1276,13 @@
       "forbiddenImportCount": 0
     },
     "src/components/community-agent-editor/CommunityAgentEditorDialog.catalog.stories.svelte": {
-      "countedLines": 105,
-      "physicalLines": 109,
+      "countedLines": 94,
+      "physicalLines": 98,
+      "forbiddenImportCount": 0
+    },
+    "src/components/community-agent-editor/CommunityAgentEditorDialog.refresh.stories.svelte": {
+      "countedLines": 87,
+      "physicalLines": 91,
       "forbiddenImportCount": 0
     },
     "src/components/community-agent-editor/CommunityAgentEditorDialog.stories.svelte": {
@@ -1216,11 +1291,26 @@
       "forbiddenImportCount": 0
     },
     "src/components/community-agent-editor/CommunityAgentEditorDialog.svelte": {
-      "countedLines": 537,
-      "physicalLines": 549,
+      "countedLines": 492,
+      "physicalLines": 503,
       "forbiddenImportCount": 0,
       "kind": "legacy",
       "justification": "Existing file above the new-file counted-line limit; do not grow"
+    },
+    "src/components/community-agent-editor/CommunityAgentEditorModelField.svelte": {
+      "countedLines": 107,
+      "physicalLines": 112,
+      "forbiddenImportCount": 0
+    },
+    "src/components/community-agent-editor/CommunityAgentEditorThinkingField.svelte": {
+      "countedLines": 41,
+      "physicalLines": 43,
+      "forbiddenImportCount": 0
+    },
+    "src/components/community-agent-editor/editor-catalog-story.ts": {
+      "countedLines": 22,
+      "physicalLines": 23,
+      "forbiddenImportCount": 0
     },
     "src/components/community-agent-processing-control/CommunityAgentProcessingControl.stories.svelte": {
       "countedLines": 290,
@@ -1292,14 +1382,24 @@
       "physicalLines": 34,
       "forbiddenImportCount": 0
     },
+    "src/components/community-agents/long-cursor-runtime-story-fixtures.ts": {
+      "countedLines": 40,
+      "physicalLines": 43,
+      "forbiddenImportCount": 0
+    },
     "src/components/community-agents/model.ts": {
       "countedLines": 30,
       "physicalLines": 32,
       "forbiddenImportCount": 0
     },
+    "src/components/community-agents/runtime-catalog-story-fixtures.ts": {
+      "countedLines": 66,
+      "physicalLines": 68,
+      "forbiddenImportCount": 0
+    },
     "src/components/community-agents/runtime-story-fixtures.ts": {
-      "countedLines": 105,
-      "physicalLines": 109,
+      "countedLines": 65,
+      "physicalLines": 67,
       "forbiddenImportCount": 0
     },
     "src/components/community-agents/story-fixtures.ts": {

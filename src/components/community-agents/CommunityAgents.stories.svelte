@@ -287,7 +287,7 @@
       within(dialog).getByRole("tab", { name: "Customize for this agent" }),
     );
     await expect(
-      within(dialog).getByRole("button", { name: "Agent harness" }),
+      within(dialog).getByRole("combobox", { name: "Search models" }),
     ).toBeVisible();
     await userEvent.clear(within(dialog).getByLabelText("Agent name"));
     await userEvent.type(within(dialog).getByLabelText("Agent name"), "Scout");

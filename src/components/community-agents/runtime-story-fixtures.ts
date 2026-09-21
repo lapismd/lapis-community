@@ -1,58 +1,10 @@
-import type {
-  CommunityAgentRuntimeCatalog,
-  CommunityAgentRuntimeOption,
-  CommunityAgentRuntimeState,
-} from "../../community/agent-runtime-contracts.js";
-
-function storyCatalog(
-  agent: string,
-  currentModel: string,
-  models: readonly CommunityAgentRuntimeOption[],
-  thinking: readonly CommunityAgentRuntimeOption[] = [
-    { value: "low", name: "Low" },
-    { value: "medium", name: "Medium" },
-    { value: "high", name: "High" },
-  ],
-): CommunityAgentRuntimeCatalog {
-  return {
-    agent,
-    currentModel,
-    models: models.map((model) => model.value),
-    configOptions: [
-      {
-        id: "model",
-        name: "Model",
-        category: "model",
-        currentValue: currentModel,
-        options: models,
-      },
-      ...(thinking.length
-        ? [
-            {
-              id: "reasoning_effort",
-              name: "Thinking",
-              category: "thought",
-              currentValue: "medium",
-              options: thinking,
-            },
-          ]
-        : []),
-    ],
-  };
-}
-
-const codexCatalog = storyCatalog("codex", "gpt-6", [
-  { value: "gpt-6", name: "GPT-6" },
-  { value: "gpt-5.6", name: "GPT-5.6" },
-]);
-const claudeCatalog = storyCatalog("claude", "claude-sonnet", [
-  { value: "claude-sonnet", name: "Claude Sonnet" },
-  { value: "claude-opus", name: "Claude Opus" },
-]);
-const cursorCatalog = storyCatalog("cursor", "composer-2.5", [
-  { value: "composer-2.5", name: "Composer 2.5" },
-  { value: "composer-2.5-fast", name: "Composer 2.5 Fast" },
-]);
+import type { CommunityAgentRuntimeState } from "../../community/agent-runtime-contracts.js";
+import {
+  storyClaudeCatalog,
+  storyCodexCatalog,
+  storyCursorCatalog,
+  storyOpencodeCatalog,
+} from "./runtime-catalog-story-fixtures.js";
 
 export const storyAgentRuntime: CommunityAgentRuntimeState = {
   agentId: "agent-research",
@@ -67,25 +19,31 @@ export const storyAgentRuntime: CommunityAgentRuntimeState = {
       id: "codex",
       label: "Codex",
       mcpTransport: "stdio",
-      catalog: codexCatalog,
+      catalog: storyCodexCatalog,
     },
     {
       id: "claude",
       label: "Claude Code",
       mcpTransport: "stdio",
-      catalog: claudeCatalog,
+      catalog: storyClaudeCatalog,
     },
     {
       id: "cursor",
       label: "Cursor",
       mcpTransport: "stdio",
-      catalog: cursorCatalog,
+      catalog: storyCursorCatalog,
+    },
+    {
+      id: "opencode",
+      label: "OpenCode",
+      mcpTransport: "stdio",
+      catalog: storyOpencodeCatalog,
     },
   ],
   configured: { runtimeAgent: "codex", model: "gpt-6", thinking: "medium" },
   saved: null,
   effective: { runtimeAgent: "codex", model: "gpt-6", thinking: "medium" },
-  catalog: codexCatalog,
+  catalog: storyCodexCatalog,
   tools: [
     { name: "relay.messages.list", effect: "read" },
     { name: "relay.issues.create", effect: "write" },
