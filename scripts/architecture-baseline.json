@@ -707,13 +707,13 @@
       "forbiddenImportCount": 0
     },
     "src/community/content-mentions.test.ts": {
-      "countedLines": 48,
-      "physicalLines": 54,
+      "countedLines": 65,
+      "physicalLines": 72,
       "forbiddenImportCount": 0
     },
     "src/community/content-mentions.ts": {
-      "countedLines": 60,
-      "physicalLines": 67,
+      "countedLines": 110,
+      "physicalLines": 121,
       "forbiddenImportCount": 0
     },
     "src/community/contracts.ts": {
@@ -1871,8 +1871,8 @@
       "forbiddenImportCount": 0
     },
     "src/components/community-chat-composer/CommunityComposerMemberReference.svelte": {
-      "countedLines": 24,
-      "physicalLines": 25,
+      "countedLines": 28,
+      "physicalLines": 29,
       "forbiddenImportCount": 0
     },
     "src/components/community-chat-composer/composer-active-actions.ts": {
@@ -1911,20 +1911,20 @@
       "forbiddenImportCount": 0
     },
     "src/components/community-chat-composer/composer-extension.ts": {
-      "countedLines": 415,
-      "physicalLines": 442,
+      "countedLines": 409,
+      "physicalLines": 435,
       "forbiddenImportCount": 0,
       "kind": "legacy",
       "justification": "Existing file above the new-file counted-line limit; do not grow"
     },
     "src/components/community-chat-composer/composer-token-references.test.ts": {
-      "countedLines": 73,
-      "physicalLines": 80,
+      "countedLines": 86,
+      "physicalLines": 94,
       "forbiddenImportCount": 0
     },
     "src/components/community-chat-composer/composer-token-references.ts": {
-      "countedLines": 123,
-      "physicalLines": 134,
+      "countedLines": 150,
+      "physicalLines": 162,
       "forbiddenImportCount": 0
     },
     "src/components/community-chat-composer/model.test.ts": {
@@ -4746,13 +4746,13 @@
       "forbiddenImportCount": 0
     },
     "src/components/community-markdown-content/preview-mentions.ts": {
-      "countedLines": 55,
-      "physicalLines": 56,
+      "countedLines": 54,
+      "physicalLines": 55,
       "forbiddenImportCount": 0
     },
     "src/components/community-markdown-content/preview-mentions.test.ts": {
-      "countedLines": 32,
-      "physicalLines": 36,
+      "countedLines": 39,
+      "physicalLines": 44,
       "forbiddenImportCount": 0
     }
   }

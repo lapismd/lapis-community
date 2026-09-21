@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { npubEncode } from "nostr-tools/nip19";
 
+import { truncatedContentMention } from "../../community/content-mentions.js";
 import { previewCommunityMarkdown } from "./preview-mentions.js";
 import { tokenizeCommunityMarkdownText } from "./syntax.js";
 
@@ -27,6 +28,13 @@ describe("previewCommunityMarkdown", () => {
       { kind: "member", value: "@Ada Lovelace", memberId: ada },
       { kind: "text", value: " Live owner-thread acceptance" },
     ]);
+  });
+
+  it("rewrites unknown npub tokens to a truncated mention", () => {
+    const preview = previewCommunityMarkdown(`nostr:${adaNpub} hello`, []);
+    const label = `@${truncatedContentMention(`nostr:${adaNpub}`, ada)}`;
+    expect(preview.content).toBe(`${label} hello`);
+    expect(preview.members[0]?.name).toBe(label.slice(1));
   });
 
   it("leaves fenced nostr tokens as published text", () => {

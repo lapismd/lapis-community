@@ -2,11 +2,13 @@ import { describe, expect, it } from "vitest";
 import { npubEncode, nprofileEncode } from "nostr-tools/nip19";
 
 import {
+  contentMentionFallbackMember,
   contentMentionFromHref,
   contentMentionLabel,
   contentMentionMatches,
   contentMentionPubkeys,
   decodeContentMention,
+  truncatedContentMention,
 } from "./content-mentions.js";
 
 const ada = "a".repeat(64);
@@ -48,7 +50,23 @@ describe("content mentions", () => {
       ]),
     ).toBe("@Ada Lovelace");
     expect(contentMentionLabel(ada, `nostr:${npubEncode(ada)}`, [])).toBe(
-      `nostr:${npubEncode(ada)}`,
+      `@${truncatedContentMention(`nostr:${npubEncode(ada)}`, ada)}`,
     );
+    expect(
+      contentMentionLabel(ada, `nostr:${npubEncode(ada)}`, [
+        { id: ada, name: ada.slice(0, 12) },
+      ]),
+    ).toBe(`@${truncatedContentMention(`nostr:${npubEncode(ada)}`, ada)}`);
+  });
+
+  it("builds a truncated fallback member when no profile name exists", () => {
+    const source = `nostr:${npubEncode(ben)}`;
+    const handle = truncatedContentMention(source, ben);
+    expect(contentMentionFallbackMember(ben, source)).toEqual({
+      id: ben,
+      name: handle,
+      handle,
+      initials: handle.replace(/^npub/iu, "").slice(0, 2).toUpperCase(),
+    });
   });
 });

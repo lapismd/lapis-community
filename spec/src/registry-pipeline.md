@@ -30,7 +30,7 @@ and thread-panel path budgets in `scripts/architecture-baseline.json`.
 NIP-27 content-mention decoding and markdown chip extraction add
 `content-mentions.ts`, `syntax-hast.ts`, and `preview-mentions.ts` to that
 baseline without changing relay ingestion. Composer token-reference budgets
-include published `nostr:npub` mention tokens.
+scan draft `nostr:npub` text through the same mention-widget path.
 Composer autocomplete and formatting-action sync extract to dedicated
 modules and lower the `CommunityChatComposer.svelte` path budget in the
 same change.

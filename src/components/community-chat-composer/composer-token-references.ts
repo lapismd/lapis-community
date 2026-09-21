@@ -1,5 +1,7 @@
-import { npubEncode } from "nostr-tools/nip19";
-
+import {
+  contentMentionFallbackMember,
+  contentMentionMatches,
+} from "../../community/content-mentions.js";
 import type { CommunityCustomEmoji } from "../../community/index.js";
 import type {
   CommunityMemberModel,
@@ -18,6 +20,7 @@ export function communityComposerReferenceTokens(
   rooms: readonly CommunityRoomModel[],
   emojis: readonly CommunityCustomEmoji[],
   preferredMemberIds: readonly string[] = [],
+  value = "",
 ): CommunityComposerReferenceToken[] {
   const mentions = new Map<string, CommunityMemberModel[]>();
   for (const member of members) {
@@ -66,27 +69,52 @@ export function communityComposerReferenceTokens(
 
   return [
     ...mentionTokens,
-    ...communityComposerPublishedMentionTokens(members),
+    ...communityComposerContentMentionTokens(value),
     ...otherTokens.filter(
       (candidate) => counts.get(candidate.token.toLocaleLowerCase()) === 1,
     ),
   ];
 }
 
-function communityComposerPublishedMentionTokens(
-  members: readonly CommunityMemberModel[],
+function communityComposerContentMentionTokens(
+  value: string,
 ): CommunityComposerReferenceToken[] {
-  return members.flatMap((member) => {
-    const id = member.id.trim().toLowerCase();
-    if (!/^[0-9a-f]{64}$/u.test(id)) return [];
-    return [
-      {
-        token: `nostr:${npubEncode(id)}`,
-        kind: "mention" as const,
-        memberId: member.id,
-      },
-    ];
-  });
+  const seen = new Set<string>();
+  const tokens: CommunityComposerReferenceToken[] = [];
+  for (const mention of contentMentionMatches(value)) {
+    if (seen.has(mention.value)) continue;
+    seen.add(mention.value);
+    tokens.push({
+      token: mention.value,
+      kind: "mention",
+      memberId: mention.pubkey,
+    });
+  }
+  return tokens;
+}
+
+export function composerTokenMember(
+  memberId: string | undefined,
+  members: readonly CommunityMemberModel[],
+  source = "",
+): CommunityMemberModel | undefined {
+  if (!memberId) return undefined;
+  const id = memberId.trim().toLowerCase();
+  return (
+    members.find((member) => member.id.trim().toLowerCase() === id) ??
+    contentMentionFallbackMember(memberId, source)
+  );
+}
+
+export function hasComposerReferenceBoundary(
+  value: string,
+  index: number,
+  token: string,
+): boolean {
+  if (token.startsWith(":")) return true;
+  const before = value[index - 1] ?? "";
+  const after = value[index + token.length] ?? "";
+  return !/[\p{L}\p{N}_]/u.test(before) && !/[\p{L}\p{N}_-]/u.test(after);
 }
 
 export function composerPreferredMemberIds(

@@ -4,6 +4,7 @@ import { npubEncode } from "nostr-tools/nip19";
 import {
   communityComposerReferenceTokens,
   composerPreferredMemberIds,
+  composerTokenMember,
   resolveComposerMentionMember,
 } from "./composer-token-references.js";
 
@@ -55,18 +56,31 @@ describe("composer token references", () => {
     ).toEqual([]);
   });
 
-  it("treats published NIP-27 npub tokens as the same mention", () => {
+  it("scans draft nostr npub text as the same mention token", () => {
     const ada = "a".repeat(64);
+    const token = `nostr:${npubEncode(ada)}`;
+    const adaMember = {
+      id: ada,
+      name: "Ada Lovelace",
+      handle: "ada",
+      initials: "AL",
+    };
     expect(
-      communityComposerReferenceTokens(
-        [{ id: ada, name: "Ada Lovelace", handle: "ada", initials: "AL" }],
-        [],
-        [],
-      ),
+      communityComposerReferenceTokens([adaMember], [], [], [], `${token} hi`),
     ).toEqual([
       { token: "@Ada Lovelace", kind: "mention", memberId: ada },
-      { token: `nostr:${npubEncode(ada)}`, kind: "mention", memberId: ada },
+      { token, kind: "mention", memberId: ada },
     ]);
+    expect(composerTokenMember(ada, [adaMember], token)).toEqual(adaMember);
+  });
+
+  it("keeps unknown draft npub text as a mention token", () => {
+    const guest = "c".repeat(64);
+    const token = `nostr:${npubEncode(guest)}`;
+    expect(communityComposerReferenceTokens([], [], [], [], token)).toEqual([
+      { token, kind: "mention", memberId: guest },
+    ]);
+    expect(composerTokenMember(guest, [], token)?.name).toMatch(/^npub1/u);
   });
 
   it("deduplicates selected and locked mention ids", () => {

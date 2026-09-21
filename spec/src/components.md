@@ -535,8 +535,10 @@ and actionable warning, failure, retry, and dismiss behavior MUST use its unifie
 public API. Every `CommunityMessage` body MUST render through
 `CommunityMarkdownContent` with the known member, room, mention-pubkey, and emoji
 context. Published bodies MUST chip NIP-27 `nostr:npub` and `nostr:nprofile`
-tokens as the same member mentions as composer `@Name` prefixes. Live authoring
-MUST decorate those same `nostr:npub` tokens as member avatars. Preview MUST
+tokens as the same member mentions as composer `@Name` prefixes. The composer
+CodeMirror mention decorations MUST treat raw `nostr:npub` and `nostr:nprofile`
+text as those same avatar widgets, using the member name or a truncated npub
+when none is known. Preview MUST
 rewrite those tokens to `@Name` before Mira safe sanitize so autolinked `nostr:`
 schemes cannot collapse to leftover text. The embedded Mira editor MUST span the composer's available inner width
 without its document reading-column margins, internal scroller padding, or a

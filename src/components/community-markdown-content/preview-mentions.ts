@@ -1,4 +1,5 @@
 import {
+  contentMentionFallbackMember,
   contentMentionLabel,
   contentMentionMatches,
 } from "../../community/content-mentions.js";
@@ -30,13 +31,11 @@ export function previewCommunityMarkdown(
     ) {
       continue;
     }
-    const handle = mention.value.slice("nostr:".length);
-    extras.set(mention.pubkey, {
-      id: mention.pubkey,
-      name: handle,
-      handle,
-      initials: handle.slice(4, 6).toUpperCase() || "?",
-    });
+    const fallback = contentMentionFallbackMember(
+      mention.pubkey,
+      mention.value,
+    );
+    if (fallback) extras.set(mention.pubkey, fallback);
   }
   const previewMembers = [...members, ...extras.values()];
   let next = content;

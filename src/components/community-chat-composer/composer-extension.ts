@@ -29,7 +29,11 @@ import {
   detectCommunityComposerAutocomplete,
   type CommunityComposerAutocompleteQuery,
 } from "./autocomplete.js";
-import { communityComposerReferenceTokens } from "./composer-token-references.js";
+import {
+  communityComposerReferenceTokens,
+  composerTokenMember,
+  hasComposerReferenceBoundary,
+} from "./composer-token-references.js";
 
 export interface CommunityComposerEditorState {
   view: EditorView;
@@ -267,6 +271,7 @@ function buildTokenDecorations(
     options.rooms(),
     options.emojis(),
     options.preferredMemberIds(),
+    value,
   ).sort((left, right) => right.token.length - left.token.length);
   for (const reference of references) {
     const normalizedToken = reference.token.toLocaleLowerCase();
@@ -274,16 +279,15 @@ function buildTokenDecorations(
     while (from >= 0) {
       const to = from + reference.token.length;
       if (
-        hasReferenceBoundary(value, from, reference.token) &&
+        hasComposerReferenceBoundary(value, from, reference.token) &&
         !decorated.some((range) => from < range.to && to > range.from)
       ) {
         decorated.push({ from, to });
-        const member =
-          reference.memberId === undefined
-            ? undefined
-            : options
-                .members()
-                .find((candidate) => candidate.id === reference.memberId);
+        const member = composerTokenMember(
+          reference.memberId,
+          options.members(),
+          reference.token,
+        );
         if (member !== undefined && !selectionTouchesRange(view, from, to)) {
           ranges.push(
             Decoration.replace({
@@ -428,15 +432,4 @@ function selectionTouchesRange(
   return selection.empty
     ? selection.head > from && selection.head < to
     : selection.from < to && selection.to > from;
-}
-
-function hasReferenceBoundary(
-  value: string,
-  index: number,
-  token: string,
-): boolean {
-  if (token.startsWith(":")) return true;
-  const before = value[index - 1] ?? "";
-  const after = value[index + token.length] ?? "";
-  return !/[\p{L}\p{N}_]/u.test(before) && !/[\p{L}\p{N}_-]/u.test(after);
 }

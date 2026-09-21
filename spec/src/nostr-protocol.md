@@ -512,7 +512,9 @@ Explicit mentions are NIP-27 references in content; recipient tags alone do not
 identify mentioned agents. Publish templates MUST copy those content mention
 pubkeys into `p` tags. Message bodies MUST chip those `nostr:npub` and
 `nostr:nprofile` tokens as member mentions and MUST NOT leave the `nostr`
-scheme as visible leftover text. Identity changes clear decoded conversations, drafts,
+scheme as visible leftover text. Composer decorations MUST reuse those same
+mention widgets for raw `nostr:npub` text, using the member name or a truncated
+npub when none is known. Identity changes clear decoded conversations, drafts,
 visibility snapshots and private runtime events. Shared search excludes private
 plaintext and canvas/control records.
 
