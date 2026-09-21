@@ -1,6 +1,6 @@
 # Architecture
 
-For LC-ARCH-028, the combined agent-editor model picker extracts catalog thinking, parse, and row helpers so `CommunityAgentEditorDialog.svelte` and `agent-runtime-catalog.ts` shrink instead of growing. For LC-UI-044, plan snapshot parsing and the Activity list live in extracted transcript owners so the activity model and transcript shell do not grow.
+For LC-ARCH-028, the combined agent-editor model picker extracts catalog thinking, parse, row, and harness-tab helpers so `CommunityAgentEditorDialog.svelte` and `agent-runtime-catalog.ts` shrink instead of growing. Harness icons, the Command View picker, and catalog/refresh plays live in extracted editor owners. For LC-UI-044, plan snapshot parsing and the Activity list live in extracted transcript owners so the activity model and transcript shell do not grow.
 
 LC-UI-049 public transcript interaction adapters and thread context projections stay in the component/project owners. The thread projection reads the existing application-owned agent model through its shared context, keeping request-scoped owner Activity out of the thread panel and application composition hotspots. Shared application message actions preserve existing channel permission and publishing boundaries while keeping the application composition budget from growing.
 

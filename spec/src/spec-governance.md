@@ -9,6 +9,8 @@ support without exercising the real relay and its private forge sidecar.
 `pnpm check` and `pnpm spec:check` also run the architecture lane
 (`scripts/check-architecture.mjs`) so counted-line budgets and the feature
 dependency matrix cannot grow without a baseline update in the same change.
+Harness-tab helpers, the model picker/icon owners, and catalog/refresh plays
+are recorded with the lowered editor story and model-field budgets.
 Agent guidance forbids `src/community` from importing `src/components`, including
 type-only imports, after the workspace-model inversion. `AGENTS.md` requires
 svelte-file-editor or the Svelte MCP autofixer on `.svelte` edits, counted-line

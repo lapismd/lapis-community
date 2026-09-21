@@ -425,6 +425,16 @@
       "physicalLines": 26,
       "forbiddenImportCount": 0
     },
+    "src/community/agent-editor-harness-tabs.test.ts": {
+      "countedLines": 62,
+      "physicalLines": 64,
+      "forbiddenImportCount": 0
+    },
+    "src/community/agent-editor-harness-tabs.ts": {
+      "countedLines": 28,
+      "physicalLines": 31,
+      "forbiddenImportCount": 0
+    },
     "src/community/agent-editor-model-rows.test.ts": {
       "countedLines": 95,
       "physicalLines": 98,
@@ -1326,13 +1336,13 @@
       "forbiddenImportCount": 0
     },
     "src/components/community-agent-editor/CommunityAgentEditorDialog.catalog.stories.svelte": {
-      "countedLines": 94,
-      "physicalLines": 98,
+      "countedLines": 55,
+      "physicalLines": 59,
       "forbiddenImportCount": 0
     },
     "src/components/community-agent-editor/CommunityAgentEditorDialog.refresh.stories.svelte": {
-      "countedLines": 87,
-      "physicalLines": 91,
+      "countedLines": 64,
+      "physicalLines": 68,
       "forbiddenImportCount": 0
     },
     "src/components/community-agent-editor/CommunityAgentEditorDialog.stories.svelte": {
@@ -1347,9 +1357,19 @@
       "kind": "legacy",
       "justification": "Existing file above the new-file counted-line limit; do not grow"
     },
+    "src/components/community-agent-editor/CommunityAgentEditorHarnessIcon.svelte": {
+      "countedLines": 20,
+      "physicalLines": 23,
+      "forbiddenImportCount": 0
+    },
     "src/components/community-agent-editor/CommunityAgentEditorModelField.svelte": {
-      "countedLines": 107,
-      "physicalLines": 112,
+      "countedLines": 42,
+      "physicalLines": 45,
+      "forbiddenImportCount": 0
+    },
+    "src/components/community-agent-editor/CommunityAgentEditorModelPicker.svelte": {
+      "countedLines": 94,
+      "physicalLines": 98,
       "forbiddenImportCount": 0
     },
     "src/components/community-agent-editor/CommunityAgentEditorThinkingField.svelte": {
@@ -1357,9 +1377,9 @@
       "physicalLines": 43,
       "forbiddenImportCount": 0
     },
-    "src/components/community-agent-editor/editor-catalog-story.ts": {
-      "countedLines": 22,
-      "physicalLines": 23,
+    "src/components/community-agent-editor/editor-harness-catalog-story.ts": {
+      "countedLines": 114,
+      "physicalLines": 119,
       "forbiddenImportCount": 0
     },
     "src/components/community-agent-processing-control/CommunityAgentProcessingControl.stories.svelte": {

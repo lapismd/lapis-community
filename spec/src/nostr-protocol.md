@@ -1,6 +1,6 @@
 # Nostr Protocol and Trust
 
-For LC-UI-037, agent `runtime_set` thinking is taken only from advertised catalog options, including `xhigh` when a harness lists it, and is omitted when the selected model advertises none.
+For LC-UI-037, agent `runtime_set` thinking is taken only from advertised catalog options, including `xhigh` when a harness lists it, and is omitted when the selected model advertises none. The editor lists only the selected harness catalog after the Command View Filters tabs choose that harness.
 
 For LC-UI-044 and LC-UI-049, live and canonical transcript records keep `type: "plan"` with `{content,status,priority}` entries. The latest snapshot replaces the turn list in place, and an empty snapshot clears it.
 

@@ -1,6 +1,6 @@
 # Local Registry Pipeline
 
-For LC-ARCH-028, editor catalog, thinking, and combined-picker owners are recorded in `scripts/architecture-baseline.json` with the lowered agent-editor dialog budget. For LC-UI-044, extracted plan transcript owners are recorded in the same baseline.
+For LC-ARCH-028, editor catalog, thinking, combined-picker, harness-tab, and catalog-story owners are recorded in `scripts/architecture-baseline.json` with the lowered agent-editor dialog and model-field budgets. For LC-UI-044, extracted plan transcript owners are recorded in the same baseline.
 
 LC-UI-049 thread-context fixtures exercise existing checkpoint and channel event shapes, native replies, linked commit comments, visible thinking and shared reactions. Discussion edit/delete, reference-token and independently scrolling thread fixtures reuse those signed event shapes. Their component extractions and bounded status story update the architecture baseline without changing relay ingestion or publication protocols.
 
