@@ -12,6 +12,10 @@ import {
   parseComposerSlashQuery,
   type ComposerSlashKind,
 } from "./composer-slash.js";
+import {
+  composerSlashShortHash,
+  composerSlashTruncatedSubject,
+} from "./composer-slash-labels.js";
 import type { ComposerSlashSession } from "./composer-slash-session.js";
 
 export interface ComposerSlashCatalog extends ComposerSlashSession {}
@@ -128,8 +132,8 @@ function entryRows(
   }
   if (kind === "commits") {
     return catalog.commits.map((commit) => ({
-      label: commit.subject,
-      detail: commit.sha.slice(0, 8),
+      label: composerSlashTruncatedSubject(commit.subject),
+      detail: composerSlashShortHash(commit.sha),
       href: buildCommunityRepoLink({
         owner: commit.owner,
         d: commit.d,
@@ -138,15 +142,26 @@ function entryRows(
       }),
     }));
   }
-  return catalog.logs.map((log) => ({
+  const toRow = (log: ComposerSlashCatalog["logs"][number]) => ({
     label: log.label,
-    detail: log.tab === "oplog" ? "Op Log" : "Log",
+    detail: log.detail ?? composerSlashShortHash(log.commit ?? log.d),
     href: buildCommunityRepoLink({
       owner: log.owner,
       d: log.d,
       tab: log.tab,
+      ...(log.commit ? { commit: log.commit } : {}),
     }),
-  }));
+  });
+  return [
+    ...catalog.logs
+      .filter((log) => log.tab === "log")
+      .slice(0, 12)
+      .map(toRow),
+    ...catalog.logs
+      .filter((log) => log.tab === "oplog")
+      .slice(0, 12)
+      .map(toRow),
+  ];
 }
 
 function categoryMatches(

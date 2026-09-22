@@ -532,7 +532,10 @@ existing entity chip decoration renders it. `#channel` mentions stay
 mention and entity chips MUST show a trailing dismiss control that deletes
 that token and one following space from the draft. That dismiss MUST share
 the chip's muted surface as a split trailing segment with its own hover.
-Markdown-rendered chips MUST omit dismiss.
+Markdown-rendered chips MUST omit dismiss. Commit and Log chips and slash
+rows MUST show a truncated commit message plus the short hash. Op Log chips
+and slash rows MUST show the change id. Task chips and slash rows MUST show
+the task title.
 
 For LC-UI-011 and LC-UI-036, a task entity MUST use
 `lapis-community://task?owner=&d=&id=` and the hash

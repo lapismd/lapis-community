@@ -845,7 +845,7 @@
   });
   provideProjectLogNavigation(() => applicationLocation, pushLocation);
   // prettier-ignore
-  provideForumTopicSync(() => applicationLocation, () => allRooms, (topicId) => community.actions.openTopic(topicId), (value, success) => void copyText(value, success), pushLocation, () => ({ rooms: allRooms, catalog: projectCatalog, workItems: projectWorkItems, commits: projectCommits, activity: projectCommitActivity, repositoryCoordinate: selectedRepositoryCoordinate }));
+  provideForumTopicSync(() => applicationLocation, () => allRooms, (topicId) => community.actions.openTopic(topicId), (value, success) => void copyText(value, success), pushLocation, () => ({ rooms: allRooms, catalog: projectCatalog, workItems: projectWorkItems, commits: projectCommits, activity: projectCommitActivity, repositoryCoordinate: selectedRepositoryCoordinate, events: [...projectCatalog.events, ...projectWorkItems.events] }));
   const startupDestinationRoom = $derived(
     communityStartupPending
       ? allRooms.find((room) => room.id === activeDestination)

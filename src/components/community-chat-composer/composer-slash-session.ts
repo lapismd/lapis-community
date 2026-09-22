@@ -1,5 +1,7 @@
 import { parseAddressableCoordinate } from "../../community/community-links.js";
+import type { NostrEvent } from "../../protocol/index.js";
 import type { CommunityRoomModel } from "../community-workspace/model.js";
+import { snapshotComposerSlashLogs } from "./composer-slash-logs.js";
 
 export interface ComposerSlashCoordinateEntry {
   owner: string;
@@ -26,6 +28,9 @@ export interface ComposerSlashLogEntry {
   d: string;
   tab: "log" | "oplog";
   label: string;
+  detail?: string;
+  commit?: string;
+  changeId?: string;
 }
 
 export interface ComposerSlashSession {
@@ -62,6 +67,7 @@ export interface ComposerSlashSessionSource {
     commit: { sha: string; subject: string };
   }[];
   repositoryCoordinate?: string;
+  events?: readonly NostrEvent[];
 }
 
 let session: ComposerSlashSession = emptyComposerSlashSession();
@@ -142,19 +148,11 @@ export function snapshotComposerSlashSession(
         : [];
     }),
     commits: [...commits.values()],
-    logs: repositories.flatMap((repository) => [
-      {
-        owner: repository.owner,
-        d: repository.d,
-        tab: "log" as const,
-        label: `${repository.name} Log`,
-      },
-      {
-        owner: repository.owner,
-        d: repository.d,
-        tab: "oplog" as const,
-        label: `${repository.name} Op Log`,
-      },
-    ]),
+    logs: snapshotComposerSlashLogs({
+      commits: [...commits.values()],
+      repositories,
+      ...(selected ? { selected } : {}),
+      ...(input.events ? { events: input.events } : {}),
+    }),
   };
 }

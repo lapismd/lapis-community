@@ -35,11 +35,12 @@
     await userEvent.type(editor, "/tasks/awesome");
     const option = await canvas.findByRole("option", { name: /Awesome/i });
     await userEvent.click(option);
-    await waitFor(() =>
-      expect(
-        canvasElement.querySelector("[data-link-kind='task']"),
-      ).not.toBeNull(),
-    );
+    const chip = await waitFor(() => {
+      const found = canvasElement.querySelector("[data-link-kind='task']");
+      expect(found).not.toBeNull();
+      return found!;
+    });
+    await expect(chip).toHaveTextContent("Awesome");
     await expect(editor).not.toHaveTextContent("/tasks/awesome");
   }}
 />
@@ -66,12 +67,10 @@
       return found!;
     });
     await userEvent.click(
-      canvas.getByRole("button", { name: "Remove buzz-world" }),
+      canvas.getByRole("button", { name: "Remove Awesome" }),
     );
     await waitFor(() => {
-      expect(
-        canvasElement.querySelector("[data-link-kind='task']"),
-      ).toBeNull();
+      expect(canvasElement.querySelector("[data-link-kind='task']")).toBeNull();
       expect(
         canvasElement.querySelector("[data-ui-part='composer-chip-dismiss']"),
       ).toBeNull();
@@ -101,9 +100,7 @@
       canvas.getByRole("button", { name: "Remove Ben Stone" }),
     );
     await waitFor(() => {
-      expect(
-        canvas.queryByRole("button", { name: "Ben Stone" }),
-      ).toBeNull();
+      expect(canvas.queryByRole("button", { name: "Ben Stone" })).toBeNull();
       expect(
         canvasElement.querySelector("[data-ui-part='composer-chip-dismiss']"),
       ).toBeNull();
