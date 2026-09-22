@@ -96,6 +96,8 @@
       <span>Op Log</span>
     </Button>
     <CommunityEntityCopyButton
+      class="community-application__project-overview-item"
+      label="Copy Link"
       success={pane.pane === "oplog" ? "Op Log link copied" : "Log link copied"}
     />
     {#if pane.pane === "log" && pane.selectedCommitId}

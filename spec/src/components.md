@@ -213,7 +213,7 @@ pressed, the rail item MUST use the same selected background as Log and Op Log,
 and Log MUST add a `ColumnCanvas` column immediately after Log that
 renders that change's recorded evolution from kind `3904` predecessor maps,
 hydrated by kind `3902`, without treating commit parents as rewrite edges.
-Closing that Evolog column MUST clear the toggle. When Log is selected and the selected revision has a dest-Git commit and is not an empty task anchor, a maintainer MUST see Create review. That action MUST publish a NIP-34 pull request for the selected commit without requiring a compare branch. Selecting an Op Log row
+Closing that Evolog column MUST clear the toggle. The Log rail copy-link control MUST show the Copy Link label. When Log is selected and the selected revision has a dest-Git commit and is not an empty task anchor, a maintainer MUST see Create review. That action MUST publish a NIP-34 pull request for the selected commit without requiring a compare branch. Selecting an Op Log row
 MUST load dest-Git changed files for a commit recorded in that operation's
 `evolution.entries`, using the same FileListing and FileDiff host as Log, and
 MUST show the empty FileListing when the operation recorded no commit.

@@ -2385,8 +2385,8 @@
       "forbiddenImportCount": 0
     },
     "src/components/community-entity-chip/CommunityEntityCopyButton.svelte": {
-      "countedLines": 20,
-      "physicalLines": 23,
+      "countedLines": 33,
+      "physicalLines": 36,
       "forbiddenImportCount": 0
     },
     "src/components/community-entity-chip/CommunityEntityLinkStoryHost.svelte": {
@@ -3343,8 +3343,8 @@
       "forbiddenImportCount": 0
     },
     "src/components/community-projects/CommunityProjectsRepositoryLogRail.svelte": {
-      "countedLines": 154,
-      "physicalLines": 160,
+      "countedLines": 156,
+      "physicalLines": 166,
       "forbiddenImportCount": 0
     },
     "src/components/community-projects/CommunityProjectsRepositoryOverviewHeading.svelte": {

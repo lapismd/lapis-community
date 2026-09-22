@@ -107,7 +107,7 @@ export async function playRepositoryLogCopyLink({
     },
   );
   await userEvent.click(
-    canvas.getByRole("button", { name: "Log link copied" }),
+    canvas.getByRole("button", { name: "Copy Link" }),
   );
   await expect(copied[0]).toMatch(/^lapis-community:\/\/repo\?/u);
   await expect(copied[0]).toContain("tab=log");
@@ -122,7 +122,7 @@ export async function playRepositoryLogCopyLink({
     ),
   );
   await userEvent.click(
-    canvas.getByRole("button", { name: "Op Log link copied" }),
+    canvas.getByRole("button", { name: "Copy Link" }),
   );
   await expect(copied[1]).toContain("tab=oplog");
 }

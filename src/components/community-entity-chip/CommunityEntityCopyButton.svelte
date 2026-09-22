@@ -4,20 +4,33 @@
 
   import { useCommunityShareLink } from "./share-link.js";
 
-  let { success = "Link copied" }: { success?: string } = $props();
+  let {
+    success = "Link copied",
+    label = "",
+    class: className = "",
+  }: {
+    success?: string;
+    label?: string;
+    class?: string;
+  } = $props();
   const share = useCommunityShareLink();
   const href = $derived(share?.href());
+  const named = $derived(label !== "");
 </script>
 
 {#if href && share}
   <Button
     type="button"
     variant="ghost"
-    size="icon-sm"
-    aria-label={success}
-    title={success}
+    {...named ? {} : { size: "icon-sm", "aria-label": success }}
+    {...className ? { class: className } : {}}
+    title={label || success}
     onclick={() => share.copy(href, success)}
   >
-    <LinkIcon aria-hidden="true" />
+    <LinkIcon
+      {...named ? { "data-icon": "inline-start" } : {}}
+      aria-hidden="true"
+    />
+    {#if named}<span>{label}</span>{/if}
   </Button>
 {/if}
