@@ -3218,8 +3218,8 @@
       "forbiddenImportCount": 0
     },
     "src/components/community-projects/CommunityProjectsPullRequestDetail.svelte": {
-      "countedLines": 269,
-      "physicalLines": 272,
+      "countedLines": 7,
+      "physicalLines": 12,
       "forbiddenImportCount": 0
     },
     "src/components/community-projects/CommunityProjectsPullRequestDiffWorkbench.svelte": {

@@ -5,7 +5,7 @@
 
   import type { CommunityCustomEmoji } from "../../community/index.js";
   import type { PullRequestComment } from "../../projects/index.js";
-  import CommunityChatComposer from "../community-chat-composer/CommunityChatComposer.svelte";
+  import CommunityProjectsPullRequestInlineComposer from "./CommunityProjectsPullRequestInlineComposer.svelte";
   import CommunityChip from "../community-chip/CommunityChip.svelte";
   import CommunityMessage from "../community-message/CommunityMessage.svelte";
   import type {
@@ -47,7 +47,9 @@
     memberForPubkey: (pubkey: string) => CommunityMemberModel;
     commentMessage: (comment: PullRequestComment) => CommunityMessageModel;
     canReact: (comment: PullRequestComment) => boolean;
-    reactionOptions: (comment: PullRequestComment) => readonly string[] | undefined;
+    reactionOptions: (
+      comment: PullRequestComment,
+    ) => readonly string[] | undefined;
     onToggleReaction: (comment: PullRequestComment, emoji: string) => void;
     onCancelComposer: () => void;
     onSubmitComposer: (content: string) => void;
@@ -97,23 +99,20 @@
       <div class="community-projects__inline-context">
         <FileIcon aria-hidden="true" />
         <span>{context.path}</span>
-        <CommunityChip size="compact">{linePrefix}{context.lineNumber}</CommunityChip>
+        <CommunityChip size="compact"
+          >{linePrefix}{context.lineNumber}</CommunityChip
+        >
       </div>
-      <CommunityChatComposer
-        class="community-projects__inline-composer"
+      <CommunityProjectsPullRequestInlineComposer
         bind:value={composerContent}
-        placeholder="Leave a comment on this line…"
-        ariaLabel={`Comment on ${context.path} line ${context.lineNumber}`}
-        submitLabel="Comment"
+        {context}
         {members}
         {rooms}
         {communityEmojis}
-        {...currentMemberId === undefined ? {} : { currentMemberId }}
         {busy}
-        disabled={!canCollaborate}
-        disabledReason="Sign in to comment on this review"
+        {canCollaborate}
         onCancel={onCancelComposer}
-        onSubmit={(submission) => onSubmitComposer(submission.content)}
+        onSubmit={onSubmitComposer}
       />
     {/if}
   </div>

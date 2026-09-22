@@ -89,7 +89,7 @@
     type CommunityProjectsFilterProps,
   } from "./project-list-scope.js";
   import CommunitySidebarToggleIcon from "../community-app-shell/CommunitySidebarToggleIcon.svelte";
-  import CommunityChatComposer from "../community-chat-composer/CommunityChatComposer.svelte";
+  import CommunityProjectsTaskCommentComposer from "./CommunityProjectsTaskCommentComposer.svelte";
   import CommunityChip from "../community-chip/CommunityChip.svelte";
   import CommunityProjectsMemberHover from "./CommunityProjectsMemberHover.svelte";
   import CommunityMarkdownContent from "../community-markdown-content/CommunityMarkdownContent.svelte";
@@ -3090,23 +3090,21 @@
                   {/each}
                 </div>
                 {#if onAddTaskComment}
-                  <CommunityChatComposer
-                    class="community-projects__task-composer"
+                  <CommunityProjectsTaskCommentComposer
                     bind:value={taskComment}
-                    placeholder="Add a comment…"
-                    ariaLabel="Task comment"
-                    submitLabel="Comment"
+                    taskId={selectedTask.root.id}
+                    {...currentMemberId === undefined
+                      ? {}
+                      : { viewer: currentMemberId }}
+                    {...reviewPreferenceScope === undefined
+                      ? {}
+                      : { communityId: reviewPreferenceScope.communityId }}
                     {members}
                     {rooms}
                     {communityEmojis}
-                    {...currentMemberId === undefined
-                      ? {}
-                      : { currentMemberId }}
                     {busy}
-                    disabled={!canCollaborate}
-                    disabledReason="Sign in to comment on this task"
-                    onSubmit={(submission) =>
-                      submitTaskComment(submission.content)}
+                    {canCollaborate}
+                    onSubmit={submitTaskComment}
                   />
                 {/if}
               </Collapsible.Content>

@@ -13,7 +13,7 @@
     PullRequestComment,
     PullRequestState,
   } from "../../projects/index.js";
-  import CommunityChatComposer from "../community-chat-composer/CommunityChatComposer.svelte";
+  import CommunityProjectsPullRequestConversationComposer from "./CommunityProjectsPullRequestConversationComposer.svelte";
   import type {
     CommunityMemberModel,
     CommunityMessageModel,
@@ -220,20 +220,18 @@
           </div>
         {/if}
         {#if canComment}
-          <CommunityChatComposer
-            class="community-projects__conversation-composer"
+          <CommunityProjectsPullRequestConversationComposer
             bind:value={comment}
-            placeholder="Add to the review conversation"
-            ariaLabel="Pull request comment"
-            submitLabel="Comment"
+            pullRequestId={pullRequest.root.id}
+            {...currentMemberId === undefined
+              ? {}
+              : { viewer: currentMemberId }}
             {members}
             {rooms}
             {communityEmojis}
-            {...currentMemberId === undefined ? {} : { currentMemberId }}
             {busy}
-            disabled={!canCollaborate}
-            disabledReason="Sign in to comment on this review"
-            onSubmit={(submission) => onSubmitComment(submission.content)}
+            {canCollaborate}
+            onSubmit={onSubmitComment}
           />
         {/if}
       {/if}
