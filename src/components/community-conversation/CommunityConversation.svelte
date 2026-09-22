@@ -1,9 +1,7 @@
 <script lang="ts">
   import { Button } from "@lapismd/design-core/shadcn/button";
   import CommunitySkeleton from "../community-skeleton/CommunitySkeleton.svelte";
-  import { untrack } from "svelte";
   import { observeReadEnd } from "../community-workspace/observe-read-end.js";
-  import CommunityAgentComposerActivity from "../community-agent-composer-activity/CommunityAgentComposerActivity.svelte";
   import {
     Layout,
     LayoutScrollButton,
@@ -21,13 +19,12 @@
     CommunityTimelinePosition,
   } from "../../community/index.js";
   import CommunityChip from "../community-chip/CommunityChip.svelte";
-  import CommunityChatComposer from "../community-chat-composer/CommunityChatComposer.svelte";
   import type { CommunityComposerAgentModel } from "../community-chat-composer/composer-agent-model.js";
+  import CommunityConversationComposer from "./CommunityConversationComposer.svelte";
   import {
     communityMessageDayLabel,
     communityMessageStartsDay,
   } from "./conversation-day.js";
-  import { sendConversationContent } from "./conversation-send.js";
   import CommunityMemberAvatar from "../community-member-avatar/CommunityMemberAvatar.svelte";
   import CommunityMessage from "../community-message/CommunityMessage.svelte";
   import { isMessageContinuation } from "../community-message/grouping.js";
@@ -168,20 +165,9 @@
     messageSupplement?: Snippet<[CommunityMessageModel]>;
   } = $props();
 
-  let draft = $state("");
-  $effect(() => {
-    const saved = presentation;
-    if (saved)
-      untrack(() => {
-        draft = saved.draft;
-      });
-  });
-  $effect(() => {
-    const value = draft;
-    const key = presentation?.key;
-    if (key && previousDraftKey === draftKey)
-      untrack(() => onPresentationChange?.(key, { draft: value }));
-  });
+  let conversationComposer = $state<{
+    startEditing(message: CommunityMessageModel): void;
+  }>();
   const latestArrivalId = $derived(
     messages.findLast(
       (message) =>
@@ -195,33 +181,6 @@
     history?.hasNewer || history?.loading ? undefined : readBoundary,
   );
 
-  const conversationDrafts = new Map<string, string>();
-  let previousDraftKey: string | undefined;
-  let previousDraftIdentity: string | undefined;
-  let draftIdentityLoaded = false;
-  $effect(() => {
-    const identity = currentMemberId;
-    untrack(() => {
-      if (draftIdentityLoaded && previousDraftIdentity === identity) return;
-      draftIdentityLoaded = true;
-      previousDraftIdentity = identity;
-      conversationDrafts.clear();
-      previousDraftKey = undefined;
-      draft = presentation?.draft ?? "";
-      editingMessageId = undefined;
-    });
-  });
-  $effect(() => {
-    const key = draftKey;
-    untrack(() => {
-      if (previousDraftKey === key) return;
-      if (previousDraftKey !== undefined)
-        conversationDrafts.set(previousDraftKey, draft);
-      draft = presentation?.draft ?? conversationDrafts.get(key) ?? "";
-      previousDraftKey = key;
-    });
-  });
-  let editingMessageId = $state<string | undefined>();
   const density = $derived(room.kind === "forum" ? "spacious" : "compact");
   const composerRooms = $derived(rooms.length > 0 ? rooms : [room]);
   const displayedDirectMember = $derived(
@@ -239,32 +198,6 @@
       presence: "offline" as const,
     },
   );
-
-  function startEditing(message: CommunityMessageModel): void {
-    editingMessageId = message.id;
-    draft = message.content;
-  }
-
-  function cancelComposerContext(): void {
-    if (editingMessageId !== undefined) {
-      editingMessageId = undefined;
-      draft = "";
-      return;
-    }
-    onCancelReply?.();
-  }
-
-  async function submitComposer(
-    content: string,
-    mentionPubkeys: readonly string[] = [],
-  ): Promise<void> {
-    if (editingMessageId !== undefined && onSaveMessageEdit !== undefined) {
-      await onSaveMessageEdit(editingMessageId, content);
-      editingMessageId = undefined;
-      return;
-    }
-    await sendConversationContent(onSend, content, mentionPubkeys);
-  }
 </script>
 
 <div
@@ -318,7 +251,7 @@
         ? {}
         : {
             onEdit: onSaveMessageEdit
-              ? () => startEditing(message)
+              ? () => conversationComposer?.startEditing(message)
               : onEditMessage,
           }}
       {...onDeleteMessage === undefined ||
@@ -414,59 +347,38 @@
       {/if}
     {/snippet}
     {#snippet composer()}
-      {#if footer}
-        {@render footer()}
-      {:else}
-        <CommunityChatComposer
-          bind:value={draft}
-          {members}
-          {agents}
-          rooms={composerRooms}
-          {communityEmojis}
-          {...currentMemberId === undefined ? {} : { currentMemberId }}
-          {...onOpenProfile === undefined
-            ? {}
-            : { onOpenMember: onOpenProfile }}
-          {...onMessageMember === undefined ? {} : { onMessageMember }}
-          {...onWaveMember === undefined ? {} : { onWaveMember }}
-          {...editingMessageId !== undefined
-            ? {
-                context: {
-                  kind: "edit" as const,
-                  id: editingMessageId,
-                  label: "Editing message",
-                },
-              }
-            : replyTarget === undefined
-              ? {}
-              : { context: { kind: "reply" as const, target: replyTarget } }}
-          {disabled}
-          {disabledReason}
-          placeholder={`Message ${room.kind === "channel" ? "#" : ""}${room.name}`}
-          {...composerStatus === undefined ? {} : { composerStatus }}
-          {...onRetryComposerStatus === undefined
-            ? {}
-            : { onRetryComposerStatus }}
-          {...onDismissComposerStatus === undefined
-            ? {}
-            : { onDismissComposerStatus }}
-          {...editingMessageId === undefined && onCancelReply === undefined
-            ? {}
-            : { onCancelContext: cancelComposerContext }}
-          onSubmit={(submission) =>
-            submitComposer(submission.content, submission.mentionPubkeys)}
-        />
-      {/if}
-      <CommunityAgentComposerActivity
-        context={activityContext ??
-          (room.kind === "direct"
-            ? {
-                kind: "dm",
-                ...(displayedDirectMember
-                  ? { agentPubkey: displayedDirectMember.id }
-                  : {}),
-              }
-            : { kind: "channel", channelId: room.groupId ?? room.id })}
+      <CommunityConversationComposer
+        bind:this={conversationComposer}
+        {room}
+        {draftKey}
+        rooms={composerRooms}
+        {members}
+        {agents}
+        {communityEmojis}
+        {disabled}
+        {disabledReason}
+        {...presentation === undefined ? {} : { presentation }}
+        {...onPresentationChange === undefined ? {} : { onPresentationChange }}
+        {...directMember === undefined
+          ? { directMember: displayedDirectMember }
+          : { directMember }}
+        {...onSend === undefined ? {} : { onSend }}
+        {...replyTarget === undefined ? {} : { replyTarget }}
+        {...onCancelReply === undefined ? {} : { onCancelReply }}
+        {...composerStatus === undefined ? {} : { composerStatus }}
+        {...onRetryComposerStatus === undefined
+          ? {}
+          : { onRetryComposerStatus }}
+        {...onDismissComposerStatus === undefined
+          ? {}
+          : { onDismissComposerStatus }}
+        {...currentMemberId === undefined ? {} : { currentMemberId }}
+        {...activityContext === undefined ? {} : { activityContext }}
+        {...footer === undefined ? {} : { footer }}
+        {...onSaveMessageEdit === undefined ? {} : { onSaveMessageEdit }}
+        {...onOpenProfile === undefined ? {} : { onOpenProfile }}
+        {...onMessageMember === undefined ? {} : { onMessageMember }}
+        {...onWaveMember === undefined ? {} : { onWaveMember }}
       />
     {/snippet}
 
@@ -479,7 +391,8 @@
         ? {
             items: messages,
             row: messageRow,
-            virtualize: true, estimateSize: 240,
+            virtualize: true,
+            estimateSize: 240,
             ...(presentation?.position
               ? { initialPosition: presentation.position }
               : {}),
