@@ -535,7 +535,8 @@ the chip's muted surface as a split trailing segment with its own hover.
 Markdown-rendered chips MUST omit dismiss. Commit and Log chips and slash
 rows MUST show a truncated commit message plus the short hash. Op Log chips
 and slash rows MUST show the change id. Task chips and slash rows MUST show
-the task title.
+the task title. Entity chips MUST cap at `--community-chip-max-width`
+(default `16rem`), ellipsize overflow, and expose the full label as `title`.
 
 For LC-UI-011 and LC-UI-036, a task entity MUST use
 `lapis-community://task?owner=&d=&id=` and the hash

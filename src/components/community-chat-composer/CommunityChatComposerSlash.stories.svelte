@@ -3,6 +3,7 @@
   import { expect, fn, userEvent, waitFor } from "storybook/test";
 
   import CommunityComposerSlashStoryHost from "./CommunityComposerSlashStoryHost.svelte";
+  import { composerSlashStoryLongTaskTitle } from "./composer-slash-story-catalog.js";
   import {
     communityComposerStoryEmojis,
     communityComposerStoryMembers,
@@ -41,6 +42,7 @@
       return found!;
     });
     await expect(chip).toHaveTextContent("Awesome");
+    await expect(chip).toHaveAttribute("title", "Awesome");
     await expect(editor).not.toHaveTextContent("/tasks/awesome");
   }}
 />
@@ -108,5 +110,47 @@
     const editor = canvas.getByRole("textbox", { name: "Markdown editor" });
     await expect(editor).toHaveTextContent("Ask to review.");
     await expect(editor).not.toHaveTextContent("@Ben Stone");
+  }}
+/>
+
+<Story
+  name="Long entity chip title ellipsizes"
+  args={{
+    class: "community-chat-composer-story",
+    members: communityComposerStoryMembers,
+    rooms: communityComposerStoryRooms,
+    communityEmojis: communityComposerStoryEmojis,
+    currentMemberId: "ada",
+    onSubmit,
+  }}
+  play={async ({ canvas, canvasElement }) => {
+    const editor = canvas.getByRole("textbox", { name: "Markdown editor" });
+    await userEvent.click(editor);
+    await userEvent.type(editor, "/tasks/milestone");
+    const option = await canvas.findByRole("option", {
+      name: /milestone/i,
+    });
+    await userEvent.click(option);
+    const chip = await waitFor(() => {
+      const found = canvasElement.querySelector("[data-link-kind='task']");
+      expect(found).not.toBeNull();
+      return found as HTMLElement;
+    });
+    await expect(chip).toHaveAttribute(
+      "title",
+      composerSlashStoryLongTaskTitle,
+    );
+    const token = chip.closest("[data-ui-part='composer-removable-token']");
+    expect(token).not.toBeNull();
+    const rem = Number.parseFloat(
+      getComputedStyle(document.documentElement).fontSize,
+    );
+    expect(token!.getBoundingClientRect().width).toBeLessThanOrEqual(
+      16 * rem + 1,
+    );
+    const label = chip.querySelector(".community-entity-label");
+    expect(label).not.toBeNull();
+    await expect(getComputedStyle(label!).textOverflow).toBe("ellipsis");
+    expect(label!.scrollWidth).toBeGreaterThan(label!.clientWidth);
   }}
 />

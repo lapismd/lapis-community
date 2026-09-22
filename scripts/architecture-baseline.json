@@ -2380,8 +2380,8 @@
       "forbiddenImportCount": 0
     },
     "src/components/community-entity-chip/CommunityEntityChip.svelte": {
-      "countedLines": 48,
-      "physicalLines": 52,
+      "countedLines": 27,
+      "physicalLines": 30,
       "forbiddenImportCount": 0
     },
     "src/components/community-entity-chip/CommunityEntityCopyButton.svelte": {

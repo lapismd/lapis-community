@@ -1,9 +1,8 @@
 <script lang="ts">
   import { communityEntityLinkPresentation } from "../../community/community-link-normalize.js";
   import type { CommunityEntityLink } from "../../community/community-links.js";
-  import CommunityChip from "../community-chip/CommunityChip.svelte";
-  import CommunityEntityChipIcon from "./CommunityEntityChipIcon.svelte";
   import { useCommunityEntityNavigation } from "./navigation.js";
+  import CommunityEntityChipFrame from "./CommunityEntityChipFrame.svelte";
 
   let {
     link,
@@ -22,16 +21,10 @@
   );
 </script>
 
-<CommunityChip
-  class={className}
-  variant="muted"
-  size="inline"
-  ariaLabel={text}
-  buttonProps={{ "data-link-kind": presentation.linkKind }}
-  onclick={() => navigation?.open(link)}
->
-  {#snippet leading()}
-    <CommunityEntityChipIcon icon={presentation.icon} />
-  {/snippet}
+<CommunityEntityChipFrame
   {text}
-</CommunityChip>
+  class={className}
+  linkKind={presentation.linkKind}
+  icon={presentation.icon}
+  onclick={() => navigation?.open(link)}
+/>

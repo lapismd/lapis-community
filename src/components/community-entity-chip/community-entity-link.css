@@ -1,0 +1,15 @@
+.community-chip.community-entity-link[data-ui-component][data-chip-size="inline"] {
+  display: inline-flex;
+  max-width: var(--community-chip-max-width, 16rem);
+  min-width: 0;
+  overflow: hidden;
+}
+
+.community-entity-label {
+  display: block;
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

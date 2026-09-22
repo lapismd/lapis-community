@@ -62,7 +62,13 @@
       "storyFile": "src/components/community-patterns/Composer.stories.svelte",
       "requirement": "LC-UI-038",
       "variants": ["chat", "form"],
-      "requiredStates": ["newline", "save", "slash-entity", "chip-dismiss"],
+      "requiredStates": [
+        "newline",
+        "save",
+        "slash-entity",
+        "chip-dismiss",
+        "chip-overflow"
+      ],
       "loading": {
         "applicable": false,
         "states": [],
@@ -74,7 +80,8 @@
         "newline": "community-patterns-composer--contract",
         "save": "community-patterns-composer--contract",
         "slash-entity": "community-channels-chat-composer-entity-links--slash-kind-inserts-a-scheme-chip",
-        "chip-dismiss": "community-channels-chat-composer-entity-links--dismiss-removes-a-scheme-chip"
+        "chip-dismiss": "community-channels-chat-composer-entity-links--dismiss-removes-a-scheme-chip",
+        "chip-overflow": "community-channels-chat-composer-entity-links--long-entity-chip-title-ellipsizes"
       }
     },
     {
