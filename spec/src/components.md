@@ -517,6 +517,10 @@ redundant Reviews-page heading. Overview, Changelog, and Releases MUST use the
 matching Design Core line-tab treatment. The timeline action supplement MUST
 render adjacent icon-only, tooltip-labelled Reply and Follow controls.
 
+For LC-UI-024, entity chips MUST compose `CommunityChip` rather than native
+pill markup, set `data-link-kind` on that chip, and share one presentation
+helper between composer widgets and markdown so icon and kind cannot drift.
+
 For LC-UI-024, the composer shell MUST use Design Core's soft elevated shadow
 without adding a composer-wide focus ring around the Mira editing surface.
 

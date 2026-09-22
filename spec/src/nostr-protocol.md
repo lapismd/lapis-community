@@ -378,7 +378,8 @@ initials remain the fallback when neither is available.
 `lapis-community://` entity links and `#/channels|forums|projects`
 hashes are presentation routing for Community location, not a new Nostr
 event type. Build, parse, and normalize of those URIs live in
-`community-links` / `community-link-normalize`. Inbound `nostr:nevent`
+`community-links` / `community-link-normalize`. Copy-link emits those
+scheme URIs rather than `nostr:nevent`. Inbound `nostr:nevent`
 permalinks remain accepted as ordinary Nostr links and are not Community
 entity chips. Repository Op Log is a first-class project surface in
 presentation routing only.

@@ -15,6 +15,7 @@
     syncBrowserApplicationLocation,
   } from "./application-location-hash.js";
   import { provideForumTopicSync } from "./application-forum-hash.svelte.js";
+  import * as communityCopy from "../../community/community-copy-links.js";
   import { projectViewForSurface } from "./project-log-route.js";
   import { parseNip29ReleaseEvent } from "../../protocol/index.js";
   import {
@@ -839,11 +840,8 @@
     onWaveMember: () => waveMember,
   });
   provideProjectLogNavigation(() => applicationLocation, pushLocation);
-  provideForumTopicSync(
-    () => applicationLocation,
-    () => allRooms,
-    (topicId) => community.actions.openTopic(topicId),
-  );
+  // prettier-ignore
+  provideForumTopicSync(() => applicationLocation, () => allRooms, (topicId) => community.actions.openTopic(topicId), (value, success) => void copyText(value, success), pushLocation);
   const startupDestinationRoom = $derived(
     communityStartupPending
       ? allRooms.find((room) => room.id === activeDestination)
@@ -4556,21 +4554,15 @@
   }
 
   function copyMessageLink(messageId: string): void {
-    if (activeRoom.kind === "direct") return;
-    const message =
-      workspace.messages.find((candidate) => candidate.id === messageId) ??
-      workspace.thread?.messages.find(
-        (candidate) => candidate.id === messageId,
-      );
-    if (!message || !activeConnection) return;
-    const url =
-      linkBuilder?.message({
-        eventId: message.id,
-        authorPubkey: message.authorId,
-        relayUrl: activeConnection.relayUrl,
-      }) ??
-      `nostr:${nip19.neventEncode({ id: message.id, author: message.authorId, relays: [activeConnection.relayUrl] })}`;
-    void copyText(url, "Message link copied");
+    const url = communityCopy.communityCopiedMessageLinkFromMessages({
+      roomKind: activeRoom.kind,
+      roomId: activeRoom.id,
+      messageId,
+      messages: [...workspace.messages, ...(workspace.thread?.messages ?? [])],
+      relayUrl: activeConnection?.relayUrl,
+      ...(linkBuilder === undefined ? {} : { linkBuilder }),
+    });
+    if (url) void copyText(url, "Message link copied");
     lastAction = `copied-message-link:${messageId}`;
   }
 
@@ -4684,9 +4676,9 @@
     action: CommunityNavigationItemAction,
   ): void {
     const run = async (): Promise<void> => {
-      if (action === "copy-link" && activeConnection)
+      if (action === "copy-link")
         await copyText(
-          `${activeConnection.relayUrl}#${encodeURIComponent(item.id)}`,
+          communityCopy.communityCopiedRoomLink({ roomId: item.id }),
           "Room link copied",
         );
       if (action === "copy-name")
@@ -4985,9 +4977,15 @@
     const topic = workspace.topics.find(
       (candidate) => candidate.id === topicId,
     );
-    if (action === "copy-link" && topic && activeConnection) {
+    if (action === "copy-link" && topic) {
       await copyText(
-        `nostr:${nip19.neventEncode({ id: topic.id, author: topic.authorId, relays: [activeConnection.relayUrl] })}`,
+        communityCopy.communityCopiedMessageLink({
+          roomId: activeRoom.id,
+          eventId: topic.id,
+          authorPubkey: topic.authorId,
+          relayUrl: activeConnection?.relayUrl ?? "",
+          ...(linkBuilder === undefined ? {} : { linkBuilder }),
+        }),
         "Topic link copied",
       );
     }

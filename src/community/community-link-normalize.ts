@@ -99,6 +99,20 @@ export function communityEntityLinkMatches(content: string): Array<{
   return matches;
 }
 
+export function communityEntityLinkLabel(
+  link: CommunityEntityLink,
+  rooms: readonly { id: string; name: string }[],
+): string {
+  const presentation = communityEntityLinkPresentation(link);
+  if (link.kind === "channel" || link.kind === "message") {
+    return (
+      rooms.find((room) => room.id === link.roomId)?.name ??
+      presentation.fallbackLabel
+    );
+  }
+  return presentation.fallbackLabel;
+}
+
 export function communityEntityLinkPresentation(link: CommunityEntityLink): {
   linkKind: CommunityEntityLinkKindAttr;
   icon: CommunityEntityLinkIcon;

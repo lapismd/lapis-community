@@ -135,7 +135,8 @@ export function isSafeCommunityLink(value: string): boolean {
   if (/^(?:\/|\.\/|\.\.\/|#)/u.test(trimmed)) return true;
   try {
     const url = new URL(trimmed);
-    return ["http:", "https:", "mailto:", "nostr:"].includes(url.protocol);
+    // prettier-ignore
+    return ["http:", "https:", "mailto:", "nostr:", "lapis-community:"].includes(url.protocol);
   } catch {
     return false;
   }

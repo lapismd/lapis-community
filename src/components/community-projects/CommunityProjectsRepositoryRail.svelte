@@ -81,7 +81,7 @@
   </Button>
 {/snippet}
 
-{#if surface === "log"}
+{#if surface === "log" || surface === "oplog"}
   <CommunityProjectsRepositoryLogRail />
 {/if}
 {#if detailsOpen}

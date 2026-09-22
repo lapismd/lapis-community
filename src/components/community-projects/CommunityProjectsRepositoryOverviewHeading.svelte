@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { Snippet } from "svelte";
 
+  import CommunityEntityCopyButton from "../community-entity-chip/CommunityEntityCopyButton.svelte";
   import { projectSurfaceTitle } from "../../projects/project-rail.js";
   import CommunityProjectsRepositoryLogRail from "./CommunityProjectsRepositoryLogRail.svelte";
 
@@ -8,18 +9,15 @@
     surface,
     name,
     plus,
-  }: {
-    surface: string;
-    name: string;
-    plus?: Snippet | undefined;
-  } = $props();
+  }: { surface: string; name: string; plus?: Snippet } = $props();
 </script>
 
 {#if surface === "log"}
   <CommunityProjectsRepositoryLogRail />
 {:else}
   <div class="community-application__project-overview-heading">
-    <strong>{projectSurfaceTitle(surface, name)}</strong>
+    <strong>{projectSurfaceTitle(surface, name)}</strong
+    ><CommunityEntityCopyButton success="Link copied" />
     {@render plus?.()}
   </div>
 {/if}

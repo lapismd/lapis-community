@@ -1,8 +1,4 @@
 import type { CommunityCustomEmoji } from "../../community/index.js";
-import {
-  contentMentionFromHref,
-  contentMentionLabel,
-} from "../../community/content-mentions.js";
 import type {
   CommunityMemberModel,
   CommunityRoomModel,
@@ -11,6 +7,7 @@ import type {
   CommunityMarkdownSegment,
   CommunityMarkdownSyntaxOptions,
 } from "./syntax.js";
+import { linkSegmentFromHast, segmentToHast } from "./syntax-hast-links.js";
 
 export type CommunityMarkdownHastNode = {
   type: string;
@@ -51,7 +48,7 @@ function transformChildren(
 
   const nextChildren: CommunityMarkdownHastNode[] = [];
   for (const child of node.children) {
-    const mentionLink = memberSegmentFromNostrHref(child, options.members());
+    const mentionLink = linkSegmentFromHast(child, options.members());
     if (mentionLink) {
       nextChildren.push(segmentToHast(mentionLink));
       continue;
@@ -72,61 +69,4 @@ function transformChildren(
     nextChildren.push(child);
   }
   node.children = nextChildren;
-}
-
-function memberSegmentFromNostrHref(
-  node: CommunityMarkdownHastNode,
-  members: readonly CommunityMemberModel[],
-): CommunityMarkdownSegment | undefined {
-  if (node.tagName !== "a" && node.tagName !== "pathlink") return undefined;
-  const mention = contentMentionFromHref(
-    typeof node.properties?.href === "string"
-      ? node.properties.href
-      : undefined,
-  );
-  if (!mention) return undefined;
-  return {
-    kind: "member",
-    memberId: mention.pubkey,
-    value: contentMentionLabel(mention.pubkey, mention.value, members),
-  };
-}
-
-function segmentToHast(
-  segment: CommunityMarkdownSegment,
-): CommunityMarkdownHastNode {
-  if (segment.kind === "text") return { type: "text", value: segment.value };
-  if (segment.kind === "member") {
-    return {
-      type: "element",
-      tagName: "communitymember",
-      properties: { memberId: segment.memberId, label: segment.value },
-      children: [],
-    };
-  }
-  if (segment.kind === "room") {
-    return {
-      type: "element",
-      tagName: "communitychannel",
-      properties: { roomId: segment.roomId, label: segment.value },
-      children: [],
-    };
-  }
-  if (segment.kind === "emoji") {
-    return {
-      type: "element",
-      tagName: "communityemoji",
-      properties: {
-        shortcode: segment.shortcode,
-        src: segment.url,
-      },
-      children: [],
-    };
-  }
-  return {
-    type: "element",
-    tagName: "communityspoiler",
-    properties: { label: segment.value },
-    children: [{ type: "text", value: segment.value }],
-  };
 }

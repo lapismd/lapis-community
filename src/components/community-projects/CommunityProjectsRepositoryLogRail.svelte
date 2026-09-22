@@ -5,17 +5,11 @@
   import HistoryIcon from "@lucide/svelte/icons/history";
   import { onDestroy } from "svelte";
 
-  import {
-    useRepositoryLogPane,
-    type RepositoryLogPane,
-  } from "../../projects/repository-log-pane.svelte.js";
+  import CommunityEntityCopyButton from "../community-entity-chip/CommunityEntityCopyButton.svelte";
+  import { useRepositoryLogPane } from "../../projects/repository-log-pane.svelte.js";
 
   const pane = useRepositoryLogPane();
   onDestroy(() => pane?.reset());
-
-  function select(next: RepositoryLogPane): void {
-    pane?.selectPane(next);
-  }
 </script>
 
 {#if pane}
@@ -29,7 +23,7 @@
       class="community-application__project-overview-item"
       data-active={pane.pane === "log" ? "" : undefined}
       aria-current={pane.pane === "log" ? "page" : undefined}
-      onclick={() => select("log")}
+      onclick={() => pane.selectPane("log")}
     >
       <GitCommitHorizontalIcon data-icon="inline-start" aria-hidden="true" />
       <span>Log</span>
@@ -40,11 +34,14 @@
       class="community-application__project-overview-item"
       data-active={pane.pane === "oplog" ? "" : undefined}
       aria-current={pane.pane === "oplog" ? "page" : undefined}
-      onclick={() => select("oplog")}
+      onclick={() => pane.selectPane("oplog")}
     >
       <HistoryIcon data-icon="inline-start" aria-hidden="true" />
       <span>Op Log</span>
     </Button>
+    <CommunityEntityCopyButton
+      success={pane.pane === "oplog" ? "Op Log link copied" : "Log link copied"}
+    />
     {#if pane.pane === "log" && pane.selectedCommitId}
       <Button
         type="button"

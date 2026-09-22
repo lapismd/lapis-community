@@ -720,6 +720,9 @@ normalization into the scheme, and `project-route-commit` accepts the
 Op Log surface on repository hashes. Application hash sync and
 forum-topic restoration live in `application-location-hash` and
 `application-forum-hash` so `CommunityApplication.svelte` shrinks.
+`community-copy-links` emits shareable scheme URIs; `community-entity-chip`
+and `composer-entity-links` render and paste-normalize those URIs without
+growing the application, conversation, or composer hotspots.
 
 For LC-UI-040, Inbox owns the conversation-pane inset around the shared message
 skeleton. Initial and selected-thread loading reuse one padded snippet, keeping
