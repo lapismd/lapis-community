@@ -2161,8 +2161,8 @@
       "forbiddenImportCount": 0
     },
     "src/components/community-chat-composer/composer-widgets.ts": {
-      "countedLines": 130,
-      "physicalLines": 145,
+      "countedLines": 53,
+      "physicalLines": 60,
       "forbiddenImportCount": 0
     },
     "src/components/community-chat-composer/model.test.ts": {

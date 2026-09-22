@@ -526,9 +526,12 @@ Typing `/` after whitespace MUST open that same completion layer with
 Repositories, Projects, Tasks, Commits, Logs, and Channels. `/kind` or
 `/kind/filter` MUST list session-loaded entries for that kind. Accepting a
 category MUST rewrite the trigger to `/kind/`. Accepting an entry MUST replace
-the whole `/kind/filter` range with one `lapis-community://` token so the
+the whole `/kind/query` range with one `lapis-community://` token so the
 existing entity chip decoration renders it. `#channel` mentions stay
-`#Name`; `/channels` inserts the channel scheme URI.
+`#Name`; `/channels` inserts the channel scheme URI. Composer-decorated
+mention and entity chips MUST show a trailing dismiss control that deletes
+that token and one following space from the draft. Markdown-rendered chips
+MUST omit dismiss.
 
 For LC-UI-011 and LC-UI-036, a task entity MUST use
 `lapis-community://task?owner=&d=&id=` and the hash

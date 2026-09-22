@@ -16,9 +16,11 @@ import {
   hasComposerReferenceBoundary,
 } from "./composer-token-references.js";
 import {
+  communityEntityChipDecoration,
+  communityMemberChipDecoration,
+} from "./composer-chip-widgets.js";
+import {
   CommunityEmojiWidget,
-  CommunityEntityWidget,
-  CommunityMemberWidget,
   communityEmojiMatches,
 } from "./composer-widgets.js";
 import { isFencedCodePosition, isInlineCodePosition } from "./model.js";
@@ -103,11 +105,7 @@ function buildTokenDecorations(
       continue;
     }
     decorated.push({ from: match.from, to: match.to });
-    ranges.push(
-      Decoration.replace({
-        widget: new CommunityEntityWidget(match.link, match.href, navigation),
-      }).range(match.from, match.to),
-    );
+    ranges.push(communityEntityChipDecoration(match, navigation));
   }
 
   const references = communityComposerReferenceTokens(
@@ -134,13 +132,13 @@ function buildTokenDecorations(
         );
         if (member !== undefined && !selectionTouchesRange(view, from, to)) {
           ranges.push(
-            Decoration.replace({
-              widget: new CommunityMemberWidget(
-                member,
-                reference.token,
-                options,
-              ),
-            }).range(from, to),
+            communityMemberChipDecoration(
+              member,
+              reference.token,
+              from,
+              to,
+              options,
+            ),
           );
         } else {
           ranges.push(
