@@ -13,3 +13,9 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+.community-composer-channel-reference {
+  display: inline-flex;
+  align-items: center;
+  vertical-align: text-bottom;
+}

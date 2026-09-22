@@ -591,7 +591,7 @@
     await expect(
       canvas.getByRole("button", { name: "Mara Chen" }),
     ).toBeVisible();
-    await expect(editor).toHaveTextContent("in #plugin-development.");
+    await expect(editor).toHaveTextContent("in #plugin-development");
   }}
 />
 

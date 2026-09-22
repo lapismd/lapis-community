@@ -7,12 +7,14 @@ import type {
   CommunityMemberModel,
   CommunityRoomModel,
 } from "../community-workspace/model.js";
+import { composerRoomReferenceTokens } from "./composer-room-tokens.js";
 import { isSafeCommunityEmojiUrl } from "./model.js";
 
 export interface CommunityComposerReferenceToken {
   token: string;
   kind: "mention" | "channel" | "emoji";
   memberId?: string;
+  roomId?: string;
 }
 
 export function communityComposerReferenceTokens(
@@ -47,12 +49,7 @@ export function communityComposerReferenceTokens(
   });
 
   const otherTokens = [
-    ...rooms
-      .filter((room) => room.kind !== "direct" && room.archived !== true)
-      .map((room) => ({
-        token: `#${room.name.trim()}`,
-        kind: "channel" as const,
-      })),
+    ...composerRoomReferenceTokens(rooms),
     ...emojis
       .filter((emoji) => isSafeCommunityEmojiUrl(emoji.url))
       .map((emoji) => ({

@@ -537,6 +537,10 @@ rows MUST show a truncated commit message plus the short hash. Op Log chips
 and slash rows MUST show the change id. Task chips and slash rows MUST show
 the task title. Entity chips MUST cap at `--community-chip-max-width`
 (default `16rem`), ellipsize overflow, and expose the full label as `title`.
+`#Name` room tokens MUST use that same removable split chip. `#` and
+`/channels` pickers MUST show the hash icon for channels, the Messages Square
+forum icon for forums, and the project-channel icon for project channels, and
+MUST NOT add a Forum or Channel detail column.
 
 For LC-UI-011 and LC-UI-036, a task entity MUST use
 `lapis-community://task?owner=&d=&id=` and the hash

@@ -2121,8 +2121,8 @@
       "forbiddenImportCount": 0
     },
     "src/components/community-chat-composer/composer-decorations.ts": {
-      "countedLines": 180,
-      "physicalLines": 193,
+      "countedLines": 121,
+      "physicalLines": 134,
       "forbiddenImportCount": 0
     },
     "src/components/community-chat-composer/composer-entity-links.test.ts": {

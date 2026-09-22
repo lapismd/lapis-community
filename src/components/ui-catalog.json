@@ -67,7 +67,9 @@
         "save",
         "slash-entity",
         "chip-dismiss",
-        "chip-overflow"
+        "chip-overflow",
+        "room-chip",
+        "room-picker-icons"
       ],
       "loading": {
         "applicable": false,
@@ -81,7 +83,9 @@
         "save": "community-patterns-composer--contract",
         "slash-entity": "community-channels-chat-composer-entity-links--slash-kind-inserts-a-scheme-chip",
         "chip-dismiss": "community-channels-chat-composer-entity-links--dismiss-removes-a-scheme-chip",
-        "chip-overflow": "community-channels-chat-composer-entity-links--long-entity-chip-title-ellipsizes"
+        "chip-overflow": "community-channels-chat-composer-entity-links--long-entity-chip-title-ellipsizes",
+        "room-chip": "community-channels-chat-composer-entity-links--hash-room-token-is-a-removable-chip",
+        "room-picker-icons": "community-channels-chat-composer-entity-links--hash-picker-uses-room-icons"
       }
     },
     {

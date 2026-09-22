@@ -2,6 +2,7 @@
   import * as CommandView from "@lapismd/design-core/shadcn/command-view";
 
   import type { CommunityComposerAutocompleteItem } from "../community-chat-composer/autocomplete.js";
+  import CommunityComposerRoomIcon from "../community-composer-room-icon/CommunityComposerRoomIcon.svelte";
   import CommunityEntityChipIcon from "../community-entity-chip/CommunityEntityChipIcon.svelte";
   import "../community-composer-mention-picker/CommunityComposerMentionPicker.css";
   import { slashItemIcon, slashPickerHeading } from "./slash-picker-rows.js";
@@ -49,10 +50,14 @@
               onSelect={() => onSelect(index)}
             >
               <CommandView.ItemIcon>
-                <CommunityEntityChipIcon icon={slashItemIcon(item)} />
+                {#if item.room}
+                  <CommunityComposerRoomIcon room={item.room} />
+                {:else}
+                  <CommunityEntityChipIcon icon={slashItemIcon(item)} />
+                {/if}
               </CommandView.ItemIcon>
               <CommandView.ItemLabel>{item.label}</CommandView.ItemLabel>
-              {#if item.detail}
+              {#if item.detail && !item.room}
                 <CommandView.ItemDescription
                   >{item.detail}</CommandView.ItemDescription
                 >

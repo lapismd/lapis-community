@@ -3,11 +3,10 @@
   import { Button } from "@lapismd/design-core/shadcn/button";
   import { ScrollArea } from "@lapismd/design-core/shadcn/scroll-area";
   import BotIcon from "@lucide/svelte/icons/bot";
-  import HashIcon from "@lucide/svelte/icons/hash";
   import PinIcon from "@lucide/svelte/icons/pin";
   import SmileIcon from "@lucide/svelte/icons/smile";
 
-  import CommunityProjectChannelIcon from "../community-project-channel-icon/CommunityProjectChannelIcon.svelte";
+  import CommunityComposerRoomIcon from "../community-composer-room-icon/CommunityComposerRoomIcon.svelte";
   import CommunityMemberAvatar from "../community-member-avatar/CommunityMemberAvatar.svelte";
   import type { CommunityComposerAutocompleteItem } from "../community-chat-composer/autocomplete.js";
   import type { CommunityComposerAutocompleteQuery } from "../community-chat-composer/autocomplete.js";
@@ -121,11 +120,7 @@
                   decorative
                 />
               {:else if item.room}
-                {#if item.room.kind === "channel" && item.room.isProjectChannel}
-                  <CommunityProjectChannelIcon />
-                {:else}
-                  <HashIcon aria-hidden="true" />
-                {/if}
+                <CommunityComposerRoomIcon room={item.room} />
               {:else if item.customEmoji}
                 <img
                   src={item.customEmoji.url}
@@ -145,7 +140,7 @@
                     ? `#${item.label}`
                     : `:${item.label}:`}</strong
               >
-              {#if item.detail}
+              {#if item.detail && item.kind !== "room"}
                 <small>
                   {#if agent}<BotIcon aria-hidden="true" />{/if}
                   {item.detail}

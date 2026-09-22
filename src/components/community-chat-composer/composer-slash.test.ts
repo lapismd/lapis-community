@@ -5,6 +5,7 @@ import { detectCommunityComposerAutocomplete } from "./autocomplete.js";
 import { communityComposerAutocompleteInsert } from "./composer-mention-insert.js";
 import {
   composerSlashAutocompleteItems,
+  mergeComposerSlashCatalog,
   type ComposerSlashCatalog,
 } from "./composer-slash-catalog.js";
 import {
@@ -71,5 +72,41 @@ describe("composer slash completion", () => {
     expect(communityComposerAutocompleteInsert(tasks[0]!)).toBe(
       `${buildCommunityTaskLink({ owner, d: "buzz-world", id: taskId })} `,
     );
+  });
+
+  it("lists channel rows with rooms and without Forum or Channel detail", () => {
+    const channels = composerSlashAutocompleteItems("channels/", {
+      ...catalog,
+      rooms: [
+        { id: "general", name: "general", kind: "channel" },
+        { id: "ideas", name: "plugin-ideas", kind: "forum" },
+      ],
+    });
+    expect(
+      channels.map((item) => ({
+        label: item.label,
+        detail: item.detail,
+        kind: item.room?.kind,
+      })),
+    ).toEqual([
+      { label: "general", detail: undefined, kind: "channel" },
+      { label: "plugin-ideas", detail: undefined, kind: "forum" },
+    ]);
+  });
+
+  it("keeps project-channel icons from composer rooms on slash rows", () => {
+    const merged = mergeComposerSlashCatalog(
+      [
+        {
+          id: "general",
+          name: "general",
+          kind: "channel",
+          isProjectChannel: true,
+        },
+      ],
+      catalog,
+    );
+    const channels = composerSlashAutocompleteItems("channels/", merged);
+    expect(channels[0]?.room?.isProjectChannel).toBe(true);
   });
 });

@@ -11,14 +11,10 @@ import type { CommunityEntityNavigation } from "../community-entity-chip/navigat
 import { communityComposerEntityMatches } from "./composer-entity-links.js";
 import type { CommunityComposerExtensionOptions } from "./composer-extension.js";
 import {
-  communityComposerReferenceTokens,
-  composerTokenMember,
-  hasComposerReferenceBoundary,
-} from "./composer-token-references.js";
-import {
-  communityEntityChipDecoration,
-  communityMemberChipDecoration,
-} from "./composer-chip-widgets.js";
+  pushComposerReferenceDecorations,
+  selectionTouchesRange,
+} from "./composer-reference-decorations.js";
+import { communityEntityChipDecoration } from "./composer-chip-widgets.js";
 import {
   CommunityEmojiWidget,
   communityEmojiMatches,
@@ -70,7 +66,6 @@ function buildTokenDecorations(
   navigation?: CommunityEntityNavigation,
 ): DecorationSet {
   const value = view.state.doc.toString();
-  const normalizedValue = value.toLocaleLowerCase();
   const decorated: Array<{ from: number; to: number }> = [];
   const ranges: Range<Decoration>[] = [];
 
@@ -108,56 +103,14 @@ function buildTokenDecorations(
     ranges.push(communityEntityChipDecoration(match, navigation));
   }
 
-  const references = communityComposerReferenceTokens(
-    options.members(),
-    options.rooms(),
-    options.emojis(),
-    options.preferredMemberIds(),
+  pushComposerReferenceDecorations(
+    view,
+    options,
     value,
-  ).sort((left, right) => right.token.length - left.token.length);
-  for (const reference of references) {
-    const normalizedToken = reference.token.toLocaleLowerCase();
-    let from = normalizedValue.indexOf(normalizedToken);
-    while (from >= 0) {
-      const to = from + reference.token.length;
-      if (
-        hasComposerReferenceBoundary(value, from, reference.token) &&
-        !decorated.some((range) => from < range.to && to > range.from)
-      ) {
-        decorated.push({ from, to });
-        const member = composerTokenMember(
-          reference.memberId,
-          options.members(),
-          reference.token,
-        );
-        if (member !== undefined && !selectionTouchesRange(view, from, to)) {
-          ranges.push(
-            communityMemberChipDecoration(
-              member,
-              reference.token,
-              from,
-              to,
-              options,
-            ),
-          );
-        } else {
-          ranges.push(
-            Decoration.mark({
-              class: `community-composer-token community-composer-token--${reference.kind}`,
-              ...(reference.memberId === undefined
-                ? {}
-                : {
-                    attributes: {
-                      "data-community-member-id": reference.memberId,
-                    },
-                  }),
-            }).range(from, to),
-          );
-        }
-      }
-      from = normalizedValue.indexOf(normalizedToken, from + 1);
-    }
-  }
+    decorated,
+    ranges,
+    navigation,
+  );
 
   return Decoration.set(
     ranges.sort((left, right) => left.from - right.from || left.to - right.to),
@@ -177,15 +130,4 @@ function skipComposerRange(
     isInlineCodePosition(value, from) ||
     selectionTouchesRange(view, from, to)
   );
-}
-
-function selectionTouchesRange(
-  view: EditorView,
-  from: number,
-  to: number,
-): boolean {
-  const selection = view.state.selection.main;
-  return selection.empty
-    ? selection.head > from && selection.head < to
-    : selection.from < to && selection.to > from;
 }

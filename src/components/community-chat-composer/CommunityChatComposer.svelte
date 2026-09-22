@@ -1617,11 +1617,6 @@
     vertical-align: text-bottom;
   }
 
-  :global(.community-chat-composer__mira .community-composer-token--channel) {
-    color: var(--primary);
-    font-weight: 650;
-  }
-
   :global(.community-chat-composer__mira .community-composer-token--emoji) {
     color: color-mix(in srgb, var(--primary) 80%, var(--foreground));
   }

@@ -173,7 +173,6 @@ export function communityRoomAutocompleteItems(
       id: `room:${room.id}`,
       kind: "room",
       label: room.name,
-      detail: room.kind === "forum" ? "Forum" : "Channel",
       room,
     }));
 }

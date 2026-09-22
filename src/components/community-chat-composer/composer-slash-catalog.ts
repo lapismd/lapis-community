@@ -39,8 +39,25 @@ export function mergeComposerSlashCatalog(
 ): ComposerSlashCatalog {
   return {
     ...session,
-    rooms: session.rooms.length > 0 ? session.rooms : rooms,
+    rooms: overlayComposerRoomHints(
+      session.rooms.length > 0 ? session.rooms : rooms,
+      rooms,
+    ),
   };
+}
+
+function overlayComposerRoomHints(
+  primary: readonly CommunityRoomModel[],
+  hints: readonly CommunityRoomModel[],
+): CommunityRoomModel[] {
+  if (hints.length === 0) return [...primary];
+  const byId = new Map(hints.map((room) => [room.id, room]));
+  return primary.map((room) => {
+    const hint = byId.get(room.id);
+    return hint === undefined || hint.isProjectChannel === room.isProjectChannel
+      ? room
+      : { ...room, isProjectChannel: hint.isProjectChannel };
+  });
 }
 
 export function composerSlashAutocompleteItems(
@@ -92,6 +109,7 @@ function slashEntries(
       id: `slash:entry:${row.href}`,
       label: row.label,
       detail: row.detail,
+      room: row.room,
     }),
   );
 }
@@ -99,14 +117,19 @@ function slashEntries(
 function entryRows(
   kind: ComposerSlashKind,
   catalog: ComposerSlashCatalog,
-): Array<{ label: string; detail?: string; href: string }> {
+): Array<{
+  label: string;
+  detail?: string;
+  href: string;
+  room?: ComposerSlashCatalog["rooms"][number];
+}> {
   if (kind === "channels") {
     return catalog.rooms
       .filter((room) => room.kind !== "direct" && room.archived !== true)
       .map((room) => ({
         label: room.name,
-        detail: room.kind === "forum" ? "Forum" : "Channel",
         href: buildCommunityChannelLink(room.id),
+        room,
       }));
   }
   if (kind === "projects") {
@@ -181,11 +204,13 @@ function slashAutocompleteItem(input: {
   id: string;
   label: string;
   detail?: string;
+  room?: ComposerSlashCatalog["rooms"][number];
 }): CommunityComposerAutocompleteItem {
   return {
     id: input.id,
     kind: "slash",
     label: input.label,
     ...(input.detail === undefined ? {} : { detail: input.detail }),
+    ...(input.room === undefined ? {} : { room: input.room }),
   };
 }

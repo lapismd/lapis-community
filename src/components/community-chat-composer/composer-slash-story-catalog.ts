@@ -13,7 +13,11 @@ export const composerSlashStoryCommitSha = "a".repeat(40);
 export const composerSlashStoryChangeId = "b".repeat(32);
 
 export const composerSlashStoryCatalog: ComposerSlashCatalog = {
-  rooms: communityComposerStoryRooms,
+  rooms: communityComposerStoryRooms.map((room) =>
+    room.id === "plugin-development"
+      ? { ...room, isProjectChannel: true }
+      : room,
+  ),
   projects: [],
   repositories: [],
   tasks: [

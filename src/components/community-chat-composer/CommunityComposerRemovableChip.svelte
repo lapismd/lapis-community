@@ -18,10 +18,8 @@
   class="community-composer-removable-token"
   data-ui-part="composer-removable-token"
   title={label}
+  >{@render children()}<CommunityComposerChipDismiss {label} {onRemove} /></span
 >
-  {@render children()}
-  <CommunityComposerChipDismiss {label} {onRemove} />
-</span>
 
 <style>
   .community-composer-removable-token {
