@@ -5,8 +5,8 @@
     CommunityReplyTarget,
   } from "../../community/index.js";
   import CommunityAgentComposerActivity from "../community-agent-composer-activity/CommunityAgentComposerActivity.svelte";
-  import CommunityChatComposer from "../community-chat-composer/CommunityChatComposer.svelte";
   import type { CommunityComposerAgentModel } from "../community-chat-composer/composer-agent-model.js";
+  import CommunityThreadPanelPersistedComposer from "./CommunityThreadPanelPersistedComposer.svelte";
   import type { CommunityAgentActivityContext } from "../../community/agent-contracts.js";
   import type {
     CommunityMemberModel,
@@ -117,38 +117,27 @@
   }
 </script>
 
-<CommunityChatComposer
+<CommunityThreadPanelPersistedComposer
   bind:value
   {members}
   {agents}
+  {rooms}
+  {communityEmojis}
+  {rootMessageId}
+  {disabled}
+  {disabledReason}
+  {...currentMemberId === undefined ? {} : { currentMemberId }}
+  {...rootMessage === undefined ? {} : { rootMessage }}
+  {...rootAuthorName === undefined ? {} : { rootAuthorName }}
+  {...editingMessageId === undefined ? {} : { editingMessageId }}
+  {...replyTarget === undefined ? {} : { replyTarget }}
   {...threadComposer.audience === undefined
     ? {}
     : { audience: threadComposer.audience }}
   initialAgentPubkeys={threadComposer.initialAgentPubkeys}
-  {rooms}
-  {communityEmojis}
-  {...currentMemberId === undefined ? {} : { currentMemberId }}
-  {...onOpenProfile === undefined ? {} : { onOpenMember: onOpenProfile }}
+  {...onOpenProfile === undefined ? {} : { onOpenProfile }}
   {...onMessageMember === undefined ? {} : { onMessageMember }}
   {...onWaveMember === undefined ? {} : { onWaveMember }}
-  {...editingMessageId !== undefined
-    ? {
-        context: {
-          kind: "edit" as const,
-          id: editingMessageId,
-          label: "Editing message",
-        },
-      }
-    : replyTarget === undefined
-      ? {}
-      : { context: { kind: "reply" as const, target: replyTarget } }}
-  {disabled}
-  {disabledReason}
-  ariaLabel="Thread reply composer"
-  submitLabel="Send reply"
-  placeholder={rootAuthorName === undefined
-    ? "Reply to thread"
-    : `Reply in thread to ${rootAuthorName}`}
   {...composerStatus === undefined ? {} : { composerStatus }}
   {...onRetryComposerStatus === undefined ? {} : { onRetryComposerStatus }}
   {...onDismissComposerStatus === undefined ? {} : { onDismissComposerStatus }}
