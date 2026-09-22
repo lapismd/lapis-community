@@ -1,13 +1,6 @@
 <script lang="ts">
-  import type { Snippet } from "svelte";
   import { Layout, LayoutScrollButton } from "@lapismd/design-core/ai/chat";
-  import type {
-    CommunityAgentActivityContext,
-    CommunityAgentActivityItem,
-    CommunityAgentIdentity,
-    CommunityAgentTranscriptEntry,
-  } from "../../community/agent-contracts.js";
-  import type { CommunityMemberModel } from "../community-workspace/model.js";
+  import type { CommunityAgentActivityFeedProps } from "./activity-feed-props.js";
   import CommunityAgentTranscript from "./CommunityAgentTranscript.svelte";
   import "./activity-feed.css";
 
@@ -22,20 +15,10 @@
     working = false,
     messageContent,
     onLoadLatest,
-  }: {
-    header?: Snippet;
-    messageContent?: Snippet<
-      [Extract<CommunityAgentTranscriptEntry, { type: "message" }>]
-    >;
-    working?: boolean;
-    activity: readonly CommunityAgentActivityItem[];
-    agent: Pick<CommunityAgentIdentity, "pubkey" | "name" | "avatarUrl">;
-    context?: CommunityAgentActivityContext;
-    conversationKey: string;
-    members?: readonly CommunityMemberModel[];
-    onOpenRequest?: (item: CommunityAgentActivityItem) => void;
-    onLoadLatest?: () => Promise<void>;
-  } = $props();
+    onLoadOlder,
+    hasOlder = false,
+    loading = false,
+  }: CommunityAgentActivityFeedProps = $props();
 </script>
 
 <div class="agent-activity-feed">
@@ -63,6 +46,7 @@
       {...header ? { header } : {}}
       {...messageContent ? { messageContent } : {}}
       {...onOpenRequest ? { onOpenRequest } : {}}
+      {...onLoadOlder ? { onLoadOlder, hasOlder, loading } : {}}
     />
   </Layout>
 </div>

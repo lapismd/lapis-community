@@ -95,19 +95,6 @@
   const lastActivity = $derived(model.activity[0]);
 </script>
 
-{#snippet historyHeader()}
-  {#if model.activityLoading && model.activity.length > 0}<CommunitySkeleton
-      layout="timeline"
-      count={2}
-      label="Loading older activity"
-    />{/if}
-  {#if model.hasOlder}<Button
-      variant="outline"
-      disabled={model.activityLoading}
-      onclick={() => void onLoadOlder()}>Load older activity</Button
-    >{/if}
-{/snippet}
-
 <section class="agent-activity" aria-label="Agent activity history">
   <CommunityAgentActivityHeader
     {selected}
@@ -153,7 +140,6 @@
     </div>{/if}
   {#if selected && (model.activity.length > 0 || scopes.some((scope) => scope.active) || model.hasOlder)}
     <CommunityAgentActivityFeed
-      header={historyHeader}
       working={scopes.some((scope) => scope.active)}
       activity={model.activity}
       agent={selected}
@@ -163,6 +149,11 @@
       onLoadLatest={async () => {
         await onLatest();
       }}
+      onLoadOlder={async () => {
+        await onLoadOlder();
+      }}
+      hasOlder={model.hasOlder}
+      loading={model.activityLoading}
       {...onOpenRequest ? { onOpenRequest } : {}}
     />
   {/if}

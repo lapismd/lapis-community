@@ -129,7 +129,7 @@
       name: "Agent conversation activity",
     });
     const older = within(log).getByRole("button", {
-      name: "Load older activity",
+      name: "Load older messages",
     });
     const message = within(log).getByLabelText("Message from Alex Morgan");
     expect(

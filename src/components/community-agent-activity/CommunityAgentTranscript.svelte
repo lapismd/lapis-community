@@ -19,6 +19,10 @@
     agentTranscriptTimeline,
     pendingTranscriptStatuses,
   } from "./model.js";
+  import {
+    transcriptAuthor,
+    transcriptOlderPage,
+  } from "./transcript-identity.js";
   import { transcriptMarkdownMembers } from "./transcript-markdown-members.js";
 
   let {
@@ -30,6 +34,9 @@
     header,
     working = false,
     messageContent,
+    onLoadOlder,
+    hasOlder = false,
+    loading = false,
   }: {
     header?: Snippet;
     messageContent?: Snippet<
@@ -41,6 +48,9 @@
     context?: CommunityAgentActivityContext;
     members?: readonly CommunityMemberModel[];
     onOpenRequest?: (item: CommunityAgentActivityItem) => void;
+    onLoadOlder?: () => void | Promise<void>;
+    hasOlder?: boolean;
+    loading?: boolean;
   } = $props();
 
   const timeline = $derived(
@@ -53,25 +63,6 @@
   const latestMessageId = $derived(
     [...timeline].reverse().find((entry) => entry.kind === "message")?.item.id,
   );
-
-  function identity(pubkey: string): CommunityMemberModel {
-    const member = members.find((candidate) => candidate.id === pubkey);
-    if (member) return member;
-    if (pubkey === agent.pubkey)
-      return {
-        id: agent.pubkey,
-        name: agent.name,
-        handle: agent.pubkey,
-        initials: agent.name.slice(0, 2).toUpperCase(),
-        ...(agent.avatarUrl ? { avatarUrl: agent.avatarUrl } : {}),
-      };
-    return {
-      id: pubkey,
-      name: "You",
-      handle: pubkey,
-      initials: "YO",
-    };
-  }
 
   function sourceActivity(sourceEventId?: string) {
     if (!sourceEventId) return;
@@ -108,6 +99,7 @@
     density="compact"
     {...header ? { header } : {}}
     {...latestMessageId ? { latestMessageId } : {}}
+    {...transcriptOlderPage(onLoadOlder, hasOlder, loading)}
     isStreaming={working ||
       pending.length > 0 ||
       timeline.some(
@@ -121,7 +113,10 @@
     {#each timeline as entry (entry.kind === "tools" ? entry.id : entry.item.id)}
       {#if entry.kind === "message"}
         {@const message = entry.item}
-        {@const author = identity(message.authorPubkey)}
+        {@const author = transcriptAuthor(
+          message.authorPubkey,
+          markdownMembers,
+        )}
         {@const source = sourceActivity(message.sourceEventId)}
         {#if messageContent}
           {@render messageContent(message)}
@@ -207,7 +202,7 @@
         <Chat.Message sender="assistant">
           {#snippet avatar()}
             <CommunityMemberAvatar
-              member={identity(agent.pubkey)}
+              member={transcriptAuthor(agent.pubkey, markdownMembers)}
               size="small"
               shape="rounded"
               decorative
