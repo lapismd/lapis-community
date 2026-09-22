@@ -33,6 +33,19 @@ describe("inboxMessagesBelongToItem", () => {
     expect(inboxMessagesBelongToItem(welcomeMessages, welcome)).toBe(true);
     expect(inboxMessagesBelongToItem(welcomeMessages, support)).toBe(false);
   });
+
+  it("rejects a same-room dump that only contains the selected latest", () => {
+    expect(
+      inboxMessagesBelongToItem(
+        [
+          { id: "other-root" },
+          { id: "other-reply", parentMessageId: "other-root" },
+          { id: "support-latest", parentMessageId: "support-root" },
+        ],
+        support,
+      ),
+    ).toBe(false);
+  });
 });
 
 describe("inboxConversationPending", () => {
@@ -70,5 +83,16 @@ describe("inboxConversationPending", () => {
         selectedItem: welcome,
       }),
     ).toBe(false);
+  });
+
+  it("waits when the selected conversation still has no messages", () => {
+    expect(
+      inboxConversationPending({
+        activeItemId: support.id,
+        items: [welcome, support],
+        messages: [],
+        selectedItem: support,
+      }),
+    ).toBe(true);
   });
 });

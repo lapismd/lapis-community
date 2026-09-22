@@ -17,6 +17,9 @@ while replacing an already-open thread.
 
 For LC-UI-040, Inbox selection pending lives in `inbox-conversation-pending`
 so the host can hide stale messages without growing `CommunityInbox.svelte`.
+Pending requires exclusive thread membership, not a `some()` hit on root or
+latest. Conversation message rows are keyed with the inbox draft identity so
+same-room Nyra rows remount instead of reusing the previous pane.
 
 For LC-ARCH-011 and LC-ARCH-028, Turso driver import, connect, lock, and schema
 setup live in `turso-database-open` so `turso-event-store.ts` shrinks and the

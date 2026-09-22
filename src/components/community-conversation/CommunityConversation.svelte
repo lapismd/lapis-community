@@ -501,7 +501,7 @@
             style="height: 1px;"
           ></div>{/if}
       {/snippet}
-      {#each messages as message, index (message.id)}{@render messageRow(
+      {#each messages as message, index (`${draftKey}:${message.id}`)}{@render messageRow(
           message,
           index,
         )}{/each}

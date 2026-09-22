@@ -273,8 +273,10 @@
 
 .lc-community-inbox__messages-loading {
   box-sizing: border-box;
+  flex: 1;
   width: 100%;
   min-width: 0;
+  min-height: 0;
   padding: 1rem;
 }
 
