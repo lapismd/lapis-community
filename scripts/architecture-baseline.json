@@ -1598,8 +1598,8 @@
       "forbiddenImportCount": 0
     },
     "src/components/community-app-shell/CommunityAppShell.svelte": {
-      "countedLines": 330,
-      "physicalLines": 361,
+      "countedLines": 302,
+      "physicalLines": 332,
       "forbiddenImportCount": 0,
       "kind": "legacy",
       "justification": "Existing file above the new-file counted-line limit; do not grow"
@@ -3481,16 +3481,14 @@
       "forbiddenImportCount": 0
     },
     "src/components/community-thread-panel/CommunityThreadPanel.stories.svelte": {
-      "countedLines": 189,
-      "physicalLines": 197,
+      "countedLines": 204,
+      "physicalLines": 212,
       "forbiddenImportCount": 0
     },
     "src/components/community-thread-panel/CommunityThreadPanel.svelte": {
-      "countedLines": 355,
-      "physicalLines": 372,
-      "forbiddenImportCount": 0,
-      "kind": "legacy",
-      "justification": "Existing file above the new-file counted-line limit; do not grow"
+      "countedLines": 284,
+      "physicalLines": 288,
+      "forbiddenImportCount": 0
     },
     "src/components/community-thread-panel/CommunityThreadPanelAudience.stories.svelte": {
       "countedLines": 78,

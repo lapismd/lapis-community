@@ -1,5 +1,6 @@
 <script lang="ts">
   import "../community-overlays.css";
+  import "./right-sidebar.css";
 
   import { Button } from "@lapismd/design-core/shadcn/button";
   import {
@@ -328,34 +329,4 @@
     }
   }
 
-  :global(
-      .community-app-shell__surface:has(
-          > .ui-minimal-app-shell__composition
-            > .ui-minimal-app-shell__sidebar[data-side="right"][data-presentation="inline"]:not(
-              [data-variant="rail"]
-            ):not([hidden])
-        )
-        > .ui-minimal-app-shell__composition
-        > .ui-minimal-app-shell__main
-    ) {
-    border-start-end-radius: 0;
-    border-end-end-radius: 0;
-  }
-
-  :global(
-      .community-app-shell__surface
-        > .ui-minimal-app-shell__composition
-        > .ui-minimal-app-shell__sidebar[data-side="right"][data-presentation="inline"]:not(
-          [data-variant="rail"]
-        )
-    ) {
-    margin-block: var(--ui-shell-main-block-inset);
-    margin-inline-end: var(--ui-shell-main-block-inset);
-    border: var(--ui-shell-main-border);
-    border-inline-start: 0;
-    border-start-end-radius: var(--ui-shell-main-radius);
-    border-end-end-radius: var(--ui-shell-main-radius);
-    background: var(--background);
-    box-shadow: var(--ui-shell-main-shadow);
-  }
 </style>

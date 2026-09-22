@@ -45,7 +45,7 @@
       kind: "channel",
     },
   }}
-  play={async ({ canvas, args }) => {
+  play={async ({ canvas, canvasElement, args }) => {
     const list = canvas.getByRole("log", { name: "Thread replies" });
     const inner = list.querySelector<HTMLElement>(
       ':scope > [data-ui-part="list-inner"]',
@@ -63,6 +63,21 @@
         inner!.getBoundingClientRect().top,
     ).toBeLessThanOrEqual(
       Number.parseFloat(getComputedStyle(inner!).paddingTop) + 1,
+    );
+    const panel = canvasElement.querySelector<HTMLElement>(
+      ".community-thread-panel",
+    );
+    const dock = canvasElement.querySelector<HTMLElement>(
+      '[data-ui-part="composer-dock"]',
+    );
+    await expect(panel).not.toBeNull();
+    await expect(dock).not.toBeNull();
+    const panelWidth = panel!.getBoundingClientRect().width;
+    await expect(inner!.getBoundingClientRect().width).toBeLessThanOrEqual(
+      panelWidth + 1,
+    );
+    await expect(dock!.getBoundingClientRect().width).toBeLessThanOrEqual(
+      panelWidth + 1,
     );
 
     const composer = canvas.getByRole("textbox", {
