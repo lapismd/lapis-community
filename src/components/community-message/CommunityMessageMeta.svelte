@@ -6,9 +6,12 @@
     CommunityMessageModel,
   } from "../community-workspace/model.js";
 
-  import CommunityMessageMentionAvatars from "./CommunityMessageMentionAvatars.svelte";
   import CommunityMessageReplySummary from "./CommunityMessageReplySummary.svelte";
-  import { implicitTaggedMentionMembers } from "./implicit-mentions.js";
+  import {
+    bundleMessageRowMembers,
+    implicitTaggedMentionMembers,
+    taggedMentionAvatarsLabel,
+  } from "./implicit-mentions.js";
 
   let {
     message,
@@ -47,25 +50,28 @@
   const implicitMentions = $derived(
     implicitTaggedMentionMembers(message, members),
   );
+  const rowParticipants = $derived(
+    showReplySummary
+      ? bundleMessageRowMembers(replyParticipants, implicitMentions)
+      : implicitMentions,
+  );
 </script>
 
 <div class="community-message__metadata">
   {#if !isContinuation}
     <MessageMetadata timestamp={message.timestamp} />
   {/if}
-  <CommunityMessageMentionAvatars
-    members={implicitMentions}
-    {...onOpenProfile === undefined ? {} : { onOpenProfile }}
-    {...onMessageMember === undefined ? {} : { onMessageMember }}
-    {...onWaveMember === undefined ? {} : { onWaveMember }}
-    {...onViewMemberActivity === undefined ? {} : { onViewMemberActivity }}
-  />
   {#if message.edited}<span>(edited)</span>{/if}
-  {#if showReplySummary}
+  {#if showReplySummary || implicitMentions.length}
     <CommunityMessageReplySummary
-      label={replyLabel}
-      participants={replyParticipants}
-      onOpenThread={onOpenThread ? () => onOpenThread(message.id) : undefined}
+      label={showReplySummary ? replyLabel : undefined}
+      avatarLabel={showReplySummary
+        ? "Reply participants"
+        : taggedMentionAvatarsLabel(implicitMentions)}
+      participants={rowParticipants}
+      onOpenThread={showReplySummary && onOpenThread
+        ? () => onOpenThread(message.id)
+        : undefined}
       {onOpenProfile}
       {onMessageMember}
       {onWaveMember}

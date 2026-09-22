@@ -2,9 +2,9 @@
 
 For LC-ARCH-028, the combined agent-editor model picker extracts catalog thinking, parse, row, and harness-tab helpers so `CommunityAgentEditorDialog.svelte` and `agent-runtime-catalog.ts` shrink instead of growing. Harness icons, the Command View picker, and catalog/refresh plays live in extracted editor owners. For LC-UI-044, plan snapshot parsing and the Activity list live in extracted transcript owners so the activity model and transcript shell do not grow. Composer working reuses Design Core Reasoning, failed transcript records omit send-status metadata, and composer activity plays live in an extracted story owner. The Activity feed owner composes Design Core Chat Layout and LayoutScrollButton so pinning, scroll-to-latest, and New messages stay out of the activity shell. Identity and toolbar chrome live in an extracted header owner so that shell budget drops.
 
-For LC-UI-051, implicit mention avatars and the extracted message metadata owner
-lower the `CommunityMessage.svelte` budget in
-`scripts/architecture-baseline.json`.
+For LC-UI-051, implicit mentions fold into the reply-summary avatar owner
+without growing `CommunityMessage.svelte`, and the extracted message metadata
+owner keeps that budget lowered in `scripts/architecture-baseline.json`.
 
 LC-UI-049 public transcript interaction adapters and thread context projections stay in the component/project owners. Tool-name and command-envelope fixture coverage updates the path budgets in `scripts/architecture-baseline.json`. The thread projection reads the existing application-owned agent model through its shared context, keeping request-scoped owner Activity out of the thread panel and application composition hotspots. Shared application message actions preserve existing channel permission and publishing boundaries while keeping the application composition budget from growing.
 

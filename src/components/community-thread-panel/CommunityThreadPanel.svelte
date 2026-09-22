@@ -28,7 +28,7 @@
 
   import type { ThreadPanelProps } from "./props.js";
   import type { CommunityComposerAgentModel } from "../community-chat-composer/composer-agent-model.js";
-  import { presentKnownAgentMembers } from "../../community/member-identity.js";
+  import { communityIdentityMembers } from "../../community/member-identity.js";
   import { useAgentConversation } from "../community-agent-conversation/context.svelte.js";
   import "./thread-panel.css";
   let {
@@ -74,7 +74,7 @@
   }: ThreadPanelProps & {
     agents?: readonly CommunityComposerAgentModel[];
   } = $props();
-  const members = $derived(presentKnownAgentMembers(membersProp, agents));
+  const members = $derived(communityIdentityMembers(membersProp, agents));
 
   const conversationKey = $derived(
     presentation?.key ??

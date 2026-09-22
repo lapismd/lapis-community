@@ -37,6 +37,33 @@ export function implicitTaggedMentionMembers(
   return implicit;
 }
 
+export function bundleMessageRowMembers(
+  replyParticipants: readonly CommunityMemberModel[],
+  implicitMentions: readonly CommunityMemberModel[],
+  limit = 3,
+): CommunityMemberModel[] {
+  const replyIds = new Set(
+    replyParticipants.map((member) => member.id.trim().toLowerCase()),
+  );
+  const extras: CommunityMemberModel[] = [];
+  const extraSeen = new Set<string>();
+  for (const member of implicitMentions) {
+    const id = member.id.trim().toLowerCase();
+    if (!id || extraSeen.has(id) || replyIds.has(id)) continue;
+    extraSeen.add(id);
+    extras.push(member);
+  }
+  const replies: CommunityMemberModel[] = [];
+  const replySeen = new Set<string>();
+  for (const member of replyParticipants) {
+    const id = member.id.trim().toLowerCase();
+    if (!id || replySeen.has(id)) continue;
+    replySeen.add(id);
+    replies.push(member);
+  }
+  return [...extras, ...replies].slice(0, limit);
+}
+
 export function taggedMentionAvatarsLabel(
   members: readonly CommunityMemberModel[],
 ): string {

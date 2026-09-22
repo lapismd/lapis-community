@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "sourceCommit": "b7f0cea8fc08a8a198a31fab2cb014959ce82a58",
+  "sourceCommit": "e0b63f371f9c52137007fed4958b7cd255979a60",
   "limits": {
     "newProductionCountedLines": 300,
     "newTestCountedLines": 500,
@@ -2688,23 +2688,18 @@
       "forbiddenImportCount": 0
     },
     "src/components/community-message/CommunityMessageImplicitMentions.stories.svelte": {
-      "countedLines": 92,
-      "physicalLines": 97,
-      "forbiddenImportCount": 0
-    },
-    "src/components/community-message/CommunityMessageMentionAvatars.svelte": {
-      "countedLines": 49,
-      "physicalLines": 55,
+      "countedLines": 153,
+      "physicalLines": 160,
       "forbiddenImportCount": 0
     },
     "src/components/community-message/CommunityMessageMeta.svelte": {
-      "countedLines": 87,
-      "physicalLines": 94,
+      "countedLines": 93,
+      "physicalLines": 100,
       "forbiddenImportCount": 0
     },
     "src/components/community-message/CommunityMessageReplySummary.svelte": {
-      "countedLines": 64,
-      "physicalLines": 70,
+      "countedLines": 70,
+      "physicalLines": 76,
       "forbiddenImportCount": 0
     },
     "src/components/community-message/copy-event.test.ts": {
@@ -2728,13 +2723,13 @@
       "forbiddenImportCount": 0
     },
     "src/components/community-message/implicit-mentions.test.ts": {
-      "countedLines": 102,
-      "physicalLines": 109,
+      "countedLines": 124,
+      "physicalLines": 133,
       "forbiddenImportCount": 0
     },
     "src/components/community-message/implicit-mentions.ts": {
-      "countedLines": 70,
-      "physicalLines": 75,
+      "countedLines": 96,
+      "physicalLines": 102,
       "forbiddenImportCount": 0
     },
     "src/components/community-message/message-activity.ts": {
@@ -3774,8 +3769,8 @@
       "forbiddenImportCount": 0
     },
     "src/components/community-thread-panel/CommunityThreadPanelAgent.stories.svelte": {
-      "countedLines": 88,
-      "physicalLines": 92,
+      "countedLines": 137,
+      "physicalLines": 142,
       "forbiddenImportCount": 0
     },
     "src/components/community-thread-panel/CommunityThreadPanelAudience.stories.svelte": {

@@ -3,6 +3,7 @@ import { npubEncode } from "nostr-tools/nip19";
 
 import type { CommunityMemberModel } from "../community-workspace/model.js";
 import {
+  bundleMessageRowMembers,
   implicitTaggedMentionMembers,
   taggedMentionAvatarsLabel,
 } from "./implicit-mentions.js";
@@ -93,6 +94,29 @@ describe("implicitTaggedMentionMembers", () => {
         [ada, fizz],
       ),
     ).toEqual([fizz]);
+  });
+});
+
+describe("bundleMessageRowMembers", () => {
+  it("adds missing tags to the reply avatars and drops duplicates", () => {
+    expect(bundleMessageRowMembers([ada, fizz], [fizz, honey])).toEqual([
+      honey,
+      ada,
+      fizz,
+    ]);
+  });
+
+  it("keeps tagged members visible when the reply stack is already full", () => {
+    expect(bundleMessageRowMembers([ada, fizz, honey], [honey])).toEqual([
+      ada,
+      fizz,
+      honey,
+    ]);
+    expect(bundleMessageRowMembers([ada, honey], [fizz])).toEqual([
+      fizz,
+      ada,
+      honey,
+    ]);
   });
 });
 

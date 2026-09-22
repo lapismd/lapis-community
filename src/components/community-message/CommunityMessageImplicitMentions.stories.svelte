@@ -1,6 +1,6 @@
 <script module lang="ts">
   import { defineMeta } from "@storybook/addon-svelte-csf";
-  import { expect, fn } from "storybook/test";
+  import { expect, fn, within } from "storybook/test";
 
   import { communityComposerStoryFizz } from "../community-chat-composer/agent-story-fixtures.js";
   import {
@@ -24,6 +24,7 @@
     kind: "agent" as const,
   };
   const members = [...communityStoryMembers, fizz];
+  const replyParticipants = communityStoryMembers.slice(0, 3);
 </script>
 
 <Story
@@ -34,9 +35,48 @@
       id: "message-implicit-mention",
       content: "please continue from the last checkpoint.",
       mentionPubkeys: [fizz.id],
-      reactions: [],
-      replyCount: 0,
-      replyParticipantIds: [],
+    },
+    author,
+    members,
+    replyParticipants,
+    density: "compact",
+    avatarShape: "rounded",
+    onOpenThread: fn(),
+    onOpenProfile: fn(),
+  }}
+  play={async ({ canvas }) => {
+    const message = canvas.getByLabelText("Message from Ben Stone");
+    const metadata = message.querySelector(".community-message__metadata");
+    const replies = canvas.getByRole("group", { name: "Reply participants" });
+    await expect(metadata).not.toBeNull();
+    await expect(
+      canvas.queryByRole("group", { name: "Tagged Fizz" }),
+    ).toBeNull();
+    await expect(
+      within(replies).getByRole("button", { name: "View Fizz's profile" }),
+    ).toBeVisible();
+    await expect(message.textContent).not.toMatch(/@Fizz/u);
+    const timestamp = metadata!.querySelector(
+      '[data-ui-component="ai-chat-message-metadata"]',
+    );
+    await expect(timestamp).not.toBeNull();
+    await expect(
+      timestamp!.compareDocumentPosition(replies) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  }}
+/>
+
+<Story
+  name="Thread reply implicit mention"
+  args={{
+    message: {
+      id: "message-thread-continue",
+      authorId: "ben",
+      parentMessageId: "message-release",
+      timestamp: "07:27",
+      content: "continue",
+      mentionPubkeys: [fizz.id],
     },
     author,
     members,
@@ -47,24 +87,20 @@
   play={async ({ canvas }) => {
     const message = canvas.getByLabelText("Message from Ben Stone");
     const metadata = message.querySelector(".community-message__metadata");
+    const tagged = canvas.getByRole("group", { name: "Tagged Fizz" });
     await expect(metadata).not.toBeNull();
-    const tagged = metadata!.querySelector<HTMLElement>(
-      '[data-ui-part="implicit-mentions"]',
-    );
-    await expect(tagged).not.toBeNull();
     await expect(
-      canvas.getByRole("group", { name: "Tagged Fizz" }),
-    ).toBeVisible();
+      canvas.queryByRole("group", { name: "Reply participants" }),
+    ).toBeNull();
     await expect(
-      canvas.getByRole("button", { name: "View Fizz's profile" }),
+      within(tagged).getByRole("button", { name: "View Fizz's profile" }),
     ).toBeVisible();
-    await expect(message.textContent).not.toMatch(/@Fizz/u);
     const timestamp = metadata!.querySelector(
       '[data-ui-component="ai-chat-message-metadata"]',
     );
     await expect(timestamp).not.toBeNull();
     await expect(
-      timestamp!.compareDocumentPosition(tagged!) &
+      timestamp!.compareDocumentPosition(tagged) &
         Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
   }}
@@ -78,20 +114,47 @@
       id: "message-body-mention",
       content: "@Fizz please continue from the last checkpoint.",
       mentionPubkeys: [fizz.id],
-      reactions: [],
-      replyCount: 0,
-      replyParticipantIds: [],
     },
     author,
     members,
+    replyParticipants,
     density: "compact",
     avatarShape: "rounded",
+    onOpenThread: fn(),
   }}
   play={async ({ canvas }) => {
-    const message = canvas.getByLabelText("Message from Ben Stone");
+    const replies = canvas.getByRole("group", { name: "Reply participants" });
     await expect(
-      message.querySelector('[data-ui-part="implicit-mentions"]'),
+      within(replies).queryByRole("button", { name: "View Fizz's profile" }),
     ).toBeNull();
     await expect(canvas.getByRole("button", { name: "Fizz" })).toBeVisible();
+  }}
+/>
+
+<Story
+  name="Reply participant mention is not duplicated"
+  args={{
+    message: {
+      ...communityStoryMessages[1]!,
+      id: "message-duplicate-mention",
+      content: "please continue from the last checkpoint.",
+      mentionPubkeys: [fizz.id],
+    },
+    author,
+    members,
+    replyParticipants: [fizz, ...replyParticipants],
+    density: "compact",
+    avatarShape: "rounded",
+    onOpenThread: fn(),
+    onOpenProfile: fn(),
+  }}
+  play={async ({ canvas }) => {
+    const replies = canvas.getByRole("group", { name: "Reply participants" });
+    await expect(
+      within(replies).getAllByRole("button", { name: "View Fizz's profile" }),
+    ).toHaveLength(1);
+    await expect(
+      canvas.queryByRole("group", { name: "Tagged Fizz" }),
+    ).toBeNull();
   }}
 />

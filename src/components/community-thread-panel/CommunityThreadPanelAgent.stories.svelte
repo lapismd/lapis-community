@@ -1,6 +1,6 @@
 <script module lang="ts">
   import { defineMeta } from "@storybook/addon-svelte-csf";
-  import { expect, fn } from "storybook/test";
+  import { expect, fn, within } from "storybook/test";
 
   import {
     communityComposerStoryFizz,
@@ -80,6 +80,56 @@
       mentionAvatar?.querySelector('[data-ui-part="emoji"]'),
     ).toHaveTextContent("🧭");
     await expect(mentionAvatar?.querySelector("img")).toBeNull();
+  }}
+>
+  {#snippet template(args)}
+    <div
+      style="width: min(100%, 28rem); height: 38rem; border: 1px solid var(--border);"
+    >
+      <CommunityThreadPanel {...args} />
+    </div>
+  {/snippet}
+</Story>
+
+<Story
+  name="Implicit tagged agent in thread reply"
+  args={{
+    thread: {
+      ...communityStoryThread,
+      messages: [
+        communityStoryThread.messages[0]!,
+        {
+          id: "thread-continue",
+          authorId: "ben",
+          parentMessageId: communityStoryThread.rootMessageId,
+          timestamp: "07:27",
+          content: "continue",
+          mentionPubkeys: [communityComposerStoryFizz],
+        },
+      ],
+    },
+    members: communityStoryMembers,
+    agents: [
+      {
+        pubkey: communityComposerStoryFizz,
+        name: "Nyra",
+        avatarUrl: "🧭",
+        ownerPubkey: communityComposerStoryOwner,
+        channelIds: ["general"],
+      },
+    ],
+    onSendReply: fn(),
+    onOpenProfile: fn(),
+  }}
+  play={async ({ canvas }) => {
+    const message = canvas.getByText("continue").closest(".community-message");
+    await expect(message).not.toBeNull();
+    await expect(
+      within(message as HTMLElement).getByRole("group", {
+        name: "Tagged Nyra",
+      }),
+    ).toBeVisible();
+    await expect(message).not.toHaveTextContent("@Nyra");
   }}
 >
   {#snippet template(args)}
