@@ -710,6 +710,13 @@ restyles member-avatar radius. Extracted `avatar-content` and
 `member-from-agent` owners, plus the lowered `CommunityMemberAvatar`
 budget, update `scripts/architecture-baseline.json`.
 
+Shareable `lapis-community://` URIs and browser hashes such as
+`#/channels/<roomId>/<eventId>` are presentation routing for
+`CommunityApplicationLocation`. They are not a new Nostr event type.
+Build and parse live in the `community-links` owner; hash sync lives in
+`application-location-hash` so the application composition hotspot does
+not grow.
+
 For LC-UI-040, Inbox owns the conversation-pane inset around the shared message
 skeleton. Initial and selected-thread loading reuse one padded snippet, keeping
 the shared skeleton independent of its containing surface.
