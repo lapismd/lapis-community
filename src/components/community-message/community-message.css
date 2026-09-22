@@ -1,5 +1,8 @@
-.community-message,
-.community-message .markdown-preview-surface {
+.community-message {
+  --file-line-width: 100%;
+}
+
+.community-message :is(.mira-markdown-preview, .markdown-preview-surface) {
   --file-line-width: 100%;
 }
 

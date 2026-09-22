@@ -2693,8 +2693,8 @@
       "justification": "Existing file above the new-file counted-line limit; do not grow"
     },
     "src/components/community-message/CommunityMessageColumn.stories.svelte": {
-      "countedLines": 52,
-      "physicalLines": 55,
+      "countedLines": 59,
+      "physicalLines": 62,
       "forbiddenImportCount": 0
     },
     "src/components/community-message/CommunityMessageImplicitMentions.stories.svelte": {

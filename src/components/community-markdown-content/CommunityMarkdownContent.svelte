@@ -116,7 +116,7 @@
   }
 
   .community-markdown-content[data-full-width="true"]
-    :global(.markdown-preview-surface) {
+    :global(:is(.mira-markdown-preview, .markdown-preview-surface)) {
     --file-line-width: 100%;
   }
 

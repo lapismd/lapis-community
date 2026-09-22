@@ -41,14 +41,21 @@
     await expect(sizer).not.toBeNull();
     await expect(getComputedStyle(bubble!).maxWidth).toBe("100%");
     await expect(getComputedStyle(sizer!).maxWidth).toBe("100%");
+    await expect(
+      getComputedStyle(sizer!).getPropertyValue("--file-line-width").trim(),
+    ).toBe("100%");
     await expect(sizer!.getBoundingClientRect().width).toBeCloseTo(
       bubbles!.getBoundingClientRect().width,
+      0,
+    );
+    await expect(sizer!.getBoundingClientRect().left).toBeCloseTo(
+      bubbles!.getBoundingClientRect().left,
       0,
     );
   }}
 >
   {#snippet template(args)}
-    <div style="width: min(100%, 54rem);">
+    <div style="width: 54rem;">
       <CommunityMessage {...args} />
     </div>
   {/snippet}

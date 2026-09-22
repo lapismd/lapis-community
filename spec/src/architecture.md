@@ -8,6 +8,8 @@ For LC-UI-040, the padded thread-sidebar skeleton records its
 For LC-UI-051, implicit mentions fold into the reply-summary avatar owner
 without growing `CommunityMessage.svelte`, and the extracted message metadata
 owner keeps that budget lowered in `scripts/architecture-baseline.json`.
+Message-body Mira `--file-line-width` suppression stays in the markdown and
+message-column owners so `CommunityMessage.svelte` does not grow.
 
 For LC-ARCH-011 and LC-ARCH-028, Turso driver import, connect, lock, and schema
 setup live in `turso-database-open` so `turso-event-store.ts` shrinks and the
