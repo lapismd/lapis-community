@@ -11,6 +11,10 @@ owner keeps that budget lowered in `scripts/architecture-baseline.json`.
 Message-body Mira `--file-line-width` suppression stays in the markdown and
 message-column owners so `CommunityMessage.svelte` does not grow.
 
+For LC-UI-011, thread-panel projection matching lives in
+`thread-panel-projection` so `CommunityApplication.svelte` does not grow
+while replacing an already-open thread.
+
 For LC-ARCH-011 and LC-ARCH-028, Turso driver import, connect, lock, and schema
 setup live in `turso-database-open` so `turso-event-store.ts` shrinks and the
 bounded open wait cannot grow that hotspot. The lowered store budget and new

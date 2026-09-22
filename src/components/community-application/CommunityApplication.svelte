@@ -307,6 +307,10 @@
     type CommunityApplicationPanel,
     type CommunityApplicationProjectRoute,
   } from "./navigation.js";
+  import {
+    communityApplicationThreadProjectionMatches,
+    communityApplicationThreadProjectionSettled,
+  } from "./thread-panel-projection.js";
   import { provideCommunityApplicationComposer } from "./composer-context.js";
   import { useCommunityApplicationAuthentication } from "./authentication-context.js";
   import CommunityApplicationAgentsHost from "./CommunityApplicationAgentsHost.svelte";
@@ -1877,9 +1881,7 @@
       });
   });
   const visibleThread = $derived(
-    activePanel.kind === "thread" &&
-      workspace.activeRoomId === activePanel.roomId &&
-      workspace.thread?.rootMessageId === activePanel.rootMessageId
+    communityApplicationThreadProjectionMatches(activePanel, workspace)
       ? workspace.thread
       : undefined,
   );
@@ -3122,9 +3124,7 @@
       (activePanel.kind === "details" &&
         (activePanel.roomId === inbox.room.id ||
           workspace.sidePanel === "details")) ||
-      (activePanel.kind === "thread" &&
-        workspace.activeRoomId === activePanel.roomId &&
-        workspace.sidePanel === "thread");
+      communityApplicationThreadProjectionSettled(activePanel, workspace);
     if (!projectionSettled) return;
 
     const normalized = normalizeCommunityApplicationLocation(
