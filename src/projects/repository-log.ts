@@ -132,6 +132,7 @@ function parseRevision(
     description.trim() === "";
   return {
     eventId: commitId,
+    commitId,
     changeId: changeIdHex(event, body),
     parents,
     message: formatRepositoryLogMessage(description, empty),

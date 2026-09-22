@@ -241,7 +241,7 @@ assignment and task status MUST use the same
 `CanMaintain` set; the issue author and `30617` owner MUST NOT assign others
 or change task status unless they `CanMaintain`. Buzz Desktop MAY still
 display author- or owner-trusted reviews; Lapis Community MUST NOT.
-A Log-selected dest-Git commit MAY open a NIP-34 pull request without `branch-name` or `target-branch` tags. The `c` tag MUST be that commit. Submitted pull-request reviews MUST remain signed kind `1` collaboration
+A Log-selected dest-Git commit MAY open a NIP-34 pull request without `branch-name` or `target-branch` tags. The `c` tag MUST be that commit, which Log revisions record from the jj revision `commit_id`. Submitted pull-request reviews MUST remain signed kind `1` collaboration
 events rooted at the pull request and repository, bind the reviewed commit with
 `c`, and use exactly one `t` value: `review-comment`, `approval`, or
 `changes-requested`. Line comments MUST retain the existing

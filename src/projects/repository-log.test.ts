@@ -126,6 +126,7 @@ describe("repository log", () => {
       ),
       message: "record merged lanes",
       changeId: "",
+      commitId: merge,
     });
     expect(graph.revisions.some((item) => item.eventId === hidden)).toBe(false);
     expect(JSON.stringify(graph)).toContain("gravatar.com/avatar/");

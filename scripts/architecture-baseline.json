@@ -4762,12 +4762,12 @@
       "forbiddenImportCount": 0
     },
     "src/projects/repository-log.test.ts": {
-      "countedLines": 258,
+      "countedLines": 259,
       "physicalLines": 270,
       "forbiddenImportCount": 0
     },
     "src/projects/repository-log.ts": {
-      "countedLines": 276,
+      "countedLines": 277,
       "physicalLines": 301,
       "forbiddenImportCount": 0
     },
