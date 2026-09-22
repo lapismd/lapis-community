@@ -4,23 +4,26 @@
     layout,
     label = "Loading content",
     count = 4,
+    padded = false,
   }: {
     layout: "gallery" | "timeline" | "messages" | "details" | "repository";
     label?: string;
     count?: number;
+    padded?: boolean;
   } = $props();
 </script>
 
 <div
   class="community-skeleton"
   data-layout={layout}
+  data-padded={padded ? "" : undefined}
   role="status"
   aria-label={label}
   aria-busy="true"
 >
   <span class="sr-only">{label}</span>
   <div class="community-skeleton__items" aria-hidden="true">
-    {#each Array(Math.max(1, Math.min(count, 12))) as _}
+    {#each Array(Math.max(1, Math.min(count, 12))) as _, index (index)}
       <div class="community-skeleton__item">
         {#if layout !== "repository"}<Skeleton
             class="community-skeleton__avatar"
@@ -41,6 +44,10 @@
   .community-skeleton {
     width: 100%;
     min-width: 0;
+  }
+  .community-skeleton[data-padded] {
+    box-sizing: border-box;
+    padding: 0.75rem;
   }
   .community-skeleton__items {
     display: grid;

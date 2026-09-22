@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "sourceCommit": "e0b63f371f9c52137007fed4958b7cd255979a60",
+  "sourceCommit": "0cddc79d6809d71b8cb8b5a23936cb6e36a894a9",
   "limits": {
     "newProductionCountedLines": 300,
     "newTestCountedLines": 500,
@@ -3727,13 +3727,13 @@
       "forbiddenImportCount": 0
     },
     "src/components/community-skeleton/CommunitySkeleton.stories.svelte": {
-      "countedLines": 23,
-      "physicalLines": 24,
+      "countedLines": 38,
+      "physicalLines": 40,
       "forbiddenImportCount": 0
     },
     "src/components/community-skeleton/CommunitySkeleton.svelte": {
-      "countedLines": 125,
-      "physicalLines": 127,
+      "countedLines": 132,
+      "physicalLines": 134,
       "forbiddenImportCount": 0
     },
     "src/components/community-status-dialog/CommunityStatusDialog.stories.svelte": {

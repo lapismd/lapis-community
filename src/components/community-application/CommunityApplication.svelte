@@ -8158,7 +8158,7 @@
                   : { onReportMessage: reportMessage }}
               />
             {:else}
-              <CommunitySkeleton layout="messages" label="Loading thread" />
+              <CommunitySkeleton layout="messages" label="Loading thread" padded />
             {/if}
           </AppShell.Sidebar.Body>
         {:else if detailsRoom?.kind === "channel" || detailsRoom?.kind === "forum"}
