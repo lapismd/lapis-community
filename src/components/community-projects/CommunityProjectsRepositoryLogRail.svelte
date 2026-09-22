@@ -10,6 +10,7 @@
   import HistoryIcon from "@lucide/svelte/icons/history";
   import { onDestroy } from "svelte";
 
+  import CommunityChatComposer from "../community-chat-composer/CommunityChatComposer.svelte";
   import CommunityEntityCopyButton from "../community-entity-chip/CommunityEntityCopyButton.svelte";
   import { useRepositoryLogPane } from "../../projects/repository-log-pane.svelte.js";
 
@@ -65,7 +66,8 @@
       });
       reviewOpen = false;
     } catch (cause) {
-      localError = cause instanceof Error ? cause.message : "Could not create the review";
+      localError =
+        cause instanceof Error ? cause.message : "Could not create the review";
     } finally {
       busy = false;
     }
@@ -129,20 +131,28 @@
     {/if}
   </nav>
   <Dialog.Root bind:open={reviewOpen}>
-    <DialogFrame>
+    <DialogFrame size="wide">
       {#snippet title()}Create review{/snippet}
       {#snippet description()}
         Publish a review for {reviewCommit}
       {/snippet}
-      <form onsubmit={submitReview}>
-        <Field.Group>
+      <form class="community-projects__project-form" onsubmit={submitReview}>
+        <Field.Group class="community-projects__project-fields">
           <Field.Field>
             <Field.Label for="log-review-title">Title</Field.Label>
             <Input id="log-review-title" bind:value={reviewTitle} required />
           </Field.Field>
           <Field.Field>
-            <Field.Label for="log-review-body">Description</Field.Label>
-            <Input id="log-review-body" bind:value={reviewBody} />
+            <Field.Label>
+              Description <span>Optional</span>
+            </Field.Label>
+            <CommunityChatComposer
+              class="community-projects__project-description"
+              bind:value={reviewBody}
+              placeholder="Add context for reviewers"
+              ariaLabel="Review description"
+              mode="form"
+            />
           </Field.Field>
           {#if localError}<Field.Error>{localError}</Field.Error>{/if}
         </Field.Group>

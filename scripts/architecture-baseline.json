@@ -3308,8 +3308,8 @@
       "forbiddenImportCount": 0
     },
     "src/components/community-projects/CommunityProjectsRepositoryLog.stories.svelte": {
-      "countedLines": 273,
-      "physicalLines": 276,
+      "countedLines": 309,
+      "physicalLines": 312,
       "forbiddenImportCount": 0
     },
     "src/components/community-projects/CommunityProjectsRepositoryLog.svelte": {
@@ -3328,8 +3328,8 @@
       "forbiddenImportCount": 0
     },
     "src/components/community-projects/CommunityProjectsRepositoryLogHarness.svelte": {
-      "countedLines": 50,
-      "physicalLines": 55,
+      "countedLines": 54,
+      "physicalLines": 59,
       "forbiddenImportCount": 0
     },
     "src/components/community-projects/CommunityProjectsRepositoryLogNavigation.stories.svelte": {
@@ -3343,8 +3343,8 @@
       "forbiddenImportCount": 0
     },
     "src/components/community-projects/CommunityProjectsRepositoryLogRail.svelte": {
-      "countedLines": 159,
-      "physicalLines": 170,
+      "countedLines": 169,
+      "physicalLines": 180,
       "forbiddenImportCount": 0
     },
     "src/components/community-projects/CommunityProjectsRepositoryOverviewHeading.svelte": {

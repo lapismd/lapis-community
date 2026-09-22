@@ -4,6 +4,7 @@
   import { provideRepositoryLogPane } from "../../projects/repository-log-pane.svelte.js";
   import CommunityProjectsRepositoryLog from "./CommunityProjectsRepositoryLog.svelte";
   import CommunityProjectsRepositoryLogRail from "./CommunityProjectsRepositoryLogRail.svelte";
+  import "./CommunityProjects.css";
 
   let {
     events = [],
@@ -16,8 +17,11 @@
     loading?: boolean | undefined;
     canMaintain?: boolean | undefined;
     onCreateReview?:
-      | ((input: { title: string; content: string; commit: string }) =>
-          Promise<void> | void)
+      | ((input: {
+          title: string;
+          content: string;
+          commit: string;
+        }) => Promise<void> | void)
       | undefined;
     onLoadRepositoryCommit?:
       | ((

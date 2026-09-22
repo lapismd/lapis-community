@@ -170,15 +170,51 @@
     });
     await expect(headerReview).toBeVisible();
     await userEvent.click(headerReview);
+    const reviewDialog = await within(document.body).findByRole(
+      "dialog",
+      { name: "Create review" },
+      { timeout: 10_000 },
+    );
     await expect(
-      canvas.getByRole("heading", { name: "Create review" }),
+      within(reviewDialog).getByRole("heading", { name: "Create review" }),
     ).toBeVisible();
+    await expect(
+      within(reviewDialog).getByRole("textbox", { name: "Title" }),
+    ).toBeVisible();
+    await expect(
+      await within(reviewDialog).findByRole(
+        "group",
+        { name: "Review description" },
+        { timeout: 10_000 },
+      ),
+    ).toBeVisible();
+    await expect(
+      await within(reviewDialog).findByRole(
+        "textbox",
+        { name: "Markdown editor" },
+        { timeout: 10_000 },
+      ),
+    ).toBeVisible();
+    await expect(
+      within(reviewDialog).queryByRole("textbox", { name: "Description" }),
+    ).toBeNull();
+    await userEvent.click(
+      within(reviewDialog).getByRole("textbox", { name: "Title" }),
+    );
     await userEvent.keyboard("{Escape}");
+    await waitFor(() => {
+      expect(
+        within(document.body).queryByRole("dialog", { name: "Create review" }),
+      ).toBeNull();
+      expect(document.querySelector('[data-slot="dialog-overlay"]')).toBeNull();
+    });
     await expect(
       canvas.getByRole("group", { name: "File listing view mode" }),
     ).toBeVisible();
     await expect(await canvas.findByText("lanes.md")).toBeVisible();
-    await userEvent.click(canvas.getByRole("button", { name: "lanes.md" }));
+    await userEvent.click(canvas.getByRole("button", { name: "lanes.md" }), {
+      pointerEventsCheck: 0,
+    });
     await expect(
       canvas.getByRole("region", { name: "Column canvas" }),
     ).toBeVisible();
