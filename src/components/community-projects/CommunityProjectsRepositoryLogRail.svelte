@@ -40,6 +40,10 @@
 
   onDestroy(() => pane?.reset());
 
+  $effect(() => {
+    pane?.setReviewAction({ canMaintain, openReview });
+  });
+
   function openReview(): void {
     reviewTitle = pane?.reviewMessage ?? "";
     reviewBody = "";

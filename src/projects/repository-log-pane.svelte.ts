@@ -8,6 +8,11 @@ export type RepositoryLogNavigation = {
   onSelectPane?(pane: RepositoryLogPane): void;
 };
 
+export type RepositoryLogReviewAction = {
+  canMaintain: boolean;
+  openReview?: () => void;
+};
+
 export type RepositoryLogPaneState = {
   readonly pane: RepositoryLogPane;
   readonly evologOpen: boolean;
@@ -16,11 +21,14 @@ export type RepositoryLogPaneState = {
   readonly reviewCommitId: string | null;
   readonly reviewEmpty: boolean;
   readonly reviewMessage: string;
+  readonly canMaintain: boolean;
   readonly requestedCommitId: string | null | undefined;
   navigateToCommit(commitId: string | null): void;
   selectPane(pane: RepositoryLogPane): void;
   toggleEvolog(): void;
   setEvologOpen(open: boolean): void;
+  setReviewAction(action: RepositoryLogReviewAction): void;
+  openReview(): void;
   setLogSelection(
     commitId: string | null,
     changeId: string | null,
@@ -41,6 +49,8 @@ export function createRepositoryLogPane(
   let reviewCommitId = $state<string | null>(null);
   let reviewEmpty = $state(false);
   let reviewMessage = $state("");
+  let canMaintain = $state(false);
+  let openReviewAction: (() => void) | undefined;
 
   function selectPane(next: RepositoryLogPane): void {
     const changed = pane !== next;
@@ -84,6 +94,16 @@ export function createRepositoryLogPane(
     get reviewMessage() {
       return reviewMessage;
     },
+    get canMaintain() {
+      return canMaintain;
+    },
+    setReviewAction(action): void {
+      canMaintain = action.canMaintain;
+      openReviewAction = action.openReview;
+    },
+    openReview(): void {
+      if (canMaintain && reviewCommitId && !reviewEmpty) openReviewAction?.();
+    },
     selectPane,
     toggleEvolog(): void {
       this.setEvologOpen(!evologOpen);
@@ -107,6 +127,8 @@ export function createRepositoryLogPane(
       reviewEmpty = false;
       reviewMessage = "";
       selectedChangeId = null;
+      canMaintain = false;
+      openReviewAction = undefined;
     },
   };
 }

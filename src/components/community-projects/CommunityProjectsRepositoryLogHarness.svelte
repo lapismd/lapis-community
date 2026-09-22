@@ -8,10 +8,17 @@
   let {
     events = [],
     loading = false,
+    canMaintain = false,
+    onCreateReview,
     onLoadRepositoryCommit,
   }: {
     events?: readonly NostrEvent[] | undefined;
     loading?: boolean | undefined;
+    canMaintain?: boolean | undefined;
+    onCreateReview?:
+      | ((input: { title: string; content: string; commit: string }) =>
+          Promise<void> | void)
+      | undefined;
     onLoadRepositoryCommit?:
       | ((
           sha: string,
@@ -25,7 +32,10 @@
 
 <div class="community-projects-repository-log-harness">
   <aside class="community-projects-repository-log-harness__rail">
-    <CommunityProjectsRepositoryLogRail />
+    <CommunityProjectsRepositoryLogRail
+      {canMaintain}
+      {...onCreateReview ? { onCreateReview } : {}}
+    />
   </aside>
   <CommunityProjectsRepositoryLog {events} {loading} {onLoadRepositoryCommit} />
 </div>

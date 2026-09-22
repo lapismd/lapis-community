@@ -5,6 +5,10 @@
     type FileListingFile,
     type FileListingViewMode,
   } from "@lapismd/design-core/diff";
+  import { Button } from "@lapismd/design-core/shadcn/button";
+  import GitPullRequestIcon from "@lucide/svelte/icons/git-pull-request";
+
+  import { useRepositoryLogPane } from "../../projects/repository-log-pane.svelte.js";
 
   let {
     files,
@@ -22,6 +26,13 @@
     onSelectPath: (path: string) => void;
   } = $props();
 
+  const pane = useRepositoryLogPane();
+  const showReview = $derived(
+    pane?.pane === "log" &&
+      pane.canMaintain &&
+      Boolean(pane.reviewCommitId) &&
+      !pane.reviewEmpty,
+  );
   let mode = $state<FileListingViewMode>("tree");
 </script>
 
@@ -34,6 +45,18 @@
   <div class="community-revision-graph-files__header">
     <span class="community-revision-graph-files__title">{title}</span>
     <span class="community-revision-graph-files__count">{files.length}</span>
+    {#if showReview}
+      <Button
+        type="button"
+        variant="ghost"
+        size="sm"
+        class="community-revision-graph-files__review"
+        onclick={() => pane?.openReview()}
+      >
+        <GitPullRequestIcon data-icon="inline-start" aria-hidden="true" />
+        <span>Create review</span>
+      </Button>
+    {/if}
     <FileListingViewModeToggle bind:mode />
   </div>
   {#if error}
@@ -81,6 +104,10 @@
     white-space: nowrap;
     font-size: var(--community-text-body);
     font-weight: 600;
+  }
+
+  .community-revision-graph-files__review {
+    flex: 0 0 auto;
   }
 
   .community-revision-graph-files__count {

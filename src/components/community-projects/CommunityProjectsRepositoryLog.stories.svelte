@@ -1,6 +1,6 @@
 <script module lang="ts">
   import { defineMeta } from "@storybook/addon-svelte-csf";
-  import { expect, userEvent, waitFor } from "storybook/test";
+  import { expect, fn, userEvent, waitFor, within } from "storybook/test";
 
   import CommunityProjectsRepositoryLogHarness from "./CommunityProjectsRepositoryLogHarness.svelte";
   import {
@@ -31,6 +31,8 @@
     },
     args: {
       events,
+      canMaintain: true,
+      onCreateReview: fn(),
       onLoadRepositoryCommit: async (sha: string) => {
         if (sha === left || sha === parent) {
           throw new Error("git_object_not_found");
@@ -159,9 +161,19 @@
     ).toBeVisible();
     await expect(canvas.getByText("Incomplete")).toBeVisible();
     await expect(canvas.queryByText("secret tool arguments")).toBeNull();
+    const changedFiles = await canvas.findByRole("region", {
+      name: "Changed files",
+    });
+    await expect(changedFiles).toBeVisible();
+    const headerReview = within(changedFiles).getByRole("button", {
+      name: "Create review",
+    });
+    await expect(headerReview).toBeVisible();
+    await userEvent.click(headerReview);
     await expect(
-      await canvas.findByRole("region", { name: "Changed files" }),
+      canvas.getByRole("heading", { name: "Create review" }),
     ).toBeVisible();
+    await userEvent.keyboard("{Escape}");
     await expect(
       canvas.getByRole("group", { name: "File listing view mode" }),
     ).toBeVisible();
