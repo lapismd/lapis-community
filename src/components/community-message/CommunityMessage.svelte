@@ -39,6 +39,7 @@
   import { messageActivityContent } from "./message-activity.js";
 
   import type { CommunityMessageProps } from "./props.js";
+  import "./community-message.css";
 
   let {
     message,
@@ -563,13 +564,6 @@
   :global(.community-message[data-continuation][data-actions-visible])
     .community-message__continuation-time {
     opacity: 1;
-  }
-
-  :global(
-      .community-message
-        [data-ui-component="ai-chat-message-bubble"][data-variant="ghost"]
-    ) {
-    padding-inline: 0;
   }
 
   .community-message__actions {

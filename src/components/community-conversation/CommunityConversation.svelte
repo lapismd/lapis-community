@@ -547,7 +547,7 @@
   .community-conversation[data-composer-placement="row"]
     :global([data-ui-component="ai-chat-layout"]) {
     display: grid;
-    grid-template-rows: minmax(0, 1fr) auto;
+    grid-template: minmax(0, 1fr) auto / minmax(0, 1fr);
   }
 
   .community-conversation[data-composer-placement="row"]
