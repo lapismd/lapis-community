@@ -23,6 +23,7 @@
   } from "../../community/index.js";
   import CommunityChip from "../community-chip/CommunityChip.svelte";
   import CommunityChatComposer from "../community-chat-composer/CommunityChatComposer.svelte";
+  import CommunityPulseComposer from "./CommunityPulseComposer.svelte";
   import CommunityMarkdownContent from "../community-markdown-content/CommunityMarkdownContent.svelte";
   import CommunityMemberAvatar from "../community-member-avatar/CommunityMemberAvatar.svelte";
   import CommunityRelativeTime from "../community-relative-time/CommunityRelativeTime.svelte";
@@ -492,16 +493,12 @@
                 </Button>
               {:else}
                 <div class="community-pulse__composer-editor">
-                  <CommunityChatComposer
+                  <CommunityPulseComposer
                     bind:value={composerValue}
-                    placeholder="What’s on your mind?"
-                    ariaLabel="Pulse composer"
-                    submitLabel="Post note"
                     members={composerMembers}
                     {rooms}
                     {communityEmojis}
                     currentMemberId={currentMember.id}
-                    draftKey="pulse:composer"
                     {...draftStore === undefined ? {} : { draftStore }}
                     {...mediaAdapter === undefined ? {} : { mediaAdapter }}
                     {busy}
