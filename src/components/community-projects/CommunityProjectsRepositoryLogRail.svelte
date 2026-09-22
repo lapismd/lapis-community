@@ -1,15 +1,71 @@
 <script lang="ts">
+  import { DialogFrame } from "@lapismd/design-core/forms/dialog";
   import { Button } from "@lapismd/design-core/shadcn/button";
+  import * as Dialog from "@lapismd/design-core/shadcn/dialog";
+  import * as Field from "@lapismd/design-core/shadcn/field";
+  import { Input } from "@lapismd/design-core/shadcn/input";
   import GitCommitHorizontalIcon from "@lucide/svelte/icons/git-commit-horizontal";
   import GitCompareIcon from "@lucide/svelte/icons/git-compare";
+  import GitPullRequestIcon from "@lucide/svelte/icons/git-pull-request";
   import HistoryIcon from "@lucide/svelte/icons/history";
   import { onDestroy } from "svelte";
 
   import CommunityEntityCopyButton from "../community-entity-chip/CommunityEntityCopyButton.svelte";
   import { useRepositoryLogPane } from "../../projects/repository-log-pane.svelte.js";
 
+  let {
+    canMaintain = false,
+    onCreateReview,
+  }: {
+    canMaintain?: boolean;
+    onCreateReview?: (input: {
+      title: string;
+      content: string;
+      commit: string;
+    }) => Promise<void> | void;
+  } = $props();
+
   const pane = useRepositoryLogPane();
+  let reviewOpen = $state(false);
+  let reviewTitle = $state("");
+  let reviewBody = $state("");
+  let busy = $state(false);
+  let localError = $state("");
+
+  const reviewCommit = $derived(
+    pane?.pane === "log" && pane.reviewCommitId && !pane.reviewEmpty
+      ? pane.reviewCommitId
+      : "",
+  );
+
   onDestroy(() => pane?.reset());
+
+  function openReview(): void {
+    reviewTitle = pane?.reviewMessage ?? "";
+    reviewBody = "";
+    localError = "";
+    reviewOpen = true;
+  }
+
+  async function submitReview(event: SubmitEvent): Promise<void> {
+    event.preventDefault();
+    const commit = reviewCommit;
+    if (!commit || !onCreateReview) return;
+    busy = true;
+    localError = "";
+    try {
+      await onCreateReview({
+        title: reviewTitle.trim(),
+        content: reviewBody,
+        commit,
+      });
+      reviewOpen = false;
+    } catch (cause) {
+      localError = cause instanceof Error ? cause.message : "Could not create the review";
+    } finally {
+      busy = false;
+    }
+  }
 </script>
 
 {#if pane}
@@ -54,7 +110,42 @@
         <span>Evolog</span>
       </Button>
     {/if}
+    {#if canMaintain && reviewCommit}
+      <Button
+        type="button"
+        variant="ghost"
+        class="community-application__project-overview-item"
+        onclick={openReview}
+      >
+        <GitPullRequestIcon data-icon="inline-start" aria-hidden="true" />
+        <span>Create review</span>
+      </Button>
+    {/if}
   </nav>
+  <Dialog.Root bind:open={reviewOpen}>
+    <DialogFrame>
+      {#snippet title()}Create review{/snippet}
+      {#snippet description()}
+        Publish a review for {reviewCommit}
+      {/snippet}
+      <form onsubmit={submitReview}>
+        <Field.Group>
+          <Field.Field>
+            <Field.Label for="log-review-title">Title</Field.Label>
+            <Input id="log-review-title" bind:value={reviewTitle} required />
+          </Field.Field>
+          <Field.Field>
+            <Field.Label for="log-review-body">Description</Field.Label>
+            <Input id="log-review-body" bind:value={reviewBody} />
+          </Field.Field>
+          {#if localError}<Field.Error>{localError}</Field.Error>{/if}
+        </Field.Group>
+        <Button type="submit" disabled={busy || !reviewTitle.trim()}>
+          {busy ? "Creating review…" : "Create review"}
+        </Button>
+      </form>
+    </DialogFrame>
+  </Dialog.Root>
 {/if}
 
 <style>

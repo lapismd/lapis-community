@@ -13,12 +13,19 @@ export type RepositoryLogPaneState = {
   readonly evologOpen: boolean;
   readonly selectedCommitId: string | null;
   readonly selectedChangeId: string | null;
+  readonly reviewCommitId: string | null;
+  readonly reviewEmpty: boolean;
+  readonly reviewMessage: string;
   readonly requestedCommitId: string | null | undefined;
   navigateToCommit(commitId: string | null): void;
   selectPane(pane: RepositoryLogPane): void;
   toggleEvolog(): void;
   setEvologOpen(open: boolean): void;
-  setLogSelection(commitId: string | null, changeId: string | null): void;
+  setLogSelection(
+    commitId: string | null,
+    changeId: string | null,
+    review?: { commitId?: string; empty?: boolean; message?: string },
+  ): void;
   reset(): void;
 };
 
@@ -31,6 +38,9 @@ export function createRepositoryLogPane(
   let evologOpen = $state(false);
   let selectedCommitId = $state<string | null>(null);
   let selectedChangeId = $state<string | null>(null);
+  let reviewCommitId = $state<string | null>(null);
+  let reviewEmpty = $state(false);
+  let reviewMessage = $state("");
 
   function selectPane(next: RepositoryLogPane): void {
     const changed = pane !== next;
@@ -39,6 +49,9 @@ export function createRepositoryLogPane(
       evologOpen = false;
       selectedCommitId = null;
       selectedChangeId = null;
+      reviewCommitId = null;
+      reviewEmpty = false;
+      reviewMessage = "";
     }
     if (changed) navigation.onSelectPane?.(next);
   }
@@ -62,6 +75,15 @@ export function createRepositoryLogPane(
     get selectedChangeId() {
       return selectedChangeId;
     },
+    get reviewCommitId() {
+      return reviewCommitId;
+    },
+    get reviewEmpty() {
+      return reviewEmpty;
+    },
+    get reviewMessage() {
+      return reviewMessage;
+    },
     selectPane,
     toggleEvolog(): void {
       this.setEvologOpen(!evologOpen);
@@ -69,15 +91,21 @@ export function createRepositoryLogPane(
     setEvologOpen(open: boolean): void {
       evologOpen = pane === "log" && Boolean(selectedCommitId) && open;
     },
-    setLogSelection(commitId: string | null, changeId: string | null): void {
+    setLogSelection(commitId, changeId, review): void {
       selectedCommitId = commitId;
       selectedChangeId = changeId;
+      reviewCommitId = review?.commitId ?? null;
+      reviewEmpty = review?.empty === true;
+      reviewMessage = review?.message ?? "";
       if (!commitId) evologOpen = false;
     },
     reset(): void {
       pane = "log";
       evologOpen = false;
       selectedCommitId = null;
+      reviewCommitId = null;
+      reviewEmpty = false;
+      reviewMessage = "";
       selectedChangeId = null;
     },
   };

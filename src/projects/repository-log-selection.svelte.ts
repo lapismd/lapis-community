@@ -73,7 +73,17 @@ export function createRepositoryLogSelection(options: {
       .graph()
       .revisions.find((row) => row.eventId === id);
     if (pane.pane === "log")
-      pane.setLogSelection(id, revision?.changeId ?? null);
+      pane.setLogSelection(
+        id,
+        revision?.changeId ?? null,
+        revision
+          ? {
+              ...(revision.commitId ? { commitId: revision.commitId } : {}),
+              empty: revision.empty,
+              message: revision.message,
+            }
+          : undefined,
+      );
     return loadFiles(revision?.commitId ?? id, revision?.empty === true);
   }
 

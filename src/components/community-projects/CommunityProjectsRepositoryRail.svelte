@@ -36,6 +36,8 @@
     githubDisabled = false,
     onGitHub,
     onSelect,
+    canMaintain = false,
+    onCreateReview,
   }: {
     surface: ProjectForgeSurface;
     channel?: string | undefined;
@@ -50,6 +52,12 @@
     githubDisabled?: boolean | undefined;
     onGitHub?: (() => void) | undefined;
     onSelect: (label: string) => void;
+    canMaintain?: boolean;
+    onCreateReview?: (input: {
+      title: string;
+      content: string;
+      commit: string;
+    }) => Promise<void> | void;
   } = $props();
 
   const latestSha = $derived(commits[0]?.sha ?? "");
@@ -82,7 +90,10 @@
 {/snippet}
 
 {#if surface === "log" || surface === "oplog"}
-  <CommunityProjectsRepositoryLogRail />
+  <CommunityProjectsRepositoryLogRail
+    {canMaintain}
+    {...onCreateReview ? { onCreateReview } : {}}
+  />
 {/if}
 {#if detailsOpen}
   {#if surface === "overview"}

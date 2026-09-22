@@ -3343,8 +3343,8 @@
       "forbiddenImportCount": 0
     },
     "src/components/community-projects/CommunityProjectsRepositoryLogRail.svelte": {
-      "countedLines": 68,
-      "physicalLines": 73,
+      "countedLines": 154,
+      "physicalLines": 160,
       "forbiddenImportCount": 0
     },
     "src/components/community-projects/CommunityProjectsRepositoryOverviewHeading.svelte": {
@@ -3368,8 +3368,8 @@
       "forbiddenImportCount": 0
     },
     "src/components/community-projects/CommunityProjectsRepositoryRail.svelte": {
-      "countedLines": 155,
-      "physicalLines": 163,
+      "countedLines": 166,
+      "physicalLines": 171,
       "forbiddenImportCount": 0
     },
     "src/components/community-projects/CommunityProjectsRepositoryRailLatest.svelte": {
@@ -3438,8 +3438,8 @@
       "forbiddenImportCount": 0
     },
     "src/components/community-projects/model.ts": {
-      "countedLines": 255,
-      "physicalLines": 285,
+      "countedLines": 256,
+      "physicalLines": 286,
       "forbiddenImportCount": 0
     },
     "src/components/community-projects/project-contributor-groups.ts": {
@@ -4752,13 +4752,13 @@
       "forbiddenImportCount": 0
     },
     "src/projects/repository-log-pane.svelte.ts": {
-      "countedLines": 86,
-      "physicalLines": 95,
+      "countedLines": 114,
+      "physicalLines": 123,
       "forbiddenImportCount": 0
     },
     "src/projects/repository-log-selection.svelte.ts": {
-      "countedLines": 151,
-      "physicalLines": 157,
+      "countedLines": 161,
+      "physicalLines": 161,
       "forbiddenImportCount": 0
     },
     "src/projects/repository-log.test.ts": {

@@ -123,7 +123,6 @@
     createProjectTaskAnchorTemplate,
     createProjectTemplate,
     createProjectReactionTemplate,
-    createPullRequestTemplate,
     createPullRequestReviewTemplate,
     createReviewRequestTemplate,
     createRepositoryTemplate,
@@ -175,6 +174,8 @@
     type PullRequestReviewKind,
     type PullRequestState,
   } from "../../projects/index.js";
+  import { canMaintainRepository } from "../community-projects/community-projects-permissions.js";
+  import { submitRepositoryPullRequest } from "../../projects/pull-request-publish.js";
   import {
     registryRouteFromDestination,
     registryRouteToDestination,
@@ -4162,8 +4163,6 @@
   async function createPullRequest(
     input: CommunityProjectsCreatePullRequest,
   ): Promise<void> {
-    const owner = input.repository.split(":")[1];
-    if (!owner) throw new Error("Repository owner is missing");
     const repository = projectCatalog.repositories.find(
       (candidate) => candidate.address.coordinate === input.repository,
     );
@@ -4174,32 +4173,30 @@
       repository.cloneUrls.find((url) => url.trim() !== "") ??
       (capabilities?.clone.available ? capabilities.clone.url : undefined);
     if (!cloneUrl) throw new Error("Repository clone information is missing");
-    await withProjectMutation("Creating pull request…", async (session) => {
-      const refs = await session.loadRefs(input.repository);
-      const branches = projectForgeBranchRefs(refs);
-      const base = branches.find(
-        (branch) => branch.name === input.targetBranch,
-      );
-      if (!base) throw new Error("The selected base branch no longer exists");
-      const compare = branches.find(
-        (branch) => branch.name === input.branchName,
-      );
-      if (!compare)
-        throw new Error("The selected compare branch no longer exists");
-      await session.publish(
-        createPullRequestTemplate({
-          repository: input.repository,
-          repositoryOwner: owner,
-          title: input.title,
-          content: input.content,
-          commit: compare.sha,
-          cloneUrls: [cloneUrl],
-          ...(input.branchName ? { branchName: input.branchName } : {}),
-          ...(input.targetBranch ? { targetBranch: input.targetBranch } : {}),
-        }),
-      );
+    await submitRepositoryPullRequest({
+      repository: input.repository,
+      title: input.title,
+      content: input.content,
+      cloneUrl,
+      ...(input.commit ? { commit: input.commit } : {}),
+      branchName: input.branchName,
+      targetBranch: input.targetBranch,
+      mutate: withProjectMutation,
     });
     toast.success("Pull request created");
+  }
+
+  function createReviewFromLog(input: {
+    title: string;
+    content: string;
+    commit: string;
+  }): Promise<void> {
+    return createPullRequest({
+      ...input,
+      repository: selectedRepository?.address.coordinate ?? "",
+      branchName: "",
+      targetBranch: "",
+    });
   }
 
   async function loadReviewRepositoryRefs(
@@ -6254,6 +6251,11 @@
             selectedRepository.address.coordinate,
           )}
           <CommunityProjectsRepositoryRail
+            canMaintain={canMaintainRepository(
+              allRooms,
+              selectedRepository.channelId,
+            )}
+            onCreateReview={createReviewFromLog}
             surface={activeRepositorySurface}
             channel={roomForProjectChannel(selectedRepository.channelId)
               ?.name ?? selectedRepository.channelId}

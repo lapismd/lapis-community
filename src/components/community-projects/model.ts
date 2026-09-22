@@ -90,6 +90,7 @@ export interface CommunityProjectsCreatePullRequest {
   content: string;
   branchName: string;
   targetBranch: string;
+  commit?: string;
 }
 
 export interface CommunityProjectsDialogRequest {
