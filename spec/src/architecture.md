@@ -9,6 +9,11 @@ For LC-UI-051, implicit mentions fold into the reply-summary avatar owner
 without growing `CommunityMessage.svelte`, and the extracted message metadata
 owner keeps that budget lowered in `scripts/architecture-baseline.json`.
 
+For LC-ARCH-011 and LC-ARCH-028, Turso driver import, connect, lock, and schema
+setup live in `turso-database-open` so `turso-event-store.ts` shrinks and the
+bounded open wait cannot grow that hotspot. The lowered store budget and new
+open-owner paths are recorded in `scripts/architecture-baseline.json`.
+
 LC-UI-049 public transcript interaction adapters and thread context projections stay in the component/project owners. Tool-name and command-envelope fixture coverage updates the path budgets in `scripts/architecture-baseline.json`. The thread projection reads the existing application-owned agent model through its shared context, keeping request-scoped owner Activity out of the thread panel and application composition hotspots. Shared application message actions preserve existing channel permission and publishing boundaries while keeping the application composition budget from growing.
 
 For LC-UI-049, repository context parsing, transient preview retention, activity grouping and commit routing live in separate project modules. Commit metadata and expandable context compose through their owning components. Agent context and Files changed share the commit-section disclosure component; its extraction lowers the Projects composition budget. Live context remains session memory, expires after five minutes and is discarded on teardown. Architecture budgets ratchet down after route and metadata extraction; bounded composition and fixture additions carry per-file justifications. Public allowlist owners map first-class plan, permission, and usage records and hide leftover lifecycle, extension, file, and command rows so the context-transcript budget drops after extraction. Public tool rows keep the invocation name and surface command or kind from the envelope.
@@ -137,7 +142,11 @@ transform as the package and Storybook client/worker pipelines. The transform
 preserves the embedded WASM bytes while normalizing URL and worker expressions
 before Vite scans them. A rendered shell or successful
 HTML request alone does not establish storage readiness: cold acceptance must
-load the database module and complete an OPFS open, query, and close.
+load the database module and complete an OPFS open, query, and close. Driver
+import and connect MUST fail closed after a bounded wait. A hung WASM worker or
+OPFS handle MUST release the owner lock, abandon a late database handle, and
+let the browser wrapper open IndexedDB or memory so controller restore cannot
+remain on an empty `restoring` shell.
 
 Registry’s built-in community composition may temporarily isolate the bounded
 discussion stream from plugin-detail presentation while earlier windows remain
@@ -643,7 +652,8 @@ IndexedDB and Turso migrations MUST retain event and agent records and initializ
 accounting from the existing cache. Failed transactions MUST NOT advance byte
 usage or coverage. Concurrent persistent-store opens MUST share initialization;
 closing or failed initialization MUST release the candidate database and its
-owner lock. Turso eviction MUST yield between bounded batches in its supported
+owner lock. A driver that does not become ready within that bounded wait is a
+failed initialization. Turso eviction MUST yield between bounded batches in its supported
 owner context.
 
 For LC-ARCH-011, private-event classification MUST be incremental and follow verified channel identities and event references, including children received before their parent. Ordinary private arrivals and duplicate replay MUST NOT restore or clear the entire public cache. Public reference-existence indexes MUST include both cached event IDs and their e/E parents and remain scoped to the relay/scope and audience.

@@ -1,6 +1,4 @@
 import {
-  initializeCacheAccounting,
-  initializeEventReferences,
   eventReferenceStatements,
   eventAccountingStatements,
   cachePageStatements,
@@ -8,6 +6,10 @@ import {
   clearCacheStatements,
   removeCachedEventStatements,
 } from "./cache-accounting-sql.js";
+import {
+  openTursoCommunityDatabase,
+  type TursoDatabase,
+} from "./turso-database-open.js";
 import {
   COMMUNITY_CACHE_METADATA_KINDS,
   cachedEventPage,
@@ -31,23 +33,7 @@ import {
   type CommunityEventStoreOptions,
 } from "./event-store.js";
 import { isVerifiedNostrEvent, verifiedNostrEvent } from "./verified-events.js";
-import {
-  createTursoAgentActivityStore,
-  initializeAgentArchiveDatabase,
-} from "./agent-archive-turso.js";
-
-interface TursoDatabase {
-  exec(sql: string): Promise<void>;
-  all<T extends Record<string, unknown>>(
-    sql: string,
-    ...parameters: unknown[]
-  ): Promise<T[]>;
-  batch(
-    statements: Array<{ sql: string; args?: unknown[] }>,
-    mode?: string,
-  ): Promise<unknown>;
-  close(): Promise<void>;
-}
+import { createTursoAgentActivityStore } from "./agent-archive-turso.js";
 
 interface TursoEventRow extends Record<string, unknown> {
   raw_json: string;
@@ -66,6 +52,7 @@ interface TursoCheckpointRow extends Record<string, unknown> {
 export interface TursoCommunityEventStoreOptions
   extends CommunityEventStoreOptions {
   databaseName?: string;
+  openTimeoutMs?: number;
 }
 
 const DEFAULT_MAX_BYTES = 64 * 1_024 * 1_024;
@@ -94,6 +81,7 @@ class TursoCommunityEventStore extends BaseCommunityEventStore {
   readonly mode = "turso-opfs" as const;
   readonly #databaseName: string;
   readonly #maxBytes: number;
+  readonly #openTimeoutMs: number | undefined;
   #database: TursoDatabase | undefined;
   #opening: Promise<void> | undefined;
   #releaseLock: (() => void) | undefined;
@@ -103,6 +91,7 @@ class TursoCommunityEventStore extends BaseCommunityEventStore {
     this.#databaseName =
       options.databaseName ?? "lapismd-community-event-cache-v1.db";
     this.#maxBytes = options.maxBytes ?? DEFAULT_MAX_BYTES;
+    this.#openTimeoutMs = options.openTimeoutMs;
   }
 
   open(): Promise<void> {
@@ -118,108 +107,14 @@ class TursoCommunityEventStore extends BaseCommunityEventStore {
     if (!canUseTursoCommunityEventStore()) {
       throw new Error("Turso requires OPFS and cross-origin isolation");
     }
-    this.#releaseLock = await acquireDatabaseLock(this.#databaseName);
-    try {
-      // The package's prebuilt browser bundle keeps its WASM worker graph
-      // self-contained. The Vite development entry currently initializes an
-      // incomplete emnapi worker pool and fails while reading `whenLoaded`.
-      const { connect } = (await import(
-        "@tursodatabase/database-wasm/bundle" as string
-      )) as { connect(path: string): Promise<TursoDatabase> };
-      this.#database = await connect(this.#databaseName);
-      await initializeAgentArchiveDatabase(this.#database);
-      await this.#database.exec(`
-        CREATE TABLE IF NOT EXISTS community_events (
-          cache_key TEXT PRIMARY KEY,
-          scope_key TEXT NOT NULL,
-          partition_key TEXT NOT NULL,
-          event_id TEXT NOT NULL,
-          relay_url TEXT NOT NULL,
-          room_id TEXT,
-          created_at INTEGER NOT NULL,
-          last_accessed_at INTEGER NOT NULL,
-          bytes INTEGER NOT NULL,
-          raw_json TEXT NOT NULL
-        );
-        CREATE INDEX IF NOT EXISTS community_events_partition_idx
-          ON community_events(partition_key, created_at, event_id);
-        CREATE INDEX IF NOT EXISTS community_events_kind_idx ON community_events(partition_key, json_extract(raw_json, '$.kind'), created_at, event_id);
-        CREATE INDEX IF NOT EXISTS community_events_room_kind_idx ON community_events(partition_key, room_id, json_extract(raw_json, '$.kind'), created_at, event_id);
-        CREATE INDEX IF NOT EXISTS community_events_access_idx
-          ON community_events(last_accessed_at);
-        CREATE TABLE IF NOT EXISTS community_history_pages (
-          cache_key TEXT PRIMARY KEY, scope_key TEXT NOT NULL, raw_json TEXT NOT NULL, bytes INTEGER NOT NULL
-        );
-        CREATE INDEX IF NOT EXISTS community_history_pages_scope_idx ON community_history_pages(scope_key);
-        CREATE TABLE IF NOT EXISTS community_checkpoints (
-          cache_key TEXT PRIMARY KEY,
-          scope_key TEXT NOT NULL,
-          relay_url TEXT NOT NULL,
-          stream TEXT NOT NULL,
-          created_at INTEGER NOT NULL,
-          synchronized_at INTEGER NOT NULL,
-          cursor_event_id TEXT,
-          complete INTEGER
-        );
-        CREATE INDEX IF NOT EXISTS community_checkpoints_scope_idx
-          ON community_checkpoints(scope_key);
-      `);
-      await initializeCacheAccounting(this.#database);
-      await initializeEventReferences(this.#database);
-      // Add the room index without discarding caches written before room_id was
-      // populated. Keep decoding and writes bounded in the database owner.
-      let afterKey = "";
-      for (;;) {
-        const legacy = await this.#database.all<{
-          cache_key: string;
-          raw_json: string;
-        }>(
-          "SELECT cache_key, raw_json FROM community_events WHERE room_id IS NULL AND cache_key > ? ORDER BY cache_key LIMIT 100",
-          afterKey,
-        );
-        if (!legacy.length) break;
-        const updates = legacy.flatMap((row) => {
-          try {
-            const event = JSON.parse(row.raw_json) as { tags?: string[][] };
-            const room = event.tags?.find((tag) => tag[0] === "h")?.[1];
-            return room
-              ? [
-                  {
-                    sql: "UPDATE community_events SET room_id = ? WHERE cache_key = ?",
-                    args: [room, row.cache_key],
-                  },
-                ]
-              : [];
-          } catch {
-            return [];
-          }
-        });
-        if (updates.length) await this.#database.batch(updates, "write");
-        afterKey = legacy.at(-1)!.cache_key;
-        if (legacy.length < 100) break;
-        await new Promise<void>((resolve) => setTimeout(resolve, 0));
-      }
-      try {
-        await this.#database.exec(
-          "ALTER TABLE community_checkpoints ADD COLUMN cursor_event_id TEXT",
-        );
-      } catch {
-        // Existing databases may already contain the additive cursor column.
-      }
-      try {
-        await this.#database.exec(
-          "ALTER TABLE community_checkpoints ADD COLUMN complete INTEGER",
-        );
-      } catch {
-        // Existing databases may already contain the additive completion column.
-      }
-    } catch (cause) {
-      await this.#database?.close().catch(() => undefined);
-      this.#database = undefined;
-      this.#releaseLock?.();
-      this.#releaseLock = undefined;
-      throw cause;
-    }
+    const opened = await openTursoCommunityDatabase({
+      databaseName: this.#databaseName,
+      ...(this.#openTimeoutMs === undefined
+        ? {}
+        : { openTimeoutMs: this.#openTimeoutMs }),
+    });
+    this.#database = opened.database;
+    this.#releaseLock = opened.releaseLock;
   }
 
   async restore(
@@ -511,32 +406,6 @@ function checkpointStatement(
       checkpoint.complete === undefined ? null : checkpoint.complete ? 1 : 0,
     ],
   };
-}
-
-async function acquireDatabaseLock(name: string): Promise<() => void> {
-  let release: (() => void) | undefined;
-  let resolveAcquired!: () => void;
-  let rejectAcquired!: (cause: unknown) => void;
-  const acquired = new Promise<void>((resolve, reject) => {
-    resolveAcquired = resolve;
-    rejectAcquired = reject;
-  });
-  void navigator.locks.request(
-    `lapismd-community:${name}`,
-    { ifAvailable: true, mode: "exclusive" },
-    async (lock) => {
-      if (lock === null) {
-        rejectAcquired(new Error("Community cache is open in another tab"));
-        return;
-      }
-      resolveAcquired();
-      await new Promise<void>((resolve) => {
-        release = resolve;
-      });
-    },
-  );
-  await acquired;
-  return () => release?.();
 }
 
 function normalizeRelayUrl(value: string): string {

@@ -1181,9 +1181,19 @@
       "physicalLines": 24,
       "forbiddenImportCount": 0
     },
+    "src/community/turso-database-open.test.ts": {
+      "countedLines": 93,
+      "physicalLines": 107,
+      "forbiddenImportCount": 0
+    },
+    "src/community/turso-database-open.ts": {
+      "countedLines": 204,
+      "physicalLines": 218,
+      "forbiddenImportCount": 0
+    },
     "src/community/turso-event-store.ts": {
-      "countedLines": 514,
-      "physicalLines": 548,
+      "countedLines": 392,
+      "physicalLines": 417,
       "forbiddenImportCount": 0,
       "kind": "legacy",
       "justification": "Existing file above the new-file counted-line limit; do not grow"

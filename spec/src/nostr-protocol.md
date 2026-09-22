@@ -322,6 +322,9 @@ its complete worker pool; verified event envelopes remain the only values passed
 into the shared runtime projection.
 Multiple Community runtimes in that owner context share the same disposable
 cache connection and cannot change event authority or verification semantics.
+If that driver import or connect does not become ready within a bounded wait,
+the opener MUST fail closed, release the owner lock, and continue with
+IndexedDB or memory so restore cannot remain on an empty `restoring` shell.
 
 When materializing NIP-29 kind `9` messages or validated, decrypted NIP-17
 rumors, the read model MAY preserve unique `p` and `P` tag values as mention
