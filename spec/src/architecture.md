@@ -495,7 +495,9 @@ Existing passkeys bound to `community.localhost` require new enrollment or
 explicit import; domains are never silently rewritten. External gateways
 still require related-origin authorization.
 
-Vite binds port 7036 strictly, permits only its configured public host, emits
+The persistent `lapis-local-dev` lifecycle is owned by the sibling
+`community-local` CLI. This package does not ship lifecycle aliases. Vite
+binds port 7036 strictly, permits only its configured public host, emits
 assets at that HTTPS origin, and connects HMR with WSS on port 443. Browser
 relay requests remain direct so credentialed CORS is exercised. Existing
 worker/WASM transforms and isolation headers remain enabled. The supervisor

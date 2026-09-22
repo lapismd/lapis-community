@@ -92,18 +92,18 @@ pnpm smoke:local
 pnpm test:auth:docker
 ```
 
-For live application debugging without Storybook, start the local relay stack
-and the dedicated Vite surface:
+For live application debugging without Storybook, start the persistent cluster
+from the sibling `community-local` checkout, then the dedicated Vite surface:
 
 ```sh
-pnpm local:up
+community-local up
 pnpm dev:community
 ```
 
 The app opens at `http://community.localhost:7036`, connects to
 `ws://registry.localhost:8281`, discovers public rooms, and uses Vite HMR. Its
 Registry and Projects views read the live signed catalog, discussions, and
-NIP-34 project graph from that stack. `local:up` keeps WalGit and RustFS private
+NIP-34 project graph from that stack. `community-local up` keeps WalGit and RustFS private
 behind the relay, seeds one hosted repository plus a project task anchor, and
 does not give the browser a sidecar credential or require a local Git checkout.
 The Vite config loads only the public curator and publisher keys from
@@ -195,15 +195,20 @@ Run `pnpm ui:catalog` before adding UI. The [catalog](src/components/ui-catalog.
 
 ### Unified local Community
 
-Use `pnpm local:init`, `pnpm local:capture-github`, `pnpm local:tunnel:setup`,
-`pnpm local:build`, then `pnpm local:up`. Infrastructure and lifecycle are owned
-by the sibling relay repository. The normal environment uses one persistent
-Docker relay and centralized credentials under `~/.lapis/community`; originals
-under `~/.lapis/relay` remain unchanged. Vite reads only `public.env`'s approved
-browser fields, binds port 7036, and uses the public HTTPS Community origin with
-WSS HMR and direct relay requests.
+The persistent cluster is owned by the sibling `community-local` CLI:
 
-See [the relay setup and provider runbook](../nostr-relay/spec/src/operations/local-community.md)
+```sh
+community-local init
+community-local build
+community-local up
+```
+
+Credentials and Compose state live in that checkout's gitignored `.local/`
+directory. This package does not ship lifecycle aliases. Vite reads only
+`public.env`'s approved browser fields, binds port 7036, and uses the public
+HTTPS Community origin with WSS HMR and direct relay requests.
+
+See [the community-local operations chapter](../community-local/spec/src/operations.md)
 for callbacks, tunnel routing, provider files, safe reset/recovery, and pending
 live acceptance. The frozen 13-plugin fixture is included in the repository;
 `pnpm fixture:freeze` is the explicit maintainer operation that refreshes it.

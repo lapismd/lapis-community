@@ -13,13 +13,14 @@ The fixture creates an ignored, mode-`0600` reader key file. The materializer
 uses that non-authoritative identity for the relay's required NIP-42 handshake;
 the key is never written into the projection or Compose environment.
 
-Run:
+The persistent cluster is the sibling `community-local` CLI. Disposable
+relay-to-site acceptance stays in this package:
 
 ```sh
 pnpm local:validate
-pnpm local:up
-# open http://localhost:4321/
-pnpm local:down
+community-local up
+# open the site with: community-local site
+community-local down
 ```
 
 For a clean acceptance run use `pnpm smoke:local`. It allocates isolated ports,
