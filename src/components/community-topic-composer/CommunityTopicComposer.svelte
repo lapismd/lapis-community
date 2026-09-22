@@ -7,7 +7,7 @@
     CommunityCustomEmoji,
     CommunityTopicDraft,
   } from "../../community/index.js";
-  import CommunityChatComposer from "../community-chat-composer/CommunityChatComposer.svelte";
+  import CommunityTopicComposerEditor from "./CommunityTopicComposerEditor.svelte";
   import type {
     CommunityMemberModel,
     CommunityRoomModel,
@@ -57,25 +57,11 @@
       ?.focus();
   }
 
-  function cancel(): void {
-    open = false;
-    content = "";
-  }
-
-  async function publish(value: string): Promise<void> {
-    const normalized = value.trim();
-    if (!normalized || pending) return;
+  async function publish(draft: CommunityTopicDraft): Promise<void> {
+    if (pending) return;
     pending = true;
     try {
-      const firstLine = normalized.split(/\r?\n/u)[0] ?? normalized;
-      await onPublish({
-        title:
-          firstLine.length > 120
-            ? `${firstLine.slice(0, 119).trimEnd()}…`
-            : firstLine,
-        content: normalized,
-        tags: [],
-      });
+      await onPublish(draft);
       open = false;
     } finally {
       pending = false;
@@ -89,26 +75,24 @@
   data-ui-component="community-topic-composer"
 >
   {#if expanded}
-    <CommunityChatComposer
-      bind:ref={composer}
-      bind:value={content}
+    <CommunityTopicComposerEditor
+      bind:open
+      bind:content
+      bind:composer
+      {forumName}
       {members}
       {rooms}
       {communityEmojis}
-      {...currentMemberId === undefined ? {} : { currentMemberId }}
       {disabled}
       {disabledReason}
-      busy={pending}
-      ariaLabel={`New post in ${forumName}`}
-      submitLabel="Publish post"
-      placeholder="Write your post…"
+      {pending}
+      onPublish={publish}
+      {...currentMemberId === undefined ? {} : { currentMemberId }}
       {...composerStatus === undefined ? {} : { composerStatus }}
       {...onRetryComposerStatus === undefined ? {} : { onRetryComposerStatus }}
       {...onDismissComposerStatus === undefined
         ? {}
         : { onDismissComposerStatus }}
-      onCancel={cancel}
-      onSubmit={(submission) => publish(submission.content)}
     />
   {:else}
     <Button

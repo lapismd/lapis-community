@@ -1,9 +1,7 @@
 <script lang="ts">
-  import { observeReadEnd } from "./observe-read-end.js";
   import { conversationKey } from "../../community/conversations.js";
   import type { ComposerStatus } from "@lapismd/design-core/ai/chat";
   import { Button } from "@lapismd/design-core/shadcn/button";
-  import { ScrollArea } from "@lapismd/design-core/shadcn/scroll-area";
   import { Skeleton } from "@lapismd/design-core/shadcn/skeleton";
   import ArrowLeftIcon from "@lucide/svelte/icons/arrow-left";
   import HashIcon from "@lucide/svelte/icons/hash";
@@ -30,8 +28,7 @@
     CommunityTimelinePresentation,
     CommunityTimelinePosition,
   } from "../../community/index.js";
-  import ForumTopicList from "../forum-topic-list/ForumTopicList.svelte";
-  import CommunityHistoryEdge from "../community-history-edge/CommunityHistoryEdge.svelte";
+  import CommunityWorkspaceForumIndex from "./CommunityWorkspaceForumIndex.svelte";
   import type {
     CommunityWorkspaceHandlers,
     CommunityWorkspaceModel,
@@ -141,7 +138,6 @@
       ? onDismissOperation
       : undefined,
   );
-  let forumViewport = $state<HTMLElement | null>(null);
   const readBoundary = $derived.by(() => {
     const windowed = history !== undefined || virtualize;
     const threadId =
@@ -410,6 +406,10 @@
   </section>
 {/snippet}
 
+{#snippet forumEmptyState()}
+  {@render roomIntro("forum")}
+{/snippet}
+
 {#snippet directMessageIntro()}
   <section
     class="community-workspace-surface__intro community-workspace-surface__intro--direct"
@@ -541,78 +541,34 @@
       {/if}
     </div>
   {:else if model.view === "forum-index"}
-    <ScrollArea
-      bind:viewportRef={forumViewport}
-      type="hover"
-      orientation="vertical"
-      class="community-workspace-surface__forum-scroll-shell"
-      data-community-part="forum-scroll-shell"
-    >
-      <ForumTopicList
-        title={activeRoom.name}
-        topics={model.topics}
-        members={model.members}
-        {rooms}
-        {communityEmojis}
-        {...model.currentMemberId === undefined
-          ? {}
-          : { currentMemberId: model.currentMemberId }}
-        {...handlers.onOpenTopic === undefined
-          ? {}
-          : { onOpenTopic: handlers.onOpenTopic }}
-        {...handlers.onOpenProfile === undefined
-          ? {}
-          : { onOpenProfile: handlers.onOpenProfile }}
-        {...handlers.onMessageMember === undefined
-          ? {}
-          : { onMessageMember: handlers.onMessageMember }}
-        {...handlers.onWaveMember === undefined
-          ? {}
-          : { onWaveMember: handlers.onWaveMember }}
-        {...knownNonmember || handlers.onCreateTopic === undefined
-          ? {}
-          : {
-              onCreateTopic: (draft) =>
-                Promise.resolve(handlers.onCreateTopic?.(activeRoom.id, draft)),
-            }}
-        disabled={surfaceReadOnly}
-        {readOnlyReason}
-        {...composerStatus === undefined ? {} : { composerStatus }}
-        {...retryComposerOperation === undefined
-          ? {}
-          : { onRetryComposerStatus: retryComposerOperation }}
-        {...dismissComposerOperation === undefined
-          ? {}
-          : { onDismissComposerStatus: dismissComposerOperation }}
-        canDeleteTopic={(topic) =>
-          topic.authorId === model.currentMemberId ||
-          activeRoom.permissions?.delete.state === "enabled"}
-        {historyUpdating}
-        {...handlers.onTopicAction === undefined
-          ? {}
-          : { onTopicAction: handlers.onTopicAction }}
-      >
-        {#snippet emptyState()}
-          {@render roomIntro("forum")}
-        {/snippet}
-      </ForumTopicList>
-      {#if history && onLoadOlder}
-        <CommunityHistoryEdge
-          {history}
-          onLoad={onLoadOlder}
-          label="Load earlier topics"
-          viewport={forumViewport}
-        />
-      {/if}
-      <div
-        use:observeReadEnd={readBoundary}
-        data-ui-part="read-boundary"
-        style="height: 1px;"
-      ></div>
-    </ScrollArea>
-    {#if knownNonmember}
-      {@render roomMembershipFooter()}
-    {/if}
+    <CommunityWorkspaceForumIndex
+      communityId={model.activeCommunityId}
+      room={activeRoom}
+      {...model.currentMemberId === undefined
+        ? {}
+        : { currentMemberId: model.currentMemberId }}
+      topics={model.topics}
+      members={model.members}
+      {rooms}
+      {communityEmojis}
+      {handlers}
+      {knownNonmember}
+      disabled={surfaceReadOnly}
+      {readOnlyReason}
+      {...composerStatus === undefined ? {} : { composerStatus }}
+      {...retryComposerOperation === undefined
+        ? {}
+        : { onRetryComposerStatus: retryComposerOperation }}
+      {...dismissComposerOperation === undefined
+        ? {}
+        : { onDismissComposerStatus: dismissComposerOperation }}
+      {historyUpdating}
+      {...history === undefined ? {} : { history }}
+      {...onLoadOlder === undefined ? {} : { onLoadOlder }}
+      {readBoundary}
+      emptyState={forumEmptyState}
+      {...knownNonmember ? { membershipFooter: roomMembershipFooter } : {}}
+    />
   {:else}
     <CommunityConversation
       {virtualize}

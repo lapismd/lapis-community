@@ -3853,8 +3853,8 @@
       "justification": "Existing file above the new-file counted-line limit; do not grow"
     },
     "src/components/community-workspace/CommunityWorkspaceSurface.svelte": {
-      "countedLines": 969,
-      "physicalLines": 1030,
+      "countedLines": 924,
+      "physicalLines": 986,
       "forbiddenImportCount": 0,
       "kind": "legacy",
       "justification": "Existing file above the new-file counted-line limit; do not grow"
