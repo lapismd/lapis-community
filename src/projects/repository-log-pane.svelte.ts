@@ -1,12 +1,11 @@
 import { getContext, setContext } from "svelte";
 
-import { projectSurfaceTitle } from "./project-rail.js";
-
 export type RepositoryLogPane = "log" | "oplog";
 
 export type RepositoryLogNavigation = {
   requestedCommitId?(): string | null | undefined;
   onSelectCommit?(commitId: string | null): void;
+  onSelectPane?(pane: RepositoryLogPane): void;
 };
 
 export type RepositoryLogPaneState = {
@@ -34,12 +33,14 @@ export function createRepositoryLogPane(
   let selectedChangeId = $state<string | null>(null);
 
   function selectPane(next: RepositoryLogPane): void {
+    const changed = pane !== next;
     pane = next;
     if (next === "oplog") {
       evologOpen = false;
       selectedCommitId = null;
       selectedChangeId = null;
     }
+    if (changed) navigation.onSelectPane?.(next);
   }
 
   return {
@@ -91,8 +92,4 @@ export function provideRepositoryLogPane(
 
 export function useRepositoryLogPane(): RepositoryLogPaneState | undefined {
   return getContext<RepositoryLogPaneState | undefined>(paneContextKey);
-}
-
-export function repositoryOverviewTitle(surface: string, name: string): string {
-  return projectSurfaceTitle(surface, name);
 }

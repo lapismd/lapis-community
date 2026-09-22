@@ -4,40 +4,19 @@ import {
   provideRepositoryLogPane,
 } from "../../projects/repository-log-pane.svelte.js";
 import type { CommunityApplicationLocation } from "./navigation.js";
+import { logPaneNavigation, repositoryLogRoute } from "./project-log-route.js";
 
-/** Keep the Log renderer independent of application and browser routing. */
 export function provideProjectLogNavigation(
   location: () => CommunityApplicationLocation,
   navigate: (location: CommunityApplicationLocation) => void,
 ) {
   const pane = provideRepositoryLogPane(
-    createRepositoryLogPane({
-      requestedCommitId() {
-        const route = location().projectRoute;
-        return route?.kind === "repository" && route.surface === "log"
-          ? (route.commitSha ?? null)
-          : undefined;
-      },
-      onSelectCommit(commitId) {
-        const current = location();
-        const route = current.projectRoute;
-        if (route?.kind !== "repository" || route.surface !== "log") return;
-        if ((route.commitSha ?? null) === commitId) return;
-        const { commitSha: _previous, ...base } = route;
-        navigate({
-          ...current,
-          projectRoute: {
-            ...base,
-            ...(commitId ? { commitSha: commitId } : {}),
-          },
-        });
-      },
-    }),
+    createRepositoryLogPane(logPaneNavigation(location, navigate)),
   );
   $effect(() => {
-    const route = location().projectRoute;
-    if (route?.kind === "repository" && route.surface === "log")
-      untrack(() => pane.selectPane("log"));
+    const route = repositoryLogRoute(location());
+    if (route && pane.pane !== route.surface)
+      untrack(() => pane.selectPane(route.surface));
   });
   return pane;
 }

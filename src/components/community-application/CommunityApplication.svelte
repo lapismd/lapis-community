@@ -9,6 +9,13 @@
     locationForProjectDestination,
   } from "./project-commit-route.js";
   import { projectRouteCommit, repositoryRouteState } from "./project-route.js";
+  import {
+    applicationRoomKind,
+    locationFromHash,
+    syncBrowserApplicationLocation,
+  } from "./application-location-hash.js";
+  import { provideForumTopicSync } from "./application-forum-hash.svelte.js";
+  import { projectViewForSurface } from "./project-log-route.js";
   import { parseNip29ReleaseEvent } from "../../protocol/index.js";
   import {
     conversationHash,
@@ -168,7 +175,6 @@
   } from "../../projects/index.js";
   import {
     registryRouteFromDestination,
-    registryRouteFromHash,
     registryRouteToDestination,
     registryRouteToHash,
     type RegistryCatalogEntry,
@@ -277,8 +283,6 @@
     COMMUNITY_APPLICATION_SHELL_LAYOUT_STORAGE_KEY,
     COMMUNITY_APPLICATION_RELEASE_OVERVIEW_PANEL_ID,
     COMMUNITY_APPLICATION_PROJECT_OVERVIEW_PANEL_ID,
-    agentLocationFromHash,
-    agentLocationToHash,
     communityApplicationLocationsEqual,
     communityApplicationPanelKey,
     createCommunityApplicationHistory,
@@ -294,7 +298,6 @@
     isProjectDestination,
     projectCoordinateFromDestination,
     projectDestinationFromCoordinate,
-    projectRouteFromHash,
     projectRouteToHash,
     type CommunityApplicationDestination,
     type CommunityApplicationHistory,
@@ -460,39 +463,15 @@
         registryRouteFromDestination(initialDestination) !== null
           ? "inbox"
           : initialDestination;
-      const agentRoute =
-        typeof window === "undefined"
-          ? null
-          : agentLocationFromHash(window.location.hash);
-      if (agentRoute) return agentRoute;
       const persisted = loadCommunityApplicationLocation(browserStorage);
-      const projectHashRoute =
+      const hashLocation =
         typeof window === "undefined"
           ? null
-          : projectRouteFromHash(window.location.hash);
-      if (
-        hasProjects &&
-        typeof window !== "undefined" &&
-        window.location.hash === "#/projects"
-      ) {
-        return {
-          destination: "projects",
-          panel: noCommunityApplicationPanel(),
-        };
-      }
-      if (hasProjects && projectHashRoute !== null) {
-        return locationForProjectRoute(projectHashRoute);
-      }
-      const registryHashRoute =
-        typeof window === "undefined"
-          ? null
-          : registryRouteFromHash(window.location.hash);
-      if (hasRegistry && registryHashRoute !== null) {
-        return {
-          destination: registryRouteToDestination(registryHashRoute),
-          panel: noCommunityApplicationPanel(),
-        };
-      }
+          : locationFromHash(window.location.hash, {
+              hasProjects,
+              hasRegistry,
+            });
+      if (hashLocation) return hashLocation;
       if (
         persisted !== null &&
         (hasRegistry ||
@@ -860,6 +839,11 @@
     onWaveMember: () => waveMember,
   });
   provideProjectLogNavigation(() => applicationLocation, pushLocation);
+  provideForumTopicSync(
+    () => applicationLocation,
+    () => allRooms,
+    (topicId) => community.actions.openTopic(topicId),
+  );
   const startupDestinationRoom = $derived(
     communityStartupPending
       ? allRooms.find((room) => room.id === activeDestination)
@@ -3241,7 +3225,11 @@
 
       if (next.panel.kind === "thread") {
         community.actions.clearReplyTarget();
-        community.actions.openThread(next.panel.rootMessageId);
+        const forum =
+          allRooms.find((room) => room.id === next.panel.roomId)?.kind ===
+          "forum";
+        if (forum) community.actions.openTopic(next.panel.rootMessageId);
+        else community.actions.openThread(next.panel.rootMessageId);
       } else if (
         next.panel.kind === "details" &&
         next.panel.roomId !== inbox.room.id
@@ -3297,123 +3285,39 @@
     replaceBrowserLocation(next);
   }
 
+  function browserHashContext() {
+    return {
+      roomKind: (destination: string) =>
+        applicationRoomKind(destination, allRooms),
+    };
+  }
+
   function pushBrowserLocation(location: CommunityApplicationLocation): void {
-    if (typeof window === "undefined") return;
-    const agentHash = agentLocationToHash(location);
-    if (agentHash !== null) {
-      if (window.location.hash !== agentHash)
-        window.history.pushState(null, "", agentHash);
-      return;
-    }
-    if (location.projectRoute !== undefined) {
-      const hash = projectRouteToHash(location.projectRoute);
-      if (window.location.hash !== hash)
-        window.history.pushState(null, "", hash);
-      return;
-    }
-    if (location.destination === "projects") {
-      if (window.location.hash !== "#/projects")
-        window.history.pushState(null, "", "#/projects");
-      return;
-    }
-    const route = registryRouteFromDestination(location.destination);
-    if (route === null) {
-      clearBrowserApplicationLocation("push");
-      return;
-    }
-    const hash = registryRouteToHash(route);
-    if (window.location.hash !== hash) window.history.pushState(null, "", hash);
+    syncBrowserApplicationLocation(location, "push", browserHashContext());
   }
 
   function replaceBrowserLocation(
     location: CommunityApplicationLocation,
   ): void {
-    if (typeof window === "undefined") return;
-    const agentHash = agentLocationToHash(location);
-    if (agentHash !== null) {
-      if (window.location.hash !== agentHash)
-        window.history.replaceState(null, "", agentHash);
-      return;
-    }
-    if (location.projectRoute !== undefined) {
-      const hash = projectRouteToHash(location.projectRoute);
-      if (window.location.hash !== hash)
-        window.history.replaceState(null, "", hash);
-      return;
-    }
-    if (location.destination === "projects") {
-      if (window.location.hash !== "#/projects")
-        window.history.replaceState(null, "", "#/projects");
-      return;
-    }
-    const route = registryRouteFromDestination(location.destination);
-    if (route === null) {
-      clearBrowserApplicationLocation("replace");
-      return;
-    }
-    const hash = registryRouteToHash(route);
-    if (window.location.hash !== hash)
-      window.history.replaceState(null, "", hash);
-  }
-
-  function clearBrowserApplicationLocation(mode: "push" | "replace"): void {
-    if (
-      agentLocationFromHash(window.location.hash) === null &&
-      registryRouteFromHash(window.location.hash) === null &&
-      projectRouteFromHash(window.location.hash) === null &&
-      window.location.hash !== "#/projects" &&
-      !window.location.hash.startsWith("#post-")
-    ) {
-      return;
-    }
-    const url = `${window.location.pathname}${window.location.search}`;
-    if (mode === "push") window.history.pushState(null, "", url);
-    else window.history.replaceState(null, "", url);
+    syncBrowserApplicationLocation(location, "replace", browserHashContext());
   }
 
   onMount(() => {
-    if (activeDestination === "agents")
-      replaceBrowserLocation(applicationLocation);
+    replaceBrowserLocation(applicationLocation);
     const applyBrowserLocation = () => {
-      const agentRoute = agentLocationFromHash(window.location.hash);
-      if (agentRoute) {
-        replaceLocation(agentRoute);
+      const next = locationFromHash(window.location.hash, {
+        hasProjects,
+        hasRegistry,
+        legacyRegistryRoute: registryRoute,
+      });
+      if (
+        !next ||
+        communityApplicationLocationsEqual(next, applicationLocation)
+      )
         return;
-      }
-      if (window.location.hash === "#/projects" && hasProjects) {
-        const location = {
-          destination: "projects",
-          panel: noCommunityApplicationPanel(),
-        } satisfies CommunityApplicationLocation;
-        if (
-          !communityApplicationLocationsEqual(location, applicationLocation)
-        ) {
-          replaceLocation(location);
-        }
-        return;
-      }
-      const projectRoute = projectRouteFromHash(window.location.hash);
-      if (projectRoute !== null && hasProjects) {
-        const location = locationForProjectRoute(projectRoute);
-        if (
-          !communityApplicationLocationsEqual(location, applicationLocation)
-        ) {
-          replaceLocation(location);
-        }
-        return;
-      }
-      let route = registryRouteFromHash(window.location.hash);
-      if (route === null && window.location.hash.startsWith("#post-")) {
-        const postId = window.location.hash.slice("#post-".length);
-        route =
-          registryRoute.page === "plugin" && /^[0-9a-f]{64}$/u.test(postId)
-            ? { ...registryRoute, view: "reviews", postId }
-            : null;
-      }
-      if (route === null || !hasRegistry) return;
-      const destination = registryRouteToDestination(route);
-      if (destination === activeDestination) return;
-      setDestination(destination, false);
+      if (registryRouteFromDestination(next.destination))
+        setDestination(next.destination, false);
+      else replaceLocation(next);
     };
     window.addEventListener("hashchange", applyBrowserLocation);
     window.addEventListener("popstate", applyBrowserLocation);
@@ -7205,7 +7109,7 @@
     {:else if isProjectsDestination}
       <CommunityProjects
         view={selectedRepository
-          ? activeRepositorySurface
+          ? projectViewForSurface(activeRepositorySurface)
           : selectedProject
             ? activeProjectSurface
             : projectsOverviewSurface}

@@ -380,7 +380,8 @@ hashes are presentation routing for Community location, not a new Nostr
 event type. Build, parse, and normalize of those URIs live in
 `community-links` / `community-link-normalize`. Inbound `nostr:nevent`
 permalinks remain accepted as ordinary Nostr links and are not Community
-entity chips.
+entity chips. Repository Op Log is a first-class project surface in
+presentation routing only.
 
 For LC-ARCH-023, Nostr account login signs kind `27235` over the relay's exact
 login URL, `POST` method, and SHA-256 digest of the challenge body. A restored

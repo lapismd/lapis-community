@@ -1,7 +1,7 @@
 <script lang="ts">
   import type { Snippet } from "svelte";
 
-  import { repositoryOverviewTitle } from "../../projects/repository-log-pane.svelte.js";
+  import { projectSurfaceTitle } from "../../projects/project-rail.js";
   import CommunityProjectsRepositoryLogRail from "./CommunityProjectsRepositoryLogRail.svelte";
 
   let {
@@ -19,7 +19,7 @@
   <CommunityProjectsRepositoryLogRail />
 {:else}
   <div class="community-application__project-overview-heading">
-    <strong>{repositoryOverviewTitle(surface, name)}</strong>
+    <strong>{projectSurfaceTitle(surface, name)}</strong>
     {@render plus?.()}
   </div>
 {/if}
