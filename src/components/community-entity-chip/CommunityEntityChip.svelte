@@ -8,9 +8,11 @@
   let {
     link,
     label,
+    class: className = "",
   }: {
     link: CommunityEntityLink;
     label?: string;
+    class?: string;
   } = $props();
 
   const navigation = useCommunityEntityNavigation();
@@ -21,6 +23,7 @@
 </script>
 
 <CommunityChip
+  class={className}
   variant="muted"
   size="inline"
   ariaLabel={text}

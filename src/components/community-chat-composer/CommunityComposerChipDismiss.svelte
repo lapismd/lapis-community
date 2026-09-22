@@ -12,7 +12,7 @@
 
 <button
   type="button"
-  class="community-composer-chip-dismiss"
+  class="community-composer-token-dismiss"
   data-ui-part="composer-chip-dismiss"
   aria-label={`Remove ${label}`}
   onmousedown={(event) => {
@@ -29,28 +29,27 @@
 </button>
 
 <style>
-  .community-composer-chip-dismiss {
+  .community-composer-token-dismiss {
     display: inline-grid;
-    width: 1em;
-    height: 1em;
+    width: 1.2em;
+    min-height: 100%;
     flex: none;
     place-items: center;
-    padding: 0;
+    padding: 0 0.12em 0 0.16em;
     border: 0;
-    border-radius: 50%;
+    border-radius: 0;
     background: transparent;
+    box-shadow: inset 1px 0 0 color-mix(in srgb, currentcolor 16%, transparent);
     color: inherit;
     cursor: pointer;
-    opacity: 0.62;
   }
 
-  .community-composer-chip-dismiss:hover,
-  .community-composer-chip-dismiss:focus-visible {
-    background: color-mix(in srgb, currentcolor 14%, transparent);
-    opacity: 1;
+  .community-composer-token-dismiss:hover,
+  .community-composer-token-dismiss:focus-visible {
+    background: color-mix(in srgb, var(--foreground) 16%, transparent);
   }
 
-  .community-composer-chip-dismiss :global(svg) {
+  .community-composer-token-dismiss :global(svg) {
     width: 0.72em;
     height: 0.72em;
   }

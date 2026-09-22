@@ -530,8 +530,9 @@ the whole `/kind/query` range with one `lapis-community://` token so the
 existing entity chip decoration renders it. `#channel` mentions stay
 `#Name`; `/channels` inserts the channel scheme URI. Composer-decorated
 mention and entity chips MUST show a trailing dismiss control that deletes
-that token and one following space from the draft. Markdown-rendered chips
-MUST omit dismiss.
+that token and one following space from the draft. That dismiss MUST share
+the chip's muted surface as a split trailing segment with its own hover.
+Markdown-rendered chips MUST omit dismiss.
 
 For LC-UI-011 and LC-UI-036, a task entity MUST use
 `lapis-community://task?owner=&d=&id=` and the hash

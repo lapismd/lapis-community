@@ -21,5 +21,5 @@
 </script>
 
 <CommunityComposerRemovableChip {label} {onRemove}>
-  <CommunityEntityChip {link} />
+  <CommunityEntityChip {link} class="community-composer-token-action" />
 </CommunityComposerRemovableChip>
