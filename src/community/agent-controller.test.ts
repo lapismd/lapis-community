@@ -253,6 +253,7 @@ function syncPage(
 
 async function setup(
   directoryEvents: readonly NostrEvent[] = [profile, channel],
+  options: { now?: () => number } = {},
 ) {
   const archive = createMemoryAgentActivityStore();
   const onState = vi.fn();
@@ -297,7 +298,7 @@ async function setup(
     archive,
     storageMode: () => "indexeddb",
     onState,
-    now: () => now,
+    now: options.now ?? (() => now),
   });
   controllers.push(controller);
   await controller.start();
@@ -1129,35 +1130,17 @@ describe("agent activity controller", () => {
       expect.any(AbortSignal),
     );
     expect(controller.state.pendingPermissions[agent]).toEqual([]);
-
     receive(
-      frame(3, "permission_requested", "general", {
+      frame(3, "permission_resolved", "general", {
         scopeKey: "relay/general/agent/thread/root",
-        requestId: "permission-expired",
-        tool: "shell",
-        options: ["allow_once"],
-        expiresAt: now * 1_000 - 1,
+        requestId: "permission-1",
       }),
     );
     await vi.waitFor(() =>
-      expect(controller.state.pendingPermissions[agent]).toHaveLength(1),
-    );
-    await expect(
-      controller.actions.respondPermission(
-        agent,
-        "permission-expired",
-        "allow_once",
-      ),
-    ).rejects.toThrow(/expired/i);
-    expect(session.sendControl).toHaveBeenCalledTimes(1);
-    receive(
-      frame(4, "permission_resolved", "general", {
-        scopeKey: "relay/general/agent/thread/root",
-        requestId: "permission-expired",
+      expect(controller.state.controllerScopes[agent]).toMatchObject({
+        state: "running",
+        active: true,
       }),
-    );
-    await vi.waitFor(() =>
-      expect(controller.state.pendingPermissions[agent]).toEqual([]),
     );
 
     await controller.actions.cancelTurn(
@@ -1215,6 +1198,98 @@ describe("agent activity controller", () => {
     await expect(
       controller.actions.cancelTurn(agent, "relay/general/agent/thread/root"),
     ).rejects.toThrow(/active controller turn/i);
+  });
+  it("drops expired permission cards without sending a decision", async () => {
+    let clock = now;
+    const { controller, receive, session } = await setup([profile, channel], {
+      now: () => clock,
+    });
+    receive(
+      frame(1, "turn_started", "general", {
+        scopeKey: "relay/general/agent/thread/root",
+        state: "running",
+      }),
+    );
+    receive(
+      frame(2, "permission_requested", "general", {
+        scopeKey: "relay/general/agent/thread/root",
+        requestId: "permission-live",
+        tool: "shell",
+        options: ["allow_once"],
+        expiresAt: now * 1_000 + 60_000,
+      }),
+    );
+    await vi.waitFor(() =>
+      expect(controller.state.pendingPermissions[agent]).toHaveLength(1),
+    );
+    clock = now + 120;
+    await controller.actions.respondPermission(
+      agent,
+      "permission-live",
+      "allow_once",
+    );
+    expect(session.sendControl).not.toHaveBeenCalled();
+    expect(controller.state.pendingPermissions[agent]).toEqual([]);
+    expect(controller.state.controllerScopes[agent]).toMatchObject({
+      active: false,
+      state: "cancelled",
+    });
+  });
+  it("ignores already expired permission frames and later waiting status", async () => {
+    const { controller, receive } = await setup();
+    receive(
+      frame(1, "permission_requested", "general", {
+        scopeKey: "relay/general/agent/thread/root",
+        requestId: "permission-expired",
+        tool: "shell",
+        options: ["allow_once"],
+        expiresAt: now * 1_000 - 1,
+      }),
+    );
+    await vi.waitFor(() =>
+      expect(controller.state.controllerScopes[agent]?.state).toBe("cancelled"),
+    );
+    expect(controller.state.pendingPermissions[agent] ?? []).toEqual([]);
+    receive(
+      frame(2, "request_status", "general", {
+        scopeKey: "relay/general/agent/thread/root",
+        lifecycleRequestId: "request-1",
+        state: "waiting_permission",
+      }),
+    );
+    await vi.waitFor(() =>
+      expect(controller.state.controllerScopes[agent]?.state).toBe("cancelled"),
+    );
+    expect(controller.state.pendingPermissions[agent] ?? []).toEqual([]);
+  });
+  it("sweeps expired cards on the controller tick", async () => {
+    let clock = now;
+    const { controller, receive } = await setup([profile, channel], {
+      now: () => clock,
+    });
+    receive(
+      frame(1, "permission_requested", "general", {
+        scopeKey: "relay/general/agent/thread/root",
+        requestId: "permission-live",
+        tool: "shell",
+        options: ["allow_once"],
+        expiresAt: now * 1_000 + 60_000,
+      }),
+    );
+    await vi.waitFor(() =>
+      expect(controller.state.pendingPermissions[agent]).toHaveLength(1),
+    );
+    clock = now + 120;
+    await vi.waitFor(
+      () => {
+        expect(controller.state.pendingPermissions[agent]).toEqual([]);
+        expect(controller.state.controllerScopes[agent]).toMatchObject({
+          active: false,
+          state: "cancelled",
+        });
+      },
+      { timeout: 2_000 },
+    );
   });
   it("clears working on Buzz turn_finished and ignores an out-of-order start", async () => {
     const { controller, receive } = await setup();

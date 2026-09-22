@@ -363,13 +363,23 @@
       "forbiddenImportCount": 0
     },
     "src/community/activity-sync-permissions.test.ts": {
-      "countedLines": 83,
-      "physicalLines": 90,
+      "countedLines": 107,
+      "physicalLines": 115,
       "forbiddenImportCount": 0
     },
     "src/community/activity-sync-permissions.ts": {
-      "countedLines": 87,
-      "physicalLines": 91,
+      "countedLines": 143,
+      "physicalLines": 148,
+      "forbiddenImportCount": 0
+    },
+    "src/community/permission-expiry.test.ts": {
+      "countedLines": 79,
+      "physicalLines": 82,
+      "forbiddenImportCount": 0
+    },
+    "src/community/permission-expiry.ts": {
+      "countedLines": 131,
+      "physicalLines": 137,
       "forbiddenImportCount": 0
     },
     "src/community/agent-activity-context.ts": {
@@ -412,15 +422,15 @@
       "forbiddenImportCount": 0
     },
     "src/community/agent-controller.test.ts": {
-      "countedLines": 1390,
-      "physicalLines": 1411,
+      "countedLines": 1466,
+      "physicalLines": 1486,
       "forbiddenImportCount": 0,
       "kind": "legacy",
       "justification": "Existing file above the new-file counted-line limit; do not grow"
     },
     "src/community/agent-controller.ts": {
-      "countedLines": 2042,
-      "physicalLines": 2093,
+      "countedLines": 2025,
+      "physicalLines": 2077,
       "forbiddenImportCount": 0,
       "kind": "legacy",
       "justification": "Agent controller factory; runtime and memory parsers extracted"
@@ -1171,8 +1181,8 @@
       "forbiddenImportCount": 0
     },
     "src/components/community-agent-activity/AgentPermissionCard.svelte": {
-      "countedLines": 97,
-      "physicalLines": 105,
+      "countedLines": 99,
+      "physicalLines": 107,
       "forbiddenImportCount": 0
     },
     "src/components/community-agent-activity/AgentRuntimeControls.svelte": {
@@ -1196,8 +1206,8 @@
       "forbiddenImportCount": 0
     },
     "src/components/community-agent-activity/CommunityAgentActivity.svelte": {
-      "countedLines": 213,
-      "physicalLines": 219,
+      "countedLines": 215,
+      "physicalLines": 221,
       "forbiddenImportCount": 0
     },
     "src/components/community-agent-activity/CommunityAgentActivityFeed.svelte": {
@@ -1251,8 +1261,8 @@
       "forbiddenImportCount": 0
     },
     "src/components/community-agent-activity/permission-card-story.ts": {
-      "countedLines": 14,
-      "physicalLines": 15,
+      "countedLines": 40,
+      "physicalLines": 43,
       "forbiddenImportCount": 0
     },
     "src/components/community-agent-activity/permission-decision.test.ts": {
@@ -1346,8 +1356,8 @@
       "forbiddenImportCount": 0
     },
     "src/components/community-agent-composer-activity/model.test.ts": {
-      "countedLines": 139,
-      "physicalLines": 139,
+      "countedLines": 157,
+      "physicalLines": 158,
       "forbiddenImportCount": 0
     },
     "src/components/community-agent-composer-activity/model.ts": {
@@ -1541,8 +1551,8 @@
       "justification": "Existing file above the new-file counted-line limit; do not grow"
     },
     "src/components/community-agents/CommunityAgentsStoryHarness.svelte": {
-      "countedLines": 795,
-      "physicalLines": 802,
+      "countedLines": 768,
+      "physicalLines": 775,
       "forbiddenImportCount": 0,
       "kind": "legacy",
       "justification": "Existing file above the new-file counted-line limit; do not grow"
@@ -1555,6 +1565,11 @@
     "src/components/community-agents/long-cursor-runtime-story-fixtures.ts": {
       "countedLines": 40,
       "physicalLines": 43,
+      "forbiddenImportCount": 0
+    },
+    "src/components/community-agents/permission-story-fixtures.ts": {
+      "countedLines": 33,
+      "physicalLines": 34,
       "forbiddenImportCount": 0
     },
     "src/components/community-agents/model.ts": {

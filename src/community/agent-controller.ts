@@ -47,10 +47,11 @@ import {
   parseRuntimeState,
 } from "./agent-state-parsers.js";
 import {
-  controllerPermission,
+  applyPermissionCards,
   replaceScopePendingPermissions,
   snapshotPermissionRequests,
 } from "./activity-sync-permissions.js";
+import { sweepExpiredPermissionState } from "./permission-expiry.js";
 
 interface AgentControllerOptions {
   scope: CommunityAgentArchiveScope;
@@ -411,8 +412,10 @@ export class CommunityAgentsController {
         throw new Error(
           "The controller permission choice is no longer available",
         );
-      if (request.expiresAt && request.expiresAt <= this.#now() * 1_000)
-        throw new Error("The controller permission request has expired");
+      if (request.expiresAt && request.expiresAt <= this.#now() * 1_000) {
+        this.#sweepExpiredPermissions();
+        return;
+      }
       await this.#sendControl(pubkey, {
         version: 1,
         command: "permission_response",
@@ -1042,6 +1045,15 @@ export class CommunityAgentsController {
     )
       this.#update({ presence, working });
     if (refresh && now - this.#lastRefresh >= 60) void this.refresh();
+    this.#sweepExpiredPermissions();
+  }
+
+  #sweepExpiredPermissions(): void {
+    const patch = sweepExpiredPermissionState(
+      this.#state,
+      this.#now() * 1_000,
+    );
+    if (patch) this.#update(patch);
   }
 
   async openActivity(
@@ -1346,9 +1358,11 @@ export class CommunityAgentsController {
             snapshotPermissionRequests(
               request.agentPubkey,
               snapshots.map(({ frame }) => frame),
+              this.#now() * 1_000,
             ),
           ),
         });
+      this.#sweepExpiredPermissions();
       for (const item of events) {
         this.#seen.add(item.event.id);
         this.#cacheFrame(item.event.id, item.frame);
@@ -1879,44 +1893,14 @@ export class CommunityAgentsController {
             ),
         ),
       });
-    if (frame.kind === "permission_requested") {
-      const request = controllerPermission(agentPubkey, frame, payload);
-      if (!request) return;
-      const current = this.#state.pendingPermissions[agentPubkey] ?? [];
-      this.#update({
-        pendingPermissions: {
-          ...this.#state.pendingPermissions,
-          [agentPubkey]: [
-            ...current.filter(
-              (candidate) => candidate.requestId !== request.requestId,
-            ),
-            request,
-          ].slice(-32),
-        },
-      });
-      return;
-    }
-    if (frame.kind === "permission_resolved") {
-      const requestId = observerText(payload.requestId, 512);
-      if (requestId)
-        this.#update({
-          pendingPermissions: {
-            ...this.#state.pendingPermissions,
-            [agentPubkey]: (
-              this.#state.pendingPermissions[agentPubkey] ?? []
-            ).filter((request) => request.requestId !== requestId),
-          },
-        });
-    } else if (terminal && frame.turnId) {
-      this.#update({
-        pendingPermissions: {
-          ...this.#state.pendingPermissions,
-          [agentPubkey]: (
-            this.#state.pendingPermissions[agentPubkey] ?? []
-          ).filter((request) => request.turnId !== frame.turnId),
-        },
-      });
-    }
+    const pending = applyPermissionCards(
+      this.#state.pendingPermissions,
+      agentPubkey,
+      frame,
+      this.#now() * 1_000,
+    );
+    if (pending) this.#update({ pendingPermissions: pending });
+    this.#sweepExpiredPermissions();
   }
 
   dispose(): void {

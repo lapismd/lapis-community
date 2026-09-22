@@ -4,6 +4,7 @@ import type {
   CommunityAgentPermissionRequest,
 } from "./agent-contracts.js";
 import { observerRecord, observerText } from "./agent-observer.js";
+import { permissionHasExpired } from "./permission-expiry.js";
 
 const CONTROLLER_PERMISSION_DECISIONS =
   new Set<CommunityAgentPermissionDecision>([
@@ -57,6 +58,7 @@ export function controllerPermission(
 export function snapshotPermissionRequests(
   agentPubkey: string,
   frames: readonly CommunityAgentObserver[],
+  nowMs = Date.now(),
 ): CommunityAgentPermissionRequest[] {
   const requests = new Map<string, CommunityAgentPermissionRequest>();
   for (const frame of frames) {
@@ -66,9 +68,64 @@ export function snapshotPermissionRequests(
       frame,
       observerRecord(frame.payload),
     );
-    if (request) requests.set(request.requestId, request);
+    if (request && !permissionHasExpired(request, nowMs))
+      requests.set(request.requestId, request);
   }
   return [...requests.values()];
+}
+
+export function applyPermissionCards(
+  pending: Readonly<
+    Record<string, readonly CommunityAgentPermissionRequest[]>
+  >,
+  agentPubkey: string,
+  frame: Pick<CommunityAgentObserver, "kind" | "turnId" | "payload">,
+  nowMs: number,
+):
+  | Record<string, readonly CommunityAgentPermissionRequest[]>
+  | undefined {
+  if (frame.kind === "permission_requested") {
+    const request = controllerPermission(
+      agentPubkey,
+      frame,
+      observerRecord(frame.payload),
+    );
+    if (!request || permissionHasExpired(request, nowMs)) return;
+    const current = pending[agentPubkey] ?? [];
+    return {
+      ...pending,
+      [agentPubkey]: [
+        ...current.filter(
+          (candidate) => candidate.requestId !== request.requestId,
+        ),
+        request,
+      ].slice(-32),
+    };
+  }
+  if (frame.kind === "permission_resolved") {
+    const requestId = observerText(observerRecord(frame.payload).requestId, 512);
+    if (!requestId) return;
+    return {
+      ...pending,
+      [agentPubkey]: (pending[agentPubkey] ?? []).filter(
+        (request) => request.requestId !== requestId,
+      ),
+    };
+  }
+  if (
+    ["turn_completed", "turn_finished", "turn_failed", "turn_cancelled"].includes(
+      frame.kind,
+    ) &&
+    frame.turnId
+  ) {
+    return {
+      ...pending,
+      [agentPubkey]: (pending[agentPubkey] ?? []).filter(
+        (request) => request.turnId !== frame.turnId,
+      ),
+    };
+  }
+  return;
 }
 
 export function replaceScopePendingPermissions(

@@ -20,6 +20,7 @@
     storyAgentRuntime,
     storyAgentMemories,
   } from "./story-fixtures.js";
+  import { storyPermissionPatch } from "./permission-story-fixtures.js";
   import type {
     CommunityAgentIdentity,
     CommunityAgentControllerBootstrap,
@@ -121,36 +122,8 @@
                 "Activity decryption was declined. Retry with your signer.",
             }
           : {}),
-        ...(variant === "permission"
-          ? {
-              activitySyncStatus: "caught-up" as const,
-              controllerScopes: {
-                [storyAgent.pubkey]: {
-                  agentPubkey: storyAgent.pubkey,
-                  scopeKey: "relay/general/agent/thread/root",
-                  active: true,
-                  channelId: "general",
-                  sessionId: "story",
-                  turnId: "turn",
-                },
-              },
-              pendingPermissions: {
-                [storyAgent.pubkey]: [
-                  {
-                    agentPubkey: storyAgent.pubkey,
-                    requestId: "permission-1",
-                    scopeKey: "relay/general/agent/thread/root",
-                    tool: "Run test suite",
-                    input: { command: "pnpm test" },
-                    options: ["allow_once", "reject_once"],
-                    expiresAt: Date.now() + 15 * 60_000,
-                    channelId: "general",
-                    sessionId: "story",
-                    turnId: "turn",
-                  },
-                ],
-              },
-            }
+        ...(variant === "permission" || variant === "permission-expired"
+          ? storyPermissionPatch(variant === "permission-expired")
           : {}),
         ...(variant === "sync-checking"
           ? { activitySyncStatus: "checking" as const }

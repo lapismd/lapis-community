@@ -18,6 +18,7 @@
   import AgentRuntimeControls from "./AgentRuntimeControls.svelte";
   import type { AgentRuntimeActions } from "./runtime-actions.js";
   import { activityConversationKey } from "./activity-conversation-key.js";
+  import { permissionHasExpired } from "../../community/permission-expiry.js";
   import CommunityAgentActivityFeed from "./CommunityAgentActivityFeed.svelte";
   import CommunityAgentActivityHeader from "./CommunityAgentActivityHeader.svelte";
   import { transcriptMarkdownMembers } from "./transcript-markdown-members.js";
@@ -75,6 +76,7 @@
   const permissions = $derived(
     (selected ? (model.pendingPermissions[selected.pubkey] ?? []) : []).filter(
       (permission) =>
+        !permissionHasExpired(permission, Date.now()) &&
         activityMatches(context, {
           ...permission,
           ...observerScope({

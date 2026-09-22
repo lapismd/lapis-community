@@ -76,6 +76,31 @@ describe("activity-sync-permissions", () => {
     ).toEqual(live);
   });
 
+  it("omits expired snapshot permission frames", () => {
+    const expired = observer(
+      "permission_requested",
+      {
+        scopeKey,
+        requestId: "permission-expired",
+        tool: "Read",
+        options: ["allow_once"],
+        expiresAt: 1_800_000_000_000,
+      },
+      6,
+    );
+    expect(
+      snapshotPermissionRequests(agent, [expired], 1_800_000_000_001),
+    ).toEqual([]);
+    expect(
+      replaceScopePendingPermissions(
+        { [agent]: snapshotPermissionRequests(agent, [permissionFrame]) },
+        agent,
+        scopeKey,
+        snapshotPermissionRequests(agent, [expired], 1_800_000_000_001),
+      )[agent],
+    ).toEqual([]);
+  });
+
   it("clears a scope when the snapshot has no pending permission frames", () => {
     const live = snapshotPermissionRequests(agent, [permissionFrame]);
     expect(

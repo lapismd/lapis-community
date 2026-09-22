@@ -7,7 +7,11 @@
     storyAgentState,
     storyAgentPubkey,
   } from "../community-agents/story-fixtures.js";
-  import { expectPermissionCard } from "./permission-card-story.js";
+  import {
+    expectExpiredPermissionHidden,
+    expectPermissionCard,
+    playClearAgentHistory,
+  } from "./permission-card-story.js";
   const { Story } = defineMeta({
     title: "Community/Agents/Activity",
     component: CommunityAgentActivity,
@@ -286,6 +290,18 @@
       variant="permission"
     />{/snippet}</Story
 >
+<Story
+  name="Expired controller permission"
+  play={async ({ canvas }) => {
+    await expectExpiredPermissionHidden(
+      canvas.getByRole("region", { name: "Agent runtime controls" }),
+    );
+  }}
+  >{#snippet template()}<Harness
+      screen="activity"
+      variant="permission-expired"
+    />{/snippet}</Story
+>
 <Story name="Storage failure"
   >{#snippet template()}<Harness
       screen="activity"
@@ -320,21 +336,6 @@
 <Story
   name="Clear agent history"
   play={async ({ canvas, canvasElement }) => {
-    await expect(
-      canvas.getByRole("button", { name: "Clear this agent’s saved activity" }),
-    ).toHaveAttribute("data-variant", "destructive");
-    await userEvent.click(
-      canvas.getByRole("button", { name: "Clear this agent’s saved activity" }),
-    );
-    const dialog = within(canvasElement.ownerDocument.body).getByRole(
-      "alertdialog",
-    );
-    await userEvent.click(
-      within(dialog).getByRole("button", {
-        name: "Clear history",
-        exact: true,
-      }),
-    );
-    await expect(canvas.getByText("No saved activity here yet")).toBeVisible();
+    await playClearAgentHistory(canvas, canvasElement);
   }}>{#snippet template()}<Harness screen="activity" />{/snippet}</Story
 >

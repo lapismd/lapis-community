@@ -6,6 +6,7 @@
     CommunityAgentPermissionDecision,
     CommunityAgentPermissionRequest,
   } from "../../community/agent-contracts.js";
+  import { permissionHasExpired } from "../../community/permission-expiry.js";
   import {
     PERMISSION_DECISION_LABELS,
     permissionDecisionVariant,
@@ -26,6 +27,7 @@
   } = $props();
 
   const inputCode = $derived(permissionInputCode(permission.input));
+  const expired = $derived(permissionHasExpired(permission, Date.now()));
 </script>
 
 <article
@@ -63,7 +65,7 @@
         <Button
           variant={permissionDecisionVariant(decision)}
           size="sm"
-          {disabled}
+          disabled={disabled || expired}
           onclick={() => onDecide?.(decision)}
           >{PERMISSION_DECISION_LABELS[decision]}</Button
         >

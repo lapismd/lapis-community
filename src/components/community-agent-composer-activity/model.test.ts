@@ -66,6 +66,25 @@ describe("composer activity", () => {
     ).toHaveLength(2);
     expect(composerActivity(model, { kind: "dm" }, now)).toHaveLength(0);
   });
+  it("hides cancelled permission waits after expiry", () => {
+    expect(
+      composerActivity(
+        storyAgentState({
+          conversationScopes: {
+            a: {
+              ...scope,
+              active: false,
+              state: "cancelled",
+              preview: "Waiting for your permission",
+            },
+          },
+        }),
+        { kind: "overview" },
+        now,
+      ),
+    ).toEqual([]);
+  });
+
   it("retains failures and ignores completed or stale active work", () => {
     for (const current of [
       { ...scope, active: false, state: "completed" },

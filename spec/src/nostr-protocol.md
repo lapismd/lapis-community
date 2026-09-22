@@ -61,7 +61,8 @@ is a fresh owner-authored event with exact `p`, `agent`, and `frame=control`
 tags, an optional group tag, and NIP-44 ciphertext addressed to the verified
 agent. Community preserves controller-issued scope keys unchanged for cancel
 and reset, and sends a permission response only for an unexpired request and an
-outcome present in that request's decrypted offered set. Late telemetry
+outcome present in that request's decrypted offered set. Expired requests leave
+pending and waiting state locally without sending a decision. Late telemetry
 sequences cannot reactivate a completed live scope.
 
 Runtime and memory administration extend this same envelope at control version
@@ -458,7 +459,8 @@ The fixed high-water mark bounds original replay events. Snapshot events may
 reflect newer current state, remain state-only, and never advance the committed
 replay cursor; stable signed event IDs deduplicate their later ordinary replay.
 Pending permission cards come from those snapshot `permission_requested` frames
-even when live telemetry already applied the same sequence.
+even when live telemetry already applied the same sequence. Expired snapshot
+frames MUST NOT restore cards or revive a permission wait.
 
 Both directions use the existing private ephemeral route. The relay applies
 normal freshness, ownership, optional mutual NIP-29 membership, envelope size,
