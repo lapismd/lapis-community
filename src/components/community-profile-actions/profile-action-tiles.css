@@ -1,0 +1,15 @@
+.profile-actions [data-ui-component="button"] > svg:not([class*="size-"]) {
+  box-sizing: content-box;
+  width: 1.15rem;
+  height: 1.15rem;
+  padding: 0.725rem;
+  border-radius: 50%;
+  color: var(--foreground);
+  background: var(--muted);
+}
+
+.profile-actions [data-ui-component="button"]:hover:not(:disabled) > svg,
+.profile-actions [data-ui-component="button"]:focus-visible > svg {
+  color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 14%, var(--background));
+}

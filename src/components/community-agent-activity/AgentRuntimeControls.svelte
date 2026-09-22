@@ -63,7 +63,7 @@
           label={`Actions for ${activityContextLabel(contextForScope(controllerScope), rooms)}`}
         >
           {#if controllerScope.active && controllerScope.sessionId && onCancelTurn}<Button
-              variant="secondary"
+              variant="outline"
               disabled={Boolean(controlPending)}
               onclick={() =>
                 runControl("cancel", () =>
@@ -80,7 +80,7 @@
               ><CircleStopIcon aria-hidden="true" />Cancel turn</Button
             >{/if}
           {#if onResetConversation && controllerScope.sessionId}<Button
-              variant="secondary"
+              variant="outline"
               disabled={Boolean(controlPending)}
               onclick={() => {
                 resetTarget = { ...controllerScope };

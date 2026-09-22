@@ -424,19 +424,20 @@
       "storyFile": "src/components/community-profile-actions/CommunityProfileActions.stories.svelte",
       "requirement": "LC-UI-049",
       "variants": ["default"],
-      "requiredStates": ["same-row", "action"],
+      "requiredStates": ["same-row", "action", "max-width"],
       "loading": {
         "applicable": false,
         "states": [],
         "reason": "The caller owns pending action state."
       },
-      "when": "Profile and scoped agent runtime actions with equal-width icon-over-label buttons.",
+      "when": "Profile and scoped agent runtime actions as channel action-card tiles: outline border, circular muted icon chip, and a 13.125rem by 7.5rem label card.",
       "productionStories": [
         "community-agents-activity--controller-permissions"
       ],
       "verification": {
         "same-row": "community-patterns-profile-actions--contract",
-        "action": "community-patterns-profile-actions--contract"
+        "action": "community-patterns-profile-actions--contract",
+        "max-width": "community-patterns-profile-actions--contract"
       }
     }
   ],

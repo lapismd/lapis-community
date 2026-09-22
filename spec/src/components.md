@@ -896,7 +896,9 @@ results MUST stop animating; replay or later metadata MUST NOT restart completed
 tools, and one conversation ending MUST NOT finish another conversation.
 Cancel turn and Reset conversation MUST share the profile action row treatment,
 without a separate runtime-controls card, preserving scoped commands, permission
-prompts and awaited reset confirmation. Changed stories remain visual-pending.
+prompts and awaited reset confirmation. Those tiles MUST match channel intro action cards: a 13.125rem by 7.5rem
+outline tile, circular muted icon chip, and left-aligned label, so a single
+action does not stretch across Activity. Changed stories remain visual-pending.
 
 For LC-UI-013, sidebar unread counts MUST use the projected unread count and
 compact subtle CommunityChip treatment with a neutral background slightly

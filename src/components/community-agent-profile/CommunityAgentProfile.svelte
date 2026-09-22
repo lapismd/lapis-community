@@ -414,7 +414,7 @@
 
   <CommunityProfileActions label="Agent profile actions">
     <Button
-      variant="secondary"
+      variant="outline"
       disabled={!canMessage || !connected || pending}
       title={!canMessage
         ? "An encryption-capable signer is required for direct messages"
@@ -423,7 +423,7 @@
       ><MessageIcon aria-hidden="true" />Message</Button
     >
     <Button
-      variant="secondary"
+      variant="outline"
       disabled={!connected || pending}
       aria-pressed={agent.followed}
       onclick={() => action(() => onFollow(!agent.followed))}
