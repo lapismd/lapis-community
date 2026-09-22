@@ -1,9 +1,5 @@
 <script lang="ts">
-  import {
-    Message,
-    MessageBubble,
-    MessageMetadata,
-  } from "@lapismd/design-core/ai/chat";
+  import { Message, MessageBubble } from "@lapismd/design-core/ai/chat";
   import CommunityReactions from "../community-reactions/CommunityReactions.svelte";
   import { ConfirmDialog } from "@lapismd/design-core/forms/dialog";
   import { Button } from "@lapismd/design-core/shadcn/button";
@@ -26,7 +22,7 @@
   import CommunityMarkdownContent from "../community-markdown-content/CommunityMarkdownContent.svelte";
   import { communityMemberAvatarShape } from "../community-member-avatar/model.js";
   import CommunityMemberHoverCard from "../community-member-hover-card/CommunityMemberHoverCard.svelte";
-  import CommunityMessageReplySummary from "./CommunityMessageReplySummary.svelte";
+  import CommunityMessageMeta from "./CommunityMessageMeta.svelte";
   import CommunityReportDialog from "../community-report-dialog/CommunityReportDialog.svelte";
   import type {
     CommunityEmojiReference,
@@ -162,16 +158,6 @@
     messageActivityContent(message.activity, activityMembers),
   );
 
-  const replyLabel = $derived.by(() => {
-    const replyCount = message.replyCount ?? 0;
-    return (
-      message.replyLabel ??
-      `${replyCount} ${replyCount === 1 ? "reply" : "replies"}`
-    );
-  });
-  const showReplySummary = $derived(
-    (message.replyCount ?? 0) > 0 && onOpenThread !== undefined,
-  );
   const replyAction = $derived(
     message.activity === undefined ? (onReply ?? onOpenThread) : undefined,
   );
@@ -459,25 +445,17 @@
   {/if}
 
   {#snippet metadata()}
-    <div class="community-message__metadata">
-      {#if !isContinuation}
-        <MessageMetadata timestamp={message.timestamp} />
-      {/if}
-      {#if message.edited}<span>(edited)</span>{/if}
-      {#if showReplySummary}
-        <CommunityMessageReplySummary
-          label={replyLabel}
-          participants={replyParticipants}
-          onOpenThread={onOpenThread
-            ? () => onOpenThread(message.id)
-            : undefined}
-          {onOpenProfile}
-          {onMessageMember}
-          {onWaveMember}
-          {onViewMemberActivity}
-        />
-      {/if}
-    </div>
+    <CommunityMessageMeta
+      {message}
+      {members}
+      {isContinuation}
+      {replyParticipants}
+      {onOpenThread}
+      {onOpenProfile}
+      {onMessageMember}
+      {onWaveMember}
+      {onViewMemberActivity}
+    />
   {/snippet}
 </Message>
 
@@ -632,22 +610,5 @@
     margin: 0;
     color: var(--foreground);
     line-height: 1.55;
-  }
-
-  .community-message__metadata {
-    display: flex;
-    min-height: 1.5rem;
-    align-items: center;
-    gap: 0.4rem;
-    color: var(--muted-foreground);
-    font-size: var(--community-text-secondary);
-    line-height: 1;
-  }
-
-  .community-message__metadata
-    :global([data-ui-component="ai-chat-message-metadata"]) {
-    min-height: 1.5rem;
-    margin-top: 0;
-    line-height: 1;
   }
 </style>

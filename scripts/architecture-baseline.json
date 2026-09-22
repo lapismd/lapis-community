@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "sourceCommit": "ee9f2012db05537d83d9e21b4002531a934f6a1a",
+  "sourceCommit": "b7f0cea8fc08a8a198a31fab2cb014959ce82a58",
   "limits": {
     "newProductionCountedLines": 300,
     "newTestCountedLines": 500,
@@ -2676,8 +2676,8 @@
       "forbiddenImportCount": 0
     },
     "src/components/community-message/CommunityMessage.svelte": {
-      "countedLines": 610,
-      "physicalLines": 653,
+      "countedLines": 573,
+      "physicalLines": 614,
       "forbiddenImportCount": 0,
       "kind": "legacy",
       "justification": "Existing file above the new-file counted-line limit; do not grow"
@@ -2685,6 +2685,21 @@
     "src/components/community-message/CommunityMessageColumn.stories.svelte": {
       "countedLines": 52,
       "physicalLines": 55,
+      "forbiddenImportCount": 0
+    },
+    "src/components/community-message/CommunityMessageImplicitMentions.stories.svelte": {
+      "countedLines": 92,
+      "physicalLines": 97,
+      "forbiddenImportCount": 0
+    },
+    "src/components/community-message/CommunityMessageMentionAvatars.svelte": {
+      "countedLines": 49,
+      "physicalLines": 55,
+      "forbiddenImportCount": 0
+    },
+    "src/components/community-message/CommunityMessageMeta.svelte": {
+      "countedLines": 87,
+      "physicalLines": 94,
       "forbiddenImportCount": 0
     },
     "src/components/community-message/CommunityMessageReplySummary.svelte": {
@@ -2710,6 +2725,16 @@
     "src/components/community-message/grouping.ts": {
       "countedLines": 27,
       "physicalLines": 29,
+      "forbiddenImportCount": 0
+    },
+    "src/components/community-message/implicit-mentions.test.ts": {
+      "countedLines": 102,
+      "physicalLines": 109,
+      "forbiddenImportCount": 0
+    },
+    "src/components/community-message/implicit-mentions.ts": {
+      "countedLines": 70,
+      "physicalLines": 75,
       "forbiddenImportCount": 0
     },
     "src/components/community-message/message-activity.ts": {
