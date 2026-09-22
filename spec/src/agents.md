@@ -229,7 +229,9 @@ LC-UI-037 and LC-UI-044; visual acceptance remains pending human review.
 For a live verified agent, Activity presents the latest controller scope with
 Cancel and confirmed Reset conversation actions. Decrypted
 `permission_requested` frames become owner-only cards with the tool summary,
-bounded input, expiry, and only the choices named by the controller. Controls
+JSON input in a Design Core CodeBlock, expiry, and only the choices named by
+the controller. Those choices render as a trailing split ButtonGroup with
+distinct tones and a destructive deny. Controls
 are encrypted with the active owner signer and remain pending until the relay
 accepts the signed kind `24200` event; `permission_resolved` or terminal frames
 remove stale cards. A refresh snapshot replaces cards for that scope from its

@@ -1,12 +1,13 @@
 <script module lang="ts">
   import { defineMeta } from "@storybook/addon-svelte-csf";
-  import { expect, userEvent, waitFor, within } from "storybook/test";
+  import { expect, userEvent, within } from "storybook/test";
   import CommunityAgentActivity from "./CommunityAgentActivity.svelte";
   import Harness from "../community-agents/CommunityAgentsStoryHarness.svelte";
   import {
     storyAgentState,
     storyAgentPubkey,
   } from "../community-agents/story-fixtures.js";
+  import { expectPermissionCard } from "./permission-card-story.js";
   const { Story } = defineMeta({
     title: "Community/Agents/Activity",
     component: CommunityAgentActivity,
@@ -249,13 +250,11 @@
       within(controls).getByText("Waiting for approval"),
     ).toBeVisible();
     await expect(within(controls).getByText("Run test suite")).toBeVisible();
-    await expect(within(controls).getByText(/pnpm test/)).toBeVisible();
+    const allow = expectPermissionCard(controls);
     await expect(
       within(controls).queryByRole("button", { name: "Always allow" }),
     ).not.toBeInTheDocument();
-    await userEvent.click(
-      within(controls).getByRole("button", { name: "Allow once" }),
-    );
+    await userEvent.click(allow);
     await expect(canvas.getByText("allow_once sent")).toBeVisible();
     await expect(
       within(controls).queryByRole("article", {

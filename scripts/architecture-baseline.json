@@ -1170,9 +1170,14 @@
       "physicalLines": 74,
       "forbiddenImportCount": 0
     },
+    "src/components/community-agent-activity/AgentPermissionCard.svelte": {
+      "countedLines": 97,
+      "physicalLines": 105,
+      "forbiddenImportCount": 0
+    },
     "src/components/community-agent-activity/AgentRuntimeControls.svelte": {
-      "countedLines": 225,
-      "physicalLines": 230,
+      "countedLines": 144,
+      "physicalLines": 147,
       "forbiddenImportCount": 0
     },
     "src/components/community-agent-activity/CommunityAgentActivity.plan.stories.svelte": {
@@ -1243,6 +1248,21 @@
     "src/components/community-agent-activity/model.ts": {
       "countedLines": 191,
       "physicalLines": 199,
+      "forbiddenImportCount": 0
+    },
+    "src/components/community-agent-activity/permission-card-story.ts": {
+      "countedLines": 14,
+      "physicalLines": 15,
+      "forbiddenImportCount": 0
+    },
+    "src/components/community-agent-activity/permission-decision.test.ts": {
+      "countedLines": 25,
+      "physicalLines": 27,
+      "forbiddenImportCount": 0
+    },
+    "src/components/community-agent-activity/permission-decision.ts": {
+      "countedLines": 54,
+      "physicalLines": 60,
       "forbiddenImportCount": 0
     },
     "src/components/community-agent-activity/runtime-actions.ts": {
