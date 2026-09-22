@@ -218,7 +218,7 @@
     submitting: () => submittingMentions,
   });
   const audienceView = $derived.by(() => {
-    audienceEpoch;
+    audienceEpoch + value;
     return readComposerAudienceView(agentAudience);
   });
   const preferredMemberIds = $derived(

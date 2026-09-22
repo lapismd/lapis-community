@@ -26,14 +26,15 @@ import {
   promotePersistentAgentAudience,
   removePersistentAgentAudienceMember,
   setPersistentAgentAudienceEnabled,
-  subscribePersistentAgentAudience,
 } from "./persistent-agent-audience.js";
+import { subscribeComposerAgentAudience } from "./composer-audience-draft-sync.js";
 
 export {
   communityComposerMentionMembers,
   mentionedComposerAgentPubkeys,
   readComposerAudienceView,
 } from "./composer-agent-mentions.js";
+export { syncComposerAgentAudienceDraft } from "./composer-audience-draft-sync.js";
 
 export function createComposerAgentAudience(input: {
   agents: () => readonly CommunityComposerAgentModel[];
@@ -53,7 +54,7 @@ export function createComposerAgentAudience(input: {
   toggleAlwaysAddress(pubkey: string): { value?: string };
   dismiss(pubkey: string): { value: string };
   hydrate(value: string, lastKey: string): { value?: string; key: string };
-  reconcile(value: string): void;
+  reconcile(value: string, selectedMentionPubkeys?: readonly string[]): void;
   restoreAfterSend(explicit: readonly string[]): { value: string };
   rememberDraft(value: string, selectedMentionPubkeys: readonly string[]): void;
   subscribe(listener: () => void): () => void;
@@ -166,7 +167,7 @@ export function createComposerAgentAudience(input: {
         ),
       };
     },
-    reconcile(value) {
+    reconcile(value, selectedMentionPubkeys = []) {
       const currentScope = scope();
       if (
         input.submitting() ||
@@ -178,11 +179,15 @@ export function createComposerAgentAudience(input: {
       ) {
         return;
       }
+      const selected = new Set(
+        selectedMentionPubkeys.map((pubkey) => pubkey.trim().toLowerCase()),
+      );
       for (const pubkey of removedAgentMentionPubkeys(
         value,
         getPersistentAgentAudience(currentScope),
         displayName,
       )) {
+        if (selected.has(pubkey.trim().toLowerCase())) continue;
         removePersistentAgentAudienceMember(currentScope, pubkey);
       }
     },
@@ -198,7 +203,7 @@ export function createComposerAgentAudience(input: {
       };
     },
     rememberDraft,
-    subscribe: subscribePersistentAgentAudience,
+    subscribe: subscribeComposerAgentAudience,
   };
 }
 
@@ -217,31 +222,6 @@ export function mergeComposerMentionPubkeys(
   extra: readonly string[],
 ): string[] {
   return [...new Set([...current, ...extra])];
-}
-
-export function syncComposerAgentAudienceDraft(
-  audience: ReturnType<typeof createComposerAgentAudience>,
-  value: string,
-  lastKey: string,
-  selectedMentionPubkeys: readonly string[],
-): { key: string; value?: string; mentionPubkeys: string[] } {
-  const next = audience.hydrate(value, lastKey);
-  const draft =
-    next.value !== undefined && next.value !== value ? next.value : value;
-  if (next.value === undefined || next.value === value) {
-    audience.reconcile(value);
-  }
-  audience.rememberDraft(draft, selectedMentionPubkeys);
-  return {
-    key: next.key,
-    ...(next.value !== undefined && next.value !== value
-      ? { value: next.value }
-      : {}),
-    mentionPubkeys: mergeComposerMentionPubkeys(
-      selectedMentionPubkeys,
-      audience.audiencePubkeys(),
-    ),
-  };
 }
 
 export function restoreComposerDraftAfterSend(
