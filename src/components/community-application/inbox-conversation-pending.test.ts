@@ -34,6 +34,19 @@ describe("inboxMessagesBelongToItem", () => {
     expect(inboxMessagesBelongToItem(welcomeMessages, support)).toBe(false);
   });
 
+  it("accepts an owner reply after the latest incoming event", () => {
+    expect(
+      inboxMessagesBelongToItem(
+        [
+          { id: "fizz-introduction" },
+          { id: "steve-reply", parentMessageId: "fizz-introduction" },
+          { id: "owner-continue", parentMessageId: "steve-reply" },
+        ],
+        welcome,
+      ),
+    ).toBe(true);
+  });
+
   it("rejects a same-room dump that only contains the selected latest", () => {
     expect(
       inboxMessagesBelongToItem(
@@ -72,6 +85,21 @@ describe("inboxConversationPending", () => {
         selectedItem: support,
       }),
     ).toBe(true);
+  });
+
+  it("is ready when an owner reply follows the latest incoming event", () => {
+    expect(
+      inboxConversationPending({
+        activeItemId: welcome.id,
+        items: [welcome, support],
+        messages: [
+          { id: "fizz-introduction" },
+          { id: "steve-reply", parentMessageId: "fizz-introduction" },
+          { id: "owner-continue", parentMessageId: "steve-reply" },
+        ],
+        selectedItem: welcome,
+      }),
+    ).toBe(false);
   });
 
   it("is ready when the projected messages belong to the selection", () => {

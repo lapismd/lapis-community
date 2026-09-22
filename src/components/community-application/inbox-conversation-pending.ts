@@ -37,15 +37,19 @@ export function inboxMessagesBelongToItem(
   const rootId = item.rootEventId;
   const latestId = item.latestEventId;
   if (!rootId && !latestId) return false;
-  if (latestId && conversation.at(-1)?.id !== latestId) return false;
+  if (latestId && !conversation.some((message) => message.id === latestId))
+    return false;
   if (!latestId && !conversation.some((message) => message.id === rootId))
     return false;
   if (!rootId) return true;
   const byId = new Map(
     conversation.map((message) => [message.id, message] as const),
   );
-  return conversation.every((message) =>
-    inboxMessageReachesRoot(message, rootId, byId),
+  return conversation.every(
+    (message) =>
+      inboxMessageReachesRoot(message, rootId, byId) ||
+      (latestId !== undefined &&
+        inboxMessageReachesRoot(message, latestId, byId)),
   );
 }
 
