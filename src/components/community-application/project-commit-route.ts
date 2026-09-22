@@ -1,5 +1,4 @@
-import type { CommunityApplicationProjectRoute } from "./navigation.js";
-import { noCommunityApplicationPanel } from "./navigation.js";
+import { projectRouteHasCommit } from "./project-route-commit.js";
 import type {
   ProjectForgeCatalog,
   ProjectForgeSurface,
@@ -8,8 +7,10 @@ import type {
   CommunityApplicationLocation,
   CommunityApplicationPanel,
   CommunityApplicationDestination,
+  CommunityApplicationProjectRoute,
 } from "./navigation.js";
 import {
+  noCommunityApplicationPanel,
   projectCoordinateFromDestination,
   projectDestinationFromCoordinate,
 } from "./navigation.js";
@@ -43,9 +44,7 @@ export function repositorySurfaceLocation(
       kind: "repository",
       coordinate,
       surface,
-      ...(["commits", "log"].includes(surface) && commitSha
-        ? { commitSha }
-        : {}),
+      ...(projectRouteHasCommit(surface) && commitSha ? { commitSha } : {}),
     },
   };
 }

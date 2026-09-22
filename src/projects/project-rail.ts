@@ -6,7 +6,8 @@ export type ProjectRailScope = "repository" | "project" | "directory";
 export function projectSurfaceTitle(surface: string, name = ""): string {
   if (surface === "overview") return name || "Overview";
   if (surface === "reviews") return "Reviews";
-  if (surface === "people") return "Contributors";
+  // prettier-ignore
+  if (surface === "people" || surface === "oplog") return surface === "oplog" ? "Op Log" : "Contributors";
   return surface[0]!.toUpperCase() + surface.slice(1);
 }
 

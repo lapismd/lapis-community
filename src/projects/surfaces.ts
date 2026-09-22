@@ -1,17 +1,5 @@
-export const PROJECT_FORGE_SURFACES = [
-  "activity",
-  "log",
-  "overview",
-  "tasks",
-  "reviews",
-  "commits",
-  "files",
-  "repositories",
-  "channels",
-  "contributors",
-  "people",
-  "options",
-] as const;
+// prettier-ignore
+export const PROJECT_FORGE_SURFACES = ["activity", "log", "oplog", "overview", "tasks", "reviews", "commits", "files", "repositories", "channels", "contributors", "people", "options"] as const;
 
 export type ProjectForgeSurface = (typeof PROJECT_FORGE_SURFACES)[number];
 

@@ -377,8 +377,10 @@ and emoji graphemes from persona `avatar_url` or kind `0` `picture`;
 initials remain the fallback when neither is available.
 `lapis-community://` entity links and `#/channels|forums|projects`
 hashes are presentation routing for Community location, not a new Nostr
-event type. Inbound `nostr:nevent` permalinks remain accepted as ordinary
-Nostr links and are not Community entity chips.
+event type. Build, parse, and normalize of those URIs live in
+`community-links` / `community-link-normalize`. Inbound `nostr:nevent`
+permalinks remain accepted as ordinary Nostr links and are not Community
+entity chips.
 
 For LC-ARCH-023, Nostr account login signs kind `27235` over the relay's exact
 login URL, `POST` method, and SHA-256 digest of the challenge body. A restored

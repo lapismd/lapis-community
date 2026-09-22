@@ -909,14 +909,7 @@ export interface CommunityControllerOptions {
   inviteCodeFactory?: () => string;
 }
 
-export interface CommunityLinkBuilder {
-  message(input: {
-    eventId: string;
-    authorPubkey: string;
-    relayUrl: string;
-  }): string;
-  room?(scope: CommunityScope, room: CommunityRoomScope): string;
-}
+export type { CommunityLinkBuilder } from "./community-links.js";
 
 export interface CommunityApplicationExtensions {
   terminal?: () => void | Promise<void>;

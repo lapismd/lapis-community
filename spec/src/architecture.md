@@ -715,7 +715,9 @@ Shareable `lapis-community://` URIs and browser hashes such as
 `CommunityApplicationLocation`. They are not a new Nostr event type.
 Build and parse live in the `community-links` owner; hash sync lives in
 `application-location-hash` so the application composition hotspot does
-not grow.
+not grow. `community-link-normalize` owns hash and absolute-URL
+normalization into the scheme, and `project-route-commit` accepts the
+Op Log surface on repository hashes.
 
 For LC-UI-040, Inbox owns the conversation-pane inset around the shared message
 skeleton. Initial and selected-thread loading reuse one padded snippet, keeping

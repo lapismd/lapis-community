@@ -4,6 +4,7 @@ import {
   projectRouteDefaultSurface,
 } from "../../projects/index.js";
 import type { CommunityApplicationProjectRoute } from "./navigation.js";
+import { projectRouteHasCommit } from "./project-route-commit.js";
 
 export function projectRouteToHash(
   route: CommunityApplicationProjectRoute,
@@ -14,7 +15,7 @@ export function projectRouteToHash(
       : `/${route.surface}`;
   const commit =
     route.kind === "repository" &&
-    (route.surface === "commits" || route.surface === "log") &&
+    projectRouteHasCommit(route.surface) &&
     route.commitSha
       ? `/${route.commitSha}`
       : "";
@@ -46,10 +47,7 @@ export function projectRouteFromHash(
     ) {
       return null;
     }
-    if (
-      match[4] &&
-      (kind !== "repository" || !["commits", "log"].includes(surface))
-    )
+    if (match[4] && (kind !== "repository" || !projectRouteHasCommit(surface)))
       return null;
     return {
       kind,
@@ -85,7 +83,7 @@ export function parseStoredProjectRoute(
         coordinate: route.coordinate,
         surface: route.surface,
         ...(route.kind === "repository" &&
-        (route.surface === "commits" || route.surface === "log") &&
+        projectRouteHasCommit(route.surface) &&
         typeof route.commitSha === "string" &&
         /^(?:[a-f0-9]{40}|[a-f0-9]{64})$/u.test(route.commitSha)
           ? { commitSha: route.commitSha }
