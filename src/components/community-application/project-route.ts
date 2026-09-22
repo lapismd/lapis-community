@@ -4,7 +4,11 @@ import {
   projectRouteDefaultSurface,
 } from "../../projects/index.js";
 import type { CommunityApplicationProjectRoute } from "./navigation.js";
-import { projectRouteHasCommit } from "./project-route-commit.js";
+import { validRouteCoordinate } from "./project-route-coordinate.js";
+import { projectRouteHasTrailingId } from "./project-route-trailing.js";
+
+export { taskForProjectRoute } from "./project-task-route.js";
+export { validRouteCoordinate } from "./project-route-coordinate.js";
 
 export function projectRouteToHash(
   route: CommunityApplicationProjectRoute,
@@ -15,7 +19,7 @@ export function projectRouteToHash(
       : `/${route.surface}`;
   const commit =
     route.kind === "repository" &&
-    projectRouteHasCommit(route.surface) &&
+    projectRouteHasTrailingId(route.surface) &&
     route.commitSha
       ? `/${route.commitSha}`
       : "";
@@ -47,7 +51,10 @@ export function projectRouteFromHash(
     ) {
       return null;
     }
-    if (match[4] && (kind !== "repository" || !projectRouteHasCommit(surface)))
+    if (
+      match[4] &&
+      (kind !== "repository" || !projectRouteHasTrailingId(surface))
+    )
       return null;
     return {
       kind,
@@ -83,23 +90,13 @@ export function parseStoredProjectRoute(
         coordinate: route.coordinate,
         surface: route.surface,
         ...(route.kind === "repository" &&
-        projectRouteHasCommit(route.surface) &&
+        projectRouteHasTrailingId(route.surface) &&
         typeof route.commitSha === "string" &&
         /^(?:[a-f0-9]{40}|[a-f0-9]{64})$/u.test(route.commitSha)
           ? { commitSha: route.commitSha }
           : {}),
       }
     : undefined;
-}
-
-export function validRouteCoordinate(value: unknown): value is string {
-  return (
-    typeof value === "string" &&
-    value.length > 0 &&
-    value.length <= 1024 &&
-    value.trim() === value &&
-    !/[\u0000-\u001f\u007f]/u.test(value)
-  );
 }
 
 export function projectRouteKey(

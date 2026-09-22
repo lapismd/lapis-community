@@ -6,9 +6,18 @@ import type {
   CommunityMemberModel,
   CommunityRoomModel,
 } from "../community-workspace/model.js";
+import {
+  compareAutocompleteMatch,
+  compactEmojiShortcode,
+} from "./autocomplete-rank.js";
+import { detectComposerSlash } from "./composer-slash.js";
 import { isSafeCommunityEmojiUrl } from "./model.js";
 
-export type CommunityComposerAutocompleteKind = "member" | "room" | "emoji";
+export type CommunityComposerAutocompleteKind =
+  | "member"
+  | "room"
+  | "emoji"
+  | "slash";
 
 export interface CommunityComposerAutocompleteQuery {
   kind: CommunityComposerAutocompleteKind;
@@ -113,7 +122,7 @@ export function detectCommunityComposerAutocomplete(
       return null;
     }
   }
-  return null;
+  return detectComposerSlash(value, cursor, line);
 }
 
 export function communityMemberAutocompleteItems(
@@ -128,7 +137,7 @@ export function communityMemberAutocompleteItems(
         .includes(normalized),
     )
     .sort((left, right) =>
-      compareMatch(
+      compareAutocompleteMatch(
         `${left.name} ${left.handle}`,
         `${right.name} ${right.handle}`,
         normalized,
@@ -156,7 +165,9 @@ export function communityRoomAutocompleteItems(
         room.archived !== true &&
         room.name.toLocaleLowerCase().includes(normalized),
     )
-    .sort((left, right) => compareMatch(left.name, right.name, normalized))
+    .sort((left, right) =>
+      compareAutocompleteMatch(left.name, right.name, normalized),
+    )
     .slice(0, 12)
     .map((room) => ({
       id: `room:${room.id}`,
@@ -172,7 +183,7 @@ export async function communityEmojiAutocompleteItems(
   query: string,
 ): Promise<CommunityComposerAutocompleteItem[]> {
   const normalized = query.trim().toLocaleLowerCase();
-  const compactQuery = compactShortcode(normalized);
+  const compactQuery = compactEmojiShortcode(normalized);
   const shortcodeCounts = new Map<string, number>();
   for (const emoji of communityEmojis) {
     const shortcode = emoji.shortcode.trim().toLocaleLowerCase();
@@ -185,10 +196,10 @@ export async function communityEmojiAutocompleteItems(
       (emoji) =>
         isSafeCommunityEmojiUrl(emoji.url) &&
         shortcodeCounts.get(emoji.shortcode.trim().toLocaleLowerCase()) === 1 &&
-        compactShortcode(emoji.shortcode).includes(compactQuery),
+        compactEmojiShortcode(emoji.shortcode).includes(compactQuery),
     )
     .sort((left, right) =>
-      compareMatch(left.shortcode, right.shortcode, normalized),
+      compareAutocompleteMatch(left.shortcode, right.shortcode, normalized),
     )
     .map((emoji) => ({
       id: `custom:${emoji.ownerPubkey}:${emoji.shortcode}`,
@@ -223,18 +234,4 @@ export async function communityEmojiAutocompleteItems(
   } catch {
     return custom.slice(0, 24);
   }
-}
-
-function compareMatch(left: string, right: string, query: string): number {
-  const normalizedLeft = left.toLocaleLowerCase();
-  const normalizedRight = right.toLocaleLowerCase();
-  const leftPrefix = normalizedLeft.startsWith(query) ? 0 : 1;
-  const rightPrefix = normalizedRight.startsWith(query) ? 0 : 1;
-  return (
-    leftPrefix - rightPrefix || normalizedLeft.localeCompare(normalizedRight)
-  );
-}
-
-function compactShortcode(value: string): string {
-  return value.toLocaleLowerCase().replace(/[_+\-\s]/gu, "");
 }

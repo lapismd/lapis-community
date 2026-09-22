@@ -1,3 +1,15 @@
+import {
+  COMMUNITY_TAB,
+  decodeLinkSegment,
+  normalizeCommit,
+  normalizeHex,
+  requireCommit,
+  requireHex64,
+  requireId,
+  trimLinkCandidate,
+  validId,
+} from "./community-link-ids.js";
+
 export interface CommunityLinkBuilder {
   message(input: {
     eventId: string;
@@ -38,7 +50,8 @@ export type CommunityEntityLink =
       d: string;
       tab?: string;
       commit?: string;
-    };
+    }
+  | { kind: "task"; owner: string; d: string; id: string };
 
 export type CommunityEntityLinkIcon =
   | "message-circle"
@@ -46,7 +59,8 @@ export type CommunityEntityLinkIcon =
   | "folder-kanban"
   | "folder-git-2"
   | "git-commit-horizontal"
-  | "history";
+  | "history"
+  | "circle-dot";
 
 export type CommunityEntityLinkKindAttr =
   | "message"
@@ -55,11 +69,10 @@ export type CommunityEntityLinkKindAttr =
   | "repository"
   | "log"
   | "oplog"
-  | "commit";
+  | "commit"
+  | "task";
 
-const HEX64 = /^[a-f0-9]{64}$/u;
-const COMMIT = /^(?:[a-f0-9]{40}|[a-f0-9]{64})$/u;
-const TAB = /^[a-z0-9-]+$/u;
+export { trimLinkCandidate, validCommunityId } from "./community-link-ids.js";
 
 export function buildCommunityChannelLink(roomId: string): string {
   return `${COMMUNITY_LINK_SCHEME}//channel/${encodeURIComponent(requireId(roomId, "roomId"))}`;
@@ -95,10 +108,23 @@ export function buildCommunityRepoLink(input: {
   return coordinateLink("repo", input);
 }
 
+export function buildCommunityTaskLink(input: {
+  owner: string;
+  d: string;
+  id: string;
+}): string {
+  const params = new URLSearchParams();
+  params.set("owner", requireHex64(input.owner, "owner"));
+  params.set("d", requireId(input.d, "d"));
+  params.set("id", requireHex64(input.id, "id"));
+  return `${COMMUNITY_LINK_SCHEME}//task?${params}`;
+}
+
 export function communityEntityLinkHref(link: CommunityEntityLink): string {
   if (link.kind === "channel") return buildCommunityChannelLink(link.roomId);
   if (link.kind === "message") return buildCommunityMessageLink(link);
   if (link.kind === "project") return buildCommunityProjectLink(link);
+  if (link.kind === "task") return buildCommunityTaskLink(link);
   return buildCommunityRepoLink(link);
 }
 
@@ -115,7 +141,7 @@ export function parseCommunityEntityLink(
   }
   if (parsed.protocol !== COMMUNITY_LINK_SCHEME) return undefined;
   if (parsed.hostname === "channel") {
-    const roomId = decodeSegment(parsed.pathname.replace(/^\/+/u, ""));
+    const roomId = decodeLinkSegment(parsed.pathname.replace(/^\/+/u, ""));
     return roomId && validId(roomId) ? { kind: "channel", roomId } : undefined;
   }
   if (parsed.hostname === "message") {
@@ -130,12 +156,23 @@ export function parseCommunityEntityLink(
       ...(thread ? { threadRootId: thread } : {}),
     };
   }
+  if (parsed.hostname === "task") {
+    const owner = normalizeHex(parsed.searchParams.get("owner"));
+    const d = parsed.searchParams.get("d") ?? "";
+    const id = normalizeHex(parsed.searchParams.get("id"));
+    if (!owner || !validId(d) || !id) return undefined;
+    return { kind: "task", owner, d, id };
+  }
   if (parsed.hostname === "project" || parsed.hostname === "repo") {
     const owner = normalizeHex(parsed.searchParams.get("owner"));
     const d = parsed.searchParams.get("d") ?? "";
     const tab = parsed.searchParams.get("tab") ?? undefined;
     const commit = normalizeCommit(parsed.searchParams.get("commit"));
-    if (!owner || !validId(d) || (tab !== undefined && !TAB.test(tab)))
+    if (
+      !owner ||
+      !validId(d) ||
+      (tab !== undefined && !COMMUNITY_TAB.test(tab))
+    )
       return undefined;
     if (parsed.hostname === "project") {
       return { kind: "project", owner, d, ...(tab ? { tab } : {}) };
@@ -183,61 +220,10 @@ function coordinateLink(
   params.set("owner", requireHex64(input.owner, "owner"));
   params.set("d", requireId(input.d, "d"));
   if (input.tab) {
-    if (!TAB.test(input.tab)) throw new Error(`invalid tab: ${input.tab}`);
+    if (!COMMUNITY_TAB.test(input.tab))
+      throw new Error(`invalid tab: ${input.tab}`);
     params.set("tab", input.tab);
   }
   if (input.commit) params.set("commit", requireCommit(input.commit));
   return `${COMMUNITY_LINK_SCHEME}//${host}?${params}`;
-}
-
-export function trimLinkCandidate(value: string): string {
-  return value.replace(/[),.;!?]+$/u, "");
-}
-
-export function validCommunityId(value: string): boolean {
-  return validId(value);
-}
-
-function decodeSegment(value: string): string {
-  try {
-    return decodeURIComponent(value);
-  } catch {
-    return "";
-  }
-}
-
-function validId(value: string): boolean {
-  return (
-    value.length > 0 &&
-    value.length <= 1024 &&
-    value.trim() === value &&
-    !/[\u0000-\u001f\u007f]/u.test(value)
-  );
-}
-
-function normalizeHex(value: string | null | undefined): string | undefined {
-  const hex = value?.trim().toLowerCase();
-  return hex && HEX64.test(hex) ? hex : undefined;
-}
-
-function normalizeCommit(value: string | null | undefined): string | undefined {
-  const hex = value?.trim().toLowerCase();
-  return hex && COMMIT.test(hex) ? hex : undefined;
-}
-
-function requireId(value: string, name: string): string {
-  if (!validId(value)) throw new Error(`invalid ${name}`);
-  return value;
-}
-
-function requireHex64(value: string, name: string): string {
-  const hex = normalizeHex(value);
-  if (!hex) throw new Error(`invalid ${name}`);
-  return hex;
-}
-
-function requireCommit(value: string): string {
-  const hex = normalizeCommit(value);
-  if (!hex) throw new Error("invalid commit");
-  return hex;
 }

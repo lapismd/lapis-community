@@ -8,7 +8,8 @@
     locationForProjectRoute,
     locationForProjectDestination,
   } from "./project-commit-route.js";
-  import { projectRouteCommit, repositoryRouteState } from "./project-route.js";
+  // prettier-ignore
+  import { projectRouteCommit, repositoryRouteState, taskForProjectRoute } from "./project-route.js";
   import {
     applicationRoomKind,
     locationFromHash,
@@ -813,9 +814,8 @@
       (pullRequest) => pullRequest.root.id === selectedPullRequestId,
     ),
   );
-  const selectedTask = $derived(
-    projectWorkItems.tasks.find((task) => task.root.id === selectedTaskId),
-  );
+  // prettier-ignore
+  const selectedTask = $derived(taskForProjectRoute(projectWorkItems.tasks, applicationLocation.projectRoute, selectedTaskId));
   const projectOverviewTabs = PROJECT_DIRECTORY_TABS;
   const selectedProjectTabs = PROJECT_WORKSPACE_TABS;
   const selectedRepositoryTabs = PROJECT_REPOSITORY_TABS;
@@ -845,7 +845,7 @@
   });
   provideProjectLogNavigation(() => applicationLocation, pushLocation);
   // prettier-ignore
-  provideForumTopicSync(() => applicationLocation, () => allRooms, (topicId) => community.actions.openTopic(topicId), (value, success) => void copyText(value, success), pushLocation);
+  provideForumTopicSync(() => applicationLocation, () => allRooms, (topicId) => community.actions.openTopic(topicId), (value, success) => void copyText(value, success), pushLocation, () => ({ rooms: allRooms, catalog: projectCatalog, workItems: projectWorkItems, commits: projectCommits, activity: projectCommitActivity, repositoryCoordinate: selectedRepositoryCoordinate }));
   const startupDestinationRoom = $derived(
     communityStartupPending
       ? allRooms.find((room) => room.id === activeDestination)

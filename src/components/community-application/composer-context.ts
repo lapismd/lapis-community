@@ -1,21 +1,11 @@
 import { getContext, setContext } from "svelte";
 
-import type { CommunityCustomEmoji } from "../../community/contracts.js";
-import type {
-  CommunityMemberModel,
-  CommunityRoomModel,
-} from "../community-workspace/model.js";
+import { mergeComposerSlashCatalog } from "../community-chat-composer/composer-slash-catalog.js";
+import { provideCommunityComposerSlashCatalog } from "../community-chat-composer/composer-slash-context.js";
+import { readComposerSlashSession } from "../community-chat-composer/composer-slash-session.js";
+import type { CommunityApplicationComposerContext } from "./composer-context-types.js";
 
-export interface CommunityApplicationComposerContext {
-  members(): readonly CommunityMemberModel[];
-  rooms(): readonly CommunityRoomModel[];
-  emojis(): readonly CommunityCustomEmoji[];
-  onOpenMember(): (member: CommunityMemberModel) => void;
-  onMessageMember(): (member: CommunityMemberModel) => void | Promise<void>;
-  onWaveMember():
-    | ((member: CommunityMemberModel) => void | Promise<void>)
-    | undefined;
-}
+export type { CommunityApplicationComposerContext };
 
 const composerContextKey = Symbol("community-application-composer");
 
@@ -23,6 +13,9 @@ export function provideCommunityApplicationComposer(
   context: CommunityApplicationComposerContext,
 ): void {
   setContext(composerContextKey, context);
+  provideCommunityComposerSlashCatalog(() =>
+    mergeComposerSlashCatalog(context.rooms(), readComposerSlashSession()),
+  );
 }
 
 export function useCommunityApplicationComposer():

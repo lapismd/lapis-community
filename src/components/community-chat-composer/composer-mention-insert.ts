@@ -1,30 +1,16 @@
-import { npubEncode } from "nostr-tools/nip19";
-
 import type { CommunityComposerAutocompleteItem } from "./autocomplete.js";
+import { communityComposerMentionInsert } from "./composer-mention-token.js";
+import { composerSlashInsert } from "./composer-slash-insert.js";
 
-const HEX_PUBKEY = /^[0-9a-f]{64}$/u;
-
-export function communityComposerMentionToken(
-  pubkey: string,
-): string | undefined {
-  const id = pubkey.trim().toLowerCase();
-  if (!HEX_PUBKEY.test(id)) return undefined;
-  return `nostr:${npubEncode(id)}`;
-}
-
-export function communityComposerMentionInsert(member: {
-  id: string;
-  name: string;
-}): string {
-  const token = communityComposerMentionToken(member.id);
-  if (token) return `${token} `;
-  const name = member.name.trim();
-  return name === "" ? "" : `@${name} `;
-}
+export {
+  communityComposerMentionInsert,
+  communityComposerMentionToken,
+} from "./composer-mention-token.js";
 
 export function communityComposerAutocompleteInsert(
   item: CommunityComposerAutocompleteItem,
 ): string {
+  if (item.kind === "slash") return composerSlashInsert(item);
   if (item.member !== undefined) {
     return communityComposerMentionInsert(item.member);
   }

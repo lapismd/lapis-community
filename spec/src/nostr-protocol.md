@@ -10,7 +10,9 @@ For LC-ARCH-028, Community workspace, inbox, and composer submission contracts
 are owned beside the controller rather than under presentation models. Login
 method descriptors used by Keytr live under `src/auth`. The protocol barrel
 re-exports registry-control helpers so Community internals can import them from
-`src/protocol` without a deep path.
+`src/protocol` without a deep path. Task entity links use
+`lapis-community://task?owner=&d=&id=` so composer slash chips open the same
+repository task as `#/projects/repository/<coord>/tasks/<id>`.
 
 ## Relay Presence Extension
 

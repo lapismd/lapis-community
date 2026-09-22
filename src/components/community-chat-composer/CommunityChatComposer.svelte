@@ -45,7 +45,7 @@
     CommunityRoomModel,
   } from "../community-workspace/model.js";
   import CommunityComposerMentionButton from "../community-composer-mention-button/CommunityComposerMentionButton.svelte";
-  import CommunityComposerMentionPicker from "../community-composer-mention-picker/CommunityComposerMentionPicker.svelte";
+  import CommunityComposerAutocompleteLayer from "./CommunityComposerAutocompleteLayer.svelte";
   import CommunityEmojiPicker from "../community-emoji-picker/CommunityEmojiPicker.svelte";
   import CommunityReplyContext from "../community-reply-context/CommunityReplyContext.svelte";
   import "../community-composer-status.css";
@@ -63,7 +63,11 @@
     composerPreferredMemberIds,
     composerTokenModelSignature,
   } from "./composer-token-references.js";
-  import { communityComposerAutocompleteInsert } from "./composer-mention-insert.js";
+  import { applyComposerAutocompleteSelection } from "./composer-autocomplete-apply.js";
+  import { composerAutocompletePlacement } from "./composer-autocomplete-placement.js";
+  import { mergeComposerSlashCatalog } from "./composer-slash-catalog.js";
+  import { useCommunityComposerSlashCatalog } from "./composer-slash-context.js";
+  import { emptyComposerSlashSession } from "./composer-slash-session.js";
   import {
     communityEmojiToken,
     formatCommunityAttachmentSize,
@@ -208,6 +212,13 @@
 
   const mentionMembers = $derived(
     communityComposerMentionMembers(members, agents),
+  );
+  const slashCatalogReader = useCommunityComposerSlashCatalog();
+  const slashCatalog = $derived(
+    mergeComposerSlashCatalog(
+      rooms,
+      slashCatalogReader?.() ?? emptyComposerSlashSession(),
+    ),
   );
   const agentAudience = createComposerAgentAudience({
     agents: () => agents,
@@ -456,6 +467,7 @@
       rooms,
       currentMemberId,
       channelId: audience?.channelId,
+      slashCatalog,
     });
     if (plan.kind === "skip") return;
     autocompleteGeneration += 1;
@@ -486,25 +498,10 @@
 
   function updateAutocompletePlacement(): void {
     if (!ref || !autocompleteList || autocompleteItems.length === 0) return;
-    const composerBounds = ref.getBoundingClientRect();
-    let boundaryTop = 0;
-    let ancestor = ref.parentElement;
-    while (ancestor) {
-      const style = getComputedStyle(ancestor);
-      if (
-        /(auto|scroll|hidden|clip)/u.test(
-          `${style.overflow} ${style.overflowY}`,
-        )
-      ) {
-        const bounds = ancestor.getBoundingClientRect();
-        boundaryTop = Math.max(boundaryTop, bounds.top);
-      }
-      ancestor = ancestor.parentElement;
-    }
-    const gap = 0.4 * Number.parseFloat(getComputedStyle(ref).fontSize);
-    const popupHeight = autocompleteList.getBoundingClientRect().height;
-    autocompletePlacement =
-      composerBounds.top - boundaryTop - gap >= popupHeight ? "above" : "below";
+    autocompletePlacement = composerAutocompletePlacement(
+      ref,
+      autocompleteList,
+    );
   }
 
   function clearAutocomplete(): void {
@@ -519,22 +516,18 @@
     const query = autocompleteQuery;
     const view = editorView;
     if (!item || !query || !view) return false;
-    const insert = communityComposerAutocompleteInsert(item);
-    if (insert.trim() === "") return false;
-    view.dispatch({
-      changes: { from: query.from, to: query.to, insert },
-      selection: { anchor: query.from + insert.length },
-    });
-    if (item.member) {
+    const applied = applyComposerAutocompleteSelection({ item, query, view });
+    if (!applied) return false;
+    if (applied.mentionId) {
       selectedMentionPubkeys = addUnique(
         selectedMentionPubkeys,
-        item.member.id,
+        applied.mentionId,
       );
     }
-    if (item.room) {
-      selectedChannelIds = addUnique(selectedChannelIds, item.room.id);
+    if (applied.roomId) {
+      selectedChannelIds = addUnique(selectedChannelIds, applied.roomId);
     }
-    clearAutocomplete();
+    if (!applied.keepOpen) clearAutocomplete();
     view.focus();
     return true;
   }
@@ -840,7 +833,7 @@
   ondrop={handleDrop}
 >
   {#if autocompleteQuery && autocompleteItems.length}
-    <CommunityComposerMentionPicker
+    <CommunityComposerAutocompleteLayer
       query={autocompleteQuery}
       items={autocompleteItems}
       selectedIndex={autocompleteSelectedIndex}

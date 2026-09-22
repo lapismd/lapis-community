@@ -8,7 +8,20 @@ import {
   type CommunityComposerAutocompleteItem,
   type CommunityComposerAutocompleteQuery,
 } from "./autocomplete.js";
+import { shouldSkipComposerAutocompleteUpdate } from "./composer-autocomplete-compare.js";
 import type { CommunityComposerAgentModel } from "./composer-agent-model.js";
+import {
+  composerSlashAutocompleteItems,
+  type ComposerSlashCatalog,
+} from "./composer-slash-catalog.js";
+import { emptyComposerSlashSession } from "./composer-slash-session.js";
+
+export {
+  composerActiveActionsEqual,
+  composerAutocompleteItemsEqual,
+  composerAutocompleteQueryEquals,
+  shouldSkipComposerAutocompleteUpdate,
+} from "./composer-autocomplete-compare.js";
 
 export type ComposerAutocompletePlan =
   | { kind: "skip" }
@@ -28,6 +41,7 @@ export function planComposerAutocompleteUpdate(input: {
   rooms: readonly CommunityRoomModel[];
   currentMemberId: string | undefined;
   channelId: string | undefined;
+  slashCatalog?: ComposerSlashCatalog;
 }): ComposerAutocompletePlan {
   const nextItems = resolveComposerAutocompleteItems(input);
   if (
@@ -60,6 +74,7 @@ function resolveComposerAutocompleteItems(input: {
   rooms: readonly CommunityRoomModel[];
   currentMemberId: string | undefined;
   channelId: string | undefined;
+  slashCatalog?: ComposerSlashCatalog;
 }): CommunityComposerAutocompleteItem[] | undefined {
   const query = input.nextQuery;
   if (query == null) return [];
@@ -75,60 +90,11 @@ function resolveComposerAutocompleteItems(input: {
   if (query.kind === "room") {
     return communityRoomAutocompleteItems(input.rooms, query.query);
   }
-  return undefined;
-}
-
-export function composerAutocompleteQueryEquals(
-  current: CommunityComposerAutocompleteQuery | undefined,
-  next: CommunityComposerAutocompleteQuery | null,
-): boolean {
-  if (next == null) return current === undefined;
-  return (
-    current !== undefined &&
-    current.kind === next.kind &&
-    current.query === next.query &&
-    current.from === next.from &&
-    current.to === next.to
-  );
-}
-
-export function composerAutocompleteItemsEqual(
-  current: readonly CommunityComposerAutocompleteItem[],
-  next: readonly CommunityComposerAutocompleteItem[],
-): boolean {
-  if (current.length !== next.length) return false;
-  return current.every((item, index) => {
-    const candidate = next[index];
-    return (
-      candidate !== undefined &&
-      item.id === candidate.id &&
-      item.label === candidate.label &&
-      item.detail === candidate.detail
+  if (query.kind === "slash") {
+    return composerSlashAutocompleteItems(
+      query.query,
+      input.slashCatalog ?? emptyComposerSlashSession(),
     );
-  });
-}
-
-export function shouldSkipComposerAutocompleteUpdate(
-  currentQuery: CommunityComposerAutocompleteQuery | undefined,
-  nextQuery: CommunityComposerAutocompleteQuery | null,
-  currentItems: readonly CommunityComposerAutocompleteItem[],
-  nextItems: readonly CommunityComposerAutocompleteItem[] | undefined,
-): boolean {
-  if (!composerAutocompleteQueryEquals(currentQuery, nextQuery)) return false;
-  if (nextQuery?.kind === "emoji") return true;
-  return (
-    nextItems !== undefined &&
-    composerAutocompleteItemsEqual(currentItems, nextItems)
-  );
-}
-
-export function composerActiveActionsEqual(
-  current: ReadonlySet<string>,
-  next: ReadonlySet<string>,
-): boolean {
-  if (current.size !== next.size) return false;
-  for (const action of next) {
-    if (!current.has(action)) return false;
   }
-  return true;
+  return undefined;
 }

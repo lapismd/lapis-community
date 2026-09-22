@@ -1,15 +1,17 @@
+// prettier-ignore
+import { decodeHashSegment, extractCommunityHash } from "./community-link-hash.js";
+// prettier-ignore
+import { COMMUNITY_HEX64, COMMUNITY_TAB, validCommunityId } from "./community-link-ids.js";
 import {
   communityEntityLinkHref,
   parseAddressableCoordinate,
   parseCommunityEntityLink,
   trimLinkCandidate,
-  validCommunityId,
   type CommunityEntityLink,
   type CommunityEntityLinkIcon,
   type CommunityEntityLinkKindAttr,
 } from "./community-links.js";
 
-const TAB = /^[a-z0-9-]+$/u;
 const AUTOLINK =
   /lapis-community:\/\/[^\s<>]+|#\/(?:channels|forums|projects)\/[^\s<>]+|https?:\/\/[^\s<>]+#\/(?:channels|forums|projects)\/[^\s<>]+/gu;
 
@@ -49,10 +51,19 @@ export function entityLinkFromApplicationHash(
   if (!coordinate) return undefined;
   const surface = project[3];
   const commit = project[4];
+  if (
+    project[1] === "repository" &&
+    surface === "tasks" &&
+    commit &&
+    COMMUNITY_HEX64.test(commit)
+  ) {
+    // prettier-ignore
+    return { kind: "task", owner: coordinate.owner, d: coordinate.d, id: commit };
+  }
   const tab =
     surface &&
     surface !== (project[1] === "project" ? "activity" : "overview") &&
-    TAB.test(surface)
+    COMMUNITY_TAB.test(surface)
       ? surface
       : undefined;
   if (project[1] === "project") {
@@ -135,6 +146,13 @@ export function communityEntityLinkPresentation(link: CommunityEntityLink): {
       fallbackLabel: link.d,
     };
   }
+  if (link.kind === "task") {
+    return {
+      linkKind: "task",
+      icon: "circle-dot",
+      fallbackLabel: link.d,
+    };
+  }
   if (link.tab === "oplog") {
     return {
       linkKind: "oplog",
@@ -154,28 +172,4 @@ export function communityEntityLinkPresentation(link: CommunityEntityLink): {
     icon: "folder-git-2",
     fallbackLabel: link.d,
   };
-}
-
-function extractCommunityHash(value: string): string | undefined {
-  if (value.startsWith("#/")) return value;
-  try {
-    const url = new URL(value);
-    if (
-      (url.protocol === "http:" || url.protocol === "https:") &&
-      url.hash.startsWith("#/")
-    ) {
-      return url.hash;
-    }
-  } catch {
-    return undefined;
-  }
-  return undefined;
-}
-
-function decodeHashSegment(value: string): string {
-  try {
-    return decodeURIComponent(value);
-  } catch {
-    return "";
-  }
 }

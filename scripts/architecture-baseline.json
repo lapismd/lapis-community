@@ -1720,8 +1720,8 @@
       "forbiddenImportCount": 0
     },
     "src/components/community-application/application-location-hash.ts": {
-      "countedLines": 212,
-      "physicalLines": 223,
+      "countedLines": 188,
+      "physicalLines": 197,
       "forbiddenImportCount": 0
     },
     "src/components/community-application/application-send.test.ts": {
@@ -2116,8 +2116,8 @@
       "forbiddenImportCount": 0
     },
     "src/components/community-chat-composer/composer-autocomplete-sync.ts": {
-      "countedLines": 127,
-      "physicalLines": 134,
+      "countedLines": 96,
+      "physicalLines": 100,
       "forbiddenImportCount": 0
     },
     "src/components/community-chat-composer/composer-decorations.ts": {

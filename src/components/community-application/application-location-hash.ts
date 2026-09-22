@@ -14,6 +14,7 @@ import {
   registryRouteToHash,
   type RegistryRoute,
 } from "../../registry/index.js";
+import { isRoomDestination } from "./application-room-kind.js";
 import { locationForProjectRoute } from "./project-commit-route.js";
 import {
   agentLocationFromHash,
@@ -22,21 +23,13 @@ import {
   type CommunityApplicationLocation,
 } from "./navigation.js";
 import { projectRouteFromHash, projectRouteToHash } from "./project-route.js";
-import { validRouteCoordinate } from "./project-route.js";
+import { validRouteCoordinate } from "./project-route-coordinate.js";
 
 export type ApplicationHashContext = {
   roomKind?(destination: string): "channel" | "forum" | "direct" | undefined;
 };
 
-const RESERVED_DESTINATIONS = new Set([
-  "inbox",
-  "pulse",
-  "agents",
-  "registry",
-  "settings",
-  "projects",
-  "new-direct-message",
-]);
+export { applicationRoomKind } from "./application-room-kind.js";
 
 const EVENT_ID = /^[a-f0-9]{64}$/u;
 
@@ -167,6 +160,14 @@ export function locationForCommunityEntityLink(
       },
     };
   }
+  if (link.kind === "task") {
+    return locationForProjectRoute({
+      kind: "repository",
+      coordinate: communityRepositoryCoordinate(link.owner, link.d),
+      surface: "tasks",
+      commitSha: link.id,
+    });
+  }
   const coordinate =
     link.kind === "project"
       ? communityProjectCoordinate(link.owner, link.d)
@@ -180,33 +181,6 @@ export function locationForCommunityEntityLink(
     surface,
     ...(link.kind === "repo" && link.commit ? { commitSha: link.commit } : {}),
   });
-}
-
-export function applicationRoomKind(
-  destination: string,
-  rooms: readonly { id: string; kind: string }[],
-): "channel" | "forum" | "direct" | undefined {
-  const room = rooms.find((item) => item.id === destination);
-  if (
-    room?.kind === "forum" ||
-    room?.kind === "channel" ||
-    room?.kind === "direct"
-  ) {
-    return room.kind;
-  }
-  return isRoomDestination(destination) ? "channel" : undefined;
-}
-
-function isRoomDestination(
-  destination: string,
-  kind?: "channel" | "forum" | "direct" | undefined,
-): boolean {
-  if (kind === "channel" || kind === "forum") return true;
-  return (
-    !RESERVED_DESTINATIONS.has(destination) &&
-    registryRouteFromDestination(destination) === null &&
-    !destination.startsWith("projects")
-  );
 }
 
 function registryFromHash(
