@@ -11,12 +11,12 @@ export function walk(node, visit) {
     else if (value && typeof value === "object") walk(value, visit);
   }
 }
+// prettier-ignore
 const owners = {
   emoji: "src/components/community-emoji-picker/CommunityEmojiPicker.svelte",
   prose: "src/components/community-chat-composer/CommunityChatComposer.svelte",
-  markdown:
-    "src/components/community-markdown-content/CommunityMarkdownContent.svelte",
-  avatar: "src/components/community-member-avatar/CommunityMemberAvatar.svelte",
+  markdown: "src/components/community-markdown-content/CommunityMarkdownContent.svelte",
+  avatar: "src/components/community-member-avatar/",
   reactions: "src/components/community-reactions/CommunityReactions.svelte",
   message: "src/components/community-message/CommunityMessage.svelte",
   typography: "src/components/community-typography.css",
@@ -53,7 +53,7 @@ export function inspectSource(source, filename, exceptions = []) {
     isCss = filename.endsWith(".css"),
     isScript = /\.[cm]?[jt]s$/.test(filename);
   const report = (rule, node, detail) => {
-    if (owners[rule] === filename) return;
+    if (filename.startsWith(owners[rule])) return;
     const line = source.slice(0, node?.start ?? 0).split("\n").length;
     if (
       exceptions.some(
@@ -308,7 +308,7 @@ export function inspectSource(source, filename, exceptions = []) {
           ) &&
           prop === "border-radius"
         ) {
-          if (owners.avatar !== filename)
+          if (!filename.startsWith(owners.avatar))
             report("avatar", n, `avatar geometry: ${selector.trim()}`);
         }
         if (
@@ -326,7 +326,8 @@ export function inspectSource(source, filename, exceptions = []) {
           ].includes(prop)
         ) {
           if (
-            ![owners.prose, owners.avatar, owners.reactions].includes(filename)
+            !filename.startsWith(owners.avatar) &&
+            ![owners.prose, owners.reactions].includes(filename)
           )
             report("dialog", n, `component internals: ${selector.trim()}`);
         }

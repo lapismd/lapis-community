@@ -5,6 +5,7 @@ import {
   communityIdentityMembersFromState,
   communityMemberFromAgent,
   presentCommunityIdentityModel,
+  presentKnownAgentMembers,
   withCommunityMemberKinds,
 } from "./member-identity.js";
 import type { CommunityMemberModel } from "./workspace-model.js";
@@ -23,10 +24,12 @@ const agent = {
 
 describe("withCommunityMemberKinds", () => {
   it("tags known agent pubkeys and leaves people unmarked", () => {
-    expect(withCommunityMemberKinds([person, { ...person, id: agent.pubkey }], [agent.pubkey])).toEqual([
-      person,
-      { ...person, id: agent.pubkey, kind: "agent" },
-    ]);
+    expect(
+      withCommunityMemberKinds(
+        [person, { ...person, id: agent.pubkey }],
+        [agent.pubkey],
+      ),
+    ).toEqual([person, { ...person, id: agent.pubkey, kind: "agent" }]);
   });
 
   it("clears a stale agent kind when the pubkey is no longer known", () => {
@@ -58,7 +61,17 @@ describe("communityIdentityMembers", () => {
   it("keeps the room member name when the agent is already present", () => {
     const present = { ...person, id: agent.pubkey };
     expect(communityIdentityMembers([present], [agent])).toEqual([
-      { ...present, kind: "agent" },
+      { ...present, kind: "agent", avatarUrl: agent.avatarUrl },
+    ]);
+  });
+});
+
+describe("presentKnownAgentMembers", () => {
+  it("tags matching members without unioning missing directory agents", () => {
+    expect(presentKnownAgentMembers([person], [agent])).toEqual([person]);
+    const present = { ...person, id: agent.pubkey };
+    expect(presentKnownAgentMembers([present], [agent])).toEqual([
+      { ...present, kind: "agent", avatarUrl: agent.avatarUrl },
     ]);
   });
 });

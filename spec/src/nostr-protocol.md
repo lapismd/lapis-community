@@ -371,6 +371,10 @@ administration rights. Workspace and inbox member projection MAY annotate
 known agent pubkeys with `kind: agent` so Community avatars derive the
 rounded-square treatment, including Inbox and NIP-17 direct-message
 members; that tag is presentation identity, not NIP-29 membership.
+Identity presentation MUST copy a known agent's image or emoji onto
+matching members. Stored avatars accept `https` or `data:image` pictures
+and emoji graphemes from persona `avatar_url` or kind `0` `picture`;
+initials remain the fallback when neither is available.
 
 For LC-ARCH-023, Nostr account login signs kind `27235` over the relay's exact
 login URL, `POST` method, and SHA-256 digest of the challenge body. A restored

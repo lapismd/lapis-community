@@ -15,6 +15,10 @@ without changing the underlying relay projection. Known-agent member models keep
 agent avatars rounded-square across project surfaces; git-author avatars
 remain the rounded author exception.
 
+`pnpm check:ui` treats `src/components/community-member-avatar/` as the
+avatar-geometry owner so extracted avatar CSS can keep agent
+rounded-square and people circle without consumer restyles.
+
 Repository scripts that enforce specification policy include the deferred-work
 ledger validator required by LC-SPEC-006. It reads specification metadata only
 and does not change the relay-derived registry pipeline. Storybook

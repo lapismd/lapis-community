@@ -700,9 +700,15 @@ before rendering keyed checkpoint links, so repeated relay references cannot
 abort the Activity surface. Known agents carry `kind: "agent"` on
 `CommunityMemberModel`. `CommunityMemberAvatar` derives the rounded-square
 shape from that kind wherever the identity is known, including Projects,
-Inbox, direct messages, Activity, reviews, and comments. Git-author Gravatar avatars remain rounded
+Inbox, direct messages, Activity, reviews, comments, thread author
+hover-cards, and mention chips. It renders a profile image, then a stored
+emoji, and initials only when neither is available. Identity presentation
+copies a known agent's image or emoji onto matching members so those
+surfaces share one avatar. Git-author Gravatar avatars remain rounded
 as a project author exception. `pnpm check:ui` rejects consumer CSS that
-restyles member-avatar radius.
+restyles member-avatar radius. Extracted `avatar-content` and
+`member-from-agent` owners, plus the lowered `CommunityMemberAvatar`
+budget, update `scripts/architecture-baseline.json`.
 
 For LC-UI-040, Inbox owns the conversation-pane inset around the shared message
 skeleton. Initial and selected-thread loading reuse one padded snippet, keeping

@@ -8190,7 +8190,7 @@
                   },
                 }}
                 activityContext={activityOrigin()}
-                members={workspace.members}
+                members={presentationWorkspace.members}
                 agents={composerAgents}
                 rooms={presentationRooms}
                 disabled={participationReadOnly}

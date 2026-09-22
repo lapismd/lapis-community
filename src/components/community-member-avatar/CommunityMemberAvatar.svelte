@@ -1,10 +1,12 @@
 <script lang="ts">
+  import { communityMemberAvatarContent } from "../../community/avatar-content.js";
   import type { CommunityMemberModel } from "../community-workspace/model.js";
   import {
     communityMemberAvatarFallbackTone,
     communityMemberAvatarShape,
   } from "./model.js";
   import { useCommunityMemberPresence } from "../community-member-hover-card/presence-context.js";
+  import "./community-member-avatar.css";
 
   let {
     member,
@@ -30,6 +32,7 @@
       member.presence ??
       "offline",
   );
+  const content = $derived(communityMemberAvatarContent(member));
   const fallbackTone = $derived(communityMemberAvatarFallbackTone(member.name));
   const presenceLabel = $derived(
     presence === "online"
@@ -61,12 +64,15 @@
   <span
     class="community-member-avatar__image"
     data-ui-part="image"
-    data-fallback-tone={member.avatarUrl ? undefined : fallbackTone}
+    data-content={content.kind}
+    data-fallback-tone={content.kind === "initials" ? fallbackTone : undefined}
   >
-    {#if member.avatarUrl}
-      <img src={member.avatarUrl} alt="" />
+    {#if content.kind === "image"}
+      <img src={content.src} alt="" />
+    {:else if content.kind === "emoji"}
+      <span data-ui-part="emoji" aria-hidden="true">{content.emoji}</span>
     {:else}
-      <span aria-hidden="true">{member.initials}</span>
+      <span aria-hidden="true">{content.initials}</span>
     {/if}
   </span>
   {#if showPresence}
@@ -78,138 +84,3 @@
     ></span>
   {/if}
 </span>
-
-<style>
-  .community-member-avatar {
-    --community-member-avatar-size: 2.25rem;
-    --community-member-avatar-presence-size: 0.625rem;
-
-    position: relative;
-    display: block;
-    width: var(--community-member-avatar-size);
-    height: var(--community-member-avatar-size);
-    flex: none;
-  }
-
-  .community-member-avatar[data-size="inline"] {
-    --community-member-avatar-size: 1.25em;
-
-    display: inline-grid;
-    align-self: center;
-    vertical-align: middle;
-  }
-
-  .community-member-avatar[data-size="inline"] .community-member-avatar__image {
-    font-size: var(--community-text-avatar-initials);
-    line-height: 1;
-  }
-
-  .community-member-avatar[data-size="small"] {
-    --community-member-avatar-size: 2rem;
-    --community-member-avatar-presence-size: 0.55rem;
-  }
-
-  .community-member-avatar[data-size="xsmall"] {
-    --community-member-avatar-size: 1.5rem;
-    --community-member-avatar-presence-size: 0.45rem;
-  }
-
-  .community-member-avatar[data-size="xsmall"] .community-member-avatar__image {
-    font-size: var(--community-text-avatar-initials);
-    line-height: 1;
-  }
-
-  .community-member-avatar[data-size="large"] {
-    --community-member-avatar-size: 4rem;
-    --community-member-avatar-presence-size: 0.85rem;
-  }
-
-  .community-member-avatar[data-size="xlarge"] {
-    --community-member-avatar-size: 6rem;
-    --community-member-avatar-presence-size: 1rem;
-  }
-
-  .community-member-avatar[data-shape="rounded"]
-    .community-member-avatar__image {
-    border-radius: 25%;
-  }
-
-  .community-member-avatar__image {
-    display: grid;
-    width: 100%;
-    height: 100%;
-    place-items: center;
-    overflow: hidden;
-    border-radius: 50%;
-    font-size: var(--community-text-body);
-    font-weight: 700;
-  }
-
-  .community-member-avatar__image[data-fallback-tone="blue"] {
-    color: #ffffff;
-    background: #2563eb;
-  }
-
-  .community-member-avatar__image[data-fallback-tone="emerald"] {
-    color: #ffffff;
-    background: #047857;
-  }
-
-  .community-member-avatar__image[data-fallback-tone="amber"] {
-    color: #451a03;
-    background: #fbbf24;
-  }
-
-  .community-member-avatar__image[data-fallback-tone="rose"] {
-    color: #ffffff;
-    background: #e11d48;
-  }
-
-  .community-member-avatar__image[data-fallback-tone="cyan"] {
-    color: #083344;
-    background: #22d3ee;
-  }
-
-  .community-member-avatar__image[data-fallback-tone="violet"] {
-    color: #ffffff;
-    background: #7c3aed;
-  }
-
-  .community-member-avatar__image[data-fallback-tone="orange"] {
-    color: #ffffff;
-    background: #c2410c;
-  }
-
-  .community-member-avatar__image img {
-    display: block;
-    width: 100%;
-    height: 100%;
-    border-radius: inherit;
-    object-fit: cover;
-  }
-
-  .community-member-avatar__presence {
-    position: absolute;
-    right: -0.08rem;
-    bottom: -0.08rem;
-    width: var(--community-member-avatar-presence-size);
-    height: var(--community-member-avatar-presence-size);
-    border: 2px solid
-      var(--community-member-avatar-presence-ring, var(--background));
-    border-radius: 50%;
-    background: var(--muted-foreground);
-  }
-
-  .community-member-avatar__presence[data-presence="online"] {
-    background: var(--success, #08b94e);
-  }
-
-  .community-member-avatar__presence[data-presence="away"] {
-    background: var(--warning, #d99a00);
-  }
-
-  .community-member-avatar__presence[data-presence="unknown"] {
-    background: var(--background);
-    box-shadow: inset 0 0 0 1px var(--muted-foreground);
-  }
-</style>

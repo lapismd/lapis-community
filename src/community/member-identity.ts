@@ -1,11 +1,17 @@
-import type { CommunityAgentIdentity } from "./agent-contracts.js";
-import { initials, shortKey } from "./materialize-shared.js";
+import {
+  applyAgentAvatars,
+  communityAgentIdentities,
+  communityMemberFromAgent,
+  type CommunityAgentIdentityFields,
+} from "./member-from-agent.js";
 import type { CommunityMemberModel } from "./workspace-model.js";
 
-export type CommunityAgentIdentityFields = Pick<
-  CommunityAgentIdentity,
-  "pubkey" | "name" | "avatarUrl"
->;
+export {
+  applyAgentAvatars,
+  communityAgentIdentities,
+  communityMemberFromAgent,
+  type CommunityAgentIdentityFields,
+} from "./member-from-agent.js";
 
 export function withCommunityMemberKinds(
   members: readonly CommunityMemberModel[],
@@ -22,34 +28,17 @@ export function withCommunityMemberKinds(
   });
 }
 
-export function communityMemberFromAgent(
-  agent: CommunityAgentIdentityFields,
-): CommunityMemberModel {
-  const name = agent.name.trim() || shortKey(agent.pubkey);
-  return {
-    id: agent.pubkey,
-    name,
-    handle: shortKey(agent.pubkey),
-    initials: initials(name),
-    ...(agent.avatarUrl === undefined ? {} : { avatarUrl: agent.avatarUrl }),
-    kind: "agent",
-  };
-}
-
-export function communityAgentIdentities(agents?: {
-  agents?: readonly CommunityAgentIdentityFields[];
-  archivedAgents?: readonly CommunityAgentIdentityFields[];
-  publicAgents?: readonly CommunityAgentIdentityFields[];
-}): CommunityAgentIdentityFields[] {
-  return [
-    ...new Map(
-      [
-        ...(agents?.publicAgents ?? []),
-        ...(agents?.archivedAgents ?? []),
-        ...(agents?.agents ?? []),
-      ].map((agent) => [agent.pubkey, agent]),
-    ).values(),
-  ];
+export function presentKnownAgentMembers(
+  members: readonly CommunityMemberModel[],
+  agents: readonly CommunityAgentIdentityFields[],
+): CommunityMemberModel[] {
+  return applyAgentAvatars(
+    withCommunityMemberKinds(
+      members,
+      agents.map((agent) => agent.pubkey),
+    ),
+    agents,
+  );
 }
 
 export function communityIdentityMembers(
@@ -57,10 +46,7 @@ export function communityIdentityMembers(
   agents: readonly CommunityAgentIdentityFields[],
 ): readonly CommunityMemberModel[] {
   const uniqueAgents = communityAgentIdentities({ agents });
-  const tagged = withCommunityMemberKinds(
-    members,
-    uniqueAgents.map((agent) => agent.pubkey),
-  );
+  const tagged = presentKnownAgentMembers(members, uniqueAgents);
   const extras = uniqueAgents.filter(
     (agent) => !tagged.some((member) => member.id === agent.pubkey),
   );
@@ -83,8 +69,8 @@ export function presentCommunityIdentityModel<
     publicAgents?: readonly CommunityAgentIdentityFields[];
   },
 ): T {
-  const members = communityIdentityMembersFromState(model.members, agents);
-  return members === model.members ? model : { ...model, members };
+  const next = communityIdentityMembersFromState(model.members, agents);
+  return next === model.members ? model : { ...model, members: next };
 }
 
 export function communityIdentityMembersFromState(

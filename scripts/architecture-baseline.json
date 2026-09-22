@@ -372,6 +372,26 @@
       "physicalLines": 148,
       "forbiddenImportCount": 0
     },
+    "src/community/avatar-content.test.ts": {
+      "countedLines": 39,
+      "physicalLines": 43,
+      "forbiddenImportCount": 0
+    },
+    "src/community/avatar-content.ts": {
+      "countedLines": 41,
+      "physicalLines": 46,
+      "forbiddenImportCount": 0
+    },
+    "src/community/member-from-agent.test.ts": {
+      "countedLines": 29,
+      "physicalLines": 33,
+      "forbiddenImportCount": 0
+    },
+    "src/community/member-from-agent.ts": {
+      "countedLines": 51,
+      "physicalLines": 55,
+      "forbiddenImportCount": 0
+    },
     "src/community/permission-expiry.test.ts": {
       "countedLines": 79,
       "physicalLines": 82,
@@ -969,13 +989,13 @@
       "forbiddenImportCount": 0
     },
     "src/community/member-identity.test.ts": {
-      "countedLines": 76,
-      "physicalLines": 85,
+      "countedLines": 88,
+      "physicalLines": 98,
       "forbiddenImportCount": 0
     },
     "src/community/member-identity.ts": {
-      "countedLines": 92,
-      "physicalLines": 99,
+      "countedLines": 79,
+      "physicalLines": 85,
       "forbiddenImportCount": 0
     },
     "src/community/message-moderation.ts": {
@@ -2351,8 +2371,13 @@
       "forbiddenImportCount": 0
     },
     "src/components/community-member-avatar/CommunityMemberAvatar.svelte": {
-      "countedLines": 188,
-      "physicalLines": 215,
+      "countedLines": 83,
+      "physicalLines": 86,
+      "forbiddenImportCount": 0
+    },
+    "src/components/community-member-avatar/CommunityMemberAvatarContent.stories.svelte": {
+      "countedLines": 70,
+      "physicalLines": 76,
       "forbiddenImportCount": 0
     },
     "src/components/community-member-avatar/handle.ts": {
@@ -3486,8 +3511,13 @@
       "forbiddenImportCount": 0
     },
     "src/components/community-thread-panel/CommunityThreadPanel.svelte": {
-      "countedLines": 284,
-      "physicalLines": 288,
+      "countedLines": 286,
+      "physicalLines": 290,
+      "forbiddenImportCount": 0
+    },
+    "src/components/community-thread-panel/CommunityThreadPanelAgent.stories.svelte": {
+      "countedLines": 88,
+      "physicalLines": 92,
       "forbiddenImportCount": 0
     },
     "src/components/community-thread-panel/CommunityThreadPanelAudience.stories.svelte": {

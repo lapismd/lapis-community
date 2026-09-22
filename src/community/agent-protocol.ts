@@ -10,6 +10,7 @@ import type {
   CommunityAgentPersona,
   CommunityAgentPresence,
 } from "./agent-contracts.js";
+import { communityStoredAvatar } from "./avatar-content.js";
 import { copyNostrEvent } from "./verified-events.js";
 
 export const AGENT_PROTOCOL_PIN = "cec5c8fd9280d30f56effac701e1e19d5cfe6fea";
@@ -351,6 +352,7 @@ export function materializeAgentDirectory(
         ? agentJson(extension.content)
         : {};
     const picture = text(metadata.picture);
+    const avatarUrl = persona?.avatarUrl ?? communityStoredAvatar(picture);
     const channelIds = [...memberships]
       .flatMap(([id, members]) => (members.has(pubkey) ? [id] : []))
       .sort();
@@ -367,11 +369,7 @@ export function materializeAgentDirectory(
               text(extra.name) ||
               `${pubkey.slice(0, 8)}…`,
       about: persona?.description || text(metadata.about),
-      ...(persona?.avatarUrl
-        ? { avatarUrl: persona.avatarUrl }
-        : /^https?:\/\//.test(picture) || picture.startsWith("data:image/")
-          ? { avatarUrl: picture }
-          : {}),
+      ...(avatarUrl ? { avatarUrl } : {}),
       agentType: text(extra.agent_type) || text(metadata.agent_type) || "agent",
       channelIds,
       followed: followed.has(pubkey),
