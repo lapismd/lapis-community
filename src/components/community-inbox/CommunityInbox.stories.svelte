@@ -6,6 +6,7 @@
   import CommunityInboxSelectionHarness from "./CommunityInboxSelectionHarness.svelte";
   import {
     expectMessageSkeletonInset,
+    expectSelectedInboxConversationLoading,
     threadRegionHeightRules,
   } from "./inbox-story-contracts.js";
 
@@ -151,7 +152,9 @@
         canvas.getByRole("textbox", { name: "Markdown editor" }),
       ).toBeVisible(),
     );
-    await expect(canvas.getByRole("heading", { name: "support" })).toBeVisible();
+    await expect(
+      canvas.getByRole("heading", { name: "support" }),
+    ).toBeVisible();
 
     await userEvent.click(canvas.getByRole("button", { name: "All" }));
     await userEvent.click(
@@ -222,12 +225,7 @@
 <Story
   name="Selecting a conversation shows a skeleton"
   play={async ({ canvas }) => {
-    await userEvent.click(
-      canvas.getByRole("button", { name: /^Thread in #support:/u }),
-    );
-    expectMessageSkeletonInset(
-      canvas.getByRole("status", { name: "Loading Inbox messages" }),
-    );
+    await expectSelectedInboxConversationLoading(canvas);
   }}
 >
   {#snippet template()}
@@ -260,7 +258,9 @@
     await expect(
       canvas.getByRole("region", { name: "Selected inbox thread" }),
     ).toBeVisible();
-    await expect(canvas.getAllByLabelText("Message from Fizz")[0]).toBeVisible();
+    await expect(
+      canvas.getAllByLabelText("Message from Fizz")[0],
+    ).toBeVisible();
 
     const thread = canvasElement.querySelector(
       ".lc-community-inbox__thread-region",

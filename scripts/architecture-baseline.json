@@ -2452,8 +2452,8 @@
       "forbiddenImportCount": 0
     },
     "src/components/community-inbox/inbox-story-contracts.ts": {
-      "countedLines": 34,
-      "physicalLines": 36,
+      "countedLines": 47,
+      "physicalLines": 50,
       "forbiddenImportCount": 0
     },
     "src/components/community-inbox/model.ts": {

@@ -15,6 +15,9 @@ For LC-UI-011, thread-panel projection matching lives in
 `thread-panel-projection` so `CommunityApplication.svelte` does not grow
 while replacing an already-open thread.
 
+For LC-UI-040, Inbox selection pending lives in `inbox-conversation-pending`
+so the host can hide stale messages without growing `CommunityInbox.svelte`.
+
 For LC-ARCH-011 and LC-ARCH-028, Turso driver import, connect, lock, and schema
 setup live in `turso-database-open` so `turso-event-store.ts` shrinks and the
 bounded open wait cannot grow that hotspot. The lowered store budget and new

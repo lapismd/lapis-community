@@ -1,4 +1,4 @@
-import { expect } from "storybook/test";
+import { expect, userEvent, type Canvas } from "storybook/test";
 
 export function threadRegionHeightRules(element: Element): string[] {
   const hits: string[] = [];
@@ -33,4 +33,18 @@ export function expectMessageSkeletonInset(skeleton: HTMLElement) {
   expect(bounds.left).toBeGreaterThan(pane.left);
   expect(bounds.top).toBeGreaterThan(pane.top);
   expect(bounds.right).toBeLessThan(pane.right);
+}
+
+export async function expectSelectedInboxConversationLoading(
+  canvas: Canvas,
+): Promise<void> {
+  await userEvent.click(
+    canvas.getByRole("button", { name: /^Thread in #support:/u }),
+  );
+  await expect(
+    canvas.queryByText(/What can we help you build/u),
+  ).not.toBeInTheDocument();
+  expectMessageSkeletonInset(
+    canvas.getByRole("status", { name: "Loading Inbox messages" }),
+  );
 }

@@ -2,6 +2,7 @@
   import type { ComponentProps } from "svelte";
 
   import CommunityInbox from "../community-inbox/CommunityInbox.svelte";
+  import { inboxConversationPending } from "./inbox-conversation-pending.js";
 
   let props: ComponentProps<typeof CommunityInbox> = $props();
   let requestedItemId = $state<string>();
@@ -12,12 +13,10 @@
       : undefined,
   );
   const waitingForConversation = $derived(
-    requestedItemId !== undefined &&
-      props.model.activeItemId !== requestedItemId,
+    inboxConversationPending(props.model, requestedItemId),
   );
   const model = $derived(
-    requestedItem === undefined ||
-    requestedItem.id === props.model.activeItemId
+    requestedItem === undefined || requestedItem.id === props.model.activeItemId
       ? props.model
       : {
           ...props.model,
