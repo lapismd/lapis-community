@@ -111,7 +111,9 @@ Catch-up is nonblocking and repeats after WebSocket reconnect and when the user
 selects Latest. A ten-second nonresponse preserves local data and reports
 synchronization as unavailable until reconnect, presence recovery, or another
 Latest request. A fresh snapshot restores current work and pending permissions;
-historical start frames never imply current work. Identity, community, agent,
+those `permission_requested` snapshot frames remain authoritative even when
+live telemetry already recorded the same sequence. Historical start frames
+never imply current work. Identity, community, agent,
 or visible-context changes cancel stale requests.
 
 The subscription accepts the relay’s five-minute freshness
@@ -230,7 +232,9 @@ Cancel and confirmed Reset conversation actions. Decrypted
 bounded input, expiry, and only the choices named by the controller. Controls
 are encrypted with the active owner signer and remain pending until the relay
 accepts the signed kind `24200` event; `permission_resolved` or terminal frames
-remove stale cards. Historical agents never expose controls.
+remove stale cards. A refresh snapshot replaces cards for that scope from its
+`permission_requested` frames so a live sequence cannot wipe the approval UI
+while the controller still waits. Historical agents never expose controls.
 
 The Agents directory and profiles consume the shared dialog, confirmation,
 avatar-picker, composer, Markdown, and skeleton contracts in the Community UI

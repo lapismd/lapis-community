@@ -19,8 +19,6 @@ import type {
   CommunityAgentArchiveRecord,
   CommunityAgentArchiveScope,
   CommunityAgentDirectory,
-  CommunityAgentPermissionDecision,
-  CommunityAgentPermissionRequest,
   CommunityAgentMemoryState,
   CommunityAgentRuntimeState,
   CommunityAgentProcessingState,
@@ -48,6 +46,11 @@ import {
   parseMemoryState,
   parseRuntimeState,
 } from "./agent-state-parsers.js";
+import {
+  controllerPermission,
+  replaceScopePendingPermissions,
+  snapshotPermissionRequests,
+} from "./activity-sync-permissions.js";
 
 interface AgentControllerOptions {
   scope: CommunityAgentArchiveScope;
@@ -1336,12 +1339,15 @@ export class CommunityAgentsController {
         (currentSequence === undefined || currentSequence <= snapshotSequence)
       )
         this.#update({
-          pendingPermissions: {
-            ...this.#state.pendingPermissions,
-            [request.agentPubkey]: (
-              this.#state.pendingPermissions[request.agentPubkey] ?? []
-            ).filter((permission) => permission.scopeKey !== snapshotScopeKey),
-          },
+          pendingPermissions: replaceScopePendingPermissions(
+            this.#state.pendingPermissions,
+            request.agentPubkey,
+            snapshotScopeKey,
+            snapshotPermissionRequests(
+              request.agentPubkey,
+              snapshots.map(({ frame }) => frame),
+            ),
+          ),
         });
       for (const item of events) {
         this.#seen.add(item.event.id);
@@ -1952,52 +1958,6 @@ export class CommunityAgentsController {
     };
     void this.#flushArchive();
   }
-}
-
-const CONTROLLER_PERMISSION_DECISIONS =
-  new Set<CommunityAgentPermissionDecision>([
-    "allow_once",
-    "allow_always",
-    "reject_once",
-    "reject_always",
-    "cancel",
-  ]);
-
-function controllerPermission(
-  agentPubkey: string,
-  frame: CommunityAgentActivityItem["frame"],
-  payload: Record<string, unknown>,
-): CommunityAgentPermissionRequest | undefined {
-  const requestId = observerText(payload.requestId, 512);
-  const scopeKey = observerText(payload.scopeKey, 4_096);
-  const tool = observerText(payload.tool, 512);
-  const options = Array.isArray(payload.options)
-    ? [
-        ...new Set(
-          payload.options.filter(
-            (value): value is CommunityAgentPermissionDecision =>
-              typeof value === "string" &&
-              CONTROLLER_PERMISSION_DECISIONS.has(
-                value as CommunityAgentPermissionDecision,
-              ),
-          ),
-        ),
-      ]
-    : [];
-  if (!requestId || !scopeKey || !tool || options.length === 0) return;
-  const expiresAt = Number(payload.expiresAt);
-  return {
-    agentPubkey,
-    requestId,
-    scopeKey,
-    tool,
-    ...(payload.input === undefined ? {} : { input: payload.input }),
-    options,
-    ...(Number.isSafeInteger(expiresAt) && expiresAt > 0 ? { expiresAt } : {}),
-    ...(frame.channelId ? { channelId: frame.channelId } : {}),
-    ...(frame.sessionId ? { sessionId: frame.sessionId } : {}),
-    ...(frame.turnId ? { turnId: frame.turnId } : {}),
-  };
 }
 
 function activitySyncContext(

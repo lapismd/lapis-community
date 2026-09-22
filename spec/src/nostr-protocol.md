@@ -457,6 +457,8 @@ alone never establishes ownership for live capture, replay, or archive reads.
 The fixed high-water mark bounds original replay events. Snapshot events may
 reflect newer current state, remain state-only, and never advance the committed
 replay cursor; stable signed event IDs deduplicate their later ordinary replay.
+Pending permission cards come from those snapshot `permission_requested` frames
+even when live telemetry already applied the same sequence.
 
 Both directions use the existing private ephemeral route. The relay applies
 normal freshness, ownership, optional mutual NIP-29 membership, envelope size,

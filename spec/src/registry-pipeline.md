@@ -34,6 +34,8 @@ scan draft `nostr:npub` text through the same mention-widget path.
 Composer mention-insert budgets record NIP-27 selection tokens.
 Agent activity transcripts add `transcript-markdown-members.ts` so the shared
 preview receives known members and the selected agent.
+Activity-sync permission replacement extracts to `activity-sync-permissions.ts`
+so refresh snapshots keep pending approval cards.
 Composer autocomplete and formatting-action sync extract to dedicated
 modules and lower the `CommunityChatComposer.svelte` path budget in the
 same change.
