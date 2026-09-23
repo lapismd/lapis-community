@@ -160,8 +160,9 @@ MUST select the same revision. File and directory names in the file browser
 MUST keep the ordinary text color, and only that name text MUST use the link
 color and underline on hover.
 Opening a file MUST replace the branch name in the Files URL with that
-revision's commit SHA and show the SHA in the branch control, without
-reloading the tree. Leaving the file MUST restore the branch name.
+revision's commit SHA without reloading the tree. The branch control MUST
+show the branch name when that SHA is a branch tip, and the SHA when it
+matches no branch. Leaving the file MUST restore the branch name.
 The repository workspace MUST expose an Activity tab before Overview that
 reuses the project activity feed, scoped to the selected repository,
 including dest-Git commits, NIP-34 collaboration, and kind `3901` jj-sync

@@ -11,7 +11,7 @@
   import type { ProjectForgeRef } from "../../projects/index.js";
   import { projectForgeBranchKind } from "../../projects/repository-refs.js";
   import {
-    branchCommandCopy,
+    branchCommandCopy, branchCommandLabel,
     branchCommandDefaultName,
     branchCommandPartition,
   } from "./branch-command-view.js";
@@ -48,7 +48,7 @@
     if (!next) return;
     query = "";
     tab =
-      includeSync && projectForgeBranchKind(branch) === "sync"
+      includeSync && projectForgeBranchKind(branchCommandLabel(branches, branch)) === "sync"
         ? "sync"
         : "branch";
   }
@@ -70,7 +70,7 @@
         aria-label={label}
       >
         <GitBranchIcon aria-hidden="true" />
-        <span>{branch || "Select branch"}</span>
+        <span>{branchCommandLabel(branches, branch) || "Select branch"}</span>
         <ChevronDownIcon
           class="community-repository-branch-command__chevron"
           aria-hidden="true"
@@ -128,7 +128,7 @@
               onSelect={() => choose(option.name)}
             >
               <CommandView.ItemIcon>
-                {#if option.name === branch}
+                {#if option.name === branchCommandLabel(branches, branch)}
                   <CheckIcon aria-hidden="true" />
                 {/if}
               </CommandView.ItemIcon>
