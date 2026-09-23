@@ -6,6 +6,9 @@ import {
   storyOpencodeCatalog,
 } from "./runtime-catalog-story-fixtures.js";
 
+export const storyBootstrapRevision =
+  "a5b62844addd397680b9f8d3408436712ee10987a6118cfa0be92e7b440f7e18";
+
 export const storyAgentRuntime: CommunityAgentRuntimeState = {
   agentId: "agent-research",
   host: {
@@ -49,7 +52,7 @@ export const storyAgentRuntime: CommunityAgentRuntimeState = {
     { name: "relay.issues.create", effect: "write" },
     { name: "memory.search", effect: "read" },
   ],
-  bootstrapRevision: "persona:release-notes:7",
+  bootstrapRevision: storyBootstrapRevision,
   memory: { enabled: true, candidates: 1 },
 };
 

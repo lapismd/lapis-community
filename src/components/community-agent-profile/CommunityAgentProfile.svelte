@@ -56,6 +56,7 @@
   import CommunityChip from "../community-chip/CommunityChip.svelte";
   import CommunityAgentEditorDialog from "../community-agent-editor/CommunityAgentEditorDialog.svelte";
   import CommunityMemberAvatar from "../community-member-avatar/CommunityMemberAvatar.svelte";
+  import CommunityProjectsRevisionGraphIds from "../community-projects/CommunityProjectsRevisionGraphIds.svelte";
   import { communityAgentMember } from "../community-agents/model.js";
 
   let {
@@ -625,7 +626,17 @@
                 </div>{/if}
               <div>
                 <dt>Bootstrap</dt>
-                <dd>{runtime.bootstrapRevision ?? "Current configuration"}</dd>
+                <dd class="agent-profile__runtime-bootstrap">
+                  {#if runtime.bootstrapRevision}
+                    <CommunityProjectsRevisionGraphIds
+                      commitId={runtime.bootstrapRevision}
+                      commitLabel="bootstrap revision"
+                      placement="inline"
+                    />
+                  {:else}
+                    Current configuration
+                  {/if}
+                </dd>
               </div>
               <div>
                 <dt>Memory</dt>
@@ -1144,6 +1155,9 @@
     margin: 0;
     text-align: right;
     overflow-wrap: anywhere;
+  }
+  .agent-profile__runtime-bootstrap :global(.community-revision-graph-ids) {
+    justify-content: flex-end;
   }
   .agent-profile__runtime-config-title {
     font-size: var(--community-text-body);

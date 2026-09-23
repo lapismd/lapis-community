@@ -1,8 +1,9 @@
 <script module lang="ts">
   import { defineMeta } from "@storybook/addon-svelte-csf";
-  import { expect, userEvent, within, waitFor } from "storybook/test";
+  import { expect, fn, userEvent, within, waitFor } from "storybook/test";
   import CommunityAgentProfile from "./CommunityAgentProfile.svelte";
   import Harness from "../community-agents/CommunityAgentsStoryHarness.svelte";
+  import { storyBootstrapRevision } from "../community-agents/runtime-story-fixtures.js";
   const { Story } = defineMeta({
     title: "Community/Agents/Profile",
     component: CommunityAgentProfile,
@@ -137,7 +138,39 @@
   play={async ({ canvas, canvasElement }) => {
     await userEvent.click(canvas.getByRole("tab", { name: "Runtime" }));
     await expect(canvas.getByText("local-workspace")).toBeVisible();
-    await expect(canvas.getByText("persona:release-notes:7")).toBeVisible();
+    const copyBootstrap = canvas.getByRole("button", {
+      name: `Copy full bootstrap revision: ${storyBootstrapRevision}`,
+    });
+    await expect(copyBootstrap).toHaveTextContent("a5b62844…7e18");
+    await expect(
+      canvas.queryByText(storyBootstrapRevision),
+    ).not.toBeInTheDocument();
+    const clipboardDescriptor = Object.getOwnPropertyDescriptor(
+      globalThis.navigator,
+      "clipboard",
+    );
+    const writeText = fn(async () => undefined);
+    Object.defineProperty(globalThis.navigator, "clipboard", {
+      configurable: true,
+      value: { writeText },
+    });
+    try {
+      await userEvent.click(copyBootstrap);
+      await waitFor(() =>
+        expect(writeText).toHaveBeenCalledWith(storyBootstrapRevision),
+      );
+      await expect(copyBootstrap).toHaveAttribute("data-copied", "true");
+    } finally {
+      if (clipboardDescriptor) {
+        Object.defineProperty(
+          globalThis.navigator,
+          "clipboard",
+          clipboardDescriptor,
+        );
+      } else {
+        Reflect.deleteProperty(globalThis.navigator, "clipboard");
+      }
+    }
     await expect(
       canvas.getByRole("button", { name: "Refresh runtime details" }),
     ).toBeVisible();

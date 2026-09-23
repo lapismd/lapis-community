@@ -1588,15 +1588,15 @@
       "forbiddenImportCount": 0
     },
     "src/components/community-agent-profile/CommunityAgentProfile.stories.svelte": {
-      "countedLines": 566,
-      "physicalLines": 578,
+      "countedLines": 599,
+      "physicalLines": 611,
       "forbiddenImportCount": 0,
       "kind": "legacy",
       "justification": "Existing file above the new-file counted-line limit; do not grow"
     },
     "src/components/community-agent-profile/CommunityAgentProfile.svelte": {
-      "countedLines": 1455,
-      "physicalLines": 1474,
+      "countedLines": 1469,
+      "physicalLines": 1488,
       "forbiddenImportCount": 0,
       "kind": "legacy",
       "justification": "Existing file above the new-file counted-line limit; do not grow"
@@ -1673,8 +1673,8 @@
       "forbiddenImportCount": 0
     },
     "src/components/community-agents/runtime-story-fixtures.ts": {
-      "countedLines": 65,
-      "physicalLines": 67,
+      "countedLines": 67,
+      "physicalLines": 70,
       "forbiddenImportCount": 0
     },
     "src/components/community-agents/story-fixtures.ts": {
