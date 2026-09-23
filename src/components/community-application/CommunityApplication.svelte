@@ -6216,6 +6216,7 @@
               selectedRepository.channelId,
             )}
             onCreateReview={createReviewFromLog}
+            defaultBranch={projectRepositoryCapabilities[selectedRepository.address.coordinate]?.protection?.default_branch}
             branches={projectRepositoryBranches}
             surface={activeRepositorySurface}
             channel={roomForProjectChannel(selectedRepository.channelId)

@@ -38,7 +38,7 @@
     githubDisabled = false,
     onGitHub,
     onSelect,
-    canMaintain = false, branches = [],
+    canMaintain = false, branches = [], defaultBranch = "",
     onCreateReview,
   }: {
     surface: ProjectForgeSurface;
@@ -55,7 +55,7 @@
     onGitHub?: (() => void) | undefined;
     onSelect: (label: string) => void;
     canMaintain?: boolean;
-    branches?: readonly ProjectForgeRef[] | undefined;
+    branches?: readonly ProjectForgeRef[] | undefined; defaultBranch?: string;
     onCreateReview?: (input: LogReviewSubmitInput) => Promise<void> | void;
   } = $props();
 
@@ -90,7 +90,7 @@
 
 {#if surface === "log" || surface === "oplog"}
   <CommunityProjectsRepositoryLogRail
-    {canMaintain} {branches}
+    {canMaintain} {branches} {defaultBranch}
     {...onCreateReview ? { onCreateReview } : {}}
   />
 {/if}

@@ -1,7 +1,11 @@
 import { getPublicKey, generateSecretKey } from "nostr-tools/pure";
 import { describe, expect, it } from "vitest";
 
-import { logReviewBranchName, logReviewRequest } from "./log-review.js";
+import {
+  initialLogReviewTarget,
+  logReviewBranchName,
+  logReviewRequest,
+} from "./log-review.js";
 
 describe("logReviewBranchName", () => {
   const author = getPublicKey(generateSecretKey());
@@ -27,6 +31,12 @@ describe("logReviewBranchName", () => {
         "30617:ee".concat("ee".repeat(31), ":notes"),
       ).branchName,
     ).toBe(logReviewBranchName(author, changeId));
+  });
+
+  it("uses the advertised live default and omits an unknown base", () => {
+    expect(initialLogReviewTarget("trunk")).toBe("trunk");
+    expect(initialLogReviewTarget("  ")).toBe("");
+    expect(initialLogReviewTarget(undefined)).toBe("");
   });
 
   it("rejects a missing author or change id", () => {

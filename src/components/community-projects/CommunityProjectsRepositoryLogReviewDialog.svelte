@@ -90,10 +90,7 @@
       </Field.Group>
       <Button
         type="submit"
-        disabled={busy ||
-          !reviewTitle.trim() ||
-          !changeId ||
-          (refs.length > 0 && !targetBranch)}
+        disabled={busy || !reviewTitle.trim() || !changeId}
       >
         {busy ? "Creating review…" : "Create review"}
       </Button>

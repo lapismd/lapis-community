@@ -8,6 +8,11 @@ export type LogReviewSubmitInput = {
   targetBranch: string;
 };
 
+/** Base published for a Log review. An empty result omits `target-branch`. */
+export function initialLogReviewTarget(protectedDefault: string | undefined): string {
+  return protectedDefault?.trim() ?? "";
+}
+
 export function logReviewBranchName(
   authorPubkey: string,
   changeId: string,

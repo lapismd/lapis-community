@@ -8,7 +8,7 @@
 
   import type { LogReviewSubmitInput } from "../../projects/log-review.js";
   import type { ProjectForgeRef } from "../../projects/model.js";
-  import { projectForgeDefaultBranchName } from "../../projects/repository-refs.js";
+  import { initialLogReviewTarget } from "../../projects/log-review.js";
   import { useRepositoryLogPane } from "../../projects/repository-log-pane.svelte.js";
   import CommunityEntityCopyButton from "../community-entity-chip/CommunityEntityCopyButton.svelte";
   import CommunityProjectsRepositoryLogReviewDialog from "./CommunityProjectsRepositoryLogReviewDialog.svelte";
@@ -17,11 +17,11 @@
 
   let {
     canMaintain = false,
-    branches = EMPTY_REFS,
+    branches = EMPTY_REFS, defaultBranch = "",
     onCreateReview,
   }: {
     canMaintain?: boolean;
-    branches?: readonly ProjectForgeRef[] | undefined;
+    branches?: readonly ProjectForgeRef[] | undefined; defaultBranch?: string;
     onCreateReview?: (input: LogReviewSubmitInput) => Promise<void> | void;
   } = $props();
 
@@ -49,7 +49,7 @@
     reviewTitle = pane?.reviewMessage ?? "";
     reviewBody = "";
     localError = "";
-    targetBranch = projectForgeDefaultBranchName(refs) ?? "";
+    targetBranch = initialLogReviewTarget(defaultBranch);
     reviewOpen = true;
   }
 
