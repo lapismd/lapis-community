@@ -23,11 +23,11 @@ export function activityRunLabel(state?: string, preview?: string): string {
 }
 
 function interruptedLabel(preview?: string): string {
-  const reason = preview?.replace(/\s+/gu, " ").trim();
-  if (!reason || reason === "Blocking later requests in this workspace.")
+  const reason = preview?.replace(/\s+/gu, " ").trim().replace(/\.$/u, "");
+  if (!reason || reason === "Blocking later requests in this workspace")
     return "Interrupted. This run is blocking later requests in the workspace.";
-  if (reason.startsWith("Interrupted.")) return reason;
-  return `Interrupted. ${reason.replace(/\.$/u, "")}. This run is blocking later requests in the workspace.`;
+  if (reason.startsWith("Interrupted.")) return `${reason}.`;
+  return `Interrupted. ${reason}. This run is blocking later requests in the workspace.`;
 }
 
 export function activityStreams(state?: string): boolean {

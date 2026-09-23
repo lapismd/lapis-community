@@ -956,7 +956,7 @@ running request, including after text or tool output. A queued request MUST be
 labelled Queued and MUST NOT use that streaming indicator. Activity controls
 MUST list every open or workspace-fencing run for the visible channel, including
 another thread, with Queued, Starting, Working, Waiting for permission, or
-Interrupted. An interrupted row MUST say it blocks later requests, MUST include a recorded finish reason, and MUST offer Continue to release that fence so the owner can send another message. It MUST NOT use the streaming Working indicator. Cancel
+Interrupted. An interrupted row MUST say it blocks later requests, MUST include a recorded finish reason when one exists, and MUST offer Continue to release that fence so the owner can send another message. A generic fence notice MUST stay that one sentence. It MUST NOT use the streaming Working indicator. Cancel
 MUST target a running row's session and turn. An expired permission MUST drop its approval card and MUST leave that turn running with the notice that the agent is continuing. The Activity surface MUST offer Turns
 and Activity tabs. Turns MUST list each open or fencing run as one row with its
 status and a Cancel or Continue control at the end of that row. Reset conversation MUST
