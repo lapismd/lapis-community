@@ -53,15 +53,14 @@ export function repositorySurfaceLocation(
 export function repositoryFilesPathLocation(
   location: CommunityApplicationLocation,
   path: string,
+  revision?: string,
 ): CommunityApplicationLocation | undefined {
   const route = location.projectRoute;
-  if (route?.kind !== "repository" || route.surface !== "files" || !route.revision)
-    return undefined;
+  if (route?.kind !== "repository" || route.surface !== "files" || !route.revision) return undefined;
+  const nextRevision = revision || route.revision;
   const { path: _ignored, ...rest } = route;
-  return {
-    ...location,
-    projectRoute: path ? { ...rest, path } : rest,
-  };
+  const base = nextRevision === route.revision ? rest : { ...rest, revision: nextRevision };
+  return { ...location, projectRoute: path ? { ...base, path } : base };
 }
 
 export function reviewCommitLocation(

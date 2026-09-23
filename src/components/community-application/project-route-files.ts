@@ -80,6 +80,36 @@ export function repositoryViewRevision(input: {
   return { branch, revision };
 }
 
+const COMMIT_SHA = /^(?:[a-f0-9]{40}|[a-f0-9]{64})$/iu;
+
+export function repositoryFilePermalink(
+  revision: string | undefined,
+  branches: readonly { name: string; sha: string }[],
+  commitSha?: string,
+): string | undefined {
+  if (!revision) return undefined;
+  if (COMMIT_SHA.test(revision)) return revision;
+  return (
+    commitSha ||
+    branches.find((branch) => branch.name === revision)?.sha ||
+    revision
+  );
+}
+
+export function repositoryFilesLoadKey(
+  route: { kind?: string; surface?: string; revision?: string } | undefined,
+  loadedRevision: string,
+  loadedCommitSha?: string,
+): string {
+  const revision =
+    route?.kind === "repository" && route.surface === "files"
+      ? (route.revision ?? "")
+      : "";
+  if (loadedCommitSha && revision === loadedCommitSha)
+    return loadedRevision || revision;
+  return revision || loadedRevision;
+}
+
 function validRevision(value: unknown): value is string {
   return (
     typeof value === "string" &&

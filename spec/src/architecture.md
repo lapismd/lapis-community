@@ -759,7 +759,10 @@ Op Log surface on repository hashes. `project-route-files` addresses
 repository Files as `#/projects/repository/<coordinate>/<revision>/files`
 so the branch control and the URL share one branch or commit.
 `community-copy-links` puts that revision on the repository scheme URI as
-`branch`, and `community-link-normalize` reads it back from the Files hash. Application hash sync and
+`branch`, and `community-link-normalize` reads it back from the Files hash.
+`repositoryFilePermalink` addresses an opened file by the revision's commit
+SHA so the Files URL and branch control share that commit without reloading
+the tree. Application hash sync and
 forum-topic restoration live in `application-location-hash` and
 `application-forum-hash` so `CommunityApplication.svelte` shrinks.
 `community-copy-links` emits shareable scheme URIs; `community-entity-chip`

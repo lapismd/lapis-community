@@ -1,7 +1,11 @@
 import { describe, expect, it } from "vitest";
 
+import { repositoryFilesPathLocation } from "./project-commit-route.js";
+import { noCommunityApplicationPanel } from "./navigation.js";
 import {
+  repositoryFilePermalink,
   repositoryFilesHash,
+  repositoryFilesLoadKey,
   repositoryFilesRouteFromHash,
   repositoryViewRevision,
   storedRepositoryFilesFields,
@@ -81,5 +85,37 @@ describe("repository files routes", () => {
         branches,
       }).branch,
     ).toBe("community-visible");
+  });
+
+  it("opens a file at the branch tip and keeps that tip as the load key", () => {
+    const sha = "d".repeat(40);
+    const branches = [{ name: "main", sha }];
+    expect(repositoryFilePermalink("main", branches, sha)).toBe(sha);
+    expect(repositoryFilePermalink(sha, branches)).toBe(sha);
+    const location = {
+      destination: "projects" as const,
+      panel: noCommunityApplicationPanel(),
+      projectRoute: {
+        kind: "repository" as const,
+        coordinate,
+        surface: "files" as const,
+        revision: "main",
+      },
+    };
+    expect(repositoryFilesPathLocation(location, ".gitignore", sha)?.projectRoute).toEqual({
+      kind: "repository",
+      coordinate,
+      surface: "files",
+      revision: sha,
+      path: ".gitignore",
+    });
+    const opened = repositoryFilesPathLocation(location, ".gitignore", sha)!;
+    expect(repositoryFilesLoadKey(opened.projectRoute, "main", sha)).toBe("main");
+    expect(repositoryFilesPathLocation(opened, "", "main")?.projectRoute).toEqual({
+      kind: "repository",
+      coordinate,
+      surface: "files",
+      revision: "main",
+    });
   });
 });

@@ -17,6 +17,7 @@
     syncBrowserApplicationLocation,
   } from "./application-location-hash.js";
   import { provideForumTopicSync } from "./application-forum-hash.svelte.js";
+  import { repositoryFilePermalink, repositoryFilesLoadKey } from "./project-route-files.js";
   import * as communityCopy from "../../community/community-copy-links.js";
   import { repositoryViewRevision } from "./project-route-files.js";
   import { projectViewForSurface } from "./project-log-route.js";
@@ -2648,6 +2649,8 @@
       });
   });
 
+  const filesLoadKey = $derived(repositoryFilesLoadKey(applicationLocation.projectRoute, projectRepositoryRevision, projectTree?.commit?.sha));
+
   $effect(() => {
     const session = projectSession;
     const resources = projectWorkItemResources;
@@ -2671,13 +2674,9 @@
       : (selectedProjectSurface ?? overviewSurface);
     const pullRequestId = selectedPullRequestId;
     const selectedCommitSha = selectedProjectCommit?.sha;
-    const requestedRepositoryBranch = projectSelectedRepositoryBranch;
+    const requestedRepositoryBranch = (filesLoadKey, untrack(() => projectSelectedRepositoryBranch));
     const requestedRepositoryBranchOwner = projectSelectedRepositoryBranchOwner;
-    const filesRouteRevision =
-      applicationLocation.projectRoute?.kind === "repository" &&
-      applicationLocation.projectRoute.surface === "files"
-        ? applicationLocation.projectRoute.revision
-        : undefined;
+    const filesRouteRevision = untrack(() => applicationLocation.projectRoute?.kind === "repository" && applicationLocation.projectRoute.surface === "files" ? applicationLocation.projectRoute.revision : undefined);
     if (!session || !resources || !catalogSettled) return;
 
     const openedSession = session;
@@ -3520,17 +3519,18 @@
 
   function selectRepositoryBranch(branch: string | undefined): void {
     if (!branch || branch === projectSelectedRepositoryBranch) return;
-    projectSelectedRepositoryBranchOwner = projectSourceRepositoryCoordinate;
-    projectSelectedRepositoryBranch = branch;
-    selectedProjectPath = ""; projectBlob = undefined; projectTree = undefined; projectOwners = undefined;
+    const keepTree = projectRepositoryBranches.some((item) => item.name === branch && item.sha === projectSelectedRepositoryBranch);
+    projectSelectedRepositoryBranchOwner = projectSourceRepositoryCoordinate; projectSelectedRepositoryBranch = branch;
+    selectedProjectPath = ""; projectBlob = undefined; if (!keepTree) { projectTree = undefined; projectOwners = undefined; }
     const route = applicationLocation.projectRoute;
     if (route?.kind === "repository" && route.surface === "files") pushLocation(repositorySurfaceLocation(route.coordinate, "files", activePanel, selectedRepositoryProject?.address.coordinate, branch));
   }
 
   function selectRepositoryPath(path: string): void {
     selectedProjectPath = path; projectBlob = undefined;
-    const next = repositoryFilesPathLocation(applicationLocation, path);
-    if (next) pushLocation(next);
+    const current = applicationLocation.projectRoute?.kind === "repository" ? applicationLocation.projectRoute.revision : undefined;
+    const revision = path ? repositoryFilePermalink(current, projectRepositoryBranches, projectTree?.commit?.sha) : projectRepositoryBranches.find((item) => item.sha === current)?.name;
+    const next = repositoryFilesPathLocation(applicationLocation, path, revision); if (next) pushLocation(next);
   }
 
   function openRepositorySurface(surface: ProjectForgeSurface): void {

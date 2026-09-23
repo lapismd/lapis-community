@@ -1953,6 +1953,13 @@
   font-weight: 550;
 }
 
+.community-projects__file-entry:hover > strong,
+.community-projects__file-entry:focus-visible > strong {
+  color: var(--primary);
+  text-decoration: underline;
+  text-underline-offset: 0.15em;
+}
+
 .community-projects__file-commit-message {
   display: block;
 }
