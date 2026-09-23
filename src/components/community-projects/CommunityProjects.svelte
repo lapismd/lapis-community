@@ -1,6 +1,7 @@
 <script lang="ts">
   import CommunityCommitSection from "../community-commit-section/CommunityCommitSection.svelte";
   import CommunityCommitSummary from "../community-commit-summary/CommunityCommitSummary.svelte";
+  import { activityNavigationTarget } from "../../projects/activity-navigation.js";
   import { withRepositoryContextActivity } from "../../projects/repository-context-activity.js";
   import CommunityProjectChannelIcon from "../community-project-channel-icon/CommunityProjectChannelIcon.svelte";
   import { toast } from "svelte-sonner";
@@ -1689,25 +1690,18 @@
   }
 
   function openActivityItem(item: (typeof activity)[number]): void {
-    if (
-      item.kind === "task" ||
-      item.kind === "comment" ||
-      item.kind === "assignment"
-    ) {
-      const task = tasks.find(
-        (candidate) =>
-          candidate.repository.coordinate === item.repositoryCoordinate &&
-          candidate.title === item.title,
-      );
-      if (task) {
-        onSelectTask?.(task);
-        return;
-      }
+    const target = activityNavigationTarget(item, {
+      tasks,
+      pullRequests,
+      projects,
+    });
+    if (target?.kind === "review") {
+      onSelectView?.("reviews");
+      onSelectPullRequest?.(target.pullRequest);
+      return;
     }
-    const project = projects.find(
-      (candidate) => candidate.address.coordinate === item.projectCoordinate,
-    );
-    if (project) onSelectProject?.(project);
+    if (target?.kind === "task") onSelectTask?.(target.task);
+    else if (target?.kind === "project") onSelectProject?.(target.project);
   }
 
   function openActivityProject(coordinate: string): void {
