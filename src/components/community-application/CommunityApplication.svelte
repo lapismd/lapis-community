@@ -3,6 +3,7 @@
   import { createCommunityApplicationSend } from "./application-send.js";
   import { communityComposerAgentsFromState } from "../community-chat-composer/composer-agent-model.js";
   import {
+    repositoryFilesPathLocation,
     repositorySurfaceLocation,
     reviewCommitLocation,
     locationForProjectRoute,
@@ -17,6 +18,7 @@
   } from "./application-location-hash.js";
   import { provideForumTopicSync } from "./application-forum-hash.svelte.js";
   import * as communityCopy from "../../community/community-copy-links.js";
+  import { repositoryViewRevision } from "./project-route-files.js";
   import { projectViewForSurface } from "./project-log-route.js";
   import { parseNip29ReleaseEvent } from "../../protocol/index.js";
   import {
@@ -2671,6 +2673,11 @@
     const selectedCommitSha = selectedProjectCommit?.sha;
     const requestedRepositoryBranch = projectSelectedRepositoryBranch;
     const requestedRepositoryBranchOwner = projectSelectedRepositoryBranchOwner;
+    const filesRouteRevision =
+      applicationLocation.projectRoute?.kind === "repository" &&
+      applicationLocation.projectRoute.surface === "files"
+        ? applicationLocation.projectRoute.revision
+        : undefined;
     if (!session || !resources || !catalogSettled) return;
 
     const openedSession = session;
@@ -2878,33 +2885,39 @@
               controller.signal,
             );
             const branches = projectForgeBranchRefs(refs);
-            const requestedBranch =
-              requestedRepositoryBranchOwner === repository
-                ? branches.find(
-                    (branch) => branch.name === requestedRepositoryBranch,
-                  )
-                : undefined;
-            const selectedBranch = requestedBranch ?? branches[0];
+            const view = repositoryViewRevision({ surface, routeRevision: filesRouteRevision, requestedBranch: requestedRepositoryBranch, requestedOwnerMatches: requestedRepositoryBranchOwner === repository, branches, ...(refs.head?.name ? { headName: refs.head.name } : {}), ...(refs.head?.sha ? { headSha: refs.head.sha } : {}) });
             projectRepositoryBranches = branches;
-            projectCommitBranch = selectedBranch?.name ?? refs.head?.name ?? "";
+            projectCommitBranch = view.branch;
             if (
               projectSelectedRepositoryBranchOwner !== repository ||
-              projectSelectedRepositoryBranch !== projectCommitBranch
+              projectSelectedRepositoryBranch !== view.branch
             ) {
               projectSelectedRepositoryBranchOwner = repository;
-              projectSelectedRepositoryBranch = projectCommitBranch;
+              projectSelectedRepositoryBranch = view.branch;
             }
-            const revision =
-              selectedBranch?.name ??
-              selectedBranch?.sha ??
-              refs.head?.name ??
-              refs.head?.sha;
-            projectRepositoryRevision = revision ?? "";
+            const revision = view.revision;
+            projectRepositoryRevision = revision;
+            if (
+              !controller.signal.aborted &&
+              surface === "files" &&
+              !filesRouteRevision &&
+              view.branch
+            ) {
+              replaceLocation(
+                repositorySurfaceLocation(
+                  repository,
+                  "files",
+                  activePanel,
+                  selectedRepositoryProject?.address.coordinate,
+                  view.branch,
+                ),
+              );
+            }
             if (
               revision &&
               (surface === undefined ||
                 surface === "overview" ||
-                surface === "files")
+                (surface === "files" && Boolean(filesRouteRevision)))
             ) {
               let tree =
                 surface === "files"
@@ -3193,6 +3206,11 @@
       selectedRepositoryCoordinate = next.projectRoute.coordinate;
       activeRepositorySurface = next.projectRoute.surface;
       selectedProjectCommit = projectRouteCommit(next.projectRoute);
+      if (next.projectRoute.surface === "files" && next.projectRoute.revision) {
+        projectSelectedRepositoryBranchOwner = next.projectRoute.coordinate;
+        projectSelectedRepositoryBranch = next.projectRoute.revision;
+        selectedProjectPath = next.projectRoute.path ?? "";
+      }
       if (next.projectRoute.surface === "reviews" && next.projectRoute.commitSha)
         selectedPullRequestId = next.projectRoute.commitSha;
       if (next.projectRoute.surface === "tasks" && next.projectRoute.commitSha)
@@ -3492,10 +3510,27 @@
         surface,
         activePanel,
         selectedRepositoryProject?.address.coordinate,
-        selectedProjectCommit?.sha,
+        surface === "files"
+          ? projectSelectedRepositoryBranch
+          : selectedProjectCommit?.sha,
       ),
     );
     lastAction = `opened-repository-${surface}`;
+  }
+
+  function selectRepositoryBranch(branch: string | undefined): void {
+    if (!branch || branch === projectSelectedRepositoryBranch) return;
+    projectSelectedRepositoryBranchOwner = projectSourceRepositoryCoordinate;
+    projectSelectedRepositoryBranch = branch;
+    selectedProjectPath = ""; projectBlob = undefined; projectTree = undefined; projectOwners = undefined;
+    const route = applicationLocation.projectRoute;
+    if (route?.kind === "repository" && route.surface === "files") pushLocation(repositorySurfaceLocation(route.coordinate, "files", activePanel, selectedRepositoryProject?.address.coordinate, branch));
+  }
+
+  function selectRepositoryPath(path: string): void {
+    selectedProjectPath = path; projectBlob = undefined;
+    const next = repositoryFilesPathLocation(applicationLocation, path);
+    if (next) pushLocation(next);
   }
 
   function openRepositorySurface(surface: ProjectForgeSurface): void {
@@ -6699,16 +6734,7 @@
           onUpdateTaskLifecycle={updateTaskLifecycle}
           onCreatePullRequest={createPullRequest}
           onLoadRepositoryRefs={loadReviewRepositoryRefs}
-          onSelectRepositoryBranch={(branch) => {
-            if (branch === projectSelectedRepositoryBranch) return;
-            projectSelectedRepositoryBranchOwner =
-              projectSourceRepositoryCoordinate;
-            projectSelectedRepositoryBranch = branch;
-            selectedProjectPath = "";
-            projectBlob = undefined;
-            projectTree = undefined;
-            projectOwners = undefined;
-          }}
+          onSelectRepositoryBranch={selectRepositoryBranch}
           onLoadRepositoryPathCommit={loadRepositoryPathCommit}
           onLoadRepositoryCommit={loadRepositoryCommit}
           onSelectPullRequest={(pullRequest) => {
@@ -6727,10 +6753,7 @@
           onTogglePullRequestCommentReaction={togglePullRequestCommentReaction}
           onSelectCommit={selectProjectCommit}
           onCloseCommit={closeProjectCommit}
-          onSelectPath={(path) => {
-            selectedProjectPath = path;
-            projectBlob = undefined;
-          }}
+          onSelectPath={selectRepositoryPath}
           onRetry={repairProjectMembership}
         />
       {/if}
@@ -7185,16 +7208,7 @@
         onUpdateTaskLifecycle={updateTaskLifecycle}
         onCreatePullRequest={createPullRequest}
         onLoadRepositoryRefs={loadReviewRepositoryRefs}
-        onSelectRepositoryBranch={(branch) => {
-          if (branch === projectSelectedRepositoryBranch) return;
-          projectSelectedRepositoryBranchOwner =
-            projectSourceRepositoryCoordinate;
-          projectSelectedRepositoryBranch = branch;
-          selectedProjectPath = "";
-          projectBlob = undefined;
-          projectTree = undefined;
-          projectOwners = undefined;
-        }}
+        onSelectRepositoryBranch={selectRepositoryBranch}
         onLoadRepositoryPathCommit={loadRepositoryPathCommit}
         onLoadRepositoryCommit={loadRepositoryCommit}
         onSelectPullRequest={(pullRequest) => {
@@ -7213,10 +7227,7 @@
         onTogglePullRequestCommentReaction={togglePullRequestCommentReaction}
         onSelectCommit={selectProjectCommit}
         onCloseCommit={closeProjectCommit}
-        onSelectPath={(path) => {
-          selectedProjectPath = path;
-          projectBlob = undefined;
-        }}
+        onSelectPath={selectRepositoryPath}
         onRetry={repairProjectMembership}
       />
     {:else if isRegistryDestination}

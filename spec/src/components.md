@@ -148,6 +148,12 @@ Popover with a compact bold Switch branches header, search heads in a
 pill-shaped field that keeps a public input border at rest and a focus ring
 without a border, mark repository HEAD as `default`, and keep `jj-sync/`
 carriers on a Sync tab separate from workspace branches.
+The Files URL MUST be `#/projects/repository/<coordinate>/<revision>/files`
+with an optional `/<path>` after `files`. `<revision>` is one encoded branch
+name or commit. Choosing a branch or commit MUST write that revision into the
+URL, and opening that URL MUST select it in the branch control and load files
+from it. A Files URL without a revision MUST gain the current branch once that
+branch is known.
 The repository workspace MUST expose an Activity tab before Overview that
 reuses the project activity feed, scoped to the selected repository,
 including dest-Git commits, NIP-34 collaboration, and kind `3901` jj-sync

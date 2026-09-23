@@ -755,7 +755,9 @@ Build and parse live in the `community-links` owner; hash sync lives in
 `application-location-hash` so the application composition hotspot does
 not grow. `community-link-normalize` owns hash and absolute-URL
 normalization into the scheme, and `project-route-commit` accepts the
-Op Log surface on repository hashes. Application hash sync and
+Op Log surface on repository hashes. `project-route-files` addresses
+repository Files as `#/projects/repository/<coordinate>/<revision>/files`
+so the branch control and the URL share one branch or commit. Application hash sync and
 forum-topic restoration live in `application-location-hash` and
 `application-forum-hash` so `CommunityApplication.svelte` shrinks.
 `community-copy-links` emits shareable scheme URIs; `community-entity-chip`

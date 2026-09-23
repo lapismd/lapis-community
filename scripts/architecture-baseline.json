@@ -1758,7 +1758,7 @@
     },
     "src/components/community-application/CommunityApplication.svelte": {
       "countedLines": 8999,
-      "physicalLines": 9361,
+      "physicalLines": 9357,
       "forbiddenImportCount": 0,
       "kind": "legacy",
       "justification": "Application composition root; extract destination hosts before adding behaviour"
@@ -1905,8 +1905,8 @@
       "forbiddenImportCount": 0
     },
     "src/components/community-application/project-commit-route.ts": {
-      "countedLines": 88,
-      "physicalLines": 92,
+      "countedLines": 102,
+      "physicalLines": 107,
       "forbiddenImportCount": 0
     },
     "src/components/community-application/project-log-navigation.svelte.ts": {
@@ -1935,8 +1935,8 @@
       "forbiddenImportCount": 0
     },
     "src/components/community-application/project-route.ts": {
-      "countedLines": 112,
-      "physicalLines": 119,
+      "countedLines": 128,
+      "physicalLines": 135,
       "forbiddenImportCount": 0
     },
     "src/components/community-application/repository-browsing.ts": {

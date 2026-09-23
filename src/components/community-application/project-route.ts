@@ -5,6 +5,11 @@ import {
 } from "../../projects/index.js";
 import type { CommunityApplicationProjectRoute } from "./navigation.js";
 import { validRouteCoordinate } from "./project-route-coordinate.js";
+import {
+  repositoryFilesHash,
+  repositoryFilesRouteFromHash,
+  storedRepositoryFilesFields,
+} from "./project-route-files.js";
 import { projectRouteHasTrailingId } from "./project-route-trailing.js";
 
 export { taskForProjectRoute } from "./project-task-route.js";
@@ -13,6 +18,9 @@ export { validRouteCoordinate } from "./project-route-coordinate.js";
 export function projectRouteToHash(
   route: CommunityApplicationProjectRoute,
 ): string {
+  if (route.kind === "repository" && route.surface === "files" && route.revision) {
+    return repositoryFilesHash(route.coordinate, route.revision, route.path);
+  }
   const surface =
     route.surface === projectRouteDefaultSurface(route.kind)
       ? ""
@@ -29,6 +37,16 @@ export function projectRouteToHash(
 export function projectRouteFromHash(
   hash: string,
 ): CommunityApplicationProjectRoute | null {
+  const files = repositoryFilesRouteFromHash(hash);
+  if (files) {
+    return {
+      kind: "repository",
+      coordinate: files.coordinate,
+      surface: "files",
+      revision: files.revision,
+      ...(files.path ? { path: files.path } : {}),
+    };
+  }
   const match =
     /^#\/projects\/(project|repository)\/([^/]+)(?:\/([^/]+))?(?:\/([a-f0-9]{40}|[a-f0-9]{64}))?$/u.exec(
       hash,
@@ -95,6 +113,7 @@ export function parseStoredProjectRoute(
         /^(?:[a-f0-9]{40}|[a-f0-9]{64})$/u.test(route.commitSha)
           ? { commitSha: route.commitSha }
           : {}),
+        ...(route.kind === "repository" ? storedRepositoryFilesFields(route) : {}),
       }
     : undefined;
 }
@@ -104,7 +123,7 @@ export function projectRouteKey(
 ): string {
   return route === undefined
     ? ""
-    : `${route.kind}:${route.coordinate}:${route.surface}:${route.kind === "repository" ? (route.commitSha ?? "") : ""}`;
+    : `${route.kind}:${route.coordinate}:${route.surface}:${route.kind === "repository" ? `${route.commitSha ?? ""}:${route.revision ?? ""}:${route.path ?? ""}` : ""}`;
 }
 
 export function repositoryRouteState(

@@ -44,8 +44,23 @@ export function repositorySurfaceLocation(
       kind: "repository",
       coordinate,
       surface,
+      ...(surface === "files" && commitSha ? { revision: commitSha } : {}),
       ...(projectRouteHasCommit(surface) && commitSha ? { commitSha } : {}),
     },
+  };
+}
+
+export function repositoryFilesPathLocation(
+  location: CommunityApplicationLocation,
+  path: string,
+): CommunityApplicationLocation | undefined {
+  const route = location.projectRoute;
+  if (route?.kind !== "repository" || route.surface !== "files" || !route.revision)
+    return undefined;
+  const { path: _ignored, ...rest } = route;
+  return {
+    ...location,
+    projectRoute: path ? { ...rest, path } : rest,
   };
 }
 
