@@ -1,0 +1,33 @@
+.activity-sections {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 1rem;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.activity-sections .activity-panel[data-state="active"] {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.activity-sections .activity-panel--turns[data-state="active"] {
+  overflow: auto;
+}
+
+.activity-sections .activity-panel--history[data-state="active"] {
+  overflow: hidden;
+}
+
+.activity-sections
+  .activity-panel--history[data-state="active"]
+  .agent-activity-feed {
+  flex: 1;
+  min-height: 0;
+}

@@ -15,6 +15,7 @@
     CommunityMemberModel,
     CommunityRoomModel,
   } from "../community-workspace/model.js";
+  import ActivityTabs from "./ActivityTabs.svelte";
   import AgentRuntimeControls from "./AgentRuntimeControls.svelte";
   import type { AgentRuntimeActions } from "./runtime-actions.js";
   import { activityConversationKey } from "./activity-conversation-key.js";
@@ -112,57 +113,64 @@
     {#if model.activitySyncGap}
       Some activity predates the controller journal and cannot be recovered.{/if}
   </p>
-  {#if selected}
-    <AgentRuntimeControls
-      agent={selected}
-      {scopes}
-      {permissions}
-      {rooms}
-      {context}
-      {...onCancelTurn ? { onCancelTurn } : {}}
-      {...onResetConversation ? { onResetConversation } : {}}
-      {...onRespondPermission ? { onRespondPermission } : {}}
-    />
-  {/if}
-  {#if model.archiveError}<p role="alert">{model.archiveError}</p>{/if}
-  {#if model.activityError}<p role="alert">{model.activityError}</p>{/if}
-  {#if model.activityLoading && model.activity.length === 0}<CommunitySkeleton
-      layout="timeline"
-      label="Loading activity"
-    />{/if}
-  {#if model.activity.length === 0 && !model.activityLoading && !model.activityError}<div
-      class="agent-activity__empty"
-    >
-      <h3>No saved activity here yet</h3>
-      <p>
-        Updates appear when this agent sends activity to your account. Community
-        checks the controller for anything missed while disconnected.
-      </p>
-    </div>{/if}
-  {#if selected && (model.activity.length > 0 || scopes.some((scope) => scope.active) || model.hasOlder)}
-    <CommunityAgentActivityFeed
-      working={scopes.some((scope) => scope.active)}
-      activity={model.activity}
-      agent={selected}
-      {context}
-      members={identityMembers}
-      conversationKey={activityConversationKey(selected.pubkey, context)}
-      onLoadLatest={async () => {
-        await onLatest();
-      }}
-      onLoadOlder={async () => {
-        await onLoadOlder();
-      }}
-      hasOlder={model.hasOlder}
-      loading={model.activityLoading}
-      {...onOpenRequest ? { onOpenRequest } : {}}
-    />
-  {/if}
-  {#if selected && context.kind === "overview"}<footer>
-      <Button variant="destructive" onclick={() => (clearing = true)}
-        ><TrashIcon aria-hidden="true" />Clear this agent’s saved activity</Button
-      >
-    </footer>{/if}
+  <ActivityTabs>
+    {#snippet turns()}
+      {#if selected}
+        <AgentRuntimeControls
+          agent={selected}
+          {scopes}
+          {permissions}
+          {rooms}
+          {context}
+          {...onCancelTurn ? { onCancelTurn } : {}}
+          {...onResetConversation ? { onResetConversation } : {}}
+          {...onRespondPermission ? { onRespondPermission } : {}}
+        />
+      {:else}<p>No open turns.</p>{/if}
+    {/snippet}
+    {#snippet activity()}
+      {#if model.archiveError}<p role="alert">{model.archiveError}</p>{/if}
+      {#if model.activityError}<p role="alert">{model.activityError}</p>{/if}
+      {#if model.activityLoading && model.activity.length === 0}<CommunitySkeleton
+          layout="timeline"
+          label="Loading activity"
+        />{/if}
+      {#if model.activity.length === 0 && !model.activityLoading && !model.activityError}<div
+          class="agent-activity__empty"
+        >
+          <h3>No saved activity here yet</h3>
+          <p>
+            Updates appear when this agent sends activity to your account.
+            Community checks the controller for anything missed while
+            disconnected.
+          </p>
+        </div>{/if}
+      {#if selected && (model.activity.length > 0 || scopes.some((scope) => scope.active) || model.hasOlder)}
+        <CommunityAgentActivityFeed
+          working={scopes.some((scope) => scope.active)}
+          activity={model.activity}
+          agent={selected}
+          {context}
+          members={identityMembers}
+          conversationKey={activityConversationKey(selected.pubkey, context)}
+          onLoadLatest={async () => {
+            await onLatest();
+          }}
+          onLoadOlder={async () => {
+            await onLoadOlder();
+          }}
+          hasOlder={model.hasOlder}
+          loading={model.activityLoading}
+          {...onOpenRequest ? { onOpenRequest } : {}}
+        />
+      {/if}
+      {#if selected && context.kind === "overview"}<footer>
+          <Button variant="destructive" onclick={() => (clearing = true)}
+            ><TrashIcon aria-hidden="true" />Clear this agent’s saved activity</Button
+          >
+        </footer>{/if}
+    {/snippet}
+  </ActivityTabs>
 </section>
 
 <ConfirmDialog

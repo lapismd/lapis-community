@@ -1,9 +1,9 @@
 <script lang="ts">
+  import { Button } from "@lapismd/design-core/shadcn/button";
   import { ConfirmDialog } from "@lapismd/design-core/forms/dialog";
   import CommunityChip from "../community-chip/CommunityChip.svelte";
-  import ActivityRunDisclosure from "./ActivityRunDisclosure.svelte";
+  import ActivityTurnList from "./ActivityTurnList.svelte";
   import {
-    activityCancelTarget,
     activityControlRows,
     activityShowsReset,
   } from "./activity-run-label.js";
@@ -37,6 +37,9 @@
   let controlError = $state("");
   let controlPending = $state("");
   const rows = $derived(activityControlRows(scopes));
+  const resetRow = $derived(
+    rows.find((row) => activityShowsReset(row, scopes, context)),
+  );
 
   async function runControl(key: string, operation: () => Promise<void>) {
     if (controlPending) return;
@@ -54,64 +57,52 @@
   }
 </script>
 
-{#if permissions.length > 0 || rows.length > 0}
-  <section class="agent-activity__controls" aria-label="Agent runtime controls">
-    {#each rows as controllerScope (`${controllerScope.scopeKey}\0${controllerScope.turnId ?? ""}`)}
-      <ActivityRunDisclosure
-        scope={controllerScope}
-        {rooms}
-        showReset={Boolean(
-          onResetConversation &&
-            activityShowsReset(controllerScope, scopes, context),
-        )}
-        disabled={Boolean(controlPending)}
-        {...onCancelTurn
-          ? {
-              onCancel: () =>
-                runControl("cancel", () => {
-                  const target = activityCancelTarget(controllerScope);
-                  return onCancelTurn(
-                    agent.pubkey,
-                    target.scopeKey,
-                    target.channelId,
-                    target,
-                  );
-                }),
-            }
-          : {}}
-        {...onResetConversation
-          ? {
-              onReset: () => {
-                resetTarget = { ...controllerScope };
-                resetting = true;
-              },
-            }
-          : {}}
-      />
-    {/each}
-    {#if permissions.length > 0}<CommunityChip size="compact" tone="warning"
-        >Waiting for approval</CommunityChip
-      >{/if}
-    {#each permissions as permission (permission.requestId)}
-      <AgentPermissionCard
-        agentName={agent.name}
-        {permission}
-        disabled={Boolean(controlPending) || !onRespondPermission}
-        onDecide={(decision) =>
-          onRespondPermission &&
-          runControl(permission.requestId, () =>
-            onRespondPermission(
-              agent.pubkey,
-              permission.requestId,
-              decision,
-              permission.channelId,
+<section class="agent-activity__controls" aria-label="Agent runtime controls">
+  <ActivityTurnList
+    agentPubkey={agent.pubkey}
+    {rows}
+    {rooms}
+    disabled={Boolean(controlPending)}
+    {...onCancelTurn
+      ? {
+          onCancelTurn: (pubkey, scopeKey, channelId, expected) =>
+            runControl("cancel", () =>
+              onCancelTurn(pubkey, scopeKey, channelId, expected),
             ),
-          ).catch(() => {})}
-      />
-    {/each}
-    {#if controlError}<p role="alert">{controlError}</p>{/if}
-  </section>
-{/if}
+        }
+      : {}}
+  />
+  {#if onResetConversation && resetRow}<Button
+      variant="outline"
+      size="sm"
+      disabled={Boolean(controlPending)}
+      onclick={() => {
+        resetTarget = { ...resetRow };
+        resetting = true;
+      }}>Reset conversation</Button
+    >{/if}
+  {#if permissions.length > 0}<CommunityChip size="compact" tone="warning"
+      >Waiting for approval</CommunityChip
+    >{/if}
+  {#each permissions as permission (permission.requestId)}
+    <AgentPermissionCard
+      agentName={agent.name}
+      {permission}
+      disabled={Boolean(controlPending) || !onRespondPermission}
+      onDecide={(decision) =>
+        onRespondPermission &&
+        runControl(permission.requestId, () =>
+          onRespondPermission(
+            agent.pubkey,
+            permission.requestId,
+            decision,
+            permission.channelId,
+          ),
+        ).catch(() => {})}
+    />
+  {/each}
+  {#if controlError}<p role="alert">{controlError}</p>{/if}
+</section>
 <ConfirmDialog
   bind:open={resetting}
   title="Reset this conversation?"
@@ -138,6 +129,7 @@
   .agent-activity__controls {
     display: grid;
     gap: 0.875rem;
+    justify-items: start;
   }
   p {
     margin: 0;

@@ -233,20 +233,12 @@
 <Story
   name="Controller permissions"
   play={async ({ canvas, canvasElement }) => {
+    await userEvent.click(canvas.getByRole("tab", { name: "Turns" }));
     const controls = canvas.getByRole("region", {
       name: "Agent runtime controls",
     });
-    const cancel = within(controls).getByRole("button", {
-      name: "Cancel turn",
-    });
-    const reset = within(controls).getByRole("button", {
-      name: "Reset conversation",
-    });
-    expect(
-      Math.abs(
-        cancel.getBoundingClientRect().top - reset.getBoundingClientRect().top,
-      ),
-    ).toBeLessThan(1);
+    const cancel = within(controls).getByRole("button", { name: "Cancel" });
+    await expect(cancel).toBeVisible();
     await expect(
       within(controls).queryByRole("heading", { name: "Runtime controls" }),
     ).not.toBeInTheDocument();
@@ -265,9 +257,7 @@
         name: "Permission requested by Research",
       }),
     ).not.toBeInTheDocument();
-    await userEvent.click(
-      within(controls).getByRole("button", { name: "Cancel turn" }),
-    );
+    await userEvent.click(cancel);
     await expect(canvas.getByText("Turn cancellation requested")).toBeVisible();
     await userEvent.click(
       within(controls).getByRole("button", { name: "Reset conversation" }),
@@ -293,6 +283,7 @@
 <Story
   name="Expired controller permission"
   play={async ({ canvas }) => {
+    await userEvent.click(canvas.getByRole("tab", { name: "Turns" }));
     await expectExpiredPermissionHidden(
       canvas.getByRole("region", { name: "Agent runtime controls" }),
     );
