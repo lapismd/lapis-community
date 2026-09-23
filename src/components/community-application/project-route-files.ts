@@ -35,10 +35,13 @@ export function repositoryFilesRouteFromHash(
   } catch {
     return null;
   }
-  if (!validRouteCoordinate(coordinate) || !validRevision(revision)) return null;
+  if (!validRouteCoordinate(coordinate) || !validRevision(revision))
+    return null;
   if (match[3] === undefined) return { coordinate, revision };
   const path = decodeFilePath(match[3]);
-  return path === undefined ? null : { coordinate, revision, ...(path ? { path } : {}) };
+  return path === undefined
+    ? null
+    : { coordinate, revision, ...(path ? { path } : {}) };
 }
 
 export function storedRepositoryFilesFields(route: Record<string, unknown>): {
@@ -101,10 +104,10 @@ export function repositoryFilesLoadKey(
   loadedRevision: string,
   loadedCommitSha?: string,
 ): string {
-  const revision =
-    route?.kind === "repository" && route.surface === "files"
-      ? (route.revision ?? "")
-      : "";
+  // Other surfaces discover and reset their revision inside the loader.
+  // Feeding that result back into its dependencies cancels and restarts it.
+  if (route?.kind !== "repository" || route.surface !== "files") return "";
+  const revision = route.revision ?? "";
   if (loadedCommitSha && revision === loadedCommitSha)
     return loadedRevision || revision;
   return revision || loadedRevision;
@@ -131,7 +134,11 @@ function encodeFilePath(path: string): string {
 function decodeFilePath(path: string): string | undefined {
   if (path === "") return "";
   const segments = path.split("/");
-  if (segments.some((segment) => segment.length === 0 || segment === "." || segment === ".."))
+  if (
+    segments.some(
+      (segment) => segment.length === 0 || segment === "." || segment === "..",
+    )
+  )
     return undefined;
   try {
     return segments.map((segment) => decodeURIComponent(segment)).join("/");

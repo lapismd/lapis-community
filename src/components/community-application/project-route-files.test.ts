@@ -16,6 +16,18 @@ describe("repository files routes", () => {
   const coordinate = "30617:owner:probe";
   const revision = "review/npub1example/ab".concat("cd".repeat(14));
 
+  it("does not invalidate non-files loads when their revision settles", () => {
+    for (const surface of ["overview", "activity", "commits", "log"]) {
+      const route = { kind: "repository", surface };
+      const initial = repositoryFilesLoadKey(route, "");
+      expect(repositoryFilesLoadKey(route, "main")).toBe(initial);
+      expect(repositoryFilesLoadKey(route, "main", "d".repeat(40))).toBe(
+        initial,
+      );
+    }
+    expect(repositoryFilesLoadKey(undefined, "main")).toBe("");
+  });
+
   it("round-trips a branch or commit in front of files", () => {
     const route = {
       kind: "repository" as const,
@@ -28,7 +40,9 @@ describe("repository files routes", () => {
     expect(repositoryFilesHash(coordinate, "a".repeat(40))).toBe(
       `#/projects/repository/${coordinate}/${"a".repeat(40)}/files`,
     );
-    expect(projectRouteFromHash(repositoryFilesHash(coordinate, revision))).toEqual({
+    expect(
+      projectRouteFromHash(repositoryFilesHash(coordinate, revision)),
+    ).toEqual({
       kind: "repository",
       coordinate,
       surface: "files",
@@ -45,11 +59,13 @@ describe("repository files routes", () => {
         `#/projects/repository/${coordinate}/files/${"a".repeat(40)}`,
       ),
     ).toBeNull();
-    expect(storedRepositoryFilesFields({
-      surface: "files",
-      revision: "community-visible",
-      path: "README.md",
-    })).toEqual({ revision: "community-visible", path: "README.md" });
+    expect(
+      storedRepositoryFilesFields({
+        surface: "files",
+        revision: "community-visible",
+        path: "README.md",
+      }),
+    ).toEqual({ revision: "community-visible", path: "README.md" });
   });
 
   it("uses the URL revision for files and otherwise the selected branch", () => {
@@ -102,7 +118,9 @@ describe("repository files routes", () => {
         revision: "main",
       },
     };
-    expect(repositoryFilesPathLocation(location, ".gitignore", sha)?.projectRoute).toEqual({
+    expect(
+      repositoryFilesPathLocation(location, ".gitignore", sha)?.projectRoute,
+    ).toEqual({
       kind: "repository",
       coordinate,
       surface: "files",
@@ -110,8 +128,12 @@ describe("repository files routes", () => {
       path: ".gitignore",
     });
     const opened = repositoryFilesPathLocation(location, ".gitignore", sha)!;
-    expect(repositoryFilesLoadKey(opened.projectRoute, "main", sha)).toBe("main");
-    expect(repositoryFilesPathLocation(opened, "", "main")?.projectRoute).toEqual({
+    expect(repositoryFilesLoadKey(opened.projectRoute, "main", sha)).toBe(
+      "main",
+    );
+    expect(
+      repositoryFilesPathLocation(opened, "", "main")?.projectRoute,
+    ).toEqual({
       kind: "repository",
       coordinate,
       surface: "files",

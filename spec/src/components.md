@@ -252,6 +252,9 @@ Project Overview loading MUST use an accessible Markdown-shaped skeleton with
 heading, paragraph, section, and code-block geometry.
 Selecting a file MUST fetch only that blob without reopening the project
 catalog, work-item subscriptions, repository capabilities, refs, or tree.
+Repository Overview and other non-Files surfaces MUST settle after discovering
+their source revision. A loaded revision or commit MUST NOT invalidate the
+Files navigation key outside the Files surface and restart those reads.
 Recursive file discovery MUST bound concurrency while loading independent
 directories in parallel.
 Recreating an equivalent `projectsOptions` wrapper during unrelated application
