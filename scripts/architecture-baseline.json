@@ -1595,8 +1595,8 @@
       "justification": "Existing file above the new-file counted-line limit; do not grow"
     },
     "src/components/community-agent-profile/CommunityAgentProfile.svelte": {
-      "countedLines": 1514,
-      "physicalLines": 1533,
+      "countedLines": 1455,
+      "physicalLines": 1474,
       "forbiddenImportCount": 0,
       "kind": "legacy",
       "justification": "Existing file above the new-file counted-line limit; do not grow"

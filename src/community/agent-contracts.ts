@@ -261,14 +261,7 @@ export type CommunityAgentControl =
       command: "runtime_get";
       requestId: string;
     }
-  | {
-      version: 2;
-      command: "runtime_set";
-      requestId: string;
-      runtimeAgent?: string;
-      model?: string;
-      thinking?: "off" | "low" | "medium" | "high" | "xhigh";
-    }
+  | CommunityAgentRuntimeSetControl
   | {
       version: 2;
       command: "memory_list";
@@ -304,6 +297,7 @@ export type {
   CommunityAgentRuntimeThinking,
 } from "./agent-runtime-contracts.js";
 import type { CommunityAgentRuntimeState } from "./agent-runtime-contracts.js";
+import type { CommunityAgentRuntimeSetControl } from "./agent-runtime-set.js";
 
 export type CommunityAgentMemoryRecord =
   | {

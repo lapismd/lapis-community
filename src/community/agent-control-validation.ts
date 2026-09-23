@@ -1,4 +1,5 @@
 import type { CommunityAgentControl } from "./agent-contracts.js";
+import { assertRuntimeSet } from "./agent-runtime-set.js";
 
 const AGENT_PERMISSION_DECISIONS = new Set([
   "allow_once",
@@ -113,25 +114,7 @@ export function validateAgentControl(control: CommunityAgentControl): void {
     return;
   }
   if (control.command === "runtime_set") {
-    if (
-      !hasOnlyObjectKeys(control, [
-        "version",
-        "command",
-        "requestId",
-        "runtimeAgent",
-        "model",
-        "thinking",
-      ]) ||
-      ![control.runtimeAgent, control.model, control.thinking].some(
-        (value) => value !== undefined,
-      ) ||
-      [control.runtimeAgent, control.model].some(
-        (value) => value !== undefined && (!value.trim() || value.length > 256),
-      ) ||
-      (control.thinking !== undefined &&
-        !["off", "low", "medium", "high", "xhigh"].includes(control.thinking))
-    )
-      throw new Error("Agent runtime defaults are invalid");
+    assertRuntimeSet(control);
     return;
   }
   if (control.command === "memory_list") {

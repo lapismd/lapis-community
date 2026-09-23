@@ -756,7 +756,10 @@ blocking the rest of the form. The custom-runtime form uses one model Command
 View with Command View Filters tabs for each advertised harness and a list that
 shows only that harness's models; selecting a row sets runtimeAgent and model.
 Thinking is a separate Select only when the selected model advertises options,
-and save omits thinking when that field is hidden.
+and save omits thinking when that field is hidden. Permission mode is a separate
+Select only when the selected harness catalog advertises config option `mode`,
+and save omits it when that field is hidden. The Runtime summary shows that
+saved mode when the catalog advertises one.
 The Info tab presents the actionable activity and identity rows directly and
 omits the redundant persona explanation card.
 

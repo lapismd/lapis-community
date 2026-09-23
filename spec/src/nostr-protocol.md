@@ -71,7 +71,7 @@ sequences cannot reactivate a completed live scope.
 
 Runtime and memory administration extend this same envelope at control version
 `2`. `runtime_get` and `runtime_set` omit `h`; runtime changes contain at least
-one controller-catalog value. A `runtime_state` snapshot advertises a catalog
+one controller-catalog value, including an optional permission mode taken only from the harness catalog option `mode`. A `runtime_state` snapshot advertises a catalog
 for each listed harness so the owner client can offer that harness's models
 before saving. Selecting a listed harness whose catalog is still empty MUST
 refresh `runtime_get` for that harness and keep loading until a later

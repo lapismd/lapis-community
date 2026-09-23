@@ -57,7 +57,8 @@ controller. Community derives pending approvals and active conversation scopes
 from verified encrypted telemetry, while its session boundary only signs and
 publishes encrypted controls. The controller remains authoritative for its ACP
 harness and option catalog; Community may display that catalog and save owner
-defaults for future sessions. Per-harness catalog parsing and editor selection
+defaults for future sessions, including a permission mode only when the catalog
+advertises config option `mode`. Per-harness catalog parsing and editor selection
 live in dedicated runtime-catalog modules so the agent contract and observer
 parser budgets can drop after extraction. The editor model field owns the
 empty and loading catalog menu so the shared dialog budget can drop after

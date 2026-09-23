@@ -51,12 +51,7 @@
     CommunityAgentProcessingState,
     CommunityAgentSaveInput,
   } from "../../community/agent-contracts.js";
-  import {
-    runtimeHarnesses,
-    runtimeModelOptions,
-    runtimeOptionLabel,
-    runtimeThinkingOptions,
-  } from "../../community/agent-runtime-catalog.js";
+  import CommunityAgentRuntimeFields from "./CommunityAgentRuntimeFields.svelte";
   import type { CommunityRoomModel } from "../community-workspace/model.js";
   import CommunityChip from "../community-chip/CommunityChip.svelte";
   import CommunityAgentEditorDialog from "../community-agent-editor/CommunityAgentEditorDialog.svelte";
@@ -193,18 +188,6 @@
   );
   const selectedChannel = $derived(
     addable.find((room) => room.id === selectedRoom),
-  );
-  const runtimeAgents = $derived(runtimeHarnesses(runtime));
-  const modelOptions = $derived(runtimeModelOptions(runtime?.catalog));
-  const thinkingOptions = $derived(runtimeThinkingOptions(runtime?.catalog));
-  const runtimeAgentLabel = $derived(
-    runtimeAgents.find(({ id }) => id === runtimeAgent)?.label ?? runtimeAgent,
-  );
-  const runtimeModelLabel = $derived(
-    runtimeOptionLabel(modelOptions, runtimeModel, "Harness default"),
-  );
-  const runtimeThinkingLabel = $derived(
-    runtimeOptionLabel(thinkingOptions, runtimeThinking, runtimeThinking),
   );
   const memoryRecords = $derived(
     memories?.channelId === memoryChannel
@@ -656,56 +639,14 @@
             <h3 class="agent-profile__runtime-config-title">
               Agent configuration
             </h3>
-            <div
-              class="agent-profile__runtime-fields"
-              data-ui-part="runtime-defaults"
-              aria-label="Runtime defaults"
-            >
-              <Button
-                type="button"
-                variant="ghost"
-                class="agent-profile__runtime-field"
-                disabled={!connected || pending || !onSaveRuntime}
-                aria-label="Edit agent harness"
-                onclick={openPersonaEditor}
-              >
-                <span>
-                  <span>Agent harness</span>
-                  <strong>{runtimeAgentLabel}</strong>
-                </span>
-                <PencilIcon aria-hidden="true" />
-              </Button>
-              <Button
-                type="button"
-                variant="ghost"
-                class="agent-profile__runtime-field"
-                disabled={!connected || pending || !onSaveRuntime}
-                aria-label="Edit model"
-                onclick={openPersonaEditor}
-              >
-                <span>
-                  <span>Model</span>
-                  <strong>{runtimeModelLabel}</strong>
-                </span>
-                <PencilIcon aria-hidden="true" />
-              </Button>
-              {#if thinkingOptions.length > 0}
-                <Button
-                  type="button"
-                  variant="ghost"
-                  class="agent-profile__runtime-field"
-                  disabled={!connected || pending || !onSaveRuntime}
-                  aria-label="Edit thinking"
-                  onclick={openPersonaEditor}
-                >
-                  <span>
-                    <span>Thinking</span>
-                    <strong>{runtimeThinkingLabel}</strong>
-                  </span>
-                  <PencilIcon aria-hidden="true" />
-                </Button>
-              {/if}
-            </div>
+            <CommunityAgentRuntimeFields
+              {runtime}
+              {runtimeAgent}
+              {runtimeModel}
+              {runtimeThinking}
+              disabled={!connected || pending || !onSaveRuntime}
+              onEdit={openPersonaEditor}
+            />
             {#if runtime.catalog.error}<p role="alert">
                 {runtime.catalog.error}
               </p>{/if}

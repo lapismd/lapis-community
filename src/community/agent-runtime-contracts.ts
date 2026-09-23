@@ -1,3 +1,6 @@
+import type { CommunityAgentRuntimeCatalog } from "./agent-runtime-catalog-entry.js";
+import type { CommunityAgentRuntimeValues } from "./agent-runtime-values.js";
+
 export type {
   CommunityAgentRuntimeCatalog,
   CommunityAgentRuntimeCatalogEntry,
@@ -17,14 +20,9 @@ export interface CommunityAgentRuntimeState {
   agentId: string;
   host: { id: string; kind: string; workspace?: string };
   runtimeAgents: readonly CommunityAgentRuntimeAgent[];
-  configured: { runtimeAgent: string; model?: string; thinking?: string };
-  saved?: {
-    runtimeAgent?: string;
-    model?: string;
-    thinking?: string;
-    updatedAt?: number;
-  } | null;
-  effective: { runtimeAgent: string; model?: string; thinking?: string };
+  configured: CommunityAgentRuntimeValues & { runtimeAgent: string };
+  saved?: CommunityAgentRuntimeValues | null;
+  effective: CommunityAgentRuntimeValues & { runtimeAgent: string };
   catalog: CommunityAgentRuntimeCatalog;
   tools: readonly { name: string; effect: "read" | "write" }[];
   bootstrapRevision?: string | null;

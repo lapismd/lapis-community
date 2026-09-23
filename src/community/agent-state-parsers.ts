@@ -7,6 +7,7 @@ import {
   parseRuntimeAgents,
   parseRuntimeCatalog,
 } from "./agent-runtime-catalog.js";
+import { optionalRuntimeDefaults } from "./agent-runtime-defaults-parse.js";
 
 export { observerRecord, observerText } from "./agent-observer.js";
 import { observerRecord, observerText } from "./agent-observer.js";
@@ -73,28 +74,6 @@ export function parseRuntimeState(
         : 0,
     },
   };
-}
-
-function optionalRuntimeDefaults(value: Record<string, unknown>):
-  | {
-      runtimeAgent?: string;
-      model?: string;
-      thinking?: string;
-      updatedAt?: number;
-    }
-  | undefined {
-  const runtimeAgent = observerText(value.runtimeAgent, 256);
-  const model = observerText(value.model, 256);
-  const thinking = observerText(value.thinking, 64);
-  const updatedAt = Number(value.updatedAt);
-  return runtimeAgent || model || thinking || Number.isSafeInteger(updatedAt)
-    ? {
-        ...(runtimeAgent ? { runtimeAgent } : {}),
-        ...(model ? { model } : {}),
-        ...(thinking ? { thinking } : {}),
-        ...(Number.isSafeInteger(updatedAt) ? { updatedAt } : {}),
-      }
-    : undefined;
 }
 
 export function parseMemoryState(

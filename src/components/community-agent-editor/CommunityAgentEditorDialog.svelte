@@ -10,8 +10,7 @@
   import type { CommunityMemberModel } from "../community-workspace/model.js";
   import CommunityAvatarPicker from "../community-avatar-picker/CommunityAvatarPicker.svelte";
   import CommunityChatComposer from "../community-chat-composer/CommunityChatComposer.svelte";
-  import CommunityAgentEditorModelField from "./CommunityAgentEditorModelField.svelte";
-  import CommunityAgentEditorThinkingField from "./CommunityAgentEditorThinkingField.svelte";
+  import CommunityAgentEditorRuntimeCustom from "./CommunityAgentEditorRuntimeCustom.svelte";
   import type {
     CommunityAgentIdentity,
     CommunityAgentNameMode,
@@ -21,10 +20,14 @@
   } from "../../community/agent-contracts.js";
   import { queueEditorRuntimeRefresh } from "../../community/agent-editor-catalog-refresh.js";
   import { editorCombinedModelRows } from "../../community/agent-editor-model-rows.js";
+  import { editorRuntimeLoadKey } from "../../community/agent-editor-runtime-load.js";
   import { editorRuntimeDraft } from "../../community/agent-editor-runtime.js";
   import { editorRuntimeDefaultRows } from "../../community/agent-editor-runtime-defaults.js";
   import { editorConfiguredRuntimeLabels } from "../../community/agent-editor-runtime-labels.js";
-  import { editorRuntimeSaveInput } from "../../community/agent-editor-runtime-save.js";
+  import {
+    editorRuntimePermissionSave,
+    runtimePermissionOptions,
+  } from "../../community/agent-runtime-permission.js";
   import { editorPersonaSelection } from "../../community/agent-editor-persona-selection.js";
   import { personaSlugFromName } from "../../community/agent-persona-slug.js";
   import type { CommunityAgentRuntimeThinking } from "../../community/agent-runtime-contracts.js";
@@ -111,6 +114,7 @@
   let runtimeAgent = $state("");
   let runtimeModel = $state("");
   let runtimeThinking = $state<CommunityAgentRuntimeThinking | "">("");
+  let runtimePermission = $state("");
   let runtimeConfigMode = $state<"defaults" | "custom">("defaults");
   let unlinkConfirmOpen = $state(false);
   let deleteConfirmOpen = $state(false);
@@ -172,13 +176,7 @@
       loadedRuntime = "";
       return;
     }
-    const key = [
-      runtime.agentId,
-      runtime.saved?.updatedAt ?? "defaults",
-      runtime.effective.runtimeAgent,
-      runtime.effective.model ?? "",
-      runtime.effective.thinking ?? "",
-    ].join(":");
+    const key = editorRuntimeLoadKey(runtime);
     if (loadedRuntime === key) return;
     untrack(() => {
       runtimeAgent = runtime.effective.runtimeAgent;
@@ -186,6 +184,7 @@
         runtime.effective.model ?? runtime.catalog.currentModel ?? "";
       runtimeThinking = (runtime.effective.thinking ??
         "") as typeof runtimeThinking;
+      runtimePermission = runtime.effective.permissionMode ?? "";
       runtimeConfigMode = runtime.saved ? "custom" : "defaults";
     });
     loadedRuntime = key;
@@ -254,10 +253,11 @@
       });
       if (runtime && onSaveRuntime && runtimeConfigMode === "custom") {
         await onSaveRuntime(
-          editorRuntimeSaveInput(
+          editorRuntimePermissionSave(
             runtimeAgent,
-            draft.selection,
+            { ...draft.selection, permissionMode: runtimePermission },
             draft.thinkingOptions,
+            runtimePermissionOptions(draft.catalog),
           ),
         );
       }
@@ -395,27 +395,24 @@
                 {/each}
               </dl>
             {:else}
-              <CommunityAgentEditorModelField
-                id={`${editorId}-runtime-model`}
+              <CommunityAgentEditorRuntimeCustom
+                id={editorId}
                 {pending}
                 rows={modelRows}
                 {runtimeAgent}
                 model={runtimeModel}
-                onSelect={(row) => {
+                thinking={draft.selection.thinking ?? ""}
+                thinkingOptions={draft.thinkingOptions}
+                catalog={draft.catalog}
+                permissionMode={runtimePermission}
+                onModel={(row) => {
                   runtimeAgent = row.runtimeAgent;
                   runtimeModel = row.model;
                   runtimeThinking = "";
                 }}
+                onThinking={(value) => void (runtimeThinking = value)}
+                onPermission={(value) => void (runtimePermission = value)}
               />
-              {#if draft.thinkingOptions.length > 0}
-                <CommunityAgentEditorThinkingField
-                  id={`${editorId}-runtime-thinking`}
-                  {pending}
-                  thinking={draft.selection.thinking}
-                  options={draft.thinkingOptions}
-                  onValueChange={(value) => (runtimeThinking = value)}
-                />
-              {/if}
             {/if}
           </div>
         {/if}
