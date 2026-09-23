@@ -3,6 +3,7 @@ export function projectRouteHasTrailingId(surface: string): boolean {
     surface === "commits" ||
     surface === "log" ||
     surface === "oplog" ||
-    surface === "tasks"
+    surface === "tasks" ||
+    surface === "reviews"
   );
 }

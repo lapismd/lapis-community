@@ -429,7 +429,10 @@ provider repositories whose clone and web URLs both match the signed repository
 announcement, and attach the selected provider repository without exposing
 stored credentials or private bridge keys.
 Every project overview rail statistic MUST be a keyboard-accessible navigation
-button with hover, focus, and current-surface states. Aggregate rows MUST select
+button with hover, focus, and current-surface states. Branch, Status,
+Reviewers, and Approvals on an open review MUST omit the selected wash and
+current-page state. That review Details section MUST include Copy Link after Approvals, which
+copies a repository reviews link that reopens that pull request. Aggregate rows MUST select
 their matching Projects tab, while rows for a selected project MUST select the
 matching project tab. A selected project MUST default to Activity rather than a
 single-repository Overview or Files tree. The far-right Repositories category

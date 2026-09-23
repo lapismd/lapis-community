@@ -177,7 +177,7 @@
   import { canMaintainRepository } from "../community-projects/community-projects-permissions.js";
   import { submitRepositoryPullRequest } from "../../projects/pull-request-publish.js";
   import type { LogReviewSubmitInput } from "../../projects/log-review.js";
-  import { pullRequestBranchLabel } from "../../projects/pull-request-branch-label.js";
+  import CommunityProjectsReviewDetails from "../community-projects/CommunityProjectsReviewDetails.svelte";
   import { repositorySurfaceLoadsRefs } from "../../projects/repository-surface-refs.js";
   import {
     registryRouteFromDestination,
@@ -3194,6 +3194,8 @@
       selectedRepositoryCoordinate = next.projectRoute.coordinate;
       activeRepositorySurface = next.projectRoute.surface;
       selectedProjectCommit = projectRouteCommit(next.projectRoute);
+      if (next.projectRoute.surface === "reviews" && next.projectRoute.commitSha)
+        selectedPullRequestId = next.projectRoute.commitSha;
     } else if (previous.projectRoute?.kind === "repository") {
       selectedRepositoryCoordinate = "";
       selectedRepositoryProjectCoordinate = "";
@@ -6219,27 +6221,7 @@
             Create review
           </Button>
           <p class="community-application__project-overview-label">Details</p>
-          {@render projectRailStat(
-            GitBranchIcon,
-            "Branch",
-            pullRequestBranchLabel(selectedPullRequest),
-          )}
-          {@render projectRailStat(
-            GitPullRequestIcon,
-            "Status",
-            selectedPullRequest.lifecycle[0]!.toUpperCase() +
-              selectedPullRequest.lifecycle.slice(1),
-          )}
-          {@render projectRailStat(
-            UsersIcon,
-            "Reviewers",
-            selectedPullRequest.reviewers.length,
-          )}
-          {@render projectRailStat(
-            CircleCheckIcon,
-            "Approvals",
-            selectedPullRequest.approvals.length,
-          )}
+          <CommunityProjectsReviewDetails pullRequest={selectedPullRequest} />
         {:else if selectedRepository}
           {@render projectRepositoriesRail(
             selectedRepository.address.coordinate,
