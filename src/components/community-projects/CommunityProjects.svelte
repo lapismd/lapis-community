@@ -134,12 +134,7 @@
     repositoryParentPath,
   } from "./repository-browser.js";
   import { communityProjectsMemberForPubkey } from "./projects-member.js";
-  import {
-    canMaintainRepository,
-    canMergeMaintainedPullRequest,
-    canReviewPullRequest,
-    channelIdForCoordinate,
-  } from "./community-projects-permissions.js";
+  import { selectedRepositoryReviewAccess } from "./community-projects-review-access.js";
 
   import "./CommunityProjects.css";
 
@@ -1924,27 +1919,28 @@
     );
   }
 
-  const canMaintainSelectedRepository = $derived(
-    canMaintainRepository(
+  const selectedRepositoryAccess = $derived(
+    selectedRepositoryReviewAccess({
       rooms,
-      selectedRepository?.channelId ??
-        channelIdForCoordinate(
-          repositories,
-          selectedPullRequest?.repository.coordinate,
-        ),
-    ),
-  );
-
-  function canMergePullRequest(pullRequest: PullRequestState): boolean {
-    return canMergeMaintainedPullRequest({
+      repositories,
+      selectedRepositoryChannelId: selectedRepository?.channelId,
+      selectedCoordinate: selectedPullRequest?.repository.coordinate,
       canCollaborate,
-      canMaintain: canMaintainSelectedRepository,
-      mergeAdvertised:
-        repositoryCapabilities[pullRequest.repository.coordinate]?.merge ===
-          true && onMergePullRequest !== undefined,
-      pullRequest,
-    });
-  }
+      actor: currentMemberId,
+      pullRequest: selectedPullRequest,
+      capabilities: repositoryCapabilities,
+      mergeHandler: onMergePullRequest,
+      canPublishReview: Boolean(
+        onSubmitPullRequestReview ||
+          onAddPullRequestComment ||
+          onApprovePullRequest ||
+          onRequestChanges,
+      ),
+    }),
+  );
+  const canMaintainSelectedRepository = $derived(
+    selectedRepositoryAccess.canMaintain,
+  );
 
   async function mergeSelectedPullRequest(
     pullRequest: PullRequestState,
@@ -3284,22 +3280,10 @@
             viewedCount={viewedReviewFileCount}
             {busy}
             {canCollaborate}
-            canMerge={selectedPullRequest
-              ? canMergePullRequest(selectedPullRequest)
-              : false}
+            canMerge={selectedRepositoryAccess.canMerge}
             mergeError={pullRequestMergeError}
             mergeStatus={pullRequestMergeStatus}
-            canSubmit={canReviewPullRequest({
-              canCollaborate,
-              canMaintain: canMaintainSelectedRepository,
-              lifecycle: selectedPullRequest?.lifecycle ?? "open",
-            }) &&
-              Boolean(
-                onSubmitPullRequestReview ||
-                  onAddPullRequestComment ||
-                  onApprovePullRequest ||
-                  onRequestChanges,
-              )}
+            canSubmit={selectedRepositoryAccess.canSubmit}
             canComment={onAddPullRequestComment !== undefined}
             canUpdateLifecycle={onUpdatePullRequestLifecycle !== undefined}
             {owners}

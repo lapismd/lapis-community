@@ -294,7 +294,12 @@ buttons with a Submit review dialog whose body first reuses the shared
 Comment, Approve, and Request changes; Comment and Request changes MUST require
 a Markdown body while Approve leaves it optional.
 Submit review and Merge MUST be hidden or denied unless the viewer
-`CanMaintain` the repository channel. The reviewer picker MUST offer channel
+`CanMaintain` the repository channel. A pull-request author who only
+`CanMaintain` MUST NOT see Submit review. The `30617` owner or a channel
+administrator MAY submit a trusted review on their own pull request. Merge
+MUST still require a trusted non-author approval unless the advertised
+ruleset allows admin bypass and the viewer administers the channel. The
+reviewer picker MUST offer channel
 maintainers, administrators, and `OWNERS.md` path owners, and MUST NOT offer
 arbitrary members as trusted reviewers.
 Closing an open pull request MUST use the destructive button treatment and MUST
