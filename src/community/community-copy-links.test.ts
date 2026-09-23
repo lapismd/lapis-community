@@ -36,6 +36,16 @@ describe("community copy links", () => {
     ).toBe(
       `lapis-community://repo?owner=${owner}&d=notes&tab=oplog&commit=${"a".repeat(40)}`,
     );
+    expect(
+      communityCopiedProjectRouteLink({
+        kind: "repository",
+        coordinate: `30617:${owner}:notes`,
+        surface: "files",
+        revision: "review/npub1example/ab",
+      }),
+    ).toBe(
+      `lapis-community://repo?owner=${owner}&d=notes&tab=files&branch=${encodeURIComponent("review/npub1example/ab")}`,
+    );
   });
 
   it("includes thread= when the copied message is a reply", () => {

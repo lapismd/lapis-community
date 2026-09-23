@@ -57,3 +57,17 @@ export function requireCommit(value: string): string {
   if (!hex) throw new Error("invalid commit");
   return hex;
 }
+
+export function normalizeBranch(
+  value: string | null | undefined,
+): string | undefined {
+  if (!value || value.length > 512 || value.trim() !== value) return undefined;
+  if (/[\u0000-\u001f\u007f]/u.test(value)) return undefined;
+  return value;
+}
+
+export function requireBranch(value: string): string {
+  const branch = normalizeBranch(value);
+  if (!branch) throw new Error("invalid branch");
+  return branch;
+}

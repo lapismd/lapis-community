@@ -1,8 +1,10 @@
 import {
   COMMUNITY_TAB,
   decodeLinkSegment,
+  normalizeBranch,
   normalizeCommit,
   normalizeHex,
+  requireBranch,
   requireCommit,
   requireHex64,
   requireId,
@@ -28,6 +30,7 @@ export interface CommunityLinkBuilder {
     d: string;
     tab?: string;
     commit?: string;
+    branch?: string;
   }): string;
 }
 
@@ -50,6 +53,7 @@ export type CommunityEntityLink =
       d: string;
       tab?: string;
       commit?: string;
+      branch?: string;
     }
   | { kind: "task"; owner: string; d: string; id: string };
 
@@ -104,6 +108,7 @@ export function buildCommunityRepoLink(input: {
   d: string;
   tab?: string;
   commit?: string;
+  branch?: string;
 }): string {
   return coordinateLink("repo", input);
 }
@@ -168,10 +173,14 @@ export function parseCommunityEntityLink(
     const d = parsed.searchParams.get("d") ?? "";
     const tab = parsed.searchParams.get("tab") ?? undefined;
     const commit = normalizeCommit(parsed.searchParams.get("commit"));
+    const branchValue = parsed.searchParams.get("branch");
+    const branch =
+      branchValue === null ? undefined : normalizeBranch(branchValue);
     if (
       !owner ||
       !validId(d) ||
-      (tab !== undefined && !COMMUNITY_TAB.test(tab))
+      (tab !== undefined && !COMMUNITY_TAB.test(tab)) ||
+      (branchValue !== null && !branch)
     )
       return undefined;
     if (parsed.hostname === "project") {
@@ -183,6 +192,7 @@ export function parseCommunityEntityLink(
       d,
       ...(tab ? { tab } : {}),
       ...(commit ? { commit } : {}),
+      ...(branch ? { branch } : {}),
     };
   }
   return undefined;
@@ -214,7 +224,13 @@ export function communityRepositoryCoordinate(
 
 function coordinateLink(
   host: "project" | "repo",
-  input: { owner: string; d: string; tab?: string; commit?: string },
+  input: {
+    owner: string;
+    d: string;
+    tab?: string;
+    commit?: string;
+    branch?: string;
+  },
 ): string {
   const params = new URLSearchParams();
   params.set("owner", requireHex64(input.owner, "owner"));
@@ -225,5 +241,6 @@ function coordinateLink(
     params.set("tab", input.tab);
   }
   if (input.commit) params.set("commit", requireCommit(input.commit));
+  if (input.branch) params.set("branch", requireBranch(input.branch));
   return `${COMMUNITY_LINK_SCHEME}//${host}?${params}`;
 }

@@ -8,6 +8,7 @@
   import ListTodoIcon from "@lucide/svelte/icons/list-todo";
   import SettingsIcon from "@lucide/svelte/icons/settings";
 
+  import CommunityEntityCopyButton from "../community-entity-chip/CommunityEntityCopyButton.svelte";
   import CommunityProjectChannelIcon from "../community-project-channel-icon/CommunityProjectChannelIcon.svelte";
   import {
     PROJECT_REVIEW_LIST_FILTER_DEFAULT,
@@ -136,6 +137,11 @@
   {@render railStat(GitPullRequestIcon, "Reviews", reviews.length)}
 {:else if surface === "files"}
   {@render railStat(FilesIcon, "Files", files)}
+  <CommunityEntityCopyButton
+    class="community-application__project-overview-item"
+    label="Copy Link"
+    success="Repository link copied"
+  />
 {:else if surface === "commits"}
   {@render railStat(GitCommitHorizontalIcon, "Commits", commits.length)}
   <CommunityProjectsRepositoryRailLatest icon={GitBranchIcon} sha={latestSha} />

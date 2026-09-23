@@ -153,7 +153,10 @@ with an optional `/<path>` after `files`. `<revision>` is one encoded branch
 name or commit. Choosing a branch or commit MUST write that revision into the
 URL, and opening that URL MUST select it in the branch control and load files
 from it. A Files URL without a revision MUST gain the current branch once that
-branch is known.
+branch is known. The Files rail MUST show Copy Link under Files. That control
+MUST copy `lapis-community://repo?owner=&d=&tab=files&branch=<revision>` for
+the open repository and the branch or commit in the URL. Opening that link
+MUST select the same revision.
 The repository workspace MUST expose an Activity tab before Overview that
 reuses the project activity feed, scoped to the selected repository,
 including dest-Git commits, NIP-34 collaboration, and kind `3901` jj-sync

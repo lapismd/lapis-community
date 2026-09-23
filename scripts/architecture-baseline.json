@@ -737,13 +737,13 @@
       "justification": "Svelte 5 controller factory; history, Pulse, and operations extracted"
     },
     "src/community/community-copy-links.test.ts": {
-      "countedLines": 66,
-      "physicalLines": 71,
+      "countedLines": 76,
+      "physicalLines": 81,
       "forbiddenImportCount": 0
     },
     "src/community/community-copy-links.ts": {
-      "countedLines": 103,
-      "physicalLines": 107,
+      "countedLines": 107,
+      "physicalLines": 111,
       "forbiddenImportCount": 0
     },
     "src/community/community-event-worker.ts": {
@@ -752,18 +752,18 @@
       "forbiddenImportCount": 0
     },
     "src/community/community-link-normalize.ts": {
-      "countedLines": 173,
-      "physicalLines": 181,
+      "countedLines": 184,
+      "physicalLines": 193,
       "forbiddenImportCount": 0
     },
     "src/community/community-links.test.ts": {
-      "countedLines": 157,
-      "physicalLines": 164,
+      "countedLines": 185,
+      "physicalLines": 192,
       "forbiddenImportCount": 0
     },
     "src/community/community-links.ts": {
-      "countedLines": 219,
-      "physicalLines": 243,
+      "countedLines": 229,
+      "physicalLines": 246,
       "forbiddenImportCount": 0
     },
     "src/community/composer-model.ts": {
@@ -1715,13 +1715,13 @@
       "forbiddenImportCount": 0
     },
     "src/components/community-application/application-location-hash.test.ts": {
-      "countedLines": 93,
-      "physicalLines": 98,
+      "countedLines": 106,
+      "physicalLines": 111,
       "forbiddenImportCount": 0
     },
     "src/components/community-application/application-location-hash.ts": {
-      "countedLines": 188,
-      "physicalLines": 197,
+      "countedLines": 191,
+      "physicalLines": 200,
       "forbiddenImportCount": 0
     },
     "src/components/community-application/application-send.test.ts": {
@@ -3363,13 +3363,13 @@
       "forbiddenImportCount": 0
     },
     "src/components/community-projects/CommunityProjectsRepositoryRail.stories.svelte": {
-      "countedLines": 100,
-      "physicalLines": 106,
+      "countedLines": 114,
+      "physicalLines": 122,
       "forbiddenImportCount": 0
     },
     "src/components/community-projects/CommunityProjectsRepositoryRail.svelte": {
-      "countedLines": 166,
-      "physicalLines": 171,
+      "countedLines": 171,
+      "physicalLines": 179,
       "forbiddenImportCount": 0
     },
     "src/components/community-projects/CommunityProjectsRepositoryRailLatest.svelte": {

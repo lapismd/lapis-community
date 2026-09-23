@@ -66,6 +66,27 @@ describe("community entity links", () => {
         commit,
       }),
     ).toBe(golden.log);
+    expect(
+      buildCommunityRepoLink({
+        owner,
+        d: "buzz-world",
+        tab: "files",
+        branch: "main",
+      }),
+    ).toBe(
+      `lapis-community://repo?owner=${owner}&d=buzz-world&tab=files&branch=main`,
+    );
+    expect(
+      parseCommunityEntityLink(
+        `lapis-community://repo?owner=${owner}&d=buzz-world&tab=files&branch=${encodeURIComponent("review/npub1example/ab")}`,
+      ),
+    ).toEqual({
+      kind: "repo",
+      owner,
+      d: "buzz-world",
+      tab: "files",
+      branch: "review/npub1example/ab",
+    });
     expect(parseCommunityEntityLink(golden.message)).toEqual({
       kind: "message",
       roomId: "plugin-development",
@@ -101,6 +122,13 @@ describe("community entity links", () => {
         `#/projects/repository/${communityRepositoryCoordinate(owner, "buzz-world")}/oplog`,
       ),
     ).toBe(golden.oplog);
+    expect(
+      normalizeCommunityEntityHref(
+        `#/projects/repository/${communityRepositoryCoordinate(owner, "buzz-world")}/${encodeURIComponent("review/npub1example/ab")}/files/src/app.ts`,
+      ),
+    ).toBe(
+      `lapis-community://repo?owner=${owner}&d=buzz-world&tab=files&branch=${encodeURIComponent("review/npub1example/ab")}`,
+    );
     expect(
       entityLinkFromApplicationHash(
         `#/projects/project/${communityProjectCoordinate(owner, "buzz-world")}`,

@@ -1,8 +1,9 @@
 // prettier-ignore
 import { decodeHashSegment, extractCommunityHash } from "./community-link-hash.js";
 // prettier-ignore
-import { COMMUNITY_HEX64, COMMUNITY_TAB, validCommunityId } from "./community-link-ids.js";
+import { COMMUNITY_HEX64, COMMUNITY_TAB, normalizeBranch, validCommunityId } from "./community-link-ids.js";
 import {
+  COMMUNITY_REPOSITORY_KIND,
   communityEntityLinkHref,
   parseAddressableCoordinate,
   parseCommunityEntityLink,
@@ -39,6 +40,23 @@ export function entityLinkFromApplicationHash(
     return eventId
       ? { kind: "message", roomId, eventId }
       : { kind: "channel", roomId };
+  }
+  const filesHash =
+    /^#\/projects\/repository\/([^/]+)\/([^/]+)\/files(?:\/.*)?$/u.exec(hash);
+  if (filesHash) {
+    const coordinate = parseAddressableCoordinate(
+      decodeHashSegment(filesHash[1] ?? ""),
+    );
+    const branch = normalizeBranch(decodeHashSegment(filesHash[2] ?? ""));
+    if (!coordinate || coordinate.kind !== COMMUNITY_REPOSITORY_KIND || !branch)
+      return undefined;
+    return {
+      kind: "repo",
+      owner: coordinate.owner,
+      d: coordinate.d,
+      tab: "files",
+      branch,
+    };
   }
   const project =
     /^#\/projects\/(project|repository)\/([^/]+)(?:\/([^/]+))?(?:\/([a-f0-9]{40}|[a-f0-9]{64}))?$/u.exec(

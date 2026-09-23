@@ -1,3 +1,12 @@
+<script lang="ts">
+  import { provideCommunityShareLink } from "../community-entity-chip/share-link.js";
+
+  provideCommunityShareLink({
+    href: () => "lapis-community://repo?owner=aa&d=probe&tab=files&branch=main",
+    copy: () => {},
+  });
+</script>
+
 <script module lang="ts">
   import { defineMeta } from "@storybook/addon-svelte-csf";
   import { expect, fn } from "storybook/test";
@@ -80,6 +89,7 @@
     ).not.toBeNull();
     await expect(canvas.getByText("Details")).toBeVisible();
     await expect(canvas.getByRole("button", { name: "Options" })).toBeVisible();
+    await expect(canvas.queryByRole("button", { name: "Copy Link" })).toBeNull();
   }}
 >
   {#snippet template(args)}
@@ -97,7 +107,13 @@
   play={async ({ canvas }) => {
     await expect(canvas.queryByRole("button", { name: "Options" })).not.toBeInTheDocument();
     await expect(canvas.queryByText("Relay hosted")).not.toBeInTheDocument();
-    await expect(canvas.getByRole("button", { name: /Files/u })).toBeVisible();
+    const files = canvas.getByRole("button", { name: /Files/u });
+    const copyLink = canvas.getByRole("button", { name: "Copy Link" });
+    await expect(files).toBeVisible();
+    await expect(copyLink).toBeVisible();
+    await expect(
+      files.compareDocumentPosition(copyLink) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
   }}
 >
   {#snippet template(args)}

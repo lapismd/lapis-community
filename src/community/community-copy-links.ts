@@ -78,6 +78,7 @@ export function communityCopiedProjectRouteLink(input: {
   coordinate: string;
   surface: string;
   commitSha?: string;
+  revision?: string;
   linkBuilder?: CommunityLinkBuilder;
 }): string | undefined {
   const parsed = parseAddressableCoordinate(input.coordinate);
@@ -90,18 +91,21 @@ export function communityCopiedProjectRouteLink(input: {
       buildCommunityProjectLink({ owner: parsed.owner, d: parsed.d, tab })
     );
   }
+  const branch = input.surface === "files" ? input.revision : undefined;
   return (
     input.linkBuilder?.repo?.({
       owner: parsed.owner,
       d: parsed.d,
       tab,
       commit: input.commitSha,
+      branch,
     }) ??
     buildCommunityRepoLink({
       owner: parsed.owner,
       d: parsed.d,
       tab,
       commit: input.commitSha,
+      branch,
     })
   );
 }

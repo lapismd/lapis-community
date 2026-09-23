@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { parseCommunityEntityLink } from "../../community/community-links.js";
 import {
   applicationRoomKind,
   locationForCommunityEntityLink,
@@ -75,6 +76,18 @@ describe("application location hash", () => {
       destination: "general",
       panel: { kind: "thread", roomId: "general", rootMessageId: eventId },
     });
+    const files = parseCommunityEntityLink(
+      `lapis-community://repo?owner=${owner}&d=notes&tab=files&branch=${encodeURIComponent("review/npub1example/ab")}`,
+    );
+    expect(locationForCommunityEntityLink(files!).projectRoute).toEqual({
+      kind: "repository",
+      coordinate: `30617:${owner}:notes`,
+      surface: "files",
+      revision: "review/npub1example/ab",
+    });
+    expect(locationToHash(locationForCommunityEntityLink(files!))).toBe(
+      `#/projects/repository/30617:${owner}:notes/${encodeURIComponent("review/npub1example/ab")}/files`,
+    );
   });
 
   it("treats unknown room destinations as channels and skips DMs", () => {

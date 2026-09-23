@@ -180,6 +180,9 @@ export function locationForCommunityEntityLink(
     coordinate,
     surface,
     ...(link.kind === "repo" && link.commit ? { commitSha: link.commit } : {}),
+    ...(link.kind === "repo" && surface === "files" && link.branch
+      ? { revision: link.branch }
+      : {}),
   });
 }
 
