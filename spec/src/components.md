@@ -951,7 +951,9 @@ labelled Queued and MUST NOT use that streaming indicator. Activity controls
 MUST list every open or workspace-fencing run for the visible channel, including
 another thread, with Queued, Starting, Working, Waiting for permission, or
 Interrupted. An interrupted row MUST say it blocks later requests, and Cancel
-MUST target that row's session and turn. Agent cards and profiles MUST use
+MUST target that row's session and turn. Each run MUST be collapsible so its
+actions can be folded. Reset conversation MUST appear once, on the run for the
+visible conversation, and MUST NOT be repeated for another thread's run. Agent cards and profiles MUST use
 the same working presentation for a turn that is actually running. Completed reasoning and tools with terminal
 results MUST stop animating; replay or later metadata MUST NOT restart completed
 tools, and one conversation ending MUST NOT finish another conversation.

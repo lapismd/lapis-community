@@ -2,7 +2,9 @@ import { describe, expect, it } from "vitest";
 import {
   activityCancelTarget,
   activityControlHeading,
+  activityControlRows,
   activityRunLabel,
+  activityShowsReset,
 } from "./activity-run-label.js";
 import type { CommunityAgentControllerScope } from "../../community/agent-contracts.js";
 
@@ -49,6 +51,12 @@ describe("activity run labels", () => {
       "Queued",
       "Interrupted. This run is blocking later requests in the workspace.",
     ]);
+    expect(activityControlRows([...rows, rows[0]!])).toEqual(rows);
+    expect(
+      rows.map((row) =>
+        activityShowsReset(row, rows, { kind: "channel", channelId: "room" }),
+      ),
+    ).toEqual([true, false]);
     expect(rows.map((row) => activityCancelTarget(row))).toEqual([
       {
         scopeKey: "relay/room/agent/channel",

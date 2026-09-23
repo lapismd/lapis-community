@@ -1,28 +1,24 @@
 <script lang="ts">
-  import { Button } from "@lapismd/design-core/shadcn/button";
   import { ConfirmDialog } from "@lapismd/design-core/forms/dialog";
   import CommunityChip from "../community-chip/CommunityChip.svelte";
-  import CircleStopIcon from "@lucide/svelte/icons/circle-stop";
-  import RotateIcon from "@lucide/svelte/icons/rotate-ccw";
-  import {
-    activityContextLabel,
-    contextForScope,
-  } from "../../community/agent-activity-context.js";
+  import ActivityRunDisclosure from "./ActivityRunDisclosure.svelte";
   import {
     activityCancelTarget,
-    activityControlHeading,
+    activityControlRows,
+    activityShowsReset,
   } from "./activity-run-label.js";
   import type {
+    CommunityAgentActivityContext,
     CommunityAgentControllerScope,
     CommunityAgentIdentity,
     CommunityAgentsState,
   } from "../../community/agent-contracts.js";
   import type { CommunityRoomModel } from "../community-workspace/model.js";
-  import CommunityProfileActions from "../community-profile-actions/CommunityProfileActions.svelte";
   import AgentPermissionCard from "./AgentPermissionCard.svelte";
   import type { AgentRuntimeActions } from "./runtime-actions.js";
   let {
     agent,
+    context,
     scopes,
     permissions,
     rooms,
@@ -31,6 +27,7 @@
     onRespondPermission,
   }: AgentRuntimeActions & {
     agent: CommunityAgentIdentity;
+    context?: CommunityAgentActivityContext;
     scopes: CommunityAgentControllerScope[];
     permissions: CommunityAgentsState["pendingPermissions"][string];
     rooms: readonly CommunityRoomModel[];
@@ -39,6 +36,7 @@
   let resetTarget = $state<CommunityAgentControllerScope>();
   let controlError = $state("");
   let controlPending = $state("");
+  const rows = $derived(activityControlRows(scopes));
 
   async function runControl(key: string, operation: () => Promise<void>) {
     if (controlPending) return;
@@ -56,18 +54,20 @@
   }
 </script>
 
-{#if permissions.length > 0 || scopes.some((scope) => scope.sessionId && (onResetConversation || (scope.active && onCancelTurn)))}
+{#if permissions.length > 0 || rows.length > 0}
   <section class="agent-activity__controls" aria-label="Agent runtime controls">
-    {#each scopes as controllerScope (`${controllerScope.scopeKey}\0${controllerScope.turnId ?? ""}`)}
-      {#if controllerScope.sessionId && (onResetConversation || (controllerScope.active && onCancelTurn))}
-        <p>{activityControlHeading(controllerScope, rooms)}</p>
-        <CommunityProfileActions
-          label={`Actions for ${activityContextLabel(contextForScope(controllerScope), rooms)}`}
-        >
-          {#if controllerScope.active && controllerScope.sessionId && onCancelTurn}<Button
-              variant="outline"
-              disabled={Boolean(controlPending)}
-              onclick={() =>
+    {#each rows as controllerScope (`${controllerScope.scopeKey}\0${controllerScope.turnId ?? ""}`)}
+      <ActivityRunDisclosure
+        scope={controllerScope}
+        {rooms}
+        showReset={Boolean(
+          onResetConversation &&
+            activityShowsReset(controllerScope, scopes, context),
+        )}
+        disabled={Boolean(controlPending)}
+        {...onCancelTurn
+          ? {
+              onCancel: () =>
                 runControl("cancel", () => {
                   const target = activityCancelTarget(controllerScope);
                   return onCancelTurn(
@@ -76,19 +76,18 @@
                     target.channelId,
                     target,
                   );
-                }).catch(() => {})}
-              ><CircleStopIcon aria-hidden="true" />Cancel turn</Button
-            >{/if}
-          {#if onResetConversation && controllerScope.sessionId}<Button
-              variant="outline"
-              disabled={Boolean(controlPending)}
-              onclick={() => {
+                }),
+            }
+          : {}}
+        {...onResetConversation
+          ? {
+              onReset: () => {
                 resetTarget = { ...controllerScope };
                 resetting = true;
-              }}><RotateIcon aria-hidden="true" />Reset conversation</Button
-            >{/if}
-        </CommunityProfileActions>
-      {/if}
+              },
+            }
+          : {}}
+      />
     {/each}
     {#if permissions.length > 0}<CommunityChip size="compact" tone="warning"
         >Waiting for approval</CommunityChip

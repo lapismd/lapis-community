@@ -2,7 +2,10 @@ import {
   activityContextLabel,
   contextForScope,
 } from "../../community/agent-activity-context.js";
-import type { CommunityAgentControllerScope } from "../../community/agent-contracts.js";
+import type {
+  CommunityAgentActivityContext,
+  CommunityAgentControllerScope,
+} from "../../community/agent-contracts.js";
 
 export function activityRunLabel(state?: string): string {
   switch (state) {
@@ -28,6 +31,58 @@ export function activityControlHeading(
   rooms: readonly { id: string; groupId?: string; name: string }[] = [],
 ): string {
   return `${activityContextLabel(contextForScope(scope), rooms)} · ${activityRunLabel(scope.state)}`;
+}
+
+export function activityControlRows(
+  scopes: readonly CommunityAgentControllerScope[],
+): CommunityAgentControllerScope[] {
+  const seen = new Set<string>();
+  return scopes.filter((scope) => {
+    if (!scope.sessionId) return false;
+    const key = [scope.scopeKey, scope.sessionId, scope.turnId ?? ""].join(
+      "\0",
+    );
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+export function activityShowsReset(
+  scope: CommunityAgentControllerScope,
+  scopes: readonly CommunityAgentControllerScope[],
+  context?: CommunityAgentActivityContext,
+): boolean {
+  const rows = activityControlRows(scopes);
+  if (!context || context.kind === "overview")
+    return rows.find((row) => row.scopeKey === scope.scopeKey) === scope;
+  const visible = contextForScopeMatches(context);
+  const match = rows.find((row) => visible(contextForScope(row))) ?? rows[0];
+  return match === scope;
+}
+
+function contextForScopeMatches(
+  context: CommunityAgentActivityContext,
+): (scope: CommunityAgentActivityContext) => boolean {
+  return (scope) => {
+    if (scope.kind !== context.kind) return false;
+    if (scope.kind === "dm" && context.kind === "dm")
+      return (
+        scope.agentPubkey === context.agentPubkey &&
+        scope.conversationId === context.conversationId
+      );
+    if (scope.kind === "channel" && context.kind === "channel")
+      return scope.channelId === context.channelId;
+    if (
+      (scope.kind === "thread" || scope.kind === "forum-topic") &&
+      (context.kind === "thread" || context.kind === "forum-topic")
+    )
+      return (
+        scope.channelId === context.channelId &&
+        scope.threadRootId === context.threadRootId
+      );
+    return false;
+  };
 }
 
 export function activityCancelTarget(scope: CommunityAgentControllerScope): {

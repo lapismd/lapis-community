@@ -118,6 +118,7 @@
       {scopes}
       {permissions}
       {rooms}
+      {context}
       {...onCancelTurn ? { onCancelTurn } : {}}
       {...onResetConversation ? { onResetConversation } : {}}
       {...onRespondPermission ? { onRespondPermission } : {}}
@@ -158,11 +159,7 @@
     />
   {/if}
   {#if selected && context.kind === "overview"}<footer>
-      <Button
-        variant="destructive"
-        onclick={() => {
-          clearing = true;
-        }}
+      <Button variant="destructive" onclick={() => (clearing = true)}
         ><TrashIcon aria-hidden="true" />Clear this agent’s saved activity</Button
       >
     </footer>{/if}
