@@ -52,7 +52,6 @@
   import ChevronRightIcon from "@lucide/svelte/icons/chevron-right";
   import ArrowLeftIcon from "@lucide/svelte/icons/arrow-left";
   import CircleCheckIcon from "@lucide/svelte/icons/circle-check";
-  import CircleDotIcon from "@lucide/svelte/icons/circle-dot";
   import CodeXmlIcon from "@lucide/svelte/icons/code-xml";
   import EllipsisIcon from "@lucide/svelte/icons/ellipsis";
   import HashIcon from "@lucide/svelte/icons/hash";
@@ -68,7 +67,6 @@
   import LockIcon from "@lucide/svelte/icons/lock";
   import LogInIcon from "@lucide/svelte/icons/log-in";
   import MessagesSquareIcon from "@lucide/svelte/icons/messages-square";
-  import MessageCircleIcon from "@lucide/svelte/icons/message-circle";
   import PackageSearchIcon from "@lucide/svelte/icons/package-search";
   import PlusIcon from "@lucide/svelte/icons/plus";
   import SearchIcon from "@lucide/svelte/icons/search";
@@ -178,6 +176,7 @@
   import { submitRepositoryPullRequest } from "../../projects/pull-request-publish.js";
   import type { LogReviewSubmitInput } from "../../projects/log-review.js";
   import CommunityProjectsReviewDetails from "../community-projects/CommunityProjectsReviewDetails.svelte";
+  import CommunityProjectsTaskDetails from "../community-projects/CommunityProjectsTaskDetails.svelte";
   import { repositorySurfaceLoadsRefs } from "../../projects/repository-surface-refs.js";
   import {
     registryRouteFromDestination,
@@ -3196,6 +3195,8 @@
       selectedProjectCommit = projectRouteCommit(next.projectRoute);
       if (next.projectRoute.surface === "reviews" && next.projectRoute.commitSha)
         selectedPullRequestId = next.projectRoute.commitSha;
+      if (next.projectRoute.surface === "tasks" && next.projectRoute.commitSha)
+        selectedTaskId = next.projectRoute.commitSha;
     } else if (previous.projectRoute?.kind === "repository") {
       selectedRepositoryCoordinate = "";
       selectedRepositoryProjectCoordinate = "";
@@ -6186,26 +6187,7 @@
             {selectedTask.lifecycle === "closed" ? "Reopen task" : "Close task"}
           </Button>
           <p class="community-application__project-overview-label">Details</p>
-          {@render projectRailStat(
-            CircleDotIcon,
-            "Status",
-            selectedTask.lifecycle === "applied"
-              ? "Done"
-              : selectedTask.lifecycle[0]!.toUpperCase() +
-                  selectedTask.lifecycle.slice(1),
-          )}
-          {@render projectRailStat(
-            UsersIcon,
-            "Assignees",
-            selectedTask.assignees.length,
-          )}
-          {@render projectRailStat(
-            MessageCircleIcon,
-            "Comments",
-            selectedTask.activity.filter(
-              (entry) => !entry.assignment && entry.event.content.trim() !== "",
-            ).length,
-          )}
+          <CommunityProjectsTaskDetails task={selectedTask} />
         {:else if selectedPullRequest}
           <div class="community-application__project-overview-heading">
             <strong>{selectedPullRequest.title}</strong>
