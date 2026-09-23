@@ -3,6 +3,10 @@ import {
   observerScope,
   controllerScopeId,
 } from "./agent-activity-context.js";
+import {
+  activityPayloadState,
+  activityScopeStorageKey,
+} from "./activity-frame-state.js";
 import type {
   CommunityAgentActivityContext,
   CommunityAgentActivitySyncContext,
@@ -1049,10 +1053,7 @@ export class CommunityAgentsController {
   }
 
   #sweepExpiredPermissions(): void {
-    const patch = sweepExpiredPermissionState(
-      this.#state,
-      this.#now() * 1_000,
-    );
+    const patch = sweepExpiredPermissionState(this.#state, this.#now() * 1_000);
     if (patch) this.#update(patch);
   }
 
@@ -1302,10 +1303,7 @@ export class CommunityAgentsController {
       const snapshotScopeKeys = snapshots.map(({ frame: snapshot }) =>
         observerText(observerRecord(snapshot.payload).scopeKey, 4_096),
       );
-      if (
-        snapshotScopeKeys.some((scopeKey) => !scopeKey) ||
-        new Set(snapshotScopeKeys).size > 1
-      )
+      if (snapshotScopeKeys.some((scopeKey) => !scopeKey))
         throw new Error("activity snapshots do not identify one scope");
       if (events.some(({ frame }) => frame.seq > nextOffset))
         throw new Error("activity page cursor precedes an event");
@@ -1801,8 +1799,8 @@ export class CommunityAgentsController {
   ): void {
     const payload = observerRecord(frame.payload);
     const scopeKey = observerText(payload.scopeKey, 4_096);
-    const key = controllerScopeId(agentPubkey, scopeKey);
-    const sequenceKey = JSON.stringify([key, frame.streamId ?? "legacy"]);
+    const scopeId = controllerScopeId(agentPubkey, scopeKey);
+    const sequenceKey = JSON.stringify([scopeId, frame.streamId ?? "legacy"]);
     const previousSequence = this.#controllerSequence.get(sequenceKey);
     if (previousSequence !== undefined && frame.seq <= previousSequence) return;
     this.#controllerSequence.set(sequenceKey, frame.seq);
@@ -1812,12 +1810,12 @@ export class CommunityAgentsController {
       "turn_failed",
       "turn_cancelled",
     ].includes(frame.kind);
-    const previous = this.#state.conversationScopes?.[key];
     const requestId =
       observerText(payload.lifecycleRequestId, 512) ||
-      (frame.kind.startsWith("permission_")
-        ? previous?.requestId || frame.turnId
-        : observerText(payload.requestId, 512) || frame.turnId);
+      observerText(payload.requestId, 512) ||
+      frame.turnId;
+    const key = activityScopeStorageKey(agentPubkey, scopeKey, requestId);
+    const previous = this.#state.conversationScopes?.[key];
     if (
       terminal &&
       previous?.active &&
@@ -1827,17 +1825,12 @@ export class CommunityAgentsController {
     )
       return;
     if (scopeKey) {
-      const state = terminal
-        ? frame.kind === "turn_failed"
-          ? "failed"
-          : frame.kind === "turn_cancelled"
-            ? "cancelled"
-            : "completed"
-        : frame.kind === "permission_requested"
-          ? "waiting_permission"
-          : frame.kind === "permission_resolved"
-            ? "running"
-            : observerText(payload.state, 40) || "running";
+      const state = activityPayloadState(
+        frame.kind,
+        terminal,
+        observerText(payload.state, 40),
+        observerText(payload.preview, 240),
+      );
       const sameRequest = previous?.requestId === requestId;
       const waiting =
         state === "waiting_permission" ||

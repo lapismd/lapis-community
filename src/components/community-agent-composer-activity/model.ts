@@ -28,7 +28,7 @@ export function composerActivity(
       if (!agent) return [];
       return [
         {
-          key: JSON.stringify([scope.agentPubkey, scope.scopeKey]),
+          key: [scope.agentPubkey, scope.scopeKey, scope.requestId].join(),
           agentPubkey: scope.agentPubkey,
           name: agent.name,
           avatarUrl: agent.avatarUrl,

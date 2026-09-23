@@ -946,8 +946,13 @@ For LC-UI-049, repository checkpoint separators MUST compose the shared chat
 SystemMessage divider and the Agent context column MUST remain user-collapsible.
 Owner activity MUST place older-history pagination first inside the chat and
 show a shared reasoning-style working indicator at its end throughout an active
-request, including after text or tool output. Agent cards and profiles MUST use
-the same working presentation. Completed reasoning and tools with terminal
+running request, including after text or tool output. A queued request MUST be
+labelled Queued and MUST NOT use that streaming indicator. Activity controls
+MUST list every open or workspace-fencing run for the visible channel, including
+another thread, with Queued, Starting, Working, Waiting for permission, or
+Interrupted. An interrupted row MUST say it blocks later requests, and Cancel
+MUST target that row's session and turn. Agent cards and profiles MUST use
+the same working presentation for a turn that is actually running. Completed reasoning and tools with terminal
 results MUST stop animating; replay or later metadata MUST NOT restart completed
 tools, and one conversation ending MUST NOT finish another conversation.
 Cancel turn and Reset conversation MUST share the profile action row treatment,

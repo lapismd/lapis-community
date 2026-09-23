@@ -3,6 +3,9 @@
 Owner Activity shows the latest queued or startup status until a request produces
 assistant or tool output. The status updates in place and disappears on output
 or termination, so an active cold start does not look like an empty transcript.
+A host-queued request is labelled Queued. Activity lists every open run for the
+visible channel, including another thread, and any interrupted run that still
+blocks the workspace. Each of those rows can be cancelled on its own.
 This is included in the LC-UI-049 context acceptance.
 
 Community follows the executable agent protocol audited in `block/buzz`

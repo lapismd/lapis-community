@@ -8,6 +8,10 @@
     activityContextLabel,
     contextForScope,
   } from "../../community/agent-activity-context.js";
+  import {
+    activityCancelTarget,
+    activityControlHeading,
+  } from "./activity-run-label.js";
   import type {
     CommunityAgentControllerScope,
     CommunityAgentIdentity,
@@ -54,11 +58,9 @@
 
 {#if permissions.length > 0 || scopes.some((scope) => scope.sessionId && (onResetConversation || (scope.active && onCancelTurn)))}
   <section class="agent-activity__controls" aria-label="Agent runtime controls">
-    {#each scopes as controllerScope (controllerScope.scopeKey)}
+    {#each scopes as controllerScope (`${controllerScope.scopeKey}\0${controllerScope.turnId ?? ""}`)}
       {#if controllerScope.sessionId && (onResetConversation || (controllerScope.active && onCancelTurn))}
-        {#if scopes.length > 1}<p>
-            {activityContextLabel(contextForScope(controllerScope), rooms)}
-          </p>{/if}
+        <p>{activityControlHeading(controllerScope, rooms)}</p>
         <CommunityProfileActions
           label={`Actions for ${activityContextLabel(contextForScope(controllerScope), rooms)}`}
         >
@@ -66,17 +68,15 @@
               variant="outline"
               disabled={Boolean(controlPending)}
               onclick={() =>
-                runControl("cancel", () =>
-                  onCancelTurn(
+                runControl("cancel", () => {
+                  const target = activityCancelTarget(controllerScope);
+                  return onCancelTurn(
                     agent.pubkey,
-                    controllerScope.scopeKey,
-                    controllerScope.channelId,
-                    {
-                      sessionId: controllerScope.sessionId ?? "",
-                      turnId: controllerScope.turnId ?? "",
-                    },
-                  ),
-                ).catch(() => {})}
+                    target.scopeKey,
+                    target.channelId,
+                    target,
+                  );
+                }).catch(() => {})}
               ><CircleStopIcon aria-hidden="true" />Cancel turn</Button
             >{/if}
           {#if onResetConversation && controllerScope.sessionId}<Button

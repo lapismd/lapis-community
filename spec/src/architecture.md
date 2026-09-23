@@ -543,7 +543,7 @@ worker/WASM transforms and isolation headers remain enabled. The supervisor
 watches the separate allowlisted public environment and restarts only its
 checkout-owned child. The credentials directory is never a file-serving root.
 
-The agent controller retains live state per agent and conversation. A private Svelte context supplies the optional shared composer activity row with the existing controller model, without introducing an application singleton or plaintext persistence. Conversation-scoped failures remain in that controller projection until newer activity replaces them, and runtime or memory administration errors are correlated in the same private ephemeral transport as successful responses.
+The agent controller retains live state per agent and conversation. A private Svelte context supplies the optional shared composer activity row with the existing controller model, without introducing an application singleton or plaintext persistence. Each open or workspace-fencing run keeps its own conversation scope, so Activity can cancel that session and turn even when it is not the visible channel's active turn. A queued request remains queued in that projection. Conversation-scoped failures remain in that controller projection until newer activity replaces them, and runtime or memory administration errors are correlated in the same private ephemeral transport as successful responses.
 
 Browser cache writes retain atomic statement batches. The pinned Turso browser
 driver must distinguish execution yields from pending OPFS I/O, so a yielded

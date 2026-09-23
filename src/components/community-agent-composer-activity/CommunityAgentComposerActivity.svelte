@@ -1,8 +1,8 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import AlertIcon from "@lucide/svelte/icons/circle-alert";
-  import { Reasoning } from "@lapismd/design-core/ai/experimental";
   import { Button } from "@lapismd/design-core/shadcn/button";
+  import ActivityRunStatus from "./ActivityRunStatus.svelte";
   import * as Popover from "@lapismd/design-core/shadcn/popover";
   import CommunityMemberAvatar from "../community-member-avatar/CommunityMemberAvatar.svelte";
   import CommunityChip from "../community-chip/CommunityChip.svelte";
@@ -77,12 +77,7 @@
             >{first.name}: {first.preview}</span
           >
         {:else}
-          <Reasoning
-            label={first.state === "waiting_permission"
-              ? "Waiting for your permission"
-              : "Working"}
-            streaming
-          />
+          <ActivityRunStatus state={first.state} />
         {/if}
         {#if entries.length > 1}<CommunityChip size="compact"
             >+{entries.length - 1}</CommunityChip
