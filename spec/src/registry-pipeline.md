@@ -92,7 +92,9 @@ pinning from kind `3904` `metadata.ended_at_ms` updates that baseline in the
 same change. Repository Log empty dest-Git objects update that baseline in
 the same change. Repository Log rail selection, Op Log, and Evolog adapters
 update that baseline in the same change. Repository Log Create review form
-composer updates that baseline in the same change. Repository Log Evolog pressed selected
+composer updates that baseline in the same change. Repository Log Create review
+target selection extracts the dialog owner and lowers the log-rail budget in
+the same change. Repository Log Evolog pressed selected
 treatment, close-column deselect, and Op Log dest-Git files from recorded
 evolution commits update that baseline in the same change. Repository Log
 column ScrollArea paging, Op Log message copy chips, and split graph `#a`

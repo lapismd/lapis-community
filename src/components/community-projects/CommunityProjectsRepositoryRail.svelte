@@ -16,6 +16,8 @@
     type ProjectReviewListFilter,
     type ProjectTaskListFilter,
   } from "../../projects/collection-filters.js";
+  import type { LogReviewSubmitInput } from "../../projects/log-review.js";
+  import type { ProjectForgeRef } from "../../projects/model.js";
   import { projectRailSurface } from "../../projects/project-rail.js";
   import type { ProjectForgeSurface } from "../../projects/surfaces.js";
   import CommunityProjectsRailStatusFilters from "./CommunityProjectsRailStatusFilters.svelte";
@@ -36,7 +38,7 @@
     githubDisabled = false,
     onGitHub,
     onSelect,
-    canMaintain = false,
+    canMaintain = false, branches = [],
     onCreateReview,
   }: {
     surface: ProjectForgeSurface;
@@ -53,11 +55,8 @@
     onGitHub?: (() => void) | undefined;
     onSelect: (label: string) => void;
     canMaintain?: boolean;
-    onCreateReview?: (input: {
-      title: string;
-      content: string;
-      commit: string;
-    }) => Promise<void> | void;
+    branches?: readonly ProjectForgeRef[] | undefined;
+    onCreateReview?: (input: LogReviewSubmitInput) => Promise<void> | void;
   } = $props();
 
   const latestSha = $derived(commits[0]?.sha ?? "");
@@ -91,7 +90,7 @@
 
 {#if surface === "log" || surface === "oplog"}
   <CommunityProjectsRepositoryLogRail
-    {canMaintain}
+    {canMaintain} {branches}
     {...onCreateReview ? { onCreateReview } : {}}
   />
 {/if}

@@ -9,19 +9,26 @@
 
   import CommunityChip from "../community-chip/CommunityChip.svelte";
   import type { ProjectForgeRef } from "../../projects/index.js";
+  import { projectForgeBranchKind } from "../../projects/repository-refs.js";
   import {
-    partitionProjectForgeBranchRefs,
-    projectForgeBranchKind,
-    projectForgeDefaultBranchName,
-  } from "../../projects/repository-refs.js";
+    branchCommandCopy,
+    branchCommandDefaultName,
+    branchCommandPartition,
+  } from "./branch-command-view.js";
 
   let {
     branch,
     branches = [],
+    includeSync = true,
+    label = "Repository branch",
+    heading = "Switch branches",
     onSelectBranch,
   }: {
     branch: string;
     branches?: readonly ProjectForgeRef[] | undefined;
+    includeSync?: boolean | undefined;
+    label?: string | undefined;
+    heading?: string | undefined;
     onSelectBranch: (value: string | undefined) => void;
   } = $props();
 
@@ -29,31 +36,21 @@
   let tab = $state("branch");
   let query = $state("");
 
-  const partitioned = $derived.by(() => {
-    const groups = partitionProjectForgeBranchRefs(branches);
-    if (branches.length > 0) return groups;
-    if (!branch) return groups;
-    const fallback = [{ name: branch, sha: "" }];
-    return projectForgeBranchKind(branch) === "sync"
-      ? { branches: groups.branches, sync: fallback }
-      : { branches: fallback, sync: groups.sync };
-  });
-  const defaultBranch = $derived(projectForgeDefaultBranchName(branches));
+  const partitioned = $derived(branchCommandPartition(branches, branch));
+  const defaultBranch = $derived(branchCommandDefaultName(branches));
   const visibleRefs = $derived(
     tab === "sync" ? partitioned.sync : partitioned.branches,
   );
-  const emptyLabel = $derived(
-    tab === "sync" ? "No matching sync branches" : "No matching branches",
-  );
-  const searchLabel = $derived(
-    tab === "sync" ? "Find a sync branch..." : "Find a branch...",
-  );
+  const copy = $derived(branchCommandCopy(tab));
 
   function handleOpen(next: boolean): void {
     open = next;
     if (!next) return;
     query = "";
-    tab = projectForgeBranchKind(branch) === "sync" ? "sync" : "branch";
+    tab =
+      includeSync && projectForgeBranchKind(branch) === "sync"
+        ? "sync"
+        : "branch";
   }
 
   function choose(name: string): void {
@@ -70,7 +67,7 @@
         variant="outline"
         class={["community-projects__file-branch-trigger", props.class]}
         role="combobox"
-        aria-label="Repository branch"
+        aria-label={label}
       >
         <GitBranchIcon aria-hidden="true" />
         <span>{branch || "Select branch"}</span>
@@ -90,7 +87,7 @@
       <Popover.Title
         class="community-repository-branch-command__title"
         role="heading"
-        aria-level={2}>Switch branches</Popover.Title
+        aria-level={2}>{heading}</Popover.Title
       >
       <Popover.Close>
         {#snippet child({ props })}
@@ -106,23 +103,25 @@
         {/snippet}
       </Popover.Close>
     </Popover.Header>
-    <CommandView.Root label="Switch branches">
+    <CommandView.Root label={heading}>
       <CommandView.Input
         bind:value={query}
-        placeholder={searchLabel}
-        aria-label={searchLabel}
+        placeholder={copy.searchLabel}
+        aria-label={copy.searchLabel}
       />
-      <CommandView.Filters
-        bind:value={tab}
-        label="Branch kinds"
-        tabs={[
-          { id: "branch", label: "Branches" },
-          { id: "sync", label: "Sync" },
-        ]}
-      />
+      {#if includeSync}
+        <CommandView.Filters
+          bind:value={tab}
+          label="Branch kinds"
+          tabs={[
+            { id: "branch", label: "Branches" },
+            { id: "sync", label: "Sync" },
+          ]}
+        />
+      {/if}
       <CommandView.List>
-        <CommandView.Empty>{emptyLabel}</CommandView.Empty>
-        <CommandView.Group heading={tab === "sync" ? "Sync" : "Branches"}>
+        <CommandView.Empty>{copy.emptyLabel}</CommandView.Empty>
+        <CommandView.Group heading={copy.groupHeading}>
           {#each visibleRefs as option (option.name)}
             <CommandView.Item
               value={option.name}

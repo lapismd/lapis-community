@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { NostrEvent } from "../../protocol/index.js";
   import type { ProjectForgeCommitResponse } from "../../projects/index.js";
+  import type { LogReviewSubmitInput } from "../../projects/log-review.js";
   import { provideRepositoryLogPane } from "../../projects/repository-log-pane.svelte.js";
   import CommunityProjectsRepositoryLog from "./CommunityProjectsRepositoryLog.svelte";
   import CommunityProjectsRepositoryLogRail from "./CommunityProjectsRepositoryLogRail.svelte";
@@ -17,11 +18,7 @@
     loading?: boolean | undefined;
     canMaintain?: boolean | undefined;
     onCreateReview?:
-      | ((input: {
-          title: string;
-          content: string;
-          commit: string;
-        }) => Promise<void> | void)
+      | ((input: LogReviewSubmitInput) => Promise<void> | void)
       | undefined;
     onLoadRepositoryCommit?:
       | ((

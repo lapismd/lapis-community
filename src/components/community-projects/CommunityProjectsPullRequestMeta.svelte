@@ -20,6 +20,7 @@
     CommunityRoomModel,
   } from "../community-workspace/model.js";
   import CommunityProjectsMemberHover from "./CommunityProjectsMemberHover.svelte";
+  import CommunityProjectsPullRequestBranch from "./CommunityProjectsPullRequestBranch.svelte";
   import { REVIEW_GROUP_LABELS } from "./pull-request-review.js";
 
   let {
@@ -59,9 +60,7 @@
   <div>
     <dt><GitBranchIcon aria-hidden="true" /><span>Branch</span></dt>
     <dd class="community-projects__review-branch">
-      <span>{pullRequest.branchName || "unknown branch"}</span>
-      <span aria-hidden="true">→</span>
-      <span>{pullRequest.targetBranch || "default branch"}</span>
+      <CommunityProjectsPullRequestBranch {pullRequest} />
       {#if diff}
         <span class="community-projects__review-stats">
           <span

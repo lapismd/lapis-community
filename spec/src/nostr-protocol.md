@@ -245,7 +245,7 @@ assignment and task status MUST use the same
 or change task status unless they `CanMaintain`. Buzz Desktop MAY still
 display other author-trusted reviews; Lapis Community MUST NOT, except the
 owner or administrator self-review exemption above.
-A Log-selected dest-Git commit MAY open a NIP-34 pull request without `branch-name` or `target-branch` tags. Merge MUST treat a missing `target-branch` as the repository's live default branch. The `c` tag MUST be that commit, which Log revisions record from the jj revision `commit_id`. The changed-files header uses the same selected commit. Submitted pull-request reviews MUST remain signed kind `1` collaboration
+A Log-selected dest-Git commit MAY open a NIP-34 pull request without `branch-name`. When the Log Create review dialog has loaded refs, it MUST publish `target-branch` as the selected merge target, defaulting to the live default, and MUST NOT create a Git branch. A dest-Git workspace bookmark that already points at the selected commit and is not that target MAY be published as `branch-name`. Merge MUST treat a missing `target-branch` as the repository's live default branch. The `c` tag MUST be that commit, which Log revisions record from the jj revision `commit_id`. The changed-files header uses the same selected commit. Submitted pull-request reviews MUST remain signed kind `1` collaboration
 events rooted at the pull request and repository, bind the reviewed commit with
 `c`, and use exactly one `t` value: `review-comment`, `approval`, or
 `changes-requested`. Line comments MUST retain the existing

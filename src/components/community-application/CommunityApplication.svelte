@@ -176,6 +176,9 @@
   } from "../../projects/index.js";
   import { canMaintainRepository } from "../community-projects/community-projects-permissions.js";
   import { submitRepositoryPullRequest } from "../../projects/pull-request-publish.js";
+  import type { LogReviewSubmitInput } from "../../projects/log-review.js";
+  import { pullRequestBranchLabel } from "../../projects/pull-request-branch-label.js";
+  import { repositorySurfaceLoadsRefs } from "../../projects/repository-surface-refs.js";
   import {
     registryRouteFromDestination,
     registryRouteToDestination,
@@ -2822,11 +2825,7 @@
       } else {
         const repository = sourceRepository.address.coordinate;
         projectSourceRepositoryCoordinate = repository;
-        const readsRepository =
-          surface === undefined ||
-          surface === "overview" ||
-          surface === "files" ||
-          surface === "commits";
+        const readsRepository = repositorySurfaceLoadsRefs(surface);
 
         if (
           surface === undefined ||
@@ -4186,16 +4185,11 @@
     toast.success("Pull request created");
   }
 
-  function createReviewFromLog(input: {
-    title: string;
-    content: string;
-    commit: string;
-  }): Promise<void> {
+  function createReviewFromLog(input: LogReviewSubmitInput): Promise<void> {
     return createPullRequest({
+      branchName: "",
       ...input,
       repository: selectedRepository?.address.coordinate ?? "",
-      branchName: "",
-      targetBranch: "",
     });
   }
 
@@ -6228,7 +6222,7 @@
           {@render projectRailStat(
             GitBranchIcon,
             "Branch",
-            `${selectedPullRequest.branchName || "unknown"} → ${selectedPullRequest.targetBranch || "default"}`,
+            pullRequestBranchLabel(selectedPullRequest),
           )}
           {@render projectRailStat(
             GitPullRequestIcon,
@@ -6256,6 +6250,7 @@
               selectedRepository.channelId,
             )}
             onCreateReview={createReviewFromLog}
+            branches={projectRepositoryBranches}
             surface={activeRepositorySurface}
             channel={roomForProjectChannel(selectedRepository.channelId)
               ?.name ?? selectedRepository.channelId}

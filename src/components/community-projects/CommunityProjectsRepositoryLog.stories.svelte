@@ -2,7 +2,8 @@
   import { defineMeta } from "@storybook/addon-svelte-csf";
   import { expect, fn, userEvent, waitFor, within } from "storybook/test";
 
-  import CommunityProjectsRepositoryLogHarness from "./CommunityProjectsRepositoryLogHarness.svelte";
+  import CommunityProjectsRepositoryLogReviewHarness from "./CommunityProjectsRepositoryLogReviewHarness.svelte";
+  import { expectLogCreateReviewDialog } from "./repository-log-review-story.js";
   import {
     parent,
     left,
@@ -13,7 +14,7 @@
 
   const { Story } = defineMeta({
     title: "Community/Projects/Repository Log",
-    component: CommunityProjectsRepositoryLogHarness,
+    component: CommunityProjectsRepositoryLogReviewHarness,
     tags: ["visual-pending"],
     parameters: {
       layout: "fullscreen",
@@ -32,6 +33,10 @@
     args: {
       events,
       canMaintain: true,
+      branches: [
+        { name: "main", sha: parent },
+        { name: "feature/files", sha: merge },
+      ],
       onCreateReview: fn(),
       onLoadRepositoryCommit: async (sha: string) => {
         if (sha === left || sha === parent) {
@@ -175,29 +180,7 @@
       { name: "Create review" },
       { timeout: 10_000 },
     );
-    await expect(
-      within(reviewDialog).getByRole("heading", { name: "Create review" }),
-    ).toBeVisible();
-    await expect(
-      within(reviewDialog).getByRole("textbox", { name: "Title" }),
-    ).toBeVisible();
-    await expect(
-      await within(reviewDialog).findByRole(
-        "group",
-        { name: "Review description" },
-        { timeout: 10_000 },
-      ),
-    ).toBeVisible();
-    await expect(
-      await within(reviewDialog).findByRole(
-        "textbox",
-        { name: "Markdown editor" },
-        { timeout: 10_000 },
-      ),
-    ).toBeVisible();
-    await expect(
-      within(reviewDialog).queryByRole("textbox", { name: "Description" }),
-    ).toBeNull();
+    await expectLogCreateReviewDialog(reviewDialog);
     await userEvent.click(
       within(reviewDialog).getByRole("textbox", { name: "Title" }),
     );

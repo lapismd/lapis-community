@@ -36,14 +36,8 @@ export async function submitRepositoryPullRequest(input: {
         content: input.content,
         commit,
         cloneUrls: [input.cloneUrl],
-        ...(directCommit
-          ? {}
-          : {
-              ...(input.branchName ? { branchName: input.branchName } : {}),
-              ...(input.targetBranch
-                ? { targetBranch: input.targetBranch }
-                : {}),
-            }),
+        ...(input.branchName ? { branchName: input.branchName } : {}),
+        ...(input.targetBranch ? { targetBranch: input.targetBranch } : {}),
       }),
     );
   });
@@ -53,7 +47,9 @@ async function compareCommit(
   session: PullRequestPublishSession,
   input: { repository: string; branchName?: string; targetBranch?: string },
 ): Promise<string> {
-  const branches = projectForgeBranchRefs(await session.loadRefs(input.repository));
+  const branches = projectForgeBranchRefs(
+    await session.loadRefs(input.repository),
+  );
   if (!branches.some((branch) => branch.name === input.targetBranch)) {
     throw new Error("The selected base branch no longer exists");
   }

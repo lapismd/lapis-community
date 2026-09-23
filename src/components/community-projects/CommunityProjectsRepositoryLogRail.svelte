@@ -1,38 +1,38 @@
 <script lang="ts">
-  import { DialogFrame } from "@lapismd/design-core/forms/dialog";
   import { Button } from "@lapismd/design-core/shadcn/button";
-  import * as Dialog from "@lapismd/design-core/shadcn/dialog";
-  import * as Field from "@lapismd/design-core/shadcn/field";
-  import { Input } from "@lapismd/design-core/shadcn/input";
   import GitCommitHorizontalIcon from "@lucide/svelte/icons/git-commit-horizontal";
   import GitCompareIcon from "@lucide/svelte/icons/git-compare";
   import GitPullRequestIcon from "@lucide/svelte/icons/git-pull-request";
   import HistoryIcon from "@lucide/svelte/icons/history";
   import { onDestroy } from "svelte";
 
-  import CommunityChatComposer from "../community-chat-composer/CommunityChatComposer.svelte";
-  import CommunityEntityCopyButton from "../community-entity-chip/CommunityEntityCopyButton.svelte";
+  import type { LogReviewSubmitInput } from "../../projects/log-review.js";
+  import type { ProjectForgeRef } from "../../projects/model.js";
+  import { projectForgeDefaultBranchName } from "../../projects/repository-refs.js";
   import { useRepositoryLogPane } from "../../projects/repository-log-pane.svelte.js";
+  import CommunityEntityCopyButton from "../community-entity-chip/CommunityEntityCopyButton.svelte";
+  import CommunityProjectsRepositoryLogReviewDialog from "./CommunityProjectsRepositoryLogReviewDialog.svelte";
+
+  const EMPTY_REFS: readonly ProjectForgeRef[] = [];
 
   let {
     canMaintain = false,
+    branches = EMPTY_REFS,
     onCreateReview,
   }: {
     canMaintain?: boolean;
-    onCreateReview?: (input: {
-      title: string;
-      content: string;
-      commit: string;
-    }) => Promise<void> | void;
+    branches?: readonly ProjectForgeRef[] | undefined;
+    onCreateReview?: (input: LogReviewSubmitInput) => Promise<void> | void;
   } = $props();
 
   const pane = useRepositoryLogPane();
   let reviewOpen = $state(false);
   let reviewTitle = $state("");
   let reviewBody = $state("");
+  let targetBranch = $state("");
   let busy = $state(false);
   let localError = $state("");
-
+  const refs = $derived(branches ?? EMPTY_REFS);
   const reviewCommit = $derived(
     pane?.pane === "log" && pane.reviewCommitId && !pane.reviewEmpty
       ? pane.reviewCommitId
@@ -49,21 +49,16 @@
     reviewTitle = pane?.reviewMessage ?? "";
     reviewBody = "";
     localError = "";
+    targetBranch = projectForgeDefaultBranchName(refs) ?? "";
     reviewOpen = true;
   }
 
-  async function submitReview(event: SubmitEvent): Promise<void> {
-    event.preventDefault();
-    const commit = reviewCommit;
-    if (!commit || !onCreateReview) return;
+  async function submitReview(input: LogReviewSubmitInput): Promise<void> {
+    if (!onCreateReview) return;
     busy = true;
     localError = "";
     try {
-      await onCreateReview({
-        title: reviewTitle.trim(),
-        content: reviewBody,
-        commit,
-      });
+      await onCreateReview(input);
       reviewOpen = false;
     } catch (cause) {
       localError =
@@ -130,38 +125,19 @@
       </Button>
     {/if}
   </nav>
-  <Dialog.Root bind:open={reviewOpen}>
-    <DialogFrame size="wide">
-      {#snippet title()}Create review{/snippet}
-      {#snippet description()}
-        Publish a review for {reviewCommit}
-      {/snippet}
-      <form class="community-projects__project-form" onsubmit={submitReview}>
-        <Field.Group class="community-projects__project-fields">
-          <Field.Field>
-            <Field.Label for="log-review-title">Title</Field.Label>
-            <Input id="log-review-title" bind:value={reviewTitle} required />
-          </Field.Field>
-          <Field.Field>
-            <Field.Label>
-              Description <span>Optional</span>
-            </Field.Label>
-            <CommunityChatComposer
-              class="community-projects__project-description"
-              bind:value={reviewBody}
-              placeholder="Add context for reviewers"
-              ariaLabel="Review description"
-              mode="form"
-            />
-          </Field.Field>
-          {#if localError}<Field.Error>{localError}</Field.Error>{/if}
-        </Field.Group>
-        <Button type="submit" disabled={busy || !reviewTitle.trim()}>
-          {busy ? "Creating review…" : "Create review"}
-        </Button>
-      </form>
-    </DialogFrame>
-  </Dialog.Root>
+  {#if reviewCommit}
+    <CommunityProjectsRepositoryLogReviewDialog
+      bind:open={reviewOpen}
+      bind:reviewTitle
+      bind:reviewBody
+      bind:targetBranch
+      commit={reviewCommit}
+      branches={refs}
+      {busy}
+      {localError}
+      onSubmit={submitReview}
+    />
+  {/if}
 {/if}
 
 <style>
