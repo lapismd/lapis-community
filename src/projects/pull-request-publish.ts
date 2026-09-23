@@ -1,5 +1,6 @@
 import type { NostrEventTemplate } from "../protocol/index.js";
 import { createPullRequestTemplate } from "./builders.js";
+import { logReviewBranchName } from "./log-review.js";
 import {
   projectForgeBranchRefs,
   type ProjectForgeRefsResponse,
@@ -16,6 +17,8 @@ export async function submitRepositoryPullRequest(input: {
   content: string;
   cloneUrl: string;
   commit?: string;
+  changeId?: string;
+  authorPubkey?: string;
   branchName?: string;
   targetBranch?: string;
   mutate: (
@@ -26,6 +29,7 @@ export async function submitRepositoryPullRequest(input: {
   const owner = input.repository.split(":")[1];
   if (!owner) throw new Error("Repository owner is missing");
   const directCommit = input.commit?.trim();
+  const branchName = reviewBranchName(input);
   await input.mutate("Creating pull request…", async (session) => {
     const commit = directCommit ?? (await compareCommit(session, input));
     await session.publish(
@@ -36,11 +40,22 @@ export async function submitRepositoryPullRequest(input: {
         content: input.content,
         commit,
         cloneUrls: [input.cloneUrl],
-        ...(input.branchName ? { branchName: input.branchName } : {}),
+        ...(branchName ? { branchName } : {}),
         ...(input.targetBranch ? { targetBranch: input.targetBranch } : {}),
       }),
     );
   });
+}
+
+function reviewBranchName(input: {
+  changeId?: string;
+  authorPubkey?: string;
+  branchName?: string;
+}): string | undefined {
+  if (input.changeId || input.authorPubkey) {
+    return logReviewBranchName(input.authorPubkey ?? "", input.changeId ?? "");
+  }
+  return input.branchName;
 }
 
 async function compareCommit(

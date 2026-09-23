@@ -174,7 +174,7 @@
   } from "../../projects/index.js";
   import { canMaintainRepository } from "../community-projects/community-projects-permissions.js";
   import { submitRepositoryPullRequest } from "../../projects/pull-request-publish.js";
-  import type { LogReviewSubmitInput } from "../../projects/log-review.js";
+  import { logReviewRequest, type LogReviewSubmitInput } from "../../projects/log-review.js";
   import CommunityProjectsReviewDetails from "../community-projects/CommunityProjectsReviewDetails.svelte";
   import CommunityProjectsTaskDetails from "../community-projects/CommunityProjectsTaskDetails.svelte";
   import { repositorySurfaceLoadsRefs } from "../../projects/repository-surface-refs.js";
@@ -4189,11 +4189,13 @@
   }
 
   function createReviewFromLog(input: LogReviewSubmitInput): Promise<void> {
-    return createPullRequest({
-      branchName: "",
-      ...input,
-      repository: selectedRepository?.address.coordinate ?? "",
-    });
+    return createPullRequest(
+      logReviewRequest(
+        input,
+        workspace.currentMemberId,
+        selectedRepository?.address.coordinate ?? "",
+      ),
+    );
   }
 
   async function loadReviewRepositoryRefs(

@@ -7,7 +7,7 @@
 
   import type { LogReviewSubmitInput } from "../../projects/log-review.js";
   import type { ProjectForgeRef } from "../../projects/model.js";
-  import { workspaceBranchForCommit } from "../../projects/workspace-branch.js";
+  import { useRepositoryLogPane } from "../../projects/repository-log-pane.svelte.js";
   import CommunityChatComposer from "../community-chat-composer/CommunityChatComposer.svelte";
   import CommunityRepositoryBranchCommand from "../community-repository-branch-command/CommunityRepositoryBranchCommand.svelte";
 
@@ -34,16 +34,17 @@
   } = $props();
 
   const refs = $derived(branches ?? []);
+  const pane = useRepositoryLogPane();
+  const changeId = $derived(pane?.selectedChangeId ?? "");
 
   async function submitReview(event: SubmitEvent): Promise<void> {
     event.preventDefault();
-    const branchName = workspaceBranchForCommit(commit, refs, targetBranch);
     await onSubmit({
       title: reviewTitle.trim(),
       content: reviewBody,
       commit,
+      changeId,
       targetBranch,
-      ...(branchName ? { branchName } : {}),
     });
   }
 </script>
@@ -91,6 +92,7 @@
         type="submit"
         disabled={busy ||
           !reviewTitle.trim() ||
+          !changeId ||
           (refs.length > 0 && !targetBranch)}
       >
         {busy ? "Creating review…" : "Create review"}

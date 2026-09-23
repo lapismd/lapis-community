@@ -20,6 +20,17 @@ describe("pullRequestBranchLabel", () => {
     ).toBe("feature/files → main");
   });
 
+  it("shows a Log review ref against its base", () => {
+    const branchName = `review/npub1${"a".repeat(58)}/${"ab".repeat(16)}`;
+    expect(
+      pullRequestBranchLabel({
+        branchName,
+        targetBranch: "main",
+        currentCommit: commit,
+      }),
+    ).toBe(`${branchName} → main`);
+  });
+
   it("shows the abbreviated commit instead of unknown when branch-name is missing", () => {
     expect(abbreviateGitCommit(commit)).toBe("abababa");
     expect(pullRequestSourceLabel({ currentCommit: commit })).toBe("abababa");
