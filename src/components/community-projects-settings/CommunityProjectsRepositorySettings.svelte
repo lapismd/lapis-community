@@ -22,7 +22,9 @@
   }: {
     capabilities?: ProjectForgeRepositoryCapabilities | undefined;
     owners?: OwnersDocument | undefined;
-    members?: readonly import("../community-workspace/model.js").CommunityMemberModel[] | undefined;
+    members?:
+      | readonly import("../community-workspace/model.js").CommunityMemberModel[]
+      | undefined;
     peopleChannelName?: string | undefined;
     canMaintain?: boolean | undefined;
     onOpenPeople?: (() => void) | undefined;
@@ -41,7 +43,11 @@
   <h2>Permissions</h2>
   {#if peopleAction && onOpenPeople}
     <Button type="button" variant="outline" size="sm" onclick={onOpenPeople}
-      ><UserPlusIcon data-icon="inline-start" aria-hidden="true" />{peopleAction}</Button>
+      ><UserPlusIcon
+        data-icon="inline-start"
+        aria-hidden="true"
+      />{peopleAction}</Button
+    >
   {/if}
   <h2>Branch protection</h2>
   {#key JSON.stringify(capabilities?.protection)}

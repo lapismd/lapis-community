@@ -56,7 +56,7 @@ export function communityCopiedMessageLinkFromMessages(input: {
     authorId: string;
     parentMessageId?: string;
   }[];
-  relayUrl?: string;
+  relayUrl?: string | undefined;
   linkBuilder?: CommunityLinkBuilder;
 }): string | undefined {
   if (input.roomKind === "direct" || !input.relayUrl) return undefined;
@@ -87,8 +87,16 @@ export function communityCopiedProjectRouteLink(input: {
   const tab = input.surface === defaultSurface ? undefined : input.surface;
   if (input.kind === "project") {
     return (
-      input.linkBuilder?.project?.({ owner: parsed.owner, d: parsed.d, tab }) ??
-      buildCommunityProjectLink({ owner: parsed.owner, d: parsed.d, tab })
+      input.linkBuilder?.project?.({
+        owner: parsed.owner,
+        d: parsed.d,
+        ...(tab ? { tab } : {}),
+      }) ??
+      buildCommunityProjectLink({
+        owner: parsed.owner,
+        d: parsed.d,
+        ...(tab ? { tab } : {}),
+      })
     );
   }
   const branch = input.surface === "files" ? input.revision : undefined;
@@ -96,16 +104,16 @@ export function communityCopiedProjectRouteLink(input: {
     input.linkBuilder?.repo?.({
       owner: parsed.owner,
       d: parsed.d,
-      tab,
-      commit: input.commitSha,
-      branch,
+      ...(tab ? { tab } : {}),
+      ...(input.commitSha ? { commit: input.commitSha } : {}),
+      ...(branch ? { branch } : {}),
     }) ??
     buildCommunityRepoLink({
       owner: parsed.owner,
       d: parsed.d,
-      tab,
-      commit: input.commitSha,
-      branch,
+      ...(tab ? { tab } : {}),
+      ...(input.commitSha ? { commit: input.commitSha } : {}),
+      ...(branch ? { branch } : {}),
     })
   );
 }

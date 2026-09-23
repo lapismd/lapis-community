@@ -10,8 +10,7 @@ export const PROJECT_ACTIVITY_FILTER_DEFAULT = "all" as const;
 export const PROJECT_ACTIVITY_WEEK_SECONDS = 604_800;
 export const PROJECT_ACTIVITY_FILTER_STORAGE_PREFIX =
   "lapismd.community.projects.activity-filter";
-export const PROJECT_ACTIVITY_FILTER_STORAGE_KEY =
-  `${PROJECT_ACTIVITY_FILTER_STORAGE_PREFIX}.v1`;
+export const PROJECT_ACTIVITY_FILTER_STORAGE_KEY = `${PROJECT_ACTIVITY_FILTER_STORAGE_PREFIX}.v1`;
 export const PROJECT_ACTIVITY_FILTER_PAGES = [
   "projects",
   "project",
@@ -226,10 +225,12 @@ export function projectActivityFilterPage(selection: {
   return "projects";
 }
 
-export function createBrowserProjectActivityFilterStore(options: {
-  storage?: ProjectForgeCatalogStorage | undefined;
-  page?: ProjectActivityFilterPage | undefined;
-} = {}): ProjectActivityFilterStore {
+export function createBrowserProjectActivityFilterStore(
+  options: {
+    storage?: ProjectForgeCatalogStorage | undefined;
+    page?: ProjectActivityFilterPage | undefined;
+  } = {},
+): ProjectActivityFilterStore {
   const storage = options.storage ?? discoverStorage();
   const page = options.page ?? "projects";
   return {

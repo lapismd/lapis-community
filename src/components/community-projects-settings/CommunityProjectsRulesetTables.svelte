@@ -150,7 +150,10 @@
               () => (draft = withRulesetTarget(draft, { type: "default" })),
             )}
         >
-          <CirclePlusIcon class="community-projects-ruleset-tables__include" aria-hidden="true" />
+          <CirclePlusIcon
+            class="community-projects-ruleset-tables__include"
+            aria-hidden="true"
+          />
           Include default branch
         </DropdownMenu.Item>
         <DropdownMenu.Item
@@ -159,7 +162,10 @@
               () => (draft = withRulesetTarget(draft, { type: "all" })),
             )}
         >
-          <CirclePlusIcon class="community-projects-ruleset-tables__include" aria-hidden="true" />
+          <CirclePlusIcon
+            class="community-projects-ruleset-tables__include"
+            aria-hidden="true"
+          />
           Include all branches
         </DropdownMenu.Item>
         <DropdownMenu.Item
@@ -170,7 +176,10 @@
             });
           }}
         >
-          <CirclePlusIcon class="community-projects-ruleset-tables__include" aria-hidden="true" />
+          <CirclePlusIcon
+            class="community-projects-ruleset-tables__include"
+            aria-hidden="true"
+          />
           Include by pattern
         </DropdownMenu.Item>
         <DropdownMenu.Item
@@ -181,7 +190,10 @@
             });
           }}
         >
-          <CircleMinusIcon class="community-projects-ruleset-tables__exclude" aria-hidden="true" />
+          <CircleMinusIcon
+            class="community-projects-ruleset-tables__exclude"
+            aria-hidden="true"
+          />
           Exclude by pattern
         </DropdownMenu.Item>
       </DropdownMenu.Content>
@@ -191,12 +203,20 @@
     <li>
       <span class="community-projects-ruleset-tables__target">
         {#if target.type === "exclude"}
-          <CircleMinusIcon class="community-projects-ruleset-tables__exclude" aria-hidden="true" />
+          <CircleMinusIcon
+            class="community-projects-ruleset-tables__exclude"
+            aria-hidden="true"
+          />
         {:else}
-          <CirclePlusIcon class="community-projects-ruleset-tables__include" aria-hidden="true" />
+          <CirclePlusIcon
+            class="community-projects-ruleset-tables__include"
+            aria-hidden="true"
+          />
         {/if}
         {#if target.type === "include" || target.type === "exclude"}
-          <CommunityChip size="compact">{rulesetTargetLabel(target)}</CommunityChip>
+          <CommunityChip size="compact"
+            >{rulesetTargetLabel(target)}</CommunityChip
+          >
         {:else}
           {rulesetTargetLabel(target)}
         {/if}
@@ -221,8 +241,12 @@
   <div class="community-projects-ruleset-tables__add">
     <Input
       bind:value={patternDraft}
-      placeholder={patternMode === "exclude" ? "releases/legacy" : "releases/**"}
-      aria-label={patternMode === "exclude" ? "Exclude pattern" : "Include pattern"}
+      placeholder={patternMode === "exclude"
+        ? "releases/legacy"
+        : "releases/**"}
+      aria-label={patternMode === "exclude"
+        ? "Exclude pattern"
+        : "Include pattern"}
     />
     <Button type="button" variant="outline" size="sm" onclick={addPattern}>
       Add pattern

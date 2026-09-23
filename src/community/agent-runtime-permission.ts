@@ -28,7 +28,9 @@ export function editorRuntimePermissionSave(
   );
   const permissionMode =
     selection.permissionMode &&
-    permissionOptions.some((option) => option.value === selection.permissionMode)
+    permissionOptions.some(
+      (option) => option.value === selection.permissionMode,
+    )
       ? selection.permissionMode
       : undefined;
   return {

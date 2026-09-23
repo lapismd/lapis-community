@@ -424,9 +424,11 @@ index 3333333..4444444 100644
     await expect(getComputedStyle(projectsWorkspace).overflowY).not.toBe(
       "auto",
     );
-    const actorAvatar = canvas.getAllByRole("button", {
-      name: "View Maya Chen's profile",
-    })[0]!;
+    const actorAvatar = (
+      await canvas.findAllByRole("button", {
+        name: "View Maya Chen's profile",
+      })
+    )[0]!;
     await expect(actorAvatar).toHaveAttribute("aria-haspopup", "dialog");
     actorAvatar.click();
     await expect(onOpenProfile).toHaveBeenCalledWith(fixture.members[0]);
@@ -533,7 +535,7 @@ index 3333333..4444444 100644
     });
     await expect(loader).toBeVisible();
     await expect(
-      loader.querySelectorAll(".community-projects__activity-item--skeleton"),
+      loader.querySelectorAll(".community-skeleton__item"),
     ).toHaveLength(4);
     await expect(
       canvas.queryByText("No project activity yet."),

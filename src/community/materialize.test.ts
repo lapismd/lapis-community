@@ -799,9 +799,11 @@ describe("materializeCommunityWorkspace", () => {
       scenario.scope.id,
       { agentPubkeys: [member!.id] },
     );
-    expect(tagged.members.find((item) => item.id === member!.id)).toMatchObject({
-      kind: "agent",
-    });
+    expect(tagged.members.find((item) => item.id === member!.id)).toMatchObject(
+      {
+        kind: "agent",
+      },
+    );
     expect(
       tagged.members
         .filter((item) => item.id !== member!.id)

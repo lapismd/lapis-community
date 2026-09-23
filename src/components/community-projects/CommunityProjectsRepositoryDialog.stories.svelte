@@ -1,6 +1,6 @@
 <script module lang="ts">
   import { defineMeta } from "@storybook/addon-svelte-csf";
-  import { expect, fn } from "storybook/test";
+  import { expect, fn, userEvent, within } from "storybook/test";
 
   import type { CommunityRoomModel } from "../community-workspace/model.js";
   import CommunityProjectsRepositoryDialog from "./CommunityProjectsRepositoryDialog.svelte";
@@ -55,14 +55,30 @@
     onSelectProject: fn(),
     onSubmit: fn(),
   }}
-  play={async ({ canvas }) => {
+  play={async ({ canvasElement, args }) => {
+    const document = within(canvasElement.ownerDocument.body);
+    const dialog = within(
+      await document.findByRole("dialog", {
+        name: "Create a new repository",
+      }),
+    );
     await expect(
-      canvas.getByRole("option", { name: /dev/u, hidden: true }),
+      dialog.getByRole("button", { name: "Create repository" }),
     ).toBeDisabled();
-    await expect(canvas.getByRole("button", { name: "Create" })).toBeDisabled();
     await expect(
-      canvas.getByText(/maintainer or administrator role/iu),
+      dialog.getByText(/maintainer or administrator role/iu),
     ).toBeVisible();
+    await userEvent.click(
+      dialog.getByRole("button", { name: "Repository channel" }),
+    );
+    const option = await document.findByRole("option", { name: /dev/u });
+    await expect(option).toBeVisible();
+    await expect(option).toHaveAttribute("data-disabled");
+    await userEvent.keyboard("{Escape}");
+    await expect(
+      dialog.getByRole("button", { name: "Create repository" }),
+    ).toBeDisabled();
+    await expect(args.onSubmit).not.toHaveBeenCalled();
   }}
 >
   {#snippet template(args)}

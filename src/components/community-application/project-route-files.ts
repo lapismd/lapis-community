@@ -57,7 +57,7 @@ export function storedRepositoryFilesFields(route: Record<string, unknown>): {
 }
 
 export function repositoryViewRevision(input: {
-  surface: string;
+  surface: string | undefined;
   routeRevision: string | undefined;
   requestedBranch: string;
   requestedOwnerMatches: boolean;

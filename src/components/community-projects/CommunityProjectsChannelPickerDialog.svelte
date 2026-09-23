@@ -5,9 +5,7 @@
   import FolderKanbanIcon from "@lucide/svelte/icons/folder-kanban";
   import HashIcon from "@lucide/svelte/icons/hash";
 
-  import type {
-    ProjectForgeProject,
-  } from "../../projects/index.js";
+  import type { ProjectForgeProject } from "../../projects/index.js";
   import CommunityProjectChannelIcon from "../community-project-channel-icon/CommunityProjectChannelIcon.svelte";
   import type { CommunityRoomModel } from "../community-workspace/model.js";
 

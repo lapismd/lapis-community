@@ -1,8 +1,7 @@
 export type ProjectTaskListFilter = "active" | "completed";
 export type ProjectReviewListFilter = "open" | "merged";
 
-export const PROJECT_TASK_LIST_FILTER_DEFAULT: ProjectTaskListFilter =
-  "active";
+export const PROJECT_TASK_LIST_FILTER_DEFAULT: ProjectTaskListFilter = "active";
 export const PROJECT_REVIEW_LIST_FILTER_DEFAULT: ProjectReviewListFilter =
   "open";
 
@@ -95,8 +94,6 @@ export function scopeProjectTasks<
     ) {
       return false;
     }
-    return options.filter
-      ? taskMatchesListFilter(task, options.filter)
-      : true;
+    return options.filter ? taskMatchesListFilter(task, options.filter) : true;
   });
 }

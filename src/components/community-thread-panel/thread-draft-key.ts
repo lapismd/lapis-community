@@ -19,8 +19,8 @@ export function threadComposerRoomId(
 }
 
 export function communityThreadComposerDraftKey(input: {
-  viewer?: string;
-  communityId?: string;
+  viewer?: string | undefined;
+  communityId?: string | undefined;
   roomId?: string;
   rootMessageId: string;
 }): string {

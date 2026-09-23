@@ -41,9 +41,11 @@
   }: {
     open?: boolean | undefined;
     mode?: "create" | "edit" | undefined;
-    draft?: CommunityProjectsCreateProject & {
-      visibility: "public" | "private";
-    } | undefined;
+    draft?:
+      | (CommunityProjectsCreateProject & {
+          visibility: "public" | "private";
+        })
+      | undefined;
     channels?: readonly CommunityRoomModel[] | undefined;
     channelCommandOpen?: boolean | undefined;
     busy?: boolean | undefined;
@@ -59,7 +61,7 @@
   } = $props();
 </script>
 
-<Dialog.Root bind:open onOpenChange={onOpenChange}>
+<Dialog.Root bind:open {onOpenChange}>
   <DialogFrame size="wide">
     {#snippet title()}
       {mode === "edit" ? "Project settings" : "Create a new project"}

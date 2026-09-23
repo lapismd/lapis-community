@@ -52,9 +52,9 @@ describe("protection rulesets", () => {
     expect(rulesetListSummary(rule!)).toBe(
       "1 branch rule • targeting 1 branch",
     );
-    expect(rulesetMatches(rule!, "refs/heads/releases/1.0", "refs/heads/main")).toBe(
-      true,
-    );
+    expect(
+      rulesetMatches(rule!, "refs/heads/releases/1.0", "refs/heads/main"),
+    ).toBe(true);
     expect(
       rulesetMatches(rule!, "refs/heads/releases/legacy", "refs/heads/main"),
     ).toBe(false);

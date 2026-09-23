@@ -67,9 +67,7 @@ export function sweepExpiredPermissionState(
 
 function expireWaitingScopes(
   scopes: Readonly<Record<string, CommunityAgentControllerScope>>,
-  pending: Readonly<
-    Record<string, readonly CommunityAgentPermissionRequest[]>
-  >,
+  pending: Readonly<Record<string, readonly CommunityAgentPermissionRequest[]>>,
   nowMs: number,
 ): Record<string, CommunityAgentControllerScope> {
   const next: Record<string, CommunityAgentControllerScope> = {};

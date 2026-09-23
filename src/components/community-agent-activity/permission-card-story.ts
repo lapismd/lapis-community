@@ -14,9 +14,7 @@ export function expectPermissionCard(controls: HTMLElement) {
   return allow;
 }
 
-export async function expectExpiredPermissionHidden(
-  controls: HTMLElement,
-) {
+export async function expectExpiredPermissionHidden(controls: HTMLElement) {
   const scoped = within(controls);
   expect(scoped.queryByText("Waiting for approval")).toBeNull();
   expect(scoped.queryByRole("button", { name: "Allow once" })).toBeNull();
@@ -36,8 +34,8 @@ export async function playClearAgentHistory(
   const dialog = within(canvasElement.ownerDocument.body).getByRole(
     "alertdialog",
   );
-    await userEvent.click(
-      within(dialog).getByRole("button", { name: /^Clear history$/ }),
-    );
+  await userEvent.click(
+    within(dialog).getByRole("button", { name: /^Clear history$/ }),
+  );
   await expect(canvas.getByText("No saved activity here yet")).toBeVisible();
 }

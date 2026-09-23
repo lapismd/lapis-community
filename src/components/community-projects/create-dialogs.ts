@@ -20,9 +20,11 @@ import type {
 export interface CommunityProjectsCreateDialogsProps {
   projectOpen?: boolean | undefined;
   projectMode?: "create" | "edit" | undefined;
-  projectDraft?: CommunityProjectsCreateProject & {
-    visibility: "public" | "private";
-  } | undefined;
+  projectDraft?:
+    | (CommunityProjectsCreateProject & {
+        visibility: "public" | "private";
+      })
+    | undefined;
   channelOpen?: boolean | undefined;
   channelMode?: "home" | "attach" | undefined;
   channelPending?: string | undefined;
@@ -46,16 +48,20 @@ export interface CommunityProjectsCreateDialogsProps {
   githubError?: string | undefined;
   githubManagerOpen?: boolean | undefined;
   githubManagerFormOpen?: boolean | undefined;
-  githubDraft?: {
-    appId: string;
-    installationId: string;
-    credentialRef: string;
-    webhookSecretRef: string;
-    bridgeCredentialRef: string;
-    bridgePubkey: string;
-  } | undefined;
+  githubDraft?:
+    | {
+        appId: string;
+        installationId: string;
+        credentialRef: string;
+        webhookSecretRef: string;
+        bridgeCredentialRef: string;
+        bridgePubkey: string;
+      }
+    | undefined;
   githubManagerConnection?: ProjectForgeGitHubConnection | undefined;
-  githubManagerConnections?: readonly ProjectForgeGitHubConnection[] | undefined;
+  githubManagerConnections?:
+    | readonly ProjectForgeGitHubConnection[]
+    | undefined;
   githubManagerLoading?: boolean | undefined;
   githubManagerError?: string | undefined;
   githubManagerOperation?: string | undefined;

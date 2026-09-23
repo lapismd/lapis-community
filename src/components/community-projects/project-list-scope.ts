@@ -34,7 +34,9 @@ export function pullRequestBelongsToProjectScope<
   T extends { root: { id: string }; lifecycle: string },
 >(
   pullRequest: T,
-  selectedProject: { repositories: readonly { coordinate: string }[] } | undefined,
+  selectedProject:
+    | { repositories: readonly { coordinate: string }[] }
+    | undefined,
   projectPullRequests: readonly { root: { id: string } }[],
   filter?: ProjectReviewListFilter,
 ): boolean {

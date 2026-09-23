@@ -40,7 +40,10 @@ describe("activity filters", () => {
   it("keeps every item for the all-activity default", () => {
     const activity = [item("task", 10), item("review", 11)];
     expect(
-      filterProjectActivity(activity, PROJECT_ACTIVITY_FILTER_SELECTION_DEFAULT),
+      filterProjectActivity(
+        activity,
+        PROJECT_ACTIVITY_FILTER_SELECTION_DEFAULT,
+      ),
     ).toEqual(activity);
   });
 
@@ -55,7 +58,10 @@ describe("activity filters", () => {
 
   it("toggles event types while All stays exclusive", () => {
     expect(
-      toggleProjectActivityFilter(PROJECT_ACTIVITY_FILTER_SELECTION_DEFAULT, "task"),
+      toggleProjectActivityFilter(
+        PROJECT_ACTIVITY_FILTER_SELECTION_DEFAULT,
+        "task",
+      ),
     ).toEqual(["task"]);
     expect(toggleProjectActivityFilter(["task"], "review")).toEqual([
       "task",
@@ -80,7 +86,9 @@ describe("activity filters", () => {
     expect(isProjectActivityFilterSelected(["task"], "all")).toBe(false);
     expect(isProjectActivityFilterAll(["task"])).toBe(false);
     expect(
-      visibleProjectActivityFilters(["commit", "task"]).map((option) => option.id),
+      visibleProjectActivityFilters(["commit", "task"]).map(
+        (option) => option.id,
+      ),
     ).toEqual([
       "task",
       "commit",
@@ -101,9 +109,9 @@ describe("activity filters", () => {
     expect(isProjectActivityFilterId("all")).toBe(true);
     expect(isProjectActivityFilterId("commit")).toBe(true);
     expect(isProjectActivityFilterId("files")).toBe(false);
-    expect(normalizeProjectActivityFilters(["files", "commit", "all"])).toEqual([
-      ...PROJECT_ACTIVITY_FILTER_SELECTION_DEFAULT,
-    ]);
+    expect(normalizeProjectActivityFilters(["files", "commit", "all"])).toEqual(
+      [...PROJECT_ACTIVITY_FILTER_SELECTION_DEFAULT],
+    );
   });
 
   it("summarizes this week's filtered activity", () => {
@@ -155,11 +163,15 @@ describe("activity filters", () => {
       storage,
       page: "repositories",
     });
-    expect(projects.load()).toEqual([...PROJECT_ACTIVITY_FILTER_SELECTION_DEFAULT]);
+    expect(projects.load()).toEqual([
+      ...PROJECT_ACTIVITY_FILTER_SELECTION_DEFAULT,
+    ]);
     projects.save(["commit", "task"]);
     repositories.save(["review"]);
     expect(projects.load()).toEqual(["task", "commit"]);
-    expect(project.load()).toEqual([...PROJECT_ACTIVITY_FILTER_SELECTION_DEFAULT]);
+    expect(project.load()).toEqual([
+      ...PROJECT_ACTIVITY_FILTER_SELECTION_DEFAULT,
+    ]);
     expect(repositories.load()).toEqual(["review"]);
     expect(otherRepository.load()).toEqual(["review"]);
     expect(values.get(projectActivityFilterStorageKey("projects"))).toContain(
@@ -174,7 +186,10 @@ describe("activity filters", () => {
       JSON.stringify({ version: 1, value: "comment" }),
     );
     expect(
-      createBrowserProjectActivityFilterStore({ storage, page: "projects" }).load(),
+      createBrowserProjectActivityFilterStore({
+        storage,
+        page: "projects",
+      }).load(),
     ).toEqual(["comment"]);
     expect(repositories.load()).toEqual(["review"]);
   });

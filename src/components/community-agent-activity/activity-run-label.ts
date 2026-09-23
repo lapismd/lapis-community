@@ -93,7 +93,7 @@ export function activityCancelTarget(scope: CommunityAgentControllerScope): {
 } {
   return {
     scopeKey: scope.scopeKey,
-    channelId: scope.channelId,
+    ...(scope.channelId === undefined ? {} : { channelId: scope.channelId }),
     sessionId: scope.sessionId ?? "",
     turnId: scope.turnId ?? "",
   };

@@ -246,6 +246,15 @@ same currentcolor-mix fill as History copy buttons. The checker is
 development-only and prevents consumer components from creating or locally
 restyling parallel chip implementations.
 
+For LC-UI-036, default repository history first resolves an advertised commit
+from refs and skips the commits endpoint when the repository has no HEAD or
+branch. Explicit revision reads still report missing objects. Optional UI and
+activity values retain their absence under strict TypeScript checks; fixtures
+model the same contracts. The validation cleanup records exact path budgets
+after applying the existing Prettier configuration: oversized-module growth
+is formatting only apart from the explicit loader dependency read. No file
+limits, import rules, diagnostic guards, or visual baselines change.
+
 For LC-ARCH-028, `scripts/check-architecture.mjs` enforces counted-line budgets
 and the feature dependency matrix against `scripts/architecture-baseline.json`.
 Organisation plans under `docs/plans/` are not canonical requirements; they map

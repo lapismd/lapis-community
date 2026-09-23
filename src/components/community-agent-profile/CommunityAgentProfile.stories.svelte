@@ -1,4 +1,5 @@
 <script module lang="ts">
+  import { profileActionFeedback } from "../../testing/profile-action-feedback.js";
   import { defineMeta } from "@storybook/addon-svelte-csf";
   import { expect, fn, userEvent, within, waitFor } from "storybook/test";
   import CommunityAgentProfile from "./CommunityAgentProfile.svelte";
@@ -551,31 +552,9 @@
 
 <Story
   name="Profile action feedback"
-  play={async ({ canvas }) => {
-    // CSS :hover needs a real pointer. Storybook's synthetic userEvent only
-    // dispatches events; use the browser provider in the automated acceptance lane.
-    const pointer =
-      import.meta.env.MODE === "test"
-        ? (await import("vitest/browser")).userEvent
-        : undefined;
-    for (const name of ["Message", "Follow"]) {
-      const button = canvas.getByRole("button", { name, exact: true });
-      if (pointer) await pointer.unhover(button);
-      const idle = getComputedStyle(button).boxShadow;
-      if (pointer) {
-        await pointer.hover(button);
-        await expect(button.matches(":hover")).toBe(true);
-        await waitFor(() =>
-          expect(getComputedStyle(button).boxShadow).not.toBe(idle),
-        );
-        await pointer.unhover(button);
-      }
-      button.focus();
-      await expect(button).toHaveFocus();
-      await expect(getComputedStyle(button).boxShadow).not.toBe(idle);
-      button.blur();
-    }
-  }}>{#snippet template()}<Harness screen="profile" />{/snippet}</Story
+  play={(context) =>
+    profileActionFeedback(context, import.meta.env.MODE === "test")}
+  >{#snippet template()}<Harness screen="profile" />{/snippet}</Story
 >
 
 <Story

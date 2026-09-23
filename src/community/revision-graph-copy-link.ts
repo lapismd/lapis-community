@@ -1,7 +1,4 @@
-import {
-  COMMUNITY_COMMIT,
-  normalizeChange,
-} from "./community-link-ids.js";
+import { COMMUNITY_COMMIT, normalizeChange } from "./community-link-ids.js";
 import {
   COMMUNITY_REPOSITORY_KIND,
   buildCommunityRepoLink,
@@ -19,10 +16,13 @@ export function revisionGraphCopiedValue(input: {
 }): string {
   const hash = input.hash ?? "";
   const coordinate = input.coordinate || coordinateFromHash(hash);
-  const parsed = coordinate ? parseAddressableCoordinate(coordinate) : undefined;
+  const parsed = coordinate
+    ? parseAddressableCoordinate(coordinate)
+    : undefined;
   if (!parsed || parsed.kind !== COMMUNITY_REPOSITORY_KIND) return input.value;
   const tab = copyTab(input.label, hash);
-  const change = input.label === "change ID" ? normalizeChange(input.value) : undefined;
+  const change =
+    input.label === "change ID" ? normalizeChange(input.value) : undefined;
   if (change) {
     return buildCommunityRepoLink({
       owner: parsed.owner,
@@ -61,6 +61,7 @@ function copyTab(label: string, hash: string): string {
   const surface = HASH_SURFACE.exec(hash)?.[1] ?? "";
   if (label === "change ID") return surface === "oplog" ? "oplog" : "log";
   if (label === "operation ID" || label === "replica ID") return "oplog";
-  if (label === "commit ID" && (surface === "log" || surface === "oplog")) return surface;
+  if (label === "commit ID" && (surface === "log" || surface === "oplog"))
+    return surface;
   return "commits";
 }

@@ -48,9 +48,11 @@ class CommunityEntityWidget extends WidgetType {
         link: this.link,
         onRemove: () => removeComposerChipRange(view, this.from, this.to),
       },
-      context: this.navigation
-        ? new Map([[communityEntityNavigationKey, this.navigation]])
-        : undefined,
+      ...(this.navigation
+        ? {
+            context: new Map([[communityEntityNavigationKey, this.navigation]]),
+          }
+        : {}),
     });
     widgetCleanup.set(host, () => {
       void unmount(component);
@@ -162,9 +164,11 @@ class CommunityChannelWidget extends WidgetType {
         room: this.room,
         onRemove: () => removeComposerChipRange(view, this.from, this.to),
       },
-      context: this.navigation
-        ? new Map([[communityEntityNavigationKey, this.navigation]])
-        : undefined,
+      ...(this.navigation
+        ? {
+            context: new Map([[communityEntityNavigationKey, this.navigation]]),
+          }
+        : {}),
     });
     widgetCleanup.set(host, () => {
       void unmount(component);

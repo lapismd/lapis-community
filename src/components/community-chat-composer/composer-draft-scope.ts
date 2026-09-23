@@ -5,7 +5,7 @@ const key = Symbol.for("lapismd.community-composer-draft-scope");
 export interface CommunityComposerDraftScope {
   communityId: string;
   roomId: string;
-  viewer?: string;
+  viewer?: string | undefined;
 }
 
 export function provideComposerDraftScope(

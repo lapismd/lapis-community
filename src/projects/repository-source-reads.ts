@@ -1,4 +1,5 @@
 import type { ProjectForgeSession } from "./data-source.js";
+import { readRepositoryDefaultCommits } from "./repository-default-history.js";
 import type {
   ProjectForgeCommit,
   ProjectForgeCommitActivity,
@@ -65,12 +66,12 @@ export async function loadProjectCommitActivity(
       );
       if (!owner) return [];
       try {
-        const response = await session.loadCommits(
+        const commits = await readRepositoryDefaultCommits(
+          session,
           repository.address.coordinate,
-          undefined,
           signal,
         );
-        return response.commits.map((commit) => ({
+        return commits.map((commit) => ({
           projectCoordinate: owner.address.coordinate,
           repositoryCoordinate: repository.address.coordinate,
           commit,

@@ -63,7 +63,16 @@
     title="Copy full {label}"
     data-copied={state === "copied" || undefined}
     data-copy-failed={state === "failed" || undefined}
-    onclick={() => void copy(label, revisionGraphCopiedValue({ coordinate, label, value, hash: globalThis.location?.hash }))}
+    onclick={() =>
+      void copy(
+        label,
+        revisionGraphCopiedValue({
+          coordinate,
+          label,
+          value,
+          hash: globalThis.location?.hash,
+        }),
+      )}
   >
     <code>{shorten(value)}</code>
     {#if state === "copied"}

@@ -17,7 +17,10 @@
     syncBrowserApplicationLocation,
   } from "./application-location-hash.js";
   import { provideForumTopicSync } from "./application-forum-hash.svelte.js";
-  import { repositoryFilePermalink, repositoryFilesLoadKey } from "./project-route-files.js";
+  import {
+    repositoryFilePermalink,
+    repositoryFilesLoadKey,
+  } from "./project-route-files.js";
   import * as communityCopy from "../../community/community-copy-links.js";
   import { repositoryViewRevision } from "./project-route-files.js";
   import { projectViewForSurface } from "./project-log-route.js";
@@ -177,10 +180,14 @@
   } from "../../projects/index.js";
   import { canMaintainRepository } from "../community-projects/community-projects-permissions.js";
   import { submitRepositoryPullRequest } from "../../projects/pull-request-publish.js";
-  import { logReviewRequest, type LogReviewSubmitInput } from "../../projects/log-review.js";
+  import {
+    logReviewRequest,
+    type LogReviewSubmitInput,
+  } from "../../projects/log-review.js";
   import CommunityProjectsReviewDetails from "../community-projects/CommunityProjectsReviewDetails.svelte";
   import CommunityProjectsTaskDetails from "../community-projects/CommunityProjectsTaskDetails.svelte";
   import { repositorySurfaceLoadsRefs } from "../../projects/repository-surface-refs.js";
+  import { readRepositoryDefaultCommits } from "../../projects/repository-default-history.js";
   import {
     registryRouteFromDestination,
     registryRouteToDestination,
@@ -2649,7 +2656,13 @@
       });
   });
 
-  const filesLoadKey = $derived(repositoryFilesLoadKey(applicationLocation.projectRoute, projectRepositoryRevision, projectTree?.commit?.sha));
+  const filesLoadKey = $derived(
+    repositoryFilesLoadKey(
+      applicationLocation.projectRoute,
+      projectRepositoryRevision,
+      projectTree?.commit?.sha,
+    ),
+  );
 
   $effect(() => {
     const session = projectSession;
@@ -2674,9 +2687,17 @@
       : (selectedProjectSurface ?? overviewSurface);
     const pullRequestId = selectedPullRequestId;
     const selectedCommitSha = selectedProjectCommit?.sha;
-    const requestedRepositoryBranch = (filesLoadKey, untrack(() => projectSelectedRepositoryBranch));
+    filesLoadKey;
+    const requestedRepositoryBranch = untrack(
+      () => projectSelectedRepositoryBranch,
+    );
     const requestedRepositoryBranchOwner = projectSelectedRepositoryBranchOwner;
-    const filesRouteRevision = untrack(() => applicationLocation.projectRoute?.kind === "repository" && applicationLocation.projectRoute.surface === "files" ? applicationLocation.projectRoute.revision : undefined);
+    const filesRouteRevision = untrack(() =>
+      applicationLocation.projectRoute?.kind === "repository" &&
+      applicationLocation.projectRoute.surface === "files"
+        ? applicationLocation.projectRoute.revision
+        : undefined,
+    );
     if (!session || !resources || !catalogSettled) return;
 
     const openedSession = session;
@@ -2839,12 +2860,11 @@
           surface === "activity"
         ) {
           try {
-            const commits = await openedSession.loadCommits(
+            projectCommits = await readRepositoryDefaultCommits(
+              openedSession,
               repository,
-              undefined,
               controller.signal,
             );
-            projectCommits = commits.commits;
           } catch (cause) {
             if (controller.signal.aborted) throw cause;
             projectCommits = [];
@@ -2884,7 +2904,16 @@
               controller.signal,
             );
             const branches = projectForgeBranchRefs(refs);
-            const view = repositoryViewRevision({ surface, routeRevision: filesRouteRevision, requestedBranch: requestedRepositoryBranch, requestedOwnerMatches: requestedRepositoryBranchOwner === repository, branches, ...(refs.head?.name ? { headName: refs.head.name } : {}), ...(refs.head?.sha ? { headSha: refs.head.sha } : {}) });
+            const view = repositoryViewRevision({
+              surface,
+              routeRevision: filesRouteRevision,
+              requestedBranch: requestedRepositoryBranch,
+              requestedOwnerMatches:
+                requestedRepositoryBranchOwner === repository,
+              branches,
+              ...(refs.head?.name ? { headName: refs.head.name } : {}),
+              ...(refs.head?.sha ? { headSha: refs.head.sha } : {}),
+            });
             projectRepositoryBranches = branches;
             projectCommitBranch = view.branch;
             if (
@@ -3210,7 +3239,10 @@
         projectSelectedRepositoryBranch = next.projectRoute.revision;
         selectedProjectPath = next.projectRoute.path ?? "";
       }
-      if (next.projectRoute.surface === "reviews" && next.projectRoute.commitSha)
+      if (
+        next.projectRoute.surface === "reviews" &&
+        next.projectRoute.commitSha
+      )
         selectedPullRequestId = next.projectRoute.commitSha;
       if (next.projectRoute.surface === "tasks" && next.projectRoute.commitSha)
         selectedTaskId = next.projectRoute.commitSha;
@@ -3244,8 +3276,7 @@
       if (next.panel.kind === "thread") {
         community.actions.clearReplyTarget();
         const forum =
-          allRooms.find((room) => room.id === next.panel.roomId)?.kind ===
-          "forum";
+          allRooms.find((room) => room.id === roomId)?.kind === "forum";
         if (forum) community.actions.openTopic(next.panel.rootMessageId);
         else community.actions.openThread(next.panel.rootMessageId);
       } else if (
@@ -3519,18 +3550,51 @@
 
   function selectRepositoryBranch(branch: string | undefined): void {
     if (!branch || branch === projectSelectedRepositoryBranch) return;
-    const keepTree = projectRepositoryBranches.some((item) => item.name === branch && item.sha === projectSelectedRepositoryBranch);
-    projectSelectedRepositoryBranchOwner = projectSourceRepositoryCoordinate; projectSelectedRepositoryBranch = branch;
-    selectedProjectPath = ""; projectBlob = undefined; if (!keepTree) { projectTree = undefined; projectOwners = undefined; }
+    const keepTree = projectRepositoryBranches.some(
+      (item) =>
+        item.name === branch && item.sha === projectSelectedRepositoryBranch,
+    );
+    projectSelectedRepositoryBranchOwner = projectSourceRepositoryCoordinate;
+    projectSelectedRepositoryBranch = branch;
+    selectedProjectPath = "";
+    projectBlob = undefined;
+    if (!keepTree) {
+      projectTree = undefined;
+      projectOwners = undefined;
+    }
     const route = applicationLocation.projectRoute;
-    if (route?.kind === "repository" && route.surface === "files") pushLocation(repositorySurfaceLocation(route.coordinate, "files", activePanel, selectedRepositoryProject?.address.coordinate, branch));
+    if (route?.kind === "repository" && route.surface === "files")
+      pushLocation(
+        repositorySurfaceLocation(
+          route.coordinate,
+          "files",
+          activePanel,
+          selectedRepositoryProject?.address.coordinate,
+          branch,
+        ),
+      );
   }
 
   function selectRepositoryPath(path: string): void {
-    selectedProjectPath = path; projectBlob = undefined;
-    const current = applicationLocation.projectRoute?.kind === "repository" ? applicationLocation.projectRoute.revision : undefined;
-    const revision = path ? repositoryFilePermalink(current, projectRepositoryBranches, projectTree?.commit?.sha) : projectRepositoryBranches.find((item) => item.sha === current)?.name;
-    const next = repositoryFilesPathLocation(applicationLocation, path, revision); if (next) pushLocation(next);
+    selectedProjectPath = path;
+    projectBlob = undefined;
+    const current =
+      applicationLocation.projectRoute?.kind === "repository"
+        ? applicationLocation.projectRoute.revision
+        : undefined;
+    const revision = path
+      ? repositoryFilePermalink(
+          current,
+          projectRepositoryBranches,
+          projectTree?.commit?.sha,
+        )
+      : projectRepositoryBranches.find((item) => item.sha === current)?.name;
+    const next = repositoryFilesPathLocation(
+      applicationLocation,
+      path,
+      revision,
+    );
+    if (next) pushLocation(next);
   }
 
   function openRepositorySurface(surface: ProjectForgeSurface): void {
@@ -6251,7 +6315,9 @@
               selectedRepository.channelId,
             )}
             onCreateReview={createReviewFromLog}
-            defaultBranch={projectRepositoryCapabilities[selectedRepository.address.coordinate]?.protection?.default_branch}
+            defaultBranch={projectRepositoryCapabilities[
+              selectedRepository.address.coordinate
+            ]?.protection?.default_branch}
             branches={projectRepositoryBranches}
             surface={activeRepositorySurface}
             channel={roomForProjectChannel(selectedRepository.channelId)
@@ -8133,7 +8199,11 @@
                   : { onReportMessage: reportMessage }}
               />
             {:else}
-              <CommunitySkeleton layout="messages" label="Loading thread" padded />
+              <CommunitySkeleton
+                layout="messages"
+                label="Loading thread"
+                padded
+              />
             {/if}
           </AppShell.Sidebar.Body>
         {:else if detailsRoom?.kind === "channel" || detailsRoom?.kind === "forum"}

@@ -9,7 +9,9 @@ export type LogReviewSubmitInput = {
 };
 
 /** Base published for a Log review. An empty result omits `target-branch`. */
-export function initialLogReviewTarget(protectedDefault: string | undefined): string {
+export function initialLogReviewTarget(
+  protectedDefault: string | undefined,
+): string {
   return protectedDefault?.trim() ?? "";
 }
 

@@ -58,7 +58,9 @@
   selectionLabel={mode === "select" && task
     ? "Selected assignees"
     : "Selected recipients"}
-  confirmLabel={mode === "select" && task ? "Update assignees" : "Start message"}
+  confirmLabel={mode === "select" && task
+    ? "Update assignees"
+    : "Start message"}
   allowEmptySelection={mode === "select" && task !== undefined}
   completeness={room.memberListCompleteness ?? "unavailable"}
   roleDefinitions={room.roleDefinitions ?? []}

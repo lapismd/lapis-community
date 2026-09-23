@@ -1,12 +1,3 @@
-<script lang="ts">
-  import { provideCommunityShareLink } from "../community-entity-chip/share-link.js";
-
-  provideCommunityShareLink({
-    href: () => undefined,
-    copy: () => {},
-  });
-</script>
-
 <script module lang="ts">
   import { defineMeta } from "@storybook/addon-svelte-csf";
   import { expect } from "storybook/test";
@@ -20,6 +11,15 @@
     title: "Community/Projects/Review details",
     component: CommunityProjectsReviewDetails,
     tags: ["visual-pending"],
+  });
+</script>
+
+<script lang="ts">
+  import { provideCommunityShareLink } from "../community-entity-chip/share-link.js";
+
+  provideCommunityShareLink({
+    href: () => undefined,
+    copy: () => {},
   });
 </script>
 

@@ -33,7 +33,9 @@ describe("collection filters", () => {
 
   it("treats draft reviews as open and hides closed from merged", () => {
     expect(reviewMatchesListFilter({ lifecycle: "draft" }, "open")).toBe(true);
-    expect(reviewMatchesListFilter({ lifecycle: "merged" }, "open")).toBe(false);
+    expect(reviewMatchesListFilter({ lifecycle: "merged" }, "open")).toBe(
+      false,
+    );
     expect(reviewMatchesListFilter({ lifecycle: "merged" }, "merged")).toBe(
       true,
     );

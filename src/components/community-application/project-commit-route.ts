@@ -56,10 +56,18 @@ export function repositoryFilesPathLocation(
   revision?: string,
 ): CommunityApplicationLocation | undefined {
   const route = location.projectRoute;
-  if (route?.kind !== "repository" || route.surface !== "files" || !route.revision) return undefined;
+  if (
+    route?.kind !== "repository" ||
+    route.surface !== "files" ||
+    !route.revision
+  )
+    return undefined;
   const nextRevision = revision || route.revision;
   const { path: _ignored, ...rest } = route;
-  const base = nextRevision === route.revision ? rest : { ...rest, revision: nextRevision };
+  const base =
+    nextRevision === route.revision
+      ? rest
+      : { ...rest, revision: nextRevision };
   return { ...location, projectRoute: path ? { ...base, path } : base };
 }
 

@@ -15,14 +15,16 @@
     replacing = false,
     onSubmit,
   }: {
-    draft?: {
-      appId: string;
-      installationId: string;
-      credentialRef: string;
-      webhookSecretRef: string;
-      bridgeCredentialRef: string;
-      bridgePubkey: string;
-    } | undefined;
+    draft?:
+      | {
+          appId: string;
+          installationId: string;
+          credentialRef: string;
+          webhookSecretRef: string;
+          bridgeCredentialRef: string;
+          bridgePubkey: string;
+        }
+      | undefined;
     replacing?: boolean | undefined;
     onSubmit: (event: SubmitEvent) => void;
   } = $props();

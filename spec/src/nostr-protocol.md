@@ -655,3 +655,10 @@ associations are preserved. Owner Activity reassembles encrypted local journal
 fragments independently of relay project reconstruction. Leftover lifecycle,
 extension, file, patch, and command rows stay hidden; unfinished fragment
 groups still show a capture gap without inventing provider coverage.
+
+For LC-UI-036, a successful refs response without a HEAD or branch denotes
+an empty source for default history reads. Community checks that response
+before requesting commits, uses an advertised commit SHA when one exists,
+and preserves errors for explicit revision reads. Missing optional observer
+turn identifiers and persona text remain absent or empty at their existing
+presentation boundary; no Nostr event or signing contract changes.

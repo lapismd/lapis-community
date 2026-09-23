@@ -69,7 +69,8 @@ export function entityLinkFromApplicationHash(
   if (!coordinate) return undefined;
   const surface = project[3];
   const token = project[4];
-  const change = token && /^[zyxwvutsrqponmlk]{32}$/u.test(token) ? token : undefined;
+  const change =
+    token && /^[zyxwvutsrqponmlk]{32}$/u.test(token) ? token : undefined;
   const commit = change ? undefined : token;
   if (
     project[1] === "repository" &&
@@ -178,14 +179,18 @@ export function communityEntityLinkPresentation(link: CommunityEntityLink): {
     return {
       linkKind: "oplog",
       icon: "history",
-      fallbackLabel: link.change?.slice(0, 8) ?? (link.commit ? link.commit.slice(0, 8) : link.d),
+      fallbackLabel:
+        link.change?.slice(0, 8) ??
+        (link.commit ? link.commit.slice(0, 8) : link.d),
     };
   }
   if (link.tab === "log" || (link.tab === "commits" && link.commit)) {
     return {
       linkKind: link.tab === "log" ? "log" : "commit",
       icon: "git-commit-horizontal",
-      fallbackLabel: link.change?.slice(0, 8) ?? (link.commit ? link.commit.slice(0, 8) : link.d),
+      fallbackLabel:
+        link.change?.slice(0, 8) ??
+        (link.commit ? link.commit.slice(0, 8) : link.d),
     };
   }
   return {

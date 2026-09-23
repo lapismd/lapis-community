@@ -133,9 +133,16 @@
       </DropdownMenu.Trigger>
       <DropdownMenu.Content align="end" sideOffset={4}>
         <DropdownMenu.Label>Diff layout</DropdownMenu.Label>
-        <DropdownMenu.RadioGroup value={viewMode} onValueChange={onViewModeChange}>
-          <DropdownMenu.RadioItem value="unified">Unified diff</DropdownMenu.RadioItem>
-          <DropdownMenu.RadioItem value="split">Split diff</DropdownMenu.RadioItem>
+        <DropdownMenu.RadioGroup
+          value={viewMode}
+          onValueChange={onViewModeChange}
+        >
+          <DropdownMenu.RadioItem value="unified"
+            >Unified diff</DropdownMenu.RadioItem
+          >
+          <DropdownMenu.RadioItem value="split"
+            >Split diff</DropdownMenu.RadioItem
+          >
         </DropdownMenu.RadioGroup>
       </DropdownMenu.Content>
     </DropdownMenu.Root>
@@ -163,8 +170,8 @@
         <FileListing
           files={[...visibleFiles]}
           mode={fileListMode}
-          selectedPath={selectedPath}
-          onSelectPath={onSelectPath}
+          {selectedPath}
+          {onSelectPath}
         />
       </ScrollArea>
     </aside>
@@ -238,7 +245,7 @@
     <FileDiffComposer
       files={[...visibleFiles]}
       {viewMode}
-      selectedPath={selectedPath}
+      {selectedPath}
       collapsedFilePaths={collapsedPaths}
       scrollToFile={scrollTarget}
       stickyHeaders

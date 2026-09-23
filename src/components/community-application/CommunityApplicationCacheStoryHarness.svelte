@@ -57,6 +57,11 @@
   onMount(() => {
     let active = true;
     try {
+      window.history.replaceState(
+        null,
+        "",
+        `${window.location.pathname}${window.location.search}`,
+      );
       window.localStorage.removeItem(
         COMMUNITY_APPLICATION_DESTINATION_STORAGE_KEY,
       );

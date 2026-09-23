@@ -21,10 +21,10 @@
     model,
     onLatest,
   }: {
-    selected?: CommunityAgentIdentity;
+    selected?: CommunityAgentIdentity | undefined;
     context: CommunityAgentActivityContext;
     rooms?: readonly CommunityRoomModel[];
-    lastActivity?: CommunityAgentActivityItem;
+    lastActivity?: CommunityAgentActivityItem | undefined;
     model: Pick<
       CommunityAgentsState,
       "activityLoading" | "activitySyncStatus" | "capabilities" | "status"

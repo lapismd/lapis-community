@@ -130,9 +130,11 @@
         .getByRole("button", { name: "Nyra" })
         .querySelector("[data-ui-component='community-member-avatar']"),
     ).not.toBeNull();
-    await expect(composerMentionLockButton(canvas)).toBeVisible();
-    await expect(composerMentionLockButton(canvas)).toHaveAccessibleName(
-      "Don't automatically mention Nyra in this thread",
-    );
+    await waitFor(() => {
+      expect(composerMentionLockButton(canvas)).toBeVisible();
+      expect(composerMentionLockButton(canvas)).toHaveAccessibleName(
+        "Don't automatically mention Nyra in this thread",
+      );
+    });
   }}
 />

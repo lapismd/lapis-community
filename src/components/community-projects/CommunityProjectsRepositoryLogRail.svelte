@@ -17,11 +17,13 @@
 
   let {
     canMaintain = false,
-    branches = EMPTY_REFS, defaultBranch = "",
+    branches = EMPTY_REFS,
+    defaultBranch = "",
     onCreateReview,
   }: {
     canMaintain?: boolean;
-    branches?: readonly ProjectForgeRef[] | undefined; defaultBranch?: string;
+    branches?: readonly ProjectForgeRef[] | undefined;
+    defaultBranch?: string;
     onCreateReview?: (input: LogReviewSubmitInput) => Promise<void> | void;
   } = $props();
 

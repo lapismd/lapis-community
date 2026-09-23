@@ -11,7 +11,8 @@
   import type { ProjectForgeRef } from "../../projects/index.js";
   import { projectForgeBranchKind } from "../../projects/repository-refs.js";
   import {
-    branchCommandCopy, branchCommandLabel,
+    branchCommandCopy,
+    branchCommandLabel,
     branchCommandDefaultName,
     branchCommandPartition,
   } from "./branch-command-view.js";
@@ -48,7 +49,8 @@
     if (!next) return;
     query = "";
     tab =
-      includeSync && projectForgeBranchKind(branchCommandLabel(branches, branch)) === "sync"
+      includeSync &&
+      projectForgeBranchKind(branchCommandLabel(branches, branch)) === "sync"
         ? "sync"
         : "branch";
   }

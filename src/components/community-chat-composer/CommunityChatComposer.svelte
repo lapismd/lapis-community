@@ -81,6 +81,7 @@
     type CommunityComposerSubmission,
     type CommunityMessageMediaAdapter,
   } from "./model.js";
+  import { persistComposerDraft } from "./composer-draft-persistence.svelte.js";
   import { nextComposerActiveActions } from "./composer-active-actions.js";
   import {
     composerAutocompleteItemsEqual,
@@ -229,7 +230,9 @@
     submitting: () => submittingMentions,
   });
   const audienceView = $derived.by(() => {
-    audienceEpoch + value;
+    audienceEpoch;
+    value;
+    audienceHydrationKey;
     return readComposerAudienceView(agentAudience);
   });
   const preferredMemberIds = $derived(
@@ -415,41 +418,21 @@
     });
   });
 
-  $effect(() => {
-    if (!draftReady || !draftStore || !draftKey) return;
-    const draftValue = value;
-    const draftMentions = [...selectedMentionPubkeys];
-    const draftChannels = [...selectedChannelIds];
-    const draftAttachments = attachments.map((attachment) => {
-      const { previewUrl: _previewUrl, ...persisted } = attachment;
-      return {
-        ...persisted,
-        ...(attachment.uploaded?.url
-          ? { previewUrl: attachment.uploaded.url }
-          : {}),
-      };
-    });
-    const timeout = window.setTimeout(() => {
-      if (
-        draftValue.trim() === "" &&
-        draftAttachments.length === 0 &&
-        context === undefined
-      ) {
-        void draftStore.remove(draftKey).catch(() => {});
-        return;
-      }
-      void draftStore
-        .save(draftKey, {
-          value: draftValue,
-          mentionPubkeys: draftMentions,
-          channelIds: draftChannels,
-          attachments: draftAttachments,
-          updatedAt: Date.now(),
-        })
-        .catch(() => {});
-    }, 250);
-    return () => window.clearTimeout(timeout);
-  });
+  const draftWriter = persistComposerDraft(() =>
+    draftReady && draftStore && draftKey
+      ? {
+          store: draftStore,
+          key: draftKey,
+          draft: {
+            value,
+            mentionPubkeys: [...selectedMentionPubkeys],
+            channelIds: [...selectedChannelIds],
+            attachments: [...attachments],
+          },
+          retainEmpty: context !== undefined,
+        }
+      : undefined,
+  );
 
   function addUnique(values: string[], valueToAdd: string): string[] {
     return values.includes(valueToAdd) ? values : [...values, valueToAdd];
@@ -763,6 +746,7 @@
       );
       value = restored.value;
       selectedMentionPubkeys = restored.mentionPubkeys;
+      draftWriter.cancel();
       if (draftStore && draftKey) await draftStore.remove(draftKey);
     } catch (cause) {
       submitError =

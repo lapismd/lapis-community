@@ -12,7 +12,10 @@
   } = $props();
 </script>
 
-<section class="community-projects-ruleset-rules" aria-labelledby={`${idPrefix}-rules`}>
+<section
+  class="community-projects-ruleset-rules"
+  aria-labelledby={`${idPrefix}-rules`}
+>
   <h4 id={`${idPrefix}-rules`}>Branch rules</h4>
   <label>
     <Checkbox
@@ -23,7 +26,9 @@
     />
     <span class="community-projects-ruleset-rules__copy">
       <span>Restrict creations</span>
-      <small>Only allow users with bypass permission to create matching refs.</small>
+      <small
+        >Only allow users with bypass permission to create matching refs.</small
+      >
     </span>
   </label>
   <label>
@@ -35,7 +40,9 @@
     />
     <span class="community-projects-ruleset-rules__copy">
       <span>Restrict updates</span>
-      <small>Only allow users with bypass permission to update matching refs.</small>
+      <small
+        >Only allow users with bypass permission to update matching refs.</small
+      >
     </span>
   </label>
   <label>
@@ -47,7 +54,9 @@
     />
     <span class="community-projects-ruleset-rules__copy">
       <span>Restrict deletions</span>
-      <small>Only allow users with bypass permission to delete matching refs.</small>
+      <small
+        >Only allow users with bypass permission to delete matching refs.</small
+      >
     </span>
   </label>
 </section>

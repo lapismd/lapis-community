@@ -188,7 +188,8 @@ export function parseCommunityEntityLink(
     const change =
       changeValue === null ? undefined : normalizeChange(changeValue);
     const idValue = parsed.searchParams.get("id");
-    const id = idValue === null ? undefined : validId(idValue) ? idValue : undefined;
+    const id =
+      idValue === null ? undefined : validId(idValue) ? idValue : undefined;
     if (
       !owner ||
       !validId(d) ||

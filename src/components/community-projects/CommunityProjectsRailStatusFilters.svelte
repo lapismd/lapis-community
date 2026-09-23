@@ -77,7 +77,9 @@
     >
       <Icon data-icon="inline-start" aria-hidden="true" />
       <span>{option.label}</span>
-      <span class="community-application__project-overview-count">{option.count}</span>
+      <span class="community-application__project-overview-count"
+        >{option.count}</span
+      >
     </Button>
   {/each}
 </div>

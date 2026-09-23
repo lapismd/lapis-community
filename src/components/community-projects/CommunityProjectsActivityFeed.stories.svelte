@@ -80,7 +80,7 @@
         getComputedStyle(
           actor.querySelector('[data-ui-part="image"]') as HTMLElement,
         ).borderRadius,
-      ).toBe("25%");
+      ).toBe("50%");
     const copy = canvas.getByRole("button", {
       name: `Copy full commit ID: ${sha}`,
     });

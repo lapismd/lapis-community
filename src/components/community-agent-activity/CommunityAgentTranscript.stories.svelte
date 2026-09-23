@@ -70,9 +70,9 @@
     await expect(canvas.getByText(storyAgent.name)).toBeVisible();
     await expect(canvas.queryByText(/npub1/)).not.toBeInTheDocument();
     await expect(
-      canvas.getByLabelText("Message from You").querySelector(
-        '[data-ui-component="community-member-avatar"]',
-      ),
+      canvas
+        .getByLabelText("Message from You")
+        .querySelector('[data-ui-component="community-member-avatar"]'),
     ).not.toBeNull();
   }}
 />

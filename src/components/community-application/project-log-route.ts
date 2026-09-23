@@ -1,22 +1,25 @@
 import { normalizeChange } from "../../community/community-link-ids.js";
+import type { ProjectForgeSurface } from "../../projects/surfaces.js";
 import type {
   CommunityApplicationLocation,
   CommunityApplicationProjectRoute,
 } from "./navigation.js";
 
-export function repositoryLogRoute(
-  location: CommunityApplicationLocation,
-):
-  | Extract<CommunityApplicationProjectRoute, { kind: "repository" }>
+export function repositoryLogRoute(location: CommunityApplicationLocation):
+  | (Extract<CommunityApplicationProjectRoute, { kind: "repository" }> & {
+      surface: "log" | "oplog";
+    })
   | undefined {
   const route = location.projectRoute;
   return route?.kind === "repository" &&
     (route.surface === "log" || route.surface === "oplog")
-    ? route
+    ? { ...route, surface: route.surface }
     : undefined;
 }
 
-export function projectViewForSurface(surface: string): string {
+export function projectViewForSurface(
+  surface: ProjectForgeSurface,
+): ProjectForgeSurface {
   return surface === "oplog" ? "log" : surface;
 }
 
@@ -29,7 +32,7 @@ export function logPaneNavigation(
       const route = repositoryLogRoute(location());
       return route
         ? (route.commitSha ??
-          (normalizeChange(route.revision) ? route.revision : null))
+            (normalizeChange(route.revision) ? route.revision : null))
         : null;
     },
     onSelectCommit(commitId: string | null) {

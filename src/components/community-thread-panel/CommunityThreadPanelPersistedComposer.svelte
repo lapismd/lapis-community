@@ -48,7 +48,7 @@
     onSubmit,
   }: {
     value?: string;
-    members: CommunityMemberModel[];
+    members: readonly CommunityMemberModel[];
     rooms: readonly CommunityRoomModel[];
     agents?: readonly CommunityComposerAgentModel[];
     currentMemberId?: string;

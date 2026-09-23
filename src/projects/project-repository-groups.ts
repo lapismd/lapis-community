@@ -35,7 +35,8 @@ export function projectMemberRepositories(
     )
     .filter(
       (repository): repository is ProjectForgeRepository =>
-        repository !== undefined && repository.repositoryClass !== "task-anchor",
+        repository !== undefined &&
+        repository.repositoryClass !== "task-anchor",
     );
 }
 

@@ -9,8 +9,12 @@
     label = "",
     href: hrefOverride,
     class: className = "",
-  }: { success?: string; label?: string; href?: string; class?: string } =
-    $props();
+  }: {
+    success?: string;
+    label?: string;
+    href?: string;
+    class?: string;
+  } = $props();
   const share = useCommunityShareLink();
   const href = $derived(hrefOverride || share?.href());
   const named = $derived(label !== "");

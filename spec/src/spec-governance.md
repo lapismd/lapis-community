@@ -155,6 +155,12 @@ failed aggregate command from successful cold Storybook partitions, preserves
 existing live-only exclusions, and records functional checks separately from
 pending human visual review.
 
+The aggregate `pnpm checks` command uses `test:storybook:all` for complete
+browser coverage. That lane runs all eight Vitest shards sequentially in fresh
+processes and preserves their diagnostics and failure status. Focused story
+selection remains available through `test:storybook`; aggregate validation
+MUST NOT filter tests, retry away failures, or relax accessibility checks.
+
 Packaging compiles the public `./build/vite` helper to JavaScript and declarations.
 The source helper remains shared by this repository and its consumers; ordinary
 package validation must verify the built export exists.

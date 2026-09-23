@@ -4,8 +4,8 @@ const key = Symbol.for("lapismd.community-review-composer-draft-scope");
 
 export interface CommunityReviewComposerDraftScope {
   pullRequestId: string;
-  viewer?: string;
-  communityId?: string;
+  viewer?: string | undefined;
+  communityId?: string | undefined;
 }
 
 export function provideReviewComposerDraftScope(

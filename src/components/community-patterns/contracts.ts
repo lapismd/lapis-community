@@ -115,7 +115,9 @@ export const contracts = {
       });
       if (sectionName.startsWith("Rounded")) {
         expect(
-          trigger.querySelector('[data-ui-component="community-member-avatar"]'),
+          trigger.querySelector(
+            '[data-ui-component="community-member-avatar"]',
+          ),
         ).toHaveAttribute("data-shape", "rounded");
       }
       if (

@@ -55,8 +55,7 @@ function latestGroupState(
 ): NostrEvent | undefined {
   return events
     .filter(
-      (event) =>
-        event.kind === kind && firstTagValue(event, "d") === groupId,
+      (event) => event.kind === kind && firstTagValue(event, "d") === groupId,
     )
     .toSorted((left, right) => {
       if (right.created_at !== left.created_at)

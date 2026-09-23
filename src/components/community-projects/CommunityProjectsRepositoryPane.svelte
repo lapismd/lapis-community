@@ -88,10 +88,12 @@
     onOpenDirectory: (path: string) => void;
     onOpenFile: (path: string) => void;
     onSelectCommit?: ((commit: ProjectForgeCommit) => void) | undefined;
-    onLoadPathCommit?: ((
-      path: string,
-      signal?: AbortSignal,
-    ) => Promise<ProjectForgeCommit | undefined>) | undefined;
+    onLoadPathCommit?:
+      | ((
+          path: string,
+          signal?: AbortSignal,
+        ) => Promise<ProjectForgeCommit | undefined>)
+      | undefined;
   } = $props();
 </script>
 
@@ -102,7 +104,10 @@
       role="status"
       aria-label="Loading repository files"
     >
-      <div class="community-projects__files-loading-breadcrumb" aria-hidden="true">
+      <div
+        class="community-projects__files-loading-breadcrumb"
+        aria-hidden="true"
+      >
         <Skeleton />
         <Skeleton />
         <Skeleton />
@@ -125,7 +130,8 @@
   {:else if !canCollaborate && hasRepositorySources}
     <Empty.Root class="community-projects__empty">
       <Empty.Header>
-        <Empty.Media variant="icon"><FileIcon aria-hidden="true" /></Empty.Media>
+        <Empty.Media variant="icon"><FileIcon aria-hidden="true" /></Empty.Media
+        >
         <Empty.Title>Sign in to view repository files</Empty.Title>
         <Empty.Description>
           Repository source reads use your Nostr identity to enforce the
@@ -211,7 +217,8 @@
   {:else}
     <Empty.Root class="community-projects__empty">
       <Empty.Header>
-        <Empty.Media variant="icon"><FileIcon aria-hidden="true" /></Empty.Media>
+        <Empty.Media variant="icon"><FileIcon aria-hidden="true" /></Empty.Media
+        >
         <Empty.Title
           >{browsableCount === 0
             ? "No browsable repository files"

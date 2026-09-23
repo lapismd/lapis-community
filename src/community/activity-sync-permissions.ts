@@ -75,15 +75,11 @@ export function snapshotPermissionRequests(
 }
 
 export function applyPermissionCards(
-  pending: Readonly<
-    Record<string, readonly CommunityAgentPermissionRequest[]>
-  >,
+  pending: Readonly<Record<string, readonly CommunityAgentPermissionRequest[]>>,
   agentPubkey: string,
   frame: Pick<CommunityAgentObserver, "kind" | "turnId" | "payload">,
   nowMs: number,
-):
-  | Record<string, readonly CommunityAgentPermissionRequest[]>
-  | undefined {
+): Record<string, readonly CommunityAgentPermissionRequest[]> | undefined {
   if (frame.kind === "permission_requested") {
     const request = controllerPermission(
       agentPubkey,
@@ -103,7 +99,10 @@ export function applyPermissionCards(
     };
   }
   if (frame.kind === "permission_resolved") {
-    const requestId = observerText(observerRecord(frame.payload).requestId, 512);
+    const requestId = observerText(
+      observerRecord(frame.payload).requestId,
+      512,
+    );
     if (!requestId) return;
     return {
       ...pending,
@@ -113,9 +112,12 @@ export function applyPermissionCards(
     };
   }
   if (
-    ["turn_completed", "turn_finished", "turn_failed", "turn_cancelled"].includes(
-      frame.kind,
-    ) &&
+    [
+      "turn_completed",
+      "turn_finished",
+      "turn_failed",
+      "turn_cancelled",
+    ].includes(frame.kind) &&
     frame.turnId
   ) {
     return {
@@ -129,9 +131,7 @@ export function applyPermissionCards(
 }
 
 export function replaceScopePendingPermissions(
-  pending: Readonly<
-    Record<string, readonly CommunityAgentPermissionRequest[]>
-  >,
+  pending: Readonly<Record<string, readonly CommunityAgentPermissionRequest[]>>,
   agentPubkey: string,
   scopeKey: string,
   replacements: readonly CommunityAgentPermissionRequest[],

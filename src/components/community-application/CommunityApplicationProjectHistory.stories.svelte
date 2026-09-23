@@ -52,14 +52,15 @@
       await canvas.findByRole("tab", { name: "Overview" }),
     ).toHaveAttribute("aria-selected", "true");
     const toolbar = canvas.getByRole("banner", { name: "Project sections" });
-    await userEvent.click(within(toolbar).getByRole("button", { name: "Back" }));
+    await userEvent.click(
+      within(toolbar).getByRole("button", { name: "Back" }),
+    );
     await expect(
       await canvas.findByRole("heading", { name: "Repositories" }),
     ).toBeVisible();
-    await expect(canvas.getByRole("tab", { name: "Repositories" })).toHaveAttribute(
-      "aria-selected",
-      "true",
-    );
+    await expect(
+      canvas.getByRole("tab", { name: "Repositories" }),
+    ).toHaveAttribute("aria-selected", "true");
   }}
 >
   {#snippet template()}

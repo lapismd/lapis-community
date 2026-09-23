@@ -25,14 +25,16 @@ export function snapshotComposerSlashLogs(input: {
   commit: string;
   changeId?: string;
 }> {
-  const logs = input.commits.map((commit) => ({
-    owner: commit.owner,
-    d: commit.d,
-    tab: "log" as const,
-    label: composerSlashTruncatedSubject(commit.subject),
-    detail: composerSlashShortHash(commit.sha),
-    commit: commit.sha,
-  }));
+  const logs: ReturnType<typeof snapshotComposerSlashLogs> = input.commits.map(
+    (commit) => ({
+      owner: commit.owner,
+      d: commit.d,
+      tab: "log" as const,
+      label: composerSlashTruncatedSubject(commit.subject),
+      detail: composerSlashShortHash(commit.sha),
+      commit: commit.sha,
+    }),
+  );
   const repo =
     input.selected ??
     (input.repositories.length === 1 ? input.repositories[0] : undefined);

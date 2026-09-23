@@ -40,7 +40,9 @@
     const tasks = page.getByRole("option", { name: /Tasks Kind 1621/u });
     const reviews = page.getByRole("option", { name: /Reviews Kind 1618/u });
     await expect(tasks.querySelector(".lucide-circle-dot")).not.toBeNull();
-    await expect(reviews.querySelector(".lucide-git-pull-request")).not.toBeNull();
+    await expect(
+      reviews.querySelector(".lucide-git-pull-request"),
+    ).not.toBeNull();
     await userEvent.click(tasks);
     await expect(args.onChange).toHaveBeenCalledWith(["task"]);
     await expect(

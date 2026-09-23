@@ -74,7 +74,7 @@
   );
 </script>
 
-<Dialog.Root bind:open onOpenChange={onOpenChange}>
+<Dialog.Root bind:open {onOpenChange}>
   <DialogFrame size="wide">
     {#snippet title()}Create a new repository{/snippet}
     {#snippet description()}

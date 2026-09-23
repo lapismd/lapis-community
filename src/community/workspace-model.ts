@@ -249,10 +249,9 @@ export function findCommunityRoom(
     .find((room) => room.id === model.activeRoomId);
 }
 
-export function rootCommunityMessageId(
-  messages: readonly CommunityMessageModel[],
-  messageId: string,
-): string {
+export function rootCommunityMessageId<
+  Message extends Pick<CommunityMessageModel, "id" | "parentMessageId">,
+>(messages: readonly Message[], messageId: string): string {
   const messagesById = new Map(
     messages.map((message) => [message.id, message]),
   );

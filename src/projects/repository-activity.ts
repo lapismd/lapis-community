@@ -64,7 +64,10 @@ export function repositoryVisibleActivity(
 
 export function projectVisibleActivity(
   activity: readonly ProjectForgeActivityItem[],
-  project: { address: { coordinate: string }; repositories: readonly { coordinate: string }[] },
+  project: {
+    address: { coordinate: string };
+    repositories: readonly { coordinate: string }[];
+  },
   repositories: readonly ProjectForgeRepository[],
 ): ProjectForgeActivityItem[] {
   const hiddenAnchors = hiddenTaskAnchors(repositories);

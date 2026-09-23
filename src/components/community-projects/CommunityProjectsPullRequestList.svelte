@@ -33,15 +33,21 @@
     groupOpen?: Record<string, boolean> | undefined;
     memberForPubkey: (pubkey: string) => CommunityMemberModel;
     onOpenProfile?: ((member: CommunityMemberModel) => void) | undefined;
-    onMessageMember?: ((member: CommunityMemberModel) => void | Promise<void>) | undefined;
-    onWaveMember?: ((member: CommunityMemberModel) => void | Promise<void>) | undefined;
+    onMessageMember?:
+      | ((member: CommunityMemberModel) => void | Promise<void>)
+      | undefined;
+    onWaveMember?:
+      | ((member: CommunityMemberModel) => void | Promise<void>)
+      | undefined;
     onSelectPullRequest?: ((pullRequest: PullRequestState) => void) | undefined;
     projectFilter?: ((pullRequest: PullRequestState) => boolean) | undefined;
   } = $props();
 </script>
 
 {#if pullRequests.length === 0}
-  <Empty.Root class="community-projects__empty community-projects__review-empty">
+  <Empty.Root
+    class="community-projects__empty community-projects__review-empty"
+  >
     <Empty.Header>
       <Empty.Media variant="icon"
         ><CircleDashedIcon aria-hidden="true" /></Empty.Media

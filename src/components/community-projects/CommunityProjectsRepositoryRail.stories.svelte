@@ -1,12 +1,3 @@
-<script lang="ts">
-  import { provideCommunityShareLink } from "../community-entity-chip/share-link.js";
-
-  provideCommunityShareLink({
-    href: () => "lapis-community://repo?owner=aa&d=probe&tab=files&branch=main",
-    copy: () => {},
-  });
-</script>
-
 <script module lang="ts">
   import { defineMeta } from "@storybook/addon-svelte-csf";
   import { expect, fn } from "storybook/test";
@@ -17,6 +8,15 @@
     title: "Community/Projects/Repository rail",
     component: CommunityProjectsRepositoryRail,
     tags: ["visual-pending"],
+  });
+</script>
+
+<script lang="ts">
+  import { provideCommunityShareLink } from "../community-entity-chip/share-link.js";
+
+  provideCommunityShareLink({
+    href: () => "lapis-community://repo?owner=aa&d=probe&tab=files&branch=main",
+    copy: () => {},
   });
 </script>
 
@@ -34,7 +34,9 @@
     const options = canvas.getByRole("button", { name: "Options" });
     await expect(options).toBeVisible();
     await expect(options.querySelector(".lucide-settings")).not.toBeNull();
-    await expect(canvas.queryByRole("heading", { name: "Permissions" })).not.toBeInTheDocument();
+    await expect(
+      canvas.queryByRole("heading", { name: "Permissions" }),
+    ).not.toBeInTheDocument();
     await userEvent.click(options);
     await expect(args.onSelect).toHaveBeenCalledWith("Options");
     const copy = canvas.getByRole("button", {
@@ -61,8 +63,12 @@
     const latest = canvas.getByRole("button", { name: /Latest/u });
     await expect(options).toHaveAttribute("aria-current", "page");
     await expect(options).toHaveAttribute("data-active", "");
-    await expect(getComputedStyle(options).fontSize).toBe(getComputedStyle(latest).fontSize);
-    await expect(getComputedStyle(options).backgroundColor).not.toBe("rgba(0, 0, 0, 0)");
+    await expect(getComputedStyle(options).fontSize).toBe(
+      getComputedStyle(latest).fontSize,
+    );
+    await expect(getComputedStyle(options).backgroundColor).not.toBe(
+      "rgba(0, 0, 0, 0)",
+    );
     await expect(canvas.queryByText("Relay hosted")).not.toBeInTheDocument();
   }}
 >
@@ -89,7 +95,9 @@
     ).not.toBeNull();
     await expect(canvas.getByText("Details")).toBeVisible();
     await expect(canvas.getByRole("button", { name: "Options" })).toBeVisible();
-    await expect(canvas.queryByRole("button", { name: "Copy Link" })).toBeNull();
+    await expect(
+      canvas.queryByRole("button", { name: "Copy Link" }),
+    ).toBeNull();
   }}
 >
   {#snippet template(args)}
@@ -105,14 +113,17 @@
     onSelect: fn(),
   }}
   play={async ({ canvas }) => {
-    await expect(canvas.queryByRole("button", { name: "Options" })).not.toBeInTheDocument();
+    await expect(
+      canvas.queryByRole("button", { name: "Options" }),
+    ).not.toBeInTheDocument();
     await expect(canvas.queryByText("Relay hosted")).not.toBeInTheDocument();
     const files = canvas.getByRole("button", { name: /Files/u });
     const copyLink = canvas.getByRole("button", { name: "Copy Link" });
     await expect(files).toBeVisible();
     await expect(copyLink).toBeVisible();
     await expect(
-      files.compareDocumentPosition(copyLink) & Node.DOCUMENT_POSITION_FOLLOWING,
+      files.compareDocumentPosition(copyLink) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
   }}
 >

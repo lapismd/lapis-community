@@ -1,7 +1,4 @@
-import {
-  normalizeRefName,
-  normalizeRulesetPattern,
-} from "./protected-refs.js";
+import { normalizeRefName, normalizeRulesetPattern } from "./protected-refs.js";
 
 const MAX_RULESET_TARGETS = 16;
 const MAX_REQUIRED_APPROVALS = 16;
@@ -125,8 +122,7 @@ function normalizeProtectionRule(
   if (!name || name.length > 64) {
     throw new Error("Each ruleset needs a name of at most 64 characters");
   }
-  const enforcement =
-    rule.enforcement === "disabled" ? "disabled" : "active";
+  const enforcement = rule.enforcement === "disabled" ? "disabled" : "active";
   const id = allocateRuleId(rule.id, name, index, seen);
   return {
     id,
@@ -239,13 +235,17 @@ export function rulesetBypassLabel(actor: ProjectForgeRulesetBypass): string {
   return actor.pubkey ?? "Member";
 }
 
-export function rulesetBypassKindLabel(actor: ProjectForgeRulesetBypass): string {
+export function rulesetBypassKindLabel(
+  actor: ProjectForgeRulesetBypass,
+): string {
   if (actor.kind === "admin") return "Admin";
   if (actor.kind === "maintainer") return "Maintainer";
   return "Member";
 }
 
-export function rulesetTargetKindLabel(target: ProjectForgeRulesetTarget): string {
+export function rulesetTargetKindLabel(
+  target: ProjectForgeRulesetTarget,
+): string {
   return target.type === "exclude" ? "Exclude" : "Include";
 }
 
@@ -279,7 +279,10 @@ export function rulesetMatches(
   let included = false;
   let excluded = false;
   for (const target of rule.targets) {
-    if (target.type === "default" && normalized === normalizeRefName(defaultRef)) {
+    if (
+      target.type === "default" &&
+      normalized === normalizeRefName(defaultRef)
+    ) {
       included = true;
     }
     if (target.type === "all") included = true;

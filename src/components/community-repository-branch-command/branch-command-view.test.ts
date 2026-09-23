@@ -9,7 +9,9 @@ describe("branch command label", () => {
   ];
 
   it("shows the branch name when the selection is that branch tip", () => {
-    expect(branchCommandLabel(branches, "c".repeat(40))).toBe("community-visible");
+    expect(branchCommandLabel(branches, "c".repeat(40))).toBe(
+      "community-visible",
+    );
     expect(branchCommandLabel(branches, "main")).toBe("main");
   });
 

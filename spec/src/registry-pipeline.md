@@ -280,3 +280,14 @@ including visible thinking, plans, completed tool results, permissions, and one
 usage snapshot. They do not require omissions or capture coverage as visible
 rows. Their ordinary messages and review comments retain signed request/thread
 references so functional stories exercise the production association readers.
+
+For LC-UI-036, repository validation uses the configured formatter on source
+and architecture fixtures, strict Svelte and TypeScript checks, and the
+existing browser diagnostic guard. Formatting-only fixture updates preserve
+their failing architecture cases. Functional, browser, relay, consumer, and
+build results are recorded separately; visual baselines remain unchanged.
+The aggregate check MUST run the complete Storybook suite in eight sequential
+Vitest shards with a fresh browser process per shard, preserving interaction,
+accessibility, and runtime diagnostics. It MUST stop and fail on a nonzero
+exit, signal, or process-start failure. `test:storybook` retains the direct
+Vitest command for focused tests; `test:storybook:all` owns complete coverage.

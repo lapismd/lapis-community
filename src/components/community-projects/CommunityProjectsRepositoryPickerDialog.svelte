@@ -30,7 +30,10 @@
     localError?: string | undefined;
     onSelectRepository: (repository: ProjectForgeRepository) => void;
     onBack: () => void;
-    onSelectProject: (projectCoordinate: string, repositoryCoordinate: string) => void;
+    onSelectProject: (
+      projectCoordinate: string,
+      repositoryCoordinate: string,
+    ) => void;
   } = $props();
 </script>
 

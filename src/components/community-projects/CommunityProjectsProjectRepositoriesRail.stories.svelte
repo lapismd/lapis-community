@@ -70,13 +70,15 @@
     await expect(
       channel.querySelector('[data-ui-part="project-channel-icon"]'),
     ).not.toBeNull();
-    await expect(Number.parseFloat(getComputedStyle(channel).fontSize)).toBeLessThan(
-      Number.parseFloat(getComputedStyle(selected).fontSize),
-    );
+    await expect(
+      Number.parseFloat(getComputedStyle(channel).fontSize),
+    ).toBeLessThan(Number.parseFloat(getComputedStyle(selected).fontSize));
     await expect(channel.getBoundingClientRect().left).toBeGreaterThan(
       selected.getBoundingClientRect().left + 12,
     );
-    await userEvent.click(canvas.getByRole("button", { name: "notes-desktop" }));
+    await userEvent.click(
+      canvas.getByRole("button", { name: "notes-desktop" }),
+    );
     await expect(args.onSelectRepository).toHaveBeenCalled();
     await userEvent.click(
       canvas.getAllByRole("button", { name: "plugin-development" })[0]!,

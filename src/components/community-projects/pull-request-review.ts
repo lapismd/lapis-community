@@ -104,7 +104,9 @@ export function reviewTimelineActorLabel(
   return memberName;
 }
 
-export function reviewHasExternalActor(event: PullRequestState["root"]): boolean {
+export function reviewHasExternalActor(
+  event: PullRequestState["root"],
+): boolean {
   return Boolean(
     pullRequestEventTagValue(event, "external-author") ||
       pullRequestEventTagValue(event, "external-provider"),
@@ -115,10 +117,7 @@ export function reviewRequestTargetLabel(
   comment: PullRequestComment,
   memberName: string | undefined,
 ): string {
-  const external = pullRequestEventTagValue(
-    comment.event,
-    "external-reviewer",
-  );
+  const external = pullRequestEventTagValue(comment.event, "external-reviewer");
   if (external) return `@${external}`;
   return memberName ?? "a reviewer";
 }

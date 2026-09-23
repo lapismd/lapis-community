@@ -14,12 +14,6 @@ export type CommunityAgentPlanTranscript = {
   sequence?: number;
 };
 
-const PLAN_STATUSES = new Set<CommunityAgentPlanStatus>([
-  "pending",
-  "in_progress",
-  "completed",
-]);
-
 export function parsePlanEntries(value: unknown): CommunityAgentPlanEntry[] {
   if (!Array.isArray(value)) return [];
   return value.flatMap((item) => {
@@ -29,7 +23,9 @@ export function parsePlanEntries(value: unknown): CommunityAgentPlanEntry[] {
       typeof record.content === "string" ? record.content.trim() : "";
     if (!content) return [];
     const status =
-      typeof record.status === "string" && PLAN_STATUSES.has(record.status)
+      record.status === "pending" ||
+      record.status === "in_progress" ||
+      record.status === "completed"
         ? record.status
         : undefined;
     const priority =

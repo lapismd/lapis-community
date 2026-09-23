@@ -63,7 +63,7 @@
   } = $props();
 </script>
 
-<Dialog.Root bind:open onOpenChange={onOpenChange}>
+<Dialog.Root bind:open {onOpenChange}>
   <DialogFrame size="wide">
     {#snippet title()}Open a review{/snippet}
     {#snippet description()}

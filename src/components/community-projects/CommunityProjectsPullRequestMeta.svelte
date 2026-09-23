@@ -44,8 +44,12 @@
     communityEmojis?: readonly CommunityCustomEmoji[] | undefined;
     memberForPubkey: (pubkey: string) => CommunityMemberModel;
     onOpenProfile?: ((member: CommunityMemberModel) => void) | undefined;
-    onMessageMember?: ((member: CommunityMemberModel) => void | Promise<void>) | undefined;
-    onWaveMember?: ((member: CommunityMemberModel) => void | Promise<void>) | undefined;
+    onMessageMember?:
+      | ((member: CommunityMemberModel) => void | Promise<void>)
+      | undefined;
+    onWaveMember?:
+      | ((member: CommunityMemberModel) => void | Promise<void>)
+      | undefined;
     onCopyCommit: (hash: string) => void;
   } = $props();
 
@@ -118,7 +122,10 @@
       {/if}
       <span>Status</span>
     </dt>
-    <dd class="community-projects__review-status" data-status={pullRequest.lifecycle}>
+    <dd
+      class="community-projects__review-status"
+      data-status={pullRequest.lifecycle}
+    >
       {statusLabel}
     </dd>
   </div>

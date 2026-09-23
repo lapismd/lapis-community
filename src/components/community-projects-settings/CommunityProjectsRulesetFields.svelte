@@ -17,7 +17,9 @@
     draft: ProjectForgeProtectionRule;
     canMaintain?: boolean;
     idPrefix?: string;
-    onEnforcementChange?: ((enforcement: RulesetEnforcement) => void) | undefined;
+    onEnforcementChange?:
+      | ((enforcement: RulesetEnforcement) => void)
+      | undefined;
   } = $props();
 </script>
 

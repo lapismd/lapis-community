@@ -13,9 +13,7 @@ export function repositoryRoom(
   channelId: string | undefined,
 ): CommunityRoomModel | undefined {
   if (!channelId) return undefined;
-  return rooms.find(
-    (room) => (room.groupId ?? room.id) === channelId,
-  );
+  return rooms.find((room) => (room.groupId ?? room.id) === channelId);
 }
 
 export function canMaintainRepository(
@@ -26,14 +24,18 @@ export function canMaintainRepository(
 }
 
 export function channelIdForCoordinate(
-  repositories: readonly { address: { coordinate: string }; channelId: string }[],
+  repositories: readonly {
+    address: { coordinate: string };
+    channelId: string;
+  }[],
   coordinate: string | undefined,
   fallback?: string,
 ): string | undefined {
   if (!coordinate) return fallback;
   return (
-    repositories.find((repository) => repository.address.coordinate === coordinate)
-      ?.channelId ?? fallback
+    repositories.find(
+      (repository) => repository.address.coordinate === coordinate,
+    )?.channelId ?? fallback
   );
 }
 

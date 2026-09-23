@@ -17,7 +17,9 @@ export function withRulesetTarget(
   target: ProjectForgeRulesetTarget,
 ): ProjectForgeProtectionRule {
   const key = `${target.type}:${target.pattern ?? ""}`;
-  if (rule.targets.some((item) => `${item.type}:${item.pattern ?? ""}` === key)) {
+  if (
+    rule.targets.some((item) => `${item.type}:${item.pattern ?? ""}` === key)
+  ) {
     return rule;
   }
   return { ...rule, targets: [...rule.targets, target] };

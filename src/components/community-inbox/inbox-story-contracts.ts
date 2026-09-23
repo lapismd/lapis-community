@@ -1,4 +1,4 @@
-import { expect, userEvent, type Canvas } from "storybook/test";
+import { expect, userEvent, within } from "storybook/test";
 
 export function threadRegionHeightRules(element: Element): string[] {
   const hits: string[] = [];
@@ -36,7 +36,7 @@ export function expectMessageSkeletonInset(skeleton: HTMLElement) {
 }
 
 export async function expectSelectedInboxConversationLoading(
-  canvas: Canvas,
+  canvas: ReturnType<typeof within>,
 ): Promise<void> {
   await userEvent.click(
     canvas.getByRole("button", { name: /^Thread in #support:/u }),

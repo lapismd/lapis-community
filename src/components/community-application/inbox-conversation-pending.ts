@@ -56,8 +56,8 @@ export function inboxMessagesBelongToItem(
 export function inboxConversationPending(
   model: Pick<
     CommunityInboxModel,
-    "activeItemId" | "items" | "messages" | "selectedItem"
-  >,
+    "activeItemId" | "items" | "selectedItem"
+  > & { messages: readonly InboxPendingMessage[] },
   requestedItemId?: string,
 ): boolean {
   const selectedId = requestedItemId ?? model.activeItemId;

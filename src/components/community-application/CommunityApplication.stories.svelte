@@ -1,4 +1,5 @@
 <script module lang="ts">
+  import { linkedSignerNavigation } from "../../testing/application-signin-story.js";
   import { defineMeta } from "@storybook/addon-svelte-csf";
   import { toast } from "svelte-sonner";
   import { tick } from "svelte";
@@ -1937,22 +1938,7 @@
 <Story
   name="Linked GitHub account awaiting signer"
   globals={{ colorMode: "dark", viewport: { value: "mobile1" } }}
-  play={async ({ canvas }) => {
-    await waitFor(() =>
-      expect(canvas.getByText("Reconnect your Nostr signer")).toBeVisible(),
-    );
-    const application = canvas.getByTestId("full-community-application");
-    await expect(
-      canvas.getByRole(
-        application.dataset.displayMode === "mobile" ? "group" : "navigation",
-        { name: "Application navigation" },
-      ),
-    ).toBeVisible();
-    await expect(canvas.queryAllByRole("banner").length).toBeLessThanOrEqual(1);
-    await expect(
-      canvas.getByRole("button", { name: "Reconnect signer" }),
-    ).toBeEnabled();
-  }}
+  play={linkedSignerNavigation}
 >
   {#snippet template()}
     <CommunityApplicationStoryHarness
@@ -4894,7 +4880,11 @@
       name: "Expand left sidebar",
     });
     if (expand) await userEvent.click(expand);
-    await userEvent.click(await canvas.findByRole("tab", { name: "Channels" }));
+    const channelsTab = await canvas.findByRole("tab", { name: "Channels" });
+    await waitFor(() =>
+      expect(getComputedStyle(channelsTab).pointerEvents).not.toBe("none"),
+    );
+    await userEvent.click(channelsTab);
     const overview = await canvas.findByRole("navigation", {
       name: "Project overview",
     });

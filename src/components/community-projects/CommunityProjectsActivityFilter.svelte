@@ -116,7 +116,10 @@
         <CommandView.Group heading="Relay event types">
           {#each options as option (option.id)}
             {@const Icon = filterIcons[option.id]}
-            {@const selected = isProjectActivityFilterSelected(value, option.id)}
+            {@const selected = isProjectActivityFilterSelected(
+              value,
+              option.id,
+            )}
             <CommandView.Item
               value={`${option.label} ${option.description}`}
               data-checked={selected ? "" : undefined}
@@ -170,9 +173,7 @@
   }
 
   :global(
-      .community-projects-activity-filter
-        [data-activity-kind="project"]
-        > svg,
+      .community-projects-activity-filter [data-activity-kind="project"] > svg,
       .community-projects-activity-filter
         [data-activity-kind="repository"]
         > svg,
@@ -191,7 +192,9 @@
     color: var(--success, #16a34a);
   }
 
-  :global(.community-projects-activity-filter [data-activity-kind="task"] > svg) {
+  :global(
+      .community-projects-activity-filter [data-activity-kind="task"] > svg
+    ) {
     color: var(--warning, #f97316);
   }
 

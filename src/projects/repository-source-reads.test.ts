@@ -7,6 +7,7 @@ import {
   readRepositoryCommit,
   readRepositoryPathCommit,
 } from "./repository-source-reads.js";
+import { readRepositoryDefaultCommits } from "./repository-default-history.js";
 
 const sha = "a".repeat(40);
 
@@ -36,6 +37,7 @@ describe("repository source reads", () => {
   });
   it("loads one path commit and a selected sha", async () => {
     const session = {
+      loadRefs: vi.fn(async () => ({ head: { name: "refs/heads/main", sha } })),
       loadCommits: vi.fn(async () => ({
         ref: "main",
         sha,
@@ -88,5 +90,67 @@ describe("repository source reads", () => {
         commit: { sha, subject: "path" },
       },
     ]);
+  });
+
+  it("preserves commit-only activity readers", async () => {
+    const session = {
+      loadCommits: vi.fn(async () => ({
+        ref: "main",
+        sha,
+        commits: [{ sha, subject: "legacy" }],
+        more: false,
+      })),
+    };
+    await expect(
+      loadProjectCommitActivity(
+        session,
+        [{ address: { coordinate: "repo" } } as never],
+        [
+          {
+            address: { coordinate: "project" },
+            repositories: [{ coordinate: "repo" }],
+          } as never,
+        ],
+      ),
+    ).resolves.toMatchObject([
+      { repositoryCoordinate: "repo", commit: { sha } },
+    ]);
+    expect(session.loadCommits).toHaveBeenCalledWith(
+      "repo",
+      undefined,
+      undefined,
+    );
+  });
+
+  it("does not request a nonexistent HEAD from an empty repository", async () => {
+    const session = {
+      loadRefs: vi.fn(async () => ({ head: null, refs: [] })),
+      loadCommits: vi.fn(),
+    };
+    await expect(
+      readRepositoryDefaultCommits(session, "empty"),
+    ).resolves.toEqual([]);
+    expect(session.loadCommits).not.toHaveBeenCalled();
+  });
+
+  it("pins default history to an advertised commit and propagates read failures", async () => {
+    const signal = new AbortController().signal;
+    const session = {
+      loadRefs: vi.fn(async () => ({ head: { name: "refs/heads/main", sha } })),
+      loadCommits: vi.fn(async () => ({
+        ref: "main",
+        sha,
+        commits: [{ sha, subject: "checkpoint" }],
+        more: false,
+      })),
+    };
+    await expect(
+      readRepositoryDefaultCommits(session, "repo", signal),
+    ).resolves.toEqual([{ sha, subject: "checkpoint" }]);
+    expect(session.loadCommits).toHaveBeenCalledWith("repo", sha, signal);
+    session.loadCommits.mockRejectedValueOnce(new Error("unavailable"));
+    await expect(
+      readRepositoryDefaultCommits(session, "repo", signal),
+    ).rejects.toThrow("unavailable");
   });
 });

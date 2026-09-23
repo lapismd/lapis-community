@@ -18,7 +18,8 @@
   import CommunityProjectsRepositorySettings from "./CommunityProjectsRepositorySettings.svelte";
 
   let {
-    surface = "overview", tree,
+    surface = "overview",
+    tree,
     loading = false,
     canCollaborate = false,
     hasSources = false,
@@ -34,7 +35,8 @@
     onSaveProtection,
     sourceErrorSnippet,
   }: {
-    surface?: "overview" | "options" | undefined; tree?: ProjectForgeTreeResponse | undefined;
+    surface?: "overview" | "options" | undefined;
+    tree?: ProjectForgeTreeResponse | undefined;
     loading?: boolean | undefined;
     canCollaborate?: boolean | undefined;
     hasSources?: boolean | undefined;
@@ -54,14 +56,20 @@
   } = $props();
 
   const peopleChannel = $derived.by(() => {
-    const room = rooms.find((c) => c.groupId === homeChannelId || c.id === homeChannelId);
+    const room = rooms.find(
+      (c) => c.groupId === homeChannelId || c.id === homeChannelId,
+    );
     return homeChannelId
       ? { name: room?.name ?? homeChannelId, roomId: room?.id ?? homeChannelId }
       : undefined;
   });
 </script>
 
-<article class="community-projects__workspace" class:community-projects__readme={surface !== "options"} class:community-projects__workspace--options={surface === "options"}>
+<article
+  class="community-projects__workspace"
+  class:community-projects__readme={surface !== "options"}
+  class:community-projects__workspace--options={surface === "options"}
+>
   {#if surface === "options"}
     <CommunityProjectsRepositorySettings
       {capabilities}

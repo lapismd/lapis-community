@@ -53,9 +53,9 @@ describe("editor harness tabs", () => {
     expect(tabs.map((tab) => tab.id)).toEqual(["codex", "cursor", "opencode"]);
     expect(editorHarnessTab(tabs, "", "codex")).toBe("codex");
     expect(editorHarnessTab(tabs, "cursor", "codex")).toBe("cursor");
-    expect(editorRowsForHarness(rows, "codex").map((row) => row.model)).toEqual([
-      "gpt-6",
-    ]);
+    expect(editorRowsForHarness(rows, "codex").map((row) => row.model)).toEqual(
+      ["gpt-6"],
+    );
     expect(editorRowsForHarness(rows, "cursor")[0]).toMatchObject({
       disabled: true,
       name: "Loading models…",

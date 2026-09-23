@@ -15,6 +15,9 @@
   <AppShell.Main>
     <CommunityApplicationInboxHost
       {model}
+      onSend={async () => {}}
+      onMarkAllRead={() => {}}
+      onOpenChannelSettings={() => {}}
       onSelect={(itemId) => {
         model = selectInboxSelectionHarnessItem(model, itemId);
       }}

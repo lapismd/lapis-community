@@ -11,8 +11,8 @@ export type CommunityComposerDraftSurface =
   (typeof COMMUNITY_COMPOSER_DRAFT_SURFACES)[number];
 
 export function communityComposerDraftKey(input: {
-  viewer?: string;
-  communityId?: string;
+  viewer?: string | undefined;
+  communityId?: string | undefined;
   surface: CommunityComposerDraftSurface;
   target: string;
 }): string {

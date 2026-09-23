@@ -11,6 +11,7 @@
   import ChevronLeftIcon from "@lucide/svelte/icons/chevron-left";
   import ChevronRightIcon from "@lucide/svelte/icons/chevron-right";
 
+  import { observeShellHeaderGeometry } from "./shell-header-geometry.js";
   import CommunitySidebarToggleIcon from "./CommunitySidebarToggleIcon.svelte";
   import { untrack, type Snippet } from "svelte";
   import type { HTMLAttributes } from "svelte/elements";
@@ -53,21 +54,10 @@
     if (!surface || mobileMode) return;
     const main = surface.querySelector<HTMLElement>('[data-ui-part="main"]');
     if (!main) return;
-    const updateHeaderMainStart = () => {
-      const surfaceBounds = surface.getBoundingClientRect();
-      const mainBounds = main.getBoundingClientRect();
-      headerMainStart = Math.max(
-        0,
-        Math.round(mainBounds.left - surfaceBounds.left),
-      );
-      headerMainWidth = Math.max(0, Math.round(mainBounds.width));
-    };
-    updateHeaderMainStart();
-    if (typeof ResizeObserver === "undefined") return;
-    const observer = new ResizeObserver(updateHeaderMainStart);
-    observer.observe(surface);
-    observer.observe(main);
-    return () => observer.disconnect();
+    return observeShellHeaderGeometry(surface, main, (start, width) => {
+      headerMainStart = start;
+      headerMainWidth = width;
+    });
   });
 
   $effect(() => {
@@ -328,5 +318,4 @@
       }
     }
   }
-
 </style>

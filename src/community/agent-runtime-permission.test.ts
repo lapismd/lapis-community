@@ -18,10 +18,9 @@ const catalog = {
 
 describe("runtime permission options", () => {
   it("offers only the advertised mode and omits ask", () => {
-    expect(runtimePermissionOptions(catalog).map((option) => option.value)).toEqual([
-      "default",
-      "bypassPermissions",
-    ]);
+    expect(
+      runtimePermissionOptions(catalog).map((option) => option.value),
+    ).toEqual(["default", "bypassPermissions"]);
     expect(runtimePermissionOptions({ configOptions: [] })).toEqual([]);
     expect(
       editorRuntimePermissionSave(

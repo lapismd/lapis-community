@@ -18,7 +18,7 @@ export function communityApplicationThreadProjectionSettled(
   panel: CommunityApplicationPanel,
   workspace: {
     activeRoomId: string;
-    sidePanel: string;
+    sidePanel?: string;
     thread?: { rootMessageId: string };
   },
 ): boolean {

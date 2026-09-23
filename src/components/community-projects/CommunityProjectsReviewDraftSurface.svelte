@@ -22,7 +22,7 @@
     initials: "AL",
   };
   const pullRequestId = $derived(`story-lc-ui-052-${surface}`.padEnd(64, "0"));
-  const pullRequest = $derived({
+  const pullRequest = $derived<PullRequestState>({
     root: {
       id: pullRequestId,
       pubkey: "author",
@@ -45,6 +45,9 @@
     reviewers: [],
     initialCommit: "b".repeat(40),
     currentCommit: "b".repeat(40),
+    mergeBase: "a".repeat(40),
+    mergeCommit: "",
+    mergeReferences: [],
     cloneUrls: [],
     branchName: "feature",
     targetBranch: "main",
@@ -56,7 +59,7 @@
     lifecycleEvents: [],
     createdAt: 1,
     updatedAt: 1,
-  } as PullRequestState);
+  });
   const context: FileDiffLineContext = {
     path: "src/app.ts",
     lineNumber: 12,

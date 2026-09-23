@@ -20,9 +20,9 @@ export function editorPersonaSelection(
   if (selected) {
     return {
       personaName: selected.displayName,
-      personaDescription: selected.description,
+      personaDescription: selected.description ?? "",
       personaAvatar: selected.avatarUrl ?? "",
-      personaPrompt: selected.systemPrompt,
+      personaPrompt: selected.systemPrompt ?? "",
       personaSlug: selected.slug,
     };
   }

@@ -28,7 +28,9 @@
   let community = $state<CommunityController>();
   let runtimeError = $state("");
   const projectedModel = $derived(
-    fixtureOnly ? communityInboxFixture : (community?.state.inbox ?? communityInboxFixture),
+    fixtureOnly
+      ? communityInboxFixture
+      : (community?.state.inbox ?? communityInboxFixture),
   );
   const model = $derived(
     empty

@@ -25,7 +25,7 @@ describe("pending transcript permission waits", () => {
         },
       },
     };
-    const expiredPermission: CommunityAgentActivityItem = {
+    const expiredPermission = {
       ...waiting,
       id: "permission",
       createdAt: 1_800_000_000,
@@ -41,7 +41,7 @@ describe("pending transcript permission waits", () => {
           expiresAt: now - 1,
         },
       },
-    };
+    } satisfies CommunityAgentActivityItem;
     expect(
       pendingTranscriptStatuses(
         [expiredPermission, waiting],

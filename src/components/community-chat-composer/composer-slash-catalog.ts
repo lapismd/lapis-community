@@ -56,7 +56,7 @@ function overlayComposerRoomHints(
     const hint = byId.get(room.id);
     return hint === undefined || hint.isProjectChannel === room.isProjectChannel
       ? room
-      : { ...room, isProjectChannel: hint.isProjectChannel };
+      : { ...room, isProjectChannel: hint.isProjectChannel ?? false };
   });
 }
 
@@ -108,8 +108,8 @@ function slashEntries(
     slashAutocompleteItem({
       id: `slash:entry:${row.href}`,
       label: row.label,
-      detail: row.detail,
-      room: row.room,
+      ...(row.detail === undefined ? {} : { detail: row.detail }),
+      ...(row.room === undefined ? {} : { room: row.room }),
     }),
   );
 }

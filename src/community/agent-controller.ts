@@ -1813,7 +1813,7 @@ export class CommunityAgentsController {
     const requestId =
       observerText(payload.lifecycleRequestId, 512) ||
       observerText(payload.requestId, 512) ||
-      frame.turnId;
+      (frame.turnId ?? "");
     const key = activityScopeStorageKey(agentPubkey, scopeKey, requestId);
     const previous = this.#state.conversationScopes?.[key];
     if (

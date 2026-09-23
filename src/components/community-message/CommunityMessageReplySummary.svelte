@@ -13,16 +13,20 @@
     onWaveMember,
     onViewMemberActivity,
   }: {
-    label?: string;
+    label?: string | undefined;
     avatarLabel?: string;
     participants: readonly CommunityMemberModel[];
-    onOpenThread?: () => void;
-    onOpenProfile?: (member: CommunityMemberModel) => void;
-    onMessageMember?: (member: CommunityMemberModel) => void | Promise<void>;
-    onWaveMember?: (member: CommunityMemberModel) => void | Promise<void>;
-    onViewMemberActivity?: (
-      member: CommunityMemberModel,
-    ) => void | Promise<void>;
+    onOpenThread?: (() => void) | undefined;
+    onOpenProfile?: ((member: CommunityMemberModel) => void) | undefined;
+    onMessageMember?:
+      | ((member: CommunityMemberModel) => void | Promise<void>)
+      | undefined;
+    onWaveMember?:
+      | ((member: CommunityMemberModel) => void | Promise<void>)
+      | undefined;
+    onViewMemberActivity?:
+      | ((member: CommunityMemberModel) => void | Promise<void>)
+      | undefined;
   } = $props();
 
   const visibleParticipants = $derived(participants.slice(0, 3));

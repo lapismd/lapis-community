@@ -41,9 +41,7 @@
   const thinking = $derived(
     runtimeOptionLabel(thinkingOptions, runtimeThinking, runtimeThinking),
   );
-  const permissionOptions = $derived(
-    runtimePermissionOptions(runtime.catalog),
-  );
+  const permissionOptions = $derived(runtimePermissionOptions(runtime.catalog));
   const permissionMode = $derived(runtime.effective.permissionMode ?? "");
   const permission = $derived(
     runtimeOptionLabel(permissionOptions, permissionMode, "Ask"),

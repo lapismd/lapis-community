@@ -12,7 +12,13 @@ export const communityInboxFixture: CommunityInboxModel = {
   },
   members: [
     { id: "fizz", name: "Fizz", handle: "fizz", initials: "FZ", kind: "agent" },
-    { id: "honey", name: "Honey", handle: "honey", initials: "HY", kind: "agent" },
+    {
+      id: "honey",
+      name: "Honey",
+      handle: "honey",
+      initials: "HY",
+      kind: "agent",
+    },
     {
       id: "pollen",
       name: "Pollen",

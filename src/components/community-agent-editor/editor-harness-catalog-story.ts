@@ -1,6 +1,8 @@
 import { expect, userEvent, waitFor, within } from "storybook/test";
 
-export async function openEditorCustomize(dialog: HTMLElement) {
+export async function openEditorCustomize(
+  dialog: HTMLElement,
+): Promise<ReturnType<typeof within>> {
   const scoped = within(dialog);
   await userEvent.click(
     scoped.getByRole("tab", { name: "Customize for this agent" }),
@@ -95,7 +97,9 @@ export async function playHarnessModelCatalog({
   const viewport = within(picker)
     .getByRole("listbox")
     .closest<HTMLElement>('[data-ui-part="scroll-area-viewport"]')!;
-  await expect(viewport.getBoundingClientRect().height).toBeLessThanOrEqual(256);
+  await expect(viewport.getBoundingClientRect().height).toBeLessThanOrEqual(
+    256,
+  );
   await expect(viewport.scrollHeight).toBeGreaterThan(viewport.clientHeight);
   await userEvent.type(search, "Composer");
   await expect(

@@ -29,7 +29,7 @@ export function canReviewSelectedPullRequest(options: {
   canCollaborate: boolean;
   canMaintain: boolean;
   lifecycle: PullRequestState["lifecycle"];
-  actor?: string;
+  actor?: string | undefined;
   author?: string;
   repositoryOwner?: string;
   isAdmin?: boolean;
@@ -77,12 +77,15 @@ export function canMergeSelectedPullRequest(options: {
 
 export function selectedRepositoryReviewAccess(options: {
   rooms: readonly CommunityRoomModel[];
-  repositories: readonly { address: { coordinate: string }; channelId: string }[];
-  selectedRepositoryChannelId?: string;
-  selectedCoordinate?: string;
+  repositories: readonly {
+    address: { coordinate: string };
+    channelId: string;
+  }[];
+  selectedRepositoryChannelId?: string | undefined;
+  selectedCoordinate?: string | undefined;
   canCollaborate: boolean;
-  actor?: string;
-  pullRequest?: ReviewAccessPullRequest;
+  actor?: string | undefined;
+  pullRequest?: ReviewAccessPullRequest | undefined;
   capabilities?: Readonly<
     Record<
       string,

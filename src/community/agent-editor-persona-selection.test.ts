@@ -23,13 +23,15 @@ const agent = {
 
 describe("editorPersonaSelection", () => {
   it("copies a saved persona when that slug is selected", () => {
-    expect(editorPersonaSelection("nyra", [persona], agent, "current")).toEqual({
-      personaName: "Nyra",
-      personaDescription: "A research agent",
-      personaAvatar: "https://example.test/nyra.png",
-      personaPrompt: "Be precise.",
-      personaSlug: "nyra",
-    });
+    expect(editorPersonaSelection("nyra", [persona], agent, "current")).toEqual(
+      {
+        personaName: "Nyra",
+        personaDescription: "A research agent",
+        personaAvatar: "https://example.test/nyra.png",
+        personaPrompt: "Be precise.",
+        personaSlug: "nyra",
+      },
+    );
   });
 
   it("falls back to the current agent when creating a new persona", () => {

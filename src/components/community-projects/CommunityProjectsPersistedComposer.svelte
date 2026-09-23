@@ -36,8 +36,8 @@
     value?: string;
     surface: CommunityComposerDraftSurface;
     target: string;
-    viewer?: string;
-    communityId?: string;
+    viewer?: string | undefined;
+    communityId?: string | undefined;
     class?: string;
     placeholder: string;
     ariaLabel: string;

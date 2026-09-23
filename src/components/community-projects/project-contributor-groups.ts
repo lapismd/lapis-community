@@ -29,9 +29,9 @@ export function projectRepositoryContributorGroups(
     members.flatMap((member) =>
       repositories
         .filter((repository) =>
-          byChannel.get(repository.address.coordinate)?.some(
-            (candidate) => candidate.id === member.id,
-          ),
+          byChannel
+            .get(repository.address.coordinate)
+            ?.some((candidate) => candidate.id === member.id),
         )
         .map((repository) => ({
           member,

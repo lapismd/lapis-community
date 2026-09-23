@@ -68,7 +68,9 @@ export type CommunityApplicationProjectRoute =
       kind: "repository";
       coordinate: string;
       surface: ProjectForgeSurface;
-      commitSha?: string; revision?: string; path?: string;
+      commitSha?: string;
+      revision?: string;
+      path?: string;
     };
 
 export interface CommunityApplicationHistory {

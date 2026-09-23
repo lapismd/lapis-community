@@ -92,8 +92,7 @@
     align-items: center;
     gap: 0.5rem;
     padding: 0.45rem 0.65rem;
-    border-bottom: 1px solid
-      color-mix(in srgb, currentColor 14%, transparent);
+    border-bottom: 1px solid color-mix(in srgb, currentColor 14%, transparent);
   }
 
   .community-revision-graph-files__title {
@@ -106,7 +105,8 @@
     font-weight: 600;
   }
 
-  .community-revision-graph-files__review {
+  .community-revision-graph-files__header
+    :global(.community-revision-graph-files__review) {
     flex: 0 0 auto;
   }
 
@@ -137,17 +137,14 @@
     color: var(--muted-foreground);
   }
 
-  .community-revision-graph-files
-    :global(.ui-diff-file-listing__row--selected),
+  .community-revision-graph-files :global(.ui-diff-file-listing__row--selected),
   .community-revision-graph-files
     :global(.ui-diff-file-listing__row--selected:hover) {
     color: var(--foreground);
   }
 
   .community-revision-graph-files
-    :global(
-      .ui-diff-file-listing__row--selected .ui-diff-file-listing__icon
-    ) {
+    :global(.ui-diff-file-listing__row--selected .ui-diff-file-listing__icon) {
     border-radius: 4px;
     background: var(--background);
     box-shadow: 0 0 0 1px var(--border);

@@ -7,9 +7,7 @@ export function allowsAuthorReviewDecision(options: {
   isAdmin?: boolean;
 }): boolean {
   if (options.signer !== options.author) return true;
-  return (
-    options.signer === options.repositoryOwner || options.isAdmin === true
-  );
+  return options.signer === options.repositoryOwner || options.isAdmin === true;
 }
 
 export function trustsReviewDecision(

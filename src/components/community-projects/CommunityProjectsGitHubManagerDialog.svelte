@@ -38,14 +38,16 @@
   }: {
     open?: boolean | undefined;
     formOpen?: boolean | undefined;
-    draft?: {
-      appId: string;
-      installationId: string;
-      credentialRef: string;
-      webhookSecretRef: string;
-      bridgeCredentialRef: string;
-      bridgePubkey: string;
-    } | undefined;
+    draft?:
+      | {
+          appId: string;
+          installationId: string;
+          credentialRef: string;
+          webhookSecretRef: string;
+          bridgeCredentialRef: string;
+          bridgePubkey: string;
+        }
+      | undefined;
     connections?: readonly ProjectForgeGitHubConnection[] | undefined;
     editing?: ProjectForgeGitHubConnection | undefined;
     loading?: boolean | undefined;
@@ -183,7 +185,8 @@
             type="submit"
             disabled={operation !== ""}
           >
-            {operation || (editing ? "Replace configuration" : "Add connection")}
+            {operation ||
+              (editing ? "Replace configuration" : "Add connection")}
           </Button>
         {:else}
           <Button

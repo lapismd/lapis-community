@@ -25,7 +25,7 @@
   <Field.Label for={id}>Thinking</Field.Label>
   <Select.Root
     type="single"
-    value={thinking}
+    value={thinking ?? ""}
     onValueChange={(value) =>
       onValueChange(value as CommunityAgentRuntimeThinking)}
     disabled={pending}

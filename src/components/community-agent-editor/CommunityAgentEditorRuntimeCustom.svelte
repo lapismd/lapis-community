@@ -30,12 +30,15 @@
     model: string;
     thinking?: string;
     thinkingOptions: readonly CommunityAgentRuntimeOption[];
-    catalog: {
-      configOptions?: readonly {
-        id: string;
-        options?: readonly CommunityAgentRuntimeOption[];
-      }[];
-    } | null | undefined;
+    catalog:
+      | {
+          configOptions?: readonly {
+            id: string;
+            options?: readonly CommunityAgentRuntimeOption[];
+          }[];
+        }
+      | null
+      | undefined;
     permissionMode?: string;
     onModel: (row: EditorModelRow) => void;
     onThinking: (value: CommunityAgentRuntimeThinking) => void;

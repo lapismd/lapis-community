@@ -15,8 +15,9 @@ export function resolveMemberCommandRoom<
 >(rooms: readonly T[], active: T, overrideId?: string): T {
   if (!overrideId) return active;
   return (
-    rooms.find((room) => room.id === overrideId || room.groupId === overrideId) ??
-    active
+    rooms.find(
+      (room) => room.id === overrideId || room.groupId === overrideId,
+    ) ?? active
   );
 }
 

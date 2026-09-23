@@ -620,13 +620,14 @@
 }
 
 .community-projects__task-row-assignees
-  > .community-member-hover-card__trigger
-  + .community-member-hover-card__trigger {
+  > .community-projects-member-hover
+  + .community-projects-member-hover
+  .community-member-hover-card__trigger {
   margin-inline-start: -0.35rem;
 }
 
 .community-projects__task-row-assignees
-  > .community-member-hover-card__trigger
+  .community-member-hover-card__trigger
   [data-ui-part="image"] {
   box-shadow: 0 0 0 2px var(--background);
 }

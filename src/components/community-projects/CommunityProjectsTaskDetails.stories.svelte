@@ -1,12 +1,3 @@
-<script lang="ts">
-  import { provideCommunityShareLink } from "../community-entity-chip/share-link.js";
-
-  provideCommunityShareLink({
-    href: () => undefined,
-    copy: () => {},
-  });
-</script>
-
 <script module lang="ts">
   import { defineMeta } from "@storybook/addon-svelte-csf";
   import { expect } from "storybook/test";
@@ -20,6 +11,15 @@
     title: "Community/Projects/Task details",
     component: CommunityProjectsTaskDetails,
     tags: ["visual-pending"],
+  });
+</script>
+
+<script lang="ts">
+  import { provideCommunityShareLink } from "../community-entity-chip/share-link.js";
+
+  provideCommunityShareLink({
+    href: () => undefined,
+    copy: () => {},
   });
 </script>
 
@@ -43,9 +43,9 @@
       await expect(button).not.toHaveAttribute("data-active");
       await expect(button).not.toHaveAttribute("aria-current");
     }
-    await expect(canvas.getByRole("button", { name: /^Comments/u })).toHaveTextContent(
-      "1",
-    );
+    await expect(
+      canvas.getByRole("button", { name: /^Comments/u }),
+    ).toHaveTextContent("1");
     const comments = canvas.getByRole("button", { name: /^Comments/u });
     const copyLink = canvas.getByRole("button", { name: "Copy Link" });
     await expect(copyLink).toBeVisible();

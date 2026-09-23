@@ -26,10 +26,6 @@
 <div>
   <button type="button" onclick={() => (remount += 1)}>Remount</button>
   {#key remount}
-    <CommunityPulse
-      {model}
-      {currentMember}
-      onPublish={fn(async () => {})}
-    />
+    <CommunityPulse {model} {currentMember} onPublish={fn(async () => {})} />
   {/key}
 </div>

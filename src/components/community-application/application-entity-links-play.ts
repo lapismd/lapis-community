@@ -28,7 +28,7 @@ export async function playChannelEntityHashes({
   await userEvent.click(
     await within(navigation).findByRole(
       "button",
-      { name: "support", exact: true },
+      { name: "support" },
       { timeout: 15_000 },
     ),
   );
@@ -38,7 +38,7 @@ export async function playChannelEntityHashes({
     ),
   );
   await userEvent.click(
-    within(navigation).getByRole("button", { name: "general", exact: true }),
+    within(navigation).getByRole("button", { name: "general" }),
   );
   await waitFor(() =>
     expect(canvasElement.ownerDocument.defaultView?.location.hash).toBe(
@@ -106,9 +106,7 @@ export async function playRepositoryLogCopyLink({
       value: { writeText: async (value: string) => copied.push(value) },
     },
   );
-  await userEvent.click(
-    canvas.getByRole("button", { name: "Copy Link" }),
-  );
+  await userEvent.click(canvas.getByRole("button", { name: "Copy Link" }));
   await expect(copied[0]).toMatch(/^lapis-community:\/\/repo\?/u);
   await expect(copied[0]).toContain("tab=log");
   await userEvent.click(canvas.getByRole("button", { name: "Op Log" }));
@@ -121,8 +119,6 @@ export async function playRepositoryLogCopyLink({
       }),
     ),
   );
-  await userEvent.click(
-    canvas.getByRole("button", { name: "Copy Link" }),
-  );
+  await userEvent.click(canvas.getByRole("button", { name: "Copy Link" }));
   await expect(copied[1]).toContain("tab=oplog");
 }

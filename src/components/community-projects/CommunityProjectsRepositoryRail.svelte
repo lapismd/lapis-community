@@ -39,7 +39,9 @@
     githubDisabled = false,
     onGitHub,
     onSelect,
-    canMaintain = false, branches = [], defaultBranch = "",
+    canMaintain = false,
+    branches = [],
+    defaultBranch = "",
     onCreateReview,
   }: {
     surface: ProjectForgeSurface;
@@ -56,7 +58,8 @@
     onGitHub?: (() => void) | undefined;
     onSelect: (label: string) => void;
     canMaintain?: boolean;
-    branches?: readonly ProjectForgeRef[] | undefined; defaultBranch?: string;
+    branches?: readonly ProjectForgeRef[] | undefined;
+    defaultBranch?: string | undefined;
     onCreateReview?: (input: LogReviewSubmitInput) => Promise<void> | void;
   } = $props();
 
@@ -71,7 +74,12 @@
   }
 </script>
 
-{#snippet railStat(Icon: Component, label: string, value: string | number, part?: string)}
+{#snippet railStat(
+  Icon: Component,
+  label: string,
+  value: string | number,
+  part?: string,
+)}
   <Button
     type="button"
     variant="ghost"
@@ -83,15 +91,18 @@
   >
     <Icon data-icon="inline-start" aria-hidden="true" />
     <span>{label}</span>
-    <span class="community-application__project-overview-count" title={String(value)}
-      >{value}</span
+    <span
+      class="community-application__project-overview-count"
+      title={String(value)}>{value}</span
     >
   </Button>
 {/snippet}
 
 {#if surface === "log" || surface === "oplog"}
   <CommunityProjectsRepositoryLogRail
-    {canMaintain} {branches} {defaultBranch}
+    {canMaintain}
+    {branches}
+    {defaultBranch}
     {...onCreateReview ? { onCreateReview } : {}}
   />
 {/if}
@@ -124,7 +135,11 @@
   {/if}
   {#if channel}
     <p class="community-application__project-overview-label">Channel</p>
-    {@render railStat(CommunityProjectChannelIcon, channel.replace(/^#/, ""), "")}
+    {@render railStat(
+      CommunityProjectChannelIcon,
+      channel.replace(/^#/, ""),
+      "",
+    )}
   {/if}
   <p class="community-application__project-overview-label">Details</p>
   <CommunityProjectsRepositoryRailLatest
@@ -173,7 +188,20 @@
     font-size: var(--community-text-secondary);
   }
 
-  :global(.community-application__project-overview-item[data-ui-component="button"][data-active]),
-  :global(.community-application__project-overview-item[data-ui-component="button"]:hover:not(:disabled):not(.community-projects-rail-status-filter):not(.community-projects-repository-rail-latest__label)) { color: var(--muted-foreground); background-color: color-mix(in oklab, currentColor 10%, transparent); }
-  :global(.community-application__project-overview-count:empty) { display: none; }
+  :global(
+      .community-application__project-overview-item[data-ui-component="button"][data-active]
+    ),
+  :global(
+      .community-application__project-overview-item[data-ui-component="button"]:hover:not(
+          :disabled
+        ):not(.community-projects-rail-status-filter):not(
+          .community-projects-repository-rail-latest__label
+        )
+    ) {
+    color: var(--muted-foreground);
+    background-color: color-mix(in oklab, currentColor 10%, transparent);
+  }
+  :global(.community-application__project-overview-count:empty) {
+    display: none;
+  }
 </style>

@@ -25,7 +25,7 @@
   <Select.Root
     type="single"
     value={permissionMode}
-    onValueChange={onValueChange}
+    {onValueChange}
     disabled={pending}
   >
     <Select.Trigger {id}

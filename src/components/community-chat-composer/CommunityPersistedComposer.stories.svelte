@@ -39,9 +39,6 @@
       },
       { timeout: 1_000 },
     );
-    await new Promise((resolve) => {
-      window.setTimeout(resolve, 300);
-    });
     await userEvent.click(canvas.getByRole("button", { name: "Remount" }));
     const restored = await canvas.findByRole("textbox", {
       name: "Markdown editor",

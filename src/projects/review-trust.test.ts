@@ -74,12 +74,10 @@ describe("allowsAuthorReviewDecision", () => {
         repositoryOwner: owner,
       }),
     ).toBe(false);
-    expect(trustsReviewDecision(owner, owner, owner, maintainOnly)).toBe(
-      true,
+    expect(trustsReviewDecision(owner, owner, owner, maintainOnly)).toBe(true);
+    expect(trustsReviewDecision(reviewer, reviewer, owner, maintainOnly)).toBe(
+      false,
     );
-    expect(
-      trustsReviewDecision(reviewer, reviewer, owner, maintainOnly),
-    ).toBe(false);
     expect(
       trustsReviewDecision(admin, admin, owner, maintainersAuthority([admin])),
     ).toBe(true);
@@ -130,12 +128,18 @@ describe("pull request review trust", () => {
         ["c", commit],
       ],
     );
-    const maintainerApproval = event("4", PROJECT_FORGE_KINDS.note, reviewer, 5, [
-      ["e", maintainerRoot.id, "", "root"],
-      ["a", repositoryCoordinate],
-      ["t", "approval"],
-      ["c", commit],
-    ]);
+    const maintainerApproval = event(
+      "4",
+      PROJECT_FORGE_KINDS.note,
+      reviewer,
+      5,
+      [
+        ["e", maintainerRoot.id, "", "root"],
+        ["a", repositoryCoordinate],
+        ["t", "approval"],
+        ["c", commit],
+      ],
+    );
     const maintainerState = reducePullRequest(
       maintainerRoot,
       repository,

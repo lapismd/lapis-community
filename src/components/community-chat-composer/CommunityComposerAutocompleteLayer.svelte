@@ -52,7 +52,7 @@
     {lockedAgentPubkeys}
     bind:listRef
     {onSelect}
-    {onAutoMentionChange}
-    {onToggleAlwaysAddress}
+    {...onAutoMentionChange ? { onAutoMentionChange } : {}}
+    {...onToggleAlwaysAddress ? { onToggleAlwaysAddress } : {}}
   />
 {/if}

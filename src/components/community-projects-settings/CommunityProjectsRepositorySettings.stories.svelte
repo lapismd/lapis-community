@@ -45,7 +45,9 @@
   }}
   play={async ({ canvas }) => {
     await expect(canvas.getByText("Rulesets")).toBeVisible();
-    await expect(canvas.getByRole("list", { name: "Repository rulesets" })).toBeVisible();
+    await expect(
+      canvas.getByRole("list", { name: "Repository rulesets" }),
+    ).toBeVisible();
     await expect(
       canvas.getByRole("button", { name: /Default.*2 branch rules/u }),
     ).toBeVisible();
@@ -84,7 +86,9 @@
   args={{
     canMaintain: true,
     capabilities: hostedProtection,
-    members: [{ id: "a".repeat(64), name: "Ada", handle: "ada", initials: "A" }],
+    members: [
+      { id: "a".repeat(64), name: "Ada", handle: "ada", initials: "A" },
+    ],
     onSaveProtection: fn(),
   }}
   play={async ({ args, canvas, canvasElement, userEvent }) => {
@@ -92,9 +96,7 @@
     await userEvent.click(
       canvas.getByRole("button", { name: /2 branch rules/u }),
     );
-    await userEvent.click(
-      canvas.getByRole("button", { name: "Add target" }),
-    );
+    await userEvent.click(canvas.getByRole("button", { name: "Add target" }));
     await userEvent.click(
       overlay.getByRole("menuitem", { name: "Include by pattern" }),
     );
@@ -107,7 +109,9 @@
     await userEvent.click(
       overlay.getByRole("menuitem", { name: "Channel creator / relay admin" }),
     );
-    await expect(canvas.getByText("Channel creator / relay admin")).toBeVisible();
+    await expect(
+      canvas.getByText("Channel creator / relay admin"),
+    ).toBeVisible();
     const save = canvas.getByRole("button", { name: "Save ruleset" });
     await waitForPointerTarget(save, overlay);
     await userEvent.click(save);

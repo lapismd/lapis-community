@@ -26,8 +26,7 @@ describe("repository log route", () => {
       locationWithLogSurface(location, "oplog")?.projectRoute,
     ).toMatchObject({ surface: "oplog" });
     expect(
-      locationWithLogSurface(location, "log", "b".repeat(40))?.projectRoute
-        ?.commitSha,
-    ).toBe("b".repeat(40));
+      locationWithLogSurface(location, "log", "b".repeat(40))?.projectRoute,
+    ).toMatchObject({ kind: "repository", commitSha: "b".repeat(40) });
   });
 });

@@ -35,7 +35,9 @@
 
   let drafts = $state<ProjectForgeProtectionRule[]>([]);
   let openId = $state<string>();
-  let draftEnforcement = $state<Record<string, ProjectForgeProtectionRule["enforcement"]>>({});
+  let draftEnforcement = $state<
+    Record<string, ProjectForgeProtectionRule["enforcement"]>
+  >({});
 
   const rows = $derived([
     ...rules,
@@ -85,12 +87,25 @@
       <DropdownMenu.Root>
         <DropdownMenu.Trigger>
           {#snippet child({ props })}
-            <Button {...props} type="button" size="sm">New ruleset<ChevronDownIcon data-icon="inline-end" aria-hidden="true" /></Button>
+            <Button {...props} type="button" size="sm"
+              >New ruleset<ChevronDownIcon
+                data-icon="inline-end"
+                aria-hidden="true"
+              /></Button
+            >
           {/snippet}
         </DropdownMenu.Trigger>
         <DropdownMenu.Content class="community-projects-rulesets__new-menu">
-          <DropdownMenu.Item onSelect={() => queueMicrotask(() => startNew("branch"))}><GitBranchIcon data-icon="inline-start" aria-hidden="true" />New branch ruleset</DropdownMenu.Item>
-          <DropdownMenu.Item onSelect={() => queueMicrotask(() => startNew("tag"))}><TagIcon data-icon="inline-start" aria-hidden="true" />New tag ruleset</DropdownMenu.Item>
+          <DropdownMenu.Item
+            onSelect={() => queueMicrotask(() => startNew("branch"))}
+            ><GitBranchIcon data-icon="inline-start" aria-hidden="true" />New
+            branch ruleset</DropdownMenu.Item
+          >
+          <DropdownMenu.Item
+            onSelect={() => queueMicrotask(() => startNew("tag"))}
+            ><TagIcon data-icon="inline-start" aria-hidden="true" />New tag
+            ruleset</DropdownMenu.Item
+          >
         </DropdownMenu.Content>
       </DropdownMenu.Root>
     {/if}
@@ -98,7 +113,11 @@
   {#if rows.length === 0}
     <p>No rulesets yet. Create a branch or tag ruleset to protect refs.</p>
   {:else}
-    <div class="community-projects-rulesets__list" role="list" aria-label="Repository rulesets">
+    <div
+      class="community-projects-rulesets__list"
+      role="list"
+      aria-label="Repository rulesets"
+    >
       {#each rows as rule, index (rowId(rule, index))}
         {@const id = rowId(rule, index)}
         {@const name = rule.name || "Untitled ruleset"}
@@ -124,37 +143,43 @@
             </Collapsible.Trigger>
             {#if canMaintain}
               <div class="community-projects-rulesets__actions">
-              <DropdownMenu.Root>
-                <DropdownMenu.Trigger>
-                  {#snippet child({ props })}
-                    <Button
-                      {...props}
-                      type="button"
-                      variant="ghost"
-                      size="icon-sm"
-                      aria-label={`${name} ruleset actions`}
+                <DropdownMenu.Root>
+                  <DropdownMenu.Trigger>
+                    {#snippet child({ props })}
+                      <Button
+                        {...props}
+                        type="button"
+                        variant="ghost"
+                        size="icon-sm"
+                        aria-label={`${name} ruleset actions`}
+                      >
+                        <EllipsisIcon aria-hidden="true" />
+                      </Button>
+                    {/snippet}
+                  </DropdownMenu.Trigger>
+                  <DropdownMenu.Content>
+                    <DropdownMenu.Item
+                      onSelect={() =>
+                        queueMicrotask(() => setOpen(id, openId !== id))}
                     >
-                      <EllipsisIcon aria-hidden="true" />
-                    </Button>
-                  {/snippet}
-                </DropdownMenu.Trigger>
-                <DropdownMenu.Content>
-                  <DropdownMenu.Item onSelect={() => queueMicrotask(() => setOpen(id, openId !== id))}>
-                    {openId === id ? "Collapse" : "Edit"}
-                  </DropdownMenu.Item>
-                  {#if !id.startsWith("draft-")}
-                    <DropdownMenu.Item onSelect={() => void onToggle(id)}>
-                      {rule.enforcement === "active" ? "Disable" : "Enable"}
+                      {openId === id ? "Collapse" : "Edit"}
                     </DropdownMenu.Item>
-                  {/if}
-                  <DropdownMenu.Item
-                    variant="destructive"
-                    onSelect={() =>
-                      queueMicrotask(() =>
-                        id.startsWith("draft-") ? cancel(rule) : void onDelete(id))}
-                  >Delete</DropdownMenu.Item>
-                </DropdownMenu.Content>
-              </DropdownMenu.Root>
+                    {#if !id.startsWith("draft-")}
+                      <DropdownMenu.Item onSelect={() => void onToggle(id)}>
+                        {rule.enforcement === "active" ? "Disable" : "Enable"}
+                      </DropdownMenu.Item>
+                    {/if}
+                    <DropdownMenu.Item
+                      variant="destructive"
+                      onSelect={() =>
+                        queueMicrotask(() =>
+                          id.startsWith("draft-")
+                            ? cancel(rule)
+                            : void onDelete(id),
+                        )}>Delete</DropdownMenu.Item
+                    >
+                  </DropdownMenu.Content>
+                </DropdownMenu.Root>
               </div>
             {/if}
           </div>
@@ -215,8 +240,17 @@
     padding-inline-end: 0.45rem;
   }
 
-  :global(.community-projects-rulesets__new-menu[data-ui-component="dropdown-menu"][data-ui-part="dropdown-menu-content"]) { width: max-content; min-width: 15.5rem; }
-  :global(.community-projects-rulesets__new-menu [data-ui-part="dropdown-menu-item"]) { white-space: nowrap; }
+  :global(
+      .community-projects-rulesets__new-menu[data-ui-component="dropdown-menu"][data-ui-part="dropdown-menu-content"]
+    ) {
+    width: max-content;
+    min-width: 15.5rem;
+  }
+  :global(
+      .community-projects-rulesets__new-menu [data-ui-part="dropdown-menu-item"]
+    ) {
+    white-space: nowrap;
+  }
 
   h3,
   p {

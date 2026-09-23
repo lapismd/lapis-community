@@ -18,7 +18,11 @@ export { validRouteCoordinate } from "./project-route-coordinate.js";
 export function projectRouteToHash(
   route: CommunityApplicationProjectRoute,
 ): string {
-  if (route.kind === "repository" && route.surface === "files" && route.revision) {
+  if (
+    route.kind === "repository" &&
+    route.surface === "files" &&
+    route.revision
+  ) {
     return repositoryFilesHash(route.coordinate, route.revision, route.path);
   }
   const surface =
@@ -118,7 +122,9 @@ export function parseStoredProjectRoute(
         /^(?:[a-f0-9]{40}|[a-f0-9]{64})$/u.test(route.commitSha)
           ? { commitSha: route.commitSha }
           : {}),
-        ...(route.kind === "repository" ? storedRepositoryFilesFields(route) : {}),
+        ...(route.kind === "repository"
+          ? storedRepositoryFilesFields(route)
+          : {}),
       }
     : undefined;
 }

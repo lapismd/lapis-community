@@ -57,8 +57,12 @@
     ) => readonly string[] | undefined;
     onToggleReaction: (comment: PullRequestComment, emoji: string) => void;
     onOpenProfile?: ((member: CommunityMemberModel) => void) | undefined;
-    onMessageMember?: ((member: CommunityMemberModel) => void | Promise<void>) | undefined;
-    onWaveMember?: ((member: CommunityMemberModel) => void | Promise<void>) | undefined;
+    onMessageMember?:
+      | ((member: CommunityMemberModel) => void | Promise<void>)
+      | undefined;
+    onWaveMember?:
+      | ((member: CommunityMemberModel) => void | Promise<void>)
+      | undefined;
   } = $props();
 
   const actorMember = $derived(
@@ -73,13 +77,14 @@
     ),
   );
   const timelineDecision = $derived(
-    entry.kind === "comment"
-      ? reviewCommentDecision(entry.comment)
-      : undefined,
+    entry.kind === "comment" ? reviewCommentDecision(entry.comment) : undefined,
   );
 </script>
 
-<article class="community-projects__review-timeline-item" data-kind={entry.kind}>
+<article
+  class="community-projects__review-timeline-item"
+  data-kind={entry.kind}
+>
   <span
     class="community-projects__review-timeline-marker"
     data-status={entry.kind === "lifecycle" ? entry.lifecycle : entry.kind}
@@ -126,9 +131,9 @@
       </div>
     {:else if entry.kind === "review-request"}
       {@const targetMember = pullRequestEventTagValue(
-          entry.comment.event,
-          "external-reviewer",
-        )
+        entry.comment.event,
+        "external-reviewer",
+      )
         ? undefined
         : entry.comment.reviewerPubkeys[0]
           ? memberForPubkey(entry.comment.reviewerPubkeys[0])

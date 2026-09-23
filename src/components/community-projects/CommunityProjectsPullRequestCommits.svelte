@@ -80,8 +80,7 @@
           )}
       >
         <GitCommitHorizontalIcon aria-hidden="true" />
-        <strong
-          >{update.event.content.trim() || "Updated review branch"}</strong
+        <strong>{update.event.content.trim() || "Updated review branch"}</strong
         >
         <code>{update.commit.slice(0, 7)}</code>
       </button>

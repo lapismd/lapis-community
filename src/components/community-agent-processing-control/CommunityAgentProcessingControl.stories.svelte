@@ -271,7 +271,10 @@
       checking.querySelector('[data-ui-component="spinner"]'),
     ).toBeVisible();
     finishChecking(enabled);
-    const stop = await canvas.findByRole("button", { name: "Stop", exact: true });
+    const stop = await canvas.findByRole("button", {
+      name: "Stop",
+      exact: true,
+    });
     const message = canvas.getByRole("button", { name: "Message" });
     const stopBox = stop.getBoundingClientRect();
     const messageBox = message.getBoundingClientRect();
@@ -284,10 +287,10 @@
       `${Math.round(stopBox.width)}x${Math.round(stopBox.height)}`,
     ).toBe("210x120");
   }}
-  >{#snippet template(args)}<CommunityProfileActions label="Agent profile actions"
-      ><Button variant="outline">Message</Button><CommunityAgentProcessingControl
-        {...args}
-      /></CommunityProfileActions
+  >{#snippet template(args)}<CommunityProfileActions
+      label="Agent profile actions"
+      ><Button variant="outline">Message</Button
+      ><CommunityAgentProcessingControl {...args} /></CommunityProfileActions
     >{/snippet}</Story
 >
 

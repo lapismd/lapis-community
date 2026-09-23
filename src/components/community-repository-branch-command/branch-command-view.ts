@@ -46,7 +46,8 @@ export function branchCommandLabel(
   if (!branch || branches.some((item) => item.name === branch)) return branch;
   const tips = branches.filter((item) => item.sha === branch);
   const preferred =
-    tips.find((item) => item.name === projectForgeDefaultBranchName(branches)) ??
-    tips[0];
+    tips.find(
+      (item) => item.name === projectForgeDefaultBranchName(branches),
+    ) ?? tips[0];
   return preferred?.name ?? branch;
 }

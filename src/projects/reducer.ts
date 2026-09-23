@@ -295,7 +295,9 @@ export function reducePullRequest(
     if (comment.decision) {
       comment.isTrustedDecision =
         authority?.canMaintain(comment.event.pubkey) === true &&
-        (comment.event.pubkey !== root.pubkey || comment.event.pubkey === repository.owner || authority.isAdmin?.(comment.event.pubkey) === true);
+        (comment.event.pubkey !== root.pubkey ||
+          comment.event.pubkey === repository.owner ||
+          authority.isAdmin?.(comment.event.pubkey) === true);
       const commit = comment.commit || initialCommit;
       comment.decisionStatus =
         commit === currentCommit ? "current" : "historical";

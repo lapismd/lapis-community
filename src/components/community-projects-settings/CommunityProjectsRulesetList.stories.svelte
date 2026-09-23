@@ -49,9 +49,13 @@
   play={async ({ canvas, canvasElement, userEvent }) => {
     const overlay = within(canvasElement.ownerDocument.body);
     await expect(canvas.getByText("Rulesets")).toBeVisible();
-    await expect(canvas.getByRole("list", { name: "Repository rulesets" })).toBeVisible();
     await expect(
-      canvas.getByRole("button", { name: /Default.*targeting default branch/u }),
+      canvas.getByRole("list", { name: "Repository rulesets" }),
+    ).toBeVisible();
+    await expect(
+      canvas.getByRole("button", {
+        name: /Default.*targeting default branch/u,
+      }),
     ).toBeVisible();
     await expect(
       canvas.getByRole("button", { name: /Paused.*branch rule/u }),
@@ -69,11 +73,19 @@
       paused.getByRole("slider", { name: "Required approvals" }),
     ).toHaveAttribute("aria-valuenow", "2");
     const newRuleset = canvas.getByRole("button", { name: "New ruleset" });
-    await expect(newRuleset.querySelector(".lucide-chevron-down")).not.toBeNull();
+    await expect(
+      newRuleset.querySelector(".lucide-chevron-down"),
+    ).not.toBeNull();
     await userEvent.click(newRuleset);
-    const branch = overlay.getByRole("menuitem", { name: "New branch ruleset" });
+    const branch = overlay.getByRole("menuitem", {
+      name: "New branch ruleset",
+    });
     await expect(branch.querySelector(".lucide-git-branch")).not.toBeNull();
-    await expect(overlay.getByRole("menuitem", { name: "New tag ruleset" }).querySelector(".lucide-tag")).not.toBeNull();
+    await expect(
+      overlay
+        .getByRole("menuitem", { name: "New tag ruleset" })
+        .querySelector(".lucide-tag"),
+    ).not.toBeNull();
     await expect(branch.scrollWidth).toBeLessThanOrEqual(branch.clientWidth);
     await userEvent.click(branch);
     const editor = within(
@@ -84,7 +96,9 @@
     await expect(editor.getByLabelText("Ruleset name")).toHaveValue(
       "New branch ruleset",
     );
-    await expect(editor.getByRole("switch", { name: "Enforcement status" })).toBeVisible();
+    await expect(
+      editor.getByRole("switch", { name: "Enforcement status" }),
+    ).toBeVisible();
     await expect(editor.getByText("Bypass list is empty")).toBeVisible();
     await expect(
       editor.getByText(/Exempt channel roles and members/u),

@@ -52,7 +52,7 @@
       files={[...files]}
       mode="tree"
       selectedPath={selectedPath || null}
-      onSelectPath={onSelectPath}
+      {onSelectPath}
     >
       {#snippet fileMeta()}
         <span class="sr-only">Repository file</span>

@@ -28,13 +28,17 @@
     members?: readonly CommunityMemberModel[];
     isContinuation?: boolean;
     replyParticipants?: readonly CommunityMemberModel[];
-    onOpenThread?: (messageId: string) => void;
-    onOpenProfile?: (member: CommunityMemberModel) => void;
-    onMessageMember?: (member: CommunityMemberModel) => void | Promise<void>;
-    onWaveMember?: (member: CommunityMemberModel) => void | Promise<void>;
-    onViewMemberActivity?: (
-      member: CommunityMemberModel,
-    ) => void | Promise<void>;
+    onOpenThread?: ((messageId: string) => void) | undefined;
+    onOpenProfile?: ((member: CommunityMemberModel) => void) | undefined;
+    onMessageMember?:
+      | ((member: CommunityMemberModel) => void | Promise<void>)
+      | undefined;
+    onWaveMember?:
+      | ((member: CommunityMemberModel) => void | Promise<void>)
+      | undefined;
+    onViewMemberActivity?:
+      | ((member: CommunityMemberModel) => void | Promise<void>)
+      | undefined;
   } = $props();
 
   const replyLabel = $derived.by(() => {

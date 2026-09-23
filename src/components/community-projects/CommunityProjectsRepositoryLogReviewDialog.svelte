@@ -88,10 +88,7 @@
         </Field.Field>
         {#if localError}<Field.Error>{localError}</Field.Error>{/if}
       </Field.Group>
-      <Button
-        type="submit"
-        disabled={busy || !reviewTitle.trim() || !changeId}
-      >
+      <Button type="submit" disabled={busy || !reviewTitle.trim() || !changeId}>
         {busy ? "Creating review…" : "Create review"}
       </Button>
     </form>
