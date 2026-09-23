@@ -752,8 +752,8 @@
       "forbiddenImportCount": 0
     },
     "src/community/community-link-normalize.ts": {
-      "countedLines": 184,
-      "physicalLines": 193,
+      "countedLines": 187,
+      "physicalLines": 196,
       "forbiddenImportCount": 0
     },
     "src/community/community-links.test.ts": {
@@ -762,8 +762,8 @@
       "forbiddenImportCount": 0
     },
     "src/community/community-links.ts": {
-      "countedLines": 229,
-      "physicalLines": 246,
+      "countedLines": 250,
+      "physicalLines": 267,
       "forbiddenImportCount": 0
     },
     "src/community/composer-model.ts": {
@@ -1720,8 +1720,8 @@
       "forbiddenImportCount": 0
     },
     "src/components/community-application/application-location-hash.ts": {
-      "countedLines": 191,
-      "physicalLines": 200,
+      "countedLines": 193,
+      "physicalLines": 202,
       "forbiddenImportCount": 0
     },
     "src/components/community-application/application-send.test.ts": {
@@ -1920,8 +1920,8 @@
       "forbiddenImportCount": 0
     },
     "src/components/community-application/project-log-route.ts": {
-      "countedLines": 59,
-      "physicalLines": 63,
+      "countedLines": 63,
+      "physicalLines": 67,
       "forbiddenImportCount": 0
     },
     "src/components/community-application/project-route-commit.ts": {
@@ -1935,8 +1935,8 @@
       "forbiddenImportCount": 0
     },
     "src/components/community-application/project-route.ts": {
-      "countedLines": 128,
-      "physicalLines": 135,
+      "countedLines": 133,
+      "physicalLines": 140,
       "forbiddenImportCount": 0
     },
     "src/components/community-application/repository-browsing.ts": {
@@ -3103,8 +3103,8 @@
       "forbiddenImportCount": 0
     },
     "src/components/community-projects/CommunityProjectsActivityFeed.svelte": {
-      "countedLines": 297,
-      "physicalLines": 304,
+      "countedLines": 300,
+      "physicalLines": 307,
       "forbiddenImportCount": 0
     },
     "src/components/community-projects/CommunityProjectsActivityFilter.stories.svelte": {
@@ -3403,8 +3403,8 @@
       "forbiddenImportCount": 0
     },
     "src/components/community-projects/CommunityProjectsRevisionGraphIds.svelte": {
-      "countedLines": 141,
-      "physicalLines": 156,
+      "countedLines": 144,
+      "physicalLines": 160,
       "forbiddenImportCount": 0
     },
     "src/components/community-projects/CommunityProjectsRevisionGraphMessage.svelte": {
@@ -4757,8 +4757,8 @@
       "forbiddenImportCount": 0
     },
     "src/projects/repository-log-selection.svelte.ts": {
-      "countedLines": 161,
-      "physicalLines": 161,
+      "countedLines": 165,
+      "physicalLines": 172,
       "forbiddenImportCount": 0
     },
     "src/projects/repository-log.test.ts": {

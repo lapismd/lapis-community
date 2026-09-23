@@ -4,16 +4,20 @@
   import Copy from "@lucide/svelte/icons/copy";
   import TriangleAlert from "@lucide/svelte/icons/triangle-alert";
 
+  import { revisionGraphCopiedValue } from "../../community/revision-graph-copy-link.js";
+
   let {
     changeId = "",
     commitId,
     commitLabel = "commit ID",
     placement = "overlay",
+    coordinate = "",
   }: {
     changeId?: string | undefined;
     commitId: string;
     commitLabel?: string | undefined;
     placement?: "overlay" | "inline" | undefined;
+    coordinate?: string | undefined;
   } = $props();
 
   let copied = $state("");
@@ -59,7 +63,7 @@
     title="Copy full {label}"
     data-copied={state === "copied" || undefined}
     data-copy-failed={state === "failed" || undefined}
-    onclick={() => void copy(label, value)}
+    onclick={() => void copy(label, revisionGraphCopiedValue({ coordinate, label, value, hash: globalThis.location?.hash }))}
   >
     <code>{shorten(value)}</code>
     {#if state === "copied"}

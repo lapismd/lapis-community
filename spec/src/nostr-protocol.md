@@ -183,6 +183,9 @@ copy buttons, and MAY load dest-Git files for a commit recorded in that
 operation's `evolution.entries`. Evolog MUST walk recorded `3904` predecessor maps and
 hydrate rows from kind `3902`. Closing the Evolog column MUST clear the
 rail toggle.
+History copy buttons MUST copy `lapis-community://repo?owner=&d=&tab=` with
+`change` for that change id, `commit` for a 40- or 64-digit id, and `id`
+otherwise. Opening `change` MUST select that Log revision.
 Kind `3902` `change_id_hex` (or the `i` tag) MUST become
 the reverse-hex change ID shown with Design Core copy buttons beside the
 commit ID copy control. Kind `3902` author email MUST drive that leading

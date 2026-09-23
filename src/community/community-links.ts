@@ -2,9 +2,11 @@ import {
   COMMUNITY_TAB,
   decodeLinkSegment,
   normalizeBranch,
+  normalizeChange,
   normalizeCommit,
   normalizeHex,
   requireBranch,
+  requireChange,
   requireCommit,
   requireHex64,
   requireId,
@@ -31,6 +33,8 @@ export interface CommunityLinkBuilder {
     tab?: string;
     commit?: string;
     branch?: string;
+    change?: string;
+    id?: string;
   }): string;
 }
 
@@ -54,6 +58,8 @@ export type CommunityEntityLink =
       tab?: string;
       commit?: string;
       branch?: string;
+      change?: string;
+      id?: string;
     }
   | { kind: "task"; owner: string; d: string; id: string };
 
@@ -109,6 +115,8 @@ export function buildCommunityRepoLink(input: {
   tab?: string;
   commit?: string;
   branch?: string;
+  change?: string;
+  id?: string;
 }): string {
   return coordinateLink("repo", input);
 }
@@ -176,11 +184,18 @@ export function parseCommunityEntityLink(
     const branchValue = parsed.searchParams.get("branch");
     const branch =
       branchValue === null ? undefined : normalizeBranch(branchValue);
+    const changeValue = parsed.searchParams.get("change");
+    const change =
+      changeValue === null ? undefined : normalizeChange(changeValue);
+    const idValue = parsed.searchParams.get("id");
+    const id = idValue === null ? undefined : validId(idValue) ? idValue : undefined;
     if (
       !owner ||
       !validId(d) ||
       (tab !== undefined && !COMMUNITY_TAB.test(tab)) ||
-      (branchValue !== null && !branch)
+      (branchValue !== null && !branch) ||
+      (changeValue !== null && !change) ||
+      (idValue !== null && !id)
     )
       return undefined;
     if (parsed.hostname === "project") {
@@ -193,6 +208,8 @@ export function parseCommunityEntityLink(
       ...(tab ? { tab } : {}),
       ...(commit ? { commit } : {}),
       ...(branch ? { branch } : {}),
+      ...(change ? { change } : {}),
+      ...(id ? { id } : {}),
     };
   }
   return undefined;
@@ -230,6 +247,8 @@ function coordinateLink(
     tab?: string;
     commit?: string;
     branch?: string;
+    change?: string;
+    id?: string;
   },
 ): string {
   const params = new URLSearchParams();
@@ -242,5 +261,7 @@ function coordinateLink(
   }
   if (input.commit) params.set("commit", requireCommit(input.commit));
   if (input.branch) params.set("branch", requireBranch(input.branch));
+  if (input.change) params.set("change", requireChange(input.change));
+  if (input.id) params.set("id", requireId(input.id, "id"));
   return `${COMMUNITY_LINK_SCHEME}//${host}?${params}`;
 }

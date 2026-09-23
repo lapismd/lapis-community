@@ -1,3 +1,4 @@
+import { normalizeChange } from "../../community/community-link-ids.js";
 import type {
   CommunityApplicationLocation,
   CommunityApplicationProjectRoute,
@@ -26,7 +27,10 @@ export function logPaneNavigation(
   return {
     requestedCommitId() {
       const route = repositoryLogRoute(location());
-      return route && (route.commitSha ?? null);
+      return route
+        ? (route.commitSha ??
+          (normalizeChange(route.revision) ? route.revision : null))
+        : null;
     },
     onSelectCommit(commitId: string | null) {
       const current = location();

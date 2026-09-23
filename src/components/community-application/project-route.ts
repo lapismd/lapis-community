@@ -25,12 +25,14 @@ export function projectRouteToHash(
     route.surface === projectRouteDefaultSurface(route.kind)
       ? ""
       : `/${route.surface}`;
-  const commit =
-    route.kind === "repository" &&
-    projectRouteHasTrailingId(route.surface) &&
-    route.commitSha
-      ? `/${route.commitSha}`
+  const trailing =
+    route.kind === "repository" && projectRouteHasTrailingId(route.surface)
+      ? route.commitSha ||
+        (route.revision && /^[zyxwvutsrqponmlk]{32}$/u.test(route.revision)
+          ? route.revision
+          : "")
       : "";
+  const commit = trailing ? `/${trailing}` : "";
   return `#/projects/${route.kind}/${encodeURIComponent(route.coordinate).replaceAll("%3A", ":")}${surface}${commit}`;
 }
 
@@ -48,7 +50,7 @@ export function projectRouteFromHash(
     };
   }
   const match =
-    /^#\/projects\/(project|repository)\/([^/]+)(?:\/([^/]+))?(?:\/([a-f0-9]{40}|[a-f0-9]{64}))?$/u.exec(
+    /^#\/projects\/(project|repository)\/([^/]+)(?:\/([^/]+))?(?:\/([a-f0-9]{40}|[a-f0-9]{64}|[zyxwvutsrqponmlk]{32}))?$/u.exec(
       hash,
     );
   if (!match) return null;
@@ -74,11 +76,14 @@ export function projectRouteFromHash(
       (kind !== "repository" || !projectRouteHasTrailingId(surface))
     )
       return null;
+    const token = match[4];
+    const changeId = token && /^[zyxwvutsrqponmlk]{32}$/u.test(token);
     return {
       kind,
       coordinate,
       surface,
-      ...(match[4] ? { commitSha: match[4] } : {}),
+      ...(token && !changeId ? { commitSha: token } : {}),
+      ...(changeId ? { revision: token } : {}),
     };
   } catch {
     return null;

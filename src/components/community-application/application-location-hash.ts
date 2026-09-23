@@ -182,7 +182,9 @@ export function locationForCommunityEntityLink(
     ...(link.kind === "repo" && link.commit ? { commitSha: link.commit } : {}),
     ...(link.kind === "repo" && surface === "files" && link.branch
       ? { revision: link.branch }
-      : {}),
+      : link.kind === "repo" && link.change
+        ? { revision: link.change }
+        : {}),
   });
 }
 

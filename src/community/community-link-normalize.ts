@@ -59,7 +59,7 @@ export function entityLinkFromApplicationHash(
     };
   }
   const project =
-    /^#\/projects\/(project|repository)\/([^/]+)(?:\/([^/]+))?(?:\/([a-f0-9]{40}|[a-f0-9]{64}))?$/u.exec(
+    /^#\/projects\/(project|repository)\/([^/]+)(?:\/([^/]+))?(?:\/([a-f0-9]{40}|[a-f0-9]{64}|[zyxwvutsrqponmlk]{32}))?$/u.exec(
       hash,
     );
   if (!project) return undefined;
@@ -68,7 +68,9 @@ export function entityLinkFromApplicationHash(
   );
   if (!coordinate) return undefined;
   const surface = project[3];
-  const commit = project[4];
+  const token = project[4];
+  const change = token && /^[zyxwvutsrqponmlk]{32}$/u.test(token) ? token : undefined;
+  const commit = change ? undefined : token;
   if (
     project[1] === "repository" &&
     surface === "tasks" &&
@@ -98,6 +100,7 @@ export function entityLinkFromApplicationHash(
     d: coordinate.d,
     ...(tab ? { tab } : {}),
     ...(commit ? { commit } : {}),
+    ...(change ? { change } : {}),
   };
 }
 
@@ -175,14 +178,14 @@ export function communityEntityLinkPresentation(link: CommunityEntityLink): {
     return {
       linkKind: "oplog",
       icon: "history",
-      fallbackLabel: link.commit ? link.commit.slice(0, 8) : link.d,
+      fallbackLabel: link.change?.slice(0, 8) ?? (link.commit ? link.commit.slice(0, 8) : link.d),
     };
   }
   if (link.tab === "log" || (link.tab === "commits" && link.commit)) {
     return {
       linkKind: link.tab === "log" ? "log" : "commit",
       icon: "git-commit-horizontal",
-      fallbackLabel: link.commit ? link.commit.slice(0, 8) : link.d,
+      fallbackLabel: link.change?.slice(0, 8) ?? (link.commit ? link.commit.slice(0, 8) : link.d),
     };
   }
   return {

@@ -181,6 +181,7 @@
                   commitId={detail.value}
                   commitLabel={detail.copyLabel}
                   placement="inline"
+                  coordinate={item.repositoryCoordinate}
                 />
               {:else if detail.kind === "chip" && detail.icon === "sync"}
                 <CommunityChip
@@ -246,12 +247,14 @@
                       commitId={copyable.title.value}
                       commitLabel={copyable.title.copyLabel}
                       placement="inline"
+                      coordinate={item.repositoryCoordinate}
                     />
                     {#if copyable.body}
                       <CommunityProjectsRevisionGraphIds
                         commitId={copyable.body.value}
                         commitLabel={copyable.body.copyLabel}
                         placement="inline"
+                        coordinate={item.repositoryCoordinate}
                       />
                     {/if}
                   </span>

@@ -1,7 +1,8 @@
 import { onDestroy, untrack } from "svelte";
 import type { ProjectForgeCommitResponse } from "./model.js";
 import type { createRepositoryLogCanvas } from "./repository-log-canvas.js";
-import type { RepositoryLogGraph } from "./repository-log.js";
+import type { RepositoryLogGraph, RepositoryLogRevision } from "./repository-log.js";
+import { encodeJjChangeId } from "./repository-log-graph.js";
 import type { RepositoryLogPaneState } from "./repository-log-pane.svelte.js";
 import {
   REPOSITORY_LOG_FILES_UNAVAILABLE,
@@ -113,7 +114,7 @@ export function createRepositoryLogSelection(options: {
         void showRevision(null);
         return;
       }
-      const index = revisions.findIndex((row) => row.eventId === requested);
+      const index = revisions.findIndex((row) => revisionMatches(row, requested));
       if (index < 0) {
         clear();
         pane.setLogSelection(null, null);
@@ -121,9 +122,13 @@ export function createRepositoryLogSelection(options: {
       }
       restored = requested;
       options.reveal(index + 1);
-      void showRevision(requested);
+      void showRevision(revisions[index]?.eventId ?? requested);
     });
   });
+
+  function revisionMatches(row: RepositoryLogRevision, requested: string): boolean {
+    return row.eventId === requested || row.changeId === requested || encodeJjChangeId(row.changeId) === requested;
+  }
 
   onDestroy(() => request?.abort());
   return {
@@ -144,7 +149,7 @@ export function createRepositoryLogSelection(options: {
       return pane.pane === "log" &&
         requested &&
         !options.loading() &&
-        !options.logGraph().revisions.some((row) => row.eventId === requested)
+        !options.logGraph().revisions.some((row) => revisionMatches(row, requested))
         ? requested
         : null;
     },

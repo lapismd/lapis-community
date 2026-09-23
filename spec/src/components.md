@@ -198,7 +198,10 @@ Log hosts Community's own `CommunityProjectsRevisionGraph` lane DAG, not a
 plugin import and not dest-Git history. Author labels MUST use display
 names only. Each row MUST show the Jujutsu change ID and commit ID as Community copy
 buttons matching History chrome: 8…4 shortening, a trailing copy icon, and
-`Copy full ${label}` names. A blank description MUST use jj's
+`Copy full ${label}` names. Every use of that control MUST copy a
+`lapis-community://repo?owner=&d=&tab=` link for the shown value: `change`
+for a change id, `commit` for a 40- or 64-digit id, and `id` for any other
+value. A change-id link MUST open that Log revision. A blank description MUST use jj's
 `(empty) (no description set)` placeholder. A forked lane MUST stay open until its
 shared parent so the branch edge meets the main line. Split, merge, and
 converge edges MUST use cubic joins: split from the parent lane at the row
