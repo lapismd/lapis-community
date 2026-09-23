@@ -956,10 +956,10 @@ running request, including after text or tool output. A queued request MUST be
 labelled Queued and MUST NOT use that streaming indicator. Activity controls
 MUST list every open or workspace-fencing run for the visible channel, including
 another thread, with Queued, Starting, Working, Waiting for permission, or
-Interrupted. An interrupted row MUST say it blocks later requests, and Cancel
-MUST target that row's session and turn. The Activity surface MUST offer Turns
+Interrupted. An interrupted row MUST say it blocks later requests, MUST include a recorded finish reason, and MUST offer Continue to release that fence so the owner can send another message. It MUST NOT use the streaming Working indicator. Cancel
+MUST target a running row's session and turn. An expired permission MUST drop its approval card and MUST leave that turn running with the notice that the agent is continuing. The Activity surface MUST offer Turns
 and Activity tabs. Turns MUST list each open or fencing run as one row with its
-status and a Cancel control at the end of that row. Reset conversation MUST
+status and a Cancel or Continue control at the end of that row. Reset conversation MUST
 appear once beneath that list, for the visible conversation, and MUST NOT be
 repeated for another thread's run. The Activity tab MUST show the saved
 history. Both panels MUST scroll inside the activity pane: the history keeps
@@ -969,7 +969,7 @@ Agent cards and profiles MUST use
 the same working presentation for a turn that is actually running. Completed reasoning and tools with terminal
 results MUST stop animating; replay or later metadata MUST NOT restart completed
 tools, and one conversation ending MUST NOT finish another conversation.
-Permission prompts and awaited reset confirmation remain on the Turns tab.
+Permission prompts MUST appear above the Turns and Activity tabs, and a newly waiting permission MUST raise a toast. Awaited reset confirmation remains on the Turns tab.
 Changed stories remain visual-pending.
 
 For LC-UI-013, sidebar unread counts MUST use the projected unread count and
@@ -1008,6 +1008,12 @@ reading state. Warm navigation browser coverage bounds reading-state getter
 calls while asserting that the actual destination messages remain visible.
 This composition optimization preserves omitted props, permission gates,
 callbacks, and all existing virtualized and nonvirtualized public contracts.
+The Inbox application host MUST snapshot its reactive adapter props once per
+dependency update before forwarding them through selection and conversation
+components. Selecting a different Inbox item MUST let its header and message
+skeleton paint before starting controller work, including when the conversation
+is already cached. A newer selection or host teardown MUST cancel undispatched
+selection work.
 
 Inbox filters and paging affect summary rows; they MUST preserve the selected
 conversation, its transport, composer and draft. Initial histories show

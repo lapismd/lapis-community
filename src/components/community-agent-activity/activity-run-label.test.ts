@@ -51,6 +51,9 @@ describe("activity run labels", () => {
       "Queued",
       "Interrupted. This run is blocking later requests in the workspace.",
     ]);
+    expect(activityRunLabel("interrupted", "Permission request expired")).toBe(
+      "Interrupted. Permission request expired. This run is blocking later requests in the workspace.",
+    );
     expect(activityControlRows([...rows, rows[0]!])).toEqual(rows);
     expect(
       rows.map((row) =>

@@ -1,7 +1,6 @@
 <script lang="ts">
   import { Button } from "@lapismd/design-core/shadcn/button";
   import { ConfirmDialog } from "@lapismd/design-core/forms/dialog";
-  import CommunityChip from "../community-chip/CommunityChip.svelte";
   import ActivityTurnList from "./ActivityTurnList.svelte";
   import {
     activityControlRows,
@@ -11,25 +10,20 @@
     CommunityAgentActivityContext,
     CommunityAgentControllerScope,
     CommunityAgentIdentity,
-    CommunityAgentsState,
   } from "../../community/agent-contracts.js";
   import type { CommunityRoomModel } from "../community-workspace/model.js";
-  import AgentPermissionCard from "./AgentPermissionCard.svelte";
   import type { AgentRuntimeActions } from "./runtime-actions.js";
   let {
     agent,
     context,
     scopes,
-    permissions,
     rooms,
     onCancelTurn,
     onResetConversation,
-    onRespondPermission,
   }: AgentRuntimeActions & {
     agent: CommunityAgentIdentity;
     context?: CommunityAgentActivityContext;
     scopes: CommunityAgentControllerScope[];
-    permissions: CommunityAgentsState["pendingPermissions"][string];
     rooms: readonly CommunityRoomModel[];
   } = $props();
   let resetting = $state(false);
@@ -81,26 +75,6 @@
         resetting = true;
       }}>Reset conversation</Button
     >{/if}
-  {#if permissions.length > 0}<CommunityChip size="compact" tone="warning"
-      >Waiting for approval</CommunityChip
-    >{/if}
-  {#each permissions as permission (permission.requestId)}
-    <AgentPermissionCard
-      agentName={agent.name}
-      {permission}
-      disabled={Boolean(controlPending) || !onRespondPermission}
-      onDecide={(decision) =>
-        onRespondPermission &&
-        runControl(permission.requestId, () =>
-          onRespondPermission(
-            agent.pubkey,
-            permission.requestId,
-            decision,
-            permission.channelId,
-          ),
-        ).catch(() => {})}
-    />
-  {/each}
   {#if controlError}<p role="alert">{controlError}</p>{/if}
 </section>
 <ConfirmDialog

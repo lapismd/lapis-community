@@ -7,7 +7,7 @@ import type {
   CommunityAgentControllerScope,
 } from "../../community/agent-contracts.js";
 
-export function activityRunLabel(state?: string): string {
+export function activityRunLabel(state?: string, preview?: string): string {
   switch (state) {
     case "queued":
       return "Queued";
@@ -16,10 +16,18 @@ export function activityRunLabel(state?: string): string {
     case "waiting_permission":
       return "Waiting for your permission";
     case "interrupted":
-      return "Interrupted. This run is blocking later requests in the workspace.";
+      return interruptedLabel(preview);
     default:
       return "Working";
   }
+}
+
+function interruptedLabel(preview?: string): string {
+  const reason = preview?.replace(/\s+/gu, " ").trim();
+  if (!reason || reason === "Blocking later requests in this workspace.")
+    return "Interrupted. This run is blocking later requests in the workspace.";
+  if (reason.startsWith("Interrupted.")) return reason;
+  return `Interrupted. ${reason.replace(/\.$/u, "")}. This run is blocking later requests in the workspace.`;
 }
 
 export function activityStreams(state?: string): boolean {
@@ -30,7 +38,7 @@ export function activityControlHeading(
   scope: CommunityAgentControllerScope,
   rooms: readonly { id: string; groupId?: string; name: string }[] = [],
 ): string {
-  return `${activityContextLabel(contextForScope(scope), rooms)} · ${activityRunLabel(scope.state)}`;
+  return `${activityContextLabel(contextForScope(scope), rooms)} · ${activityRunLabel(scope.state, scope.preview)}`;
 }
 
 export function activityControlRows(

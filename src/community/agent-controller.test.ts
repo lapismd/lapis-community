@@ -1231,8 +1231,8 @@ describe("agent activity controller", () => {
     expect(session.sendControl).not.toHaveBeenCalled();
     expect(controller.state.pendingPermissions[agent]).toEqual([]);
     expect(controller.state.controllerScopes[agent]).toMatchObject({
-      active: false,
-      state: "cancelled",
+      active: true, state: "running",
+      preview: "Permission expired. The agent is continuing.",
     });
   });
   it("ignores already expired permission frames and later waiting status", async () => {
@@ -1247,7 +1247,7 @@ describe("agent activity controller", () => {
       }),
     );
     await vi.waitFor(() =>
-      expect(controller.state.controllerScopes[agent]?.state).toBe("cancelled"),
+      expect(controller.state.controllerScopes[agent]?.state).toBe("running"),
     );
     expect(controller.state.pendingPermissions[agent] ?? []).toEqual([]);
     receive(
@@ -1258,7 +1258,7 @@ describe("agent activity controller", () => {
       }),
     );
     await vi.waitFor(() =>
-      expect(controller.state.controllerScopes[agent]?.state).toBe("cancelled"),
+      expect(controller.state.controllerScopes[agent]?.state).toBe("running"),
     );
     expect(controller.state.pendingPermissions[agent] ?? []).toEqual([]);
   });
@@ -1284,8 +1284,8 @@ describe("agent activity controller", () => {
       () => {
         expect(controller.state.pendingPermissions[agent]).toEqual([]);
         expect(controller.state.controllerScopes[agent]).toMatchObject({
-          active: false,
-          state: "cancelled",
+          active: true,
+          state: "running",
         });
       },
       { timeout: 2_000 },

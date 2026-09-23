@@ -233,6 +233,10 @@
 <Story
   name="Controller permissions"
   play={async ({ canvas, canvasElement }) => {
+    const requests = canvas.getByRole("region", { name: "Permission requests" });
+    await expect(within(requests).getByText("Waiting for approval")).toBeVisible();
+    await expect(within(requests).getByText("Run test suite")).toBeVisible();
+    const allow = expectPermissionCard(requests);
     await userEvent.click(canvas.getByRole("tab", { name: "Turns" }));
     const controls = canvas.getByRole("region", {
       name: "Agent runtime controls",
@@ -243,17 +247,12 @@
       within(controls).queryByRole("heading", { name: "Runtime controls" }),
     ).not.toBeInTheDocument();
     await expect(
-      within(controls).getByText("Waiting for approval"),
-    ).toBeVisible();
-    await expect(within(controls).getByText("Run test suite")).toBeVisible();
-    const allow = expectPermissionCard(controls);
-    await expect(
       within(controls).queryByRole("button", { name: "Always allow" }),
     ).not.toBeInTheDocument();
     await userEvent.click(allow);
     await expect(canvas.getByText("allow_once sent")).toBeVisible();
     await expect(
-      within(controls).queryByRole("article", {
+      within(requests).queryByRole("article", {
         name: "Permission requested by Research",
       }),
     ).not.toBeInTheDocument();
@@ -283,9 +282,8 @@
 <Story
   name="Expired controller permission"
   play={async ({ canvas }) => {
-    await userEvent.click(canvas.getByRole("tab", { name: "Turns" }));
     await expectExpiredPermissionHidden(
-      canvas.getByRole("region", { name: "Agent runtime controls" }),
+      canvas.getByRole("region", { name: "Agent activity history" }),
     );
   }}
   >{#snippet template()}<Harness

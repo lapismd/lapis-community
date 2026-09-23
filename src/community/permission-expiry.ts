@@ -85,11 +85,11 @@ function expireWaitingScopes(
       next[key] = scope;
       continue;
     }
-    const { preview: _preview, ...rest } = scope;
     next[key] = {
-      ...rest,
-      active: false,
-      state: "cancelled",
+      ...scope,
+      active: true,
+      state: "running",
+      preview: "Permission expired. The agent is continuing.",
       updatedAt: nowMs,
     };
   }

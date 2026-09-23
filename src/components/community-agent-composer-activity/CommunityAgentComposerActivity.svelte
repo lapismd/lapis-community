@@ -77,7 +77,7 @@
             >{first.name}: {first.preview}</span
           >
         {:else}
-          <ActivityRunStatus state={first.state} />
+          <ActivityRunStatus state={first.state} preview={first.preview} />
         {/if}
         {#if entries.length > 1}<CommunityChip size="compact"
             >+{entries.length - 1}</CommunityChip

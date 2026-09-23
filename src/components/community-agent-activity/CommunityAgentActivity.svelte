@@ -15,7 +15,9 @@
     CommunityMemberModel,
     CommunityRoomModel,
   } from "../community-workspace/model.js";
+  import ActivityPermissionStack from "./ActivityPermissionStack.svelte";
   import ActivityTabs from "./ActivityTabs.svelte";
+  import { activityStreams } from "./activity-run-label.js";
   import AgentRuntimeControls from "./AgentRuntimeControls.svelte";
   import type { AgentRuntimeActions } from "./runtime-actions.js";
   import { activityConversationKey } from "./activity-conversation-key.js";
@@ -113,18 +115,23 @@
     {#if model.activitySyncGap}
       Some activity predates the controller journal and cannot be recovered.{/if}
   </p>
+  {#if selected && permissions.length > 0}
+    <ActivityPermissionStack
+      agent={selected}
+      {permissions}
+      {...onRespondPermission ? { onRespondPermission } : {}}
+    />
+  {/if}
   <ActivityTabs>
     {#snippet turns()}
       {#if selected}
         <AgentRuntimeControls
           agent={selected}
           {scopes}
-          {permissions}
           {rooms}
           {context}
           {...onCancelTurn ? { onCancelTurn } : {}}
           {...onResetConversation ? { onResetConversation } : {}}
-          {...onRespondPermission ? { onRespondPermission } : {}}
         />
       {:else}<p>No open turns.</p>{/if}
     {/snippet}
@@ -147,7 +154,9 @@
         </div>{/if}
       {#if selected && (model.activity.length > 0 || scopes.some((scope) => scope.active) || model.hasOlder)}
         <CommunityAgentActivityFeed
-          working={scopes.some((scope) => scope.active)}
+          working={scopes.some(
+            (scope) => scope.active && activityStreams(scope.state),
+          )}
           activity={model.activity}
           agent={selected}
           {context}

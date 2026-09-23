@@ -5,7 +5,10 @@
     activityStreams,
   } from "../community-agent-activity/activity-run-label.js";
 
-  let { state }: { state?: string } = $props();
+  let { state, preview }: { state?: string; preview?: string } = $props();
 </script>
 
-<Reasoning label={activityRunLabel(state)} streaming={activityStreams(state)} />
+<Reasoning
+  label={activityRunLabel(state, preview)}
+  streaming={activityStreams(state)}
+/>

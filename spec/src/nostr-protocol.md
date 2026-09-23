@@ -66,7 +66,8 @@ tags, an optional group tag, and NIP-44 ciphertext addressed to the verified
 agent. Community preserves controller-issued scope keys unchanged for cancel
 and reset, and sends a permission response only for an unexpired request and an
 outcome present in that request's decrypted offered set. Expired requests leave
-pending and waiting state locally without sending a decision. Late telemetry
+pending state locally without sending a decision, and a waiting turn continues
+with the notice that the agent is continuing. Late telemetry
 sequences cannot reactivate a completed live scope.
 
 Runtime and memory administration extend this same envelope at control version

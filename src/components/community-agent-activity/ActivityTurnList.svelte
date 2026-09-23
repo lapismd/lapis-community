@@ -49,7 +49,9 @@
                 target.channelId,
                 target,
               ).catch(() => {});
-            }}>Cancel</Button
+            }}>{controllerScope.state === "interrupted"
+              ? "Continue"
+              : "Cancel"}</Button
           >{/if}
       </li>
     {/each}

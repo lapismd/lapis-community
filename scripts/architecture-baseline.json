@@ -1266,8 +1266,8 @@
       "forbiddenImportCount": 0
     },
     "src/components/community-agent-activity/AgentRuntimeControls.svelte": {
-      "countedLines": 144,
-      "physicalLines": 147,
+      "countedLines": 109,
+      "physicalLines": 112,
       "forbiddenImportCount": 0
     },
     "src/components/community-agent-activity/CommunityAgentActivity.plan.stories.svelte": {
@@ -1286,8 +1286,8 @@
       "forbiddenImportCount": 0
     },
     "src/components/community-agent-activity/CommunityAgentActivity.svelte": {
-      "countedLines": 215,
-      "physicalLines": 221,
+      "countedLines": 221,
+      "physicalLines": 226,
       "forbiddenImportCount": 0
     },
     "src/components/community-agent-activity/CommunityAgentActivityFeed.svelte": {
