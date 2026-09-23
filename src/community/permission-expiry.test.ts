@@ -44,7 +44,8 @@ describe("permission-expiry", () => {
     );
     expect(patch?.pendingPermissions[agent]).toEqual([]);
     expect(patch?.controllerScopes[agent]).toMatchObject({
-      active: true, state: "running",
+      active: true,
+      state: "running",
       preview: "Permission expired. The agent is continuing.",
     });
   });

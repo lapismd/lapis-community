@@ -69,6 +69,9 @@ outcome present in that request's decrypted offered set. Expired requests leave
 pending state locally without sending a decision, and a waiting turn continues
 with the notice that the agent is continuing. Late telemetry
 sequences cannot reactivate a completed live scope.
+Permission-expiry coverage asserts the empty pending list, active running scope,
+continuation notice, and absence of an outbound decision together; formatting
+repairs preserve each of those assertions.
 
 Runtime and memory administration extend this same envelope at control version
 `2`. `runtime_get` and `runtime_set` omit `h`; runtime changes contain at least

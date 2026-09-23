@@ -4721,7 +4721,7 @@
     await userEvent.click(canvas.getByRole("button", { name: "Inbox" }));
     await expectNoRightPanel();
     await fireEvent.click(
-      canvas.getAllByRole("button", { name: "Reply in thread" })[0]!,
+      (await canvas.findAllByRole("button", { name: "Reply in thread" }))[0]!,
     );
     await expect(
       await canvas.findByRole("group", { name: /^Replying to /u }),

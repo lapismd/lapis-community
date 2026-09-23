@@ -25,6 +25,19 @@ Pending requires exclusive thread membership, not a `some()` hit on root or
 latest, and treats an owner reply after the latest incoming event as ready.
 Conversation message rows are keyed with the inbox draft identity so
 same-room Nyra rows remount instead of reusing the previous pane.
+The Inbox host materializes its adapter props in a derived snapshot so downstream
+getters cannot multiply controller reads. Selection defers controller dispatch
+until after a paint opportunity, cancels superseded frames, and cancels pending
+work on teardown. The responsiveness stories exercise a 20-message conversation,
+stable adapter refreshes, cached selection, rapid replacement, and leaving.
+The workspace story budget records its awaited send completion; the application
+story awaits Inbox reply controls without growing its existing budget.
+The existing Activity permission tests and stories also receive formatter-only
+repairs. Their measured budgets record Prettier's line wrapping with unchanged
+assertions and behavior, including one additional line in each permission-expiry
+test owner.
+The permission stack also keeps the public decision union at its callback
+boundary instead of widening it to an arbitrary string.
 
 For LC-ARCH-011 and LC-ARCH-028, Turso driver import, connect, lock, and schema
 setup live in `turso-database-open` so `turso-event-store.ts` shrinks and the

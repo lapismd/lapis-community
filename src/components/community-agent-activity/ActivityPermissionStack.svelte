@@ -5,6 +5,7 @@
   import CommunityChip from "../community-chip/CommunityChip.svelte";
   import type {
     CommunityAgentIdentity,
+    CommunityAgentPermissionDecision,
     CommunityAgentsState,
   } from "../../community/agent-contracts.js";
   import AgentPermissionCard from "./AgentPermissionCard.svelte";
@@ -36,7 +37,7 @@
 
   async function decide(
     permission: (typeof permissions)[number],
-    decision: string,
+    decision: CommunityAgentPermissionDecision,
   ) {
     if (!onRespondPermission) return;
     error = "";
@@ -55,7 +56,9 @@
 
 {#if permissions.length > 0}
   <section class="activity-permissions" aria-label="Permission requests">
-    <CommunityChip size="compact" tone="warning">Waiting for approval</CommunityChip>
+    <CommunityChip size="compact" tone="warning"
+      >Waiting for approval</CommunityChip
+    >
     {#each permissions as permission (permission.requestId)}
       <AgentPermissionCard
         agentName={agent.name}

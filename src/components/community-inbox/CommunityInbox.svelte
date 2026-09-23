@@ -166,6 +166,56 @@
         model.items.some((item) => item.id === model.activeItemId)),
   );
 
+  // Match channel surfaces: resolve optional props once per update, not on
+  // every message, markdown, identity, or composer prop read.
+  const conversationOptions = $derived({
+    virtualize,
+    room: model.room,
+    draftKey: JSON.stringify([currentMemberId, model.activeItemId]),
+    messages: model.messages,
+    members: model.members,
+    rooms,
+    composerPlacement: "row" as const,
+    disabled,
+    disabledReason,
+    restrictMessageManagement: true,
+    canDeleteAny,
+    onSend,
+    communityEmojis,
+    ...(readBoundary ? { readBoundary } : {}),
+    ...(history ? { history } : {}),
+    ...(onLoadOlder ? { onLoadOlder } : {}),
+    ...(onLoadLatest ? { onLoadLatest } : {}),
+    ...(presentation ? { presentation } : {}),
+    ...(onPresentationChange ? { onPresentationChange } : {}),
+    ...(model.room.conversation?.transport === "nip17" &&
+    directHistory &&
+    onLoadOlderDirectMessages
+      ? {
+          history: { ...directHistory, ...history },
+          onLoadOlder: onLoadOlderDirectMessages,
+        }
+      : {}),
+    ...(currentMemberId === undefined ? {} : { currentMemberId }),
+    ...(onReply === undefined ? {} : { onReply, onOpenThread: onReply }),
+    ...(disabled || onToggleReaction === undefined
+      ? {}
+      : { onToggleReaction, onAddReaction: onToggleReaction }),
+    ...(onCopyMessageLink === undefined ? {} : { onCopyMessageLink }),
+    ...(onCopyMessage === undefined ? {} : { onCopyMessage }),
+    ...(onCopyEvent === undefined ? {} : { onCopyEvent }),
+    ...(onEditMessage === undefined ? {} : { onEditMessage }),
+    ...(onSaveMessageEdit === undefined ? {} : { onSaveMessageEdit }),
+    ...(onDeleteMessage === undefined ? {} : { onDeleteMessage }),
+    ...(onReportMessage === undefined ? {} : { onReportMessage }),
+    ...(onOpenProfile === undefined ? {} : { onOpenProfile }),
+    ...(onOpenRoom === undefined ? {} : { onOpenRoom }),
+    ...(onMessageMember === undefined ? {} : { onMessageMember }),
+    ...(onViewMemberActivity === undefined ? {} : { onViewMemberActivity }),
+    ...(replyTarget === undefined ? {} : { replyTarget }),
+    ...(onCancelReply === undefined ? {} : { onCancelReply }),
+  });
+
   const emptyStateTitles = {
     All: "No activity yet",
     "Direct messages": "No direct messages found",
@@ -285,7 +335,7 @@
                     showUnreadOnly,
                   )}
               >
-                {#each ["All", "Direct messages", "Mentions", "Threads"] as option}
+                {#each ["All", "Direct messages", "Mentions", "Threads"] as option (option)}
                   <DropdownMenu.RadioItem value={option}>
                     {option}
                   </DropdownMenu.RadioItem>
@@ -472,57 +522,7 @@
           {#if conversationLoading}
             {@render loadingMessages()}
           {:else}
-            <CommunityConversation
-              {virtualize}
-              {...readBoundary ? { readBoundary } : {}}
-              {...history ? { history } : {}}
-              {...onLoadOlder ? { onLoadOlder } : {}}
-              {...onLoadLatest ? { onLoadLatest } : {}}
-              {...presentation ? { presentation } : {}}
-              {...onPresentationChange ? { onPresentationChange } : {}}
-              room={model.room}
-              draftKey={JSON.stringify([currentMemberId, model.activeItemId])}
-              {...model.room.conversation?.transport === "nip17" &&
-              directHistory &&
-              onLoadOlderDirectMessages
-                ? {
-                    history: { ...directHistory, ...history },
-                    onLoadOlder: onLoadOlderDirectMessages,
-                  }
-                : {}}
-              messages={model.messages}
-              members={model.members}
-              {rooms}
-              composerPlacement="row"
-              {disabled}
-              {disabledReason}
-              restrictMessageManagement
-              {...currentMemberId === undefined ? {} : { currentMemberId }}
-              {canDeleteAny}
-              {onSend}
-              {...onReply === undefined
-                ? {}
-                : { onReply, onOpenThread: onReply }}
-              {...disabled || onToggleReaction === undefined
-                ? {}
-                : { onToggleReaction, onAddReaction: onToggleReaction }}
-              {...onCopyMessageLink === undefined ? {} : { onCopyMessageLink }}
-              {...onCopyMessage === undefined ? {} : { onCopyMessage }}
-              {...onCopyEvent === undefined ? {} : { onCopyEvent }}
-              {...onEditMessage === undefined ? {} : { onEditMessage }}
-              {...onSaveMessageEdit === undefined ? {} : { onSaveMessageEdit }}
-              {...onDeleteMessage === undefined ? {} : { onDeleteMessage }}
-              {...onReportMessage === undefined ? {} : { onReportMessage }}
-              {...onOpenProfile === undefined ? {} : { onOpenProfile }}
-              {...onOpenRoom === undefined ? {} : { onOpenRoom }}
-              {...onMessageMember === undefined ? {} : { onMessageMember }}
-              {...onViewMemberActivity === undefined
-                ? {}
-                : { onViewMemberActivity }}
-              {...replyTarget === undefined ? {} : { replyTarget }}
-              {communityEmojis}
-              {...onCancelReply === undefined ? {} : { onCancelReply }}
-            />
+            <CommunityConversation {...conversationOptions} />
           {/if}
         </div>
       </section>

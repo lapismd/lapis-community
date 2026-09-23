@@ -1014,6 +1014,10 @@ components. Selecting a different Inbox item MUST let its header and message
 skeleton paint before starting controller work, including when the conversation
 is already cached. A newer selection or host teardown MUST cancel undispatched
 selection work.
+Relay-backed shell stories MUST await loaded Inbox reply controls and completed
+send callbacks; an optimistic message alone does not prove relay acceptance.
+Activity permission stacks preserve the existing permission-decision union when
+forwarding card responses to runtime actions.
 
 Inbox filters and paging affect summary rows; they MUST preserve the selected
 conversation, its transport, composer and draft. Initial histories show

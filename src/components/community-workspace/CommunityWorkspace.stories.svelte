@@ -230,7 +230,9 @@
     await expect(
       await canvas.findByText("A channel interaction fixture"),
     ).toBeVisible();
-    await expect(frame).toHaveAttribute("data-last-action", "sent-message");
+    await waitFor(() =>
+      expect(frame).toHaveAttribute("data-last-action", "sent-message"),
+    );
 
     await userEvent.click(
       canvas.getByRole("button", { name: "Manage channel" }),

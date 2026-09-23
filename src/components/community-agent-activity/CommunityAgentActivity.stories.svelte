@@ -233,8 +233,12 @@
 <Story
   name="Controller permissions"
   play={async ({ canvas, canvasElement }) => {
-    const requests = canvas.getByRole("region", { name: "Permission requests" });
-    await expect(within(requests).getByText("Waiting for approval")).toBeVisible();
+    const requests = canvas.getByRole("region", {
+      name: "Permission requests",
+    });
+    await expect(
+      within(requests).getByText("Waiting for approval"),
+    ).toBeVisible();
     await expect(within(requests).getByText("Run test suite")).toBeVisible();
     const allow = expectPermissionCard(requests);
     await userEvent.click(canvas.getByRole("tab", { name: "Turns" }));

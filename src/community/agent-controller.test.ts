@@ -1231,7 +1231,8 @@ describe("agent activity controller", () => {
     expect(session.sendControl).not.toHaveBeenCalled();
     expect(controller.state.pendingPermissions[agent]).toEqual([]);
     expect(controller.state.controllerScopes[agent]).toMatchObject({
-      active: true, state: "running",
+      active: true,
+      state: "running",
       preview: "Permission expired. The agent is continuing.",
     });
   });

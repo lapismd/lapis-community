@@ -65,6 +65,10 @@ LC-UI-040 Inbox loading coverage updates the architecture baseline for its
 geometry assertions and the smaller component that shares the padded skeleton.
 LC-UI-044 records the Activity permission stack, the lowered runtime-control
 budget, and the Activity shell budget in the same baseline.
+Inbox responsiveness records the host snapshot and cancellable selection owners,
+the reduced Inbox component budget, and its new responsiveness harness/stories
+in the same baseline. Adapter read bounds and cached-selection paint coverage
+exercise application composition without changing relay ingestion.
 LC-UI-014 Inbox conversation scrollport coverage updates the architecture
 baseline for the Inbox stories that assert pane-fill selector scope, the
 same non-scrolling flex fill as channel workspace content, a pane
