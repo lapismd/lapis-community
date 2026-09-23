@@ -1578,8 +1578,8 @@
       "forbiddenImportCount": 0
     },
     "src/components/community-agent-processing-control/CommunityAgentProcessingControl.stories.svelte": {
-      "countedLines": 290,
-      "physicalLines": 298,
+      "countedLines": 306,
+      "physicalLines": 314,
       "forbiddenImportCount": 0
     },
     "src/components/community-agent-processing-control/CommunityAgentProcessingControl.svelte": {

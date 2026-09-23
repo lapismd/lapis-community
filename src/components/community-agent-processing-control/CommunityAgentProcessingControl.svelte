@@ -161,7 +161,7 @@
           <Button
             {...props}
             class="agent-processing__trigger"
-            variant="secondary"
+            variant={presentation === "profile" ? "outline" : "secondary"}
             size={presentation === "profile" ? "default" : "sm"}
             disabled={!connected || !!pending}
             aria-label={label === "Agent"
@@ -246,23 +246,7 @@
     min-width: 0;
   }
   .agent-processing[data-presentation="profile"] {
-    flex: 1;
-  }
-  .agent-processing[data-presentation="profile"]
-    :global(.agent-processing__trigger) {
-    width: 100%;
-    min-height: 4rem;
-    flex-direction: column;
-    gap: 0.5rem;
-  }
-  .agent-processing[data-presentation="profile"]
-    :global(.agent-processing__trigger:hover:not(:disabled)),
-  .agent-processing[data-presentation="profile"]
-    :global(.agent-processing__trigger:focus-visible:not(:disabled)) {
-    background: color-mix(in oklab, var(--primary) 14%, var(--secondary));
-    color: var(--foreground);
-    box-shadow: inset 0 0 0 1px
-      color-mix(in oklab, var(--primary) 32%, transparent);
+    display: contents;
   }
   .agent-processing__label {
     min-width: 0;

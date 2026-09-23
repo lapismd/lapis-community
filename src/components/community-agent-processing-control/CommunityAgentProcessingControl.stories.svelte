@@ -2,6 +2,8 @@
   import { defineMeta } from "@storybook/addon-svelte-csf";
   import { expect, fn, userEvent, waitFor, within } from "storybook/test";
   import { Toaster, toast } from "svelte-sonner";
+  import { Button } from "@lapismd/design-core/shadcn/button";
+  import CommunityProfileActions from "../community-profile-actions/CommunityProfileActions.svelte";
   import CommunityAgentProcessingControl from "./CommunityAgentProcessingControl.svelte";
   import Example from "../community-patterns/examples/AgentProcessingExample.svelte";
   import source from "../community-patterns/examples/AgentProcessingExample.svelte?raw";
@@ -42,7 +44,7 @@
       name: "Stop",
       exact: true,
     });
-    await expect(stop).toHaveAttribute("data-variant", "secondary");
+    await expect(stop).toHaveAttribute("data-variant", "outline");
     await expect(stop.querySelector('svg[aria-hidden="true"]')).toBeVisible();
     let acknowledge: (value: typeof disabled) => void = () => {};
     args.onSet.mockImplementationOnce(
@@ -269,11 +271,25 @@
       checking.querySelector('[data-ui-component="spinner"]'),
     ).toBeVisible();
     finishChecking(enabled);
+    const stop = await canvas.findByRole("button", { name: "Stop", exact: true });
+    const message = canvas.getByRole("button", { name: "Message" });
+    const stopBox = stop.getBoundingClientRect();
+    const messageBox = message.getBoundingClientRect();
+    await expect(stop).toBeEnabled();
+    await expect(stop).toHaveAttribute("data-variant", "outline");
+    await expect(Math.abs(stopBox.top - messageBox.top)).toBeLessThan(1);
+    await expect(Math.abs(stopBox.width - messageBox.width)).toBeLessThan(1);
+    await expect(Math.abs(stopBox.height - messageBox.height)).toBeLessThan(1);
     await expect(
-      await canvas.findByRole("button", { name: "Stop", exact: true }),
-    ).toBeEnabled();
+      `${Math.round(stopBox.width)}x${Math.round(stopBox.height)}`,
+    ).toBe("210x120");
   }}
-/>
+  >{#snippet template(args)}<CommunityProfileActions label="Agent profile actions"
+      ><Button variant="outline">Message</Button><CommunityAgentProcessingControl
+        {...args}
+      /></CommunityProfileActions
+    >{/snippet}</Story
+>
 
 <Story
   name="Cancelling status"
