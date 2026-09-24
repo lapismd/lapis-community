@@ -28,6 +28,9 @@ trust configuration remains independently overridable. Its
 checkout-local process supervisor MUST retain HMR for source updates, restart
 when generated fixture configuration changes, expose clean restart and stop
 commands, and refuse to replace a listener owned by another checkout.
+For LC-UI-047, the development controller MUST also compose the existing
+browser Community state store. Read cursors and preferences must survive reload
+within their viewer, relay and community scope without publishing a relay event.
 
 Project component stories that exercise Design Core AppShell body regions MUST
 render inside the production `CommunityAppShell` context. Their interactions

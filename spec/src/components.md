@@ -1019,6 +1019,14 @@ send callbacks; an optimistic message alone does not prove relay acceptance.
 Activity permission stacks preserve the existing permission-decision union when
 forwarding card responses to runtime actions.
 
+For LC-UI-047, Inbox defaults to showing both read and unread history, matching
+Buzz. Read items do not expire automatically. Show unread only MUST hide read
+rows except the selected conversation while it matches the current category.
+After selecting another conversation, the previous read row MUST disappear.
+New incoming content beyond its read cursor MUST make a hidden conversation
+unread and visible again without stealing selection. Keeping a selected read
+row visible MUST NOT mark it unread or increase the unread count.
+
 Inbox filters and paging affect summary rows; they MUST preserve the selected
 conversation, its transport, composer and draft. Initial histories show
 representative skeletons, refresh retains content, and pagination feedback stays
@@ -1037,6 +1045,9 @@ Browser acceptance MUST keep the story iframe inside the host browser viewport,
 including configured constrained and responsive scenarios. Read-boundary and
 hover assertions MUST observe the actual visible content; an oversized clipped
 test iframe is not evidence of a product scroll or read-state failure.
+Member-picker interaction stories MUST await rendered search results before
+asserting permission-gated actions; completion of synthetic typing alone does
+not establish that reactive search content is visible.
 
 The application cache story MUST cover a legacy offline channel with more than two message windows through the production controller and public conversation composition. Initial rendering remains bounded; reaching the older edge loads one cached window, keeps the reading anchor visible, and does not create a New messages notification. Unpaged custom source rendering remains unchanged. Opening a cached forum topic MUST retain its already available root post while the thread reply page refreshes.
 

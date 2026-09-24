@@ -69,6 +69,10 @@ Inbox responsiveness records the host snapshot and cancellable selection owners,
 the reduced Inbox component budget, and its new responsiveness harness/stories
 in the same baseline. Adapter read bounds and cached-selection paint coverage
 exercise application composition without changing relay ingestion.
+LC-UI-047 read-row parity records the shared Inbox visibility owner and its
+projection tests and read-state harness/stories in the architecture baseline.
+Both the Inbox component and materializer budgets shrink when their duplicate
+filter predicates move to that owner.
 LC-UI-014 Inbox conversation scrollport coverage updates the architecture
 baseline for the Inbox stories that assert pane-fill selector scope, the
 same non-scrolling flex fill as channel workspace content, a pane

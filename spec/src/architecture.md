@@ -602,6 +602,14 @@ render state and callbacks. Prepared encrypted events belong to the data source
 and survive reconnect for the same pending command. Decoded content is cleared
 when identity changes. Existing public room identifiers remain compatible.
 
+For LC-UI-047, `inbox-visibility.ts` owns the shared category and unread-row
+predicate used by both paged Inbox projection and component presentation. The
+active read row remains eligible in unread-only mode until selection changes;
+it must still match the category. This does not change read cursors or counts.
+The development host supplies `createBrowserCommunityStateStore` to retain
+those cursors across controller recreation and page reload; the store's existing
+viewer, relay and community scope remains authoritative.
+
 Buzz DM compatibility is a client transport for supporting Buzz relays. It does
 not add the Buzz DM command backend to Lapis Relay.
 

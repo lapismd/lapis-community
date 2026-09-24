@@ -188,7 +188,14 @@
     await userEvent.click(
       overlay.getByRole("menuitem", { name: "Mark all as read" }),
     );
-    await expect(canvas.getByText("No unread mentions")).toBeVisible();
+    await waitFor(() => {
+      expect(
+        canvasElement.querySelectorAll('[data-ui-part="inbox-conversation"]'),
+      ).toHaveLength(1);
+      const selected = canvas.getByRole("button", { name: /^support:/u });
+      expect(selected).toHaveAttribute("aria-pressed", "true");
+      expect(selected).not.toHaveAttribute("data-unread");
+    });
 
     const composer = canvas.getByRole("textbox", {
       name: "Markdown editor",

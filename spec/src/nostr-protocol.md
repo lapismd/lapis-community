@@ -580,6 +580,11 @@ thread identity. Topic roots belong to their own thread for unread projection.
 Manual room Mark unread MUST invalidate that room's thread cursors as well as
 its room cursor, without touching another relay or conversation transport.
 
+For LC-UI-047, unread-only Inbox filtering changes row visibility, not event
+retention or transport state. Keeping the selected read row visible MUST NOT
+advance, clear or fabricate a read cursor. A newer incoming event beyond the
+existing deterministic cursor restores that conversation's unread row.
+
 For LC-ARCH-012, duplicate verified events MUST NOT invalidate projected
 conversation content. Request ordering is local presentation state and MUST NOT
 change event authority, timestamp/event-ID ordering or signature verification.

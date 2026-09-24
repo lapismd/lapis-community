@@ -19,6 +19,7 @@
   import { memberById } from "../community-workspace/model.js";
   import type { CommunityRoomModel } from "../community-workspace/model.js";
   import type { CommunityInboxFilter, CommunityInboxModel } from "./model.js";
+  import { isInboxItemVisible } from "../../community/inbox-visibility.js";
   import type {
     CommunityCustomEmoji,
     CommunityMessageReport,
@@ -154,11 +155,7 @@
   let resizeStartX = 0;
   let resizeStartWidth = 0;
   let visibleItems = $derived(
-    model.items.filter(
-      (item) =>
-        (filter === "All" || item.categories?.includes(filter)) &&
-        (!showUnreadOnly || item.unread),
-    ),
+    model.items.filter((item) => isInboxItemVisible(item, model)),
   );
   let hasSelectedItem = $derived(
     model.activeItemId !== "" &&

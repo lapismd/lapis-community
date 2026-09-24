@@ -387,7 +387,7 @@
       command.getByRole("combobox", { name: "Search members" }),
       "mara",
     );
-    await expect(command.getByText("Mara Singh")).toBeVisible();
+    await expect(await command.findByText("Mara Singh")).toBeVisible();
     await expect(
       command.queryByRole("option", { name: "Add Mara Singh to channel" }),
     ).not.toBeInTheDocument();

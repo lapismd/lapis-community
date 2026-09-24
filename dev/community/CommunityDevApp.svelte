@@ -6,6 +6,7 @@
   } from "../../src/auth/index.js";
   import {
     createBrowserCommunityConfigurationStore,
+    createBrowserCommunityStateStore,
     createBrowserCommunityEventRuntime,
     createCommunityController,
     createNip07CommunityIdentityConnector,
@@ -183,6 +184,7 @@
         configurationStore: createBrowserCommunityConfigurationStore({
           prefix: "lapismd.community.dev.v1",
         }),
+        stateStore: createBrowserCommunityStateStore(),
         runtime: createBrowserCommunityEventRuntime(),
         now: () => Math.floor(Date.now() / 1_000),
       });

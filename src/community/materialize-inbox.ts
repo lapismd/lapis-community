@@ -1,4 +1,5 @@
 import { buzzHiddenChannels } from "./buzz-direct-messages.js";
+import { isInboxItemVisible } from "./inbox-visibility.js";
 import {
   contentMentionPubkeys,
   isUnreadInConversation,
@@ -230,11 +231,7 @@ export function materializeCommunityInbox(
   // A NIP-17 rumor received through multiple community relay connections is one item.
   const unique = [...new Map(rows.map((row) => [row.item.id, row])).values()];
   const filter = options.filter ?? "All";
-  const visible = unique.filter(
-    (row) =>
-      (filter === "All" || row.item.categories?.includes(filter)) &&
-      (!options.unreadOnly || row.item.unread),
-  );
+  const visible = unique.filter((row) => isInboxItemVisible(row.item, options));
   const active =
     unique.find((row) => row.item.id === options.activeItemId) ??
     visible[0] ??

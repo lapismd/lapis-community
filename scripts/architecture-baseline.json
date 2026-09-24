@@ -64,8 +64,8 @@
       "forbiddenImportCount": 0
     },
     "dev/community/CommunityDevApp.svelte": {
-      "countedLines": 271,
-      "physicalLines": 285,
+      "countedLines": 273,
+      "physicalLines": 287,
       "forbiddenImportCount": 0
     },
     "dev/community/CommunityDevPrivateKeyToast.svelte": {
@@ -965,8 +965,8 @@
       "forbiddenImportCount": 0
     },
     "src/community/materialize-inbox.ts": {
-      "countedLines": 266,
-      "physicalLines": 268,
+      "countedLines": 263,
+      "physicalLines": 265,
       "forbiddenImportCount": 0
     },
     "src/community/materialize-messages.ts": {
@@ -2454,13 +2454,13 @@
       "forbiddenImportCount": 0
     },
     "src/components/community-inbox/CommunityInbox.stories.svelte": {
-      "countedLines": 287,
-      "physicalLines": 308,
+      "countedLines": 294,
+      "physicalLines": 315,
       "forbiddenImportCount": 0
     },
     "src/components/community-inbox/CommunityInbox.svelte": {
-      "countedLines": 519,
-      "physicalLines": 543,
+      "countedLines": 516,
+      "physicalLines": 540,
       "forbiddenImportCount": 0,
       "kind": "legacy",
       "justification": "Existing file above the new-file counted-line limit; do not grow"
@@ -5142,6 +5142,31 @@
     "src/components/community-agent-activity/ActivityTurnList.svelte": {
       "countedLines": 82,
       "physicalLines": 85
+    },
+    "src/community/inbox-visibility.test.ts": {
+      "countedLines": 86,
+      "physicalLines": 92,
+      "forbiddenImportCount": 0
+    },
+    "src/community/inbox-visibility.ts": {
+      "countedLines": 18,
+      "physicalLines": 20,
+      "forbiddenImportCount": 0
+    },
+    "src/components/community-inbox/CommunityInboxReadState.stories.svelte": {
+      "countedLines": 90,
+      "physicalLines": 93,
+      "forbiddenImportCount": 0
+    },
+    "src/components/community-inbox/CommunityInboxReadStateHarness.svelte": {
+      "countedLines": 84,
+      "physicalLines": 86,
+      "forbiddenImportCount": 0
+    },
+    "src/community/inbox-read-persistence.test.ts": {
+      "countedLines": 96,
+      "physicalLines": 98,
+      "forbiddenImportCount": 0
     }
   }
 }
